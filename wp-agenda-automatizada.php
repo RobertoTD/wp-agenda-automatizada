@@ -58,3 +58,16 @@ add_shortcode('agenda_automatizada', 'wpaa_render_form');
 // Incluir los controles de configuración
 require_once plugin_dir_path(__FILE__) . 'admin-controls.php';
 
+// Encolar JS del admin
+add_action('admin_enqueue_scripts', function($hook) {
+    // Solo cargar en la página de configuración de nuestro plugin
+    if ($hook === 'toplevel_page_agenda-automatizada-settings') {
+        wp_enqueue_script(
+            'aa-admin-schedule',
+            plugin_dir_url(__FILE__) . 'js/admin-schedule.js',
+            [],
+            '1.0',
+            true
+        );
+    }
+});

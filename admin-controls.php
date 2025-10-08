@@ -15,17 +15,24 @@ add_action('admin_menu', function() {
 
 // Registrar settings
 add_action('admin_init', function() {
-    register_setting('agenda_automatizada_settings', 'aa_work_days');
-    register_setting('agenda_automatizada_settings', 'aa_start_time');
-    register_setting('agenda_automatizada_settings', 'aa_end_time');
+    register_setting('agenda_automatizada_settings', 'aa_schedule');
     register_setting('agenda_automatizada_settings', 'aa_slot_duration');
     register_setting('agenda_automatizada_settings', 'aa_future_window');
-
-     register_setting('agenda_automatizada_settings', 'aa_google_email');
+    register_setting('agenda_automatizada_settings', 'aa_google_email');
 });
 
 // Render de la página
 function agenda_automatizada_render_settings_page() {
+    $schedule = get_option('aa_schedule', []);
+    $days = [
+        'monday'    => 'Lunes',
+        'tuesday'   => 'Martes',
+        'wednesday' => 'Miércoles',
+        'thursday'  => 'Jueves',
+        'friday'    => 'Viernes',
+        'saturday'  => 'Sábado',
+        'sunday'    => 'Domingo'
+    ];
     ?>
     <div class="wrap">
         <h1>Configuración de Agenda Automatizada</h1>
@@ -35,27 +42,33 @@ function agenda_automatizada_render_settings_page() {
 
             <table class="form-table">
                 <tr valign="top">
-                    <th scope="row">Días hábiles</th>
+                    <th scope="row">Disponibilidad por día</th>
                     <td>
-                        <?php
-                        $days = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
-                        $work_days = get_option('aa_work_days', []);
-                        foreach ($days as $i => $day) {
-                            $checked = in_array($i, (array)$work_days) ? 'checked' : '';
-                            echo "<label><input type='checkbox' name='aa_work_days[]' value='$i' $checked> $day</label><br>";
-                        }
+                        <?php foreach ($days as $key => $label): 
+                            $enabled   = !empty($schedule[$key]['enabled']);
+                            $intervals = $schedule[$key]['intervals'] ?? [];
                         ?>
+                            <div class="aa-day-block" style="margin-bottom:15px;">
+                                <label>
+                                    <input type="checkbox" name="aa_schedule[<?php echo $key; ?>][enabled]" value="1" <?php checked($enabled, true); ?>>
+                                    <?php echo $label; ?>
+                                </label>
+
+                                <div class="day-intervals" data-day="<?php echo $key; ?>" style="<?php echo $enabled ? '' : 'display:none;'; ?> margin-left:20px;">
+                                    <?php if (!empty($intervals)): ?>
+                                        <?php foreach ($intervals as $i => $interval): ?>
+                                            <div class="interval">
+                                                <input type="time" name="aa_schedule[<?php echo $key; ?>][intervals][<?php echo $i; ?>][start]" value="<?php echo esc_attr($interval['start']); ?>">
+                                                <input type="time" name="aa_schedule[<?php echo $key; ?>][intervals][<?php echo $i; ?>][end]" value="<?php echo esc_attr($interval['end']); ?>">
+                                                <button type="button" class="remove-interval button">Eliminar</button>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                    <button type="button" class="add-interval button">Añadir intervalo</button>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
                     </td>
-                </tr>
-
-                <tr valign="top">
-                    <th scope="row">Hora inicio</th>
-                    <td><input type="time" name="aa_start_time" value="<?php echo esc_attr(get_option('aa_start_time', '09:00')); ?>"></td>
-                </tr>
-
-                <tr valign="top">
-                    <th scope="row">Hora fin</th>
-                    <td><input type="time" name="aa_end_time" value="<?php echo esc_attr(get_option('aa_end_time', '18:00')); ?>"></td>
                 </tr>
 
                 <tr valign="top">
@@ -77,28 +90,19 @@ function agenda_automatizada_render_settings_page() {
                             echo "<p><strong>Sincronizado con: $google_email</strong></p>";
                             echo "<a href='" . esc_url(admin_url('admin-post.php?action=aa_disconnect_google')) . "' class='button'>Desconectar</a>";
                         } else {
-                            // Backend local en pruebas
-                            $backend_url = "http://localhost:3000/oauth/authorize";
-
-                            // El state será el dominio actual de WordPress (dinámico)
-                            $state = home_url();
-
-                            // El redirect_uri apunta al admin-post de WP
+                            $backend_url  = "http://localhost:3000/oauth/authorize";
+                            $state        = home_url();
                             $redirect_uri = admin_url('admin-post.php?action=aa_connect_google');
-
-                            // Construir URL final
-                            $auth_url = $backend_url 
-                                . "?state=" . urlencode($state) 
-                                . "&redirect_uri=" . urlencode($redirect_uri);
+                            $auth_url     = $backend_url 
+                                            . "?state=" . urlencode($state) 
+                                            . "&redirect_uri=" . urlencode($redirect_uri);
 
                             echo "<p><strong>No sincronizado</strong></p>";
                             echo "<a href='" . esc_url($auth_url) . "' class='button button-primary'>Conectar con Google</a>";
                         }
                         ?>
                     </td>
-                 </tr>
-
-                
+                </tr>
             </table>
 
             <?php submit_button(); ?>
@@ -106,7 +110,6 @@ function agenda_automatizada_render_settings_page() {
     </div>
     <?php
 }
-
 
 // Guardar el email de Google al volver del backend
 add_action('admin_post_aa_connect_google', function() {
