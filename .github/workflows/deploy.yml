@@ -2,7 +2,8 @@ name: Deploy to Hostinger
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
 
 jobs:
   deploy:
@@ -12,14 +13,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Deploy to Hostinger via SSH
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Deploy to Hostinger via SCP
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: 217.196.54.226
           port: 65002
           username: u304643867
           password: ${{ secrets.HOSTINGER_PASS }}
-          script: |
-            cd ~/domains/deoia.com/public_html/anahitemoltzinbnb/wp-content/plugins/wp-agenda-automatizada
-            rm -rf *
-            git clone https://github.com/RobertoTD/wp-agenda-automatizada.git .
+          source: "."
+          target: "~/domains/deoia.com/public_html/anahitemoltzinbnb/wp-content/plugins/wp-agenda-automatizada"
