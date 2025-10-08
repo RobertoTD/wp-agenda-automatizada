@@ -86,6 +86,9 @@ function agenda_automatizada_render_settings_page() {
                     <th scope="row">Google Calendar</th>
                     <td>
                         <?php 
+                        echo '<input type="hidden" name="aa_google_email" value="' . esc_attr($google_email) . '">';
+                        echo '<input type="hidden" name="aa_google_token" value="' . esc_attr($google_token) . '">';
+
                         $google_email = get_option('aa_google_email', '');
                         if ($google_email) {
                             echo "<p><strong>Sincronizado con: $google_email</strong></p>";
