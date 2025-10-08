@@ -1,0 +1,48 @@
+#agenda-form {
+    max-width: 400px;
+    margin: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    padding: 20px;
+}
+
+#agenda-form input, 
+#agenda-form select, 
+#agenda-form button {
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+#agenda-form button {
+    background-color: #0073aa;
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+#agenda-form button:hover {
+    background-color: #005177;
+}
+
+/* Estilos para Flatpickr */
+.flatpickr-calendar {
+    background: #fff;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    border-radius: 4px;
+}
+
+.flatpickr-day.selected {
+    background: #0073aa !important;
+    border-color: #0073aa !important;
+}
+
+#respuesta-agenda {
+    text-align: center;
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 4px;
+}
