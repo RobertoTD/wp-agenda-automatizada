@@ -19,6 +19,7 @@ add_action('admin_init', function() {
     register_setting('agenda_automatizada_settings', 'aa_slot_duration');
     register_setting('agenda_automatizada_settings', 'aa_future_window');
     register_setting('agenda_automatizada_settings', 'aa_google_email');
+    register_setting('agenda_automatizada_settings', 'aa_google_token');
 });
 
 // Render de la página
