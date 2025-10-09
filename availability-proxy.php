@@ -1,5 +1,4 @@
 <?php
-<?php
 if (!defined('ABSPATH')) exit;
 
 function aa_build_availability_url_for($email) {
