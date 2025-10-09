@@ -58,6 +58,9 @@ add_shortcode('agenda_automatizada', 'wpaa_render_form');
 // Incluir los controles de configuración
 require_once plugin_dir_path(__FILE__) . 'admin-controls.php';
 
+// Incluir proxy de disponibilidad (asegura que se encole el JS que hace la petición)
+require_once plugin_dir_path(__FILE__) . 'availability-proxy.php';
+
 // Encolar JS del admin
 add_action('admin_enqueue_scripts', function($hook) {
     // Solo cargar en la página de configuración de nuestro plugin

@@ -21,15 +21,16 @@ add_action('wp_enqueue_scripts', function() {
     wp_enqueue_script(
         'horariosapartados',
         plugin_dir_url(__FILE__) . 'js/horariosapartados.js',
-        ['jquery'],
+        ['jquery','flatpickr-js'], // aseguramos que flatpickr esté cargado antes si hace uso del input
         '1.0',
         true
     );
 
-    $email = get_option('aa_google_email', '');
+    $email = sanitize_email(get_option('aa_google_email', ''));
     $availability_url = aa_build_availability_url($email);
 
     wp_localize_script('horariosapartados', 'aa_backend', [
-        'url' => $availability_url
+        'url' => esc_url_raw($availability_url),
+        'email' => $email
     ]);
 });
