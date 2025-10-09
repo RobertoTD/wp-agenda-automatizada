@@ -19,7 +19,7 @@ add_action('admin_init', function() {
     register_setting('agenda_automatizada_settings', 'aa_slot_duration');
     register_setting('agenda_automatizada_settings', 'aa_future_window');
     register_setting('agenda_automatizada_settings', 'aa_google_email');
-    register_setting('agenda_automatizada_settings', 'aa_google_token');
+    
 });
 
 // Render de la página
@@ -86,10 +86,11 @@ function agenda_automatizada_render_settings_page() {
                     <th scope="row">Google Calendar</th>
                     <td>
                         <?php 
-                        echo '<input type="hidden" name="aa_google_email" value="' . esc_attr($google_email) . '">';
-                        echo '<input type="hidden" name="aa_google_token" value="' . esc_attr($google_token) . '">';
-
                         $google_email = get_option('aa_google_email', '');
+
+                        echo '<input type="hidden" name="aa_google_email" value="' . esc_attr($google_email) . '">';
+                        
+                        
                         if ($google_email) {
                             echo "<p><strong>Sincronizado con: $google_email</strong></p>";
                             echo "<a href='" . esc_url(admin_url('admin-post.php?action=aa_disconnect_google')) . "' class='button'>Desconectar</a>";
