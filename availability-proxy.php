@@ -22,7 +22,7 @@ add_action('wp_ajax_nopriv_aa_get_availability', 'aa_ajax_get_availability');
 add_action('wp_ajax_aa_get_availability', 'aa_ajax_get_availability');
 function aa_ajax_get_availability() {
     // Permitir pasar email por query, sino usar opción guardada
-    $email = isset($_GET['email']) ? sanitize_email(wp_unslash($_GET['email'])) : sanitize_email(get_option('aa_google_email', ''));
+    $email = isset($_REQUEST['email']) ? sanitize_email(wp_unslash($_REQUEST['email'])) : sanitize_email(get_option('aa_google_email', ''));
 
     if (empty($email)) {
         wp_send_json_error(['message' => 'No email configured'], 400);
