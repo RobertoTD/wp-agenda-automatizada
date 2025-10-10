@@ -20,6 +20,7 @@ function aa_build_availability_url_for($email) {
 // Endpoint AJAX (público y autenticado) que actúa como proxy al backend
 add_action('wp_ajax_nopriv_aa_get_availability', 'aa_ajax_get_availability');
 add_action('wp_ajax_aa_get_availability', 'aa_ajax_get_availability');
+
 function aa_ajax_get_availability() {
     // Permitir pasar email por query, sino usar opción guardada
     $email = isset($_REQUEST['email']) ? sanitize_email(wp_unslash($_REQUEST['email'])) : sanitize_email(get_option('aa_google_email', ''));
@@ -51,6 +52,8 @@ function aa_ajax_get_availability() {
     wp_die();
 }
 
+/*
+
 // Encolar el script que consulta disponibilidad y exponer URL del admin-ajax
 add_action('wp_enqueue_scripts', function() {
     // Aseguramos que flatpickr esté disponible para el front si lo necesita
@@ -72,3 +75,5 @@ add_action('wp_enqueue_scripts', function() {
         'email'    => $email
     ]);
 });
+
+*/
