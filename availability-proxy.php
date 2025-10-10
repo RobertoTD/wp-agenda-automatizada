@@ -52,7 +52,7 @@ function aa_ajax_get_availability() {
     wp_die();
 }
 
-/*
+
 
 // Encolar el script que consulta disponibilidad y exponer URL del admin-ajax
 add_action('wp_enqueue_scripts', function() {
@@ -76,4 +76,3 @@ add_action('wp_enqueue_scripts', function() {
     ]);
 });
 
-*/
