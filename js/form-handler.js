@@ -1,15 +1,23 @@
 document.addEventListener('DOMContentLoaded', function () {
+
     const form = document.getElementById('agenda-form');
     
     // Asegurarnos que Flatpickr está disponible
-    if (typeof flatpickr !== 'undefined') {
+    if (typeof flatpickr !== "undefined" && typeof flatpickr.l10ns !== "undefined") {
+        flatpickr.localize(flatpickr.l10ns.es);
         flatpickr("#fecha", {
             enableTime: true,
-            dateFormat: "Y-m-d H:i",
+            disableMobile: true,
+            dateFormat: "d-m-Y H:i",
             minDate: "today",
             locale: "es",
+            minDate: "today",
+            maxDate: new Date().fp_incr(14),
             time_24hr: true,
-            minuteIncrement: 30
+            minuteIncrement: 30,
+            onReady: function(selectedDates, dateStr, instance){
+          console.log("📅 Flatpickr inicializado correctamente.");
+        }
         });
     } else {
         console.error('Flatpickr no está cargado correctamente');

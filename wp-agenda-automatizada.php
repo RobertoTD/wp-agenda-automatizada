@@ -73,4 +73,35 @@ add_action('admin_enqueue_scripts', function($hook) {
             true
         );
     }
+
+    
+});
+
+// Encolar Flatpickr (CSS + JS + traducción ES)
+add_action('wp_enqueue_scripts', function() {
+    // CSS principal
+    wp_enqueue_style(
+        'flatpickr-css',
+        'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css',
+        [],
+        null
+    );
+
+    // JS principal
+    wp_enqueue_script(
+        'flatpickr-js',
+        'https://cdn.jsdelivr.net/npm/flatpickr',
+        [],
+        null,
+        true
+    );
+
+    // JS de traducción al español
+    wp_enqueue_script(
+        'flatpickr-locale-es',
+        'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js',
+        ['flatpickr-js'],
+        null,
+        true
+    );
 });
