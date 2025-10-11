@@ -69,7 +69,7 @@ add_action('admin_enqueue_scripts', function($hook) {
             'aa-admin-schedule',
             plugin_dir_url(__FILE__) . 'js/admin-schedule.js',
             [],
-            '1.1',
+            '1.2',
             true
         );
     }
