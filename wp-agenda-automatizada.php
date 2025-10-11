@@ -8,20 +8,41 @@
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
 
-// Registrar scripts y estilos
+// ===============================
+// 🟢 FRONTEND: Formularios y estilos
+// ===============================
 function wpaa_enqueue_scripts() {
-    wp_enqueue_style('flatpickr-css', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css');
-    wp_enqueue_script('flatpickr-js', 'https://cdn.jsdelivr.net/npm/flatpickr', array('jquery'), null, true);
-    wp_enqueue_script('flatpickr-es', 'https://npmcdn.com/flatpickr/dist/l10n/es.js', array('flatpickr-js'), null, true);
-    wp_enqueue_style('wpaa-styles', plugin_dir_url(__FILE__) . 'css/styles.css');
-    wp_enqueue_script('wpaa-script', plugin_dir_url(__FILE__) . 'js/form-handler.js', array('jquery', 'flatpickr-js'), false, true);
+    // CSS principal
+    wp_enqueue_style('flatpickr-css', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css', [], null);
+    wp_enqueue_style('wpaa-styles', plugin_dir_url(__FILE__) . 'css/styles.css', [], filemtime(plugin_dir_path(__FILE__) . 'css/styles.css'));
+
+    // JS principales
+    wp_enqueue_script('flatpickr-js', 'https://cdn.jsdelivr.net/npm/flatpickr', ['jquery'], null, true);
+    wp_enqueue_script('flatpickr-es', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js', ['flatpickr-js'], null, true);
+
+    // JS del formulario (con versión dinámica para evitar caché)
+    wp_enqueue_script(
+        'wpaa-script',
+        plugin_dir_url(__FILE__) . 'js/form-handler.js',
+        ['jquery', 'flatpickr-js'],
+        filemtime(plugin_dir_path(__FILE__) . 'js/form-handler.js'),
+        true
+    );
+
+    // 🔹 Variables globales accesibles desde form-handler.js
     wp_localize_script('wpaa-script', 'wpaa_vars', [
         'webhook_url' => 'https://deoia.app.n8n.cloud/webhook-test/disponibilidad-citas'
     ]);
+
+    // 🔹 Configuración del admin exportada al frontend
+    wp_localize_script('wpaa-script', 'aa_schedule', get_option('aa_schedule', []));
+    wp_localize_script('wpaa-script', 'aa_future_window', get_option('aa_future_window', 15));
 }
 add_action('wp_enqueue_scripts', 'wpaa_enqueue_scripts');
 
-// Shortcode para insertar el formulario
+// ===============================
+// 🟠 SHORTCODE: Formulario de agenda
+// ===============================
 function wpaa_render_form() {
     ob_start(); ?>
     <form id="agenda-form">
@@ -55,77 +76,26 @@ function wpaa_render_form() {
 }
 add_shortcode('agenda_automatizada', 'wpaa_render_form');
 
-// Incluir los controles de configuración
+// ===============================
+// 🔵 ADMIN: Configuración de agenda
+// ===============================
 require_once plugin_dir_path(__FILE__) . 'admin-controls.php';
 
-// Incluir proxy de disponibilidad (asegura que se encole el JS que hace la petición)
+// Proxy hacia backend (consulta disponibilidad n8n)
 require_once plugin_dir_path(__FILE__) . 'availability-proxy.php';
 
-// Encolar JS del admin (incluye Flatpickr)
+// Scripts solo para el área de administración
 add_action('admin_enqueue_scripts', function($hook) {
-    // Solo cargar en la página de configuración de nuestro plugin
     if ($hook === 'toplevel_page_agenda-automatizada-settings') {
-
-        // ✅ Cargar Flatpickr (CSS + JS + locale)
-        wp_enqueue_style(
-            'flatpickr-css-admin',
-            'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css',
-            [],
-            null
-        );
-
-        wp_enqueue_script(
-            'flatpickr-js-admin',
-            'https://cdn.jsdelivr.net/npm/flatpickr',
-            [],
-            null,
-            true
-        );
-
-        wp_enqueue_script(
-            'flatpickr-locale-es-admin',
-            'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js',
-            ['flatpickr-js-admin'],
-            null,
-            true
-        );
-
-        // ✅ Cargar tu JS principal del admin
+        wp_enqueue_style('flatpickr-css-admin', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css', [], null);
+        wp_enqueue_script('flatpickr-js-admin', 'https://cdn.jsdelivr.net/npm/flatpickr', [], null, true);
+        wp_enqueue_script('flatpickr-locale-es-admin', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js', ['flatpickr-js-admin'], null, true);
         wp_enqueue_script(
             'aa-admin-schedule',
             plugin_dir_url(__FILE__) . 'js/admin-schedule.js',
-            ['flatpickr-js-admin'], // ← depende de Flatpickr
-            '1.3',
+            ['flatpickr-js-admin'],
+            filemtime(plugin_dir_path(__FILE__) . 'js/admin-schedule.js'),
             true
         );
     }
-});
-
-// Encolar Flatpickr (CSS + JS + traducción ES)
-add_action('wp_enqueue_scripts', function() {
-    // CSS principal
-    wp_enqueue_style(
-        'flatpickr-css',
-        'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css',
-        [],
-        null
-    );
-
-    // JS principal
-    wp_enqueue_script(
-        'flatpickr-js',
-        'https://cdn.jsdelivr.net/npm/flatpickr',
-        [],
-        null,
-        true
-    );
-
-    // JS de traducción al español
-    wp_enqueue_script(
-        'flatpickr-locale-es',
-        'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js',
-        ['flatpickr-js'],
-        null,
-        true
-    );
 });
