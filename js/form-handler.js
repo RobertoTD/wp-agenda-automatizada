@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('agenda-form');
-    
+
     // ==============================
     // 🔹 Flatpickr inicial básico
     // ==============================
@@ -46,21 +46,17 @@ document.addEventListener('DOMContentLoaded', function () {
         }));
     }
 
-    function isSlotInIntervals(slotMinutes, intervals) {
-        return intervals.some(iv => slotMinutes >= iv.start && slotMinutes < iv.end);
-    }
-
     function isSlotBusy(slotDate, busyRanges) {
         return busyRanges.some(range => slotDate >= range.start && slotDate < range.end);
     }
 
-    function generateSlotsForDay(date, intervals) {
+    function generateSlotsForDay(date, intervals, busyRanges) {
         const slots = [];
         intervals.forEach(iv => {
             for (let min = iv.start; min < iv.end; min += 30) {
                 const slot = new Date(date);
                 slot.setHours(Math.floor(min / 60), min % 60, 0, 0);
-                slots.push(new Date(slot));
+                if (!isSlotBusy(slot, busyRanges)) slots.push(slot);
             }
         });
         return slots;
@@ -89,10 +85,6 @@ document.addEventListener('DOMContentLoaded', function () {
         const maxDate = new Date();
         maxDate.setDate(minDate.getDate() + Number(aa_future_window));
 
-        const enabledDays = Object.entries(aa_schedule)
-            .filter(([day, conf]) => conf && conf.enabled)
-            .map(([day]) => day);
-
         // ==============================
         // 🔹 Generar slots válidos por día
         // ==============================
@@ -105,13 +97,12 @@ document.addEventListener('DOMContentLoaded', function () {
             const weekday = getWeekdayName(day);
             const intervals = getDayIntervals(aa_schedule, weekday);
             totalIntervals += intervals.length;
-            const slots = generateSlotsForDay(day, intervals);
-            const available = slots.filter(slot => !isSlotBusy(slot, busyRanges));
-            availableSlotsPerDay[day.toISOString().slice(0,10)] = available.length;
+            const slots = generateSlotsForDay(day, intervals, busyRanges);
+            availableSlotsPerDay[day.toISOString().slice(0,10)] = slots.length;
         }
 
         // ==============================
-        // 🔹 Nuevas funciones de restricción
+        // 🔹 Funciones de restricción de días
         // ==============================
         function isDateAvailable(date) {
             const iso = date.toISOString().slice(0,10);
@@ -122,23 +113,12 @@ document.addEventListener('DOMContentLoaded', function () {
             return !isDateAvailable(date);
         }
 
-        function disableTime(date) {
-            const weekday = getWeekdayName(date);
-            const intervals = getDayIntervals(aa_schedule, weekday);
-            if (!intervals.length) return true;
-
-            const slotMinutes = date.getHours() * 60 + date.getMinutes();
-            if (!isSlotInIntervals(slotMinutes, intervals)) return true;
-            if (isSlotBusy(date, busyRanges)) return true;
-            return false;
-        }
-
         // ==============================
-        // 🔹 Inicializar Flatpickr con restricciones reales
+        // 🔹 Inicializar Flatpickr con horarios reales
         // ==============================
         if (fechaInput._flatpickr) fechaInput._flatpickr.destroy();
 
-        flatpickr(fechaInput, {
+        const picker = flatpickr(fechaInput, {
             enableTime: true,
             disableMobile: true,
             dateFormat: "d-m-Y H:i",
@@ -149,8 +129,29 @@ document.addEventListener('DOMContentLoaded', function () {
             locale: "es",
             disable: [disableDate],
 
-            onOpen: function(selectedDates, dateStr, instance) {
-                instance.set('disableTime', disableTime);
+            // 🔹 Cuando se selecciona un día, regenerar los horarios válidos
+            onChange: function(selectedDates, dateStr, instance) {
+                if (!selectedDates.length) return;
+                const selected = selectedDates[0];
+                const weekday = getWeekdayName(selected);
+                const intervals = getDayIntervals(aa_schedule, weekday);
+
+                if (!intervals.length) {
+                    console.warn("[AA] No hay intervalos configurados para", weekday);
+                    return;
+                }
+
+                // Generar horarios válidos para ese día
+                const validSlots = generateSlotsForDay(selected, intervals, busyRanges);
+                console.debug(`[AA] Horarios válidos para ${dateStr}:`, validSlots.map(s => s.toTimeString().slice(0,5)));
+
+                // Seleccionar el primer horario disponible por defecto
+                if (validSlots.length > 0) {
+                    instance.setDate(validSlots[0]);
+                }
+
+                // Guardar los horarios válidos dentro de la instancia
+                instance.validSlots = validSlots;
             },
 
             onReady: function() {
@@ -158,6 +159,18 @@ document.addEventListener('DOMContentLoaded', function () {
                 console.debug("[AA] Busy events disabled:", totalBusy);
                 console.debug("[AA] Effective available slots per date:", availableSlotsPerDay);
             }
+        });
+
+        // ==============================
+        // 🔹 Validar hora al abrir el picker
+        // ==============================
+        fechaInput.addEventListener('focus', function() {
+            if (!picker.selectedDates.length) return;
+            const selected = picker.selectedDates[0];
+            const weekday = getWeekdayName(selected);
+            const intervals = getDayIntervals(aa_schedule, weekday);
+            const validSlots = generateSlotsForDay(selected, intervals, busyRanges);
+            picker.validSlots = validSlots;
         });
     });
 

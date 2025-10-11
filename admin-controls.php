@@ -59,8 +59,8 @@ function agenda_automatizada_render_settings_page() {
                                     <?php if (!empty($intervals)): ?>
                                         <?php foreach ($intervals as $i => $interval): ?>
                                             <div class="interval">
-                                                <input type="time" name="aa_schedule[<?php echo $key; ?>][intervals][<?php echo $i; ?>][start]" value="<?php echo esc_attr($interval['start']); ?>" step="1800">
-                                                <input type="time" name="aa_schedule[<?php echo $key; ?>][intervals][<?php echo $i; ?>][end]" value="<?php echo esc_attr($interval['end']); ?>" step="1800">
+                                                <input type="time" name="aa_schedule[<?php echo $key; ?>][intervals][<?php echo $i; ?>][start]" value="<?php echo esc_attr($interval['start']); ?>">
+                                                <input type="time" name="aa_schedule[<?php echo $key; ?>][intervals][<?php echo $i; ?>][end]" value="<?php echo esc_attr($interval['end']); ?>">
                                                 <button type="button" class="remove-interval button">Eliminar</button>
                                             </div>
                                         <?php endforeach; ?>
