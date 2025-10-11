@@ -27,8 +27,8 @@ document.addEventListener("DOMContentLoaded", function() {
                 div.style.marginBottom = "6px";
 
                 div.innerHTML = `
-                    <input type="time" name="aa_schedule[${day}][intervals][${index}][start]" required>
-                    <input type="time" name="aa_schedule[${day}][intervals][${index}][end]" required>
+                    <input type="time" name="aa_schedule[${day}][intervals][${index}][start]" step="1800" required>
+                    <input type="time" name="aa_schedule[${day}][intervals][${index}][end]" step="1800" required>
                     <button type="button" class="remove-interval button">Eliminar</button>
                 `;
 

@@ -71,15 +71,26 @@ function agenda_automatizada_render_settings_page() {
                         <?php endforeach; ?>
                     </td>
                 </tr>
-
                 <tr valign="top">
                     <th scope="row">Duración de cita (minutos)</th>
-                    <td><input type="number" name="aa_slot_duration" value="<?php echo esc_attr(get_option('aa_slot_duration', 30)); ?>"></td>
+                    <td>
+                        <select name="aa_slot_duration">
+                            <option value="30" <?php selected(get_option('aa_slot_duration', 30), 30); ?>>30 minutos</option>
+                            <option value="60" <?php selected(get_option('aa_slot_duration', 30), 60); ?>>60 minutos</option>
+                        </select>
+                    </td>
                 </tr>
 
                 <tr valign="top">
                     <th scope="row">Ventana futura (días)</th>
-                    <td><input type="number" name="aa_future_window" value="<?php echo esc_attr(get_option('aa_future_window', 15)); ?>"></td>
+                    <td>
+                        <select name="aa_future_window">
+                            <option value="15" <?php selected(get_option('aa_future_window', 15), 15); ?>>15 días</option>
+                            <option value="30" <?php selected(get_option('aa_future_window', 15), 30); ?>>30 días</option>
+                            <option value="45" <?php selected(get_option('aa_future_window', 15), 45); ?>>45 días</option>
+                            <option value="60" <?php selected(get_option('aa_future_window', 15), 60); ?>>60 días</option>
+                        </select>
+                    </td>
                 </tr>
 
                 <tr valign="top">
