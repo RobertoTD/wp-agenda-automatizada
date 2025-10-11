@@ -26,13 +26,24 @@ document.addEventListener("DOMContentLoaded", function() {
                 div.classList.add("interval");
                 div.style.marginBottom = "6px";
 
+                  // ✅ (AHORA) Usamos Flatpickr para renderizar el selector de hora
                 div.innerHTML = `
-                    <input type="time" name="aa_schedule[${day}][intervals][${index}][start]" step="1800" required>
-                    <input type="time" name="aa_schedule[${day}][intervals][${index}][end]" step="1800" required>
+                    <input class="aa-timepicker" type="text" name="aa_schedule[${day}][intervals][${index}][start]" required>
+                    <input class="aa-timepicker" type="text" name="aa_schedule[${day}][intervals][${index}][end]" required>
                     <button type="button" class="remove-interval button">Eliminar</button>
                 `;
 
                 this.insertBefore(div, this.querySelector(".add-interval"));
+                 // Inicializar Flatpickr en los inputs recién creados
+                div.querySelectorAll(".aa-timepicker").forEach(input => {
+                    flatpickr(input, {
+                        enableTime: true,
+                        noCalendar: true,
+                        time_24hr: true,
+                        minuteIncrement: 30, // 👈 fuerza intervalos de 30 minutos
+                        dateFormat: "H:i"
+                    });
+                });
             }
 
             // Eliminar intervalo
@@ -42,5 +53,26 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         });
     });
+
+     // ===============================
+    // 🔹 Inicializar Flatpickr en inputs existentes
+    // ===============================
+    if (typeof flatpickr !== "undefined") {
+        document.querySelectorAll('input[type="time"], .aa-timepicker').forEach(input => {
+            // Marcar los ya inicializados para evitar duplicaciones
+            if (!input.classList.contains("flatpickr-applied")) {
+                input.classList.add("flatpickr-applied");
+                flatpickr(input, {
+                    enableTime: true,
+                    noCalendar: true,
+                    time_24hr: true,
+                    minuteIncrement: 30,
+                    dateFormat: "H:i"
+                });
+            }
+        });
+    } else {
+        console.warn("⚠️ Flatpickr no está cargado o no se encontró.");
+    }
 
 });
