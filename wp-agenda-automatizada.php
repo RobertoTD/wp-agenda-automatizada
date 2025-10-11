@@ -61,20 +61,44 @@ require_once plugin_dir_path(__FILE__) . 'admin-controls.php';
 // Incluir proxy de disponibilidad (asegura que se encole el JS que hace la petición)
 require_once plugin_dir_path(__FILE__) . 'availability-proxy.php';
 
-// Encolar JS del admin
+// Encolar JS del admin (incluye Flatpickr)
 add_action('admin_enqueue_scripts', function($hook) {
     // Solo cargar en la página de configuración de nuestro plugin
     if ($hook === 'toplevel_page_agenda-automatizada-settings') {
+
+        // ✅ Cargar Flatpickr (CSS + JS + locale)
+        wp_enqueue_style(
+            'flatpickr-css-admin',
+            'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css',
+            [],
+            null
+        );
+
+        wp_enqueue_script(
+            'flatpickr-js-admin',
+            'https://cdn.jsdelivr.net/npm/flatpickr',
+            [],
+            null,
+            true
+        );
+
+        wp_enqueue_script(
+            'flatpickr-locale-es-admin',
+            'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js',
+            ['flatpickr-js-admin'],
+            null,
+            true
+        );
+
+        // ✅ Cargar tu JS principal del admin
         wp_enqueue_script(
             'aa-admin-schedule',
             plugin_dir_url(__FILE__) . 'js/admin-schedule.js',
-            [],
-            '1.2',
+            ['flatpickr-js-admin'], // ← depende de Flatpickr
+            '1.3',
             true
         );
     }
-
-    
 });
 
 // Encolar Flatpickr (CSS + JS + traducción ES)
