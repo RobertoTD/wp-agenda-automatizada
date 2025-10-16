@@ -8,14 +8,11 @@ document.addEventListener('DOMContentLoaded', function () {
   if (typeof flatpickr !== "undefined" && typeof flatpickr.l10ns !== "undefined") {
     flatpickr.localize(flatpickr.l10ns.es);
     flatpickr("#fecha", {
-      enableTime: true,
       disableMobile: true,
-      dateFormat: "d-m-Y H:i",
+      dateFormat: "d-m-Y",
       minDate: "today",
       locale: "es",
       maxDate: new Date().fp_incr(14),
-      time_24hr: true,
-      minuteIncrement: 30,
       onReady: function () {
         console.log("📅 Flatpickr inicializado correctamente (modo básico).");
       }
@@ -27,22 +24,25 @@ document.addEventListener('DOMContentLoaded', function () {
   // ==============================
   // 🔹 Utilidades
   // ==============================
-  const ymd = d => d.toISOString().slice(0, 10);
 
+  // convertir fecha con formato YYYY-MM-DDTHH:mm:ss.sssZ de Date a YYYY-MM-DD string
+  const ymd = d => d.toISOString().slice(0, 10);
+  
+  // devuelve el nombre del día en inglés en minúsculas
   function getWeekdayName(date) {
     const days = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
     return days[date.getDay()];
   }
-
+  // convierte el formato "HH:MM" a minutos desde medianoche ejemplo: "14:30" => 870
   function timeStrToMinutes(str) {
     const [h, m] = str.split(':').map(Number);
     return h * 60 + m;
   }
-
+  // convierte un objeto Date a minutos desde medianoche  Date(14:30) => 870
   function minutesFromDate(d) {
     return d.getHours() * 60 + d.getMinutes();
   }
-
+  // obtiene los intervalos de un día específico del horario admin 
   function getDayIntervals(aa_schedule, weekday) {
     if (!aa_schedule || !aa_schedule[weekday] || !aa_schedule[weekday].enabled) return [];
     const intervals = aa_schedule[weekday].intervals || [];
@@ -51,11 +51,12 @@ document.addEventListener('DOMContentLoaded', function () {
       end: timeStrToMinutes(iv.end)
     }));
   }
-
+  // verifica si una fecha dada cae dentro de algún rango ocupado
   function isSlotBusy(slotDate, busyRanges) {
     return busyRanges.some(range => slotDate >= range.start && slotDate < range.end);
   }
 
+  // genera todos los slots disponibles para un día dado, excluyendo los ocupados
   function generateSlotsForDay(date, intervals, busyRanges) {
     const slots = [];
     intervals.forEach(iv => {
@@ -68,23 +69,48 @@ document.addEventListener('DOMContentLoaded', function () {
     return slots;
   }
 
-  function isTimeIn(validSlots, date) {
-    const mm = minutesFromDate(date);
-    return validSlots.some(s => minutesFromDate(s) === mm);
-  }
+  // Crea un <select> con los horarios disponibles del día seleccionado
+  function renderAvailableSlots(containerId, validSlots, onSelectSlot) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = ''; // limpiar
 
-  function nextValidSlot(validSlots, afterDate) {
-    const cur = minutesFromDate(afterDate);
-    const byMin = validSlots
-      .map(d => ({ d, m: minutesFromDate(d) }))
-      .sort((a,b) => a.m - b.m);
-
-    for (const item of byMin) {
-      if (item.m >= cur) return item.d;
+    if (!validSlots.length) {
+      container.textContent = 'No hay horarios disponibles para este día.';
+      return;
     }
-    // si no hay posterior, devolvemos el primero del día (o null)
-    return byMin.length ? byMin[0].d : null;
+
+    const label = document.createElement('label');
+    label.textContent = 'Horarios disponibles:';
+    label.style.display = 'block';
+    label.style.marginTop = '8px';
+
+    const select = document.createElement('select');
+    select.id = 'slot-selector';
+    select.style.marginTop = '4px';
+    select.style.width = '100%';
+    select.style.padding = '4px';
+
+    validSlots.forEach(date => {
+      const option = document.createElement('option');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      option.value = date.toISOString();
+      option.textContent = `${hours}:${minutes}`;
+      select.appendChild(option);
+    });
+
+    select.addEventListener('change', () => {
+      const chosen = new Date(select.value);
+      onSelectSlot(chosen);
+    });
+
+    container.appendChild(label);
+    container.appendChild(select);
   }
+
+  
+
+ 
 
   // ==============================
   // 🔹 Cuando llega la disponibilidad
@@ -113,13 +139,16 @@ document.addEventListener('DOMContentLoaded', function () {
     const availableSlotsPerDay = {};
     let totalIntervals = 0;
     let totalBusy = busyRanges.length;
-
+    
+    // recorrer cada día en el rango
     for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
       const day = new Date(d);
       const weekday = getWeekdayName(day);
       const intervals = getDayIntervals(aa_schedule, weekday);
+      
       totalIntervals += intervals.length;
       const slots = generateSlotsForDay(day, intervals, busyRanges);
+      
       availableSlotsPerDay[ymd(day)] = slots.length;
     }
 
@@ -139,77 +168,29 @@ document.addEventListener('DOMContentLoaded', function () {
     let lastYMD = null;
 
     const picker = flatpickr(fechaInput, {
-      enableTime: true,
       disableMobile: true,
-      dateFormat: "d-m-Y H:i",
+      dateFormat: "d-m-Y",
       minDate: minDate,
       maxDate: maxDate,
-      time_24hr: true,
-      minuteIncrement: 30,
       locale: "es",
       disable: [disableDate],
-
-      // Se llama tanto al cambiar día como hora/min: aquí diferenciamos
-      onChange: function(selectedDates) {
-        if (!selectedDates.length) return;
-
-        const sel = selectedDates[0];
-        const selYMD = ymd(sel);
-
-        // ¿Cambió el día?
-        const dayChanged = (selYMD !== lastYMD);
-
-        // Recalcular slots válidos del día **sólo si cambió el día**
-        if (dayChanged) {
-          const weekday = getWeekdayName(sel);
-          const intervals = getDayIntervals(aa_schedule, weekday);
-          const valid = generateSlotsForDay(sel, intervals, busyRanges);
-          this.validSlots = valid;
-          lastYMD = selYMD;
-
-          // Si no hay tiempo seleccionado aún (o venimos del mes/día), fijar el primero
-          if (valid.length > 0 && !this._timeManuallyEditing) {
-            this.setDate(valid[0], true); // true = no dispara onChange en bucle
-          }
-        }
-      },
-
-      onReady: function(selectedDates, dateStr, instance) {
-        // Marcar cuando el usuario toca los controles de hora/minuto
-        const hourInput = instance.timeContainer && instance.timeContainer.querySelector(".flatpickr-hour");
-        const minInput  = instance.timeContainer && instance.timeContainer.querySelector(".flatpickr-minute");
-
-        const markEditing = () => { instance._timeManuallyEditing = true; };
-        const unmarkEditing = () => { instance._timeManuallyEditing = false; };
-
-        if (hourInput) {
-          hourInput.addEventListener('input', markEditing);
-          hourInput.addEventListener('focus', markEditing);
-          hourInput.addEventListener('blur', unmarkEditing);
-        }
-        if (minInput) {
-          minInput.addEventListener('input', markEditing);
-          minInput.addEventListener('focus', markEditing);
-          minInput.addEventListener('blur', unmarkEditing);
-        }
-
-        console.debug("[AA] Intervals from admin schedule:", totalIntervals);
-        console.debug("[AA] Busy events disabled:", totalBusy);
-        console.debug("[AA] Effective available slots per date:", availableSlotsPerDay);
-      },
-
-      // Al cerrar el picker, si la hora elegida no es válida, la ajustamos
-      onClose: function(selectedDates, dateStr, instance) {
-        if (!selectedDates.length || !instance.validSlots || !instance.validSlots.length) return;
-        const sel = selectedDates[0];
-        if (!isTimeIn(instance.validSlots, sel)) {
-          const snap = nextValidSlot(instance.validSlots, sel);
-          if (snap) instance.setDate(snap, true);
-        }
-        instance._timeManuallyEditing = false; // terminó de editar
+       onChange: function(selectedDates) {
+      if (!selectedDates.length) return;
+      const sel = selectedDates[0];
+      const weekday = getWeekdayName(sel);
+      const intervals = getDayIntervals(aa_schedule, weekday);
+      const validSlots = generateSlotsForDay(sel, intervals, busyRanges);
+      this.validSlots = validSlots;
+     
+       // 🔹 Renderiza la lista debajo del calendario
+    renderAvailableSlots('slot-container', validSlots, chosen => {
+      // cuando el usuario elige un horario de la lista
+      fechaInput.value = `${sel.toLocaleDateString()} ${chosen.getHours().toString().padStart(2,'0')}:${chosen.getMinutes().toString().padStart(2,'0')}`;
+       });
       }
+
     });
-  });
+    console.log(`📅 Flatpickr reinicializado con reglas reales. Intervalos: ${totalIntervals}, Ocupados: ${totalBusy}`);
 
   // ==============================
   // 🔹 Envío del formulario
@@ -251,4 +232,5 @@ document.addEventListener('DOMContentLoaded', function () {
       respuestaDiv.innerText = 'Error al agendar. Por favor, intenta más tarde.';
     }
   });
+}); 
 });

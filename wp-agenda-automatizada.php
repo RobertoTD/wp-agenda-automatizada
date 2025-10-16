@@ -58,7 +58,7 @@ function wpaa_render_form() {
 
         <label for="fecha">Fecha deseada:</label>
         <input type="text" id="fecha" name="fecha" required>
-
+        <div id="slot-container"></div>
         <label for="nombre">Nombre:</label>
         <input type="text" name="nombre" id="nombre" required>
 
