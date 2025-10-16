@@ -48,13 +48,23 @@ function wpaa_render_form() {
     <form id="agenda-form">
         <label for="servicio">Servicio:</label>
         <select id="servicio" name="servicio" required>
-            <option value="">Selecciona</option>
-            <option value="Cejas">Cejas</option>
-            <option value="Micropigmentación">Micropigmentación</option>
-            <option value="Línea">Línea</option>
-            <option value="Labios">Labios</option>
-            <option value="Otro">Otro</option>
+            <?php
+            // Obtener los motivos guardados (JSON → array)
+            $motivos_json = get_option('aa_google_motivo', json_encode(['Cita general']));
+            $motivos = json_decode($motivos_json, true);
+
+            // Validar que sea un array
+            if (is_array($motivos) && !empty($motivos)) {
+                foreach ($motivos as $motivo) {
+                    $motivo = esc_html($motivo);
+                    echo "<option value='{$motivo}'>{$motivo}</option>";
+                }
+            } else {
+                echo "<option value='Cita general'>Cita general</option>";
+            }
+            ?>
         </select>
+
 
         <label for="fecha">Fecha deseada:</label>
         <input type="text" id="fecha" name="fecha" required>
@@ -95,6 +105,13 @@ add_action('admin_enqueue_scripts', function($hook) {
             plugin_dir_url(__FILE__) . 'js/admin-schedule.js',
             ['flatpickr-js-admin'],
             filemtime(plugin_dir_path(__FILE__) . 'js/admin-schedule.js'),
+            true
+        );
+         wp_enqueue_script(
+            'aa-admin-controls',
+            plugin_dir_url(__FILE__) . 'js/admin-controls.js',
+            [], // sin dependencias por ahora
+            filemtime(plugin_dir_path(__FILE__) . 'js/admin-controls.js'),
             true
         );
     }

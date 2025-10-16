@@ -19,6 +19,7 @@ add_action('admin_init', function() {
     register_setting('agenda_automatizada_settings', 'aa_slot_duration');
     register_setting('agenda_automatizada_settings', 'aa_future_window');
     register_setting('agenda_automatizada_settings', 'aa_google_email');
+    register_setting('agenda_automatizada_settings', 'aa_google_motivo');
     
 });
 
@@ -71,6 +72,27 @@ function agenda_automatizada_render_settings_page() {
                         <?php endforeach; ?>
                     </td>
                 </tr>
+                <!-- Motivos de la cita -->
+                <tr valign="top">
+                <th scope="row">Motivos de la cita</th>
+                <td>
+                    <div id="aa-motivos-container">
+                        <ul id="aa-motivos-list"></ul>
+
+                        <div style="margin-top:10px; display:flex; gap:8px; align-items:center;">
+                            <input type="text" id="aa-motivo-input" placeholder="Ej: Corte de cabello" style="width:250px;">
+                            <button type="button" id="aa-add-motivo" class="button">Agregar motivo</button>
+                        </div>
+
+                        <!-- Campo oculto donde se guarda el JSON real -->
+                        <input type="hidden" name="aa_google_motivo" id="aa-google-motivo-hidden"
+                            value='<?php echo esc_attr(get_option("aa_google_motivo", json_encode(["Cita general"]))); ?>'>
+                    </div>
+
+                    <p class="description">Agrega los tipos de servicios o motivos de cita (uno por uno).</p>
+                </td>
+                </tr>
+                <!-- Duración de cita -->
                 <tr valign="top">
                     <th scope="row">Duración de cita (minutos)</th>
                     <td>
@@ -80,7 +102,7 @@ function agenda_automatizada_render_settings_page() {
                         </select>
                     </td>
                 </tr>
-
+                    <!-- Ventana futura --> 
                 <tr valign="top">
                     <th scope="row">Ventana futura (días)</th>
                     <td>
@@ -92,7 +114,7 @@ function agenda_automatizada_render_settings_page() {
                         </select>
                     </td>
                 </tr>
-
+                <!-- Google Calendar -->    
                 <tr valign="top">
                     <th scope="row">Google Calendar</th>
                     <td>
