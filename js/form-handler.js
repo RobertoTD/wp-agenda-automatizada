@@ -220,8 +220,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // 🔹 Obtener el slot seleccionado directamente del <select>
     const slotSelector = document.getElementById('slot-selector');
     const selectedSlotISO = slotSelector ? slotSelector.value : null;
-    console.log('no lo se:',selectedSlotISO);
-    console.log('directo del id slot:',slotSelector);
+    
     // 🔹 Validar que se haya seleccionado un horario
     if (!selectedSlotISO) {
       respuestaDiv.innerText = '❌ Por favor, selecciona una fecha y hora válidas.';
@@ -269,14 +268,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
       console.log('✅ Reserva guardada correctamente:', data);
 
-      // 🔹 Formatear la fecha para el mensaje de WhatsApp
+      // 🔹 Formatear la fecha para el mensaje de WhatsApp usando zona horaria y locale del admin
       const fechaObj = new Date(selectedSlotISO);
-      const fechaLegible = fechaObj.toLocaleString('es-MX', {
+      const userLocale = (typeof wpaa_vars !== 'undefined' && wpaa_vars.locale) 
+        ? wpaa_vars.locale 
+        : 'es-MX';
+      
+      const fechaLegible = fechaObj.toLocaleString(userLocale, {
         day: '2-digit',
         month: 'long',
         year: 'numeric',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
+        timeZone: wpaa_vars.timezone || 'America/Mexico_City' // 🔹 Forzar zona horaria del negocio
       });
 
       const mensaje = `Hola, soy ${datos.nombre}. Me gustaría agendar una cita para: ${datos.servicio} el día ${fechaLegible}. Mi teléfono es ${datos.telefono}.`;

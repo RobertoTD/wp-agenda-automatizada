@@ -99,6 +99,27 @@ register_activation_hook(__FILE__, function() {
 // 🟢 FRONTEND: Formularios y estilos
 // ===============================
 function wpaa_enqueue_scripts() {
+    // 🔹 Obtener zona horaria y calcular locale
+    $timezone = get_option('aa_timezone', 'America/Mexico_City');
+    
+    // 🔹 Mapeo de zonas horarias a locales
+    $timezone_to_locale = [
+        'America/Mexico_City' => 'es-MX',
+        'America/Cancun' => 'es-MX',
+        'America/Tijuana' => 'es-MX',
+        'America/Monterrey' => 'es-MX',
+        'America/Bogota' => 'es-CO',
+        'America/Lima' => 'es-PE',
+        'America/Argentina/Buenos_Aires' => 'es-AR',
+        'America/Santiago' => 'es-CL',
+        'America/New_York' => 'en-US',
+        'America/Los_Angeles' => 'en-US',
+        'Europe/Madrid' => 'es-ES',
+        'Europe/London' => 'en-GB',
+    ];
+    
+    $locale = $timezone_to_locale[$timezone] ?? 'es-MX';
+
     // CSS principal
     wp_enqueue_style('flatpickr-css', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css', [], null);
     wp_enqueue_style('wpaa-styles', plugin_dir_url(__FILE__) . 'css/styles.css', [], filemtime(plugin_dir_path(__FILE__) . 'css/styles.css'));
@@ -120,7 +141,8 @@ function wpaa_enqueue_scripts() {
     wp_localize_script('wpaa-script', 'wpaa_vars', [
         'webhook_url' => 'https://deoia.app.n8n.cloud/webhook-test/disponibilidad-citas',
         'ajax_url' => admin_url('admin-ajax.php'),
-        'timezone' => get_option('aa_timezone', 'America/Mexico_City') // 🔹 Zona horaria configurada
+        'timezone' => $timezone, // 🔹 Zona horaria configurada
+        'locale' => $locale // 🔹 Locale para formateo de fecha
     ]);
 
     // 🔹 Configuración del admin exportada al frontend
