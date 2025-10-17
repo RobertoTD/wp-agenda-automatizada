@@ -27,9 +27,21 @@ function aa_save_reservation() {
         wp_send_json_error(['message' => 'Datos incompletos.']);
     }
 
-    // ✅ Sanitización y formato correcto
+    // 🔹 Obtener la zona horaria configurada
+    $timezone = get_option('aa_timezone', 'America/Mexico_City');
+    
+    // ✅ Sanitización y conversión de fecha a la zona horaria del negocio
     $servicio = sanitize_text_field($data['servicio']);
-    $fecha    = date('Y-m-d H:i:s', strtotime($data['fecha'])); // Convierte correctamente
+    
+    // 🔹 Convertir ISO UTC a DateTime en zona horaria local
+    try {
+        $fechaObj = new DateTime($data['fecha'], new DateTimeZone('UTC'));
+        $fechaObj->setTimezone(new DateTimeZone($timezone));
+        $fecha = $fechaObj->format('Y-m-d H:i:s');
+    } catch (Exception $e) {
+        wp_send_json_error(['message' => 'Formato de fecha inválido.']);
+    }
+    
     $nombre   = sanitize_text_field($data['nombre']);
     $telefono = sanitize_text_field($data['telefono']);
     $correo   = sanitize_email($data['correo']);
@@ -37,7 +49,7 @@ function aa_save_reservation() {
     // ✅ Inserción en la tabla
     $result = $wpdb->insert($table, [
         'servicio'   => $servicio,
-        'fecha'      => $fecha,
+        'fecha'      => $fecha, // 🔹 Ahora en zona horaria local
         'nombre'     => $nombre,
         'telefono'   => $telefono,
         'correo'     => $correo,
@@ -107,7 +119,8 @@ function wpaa_enqueue_scripts() {
     // 🔹 Variables globales accesibles desde form-handler.js
     wp_localize_script('wpaa-script', 'wpaa_vars', [
         'webhook_url' => 'https://deoia.app.n8n.cloud/webhook-test/disponibilidad-citas',
-        'ajax_url' => admin_url('admin-ajax.php')
+        'ajax_url' => admin_url('admin-ajax.php'),
+        'timezone' => get_option('aa_timezone', 'America/Mexico_City') // 🔹 Zona horaria configurada
     ]);
 
     // 🔹 Configuración del admin exportada al frontend

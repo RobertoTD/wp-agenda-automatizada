@@ -62,7 +62,11 @@ document.addEventListener('DOMContentLoaded', function () {
     intervals.forEach(iv => {
       for (let min = iv.start; min < iv.end; min += 30) {
         const slot = new Date(date);
+        // 🔹 Obtener la zona horaria local en milisegundos
+        const offsetMs = slot.getTimezoneOffset() * 60000;
+        // 🔹 Crear fecha en hora local sin conversión UTC
         slot.setHours(Math.floor(min / 60), min % 60, 0, 0);
+        
         if (!isSlotBusy(slot, busyRanges)) slots.push(slot);
       }
     });
@@ -94,6 +98,9 @@ document.addEventListener('DOMContentLoaded', function () {
       const option = document.createElement('option');
       const hours = String(date.getHours()).padStart(2, '0');
       const minutes = String(date.getMinutes()).padStart(2, '0');
+      
+      // 🔹 Usar toISOString() que siempre genera UTC
+      // El backend lo convertirá a la zona horaria correcta
       option.value = date.toISOString();
       option.textContent = `${hours}:${minutes}`;
       select.appendChild(option);
@@ -210,15 +217,21 @@ document.addEventListener('DOMContentLoaded', function () {
     const respuestaDiv = document.getElementById('respuesta-agenda');
     respuestaDiv.innerText = 'Procesando solicitud...';
 
+    // 🔹 Obtener el slot seleccionado directamente del <select>
+    const slotSelector = document.getElementById('slot-selector');
+    const selectedSlotISO = slotSelector ? slotSelector.value : null;
+    console.log('no lo se:',selectedSlotISO);
+    console.log('directo del id slot:',slotSelector);
     // 🔹 Validar que se haya seleccionado un horario
     if (!selectedSlotISO) {
-      respuestaDiv.innerText = 'Por favor, selecciona una fecha y hora válidas.';
+      respuestaDiv.innerText = '❌ Por favor, selecciona una fecha y hora válidas.';
+      console.warn('⚠️ aa_debug: No se ha seleccionado ningún horario');
       return;
     }
 
     const datos = {
       servicio: form.servicio.value,
-      fecha: selectedSlotISO, // 🔹 Usar el slot completo elegido
+      fecha: selectedSlotISO, // 🔹 Usar el valor del <select> que ya está en ISO
       nombre: form.nombre.value,
       telefono: form.telefono.value,
       correo: form.correo.value || ''
@@ -250,15 +263,27 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
 
       const data = await response.json();
-        if (!data.success) {
-      throw new Error(data.data?.message || 'Error desconocido al guardar.');
-     }
+      if (!data.success) {
+        throw new Error(data.data?.message || 'Error desconocido al guardar.');
+      }
 
-      const mensaje = `Hola, soy ${datos.nombre}. Me gustaría agendar una cita para: ${datos.servicio} el día ${datos.fecha}. Mi teléfono es ${datos.telefono}.`;
+      console.log('✅ Reserva guardada correctamente:', data);
+
+      // 🔹 Formatear la fecha para el mensaje de WhatsApp
+      const fechaObj = new Date(selectedSlotISO);
+      const fechaLegible = fechaObj.toLocaleString('es-MX', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      const mensaje = `Hola, soy ${datos.nombre}. Me gustaría agendar una cita para: ${datos.servicio} el día ${fechaLegible}. Mi teléfono es ${datos.telefono}.`;
       window.location.href = `https://wa.me/5215522992290?text=${encodeURIComponent(mensaje)}`;
     } catch (err) {
       console.error('Error:', err);
-      respuestaDiv.innerText = 'Error al agendar. Por favor, intenta más tarde.';
+      respuestaDiv.innerText = `❌ Error al agendar: ${err.message}`;
     }
   });
 }); 

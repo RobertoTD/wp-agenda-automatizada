@@ -20,7 +20,7 @@ add_action('admin_init', function() {
     register_setting('agenda_automatizada_settings', 'aa_future_window');
     register_setting('agenda_automatizada_settings', 'aa_google_email');
     register_setting('agenda_automatizada_settings', 'aa_google_motivo');
-    
+    register_setting('agenda_automatizada_settings', 'aa_timezone'); // 🔹 Nueva opción
 });
 
 // Render de la página
@@ -112,6 +112,40 @@ function agenda_automatizada_render_settings_page() {
                             <option value="45" <?php selected(get_option('aa_future_window', 15), 45); ?>>45 días</option>
                             <option value="60" <?php selected(get_option('aa_future_window', 15), 60); ?>>60 días</option>
                         </select>
+                    </td>
+                </tr>
+                <!-- 🔹 Nueva fila: Zona horaria -->
+                <tr valign="top">
+                    <th scope="row">Zona horaria del negocio</th>
+                    <td>
+                        <select name="aa_timezone">
+                            <?php
+                            $saved_tz = get_option('aa_timezone', 'America/Mexico_City');
+                            $timezones = [
+                                'America/Mexico_City' => 'México (CDMX) - GMT-6',
+                                'America/Cancun' => 'Cancún - GMT-5',
+                                'America/Tijuana' => 'Tijuana - GMT-8',
+                                'America/Monterrey' => 'Monterrey - GMT-6',
+                                'America/Bogota' => 'Colombia (Bogotá) - GMT-5',
+                                'America/Lima' => 'Perú (Lima) - GMT-5',
+                                'America/Argentina/Buenos_Aires' => 'Argentina (Buenos Aires) - GMT-3',
+                                'America/Santiago' => 'Chile (Santiago) - GMT-3',
+                                'America/New_York' => 'Estados Unidos (Este) - GMT-5',
+                                'America/Los_Angeles' => 'Estados Unidos (Pacífico) - GMT-8',
+                                'Europe/Madrid' => 'España (Madrid) - GMT+1',
+                                'Europe/London' => 'Reino Unido (Londres) - GMT+0',
+                            ];
+                            foreach ($timezones as $value => $label) {
+                                printf(
+                                    '<option value="%s" %s>%s</option>',
+                                    esc_attr($value),
+                                    selected($saved_tz, $value, false),
+                                    esc_html($label)
+                                );
+                            }
+                            ?>
+                        </select>
+                        <p class="description">Selecciona la zona horaria donde opera tu negocio. Los horarios se ajustarán automáticamente.</p>
                     </td>
                 </tr>
                 <!-- Google Calendar -->    
