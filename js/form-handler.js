@@ -166,6 +166,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (fechaInput._flatpickr) fechaInput._flatpickr.destroy();
 
     let lastYMD = null;
+    let selectedSlotISO = null; // 🔹 Nueva variable para guardar el slot elegido
 
     const picker = flatpickr(fechaInput, {
       disableMobile: true,
@@ -185,8 +186,16 @@ document.addEventListener('DOMContentLoaded', function () {
        // 🔹 Renderiza la lista debajo del calendario
     renderAvailableSlots('slot-container', validSlots, chosen => {
       // cuando el usuario elige un horario de la lista
+      selectedSlotISO = chosen.toISOString(); // 🔹 Guardar hora completa elegida
       fechaInput.value = `${sel.toLocaleDateString()} ${chosen.getHours().toString().padStart(2,'0')}:${chosen.getMinutes().toString().padStart(2,'0')}`;
        });
+       
+       // 🔹 Establecer el primer slot como predeterminado
+       if (validSlots.length > 0) {
+         const firstSlot = validSlots[0];
+         selectedSlotISO = firstSlot.toISOString();
+         fechaInput.value = `${sel.toLocaleDateString()} ${firstSlot.getHours().toString().padStart(2,'0')}:${firstSlot.getMinutes().toString().padStart(2,'0')}`;
+       }
       }
 
     });
@@ -201,19 +210,35 @@ document.addEventListener('DOMContentLoaded', function () {
     const respuestaDiv = document.getElementById('respuesta-agenda');
     respuestaDiv.innerText = 'Procesando solicitud...';
 
-    const fechaInput = document.getElementById('fecha');
-    const fechaSeleccionada = fechaInput._flatpickr ? fechaInput._flatpickr.selectedDates[0] : null;
+    // 🔹 Validar que se haya seleccionado un horario
+    if (!selectedSlotISO) {
+      respuestaDiv.innerText = 'Por favor, selecciona una fecha y hora válidas.';
+      return;
+    }
 
     const datos = {
       servicio: form.servicio.value,
-      fecha: fechaSeleccionada ? fechaSeleccionada.toISOString() : form.fecha.value,
+      fecha: selectedSlotISO, // 🔹 Usar el slot completo elegido
       nombre: form.nombre.value,
       telefono: form.telefono.value,
       correo: form.correo.value || ''
     };
 
+    console.group('🧩 aa_debug: datos que se enviarán al backend');
+    console.log('Tipo de datos:', typeof datos);
+    console.log('Contenido del objeto:', datos);
+    console.log('Fecha ISO final enviada:', datos.fecha);
+    console.groupEnd();
+
+    // Opcional: validar estructura antes del fetch
+    ['servicio', 'fecha', 'nombre', 'telefono'].forEach(campo => {
+      if (!datos[campo]) {
+        console.warn(`⚠️ aa_debug: el campo "${campo}" está vacío o indefinido`);
+      }
+    });
+
     try {
-      const response = await fetch(wpaa_vars.webhook_url, {
+      const response = await fetch(wpaa_vars.ajax_url + '?action=aa_save_reservation', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -224,7 +249,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
       if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
 
-      await response.json();
+      const data = await response.json();
+        if (!data.success) {
+      throw new Error(data.data?.message || 'Error desconocido al guardar.');
+     }
+
       const mensaje = `Hola, soy ${datos.nombre}. Me gustaría agendar una cita para: ${datos.servicio} el día ${datos.fecha}. Mi teléfono es ${datos.telefono}.`;
       window.location.href = `https://wa.me/5215522992290?text=${encodeURIComponent(mensaje)}`;
     } catch (err) {

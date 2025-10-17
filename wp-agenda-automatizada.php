@@ -8,6 +8,81 @@
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
 
+// Crear tabla para reservas al activar el plugin
+// ================================
+// 🔹 Endpoint AJAX: Guardar cita desde el frontend
+// ================================
+add_action('wp_ajax_nopriv_aa_save_reservation', 'aa_save_reservation');
+add_action('wp_ajax_aa_save_reservation', 'aa_save_reservation');
+
+function aa_save_reservation() {
+    global $wpdb;
+    $table = $wpdb->prefix . 'aa_reservas';
+
+    // Leer cuerpo JSON enviado desde JS
+    $data = json_decode(file_get_contents('php://input'), true);
+
+    // ✅ Validación básica de datos requeridos
+    if (empty($data['servicio']) || empty($data['fecha']) || empty($data['nombre'])) {
+        wp_send_json_error(['message' => 'Datos incompletos.']);
+    }
+
+    // ✅ Sanitización y formato correcto
+    $servicio = sanitize_text_field($data['servicio']);
+    $fecha    = date('Y-m-d H:i:s', strtotime($data['fecha'])); // Convierte correctamente
+    $nombre   = sanitize_text_field($data['nombre']);
+    $telefono = sanitize_text_field($data['telefono']);
+    $correo   = sanitize_email($data['correo']);
+
+    // ✅ Inserción en la tabla
+    $result = $wpdb->insert($table, [
+        'servicio'   => $servicio,
+        'fecha'      => $fecha,
+        'nombre'     => $nombre,
+        'telefono'   => $telefono,
+        'correo'     => $correo,
+        'estado'     => 'pending',
+        'created_at' => current_time('mysql')
+    ]);
+
+    // ✅ Control de error
+    if ($result === false) {
+        wp_send_json_error([
+            'message' => 'Error al guardar en la base de datos.',
+            'error'   => $wpdb->last_error
+        ]);
+    }
+
+    wp_send_json_success(['message' => 'Reserva almacenada correctamente.']);
+}
+
+error_log('✅ aa_save_reservation ejecutada');
+error_log(print_r(json_decode(file_get_contents('php://input'), true), true));
+
+
+
+register_activation_hook(__FILE__, function() {
+    global $wpdb;
+    $table = $wpdb->prefix . 'aa_reservas';
+    $charset = $wpdb->get_charset_collate();
+
+    $sql = "CREATE TABLE $table (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        servicio varchar(255) NOT NULL,
+        fecha datetime NOT NULL,
+        nombre varchar(255) NOT NULL,
+        telefono varchar(50) NOT NULL,
+        correo varchar(255),
+        estado varchar(50) DEFAULT 'pending',
+        created_at datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id)
+    ) $charset;";
+
+    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+    dbDelta($sql);
+});
+
+
 // ===============================
 // 🟢 FRONTEND: Formularios y estilos
 // ===============================
@@ -31,7 +106,8 @@ function wpaa_enqueue_scripts() {
 
     // 🔹 Variables globales accesibles desde form-handler.js
     wp_localize_script('wpaa-script', 'wpaa_vars', [
-        'webhook_url' => 'https://deoia.app.n8n.cloud/webhook-test/disponibilidad-citas'
+        'webhook_url' => 'https://deoia.app.n8n.cloud/webhook-test/disponibilidad-citas',
+        'ajax_url' => admin_url('admin-ajax.php')
     ]);
 
     // 🔹 Configuración del admin exportada al frontend

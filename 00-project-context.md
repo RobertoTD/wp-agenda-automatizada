@@ -45,6 +45,9 @@ consulten el mismo backend centralizado, sin necesidad de exponer directamente l
 8. `horariosapartados.js` recibe el JSON, lo almacena en `window.aa_availability` y lanza el evento `aa:availability:loaded`.
 9. Cualquier script adicional (datepicker, etc.) puede escuchar ese evento para deshabilitar días ocupados.
 
+## flujo del backend al enviar formulario
+ 
+
 ---
 
 ## 📂 Estructura relevante del plugin
@@ -55,9 +58,10 @@ wp-agenda-automatizada/
 ├── admin-controls.php # Configuración en el panel WP (horarios, email, token)
 ├── availability-proxy.php # Proxy AJAX hacia backend Render (principal comunicación)
 ├── js/
-│ ├── horariosapartados.js # Maneja el datepicker y la llamada AJAX
+│ ├── horariosapartados.js # Maneja el datepicker y la llamada AJAX a backend de node.js
 │ ├── form-handler.js # Envía formularios de cita (por implementar)
-│ └── admin-schedule.js # Configura horarios disponibles en admin
+│ |── admin-schedule.js # Configura horarios disponibles en admin
+| |-- admin-controls.js # da dinamismo a los controles del admin
 └── ...
 
 ## 🧠 Variables clave y opciones
