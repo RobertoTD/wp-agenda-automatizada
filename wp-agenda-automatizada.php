@@ -8,6 +8,16 @@
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
 
+// Detectar entorno automáticamente
+$site_url = get_site_url();
+
+if (strpos($site_url, 'localhost') !== false || strpos($site_url, '127.0.0.1') !== false) {
+    define('AA_API_BASE_URL', 'http://localhost:3000');
+} else {
+    define('AA_API_BASE_URL', 'https://deoia-oauth-backend.onrender.com');
+}
+
+
 // Crear tabla para reservas al activar el plugin
 // ================================
 // 🔹 Endpoint AJAX: Guardar cita desde el frontend
@@ -67,10 +77,6 @@ function aa_save_reservation() {
 
     wp_send_json_success(['message' => 'Reserva almacenada correctamente.']);
 }
-
-error_log('✅ aa_save_reservation ejecutada');
-error_log(print_r(json_decode(file_get_contents('php://input'), true), true));
-
 
 
 register_activation_hook(__FILE__, function() {
@@ -202,8 +208,11 @@ add_shortcode('agenda_automatizada', 'wpaa_render_form');
 // ===============================
 require_once plugin_dir_path(__FILE__) . 'admin-controls.php';
 
-// Proxy hacia backend (consulta disponibilidad n8n)
+// Proxy hacia backend (consulta disponibilidad Google Calendar)
 require_once plugin_dir_path(__FILE__) . 'availability-proxy.php';
+
+// 🔹 Incluir el nuevo archivo de confirmación de correos
+require_once plugin_dir_path(__FILE__) . 'confirmacioncorreos.php';
 
 // Scripts solo para el área de administración
 add_action('admin_enqueue_scripts', function($hook) {

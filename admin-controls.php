@@ -162,7 +162,7 @@ function agenda_automatizada_render_settings_page() {
                             echo "<p><strong>Sincronizado con: $google_email</strong></p>";
                             echo "<a href='" . esc_url(admin_url('admin-post.php?action=aa_disconnect_google')) . "' class='button'>Desconectar</a>";
                         } else {
-                            $backend_url  = "https://deoia-oauth-backend.onrender.com/oauth/authorize";
+                            $backend_url = AA_API_BASE_URL . "/oauth/authorize";
                             $state        = home_url();
                             $redirect_uri = admin_url('admin-post.php?action=aa_connect_google');
                             $auth_url     = $backend_url 

@@ -268,6 +268,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
       console.log('✅ Reserva guardada correctamente:', data);
 
+      // Enviar confirmación por correo
+      fetch(wpaa_vars.ajax_url + '?action=aa_enviar_confirmacion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datos)
+      });
+
       // 🔹 Formatear la fecha para el mensaje de WhatsApp usando zona horaria y locale del admin
       const fechaObj = new Date(selectedSlotISO);
       const userLocale = (typeof wpaa_vars !== 'undefined' && wpaa_vars.locale) 

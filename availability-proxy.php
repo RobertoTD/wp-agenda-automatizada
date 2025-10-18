@@ -2,7 +2,7 @@
 if (!defined('ABSPATH')) exit;
 
 function aa_build_availability_url_for($email) {
-    $backend_url = 'https://deoia-oauth-backend.onrender.com/calendar/availability';
+    $backend_url = AA_API_BASE_URL . "/calendar/availability";
 
     $now = new DateTime('now', new DateTimeZone('UTC'));
     // Rango reducido a 1 mes
