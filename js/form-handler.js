@@ -259,6 +259,8 @@ document.addEventListener('DOMContentLoaded', function () {
         body: JSON.stringify(datos)
       });
 
+      
+
       if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
 
       const data = await response.json();
@@ -267,12 +269,20 @@ document.addEventListener('DOMContentLoaded', function () {
       }
 
       console.log('✅ Reserva guardada correctamente:', data);
+      // 🔹 Enviar confirmación por correo (sin bloquear el flujo)
+      console.log("📦 Datos que se envían al backend:", datos);
 
-      // Enviar confirmación por correo
+      // 🔹 Enviar confirmación por correo (sin bloquear el flujo)
       fetch(wpaa_vars.ajax_url + '?action=aa_enviar_confirmacion', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(datos)
+      }).then(emailResponse => {
+        return emailResponse.json();
+      }).then(emailData => {
+        console.log('📧 Resultado del envío de correo:', emailData);
+      }).catch(emailError => {
+        console.warn('⚠️ Error al enviar correo (no crítico):', emailError);
       });
 
       // 🔹 Formatear la fecha para el mensaje de WhatsApp usando zona horaria y locale del admin
@@ -290,12 +300,18 @@ document.addEventListener('DOMContentLoaded', function () {
         timeZone: wpaa_vars.timezone || 'America/Mexico_City' // 🔹 Forzar zona horaria del negocio
       });
 
-      const mensaje = `Hola, soy ${datos.nombre}. Me gustaría agendar una cita para: ${datos.servicio} el día ${fechaLegible}. Mi teléfono es ${datos.telefono}.`;
-      window.location.href = `https://wa.me/5215522992290?text=${encodeURIComponent(mensaje)}`;
+      respuestaDiv.innerText = '✅ Cita agendada correctamente. Redirigiendo a WhatsApp...';
+
+      // 🔹 Redirigir a WhatsApp después de 2 segundos
+      setTimeout(() => {
+        const mensaje = `Hola, soy ${datos.nombre}. Me gustaría agendar una cita para: ${datos.servicio} el día ${fechaLegible}. Mi teléfono es ${datos.telefono}.`;
+        window.location.href = `https://wa.me/5215522992290?text=${encodeURIComponent(mensaje)}`;
+      }, 2000);
     } catch (err) {
       console.error('Error:', err);
       respuestaDiv.innerText = `❌ Error al agendar: ${err.message}`;
     }
+
   });
 }); 
 });
