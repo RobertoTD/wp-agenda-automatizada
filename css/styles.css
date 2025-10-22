@@ -40,9 +40,74 @@
     border-color: #0073aa !important;
 }
 
+/* Integración visual de la instrucción dentro del formulario (ajustada) */
+.aa-form-instruction {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;            /* coincide con el padding de inputs */
+    color: #222;
+    font-size: 14px;
+    line-height: 1.4;
+    transition: background .15s ease;
+    text-align: center;
+}
+
+/* Mantener párrafo compacto */
+.aa-form-instruction p {
+    margin: 0;
+}
+
+/* Etiquetas alineadas y con espaciado consistente */
+#agenda-form label {
+    display: block;
+    margin: 2px 0 6px 0;
+    font-size: 13px;
+    color: #333;
+}
+
+/* Inputs/selects comparten estilo visual y alineación con la instrucción */
+#agenda-form input,
+#agenda-form select,
+#agenda-form textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px;
+    font-size: 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #fff;
+}
+
+/* Ajuste del contenedor de slots para que quede pegado al input */
+#slot-container {
+    margin-top: 6px;
+    margin-bottom: 6px;
+}
+
+/* Botón con un poco más de presencia pero limpio */
+#agenda-form button {
+    padding: 11px;
+    font-size: 16px;
+    border-radius: 6px;
+}
+
+/* Respuesta centrada y con margen moderado */
 #respuesta-agenda {
     text-align: center;
-    margin-top: 10px;
+    margin-top: 12px;
     padding: 10px;
     border-radius: 4px;
+    color: #223;
+}
+
+/* Pequeño ajuste responsive: equilibrar ancho del form en pantallas grandes */
+@media (min-width: 600px) {
+    #agenda-form {
+        max-width: 480px;
+    }
+}
+
+/* Hover sutil en la instrucción para que parezca interactiva sin ser intrusiva */
+.aa-form-instruction:hover {
+    background: #f8fcff;
 }

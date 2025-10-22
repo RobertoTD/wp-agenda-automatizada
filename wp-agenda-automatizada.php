@@ -166,7 +166,19 @@ add_action('wp_enqueue_scripts', 'wpaa_enqueue_scripts');
 // ===============================
 function wpaa_render_form() {
     ob_start(); ?>
+
+    <?php
+    $business_name = esc_html( get_option('aa_business_name', 'Nuestro negocio') );
+    ?>
+    <div class="aa-form-instruction">
+        <p>
+            Agenda tu cita con <strong><?php echo $business_name; ?></strong> automáticamente llenando los siguientes campos. 
+            Recibirás un correo de confirmación.
+        </p>
+    </div>
+
     <form id="agenda-form">
+        
         <label for="servicio">Servicio:</label>
         <select id="servicio" name="servicio" required>
             <?php
@@ -196,8 +208,8 @@ function wpaa_render_form() {
         <label for="telefono">Teléfono:</label>
         <input type="tel" name="telefono" id="telefono" required>
 
-        <label for="correo">Correo (opcional):</label>
-        <input type="email" name="correo" id="correo">
+        <label for="correo">Correo:</label>
+        <input type="email" name="correo" id="correo" required>
 
         <button type="submit">Agendar</button>
     </form>
