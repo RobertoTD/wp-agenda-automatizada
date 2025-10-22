@@ -36,7 +36,12 @@ function aa_enviar_confirmacion() {
         'servicio' => $data['servicio'] ?? '',
         'fecha' => $data['fecha'] ?? '',
         'telefono' => $data['telefono'] ?? '',
-        'email' => $data['correo'] ?? '' // 🔹 Mapear 'correo' → 'email'
+        'email' => $data['correo'] ?? '',
+        'businessName' => get_option('aa_business_name', 'Nuestro negocio'), // 🔹 Nombre del negocio
+        'businessAddress' => get_option('aa_is_virtual', 0) == 1 
+            ? 'Cita virtual' 
+            : get_option('aa_business_address', 'No especificada'), // 🔹 Dirección o "virtual"
+        'whatsapp' => get_option('aa_whatsapp_number', '') // 🔹 WhatsApp del negocio
     ];
 
     error_log("🧩 Dominio detectado: " . $domain);

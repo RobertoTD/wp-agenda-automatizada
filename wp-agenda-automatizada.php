@@ -147,8 +147,12 @@ function wpaa_enqueue_scripts() {
     wp_localize_script('wpaa-script', 'wpaa_vars', [
         'webhook_url' => 'https://deoia.app.n8n.cloud/webhook-test/disponibilidad-citas',
         'ajax_url' => admin_url('admin-ajax.php'),
-        'timezone' => $timezone, // 🔹 Zona horaria configurada
-        'locale' => $locale // 🔹 Locale para formateo de fecha
+        'timezone' => $timezone,
+        'locale' => $locale,
+        'whatsapp_number' => get_option('aa_whatsapp_number', '5215522992290'), // 🔹 WhatsApp dinámico
+        'business_name' => get_option('aa_business_name', 'Nuestro negocio'), // 🔹 Nombre del negocio
+        'business_address' => get_option('aa_business_address', ''), // 🔹 Dirección
+        'is_virtual' => get_option('aa_is_virtual', 0) // 🔹 Si es virtual
     ]);
 
     // 🔹 Configuración del admin exportada al frontend

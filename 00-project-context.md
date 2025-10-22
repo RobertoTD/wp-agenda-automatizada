@@ -47,7 +47,7 @@ consulten el mismo backend centralizado, sin necesidad de exponer directamente l
 
 ## flujo del backend al enviar formulario
  
-
+envia los datos requeridos por el backend para realizar la confirmacion de la cita por correo
 ---
 
 ## 📂 Estructura relevante del plugin

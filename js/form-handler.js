@@ -59,13 +59,21 @@ document.addEventListener('DOMContentLoaded', function () {
   // genera todos los slots disponibles para un día dado, excluyendo los ocupados
   function generateSlotsForDay(date, intervals, busyRanges) {
     const slots = [];
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    
+    // 🔹 Calcular hora mínima disponible (1 hora después de ahora)
+    const minAvailableTime = new Date(now.getTime() + 60 * 60 * 1000); // +1 hora
+    
     intervals.forEach(iv => {
       for (let min = iv.start; min < iv.end; min += 30) {
         const slot = new Date(date);
-        // 🔹 Obtener la zona horaria local en milisegundos
-        const offsetMs = slot.getTimezoneOffset() * 60000;
-        // 🔹 Crear fecha en hora local sin conversión UTC
         slot.setHours(Math.floor(min / 60), min % 60, 0, 0);
+        
+        // 🔹 Si es hoy, filtrar slots que ya pasaron o están muy cerca
+        if (isToday && slot < minAvailableTime) {
+          continue; // Saltar este slot
+        }
         
         if (!isSlotBusy(slot, busyRanges)) slots.push(slot);
       }
@@ -304,8 +312,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
       // 🔹 Redirigir a WhatsApp después de 2 segundos
       setTimeout(() => {
+        const whatsappNumber = (typeof wpaa_vars !== 'undefined' && wpaa_vars.whatsapp_number) 
+          ? wpaa_vars.whatsapp_number 
+          : '5215522992290';
+
         const mensaje = `Hola, soy ${datos.nombre}. Me gustaría agendar una cita para: ${datos.servicio} el día ${fechaLegible}. Mi teléfono es ${datos.telefono}.`;
-        window.location.href = `https://wa.me/5215522992290?text=${encodeURIComponent(mensaje)}`;
+        window.location.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(mensaje)}`;
       }, 2000);
     } catch (err) {
       console.error('Error:', err);
@@ -313,5 +325,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
   });
-}); 
-});
+  
+  }); // Closing brace for the "aa:availability:loaded" event listener
+}); // Closing brace for DOMContentLoaded

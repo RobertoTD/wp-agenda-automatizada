@@ -20,7 +20,11 @@ add_action('admin_init', function() {
     register_setting('agenda_automatizada_settings', 'aa_future_window');
     register_setting('agenda_automatizada_settings', 'aa_google_email');
     register_setting('agenda_automatizada_settings', 'aa_google_motivo');
-    register_setting('agenda_automatizada_settings', 'aa_timezone'); // 🔹 Nueva opción
+    register_setting('agenda_automatizada_settings', 'aa_timezone');
+    register_setting('agenda_automatizada_settings', 'aa_business_name'); // 🔹 Nombre del negocio
+    register_setting('agenda_automatizada_settings', 'aa_business_address'); // 🔹 Dirección física
+    register_setting('agenda_automatizada_settings', 'aa_is_virtual'); // 🔹 Citas virtuales
+    register_setting('agenda_automatizada_settings', 'aa_whatsapp_number'); // 🔹 WhatsApp
 });
 
 // Render de la página
@@ -148,6 +152,57 @@ function agenda_automatizada_render_settings_page() {
                         <p class="description">Selecciona la zona horaria donde opera tu negocio. Los horarios se ajustarán automáticamente.</p>
                     </td>
                 </tr>
+                <!-- 🔹 Nombre del negocio -->
+                <tr valign="top">
+                    <th scope="row">Nombre del negocio</th>
+                    <td>
+                        <input type="text" name="aa_business_name" 
+                               value="<?php echo esc_attr(get_option('aa_business_name', '')); ?>" 
+                               style="width: 100%; max-width: 400px;" 
+                               placeholder="Ej: Salón de Belleza María">
+                        <p class="description">Nombre que aparecerá en las confirmaciones de cita.</p>
+                    </td>
+                </tr>
+
+                <!-- 🔹 Citas virtuales -->
+                <tr valign="top">
+                    <th scope="row">Tipo de citas</th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="aa_is_virtual" value="1" 
+                                   id="aa-is-virtual-checkbox"
+                                   <?php checked(get_option('aa_is_virtual', 0), 1); ?>>
+                            Las citas son virtuales (sin dirección física)
+                        </label>
+                    </td>
+                </tr>
+
+                <!-- 🔹 Dirección física -->
+                <tr valign="top" id="aa-address-row">
+                    <th scope="row">Dirección física</th>
+                    <td>
+                        <textarea name="aa_business_address" 
+                                  id="aa-business-address" 
+                                  rows="3" 
+                                  style="width: 100%; max-width: 400px;"
+                                  placeholder="Ej: Av. Reforma 123, Col. Centro, CDMX"><?php echo esc_textarea(get_option('aa_business_address', '')); ?></textarea>
+                        <p class="description">Dirección donde se realizarán las citas presenciales.</p>
+                    </td>
+                </tr>
+
+                <!-- 🔹 WhatsApp del negocio -->
+                <tr valign="top">
+                    <th scope="row">WhatsApp del negocio</th>
+                    <td>
+                        <input type="tel" name="aa_whatsapp_number" 
+                               value="<?php echo esc_attr(get_option('aa_whatsapp_number', '')); ?>" 
+                               style="width: 100%; max-width: 300px;" 
+                               placeholder="521234567890"
+                               pattern="[0-9]{10,15}">
+                        <p class="description">Número con código de país sin espacios ni símbolos (Ej: 5215522992290).</p>
+                    </td>
+                </tr>
+
                 <!-- Google Calendar -->    
                 <tr valign="top">
                     <th scope="row">Google Calendar</th>
