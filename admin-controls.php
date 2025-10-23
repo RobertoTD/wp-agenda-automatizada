@@ -246,6 +246,11 @@ add_action('admin_post_aa_connect_google', function() {
         update_option('aa_google_email', sanitize_email($_GET['email']));
     }
 
+     // ✅ Guardar el client_secret si viene en la redirección
+    if (!empty($_GET['client_secret'])) {
+        update_option('aa_client_secret', sanitize_text_field($_GET['client_secret']));
+    }
+
     wp_redirect(admin_url('admin.php?page=agenda-automatizada-settings'));
     exit;
 });

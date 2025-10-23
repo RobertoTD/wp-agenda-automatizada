@@ -17,6 +17,8 @@ if (strpos($site_url, 'localhost') !== false || strpos($site_url, '127.0.0.1') !
     define('AA_API_BASE_URL', 'https://deoia-oauth-backend.onrender.com');
 }
 
+// 🔹 Incluir helper de autenticación
+require_once plugin_dir_path(__FILE__) . 'includes/auth-helper.php';
 
 // Crear tabla para reservas al activar el plugin
 // ================================

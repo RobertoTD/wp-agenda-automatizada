@@ -31,21 +31,27 @@ function aa_ajax_get_availability() {
 
     $backend_url = aa_build_availability_url_for($email);
 
-    $resp = wp_remote_get($backend_url, [
-        'timeout' => 15,
-        'headers' => [
-            'Accept' => 'application/json'
-        ]
-    ]);
+    // 🔹 Usar autenticación HMAC
+    $response = aa_send_authenticated_request($backend_url, 'GET');
 
-    if (is_wp_error($resp)) {
-        wp_send_json_error(['message' => 'request_failed', 'error' => $resp->get_error_message()], 500);
+    if (is_wp_error($response)) {
+        wp_send_json_error(['message' => 'request_failed', 'error' => $response->get_error_message()], 500);
     }
 
-    $code = wp_remote_retrieve_response_code($resp);
-    $body = wp_remote_retrieve_body($resp);
+    $code = wp_remote_retrieve_response_code($response);
+    $body = wp_remote_retrieve_body($response);
 
-    // Reenvía el cuerpo JSON tal cual (mismo formato que el backend)
+    // 🔹 Manejar errores de autenticación
+    if ($code === 401 || $code === 403) {
+        $decoded = json_decode($body, true);
+        error_log("🔒 Error de autenticación en availability: " . ($decoded['error'] ?? 'Sin detalles'));
+        wp_send_json_error([
+            'message' => 'authentication_failed',
+            'error' => $decoded['error'] ?? 'Unauthorized'
+        ], $code);
+    }
+
+    // Reenvía el cuerpo JSON tal cual
     status_header($code);
     header('Content-Type: application/json; charset=utf-8');
     echo $body;

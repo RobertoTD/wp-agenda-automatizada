@@ -14,22 +14,18 @@ function aa_enviar_confirmacion() {
         wp_send_json_error(['message' => 'No se recibió JSON válido.']);
     }
 
-    // ==========================================================
-    // 🔹 Extraer dominio limpio de la URL actual
-    // ==========================================================
-    $site_url = get_site_url(); // WordPress function para obtener URL completa
+    // 🔹 Extraer dominio limpio
+    $site_url = get_site_url();
     $parsed_url = parse_url($site_url);
     $host = $parsed_url['host'] ?? '';
     
-    // Si es localhost, usar literal
     if (stripos($host, 'localhost') !== false || $host === '127.0.0.1') {
         $domain = 'localhost';
     } else {
-        // Para dominios reales, quitar 'www.' si existe
         $domain = preg_replace('/^www\./', '', $host);
     }
 
-    // 🔹 Reorganizar los datos con la estructura correcta
+    // 🔹 Reorganizar datos para el backend
     $backend_data = [
         'domain' => $domain,
         'nombre' => $data['nombre'] ?? '',
@@ -37,33 +33,22 @@ function aa_enviar_confirmacion() {
         'fecha' => $data['fecha'] ?? '',
         'telefono' => $data['telefono'] ?? '',
         'email' => $data['correo'] ?? '',
-        'businessName' => get_option('aa_business_name', 'Nuestro negocio'), // 🔹 Nombre del negocio
+        'businessName' => get_option('aa_business_name', 'Nuestro negocio'),
         'businessAddress' => get_option('aa_is_virtual', 0) == 1 
             ? 'Cita virtual' 
-            : get_option('aa_business_address', 'No especificada'), // 🔹 Dirección o "virtual"
-        'whatsapp' => get_option('aa_whatsapp_number', '') // 🔹 WhatsApp del negocio
+            : get_option('aa_business_address', 'No especificada'),
+        'whatsapp' => get_option('aa_whatsapp_number', '')
     ];
 
     error_log("🧩 Dominio detectado: " . $domain);
     error_log("📦 Datos reorganizados para backend:");
     error_log(print_r($backend_data, true));
 
-    // ==========================================================
-    // 🔹 URL del backend
-    // ==========================================================
+    // 🔹 Usar helper de autenticación
     $backend_url = AA_API_BASE_URL . "/correo/confirmacion";
+    $response = aa_send_authenticated_request($backend_url, 'POST', $backend_data);
 
-    error_log("📤 Enviando a backend: $backend_url");
-
-    // ==========================================================
-    // 🔹 Enviar al backend
-    // ==========================================================
-    $response = wp_remote_post($backend_url, [
-        'headers' => ['Content-Type' => 'application/json'],
-        'body'    => json_encode($backend_data), // 🔹 Usar datos reorganizados
-        'timeout' => 15,
-    ]);
-
+    // 🔹 Validar respuesta
     if (is_wp_error($response)) {
         $error_message = $response->get_error_message();
         error_log("❌ Error al contactar backend: " . $error_message);
@@ -71,8 +56,20 @@ function aa_enviar_confirmacion() {
     }
 
     $body = wp_remote_retrieve_body($response);
+    $status_code = wp_remote_retrieve_response_code($response);
     $decoded = json_decode($body, true);
-    error_log("📥 Respuesta del backend: " . print_r($decoded, true));
+    
+    error_log("📥 Respuesta del backend (status $status_code): " . print_r($decoded, true));
+
+    // 🔹 Manejar errores de autenticación
+    if ($status_code === 401 || $status_code === 403) {
+        error_log("🔒 Error de autenticación: " . ($decoded['error'] ?? 'Sin detalles'));
+        wp_send_json_error([
+            'message' => 'Error de autenticación con el backend',
+            'error' => $decoded['error'] ?? 'Unauthorized',
+            'hint' => 'Verifica que el client_secret esté configurado correctamente'
+        ]);
+    }
 
     if (isset($decoded['success']) && $decoded['success'] === true) {
         wp_send_json_success(['message' => 'Correo de confirmación enviado', 'backend_response' => $decoded]);
