@@ -78,4 +78,4 @@ function aa_enviar_confirmacion() {
     }
 }
 
-error_log("🔥 AJAX de confirmación recibido en WordPress");
+
