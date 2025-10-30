@@ -2,6 +2,13 @@
 document.addEventListener('DOMContentLoaded', function () {
   const form = document.getElementById('agenda-form');
 
+    // ✅ Añadir campo honeypot invisible anti-bot
+  const honeypot = document.createElement('input');
+  honeypot.type = 'text';
+  honeypot.name = 'extra_field';
+  honeypot.style.display = 'none';
+  form.appendChild(honeypot);
+
   // ==============================
   // 🔹 Flatpickr inicial básico
   // ==============================
@@ -241,7 +248,9 @@ document.addEventListener('DOMContentLoaded', function () {
       fecha: selectedSlotISO, // 🔹 Usar el valor del <select> que ya está en ISO
       nombre: form.nombre.value,
       telefono: form.telefono.value,
-      correo: form.correo.value || ''
+      correo: form.correo.value || '',
+      nonce: wpaa_vars.nonce,           // ✅ añadir nonce
+      extra_field: honeypot.value || '' // ✅ añadir honeypot
     };
 
     console.group('🧩 aa_debug: datos que se enviarán al backend');
@@ -277,6 +286,19 @@ document.addEventListener('DOMContentLoaded', function () {
       }
 
       console.log('✅ Reserva guardada correctamente:', data);
+
+      // 🔹 Añadir ID de la reserva al objeto que se enviará al backend
+      if (data.data && data.data.id) {
+        datos.id_reserva = data.data.id;
+        console.log('🆔 ID de reserva asignado al objeto datos:', datos.id_reserva);
+      } else if (data.id) {
+        datos.id_reserva = data.id;
+        console.warn('⚠️ ID de reserva recibido en formato alternativo:', datos.id_reserva);
+      } else {
+        console.warn('⚠️ No se recibió ID de reserva en la respuesta del backend.');
+      }
+
+
       // 🔹 Enviar confirmación por correo (sin bloquear el flujo)
       console.log("📦 Datos que se envían al backend:", datos);
 

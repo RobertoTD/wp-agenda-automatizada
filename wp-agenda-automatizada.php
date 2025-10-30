@@ -34,6 +34,16 @@ function aa_save_reservation() {
     // Leer cuerpo JSON enviado desde JS
     $data = json_decode(file_get_contents('php://input'), true);
 
+    // ✅ Validar nonce de seguridad
+    if (empty($data['nonce']) || !wp_verify_nonce($data['nonce'], 'aa_reservation_nonce')) {
+        wp_send_json_error(['message' => 'Error de validación de seguridad (nonce inválido).']);
+    }
+
+    // ✅ Validar honeypot (campo invisible anti-bot)
+    if (!empty($data['extra_field'])) {
+        wp_send_json_error(['message' => 'Detección de bot: envío no permitido.']);
+    }
+
     // ✅ Validación básica de datos requeridos
     if (empty($data['servicio']) || empty($data['fecha']) || empty($data['nombre'])) {
         wp_send_json_error(['message' => 'Datos incompletos.']);
@@ -69,18 +79,32 @@ function aa_save_reservation() {
         'created_at' => current_time('mysql')
     ]);
 
-    // ✅ Control de error
+    // ✅ Control de error (PRIMERO validar si falló)
     if ($result === false) {
+        error_log("❌ Error al insertar reserva: " . $wpdb->last_error);
         wp_send_json_error([
             'message' => 'Error al guardar en la base de datos.',
             'error'   => $wpdb->last_error
         ]);
     }
 
-    wp_send_json_success(['message' => 'Reserva almacenada correctamente.']);
+    // ✅ Retornar ID de la reserva creada
+    $reserva_id = $wpdb->insert_id;
+    
+    if (!$reserva_id) {
+        error_log("⚠️ Reserva guardada pero no se obtuvo insert_id");
+        wp_send_json_error(['message' => 'Reserva guardada pero ID no disponible.']);
+    }
+
+    error_log("✅ Reserva guardada correctamente con ID: $reserva_id");
+    
+    wp_send_json_success([
+        'message' => 'Reserva almacenada correctamente.',
+        'id' => $reserva_id // 🔹 Retornar el ID en la respuesta
+    ]);
 }
 
-
+// Crear tabla al activar el plugin
 register_activation_hook(__FILE__, function() {
     global $wpdb;
     $table = $wpdb->prefix . 'aa_reservas';
@@ -145,6 +169,8 @@ function wpaa_enqueue_scripts() {
         true
     );
 
+    $nonce = wp_create_nonce('aa_reservation_nonce');
+
     // 🔹 Variables globales accesibles desde form-handler.js
     wp_localize_script('wpaa-script', 'wpaa_vars', [
         'webhook_url' => 'https://deoia.app.n8n.cloud/webhook-test/disponibilidad-citas',
@@ -154,7 +180,8 @@ function wpaa_enqueue_scripts() {
         'whatsapp_number' => get_option('aa_whatsapp_number', '5215522992290'), // 🔹 WhatsApp dinámico
         'business_name' => get_option('aa_business_name', 'Nuestro negocio'), // 🔹 Nombre del negocio
         'business_address' => get_option('aa_business_address', ''), // 🔹 Dirección
-        'is_virtual' => get_option('aa_is_virtual', 0) // 🔹 Si es virtual
+        'is_virtual' => get_option('aa_is_virtual', 0), // 🔹 Si es virtual
+        'nonce' => $nonce //🔹 Nonce para seguridad disuadir bots y spam
     ]);
 
     // 🔹 Configuración del admin exportada al frontend

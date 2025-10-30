@@ -33,6 +33,7 @@ function aa_enviar_confirmacion() {
         'fecha' => $data['fecha'] ?? '',
         'telefono' => $data['telefono'] ?? '',
         'email' => $data['correo'] ?? '',
+        'id_reserva' => $data['id_reserva'] ?? null,
         'businessName' => get_option('aa_business_name', 'Nuestro negocio'),
         'businessAddress' => get_option('aa_is_virtual', 0) == 1 
             ? 'Cita virtual' 
@@ -78,4 +79,28 @@ function aa_enviar_confirmacion() {
     }
 }
 
+// ✅ Endpoint para recibir confirmación desde el backend Node y actualizar la reserva en la tabla
+add_action('rest_api_init', function () {
+    register_rest_route('aa/v1', '/confirmar-reserva', [
+        'methods' => 'POST',
+        'callback' => 'aa_confirmar_reserva',
+        'permission_callback' => '__return_true',
+    ]);
+});
 
+function aa_confirmar_reserva(WP_REST_Request $request) {
+    global $wpdb;
+    $table = $wpdb->prefix . 'aa_reservas';
+    $id = intval($request['id_reserva']);
+
+    if (!$id) {
+        return new WP_REST_Response(['error' => 'id_reserva faltante'], 400);
+    }
+
+    $updated = $wpdb->update($table, ['estado' => 'confirmed'], ['id' => $id], ['%s'], ['%d']);
+    if ($updated === false) {
+        return new WP_REST_Response(['error' => 'Error al actualizar'], 500);
+    }
+
+    return new WP_REST_Response(['success' => true, 'id' => $id, 'estado' => 'confirmed'], 200);
+}
