@@ -13,6 +13,35 @@ add_action('admin_menu', function() {
     );
 });
 
+// 🔹 Submenú visible para el admin: Panel del Asistente
+add_action('admin_menu', function () {
+    // Si es administrador, agregar pestaña del asistente debajo del menú principal
+    if (current_user_can('administrator')) {
+        add_submenu_page(
+            'agenda-automatizada-settings',
+            'Panel del Asistente',
+            'Panel del Asistente',
+            'administrator',
+            'aa_asistant_panel',
+            'aa_render_asistant_panel'
+        );
+    }
+
+    // 🔹 Menú principal exclusivo para el rol aa_asistente
+    if (current_user_can('aa_asistente')) {
+        add_menu_page(
+            'Panel del Asistente',
+            'Panel del Asistente',
+            'read', // ✅ Cambiar de 'aa_asistente' a 'read' para que WordPress lo permita
+            'aa_asistant_panel',
+            'aa_render_asistant_panel',
+            'dashicons-calendar-alt',
+            30
+        );
+    }
+});
+
+
 // Registrar settings
 add_action('admin_init', function() {
     register_setting('agenda_automatizada_settings', 'aa_schedule');
@@ -234,6 +263,11 @@ function agenda_automatizada_render_settings_page() {
 
             <?php submit_button(); ?>
         </form>
+
+        <!-- 🔹 Sección de gestión de asistentes -->
+        <hr style="margin: 40px 0;">
+        <?php aa_render_asistentes_section(); ?>
+
     </div>
     <?php
 }
@@ -263,3 +297,123 @@ add_action('admin_post_aa_disconnect_google', function() {
     wp_redirect(admin_url('admin.php?page=agenda-automatizada-settings'));
     exit;
 });
+
+
+// creacion de asistentes 
+// ------------------------------------------------
+// --------------------------------
+
+// 🔹 Sección para gestión de asistentes
+function aa_render_asistentes_section() {
+    if (!current_user_can('administrator')) return;
+
+    if (isset($_POST['aa_crear_asistente'])) {
+        // Verificar nonce de seguridad
+        check_admin_referer('aa_crear_asistente_nonce');
+
+        $nombre = sanitize_text_field($_POST['aa_nombre']);
+        $email = sanitize_email($_POST['aa_email']);
+        $password = sanitize_text_field($_POST['aa_password']);
+
+        // Crear usuario de WordPress
+        $user_id = wp_create_user($email, $password, $email);
+        if (!is_wp_error($user_id)) {
+            wp_update_user([
+                'ID' => $user_id,
+                'display_name' => $nombre,
+                'role' => 'aa_asistente'
+            ]);
+
+            // Enviar correo de bienvenida
+            $subject = 'Acceso a tu panel de asistente';
+            $message = "Hola $nombre,\n\n".
+                       "Se te ha creado una cuenta para acceder al panel de asistente.\n\n".
+                       "Usuario: $email\n".
+                       "Contraseña: $password\n".
+                       "Accede aquí: " . wp_login_url() . "\n\n".
+                       "Por seguridad, cambia tu contraseña al iniciar sesión.";
+            wp_mail($email, $subject, $message);
+
+            echo '<div class="updated"><p>✅ Asistente creado y notificado por correo.</p></div>';
+        } else {
+            echo '<div class="error"><p>❌ Error: '.$user_id->get_error_message().'</p></div>';
+        }
+    }
+
+    if (isset($_POST['aa_inhabilitar_asistente'])) {
+        // Verificar nonce de seguridad
+        check_admin_referer('aa_inhabilitar_asistente_nonce');
+
+        $id = intval($_POST['aa_user_id']);
+        if ($id) {
+            wp_update_user(['ID' => $id, 'role' => '']); // sin rol = inhabilitado
+            echo '<div class="updated"><p>✅ Asistente inhabilitado correctamente.</p></div>';
+        }
+    }
+
+    // Obtener lista de asistentes
+    $asistentes = get_users(['role' => 'aa_asistente']);
+    ?>
+    
+    <h2>👥 Gestión de Asistentes</h2>
+    
+    <h3>Crear nuevo asistente</h3>
+    <form method="post" style="background: #fff; padding: 20px; border: 1px solid #ccc; border-radius: 4px; max-width: 600px;">
+        <?php wp_nonce_field('aa_crear_asistente_nonce'); ?>
+        <table class="form-table">
+            <tr>
+                <th scope="row"><label for="aa_nombre">Nombre completo</label></th>
+                <td><input type="text" id="aa_nombre" name="aa_nombre" required style="width: 100%;"></td>
+            </tr>
+            <tr>
+                <th scope="row"><label for="aa_email">Correo electrónico</label></th>
+                <td><input type="email" id="aa_email" name="aa_email" required style="width: 100%;"></td>
+            </tr>
+            <tr>
+                <th scope="row"><label for="aa_password">Contraseña</label></th>
+                <td>
+                    <input type="text" id="aa_password" name="aa_password" required style="width: 100%;">
+                    <p class="description">El asistente recibirá esta contraseña por correo.</p>
+                </td>
+            </tr>
+        </table>
+        <p class="submit">
+            <input type="submit" name="aa_crear_asistente" class="button button-primary" value="Crear Asistente">
+        </p>
+    </form>
+
+    <h3 style="margin-top: 40px;">Asistentes activos</h3>
+    <?php if (empty($asistentes)): ?>
+        <p>No hay asistentes registrados.</p>
+    <?php else: ?>
+        <table class="widefat" style="max-width: 800px;">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Correo</th>
+                    <th>Fecha de creación</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($asistentes as $user): ?>
+                    <tr>
+                        <td><?php echo esc_html($user->display_name); ?></td>
+                        <td><?php echo esc_html($user->user_email); ?></td>
+                        <td><?php echo esc_html(date('Y-m-d H:i', strtotime($user->user_registered))); ?></td>
+                        <td>
+                            <form method="post" style="display:inline;">
+                                <?php wp_nonce_field('aa_inhabilitar_asistente_nonce'); ?>
+                                <input type="hidden" name="aa_user_id" value="<?php echo esc_attr($user->ID); ?>">
+                                <input type="submit" name="aa_inhabilitar_asistente" class="button" value="Inhabilitar" 
+                                       onclick="return confirm('¿Estás seguro de inhabilitar este asistente?');">
+                            </form>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php endif; ?>
+    
+    <?php
+}

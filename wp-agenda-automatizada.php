@@ -253,6 +253,11 @@ add_shortcode('agenda_automatizada', 'wpaa_render_form');
 // ===============================
 require_once plugin_dir_path(__FILE__) . 'admin-controls.php';
 
+require_once plugin_dir_path(__FILE__) . 'asistant-controls.php';
+
+// 🔹 Incluir módulo de gestión de usuarios asistentes
+require_once plugin_dir_path(__FILE__) . 'asistant-user.php';
+
 // Proxy hacia backend (consulta disponibilidad Google Calendar)
 require_once plugin_dir_path(__FILE__) . 'availability-proxy.php';
 
