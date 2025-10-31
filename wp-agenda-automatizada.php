@@ -20,6 +20,9 @@ if (strpos($site_url, 'localhost') !== false || strpos($site_url, '127.0.0.1') !
 // 🔹 Incluir helper de autenticación
 require_once plugin_dir_path(__FILE__) . 'includes/auth-helper.php';
 
+// 🔹 Incluir módulo de gestión de clientes
+require_once plugin_dir_path(__FILE__) . 'clientes.php';
+
 // Crear tabla para reservas al activar el plugin
 // ================================
 // 🔹 Endpoint AJAX: Guardar cita desde el frontend
@@ -68,13 +71,17 @@ function aa_save_reservation() {
     $telefono = sanitize_text_field($data['telefono']);
     $correo   = sanitize_email($data['correo']);
 
+    // 🔹 Buscar o crear cliente (función modularizada)
+    $cliente_id = aa_get_or_create_cliente($nombre, $telefono, $correo);
+
     // ✅ Inserción en la tabla
     $result = $wpdb->insert($table, [
         'servicio'   => $servicio,
-        'fecha'      => $fecha, // 🔹 Ahora en zona horaria local
+        'fecha'      => $fecha,
         'nombre'     => $nombre,
         'telefono'   => $telefono,
         'correo'     => $correo,
+        'id_cliente' => $cliente_id, // 🔹 Relación con tabla de clientes
         'estado'     => 'pending',
         'created_at' => current_time('mysql')
     ]);
@@ -96,15 +103,16 @@ function aa_save_reservation() {
         wp_send_json_error(['message' => 'Reserva guardada pero ID no disponible.']);
     }
 
-    error_log("✅ Reserva guardada correctamente con ID: $reserva_id");
+    error_log("✅ Reserva guardada correctamente con ID: $reserva_id (Cliente: $cliente_id)");
     
     wp_send_json_success([
         'message' => 'Reserva almacenada correctamente.',
-        'id' => $reserva_id // 🔹 Retornar el ID en la respuesta
+        'id' => $reserva_id,
+        'cliente_id' => $cliente_id
     ]);
 }
 
-// Crear tabla al activar el plugin
+// 🔹 Crear tablas al activar el plugin
 register_activation_hook(__FILE__, function() {
     global $wpdb;
     $table = $wpdb->prefix . 'aa_reservas';
@@ -124,8 +132,11 @@ register_activation_hook(__FILE__, function() {
 
     require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
     dbDelta($sql);
+    
+    // 🔹 Crear tabla de clientes y agregar columna id_cliente
+    aa_create_clientes_table();
+    aa_add_cliente_column_to_reservas();
 });
-
 
 // ===============================
 // 🟢 FRONTEND: Formularios y estilos
@@ -277,12 +288,30 @@ add_action('admin_enqueue_scripts', function($hook) {
             filemtime(plugin_dir_path(__FILE__) . 'js/admin-schedule.js'),
             true
         );
-         wp_enqueue_script(
+        wp_enqueue_script(
             'aa-admin-controls',
             plugin_dir_url(__FILE__) . 'js/admin-controls.js',
-            [], // sin dependencias por ahora
+            [],
             filemtime(plugin_dir_path(__FILE__) . 'js/admin-controls.js'),
             true
         );
+    }
+    
+    // 🔹 Encolar script del panel del asistente
+    if ($hook === 'toplevel_page_aa_asistant_panel' || $hook === 'agenda-automatizada_page_aa_asistant_panel') {
+        wp_enqueue_script(
+            'aa-asistant-controls',
+            plugin_dir_url(__FILE__) . 'js/asistant-controls.js',
+            [],
+            filemtime(plugin_dir_path(__FILE__) . 'js/asistant-controls.js'),
+            true
+        );
+        
+        // 🔹 Pasar nonces al JavaScript
+        wp_localize_script('aa-asistant-controls', 'aa_asistant_vars', [
+            'nonce_confirmar' => wp_create_nonce('aa_confirmar_cita'),
+            'nonce_cancelar' => wp_create_nonce('aa_cancelar_cita'),
+            'nonce_crear_cliente' => wp_create_nonce('aa_crear_cliente'), // 🔹 Nuevo nonce
+        ]);
     }
 });
