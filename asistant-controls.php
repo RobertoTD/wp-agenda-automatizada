@@ -31,6 +31,8 @@ function aa_render_asistant_panel() {
         .aa-btn-agendar-cita:hover { background: #229954; }
         .aa-btn-cancelar-cita-form { background: #95a5a6; color: white; border: none; padding: 12px 25px; cursor: pointer; border-radius: 4px; margin-left: 10px; font-size: 15px; }
         .aa-btn-cancelar-cita-form:hover { background: #7f8c8d; }
+        .aa-btn-crear-cliente-desde-cita { background: #9b59b6; color: white; border: none; padding: 5px 12px; cursor: pointer; border-radius: 3px; font-size: 12px; }
+        .aa-btn-crear-cliente-desde-cita:hover { background: #8e44ad; }
     </style>';
     
     echo '<button class="aa-btn-nueva-cita" id="btn-toggle-form-nueva-cita">+ Crear nueva cita</button>';
@@ -154,6 +156,17 @@ function aa_render_asistant_panel() {
                         data-nombre="' . esc_attr($reserva->nombre) . '" 
                         data-correo="' . esc_attr($reserva->correo) . '">
                     ✕ Cancelar
+                </button> ';
+            }
+            
+            // 🔹 Botón "+ CLIENTE" (solo si id_cliente es NULL)
+            if (empty($reserva->id_cliente)) {
+                echo '<button class="aa-btn-crear-cliente-desde-cita" 
+                        data-reserva-id="' . $reserva->id . '" 
+                        data-nombre="' . esc_attr($reserva->nombre) . '" 
+                        data-telefono="' . esc_attr($reserva->telefono) . '" 
+                        data-correo="' . esc_attr($reserva->correo) . '">
+                    + Cliente
                 </button>';
             }
             
@@ -205,9 +218,21 @@ function aa_render_asistant_panel() {
     $clientes = aa_get_all_clientes(20);
     
     if ($clientes) {
+        echo '<style>
+            .aa-btn-editar-cliente { background: #3498db; color: white; border: none; padding: 5px 12px; cursor: pointer; border-radius: 3px; font-size: 12px; }
+            .aa-btn-editar-cliente:hover { background: #2980b9; }
+            .aa-modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; }
+            .aa-modal-overlay.visible { display: flex; align-items: center; justify-content: center; }
+            .aa-modal-content { background: white; padding: 30px; border-radius: 8px; max-width: 500px; width: 90%; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+            .aa-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+            .aa-modal-header h3 { margin: 0; }
+            .aa-modal-close { background: transparent; border: none; font-size: 24px; cursor: pointer; color: #666; }
+            .aa-modal-close:hover { color: #333; }
+        </style>';
+        
         echo '<h3 style="margin-top: 30px;">Lista de clientes</h3>';
         echo '<table class="widefat">';
-        echo '<thead><tr><th>Nombre</th><th>Teléfono</th><th>Correo</th><th>Fecha de registro</th><th>Total de citas</th></tr></thead>';
+        echo '<thead><tr><th>Nombre</th><th>Teléfono</th><th>Correo</th><th>Fecha de registro</th><th>Total de citas</th><th>Acciones</th></tr></thead>';
         echo '<tbody>';
         
         foreach ($clientes as $cliente) {
@@ -219,10 +244,51 @@ function aa_render_asistant_panel() {
             echo '<td>' . esc_html($cliente->correo) . '</td>';
             echo '<td>' . esc_html(date('d/m/Y', strtotime($cliente->created_at))) . '</td>';
             echo '<td>' . $total_citas . '</td>';
+            echo '<td>';
+            echo '<button class="aa-btn-editar-cliente" 
+                    data-id="' . $cliente->id . '"
+                    data-nombre="' . esc_attr($cliente->nombre) . '"
+                    data-telefono="' . esc_attr($cliente->telefono) . '"
+                    data-correo="' . esc_attr($cliente->correo) . '">
+                ✏️ Editar
+            </button>';
+            echo '</td>';
             echo '</tr>';
         }
         
         echo '</tbody></table>';
+        
+        // 🔹 Modal para editar cliente
+        echo '<div class="aa-modal-overlay" id="modal-editar-cliente">';
+        echo '<div class="aa-modal-content">';
+        echo '<div class="aa-modal-header">';
+        echo '<h3>✏️ Editar Cliente</h3>';
+        echo '<button class="aa-modal-close" id="btn-cerrar-modal">&times;</button>';
+        echo '</div>';
+        echo '<form id="form-editar-cliente">';
+        echo '<input type="hidden" id="editar-cliente-id" name="cliente_id">';
+        
+        echo '<div class="aa-form-group">';
+        echo '<label for="editar-cliente-nombre">Nombre completo *</label>';
+        echo '<input type="text" id="editar-cliente-nombre" name="nombre" required>';
+        echo '</div>';
+        
+        echo '<div class="aa-form-group">';
+        echo '<label for="editar-cliente-telefono">Teléfono *</label>';
+        echo '<input type="tel" id="editar-cliente-telefono" name="telefono" required>';
+        echo '</div>';
+        
+        echo '<div class="aa-form-group">';
+        echo '<label for="editar-cliente-correo">Correo electrónico *</label>';
+        echo '<input type="email" id="editar-cliente-correo" name="correo" required>';
+        echo '</div>';
+        
+        echo '<button type="submit" class="aa-btn-guardar-cliente">💾 Guardar Cambios</button>';
+        echo '<button type="button" class="aa-btn-cancelar-form" id="btn-cancelar-edicion">Cancelar</button>';
+        echo '</form>';
+        echo '</div>';
+        echo '</div>';
+        
     } else {
         echo '<p>No hay clientes registrados.</p>';
     }
@@ -326,4 +392,119 @@ function aa_ajax_crear_cliente() {
     } else {
         wp_send_json_error(['message' => 'Error al guardar el cliente.']);
     }
+}
+
+// ===============================
+// 🔹 AJAX: Crear cliente desde cita
+// ===============================
+add_action('wp_ajax_aa_crear_cliente_desde_cita', 'aa_ajax_crear_cliente_desde_cita');
+function aa_ajax_crear_cliente_desde_cita() {
+    check_ajax_referer('aa_crear_cliente_desde_cita');
+    
+    if (!current_user_can('aa_view_panel') && !current_user_can('administrator')) {
+        wp_send_json_error(['message' => 'No tienes permisos.']);
+    }
+    
+    $reserva_id = intval($_POST['reserva_id']);
+    $nombre = sanitize_text_field($_POST['nombre']);
+    $telefono = sanitize_text_field($_POST['telefono']);
+    $correo = sanitize_email($_POST['correo']);
+    
+    if (!$reserva_id || empty($nombre) || empty($telefono) || empty($correo)) {
+        wp_send_json_error(['message' => 'Datos incompletos.']);
+    }
+    
+    // 🔹 Crear o buscar cliente
+    $cliente_id = aa_get_or_create_cliente($nombre, $telefono, $correo);
+    
+    if (!$cliente_id) {
+        wp_send_json_error(['message' => 'Error al crear el cliente.']);
+    }
+    
+    // 🔹 Actualizar la reserva con el id_cliente
+    global $wpdb;
+    $table = $wpdb->prefix . 'aa_reservas';
+    
+    $updated = $wpdb->update(
+        $table,
+        ['id_cliente' => $cliente_id],
+        ['id' => $reserva_id]
+    );
+    
+    if ($updated === false) {
+        wp_send_json_error(['message' => 'Error al vincular cliente con la cita.']);
+    }
+    
+    wp_send_json_success([
+        'message' => 'Cliente creado y vinculado correctamente.',
+        'cliente_id' => $cliente_id
+    ]);
+}
+
+// ===============================
+// 🔹 AJAX: Editar cliente
+// ===============================
+add_action('wp_ajax_aa_editar_cliente', 'aa_ajax_editar_cliente');
+function aa_ajax_editar_cliente() {
+    check_ajax_referer('aa_editar_cliente');
+    
+    if (!current_user_can('aa_view_panel') && !current_user_can('administrator')) {
+        wp_send_json_error(['message' => 'No tienes permisos.']);
+    }
+    
+    $cliente_id = intval($_POST['cliente_id']);
+    $nombre = sanitize_text_field($_POST['nombre']);
+    $telefono = sanitize_text_field($_POST['telefono']);
+    $correo = sanitize_email($_POST['correo']);
+    
+    if (!$cliente_id || empty($nombre) || empty($telefono) || empty($correo)) {
+        wp_send_json_error(['message' => 'Todos los campos son obligatorios.']);
+    }
+    
+    global $wpdb;
+    $table = $wpdb->prefix . 'aa_clientes';
+    
+    // 🔹 Verificar si el nuevo correo ya existe en otro cliente
+    $correo_existente = $wpdb->get_var($wpdb->prepare(
+        "SELECT id FROM $table WHERE correo = %s AND id != %d LIMIT 1",
+        $correo,
+        $cliente_id
+    ));
+    
+    if ($correo_existente) {
+        wp_send_json_error(['message' => 'El correo electrónico ya está registrado en otro cliente.']);
+    }
+    
+    // 🔹 Actualizar cliente
+    $updated = $wpdb->update(
+        $table,
+        [
+            'nombre' => $nombre,
+            'telefono' => $telefono,
+            'correo' => $correo,
+            'updated_at' => current_time('mysql')
+        ],
+        ['id' => $cliente_id]
+    );
+    
+    if ($updated === false) {
+        wp_send_json_error(['message' => 'Error al actualizar el cliente.']);
+    }
+    
+    // 🔹 Actualizar también las reservas asociadas (opcional pero recomendado)
+    $table_reservas = $wpdb->prefix . 'aa_reservas';
+    $wpdb->update(
+        $table_reservas,
+        [
+            'nombre' => $nombre,
+            'telefono' => $telefono,
+            'correo' => $correo
+        ],
+        ['id_cliente' => $cliente_id]
+    );
+    
+    wp_send_json_success([
+        'message' => 'Cliente actualizado correctamente.',
+        'cliente_id' => $cliente_id
+    ]);
 }

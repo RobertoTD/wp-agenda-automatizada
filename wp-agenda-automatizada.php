@@ -347,7 +347,9 @@ add_action('admin_enqueue_scripts', function($hook) {
             'nonce_confirmar' => wp_create_nonce('aa_confirmar_cita'),
             'nonce_cancelar' => wp_create_nonce('aa_cancelar_cita'),
             'nonce_crear_cliente' => wp_create_nonce('aa_crear_cliente'),
-            'nonce_crear_cita' => wp_create_nonce('aa_reservation_nonce'), // 🔹 Reutilizar nonce existente
+            'nonce_crear_cita' => wp_create_nonce('aa_reservation_nonce'),
+            'nonce_crear_cliente_desde_cita' => wp_create_nonce('aa_crear_cliente_desde_cita'),
+            'nonce_editar_cliente' => wp_create_nonce('aa_editar_cliente'), // 🔹 Nuevo nonce
         ]);
     }
 });

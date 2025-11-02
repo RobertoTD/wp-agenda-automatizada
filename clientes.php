@@ -52,35 +52,33 @@ function aa_add_cliente_column_to_reservas() {
 }
 
 // ===============================
-// 🔹 Buscar o crear cliente
+// 🔹 Buscar o crear cliente (SOLO por correo)
 // ===============================
 function aa_get_or_create_cliente($nombre, $telefono, $correo) {
     global $wpdb;
     $table = $wpdb->prefix . 'aa_clientes';
     
-    // Buscar cliente existente por correo o teléfono
+    // ✅ Buscar cliente existente ÚNICAMENTE por correo
     $cliente = $wpdb->get_row($wpdb->prepare(
-        "SELECT id FROM $table WHERE correo = %s OR telefono = %s LIMIT 1",
-        $correo,
-        $telefono
+        "SELECT id FROM $table WHERE correo = %s LIMIT 1",
+        $correo
     ));
     
     if ($cliente) {
-        // Cliente existe, actualizar datos
+        // ✅ Cliente existe, actualizar datos (por si cambió nombre o teléfono)
         $wpdb->update(
             $table,
             [
                 'nombre' => $nombre,
                 'telefono' => $telefono,
-                'correo' => $correo,
                 'updated_at' => current_time('mysql')
             ],
             ['id' => $cliente->id]
         );
-        error_log("✅ Cliente existente actualizado ID: {$cliente->id}");
+        error_log("✅ Cliente existente actualizado ID: {$cliente->id} (correo: $correo)");
         return $cliente->id;
     } else {
-        // Crear nuevo cliente
+        // ✅ Crear nuevo cliente
         $wpdb->insert($table, [
             'nombre' => $nombre,
             'telefono' => $telefono,
@@ -88,7 +86,7 @@ function aa_get_or_create_cliente($nombre, $telefono, $correo) {
             'created_at' => current_time('mysql')
         ]);
         $nuevo_id = $wpdb->insert_id;
-        error_log("✅ Nuevo cliente creado ID: $nuevo_id");
+        error_log("✅ Nuevo cliente creado ID: $nuevo_id (correo: $correo)");
         return $nuevo_id;
     }
 }
