@@ -299,6 +299,41 @@ add_action('admin_enqueue_scripts', function($hook) {
     
     // 🔹 Encolar script del panel del asistente
     if ($hook === 'toplevel_page_aa_asistant_panel' || $hook === 'agenda-automatizada_page_aa_asistant_panel') {
+        // 🔹 Encolar Flatpickr
+        wp_enqueue_style('flatpickr-css-admin', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css', [], null);
+        wp_enqueue_script('flatpickr-js-admin', 'https://cdn.jsdelivr.net/npm/flatpickr', [], null, true);
+        wp_enqueue_script('flatpickr-locale-es-admin', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js', ['flatpickr-js-admin'], null, true);
+        
+        // 🔹 Encolar horariosapartados.js para disponibilidad
+        wp_enqueue_script(
+            'horariosapartados-admin',
+            plugin_dir_url(__FILE__) . 'js/horariosapartados.js',
+            ['flatpickr-js-admin'],
+            filemtime(plugin_dir_path(__FILE__) . 'js/horariosapartados.js'),
+            true
+        );
+        
+        // 🔹 Pasar variables de backend al admin
+        $email = sanitize_email(get_option('aa_google_email', ''));
+        wp_localize_script('horariosapartados-admin', 'aa_backend', [
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'action'   => 'aa_get_availability',
+            'email'    => $email
+        ]);
+        
+        // 🔹 Exportar configuración de horarios
+        wp_localize_script('horariosapartados-admin', 'aa_schedule', get_option('aa_schedule', []));
+        wp_localize_script('horariosapartados-admin', 'aa_future_window', get_option('aa_future_window', 15));
+        
+        // 🔹 Encolar form-handler-admin.js
+        wp_enqueue_script(
+            'aa-form-handler-admin',
+            plugin_dir_url(__FILE__) . 'js/form-handler-admin.js',
+            ['horariosapartados-admin', 'flatpickr-js-admin'],
+            filemtime(plugin_dir_path(__FILE__) . 'js/form-handler-admin.js'),
+            true
+        );
+        
         wp_enqueue_script(
             'aa-asistant-controls',
             plugin_dir_url(__FILE__) . 'js/asistant-controls.js',
@@ -311,7 +346,8 @@ add_action('admin_enqueue_scripts', function($hook) {
         wp_localize_script('aa-asistant-controls', 'aa_asistant_vars', [
             'nonce_confirmar' => wp_create_nonce('aa_confirmar_cita'),
             'nonce_cancelar' => wp_create_nonce('aa_cancelar_cita'),
-            'nonce_crear_cliente' => wp_create_nonce('aa_crear_cliente'), // 🔹 Nuevo nonce
+            'nonce_crear_cliente' => wp_create_nonce('aa_crear_cliente'),
+            'nonce_crear_cita' => wp_create_nonce('aa_reservation_nonce'), // 🔹 Reutilizar nonce existente
         ]);
     }
 });

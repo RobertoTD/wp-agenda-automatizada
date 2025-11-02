@@ -14,7 +14,81 @@ function aa_render_asistant_panel() {
     echo '<p>Bienvenido, <strong>' . esc_html($user->display_name) . '</strong>.</p>';
     echo '<p>Aquí se mostrarán las citas, clientes, confirmaciones y reportes.</p>';
 
+    // ===============================
+    // 🔹 FORMULARIO DE NUEVA CITA
+    // ===============================
+    echo '<style>
+        .aa-btn-nueva-cita { background: #3498db; color: white; border: none; padding: 10px 20px; cursor: pointer; border-radius: 4px; margin-bottom: 20px; font-size: 14px; }
+        .aa-btn-nueva-cita:hover { background: #2980b9; }
+        .aa-form-nueva-cita { display: none; background: #f9f9f9; padding: 25px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 25px; max-width: 600px; }
+        .aa-form-nueva-cita.visible { display: block; }
+        .aa-form-cita-group { margin-bottom: 20px; }
+        .aa-form-cita-group label { display: block; font-weight: bold; margin-bottom: 8px; color: #333; }
+        .aa-form-cita-group select,
+        .aa-form-cita-group input[type="text"] { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+        .aa-form-cita-group #slot-container-admin { margin-top: 10px; }
+        .aa-btn-agendar-cita { background: #27ae60; color: white; border: none; padding: 12px 25px; cursor: pointer; border-radius: 4px; font-size: 15px; }
+        .aa-btn-agendar-cita:hover { background: #229954; }
+        .aa-btn-cancelar-cita-form { background: #95a5a6; color: white; border: none; padding: 12px 25px; cursor: pointer; border-radius: 4px; margin-left: 10px; font-size: 15px; }
+        .aa-btn-cancelar-cita-form:hover { background: #7f8c8d; }
+    </style>';
+    
+    echo '<button class="aa-btn-nueva-cita" id="btn-toggle-form-nueva-cita">+ Crear nueva cita</button>';
+    
+    echo '<div class="aa-form-nueva-cita" id="form-nueva-cita">';
+    echo '<h3>📅 Nueva Cita</h3>';
+    echo '<form id="form-crear-cita-admin">';
+    
+    // 🔹 Campo de Cliente (select con búsqueda)
+    echo '<div class="aa-form-cita-group">';
+    echo '<label for="cita-cliente">Cliente *</label>';
+    echo '<select id="cita-cliente" name="cliente_id" required>';
+    echo '<option value="">-- Selecciona un cliente --</option>';
+    
+    $clientes = aa_get_all_clientes(200); // Obtener todos los clientes
+    foreach ($clientes as $cliente) {
+        echo '<option value="' . esc_attr($cliente->id) . '" 
+                data-nombre="' . esc_attr($cliente->nombre) . '"
+                data-telefono="' . esc_attr($cliente->telefono) . '"
+                data-correo="' . esc_attr($cliente->correo) . '">';
+        echo esc_html($cliente->nombre) . ' (' . esc_html($cliente->telefono) . ')';
+        echo '</option>';
+    }
+    echo '</select>';
+    echo '</div>';
+    
+    // 🔹 Campo de Motivo/Servicio
+    echo '<div class="aa-form-cita-group">';
+    echo '<label for="cita-servicio">Motivo de la cita *</label>';
+    echo '<select id="cita-servicio" name="servicio" required>';
+    
+    $motivos_json = get_option('aa_google_motivo', json_encode(['Cita general']));
+    $motivos = json_decode($motivos_json, true);
+    
+    if (is_array($motivos) && !empty($motivos)) {
+        foreach ($motivos as $motivo) {
+            echo '<option value="' . esc_attr($motivo) . '">' . esc_html($motivo) . '</option>';
+        }
+    } else {
+        echo '<option value="Cita general">Cita general</option>';
+    }
+    echo '</select>';
+    echo '</div>';
+    
+    // 🔹 Campo de Fecha
+    echo '<div class="aa-form-cita-group">';
+    echo '<label for="cita-fecha">Fecha y hora *</label>';
+    echo '<input type="text" id="cita-fecha" name="fecha" required readonly>';
+    echo '<div id="slot-container-admin"></div>';
+    echo '</div>';
+    
+    echo '<button type="submit" class="aa-btn-agendar-cita">✓ Agendar Cita</button>';
+    echo '<button type="button" class="aa-btn-cancelar-cita-form" id="btn-cancelar-cita-form">Cancelar</button>';
+    echo '</form>';
+    echo '</div>';
+
     // 🔹 Obtener citas futuras solamente (no las que ya pasaron)
+    echo '<h2>Próximas citas</h2>';
     global $wpdb;
     $table = $wpdb->prefix . 'aa_reservas';
     $now = current_time('mysql'); // Hora actual de WordPress
@@ -25,7 +99,6 @@ function aa_render_asistant_panel() {
     ));
 
     if ($reservas) {
-        echo '<h2>Próximas citas</h2>';
         echo '<style>
             .aa-btn-confirmar { background: #2ecc71; color: white; border: none; padding: 5px 12px; cursor: pointer; border-radius: 3px; }
             .aa-btn-confirmar:hover { background: #27ae60; }
