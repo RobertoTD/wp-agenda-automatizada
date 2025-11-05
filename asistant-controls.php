@@ -239,6 +239,37 @@ function aa_render_asistant_panel() {
         echo '<p>No hay clientes registrados.</p>';
     }
 
+    // ===============================
+    // 🔹 HISTORIAL DE CITAS
+    // ===============================
+    echo '<hr style="margin: 40px 0;">';
+    echo '<h2>📅 Historial de Citas</h2>';
+    
+    // Filtros de búsqueda
+    echo '<div class="aa-historial-filtros">';
+    
+    echo '<input type="text" id="aa-buscar-historial" placeholder="Buscar por nombre, teléfono o correo...">';
+    
+    echo '<select id="aa-ordenar-historial">';
+    echo '<option value="fecha_desc">Más recientes primero</option>';
+    echo '<option value="fecha_asc">Más antiguas primero</option>';
+    echo '<option value="cliente_asc">Cliente (A-Z)</option>';
+    echo '<option value="cliente_desc">Cliente (Z-A)</option>';
+    echo '</select>';
+    
+    echo '<button id="aa-btn-buscar-historial" class="aa-btn-nuevo-cliente">🔍 Buscar</button>';
+    echo '<button id="aa-btn-limpiar-historial" class="aa-btn-cancelar-form">✕ Limpiar</button>';
+    
+    echo '</div>';
+    
+    // Tabla de resultados
+    echo '<div id="aa-historial-container">';
+    echo '<p style="text-align: center; color: #999;">Cargando historial...</p>';
+    echo '</div>';
+    
+    // Paginación
+    echo '<div class="aa-paginacion" id="aa-historial-paginacion"></div>';
+
     echo '</div>';
 }
 

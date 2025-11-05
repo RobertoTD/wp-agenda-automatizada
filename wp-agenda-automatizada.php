@@ -269,6 +269,9 @@ require_once plugin_dir_path(__FILE__) . 'asistant-controls.php';
 // 🔹 Incluir módulo de gestión de usuarios asistentes
 require_once plugin_dir_path(__FILE__) . 'asistant-user.php';
 
+// 🔹 Incluir módulo de historial de citas
+require_once plugin_dir_path(__FILE__) . 'historial-citas.php';
+
 // Proxy hacia backend (consulta disponibilidad Google Calendar)
 require_once plugin_dir_path(__FILE__) . 'availability-proxy.php';
 
@@ -342,6 +345,15 @@ add_action('admin_enqueue_scripts', function($hook) {
             true
         );
         
+        // 🔹 Encolar historial de citas
+        wp_enqueue_script(
+            'aa-historial-citas',
+            plugin_dir_url(__FILE__) . 'js/historial-citas.js',
+            [],
+            filemtime(plugin_dir_path(__FILE__) . 'js/historial-citas.js'),
+            true
+        );
+        
         // 🔹 Pasar nonces al JavaScript
         wp_localize_script('aa-asistant-controls', 'aa_asistant_vars', [
             'nonce_confirmar' => wp_create_nonce('aa_confirmar_cita'),
@@ -349,7 +361,12 @@ add_action('admin_enqueue_scripts', function($hook) {
             'nonce_crear_cliente' => wp_create_nonce('aa_crear_cliente'),
             'nonce_crear_cita' => wp_create_nonce('aa_reservation_nonce'),
             'nonce_crear_cliente_desde_cita' => wp_create_nonce('aa_crear_cliente_desde_cita'),
-            'nonce_editar_cliente' => wp_create_nonce('aa_editar_cliente'), // 🔹 Nuevo nonce
+            'nonce_editar_cliente' => wp_create_nonce('aa_editar_cliente'),
+        ]);
+        
+        // 🔹 Nonce para historial
+        wp_localize_script('aa-historial-citas', 'aa_historial_vars', [
+            'nonce' => wp_create_nonce('aa_historial_citas'),
         ]);
     }
 });

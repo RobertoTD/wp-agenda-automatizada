@@ -344,3 +344,132 @@
 .aa-modal-close:hover {
     color: #333;
 }
+
+/* ===============================
+   🔹 HISTORIAL DE CITAS
+   =============================== */
+
+.aa-historial-filtros {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+#aa-buscar-historial {
+    flex: 1;
+    min-width: 250px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+#aa-ordenar-historial {
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    background: white;
+}
+
+#aa-historial-container {
+    margin-bottom: 20px;
+}
+
+/* Botón Asistió */
+.aa-btn-asistio {
+    background: #2ecc71;
+    color: white;
+    border: none;
+    padding: 5px 12px;
+    cursor: pointer;
+    border-radius: 3px;
+    font-size: 12px;
+    transition: background 0.3s;
+}
+
+.aa-btn-asistio:hover {
+    background: #27ae60;
+}
+
+/* Estado "asistió" */
+.aa-estado-asistio {
+    color: #2ecc71;
+    font-weight: bold;
+}
+
+/* Botón No Asistió */
+.aa-btn-no-asistio {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 5px 12px;
+    cursor: pointer;
+    border-radius: 3px;
+    font-size: 12px;
+    transition: background 0.3s;
+}
+
+.aa-btn-no-asistio:hover {
+    background: #c0392b;
+}
+
+/* Estado "no asistió" */
+.aa-estado-no-asistio {
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+/* Paginación */
+.aa-paginacion {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.aa-paginacion-botones {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+.aa-btn-paginacion {
+    background: #3498db;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    cursor: pointer;
+    border-radius: 3px;
+    font-size: 13px;
+    transition: background 0.3s;
+}
+
+.aa-btn-paginacion:hover {
+    background: #2980b9;
+}
+
+.aa-pagina-actual {
+    background: #2c3e50;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 3px;
+    font-weight: bold;
+    font-size: 13px;
+}
+
+.aa-paginacion-botones span:not(.aa-pagina-actual) {
+    padding: 8px 5px;
+    color: #999;
+}
+
+@media (max-width: 768px) {
+    .aa-historial-filtros {
+        flex-direction: column;
+    }
+    
+    #aa-buscar-historial {
+        width: 100%;
+    }
+}
