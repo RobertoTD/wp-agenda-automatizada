@@ -126,8 +126,10 @@ register_activation_hook(__FILE__, function() {
         telefono varchar(50) NOT NULL,
         correo varchar(255),
         estado varchar(50) DEFAULT 'pending',
+        calendar_uid varchar(255) DEFAULT NULL,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY  (id)
+        PRIMARY KEY  (id),
+        KEY calendar_uid (calendar_uid)
     ) $charset;";
 
     require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
@@ -136,7 +138,34 @@ register_activation_hook(__FILE__, function() {
     // 🔹 Crear tabla de clientes y agregar columna id_cliente
     aa_create_clientes_table();
     aa_add_cliente_column_to_reservas();
+    
+    // 🔹 Agregar columna calendar_uid si no existe (para instalaciones existentes)
+    aa_add_calendar_uid_column();
 });
+
+// ===============================
+// 🔹 Función para agregar columna calendar_uid a instalaciones existentes
+// ===============================
+function aa_add_calendar_uid_column() {
+    global $wpdb;
+    $table = $wpdb->prefix . 'aa_reservas';
+    
+    // Verificar si la columna ya existe
+    $column_exists = $wpdb->get_results(
+        $wpdb->prepare(
+            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = 'calendar_uid'",
+            DB_NAME,
+            $table
+        )
+    );
+    
+    if (empty($column_exists)) {
+        $wpdb->query("ALTER TABLE $table ADD COLUMN calendar_uid varchar(255) DEFAULT NULL AFTER estado");
+        $wpdb->query("ALTER TABLE $table ADD INDEX idx_calendar_uid (calendar_uid)");
+        error_log("✅ Columna calendar_uid agregada a aa_reservas");
+    }
+}
 
 // ===============================
 // 🟢 FRONTEND: Formularios y estilos

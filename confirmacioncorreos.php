@@ -7,73 +7,67 @@ add_action('wp_ajax_aa_enviar_confirmacion', 'aa_enviar_confirmacion');
 
 function aa_enviar_confirmacion() {
     error_log("🔥 AJAX aa_enviar_confirmacion activado");
+    
+    // 🔹 Decodificar JSON del body
+    $raw_input = file_get_contents('php://input');
+    $datos = json_decode($raw_input, true);
 
-    $data = json_decode(file_get_contents('php://input'), true);
-
-    if (!$data) {
-        wp_send_json_error(['message' => 'No se recibió JSON válido.']);
+    if (!$datos) {
+        wp_send_json_error(['message' => 'JSON inválido o vacío']);
+        return;
     }
+    
+    error_log("📤 JSON COMPLETO QUE SE ENVÍA AL BACKEND:");
+    error_log(json_encode($datos, JSON_PRETTY_PRINT));
 
     // 🔹 Extraer dominio limpio
     $site_url = get_site_url();
     $parsed_url = parse_url($site_url);
-    $host = $parsed_url['host'] ?? '';
-    
-    if (stripos($host, 'localhost') !== false || $host === '127.0.0.1') {
-        $domain = 'localhost';
-    } else {
-        $domain = preg_replace('/^www\./', '', $host);
-    }
+    $host = $parsed_url['host'] ?? 'localhost';
+    $domain = preg_replace('/^www\./', '', $host);
 
-    // 🔹 Reorganizar datos para el backend
+    error_log("🧩 Dominio detectado: $domain");
+
+    // 🔹 Reorganizar datos para enviar al backend
     $backend_data = [
         'domain' => $domain,
-        'nombre' => $data['nombre'] ?? '',
-        'servicio' => $data['servicio'] ?? '',
-        'fecha' => $data['fecha'] ?? '',
-        'telefono' => $data['telefono'] ?? '',
-        'email' => $data['correo'] ?? '',
-        'id_reserva' => $data['id_reserva'] ?? null,
-        'businessName' => get_option('aa_business_name', 'Nuestro negocio'),
-        'businessAddress' => get_option('aa_is_virtual', 0) == 1 
-            ? 'Cita virtual' 
-            : get_option('aa_business_address', 'No especificada'),
-        'whatsapp' => get_option('aa_whatsapp_number', '')
+        'nombre' => $datos['nombre'] ?? '',
+        'servicio' => $datos['servicio'] ?? '',
+        'fecha' => $datos['fecha'] ?? '',
+        'telefono' => $datos['telefono'] ?? '',
+        'email' => $datos['correo'] ?? '',
+        'id_reserva' => $datos['id_reserva'] ?? null,
+        'businessName' => get_option('aa_google_business_name', 'Nuestro negocio'),
+        'businessAddress' => get_option('aa_google_business_address', 'No especificada'),
+        'whatsapp' => get_option('aa_google_whatsapp', ''),
     ];
 
-    error_log("🧩 Dominio detectado: " . $domain);
     error_log("📦 Datos reorganizados para backend:");
     error_log(print_r($backend_data, true));
 
-    // 🔹 Usar helper de autenticación
-    $backend_url = AA_API_BASE_URL . "/correo/confirmacion";
+    // 🔹 Determinar URL del backend según entorno
+    // ✅ CORREGIDO: /correos/confirmacion (con "s")
+    $backend_url = (strpos($site_url, 'localhost') !== false)
+        ? 'http://localhost:3000/correos/confirmacion'
+        : 'https://deoia-oauth-backend.onrender.com/correos/confirmacion';
+
+    // 🔹 Enviar petición autenticada con HMAC
     $response = aa_send_authenticated_request($backend_url, 'POST', $backend_data);
 
-    // 🔹 Validar respuesta
     if (is_wp_error($response)) {
-        $error_message = $response->get_error_message();
-        error_log("❌ Error al contactar backend: " . $error_message);
-        wp_send_json_error(['message' => 'Error al contactar el backend', 'error' => $error_message]);
+        error_log("❌ Error al contactar backend: " . $response->get_error_message());
+        wp_send_json_error(['message' => 'Error de conexión con el backend', 'error' => $response->get_error_message()]);
+        return;
     }
 
+    $status = wp_remote_retrieve_response_code($response);
     $body = wp_remote_retrieve_body($response);
-    $status_code = wp_remote_retrieve_response_code($response);
     $decoded = json_decode($body, true);
-    
-    error_log("📥 Respuesta del backend (status $status_code): " . print_r($decoded, true));
 
-    // 🔹 Manejar errores de autenticación
-    if ($status_code === 401 || $status_code === 403) {
-        error_log("🔒 Error de autenticación: " . ($decoded['error'] ?? 'Sin detalles'));
-        wp_send_json_error([
-            'message' => 'Error de autenticación con el backend',
-            'error' => $decoded['error'] ?? 'Unauthorized',
-            'hint' => 'Verifica que el client_secret esté configurado correctamente'
-        ]);
-    }
+    error_log("📥 Respuesta del backend (status $status): " . print_r($decoded, true));
 
-    if (isset($decoded['success']) && $decoded['success'] === true) {
-        wp_send_json_success(['message' => 'Correo de confirmación enviado', 'backend_response' => $decoded]);
+    if ($status >= 200 && $status < 300 && isset($decoded['success']) && $decoded['success']) {
+        wp_send_json_success(['message' => 'Correos enviados correctamente', 'backend_response' => $decoded]);
     } else {
         wp_send_json_error(['message' => 'El backend respondió con error', 'backend_response' => $decoded]);
     }
@@ -97,10 +91,43 @@ function aa_confirmar_reserva(WP_REST_Request $request) {
         return new WP_REST_Response(['error' => 'id_reserva faltante'], 400);
     }
 
-    $updated = $wpdb->update($table, ['estado' => 'confirmed'], ['id' => $id], ['%s'], ['%d']);
+    // 🔹 Preparar datos a actualizar
+    $update_data = ['estado' => 'confirmed'];
+    $update_format = ['%s'];
+    
+    // 🔹 Si viene calendar_uid, también lo guardamos
+    $calendar_uid = sanitize_text_field($request['calendar_uid']);
+    if (!empty($calendar_uid)) {
+        $update_data['calendar_uid'] = $calendar_uid;
+        $update_format[] = '%s';
+        error_log("✅ calendar_uid recibido para reserva ID $id: $calendar_uid");
+    }
+
+    // 🔹 Actualizar registro
+    $updated = $wpdb->update(
+        $table,
+        $update_data,
+        ['id' => $id],
+        $update_format,
+        ['%d']
+    );
+    
     if ($updated === false) {
+        error_log("❌ Error al actualizar reserva ID $id: " . $wpdb->last_error);
         return new WP_REST_Response(['error' => 'Error al actualizar'], 500);
     }
 
-    return new WP_REST_Response(['success' => true, 'id' => $id, 'estado' => 'confirmed'], 200);
+    error_log("✅ Reserva ID $id actualizada: estado=confirmed" . (!empty($calendar_uid) ? ", calendar_uid=$calendar_uid" : ""));
+    
+    $response_data = [
+        'success' => true,
+        'id' => $id,
+        'estado' => 'confirmed'
+    ];
+    
+    if (!empty($calendar_uid)) {
+        $response_data['calendar_uid'] = $calendar_uid;
+    }
+
+    return new WP_REST_Response($response_data, 200);
 }

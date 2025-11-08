@@ -34,7 +34,13 @@ function aa_send_authenticated_request($endpoint, $method = 'POST', $data = []) 
     
     // 🔹 Preparar el body (vacío si es GET)
     // ✅ IMPORTANTE: JSON sin espacios para que coincida con el backend
-    $body = ($method === 'POST' && !empty($data)) ? json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : '';
+    $body = '';
+    if ($method === 'POST' && !empty($data)) {
+        $json = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        // Eliminar espacios después de : y ,
+        $body = preg_replace('/:\s+/', ':', $json);
+        $body = preg_replace('/,\s+/', ',', $body);
+    }
     
     // 🔹 Extraer path + query string
     $parsed = parse_url($endpoint);
@@ -77,7 +83,7 @@ function aa_send_authenticated_request($endpoint, $method = 'POST', $data = []) 
     error_log("   Method: $method");
     error_log("   Path: $path");
     error_log("   Body length: " . strlen($body));
-    error_log("   Body (primeros 100 chars): " . substr($body, 0, 100) . "...");
+    error_log("   Body compacto: " . $body);
     error_log("   Timestamp: $timestamp");
     error_log("   Message to sign: " . substr($message, 0, 200) . "...");
     error_log("   Signature: $signature");

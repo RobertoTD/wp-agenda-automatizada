@@ -232,10 +232,16 @@ function cancelarCita(id) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('✅ Cita cancelada. Se envió correo de notificación.');
+            let mensaje = '✅ Cita cancelada correctamente.';
+            
+            if (data.data.calendar_deleted) {
+                mensaje += '\n🗓️ El evento también fue eliminado de Google Calendar.';
+            }
+            
+            alert(mensaje);
             location.reload();
         } else {
-            alert('❌ Error: ' + (data.data.message || 'No se pudo cancelar la cita.'));
+            alert('❌ Error: ' + (data.data?.message || 'No se pudo cancelar la cita.'));
         }
     })
     .catch(err => {
