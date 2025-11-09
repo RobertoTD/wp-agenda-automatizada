@@ -50,10 +50,10 @@ add_action('admin_init', function() {
     register_setting('agenda_automatizada_settings', 'aa_google_email');
     register_setting('agenda_automatizada_settings', 'aa_google_motivo');
     register_setting('agenda_automatizada_settings', 'aa_timezone');
-    register_setting('agenda_automatizada_settings', 'aa_business_name'); // 🔹 Nombre del negocio
-    register_setting('agenda_automatizada_settings', 'aa_business_address'); // 🔹 Dirección física
-    register_setting('agenda_automatizada_settings', 'aa_is_virtual'); // 🔹 Citas virtuales
-    register_setting('agenda_automatizada_settings', 'aa_whatsapp_number'); // 🔹 WhatsApp
+    register_setting('agenda_automatizada_settings', 'aa_business_name');
+    register_setting('agenda_automatizada_settings', 'aa_business_address');
+    register_setting('agenda_automatizada_settings', 'aa_is_virtual');
+    register_setting('agenda_automatizada_settings', 'aa_whatsapp_number');
 });
 
 // Render de la página

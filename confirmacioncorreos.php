@@ -37,16 +37,16 @@ function aa_enviar_confirmacion() {
         'telefono' => $datos['telefono'] ?? '',
         'email' => $datos['correo'] ?? '',
         'id_reserva' => $datos['id_reserva'] ?? null,
-        'businessName' => get_option('aa_google_business_name', 'Nuestro negocio'),
-        'businessAddress' => get_option('aa_google_business_address', 'No especificada'),
-        'whatsapp' => get_option('aa_google_whatsapp', ''),
+        'businessName' => get_option('aa_business_name', 'Nuestro negocio'),
+        'businessAddress' => get_option('aa_business_address', 'No especificada'),
+        'whatsapp' => get_option('aa_whatsapp_number', ''),
+        'slot_duration' => intval(get_option('aa_slot_duration', 60)), // 🔹 Duración de la cita en minutos
     ];
 
     error_log("📦 Datos reorganizados para backend:");
     error_log(print_r($backend_data, true));
 
     // 🔹 Determinar URL del backend según entorno
-    // ✅ CORREGIDO: /correos/confirmacion (con "s")
     $backend_url = (strpos($site_url, 'localhost') !== false)
         ? 'http://localhost:3000/correos/confirmacion'
         : 'https://deoia-oauth-backend.onrender.com/correos/confirmacion';
