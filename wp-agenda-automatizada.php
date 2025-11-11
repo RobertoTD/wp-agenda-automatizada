@@ -167,6 +167,21 @@ function aa_add_calendar_uid_column() {
     }
 }
 
+// 🔹 Función helper para obtener la hora actual según aa_timezone
+function aa_get_current_datetime() {
+    $timezone_string = get_option('aa_timezone', 'America/Mexico_City');
+    
+    try {
+        $timezone = new DateTimeZone($timezone_string);
+        $now = new DateTime('now', $timezone);
+        return $now->format('Y-m-d H:i:s');
+    } catch (Exception $e) {
+        error_log("❌ Error al obtener zona horaria: " . $e->getMessage());
+        // Fallback a hora de WordPress
+        return current_time('mysql');
+    }
+}
+
 // ===============================
 // 🟢 FRONTEND: Formularios y estilos
 // ===============================
@@ -304,6 +319,9 @@ require_once plugin_dir_path(__FILE__) . 'asistant-user.php';
 // 🔹 Incluir módulo de historial de citas
 require_once plugin_dir_path(__FILE__) . 'historial-citas.php';
 
+// 🔹 Incluir módulo de próximas citas
+require_once plugin_dir_path(__FILE__) . 'proximas-citas.php';
+
 // Proxy hacia backend (consulta disponibilidad Google Calendar)
 require_once plugin_dir_path(__FILE__) . 'availability-proxy.php';
 
@@ -386,6 +404,15 @@ add_action('admin_enqueue_scripts', function($hook) {
             true
         );
         
+        // 🔹 Encolar próximas citas
+        wp_enqueue_script(
+            'aa-proximas-citas',
+            plugin_dir_url(__FILE__) . 'js/proximas-citas.js',
+            [],
+            filemtime(plugin_dir_path(__FILE__) . 'js/proximas-citas.js'),
+            true
+        );
+        
         // 🔹 Pasar nonces al JavaScript
         wp_localize_script('aa-asistant-controls', 'aa_asistant_vars', [
             'nonce_confirmar' => wp_create_nonce('aa_confirmar_cita'),
@@ -399,6 +426,11 @@ add_action('admin_enqueue_scripts', function($hook) {
         // 🔹 Nonce para historial
         wp_localize_script('aa-historial-citas', 'aa_historial_vars', [
             'nonce' => wp_create_nonce('aa_historial_citas'),
+        ]);
+        
+        // 🔹 Nonce para próximas citas
+        wp_localize_script('aa-proximas-citas', 'aa_proximas_vars', [
+            'nonce' => wp_create_nonce('aa_proximas_citas'),
         ]);
     }
 });

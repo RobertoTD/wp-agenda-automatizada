@@ -14,7 +14,14 @@ function aa_ajax_get_historial_citas() {
     
     global $wpdb;
     $table = $wpdb->prefix . 'aa_reservas';
-    $now = current_time('mysql');
+    
+    // 🔹 Obtener fecha y hora actual según aa_timezone
+    $now = aa_get_current_datetime();
+    
+    error_log("🕐 Hora actual para historial: $now");
+    
+    // 🔹 Obtener slot_duration para calcular fecha de fin
+    $slot_duration = intval(get_option('aa_slot_duration', 60));
     
     // 🔹 Parámetros de búsqueda
     $buscar = isset($_POST['buscar']) ? sanitize_text_field($_POST['buscar']) : '';
@@ -23,9 +30,12 @@ function aa_ajax_get_historial_citas() {
     $por_pagina = 5;
     $offset = ($pagina - 1) * $por_pagina;
     
-    // 🔹 Construcción de la consulta base (solo citas pasadas, sin filtro de estado)
-    $where = "WHERE fecha < %s";
-    $params = [$now];
+    // 🔹 Construcción de la consulta base
+    // Solo mostrar citas que YA TERMINARON (fecha + slot_duration < ahora)
+    $where = "WHERE DATE_ADD(fecha, INTERVAL %d MINUTE) < %s";
+    $params = [$slot_duration, $now];
+    
+    error_log("📋 Buscando citas que terminaron antes de: $now (duración: {$slot_duration} min)");
     
     // 🔹 Filtro de búsqueda
     if (!empty($buscar)) {
@@ -87,15 +97,20 @@ function aa_ajax_marcar_asistencia() {
     global $wpdb;
     $table = $wpdb->prefix . 'aa_reservas';
     
-    // 🔹 Verificar que la cita existe y es del pasado
+    // 🔹 Usar zona horaria configurada
+    $now = aa_get_current_datetime();
+    $slot_duration = intval(get_option('aa_slot_duration', 60));
+    
+    // 🔹 Verificar que la cita existe y YA TERMINÓ (fecha + duración < ahora)
     $cita = $wpdb->get_row($wpdb->prepare(
-        "SELECT * FROM $table WHERE id = %d AND fecha < %s",
+        "SELECT * FROM $table WHERE id = %d AND DATE_ADD(fecha, INTERVAL %d MINUTE) < %s",
         $cita_id,
-        current_time('mysql')
+        $slot_duration,
+        $now
     ));
     
     if (!$cita) {
-        wp_send_json_error(['message' => 'La cita no existe o aún no ha pasado.']);
+        wp_send_json_error(['message' => 'La cita no existe o aún no ha terminado.']);
     }
     
     // 🔹 Actualizar estado a "asistió"
@@ -137,15 +152,20 @@ function aa_ajax_marcar_no_asistencia() {
     global $wpdb;
     $table = $wpdb->prefix . 'aa_reservas';
     
-    // 🔹 Verificar que la cita existe y es del pasado
+    // 🔹 Usar zona horaria configurada
+    $now = aa_get_current_datetime();
+    $slot_duration = intval(get_option('aa_slot_duration', 60));
+    
+    // 🔹 Verificar que la cita existe y YA TERMINÓ (fecha + duración < ahora)
     $cita = $wpdb->get_row($wpdb->prepare(
-        "SELECT * FROM $table WHERE id = %d AND fecha < %s",
+        "SELECT * FROM $table WHERE id = %d AND DATE_ADD(fecha, INTERVAL %d MINUTE) < %s",
         $cita_id,
-        current_time('mysql')
+        $slot_duration,
+        $now
     ));
     
     if (!$cita) {
-        wp_send_json_error(['message' => 'La cita no existe o aún no ha pasado.']);
+        wp_send_json_error(['message' => 'La cita no existe o aún no ha terminado.']);
     }
     
     // 🔹 Actualizar estado a "no asistió"

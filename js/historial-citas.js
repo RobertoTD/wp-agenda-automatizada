@@ -81,7 +81,9 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        let html = '<table class="widefat">';
+        // 🔹 Wrapper para scroll horizontal
+        let html = '<div class="aa-table-wrapper">';
+        html += '<table class="widefat aa-table-scroll">';
         html += '<thead><tr><th>Cliente</th><th>Teléfono</th><th>Servicio</th><th>Fecha</th><th>Estado</th><th>Acciones</th></tr></thead>';
         html += '<tbody>';
         
@@ -143,6 +145,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         html += '</tbody></table>';
+        html += '</div>'; // Cerrar wrapper
         container.innerHTML = html;
         
         // 🔹 Asignar eventos a los botones "Asistió"

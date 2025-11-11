@@ -74,72 +74,36 @@ function aa_render_asistant_panel() {
     echo '</div>';
 
     // ===============================
-    // 🔹 TABLA DE PRÓXIMAS CITAS
+    // 🔹 TABLA DE PRÓXIMAS CITAS (MODULARIZADA CON AJAX)
     // ===============================
     echo '<h2>Próximas citas</h2>';
-    global $wpdb;
-    $table = $wpdb->prefix . 'aa_reservas';
-    $now = current_time('mysql');
     
-    $reservas = $wpdb->get_results($wpdb->prepare(
-        "SELECT * FROM $table WHERE fecha >= %s ORDER BY fecha ASC LIMIT 20",
-        $now
-    ));
-
-    if ($reservas) {
-        echo '<table class="widefat">';
-        echo '<thead><tr><th>Cliente</th><th>Teléfono</th><th>Servicio</th><th>Fecha</th><th>Estado</th><th>Acciones</th></tr></thead>';
-        echo '<tbody>';
-        
-        foreach ($reservas as $reserva) {
-            $estado_class = 'aa-estado-' . strtolower($reserva->estado);
-            $estado_texto = $reserva->estado === 'confirmed' ? 'Confirmada' : 
-                           ($reserva->estado === 'pending' ? 'Pendiente' : 'Cancelada');
-            
-            echo '<tr>';
-            echo '<td>' . esc_html($reserva->nombre) . '</td>';
-            echo '<td>' . esc_html($reserva->telefono) . '</td>';
-            echo '<td>' . esc_html($reserva->servicio) . '</td>';
-            echo '<td>' . esc_html(date('d/m/Y H:i', strtotime($reserva->fecha))) . '</td>';
-            echo '<td class="' . $estado_class . '">' . $estado_texto . '</td>';
-            echo '<td>';
-            
-            if ($reserva->estado === 'pending') {
-                echo '<button class="aa-btn-confirmar" 
-                        data-id="' . $reserva->id . '" 
-                        data-nombre="' . esc_attr($reserva->nombre) . '" 
-                        data-correo="' . esc_attr($reserva->correo) . '">
-                    ✓ Confirmar
-                </button> ';
-            }
-            
-            if ($reserva->estado === 'confirmed' || $reserva->estado === 'pending') {
-                echo '<button class="aa-btn-cancelar" 
-                        data-id="' . $reserva->id . '" 
-                        data-nombre="' . esc_attr($reserva->nombre) . '" 
-                        data-correo="' . esc_attr($reserva->correo) . '">
-                    ✕ Cancelar
-                </button> ';
-            }
-            
-            if (empty($reserva->id_cliente)) {
-                echo '<button class="aa-btn-crear-cliente-desde-cita" 
-                        data-reserva-id="' . $reserva->id . '" 
-                        data-nombre="' . esc_attr($reserva->nombre) . '" 
-                        data-telefono="' . esc_attr($reserva->telefono) . '" 
-                        data-correo="' . esc_attr($reserva->correo) . '">
-                    + Cliente
-                </button>';
-            }
-            
-            echo '</td>';
-            echo '</tr>';
-        }
-        
-        echo '</tbody></table>';
-    } else {
-        echo '<p>No hay citas próximas registradas.</p>';
-    }
+    // Filtros de búsqueda
+    echo '<div class="aa-historial-filtros">';
+    
+    echo '<input type="text" id="aa-buscar-proximas" placeholder="Buscar por nombre, teléfono, correo o servicio...">';
+    
+    echo '<select id="aa-ordenar-proximas">';
+    echo '<option value="fecha_asc">Más próximas primero</option>';
+    echo '<option value="fecha_desc">Más lejanas primero</option>';
+    echo '<option value="cliente_asc">Cliente (A-Z)</option>';
+    echo '<option value="cliente_desc">Cliente (Z-A)</option>';
+    echo '<option value="estado_asc">Estado (A-Z)</option>';
+    echo '<option value="estado_desc">Estado (Z-A)</option>';
+    echo '</select>';
+    
+    echo '<button id="aa-btn-buscar-proximas" class="aa-btn-nuevo-cliente">🔍 Buscar</button>';
+    echo '<button id="aa-btn-limpiar-proximas" class="aa-btn-cancelar-form">✕ Limpiar</button>';
+    
+    echo '</div>';
+    
+    // Tabla de resultados (cargada dinámicamente con AJAX)
+    echo '<div id="aa-proximas-container">';
+    echo '<p style="text-align: center; color: #999;">Cargando próximas citas...</p>';
+    echo '</div>';
+    
+    // Paginación
+    echo '<div class="aa-paginacion" id="aa-proximas-paginacion"></div>';
 
     // ===============================
     // 🔹 SECCIÓN DE CLIENTES
