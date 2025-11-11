@@ -132,6 +132,7 @@ function agenda_automatizada_render_settings_page() {
                         <select name="aa_slot_duration">
                             <option value="30" <?php selected(get_option('aa_slot_duration', 30), 30); ?>>30 minutos</option>
                             <option value="60" <?php selected(get_option('aa_slot_duration', 30), 60); ?>>60 minutos</option>
+                            <option value="90" <?php selected(get_option('aa_slot_duration', 30), 90); ?>>90 minutos</option>
                         </select>
                     </td>
                 </tr>
