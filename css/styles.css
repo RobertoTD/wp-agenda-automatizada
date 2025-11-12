@@ -437,149 +437,171 @@
 }
 
 /* ===============================
-   🔹 TABLAS RESPONSIVE CON SCROLL HORIZONTAL
+   🔹 TABLAS RESPONSIVE CON SCROLL HORIZONTAL (MEJORADO)
    =============================== */
 
-/* Contenedor wrapper para scroll horizontal */
+/* Wrapper para todas las tablas importantes */
 .aa-table-wrapper {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     margin-bottom: 20px;
     border: 1px solid #ddd;
     border-radius: 4px;
+    background: #fff;
 }
 
-.aa-table-wrapper::-webkit-scrollbar {
-    height: 8px;
-}
-
-.aa-table-wrapper::-webkit-scrollbar-thumb {
-    background: #ccc;
-    border-radius: 4px;
-}
-
-/* Tabla con columnas fijas a los extremos */
-.aa-table-scroll {
+/* Aplica a todas las tablas principales (incluye lista de clientes) */
+.aa-table-scroll,
+.aa-clientes-table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 600px; /* Ancho mínimo para forzar scroll */
+    min-width: 600px;
 }
 
-.aa-table-scroll thead tr {
+.aa-table-scroll thead tr,
+.aa-clientes-table thead tr {
     background: #f5f5f5;
 }
 
 .aa-table-scroll th,
-.aa-table-scroll td {
+.aa-table-scroll td,
+.aa-clientes-table th,
+.aa-clientes-table td {
     padding: 12px;
     text-align: left;
     border-bottom: 1px solid #ddd;
     white-space: nowrap;
+    border-left: none; /* 🔹 Quitar bordes laterales por defecto */
+    border-right: none;
 }
 
-/* Primera columna (Cliente) - Fija a la izquierda */
+/* Fijar primera y última columna en desktop, pero permitir apilar en móvil */
 .aa-table-scroll th:first-child,
-.aa-table-scroll td:first-child {
+.aa-table-scroll td:first-child,
+.aa-clientes-table th:first-child,
+.aa-clientes-table td:first-child {
     position: sticky;
     left: 0;
     background: white;
     z-index: 10;
     box-shadow: 2px 0 5px rgba(0,0,0,0.05);
-    min-width: 150px;
+    min-width: 140px;
+    max-width: 180px;
+    word-break: break-word;
+    border-left: 1px solid #ddd !important; /* 🔹 Forzar borde izquierdo solo en sticky */
 }
 
-.aa-table-scroll thead th:first-child {
+.aa-table-scroll thead th:first-child,
+.aa-clientes-table thead th:first-child {
     background: #f5f5f5;
 }
 
-/* Última columna (Acciones) - Fija a la derecha */
 .aa-table-scroll th:last-child,
-.aa-table-scroll td:last-child {
+.aa-table-scroll td:last-child,
+.aa-clientes-table th:last-child,
+.aa-clientes-table td:last-child {
     position: sticky;
     right: 0;
     background: white;
     z-index: 10;
     box-shadow: -2px 0 5px rgba(0,0,0,0.05);
-    min-width: 150px;
-    text-align: center;
-}
-
-.aa-table-scroll thead th:last-child {
-    background: #f5f5f5;
-}
-
-/* Columnas intermedias (scrollables) */
-.aa-table-scroll th:not(:first-child):not(:last-child),
-.aa-table-scroll td:not(:first-child):not(:last-child) {
     min-width: 120px;
+    max-width: 160px;
+    text-align: center;
+    word-break: break-word;
+    border-right: 1px solid #ddd !important; /* 🔹 Forzar borde derecho solo en sticky */
 }
 
-/* Ajustes responsive */
-@media (max-width: 768px) {
-    .aa-historial-filtros {
-        flex-wrap: nowrap; /* Mantener en línea */
-        justify-content: flex-start;
-    }
-    
-    #aa-buscar-historial,
-    #aa-buscar-proximas {
-        min-width: 150px; /* Reducir en móviles */
-        flex: 1;
-    }
-    
-    #aa-ordenar-historial,
-    #aa-ordenar-proximas {
-        min-width: 120px;
-    }
-    
-    /* Asegurar que las columnas fijas sean visibles */
-    .aa-table-scroll th:first-child,
-    .aa-table-scroll td:first-child {
-        min-width: 120px;
-    }
-    
-    .aa-table-scroll th:last-child,
-    .aa-table-scroll td:last-child {
-        min-width: 100px;
-    }
+.aa-table-scroll thead th:last-child,
+.aa-clientes-table thead th:last-child {
+    background: #f5f5f5;
+    border-right: 1px solid #ddd; /* 🔹 Agregar borde derecho al encabezado */
 }
 
-@media (max-width: 480px) {
-    #aa-buscar-historial,
-    #aa-buscar-proximas {
-        min-width: 120px;
+/* Columnas intermedias scrollables */
+.aa-table-scroll th:not(:first-child):not(:last-child),
+.aa-table-scroll td:not(:first-child):not(:last-child),
+.aa-clientes-table th:not(:first-child):not(:last-child),
+.aa-clientes-table td:not(:first-child):not(:last-child) {
+    min-width: 120px;
+    max-width: 220px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Responsive: apilar contenido de columnas fijas en móvil */
+@media (max-width: 600px) {
+    .aa-table-scroll th,
+    .aa-table-scroll td,
+    .aa-clientes-table th,
+    .aa-clientes-table td {
+        padding: 8px 6px;
         font-size: 13px;
+        border-left: none; /* 🔹 Asegurar sin bordes laterales por defecto */
+        border-right: none;
     }
-    
-    #aa-ordenar-historial,
-    #aa-ordenar-proximas {
-        min-width: 100px;
-        font-size: 13px;
-    }
-    
-    #aa-btn-buscar-historial,
-    #aa-btn-buscar-proximas,
-    #aa-btn-limpiar-historial,
-    #aa-btn-limpiar-proximas {
-        padding: 0 10px;
-        font-size: 12px;
-    }
-    
+
     .aa-table-scroll th:first-child,
-    .aa-table-scroll td:first-child {
-        min-width: 100px;
-        font-size: 13px;
-    }
-    
-    .aa-table-scroll th:last-child,
-    .aa-table-scroll td:last-child {
+    .aa-table-scroll td:first-child,
+    .aa-clientes-table th:first-child,
+    .aa-clientes-table td:first-child {
         min-width: 90px;
+        max-width: 110px;
+        font-size: 12px;
+        white-space: normal;
+        word-break: break-word;
+        padding-right: 6px;
+        border-left: 1px solid #ddd !important; /* 🔹 Forzar borde en móvil */
+    }
+
+    .aa-table-scroll th:last-child,
+    .aa-table-scroll td:last-child,
+    .aa-clientes-table th:last-child,
+    .aa-clientes-table td:last-child {
+        min-width: 90px;
+        max-width: 110px;
+        font-size: 12px;
+        white-space: normal;
+        word-break: break-word;
+        padding-right: 12px;
+        padding-left: 8px;
+        border-right: 1px solid #ddd !important; /* 🔹 Forzar borde en móvil */
+    }
+
+    /* Botones de acciones apilados SIN flex */
+    .aa-table-scroll td:last-child > *,
+    .aa-clientes-table td:last-child > * {
+        display: block;
+        margin-bottom: 4px;
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+    }
+    .aa-table-scroll td:last-child > *:last-child,
+    .aa-clientes-table td:last-child > *:last-child {
+        margin-bottom: 0;
+    }
+}
+
+/* Ajuste para que las columnas intermedias sean scrollables y no se compriman demasiado */
+@media (max-width: 600px) {
+    .aa-table-scroll th:not(:first-child):not(:last-child),
+    .aa-table-scroll td:not(:first-child):not(:last-child),
+    .aa-clientes-table th:not(:first-child):not(:last-child),
+    .aa-clientes-table td:not(:first-child):not(:last-child) {
+        min-width: 120px;
+        max-width: 180px;
         font-size: 12px;
     }
-    
-    .aa-table-scroll th:not(:first-child):not(:last-child),
-    .aa-table-scroll td:not(:first-child):not(:last-child) {
-        min-width: 100px;
-        font-size: 13px;
-    }
+}
+
+/* Wrapper para lista de clientes */
+.aa-clientes-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 20px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #fff;
 }

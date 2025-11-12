@@ -142,7 +142,10 @@ function aa_render_asistant_panel() {
     
     if ($clientes) {
         echo '<h3 style="margin-top: 30px;">Lista de clientes</h3>';
-        echo '<table class="widefat">';
+        
+        // 🔹 Wrapper para scroll horizontal
+        echo '<div class="aa-clientes-table-wrapper">';
+        echo '<table class="widefat aa-clientes-table">';
         echo '<thead><tr><th>Nombre</th><th>Teléfono</th><th>Correo</th><th>Fecha de registro</th><th>Total de citas</th><th>Acciones</th></tr></thead>';
         echo '<tbody>';
         
@@ -168,6 +171,7 @@ function aa_render_asistant_panel() {
         }
         
         echo '</tbody></table>';
+        echo '</div>'; // 🔹 Cerrar wrapper
         
         // Modal de edición
         echo '<div class="aa-modal-overlay" id="modal-editar-cliente">';
