@@ -233,19 +233,28 @@ function wpaa_enqueue_scripts() {
         true
     );
     
-    // 🔹 Marcar como módulo ES6
+    // 🔹 TERCERO: Encolar módulo UI del selector de slots (ES6 module)
+    wp_enqueue_script(
+        'wpaa-slot-selector-ui',
+        plugin_dir_url(__FILE__) . 'assets/js/ui/slotSelectorUI.js',
+        [],
+        filemtime(plugin_dir_path(__FILE__) . 'assets/js/ui/slotSelectorUI.js'),
+        true
+    );
+    
+    // 🔹 Marcar como módulos ES6
     add_filter('script_loader_tag', function($tag, $handle) {
-        if ('wpaa-calendar-ui' === $handle) {
+        if (in_array($handle, ['wpaa-calendar-ui', 'wpaa-slot-selector-ui'])) {
             return str_replace('<script ', '<script type="module" ', $tag);
         }
         return $tag;
     }, 10, 2);
 
-    // 🔹 TERCERO: JS del formulario (depende de dateUtils, calendarUI y flatpickr)
+    // 🔹 CUARTO: JS del formulario (depende de dateUtils, calendarUI, slotSelectorUI y flatpickr)
     wp_enqueue_script(
         'wpaa-script',
         plugin_dir_url(__FILE__) . 'js/form-handler.js',
-        ['jquery', 'flatpickr-js', 'wpaa-date-utils', 'wpaa-calendar-ui'],
+        ['jquery', 'flatpickr-js', 'wpaa-date-utils', 'wpaa-calendar-ui', 'wpaa-slot-selector-ui'],
         filemtime(plugin_dir_path(__FILE__) . 'js/form-handler.js'),
         true
     );

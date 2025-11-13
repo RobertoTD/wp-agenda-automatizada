@@ -19,48 +19,6 @@ document.addEventListener('DOMContentLoaded', function () {
     console.error('❌ CalendarUI no está cargado');
   }
 
-  // Crea un <select> con los horarios disponibles del día seleccionado
-  function renderAvailableSlots(containerId, validSlots, onSelectSlot) {
-    const container = document.getElementById(containerId);
-    container.innerHTML = ''; // limpiar
-
-    if (!validSlots.length) {
-      container.textContent = 'No hay horarios disponibles para este día.';
-      return;
-    }
-
-    const label = document.createElement('label');
-    label.textContent = 'Horarios disponibles:';
-    label.style.display = 'block';
-    label.style.marginTop = '8px';
-
-    const select = document.createElement('select');
-    select.id = 'slot-selector';
-    select.style.marginTop = '4px';
-    select.style.width = '100%';
-    select.style.padding = '4px';
-
-    validSlots.forEach(date => {
-      const option = document.createElement('option');
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      
-      // 🔹 Usar toISOString() que siempre genera UTC
-      // El backend lo convertirá a la zona horaria correcta
-      option.value = date.toISOString();
-      option.textContent = `${hours}:${minutes}`;
-      select.appendChild(option);
-    });
-
-    select.addEventListener('change', () => {
-      const chosen = new Date(select.value);
-      onSelectSlot(chosen);
-    });
-
-    container.appendChild(label);
-    container.appendChild(select);
-  }
-
   // ==============================
   // 🔹 Cuando llega la disponibilidad
   // ==============================
@@ -135,12 +93,14 @@ document.addEventListener('DOMContentLoaded', function () {
           const validSlots = generateSlotsForDay(selectedDate, intervals, busyRanges);
           pickerInstance.validSlots = validSlots;
           
-          // 🔹 Renderiza la lista debajo del calendario
-          renderAvailableSlots('slot-container', validSlots, chosen => {
-            // cuando el usuario elige un horario de la lista
-            selectedSlotISO = chosen.toISOString();
-            fechaInput.value = `${selectedDate.toLocaleDateString()} ${chosen.getHours().toString().padStart(2,'0')}:${chosen.getMinutes().toString().padStart(2,'0')}`;
-          });
+          // 🔹 Renderiza la lista debajo del calendario usando SlotSelectorUI
+          if (typeof window.SlotSelectorUI !== 'undefined') {
+            window.SlotSelectorUI.renderAvailableSlots('slot-container', validSlots, chosen => {
+              // cuando el usuario elige un horario de la lista
+              selectedSlotISO = chosen.toISOString();
+              fechaInput.value = `${selectedDate.toLocaleDateString()} ${chosen.getHours().toString().padStart(2,'0')}:${chosen.getMinutes().toString().padStart(2,'0')}`;
+            });
+          }
           
           // 🔹 Establecer el primer slot como predeterminado
           if (validSlots.length > 0) {
