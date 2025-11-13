@@ -215,11 +215,20 @@ function wpaa_enqueue_scripts() {
     wp_enqueue_script('flatpickr-js', 'https://cdn.jsdelivr.net/npm/flatpickr', ['jquery'], null, true);
     wp_enqueue_script('flatpickr-es', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js', ['flatpickr-js'], null, true);
 
-    // JS del formulario (con versión dinámica para evitar caché)
+    // 🔹 PRIMERO: Encolar utilidades de fecha (sin dependencias, scope global)
+    wp_enqueue_script(
+        'wpaa-date-utils',
+        plugin_dir_url(__FILE__) . 'assets/js/utils/dateUtils.js',
+        [],
+        filemtime(plugin_dir_path(__FILE__) . 'assets/js/utils/dateUtils.js'),
+        true
+    );
+
+    // 🔹 SEGUNDO: JS del formulario (depende de dateUtils y flatpickr)
     wp_enqueue_script(
         'wpaa-script',
         plugin_dir_url(__FILE__) . 'js/form-handler.js',
-        ['jquery', 'flatpickr-js'],
+        ['jquery', 'flatpickr-js', 'wpaa-date-utils'],
         filemtime(plugin_dir_path(__FILE__) . 'js/form-handler.js'),
         true
     );

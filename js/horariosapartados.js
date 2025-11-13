@@ -1,4 +1,4 @@
-// ...existing code...
+
 document.addEventListener("DOMContentLoaded", () => {
   // 🔹 Buscar el input de fecha (frontend o admin)
   const fechaInput = document.getElementById("fecha") || document.getElementById("cita-fecha");
