@@ -1,0 +1,82 @@
+{
+  // ─────────────────────────────────────────────
+  // WORDPRESS / PHP / PLUGIN DEVELOPMENT
+  // ─────────────────────────────────────────────
+
+  "php.validate.enable": true,
+  "php.validate.executablePath": "C:\\xampp3\\php\\php.exe",
+
+  // Intelephense Optimized
+  "intelephense.enable": true,
+  "intelephense.environment.phpVersion": "8.2",
+  "intelephense.files.maxSize": 5000000,
+  "intelephense.telemetry.enabled": false,
+
+  "intelephense.stubs": [
+    "apache", "Core", "curl", "date", "dom", "fileinfo", "filter",
+    "gd", "hash", "iconv", "json", "libxml", "mbstring", "mysqli",
+    "openssl", "pcre", "PDO", "pdo_mysql", "pdo_pgsql", "pgsql",
+    "Phar", "posix", "Reflection", "session", "SimpleXML",
+    "sockets", "sodium", "SPL", "standard", "tokenizer", "xml",
+    "xmlreader", "xmlwriter", "zlib", "wordpress", "woocommerce"
+  ],
+
+  "intelephense.files.exclude": [
+    "**/vendor/**",
+    "**/node_modules/**",
+    "**/.git/**",
+    "**/.cache/**",
+    "**/.history/**"
+  ],
+
+  // Disable JS/TS analysis in this project to avoid conflicts
+  "eslint.enable": false,
+  "typescript.validate.enable": false,
+  "javascript.validate.enable": false,
+
+  // File Exclusions to reduce load
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/vendor": true,
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/.cache": true,
+    "**/.history": true
+  },
+
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/vendor": true,
+    "**/.cache": true,
+    "**/.history": true
+  },
+
+  // Editor preferences
+  "editor.defaultFormatter": "bmewburn.vscode-intelephense-client",
+  "editor.formatOnSave": true,
+  "editor.tabSize": 4,
+  "editor.insertSpaces": false,
+
+  // Copilot optimized to avoid noise from JS
+  "github.copilot.enable": {
+    "*": true,
+    "php": true,
+    "css": true,
+    "html": true,
+    "javascript": true,  // Cambiar de false a true si usas JS en el plugin
+    "typescript": false
+  },
+
+  "files.associations": {
+    "*.php": "php",
+    "*.inc": "php",
+    "*.module": "php"
+  },
+
+  // Format rules per-language
+  "[php]": {
+    "editor.defaultFormatter": "bmewburn.vscode-intelephense-client",
+    "editor.formatOnSave": true,
+    "editor.tabSize": 4
+  }
+}

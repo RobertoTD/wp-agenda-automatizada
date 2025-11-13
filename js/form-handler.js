@@ -38,8 +38,12 @@ document.addEventListener('DOMContentLoaded', function () {
   // devuelve el nombre del día en inglés en minúsculas
   function getWeekdayName(date) {
     const days = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
-    return days[date.getDay()];
+    // 🔹 Usar getDay() directamente - ya está en zona horaria local correcta
+    const dayIndex = date.getDay();
+    console.log(`🗓️ Debug getWeekdayName: ${date.toDateString()} -> día ${dayIndex} (${days[dayIndex]})`);
+    return days[dayIndex];
   }
+  
   // convierte el formato "HH:MM" a minutos desde medianoche ejemplo: "14:30" => 870
   function timeStrToMinutes(str) {
     const [h, m] = str.split(':').map(Number);
@@ -130,10 +134,6 @@ document.addEventListener('DOMContentLoaded', function () {
     container.appendChild(select);
   }
 
-  
-
- 
-
   // ==============================
   // 🔹 Cuando llega la disponibilidad
   // ==============================
@@ -148,16 +148,19 @@ document.addEventListener('DOMContentLoaded', function () {
       ? window.aa_availability.busy
       : [];
 
-    const busyRanges = busy.map(ev => ({
-      start: new Date(ev.start),
-      end: new Date(ev.end)
-    }));
+    // 🔹 Convertir todas las fechas ocupadas a objetos Date locales
+    const busyRanges = busy.map(ev => {
+      return {
+        start: new Date(ev.start),
+        end: new Date(ev.end)
+      };
+    });
 
     const minDate = new Date();
     const maxDate = new Date();
     maxDate.setDate(minDate.getDate() + Number(aa_future_window));
 
-    // Precalcular número de slots por día para deshabilitar días “vacíos”
+    // Precalcular número de slots por día para deshabilitar días "vacíos"
     const availableSlotsPerDay = {};
     let totalIntervals = 0;
     let totalBusy = busyRanges.length;
@@ -172,6 +175,12 @@ document.addEventListener('DOMContentLoaded', function () {
       const slots = generateSlotsForDay(day, intervals, busyRanges);
       
       availableSlotsPerDay[ymd(day)] = slots.length;
+      
+      // 🔹 Debug: mostrar slots calculados para cada día
+      if (slots.length > 0) {
+        console.log(`📅 ${ymd(day)} (${weekday}): ${slots.length} slots disponibles`, 
+          slots.map(s => s.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })));
+      }
     }
 
     function isDateAvailable(date) {
@@ -276,8 +285,6 @@ document.addEventListener('DOMContentLoaded', function () {
         body: JSON.stringify(datos)
       });
 
-      
-
       if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
 
       const data = await response.json();
@@ -298,11 +305,9 @@ document.addEventListener('DOMContentLoaded', function () {
         console.warn('⚠️ No se recibió ID de reserva en la respuesta del backend.');
       }
 
-
       // 🔹 Enviar confirmación por correo (sin bloquear el flujo)
       console.log("📦 Datos que se envían al backend:", datos);
 
-      // 🔹 Enviar confirmación por correo (sin bloquear el flujo)
       fetch(wpaa_vars.ajax_url + '?action=aa_enviar_confirmacion', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
