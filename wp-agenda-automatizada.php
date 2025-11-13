@@ -224,11 +224,28 @@ function wpaa_enqueue_scripts() {
         true
     );
 
-    // 🔹 SEGUNDO: JS del formulario (depende de dateUtils y flatpickr)
+    // 🔹 SEGUNDO: Encolar módulo UI del calendario (ES6 module con wrapper incluido)
+    wp_enqueue_script(
+        'wpaa-calendar-ui',
+        plugin_dir_url(__FILE__) . 'assets/js/ui/calendarUI.js',
+        ['flatpickr-js'],
+        filemtime(plugin_dir_path(__FILE__) . 'assets/js/ui/calendarUI.js'),
+        true
+    );
+    
+    // 🔹 Marcar como módulo ES6
+    add_filter('script_loader_tag', function($tag, $handle) {
+        if ('wpaa-calendar-ui' === $handle) {
+            return str_replace('<script ', '<script type="module" ', $tag);
+        }
+        return $tag;
+    }, 10, 2);
+
+    // 🔹 TERCERO: JS del formulario (depende de dateUtils, calendarUI y flatpickr)
     wp_enqueue_script(
         'wpaa-script',
         plugin_dir_url(__FILE__) . 'js/form-handler.js',
-        ['jquery', 'flatpickr-js', 'wpaa-date-utils'],
+        ['jquery', 'flatpickr-js', 'wpaa-date-utils', 'wpaa-calendar-ui'],
         filemtime(plugin_dir_path(__FILE__) . 'js/form-handler.js'),
         true
     );
@@ -241,11 +258,11 @@ function wpaa_enqueue_scripts() {
         'ajax_url' => admin_url('admin-ajax.php'),
         'timezone' => $timezone,
         'locale' => $locale,
-        'whatsapp_number' => get_option('aa_whatsapp_number', '5215522992290'), // 🔹 WhatsApp dinámico
-        'business_name' => get_option('aa_business_name', 'Nuestro negocio'), // 🔹 Nombre del negocio
-        'business_address' => get_option('aa_business_address', ''), // 🔹 Dirección
-        'is_virtual' => get_option('aa_is_virtual', 0), // 🔹 Si es virtual
-        'nonce' => $nonce //🔹 Nonce para seguridad disuadir bots y spam
+        'whatsapp_number' => get_option('aa_whatsapp_number', '5215522992290'),
+        'business_name' => get_option('aa_business_name', 'Nuestro negocio'),
+        'business_address' => get_option('aa_business_address', ''),
+        'is_virtual' => get_option('aa_is_virtual', 0),
+        'nonce' => $nonce
     ]);
 
     // 🔹 Configuración del admin exportada al frontend
@@ -366,11 +383,20 @@ add_action('admin_enqueue_scripts', function($hook) {
         wp_enqueue_script('flatpickr-js-admin', 'https://cdn.jsdelivr.net/npm/flatpickr', [], null, true);
         wp_enqueue_script('flatpickr-locale-es-admin', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js', ['flatpickr-js-admin'], null, true);
         
+        // 🔹 PRIMERO: Encolar utilidades de fecha para admin
+        wp_enqueue_script(
+            'wpaa-date-utils-admin',
+            plugin_dir_url(__FILE__) . 'assets/js/utils/dateUtils.js',
+            [],
+            filemtime(plugin_dir_path(__FILE__) . 'assets/js/utils/dateUtils.js'),
+            true
+        );
+        
         // 🔹 Encolar horariosapartados.js para disponibilidad
         wp_enqueue_script(
             'horariosapartados-admin',
             plugin_dir_url(__FILE__) . 'js/horariosapartados.js',
-            ['flatpickr-js-admin'],
+            ['flatpickr-js-admin', 'wpaa-date-utils-admin'],
             filemtime(plugin_dir_path(__FILE__) . 'js/horariosapartados.js'),
             true
         );
@@ -387,11 +413,11 @@ add_action('admin_enqueue_scripts', function($hook) {
         wp_localize_script('horariosapartados-admin', 'aa_schedule', get_option('aa_schedule', []));
         wp_localize_script('horariosapartados-admin', 'aa_future_window', get_option('aa_future_window', 15));
         
-        // 🔹 Encolar form-handler-admin.js
+        // 🔹 Encolar form-handler-admin.js (depende de dateUtils)
         wp_enqueue_script(
             'aa-form-handler-admin',
             plugin_dir_url(__FILE__) . 'js/form-handler-admin.js',
-            ['horariosapartados-admin', 'flatpickr-js-admin'],
+            ['horariosapartados-admin', 'flatpickr-js-admin', 'wpaa-date-utils-admin'],
             filemtime(plugin_dir_path(__FILE__) . 'js/form-handler-admin.js'),
             true
         );

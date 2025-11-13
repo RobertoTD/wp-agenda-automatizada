@@ -2,7 +2,7 @@
 document.addEventListener('DOMContentLoaded', function () {
   const form = document.getElementById('agenda-form');
 
-    // ✅ Añadir campo honeypot invisible anti-bot
+  // ✅ Añadir campo honeypot invisible anti-bot
   const honeypot = document.createElement('input');
   honeypot.type = 'text';
   honeypot.name = 'extra_field';
@@ -12,20 +12,11 @@ document.addEventListener('DOMContentLoaded', function () {
   // ==============================
   // 🔹 Flatpickr inicial básico
   // ==============================
-  if (typeof flatpickr !== "undefined" && typeof flatpickr.l10ns !== "undefined") {
-    flatpickr.localize(flatpickr.l10ns.es);
-    flatpickr("#fecha", {
-      disableMobile: true,
-      dateFormat: "d-m-Y",
-      minDate: "today",
-      locale: "es",
-      maxDate: new Date().fp_incr(14),
-      onReady: function () {
-        console.log("📅 Flatpickr inicializado correctamente (modo básico).");
-      }
-    });
+  // Usar la función modular del UI
+  if (typeof window.CalendarUI !== 'undefined') {
+    window.CalendarUI.initBasicCalendar("#fecha");
   } else {
-    console.error('❌ Flatpickr no está cargado correctamente.');
+    console.error('❌ CalendarUI no está cargado');
   }
 
   // Crea un <select> con los horarios disponibles del día seleccionado
@@ -128,44 +119,41 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // ==============================
-    // 🔹 Flatpickr con reglas reales
+    // 🔹 Flatpickr con reglas reales usando UI modular
     // ==============================
-    if (fechaInput._flatpickr) fechaInput._flatpickr.destroy();
+    let selectedSlotISO = null;
 
-    let lastYMD = null;
-    let selectedSlotISO = null; // 🔹 Nueva variable para guardar el slot elegido
+    if (typeof window.CalendarUI !== 'undefined') {
+      window.CalendarUI.rebuildCalendar({
+        fechaInput: fechaInput,
+        minDate: minDate,
+        maxDate: maxDate,
+        disableDateCallback: disableDate,
+        onDateSelected: (selectedDate, pickerInstance) => {
+          const weekday = getWeekdayName(selectedDate);
+          const intervals = getDayIntervals(aa_schedule, weekday);
+          const validSlots = generateSlotsForDay(selectedDate, intervals, busyRanges);
+          pickerInstance.validSlots = validSlots;
+          
+          // 🔹 Renderiza la lista debajo del calendario
+          renderAvailableSlots('slot-container', validSlots, chosen => {
+            // cuando el usuario elige un horario de la lista
+            selectedSlotISO = chosen.toISOString();
+            fechaInput.value = `${selectedDate.toLocaleDateString()} ${chosen.getHours().toString().padStart(2,'0')}:${chosen.getMinutes().toString().padStart(2,'0')}`;
+          });
+          
+          // 🔹 Establecer el primer slot como predeterminado
+          if (validSlots.length > 0) {
+            const firstSlot = validSlots[0];
+            selectedSlotISO = firstSlot.toISOString();
+            fechaInput.value = `${selectedDate.toLocaleDateString()} ${firstSlot.getHours().toString().padStart(2,'0')}:${firstSlot.getMinutes().toString().padStart(2,'0')}`;
+          }
 
-    const picker = flatpickr(fechaInput, {
-      disableMobile: true,
-      dateFormat: "d-m-Y",
-      minDate: minDate,
-      maxDate: maxDate,
-      locale: "es",
-      disable: [disableDate],
-       onChange: function(selectedDates) {
-      if (!selectedDates.length) return;
-      const sel = selectedDates[0];
-      const weekday = getWeekdayName(sel);
-      const intervals = getDayIntervals(aa_schedule, weekday);
-      const validSlots = generateSlotsForDay(sel, intervals, busyRanges);
-      this.validSlots = validSlots;
-     
-       // 🔹 Renderiza la lista debajo del calendario
-    renderAvailableSlots('slot-container', validSlots, chosen => {
-      // cuando el usuario elige un horario de la lista
-      selectedSlotISO = chosen.toISOString(); // 🔹 Guardar hora completa elegida
-      fechaInput.value = `${sel.toLocaleDateString()} ${chosen.getHours().toString().padStart(2,'0')}:${chosen.getMinutes().toString().padStart(2,'0')}`;
-       });
-       
-       // 🔹 Establecer el primer slot como predeterminado
-       if (validSlots.length > 0) {
-         const firstSlot = validSlots[0];
-         selectedSlotISO = firstSlot.toISOString();
-         fechaInput.value = `${sel.toLocaleDateString()} ${firstSlot.getHours().toString().padStart(2,'0')}:${firstSlot.getMinutes().toString().padStart(2,'0')}`;
-       }
-      }
+          return { selectedSlotISO };
+        }
+      });
+    }
 
-    });
     console.log(`📅 Flatpickr reinicializado con reglas reales. Intervalos: ${totalIntervals}, Ocupados: ${totalBusy}`);
 
   // ==============================

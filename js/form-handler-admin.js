@@ -27,51 +27,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // ==============================
-    // 🔹 Utilidades (copiadas de form-handler.js)
+    // 🔹 Función local para renderizar slots (específica del admin)
     // ==============================
-    const ymd = d => d.toISOString().slice(0, 10);
-    
-    function getWeekdayName(date) {
-        const days = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
-        return days[date.getDay()];
-    }
-    
-    function timeStrToMinutes(str) {
-        const [h, m] = str.split(':').map(Number);
-        return h * 60 + m;
-    }
-    
-    function getDayIntervals(aa_schedule, weekday) {
-        if (!aa_schedule || !aa_schedule[weekday] || !aa_schedule[weekday].enabled) return [];
-        const intervals = aa_schedule[weekday].intervals || [];
-        return intervals.map(iv => ({
-            start: timeStrToMinutes(iv.start),
-            end: timeStrToMinutes(iv.end)
-        }));
-    }
-    
-    function isSlotBusy(slotDate, busyRanges) {
-        return busyRanges.some(range => slotDate >= range.start && slotDate < range.end);
-    }
-    
-    function generateSlotsForDay(date, intervals, busyRanges) {
-        const slots = [];
-        const now = new Date();
-        const isToday = date.toDateString() === now.toDateString();
-        const minAvailableTime = new Date(now.getTime() + 60 * 60 * 1000);
-        
-        intervals.forEach(iv => {
-            for (let min = iv.start; min < iv.end; min += 30) {
-                const slot = new Date(date);
-                slot.setHours(Math.floor(min / 60), min % 60, 0, 0);
-                
-                if (isToday && slot < minAvailableTime) continue;
-                if (!isSlotBusy(slot, busyRanges)) slots.push(slot);
-            }
-        });
-        return slots;
-    }
-    
     function renderAvailableSlots(containerId, validSlots, onSelectSlot) {
         const container = document.getElementById(containerId);
         container.innerHTML = '';
