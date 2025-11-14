@@ -1,8 +1,20 @@
-// form-handler.js
-document.addEventListener('DOMContentLoaded', function () {
-  const form = document.getElementById('agenda-form');
+// ==============================
+// 🔹 Controlador de reservas
+// ==============================
 
-  // ✅ Añadir campo honeypot invisible anti-bot
+/**
+ * Inicializa el controlador de reservas
+ * Maneja el submit del formulario, validación, guardado y redirección
+ */
+export function initReservationController(formSelector) {
+  const form = document.querySelector(formSelector);
+  
+  if (!form) {
+    console.error(`❌ No se encontró el formulario: ${formSelector}`);
+    return;
+  }
+
+  // ✅ Crear campo honeypot invisible anti-bot
   const honeypot = document.createElement('input');
   honeypot.type = 'text';
   honeypot.name = 'extra_field';
@@ -10,38 +22,21 @@ document.addEventListener('DOMContentLoaded', function () {
   form.appendChild(honeypot);
 
   // ==============================
-  // 🔹 Flatpickr inicial básico
-  // ==============================
-  // Usar la función modular del UI
-  if (typeof window.CalendarUI !== 'undefined') {
-    window.CalendarUI.initBasicCalendar("#fecha");
-  } else {
-    console.error('❌ CalendarUI no está cargado');
-  }
-
-  // ==============================
-  // 🔹 Inicializar controlador de disponibilidad
-  // ==============================
-  if (typeof window.AvailabilityController !== 'undefined') {
-    window.AvailabilityController.init({
-      fechaInputSelector: '#fecha',
-      slotContainerSelector: 'slot-container',
-      isAdmin: false
-    });
-  } else {
-    console.error('❌ AvailabilityController no está cargado');
-  }
-
-  // ==============================
-  // 🔹 Envío del formulario
+  // 🔹 Manejar envío del formulario
   // ==============================
   form.addEventListener('submit', async function (e) {
     e.preventDefault();
 
     const respuestaDiv = document.getElementById('respuesta-agenda');
+    
+    if (!respuestaDiv) {
+      console.error('❌ No se encontró el div de respuesta');
+      return;
+    }
+
     respuestaDiv.innerText = 'Procesando solicitud...';
 
-    // 🔹 Obtener el slot seleccionado directamente del <select>
+    // 🔹 Obtener el slot seleccionado del selector
     const slotSelector = document.getElementById('slot-selector');
     const selectedSlotISO = slotSelector ? slotSelector.value : null;
     
@@ -52,6 +47,7 @@ document.addEventListener('DOMContentLoaded', function () {
       return;
     }
 
+    // 🔹 Construir objeto de datos
     const datos = {
       servicio: form.servicio.value,
       fecha: selectedSlotISO,
@@ -63,7 +59,7 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     try {
-      // 🔹 PASO 1: Guardar la reserva usando el servicio modular
+      // 🔹 PASO 1: Guardar la reserva
       const data = await window.ReservationService.saveReservation(datos);
 
       // 🔹 PASO 2: Añadir ID de la reserva
@@ -101,16 +97,36 @@ document.addEventListener('DOMContentLoaded', function () {
 
       // 🔹 PASO 5: Redirigir a WhatsApp después de 2 segundos
       setTimeout(() => {
-        const whatsappNumber = (typeof wpaa_vars !== 'undefined' && wpaa_vars.whatsapp_number) 
-          ? wpaa_vars.whatsapp_number 
-          : '5215522992290';
-
-        const mensaje = `Hola, soy ${datos.nombre}. Me gustaría agendar una cita para: ${datos.servicio} el día ${fechaLegible}. Mi teléfono es ${datos.telefono}.`;
-        window.location.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(mensaje)}`;
+        redirectToWhatsApp(datos.nombre, datos.servicio, fechaLegible, datos.telefono);
       }, 2000);
+
     } catch (err) {
       console.error('❌ Error al agendar:', err);
       respuestaDiv.innerText = `❌ Error al agendar: ${err.message}`;
     }
   });
-});
+
+  console.log('✅ ReservationController inicializado');
+}
+
+/**
+ * Redirige a WhatsApp con mensaje prellenado
+ */
+function redirectToWhatsApp(nombre, servicio, fechaLegible, telefono) {
+  const whatsappNumber = (typeof wpaa_vars !== 'undefined' && wpaa_vars.whatsapp_number) 
+    ? wpaa_vars.whatsapp_number 
+    : '5215522992290';
+
+  const mensaje = `Hola, soy ${nombre}. Me gustaría agendar una cita para: ${servicio} el día ${fechaLegible}. Mi teléfono es ${telefono}.`;
+  
+  window.location.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(mensaje)}`;
+}
+
+// ==============================
+// 🔹 Exponer en window para compatibilidad
+// ==============================
+window.ReservationController = {
+  init: initReservationController
+};
+
+console.log('✅ ReservationController cargado y expuesto globalmente');

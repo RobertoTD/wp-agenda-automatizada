@@ -243,7 +243,7 @@ function wpaa_enqueue_scripts() {
     wp_localize_script('wpaa-date-utils', 'aa_schedule', get_option('aa_schedule', []));
     wp_localize_script('wpaa-date-utils', 'aa_future_window', get_option('aa_future_window', 15));
 
-    // 🔹 SEGUNDO: Encolar módulo UI del calendario (ES6 module con wrapper incluido)
+    // 🔹 SEGUNDO: Encolar módulo UI del calendario (ES6 module)
     wp_enqueue_script(
         'wpaa-calendar-ui',
         plugin_dir_url(__FILE__) . 'assets/js/ui/calendarUI.js',
@@ -270,7 +270,9 @@ function wpaa_enqueue_scripts() {
         true
     );
     
-    // 🔹 QUINTO: Encolar controlador de disponibilidad (ES6 module)
+   
+    
+        // 🔹 QUINTO: Encolar controlador de disponibilidad (ES6 module)
     wp_enqueue_script(
         'wpaa-availability-controller',
         plugin_dir_url(__FILE__) . 'assets/js/controllers/availabilityController.js',
@@ -278,21 +280,45 @@ function wpaa_enqueue_scripts() {
         filemtime(plugin_dir_path(__FILE__) . 'assets/js/controllers/availabilityController.js'),
         true
     );
+
+    // 🔹 SEXTO: Encolar controlador de reservas (ES6 module)
+    wp_enqueue_script(
+        'wpaa-reservation-controller',
+        plugin_dir_url(__FILE__) . 'assets/js/controllers/reservationController.js',
+        ['wpaa-reservation-service'],
+        filemtime(plugin_dir_path(__FILE__) . 'assets/js/controllers/reservationController.js'),
+        true
+    );
     
     // 🔹 Marcar como módulos ES6
     add_filter('script_loader_tag', function($tag, $handle) {
-        if (in_array($handle, ['wpaa-calendar-ui', 'wpaa-slot-selector-ui', 'wpaa-reservation-service', 'wpaa-availability-controller'])) {
+        if (in_array($handle, [
+            'wpaa-calendar-ui', 
+            'wpaa-slot-selector-ui', 
+            'wpaa-reservation-service', 
+            'wpaa-availability-controller',
+            'wpaa-reservation-controller'
+        ])) {
             return str_replace('<script ', '<script type="module" ', $tag);
         }
         return $tag;
     }, 10, 2);
 
-    // 🔹 SEXTO: JS del formulario (depende de todos los módulos anteriores)
+    // 🔹 SÉPTIMO: Punto de entrada principal (depende de todos los controladores)
     wp_enqueue_script(
-        'wpaa-script',
-        plugin_dir_url(__FILE__) . 'js/form-handler.js',
-        ['jquery', 'flatpickr-js', 'wpaa-date-utils', 'wpaa-calendar-ui', 'wpaa-slot-selector-ui', 'wpaa-reservation-service', 'wpaa-availability-controller'],
-        filemtime(plugin_dir_path(__FILE__) . 'js/form-handler.js'),
+        'wpaa-main-frontend',
+        plugin_dir_url(__FILE__) . 'assets/js/main-frontend.js',
+        [
+            'jquery', 
+            'flatpickr-js', 
+            'wpaa-date-utils', 
+            'wpaa-calendar-ui', 
+            'wpaa-slot-selector-ui', 
+            'wpaa-reservation-service', 
+            'wpaa-availability-controller',
+            'wpaa-reservation-controller'
+        ],
+        filemtime(plugin_dir_path(__FILE__) . 'assets/js/main-frontend.js'),
         true
     );
 }
@@ -465,24 +491,47 @@ add_action('admin_enqueue_scripts', function($hook) {
             filemtime(plugin_dir_path(__FILE__) . 'assets/js/controllers/availabilityController.js'),
             true
         );
+
+       
+        // 🔹 QUINTO: Encolar controlador de reservas admin (ES6 module)
+        wp_enqueue_script(
+            'wpaa-admin-reservation-controller',
+            plugin_dir_url(__FILE__) . 'assets/js/controllers/adminReservationController.js',
+            ['wpaa-reservation-service-admin'],
+            filemtime(plugin_dir_path(__FILE__) . 'assets/js/controllers/adminReservationController.js'),
+            true
+        );
+
+        // 🔹 SEXTO: Encolar main-admin.js (punto de entrada, depende de controladores)
+        wp_enqueue_script(
+            'wpaa-main-admin',
+            plugin_dir_url(__FILE__) . 'assets/js/main-admin.js',
+            [
+                'horariosapartados-admin',
+                'flatpickr-js-admin',
+                'wpaa-date-utils-admin',
+                'wpaa-reservation-service-admin',
+                'wpaa-availability-controller-admin',
+                'wpaa-admin-reservation-controller'
+            ],
+            filemtime(plugin_dir_path(__FILE__) . 'assets/js/main-admin.js'),
+            true
+        );
         
         // 🔹 Marcar como módulos ES6
         add_filter('script_loader_tag', function($tag, $handle) {
-            if (in_array($handle, ['wpaa-reservation-service-admin', 'wpaa-availability-controller-admin'])) {
+            if (in_array($handle, [
+                'wpaa-reservation-service-admin',
+                'wpaa-availability-controller-admin',
+                'wpaa-admin-reservation-controller',
+                'wpaa-main-admin'
+            ])) {
                 return str_replace('<script ', '<script type="module" ', $tag);
             }
             return $tag;
         }, 10, 2);
         
-        // 🔹 QUINTO: Encolar form-handler-admin.js (depende de controladores)
-        wp_enqueue_script(
-            'aa-form-handler-admin',
-            plugin_dir_url(__FILE__) . 'js/form-handler-admin.js',
-            ['horariosapartados-admin', 'flatpickr-js-admin', 'wpaa-date-utils-admin', 'wpaa-reservation-service-admin', 'wpaa-availability-controller-admin'],
-            filemtime(plugin_dir_path(__FILE__) . 'js/form-handler-admin.js'),
-            true
-        );
-        
+               
         wp_enqueue_script(
             'aa-asistant-controls',
             plugin_dir_url(__FILE__) . 'js/asistant-controls.js',
