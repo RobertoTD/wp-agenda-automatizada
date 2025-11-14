@@ -20,102 +20,17 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // ==============================
-  // 🔹 Cuando llega la disponibilidad
+  // 🔹 Inicializar controlador de disponibilidad
   // ==============================
-  document.addEventListener("aa:availability:loaded", () => {
-    const fechaInput = document.getElementById('fecha');
-    if (!fechaInput || typeof flatpickr === "undefined") return;
-
-    const aa_schedule = window.aa_schedule || {};
-    const aa_future_window = window.aa_future_window || 14;
-
-    const busy = (window.aa_availability && Array.isArray(window.aa_availability.busy))
-      ? window.aa_availability.busy
-      : [];
-
-    // 🔹 Convertir todas las fechas ocupadas a objetos Date locales
-    const busyRanges = busy.map(ev => {
-      return {
-        start: new Date(ev.start),
-        end: new Date(ev.end)
-      };
+  if (typeof window.AvailabilityController !== 'undefined') {
+    window.AvailabilityController.init({
+      fechaInputSelector: '#fecha',
+      slotContainerSelector: 'slot-container',
+      isAdmin: false
     });
-
-    const minDate = new Date();
-    const maxDate = new Date();
-    maxDate.setDate(minDate.getDate() + Number(aa_future_window));
-
-    // Precalcular número de slots por día para deshabilitar días "vacíos"
-    const availableSlotsPerDay = {};
-    let totalIntervals = 0;
-    let totalBusy = busyRanges.length;
-    
-    // recorrer cada día en el rango
-    for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
-      const day = new Date(d);
-      const weekday = getWeekdayName(day);
-      const intervals = getDayIntervals(aa_schedule, weekday);
-      
-      totalIntervals += intervals.length;
-      const slots = generateSlotsForDay(day, intervals, busyRanges);
-      
-      availableSlotsPerDay[ymd(day)] = slots.length;
-      
-      // 🔹 Debug: mostrar slots calculados para cada día
-      if (slots.length > 0) {
-        console.log(`📅 ${ymd(day)} (${weekday}): ${slots.length} slots disponibles`, 
-          slots.map(s => s.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })));
-      }
-    }
-
-    function isDateAvailable(date) {
-      return (availableSlotsPerDay[ymd(date)] || 0) > 0;
-    }
-
-    function disableDate(date) {
-      return !isDateAvailable(date);
-    }
-
-    // ==============================
-    // 🔹 Flatpickr con reglas reales usando UI modular
-    // ==============================
-    let selectedSlotISO = null;
-
-    if (typeof window.CalendarUI !== 'undefined') {
-      window.CalendarUI.rebuildCalendar({
-        fechaInput: fechaInput,
-        minDate: minDate,
-        maxDate: maxDate,
-        disableDateCallback: disableDate,
-        onDateSelected: (selectedDate, pickerInstance) => {
-          const weekday = getWeekdayName(selectedDate);
-          const intervals = getDayIntervals(aa_schedule, weekday);
-          const validSlots = generateSlotsForDay(selectedDate, intervals, busyRanges);
-          pickerInstance.validSlots = validSlots;
-          
-          // 🔹 Renderiza la lista debajo del calendario usando SlotSelectorUI
-          if (typeof window.SlotSelectorUI !== 'undefined') {
-            window.SlotSelectorUI.renderAvailableSlots('slot-container', validSlots, chosen => {
-              // cuando el usuario elige un horario de la lista
-              selectedSlotISO = chosen.toISOString();
-              fechaInput.value = `${selectedDate.toLocaleDateString()} ${chosen.getHours().toString().padStart(2,'0')}:${chosen.getMinutes().toString().padStart(2,'0')}`;
-            });
-          }
-          
-          // 🔹 Establecer el primer slot como predeterminado
-          if (validSlots.length > 0) {
-            const firstSlot = validSlots[0];
-            selectedSlotISO = firstSlot.toISOString();
-            fechaInput.value = `${selectedDate.toLocaleDateString()} ${firstSlot.getHours().toString().padStart(2,'0')}:${firstSlot.getMinutes().toString().padStart(2,'0')}`;
-          }
-
-          return { selectedSlotISO };
-        }
-      });
-    }
-
-    console.log(`📅 Flatpickr reinicializado con reglas reales. Intervalos: ${totalIntervals}, Ocupados: ${totalBusy}`);
-  }); // Closing brace for the "aa:availability:loaded" event listener
+  } else {
+    console.error('❌ AvailabilityController no está cargado');
+  }
 
   // ==============================
   // 🔹 Envío del formulario
@@ -198,4 +113,4 @@ document.addEventListener('DOMContentLoaded', function () {
       respuestaDiv.innerText = `❌ Error al agendar: ${err.message}`;
     }
   });
-}); // Closing brace for DOMContentLoaded
+});

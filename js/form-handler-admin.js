@@ -27,125 +27,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // ==============================
-    // 🔹 Función local para renderizar slots (específica del admin)
+    // 🔹 Inicializar controlador de disponibilidad
     // ==============================
-    function renderAvailableSlots(containerId, validSlots, onSelectSlot) {
-        const container = document.getElementById(containerId);
-        container.innerHTML = '';
-        
-        if (!validSlots.length) {
-            container.textContent = 'No hay horarios disponibles para este día.';
-            return;
-        }
-        
-        const label = document.createElement('label');
-        label.textContent = 'Horarios disponibles:';
-        label.style.display = 'block';
-        label.style.marginTop = '8px';
-        
-        const select = document.createElement('select');
-        select.id = 'slot-selector-admin';
-        select.style.marginTop = '4px';
-        select.style.width = '100%';
-        select.style.padding = '8px';
-        
-        validSlots.forEach(date => {
-            const option = document.createElement('option');
-            const hours = String(date.getHours()).padStart(2, '0');
-            const minutes = String(date.getMinutes()).padStart(2, '0');
-            option.value = date.toISOString();
-            option.textContent = `${hours}:${minutes}`;
-            select.appendChild(option);
+    if (typeof window.AvailabilityController !== 'undefined') {
+        window.AvailabilityController.init({
+            fechaInputSelector: '#cita-fecha',
+            slotContainerSelector: 'slot-container-admin',
+            isAdmin: true
         });
-        
-        select.addEventListener('change', () => {
-            const chosen = new Date(select.value);
-            onSelectSlot(chosen);
-        });
-        
-        container.appendChild(label);
-        container.appendChild(select);
-        
-        // Disparar evento con el primer slot
-        if (validSlots.length > 0) {
-            onSelectSlot(validSlots[0]);
-        }
+    } else {
+        console.error('❌ AvailabilityController no está cargado');
     }
-    
-    // ==============================
-    // 🔹 Esperar disponibilidad
-    // ==============================
-    document.addEventListener("aa:availability:loaded", () => {
-        const fechaInput = document.getElementById('cita-fecha');
-        if (!fechaInput || typeof flatpickr === "undefined") return;
-        
-        const aa_schedule = window.aa_schedule || {};
-        const aa_future_window = window.aa_future_window || 14;
-        
-        const busy = (window.aa_availability && Array.isArray(window.aa_availability.busy))
-            ? window.aa_availability.busy
-            : [];
-        
-        const busyRanges = busy.map(ev => ({
-            start: new Date(ev.start),
-            end: new Date(ev.end)
-        }));
-        
-        const minDate = new Date();
-        const maxDate = new Date();
-        maxDate.setDate(minDate.getDate() + Number(aa_future_window));
-        
-        const availableSlotsPerDay = {};
-        
-        for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
-            const day = new Date(d);
-            const weekday = getWeekdayName(day);
-            const intervals = getDayIntervals(aa_schedule, weekday);
-            const slots = generateSlotsForDay(day, intervals, busyRanges);
-            availableSlotsPerDay[ymd(day)] = slots.length;
-        }
-        
-        function isDateAvailable(date) {
-            return (availableSlotsPerDay[ymd(date)] || 0) > 0;
-        }
-        
-        function disableDate(date) {
-            return !isDateAvailable(date);
-        }
-        
-        if (fechaInput._flatpickr) fechaInput._flatpickr.destroy();
-        
-        let selectedSlotISO = null;
-        
-        const picker = flatpickr(fechaInput, {
-            disableMobile: true,
-            dateFormat: "d-m-Y",
-            minDate: minDate,
-            maxDate: maxDate,
-            locale: "es",
-            disable: [disableDate],
-            onChange: function(selectedDates) {
-                if (!selectedDates.length) return;
-                const sel = selectedDates[0];
-                const weekday = getWeekdayName(sel);
-                const intervals = getDayIntervals(aa_schedule, weekday);
-                const validSlots = generateSlotsForDay(sel, intervals, busyRanges);
-                
-                renderAvailableSlots('slot-container-admin', validSlots, chosen => {
-                    selectedSlotISO = chosen.toISOString();
-                    fechaInput.value = `${sel.toLocaleDateString()} ${chosen.getHours().toString().padStart(2,'0')}:${chosen.getMinutes().toString().padStart(2,'0')}`;
-                });
-                
-                if (validSlots.length > 0) {
-                    const firstSlot = validSlots[0];
-                    selectedSlotISO = firstSlot.toISOString();
-                    fechaInput.value = `${sel.toLocaleDateString()} ${firstSlot.getHours().toString().padStart(2,'0')}:${firstSlot.getMinutes().toString().padStart(2,'0')}`;
-                }
-            }
-        });
-        
-        console.log('📅 Flatpickr inicializado en panel del asistente');
-    });
     
     // ==============================
     // 🔹 Envío del formulario (USANDO ReservationService)

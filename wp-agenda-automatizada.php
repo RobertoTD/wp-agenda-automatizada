@@ -224,6 +224,25 @@ function wpaa_enqueue_scripts() {
         true
     );
 
+    $nonce = wp_create_nonce('aa_reservation_nonce');
+
+    // 🔹 Variables globales accesibles desde los scripts
+    wp_localize_script('wpaa-date-utils', 'wpaa_vars', [
+        'webhook_url' => 'https://deoia.app.n8n.cloud/webhook-test/disponibilidad-citas',
+        'ajax_url' => admin_url('admin-ajax.php'),
+        'timezone' => $timezone,
+        'locale' => $locale,
+        'whatsapp_number' => get_option('aa_whatsapp_number', '5215522992290'),
+        'business_name' => get_option('aa_business_name', 'Nuestro negocio'),
+        'business_address' => get_option('aa_business_address', ''),
+        'is_virtual' => get_option('aa_is_virtual', 0),
+        'nonce' => $nonce
+    ]);
+
+    // 🔹 Configuración del admin exportada al frontend
+    wp_localize_script('wpaa-date-utils', 'aa_schedule', get_option('aa_schedule', []));
+    wp_localize_script('wpaa-date-utils', 'aa_future_window', get_option('aa_future_window', 15));
+
     // 🔹 SEGUNDO: Encolar módulo UI del calendario (ES6 module con wrapper incluido)
     wp_enqueue_script(
         'wpaa-calendar-ui',
@@ -251,41 +270,31 @@ function wpaa_enqueue_scripts() {
         true
     );
     
+    // 🔹 QUINTO: Encolar controlador de disponibilidad (ES6 module)
+    wp_enqueue_script(
+        'wpaa-availability-controller',
+        plugin_dir_url(__FILE__) . 'assets/js/controllers/availabilityController.js',
+        ['wpaa-date-utils', 'wpaa-calendar-ui', 'wpaa-slot-selector-ui'],
+        filemtime(plugin_dir_path(__FILE__) . 'assets/js/controllers/availabilityController.js'),
+        true
+    );
+    
     // 🔹 Marcar como módulos ES6
     add_filter('script_loader_tag', function($tag, $handle) {
-        if (in_array($handle, ['wpaa-calendar-ui', 'wpaa-slot-selector-ui', 'wpaa-reservation-service'])) {
+        if (in_array($handle, ['wpaa-calendar-ui', 'wpaa-slot-selector-ui', 'wpaa-reservation-service', 'wpaa-availability-controller'])) {
             return str_replace('<script ', '<script type="module" ', $tag);
         }
         return $tag;
     }, 10, 2);
 
-    // 🔹 QUINTO: JS del formulario (depende de todos los módulos anteriores)
+    // 🔹 SEXTO: JS del formulario (depende de todos los módulos anteriores)
     wp_enqueue_script(
         'wpaa-script',
         plugin_dir_url(__FILE__) . 'js/form-handler.js',
-        ['jquery', 'flatpickr-js', 'wpaa-date-utils', 'wpaa-calendar-ui', 'wpaa-slot-selector-ui', 'wpaa-reservation-service'],
+        ['jquery', 'flatpickr-js', 'wpaa-date-utils', 'wpaa-calendar-ui', 'wpaa-slot-selector-ui', 'wpaa-reservation-service', 'wpaa-availability-controller'],
         filemtime(plugin_dir_path(__FILE__) . 'js/form-handler.js'),
         true
     );
-
-    $nonce = wp_create_nonce('aa_reservation_nonce');
-
-    // 🔹 Variables globales accesibles desde form-handler.js
-    wp_localize_script('wpaa-script', 'wpaa_vars', [
-        'webhook_url' => 'https://deoia.app.n8n.cloud/webhook-test/disponibilidad-citas',
-        'ajax_url' => admin_url('admin-ajax.php'),
-        'timezone' => $timezone,
-        'locale' => $locale,
-        'whatsapp_number' => get_option('aa_whatsapp_number', '5215522992290'),
-        'business_name' => get_option('aa_business_name', 'Nuestro negocio'),
-        'business_address' => get_option('aa_business_address', ''),
-        'is_virtual' => get_option('aa_is_virtual', 0),
-        'nonce' => $nonce
-    ]);
-
-    // 🔹 Configuración del admin exportada al frontend
-    wp_localize_script('wpaa-script', 'aa_schedule', get_option('aa_schedule', []));
-    wp_localize_script('wpaa-script', 'aa_future_window', get_option('aa_future_window', 15));
 }
 add_action('wp_enqueue_scripts', 'wpaa_enqueue_scripts');
 
@@ -419,14 +428,6 @@ add_action('admin_enqueue_scripts', function($hook) {
             true
         );
         
-        // 🔹 Marcar como módulo ES6
-        add_filter('script_loader_tag', function($tag, $handle) {
-            if ($handle === 'wpaa-reservation-service-admin') {
-                return str_replace('<script ', '<script type="module" ', $tag);
-            }
-            return $tag;
-        }, 10, 2);
-        
         // 🔹 TERCERO: Pasar variables globales para que reservationService las use
         wp_localize_script('wpaa-date-utils-admin', 'wpaa_vars', [
             'ajax_url' => admin_url('admin-ajax.php'),
@@ -456,11 +457,28 @@ add_action('admin_enqueue_scripts', function($hook) {
         wp_localize_script('horariosapartados-admin', 'aa_schedule', get_option('aa_schedule', []));
         wp_localize_script('horariosapartados-admin', 'aa_future_window', get_option('aa_future_window', 15));
         
-        // 🔹 CUARTO: Encolar form-handler-admin.js (depende de reservationService)
+        // 🔹 CUARTO: Encolar controlador de disponibilidad para admin (ES6 module)
+        wp_enqueue_script(
+            'wpaa-availability-controller-admin',
+            plugin_dir_url(__FILE__) . 'assets/js/controllers/availabilityController.js',
+            ['wpaa-date-utils-admin'],
+            filemtime(plugin_dir_path(__FILE__) . 'assets/js/controllers/availabilityController.js'),
+            true
+        );
+        
+        // 🔹 Marcar como módulos ES6
+        add_filter('script_loader_tag', function($tag, $handle) {
+            if (in_array($handle, ['wpaa-reservation-service-admin', 'wpaa-availability-controller-admin'])) {
+                return str_replace('<script ', '<script type="module" ', $tag);
+            }
+            return $tag;
+        }, 10, 2);
+        
+        // 🔹 QUINTO: Encolar form-handler-admin.js (depende de controladores)
         wp_enqueue_script(
             'aa-form-handler-admin',
             plugin_dir_url(__FILE__) . 'js/form-handler-admin.js',
-            ['horariosapartados-admin', 'flatpickr-js-admin', 'wpaa-date-utils-admin', 'wpaa-reservation-service-admin'],
+            ['horariosapartados-admin', 'flatpickr-js-admin', 'wpaa-date-utils-admin', 'wpaa-reservation-service-admin', 'wpaa-availability-controller-admin'],
             filemtime(plugin_dir_path(__FILE__) . 'js/form-handler-admin.js'),
             true
         );
