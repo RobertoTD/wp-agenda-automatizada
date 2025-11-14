@@ -115,6 +115,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     console.log(`📅 Flatpickr reinicializado con reglas reales. Intervalos: ${totalIntervals}, Ocupados: ${totalBusy}`);
+  }); // Closing brace for the "aa:availability:loaded" event listener
 
   // ==============================
   // 🔹 Envío del formulario
@@ -132,56 +133,28 @@ document.addEventListener('DOMContentLoaded', function () {
     // 🔹 Validar que se haya seleccionado un horario
     if (!selectedSlotISO) {
       respuestaDiv.innerText = '❌ Por favor, selecciona una fecha y hora válidas.';
-      console.warn('⚠️ aa_debug: No se ha seleccionado ningún horario');
+      console.warn('⚠️ No se ha seleccionado ningún horario');
       return;
     }
 
     const datos = {
       servicio: form.servicio.value,
-      fecha: selectedSlotISO, // 🔹 Usar el valor del <select> que ya está en ISO
+      fecha: selectedSlotISO,
       nombre: form.nombre.value,
       telefono: form.telefono.value,
       correo: form.correo.value || '',
-      nonce: wpaa_vars.nonce,           // ✅ añadir nonce
-      extra_field: honeypot.value || '' // ✅ añadir honeypot
+      nonce: wpaa_vars.nonce,
+      extra_field: honeypot.value || ''
     };
 
-    console.group('🧩 aa_debug: datos que se enviarán al backend');
-    console.log('Tipo de datos:', typeof datos);
-    console.log('Contenido del objeto:', datos);
-    console.log('Fecha ISO final enviada:', datos.fecha);
-    console.groupEnd();
-
-    // Opcional: validar estructura antes del fetch
-    ['servicio', 'fecha', 'nombre', 'telefono'].forEach(campo => {
-      if (!datos[campo]) {
-        console.warn(`⚠️ aa_debug: el campo "${campo}" está vacío o indefinido`);
-      }
-    });
-
     try {
-      const response = await fetch(wpaa_vars.ajax_url + '?action=aa_save_reservation', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(datos)
-      });
+      // 🔹 PASO 1: Guardar la reserva usando el servicio modular
+      const data = await window.ReservationService.saveReservation(datos);
 
-      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
-
-      const data = await response.json();
-      if (!data.success) {
-        throw new Error(data.data?.message || 'Error desconocido al guardar.');
-      }
-
-      console.log('✅ Reserva guardada correctamente:', data);
-
-      // 🔹 Añadir ID de la reserva al objeto que se enviará al backend
+      // 🔹 PASO 2: Añadir ID de la reserva
       if (data.data && data.data.id) {
         datos.id_reserva = data.data.id;
-        console.log('🆔 ID de reserva asignado al objeto datos:', datos.id_reserva);
+        console.log('🆔 ID de reserva asignado:', datos.id_reserva);
       } else if (data.id) {
         datos.id_reserva = data.id;
         console.warn('⚠️ ID de reserva recibido en formato alternativo:', datos.id_reserva);
@@ -189,22 +162,12 @@ document.addEventListener('DOMContentLoaded', function () {
         console.warn('⚠️ No se recibió ID de reserva en la respuesta del backend.');
       }
 
-      // 🔹 Enviar confirmación por correo (sin bloquear el flujo)
-      console.log("📦 Datos que se envían al backend:", datos);
-
-      fetch(wpaa_vars.ajax_url + '?action=aa_enviar_confirmacion', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(datos)
-      }).then(emailResponse => {
-        return emailResponse.json();
-      }).then(emailData => {
-        console.log('📧 Resultado del envío de correo:', emailData);
-      }).catch(emailError => {
+      // 🔹 PASO 3: Enviar confirmación por correo (sin bloquear el flujo)
+      window.ReservationService.sendConfirmation(datos).catch(emailError => {
         console.warn('⚠️ Error al enviar correo (no crítico):', emailError);
       });
 
-      // 🔹 Formatear la fecha para el mensaje de WhatsApp usando zona horaria y locale del admin
+      // 🔹 PASO 4: Formatear la fecha para WhatsApp
       const fechaObj = new Date(selectedSlotISO);
       const userLocale = (typeof wpaa_vars !== 'undefined' && wpaa_vars.locale) 
         ? wpaa_vars.locale 
@@ -216,12 +179,12 @@ document.addEventListener('DOMContentLoaded', function () {
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
-        timeZone: wpaa_vars.timezone || 'America/Mexico_City' // 🔹 Forzar zona horaria del negocio
+        timeZone: wpaa_vars.timezone || 'America/Mexico_City'
       });
 
       respuestaDiv.innerText = '✅ Cita agendada correctamente. Redirigiendo a WhatsApp...';
 
-      // 🔹 Redirigir a WhatsApp después de 2 segundos
+      // 🔹 PASO 5: Redirigir a WhatsApp después de 2 segundos
       setTimeout(() => {
         const whatsappNumber = (typeof wpaa_vars !== 'undefined' && wpaa_vars.whatsapp_number) 
           ? wpaa_vars.whatsapp_number 
@@ -231,11 +194,8 @@ document.addEventListener('DOMContentLoaded', function () {
         window.location.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(mensaje)}`;
       }, 2000);
     } catch (err) {
-      console.error('Error:', err);
+      console.error('❌ Error al agendar:', err);
       respuestaDiv.innerText = `❌ Error al agendar: ${err.message}`;
     }
-
   });
-  
-  }); // Closing brace for the "aa:availability:loaded" event listener
 }); // Closing brace for DOMContentLoaded

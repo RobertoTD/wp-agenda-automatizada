@@ -148,7 +148,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // ==============================
-    // 🔹 Envío del formulario
+    // 🔹 Envío del formulario (USANDO ReservationService)
     // ==============================
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -174,27 +174,10 @@ document.addEventListener('DOMContentLoaded', function() {
         };
         
         try {
-            // 🔹 PASO 1: Guardar la cita en WordPress
-            console.log('📝 Guardando cita en WordPress...');
-            const response = await fetch(ajaxurl + '?action=aa_save_reservation', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(datos)
-            });
+            // 🔹 PASO 1: Guardar la reserva usando ReservationService
+            const data = await window.ReservationService.saveReservation(datos);
             
-            if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
-            
-            const data = await response.json();
-            if (!data.success) {
-                throw new Error(data.data?.message || 'Error desconocido al guardar.');
-            }
-            
-            console.log('✅ Reserva guardada correctamente:', data);
-            
-            // 🔹 PASO 2: Añadir ID de la reserva al objeto
+            // 🔹 PASO 2: Añadir ID de la reserva
             if (data.data && data.data.id) {
                 datos.id_reserva = data.data.id;
                 console.log('🆔 ID de reserva asignado:', datos.id_reserva);
@@ -205,27 +188,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.warn('⚠️ No se recibió ID de reserva en la respuesta del backend.');
             }
             
-            // 🔹 PASO 3: Enviar correo de confirmación al backend
-            console.log("📧 Enviando correo de confirmación...");
-            console.log("📦 Datos que se envían:", datos);
-            
-            fetch(ajaxurl + '?action=aa_enviar_confirmacion', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(datos)
-            }).then(emailResponse => {
-                return emailResponse.json();
-            }).then(emailData => {
-                console.log('📧 Resultado del envío de correo:', emailData);
-                if (emailData.success) {
-                    console.log('✅ Correo enviado correctamente');
-                } else {
-                    console.warn('⚠️ Error al enviar correo:', emailData);
-                }
-            }).catch(emailError => {
+            // 🔹 PASO 3: Enviar confirmación usando ReservationService (sin bloquear)
+            window.ReservationService.sendConfirmation(datos).catch(emailError => {
                 console.warn('⚠️ Error al enviar correo (no crítico):', emailError);
             });
             

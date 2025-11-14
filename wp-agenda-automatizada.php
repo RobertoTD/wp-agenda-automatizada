@@ -242,19 +242,28 @@ function wpaa_enqueue_scripts() {
         true
     );
     
+    // 🔹 CUARTO: Encolar servicio de reservas (ES6 module)
+    wp_enqueue_script(
+        'wpaa-reservation-service',
+        plugin_dir_url(__FILE__) . 'assets/js/services/reservationService.js',
+        [],
+        filemtime(plugin_dir_path(__FILE__) . 'assets/js/services/reservationService.js'),
+        true
+    );
+    
     // 🔹 Marcar como módulos ES6
     add_filter('script_loader_tag', function($tag, $handle) {
-        if (in_array($handle, ['wpaa-calendar-ui', 'wpaa-slot-selector-ui'])) {
+        if (in_array($handle, ['wpaa-calendar-ui', 'wpaa-slot-selector-ui', 'wpaa-reservation-service'])) {
             return str_replace('<script ', '<script type="module" ', $tag);
         }
         return $tag;
     }, 10, 2);
 
-    // 🔹 CUARTO: JS del formulario (depende de dateUtils, calendarUI, slotSelectorUI y flatpickr)
+    // 🔹 QUINTO: JS del formulario (depende de todos los módulos anteriores)
     wp_enqueue_script(
         'wpaa-script',
         plugin_dir_url(__FILE__) . 'js/form-handler.js',
-        ['jquery', 'flatpickr-js', 'wpaa-date-utils', 'wpaa-calendar-ui', 'wpaa-slot-selector-ui'],
+        ['jquery', 'flatpickr-js', 'wpaa-date-utils', 'wpaa-calendar-ui', 'wpaa-slot-selector-ui', 'wpaa-reservation-service'],
         filemtime(plugin_dir_path(__FILE__) . 'js/form-handler.js'),
         true
     );
@@ -401,6 +410,31 @@ add_action('admin_enqueue_scripts', function($hook) {
             true
         );
         
+        // 🔹 SEGUNDO: Encolar servicio de reservas para admin (ES6 module)
+        wp_enqueue_script(
+            'wpaa-reservation-service-admin',
+            plugin_dir_url(__FILE__) . 'assets/js/services/reservationService.js',
+            [],
+            filemtime(plugin_dir_path(__FILE__) . 'assets/js/services/reservationService.js'),
+            true
+        );
+        
+        // 🔹 Marcar como módulo ES6
+        add_filter('script_loader_tag', function($tag, $handle) {
+            if ($handle === 'wpaa-reservation-service-admin') {
+                return str_replace('<script ', '<script type="module" ', $tag);
+            }
+            return $tag;
+        }, 10, 2);
+        
+        // 🔹 TERCERO: Pasar variables globales para que reservationService las use
+        wp_localize_script('wpaa-date-utils-admin', 'wpaa_vars', [
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'timezone' => get_option('aa_timezone', 'America/Mexico_City'),
+            'locale' => get_option('aa_locale', 'es-MX'),
+            'nonce' => wp_create_nonce('aa_reservation_nonce')
+        ]);
+        
         // 🔹 Encolar horariosapartados.js para disponibilidad
         wp_enqueue_script(
             'horariosapartados-admin',
@@ -422,11 +456,11 @@ add_action('admin_enqueue_scripts', function($hook) {
         wp_localize_script('horariosapartados-admin', 'aa_schedule', get_option('aa_schedule', []));
         wp_localize_script('horariosapartados-admin', 'aa_future_window', get_option('aa_future_window', 15));
         
-        // 🔹 Encolar form-handler-admin.js (depende de dateUtils)
+        // 🔹 CUARTO: Encolar form-handler-admin.js (depende de reservationService)
         wp_enqueue_script(
             'aa-form-handler-admin',
             plugin_dir_url(__FILE__) . 'js/form-handler-admin.js',
-            ['horariosapartados-admin', 'flatpickr-js-admin', 'wpaa-date-utils-admin'],
+            ['horariosapartados-admin', 'flatpickr-js-admin', 'wpaa-date-utils-admin', 'wpaa-reservation-service-admin'],
             filemtime(plugin_dir_path(__FILE__) . 'js/form-handler-admin.js'),
             true
         );

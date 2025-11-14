@@ -2,8 +2,13 @@
 // 🔹 Utilidades de manejo de fechas
 // ==============================
 
-// convertir fecha con formato YYYY-MM-DDTHH:mm:ss.sssZ de Date a YYYY-MM-DD string
-const ymd = d => d.toISOString().slice(0, 10);
+// 🔹 Convertir Date a YYYY-MM-DD en zona horaria LOCAL (no UTC)
+const ymd = d => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 // devuelve el nombre del día en inglés en minúsculas
 function getWeekdayName(date) {
