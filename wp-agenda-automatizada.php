@@ -259,8 +259,8 @@ require_once plugin_dir_path(__FILE__) . 'asistant-user.php';
 // 🔹 Incluir módulo de historial de citas
 require_once plugin_dir_path(__FILE__) . 'historial-citas.php';
 
-// 🔹 Incluir módulo de próximas citas
-require_once plugin_dir_path(__FILE__) . 'proximas-citas.php';
+// Controladores
+require_once plugin_dir_path(__FILE__) . 'includes/controllers/proximasCitasController.php';
 
 // Proxy hacia backend (consulta disponibilidad Google Calendar)
 require_once plugin_dir_path(__FILE__) . 'availability-proxy.php';

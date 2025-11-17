@@ -1,13 +1,29 @@
 <?php
+/**
+ * Controlador: Próximas Citas
+ * 
+ * Maneja la lógica AJAX para obtener y filtrar próximas citas
+ * pendientes/confirmadas que aún no han finalizado.
+ * 
+ * @package WP_Agenda_Automatizada
+ * @subpackage Controllers
+ */
+
 if (!defined('ABSPATH')) exit;
 
-// ===============================
-// 🔹 AJAX: Obtener próximas citas
-// ===============================
+/**
+ * AJAX: Obtener próximas citas
+ * 
+ * Retorna citas que aún no han finalizado (fecha + slot_duration >= ahora)
+ * con soporte para búsqueda, ordenamiento y paginación.
+ */
 add_action('wp_ajax_aa_get_proximas_citas', 'aa_ajax_get_proximas_citas');
+
 function aa_ajax_get_proximas_citas() {
+    // Verificar nonce
     check_ajax_referer('aa_proximas_citas');
     
+    // Verificar permisos
     if (!current_user_can('aa_view_panel') && !current_user_can('administrator')) {
         wp_send_json_error(['message' => 'No tienes permisos.']);
     }
@@ -18,7 +34,7 @@ function aa_ajax_get_proximas_citas() {
     // 🔹 Obtener fecha y hora actual según aa_timezone
     $now = aa_get_current_datetime();
     
-    error_log("🕐 Hora actual para próximas citas: $now");
+    error_log("🕐 [ProximasCitas] Hora actual: $now");
     
     // 🔹 Obtener slot_duration para calcular fecha de fin
     $slot_duration = intval(get_option('aa_slot_duration', 60));
@@ -35,7 +51,7 @@ function aa_ajax_get_proximas_citas() {
     $where = "WHERE DATE_ADD(fecha, INTERVAL %d MINUTE) >= %s";
     $params = [$slot_duration, $now];
     
-    error_log("📋 Buscando citas que terminan después de: $now (duración: {$slot_duration} min)");
+    error_log("📋 [ProximasCitas] Buscando citas que terminan después de: $now (duración: {$slot_duration} min)");
     
     // 🔹 Filtro de búsqueda
     if (!empty($buscar)) {
@@ -70,6 +86,8 @@ function aa_ajax_get_proximas_citas() {
     
     // 🔹 Calcular paginación
     $total_paginas = ceil($total / $por_pagina);
+    
+    error_log("✅ [ProximasCitas] Encontradas {$total} citas, mostrando página {$pagina} de {$total_paginas}");
     
     wp_send_json_success([
         'citas' => $citas,

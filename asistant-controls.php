@@ -74,36 +74,9 @@ function aa_render_asistant_panel() {
     echo '</div>';
 
     // ===============================
-    // 🔹 TABLA DE PRÓXIMAS CITAS (MODULARIZADA CON AJAX)
+    // 🔹 TABLA DE PRÓXIMAS CITAS (MODULARIZADA)
     // ===============================
-    echo '<h2>Próximas citas</h2>';
-    
-    // Filtros de búsqueda
-    echo '<div class="aa-historial-filtros">';
-    
-    echo '<input type="text" id="aa-buscar-proximas" placeholder="Buscar por nombre, teléfono, correo o servicio...">';
-    
-    echo '<select id="aa-ordenar-proximas">';
-    echo '<option value="fecha_asc">Más próximas primero</option>';
-    echo '<option value="fecha_desc">Más lejanas primero</option>';
-    echo '<option value="cliente_asc">Cliente (A-Z)</option>';
-    echo '<option value="cliente_desc">Cliente (Z-A)</option>';
-    echo '<option value="estado_asc">Estado (A-Z)</option>';
-    echo '<option value="estado_desc">Estado (Z-A)</option>';
-    echo '</select>';
-    
-    echo '<button id="aa-btn-buscar-proximas" class="aa-btn-nuevo-cliente">🔍 Buscar</button>';
-    echo '<button id="aa-btn-limpiar-proximas" class="aa-btn-cancelar-form">✕ Limpiar</button>';
-    
-    echo '</div>';
-    
-    // Tabla de resultados (cargada dinámicamente con AJAX)
-    echo '<div id="aa-proximas-container">';
-    echo '<p style="text-align: center; color: #999;">Cargando próximas citas...</p>';
-    echo '</div>';
-    
-    // Paginación
-    echo '<div class="aa-paginacion" id="aa-proximas-paginacion"></div>';
+    require_once plugin_dir_path(__FILE__) . 'views/templates/proximas-citas-template.php';
 
     // ===============================
     // 🔹 SECCIÓN DE CLIENTES
