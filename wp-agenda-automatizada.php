@@ -248,7 +248,10 @@ add_shortcode('agenda_automatizada', 'wpaa_render_form');
 // ===============================
 require_once plugin_dir_path(__FILE__) . 'admin-controls.php';
 
-require_once plugin_dir_path(__FILE__) . 'asistant-controls.php';
+// ===============================
+// 🔹 VISTAS: Panel del asistente
+// ===============================
+require_once plugin_dir_path(__FILE__) . 'views/asistant-controls.php';
 
 // 🔹 Incluir módulo de confirmación y cancelación de citas
 require_once plugin_dir_path(__FILE__) . 'conf-cancel.php';
