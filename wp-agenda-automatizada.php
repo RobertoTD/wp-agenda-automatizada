@@ -26,7 +26,6 @@ require_once plugin_dir_path(__FILE__) . 'clientes.php';
 // 🔹 Controlador de encolado de scripts y estilos
 require_once plugin_dir_path(__FILE__) . 'includes/controllers/enqueueController.php';
 
-// Crear tabla para reservas al activar el plugin
 // ================================
 // 🔹 Endpoint AJAX: Guardar cita desde el frontend
 // ================================
@@ -84,12 +83,12 @@ function aa_save_reservation() {
         'nombre'     => $nombre,
         'telefono'   => $telefono,
         'correo'     => $correo,
-        'id_cliente' => $cliente_id, // 🔹 Relación con tabla de clientes
+        'id_cliente' => $cliente_id,
         'estado'     => 'pending',
         'created_at' => current_time('mysql')
     ]);
 
-    // ✅ Control de error (PRIMERO validar si falló)
+    // ✅ Control de error
     if ($result === false) {
         error_log("❌ Error al insertar reserva: " . $wpdb->last_error);
         wp_send_json_error([
@@ -138,22 +137,18 @@ register_activation_hook(__FILE__, function() {
     require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
     dbDelta($sql);
     
-    // 🔹 Crear tabla de clientes y agregar columna id_cliente
     aa_create_clientes_table();
     aa_add_cliente_column_to_reservas();
-    
-    // 🔹 Agregar columna calendar_uid si no existe (para instalaciones existentes)
     aa_add_calendar_uid_column();
 });
 
 // ===============================
-// 🔹 Función para agregar columna calendar_uid a instalaciones existentes
+// 🔹 Función para agregar columna calendar_uid
 // ===============================
 function aa_add_calendar_uid_column() {
     global $wpdb;
     $table = $wpdb->prefix . 'aa_reservas';
     
-    // Verificar si la columna ya existe
     $column_exists = $wpdb->get_results(
         $wpdb->prepare(
             "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
@@ -180,7 +175,6 @@ function aa_get_current_datetime() {
         return $now->format('Y-m-d H:i:s');
     } catch (Exception $e) {
         error_log("❌ Error al obtener zona horaria: " . $e->getMessage());
-        // Fallback a hora de WordPress
         return current_time('mysql');
     }
 }
@@ -202,15 +196,12 @@ function wpaa_render_form() {
     </div>
 
     <form id="agenda-form">
-        
         <label for="servicio">Servicio:</label>
         <select id="servicio" name="servicio" required>
             <?php
-            // Obtener los motivos guardados (JSON → array)
             $motivos_json = get_option('aa_google_motivo', json_encode(['Cita general']));
             $motivos = json_decode($motivos_json, true);
 
-            // Validar que sea un array
             if (is_array($motivos) && !empty($motivos)) {
                 foreach ($motivos as $motivo) {
                     $motivo = esc_html($motivo);
@@ -222,10 +213,10 @@ function wpaa_render_form() {
             ?>
         </select>
 
-
         <label for="fecha">Fecha deseada:</label>
         <input type="text" id="fecha" name="fecha" required>
         <div id="slot-container"></div>
+        
         <label for="nombre">Nombre:</label>
         <input type="text" name="nombre" id="nombre" required>
 
@@ -253,19 +244,16 @@ require_once plugin_dir_path(__FILE__) . 'admin-controls.php';
 // ===============================
 require_once plugin_dir_path(__FILE__) . 'views/asistant-controls.php';
 
-// 🔹 Incluir módulo de confirmación y cancelación de citas
-require_once plugin_dir_path(__FILE__) . 'conf-cancel.php';
-
 // 🔹 Incluir módulo de gestión de usuarios asistentes
 require_once plugin_dir_path(__FILE__) . 'asistant-user.php';
 
 // 🔹 Incluir módulo de historial de citas
 require_once plugin_dir_path(__FILE__) . 'historial-citas.php';
 
-// Controladores
+// 🔹 Controladores
 require_once plugin_dir_path(__FILE__) . 'includes/controllers/proximasCitasController.php';
 
-// Proxy hacia backend (consulta disponibilidad Google Calendar)
+// 🔹 Proxy hacia backend (consulta disponibilidad Google Calendar)
 require_once plugin_dir_path(__FILE__) . 'availability-proxy.php';
 
 // 🔹 Incluir el nuevo archivo de confirmación de correos

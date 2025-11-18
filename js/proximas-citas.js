@@ -1,3 +1,13 @@
+/**
+ * Controlador: Próximas Citas
+ * 
+ * Responsable de:
+ * - Lógica de negocio
+ * - Llamadas AJAX
+ * - Gestión de estado (paginación, filtros)
+ * - Coordinación con módulo UI
+ */
+
 document.addEventListener('DOMContentLoaded', function() {
     let paginaActual = 1;
     
@@ -44,7 +54,12 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (!container) return;
         
-        container.innerHTML = '<p style="text-align: center; color: #999;">⏳ Cargando...</p>';
+        // 🔹 Mostrar estado de carga (UI)
+        if (window.ProximasCitasUI) {
+            window.ProximasCitasUI.mostrarCargando(container);
+        } else {
+            container.innerHTML = '<p style="text-align: center; color: #999;">⏳ Cargando...</p>';
+        }
         
         const formData = new FormData();
         formData.append('action', 'aa_get_proximas_citas');
@@ -60,142 +75,49 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                renderizarProximasCitas(data.data.citas, container);
-                renderizarPaginacion(data.data.pagina_actual, data.data.total_paginas, paginacion);
+                // 🔹 Renderizar usando módulo UI
+                if (window.ProximasCitasUI) {
+                    window.ProximasCitasUI.renderizarProximasCitas(data.data.citas, container, {
+                        onConfirmar: confirmarCita,
+                        onCancelar: cancelarCita,
+                        onCrearCliente: crearClienteDesdeCita
+                    });
+                    
+                    window.ProximasCitasUI.renderizarPaginacion(
+                        data.data.pagina_actual,
+                        data.data.total_paginas,
+                        paginacion,
+                        function(nuevaPagina) {
+                            paginaActual = nuevaPagina;
+                            cargarProximasCitas();
+                        }
+                    );
+                } else {
+                    console.error('❌ Módulo ProximasCitasUI no cargado');
+                    container.innerHTML = '<p style="color: #e74c3c;">❌ Error: Módulo UI no disponible.</p>';
+                }
             } else {
-                container.innerHTML = '<p style="color: #e74c3c;">❌ Error: ' + (data.data?.message || 'No se pudo cargar las próximas citas.') + '</p>';
+                // 🔹 Mostrar error usando módulo UI
+                const mensaje = data.data?.message || 'No se pudo cargar las próximas citas.';
+                if (window.ProximasCitasUI) {
+                    window.ProximasCitasUI.mostrarError(container, mensaje);
+                } else {
+                    container.innerHTML = '<p style="color: #e74c3c;">❌ Error: ' + mensaje + '</p>';
+                }
             }
         })
         .catch(err => {
             console.error('Error al cargar próximas citas:', err);
-            container.innerHTML = '<p style="color: #e74c3c;">❌ Error de conexión.</p>';
+            if (window.ProximasCitasUI) {
+                window.ProximasCitasUI.mostrarError(container, 'Error de conexión.');
+            } else {
+                container.innerHTML = '<p style="color: #e74c3c;">❌ Error de conexión.</p>';
+            }
         });
     }
     
     // ===============================
-    // 🔹 Renderizar tabla de citas
-    // ===============================
-    function renderizarProximasCitas(citas, container) {
-        if (!citas || citas.length === 0) {
-            container.innerHTML = '<p style="text-align: center; color: #999;">📭 No hay próximas citas registradas.</p>';
-            return;
-        }
-        
-        // 🔹 Wrapper para scroll horizontal
-        let html = '<div class="aa-table-wrapper">';
-        html += '<table class="widefat aa-table-scroll">';
-        html += '<thead><tr><th>Cliente</th><th>Teléfono</th><th>Servicio</th><th>Fecha</th><th>Estado</th><th>Acciones</th></tr></thead>';
-        html += '<tbody>';
-        
-        citas.forEach(cita => {
-            const estadoClass = 'aa-estado-' + cita.estado.toLowerCase();
-            let estadoTexto = '';
-            
-            switch(cita.estado) {
-                case 'confirmed':
-                    estadoTexto = 'Confirmada';
-                    break;
-                case 'pending':
-                    estadoTexto = 'Pendiente';
-                    break;
-                case 'cancelled':
-                    estadoTexto = 'Cancelada';
-                    break;
-                default:
-                    estadoTexto = cita.estado;
-            }
-            
-            const fecha = new Date(cita.fecha.replace(' ', 'T'));
-            const fechaFormateada = fecha.toLocaleDateString('es-MX', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-            
-            html += '<tr>';
-            html += '<td>' + escapeHtml(cita.nombre) + '</td>';
-            html += '<td>' + escapeHtml(cita.telefono) + '</td>';
-            html += '<td>' + escapeHtml(cita.servicio) + '</td>';
-            html += '<td>' + fechaFormateada + '</td>';
-            html += '<td class="' + estadoClass + '">' + estadoTexto + '</td>';
-            html += '<td>';
-            
-            // 🔹 Botón confirmar (solo si está pendiente)
-            if (cita.estado === 'pending') {
-                html += '<button class="aa-btn-confirmar" data-id="' + cita.id + '" data-nombre="' + escapeHtml(cita.nombre) + '" data-correo="' + escapeHtml(cita.correo) + '">✓ Confirmar</button> ';
-            }
-            
-            // 🔹 Botón cancelar (si está confirmada o pendiente)
-            if (cita.estado === 'confirmed' || cita.estado === 'pending') {
-                html += '<button class="aa-btn-cancelar" data-id="' + cita.id + '" data-nombre="' + escapeHtml(cita.nombre) + '" data-correo="' + escapeHtml(cita.correo) + '">✕ Cancelar</button> ';
-            }
-            
-            // 🔹 Botón crear cliente (si no tiene id_cliente)
-            if (!cita.id_cliente) {
-                html += '<button class="aa-btn-crear-cliente-desde-cita" data-reserva-id="' + cita.id + '" data-nombre="' + escapeHtml(cita.nombre) + '" data-telefono="' + escapeHtml(cita.telefono) + '" data-correo="' + escapeHtml(cita.correo) + '">+ Cliente</button>';
-            }
-            
-            html += '</td>';
-            html += '</tr>';
-        });
-        
-        html += '</tbody></table>';
-        html += '</div>'; // Cerrar wrapper
-        container.innerHTML = html;
-        
-        // 🔹 Asignar eventos a los botones
-        asignarEventosBotones(container);
-    }
-    
-    // ===============================
-    // 🔹 Asignar eventos a botones de acción
-    // ===============================
-    function asignarEventosBotones(container) {
-        // Botones de confirmar
-        container.querySelectorAll('.aa-btn-confirmar').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const id = this.dataset.id;
-                const nombre = this.dataset.nombre;
-                const correo = this.dataset.correo;
-                
-                if (confirm('¿Confirmar la cita de ' + nombre + '?\n\nSe enviará un correo de confirmación a: ' + correo)) {
-                    confirmarCita(id);
-                }
-            });
-        });
-        
-        // Botones de cancelar
-        container.querySelectorAll('.aa-btn-cancelar').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const id = this.dataset.id;
-                const nombre = this.dataset.nombre;
-                const correo = this.dataset.correo;
-                
-                if (confirm('⚠️ ¿CANCELAR la cita de ' + nombre + '?\n\nSe enviará un correo de cancelación a: ' + correo + '\n\nEsta acción no se puede deshacer.')) {
-                    cancelarCita(id);
-                }
-            });
-        });
-        
-        // Botones de crear cliente
-        container.querySelectorAll('.aa-btn-crear-cliente-desde-cita').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const reservaId = this.dataset.reservaId;
-                const nombre = this.dataset.nombre;
-                const telefono = this.dataset.telefono;
-                const correo = this.dataset.correo;
-                
-                if (confirm('¿Crear cliente con los siguientes datos?\n\nNombre: ' + nombre + '\nTeléfono: ' + telefono + '\nCorreo: ' + correo)) {
-                    crearClienteDesdeCita(reservaId, nombre, telefono, correo);
-                }
-            });
-        });
-    }
-    
-    // ===============================
-    // 🔹 Funciones de acción (reutilizan las del asistant-controls.js)
+    // 🔹 Funciones de acción (lógica de negocio)
     // ===============================
     function confirmarCita(id) {
         const formData = new FormData();
@@ -276,63 +198,5 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(err => {
             alert('❌ Error de conexión: ' + err.message);
         });
-    }
-    
-    // ===============================
-    // 🔹 Renderizar paginación
-    // ===============================
-    function renderizarPaginacion(actual, total, container) {
-        if (!container || total <= 1) {
-            container.innerHTML = '';
-            return;
-        }
-        
-        let html = '<div class="aa-paginacion-botones">';
-        
-        // Botón anterior
-        if (actual > 1) {
-            html += '<button class="aa-btn-paginacion" data-pagina="' + (actual - 1) + '">« Anterior</button>';
-        }
-        
-        // Números de página
-        for (let i = 1; i <= total; i++) {
-            if (i === actual) {
-                html += '<span class="aa-pagina-actual">' + i + '</span>';
-            } else if (i === 1 || i === total || (i >= actual - 2 && i <= actual + 2)) {
-                html += '<button class="aa-btn-paginacion" data-pagina="' + i + '">' + i + '</button>';
-            } else if (i === actual - 3 || i === actual + 3) {
-                html += '<span>...</span>';
-            }
-        }
-        
-        // Botón siguiente
-        if (actual < total) {
-            html += '<button class="aa-btn-paginacion" data-pagina="' + (actual + 1) + '">Siguiente »</button>';
-        }
-        
-        html += '</div>';
-        container.innerHTML = html;
-        
-        // Eventos de paginación
-        container.querySelectorAll('.aa-btn-paginacion').forEach(btn => {
-            btn.addEventListener('click', function() {
-                paginaActual = parseInt(this.dataset.pagina);
-                cargarProximasCitas();
-            });
-        });
-    }
-    
-    // ===============================
-    // 🔹 Utilidad: Escapar HTML
-    // ===============================
-    function escapeHtml(text) {
-        const map = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#039;'
-        };
-        return String(text).replace(/[&<>"']/g, m => map[m]);
     }
 });

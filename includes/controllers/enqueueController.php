@@ -130,18 +130,23 @@ function wpaa_enqueue_admin_assets($hook) {
 
         // Scripts admin declarados
         $admin_scripts = [
-            ['wpaa-date-utils-admin',           'assets/js/utils/dateUtils.js',              [], false],
-            ['wpaa-reservation-service-admin',  'assets/js/services/reservationService.js', [], true],
-            ['horariosapartados-admin',         'js/horariosapartados.js',                  ['flatpickr-js-admin','wpaa-date-utils-admin'], true],
+            ['wpaa-date-utils-admin',              'assets/js/utils/dateUtils.js',              [], false],
+            ['wpaa-reservation-service-admin',     'assets/js/services/reservationService.js',  [], true],
+            ['horariosapartados-admin',            'js/horariosapartados.js',                   ['flatpickr-js-admin','wpaa-date-utils-admin'], true],
             ['wpaa-availability-controller-admin', 'assets/js/controllers/availabilityController.js',
-                                                  ['wpaa-date-utils-admin'], true],
-            ['wpaa-admin-reservation-controller','assets/js/controllers/adminReservationController.js',
-                                                  ['wpaa-reservation-service-admin'], true],
-            ['wpaa-main-admin',                'assets/js/main-admin.js',
-                                                  ['wpaa-admin-reservation-controller','wpaa-date-utils-admin'], true],
-            ['aa-asistant-controls',           'js/asistant-controls.js',                  [], false],
-            ['aa-historial-citas',             'js/historial-citas.js',                    [], false],
-            ['aa-proximas-citas',              'js/proximas-citas.js',                     [], false],
+                                                   ['wpaa-date-utils-admin'], true],
+            ['wpaa-admin-reservation-controller',  'assets/js/controllers/adminReservationController.js',
+                                                   ['wpaa-reservation-service-admin'], true],
+            ['wpaa-main-admin',                    'assets/js/main-admin.js',
+                                                   ['wpaa-admin-reservation-controller','wpaa-date-utils-admin'], true],
+
+            // 🔹 NUEVO: Módulo UI de Próximas Citas (puro UI)
+            ['aa-proximas-citas-ui',               'assets/js/ui/proximasCitasUI.js',          [], false],
+
+            // Controlador existente de Próximas Citas
+            ['aa-asistant-controls',               'js/asistant-controls.js',                  [], false],
+            ['aa-historial-citas',                 'js/historial-citas.js',                    [], false],
+            ['aa-proximas-citas',                  'js/proximas-citas.js',                     ['aa-proximas-citas-ui'], false],
         ];
 
         foreach ($admin_scripts as [$h, $p, $d, $m]) {
