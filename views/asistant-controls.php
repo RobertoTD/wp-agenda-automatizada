@@ -9,9 +9,6 @@ function aa_render_asistant_panel() {
         wp_die('No tienes permisos para acceder a esta sección.');
     }
 
-    // 🔹 Encolar estilos del panel
-    wp_enqueue_style('aa-asistant-panel-styles', plugin_dir_url(__FILE__) . 'css/styles.css');
-
     echo '<div class="wrap aa-asistant-panel">';
     echo '<h1>🗓️ Panel del Asistente</h1>';
     echo '<p>Bienvenido, <strong>' . esc_html($user->display_name) . '</strong>.</p>';
@@ -76,7 +73,7 @@ function aa_render_asistant_panel() {
     // ===============================
     // 🔹 TABLA DE PRÓXIMAS CITAS (MODULARIZADA)
     // ===============================
-    require_once plugin_dir_path(__FILE__) . 'views/templates/proximas-citas-template.php';
+    require_once plugin_dir_path(__FILE__) . 'templates/proximas-citas-template.php';
 
     // ===============================
     // 🔹 SECCIÓN DE CLIENTES

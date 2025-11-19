@@ -1,4 +1,6 @@
 document.addEventListener('DOMContentLoaded', function() {
+    
+
     // 🔹 Manejar botones de CONFIRMAR
     document.querySelectorAll('.aa-btn-confirmar').forEach(function(btn) {
         btn.addEventListener('click', function() {
@@ -44,8 +46,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // ===============================
     // 🔹 SECCIÓN DE CLIENTES
     // ===============================
-    
-    // Toggle formulario de nuevo cliente
     const btnToggleForm = document.getElementById('btn-toggle-form-cliente');
     const formNuevoCliente = document.getElementById('form-nuevo-cliente');
     const btnCancelarForm = document.getElementById('btn-cancelar-form');
@@ -116,7 +116,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const btnCancelarEdicion = document.getElementById('btn-cancelar-edicion');
     const formEditarCliente = document.getElementById('form-editar-cliente');
     
-    // Abrir modal al hacer clic en botón "Editar"
     document.querySelectorAll('.aa-btn-editar-cliente').forEach(function(btn) {
         btn.addEventListener('click', function() {
             const id = this.dataset.id;
@@ -124,34 +123,29 @@ document.addEventListener('DOMContentLoaded', function() {
             const telefono = this.dataset.telefono;
             const correo = this.dataset.correo;
             
-            // Llenar el formulario con los datos actuales
             document.getElementById('editar-cliente-id').value = id;
             document.getElementById('editar-cliente-nombre').value = nombre;
             document.getElementById('editar-cliente-telefono').value = telefono;
             document.getElementById('editar-cliente-correo').value = correo;
             
-            // Mostrar modal
             if (modalEditarCliente) {
                 modalEditarCliente.classList.add('visible');
             }
         });
     });
     
-    // Cerrar modal con botón X
     if (btnCerrarModal) {
         btnCerrarModal.addEventListener('click', function() {
             modalEditarCliente.classList.remove('visible');
         });
     }
     
-    // Cerrar modal con botón Cancelar
     if (btnCancelarEdicion) {
         btnCancelarEdicion.addEventListener('click', function() {
             modalEditarCliente.classList.remove('visible');
         });
     }
     
-    // Cerrar modal al hacer clic fuera del contenido
     if (modalEditarCliente) {
         modalEditarCliente.addEventListener('click', function(e) {
             if (e.target === modalEditarCliente) {
@@ -160,7 +154,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Enviar formulario de edición
     if (formEditarCliente) {
         formEditarCliente.addEventListener('submit', function(e) {
             e.preventDefault();

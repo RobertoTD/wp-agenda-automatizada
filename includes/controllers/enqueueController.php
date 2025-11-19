@@ -124,29 +124,44 @@ function wpaa_enqueue_admin_assets($hook) {
     // --- Panel del asistente ---
     if ($hook === 'toplevel_page_aa_asistant_panel' || $hook === 'agenda-automatizada_page_aa_asistant_panel') {
 
+        // 🔹 Encolar CSS del panel del asistente
+        wp_enqueue_style('wpaa-asistant-panel-styles', wpaa_url('css/styles.css'), [], filemtime(wpaa_path('css/styles.css')));
+
         wp_enqueue_style('flatpickr-css-admin', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css');
         wp_enqueue_script('flatpickr-js-admin', 'https://cdn.jsdelivr.net/npm/flatpickr', [], null, true);
         wp_enqueue_script('flatpickr-es-admin', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js', ['flatpickr-js-admin'], null, true);
 
         // Scripts admin declarados
         $admin_scripts = [
+            // 🔹 Utilidades
             ['wpaa-date-utils-admin',              'assets/js/utils/dateUtils.js',              [], false],
+            
+            // 🔹 Servicios (AJAX)
             ['wpaa-reservation-service-admin',     'assets/js/services/reservationService.js',  [], true],
-            ['horariosapartados-admin',            'js/horariosapartados.js',                   ['flatpickr-js-admin','wpaa-date-utils-admin'], true],
+            ['wpaa-confirm-service',               'assets/js/services/confirmService.js',      [], false],
+            
+            // 🔹 Módulos UI (renderizado puro)
+            ['aa-proximas-citas-ui',               'assets/js/ui/proximasCitasUI.js',          [], false],
+            
+            // 🔹 Controladores (orquestación)
             ['wpaa-availability-controller-admin', 'assets/js/controllers/availabilityController.js',
                                                    ['wpaa-date-utils-admin'], true],
             ['wpaa-admin-reservation-controller',  'assets/js/controllers/adminReservationController.js',
                                                    ['wpaa-reservation-service-admin'], true],
+            ['wpaa-admin-confirm-controller',      'assets/js/controllers/adminConfirmController.js',
+                                                   ['wpaa-confirm-service'], false],
+            ['wpaa-proximas-citas-controller',     'assets/js/controllers/proximasCitasController.js',
+                                                   ['aa-proximas-citas-ui', 'wpaa-admin-confirm-controller'], false],
+            
+            // 🔹 Punto de entrada
             ['wpaa-main-admin',                    'assets/js/main-admin.js',
                                                    ['wpaa-admin-reservation-controller','wpaa-date-utils-admin'], true],
-
-            // 🔹 NUEVO: Módulo UI de Próximas Citas (puro UI)
-            ['aa-proximas-citas-ui',               'assets/js/ui/proximasCitasUI.js',          [], false],
-
-            // Controlador existente de Próximas Citas
+            
+            // 🔹 Scripts legacy (compatibilidad)
+            ['horariosapartados-admin',            'js/horariosapartados.js',                   ['flatpickr-js-admin','wpaa-date-utils-admin'], true],
             ['aa-asistant-controls',               'js/asistant-controls.js',                  [], false],
             ['aa-historial-citas',                 'js/historial-citas.js',                    [], false],
-            ['aa-proximas-citas',                  'js/proximas-citas.js',                     ['aa-proximas-citas-ui'], false],
+            ['aa-proximas-citas',                  'js/proximas-citas.js',                     ['wpaa-proximas-citas-controller'], false],
         ];
 
         foreach ($admin_scripts as [$h, $p, $d, $m]) {
