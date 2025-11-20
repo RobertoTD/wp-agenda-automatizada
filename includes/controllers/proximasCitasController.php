@@ -96,36 +96,7 @@ function aa_ajax_get_proximas_citas() {
     ]);
 }
 
-// ===============================
-// 🔹 AJAX: Confirmar cita
-// ===============================
-add_action('wp_ajax_aa_confirmar_cita', 'aa_ajax_confirmar_cita');
 
-function aa_ajax_confirmar_cita() {
-    check_ajax_referer('aa_confirmar_cita');
-    
-    if (!current_user_can('aa_view_panel') && !current_user_can('administrator')) {
-        wp_send_json_error(['message' => 'No tienes permisos.']);
-    }
-    
-    $id = intval($_POST['id']);
-    if (!$id) {
-        wp_send_json_error(['message' => 'ID inválido.']);
-    }
-    
-    global $wpdb;
-    $table = $wpdb->prefix . 'aa_reservas';
-    
-    $updated = $wpdb->update($table, ['estado' => 'confirmed'], ['id' => $id]);
-    
-    if ($updated === false) {
-        wp_send_json_error(['message' => 'Error al actualizar en BD.']);
-    }
-    
-    error_log("✅ Cita ID $id marcada como 'confirmed' manualmente por asistente");
-    
-    wp_send_json_success(['message' => 'Cita confirmada correctamente.']);
-}
 
 // ===============================
 // 🔹 AJAX: Cancelar cita (con eliminación en Google Calendar)

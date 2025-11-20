@@ -1,9 +1,9 @@
 <?php
 /**
  * Plugin Name: WP Agenda Automatizada
- * Description: Formulario para agendar citas que se conecta con n8n y redirige a WhatsApp.
- * Version: 1.0
- * Author: RobertoTD
+ * Description: Sistema de gestión de citas con integración a Google Calendar
+ * Version: 2.0.0
+ * Author: Tu Nombre
  */
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
@@ -25,6 +25,12 @@ require_once plugin_dir_path(__FILE__) . 'clientes.php';
 
 // 🔹 Controlador de encolado de scripts y estilos
 require_once plugin_dir_path(__FILE__) . 'includes/controllers/enqueueController.php';
+
+// 🔹 Controlador de próximas citas (con confirmación/cancelación)
+require_once plugin_dir_path(__FILE__) . 'includes/controllers/proximasCitasController.php';
+
+// 🔹 Controlador AJAX de confirmación (modularizado)
+require_once plugin_dir_path(__FILE__) . 'includes/controllers/confirm-admin-controller.php';
 
 // ================================
 // 🔹 Endpoint AJAX: Guardar cita desde el frontend
