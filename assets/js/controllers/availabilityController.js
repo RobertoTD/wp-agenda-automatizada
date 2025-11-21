@@ -1,11 +1,66 @@
 // ==============================
-// 🔹 Controlador de disponibilidad
+// 🔹 Importar utilidades desde dateUtils.js
 // ==============================
+import { 
+  ymd, 
+  getWeekdayName, 
+  getDayIntervals, 
+  generateSlotsForDay as generateSlots,
+  timeStrToMinutes 
+} from '../utils/dateUtils.js';
 
-/**
- * Inicializa el controlador de disponibilidad
- * Procesa busyRanges, genera slots, conecta UI con servicios
- */
+// ==============================
+// 🔹 CORREGIDO: Verificar si un slot tiene suficiente espacio libre
+// ==============================
+function hasEnoughFreeTime(slotStart, durationMinutes, busyRanges) {
+  const slotEnd = new Date(slotStart.getTime() + durationMinutes * 60000);
+  
+  for (const busy of busyRanges) {
+    // ✅ CORRECCIÓN: Superposición real
+    // Un slot se superpone con un evento si:
+    // - El slot empieza ANTES de que termine el evento
+    // - Y el slot termina DESPUÉS de que empiece el evento
+    
+    // PERO: Si el slot termina EXACTAMENTE donde empieza el evento, NO hay superposición
+    // Y si el evento termina EXACTAMENTE donde empieza el slot, NO hay superposición
+    
+    const overlaps = slotStart < busy.end && slotEnd > busy.start;
+    
+    if (overlaps) {
+      console.log(`❌ Slot ${slotStart.toLocaleTimeString()}-${slotEnd.toLocaleTimeString()} rechazado: intersecta con evento ${busy.start.toLocaleTimeString()}-${busy.end.toLocaleTimeString()}`);
+      return false;
+    }
+  }
+  
+  return true;
+}
+
+// ==============================
+// 🔹 Wrapper: Filtrar slots por duración mínima
+// ==============================
+function generateSlotsForDay(day, intervals, busyRanges, slotDuration) {
+  // ✅ Usar la función de dateUtils.js (que ya maneja minutos correctamente)
+  const allSlots = generateSlots(day, intervals, busyRanges);
+  
+  console.log(`🕒 [${ymd(day)}] Slots generados antes de filtrar por duración: ${allSlots.length}`);
+  
+  // ✅ Filtrar slots que NO tienen suficiente espacio
+  const validSlots = allSlots.filter(slot => {
+    const hasSpace = hasEnoughFreeTime(slot, slotDuration, busyRanges);
+    if (hasSpace) {
+      console.log(`✅ Slot ${slot.toLocaleTimeString()} VÁLIDO (requiere ${slotDuration} min)`);
+    }
+    return hasSpace;
+  });
+  
+  console.log(`✅ [${ymd(day)}] Slots válidos después de filtrar (${slotDuration} min): ${validSlots.length}`);
+  
+  return validSlots;
+}
+
+// ==============================
+// 🔹 Inicialización
+// ==============================
 export function initAvailabilityController(config) {
   const {
     fechaInputSelector,
@@ -13,9 +68,6 @@ export function initAvailabilityController(config) {
     isAdmin = false
   } = config;
 
-  // ==============================
-  // 🔹 Escuchar evento de disponibilidad cargada
-  // ==============================
   document.addEventListener("aa:availability:loaded", () => {
     const fechaInput = document.querySelector(fechaInputSelector);
     if (!fechaInput || typeof flatpickr === "undefined") {
@@ -23,14 +75,26 @@ export function initAvailabilityController(config) {
       return;
     }
 
+    // ✅ CORRECCIÓN: Leer aa_slot_duration correctamente
     const aa_schedule = window.aa_schedule || {};
     const aa_future_window = window.aa_future_window || 14;
+    
+    // ✅ LEER desde window.aa_slot_duration (localizado por PHP)
+    const slotDuration = (typeof window.aa_slot_duration !== 'undefined' && window.aa_slot_duration > 0)
+      ? parseInt(window.aa_slot_duration, 10)
+      : 60; // fallback a 60 solo si no existe
+
+    console.log(`📊 Configuración cargada:`);
+    console.log(`   - Horario (aa_schedule):`, aa_schedule);
+    console.log(`   - Duración de cita: ${slotDuration} minutos ← DEBE SER 30`);
+    console.log(`   - Ventana futura: ${aa_future_window} días`);
 
     const busy = (window.aa_availability && Array.isArray(window.aa_availability.busy))
       ? window.aa_availability.busy
       : [];
 
-    // 🔹 Convertir todas las fechas ocupadas a objetos Date locales
+    console.log(`   - Eventos ocupados: ${busy.length}`);
+
     const busyRanges = busy.map(ev => ({
       start: new Date(ev.start),
       end: new Date(ev.end)
@@ -40,29 +104,25 @@ export function initAvailabilityController(config) {
     const maxDate = new Date();
     maxDate.setDate(minDate.getDate() + Number(aa_future_window));
 
-    // 🔹 Precalcular slots disponibles por día
     const availableSlotsPerDay = {};
-    let totalIntervals = 0;
-    let totalBusy = busyRanges.length;
     
     for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
       const day = new Date(d);
       const weekday = getWeekdayName(day);
+      
+      // ✅ getDayIntervals ya convierte a minutos internamente
       const intervals = getDayIntervals(aa_schedule, weekday);
       
-      totalIntervals += intervals.length;
-      const slots = generateSlotsForDay(day, intervals, busyRanges);
+      // ✅ generateSlotsForDay filtra por duración
+      const slots = generateSlotsForDay(day, intervals, busyRanges, slotDuration);
       
       availableSlotsPerDay[ymd(day)] = slots.length;
       
-      // 🔹 Debug: mostrar slots calculados
       if (slots.length > 0) {
-        console.log(`📅 ${ymd(day)} (${weekday}): ${slots.length} slots disponibles`, 
-          slots.map(s => s.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })));
+        console.log(`📅 ${ymd(day)} (${weekday}): ${slots.length} slots disponibles`);
       }
     }
 
-    // 🔹 Funciones helper
     function isDateAvailable(date) {
       return (availableSlotsPerDay[ymd(date)] || 0) > 0;
     }
@@ -72,10 +132,9 @@ export function initAvailabilityController(config) {
     }
 
     // ==============================
-    // 🔹 Inicializar Flatpickr según contexto
+    // 🔹 Inicializar Flatpickr
     // ==============================
     if (isAdmin) {
-      // 🔹 ADMIN: usar flatpickr directamente
       if (fechaInput._flatpickr) fechaInput._flatpickr.destroy();
       
       flatpickr(fechaInput, {
@@ -90,7 +149,7 @@ export function initAvailabilityController(config) {
           const sel = selectedDates[0];
           const weekday = getWeekdayName(sel);
           const intervals = getDayIntervals(aa_schedule, weekday);
-          const validSlots = generateSlotsForDay(sel, intervals, busyRanges);
+          const validSlots = generateSlotsForDay(sel, intervals, busyRanges, slotDuration);
           
           renderSlots(slotContainerSelector, validSlots, sel, fechaInput, true);
         }
@@ -99,7 +158,6 @@ export function initAvailabilityController(config) {
       console.log('📅 Flatpickr inicializado en panel del asistente');
       
     } else {
-      // 🔹 FRONTEND: usar CalendarUI modular
       if (typeof window.CalendarUI !== 'undefined') {
         window.CalendarUI.rebuildCalendar({
           fechaInput: fechaInput,
@@ -109,7 +167,7 @@ export function initAvailabilityController(config) {
           onDateSelected: (selectedDate, pickerInstance) => {
             const weekday = getWeekdayName(selectedDate);
             const intervals = getDayIntervals(aa_schedule, weekday);
-            const validSlots = generateSlotsForDay(selectedDate, intervals, busyRanges);
+            const validSlots = generateSlotsForDay(selectedDate, intervals, busyRanges, slotDuration);
             pickerInstance.validSlots = validSlots;
             
             renderSlots(slotContainerSelector, validSlots, selectedDate, fechaInput, false);
@@ -120,26 +178,23 @@ export function initAvailabilityController(config) {
       } else {
         console.error('❌ CalendarUI no está disponible en el frontend');
       }
-      
-      console.log(`📅 Flatpickr reinicializado. Intervalos: ${totalIntervals}, Ocupados: ${totalBusy}`);
     }
   });
 }
 
-/**
- * Renderiza los slots disponibles usando SlotSelectorUI o lógica admin
- * @param {string} containerId - ID del contenedor
- * @param {Array<Date>} validSlots - Slots disponibles
- * @param {Date} selectedDate - Fecha seleccionada
- * @param {HTMLElement} fechaInput - Input de fecha
- * @param {boolean} isAdmin - Si es contexto admin
- */
+// ==============================
+// 🔹 Renderizado de slots
+// ==============================
 function renderSlots(containerId, validSlots, selectedDate, fechaInput, isAdmin) {
   const slotSelectorId = isAdmin ? 'slot-selector-admin' : 'slot-selector';
   
   if (isAdmin) {
-    // 🔹 ADMIN: renderizado local
     const container = document.getElementById(containerId);
+    if (!container) {
+      console.error(`❌ No se encontró contenedor: ${containerId}`);
+      return;
+    }
+    
     container.innerHTML = '';
     
     if (!validSlots.length) {
@@ -175,23 +230,18 @@ function renderSlots(containerId, validSlots, selectedDate, fechaInput, isAdmin)
     container.appendChild(label);
     container.appendChild(select);
     
-    // Auto-seleccionar primer slot
     if (validSlots.length > 0) {
       const firstSlot = validSlots[0];
       fechaInput.value = `${selectedDate.toLocaleDateString()} ${firstSlot.getHours().toString().padStart(2,'0')}:${firstSlot.getMinutes().toString().padStart(2,'0')}`;
     }
     
   } else {
-    // 🔹 FRONTEND: usar SlotSelectorUI
     if (typeof window.SlotSelectorUI !== 'undefined') {
       window.SlotSelectorUI.renderAvailableSlots(containerId, validSlots, chosen => {
         fechaInput.value = `${selectedDate.toLocaleDateString()} ${chosen.getHours().toString().padStart(2,'0')}:${chosen.getMinutes().toString().padStart(2,'0')}`;
       });
-    } else {
-      console.error('❌ SlotSelectorUI no está disponible');
     }
     
-    // Auto-seleccionar primer slot
     if (validSlots.length > 0) {
       const firstSlot = validSlots[0];
       fechaInput.value = `${selectedDate.toLocaleDateString()} ${firstSlot.getHours().toString().padStart(2,'0')}:${firstSlot.getMinutes().toString().padStart(2,'0')}`;
@@ -200,10 +250,10 @@ function renderSlots(containerId, validSlots, selectedDate, fechaInput, isAdmin)
 }
 
 // ==============================
-// 🔹 Exponer en window para compatibilidad
+// 🔹 Exponer en window
 // ==============================
 window.AvailabilityController = {
   init: initAvailabilityController
 };
 
-console.log('✅ AvailabilityController cargado y expuesto globalmente');
+console.log('✅ AvailabilityController cargado');

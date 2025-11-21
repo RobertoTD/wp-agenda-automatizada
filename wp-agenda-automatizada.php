@@ -241,11 +241,6 @@ function wpaa_render_form() {
 add_shortcode('agenda_automatizada', 'wpaa_render_form');
 
 // ===============================
-// 🔵 ADMIN: Configuración de agenda
-// ===============================
-require_once plugin_dir_path(__FILE__) . 'admin-controls.php';
-
-// ===============================
 // 🔹 VISTAS: Panel del asistente
 // ===============================
 require_once plugin_dir_path(__FILE__) . 'views/asistant-controls.php';
@@ -264,4 +259,6 @@ require_once plugin_dir_path(__FILE__) . 'availability-proxy.php';
 
 // 🔹 Incluir el nuevo archivo de confirmación de correos
 require_once plugin_dir_path(__FILE__) . 'confirmacioncorreos.php';
+// 🔹 Configuración del administrador (mover referencia)
+require_once plugin_dir_path(__FILE__) . 'views/admin-controls.php';
 

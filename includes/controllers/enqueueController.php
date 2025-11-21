@@ -185,7 +185,8 @@ function wpaa_enqueue_admin_assets($hook) {
         ]);
 
         wpaa_localize('horariosapartados-admin', 'aa_schedule',      get_option('aa_schedule', []));
-        wpaa_localize('horariosapartados-admin', 'aa_future_window', get_option('aa_future_window', 15));
+        wpaa_localize('horariosapartados-admin', 'aa_future_window', intval(get_option('aa_future_window', 15)));
+        wpaa_localize('horariosapartados-admin', 'aa_slot_duration', intval(get_option('aa_slot_duration', 60)));
 
         wpaa_localize('aa-asistant-controls', 'aa_asistant_vars', [
             'nonce_confirmar' => wp_create_nonce('aa_confirmar_cita'),

@@ -2,36 +2,35 @@
 // 🔹 Utilidades de manejo de fechas
 // ==============================
 
-// 🔹 Convertir Date a YYYY-MM-DD en zona horaria LOCAL (no UTC)
-const ymd = d => {
+// 🔹 Convertir Date a YYYY-MM-DD en zona horaria LOCAL
+export const ymd = d => {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
 
-// devuelve el nombre del día en inglés en minúsculas
-function getWeekdayName(date) {
+// Devuelve el nombre del día en inglés en minúsculas
+export function getWeekdayName(date) {
   const days = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
-  // 🔹 Usar getDay() directamente - ya está en zona horaria local correcta
   const dayIndex = date.getDay();
-  console.log(`🗓️ Debug getWeekdayName: ${date.toDateString()} -> día ${dayIndex} (${days[dayIndex]})`);
+  console.log(`🗓️ ${date.toDateString()} -> día ${dayIndex} (${days[dayIndex]})`);
   return days[dayIndex];
 }
 
-// convierte el formato "HH:MM" a minutos desde medianoche ejemplo: "14:30" => 870
-function timeStrToMinutes(str) {
+// Convierte "HH:MM" a minutos desde medianoche
+export function timeStrToMinutes(str) {
   const [h, m] = str.split(':').map(Number);
   return h * 60 + m;
 }
 
-// convierte un objeto Date a minutos desde medianoche  Date(14:30) => 870
-function minutesFromDate(d) {
+// Convierte Date a minutos desde medianoche
+export function minutesFromDate(d) {
   return d.getHours() * 60 + d.getMinutes();
 }
 
-// obtiene los intervalos de un día específico del horario admin 
-function getDayIntervals(aa_schedule, weekday) {
+// Obtiene intervalos de un día (convertidos a minutos)
+export function getDayIntervals(aa_schedule, weekday) {
   if (!aa_schedule || !aa_schedule[weekday] || !aa_schedule[weekday].enabled) return [];
   const intervals = aa_schedule[weekday].intervals || [];
   return intervals.map(iv => ({
@@ -40,32 +39,57 @@ function getDayIntervals(aa_schedule, weekday) {
   }));
 }
 
-// verifica si una fecha dada cae dentro de algún rango ocupado
-function isSlotBusy(slotDate, busyRanges) {
-  return busyRanges.some(range => slotDate >= range.start && slotDate < range.end);
+// ✅ CORREGIDO: Verifica si un slot está ocupado
+export function isSlotBusy(slotDate, busyRanges) {
+  // Un slot está ocupado si HAY SUPERPOSICIÓN con algún evento
+  // Superposición = el slot empieza ANTES de que termine el evento
+  //                 Y termina DESPUÉS de que empiece el evento
+  
+  return busyRanges.some(range => {
+    // ✅ CORRECCIÓN: Un slot de UN SOLO INSTANTE se considera ocupado si cae dentro del rango
+    // Pero si el slot termina EXACTAMENTE donde empieza el evento, NO está ocupado
+    return slotDate >= range.start && slotDate < range.end;
+  });
 }
 
-// genera todos los slots disponibles para un día dado, excluyendo los ocupados
-function generateSlotsForDay(date, intervals, busyRanges) {
+// ✅ CORREGIDO: Genera slots disponibles para un día
+export function generateSlotsForDay(date, intervals, busyRanges) {
   const slots = [];
   const now = new Date();
   const isToday = date.toDateString() === now.toDateString();
   
-  // 🔹 Calcular hora mínima disponible (1 hora después de ahora)
   const minAvailableTime = new Date(now.getTime() + 60 * 60 * 1000); // +1 hora
   
   intervals.forEach(iv => {
+    // iv.start e iv.end están en MINUTOS desde medianoche
     for (let min = iv.start; min < iv.end; min += 30) {
       const slot = new Date(date);
       slot.setHours(Math.floor(min / 60), min % 60, 0, 0);
       
-      // 🔹 Si es hoy, filtrar slots que ya pasaron o están muy cerca
+      // Saltar slots que son hoy y están muy cerca
       if (isToday && slot < minAvailableTime) {
-        continue; // Saltar este slot
+        continue;
       }
       
-      if (!isSlotBusy(slot, busyRanges)) slots.push(slot);
+      // ✅ Verificar si el slot NO está ocupado
+      if (!isSlotBusy(slot, busyRanges)) {
+        slots.push(slot);
+      }
     }
   });
+  
   return slots;
 }
+
+// ✅ Exponer globalmente para compatibilidad con scripts legacy
+window.DateUtils = {
+  ymd,
+  getWeekdayName,
+  timeStrToMinutes,
+  minutesFromDate,
+  getDayIntervals,
+  isSlotBusy,
+  generateSlotsForDay
+};
+
+console.log('✅ dateUtils.js cargado y exportado');
