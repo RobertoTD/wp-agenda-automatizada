@@ -6,16 +6,25 @@ document.addEventListener('DOMContentLoaded', function () {
   console.log('🚀 Inicializando aplicación frontend...');
 
   // ==============================
-  // 🔹 1. Inicializar calendario básico
+  // 🔹 FASE 1: Inicializar calendario básico INMEDIATAMENTE
   // ==============================
-  if (typeof window.CalendarUI !== 'undefined') {
-    window.CalendarUI.initBasicCalendar("#fecha");
+  const fechaInput = document.querySelector('#fecha');
+  
+  if (fechaInput && typeof window.CalendarUI !== 'undefined') {
+    console.log('📅 Inicializando calendario básico (sin reglas de disponibilidad)...');
+    window.CalendarUI.initBasicCalendar('#fecha');
   } else {
-    console.error('❌ CalendarUI no está cargado');
+    if (!fechaInput) {
+      console.warn('⚠️ Input #fecha no encontrado');
+    }
+    if (typeof window.CalendarUI === 'undefined') {
+      console.error('❌ CalendarUI no está disponible');
+    }
   }
 
   // ==============================
-  // 🔹 2. Inicializar controlador de disponibilidad
+  // 🔹 FASE 2: Inicializar controlador de disponibilidad
+  // (Se activará cuando lleguen los datos de Google Calendar)
   // ==============================
   if (typeof window.AvailabilityController !== 'undefined') {
     window.AvailabilityController.init({
@@ -28,7 +37,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // ==============================
-  // 🔹 3. Inicializar controlador de reservas
+  // 🔹 Inicializar controlador de reservas
   // ==============================
   if (typeof window.ReservationController !== 'undefined') {
     window.ReservationController.init('#agenda-form');

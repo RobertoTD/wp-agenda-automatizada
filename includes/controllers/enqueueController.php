@@ -56,55 +56,73 @@ function wpaa_locale_from_timezone($tz) {
 /* ============================================================
    FRONTEND
 ============================================================ */
+// ===============================
+// 🔹 FRONTEND: Shortcode [agenda_automatizada]
+// ===============================
+add_action('wp_enqueue_scripts', 'wpaa_enqueue_frontend_assets');
+
 function wpaa_enqueue_frontend_assets() {
-    $timezone = get_option('aa_timezone', 'America/Mexico_City');
-    $locale   = wpaa_locale_from_timezone($timezone);
-
-    // --- CSS ---
-    wp_enqueue_style('flatpickr-css', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css');
-    wp_enqueue_style('wpaa-styles', wpaa_url('css/styles.css'), [], filemtime(wpaa_path('css/styles.css')));
-
-    // --- JS externos ---
-    wp_enqueue_script('flatpickr-js', 'https://cdn.jsdelivr.net/npm/flatpickr', ['jquery'], null, true);
-    wp_enqueue_script('flatpickr-es', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js', ['flatpickr-js'], null, true);
-
-    // --- Scripts del plugin (declaración compacta) ---
-    $scripts = [
-        ['wpaa-date-utils',           'assets/js/utils/dateUtils.js',              [], false],
-        ['wpaa-calendar-ui',          'assets/js/ui/calendarUI.js',               ['flatpickr-js'], true],
-        ['wpaa-slot-selector-ui',     'assets/js/ui/slotSelectorUI.js',           [], true],
-        ['wpaa-reservation-service',  'assets/js/services/reservationService.js', [], true],
-        ['wpaa-availability-controller','assets/js/controllers/availabilityController.js',
-                                               ['wpaa-date-utils','wpaa-calendar-ui','wpaa-slot-selector-ui'], true],
-        ['wpaa-reservation-controller','assets/js/controllers/reservationController.js',
-                                               ['wpaa-reservation-service'], true],
-        ['wpaa-main-frontend',        'assets/js/main-frontend.js',
-                                               ['wpaa-reservation-controller'], true],
-    ];
-
-    foreach ($scripts as [$handle, $path, $deps, $module]) {
-        wpaa_register_js($handle, $path, $deps, $module);
+    global $post;
+    if (!is_a($post, 'WP_Post') || !has_shortcode($post->post_content, 'agenda_automatizada')) {
+        return;
     }
 
-    // Datos globales
-    $nonce = wp_create_nonce('aa_reservation_nonce');
-    wpaa_localize('wpaa-date-utils', 'wpaa_vars', [
-        'api_base_url'     => defined('AA_API_BASE_URL') ? AA_API_BASE_URL : '',
-        'webhook_url'      => 'https://deoia.app.n8n.cloud/webhook-test/disponibilidad-citas',
-        'ajax_url'         => admin_url('admin-ajax.php'),
-        'timezone'         => $timezone,
-        'locale'           => $locale,
-        'whatsapp_number'  => get_option('aa_whatsapp_number', '5215522992290'),
-        'business_name'    => get_option('aa_business_name', 'Nuestro negocio'),
-        'business_address' => get_option('aa_business_address', ''),
-        'is_virtual'       => get_option('aa_is_virtual', 0),
-        'nonce'            => $nonce,
+    // CSS
+    wp_enqueue_style('flatpickr-css', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css');
+    wp_enqueue_style('wpaa-frontend-styles', wpaa_url('css/styles.css'), [], filemtime(wpaa_path('css/styles.css')));
+
+    // JS externos
+    wp_enqueue_script('flatpickr-js', 'https://cdn.jsdelivr.net/npm/flatpickr', [], null, true);
+    wp_enqueue_script('flatpickr-es', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js', ['flatpickr-js'], null, true);
+
+    $frontend_scripts = [
+        ['wpaa-date-utils',              'assets/js/utils/dateUtils.js',              [], true],
+        ['wpaa-calendar-ui',             'assets/js/ui/calendarUI.js',                
+                                         ['flatpickr-js', 'flatpickr-es'], true],
+        ['wpaa-slot-selector-ui',        'assets/js/ui/slotSelectorUI.js',            [], true],
+        ['wpaa-reservation-service',     'assets/js/services/reservationService.js',  [], true],
+        ['wpaa-availability-controller', 'assets/js/controllers/availabilityController.js',
+                                         ['wpaa-date-utils', 'wpaa-calendar-ui', 'wpaa-slot-selector-ui'], true],
+        ['wpaa-reservation-controller',  'assets/js/controllers/reservationController.js',
+                                         ['wpaa-reservation-service'], true],
+        ['horariosapartados',            'js/horariosapartados.js',                   
+                                         ['flatpickr-js', 'wpaa-date-utils'], true],
+        ['wpaa-main-frontend',           'assets/js/main-frontend.js',
+                                         ['wpaa-availability-controller', 'wpaa-reservation-controller', 'wpaa-calendar-ui'], false],
+    ];
+
+    foreach ($frontend_scripts as [$h, $p, $d, $m]) {
+        wpaa_register_js($h, $p, $d, $m);
+    }
+
+    // ✅ Localizar variables para horariosapartados (disponibilidad)
+    wpaa_localize('horariosapartados', 'aa_backend', [
+        'ajax_url' => admin_url('admin-ajax.php'),
+        'action'   => 'aa_get_availability',
+        'email'    => get_option('aa_google_email', ''),
     ]);
 
-    wpaa_localize('wpaa-date-utils', 'aa_schedule',       get_option('aa_schedule', []));
-    wpaa_localize('wpaa-date-utils', 'aa_future_window',  get_option('aa_future_window', 15));
+    wpaa_localize('horariosapartados', 'aa_schedule',      get_option('aa_schedule', []));
+    wpaa_localize('horariosapartados', 'aa_future_window', intval(get_option('aa_future_window', 15)));
+    wpaa_localize('horariosapartados', 'aa_slot_duration', intval(get_option('aa_slot_duration', 60)));
+
+    // ✅ Localizar variables para reservationService (guardado de citas)
+    wpaa_localize('wpaa-reservation-service', 'aa_reservation_config', [
+        'ajax_url' => admin_url('admin-ajax.php'),
+        'nonce'    => wp_create_nonce('aa_reservation_nonce'),
+    ]);
+
+    // ✅ NUEVO: Localizar wpaa_vars para reservationController (frontend)
+    $timezone = get_option('aa_timezone', 'America/Mexico_City');
+    
+    wpaa_localize('wpaa-reservation-controller', 'wpaa_vars', [
+        'ajax_url' => admin_url('admin-ajax.php'),
+        'nonce' => wp_create_nonce('aa_reservation_nonce'),
+        'whatsapp_number' => get_option('aa_whatsapp_number', '5215522992290'),
+        'timezone' => $timezone,
+        'locale' => wpaa_locale_from_timezone($timezone)
+    ]);
 }
-add_action('wp_enqueue_scripts', 'wpaa_enqueue_frontend_assets');
 
 /* ============================================================
    ADMIN

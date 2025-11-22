@@ -17,20 +17,35 @@ if (strpos($site_url, 'localhost') !== false || strpos($site_url, '127.0.0.1') !
     define('AA_API_BASE_URL', 'https://deoia-oauth-backend.onrender.com');
 }
 
-// 🔹 Incluir helper de autenticación
+// ===============================
+// 🔹 ORDEN CORRECTO DE INCLUSIÓN
+// ===============================
+
+// 1️⃣ Helpers y utilidades base
 require_once plugin_dir_path(__FILE__) . 'includes/auth-helper.php';
 
-// 🔹 Incluir módulo de gestión de clientes
+// 2️⃣ Modelos (acceso a datos)
 require_once plugin_dir_path(__FILE__) . 'clientes.php';
 
-// 🔹 Controlador de encolado de scripts y estilos
+// 3️⃣ Proxy AJAX (sin encolado de scripts)
+require_once plugin_dir_path(__FILE__) . 'availability-proxy.php';
+
+// 4️⃣ Controladores (lógica de negocio)
+require_once plugin_dir_path(__FILE__) . 'includes/controllers/availability-controller.php';
+require_once plugin_dir_path(__FILE__) . 'includes/controllers/proximasCitasController.php';
+require_once plugin_dir_path(__FILE__) . 'includes/controllers/confirm-admin-controller.php';
+
+// 5️⃣ Controlador de encolado (DEBE IR DESPUÉS de availability-controller)
 require_once plugin_dir_path(__FILE__) . 'includes/controllers/enqueueController.php';
 
-// 🔹 Controlador de próximas citas (con confirmación/cancelación)
-require_once plugin_dir_path(__FILE__) . 'includes/controllers/proximasCitasController.php';
+// 6️⃣ Vistas
+require_once plugin_dir_path(__FILE__) . 'views/asistant-controls.php';
+require_once plugin_dir_path(__FILE__) . 'views/admin-controls.php';
 
-// 🔹 Controlador AJAX de confirmación (modularizado)
-require_once plugin_dir_path(__FILE__) . 'includes/controllers/confirm-admin-controller.php';
+// 7️⃣ Módulos adicionales
+require_once plugin_dir_path(__FILE__) . 'asistant-user.php';
+require_once plugin_dir_path(__FILE__) . 'historial-citas.php';
+require_once plugin_dir_path(__FILE__) . 'confirmacioncorreos.php';
 
 // ================================
 // 🔹 Endpoint AJAX: Guardar cita desde el frontend
@@ -239,26 +254,4 @@ function wpaa_render_form() {
     return ob_get_clean();
 }
 add_shortcode('agenda_automatizada', 'wpaa_render_form');
-
-// ===============================
-// 🔹 VISTAS: Panel del asistente
-// ===============================
-require_once plugin_dir_path(__FILE__) . 'views/asistant-controls.php';
-
-// 🔹 Incluir módulo de gestión de usuarios asistentes
-require_once plugin_dir_path(__FILE__) . 'asistant-user.php';
-
-// 🔹 Incluir módulo de historial de citas
-require_once plugin_dir_path(__FILE__) . 'historial-citas.php';
-
-// 🔹 Controladores
-require_once plugin_dir_path(__FILE__) . 'includes/controllers/proximasCitasController.php';
-
-// 🔹 Proxy hacia backend (consulta disponibilidad Google Calendar)
-require_once plugin_dir_path(__FILE__) . 'availability-proxy.php';
-
-// 🔹 Incluir el nuevo archivo de confirmación de correos
-require_once plugin_dir_path(__FILE__) . 'confirmacioncorreos.php';
-// 🔹 Configuración del administrador (mover referencia)
-require_once plugin_dir_path(__FILE__) . 'views/admin-controls.php';
 

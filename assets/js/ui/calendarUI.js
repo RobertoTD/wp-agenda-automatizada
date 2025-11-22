@@ -2,11 +2,15 @@
 // 🔹 Funciones UI de Flatpickr
 // ==============================
 
+console.log('🔄 Cargando calendarUI.js...');
+
 /**
  * Inicializa Flatpickr en modo básico (sin reglas de disponibilidad)
  * @param {string} fechaSelector - Selector CSS del input de fecha
  */
 export function initBasicCalendar(fechaSelector) {
+  console.log('📅 initBasicCalendar llamado con selector:', fechaSelector);
+  
   if (typeof flatpickr === "undefined" || typeof flatpickr.l10ns === "undefined") {
     console.error('❌ Flatpickr no está cargado correctamente.');
     return null;
@@ -30,15 +34,10 @@ export function initBasicCalendar(fechaSelector) {
 
 /**
  * Reconstruye el calendario con reglas de disponibilidad
- * @param {Object} options - Configuración del calendario
- * @param {HTMLElement} options.fechaInput - Input de fecha
- * @param {Date} options.minDate - Fecha mínima
- * @param {Date} options.maxDate - Fecha máxima
- * @param {Function} options.disableDateCallback - Función para deshabilitar fechas
- * @param {Function} options.onDateSelected - Callback cuando se selecciona una fecha
- * @returns {Object} Instancia de Flatpickr
  */
 export function rebuildCalendar(options) {
+  console.log('🔄 rebuildCalendar llamado con opciones:', options);
+  
   const {
     fechaInput,
     minDate,
@@ -52,8 +51,8 @@ export function rebuildCalendar(options) {
     return null;
   }
 
-  // Destruir instancia anterior si existe
   if (fechaInput._flatpickr) {
+    console.log('🗑️ Destruyendo instancia anterior de Flatpickr');
     fechaInput._flatpickr.destroy();
   }
 
@@ -71,11 +70,9 @@ export function rebuildCalendar(options) {
       
       const sel = selectedDates[0];
       
-      // Llamar al callback externo con la fecha seleccionada
       if (onDateSelected && typeof onDateSelected === 'function') {
         const result = onDateSelected(sel, this);
         
-        // Si el callback retorna un valor ISO, guardarlo
         if (result && result.selectedSlotISO) {
           selectedSlotISO = result.selectedSlotISO;
         }
@@ -83,7 +80,7 @@ export function rebuildCalendar(options) {
     }
   });
 
-  console.log('📅 Flatpickr reconstruido con reglas de disponibilidad');
+  console.log('✅ Flatpickr reconstruido con reglas de disponibilidad');
 
   return picker;
 }
@@ -97,3 +94,5 @@ window.CalendarUI = {
 };
 
 console.log('✅ CalendarUI cargado y expuesto globalmente');
+console.log('   - window.CalendarUI:', window.CalendarUI);
+console.log('   - Funciones disponibles:', Object.keys(window.CalendarUI));

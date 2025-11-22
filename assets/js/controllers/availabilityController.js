@@ -10,20 +10,50 @@ import {
 } from '../utils/dateUtils.js';
 
 // ==============================
+// 🔹 DEBUG: Imprimir datos locales de disponibilidad
+// ==============================
+if (typeof window.aa_local_availability !== 'undefined') {
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('📦 DATOS COMPLETOS PARA IMPRESIÓN LOCAL');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('🔹 Configuración:', {
+    slot_duration: window.aa_local_availability.slot_duration,
+    timezone: window.aa_local_availability.timezone,
+    total_confirmed: window.aa_local_availability.total_confirmed
+  });
+  console.log('🔹 Slots ocupados locales:', window.aa_local_availability.local_busy);
+  console.log('🔹 Total de eventos locales:', window.aa_local_availability.local_busy.length);
+  
+  // Formatear para visualización detallada
+  if (window.aa_local_availability.local_busy.length > 0) {
+    console.log('🔹 Detalle de eventos:');
+    window.aa_local_availability.local_busy.forEach((slot, index) => {
+      console.log(`   ${index + 1}. ${slot.start} → ${slot.end} | ${slot.title} (${slot.attendee})`);
+    });
+  } else {
+    console.log('ℹ️ No hay eventos confirmados en la base de datos local');
+  }
+  
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  
+  // 🔹 Combinar con datos de Google Calendar si existen
+  if (typeof window.aa_availability !== 'undefined' && window.aa_availability.busy) {
+    console.log('🔹 Eventos de Google Calendar:', window.aa_availability.busy.length);
+    console.log('🔹 Total combinado:', 
+      window.aa_local_availability.local_busy.length + window.aa_availability.busy.length
+    );
+  }
+  
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+}
+
+// ==============================
 // 🔹 CORREGIDO: Verificar si un slot tiene suficiente espacio libre
 // ==============================
 function hasEnoughFreeTime(slotStart, durationMinutes, busyRanges) {
   const slotEnd = new Date(slotStart.getTime() + durationMinutes * 60000);
   
   for (const busy of busyRanges) {
-    // ✅ CORRECCIÓN: Superposición real
-    // Un slot se superpone con un evento si:
-    // - El slot empieza ANTES de que termine el evento
-    // - Y el slot termina DESPUÉS de que empiece el evento
-    
-    // PERO: Si el slot termina EXACTAMENTE donde empieza el evento, NO hay superposición
-    // Y si el evento termina EXACTAMENTE donde empieza el slot, NO hay superposición
-    
     const overlaps = slotStart < busy.end && slotEnd > busy.start;
     
     if (overlaps) {
@@ -39,12 +69,10 @@ function hasEnoughFreeTime(slotStart, durationMinutes, busyRanges) {
 // 🔹 Wrapper: Filtrar slots por duración mínima
 // ==============================
 function generateSlotsForDay(day, intervals, busyRanges, slotDuration) {
-  // ✅ Usar la función de dateUtils.js (que ya maneja minutos correctamente)
   const allSlots = generateSlots(day, intervals, busyRanges);
   
   console.log(`🕒 [${ymd(day)}] Slots generados antes de filtrar por duración: ${allSlots.length}`);
   
-  // ✅ Filtrar slots que NO tienen suficiente espacio
   const validSlots = allSlots.filter(slot => {
     const hasSpace = hasEnoughFreeTime(slot, slotDuration, busyRanges);
     if (hasSpace) {
@@ -70,30 +98,34 @@ export function initAvailabilityController(config) {
 
   document.addEventListener("aa:availability:loaded", () => {
     const fechaInput = document.querySelector(fechaInputSelector);
-    if (!fechaInput || typeof flatpickr === "undefined") {
-      console.warn(`⚠️ No se encontró el input ${fechaInputSelector} o flatpickr no está disponible`);
+    
+    if (!fechaInput) {
+      console.warn(`⚠️ No se encontró el input ${fechaInputSelector}`);
+      return;
+    }
+    
+    if (typeof flatpickr === "undefined") {
+      console.error('❌ Flatpickr no está disponible');
       return;
     }
 
-    // ✅ CORRECCIÓN: Leer aa_slot_duration correctamente
     const aa_schedule = window.aa_schedule || {};
     const aa_future_window = window.aa_future_window || 14;
     
-    // ✅ LEER desde window.aa_slot_duration (localizado por PHP)
     const slotDuration = (typeof window.aa_slot_duration !== 'undefined' && window.aa_slot_duration > 0)
       ? parseInt(window.aa_slot_duration, 10)
-      : 60; // fallback a 60 solo si no existe
+      : 60;
 
     console.log(`📊 Configuración cargada:`);
     console.log(`   - Horario (aa_schedule):`, aa_schedule);
-    console.log(`   - Duración de cita: ${slotDuration} minutos ← DEBE SER 30`);
+    console.log(`   - Duración de cita: ${slotDuration} minutos`);
     console.log(`   - Ventana futura: ${aa_future_window} días`);
 
     const busy = (window.aa_availability && Array.isArray(window.aa_availability.busy))
       ? window.aa_availability.busy
       : [];
 
-    console.log(`   - Eventos ocupados: ${busy.length}`);
+    console.log(`   - Eventos ocupados (Google Calendar): ${busy.length}`);
 
     const busyRanges = busy.map(ev => ({
       start: new Date(ev.start),
@@ -109,11 +141,7 @@ export function initAvailabilityController(config) {
     for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
       const day = new Date(d);
       const weekday = getWeekdayName(day);
-      
-      // ✅ getDayIntervals ya convierte a minutos internamente
       const intervals = getDayIntervals(aa_schedule, weekday);
-      
-      // ✅ generateSlotsForDay filtra por duración
       const slots = generateSlotsForDay(day, intervals, busyRanges, slotDuration);
       
       availableSlotsPerDay[ymd(day)] = slots.length;
@@ -132,9 +160,11 @@ export function initAvailabilityController(config) {
     }
 
     // ==============================
-    // 🔹 Inicializar Flatpickr
+    // 🔹 RECONSTRUIR Flatpickr con reglas de disponibilidad
     // ==============================
     if (isAdmin) {
+      console.log('📅 Reconstruyendo calendario en panel del asistente con reglas de disponibilidad...');
+      
       if (fechaInput._flatpickr) fechaInput._flatpickr.destroy();
       
       flatpickr(fechaInput, {
@@ -155,9 +185,12 @@ export function initAvailabilityController(config) {
         }
       });
       
-      console.log('📅 Flatpickr inicializado en panel del asistente');
+      console.log('✅ Calendario reconstruido en admin con reglas de disponibilidad');
       
     } else {
+      // ✅ Frontend: RECONSTRUIR calendario básico con reglas
+      console.log('📅 Reconstruyendo calendario en frontend con reglas de disponibilidad...');
+      
       if (typeof window.CalendarUI !== 'undefined') {
         window.CalendarUI.rebuildCalendar({
           fechaInput: fechaInput,
@@ -175,8 +208,10 @@ export function initAvailabilityController(config) {
             return { selectedSlotISO: validSlots.length > 0 ? validSlots[0].toISOString() : null };
           }
         });
+        
+        console.log('✅ Calendario reconstruido en frontend con reglas de disponibilidad');
       } else {
-        console.error('❌ CalendarUI no está disponible en el frontend');
+        console.error('❌ CalendarUI no está disponible para reconstruir el calendario');
       }
     }
   });
