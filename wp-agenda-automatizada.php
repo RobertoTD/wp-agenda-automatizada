@@ -27,8 +27,8 @@ require_once plugin_dir_path(__FILE__) . 'includes/auth-helper.php';
 // 2️⃣ Modelos (acceso a datos)
 require_once plugin_dir_path(__FILE__) . 'clientes.php';
 
-// 3️⃣ Proxy AJAX (sin encolado de scripts)
-require_once plugin_dir_path(__FILE__) . 'availability-proxy.php';
+// 3️⃣ Servicios
+require_once plugin_dir_path(__FILE__) . 'includes/services/availability-proxy.php';
 
 // 4️⃣ Controladores (lógica de negocio)
 require_once plugin_dir_path(__FILE__) . 'includes/controllers/availability-controller.php';

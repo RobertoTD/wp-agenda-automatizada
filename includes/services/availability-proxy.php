@@ -80,7 +80,3 @@ function aa_ajax_get_availability() {
     echo $body;
     wp_die();
 }
-
-// ❌ ELIMINADO: Ya se encola en enqueueController.php
-// No duplicar encolado de scripts aquí
-
