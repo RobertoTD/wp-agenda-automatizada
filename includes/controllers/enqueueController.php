@@ -80,13 +80,14 @@ function wpaa_enqueue_frontend_assets() {
         ['wpaa-calendar-ui',             'assets/js/ui/calendarUI.js',                
                                          ['flatpickr-js', 'flatpickr-es'], true],
         ['wpaa-slot-selector-ui',        'assets/js/ui/slotSelectorUI.js',            [], true],
+        ['wpaa-availability-proxy',      'assets/js/services/availabilityProxy.js',   [], false],
         ['wpaa-reservation-service',     'assets/js/services/reservationService.js',  [], true],
         ['wpaa-availability-controller', 'assets/js/controllers/availabilityController.js',
                                          ['wpaa-date-utils', 'wpaa-calendar-ui', 'wpaa-slot-selector-ui'], true],
         ['wpaa-reservation-controller',  'assets/js/controllers/reservationController.js',
                                          ['wpaa-reservation-service'], true],
         ['horariosapartados',            'js/horariosapartados.js',                   
-                                         ['flatpickr-js', 'wpaa-date-utils'], true],
+                                         ['flatpickr-js', 'wpaa-date-utils', 'wpaa-availability-proxy'], true],
         ['wpaa-main-frontend',           'assets/js/main-frontend.js',
                                          ['wpaa-availability-controller', 'wpaa-reservation-controller', 'wpaa-calendar-ui'], false],
     ];
@@ -155,6 +156,7 @@ function wpaa_enqueue_admin_assets($hook) {
             ['wpaa-date-utils-admin',              'assets/js/utils/dateUtils.js',              [], false],
             
             // 🔹 Servicios (AJAX)
+            ['wpaa-availability-proxy-admin',      'assets/js/services/availabilityProxy.js',   [], false],
             ['wpaa-reservation-service-admin',     'assets/js/services/reservationService.js',  [], true],
             ['wpaa-confirm-service',               'assets/js/services/confirmService.js',      [], false],
             
@@ -176,7 +178,8 @@ function wpaa_enqueue_admin_assets($hook) {
                                                    ['wpaa-admin-reservation-controller','wpaa-date-utils-admin'], true],
             
             // 🔹 Scripts legacy (compatibilidad)
-            ['horariosapartados-admin',            'js/horariosapartados.js',                   ['flatpickr-js-admin','wpaa-date-utils-admin'], true],
+            ['horariosapartados-admin',            'js/horariosapartados.js',                   
+                                                   ['flatpickr-js-admin','wpaa-date-utils-admin', 'wpaa-availability-proxy-admin'], true],
             ['aa-asistant-controls',               'js/asistant-controls.js',                  [], false],
             ['aa-historial-citas',                 'js/historial-citas.js',                    [], false],
             ['aa-proximas-citas',                  'js/proximas-citas.js',                     ['wpaa-proximas-citas-controller'], false],
