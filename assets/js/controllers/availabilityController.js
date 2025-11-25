@@ -5,8 +5,8 @@ import {
   ymd, 
   getWeekdayName, 
   getDayIntervals, 
-  generateSlotsForDay as generateSlots,
-  timeStrToMinutes 
+  generateSlotsForDay,
+  hasEnoughFreeTime
 } from '../utils/dateUtils.js';
 
 // ==============================
@@ -24,7 +24,6 @@ if (typeof window.aa_local_availability !== 'undefined') {
   console.log('🔹 Slots ocupados locales:', window.aa_local_availability.local_busy);
   console.log('🔹 Total de eventos locales:', window.aa_local_availability.local_busy.length);
   
-  // Formatear para visualización detallada
   if (window.aa_local_availability.local_busy.length > 0) {
     console.log('🔹 Detalle de eventos:');
     window.aa_local_availability.local_busy.forEach((slot, index) => {
@@ -36,7 +35,6 @@ if (typeof window.aa_local_availability !== 'undefined') {
   
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   
-  // 🔹 Combinar con datos de Google Calendar si existen
   if (typeof window.aa_availability !== 'undefined' && window.aa_availability.busy) {
     console.log('🔹 Eventos de Google Calendar:', window.aa_availability.busy.length);
     console.log('🔹 Total combinado:', 
@@ -48,46 +46,221 @@ if (typeof window.aa_local_availability !== 'undefined') {
 }
 
 // ==============================
-// 🔹 CORREGIDO: Verificar si un slot tiene suficiente espacio libre
+// 🔹 Combinar disponibilidad local y externa
 // ==============================
-function hasEnoughFreeTime(slotStart, durationMinutes, busyRanges) {
-  const slotEnd = new Date(slotStart.getTime() + durationMinutes * 60000);
-  
-  for (const busy of busyRanges) {
-    const overlaps = slotStart < busy.end && slotEnd > busy.start;
+function combineAvailabilityData() {
+  if (typeof aa_local_availability !== 'undefined' && aa_local_availability.local_busy) {
+    console.log("📊 Combinando disponibilidad local con datos externos");
     
-    if (overlaps) {
-      console.log(`❌ Slot ${slotStart.toLocaleTimeString()}-${slotEnd.toLocaleTimeString()} rechazado: intersecta con evento ${busy.start.toLocaleTimeString()}-${busy.end.toLocaleTimeString()}`);
-      return false;
+    if (window.aa_availability) {
+      const externalBusy = window.aa_availability.busy || [];
+      const localBusy = aa_local_availability.local_busy.map(slot => ({
+        start: new Date(slot.start),
+        end: new Date(slot.end)
+      }));
+      
+      window.aa_availability.busy = [...externalBusy, ...localBusy];
+      
+      console.log(`✅ Total combinado: ${window.aa_availability.busy.length}`);
+      console.log(`   - Google Calendar: ${externalBusy.length}`);
+      console.log(`   - Local: ${localBusy.length}`);
+      
+      document.dispatchEvent(new CustomEvent('aa:availability:updated', {
+        detail: window.aa_availability
+      }));
     }
   }
-  
-  return true;
 }
 
 // ==============================
-// 🔹 Wrapper: Filtrar slots por duración mínima
+// 🔹 Iniciar AvailabilityProxy
 // ==============================
-function generateSlotsForDay(day, intervals, busyRanges, slotDuration) {
-  const allSlots = generateSlots(day, intervals, busyRanges);
+function startAvailabilityProxy() {
+  console.log('aa_debug: aa_backend =>', typeof aa_backend !== 'undefined' ? aa_backend : 'undefined');
+
+  if (typeof window.AvailabilityProxy === 'undefined') {
+    console.error("❌ AvailabilityProxy no está disponible");
+    return;
+  }
+
+  const config = {
+    ajaxUrl: (typeof aa_backend !== 'undefined' && aa_backend.ajax_url) 
+      ? aa_backend.ajax_url 
+      : '/wp-admin/admin-ajax.php',
+    action: (typeof aa_backend !== 'undefined' && aa_backend.action) 
+      ? aa_backend.action 
+      : 'aa_get_availability',
+    email: (typeof aa_backend !== 'undefined' && aa_backend.email) 
+      ? aa_backend.email 
+      : '',
+    maxAttempts: 20,
+    retryInterval: 15000
+  };
+
+  console.log('🚀 Iniciando AvailabilityProxy con configuración:', config);
+
+  const availabilityProxy = new window.AvailabilityProxy(config);
+  availabilityProxy.start();
+}
+
+// ==============================
+// 🔹 Procesar calendario con disponibilidad
+// ==============================
+function processCalendar(fechaInputSelector, slotContainerSelector, isAdmin) {
+  const fechaInput = document.querySelector(fechaInputSelector);
   
-  console.log(`🕒 [${ymd(day)}] Slots generados antes de filtrar por duración: ${allSlots.length}`);
+  if (!fechaInput) {
+    console.warn(`⚠️ No se encontró ${fechaInputSelector}`);
+    return;
+  }
   
-  const validSlots = allSlots.filter(slot => {
-    const hasSpace = hasEnoughFreeTime(slot, slotDuration, busyRanges);
-    if (hasSpace) {
-      console.log(`✅ Slot ${slot.toLocaleTimeString()} VÁLIDO (requiere ${slotDuration} min)`);
+  if (typeof flatpickr === "undefined") {
+    console.error('❌ Flatpickr no disponible');
+    return;
+  }
+
+  const aa_schedule = window.aa_schedule || {};
+  const aa_future_window = window.aa_future_window || 14;
+  const slotDuration = parseInt(window.aa_slot_duration, 10) || 60;
+
+  console.log(`📊 Configuración:`);
+  console.log(`   - Horario:`, aa_schedule);
+  console.log(`   - Duración: ${slotDuration} min`);
+  console.log(`   - Ventana: ${aa_future_window} días`);
+
+  const busy = (window.aa_availability?.busy) || [];
+  console.log(`   - Eventos ocupados: ${busy.length}`);
+
+  const busyRanges = busy.map(ev => ({
+    start: new Date(ev.start),
+    end: new Date(ev.end)
+  }));
+
+  const minDate = new Date();
+  const maxDate = new Date();
+  maxDate.setDate(minDate.getDate() + aa_future_window);
+
+  const availableSlotsPerDay = {};
+  
+  for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
+    const day = new Date(d);
+    const weekday = getWeekdayName(day);
+    const intervals = getDayIntervals(aa_schedule, weekday);
+    const slots = generateSlotsForDay(day, intervals, busyRanges, slotDuration);
+    
+    availableSlotsPerDay[ymd(day)] = slots;
+    
+    if (slots.length > 0) {
+      console.log(`📅 ${ymd(day)}: ${slots.length} slots`);
     }
-    return hasSpace;
+  }
+
+  const isDateAvailable = (date) => (availableSlotsPerDay[ymd(date)]?.length || 0) > 0;
+  const disableDate = (date) => !isDateAvailable(date);
+
+  if (isAdmin) {
+    renderAdminCalendar(fechaInput, slotContainerSelector, availableSlotsPerDay, {
+      minDate,
+      maxDate,
+      aa_schedule,
+      busyRanges,
+      slotDuration
+    });
+  } else {
+    if (typeof window.CalendarUI !== 'undefined') {
+      window.CalendarUI.rebuildCalendar({
+        fechaInput,
+        minDate,
+        maxDate,
+        disableDateCallback: disableDate,
+        onDateSelected: (selectedDate) => {
+          const slots = availableSlotsPerDay[ymd(selectedDate)] || [];
+          renderSlots(slotContainerSelector, slots, selectedDate, fechaInput, false);
+          return { selectedSlotISO: slots[0]?.toISOString() || null };
+        }
+      });
+    }
+  }
+}
+
+// ==============================
+// 🔹 Renderizado admin
+// ==============================
+function renderAdminCalendar(fechaInput, slotContainerSelector, availableSlotsPerDay, config) {
+  const { minDate, maxDate, aa_schedule, busyRanges, slotDuration } = config;
+  
+  if (fechaInput._flatpickr) fechaInput._flatpickr.destroy();
+  
+  flatpickr(fechaInput, {
+    disableMobile: true,
+    dateFormat: "d-m-Y",
+    minDate,
+    maxDate,
+    locale: "es",
+    disable: [(date) => (availableSlotsPerDay[ymd(date)]?.length || 0) === 0],
+    onChange: function(selectedDates) {
+      if (!selectedDates.length) return;
+      const sel = selectedDates[0];
+      const validSlots = availableSlotsPerDay[ymd(sel)] || [];
+      renderSlots(slotContainerSelector, validSlots, sel, fechaInput, true);
+    }
   });
   
-  console.log(`✅ [${ymd(day)}] Slots válidos después de filtrar (${slotDuration} min): ${validSlots.length}`);
-  
-  return validSlots;
+  console.log('✅ Calendario admin renderizado');
 }
 
 // ==============================
-// 🔹 Inicialización
+// 🔹 Renderizado de slots
+// ==============================
+function renderSlots(containerId, validSlots, selectedDate, fechaInput, isAdmin) {
+  if (isAdmin) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (!validSlots.length) {
+      container.textContent = 'No hay horarios disponibles.';
+      return;
+    }
+    
+    const select = document.createElement('select');
+    select.id = 'slot-selector-admin';
+    select.style.width = '100%';
+    select.style.padding = '8px';
+    
+    validSlots.forEach(date => {
+      const option = document.createElement('option');
+      option.value = date.toISOString();
+      option.textContent = date.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+      select.appendChild(option);
+    });
+    
+    select.addEventListener('change', () => {
+      const chosen = new Date(select.value);
+      fechaInput.value = `${selectedDate.toLocaleDateString()} ${chosen.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`;
+    });
+    
+    container.appendChild(select);
+    
+    if (validSlots[0]) {
+      fechaInput.value = `${selectedDate.toLocaleDateString()} ${validSlots[0].toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`;
+    }
+  } else {
+    if (typeof window.SlotSelectorUI !== 'undefined') {
+      window.SlotSelectorUI.renderAvailableSlots(containerId, validSlots, chosen => {
+        fechaInput.value = `${selectedDate.toLocaleDateString()} ${chosen.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`;
+      });
+    }
+    
+    if (validSlots[0]) {
+      fechaInput.value = `${selectedDate.toLocaleDateString()} ${validSlots[0].toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`;
+    }
+  }
+}
+
+// ==============================
+// 🔹 Inicialización del controlador
 // ==============================
 export function initAvailabilityController(config) {
   const {
@@ -96,192 +269,23 @@ export function initAvailabilityController(config) {
     isAdmin = false
   } = config;
 
+  console.log("📋 AvailabilityController inicializado");
+
+  // ✅ Iniciar proxy de disponibilidad
+  startAvailabilityProxy();
+
+  // ✅ Escuchar datos de disponibilidad
   document.addEventListener("aa:availability:loaded", () => {
-    const fechaInput = document.querySelector(fechaInputSelector);
+    console.log("✅ Datos de disponibilidad recibidos");
     
-    if (!fechaInput) {
-      console.warn(`⚠️ No se encontró el input ${fechaInputSelector}`);
-      return;
-    }
-    
-    if (typeof flatpickr === "undefined") {
-      console.error('❌ Flatpickr no está disponible');
-      return;
-    }
-
-    const aa_schedule = window.aa_schedule || {};
-    const aa_future_window = window.aa_future_window || 14;
-    
-    const slotDuration = (typeof window.aa_slot_duration !== 'undefined' && window.aa_slot_duration > 0)
-      ? parseInt(window.aa_slot_duration, 10)
-      : 60;
-
-    console.log(`📊 Configuración cargada:`);
-    console.log(`   - Horario (aa_schedule):`, aa_schedule);
-    console.log(`   - Duración de cita: ${slotDuration} minutos`);
-    console.log(`   - Ventana futura: ${aa_future_window} días`);
-
-    const busy = (window.aa_availability && Array.isArray(window.aa_availability.busy))
-      ? window.aa_availability.busy
-      : [];
-
-    console.log(`   - Eventos ocupados (Google Calendar): ${busy.length}`);
-
-    const busyRanges = busy.map(ev => ({
-      start: new Date(ev.start),
-      end: new Date(ev.end)
-    }));
-
-    const minDate = new Date();
-    const maxDate = new Date();
-    maxDate.setDate(minDate.getDate() + Number(aa_future_window));
-
-    const availableSlotsPerDay = {};
-    
-    for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
-      const day = new Date(d);
-      const weekday = getWeekdayName(day);
-      const intervals = getDayIntervals(aa_schedule, weekday);
-      const slots = generateSlotsForDay(day, intervals, busyRanges, slotDuration);
-      
-      availableSlotsPerDay[ymd(day)] = slots.length;
-      
-      if (slots.length > 0) {
-        console.log(`📅 ${ymd(day)} (${weekday}): ${slots.length} slots disponibles`);
-      }
-    }
-
-    function isDateAvailable(date) {
-      return (availableSlotsPerDay[ymd(date)] || 0) > 0;
-    }
-
-    function disableDate(date) {
-      return !isDateAvailable(date);
-    }
-
-    // ==============================
-    // 🔹 RECONSTRUIR Flatpickr con reglas de disponibilidad
-    // ==============================
-    if (isAdmin) {
-      console.log('📅 Reconstruyendo calendario en panel del asistente con reglas de disponibilidad...');
-      
-      if (fechaInput._flatpickr) fechaInput._flatpickr.destroy();
-      
-      flatpickr(fechaInput, {
-        disableMobile: true,
-        dateFormat: "d-m-Y",
-        minDate: minDate,
-        maxDate: maxDate,
-        locale: "es",
-        disable: [disableDate],
-        onChange: function(selectedDates) {
-          if (!selectedDates.length) return;
-          const sel = selectedDates[0];
-          const weekday = getWeekdayName(sel);
-          const intervals = getDayIntervals(aa_schedule, weekday);
-          const validSlots = generateSlotsForDay(sel, intervals, busyRanges, slotDuration);
-          
-          renderSlots(slotContainerSelector, validSlots, sel, fechaInput, true);
-        }
-      });
-      
-      console.log('✅ Calendario reconstruido en admin con reglas de disponibilidad');
-      
-    } else {
-      // ✅ Frontend: RECONSTRUIR calendario básico con reglas
-      console.log('📅 Reconstruyendo calendario en frontend con reglas de disponibilidad...');
-      
-      if (typeof window.CalendarUI !== 'undefined') {
-        window.CalendarUI.rebuildCalendar({
-          fechaInput: fechaInput,
-          minDate: minDate,
-          maxDate: maxDate,
-          disableDateCallback: disableDate,
-          onDateSelected: (selectedDate, pickerInstance) => {
-            const weekday = getWeekdayName(selectedDate);
-            const intervals = getDayIntervals(aa_schedule, weekday);
-            const validSlots = generateSlotsForDay(selectedDate, intervals, busyRanges, slotDuration);
-            pickerInstance.validSlots = validSlots;
-            
-            renderSlots(slotContainerSelector, validSlots, selectedDate, fechaInput, false);
-            
-            return { selectedSlotISO: validSlots.length > 0 ? validSlots[0].toISOString() : null };
-          }
-        });
-        
-        console.log('✅ Calendario reconstruido en frontend con reglas de disponibilidad');
-      } else {
-        console.error('❌ CalendarUI no está disponible para reconstruir el calendario');
-      }
-    }
+    combineAvailabilityData();
+    processCalendar(fechaInputSelector, slotContainerSelector, isAdmin);
   });
-}
 
-// ==============================
-// 🔹 Renderizado de slots
-// ==============================
-function renderSlots(containerId, validSlots, selectedDate, fechaInput, isAdmin) {
-  const slotSelectorId = isAdmin ? 'slot-selector-admin' : 'slot-selector';
-  
-  if (isAdmin) {
-    const container = document.getElementById(containerId);
-    if (!container) {
-      console.error(`❌ No se encontró contenedor: ${containerId}`);
-      return;
-    }
-    
-    container.innerHTML = '';
-    
-    if (!validSlots.length) {
-      container.textContent = 'No hay horarios disponibles para este día.';
-      return;
-    }
-    
-    const label = document.createElement('label');
-    label.textContent = 'Horarios disponibles:';
-    label.style.display = 'block';
-    label.style.marginTop = '8px';
-    
-    const select = document.createElement('select');
-    select.id = slotSelectorId;
-    select.style.marginTop = '4px';
-    select.style.width = '100%';
-    select.style.padding = '8px';
-    
-    validSlots.forEach(date => {
-      const option = document.createElement('option');
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      option.value = date.toISOString();
-      option.textContent = `${hours}:${minutes}`;
-      select.appendChild(option);
-    });
-    
-    select.addEventListener('change', () => {
-      const chosen = new Date(select.value);
-      fechaInput.value = `${selectedDate.toLocaleDateString()} ${chosen.getHours().toString().padStart(2,'0')}:${chosen.getMinutes().toString().padStart(2,'0')}`;
-    });
-    
-    container.appendChild(label);
-    container.appendChild(select);
-    
-    if (validSlots.length > 0) {
-      const firstSlot = validSlots[0];
-      fechaInput.value = `${selectedDate.toLocaleDateString()} ${firstSlot.getHours().toString().padStart(2,'0')}:${firstSlot.getMinutes().toString().padStart(2,'0')}`;
-    }
-    
-  } else {
-    if (typeof window.SlotSelectorUI !== 'undefined') {
-      window.SlotSelectorUI.renderAvailableSlots(containerId, validSlots, chosen => {
-        fechaInput.value = `${selectedDate.toLocaleDateString()} ${chosen.getHours().toString().padStart(2,'0')}:${chosen.getMinutes().toString().padStart(2,'0')}`;
-      });
-    }
-    
-    if (validSlots.length > 0) {
-      const firstSlot = validSlots[0];
-      fechaInput.value = `${selectedDate.toLocaleDateString()} ${firstSlot.getHours().toString().padStart(2,'0')}:${firstSlot.getMinutes().toString().padStart(2,'0')}`;
-    }
-  }
+  // ✅ Escuchar errores
+  document.addEventListener('aa:availability:error', (event) => {
+    console.error("❌ Error al cargar disponibilidad:", event.detail);
+  });
 }
 
 // ==============================

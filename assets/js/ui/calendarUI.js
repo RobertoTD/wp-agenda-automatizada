@@ -5,6 +5,38 @@
 console.log('🔄 Cargando calendarUI.js...');
 
 /**
+ * Buscar y validar input de fecha
+ * @returns {HTMLElement|null}
+ */
+export function findDateInput() {
+  const fechaInput = document.getElementById("fecha") || document.getElementById("cita-fecha");
+  
+  console.log('aa_debug: fechaInput =>', !!fechaInput);
+  console.log('aa_debug: fechaInput ID =>', fechaInput ? fechaInput.id : 'null');
+
+  if (!fechaInput) {
+    console.warn('⚠️ aa_debug: No se encontró input #fecha ni #cita-fecha');
+    return null;
+  }
+
+  return fechaInput;
+}
+
+/**
+ * Leer duración de slot desde configuración global
+ * @returns {number}
+ */
+export function getSlotDuration() {
+  const slotDuration = (typeof window.aa_slot_duration !== 'undefined') 
+    ? window.aa_slot_duration 
+    : 60;
+  
+  console.log(`⚙️ Duración de slot configurada: ${slotDuration} minutos`);
+  
+  return slotDuration;
+}
+
+/**
  * Inicializa Flatpickr en modo básico (sin reglas de disponibilidad)
  * @param {string} fechaSelector - Selector CSS del input de fecha
  */
@@ -89,6 +121,8 @@ export function rebuildCalendar(options) {
 // 🔹 Exponer en window para compatibilidad con código no-modular
 // ==============================
 window.CalendarUI = {
+  findDateInput,
+  getSlotDuration,
   initBasicCalendar,
   rebuildCalendar
 };

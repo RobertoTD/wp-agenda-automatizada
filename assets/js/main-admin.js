@@ -5,6 +5,18 @@
 document.addEventListener('DOMContentLoaded', function () {
   console.log('🚀 Inicializando aplicación admin...');
 
+  // ✅ Inicializar controlador de disponibilidad PRIMERO
+  if (typeof window.AvailabilityController !== 'undefined') {
+    window.AvailabilityController.init({
+      fechaInputSelector: '#cita-fecha',
+      slotContainerSelector: 'slot-container-admin',
+      isAdmin: true
+    });
+  } else {
+    console.error('❌ AvailabilityController no está cargado');
+  }
+
+  // ✅ Inicializar controlador de reservas
   const btnToggle = document.getElementById('btn-toggle-form-nueva-cita');
   const formNuevaCita = document.getElementById('form-nueva-cita');
   const btnCancelar = document.getElementById('btn-cancelar-cita-form');

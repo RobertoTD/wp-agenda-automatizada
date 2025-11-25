@@ -6,25 +6,34 @@ document.addEventListener('DOMContentLoaded', function () {
   console.log('🚀 Inicializando aplicación frontend...');
 
   // ==============================
-  // 🔹 FASE 1: Inicializar calendario básico INMEDIATAMENTE
+  // 🔹 FASE 1: Validar input de fecha y configuración
   // ==============================
-  const fechaInput = document.querySelector('#fecha');
-  
-  if (fechaInput && typeof window.CalendarUI !== 'undefined') {
-    console.log('📅 Inicializando calendario básico (sin reglas de disponibilidad)...');
-    window.CalendarUI.initBasicCalendar('#fecha');
-  } else {
+  if (typeof window.CalendarUI !== 'undefined') {
+    const fechaInput = window.CalendarUI.findDateInput();
+    
     if (!fechaInput) {
-      console.warn('⚠️ Input #fecha no encontrado');
+      console.error('❌ No se encontró input de fecha, abortando inicialización');
+      return;
     }
-    if (typeof window.CalendarUI === 'undefined') {
-      console.error('❌ CalendarUI no está disponible');
-    }
+
+    // Leer duración de slot
+    const slotDuration = window.CalendarUI.getSlotDuration();
+    console.log(`✅ Input encontrado: #${fechaInput.id}`);
+    console.log(`✅ Slot duration: ${slotDuration} min`);
+
+    // ==============================
+    // 🔹 FASE 2: Inicializar calendario básico INMEDIATAMENTE
+    // ==============================
+    console.log('📅 Inicializando calendario básico...');
+    window.CalendarUI.initBasicCalendar('#' + fechaInput.id);
+
+  } else {
+    console.error('❌ CalendarUI no está disponible');
   }
 
   // ==============================
-  // 🔹 FASE 2: Inicializar controlador de disponibilidad
-  // (Se activará cuando lleguen los datos de Google Calendar)
+  // 🔹 FASE 3: Inicializar controlador de disponibilidad
+  // (Iniciará el proxy y se activará cuando lleguen los datos)
   // ==============================
   if (typeof window.AvailabilityController !== 'undefined') {
     window.AvailabilityController.init({
@@ -37,7 +46,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // ==============================
-  // 🔹 Inicializar controlador de reservas
+  // 🔹 FASE 4: Inicializar controlador de reservas
   // ==============================
   if (typeof window.ReservationController !== 'undefined') {
     window.ReservationController.init('#agenda-form');

@@ -39,44 +39,57 @@ export function getDayIntervals(aa_schedule, weekday) {
   }));
 }
 
-// ✅ CORREGIDO: Verifica si un slot está ocupado
-export function isSlotBusy(slotDate, busyRanges) {
-  // Un slot está ocupado si HAY SUPERPOSICIÓN con algún evento
-  // Superposición = el slot empieza ANTES de que termine el evento
-  //                 Y termina DESPUÉS de que empiece el evento
+// ==============================
+// 🔹 Verificar si un slot tiene suficiente espacio libre
+// ==============================
+export function hasEnoughFreeTime(slotStart, durationMinutes, busyRanges) {
+  const slotEnd = new Date(slotStart.getTime() + durationMinutes * 60000);
   
+  for (const busy of busyRanges) {
+    const overlaps = slotStart < busy.end && slotEnd > busy.start;
+    
+    if (overlaps) {
+      console.log(`❌ Slot ${slotStart.toLocaleTimeString()}-${slotEnd.toLocaleTimeString()} rechazado: intersecta con evento ${busy.start.toLocaleTimeString()}-${busy.end.toLocaleTimeString()}`);
+      return false;
+    }
+  }
+  
+  return true;
+}
+
+// ✅ Verifica si un slot está ocupado (compatibilidad)
+export function isSlotBusy(slotDate, busyRanges) {
   return busyRanges.some(range => {
-    // ✅ CORRECCIÓN: Un slot de UN SOLO INSTANTE se considera ocupado si cae dentro del rango
-    // Pero si el slot termina EXACTAMENTE donde empieza el evento, NO está ocupado
     return slotDate >= range.start && slotDate < range.end;
   });
 }
 
-// ✅ CORREGIDO: Genera slots disponibles para un día
-export function generateSlotsForDay(date, intervals, busyRanges) {
+// ✅ Genera slots disponibles para un día con duración configurable
+export function generateSlotsForDay(date, intervals, busyRanges, slotDuration = 30) {
   const slots = [];
   const now = new Date();
   const isToday = date.toDateString() === now.toDateString();
   
   const minAvailableTime = new Date(now.getTime() + 60 * 60 * 1000); // +1 hora
   
+  console.log(`🕒 Generando slots para ${ymd(date)} con duración de ${slotDuration} min`);
+  
   intervals.forEach(iv => {
-    // iv.start e iv.end están en MINUTOS desde medianoche
     for (let min = iv.start; min < iv.end; min += 30) {
       const slot = new Date(date);
       slot.setHours(Math.floor(min / 60), min % 60, 0, 0);
       
-      // Saltar slots que son hoy y están muy cerca
       if (isToday && slot < minAvailableTime) {
         continue;
       }
       
-      // ✅ Verificar si el slot NO está ocupado
-      if (!isSlotBusy(slot, busyRanges)) {
+      if (hasEnoughFreeTime(slot, slotDuration, busyRanges)) {
         slots.push(slot);
       }
     }
   });
+  
+  console.log(`✅ ${slots.length} slots válidos generados para ${ymd(date)}`);
   
   return slots;
 }
@@ -89,6 +102,7 @@ window.DateUtils = {
   minutesFromDate,
   getDayIntervals,
   isSlotBusy,
+  hasEnoughFreeTime,
   generateSlotsForDay
 };
 

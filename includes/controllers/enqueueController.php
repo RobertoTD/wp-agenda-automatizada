@@ -83,11 +83,9 @@ function wpaa_enqueue_frontend_assets() {
         ['wpaa-availability-proxy',      'assets/js/services/availabilityProxy.js',   [], false],
         ['wpaa-reservation-service',     'assets/js/services/reservationService.js',  [], true],
         ['wpaa-availability-controller', 'assets/js/controllers/availabilityController.js',
-                                         ['wpaa-date-utils', 'wpaa-calendar-ui', 'wpaa-slot-selector-ui'], true],
+                                         ['wpaa-date-utils', 'wpaa-calendar-ui', 'wpaa-slot-selector-ui', 'wpaa-availability-proxy'], true],
         ['wpaa-reservation-controller',  'assets/js/controllers/reservationController.js',
                                          ['wpaa-reservation-service'], true],
-        ['horariosapartados',            'js/horariosapartados.js',                   
-                                         ['flatpickr-js', 'wpaa-date-utils', 'wpaa-availability-proxy'], true],
         ['wpaa-main-frontend',           'assets/js/main-frontend.js',
                                          ['wpaa-availability-controller', 'wpaa-reservation-controller', 'wpaa-calendar-ui'], false],
     ];
@@ -96,24 +94,21 @@ function wpaa_enqueue_frontend_assets() {
         wpaa_register_js($h, $p, $d, $m);
     }
 
-    // ✅ Localizar variables para horariosapartados (disponibilidad)
-    wpaa_localize('horariosapartados', 'aa_backend', [
+    wpaa_localize('wpaa-availability-controller', 'aa_backend', [
         'ajax_url' => admin_url('admin-ajax.php'),
         'action'   => 'aa_get_availability',
         'email'    => get_option('aa_google_email', ''),
     ]);
 
-    wpaa_localize('horariosapartados', 'aa_schedule',      get_option('aa_schedule', []));
-    wpaa_localize('horariosapartados', 'aa_future_window', intval(get_option('aa_future_window', 15)));
-    wpaa_localize('horariosapartados', 'aa_slot_duration', intval(get_option('aa_slot_duration', 60)));
+    wpaa_localize('wpaa-availability-controller', 'aa_schedule',      get_option('aa_schedule', []));
+    wpaa_localize('wpaa-availability-controller', 'aa_future_window', intval(get_option('aa_future_window', 15)));
+    wpaa_localize('wpaa-availability-controller', 'aa_slot_duration', intval(get_option('aa_slot_duration', 60)));
 
-    // ✅ Localizar variables para reservationService (guardado de citas)
     wpaa_localize('wpaa-reservation-service', 'aa_reservation_config', [
         'ajax_url' => admin_url('admin-ajax.php'),
         'nonce'    => wp_create_nonce('aa_reservation_nonce'),
     ]);
 
-    // ✅ NUEVO: Localizar wpaa_vars para reservationController (frontend)
     $timezone = get_option('aa_timezone', 'America/Mexico_City');
     
     wpaa_localize('wpaa-reservation-controller', 'wpaa_vars', [
@@ -153,7 +148,11 @@ function wpaa_enqueue_admin_assets($hook) {
         // Scripts admin declarados
         $admin_scripts = [
             // 🔹 Utilidades
-            ['wpaa-date-utils-admin',              'assets/js/utils/dateUtils.js',              [], false],
+            ['wpaa-date-utils-admin',              'assets/js/utils/dateUtils.js',              [], true],
+            
+            // 🔹 UI
+            ['wpaa-calendar-ui-admin',             'assets/js/ui/calendarUI.js',                
+                                                   ['flatpickr-js-admin', 'flatpickr-es-admin'], true],
             
             // 🔹 Servicios (AJAX)
             ['wpaa-availability-proxy-admin',      'assets/js/services/availabilityProxy.js',   [], false],
@@ -165,7 +164,7 @@ function wpaa_enqueue_admin_assets($hook) {
             
             // 🔹 Controladores (orquestación)
             ['wpaa-availability-controller-admin', 'assets/js/controllers/availabilityController.js',
-                                                   ['wpaa-date-utils-admin'], true],
+                                                   ['wpaa-date-utils-admin', 'wpaa-calendar-ui-admin', 'wpaa-availability-proxy-admin'], true],
             ['wpaa-admin-reservation-controller',  'assets/js/controllers/adminReservationController.js',
                                                    ['wpaa-reservation-service-admin'], true],
             ['wpaa-admin-confirm-controller',      'assets/js/controllers/adminConfirmController.js',
@@ -175,11 +174,9 @@ function wpaa_enqueue_admin_assets($hook) {
             
             // 🔹 Punto de entrada
             ['wpaa-main-admin',                    'assets/js/main-admin.js',
-                                                   ['wpaa-admin-reservation-controller','wpaa-date-utils-admin'], true],
+                                                   ['wpaa-admin-reservation-controller','wpaa-date-utils-admin', 'wpaa-availability-controller-admin'], true],
             
             // 🔹 Scripts legacy (compatibilidad)
-            ['horariosapartados-admin',            'js/horariosapartados.js',                   
-                                                   ['flatpickr-js-admin','wpaa-date-utils-admin', 'wpaa-availability-proxy-admin'], true],
             ['aa-asistant-controls',               'js/asistant-controls.js',                  [], false],
             ['aa-historial-citas',                 'js/historial-citas.js',                    [], false],
             ['aa-proximas-citas',                  'js/proximas-citas.js',                     ['wpaa-proximas-citas-controller'], false],
@@ -199,15 +196,15 @@ function wpaa_enqueue_admin_assets($hook) {
 
         $email = sanitize_email(get_option('aa_google_email', ''));
 
-        wpaa_localize('horariosapartados-admin', 'aa_backend', [
+        wpaa_localize('wpaa-availability-controller-admin', 'aa_backend', [
             'ajax_url' => admin_url('admin-ajax.php'),
             'action'   => 'aa_get_availability',
             'email'    => $email,
         ]);
 
-        wpaa_localize('horariosapartados-admin', 'aa_schedule',      get_option('aa_schedule', []));
-        wpaa_localize('horariosapartados-admin', 'aa_future_window', intval(get_option('aa_future_window', 15)));
-        wpaa_localize('horariosapartados-admin', 'aa_slot_duration', intval(get_option('aa_slot_duration', 60)));
+        wpaa_localize('wpaa-availability-controller-admin', 'aa_schedule',      get_option('aa_schedule', []));
+        wpaa_localize('wpaa-availability-controller-admin', 'aa_future_window', intval(get_option('aa_future_window', 15)));
+        wpaa_localize('wpaa-availability-controller-admin', 'aa_slot_duration', intval(get_option('aa_slot_duration', 60)));
 
         wpaa_localize('aa-asistant-controls', 'aa_asistant_vars', [
             'nonce_confirmar' => wp_create_nonce('aa_confirmar_cita'),
