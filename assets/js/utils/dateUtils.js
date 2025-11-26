@@ -40,6 +40,16 @@ export function getDayIntervals(aa_schedule, weekday) {
 }
 
 // ==============================
+// 🔹 Calcular límites de fecha (minDate/maxDate)
+// ==============================
+export function computeLimits(futureWindow) {
+  const minDate = new Date();
+  const maxDate = new Date();
+  maxDate.setDate(minDate.getDate() + futureWindow);
+  return { minDate, maxDate };
+}
+
+// ==============================
 // 🔹 Verificar si un slot tiene suficiente espacio libre
 // ==============================
 export function hasEnoughFreeTime(slotStart, durationMinutes, busyRanges) {
@@ -101,6 +111,7 @@ window.DateUtils = {
   timeStrToMinutes,
   minutesFromDate,
   getDayIntervals,
+  computeLimits,
   isSlotBusy,
   hasEnoughFreeTime,
   generateSlotsForDay

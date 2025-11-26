@@ -6,13 +6,19 @@ console.log('🔄 Cargando calendarAdminUI.js...');
 
 /**
  * Renderiza el calendario admin con Flatpickr
- * @param {HTMLElement} fechaInput - Input de fecha
- * @param {string} slotContainerSelector - ID del contenedor de slots
- * @param {Object} proxy - Instancia de AvailabilityProxy
- * @param {Object} config - Configuración (minDate, maxDate)
+ * @param {Object} config - Configuración del calendario admin
  */
-export function renderAdminCalendar(fechaInput, slotContainerSelector, proxy, config) {
-  const { minDate, maxDate } = config;
+export function render(config) {
+  const {
+    fechaInput,
+    slotContainerSelector,
+    slotsMap,
+    minDate,
+    maxDate,
+    disableDateFn
+  } = config;
+
+  console.log('🔄 CalendarAdminUI.render() llamado con config:', config);
   
   if (!fechaInput) {
     console.error('❌ calendarAdminUI: fechaInput no proporcionado');
@@ -37,12 +43,15 @@ export function renderAdminCalendar(fechaInput, slotContainerSelector, proxy, co
     minDate,
     maxDate,
     locale: "es",
-    disable: [(date) => proxy.disableDate(date)],
+    disable: [disableDateFn],
     onChange: function(selectedDates) {
       if (!selectedDates.length) return;
       
       const selectedDate = selectedDates[0];
-      const validSlots = proxy.getSlotsForDate(selectedDate);
+      const validSlots = window.AvailabilityService.slotsForDate(
+        window.availabilityProxyInstance || {}, 
+        selectedDate
+      );
       
       console.log(`📅 Admin: Fecha seleccionada: ${selectedDate.toLocaleDateString()}`);
       console.log(`📅 Admin: Slots disponibles: ${validSlots.length}`);
@@ -67,10 +76,27 @@ export function renderAdminCalendar(fechaInput, slotContainerSelector, proxy, co
   return picker;
 }
 
+/**
+ * LEGACY: Mantener compatibilidad con código antiguo
+ */
+export function renderAdminCalendar(fechaInput, slotContainerSelector, proxy, config) {
+  console.warn('⚠️ renderAdminCalendar() es legacy, usa render() en su lugar');
+  
+  return render({
+    fechaInput,
+    slotContainerSelector,
+    slotsMap: proxy.availableSlotsPerDay,
+    minDate: config.minDate,
+    maxDate: config.maxDate,
+    disableDateFn: (date) => window.AvailabilityService.disable(proxy, date)
+  });
+}
+
 // ==============================
 // 🔹 Exponer en window para compatibilidad
 // ==============================
 window.CalendarAdminUI = {
+  render,
   renderAdminCalendar
 };
 

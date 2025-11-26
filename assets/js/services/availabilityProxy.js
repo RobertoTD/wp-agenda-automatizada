@@ -245,4 +245,36 @@ class AvailabilityProxy {
 // Exportar para uso global
 window.AvailabilityProxy = AvailabilityProxy;
 
+// ==============================
+// 🔹 Capa de Servicio: Abstracción sobre AvailabilityProxy
+// ==============================
+export const AvailabilityService = {
+
+  /**
+   * Calcula slots disponibles usando el proxy
+   */
+  calculate(proxy, { schedule, futureWindow, slotDuration }) {
+    console.log('🔧 AvailabilityService.calculate() invocado');
+    return proxy.calculateAvailableSlots(schedule, futureWindow, slotDuration);
+  },
+
+  /**
+   * Determina si una fecha debe estar deshabilitada
+   */
+  disable(proxy, date) {
+    return proxy.disableDate(date);
+  },
+
+  /**
+   * Obtiene slots para una fecha específica
+   */
+  slotsForDate(proxy, date) {
+    return proxy.getSlotsForDate(date);
+  }
+};
+
+// Exponer servicio globalmente
+window.AvailabilityService = AvailabilityService;
+
 console.log('✅ AvailabilityProxy cargado');
+console.log('✅ AvailabilityService cargado');

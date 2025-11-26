@@ -3,13 +3,19 @@
 // ==============================
 
 /**
- * Crea un <select> con los horarios disponibles del día seleccionado
+ * Renderiza selector de slots para frontend
  * @param {string} containerId - ID del contenedor donde se renderizará el selector
  * @param {Array<Date>} validSlots - Array de fechas disponibles
  * @param {Function} onSelectSlot - Callback cuando se selecciona un slot
  */
-export function renderAvailableSlots(containerId, validSlots, onSelectSlot) {
+export function render(containerId, validSlots, onSelectSlot) {
   const container = document.getElementById(containerId);
+  
+  if (!container) {
+    console.warn(`⚠️ SlotSelectorUI: No se encontró contenedor #${containerId}`);
+    return;
+  }
+  
   container.innerHTML = ''; // limpiar
 
   if (!validSlots.length) {
@@ -33,8 +39,6 @@ export function renderAvailableSlots(containerId, validSlots, onSelectSlot) {
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
     
-    // 🔹 Usar toISOString() que siempre genera UTC
-    // El backend lo convertirá a la zona horaria correcta
     option.value = date.toISOString();
     option.textContent = `${hours}:${minutes}`;
     select.appendChild(option);
@@ -49,10 +53,19 @@ export function renderAvailableSlots(containerId, validSlots, onSelectSlot) {
   container.appendChild(select);
 }
 
+/**
+ * LEGACY: Mantener compatibilidad
+ */
+export function renderAvailableSlots(containerId, validSlots, onSelectSlot) {
+  console.warn('⚠️ renderAvailableSlots() es legacy, usa render() en su lugar');
+  return render(containerId, validSlots, onSelectSlot);
+}
+
 // ==============================
 // 🔹 Exponer en window para compatibilidad con código no-modular
 // ==============================
 window.SlotSelectorUI = {
+  render,
   renderAvailableSlots
 };
 

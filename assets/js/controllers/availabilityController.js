@@ -1,7 +1,7 @@
 // ==============================
 // 🔹 Importar utilidades desde dateUtils.js
 // ==============================
-const { ymd } = window.DateUtils;
+const { ymd, computeLimits } = window.DateUtils;
 
 // ==============================
 // 🔹 DEBUG: Imprimir datos locales de disponibilidad
@@ -74,82 +74,97 @@ function startAvailabilityProxy() {
   availabilityProxyInstance = new window.AvailabilityProxy(config);
   availabilityProxyInstance.start();
   
+  // Exponer globalmente para que CalendarAdminUI pueda accederlo
+  window.availabilityProxyInstance = availabilityProxyInstance;
+  
   return availabilityProxyInstance;
 }
 
 // ==============================
-// 🔹 Procesar calendario con disponibilidad
+// 🔹 Procesar calendario con disponibilidad (REFACTORIZADO)
 // ==============================
 function processCalendar(fechaInputSelector, slotContainerSelector, isAdmin, proxy) {
-  const fechaInput = document.querySelector(fechaInputSelector);
   
+  // 1️⃣ UI mínima: encontrar input
+  const fechaInput = document.querySelector(fechaInputSelector);
   if (!fechaInput) {
     console.warn(`⚠️ No se encontró ${fechaInputSelector}`);
     return;
   }
-  
-  if (typeof flatpickr === "undefined") {
-    console.error('❌ Flatpickr no disponible');
-    return;
-  }
 
+  // 2️⃣ Cargar config del dominio (solo lectura, permitido)
   const aa_schedule = window.aa_schedule || {};
-  const aa_future_window = window.aa_future_window || 14;
+  const futureWindow = window.aa_future_window || 14;
   const slotDuration = parseInt(window.aa_slot_duration, 10) || 60;
 
   console.log(`📊 Configuración del calendario:`);
   console.log(`   - Horario:`, aa_schedule);
   console.log(`   - Duración de slot: ${slotDuration} min`);
-  console.log(`   - Ventana futura: ${aa_future_window} días`);
+  console.log(`   - Ventana futura: ${futureWindow} días`);
   console.log(`   - Eventos ocupados: ${proxy.busyRanges.length}`);
 
-  // ✅ Calcular slots disponibles usando el servicio
-  proxy.calculateAvailableSlots(aa_schedule, aa_future_window, slotDuration);
+  // 3️⃣ Pedir al SERVICE que calcule slots
+  const slotsMap = window.AvailabilityService.calculate(proxy, {
+    schedule: aa_schedule,
+    futureWindow,
+    slotDuration
+  });
 
-  const minDate = new Date();
-  const maxDate = new Date();
-  maxDate.setDate(minDate.getDate() + aa_future_window);
+  // 4️⃣ Pedir a UTILS los límites de fecha
+  const { minDate, maxDate } = window.DateUtils.computeLimits(futureWindow);
 
-  // ✅ ORQUESTACIÓN: Decidir qué UI usar según el contexto
+  // 5️⃣ ORQUESTACIÓN: decidir qué UI usar
   if (isAdmin) {
-    // Modo Admin: Usar CalendarAdminUI
+    // Modo Admin
     if (typeof window.CalendarAdminUI !== 'undefined') {
-      window.CalendarAdminUI.renderAdminCalendar(fechaInput, slotContainerSelector, proxy, {
+      window.CalendarAdminUI.render({
+        fechaInput,
+        slotContainerSelector,
+        slotsMap,
         minDate,
-        maxDate
+        maxDate,
+        disableDateFn: (date) => window.AvailabilityService.disable(proxy, date)
       });
     } else {
       console.error('❌ CalendarAdminUI no está disponible');
     }
-  } else {
-    // Modo Frontend: Usar CalendarUI
-    if (typeof window.CalendarUI !== 'undefined') {
-      window.CalendarUI.rebuildCalendar({
-        fechaInput,
-        minDate,
-        maxDate,
-        disableDateCallback: (date) => proxy.disableDate(date),
-        onDateSelected: (selectedDate) => {
-          const slots = proxy.getSlotsForDate(selectedDate);
-          
-          // Delegar renderizado de slots a SlotSelectorUI (frontend)
-          if (typeof window.SlotSelectorUI !== 'undefined') {
-            window.SlotSelectorUI.renderAvailableSlots(slotContainerSelector, slots, chosen => {
-              fechaInput.value = `${selectedDate.toLocaleDateString()} ${chosen.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`;
-            });
-          }
-          
-          // Setear valor inicial
-          if (slots[0]) {
-            fechaInput.value = `${selectedDate.toLocaleDateString()} ${slots[0].toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`;
-          }
-          
-          return { selectedSlotISO: slots[0]?.toISOString() || null };
+    return;
+  }
+
+  // Modo Frontend
+  if (typeof window.CalendarUI !== 'undefined') {
+    window.CalendarUI.render({
+      fechaInput,
+      minDate,
+      maxDate,
+      disableDateFn: (date) => window.AvailabilityService.disable(proxy, date),
+
+      // Slot selection
+      onDateSelected: (selectedDate) => {
+        const slots = window.AvailabilityService.slotsForDate(proxy, selectedDate);
+
+        if (typeof window.SlotSelectorUI !== 'undefined') {
+          window.SlotSelectorUI.render(slotContainerSelector, slots, (chosenSlot) => {
+            fechaInput.value = `${selectedDate.toLocaleDateString()} ${chosenSlot.toLocaleTimeString('es-MX', {
+              hour: '2-digit',
+              minute: '2-digit'
+            })}`;
+          });
         }
-      });
-    } else {
-      console.error('❌ CalendarUI no está disponible');
-    }
+
+        // Setear valor inicial
+        if (slots[0]) {
+          fechaInput.value = `${selectedDate.toLocaleDateString()} ${slots[0].toLocaleTimeString('es-MX', {
+            hour: '2-digit',
+            minute: '2-digit'
+          })}`;
+        }
+
+        return { selectedSlotISO: slots[0]?.toISOString() || null };
+      }
+    });
+  } else {
+    console.error('❌ CalendarUI no está disponible');
   }
 }
 

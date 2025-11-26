@@ -65,21 +65,22 @@ export function initBasicCalendar(fechaSelector) {
 }
 
 /**
- * Reconstruye el calendario con reglas de disponibilidad
+ * Renderiza el calendario frontend con reglas de disponibilidad
+ * @param {Object} config - Configuración del calendario
  */
-export function rebuildCalendar(options) {
-  console.log('🔄 rebuildCalendar llamado con opciones:', options);
-  
+export function render(config) {
   const {
     fechaInput,
     minDate,
     maxDate,
-    disableDateCallback,
+    disableDateFn,
     onDateSelected
-  } = options;
+  } = config;
+
+  console.log('🔄 CalendarUI.render() llamado con config:', config);
 
   if (!fechaInput || typeof flatpickr === "undefined") {
-    console.error('❌ No se puede reconstruir el calendario: input o Flatpickr no disponibles');
+    console.error('❌ No se puede renderizar el calendario: input o Flatpickr no disponibles');
     return null;
   }
 
@@ -88,33 +89,35 @@ export function rebuildCalendar(options) {
     fechaInput._flatpickr.destroy();
   }
 
-  let selectedSlotISO = null;
-
   const picker = flatpickr(fechaInput, {
     disableMobile: true,
     dateFormat: "d-m-Y",
     minDate: minDate,
     maxDate: maxDate,
     locale: "es",
-    disable: [disableDateCallback],
+    disable: [disableDateFn],
     onChange: function(selectedDates) {
       if (!selectedDates.length) return;
       
-      const sel = selectedDates[0];
+      const selectedDate = selectedDates[0];
       
       if (onDateSelected && typeof onDateSelected === 'function') {
-        const result = onDateSelected(sel, this);
-        
-        if (result && result.selectedSlotISO) {
-          selectedSlotISO = result.selectedSlotISO;
-        }
+        onDateSelected(selectedDate, this);
       }
     }
   });
 
-  console.log('✅ Flatpickr reconstruido con reglas de disponibilidad');
+  console.log('✅ Flatpickr frontend renderizado con reglas de disponibilidad');
 
   return picker;
+}
+
+/**
+ * Reconstruye el calendario con reglas de disponibilidad (LEGACY - usar render())
+ */
+export function rebuildCalendar(options) {
+  console.warn('⚠️ rebuildCalendar() es legacy, usa render() en su lugar');
+  return render(options);
 }
 
 // ==============================
@@ -124,7 +127,8 @@ window.CalendarUI = {
   findDateInput,
   getSlotDuration,
   initBasicCalendar,
-  rebuildCalendar
+  rebuildCalendar,
+  render
 };
 
 console.log('✅ CalendarUI cargado y expuesto globalmente');
