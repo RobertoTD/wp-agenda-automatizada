@@ -4,8 +4,17 @@
  * - Construir URL de consulta al backend
  * - Realizar fetch con reintentos automáticos
  * - Normalizar datos recibidos (data.busy)
+ * - Combinar disponibilidad local y externa
+ * - Calcular slots disponibles por día
  * - Emitir eventos de éxito/error
  */
+
+import { 
+  ymd, 
+  getWeekdayName, 
+  getDayIntervals, 
+  generateSlotsForDay
+} from '../utils/dateUtils.js';
 
 class AvailabilityProxy {
   constructor(config = {}) {
@@ -18,6 +27,8 @@ class AvailabilityProxy {
     this.attempts = 0;
     this.intervalId = null;
     this.dataReceived = false;
+    this.availableSlotsPerDay = {};
+    this.busyRanges = [];
   }
 
   /**
@@ -25,6 +36,93 @@ class AvailabilityProxy {
    */
   buildUrl() {
     return `${this.ajaxUrl}?action=${encodeURIComponent(this.action)}&email=${encodeURIComponent(this.email)}`;
+  }
+
+  /**
+   * Combinar disponibilidad local y externa
+   */
+  combineAvailabilityData() {
+    if (typeof window.aa_local_availability !== 'undefined' && window.aa_local_availability.local_busy) {
+      console.log("📊 Combinando disponibilidad local con datos externos");
+      
+      if (window.aa_availability) {
+        const externalBusy = window.aa_availability.busy || [];
+        const localBusy = window.aa_local_availability.local_busy.map(slot => ({
+          start: new Date(slot.start),
+          end: new Date(slot.end)
+        }));
+        
+        window.aa_availability.busy = [...externalBusy, ...localBusy];
+        
+        console.log(`✅ Total combinado: ${window.aa_availability.busy.length}`);
+        console.log(`   - Google Calendar: ${externalBusy.length}`);
+        console.log(`   - Local: ${localBusy.length}`);
+      }
+    }
+  }
+
+  /**
+   * Generar busyRanges desde window.aa_availability
+   */
+  generateBusyRanges() {
+    const busy = (window.aa_availability?.busy) || [];
+    console.log(`🔍 Generando busyRanges desde ${busy.length} eventos ocupados`);
+    
+    this.busyRanges = busy.map(ev => ({
+      start: new Date(ev.start),
+      end: new Date(ev.end)
+    }));
+    
+    return this.busyRanges;
+  }
+
+  /**
+   * Calcular slots disponibles por día
+   */
+  calculateAvailableSlots(schedule, futureWindow, slotDuration) {
+    const minDate = new Date();
+    const maxDate = new Date();
+    maxDate.setDate(minDate.getDate() + futureWindow);
+
+    this.availableSlotsPerDay = {};
+    
+    console.log(`🗓️ Calculando slots disponibles del ${ymd(minDate)} al ${ymd(maxDate)}`);
+    
+    for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
+      const day = new Date(d);
+      const weekday = getWeekdayName(day);
+      const intervals = getDayIntervals(schedule, weekday);
+      const slots = generateSlotsForDay(day, intervals, this.busyRanges, slotDuration);
+      
+      this.availableSlotsPerDay[ymd(day)] = slots;
+      
+      if (slots.length > 0) {
+        console.log(`📅 ${ymd(day)}: ${slots.length} slots disponibles`);
+      }
+    }
+    
+    return this.availableSlotsPerDay;
+  }
+
+  /**
+   * Verificar si una fecha tiene slots disponibles
+   */
+  isDateAvailable(date) {
+    return (this.availableSlotsPerDay[ymd(date)]?.length || 0) > 0;
+  }
+
+  /**
+   * Callback para deshabilitar fechas sin disponibilidad
+   */
+  disableDate(date) {
+    return !this.isDateAvailable(date);
+  }
+
+  /**
+   * Obtener slots para una fecha específica
+   */
+  getSlotsForDate(date) {
+    return this.availableSlotsPerDay[ymd(date)] || [];
   }
 
   /**
@@ -80,6 +178,12 @@ class AvailabilityProxy {
       window.aa_availability = data;
       this.dataReceived = true;
 
+      // ✅ Combinar con datos locales
+      this.combineAvailabilityData();
+
+      // ✅ Generar busyRanges
+      this.generateBusyRanges();
+
       // Detener reintentos
       if (this.intervalId) {
         clearInterval(this.intervalId);
@@ -89,7 +193,11 @@ class AvailabilityProxy {
       // Emitir evento de éxito
       console.log("🔔 Disparando evento 'aa:availability:loaded'");
       document.dispatchEvent(new CustomEvent('aa:availability:loaded', { 
-        detail: data 
+        detail: {
+          ...data,
+          busyRanges: this.busyRanges,
+          proxy: this // Pasar referencia al proxy para acceder a métodos
+        }
       }));
 
     } catch (err) {

@@ -1,13 +1,7 @@
 // ==============================
 // 🔹 Importar utilidades desde dateUtils.js
 // ==============================
-import { 
-  ymd, 
-  getWeekdayName, 
-  getDayIntervals, 
-  generateSlotsForDay,
-  hasEnoughFreeTime
-} from '../utils/dateUtils.js';
+const { ymd } = window.DateUtils;
 
 // ==============================
 // 🔹 DEBUG: Imprimir datos locales de disponibilidad
@@ -46,31 +40,9 @@ if (typeof window.aa_local_availability !== 'undefined') {
 }
 
 // ==============================
-// 🔹 Combinar disponibilidad local y externa
+// 🔹 Variable global para almacenar el proxy
 // ==============================
-function combineAvailabilityData() {
-  if (typeof aa_local_availability !== 'undefined' && aa_local_availability.local_busy) {
-    console.log("📊 Combinando disponibilidad local con datos externos");
-    
-    if (window.aa_availability) {
-      const externalBusy = window.aa_availability.busy || [];
-      const localBusy = aa_local_availability.local_busy.map(slot => ({
-        start: new Date(slot.start),
-        end: new Date(slot.end)
-      }));
-      
-      window.aa_availability.busy = [...externalBusy, ...localBusy];
-      
-      console.log(`✅ Total combinado: ${window.aa_availability.busy.length}`);
-      console.log(`   - Google Calendar: ${externalBusy.length}`);
-      console.log(`   - Local: ${localBusy.length}`);
-      
-      document.dispatchEvent(new CustomEvent('aa:availability:updated', {
-        detail: window.aa_availability
-      }));
-    }
-  }
-}
+let availabilityProxyInstance = null;
 
 // ==============================
 // 🔹 Iniciar AvailabilityProxy
@@ -99,14 +71,16 @@ function startAvailabilityProxy() {
 
   console.log('🚀 Iniciando AvailabilityProxy con configuración:', config);
 
-  const availabilityProxy = new window.AvailabilityProxy(config);
-  availabilityProxy.start();
+  availabilityProxyInstance = new window.AvailabilityProxy(config);
+  availabilityProxyInstance.start();
+  
+  return availabilityProxyInstance;
 }
 
 // ==============================
 // 🔹 Procesar calendario con disponibilidad
 // ==============================
-function processCalendar(fechaInputSelector, slotContainerSelector, isAdmin) {
+function processCalendar(fechaInputSelector, slotContainerSelector, isAdmin, proxy) {
   const fechaInput = document.querySelector(fechaInputSelector);
   
   if (!fechaInput) {
@@ -123,48 +97,24 @@ function processCalendar(fechaInputSelector, slotContainerSelector, isAdmin) {
   const aa_future_window = window.aa_future_window || 14;
   const slotDuration = parseInt(window.aa_slot_duration, 10) || 60;
 
-  console.log(`📊 Configuración:`);
+  console.log(`📊 Configuración del calendario:`);
   console.log(`   - Horario:`, aa_schedule);
-  console.log(`   - Duración: ${slotDuration} min`);
-  console.log(`   - Ventana: ${aa_future_window} días`);
+  console.log(`   - Duración de slot: ${slotDuration} min`);
+  console.log(`   - Ventana futura: ${aa_future_window} días`);
+  console.log(`   - Eventos ocupados: ${proxy.busyRanges.length}`);
 
-  const busy = (window.aa_availability?.busy) || [];
-  console.log(`   - Eventos ocupados: ${busy.length}`);
-
-  const busyRanges = busy.map(ev => ({
-    start: new Date(ev.start),
-    end: new Date(ev.end)
-  }));
+  // ✅ Calcular slots disponibles usando el servicio
+  const availableSlotsPerDay = proxy.calculateAvailableSlots(aa_schedule, aa_future_window, slotDuration);
 
   const minDate = new Date();
   const maxDate = new Date();
   maxDate.setDate(minDate.getDate() + aa_future_window);
 
-  const availableSlotsPerDay = {};
-  
-  for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
-    const day = new Date(d);
-    const weekday = getWeekdayName(day);
-    const intervals = getDayIntervals(aa_schedule, weekday);
-    const slots = generateSlotsForDay(day, intervals, busyRanges, slotDuration);
-    
-    availableSlotsPerDay[ymd(day)] = slots;
-    
-    if (slots.length > 0) {
-      console.log(`📅 ${ymd(day)}: ${slots.length} slots`);
-    }
-  }
-
-  const isDateAvailable = (date) => (availableSlotsPerDay[ymd(date)]?.length || 0) > 0;
-  const disableDate = (date) => !isDateAvailable(date);
-
   if (isAdmin) {
-    renderAdminCalendar(fechaInput, slotContainerSelector, availableSlotsPerDay, {
+    renderAdminCalendar(fechaInput, slotContainerSelector, proxy, {
       minDate,
       maxDate,
-      aa_schedule,
-      busyRanges,
-      slotDuration
+      availableSlotsPerDay
     });
   } else {
     if (typeof window.CalendarUI !== 'undefined') {
@@ -172,9 +122,9 @@ function processCalendar(fechaInputSelector, slotContainerSelector, isAdmin) {
         fechaInput,
         minDate,
         maxDate,
-        disableDateCallback: disableDate,
+        disableDateCallback: (date) => proxy.disableDate(date),
         onDateSelected: (selectedDate) => {
-          const slots = availableSlotsPerDay[ymd(selectedDate)] || [];
+          const slots = proxy.getSlotsForDate(selectedDate);
           renderSlots(slotContainerSelector, slots, selectedDate, fechaInput, false);
           return { selectedSlotISO: slots[0]?.toISOString() || null };
         }
@@ -186,8 +136,8 @@ function processCalendar(fechaInputSelector, slotContainerSelector, isAdmin) {
 // ==============================
 // 🔹 Renderizado admin
 // ==============================
-function renderAdminCalendar(fechaInput, slotContainerSelector, availableSlotsPerDay, config) {
-  const { minDate, maxDate, aa_schedule, busyRanges, slotDuration } = config;
+function renderAdminCalendar(fechaInput, slotContainerSelector, proxy, config) {
+  const { minDate, maxDate } = config;
   
   if (fechaInput._flatpickr) fechaInput._flatpickr.destroy();
   
@@ -197,11 +147,11 @@ function renderAdminCalendar(fechaInput, slotContainerSelector, availableSlotsPe
     minDate,
     maxDate,
     locale: "es",
-    disable: [(date) => (availableSlotsPerDay[ymd(date)]?.length || 0) === 0],
+    disable: [(date) => proxy.disableDate(date)],
     onChange: function(selectedDates) {
       if (!selectedDates.length) return;
       const sel = selectedDates[0];
-      const validSlots = availableSlotsPerDay[ymd(sel)] || [];
+      const validSlots = proxy.getSlotsForDate(sel);
       renderSlots(slotContainerSelector, validSlots, sel, fechaInput, true);
     }
   });
@@ -272,14 +222,16 @@ export function initAvailabilityController(config) {
   console.log("📋 AvailabilityController inicializado");
 
   // ✅ Iniciar proxy de disponibilidad
-  startAvailabilityProxy();
+  const proxy = startAvailabilityProxy();
 
   // ✅ Escuchar datos de disponibilidad
-  document.addEventListener("aa:availability:loaded", () => {
-    console.log("✅ Datos de disponibilidad recibidos");
+  document.addEventListener("aa:availability:loaded", (event) => {
+    console.log("✅ Datos de disponibilidad recibidos en el controlador");
     
-    combineAvailabilityData();
-    processCalendar(fechaInputSelector, slotContainerSelector, isAdmin);
+    // Usar el proxy del evento (contiene busyRanges ya calculados)
+    const proxyFromEvent = event.detail.proxy;
+    
+    processCalendar(fechaInputSelector, slotContainerSelector, isAdmin, proxyFromEvent);
   });
 
   // ✅ Escuchar errores

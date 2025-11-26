@@ -80,7 +80,8 @@ function wpaa_enqueue_frontend_assets() {
         ['wpaa-calendar-ui',             'assets/js/ui/calendarUI.js',                
                                          ['flatpickr-js', 'flatpickr-es'], true],
         ['wpaa-slot-selector-ui',        'assets/js/ui/slotSelectorUI.js',            [], true],
-        ['wpaa-availability-proxy',      'assets/js/services/availabilityProxy.js',   [], false],
+        ['wpaa-availability-proxy',      'assets/js/services/availabilityProxy.js',   
+                                         ['wpaa-date-utils'], true], // ✅ AHORA ES MÓDULO
         ['wpaa-reservation-service',     'assets/js/services/reservationService.js',  [], true],
         ['wpaa-availability-controller', 'assets/js/controllers/availabilityController.js',
                                          ['wpaa-date-utils', 'wpaa-calendar-ui', 'wpaa-slot-selector-ui', 'wpaa-availability-proxy'], true],
@@ -155,7 +156,8 @@ function wpaa_enqueue_admin_assets($hook) {
                                                    ['flatpickr-js-admin', 'flatpickr-es-admin'], true],
             
             // 🔹 Servicios (AJAX)
-            ['wpaa-availability-proxy-admin',      'assets/js/services/availabilityProxy.js',   [], false],
+            ['wpaa-availability-proxy-admin',      'assets/js/services/availabilityProxy.js',   
+                                                   ['wpaa-date-utils-admin'], true], // ✅ AHORA ES MÓDULO
             ['wpaa-reservation-service-admin',     'assets/js/services/reservationService.js',  [], true],
             ['wpaa-confirm-service',               'assets/js/services/confirmService.js',      [], false],
             
