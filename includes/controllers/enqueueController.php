@@ -75,6 +75,9 @@ function wpaa_enqueue_frontend_assets() {
     wp_enqueue_script('flatpickr-js', 'https://cdn.jsdelivr.net/npm/flatpickr', [], null, true);
     wp_enqueue_script('flatpickr-es', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js', ['flatpickr-js'], null, true);
 
+    // ✅ IMPORTANTE: Cargar datos locales ANTES de cualquier script
+    wpaa_localize_local_availability();
+
     $frontend_scripts = [
         ['wpaa-date-utils',              'assets/js/utils/dateUtils.js',              [], true],
         ['wpaa-calendar-ui',             'assets/js/ui/calendarUI.js',                
@@ -118,6 +121,42 @@ function wpaa_enqueue_frontend_assets() {
         'whatsapp_number' => get_option('aa_whatsapp_number', '5215522992290'),
         'timezone' => $timezone,
         'locale' => wpaa_locale_from_timezone($timezone)
+    ]);
+}
+
+/**
+ * Inyectar disponibilidad local ANTES de scripts JS
+ */
+function wpaa_localize_local_availability() {
+    // Aquí debes cargar las reservas confirmadas de la BD
+    // Ejemplo (ajustar según tu modelo de datos):
+    
+    global $wpdb;
+    $table = $wpdb->prefix . 'aa_reservations';
+    
+    $confirmed = $wpdb->get_results("
+        SELECT fecha_inicio as start, fecha_fin as end, nombre as title, email as attendee 
+        FROM $table 
+        WHERE estado = 'confirmed' 
+        AND fecha_inicio >= NOW()
+        ORDER BY fecha_inicio ASC
+    ");
+
+    $local_busy = [];
+    foreach ($confirmed as $row) {
+        $local_busy[] = [
+            'start' => $row->start,
+            'end' => $row->end,
+            'title' => $row->title,
+            'attendee' => $row->attendee
+        ];
+    }
+
+    wp_localize_script('wpaa-availability-controller', 'aa_local_availability', [
+        'local_busy' => $local_busy,
+        'slot_duration' => intval(get_option('aa_slot_duration', 60)),
+        'timezone' => get_option('aa_timezone', 'America/Mexico_City'),
+        'total_confirmed' => count($local_busy)
     ]);
 }
 

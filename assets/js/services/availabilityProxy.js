@@ -52,12 +52,15 @@ class AvailabilityProxy {
           end: new Date(slot.end)
         }));
         
+        // ✅ COMBINAR sin duplicar
         window.aa_availability.busy = [...externalBusy, ...localBusy];
         
         console.log(`✅ Total combinado: ${window.aa_availability.busy.length}`);
         console.log(`   - Google Calendar: ${externalBusy.length}`);
         console.log(`   - Local: ${localBusy.length}`);
       }
+    } else {
+      console.log('ℹ️ No hay datos locales para combinar');
     }
   }
 
