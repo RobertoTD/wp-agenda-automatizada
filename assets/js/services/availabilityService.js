@@ -19,6 +19,7 @@ import {
 } from './availability/proxyFetch.js';
 
 import { combineLocalExternal } from './availability/combineLocalExternal.js';
+import { generateBusyRanges, loadLocalBusyRanges } from './availability/busyRanges.js';
 
 class AvailabilityProxy {
   constructor(config = {}) {
@@ -30,21 +31,6 @@ class AvailabilityProxy {
     
     this.availableSlotsPerDay = {};
     this.busyRanges = [];
-  }
-
-  /**
-   * Generar busyRanges desde window.aa_availability
-   */
-  generateBusyRanges() {
-    const busy = (window.aa_availability?.busy) || [];
-    console.log(`🔍 Generando busyRanges desde ${busy.length} eventos ocupados`);
-    
-    this.busyRanges = busy.map(ev => ({
-      start: new Date(ev.start),
-      end: new Date(ev.end)
-    }));
-    
-    return this.busyRanges;
   }
 
   /**
@@ -115,7 +101,7 @@ class AvailabilityProxy {
       combineLocalExternal(window.aa_availability, window.aa_local_availability);
 
       // ✅ Generar busyRanges
-      this.generateBusyRanges();
+      this.busyRanges = generateBusyRanges(window.aa_availability?.busy || []);
 
       // Emitir evento extendido con proxy
       console.log("🔔 Disparando evento 'aa:availability:loaded' con proxy");
@@ -155,24 +141,7 @@ export const AvailabilityService = {
    * Cargar disponibilidad local desde window
    */
   loadLocal() {
-    const localBusyRanges = [];
-
-    if (typeof window.aa_local_availability !== 'undefined' && window.aa_local_availability.local_busy) {
-      console.log('✅ Datos locales encontrados:', window.aa_local_availability);
-      
-      window.aa_local_availability.local_busy.forEach((slot) => {
-        const start = new Date(slot.start);
-        const end = new Date(slot.end);
-        
-        if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
-          localBusyRanges.push({ start, end });
-        }
-      });
-      
-      console.log(`📊 Total eventos locales: ${localBusyRanges.length}`);
-    }
-    
-    return localBusyRanges;
+    return loadLocalBusyRanges();
   },
 
   /**

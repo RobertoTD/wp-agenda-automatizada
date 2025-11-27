@@ -3,92 +3,12 @@ import { AvailabilityService } from '../services/availabilityService.js';
 // ==============================
 // 🔹 Importar utilidades desde dateUtils.js
 // ==============================
-const { ymd, computeLimits } = window.DateUtils;
+const { ymd } = window.DateUtils;
 
 // ==============================
 // 🔹 Variable global para almacenar el proxy
 // ==============================
 let availabilityProxyInstance = null;
-
-// ==============================
-// 🔹 PASO 1: Cargar disponibilidad LOCAL
-// ==============================
-function loadLocalAvailability() {
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('📦 CARGANDO DISPONIBILIDAD LOCAL');
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-
-  const localBusyRanges = [];
-
-  if (typeof window.aa_local_availability !== 'undefined' && window.aa_local_availability.local_busy) {
-    console.log('✅ Datos locales encontrados:', window.aa_local_availability);
-    
-    window.aa_local_availability.local_busy.forEach((slot, index) => {
-      const start = new Date(slot.start);
-      const end = new Date(slot.end);
-      
-      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
-        localBusyRanges.push({ start, end });
-        console.log(`   ${index + 1}. ${slot.start} → ${slot.end} | ${slot.title}`);
-      }
-    });
-    
-    console.log(`📊 Total eventos locales: ${localBusyRanges.length}`);
-  } else {
-    console.log('ℹ️ No hay datos locales de disponibilidad');
-  }
-
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-  
-  return localBusyRanges;
-}
-
-// ==============================
-// 🔹 PASO 2: Calcular slots SOLO con datos locales
-// ==============================
-function calculateInitialSlots(localBusyRanges) {
-  const aa_schedule = window.aa_schedule || {};
-  const futureWindow = window.aa_future_window || 14;
-  const slotDuration = parseInt(window.aa_slot_duration, 10) || 60;
-
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('🧮 CALCULANDO SLOTS INICIALES (SOLO LOCAL)');
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log(`📊 Configuración:`);
-  console.log(`   - Duración de slot: ${slotDuration} min`);
-  console.log(`   - Ventana futura: ${futureWindow} días`);
-  console.log(`   - Eventos ocupados locales: ${localBusyRanges.length}`);
-
-  const minDate = new Date();
-  const maxDate = new Date();
-  maxDate.setDate(minDate.getDate() + futureWindow);
-
-  const availableSlotsPerDay = {};
-
-  for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
-    const day = new Date(d);
-    const weekday = window.DateUtils.getWeekdayName(day);
-    const intervals = window.DateUtils.getDayIntervals(aa_schedule, weekday);
-    const slots = window.DateUtils.generateSlotsForDay(day, intervals, localBusyRanges, slotDuration);
-    
-    availableSlotsPerDay[ymd(day)] = slots;
-    
-    if (slots.length > 0) {
-      console.log(`📅 ${ymd(day)}: ${slots.length} slots disponibles`);
-    }
-  }
-
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-
-  return {
-    availableSlotsPerDay,
-    schedule: aa_schedule,
-    futureWindow,
-    slotDuration,
-    minDate,
-    maxDate
-  };
-}
 
 // ==============================
 // 🔹 PASO 3: Renderizar UI con datos iniciales

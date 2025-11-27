@@ -85,8 +85,9 @@ function wpaa_enqueue_frontend_assets() {
         ['wpaa-slot-selector-ui',        'assets/js/ui/slotSelectorUI.js',            [], true],
         ['wpaa-proxy-fetch',             'assets/js/services/availability/proxyFetch.js', [], true],
         ['wpaa-combine-local-external',  'assets/js/services/availability/combineLocalExternal.js', [], true],
+        ['wpaa-busy-ranges',             'assets/js/services/availability/busyRanges.js', [], true],
         ['wpaa-availability-service',    'assets/js/services/availabilityService.js',
-                                         ['wpaa-date-utils', 'wpaa-proxy-fetch', 'wpaa-combine-local-external'], true],
+                                         ['wpaa-date-utils', 'wpaa-proxy-fetch', 'wpaa-combine-local-external', 'wpaa-busy-ranges'], true],
         ['wpaa-reservation-service',     'assets/js/services/reservationService.js',  [], true],
         ['wpaa-availability-controller', 'assets/js/controllers/availabilityController.js',
                                          ['wpaa-date-utils', 'wpaa-calendar-ui', 'wpaa-slot-selector-ui', 'wpaa-availability-service'], true],
@@ -202,8 +203,9 @@ function wpaa_enqueue_admin_assets($hook) {
             // 🔹 Servicios (AJAX)
             ['wpaa-proxy-fetch-admin',             'assets/js/services/availability/proxyFetch.js', [], true],
             ['wpaa-combine-local-external-admin',  'assets/js/services/availability/combineLocalExternal.js', [], true],
+            ['wpaa-busy-ranges-admin',             'assets/js/services/availability/busyRanges.js', [], true],
             ['wpaa-availability-service-admin',    'assets/js/services/availabilityService.js',
-                                                   ['wpaa-date-utils-admin', 'wpaa-proxy-fetch-admin', 'wpaa-combine-local-external-admin'], true],
+                                                   ['wpaa-date-utils-admin', 'wpaa-proxy-fetch-admin', 'wpaa-combine-local-external-admin', 'wpaa-busy-ranges-admin'], true],
             ['wpaa-reservation-service-admin',     'assets/js/services/reservationService.js',  [], true],
             ['wpaa-confirm-service',               'assets/js/services/confirmService.js',      [], false],
             
