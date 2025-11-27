@@ -176,10 +176,82 @@ window.AvailabilityProxy = AvailabilityProxy;
 export const AvailabilityService = {
 
   /**
+   * Cargar disponibilidad local desde window
+   */
+  loadLocal() {
+    const localBusyRanges = [];
+
+    if (typeof window.aa_local_availability !== 'undefined' && window.aa_local_availability.local_busy) {
+      console.log('✅ Datos locales encontrados:', window.aa_local_availability);
+      
+      window.aa_local_availability.local_busy.forEach((slot) => {
+        const start = new Date(slot.start);
+        const end = new Date(slot.end);
+        
+        if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+          localBusyRanges.push({ start, end });
+        }
+      });
+      
+      console.log(`📊 Total eventos locales: ${localBusyRanges.length}`);
+    }
+    
+    return localBusyRanges;
+  },
+
+  /**
+   * Calcular slots iniciales con busy ranges dados
+   */
+  calculateInitial(busyRanges) {
+    const schedule = window.aa_schedule || {};
+    const futureWindow = window.aa_future_window || 14;
+    const slotDuration = parseInt(window.aa_slot_duration, 10) || 60;
+
+    const minDate = new Date();
+    const maxDate = new Date();
+    maxDate.setDate(minDate.getDate() + futureWindow);
+
+    const availableSlotsPerDay = {};
+
+    for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
+      const day = new Date(d);
+      const weekday = window.DateUtils.getWeekdayName(day);
+      const intervals = window.DateUtils.getDayIntervals(schedule, weekday);
+      const slots = window.DateUtils.generateSlotsForDay(day, intervals, busyRanges, slotDuration);
+      
+      availableSlotsPerDay[ymd(day)] = slots;
+    }
+
+    return {
+      availableSlotsPerDay,
+      schedule,
+      futureWindow,
+      slotDuration,
+      minDate,
+      maxDate
+    };
+  },
+
+  /**
+   * Encontrar primera fecha disponible
+   */
+  findFirstAvailable(minDate, maxDate, availableSlotsPerDay) {
+    for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
+      const day = new Date(d);
+      const slots = availableSlotsPerDay[ymd(day)] || [];
+      
+      if (slots.length > 0) {
+        return day;
+      }
+    }
+    
+    return null;
+  },
+
+  /**
    * Calcula slots disponibles usando el proxy
    */
   calculate(proxy, { schedule, futureWindow, slotDuration }) {
-    console.log('🔧 AvailabilityService.calculate() invocado');
     return proxy.calculateAvailableSlots(schedule, futureWindow, slotDuration);
   },
 

@@ -1,3 +1,5 @@
+import { AvailabilityService } from '../services/availabilityService.js';
+
 // ==============================
 // 🔹 Importar utilidades desde dateUtils.js
 // ==============================
@@ -126,7 +128,12 @@ function renderInitialUI(fechaInputSelector, slotContainerSelector, isAdmin, ini
       
       // ✅ RENDERIZAR SLOTS INICIALES para la primera fecha disponible
       if (picker) {
-        const firstAvailableDate = findFirstAvailableDate(minDate, maxDate, availableSlotsPerDay);
+        // ✅ Usar servicio en lugar de función local
+        const firstAvailableDate = AvailabilityService.findFirstAvailable(
+          minDate, 
+          maxDate, 
+          availableSlotsPerDay
+        );
         
         if (firstAvailableDate) {
           const validSlots = availableSlotsPerDay[ymd(firstAvailableDate)] || [];
@@ -188,24 +195,6 @@ function renderInitialUI(fechaInputSelector, slotContainerSelector, isAdmin, ini
   }
 
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-}
-
-// ==============================
-// 🔹 Helper: Encontrar primera fecha disponible
-// ==============================
-function findFirstAvailableDate(minDate, maxDate, availableSlotsPerDay) {
-  for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
-    const day = new Date(d);
-    const slots = availableSlotsPerDay[ymd(day)] || [];
-    
-    if (slots.length > 0) {
-      console.log(`✅ Primera fecha disponible encontrada: ${ymd(day)}`);
-      return day;
-    }
-  }
-  
-  console.warn('⚠️ No se encontró ninguna fecha disponible');
-  return null;
 }
 
 // ==============================
@@ -305,7 +294,7 @@ function refreshUI(fechaInputSelector, slotContainerSelector, isAdmin, updatedDa
       // ✅ MANTENER fecha seleccionada o usar primera disponible
       const dateToSelect = currentSelectedDate && proxy.isDateAvailable(currentSelectedDate)
         ? currentSelectedDate
-        : findFirstAvailableDate(minDate, maxDate, availableSlotsPerDay);
+        : AvailabilityService.findFirstAvailable(minDate, maxDate, availableSlotsPerDay);
       
       if (dateToSelect && picker) {
         const validSlots = window.AvailabilityService.slotsForDate(proxy, dateToSelect);
@@ -368,16 +357,14 @@ export function initAvailabilityController(config) {
     isAdmin = false
   } = config;
 
-  console.log('\n🚀 ============================================');
-  console.log('🚀 INICIANDO AVAILABILITY CONTROLLER');
-  console.log(`🚀 Modo: ${isAdmin ? 'ADMIN' : 'FRONTEND'}`);
-  console.log('🚀 ============================================\n');
+  console.log('\n🚀 INICIANDO AVAILABILITY CONTROLLER');
+  console.log(`🚀 Modo: ${isAdmin ? 'ADMIN' : 'FRONTEND'}\n`);
 
-  // 1️⃣ Cargar disponibilidad LOCAL
-  const localBusyRanges = loadLocalAvailability();
+  // 1️⃣ Cargar disponibilidad LOCAL (delegado al servicio)
+  const localBusyRanges = AvailabilityService.loadLocal();
 
-  // 2️⃣ Calcular slots iniciales SOLO con local
-  const initialData = calculateInitialSlots(localBusyRanges);
+  // 2️⃣ Calcular slots iniciales (delegado al servicio)
+  const initialData = AvailabilityService.calculateInitial(localBusyRanges);
 
   // 3️⃣ Renderizar UI inmediatamente con datos locales
   renderInitialUI(fechaInputSelector, slotContainerSelector, isAdmin, initialData);
