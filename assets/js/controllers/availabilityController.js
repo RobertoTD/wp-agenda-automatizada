@@ -238,20 +238,17 @@ function startGoogleCalendarSync(fechaInputSelector, slotContainerSelector, isAd
   availabilityProxyInstance = new window.AvailabilityProxy(config);
   window.availabilityProxyInstance = availabilityProxyInstance;
   
-  // Escuchar cuando lleguen datos de Google
-  document.addEventListener("aa:availability:loaded", (event) => {
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log("✅ DATOS DE GOOGLE CALENDAR RECIBIDOS");
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  // ✅ IMPORTANTE: Registrar listener ANTES de iniciar
+  const handleAvailabilityLoaded = (event) => {
+    // ✅ Validar que el evento incluye proxy
+    if (!event.detail || !event.detail.proxy) {
+      console.warn('⚠️ Evento recibido sin proxy, ignorando...');
+      return;
+    }
     
     const proxy = event.detail.proxy;
-    
-    // Recalcular slots con datos combinados (local + Google)
     const { schedule, futureWindow, slotDuration } = initialData;
     const updatedSlotsMap = proxy.calculateAvailableSlots(schedule, futureWindow, slotDuration);
-    
-    console.log(`📊 Eventos combinados: ${proxy.busyRanges.length} total`);
-    console.log(`🔄 Slots recalculados con datos externos`);
     
     // Refrescar UI
     refreshUI(fechaInputSelector, slotContainerSelector, isAdmin, {
@@ -260,8 +257,12 @@ function startGoogleCalendarSync(fechaInputSelector, slotContainerSelector, isAd
       proxy
     });
     
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-  });
+    // ✅ Remover listener después de procesar
+    document.removeEventListener('aa:availability:loaded', handleAvailabilityLoaded);
+  };
+
+  // Registrar listener
+  document.addEventListener('aa:availability:loaded', handleAvailabilityLoaded);
 
   // Iniciar consulta
   availabilityProxyInstance.start();

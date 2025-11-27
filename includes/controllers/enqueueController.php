@@ -83,11 +83,12 @@ function wpaa_enqueue_frontend_assets() {
         ['wpaa-calendar-ui',             'assets/js/ui/calendarUI.js',                
                                          ['flatpickr-js', 'flatpickr-es'], true],
         ['wpaa-slot-selector-ui',        'assets/js/ui/slotSelectorUI.js',            [], true],
-        ['wpaa-availability-proxy',      'assets/js/services/availabilityProxy.js',   
-                                         ['wpaa-date-utils'], true],
+        ['wpaa-proxy-fetch',             'assets/js/services/availability/proxyFetch.js', [], true],
+        ['wpaa-availability-service',    'assets/js/services/availabilityService.js',
+                                         ['wpaa-date-utils', 'wpaa-proxy-fetch'], true],
         ['wpaa-reservation-service',     'assets/js/services/reservationService.js',  [], true],
         ['wpaa-availability-controller', 'assets/js/controllers/availabilityController.js',
-                                         ['wpaa-date-utils', 'wpaa-calendar-ui', 'wpaa-slot-selector-ui', 'wpaa-availability-proxy'], true],
+                                         ['wpaa-date-utils', 'wpaa-calendar-ui', 'wpaa-slot-selector-ui', 'wpaa-availability-service'], true],
         ['wpaa-reservation-controller',  'assets/js/controllers/reservationController.js',
                                          ['wpaa-reservation-service'], true],
         ['wpaa-main-frontend',           'assets/js/main-frontend.js',
@@ -198,8 +199,9 @@ function wpaa_enqueue_admin_assets($hook) {
             ['wpaa-slot-selector-admin-ui',        'assets/js/ui/slotSelectorAdminUI.js',       [], true],
             
             // 🔹 Servicios (AJAX)
-            ['wpaa-availability-proxy-admin',      'assets/js/services/availabilityProxy.js',   
-                                                   ['wpaa-date-utils-admin'], true],
+            ['wpaa-proxy-fetch-admin',             'assets/js/services/availability/proxyFetch.js', [], true],
+            ['wpaa-availability-service-admin',    'assets/js/services/availabilityService.js',
+                                                   ['wpaa-date-utils-admin', 'wpaa-proxy-fetch-admin'], true],
             ['wpaa-reservation-service-admin',     'assets/js/services/reservationService.js',  [], true],
             ['wpaa-confirm-service',               'assets/js/services/confirmService.js',      [], false],
             
@@ -208,7 +210,7 @@ function wpaa_enqueue_admin_assets($hook) {
             
             // 🔹 Controladores (orquestación)
             ['wpaa-availability-controller-admin', 'assets/js/controllers/availabilityController.js',
-                                                   ['wpaa-date-utils-admin', 'wpaa-calendar-admin-ui', 'wpaa-slot-selector-admin-ui', 'wpaa-availability-proxy-admin'], true],
+                                                   ['wpaa-date-utils-admin', 'wpaa-calendar-admin-ui', 'wpaa-slot-selector-admin-ui', 'wpaa-availability-service-admin'], true],
             ['wpaa-admin-reservation-controller',  'assets/js/controllers/adminReservationController.js',
                                                    ['wpaa-reservation-service-admin'], true],
             ['wpaa-admin-confirm-controller',      'assets/js/controllers/adminConfirmController.js',

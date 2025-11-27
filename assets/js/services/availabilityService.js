@@ -1,12 +1,9 @@
 /**
  * Servicio Proxy de Disponibilidad
  * Responsabilidades:
- * - Construir URL de consulta al backend
- * - Realizar fetch con reintentos automáticos
- * - Normalizar datos recibidos (data.busy)
  * - Combinar disponibilidad local y externa
  * - Calcular slots disponibles por día
- * - Emitir eventos de éxito/error
+ * - Proveer interfaz de consulta de disponibilidad
  */
 
 import { 
@@ -16,6 +13,11 @@ import {
   generateSlotsForDay
 } from '../utils/dateUtils.js';
 
+import {
+  startFetchLoop,
+  stopFetchLoop
+} from './availability/proxyFetch.js';
+
 class AvailabilityProxy {
   constructor(config = {}) {
     this.ajaxUrl = config.ajaxUrl || '/wp-admin/admin-ajax.php';
@@ -24,18 +26,8 @@ class AvailabilityProxy {
     this.maxAttempts = config.maxAttempts || 20;
     this.retryInterval = config.retryInterval || 15000;
     
-    this.attempts = 0;
-    this.intervalId = null;
-    this.dataReceived = false;
     this.availableSlotsPerDay = {};
     this.busyRanges = [];
-  }
-
-  /**
-   * Construir URL de consulta
-   */
-  buildUrl() {
-    return `${this.ajaxUrl}?action=${encodeURIComponent(this.action)}&email=${encodeURIComponent(this.email)}`;
   }
 
   /**
@@ -129,72 +121,28 @@ class AvailabilityProxy {
   }
 
   /**
-   * Realizar fetch de disponibilidad con reintentos
+   * Iniciar consulta con reintentos automáticos
    */
-  async fetchAvailability() {
-    if (this.dataReceived) return;
+  start() {
+    console.log("🚀 Iniciando AvailabilityProxy");
+    
+    const config = {
+      ajaxUrl: this.ajaxUrl,
+      action: this.action,
+      email: this.email,
+      maxAttempts: this.maxAttempts,
+      retryInterval: this.retryInterval
+    };
 
-    this.attempts++;
-    console.log(`🔄 Intento #${this.attempts} de consultar disponibilidad...`);
-
-    const url = this.buildUrl();
-    console.log("📡 Consultando disponibilidad:", url);
-
-    try {
-      const start = Date.now();
-      const response = await fetch(url, { 
-        method: 'GET', 
-        credentials: 'same-origin' 
-      });
-      const duration = Date.now() - start;
-      
-      console.log(`📥 Respuesta recibida (HTTP ${response.status}) en ${duration}ms`);
-
-      const text = await response.text();
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${text}`);
-      }
-
-      const data = JSON.parse(text);
-      console.log("✅ Datos recibidos:", data);
-
-      // ✅ Procesar y normalizar data.busy (eventos ocupados)
-      if (data.busy && Array.isArray(data.busy)) {
-        console.log(`🔍 Procesando ${data.busy.length} eventos ocupados`);
-        
-        data.busy = data.busy.map(ev => {
-          const start = new Date(ev.start);
-          const end = new Date(ev.end);
-          
-          if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-            console.warn('⚠️ Evento con fechas inválidas:', ev);
-            return null;
-          }
-          
-          return { start, end };
-        }).filter(Boolean);
-        
-        console.log(`✅ ${data.busy.length} eventos válidos procesados`);
-      }
-
-      // Guardar en window para compatibilidad
-      window.aa_availability = data;
-      this.dataReceived = true;
-
+    const onSuccess = (data) => {
       // ✅ Combinar con datos locales
       this.combineAvailabilityData();
 
       // ✅ Generar busyRanges
       this.generateBusyRanges();
 
-      // Detener reintentos
-      if (this.intervalId) {
-        clearInterval(this.intervalId);
-        this.intervalId = null;
-      }
-
-      // Emitir evento de éxito
-      console.log("🔔 Disparando evento 'aa:availability:loaded'");
+      // Emitir evento extendido con proxy
+      console.log("🔔 Disparando evento 'aa:availability:loaded' con proxy");
       document.dispatchEvent(new CustomEvent('aa:availability:loaded', { 
         detail: {
           ...data,
@@ -202,46 +150,20 @@ class AvailabilityProxy {
           proxy: this // Pasar referencia al proxy para acceder a métodos
         }
       }));
+    };
 
-    } catch (err) {
-      console.warn(`⚠️ Error en intento #${this.attempts}:`, err.message);
-      
-      if (this.attempts >= this.maxAttempts) {
-        console.error("❌ Máximo de intentos alcanzado");
-        this.stop();
-        
-        // Emitir evento de error
-        document.dispatchEvent(new CustomEvent('aa:availability:error', { 
-          detail: { error: err } 
-        }));
-      }
-    }
-  }
+    const onError = (err) => {
+      console.error("❌ Error al cargar disponibilidad:", err);
+    };
 
-  /**
-   * Iniciar consulta con reintentos automáticos
-   */
-  start() {
-    console.log("🚀 Iniciando AvailabilityProxy");
-    
-    // Primer intento inmediato
-    this.fetchAvailability();
-    
-    // Reintentos periódicos
-    this.intervalId = setInterval(() => {
-      this.fetchAvailability();
-    }, this.retryInterval);
+    startFetchLoop(config, onSuccess, onError);
   }
 
   /**
    * Detener reintentos
    */
   stop() {
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
-      console.log("⏹️ AvailabilityProxy detenido");
-    }
+    stopFetchLoop();
   }
 }
 
