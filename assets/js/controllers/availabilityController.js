@@ -128,7 +128,6 @@ function renderInitialUI(fechaInputSelector, slotContainerSelector, isAdmin, ini
       
       // ✅ RENDERIZAR SLOTS INICIALES para la primera fecha disponible
       if (picker) {
-        // ✅ Usar servicio en lugar de función local
         const firstAvailableDate = AvailabilityService.findFirstAvailable(
           minDate, 
           maxDate, 
@@ -140,18 +139,22 @@ function renderInitialUI(fechaInputSelector, slotContainerSelector, isAdmin, ini
           
           console.log(`📅 Admin: Renderizando slots iniciales para ${ymd(firstAvailableDate)}`);
           console.log(`📅 Admin: ${validSlots.length} slots disponibles`);
+          console.log(`📅 Admin: Slots:`, validSlots.map(s => s.toLocaleTimeString('es-MX')));
           
-          // Disparar evento para que SlotSelectorAdminUI renderice los slots
-          document.dispatchEvent(new CustomEvent('aa:admin:date-selected', {
-            detail: {
-              containerId: slotContainerSelector,
-              validSlots,
-              selectedDate: firstAvailableDate,
-              fechaInput
-            }
-          }));
+          // ✅ Esperar un tick para asegurar que el listener esté registrado
+          setTimeout(() => {
+            // Disparar evento para que SlotSelectorAdminUI renderice los slots
+            document.dispatchEvent(new CustomEvent('aa:admin:date-selected', {
+              detail: {
+                containerId: slotContainerSelector,
+                validSlots,
+                selectedDate: firstAvailableDate,
+                fechaInput
+              }
+            }));
+          }, 0);
           
-          // Establecer fecha en Flatpickr
+          // Establecer fecha en Flatpickr (sin disparar onChange)
           picker.setDate(firstAvailableDate, false);
         }
       }

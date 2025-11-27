@@ -18,6 +18,8 @@ import {
   stopFetchLoop
 } from './availability/proxyFetch.js';
 
+import { combineLocalExternal } from './availability/combineLocalExternal.js';
+
 class AvailabilityProxy {
   constructor(config = {}) {
     this.ajaxUrl = config.ajaxUrl || '/wp-admin/admin-ajax.php';
@@ -28,32 +30,6 @@ class AvailabilityProxy {
     
     this.availableSlotsPerDay = {};
     this.busyRanges = [];
-  }
-
-  /**
-   * Combinar disponibilidad local y externa
-   */
-  combineAvailabilityData() {
-    if (typeof window.aa_local_availability !== 'undefined' && window.aa_local_availability.local_busy) {
-      console.log("📊 Combinando disponibilidad local con datos externos");
-      
-      if (window.aa_availability) {
-        const externalBusy = window.aa_availability.busy || [];
-        const localBusy = window.aa_local_availability.local_busy.map(slot => ({
-          start: new Date(slot.start),
-          end: new Date(slot.end)
-        }));
-        
-        // ✅ COMBINAR sin duplicar
-        window.aa_availability.busy = [...externalBusy, ...localBusy];
-        
-        console.log(`✅ Total combinado: ${window.aa_availability.busy.length}`);
-        console.log(`   - Google Calendar: ${externalBusy.length}`);
-        console.log(`   - Local: ${localBusy.length}`);
-      }
-    } else {
-      console.log('ℹ️ No hay datos locales para combinar');
-    }
   }
 
   /**
@@ -136,7 +112,7 @@ class AvailabilityProxy {
 
     const onSuccess = (data) => {
       // ✅ Combinar con datos locales
-      this.combineAvailabilityData();
+      combineLocalExternal(window.aa_availability, window.aa_local_availability);
 
       // ✅ Generar busyRanges
       this.generateBusyRanges();

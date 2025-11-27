@@ -79,22 +79,9 @@ export function renderAdminSlots(containerId, validSlots, selectedDate, fechaInp
   // Agregar al contenedor
   container.appendChild(select);
   
-  // Setear valor inicial en el input
-  if (validSlots[0]) {
-    const formattedDate = selectedDate.toLocaleDateString('es-MX', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-    const formattedTime = validSlots[0].toLocaleTimeString('es-MX', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
-    
-    fechaInput.value = `${formattedDate} ${formattedTime}`;
-    
-    console.log(`✅ Valor inicial establecido: ${fechaInput.value}`);
-  }
+  // ✅ NO setear valor inicial automáticamente
+  // El valor solo debe cambiar cuando el usuario seleccione explícitamente
+  console.log(`✅ Select renderizado con ${validSlots.length} opciones`);
 }
 
 /**
@@ -102,6 +89,7 @@ export function renderAdminSlots(containerId, validSlots, selectedDate, fechaInp
  */
 function initEventListeners() {
   document.addEventListener('aa:admin:date-selected', (event) => {
+    console.log('📨 slotSelectorAdminUI: Evento aa:admin:date-selected recibido');
     const { containerId, validSlots, selectedDate, fechaInput } = event.detail;
     renderAdminSlots(containerId, validSlots, selectedDate, fechaInput);
   });
@@ -109,12 +97,9 @@ function initEventListeners() {
   console.log('👂 slotSelectorAdminUI: Escuchando eventos aa:admin:date-selected');
 }
 
-// Inicializar cuando el DOM esté listo
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initEventListeners);
-} else {
-  initEventListeners();
-}
+// ✅ IMPORTANTE: Inicializar INMEDIATAMENTE (no esperar DOMContentLoaded)
+// porque availabilityController.js dispara eventos durante DOMContentLoaded
+initEventListeners();
 
 // ==============================
 // 🔹 Exponer en window para compatibilidad

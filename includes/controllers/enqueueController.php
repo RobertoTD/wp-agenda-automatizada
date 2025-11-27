@@ -84,8 +84,9 @@ function wpaa_enqueue_frontend_assets() {
                                          ['flatpickr-js', 'flatpickr-es'], true],
         ['wpaa-slot-selector-ui',        'assets/js/ui/slotSelectorUI.js',            [], true],
         ['wpaa-proxy-fetch',             'assets/js/services/availability/proxyFetch.js', [], true],
+        ['wpaa-combine-local-external',  'assets/js/services/availability/combineLocalExternal.js', [], true],
         ['wpaa-availability-service',    'assets/js/services/availabilityService.js',
-                                         ['wpaa-date-utils', 'wpaa-proxy-fetch'], true],
+                                         ['wpaa-date-utils', 'wpaa-proxy-fetch', 'wpaa-combine-local-external'], true],
         ['wpaa-reservation-service',     'assets/js/services/reservationService.js',  [], true],
         ['wpaa-availability-controller', 'assets/js/controllers/availabilityController.js',
                                          ['wpaa-date-utils', 'wpaa-calendar-ui', 'wpaa-slot-selector-ui', 'wpaa-availability-service'], true],
@@ -191,7 +192,7 @@ function wpaa_enqueue_admin_assets($hook) {
             // 🔹 Utilidades
             ['wpaa-date-utils-admin',              'assets/js/utils/dateUtils.js',              [], true],
             
-            // 🔹 UI
+            // 🔹 UI (PRIMERO, antes de controladores)
             ['wpaa-calendar-ui-admin',             'assets/js/ui/calendarUI.js',                
                                                    ['flatpickr-js-admin', 'flatpickr-es-admin'], true],
             ['wpaa-calendar-admin-ui',             'assets/js/ui/calendarAdminUI.js',           
@@ -200,15 +201,16 @@ function wpaa_enqueue_admin_assets($hook) {
             
             // 🔹 Servicios (AJAX)
             ['wpaa-proxy-fetch-admin',             'assets/js/services/availability/proxyFetch.js', [], true],
+            ['wpaa-combine-local-external-admin',  'assets/js/services/availability/combineLocalExternal.js', [], true],
             ['wpaa-availability-service-admin',    'assets/js/services/availabilityService.js',
-                                                   ['wpaa-date-utils-admin', 'wpaa-proxy-fetch-admin'], true],
+                                                   ['wpaa-date-utils-admin', 'wpaa-proxy-fetch-admin', 'wpaa-combine-local-external-admin'], true],
             ['wpaa-reservation-service-admin',     'assets/js/services/reservationService.js',  [], true],
             ['wpaa-confirm-service',               'assets/js/services/confirmService.js',      [], false],
             
             // 🔹 Módulos UI (renderizado puro)
             ['aa-proximas-citas-ui',               'assets/js/ui/proximasCitasUI.js',          [], false],
             
-            // 🔹 Controladores (orquestación)
+            // 🔹 Controladores (DESPUÉS de UI y Services)
             ['wpaa-availability-controller-admin', 'assets/js/controllers/availabilityController.js',
                                                    ['wpaa-date-utils-admin', 'wpaa-calendar-admin-ui', 'wpaa-slot-selector-admin-ui', 'wpaa-availability-service-admin'], true],
             ['wpaa-admin-reservation-controller',  'assets/js/controllers/adminReservationController.js',
@@ -218,7 +220,7 @@ function wpaa_enqueue_admin_assets($hook) {
             ['wpaa-proximas-citas-controller',     'assets/js/controllers/proximasCitasController.js',
                                                    ['aa-proximas-citas-ui', 'wpaa-admin-confirm-controller'], false],
             
-            // 🔹 Punto de entrada
+            // 🔹 Punto de entrada (ÚLTIMO)
             ['wpaa-main-admin',                    'assets/js/main-admin.js',
                                                    ['wpaa-admin-reservation-controller','wpaa-date-utils-admin', 'wpaa-availability-controller-admin'], true],
             
