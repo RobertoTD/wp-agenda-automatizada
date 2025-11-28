@@ -1,0 +1,4655 @@
+ARQUITECTURA DEL PLUGIN WORDPRESS:
+
+
+========================================
+FILE: wp-agenda-automatizada.php
+========================================
+<?php
+/**
+ * Plugin Name: WP Agenda Automatizada
+ * Description: Sistema de gestión de citas con integración a Google Calendar
+ * Version: 2.0.0
+ * Author: Tu Nombre
+ */
+
+defined('ABSPATH') or die('¡Sin acceso directo!');
+
+// Detectar entorno automáticamente
+$site_url = get_site_url();
+
+if (strpos($site_url, 'localhost') !== false || strpos($site_url, '127.0.0.1') !== false) {
+    define('AA_API_BASE_URL', 'http://localhost:3000');
+} else {
+    define('AA_API_BASE_URL', 'https://deoia-oauth-backend.onrender.com');
+}
+
+// ===============================
+// 🔹 ORDEN CORRECTO DE INCLUSIÓN
+// ===============================
+
+// 1️⃣ Helpers y utilidades base
+require_once plugin_dir_path(__FILE__) . 'includes/auth-helper.php';
+
+// 2️⃣ Modelos (acceso a datos)
+require_once plugin_dir_path(__FILE__) . 'clientes.php';
+
+// 3️⃣ Servicios
+require_once plugin_dir_path(__FILE__) . 'includes/services/availability-proxy.php';
+
+// 4️⃣ Controladores (lógica de negocio)
+require_once plugin_dir_path(__FILE__) . 'includes/controllers/availability-controller.php';
+require_once plugin_dir_path(__FILE__) . 'includes/controllers/proximasCitasController.php';
+require_once plugin_dir_path(__FILE__) . 'includes/controllers/confirm-admin-controller.php';
+
+// 5️⃣ Controlador de encolado (DEBE IR DESPUÉS de availability-controller)
+require_once plugin_dir_path(__FILE__) . 'includes/controllers/enqueueController.php';
+
+// 6️⃣ Vistas
+require_once plugin_dir_path(__FILE__) . 'views/asistant-controls.php';
+require_once plugin_dir_path(__FILE__) . 'views/admin-controls.php';
+
+// 7️⃣ Módulos adicionales
+require_once plugin_dir_path(__FILE__) . 'asistant-user.php';
+require_once plugin_dir_path(__FILE__) . 'historial-citas.php';
+require_once plugin_dir_path(__FILE__) . 'confirmacioncorreos.php';
+
+// ================================
+// 🔹 Endpoint AJAX: Guardar cita desde el frontend
+// ================================
+add_action('wp_ajax_nopriv_aa_save_reservation', 'aa_save_reservation');
+add_action('wp_ajax_aa_save_reservation', 'aa_save_reservation');
+
+function aa_save_reservation() {
+    global $wpdb;
+    $table = $wpdb->prefix . 'aa_reservas';
+
+    // Leer cuerpo JSON enviado desde JS
+    $data = json_decode(file_get_contents('php://input'), true);
+
+    // ✅ Validar nonce de seguridad
+    if (empty($data['nonce']) || !wp_verify_nonce($data['nonce'], 'aa_reservation_nonce')) {
+        wp_send_json_error(['message' => 'Error de validación de seguridad (nonce inválido).']);
+    }
+
+    // ✅ Validar honeypot (campo invisible anti-bot)
+    if (!empty($data['extra_field'])) {
+        wp_send_json_error(['message' => 'Detección de bot: envío no permitido.']);
+    }
+
+    // ✅ Validación básica de datos requeridos
+    if (empty($data['servicio']) || empty($data['fecha']) || empty($data['nombre'])) {
+        wp_send_json_error(['message' => 'Datos incompletos.']);
+    }
+
+    // 🔹 Obtener la zona horaria configurada
+    $timezone = get_option('aa_timezone', 'America/Mexico_City');
+    
+    // ✅ Sanitización y conversión de fecha a la zona horaria del negocio
+    $servicio = sanitize_text_field($data['servicio']);
+    
+    // 🔹 Convertir ISO UTC a DateTime en zona horaria local
+    try {
+        $fechaObj = new DateTime($data['fecha'], new DateTimeZone('UTC'));
+        $fechaObj->setTimezone(new DateTimeZone($timezone));
+        $fecha = $fechaObj->format('Y-m-d H:i:s');
+    } catch (Exception $e) {
+        wp_send_json_error(['message' => 'Formato de fecha inválido.']);
+    }
+    
+    $nombre   = sanitize_text_field($data['nombre']);
+    $telefono = sanitize_text_field($data['telefono']);
+    $correo   = sanitize_email($data['correo']);
+
+    // 🔹 Buscar o crear cliente (función modularizada)
+    $cliente_id = aa_get_or_create_cliente($nombre, $telefono, $correo);
+
+    // ✅ Inserción en la tabla
+    $result = $wpdb->insert($table, [
+        'servicio'   => $servicio,
+        'fecha'      => $fecha,
+        'nombre'     => $nombre,
+        'telefono'   => $telefono,
+        'correo'     => $correo,
+        'id_cliente' => $cliente_id,
+        'estado'     => 'pending',
+        'created_at' => current_time('mysql')
+    ]);
+
+    // ✅ Control de error
+    if ($result === false) {
+        error_log("❌ Error al insertar reserva: " . $wpdb->last_error);
+        wp_send_json_error([
+            'message' => 'Error al guardar en la base de datos.',
+            'error'   => $wpdb->last_error
+        ]);
+    }
+
+    // ✅ Retornar ID de la reserva creada
+    $reserva_id = $wpdb->insert_id;
+    
+    if (!$reserva_id) {
+        error_log("⚠️ Reserva guardada pero no se obtuvo insert_id");
+        wp_send_json_error(['message' => 'Reserva guardada pero ID no disponible.']);
+    }
+
+    error_log("✅ Reserva guardada correctamente con ID: $reserva_id (Cliente: $cliente_id)");
+    
+    wp_send_json_success([
+        'message' => 'Reserva almacenada correctamente.',
+        'id' => $reserva_id,
+        'cliente_id' => $cliente_id
+    ]);
+}
+
+// 🔹 Crear tablas al activar el plugin
+register_activation_hook(__FILE__, function() {
+    global $wpdb;
+    $table = $wpdb->prefix . 'aa_reservas';
+    $charset = $wpdb->get_charset_collate();
+
+    $sql = "CREATE TABLE $table (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        servicio varchar(255) NOT NULL,
+        fecha datetime NOT NULL,
+        nombre varchar(255) NOT NULL,
+        telefono varchar(50) NOT NULL,
+        correo varchar(255),
+        estado varchar(50) DEFAULT 'pending',
+        calendar_uid varchar(255) DEFAULT NULL,
+        created_at datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        KEY calendar_uid (calendar_uid)
+    ) $charset;";
+
+    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+    dbDelta($sql);
+    
+    aa_create_clientes_table();
+    aa_add_cliente_column_to_reservas();
+    aa_add_calendar_uid_column();
+});
+
+// ===============================
+// 🔹 Función para agregar columna calendar_uid
+// ===============================
+function aa_add_calendar_uid_column() {
+    global $wpdb;
+    $table = $wpdb->prefix . 'aa_reservas';
+    
+    $column_exists = $wpdb->get_results(
+        $wpdb->prepare(
+            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = 'calendar_uid'",
+            DB_NAME,
+            $table
+        )
+    );
+    
+    if (empty($column_exists)) {
+        $wpdb->query("ALTER TABLE $table ADD COLUMN calendar_uid varchar(255) DEFAULT NULL AFTER estado");
+        $wpdb->query("ALTER TABLE $table ADD INDEX idx_calendar_uid (calendar_uid)");
+        error_log("✅ Columna calendar_uid agregada a aa_reservas");
+    }
+}
+
+// 🔹 Función helper para obtener la hora actual según aa_timezone
+function aa_get_current_datetime() {
+    $timezone_string = get_option('aa_timezone', 'America/Mexico_City');
+    
+    try {
+        $timezone = new DateTimeZone($timezone_string);
+        $now = new DateTime('now', $timezone);
+        return $now->format('Y-m-d H:i:s');
+    } catch (Exception $e) {
+        error_log("❌ Error al obtener zona horaria: " . $e->getMessage());
+        return current_time('mysql');
+    }
+}
+
+// ===============================
+// 🟠 SHORTCODE: Formulario de agenda
+// ===============================
+function wpaa_render_form() {
+    ob_start(); ?>
+
+    <?php
+    $business_name = esc_html( get_option('aa_business_name', 'Nuestro negocio') );
+    ?>
+    <div class="aa-form-instruction">
+        <p>
+            Agenda tu cita con <strong><?php echo $business_name; ?></strong> automáticamente llenando los siguientes campos. 
+            Recibirás un correo de confirmación.
+        </p>
+    </div>
+
+    <form id="agenda-form">
+        <label for="servicio">Servicio:</label>
+        <select id="servicio" name="servicio" required>
+            <?php
+            $motivos_json = get_option('aa_google_motivo', json_encode(['Cita general']));
+            $motivos = json_decode($motivos_json, true);
+
+            if (is_array($motivos) && !empty($motivos)) {
+                foreach ($motivos as $motivo) {
+                    $motivo = esc_html($motivo);
+                    echo "<option value='{$motivo}'>{$motivo}</option>";
+                }
+            } else {
+                echo "<option value='Cita general'>Cita general</option>";
+            }
+            ?>
+        </select>
+
+        <label for="fecha">Fecha deseada:</label>
+        <input type="text" id="fecha" name="fecha" required>
+        <div id="slot-container"></div>
+        
+        <label for="nombre">Nombre:</label>
+        <input type="text" name="nombre" id="nombre" required>
+
+        <label for="telefono">Teléfono:</label>
+        <input type="tel" name="telefono" id="telefono" required>
+
+        <label for="correo">Correo:</label>
+        <input type="email" name="correo" id="correo" required>
+
+        <button type="submit">Agendar</button>
+    </form>
+    <div id="respuesta-agenda"></div>
+    <?php
+    return ob_get_clean();
+}
+add_shortcode('agenda_automatizada', 'wpaa_render_form');
+
+
+
+
+========================================
+FILE: assets\js\controllers\adminConfirmController.js
+========================================
+/**
+ * Controlador: Confirmación de Citas (Admin)
+ * 
+ * Responsable de:
+ * - Callbacks para confirmar/cancelar/crear cliente
+ * - Delegación a ConfirmService
+ * - Mostrar alertas y recargar tabla
+ * 
+ * NO contiene llamadas AJAX directas.
+ */
+
+window.AdminConfirmController = (function() {
+    'use strict';
+    
+    let recargarCallback = null;
+    
+    /**
+     * Inicializar controlador
+     * @param {Function} onRecargar - Callback para recargar la tabla
+     */
+    function init(onRecargar) {
+        recargarCallback = onRecargar;
+    }
+    
+    /**
+     * Confirmar una cita
+     * @param {number} id - ID de la cita
+     */
+    function onConfirmar(id) {
+        if (!window.ConfirmService) {
+            console.error('❌ ConfirmService no está cargado');
+            alert('❌ Error: Servicio de confirmación no disponible.');
+            return;
+        }
+        
+        window.ConfirmService.confirmar(id)
+            .then(data => {
+                if (data.success) {
+                    alert('✅ Cita confirmada. Se envió correo de confirmación.');
+                    if (recargarCallback) {
+                        recargarCallback();
+                    }
+                } else {
+                    alert('❌ Error: ' + (data.data?.message || 'No se pudo confirmar la cita.'));
+                }
+            })
+            .catch(err => {
+                console.error('Error al confirmar cita:', err);
+                alert('❌ Error de conexión: ' + err.message);
+            });
+    }
+    
+    /**
+     * Cancelar una cita
+     * @param {number} id - ID de la cita
+     */
+    function onCancelar(id) {
+        if (!window.ConfirmService) {
+            console.error('❌ ConfirmService no está cargado');
+            alert('❌ Error: Servicio de cancelación no disponible.');
+            return;
+        }
+        
+        window.ConfirmService.cancelar(id)
+            .then(data => {
+                if (data.success) {
+                    let mensaje = '✅ Cita cancelada correctamente.';
+                    
+                    if (data.data?.calendar_deleted) {
+                        mensaje += '\n🗓️ El evento también fue eliminado de Google Calendar.';
+                    }
+                    
+                    alert(mensaje);
+                    if (recargarCallback) {
+                        recargarCallback();
+                    }
+                } else {
+                    alert('❌ Error: ' + (data.data?.message || 'No se pudo cancelar la cita.'));
+                }
+            })
+            .catch(err => {
+                console.error('Error al cancelar cita:', err);
+                alert('❌ Error de conexión: ' + err.message);
+            });
+    }
+    
+    /**
+     * Crear cliente desde una cita
+     * @param {number} reservaId - ID de la reserva
+     * @param {string} nombre - Nombre del cliente
+     * @param {string} telefono - Teléfono del cliente
+     * @param {string} correo - Correo del cliente
+     */
+    function onCrearCliente(reservaId, nombre, telefono, correo) {
+        if (!window.ConfirmService) {
+            console.error('❌ ConfirmService no está cargado');
+            alert('❌ Error: Servicio de clientes no disponible.');
+            return;
+        }
+        
+        window.ConfirmService.crearClienteDesdeCita(reservaId, nombre, telefono, correo)
+            .then(data => {
+                if (data.success) {
+                    alert('✅ ' + data.data.message);
+                    if (recargarCallback) {
+                        recargarCallback();
+                    }
+                } else {
+                    alert('❌ Error: ' + (data.data?.message || 'No se pudo crear el cliente.'));
+                }
+            })
+            .catch(err => {
+                console.error('Error al crear cliente desde cita:', err);
+                alert('❌ Error de conexión: ' + err.message);
+            });
+    }
+    
+    // ===============================
+    // 🔹 API Pública
+    // ===============================
+    return {
+        init,
+        onConfirmar,
+        onCancelar,
+        onCrearCliente
+    };
+})();
+
+
+
+========================================
+FILE: assets\js\controllers\adminReservationController.js
+========================================
+// ==============================
+// 🔹 Admin Reservation Controller
+// ==============================
+
+export function initAdminReservationController(config) {
+  const {
+    btnToggle,
+    formNuevaCita,
+    btnCancelar,
+    form
+  } = config;
+
+  if (!btnToggle || !formNuevaCita || !form) {
+    console.error('❌ No se encontraron los elementos del formulario de admin');
+    return;
+  }
+
+  // Toggle formulario
+  btnToggle.addEventListener('click', function() {
+    formNuevaCita.classList.toggle('visible');
+    if (formNuevaCita.classList.contains('visible')) {
+      btnToggle.textContent = '− Ocultar formulario';
+    } else {
+      btnToggle.textContent = '+ Crear nueva cita';
+    }
+  });
+
+  // Cancelar formulario
+  if (btnCancelar) {
+    btnCancelar.addEventListener('click', function() {
+      formNuevaCita.classList.remove('visible');
+      btnToggle.textContent = '+ Crear nueva cita';
+      form.reset();
+      document.getElementById('slot-container-admin').innerHTML = '';
+    });
+  }
+
+  // ==============================
+  // 🔹 Inicializar controlador de disponibilidad
+  // ==============================
+  if (typeof window.AvailabilityController !== 'undefined') {
+    window.AvailabilityController.init({
+      fechaInputSelector: '#cita-fecha',
+      slotContainerSelector: 'slot-container-admin',
+      isAdmin: true
+    });
+  } else {
+    console.error('❌ AvailabilityController no está cargado');
+  }
+
+  // ==============================
+  // 🔹 Envío del formulario (USANDO ReservationService)
+  // ==============================
+  form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const clienteSelect = document.getElementById('cita-cliente');
+    const slotSelector = document.getElementById('slot-selector-admin');
+    const selectedSlotISO = slotSelector ? slotSelector.value : null;
+
+    if (!selectedSlotISO) {
+      alert('❌ Por favor, selecciona una fecha y hora válidas.');
+      return;
+    }
+
+    const clienteOption = clienteSelect.options[clienteSelect.selectedIndex];
+
+    const datos = {
+      servicio: document.getElementById('cita-servicio').value,
+      fecha: selectedSlotISO,
+      nombre: clienteOption.dataset.nombre,
+      telefono: clienteOption.dataset.telefono,
+      correo: clienteOption.dataset.correo,
+      nonce: aa_asistant_vars.nonce_crear_cita || ''
+    };
+
+    try {
+      // 🔹 PASO 1: Guardar la reserva usando ReservationService
+      const data = await window.ReservationService.saveReservation(datos);
+
+      // 🔹 PASO 2: Añadir ID de la reserva
+      if (data.data && data.data.id) {
+        datos.id_reserva = data.data.id;
+        console.log('🆔 ID de reserva asignado:', datos.id_reserva);
+      } else if (data.id) {
+        datos.id_reserva = data.id;
+        console.warn('⚠️ ID de reserva recibido en formato alternativo:', datos.id_reserva);
+      } else {
+        console.warn('⚠️ No se recibió ID de reserva en la respuesta del backend.');
+      }
+
+      // 🔹 PASO 3: Enviar confirmación usando ReservationService (sin bloquear)
+      window.ReservationService.sendConfirmation(datos).catch(emailError => {
+        console.warn('⚠️ Error al enviar correo (no crítico):', emailError);
+      });
+
+      // 🔹 PASO 4: Mostrar mensaje de éxito y recargar
+      alert('✅ Cita agendada correctamente. Se ha enviado correo de confirmación.');
+      location.reload();
+
+    } catch (err) {
+      console.error('❌ Error al agendar:', err);
+      alert('❌ Error al agendar: ' + err.message);
+    }
+  });
+
+  console.log('✅ AdminReservationController inicializado');
+}
+
+// ==============================
+// 🔹 Exponer en window para compatibilidad
+// ==============================
+window.AdminReservationController = {
+  init: initAdminReservationController
+};
+
+console.log('✅ AdminReservationController cargado y expuesto globalmente');
+
+
+========================================
+FILE: assets\js\controllers\availabilityController.js
+========================================
+import { AvailabilityService } from '../services/availabilityService.js';
+
+// ==============================
+// 🔹 Importar utilidades desde dateUtils.js
+// ==============================
+const { ymd } = window.DateUtils;
+
+// ==============================
+// 🔹 Variable global para almacenar el proxy
+// ==============================
+let availabilityProxyInstance = null;
+
+// ==============================
+// 🔹 PASO 3: Renderizar UI con datos iniciales
+// ==============================
+function renderInitialUI(fechaInputSelector, slotContainerSelector, isAdmin, initialData) {
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('🎨 RENDERIZANDO UI INICIAL');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+  const fechaInput = document.querySelector(fechaInputSelector);
+  if (!fechaInput) {
+    console.warn(`⚠️ No se encontró ${fechaInputSelector}`);
+    return null;
+  }
+
+  const { availableSlotsPerDay, minDate, maxDate } = initialData;
+
+  // Función helper para determinar si una fecha tiene slots
+  const isDateAvailable = (date) => {
+    return (availableSlotsPerDay[ymd(date)]?.length || 0) > 0;
+  };
+
+  const disableDateFn = (date) => !isDateAvailable(date);
+
+  if (isAdmin) {
+    if (typeof window.CalendarAdminUI !== 'undefined') {
+      const picker = window.CalendarAdminUI.render({
+        fechaInput,
+        slotContainerSelector,
+        slotsMap: availableSlotsPerDay,
+        minDate,
+        maxDate,
+        disableDateFn
+      });
+      
+      console.log('✅ Calendario ADMIN renderizado con datos locales');
+      
+      // ✅ RENDERIZAR SLOTS INICIALES para la primera fecha disponible
+      if (picker) {
+        const firstAvailableDate = AvailabilityService.findFirstAvailable(
+          minDate, 
+          maxDate, 
+          availableSlotsPerDay
+        );
+        
+        if (firstAvailableDate) {
+          const validSlots = availableSlotsPerDay[ymd(firstAvailableDate)] || [];
+          
+          console.log(`📅 Admin: Renderizando slots iniciales para ${ymd(firstAvailableDate)}`);
+          console.log(`📅 Admin: ${validSlots.length} slots disponibles`);
+          console.log(`📅 Admin: Slots:`, validSlots.map(s => s.toLocaleTimeString('es-MX')));
+          
+          // ✅ Esperar un tick para asegurar que el listener esté registrado
+          setTimeout(() => {
+            // Disparar evento para que SlotSelectorAdminUI renderice los slots
+            document.dispatchEvent(new CustomEvent('aa:admin:date-selected', {
+              detail: {
+                containerId: slotContainerSelector,
+                validSlots,
+                selectedDate: firstAvailableDate,
+                fechaInput
+              }
+            }));
+          }, 0);
+          
+          // Establecer fecha en Flatpickr (sin disparar onChange)
+          picker.setDate(firstAvailableDate, false);
+        }
+      }
+      
+      return picker;
+    } else {
+      console.error('❌ CalendarAdminUI no disponible');
+    }
+  } else {
+    if (typeof window.CalendarUI !== 'undefined') {
+      const picker = window.CalendarUI.render({
+        fechaInput,
+        minDate,
+        maxDate,
+        disableDateFn,
+        onDateSelected: (selectedDate) => {
+          const slots = availableSlotsPerDay[ymd(selectedDate)] || [];
+
+          if (typeof window.SlotSelectorUI !== 'undefined') {
+            window.SlotSelectorUI.render(slotContainerSelector, slots, (chosenSlot) => {
+              fechaInput.value = `${selectedDate.toLocaleDateString()} ${chosenSlot.toLocaleTimeString('es-MX', {
+                hour: '2-digit',
+                minute: '2-digit'
+              })}`;
+            });
+          }
+
+          if (slots[0]) {
+            fechaInput.value = `${selectedDate.toLocaleDateString()} ${slots[0].toLocaleTimeString('es-MX', {
+              hour: '2-digit',
+              minute: '2-digit'
+            })}`;
+          }
+        }
+      });
+      console.log('✅ Calendario FRONTEND renderizado con datos locales');
+      return picker;
+    } else {
+      console.error('❌ CalendarUI no disponible');
+    }
+  }
+
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+}
+
+// ==============================
+// 🔹 PASO 4: Iniciar consulta a Google Calendar (async)
+// ==============================
+function startGoogleCalendarSync(fechaInputSelector, slotContainerSelector, isAdmin, initialData) {
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('🔄 INICIANDO SINCRONIZACIÓN CON GOOGLE CALENDAR');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+  if (typeof window.AvailabilityProxy === 'undefined') {
+    console.error("❌ AvailabilityProxy no está disponible");
+    return;
+  }
+
+  const config = {
+    ajaxUrl: (typeof aa_backend !== 'undefined' && aa_backend.ajax_url) 
+      ? aa_backend.ajax_url 
+      : '/wp-admin/admin-ajax.php',
+    action: (typeof aa_backend !== 'undefined' && aa_backend.action) 
+      ? aa_backend.action 
+      : 'aa_get_availability',
+    email: (typeof aa_backend !== 'undefined' && aa_backend.email) 
+      ? aa_backend.email 
+      : '',
+    maxAttempts: 20,
+    retryInterval: 15000
+  };
+
+  availabilityProxyInstance = new window.AvailabilityProxy(config);
+  window.availabilityProxyInstance = availabilityProxyInstance;
+  
+  // ✅ IMPORTANTE: Registrar listener ANTES de iniciar
+  const handleAvailabilityLoaded = (event) => {
+    // ✅ Validar que el evento incluye proxy
+    if (!event.detail || !event.detail.proxy) {
+      console.warn('⚠️ Evento recibido sin proxy, ignorando...');
+      return;
+    }
+    
+    const proxy = event.detail.proxy;
+    const { schedule, futureWindow, slotDuration } = initialData;
+    const updatedSlotsMap = proxy.calculateAvailableSlots(schedule, futureWindow, slotDuration);
+    
+    // Refrescar UI
+    refreshUI(fechaInputSelector, slotContainerSelector, isAdmin, {
+      ...initialData,
+      availableSlotsPerDay: updatedSlotsMap,
+      proxy
+    });
+    
+    // ✅ Remover listener después de procesar
+    document.removeEventListener('aa:availability:loaded', handleAvailabilityLoaded);
+  };
+
+  // Registrar listener
+  document.addEventListener('aa:availability:loaded', handleAvailabilityLoaded);
+
+  // Iniciar consulta
+  availabilityProxyInstance.start();
+}
+
+// ==============================
+// 🔹 PASO 5: Refrescar UI con datos externos
+// ==============================
+function refreshUI(fechaInputSelector, slotContainerSelector, isAdmin, updatedData) {
+  console.log('🔄 Refrescando UI con datos actualizados...');
+  
+  const fechaInput = document.querySelector(fechaInputSelector);
+  if (!fechaInput || !fechaInput._flatpickr) {
+    console.warn('⚠️ No se puede refrescar: calendario no encontrado');
+    return;
+  }
+
+  const { availableSlotsPerDay, minDate, maxDate, proxy } = updatedData;
+
+  // Actualizar función de disable
+  const disableDateFn = (date) => !proxy.isDateAvailable(date);
+
+  // Obtener fecha actualmente seleccionada
+  const currentSelectedDate = fechaInput._flatpickr.selectedDates[0];
+
+  // Destruir y recrear Flatpickr con nuevos datos
+  if (isAdmin) {
+    if (typeof window.CalendarAdminUI !== 'undefined') {
+      const picker = window.CalendarAdminUI.render({
+        fechaInput,
+        slotContainerSelector,
+        slotsMap: availableSlotsPerDay,
+        minDate,
+        maxDate,
+        disableDateFn: (date) => window.AvailabilityService.disable(proxy, date)
+      });
+      
+      console.log('✅ Calendario ADMIN actualizado con datos de Google');
+      
+      // ✅ MANTENER fecha seleccionada o usar primera disponible
+      const dateToSelect = currentSelectedDate && proxy.isDateAvailable(currentSelectedDate)
+        ? currentSelectedDate
+        : AvailabilityService.findFirstAvailable(minDate, maxDate, availableSlotsPerDay);
+      
+      if (dateToSelect && picker) {
+        const validSlots = window.AvailabilityService.slotsForDate(proxy, dateToSelect);
+        
+        console.log(`📅 Admin: Actualizando slots para ${ymd(dateToSelect)}`);
+        console.log(`📅 Admin: ${validSlots.length} slots disponibles (con Google)`);
+        
+        // Disparar evento para actualizar slots
+        document.dispatchEvent(new CustomEvent('aa:admin:date-selected', {
+          detail: {
+            containerId: slotContainerSelector,
+            validSlots,
+            selectedDate: dateToSelect,
+            fechaInput
+          }
+        }));
+        
+        picker.setDate(dateToSelect, false);
+      }
+    }
+  } else {
+    if (typeof window.CalendarUI !== 'undefined') {
+      window.CalendarUI.render({
+        fechaInput,
+        minDate,
+        maxDate,
+        disableDateFn: (date) => window.AvailabilityService.disable(proxy, date),
+        onDateSelected: (selectedDate) => {
+          const slots = window.AvailabilityService.slotsForDate(proxy, selectedDate);
+
+          if (typeof window.SlotSelectorUI !== 'undefined') {
+            window.SlotSelectorUI.render(slotContainerSelector, slots, (chosenSlot) => {
+              fechaInput.value = `${selectedDate.toLocaleDateString()} ${chosenSlot.toLocaleTimeString('es-MX', {
+                hour: '2-digit',
+                minute: '2-digit'
+              })}`;
+            });
+          }
+
+          if (slots[0]) {
+            fechaInput.value = `${selectedDate.toLocaleDateString()} ${slots[0].toLocaleTimeString('es-MX', {
+              hour: '2-digit',
+              minute: '2-digit'
+            })}`;
+          }
+        }
+      });
+      console.log('✅ Calendario FRONTEND actualizado con datos de Google');
+    }
+  }
+}
+
+// ==============================
+// 🔹 FUNCIÓN PRINCIPAL: Inicialización con flujo correcto
+// ==============================
+export function initAvailabilityController(config) {
+  const {
+    fechaInputSelector,
+    slotContainerSelector,
+    isAdmin = false
+  } = config;
+
+  console.log('\n🚀 INICIANDO AVAILABILITY CONTROLLER');
+  console.log(`🚀 Modo: ${isAdmin ? 'ADMIN' : 'FRONTEND'}\n`);
+
+  // 1️⃣ Cargar disponibilidad LOCAL (delegado al servicio)
+  const localBusyRanges = AvailabilityService.loadLocal();
+
+  // 2️⃣ Calcular slots iniciales (delegado al servicio)
+  const initialData = AvailabilityService.calculateInitial(localBusyRanges);
+
+  // 3️⃣ Renderizar UI inmediatamente con datos locales
+  renderInitialUI(fechaInputSelector, slotContainerSelector, isAdmin, initialData);
+
+  // 4️⃣ Iniciar sincronización con Google Calendar (async)
+  startGoogleCalendarSync(fechaInputSelector, slotContainerSelector, isAdmin, initialData);
+}
+
+// ==============================
+// 🔹 Exponer en window
+// ==============================
+window.AvailabilityController = {
+  init: initAvailabilityController
+};
+
+console.log('✅ AvailabilityController cargado (flujo corregido)');
+
+
+========================================
+FILE: assets\js\controllers\proximasCitasController.js
+========================================
+/**
+ * Controlador: Próximas Citas
+ * 
+ * Responsable de:
+ * - Gestión de estado (paginación, filtros)
+ * - Coordinación entre UI y servicios
+ * - Orquestación del flujo de carga
+ * 
+ * NO contiene llamadas AJAX directas ni renderizado de UI.
+ */
+
+window.ProximasCitasController = (function() {
+    'use strict';
+    
+    let paginaActual = 1;
+    let containerElement = null;
+    let paginacionElement = null;
+    
+    /**
+     * Inicializar controlador
+     */
+    function init() {
+        containerElement = document.getElementById('aa-proximas-container');
+        paginacionElement = document.getElementById('aa-proximas-paginacion');
+        
+        if (!containerElement) {
+            console.warn('⚠️ Container de próximas citas no encontrado');
+            return;
+        }
+        
+        // Inicializar AdminConfirmController con callback de recarga
+        if (window.AdminConfirmController) {
+            window.AdminConfirmController.init(cargarProximasCitas);
+        }
+        
+        // Cargar próximas citas al inicio
+        cargarProximasCitas();
+        
+        // Configurar event listeners
+        setupEventListeners();
+    }
+    
+    /**
+     * Configurar event listeners para filtros
+     */
+    function setupEventListeners() {
+        // Botón buscar
+        const btnBuscar = document.getElementById('aa-btn-buscar-proximas');
+        if (btnBuscar) {
+            btnBuscar.addEventListener('click', function() {
+                paginaActual = 1;
+                cargarProximasCitas();
+            });
+        }
+        
+        // Botón limpiar
+        const btnLimpiar = document.getElementById('aa-btn-limpiar-proximas');
+        if (btnLimpiar) {
+            btnLimpiar.addEventListener('click', function() {
+                const inputBuscar = document.getElementById('aa-buscar-proximas');
+                const selectOrdenar = document.getElementById('aa-ordenar-proximas');
+                
+                if (inputBuscar) inputBuscar.value = '';
+                if (selectOrdenar) selectOrdenar.value = 'fecha_asc';
+                
+                paginaActual = 1;
+                cargarProximasCitas();
+            });
+        }
+        
+        // Cambio en ordenamiento
+        const selectOrdenar = document.getElementById('aa-ordenar-proximas');
+        if (selectOrdenar) {
+            selectOrdenar.addEventListener('change', function() {
+                paginaActual = 1;
+                cargarProximasCitas();
+            });
+        }
+        
+        // Enter en el buscador
+        const inputBuscar = document.getElementById('aa-buscar-proximas');
+        if (inputBuscar) {
+            inputBuscar.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    paginaActual = 1;
+                    cargarProximasCitas();
+                }
+            });
+        }
+    }
+    
+    /**
+     * Cargar próximas citas desde el servidor
+     */
+    function cargarProximasCitas() {
+        if (!containerElement) return;
+        
+        const inputBuscar = document.getElementById('aa-buscar-proximas');
+        const selectOrdenar = document.getElementById('aa-ordenar-proximas');
+        
+        const buscar = inputBuscar ? inputBuscar.value : '';
+        const ordenar = selectOrdenar ? selectOrdenar.value : 'fecha_asc';
+        
+        // Mostrar estado de carga (UI)
+        if (window.ProximasCitasUI) {
+            window.ProximasCitasUI.mostrarCargando(containerElement);
+        } else {
+            containerElement.innerHTML = '<p style="text-align: center; color: #999;">⏳ Cargando...</p>';
+        }
+        
+        // Realizar llamada AJAX
+        const formData = new FormData();
+        formData.append('action', 'aa_get_proximas_citas');
+        formData.append('buscar', buscar);
+        formData.append('ordenar', ordenar);
+        formData.append('pagina', paginaActual);
+        formData.append('_wpnonce', aa_proximas_vars.nonce);
+        
+        fetch(ajaxurl, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderizarResultados(data.data);
+            } else {
+                mostrarError(data.data?.message || 'No se pudo cargar las próximas citas.');
+            }
+        })
+        .catch(err => {
+            console.error('Error al cargar próximas citas:', err);
+            mostrarError('Error de conexión.');
+        });
+    }
+    
+    /**
+     * Renderizar resultados usando el módulo UI
+     * @param {Object} data - Datos de la respuesta AJAX
+     */
+    function renderizarResultados(data) {
+        if (!window.ProximasCitasUI) {
+            console.error('❌ Módulo ProximasCitasUI no cargado');
+            if (containerElement) {
+                containerElement.innerHTML = '<p style="color: #e74c3c;">❌ Error: Módulo UI no disponible.</p>';
+            }
+            return;
+        }
+        
+        if (!window.AdminConfirmController) {
+            console.error('❌ Módulo AdminConfirmController no cargado');
+            if (containerElement) {
+                containerElement.innerHTML = '<p style="color: #e74c3c;">❌ Error: Controlador de confirmación no disponible.</p>';
+            }
+            return;
+        }
+        
+        // Renderizar tabla
+        window.ProximasCitasUI.renderizarProximasCitas(data.citas, containerElement, {
+            onConfirmar: window.AdminConfirmController.onConfirmar,
+            onCancelar: window.AdminConfirmController.onCancelar,
+            onCrearCliente: window.AdminConfirmController.onCrearCliente
+        });
+        
+        // Renderizar paginación
+        if (paginacionElement) {
+            window.ProximasCitasUI.renderizarPaginacion(
+                data.pagina_actual,
+                data.total_paginas,
+                paginacionElement,
+                function(nuevaPagina) {
+                    paginaActual = nuevaPagina;
+                    cargarProximasCitas();
+                }
+            );
+        }
+    }
+    
+    /**
+     * Mostrar error usando el módulo UI
+     * @param {string} mensaje - Mensaje de error
+     */
+    function mostrarError(mensaje) {
+        if (window.ProximasCitasUI && containerElement) {
+            window.ProximasCitasUI.mostrarError(containerElement, mensaje);
+        } else if (containerElement) {
+            containerElement.innerHTML = '<p style="color: #e74c3c;">❌ Error: ' + mensaje + '</p>';
+        }
+    }
+    
+    // ===============================
+    // 🔹 API Pública
+    // ===============================
+    return {
+        init
+    };
+})();
+
+// ===============================
+// 🔹 Auto-inicialización
+// ===============================
+document.addEventListener('DOMContentLoaded', function() {
+    if (window.ProximasCitasController) {
+        window.ProximasCitasController.init();
+    }
+});
+
+
+
+========================================
+FILE: assets\js\controllers\reservationController.js
+========================================
+// ==============================
+// 🔹 Controlador de reservas
+// ==============================
+
+/**
+ * Inicializa el controlador de reservas
+ * Maneja el submit del formulario, validación, guardado y redirección
+ */
+export function initReservationController(formSelector) {
+  const form = document.querySelector(formSelector);
+  
+  if (!form) {
+    console.error(`❌ No se encontró el formulario: ${formSelector}`);
+    return;
+  }
+
+  // ✅ Crear campo honeypot invisible anti-bot
+  const honeypot = document.createElement('input');
+  honeypot.type = 'text';
+  honeypot.name = 'extra_field';
+  honeypot.style.display = 'none';
+  form.appendChild(honeypot);
+
+  // ==============================
+  // 🔹 Manejar envío del formulario
+  // ==============================
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+
+    const respuestaDiv = document.getElementById('respuesta-agenda');
+    
+    if (!respuestaDiv) {
+      console.error('❌ No se encontró el div de respuesta');
+      return;
+    }
+
+    respuestaDiv.innerText = 'Procesando solicitud...';
+
+    // 🔹 Obtener el slot seleccionado del selector
+    const slotSelector = document.getElementById('slot-selector');
+    const selectedSlotISO = slotSelector ? slotSelector.value : null;
+    
+    // 🔹 Validar que se haya seleccionado un horario
+    if (!selectedSlotISO) {
+      respuestaDiv.innerText = '❌ Por favor, selecciona una fecha y hora válidas.';
+      console.warn('⚠️ No se ha seleccionado ningún horario');
+      return;
+    }
+
+    // 🔹 Construir objeto de datos
+    const datos = {
+      servicio: form.servicio.value,
+      fecha: selectedSlotISO,
+      nombre: form.nombre.value,
+      telefono: form.telefono.value,
+      correo: form.correo.value || '',
+      nonce: wpaa_vars.nonce,
+      extra_field: honeypot.value || ''
+    };
+
+    try {
+      // 🔹 PASO 1: Guardar la reserva
+      const data = await window.ReservationService.saveReservation(datos);
+
+      // 🔹 PASO 2: Añadir ID de la reserva
+      if (data.data && data.data.id) {
+        datos.id_reserva = data.data.id;
+        console.log('🆔 ID de reserva asignado:', datos.id_reserva);
+      } else if (data.id) {
+        datos.id_reserva = data.id;
+        console.warn('⚠️ ID de reserva recibido en formato alternativo:', datos.id_reserva);
+      } else {
+        console.warn('⚠️ No se recibió ID de reserva en la respuesta del backend.');
+      }
+
+      // 🔹 PASO 3: Enviar confirmación por correo (sin bloquear el flujo)
+      window.ReservationService.sendConfirmation(datos).catch(emailError => {
+        console.warn('⚠️ Error al enviar correo (no crítico):', emailError);
+      });
+
+      // 🔹 PASO 4: Formatear la fecha para WhatsApp
+      const fechaObj = new Date(selectedSlotISO);
+      const userLocale = (typeof wpaa_vars !== 'undefined' && wpaa_vars.locale) 
+        ? wpaa_vars.locale 
+        : 'es-MX';
+      
+      const fechaLegible = fechaObj.toLocaleString(userLocale, {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: wpaa_vars.timezone || 'America/Mexico_City'
+      });
+
+      respuestaDiv.innerText = '✅ Cita agendada correctamente. Redirigiendo a WhatsApp...';
+
+      // 🔹 PASO 5: Redirigir a WhatsApp después de 2 segundos
+      setTimeout(() => {
+        redirectToWhatsApp(datos.nombre, datos.servicio, fechaLegible, datos.telefono);
+      }, 2000);
+
+    } catch (err) {
+      console.error('❌ Error al agendar:', err);
+      respuestaDiv.innerText = `❌ Error al agendar: ${err.message}`;
+    }
+  });
+
+  console.log('✅ ReservationController inicializado');
+}
+
+/**
+ * Redirige a WhatsApp con mensaje prellenado
+ */
+function redirectToWhatsApp(nombre, servicio, fechaLegible, telefono) {
+  const whatsappNumber = (typeof wpaa_vars !== 'undefined' && wpaa_vars.whatsapp_number) 
+    ? wpaa_vars.whatsapp_number 
+    : '5215522992290';
+
+  const mensaje = `Hola, soy ${nombre}. Me gustaría agendar una cita para: ${servicio} el día ${fechaLegible}. Mi teléfono es ${telefono}.`;
+  
+  window.location.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(mensaje)}`;
+}
+
+// ==============================
+// 🔹 Exponer en window para compatibilidad
+// ==============================
+window.ReservationController = {
+  init: initReservationController
+};
+
+console.log('✅ ReservationController cargado y expuesto globalmente');
+
+
+========================================
+FILE: assets\js\main-admin.js
+========================================
+// ==============================
+// 🔹 Punto de entrada principal del admin
+// ==============================
+
+document.addEventListener('DOMContentLoaded', function () {
+  console.log('🚀 Inicializando aplicación admin...');
+
+  // ✅ Inicializar controlador de disponibilidad PRIMERO
+  if (typeof window.AvailabilityController !== 'undefined') {
+    window.AvailabilityController.init({
+      fechaInputSelector: '#cita-fecha',
+      slotContainerSelector: 'slot-container-admin',
+      isAdmin: true
+    });
+  } else {
+    console.error('❌ AvailabilityController no está cargado');
+  }
+
+  // ✅ Inicializar controlador de reservas
+  const btnToggle = document.getElementById('btn-toggle-form-nueva-cita');
+  const formNuevaCita = document.getElementById('form-nueva-cita');
+  const btnCancelar = document.getElementById('btn-cancelar-cita-form');
+  const form = document.getElementById('form-crear-cita-admin');
+
+  if (typeof window.AdminReservationController !== 'undefined') {
+    window.AdminReservationController.init({
+      btnToggle,
+      formNuevaCita,
+      btnCancelar,
+      form
+    });
+  } else {
+    console.error('❌ AdminReservationController no está cargado');
+  }
+
+  console.log('✅ Aplicación admin inicializada correctamente');
+});
+
+
+========================================
+FILE: assets\js\main-frontend.js
+========================================
+// ==============================
+// 🔹 Punto de entrada principal del frontend
+// ==============================
+
+document.addEventListener('DOMContentLoaded', function () {
+  console.log('🚀 Inicializando aplicación frontend...');
+
+  // ==============================
+  // 🔹 FASE 1: Validar input de fecha y configuración
+  // ==============================
+  if (typeof window.CalendarUI !== 'undefined') {
+    const fechaInput = window.CalendarUI.findDateInput();
+    
+    if (!fechaInput) {
+      console.error('❌ No se encontró input de fecha, abortando inicialización');
+      return;
+    }
+
+    // Leer duración de slot
+    const slotDuration = window.CalendarUI.getSlotDuration();
+    console.log(`✅ Input encontrado: #${fechaInput.id}`);
+    console.log(`✅ Slot duration: ${slotDuration} min`);
+
+    // ==============================
+    // 🔹 FASE 2: Inicializar calendario básico INMEDIATAMENTE
+    // ==============================
+    console.log('📅 Inicializando calendario básico...');
+    window.CalendarUI.initBasicCalendar('#' + fechaInput.id);
+
+  } else {
+    console.error('❌ CalendarUI no está disponible');
+  }
+
+  // ==============================
+  // 🔹 FASE 3: Inicializar controlador de disponibilidad
+  // (Iniciará el proxy y se activará cuando lleguen los datos)
+  // ==============================
+  if (typeof window.AvailabilityController !== 'undefined') {
+    window.AvailabilityController.init({
+      fechaInputSelector: '#fecha',
+      slotContainerSelector: 'slot-container',
+      isAdmin: false
+    });
+  } else {
+    console.error('❌ AvailabilityController no está cargado');
+  }
+
+  // ==============================
+  // 🔹 FASE 4: Inicializar controlador de reservas
+  // ==============================
+  if (typeof window.ReservationController !== 'undefined') {
+    window.ReservationController.init('#agenda-form');
+  } else {
+    console.error('❌ ReservationController no está cargado');
+  }
+
+  console.log('✅ Aplicación frontend inicializada correctamente');
+});
+
+
+========================================
+FILE: assets\js\services\availability\busyRanges.js
+========================================
+/**
+ * Módulo de Busy Ranges
+ * Responsabilidades:
+ * - Generar busyRanges desde eventos ocupados
+ * - Cargar eventos ocupados locales desde window
+ * - Normalizar fechas a objetos Date
+ */
+
+/**
+ * Generar busyRanges desde eventos ocupados
+ * @param {Array} busyEvents - Array de eventos ocupados con { start, end }
+ * @returns {Array} Array de rangos ocupados con objetos Date
+ */
+export function generateBusyRanges(busyEvents) {
+  if (!busyEvents || !Array.isArray(busyEvents)) {
+    console.warn('⚠️ generateBusyRanges: No se recibieron eventos válidos');
+    return [];
+  }
+
+  console.log(`🔍 Generando busyRanges desde ${busyEvents.length} eventos ocupados`);
+  
+  const busyRanges = busyEvents.map(ev => ({
+    start: new Date(ev.start),
+    end: new Date(ev.end)
+  }));
+  
+  console.log(`✅ ${busyRanges.length} busyRanges generados`);
+  
+  return busyRanges;
+}
+
+/**
+ * Cargar disponibilidad local desde window
+ * @returns {Array} Array de rangos ocupados locales con objetos Date
+ */
+export function loadLocalBusyRanges() {
+  const localBusyRanges = [];
+
+  if (typeof window.aa_local_availability !== 'undefined' && window.aa_local_availability.local_busy) {
+    console.log('✅ Datos locales encontrados:', window.aa_local_availability);
+    
+    window.aa_local_availability.local_busy.forEach((slot) => {
+      const start = new Date(slot.start);
+      const end = new Date(slot.end);
+      
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        localBusyRanges.push({ start, end });
+      }
+    });
+    
+    console.log(`📊 Total eventos locales: ${localBusyRanges.length}`);
+  } else {
+    console.log('ℹ️ No hay datos locales de disponibilidad');
+  }
+  
+  return localBusyRanges;
+}
+
+
+========================================
+FILE: assets\js\services\availability\combineLocalExternal.js
+========================================
+/**
+ * Módulo de Combinación de Disponibilidad Local y Externa
+ * Responsabilidades:
+ * - Combinar eventos ocupados de Google Calendar (externos) con reservas locales (BD)
+ * - Normalizar fechas a objetos Date
+ * - Evitar duplicación de datos
+ */
+
+/**
+ * Combinar disponibilidad local y externa
+ * @param {Object} externalAvailability - Objeto window.aa_availability con datos de Google Calendar
+ * @param {Object} localAvailability - Objeto window.aa_local_availability con reservas locales
+ */
+export function combineLocalExternal(externalAvailability, localAvailability) {
+  if (!localAvailability || !localAvailability.local_busy) {
+    console.log('ℹ️ No hay datos locales para combinar');
+    return;
+  }
+
+  console.log("📊 Combinando disponibilidad local con datos externos");
+  
+  if (!externalAvailability) {
+    console.warn('⚠️ No hay disponibilidad externa para combinar');
+    return;
+  }
+
+  const externalBusy = externalAvailability.busy || [];
+  const localBusy = localAvailability.local_busy.map(slot => ({
+    start: new Date(slot.start),
+    end: new Date(slot.end)
+  }));
+  
+  // ✅ COMBINAR sin duplicar
+  externalAvailability.busy = [...externalBusy, ...localBusy];
+  
+  console.log(`✅ Total combinado: ${externalAvailability.busy.length}`);
+  console.log(`   - Google Calendar: ${externalBusy.length}`);
+  console.log(`   - Local: ${localBusy.length}`);
+}
+
+
+========================================
+FILE: assets\js\services\availability\proxyFetch.js
+========================================
+/**
+ * Módulo de Fetch con Reintentos
+ * Responsabilidades:
+ * - Construir URL de consulta al backend
+ * - Realizar fetch con reintentos automáticos
+ * - Normalizar datos recibidos (data.busy)
+ * - Guardar en window.aa_availability
+ * - Emitir eventos de éxito/error
+ */
+
+/**
+ * Construir URL de consulta
+ */
+export function buildUrl(config) {
+  const { ajaxUrl, action, email } = config;
+  return `${ajaxUrl}?action=${encodeURIComponent(action)}&email=${encodeURIComponent(email)}`;
+}
+
+/**
+ * Estado interno del loop de reintentos
+ */
+let attempts = 0;
+let intervalId = null;
+let dataReceived = false;
+
+/**
+ * Realizar fetch de disponibilidad (single attempt)
+ */
+export async function fetchAvailability(config, onSuccess, onError) {
+  if (dataReceived) return;
+
+  attempts++;
+  console.log(`🔄 Intento #${attempts} de consultar disponibilidad...`);
+
+  const url = buildUrl(config);
+  console.log("📡 Consultando disponibilidad:", url);
+
+  try {
+    const start = Date.now();
+    const response = await fetch(url, { 
+      method: 'GET', 
+      credentials: 'same-origin' 
+    });
+    const duration = Date.now() - start;
+    
+    console.log(`📥 Respuesta recibida (HTTP ${response.status}) en ${duration}ms`);
+
+    const text = await response.text();
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${text}`);
+    }
+
+    const data = JSON.parse(text);
+    console.log("✅ Datos recibidos:", data);
+
+    // ✅ Procesar y normalizar data.busy (eventos ocupados)
+    if (data.busy && Array.isArray(data.busy)) {
+      console.log(`🔍 Procesando ${data.busy.length} eventos ocupados`);
+      
+      data.busy = data.busy.map(ev => {
+        const start = new Date(ev.start);
+        const end = new Date(ev.end);
+        
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+          console.warn('⚠️ Evento con fechas inválidas:', ev);
+          return null;
+        }
+        
+        return { start, end };
+      }).filter(Boolean);
+      
+      console.log(`✅ ${data.busy.length} eventos válidos procesados`);
+    }
+
+    // Guardar en window para compatibilidad
+    window.aa_availability = data;
+    dataReceived = true;
+
+    // Detener reintentos
+    stopFetchLoop();
+
+    // Callback de éxito
+    if (onSuccess) {
+      onSuccess(data);
+    }
+
+    // Emitir evento de éxito
+    console.log("🔔 Disparando evento 'aa:availability:loaded'");
+    document.dispatchEvent(new CustomEvent('aa:availability:loaded', { 
+      detail: data
+    }));
+
+  } catch (err) {
+    console.warn(`⚠️ Error en intento #${attempts}:`, err.message);
+    
+    if (attempts >= config.maxAttempts) {
+      console.error("❌ Máximo de intentos alcanzado");
+      stopFetchLoop();
+      
+      // Callback de error
+      if (onError) {
+        onError(err);
+      }
+      
+      // Emitir evento de error
+      document.dispatchEvent(new CustomEvent('aa:availability:error', { 
+        detail: { error: err } 
+      }));
+    }
+  }
+}
+
+/**
+ * Iniciar loop de reintentos automáticos
+ */
+export function startFetchLoop(config, onSuccess, onError) {
+  console.log("🚀 Iniciando loop de fetch con reintentos");
+  
+  // Reset estado
+  attempts = 0;
+  dataReceived = false;
+  
+  // Primer intento inmediato
+  fetchAvailability(config, onSuccess, onError);
+  
+  // Reintentos periódicos
+  intervalId = setInterval(() => {
+    fetchAvailability(config, onSuccess, onError);
+  }, config.retryInterval);
+}
+
+/**
+ * Detener reintentos
+ */
+export function stopFetchLoop() {
+  if (intervalId) {
+    clearInterval(intervalId);
+    intervalId = null;
+    console.log("⏹️ Loop de fetch detenido");
+  }
+}
+
+/**
+ * Reset estado (útil para testing o re-inicialización)
+ */
+export function resetFetchState() {
+  attempts = 0;
+  dataReceived = false;
+  stopFetchLoop();
+}
+
+
+========================================
+FILE: assets\js\services\availability\slotCalculator.js
+========================================
+/**
+ * Módulo de Cálculo de Slots
+ * Responsabilidades:
+ * - Calcular slots disponibles para una fecha específica
+ * - Calcular slots disponibles para un rango de fechas
+ * - Aplicar restricciones de horario y eventos ocupados
+ */
+
+import { 
+  ymd, 
+  getWeekdayName, 
+  getDayIntervals, 
+  generateSlotsForDay 
+} from '../../utils/dateUtils.js';
+
+/**
+ * Calcular slots disponibles para una fecha específica
+ * @param {Date} date - Fecha para calcular slots
+ * @param {Object} schedule - Horario configurado (aa_schedule)
+ * @param {Array} busyRanges - Eventos ocupados
+ * @param {number} slotDuration - Duración del slot en minutos
+ * @returns {Array<Date>} Array de slots disponibles
+ */
+export function calculateSlotsForDate(date, schedule, busyRanges, slotDuration) {
+  const weekday = getWeekdayName(date);
+  const intervals = getDayIntervals(schedule, weekday);
+  const slots = generateSlotsForDay(date, intervals, busyRanges, slotDuration);
+  
+  return slots;
+}
+
+/**
+ * Calcular slots disponibles para un rango de fechas
+ * @param {Date} minDate - Fecha mínima
+ * @param {Date} maxDate - Fecha máxima
+ * @param {Object} schedule - Horario configurado (aa_schedule)
+ * @param {Array} busyRanges - Eventos ocupados
+ * @param {number} slotDuration - Duración del slot en minutos
+ * @returns {Object} Mapa de slots por fecha { 'YYYY-MM-DD': [Date, Date, ...] }
+ */
+export function calculateSlotsRange(minDate, maxDate, schedule, busyRanges, slotDuration) {
+  const availableSlotsPerDay = {};
+  
+  console.log(`🗓️ Calculando slots disponibles del ${ymd(minDate)} al ${ymd(maxDate)}`);
+  console.log(`⚙️ Configuración: duración=${slotDuration}min, eventos ocupados=${busyRanges.length}`);
+  
+  for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
+    const day = new Date(d);
+    const slots = calculateSlotsForDate(day, schedule, busyRanges, slotDuration);
+    
+    availableSlotsPerDay[ymd(day)] = slots;
+    
+    if (slots.length > 0) {
+      console.log(`📅 ${ymd(day)}: ${slots.length} slots disponibles`);
+    }
+  }
+  
+  console.log(`✅ Cálculo completado para ${Object.keys(availableSlotsPerDay).length} días`);
+  
+  return availableSlotsPerDay;
+}
+
+
+========================================
+FILE: assets\js\services\availabilityService.js
+========================================
+/**
+ * Servicio Proxy de Disponibilidad
+ * Responsabilidades:
+ * - Combinar disponibilidad local y externa
+ * - Calcular slots disponibles por día
+ * - Proveer interfaz de consulta de disponibilidad
+ */
+
+import { ymd } from '../utils/dateUtils.js';
+
+import {
+  startFetchLoop,
+  stopFetchLoop
+} from './availability/proxyFetch.js';
+
+import { combineLocalExternal } from './availability/combineLocalExternal.js';
+import { generateBusyRanges, loadLocalBusyRanges } from './availability/busyRanges.js';
+import { calculateSlotsRange } from './availability/slotCalculator.js';
+
+class AvailabilityProxy {
+  constructor(config = {}) {
+    this.ajaxUrl = config.ajaxUrl || '/wp-admin/admin-ajax.php';
+    this.action = config.action || 'aa_get_availability';
+    this.email = config.email || '';
+    this.maxAttempts = config.maxAttempts || 20;
+    this.retryInterval = config.retryInterval || 15000;
+    
+    this.availableSlotsPerDay = {};
+    this.busyRanges = [];
+  }
+
+  /**
+   * Calcular slots disponibles por día
+   */
+  calculateAvailableSlots(schedule, futureWindow, slotDuration) {
+    const minDate = new Date();
+    const maxDate = new Date();
+    maxDate.setDate(minDate.getDate() + futureWindow);
+
+    // ✅ Delegar cálculo a slotCalculator
+    this.availableSlotsPerDay = calculateSlotsRange(
+      minDate, 
+      maxDate, 
+      schedule, 
+      this.busyRanges, 
+      slotDuration
+    );
+    
+    return this.availableSlotsPerDay;
+  }
+
+  /**
+   * Verificar si una fecha tiene slots disponibles
+   */
+  isDateAvailable(date) {
+    return (this.availableSlotsPerDay[ymd(date)]?.length || 0) > 0;
+  }
+
+  /**
+   * Callback para deshabilitar fechas sin disponibilidad
+   */
+  disableDate(date) {
+    return !this.isDateAvailable(date);
+  }
+
+  /**
+   * Obtener slots para una fecha específica
+   */
+  getSlotsForDate(date) {
+    return this.availableSlotsPerDay[ymd(date)] || [];
+  }
+
+  /**
+   * Iniciar consulta con reintentos automáticos
+   */
+  start() {
+    console.log("🚀 Iniciando AvailabilityProxy");
+    
+    const config = {
+      ajaxUrl: this.ajaxUrl,
+      action: this.action,
+      email: this.email,
+      maxAttempts: this.maxAttempts,
+      retryInterval: this.retryInterval
+    };
+
+    const onSuccess = (data) => {
+      // ✅ Combinar con datos locales
+      combineLocalExternal(window.aa_availability, window.aa_local_availability);
+
+      // ✅ Generar busyRanges
+      this.busyRanges = generateBusyRanges(window.aa_availability?.busy || []);
+
+      // Emitir evento extendido con proxy
+      console.log("🔔 Disparando evento 'aa:availability:loaded' con proxy");
+      document.dispatchEvent(new CustomEvent('aa:availability:loaded', { 
+        detail: {
+          ...data,
+          busyRanges: this.busyRanges,
+          proxy: this // Pasar referencia al proxy para acceder a métodos
+        }
+      }));
+    };
+
+    const onError = (err) => {
+      console.error("❌ Error al cargar disponibilidad:", err);
+    };
+
+    startFetchLoop(config, onSuccess, onError);
+  }
+
+  /**
+   * Detener reintentos
+   */
+  stop() {
+    stopFetchLoop();
+  }
+}
+
+// Exportar para uso global
+window.AvailabilityProxy = AvailabilityProxy;
+
+// ==============================
+// 🔹 Capa de Servicio: Abstracción sobre AvailabilityProxy
+// ==============================
+export const AvailabilityService = {
+
+  /**
+   * Cargar disponibilidad local desde window
+   */
+  loadLocal() {
+    return loadLocalBusyRanges();
+  },
+
+  /**
+   * Calcular slots iniciales con busy ranges dados
+   */
+  calculateInitial(busyRanges) {
+    const schedule = window.aa_schedule || {};
+    const futureWindow = window.aa_future_window || 14;
+    const slotDuration = parseInt(window.aa_slot_duration, 10) || 60;
+
+    const minDate = new Date();
+    const maxDate = new Date();
+    maxDate.setDate(minDate.getDate() + futureWindow);
+
+    // ✅ Delegar cálculo a slotCalculator
+    const availableSlotsPerDay = calculateSlotsRange(
+      minDate,
+      maxDate,
+      schedule,
+      busyRanges,
+      slotDuration
+    );
+
+    return {
+      availableSlotsPerDay,
+      schedule,
+      futureWindow,
+      slotDuration,
+      minDate,
+      maxDate
+    };
+  },
+
+  /**
+   * Encontrar primera fecha disponible
+   */
+  findFirstAvailable(minDate, maxDate, availableSlotsPerDay) {
+    for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
+      const day = new Date(d);
+      const slots = availableSlotsPerDay[ymd(day)] || [];
+      
+      if (slots.length > 0) {
+        return day;
+      }
+    }
+    
+    return null;
+  },
+
+  /**
+   * Calcula slots disponibles usando el proxy
+   */
+  calculate(proxy, { schedule, futureWindow, slotDuration }) {
+    return proxy.calculateAvailableSlots(schedule, futureWindow, slotDuration);
+  },
+
+  /**
+   * Determina si una fecha debe estar deshabilitada
+   */
+  disable(proxy, date) {
+    return proxy.disableDate(date);
+  },
+
+  /**
+   * Obtiene slots para una fecha específica
+   */
+  slotsForDate(proxy, date) {
+    return proxy.getSlotsForDate(date);
+  }
+};
+
+// Exponer servicio globalmente
+window.AvailabilityService = AvailabilityService;
+
+console.log('✅ AvailabilityProxy cargado');
+console.log('✅ AvailabilityService cargado');
+
+
+========================================
+FILE: assets\js\services\confirmService.js
+========================================
+/**
+ * Servicio: Confirmación de Citas
+ * 
+ * Responsable de:
+ * - Llamadas AJAX para confirmar citas
+ * - Llamadas AJAX para cancelar citas
+ * - Llamadas AJAX para crear clientes desde citas
+ * 
+ * NO contiene lógica de UI ni callbacks.
+ */
+
+window.ConfirmService = (function() {
+    'use strict';
+    
+    /**
+     * Confirmar una cita
+     * @param {number} id - ID de la cita
+     * @returns {Promise<Object>} Respuesta del servidor
+     */
+    function confirmar(id) {
+        const formData = new FormData();
+        formData.append('action', 'aa_confirmar_cita');
+        formData.append('id', id);
+        formData.append('_wpnonce', aa_asistant_vars.nonce_confirmar);
+        
+        return fetch(ajaxurl, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json());
+    }
+    
+    /**
+     * Cancelar una cita
+     * @param {number} id - ID de la cita
+     * @returns {Promise<Object>} Respuesta del servidor
+     */
+    function cancelar(id) {
+        const formData = new FormData();
+        formData.append('action', 'aa_cancelar_cita');
+        formData.append('id', id);
+        formData.append('_wpnonce', aa_asistant_vars.nonce_cancelar);
+        
+        return fetch(ajaxurl, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json());
+    }
+    
+    /**
+     * Crear cliente desde una cita
+     * @param {number} reservaId - ID de la reserva
+     * @param {string} nombre - Nombre del cliente
+     * @param {string} telefono - Teléfono del cliente
+     * @param {string} correo - Correo del cliente
+     * @returns {Promise<Object>} Respuesta del servidor
+     */
+    function crearClienteDesdeCita(reservaId, nombre, telefono, correo) {
+        const formData = new FormData();
+        formData.append('action', 'aa_crear_cliente_desde_cita');
+        formData.append('reserva_id', reservaId);
+        formData.append('nombre', nombre);
+        formData.append('telefono', telefono);
+        formData.append('correo', correo);
+        formData.append('_wpnonce', aa_asistant_vars.nonce_crear_cliente_desde_cita);
+        
+        return fetch(ajaxurl, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json());
+    }
+    
+    // ===============================
+    // 🔹 API Pública
+    // ===============================
+    return {
+        confirmar,
+        cancelar,
+        crearClienteDesdeCita
+    };
+})();
+
+
+
+========================================
+FILE: assets\js\services\reservationService.js
+========================================
+// ==============================
+// 🔹 Servicio de reservas
+// ==============================
+
+/**
+ * Guarda una reserva en el backend
+ * @param {Object} datos - Datos de la reserva (servicio, fecha, nombre, telefono, correo, nonce, extra_field)
+ * @returns {Promise<Object>} Objeto con { success, data: { id, cliente_id, message } }
+ * @throws {Error} Si la petición falla o la respuesta es inválida
+ */
+export async function saveReservation(datos) {
+  if (typeof wpaa_vars === 'undefined' || !wpaa_vars.ajax_url) {
+    throw new Error('Variables de configuración no disponibles (wpaa_vars)');
+  }
+
+  console.group('🧩 saveReservation: datos que se enviarán al backend');
+  console.log('Tipo de datos:', typeof datos);
+  console.log('Contenido del objeto:', datos);
+  console.log('Fecha ISO final enviada:', datos.fecha);
+  console.groupEnd();
+
+  // Validar estructura antes del fetch
+  ['servicio', 'fecha', 'nombre', 'telefono'].forEach(campo => {
+    if (!datos[campo]) {
+      console.warn(`⚠️ El campo "${campo}" está vacío o indefinido`);
+    }
+  });
+
+  try {
+    const response = await fetch(wpaa_vars.ajax_url + '?action=aa_save_reservation', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(datos)
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error HTTP: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (!data.success) {
+      throw new Error(data.data?.message || 'Error desconocido al guardar.');
+    }
+
+    console.log('✅ Reserva guardada correctamente:', data);
+
+    return data;
+  } catch (error) {
+    console.error('❌ Error al guardar reserva:', error);
+    throw error;
+  }
+}
+
+/**
+ * Envía correo de confirmación de reserva
+ * @param {Object} datos - Datos de la reserva (debe incluir id_reserva)
+ * @returns {Promise<Object>} Resultado del envío
+ */
+export async function sendConfirmation(datos) {
+  if (typeof wpaa_vars === 'undefined' || !wpaa_vars.ajax_url) {
+    throw new Error('Variables de configuración no disponibles (wpaa_vars)');
+  }
+
+  console.log("📧 sendConfirmation: Enviando correo de confirmación...");
+  console.log("📦 Datos:", datos);
+
+  try {
+    const response = await fetch(wpaa_vars.ajax_url + '?action=aa_enviar_confirmacion', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(datos)
+    });
+
+    const emailData = await response.json();
+    
+    console.log('📧 Resultado del envío de correo:', emailData);
+    
+    return emailData;
+  } catch (error) {
+    console.warn('⚠️ Error al enviar correo (no crítico):', error);
+    throw error;
+  }
+}
+
+// ==============================
+// 🔹 Exponer en window para compatibilidad con código no-modular
+// ==============================
+window.ReservationService = {
+  saveReservation,
+  sendConfirmation
+};
+
+console.log('✅ ReservationService cargado y expuesto globalmente');
+
+
+========================================
+FILE: assets\js\ui\calendarAdminUI.js
+========================================
+// ==============================
+// 🔹 UI de Calendario para Admin
+// ==============================
+
+console.log('🔄 Cargando calendarAdminUI.js...');
+
+/**
+ * Renderiza el calendario admin con Flatpickr
+ * @param {Object} config - Configuración del calendario admin
+ */
+export function render(config) {
+  const {
+    fechaInput,
+    slotContainerSelector,
+    slotsMap,
+    minDate,
+    maxDate,
+    disableDateFn
+  } = config;
+
+  console.log('🔄 CalendarAdminUI.render() llamado con config:', config);
+  
+  if (!fechaInput) {
+    console.error('❌ calendarAdminUI: fechaInput no proporcionado');
+    return null;
+  }
+
+  if (typeof flatpickr === "undefined") {
+    console.error('❌ calendarAdminUI: Flatpickr no está disponible');
+    return null;
+  }
+  
+  // Destruir instancia previa si existe
+  if (fechaInput._flatpickr) {
+    console.log('🗑️ Destruyendo instancia anterior de Flatpickr (admin)');
+    fechaInput._flatpickr.destroy();
+  }
+  
+  // Crear nueva instancia de Flatpickr
+  const picker = flatpickr(fechaInput, {
+    disableMobile: true,
+    dateFormat: "d-m-Y",
+    minDate,
+    maxDate,
+    locale: "es",
+    disable: [disableDateFn],
+    onChange: function(selectedDates) {
+      if (!selectedDates.length) return;
+      
+      const selectedDate = selectedDates[0];
+      const validSlots = window.AvailabilityService.slotsForDate(
+        window.availabilityProxyInstance || {}, 
+        selectedDate
+      );
+      
+      console.log(`📅 Admin: Fecha seleccionada: ${selectedDate.toLocaleDateString()}`);
+      console.log(`📅 Admin: Slots disponibles: ${validSlots.length}`);
+      
+      // Disparar evento personalizado para que SlotSelectorAdminUI lo maneje
+      document.dispatchEvent(new CustomEvent('aa:admin:date-selected', {
+        detail: {
+          containerId: slotContainerSelector,
+          validSlots,
+          selectedDate,
+          fechaInput
+        }
+      }));
+    },
+    onReady: function() {
+      console.log('✅ Flatpickr admin inicializado correctamente');
+    }
+  });
+  
+  console.log('✅ Calendario admin renderizado');
+  
+  return picker;
+}
+
+/**
+ * LEGACY: Mantener compatibilidad con código antiguo
+ */
+export function renderAdminCalendar(fechaInput, slotContainerSelector, proxy, config) {
+  console.warn('⚠️ renderAdminCalendar() es legacy, usa render() en su lugar');
+  
+  return render({
+    fechaInput,
+    slotContainerSelector,
+    slotsMap: proxy.availableSlotsPerDay,
+    minDate: config.minDate,
+    maxDate: config.maxDate,
+    disableDateFn: (date) => window.AvailabilityService.disable(proxy, date)
+  });
+}
+
+// ==============================
+// 🔹 Exponer en window para compatibilidad
+// ==============================
+window.CalendarAdminUI = {
+  render,
+  renderAdminCalendar
+};
+
+console.log('✅ CalendarAdminUI cargado y expuesto globalmente');
+
+
+========================================
+FILE: assets\js\ui\calendarUI.js
+========================================
+// ==============================
+// 🔹 Funciones UI de Flatpickr
+// ==============================
+
+console.log('🔄 Cargando calendarUI.js...');
+
+/**
+ * Buscar y validar input de fecha
+ * @returns {HTMLElement|null}
+ */
+export function findDateInput() {
+  const fechaInput = document.getElementById("fecha") || document.getElementById("cita-fecha");
+  
+  console.log('aa_debug: fechaInput =>', !!fechaInput);
+  console.log('aa_debug: fechaInput ID =>', fechaInput ? fechaInput.id : 'null');
+
+  if (!fechaInput) {
+    console.warn('⚠️ aa_debug: No se encontró input #fecha ni #cita-fecha');
+    return null;
+  }
+
+  return fechaInput;
+}
+
+/**
+ * Leer duración de slot desde configuración global
+ * @returns {number}
+ */
+export function getSlotDuration() {
+  const slotDuration = (typeof window.aa_slot_duration !== 'undefined') 
+    ? window.aa_slot_duration 
+    : 60;
+  
+  console.log(`⚙️ Duración de slot configurada: ${slotDuration} minutos`);
+  
+  return slotDuration;
+}
+
+/**
+ * Inicializa Flatpickr en modo básico (sin reglas de disponibilidad)
+ * @param {string} fechaSelector - Selector CSS del input de fecha
+ */
+export function initBasicCalendar(fechaSelector) {
+  console.log('📅 initBasicCalendar llamado con selector:', fechaSelector);
+  
+  if (typeof flatpickr === "undefined" || typeof flatpickr.l10ns === "undefined") {
+    console.error('❌ Flatpickr no está cargado correctamente.');
+    return null;
+  }
+
+  flatpickr.localize(flatpickr.l10ns.es);
+  
+  const instance = flatpickr(fechaSelector, {
+    disableMobile: true,
+    dateFormat: "d-m-Y",
+    minDate: "today",
+    locale: "es",
+    maxDate: new Date().fp_incr(14),
+    onReady: function () {
+      console.log("📅 Flatpickr inicializado correctamente (modo básico).");
+    }
+  });
+
+  return instance;
+}
+
+/**
+ * Renderiza el calendario frontend con reglas de disponibilidad
+ * @param {Object} config - Configuración del calendario
+ */
+export function render(config) {
+  const {
+    fechaInput,
+    minDate,
+    maxDate,
+    disableDateFn,
+    onDateSelected
+  } = config;
+
+  console.log('🔄 CalendarUI.render() llamado con config:', config);
+
+  if (!fechaInput || typeof flatpickr === "undefined") {
+    console.error('❌ No se puede renderizar el calendario: input o Flatpickr no disponibles');
+    return null;
+  }
+
+  if (fechaInput._flatpickr) {
+    console.log('🗑️ Destruyendo instancia anterior de Flatpickr');
+    fechaInput._flatpickr.destroy();
+  }
+
+  const picker = flatpickr(fechaInput, {
+    disableMobile: true,
+    dateFormat: "d-m-Y",
+    minDate: minDate,
+    maxDate: maxDate,
+    locale: "es",
+    disable: [disableDateFn],
+    onChange: function(selectedDates) {
+      if (!selectedDates.length) return;
+      
+      const selectedDate = selectedDates[0];
+      
+      if (onDateSelected && typeof onDateSelected === 'function') {
+        onDateSelected(selectedDate, this);
+      }
+    }
+  });
+
+  console.log('✅ Flatpickr frontend renderizado con reglas de disponibilidad');
+
+  return picker;
+}
+
+/**
+ * Reconstruye el calendario con reglas de disponibilidad (LEGACY - usar render())
+ */
+export function rebuildCalendar(options) {
+  console.warn('⚠️ rebuildCalendar() es legacy, usa render() en su lugar');
+  return render(options);
+}
+
+// ==============================
+// 🔹 Exponer en window para compatibilidad con código no-modular
+// ==============================
+window.CalendarUI = {
+  findDateInput,
+  getSlotDuration,
+  initBasicCalendar,
+  rebuildCalendar,
+  render
+};
+
+console.log('✅ CalendarUI cargado y expuesto globalmente');
+console.log('   - window.CalendarUI:', window.CalendarUI);
+console.log('   - Funciones disponibles:', Object.keys(window.CalendarUI));
+
+
+========================================
+FILE: assets\js\ui\proximasCitasUI.js
+========================================
+/**
+ * Módulo UI: Próximas Citas
+ * 
+ * Responsable exclusivamente de:
+ * - Renderizado de tablas
+ * - Renderizado de paginación
+ * - Asignación de eventos a botones
+ * - Manipulación del DOM
+ * - Feedback visual
+ * 
+ * NO contiene lógica de negocio ni llamadas AJAX.
+ */
+
+window.ProximasCitasUI = (function() {
+    'use strict';
+    
+    // ===============================
+    // 🔹 Renderizar tabla de citas
+    // ===============================
+    function renderizarProximasCitas(citas, container, callbacks) {
+        if (!container) {
+            console.error('❌ Container no proporcionado para renderizar próximas citas');
+            return;
+        }
+        
+        if (!citas || citas.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: #999;">📭 No hay próximas citas registradas.</p>';
+            return;
+        }
+        
+        // 🔹 Wrapper para scroll horizontal
+        let html = '<div class="aa-table-wrapper">';
+        html += '<table class="widefat aa-table-scroll">';
+        html += '<thead><tr><th>Cliente</th><th>Teléfono</th><th>Servicio</th><th>Fecha</th><th>Estado</th><th>Acciones</th></tr></thead>';
+        html += '<tbody>';
+        
+        citas.forEach(cita => {
+            const estadoClass = 'aa-estado-' + cita.estado.toLowerCase();
+            let estadoTexto = '';
+            
+            switch(cita.estado) {
+                case 'confirmed':
+                    estadoTexto = 'Confirmada';
+                    break;
+                case 'pending':
+                    estadoTexto = 'Pendiente';
+                    break;
+                case 'cancelled':
+                    estadoTexto = 'Cancelada';
+                    break;
+                default:
+                    estadoTexto = cita.estado;
+            }
+            
+            const fecha = new Date(cita.fecha.replace(' ', 'T'));
+            const fechaFormateada = fecha.toLocaleDateString('es-MX', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
+            html += '<tr>';
+            html += '<td>' + escapeHtml(cita.nombre) + '</td>';
+            html += '<td>' + escapeHtml(cita.telefono) + '</td>';
+            html += '<td>' + escapeHtml(cita.servicio) + '</td>';
+            html += '<td>' + fechaFormateada + '</td>';
+            html += '<td class="' + estadoClass + '">' + estadoTexto + '</td>';
+            html += '<td>';
+            
+            // 🔹 Botón confirmar (solo si está pendiente)
+            if (cita.estado === 'pending') {
+                html += '<button class="aa-btn-confirmar" data-id="' + cita.id + '" data-nombre="' + escapeHtml(cita.nombre) + '" data-correo="' + escapeHtml(cita.correo) + '">✓ Confirmar</button> ';
+            }
+            
+            // 🔹 Botón cancelar (si está confirmada o pendiente)
+            if (cita.estado === 'confirmed' || cita.estado === 'pending') {
+                html += '<button class="aa-btn-cancelar" data-id="' + cita.id + '" data-nombre="' + escapeHtml(cita.nombre) + '" data-correo="' + escapeHtml(cita.correo) + '">✕ Cancelar</button> ';
+            }
+            
+            // 🔹 Botón crear cliente (si no tiene id_cliente)
+            if (!cita.id_cliente) {
+                html += '<button class="aa-btn-crear-cliente-desde-cita" data-reserva-id="' + cita.id + '" data-nombre="' + escapeHtml(cita.nombre) + '" data-telefono="' + escapeHtml(cita.telefono) + '" data-correo="' + escapeHtml(cita.correo) + '">+ Cliente</button>';
+            }
+            
+            html += '</td>';
+            html += '</tr>';
+        });
+        
+        html += '</tbody></table>';
+        html += '</div>'; // Cerrar wrapper
+        container.innerHTML = html;
+        
+        // 🔹 Asignar eventos a los botones
+        asignarEventosBotones(container, callbacks);
+    }
+    
+    // ===============================
+    // 🔹 Asignar eventos a botones de acción
+    // ===============================
+    function asignarEventosBotones(container, callbacks) {
+        if (!callbacks) {
+            console.warn('⚠️ No se proporcionaron callbacks para los botones');
+            return;
+        }
+        
+        // Botones de confirmar
+        container.querySelectorAll('.aa-btn-confirmar').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const id = this.dataset.id;
+                const nombre = this.dataset.nombre;
+                const correo = this.dataset.correo;
+                
+                if (confirm('¿Confirmar la cita de ' + nombre + '?\n\nSe enviará un correo de confirmación a: ' + correo)) {
+                    if (callbacks.onConfirmar) {
+                        callbacks.onConfirmar(id);
+                    }
+                }
+            });
+        });
+        
+        // Botones de cancelar
+        container.querySelectorAll('.aa-btn-cancelar').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const id = this.dataset.id;
+                const nombre = this.dataset.nombre;
+                const correo = this.dataset.correo;
+                
+                if (confirm('⚠️ ¿CANCELAR la cita de ' + nombre + '?\n\nSe enviará un correo de cancelación a: ' + correo + '\n\nEsta acción no se puede deshacer.')) {
+                    if (callbacks.onCancelar) {
+                        callbacks.onCancelar(id);
+                    }
+                }
+            });
+        });
+        
+        // Botones de crear cliente
+        container.querySelectorAll('.aa-btn-crear-cliente-desde-cita').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const reservaId = this.dataset.reservaId;
+                const nombre = this.dataset.nombre;
+                const telefono = this.dataset.telefono;
+                const correo = this.dataset.correo;
+                
+                if (confirm('¿Crear cliente con los siguientes datos?\n\nNombre: ' + nombre + '\nTeléfono: ' + telefono + '\nCorreo: ' + correo)) {
+                    if (callbacks.onCrearCliente) {
+                        callbacks.onCrearCliente(reservaId, nombre, telefono, correo);
+                    }
+                }
+            });
+        });
+    }
+    
+    // ===============================
+    // 🔹 Renderizar paginación
+    // ===============================
+    function renderizarPaginacion(actual, total, container, onCambiarPagina) {
+        if (!container) {
+            console.error('❌ Container no proporcionado para renderizar paginación');
+            return;
+        }
+        
+        if (total <= 1) {
+            container.innerHTML = '';
+            return;
+        }
+        
+        let html = '<div class="aa-paginacion-botones">';
+        
+        // Botón anterior
+        if (actual > 1) {
+            html += '<button class="aa-btn-paginacion" data-pagina="' + (actual - 1) + '">« Anterior</button>';
+        }
+        
+        // Números de página
+        for (let i = 1; i <= total; i++) {
+            if (i === actual) {
+                html += '<span class="aa-pagina-actual">' + i + '</span>';
+            } else if (i === 1 || i === total || (i >= actual - 2 && i <= actual + 2)) {
+                html += '<button class="aa-btn-paginacion" data-pagina="' + i + '">' + i + '</button>';
+            } else if (i === actual - 3 || i === actual + 3) {
+                html += '<span>...</span>';
+            }
+        }
+        
+        // Botón siguiente
+        if (actual < total) {
+            html += '<button class="aa-btn-paginacion" data-pagina="' + (actual + 1) + '">Siguiente »</button>';
+        }
+        
+        html += '</div>';
+        container.innerHTML = html;
+        
+        // Eventos de paginación
+        if (onCambiarPagina) {
+            container.querySelectorAll('.aa-btn-paginacion').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const pagina = parseInt(this.dataset.pagina);
+                    onCambiarPagina(pagina);
+                });
+            });
+        }
+    }
+    
+    // ===============================
+    // 🔹 Mostrar mensaje de carga
+    // ===============================
+    function mostrarCargando(container) {
+        if (container) {
+            container.innerHTML = '<p style="text-align: center; color: #999;">⏳ Cargando...</p>';
+        }
+    }
+    
+    // ===============================
+    // 🔹 Mostrar mensaje de error
+    // ===============================
+    function mostrarError(container, mensaje) {
+        if (container) {
+            container.innerHTML = '<p style="color: #e74c3c;">❌ Error: ' + escapeHtml(mensaje || 'No se pudo cargar las próximas citas.') + '</p>';
+        }
+    }
+    
+    // ===============================
+    // 🔹 Utilidad: Escapar HTML
+    // ===============================
+    function escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return String(text).replace(/[&<>"']/g, m => map[m]);
+    }
+    
+    // ===============================
+    // 🔹 API Pública
+    // ===============================
+    return {
+        renderizarProximasCitas,
+        renderizarPaginacion,
+        mostrarCargando,
+        mostrarError,
+        escapeHtml
+    };
+})();
+
+
+========================================
+FILE: assets\js\ui\slotSelectorAdminUI.js
+========================================
+// ==============================
+// 🔹 UI de Selector de Slots para Admin
+// ==============================
+
+console.log('🔄 Cargando slotSelectorAdminUI.js...');
+
+/**
+ * Renderiza los slots disponibles en un select para admin
+ * @param {string} containerId - ID del contenedor
+ * @param {Array<Date>} validSlots - Array de fechas disponibles
+ * @param {Date} selectedDate - Fecha seleccionada
+ * @param {HTMLElement} fechaInput - Input donde se escribe la fecha+hora final
+ */
+export function renderAdminSlots(containerId, validSlots, selectedDate, fechaInput) {
+  const container = document.getElementById(containerId);
+  
+  if (!container) {
+    console.warn(`⚠️ slotSelectorAdminUI: No se encontró contenedor #${containerId}`);
+    return;
+  }
+  
+  // Limpiar contenedor
+  container.innerHTML = '';
+  
+  // Caso: No hay slots disponibles
+  if (!validSlots || validSlots.length === 0) {
+    container.textContent = 'No hay horarios disponibles para esta fecha.';
+    console.log('ℹ️ slotSelectorAdminUI: Sin slots disponibles');
+    return;
+  }
+  
+  console.log(`📋 slotSelectorAdminUI: Renderizando ${validSlots.length} slots`);
+  
+  // Crear select
+  const select = document.createElement('select');
+  select.id = 'slot-selector-admin';
+  select.className = 'slot-selector-admin';
+  select.style.width = '100%';
+  select.style.padding = '8px';
+  select.style.marginTop = '10px';
+  select.style.fontSize = '14px';
+  select.style.border = '1px solid #ddd';
+  select.style.borderRadius = '4px';
+  
+  // Agregar opciones
+  validSlots.forEach((slotDate, index) => {
+    const option = document.createElement('option');
+    option.value = slotDate.toISOString();
+    option.textContent = slotDate.toLocaleTimeString('es-MX', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+    
+    select.appendChild(option);
+    
+    if (index === 0) {
+      option.selected = true;
+    }
+  });
+  
+  // Evento de cambio
+  select.addEventListener('change', () => {
+    const chosenSlot = new Date(select.value);
+    const formattedDate = selectedDate.toLocaleDateString('es-MX', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+    const formattedTime = chosenSlot.toLocaleTimeString('es-MX', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+    
+    fechaInput.value = `${formattedDate} ${formattedTime}`;
+    
+    console.log(`🕒 Slot seleccionado: ${fechaInput.value}`);
+  });
+  
+  // Agregar al contenedor
+  container.appendChild(select);
+  
+  // ✅ NO setear valor inicial automáticamente
+  // El valor solo debe cambiar cuando el usuario seleccione explícitamente
+  console.log(`✅ Select renderizado con ${validSlots.length} opciones`);
+}
+
+/**
+ * Inicializar escucha de eventos de selección de fecha
+ */
+function initEventListeners() {
+  document.addEventListener('aa:admin:date-selected', (event) => {
+    console.log('📨 slotSelectorAdminUI: Evento aa:admin:date-selected recibido');
+    const { containerId, validSlots, selectedDate, fechaInput } = event.detail;
+    renderAdminSlots(containerId, validSlots, selectedDate, fechaInput);
+  });
+  
+  console.log('👂 slotSelectorAdminUI: Escuchando eventos aa:admin:date-selected');
+}
+
+// ✅ IMPORTANTE: Inicializar INMEDIATAMENTE (no esperar DOMContentLoaded)
+// porque availabilityController.js dispara eventos durante DOMContentLoaded
+initEventListeners();
+
+// ==============================
+// 🔹 Exponer en window para compatibilidad
+// ==============================
+window.SlotSelectorAdminUI = {
+  renderAdminSlots
+};
+
+console.log('✅ SlotSelectorAdminUI cargado y expuesto globalmente');
+
+
+========================================
+FILE: assets\js\ui\slotSelectorUI.js
+========================================
+// ==============================
+// 🔹 Funciones UI de selector de slots
+// ==============================
+
+/**
+ * Renderiza selector de slots para frontend
+ * @param {string} containerId - ID del contenedor donde se renderizará el selector
+ * @param {Array<Date>} validSlots - Array de fechas disponibles
+ * @param {Function} onSelectSlot - Callback cuando se selecciona un slot
+ */
+export function render(containerId, validSlots, onSelectSlot) {
+  const container = document.getElementById(containerId);
+  
+  if (!container) {
+    console.warn(`⚠️ SlotSelectorUI: No se encontró contenedor #${containerId}`);
+    return;
+  }
+  
+  container.innerHTML = ''; // limpiar
+
+  if (!validSlots.length) {
+    container.textContent = 'No hay horarios disponibles para este día.';
+    return;
+  }
+
+  const label = document.createElement('label');
+  label.textContent = 'Horarios disponibles:';
+  label.style.display = 'block';
+  label.style.marginTop = '8px';
+
+  const select = document.createElement('select');
+  select.id = 'slot-selector';
+  select.style.marginTop = '4px';
+  select.style.width = '100%';
+  select.style.padding = '4px';
+
+  validSlots.forEach(date => {
+    const option = document.createElement('option');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    
+    option.value = date.toISOString();
+    option.textContent = `${hours}:${minutes}`;
+    select.appendChild(option);
+  });
+
+  select.addEventListener('change', () => {
+    const chosen = new Date(select.value);
+    onSelectSlot(chosen);
+  });
+
+  container.appendChild(label);
+  container.appendChild(select);
+}
+
+/**
+ * LEGACY: Mantener compatibilidad
+ */
+export function renderAvailableSlots(containerId, validSlots, onSelectSlot) {
+  console.warn('⚠️ renderAvailableSlots() es legacy, usa render() en su lugar');
+  return render(containerId, validSlots, onSelectSlot);
+}
+
+// ==============================
+// 🔹 Exponer en window para compatibilidad con código no-modular
+// ==============================
+window.SlotSelectorUI = {
+  render,
+  renderAvailableSlots
+};
+
+console.log('✅ SlotSelectorUI cargado y expuesto globalmente');
+
+
+========================================
+FILE: assets\js\utils\dateUtils.js
+========================================
+// ==============================
+// 🔹 Utilidades de manejo de fechas
+// ==============================
+
+// 🔹 Convertir Date a YYYY-MM-DD en zona horaria LOCAL
+export const ymd = d => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// Devuelve el nombre del día en inglés en minúsculas
+export function getWeekdayName(date) {
+  const days = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+  const dayIndex = date.getDay();
+  console.log(`🗓️ ${date.toDateString()} -> día ${dayIndex} (${days[dayIndex]})`);
+  return days[dayIndex];
+}
+
+// Convierte "HH:MM" a minutos desde medianoche
+export function timeStrToMinutes(str) {
+  const [h, m] = str.split(':').map(Number);
+  return h * 60 + m;
+}
+
+// Convierte Date a minutos desde medianoche
+export function minutesFromDate(d) {
+  return d.getHours() * 60 + d.getMinutes();
+}
+
+// Obtiene intervalos de un día (convertidos a minutos)
+export function getDayIntervals(aa_schedule, weekday) {
+  if (!aa_schedule || !aa_schedule[weekday] || !aa_schedule[weekday].enabled) return [];
+  const intervals = aa_schedule[weekday].intervals || [];
+  return intervals.map(iv => ({
+    start: timeStrToMinutes(iv.start),
+    end: timeStrToMinutes(iv.end)
+  }));
+}
+
+// ==============================
+// 🔹 Calcular límites de fecha (minDate/maxDate)
+// ==============================
+export function computeLimits(futureWindow) {
+  const minDate = new Date();
+  const maxDate = new Date();
+  maxDate.setDate(minDate.getDate() + futureWindow);
+  return { minDate, maxDate };
+}
+
+// ==============================
+// 🔹 Verificar si un slot tiene suficiente espacio libre
+// ==============================
+export function hasEnoughFreeTime(slotStart, durationMinutes, busyRanges) {
+  const slotEnd = new Date(slotStart.getTime() + durationMinutes * 60000);
+  
+  for (const busy of busyRanges) {
+    const overlaps = slotStart < busy.end && slotEnd > busy.start;
+    
+    if (overlaps) {
+      console.log(`❌ Slot ${slotStart.toLocaleTimeString()}-${slotEnd.toLocaleTimeString()} rechazado: intersecta con evento ${busy.start.toLocaleTimeString()}-${busy.end.toLocaleTimeString()}`);
+      return false;
+    }
+  }
+  
+  return true;
+}
+
+// ✅ Verifica si un slot está ocupado (compatibilidad)
+export function isSlotBusy(slotDate, busyRanges) {
+  return busyRanges.some(range => {
+    return slotDate >= range.start && slotDate < range.end;
+  });
+}
+
+// ✅ Genera slots disponibles para un día con duración configurable
+export function generateSlotsForDay(date, intervals, busyRanges, slotDuration = 30) {
+  const slots = [];
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  
+  const minAvailableTime = new Date(now.getTime() + 60 * 60 * 1000); // +1 hora
+  
+  console.log(`🕒 Generando slots para ${ymd(date)} con duración de ${slotDuration} min`);
+  
+  intervals.forEach(iv => {
+    for (let min = iv.start; min < iv.end; min += 30) {
+      const slot = new Date(date);
+      slot.setHours(Math.floor(min / 60), min % 60, 0, 0);
+      
+      if (isToday && slot < minAvailableTime) {
+        continue;
+      }
+      
+      if (hasEnoughFreeTime(slot, slotDuration, busyRanges)) {
+        slots.push(slot);
+      }
+    }
+  });
+  
+  console.log(`✅ ${slots.length} slots válidos generados para ${ymd(date)}`);
+  
+  return slots;
+}
+
+// ✅ Exponer globalmente para compatibilidad con scripts legacy
+window.DateUtils = {
+  ymd,
+  getWeekdayName,
+  timeStrToMinutes,
+  minutesFromDate,
+  getDayIntervals,
+  computeLimits,
+  isSlotBusy,
+  hasEnoughFreeTime,
+  generateSlotsForDay
+};
+
+console.log('✅ dateUtils.js cargado y exportado');
+
+
+========================================
+FILE: includes\auth-helper.php
+========================================
+<?php
+if (!defined('ABSPATH')) exit;
+
+/**
+ * Envía una petición autenticada con HMAC al backend
+ * 
+ * @param string $endpoint URL completa del endpoint (ej: 'http://localhost:3000/correo/confirmacion')
+ * @param string $method Método HTTP ('GET' o 'POST')
+ * @param array $data Datos a enviar (opcional para GET, requerido para POST)
+ * @return array|WP_Error Respuesta del backend o error
+ */
+function aa_send_authenticated_request($endpoint, $method = 'POST', $data = []) {
+    // 🔹 Obtener el dominio LIMPIO (sin http:// ni rutas)
+    $site_url = get_site_url(); // Ej: http://localhost/wpagenda
+    $parsed = parse_url($site_url);
+    $host = $parsed['host'] ?? 'localhost'; // Solo 'localhost'
+    
+    // 🔹 Si tiene puerto, agregarlo
+    $domain = $host;
+    if (!empty($parsed['port']) && $parsed['port'] != 80 && $parsed['port'] != 443) {
+        $domain .= ':' . $parsed['port'];
+    }
+    
+    $client_secret = get_option('aa_client_secret');
+    
+    if (!$client_secret) {
+        error_log("❌ aa_auth: No hay client_secret configurado");
+        return new WP_Error('no_secret', 'Client secret no configurado. Conecta con Google primero.');
+    }
+
+    // 🔹 Generar timestamp y nonce
+    $timestamp = round(microtime(true) * 1000); // epoch en milisegundos
+    $nonce = wp_generate_uuid4(); // UUID único
+    
+    // 🔹 Preparar el body (vacío si es GET)
+    // ✅ IMPORTANTE: JSON sin espacios para que coincida con el backend
+    $body = '';
+    if ($method === 'POST' && !empty($data)) {
+        $json = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        // Eliminar espacios después de : y ,
+        $body = preg_replace('/:\s+/', ':', $json);
+        $body = preg_replace('/,\s+/', ',', $body);
+    }
+    
+    // 🔹 Extraer path + query string
+    $parsed = parse_url($endpoint);
+    $path = $parsed['path'] ?? '/';
+    if (!empty($parsed['query'])) {
+        $path .= '?' . $parsed['query'];
+    }
+    
+    // 🔹 Construir mensaje a firmar: METHOD + PATH + BODY + TIMESTAMP + NONCE
+    $message = $method . $path . $body . $timestamp . $nonce;
+    
+    // 🔹 Calcular firma HMAC-SHA256
+    $signature = hash_hmac('sha256', $message, $client_secret);
+    
+    // 🔹 Headers de autenticación
+    $headers = [
+        'Content-Type' => 'application/json',
+        'X-Client-Id' => $domain,
+        'X-Timestamp' => (string)$timestamp,
+        'X-Nonce' => $nonce,
+        'X-Signature' => $signature,
+        'X-Client-Secret' => $client_secret,
+    ];
+    
+    // 🔹 Configurar argumentos para wp_remote_request
+    $args = [
+        'headers' => $headers,
+        'method' => $method,
+        'timeout' => 30,
+    ];
+    
+    if ($method === 'POST' && $body) {
+        $args['body'] = $body;
+    }
+    
+    // 🔹 Log mejorado
+    error_log("🔐 aa_auth: Enviando request autenticado");
+    error_log("   Domain: $domain");
+    error_log("   Client Secret (primeros 10 chars): " . substr($client_secret, 0, 10) . "...");
+    error_log("   Method: $method");
+    error_log("   Path: $path");
+    error_log("   Body length: " . strlen($body));
+    error_log("   Body compacto: " . $body);
+    error_log("   Timestamp: $timestamp");
+    error_log("   Message to sign: " . substr($message, 0, 200) . "...");
+    error_log("   Signature: $signature");
+    
+    return wp_remote_request($endpoint, $args);
+}
+
+
+========================================
+FILE: includes\controllers\availability-controller.php
+========================================
+<?php
+/**
+ * Controlador: Disponibilidad Local
+ */
+
+if (!defined('ABSPATH')) exit;
+
+require_once plugin_dir_path(__FILE__) . '../models/ReservationsModel.php';
+require_once plugin_dir_path(__FILE__) . '../services/availability-proxy.php';
+
+/**
+ * Hook para encolar datos de disponibilidad local en el FRONTEND
+ * Prioridad 20 para ejecutarse DESPUÉS de wpaa_enqueue_frontend_assets (10)
+ */
+add_action('wp_enqueue_scripts', 'aa_enqueue_local_availability_data', 20);
+
+function aa_enqueue_local_availability_data() {
+    global $post;
+    if (!is_a($post, 'WP_Post') || !has_shortcode($post->post_content, 'agenda_automatizada')) {
+        return;
+    }
+    
+    // ✅ Verificar que el script esté encolado antes de localizarlo
+    if (!wp_script_is('wpaa-availability-controller', 'enqueued')) {
+        error_log("⚠️ [AvailabilityController-Frontend] wpaa-availability-controller NO está encolado");
+        return;
+    }
+    
+    $local_busy = ReservationsModel::get_internal_busy_slots();
+    
+    error_log("📊 [AvailabilityController-Frontend] Slots ocupados locales: " . count($local_busy));
+    
+    $availability_config = [
+        'local_busy' => $local_busy,
+        'slot_duration' => intval(get_option('aa_slot_duration', 60)),
+        'timezone' => get_option('aa_timezone', 'America/Mexico_City'),
+        'total_confirmed' => ReservationsModel::count_confirmed(),
+    ];
+    
+    wp_localize_script(
+        'wpaa-availability-controller',
+        'aa_local_availability',
+        $availability_config
+    );
+    
+    error_log("✅ [AvailabilityController-Frontend] Datos locales enviados");
+}
+
+/**
+ * Hook para encolar datos de disponibilidad local en el ADMIN
+ * Prioridad 20 para ejecutarse DESPUÉS de wpaa_enqueue_admin_assets (10)
+ */
+add_action('admin_enqueue_scripts', 'aa_enqueue_admin_local_availability_data', 20);
+
+function aa_enqueue_admin_local_availability_data($hook) {
+    if ($hook !== 'toplevel_page_aa_asistant_panel' && $hook !== 'agenda-automatizada_page_aa_asistant_panel') {
+        return;
+    }
+    
+    // ✅ Verificar que el script esté encolado
+    if (!wp_script_is('wpaa-availability-controller-admin', 'enqueued')) {
+        error_log("⚠️ [AvailabilityController-Admin] wpaa-availability-controller-admin NO está encolado");
+        return;
+    }
+    
+    $local_busy = ReservationsModel::get_internal_busy_slots();
+    
+    error_log("📊 [AvailabilityController-Admin] Slots ocupados locales: " . count($local_busy));
+    
+    $availability_config = [
+        'local_busy' => $local_busy,
+        'slot_duration' => intval(get_option('aa_slot_duration', 60)),
+        'timezone' => get_option('aa_timezone', 'America/Mexico_City'),
+        'total_confirmed' => ReservationsModel::count_confirmed(),
+    ];
+    
+    wp_localize_script(
+        'wpaa-availability-controller-admin',
+        'aa_local_availability',
+        $availability_config
+    );
+    
+    error_log("✅ [AvailabilityController-Admin] Datos locales enviados");
+}
+
+
+========================================
+FILE: includes\controllers\confirm-admin-controller.php
+========================================
+<?php
+/**
+ * Controlador AJAX: Confirmación de Citas
+ * 
+ * Responsable de:
+ * - Validar peticiones AJAX
+ * - Validar nonces
+ * - Sanitizar parámetros
+ * - Delegar a confirm-backend-service.php
+ * - Retornar respuestas JSON
+ * 
+ * NO contiene lógica de negocio, ni actualizaciones de BD, ni envío de correos.
+ * 
+ * @package WP_Agenda_Automatizada
+ * @subpackage Controllers
+ */
+
+if (!defined('ABSPATH')) exit;
+
+// 🔹 Incluir servicio de backend
+require_once plugin_dir_path(__FILE__) . '../services/confirm-backend-service.php';
+
+// ===============================
+// 🔹 AJAX: Confirmar cita
+// ===============================
+add_action('wp_ajax_aa_confirmar_cita', 'aa_ajax_confirmar_cita');
+
+function aa_ajax_confirmar_cita() {
+    // ✅ USAR EL MISMO NONCE QUE LA FUNCIÓN ANTIGUA (más simple)
+    check_ajax_referer('aa_confirmar_cita', '_wpnonce');
+    
+    // ✅ Verificar permisos
+    if (!current_user_can('aa_view_panel') && !current_user_can('administrator')) {
+        wp_send_json_error(['message' => 'No tienes permisos.']);
+    }
+    
+    // ✅ Validar y sanitizar parámetros
+    if (!isset($_POST['id']) || empty($_POST['id'])) {
+        wp_send_json_error(['message' => 'ID de reserva no proporcionado.']);
+    }
+    
+    $reserva_id = intval($_POST['id']);
+    
+    if ($reserva_id <= 0) {
+        wp_send_json_error(['message' => 'ID inválido.']);
+    }
+    
+    // ✅ Delegar al servicio de backend
+    $result = confirm_backend_service_confirmar($reserva_id);
+    
+    // ✅ Retornar respuesta
+    if (isset($result['success']) && $result['success']) {
+        wp_send_json_success($result);
+    } else {
+        wp_send_json_error($result);
+    }
+}
+
+
+
+
+========================================
+FILE: includes\controllers\enqueueController.php
+========================================
+<?php
+defined('ABSPATH') or die('¡Sin acceso directo!');
+
+/**
+ * Helper para resolver rutas absolutas en plugin_dir_* con paths relativos.
+ */
+function wpaa_path($relative) {
+    return plugin_dir_path(__FILE__) . '../../' . ltrim($relative, '/');
+}
+
+function wpaa_url($relative) {
+    return plugin_dir_url(__FILE__) . '../../' . ltrim($relative, '/');
+}
+
+/**
+ * Registrar un script JS con soporte para módulos ES6.
+ */
+function wpaa_register_js($handle, $relative_path, $deps = [], $is_module = false) {
+    $url  = wpaa_url($relative_path);
+    $path = wpaa_path($relative_path);
+
+    wp_enqueue_script($handle, $url, $deps, filemtime($path), true);
+
+    if ($is_module) {
+        add_filter('script_loader_tag', function($tag, $h) use ($handle) {
+            if ($h === $handle) {
+                return str_replace('<script ', '<script type="module" ', $tag);
+            }
+            return $tag;
+        }, 10, 2);
+    }
+}
+
+/**
+ * Localización segura y compacta de variables.
+ */
+function wpaa_localize($handle, $object_name, $data) {
+    wp_localize_script($handle, $object_name, $data);
+}
+
+/**
+ * Obtener locale según timezone.
+ */
+function wpaa_locale_from_timezone($tz) {
+    $map = [
+        'America/Mexico_City' => 'es-MX', 'America/Cancun' => 'es-MX',
+        'America/Tijuana' => 'es-MX', 'America/Monterrey' => 'es-MX',
+        'America/Bogota' => 'es-CO', 'America/Lima' => 'es-PE',
+        'America/Argentina/Buenos_Aires' => 'es-AR', 'America/Santiago' => 'es-CL',
+        'America/New_York' => 'en-US', 'America/Los_Angeles' => 'en-US',
+        'Europe/Madrid' => 'es-ES', 'Europe/London' => 'en-GB'
+    ];
+    return $map[$tz] ?? 'es-MX';
+}
+
+/* ============================================================
+   FRONTEND
+============================================================ */
+// ===============================
+// 🔹 FRONTEND: Shortcode [agenda_automatizada]
+// ===============================
+add_action('wp_enqueue_scripts', 'wpaa_enqueue_frontend_assets');
+
+function wpaa_enqueue_frontend_assets() {
+    global $post;
+    if (!is_a($post, 'WP_Post') || !has_shortcode($post->post_content, 'agenda_automatizada')) {
+        return;
+    }
+
+    // CSS
+    wp_enqueue_style('flatpickr-css', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css');
+    wp_enqueue_style('wpaa-frontend-styles', wpaa_url('css/styles.css'), [], filemtime(wpaa_path('css/styles.css')));
+
+    // JS externos
+    wp_enqueue_script('flatpickr-js', 'https://cdn.jsdelivr.net/npm/flatpickr', [], null, true);
+    wp_enqueue_script('flatpickr-es', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js', ['flatpickr-js'], null, true);
+
+    // ✅ IMPORTANTE: Cargar datos locales ANTES de cualquier script
+    wpaa_localize_local_availability();
+
+    $frontend_scripts = [
+        ['wpaa-date-utils',              'assets/js/utils/dateUtils.js',              [], true],
+        ['wpaa-calendar-ui',             'assets/js/ui/calendarUI.js',                
+                                         ['flatpickr-js', 'flatpickr-es'], true],
+        ['wpaa-slot-selector-ui',        'assets/js/ui/slotSelectorUI.js',            [], true],
+        ['wpaa-proxy-fetch',             'assets/js/services/availability/proxyFetch.js', [], true],
+        ['wpaa-combine-local-external',  'assets/js/services/availability/combineLocalExternal.js', [], true],
+        ['wpaa-busy-ranges',             'assets/js/services/availability/busyRanges.js', [], true],
+        ['wpaa-slot-calculator',         'assets/js/services/availability/slotCalculator.js', 
+                                         ['wpaa-date-utils'], true],
+        ['wpaa-availability-service',    'assets/js/services/availabilityService.js',
+                                         ['wpaa-date-utils', 'wpaa-proxy-fetch', 'wpaa-combine-local-external', 'wpaa-busy-ranges', 'wpaa-slot-calculator'], true],
+        ['wpaa-reservation-service',     'assets/js/services/reservationService.js',  [], true],
+        ['wpaa-availability-controller', 'assets/js/controllers/availabilityController.js',
+                                         ['wpaa-date-utils', 'wpaa-calendar-ui', 'wpaa-slot-selector-ui', 'wpaa-availability-service'], true],
+        ['wpaa-reservation-controller',  'assets/js/controllers/reservationController.js',
+                                         ['wpaa-reservation-service'], true],
+        ['wpaa-main-frontend',           'assets/js/main-frontend.js',
+                                         ['wpaa-availability-controller', 'wpaa-reservation-controller', 'wpaa-calendar-ui'], false],
+    ];
+
+    foreach ($frontend_scripts as [$h, $p, $d, $m]) {
+        wpaa_register_js($h, $p, $d, $m);
+    }
+
+    wpaa_localize('wpaa-availability-controller', 'aa_backend', [
+        'ajax_url' => admin_url('admin-ajax.php'),
+        'action'   => 'aa_get_availability',
+        'email'    => get_option('aa_google_email', ''),
+    ]);
+
+    wpaa_localize('wpaa-availability-controller', 'aa_schedule',      get_option('aa_schedule', []));
+    wpaa_localize('wpaa-availability-controller', 'aa_future_window', intval(get_option('aa_future_window', 15)));
+    wpaa_localize('wpaa-availability-controller', 'aa_slot_duration', intval(get_option('aa_slot_duration', 60)));
+
+    wpaa_localize('wpaa-reservation-service', 'aa_reservation_config', [
+        'ajax_url' => admin_url('admin-ajax.php'),
+        'nonce'    => wp_create_nonce('aa_reservation_nonce'),
+    ]);
+
+    $timezone = get_option('aa_timezone', 'America/Mexico_City');
+    
+    wpaa_localize('wpaa-reservation-controller', 'wpaa_vars', [
+        'ajax_url' => admin_url('admin-ajax.php'),
+        'nonce' => wp_create_nonce('aa_reservation_nonce'),
+        'whatsapp_number' => get_option('aa_whatsapp_number', '5215522992290'),
+        'timezone' => $timezone,
+        'locale' => wpaa_locale_from_timezone($timezone)
+    ]);
+}
+
+/**
+ * Inyectar disponibilidad local ANTES de scripts JS
+ */
+function wpaa_localize_local_availability() {
+    // Aquí debes cargar las reservas confirmadas de la BD
+    // Ejemplo (ajustar según tu modelo de datos):
+    
+    global $wpdb;
+    $table = $wpdb->prefix . 'aa_reservations';
+    
+    $confirmed = $wpdb->get_results("
+        SELECT fecha_inicio as start, fecha_fin as end, nombre as title, email as attendee 
+        FROM $table 
+        WHERE estado = 'confirmed' 
+        AND fecha_inicio >= NOW()
+        ORDER BY fecha_inicio ASC
+    ");
+
+    $local_busy = [];
+    foreach ($confirmed as $row) {
+        $local_busy[] = [
+            'start' => $row->start,
+            'end' => $row->end,
+            'title' => $row->title,
+            'attendee' => $row->attendee
+        ];
+    }
+
+    wp_localize_script('wpaa-availability-controller', 'aa_local_availability', [
+        'local_busy' => $local_busy,
+        'slot_duration' => intval(get_option('aa_slot_duration', 60)),
+        'timezone' => get_option('aa_timezone', 'America/Mexico_City'),
+        'total_confirmed' => count($local_busy)
+    ]);
+}
+
+/* ============================================================
+   ADMIN
+============================================================ */
+function wpaa_enqueue_admin_assets($hook) {
+
+    // --- Pantalla principal de ajustes ---
+    if ($hook === 'toplevel_page_agenda-automatizada-settings') {
+        wp_enqueue_style('flatpickr-css-admin', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css');
+        wp_enqueue_script('flatpickr-js-admin', 'https://cdn.jsdelivr.net/npm/flatpickr', [], null, true);
+        wp_enqueue_script('flatpickr-es-admin', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js', ['flatpickr-js-admin'], null, true);
+
+        wpaa_register_js('aa-admin-schedule', 'js/admin-schedule.js', ['flatpickr-js-admin']);
+        wpaa_register_js('aa-admin-controls', 'js/admin-controls.js');
+    }
+
+    // --- Panel del asistente ---
+    if ($hook === 'toplevel_page_aa_asistant_panel' || $hook === 'agenda-automatizada_page_aa_asistant_panel') {
+
+        // 🔹 Encolar CSS del panel del asistente
+        wp_enqueue_style('wpaa-asistant-panel-styles', wpaa_url('css/styles.css'), [], filemtime(wpaa_path('css/styles.css')));
+
+        wp_enqueue_style('flatpickr-css-admin', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css');
+        wp_enqueue_script('flatpickr-js-admin', 'https://cdn.jsdelivr.net/npm/flatpickr', [], null, true);
+        wp_enqueue_script('flatpickr-es-admin', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js', ['flatpickr-js-admin'], null, true);
+
+        // Scripts admin declarados
+        $admin_scripts = [
+            // 🔹 Utilidades
+            ['wpaa-date-utils-admin',              'assets/js/utils/dateUtils.js',              [], true],
+            
+            // 🔹 UI (PRIMERO, antes de controladores)
+            ['wpaa-calendar-ui-admin',             'assets/js/ui/calendarUI.js',                
+                                                   ['flatpickr-js-admin', 'flatpickr-es-admin'], true],
+            ['wpaa-calendar-admin-ui',             'assets/js/ui/calendarAdminUI.js',           
+                                                   ['flatpickr-js-admin', 'flatpickr-es-admin'], true],
+            ['wpaa-slot-selector-admin-ui',        'assets/js/ui/slotSelectorAdminUI.js',       [], true],
+            
+            // 🔹 Servicios (AJAX)
+            ['wpaa-proxy-fetch-admin',             'assets/js/services/availability/proxyFetch.js', [], true],
+            ['wpaa-combine-local-external-admin',  'assets/js/services/availability/combineLocalExternal.js', [], true],
+            ['wpaa-busy-ranges-admin',             'assets/js/services/availability/busyRanges.js', [], true],
+            ['wpaa-slot-calculator-admin',         'assets/js/services/availability/slotCalculator.js', 
+                                                   ['wpaa-date-utils-admin'], true],
+            ['wpaa-availability-service-admin',    'assets/js/services/availabilityService.js',
+                                                   ['wpaa-date-utils-admin', 'wpaa-proxy-fetch-admin', 'wpaa-combine-local-external-admin', 'wpaa-busy-ranges-admin', 'wpaa-slot-calculator-admin'], true],
+            ['wpaa-reservation-service-admin',     'assets/js/services/reservationService.js',  [], true],
+            ['wpaa-confirm-service',               'assets/js/services/confirmService.js',      [], false],
+            
+            // 🔹 Módulos UI (renderizado puro)
+            ['aa-proximas-citas-ui',               'assets/js/ui/proximasCitasUI.js',          [], false],
+            
+            // 🔹 Controladores (DESPUÉS de UI y Services)
+            ['wpaa-availability-controller-admin', 'assets/js/controllers/availabilityController.js',
+                                                   ['wpaa-date-utils-admin', 'wpaa-calendar-admin-ui', 'wpaa-slot-selector-admin-ui', 'wpaa-availability-service-admin'], true],
+            ['wpaa-admin-reservation-controller',  'assets/js/controllers/adminReservationController.js',
+                                                   ['wpaa-reservation-service-admin'], true],
+            ['wpaa-admin-confirm-controller',      'assets/js/controllers/adminConfirmController.js',
+                                                   ['wpaa-confirm-service'], false],
+            ['wpaa-proximas-citas-controller',     'assets/js/controllers/proximasCitasController.js',
+                                                   ['aa-proximas-citas-ui', 'wpaa-admin-confirm-controller'], false],
+            
+            // 🔹 Punto de entrada (ÚLTIMO)
+            ['wpaa-main-admin',                    'assets/js/main-admin.js',
+                                                   ['wpaa-admin-reservation-controller','wpaa-date-utils-admin', 'wpaa-availability-controller-admin'], true],
+            
+            // 🔹 Scripts legacy (compatibilidad)
+            ['aa-asistant-controls',               'js/asistant-controls.js',                  [], false],
+            ['aa-historial-citas',                 'js/historial-citas.js',                    [], false],
+            ['aa-proximas-citas',                  'js/proximas-citas.js',                     ['wpaa-proximas-citas-controller'], false],
+        ];
+
+        foreach ($admin_scripts as [$h, $p, $d, $m]) {
+            wpaa_register_js($h, $p, $d, $m);
+        }
+
+        // Localize comunes admin
+        wpaa_localize('wpaa-date-utils-admin', 'wpaa_vars', [
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'timezone' => get_option('aa_timezone', 'America/Mexico_City'),
+            'locale'   => get_option('aa_locale', 'es-MX'),
+            'nonce'    => wp_create_nonce('aa_reservation_nonce'),
+        ]);
+
+        $email = sanitize_email(get_option('aa_google_email', ''));
+
+        wpaa_localize('wpaa-availability-controller-admin', 'aa_backend', [
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'action'   => 'aa_get_availability',
+            'email'    => $email,
+        ]);
+
+        wpaa_localize('wpaa-availability-controller-admin', 'aa_schedule',      get_option('aa_schedule', []));
+        wpaa_localize('wpaa-availability-controller-admin', 'aa_future_window', intval(get_option('aa_future_window', 15)));
+        wpaa_localize('wpaa-availability-controller-admin', 'aa_slot_duration', intval(get_option('aa_slot_duration', 60)));
+
+        wpaa_localize('aa-asistant-controls', 'aa_asistant_vars', [
+            'nonce_confirmar' => wp_create_nonce('aa_confirmar_cita'),
+            'nonce_cancelar'  => wp_create_nonce('aa_cancelar_cita'),
+            'nonce_crear_cliente' => wp_create_nonce('aa_crear_cliente'),
+            'nonce_crear_cita' => wp_create_nonce('aa_reservation_nonce'),
+            'nonce_crear_cliente_desde_cita' => wp_create_nonce('aa_crear_cliente_desde_cita'),
+            'nonce_editar_cliente' => wp_create_nonce('aa_editar_cliente'),
+        ]);
+
+        wpaa_localize('aa-historial-citas', 'aa_historial_vars', [
+            'nonce' => wp_create_nonce('aa_historial_citas'),
+        ]);
+
+        wpaa_localize('aa-proximas-citas', 'aa_proximas_vars', [
+            'nonce' => wp_create_nonce('aa_proximas_citas'),
+        ]);
+    }
+}
+add_action('admin_enqueue_scripts', 'wpaa_enqueue_admin_assets');
+
+
+
+========================================
+FILE: includes\controllers\proximasCitasController.php
+========================================
+<?php
+/**
+ * Controlador: Próximas Citas y Gestión de Estado
+ * 
+ * Maneja:
+ * - Obtención y filtrado de próximas citas (AJAX)
+ * - Confirmación manual de citas
+ * - Cancelación de citas (con eliminación en Google Calendar)
+ * 
+ * @package WP_Agenda_Automatizada
+ * @subpackage Controllers
+ */
+
+if (!defined('ABSPATH')) exit;
+
+// ===============================
+// 🔹 AJAX: Obtener próximas citas
+// ===============================
+add_action('wp_ajax_aa_get_proximas_citas', 'aa_ajax_get_proximas_citas');
+
+function aa_ajax_get_proximas_citas() {
+    // Verificar nonce
+    check_ajax_referer('aa_proximas_citas');
+    
+    // Verificar permisos
+    if (!current_user_can('aa_view_panel') && !current_user_can('administrator')) {
+        wp_send_json_error(['message' => 'No tienes permisos.']);
+    }
+    
+    global $wpdb;
+    $table = $wpdb->prefix . 'aa_reservas';
+    
+    // 🔹 Obtener fecha y hora actual según aa_timezone
+    $now = aa_get_current_datetime();
+    
+    error_log("🕐 [ProximasCitas] Hora actual: $now");
+    
+    // 🔹 Obtener slot_duration para calcular fecha de fin
+    $slot_duration = intval(get_option('aa_slot_duration', 60));
+    
+    // 🔹 Parámetros de búsqueda
+    $buscar = isset($_POST['buscar']) ? sanitize_text_field($_POST['buscar']) : '';
+    $ordenar = isset($_POST['ordenar']) ? sanitize_text_field($_POST['ordenar']) : 'fecha_asc';
+    $pagina = isset($_POST['pagina']) ? intval($_POST['pagina']) : 1;
+    $por_pagina = 10;
+    $offset = ($pagina - 1) * $por_pagina;
+    
+    // 🔹 Construcción de la consulta base
+    // Solo mostrar citas que AÚN NO TERMINARON (fecha + slot_duration >= ahora)
+    $where = "WHERE DATE_ADD(fecha, INTERVAL %d MINUTE) >= %s";
+    $params = [$slot_duration, $now];
+    
+    error_log("📋 [ProximasCitas] Buscando citas que terminan después de: $now (duración: {$slot_duration} min)");
+    
+    // 🔹 Filtro de búsqueda
+    if (!empty($buscar)) {
+        $where .= " AND (nombre LIKE %s OR telefono LIKE %s OR correo LIKE %s OR servicio LIKE %s)";
+        $like_buscar = '%' . $wpdb->esc_like($buscar) . '%';
+        $params[] = $like_buscar;
+        $params[] = $like_buscar;
+        $params[] = $like_buscar;
+        $params[] = $like_buscar;
+    }
+    
+    // 🔹 Ordenamiento
+    $order_by = match($ordenar) {
+        'fecha_asc' => 'ORDER BY fecha ASC',
+        'fecha_desc' => 'ORDER BY fecha DESC',
+        'cliente_asc' => 'ORDER BY nombre ASC',
+        'cliente_desc' => 'ORDER BY nombre DESC',
+        'estado_asc' => 'ORDER BY estado ASC',
+        'estado_desc' => 'ORDER BY estado DESC',
+        default => 'ORDER BY fecha ASC'
+    };
+    
+    // 🔹 Contar total de registros
+    $total_query = "SELECT COUNT(*) FROM $table $where";
+    $total = $wpdb->get_var($wpdb->prepare($total_query, $params));
+    
+    // 🔹 Obtener registros paginados
+    $query = "SELECT *, DATE_ADD(fecha, INTERVAL %d MINUTE) as fecha_fin FROM $table $where $order_by LIMIT %d OFFSET %d";
+    $params_query = array_merge([$slot_duration], $params, [$por_pagina, $offset]);
+    
+    $citas = $wpdb->get_results($wpdb->prepare($query, $params_query));
+    
+    // 🔹 Calcular paginación
+    $total_paginas = ceil($total / $por_pagina);
+    
+    error_log("✅ [ProximasCitas] Encontradas {$total} citas, mostrando página {$pagina} de {$total_paginas}");
+    
+    wp_send_json_success([
+        'citas' => $citas,
+        'pagina_actual' => $pagina,
+        'total_paginas' => $total_paginas,
+        'total_registros' => $total
+    ]);
+}
+
+
+
+// ===============================
+// 🔹 AJAX: Cancelar cita (con eliminación en Google Calendar)
+// ===============================
+add_action('wp_ajax_aa_cancelar_cita', 'aa_ajax_cancelar_cita');
+
+function aa_ajax_cancelar_cita() {
+    check_ajax_referer('aa_cancelar_cita');
+    
+    if (!current_user_can('aa_view_panel') && !current_user_can('administrator')) {
+        wp_send_json_error(['message' => 'No tienes permisos.']);
+    }
+    
+    $id = intval($_POST['id']);
+    if (!$id) {
+        wp_send_json_error(['message' => 'ID inválido.']);
+    }
+    
+    global $wpdb;
+    $table = $wpdb->prefix . 'aa_reservas';
+    
+    // 🔹 Obtener datos de la reserva (especialmente calendar_uid)
+    $reserva = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM $table WHERE id = %d",
+        $id
+    ));
+    
+    if (!$reserva) {
+        wp_send_json_error(['message' => 'Reserva no encontrada.']);
+    }
+    
+    // 🔹 PASO 1: Actualizar estado en WordPress
+    $updated = $wpdb->update($table, ['estado' => 'cancelled'], ['id' => $id]);
+    
+    if ($updated === false) {
+        wp_send_json_error(['message' => 'Error al actualizar en BD.']);
+    }
+    
+    error_log("✅ Cita ID $id marcada como 'cancelled' en WordPress");
+    
+    // 🔹 PASO 2: Eliminar evento de Google Calendar (si existe calendar_uid)
+    $calendar_deleted = false;
+    
+    if (!empty($reserva->calendar_uid)) {
+        error_log("🗓️ Intentando eliminar evento de Google Calendar: {$reserva->calendar_uid}");
+        
+        // Extraer dominio limpio
+        $site_url = get_site_url();
+        $parsed_url = parse_url($site_url);
+        $host = $parsed_url['host'] ?? 'localhost';
+        
+        if (stripos($host, 'localhost') !== false || $host === '127.0.0.1') {
+            $domain = 'localhost';
+        } else {
+            $domain = preg_replace('/^www\./', '', $host);
+        }
+        
+        // Determinar URL del backend
+        $backend_url = (strpos($site_url, 'localhost') !== false)
+            ? 'http://localhost:3000/cancelaciones/cancelar-cita'
+            : 'https://deoia-oauth-backend.onrender.com/cancelaciones/cancelar-cita';
+        
+        // Datos para enviar al backend
+        $backend_data = [
+            'domain' => $domain,
+            'calendar_uid' => $reserva->calendar_uid,
+        ];
+        
+        error_log("📤 Enviando solicitud de cancelación a: $backend_url");
+        error_log("📦 Datos: " . json_encode($backend_data));
+        
+        // Enviar petición autenticada con HMAC
+        $response = aa_send_authenticated_request($backend_url, 'POST', $backend_data);
+        
+        if (is_wp_error($response)) {
+            error_log("⚠️ Error al contactar backend para cancelar: " . $response->get_error_message());
+            // No fallar aquí, la cita ya fue cancelada en WordPress
+        } else {
+            $status = wp_remote_retrieve_response_code($response);
+            $body = wp_remote_retrieve_body($response);
+            $decoded = json_decode($body, true);
+            
+            error_log("📥 Respuesta del backend (HTTP $status): " . print_r($decoded, true));
+            
+            if ($status >= 200 && $status < 300 && isset($decoded['success']) && $decoded['success']) {
+                error_log("✅ Evento eliminado de Google Calendar exitosamente");
+                $calendar_deleted = true;
+            } elseif ($status === 404 || $status === 410) {
+                error_log("ℹ️ El evento ya no existe en Google Calendar (puede haber sido eliminado antes)");
+                $calendar_deleted = true; // Consideramos exitoso si ya no existe
+            } else {
+                error_log("⚠️ El backend respondió con error al intentar cancelar en Google Calendar");
+            }
+        }
+    } else {
+        error_log("ℹ️ La cita ID $id no tiene calendar_uid asociado, no se eliminará de Google Calendar");
+    }
+    
+    wp_send_json_success([
+        'message' => 'Cita cancelada correctamente.',
+        'calendar_deleted' => $calendar_deleted
+    ]);
+}
+
+
+========================================
+FILE: includes\models\ReservationsModel.php
+========================================
+<?php
+/**
+ * Modelo: Reservaciones
+ * 
+ * Responsable de:
+ * - Consultas a la tabla wp_aa_reservas
+ * - Obtención de slots ocupados localmente
+ * - Formateo de datos para disponibilidad
+ * 
+ * @package WP_Agenda_Automatizada
+ * @subpackage Models
+ */
+
+if (!defined('ABSPATH')) exit;
+
+class ReservationsModel {
+
+    /**
+     * Obtener slots ocupados desde la base de datos local
+     * 
+     * @return array Array de slots ocupados con formato [start, end]
+     */
+    public static function get_internal_busy_slots() {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_reservas';
+        
+        // 🔹 Obtener slot_duration configurado
+        $slot_duration = intval(get_option('aa_slot_duration', 60));
+        
+        // 🔹 Consultar solo citas confirmadas que NO han terminado
+        $now = aa_get_current_datetime();
+        
+        $rows = $wpdb->get_results($wpdb->prepare("
+            SELECT 
+                fecha as start,
+                DATE_ADD(fecha, INTERVAL %d MINUTE) as end,
+                servicio,
+                nombre
+            FROM $table 
+            WHERE estado = 'confirmed'
+            AND DATE_ADD(fecha, INTERVAL %d MINUTE) >= %s
+            ORDER BY fecha ASC
+        ", $slot_duration, $slot_duration, $now));
+        
+        if ($wpdb->last_error) {
+            error_log("❌ [ReservationsModel] Error en consulta: " . $wpdb->last_error);
+            return [];
+        }
+        
+        error_log("✅ [ReservationsModel] Encontradas " . count($rows) . " citas confirmadas");
+        
+        // 🔹 Formatear resultados en estructura compatible con Google Calendar
+        return array_map(function($row) {
+            return [
+                'start' => $row->start,
+                'end'   => $row->end,
+                'title' => $row->servicio ?? 'Cita',
+                'attendee' => $row->nombre ?? 'Sin nombre'
+            ];
+        }, $rows);
+    }
+    
+    /**
+     * Obtener todas las citas confirmadas (para debug)
+     * 
+     * @return array
+     */
+    public static function get_all_confirmed() {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_reservas';
+        
+        $rows = $wpdb->get_results("
+            SELECT * 
+            FROM $table 
+            WHERE estado = 'confirmed'
+            ORDER BY fecha DESC
+            LIMIT 50
+        ");
+        
+        return $rows ?? [];
+    }
+    
+    /**
+     * Contar citas confirmadas
+     * 
+     * @return int
+     */
+    public static function count_confirmed() {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_reservas';
+        
+        $count = $wpdb->get_var("
+            SELECT COUNT(*) 
+            FROM $table 
+            WHERE estado = 'confirmed'
+        ");
+        
+        return intval($count);
+    }
+}
+
+
+========================================
+FILE: includes\services\availability-proxy.php
+========================================
+<?php
+if (!defined('ABSPATH')) exit;
+
+function aa_build_availability_url_for($email) {
+    $backend_url = AA_API_BASE_URL . "/calendar/availability";
+
+    $now = new DateTime('now', new DateTimeZone('UTC'));
+    $future = new DateTime('+1 month', new DateTimeZone('UTC'));
+
+    $site_url = get_site_url();
+    $parsed_url = parse_url($site_url);
+    $host = $parsed_url['host'] ?? '';
+    
+    if (stripos($host, 'localhost') !== false || $host === '127.0.0.1') {
+        $domain = 'localhost';
+    } else {
+        $domain = preg_replace('/^www\./', '', $host);
+    }
+
+    $params = [
+        'domain'  => $domain,
+        'email'   => $email,
+        'timeMin' => $now->format(DateTime::ATOM),
+        'timeMax' => $future->format(DateTime::ATOM),
+    ];
+
+    return $backend_url . '?' . http_build_query($params);
+}
+
+// Endpoint AJAX (público y autenticado) que actúa como proxy al backend
+add_action('wp_ajax_nopriv_aa_get_availability', 'aa_ajax_get_availability');
+add_action('wp_ajax_aa_get_availability', 'aa_ajax_get_availability');
+
+function aa_ajax_get_availability() {
+    $email = isset($_REQUEST['email']) ? sanitize_email(wp_unslash($_REQUEST['email'])) : sanitize_email(get_option('aa_google_email', ''));
+
+    if (empty($email)) {
+        error_log("❌ aa_availability: No hay email configurado");
+        wp_send_json_error(['message' => 'No email configured'], 400);
+    }
+
+    $backend_url = aa_build_availability_url_for($email);
+    
+    error_log("📤 aa_availability: Consultando disponibilidad");
+    error_log("   Email: $email");
+    error_log("   URL: $backend_url");
+
+    $response = aa_send_authenticated_request($backend_url, 'GET');
+
+    if (is_wp_error($response)) {
+        error_log("❌ aa_availability: Error WP - " . $response->get_error_message());
+        wp_send_json_error(['message' => 'request_failed', 'error' => $response->get_error_message()], 500);
+    }
+
+    $code = wp_remote_retrieve_response_code($response);
+    $body = wp_remote_retrieve_body($response);
+    
+    error_log("📥 aa_availability: Respuesta recibida (status $code)");
+
+    if ($code === 401 || $code === 403) {
+        $decoded = json_decode($body, true);
+        error_log("🔒 Error de autenticación en availability: " . ($decoded['error'] ?? 'Sin detalles'));
+        wp_send_json_error([
+            'message' => 'authentication_failed',
+            'error' => $decoded['error'] ?? 'Unauthorized'
+        ], $code);
+    }
+
+    if ($code >= 500) {
+        $decoded = json_decode($body, true);
+        error_log("🔥 Error 500 del backend: " . print_r($decoded, true));
+        wp_send_json_error([
+            'message' => 'backend_error',
+            'error' => $decoded['error'] ?? 'Internal server error'
+        ], $code);
+    }
+
+    status_header($code);
+    header('Content-Type: application/json; charset=utf-8');
+    echo $body;
+    wp_die();
+}
+
+
+========================================
+FILE: includes\services\confirm-backend-service.php
+========================================
+<?php
+/**
+ * Servicio: Confirmación de Citas con Backend
+ * 
+ * Responsable de:
+ * - Obtener datos de la reserva desde WordPress
+ * - Construir payload para el backend
+ * - Enviar petición autenticada con HMAC
+ * - Actualizar estado de la reserva en WordPress
+ * 
+ * NO contiene validaciones de AJAX ni permisos (eso es del controlador).
+ * 
+ * @package WP_Agenda_Automatizada
+ * @subpackage Services
+ */
+
+if (!defined('ABSPATH')) exit;
+
+/**
+ * Confirmar una cita enviando solicitud al backend
+ * 
+ * @param int $reserva_id ID de la reserva
+ * @return array ['success' => bool, 'message' => string, 'data' => array]
+ */
+function confirm_backend_service_confirmar($reserva_id) {
+    global $wpdb;
+    $table = $wpdb->prefix . 'aa_reservas';
+    
+    // 1️⃣ Obtener datos de la reserva
+    $reserva = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM $table WHERE id = %d",
+        $reserva_id
+    ));
+    
+    if (!$reserva) {
+        return [
+            'success' => false,
+            'message' => 'Reserva no encontrada.'
+        ];
+    }
+    
+    // 🔹 PASO 1: Actualizar estado en WordPress PRIMERO
+    $updated = $wpdb->update($table, ['estado' => 'confirmed'], ['id' => $reserva_id]);
+    
+    if ($updated === false) {
+        error_log("❌ [ConfirmService] Error al actualizar estado en WordPress");
+        return [
+            'success' => false,
+            'message' => 'Error al actualizar el estado en la base de datos.'
+        ];
+    }
+    
+    error_log("✅ [ConfirmService] Cita ID $reserva_id marcada como 'confirmed' en WordPress");
+    
+    // 2️⃣ Obtener configuración
+    $slot_duration = intval(get_option('aa_slot_duration', 60));
+    $business_name = get_option('aa_business_name', get_bloginfo('name'));
+    $business_address = get_option('aa_business_address', 'No especificada');
+    
+    // 3️⃣ Extraer dominio limpio
+    $site_url = get_site_url();
+    $parsed_url = parse_url($site_url);
+    $host = $parsed_url['host'] ?? 'localhost';
+    
+    if (stripos($host, 'localhost') !== false || $host === '127.0.0.1') {
+        $domain = 'localhost';
+    } else {
+        $domain = preg_replace('/^www\./', '', $host);
+    }
+    
+    // 4️⃣ Determinar URL del backend
+    $backend_url = (strpos($site_url, 'localhost') !== false)
+        ? 'http://localhost:3000/calendar/crear-reserva-directa'
+        : 'https://deoia-oauth-backend.onrender.com/calendar/crear-reserva-directa';
+    
+    // 5️⃣ Formatear fecha según el backend espera (ISO 8601 con timezone)
+    $timezone = get_option('aa_timezone', 'America/Mexico_City');
+    
+    try {
+        $fecha_obj = new DateTime($reserva->fecha, new DateTimeZone($timezone));
+        $fecha_iso = $fecha_obj->format('c'); // Formato: 2025-11-17T09:30:00-06:00
+    } catch (Exception $e) {
+        error_log("❌ [ConfirmService] Error al formatear fecha: " . $e->getMessage());
+        return [
+            'success' => false,
+            'message' => 'Error al formatear la fecha de la reserva.'
+        ];
+    }
+    
+    // 6️⃣ Construir payload para el backend
+    $payload = [
+        'domain' => $domain,
+        'nombre' => $reserva->nombre,
+        'servicio' => $reserva->servicio,
+        'fecha' => $fecha_iso,
+        'telefono' => $reserva->telefono,
+        'email' => $reserva->correo,
+        'slot_duration' => $slot_duration,
+        'businessName' => $business_name,
+        'businessAddress' => $business_address,
+        'id_reserva' => $reserva_id
+    ];
+    
+    error_log("📤 [ConfirmService] Enviando confirmación al backend:");
+    error_log("   URL: $backend_url");
+    error_log("   Payload: " . json_encode($payload, JSON_PRETTY_PRINT));
+    
+    // 7️⃣ Enviar petición autenticada con HMAC
+    $response = aa_send_authenticated_request($backend_url, 'POST', $payload);
+    
+    if (is_wp_error($response)) {
+        error_log("⚠️ [ConfirmService] Error al contactar backend: " . $response->get_error_message());
+        // ⚠️ La cita YA está confirmada en WordPress, pero no en Google Calendar
+        return [
+            'success' => true, // ← TRUE porque sí se confirmó en WordPress
+            'message' => 'Cita confirmada en WordPress, pero no se pudo sincronizar con Google Calendar: ' . $response->get_error_message(),
+            'calendar_sync' => false
+        ];
+    }
+    
+    // 8️⃣ Procesar respuesta
+    $status = wp_remote_retrieve_response_code($response);
+    $body = wp_remote_retrieve_body($response);
+    $decoded = json_decode($body, true);
+    
+    error_log("📥 [ConfirmService] Respuesta del backend (HTTP $status):");
+    error_log("   " . print_r($decoded, true));
+    
+    if ($status >= 200 && $status < 300 && isset($decoded['success']) && $decoded['success']) {
+        // ✅ Backend confirmó exitosamente
+        
+        // 9️⃣ Actualizar calendar_uid en WordPress
+        $calendar_uid = $decoded['data']['event_id'] ?? null;
+        
+        if ($calendar_uid) {
+            $wpdb->update($table, ['calendar_uid' => $calendar_uid], ['id' => $reserva_id]);
+            error_log("✅ [ConfirmService] calendar_uid actualizado: $calendar_uid");
+        }
+        
+        return [
+            'success' => true,
+            'message' => $decoded['data']['existed'] 
+                ? 'Cita confirmada. El evento ya existía en Google Calendar.' 
+                : 'Cita confirmada y agregada a Google Calendar.',
+            'data' => [
+                'event_id' => $calendar_uid,
+                'event_link' => $decoded['data']['event_link'] ?? null,
+                'existed' => $decoded['data']['existed'] ?? false,
+                'calendar_sync' => true
+            ]
+        ];
+        
+    } else {
+        // ❌ Backend respondió con error
+        $error_message = $decoded['message'] ?? 'Error desconocido del backend.';
+        
+        error_log("⚠️ [ConfirmService] Backend respondió con error: $error_message");
+        
+        // ⚠️ La cita YA está confirmada en WordPress, solo falló la sincronización
+        return [
+            'success' => true, // ← TRUE porque sí se confirmó en WordPress
+            'message' => "Cita confirmada en WordPress, pero falló la sincronización con Google Calendar: $error_message",
+            'calendar_sync' => false
+        ];
+    }
+}
+
+
+========================================
+FILE: views\admin-controls.php
+========================================
+<?php
+if (!defined('ABSPATH')) exit;
+
+// Crear página de configuración en el menú de WordPress
+add_action('admin_menu', function() {
+    add_menu_page(
+        'Agenda Automatizada',
+        'Agenda Automatizada',
+        'manage_options',
+        'agenda-automatizada-settings',
+        'agenda_automatizada_render_settings_page',
+        'dashicons-calendar-alt'
+    );
+});
+
+// 🔹 Submenú visible para el admin: Panel del Asistente
+add_action('admin_menu', function () {
+    // Si es administrador, agregar pestaña del asistente debajo del menú principal
+    if (current_user_can('administrator')) {
+        add_submenu_page(
+            'agenda-automatizada-settings',
+            'Panel del Asistente',
+            'Panel del Asistente',
+            'administrator',
+            'aa_asistant_panel',
+            'aa_render_asistant_panel'
+        );
+    }
+
+    // 🔹 Menú principal exclusivo para el rol aa_asistente
+    if (current_user_can('aa_asistente')) {
+        add_menu_page(
+            'Panel del Asistente',
+            'Panel del Asistente',
+            'read', // ✅ Cambiar de 'aa_asistente' a 'read' para que WordPress lo permita
+            'aa_asistant_panel',
+            'aa_render_asistant_panel',
+            'dashicons-calendar-alt',
+            30
+        );
+    }
+});
+
+
+// Registrar settings
+add_action('admin_init', function() {
+    register_setting('agenda_automatizada_settings', 'aa_schedule');
+    register_setting('agenda_automatizada_settings', 'aa_slot_duration');
+    register_setting('agenda_automatizada_settings', 'aa_future_window');
+    register_setting('agenda_automatizada_settings', 'aa_google_email');
+    register_setting('agenda_automatizada_settings', 'aa_google_motivo');
+    register_setting('agenda_automatizada_settings', 'aa_timezone');
+    register_setting('agenda_automatizada_settings', 'aa_business_name');
+    register_setting('agenda_automatizada_settings', 'aa_business_address');
+    register_setting('agenda_automatizada_settings', 'aa_is_virtual');
+    register_setting('agenda_automatizada_settings', 'aa_whatsapp_number');
+});
+
+// Render de la página
+function agenda_automatizada_render_settings_page() {
+    $schedule = get_option('aa_schedule', []);
+    $days = [
+        'monday'    => 'Lunes',
+        'tuesday'   => 'Martes',
+        'wednesday' => 'Miércoles',
+        'thursday'  => 'Jueves',
+        'friday'    => 'Viernes',
+        'saturday'  => 'Sábado',
+        'sunday'    => 'Domingo'
+    ];
+    ?>
+    <div class="wrap">
+        <h1>Configuración de Agenda Automatizada</h1>
+        <form method="post" action="options.php">
+            <?php settings_fields('agenda_automatizada_settings'); ?>
+            <?php do_settings_sections('agenda_automatizada_settings'); ?>
+
+            <table class="form-table">
+                <tr valign="top">
+                    <th scope="row">Disponibilidad por día</th>
+                    <td>
+                        <?php foreach ($days as $key => $label): 
+                            $enabled   = !empty($schedule[$key]['enabled']);
+                            $intervals = $schedule[$key]['intervals'] ?? [];
+                        ?>
+                            <div class="aa-day-block" style="margin-bottom:15px;">
+                                <label>
+                                    <input type="checkbox" name="aa_schedule[<?php echo $key; ?>][enabled]" value="1" <?php checked($enabled, true); ?>>
+                                    <?php echo $label; ?>
+                                </label>
+
+                                <div class="day-intervals" data-day="<?php echo $key; ?>" style="<?php echo $enabled ? '' : 'display:none;'; ?> margin-left:20px;">
+                                    <?php if (!empty($intervals)): ?>
+                                        <?php foreach ($intervals as $i => $interval): ?>
+                                            <div class="interval">
+                                                <input type="time" name="aa_schedule[<?php echo $key; ?>][intervals][<?php echo $i; ?>][start]" value="<?php echo esc_attr($interval['start']); ?>">
+                                                <input type="time" name="aa_schedule[<?php echo $key; ?>][intervals][<?php echo $i; ?>][end]" value="<?php echo esc_attr($interval['end']); ?>">
+                                                <button type="button" class="remove-interval button">Eliminar</button>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                    <button type="button" class="add-interval button">Añadir intervalo</button>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </td>
+                </tr>
+                <!-- Motivos de la cita -->
+                <tr valign="top">
+                <th scope="row">Motivos de la cita</th>
+                <td>
+                    <div id="aa-motivos-container">
+                        <ul id="aa-motivos-list"></ul>
+
+                        <div style="margin-top:10px; display:flex; gap:8px; align-items:center;">
+                            <input type="text" id="aa-motivo-input" placeholder="Ej: Corte de cabello" style="width:250px;">
+                            <button type="button" id="aa-add-motivo" class="button">Agregar motivo</button>
+                        </div>
+
+                        <!-- Campo oculto donde se guarda el JSON real -->
+                        <input type="hidden" name="aa_google_motivo" id="aa-google-motivo-hidden"
+                            value='<?php echo esc_attr(get_option("aa_google_motivo", json_encode(["Cita general"]))); ?>'>
+                    </div>
+
+                    <p class="description">Agrega los tipos de servicios o motivos de cita (uno por uno).</p>
+                </td>
+                </tr>
+                <!-- Duración de cita -->
+                <tr valign="top">
+                    <th scope="row">Duración de cita (minutos)</th>
+                    <td>
+                        <select name="aa_slot_duration">
+                            <option value="30" <?php selected(get_option('aa_slot_duration', 30), 30); ?>>30 minutos</option>
+                            <option value="60" <?php selected(get_option('aa_slot_duration', 30), 60); ?>>60 minutos</option>
+                            <option value="90" <?php selected(get_option('aa_slot_duration', 30), 90); ?>>90 minutos</option>
+                        </select>
+                    </td>
+                </tr>
+                    <!-- Ventana futura --> 
+                <tr valign="top">
+                    <th scope="row">Ventana futura (días)</th>
+                    <td>
+                        <select name="aa_future_window">
+                            <option value="15" <?php selected(get_option('aa_future_window', 15), 15); ?>>15 días</option>
+                            <option value="30" <?php selected(get_option('aa_future_window', 15), 30); ?>>30 días</option>
+                            <option value="45" <?php selected(get_option('aa_future_window', 15), 45); ?>>45 días</option>
+                            <option value="60" <?php selected(get_option('aa_future_window', 15), 60); ?>>60 días</option>
+                        </select>
+                    </td>
+                </tr>
+                <!-- 🔹 Nueva fila: Zona horaria -->
+                <tr valign="top">
+                    <th scope="row">Zona horaria del negocio</th>
+                    <td>
+                        <select name="aa_timezone">
+                            <?php
+                            $saved_tz = get_option('aa_timezone', 'America/Mexico_City');
+                            $timezones = [
+                                'America/Mexico_City' => 'México (CDMX) - GMT-6',
+                                'America/Cancun' => 'Cancún - GMT-5',
+                                'America/Tijuana' => 'Tijuana - GMT-8',
+                                'America/Monterrey' => 'Monterrey - GMT-6',
+                                'America/Bogota' => 'Colombia (Bogotá) - GMT-5',
+                                'America/Lima' => 'Perú (Lima) - GMT-5',
+                                'America/Argentina/Buenos_Aires' => 'Argentina (Buenos Aires) - GMT-3',
+                                'America/Santiago' => 'Chile (Santiago) - GMT-3',
+                                'America/New_York' => 'Estados Unidos (Este) - GMT-5',
+                                'America/Los_Angeles' => 'Estados Unidos (Pacífico) - GMT-8',
+                                'Europe/Madrid' => 'España (Madrid) - GMT+1',
+                                'Europe/London' => 'Reino Unido (Londres) - GMT+0',
+                            ];
+                            foreach ($timezones as $value => $label) {
+                                printf(
+                                    '<option value="%s" %s>%s</option>',
+                                    esc_attr($value),
+                                    selected($saved_tz, $value, false),
+                                    esc_html($label)
+                                );
+                            }
+                            ?>
+                        </select>
+                        <p class="description">Selecciona la zona horaria donde opera tu negocio. Los horarios se ajustarán automáticamente.</p>
+                    </td>
+                </tr>
+                <!-- 🔹 Nombre del negocio -->
+                <tr valign="top">
+                    <th scope="row">Nombre del negocio</th>
+                    <td>
+                        <input type="text" name="aa_business_name" 
+                               value="<?php echo esc_attr(get_option('aa_business_name', '')); ?>" 
+                               style="width: 100%; max-width: 400px;" 
+                               placeholder="Ej: Salón de Belleza María">
+                        <p class="description">Nombre que aparecerá en las confirmaciones de cita.</p>
+                    </td>
+                </tr>
+
+                <!-- 🔹 Citas virtuales -->
+                <tr valign="top">
+                    <th scope="row">Tipo de citas</th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="aa_is_virtual" value="1" 
+                                   id="aa-is-virtual-checkbox"
+                                   <?php checked(get_option('aa_is_virtual', 0), 1); ?>>
+                            Las citas son virtuales (sin dirección física)
+                        </label>
+                    </td>
+                </tr>
+
+                <!-- 🔹 Dirección física -->
+                <tr valign="top" id="aa-address-row">
+                    <th scope="row">Dirección física</th>
+                    <td>
+                        <textarea name="aa_business_address" 
+                                  id="aa-business-address" 
+                                  rows="3" 
+                                  style="width: 100%; max-width: 400px;"
+                                  placeholder="Ej: Av. Reforma 123, Col. Centro, CDMX"><?php echo esc_textarea(get_option('aa_business_address', '')); ?></textarea>
+                        <p class="description">Dirección donde se realizarán las citas presenciales.</p>
+                    </td>
+                </tr>
+
+                <!-- 🔹 WhatsApp del negocio -->
+                <tr valign="top">
+                    <th scope="row">WhatsApp del negocio</th>
+                    <td>
+                        <input type="tel" name="aa_whatsapp_number" 
+                               value="<?php echo esc_attr(get_option('aa_whatsapp_number', '')); ?>" 
+                               style="width: 100%; max-width: 300px;" 
+                               placeholder="521234567890"
+                               pattern="[0-9]{10,15}">
+                        <p class="description">Número con código de país sin espacios ni símbolos (Ej: 5215522992290).</p>
+                    </td>
+                </tr>
+
+                <!-- Google Calendar -->    
+                <tr valign="top">
+                    <th scope="row">Google Calendar</th>
+                    <td>
+                        <?php 
+                        $google_email = get_option('aa_google_email', '');
+
+                        echo '<input type="hidden" name="aa_google_email" value="' . esc_attr($google_email) . '">';
+                        
+                        
+                        if ($google_email) {
+                            echo "<p><strong>Sincronizado con: $google_email</strong></p>";
+                            echo "<a href='" . esc_url(admin_url('admin-post.php?action=aa_disconnect_google')) . "' class='button'>Desconectar</a>";
+                        } else {
+                            $backend_url = AA_API_BASE_URL . "/oauth/authorize";
+                            $state        = home_url();
+                            $redirect_uri = admin_url('admin-post.php?action=aa_connect_google');
+                            $auth_url     = $backend_url 
+                                            . "?state=" . urlencode($state) 
+                                            . "&redirect_uri=" . urlencode($redirect_uri);
+
+                            echo "<p><strong>No sincronizado</strong></p>";
+                            echo "<a href='" . esc_url($auth_url) . "' class='button button-primary'>Conectar con Google</a>";
+                        }
+                        ?>
+                    </td>
+                </tr>
+            </table>
+
+            <?php submit_button(); ?>
+        </form>
+
+        <!-- 🔹 Sección de gestión de asistentes -->
+        <hr style="margin: 40px 0;">
+        <?php aa_render_asistentes_section(); ?>
+
+    </div>
+    <?php
+}
+
+// Guardar el email de Google al volver del backend
+add_action('admin_post_aa_connect_google', function() {
+    if (!current_user_can('manage_options')) return;
+
+    if (!empty($_GET['email'])) {
+        update_option('aa_google_email', sanitize_email($_GET['email']));
+    }
+
+     // ✅ Guardar el client_secret si viene en la redirección
+    if (!empty($_GET['client_secret'])) {
+        update_option('aa_client_secret', sanitize_text_field($_GET['client_secret']));
+    }
+
+    wp_redirect(admin_url('admin.php?page=agenda-automatizada-settings'));
+    exit;
+});
+
+// Desconectar Google
+add_action('admin_post_aa_disconnect_google', function() {
+    if (!current_user_can('manage_options')) return;
+
+    delete_option('aa_google_email');
+    wp_redirect(admin_url('admin.php?page=agenda-automatizada-settings'));
+    exit;
+});
+
+
+// creacion de asistentes 
+// ------------------------------------------------
+// --------------------------------
+
+// 🔹 Sección para gestión de asistentes
+function aa_render_asistentes_section() {
+    if (!current_user_can('administrator')) return;
+
+    if (isset($_POST['aa_crear_asistente'])) {
+        // Verificar nonce de seguridad
+        check_admin_referer('aa_crear_asistente_nonce');
+
+        $nombre = sanitize_text_field($_POST['aa_nombre']);
+        $email = sanitize_email($_POST['aa_email']);
+        $password = sanitize_text_field($_POST['aa_password']);
+
+        // Crear usuario de WordPress
+        $user_id = wp_create_user($email, $password, $email);
+        if (!is_wp_error($user_id)) {
+            wp_update_user([
+                'ID' => $user_id,
+                'display_name' => $nombre,
+                'role' => 'aa_asistente'
+            ]);
+
+            // Enviar correo de bienvenida
+            $subject = 'Acceso a tu panel de asistente';
+            $message = "Hola $nombre,\n\n".
+                       "Se te ha creado una cuenta para acceder al panel de asistente.\n\n".
+                       "Usuario: $email\n".
+                       "Contraseña: $password\n".
+                       "Accede aquí: " . wp_login_url() . "\n\n".
+                       "Por seguridad, cambia tu contraseña al iniciar sesión.";
+            wp_mail($email, $subject, $message);
+
+            echo '<div class="updated"><p>✅ Asistente creado y notificado por correo.</p></div>';
+        } else {
+            echo '<div class="error"><p>❌ Error: '.$user_id->get_error_message().'</p></div>';
+        }
+    }
+
+    if (isset($_POST['aa_inhabilitar_asistente'])) {
+        // Verificar nonce de seguridad
+        check_admin_referer('aa_inhabilitar_asistente_nonce');
+
+        $id = intval($_POST['aa_user_id']);
+        if ($id) {
+            wp_update_user(['ID' => $id, 'role' => '']); // sin rol = inhabilitado
+            echo '<div class="updated"><p>✅ Asistente inhabilitado correctamente.</p></div>';
+        }
+    }
+
+    // Obtener lista de asistentes
+    $asistentes = get_users(['role' => 'aa_asistente']);
+    ?>
+    
+    <h2>👥 Gestión de Asistentes</h2>
+    
+    <h3>Crear nuevo asistente</h3>
+    <form method="post" style="background: #fff; padding: 20px; border: 1px solid #ccc; border-radius: 4px; max-width: 600px;">
+        <?php wp_nonce_field('aa_crear_asistente_nonce'); ?>
+        <table class="form-table">
+            <tr>
+                <th scope="row"><label for="aa_nombre">Nombre completo</label></th>
+                <td><input type="text" id="aa_nombre" name="aa_nombre" required style="width: 100%;"></td>
+            </tr>
+            <tr>
+                <th scope="row"><label for="aa_email">Correo electrónico</label></th>
+                <td><input type="email" id="aa_email" name="aa_email" required style="width: 100%;"></td>
+            </tr>
+            <tr>
+                <th scope="row"><label for="aa_password">Contraseña</label></th>
+                <td>
+                    <input type="text" id="aa_password" name="aa_password" required style="width: 100%;">
+                    <p class="description">El asistente recibirá esta contraseña por correo.</p>
+                </td>
+            </tr>
+        </table>
+        <p class="submit">
+            <input type="submit" name="aa_crear_asistente" class="button button-primary" value="Crear Asistente">
+        </p>
+    </form>
+
+    <h3 style="margin-top: 40px;">Asistentes activos</h3>
+    <?php if (empty($asistentes)): ?>
+        <p>No hay asistentes registrados.</p>
+    <?php else: ?>
+        <table class="widefat" style="max-width: 800px;">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Correo</th>
+                    <th>Fecha de creación</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($asistentes as $user): ?>
+                    <tr>
+                        <td><?php echo esc_html($user->display_name); ?></td>
+                        <td><?php echo esc_html($user->user_email); ?></td>
+                        <td><?php echo esc_html(date('Y-m-d H:i', strtotime($user->user_registered))); ?></td>
+                        <td>
+                            <form method="post" style="display:inline;">
+                                <?php wp_nonce_field('aa_inhabilitar_asistente_nonce'); ?>
+                                <input type="hidden" name="aa_user_id" value="<?php echo esc_attr($user->ID); ?>">
+                                <input type="submit" name="aa_inhabilitar_asistente" class="button" value="Inhabilitar" 
+                                       onclick="return confirm('¿Estás seguro de inhabilitar este asistente?');">
+                            </form>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php endif; ?>
+    
+    <?php
+}
+
+
+========================================
+FILE: views\asistant-controls.php
+========================================
+<?php
+if (!defined('ABSPATH')) exit;
+
+// 🔹 Pestaña del asistente (visible solo para admin y asistentes)
+function aa_render_asistant_panel() {
+    $user = wp_get_current_user();
+    
+    if (!in_array('aa_asistente', $user->roles) && !current_user_can('administrator')) {
+        wp_die('No tienes permisos para acceder a esta sección.');
+    }
+
+    echo '<div class="wrap aa-asistant-panel">';
+    echo '<h1>🗓️ Panel del Asistente</h1>';
+    echo '<p>Bienvenido, <strong>' . esc_html($user->display_name) . '</strong>.</p>';
+
+    // ===============================
+    // 🔹 FORMULARIO DE NUEVA CITA
+    // ===============================
+    echo '<button class="aa-btn-nueva-cita" id="btn-toggle-form-nueva-cita">+ Crear nueva cita</button>';
+    
+    echo '<div class="aa-form-nueva-cita" id="form-nueva-cita">';
+    echo '<h3>📅 Nueva Cita</h3>';
+    echo '<form id="form-crear-cita-admin">';
+    
+    // Campo de Cliente
+    echo '<div class="aa-form-cita-group">';
+    echo '<label for="cita-cliente">Cliente *</label>';
+    echo '<select id="cita-cliente" name="cliente_id" required>';
+    echo '<option value="">-- Selecciona un cliente --</option>';
+    
+    $clientes = aa_get_all_clientes(200);
+    foreach ($clientes as $cliente) {
+        echo '<option value="' . esc_attr($cliente->id) . '" 
+                data-nombre="' . esc_attr($cliente->nombre) . '"
+                data-telefono="' . esc_attr($cliente->telefono) . '"
+                data-correo="' . esc_attr($cliente->correo) . '">';
+        echo esc_html($cliente->nombre) . ' (' . esc_html($cliente->telefono) . ')';
+        echo '</option>';
+    }
+    echo '</select>';
+    echo '</div>';
+    
+    // Campo de Servicio
+    echo '<div class="aa-form-cita-group">';
+    echo '<label for="cita-servicio">Motivo de la cita *</label>';
+    echo '<select id="cita-servicio" name="servicio" required>';
+    
+    $motivos_json = get_option('aa_google_motivo', json_encode(['Cita general']));
+    $motivos = json_decode($motivos_json, true);
+    
+    if (is_array($motivos) && !empty($motivos)) {
+        foreach ($motivos as $motivo) {
+            echo '<option value="' . esc_attr($motivo) . '">' . esc_html($motivo) . '</option>';
+        }
+    } else {
+        echo '<option value="Cita general">Cita general</option>';
+    }
+    echo '</select>';
+    echo '</div>';
+    
+    // Campo de Fecha
+    echo '<div class="aa-form-cita-group">';
+    echo '<label for="cita-fecha">Fecha y hora *</label>';
+    echo '<input type="text" id="cita-fecha" name="fecha" required readonly>';
+    echo '<div id="slot-container-admin"></div>';
+    echo '</div>';
+    
+    echo '<button type="submit" class="aa-btn-agendar-cita">✓ Agendar Cita</button>';
+    echo '<button type="button" class="aa-btn-cancelar-cita-form" id="btn-cancelar-cita-form">Cancelar</button>';
+    echo '</form>';
+    echo '</div>';
+
+    // ===============================
+    // 🔹 TABLA DE PRÓXIMAS CITAS (MODULARIZADA)
+    // ===============================
+    require_once plugin_dir_path(__FILE__) . 'templates/proximas-citas-template.php';
+
+    // ===============================
+    // 🔹 SECCIÓN DE CLIENTES
+    // ===============================
+    echo '<hr style="margin: 40px 0;">';
+    echo '<h2>👥 Clientes</h2>';
+    
+    echo '<button class="aa-btn-nuevo-cliente" id="btn-toggle-form-cliente">+ Crear nuevo cliente</button>';
+    
+    echo '<div class="aa-form-nuevo-cliente" id="form-nuevo-cliente">';
+    echo '<h3>Nuevo Cliente</h3>';
+    echo '<form id="form-crear-cliente">';
+    
+    echo '<div class="aa-form-group">';
+    echo '<label for="cliente-nombre">Nombre completo *</label>';
+    echo '<input type="text" id="cliente-nombre" name="nombre" required>';
+    echo '</div>';
+    
+    echo '<div class="aa-form-group">';
+    echo '<label for="cliente-telefono">Teléfono *</label>';
+    echo '<input type="tel" id="cliente-telefono" name="telefono" required>';
+    echo '</div>';
+    
+    echo '<div class="aa-form-group">';
+    echo '<label for="cliente-correo">Correo electrónico *</label>';
+    echo '<input type="email" id="cliente-correo" name="correo" required>';
+    echo '</div>';
+    
+    echo '<button type="submit" class="aa-btn-guardar-cliente">Guardar Cliente</button>';
+    echo '<button type="button" class="aa-btn-cancelar-form" id="btn-cancelar-form">Cancelar</button>';
+    echo '</form>';
+    echo '</div>';
+    
+    // Lista de clientes
+    $clientes = aa_get_all_clientes(20);
+    
+    if ($clientes) {
+        echo '<h3 style="margin-top: 30px;">Lista de clientes</h3>';
+        
+        // 🔹 Wrapper para scroll horizontal
+        echo '<div class="aa-clientes-table-wrapper">';
+        echo '<table class="widefat aa-clientes-table">';
+        echo '<thead><tr><th>Nombre</th><th>Teléfono</th><th>Correo</th><th>Fecha de registro</th><th>Total de citas</th><th>Acciones</th></tr></thead>';
+        echo '<tbody>';
+        
+        foreach ($clientes as $cliente) {
+            $total_citas = count(aa_get_cliente_reservas($cliente->id, 100));
+            
+            echo '<tr>';
+            echo '<td>' . esc_html($cliente->nombre) . '</td>';
+            echo '<td>' . esc_html($cliente->telefono) . '</td>';
+            echo '<td>' . esc_html($cliente->correo) . '</td>';
+            echo '<td>' . esc_html(date('d/m/Y', strtotime($cliente->created_at))) . '</td>';
+            echo '<td>' . $total_citas . '</td>';
+            echo '<td>';
+            echo '<button class="aa-btn-editar-cliente" 
+                    data-id="' . $cliente->id . '"
+                    data-nombre="' . esc_attr($cliente->nombre) . '"
+                    data-telefono="' . esc_attr($cliente->telefono) . '"
+                    data-correo="' . esc_attr($cliente->correo) . '">
+                ✏️ Editar
+            </button>';
+            echo '</td>';
+            echo '</tr>';
+        }
+        
+        echo '</tbody></table>';
+        echo '</div>'; // 🔹 Cerrar wrapper
+        
+        // Modal de edición
+        echo '<div class="aa-modal-overlay" id="modal-editar-cliente">';
+        echo '<div class="aa-modal-content">';
+        echo '<div class="aa-modal-header">';
+        echo '<h3>✏️ Editar Cliente</h3>';
+        echo '<button class="aa-modal-close" id="btn-cerrar-modal">&times;</button>';
+        echo '</div>';
+        echo '<form id="form-editar-cliente">';
+        echo '<input type="hidden" id="editar-cliente-id" name="cliente_id">';
+        
+        echo '<div class="aa-form-group">';
+        echo '<label for="editar-cliente-nombre">Nombre completo *</label>';
+        echo '<input type="text" id="editar-cliente-nombre" name="nombre" required>';
+        echo '</div>';
+        
+        echo '<div class="aa-form-group">';
+        echo '<label for="editar-cliente-telefono">Teléfono *</label>';
+        echo '<input type="tel" id="editar-cliente-telefono" name="telefono" required>';
+        echo '</div>';
+        
+        echo '<div class="aa-form-group">';
+        echo '<label for="editar-cliente-correo">Correo electrónico *</label>';
+        echo '<input type="email" id="editar-cliente-correo" name="correo" required>';
+        echo '</div>';
+        
+        echo '<button type="submit" class="aa-btn-guardar-cliente">💾 Guardar Cambios</button>';
+        echo '<button type="button" class="aa-btn-cancelar-form" id="btn-cancelar-edicion">Cancelar</button>';
+        echo '</form>';
+        echo '</div>';
+        echo '</div>';
+    } else {
+        echo '<p>No hay clientes registrados.</p>';
+    }
+
+    // ===============================
+    // 🔹 HISTORIAL DE CITAS
+    // ===============================
+    echo '<hr style="margin: 40px 0;">';
+    echo '<h2>📅 Historial de Citas</h2>';
+    
+    // Filtros de búsqueda
+    echo '<div class="aa-historial-filtros">';
+    
+    echo '<input type="text" id="aa-buscar-historial" placeholder="Buscar por nombre, teléfono o correo...">';
+    
+    echo '<select id="aa-ordenar-historial">';
+    echo '<option value="fecha_desc">Más recientes primero</option>';
+    echo '<option value="fecha_asc">Más antiguas primero</option>';
+    echo '<option value="cliente_asc">Cliente (A-Z)</option>';
+    echo '<option value="cliente_desc">Cliente (Z-A)</option>';
+    echo '</select>';
+    
+    echo '<button id="aa-btn-buscar-historial" class="aa-btn-nuevo-cliente">🔍 Buscar</button>';
+    echo '<button id="aa-btn-limpiar-historial" class="aa-btn-cancelar-form">✕ Limpiar</button>';
+    
+    echo '</div>';
+    
+    // Tabla de resultados
+    echo '<div id="aa-historial-container">';
+    echo '<p style="text-align: center; color: #999;">Cargando historial...</p>';
+    echo '</div>';
+    
+    // Paginación
+    echo '<div class="aa-paginacion" id="aa-historial-paginacion"></div>';
+
+    echo '</div>';
+}
+
+
+========================================
+FILE: views\templates\proximas-citas-template.php
+========================================
+<?php
+/**
+ * Template: Tabla de próximas citas (AJAX)
+ * 
+ * Este template renderiza la sección de próximas citas con:
+ * - Filtros de búsqueda y ordenamiento
+ * - Contenedor para carga dinámica con AJAX
+ * - Paginación
+ * 
+ * JavaScript responsable: assets/js/ui/proximasCitasUI.js
+
+ */
+
+if (!defined('ABSPATH')) exit;
+?>
+
+<h2>Próximas citas</h2>
+
+<!-- ===============================
+     🔹 FILTROS DE BÚSQUEDA
+     =============================== -->
+<div class="aa-historial-filtros">
+    <input 
+        type="text" 
+        id="aa-buscar-proximas" 
+        placeholder="Buscar por nombre, teléfono, correo o servicio..."
+    >
+    
+    <select id="aa-ordenar-proximas">
+        <option value="fecha_asc">Más próximas primero</option>
+        <option value="fecha_desc">Más lejanas primero</option>
+        <option value="cliente_asc">Cliente (A-Z)</option>
+        <option value="cliente_desc">Cliente (Z-A)</option>
+        <option value="estado_asc">Estado (A-Z)</option>
+        <option value="estado_desc">Estado (Z-A)</option>
+    </select>
+    
+    <button id="aa-btn-buscar-proximas" class="aa-btn-nuevo-cliente">
+        🔍 Buscar
+    </button>
+    
+    <button id="aa-btn-limpiar-proximas" class="aa-btn-cancelar-form">
+        ✕ Limpiar
+    </button>
+</div>
+
+<!-- ===============================
+     🔹 CONTENEDOR DE TABLA (Carga AJAX)
+     =============================== -->
+<div id="aa-proximas-container">
+    <p style="text-align: center; color: #999;">
+        ⏳ Cargando próximas citas...
+    </p>
+</div>
+
+<!-- ===============================
+     🔹 PAGINACIÓN (Generada dinámicamente)
+     =============================== -->
+<div class="aa-paginacion" id="aa-proximas-paginacion"></div>
+

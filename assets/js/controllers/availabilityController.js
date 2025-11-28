@@ -133,23 +133,43 @@ function startGoogleCalendarSync(fechaInputSelector, slotContainerSelector, isAd
     return;
   }
 
-  const config = {
+// Validar si existe email configurado
+  const email = (typeof aa_backend !== 'undefined' && aa_backend.email) 
+    ? aa_backend.email 
+    : '';
+
+   const config = {
     ajaxUrl: (typeof aa_backend !== 'undefined' && aa_backend.ajax_url) 
       ? aa_backend.ajax_url 
       : '/wp-admin/admin-ajax.php',
     action: (typeof aa_backend !== 'undefined' && aa_backend.action) 
       ? aa_backend.action 
       : 'aa_get_availability',
-    email: (typeof aa_backend !== 'undefined' && aa_backend.email) 
-      ? aa_backend.email 
-      : '',
+    email: email,
     maxAttempts: 20,
     retryInterval: 15000
   };
 
+  // ✅ Instanciar siempre para evitar errores en UI (AdminReservationController depende de esta instancia global)
   availabilityProxyInstance = new window.AvailabilityProxy(config);
   window.availabilityProxyInstance = availabilityProxyInstance;
   
+// 🛑 CLÁUSULA DE GUARDA: Si no hay email, nos quedamos en MODO LOCAL
+  if (!email) {
+    console.warn('⚠️ aa_google_email no configurado. Operando en modo LOCAL SOLAMENTE.');
+    console.log('✅ Inyectando datos locales en el proxy para mantener consistencia en UI.');
+    
+    // Inyectamos los slots locales calculados en el paso anterior al proxy
+    // Esto permite que calendarAdminUI.js use window.availabilityProxyInstance.getSlotsForDate() sin errores
+    availabilityProxyInstance.availableSlotsPerDay = initialData.availableSlotsPerDay || {};
+    
+    return; // ⛔️ Terminamos aquí. No iniciamos el loop de fetch.
+  }
+
+    // --- Si llegamos aquí, hay email. Iniciamos sincronización ---
+  console.log('✅ Email detectado. Iniciando sincronización con Google Calendar...');
+
+
   // ✅ IMPORTANTE: Registrar listener ANTES de iniciar
   const handleAvailabilityLoaded = (event) => {
     // ✅ Validar que el evento incluye proxy

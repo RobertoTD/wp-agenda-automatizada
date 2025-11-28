@@ -6,12 +6,7 @@
  * - Proveer interfaz de consulta de disponibilidad
  */
 
-import { 
-  ymd, 
-  getWeekdayName, 
-  getDayIntervals, 
-  generateSlotsForDay
-} from '../utils/dateUtils.js';
+import { ymd } from '../utils/dateUtils.js';
 
 import {
   startFetchLoop,
@@ -20,6 +15,7 @@ import {
 
 import { combineLocalExternal } from './availability/combineLocalExternal.js';
 import { generateBusyRanges, loadLocalBusyRanges } from './availability/busyRanges.js';
+import { calculateSlotsRange } from './availability/slotCalculator.js';
 
 class AvailabilityProxy {
   constructor(config = {}) {
@@ -41,22 +37,14 @@ class AvailabilityProxy {
     const maxDate = new Date();
     maxDate.setDate(minDate.getDate() + futureWindow);
 
-    this.availableSlotsPerDay = {};
-    
-    console.log(`🗓️ Calculando slots disponibles del ${ymd(minDate)} al ${ymd(maxDate)}`);
-    
-    for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
-      const day = new Date(d);
-      const weekday = getWeekdayName(day);
-      const intervals = getDayIntervals(schedule, weekday);
-      const slots = generateSlotsForDay(day, intervals, this.busyRanges, slotDuration);
-      
-      this.availableSlotsPerDay[ymd(day)] = slots;
-      
-      if (slots.length > 0) {
-        console.log(`📅 ${ymd(day)}: ${slots.length} slots disponibles`);
-      }
-    }
+    // ✅ Delegar cálculo a slotCalculator
+    this.availableSlotsPerDay = calculateSlotsRange(
+      minDate, 
+      maxDate, 
+      schedule, 
+      this.busyRanges, 
+      slotDuration
+    );
     
     return this.availableSlotsPerDay;
   }
@@ -156,16 +144,14 @@ export const AvailabilityService = {
     const maxDate = new Date();
     maxDate.setDate(minDate.getDate() + futureWindow);
 
-    const availableSlotsPerDay = {};
-
-    for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
-      const day = new Date(d);
-      const weekday = window.DateUtils.getWeekdayName(day);
-      const intervals = window.DateUtils.getDayIntervals(schedule, weekday);
-      const slots = window.DateUtils.generateSlotsForDay(day, intervals, busyRanges, slotDuration);
-      
-      availableSlotsPerDay[ymd(day)] = slots;
-    }
+    // ✅ Delegar cálculo a slotCalculator
+    const availableSlotsPerDay = calculateSlotsRange(
+      minDate,
+      maxDate,
+      schedule,
+      busyRanges,
+      slotDuration
+    );
 
     return {
       availableSlotsPerDay,
