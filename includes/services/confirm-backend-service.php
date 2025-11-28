@@ -52,6 +52,24 @@ function confirm_backend_service_confirmar($reserva_id) {
     
     error_log("✅ [ConfirmService] Cita ID $reserva_id marcada como 'confirmed' en WordPress");
     
+     // ---------------------------------------------------------
+    // 🛑 NUEVO CÓDIGO: Validar si existe email antes de seguir
+    // ---------------------------------------------------------
+    $google_email = get_option('aa_google_email', '');
+
+    if (empty($google_email)) {
+        error_log("ℹ️ [ConfirmService] Modo Local: Sin email configurado.");
+        return [
+            'success' => true,
+            'message' => 'Cita confirmada localmente (Sin sincronización con Google Calendar).',
+            'data' => [
+                'existed' => false, // No aplica
+                'calendar_sync' => false
+            ]
+        ];
+    }
+    // ---------------------------------------------------------
+
     // 2️⃣ Obtener configuración
     $slot_duration = intval(get_option('aa_slot_duration', 60));
     $business_name = get_option('aa_business_name', get_bloginfo('name'));
