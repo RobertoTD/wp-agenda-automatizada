@@ -41,14 +41,18 @@
     "**/.git": true,
     "**/.DS_Store": true,
     "**/.cache": true,
-    "**/.history": true
+    "**/.history": true,
+    "contexto_plugin.txt": true,
+    "empaquetar.js": true
   },
 
   "search.exclude": {
     "**/node_modules": true,
     "**/vendor": true,
     "**/.cache": true,
-    "**/.history": true
+    "**/.history": true,
+    "contexto_plugin.txt": true,
+    "empaquetar.js": true
   },
 
   // Editor preferences

@@ -2,3 +2,7 @@
 .prettierrc
 .prettierrc.*
 .prettierignore
+
+# Context files for external agents
+contexto_plugin.txt
+empaquetar.js

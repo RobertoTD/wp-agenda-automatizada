@@ -137,10 +137,12 @@ function aa_ajax_cancelar_cita() {
     
     error_log("✅ Cita ID $id marcada como 'cancelled' en WordPress");
     
-    // 🔹 PASO 2: Eliminar evento de Google Calendar (si existe calendar_uid)
+    // 🔹 PASO 2: Eliminar evento de Google Calendar (si existe calendar_uid Y hay email configurado)
     $calendar_deleted = false;
+    $google_email = get_option('aa_google_email', ''); // ✅ Obtener email configurado
     
-    if (!empty($reserva->calendar_uid)) {
+    // ✅ CONDICIÓN AGREGADA: !empty($google_email)
+    if (!empty($reserva->calendar_uid) && !empty($google_email)) {
         error_log("🗓️ Intentando eliminar evento de Google Calendar: {$reserva->calendar_uid}");
         
         // Extraer dominio limpio
@@ -166,7 +168,6 @@ function aa_ajax_cancelar_cita() {
         ];
         
         error_log("📤 Enviando solicitud de cancelación a: $backend_url");
-        error_log("📦 Datos: " . json_encode($backend_data));
         
         // Enviar petición autenticada con HMAC
         $response = aa_send_authenticated_request($backend_url, 'POST', $backend_data);
@@ -192,7 +193,12 @@ function aa_ajax_cancelar_cita() {
             }
         }
     } else {
-        error_log("ℹ️ La cita ID $id no tiene calendar_uid asociado, no se eliminará de Google Calendar");
+        // Log específico para saber por qué no se ejecutó
+        if (empty($google_email)) {
+            error_log("ℹ️ Cancelación LOCAL solamente: No hay 'aa_google_email' configurado.");
+        } else {
+            error_log("ℹ️ La cita ID $id no tiene 'calendar_uid' asociado, no se eliminará de Google Calendar");
+        }
     }
     
     wp_send_json_success([
