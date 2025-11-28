@@ -52,8 +52,37 @@ function confirm_backend_service_confirmar($reserva_id) {
     
     error_log("✅ [ConfirmService] Cita ID $reserva_id marcada como 'confirmed' en WordPress");
     
+    // =========================================================================
+    // 🛡️ LÓGICA DE CANCELACIÓN EN CASCADA (Nuevo bloque agregado)
+    // =========================================================================
+    // Incluir el modelo si no se ha cargado (por seguridad, aunque el controller lo carga)
+    require_once plugin_dir_path(__FILE__) . '../models/ReservationsModel.php';
+
+    // 1. Buscar conflictos
+    $conflictos = ReservationsModel::get_pending_conflicts($reserva->fecha, $reserva_id);
+
+    if (!empty($conflictos)) {
+        error_log("⚔️ [ConfirmService] Se encontraron " . count($conflictos) . " citas pendientes en conflicto para la fecha: " . $reserva->fecha);
+        
+        foreach ($conflictos as $conflicto) {
+            // 2. Cancelar localmente (Las pendientes no tienen calendar_uid, así que no requieren API Google)
+            $cancelado = $wpdb->update(
+                $table, 
+                ['estado' => 'cancelled'], 
+                ['id' => $conflicto->id]
+            );
+            
+            if ($cancelado !== false) {
+                error_log("🚫 [Auto-Cancel] Cita ID {$conflicto->id} ({$conflicto->nombre}) cancelada automáticamente por ocupación de slot.");
+            }
+        }
+    }
+    // =========================================================================
+    // 🛡️ FIN LÓGICA DE CANCELACIÓN EN CASCADA
+    // =========================================================================
+
      // ---------------------------------------------------------
-    // 🛑 NUEVO CÓDIGO: Validar si existe email antes de seguir
+    // 🛑 Validar si existe email antes de seguir
     // ---------------------------------------------------------
     $google_email = get_option('aa_google_email', '');
 

@@ -438,19 +438,6 @@ export function initAdminReservationController(config) {
   }
 
   // ==============================
-  // 🔹 Inicializar controlador de disponibilidad
-  // ==============================
-  if (typeof window.AvailabilityController !== 'undefined') {
-    window.AvailabilityController.init({
-      fechaInputSelector: '#cita-fecha',
-      slotContainerSelector: 'slot-container-admin',
-      isAdmin: true
-    });
-  } else {
-    console.error('❌ AvailabilityController no está cargado');
-  }
-
-  // ==============================
   // 🔹 Envío del formulario (USANDO ReservationService)
   // ==============================
   form.addEventListener('submit', async function(e) {
@@ -657,23 +644,49 @@ function startGoogleCalendarSync(fechaInputSelector, slotContainerSelector, isAd
     return;
   }
 
-  const config = {
+// Validar si existe email configurado
+  const email = (typeof aa_backend !== 'undefined' && aa_backend.email) 
+    ? aa_backend.email 
+    : '';
+
+   const config = {
     ajaxUrl: (typeof aa_backend !== 'undefined' && aa_backend.ajax_url) 
       ? aa_backend.ajax_url 
       : '/wp-admin/admin-ajax.php',
     action: (typeof aa_backend !== 'undefined' && aa_backend.action) 
       ? aa_backend.action 
       : 'aa_get_availability',
-    email: (typeof aa_backend !== 'undefined' && aa_backend.email) 
-      ? aa_backend.email 
-      : '',
+    email: email,
     maxAttempts: 20,
     retryInterval: 15000
   };
 
+  // ✅ Instanciar siempre para evitar errores en UI (AdminReservationController depende de esta instancia global)
   availabilityProxyInstance = new window.AvailabilityProxy(config);
   window.availabilityProxyInstance = availabilityProxyInstance;
   
+// 🛑 CLÁUSULA DE GUARDA: Si no hay email, nos quedamos en MODO LOCAL
+  if (!email) {
+    console.warn('⚠️ aa_google_email no configurado. Operando en modo LOCAL SOLAMENTE.');
+    console.log('✅ Inyectando datos locales en el proxy para mantener consistencia en UI.');
+    
+    // ✅ Asignar busyRanges locales al proxy
+    const localBusyRanges = window.AvailabilityService.loadLocal();
+    availabilityProxyInstance.busyRanges = localBusyRanges;
+    
+    // Inyectamos los slots locales calculados en el paso anterior al proxy
+    // Esto permite que calendarAdminUI.js use window.availabilityProxyInstance.getSlotsForDate() sin errores
+    availabilityProxyInstance.availableSlotsPerDay = initialData.availableSlotsPerDay || {};
+    
+    console.log(`📊 Proxy inicializado con ${Object.keys(availabilityProxyInstance.availableSlotsPerDay).length} días y ${availabilityProxyInstance.busyRanges.length} eventos ocupados`);
+    
+    return; // ⛔️ Terminamos aquí. No iniciamos el loop de fetch.
+  }
+
+    // --- Si llegamos aquí, hay email. Iniciamos sincronización ---
+  console.log('✅ Email detectado. Iniciando sincronización con Google Calendar...');
+
+
   // ✅ IMPORTANTE: Registrar listener ANTES de iniciar
   const handleAvailabilityLoaded = (event) => {
     // ✅ Validar que el evento incluye proxy
@@ -693,8 +706,8 @@ function startGoogleCalendarSync(fechaInputSelector, slotContainerSelector, isAd
       proxy
     });
     
-    // ✅ Remover listener después de procesar
-    document.removeEventListener('aa:availability:loaded', handleAvailabilityLoaded);
+    // ✅ NO remover listener para permitir actualizaciones futuras
+    console.log('✅ UI refrescada, listener permanece activo para futuras actualizaciones');
   };
 
   // Registrar listener
@@ -1684,7 +1697,13 @@ class AvailabilityProxy {
    * Obtener slots para una fecha específica
    */
   getSlotsForDate(date) {
-    return this.availableSlotsPerDay[ymd(date)] || [];
+    const key = ymd(date);
+    const slots = this.availableSlotsPerDay[key] || [];
+    
+    console.log(`🔍 getSlotsForDate(${key}): ${slots.length} slots disponibles`);
+    console.log(`📊 Total días en availableSlotsPerDay: ${Object.keys(this.availableSlotsPerDay).length}`);
+    
+    return slots;
   }
 
   /**
@@ -2072,6 +2091,13 @@ export function render(config) {
       if (!selectedDates.length) return;
       
       const selectedDate = selectedDates[0];
+      
+      console.log('🔍 DEBUG onChange:', {
+        proxyExists: !!window.availabilityProxyInstance,
+        proxyHasSlots: window.availabilityProxyInstance ? Object.keys(window.availabilityProxyInstance.availableSlotsPerDay || {}).length : 0,
+        selectedDateKey: window.DateUtils.ymd(selectedDate)
+      });
+      
       const validSlots = window.AvailabilityService.slotsForDate(
         window.availabilityProxyInstance || {}, 
         selectedDate
@@ -3228,7 +3254,7 @@ function wpaa_enqueue_frontend_assets() {
 /**
  * Inyectar disponibilidad local ANTES de scripts JS
  */
-function wpaa_localize_local_availability() {
+function wpaa_localize_local_availability($script_handle = 'wpaa-availability-controller') {
     // Aquí debes cargar las reservas confirmadas de la BD
     // Ejemplo (ajustar según tu modelo de datos):
     
@@ -3253,7 +3279,7 @@ function wpaa_localize_local_availability() {
         ];
     }
 
-    wp_localize_script('wpaa-availability-controller', 'aa_local_availability', [
+    wp_localize_script($script_handle, 'aa_local_availability', [
         'local_busy' => $local_busy,
         'slot_duration' => intval(get_option('aa_slot_duration', 60)),
         'timezone' => get_option('aa_timezone', 'America/Mexico_City'),
@@ -3285,6 +3311,9 @@ function wpaa_enqueue_admin_assets($hook) {
         wp_enqueue_style('flatpickr-css-admin', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css');
         wp_enqueue_script('flatpickr-js-admin', 'https://cdn.jsdelivr.net/npm/flatpickr', [], null, true);
         wp_enqueue_script('flatpickr-es-admin', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js', ['flatpickr-js-admin'], null, true);
+
+        // ✅ IMPORTANTE: Cargar datos locales ANTES de cualquier script admin
+        wpaa_localize_local_availability('wpaa-availability-controller-admin');
 
         // Scripts admin declarados
         $admin_scripts = [
@@ -3520,10 +3549,12 @@ function aa_ajax_cancelar_cita() {
     
     error_log("✅ Cita ID $id marcada como 'cancelled' en WordPress");
     
-    // 🔹 PASO 2: Eliminar evento de Google Calendar (si existe calendar_uid)
+    // 🔹 PASO 2: Eliminar evento de Google Calendar (si existe calendar_uid Y hay email configurado)
     $calendar_deleted = false;
+    $google_email = get_option('aa_google_email', ''); // ✅ Obtener email configurado
     
-    if (!empty($reserva->calendar_uid)) {
+    // ✅ CONDICIÓN AGREGADA: !empty($google_email)
+    if (!empty($reserva->calendar_uid) && !empty($google_email)) {
         error_log("🗓️ Intentando eliminar evento de Google Calendar: {$reserva->calendar_uid}");
         
         // Extraer dominio limpio
@@ -3549,7 +3580,6 @@ function aa_ajax_cancelar_cita() {
         ];
         
         error_log("📤 Enviando solicitud de cancelación a: $backend_url");
-        error_log("📦 Datos: " . json_encode($backend_data));
         
         // Enviar petición autenticada con HMAC
         $response = aa_send_authenticated_request($backend_url, 'POST', $backend_data);
@@ -3575,7 +3605,12 @@ function aa_ajax_cancelar_cita() {
             }
         }
     } else {
-        error_log("ℹ️ La cita ID $id no tiene calendar_uid asociado, no se eliminará de Google Calendar");
+        // Log específico para saber por qué no se ejecutó
+        if (empty($google_email)) {
+            error_log("ℹ️ Cancelación LOCAL solamente: No hay 'aa_google_email' configurado.");
+        } else {
+            error_log("ℹ️ La cita ID $id no tiene 'calendar_uid' asociado, no se eliminará de Google Calendar");
+        }
     }
     
     wp_send_json_success([
@@ -3834,6 +3869,24 @@ function confirm_backend_service_confirmar($reserva_id) {
     
     error_log("✅ [ConfirmService] Cita ID $reserva_id marcada como 'confirmed' en WordPress");
     
+     // ---------------------------------------------------------
+    // 🛑 NUEVO CÓDIGO: Validar si existe email antes de seguir
+    // ---------------------------------------------------------
+    $google_email = get_option('aa_google_email', '');
+
+    if (empty($google_email)) {
+        error_log("ℹ️ [ConfirmService] Modo Local: Sin email configurado.");
+        return [
+            'success' => true,
+            'message' => 'Cita confirmada localmente (Sin sincronización con Google Calendar).',
+            'data' => [
+                'existed' => false, // No aplica
+                'calendar_sync' => false
+            ]
+        ];
+    }
+    // ---------------------------------------------------------
+
     // 2️⃣ Obtener configuración
     $slot_duration = intval(get_option('aa_slot_duration', 60));
     $business_name = get_option('aa_business_name', get_bloginfo('name'));

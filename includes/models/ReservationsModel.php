@@ -97,4 +97,28 @@ class ReservationsModel {
         
         return intval($count);
     }
+
+    /**
+     * Obtener citas pendientes que coinciden en fecha/hora (para cancelación automática)
+     * 
+     * @param string $fecha DateTime string (Y-m-d H:i:s)
+     * @param int $exclude_id ID de la cita que estamos confirmando (para no cancelarla a ella misma)
+     * @return array
+     */
+    public static function get_pending_conflicts($fecha, $exclude_id) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_reservas';
+        
+        // Buscamos citas PENDIENTES que tengan EXACTAMENTE la misma fecha de inicio
+        // y que no sean la cita actual.
+        $rows = $wpdb->get_results($wpdb->prepare("
+            SELECT id, nombre, correo, fecha 
+            FROM $table 
+            WHERE estado = 'pending' 
+            AND fecha = %s 
+            AND id != %d
+        ", $fecha, $exclude_id));
+        
+        return $rows ?? [];
+    }
 }
