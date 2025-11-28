@@ -132,7 +132,7 @@ function wpaa_enqueue_frontend_assets() {
 /**
  * Inyectar disponibilidad local ANTES de scripts JS
  */
-function wpaa_localize_local_availability() {
+function wpaa_localize_local_availability($script_handle = 'wpaa-availability-controller') {
     // Aquí debes cargar las reservas confirmadas de la BD
     // Ejemplo (ajustar según tu modelo de datos):
     
@@ -157,7 +157,7 @@ function wpaa_localize_local_availability() {
         ];
     }
 
-    wp_localize_script('wpaa-availability-controller', 'aa_local_availability', [
+    wp_localize_script($script_handle, 'aa_local_availability', [
         'local_busy' => $local_busy,
         'slot_duration' => intval(get_option('aa_slot_duration', 60)),
         'timezone' => get_option('aa_timezone', 'America/Mexico_City'),
@@ -189,6 +189,9 @@ function wpaa_enqueue_admin_assets($hook) {
         wp_enqueue_style('flatpickr-css-admin', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css');
         wp_enqueue_script('flatpickr-js-admin', 'https://cdn.jsdelivr.net/npm/flatpickr', [], null, true);
         wp_enqueue_script('flatpickr-es-admin', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js', ['flatpickr-js-admin'], null, true);
+
+        // ✅ IMPORTANTE: Cargar datos locales ANTES de cualquier script admin
+        wpaa_localize_local_availability('wpaa-availability-controller-admin');
 
         // Scripts admin declarados
         $admin_scripts = [

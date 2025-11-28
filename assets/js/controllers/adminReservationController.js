@@ -36,19 +36,6 @@ export function initAdminReservationController(config) {
   }
 
   // ==============================
-  // 🔹 Inicializar controlador de disponibilidad
-  // ==============================
-  if (typeof window.AvailabilityController !== 'undefined') {
-    window.AvailabilityController.init({
-      fechaInputSelector: '#cita-fecha',
-      slotContainerSelector: 'slot-container-admin',
-      isAdmin: true
-    });
-  } else {
-    console.error('❌ AvailabilityController no está cargado');
-  }
-
-  // ==============================
   // 🔹 Envío del formulario (USANDO ReservationService)
   // ==============================
   form.addEventListener('submit', async function(e) {

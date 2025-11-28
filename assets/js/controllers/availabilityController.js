@@ -159,9 +159,15 @@ function startGoogleCalendarSync(fechaInputSelector, slotContainerSelector, isAd
     console.warn('⚠️ aa_google_email no configurado. Operando en modo LOCAL SOLAMENTE.');
     console.log('✅ Inyectando datos locales en el proxy para mantener consistencia en UI.');
     
+    // ✅ Asignar busyRanges locales al proxy
+    const localBusyRanges = window.AvailabilityService.loadLocal();
+    availabilityProxyInstance.busyRanges = localBusyRanges;
+    
     // Inyectamos los slots locales calculados en el paso anterior al proxy
     // Esto permite que calendarAdminUI.js use window.availabilityProxyInstance.getSlotsForDate() sin errores
     availabilityProxyInstance.availableSlotsPerDay = initialData.availableSlotsPerDay || {};
+    
+    console.log(`📊 Proxy inicializado con ${Object.keys(availabilityProxyInstance.availableSlotsPerDay).length} días y ${availabilityProxyInstance.busyRanges.length} eventos ocupados`);
     
     return; // ⛔️ Terminamos aquí. No iniciamos el loop de fetch.
   }
@@ -189,8 +195,8 @@ function startGoogleCalendarSync(fechaInputSelector, slotContainerSelector, isAd
       proxy
     });
     
-    // ✅ Remover listener después de procesar
-    document.removeEventListener('aa:availability:loaded', handleAvailabilityLoaded);
+    // ✅ NO remover listener para permitir actualizaciones futuras
+    console.log('✅ UI refrescada, listener permanece activo para futuras actualizaciones');
   };
 
   // Registrar listener

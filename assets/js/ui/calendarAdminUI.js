@@ -48,6 +48,13 @@ export function render(config) {
       if (!selectedDates.length) return;
       
       const selectedDate = selectedDates[0];
+      
+      console.log('🔍 DEBUG onChange:', {
+        proxyExists: !!window.availabilityProxyInstance,
+        proxyHasSlots: window.availabilityProxyInstance ? Object.keys(window.availabilityProxyInstance.availableSlotsPerDay || {}).length : 0,
+        selectedDateKey: window.DateUtils.ymd(selectedDate)
+      });
+      
       const validSlots = window.AvailabilityService.slotsForDate(
         window.availabilityProxyInstance || {}, 
         selectedDate

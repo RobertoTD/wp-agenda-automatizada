@@ -67,7 +67,13 @@ class AvailabilityProxy {
    * Obtener slots para una fecha específica
    */
   getSlotsForDate(date) {
-    return this.availableSlotsPerDay[ymd(date)] || [];
+    const key = ymd(date);
+    const slots = this.availableSlotsPerDay[key] || [];
+    
+    console.log(`🔍 getSlotsForDate(${key}): ${slots.length} slots disponibles`);
+    console.log(`📊 Total días en availableSlotsPerDay: ${Object.keys(this.availableSlotsPerDay).length}`);
+    
+    return slots;
   }
 
   /**
