@@ -67,45 +67,22 @@ class Webhooks_Controller extends WP_REST_Controller {
      * @return WP_REST_Response|WP_Error Respuesta de la API.
      */
     public function handle_sync_status($request) {
+        // Obtener el parámetro de estado
         $status = $request->get_param('status');
 
-        // Validación adicional
-        if ($status !== 'invalid') {
+        // Delegar la lógica de negocio al servicio
+        $result = SyncService::update_sync_status($status);
+
+        // Verificar si el servicio reportó un fallo
+        if (!$result['success']) {
             return new WP_Error(
-                'invalid_status',
-                'Solo se acepta el estado "invalid" en este momento',
+                'sync_update_failed',
+                $result['message'],
                 array('status' => 400)
             );
         }
 
-        // Actualizar la opción de estado de sincronización
-        $updated = update_option('aa_estado_gsync', 'invalid');
-
-        if (!$updated && get_option('aa_estado_gsync') !== 'invalid') {
-            return new WP_Error(
-                'update_failed',
-                'No se pudo actualizar el estado de sincronización',
-                array('status' => 500)
-            );
-        }
-
-        // Registrar el evento en logs (opcional)
-        if (function_exists('error_log')) {
-            error_log(sprintf(
-                '[WP Agenda] Estado de sincronización actualizado a: %s en %s',
-                $status,
-                current_time('mysql')
-            ));
-        }
-
         // Respuesta exitosa
-        return new WP_REST_Response(
-            array(
-                'success' => true,
-                'message' => 'Estado de sincronización actualizado correctamente',
-                'status'  => $status,
-            ),
-            200
-        );
+        return new WP_REST_Response($result, 200);
     }
 }
