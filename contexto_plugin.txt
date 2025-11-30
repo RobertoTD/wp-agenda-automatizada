@@ -35,6 +35,7 @@ require_once plugin_dir_path(__FILE__) . 'clientes.php';
 
 // 3️⃣ Servicios
 require_once plugin_dir_path(__FILE__) . 'includes/services/availability-proxy.php';
+require_once plugin_dir_path(__FILE__) . 'includes/services/SyncService.php';
 
 // 4️⃣ Controladores (lógica de negocio)
 require_once plugin_dir_path(__FILE__) . 'includes/controllers/availability-controller.php';
@@ -3706,46 +3707,23 @@ class Webhooks_Controller extends WP_REST_Controller {
      * @return WP_REST_Response|WP_Error Respuesta de la API.
      */
     public function handle_sync_status($request) {
+        // Obtener el parámetro de estado
         $status = $request->get_param('status');
 
-        // Validación adicional
-        if ($status !== 'invalid') {
+        // Delegar la lógica de negocio al servicio
+        $result = SyncService::update_sync_status($status);
+
+        // Verificar si el servicio reportó un fallo
+        if (!$result['success']) {
             return new WP_Error(
-                'invalid_status',
-                'Solo se acepta el estado "invalid" en este momento',
+                'sync_update_failed',
+                $result['message'],
                 array('status' => 400)
             );
         }
 
-        // Actualizar la opción de estado de sincronización
-        $updated = update_option('aa_estado_gsync', 'invalid');
-
-        if (!$updated && get_option('aa_estado_gsync') !== 'invalid') {
-            return new WP_Error(
-                'update_failed',
-                'No se pudo actualizar el estado de sincronización',
-                array('status' => 500)
-            );
-        }
-
-        // Registrar el evento en logs (opcional)
-        if (function_exists('error_log')) {
-            error_log(sprintf(
-                '[WP Agenda] Estado de sincronización actualizado a: %s en %s',
-                $status,
-                current_time('mysql')
-            ));
-        }
-
         // Respuesta exitosa
-        return new WP_REST_Response(
-            array(
-                'success' => true,
-                'message' => 'Estado de sincronización actualizado correctamente',
-                'status'  => $status,
-            ),
-            200
-        );
+        return new WP_REST_Response($result, 200);
     }
 }
 
@@ -4186,10 +4164,183 @@ function confirm_backend_service_confirmar($reserva_id) {
 
 
 ========================================
+FILE: includes\services\SyncService.php
+========================================
+<?php
+/**
+ * Sync Service
+ * 
+ * Servicio para gestionar el estado de sincronización con Google Calendar.
+ * 
+ * @package WP_Agenda_Automatizada
+ * @subpackage Services
+ */
+
+if (!defined('ABSPATH')) {
+    exit; // Exit if accessed directly
+}
+
+/**
+ * Class SyncService
+ * 
+ * Maneja la lógica de negocio relacionada con el estado de sincronización.
+ */
+class SyncService {
+
+    /**
+     * Actualiza el estado de sincronización de Google Calendar.
+     *
+     * @param string $status Estado de sincronización ('invalid' o 'valid')
+     * @return array Array con 'success' (bool) y 'message' (string)
+     * @throws Exception Si el estado no es válido o la actualización falla
+     */
+    public static function update_sync_status($status) {
+        // Validación estricta: solo se acepta 'invalid' en este momento
+        if ($status !== 'invalid') {
+            return array(
+                'success' => false,
+                'message' => 'Solo se acepta el estado "invalid" en este momento'
+            );
+        }
+
+        // Intentar actualizar la opción de estado de sincronización
+        $updated = update_option('aa_estado_gsync', 'invalid');
+
+        // Verificar si la actualización fue exitosa
+        if (!$updated && get_option('aa_estado_gsync') !== 'invalid') {
+            return array(
+                'success' => false,
+                'message' => 'No se pudo actualizar el estado de sincronización'
+            );
+        }
+
+        // Registrar el evento en logs
+        if (function_exists('error_log')) {
+            error_log(sprintf(
+                '[WP Agenda] Estado de sincronización actualizado a: %s en %s',
+                $status,
+                current_time('mysql')
+            ));
+        }
+
+        // Retornar éxito
+        return array(
+            'success' => true,
+            'message' => 'Estado de sincronización actualizado correctamente',
+            'status'  => $status
+        );
+    }
+
+    /**
+     * Obtiene el estado actual de sincronización.
+     *
+     * @return string Estado actual ('valid' o 'invalid')
+     */
+    public static function get_sync_status() {
+        return get_option('aa_estado_gsync', 'valid');
+    }
+
+    /**
+     * Restablece el estado de sincronización a válido.
+     *
+     * @return bool True si se actualizó correctamente, false en caso contrario
+     */
+    public static function reset_sync_status() {
+        $updated = update_option('aa_estado_gsync', 'valid');
+        
+        if ($updated || get_option('aa_estado_gsync') === 'valid') {
+            if (function_exists('error_log')) {
+                error_log(sprintf(
+                    '[WP Agenda] Estado de sincronización restablecido a: valid en %s',
+                    current_time('mysql')
+                ));
+            }
+            return true;
+        }
+        
+        return false;
+    }
+
+    /**
+     * Verifica si el estado de sincronización es inválido.
+     *
+     * @return bool True si el estado es 'invalid', false en caso contrario
+     */
+    public static function is_sync_invalid() {
+        return self::get_sync_status() === 'invalid';
+    }
+
+    /**
+     * Genera la URL de autorización OAuth de Google.
+     *
+     * @return string URL completa para iniciar el flujo OAuth
+     */
+    public static function get_auth_url() {
+        $backend_url = AA_API_BASE_URL . '/oauth/authorize';
+        $state = home_url();
+        $redirect_uri = admin_url('admin-post.php?action=aa_connect_google');
+        
+        return $backend_url 
+            . '?state=' . urlencode($state) 
+            . '&redirect_uri=' . urlencode($redirect_uri);
+    }
+
+    /**
+     * Maneja el éxito de la autenticación OAuth.
+     * Actualiza el email y secret del cliente, y resetea el estado de sincronización a válido.
+     *
+     * @param string $email Email de la cuenta de Google conectada
+     * @param string $secret Secret del cliente OAuth
+     * @return bool True si se actualizó correctamente
+     */
+    public static function handle_oauth_success($email, $secret) {
+        // Actualizar opciones de WordPress
+        update_option('aa_google_email', sanitize_email($email));
+        update_option('aa_client_secret', sanitize_text_field($secret));
+        
+        // Resetear el estado de sincronización a válido
+        $reset_success = self::reset_sync_status();
+        
+        // Registrar en logs
+        if (function_exists('error_log')) {
+            error_log(sprintf(
+                '[WP Agenda] OAuth exitoso - Email: %s, Estado sync: valid en %s',
+                $email,
+                current_time('mysql')
+            ));
+        }
+        
+        return $reset_success;
+    }
+}
+
+
+
+========================================
 FILE: views\admin-controls.php
 ========================================
 <?php
 if (!defined('ABSPATH')) exit;
+
+// 🔹 Banner de notificación global cuando la sincronización está inválida
+add_action('admin_notices', function() {
+    // Solo mostrar en páginas del plugin para administradores
+    if (!current_user_can('manage_options')) return;
+    
+    if (SyncService::is_sync_invalid()) {
+        ?>
+        <div class="notice notice-error">
+            <p>
+                <strong>⚠️ Sincronización de Google Calendar detenida</strong><br>
+                El token de autenticación ha caducado o fue rechazado. 
+                <a href="<?php echo esc_url(admin_url('admin.php?page=agenda-automatizada-settings')); ?>">
+                    Dirígete a la configuración para reconectar tu cuenta de Google.
+                </a>
+            </p>
+        </div>
+        <?php
+    }
+});
 
 // Crear página de configuración en el menú de WordPress
 add_action('admin_menu', function() {
@@ -4429,23 +4580,23 @@ function agenda_automatizada_render_settings_page() {
                     <td>
                         <?php 
                         $google_email = get_option('aa_google_email', '');
+                        $is_sync_invalid = SyncService::is_sync_invalid();
 
                         echo '<input type="hidden" name="aa_google_email" value="' . esc_attr($google_email) . '">';
                         
-                        
-                        if ($google_email) {
-                            echo "<p><strong>Sincronizado con: $google_email</strong></p>";
+                        if ($google_email && !$is_sync_invalid) {
+                            // Estado válido - conectado correctamente
+                            echo "<p><strong>✅ Sincronizado con: $google_email</strong></p>";
                             echo "<a href='" . esc_url(admin_url('admin-post.php?action=aa_disconnect_google')) . "' class='button'>Desconectar</a>";
+                        } elseif ($google_email && $is_sync_invalid) {
+                            // Token caducado o rechazado - requiere reconexión
+                            echo "<p style='color: #d63638; font-weight: bold;'>⚠️ Token caducado o conexión rechazada. Se requiere reconexión manual.</p>";
+                            echo "<p><strong>Email anterior: $google_email</strong></p>";
+                            echo "<a href='" . esc_url(SyncService::get_auth_url()) . "' class='button button-primary'>Reconectar con Google</a>";
                         } else {
-                            $backend_url = AA_API_BASE_URL . "/oauth/authorize";
-                            $state        = home_url();
-                            $redirect_uri = admin_url('admin-post.php?action=aa_connect_google');
-                            $auth_url     = $backend_url 
-                                            . "?state=" . urlencode($state) 
-                                            . "&redirect_uri=" . urlencode($redirect_uri);
-
+                            // No hay cuenta conectada
                             echo "<p><strong>No sincronizado</strong></p>";
-                            echo "<a href='" . esc_url($auth_url) . "' class='button button-primary'>Conectar con Google</a>";
+                            echo "<a href='" . esc_url(SyncService::get_auth_url()) . "' class='button button-primary'>Conectar con Google</a>";
                         }
                         ?>
                     </td>
@@ -4467,13 +4618,12 @@ function agenda_automatizada_render_settings_page() {
 add_action('admin_post_aa_connect_google', function() {
     if (!current_user_can('manage_options')) return;
 
-    if (!empty($_GET['email'])) {
-        update_option('aa_google_email', sanitize_email($_GET['email']));
-    }
+    $email = !empty($_GET['email']) ? $_GET['email'] : '';
+    $secret = !empty($_GET['client_secret']) ? $_GET['client_secret'] : '';
 
-     // ✅ Guardar el client_secret si viene en la redirección
-    if (!empty($_GET['client_secret'])) {
-        update_option('aa_client_secret', sanitize_text_field($_GET['client_secret']));
+    if ($email && $secret) {
+        // Usar el servicio para manejar el éxito del OAuth
+        SyncService::handle_oauth_success($email, $secret);
     }
 
     wp_redirect(admin_url('admin.php?page=agenda-automatizada-settings'));

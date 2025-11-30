@@ -34,7 +34,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/services/SyncService.php';
 // 4️⃣ Controladores (lógica de negocio)
 require_once plugin_dir_path(__FILE__) . 'includes/controllers/availability-controller.php';
 require_once plugin_dir_path(__FILE__) . 'includes/controllers/proximasCitasController.php';
-require_once plugin_dir_path(__FILE__) . 'includes/controllers/confirm-admin-controller.php';
+require_once plugin_dir_path(__FILE__) . 'includes/controllers/confirmController.php';
 require_once plugin_dir_path(__FILE__) . 'includes/controllers/WebhooksController.php';
 
 // 5️⃣ Controlador de encolado (DEBE IR DESPUÉS de availability-controller)
@@ -47,7 +47,6 @@ require_once plugin_dir_path(__FILE__) . 'views/admin-controls.php';
 // 7️⃣ Módulos adicionales
 require_once plugin_dir_path(__FILE__) . 'asistant-user.php';
 require_once plugin_dir_path(__FILE__) . 'historial-citas.php';
-require_once plugin_dir_path(__FILE__) . 'confirmacioncorreos.php';
 
 // ================================
 // 🔹 REGISTRO DE WEBHOOKS REST API

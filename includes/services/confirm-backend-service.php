@@ -7,6 +7,8 @@
  * - Construir payload para el backend
  * - Enviar petición autenticada con HMAC
  * - Actualizar estado de la reserva en WordPress
+ * - Ejecutar cancelación en cascada de citas conflictivas
+ * - Enviar correos de confirmación al backend
  * 
  * NO contiene validaciones de AJAX ni permisos (eso es del controlador).
  * 
@@ -53,19 +55,16 @@ function confirm_backend_service_confirmar($reserva_id) {
     error_log("✅ [ConfirmService] Cita ID $reserva_id marcada como 'confirmed' en WordPress");
     
     // =========================================================================
-    // 🛡️ LÓGICA DE CANCELACIÓN EN CASCADA (Nuevo bloque agregado)
+    // 🛡️ LÓGICA DE CANCELACIÓN EN CASCADA
     // =========================================================================
-    // Incluir el modelo si no se ha cargado (por seguridad, aunque el controller lo carga)
     require_once plugin_dir_path(__FILE__) . '../models/ReservationsModel.php';
 
-    // 1. Buscar conflictos
     $conflictos = ReservationsModel::get_pending_conflicts($reserva->fecha, $reserva_id);
 
     if (!empty($conflictos)) {
         error_log("⚔️ [ConfirmService] Se encontraron " . count($conflictos) . " citas pendientes en conflicto para la fecha: " . $reserva->fecha);
         
         foreach ($conflictos as $conflicto) {
-            // 2. Cancelar localmente (Las pendientes no tienen calendar_uid, así que no requieren API Google)
             $cancelado = $wpdb->update(
                 $table, 
                 ['estado' => 'cancelled'], 
@@ -77,8 +76,6 @@ function confirm_backend_service_confirmar($reserva_id) {
             }
         }
     }
-    // =========================================================================
-    // 🛡️ FIN LÓGICA DE CANCELACIÓN EN CASCADA
     // =========================================================================
 
      // ---------------------------------------------------------
@@ -92,7 +89,7 @@ function confirm_backend_service_confirmar($reserva_id) {
             'success' => true,
             'message' => 'Cita confirmada localmente (Sin sincronización con Google Calendar).',
             'data' => [
-                'existed' => false, // No aplica
+                'existed' => false,
                 'calendar_sync' => false
             ]
         ];
@@ -157,9 +154,8 @@ function confirm_backend_service_confirmar($reserva_id) {
     
     if (is_wp_error($response)) {
         error_log("⚠️ [ConfirmService] Error al contactar backend: " . $response->get_error_message());
-        // ⚠️ La cita YA está confirmada en WordPress, pero no en Google Calendar
         return [
-            'success' => true, // ← TRUE porque sí se confirmó en WordPress
+            'success' => true,
             'message' => 'Cita confirmada en WordPress, pero no se pudo sincronizar con Google Calendar: ' . $response->get_error_message(),
             'calendar_sync' => false
         ];
@@ -203,11 +199,81 @@ function confirm_backend_service_confirmar($reserva_id) {
         
         error_log("⚠️ [ConfirmService] Backend respondió con error: $error_message");
         
-        // ⚠️ La cita YA está confirmada en WordPress, solo falló la sincronización
         return [
-            'success' => true, // ← TRUE porque sí se confirmó en WordPress
+            'success' => true,
             'message' => "Cita confirmada en WordPress, pero falló la sincronización con Google Calendar: $error_message",
             'calendar_sync' => false
+        ];
+    }
+}
+
+/**
+ * Enviar correo de confirmación al backend
+ * 
+ * @param array $datos Datos de la reserva desde AJAX
+ * @return array ['success' => bool, 'message' => string, 'data' => array]
+ */
+function confirm_backend_service_enviar_correo($datos) {
+    // 🔹 Extraer dominio limpio
+    $site_url = get_site_url();
+    $parsed_url = parse_url($site_url);
+    $host = $parsed_url['host'] ?? 'localhost';
+    $domain = preg_replace('/^www\./', '', $host);
+
+    error_log("🧩 [EmailService] Dominio detectado: $domain");
+
+    // 🔹 Reorganizar datos para enviar al backend
+    $backend_data = [
+        'domain' => $domain,
+        'nombre' => $datos['nombre'] ?? '',
+        'servicio' => $datos['servicio'] ?? '',
+        'fecha' => $datos['fecha'] ?? '',
+        'telefono' => $datos['telefono'] ?? '',
+        'email' => $datos['correo'] ?? '',
+        'id_reserva' => $datos['id_reserva'] ?? null,
+        'businessName' => get_option('aa_business_name', 'Nuestro negocio'),
+        'businessAddress' => get_option('aa_business_address', 'No especificada'),
+        'whatsapp' => get_option('aa_whatsapp_number', ''),
+        'slot_duration' => intval(get_option('aa_slot_duration', 60)),
+    ];
+
+    error_log("📦 [EmailService] Datos reorganizados para backend:");
+    error_log(print_r($backend_data, true));
+
+    // 🔹 Determinar URL del backend según entorno
+    $backend_url = (strpos($site_url, 'localhost') !== false)
+        ? 'http://localhost:3000/correos/confirmacion'
+        : 'https://deoia-oauth-backend.onrender.com/correos/confirmacion';
+
+    // 🔹 Enviar petición autenticada con HMAC
+    $response = aa_send_authenticated_request($backend_url, 'POST', $backend_data);
+
+    if (is_wp_error($response)) {
+        error_log("❌ [EmailService] Error al contactar backend: " . $response->get_error_message());
+        return [
+            'success' => false,
+            'message' => 'Error de conexión con el backend',
+            'error' => $response->get_error_message()
+        ];
+    }
+
+    $status = wp_remote_retrieve_response_code($response);
+    $body = wp_remote_retrieve_body($response);
+    $decoded = json_decode($body, true);
+
+    error_log("📥 [EmailService] Respuesta del backend (status $status): " . print_r($decoded, true));
+
+    if ($status >= 200 && $status < 300 && isset($decoded['success']) && $decoded['success']) {
+        return [
+            'success' => true,
+            'message' => 'Correos enviados correctamente',
+            'backend_response' => $decoded
+        ];
+    } else {
+        return [
+            'success' => false,
+            'message' => 'El backend respondió con error',
+            'backend_response' => $decoded
         ];
     }
 }
