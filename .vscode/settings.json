@@ -43,7 +43,7 @@
     "**/.cache": true,
     "**/.history": true,
     "contexto_plugin.txt": true,
-    "empaquetar.js": true
+    "empaquetar.js": false
   },
 
   "search.exclude": {

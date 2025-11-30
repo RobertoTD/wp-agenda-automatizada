@@ -35,6 +35,9 @@ require_once plugin_dir_path(__FILE__) . 'includes/controllers/availability-cont
 require_once plugin_dir_path(__FILE__) . 'includes/controllers/proximasCitasController.php';
 require_once plugin_dir_path(__FILE__) . 'includes/controllers/confirm-admin-controller.php';
 
+// 4.1️⃣ Controladores API REST
+require_once plugin_dir_path(__FILE__) . 'includes/Api/WebhooksController.php';
+
 // 5️⃣ Controlador de encolado (DEBE IR DESPUÉS de availability-controller)
 require_once plugin_dir_path(__FILE__) . 'includes/controllers/enqueueController.php';
 
@@ -46,6 +49,14 @@ require_once plugin_dir_path(__FILE__) . 'views/admin-controls.php';
 require_once plugin_dir_path(__FILE__) . 'asistant-user.php';
 require_once plugin_dir_path(__FILE__) . 'historial-citas.php';
 require_once plugin_dir_path(__FILE__) . 'confirmacioncorreos.php';
+
+// ================================
+// 🔹 REGISTRO DE WEBHOOKS REST API
+// ================================
+add_action('rest_api_init', function() {
+    $webhooks_controller = new Webhooks_Controller();
+    $webhooks_controller->register_routes();
+});
 
 // ================================
 // 🔹 Endpoint AJAX: Guardar cita desde el frontend
@@ -161,6 +172,11 @@ register_activation_hook(__FILE__, function() {
     aa_create_clientes_table();
     aa_add_cliente_column_to_reservas();
     aa_add_calendar_uid_column();
+    
+    // 🔹 Inicializar estado de sincronización como válido
+    if (get_option('aa_estado_gsync') === false) {
+        add_option('aa_estado_gsync', 'valid');
+    }
 });
 
 // ===============================
