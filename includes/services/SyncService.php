@@ -92,4 +92,56 @@ class SyncService {
         
         return false;
     }
+
+    /**
+     * Verifica si el estado de sincronización es inválido.
+     *
+     * @return bool True si el estado es 'invalid', false en caso contrario
+     */
+    public static function is_sync_invalid() {
+        return self::get_sync_status() === 'invalid';
+    }
+
+    /**
+     * Genera la URL de autorización OAuth de Google.
+     *
+     * @return string URL completa para iniciar el flujo OAuth
+     */
+    public static function get_auth_url() {
+        $backend_url = AA_API_BASE_URL . '/oauth/authorize';
+        $state = home_url();
+        $redirect_uri = admin_url('admin-post.php?action=aa_connect_google');
+        
+        return $backend_url 
+            . '?state=' . urlencode($state) 
+            . '&redirect_uri=' . urlencode($redirect_uri);
+    }
+
+    /**
+     * Maneja el éxito de la autenticación OAuth.
+     * Actualiza el email y secret del cliente, y resetea el estado de sincronización a válido.
+     *
+     * @param string $email Email de la cuenta de Google conectada
+     * @param string $secret Secret del cliente OAuth
+     * @return bool True si se actualizó correctamente
+     */
+    public static function handle_oauth_success($email, $secret) {
+        // Actualizar opciones de WordPress
+        update_option('aa_google_email', sanitize_email($email));
+        update_option('aa_client_secret', sanitize_text_field($secret));
+        
+        // Resetear el estado de sincronización a válido
+        $reset_success = self::reset_sync_status();
+        
+        // Registrar en logs
+        if (function_exists('error_log')) {
+            error_log(sprintf(
+                '[WP Agenda] OAuth exitoso - Email: %s, Estado sync: valid en %s',
+                $email,
+                current_time('mysql')
+            ));
+        }
+        
+        return $reset_success;
+    }
 }

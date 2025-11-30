@@ -1,6 +1,26 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
+// 🔹 Banner de notificación global cuando la sincronización está inválida
+add_action('admin_notices', function() {
+    // Solo mostrar en páginas del plugin para administradores
+    if (!current_user_can('manage_options')) return;
+    
+    if (SyncService::is_sync_invalid()) {
+        ?>
+        <div class="notice notice-error">
+            <p>
+                <strong>⚠️ Sincronización de Google Calendar detenida</strong><br>
+                El token de autenticación ha caducado o fue rechazado. 
+                <a href="<?php echo esc_url(admin_url('admin.php?page=agenda-automatizada-settings')); ?>">
+                    Dirígete a la configuración para reconectar tu cuenta de Google.
+                </a>
+            </p>
+        </div>
+        <?php
+    }
+});
+
 // Crear página de configuración en el menú de WordPress
 add_action('admin_menu', function() {
     add_menu_page(
@@ -239,23 +259,23 @@ function agenda_automatizada_render_settings_page() {
                     <td>
                         <?php 
                         $google_email = get_option('aa_google_email', '');
+                        $is_sync_invalid = SyncService::is_sync_invalid();
 
                         echo '<input type="hidden" name="aa_google_email" value="' . esc_attr($google_email) . '">';
                         
-                        
-                        if ($google_email) {
-                            echo "<p><strong>Sincronizado con: $google_email</strong></p>";
+                        if ($google_email && !$is_sync_invalid) {
+                            // Estado válido - conectado correctamente
+                            echo "<p><strong>✅ Sincronizado con: $google_email</strong></p>";
                             echo "<a href='" . esc_url(admin_url('admin-post.php?action=aa_disconnect_google')) . "' class='button'>Desconectar</a>";
+                        } elseif ($google_email && $is_sync_invalid) {
+                            // Token caducado o rechazado - requiere reconexión
+                            echo "<p style='color: #d63638; font-weight: bold;'>⚠️ Token caducado o conexión rechazada. Se requiere reconexión manual.</p>";
+                            echo "<p><strong>Email anterior: $google_email</strong></p>";
+                            echo "<a href='" . esc_url(SyncService::get_auth_url()) . "' class='button button-primary'>Reconectar con Google</a>";
                         } else {
-                            $backend_url = AA_API_BASE_URL . "/oauth/authorize";
-                            $state        = home_url();
-                            $redirect_uri = admin_url('admin-post.php?action=aa_connect_google');
-                            $auth_url     = $backend_url 
-                                            . "?state=" . urlencode($state) 
-                                            . "&redirect_uri=" . urlencode($redirect_uri);
-
+                            // No hay cuenta conectada
                             echo "<p><strong>No sincronizado</strong></p>";
-                            echo "<a href='" . esc_url($auth_url) . "' class='button button-primary'>Conectar con Google</a>";
+                            echo "<a href='" . esc_url(SyncService::get_auth_url()) . "' class='button button-primary'>Conectar con Google</a>";
                         }
                         ?>
                     </td>
@@ -277,13 +297,12 @@ function agenda_automatizada_render_settings_page() {
 add_action('admin_post_aa_connect_google', function() {
     if (!current_user_can('manage_options')) return;
 
-    if (!empty($_GET['email'])) {
-        update_option('aa_google_email', sanitize_email($_GET['email']));
-    }
+    $email = !empty($_GET['email']) ? $_GET['email'] : '';
+    $secret = !empty($_GET['client_secret']) ? $_GET['client_secret'] : '';
 
-     // ✅ Guardar el client_secret si viene en la redirección
-    if (!empty($_GET['client_secret'])) {
-        update_option('aa_client_secret', sanitize_text_field($_GET['client_secret']));
+    if ($email && $secret) {
+        // Usar el servicio para manejar el éxito del OAuth
+        SyncService::handle_oauth_success($email, $secret);
     }
 
     wp_redirect(admin_url('admin.php?page=agenda-automatizada-settings'));
