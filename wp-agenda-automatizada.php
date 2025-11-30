@@ -34,9 +34,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/services/availability-proxy.p
 require_once plugin_dir_path(__FILE__) . 'includes/controllers/availability-controller.php';
 require_once plugin_dir_path(__FILE__) . 'includes/controllers/proximasCitasController.php';
 require_once plugin_dir_path(__FILE__) . 'includes/controllers/confirm-admin-controller.php';
-
-// 4.1️⃣ Controladores API REST
-require_once plugin_dir_path(__FILE__) . 'includes/Api/WebhooksController.php';
+require_once plugin_dir_path(__FILE__) . 'includes/controllers/WebhooksController.php';
 
 // 5️⃣ Controlador de encolado (DEBE IR DESPUÉS de availability-controller)
 require_once plugin_dir_path(__FILE__) . 'includes/controllers/enqueueController.php';

@@ -40,6 +40,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/services/availability-proxy.p
 require_once plugin_dir_path(__FILE__) . 'includes/controllers/availability-controller.php';
 require_once plugin_dir_path(__FILE__) . 'includes/controllers/proximasCitasController.php';
 require_once plugin_dir_path(__FILE__) . 'includes/controllers/confirm-admin-controller.php';
+require_once plugin_dir_path(__FILE__) . 'includes/controllers/WebhooksController.php';
 
 // 5️⃣ Controlador de encolado (DEBE IR DESPUÉS de availability-controller)
 require_once plugin_dir_path(__FILE__) . 'includes/controllers/enqueueController.php';
@@ -52,6 +53,14 @@ require_once plugin_dir_path(__FILE__) . 'views/admin-controls.php';
 require_once plugin_dir_path(__FILE__) . 'asistant-user.php';
 require_once plugin_dir_path(__FILE__) . 'historial-citas.php';
 require_once plugin_dir_path(__FILE__) . 'confirmacioncorreos.php';
+
+// ================================
+// 🔹 REGISTRO DE WEBHOOKS REST API
+// ================================
+add_action('rest_api_init', function() {
+    $webhooks_controller = new Webhooks_Controller();
+    $webhooks_controller->register_routes();
+});
 
 // ================================
 // 🔹 Endpoint AJAX: Guardar cita desde el frontend
@@ -167,6 +176,11 @@ register_activation_hook(__FILE__, function() {
     aa_create_clientes_table();
     aa_add_cliente_column_to_reservas();
     aa_add_calendar_uid_column();
+    
+    // 🔹 Inicializar estado de sincronización como válido
+    if (get_option('aa_estado_gsync') === false) {
+        add_option('aa_estado_gsync', 'valid');
+    }
 });
 
 // ===============================
@@ -3621,6 +3635,123 @@ function aa_ajax_cancelar_cita() {
 
 
 ========================================
+FILE: includes\controllers\WebhooksController.php
+========================================
+<?php
+/**
+ * Webhooks Controller
+ * 
+ * Maneja webhooks entrantes del backend de OAuth.
+ * 
+ * @package WP_Agenda_Automatizada
+ * @subpackage Api
+ */
+
+if (!defined('ABSPATH')) {
+    exit; // Exit if accessed directly
+}
+
+/**
+ * Class Webhooks_Controller
+ * 
+ * Controlador REST para procesar webhooks entrantes.
+ */
+class Webhooks_Controller extends WP_REST_Controller {
+
+    /**
+     * Constructor.
+     */
+    public function __construct() {
+        $this->namespace = 'aa/v1';
+        $this->rest_base = 'webhooks';
+    }
+
+    /**
+     * Registra las rutas del controlador.
+     */
+    public function register_routes() {
+        register_rest_route($this->namespace, '/' . $this->rest_base . '/sync-status', array(
+            array(
+                'methods'             => WP_REST_Server::CREATABLE,
+                'callback'            => array($this, 'handle_sync_status'),
+                'permission_callback' => '__return_true', // Público - validaremos el payload
+                'args'                => $this->get_sync_status_params(),
+            ),
+        ));
+    }
+
+    /**
+     * Define los parámetros esperados para el endpoint sync-status.
+     *
+     * @return array Parámetros de validación.
+     */
+    protected function get_sync_status_params() {
+        return array(
+            'status' => array(
+                'required'          => true,
+                'type'              => 'string',
+                'description'       => 'Estado de sincronización (invalid o valid)',
+                'sanitize_callback' => 'sanitize_text_field',
+                'validate_callback' => function($param, $request, $key) {
+                    return in_array($param, array('invalid', 'valid'), true);
+                },
+            ),
+        );
+    }
+
+    /**
+     * Maneja el webhook de cambio de estado de sincronización.
+     *
+     * @param WP_REST_Request $request Objeto de solicitud REST.
+     * @return WP_REST_Response|WP_Error Respuesta de la API.
+     */
+    public function handle_sync_status($request) {
+        $status = $request->get_param('status');
+
+        // Validación adicional
+        if ($status !== 'invalid') {
+            return new WP_Error(
+                'invalid_status',
+                'Solo se acepta el estado "invalid" en este momento',
+                array('status' => 400)
+            );
+        }
+
+        // Actualizar la opción de estado de sincronización
+        $updated = update_option('aa_estado_gsync', 'invalid');
+
+        if (!$updated && get_option('aa_estado_gsync') !== 'invalid') {
+            return new WP_Error(
+                'update_failed',
+                'No se pudo actualizar el estado de sincronización',
+                array('status' => 500)
+            );
+        }
+
+        // Registrar el evento en logs (opcional)
+        if (function_exists('error_log')) {
+            error_log(sprintf(
+                '[WP Agenda] Estado de sincronización actualizado a: %s en %s',
+                $status,
+                current_time('mysql')
+            ));
+        }
+
+        // Respuesta exitosa
+        return new WP_REST_Response(
+            array(
+                'success' => true,
+                'message' => 'Estado de sincronización actualizado correctamente',
+                'status'  => $status,
+            ),
+            200
+        );
+    }
+}
+
+
+
+========================================
 FILE: includes\models\ReservationsModel.php
 ========================================
 <?php
@@ -3721,6 +3852,30 @@ class ReservationsModel {
         ");
         
         return intval($count);
+    }
+
+    /**
+     * Obtener citas pendientes que coinciden en fecha/hora (para cancelación automática)
+     * 
+     * @param string $fecha DateTime string (Y-m-d H:i:s)
+     * @param int $exclude_id ID de la cita que estamos confirmando (para no cancelarla a ella misma)
+     * @return array
+     */
+    public static function get_pending_conflicts($fecha, $exclude_id) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_reservas';
+        
+        // Buscamos citas PENDIENTES que tengan EXACTAMENTE la misma fecha de inicio
+        // y que no sean la cita actual.
+        $rows = $wpdb->get_results($wpdb->prepare("
+            SELECT id, nombre, correo, fecha 
+            FROM $table 
+            WHERE estado = 'pending' 
+            AND fecha = %s 
+            AND id != %d
+        ", $fecha, $exclude_id));
+        
+        return $rows ?? [];
     }
 }
 
@@ -3869,8 +4024,37 @@ function confirm_backend_service_confirmar($reserva_id) {
     
     error_log("✅ [ConfirmService] Cita ID $reserva_id marcada como 'confirmed' en WordPress");
     
+    // =========================================================================
+    // 🛡️ LÓGICA DE CANCELACIÓN EN CASCADA (Nuevo bloque agregado)
+    // =========================================================================
+    // Incluir el modelo si no se ha cargado (por seguridad, aunque el controller lo carga)
+    require_once plugin_dir_path(__FILE__) . '../models/ReservationsModel.php';
+
+    // 1. Buscar conflictos
+    $conflictos = ReservationsModel::get_pending_conflicts($reserva->fecha, $reserva_id);
+
+    if (!empty($conflictos)) {
+        error_log("⚔️ [ConfirmService] Se encontraron " . count($conflictos) . " citas pendientes en conflicto para la fecha: " . $reserva->fecha);
+        
+        foreach ($conflictos as $conflicto) {
+            // 2. Cancelar localmente (Las pendientes no tienen calendar_uid, así que no requieren API Google)
+            $cancelado = $wpdb->update(
+                $table, 
+                ['estado' => 'cancelled'], 
+                ['id' => $conflicto->id]
+            );
+            
+            if ($cancelado !== false) {
+                error_log("🚫 [Auto-Cancel] Cita ID {$conflicto->id} ({$conflicto->nombre}) cancelada automáticamente por ocupación de slot.");
+            }
+        }
+    }
+    // =========================================================================
+    // 🛡️ FIN LÓGICA DE CANCELACIÓN EN CASCADA
+    // =========================================================================
+
      // ---------------------------------------------------------
-    // 🛑 NUEVO CÓDIGO: Validar si existe email antes de seguir
+    // 🛑 Validar si existe email antes de seguir
     // ---------------------------------------------------------
     $google_email = get_option('aa_google_email', '');
 
