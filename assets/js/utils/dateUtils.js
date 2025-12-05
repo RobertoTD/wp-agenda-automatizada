@@ -10,6 +10,13 @@ const ymd = d => {
   return `${year}-${month}-${day}`;
 };
 
+// 🔹 Convertir Date a HH:MM en zona horaria LOCAL
+const hm = (d) => {
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
+};
+
 // Devuelve el nombre del día en inglés en minúsculas
 function getWeekdayName(date) {
   const days = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
@@ -107,6 +114,7 @@ function generateSlotsForDay(date, intervals, busyRanges, slotDuration = 30) {
 // ✅ Exponer globalmente
 window.DateUtils = {
   ymd,
+  hm,
   getWeekdayName,
   timeStrToMinutes,
   minutesFromDate,

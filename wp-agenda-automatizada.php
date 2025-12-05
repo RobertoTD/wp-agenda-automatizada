@@ -220,18 +220,9 @@ function aa_get_current_datetime() {
 function wpaa_render_form() {
     ob_start(); ?>
 
-    <?php
-    $business_name = esc_html( get_option('aa_business_name', 'Nuestro negocio') );
-    ?>
-    <div class="aa-form-instruction">
-        <p>
-            Agenda tu cita con <strong><?php echo $business_name; ?></strong> automáticamente llenando los siguientes campos. 
-            Recibirás un correo de confirmación.
-        </p>
-    </div>
-
     <form id="agenda-form">
-        <label for="servicio">Servicio:</label>
+
+        <!-- Servicio -->
         <select id="servicio" name="servicio" required>
             <?php
             $motivos_json = get_option('aa_google_motivo', json_encode(['Cita general']));
@@ -248,25 +239,26 @@ function wpaa_render_form() {
             ?>
         </select>
 
-        <label for="fecha">Fecha deseada:</label>
-        <!-- Contenedor donde se renderizará el nuevo calendario del frontend -->
+        <!-- Calendario -->
         <div id="wpagenda-calendar"></div>
-        <!-- Campo oculto donde se almacenará la fecha seleccionada -->
         <input type="hidden" id="fecha" name="fecha" required>
+
+        <!-- Slots -->
         <div id="slot-container"></div>
-        
-        <label for="nombre">Nombre:</label>
-        <input type="text" name="nombre" id="nombre" required>
+        <input type="hidden" id="slot-selector" name="slot" required>
 
-        <label for="telefono">Teléfono:</label>
-        <input type="tel" name="telefono" id="telefono" required>
+        <!-- Datos del cliente -->
+        <input type="text" id="nombre" name="nombre" placeholder="Nombre" required>
+        <input type="tel" id="telefono" name="telefono" placeholder="Teléfono" required>
+        <input type="email" id="correo" name="correo" placeholder="Correo" required>
 
-        <label for="correo">Correo:</label>
-        <input type="email" name="correo" id="correo" required>
-
+        <!-- Botón enviar -->
         <button type="submit">Agendar</button>
+
     </form>
+
     <div id="respuesta-agenda"></div>
+
     <?php
     return ob_get_clean();
 }

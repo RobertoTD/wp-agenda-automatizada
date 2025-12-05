@@ -45,7 +45,13 @@
          * @param {Date[]} slots
          */
         function handleSlotClick(e, slots) {
-            const target = e.target;
+            let target = e.target;
+            
+            // Si se hizo click en el span, subir al li
+            if (target.tagName === 'SPAN' && target.parentElement.classList.contains('aa-slot')) {
+                target = target.parentElement;
+            }
+            
             if (!target.classList.contains('aa-slot') || target.classList.contains('aa-slot--disabled')) return;
 
             const index = parseInt(target.dataset.index, 10);
@@ -76,20 +82,20 @@
                 return;
             }
 
-            let html = '<div class="aa-slots-grid">';
+            let html = '<ul class="aa-slots">';
 
             slots.forEach((slot, index) => {
                 const isSelected = isSameSlot(slot, selectedSlot);
                 let classes = 'aa-slot';
                 if (isSelected) classes += ' aa-slot--selected';
 
-                html += `<button type="button" class="${classes}" data-index="${index}">${formatTime(slot)}</button>`;
+                html += `<li class="${classes}" data-index="${index}"><span>${formatTime(slot)}</span></li>`;
             });
 
-            html += '</div>';
+            html += '</ul>';
             container.innerHTML = html;
 
-            container.querySelector('.aa-slots-grid')?.addEventListener('click', (e) => handleSlotClick(e, slots));
+            container.querySelector('.aa-slots')?.addEventListener('click', (e) => handleSlotClick(e, slots));
         }
 
         // =====================================================================

@@ -9,6 +9,7 @@
   // ==============================
   const AvailabilityService = window.AvailabilityService;
   const ymd = window.DateUtils.ymd;
+  const hm = window.DateUtils.hm;
 
   // ==============================
   // 🔹 Variables del módulo
@@ -103,18 +104,26 @@
         onDateSelected: (selectedDate) => {
           const slots = availableSlotsPerDay[ymd(selectedDate)] || [];
 
-          slotsInstance.render(slotContainerSelector, slots, (chosenSlot) => {
-            fechaInput.value = `${selectedDate.toLocaleDateString()} ${chosenSlot.toLocaleTimeString('es-MX', {
-              hour: '2-digit',
-              minute: '2-digit'
-            })}`;
+          slotsInstance.render('#slot-container', slots, (chosenSlot) => {
+            const fechaStr = ymd(selectedDate);
+            const horaStr = hm(chosenSlot);
+            fechaInput.value = `${fechaStr} ${horaStr}`;
+            
+            const slotInput = document.getElementById('slot-selector');
+            if (slotInput) {
+              slotInput.value = chosenSlot.toISOString();
+            }
           });
 
           if (slots[0]) {
-            fechaInput.value = `${selectedDate.toLocaleDateString()} ${slots[0].toLocaleTimeString('es-MX', {
-              hour: '2-digit',
-              minute: '2-digit'
-            })}`;
+            const fechaStr = ymd(selectedDate);
+            const horaStr = hm(slots[0]);
+            fechaInput.value = `${fechaStr} ${horaStr}`;
+            
+            const slotInput = document.getElementById('slot-selector');
+            if (slotInput) {
+              slotInput.value = slots[0].toISOString();
+            }
           }
         }
       });
@@ -159,19 +168,16 @@
     availabilityProxyInstance = new window.AvailabilityProxy(config);
     window.availabilityProxyInstance = availabilityProxyInstance;
     
+    // ✅ IMPORTANTE: Siempre inyectar datos locales al proxy para que onChange funcione
+    const localBusyRanges = window.AvailabilityService.loadLocal();
+    availabilityProxyInstance.busyRanges = localBusyRanges;
+    availabilityProxyInstance.availableSlotsPerDay = initialData.availableSlotsPerDay || {};
+    
+    console.log(`📊 Proxy inicializado con ${Object.keys(availabilityProxyInstance.availableSlotsPerDay).length} días locales`);
+    
     // 🛑 CLÁUSULA DE GUARDA: Si no hay email, nos quedamos en MODO LOCAL
     if (!email) {
       console.warn('⚠️ aa_google_email no configurado. Operando en modo LOCAL SOLAMENTE.');
-      console.log('✅ Inyectando datos locales en el proxy para mantener consistencia en UI.');
-      
-      // ✅ Asignar busyRanges locales al proxy
-      const localBusyRanges = window.AvailabilityService.loadLocal();
-      availabilityProxyInstance.busyRanges = localBusyRanges;
-      
-      availabilityProxyInstance.availableSlotsPerDay = initialData.availableSlotsPerDay || {};
-      
-      console.log(`📊 Proxy inicializado con ${Object.keys(availabilityProxyInstance.availableSlotsPerDay).length} días y ${availabilityProxyInstance.busyRanges.length} eventos ocupados`);
-      
       return;
     }
 
@@ -272,23 +278,31 @@
         onDateSelected: (selectedDate) => {
           const slots = window.AvailabilityService.slotsForDate(proxy, selectedDate);
 
-          slotsInstance.render(slotContainerSelector, slots, (chosenSlot) => {
+          slotsInstance.render('#slot-container', slots, (chosenSlot) => {
             const input = document.querySelector(fechaInputSelector);
             if (input) {
-              input.value = `${selectedDate.toLocaleDateString()} ${chosenSlot.toLocaleTimeString('es-MX', {
-                hour: '2-digit',
-                minute: '2-digit'
-              })}`;
+              const fechaStr = ymd(selectedDate);
+              const horaStr = hm(chosenSlot);
+              input.value = `${fechaStr} ${horaStr}`;
+            }
+            
+            const slotInput = document.getElementById('slot-selector');
+            if (slotInput) {
+              slotInput.value = chosenSlot.toISOString();
             }
           });
 
           if (slots[0]) {
             const input = document.querySelector(fechaInputSelector);
             if (input) {
-              input.value = `${selectedDate.toLocaleDateString()} ${slots[0].toLocaleTimeString('es-MX', {
-                hour: '2-digit',
-                minute: '2-digit'
-              })}`;
+              const fechaStr = ymd(selectedDate);
+              const horaStr = hm(slots[0]);
+              input.value = `${fechaStr} ${horaStr}`;
+            }
+            
+            const slotInput = document.getElementById('slot-selector');
+            if (slotInput) {
+              slotInput.value = slots[0].toISOString();
             }
           }
         }
@@ -308,7 +322,7 @@
   function initAvailabilityController(config) {
     const {
       fechaInputSelector,
-      slotContainerSelector,
+      slotContainerSelector = '#slot-container',
       isAdmin = false
     } = config;
 

@@ -74,8 +74,8 @@
 }
 
 .aa-day--disabled {
-    background: #eee;
-    color: #aaa;
+    background: #ffffff00;
+    color: #e1e1e1;
     cursor: not-allowed;
 }
 
@@ -92,4 +92,45 @@
 
 .aa-day:hover:not(.aa-day--disabled):not(.aa-day--empty) {
     background: #e0f0ff;
+}
+/* ========================================
+   SLOTS DEFAULT MINIMAL
+======================================== */
+
+.aa-slots {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    gap: 6px;
+    margin: 10px 0 20px;
+    padding: 0;
+    list-style: none;
+}
+
+.aa-slot {
+    background: #f4f4f4;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 6px 0;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+    font-size: 13px;
+}
+
+.aa-slot:hover {
+    background: #e8f4ff;
+    border-color: #c0dfff;
+}
+
+.aa-slot--selected {
+    background: #0073aa;
+    color: white;
+    border-color: #0073aa;
+    font-weight: bold;
+}
+
+.aa-slot--disabled {
+    background: #eee;
+    color: #aaa;
+    cursor: not-allowed;
 }
