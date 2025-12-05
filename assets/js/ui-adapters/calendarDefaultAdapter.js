@@ -42,9 +42,9 @@
         function renderHeader() {
             return `
                 <div class="aa-calendar-header">
-                    <button type="button" class="aa-calendar-nav aa-calendar-prev">&lt;</button>
+                    <span class="aa-calendar-nav aa-calendar-prev">&lt;</span>
                     <span class="aa-calendar-title">${MONTHS_ES[viewDate.getMonth()]} ${viewDate.getFullYear()}</span>
-                    <button type="button" class="aa-calendar-nav aa-calendar-next">&gt;</button>
+                    <span class="aa-calendar-nav aa-calendar-next">&gt;</span>
                 </div>
             `;
         }
