@@ -4,11 +4,8 @@
 
 /**
  * Renderiza selector de slots para frontend
- * @param {string} containerId - ID del contenedor donde se renderizará el selector
- * @param {Array<Date>} validSlots - Array de fechas disponibles
- * @param {Function} onSelectSlot - Callback cuando se selecciona un slot
  */
-export function render(containerId, validSlots, onSelectSlot) {
+function render(containerId, validSlots, onSelectSlot) {
   const container = document.getElementById(containerId);
   
   if (!container) {
@@ -56,13 +53,13 @@ export function render(containerId, validSlots, onSelectSlot) {
 /**
  * LEGACY: Mantener compatibilidad
  */
-export function renderAvailableSlots(containerId, validSlots, onSelectSlot) {
+function renderAvailableSlots(containerId, validSlots, onSelectSlot) {
   console.warn('⚠️ renderAvailableSlots() es legacy, usa render() en su lugar');
   return render(containerId, validSlots, onSelectSlot);
 }
 
 // ==============================
-// 🔹 Exponer en window para compatibilidad con código no-modular
+// 🔹 Exponer en window
 // ==============================
 window.SlotSelectorUI = {
   render,

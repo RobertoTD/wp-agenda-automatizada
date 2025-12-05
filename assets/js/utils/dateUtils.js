@@ -3,7 +3,7 @@
 // ==============================
 
 // 🔹 Convertir Date a YYYY-MM-DD en zona horaria LOCAL
-export const ymd = d => {
+const ymd = d => {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
@@ -11,7 +11,7 @@ export const ymd = d => {
 };
 
 // Devuelve el nombre del día en inglés en minúsculas
-export function getWeekdayName(date) {
+function getWeekdayName(date) {
   const days = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
   const dayIndex = date.getDay();
   console.log(`🗓️ ${date.toDateString()} -> día ${dayIndex} (${days[dayIndex]})`);
@@ -19,18 +19,18 @@ export function getWeekdayName(date) {
 }
 
 // Convierte "HH:MM" a minutos desde medianoche
-export function timeStrToMinutes(str) {
+function timeStrToMinutes(str) {
   const [h, m] = str.split(':').map(Number);
   return h * 60 + m;
 }
 
 // Convierte Date a minutos desde medianoche
-export function minutesFromDate(d) {
+function minutesFromDate(d) {
   return d.getHours() * 60 + d.getMinutes();
 }
 
 // Obtiene intervalos de un día (convertidos a minutos)
-export function getDayIntervals(aa_schedule, weekday) {
+function getDayIntervals(aa_schedule, weekday) {
   if (!aa_schedule || !aa_schedule[weekday] || !aa_schedule[weekday].enabled) return [];
   const intervals = aa_schedule[weekday].intervals || [];
   return intervals.map(iv => ({
@@ -42,7 +42,7 @@ export function getDayIntervals(aa_schedule, weekday) {
 // ==============================
 // 🔹 Calcular límites de fecha (minDate/maxDate)
 // ==============================
-export function computeLimits(futureWindow) {
+function computeLimits(futureWindow) {
   const minDate = new Date();
   const maxDate = new Date();
   maxDate.setDate(minDate.getDate() + futureWindow);
@@ -52,7 +52,7 @@ export function computeLimits(futureWindow) {
 // ==============================
 // 🔹 Verificar si un slot tiene suficiente espacio libre
 // ==============================
-export function hasEnoughFreeTime(slotStart, durationMinutes, busyRanges) {
+function hasEnoughFreeTime(slotStart, durationMinutes, busyRanges) {
   const slotEnd = new Date(slotStart.getTime() + durationMinutes * 60000);
   
   for (const busy of busyRanges) {
@@ -68,14 +68,14 @@ export function hasEnoughFreeTime(slotStart, durationMinutes, busyRanges) {
 }
 
 // ✅ Verifica si un slot está ocupado (compatibilidad)
-export function isSlotBusy(slotDate, busyRanges) {
+function isSlotBusy(slotDate, busyRanges) {
   return busyRanges.some(range => {
     return slotDate >= range.start && slotDate < range.end;
   });
 }
 
 // ✅ Genera slots disponibles para un día con duración configurable
-export function generateSlotsForDay(date, intervals, busyRanges, slotDuration = 30) {
+function generateSlotsForDay(date, intervals, busyRanges, slotDuration = 30) {
   const slots = [];
   const now = new Date();
   const isToday = date.toDateString() === now.toDateString();
@@ -104,7 +104,7 @@ export function generateSlotsForDay(date, intervals, busyRanges, slotDuration = 
   return slots;
 }
 
-// ✅ Exponer globalmente para compatibilidad con scripts legacy
+// ✅ Exponer globalmente
 window.DateUtils = {
   ymd,
   getWeekdayName,

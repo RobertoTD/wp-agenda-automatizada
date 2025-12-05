@@ -4,9 +4,8 @@
 
 /**
  * Inicializa el controlador de reservas
- * Maneja el submit del formulario, validación, guardado y redirección
  */
-export function initReservationController(formSelector) {
+function initReservationController(formSelector) {
   const form = document.querySelector(formSelector);
   
   if (!form) {
@@ -123,7 +122,7 @@ function redirectToWhatsApp(nombre, servicio, fechaLegible, telefono) {
 }
 
 // ==============================
-// 🔹 Exponer en window para compatibilidad
+// 🔹 Exponer en window
 // ==============================
 window.ReservationController = {
   init: initReservationController

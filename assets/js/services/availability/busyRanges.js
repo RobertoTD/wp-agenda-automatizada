@@ -1,17 +1,11 @@
 /**
  * Módulo de Busy Ranges
- * Responsabilidades:
- * - Generar busyRanges desde eventos ocupados
- * - Cargar eventos ocupados locales desde window
- * - Normalizar fechas a objetos Date
  */
 
 /**
  * Generar busyRanges desde eventos ocupados
- * @param {Array} busyEvents - Array de eventos ocupados con { start, end }
- * @returns {Array} Array de rangos ocupados con objetos Date
  */
-export function generateBusyRanges(busyEvents) {
+function generateBusyRanges(busyEvents) {
   if (!busyEvents || !Array.isArray(busyEvents)) {
     console.warn('⚠️ generateBusyRanges: No se recibieron eventos válidos');
     return [];
@@ -31,9 +25,8 @@ export function generateBusyRanges(busyEvents) {
 
 /**
  * Cargar disponibilidad local desde window
- * @returns {Array} Array de rangos ocupados locales con objetos Date
  */
-export function loadLocalBusyRanges() {
+function loadLocalBusyRanges() {
   const localBusyRanges = [];
 
   if (typeof window.aa_local_availability !== 'undefined' && window.aa_local_availability.local_busy) {
@@ -55,3 +48,11 @@ export function loadLocalBusyRanges() {
   
   return localBusyRanges;
 }
+
+// ✅ Exponer globalmente
+window.BusyRanges = {
+  generateBusyRanges,
+  loadLocalBusyRanges
+};
+
+console.log('✅ busyRanges.js cargado');

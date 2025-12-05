@@ -4,11 +4,8 @@
 
 /**
  * Guarda una reserva en el backend
- * @param {Object} datos - Datos de la reserva (servicio, fecha, nombre, telefono, correo, nonce, extra_field)
- * @returns {Promise<Object>} Objeto con { success, data: { id, cliente_id, message } }
- * @throws {Error} Si la petición falla o la respuesta es inválida
  */
-export async function saveReservation(datos) {
+async function saveReservation(datos) {
   if (typeof wpaa_vars === 'undefined' || !wpaa_vars.ajax_url) {
     throw new Error('Variables de configuración no disponibles (wpaa_vars)');
   }
@@ -57,10 +54,8 @@ export async function saveReservation(datos) {
 
 /**
  * Envía correo de confirmación de reserva
- * @param {Object} datos - Datos de la reserva (debe incluir id_reserva)
- * @returns {Promise<Object>} Resultado del envío
  */
-export async function sendConfirmation(datos) {
+async function sendConfirmation(datos) {
   if (typeof wpaa_vars === 'undefined' || !wpaa_vars.ajax_url) {
     throw new Error('Variables de configuración no disponibles (wpaa_vars)');
   }
@@ -90,7 +85,7 @@ export async function sendConfirmation(datos) {
 }
 
 // ==============================
-// 🔹 Exponer en window para compatibilidad con código no-modular
+// 🔹 Exponer en window
 // ==============================
 window.ReservationService = {
   saveReservation,

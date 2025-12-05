@@ -1,17 +1,11 @@
 /**
  * Módulo de Combinación de Disponibilidad Local y Externa
- * Responsabilidades:
- * - Combinar eventos ocupados de Google Calendar (externos) con reservas locales (BD)
- * - Normalizar fechas a objetos Date
- * - Evitar duplicación de datos
  */
 
 /**
  * Combinar disponibilidad local y externa
- * @param {Object} externalAvailability - Objeto window.aa_availability con datos de Google Calendar
- * @param {Object} localAvailability - Objeto window.aa_local_availability con reservas locales
  */
-export function combineLocalExternal(externalAvailability, localAvailability) {
+function combineLocalExternal(externalAvailability, localAvailability) {
   if (!localAvailability || !localAvailability.local_busy) {
     console.log('ℹ️ No hay datos locales para combinar');
     return;
@@ -37,3 +31,10 @@ export function combineLocalExternal(externalAvailability, localAvailability) {
   console.log(`   - Google Calendar: ${externalBusy.length}`);
   console.log(`   - Local: ${localBusy.length}`);
 }
+
+// ✅ Exponer globalmente
+window.CombineLocalExternal = {
+  combineLocalExternal
+};
+
+console.log('✅ combineLocalExternal.js cargado');

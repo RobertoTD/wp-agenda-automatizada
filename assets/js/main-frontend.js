@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // 🔹 FASE 2: Inicializar calendario básico INMEDIATAMENTE
     // ==============================
     console.log('📅 Inicializando calendario básico...');
-    window.CalendarUI.initBasicCalendar('#' + fechaInput.id);
+    
 
   } else {
     console.error('❌ CalendarUI no está disponible');

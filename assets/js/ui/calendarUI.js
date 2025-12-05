@@ -6,9 +6,8 @@ console.log('🔄 Cargando calendarUI.js...');
 
 /**
  * Buscar y validar input de fecha
- * @returns {HTMLElement|null}
  */
-export function findDateInput() {
+function findDateInput() {
   const fechaInput = document.getElementById("fecha") || document.getElementById("cita-fecha");
   
   console.log('aa_debug: fechaInput =>', !!fechaInput);
@@ -24,9 +23,8 @@ export function findDateInput() {
 
 /**
  * Leer duración de slot desde configuración global
- * @returns {number}
  */
-export function getSlotDuration() {
+function getSlotDuration() {
   const slotDuration = (typeof window.aa_slot_duration !== 'undefined') 
     ? window.aa_slot_duration 
     : 60;
@@ -38,9 +36,8 @@ export function getSlotDuration() {
 
 /**
  * Inicializa Flatpickr en modo básico (sin reglas de disponibilidad)
- * @param {string} fechaSelector - Selector CSS del input de fecha
  */
-export function initBasicCalendar(fechaSelector) {
+function initBasicCalendar(fechaSelector) {
   console.log('📅 initBasicCalendar llamado con selector:', fechaSelector);
   
   if (typeof flatpickr === "undefined" || typeof flatpickr.l10ns === "undefined") {
@@ -66,9 +63,8 @@ export function initBasicCalendar(fechaSelector) {
 
 /**
  * Renderiza el calendario frontend con reglas de disponibilidad
- * @param {Object} config - Configuración del calendario
  */
-export function render(config) {
+function render(config) {
   const {
     fechaInput,
     minDate,
@@ -113,15 +109,15 @@ export function render(config) {
 }
 
 /**
- * Reconstruye el calendario con reglas de disponibilidad (LEGACY - usar render())
+ * Reconstruye el calendario con reglas de disponibilidad (LEGACY)
  */
-export function rebuildCalendar(options) {
+function rebuildCalendar(options) {
   console.warn('⚠️ rebuildCalendar() es legacy, usa render() en su lugar');
   return render(options);
 }
 
 // ==============================
-// 🔹 Exponer en window para compatibilidad con código no-modular
+// 🔹 Exponer en window
 // ==============================
 window.CalendarUI = {
   findDateInput,

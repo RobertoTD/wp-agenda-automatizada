@@ -1,17 +1,11 @@
 /**
  * Módulo de Fetch con Reintentos
- * Responsabilidades:
- * - Construir URL de consulta al backend
- * - Realizar fetch con reintentos automáticos
- * - Normalizar datos recibidos (data.busy)
- * - Guardar en window.aa_availability
- * - Emitir eventos de éxito/error
  */
 
 /**
  * Construir URL de consulta
  */
-export function buildUrl(config) {
+function buildUrl(config) {
   const { ajaxUrl, action, email } = config;
   return `${ajaxUrl}?action=${encodeURIComponent(action)}&email=${encodeURIComponent(email)}`;
 }
@@ -26,7 +20,7 @@ let dataReceived = false;
 /**
  * Realizar fetch de disponibilidad (single attempt)
  */
-export async function fetchAvailability(config, onSuccess, onError) {
+async function fetchAvailability(config, onSuccess, onError) {
   if (dataReceived) return;
 
   attempts++;
@@ -113,7 +107,7 @@ export async function fetchAvailability(config, onSuccess, onError) {
 /**
  * Iniciar loop de reintentos automáticos
  */
-export function startFetchLoop(config, onSuccess, onError) {
+function startFetchLoop(config, onSuccess, onError) {
   console.log("🚀 Iniciando loop de fetch con reintentos");
   
   // Reset estado
@@ -132,7 +126,7 @@ export function startFetchLoop(config, onSuccess, onError) {
 /**
  * Detener reintentos
  */
-export function stopFetchLoop() {
+function stopFetchLoop() {
   if (intervalId) {
     clearInterval(intervalId);
     intervalId = null;
@@ -143,8 +137,19 @@ export function stopFetchLoop() {
 /**
  * Reset estado (útil para testing o re-inicialización)
  */
-export function resetFetchState() {
+function resetFetchState() {
   attempts = 0;
   dataReceived = false;
   stopFetchLoop();
 }
+
+// ✅ Exponer globalmente
+window.ProxyFetch = {
+  buildUrl,
+  fetchAvailability,
+  startFetchLoop,
+  stopFetchLoop,
+  resetFetchState
+};
+
+console.log('✅ proxyFetch.js cargado');

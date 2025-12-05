@@ -249,7 +249,10 @@ function wpaa_render_form() {
         </select>
 
         <label for="fecha">Fecha deseada:</label>
-        <input type="text" id="fecha" name="fecha" required>
+        <!-- Contenedor donde se renderizará el nuevo calendario del frontend -->
+        <div id="wpagenda-calendar"></div>
+        <!-- Campo oculto donde se almacenará la fecha seleccionada -->
+        <input type="hidden" id="fecha" name="fecha" required>
         <div id="slot-container"></div>
         
         <label for="nombre">Nombre:</label>

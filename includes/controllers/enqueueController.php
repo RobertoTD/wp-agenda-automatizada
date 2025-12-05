@@ -69,7 +69,7 @@ function wpaa_enqueue_frontend_assets() {
 
     // CSS
     wp_enqueue_style('flatpickr-css', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css');
-    wp_enqueue_style('wpaa-frontend-styles', wpaa_url('css/styles.css'), [], filemtime(wpaa_path('css/styles.css')));
+    wp_enqueue_style('wpaa-calendar-default', wpaa_url('css/calendar-default.css'), [], filemtime(wpaa_path('css/calendar-default.css')));
 
     // JS externos
     wp_enqueue_script('flatpickr-js', 'https://cdn.jsdelivr.net/npm/flatpickr', [], null, true);
@@ -79,24 +79,22 @@ function wpaa_enqueue_frontend_assets() {
     wpaa_localize_local_availability();
 
     $frontend_scripts = [
-        ['wpaa-date-utils',              'assets/js/utils/dateUtils.js',              [], true],
-        ['wpaa-calendar-ui',             'assets/js/ui/calendarUI.js',                
-                                         ['flatpickr-js', 'flatpickr-es'], true],
-        ['wpaa-slot-selector-ui',        'assets/js/ui/slotSelectorUI.js',            [], true],
-        ['wpaa-proxy-fetch',             'assets/js/services/availability/proxyFetch.js', [], true],
-        ['wpaa-combine-local-external',  'assets/js/services/availability/combineLocalExternal.js', [], true],
-        ['wpaa-busy-ranges',             'assets/js/services/availability/busyRanges.js', [], true],
-        ['wpaa-slot-calculator',         'assets/js/services/availability/slotCalculator.js', 
-                                         ['wpaa-date-utils'], true],
-        ['wpaa-availability-service',    'assets/js/services/availabilityService.js',
-                                         ['wpaa-date-utils', 'wpaa-proxy-fetch', 'wpaa-combine-local-external', 'wpaa-busy-ranges', 'wpaa-slot-calculator'], true],
-        ['wpaa-reservation-service',     'assets/js/services/reservationService.js',  [], true],
-        ['wpaa-availability-controller', 'assets/js/controllers/availabilityController.js',
-                                         ['wpaa-date-utils', 'wpaa-calendar-ui', 'wpaa-slot-selector-ui', 'wpaa-availability-service'], true],
-        ['wpaa-reservation-controller',  'assets/js/controllers/reservationController.js',
-                                         ['wpaa-reservation-service'], true],
-        ['wpaa-main-frontend',           'assets/js/main-frontend.js',
-                                         ['wpaa-availability-controller', 'wpaa-reservation-controller', 'wpaa-calendar-ui'], false],
+        ['wpaa-date-utils',              'assets/js/utils/dateUtils.js',              [], false],
+        ['aa-wpagenda-kernel',           'assets/js/ui-adapters/WPAgenda.js',         ['wpaa-date-utils'], false],
+        ['aa-calendar-default-adapter',  'assets/js/ui-adapters/calendarDefaultAdapter.js', ['wpaa-date-utils', 'aa-wpagenda-kernel'], false],
+        ['aa-slots-default-adapter',     'assets/js/ui-adapters/slotsDefaultAdapter.js', ['wpaa-date-utils', 'aa-wpagenda-kernel'], false],
+        ['aa-modal-default-adapter',     'assets/js/ui-adapters/modalDefaultAdapter.js', ['wpaa-date-utils', 'aa-wpagenda-kernel'], false],
+        ['wpaa-calendar-ui',             'assets/js/ui/calendarUI.js', ['flatpickr-js', 'flatpickr-es', 'wpaa-date-utils'], false],
+        ['wpaa-slot-selector-ui',        'assets/js/ui/slotSelectorUI.js', ['wpaa-date-utils'], false],
+        ['wpaa-proxy-fetch',             'assets/js/services/availability/proxyFetch.js', [], false],
+        ['wpaa-combine-local-external',  'assets/js/services/availability/combineLocalExternal.js', [], false],
+        ['wpaa-busy-ranges',             'assets/js/services/availability/busyRanges.js', [], false],
+        ['wpaa-slot-calculator',         'assets/js/services/availability/slotCalculator.js', ['wpaa-date-utils'], false],
+        ['wpaa-availability-service',    'assets/js/services/availabilityService.js', ['wpaa-date-utils', 'wpaa-proxy-fetch', 'wpaa-combine-local-external', 'wpaa-busy-ranges', 'wpaa-slot-calculator'], false],
+        ['wpaa-reservation-service',     'assets/js/services/reservationService.js', [], false],
+        ['wpaa-availability-controller', 'assets/js/controllers/availabilityController.js', ['wpaa-date-utils', 'wpaa-calendar-ui', 'wpaa-slot-selector-ui', 'wpaa-availability-service', 'aa-wpagenda-kernel', 'aa-calendar-default-adapter', 'aa-slots-default-adapter', 'aa-modal-default-adapter'], false],
+        ['wpaa-reservation-controller',  'assets/js/controllers/reservationController.js', ['wpaa-reservation-service', 'aa-wpagenda-kernel', 'aa-calendar-default-adapter', 'aa-slots-default-adapter', 'aa-modal-default-adapter'], false],
+        ['wpaa-main-frontend',           'assets/js/main-frontend.js', ['wpaa-availability-controller', 'wpaa-reservation-controller'], false],
     ];
 
     foreach ($frontend_scripts as [$h, $p, $d, $m]) {

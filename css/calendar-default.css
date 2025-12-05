@@ -1,0 +1,95 @@
+/* ===============================
+   CONTENEDOR PRINCIPAL
+================================ */
+.aa-calendar {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 12px;
+    width: 100%;
+    max-width: 280px;
+    box-sizing: border-box;
+    font-family: sans-serif;
+}
+
+/* ===============================
+   HEADER
+================================ */
+.aa-calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.aa-calendar-title {
+    font-size: 15px;
+    font-weight: bold;
+}
+
+.aa-calendar-nav {
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 18px;
+    color: #444;
+}
+
+/* ===============================
+   Fila de nombres de días
+================================ */
+.aa-calendar-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    margin-bottom: 4px;
+    font-size: 11px;
+    color: #666;
+    text-align: center;
+}
+
+/* ===============================
+   GRID DE DÍAS
+================================ */
+.aa-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+}
+
+/* ===============================
+   DÍAS
+================================ */
+.aa-day {
+    padding: 6px 0;
+    background: #f4f4f4;
+    border-radius: 4px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.aa-day--empty {
+    background: transparent;
+    cursor: default;
+}
+
+.aa-day--disabled {
+    background: #eee;
+    color: #aaa;
+    cursor: not-allowed;
+}
+
+.aa-day--today {
+    
+    font-weight: bold;
+}
+
+.aa-day--selected {
+    background: #0073aa;
+    color: #fff;
+    font-weight: bold;
+}
+
+.aa-day:hover:not(.aa-day--disabled):not(.aa-day--empty) {
+    background: #e0f0ff;
+}
