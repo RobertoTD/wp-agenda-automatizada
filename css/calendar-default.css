@@ -7,9 +7,10 @@
     border-radius: 6px;
     padding: 12px;
     width: 100%;
-    max-width: 280px;
+    max-width: 360px;
     box-sizing: border-box;
     font-family: sans-serif;
+    margin-bottom: 10px;
 }
 
 /* ===============================
@@ -133,4 +134,113 @@
     background: #eee;
     color: #aaa;
     cursor: not-allowed;
+}
+
+/* ===== FORM DEFAULT ===== */
+
+#agenda-form {
+    max-width: 300px;
+    margin: 0 auto;
+}
+
+/* spacing inputs */
+#agenda-form input,
+#agenda-form select,
+#agenda-form button {
+    width: 100%;
+    display: block;
+    box-sizing: border-box;
+    margin-bottom: 10px;
+}
+
+/* centrar calendario */
+#wpagenda-calendar,
+#slot-container {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* evitar slots demasiado anchos */
+.aa-slots {
+    max-width: 380px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* ===============================
+   INPUTS Y SELECT SUAVES
+================================ */
+
+#agenda-form input,
+#agenda-form select {
+    padding: 8px 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 14px;
+    background: #fafafa;
+}
+
+#agenda-form input::placeholder {
+    text-align: center;
+    color: #999;
+}
+
+/* ===============================
+   BOTÓN DEFAULT SUAVE
+================================ */
+
+#agenda-form button {
+    padding: 10px 14px;
+    border-radius: 6px;
+    border: none;
+    background: #0073aa;
+    color: white;
+    cursor: pointer;
+    font-size: 15px;
+}
+
+#agenda-form button:hover {
+    background: #005f8a;
+}
+
+/* ===============================
+   CENTRADO SUAVE DEL FORM
+================================ */
+
+#agenda-form {
+    max-width: 360px;
+    margin: 0 auto;
+    padding: 10px 0;
+}
+
+/* ===============================
+   TÍTULO DE SLOTS (DEFAULT)
+================================ */
+
+.aa-slots-title {
+    text-align: center;
+    font-size: 14px;
+    color: #555;
+    
+}
+
+/* ===============================
+   AJUSTE DE SLOTS + CALENDARIO
+================================ */
+
+.aa-slots {
+    max-width: 360px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Centrado seguro del calendario */
+#wpagenda-calendar {
+    display: flex;
+    justify-content: center;
+}
+
+.aa-calendar {
+    margin-left: auto;
+    margin-right: auto;
 }

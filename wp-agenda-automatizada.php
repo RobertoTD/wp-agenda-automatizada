@@ -224,26 +224,26 @@ function wpaa_render_form() {
 
         <!-- Servicio -->
         <select id="servicio" name="servicio" required>
-            <?php
-            $motivos_json = get_option('aa_google_motivo', json_encode(['Cita general']));
-            $motivos = json_decode($motivos_json, true);
+    <option value="">Motivo de la cita</option>
+    <?php
+    $motivos_json = get_option('aa_google_motivo', json_encode(['Cita general']));
+    $motivos = json_decode($motivos_json, true);
 
-            if (is_array($motivos) && !empty($motivos)) {
-                foreach ($motivos as $motivo) {
-                    $motivo = esc_html($motivo);
-                    echo "<option value='{$motivo}'>{$motivo}</option>";
-                }
-            } else {
-                echo "<option value='Cita general'>Cita general</option>";
-            }
-            ?>
-        </select>
+    if (is_array($motivos) && !empty($motivos)) {
+        foreach ($motivos as $motivo) {
+            $motivo = esc_html($motivo);
+            echo "<option value='{$motivo}'>{$motivo}</option>";
+        }
+    }
+    ?>
+    </select>
 
         <!-- Calendario -->
         <div id="wpagenda-calendar"></div>
         <input type="hidden" id="fecha" name="fecha" required>
 
         <!-- Slots -->
+        <div id="aa-slot-title" class="aa-slots-title" style="display:none;"></div>
         <div id="slot-container"></div>
         <input type="hidden" id="slot-selector" name="slot" required>
 

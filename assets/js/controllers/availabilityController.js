@@ -104,6 +104,15 @@
         onDateSelected: (selectedDate) => {
           const slots = availableSlotsPerDay[ymd(selectedDate)] || [];
 
+          // Mostrar título solo si hay slots
+          const titleEl = document.getElementById('aa-slot-title');
+          if (slots.length > 0) {
+            titleEl.innerText = 'Horarios disponibles';
+            titleEl.style.display = 'block';
+          } else {
+            titleEl.style.display = 'none';
+          }
+
           slotsInstance.render('#slot-container', slots, (chosenSlot) => {
             const fechaStr = ymd(selectedDate);
             const horaStr = hm(chosenSlot);
@@ -277,6 +286,15 @@
         disableDateFn: (date) => window.AvailabilityService.disable(proxy, date),
         onDateSelected: (selectedDate) => {
           const slots = window.AvailabilityService.slotsForDate(proxy, selectedDate);
+
+          // Mostrar título solo si hay slots
+          const titleEl = document.getElementById('aa-slot-title');
+          if (slots.length > 0) {
+            titleEl.innerText = 'Horarios disponibles';
+            titleEl.style.display = 'block';
+          } else {
+            titleEl.style.display = 'none';
+          }
 
           slotsInstance.render('#slot-container', slots, (chosenSlot) => {
             const input = document.querySelector(fechaInputSelector);
