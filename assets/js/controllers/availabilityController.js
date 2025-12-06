@@ -93,8 +93,11 @@
       }
     } else {
       // ========== FRONTEND: Usar WPAgenda adaptadores ==========
-      calendarInstance = window.calendarDefaultAdapter.create();
-      slotsInstance = window.slotsDefaultAdapter.create();
+      const calendarAdapterInstance = WPAgenda?.ui?.calendar || window.calendarDefaultAdapter.create();
+      const slotsAdapterInstance = WPAgenda?.ui?.slots || window.slotsDefaultAdapter.create();
+
+      calendarInstance = calendarAdapterInstance;
+      slotsInstance = slotsAdapterInstance;
 
       calendarInstance.render({
         container: '#wpagenda-calendar',
@@ -277,7 +280,8 @@
         calendarInstance.destroy();
       }
       
-      calendarInstance = window.calendarDefaultAdapter.create();
+      const calendarAdapterInstance = WPAgenda?.ui?.calendar || window.calendarDefaultAdapter.create();
+      calendarInstance = calendarAdapterInstance;
       
       calendarInstance.render({
         container: '#wpagenda-calendar',
