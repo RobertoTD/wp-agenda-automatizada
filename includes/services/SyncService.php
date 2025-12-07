@@ -112,9 +112,13 @@ class SyncService {
         $state = home_url();
         $redirect_uri = admin_url('admin-post.php?action=aa_connect_google');
         
+        // 🔹 Obtener el email del administrador de WordPress para usarlo como contact_email
+        $contact_email = get_option('admin_email', '');
+        
         return $backend_url 
             . '?state=' . urlencode($state) 
-            . '&redirect_uri=' . urlencode($redirect_uri);
+            . '&redirect_uri=' . urlencode($redirect_uri)
+            . '&contact_email=' . urlencode($contact_email);
     }
 
     /**
