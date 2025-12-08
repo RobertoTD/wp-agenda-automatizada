@@ -168,6 +168,22 @@ function wpaa_localize_local_availability($script_handle = 'wpaa-availability-co
 ============================================================ */
 function wpaa_enqueue_admin_assets($hook) {
 
+    // 🔹 Encolar Tailwind CSS solo en páginas del plugin
+    $plugin_pages = [
+        'toplevel_page_agenda-automatizada-settings',
+        'agenda-automatizada_page_aa_asistant_panel',
+        'toplevel_page_aa_asistant_panel'
+    ];
+    
+    if (in_array($hook, $plugin_pages)) {
+        wp_enqueue_style(
+            'aa-admin-tailwind',
+            wpaa_url('assets/css/admin.css'),
+            [],
+            filemtime(wpaa_path('assets/css/admin.css'))
+        );
+    }
+
     // --- Pantalla principal de ajustes ---
     if ($hook === 'toplevel_page_agenda-automatizada-settings') {
         wp_enqueue_style('flatpickr-css-admin', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css');

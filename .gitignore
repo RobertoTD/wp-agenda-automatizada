@@ -6,3 +6,33 @@
 # Context files for external agents
 contexto_plugin.txt
 empaquetar.js
+
+# Node.js / NPM
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Tailwind source (only commit compiled admin.css)
+assets/css/admin-tailwind.css
+
+# Environment
+.env
+.env.local
+.env.*.local
