@@ -1,0 +1,15 @@
+{
+  "name": "aa-admin-ui",
+  "version": "1.0.0",
+  "description": "Tailwind build for Agenda Automatizada Admin UI (iframe)",
+  "scripts": {
+    "build": "postcss assets/app.css -o assets/app.css --verbose",
+    "watch": "postcss assets/app.css -o assets/app.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.0",
+    "postcss": "^8.4.32",
+    "postcss-cli": "^11.0.0",
+    "autoprefixer": "^10.4.16"
+  }
+}
