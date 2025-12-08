@@ -21,6 +21,9 @@ if (strpos($site_url, 'localhost') !== false || strpos($site_url, '127.0.0.1') !
 // 🔹 ORDEN CORRECTO DE INCLUSIÓN
 // ===============================
 
+// 0️⃣ Componentes UI reutilizables
+require_once plugin_dir_path(__FILE__) . 'admin/admin-components.php';
+
 // 1️⃣ Helpers y utilidades base
 require_once plugin_dir_path(__FILE__) . 'includes/auth-helper.php';
 
