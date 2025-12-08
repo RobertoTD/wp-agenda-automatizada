@@ -145,18 +145,11 @@ function aa_ajax_cancelar_cita() {
     if (!empty($reserva->calendar_uid) && !empty($google_email)) {
         error_log("🗓️ Intentando eliminar evento de Google Calendar: {$reserva->calendar_uid}");
         
-        // Extraer dominio limpio
-        $site_url = get_site_url();
-        $parsed_url = parse_url($site_url);
-        $host = $parsed_url['host'] ?? 'localhost';
-        
-        if (stripos($host, 'localhost') !== false || $host === '127.0.0.1') {
-            $domain = 'localhost';
-        } else {
-            $domain = preg_replace('/^www\./', '', $host);
-        }
+        // 🔹 Usar la función centralizada para obtener el domain
+        $domain = aa_get_clean_domain();
         
         // Determinar URL del backend
+        $site_url = get_site_url();
         $backend_url = (strpos($site_url, 'localhost') !== false)
             ? 'http://localhost:3000/cancelaciones/cancelar-cita'
             : 'https://deoia-oauth-backend.onrender.com/cancelaciones/cancelar-cita';

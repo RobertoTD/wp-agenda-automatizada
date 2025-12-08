@@ -101,19 +101,11 @@ function confirm_backend_service_confirmar($reserva_id) {
     $business_name = get_option('aa_business_name', get_bloginfo('name'));
     $business_address = get_option('aa_business_address', 'No especificada');
     
-    // 3️⃣ Extraer dominio limpio
-    $site_url = get_site_url();
-    $parsed_url = parse_url($site_url);
-    $host = $parsed_url['host'] ?? 'localhost';
-    
-    if (stripos($host, 'localhost') !== false || $host === '127.0.0.1') {
-        $domain = 'localhost';
-    } else {
-        $domain = preg_replace('/^www\./', '', $host);
-    }
+    // 3️⃣ Obtener dominio limpio usando la función centralizada
+    $domain = aa_get_clean_domain();
     
     // 4️⃣ Determinar URL del backend
-    $backend_url = (strpos($site_url, 'localhost') !== false)
+    $backend_url = (strpos(get_site_url(), 'localhost') !== false)
         ? 'http://localhost:3000/calendar/crear-reserva-directa'
         : 'https://deoia-oauth-backend.onrender.com/calendar/crear-reserva-directa';
     
@@ -214,11 +206,8 @@ function confirm_backend_service_confirmar($reserva_id) {
  * @return array ['success' => bool, 'message' => string, 'data' => array]
  */
 function confirm_backend_service_enviar_correo($datos) {
-    // 🔹 Extraer dominio limpio
-    $site_url = get_site_url();
-    $parsed_url = parse_url($site_url);
-    $host = $parsed_url['host'] ?? 'localhost';
-    $domain = preg_replace('/^www\./', '', $host);
+    // 🔹 Usar la función centralizada para obtener el domain
+    $domain = aa_get_clean_domain();
 
     error_log("🧩 [EmailService] Dominio detectado: $domain");
 
@@ -241,6 +230,7 @@ function confirm_backend_service_enviar_correo($datos) {
     error_log(print_r($backend_data, true));
 
     // 🔹 Determinar URL del backend según entorno
+    $site_url = get_site_url();
     $backend_url = (strpos($site_url, 'localhost') !== false)
         ? 'http://localhost:3000/correos/confirmacion'
         : 'https://deoia-oauth-backend.onrender.com/correos/confirmacion';

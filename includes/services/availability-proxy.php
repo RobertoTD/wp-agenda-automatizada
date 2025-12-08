@@ -7,15 +7,8 @@ function aa_build_availability_url_for($email) {
     $now = new DateTime('now', new DateTimeZone('UTC'));
     $future = new DateTime('+1 month', new DateTimeZone('UTC'));
 
-    $site_url = get_site_url();
-    $parsed_url = parse_url($site_url);
-    $host = $parsed_url['host'] ?? '';
-    
-    if (stripos($host, 'localhost') !== false || $host === '127.0.0.1') {
-        $domain = 'localhost';
-    } else {
-        $domain = preg_replace('/^www\./', '', $host);
-    }
+    // 🔹 Usar la función centralizada para obtener el domain
+    $domain = aa_get_clean_domain();
 
     $params = [
         'domain'  => $domain,

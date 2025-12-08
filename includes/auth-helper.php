@@ -2,6 +2,45 @@
 if (!defined('ABSPATH')) exit;
 
 /**
+ * Obtiene el dominio limpio para identificar al cliente en el backend.
+ * Para localhost, incluye el primer nivel del path para diferenciar instalaciones.
+ * 
+ * Ejemplos:
+ *   http://localhost/wpagenda -> localhost/wpagenda
+ *   http://localhost/agendatheme -> localhost/agendatheme
+ *   https://www.example.com/ -> example.com
+ *   https://sitio.deoia.com -> sitio.deoia.com
+ * 
+ * @return string Dominio limpio
+ */
+function aa_get_clean_domain() {
+    $site_url = get_site_url();
+    $parsed = parse_url($site_url);
+    
+    $host = $parsed['host'] ?? 'localhost';
+    
+    // Si tiene puerto no estándar, agregarlo
+    if (!empty($parsed['port']) && $parsed['port'] != 80 && $parsed['port'] != 443) {
+        $host .= ':' . $parsed['port'];
+    }
+    
+    // Eliminar www.
+    $host = preg_replace('/^www\./', '', $host);
+    
+    // 🔹 Si es localhost, incluir el primer nivel del path para diferenciar instalaciones
+    if ($host === 'localhost' || strpos($host, 'localhost:') === 0 || $host === '127.0.0.1') {
+        $path = trim($parsed['path'] ?? '', '/');
+        $first_path = explode('/', $path)[0] ?? '';
+        
+        if (!empty($first_path)) {
+            return $host . '/' . $first_path;
+        }
+    }
+    
+    return $host;
+}
+
+/**
  * Envía una petición autenticada con HMAC al backend
  * 
  * @param string $endpoint URL completa del endpoint (ej: 'http://localhost:3000/correo/confirmacion')
@@ -10,16 +49,8 @@ if (!defined('ABSPATH')) exit;
  * @return array|WP_Error Respuesta del backend o error
  */
 function aa_send_authenticated_request($endpoint, $method = 'POST', $data = []) {
-    // 🔹 Obtener el dominio LIMPIO (sin http:// ni rutas)
-    $site_url = get_site_url(); // Ej: http://localhost/wpagenda
-    $parsed = parse_url($site_url);
-    $host = $parsed['host'] ?? 'localhost'; // Solo 'localhost'
-    
-    // 🔹 Si tiene puerto, agregarlo
-    $domain = $host;
-    if (!empty($parsed['port']) && $parsed['port'] != 80 && $parsed['port'] != 443) {
-        $domain .= ':' . $parsed['port'];
-    }
+    // 🔹 Usar la función centralizada para obtener el domain
+    $domain = aa_get_clean_domain();
     
     $client_secret = get_option('aa_client_secret');
     
