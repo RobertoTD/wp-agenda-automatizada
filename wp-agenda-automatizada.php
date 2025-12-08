@@ -52,6 +52,26 @@ require_once plugin_dir_path(__FILE__) . 'asistant-user.php';
 require_once plugin_dir_path(__FILE__) . 'historial-citas.php';
 
 // ================================
+// 🔹 MENÚ ADMIN: Nueva UI en iframe
+// ================================
+function aa_render_ui_iframe() {
+    $url = plugin_dir_url(__FILE__) . 'admin/ui/index.php';
+    echo "<iframe src='{$url}' style='width:100%; min-height: calc(100vh - 100px); border:none;'></iframe>";
+}
+
+add_action('admin_menu', function() {
+    add_menu_page(
+        'Agenda Automatizada',
+        'Agenda Automatizada',
+        'manage_options',
+        'aa_ui',
+        'aa_render_ui_iframe',
+        'dashicons-calendar-alt',
+        3
+    );
+});
+
+// ================================
 // 🔹 REGISTRO DE WEBHOOKS REST API
 // ================================
 add_action('rest_api_init', function() {
