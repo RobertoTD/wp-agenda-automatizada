@@ -91,55 +91,6 @@ function agenda_automatizada_render_settings_page() {
     ?>
     <!-- AA Root Wrapper -->
     <div class="aa-root">
-        
-        <!-- Visual Reset Styles -->
-        <style>
-            .aa-root {
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            }
-            .aa-root input:not([type="checkbox"]):not([type="radio"]),
-            .aa-root select,
-            .aa-root textarea {
-                border: 1px solid #e5e7eb;
-                border-radius: 0.5rem;
-                padding: 0.625rem 0.875rem;
-                box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-                background: #fff;
-                font-size: 0.875rem;
-                transition: border-color 0.15s, box-shadow 0.15s;
-            }
-            .aa-root input:focus,
-            .aa-root select:focus,
-            .aa-root textarea:focus {
-                outline: none;
-                border-color: #3b82f6;
-                box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
-            }
-            .aa-root label {
-                font-size: 0.875rem;
-                font-weight: 500;
-                color: #374151;
-            }
-            .aa-root h2 {
-                font-size: 1.125rem;
-                font-weight: 600;
-                color: #111827;
-            }
-            .aa-accordion-body {
-                max-height: 0;
-                overflow: hidden;
-                transition: max-height 0.3s ease-out;
-            }
-            .aa-accordion.is-open .aa-accordion-body {
-                max-height: 2000px;
-            }
-            .aa-accordion.is-open .aa-accordion-icon {
-                transform: rotate(180deg);
-            }
-            .aa-accordion-header:hover {
-                background-color: #f9fafb;
-            }
-        </style>
 
         <div class="wrap aa-settings-wrap bg-gray-50 min-h-screen -ml-5 p-4 md:p-8">
             
