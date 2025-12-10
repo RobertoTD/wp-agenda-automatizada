@@ -6,3 +6,12 @@
 # Context files for external agents
 contexto_plugin.txt
 empaquetar.js
+
+# Node.js dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Note: package-lock.json is committed for dependency consistency
+# Note: admin.css is committed as it's required for WordPress plugin deployment

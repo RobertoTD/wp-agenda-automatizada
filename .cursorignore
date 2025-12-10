@@ -1,0 +1,40 @@
+# Cursor / AI Agent Ignore File
+# Prevents unnecessary indexing and analysis of generated/external files
+
+# Node.js dependencies (large, auto-generated)
+node_modules/**
+
+# Build artifacts and generated files
+# Note: admin.css is kept for reference but won't be deeply analyzed
+includes/admin/ui/assets/css/admin.css
+
+# Package manager files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Cache directories
+.cache/
+.npm/
+.yarn/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor directories
+.vscode/
+.idea/
+
+# Git
+.git/
+
+# Large context files
+contexto_plugin.txt
+

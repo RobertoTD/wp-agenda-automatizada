@@ -1,0 +1,16 @@
+{
+  "name": "wp-agenda-automatizada",
+  "version": "2.0.0",
+  "description": "WordPress plugin for automated appointment scheduling",
+  "scripts": {
+    "build:css": "tailwindcss -i ./includes/admin/ui/assets/css/admin.css -o ./includes/admin/ui/assets/css/admin.css --minify",
+    "watch:css": "tailwindcss -i ./includes/admin/ui/assets/css/admin.css -o ./includes/admin/ui/assets/css/admin.css --watch",
+    "dev": "npm run watch:css"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.1",
+    "autoprefixer": "^10.4.18",
+    "postcss": "^8.4.35"
+  }
+}
+
