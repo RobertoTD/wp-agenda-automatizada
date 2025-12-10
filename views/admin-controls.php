@@ -41,7 +41,8 @@ function aa_render_settings_iframe_page() {
         <iframe 
             id="aa-settings-iframe"
             src="<?php echo esc_url($iframe_url); ?>"
-            style="width: 100%; height: 800px; border: none;"
+            style="width: 100%; border: none;"
+            scrolling="no"
         ></iframe>
     </div>
     <?php
@@ -247,3 +248,35 @@ function aa_render_asistentes_section() {
     
     <?php
 }
+
+// Iframe auto-resize handler (parent window)
+add_action('admin_footer', function () {
+    $screen = get_current_screen();
+    if (!$screen || $screen->id !== 'toplevel_page_agenda-automatizada-settings') {
+        return;
+    }
+    ?>
+    <script>
+        (function () {
+            'use strict';
+            
+            const iframe = document.getElementById('aa-settings-iframe');
+            if (!iframe) return;
+
+            window.addEventListener('message', function (event) {
+                // Security: Only accept messages from same origin
+                if (event.origin !== window.location.origin) return;
+
+                if (event.data && event.data.type === 'aa-iframe-resize') {
+                    const newHeight = event.data.height;
+                    
+                    // Only update if height actually changed (avoid unnecessary reflows)
+                    if (iframe.style.height !== newHeight + 'px') {
+                        iframe.style.height = newHeight + 'px';
+                    }
+                }
+            });
+        })();
+    </script>
+    <?php
+});

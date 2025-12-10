@@ -10,21 +10,6 @@
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
 
-// ================================
-// Register admin menu page
-// ================================
-add_action('admin_menu', 'aa_register_iframe_test_page');
-
-function aa_register_iframe_test_page() {
-    add_submenu_page(
-        'agenda-automatizada-settings',
-        'Configuración de Agenda Automatizada',
-        'Configuración de Agenda Automatizada',
-        'manage_options',
-        'aa-iframe-test',
-        'aa_render_iframe_test_page'
-    );
-}
 
 // ================================
 // Render iframe container

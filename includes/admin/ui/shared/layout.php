@@ -33,7 +33,7 @@ header('Content-Type: text/html; charset=utf-8');
     <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . '../assets/js/main.js'); ?>" defer></script>
 </head>
 <body class="bg-gray-50">
-    <div id="aa-admin-app" class="min-h-screen">
+    <div id="aa-admin-app" class="w-full">
         <?php require_once __DIR__ . '/header.php'; ?>
         
         <main id="aa-admin-content" class="px-6 py-6">
