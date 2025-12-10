@@ -42,5 +42,6 @@ if (!file_exists($module_path)) {
     wp_die('UI module not found', 'Error', ['response' => 404]);
 }
 
-// Delegate rendering to layout
+// Variables $active_module and $module_path are now available in parent scope
+// Delegate rendering to layout (variables will be accessible in layout.php)
 require __DIR__ . '/shared/layout.php';

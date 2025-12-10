@@ -12,9 +12,9 @@
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
 
-// Get module name from parent scope
-$module = $module ?? 'settings';
-$module_path = $module_path ?? '';
+// Get module name and path from parent scope (set in index.php)
+$active_module = isset($active_module) ? $active_module : 'settings';
+$module_path = isset($module_path) ? $module_path : '';
 
 // Send headers
 header('Content-Type: text/html; charset=utf-8');

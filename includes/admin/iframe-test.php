@@ -53,7 +53,7 @@ function aa_handle_iframe_content() {
         wp_die('Acceso denegado', 'Error', ['response' => 403]);
     }
     
-    // Delegate to UI entry point
+    // Delegate to UI entry point (module parameter is handled inside ui/index.php)
     $ui_path = plugin_dir_path(__FILE__) . 'ui/index.php';
     
     if (file_exists($ui_path)) {
