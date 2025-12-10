@@ -1,38 +1,36 @@
 <?php
 /**
- * Iframe Test - Sistema de UI aislada en admin WordPress
+ * Admin UI Gateway - Container for iframe-based admin interface
  * 
- * Este archivo:
- * 1. Registra una página en el menú del admin
- * 2. Renderiza un iframe que apunta a admin-post.php
- * 3. El handler de admin-post devuelve HTML completo aislado
+ * This file acts as a gateway that:
+ * 1. Registers the admin menu page
+ * 2. Renders the iframe container
+ * 3. Handles admin-post requests and delegates to the UI layer
  */
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
 
 // ================================
-// 🔹 REGISTRAR PÁGINA EN EL MENÚ ADMIN
+// Register admin menu page
 // ================================
 add_action('admin_menu', 'aa_register_iframe_test_page');
 
 function aa_register_iframe_test_page() {
     add_submenu_page(
-        'agenda-automatizada-settings',  // Parent: Menú principal del plugin
-        'Configuración de Agenda Automatizada',  // Título de la página
-        'Configuración de Agenda Automatizada',  // Título del menú
-        'manage_options',                // Capacidad requerida
-        'aa-iframe-test',                // Slug único
-        'aa_render_iframe_test_page'     // Callback de renderizado
+        'agenda-automatizada-settings',
+        'Configuración de Agenda Automatizada',
+        'Configuración de Agenda Automatizada',
+        'manage_options',
+        'aa-iframe-test',
+        'aa_render_iframe_test_page'
     );
 }
 
 // ================================
-// 🔹 RENDERIZAR PÁGINA CON IFRAME
+// Render iframe container
 // ================================
 function aa_render_iframe_test_page() {
-    // Construir URL del iframe usando admin-post.php
     $iframe_url = admin_url('admin-post.php?action=aa_iframe_content');
-    
     ?>
     <div class="wrap">
         <iframe 
@@ -45,21 +43,17 @@ function aa_render_iframe_test_page() {
 }
 
 // ================================
-// 🔹 HANDLER: Contenido del iframe (admin-post.php)
+// Handler: Delegate to UI layer
 // ================================
-// Para usuarios logueados
 add_action('admin_post_aa_iframe_content', 'aa_handle_iframe_content');
 
-// Para usuarios no logueados (opcional, quitar si no se necesita)
-// add_action('admin_post_nopriv_aa_iframe_content', 'aa_handle_iframe_content');
-
 function aa_handle_iframe_content() {
-    // Verificar que el usuario tiene permisos
+    // Permission check
     if (!current_user_can('manage_options')) {
         wp_die('Acceso denegado', 'Error', ['response' => 403]);
     }
     
-    // Load the admin UI entry point
+    // Delegate to UI entry point
     $ui_path = plugin_dir_path(__FILE__) . 'ui/index.php';
     
     if (file_exists($ui_path)) {
@@ -67,6 +61,4 @@ function aa_handle_iframe_content() {
     } else {
         wp_die('UI no encontrada', 'Error', ['response' => 404]);
     }
-    
-    // Note: die() is called inside the UI layout to prevent WordPress output
 }

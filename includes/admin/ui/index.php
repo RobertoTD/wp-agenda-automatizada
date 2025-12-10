@@ -1,31 +1,46 @@
 <?php
 /**
- * Admin UI Entry Point - Router for iframe content
- * 
- * This file:
- * - Handles routing between UI modules
- * - Loads the appropriate module based on query parameter
- * - Provides permission checks
- * - Renders the main layout with the selected module
+ * Admin UI Router
+ *
+ * Responsibilities:
+ * - Validate access
+ * - Resolve active UI module
+ * - Delegate rendering to shared layout
+ *
+ * This file contains NO HTML and NO business logic.
  */
 
-defined('ABSPATH') or die('¡Sin acceso directo!');
+defined('ABSPATH') or die('No direct access');
 
 // Permission check
 if (!current_user_can('manage_options')) {
     wp_die('Acceso denegado', 'Error', ['response' => 403]);
 }
 
-// Get module from query parameter (default: settings)
-$module = isset($_GET['module']) ? sanitize_text_field($_GET['module']) : 'settings';
-$module_path = __DIR__ . '/modules/' . $module . '/index.php';
+// Allowed UI modules (whitelist)
+$allowed_modules = [
+    'settings',
+    'services',
+    'calendar',
+];
 
-// Validate module exists
+// Resolve requested module
+$requested_module = isset($_GET['module'])
+    ? sanitize_key($_GET['module'])
+    : 'settings';
+
+// Fallback to default module
+$active_module = in_array($requested_module, $allowed_modules, true)
+    ? $requested_module
+    : 'settings';
+
+// Resolve module path
+$module_path = __DIR__ . '/modules/' . $active_module . '/index.php';
+
+// Final safety check
 if (!file_exists($module_path)) {
-    $module = 'settings';
-    $module_path = __DIR__ . '/modules/settings/index.php';
+    wp_die('UI module not found', 'Error', ['response' => 404]);
 }
 
-// Load shared layout
-require_once __DIR__ . '/shared/layout.php';
-
+// Delegate rendering to layout
+require __DIR__ . '/shared/layout.php';

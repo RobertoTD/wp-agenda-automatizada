@@ -36,7 +36,8 @@ header('Content-Type: text/html; charset=utf-8');
     <div id="aa-admin-app" class="min-h-screen">
         <?php require_once __DIR__ . '/header.php'; ?>
         
-        <main class="container mx-auto px-4 py-6">
+        <main id="aa-admin-content" class="px-6 py-6">
+
             <?php
             // Load module content
             if (file_exists($module_path)) {
