@@ -1,0 +1,19 @@
+/**
+ * Admin UI - Main CSS Entry Point
+ * 
+ * This file will contain Tailwind CSS directives and custom admin styles.
+ * 
+ * For Tailwind, you'll need to configure tailwind.config.js and build process.
+ * For now, this is a placeholder for the compiled Tailwind CSS.
+ */
+
+/* Tailwind CSS will be compiled here */
+/* @tailwind base; */
+/* @tailwind components; */
+/* @tailwind utilities; */
+
+/* Custom admin styles */
+#aa-admin-app {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
