@@ -12,6 +12,12 @@
   "intelephense.files.maxSize": 5000000,
   "intelephense.telemetry.enabled": false,
 
+  "intelephense.environment.includePaths": [
+    "C:\\xampp3\\htdocs\\wpagenda\\wp-includes",
+    "C:\\xampp3\\htdocs\\wpagenda\\wp-admin",
+    "C:\\xampp3\\htdocs\\wpagenda\\wp-content"
+  ],
+
   "intelephense.stubs": [
     "apache", "Core", "curl", "date", "dom", "fileinfo", "filter",
     "gd", "hash", "iconv", "json", "libxml", "mbstring", "mysqli",
