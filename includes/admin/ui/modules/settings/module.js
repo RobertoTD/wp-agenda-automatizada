@@ -40,9 +40,20 @@
 
     /**
      * Detect if current viewport is mobile
+     * Uses media query and device characteristics for reliable detection in iframes
      */
     function isMobile() {
-        return window.innerWidth < 640; // sm breakpoint de Tailwind
+        // Use matchMedia for reliable detection (works in iframes)
+        if (window.matchMedia && window.matchMedia('(max-width: 639px)').matches) {
+            return true;
+        }
+        // Fallback: check for touch device characteristics
+        if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
+            // Touch device - check if viewport is small
+            return window.innerWidth < 640;
+        }
+        // Final fallback for older browsers
+        return window.innerWidth < 640;
     }
 
     /**
@@ -184,7 +195,7 @@
         input.step = '1800'; // 30 minutes in seconds
         const normalizedM = normalizeMinutes(minute);
         input.value = formatTime(hour, normalizedM) || '00:00';
-        input.className = 'aa-timepicker-mobile w-20 sm:w-20 px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow';
+        input.className = 'aa-timepicker-mobile w-[4.5rem] px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow';
         wrapper.appendChild(input);
         return wrapper;
     }
@@ -332,7 +343,7 @@
             const startWrapper = createTimeSelector(`aa_schedule[${day}][intervals][${index}][start]`, '00:00');
             const endWrapper = createTimeSelector(`aa_schedule[${day}][intervals][${index}][end]`, '23:30');
 
-            const separator = document.createTextNode('—');
+            const separator = document.createTextNode('-');
             
             const removeBtn = document.createElement('button');
             removeBtn.type = 'button';

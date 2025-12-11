@@ -33,7 +33,7 @@ $days = [
              SECCIÓN: Horarios y Disponibilidad
         ═══════════════════════════════════════════════════════════════ -->
         <section class="bg-white rounded-xl shadow-sm border border-gray-100 mb-6 overflow-hidden">
-            <header class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+            <header class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
                 <div class="flex items-center gap-3">
                     <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100 text-blue-600">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -47,13 +47,13 @@ $days = [
                 </div>
             </header>
             
-            <div class="p-6">
+            <div class="p-3">
                 <div class="grid gap-3">
                     <?php foreach ($days as $key => $label): 
                         $enabled   = !empty($schedule[$key]['enabled']);
                         $intervals = $schedule[$key]['intervals'] ?? [];
                     ?>
-                    <div class="aa-day-block group rounded-lg border border-gray-200 bg-gray-50/50 hover:border-blue-200 hover:bg-blue-50/30 transition-all duration-200 <?php echo $enabled ? 'border-blue-200 bg-blue-50/40' : ''; ?>">
+                    <div class="aa-day-block group rounded-lg border border-gray-200 bg-gray-50/50 hover:border-blue-200 hover:bg-blue-50/30 transition-all duration-200 overflow-hidden <?php echo $enabled ? 'border-blue-200 bg-blue-50/40' : ''; ?>">
                         <div class="px-4 py-3 flex items-center justify-between">
                             <label class="flex items-center gap-3 cursor-pointer flex-1">
                                 <div class="relative">
@@ -75,7 +75,7 @@ $days = [
                             <?php endif; ?>
                         </div>
 
-                        <div class="day-intervals border-t border-gray-200 bg-white px-4 py-4" 
+                        <div class="day-intervals border-t border-gray-200 bg-white px-3 py-4 rounded-b-lg" 
                              data-day="<?php echo esc_attr($key); ?>" 
                              style="<?php echo $enabled ? '' : 'display:none;'; ?>">
                             
@@ -88,15 +88,15 @@ $days = [
                                                    name="aa_schedule[<?php echo esc_attr($key); ?>][intervals][<?php echo $i; ?>][start]" 
                                                    value="<?php echo esc_attr($interval['start']); ?>" 
                                                    step="1800"
-                                                   class="aa-timepicker-mobile w-20 sm:w-20 px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow">
+                                                   class="aa-timepicker-mobile w-[4.5rem] px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow">
                                         </div>
-                                        <span class="text-gray-400 font-light">—</span>
+                                        <span class="text-gray-400 font-light">-</span>
                                         <div class="aa-time-input-wrapper flex items-center gap-1">
                                             <input type="time" 
                                                    name="aa_schedule[<?php echo esc_attr($key); ?>][intervals][<?php echo $i; ?>][end]" 
                                                    value="<?php echo esc_attr($interval['end']); ?>" 
                                                    step="1800"
-                                                   class="aa-timepicker-mobile w-20 sm:w-20 px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow">
+                                                   class="aa-timepicker-mobile w-[4.5rem] px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow">
                                         </div>
                                         <button type="button" 
                                                 class="remove-interval ml-auto p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
@@ -131,7 +131,7 @@ $days = [
 
             <!-- SECCIÓN: Tipos de Cita / Servicios -->
             <section class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <header class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+                <header class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
                     <div class="flex items-center gap-3">
                         <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-purple-100 text-purple-600">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -167,7 +167,7 @@ $days = [
 
             <!-- SECCIÓN: Parámetros Generales -->
             <section class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <header class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+                <header class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
                     <div class="flex items-center gap-3">
                         <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-amber-100 text-amber-600">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -250,7 +250,7 @@ $days = [
              SECCIÓN: Datos del Negocio
         ═══════════════════════════════════════════════════════════════ -->
         <section class="bg-white rounded-xl shadow-sm border border-gray-100 mb-6 overflow-hidden">
-            <header class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+            <header class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
                 <div class="flex items-center gap-3">
                     <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -264,7 +264,7 @@ $days = [
                 </div>
             </header>
             
-            <div class="p-6">
+            <div class="p-3">
                 <div class="grid md:grid-cols-2 gap-6">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2" for="aa_business_name">
@@ -327,7 +327,7 @@ $days = [
              SECCIÓN: Google Calendar
         ═══════════════════════════════════════════════════════════════ -->
         <section class="bg-white rounded-xl shadow-sm border border-gray-100 mb-6 overflow-hidden">
-            <header class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+            <header class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
                 <div class="flex items-center gap-3">
                     <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-red-100 text-red-600">
                         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
@@ -341,7 +341,7 @@ $days = [
                 </div>
             </header>
             
-            <div class="p-6">
+            <div class="p-3">
                 <?php 
                 $google_email = get_option('aa_google_email', '');
                 $is_sync_invalid = SyncService::is_sync_invalid();
