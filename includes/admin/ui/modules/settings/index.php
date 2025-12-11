@@ -82,16 +82,22 @@ $days = [
                             <div class="space-y-3">
                                 <?php if (!empty($intervals)): ?>
                                     <?php foreach ($intervals as $i => $interval): ?>
-                                    <div class="interval flex flex-wrap items-center gap-2 sm:gap-3">
-                                        <input type="time" 
-                                               name="aa_schedule[<?php echo esc_attr($key); ?>][intervals][<?php echo $i; ?>][start]" 
-                                               value="<?php echo esc_attr($interval['start']); ?>" 
-                                               class="aa-timepicker w-28 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow">
+                                    <div class="interval flex flex-wrap items-center gap-2 sm:gap-3" data-day="<?php echo esc_attr($key); ?>" data-index="<?php echo $i; ?>">
+                                        <div class="aa-time-input-wrapper flex items-center gap-1">
+                                            <input type="time" 
+                                                   name="aa_schedule[<?php echo esc_attr($key); ?>][intervals][<?php echo $i; ?>][start]" 
+                                                   value="<?php echo esc_attr($interval['start']); ?>" 
+                                                   step="1800"
+                                                   class="aa-timepicker-mobile w-20 sm:w-20 px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow">
+                                        </div>
                                         <span class="text-gray-400 font-light">—</span>
-                                        <input type="time" 
-                                               name="aa_schedule[<?php echo esc_attr($key); ?>][intervals][<?php echo $i; ?>][end]" 
-                                               value="<?php echo esc_attr($interval['end']); ?>" 
-                                               class="aa-timepicker w-28 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow">
+                                        <div class="aa-time-input-wrapper flex items-center gap-1">
+                                            <input type="time" 
+                                                   name="aa_schedule[<?php echo esc_attr($key); ?>][intervals][<?php echo $i; ?>][end]" 
+                                                   value="<?php echo esc_attr($interval['end']); ?>" 
+                                                   step="1800"
+                                                   class="aa-timepicker-mobile w-20 sm:w-20 px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow">
+                                        </div>
                                         <button type="button" 
                                                 class="remove-interval ml-auto p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                                                 title="Eliminar intervalo">
@@ -430,10 +436,7 @@ $days = [
     </form>
 </div>
 
-<!-- Flatpickr para time inputs -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+<!-- Time picker logic handled in module.js -->
 
 <!-- Module JS -->
 <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'module.js'); ?>"></script>

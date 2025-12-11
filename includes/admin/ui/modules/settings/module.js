@@ -100,10 +100,157 @@
         // 🔹 Schedule Intervals Management
         // ================================
         
+        // Helper: Detectar si es móvil
+        function isMobile() {
+            return window.innerWidth < 640; // sm breakpoint de Tailwind
+        }
+
+        // Helper: Convertir HH:mm a objeto {hour, minute}
+        function parseTime(timeStr) {
+            if (!timeStr) return { hour: 0, minute: 0 };
+            const [hour, minute] = timeStr.split(':').map(Number);
+            return { hour: hour || 0, minute: minute || 0 };
+        }
+
+        // Helper: Convertir {hour, minute} a HH:mm
+        function formatTime(hour, minute) {
+            return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+        }
+
+        // Helper: Crear selector de hora para desktop
+        function createTimeSelector(name, value, isStart = true) {
+            const { hour, minute } = parseTime(value);
+            const wrapper = document.createElement('div');
+            wrapper.className = 'aa-time-input-wrapper flex items-center gap-1';
+            
+            if (isMobile()) {
+                // Móvil: usar input type="time" nativo con step de 30 minutos
+                const input = document.createElement('input');
+                input.type = 'time';
+                input.name = name;
+                input.step = '1800'; // 30 minutos en segundos (30 * 60)
+                // Normalizar el valor a 00 o 30 minutos
+                const { hour: h, minute: m } = parseTime(value);
+                const normalizedM = m < 15 ? 0 : (m >= 15 && m < 45 ? 30 : 0);
+                input.value = formatTime(h, normalizedM) || '00:00';
+                input.className = 'aa-timepicker-mobile w-20 sm:w-20 px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow';
+                wrapper.appendChild(input);
+            } else {
+                // Desktop: usar selectores nativos
+                const hourSelect = document.createElement('select');
+                hourSelect.className = 'aa-time-hour w-16 px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow bg-white';
+                
+                for (let h = 0; h < 24; h++) {
+                    const option = document.createElement('option');
+                    option.value = h;
+                    option.textContent = String(h).padStart(2, '0');
+                    if (h === hour) option.selected = true;
+                    hourSelect.appendChild(option);
+                }
+
+                const minuteSelect = document.createElement('select');
+                minuteSelect.className = 'aa-time-minute w-16 px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow bg-white';
+                
+                // Solo minutos en incrementos de 30 (00 y 30 únicamente)
+                const validMinutes = [0, 30];
+                // Normalizar el minuto al valor más cercano válido
+                const normalizedMinute = minute < 15 ? 0 : (minute >= 15 && minute < 45 ? 30 : 0);
+                
+                validMinutes.forEach(m => {
+                    const option = document.createElement('option');
+                    option.value = m;
+                    option.textContent = String(m).padStart(2, '0');
+                    if (m === normalizedMinute) {
+                        option.selected = true;
+                    }
+                    minuteSelect.appendChild(option);
+                });
+
+                // Input hidden para el valor completo (este es el que se envía)
+                const hiddenInput = document.createElement('input');
+                hiddenInput.type = 'hidden';
+                hiddenInput.name = name;
+                hiddenInput.value = formatTime(hour, normalizedMinute);
+                hiddenInput.className = 'aa-time-value';
+
+                // Actualizar hidden input cuando cambien los selectores
+                function updateHidden() {
+                    const h = parseInt(hourSelect.value);
+                    const m = parseInt(minuteSelect.value);
+                    // Asegurar que el minuto sea solo 0 o 30
+                    const validM = validMinutes.includes(m) ? m : 0;
+                    hiddenInput.value = formatTime(h, validM);
+                }
+                hourSelect.addEventListener('change', updateHidden);
+                minuteSelect.addEventListener('change', updateHidden);
+
+                // Crear el separador dos puntos
+                const colon = document.createElement('span');
+                colon.className = 'text-gray-400';
+                colon.textContent = ':';
+
+                // Hacer el wrapper clickeable para abrir los selectores
+                wrapper.style.cursor = 'pointer';
+                wrapper.setAttribute('role', 'button');
+                wrapper.setAttribute('tabindex', '0');
+                wrapper.addEventListener('click', function(e) {
+                    // Si se hace click en el wrapper o en el separador (no en los selectores), enfocar el primer selector
+                    if (e.target === wrapper || e.target === colon || (!e.target.closest('select'))) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        hourSelect.focus();
+                        // Forzar el click en el selector para abrir el dropdown
+                        hourSelect.click();
+                    }
+                });
+                // También permitir activar con Enter o Espacio
+                wrapper.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        hourSelect.focus();
+                        hourSelect.click();
+                    }
+                });
+
+                wrapper.appendChild(hourSelect);
+                wrapper.appendChild(colon);
+                wrapper.appendChild(minuteSelect);
+                wrapper.appendChild(hiddenInput);
+            }
+            
+            return wrapper;
+        }
+
+        // Convertir inputs existentes a selectores en desktop
+        function initTimeInputs() {
+            document.querySelectorAll('.aa-timepicker-mobile').forEach(input => {
+                if (input.dataset.converted) return;
+                
+                if (!isMobile()) {
+                    const wrapper = input.closest('.aa-time-input-wrapper');
+                    if (!wrapper) return;
+                    
+                    const name = input.name;
+                    const value = input.value || '00:00';
+                    
+                    // Crear nuevo selector
+                    const newWrapper = createTimeSelector(name, value);
+                    
+                    // Reemplazar el wrapper completo
+                    if (wrapper.parentNode) {
+                        wrapper.parentNode.replaceChild(newWrapper, wrapper);
+                    }
+                } else {
+                    // En móvil, solo marcar como procesado
+                    input.dataset.converted = 'true';
+                }
+            });
+        }
+
         // Mostrar / ocultar bloques de intervalos según el checkbox del día
         document.querySelectorAll(".aa-day-block input[type=checkbox]").forEach(checkbox => {
             checkbox.addEventListener("change", function() {
-                const day = this.name.match(/\[(.*?)\]/)[1]; // ejemplo: monday, tuesday...
+                const day = this.name.match(/\[(.*?)\]/)[1];
                 const container = document.querySelector(`.day-intervals[data-day="${day}"]`);
                 if (this.checked) {
                     container.style.display = "block";
@@ -124,63 +271,57 @@
 
                     const div = document.createElement("div");
                     div.classList.add("interval");
-                    div.classList.add("flex", "items-center", "gap-3", "mb-2");
+                    div.classList.add("flex", "flex-wrap", "items-center", "gap-2", "sm:gap-3");
+                    div.setAttribute('data-day', day);
+                    div.setAttribute('data-index', index);
 
-                    // ✅ Usamos Flatpickr para renderizar el selector de hora
-                    div.innerHTML = `
-                        <input class="aa-timepicker border rounded px-3 py-2" type="text" name="aa_schedule[${day}][intervals][${index}][start]" required>
-                        <span class="aa-interval-separator">—</span>
-                        <input class="aa-timepicker border rounded px-3 py-2" type="text" name="aa_schedule[${day}][intervals][${index}][end]" required>
-                        <button type="button" class="remove-interval px-3 py-2 bg-red-500 text-white rounded hover:bg-red-600">Eliminar</button>
+                    const startWrapper = createTimeSelector(`aa_schedule[${day}][intervals][${index}][start]`, '00:00', true);
+                    const endWrapper = createTimeSelector(`aa_schedule[${day}][intervals][${index}][end]`, '23:30', false);
+
+                    div.appendChild(startWrapper);
+                    div.appendChild(document.createTextNode('—'));
+                    div.appendChild(endWrapper);
+                    
+                    const removeBtn = document.createElement('button');
+                    removeBtn.type = 'button';
+                    removeBtn.className = 'remove-interval ml-auto p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors';
+                    removeBtn.title = 'Eliminar intervalo';
+                    removeBtn.innerHTML = `
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
                     `;
+                    div.appendChild(removeBtn);
 
                     this.insertBefore(div, this.querySelector(".add-interval"));
-                    
-                    // Inicializar Flatpickr en los inputs recién creados
-                    div.querySelectorAll(".aa-timepicker").forEach(input => {
-                        if (typeof flatpickr !== "undefined") {
-                            flatpickr(input, {
-                                enableTime: true,
-                                noCalendar: true,
-                                time_24hr: true,
-                                minuteIncrement: 30, // 👈 fuerza intervalos de 30 minutos
-                                dateFormat: "H:i"
-                            });
-                        }
-                    });
                 }
 
                 // Eliminar intervalo
-                if (e.target.classList.contains("remove-interval")) {
+                if (e.target.classList.contains("remove-interval") || e.target.closest(".remove-interval")) {
                     e.preventDefault();
-                    e.target.closest(".interval").remove();
+                    const interval = e.target.closest(".interval");
+                    if (interval) interval.remove();
                 }
             });
         });
 
-        // ===============================
-        // 🔹 Inicializar Flatpickr en inputs existentes
-        // ===============================
-        if (typeof flatpickr !== "undefined") {
-            // Wait a bit for Flatpickr to be fully loaded
-            setTimeout(function() {
-                document.querySelectorAll('input[type="time"], .aa-timepicker').forEach(input => {
-                    // Marcar los ya inicializados para evitar duplicaciones
-                    if (!input.classList.contains("flatpickr-applied")) {
-                        input.classList.add("flatpickr-applied");
-                        flatpickr(input, {
-                            enableTime: true,
-                            noCalendar: true,
-                            time_24hr: true,
-                            minuteIncrement: 30,
-                            dateFormat: "H:i"
-                        });
-                    }
-                });
-            }, 100);
-        } else {
-            console.warn("⚠️ Flatpickr no está cargado o no se encontró.");
-        }
+        // Inicializar inputs existentes
+        initTimeInputs();
+
+        // Re-inicializar al cambiar tamaño de ventana (solo si cambia de móvil a desktop o viceversa)
+        let resizeTimeout;
+        let wasMobile = isMobile();
+        window.addEventListener('resize', function() {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(function() {
+                const nowMobile = isMobile();
+                if (wasMobile !== nowMobile) {
+                    // Cambió el tipo de dispositivo, recargar para re-renderizar
+                    location.reload();
+                }
+                wasMobile = nowMobile;
+            }, 300);
+        });
     });
 
 })();
