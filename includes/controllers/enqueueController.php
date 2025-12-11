@@ -185,14 +185,8 @@ function wpaa_enqueue_admin_assets($hook) {
     }
 
     // --- Pantalla principal de ajustes ---
-    if ($hook === 'toplevel_page_agenda-automatizada-settings') {
-        wp_enqueue_style('flatpickr-css-admin', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css');
-        wp_enqueue_script('flatpickr-js-admin', 'https://cdn.jsdelivr.net/npm/flatpickr', [], null, true);
-        wp_enqueue_script('flatpickr-es-admin', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js', ['flatpickr-js-admin'], null, true);
-
-        wpaa_register_js('aa-admin-schedule', 'js/admin-schedule.js', ['flatpickr-js-admin']);
-        wpaa_register_js('aa-admin-controls', 'js/admin-controls.js');
-    }
+    // Note: Settings page now uses iframe-based UI, so JS is loaded inside the iframe
+    // No global enqueue needed here - JS is loaded by the iframe UI module
 
     // --- Panel del asistente ---
     if ($hook === 'toplevel_page_aa_asistant_panel' || $hook === 'agenda-automatizada_page_aa_asistant_panel') {

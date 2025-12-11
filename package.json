@@ -1,14 +1,16 @@
 {
   "name": "wp-agenda-automatizada",
   "version": "2.0.0",
-  "description": "Sistema de gestión de citas con integración a Google Calendar",
+  "description": "WordPress plugin for automated appointment scheduling",
   "scripts": {
-    "build:admin": "npx tailwindcss -i ./assets/css/admin-tailwind.css -o ./assets/css/admin.css --minify",
-    "watch:admin": "npx tailwindcss -i ./assets/css/admin-tailwind.css -o ./assets/css/admin.css --watch"
+    "build:css": "tailwindcss -i ./includes/admin/ui/assets/css/admin.css -o ./includes/admin/ui/assets/css/admin.css --minify",
+    "watch:css": "tailwindcss -i ./includes/admin/ui/assets/css/admin.css -o ./includes/admin/ui/assets/css/admin.css --watch",
+    "dev": "npm run watch:css"
   },
   "devDependencies": {
-    "autoprefixer": "^10.4.16",
-    "postcss": "^8.4.32",
-    "tailwindcss": "^3.4.0"
+    "tailwindcss": "^3.4.1",
+    "autoprefixer": "^10.4.18",
+    "postcss": "^8.4.35"
   }
 }
+

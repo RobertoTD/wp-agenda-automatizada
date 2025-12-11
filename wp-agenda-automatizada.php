@@ -51,6 +51,9 @@ require_once plugin_dir_path(__FILE__) . 'views/admin-controls.php';
 require_once plugin_dir_path(__FILE__) . 'asistant-user.php';
 require_once plugin_dir_path(__FILE__) . 'historial-citas.php';
 
+// 8️⃣ Admin: Iframe Test (UI aislada)
+require_once plugin_dir_path(__FILE__) . 'includes/admin/iframe-test.php';
+
 // ================================
 // 🔹 MENÚ ADMIN: Nueva UI en iframe
 // ================================

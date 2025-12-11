@@ -1,19 +1,20 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
-    './admin/**/*.php',
-    './views/**/*.php',
-    './includes/**/*.php',
-    './assets/js/**/*.js',
-    './assets/css/**/*.css',
-    './*.php'
+    './includes/admin/ui/**/*.php',
+    './includes/admin/ui/**/*.js',
   ],
   theme: {
-    extend: {},
+    extend: {
+      // Custom theme extensions can go here
+      // For now, using default Tailwind theme
+    },
   },
   plugins: [],
-  // Prefix to avoid conflicts with WordPress admin styles
+  // Important: Ensure Tailwind only affects the iframe UI
+  // The iframe is isolated, so no need for prefix or important
   corePlugins: {
-    preflight: false,
-  }
+    preflight: true, // Reset styles (safe in iframe isolation)
+  },
 }
+
