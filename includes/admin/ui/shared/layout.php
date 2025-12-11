@@ -32,11 +32,11 @@ header('Content-Type: text/html; charset=utf-8');
     <!-- Shared Admin JS -->
     <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . '../assets/js/main.js'); ?>" defer></script>
 </head>
-<body class="bg-gray-50">
+<body class="bg-gray-50 flex flex-col min-h-screen">
     <div id="aa-admin-app" class="w-full">
         <?php require_once __DIR__ . '/header.php'; ?>
         
-        <main id="aa-admin-content" class="px-6 py-6">
+        <main id="aa-admin-content" class="flex-1 px-6 py-8">
 
             <?php
             // Load module content
