@@ -58,23 +58,44 @@
         let lastHeight = 0;
         let resizeTimeout = null;
 
-        function sendHeight() {
-            // Get the actual content height
+        function sendHeight(source = 'unknown') {
+            // Get the actual content container instead of body
+            // The body has min-h-screen which forces minimum height
+            const appContainer = document.getElementById('aa-admin-app');
             const body = document.body;
             const html = document.documentElement;
 
-            // Use the maximum of various height measurements
-            const height = Math.max(
-                body.scrollHeight,
-                body.offsetHeight,
-                html.clientHeight,
-                html.scrollHeight,
-                html.offsetHeight
-            );
+            let height;
+
+            if (appContainer) {
+                // Measure the actual content container
+                // Use getBoundingClientRect for accurate measurement
+                const rect = appContainer.getBoundingClientRect();
+                height = Math.ceil(rect.height);
+                
+                // Fallback: use scrollHeight if getBoundingClientRect doesn't work
+                if (height === 0 || isNaN(height)) {
+                    height = appContainer.scrollHeight;
+                }
+            } else {
+                // Fallback to body measurement if container not found
+                height = Math.max(
+                    body.scrollHeight,
+                    body.offsetHeight,
+                    html.clientHeight,
+                    html.scrollHeight,
+                    html.offsetHeight
+                );
+            }
+
+            // Debug logging
+            console.log(`[iframe-resize] Source: ${source}, Height: ${height}px, Last: ${lastHeight}px, Container: ${appContainer ? 'found' : 'not found'}`);
 
             // Only send if height changed (avoid unnecessary updates)
             if (height !== lastHeight) {
                 lastHeight = height;
+
+                console.log(`[iframe-resize] Sending new height: ${height}px to parent window`);
 
                 // Send height to parent window
                 window.parent.postMessage({
@@ -82,41 +103,128 @@
                     height: height,
                     iframeId: 'aa-settings-iframe'
                 }, '*');
+            } else {
+                console.log(`[iframe-resize] Height unchanged (${height}px), skipping update`);
             }
         }
 
         // Send height on load
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', sendHeight);
+            document.addEventListener('DOMContentLoaded', function() {
+                sendHeight('DOMContentLoaded');
+            });
         } else {
-            sendHeight();
+            sendHeight('initial');
         }
 
         // Send height when content changes (debounced)
-        function debouncedSendHeight() {
+        function debouncedSendHeight(source = 'debounced') {
             clearTimeout(resizeTimeout);
-            resizeTimeout = setTimeout(sendHeight, 100);
+            resizeTimeout = setTimeout(function() {
+                sendHeight(source);
+            }, 100);
         }
 
-        // Watch for content changes
+        // Watch for content changes - observe the app container instead of body
+        const appContainer = document.getElementById('aa-admin-app');
+        const targetElement = appContainer || document.body;
+
         if (typeof ResizeObserver !== 'undefined') {
-            const resizeObserver = new ResizeObserver(debouncedSendHeight);
-            resizeObserver.observe(document.body);
+            const resizeObserver = new ResizeObserver(function(entries) {
+                debouncedSendHeight('ResizeObserver');
+            });
+            resizeObserver.observe(targetElement);
         }
 
         // Also watch for DOM mutations (dynamic content)
         if (typeof MutationObserver !== 'undefined') {
-            const mutationObserver = new MutationObserver(debouncedSendHeight);
-            mutationObserver.observe(document.body, {
+            const mutationObserver = new MutationObserver(function(mutations) {
+                debouncedSendHeight('MutationObserver');
+            });
+            mutationObserver.observe(targetElement, {
                 childList: true,
                 subtree: true,
                 attributes: true,
-                attributeFilter: ['style', 'class']
+                attributeFilter: ['style', 'class', 'open'] // Include 'open' attribute for details elements
             });
         }
 
         // Send height on window resize (in case of viewport changes)
-        window.addEventListener('resize', debouncedSendHeight);
+        window.addEventListener('resize', function() {
+            debouncedSendHeight('window-resize');
+        });
+
+        // Watch for accordion (details) toggle events
+        // This ensures height updates when accordions are opened/closed
+        function observeAccordions() {
+            const detailsElements = document.querySelectorAll('details');
+            
+            console.log(`[accordion-observer] Found ${detailsElements.length} accordion(s)`);
+            
+            detailsElements.forEach((details, index) => {
+                details.addEventListener('toggle', function(event) {
+                    const isOpen = this.open;
+                    const accordionTitle = this.querySelector('h3')?.textContent || `Accordion ${index + 1}`;
+                    
+                    console.log(`[accordion-toggle] ${accordionTitle} - ${isOpen ? 'OPENED' : 'CLOSED'}`);
+                    
+                    // Use a longer delay to allow the browser to finish the transition
+                    // and recalculate layout
+                    setTimeout(function() {
+                        sendHeight(`accordion-${isOpen ? 'opened' : 'closed'}`);
+                    }, 200);
+                });
+            });
+        }
+
+        // Observe accordions on load and when DOM changes
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', observeAccordions);
+        } else {
+            observeAccordions();
+        }
+
+        // Also watch for new accordions added dynamically
+        if (typeof MutationObserver !== 'undefined') {
+            const accordionObserver = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    mutation.addedNodes.forEach(function(node) {
+                        if (node.nodeType === 1) { // Element node
+                            // Check if the added node is a details element
+                            if (node.tagName === 'DETAILS') {
+                                console.log('[accordion-observer] New accordion detected, adding listener');
+                                node.addEventListener('toggle', function() {
+                                    const isOpen = this.open;
+                                    console.log(`[accordion-toggle] Dynamic accordion - ${isOpen ? 'OPENED' : 'CLOSED'}`);
+                                    setTimeout(function() {
+                                        sendHeight(`dynamic-accordion-${isOpen ? 'opened' : 'closed'}`);
+                                    }, 200);
+                                });
+                            }
+                            // Check for details elements inside the added node
+                            const detailsInside = node.querySelectorAll && node.querySelectorAll('details');
+                            if (detailsInside && detailsInside.length > 0) {
+                                console.log(`[accordion-observer] Found ${detailsInside.length} accordion(s) inside new node`);
+                                detailsInside.forEach(function(details) {
+                                    details.addEventListener('toggle', function() {
+                                        const isOpen = this.open;
+                                        console.log(`[accordion-toggle] Nested accordion - ${isOpen ? 'OPENED' : 'CLOSED'}`);
+                                        setTimeout(function() {
+                                            sendHeight(`nested-accordion-${isOpen ? 'opened' : 'closed'}`);
+                                        }, 200);
+                                    });
+                                });
+                            }
+                        }
+                    });
+                });
+            });
+
+            accordionObserver.observe(targetElement, {
+                childList: true,
+                subtree: true
+            });
+        }
     };
 
     // Initialize when DOM is ready

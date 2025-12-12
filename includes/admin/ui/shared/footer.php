@@ -5,7 +5,7 @@
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
 ?>
-<footer class="mt-12 border-t border-gray-200 bg-gray-50/50 flex-shrink-0">
+<footer class="border-t border-gray-200 bg-gray-50/50 flex-shrink-0">
     <div class="max-w-7xl mx-auto px-6 py-4">
         <div class="flex items-center justify-center gap-2">
             <p class="text-xs text-gray-500">
