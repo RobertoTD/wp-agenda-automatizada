@@ -18,3 +18,10 @@ body.folded #wpcontent {
 #wpbody-content {
     padding: 0 !important;
 }
+
+/* Remover padding de wpcontent en pantallas grandes */
+@media (min-width: 1024px) {
+    #wpcontent {
+        padding-left: 0 !important;
+    }
+}
