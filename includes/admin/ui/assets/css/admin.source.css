@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+    /* Accordion styles */
+    /* Hide default summary marker */
+    details summary::-webkit-details-marker {
+        display: none;
+    }
+    details summary::marker {
+        display: none;
+    }
+    /* Rotate chevron when open */
+    details[open] summary svg:last-child {
+        transform: rotate(180deg);
+    }
+    /* Smooth transition for content */
+    details > div {
+        transition: opacity 0.2s ease-in-out;
+    }
+}
+

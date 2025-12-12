@@ -32,22 +32,27 @@ $days = [
         <!-- ═══════════════════════════════════════════════════════════════
              SECCIÓN: Horarios y Disponibilidad
         ═══════════════════════════════════════════════════════════════ -->
-        <section class="bg-white rounded-xl shadow border border-gray-200 mb-6 overflow-hidden">
-            <header class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
-                <div class="flex items-center gap-3">
-                    <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100 text-blue-600">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                        </svg>
-                    </span>
-                    <div>
-                        <h3 class="text-lg font-semibold text-gray-900">Horarios y Disponibilidad</h3>
-                        <p class="text-sm text-gray-500 mt-0.5">Define los días y horarios de atención</p>
+        <details open class="bg-white rounded-xl shadow border border-gray-200 mb-6 overflow-hidden group">
+            <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
+                <div class="flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100 text-blue-600">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                        </span>
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Horarios y Disponibilidad</h3>
+                            <p class="text-sm text-gray-500 mt-0.5">Define los días y horarios de atención</p>
+                        </div>
                     </div>
+                    <svg class="w-5 h-5 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
                 </div>
-            </header>
+            </summary>
             
-            <div class="p-3">
+            <div class="p-3 transition-all duration-200">
                 <div class="grid gap-3">
                     <?php foreach ($days as $key => $label): 
                         $enabled   = !empty($schedule[$key]['enabled']);
@@ -122,7 +127,7 @@ $days = [
                     <?php endforeach; ?>
                 </div>
             </div>
-        </section>
+        </details>
 
         <!-- ═══════════════════════════════════════════════════════════════
              GRID: Servicios + Parámetros (2 columnas en desktop)
@@ -130,22 +135,27 @@ $days = [
         <div class="grid lg:grid-cols-2 gap-6 mb-6">
 
             <!-- SECCIÓN: Tipos de Cita / Servicios -->
-            <section class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
-                <header class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
-                    <div class="flex items-center gap-3">
-                        <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100 text-blue-600">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
-                            </svg>
-                        </span>
-                        <div>
-                            <h3 class="text-lg font-semibold text-gray-900">Tipos de Cita</h3>
-                            <p class="text-sm text-gray-500 mt-0.5">Servicios que ofreces</p>
+            <details open class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden group">
+                <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-3">
+                            <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100 text-blue-600">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                                </svg>
+                            </span>
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900">Tipos de Cita</h3>
+                                <p class="text-sm text-gray-500 mt-0.5">Servicios que ofreces</p>
+                            </div>
                         </div>
+                        <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
                     </div>
-                </header>
+                </summary>
                 
-                <div class="p-6" id="aa-motivos-container">
+                <div class="p-6 transition-all duration-200" id="aa-motivos-container">
                     <ul id="aa-motivos-list" class="space-y-2 mb-4"></ul>
 
                     <div class="flex gap-2">
@@ -163,25 +173,30 @@ $days = [
                     <input type="hidden" name="aa_google_motivo" id="aa-google-motivo-hidden"
                         value='<?php echo esc_attr(get_option("aa_google_motivo", json_encode(["Cita general"]))); ?>'>
                 </div>
-            </section>
+            </details>
 
             <!-- SECCIÓN: Parámetros Generales -->
-            <section class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
-                <header class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
-                    <div class="flex items-center gap-3">
-                        <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100 text-blue-600">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                            </svg>
-                        </span>
-                        <div>
-                            <h3 class="text-lg font-semibold text-gray-900">Parámetros</h3>
-                            <p class="text-sm text-gray-500 mt-0.5">Duración y ventana de citas</p>
+            <details open class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden group">
+                <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-3">
+                            <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100 text-blue-600">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            </span>
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900">Parámetros</h3>
+                                <p class="text-sm text-gray-500 mt-0.5">Duración y ventana de citas</p>
+                            </div>
                         </div>
+                        <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
                     </div>
-                </header>
+                </summary>
                 
-                <div class="p-6 space-y-5">
+                <div class="p-6 space-y-5 transition-all duration-200">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2" for="aa_slot_duration">
                             Duración de cada cita
@@ -242,29 +257,34 @@ $days = [
                         </select>
                     </div>
                 </div>
-            </section>
+            </details>
 
         </div>
 
         <!-- ═══════════════════════════════════════════════════════════════
              SECCIÓN: Datos del Negocio
         ═══════════════════════════════════════════════════════════════ -->
-        <section class="bg-white rounded-xl shadow border border-gray-200 mb-6 overflow-hidden">
-            <header class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
-                <div class="flex items-center gap-3">
-                    <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100 text-blue-600">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-                        </svg>
-                    </span>
-                    <div>
-                        <h3 class="text-lg font-semibold text-gray-900">Datos del Negocio</h3>
-                        <p class="text-sm text-gray-500 mt-0.5">Información para confirmaciones y recordatorios</p>
+        <details open class="bg-white rounded-xl shadow border border-gray-200 mb-6 overflow-hidden group">
+            <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
+                <div class="flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100 text-blue-600">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                            </svg>
+                        </span>
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Datos del Negocio</h3>
+                            <p class="text-sm text-gray-500 mt-0.5">Información para confirmaciones y recordatorios</p>
+                        </div>
                     </div>
+                    <svg class="w-5 h-5 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
                 </div>
-            </header>
+            </summary>
             
-            <div class="p-3">
+            <div class="p-3 transition-all duration-200">
                 <div class="grid md:grid-cols-2 gap-6">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2" for="aa_business_name">
@@ -321,27 +341,32 @@ $days = [
                     </div>
                 </div>
             </div>
-        </section>
+        </details>
 
         <!-- ═══════════════════════════════════════════════════════════════
              SECCIÓN: Google Calendar
         ═══════════════════════════════════════════════════════════════ -->
-        <section class="bg-white rounded-xl shadow border border-gray-200 mb-6 overflow-hidden">
-            <header class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
-                <div class="flex items-center gap-3">
-                    <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100 text-blue-600">
-                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11zM9 11H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm-8 4H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/>
-                        </svg>
-                    </span>
-                    <div>
-                        <h3 class="text-lg font-semibold text-gray-900">Google Calendar</h3>
-                        <p class="text-sm text-gray-500 mt-0.5">Sincroniza citas para evitar conflictos</p>
+        <details open class="bg-white rounded-xl shadow border border-gray-200 mb-6 overflow-hidden group">
+            <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
+                <div class="flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100 text-blue-600">
+                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11zM9 11H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm-8 4H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/>
+                            </svg>
+                        </span>
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Google Calendar</h3>
+                            <p class="text-sm text-gray-500 mt-0.5">Sincroniza citas para evitar conflictos</p>
+                        </div>
                     </div>
+                    <svg class="w-5 h-5 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
                 </div>
-            </header>
+            </summary>
             
-            <div class="p-3">
+            <div class="p-3 transition-all duration-200">
                 <?php 
                 $google_email = get_option('aa_google_email', '');
                 $is_sync_invalid = SyncService::is_sync_invalid();
@@ -422,7 +447,7 @@ $days = [
                     </div>
                 <?php endif; ?>
             </div>
-        </section>
+        </details>
 
         <!-- ═══════════════════════════════════════════════════════════════
              BOTÓN GUARDAR
