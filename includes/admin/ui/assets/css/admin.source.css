@@ -12,7 +12,7 @@
         display: none;
     }
     /* Rotate chevron when open */
-    details[open] summary svg:last-child {
+    details[open] summary .aa-chevron {
         transform: rotate(180deg);
     }
     /* Smooth transition for content */

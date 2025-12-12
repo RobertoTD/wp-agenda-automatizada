@@ -199,7 +199,7 @@
         input.step = '1800'; // 30 minutes in seconds
         const normalizedM = normalizeMinutes(minute);
         input.value = formatTime(hour, normalizedM) || '00:00';
-        input.className = 'aa-timepicker-mobile w-[4.5rem] px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow';
+        input.className = 'aa-timepicker-mobile w-[7rem] px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow';
         wrapper.appendChild(input);
         return wrapper;
     }

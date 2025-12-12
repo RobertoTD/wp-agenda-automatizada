@@ -32,7 +32,7 @@ $days = [
         <!-- ═══════════════════════════════════════════════════════════════
              SECCIÓN: Horarios y Disponibilidad
         ═══════════════════════════════════════════════════════════════ -->
-        <details open class="bg-white rounded-xl shadow border border-gray-200 mb-6 overflow-hidden group">
+        <details class="bg-white rounded-xl shadow border border-gray-200 mb-6 overflow-hidden group">
             <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
                 <div class="flex items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
@@ -46,7 +46,7 @@ $days = [
                             <p class="text-sm text-gray-500 mt-0.5">Define los días y horarios de atención</p>
                         </div>
                     </div>
-                    <svg class="w-5 h-5 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="aa-chevron w-5 h-5 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                     </svg>
                 </div>
@@ -93,7 +93,7 @@ $days = [
                                                    name="aa_schedule[<?php echo esc_attr($key); ?>][intervals][<?php echo $i; ?>][start]" 
                                                    value="<?php echo esc_attr($interval['start']); ?>" 
                                                    step="1800"
-                                                   class="aa-timepicker-mobile w-[4.5rem] px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow">
+                                                   class="aa-timepicker-mobile w-[7rem] px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow">
                                         </div>
                                         <span class="text-gray-400 font-light">-</span>
                                         <div class="aa-time-input-wrapper flex items-center gap-1">
@@ -101,7 +101,7 @@ $days = [
                                                    name="aa_schedule[<?php echo esc_attr($key); ?>][intervals][<?php echo $i; ?>][end]" 
                                                    value="<?php echo esc_attr($interval['end']); ?>" 
                                                    step="1800"
-                                                   class="aa-timepicker-mobile w-[4.5rem] px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow">
+                                                   class="aa-timepicker-mobile w-[7rem] px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow">
                                         </div>
                                         <button type="button" 
                                                 class="remove-interval ml-auto p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
@@ -135,7 +135,7 @@ $days = [
         <div class="grid lg:grid-cols-2 gap-6 mb-6">
 
             <!-- SECCIÓN: Tipos de Cita / Servicios -->
-            <details open class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden group">
+            <details class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden group">
                 <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
                     <div class="flex items-center justify-between gap-3">
                         <div class="flex items-center gap-3">
@@ -176,7 +176,7 @@ $days = [
             </details>
 
             <!-- SECCIÓN: Parámetros Generales -->
-            <details open class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden group">
+            <details class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden group">
                 <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
                     <div class="flex items-center justify-between gap-3">
                         <div class="flex items-center gap-3">
@@ -264,7 +264,7 @@ $days = [
         <!-- ═══════════════════════════════════════════════════════════════
              SECCIÓN: Datos del Negocio
         ═══════════════════════════════════════════════════════════════ -->
-        <details open class="bg-white rounded-xl shadow border border-gray-200 mb-6 overflow-hidden group">
+        <details class="bg-white rounded-xl shadow border border-gray-200 mb-6 overflow-hidden group">
             <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
                 <div class="flex items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
@@ -278,7 +278,7 @@ $days = [
                             <p class="text-sm text-gray-500 mt-0.5">Información para confirmaciones y recordatorios</p>
                         </div>
                     </div>
-                    <svg class="w-5 h-5 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="aa-chevron w-5 h-5 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                     </svg>
                 </div>
@@ -346,7 +346,7 @@ $days = [
         <!-- ═══════════════════════════════════════════════════════════════
              SECCIÓN: Google Calendar
         ═══════════════════════════════════════════════════════════════ -->
-        <details open class="bg-white rounded-xl shadow border border-gray-200 mb-6 overflow-hidden group">
+        <details class="bg-white rounded-xl shadow border border-gray-200 mb-6 overflow-hidden group">
             <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
                 <div class="flex items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
@@ -360,7 +360,7 @@ $days = [
                             <p class="text-sm text-gray-500 mt-0.5">Sincroniza citas para evitar conflictos</p>
                         </div>
                     </div>
-                    <svg class="w-5 h-5 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="aa-chevron w-5 h-5 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                     </svg>
                 </div>
