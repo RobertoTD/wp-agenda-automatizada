@@ -32,7 +32,7 @@ $days = [
         <!-- ═══════════════════════════════════════════════════════════════
              SECCIÓN: Horarios y Disponibilidad
         ═══════════════════════════════════════════════════════════════ -->
-        <section class="bg-white rounded-xl shadow-sm border border-gray-100 mb-6 overflow-hidden">
+        <section class="bg-white rounded-xl shadow border border-gray-200 mb-6 overflow-hidden">
             <header class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
                 <div class="flex items-center gap-3">
                     <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100 text-blue-600">
@@ -130,10 +130,10 @@ $days = [
         <div class="grid lg:grid-cols-2 gap-6 mb-6">
 
             <!-- SECCIÓN: Tipos de Cita / Servicios -->
-            <section class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <section class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
                 <header class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
                     <div class="flex items-center gap-3">
-                        <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-purple-100 text-purple-600">
+                        <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100 text-blue-600">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
                             </svg>
@@ -166,10 +166,10 @@ $days = [
             </section>
 
             <!-- SECCIÓN: Parámetros Generales -->
-            <section class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <section class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
                 <header class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
                     <div class="flex items-center gap-3">
-                        <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-amber-100 text-amber-600">
+                        <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100 text-blue-600">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                             </svg>
@@ -249,10 +249,10 @@ $days = [
         <!-- ═══════════════════════════════════════════════════════════════
              SECCIÓN: Datos del Negocio
         ═══════════════════════════════════════════════════════════════ -->
-        <section class="bg-white rounded-xl shadow-sm border border-gray-100 mb-6 overflow-hidden">
+        <section class="bg-white rounded-xl shadow border border-gray-200 mb-6 overflow-hidden">
             <header class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
                 <div class="flex items-center gap-3">
-                    <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600">
+                    <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100 text-blue-600">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
                         </svg>
@@ -326,10 +326,10 @@ $days = [
         <!-- ═══════════════════════════════════════════════════════════════
              SECCIÓN: Google Calendar
         ═══════════════════════════════════════════════════════════════ -->
-        <section class="bg-white rounded-xl shadow-sm border border-gray-100 mb-6 overflow-hidden">
+        <section class="bg-white rounded-xl shadow border border-gray-200 mb-6 overflow-hidden">
             <header class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
                 <div class="flex items-center gap-3">
-                    <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-red-100 text-red-600">
+                    <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100 text-blue-600">
                         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11zM9 11H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm-8 4H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/>
                         </svg>
@@ -425,9 +425,9 @@ $days = [
         </section>
 
         <!-- ═══════════════════════════════════════════════════════════════
-             BOTÓN GUARDAR (Sticky en móvil)
+             BOTÓN GUARDAR
         ═══════════════════════════════════════════════════════════════ -->
-        <div class="sticky bottom-0 bg-white/80 backdrop-blur-sm border-t border-gray-200 -mx-6 px-6 py-4 mt-6 flex justify-end">
+        <div class="-mx-4 lg:w-screen lg:relative lg:left-1/2 lg:-translate-x-1/2 lg:mx-0 px-4 lg:px-[calc((100vw-80rem)/2+1rem)] py-4 mt-6 flex justify-end">
             <button type="submit" 
                     class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-lg shadow-blue-500/25 transition-all hover:shadow-xl hover:shadow-blue-500/30 flex items-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

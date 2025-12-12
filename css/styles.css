@@ -2,3 +2,19 @@
     display: block;
     border: none;
 }
+
+/* Neutralizar padding de WordPress para página de configuración */
+body.auto-fold #wpcontent,
+body.folded #wpcontent {
+    padding-left: 0 !important;
+}
+
+.wrap.aa-iframe-wrapper {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Remover padding de wpbody-content */
+#wpbody-content {
+    padding: 0 !important;
+}

@@ -178,9 +178,17 @@ function wpaa_enqueue_admin_assets($hook) {
     if (in_array($hook, $plugin_pages)) {
         wp_enqueue_style(
             'aa-admin-tailwind',
-            wpaa_url('assets/css/admin.css'),
+            wpaa_url('includes/admin/ui/assets/css/admin.css'),
             [],
-            filemtime(wpaa_path('assets/css/admin.css'))
+            filemtime(wpaa_path('includes/admin/ui/assets/css/admin.css'))
+        );
+        
+        // 🔹 Cargar estilos comunes para páginas del plugin (iframe wrapper, padding, etc.)
+        wp_enqueue_style(
+            'wpaa-admin-common-styles',
+            wpaa_url('css/styles.css'),
+            [],
+            filemtime(wpaa_path('css/styles.css'))
         );
     }
 

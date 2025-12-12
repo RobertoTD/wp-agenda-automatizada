@@ -5,8 +5,7 @@
 node_modules/**
 
 # Build artifacts and generated files
-# Note: admin.css is kept for reference but won't be deeply analyzed
-includes/admin/ui/assets/css/admin.css
+# Note: admin.css is now visible for analysis
 
 # Package manager files
 package-lock.json

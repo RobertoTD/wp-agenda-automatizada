@@ -37,17 +37,6 @@ add_action('admin_menu', function() {
 function aa_render_settings_iframe_page() {
     $iframe_url = admin_url('admin-post.php?action=aa_iframe_content&module=settings');
     ?>
-    <style>
-        /* Neutralizar padding de WordPress para esta página específica */
-        body.auto-fold #wpcontent,
-        body.folded #wpcontent {
-            padding-left: 0 !important;
-        }
-        .wrap.aa-iframe-wrapper {
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-    </style>
     <div class="wrap aa-iframe-wrapper" style="margin: 0; padding: 0;">
         <iframe 
             id="aa-settings-iframe"
