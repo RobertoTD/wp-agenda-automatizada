@@ -381,6 +381,8 @@ $days = [
                                 <p class="text-sm text-amber-700 mt-1">El token ha caducado. Reconecta para seguir sincronizando.</p>
                                 <p class="text-xs text-amber-600 mt-2">Cuenta anterior: <?php echo esc_html($google_email); ?></p>
                                 <a href="<?php echo esc_url(SyncService::get_auth_url()); ?>" 
+                                   target="_blank"
+                                   rel="noopener noreferrer"
                                    class="inline-flex items-center gap-2 mt-3 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition-colors">
                                     <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                                         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -406,6 +408,8 @@ $days = [
                             Conecta tu cuenta de Google Calendar para sincronizar tus citas automáticamente
                         </p>
                         <a href="<?php echo esc_url(SyncService::get_auth_url()); ?>" 
+                           target="_blank"
+                           rel="noopener noreferrer"
                            class="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg transition-colors shadow-sm">
                             <svg class="w-5 h-5" viewBox="0 0 24 24">
                                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
