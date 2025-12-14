@@ -20,7 +20,6 @@ if (!current_user_can('manage_options')) {
 // Allowed UI modules (whitelist)
 $allowed_modules = [
     'settings',
-    'services',
     'calendar',
 ];
 

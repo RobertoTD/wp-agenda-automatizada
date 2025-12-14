@@ -38,8 +38,20 @@ function minutesFromDate(d) {
 
 // Obtiene intervalos de un día (convertidos a minutos)
 function getDayIntervals(aa_schedule, weekday) {
-  if (!aa_schedule || !aa_schedule[weekday] || !aa_schedule[weekday].enabled) return [];
-  const intervals = aa_schedule[weekday].intervals || [];
+  if (!aa_schedule || !aa_schedule[weekday]) return [];
+
+  const day = aa_schedule[weekday];
+
+  // 🔒 enabled legacy-safe
+  if (day.enabled === '0' || day.enabled === 0) return [];
+
+  let intervals = day.intervals;
+
+  // 🔥 NORMALIZACIÓN CRÍTICA
+  if (!Array.isArray(intervals)) {
+    intervals = Object.values(intervals || {});
+  }
+
   return intervals.map(iv => ({
     start: timeStrToMinutes(iv.start),
     end: timeStrToMinutes(iv.end)

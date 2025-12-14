@@ -307,11 +307,21 @@
                 const day = this.name.match(/\[(.*?)\]/)[1];
                 const container = document.querySelector(`.day-intervals[data-day="${day}"]`);
                 if (!container) return;
-                
-                container.style.display = this.checked ? "block" : "none";
+    
+                if (this.checked) {
+                    container.style.display = "block";
+                } else {
+                    // 🔥 CLAVE: limpiar intervalos al desactivar
+                    const intervalsContainer = container.querySelector('.space-y-3');
+                    if (intervalsContainer) {
+                        intervalsContainer.innerHTML = '';
+                    }
+                    container.style.display = "none";
+                }
             });
         });
     }
+    
 
     // ================================
     // 🔹 INTERVALS MANAGEMENT

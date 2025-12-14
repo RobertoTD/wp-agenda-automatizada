@@ -20,7 +20,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
         <!-- Tab Navigation - Icon above, label below -->
         <nav class="flex items-center justify-center gap-2">
             <!-- Configuración -->
-            <a href="?module=settings" 
+            <a href="<?php echo esc_url(admin_url('admin-post.php?action=aa_iframe_content&module=settings')); ?>" 
                class="flex flex-col items-center justify-center min-w-[60px] px-2 py-2 rounded-lg transition-all <?php echo (isset($active_module) && $active_module === 'settings') ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?>">
                 <span class="flex items-center justify-center w-6 h-6 mb-1 <?php echo (isset($active_module) && $active_module === 'settings') ? 'text-blue-600' : 'text-gray-500'; ?>">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -32,7 +32,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
             </a>
             
             <!-- Calendario -->
-            <a href="?module=calendar" 
+            <a href="<?php echo esc_url(admin_url('admin-post.php?action=aa_iframe_content&module=calendar')); ?>" 
                class="flex flex-col items-center justify-center min-w-[60px] px-2 py-2 rounded-lg transition-all <?php echo (isset($active_module) && $active_module === 'calendar') ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?>">
                 <span class="flex items-center justify-center w-6 h-6 mb-1 <?php echo (isset($active_module) && $active_module === 'calendar') ? 'text-blue-600' : 'text-gray-500'; ?>">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
