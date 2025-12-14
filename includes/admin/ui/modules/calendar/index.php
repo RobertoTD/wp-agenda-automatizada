@@ -97,23 +97,6 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
 
 </details>
 
-<?php
-// Pasar variables JavaScript necesarias para el módulo
-$schedule = get_option('aa_schedule', []);
-$slot_duration = intval(get_option('aa_slot_duration', 60));
-$ajax_url = admin_url('admin-ajax.php');
-?>
-<script>
-    // Variables globales para el módulo de calendario
-    window.aaCalendarVars = {
-        ajaxurl: <?php echo json_encode($ajax_url); ?>,
-        schedule: <?php echo json_encode($schedule); ?>,
-        slot_duration: <?php echo $slot_duration; ?>,
-        nonce: <?php echo json_encode(wp_create_nonce('aa_calendar_citas')); ?>,
-        nonce_confirmar: <?php echo json_encode(wp_create_nonce('aa_confirmar_cita')); ?>,
-        nonce_cancelar: <?php echo json_encode(wp_create_nonce('aa_cancelar_cita')); ?>,
-        nonce_crear_cliente_desde_cita: <?php echo json_encode(wp_create_nonce('aa_crear_cliente_desde_cita')); ?>
-    };
-</script>
+
 <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'module.js'); ?>" defer></script>
 
