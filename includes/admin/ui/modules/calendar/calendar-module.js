@@ -99,6 +99,17 @@
             label.style.gridRow = `${index + 1}`;
             label.style.padding = '8px 12px';
             label.style.minWidth = '40px';
+            label.style.position = 'relative';
+            
+            // Diferenciar visualmente slots pasados vs futuros (SOLO en label)
+            if (minutes < minutosActuales) {
+                // Slot pasado: fondo gris tenue en el label
+                label.style.backgroundColor = '#f3f4f6';
+            } else {
+                // Slot actual o futuro: fondo normal en el label
+                label.style.backgroundColor = '#ffffff';
+            }
+            
             grid.appendChild(label);
             
             // Content (columna 2) - vacío por ahora, las citas se insertarán aquí
@@ -107,23 +118,17 @@
             content.style.gridColumn = '2';
             content.style.gridRow = `${index + 1}`;
             content.style.minHeight = '40px';
-            
-            // Diferenciar visualmente slots pasados vs futuros
-            if (minutes < minutosActuales) {
-                // Slot pasado: fondo gris tenue
-                content.style.backgroundColor = '#f3f4f6';
-            } else {
-                // Slot actual o futuro: fondo normal (blanco)
-                content.style.backgroundColor = '#ffffff';
-            }
-            
+            // Sin estilos de fondo - área limpia para citas
             grid.appendChild(content);
             
-            // Guardar índice de fila para acceso rápido
-            slotRowIndex.set(minutes, index + 1);
+            // Guardar referencia al label y índice de fila para acceso rápido
+            slotRowIndex.set(minutes, {
+                rowIndex: index + 1,
+                labelElement: label
+            });
         });
 
-        // Agregar indicador de hora actual
+        // Agregar indicador de hora actual (SOLO en label)
         agregarIndicadorHoraActual(slotRowIndex, minutosActuales);
 
         // Cargar y renderizar citas del día actual
@@ -206,8 +211,9 @@
         const bloquesOcupados = Math.ceil(duracionMinutos / 30);
         
         // Obtener el índice de fila del slot inicial
-        const startRow = slotRowIndex.get(slotInicio);
-        if (!startRow) return; // Slot no encontrado
+        const slotData = slotRowIndex.get(slotInicio);
+        if (!slotData) return; // Slot no encontrado
+        const startRow = slotData.rowIndex;
         
         // Obtener el grid
         const grid = document.getElementById('aa-time-grid');
@@ -366,43 +372,44 @@
     }
 
     /**
-     * Agregar indicador visual de hora actual en el timeline
+     * Agregar indicador visual de hora actual en el label
      */
     function agregarIndicadorHoraActual(slotRowIndex, minutosActuales) {
         // Redondear al slot de 30 minutos correspondiente
         const slotActual = Math.floor(minutosActuales / 30) * 30;
         
-        // Obtener el índice de fila del slot actual
-        const rowIndex = slotRowIndex.get(slotActual);
-        if (!rowIndex) return; // Slot no encontrado en el timeline
+        // Obtener el label del slot actual
+        const slotData = slotRowIndex.get(slotActual);
+        if (!slotData || !slotData.labelElement) return; // Slot no encontrado en el timeline
         
-        // Obtener el grid
-        const grid = document.getElementById('aa-time-grid');
-        if (!grid) return;
+        const label = slotData.labelElement;
         
-        // Crear indicador
+        // Crear indicador dentro del label
         const indicador = document.createElement('div');
         indicador.className = 'aa-time-now-indicator';
-        indicador.style.gridColumn = '2';
-        indicador.style.gridRow = `${rowIndex}`;
+        indicador.style.position = 'absolute';
+        indicador.style.left = '0';
+        indicador.style.right = '0';
+        indicador.style.top = '50%';
+        indicador.style.transform = 'translateY(-50%)';
         indicador.style.height = '2px';
         indicador.style.backgroundColor = '#ef4444';
-        indicador.style.position = 'relative';
-        indicador.style.zIndex = '10';
+        indicador.style.zIndex = '5';
         
-        // Agregar un pequeño círculo en el inicio
+        // Agregar un pequeño círculo en el lado izquierdo
         const circulo = document.createElement('div');
         circulo.style.position = 'absolute';
         circulo.style.left = '0';
         circulo.style.top = '50%';
-        circulo.style.transform = 'translateY(-50%)';
+        circulo.style.transform = 'translate(-50%, -50%)';
         circulo.style.width = '8px';
         circulo.style.height = '8px';
         circulo.style.backgroundColor = '#ef4444';
         circulo.style.borderRadius = '50%';
         indicador.appendChild(circulo);
         
-        grid.appendChild(indicador);
+        // Insertar el indicador dentro del label
+        label.appendChild(indicador);
     }
 
     /**
