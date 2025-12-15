@@ -93,7 +93,54 @@ function aa_ajax_get_proximas_citas() {
     ]);
 }
 
+// ===============================
+// 🔹 AJAX: Obtener citas por día (para timeline del calendario)
+// ===============================
+add_action('wp_ajax_aa_get_citas_por_dia', 'aa_ajax_get_citas_por_dia');
 
+function aa_ajax_get_citas_por_dia() {
+    // Verificar nonce
+    check_ajax_referer('aa_proximas_citas');
+    
+    // Verificar permisos
+    if (!current_user_can('aa_view_panel') && !current_user_can('administrator')) {
+        wp_send_json_error(['message' => 'No tienes permisos.']);
+    }
+    
+    global $wpdb;
+    $table = $wpdb->prefix . 'aa_reservas';
+    
+    // 🔹 Obtener fecha (opcional)
+    $fecha = isset($_POST['fecha']) ? sanitize_text_field($_POST['fecha']) : '';
+    
+    // Si NO viene fecha, usar la fecha actual en zona horaria local
+    if (empty($fecha)) {
+        $timezone = get_option('aa_timezone', 'America/Mexico_City');
+        $fecha = wp_date('Y-m-d', null, new DateTimeZone($timezone));
+    }
+    
+    // Validar formato de fecha (YYYY-MM-DD)
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
+        wp_send_json_error(['message' => 'Formato de fecha inválido. Use YYYY-MM-DD']);
+    }
+    
+    // 🔹 Construir rango del día: inicio 00:00:00 y fin 23:59:59
+    $fecha_inicio = $fecha . ' 00:00:00';
+    $fecha_fin = $fecha . ' 23:59:59';
+    
+    // 🔹 Consulta: filtrar por rango del día usando BETWEEN
+    $query = "SELECT *, DATE_ADD(fecha, INTERVAL IFNULL(duracion, 60) MINUTE) as fecha_fin 
+              FROM $table 
+              WHERE fecha BETWEEN %s AND %s 
+              ORDER BY fecha ASC";
+    
+    $citas = $wpdb->get_results($wpdb->prepare($query, $fecha_inicio, $fecha_fin));
+    
+    wp_send_json_success([
+        'fecha' => $fecha,
+        'citas' => $citas
+    ]);
+}
 
 // ===============================
 // 🔹 AJAX: Cancelar cita (con eliminación en Google Calendar)

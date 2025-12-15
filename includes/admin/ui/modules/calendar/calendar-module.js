@@ -144,10 +144,8 @@
         
         // Preparar datos para la petición AJAX
         const formData = new FormData();
-        formData.append('action', 'aa_get_proximas_citas');
-        formData.append('buscar', '');
-        formData.append('ordenar', 'fecha_asc');
-        formData.append('pagina', '1');
+        formData.append('action', 'aa_get_citas_por_dia');
+        formData.append('fecha', todayStr);
         
         if (window.AA_CALENDAR_DATA?.nonce) {
             formData.append('_wpnonce', window.AA_CALENDAR_DATA.nonce);
@@ -162,16 +160,8 @@
         .then(response => response.json())
         .then(data => {
             if (data.success && data.data && data.data.citas) {
-                // Filtrar solo las citas del día actual
-                const citasHoy = data.data.citas.filter(cita => {
-                    if (!cita.fecha) return false;
-                    const fechaCita = new Date(cita.fecha);
-                    const fechaCitaStr = window.DateUtils.ymd(fechaCita);
-                    return fechaCitaStr === todayStr;
-                });
-                
                 // Renderizar cada cita en su slot correspondiente
-                citasHoy.forEach(cita => {
+                data.data.citas.forEach(cita => {
                     renderizarCitaEnTimeline(cita, slotRowIndex, timeSlots);
                 });
             }
@@ -296,62 +286,14 @@
         
         body.appendChild(info);
         
-        // Botones de acción
-        const botones = document.createElement('div');
-        botones.style.display = 'flex';
-        botones.style.gap = '8px';
+        // Determinar si la cita es próxima o pasada
+        const esProxima = esCitaProxima(cita);
         
-        // Botón Confirmar (solo si está pending)
-        if (cita.estado === 'pending' || !cita.estado) {
-            const btnConfirmar = document.createElement('button');
-            btnConfirmar.textContent = 'Confirmar';
-            btnConfirmar.style.padding = '6px 12px';
-            btnConfirmar.style.backgroundColor = '#10b981';
-            btnConfirmar.style.color = '#fff';
-            btnConfirmar.style.border = 'none';
-            btnConfirmar.style.borderRadius = '4px';
-            btnConfirmar.style.cursor = 'pointer';
-            btnConfirmar.style.fontSize = '12px';
-            btnConfirmar.addEventListener('click', function(e) {
-                e.stopPropagation();
-                if (window.AdminConfirmController && window.AdminConfirmController.onConfirmar) {
-                    window.AdminConfirmController.onConfirmar(cita.id);
-                    // Recargar citas después de confirmar
-                    setTimeout(() => {
-                        location.reload();
-                    }, 1000);
-                }
-            });
-            botones.appendChild(btnConfirmar);
+        // Renderizar botones/leyendas según reglas
+        const botones = renderizarBotonesYCitas(cita, esProxima);
+        if (botones) {
+            body.appendChild(botones);
         }
-        
-        // Botón Cancelar (si está pending o confirmed)
-        if (cita.estado === 'pending' || cita.estado === 'confirmed' || !cita.estado) {
-            const btnCancelar = document.createElement('button');
-            btnCancelar.textContent = 'Cancelar';
-            btnCancelar.style.padding = '6px 12px';
-            btnCancelar.style.backgroundColor = '#ef4444';
-            btnCancelar.style.color = '#fff';
-            btnCancelar.style.border = 'none';
-            btnCancelar.style.borderRadius = '4px';
-            btnCancelar.style.cursor = 'pointer';
-            btnCancelar.style.fontSize = '12px';
-            btnCancelar.addEventListener('click', function(e) {
-                e.stopPropagation();
-                if (window.AdminConfirmController && window.AdminConfirmController.onCancelar) {
-                    if (confirm('¿Estás seguro de cancelar esta cita?')) {
-                        window.AdminConfirmController.onCancelar(cita.id);
-                        // Recargar citas después de cancelar
-                        setTimeout(() => {
-                            location.reload();
-                        }, 1000);
-                    }
-                }
-            });
-            botones.appendChild(btnCancelar);
-        }
-        
-        body.appendChild(botones);
         
         // Toggle acordeón: click en header abre/cierra body
         header.addEventListener('click', function(e) {
@@ -369,6 +311,173 @@
         card.appendChild(body);
         
         return card;
+    }
+
+    /**
+     * Determinar si una cita es próxima o pasada
+     * @param {Object} cita - Objeto de cita con fecha y fecha_fin
+     * @returns {boolean} - true si es próxima, false si es pasada
+     */
+    function esCitaProxima(cita) {
+        if (!cita.fecha) return false;
+        
+        const ahora = new Date();
+        const fechaInicio = new Date(cita.fecha);
+        
+        // PRÓXIMA: fecha_inicio > ahora
+        if (fechaInicio > ahora) {
+            return true;
+        }
+        
+        // PASADA: fecha_fin < ahora
+        if (cita.fecha_fin) {
+            const fechaFin = new Date(cita.fecha_fin);
+            if (fechaFin < ahora) {
+                return false;
+            }
+        }
+        
+        // Si no hay fecha_fin y fecha_inicio <= ahora, considerar pasada
+        return false;
+    }
+
+    /**
+     * Renderizar botones y leyendas según estado y si es próxima/pasada
+     * @param {Object} cita - Objeto de cita
+     * @param {boolean} esProxima - true si es próxima, false si es pasada
+     * @returns {HTMLElement|null} - Contenedor de botones/leyendas o null
+     */
+    function renderizarBotonesYCitas(cita, esProxima) {
+        const estado = cita.estado || 'pending';
+        const contenedor = document.createElement('div');
+        contenedor.style.display = 'flex';
+        contenedor.style.gap = '8px';
+        contenedor.style.flexWrap = 'wrap';
+        
+        let tieneContenido = false;
+        
+        if (esProxima) {
+            // ===== CITA PRÓXIMA =====
+            
+            if (estado === 'confirmed') {
+                // Mostrar botón Cancelar
+                const btnCancelar = crearBoton('Cancelar', 'cancelar', '#ef4444');
+                contenedor.appendChild(btnCancelar);
+                tieneContenido = true;
+            }
+            else if (estado === 'pending') {
+                // Mostrar botones Confirmar y Cancelar
+                const btnConfirmar = crearBoton('Confirmar', 'confirmar', '#10b981');
+                const btnCancelar = crearBoton('Cancelar', 'cancelar', '#ef4444');
+                contenedor.appendChild(btnConfirmar);
+                contenedor.appendChild(btnCancelar);
+                tieneContenido = true;
+            }
+            else if (estado === 'cancelled') {
+                // Mostrar leyenda "Cancelada"
+                const leyenda = crearLeyenda('Cancelada', '#9ca3af');
+                contenedor.appendChild(leyenda);
+                tieneContenido = true;
+            }
+            else if (estado === 'asistió' || estado === 'no asistió') {
+                // Caso extremo: mostrar leyenda correspondiente
+                const texto = estado === 'asistió' ? 'Asistió' : 'No asistió';
+                const leyenda = crearLeyenda(texto, '#6b7280');
+                contenedor.appendChild(leyenda);
+                tieneContenido = true;
+            }
+        } else {
+            // ===== CITA PASADA =====
+            
+            if (estado === 'confirmed') {
+                // Mostrar botones Asistió y No asistió
+                const btnAsistio = crearBoton('Asistió', 'asistio', '#10b981');
+                const btnNoAsistio = crearBoton('No asistió', 'no-asistio', '#ef4444');
+                contenedor.appendChild(btnAsistio);
+                contenedor.appendChild(btnNoAsistio);
+                tieneContenido = true;
+            }
+            else if (estado === 'pending') {
+                // NO mostrar botones ni leyendas
+                // No hacer nada
+            }
+            else if (estado === 'asistió') {
+                // Mostrar leyenda "✓ Asistió"
+                const leyenda = crearLeyenda('✓ Asistió', '#10b981');
+                contenedor.appendChild(leyenda);
+                tieneContenido = true;
+            }
+            else if (estado === 'no asistió') {
+                // Mostrar leyenda "✕ No asistió"
+                const leyenda = crearLeyenda('✕ No asistió', '#ef4444');
+                contenedor.appendChild(leyenda);
+                tieneContenido = true;
+            }
+            else if (estado === 'cancelled') {
+                // Mostrar leyenda "Cancelada"
+                const leyenda = crearLeyenda('Cancelada', '#9ca3af');
+                contenedor.appendChild(leyenda);
+                tieneContenido = true;
+            }
+        }
+        
+        return tieneContenido ? contenedor : null;
+    }
+
+    /**
+     * Crear un botón con data-action
+     * @param {string} texto - Texto del botón
+     * @param {string} accion - Acción (confirmar, cancelar, asistio, no-asistio)
+     * @param {string} colorFondo - Color de fondo
+     * @returns {HTMLElement} - Elemento button
+     */
+    function crearBoton(texto, accion, colorFondo) {
+        const boton = document.createElement('button');
+        boton.textContent = texto;
+        boton.setAttribute('data-action', accion);
+        boton.style.padding = '6px 12px';
+        boton.style.backgroundColor = colorFondo;
+        boton.style.color = '#fff';
+        boton.style.border = 'none';
+        boton.style.borderRadius = '4px';
+        boton.style.cursor = 'pointer';
+        boton.style.fontSize = '12px';
+        
+        // Event listener temporal (sin acción real todavía)
+        boton.addEventListener('click', function(e) {
+            e.stopPropagation();
+            console.log(`[Calendar] Botón ${accion} clickeado para cita ${boton.closest('.aa-appointment-card').getAttribute('data-id')}`);
+        });
+        
+        return boton;
+    }
+
+    /**
+     * Crear una leyenda (texto informativo)
+     * @param {string} texto - Texto de la leyenda
+     * @param {string} color - Color del texto
+     * @returns {HTMLElement} - Elemento div
+     */
+    function crearLeyenda(texto, color) {
+        const leyenda = document.createElement('div');
+        leyenda.textContent = texto;
+        leyenda.style.padding = '6px 12px';
+        leyenda.style.color = color;
+        leyenda.style.fontWeight = '500';
+        leyenda.style.fontSize = '12px';
+        leyenda.style.border = `1px solid ${color}`;
+        leyenda.style.borderRadius = '4px';
+        
+        // Color de fondo con transparencia según el color base
+        if (color === '#10b981') {
+            leyenda.style.backgroundColor = '#d1fae5'; // verde claro
+        } else if (color === '#ef4444') {
+            leyenda.style.backgroundColor = '#fee2e2'; // rojo claro
+        } else {
+            leyenda.style.backgroundColor = '#f3f4f6'; // gris claro
+        }
+        
+        return leyenda;
     }
 
     /**
