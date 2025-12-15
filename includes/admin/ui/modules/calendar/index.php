@@ -9,9 +9,15 @@
  */
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
+
+// Obtener schedule
+$schedule = get_option('aa_schedule', []);
+
+// Resolver rutas de scripts (wpaa_url puede no estar disponible en este contexto)
+$plugin_url = plugin_dir_url(__FILE__);
+$date_utils_url = $plugin_url . '../../../../../assets/js/utils/dateUtils.js';
+$module_js_url = $plugin_url . 'calendar-module.js';
 ?>
-
-
 
 <details open class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden group">
 
@@ -70,25 +76,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
 
             <!-- Grid de horarios -->
             <div id="aa-time-grid" class="aa-time-grid">
-
-                
-              <!-- 🔥 JS renderiza aquí filas como: -->
-
-                  <div class="aa-time-row aa-past">
-                    <div class="aa-time-label">16:00</div>
-                    <div class="aa-time-content"></div>
-                  </div>
-
-                  <div class="aa-time-row aa-future">
-                    <div class="aa-time-label">17:00</div>
-                    <div class="aa-time-content">
-                      <article class="aa-appointment-card aa-span-2 aa-status-confirmed">
-                        <!-- cita -->
-                      </article>
-                    </div>
-                  </div>
-                
-
+              <!-- 🔥 JS renderiza aquí dinámicamente las filas de horarios -->
             </div>
 
         </section>
@@ -97,6 +85,14 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
 
 </details>
 
+<!-- Scripts: Orden crítico - datos primero, luego dependencias, luego módulo -->
+<script>
+  // ✅ PASO 1: Definir datos ANTES de cualquier script
+  window.AA_CALENDAR_DATA = {
+    schedule: <?php echo wp_json_encode($schedule); ?>
+  };
+  console.log('📋 AA_CALENDAR_DATA definido:', window.AA_CALENDAR_DATA);
+</script>
 
-<script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'module.js'); ?>" defer></script>
-
+<script src="<?php echo esc_url($date_utils_url); ?>" defer></script>
+<script src="<?php echo esc_url($module_js_url); ?>" defer></script>

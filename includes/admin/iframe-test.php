@@ -40,8 +40,27 @@ function aa_handle_iframe_content() {
     
     // Delegate to UI entry point (module parameter is handled inside ui/index.php)
     $ui_path = plugin_dir_path(__FILE__) . 'ui/index.php';
-    
+
+          
+
     if (file_exists($ui_path)) {
+        wp_enqueue_script(
+            'wpaa-date-utils-admin',
+            wpaa_url('assets/js/utils/dateUtils.js'),
+            [],
+            filemtime(wpaa_path('assets/js/utils/dateUtils.js')),
+            true
+        );
+        
+        
+        
+        wp_localize_script(
+            'wpaa-calendar-module',
+            'AA_CALENDAR_DATA',
+            [
+                'schedule' => get_option('aa_schedule', [])
+            ]
+        );
         require_once $ui_path;
     } else {
         wp_die('UI no encontrada', 'Error', ['response' => 404]);
