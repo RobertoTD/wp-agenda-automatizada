@@ -82,6 +82,10 @@
 
         // Mapa de minutos -> índice de fila en el grid (para calcular grid-row)
         const slotRowIndex = new Map();
+        
+        // Obtener hora actual en minutos para diferenciar pasado/futuro
+        const now = new Date();
+        const minutosActuales = window.DateUtils.minutesFromDate(now);
 
         // Renderizar labels y content directamente en el grid
         timeSlots.forEach((minutes, index) => {
@@ -103,11 +107,24 @@
             content.style.gridColumn = '2';
             content.style.gridRow = `${index + 1}`;
             content.style.minHeight = '40px';
+            
+            // Diferenciar visualmente slots pasados vs futuros
+            if (minutes < minutosActuales) {
+                // Slot pasado: fondo gris tenue
+                content.style.backgroundColor = '#f3f4f6';
+            } else {
+                // Slot actual o futuro: fondo normal (blanco)
+                content.style.backgroundColor = '#ffffff';
+            }
+            
             grid.appendChild(content);
             
             // Guardar índice de fila para acceso rápido
             slotRowIndex.set(minutes, index + 1);
         });
+
+        // Agregar indicador de hora actual
+        agregarIndicadorHoraActual(slotRowIndex, minutosActuales);
 
         // Cargar y renderizar citas del día actual
         cargarYRenderizarCitas(slotRowIndex, timeSlots);
@@ -349,14 +366,56 @@
     }
 
     /**
+     * Agregar indicador visual de hora actual en el timeline
+     */
+    function agregarIndicadorHoraActual(slotRowIndex, minutosActuales) {
+        // Redondear al slot de 30 minutos correspondiente
+        const slotActual = Math.floor(minutosActuales / 30) * 30;
+        
+        // Obtener el índice de fila del slot actual
+        const rowIndex = slotRowIndex.get(slotActual);
+        if (!rowIndex) return; // Slot no encontrado en el timeline
+        
+        // Obtener el grid
+        const grid = document.getElementById('aa-time-grid');
+        if (!grid) return;
+        
+        // Crear indicador
+        const indicador = document.createElement('div');
+        indicador.className = 'aa-time-now-indicator';
+        indicador.style.gridColumn = '2';
+        indicador.style.gridRow = `${rowIndex}`;
+        indicador.style.height = '2px';
+        indicador.style.backgroundColor = '#ef4444';
+        indicador.style.position = 'relative';
+        indicador.style.zIndex = '10';
+        
+        // Agregar un pequeño círculo en el inicio
+        const circulo = document.createElement('div');
+        circulo.style.position = 'absolute';
+        circulo.style.left = '0';
+        circulo.style.top = '50%';
+        circulo.style.transform = 'translateY(-50%)';
+        circulo.style.width = '8px';
+        circulo.style.height = '8px';
+        circulo.style.backgroundColor = '#ef4444';
+        circulo.style.borderRadius = '50%';
+        indicador.appendChild(circulo);
+        
+        grid.appendChild(indicador);
+    }
+
+    /**
      * Obtener color según el estado de la cita
      */
     function getEstadoColor(estado) {
         const colores = {
-            'pending': '#f59e0b',    // amarillo
-            'confirmed': '#10b981',  // verde
-            'cancelled': '#ef4444',   // rojo
-            'attended': '#3b82f6'     // azul
+            'pending': '#f59e0b',      // amarillo
+            'confirmed': '#10b981',    // verde
+            'cancelled': '#ef4444',     // rojo
+            'attended': '#10b981',      // verde (mismo que confirmed)
+            'asistió': '#10b981',       // verde
+            'no asistió': '#9ca3af'     // gris
         };
         return colores[estado] || colores['pending'];
     }
