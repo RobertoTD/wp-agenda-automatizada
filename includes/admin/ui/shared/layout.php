@@ -31,7 +31,7 @@ header('Content-Type: text/html; charset=utf-8');
     
     <!-- Shared Admin JS -->
     <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . '../assets/js/main.js'); ?>" defer></script>
-    <?php wp_head(); ?>
+    
 </head>
 <body class="flex flex-col min-h-screen" style="background-color: rgb(240, 240, 241);">
     <div id="aa-admin-app" class="w-full">
@@ -51,7 +51,7 @@ header('Content-Type: text/html; charset=utf-8');
         
         <?php require_once __DIR__ . '/footer.php'; ?>
     </div>
-    <?php wp_footer(); ?>
+    
     <script>
   window.AA_ACTIVE_MODULE = "<?php echo esc_js($active_module); ?>";
 </script>
