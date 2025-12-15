@@ -87,11 +87,9 @@ $module_js_url = $plugin_url . 'calendar-module.js';
 
 <!-- Scripts: Orden crítico - datos primero, luego dependencias, luego módulo -->
 <script>
-  // ✅ PASO 1: Definir datos ANTES de cualquier script
   window.AA_CALENDAR_DATA = {
     schedule: <?php echo wp_json_encode($schedule); ?>
   };
-  console.log('📋 AA_CALENDAR_DATA definido:', window.AA_CALENDAR_DATA);
 </script>
 
 <script src="<?php echo esc_url($date_utils_url); ?>" defer></script>

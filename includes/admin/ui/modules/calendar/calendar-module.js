@@ -1,5 +1,3 @@
-console.log('🔴 calendar-module.js EVALUADO', document.readyState);
-
 /**
  * Calendar Module - Module-specific JavaScript
  */
@@ -17,7 +15,6 @@ console.log('🔴 calendar-module.js EVALUADO', document.readyState);
                            window.AA_CALENDAR_DATA?.schedule;
         
         if (hasDateUtils && hasSchedule) {
-            console.log('✅ Todas las dependencias disponibles');
             callback();
             return;
         }
@@ -33,43 +30,24 @@ console.log('🔴 calendar-module.js EVALUADO', document.readyState);
     }
 
     function initCalendar() {
-        console.log('📅 Calendar module inicializando...');
-
         const grid = document.getElementById('aa-time-grid');
         if (!grid) {
             console.error('❌ No se encontró el contenedor #aa-time-grid');
             return;
         }
-        
-        // Verificar dependencias (ya verificadas en waitForDependencies, pero doble verificación)
-        if (typeof window.DateUtils === 'undefined') {
-            console.error('❌ DateUtils no está disponible');
-            return;
-        }
-
-        if (typeof window.AA_CALENDAR_DATA === 'undefined' || !window.AA_CALENDAR_DATA?.schedule) {
-            console.error('❌ AA_CALENDAR_DATA no está disponible');
-            return;
-        }
 
         const schedule = window.AA_CALENDAR_DATA.schedule;
-        console.log('📋 Schedule disponible:', schedule);
         
-        // Obtener día actual
+        // Obtener día actual y sus intervalos
         const today = new Date();
         const weekday = window.DateUtils.getWeekdayName(today);
-        console.log(`🗓️ Día actual detectado: ${weekday}`);
-
-        // Obtener intervalos del día actual
         const intervals = window.DateUtils.getDayIntervals(schedule, weekday);
-        console.log(`⏰ Intervalos encontrados para ${weekday}:`, intervals);
 
         // Limpiar contenido existente
         grid.innerHTML = '';
 
         // Si no hay intervalos o el día no está habilitado
         if (!intervals || intervals.length === 0) {
-            console.log('⚠️ No hay horarios configurados para hoy');
             grid.innerHTML = '<div class="aa-time-row"><div class="aa-time-content" style="padding: 2rem; text-align: center; color: #6b7280;">No hay horarios configurados para hoy</div></div>';
             return;
         }
@@ -84,17 +62,12 @@ console.log('🔴 calendar-module.js EVALUADO', document.readyState);
         // Generar todos los bloques de 30 minutos de todos los intervalos
         const timeSlots = [];
         
-        intervals.forEach((interval, idx) => {
-            console.log(`🔄 Procesando intervalo ${idx + 1}: ${minutesToTimeStr(interval.start)} - ${minutesToTimeStr(interval.end)}`);
-            
+        intervals.forEach((interval) => {
             // Generar bloques de 30 minutos dentro del intervalo
             for (let min = interval.start; min < interval.end; min += 30) {
                 timeSlots.push(min);
-                console.log(`  ✓ Bloque agregado: ${minutesToTimeStr(min)}`);
             }
         });
-
-        console.log(`✅ Total de bloques a renderizar: ${timeSlots.length}`);
 
         // Renderizar cada bloque como una fila
         timeSlots.forEach(minutes => {
@@ -113,19 +86,14 @@ console.log('🔴 calendar-module.js EVALUADO', document.readyState);
             row.appendChild(content);
             grid.appendChild(row);
         });
-
-        console.log(`🎨 Renderizado completado: ${timeSlots.length} filas creadas`);
     }
 
     // Esperar a que el DOM esté listo Y las dependencias estén disponibles
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('📅 Calendar module - DOMContentLoaded disparado');
             waitForDependencies(initCalendar);
         });
     } else {
-        // DOM ya está listo
-        console.log('📅 Calendar module - DOM ya está listo');
         waitForDependencies(initCalendar);
     }
 

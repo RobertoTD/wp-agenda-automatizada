@@ -275,14 +275,6 @@ function wpaa_enqueue_admin_assets($hook) {
             'email'    => $email,
         ]);
 
-        wpaa_localize(
-            'wpaa-calendar-module',
-            'AA_CALENDAR_DATA',
-            [
-                'schedule' => get_option('aa_schedule', [])
-            ]
-        );
-
         wpaa_localize('wpaa-availability-controller-admin', 'aa_schedule',      get_option('aa_schedule', []));
         wpaa_localize('wpaa-availability-controller-admin', 'aa_future_window', intval(get_option('aa_future_window', 15)));
         wpaa_localize('wpaa-availability-controller-admin', 'aa_slot_duration', intval(get_option('aa_slot_duration', 60)));

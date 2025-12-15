@@ -51,10 +51,6 @@ header('Content-Type: text/html; charset=utf-8');
         
         <?php require_once __DIR__ . '/footer.php'; ?>
     </div>
-    
-    <script>
-  window.AA_ACTIVE_MODULE = "<?php echo esc_js($active_module); ?>";
-</script>
 
 </body>
 </html>
