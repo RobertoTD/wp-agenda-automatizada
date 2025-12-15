@@ -35,9 +35,6 @@ function aa_ajax_get_proximas_citas() {
     
     error_log("🕐 [ProximasCitas] Hora actual: $now");
     
-    // 🔹 Obtener slot_duration para calcular fecha de fin
-    $slot_duration = intval(get_option('aa_slot_duration', 60));
-    
     // 🔹 Parámetros de búsqueda
     $buscar = isset($_POST['buscar']) ? sanitize_text_field($_POST['buscar']) : '';
     $ordenar = isset($_POST['ordenar']) ? sanitize_text_field($_POST['ordenar']) : 'fecha_asc';
@@ -46,11 +43,11 @@ function aa_ajax_get_proximas_citas() {
     $offset = ($pagina - 1) * $por_pagina;
     
     // 🔹 Construcción de la consulta base
-    // Solo mostrar citas que AÚN NO TERMINARON (fecha + slot_duration >= ahora)
-    $where = "WHERE DATE_ADD(fecha, INTERVAL %d MINUTE) >= %s";
-    $params = [$slot_duration, $now];
+    // Solo mostrar citas que AÚN NO TERMINARON (fecha + duracion >= ahora)
+    $where = "WHERE DATE_ADD(fecha, INTERVAL duracion MINUTE) >= %s";
+    $params = [$now];
     
-    error_log("📋 [ProximasCitas] Buscando citas que terminan después de: $now (duración: {$slot_duration} min)");
+    error_log("📋 [ProximasCitas] Buscando citas que terminan después de: $now");
     
     // 🔹 Filtro de búsqueda
     if (!empty($buscar)) {
@@ -77,9 +74,9 @@ function aa_ajax_get_proximas_citas() {
     $total_query = "SELECT COUNT(*) FROM $table $where";
     $total = $wpdb->get_var($wpdb->prepare($total_query, $params));
     
-    // 🔹 Obtener registros paginados
-    $query = "SELECT *, DATE_ADD(fecha, INTERVAL %d MINUTE) as fecha_fin FROM $table $where $order_by LIMIT %d OFFSET %d";
-    $params_query = array_merge([$slot_duration], $params, [$por_pagina, $offset]);
+    // 🔹 Obtener registros paginados con fecha_fin calculada usando duracion
+    $query = "SELECT *, DATE_ADD(fecha, INTERVAL duracion MINUTE) as fecha_fin FROM $table $where $order_by LIMIT %d OFFSET %d";
+    $params_query = array_merge($params, [$por_pagina, $offset]);
     
     $citas = $wpdb->get_results($wpdb->prepare($query, $params_query));
     

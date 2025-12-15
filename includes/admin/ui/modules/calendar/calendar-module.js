@@ -42,13 +42,24 @@
         const today = new Date();
         const weekday = window.DateUtils.getWeekdayName(today);
         const intervals = window.DateUtils.getDayIntervals(schedule, weekday);
+        
+        // Configurar CSS Grid
+        grid.style.display = 'grid';
+        grid.style.gridTemplateColumns = 'auto 1fr';
+        grid.style.gridAutoRows = 'auto';
 
         // Limpiar contenido existente
         grid.innerHTML = '';
 
         // Si no hay intervalos o el día no está habilitado
         if (!intervals || intervals.length === 0) {
-            grid.innerHTML = '<div class="aa-time-row"><div class="aa-time-content" style="padding: 2rem; text-align: center; color: #6b7280;">No hay horarios configurados para hoy</div></div>';
+            const mensaje = document.createElement('div');
+            mensaje.style.gridColumn = '1 / -1';
+            mensaje.style.padding = '2rem';
+            mensaje.style.textAlign = 'center';
+            mensaje.style.color = '#6b7280';
+            mensaje.textContent = 'No hay horarios configurados para hoy';
+            grid.appendChild(mensaje);
             return;
         }
 
@@ -69,37 +80,43 @@
             }
         });
 
-        // Renderizar cada bloque como una fila
-        const slotRows = new Map(); // Mapa de minutos -> elemento row para acceso rápido
-        
-        timeSlots.forEach(minutes => {
+        // Mapa de minutos -> índice de fila en el grid (para calcular grid-row)
+        const slotRowIndex = new Map();
+
+        // Renderizar labels y content directamente en el grid
+        timeSlots.forEach((minutes, index) => {
             const timeStr = minutesToTimeStr(minutes);
-            const row = document.createElement('div');
-            row.className = 'aa-time-row';
             
+            // Label (columna 1)
             const label = document.createElement('div');
             label.className = 'aa-time-label';
             label.textContent = timeStr;
+            label.style.gridColumn = '1';
+            label.style.gridRow = `${index + 1}`;
+            label.style.padding = '8px 12px';
+            label.style.minWidth = '40px';
+            grid.appendChild(label);
             
+            // Content (columna 2) - vacío por ahora, las citas se insertarán aquí
             const content = document.createElement('div');
             content.className = 'aa-time-content';
+            content.style.gridColumn = '2';
+            content.style.gridRow = `${index + 1}`;
+            content.style.minHeight = '40px';
+            grid.appendChild(content);
             
-            row.appendChild(label);
-            row.appendChild(content);
-            grid.appendChild(row);
-            
-            // Guardar referencia para acceso rápido
-            slotRows.set(minutes, row);
+            // Guardar índice de fila para acceso rápido
+            slotRowIndex.set(minutes, index + 1);
         });
 
         // Cargar y renderizar citas del día actual
-        cargarYRenderizarCitas(slotRows, timeSlots);
+        cargarYRenderizarCitas(slotRowIndex, timeSlots);
     }
 
     /**
      * Cargar citas del día actual y renderizarlas en el timeline
      */
-    function cargarYRenderizarCitas(slotRows, timeSlots) {
+    function cargarYRenderizarCitas(slotRowIndex, timeSlots) {
         const today = new Date();
         const todayStr = window.DateUtils.ymd(today);
         
@@ -133,7 +150,7 @@
                 
                 // Renderizar cada cita en su slot correspondiente
                 citasHoy.forEach(cita => {
-                    renderizarCitaEnTimeline(cita, slotRows, timeSlots);
+                    renderizarCitaEnTimeline(cita, slotRowIndex, timeSlots);
                 });
             }
         })
@@ -145,63 +162,67 @@
     /**
      * Renderizar una cita en el timeline
      */
-    function renderizarCitaEnTimeline(cita, slotRows, timeSlots) {
+    function renderizarCitaEnTimeline(cita, slotRowIndex, timeSlots) {
         if (!cita.fecha) return;
         
         // Convertir fecha de inicio a minutos desde medianoche
         const fechaInicio = new Date(cita.fecha);
         const minutosInicio = window.DateUtils.minutesFromDate(fechaInicio);
         
-        // Calcular minutos de fin
+        // Calcular minutos de fin usando fecha_fin o duracion
         let minutosFin;
         if (cita.fecha_fin) {
             const fechaFin = new Date(cita.fecha_fin);
             minutosFin = window.DateUtils.minutesFromDate(fechaFin);
+        } else if (cita.duracion) {
+            minutosFin = minutosInicio + parseInt(cita.duracion);
         } else {
-            // Si no hay fecha_fin, usar slot_duration (asumiendo 60 min por defecto)
-            const slotDuration = 60; // minutos
-            minutosFin = minutosInicio + slotDuration;
+            // Fallback: 60 minutos por defecto
+            minutosFin = minutosInicio + 60;
         }
         
-        // Encontrar el slot inicial más cercano (redondear hacia abajo al slot de 30 min más cercano)
+        // Encontrar el slot inicial (redondear hacia abajo al slot de 30 min más cercano)
         const slotInicio = Math.floor(minutosInicio / 30) * 30;
         
         // Calcular cuántos bloques de 30 min ocupa
         const duracionMinutos = minutosFin - minutosInicio;
         const bloquesOcupados = Math.ceil(duracionMinutos / 30);
         
-        // Buscar el slot inicial en el mapa
-        const slotRow = slotRows.get(slotInicio);
-        if (!slotRow) return; // Slot no encontrado
+        // Obtener el índice de fila del slot inicial
+        const startRow = slotRowIndex.get(slotInicio);
+        if (!startRow) return; // Slot no encontrado
         
-        const contentDiv = slotRow.querySelector('.aa-time-content');
-        if (!contentDiv) return;
+        // Obtener el grid
+        const grid = document.getElementById('aa-time-grid');
+        if (!grid) return;
         
         // Crear la card de la cita
-        const card = crearCardCita(cita, bloquesOcupados);
+        const card = crearCardCita(cita);
         
-        // Insertar la card en el slot inicial
-        contentDiv.appendChild(card);
+        // Configurar posición en el grid
+        card.style.gridColumn = '2';
+        card.style.gridRow = `${startRow} / span ${bloquesOcupados}`;
+        
+        // Insertar la card directamente en el grid
+        grid.appendChild(card);
     }
 
     /**
      * Crear el DOM de la card de cita
      */
-    function crearCardCita(cita, bloquesOcupados) {
+    function crearCardCita(cita) {
         const card = document.createElement('div');
         card.className = 'aa-appointment-card';
         card.setAttribute('data-id', cita.id || '');
         
-        // Calcular altura aproximada (cada bloque de 30 min = ~60px, ajustar según necesidad)
-        const alturaPorBloque = 60;
-        const alturaTotal = bloquesOcupados * alturaPorBloque;
-        card.style.height = `${alturaTotal}px`;
-        card.style.position = 'relative';
-        card.style.marginBottom = '4px';
+        // Estilos base sin altura fija
         card.style.border = '1px solid #e5e7eb';
         card.style.borderRadius = '4px';
         card.style.overflow = 'hidden';
         card.style.cursor = 'pointer';
+        card.style.display = 'flex';
+        card.style.flexDirection = 'column';
+        card.style.minHeight = '40px';
         
         // Header (siempre visible)
         const header = document.createElement('div');
@@ -211,6 +232,7 @@
         header.style.color = '#fff';
         header.style.fontWeight = '500';
         header.style.fontSize = '14px';
+        header.style.flexShrink = '0';
         
         const clienteNombre = cita.nombre || 'Sin nombre';
         const servicio = cita.servicio || 'Sin servicio';
@@ -223,6 +245,7 @@
         body.style.padding = '12px';
         body.style.backgroundColor = '#f9fafb';
         body.style.fontSize = '13px';
+        body.style.flex = '1';
         
         // Información de la cita
         const info = document.createElement('div');
