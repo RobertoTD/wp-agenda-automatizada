@@ -157,6 +157,7 @@ register_activation_hook(__FILE__, function() {
         id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
         servicio varchar(255) NOT NULL,
         fecha datetime NOT NULL,
+        duracion smallint unsigned NOT NULL DEFAULT 60,
         nombre varchar(255) NOT NULL,
         telefono varchar(50) NOT NULL,
         correo varchar(255),

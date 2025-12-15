@@ -88,7 +88,9 @@ $module_js_url = $plugin_url . 'calendar-module.js';
 <!-- Scripts: Orden crítico - datos primero, luego dependencias, luego módulo -->
 <script>
   window.AA_CALENDAR_DATA = {
-    schedule: <?php echo wp_json_encode($schedule); ?>
+    schedule: <?php echo wp_json_encode($schedule); ?>,
+    nonce: '<?php echo wp_create_nonce('aa_proximas_citas'); ?>',
+    ajaxurl: '<?php echo admin_url('admin-ajax.php'); ?>'
   };
 </script>
 
