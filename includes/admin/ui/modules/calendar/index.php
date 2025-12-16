@@ -86,13 +86,33 @@ $module_js_url = $plugin_url . 'calendar-module.js';
 </details>
 
 <!-- Scripts: Orden crítico - datos primero, luego dependencias, luego módulo -->
+<!-- Datos base del calendario -->
 <script>
   window.AA_CALENDAR_DATA = {
     schedule: <?php echo wp_json_encode($schedule); ?>,
     nonce: '<?php echo wp_create_nonce('aa_proximas_citas'); ?>',
+    historialNonce: '<?php echo wp_create_nonce('aa_historial_citas'); ?>',
     ajaxurl: '<?php echo admin_url('admin-ajax.php'); ?>'
   };
+
+  // Variables requeridas por ConfirmService
+  window.aa_asistant_vars = {
+    nonce_confirmar: '<?php echo wp_create_nonce('aa_confirmar_cita'); ?>',
+    nonce_cancelar: '<?php echo wp_create_nonce('aa_cancelar_cita'); ?>'
+  };
+
+  // Garantizar ajaxurl global
+  if (typeof window.ajaxurl === 'undefined') {
+    window.ajaxurl = '<?php echo admin_url('admin-ajax.php'); ?>';
+  }
 </script>
 
+<!-- Utils -->
 <script src="<?php echo esc_url($date_utils_url); ?>" defer></script>
+
+<!-- Servicios y controladores requeridos por los botones -->
+<script src="<?php echo esc_url(plugin_dir_url(__FILE__) . '../../../../../assets/js/services/confirmService.js'); ?>" defer></script>
+<script src="<?php echo esc_url(plugin_dir_url(__FILE__) . '../../../../../assets/js/controllers/adminConfirmController.js'); ?>" defer></script>
+
+<!-- Módulo del calendario (SIEMPRE AL FINAL) -->
 <script src="<?php echo esc_url($module_js_url); ?>" defer></script>

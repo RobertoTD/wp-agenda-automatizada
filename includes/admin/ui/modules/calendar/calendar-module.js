@@ -5,6 +5,10 @@
 (function() {
     'use strict';
 
+    // Variables del módulo para recarga
+    let currentSlotRowIndex = null;
+    let currentTimeSlots = null;
+
     // Función para esperar a que las dependencias estén disponibles
     function waitForDependencies(callback, maxAttempts = 50) {
         const hasDateUtils = typeof window.DateUtils !== 'undefined' && 
@@ -131,8 +135,15 @@
         // Agregar indicador de hora actual (SOLO en label)
         agregarIndicadorHoraActual(slotRowIndex, minutosActuales);
 
+        // Guardar referencias para recarga
+        currentSlotRowIndex = slotRowIndex;
+        currentTimeSlots = timeSlots;
+
         // Cargar y renderizar citas del día actual
         cargarYRenderizarCitas(slotRowIndex, timeSlots);
+        
+        // Configurar event listener delegado para acciones de botones
+        configurarEventListeners();
     }
 
     /**
@@ -361,14 +372,14 @@
             
             if (estado === 'confirmed') {
                 // Mostrar botón Cancelar
-                const btnCancelar = crearBoton('Cancelar', 'cancelar', '#ef4444');
+                const btnCancelar = crearBoton('Cancelar', 'cancelar', '#ef4444', cita.id);
                 contenedor.appendChild(btnCancelar);
                 tieneContenido = true;
             }
             else if (estado === 'pending') {
                 // Mostrar botones Confirmar y Cancelar
-                const btnConfirmar = crearBoton('Confirmar', 'confirmar', '#10b981');
-                const btnCancelar = crearBoton('Cancelar', 'cancelar', '#ef4444');
+                const btnConfirmar = crearBoton('Confirmar', 'confirmar', '#10b981', cita.id);
+                const btnCancelar = crearBoton('Cancelar', 'cancelar', '#ef4444', cita.id);
                 contenedor.appendChild(btnConfirmar);
                 contenedor.appendChild(btnCancelar);
                 tieneContenido = true;
@@ -391,8 +402,8 @@
             
             if (estado === 'confirmed') {
                 // Mostrar botones Asistió y No asistió
-                const btnAsistio = crearBoton('Asistió', 'asistio', '#10b981');
-                const btnNoAsistio = crearBoton('No asistió', 'no-asistio', '#ef4444');
+                const btnAsistio = crearBoton('Asistió', 'asistio', '#10b981', cita.id);
+                const btnNoAsistio = crearBoton('No asistió', 'no-asistio', '#ef4444', cita.id);
                 contenedor.appendChild(btnAsistio);
                 contenedor.appendChild(btnNoAsistio);
                 tieneContenido = true;
@@ -429,12 +440,14 @@
      * @param {string} texto - Texto del botón
      * @param {string} accion - Acción (confirmar, cancelar, asistio, no-asistio)
      * @param {string} colorFondo - Color de fondo
+     * @param {string|number} citaId - ID de la cita
      * @returns {HTMLElement} - Elemento button
      */
-    function crearBoton(texto, accion, colorFondo) {
+    function crearBoton(texto, accion, colorFondo, citaId) {
         const boton = document.createElement('button');
         boton.textContent = texto;
         boton.setAttribute('data-action', accion);
+        boton.setAttribute('data-id', citaId);
         boton.style.padding = '6px 12px';
         boton.style.backgroundColor = colorFondo;
         boton.style.color = '#fff';
@@ -442,12 +455,6 @@
         boton.style.borderRadius = '4px';
         boton.style.cursor = 'pointer';
         boton.style.fontSize = '12px';
-        
-        // Event listener temporal (sin acción real todavía)
-        boton.addEventListener('click', function(e) {
-            e.stopPropagation();
-            console.log(`[Calendar] Botón ${accion} clickeado para cita ${boton.closest('.aa-appointment-card').getAttribute('data-id')}`);
-        });
         
         return boton;
     }
@@ -534,6 +541,155 @@
             'no asistió': '#9ca3af'     // gris
         };
         return colores[estado] || colores['pending'];
+    }
+
+    /**
+     * Configurar event listeners delegados para acciones de botones
+     */
+    function configurarEventListeners() {
+        const grid = document.getElementById('aa-time-grid');
+        if (!grid) return;
+        
+        grid.addEventListener('click', function(e) {
+            const btn = e.target.closest('[data-action]');
+            if (!btn) return;
+            
+            const action = btn.getAttribute('data-action');
+            const citaId = btn.getAttribute('data-id');
+            
+            if (!action || !citaId) return;
+            
+            e.stopPropagation();
+            handleCitaAction(action, citaId);
+        });
+    }
+
+    /**
+     * Handler único de acciones de citas
+     * @param {string} action - Acción a ejecutar
+     * @param {string|number} citaId - ID de la cita
+     */
+    function handleCitaAction(action, citaId) {
+        switch (action) {
+            case 'confirmar':
+                if (window.AdminConfirmController?.onConfirmar) {
+                    window.AdminConfirmController.onConfirmar(citaId);
+                    // Recargar después de confirmar
+                    setTimeout(() => {
+                        recargarTimelineDelDiaActual();
+                    }, 1000);
+                }
+                break;
+                
+            case 'cancelar':
+                if (window.AdminConfirmController?.onCancelar) {
+                    if (confirm('¿Cancelar esta cita?')) {
+                        window.AdminConfirmController.onCancelar(citaId);
+                        // Recargar después de cancelar
+                        setTimeout(() => {
+                            recargarTimelineDelDiaActual();
+                        }, 1000);
+                    }
+                }
+                break;
+                
+            case 'asistio':
+                marcarAsistencia(citaId);
+                break;
+                
+            case 'no-asistio':
+                marcarNoAsistencia(citaId);
+                break;
+        }
+    }
+
+    /**
+     * Marcar cita como "asistió"
+     * @param {string|number} citaId - ID de la cita
+     */
+    function marcarAsistencia(citaId) {
+        if (!confirm('¿Confirmar que el cliente asistió?')) return;
+        
+        const formData = new FormData();
+        formData.append('action', 'aa_marcar_asistencia');
+        formData.append('cita_id', citaId);
+        
+        const nonce = window.AA_CALENDAR_DATA?.historialNonce;
+        if (nonce) {
+            formData.append('_wpnonce', nonce);
+        }
+        
+        const ajaxurl = window.AA_CALENDAR_DATA?.ajaxurl || (typeof ajaxurl !== 'undefined' ? ajaxurl : '/wp-admin/admin-ajax.php');
+        
+        fetch(ajaxurl, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('✅ Asistencia registrada');
+                recargarTimelineDelDiaActual();
+            } else {
+                alert(data.data?.message || 'Error al registrar asistencia');
+            }
+        })
+        .catch(err => {
+            console.error('Error al marcar asistencia:', err);
+            alert('Error de conexión');
+        });
+    }
+
+    /**
+     * Marcar cita como "no asistió"
+     * @param {string|number} citaId - ID de la cita
+     */
+    function marcarNoAsistencia(citaId) {
+        if (!confirm('¿Confirmar que el cliente NO asistió?')) return;
+        
+        const formData = new FormData();
+        formData.append('action', 'aa_marcar_no_asistencia');
+        formData.append('cita_id', citaId);
+        
+        const nonce = window.AA_CALENDAR_DATA?.historialNonce;
+        if (nonce) {
+            formData.append('_wpnonce', nonce);
+        }
+        
+        const ajaxurl = window.AA_CALENDAR_DATA?.ajaxurl || (typeof ajaxurl !== 'undefined' ? ajaxurl : '/wp-admin/admin-ajax.php');
+        
+        fetch(ajaxurl, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('❌ No asistencia registrada');
+                recargarTimelineDelDiaActual();
+            } else {
+                alert(data.data?.message || 'Error al registrar no asistencia');
+            }
+        })
+        .catch(err => {
+            console.error('Error al marcar no asistencia:', err);
+            alert('Error de conexión');
+        });
+    }
+
+    /**
+     * Recargar el timeline del día actual sin recargar la página
+     */
+    function recargarTimelineDelDiaActual() {
+        const grid = document.getElementById('aa-time-grid');
+        if (!grid || !currentSlotRowIndex || !currentTimeSlots) return;
+        
+        // Eliminar todas las cards de citas existentes
+        const cards = grid.querySelectorAll('.aa-appointment-card');
+        cards.forEach(card => card.remove());
+        
+        // Recargar citas usando las referencias guardadas
+        cargarYRenderizarCitas(currentSlotRowIndex, currentTimeSlots);
     }
 
     // Esperar a que el DOM esté listo Y las dependencias estén disponibles
