@@ -110,9 +110,15 @@ $module_js_url = $plugin_url . 'calendar-module.js';
 <!-- Utils -->
 <script src="<?php echo esc_url($date_utils_url); ?>" defer></script>
 
+<!-- Servicios del calendario -->
+<script src="<?php echo esc_url(plugin_dir_url(__FILE__) . '../../../../../assets/js/services/adminCalendarService.js'); ?>" defer></script>
+
 <!-- Servicios y controladores requeridos por los botones -->
 <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . '../../../../../assets/js/services/confirmService.js'); ?>" defer></script>
 <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . '../../../../../assets/js/controllers/adminConfirmController.js'); ?>" defer></script>
+
+<!-- Controlador del calendario -->
+<script src="<?php echo esc_url(plugin_dir_url(__FILE__) . '../../../../../assets/js/controllers/adminCalendarController.js'); ?>" defer></script>
 
 <!-- Módulo del calendario (SIEMPRE AL FINAL) -->
 <script src="<?php echo esc_url($module_js_url); ?>" defer></script>

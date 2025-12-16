@@ -18,7 +18,14 @@
         const hasSchedule = typeof window.AA_CALENDAR_DATA !== 'undefined' && 
                            window.AA_CALENDAR_DATA?.schedule;
         
-        if (hasDateUtils && hasSchedule) {
+        const hasCalendarService = typeof window.AdminCalendarService !== 'undefined' &&
+                                  typeof window.AdminCalendarService.esCitaProxima === 'function' &&
+                                  typeof window.AdminCalendarService.calcularPosicionCita === 'function';
+        
+        const hasCalendarController = typeof window.AdminCalendarController !== 'undefined' &&
+                                     typeof window.AdminCalendarController.handleCitaAction === 'function';
+        
+        if (hasDateUtils && hasSchedule && hasCalendarService && hasCalendarController) {
             callback();
             return;
         }
@@ -27,6 +34,8 @@
             console.error('❌ Dependencias no disponibles después de múltiples intentos');
             console.error('  - DateUtils:', typeof window.DateUtils);
             console.error('  - AA_CALENDAR_DATA:', typeof window.AA_CALENDAR_DATA);
+            console.error('  - AdminCalendarService:', typeof window.AdminCalendarService);
+            console.error('  - AdminCalendarController:', typeof window.AdminCalendarController);
             return;
         }
         
@@ -139,6 +148,11 @@
         currentSlotRowIndex = slotRowIndex;
         currentTimeSlots = timeSlots;
 
+        // Inicializar el controller con callback de recarga
+        if (window.AdminCalendarController?.init) {
+            window.AdminCalendarController.init(recargarTimelineDelDiaActual);
+        }
+        
         // Cargar y renderizar citas del día actual
         cargarYRenderizarCitas(slotRowIndex, timeSlots);
         
@@ -188,28 +202,11 @@
     function renderizarCitaEnTimeline(cita, slotRowIndex, timeSlots) {
         if (!cita.fecha) return;
         
-        // Convertir fecha de inicio a minutos desde medianoche
-        const fechaInicio = new Date(cita.fecha);
-        const minutosInicio = window.DateUtils.minutesFromDate(fechaInicio);
+        // Usar el service para calcular posición
+        const posicion = window.AdminCalendarService?.calcularPosicionCita(cita);
+        if (!posicion) return;
         
-        // Calcular minutos de fin usando fecha_fin o duracion
-        let minutosFin;
-        if (cita.fecha_fin) {
-            const fechaFin = new Date(cita.fecha_fin);
-            minutosFin = window.DateUtils.minutesFromDate(fechaFin);
-        } else if (cita.duracion) {
-            minutosFin = minutosInicio + parseInt(cita.duracion);
-        } else {
-            // Fallback: 60 minutos por defecto
-            minutosFin = minutosInicio + 60;
-        }
-        
-        // Encontrar el slot inicial (redondear hacia abajo al slot de 30 min más cercano)
-        const slotInicio = Math.floor(minutosInicio / 30) * 30;
-        
-        // Calcular cuántos bloques de 30 min ocupa
-        const duracionMinutos = minutosFin - minutosInicio;
-        const bloquesOcupados = Math.ceil(duracionMinutos / 30);
+        const { slotInicio, bloquesOcupados } = posicion;
         
         // Obtener el índice de fila del slot inicial
         const slotData = slotRowIndex.get(slotInicio);
@@ -297,8 +294,8 @@
         
         body.appendChild(info);
         
-        // Determinar si la cita es próxima o pasada
-        const esProxima = esCitaProxima(cita);
+        // Determinar si la cita es próxima o pasada usando el service
+        const esProxima = window.AdminCalendarService?.esCitaProxima(cita) || false;
         
         // Renderizar botones/leyendas según reglas
         const botones = renderizarBotonesYCitas(cita, esProxima);
@@ -322,34 +319,6 @@
         card.appendChild(body);
         
         return card;
-    }
-
-    /**
-     * Determinar si una cita es próxima o pasada
-     * @param {Object} cita - Objeto de cita con fecha y fecha_fin
-     * @returns {boolean} - true si es próxima, false si es pasada
-     */
-    function esCitaProxima(cita) {
-        if (!cita.fecha) return false;
-        
-        const ahora = new Date();
-        const fechaInicio = new Date(cita.fecha);
-        
-        // PRÓXIMA: fecha_inicio > ahora
-        if (fechaInicio > ahora) {
-            return true;
-        }
-        
-        // PASADA: fecha_fin < ahora
-        if (cita.fecha_fin) {
-            const fechaFin = new Date(cita.fecha_fin);
-            if (fechaFin < ahora) {
-                return false;
-            }
-        }
-        
-        // Si no hay fecha_fin y fecha_inicio <= ahora, considerar pasada
-        return false;
     }
 
     /**
@@ -560,120 +529,11 @@
             if (!action || !citaId) return;
             
             e.stopPropagation();
-            handleCitaAction(action, citaId);
-        });
-    }
-
-    /**
-     * Handler único de acciones de citas
-     * @param {string} action - Acción a ejecutar
-     * @param {string|number} citaId - ID de la cita
-     */
-    function handleCitaAction(action, citaId) {
-        switch (action) {
-            case 'confirmar':
-                if (window.AdminConfirmController?.onConfirmar) {
-                    window.AdminConfirmController.onConfirmar(citaId);
-                    // Recargar después de confirmar
-                    setTimeout(() => {
-                        recargarTimelineDelDiaActual();
-                    }, 1000);
-                }
-                break;
-                
-            case 'cancelar':
-                if (window.AdminConfirmController?.onCancelar) {
-                    if (confirm('¿Cancelar esta cita?')) {
-                        window.AdminConfirmController.onCancelar(citaId);
-                        // Recargar después de cancelar
-                        setTimeout(() => {
-                            recargarTimelineDelDiaActual();
-                        }, 1000);
-                    }
-                }
-                break;
-                
-            case 'asistio':
-                marcarAsistencia(citaId);
-                break;
-                
-            case 'no-asistio':
-                marcarNoAsistencia(citaId);
-                break;
-        }
-    }
-
-    /**
-     * Marcar cita como "asistió"
-     * @param {string|number} citaId - ID de la cita
-     */
-    function marcarAsistencia(citaId) {
-        if (!confirm('¿Confirmar que el cliente asistió?')) return;
-        
-        const formData = new FormData();
-        formData.append('action', 'aa_marcar_asistencia');
-        formData.append('cita_id', citaId);
-        
-        const nonce = window.AA_CALENDAR_DATA?.historialNonce;
-        if (nonce) {
-            formData.append('_wpnonce', nonce);
-        }
-        
-        const ajaxurl = window.AA_CALENDAR_DATA?.ajaxurl || (typeof ajaxurl !== 'undefined' ? ajaxurl : '/wp-admin/admin-ajax.php');
-        
-        fetch(ajaxurl, {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('✅ Asistencia registrada');
-                recargarTimelineDelDiaActual();
-            } else {
-                alert(data.data?.message || 'Error al registrar asistencia');
+            
+            // Delegar al controller
+            if (window.AdminCalendarController?.handleCitaAction) {
+                window.AdminCalendarController.handleCitaAction(action, citaId);
             }
-        })
-        .catch(err => {
-            console.error('Error al marcar asistencia:', err);
-            alert('Error de conexión');
-        });
-    }
-
-    /**
-     * Marcar cita como "no asistió"
-     * @param {string|number} citaId - ID de la cita
-     */
-    function marcarNoAsistencia(citaId) {
-        if (!confirm('¿Confirmar que el cliente NO asistió?')) return;
-        
-        const formData = new FormData();
-        formData.append('action', 'aa_marcar_no_asistencia');
-        formData.append('cita_id', citaId);
-        
-        const nonce = window.AA_CALENDAR_DATA?.historialNonce;
-        if (nonce) {
-            formData.append('_wpnonce', nonce);
-        }
-        
-        const ajaxurl = window.AA_CALENDAR_DATA?.ajaxurl || (typeof ajaxurl !== 'undefined' ? ajaxurl : '/wp-admin/admin-ajax.php');
-        
-        fetch(ajaxurl, {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('❌ No asistencia registrada');
-                recargarTimelineDelDiaActual();
-            } else {
-                alert(data.data?.message || 'Error al registrar no asistencia');
-            }
-        })
-        .catch(err => {
-            console.error('Error al marcar no asistencia:', err);
-            alert('Error de conexión');
         });
     }
 
