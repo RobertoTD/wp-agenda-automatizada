@@ -63,6 +63,28 @@ $module_js_url = $plugin_url . 'calendar-module.js';
     <div class="p-6 transition-all duration-200">
 
         <!-- =========================
+             🔹 SELECTOR DE FECHA
+             ========================= -->
+        <div id="aa-date-selector" class="mb-4 flex items-center gap-2">
+            <!-- Botón anterior -->
+            <button id="aa-date-prev" type="button" class="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg border border-gray-300 transition-colors">
+                <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+            </button>
+            
+            <!-- Input Flatpickr -->
+            <input type="text" id="aa-date-picker" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Seleccionar fecha" readonly>
+            
+            <!-- Botón siguiente -->
+            <button id="aa-date-next" type="button" class="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg border border-gray-300 transition-colors">
+                <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- =========================
              🔹 AGENDA TIMELINE
              ========================= -->
         <section class="aa-day-timeline relative bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -107,8 +129,15 @@ $module_js_url = $plugin_url . 'calendar-module.js';
   }
 </script>
 
+<!-- Flatpickr CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+
 <!-- Utils -->
 <script src="<?php echo esc_url($date_utils_url); ?>" defer></script>
+
+<!-- Flatpickr JS -->
+<script src="https://cdn.jsdelivr.net/npm/flatpickr" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js" defer></script>
 
 <!-- Servicios del calendario -->
 <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . '../../../../../assets/js/services/adminCalendarService.js'); ?>" defer></script>
@@ -119,6 +148,9 @@ $module_js_url = $plugin_url . 'calendar-module.js';
 
 <!-- Controlador del calendario -->
 <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . '../../../../../assets/js/controllers/adminCalendarController.js'); ?>" defer></script>
+
+<!-- DatePicker Adapter -->
+<script src="<?php echo esc_url(plugin_dir_url(__FILE__) . '../../../../../assets/js/ui-adapters/datePickerAdapter.js'); ?>" defer></script>
 
 <!-- Módulo del calendario (SIEMPRE AL FINAL) -->
 <script src="<?php echo esc_url($module_js_url); ?>" defer></script>

@@ -25,7 +25,12 @@
         const hasCalendarController = typeof window.AdminCalendarController !== 'undefined' &&
                                      typeof window.AdminCalendarController.handleCitaAction === 'function';
         
-        if (hasDateUtils && hasSchedule && hasCalendarService && hasCalendarController) {
+        const hasDatePickerAdapter = typeof window.DatePickerAdapter !== 'undefined' &&
+                                    typeof window.DatePickerAdapter.init === 'function';
+        
+        const hasFlatpickr = typeof flatpickr !== 'undefined';
+        
+        if (hasDateUtils && hasSchedule && hasCalendarService && hasCalendarController && hasDatePickerAdapter && hasFlatpickr) {
             callback();
             return;
         }
@@ -36,13 +41,60 @@
             console.error('  - AA_CALENDAR_DATA:', typeof window.AA_CALENDAR_DATA);
             console.error('  - AdminCalendarService:', typeof window.AdminCalendarService);
             console.error('  - AdminCalendarController:', typeof window.AdminCalendarController);
+            console.error('  - DatePickerAdapter:', typeof window.DatePickerAdapter);
+            console.error('  - flatpickr:', typeof flatpickr);
             return;
         }
         
         setTimeout(() => waitForDependencies(callback, maxAttempts - 1), 100);
     }
 
-    function initCalendar() {
+    /**
+     * Inicializar el selector de fecha
+     */
+    function initDatePicker() {
+        // Obtener fecha inicial (hoy)
+        const today = new Date();
+        const todayStr = window.DateUtils.ymd(today);
+        
+        // Callback cuando cambia la fecha
+        function onDateChange(fecha) {
+            if (window.AdminCalendarController?.setDate) {
+                window.AdminCalendarController.setDate(fecha);
+            }
+        }
+        
+        // Inicializar adapter
+        if (window.DatePickerAdapter) {
+            window.DatePickerAdapter.init('aa-date-picker', onDateChange, todayStr);
+        }
+        
+        // Configurar botones de navegación
+        const btnPrev = document.getElementById('aa-date-prev');
+        const btnNext = document.getElementById('aa-date-next');
+        
+        if (btnPrev) {
+            btnPrev.addEventListener('click', function() {
+                if (window.DatePickerAdapter) {
+                    window.DatePickerAdapter.prevDay();
+                }
+            });
+        }
+        
+        if (btnNext) {
+            btnNext.addEventListener('click', function() {
+                if (window.DatePickerAdapter) {
+                    window.DatePickerAdapter.nextDay();
+                }
+            });
+        }
+    }
+
+    /**
+     * Renderizar timeline para una fecha específica
+     * @param {string} fechaStr - Fecha en formato YYYY-MM-DD
+     */
+    function renderTimelineForDate(fechaStr) {
         const grid = document.getElementById('aa-time-grid');
         if (!grid) {
             console.error('❌ No se encontró el contenedor #aa-time-grid');
@@ -51,9 +103,9 @@
 
         const schedule = window.AA_CALENDAR_DATA.schedule;
         
-        // Obtener día actual y sus intervalos
-        const today = new Date();
-        const weekday = window.DateUtils.getWeekdayName(today);
+        // Convertir fecha string a Date
+        const fecha = new Date(fechaStr + 'T00:00:00');
+        const weekday = window.DateUtils.getWeekdayName(fecha);
         const intervals = window.DateUtils.getDayIntervals(schedule, weekday);
         
         // Configurar CSS Grid
@@ -97,8 +149,11 @@
         const slotRowIndex = new Map();
         
         // Obtener hora actual en minutos para diferenciar pasado/futuro
+        // Solo mostrar indicador si es el día actual
         const now = new Date();
-        const minutosActuales = window.DateUtils.minutesFromDate(now);
+        const todayStr = window.DateUtils.ymd(now);
+        const isToday = fechaStr === todayStr;
+        const minutosActuales = isToday ? window.DateUtils.minutesFromDate(now) : null;
 
         // Renderizar labels y content directamente en el grid
         timeSlots.forEach((minutes, index) => {
@@ -114,8 +169,8 @@
             label.style.minWidth = '40px';
             label.style.position = 'relative';
             
-            // Diferenciar visualmente slots pasados vs futuros (SOLO en label)
-            if (minutes < minutosActuales) {
+            // Diferenciar visualmente slots pasados vs futuros (SOLO en label, solo si es hoy)
+            if (isToday && minutosActuales !== null && minutes < minutosActuales) {
                 // Slot pasado: fondo gris tenue en el label
                 label.style.backgroundColor = '#f3f4f6';
             } else {
@@ -141,36 +196,69 @@
             });
         });
 
-        // Agregar indicador de hora actual (SOLO en label)
-        agregarIndicadorHoraActual(slotRowIndex, minutosActuales);
+        // Agregar indicador de hora actual (SOLO en label, solo si es hoy)
+        if (isToday && minutosActuales !== null) {
+            agregarIndicadorHoraActual(slotRowIndex, minutosActuales);
+        }
 
         // Guardar referencias para recarga
         currentSlotRowIndex = slotRowIndex;
         currentTimeSlots = timeSlots;
-
-        // Inicializar el controller con callback de recarga
-        if (window.AdminCalendarController?.init) {
-            window.AdminCalendarController.init(recargarTimelineDelDiaActual);
-        }
         
-        // Cargar y renderizar citas del día actual
-        cargarYRenderizarCitas(slotRowIndex, timeSlots);
+        // Cargar y renderizar citas del día seleccionado
+        cargarYRenderizarCitas(slotRowIndex, timeSlots, fechaStr);
         
         // Configurar event listener delegado para acciones de botones
         configurarEventListeners();
     }
 
+    function initCalendar() {
+        // Inicializar selector de fecha
+        initDatePicker();
+        
+        // Obtener fecha inicial (hoy o la del controller si existe)
+        let fechaInicial;
+        if (window.AdminCalendarController?.getCurrentDate) {
+            fechaInicial = window.AdminCalendarController.getCurrentDate();
+        }
+        
+        if (!fechaInicial) {
+            const today = new Date();
+            fechaInicial = window.DateUtils.ymd(today);
+        }
+        
+        // Renderizar timeline para la fecha inicial
+        renderTimelineForDate(fechaInicial);
+        
+        // Inicializar el controller con callbacks
+        if (window.AdminCalendarController?.init) {
+            window.AdminCalendarController.init(
+                recargarTimelineDelDiaActual,
+                function(fecha) {
+                    // Callback para cargar citas de un día específico
+                    renderTimelineForDate(fecha);
+                }
+            );
+        }
+    }
+
     /**
-     * Cargar citas del día actual y renderizarlas en el timeline
+     * Cargar citas de un día específico y renderizarlas en el timeline
+     * @param {Map} slotRowIndex - Mapa de slots
+     * @param {Array} timeSlots - Array de time slots
+     * @param {string} fechaStr - Fecha en formato YYYY-MM-DD (opcional, usa hoy por defecto)
      */
-    function cargarYRenderizarCitas(slotRowIndex, timeSlots) {
-        const today = new Date();
-        const todayStr = window.DateUtils.ymd(today);
+    function cargarYRenderizarCitas(slotRowIndex, timeSlots, fechaStr) {
+        // Si no se proporciona fecha, usar hoy
+        if (!fechaStr) {
+            const today = new Date();
+            fechaStr = window.DateUtils.ymd(today);
+        }
         
         // Preparar datos para la petición AJAX
         const formData = new FormData();
         formData.append('action', 'aa_get_citas_por_dia');
-        formData.append('fecha', todayStr);
+        formData.append('fecha', fechaStr);
         
         if (window.AA_CALENDAR_DATA?.nonce) {
             formData.append('_wpnonce', window.AA_CALENDAR_DATA.nonce);
@@ -541,15 +629,19 @@
      * Recargar el timeline del día actual sin recargar la página
      */
     function recargarTimelineDelDiaActual() {
-        const grid = document.getElementById('aa-time-grid');
-        if (!grid || !currentSlotRowIndex || !currentTimeSlots) return;
+        // Obtener fecha actual del controller
+        let fecha;
+        if (window.AdminCalendarController?.getCurrentDate) {
+            fecha = window.AdminCalendarController.getCurrentDate();
+        }
         
-        // Eliminar todas las cards de citas existentes
-        const cards = grid.querySelectorAll('.aa-appointment-card');
-        cards.forEach(card => card.remove());
+        if (!fecha) {
+            const today = new Date();
+            fecha = window.DateUtils.ymd(today);
+        }
         
-        // Recargar citas usando las referencias guardadas
-        cargarYRenderizarCitas(currentSlotRowIndex, currentTimeSlots);
+        // Re-renderizar timeline completo para la fecha actual
+        renderTimelineForDate(fecha);
     }
 
     // Esperar a que el DOM esté listo Y las dependencias estén disponibles

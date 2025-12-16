@@ -14,13 +14,49 @@ window.AdminCalendarController = (function() {
     'use strict';
     
     let recargarCallback = null;
+    let currentDate = null;
+    let cargarCitasCallback = null;
     
     /**
      * Inicializar controlador
      * @param {Function} onRecargar - Callback para recargar el calendario
+     * @param {Function} onCargarCitas - Callback para cargar citas de un día específico
      */
-    function init(onRecargar) {
+    function init(onRecargar, onCargarCitas) {
         recargarCallback = onRecargar;
+        cargarCitasCallback = onCargarCitas;
+        
+        // Establecer fecha inicial (hoy)
+        if (window.DateUtils) {
+            const today = new Date();
+            currentDate = window.DateUtils.ymd(today);
+        }
+    }
+    
+    /**
+     * Establecer fecha actual y cargar citas
+     * @param {string} fecha - Fecha en formato YYYY-MM-DD
+     */
+    function setDate(fecha) {
+        if (!fecha || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+            console.error('❌ AdminCalendarController.setDate: Formato de fecha inválido:', fecha);
+            return;
+        }
+        
+        currentDate = fecha;
+        
+        // Cargar citas del día seleccionado
+        if (cargarCitasCallback) {
+            cargarCitasCallback(fecha);
+        }
+    }
+    
+    /**
+     * Obtener fecha actual
+     * @returns {string|null} - Fecha en formato YYYY-MM-DD o null
+     */
+    function getCurrentDate() {
+        return currentDate;
     }
     
     /**
@@ -28,10 +64,7 @@ window.AdminCalendarController = (function() {
      * @param {string} fecha - Fecha en formato YYYY-MM-DD
      */
     function cargarCitasDelDia(fecha) {
-        // TODO: Implementar
-        if (recargarCallback) {
-            recargarCallback();
-        }
+        setDate(fecha);
     }
     
     /**
@@ -158,6 +191,8 @@ window.AdminCalendarController = (function() {
     // API pública
     return {
         init: init,
+        setDate: setDate,
+        getCurrentDate: getCurrentDate,
         cargarCitasDelDia: cargarCitasDelDia,
         handleCitaAction: handleCitaAction
     };
