@@ -3,6 +3,8 @@ if (!defined('ABSPATH')) exit;
 
 // ===============================
 // 🔹 AJAX: Obtener historial de citas
+// @deprecated Este endpoint es legacy. El calendario en iframe maneja historial directamente.
+// TODO: Eliminar cuando se migre completamente al nuevo sistema de calendario.
 // ===============================
 add_action('wp_ajax_aa_get_historial_citas', 'aa_ajax_get_historial_citas');
 function aa_ajax_get_historial_citas() {

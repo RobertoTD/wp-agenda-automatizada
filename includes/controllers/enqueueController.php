@@ -233,7 +233,7 @@ function wpaa_enqueue_admin_assets($hook) {
             ['wpaa-confirm-service',               'assets/js/services/confirmService.js',      [], false],
             
             // 🔹 Módulos UI (renderizado puro)
-            ['aa-proximas-citas-ui',               'assets/js/ui/proximasCitasUI.js',          [], false],
+            // @deprecated: aa-proximas-citas-ui eliminado - el calendario usa calendar-module.js en iframe
             
             // 🔹 Controladores (DESPUÉS de UI y Services)
             ['wpaa-availability-controller-admin', 'assets/js/controllers/availabilityController.js',
@@ -243,7 +243,7 @@ function wpaa_enqueue_admin_assets($hook) {
             ['wpaa-admin-confirm-controller',      'assets/js/controllers/adminConfirmController.js',
                                                    ['wpaa-confirm-service'], false],
             ['wpaa-proximas-citas-controller',     'assets/js/controllers/proximasCitasController.js',
-                                                   ['aa-proximas-citas-ui', 'wpaa-admin-confirm-controller'], false],
+                                                   ['wpaa-admin-confirm-controller'], false],
             
             // 🔹 Punto de entrada (ÚLTIMO)
             ['wpaa-main-admin',                    'assets/js/main-admin.js',
@@ -251,7 +251,7 @@ function wpaa_enqueue_admin_assets($hook) {
             
             // 🔹 Scripts legacy (compatibilidad)
             ['aa-asistant-controls',               'js/asistant-controls.js',                  [], false],
-            ['aa-historial-citas',                 'js/historial-citas.js',                    [], false],
+            // @deprecated: aa-historial-citas eliminado - el calendario usa calendar-module.js en iframe
             ['aa-proximas-citas',                  'js/proximas-citas.js',                     ['wpaa-proximas-citas-controller'], false],
         ];
 

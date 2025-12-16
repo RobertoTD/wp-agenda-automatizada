@@ -15,6 +15,8 @@ if (!defined('ABSPATH')) exit;
 
 // ===============================
 // 🔹 AJAX: Obtener próximas citas
+// @deprecated Este endpoint es legacy. El calendario en iframe usa aa_get_citas_por_dia.
+// TODO: Eliminar cuando se migre completamente al nuevo sistema de calendario.
 // ===============================
 add_action('wp_ajax_aa_get_proximas_citas', 'aa_ajax_get_proximas_citas');
 
