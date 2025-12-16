@@ -76,26 +76,16 @@ window.AdminCalendarController = (function() {
         switch (action) {
             case 'confirmar':
                 if (window.AdminConfirmController?.onConfirmar) {
+                    // AdminConfirmController ya maneja el callback de recarga internamente
                     window.AdminConfirmController.onConfirmar(citaId);
-                    // Recargar después de confirmar
-                    setTimeout(() => {
-                        if (recargarCallback) {
-                            recargarCallback();
-                        }
-                    }, 1000);
                 }
                 break;
                 
             case 'cancelar':
                 if (window.AdminConfirmController?.onCancelar) {
                     if (confirm('¿Cancelar esta cita?')) {
+                        // AdminConfirmController ya maneja el callback de recarga internamente
                         window.AdminConfirmController.onCancelar(citaId);
-                        // Recargar después de cancelar
-                        setTimeout(() => {
-                            if (recargarCallback) {
-                                recargarCallback();
-                            }
-                        }, 1000);
                     }
                 }
                 break;

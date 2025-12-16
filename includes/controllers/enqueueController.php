@@ -230,7 +230,9 @@ function wpaa_enqueue_admin_assets($hook) {
             ['wpaa-availability-service-admin',    'assets/js/services/availabilityService.js',
                                                    ['wpaa-date-utils-admin', 'wpaa-proxy-fetch-admin', 'wpaa-combine-local-external-admin', 'wpaa-busy-ranges-admin', 'wpaa-slot-calculator-admin'], true],
             ['wpaa-reservation-service-admin',     'assets/js/services/reservationService.js',  [], true],
-            ['wpaa-confirm-service',               'assets/js/services/confirmService.js',      [], false],
+            // 🔹 confirmService y adminConfirmController se cargan en el iframe del calendario (index.php)
+            // NO cargar aquí para evitar duplicación de event listeners y múltiples alertas
+            // ['wpaa-confirm-service',               'assets/js/services/confirmService.js',      [], false],
             
             // 🔹 Módulos UI (renderizado puro)
             // @deprecated: aa-proximas-citas-ui eliminado - el calendario usa calendar-module.js en iframe
@@ -240,10 +242,13 @@ function wpaa_enqueue_admin_assets($hook) {
                                                    ['wpaa-date-utils-admin', 'wpaa-calendar-admin-ui', 'wpaa-slot-selector-admin-ui', 'wpaa-availability-service-admin'], true],
             ['wpaa-admin-reservation-controller',  'assets/js/controllers/adminReservationController.js',
                                                    ['wpaa-reservation-service-admin'], true],
-            ['wpaa-admin-confirm-controller',      'assets/js/controllers/adminConfirmController.js',
-                                                   ['wpaa-confirm-service'], false],
-            ['wpaa-proximas-citas-controller',     'assets/js/controllers/proximasCitasController.js',
-                                                   ['wpaa-admin-confirm-controller'], false],
+            // 🔹 adminConfirmController se carga en el iframe del calendario (index.php)
+            // NO cargar aquí para evitar duplicación de event listeners y múltiples alertas
+            // ['wpaa-admin-confirm-controller',      'assets/js/controllers/adminConfirmController.js',
+            //                                        ['wpaa-confirm-service'], false],
+            // 🔹 proximasCitasController depende de adminConfirmController, también comentado
+            // ['wpaa-proximas-citas-controller',     'assets/js/controllers/proximasCitasController.js',
+            //                                        ['wpaa-admin-confirm-controller'], false],
             
             // 🔹 Punto de entrada (ÚLTIMO)
             ['wpaa-main-admin',                    'assets/js/main-admin.js',
@@ -252,7 +257,8 @@ function wpaa_enqueue_admin_assets($hook) {
             // 🔹 Scripts legacy (compatibilidad)
             ['aa-asistant-controls',               'js/asistant-controls.js',                  [], false],
             // @deprecated: aa-historial-citas eliminado - el calendario usa calendar-module.js en iframe
-            ['aa-proximas-citas',                  'js/proximas-citas.js',                     ['wpaa-proximas-citas-controller'], false],
+            // 🔹 aa-proximas-citas depende de wpaa-proximas-citas-controller que está comentado
+            // ['aa-proximas-citas',                  'js/proximas-citas.js',                     ['wpaa-proximas-citas-controller'], false],
         ];
 
         foreach ($admin_scripts as [$h, $p, $d, $m]) {

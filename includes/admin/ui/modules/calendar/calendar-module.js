@@ -8,6 +8,8 @@
     // Variables del módulo para recarga
     let currentSlotRowIndex = null;
     let currentTimeSlots = null;
+    let eventListenersConfigured = false;
+    let gridClickHandler = null;
 
     // Función para esperar a que las dependencias estén disponibles
     function waitForDependencies(callback, maxAttempts = 50) {
@@ -239,6 +241,12 @@
                     renderTimelineForDate(fecha);
                 }
             );
+        }
+        
+        // Inicializar AdminConfirmController con el callback de recarga del timeline
+        // Esto permite que confirmar/cancelar actualicen automáticamente el timeline
+        if (window.AdminConfirmController?.init) {
+            window.AdminConfirmController.init(recargarTimelineDelDiaActual);
         }
     }
 
@@ -602,12 +610,19 @@
 
     /**
      * Configurar event listeners delegados para acciones de botones
+     * Protegido contra múltiples registros
      */
     function configurarEventListeners() {
         const grid = document.getElementById('aa-time-grid');
         if (!grid) return;
         
-        grid.addEventListener('click', function(e) {
+        // Si ya están configurados, remover el listener anterior antes de agregar uno nuevo
+        if (eventListenersConfigured && gridClickHandler) {
+            grid.removeEventListener('click', gridClickHandler);
+        }
+        
+        // Crear handler y guardar referencia
+        gridClickHandler = function(e) {
             const btn = e.target.closest('[data-action]');
             if (!btn) return;
             
@@ -622,7 +637,11 @@
             if (window.AdminCalendarController?.handleCitaAction) {
                 window.AdminCalendarController.handleCitaAction(action, citaId);
             }
-        });
+        };
+        
+        // Registrar el listener
+        grid.addEventListener('click', gridClickHandler);
+        eventListenersConfigured = true;
     }
 
     /**
