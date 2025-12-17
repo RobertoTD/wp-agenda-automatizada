@@ -152,5 +152,10 @@ $module_js_url = $plugin_url . 'calendar-module.js';
 <!-- DatePicker Adapter -->
 <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . '../../../../../assets/js/ui-adapters/datePickerAdapter.js'); ?>" defer></script>
 
+<!-- Archivos de sección del calendario -->
+<script src="<?php echo esc_url(plugin_dir_url(__FILE__) . '../../../../../assets/js/calendar/calendar-section/calendar-appointment-card.js'); ?>" defer></script>
+<script src="<?php echo esc_url(plugin_dir_url(__FILE__) . '../../../../../assets/js/calendar/calendar-section/calendar-appointments.js'); ?>" defer></script>
+<script src="<?php echo esc_url(plugin_dir_url(__FILE__) . '../../../../../assets/js/calendar/calendar-section/calendar-timeline.js'); ?>" defer></script>
+
 <!-- Módulo del calendario (SIEMPRE AL FINAL) -->
 <script src="<?php echo esc_url($module_js_url); ?>" defer></script>

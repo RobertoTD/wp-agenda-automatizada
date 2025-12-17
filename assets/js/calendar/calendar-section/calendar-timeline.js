@@ -1,0 +1,174 @@
+/**
+ * Calendar Timeline - Timeline rendering and time slots
+ */
+
+(function() {
+    'use strict';
+
+    /**
+     * Renderizar timeline para una fecha específica
+     * @param {string} fechaStr - Fecha en formato YYYY-MM-DD
+     * @returns {Object} - Objeto con slotRowIndex y timeSlots para uso externo
+     */
+    function renderTimelineForDate(fechaStr) {
+        const grid = document.getElementById('aa-time-grid');
+        if (!grid) {
+            console.error('❌ No se encontró el contenedor #aa-time-grid');
+            return null;
+        }
+
+        const schedule = window.AA_CALENDAR_DATA.schedule;
+        
+        // Convertir fecha string a Date
+        const fecha = new Date(fechaStr + 'T00:00:00');
+        const weekday = window.DateUtils.getWeekdayName(fecha);
+        const intervals = window.DateUtils.getDayIntervals(schedule, weekday);
+        
+        // Configurar CSS Grid
+        grid.style.display = 'grid';
+        grid.style.gridTemplateColumns = 'auto 1fr';
+        grid.style.gridAutoRows = 'auto';
+
+        // Limpiar contenido existente
+        grid.innerHTML = '';
+
+        // Si no hay intervalos o el día no está habilitado
+        if (!intervals || intervals.length === 0) {
+            const mensaje = document.createElement('div');
+            mensaje.style.gridColumn = '1 / -1';
+            mensaje.style.padding = '2rem';
+            mensaje.style.textAlign = 'center';
+            mensaje.style.color = '#6b7280';
+            mensaje.textContent = 'No hay horarios configurados para hoy';
+            grid.appendChild(mensaje);
+            return null;
+        }
+
+        // Función para convertir minutos a formato HH:MM
+        function minutesToTimeStr(minutes) {
+            const h = Math.floor(minutes / 60);
+            const m = minutes % 60;
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        }
+
+        // Generar todos los bloques de 30 minutos de todos los intervalos
+        const timeSlots = [];
+        
+        intervals.forEach((interval) => {
+            // Generar bloques de 30 minutos dentro del intervalo
+            for (let min = interval.start; min < interval.end; min += 30) {
+                timeSlots.push(min);
+            }
+        });
+
+        // Mapa de minutos -> índice de fila en el grid (para calcular grid-row)
+        const slotRowIndex = new Map();
+        
+        // Obtener hora actual en minutos para diferenciar pasado/futuro
+        // Solo mostrar indicador si es el día actual
+        const now = new Date();
+        const todayStr = window.DateUtils.ymd(now);
+        const isToday = fechaStr === todayStr;
+        const minutosActuales = isToday ? window.DateUtils.minutesFromDate(now) : null;
+
+        // Renderizar labels y content directamente en el grid
+        timeSlots.forEach((minutes, index) => {
+            const timeStr = minutesToTimeStr(minutes);
+            
+            // Label (columna 1)
+            const label = document.createElement('div');
+            label.className = 'aa-time-label';
+            label.textContent = timeStr;
+            label.style.gridColumn = '1';
+            label.style.gridRow = `${index + 1}`;
+            label.style.padding = '8px 12px';
+            label.style.minWidth = '40px';
+            label.style.position = 'relative';
+            
+            // Diferenciar visualmente slots pasados vs futuros (SOLO en label, solo si es hoy)
+            if (isToday && minutosActuales !== null && minutes < minutosActuales) {
+                // Slot pasado: fondo gris tenue en el label
+                label.style.backgroundColor = '#f3f4f6';
+            } else {
+                // Slot actual o futuro: fondo normal en el label
+                label.style.backgroundColor = '#ffffff';
+            }
+            
+            grid.appendChild(label);
+            
+            // Content (columna 2) - vacío por ahora, las citas se insertarán aquí
+            const content = document.createElement('div');
+            content.className = 'aa-time-content';
+            content.style.gridColumn = '2';
+            content.style.gridRow = `${index + 1}`;
+            content.style.minHeight = '40px';
+            // Sin estilos de fondo - área limpia para citas
+            grid.appendChild(content);
+            
+            // Guardar referencia al label y índice de fila para acceso rápido
+            slotRowIndex.set(minutes, {
+                rowIndex: index + 1,
+                labelElement: label
+            });
+        });
+
+        // Agregar indicador de hora actual (SOLO en label, solo si es hoy)
+        if (isToday && minutosActuales !== null) {
+            agregarIndicadorHoraActual(slotRowIndex, minutosActuales);
+        }
+
+        // Retornar referencias para uso externo
+        return {
+            slotRowIndex: slotRowIndex,
+            timeSlots: timeSlots
+        };
+    }
+
+    /**
+     * Agregar indicador visual de hora actual en el label
+     */
+    function agregarIndicadorHoraActual(slotRowIndex, minutosActuales) {
+        // Redondear al slot de 30 minutos correspondiente
+        const slotActual = Math.floor(minutosActuales / 30) * 30;
+        
+        // Obtener el label del slot actual
+        const slotData = slotRowIndex.get(slotActual);
+        if (!slotData || !slotData.labelElement) return; // Slot no encontrado en el timeline
+        
+        const label = slotData.labelElement;
+        
+        // Crear indicador dentro del label
+        const indicador = document.createElement('div');
+        indicador.className = 'aa-time-now-indicator';
+        indicador.style.position = 'absolute';
+        indicador.style.left = '0';
+        indicador.style.right = '0';
+        indicador.style.top = '50%';
+        indicador.style.transform = 'translateY(-50%)';
+        indicador.style.height = '2px';
+        indicador.style.backgroundColor = '#ef4444';
+        indicador.style.zIndex = '5';
+        
+        // Agregar un pequeño círculo en el lado izquierdo
+        const circulo = document.createElement('div');
+        circulo.style.position = 'absolute';
+        circulo.style.left = '0';
+        circulo.style.top = '50%';
+        circulo.style.transform = 'translate(-50%, -50%)';
+        circulo.style.width = '8px';
+        circulo.style.height = '8px';
+        circulo.style.backgroundColor = '#ef4444';
+        circulo.style.borderRadius = '50%';
+        indicador.appendChild(circulo);
+        
+        // Insertar el indicador dentro del label
+        label.appendChild(indicador);
+    }
+
+    // Exponer API pública
+    window.CalendarTimeline = {
+        renderTimelineForDate: renderTimelineForDate
+    };
+
+})();
+
