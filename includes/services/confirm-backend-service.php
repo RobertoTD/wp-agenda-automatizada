@@ -97,9 +97,17 @@ function confirm_backend_service_confirmar($reserva_id) {
     // ---------------------------------------------------------
 
     // 2️⃣ Obtener configuración
-    $slot_duration = intval(get_option('aa_slot_duration', 60));
     $business_name = get_option('aa_business_name', get_bloginfo('name'));
     $business_address = get_option('aa_business_address', 'No especificada');
+    
+    // 🔹 Obtener duración de la reserva guardada o usar configuración como fallback
+    $duracion = isset($reserva->duracion) && !empty($reserva->duracion) 
+        ? intval($reserva->duracion) 
+        : intval(get_option('aa_slot_duration', 60));
+    // Validar que sea 30, 60 o 90
+    if (!in_array($duracion, [30, 60, 90])) {
+        $duracion = 60;
+    }
     
     // 3️⃣ Obtener dominio limpio usando la función centralizada
     $domain = aa_get_clean_domain();
@@ -131,7 +139,7 @@ function confirm_backend_service_confirmar($reserva_id) {
         'fecha' => $fecha_iso,
         'telefono' => $reserva->telefono,
         'email' => $reserva->correo,
-        'slot_duration' => $slot_duration,
+        'slot_duration' => $duracion, // Mantener compatibilidad con backend
         'businessName' => $business_name,
         'businessAddress' => $business_address,
         'id_reserva' => $reserva_id
@@ -211,6 +219,13 @@ function confirm_backend_service_enviar_correo($datos) {
 
     error_log("🧩 [EmailService] Dominio detectado: $domain");
 
+    // 🔹 Obtener duración de los datos de la reserva o usar configuración como fallback
+    $duracion = isset($datos['duracion']) ? intval($datos['duracion']) : intval(get_option('aa_slot_duration', 60));
+    // Validar que sea 30, 60 o 90
+    if (!in_array($duracion, [30, 60, 90])) {
+        $duracion = 60;
+    }
+
     // 🔹 Reorganizar datos para enviar al backend
     $backend_data = [
         'domain' => $domain,
@@ -223,7 +238,7 @@ function confirm_backend_service_enviar_correo($datos) {
         'businessName' => get_option('aa_business_name', 'Nuestro negocio'),
         'businessAddress' => get_option('aa_business_address', 'No especificada'),
         'whatsapp' => get_option('aa_whatsapp_number', ''),
-        'slot_duration' => intval(get_option('aa_slot_duration', 60)),
+        'slot_duration' => $duracion, // Mantener compatibilidad con backend
     ];
 
     error_log("📦 [EmailService] Datos reorganizados para backend:");

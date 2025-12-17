@@ -58,6 +58,22 @@ function aa_render_asistant_panel() {
     echo '</select>';
     echo '</div>';
     
+    // Campo de Duración
+    echo '<div class="aa-form-cita-group">';
+    echo '<label for="cita-duracion">Duración *</label>';
+    echo '<select id="cita-duracion" name="duracion" required>';
+    
+    // Obtener duración por defecto desde configuración
+    $duracion_default = intval(get_option('aa_slot_duration', 60));
+    
+    $duraciones = [30, 60, 90];
+    foreach ($duraciones as $duracion) {
+        $selected = ($duracion === $duracion_default) ? ' selected' : '';
+        echo '<option value="' . esc_attr($duracion) . '"' . $selected . '>' . esc_html($duracion) . ' min</option>';
+    }
+    echo '</select>';
+    echo '</div>';
+    
     // Campo de Fecha
     echo '<div class="aa-form-cita-group">';
     echo '<label for="cita-fecha">Fecha y hora *</label>';

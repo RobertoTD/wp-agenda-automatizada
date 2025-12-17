@@ -58,6 +58,7 @@ export function initAdminReservationController(config) {
       nombre: clienteOption.dataset.nombre,
       telefono: clienteOption.dataset.telefono,
       correo: clienteOption.dataset.correo,
+      duracion: parseInt(document.getElementById('cita-duracion').value, 10) || 60,
       nonce: aa_asistant_vars.nonce_crear_cita || ''
     };
 

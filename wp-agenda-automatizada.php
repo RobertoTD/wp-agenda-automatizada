@@ -105,6 +105,12 @@ function aa_save_reservation() {
     $nombre   = sanitize_text_field($data['nombre']);
     $telefono = sanitize_text_field($data['telefono']);
     $correo   = sanitize_email($data['correo']);
+    
+    // 🔹 Obtener duración (validar que sea 30, 60 o 90, por defecto 60)
+    $duracion = isset($data['duracion']) ? intval($data['duracion']) : 60;
+    if (!in_array($duracion, [30, 60, 90])) {
+        $duracion = 60; // Valor por defecto si no es válido
+    }
 
     // 🔹 Buscar o crear cliente (función modularizada)
     $cliente_id = aa_get_or_create_cliente($nombre, $telefono, $correo);
@@ -113,6 +119,7 @@ function aa_save_reservation() {
     $result = $wpdb->insert($table, [
         'servicio'   => $servicio,
         'fecha'      => $fecha,
+        'duracion'   => $duracion,
         'nombre'     => $nombre,
         'telefono'   => $telefono,
         'correo'     => $correo,

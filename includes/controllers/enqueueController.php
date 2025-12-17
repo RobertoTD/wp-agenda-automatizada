@@ -298,9 +298,10 @@ function wpaa_enqueue_admin_assets($hook) {
             'nonce' => wp_create_nonce('aa_historial_citas'),
         ]);
 
-        wpaa_localize('aa-proximas-citas', 'aa_proximas_vars', [
-            'nonce' => wp_create_nonce('aa_proximas_citas'),
-        ]);
+        // 🔹 aa-proximas-citas eliminado - el calendario usa calendar-module.js en iframe
+        // wpaa_localize('aa-proximas-citas', 'aa_proximas_vars', [
+        //     'nonce' => wp_create_nonce('aa_proximas_citas'),
+        // ]);
     }
 }
 add_action('admin_enqueue_scripts', 'wpaa_enqueue_admin_assets');
