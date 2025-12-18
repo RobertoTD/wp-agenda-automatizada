@@ -9,6 +9,28 @@
  */
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
+
+// Obtener los primeros 10 clientes
+$clientes_raw = aa_get_all_clientes(10);
+
+// Construir array de datos para cada cliente
+$clients_data = [];
+foreach ($clientes_raw as $cliente) {
+    $reservas = aa_get_cliente_reservas($cliente->id, 100);
+    $total_citas = count($reservas);
+    
+    $clients_data[] = [
+        'id' => (int) $cliente->id,
+        'nombre' => $cliente->nombre,
+        'telefono' => $cliente->telefono,
+        'correo' => $cliente->correo,
+        'created_at' => date('d/m/Y', strtotime($cliente->created_at)),
+        'total_citas' => $total_citas
+    ];
+}
+
+// Preparar datos para inyección en JavaScript
+$clients_json = wp_json_encode(['clients' => $clients_data]);
 ?>
 
 <div class="max-w-5xl mx-auto py-2">
@@ -37,14 +59,16 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
         </summary>
         
         <div class="p-3 transition-all duration-200">
-            <!-- Contenido de la sección de clientes -->
-            <div class="p-4 bg-gray-50 rounded-md">
-                <p class="text-gray-600">Lista de clientes - En desarrollo</p>
-            </div>
+            <div id="aa-clients-grid" class="aa-clients-grid"></div>
         </div>
     </details>
 
 </div>
+
+<script>
+    // Inyectar datos de clientes en el iframe
+    window.AA_CLIENTS_DATA = <?php echo $clients_json; ?>;
+</script>
 
 <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'clients-module.js'); ?>" defer></script>
 
