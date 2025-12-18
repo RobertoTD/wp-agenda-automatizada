@@ -32,15 +32,24 @@
             // Crear tarjeta
             const card = document.createElement('div');
             card.className = 'aa-appointment-card';
+            card.setAttribute('data-aa-card', '');
 
             // Header con nombre del cliente
             const header = document.createElement('div');
             header.className = 'aa-appointment-header';
+            header.setAttribute('data-aa-card-toggle', '');
             header.textContent = cliente.nombre || 'Sin nombre';
 
-            // Body con información del cliente
+            // Overlay wrapper
+            const overlay = document.createElement('div');
+            overlay.className = 'aa-card-overlay';
+
+            // Body wrapper dentro del overlay
             const body = document.createElement('div');
-            body.className = 'aa-appointment-body';
+            body.className = 'aa-card-body';
+
+            // Mantener clase original para compatibilidad visual
+            body.classList.add('aa-appointment-body');
 
             // Teléfono
             const telefono = document.createElement('div');
@@ -62,9 +71,12 @@
             totalCitas.textContent = 'Total de citas: ' + (cliente.total_citas || 0);
             body.appendChild(totalCitas);
 
+            // Ensamblar estructura: overlay > body > contenido
+            overlay.appendChild(body);
+
             // Ensamblar tarjeta
             card.appendChild(header);
-            card.appendChild(body);
+            card.appendChild(overlay);
 
             // Insertar en el contenedor
             container.appendChild(card);

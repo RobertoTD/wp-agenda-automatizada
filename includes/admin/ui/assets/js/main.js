@@ -227,12 +227,96 @@
         }
     };
 
+    /**
+     * Collapsible card overlay system
+     * Handles cards with [data-aa-card] attribute and toggles via [data-aa-card-toggle]
+     */
+    AAAdmin.initCardOverlays = function() {
+        /**
+         * Close all open cards
+         */
+        function closeAllCards() {
+            const openCards = document.querySelectorAll('[data-aa-card].is-open');
+            openCards.forEach(function(card) {
+                card.classList.remove('is-open');
+            });
+        }
+
+        /**
+         * Open a specific card
+         * @param {HTMLElement} card - The card element with [data-aa-card]
+         */
+        function openCard(card) {
+            if (!card || !card.hasAttribute('data-aa-card')) {
+                return;
+            }
+            closeAllCards();
+            card.classList.add('is-open');
+        }
+
+        /**
+         * Check if click target is inside a card or its overlay
+         * @param {HTMLElement} target - The clicked element
+         * @param {HTMLElement} card - The card element to check against
+         * @returns {boolean} - True if target is inside the card
+         */
+        function isClickInsideCard(target, card) {
+            if (!card || !target) {
+                return false;
+            }
+            return card.contains(target);
+        }
+
+        // Event delegation: handle clicks on toggle elements
+        document.addEventListener('click', function(event) {
+            const toggle = event.target.closest('[data-aa-card-toggle]');
+            
+            if (toggle) {
+                // Find the parent card
+                const card = toggle.closest('[data-aa-card]');
+                
+                if (card) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    
+                    // Toggle: if already open, close it; otherwise open it
+                    if (card.classList.contains('is-open')) {
+                        card.classList.remove('is-open');
+                    } else {
+                        openCard(card);
+                    }
+                    return;
+                }
+            }
+
+            // Handle clicks outside cards
+            const openCards = document.querySelectorAll('[data-aa-card].is-open');
+            if (openCards.length > 0) {
+                let clickedInsideAnyCard = false;
+                
+                openCards.forEach(function(card) {
+                    if (isClickInsideCard(event.target, card)) {
+                        clickedInsideAnyCard = true;
+                    }
+                });
+                
+                // If clicked outside all open cards, close them
+                if (!clickedInsideAnyCard) {
+                    closeAllCards();
+                }
+            }
+        });
+    };
+
     // Initialize when DOM is ready
     document.addEventListener('DOMContentLoaded', function() {
         console.log('Admin UI initialized');
         
         // Initialize iframe auto-resize
         AAAdmin.iframeResize();
+        
+        // Initialize card overlay system
+        AAAdmin.initCardOverlays();
     });
 
 })();
