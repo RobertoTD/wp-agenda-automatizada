@@ -19,5 +19,21 @@
     details > div {
         transition: opacity 0.2s ease-in-out;
     }
+
+    /* Card overlay system - Functional styles only */
+    /* Container must be relative for absolute positioning */
+    [data-aa-card] {
+        @apply relative;
+    }
+
+    /* Overlay is hidden by default and positioned absolutely */
+    .aa-card-overlay {
+        @apply hidden absolute left-0 right-0 top-full z-50;
+    }
+
+    /* Show overlay when card is open */
+    [data-aa-card].is-open .aa-card-overlay {
+        @apply block;
+    }
 }
 
