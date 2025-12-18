@@ -21,6 +21,7 @@ if (!current_user_can('manage_options')) {
 $allowed_modules = [
     'settings',
     'calendar',
+    'clients',
 ];
 
 // Resolve requested module
