@@ -8,10 +8,14 @@
  * - UI helpers
  */
 
+// Asegurar que el namespace exista ANTES del IIFE
+// Esto garantiza que AAAdmin esté disponible incluso si hay errores
+window.AAAdmin = window.AAAdmin || {};
+
 (function() {
     'use strict';
 
-    // Admin UI namespace
+    // Admin UI namespace (reafirmar que existe)
     window.AAAdmin = window.AAAdmin || {};
 
     /**

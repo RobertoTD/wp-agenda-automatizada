@@ -14,6 +14,251 @@
     let searchTimeout = null;
 
     /**
+     * Crear contenido del formulario para nuevo cliente
+     * @returns {HTMLElement} - Elemento del formulario
+     */
+    function createNewClientForm() {
+        const form = document.createElement('form');
+        form.id = 'aa-modal-form-cliente';
+        form.className = 'aa-modal-form';
+
+        // Campo: Nombre
+        const nombreGroup = document.createElement('div');
+        nombreGroup.className = 'aa-form-group';
+        
+        const nombreLabel = document.createElement('label');
+        nombreLabel.setAttribute('for', 'modal-cliente-nombre');
+        nombreLabel.textContent = 'Nombre completo *';
+        
+        const nombreInput = document.createElement('input');
+        nombreInput.type = 'text';
+        nombreInput.id = 'modal-cliente-nombre';
+        nombreInput.name = 'nombre';
+        nombreInput.required = true;
+        nombreInput.placeholder = 'Ej: Juan Pérez';
+        
+        nombreGroup.appendChild(nombreLabel);
+        nombreGroup.appendChild(nombreInput);
+
+        // Campo: Teléfono
+        const telefonoGroup = document.createElement('div');
+        telefonoGroup.className = 'aa-form-group';
+        
+        const telefonoLabel = document.createElement('label');
+        telefonoLabel.setAttribute('for', 'modal-cliente-telefono');
+        telefonoLabel.textContent = 'Teléfono *';
+        
+        const telefonoInput = document.createElement('input');
+        telefonoInput.type = 'tel';
+        telefonoInput.id = 'modal-cliente-telefono';
+        telefonoInput.name = 'telefono';
+        telefonoInput.required = true;
+        telefonoInput.placeholder = 'Ej: 5512345678';
+        
+        telefonoGroup.appendChild(telefonoLabel);
+        telefonoGroup.appendChild(telefonoInput);
+
+        // Campo: Correo
+        const correoGroup = document.createElement('div');
+        correoGroup.className = 'aa-form-group';
+        
+        const correoLabel = document.createElement('label');
+        correoLabel.setAttribute('for', 'modal-cliente-correo');
+        correoLabel.textContent = 'Correo electrónico *';
+        
+        const correoInput = document.createElement('input');
+        correoInput.type = 'email';
+        correoInput.id = 'modal-cliente-correo';
+        correoInput.name = 'correo';
+        correoInput.required = true;
+        correoInput.placeholder = 'Ej: cliente@email.com';
+        
+        correoGroup.appendChild(correoLabel);
+        correoGroup.appendChild(correoInput);
+
+        // Mensaje de estado (para errores/éxito)
+        const statusMsg = document.createElement('div');
+        statusMsg.id = 'modal-cliente-status';
+        statusMsg.className = 'aa-form-status';
+        statusMsg.style.display = 'none';
+
+        // Ensamblar formulario
+        form.appendChild(nombreGroup);
+        form.appendChild(telefonoGroup);
+        form.appendChild(correoGroup);
+        form.appendChild(statusMsg);
+
+        return form;
+    }
+
+    /**
+     * Crear footer del modal con botones
+     * @returns {HTMLElement} - Elemento del footer
+     */
+    function createModalFooter() {
+        const footer = document.createElement('div');
+        footer.className = 'aa-modal-actions';
+
+        // Botón Cancelar
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'aa-btn-cancelar';
+        cancelBtn.textContent = 'Cancelar';
+        cancelBtn.setAttribute('data-aa-modal-close', '');
+
+        // Botón Guardar
+        const saveBtn = document.createElement('button');
+        saveBtn.type = 'button';
+        saveBtn.id = 'aa-modal-save-cliente';
+        saveBtn.className = 'aa-btn-guardar';
+        saveBtn.textContent = 'Guardar Cliente';
+
+        footer.appendChild(cancelBtn);
+        footer.appendChild(saveBtn);
+
+        return footer;
+    }
+
+    /**
+     * Mostrar mensaje de estado en el formulario
+     */
+    function showFormStatus(message, isError) {
+        const statusEl = document.getElementById('modal-cliente-status');
+        if (!statusEl) return;
+
+        statusEl.textContent = message;
+        statusEl.style.display = 'block';
+        statusEl.className = 'aa-form-status ' + (isError ? 'aa-form-error' : 'aa-form-success');
+    }
+
+    /**
+     * Guardar cliente via AJAX
+     */
+    function saveNewClient() {
+        const form = document.getElementById('aa-modal-form-cliente');
+        if (!form) return;
+
+        const nombre = document.getElementById('modal-cliente-nombre').value.trim();
+        const telefono = document.getElementById('modal-cliente-telefono').value.trim();
+        const correo = document.getElementById('modal-cliente-correo').value.trim();
+
+        // Validación básica
+        if (!nombre || !telefono || !correo) {
+            showFormStatus('Todos los campos son obligatorios.', true);
+            return;
+        }
+
+        // Validar formato de correo
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(correo)) {
+            showFormStatus('El correo electrónico no es válido.', true);
+            return;
+        }
+
+        // Obtener nonce
+        const nonce = window.AA_CLIENTS_NONCES ? window.AA_CLIENTS_NONCES.crear_cliente : '';
+        if (!nonce) {
+            showFormStatus('Error de seguridad: nonce no disponible.', true);
+            return;
+        }
+
+        // Preparar datos
+        const ajaxurl = window.ajaxurl || '/wp-admin/admin-ajax.php';
+        const formData = new FormData();
+        formData.append('action', 'aa_crear_cliente');
+        formData.append('_ajax_nonce', nonce);
+        formData.append('nombre', nombre);
+        formData.append('telefono', telefono);
+        formData.append('correo', correo);
+
+        // Deshabilitar botón mientras se procesa
+        const saveBtn = document.getElementById('aa-modal-save-cliente');
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Guardando...';
+        }
+
+        // Llamar AJAX
+        fetch(ajaxurl, {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(response) {
+            return response.json();
+        })
+        .then(function(result) {
+            if (result.success) {
+                showFormStatus('Cliente guardado correctamente.', false);
+                
+                // Cerrar modal después de 1 segundo y recargar lista
+                setTimeout(function() {
+                    if (window.AAAdmin && window.AAAdmin.closeModal) {
+                        window.AAAdmin.closeModal();
+                    }
+                    // Recargar lista de clientes
+                    currentOffset = 0;
+                    searchClients();
+                }, 1000);
+            } else {
+                const errorMsg = result.data && result.data.message 
+                    ? result.data.message 
+                    : 'Error al guardar el cliente.';
+                showFormStatus(errorMsg, true);
+                
+                // Rehabilitar botón
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = 'Guardar Cliente';
+                }
+            }
+        })
+        .catch(function(error) {
+            console.error('Error AJAX:', error);
+            showFormStatus('Error de conexión. Intenta de nuevo.', true);
+            
+            // Rehabilitar botón
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Guardar Cliente';
+            }
+        });
+    }
+
+    /**
+     * Abrir modal de nuevo cliente
+     */
+    function openNewClientModal() {
+        if (!window.AAAdmin || !window.AAAdmin.openModal) {
+            console.error('AAAdmin.openModal no está disponible');
+            alert('Error: Sistema de modales no disponible');
+            return;
+        }
+
+        const formContent = createNewClientForm();
+        const footerContent = createModalFooter();
+
+        window.AAAdmin.openModal({
+            title: 'Nuevo Cliente',
+            body: formContent,
+            footer: footerContent
+        });
+
+        // Agregar event listener al botón guardar después de que el modal esté abierto
+        setTimeout(function() {
+            const saveBtn = document.getElementById('aa-modal-save-cliente');
+            if (saveBtn) {
+                saveBtn.addEventListener('click', saveNewClient);
+            }
+
+            // Focus en primer campo
+            const nombreInput = document.getElementById('modal-cliente-nombre');
+            if (nombreInput) {
+                nombreInput.focus();
+            }
+        }, 100);
+    }
+
+    /**
      * Renderizar una tarjeta de cliente
      */
     function createClientCard(cliente) {
@@ -171,6 +416,15 @@
         const searchInput = document.getElementById('aa-clients-search');
         const prevButton = document.getElementById('aa-clients-prev');
         const nextButton = document.getElementById('aa-clients-next');
+        const newButton = document.getElementById('aa-clients-new');
+
+        // Botón "+ Nuevo" abre modal
+        if (newButton) {
+            newButton.addEventListener('click', function(event) {
+                event.preventDefault();
+                openNewClientModal();
+            });
+        }
 
         // Búsqueda con debounce
         if (searchInput) {

@@ -48,6 +48,12 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
     if (typeof window.ajaxurl === 'undefined') {
         window.ajaxurl = '<?php echo admin_url('admin-ajax.php'); ?>';
     }
+    
+    // Nonces para operaciones de clientes
+    window.AA_CLIENTS_NONCES = {
+        crear_cliente: '<?php echo wp_create_nonce('aa_crear_cliente'); ?>',
+        editar_cliente: '<?php echo wp_create_nonce('aa_editar_cliente'); ?>'
+    };
 </script>
 
 <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'clients-module.js'); ?>" defer></script>

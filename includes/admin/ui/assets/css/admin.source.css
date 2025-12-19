@@ -35,5 +35,106 @@
     [data-aa-card].is-open .aa-card-overlay {
         @apply block;
     }
+
+    /* ═══════════════════════════════════════════════════════════════
+       MODAL SYSTEM - Basic functional styles
+    ═══════════════════════════════════════════════════════════════ */
+    
+    /* Modal root - fullscreen overlay container */
+    .aa-modal-root {
+        @apply fixed inset-0 z-[9999] flex items-center justify-center;
+    }
+
+    .aa-modal-root.hidden {
+        display: none;
+    }
+
+    /* Overlay backdrop */
+    .aa-modal-overlay {
+        @apply absolute inset-0 bg-black/50;
+    }
+
+    /* Modal container */
+    .aa-modal {
+        @apply relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-auto;
+    }
+
+    /* Modal header */
+    .aa-modal-header {
+        @apply flex items-center justify-between px-4 py-3 border-b border-gray-200;
+    }
+
+    .aa-modal-title {
+        @apply text-lg font-semibold text-gray-900 m-0;
+    }
+
+    .aa-modal-close {
+        @apply p-1 text-gray-400 hover:text-gray-600 rounded transition-colors;
+    }
+
+    /* Modal body */
+    .aa-modal-body {
+        @apply px-4 py-4;
+    }
+
+    /* Modal footer */
+    .aa-modal-footer {
+        @apply px-4 py-3 border-t border-gray-200 bg-gray-50;
+    }
+
+    .aa-modal-footer:empty {
+        @apply hidden;
+    }
+
+    /* Block body scroll when modal is open */
+    body.aa-modal-open {
+        @apply overflow-hidden;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       FORM STYLES - Basic form elements for modals
+    ═══════════════════════════════════════════════════════════════ */
+    
+    .aa-form-group {
+        @apply mb-4;
+    }
+
+    .aa-form-group label {
+        @apply block text-sm font-medium text-gray-700 mb-1;
+    }
+
+    .aa-form-group input {
+        @apply w-full px-3 py-2 border border-gray-300 rounded-md text-sm;
+        @apply focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none;
+    }
+
+    .aa-modal-actions {
+        @apply flex justify-end gap-2;
+    }
+
+    .aa-btn-cancelar {
+        @apply px-4 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-md transition-colors;
+    }
+
+    .aa-btn-guardar {
+        @apply px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors;
+    }
+
+    .aa-btn-guardar:disabled {
+        @apply bg-blue-400 cursor-not-allowed;
+    }
+
+    /* Form status messages */
+    .aa-form-status {
+        @apply p-2 rounded text-sm mt-2;
+    }
+
+    .aa-form-error {
+        @apply bg-red-50 text-red-700 border border-red-200;
+    }
+
+    .aa-form-success {
+        @apply bg-green-50 text-green-700 border border-green-200;
+    }
 }
 
