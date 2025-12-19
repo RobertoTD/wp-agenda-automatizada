@@ -194,7 +194,23 @@ function aa_ajax_search_clientes() {
     }
     
     // Buscar clientes
-    $clients = aa_search_clientes($query, $limit, $offset);
+    $clients_raw = aa_search_clientes($query, $limit, $offset);
+    
+    // Construir array de datos para cada cliente (con total_citas)
+    $clients_data = [];
+    foreach ($clients_raw as $cliente) {
+        $reservas = aa_get_cliente_reservas($cliente->id, 100);
+        $total_citas = count($reservas);
+        
+        $clients_data[] = [
+            'id' => (int) $cliente->id,
+            'nombre' => $cliente->nombre,
+            'telefono' => $cliente->telefono,
+            'correo' => $cliente->correo,
+            'created_at' => date('d/m/Y', strtotime($cliente->created_at)),
+            'total_citas' => $total_citas
+        ];
+    }
     
     // Calcular si hay más resultados
     global $wpdb;
@@ -220,7 +236,7 @@ function aa_ajax_search_clientes() {
     
     // Preparar respuesta
     $response = [
-        'clients' => $clients,
+        'clients' => $clients_data,
         'offset' => $offset,
         'limit' => $limit,
         'has_next' => $has_next,
