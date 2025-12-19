@@ -26,11 +26,11 @@ header('Content-Type: text/html; charset=utf-8');
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Agenda Automatizada - Admin</title>
     
-    <!-- Tailwind CSS -->
-    <link rel="stylesheet" href="<?php echo esc_url(plugin_dir_url(__FILE__) . '../assets/css/admin.css'); ?>">
+    <!-- Tailwind CSS (usando constante global para URL limpia) -->
+    <link rel="stylesheet" href="<?php echo esc_url(AA_PLUGIN_URL . 'includes/admin/ui/assets/css/admin.css'); ?>">
     
     <!-- Shared Admin JS -->
-    <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . '../assets/js/main.js'); ?>" defer></script>
+    <script src="<?php echo esc_url(AA_PLUGIN_URL . 'includes/admin/ui/assets/js/main.js'); ?>" defer></script>
     
 </head>
 <body class="flex flex-col min-h-screen" style="background-color: rgb(240, 240, 241);">

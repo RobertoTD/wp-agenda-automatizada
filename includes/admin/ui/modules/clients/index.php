@@ -16,7 +16,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
     <!-- ═══════════════════════════════════════════════════════════════
          SECCIÓN: Clientes
     ═══════════════════════════════════════════════════════════════ -->
-    <details class="bg-white rounded-xl shadow border border-gray-200 mb-6 overflow-hidden group" open>
+    <details class="bg-white rounded-xl shadow border border-gray-200 mb-6 group" open>
         <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
             <div class="flex items-center justify-between gap-3">
                 <div class="flex items-center gap-3">

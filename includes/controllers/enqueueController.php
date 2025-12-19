@@ -168,7 +168,9 @@ function wpaa_localize_local_availability($script_handle = 'wpaa-availability-co
 ============================================================ */
 function wpaa_enqueue_admin_assets($hook) {
 
-    // 🔹 Encolar Tailwind CSS solo en páginas del plugin
+    // 🔹 Estilos comunes para páginas del plugin (solo contenedor del iframe, NO Tailwind)
+    // IMPORTANTE: Tailwind CSS (admin.css) se carga SOLO dentro del iframe via layout.php
+    // NO debe cargarse aquí para evitar afectar el admin legacy de WordPress
     $plugin_pages = [
         'toplevel_page_agenda-automatizada-settings',
         'agenda-automatizada_page_aa_asistant_panel',
@@ -176,14 +178,7 @@ function wpaa_enqueue_admin_assets($hook) {
     ];
     
     if (in_array($hook, $plugin_pages)) {
-        wp_enqueue_style(
-            'aa-admin-tailwind',
-            wpaa_url('includes/admin/ui/assets/css/admin.css'),
-            [],
-            filemtime(wpaa_path('includes/admin/ui/assets/css/admin.css'))
-        );
-        
-        // 🔹 Cargar estilos comunes para páginas del plugin (iframe wrapper, padding, etc.)
+        // Solo cargar estilos comunes para el contenedor del iframe (NO Tailwind)
         wp_enqueue_style(
             'wpaa-admin-common-styles',
             wpaa_url('css/styles.css'),

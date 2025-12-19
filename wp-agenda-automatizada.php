@@ -8,6 +8,12 @@
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
 
+// ===============================
+// 🔹 CONSTANTES DEL PLUGIN
+// ===============================
+define('AA_PLUGIN_PATH', plugin_dir_path(__FILE__));
+define('AA_PLUGIN_URL', plugin_dir_url(__FILE__));
+
 // Detectar entorno automáticamente
 $site_url = get_site_url();
 

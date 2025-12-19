@@ -20,20 +20,85 @@
         transition: opacity 0.2s ease-in-out;
     }
 
-    /* Card overlay system - Functional styles only */
-    /* Container must be relative for absolute positioning */
+    /* ═══════════════════════════════════════════════════════════════
+       CARD SYSTEM - Collapsible cards with overlay
+    ═══════════════════════════════════════════════════════════════ */
+    
+    /* Card container - relative for overlay positioning */
     [data-aa-card] {
-        @apply relative;
+        @apply relative bg-white border border-gray-200 rounded-lg mb-2;
     }
 
-    /* Overlay is hidden by default and positioned absolutely */
+    /* Card header - clickable toggle */
+    [data-aa-card-toggle] {
+        @apply px-4 py-3 cursor-pointer select-none;
+        @apply text-gray-900 font-medium;
+        @apply hover:bg-gray-50 transition-colors;
+        @apply flex items-center justify-between;
+    }
+
+    /* Chevron indicator for card toggle */
+    [data-aa-card-toggle]::after {
+        content: '';
+        @apply w-2 h-2 border-r-2 border-b-2 border-gray-400;
+        @apply transform rotate-45 transition-transform duration-200;
+    }
+
+    [data-aa-card].is-open [data-aa-card-toggle]::after {
+        @apply -rotate-[135deg];
+    }
+
+    /* Overlay - hidden by default, positioned absolutely */
     .aa-card-overlay {
         @apply hidden absolute left-0 right-0 top-full z-50;
+        @apply bg-white border border-gray-200 border-t-0 rounded-b-lg shadow-lg;
     }
 
     /* Show overlay when card is open */
     [data-aa-card].is-open .aa-card-overlay {
         @apply block;
+    }
+
+    /* Card body inside overlay */
+    .aa-card-body {
+        @apply px-4 py-3 text-sm text-gray-600;
+    }
+
+    .aa-card-body > div {
+        @apply py-1;
+    }
+
+    /* Grid container for cards - allow overflow for overlays */
+    .aa-clients-grid {
+        @apply relative;
+        overflow: visible !important;
+    }
+
+    /* Action bar for clients module */
+    .aa-clients-action-bar {
+        @apply flex flex-wrap items-center gap-3 mb-4;
+    }
+
+    .aa-clients-search-input {
+        @apply flex-1 min-w-[200px] px-3 py-2 text-sm;
+        @apply border border-gray-300 rounded-lg;
+        @apply focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none;
+    }
+
+    .aa-clients-new-button {
+        @apply px-4 py-2 text-sm font-medium;
+        @apply bg-blue-600 hover:bg-blue-700 text-white;
+        @apply rounded-lg transition-colors;
+    }
+
+    .aa-clients-pagination {
+        @apply flex items-center gap-1;
+    }
+
+    .aa-clients-pagination-button {
+        @apply w-8 h-8 flex items-center justify-center;
+        @apply text-gray-600 hover:bg-gray-100 rounded;
+        @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent;
     }
 
     /* ═══════════════════════════════════════════════════════════════
