@@ -139,6 +139,99 @@ function aa_count_clientes() {
 }
 
 // ===============================
+// 🔹 Buscar clientes con paginación (para módulo iframe)
+// ===============================
+function aa_search_clientes($query = '', $limit = 10, $offset = 0) {
+    global $wpdb;
+    $table = $wpdb->prefix . 'aa_clientes';
+    
+    // Sanitizar parámetros
+    $limit = absint($limit);
+    $offset = absint($offset);
+    $query = sanitize_text_field($query);
+    
+    // Construir WHERE clause si hay query
+    if (!empty($query)) {
+        $search_term = '%' . $wpdb->esc_like($query) . '%';
+        $where = $wpdb->prepare(
+            "WHERE nombre LIKE %s OR correo LIKE %s OR telefono LIKE %s",
+            $search_term,
+            $search_term,
+            $search_term
+        );
+        // Query con búsqueda
+        $sql = "SELECT * FROM $table $where ORDER BY created_at DESC LIMIT %d OFFSET %d";
+        $prepared_sql = $wpdb->prepare($sql, $limit, $offset);
+    } else {
+        // Query sin búsqueda
+        $sql = "SELECT * FROM $table ORDER BY created_at DESC LIMIT %d OFFSET %d";
+        $prepared_sql = $wpdb->prepare($sql, $limit, $offset);
+    }
+    
+    $results = $wpdb->get_results($prepared_sql);
+    
+    return $results ? $results : [];
+}
+
+// ===============================
+// 🔹 AJAX: Buscar clientes (para módulo iframe)
+// ===============================
+add_action('wp_ajax_aa_search_clientes', 'aa_ajax_search_clientes');
+function aa_ajax_search_clientes() {
+    // Verificar permisos
+    if (!current_user_can('aa_view_panel') && !current_user_can('administrator')) {
+        wp_send_json_error(['message' => 'No tienes permisos.']);
+    }
+    
+    // Obtener parámetros
+    $query = isset($_POST['query']) ? sanitize_text_field($_POST['query']) : '';
+    $limit = isset($_POST['limit']) ? absint($_POST['limit']) : 10;
+    $offset = isset($_POST['offset']) ? absint($_POST['offset']) : 0;
+    
+    // Validar límites
+    if ($limit < 1 || $limit > 100) {
+        $limit = 10;
+    }
+    
+    // Buscar clientes
+    $clients = aa_search_clientes($query, $limit, $offset);
+    
+    // Calcular si hay más resultados
+    global $wpdb;
+    $table = $wpdb->prefix . 'aa_clientes';
+    
+    // Contar total de resultados con el mismo query
+    if (!empty($query)) {
+        $search_term = '%' . $wpdb->esc_like($query) . '%';
+        $count_sql = $wpdb->prepare(
+            "SELECT COUNT(*) FROM $table WHERE nombre LIKE %s OR correo LIKE %s OR telefono LIKE %s",
+            $search_term,
+            $search_term,
+            $search_term
+        );
+        $total = (int) $wpdb->get_var($count_sql);
+    } else {
+        $total = aa_count_clientes();
+    }
+    
+    // Calcular paginación
+    $has_next = ($offset + $limit) < $total;
+    $has_prev = $offset > 0;
+    
+    // Preparar respuesta
+    $response = [
+        'clients' => $clients,
+        'offset' => $offset,
+        'limit' => $limit,
+        'has_next' => $has_next,
+        'has_prev' => $has_prev,
+        'total' => $total
+    ];
+    
+    wp_send_json_success($response);
+}
+
+// ===============================
 // 🔹 AJAX: Crear nuevo cliente
 // ===============================
 add_action('wp_ajax_aa_crear_cliente', 'aa_ajax_crear_cliente');
