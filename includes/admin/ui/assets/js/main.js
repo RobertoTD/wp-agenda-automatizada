@@ -228,6 +228,205 @@
     };
 
     /**
+     * Modal System - Global modal management
+     * Provides reusable modal functionality for all modules
+     */
+    AAAdmin.modal = (function() {
+        let isModalOpen = false;
+        const modalRoot = null; // Will be set on init
+
+        /**
+         * Get modal root element
+         * @returns {HTMLElement|null}
+         */
+        function getModalRoot() {
+            return document.getElementById('aa-modal-root');
+        }
+
+        /**
+         * Get modal elements
+         * @returns {Object|null}
+         */
+        function getModalElements() {
+            const root = getModalRoot();
+            if (!root) return null;
+
+            return {
+                root: root,
+                overlay: root.querySelector('.aa-modal-overlay'),
+                modal: root.querySelector('.aa-modal'),
+                title: root.querySelector('.aa-modal-title'),
+                body: root.querySelector('.aa-modal-body'),
+                footer: root.querySelector('.aa-modal-footer')
+            };
+        }
+
+        /**
+         * Insert content into element (supports string or HTMLElement)
+         * @param {HTMLElement} container - Container element
+         * @param {string|HTMLElement} content - Content to insert
+         */
+        function insertContent(container, content) {
+            if (!container) return;
+
+            // Clear existing content
+            container.innerHTML = '';
+
+            if (typeof content === 'string') {
+                container.innerHTML = content;
+            } else if (content instanceof HTMLElement) {
+                container.appendChild(content);
+            } else if (content instanceof Node) {
+                container.appendChild(content);
+            }
+        }
+
+        /**
+         * Block body scroll
+         */
+        function blockBodyScroll() {
+            document.body.classList.add('aa-modal-open');
+        }
+
+        /**
+         * Restore body scroll
+         */
+        function restoreBodyScroll() {
+            document.body.classList.remove('aa-modal-open');
+        }
+
+        /**
+         * Open modal
+         * @param {Object} options - Modal options
+         * @param {string|HTMLElement} options.title - Modal title
+         * @param {string|HTMLElement} options.body - Modal body content
+         * @param {string|HTMLElement} [options.footer] - Optional modal footer
+         */
+        function openModal(options) {
+            if (!options || (!options.title && !options.body)) {
+                console.warn('AAAdmin.openModal: title or body is required');
+                return;
+            }
+
+            const elements = getModalElements();
+            if (!elements) {
+                console.error('AAAdmin.openModal: Modal root not found');
+                return;
+            }
+
+            // Close any existing modal first
+            if (isModalOpen) {
+                closeModal();
+            }
+
+            // Insert content
+            if (options.title) {
+                insertContent(elements.title, options.title);
+            }
+
+            if (options.body) {
+                insertContent(elements.body, options.body);
+            }
+
+            if (options.footer) {
+                insertContent(elements.footer, options.footer);
+            } else {
+                // Clear footer if not provided
+                elements.footer.innerHTML = '';
+            }
+
+            // Show modal
+            elements.root.classList.remove('hidden');
+            blockBodyScroll();
+            isModalOpen = true;
+        }
+
+        /**
+         * Close modal
+         */
+        function closeModal() {
+            const elements = getModalElements();
+            if (!elements) return;
+
+            // Hide modal
+            elements.root.classList.add('hidden');
+            restoreBodyScroll();
+
+            // Clear content
+            elements.title.innerHTML = '';
+            elements.body.innerHTML = '';
+            elements.footer.innerHTML = '';
+
+            isModalOpen = false;
+        }
+
+        /**
+         * Initialize modal system
+         * Sets up event delegation for close actions
+         */
+        function init() {
+            // Event delegation for close actions
+            document.addEventListener('click', function(event) {
+                if (!isModalOpen) return;
+
+                // Check if click is on a close trigger
+                const closeTrigger = event.target.closest('[data-aa-modal-close]');
+                if (!closeTrigger) return;
+
+                // If clicking on overlay, close modal
+                if (closeTrigger.classList.contains('aa-modal-overlay')) {
+                    closeModal();
+                    return;
+                }
+
+                // If clicking on close button, close modal
+                if (closeTrigger.classList.contains('aa-modal-close') || 
+                    closeTrigger.closest('.aa-modal-close')) {
+                    closeModal();
+                    return;
+                }
+
+                // Any other element with data-aa-modal-close should close
+                closeModal();
+            });
+
+            // ESC key to close
+            document.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape' && isModalOpen) {
+                    closeModal();
+                }
+            });
+        }
+
+        // Initialize on DOM ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+
+        // Public API
+        return {
+            open: openModal,
+            close: closeModal,
+            isOpen: function() {
+                return isModalOpen;
+            }
+        };
+    })();
+
+    /**
+     * Alias for backward compatibility and convenience
+     */
+    AAAdmin.openModal = function(options) {
+        AAAdmin.modal.open(options);
+    };
+
+    AAAdmin.closeModal = function() {
+        AAAdmin.modal.close();
+    };
+
+    /**
      * Collapsible card overlay system
      * Handles cards with [data-aa-card] attribute and toggles via [data-aa-card-toggle]
      */

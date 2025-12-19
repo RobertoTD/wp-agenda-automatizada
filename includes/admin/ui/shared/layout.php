@@ -52,6 +52,9 @@ header('Content-Type: text/html; charset=utf-8');
         <?php require_once __DIR__ . '/footer.php'; ?>
     </div>
 
+    <!-- Shared Modals -->
+    <?php require_once __DIR__ . '/modals.php'; ?>
+
 </body>
 </html>
 <?php
