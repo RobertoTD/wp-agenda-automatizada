@@ -140,10 +140,12 @@ function aa_count_clientes() {
 
 // ===============================
 // 🔹 Buscar clientes con paginación (para módulo iframe)
+// Ordena por total_citas DESC por defecto
 // ===============================
 function aa_search_clientes($query = '', $limit = 10, $offset = 0) {
     global $wpdb;
-    $table = $wpdb->prefix . 'aa_clientes';
+    $table_clientes = $wpdb->prefix . 'aa_clientes';
+    $table_reservas = $wpdb->prefix . 'aa_reservas';
     
     // Sanitizar parámetros
     $limit = absint($limit);
@@ -154,20 +156,25 @@ function aa_search_clientes($query = '', $limit = 10, $offset = 0) {
     if (!empty($query)) {
         $search_term = '%' . $wpdb->esc_like($query) . '%';
         $where = $wpdb->prepare(
-            "WHERE nombre LIKE %s OR correo LIKE %s OR telefono LIKE %s",
+            "WHERE c.nombre LIKE %s OR c.correo LIKE %s OR c.telefono LIKE %s",
             $search_term,
             $search_term,
             $search_term
         );
-        // Query con búsqueda
-        $sql = "SELECT * FROM $table $where ORDER BY created_at DESC LIMIT %d OFFSET %d";
-        $prepared_sql = $wpdb->prepare($sql, $limit, $offset);
     } else {
-        // Query sin búsqueda
-        $sql = "SELECT * FROM $table ORDER BY created_at DESC LIMIT %d OFFSET %d";
-        $prepared_sql = $wpdb->prepare($sql, $limit, $offset);
+        $where = '';
     }
     
+    // Query con JOIN para contar citas y ordenar por total_citas DESC
+    $sql = "SELECT c.*, COUNT(r.id) as total_citas 
+            FROM $table_clientes c 
+            LEFT JOIN $table_reservas r ON c.id = r.id_cliente 
+            $where 
+            GROUP BY c.id 
+            ORDER BY total_citas DESC, c.created_at DESC 
+            LIMIT %d OFFSET %d";
+    
+    $prepared_sql = $wpdb->prepare($sql, $limit, $offset);
     $results = $wpdb->get_results($prepared_sql);
     
     return $results ? $results : [];
@@ -193,22 +200,19 @@ function aa_ajax_search_clientes() {
         $limit = 10;
     }
     
-    // Buscar clientes
+    // Buscar clientes (ya incluye total_citas del JOIN)
     $clients_raw = aa_search_clientes($query, $limit, $offset);
     
-    // Construir array de datos para cada cliente (con total_citas)
+    // Construir array de datos para cada cliente
     $clients_data = [];
     foreach ($clients_raw as $cliente) {
-        $reservas = aa_get_cliente_reservas($cliente->id, 100);
-        $total_citas = count($reservas);
-        
         $clients_data[] = [
             'id' => (int) $cliente->id,
             'nombre' => $cliente->nombre,
             'telefono' => $cliente->telefono,
             'correo' => $cliente->correo,
             'created_at' => date('d/m/Y', strtotime($cliente->created_at)),
-            'total_citas' => $total_citas
+            'total_citas' => (int) $cliente->total_citas
         ];
     }
     

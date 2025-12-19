@@ -182,6 +182,23 @@
                     searchClients();
                 }, 300);
             });
+
+            // Búsqueda inmediata al presionar Enter
+            searchInput.addEventListener('keydown', function(event) {
+                if (event.key === 'Enter' || event.keyCode === 13) {
+                    event.preventDefault();
+                    
+                    // Cancelar cualquier debounce activo
+                    clearTimeout(searchTimeout);
+                    
+                    // Actualizar query y reiniciar offset
+                    currentQuery = searchInput.value.trim();
+                    currentOffset = 0;
+                    
+                    // Ejecutar búsqueda inmediatamente
+                    searchClients();
+                }
+            });
         }
 
         // Paginación anterior
@@ -293,19 +310,8 @@
         // Renderizar barra de acciones
         renderActionBar();
 
-        // Cargar datos iniciales desde window.AA_CLIENTS_DATA o hacer búsqueda inicial
-        if (window.AA_CLIENTS_DATA && Array.isArray(window.AA_CLIENTS_DATA.clients)) {
-            const clients = window.AA_CLIENTS_DATA.clients;
-            renderClientsGrid(clients);
-            
-            // Establecer estado inicial de paginación
-            hasNext = clients.length >= currentLimit;
-            hasPrev = false;
-            updatePaginationButtons();
-        } else {
-            // Si no hay datos iniciales, hacer búsqueda
-            searchClients();
-        }
+        // Siempre cargar datos via AJAX (ordenados por total_citas DESC)
+        searchClients();
     }
 
     // Escuchar DOMContentLoaded
