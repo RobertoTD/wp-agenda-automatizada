@@ -223,18 +223,29 @@
     }
 
     /**
-     * Actualizar estado de botones de paginación
+     * Actualizar estado de botones de paginación y visibilidad del contenedor
      */
-    function updatePaginationButtons() {
+    function updatePaginationButtons(total, limit) {
+        const paginationContainer = document.querySelector('.aa-clients-pagination');
         const prevButton = document.getElementById('aa-clients-prev');
         const nextButton = document.getElementById('aa-clients-next');
 
-        if (prevButton) {
-            prevButton.disabled = !hasPrev;
-        }
+        // Ocultar completamente la paginación si no hay más de una página
+        if (paginationContainer) {
+            if (total && limit && total <= limit) {
+                paginationContainer.style.display = 'none';
+            } else {
+                paginationContainer.style.display = '';
+                
+                // Actualizar estado de botones solo cuando la paginación está visible
+                if (prevButton) {
+                    prevButton.disabled = !hasPrev;
+                }
 
-        if (nextButton) {
-            nextButton.disabled = !hasNext;
+                if (nextButton) {
+                    nextButton.disabled = !hasNext;
+                }
+            }
         }
     }
 
@@ -286,8 +297,8 @@
                 // Renderizar grid
                 renderClientsGrid(clients);
 
-                // Actualizar botones de paginación
-                updatePaginationButtons();
+                // Actualizar botones de paginación y visibilidad
+                updatePaginationButtons(data.total, data.limit);
             } else {
                 console.error('Error en búsqueda de clientes:', result);
                 if (container) {
