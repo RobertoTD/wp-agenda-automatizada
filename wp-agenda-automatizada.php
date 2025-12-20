@@ -188,6 +188,23 @@ register_activation_hook(__FILE__, function() {
     aa_add_cliente_column_to_reservas();
     aa_add_calendar_uid_column();
     
+    // 🔹 Crear tabla de notificaciones
+    $notifications_table = $wpdb->prefix . 'aa_notifications';
+    $notifications_sql = "CREATE TABLE $notifications_table (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        entity_type varchar(50) NOT NULL,
+        entity_id bigint(20) unsigned NOT NULL,
+        type varchar(50) NOT NULL,
+        is_read tinyint(1) DEFAULT 0,
+        created_at datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        KEY entity (entity_type, entity_id),
+        KEY is_read (is_read),
+        KEY type (type)
+    ) $charset;";
+    
+    dbDelta($notifications_sql);
+    
     // 🔹 Inicializar estado de sincronización como válido
     if (get_option('aa_estado_gsync') === false) {
         add_option('aa_estado_gsync', 'valid');
