@@ -122,6 +122,9 @@ header('Content-Type: text/html; charset=utf-8');
 <!-- Shared Admin JS (AAAdmin namespace) -->
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'includes/admin/ui/assets/js/main.js'); ?>" defer></script>
 
+<!-- Notifications -->
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'includes/admin/ui/assets/js/notifications.js'); ?>" defer></script>
+
 <!-- Flatpickr JS -->
 <script src="https://cdn.jsdelivr.net/npm/flatpickr" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js" defer></script>

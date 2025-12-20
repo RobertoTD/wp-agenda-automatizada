@@ -5,7 +5,7 @@
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
 ?>
-<header class="bg-white border-b border-gray-200 shadow-sm relative">
+<header class="bg-white border-b border-gray-200 shadow-sm">
     <div class="px-4 py-3">
         <!-- Branding + Action Button Row -->
         <div class="flex items-center justify-between mb-3">
@@ -21,52 +21,55 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
             
             <!-- Right: Notifications + Agendar Button -->
             <div class="flex items-center gap-2">
-                <!-- Notifications Bell -->
-                <button 
-                    id="aa-btn-notifications" 
-                    type="button"
-                    class="relative inline-flex items-center justify-center w-9 h-9 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-                    aria-label="Notificaciones"
-                >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
-                    </svg>
-                    <span id="aa-notifications-badge" class="absolute top-0 right-0 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-semibold text-white bg-red-500 rounded-full border-2 border-white">0</span>
-                </button>
-                
-                <!-- Agendar Button -->
-            <button 
-                id="aa-btn-open-reservation-modal" 
-                type="button"
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-            >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                </svg>
-                <span>Agendar</span>
-            </button>
-            </div>
-        </div>
-        
-        <!-- Notifications Popover (hidden by default) -->
-        <div id="aa-notifications-popover" class="hidden absolute right-4 top-full mt-2 z-50 w-80 bg-white rounded-lg shadow-lg border border-gray-200">
-            <div class="p-4">
-                <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-sm font-semibold text-gray-900">Notificaciones</h3>
+                <!-- Notifications Container (relative for popover positioning) -->
+                <div class="relative">
+                    <!-- Notifications Bell -->
                     <button 
-                        id="aa-btn-close-notifications" 
+                        id="aa-btn-notifications" 
                         type="button"
-                        class="text-gray-400 hover:text-gray-600 transition-colors"
-                        aria-label="Cerrar"
+                        class="inline-flex items-center justify-center w-9 h-9 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                        aria-label="Notificaciones"
                     >
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
                         </svg>
                     </button>
+                    <span id="aa-notifications-badge" class="absolute top-0 right-2 text-xs font-medium text-gray-500 leading-none">0</span>
+                    
+                    <!-- Notifications Popover (hidden by default) -->
+                    <div id="aa-notifications-popover" class="hidden absolute right-0 top-full mt-2 z-50 w-80 bg-white rounded-lg shadow-lg border border-gray-200">
+                        <div class="p-4">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="text-sm font-semibold text-gray-900">Notificaciones</h3>
+                                <button 
+                                    id="aa-btn-close-notifications" 
+                                    type="button"
+                                    class="text-gray-400 hover:text-gray-600 transition-colors"
+                                    aria-label="Cerrar"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="text-sm text-gray-500 text-center py-4">
+                                No hay notificaciones por ahora
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="text-sm text-gray-500 text-center py-4">
-                    No hay notificaciones por ahora
-                </div>
+                
+                <!-- Agendar Button -->
+                <button 
+                    id="aa-btn-open-reservation-modal" 
+                    type="button"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    <span>Agendar</span>
+                </button>
             </div>
         </div>
         
@@ -108,36 +111,4 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
         </nav>
     </div>
 </header>
-
-<script>
-(function() {
-    // Notifications popover handler (placeholder)
-    document.addEventListener('DOMContentLoaded', function() {
-        const btnNotifications = document.getElementById('aa-btn-notifications');
-        const popover = document.getElementById('aa-notifications-popover');
-        const btnClose = document.getElementById('aa-btn-close-notifications');
-        
-        if (!btnNotifications || !popover || !btnClose) return;
-        
-        // Toggle popover on bell click
-        btnNotifications.addEventListener('click', function(e) {
-            e.stopPropagation();
-            popover.classList.toggle('hidden');
-        });
-        
-        // Close popover on close button click
-        btnClose.addEventListener('click', function(e) {
-            e.stopPropagation();
-            popover.classList.add('hidden');
-        });
-        
-        // Close popover when clicking outside
-        document.addEventListener('click', function(e) {
-            if (!popover.contains(e.target) && !btnNotifications.contains(e.target)) {
-                popover.classList.add('hidden');
-            }
-        });
-    });
-})();
-</script>
 
