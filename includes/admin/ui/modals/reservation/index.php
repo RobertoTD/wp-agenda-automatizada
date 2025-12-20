@@ -3,29 +3,111 @@
  * Reservation Modal - HTML Content Template
  * 
  * This file provides the body content for the reservation modal.
- * The modal shell (header, overlay, footer) is handled by the shared modal system.
+ * Uses EXACT same IDs as legacy admin form (asistant-controls.php)
+ * 
+ * Required IDs (NO CAMBIAR):
+ * - form-crear-cita-admin
+ * - cita-cliente
+ * - cita-servicio
+ * - cita-duracion
+ * - cita-fecha
+ * - slot-container-admin
+ * - btn-cancelar-cita-form
+ * 
+ * NOTE: This template uses <template> tag to avoid duplicate IDs in DOM.
+ * The JS will clone and insert content when modal opens.
  * 
  * @package AgendaAutomatizada
  * @since 1.0.0
  */
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
+
+// Obtener datos necesarios para los selects
+$clientes = function_exists('aa_get_all_clientes') ? aa_get_all_clientes(200) : [];
+$motivos_json = get_option('aa_google_motivo', json_encode(['Cita general']));
+$motivos = json_decode($motivos_json, true);
+if (!is_array($motivos) || empty($motivos)) {
+    $motivos = ['Cita general'];
+}
+$duracion_default = intval(get_option('aa_slot_duration', 60));
+$duraciones = [30, 60, 90];
 ?>
 
-<!-- Reservation Modal Body Content -->
-<div id="aa-reservation-modal-content" class="aa-reservation-modal">
-    <div class="p-6 text-center">
-        <div class="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-blue-100">
-            <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-            </svg>
-        </div>
-        <p class="text-gray-600">
-            Contenido en construcción
-        </p>
-        <p class="text-sm text-gray-400 mt-2">
-            El formulario de reservación estará disponible próximamente.
-        </p>
+<!-- Template for Reservation Modal (content not rendered until cloned by JS) -->
+<template id="aa-reservation-modal-template">
+    <div class="aa-reservation-modal">
+        <form id="form-crear-cita-admin">
+            
+            <!-- Campo: Cliente -->
+            <div class="aa-form-cita-group">
+                <label for="cita-cliente">Cliente *</label>
+                <select id="cita-cliente" name="cliente_id" required>
+                    <option value="">-- Selecciona un cliente --</option>
+                    <?php foreach ($clientes as $cliente): ?>
+                    <option 
+                        value="<?php echo esc_attr($cliente->id); ?>"
+                        data-nombre="<?php echo esc_attr($cliente->nombre); ?>"
+                        data-telefono="<?php echo esc_attr($cliente->telefono); ?>"
+                        data-correo="<?php echo esc_attr($cliente->correo); ?>"
+                    >
+                        <?php echo esc_html($cliente->nombre); ?> (<?php echo esc_html($cliente->telefono); ?>)
+                    </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            
+            <!-- Campo: Servicio/Motivo -->
+            <div class="aa-form-cita-group">
+                <label for="cita-servicio">Motivo de la cita *</label>
+                <select id="cita-servicio" name="servicio" required>
+                    <?php foreach ($motivos as $motivo): ?>
+                    <option value="<?php echo esc_attr($motivo); ?>">
+                        <?php echo esc_html($motivo); ?>
+                    </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            
+            <!-- Campo: Duración -->
+            <div class="aa-form-cita-group">
+                <label for="cita-duracion">Duración *</label>
+                <select id="cita-duracion" name="duracion" required>
+                    <?php foreach ($duraciones as $duracion): ?>
+                    <option 
+                        value="<?php echo esc_attr($duracion); ?>"
+                        <?php echo ($duracion === $duracion_default) ? 'selected' : ''; ?>
+                    >
+                        <?php echo esc_html($duracion); ?> min
+                    </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            
+            <!-- Campo: Fecha y Hora -->
+            <div class="aa-form-cita-group">
+                <label for="cita-fecha">Fecha y hora *</label>
+                <input 
+                    type="text" 
+                    id="cita-fecha" 
+                    name="fecha" 
+                    required 
+                    readonly 
+                    placeholder="Selecciona fecha..."
+                >
+                <div id="slot-container-admin"></div>
+            </div>
+            
+            <!-- Botones -->
+            <div class="aa-form-cita-actions">
+                <button type="submit" class="aa-btn-agendar-cita">
+                    ✓ Agendar Cita
+                </button>
+                <button type="button" class="aa-btn-cancelar-cita-form" id="btn-cancelar-cita-form">
+                    Cancelar
+                </button>
+            </div>
+            
+        </form>
     </div>
-</div>
-
+</template>

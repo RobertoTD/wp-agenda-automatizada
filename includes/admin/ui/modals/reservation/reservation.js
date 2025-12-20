@@ -1,8 +1,10 @@
 /**
  * Reservation Modal Controller
  * 
- * Handles opening/closing of the reservation modal.
- * No business logic - only UI interaction.
+ * Orquesta la apertura del modal y la inicialización de los controladores
+ * existentes (AvailabilityController, AdminReservationController).
+ * 
+ * NO duplica lógica de negocio - solo coordina.
  * 
  * @package AgendaAutomatizada
  * @since 1.0.0
@@ -19,36 +21,127 @@
          */
         config: {
             buttonId: 'aa-btn-open-reservation-modal',
-            title: 'Agendar cita'
+            title: 'Agendar cita',
+            templateId: 'aa-reservation-modal-template'
         },
 
         /**
-         * Get the modal body content
+         * Track if controllers are initialized
+         */
+        initialized: false,
+
+        /**
+         * Get the modal body content from template
+         * Uses <template> tag to avoid duplicate IDs
          * @returns {string} HTML content for modal body
          */
         getBodyContent: function() {
-            // Check if template exists in DOM (loaded from index.php)
-            const template = document.getElementById('aa-reservation-modal-content');
-            if (template) {
-                return template.outerHTML;
+            const template = document.getElementById(this.config.templateId);
+            if (template && template.content) {
+                // Clone the template content
+                const clone = template.content.cloneNode(true);
+                // Create a temporary container to get HTML string
+                const container = document.createElement('div');
+                container.appendChild(clone);
+                return container.innerHTML;
             }
 
-            // Fallback: inline placeholder content
-            return `
-                <div class="p-6 text-center">
-                    <div class="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-blue-100">
-                        <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                        </svg>
-                    </div>
-                    <p class="text-gray-600">
-                        Contenido en construcción
-                    </p>
-                    <p class="text-sm text-gray-400 mt-2">
-                        El formulario de reservación estará disponible próximamente.
-                    </p>
-                </div>
-            `;
+            // Fallback if template not found
+            console.error('[ReservationModal] Template not found: #' + this.config.templateId);
+            return '<div class="p-4 text-red-600">Error: Template de reservación no encontrado.</div>';
+        },
+
+        /**
+         * Initialize controllers after modal content is rendered
+         */
+        initControllers: function() {
+            console.log('[ReservationModal] Inicializando controladores...');
+
+            // Pequeño delay para asegurar que el DOM está listo
+            setTimeout(() => {
+                // 1️⃣ Inicializar AvailabilityController
+                if (typeof window.AvailabilityController !== 'undefined') {
+                    console.log('[ReservationModal] Inicializando AvailabilityController...');
+                    
+                    window.AvailabilityController.init({
+                        fechaInputSelector: '#cita-fecha',
+                        slotContainerSelector: 'slot-container-admin',
+                        isAdmin: true
+                    });
+                    
+                    console.log('[ReservationModal] ✅ AvailabilityController inicializado');
+                } else {
+                    console.error('[ReservationModal] ❌ AvailabilityController no disponible');
+                }
+
+                // 2️⃣ Inicializar AdminReservationController
+                if (typeof window.AdminReservationController !== 'undefined') {
+                    console.log('[ReservationModal] Inicializando AdminReservationController...');
+                    
+                    const form = document.getElementById('form-crear-cita-admin');
+                    const btnCancelar = document.getElementById('btn-cancelar-cita-form');
+                    
+                    if (form) {
+                        // Sobrescribir el comportamiento de submit para cerrar modal después
+                        this.setupFormSubmitHandler(form);
+                        
+                        window.AdminReservationController.init({
+                            btnToggle: null, // No se usa toggle en modal
+                            formNuevaCita: form,
+                            btnCancelar: btnCancelar,
+                            form: form
+                        });
+                        
+                        console.log('[ReservationModal] ✅ AdminReservationController inicializado');
+                    } else {
+                        console.error('[ReservationModal] ❌ Formulario #form-crear-cita-admin no encontrado');
+                    }
+                } else {
+                    console.error('[ReservationModal] ❌ AdminReservationController no disponible');
+                }
+
+                // 3️⃣ Setup botón cancelar para cerrar modal
+                const btnCancelar = document.getElementById('btn-cancelar-cita-form');
+                if (btnCancelar) {
+                    btnCancelar.addEventListener('click', () => {
+                        this.close();
+                    });
+                }
+
+                this.initialized = true;
+                console.log('[ReservationModal] ✅ Todos los controladores inicializados');
+                
+            }, 100); // 100ms delay para asegurar DOM ready
+        },
+
+        /**
+         * Setup form submit handler to close modal on success
+         * @param {HTMLFormElement} form 
+         */
+        setupFormSubmitHandler: function(form) {
+            const self = this;
+            
+            // Interceptar el submit para cerrar modal después de éxito
+            form.addEventListener('submit', async function(e) {
+                // El AdminReservationController maneja la lógica de submit
+                // Solo necesitamos escuchar el éxito para cerrar el modal
+                
+                // Crear observer para detectar cuando se muestra el alert de éxito
+                // y luego cerrar el modal
+                const originalAlert = window.alert;
+                window.alert = function(message) {
+                    originalAlert(message);
+                    
+                    // Si el mensaje indica éxito, cerrar modal
+                    if (message && message.includes('✅')) {
+                        console.log('[ReservationModal] Éxito detectado, cerrando modal...');
+                        self.close();
+                    }
+                    
+                    // Restaurar alert original
+                    window.alert = originalAlert;
+                };
+            }, true); // Capture phase para ejecutar antes
         },
 
         /**
@@ -60,12 +153,17 @@
                 return;
             }
 
+            console.log('[ReservationModal] Abriendo modal...');
+
             AAAdmin.openModal({
                 title: this.config.title,
                 body: this.getBodyContent()
             });
 
-            console.log('[ReservationModal] Modal abierto');
+            // Inicializar controladores después de abrir
+            this.initControllers();
+            
+            console.log('[ReservationModal] ✅ Modal abierto');
         },
 
         /**
@@ -78,6 +176,8 @@
             }
 
             AAAdmin.closeModal();
+            this.initialized = false;
+            
             console.log('[ReservationModal] Modal cerrado');
         },
 
@@ -98,7 +198,7 @@
                 self.open();
             });
 
-            console.log('[ReservationModal] Inicializado correctamente');
+            console.log('[ReservationModal] ✅ Inicializado correctamente');
         }
     };
 
@@ -111,8 +211,7 @@
         ReservationModal.init();
     }
 
-    // Expose to global scope for potential external use
+    // Expose to global scope
     window.AAReservationModal = ReservationModal;
 
 })();
-

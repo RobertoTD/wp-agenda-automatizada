@@ -109,34 +109,21 @@ $module_js_url = $plugin_url . 'calendar-module.js';
 <!-- Scripts: Orden crítico - datos primero, luego dependencias, luego módulo -->
 <!-- Datos base del calendario -->
 <script>
+  // Datos específicos del módulo Calendar (complementa variables globales de layout.php)
   window.AA_CALENDAR_DATA = {
     schedule: <?php echo wp_json_encode($schedule); ?>,
     nonce: '<?php echo wp_create_nonce('aa_proximas_citas'); ?>',
     historialNonce: '<?php echo wp_create_nonce('aa_historial_citas'); ?>',
-    ajaxurl: '<?php echo admin_url('admin-ajax.php'); ?>'
+    ajaxurl: window.ajaxurl || '<?php echo admin_url('admin-ajax.php'); ?>'
   };
-
-  // Variables requeridas por ConfirmService
-  window.aa_asistant_vars = {
-    nonce_confirmar: '<?php echo wp_create_nonce('aa_confirmar_cita'); ?>',
-    nonce_cancelar: '<?php echo wp_create_nonce('aa_cancelar_cita'); ?>'
-  };
-
-  // Garantizar ajaxurl global
-  if (typeof window.ajaxurl === 'undefined') {
-    window.ajaxurl = '<?php echo admin_url('admin-ajax.php'); ?>';
-  }
 </script>
 
 <!-- 
-    Scripts compartidos (Flatpickr, dateUtils, services, adapters) 
+    Scripts compartidos (Flatpickr, dateUtils, services, controllers) 
     están cargados globalmente desde layout.php 
 -->
 
-<!-- Controlador específico del calendario admin -->
-<script src="<?php echo esc_url(plugin_dir_url(__FILE__) . '../../../../../assets/js/controllers/adminCalendarController.js'); ?>" defer></script>
-
-<!-- Archivos de sección del calendario -->
+<!-- Archivos de sección del calendario (específicos del módulo) -->
 <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'calendar-section/calendar-appointment-card.js'); ?>" defer></script>
 <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'calendar-section/calendar-overlap.js'); ?>" defer></script>
 <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'calendar-section/calendar-appointments.js'); ?>" defer></script>
