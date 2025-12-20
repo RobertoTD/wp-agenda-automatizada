@@ -120,41 +120,42 @@ header('Content-Type: text/html; charset=utf-8');
      ============================================ -->
 
 <!-- Shared Admin JS (AAAdmin namespace) -->
-<script src="<?php echo esc_url(AA_PLUGIN_URL . 'includes/admin/ui/assets/js/main.js'); ?>"></script>
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'includes/admin/ui/assets/js/main.js'); ?>" defer></script>
 
 <!-- Flatpickr JS -->
-<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js" defer></script>
 
 <!-- Utils -->
-<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/utils/dateUtils.js'); ?>"></script>
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/utils/dateUtils.js'); ?>" defer></script>
 
 <!-- UI Components -->
-<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/ui/calendarAdminUI.js'); ?>"></script>
-<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/ui/slotSelectorAdminUI.js'); ?>"></script>
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/ui/calendarAdminUI.js'); ?>" defer></script>
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/ui/slotSelectorAdminUI.js'); ?>" defer></script>
 
 <!-- Availability Services (orden de dependencias) -->
-<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/availability/proxyFetch.js'); ?>"></script>
-<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/availability/combineLocalExternal.js'); ?>"></script>
-<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/availability/busyRanges.js'); ?>"></script>
-<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/availability/slotCalculator.js'); ?>"></script>
-<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/availabilityService.js'); ?>"></script>
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/availability/proxyFetch.js'); ?>" defer></script>
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/availability/combineLocalExternal.js'); ?>" defer></script>
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/availability/busyRanges.js'); ?>" defer></script>
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/availability/slotCalculator.js'); ?>" defer></script>
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/availabilityService.js'); ?>" defer></script>
 
 <!-- Other Services -->
-<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/reservationService.js'); ?>"></script>
-<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/adminCalendarService.js'); ?>"></script>
-<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/confirmService.js'); ?>"></script>
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/reservationService.js'); ?>" defer></script>
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/adminCalendarService.js'); ?>" defer></script>
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/confirmService.js'); ?>" defer></script>
 
 <!-- Controllers -->
-<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/controllers/availabilityController.js'); ?>"></script>
-<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/controllers/adminReservationController.js'); ?>"></script>
-<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/controllers/adminConfirmController.js'); ?>"></script>
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/controllers/availabilityController.js'); ?>" defer></script>
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/controllers/adminReservationController.js'); ?>" defer></script>
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/controllers/adminCalendarController.js'); ?>" defer></script>
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/controllers/adminConfirmController.js'); ?>" defer></script>
 
 <!-- UI Adapters -->
-<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/ui-adapters/datePickerAdapter.js'); ?>"></script>
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/ui-adapters/datePickerAdapter.js'); ?>" defer></script>
 
 <!-- Transversal Modal: Reservation (último, usa todos los anteriores) -->
-<script src="<?php echo esc_url(AA_PLUGIN_URL . 'includes/admin/ui/modals/reservation/reservation.js'); ?>"></script>
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'includes/admin/ui/modals/reservation/reservation.js'); ?>" defer></script>
 
     <div id="aa-admin-app" class="w-full">
         <?php require_once __DIR__ . '/header.php'; ?>
