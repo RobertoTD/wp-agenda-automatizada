@@ -13,9 +13,8 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
 // Obtener schedule
 $schedule = get_option('aa_schedule', []);
 
-// Resolver rutas de scripts (wpaa_url puede no estar disponible en este contexto)
+// Resolver rutas de scripts
 $plugin_url = plugin_dir_url(__FILE__);
-$date_utils_url = $plugin_url . '../../../../../assets/js/utils/dateUtils.js';
 $module_js_url = $plugin_url . 'calendar-module.js';
 ?>
 
@@ -129,28 +128,13 @@ $module_js_url = $plugin_url . 'calendar-module.js';
   }
 </script>
 
-<!-- Flatpickr CSS -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<!-- 
+    Scripts compartidos (Flatpickr, dateUtils, services, adapters) 
+    están cargados globalmente desde layout.php 
+-->
 
-<!-- Utils -->
-<script src="<?php echo esc_url($date_utils_url); ?>" defer></script>
-
-<!-- Flatpickr JS -->
-<script src="https://cdn.jsdelivr.net/npm/flatpickr" defer></script>
-<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js" defer></script>
-
-<!-- Servicios del calendario -->
-<script src="<?php echo esc_url(plugin_dir_url(__FILE__) . '../../../../../assets/js/services/adminCalendarService.js'); ?>" defer></script>
-
-<!-- Servicios y controladores requeridos por los botones -->
-<script src="<?php echo esc_url(plugin_dir_url(__FILE__) . '../../../../../assets/js/services/confirmService.js'); ?>" defer></script>
-<script src="<?php echo esc_url(plugin_dir_url(__FILE__) . '../../../../../assets/js/controllers/adminConfirmController.js'); ?>" defer></script>
-
-<!-- Controlador del calendario -->
+<!-- Controlador específico del calendario admin -->
 <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . '../../../../../assets/js/controllers/adminCalendarController.js'); ?>" defer></script>
-
-<!-- DatePicker Adapter -->
-<script src="<?php echo esc_url(plugin_dir_url(__FILE__) . '../../../../../assets/js/ui-adapters/datePickerAdapter.js'); ?>" defer></script>
 
 <!-- Archivos de sección del calendario -->
 <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'calendar-section/calendar-appointment-card.js'); ?>" defer></script>

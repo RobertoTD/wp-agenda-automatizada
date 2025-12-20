@@ -8,6 +8,8 @@
  * - Shared header/navigation
  * - Module content area
  * - Shared footer
+ * - Shared scripts (utils, services, adapters)
+ * - Transversal modals (reservation, etc.)
  */
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
@@ -29,8 +31,31 @@ header('Content-Type: text/html; charset=utf-8');
     <!-- Tailwind CSS (usando constante global para URL limpia) -->
     <link rel="stylesheet" href="<?php echo esc_url(AA_PLUGIN_URL . 'includes/admin/ui/assets/css/admin.css'); ?>">
     
+    <!-- Flatpickr CSS (requerido por calendario y modales) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    
     <!-- Shared Admin JS -->
     <script src="<?php echo esc_url(AA_PLUGIN_URL . 'includes/admin/ui/assets/js/main.js'); ?>" defer></script>
+    
+    <!-- Shared Utils -->
+    <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/utils/dateUtils.js'); ?>" defer></script>
+    
+    <!-- Flatpickr JS -->
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js" defer></script>
+    
+    <!-- Shared Services -->
+    <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/adminCalendarService.js'); ?>" defer></script>
+    <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/confirmService.js'); ?>" defer></script>
+    
+    <!-- Shared Controllers -->
+    <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/controllers/adminConfirmController.js'); ?>" defer></script>
+    
+    <!-- Shared UI Adapters -->
+    <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/ui-adapters/datePickerAdapter.js'); ?>" defer></script>
+    
+    <!-- Transversal Modal: Reservation -->
+    <script src="<?php echo esc_url(AA_PLUGIN_URL . 'includes/admin/ui/modals/reservation/reservation.js'); ?>" defer></script>
     
 </head>
 <body class="flex flex-col min-h-screen" style="background-color: rgb(240, 240, 241);">
@@ -54,6 +79,11 @@ header('Content-Type: text/html; charset=utf-8');
 
     <!-- Shared Modals -->
     <?php require_once __DIR__ . '/modals.php'; ?>
+    
+    <!-- Transversal Modal Templates (hidden, used by JS) -->
+    <div id="aa-modal-templates" class="hidden">
+        <?php require_once dirname(__DIR__) . '/modals/reservation/index.php'; ?>
+    </div>
 
 </body>
 </html>
