@@ -27,7 +27,7 @@ class ClienteService {
      */
     public static function getOrCreate(array $data): int {
         global $wpdb;
-        error_log('ClienteService::getOrCreate llamado');
+        
         // Sanitizar y validar datos de entrada
         $nombre = isset($data['nombre']) ? sanitize_text_field($data['nombre']) : '';
         $telefono = isset($data['telefono']) ? sanitize_text_field($data['telefono']) : '';
@@ -44,8 +44,7 @@ class ClienteService {
         if (!empty($telefono)) {
             $cliente = self::findByTelefono($telefono);
             if ($cliente) {
-                // Actualizar datos si es necesario
-                self::updateClienteIfNeeded($cliente->id, $nombre, $telefono, $correo);
+                // Retornar ID del cliente existente sin modificar datos
                 return (int) $cliente->id;
             }
         }
@@ -54,8 +53,7 @@ class ClienteService {
         if (!empty($correo)) {
             $cliente = self::findByCorreo($correo);
             if ($cliente) {
-                // Actualizar datos si es necesario
-                self::updateClienteIfNeeded($cliente->id, $nombre, $telefono, $correo);
+                // Retornar ID del cliente existente sin modificar datos
                 return (int) $cliente->id;
             }
         }
@@ -98,71 +96,6 @@ class ClienteService {
             "SELECT id, nombre, telefono, correo FROM $table WHERE correo = %s LIMIT 1",
             $correo_sanitizado
         ));
-    }
-    
-    /**
-     * Actualiza un cliente si los datos proporcionados son diferentes.
-     * 
-     * @param int $cliente_id ID del cliente
-     * @param string $nombre Nuevo nombre
-     * @param string $telefono Nuevo teléfono
-     * @param string $correo Nuevo correo
-     * @return void
-     */
-    private static function updateClienteIfNeeded(int $cliente_id, string $nombre, string $telefono, string $correo): void {
-        global $wpdb;
-        $table = $wpdb->prefix . 'aa_clientes';
-        
-        // Obtener datos actuales
-        $cliente_actual = $wpdb->get_row($wpdb->prepare(
-            "SELECT nombre, telefono, correo FROM $table WHERE id = %d",
-            $cliente_id
-        ));
-        
-        if (!$cliente_actual) {
-            return;
-        }
-        
-        // Verificar si hay cambios
-        $needs_update = false;
-        $update_data = [];
-        
-        if ($cliente_actual->nombre !== $nombre && !empty($nombre)) {
-            $update_data['nombre'] = $nombre;
-            $needs_update = true;
-        }
-        
-        if ($cliente_actual->telefono !== $telefono && !empty($telefono)) {
-            $update_data['telefono'] = $telefono;
-            $needs_update = true;
-        }
-        
-        if ($cliente_actual->correo !== $correo && !empty($correo)) {
-            // Verificar que el correo no esté en uso por otro cliente
-            $correo_existente = $wpdb->get_var($wpdb->prepare(
-                "SELECT id FROM $table WHERE correo = %s AND id != %d LIMIT 1",
-                $correo,
-                $cliente_id
-            ));
-            
-            if (!$correo_existente) {
-                $update_data['correo'] = $correo;
-                $needs_update = true;
-            }
-        }
-        
-        // Actualizar si hay cambios
-        if ($needs_update) {
-            $update_data['updated_at'] = current_time('mysql');
-            
-            $wpdb->update(
-                $table,
-                $update_data,
-                ['id' => $cliente_id],
-                ['%s', '%s', '%s', '%s'],
-                ['%d']
-            );
-        }
     }
     
     /**
