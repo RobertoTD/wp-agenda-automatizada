@@ -141,6 +141,7 @@ function aa_count_clientes() {
 // ===============================
 // 🔹 Buscar clientes con paginación (para módulo iframe)
 // Ordena por total_citas DESC por defecto
+// Usa exclusivamente aa_clientes como fuente de verdad
 // ===============================
 function aa_search_clientes($query = '', $limit = 10, $offset = 0) {
     global $wpdb;
@@ -152,7 +153,7 @@ function aa_search_clientes($query = '', $limit = 10, $offset = 0) {
     $offset = absint($offset);
     $query = sanitize_text_field($query);
     
-    // Construir WHERE clause si hay query
+    // Construir WHERE clause si hay query (solo busca en aa_clientes)
     if (!empty($query)) {
         $search_term = '%' . $wpdb->esc_like($query) . '%';
         $where = $wpdb->prepare(
@@ -165,12 +166,13 @@ function aa_search_clientes($query = '', $limit = 10, $offset = 0) {
         $where = '';
     }
     
-    // Query con JOIN para contar citas y ordenar por total_citas DESC
-    $sql = "SELECT c.*, COUNT(r.id) as total_citas 
+    // Query usando exclusivamente aa_clientes como fuente de verdad
+    // Calcula total_citas mediante relación con aa_reservas usando id_cliente
+    $sql = "SELECT c.id, c.nombre, c.telefono, c.correo, c.created_at, COUNT(r.id) as total_citas 
             FROM $table_clientes c 
             LEFT JOIN $table_reservas r ON c.id = r.id_cliente 
             $where 
-            GROUP BY c.id 
+            GROUP BY c.id, c.nombre, c.telefono, c.correo, c.created_at
             ORDER BY total_citas DESC, c.created_at DESC 
             LIMIT %d OFFSET %d";
     
