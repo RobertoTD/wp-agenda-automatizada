@@ -27,7 +27,7 @@ class ClienteService {
      */
     public static function getOrCreate(array $data): int {
         global $wpdb;
-        
+        error_log('ClienteService::getOrCreate llamado');
         // Sanitizar y validar datos de entrada
         $nombre = isset($data['nombre']) ? sanitize_text_field($data['nombre']) : '';
         $telefono = isset($data['telefono']) ? sanitize_text_field($data['telefono']) : '';

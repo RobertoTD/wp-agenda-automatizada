@@ -119,8 +119,19 @@ function aa_save_reservation() {
         $duracion = 60; // Valor por defecto si no es válido
     }
 
-    // 🔹 Buscar o crear cliente (función modularizada)
-    $cliente_id = aa_get_or_create_cliente($nombre, $telefono, $correo);
+    // 🔹 Buscar o crear cliente usando ClienteService
+    try {
+        $cliente_id = ClienteService::getOrCreate([
+            'nombre' => $nombre,
+            'telefono' => $telefono,
+            'correo' => $correo
+        ]);
+    } catch (Exception $e) {
+        error_log("❌ Error al obtener/crear cliente: " . $e->getMessage());
+        wp_send_json_error([
+            'message' => 'Error al procesar los datos del cliente: ' . $e->getMessage()
+        ]);
+    }
 
     // ✅ Inserción en la tabla
     $result = $wpdb->insert($table, [
