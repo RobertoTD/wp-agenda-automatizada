@@ -48,7 +48,6 @@ require_once plugin_dir_path(__FILE__) . 'includes/controllers/WebhooksControlle
 require_once plugin_dir_path(__FILE__) . 'includes/controllers/enqueueController.php';
 
 // 6️⃣ Vistas
-require_once plugin_dir_path(__FILE__) . 'views/asistant-controls.php';
 require_once plugin_dir_path(__FILE__) . 'views/admin-controls.php';
 
 // 7️⃣ Módulos adicionales

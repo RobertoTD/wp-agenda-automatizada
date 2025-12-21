@@ -48,35 +48,6 @@ function aa_render_settings_iframe_page() {
     <?php
 }
 
-// 🔹 Submenú visible para el admin: Panel del Asistente
-add_action('admin_menu', function () {
-    // Si es administrador, agregar pestaña del asistente debajo del menú principal
-    if (current_user_can('administrator')) {
-        add_submenu_page(
-            'agenda-automatizada-settings',
-            'Panel del Asistente',
-            'Panel del Asistente',
-            'administrator',
-            'aa_asistant_panel',
-            'aa_render_asistant_panel'
-        );
-    }
-
-    // 🔹 Menú principal exclusivo para el rol aa_asistente
-    if (current_user_can('aa_asistente')) {
-        add_menu_page(
-            'Panel del Asistente',
-            'Panel del Asistente',
-            'read', // ✅ Cambiar de 'aa_asistente' a 'read' para que WordPress lo permita
-            'aa_asistant_panel',
-            'aa_render_asistant_panel',
-            'dashicons-calendar-alt',
-            30
-        );
-    }
-});
-
-
 // Registrar settings
 add_action('admin_init', function() {
     register_setting('agenda_automatizada_settings', 'aa_schedule');

@@ -172,9 +172,7 @@ function wpaa_enqueue_admin_assets($hook) {
     // IMPORTANTE: Tailwind CSS (admin.css) se carga SOLO dentro del iframe via layout.php
     // NO debe cargarse aquí para evitar afectar el admin legacy de WordPress
     $plugin_pages = [
-        'toplevel_page_agenda-automatizada-settings',
-        'agenda-automatizada_page_aa_asistant_panel',
-        'toplevel_page_aa_asistant_panel'
+        'toplevel_page_agenda-automatizada-settings'
     ];
     
     if (in_array($hook, $plugin_pages)) {
@@ -190,113 +188,5 @@ function wpaa_enqueue_admin_assets($hook) {
     // --- Pantalla principal de ajustes ---
     // Note: Settings page now uses iframe-based UI, so JS is loaded inside the iframe
     // No global enqueue needed here - JS is loaded by the iframe UI module
-
-    // --- Panel del asistente ---
-    if ($hook === 'toplevel_page_aa_asistant_panel' || $hook === 'agenda-automatizada_page_aa_asistant_panel') {
-
-        // 🔹 Encolar CSS del panel del asistente
-        wp_enqueue_style('wpaa-asistant-panel-styles', wpaa_url('css/styles.css'), [], filemtime(wpaa_path('css/styles.css')));
-
-        wp_enqueue_style('flatpickr-css-admin', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css');
-        wp_enqueue_script('flatpickr-js-admin', 'https://cdn.jsdelivr.net/npm/flatpickr', [], null, true);
-        wp_enqueue_script('flatpickr-es-admin', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js', ['flatpickr-js-admin'], null, true);
-
-        // ✅ IMPORTANTE: Cargar datos locales ANTES de cualquier script admin
-        wpaa_localize_local_availability('wpaa-availability-controller-admin');
-
-        // Scripts admin declarados
-        $admin_scripts = [
-            // 🔹 Utilidades
-            ['wpaa-date-utils-admin',              'assets/js/utils/dateUtils.js',              [], true],
-            
-            // 🔹 UI (PRIMERO, antes de controladores)
-            ['wpaa-calendar-ui-admin',             'assets/js/ui/calendarUI.js',                
-                                                   ['flatpickr-js-admin', 'flatpickr-es-admin'], true],
-            ['wpaa-calendar-admin-ui',             'assets/js/ui/calendarAdminUI.js',           
-                                                   ['flatpickr-js-admin', 'flatpickr-es-admin'], true],
-            ['wpaa-slot-selector-admin-ui',        'assets/js/ui/slotSelectorAdminUI.js',       [], true],
-            
-            // 🔹 Servicios (AJAX)
-            ['wpaa-proxy-fetch-admin',             'assets/js/services/availability/proxyFetch.js', [], true],
-            ['wpaa-combine-local-external-admin',  'assets/js/services/availability/combineLocalExternal.js', [], true],
-            ['wpaa-busy-ranges-admin',             'assets/js/services/availability/busyRanges.js', [], true],
-            ['wpaa-slot-calculator-admin',         'assets/js/services/availability/slotCalculator.js', 
-                                                   ['wpaa-date-utils-admin'], true],
-            ['wpaa-availability-service-admin',    'assets/js/services/availabilityService.js',
-                                                   ['wpaa-date-utils-admin', 'wpaa-proxy-fetch-admin', 'wpaa-combine-local-external-admin', 'wpaa-busy-ranges-admin', 'wpaa-slot-calculator-admin'], true],
-            ['wpaa-reservation-service-admin',     'assets/js/services/reservationService.js',  [], true],
-            // 🔹 confirmService y adminConfirmController se cargan en el iframe del calendario (index.php)
-            // NO cargar aquí para evitar duplicación de event listeners y múltiples alertas
-            // ['wpaa-confirm-service',               'assets/js/services/confirmService.js',      [], false],
-            
-            // 🔹 Módulos UI (renderizado puro)
-            // @deprecated: aa-proximas-citas-ui eliminado - el calendario usa calendar-module.js en iframe
-            
-            // 🔹 Controladores (DESPUÉS de UI y Services)
-            ['wpaa-availability-controller-admin', 'assets/js/controllers/availabilityController.js',
-                                                   ['wpaa-date-utils-admin', 'wpaa-calendar-admin-ui', 'wpaa-slot-selector-admin-ui', 'wpaa-availability-service-admin'], true],
-            ['wpaa-admin-reservation-controller',  'assets/js/controllers/adminReservationController.js',
-                                                   ['wpaa-reservation-service-admin'], true],
-            // 🔹 adminConfirmController se carga en el iframe del calendario (index.php)
-            // NO cargar aquí para evitar duplicación de event listeners y múltiples alertas
-            // ['wpaa-admin-confirm-controller',      'assets/js/controllers/adminConfirmController.js',
-            //                                        ['wpaa-confirm-service'], false],
-            // 🔹 proximasCitasController depende de adminConfirmController, también comentado
-            // ['wpaa-proximas-citas-controller',     'assets/js/controllers/proximasCitasController.js',
-            //                                        ['wpaa-admin-confirm-controller'], false],
-            
-            // 🔹 Punto de entrada (ÚLTIMO)
-            ['wpaa-main-admin',                    'assets/js/main-admin.js',
-                                                   ['wpaa-admin-reservation-controller','wpaa-date-utils-admin', 'wpaa-availability-controller-admin'], true],
-            
-            // 🔹 Scripts legacy (compatibilidad)
-            ['aa-asistant-controls',               'js/asistant-controls.js',                  [], false],
-            // @deprecated: aa-historial-citas eliminado - el calendario usa calendar-module.js en iframe
-            // 🔹 aa-proximas-citas depende de wpaa-proximas-citas-controller que está comentado
-            // ['aa-proximas-citas',                  'js/proximas-citas.js',                     ['wpaa-proximas-citas-controller'], false],
-        ];
-
-        foreach ($admin_scripts as [$h, $p, $d, $m]) {
-            wpaa_register_js($h, $p, $d, $m);
-        }
-
-        // Localize comunes admin
-        wpaa_localize('wpaa-date-utils-admin', 'wpaa_vars', [
-            'ajax_url' => admin_url('admin-ajax.php'),
-            'timezone' => get_option('aa_timezone', 'America/Mexico_City'),
-            'locale'   => get_option('aa_locale', 'es-MX'),
-            'nonce'    => wp_create_nonce('aa_reservation_nonce'),
-        ]);
-
-        $email = sanitize_email(get_option('aa_google_email', ''));
-
-        wpaa_localize('wpaa-availability-controller-admin', 'aa_backend', [
-            'ajax_url' => admin_url('admin-ajax.php'),
-            'action'   => 'aa_get_availability',
-            'email'    => $email,
-        ]);
-
-        wpaa_localize('wpaa-availability-controller-admin', 'aa_schedule',      get_option('aa_schedule', []));
-        wpaa_localize('wpaa-availability-controller-admin', 'aa_future_window', intval(get_option('aa_future_window', 15)));
-        wpaa_localize('wpaa-availability-controller-admin', 'aa_slot_duration', intval(get_option('aa_slot_duration', 60)));
-
-        wpaa_localize('aa-asistant-controls', 'aa_asistant_vars', [
-            'nonce_confirmar' => wp_create_nonce('aa_confirmar_cita'),
-            'nonce_cancelar'  => wp_create_nonce('aa_cancelar_cita'),
-            'nonce_crear_cliente' => wp_create_nonce('aa_crear_cliente'),
-            'nonce_crear_cita' => wp_create_nonce('aa_reservation_nonce'),
-            'nonce_crear_cliente_desde_cita' => wp_create_nonce('aa_crear_cliente_desde_cita'),
-            'nonce_editar_cliente' => wp_create_nonce('aa_editar_cliente'),
-        ]);
-
-        wpaa_localize('aa-historial-citas', 'aa_historial_vars', [
-            'nonce' => wp_create_nonce('aa_historial_citas'),
-        ]);
-
-        // 🔹 aa-proximas-citas eliminado - el calendario usa calendar-module.js en iframe
-        // wpaa_localize('aa-proximas-citas', 'aa_proximas_vars', [
-        //     'nonce' => wp_create_nonce('aa_proximas_citas'),
-        // ]);
-    }
 }
 add_action('admin_enqueue_scripts', 'wpaa_enqueue_admin_assets');
