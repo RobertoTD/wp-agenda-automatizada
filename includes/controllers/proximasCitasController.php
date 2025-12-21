@@ -28,7 +28,8 @@ function aa_ajax_get_citas_por_dia() {
     }
     
     global $wpdb;
-    $table = $wpdb->prefix . 'aa_reservas';
+    $table_reservas = $wpdb->prefix . 'aa_reservas';
+    $table_clientes = $wpdb->prefix . 'aa_clientes';
     
     // 🔹 Obtener fecha (opcional)
     $fecha = isset($_POST['fecha']) ? sanitize_text_field($_POST['fecha']) : '';
@@ -48,11 +49,25 @@ function aa_ajax_get_citas_por_dia() {
     $fecha_inicio = $fecha . ' 00:00:00';
     $fecha_fin = $fecha . ' 23:59:59';
     
-    // 🔹 Consulta: filtrar por rango del día usando BETWEEN
-    $query = "SELECT *, DATE_ADD(fecha, INTERVAL IFNULL(duracion, 60) MINUTE) as fecha_fin 
-              FROM $table 
-              WHERE fecha BETWEEN %s AND %s 
-              ORDER BY fecha ASC";
+    // 🔹 Consulta: SELECT explícito desde aa_reservas con LEFT JOIN a aa_clientes
+    // Usa datos reales del cliente desde aa_clientes, nunca datos legacy de reservas
+    $query = "SELECT 
+                r.id,
+                r.servicio,
+                r.fecha,
+                r.duracion,
+                r.estado,
+                r.calendar_uid,
+                r.created_at,
+                r.id_cliente,
+                c.nombre,
+                c.telefono,
+                c.correo,
+                DATE_ADD(r.fecha, INTERVAL IFNULL(r.duracion, 60) MINUTE) as fecha_fin
+              FROM $table_reservas r
+              LEFT JOIN $table_clientes c ON r.id_cliente = c.id
+              WHERE r.fecha BETWEEN %s AND %s 
+              ORDER BY r.fecha ASC";
     
     $citas = $wpdb->get_results($wpdb->prepare($query, $fecha_inicio, $fecha_fin));
     
