@@ -6,8 +6,9 @@
  * Uses the existing card system with [data-aa-card] and [data-aa-card-toggle]
  * 
  * Structure:
- * - Filters section (empty placeholder for now)
- * - Cards stack with example cards
+ * - Filters section (placeholder for future filters)
+ * - Cards stack (dynamically rendered by JS)
+ * - Pagination controls (dynamically rendered by JS)
  * 
  * NOTE: This template uses <template> tag to avoid duplicate IDs in DOM.
  * The JS will clone and insert content when modal opens.
@@ -24,56 +25,20 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
     <div class="aa-appointments-modal">
         
         <!-- Filters Section (placeholder for future filters) -->
-        <div class="aa-appointments-filters">
-            <!-- Filtros vendrán aquí -->
+        <div class="aa-appointments-filters mb-4">
+            <!-- Filtros vendrán aquí en futuras versiones -->
         </div>
         
-        <!-- Cards Stack -->
+        <!-- Cards Stack (dynamically populated by AppointmentsController) -->
         <div class="aa-appointments-list space-y-2">
-            
-            <!-- Card ejemplo 1 -->
-            <div data-aa-card class="aa-appointment-card">
-                <div class="aa-appointment-header" data-aa-card-toggle>
-                    Card ejemplo 1
-                </div>
-                <div class="aa-card-overlay">
-                    <div class="aa-card-body">
-                        <div class="text-sm text-gray-700">
-                            Contenido placeholder para card ejemplo 1
-                        </div>
-                    </div>
-                </div>
+            <!-- Cards se renderizan dinámicamente -->
+            <div class="aa-appointments-loading flex items-center justify-center py-8">
+                <div class="text-gray-500">Cargando citas...</div>
             </div>
-            
-            <!-- Card ejemplo 2 -->
-            <div data-aa-card class="aa-appointment-card">
-                <div class="aa-appointment-header" data-aa-card-toggle>
-                    Card ejemplo 2
-                </div>
-                <div class="aa-card-overlay">
-                    <div class="aa-card-body">
-                        <div class="text-sm text-gray-700">
-                            Contenido placeholder para card ejemplo 2
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Card ejemplo 3 -->
-            <div data-aa-card class="aa-appointment-card">
-                <div class="aa-appointment-header" data-aa-card-toggle>
-                    Card ejemplo 3
-                </div>
-                <div class="aa-card-overlay">
-                    <div class="aa-card-body">
-                        <div class="text-sm text-gray-700">
-                            Contenido placeholder para card ejemplo 3
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
         </div>
+        
+        <!-- Pagination (dynamically populated by AppointmentsController) -->
+        <div class="aa-appointments-pagination"></div>
+        
     </div>
 </template>
-

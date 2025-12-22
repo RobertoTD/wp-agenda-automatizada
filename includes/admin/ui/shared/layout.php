@@ -153,6 +153,7 @@ header('Content-Type: text/html; charset=utf-8');
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/controllers/adminReservationController.js'); ?>" defer></script>
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/controllers/adminCalendarController.js'); ?>" defer></script>
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/controllers/adminConfirmController.js'); ?>" defer></script>
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/controllers/appointmentsController.js'); ?>" defer></script>
 
 <!-- UI Adapters -->
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/ui-adapters/datePickerAdapter.js'); ?>" defer></script>

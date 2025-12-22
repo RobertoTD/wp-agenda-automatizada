@@ -1,8 +1,8 @@
 /**
  * Appointments Modal Controller
  * 
- * Manages the opening of the appointments modal.
- * Loads content from template and uses AAAdmin.openModal.
+ * Manages the opening of the appointments modal and coordinates
+ * with AppointmentsController for data fetching and rendering.
  * 
  * @package AgendaAutomatizada
  * @since 1.0.0
@@ -21,6 +21,11 @@
             templateId: 'aa-appointments-modal-template',
             title: 'Citas'
         },
+
+        /**
+         * Current filters
+         */
+        currentFilters: {},
 
         /**
          * Get the modal body content from template
@@ -44,8 +49,27 @@
         },
 
         /**
+         * Get modal title based on filters
+         * @param {Object} filters - Current filters
+         * @returns {string} Modal title
+         */
+        getTitle: function(filters) {
+            const titles = {
+                'pending': 'Citas Pendientes',
+                'confirmed': 'Citas Confirmadas',
+                'cancelled': 'Citas Canceladas'
+            };
+            
+            if (filters.type && titles[filters.type]) {
+                return titles[filters.type];
+            }
+            
+            return this.config.title;
+        },
+
+        /**
          * Open the appointments modal
-         * @param {Object} [filters={}] - Optional filters (not used yet)
+         * @param {Object} [filters={}] - Optional filters { type, unread }
          */
         open: function(filters = {}) {
             if (typeof AAAdmin === 'undefined' || typeof AAAdmin.openModal !== 'function') {
@@ -53,14 +77,37 @@
                 return;
             }
 
-            console.log('[AppointmentsModal] Abriendo modal...');
+            console.log('[AppointmentsModal] Abriendo modal con filtros:', filters);
 
+            // Store current filters
+            this.currentFilters = filters;
+
+            // Open modal with dynamic title
             AAAdmin.openModal({
-                title: this.config.title,
+                title: this.getTitle(filters),
                 body: this.getBodyContent()
             });
 
+            // Initialize controller after modal content is rendered
+            this.initController(filters);
+
             console.log('[AppointmentsModal] ✅ Modal abierto');
+        },
+
+        /**
+         * Initialize the appointments controller
+         * @param {Object} filters - Filters to pass to controller
+         */
+        initController: function(filters) {
+            // Small delay to ensure DOM is ready
+            setTimeout(function() {
+                if (typeof window.AAAppointmentsController !== 'undefined') {
+                    console.log('[AppointmentsModal] Inicializando AppointmentsController...');
+                    window.AAAppointmentsController.init(filters);
+                } else {
+                    console.error('[AppointmentsModal] ❌ AAAppointmentsController no disponible');
+                }
+            }, 50);
         }
     };
 
@@ -68,4 +115,3 @@
     window.AAAppointmentsModal = AppointmentsModal;
 
 })();
-

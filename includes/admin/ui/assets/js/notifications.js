@@ -129,12 +129,18 @@
     }
 
     /**
-     * Mark notifications as read by type
+     * Mark notifications as read by type and open appointments modal
      * @param {string} type - Notification type (pending, confirmed, cancelled)
      */
     function markNotificationsAsRead(type) {
         const ajaxurl = window.ajaxurl || '/wp-admin/admin-ajax.php';
         const url = ajaxurl + '?action=aa_mark_notifications_as_read&type=' + encodeURIComponent(type);
+
+        // Close popover immediately for better UX
+        const popover = document.getElementById('aa-notifications-popover');
+        if (popover) {
+            popover.classList.add('hidden');
+        }
 
         fetch(url)
             .then(response => response.json())
@@ -144,8 +150,15 @@
                     updateNotificationsBadge();
                     renderNotificationsList();
                     
-                    // TODO: open appointments modal filtered by type
-                    // AAAppointmentsModal.open({ type: type });
+                    // Open appointments modal filtered by type and unread
+                    if (typeof window.AAAppointmentsModal !== 'undefined') {
+                        window.AAAppointmentsModal.open({ 
+                            type: type, 
+                            unread: true 
+                        });
+                    } else {
+                        console.error('[Notifications] AAAppointmentsModal no disponible');
+                    }
                 } else {
                     console.error('[Notifications] Error marking as read:', data.data?.message || 'Unknown error');
                 }
