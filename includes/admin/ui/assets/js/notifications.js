@@ -39,6 +39,7 @@
 
     /**
      * Update badge with notification count
+     * Exposed globally for use by appointmentsController
      */
     function updateNotificationsBadge() {
         const badge = document.getElementById('aa-notifications-badge');
@@ -168,8 +169,9 @@
             });
     }
 
-    // Expose function globally so appointmentsController can call it
+    // Expose functions globally so appointmentsController can call them
     window.aaMarkNotificationsAsRead = markNotificationsAsRead;
+    window.updateNotificationsBadge = updateNotificationsBadge;
 
     /**
      * Initialize notifications popover

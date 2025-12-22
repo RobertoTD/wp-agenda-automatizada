@@ -39,9 +39,7 @@
             filters: {},
             page: 1,
             totalPages: 1,
-            isLoading: false,
-            initialFilters: {}, // Store initial filters to mark as read on close
-            modalObserver: null // Observer to detect modal close
+            isLoading: false
         },
 
         /**
@@ -64,12 +62,6 @@
             
             this.state.filters = filters;
             this.state.page = 1;
-            
-            // Store initial filters to mark as read when modal closes
-            this.state.initialFilters = Object.assign({}, filters);
-            
-            // Setup modal close observer
-            this.setupModalCloseObserver();
             
             // Load appointments
             this.loadAppointments();
@@ -161,18 +153,32 @@
          */
         createCard: function(item) {
             const card = document.createElement('div');
-            card.className = 'aa-appointment-card';
+            card.className = 'aa-appointment-card relative';
             card.setAttribute('data-aa-card', '');
             card.setAttribute('data-appointment-id', item.id);
             
+            // Store unread state
+            const isUnread = item.unread === true;
+            card.setAttribute('data-unread', isUnread ? 'true' : 'false');
+            
             // Get estado badge
             const badge = ESTADO_BADGES[item.estado] || ESTADO_BADGES['pending'];
+            
+            // Unread bell icon (only if unread)
+            const bellIcon = isUnread ? `
+                <div class="aa-unread-bell absolute top-2 right-2 z-10">
+                    <svg class="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>
+                    </svg>
+                </div>
+            ` : '';
             
             // Header (clickable toggle)
             const header = document.createElement('div');
             header.className = 'aa-appointment-header';
             header.setAttribute('data-aa-card-toggle', '');
             header.innerHTML = `
+                ${bellIcon}
                 <div class="flex items-center justify-between w-full">
                     <div class="flex flex-col">
                         <span class="font-medium text-gray-900">${this.escapeHtml(item.cliente_nombre)}</span>
@@ -228,6 +234,9 @@
             overlay.appendChild(body);
             card.appendChild(header);
             card.appendChild(overlay);
+            
+            // Setup card open listener to mark as read
+            this.setupCardOpenListener(card, item.id);
             
             return card;
         },
@@ -365,71 +374,84 @@
         },
 
         /**
-         * Setup observer to detect when modal closes
-         * When modal closes, mark notifications as read if opened with unread filter
+         * Setup listener for card open to mark notification as read
+         * @param {HTMLElement} card - Card element
+         * @param {number} appointmentId - Appointment ID
          */
-        setupModalCloseObserver: function() {
+        setupCardOpenListener: function(card, appointmentId) {
             const self = this;
-            const modalRoot = document.getElementById('aa-modal-root');
+            const toggle = card.querySelector('[data-aa-card-toggle]');
             
-            if (!modalRoot) {
-                console.warn('[AppointmentsController] Modal root not found, cannot setup close observer');
-                return;
-            }
+            if (!toggle) return;
             
-            // Clean up existing observer if any
-            if (this.state.modalObserver) {
-                this.state.modalObserver.disconnect();
-                this.state.modalObserver = null;
-            }
+            // Track if we've already marked this as read
+            let isMarking = false;
             
-            // Track previous state to detect transition from open to closed
-            let wasOpen = !modalRoot.classList.contains('hidden');
-            
-            // Create observer to watch for modal close (when 'hidden' class is added)
-            this.state.modalObserver = new MutationObserver(function(mutations) {
+            // Listen for card open (when is-open class is added)
+            const observer = new MutationObserver(function(mutations) {
                 mutations.forEach(function(mutation) {
                     if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                        const isHidden = modalRoot.classList.contains('hidden');
+                        const isOpen = card.classList.contains('is-open');
+                        const isUnread = card.getAttribute('data-unread') === 'true';
                         
-                        // Detect transition from open to closed
-                        if (wasOpen && isHidden) {
-                            // Modal was just closed
-                            // If we have unread filter, mark notifications as read
-                            if (self.state.initialFilters.unread && self.state.initialFilters.type) {
-                                console.log('[AppointmentsController] Modal cerrado, marcando notificaciones como leídas:', self.state.initialFilters.type);
-                                
-                                // Mark notifications as read
-                                if (typeof window.aaMarkNotificationsAsRead === 'function') {
-                                    window.aaMarkNotificationsAsRead(self.state.initialFilters.type);
-                                } else {
-                                    console.warn('[AppointmentsController] aaMarkNotificationsAsRead no disponible');
-                                }
-                                
-                                // Reset initial filters
-                                self.state.initialFilters = {};
-                            }
-                            
-                            // Clean up observer
-                            if (self.state.modalObserver) {
-                                self.state.modalObserver.disconnect();
-                                self.state.modalObserver = null;
-                            }
+                        // If card was just opened and has unread notification
+                        if (isOpen && isUnread && !isMarking) {
+                            isMarking = true;
+                            self.markAppointmentNotificationAsRead(card, appointmentId);
                         }
-                        
-                        // Update previous state
-                        wasOpen = !isHidden;
                     }
                 });
             });
             
             // Start observing
-            this.state.modalObserver.observe(modalRoot, {
+            observer.observe(card, {
                 attributes: true,
                 attributeFilter: ['class']
             });
+        },
+
+        /**
+         * Mark notification as read for a specific appointment
+         * @param {HTMLElement} card - Card element
+         * @param {number} appointmentId - Appointment ID
+         */
+        markAppointmentNotificationAsRead: function(card, appointmentId) {
+            const ajaxurl = window.ajaxurl || '/wp-admin/admin-ajax.php';
+            const params = new URLSearchParams({
+                action: 'aa_mark_appointment_notification_read',
+                appointment_id: appointmentId
+            });
             
-            console.log('[AppointmentsController] ✅ Observer de cierre de modal configurado');
+            const url = ajaxurl + '?' + params.toString();
+            
+            console.log('[AppointmentsController] Marcando notificación como leída para appointment:', appointmentId);
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Remove bell icon
+                        const bell = card.querySelector('.aa-unread-bell');
+                        if (bell) {
+                            bell.remove();
+                        }
+                        
+                        // Update data attribute
+                        card.setAttribute('data-unread', 'false');
+                        
+                        // Update notifications badge if function exists
+                        if (typeof window.updateNotificationsBadge === 'function') {
+                            window.updateNotificationsBadge();
+                        }
+                        
+                        console.log('[AppointmentsController] ✅ Notificación marcada como leída');
+                    } else {
+                        console.error('[AppointmentsController] Error marcando notificación:', data);
+                    }
+                })
+                .catch(error => {
+                    console.error('[AppointmentsController] Error marcando notificación:', error);
+                });
         }
     };
 

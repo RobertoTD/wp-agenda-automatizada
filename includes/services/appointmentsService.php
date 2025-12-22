@@ -89,7 +89,8 @@ function aa_get_appointments() {
     $page = min($page, max(1, $total_pages));
     $offset = ($page - 1) * $limit;
     
-    // Get appointments
+    // Get appointments with unread notification status
+    // Use subquery to check if there's an unread notification for each appointment
     $select_sql = "
         SELECT DISTINCT
             r.id,
@@ -102,7 +103,17 @@ function aa_get_appointments() {
             r.estado,
             r.created_at,
             r.id_cliente,
-            c.nombre as cliente_nombre
+            c.nombre as cliente_nombre,
+            CASE 
+                WHEN EXISTS (
+                    SELECT 1 
+                    FROM {$notifications_table} n 
+                    WHERE n.entity_type = 'reservation' 
+                    AND n.entity_id = r.id 
+                    AND n.is_read = 0
+                ) THEN 1 
+                ELSE 0 
+            END as unread
         FROM {$reservas_table} r
         LEFT JOIN {$clientes_table} c ON r.id_cliente = c.id
         {$join_clause}
@@ -147,7 +158,8 @@ function aa_get_appointments() {
             'telefono' => $row->telefono,
             'correo' => $row->correo,
             'estado' => $row->estado,
-            'created_at' => $row->created_at
+            'created_at' => $row->created_at,
+            'unread' => isset($row->unread) ? (bool) $row->unread : false
         ];
     }
     
@@ -168,4 +180,54 @@ function aa_get_appointments() {
     ]);
 }
 
+/**
+ * Register AJAX endpoint for marking a single appointment notification as read
+ */
+add_action('wp_ajax_aa_mark_appointment_notification_read', 'aa_mark_appointment_notification_read');
 
+/**
+ * Mark notification as read for a specific appointment
+ * 
+ * Parameters (via $_POST or $_GET):
+ * - appointment_id: int (required)
+ * 
+ * @return void JSON response
+ */
+function aa_mark_appointment_notification_read() {
+    global $wpdb;
+    
+    // Get appointment_id
+    $appointment_id = isset($_REQUEST['appointment_id']) ? intval($_REQUEST['appointment_id']) : 0;
+    
+    if (!$appointment_id) {
+        wp_send_json_error(['message' => 'appointment_id es requerido']);
+        return;
+    }
+    
+    $notifications_table = $wpdb->prefix . 'aa_notifications';
+    
+    // Mark notification as read for this specific appointment
+    $result = $wpdb->update(
+        $notifications_table,
+        ['is_read' => 1],
+        [
+            'entity_type' => 'reservation',
+            'entity_id' => $appointment_id,
+            'is_read' => 0
+        ],
+        ['%d'],
+        ['%s', '%d', '%d']
+    );
+    
+    if ($result === false) {
+        error_log("❌ Error marking appointment notification as read: " . $wpdb->last_error);
+        wp_send_json_error(['message' => 'Error al marcar notificación como leída']);
+        return;
+    }
+    
+    // Return success (even if no rows were updated, it's not an error)
+    wp_send_json_success([
+        'message' => 'Notificación marcada como leída',
+        'updated' => $result
+    ]);
+}
