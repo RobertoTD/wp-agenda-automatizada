@@ -19,41 +19,59 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
                 <h1 class="text-sm font-semibold text-gray-900 truncate">Agenda Automatizada</h1>
             </div>
             
-            <!-- Right: Notifications + Agendar Button -->
+            <!-- Right: Appointments + Notifications + Agendar Button -->
             <div class="flex items-center gap-2">
-                <!-- Notifications Container (relative for popover positioning) -->
-                <div class="relative">
-                    <!-- Notifications Bell -->
+                <!-- Group: Small icon buttons (Explorer + Notifications) -->
+                <div class="flex items-center gap-0">
+                    <!-- Appointments Explorer Button -->
                     <button 
-                        id="aa-btn-notifications" 
+                        id="aa-btn-open-appointments-modal" 
                         type="button"
-                        class="inline-flex items-center justify-center w-9 h-9 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-                        aria-label="Notificaciones"
+                        class="inline-flex items-center justify-center w-9 h-9 text-gray-500 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                        aria-label="Ver citas"
                     >
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                  d="M15 19H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8" />
+                            <circle cx="11" cy="11" r="2.5" stroke-width="2" />
+                            <path stroke-linecap="round" stroke-width="2" d="M13.2 12.8L15.6 15.2" />
                         </svg>
                     </button>
-                    <span id="aa-notifications-badge" class="absolute top-0 right-2 text-xs font-medium text-gray-500 leading-none">0</span>
                     
-                    <!-- Notifications Popover (hidden by default) -->
-                    <div id="aa-notifications-popover" class="hidden absolute right-0 top-full mt-2 z-50 w-80 bg-white rounded-lg shadow-lg border border-gray-200">
-                        <div class="p-4">
-                            <div class="flex items-center justify-between mb-3">
-                                <h3 class="text-sm font-semibold text-gray-900">Notificaciones</h3>
-                                <button 
-                                    id="aa-btn-close-notifications" 
-                                    type="button"
-                                    class="text-gray-400 hover:text-gray-600 transition-colors"
-                                    aria-label="Cerrar"
-                                >
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                                    </svg>
-                                </button>
-                            </div>
-                            <div class="aa-notifications-content">
-                                <!-- Content will be rendered dynamically by notifications.js -->
+                    <!-- Notifications Container (relative for popover positioning) -->
+                    <div class="relative">
+                        <!-- Notifications Bell -->
+                        <button 
+                            id="aa-btn-notifications" 
+                            type="button"
+                            class="inline-flex items-center justify-center w-9 h-9 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                            aria-label="Notificaciones"
+                        >
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                            </svg>
+                        </button>
+                        <span id="aa-notifications-badge" class="absolute top-0 right-2 text-xs font-medium text-gray-500 leading-none">0</span>
+                        
+                        <!-- Notifications Popover (hidden by default) -->
+                        <div id="aa-notifications-popover" class="hidden absolute right-0 top-full mt-2 z-50 w-80 bg-white rounded-lg shadow-lg border border-gray-200">
+                            <div class="p-4">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h3 class="text-sm font-semibold text-gray-900">Notificaciones</h3>
+                                    <button 
+                                        id="aa-btn-close-notifications" 
+                                        type="button"
+                                        class="text-gray-400 hover:text-gray-600 transition-colors"
+                                        aria-label="Cerrar"
+                                    >
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div class="aa-notifications-content">
+                                    <!-- Content will be rendered dynamically by notifications.js -->
+                                </div>
                             </div>
                         </div>
                     </div>

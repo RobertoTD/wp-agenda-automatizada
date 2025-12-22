@@ -111,6 +111,29 @@
         }
     };
 
+    /**
+     * Initialize event listeners
+     */
+    function init() {
+        const btnOpenModal = document.getElementById('aa-btn-open-appointments-modal');
+        
+        if (btnOpenModal) {
+            btnOpenModal.addEventListener('click', function(event) {
+                event.preventDefault();
+                AppointmentsModal.open();
+            });
+            
+            console.log('[AppointmentsModal] ✅ Listener registrado para botón header');
+        }
+    }
+
+    // Initialize on DOM ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+
     // Expose to global scope
     window.AAAppointmentsModal = AppointmentsModal;
 
