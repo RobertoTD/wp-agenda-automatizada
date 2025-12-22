@@ -121,7 +121,22 @@
                 item.addEventListener('click', function() {
                     const type = this.getAttribute('data-type');
                     if (type) {
-                        markNotificationsAsRead(type);
+                        // Close popover immediately for better UX
+                        const popover = document.getElementById('aa-notifications-popover');
+                        if (popover) {
+                            popover.classList.add('hidden');
+                        }
+                        
+                        // Open appointments modal filtered by type and unread
+                        // NOTE: Notifications will be marked as read when modal closes
+                        if (typeof window.AAAppointmentsModal !== 'undefined') {
+                            window.AAAppointmentsModal.open({ 
+                                type: type, 
+                                unread: true 
+                            });
+                        } else {
+                            console.error('[Notifications] AAAppointmentsModal no disponible');
+                        }
                     }
                 });
             });
@@ -129,18 +144,13 @@
     }
 
     /**
-     * Mark notifications as read by type and open appointments modal
+     * Mark notifications as read by type
+     * Called when appointments modal closes (from appointmentsController)
      * @param {string} type - Notification type (pending, confirmed, cancelled)
      */
     function markNotificationsAsRead(type) {
         const ajaxurl = window.ajaxurl || '/wp-admin/admin-ajax.php';
         const url = ajaxurl + '?action=aa_mark_notifications_as_read&type=' + encodeURIComponent(type);
-
-        // Close popover immediately for better UX
-        const popover = document.getElementById('aa-notifications-popover');
-        if (popover) {
-            popover.classList.add('hidden');
-        }
 
         fetch(url)
             .then(response => response.json())
@@ -149,16 +159,6 @@
                     // Refresh badge and list
                     updateNotificationsBadge();
                     renderNotificationsList();
-                    
-                    // Open appointments modal filtered by type and unread
-                    if (typeof window.AAAppointmentsModal !== 'undefined') {
-                        window.AAAppointmentsModal.open({ 
-                            type: type, 
-                            unread: true 
-                        });
-                    } else {
-                        console.error('[Notifications] AAAppointmentsModal no disponible');
-                    }
                 } else {
                     console.error('[Notifications] Error marking as read:', data.data?.message || 'Unknown error');
                 }
@@ -167,6 +167,9 @@
                 console.error('[Notifications] Error marking notifications as read:', error);
             });
     }
+
+    // Expose function globally so appointmentsController can call it
+    window.aaMarkNotificationsAsRead = markNotificationsAsRead;
 
     /**
      * Initialize notifications popover

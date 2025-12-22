@@ -39,7 +39,9 @@
             filters: {},
             page: 1,
             totalPages: 1,
-            isLoading: false
+            isLoading: false,
+            initialFilters: {}, // Store initial filters to mark as read on close
+            modalObserver: null // Observer to detect modal close
         },
 
         /**
@@ -62,6 +64,12 @@
             
             this.state.filters = filters;
             this.state.page = 1;
+            
+            // Store initial filters to mark as read when modal closes
+            this.state.initialFilters = Object.assign({}, filters);
+            
+            // Setup modal close observer
+            this.setupModalCloseObserver();
             
             // Load appointments
             this.loadAppointments();
@@ -354,6 +362,74 @@
             const div = document.createElement('div');
             div.textContent = str;
             return div.innerHTML;
+        },
+
+        /**
+         * Setup observer to detect when modal closes
+         * When modal closes, mark notifications as read if opened with unread filter
+         */
+        setupModalCloseObserver: function() {
+            const self = this;
+            const modalRoot = document.getElementById('aa-modal-root');
+            
+            if (!modalRoot) {
+                console.warn('[AppointmentsController] Modal root not found, cannot setup close observer');
+                return;
+            }
+            
+            // Clean up existing observer if any
+            if (this.state.modalObserver) {
+                this.state.modalObserver.disconnect();
+                this.state.modalObserver = null;
+            }
+            
+            // Track previous state to detect transition from open to closed
+            let wasOpen = !modalRoot.classList.contains('hidden');
+            
+            // Create observer to watch for modal close (when 'hidden' class is added)
+            this.state.modalObserver = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                        const isHidden = modalRoot.classList.contains('hidden');
+                        
+                        // Detect transition from open to closed
+                        if (wasOpen && isHidden) {
+                            // Modal was just closed
+                            // If we have unread filter, mark notifications as read
+                            if (self.state.initialFilters.unread && self.state.initialFilters.type) {
+                                console.log('[AppointmentsController] Modal cerrado, marcando notificaciones como leídas:', self.state.initialFilters.type);
+                                
+                                // Mark notifications as read
+                                if (typeof window.aaMarkNotificationsAsRead === 'function') {
+                                    window.aaMarkNotificationsAsRead(self.state.initialFilters.type);
+                                } else {
+                                    console.warn('[AppointmentsController] aaMarkNotificationsAsRead no disponible');
+                                }
+                                
+                                // Reset initial filters
+                                self.state.initialFilters = {};
+                            }
+                            
+                            // Clean up observer
+                            if (self.state.modalObserver) {
+                                self.state.modalObserver.disconnect();
+                                self.state.modalObserver = null;
+                            }
+                        }
+                        
+                        // Update previous state
+                        wasOpen = !isHidden;
+                    }
+                });
+            });
+            
+            // Start observing
+            this.state.modalObserver.observe(modalRoot, {
+                attributes: true,
+                attributeFilter: ['class']
+            });
+            
+            console.log('[AppointmentsController] ✅ Observer de cierre de modal configurado');
         }
     };
 
