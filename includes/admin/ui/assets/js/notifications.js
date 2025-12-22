@@ -9,6 +9,42 @@
     'use strict';
 
     /**
+     * Fetch unread notifications count and update badge
+     */
+    function updateNotificationsBadge() {
+        const badge = document.getElementById('aa-notifications-badge');
+        if (!badge) {
+            console.warn('[Notifications] Badge element not found');
+            return;
+        }
+
+        const ajaxurl = window.ajaxurl || '/wp-admin/admin-ajax.php';
+        const url = ajaxurl + '?action=aa_get_unread_notifications';
+
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.data) {
+                    const total = data.data.total || 0;
+                    
+                    if (total === 0) {
+                        badge.style.display = 'none';
+                    } else {
+                        badge.style.display = 'block';
+                        badge.textContent = total.toString();
+                    }
+                } else {
+                    console.warn('[Notifications] Invalid response format');
+                    badge.style.display = 'none';
+                }
+            })
+            .catch(error => {
+                console.error('[Notifications] Error fetching notifications:', error);
+                badge.style.display = 'none';
+            });
+    }
+
+    /**
      * Initialize notifications popover
      */
     function initNotifications() {
@@ -20,6 +56,9 @@
             console.warn('[Notifications] Required elements not found');
             return;
         }
+
+        // Load initial badge count
+        updateNotificationsBadge();
 
         /**
          * Toggle popover visibility

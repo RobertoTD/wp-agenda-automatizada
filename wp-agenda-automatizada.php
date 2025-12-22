@@ -37,6 +37,7 @@ require_once plugin_dir_path(__FILE__) . 'clientes.php';
 require_once plugin_dir_path(__FILE__) . 'includes/services/availability-proxy.php';
 require_once plugin_dir_path(__FILE__) . 'includes/services/SyncService.php';
 require_once plugin_dir_path(__FILE__) . 'includes/services/ClienteService.php';
+require_once plugin_dir_path(__FILE__) . 'includes/services/notificationsService.php';
 
 // 4️⃣ Controladores (lógica de negocio)
 require_once plugin_dir_path(__FILE__) . 'includes/controllers/availability-controller.php';
