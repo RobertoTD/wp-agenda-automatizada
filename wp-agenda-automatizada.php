@@ -166,6 +166,36 @@ function aa_save_reservation() {
 
     error_log("✅ Reserva guardada correctamente con ID: $reserva_id (Cliente: $cliente_id)");
     
+    // 🔹 Crear notificación para la nueva reserva
+    $notifications_table = $wpdb->prefix . 'aa_notifications';
+    
+    // ✅ Verificar si ya existe una notificación para evitar duplicados
+    $existing_notification = $wpdb->get_var($wpdb->prepare(
+        "SELECT id FROM $notifications_table 
+        WHERE entity_type = %s AND entity_id = %d AND type = %s",
+        'reservation',
+        $reserva_id,
+        'pending'
+    ));
+    
+    // ✅ Insertar notificación solo si no existe
+    if (!$existing_notification) {
+        $notification_result = $wpdb->insert($notifications_table, [
+            'entity_type' => 'reservation',
+            'entity_id'   => $reserva_id,
+            'type'        => 'pending',
+            'is_read'     => 0
+        ]);
+        
+        if ($notification_result === false) {
+            error_log("⚠️ Error al insertar notificación para reserva $reserva_id: " . $wpdb->last_error);
+        } else {
+            error_log("✅ Notificación creada para reserva $reserva_id");
+        }
+    } else {
+        error_log("ℹ️ Notificación ya existe para reserva $reserva_id, omitiendo inserción");
+    }
+    
     wp_send_json_success([
         'message' => 'Reserva almacenada correctamente.',
         'id' => $reserva_id,
