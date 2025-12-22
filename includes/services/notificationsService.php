@@ -68,3 +68,63 @@ function aa_ajax_get_unread_notifications() {
     ]);
 }
 
+/**
+ * Register AJAX endpoint for marking notifications as read by type
+ */
+add_action('wp_ajax_aa_mark_notifications_as_read', 'aa_ajax_mark_notifications_as_read');
+
+/**
+ * AJAX handler: Mark notifications as read by type
+ * 
+ * Updates is_read = 1 for all unread notifications of a specific type.
+ * 
+ * @return void Sends JSON response via wp_send_json_success()
+ */
+function aa_ajax_mark_notifications_as_read() {
+    global $wpdb;
+    
+    // Get and validate type parameter
+    $type = isset($_REQUEST['type']) ? sanitize_key($_REQUEST['type']) : '';
+    
+    if (empty($type)) {
+        wp_send_json_error(['message' => 'Type parameter is required']);
+        return;
+    }
+    
+    // Validate type value (whitelist allowed types)
+    $allowed_types = ['pending', 'confirmed', 'cancelled'];
+    if (!in_array($type, $allowed_types, true)) {
+        wp_send_json_error(['message' => 'Invalid type parameter']);
+        return;
+    }
+    
+    $table = $wpdb->prefix . 'aa_notifications';
+    
+    // Verify table exists
+    $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table'") === $table;
+    
+    if (!$table_exists) {
+        wp_send_json_error(['message' => 'Notifications table does not exist']);
+        return;
+    }
+    
+    // Update notifications: mark as read where is_read = 0 and type matches
+    $result = $wpdb->query(
+        $wpdb->prepare(
+            "UPDATE $table 
+             SET is_read = 1 
+             WHERE is_read = 0 AND type = %s",
+            $type
+        )
+    );
+    
+    if ($result === false) {
+        error_log("❌ Error marking notifications as read: " . $wpdb->last_error);
+        wp_send_json_error(['message' => 'Database error: ' . $wpdb->last_error]);
+        return;
+    }
+    
+    // Return success response
+    wp_send_json_success();
+}
+

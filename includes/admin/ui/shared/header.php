@@ -52,8 +52,8 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
                                     </svg>
                                 </button>
                             </div>
-                            <div class="text-sm text-gray-500 text-center py-4">
-                                No hay notificaciones por ahora
+                            <div class="aa-notifications-content">
+                                <!-- Content will be rendered dynamically by notifications.js -->
                             </div>
                         </div>
                     </div>

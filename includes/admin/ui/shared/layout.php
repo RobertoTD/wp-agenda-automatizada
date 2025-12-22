@@ -160,6 +160,9 @@ header('Content-Type: text/html; charset=utf-8');
 <!-- Transversal Modal: Reservation (último, usa todos los anteriores) -->
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'includes/admin/ui/modals/reservation/reservation.js'); ?>" defer></script>
 
+<!-- Transversal Modal: Appointments -->
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'includes/admin/ui/modals/appointments/appointments-modal.js'); ?>" defer></script>
+
     <div id="aa-admin-app" class="w-full">
         <?php require_once __DIR__ . '/header.php'; ?>
         
@@ -183,6 +186,7 @@ header('Content-Type: text/html; charset=utf-8');
     
     <!-- Transversal Modal Templates (uses <template> tag, content not rendered until cloned by JS) -->
     <?php require_once dirname(__DIR__) . '/modals/reservation/index.php'; ?>
+    <?php require_once dirname(__DIR__) . '/modals/appointments/index.php'; ?>
 
 </body>
 </html>
