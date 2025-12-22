@@ -133,7 +133,8 @@
                         if (typeof window.AAAppointmentsModal !== 'undefined') {
                             window.AAAppointmentsModal.open({ 
                                 type: type, 
-                                unread: true 
+                                unread: true,
+                                source: 'notifications'
                             });
                         } else {
                             console.error('[Notifications] AAAppointmentsModal no disponible');

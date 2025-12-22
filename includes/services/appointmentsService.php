@@ -20,9 +20,12 @@ add_action('wp_ajax_aa_get_appointments', 'aa_get_appointments');
  * Get appointments with optional filters
  * 
  * Parameters (via $_GET):
- * - type: pending | confirmed | cancelled (optional)
- * - unread: true | false (optional)
+ * - type: pending | confirmed | cancelled (optional, legacy)
+ * - unread: true | false (optional, legacy)
  * - page: int (default 1)
+ * - time[]: future | past (optional, panel filter)
+ * - status[]: pending | confirmed | cancelled (optional, panel filter)
+ * - notification[]: unread | read (optional, panel filter)
  * 
  * @return void JSON response
  */
@@ -32,40 +35,111 @@ function aa_get_appointments() {
     // Fixed limit
     $limit = 20;
     
-    // Get parameters
+    // Get parameters - legacy filters
     $type = isset($_GET['type']) ? sanitize_text_field($_GET['type']) : '';
     $unread = isset($_GET['unread']) && $_GET['unread'] === 'true';
     $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
     
-    // Validate type if provided
+    // Get panel filters (arrays)
+    $time_filters = isset($_GET['time']) && is_array($_GET['time']) 
+        ? array_map('sanitize_text_field', $_GET['time']) 
+        : [];
+    $status_filters = isset($_GET['status']) && is_array($_GET['status']) 
+        ? array_map('sanitize_text_field', $_GET['status']) 
+        : [];
+    $notification_filters = isset($_GET['notification']) && is_array($_GET['notification']) 
+        ? array_map('sanitize_text_field', $_GET['notification']) 
+        : [];
+    
+    // Validate type if provided (legacy)
     $valid_types = ['pending', 'confirmed', 'cancelled'];
     if ($type && !in_array($type, $valid_types)) {
         wp_send_json_error(['message' => 'Tipo de filtro inválido']);
         return;
     }
     
+    // Validate panel filter values
+    $valid_time = ['future', 'past'];
+    $valid_status = ['pending', 'confirmed', 'cancelled'];
+    $valid_notification = ['unread', 'read'];
+    
+    $time_filters = array_filter($time_filters, function($v) use ($valid_time) {
+        return in_array($v, $valid_time);
+    });
+    $status_filters = array_filter($status_filters, function($v) use ($valid_status) {
+        return in_array($v, $valid_status);
+    });
+    $notification_filters = array_filter($notification_filters, function($v) use ($valid_notification) {
+        return in_array($v, $valid_notification);
+    });
+    
     // Tables
     $reservas_table = $wpdb->prefix . 'aa_reservas';
     $notifications_table = $wpdb->prefix . 'aa_notifications';
     $clientes_table = $wpdb->prefix . 'aa_clientes';
     
+    // Get current datetime in business timezone
+    $timezone = get_option('aa_timezone', 'America/Mexico_City');
+    $now = new DateTime('now', new DateTimeZone($timezone));
+    $now_sql = $now->format('Y-m-d H:i:s');
+    
     // Build WHERE clauses
     $where_clauses = [];
     $join_clause = '';
+    $needs_notification_join = false;
     
-    // Type filter (maps to estado in reservas)
-    if ($type) {
+    // Legacy type filter (maps to estado in reservas) - only if no status panel filters
+    if ($type && empty($status_filters)) {
         $where_clauses[] = $wpdb->prepare("r.estado = %s", $type);
     }
     
-    // Unread filter - requires join with notifications
-    if ($unread) {
+    // Panel: Status filter
+    if (!empty($status_filters)) {
+        $placeholders = implode(',', array_fill(0, count($status_filters), '%s'));
+        $where_clauses[] = $wpdb->prepare("r.estado IN ($placeholders)", ...$status_filters);
+    }
+    
+    // Panel: Time filter
+    if (!empty($time_filters)) {
+        $time_conditions = [];
+        if (in_array('future', $time_filters)) {
+            $time_conditions[] = $wpdb->prepare("r.fecha >= %s", $now_sql);
+        }
+        if (in_array('past', $time_filters)) {
+            $time_conditions[] = $wpdb->prepare("r.fecha < %s", $now_sql);
+        }
+        if (!empty($time_conditions)) {
+            $where_clauses[] = '(' . implode(' OR ', $time_conditions) . ')';
+        }
+    }
+    
+    // Panel: Notification filter
+    if (!empty($notification_filters)) {
+        $needs_notification_join = true;
+        
+        // If both unread and read are selected, no filter needed (show all)
+        if (count($notification_filters) === 1) {
+            if (in_array('unread', $notification_filters)) {
+                $where_clauses[] = "n_filter.is_read = 0";
+            } else if (in_array('read', $notification_filters)) {
+                $where_clauses[] = "(n_filter.is_read = 1 OR n_filter.id IS NULL)";
+            }
+        }
+    }
+    
+    // Legacy unread filter - only if no notification panel filters
+    if ($unread && empty($notification_filters)) {
         $join_clause = "INNER JOIN {$notifications_table} n ON n.entity_type = 'reservation' AND n.entity_id = r.id AND n.is_read = 0";
         
         // If type is specified, also filter by notification type
         if ($type) {
             $where_clauses[] = $wpdb->prepare("n.type = %s", $type);
         }
+    }
+    
+    // Add notification join for panel filter if needed
+    if ($needs_notification_join && empty($join_clause)) {
+        $join_clause = "LEFT JOIN {$notifications_table} n_filter ON n_filter.entity_type = 'reservation' AND n_filter.entity_id = r.id";
     }
     
     // Build WHERE string
@@ -175,7 +249,10 @@ function aa_get_appointments() {
         ],
         'filters' => [
             'type' => $type,
-            'unread' => $unread
+            'unread' => $unread,
+            'time' => $time_filters,
+            'status' => $status_filters,
+            'notification' => $notification_filters
         ]
     ]);
 }

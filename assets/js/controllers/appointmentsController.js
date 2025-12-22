@@ -39,7 +39,15 @@
             filters: {},
             page: 1,
             totalPages: 1,
-            isLoading: false
+            isLoading: false,
+            source: null, // Origin of modal opening ('notifications' or null)
+            originType: null, // Type filter when opened from notifications
+            // Panel filters (in-memory only)
+            panelFilters: {
+                time: [],
+                status: [],
+                notification: []
+            }
         },
 
         /**
@@ -55,13 +63,36 @@
 
         /**
          * Initialize controller with filters
-         * @param {Object} filters - Initial filters { type, unread }
+         * @param {Object} filters - Initial filters { type, unread, source }
          */
         init: function(filters = {}) {
             console.log('[AppointmentsController] Inicializando con filtros:', filters);
             
             this.state.filters = filters;
             this.state.page = 1;
+            
+            // Reset panel filters
+            this.state.panelFilters = {
+                time: [],
+                status: [],
+                notification: []
+            };
+            
+            // Store origin information for bulk marking on close
+            this.state.source = filters.source || null;
+            this.state.originType = filters.type || null;
+            
+            // Setup modal close observer if opened from notifications
+            if (this.state.source === 'notifications') {
+                this.setupModalCloseObserver();
+            }
+            
+            // Setup filter toggle and checkboxes
+            this.setupFiltersToggle();
+            this.setupFilterCheckboxes();
+            
+            // Pre-select checkboxes based on initial filters
+            this.applyInitialFiltersToPanel(filters);
             
             // Load appointments
             this.loadAppointments();
@@ -82,12 +113,36 @@
                 page: this.state.page
             });
             
-            // Add filters
-            if (this.state.filters.type) {
+            // Add legacy filters (for backwards compatibility)
+            if (this.state.filters.type && this.state.panelFilters.status.length === 0) {
                 params.append('type', this.state.filters.type);
             }
-            if (this.state.filters.unread) {
+            if (this.state.filters.unread && this.state.panelFilters.notification.length === 0) {
                 params.append('unread', 'true');
+            }
+            
+            // Add panel filters
+            const pf = this.state.panelFilters;
+            
+            // Time filter
+            if (pf.time.length > 0) {
+                pf.time.forEach(function(val) {
+                    params.append('time[]', val);
+                });
+            }
+            
+            // Status filter
+            if (pf.status.length > 0) {
+                pf.status.forEach(function(val) {
+                    params.append('status[]', val);
+                });
+            }
+            
+            // Notification filter
+            if (pf.notification.length > 0) {
+                pf.notification.forEach(function(val) {
+                    params.append('notification[]', val);
+                });
             }
             
             const url = ajaxurl + '?' + params.toString();
@@ -452,6 +507,193 @@
                 .catch(error => {
                     console.error('[AppointmentsController] Error marcando notificación:', error);
                 });
+        },
+
+        /**
+         * Setup filter toggle button
+         */
+        setupFiltersToggle: function() {
+            const toggleBtn = document.querySelector('.aa-btn-toggle-filters');
+            const filtersPanel = document.querySelector(this.selectors.filters);
+            
+            if (!toggleBtn || !filtersPanel) {
+                console.warn('[AppointmentsController] Filter toggle elements not found');
+                return;
+            }
+            
+            toggleBtn.addEventListener('click', function() {
+                filtersPanel.classList.toggle('hidden');
+            });
+            
+            console.log('[AppointmentsController] ✅ Toggle de filtros configurado');
+        },
+
+        /**
+         * Setup filter checkbox event listeners
+         */
+        setupFilterCheckboxes: function() {
+            const self = this;
+            const filtersPanel = document.querySelector(this.selectors.filters);
+            
+            if (!filtersPanel) return;
+            
+            const checkboxes = filtersPanel.querySelectorAll('input[data-filter]');
+            
+            checkboxes.forEach(function(checkbox) {
+                checkbox.addEventListener('change', function() {
+                    self.handleFilterChange(this);
+                });
+            });
+            
+            console.log('[AppointmentsController] ✅ Checkboxes de filtros configurados:', checkboxes.length);
+        },
+
+        /**
+         * Handle filter checkbox change
+         * @param {HTMLInputElement} checkbox - Changed checkbox
+         */
+        handleFilterChange: function(checkbox) {
+            const filterAttr = checkbox.getAttribute('data-filter');
+            if (!filterAttr) return;
+            
+            const [group, value] = filterAttr.split(':');
+            const isChecked = checkbox.checked;
+            const filtersPanel = document.querySelector(this.selectors.filters);
+            
+            if (!filtersPanel) return;
+            
+            // Handle "all" checkbox logic
+            if (value === 'all') {
+                if (isChecked) {
+                    // Uncheck all other checkboxes in this group
+                    const groupCheckboxes = filtersPanel.querySelectorAll(`[data-filter^="${group}:"]`);
+                    groupCheckboxes.forEach(function(cb) {
+                        if (cb.getAttribute('data-filter') !== `${group}:all`) {
+                            cb.checked = false;
+                        }
+                    });
+                    // Clear the group filter (all means no filter)
+                    this.state.panelFilters[group] = [];
+                }
+            } else {
+                // Uncheck "all" if selecting a specific value
+                const allCheckbox = filtersPanel.querySelector(`[data-filter="${group}:all"]`);
+                if (allCheckbox) {
+                    allCheckbox.checked = false;
+                }
+                
+                // Update the state array
+                if (isChecked) {
+                    if (!this.state.panelFilters[group].includes(value)) {
+                        this.state.panelFilters[group].push(value);
+                    }
+                } else {
+                    this.state.panelFilters[group] = this.state.panelFilters[group].filter(v => v !== value);
+                }
+                
+                // Check if all specific values are selected, then mark "all" and clear
+                const groupFieldset = filtersPanel.querySelector(`[data-filter-group="${group}"]`);
+                if (groupFieldset) {
+                    const specificCheckboxes = groupFieldset.querySelectorAll(`[data-filter^="${group}:"]:not([data-filter="${group}:all"])`);
+                    const allSpecificChecked = Array.from(specificCheckboxes).every(cb => cb.checked);
+                    
+                    if (allSpecificChecked && specificCheckboxes.length > 0) {
+                        // All specific ones checked = mark "all" and uncheck others
+                        if (allCheckbox) {
+                            allCheckbox.checked = true;
+                        }
+                        specificCheckboxes.forEach(cb => cb.checked = false);
+                        this.state.panelFilters[group] = [];
+                    }
+                }
+            }
+            
+            console.log('[AppointmentsController] Filtros actualizados:', this.state.panelFilters);
+            
+            // Reset to page 1 and reload
+            this.state.page = 1;
+            this.loadAppointments();
+        },
+
+        /**
+         * Apply initial filters to panel checkboxes
+         * @param {Object} filters - Initial filters from modal open
+         */
+        applyInitialFiltersToPanel: function(filters) {
+            const filtersPanel = document.querySelector(this.selectors.filters);
+            if (!filtersPanel) return;
+            
+            // Apply type filter to status group
+            if (filters.type) {
+                const statusCheckbox = filtersPanel.querySelector(`[data-filter="status:${filters.type}"]`);
+                if (statusCheckbox) {
+                    statusCheckbox.checked = true;
+                    this.state.panelFilters.status = [filters.type];
+                }
+            }
+            
+            // Apply unread filter to notification group
+            if (filters.unread) {
+                const unreadCheckbox = filtersPanel.querySelector('[data-filter="notification:unread"]');
+                if (unreadCheckbox) {
+                    unreadCheckbox.checked = true;
+                    this.state.panelFilters.notification = ['unread'];
+                }
+            }
+        },
+
+        /**
+         * Setup observer to detect when modal closes
+         * Marks all notifications of the type as read when modal closes (only if opened from notifications)
+         */
+        setupModalCloseObserver: function() {
+            const self = this;
+            const modalRoot = document.getElementById('aa-modal-root');
+            
+            if (!modalRoot) {
+                console.warn('[AppointmentsController] Modal root not found, cannot setup close observer');
+                return;
+            }
+            
+            // Track previous state to detect transition from open to closed
+            let wasOpen = !modalRoot.classList.contains('hidden');
+            
+            // Create observer to watch for modal close (when 'hidden' class is added)
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                        const isHidden = modalRoot.classList.contains('hidden');
+                        
+                        // Detect transition from open to closed
+                        if (wasOpen && isHidden) {
+                            // Modal was just closed
+                            // If opened from notifications, mark all notifications of that type as read
+                            if (
+                                self.state.source === 'notifications' &&
+                                self.state.originType &&
+                                typeof window.aaMarkNotificationsAsRead === 'function'
+                            ) {
+                                console.log('[AppointmentsController] Modal cerrado desde notificaciones, marcando todas como leídas:', self.state.originType);
+                                window.aaMarkNotificationsAsRead(self.state.originType);
+                            }
+                            
+                            // Clean up observer
+                            observer.disconnect();
+                        }
+                        
+                        // Update previous state
+                        wasOpen = !isHidden;
+                    }
+                });
+            });
+            
+            // Start observing
+            observer.observe(modalRoot, {
+                attributes: true,
+                attributeFilter: ['class']
+            });
+            
+            console.log('[AppointmentsController] ✅ Observer de cierre de modal configurado');
         }
     };
 
