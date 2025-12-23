@@ -73,6 +73,31 @@ function confirm_backend_service_confirmar($reserva_id) {
             
             if ($cancelado !== false) {
                 error_log("🚫 [Auto-Cancel] Cita ID {$conflicto->id} ({$conflicto->nombre}) cancelada automáticamente por ocupación de slot.");
+                
+                // 🔔 Marcar notificación como leída
+                $notifications_table = $wpdb->prefix . 'aa_notifications';
+                $notification_id = $wpdb->get_var($wpdb->prepare(
+                    "SELECT id FROM $notifications_table 
+                    WHERE entity_type = %s AND entity_id = %d",
+                    'reservation',
+                    $conflicto->id
+                ));
+                
+                if ($notification_id) {
+                    $notification_updated = $wpdb->update(
+                        $notifications_table,
+                        ['is_read' => 1],
+                        ['id' => $notification_id],
+                        ['%d'],
+                        ['%d']
+                    );
+                    
+                    if ($notification_updated !== false) {
+                        error_log("✅ [Auto-Cancel] Notificación ID $notification_id marcada como leída para cita cancelada ID {$conflicto->id}");
+                    } else {
+                        error_log("⚠️ [Auto-Cancel] Error al marcar notificación como leída: " . $wpdb->last_error);
+                    }
+                }
             }
         }
     }

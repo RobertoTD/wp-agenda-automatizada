@@ -116,6 +116,31 @@ function aa_ajax_cancelar_cita() {
     
     error_log("✅ Cita ID $id marcada como 'cancelled' en WordPress");
     
+    // 🔔 Marcar notificación como leída
+    $notifications_table = $wpdb->prefix . 'aa_notifications';
+    $notification_id = $wpdb->get_var($wpdb->prepare(
+        "SELECT id FROM $notifications_table 
+        WHERE entity_type = %s AND entity_id = %d",
+        'reservation',
+        $id
+    ));
+    
+    if ($notification_id) {
+        $notification_updated = $wpdb->update(
+            $notifications_table,
+            ['is_read' => 1],
+            ['id' => $notification_id],
+            ['%d'],
+            ['%d']
+        );
+        
+        if ($notification_updated !== false) {
+            error_log("✅ [Cancel] Notificación ID $notification_id marcada como leída para cita cancelada ID $id");
+        } else {
+            error_log("⚠️ [Cancel] Error al marcar notificación como leída: " . $wpdb->last_error);
+        }
+    }
+    
     // 🔹 PASO 2: Eliminar evento de Google Calendar (si existe calendar_uid Y hay email configurado)
     $calendar_deleted = false;
     $google_email = get_option('aa_google_email', ''); // ✅ Obtener email configurado
