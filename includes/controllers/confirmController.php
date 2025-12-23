@@ -171,6 +171,43 @@ function aa_rest_confirmar_reserva(WP_REST_Request $request) {
     }
     // =========================================================================
     
+    // =========================================================================
+    // 🔔 ACTUALIZAR NOTIFICACIÓN: pending -> confirmed
+    // =========================================================================
+    $notifications_table = $wpdb->prefix . 'aa_notifications';
+    
+    // Buscar notificación existente con type='pending'
+    $existing_notification_id = $wpdb->get_var($wpdb->prepare(
+        "SELECT id FROM $notifications_table 
+        WHERE entity_type = %s AND entity_id = %d AND type = %s",
+        'reservation',
+        $id,
+        'pending'
+    ));
+    
+    // Si existe, actualizarla a 'confirmed' y marcar como no leída
+    if ($existing_notification_id) {
+        $notification_updated = $wpdb->update(
+            $notifications_table,
+            [
+                'type' => 'confirmed',
+                'is_read' => 0
+            ],
+            ['id' => $existing_notification_id],
+            ['%s', '%d'],
+            ['%d']
+        );
+        
+        if ($notification_updated !== false) {
+            error_log("✅ [REST API] Notificación ID $existing_notification_id actualizada: pending -> confirmed (unread)");
+        } else {
+            error_log("⚠️ [REST API] Error al actualizar notificación ID $existing_notification_id: " . $wpdb->last_error);
+        }
+    } else {
+        error_log("ℹ️ [REST API] No se encontró notificación pending para reserva ID $id (fail-safe)");
+    }
+    // =========================================================================
+    
     $response_data = [
         'success' => true,
         'id' => $id,
