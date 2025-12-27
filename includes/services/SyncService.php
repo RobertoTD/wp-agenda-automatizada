@@ -148,4 +148,67 @@ class SyncService {
         
         return $reset_success;
     }
+
+    /**
+     * Notifica al backend sobre la desconexión de Google Calendar.
+     * Envía una petición autenticada con HMAC al endpoint /oauth/service.
+     *
+     * @return array|WP_Error Respuesta del backend o error
+     */
+    public static function notify_backend_disconnect_google() {
+        // Asegurar que el helper esté disponible
+        if (!function_exists('aa_get_clean_domain')) {
+            require_once dirname(dirname(__FILE__)) . '/auth-helper.php';
+        }
+        
+        if (!function_exists('aa_send_authenticated_request')) {
+            error_log('[WP Agenda] Error: aa_send_authenticated_request no disponible');
+            return new WP_Error('helper_unavailable', 'Función de autenticación no disponible');
+        }
+
+        // Construir payload
+        $domain = aa_get_clean_domain();
+        $payload = [
+            'domain' => $domain,
+            'service' => 'disconnect_google',
+        ];
+
+        // Construir endpoint
+        $endpoint = AA_API_BASE_URL . '/oauth/service';
+
+        // Enviar petición autenticada
+        $response = aa_send_authenticated_request($endpoint, 'POST', $payload);
+
+        // Manejar respuesta
+        if (is_wp_error($response)) {
+            error_log(sprintf(
+                '[WP Agenda] Error al notificar desconexión al backend: %s',
+                $response->get_error_message()
+            ));
+            return $response;
+        }
+
+        // Verificar código de respuesta HTTP
+        $response_code = wp_remote_retrieve_response_code($response);
+        $response_body = wp_remote_retrieve_body($response);
+
+        if ($response_code >= 200 && $response_code < 300) {
+            error_log(sprintf(
+                '[WP Agenda] Backend notificado correctamente de desconexión (code: %d, domain: %s)',
+                $response_code,
+                $domain
+            ));
+        } else {
+            error_log(sprintf(
+                '[WP Agenda] Backend respondió con error al notificar desconexión (code: %d, body: %s)',
+                $response_code,
+                $response_body
+            ));
+        }
+
+        return [
+            'code' => $response_code,
+            'body' => $response_body,
+        ];
+    }
 }

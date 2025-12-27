@@ -85,8 +85,16 @@ add_action('admin_post_aa_connect_google', function() {
 add_action('admin_post_aa_disconnect_google', function() {
     if (!current_user_can('manage_options')) return;
 
+    // Notificar al backend sobre la desconexión (no rompe el flujo si falla)
+    SyncService::notify_backend_disconnect_google();
+
+    // Eliminar opciones de Google
     delete_option('aa_google_email');
-    wp_redirect(admin_url('admin.php?page=agenda-automatizada-settings'));
+    
+    // Opcional: marcar sincronización como inválida
+    update_option('aa_estado_gsync', 'invalid');
+    
+    wp_redirect(admin_url('admin-post.php?action=aa_iframe_content&module=settings'));
     exit;
 });
 
