@@ -102,9 +102,10 @@ function wpaa_enqueue_frontend_assets() {
     }
 
     wpaa_localize('wpaa-availability-controller', 'aa_backend', [
-        'ajax_url' => admin_url('admin-ajax.php'),
-        'action'   => 'aa_get_availability',
-        'email'    => get_option('aa_google_email', ''),
+        'ajax_url'     => admin_url('admin-ajax.php'),
+        'action'       => 'aa_get_availability',
+        'email'        => get_option('aa_google_email', ''),
+        'gsync_status' => get_option('aa_estado_gsync', 'active'),
     ]);
 
     wpaa_localize('wpaa-availability-controller', 'aa_schedule',      get_option('aa_schedule', []));
@@ -131,19 +132,31 @@ function wpaa_enqueue_frontend_assets() {
  * Inyectar disponibilidad local ANTES de scripts JS
  */
 function wpaa_localize_local_availability($script_handle = 'wpaa-availability-controller') {
-    // Aquí debes cargar las reservas confirmadas de la BD
-    // Ejemplo (ajustar según tu modelo de datos):
-    
     global $wpdb;
-    $table = $wpdb->prefix . 'aa_reservations';
+    $table = $wpdb->prefix . 'aa_reservas';
+    $slot_duration = intval(get_option('aa_slot_duration', 60));
+    $timezone_string = get_option('aa_timezone', 'America/Mexico_City');
     
-    $confirmed = $wpdb->get_results("
-        SELECT fecha_inicio as start, fecha_fin as end, nombre as title, email as attendee 
+    // Obtener hora actual según timezone del negocio
+    try {
+        $tz = new DateTimeZone($timezone_string);
+        $now = new DateTime('now', $tz);
+        $now_str = $now->format('Y-m-d H:i:s');
+    } catch (Exception $e) {
+        $now_str = current_time('mysql');
+    }
+    
+    $confirmed = $wpdb->get_results($wpdb->prepare("
+        SELECT 
+            fecha as start,
+            DATE_ADD(fecha, INTERVAL duracion MINUTE) as end,
+            servicio as title,
+            nombre as attendee
         FROM $table 
         WHERE estado = 'confirmed' 
-        AND fecha_inicio >= NOW()
-        ORDER BY fecha_inicio ASC
-    ");
+        AND DATE_ADD(fecha, INTERVAL duracion MINUTE) >= %s
+        ORDER BY fecha ASC
+    ", $now_str));
 
     $local_busy = [];
     foreach ($confirmed as $row) {
@@ -157,8 +170,8 @@ function wpaa_localize_local_availability($script_handle = 'wpaa-availability-co
 
     wp_localize_script($script_handle, 'aa_local_availability', [
         'local_busy' => $local_busy,
-        'slot_duration' => intval(get_option('aa_slot_duration', 60)),
-        'timezone' => get_option('aa_timezone', 'America/Mexico_City'),
+        'slot_duration' => $slot_duration,
+        'timezone' => $timezone_string,
         'total_confirmed' => count($local_busy)
     ]);
 }

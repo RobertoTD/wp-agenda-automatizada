@@ -164,6 +164,11 @@
       ? aa_backend.email 
       : '';
 
+    // 🆕 Obtener estado de sincronización con Google Calendar
+    const gsyncStatus = (typeof aa_backend !== 'undefined' && aa_backend.gsync_status)
+      ? aa_backend.gsync_status
+      : 'active';
+
     const config = {
       ajaxUrl: (typeof aa_backend !== 'undefined' && aa_backend.ajax_url) 
         ? aa_backend.ajax_url 
@@ -187,13 +192,16 @@
     
     console.log(`📊 Proxy inicializado con ${Object.keys(availabilityProxyInstance.availableSlotsPerDay).length} días locales`);
     
-    // 🛑 CLÁUSULA DE GUARDA: Si no hay email, nos quedamos en MODO LOCAL
-    if (!email) {
-      console.warn('⚠️ aa_google_email no configurado. Operando en modo LOCAL SOLAMENTE.');
+    // 🛑 CLÁUSULA DE GUARDA EXTENDIDA: Sin email O gsync desconectado = MODO LOCAL
+    if (!email || gsyncStatus === 'disconnected') {
+      const reason = !email 
+        ? 'aa_google_email no configurado'
+        : 'Google Calendar desconectado (gsync_status = disconnected)';
+      console.warn(`⚠️ ${reason}. Operando en modo LOCAL SOLAMENTE.`);
       return;
     }
 
-    console.log('✅ Email detectado. Iniciando sincronización con Google Calendar...');
+    console.log('✅ Email detectado y gsync activo. Iniciando sincronización con Google Calendar...');
 
     // ✅ IMPORTANTE: Registrar listener ANTES de iniciar
     const handleAvailabilityLoaded = (event) => {

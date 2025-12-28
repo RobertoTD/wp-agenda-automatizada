@@ -92,7 +92,7 @@ add_action('admin_post_aa_disconnect_google', function() {
     delete_option('aa_google_email');
     
     // Opcional: marcar sincronización como inválida
-    update_option('aa_estado_gsync', 'invalid');
+    update_option('aa_estado_gsync', 'disconnected');
     
     wp_redirect(admin_url('admin-post.php?action=aa_iframe_content&module=settings'));
     exit;

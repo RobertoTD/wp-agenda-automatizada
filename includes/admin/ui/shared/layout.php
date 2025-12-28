@@ -32,14 +32,30 @@ $email = sanitize_email(get_option('aa_google_email', ''));
 
 // Datos de disponibilidad local (reservas confirmadas)
 global $wpdb;
-$table = $wpdb->prefix . 'aa_reservations';
-$confirmed = $wpdb->get_results("
-    SELECT fecha_inicio as start, fecha_fin as end, nombre as title, email as attendee 
+$table = $wpdb->prefix . 'aa_reservas';
+$slot_duration_db = intval(get_option('aa_slot_duration', 60));
+$timezone_string = get_option('aa_timezone', 'America/Mexico_City');
+
+// Obtener hora actual según timezone del negocio
+try {
+    $tz = new DateTimeZone($timezone_string);
+    $now = new DateTime('now', $tz);
+    $now_str = $now->format('Y-m-d H:i:s');
+} catch (Exception $e) {
+    $now_str = current_time('mysql');
+}
+
+$confirmed = $wpdb->get_results($wpdb->prepare("
+    SELECT 
+        fecha as start,
+        DATE_ADD(fecha, INTERVAL duracion MINUTE) as end,
+        servicio as title,
+        nombre as attendee
     FROM $table 
     WHERE estado = 'confirmed' 
-    AND fecha_inicio >= NOW()
-    ORDER BY fecha_inicio ASC
-");
+    AND DATE_ADD(fecha, INTERVAL duracion MINUTE) >= %s
+    ORDER BY fecha ASC
+", $now_str));
 
 $local_busy = [];
 foreach ($confirmed as $row) {
@@ -89,7 +105,8 @@ header('Content-Type: text/html; charset=utf-8');
     window.aa_backend = {
         ajax_url: '<?php echo esc_js(admin_url('admin-ajax.php')); ?>',
         action: 'aa_get_availability',
-        email: '<?php echo esc_js($email); ?>'
+        email: '<?php echo esc_js($email); ?>',
+        gsync_status: '<?php echo esc_js(get_option("aa_estado_gsync", "active")); ?>'
     };
     
     window.aa_schedule = <?php echo wp_json_encode($schedule); ?>;
