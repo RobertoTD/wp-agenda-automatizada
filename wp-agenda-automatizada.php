@@ -248,6 +248,55 @@ register_activation_hook(__FILE__, function() {
     
     dbDelta($notifications_sql);
     
+    // 🔹 Crear tabla de personal (staff)
+    $staff_table = $wpdb->prefix . 'aa_staff';
+    $staff_sql = "CREATE TABLE $staff_table (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        name varchar(191) NOT NULL,
+        active tinyint(1) DEFAULT 1,
+        created_at datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id)
+    ) $charset;";
+    
+    dbDelta($staff_sql);
+    
+    // 🔹 Crear tabla de zonas de atención (service areas)
+    $service_areas_table = $wpdb->prefix . 'aa_service_areas';
+    $service_areas_sql = "CREATE TABLE $service_areas_table (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        name varchar(191) NOT NULL,
+        description text,
+        active tinyint(1) DEFAULT 1,
+        created_at datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id)
+    ) $charset;";
+    
+    dbDelta($service_areas_sql);
+    
+    // 🔹 Crear tabla de asignaciones (assignments)
+    $assignments_table = $wpdb->prefix . 'aa_assignments';
+    $assignments_sql = "CREATE TABLE $assignments_table (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        assignment_date date NOT NULL,
+        start_time time NOT NULL,
+        end_time time NOT NULL,
+        staff_id bigint(20) unsigned NOT NULL,
+        service_area_id bigint(20) unsigned NOT NULL,
+        service_key varchar(191) NOT NULL,
+        capacity int DEFAULT 1,
+        repeat_weekly tinyint(1) DEFAULT 0,
+        repeat_until date DEFAULT NULL,
+        status varchar(50) DEFAULT 'active',
+        created_at datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        KEY staff_id (staff_id),
+        KEY service_area_id (service_area_id),
+        KEY assignment_date (assignment_date),
+        KEY status (status)
+    ) $charset;";
+    
+    dbDelta($assignments_sql);
+    
     // 🔹 Inicializar estado de sincronización como válido
     if (get_option('aa_estado_gsync') === false) {
         add_option('aa_estado_gsync', 'valid');
