@@ -93,5 +93,47 @@ class AssignmentsModel {
             'name' => $name
         ];
     }
+
+    /**
+     * Actualizar estado activo de una zona de atención
+     * 
+     * @param int $id ID de la zona de atención
+     * @param int $active 0 para desactivar, 1 para activar
+     * @return bool true en éxito, false en error
+     */
+    public static function set_service_area_active($id, $active) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_service_areas';
+        
+        // Validar parámetros
+        $id = intval($id);
+        $active = intval($active);
+        
+        // Asegurar que active sea 0 o 1
+        $active = ($active === 1) ? 1 : 0;
+        
+        if ($id <= 0) {
+            error_log("❌ [AssignmentsModel] ID inválido para actualizar zona: $id");
+            return false;
+        }
+        
+        // Actualizar en la base de datos
+        $result = $wpdb->update(
+            $table,
+            ['active' => $active],
+            ['id' => $id],
+            ['%d'],
+            ['%d']
+        );
+        
+        if ($result === false) {
+            error_log("❌ [AssignmentsModel] Error al actualizar zona de atención ID $id: " . $wpdb->last_error);
+            return false;
+        }
+        
+        error_log("✅ [AssignmentsModel] Zona de atención ID $id actualizada (active = $active)");
+        
+        return true;
+    }
 }
 

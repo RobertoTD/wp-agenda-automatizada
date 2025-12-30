@@ -83,6 +83,9 @@
         let html = '<ul class="space-y-2">';
         
         serviceAreas.forEach(function(area) {
+            const isActive = parseInt(area.active) === 1;
+            const areaId = parseInt(area.id);
+            
             html += '<li class="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200">';
             html += '<span class="flex items-center justify-center w-8 h-8 rounded-lg bg-green-100 text-green-600 flex-shrink-0">';
             html += '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
@@ -94,12 +97,88 @@
             if (area.description) {
                 html += '<span class="text-xs text-gray-500 ml-2">- ' + escapeHtml(area.description) + '</span>';
             }
+            // Toggle switch
+            html += '<div class="ml-auto relative">';
+            html += '<label class="flex items-center cursor-pointer">';
+            html += '<input type="checkbox" ';
+            html += 'class="toggle-area-active peer sr-only" ';
+            html += 'data-id="' + areaId + '" ';
+            html += 'data-active="' + area.active + '" ';
+            if (isActive) {
+                html += 'checked ';
+            }
+            html += '/>';
+            html += '<div class="w-11 h-6 bg-gray-300 peer-checked:bg-blue-500 rounded-full transition-colors duration-200"></div>';
+            html += '<div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 peer-checked:translate-x-5"></div>';
+            html += '</label>';
+            html += '</div>';
             html += '</li>';
         });
         
         html += '</ul>';
 
         root.innerHTML = html;
+        
+        // Setup toggle handlers after rendering
+        setupToggleHandlers();
+    }
+
+    /**
+     * Setup handlers for toggle switches
+     */
+    function setupToggleHandlers() {
+        const toggles = document.querySelectorAll('.toggle-area-active');
+        
+        toggles.forEach(function(toggle) {
+            toggle.addEventListener('change', function() {
+                handleToggleChange(this);
+            });
+        });
+    }
+
+    /**
+     * Handle toggle change event
+     * @param {HTMLElement} toggle - The toggle checkbox element
+     */
+    function handleToggleChange(toggle) {
+        const areaId = parseInt(toggle.getAttribute('data-id'));
+        const previousActive = parseInt(toggle.getAttribute('data-active'));
+        const newActive = toggle.checked ? 1 : 0;
+        
+        // Get ajaxurl from global data
+        const ajaxurl = (window.AA_ASSIGNMENTS_DATA && window.AA_ASSIGNMENTS_DATA.ajaxurl) 
+            || window.ajaxurl 
+            || '/wp-admin/admin-ajax.php';
+
+        // Prepare FormData for AJAX request
+        const formData = new FormData();
+        formData.append('action', 'aa_toggle_service_area');
+        formData.append('id', areaId);
+        formData.append('active', newActive);
+
+        // Make AJAX request
+        fetch(ajaxurl, {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(response) {
+            return response.json();
+        })
+        .then(function(data) {
+            if (data.success) {
+                // Update data attribute to reflect new state
+                toggle.setAttribute('data-active', newActive);
+            } else {
+                // Revert toggle state on error
+                toggle.checked = previousActive === 1;
+                console.error('[Areas Section] Error al actualizar zona:', data);
+            }
+        })
+        .catch(function(error) {
+            // Revert toggle state on error
+            toggle.checked = previousActive === 1;
+            console.error('[Areas Section] Error en petición AJAX:', error);
+        });
     }
 
     /**
