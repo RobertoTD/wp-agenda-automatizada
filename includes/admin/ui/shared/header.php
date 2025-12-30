@@ -126,6 +126,17 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
                 </span>
                 <span class="text-xs font-medium leading-tight text-center">Clientes</span>
             </a>
+            
+            <!-- Asignaciones -->
+            <a href="<?php echo esc_url(admin_url('admin-post.php?action=aa_iframe_content&module=assignments')); ?>" 
+               class="flex flex-col items-center justify-center min-w-[60px] px-2 py-2 rounded-lg transition-all <?php echo (isset($active_module) && $active_module === 'assignments') ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?>">
+                <span class="flex items-center justify-center w-6 h-6 mb-1 <?php echo (isset($active_module) && $active_module === 'assignments') ? 'text-blue-600' : 'text-gray-500'; ?>">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                    </svg>
+                </span>
+                <span class="text-xs font-medium leading-tight text-center">Asignaciones</span>
+            </a>
         </nav>
     </div>
 </header>

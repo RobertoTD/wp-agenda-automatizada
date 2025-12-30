@@ -22,6 +22,7 @@ $allowed_modules = [
     'settings',
     'calendar',
     'clients',
+    'assignments',
 ];
 
 // Resolve requested module
