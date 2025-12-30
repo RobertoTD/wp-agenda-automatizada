@@ -72,7 +72,21 @@ $module_js_url = $plugin_url . 'assignments-module.js';
         </summary>
         
         <div class="p-6 transition-all duration-200">
-            <p class="text-sm text-gray-500">Aquí se configurarán las zonas de atención.</p>
+            <!-- Root container for areas section JS -->
+            <div id="aa-areas-root"></div>
+            
+            <!-- Form to add new service area -->
+            <div class="flex gap-2 mt-4">
+                <input type="text" 
+                       id="aa-area-name-input" 
+                       placeholder="Ej: Consultorio 3" 
+                       class="flex-1 px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow placeholder:text-gray-400">
+                <button type="button" 
+                        id="aa-add-area" 
+                        class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm">
+                    Agregar
+                </button>
+            </div>
         </div>
     </details>
 
@@ -113,12 +127,15 @@ $module_js_url = $plugin_url . 'assignments-module.js';
         window.ajaxurl = '<?php echo admin_url('admin-ajax.php'); ?>';
     }
     
-    // Datos placeholder del módulo Assignments
+    // Datos del módulo Assignments
     window.AA_ASSIGNMENTS_DATA = {
-        // Placeholder - se llenará cuando se implementen los endpoints
+        ajaxurl: window.ajaxurl || '<?php echo admin_url('admin-ajax.php'); ?>'
     };
 </script>
 
 <!-- Módulo JS -->
 <script src="<?php echo esc_url($module_js_url); ?>" defer></script>
+
+<!-- Areas Section JS -->
+<script src="<?php echo esc_url($plugin_url . 'areas-section/areas.js'); ?>" defer></script>
 
