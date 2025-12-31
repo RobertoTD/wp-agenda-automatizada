@@ -319,4 +319,13 @@
         initAssignmentsSection();
     }
 
+    // Expose loadAssignments globally for modal to reload list
+    window.loadAssignments = loadAssignments;
+    window.reloadAssignmentsList = loadAssignments;
+
+    // Listen for assignment created event
+    document.addEventListener('aa-assignment-created', function() {
+        loadAssignments();
+    });
+
 })();

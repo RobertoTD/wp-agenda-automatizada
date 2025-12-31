@@ -41,6 +41,18 @@ $module_js_url = $plugin_url . 'assignments-module.js';
         </summary>
         
         <div class="p-6 transition-all duration-200">
+            <!-- Botón para abrir modal de nueva asignación -->
+            <div class="mb-4">
+                <button type="button" 
+                        id="aa-open-assignment-modal" 
+                        class="inline-flex items-center gap-2 px-4 py-2.5 hover:bg-indigo-700 text-sm font-medium rounded-lg transition-colors shadow-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    Abrir horario
+                </button>
+            </div>
+            
             <!-- Root container for assignments section JS -->
             <div id="aa-assignments-root"></div>
         </div>
@@ -124,7 +136,7 @@ $module_js_url = $plugin_url . 'assignments-module.js';
                        class="flex-1 px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow placeholder:text-gray-400">
                 <button type="button" 
                         id="aa-add-staff" 
-                        class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm">
+                        class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-sm font-medium rounded-lg transition-colors shadow-sm">
                     Agregar
                 </button>
             </div>
@@ -157,4 +169,11 @@ $module_js_url = $plugin_url . 'assignments-module.js';
 
 <!-- Assignments Section JS -->
 <script src="<?php echo esc_url($plugin_url . 'assignments-section/assignments-section.js'); ?>" defer></script>
+
+<!-- Assignment Modal -->
+<?php 
+$modals_url = plugin_dir_url(dirname(dirname(__FILE__))) . 'modals/assignment/';
+?>
+<script src="<?php echo esc_url($modals_url . 'index.js'); ?>" defer></script>
+<script src="<?php echo esc_url($modals_url . 'assignment-modal.js'); ?>" defer></script>
 

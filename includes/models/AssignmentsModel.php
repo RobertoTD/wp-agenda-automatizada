@@ -333,5 +333,184 @@ class AssignmentsModel {
         
         return true;
     }
+
+    /**
+     * Crear nueva asignación
+     * 
+     * Valida colisiones con asignaciones existentes antes de insertar.
+     * 
+     * @param array $data Datos de la asignación:
+     *   - assignment_date (string): Fecha YYYY-MM-DD
+     *   - start_time (string): Hora inicio HH:MM
+     *   - end_time (string): Hora fin HH:MM
+     *   - staff_id (int): ID del personal
+     *   - service_area_id (int): ID de la zona
+     *   - service_key (string): Clave del servicio
+     *   - capacity (int): Capacidad (default 1)
+     * @return array|false Array con la asignación creada, array con error, o false
+     */
+    public static function create_assignment($data) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_assignments';
+        
+        // Validar datos requeridos
+        $required = ['assignment_date', 'start_time', 'end_time', 'staff_id', 'service_area_id', 'service_key'];
+        foreach ($required as $field) {
+            if (empty($data[$field])) {
+                error_log("❌ [AssignmentsModel] Campo requerido vacío: $field");
+                return false;
+            }
+        }
+        
+        // Normalizar horas a formato HH:MM:SS
+        $start_time = strlen($data['start_time']) === 5 ? $data['start_time'] . ':00' : $data['start_time'];
+        $end_time = strlen($data['end_time']) === 5 ? $data['end_time'] . ':00' : $data['end_time'];
+        
+        // Verificar colisión por staff (mismo personal, misma fecha, horario traslapado)
+        $staff_collision = self::check_staff_collision(
+            $data['assignment_date'],
+            $start_time,
+            $end_time,
+            $data['staff_id']
+        );
+        
+        if ($staff_collision) {
+            error_log("❌ [AssignmentsModel] Colisión detectada: personal ya tiene asignación en ese horario");
+            return [
+                'error' => 'El personal seleccionado ya tiene una asignación en ese horario'
+            ];
+        }
+        
+        // Verificar colisión por zona (misma zona, misma fecha, horario traslapado)
+        $area_collision = self::check_area_collision(
+            $data['assignment_date'],
+            $start_time,
+            $end_time,
+            $data['service_area_id']
+        );
+        
+        if ($area_collision) {
+            error_log("❌ [AssignmentsModel] Colisión detectada: zona ya tiene asignación en ese horario");
+            return [
+                'error' => 'La zona seleccionada ya tiene una asignación en ese horario'
+            ];
+        }
+        
+        // Preparar datos para inserción
+        $insert_data = [
+            'assignment_date' => $data['assignment_date'],
+            'start_time' => $start_time,
+            'end_time' => $end_time,
+            'staff_id' => intval($data['staff_id']),
+            'service_area_id' => intval($data['service_area_id']),
+            'service_key' => sanitize_text_field($data['service_key']),
+            'capacity' => isset($data['capacity']) ? intval($data['capacity']) : 1,
+            'status' => 'active',
+            'created_at' => current_time('mysql')
+        ];
+        
+        // Insertar en la base de datos
+        $result = $wpdb->insert(
+            $table,
+            $insert_data,
+            ['%s', '%s', '%s', '%d', '%d', '%s', '%d', '%s', '%s']
+        );
+        
+        if ($result === false) {
+            error_log("❌ [AssignmentsModel] Error al insertar asignación: " . $wpdb->last_error);
+            return false;
+        }
+        
+        $new_id = $wpdb->insert_id;
+        
+        if (!$new_id) {
+            error_log("❌ [AssignmentsModel] Asignación creada pero no se obtuvo insert_id");
+            return false;
+        }
+        
+        error_log("✅ [AssignmentsModel] Asignación creada ID: $new_id");
+        
+        // Retornar datos de la asignación creada
+        $insert_data['id'] = $new_id;
+        return $insert_data;
+    }
+
+    /**
+     * Verificar colisión de horario para un staff
+     * 
+     * @param string $date Fecha de la asignación
+     * @param string $start_time Hora inicio
+     * @param string $end_time Hora fin
+     * @param int $staff_id ID del personal
+     * @param int|null $exclude_id ID de asignación a excluir (para ediciones)
+     * @return bool true si hay colisión, false si no
+     */
+    public static function check_staff_collision($date, $start_time, $end_time, $staff_id, $exclude_id = null) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_assignments';
+        
+        // Query para detectar traslape de horarios
+        // Traslape ocurre cuando:
+        // - Nuevo inicio < Existente fin Y Nuevo fin > Existente inicio
+        $query = $wpdb->prepare(
+            "SELECT COUNT(*) FROM $table 
+             WHERE assignment_date = %s 
+             AND staff_id = %d 
+             AND status = 'active'
+             AND (
+                 (%s < end_time AND %s > start_time)
+             )",
+            $date,
+            $staff_id,
+            $start_time,
+            $end_time
+        );
+        
+        if ($exclude_id) {
+            $query .= $wpdb->prepare(" AND id != %d", $exclude_id);
+        }
+        
+        $count = $wpdb->get_var($query);
+        
+        return intval($count) > 0;
+    }
+
+    /**
+     * Verificar colisión de horario para una zona
+     * 
+     * @param string $date Fecha de la asignación
+     * @param string $start_time Hora inicio
+     * @param string $end_time Hora fin
+     * @param int $service_area_id ID de la zona
+     * @param int|null $exclude_id ID de asignación a excluir (para ediciones)
+     * @return bool true si hay colisión, false si no
+     */
+    public static function check_area_collision($date, $start_time, $end_time, $service_area_id, $exclude_id = null) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_assignments';
+        
+        // Query para detectar traslape de horarios
+        $query = $wpdb->prepare(
+            "SELECT COUNT(*) FROM $table 
+             WHERE assignment_date = %s 
+             AND service_area_id = %d 
+             AND status = 'active'
+             AND (
+                 (%s < end_time AND %s > start_time)
+             )",
+            $date,
+            $service_area_id,
+            $start_time,
+            $end_time
+        );
+        
+        if ($exclude_id) {
+            $query .= $wpdb->prepare(" AND id != %d", $exclude_id);
+        }
+        
+        $count = $wpdb->get_var($query);
+        
+        return intval($count) > 0;
+    }
 }
 

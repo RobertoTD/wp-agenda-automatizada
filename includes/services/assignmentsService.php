@@ -22,6 +22,8 @@ add_action('wp_ajax_aa_create_staff', 'aa_create_staff');
 add_action('wp_ajax_aa_toggle_staff', 'aa_toggle_staff');
 add_action('wp_ajax_aa_get_assignments', 'aa_get_assignments');
 add_action('wp_ajax_aa_delete_assignment', 'aa_delete_assignment');
+add_action('wp_ajax_aa_get_services', 'aa_get_services');
+add_action('wp_ajax_aa_create_assignment', 'aa_create_assignment');
 
 /**
  * Get service areas (zonas de atención)
@@ -388,6 +390,132 @@ function aa_delete_assignment() {
         error_log("❌ [assignmentsService] Error al eliminar asignación: " . $e->getMessage());
         wp_send_json_error([
             'message' => 'Error al eliminar la asignación: ' . $e->getMessage()
+        ]);
+    }
+}
+
+/**
+ * Get services list
+ * 
+ * Returns list of configured services from aa_google_motivo option.
+ * 
+ * @return void JSON response
+ */
+function aa_get_services() {
+    // Validar permisos
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'No tienes permisos para realizar esta acción']);
+        return;
+    }
+    
+    try {
+        // Obtener servicios desde la opción
+        $motivos_json = get_option('aa_google_motivo', json_encode(['Cita general']));
+        $motivos = json_decode($motivos_json, true);
+        
+        if (!is_array($motivos) || empty($motivos)) {
+            $motivos = ['Cita general'];
+        }
+        
+        wp_send_json_success([
+            'services' => $motivos,
+            'count' => count($motivos)
+        ]);
+    } catch (Exception $e) {
+        error_log("❌ [assignmentsService] Error al obtener servicios: " . $e->getMessage());
+        wp_send_json_error([
+            'message' => 'Error al obtener los servicios: ' . $e->getMessage()
+        ]);
+    }
+}
+
+/**
+ * Create assignment
+ * 
+ * Creates a new assignment in the database.
+ * Validates for collisions with existing assignments.
+ * 
+ * @return void JSON response
+ */
+function aa_create_assignment() {
+    // Validar permisos
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'No tienes permisos para realizar esta acción']);
+        return;
+    }
+    
+    // Validar campos requeridos
+    $required_fields = ['assignment_date', 'start_time', 'end_time', 'staff_id', 'service_area_id', 'service_key'];
+    
+    foreach ($required_fields as $field) {
+        if (!isset($_POST[$field]) || empty($_POST[$field])) {
+            wp_send_json_error(['message' => "El campo $field es requerido"]);
+            return;
+        }
+    }
+    
+    // Sanitizar datos
+    $data = [
+        'assignment_date' => sanitize_text_field($_POST['assignment_date']),
+        'start_time' => sanitize_text_field($_POST['start_time']),
+        'end_time' => sanitize_text_field($_POST['end_time']),
+        'staff_id' => intval($_POST['staff_id']),
+        'service_area_id' => intval($_POST['service_area_id']),
+        'service_key' => sanitize_text_field($_POST['service_key']),
+        'capacity' => isset($_POST['capacity']) ? intval($_POST['capacity']) : 1
+    ];
+    
+    // Validar formato de fecha
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $data['assignment_date'])) {
+        wp_send_json_error(['message' => 'Formato de fecha inválido']);
+        return;
+    }
+    
+    // Validar formato de hora
+    if (!preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $data['start_time']) || 
+        !preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $data['end_time'])) {
+        wp_send_json_error(['message' => 'Formato de hora inválido']);
+        return;
+    }
+    
+    // Validar que hora fin sea posterior a hora inicio
+    if ($data['start_time'] >= $data['end_time']) {
+        wp_send_json_error(['message' => 'La hora de fin debe ser posterior a la hora de inicio']);
+        return;
+    }
+    
+    // Validar IDs positivos
+    if ($data['staff_id'] <= 0 || $data['service_area_id'] <= 0) {
+        wp_send_json_error(['message' => 'IDs inválidos']);
+        return;
+    }
+    
+    try {
+        // Llamar al modelo para crear la asignación
+        $result = AssignmentsModel::create_assignment($data);
+        
+        if ($result === false) {
+            wp_send_json_error([
+                'message' => 'Error al crear la asignación en la base de datos'
+            ]);
+            return;
+        }
+        
+        if (isset($result['error'])) {
+            wp_send_json_error([
+                'message' => $result['error']
+            ]);
+            return;
+        }
+        
+        wp_send_json_success([
+            'message' => 'Asignación creada correctamente',
+            'assignment' => $result
+        ]);
+    } catch (Exception $e) {
+        error_log("❌ [assignmentsService] Error al crear asignación: " . $e->getMessage());
+        wp_send_json_error([
+            'message' => 'Error al crear la asignación: ' . $e->getMessage()
         ]);
     }
 }
