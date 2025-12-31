@@ -41,9 +41,8 @@ $module_js_url = $plugin_url . 'assignments-module.js';
         </summary>
         
         <div class="p-6 transition-all duration-200">
-            <!-- Root container for JS module -->
+            <!-- Root container for assignments section JS -->
             <div id="aa-assignments-root"></div>
-            <p class="text-sm text-gray-500">Aquí se configurarán las asignaciones de personal, zonas y servicios.</p>
         </div>
     </details>
 
@@ -155,4 +154,7 @@ $module_js_url = $plugin_url . 'assignments-module.js';
 
 <!-- Staff Section JS -->
 <script src="<?php echo esc_url($plugin_url . 'staff-section/staff.js'); ?>" defer></script>
+
+<!-- Assignments Section JS -->
+<script src="<?php echo esc_url($plugin_url . 'assignments-section/assignments-section.js'); ?>" defer></script>
 

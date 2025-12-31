@@ -20,6 +20,8 @@ add_action('wp_ajax_aa_toggle_service_area', 'aa_toggle_service_area');
 add_action('wp_ajax_aa_get_staff', 'aa_get_staff');
 add_action('wp_ajax_aa_create_staff', 'aa_create_staff');
 add_action('wp_ajax_aa_toggle_staff', 'aa_toggle_staff');
+add_action('wp_ajax_aa_get_assignments', 'aa_get_assignments');
+add_action('wp_ajax_aa_delete_assignment', 'aa_delete_assignment');
 
 /**
  * Get service areas (zonas de atención)
@@ -305,6 +307,87 @@ function aa_toggle_staff() {
         error_log("❌ [assignmentsService] Error al actualizar personal: " . $e->getMessage());
         wp_send_json_error([
             'message' => 'Error al actualizar el estado: ' . $e->getMessage()
+        ]);
+    }
+}
+
+/**
+ * Get assignments
+ * 
+ * Returns list of all assignments.
+ * 
+ * @return void JSON response
+ */
+function aa_get_assignments() {
+    // Validar permisos
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'No tienes permisos para realizar esta acción']);
+        return;
+    }
+    
+    try {
+        // Llamar al modelo
+        $assignments = AssignmentsModel::get_assignments();
+        
+        wp_send_json_success([
+            'assignments' => $assignments,
+            'count' => count($assignments)
+        ]);
+    } catch (Exception $e) {
+        error_log("❌ [assignmentsService] Error al obtener asignaciones: " . $e->getMessage());
+        wp_send_json_error([
+            'message' => 'Error al obtener las asignaciones: ' . $e->getMessage()
+        ]);
+    }
+}
+
+/**
+ * Delete assignment
+ * 
+ * Deletes an assignment from the database.
+ * 
+ * @return void JSON response
+ */
+function aa_delete_assignment() {
+    // Validar permisos
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'No tienes permisos para realizar esta acción']);
+        return;
+    }
+    
+    // Leer y validar datos POST
+    if (!isset($_POST['id'])) {
+        wp_send_json_error(['message' => 'El ID de la asignación es requerido']);
+        return;
+    }
+    
+    $id = intval($_POST['id']);
+    
+    // Validar ID
+    if ($id <= 0) {
+        wp_send_json_error(['message' => 'ID inválido']);
+        return;
+    }
+    
+    try {
+        // Llamar al modelo para eliminar la asignación
+        $result = AssignmentsModel::delete_assignment($id);
+        
+        if ($result === false) {
+            wp_send_json_error([
+                'message' => 'Error al eliminar la asignación'
+            ]);
+            return;
+        }
+        
+        wp_send_json_success([
+            'message' => 'Asignación eliminada correctamente',
+            'id' => $id
+        ]);
+    } catch (Exception $e) {
+        error_log("❌ [assignmentsService] Error al eliminar asignación: " . $e->getMessage());
+        wp_send_json_error([
+            'message' => 'Error al eliminar la asignación: ' . $e->getMessage()
         ]);
     }
 }

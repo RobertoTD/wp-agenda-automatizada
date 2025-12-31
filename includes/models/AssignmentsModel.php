@@ -257,5 +257,70 @@ class AssignmentsModel {
         
         return true;
     }
+
+    /**
+     * Obtener asignaciones
+     * 
+     * @return array Array asociativo con las asignaciones
+     */
+    public static function get_assignments() {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_assignments';
+        
+        $query = "SELECT id, assignment_date, start_time, end_time, staff_id, 
+                         service_area_id, service_key, capacity, repeat_weekly, 
+                         repeat_until, status, created_at 
+                  FROM $table 
+                  ORDER BY assignment_date ASC, start_time ASC";
+        
+        $results = $wpdb->get_results($query, ARRAY_A);
+        
+        if ($wpdb->last_error) {
+            error_log("❌ [AssignmentsModel] Error al obtener asignaciones: " . $wpdb->last_error);
+            return [];
+        }
+        
+        return $results ? $results : [];
+    }
+
+    /**
+     * Eliminar una asignación
+     * 
+     * @param int $id ID de la asignación a eliminar
+     * @return bool true en éxito, false en error
+     */
+    public static function delete_assignment($id) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_assignments';
+        
+        // Validar ID
+        $id = intval($id);
+        
+        if ($id <= 0) {
+            error_log("❌ [AssignmentsModel] ID inválido para eliminar asignación: $id");
+            return false;
+        }
+        
+        // Eliminar de la base de datos
+        $result = $wpdb->delete(
+            $table,
+            ['id' => $id],
+            ['%d']
+        );
+        
+        if ($result === false) {
+            error_log("❌ [AssignmentsModel] Error al eliminar asignación ID $id: " . $wpdb->last_error);
+            return false;
+        }
+        
+        if ($result === 0) {
+            error_log("⚠️ [AssignmentsModel] No se encontró asignación con ID $id para eliminar");
+            return false;
+        }
+        
+        error_log("✅ [AssignmentsModel] Asignación ID $id eliminada correctamente");
+        
+        return true;
+    }
 }
 
