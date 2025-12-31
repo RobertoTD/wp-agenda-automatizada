@@ -102,8 +102,8 @@
             html += '<div class="text-xs text-gray-500">' + escapeHtml(timeRange) + '</div>';
             html += '</div>';
             
-            // Chevron indicator
-            html += '<svg class="aa-card-chevron w-5 h-5 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
+            // Chevron indicator (solo uno, al extremo derecho)
+            html += '<svg class="aa-card-chevron w-4 h-4 text-gray-400 transition-transform duration-200 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
             html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>';
             html += '</svg>';
             
@@ -115,25 +115,25 @@
             // Assignment details grid
             html += '<div class="grid grid-cols-2 gap-4 mb-4">';
             
-            // Staff ID
+            // Responsable (staff name)
             html += '<div>';
-            html += '<span class="text-xs text-gray-500 block">Personal ID</span>';
-            html += '<span class="text-sm font-medium text-gray-900">' + escapeHtml(assignment.staff_id || '-') + '</span>';
+            html += '<span class="text-xs text-gray-500 block">Responsable</span>';
+            html += '<span class="text-sm font-medium text-gray-900">' + escapeHtml(assignment.staff_name || '-') + '</span>';
             html += '</div>';
             
-            // Service Area ID
+            // Zona (service area name)
             html += '<div>';
-            html += '<span class="text-xs text-gray-500 block">Zona ID</span>';
-            html += '<span class="text-sm font-medium text-gray-900">' + escapeHtml(assignment.service_area_id || '-') + '</span>';
+            html += '<span class="text-xs text-gray-500 block">Zona</span>';
+            html += '<span class="text-sm font-medium text-gray-900">' + escapeHtml(assignment.service_area_name || '-') + '</span>';
             html += '</div>';
             
-            // Service Key
+            // Servicio (service key)
             html += '<div>';
             html += '<span class="text-xs text-gray-500 block">Servicio</span>';
             html += '<span class="text-sm font-medium text-gray-900">' + escapeHtml(assignment.service_key || '-') + '</span>';
             html += '</div>';
             
-            // Capacity
+            // Capacidad (capacity)
             html += '<div>';
             html += '<span class="text-xs text-gray-500 block">Capacidad</span>';
             html += '<span class="text-sm font-medium text-gray-900">' + escapeHtml(assignment.capacity || '1') + '</span>';

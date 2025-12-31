@@ -261,17 +261,28 @@ class AssignmentsModel {
     /**
      * Obtener asignaciones
      * 
-     * @return array Array asociativo con las asignaciones
+     * @return array Array asociativo con las asignaciones enriquecidas con nombres de staff y zonas
      */
     public static function get_assignments() {
         global $wpdb;
-        $table = $wpdb->prefix . 'aa_assignments';
+        $assignments_table = $wpdb->prefix . 'aa_assignments';
+        $staff_table = $wpdb->prefix . 'aa_staff';
+        $service_areas_table = $wpdb->prefix . 'aa_service_areas';
         
-        $query = "SELECT id, assignment_date, start_time, end_time, staff_id, 
-                         service_area_id, service_key, capacity, repeat_weekly, 
-                         repeat_until, status, created_at 
-                  FROM $table 
-                  ORDER BY assignment_date ASC, start_time ASC";
+        $query = "SELECT 
+                    a.id,
+                    a.assignment_date,
+                    a.start_time,
+                    a.end_time,
+                    a.service_key,
+                    a.capacity,
+                    a.status,
+                    s.name AS staff_name,
+                    sa.name AS service_area_name
+                  FROM $assignments_table a
+                  LEFT JOIN $staff_table s ON s.id = a.staff_id
+                  LEFT JOIN $service_areas_table sa ON sa.id = a.service_area_id
+                  ORDER BY a.assignment_date ASC, a.start_time ASC";
         
         $results = $wpdb->get_results($query, ARRAY_A);
         
