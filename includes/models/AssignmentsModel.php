@@ -135,5 +135,127 @@ class AssignmentsModel {
         
         return true;
     }
+
+    /**
+     * Obtener personal (staff)
+     * 
+     * @param bool $only_active Si es true, solo retorna personal activo
+     * @return array Array asociativo con el personal
+     */
+    public static function get_staff($only_active = false) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_staff';
+        
+        $where_clause = '';
+        if ($only_active) {
+            $where_clause = "WHERE active = 1";
+        }
+        
+        $query = "SELECT id, name, active, created_at 
+                  FROM $table 
+                  $where_clause 
+                  ORDER BY name ASC";
+        
+        $results = $wpdb->get_results($query, ARRAY_A);
+        
+        if ($wpdb->last_error) {
+            error_log("❌ [AssignmentsModel] Error al obtener personal: " . $wpdb->last_error);
+            return [];
+        }
+        
+        return $results ? $results : [];
+    }
+
+    /**
+     * Crear nuevo personal (staff)
+     * 
+     * @param string $name Nombre del personal
+     * @return array|false Array con id y name en éxito, false en error
+     */
+    public static function create_staff($name) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_staff';
+        
+        // Sanitizar nombre
+        $name = sanitize_text_field($name);
+        
+        // Validar que el nombre no esté vacío
+        if (empty($name)) {
+            error_log("❌ [AssignmentsModel] Intento de crear personal con nombre vacío");
+            return false;
+        }
+        
+        // Insertar en la base de datos
+        $result = $wpdb->insert(
+            $table,
+            [
+                'name' => $name,
+                'active' => 1,
+                'created_at' => current_time('mysql')
+            ],
+            ['%s', '%d', '%s']
+        );
+        
+        if ($result === false) {
+            error_log("❌ [AssignmentsModel] Error al crear personal: " . $wpdb->last_error);
+            return false;
+        }
+        
+        $new_id = $wpdb->insert_id;
+        
+        if (!$new_id) {
+            error_log("❌ [AssignmentsModel] Personal creado pero no se obtuvo insert_id");
+            return false;
+        }
+        
+        error_log("✅ [AssignmentsModel] Personal creado ID: $new_id (nombre: $name)");
+        
+        return [
+            'id' => $new_id,
+            'name' => $name
+        ];
+    }
+
+    /**
+     * Actualizar estado activo de un miembro del personal
+     * 
+     * @param int $id ID del personal
+     * @param int $active 0 para desactivar, 1 para activar
+     * @return bool true en éxito, false en error
+     */
+    public static function set_staff_active($id, $active) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_staff';
+        
+        // Validar parámetros
+        $id = intval($id);
+        $active = intval($active);
+        
+        // Asegurar que active sea 0 o 1
+        $active = ($active === 1) ? 1 : 0;
+        
+        if ($id <= 0) {
+            error_log("❌ [AssignmentsModel] ID inválido para actualizar personal: $id");
+            return false;
+        }
+        
+        // Actualizar en la base de datos
+        $result = $wpdb->update(
+            $table,
+            ['active' => $active],
+            ['id' => $id],
+            ['%d'],
+            ['%d']
+        );
+        
+        if ($result === false) {
+            error_log("❌ [AssignmentsModel] Error al actualizar personal ID $id: " . $wpdb->last_error);
+            return false;
+        }
+        
+        error_log("✅ [AssignmentsModel] Personal ID $id actualizado (active = $active)");
+        
+        return true;
+    }
 }
 
