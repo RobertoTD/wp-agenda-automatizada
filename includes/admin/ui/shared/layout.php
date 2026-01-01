@@ -160,6 +160,10 @@ header('Content-Type: text/html; charset=utf-8');
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/availability/slotCalculator.js'); ?>" defer></script>
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/availabilityService.js'); ?>" defer></script>
 
+<!-- Availability Services - Assignments (parallel, non-legacy) -->
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/availability/availabilityAssignments.js'); ?>" defer></script>
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/availability/busyRangesAssignments.js'); ?>" defer></script>
+
 <!-- Other Services -->
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/reservationService.js'); ?>" defer></script>
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/adminCalendarService.js'); ?>" defer></script>

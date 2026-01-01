@@ -25,6 +25,12 @@ add_action('wp_ajax_aa_delete_assignment', 'aa_delete_assignment');
 add_action('wp_ajax_aa_get_services', 'aa_get_services');
 add_action('wp_ajax_aa_create_assignment', 'aa_create_assignment');
 
+// Endpoints para disponibilidad basada en assignments
+add_action('wp_ajax_aa_get_assignment_dates', 'aa_get_assignment_dates');
+add_action('wp_ajax_aa_get_assignment_dates_by_service', 'aa_get_assignment_dates_by_service');
+add_action('wp_ajax_aa_get_assignments_by_service_and_date', 'aa_get_assignments_by_service_and_date');
+add_action('wp_ajax_aa_get_busy_ranges_by_assignments', 'aa_get_busy_ranges_by_assignments');
+
 /**
  * Get service areas (zonas de atención)
  * 
@@ -516,6 +522,193 @@ function aa_create_assignment() {
         error_log("❌ [assignmentsService] Error al crear asignación: " . $e->getMessage());
         wp_send_json_error([
             'message' => 'Error al crear la asignación: ' . $e->getMessage()
+        ]);
+    }
+}
+
+// ============================================
+// ENDPOINTS PARA DISPONIBILIDAD BASADA EN ASSIGNMENTS
+// ============================================
+
+/**
+ * Get all assignment dates
+ * 
+ * Returns all unique dates that have active assignments.
+ * 
+ * @return void JSON response
+ */
+function aa_get_assignment_dates() {
+    // Validar permisos
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'No tienes permisos para realizar esta acción']);
+        return;
+    }
+    
+    try {
+        $dates = AssignmentsModel::get_assignment_dates();
+        
+        wp_send_json_success([
+            'dates' => $dates,
+            'count' => count($dates)
+        ]);
+    } catch (Exception $e) {
+        error_log("❌ [assignmentsService] Error al obtener fechas de asignaciones: " . $e->getMessage());
+        wp_send_json_error([
+            'message' => 'Error al obtener las fechas: ' . $e->getMessage()
+        ]);
+    }
+}
+
+/**
+ * Get assignment dates by service
+ * 
+ * Returns dates that have assignments for a specific service.
+ * 
+ * @return void JSON response
+ */
+function aa_get_assignment_dates_by_service() {
+    // Validar permisos
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'No tienes permisos para realizar esta acción']);
+        return;
+    }
+    
+    // Validar campo requerido
+    if (!isset($_POST['service_key']) || empty($_POST['service_key'])) {
+        wp_send_json_error(['message' => 'El campo service_key es requerido']);
+        return;
+    }
+    
+    $service_key = sanitize_text_field($_POST['service_key']);
+    $start_date = isset($_POST['start_date']) ? sanitize_text_field($_POST['start_date']) : null;
+    $end_date = isset($_POST['end_date']) ? sanitize_text_field($_POST['end_date']) : null;
+    
+    try {
+        $dates = AssignmentsModel::get_assignment_dates_by_service($service_key, $start_date, $end_date);
+        
+        wp_send_json_success([
+            'service_key' => $service_key,
+            'dates' => $dates,
+            'count' => count($dates)
+        ]);
+    } catch (Exception $e) {
+        error_log("❌ [assignmentsService] Error al obtener fechas por servicio: " . $e->getMessage());
+        wp_send_json_error([
+            'message' => 'Error al obtener las fechas: ' . $e->getMessage()
+        ]);
+    }
+}
+
+/**
+ * Get assignments by service and date
+ * 
+ * Returns all assignments for a specific service on a specific date.
+ * 
+ * @return void JSON response
+ */
+function aa_get_assignments_by_service_and_date() {
+    // Validar permisos
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'No tienes permisos para realizar esta acción']);
+        return;
+    }
+    
+    // Validar campos requeridos
+    if (!isset($_POST['service_key']) || empty($_POST['service_key'])) {
+        wp_send_json_error(['message' => 'El campo service_key es requerido']);
+        return;
+    }
+    
+    if (!isset($_POST['date']) || empty($_POST['date'])) {
+        wp_send_json_error(['message' => 'El campo date es requerido']);
+        return;
+    }
+    
+    $service_key = sanitize_text_field($_POST['service_key']);
+    $date = sanitize_text_field($_POST['date']);
+    
+    // Validar formato de fecha
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+        wp_send_json_error(['message' => 'Formato de fecha inválido. Use YYYY-MM-DD']);
+        return;
+    }
+    
+    try {
+        $assignments = AssignmentsModel::get_assignments_by_service_and_date($service_key, $date);
+        
+        wp_send_json_success([
+            'service_key' => $service_key,
+            'date' => $date,
+            'assignments' => $assignments,
+            'count' => count($assignments)
+        ]);
+    } catch (Exception $e) {
+        error_log("❌ [assignmentsService] Error al obtener asignaciones por servicio y fecha: " . $e->getMessage());
+        wp_send_json_error([
+            'message' => 'Error al obtener las asignaciones: ' . $e->getMessage()
+        ]);
+    }
+}
+
+/**
+ * Get busy ranges by assignment IDs
+ * 
+ * Returns busy time ranges for specific assignments on a date.
+ * 
+ * @return void JSON response
+ */
+function aa_get_busy_ranges_by_assignments() {
+    // Validar permisos
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'No tienes permisos para realizar esta acción']);
+        return;
+    }
+    
+    // Validar campos requeridos
+    if (!isset($_POST['assignment_ids']) || empty($_POST['assignment_ids'])) {
+        wp_send_json_error(['message' => 'El campo assignment_ids es requerido']);
+        return;
+    }
+    
+    if (!isset($_POST['date']) || empty($_POST['date'])) {
+        wp_send_json_error(['message' => 'El campo date es requerido']);
+        return;
+    }
+    
+    // Parsear assignment_ids (puede venir como JSON string)
+    $assignment_ids_raw = $_POST['assignment_ids'];
+    if (is_string($assignment_ids_raw)) {
+        $assignment_ids = json_decode($assignment_ids_raw, true);
+    } else {
+        $assignment_ids = $assignment_ids_raw;
+    }
+    
+    if (!is_array($assignment_ids) || empty($assignment_ids)) {
+        wp_send_json_error(['message' => 'assignment_ids debe ser un array no vacío']);
+        return;
+    }
+    
+    $date = sanitize_text_field($_POST['date']);
+    
+    // Validar formato de fecha
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+        wp_send_json_error(['message' => 'Formato de fecha inválido. Use YYYY-MM-DD']);
+        return;
+    }
+    
+    try {
+        $busy_ranges = AssignmentsModel::get_busy_ranges_by_assignment_ids($assignment_ids, $date);
+        
+        wp_send_json_success([
+            'assignment_ids' => $assignment_ids,
+            'date' => $date,
+            'busy_ranges' => $busy_ranges,
+            'count' => count($busy_ranges)
+        ]);
+    } catch (Exception $e) {
+        error_log("❌ [assignmentsService] Error al obtener busy ranges: " . $e->getMessage());
+        wp_send_json_error([
+            'message' => 'Error al obtener los rangos ocupados: ' . $e->getMessage()
         ]);
     }
 }
