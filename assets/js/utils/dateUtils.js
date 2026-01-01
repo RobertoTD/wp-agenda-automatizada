@@ -93,6 +93,22 @@ function isSlotBusy(slotDate, busyRanges) {
   });
 }
 
+// ✅ Normaliza un intervalo a una grilla fija de slots
+// Redondea el inicio hacia arriba y el fin hacia abajo al múltiplo más cercano de slotDuration
+function normalizeIntervalToSlotGrid(startMin, endMin, slotDuration) {
+  const normalizedStart = Math.ceil(startMin / slotDuration) * slotDuration;
+  const normalizedEnd = Math.floor((endMin - slotDuration) / slotDuration) * slotDuration;
+
+  if (normalizedStart > normalizedEnd) {
+    return null;
+  }
+
+  return {
+    start: normalizedStart,
+    end: normalizedEnd
+  };
+}
+
 // ✅ Genera slots disponibles para un día con duración configurable
 function generateSlotsForDay(date, intervals, busyRanges, slotDuration = 30) {
   const slots = [];
@@ -134,6 +150,7 @@ window.DateUtils = {
   computeLimits,
   isSlotBusy,
   hasEnoughFreeTime,
+  normalizeIntervalToSlotGrid,
   generateSlotsForDay
 };
 

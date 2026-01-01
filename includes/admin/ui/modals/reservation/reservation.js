@@ -392,56 +392,23 @@
             // ============================================
             // 🧮 CALCULAR SLOTS DE 30 MINUTOS
             // ============================================
-            
-            // Verificar que DateUtils esté disponible
-            if (typeof window.DateUtils === 'undefined') {
-                console.warn('[AA][Reservation] DateUtils no disponible, no se pueden calcular slots');
-                return;
-            }
-
-            // Verificar que haya asignaciones
-            if (!staffAssignments || staffAssignments.length === 0) {
-                console.log('[AA][Reservation] No hay asignaciones para calcular slots');
-                return;
-            }
-
-            // Verificar que haya fecha seleccionada
-            if (!selectedDate) {
-                console.log('[AA][Reservation] No hay fecha seleccionada para calcular slots');
-                return;
-            }
-
-            try {
-                // 1️⃣ Construir intervalos desde assignments
-                const intervals = staffAssignments.map(function(a) {
-                    return {
-                        start: window.DateUtils.timeStrToMinutes(a.start_time),
-                        end: window.DateUtils.timeStrToMinutes(a.end_time)
-                    };
-                });
-
-                console.log('[AA][Reservation] Intervalos construidos:', intervals);
-
-                // 2️⃣ Generar slots de 30 minutos
-                const dateObj = new Date(selectedDate + 'T00:00:00');
+            // Delegar cálculo al service
+            if (typeof window.AAAssignmentsAvailability !== 'undefined' && 
+                typeof window.AAAssignmentsAvailability.getSlotsForStaffAndDate === 'function') {
                 
-                const slots = window.DateUtils.generateSlotsForDay(
-                    dateObj,
-                    intervals,
-                    [],        // busyRanges vacío por ahora
-                    30         // duración de slot en minutos
+                const slots = window.AAAssignmentsAvailability.getSlotsForStaffAndDate(
+                    staffAssignments,
+                    selectedDate,
+                    30
                 );
 
-                // 3️⃣ Log claro en consola (único output)
-                console.log(
-                    '[AA][Reservation] 🧮 Slots calculados:',
-                    slots.map(function(s) {
-                        return window.DateUtils.hm(s);
-                    })
-                );
-
-            } catch (error) {
-                console.error('[AA][Reservation] Error al calcular slots:', error);
+                if (slots) {
+                    console.log('[AA][Reservation] ✅ Slots calculados exitosamente');
+                } else {
+                    console.log('[AA][Reservation] No se pudieron calcular slots');
+                }
+            } else {
+                console.warn('[AA][Reservation] AAAssignmentsAvailability.getSlotsForStaffAndDate no disponible');
             }
         },
 
