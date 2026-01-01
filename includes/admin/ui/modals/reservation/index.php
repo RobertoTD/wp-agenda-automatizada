@@ -95,6 +95,18 @@ $duraciones = [30, 60, 90];
                     readonly 
                     placeholder="Selecciona fecha..."
                 >
+            </div>
+            
+            <!-- Campo: Personal disponible (nuevo - basado en assignments) -->
+            <div class="aa-form-cita-group">
+                <label for="aa-reservation-staff">Personal disponible</label>
+                <select id="aa-reservation-staff" name="staff_id" disabled>
+                    <option value="">Seleccione primero un servicio y una fecha</option>
+                </select>
+            </div>
+            
+            <!-- Contenedor de slots -->
+            <div class="aa-form-cita-group">
                 <div id="slot-container-admin"></div>
             </div>
             
