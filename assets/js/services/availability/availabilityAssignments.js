@@ -237,6 +237,153 @@
         }
     }
 
+    /**
+     * Check if a slot collides with any busy range
+     * A slot is considered busy if: slotStart < busyEnd AND slotEnd > busyStart
+     * 
+     * @param {number} slotStartMin - Slot start in minutes from midnight
+     * @param {number} slotDuration - Slot duration in minutes
+     * @param {Array<{start: number, end: number}>} busyRanges - Busy ranges in minutes
+     * @returns {boolean} True if slot is busy, false if available
+     */
+    function isSlotBusyByMinutes(slotStartMin, slotDuration, busyRanges) {
+        const slotEndMin = slotStartMin + slotDuration;
+        
+        for (let i = 0; i < busyRanges.length; i++) {
+            const busy = busyRanges[i];
+            // Collision: slotStart < busyEnd AND slotEnd > busyStart
+            if (slotStartMin < busy.end && slotEndMin > busy.start) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    /**
+     * Get available slots for a specific assignment
+     * Generates normalized slots and subtracts busy ranges from reservations
+     * 
+     * @param {Object} options - Options object
+     * @param {number} options.assignmentId - Assignment ID
+     * @param {string} options.date - Date (YYYY-MM-DD)
+     * @param {number} options.slotDuration - Slot duration in minutes (default: 30)
+     * @param {Object} options.assignment - Optional: pre-loaded assignment object with start_time, end_time
+     * @returns {Promise<Array<string>|null>} Array of available slot times as HH:MM strings, or null on error
+     */
+    async function getAvailableSlotsForAssignment(options) {
+        const { assignmentId, date, slotDuration = 30, assignment } = options;
+
+        console.log('🔍 [AAAssignmentsAvailability] getAvailableSlotsForAssignment() llamado', {
+            assignmentId: assignmentId,
+            date: date,
+            slotDuration: slotDuration
+        });
+
+        // Validaciones
+        if (!assignmentId) {
+            console.warn('[AAAssignmentsAvailability] assignmentId es requerido');
+            return null;
+        }
+
+        if (!date) {
+            console.warn('[AAAssignmentsAvailability] date es requerido');
+            return null;
+        }
+
+        // Verificar que DateUtils esté disponible
+        if (typeof window.DateUtils === 'undefined') {
+            console.error('[AAAssignmentsAvailability] DateUtils no disponible');
+            return null;
+        }
+
+        // Verificar que AABusyRangesAssignments esté disponible
+        if (typeof window.AABusyRangesAssignments === 'undefined' || 
+            typeof window.AABusyRangesAssignments.getBusyRangesByAssignmentIds === 'undefined') {
+            console.error('[AAAssignmentsAvailability] AABusyRangesAssignments.getBusyRangesByAssignmentIds no disponible');
+            return null;
+        }
+
+        try {
+            // 1️⃣ Generar slots iniciales desde el assignment
+            let assignmentData = assignment;
+            
+            // Si no se pasó el assignment, necesitamos obtener los datos del intervalo
+            if (!assignmentData) {
+                // Buscar en caché o hacer llamada AJAX para obtener los datos del assignment
+                // Por ahora, asumimos que se pasa el assignment
+                console.error('[AAAssignmentsAvailability] Se requiere pasar el objeto assignment con start_time y end_time');
+                return null;
+            }
+
+            if (!assignmentData.start_time || !assignmentData.end_time) {
+                console.warn('[AAAssignmentsAvailability] Assignment sin start_time o end_time');
+                return null;
+            }
+
+            // Convertir a minutos y normalizar
+            const startMin = window.DateUtils.timeStrToMinutes(assignmentData.start_time);
+            const endMin = window.DateUtils.timeStrToMinutes(assignmentData.end_time);
+            
+            const normalizedInterval = window.DateUtils.normalizeIntervalToSlotGrid(
+                startMin,
+                endMin,
+                slotDuration
+            );
+
+            if (!normalizedInterval) {
+                console.warn('[AAAssignmentsAvailability] No se pudo normalizar el intervalo del assignment');
+                return null;
+            }
+
+            // Generar slots iniciales (solo los minutos)
+            const initialSlots = [];
+            for (let min = normalizedInterval.start; min <= normalizedInterval.end; min += slotDuration) {
+                initialSlots.push(min);
+            }
+
+            console.log('[AAAssignmentsAvailability] Slots iniciales (minutos):', initialSlots);
+            console.log('[AAAssignmentsAvailability] Slots iniciales:', initialSlots.map(function(min) {
+                const hh = String(Math.floor(min / 60)).padStart(2, '0');
+                const mm = String(min % 60).padStart(2, '0');
+                return hh + ':' + mm;
+            }));
+
+            // 2️⃣ Obtener busy ranges desde reservas existentes
+            const busyRanges = await window.AABusyRangesAssignments.getBusyRangesByAssignmentIds(
+                [assignmentId],
+                date
+            );
+
+            console.log('[AAAssignmentsAvailability] Busy ranges:', busyRanges);
+
+            if (busyRanges === null) {
+                console.error('[AAAssignmentsAvailability] Error al obtener busy ranges');
+                return null;
+            }
+
+            // 3️⃣ Filtrar slots que colisionan con busy ranges
+            const availableSlots = initialSlots.filter(function(slotMin) {
+                return !isSlotBusyByMinutes(slotMin, slotDuration, busyRanges);
+            });
+
+            // 4️⃣ Convertir a formato HH:MM
+            const availableSlotsFormatted = availableSlots.map(function(min) {
+                const hh = String(Math.floor(min / 60)).padStart(2, '0');
+                const mm = String(min % 60).padStart(2, '0');
+                return hh + ':' + mm;
+            });
+
+            console.log('[AAAssignmentsAvailability] Slots disponibles finales:', availableSlotsFormatted);
+
+            return availableSlotsFormatted;
+
+        } catch (error) {
+            console.error('[AAAssignmentsAvailability] Error al calcular slots disponibles:', error);
+            return null;
+        }
+    }
+
     // ============================================
     // Expose to global namespace
     // ============================================
@@ -244,7 +391,8 @@
         getAssignmentDates: getAssignmentDates,
         getAssignmentDatesByService: getAssignmentDatesByService,
         getAssignmentsByServiceAndDate: getAssignmentsByServiceAndDate,
-        getSlotsForStaffAndDate: getSlotsForStaffAndDate
+        getSlotsForStaffAndDate: getSlotsForStaffAndDate,
+        getAvailableSlotsForAssignment: getAvailableSlotsForAssignment
     };
 
     console.log('✅ [AAAssignmentsAvailability] Módulo cargado y expuesto en window.AAAssignmentsAvailability');
@@ -253,6 +401,7 @@
     console.log('   - AAAssignmentsAvailability.getAssignmentDatesByService(serviceKey, startDate?, endDate?)');
     console.log('   - AAAssignmentsAvailability.getAssignmentsByServiceAndDate(serviceKey, date)');
     console.log('   - AAAssignmentsAvailability.getSlotsForStaffAndDate(assignments, date, slotDuration?)');
+    console.log('   - AAAssignmentsAvailability.getAvailableSlotsForAssignment({ assignmentId, date, slotDuration?, assignment })');
 
 })();
 
