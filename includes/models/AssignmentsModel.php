@@ -675,27 +675,18 @@ class AssignmentsModel {
         $busy_ranges = [];
         
         foreach ($assignments as $assignment) {
-            // Consultar reservas que ocupan este assignment
-            // Priorizar las que tienen assignment_id explícito, o las que caen en el rango horario
-            // Excluir reservas canceladas
+            // Consultar reservas que caen dentro del horario de esta asignación
             $reservas_query = $wpdb->prepare(
                 "SELECT 
-                    TIME_FORMAT(TIME(fecha), '%%H:%%i') as start,
-                    TIME_FORMAT(TIME(DATE_ADD(fecha, INTERVAL duracion MINUTE)), '%%H:%%i') as end,
+                    fecha as start,
+                    DATE_ADD(fecha, INTERVAL duracion MINUTE) as end,
                     servicio as title
                  FROM $reservas_table 
                  WHERE DATE(fecha) = %s
-                 AND estado != 'cancelled'
-                 AND (
-                    assignment_id = %d
-                    OR (
-                        assignment_id IS NULL
-                        AND TIME(fecha) >= %s
-                        AND TIME(fecha) < %s
-                    )
-                 )",
+                 AND estado = 'confirmed'
+                 AND TIME(fecha) >= %s
+                 AND TIME(fecha) < %s",
                 $date,
-                $assignment['id'],
                 $assignment['start_time'],
                 $assignment['end_time']
             );

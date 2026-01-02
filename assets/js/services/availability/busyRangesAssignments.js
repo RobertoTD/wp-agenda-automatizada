@@ -97,72 +97,16 @@
         return result;
     }
 
-    /**
-     * Get busy ranges by assignment IDs as intervals in minutes
-     * Calls the AJAX endpoint and converts time strings to minute intervals
-     * 
-     * @param {Array<number>} assignmentIds - Array of assignment IDs
-     * @param {string} date - Date (YYYY-MM-DD)
-     * @returns {Promise<Array<{start: number, end: number}>|null>} Array of busy intervals in minutes, or null on error
-     */
-    async function getBusyRangesByAssignmentIds(assignmentIds, date) {
-        console.log(`🔍 [AABusyRangesAssignments] getBusyRangesByAssignmentIds([${assignmentIds.join(', ')}], "${date}") llamado`);
-        
-        if (!Array.isArray(assignmentIds) || assignmentIds.length === 0) {
-            console.warn('[AABusyRangesAssignments] assignmentIds debe ser un array no vacío');
-            return [];
-        }
-
-        // Verificar que DateUtils esté disponible
-        if (typeof window.DateUtils === 'undefined' || typeof window.DateUtils.timeStrToMinutes === 'undefined') {
-            console.error('[AABusyRangesAssignments] DateUtils.timeStrToMinutes no disponible');
-            return null;
-        }
-
-        try {
-            const result = await ajaxRequest('aa_get_busy_ranges_by_assignments', {
-                assignment_ids: assignmentIds,
-                date: date
-            });
-
-            if (!result.success || !result.data || !result.data.busy_ranges) {
-                console.warn('[AABusyRangesAssignments] No se obtuvieron busy ranges');
-                return [];
-            }
-
-            const rawRanges = result.data.busy_ranges;
-            console.log('[AABusyRangesAssignments] Busy ranges (raw):', rawRanges);
-
-            // Convertir a intervalos en minutos usando DateUtils
-            const intervalsInMinutes = rawRanges.map(function(range) {
-                return {
-                    start: window.DateUtils.timeStrToMinutes(range.start),
-                    end: window.DateUtils.timeStrToMinutes(range.end)
-                };
-            });
-
-            console.log('[AABusyRangesAssignments] Busy ranges (minutos):', intervalsInMinutes);
-
-            return intervalsInMinutes;
-
-        } catch (error) {
-            console.error('[AABusyRangesAssignments] Error al obtener busy ranges:', error);
-            return null;
-        }
-    }
-
     // ============================================
     // Expose to global namespace
     // ============================================
     window.AABusyRangesAssignments = {
-        getBusyRangesByAssignments: getBusyRangesByAssignments,
-        getBusyRangesByAssignmentIds: getBusyRangesByAssignmentIds
+        getBusyRangesByAssignments: getBusyRangesByAssignments
     };
 
     console.log('✅ [AABusyRangesAssignments] Módulo cargado y expuesto en window.AABusyRangesAssignments');
     console.log('📋 Métodos disponibles:');
     console.log('   - AABusyRangesAssignments.getBusyRangesByAssignments(assignmentIds, date)');
-    console.log('   - AABusyRangesAssignments.getBusyRangesByAssignmentIds(assignmentIds, date)');
 
 })();
 

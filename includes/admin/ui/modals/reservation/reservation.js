@@ -155,31 +155,24 @@
                 self.checkAndLoadAssignments();
             });
 
-            // Listen for date changes (flatpickr sets value)
-            // Use MutationObserver since flatpickr doesn't trigger 'change' reliably
-            const dateObserver = new MutationObserver(function(mutations) {
-                mutations.forEach(function(mutation) {
-                    if (mutation.type === 'attributes' && mutation.attributeName === 'value') {
-                        const newDate = fechaInput.value;
-                        if (newDate && newDate !== self.state.selectedDate) {
-                            // Extract date part (YYYY-MM-DD) from datetime
-                            self.state.selectedDate = self.extractDate(newDate);
-                            console.log('[AA][Reservation] Fecha seleccionada:', self.state.selectedDate);
-                            self.checkAndLoadAssignments();
-                        }
+            // Listen for date changes using the existing 'aa:admin:date-selected' event
+            // This event is fired by CalendarAdminUI when flatpickr changes, and provides a Date object
+            // This avoids format issues with reading fechaInput.value directly (which has format "d-m-Y")
+            document.addEventListener('aa:admin:date-selected', function(event) {
+                const selectedDateObj = event.detail.selectedDate;
+                
+                if (!selectedDateObj || !(selectedDateObj instanceof Date)) {
+                    return;
+                }
+                
+                // Use DateUtils.ymd() to convert Date object to YYYY-MM-DD format
+                if (typeof window.DateUtils !== 'undefined' && typeof window.DateUtils.ymd === 'function') {
+                    const newDate = window.DateUtils.ymd(selectedDateObj);
+                    if (newDate && newDate !== self.state.selectedDate) {
+                        self.state.selectedDate = newDate;
+                        console.log('[AA][Reservation] Fecha seleccionada (desde evento):', self.state.selectedDate);
+                        self.checkAndLoadAssignments();
                     }
-                });
-            });
-
-            dateObserver.observe(fechaInput, { attributes: true });
-
-            // Also listen for input event as fallback
-            fechaInput.addEventListener('input', function() {
-                const newDate = this.value;
-                if (newDate && newDate !== self.state.selectedDate) {
-                    self.state.selectedDate = self.extractDate(newDate);
-                    console.log('[AA][Reservation] Fecha seleccionada (input):', self.state.selectedDate);
-                    self.checkAndLoadAssignments();
                 }
             });
 
