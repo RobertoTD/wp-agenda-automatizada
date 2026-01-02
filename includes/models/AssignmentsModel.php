@@ -676,6 +676,7 @@ class AssignmentsModel {
         
         foreach ($assignments as $assignment) {
             // Consultar reservas que caen dentro del horario de esta asignación
+            // IMPORTANTE: Solo considerar reservas con el mismo assignment_id
             $reservas_query = $wpdb->prepare(
                 "SELECT 
                     fecha as start,
@@ -684,9 +685,11 @@ class AssignmentsModel {
                  FROM $reservas_table 
                  WHERE DATE(fecha) = %s
                  AND estado = 'confirmed'
+                 AND assignment_id = %d
                  AND TIME(fecha) >= %s
                  AND TIME(fecha) < %s",
                 $date,
+                $assignment['id'],
                 $assignment['start_time'],
                 $assignment['end_time']
             );
