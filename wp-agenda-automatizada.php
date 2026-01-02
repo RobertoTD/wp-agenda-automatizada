@@ -136,8 +136,8 @@ function aa_save_reservation() {
         ]);
     }
 
-    // ✅ Inserción en la tabla
-    $result = $wpdb->insert($table, [
+    // ✅ Preparar datos para inserción
+    $insert_data = [
         'servicio'   => $servicio,
         'fecha'      => $fecha,
         'duracion'   => $duracion,
@@ -147,7 +147,18 @@ function aa_save_reservation() {
         'id_cliente' => $cliente_id,
         'estado'     => 'pending',
         'created_at' => current_time('mysql')
-    ]);
+    ];
+
+    // ✅ Agregar assignment_id si viene en los datos (opcional)
+    if (isset($data['assignment_id']) && !empty($data['assignment_id'])) {
+        $assignment_id = intval($data['assignment_id']);
+        if ($assignment_id > 0) {
+            $insert_data['assignment_id'] = $assignment_id;
+        }
+    }
+
+    // ✅ Inserción en la tabla
+    $result = $wpdb->insert($table, $insert_data);
 
     // ✅ Control de error
     if ($result === false) {

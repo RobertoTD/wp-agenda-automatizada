@@ -67,6 +67,10 @@
 
       const clienteOption = clienteSelect.options[clienteSelect.selectedIndex];
 
+      // Leer assignment_id si existe (opcional, para reservas basadas en assignments)
+      const assignmentIdInput = document.getElementById('assignment-id');
+      const assignmentId = assignmentIdInput ? assignmentIdInput.value : null;
+
       const datos = {
         servicio: document.getElementById('cita-servicio').value,
         fecha: selectedSlotISO,
@@ -76,6 +80,12 @@
         duracion: parseInt(document.getElementById('cita-duracion').value, 10) || 60,
         nonce: window.aa_asistant_vars.nonce_crear_cita || ''
       };
+
+      // Agregar assignment_id solo si existe (opcional)
+      if (assignmentId) {
+        datos.assignment_id = parseInt(assignmentId, 10);
+        console.log('🆔 Assignment ID incluido en reserva:', datos.assignment_id);
+      }
 
       try {
         // 🔹 PASO 1: Guardar la reserva usando ReservationService

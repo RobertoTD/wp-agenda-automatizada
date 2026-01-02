@@ -37,7 +37,8 @@
             selectedService: null,
             selectedDate: null,
             selectedStaff: null,
-            currentAssignments: []
+            currentAssignments: [],
+            selectedAssignmentId: null
         },
 
         /**
@@ -205,8 +206,38 @@
                 selectedService: null,
                 selectedDate: null,
                 selectedStaff: null,
-                currentAssignments: []
+                currentAssignments: [],
+                selectedAssignmentId: null
             };
+            this.updateAssignmentIdInput(null);
+        },
+
+        /**
+         * Update or create hidden input for assignment_id
+         * @param {number|null} assignmentId 
+         */
+        updateAssignmentIdInput: function(assignmentId) {
+            const form = document.getElementById('form-crear-cita-admin');
+            if (!form) return;
+
+            let input = document.getElementById('assignment-id');
+            
+            if (assignmentId) {
+                if (!input) {
+                    // Create hidden input if it doesn't exist
+                    input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.id = 'assignment-id';
+                    input.name = 'assignment_id';
+                    form.appendChild(input);
+                }
+                input.value = assignmentId;
+            } else {
+                // Remove input if assignmentId is null
+                if (input) {
+                    input.remove();
+                }
+            }
         },
 
         /**
@@ -356,6 +387,8 @@
 
             this.state.selectedStaff = null;
             this.state.currentAssignments = [];
+            this.state.selectedAssignmentId = null;
+            this.updateAssignmentIdInput(null);
         },
 
         /**
@@ -376,6 +409,18 @@
 
             console.log('[AA][Reservation] Staff seleccionado:', selectedStaff);
             console.log('[AA][Reservation] Asignaciones completas:', staffAssignments);
+
+            // Guardar assignment_id (por ahora usamos el primer assignment si hay múltiples)
+            // TODO: Refinar para seleccionar assignment específico cuando se implemente selección de slots
+            if (staffAssignments && staffAssignments.length > 0) {
+                const firstAssignment = staffAssignments[0];
+                this.state.selectedAssignmentId = firstAssignment.id;
+                this.updateAssignmentIdInput(firstAssignment.id);
+                console.log('[AA][Reservation] Assignment ID seleccionado:', firstAssignment.id);
+            } else {
+                this.state.selectedAssignmentId = null;
+                this.updateAssignmentIdInput(null);
+            }
             
             // Log details for debugging
             staffAssignments.forEach(function(assignment, index) {
