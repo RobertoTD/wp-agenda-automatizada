@@ -434,14 +434,96 @@
             if (typeof window.AAAssignmentsAvailability !== 'undefined' && 
                 typeof window.AAAssignmentsAvailability.getSlotsForStaffAndDate === 'function') {
                 
-                const slots = window.AAAssignmentsAvailability.getSlotsForStaffAndDate(
+                const availableSlots = window.AAAssignmentsAvailability.getSlotsForStaffAndDate(
                     staffAssignments,
                     selectedDate,
                     30
                 );
 
-                if (slots) {
-                    console.log('[AA][Reservation] ✅ Slots calculados exitosamente');
+                if (availableSlots) {
+                    console.log('[AA][Reservation] ✅ Slots disponibles calculados:', availableSlots.length);
+                    console.log('[AA][Reservation] 🧮 Slots disponibles:', availableSlots.map(function(s) {
+                        return typeof window.DateUtils !== 'undefined' && typeof window.DateUtils.hm === 'function' 
+                            ? window.DateUtils.hm(s) 
+                            : s.toTimeString().substring(0, 5);
+                    }));
+                    
+                    // ============================================
+                    // 📊 OBTENER Y CALCULAR SLOTS OCUPADOS
+                    // ============================================
+                    const self = this;
+                    const assignmentIds = staffAssignments.map(function(a) {
+                        return parseInt(a.id);
+                    });
+                    
+                    if (assignmentIds.length > 0 && typeof window.AABusyRangesAssignments !== 'undefined' &&
+                        typeof window.AABusyRangesAssignments.getBusyRangesByAssignments === 'function') {
+                        
+                        window.AABusyRangesAssignments.getBusyRangesByAssignments(assignmentIds, selectedDate)
+                            .then(function(result) {
+                                if (result.success && result.data && result.data.busy_ranges) {
+                                    const busyRanges = result.data.busy_ranges;
+                                    console.log('[AA][Reservation] 📋 Busy ranges obtenidos:', busyRanges.length);
+                                    
+                                    // Generar slots ocupados desde busy ranges
+                                    const occupiedSlots = [];
+                                    
+                                    busyRanges.forEach(function(range) {
+                                        // range.start es datetime (ej: "2026-01-02 15:00:00")
+                                        // Extraer solo la hora
+                                        const startDateTime = new Date(range.start);
+                                        const startTime = window.DateUtils.hm(startDateTime);
+                                        
+                                        // Calcular duración en minutos
+                                        const endDateTime = new Date(range.end);
+                                        const durationMinutes = Math.round((endDateTime - startDateTime) / (1000 * 60));
+                                        
+                                        // Generar slots ocupados
+                                        const reservationSlots = window.DateUtils.generateSlotsFromStartTime(
+                                            startTime,
+                                            durationMinutes,
+                                            30
+                                        );
+                                        
+                                        occupiedSlots.push(...reservationSlots);
+                                        console.log('[AA][Reservation] 📌 Reserva:', {
+                                            start: startTime,
+                                            duration: durationMinutes + ' min',
+                                            slots: reservationSlots
+                                        });
+                                    });
+                                    
+                                    // Eliminar duplicados y ordenar
+                                    const uniqueOccupiedSlots = [...new Set(occupiedSlots)].sort();
+                                    console.log('[AA][Reservation] 🚫 Slots ocupados (total):', uniqueOccupiedSlots);
+                                    
+                                    // Descontar slots ocupados de slots disponibles
+                                    if (typeof window.DateUtils !== 'undefined' && typeof window.DateUtils.hm === 'function') {
+                                        const availableSlotStrings = availableSlots.map(function(s) {
+                                            return window.DateUtils.hm(s);
+                                        });
+                                        
+                                        const finalSlots = availableSlotStrings.filter(function(slot) {
+                                            return !uniqueOccupiedSlots.includes(slot);
+                                        });
+                                        
+                                        console.log('[AA][Reservation] ✅ Slots disponibles finales (después de descontar ocupados):', finalSlots);
+                                        console.log('[AA][Reservation] 📊 Resumen:', {
+                                            disponibles: availableSlotStrings.length,
+                                            ocupados: uniqueOccupiedSlots.length,
+                                            finales: finalSlots.length
+                                        });
+                                    }
+                                } else {
+                                    console.log('[AA][Reservation] No hay busy ranges para descontar');
+                                }
+                            })
+                            .catch(function(error) {
+                                console.error('[AA][Reservation] Error al obtener busy ranges:', error);
+                            });
+                    } else {
+                        console.log('[AA][Reservation] No se pudieron obtener busy ranges (servicio no disponible)');
+                    }
                 } else {
                     console.log('[AA][Reservation] No se pudieron calcular slots');
                 }

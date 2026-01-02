@@ -109,6 +109,34 @@ function normalizeIntervalToSlotGrid(startMin, endMin, slotDuration) {
   };
 }
 
+// ✅ Genera slots desde hora de inicio y duración
+// Genera slots de 30 minutos a partir de una hora de inicio y duración total
+// @param {string} startTime - Hora de inicio en formato "HH:MM" o "HH:MM:SS"
+// @param {number} durationMinutes - Duración total en minutos
+// @param {number} slotDuration - Duración de cada slot en minutos (default: 30)
+// @returns {Array<string>} Array de slots en formato "HH:MM"
+function generateSlotsFromStartTime(startTime, durationMinutes, slotDuration = 30) {
+  if (!startTime || !durationMinutes || durationMinutes <= 0) {
+    return [];
+  }
+  
+  // Convertir hora de inicio a minutos desde medianoche
+  const startMinutes = timeStrToMinutes(startTime);
+  
+  // Calcular hora de fin
+  const endMinutes = startMinutes + durationMinutes;
+  
+  // Generar slots cada slotDuration minutos
+  const slots = [];
+  for (let min = startMinutes; min < endMinutes; min += slotDuration) {
+    const hours = Math.floor(min / 60);
+    const minutes = min % 60;
+    slots.push(`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`);
+  }
+  
+  return slots;
+}
+
 // ✅ Genera slots disponibles para un día con duración configurable
 function generateSlotsForDay(date, intervals, busyRanges, slotDuration = 30) {
   const slots = [];
@@ -151,6 +179,7 @@ window.DateUtils = {
   isSlotBusy,
   hasEnoughFreeTime,
   normalizeIntervalToSlotGrid,
+  generateSlotsFromStartTime,
   generateSlotsForDay
 };
 
