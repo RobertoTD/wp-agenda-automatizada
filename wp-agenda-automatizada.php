@@ -216,6 +216,7 @@ register_activation_hook(__FILE__, function() {
         servicio varchar(255) NOT NULL,
         fecha datetime NOT NULL,
         duracion smallint unsigned NOT NULL DEFAULT 60,
+        assignment_id bigint(20) unsigned NULL,
         nombre varchar(255) NOT NULL,
         telefono varchar(50) NOT NULL,
         correo varchar(255),
@@ -223,7 +224,8 @@ register_activation_hook(__FILE__, function() {
         calendar_uid varchar(255) DEFAULT NULL,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY  (id),
-        KEY calendar_uid (calendar_uid)
+        KEY calendar_uid (calendar_uid),
+        KEY idx_assignment_id (assignment_id)
     ) $charset;";
 
     require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
