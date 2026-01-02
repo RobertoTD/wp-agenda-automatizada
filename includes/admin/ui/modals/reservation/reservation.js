@@ -513,9 +513,18 @@
                                             ocupados: uniqueOccupiedSlots.length,
                                             finales: finalSlots.length
                                         });
+                                        
+                                        // 🎨 RENDERIZAR SLOTS EN EL SELECTOR LEGACY
+                                        self.renderAssignmentSlots(finalSlots, selectedDate, self.state.selectedAssignmentId);
                                     }
                                 } else {
+                                    // No hay busy ranges, usar slots disponibles directamente
                                     console.log('[AA][Reservation] No hay busy ranges para descontar');
+                                    const availableSlotStrings = availableSlots.map(function(s) {
+                                        return window.DateUtils.hm(s);
+                                    });
+                                    // Renderizar slots disponibles (sin ocupados)
+                                    self.renderAssignmentSlots(availableSlotStrings, selectedDate, self.state.selectedAssignmentId);
                                 }
                             })
                             .catch(function(error) {
@@ -530,6 +539,111 @@
             } else {
                 console.warn('[AA][Reservation] AAAssignmentsAvailability.getSlotsForStaffAndDate no disponible');
             }
+        },
+
+        /**
+         * Render assignment-based slots in the legacy slot selector container
+         * Replaces legacy slot UI with assignment-based slots while maintaining compatibility
+         * @param {Array<string>} slotsHHMM - Array of time strings in "HH:MM" format
+         * @param {string} dateStr - Date string in YYYY-MM-DD format
+         * @param {number|string} assignmentId - Assignment ID for data attribute
+         */
+        renderAssignmentSlots: function(slotsHHMM, dateStr, assignmentId) {
+            const container = document.getElementById('slot-container-admin');
+            const fechaInput = document.getElementById('cita-fecha');
+            
+            if (!container) {
+                console.warn('[AA][Reservation] No se encontró #slot-container-admin');
+                return;
+            }
+            
+            // Limpiar contenedor
+            container.innerHTML = '';
+            
+            // Caso: No hay slots disponibles
+            if (!slotsHHMM || slotsHHMM.length === 0) {
+                container.textContent = 'No hay horarios disponibles para este personal.';
+                console.log('[AA][Reservation] Sin slots para renderizar');
+                return;
+            }
+            
+            console.log('[AA][Reservation] 🎨 Renderizando ' + slotsHHMM.length + ' slots en selector legacy');
+            
+            // Crear select con el mismo formato legacy
+            const select = document.createElement('select');
+            select.id = 'slot-selector-admin';
+            select.className = 'slot-selector-admin';
+            select.style.width = '100%';
+            select.style.padding = '8px';
+            select.style.marginTop = '10px';
+            select.style.fontSize = '14px';
+            select.style.border = '1px solid #ddd';
+            select.style.borderRadius = '4px';
+            
+            // Agregar opciones
+            slotsHHMM.forEach(function(timeStr, index) {
+                // Convertir "HH:MM" a Date ISO para el value (compatibilidad legacy)
+                const [hours, minutes] = timeStr.split(':').map(Number);
+                const slotDate = new Date(dateStr + 'T00:00:00');
+                slotDate.setHours(hours, minutes, 0, 0);
+                
+                const option = document.createElement('option');
+                option.value = slotDate.toISOString();
+                option.textContent = timeStr;
+                
+                // Agregar data-assignment-id para futura sustitución
+                if (assignmentId) {
+                    option.dataset.assignmentId = assignmentId;
+                }
+                
+                if (index === 0) {
+                    option.selected = true;
+                }
+                
+                select.appendChild(option);
+            });
+            
+            // Evento de cambio (compatibilidad legacy)
+            var self = this;
+            select.addEventListener('change', function() {
+                const chosenSlot = new Date(select.value);
+                const selectedOption = select.options[select.selectedIndex];
+                
+                // Actualizar fechaInput con formato compatible
+                if (fechaInput && typeof window.DateUtils !== 'undefined') {
+                    const formattedDate = chosenSlot.toLocaleDateString('es-MX', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric'
+                    });
+                    const formattedTime = window.DateUtils.hm(chosenSlot);
+                    fechaInput.value = formattedDate + ' ' + formattedTime;
+                }
+                
+                // Log para debug
+                console.log('[AA][Reservation] 🕒 Slot seleccionado:', {
+                    time: window.DateUtils ? window.DateUtils.hm(chosenSlot) : chosenSlot.toTimeString(),
+                    iso: chosenSlot.toISOString(),
+                    assignmentId: selectedOption.dataset.assignmentId || null
+                });
+            });
+            
+            // Agregar al contenedor
+            container.appendChild(select);
+            
+            // Seleccionar primer slot por defecto y actualizar fechaInput
+            if (slotsHHMM.length > 0 && fechaInput && typeof window.DateUtils !== 'undefined') {
+                const firstSlot = new Date(select.value);
+                const formattedDate = firstSlot.toLocaleDateString('es-MX', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric'
+                });
+                const formattedTime = window.DateUtils.hm(firstSlot);
+                fechaInput.value = formattedDate + ' ' + formattedTime;
+            }
+            
+            console.log('[AA][Reservation] ✅ Select de slots renderizado con ' + slotsHHMM.length + ' opciones');
         },
 
         /**
