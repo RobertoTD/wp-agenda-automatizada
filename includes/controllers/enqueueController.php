@@ -104,6 +104,14 @@ function wpaa_enqueue_frontend_assets() {
         wpaa_register_js($h, $p, $d, $m);
     }
 
+    // ✅ Exponer window.ajaxurl en frontend (WordPress solo lo define en admin)
+    // Necesario para availabilityAssignments.js y busyRangesAssignments.js
+    wp_add_inline_script(
+        'wpaa-frontend-assignments-controller',
+        'window.ajaxurl = "' . esc_url(admin_url('admin-ajax.php')) . '";',
+        'before'
+    );
+
     wpaa_localize('wpaa-availability-controller', 'aa_backend', [
         'ajax_url'     => admin_url('admin-ajax.php'),
         'action'       => 'aa_get_availability',

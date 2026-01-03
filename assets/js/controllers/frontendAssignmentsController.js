@@ -599,6 +599,19 @@
             // Guardar en estado para debugging
             state.finalSlots = finalSlots;
 
+            // Emitir evento para que los adaptadores de slots puedan renderizar
+            if (window.WPAgenda && typeof window.WPAgenda.emit === 'function') {
+                window.WPAgenda.emit('slotsCalculated', {
+                    slots: finalSlots,
+                    selectedDate: state.selectedDate,
+                    service: state.selectedService,
+                    staffId: state.selectedStaff
+                });
+                console.log('📤 [FrontendAssignments] Evento slotsCalculated emitido');
+            } else {
+                console.warn('⚠️ [FrontendAssignments] WPAgenda.emit no disponible');
+            }
+
             console.log('');
             console.log('📦 Estado final:', {
                 selectedService: state.selectedService,
