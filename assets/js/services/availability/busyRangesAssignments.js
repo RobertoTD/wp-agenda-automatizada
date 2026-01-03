@@ -39,9 +39,11 @@
         
         Object.keys(data).forEach(key => {
             const value = data[key];
-            // Handle arrays
+            // Handle arrays - enviar en formato PHP nativo (key[])
             if (Array.isArray(value)) {
-                formData.append(key, JSON.stringify(value));
+                value.forEach(v => {
+                    formData.append(`${key}[]`, v);
+                });
             } else {
                 formData.append(key, value);
             }
