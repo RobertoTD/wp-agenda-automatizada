@@ -383,6 +383,15 @@ function wpaa_render_form() {
         <div id="wpagenda-calendar"></div>
         <input type="hidden" id="fecha" name="fecha" required>
 
+        <!-- Personal disponible (nuevo - basado en assignments) -->
+        <div>
+            <label for="staff-selector">Personal disponible</label>
+            <select id="staff-selector" name="staff_id" disabled>
+                <option value="">Selecciona primero fecha y servicio</option>
+            </select>
+        </div>
+        <input type="hidden" id="assignment-id" name="assignment_id">
+
         <!-- Slots -->
         <div id="aa-slot-title" class="aa-slots-title" style="display:none;"></div>
         <div id="slot-container"></div>
