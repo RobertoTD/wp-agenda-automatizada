@@ -54,5 +54,19 @@ document.addEventListener('DOMContentLoaded', function () {
     console.error('❌ ReservationController no está cargado');
   }
 
+  // ==============================
+  // 🔹 FASE 5: Inicializar controlador de asignaciones (NUEVO - Fase 2)
+  // ==============================
+  if (typeof window.FrontendAssignmentsController !== 'undefined') {
+    console.log('🔄 Inicializando FrontendAssignmentsController...');
+    window.FrontendAssignmentsController.init({
+      serviceSelect: '#servicio',
+      dateInput: '#fecha',
+      staffSelect: '#staff-selector'
+    });
+  } else {
+    console.warn('⚠️ FrontendAssignmentsController no está cargado (opcional en Fase 2)');
+  }
+
   console.log('✅ Aplicación frontend inicializada correctamente');
 });

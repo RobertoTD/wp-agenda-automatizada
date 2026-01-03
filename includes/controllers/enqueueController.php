@@ -94,7 +94,10 @@ function wpaa_enqueue_frontend_assets() {
         ['wpaa-reservation-service',     'assets/js/services/reservationService.js', [], false],
         ['wpaa-availability-controller', 'assets/js/controllers/availabilityController.js', ['wpaa-date-utils', 'wpaa-calendar-ui', 'wpaa-slot-selector-ui', 'wpaa-availability-service', 'aa-wpagenda-kernel', 'aa-calendar-default-adapter', 'aa-slots-default-adapter', 'aa-modal-default-adapter'], false],
         ['wpaa-reservation-controller',  'assets/js/controllers/reservationController.js', ['wpaa-reservation-service', 'aa-wpagenda-kernel', 'aa-calendar-default-adapter', 'aa-slots-default-adapter', 'aa-modal-default-adapter'], false],
-        ['wpaa-main-frontend',           'assets/js/main-frontend.js', ['wpaa-availability-controller', 'wpaa-reservation-controller'], false],
+        ['wpaa-availability-assignments', 'assets/js/services/availability/availabilityAssignments.js', ['wpaa-date-utils'], false],
+        ['wpaa-busy-ranges-assignments',  'assets/js/services/availability/busyRangesAssignments.js', [], false],
+        ['wpaa-frontend-assignments-controller', 'assets/js/controllers/frontendAssignmentsController.js', ['wpaa-date-utils', 'wpaa-availability-assignments', 'wpaa-busy-ranges-assignments'], false],
+        ['wpaa-main-frontend',           'assets/js/main-frontend.js', ['wpaa-availability-controller', 'wpaa-reservation-controller', 'wpaa-availability-assignments', 'wpaa-busy-ranges-assignments', 'wpaa-frontend-assignments-controller'], false],
     ];
 
     foreach ($frontend_scripts as [$h, $p, $d, $m]) {
