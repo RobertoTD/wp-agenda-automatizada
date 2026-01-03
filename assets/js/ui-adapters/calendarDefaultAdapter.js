@@ -101,6 +101,15 @@
             const [year, month, day] = dateStr.split('-').map(Number);
             selectedDate = new Date(year, month - 1, day);
 
+            // Exponer fecha seleccionada en formato YYYY-MM-DD
+            window.aa_selected_date = dateStr;
+            console.log('📅 [CalendarDefaultAdapter] Fecha seleccionada:', dateStr);
+
+            // Emitir evento si WPAgenda.emit existe
+            if (global.WPAgenda && typeof global.WPAgenda.emit === 'function') {
+                global.WPAgenda.emit('dateSelected', { ymd: dateStr, raw: selectedDate });
+            }
+
             renderCalendar();
 
             if (config.onDateSelected && typeof config.onDateSelected === 'function') {
