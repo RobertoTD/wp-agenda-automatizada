@@ -57,6 +57,13 @@ function initReservationController(formSelector) {
       extra_field: honeypot.value || ''
     };
 
+    // 🔹 Añadir assignment_id si existe (flujo basado en asignaciones)
+    const assignmentIdInput = document.getElementById('assignment-id');
+    if (assignmentIdInput && assignmentIdInput.value) {
+      datos.assignment_id = parseInt(assignmentIdInput.value, 10);
+      console.log('📋 [ReservationController] assignment_id incluido:', datos.assignment_id);
+    }
+
     try {
       // 🔹 PASO 1: Guardar la reserva
       const data = await window.ReservationService.saveReservation(datos);

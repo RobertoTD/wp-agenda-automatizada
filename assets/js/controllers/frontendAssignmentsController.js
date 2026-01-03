@@ -256,6 +256,21 @@
     }
 
     // ============================================
+    // Sincronizar input hidden #assignment-id
+    // ============================================
+    function syncAssignmentInput(assignmentId) {
+        const assignmentInput = document.getElementById('assignment-id');
+        if (assignmentInput) {
+            assignmentInput.value = assignmentId || '';
+            if (assignmentId) {
+                console.log('✅ [FrontendAssignments] assignment-id actualizado:', assignmentId);
+            } else {
+                console.log('🧹 [FrontendAssignments] assignment-id limpiado');
+            }
+        }
+    }
+
+    // ============================================
     // Manejador: Cambio de servicio
     // ============================================
     function handleServiceChange(event) {
@@ -271,6 +286,7 @@
         state.selectedStaff = null;
         state.currentAssignments = [];
         clearStaffSelector();
+        syncAssignmentInput(null); // Limpiar assignment-id
         
         // Si tenemos fecha, cargar asignaciones
         if (state.selectedDate) {
@@ -311,6 +327,7 @@
         state.selectedStaff = null;
         state.currentAssignments = [];
         clearStaffSelector();
+        syncAssignmentInput(null); // Limpiar assignment-id
         
         // Si tenemos servicio, cargar asignaciones
         if (state.selectedService) {
@@ -402,12 +419,14 @@
                 state.currentAssignments = [];
                 clearStaffSelector();
                 showNoStaffAvailable();
+                syncAssignmentInput(null); // Limpiar assignment-id
             }
             
         } catch (error) {
             console.error('❌ [FrontendAssignments] Error al cargar asignaciones:', error);
             state.currentAssignments = [];
             clearStaffSelector();
+            syncAssignmentInput(null); // Limpiar assignment-id
         }
         
         console.groupEnd();
@@ -508,7 +527,14 @@
 
             console.log('📋 [FrontendAssignments] Asignaciones del staff:', staffAssignments);
 
-            if (staffAssignments.length === 0) {
+            // Sincronizar input hidden #assignment-id con la asignación actual
+            if (staffAssignments.length > 0) {
+                // Tomar el primer assignment (por ahora)
+                const selectedAssignment = staffAssignments[0];
+                syncAssignmentInput(selectedAssignment.id);
+            } else {
+                // Limpiar el input si no hay asignaciones
+                syncAssignmentInput(null);
                 console.warn('⚠️ [FrontendAssignments] No hay asignaciones para este staff');
                 console.groupEnd();
                 return;
