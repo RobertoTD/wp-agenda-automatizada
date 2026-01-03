@@ -133,7 +133,7 @@
             console.log('   ✓ Listener en selector de servicio');
         }
 
-        // Listener para input de fecha
+        // Listener para input de fecha (legacy - puede no existir)
         if (elements.dateInput) {
             // Listener nativo para cambios directos
             elements.dateInput.addEventListener('change', handleDateChange);
@@ -141,14 +141,55 @@
             // Intentar detectar Flatpickr y añadir hook
             setupFlatpickrHook();
             
-            console.log('   ✓ Listener en input de fecha');
+            console.log('   ✓ Listener en input de fecha (legacy)');
         }
+
+        // Listener para eventos del calendario (NUEVO - principal)
+        setupCalendarEventListeners();
 
         // Listener para selector de staff
         if (elements.staffSelect) {
             elements.staffSelect.addEventListener('change', handleStaffChange);
             console.log('   ✓ Listener en selector de staff');
         }
+    }
+
+    // ============================================
+    // Configurar listeners de eventos del calendario
+    // ============================================
+    function setupCalendarEventListeners() {
+        // 1️⃣ Intentar usar WPAgenda.on si existe
+        if (window.WPAgenda && typeof window.WPAgenda.on === 'function') {
+            window.WPAgenda.on('dateSelected', function(data) {
+                console.log('📅 [FrontendAssignments] Evento dateSelected recibido:', data);
+                
+                if (data && data.ymd) {
+                    processDateChange(data.ymd);
+                } else {
+                    console.warn('⚠️ [FrontendAssignments] Evento dateSelected sin ymd:', data);
+                }
+            });
+            
+            console.log('   ✓ Listener WPAgenda.on("dateSelected") configurado');
+        } else {
+            console.log('   ⚠️ WPAgenda.on no disponible, usando fallback');
+        }
+
+        // 2️⃣ Fallback: Escuchar cambios en window.aa_selected_date
+        let lastKnownDate = window.aa_selected_date || null;
+        
+        // Polling para detectar cambios en window.aa_selected_date
+        setInterval(function() {
+            const currentDate = window.aa_selected_date;
+            
+            if (currentDate && currentDate !== lastKnownDate) {
+                console.log('📅 [FrontendAssignments] window.aa_selected_date cambió:', currentDate);
+                lastKnownDate = currentDate;
+                processDateChange(currentDate);
+            }
+        }, 500); // Verificar cada 500ms
+        
+        console.log('   ✓ Fallback polling para window.aa_selected_date configurado');
     }
 
     // ============================================
@@ -185,9 +226,27 @@
             console.log('📋 [FrontendAssignments] Servicio inicial:', state.selectedService);
         }
 
-        if (elements.dateInput && elements.dateInput.value) {
-            state.selectedDate = elements.dateInput.value;
-            console.log('📋 [FrontendAssignments] Fecha inicial:', state.selectedDate);
+        // Leer fecha desde múltiples fuentes (prioridad: window.aa_selected_date > input)
+        let initialDate = null;
+        
+        // 1. Intentar desde window.aa_selected_date (calendarios modernos)
+        if (window.aa_selected_date) {
+            initialDate = extractDateFromValue(window.aa_selected_date);
+            if (initialDate) {
+                console.log('📋 [FrontendAssignments] Fecha inicial desde window.aa_selected_date:', initialDate);
+            }
+        }
+        
+        // 2. Fallback: desde input de fecha (legacy)
+        if (!initialDate && elements.dateInput && elements.dateInput.value) {
+            initialDate = extractDateFromValue(elements.dateInput.value);
+            if (initialDate) {
+                console.log('📋 [FrontendAssignments] Fecha inicial desde input:', initialDate);
+            }
+        }
+
+        if (initialDate) {
+            state.selectedDate = initialDate;
         }
 
         // Si ya tenemos servicio y fecha, cargar asignaciones
@@ -224,21 +283,29 @@
     }
 
     // ============================================
-    // Manejador: Cambio de fecha
+    // Procesar cambio de fecha (lógica común)
     // ============================================
-    function handleDateChange(event) {
-        const newDate = event.target.value;
+    function processDateChange(newDate) {
+        // Extraer solo la fecha si viene con hora (formato YYYY-MM-DD HH:MM)
+        const dateOnly = extractDateFromValue(newDate);
+        
+        if (!dateOnly) {
+            console.warn('⚠️ [FrontendAssignments] No se pudo extraer fecha de:', newDate);
+            return;
+        }
         
         // Evitar duplicados
-        if (newDate === state.selectedDate) {
+        if (dateOnly === state.selectedDate) {
             return;
         }
         
         console.group('📅 [FrontendAssignments] Cambio de fecha');
+        console.log('Valor recibido:', newDate);
+        console.log('Fecha extraída:', dateOnly);
         console.log('Anterior:', state.selectedDate);
-        console.log('Nueva:', newDate);
+        console.log('Nueva:', dateOnly);
         
-        state.selectedDate = newDate;
+        state.selectedDate = dateOnly;
         
         // Limpiar staff y asignaciones
         state.selectedStaff = null;
@@ -253,6 +320,31 @@
         }
         
         console.groupEnd();
+    }
+
+    // ============================================
+    // Extraer fecha del valor del input
+    // ============================================
+    function extractDateFromValue(value) {
+        if (!value) return null;
+        
+        // El input puede tener formato "YYYY-MM-DD HH:MM" o "YYYY-MM-DD"
+        // Extraer solo la parte de la fecha
+        const match = String(value).match(/^(\d{4}-\d{2}-\d{2})/);
+        if (match) {
+            return match[1];
+        }
+        
+        // Si no coincide, retornar null
+        return null;
+    }
+
+    // ============================================
+    // Manejador: Cambio de fecha (legacy - input/Flatpickr)
+    // ============================================
+    function handleDateChange(event) {
+        const newDate = event.target ? event.target.value : event;
+        processDateChange(newDate);
     }
 
     // ============================================
