@@ -167,6 +167,32 @@ function generateSlotsForDay(date, intervals, busyRanges, slotDuration = 30) {
   return slots;
 }
 
+// ==============================
+// 🔹 Obtener fechas de asignaciones dentro de un rango
+// ==============================
+function getAssignmentDatesInRange(assignments, minDate, maxDate) {
+  const dates = new Set();
+  
+  if (!Array.isArray(assignments) || assignments.length === 0) {
+    return dates;
+  }
+  
+  const minDateStr = ymd(minDate);
+  const maxDateStr = ymd(maxDate);
+  
+  assignments.forEach(assignment => {
+    const dateStr = assignment.assignment_date;
+    
+    if (dateStr && dateStr >= minDateStr && dateStr <= maxDateStr) {
+      dates.add(dateStr);
+    }
+  });
+  
+  console.log(`📅 [DateUtils] getAssignmentDatesInRange: ${dates.size} fechas de asignaciones en rango`);
+  
+  return dates;
+}
+
 // ✅ Exponer globalmente
 window.DateUtils = {
   ymd,
@@ -180,7 +206,8 @@ window.DateUtils = {
   hasEnoughFreeTime,
   normalizeIntervalToSlotGrid,
   generateSlotsFromStartTime,
-  generateSlotsForDay
+  generateSlotsForDay,
+  getAssignmentDatesInRange
 };
 
 console.log('✅ dateUtils.js cargado y exportado');

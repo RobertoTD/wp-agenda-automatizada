@@ -42,8 +42,8 @@ $days = [
                             </svg>
                         </span>
                         <div>
-                            <h3 class="text-lg font-semibold text-gray-900">Horarios y Disponibilidad</h3>
-                            <p class="text-sm text-gray-500 mt-0.5">Define los días y horarios de atención</p>
+                            <h3 class="text-lg font-semibold text-gray-900">Horarios y Disponibilidad Fija</h3>
+                            <p class="text-sm text-gray-500 mt-0.5">Define los días y horarios de atención (semanal)</p>
                         </div>
                     </div>
                     <svg class="aa-chevron w-5 h-5 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">

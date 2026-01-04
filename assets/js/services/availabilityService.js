@@ -121,6 +121,29 @@
         slotDuration
       );
 
+      // ==============================
+      // 🔹 Merge assignment dates (habilitar fechas de asignaciones)
+      // ==============================
+      const initialAssignments = window.aa_initial_assignments || [];
+      
+      if (initialAssignments.length > 0) {
+        const assignmentDates = window.DateUtils.getAssignmentDatesInRange(
+          initialAssignments,
+          minDate,
+          maxDate
+        );
+        
+        // Agregar fechas de asignaciones que no existen en availableSlotsPerDay
+        assignmentDates.forEach(dateStr => {
+          if (!availableSlotsPerDay[dateStr]) {
+            availableSlotsPerDay[dateStr] = [];
+            console.log(`📅 [AvailabilityService] Fecha de asignación agregada: ${dateStr}`);
+          }
+        });
+        
+        console.log(`✅ [AvailabilityService] ${assignmentDates.size} fechas de asignaciones mergeadas`);
+      }
+
       return {
         availableSlotsPerDay,
         schedule,
