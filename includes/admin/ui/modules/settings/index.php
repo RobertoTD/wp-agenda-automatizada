@@ -53,6 +53,17 @@ $days = [
             </summary>
             
             <div class="p-3 transition-all duration-200">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2" for="aa_service_schedule">
+                        Nombre del servicio con disponibilidad fija
+                    </label>
+                    <input type="text" name="aa_service_schedule" id="aa_service_schedule"
+                           value="<?php echo esc_attr(get_option('aa_service_schedule', '')); ?>" 
+                           placeholder="Ej: Informes rápidos"
+                           class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow placeholder:text-gray-400">
+                    <p class="text-xs text-gray-500 mt-1.5">Este servicio usará el horario fijo.</p>
+                </div>
+                
                 <div class="grid gap-3">
                     <?php foreach ($days as $key => $label): 
                         $enabled   = !empty($schedule[$key]['enabled']);

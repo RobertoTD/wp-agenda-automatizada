@@ -60,6 +60,7 @@ add_action('admin_init', function() {
     register_setting('agenda_automatizada_settings', 'aa_business_address');
     register_setting('agenda_automatizada_settings', 'aa_is_virtual');
     register_setting('agenda_automatizada_settings', 'aa_whatsapp_number');
+    register_setting('agenda_automatizada_settings', 'aa_service_schedule', ['sanitize_callback' => 'sanitize_text_field']);
 });
 
 // Note: Settings page UI has been moved to includes/admin/ui/modules/settings/

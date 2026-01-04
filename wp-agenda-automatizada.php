@@ -316,6 +316,11 @@ register_activation_hook(__FILE__, function() {
     if (get_option('aa_estado_gsync') === false) {
         add_option('aa_estado_gsync', 'valid');
     }
+    
+    // 🔹 Inicializar nuevo campo con valor por defecto
+    if (get_option('aa_service_schedule') === false) {
+        add_option('aa_service_schedule', ''); // ⚠️ Cambia 'aa_nuevo_campo' y el valor por defecto según necesites
+    }
 });
 
 // ===============================
