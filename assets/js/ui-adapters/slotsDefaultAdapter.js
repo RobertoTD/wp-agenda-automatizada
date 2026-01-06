@@ -78,7 +78,7 @@
             if (!container) return;
 
             if (!slots || slots.length === 0) {
-                container.innerHTML = '<p class="aa-slots-empty">No hay horarios disponibles</p>';
+                container.innerHTML = '';
                 return;
             }
 

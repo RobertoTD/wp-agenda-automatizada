@@ -95,6 +95,21 @@
             const target = e.target;
             if (!target.classList.contains('aa-day') || target.classList.contains('aa-day--disabled')) return;
 
+            // Validar que haya servicio seleccionado
+            const servicioSelect = document.querySelector('#servicio');
+            const servicio = servicioSelect ? servicioSelect.value : '';
+
+            if (!servicio) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                if (servicioSelect && typeof servicioSelect.reportValidity === 'function') {
+                    servicioSelect.reportValidity();
+                }
+
+                return;
+            }
+
             const dateStr = target.dataset.date;
             if (!dateStr) return;
 

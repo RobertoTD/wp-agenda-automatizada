@@ -27,7 +27,10 @@
         selectedDate: null,
         selectedStaff: null,
         currentAssignments: [],
-        slotDuration: 30
+        slotDuration: 30,
+        initialAvailableDays: null,
+        initialMinDate: null,
+        initialMaxDate: null
     };
 
     // ============================================
@@ -86,6 +89,9 @@
 
         // Configurar listeners
         setupListeners();
+        
+        // Guardar datos iniciales del calendario
+        saveInitialCalendarData();
 
         // Leer valores iniciales si ya existen
         readInitialValues();
@@ -218,6 +224,27 @@
     }
 
     // ============================================
+    // Guardar datos iniciales del calendario
+    // ============================================
+    async function saveInitialCalendarData() {
+        try {
+            // Obtener datos iniciales desde AvailabilityService
+            if (window.AvailabilityService) {
+                const localBusyRanges = window.AvailabilityService.loadLocal();
+                const initialData = await window.AvailabilityService.calculateInitial(localBusyRanges);
+                
+                state.initialAvailableDays = { ...initialData.availableDays };
+                state.initialMinDate = initialData.minDate;
+                state.initialMaxDate = initialData.maxDate;
+                
+                console.log('✅ [FrontendAssignments] Datos iniciales del calendario guardados');
+            }
+        } catch (error) {
+            console.warn('⚠️ [FrontendAssignments] No se pudieron guardar datos iniciales:', error);
+        }
+    }
+
+    // ============================================
     // Leer valores iniciales
     // ============================================
     function readInitialValues() {
@@ -283,9 +310,118 @@
     }
 
     // ============================================
+    // Actualizar calendario según servicio
+    // ============================================
+    async function refreshCalendarByService(serviceKey) {
+        console.group('🔄 [FrontendAssignments] Actualizando calendario por servicio');
+        console.log('Servicio:', serviceKey || '(vacío - reset)');
+        
+        // Obtener límites de fecha
+        const futureWindow = window.aa_future_window || 14;
+        const minDate = new Date();
+        minDate.setHours(0, 0, 0, 0);
+        const maxDate = new Date();
+        maxDate.setDate(minDate.getDate() + futureWindow);
+        maxDate.setHours(23, 59, 59, 999);
+        
+        let availableDays = {};
+        
+        // Caso vacío → reset a disponibilidad inicial
+        if (!serviceKey) {
+            console.log('🔄 [FrontendAssignments] Reseteando a disponibilidad inicial');
+            
+            // Si tenemos datos iniciales guardados, usarlos
+            if (state.initialAvailableDays) {
+                availableDays = { ...state.initialAvailableDays };
+                console.log('✅ [FrontendAssignments] Usando datos iniciales guardados');
+            } else {
+                // Calcular desde schedule (fallback)
+                const schedule = window.aa_schedule || {};
+                for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
+                    const day = new Date(d);
+                    const weekday = window.DateUtils.getWeekdayName(day);
+                    const dayKey = window.DateUtils.ymd(day);
+                    const intervals = window.DateUtils.getDayIntervals(schedule, weekday);
+                    availableDays[dayKey] = intervals.length > 0;
+                }
+                console.log('✅ [FrontendAssignments] Calculado desde schedule');
+            }
+        } else if (!isFixedService(serviceKey)) {
+            // Servicio con assignments → obtener fechas de assignments
+            console.log('🔍 [FrontendAssignments] Obteniendo fechas de assignments para servicio:', serviceKey);
+            
+            try {
+                const result = await window.AAAssignmentsAvailability.getAssignmentDatesByService(
+                    serviceKey,
+                    window.DateUtils.ymd(minDate),
+                    window.DateUtils.ymd(maxDate)
+                );
+                
+                if (result.success && Array.isArray(result.data.dates)) {
+                    result.data.dates.forEach(dateStr => {
+                        if (window.DateUtils.isDateInRange(dateStr, minDate, maxDate)) {
+                            availableDays[dateStr] = true;
+                        }
+                    });
+                    console.log(`✅ [FrontendAssignments] ${result.data.dates.length} fechas encontradas para servicio`);
+                } else {
+                    console.warn('⚠️ [FrontendAssignments] No se pudieron obtener fechas de assignments');
+                }
+            } catch (error) {
+                console.error('❌ [FrontendAssignments] Error al obtener fechas de assignments:', error);
+            }
+        } else {
+            // Servicio fixed → usar disponibilidad inicial (schedule)
+            console.log('🔧 [FrontendAssignments] Servicio fixed, usando disponibilidad inicial');
+            const schedule = window.aa_schedule || {};
+            for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
+                const day = new Date(d);
+                const weekday = window.DateUtils.getWeekdayName(day);
+                const dayKey = window.DateUtils.ymd(day);
+                const intervals = window.DateUtils.getDayIntervals(schedule, weekday);
+                availableDays[dayKey] = intervals.length > 0;
+            }
+        }
+        
+        // Actualizar calendario usando WPAgenda
+        const calendarAdapterInstance = window.WPAgenda?.ui?.calendar || window.calendarDefaultAdapter?.create();
+        
+        if (calendarAdapterInstance) {
+            // Crear función disableDateFn basada en availableDays
+            const disableDateFn = (date) => {
+                const dayKey = window.DateUtils.ymd(date);
+                return !availableDays[dayKey];
+            };
+            
+            // Destruir calendario anterior si existe
+            if (calendarAdapterInstance.destroy) {
+                calendarAdapterInstance.destroy();
+            }
+            
+            // Re-renderizar con nuevos availableDays
+            calendarAdapterInstance.render({
+                container: '#wpagenda-calendar',
+                minDate: minDate,
+                maxDate: maxDate,
+                disableDateFn: disableDateFn,
+                onDateSelected: (selectedDate) => {
+                    console.log('📅 [FrontendAssignments] Fecha seleccionada:', window.DateUtils.ymd(selectedDate));
+                    console.log('ℹ️ [FrontendAssignments] Esperando cálculo de slots vía eventos...');
+                }
+            });
+            
+            console.log('✅ [FrontendAssignments] Calendario actualizado');
+        } else {
+            console.warn('⚠️ [FrontendAssignments] Adaptador de calendario no disponible, no se puede actualizar calendario');
+        }
+        
+        console.groupEnd();
+    }
+
+    // ============================================
     // Manejador: Cambio de servicio
     // ============================================
-    function handleServiceChange(event) {
+    async function handleServiceChange(event) {
         const newService = event.target.value;
         
         console.group('🔄 [FrontendAssignments] Cambio de servicio');
@@ -299,6 +435,20 @@
         state.currentAssignments = [];
         clearStaffSelector();
         syncAssignmentInput(null); // Limpiar assignment-id
+        
+        // Limpiar slots visuales inmediatamente
+        if (window.WPAgenda && typeof window.WPAgenda.emit === 'function') {
+            window.WPAgenda.emit('slotsCalculated', {
+                slots: [],
+                selectedDate: null,
+                service: newService,
+                staffId: null
+            });
+            console.log('🧹 [FrontendAssignments] Slots limpiados');
+        }
+        
+        // Actualizar calendario según servicio
+        await refreshCalendarByService(newService);
         
         // Detectar si es servicio fixed
         if (isFixedService(newService)) {
