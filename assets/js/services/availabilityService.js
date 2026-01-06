@@ -107,25 +107,40 @@
     calculateInitial(busyRanges) {
       const schedule = window.aa_schedule || {};
       const futureWindow = window.aa_future_window || 14;
-      const slotDuration = parseInt(window.aa_slot_duration, 10) || 60;
 
       const minDate = new Date();
+      minDate.setHours(0, 0, 0, 0);
       const maxDate = new Date();
       maxDate.setDate(minDate.getDate() + futureWindow);
+      maxDate.setHours(23, 59, 59, 999);
 
-      const availableSlotsPerDay = calculateSlotsRange(
-        minDate,
-        maxDate,
-        schedule,
-        busyRanges,
-        slotDuration
-      );
+      console.log('📅 [AvailabilityService] Calculando días disponibles...');
+      console.log(`   Rango: ${window.DateUtils.ymd(minDate)} al ${window.DateUtils.ymd(maxDate)}`);
+      console.log(`   Ventana futura: ${futureWindow} días`);
+
+      const availableDays = {};
+
+      // Iterar día por día
+      for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
+        const day = new Date(d);
+        const weekday = window.DateUtils.getWeekdayName(day);
+        const dayKey = window.DateUtils.ymd(day);
+
+        // Verificar si el día de la semana está habilitado en el schedule
+        if (schedule[weekday] && schedule[weekday].enabled === 1) {
+          availableDays[dayKey] = true;
+        } else {
+          availableDays[dayKey] = false;
+        }
+      }
+
+      const totalAvailable = Object.values(availableDays).filter(v => v === true).length;
+      console.log(`✅ [AvailabilityService] Días disponibles calculados: ${totalAvailable} de ${Object.keys(availableDays).length}`);
 
       return {
-        availableSlotsPerDay,
+        availableDays,
         schedule,
         futureWindow,
-        slotDuration,
         minDate,
         maxDate
       };
