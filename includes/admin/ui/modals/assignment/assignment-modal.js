@@ -2,7 +2,7 @@
  * Assignment Modal - Logic Controller
  * 
  * Handles:
- * - Open/close modal
+ * - Open/close modal using template from index.php
  * - Initialize flatpickr on date input
  * - Load staff via AJAX
  * - Load service areas via AJAX
@@ -28,26 +28,74 @@
     }
 
     /**
+     * Get body content from template
+     * @returns {string} HTML string for modal body
+     */
+    function getBodyFromTemplate() {
+        const template = document.getElementById('aa-assignment-modal-template');
+        if (!template) {
+            console.error('[Assignment Modal] Template not found: aa-assignment-modal-template');
+            console.error('[Assignment Modal] Available templates:', 
+                Array.from(document.querySelectorAll('template')).map(t => t.id));
+            return '<p class="text-red-500">Error: Template no encontrado. Verifique que index.php se haya cargado correctamente.</p>';
+        }
+        
+        // Clone template content and serialize to HTML string
+        const clone = template.content.cloneNode(true);
+        const container = document.createElement('div');
+        container.appendChild(clone);
+        return container.innerHTML;
+    }
+
+    /**
+     * Get footer content from template
+     * @returns {string} HTML string for modal footer
+     */
+    function getFooterFromTemplate() {
+        const template = document.getElementById('aa-assignment-modal-footer-template');
+        if (!template) {
+            console.error('[Assignment Modal] Footer template not found: aa-assignment-modal-footer-template');
+            console.error('[Assignment Modal] Available templates:', 
+                Array.from(document.querySelectorAll('template')).map(t => t.id));
+            return '<div class="text-red-500 text-sm">Error: Footer template no encontrado</div>';
+        }
+        
+        // Clone template content and serialize to HTML string
+        const clone = template.content.cloneNode(true);
+        const container = document.createElement('div');
+        container.appendChild(clone);
+        return container.innerHTML;
+    }
+
+    /**
      * Open the assignment modal
      */
     function openModal() {
         // Check if modal system exists
         if (!window.AAAdmin || !window.AAAdmin.modal) {
             console.error('[Assignment Modal] Modal system not found');
+            console.error('[Assignment Modal] AAAdmin available:', !!window.AAAdmin);
             return;
         }
 
-        // Check if HTML generator exists
-        if (!window.AAAssignmentModalHTML) {
-            console.error('[Assignment Modal] Modal HTML generator not found');
+        // Get templates
+        const bodyContent = getBodyFromTemplate();
+        const footerContent = getFooterFromTemplate();
+
+        // Check if templates were loaded correctly
+        if (bodyContent.includes('Error: Template no encontrado')) {
+            console.error('[Assignment Modal] Cannot open modal: body template not found');
             return;
         }
 
-        // Open modal with content
+        // Clean up any existing date picker instance before opening
+        cleanupDatePicker();
+
+        // Open modal with content from templates
         AAAdmin.modal.open({
             title: 'Abrir horario',
-            body: AAAssignmentModalHTML.getBody(),
-            footer: AAAssignmentModalHTML.getFooter()
+            body: bodyContent,
+            footer: footerContent
         });
 
         // Initialize modal after opening
@@ -61,16 +109,56 @@
     }
 
     /**
-     * Initialize date picker
-     * Uses native HTML5 date input (flatpickr not available in iframe)
+     * Initialize date picker with Flatpickr
      */
     function initializeDatePicker() {
         const dateInput = document.getElementById('aa-assignment-date');
-        if (!dateInput) return;
+        if (!dateInput) {
+            console.warn('[Assignment Modal] Date input not found');
+            return;
+        }
 
-        // Set min date to today
-        const today = new Date().toISOString().split('T')[0];
-        dateInput.setAttribute('min', today);
+        // Check if Flatpickr is available
+        if (typeof flatpickr === 'undefined') {
+            console.error('[Assignment Modal] Flatpickr is not available');
+            // Fallback to native date input
+            dateInput.type = 'date';
+            const today = new Date().toISOString().split('T')[0];
+            dateInput.setAttribute('min', today);
+            return;
+        }
+
+        // Destroy existing instance if any
+        if (datePicker) {
+            datePicker.destroy();
+            datePicker = null;
+        }
+
+        // Initialize Flatpickr
+        try {
+            datePicker = flatpickr(dateInput, {
+                dateFormat: 'Y-m-d',
+                locale: 'es',
+                minDate: 'today',
+                allowInput: false,
+                clickOpens: true,
+                defaultDate: null,
+                onChange: function(selectedDates, dateStr, instance) {
+                    // Validate that a date was selected
+                    if (dateStr) {
+                        console.log('[Assignment Modal] Date selected:', dateStr);
+                    }
+                }
+            });
+
+            console.log('[Assignment Modal] Flatpickr initialized successfully');
+        } catch (error) {
+            console.error('[Assignment Modal] Error initializing Flatpickr:', error);
+            // Fallback to native date input
+            dateInput.type = 'date';
+            const today = new Date().toISOString().split('T')[0];
+            dateInput.setAttribute('min', today);
+        }
     }
 
     /**
@@ -257,6 +345,9 @@
         })
         .then(function(data) {
             if (data.success) {
+                // Clean up date picker before closing
+                cleanupDatePicker();
+                
                 // Close modal
                 if (window.AAAdmin && window.AAAdmin.modal) {
                     AAAdmin.modal.close();
@@ -328,6 +419,21 @@
     }
 
     /**
+     * Clean up date picker instance
+     */
+    function cleanupDatePicker() {
+        if (datePicker) {
+            try {
+                datePicker.destroy();
+                datePicker = null;
+                console.log('[Assignment Modal] Flatpickr instance destroyed');
+            } catch (error) {
+                console.error('[Assignment Modal] Error destroying Flatpickr:', error);
+            }
+        }
+    }
+
+    /**
      * Initialize modal trigger
      */
     function init() {
@@ -344,6 +450,19 @@
                 window.loadAssignments(assignmentsRoot);
             }
         });
+
+        // Clean up when modal closes (listen to modal close events)
+        // This is a fallback - the modal system should handle cleanup, but we ensure it here
+        if (window.AAAdmin && window.AAAdmin.modal) {
+            // Store original close function
+            const originalClose = window.AAAdmin.modal.close;
+            if (originalClose) {
+                window.AAAdmin.modal.close = function() {
+                    cleanupDatePicker();
+                    originalClose.apply(this, arguments);
+                };
+            }
+        }
     }
 
     // Initialize when DOM is ready

@@ -170,10 +170,6 @@ $module_js_url = $plugin_url . 'assignments-module.js';
 <!-- Assignments Section JS -->
 <script src="<?php echo esc_url($plugin_url . 'assignments-section/assignments-section.js'); ?>" defer></script>
 
-<!-- Assignment Modal -->
-<?php 
-$modals_url = plugin_dir_url(dirname(dirname(__FILE__))) . 'modals/assignment/';
-?>
-<script src="<?php echo esc_url($modals_url . 'index.js'); ?>" defer></script>
-<script src="<?php echo esc_url($modals_url . 'assignment-modal.js'); ?>" defer></script>
+<!-- Assignment Modal Template and JS are loaded in layout.php -->
+<!-- No need to load them here as they are transversal modals -->
 
