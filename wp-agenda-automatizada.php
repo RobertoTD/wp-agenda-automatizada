@@ -381,6 +381,14 @@ function wpaa_render_form() {
             echo "<option value='{$motivo}'>{$motivo}</option>";
         }
     }
+    
+    // Agregar opción de horario fijo si existe
+    $service_schedule = get_option('aa_service_schedule', '');
+    if (!empty($service_schedule)) {
+        $service_name = esc_html($service_schedule);
+        $service_value = esc_attr('fixed::' . $service_schedule);
+        echo "<option value='{$service_value}'>{$service_name}</option>";
+    }
     ?>
     </select>
 

@@ -249,10 +249,22 @@
             state.selectedDate = initialDate;
         }
 
-        // Si ya tenemos servicio y fecha, cargar asignaciones
+        // Si ya tenemos servicio y fecha, procesar según tipo
         if (state.selectedService && state.selectedDate) {
-            loadAssignments();
+            if (isFixedService(state.selectedService)) {
+                console.log('🔧 [FrontendAssignments][FIXED] Servicio fixed detectado en valores iniciales');
+                calculateFixedSlots();
+            } else {
+                loadAssignments();
+            }
         }
+    }
+
+    // ============================================
+    // Detectar servicio de horario fijo
+    // ============================================
+    function isFixedService(service) {
+        return typeof service === 'string' && service.startsWith('fixed::');
     }
 
     // ============================================
@@ -288,11 +300,25 @@
         clearStaffSelector();
         syncAssignmentInput(null); // Limpiar assignment-id
         
-        // Si tenemos fecha, cargar asignaciones
-        if (state.selectedDate) {
-            loadAssignments();
+        // Detectar si es servicio fixed
+        if (isFixedService(newService)) {
+            console.log('🔧 [FrontendAssignments][FIXED] Servicio de horario fijo detectado');
+            
+            // NO llamar loadAssignments() para servicios fixed
+            // Si ya tenemos fecha, calcular slots fijos inmediatamente
+            if (state.selectedDate) {
+                calculateFixedSlots();
+            } else {
+                console.log('⚠️ [FrontendAssignments][FIXED] No hay fecha seleccionada, esperando...');
+            }
         } else {
-            console.log('⚠️ No hay fecha seleccionada, esperando...');
+            // Comportamiento normal para servicios con assignments
+            // Si tenemos fecha, cargar asignaciones
+            if (state.selectedDate) {
+                loadAssignments();
+            } else {
+                console.log('⚠️ No hay fecha seleccionada, esperando...');
+            }
         }
         
         console.groupEnd();
@@ -329,9 +355,16 @@
         clearStaffSelector();
         syncAssignmentInput(null); // Limpiar assignment-id
         
-        // Si tenemos servicio, cargar asignaciones
+        // Si tenemos servicio, verificar si es fixed
         if (state.selectedService) {
-            loadAssignments();
+            if (isFixedService(state.selectedService)) {
+                console.log('🔧 [FrontendAssignments][FIXED] Servicio de horario fijo, calculando slots...');
+                // NO llamar loadAssignments() para servicios fixed
+                calculateFixedSlots();
+            } else {
+                // Comportamiento normal para servicios con assignments
+                loadAssignments();
+            }
         } else {
             console.log('⚠️ No hay servicio seleccionado, esperando...');
         }
@@ -507,6 +540,133 @@
         elements.staffSelect.appendChild(noOption);
         
         elements.staffSelect.disabled = true;
+    }
+
+    // ============================================
+    // Calcular slots para servicio de horario fijo
+    // ============================================
+    async function calculateFixedSlots() {
+        console.group('🧮 [FrontendAssignments][FIXED] Calculando slots de horario fijo...');
+        console.log('Servicio:', state.selectedService);
+        console.log('Fecha:', state.selectedDate);
+        console.log('Slot Duration:', state.slotDuration);
+
+        try {
+            // Validar dependencias necesarias
+            if (typeof window.AvailabilityService === 'undefined') {
+                console.error('❌ [FrontendAssignments][FIXED] AvailabilityService no disponible');
+                console.groupEnd();
+                return;
+            }
+
+            if (typeof window.SlotCalculator === 'undefined') {
+                console.error('❌ [FrontendAssignments][FIXED] SlotCalculator no disponible');
+                console.groupEnd();
+                return;
+            }
+
+            if (typeof window.DateUtils === 'undefined') {
+                console.error('❌ [FrontendAssignments][FIXED] DateUtils no disponible');
+                console.groupEnd();
+                return;
+            }
+
+            // 1️⃣ Obtener schedule y configuración
+            const schedule = window.aa_schedule || {};
+            const slotDuration = state.slotDuration;
+
+            console.log('📋 [FrontendAssignments][FIXED] Configuración:', {
+                schedule: schedule,
+                slotDuration: slotDuration
+            });
+
+            // 2️⃣ Obtener busy ranges (locales y externos)
+            console.log('🔄 [FrontendAssignments][FIXED] Obteniendo busy ranges...');
+            
+            // Obtener busy ranges locales
+            const localBusyRanges = window.AvailabilityService.loadLocal() || [];
+            
+            // Obtener busy ranges externos desde window.aa_availability
+            let externalBusyRanges = [];
+            if (window.BusyRanges && typeof window.BusyRanges.generateBusyRanges === 'function') {
+                const externalBusy = window.aa_availability?.busy || [];
+                externalBusyRanges = window.BusyRanges.generateBusyRanges(externalBusy);
+            }
+            
+            // Combinar ambos arrays
+            const busyRanges = [...localBusyRanges, ...externalBusyRanges];
+            
+            console.log('📊 [FrontendAssignments][FIXED] Busy Ranges obtenidos:', busyRanges.length);
+            console.log('   - Locales:', localBusyRanges.length);
+            console.log('   - Externos:', externalBusyRanges.length);
+            
+            if (busyRanges && busyRanges.length > 0) {
+                console.log('   Rangos ocupados:');
+                busyRanges.forEach(function(r) {
+                    const startStr = r.start ? window.DateUtils.hm(r.start) : 'N/A';
+                    const endStr = r.end ? window.DateUtils.hm(r.end) : 'N/A';
+                    console.log('   - ' + startStr + ' - ' + endStr);
+                });
+            }
+
+            // 3️⃣ Crear objeto Date para la fecha seleccionada
+            const selectedDateObj = new Date(state.selectedDate + 'T00:00:00');
+            
+            // 4️⃣ Calcular slots para la fecha específica usando SlotCalculator
+            console.log('🔄 [FrontendAssignments][FIXED] Calculando slots para fecha...');
+            
+            const slots = window.SlotCalculator.calculateSlotsForDate(
+                selectedDateObj,
+                schedule,
+                busyRanges || [],
+                slotDuration
+            );
+
+            console.log('📊 [FrontendAssignments][FIXED] Slots calculados:', slots ? slots.length : 0);
+            
+            if (slots && slots.length > 0) {
+                console.log('🕐 Horarios disponibles:');
+                slots.forEach(function(slot, index) {
+                    const slotTime = slot instanceof Date ? window.DateUtils.hm(slot) : String(slot);
+                    console.log('   ' + (index + 1) + '. ' + slotTime);
+                });
+            } else {
+                console.log('❌ [FrontendAssignments][FIXED] No hay horarios disponibles para esta fecha');
+            }
+
+            // 5️⃣ Emitir evento para renderizar slots
+            if (window.WPAgenda && typeof window.WPAgenda.emit === 'function') {
+                window.WPAgenda.emit('slotsCalculated', {
+                    slots: slots || [],
+                    selectedDate: state.selectedDate,
+                    service: state.selectedService,
+                    staffId: null
+                });
+                console.log('📤 [FrontendAssignments][FIXED] Evento slotsCalculated emitido');
+            } else {
+                console.warn('⚠️ [FrontendAssignments][FIXED] WPAgenda.emit no disponible');
+            }
+
+            // Guardar en estado para debugging
+            state.finalSlots = slots || [];
+
+            console.log('');
+            console.log('═══════════════════════════════════════════════════════');
+            console.log('✅ [FrontendAssignments][FIXED] SLOTS FINALES CALCULADOS:', slots ? slots.length : 0);
+            console.log('═══════════════════════════════════════════════════════');
+            console.log('📦 Estado final:', {
+                selectedService: state.selectedService,
+                selectedDate: state.selectedDate,
+                selectedStaff: null,
+                busyRanges: busyRanges ? busyRanges.length : 0,
+                finalSlots: slots ? slots.length : 0
+            });
+
+        } catch (error) {
+            console.error('❌ [FrontendAssignments][FIXED] Error al calcular slots fijos:', error);
+        }
+
+        console.groupEnd();
     }
 
     // ============================================
