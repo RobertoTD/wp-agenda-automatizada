@@ -397,7 +397,7 @@ function wpaa_render_form() {
         <input type="hidden" id="fecha" name="fecha" required>
 
         <!-- Personal disponible (nuevo - basado en assignments) -->
-        <div>
+        <div id="staff-selector-wrapper" style="display:none;">
             <label for="staff-selector">Personal disponible</label>
             <select id="staff-selector" name="staff_id" disabled>
                 <option value="">Selecciona primero fecha y servicio</option>

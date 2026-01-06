@@ -39,7 +39,8 @@
     let elements = {
         serviceSelect: null,
         dateInput: null,
-        staffSelect: null
+        staffSelect: null,
+        staffWrapper: null
     };
 
     // ============================================
@@ -63,6 +64,7 @@
         elements.serviceSelect = document.querySelector(config.serviceSelect);
         elements.dateInput = document.querySelector(config.dateInput);
         elements.staffSelect = document.querySelector(config.staffSelect);
+        elements.staffWrapper = document.getElementById('staff-selector-wrapper');
 
         // Obtener slot duration de configuración global
         if (typeof window.aa_slot_duration !== 'undefined') {
@@ -295,6 +297,30 @@
     }
 
     // ============================================
+    // Helpers para mostrar/ocultar selector de staff
+    // ============================================
+    function hideStaffSelector() {
+        if (elements.staffWrapper) {
+            elements.staffWrapper.style.display = 'none';
+        }
+        if (elements.staffSelect) {
+            elements.staffSelect.disabled = true;
+            elements.staffSelect.value = '';
+        }
+        console.log('👤 [FrontendAssignments][STAFF] Selector de staff ocultado');
+    }
+
+    function showStaffSelector() {
+        if (elements.staffWrapper) {
+            elements.staffWrapper.style.display = 'block';
+        }
+        if (elements.staffSelect) {
+            elements.staffSelect.disabled = false;
+        }
+        console.log('👤 [FrontendAssignments][STAFF] Selector de staff mostrado');
+    }
+
+    // ============================================
     // Sincronizar input hidden #assignment-id
     // ============================================
     function syncAssignmentInput(assignmentId) {
@@ -433,6 +459,7 @@
         // Limpiar staff y asignaciones
         state.selectedStaff = null;
         state.currentAssignments = [];
+        hideStaffSelector(); // Ocultar selector de staff
         clearStaffSelector();
         syncAssignmentInput(null); // Limpiar assignment-id
         
@@ -502,6 +529,7 @@
         // Limpiar staff y asignaciones
         state.selectedStaff = null;
         state.currentAssignments = [];
+        hideStaffSelector(); // Ocultar selector de staff
         clearStaffSelector();
         syncAssignmentInput(null); // Limpiar assignment-id
         
@@ -624,16 +652,10 @@
             return;
         }
 
-        console.log('👥 [FrontendAssignments] Llenando selector de staff con', assignments.length, 'opciones');
+        console.log('👥 [FrontendAssignments][STAFF] Llenando selector de staff con', assignments.length, 'asignaciones');
 
         // Limpiar opciones actuales
         elements.staffSelect.innerHTML = '';
-
-        // Opción por defecto
-        const defaultOption = document.createElement('option');
-        defaultOption.value = '';
-        defaultOption.textContent = 'Selecciona un profesional';
-        elements.staffSelect.appendChild(defaultOption);
 
         // Extraer staff únicos
         const staffMap = new Map();
@@ -646,6 +668,38 @@
             }
         });
 
+        const uniqueStaff = Array.from(staffMap.values());
+        console.log('👥 [FrontendAssignments][STAFF] Staff únicos encontrados:', uniqueStaff.length);
+
+        // Si hay 0 staff, ocultar selector
+        if (uniqueStaff.length === 0) {
+            console.log('👤 [FrontendAssignments][STAFF] No hay staff disponible, ocultando selector');
+            hideStaffSelector();
+            return;
+        }
+
+        // Si hay 1 staff, auto-seleccionar y ocultar selector
+        if (uniqueStaff.length === 1) {
+            const singleStaff = uniqueStaff[0];
+            state.selectedStaff = String(singleStaff.id);
+            console.log('👤 [FrontendAssignments][STAFF] Auto-seleccionando único staff:', singleStaff.name, '(ID:', singleStaff.id + ')');
+            
+            hideStaffSelector();
+            
+            // Continuar con el flujo para calcular slots automáticamente
+            calculateSlots();
+            return;
+        }
+
+        // Si hay 2 o más staff, mostrar selector
+        console.log('👤 [FrontendAssignments][STAFF] Múltiples staff disponibles, mostrando selector');
+
+        // Opción por defecto
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = 'Selecciona un profesional';
+        elements.staffSelect.appendChild(defaultOption);
+
         // Crear opciones
         staffMap.forEach(function(staff) {
             const option = document.createElement('option');
@@ -654,10 +708,10 @@
             elements.staffSelect.appendChild(option);
         });
 
-        // Habilitar el select
-        elements.staffSelect.disabled = false;
+        // Mostrar y habilitar el select
+        showStaffSelector();
 
-        console.log('✅ [FrontendAssignments] Staff disponibles:', Array.from(staffMap.values()));
+        console.log('✅ [FrontendAssignments][STAFF] Staff disponibles:', uniqueStaff);
     }
 
     // ============================================
@@ -674,6 +728,9 @@
         elements.staffSelect.appendChild(defaultOption);
         
         elements.staffSelect.disabled = true;
+        
+        // Ocultar wrapper
+        hideStaffSelector();
     }
 
     // ============================================
@@ -690,6 +747,9 @@
         elements.staffSelect.appendChild(noOption);
         
         elements.staffSelect.disabled = true;
+        
+        // Ocultar wrapper
+        hideStaffSelector();
     }
 
     // ============================================
