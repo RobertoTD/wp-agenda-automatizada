@@ -32,60 +32,34 @@
       return null;
     }
 
-    const { availableSlotsPerDay, minDate, maxDate } = initialData;
+    const { availableDays, minDate, maxDate } = initialData;
 
-    // Función helper para determinar si una fecha tiene slots
+    // Función helper para determinar si una fecha está disponible
     const isDateAvailable = (date) => {
-      return (availableSlotsPerDay[ymd(date)]?.length || 0) > 0;
+      return !!availableDays[ymd(date)];
     };
 
     const disableDateFn = (date) => !isDateAvailable(date);
 
     if (isAdmin) {
       if (typeof window.CalendarAdminUI !== 'undefined') {
+        // Para ADMIN, crear un slotsMap vacío ya que no calculamos slots iniciales
+        const emptySlotsMap = {};
+        Object.keys(availableDays).forEach(day => {
+          emptySlotsMap[day] = [];
+        });
+        
         const picker = window.CalendarAdminUI.render({
           fechaInput,
           slotContainerSelector,
-          slotsMap: availableSlotsPerDay,
+          slotsMap: emptySlotsMap,
           minDate,
           maxDate,
           disableDateFn
         });
         
         console.log('✅ Calendario ADMIN renderizado con datos locales');
-        
-        // ✅ RENDERIZAR SLOTS INICIALES para la primera fecha disponible
-        if (picker) {
-          const firstAvailableDate = AvailabilityService.findFirstAvailable(
-            minDate, 
-            maxDate, 
-            availableSlotsPerDay
-          );
-          
-          if (firstAvailableDate) {
-            const validSlots = availableSlotsPerDay[ymd(firstAvailableDate)] || [];
-            
-            console.log(`📅 Admin: Renderizando slots iniciales para ${ymd(firstAvailableDate)}`);
-            console.log(`📅 Admin: ${validSlots.length} slots disponibles`);
-            console.log(`📅 Admin: Slots:`, validSlots.map(s => s.toLocaleTimeString('es-MX')));
-            
-            // ✅ Esperar un tick para asegurar que el listener esté registrado
-            setTimeout(() => {
-              // Disparar evento para que SlotSelectorAdminUI renderice los slots
-              document.dispatchEvent(new CustomEvent('aa:admin:date-selected', {
-                detail: {
-                  containerId: slotContainerSelector,
-                  validSlots,
-                  selectedDate: firstAvailableDate,
-                  fechaInput
-                }
-              }));
-            }, 0);
-            
-            // Establecer fecha en Flatpickr (sin disparar onChange)
-            picker.setDate(firstAvailableDate, false);
-          }
-        }
+        console.log('ℹ️ Admin: Slots se calcularán on-demand cuando se seleccione una fecha');
         
         return picker;
       } else {
@@ -105,38 +79,11 @@
         maxDate,
         disableDateFn,
         onDateSelected: (selectedDate) => {
-          const slots = availableSlotsPerDay[ymd(selectedDate)] || [];
-
-          // Mostrar título solo si hay slots
-          const titleEl = document.getElementById('aa-slot-title');
-          if (slots.length > 0) {
-            titleEl.innerText = 'Horarios disponibles';
-            titleEl.style.display = 'block';
-          } else {
-            titleEl.style.display = 'none';
-          }
-
-          slotsInstance.render('#slot-container', slots, (chosenSlot) => {
-            const fechaStr = ymd(selectedDate);
-            const horaStr = hm(chosenSlot);
-            fechaInput.value = `${fechaStr} ${horaStr}`;
-            
-            const slotInput = document.getElementById('slot-selector');
-            if (slotInput) {
-              slotInput.value = chosenSlot.toISOString();
-            }
-          });
-
-          if (slots[0]) {
-            const fechaStr = ymd(selectedDate);
-            const horaStr = hm(slots[0]);
-            fechaInput.value = `${fechaStr} ${horaStr}`;
-            
-            const slotInput = document.getElementById('slot-selector');
-            if (slotInput) {
-              slotInput.value = slots[0].toISOString();
-            }
-          }
+          // NO hacer nada aquí.
+          // El cálculo de slots se maneja por FrontendAssignmentsController
+          // o por el flujo fixed on-demand vía eventos slotsCalculated.
+          console.log('📅 [AvailabilityController] Fecha seleccionada:', ymd(selectedDate));
+          console.log('ℹ️ [AvailabilityController] Esperando cálculo de slots vía eventos...');
         }
       });
       console.log('✅ Calendario FRONTEND renderizado con WPAgenda adaptadores');
@@ -188,9 +135,10 @@
     // ✅ IMPORTANTE: Siempre inyectar datos locales al proxy para que onChange funcione
     const localBusyRanges = window.AvailabilityService.loadLocal();
     availabilityProxyInstance.busyRanges = localBusyRanges;
-    availabilityProxyInstance.availableSlotsPerDay = initialData.availableSlotsPerDay || {};
+    // El proxy calculará availableSlotsPerDay cuando se actualice con Google Calendar
+    availabilityProxyInstance.availableSlotsPerDay = {};
     
-    console.log(`📊 Proxy inicializado con ${Object.keys(availabilityProxyInstance.availableSlotsPerDay).length} días locales`);
+    console.log(`📊 Proxy inicializado con ${Object.keys(initialData.availableDays || {}).length} días disponibles (sin slots iniciales)`);
     
     // 🛑 CLÁUSULA DE GUARDA EXTENDIDA: Sin email O gsync desconectado = MODO LOCAL
     if (!email || gsyncStatus === 'disconnected') {
@@ -420,7 +368,7 @@
   // ==============================
   // 🔹 FUNCIÓN PRINCIPAL
   // ==============================
-  function initAvailabilityController(config) {
+  async function initAvailabilityController(config) {
     const {
       fechaInputSelector,
       slotContainerSelector = '#slot-container',
@@ -431,7 +379,7 @@
     console.log(`🚀 Modo: ${isAdmin ? 'ADMIN' : 'FRONTEND'}\n`);
 
     const localBusyRanges = AvailabilityService.loadLocal();
-    const initialData = AvailabilityService.calculateInitial(localBusyRanges);
+    const initialData = await AvailabilityService.calculateInitial(localBusyRanges);
 
     renderInitialUI(fechaInputSelector, slotContainerSelector, isAdmin, initialData);
     

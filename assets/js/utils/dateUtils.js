@@ -68,6 +68,12 @@ function computeLimits(futureWindow) {
   return { minDate, maxDate };
 }
 
+// ✅ Verifica si una fecha está dentro de un rango
+function isDateInRange(dateStr, minDate, maxDate) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d >= minDate && d <= maxDate;
+}
+
 // ==============================
 // 🔹 Verificar si un slot tiene suficiente espacio libre
 // ==============================
@@ -176,6 +182,7 @@ window.DateUtils = {
   minutesFromDate,
   getDayIntervals,
   computeLimits,
+  isDateInRange,
   isSlotBusy,
   hasEnoughFreeTime,
   normalizeIntervalToSlotGrid,

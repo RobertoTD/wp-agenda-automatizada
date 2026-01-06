@@ -9,6 +9,7 @@
   const { combineLocalExternal } = window.CombineLocalExternal;
   const { generateBusyRanges, loadLocalBusyRanges } = window.BusyRanges;
   const { calculateSlotsRange } = window.SlotCalculator;
+  const { ymd, getWeekdayName, getDayIntervals, computeLimits, isDateInRange } = window.DateUtils;
 
   class AvailabilityProxy {
     constructor(config = {}) {
@@ -104,38 +105,89 @@
       return loadLocalBusyRanges();
     },
 
-    calculateInitial(busyRanges) {
+    async calculateInitial(busyRanges) {
       const schedule = window.aa_schedule || {};
       const futureWindow = window.aa_future_window || 14;
 
-      const minDate = new Date();
-      minDate.setHours(0, 0, 0, 0);
-      const maxDate = new Date();
-      maxDate.setDate(minDate.getDate() + futureWindow);
-      maxDate.setHours(23, 59, 59, 999);
+      // Calcular límites usando DateUtils.computeLimits si existe, o manualmente
+      let minDate, maxDate;
+      if (typeof computeLimits === 'function') {
+        const limits = computeLimits(futureWindow);
+        minDate = limits.minDate;
+        maxDate = limits.maxDate;
+        minDate.setHours(0, 0, 0, 0);
+        maxDate.setHours(23, 59, 59, 999);
+      } else {
+        minDate = new Date();
+        minDate.setHours(0, 0, 0, 0);
+        maxDate = new Date();
+        maxDate.setDate(minDate.getDate() + futureWindow);
+        maxDate.setHours(23, 59, 59, 999);
+      }
 
       console.log('📅 [AvailabilityService] Calculando días disponibles...');
-      console.log(`   Rango: ${window.DateUtils.ymd(minDate)} al ${window.DateUtils.ymd(maxDate)}`);
+      console.log(`   Rango: ${ymd(minDate)} al ${ymd(maxDate)}`);
       console.log(`   Ventana futura: ${futureWindow} días`);
 
       const availableDays = {};
 
-      // Iterar día por día
+      // Iterar día por día desde schedule
       for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
         const day = new Date(d);
-        const weekday = window.DateUtils.getWeekdayName(day);
-        const dayKey = window.DateUtils.ymd(day);
+        const weekday = getWeekdayName(day);
+        const dayKey = ymd(day);
 
-        // Verificar si el día de la semana está habilitado en el schedule
-        if (schedule[weekday] && schedule[weekday].enabled === 1) {
+        // Usar EXACTAMENTE la misma lógica que SlotCalculator
+        // Un día es válido si getDayIntervals devuelve al menos un intervalo
+        const intervals = getDayIntervals(schedule, weekday);
+        
+        if (intervals.length > 0) {
           availableDays[dayKey] = true;
         } else {
           availableDays[dayKey] = false;
         }
       }
 
+      const scheduleDaysCount = Object.values(availableDays).filter(v => v === true).length;
+      console.log(`📅 [AvailabilityService] Días desde schedule: ${scheduleDaysCount}`);
+
+      // Función helper para combinar días de assignments
+      async function mergeAssignmentDays(availableDays, minDate, maxDate) {
+        if (!window.AAAssignmentsAvailability) {
+          console.log('ℹ️ [AvailabilityService] AAAssignmentsAvailability no disponible, omitiendo assignments');
+          return availableDays;
+        }
+
+        try {
+          const result = await window.AAAssignmentsAvailability.getAssignmentDates();
+
+          if (!result.success || !Array.isArray(result.data.dates)) {
+            console.warn('⚠️ [AvailabilityService] No se pudieron obtener fechas de assignments');
+            return availableDays;
+          }
+
+          let assignmentDaysAdded = 0;
+          result.data.dates.forEach(dateStr => {
+            if (isDateInRange(dateStr, minDate, maxDate)) {
+              // Marcar como disponible (puede sobrescribir false desde schedule)
+              availableDays[dateStr] = true;
+              assignmentDaysAdded++;
+            }
+          });
+
+          console.log(`📅 [AvailabilityService] Días desde assignments: ${assignmentDaysAdded}`);
+          return availableDays;
+        } catch (error) {
+          console.error('❌ [AvailabilityService] Error al obtener fechas de assignments:', error);
+          return availableDays;
+        }
+      }
+
+      // Combinar días de assignments
+      await mergeAssignmentDays(availableDays, minDate, maxDate);
+
       const totalAvailable = Object.values(availableDays).filter(v => v === true).length;
-      console.log(`✅ [AvailabilityService] Días disponibles calculados: ${totalAvailable} de ${Object.keys(availableDays).length}`);
+      console.log(`✅ [AvailabilityService] Días disponibles totales: ${totalAvailable} de ${Object.keys(availableDays).length}`);
 
       return {
         availableDays,
