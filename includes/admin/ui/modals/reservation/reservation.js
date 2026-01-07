@@ -149,9 +149,13 @@
             this.resetState();
 
             // Listen for service changes
-            servicioSelect.addEventListener('change', function() {
+            servicioSelect.addEventListener('change', async function() {
                 self.state.selectedService = this.value;
                 console.log('[AA][Reservation] Servicio seleccionado:', self.state.selectedService);
+                
+                // Actualizar disponibilidad del calendario según el servicio
+                await self.refreshAdminCalendarByService(self.state.selectedService);
+                
                 self.checkAndLoadAssignments();
             });
 
@@ -186,9 +190,135 @@
             if (servicioSelect.value) {
                 this.state.selectedService = servicioSelect.value;
                 console.log('[AA][Reservation] Servicio inicial:', this.state.selectedService);
+                
+                // Actualizar disponibilidad del calendario con el servicio inicial
+                this.refreshAdminCalendarByService(this.state.selectedService);
             }
 
             console.log('[AA][Reservation] ✅ Flujo de asignaciones inicializado');
+        },
+
+        /**
+         * Helper: Detecta si un servicio es de horario fijo
+         * @param {string} serviceKey - Clave del servicio
+         * @returns {boolean} true si el servicio empieza con "fixed::"
+         */
+        isFixedService: function(serviceKey) {
+            return typeof serviceKey === 'string' && serviceKey.startsWith('fixed::');
+        },
+
+        /**
+         * Actualiza la disponibilidad del calendario admin según el servicio seleccionado
+         * Replica la lógica del frontend (refreshCalendarByService)
+         * @param {string} serviceKey - Clave del servicio (puede ser vacío, fixed:: o normal)
+         */
+        refreshAdminCalendarByService: async function(serviceKey) {
+            console.group('[AA][Reservation] Actualizando calendario admin por servicio');
+            console.log('Servicio:', serviceKey || '(vacío - reset)');
+            
+            // Obtener límites de fecha
+            const futureWindow = window.aa_future_window || 14;
+            const minDate = new Date();
+            minDate.setHours(0, 0, 0, 0);
+            const maxDate = new Date();
+            maxDate.setDate(minDate.getDate() + futureWindow);
+            maxDate.setHours(23, 59, 59, 999);
+            
+            let availableDays = {};
+            
+            // Caso A: Servicio vacío → reset a disponibilidad general basada en aa_schedule
+            if (!serviceKey) {
+                console.log('[AA][Reservation] Reseteando a disponibilidad general (schedule)');
+                
+                const schedule = window.aa_schedule || {};
+                for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
+                    const day = new Date(d);
+                    const weekday = window.DateUtils.getWeekdayName(day);
+                    const dayKey = window.DateUtils.ymd(day);
+                    const intervals = window.DateUtils.getDayIntervals(schedule, weekday);
+                    availableDays[dayKey] = intervals.length > 0;
+                }
+                console.log('[AA][Reservation] ✅ Disponibilidad calculada desde schedule');
+            }
+            // Caso B: Servicio por assignments
+            else if (!this.isFixedService(serviceKey)) {
+                console.log('[AA][Reservation] Obteniendo fechas de assignments para servicio:', serviceKey);
+                
+                try {
+                    const result = await window.AAAssignmentsAvailability.getAssignmentDatesByService(
+                        serviceKey,
+                        window.DateUtils.ymd(minDate),
+                        window.DateUtils.ymd(maxDate)
+                    );
+                    
+                    if (result.success && Array.isArray(result.data.dates)) {
+                        result.data.dates.forEach(dateStr => {
+                            if (window.DateUtils.isDateInRange(dateStr, minDate, maxDate)) {
+                                availableDays[dateStr] = true;
+                            }
+                        });
+                        console.log(`[AA][Reservation] ✅ ${result.data.dates.length} fechas encontradas para servicio`);
+                    } else {
+                        console.warn('[AA][Reservation] ⚠️ No se pudieron obtener fechas de assignments');
+                    }
+                } catch (error) {
+                    console.error('[AA][Reservation] ❌ Error al obtener fechas de assignments:', error);
+                }
+            }
+            // Caso C: Servicio fixed → calcular disponibilidad por weekday usando schedule
+            else {
+                console.log('[AA][Reservation] 🔧 Servicio fixed, calculando disponibilidad desde schedule');
+                
+                const schedule = window.aa_schedule || {};
+                for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
+                    const day = new Date(d);
+                    const weekday = window.DateUtils.getWeekdayName(day);
+                    const dayKey = window.DateUtils.ymd(day);
+                    const intervals = window.DateUtils.getDayIntervals(schedule, weekday);
+                    availableDays[dayKey] = intervals.length > 0;
+                }
+                console.log('[AA][Reservation] ✅ Disponibilidad fixed calculada desde schedule');
+            }
+            
+            // Aplicar la disponibilidad al Flatpickr del admin
+            const fechaInput = document.getElementById('cita-fecha');
+            if (!fechaInput) {
+                console.warn('[AA][Reservation] ⚠️ Input de fecha no encontrado');
+                console.groupEnd();
+                return;
+            }
+            
+            // Crear función disableDateFn basada en availableDays
+            const disableDateFn = (date) => {
+                const dayKey = window.DateUtils.ymd(date);
+                return !availableDays[dayKey];
+            };
+            
+            // Re-renderizar el calendario admin con la nueva disponibilidad
+            if (typeof window.CalendarAdminUI !== 'undefined' && typeof window.CalendarAdminUI.render === 'function') {
+                const slotContainerSelector = 'slot-container-admin';
+                
+                // Crear slotsMap vacío (no calculamos slots aquí)
+                const emptySlotsMap = {};
+                Object.keys(availableDays).forEach(day => {
+                    emptySlotsMap[day] = [];
+                });
+                
+                window.CalendarAdminUI.render({
+                    fechaInput: fechaInput,
+                    slotContainerSelector: slotContainerSelector,
+                    slotsMap: emptySlotsMap,
+                    minDate: minDate,
+                    maxDate: maxDate,
+                    disableDateFn: disableDateFn
+                });
+                
+                console.log('[AA][Reservation] ✅ Calendario admin actualizado');
+            } else {
+                console.error('[AA][Reservation] ❌ CalendarAdminUI no disponible');
+            }
+            
+            console.groupEnd();
         },
 
         /**
