@@ -119,7 +119,10 @@
                     });
                 }
 
-                // 4️⃣ Inicializar flujo Servicio → Fecha → Staff (paralelo)
+                // 4️⃣ Filtrar servicios sin fechas disponibles
+                this.filterServiceOptions();
+
+                // 5️⃣ Inicializar flujo Servicio → Fecha → Staff (paralelo)
                 this.initAssignmentFlow();
 
                 this.initialized = true;
@@ -205,6 +208,108 @@
          */
         isFixedService: function(serviceKey) {
             return typeof serviceKey === 'string' && serviceKey.startsWith('fixed::');
+        },
+
+        /**
+         * Evalúa si un servicio tiene fechas disponibles dentro de la ventana futura
+         * @param {string} serviceKey - Clave del servicio
+         * @returns {Promise<boolean>} true si el servicio tiene al menos una fecha disponible
+         */
+        hasAvailableDates: async function(serviceKey) {
+            if (!serviceKey) return false;
+
+            // Obtener límites de fecha
+            const futureWindow = window.aa_future_window || 14;
+            const minDate = new Date();
+            minDate.setHours(0, 0, 0, 0);
+            const maxDate = new Date();
+            maxDate.setDate(minDate.getDate() + futureWindow);
+            maxDate.setHours(23, 59, 59, 999);
+
+            // Caso: Servicio fixed
+            if (this.isFixedService(serviceKey)) {
+                const schedule = window.aa_schedule || {};
+                for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
+                    const day = new Date(d);
+                    const weekday = window.DateUtils.getWeekdayName(day);
+                    const intervals = window.DateUtils.getDayIntervals(schedule, weekday);
+                    if (intervals.length > 0) {
+                        return true; // Encontró al menos un día disponible
+                    }
+                }
+                return false; // No hay días disponibles
+            }
+            // Caso: Servicio por assignments
+            else {
+                try {
+                    const result = await window.AAAssignmentsAvailability.getAssignmentDatesByService(
+                        serviceKey,
+                        window.DateUtils.ymd(minDate),
+                        window.DateUtils.ymd(maxDate)
+                    );
+                    
+                    if (result.success && Array.isArray(result.data.dates) && result.data.dates.length > 0) {
+                        // Verificar que al menos una fecha esté en el rango
+                        const hasValidDate = result.data.dates.some(dateStr => {
+                            return window.DateUtils.isDateInRange(dateStr, minDate, maxDate);
+                        });
+                        return hasValidDate;
+                    }
+                    return false;
+                } catch (error) {
+                    console.error('[AA][Reservation] Error al evaluar disponibilidad de servicio:', serviceKey, error);
+                    return false;
+                }
+            }
+        },
+
+        /**
+         * Filtra las opciones del select de servicios, removiendo las que no tienen fechas disponibles
+         */
+        filterServiceOptions: async function() {
+            console.group('[AA][Reservation] Filtrando servicios sin fechas disponibles...');
+            
+            const servicioSelect = document.getElementById('cita-servicio');
+            if (!servicioSelect) {
+                console.warn('[AA][Reservation] ⚠️ Select de servicio no encontrado');
+                console.groupEnd();
+                return;
+            }
+
+            const options = Array.from(servicioSelect.options);
+            const selectedValue = servicioSelect.value;
+            const servicesToRemove = [];
+
+            // Evaluar cada opción (excepto la primera que es el placeholder vacío)
+            for (let i = 1; i < options.length; i++) {
+                const option = options[i];
+                const serviceKey = option.value;
+
+                if (!serviceKey) continue; // Saltar opciones vacías
+
+                const hasDates = await this.hasAvailableDates(serviceKey);
+                
+                if (!hasDates) {
+                    console.log(`[AA][Reservation] ❌ Servicio sin fechas: ${serviceKey} - removiendo`);
+                    servicesToRemove.push(option);
+                } else {
+                    console.log(`[AA][Reservation] ✅ Servicio con fechas: ${serviceKey} - manteniendo`);
+                }
+            }
+
+            // Remover servicios sin fechas
+            servicesToRemove.forEach(option => {
+                option.remove();
+            });
+
+            // Si el servicio seleccionado fue removido, resetear el select
+            if (selectedValue && servicesToRemove.some(opt => opt.value === selectedValue)) {
+                servicioSelect.value = '';
+                console.log('[AA][Reservation] 🔄 Servicio seleccionado fue removido, reseteando select');
+            }
+
+            console.log(`[AA][Reservation] ✅ Filtrado completado: ${servicesToRemove.length} servicios removidos`);
+            console.groupEnd();
         },
 
         /**
@@ -304,7 +409,7 @@
                     emptySlotsMap[day] = [];
                 });
                 
-                window.CalendarAdminUI.render({
+                const picker = window.CalendarAdminUI.render({
                     fechaInput: fechaInput,
                     slotContainerSelector: slotContainerSelector,
                     slotsMap: emptySlotsMap,
@@ -314,6 +419,31 @@
                 });
                 
                 console.log('[AA][Reservation] ✅ Calendario admin actualizado');
+                
+                // Auto-seleccionar la primera fecha válida
+                if (picker && typeof picker.setDate === 'function') {
+                    // Encontrar la primera fecha válida
+                    let firstAvailableDate = null;
+                    for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
+                        const day = new Date(d);
+                        const dayKey = window.DateUtils.ymd(day);
+                        
+                        if (availableDays[dayKey] === true) {
+                            firstAvailableDate = day;
+                            break;
+                        }
+                    }
+                    
+                    if (firstAvailableDate) {
+                        console.log('[AA][Reservation] 📅 Auto-seleccionando primera fecha válida:', window.DateUtils.ymd(firstAvailableDate));
+                        // Usar setDate con triggerChange=true para disparar onChange y el evento aa:admin:date-selected
+                        picker.setDate(firstAvailableDate, true);
+                    } else {
+                        console.log('[AA][Reservation] ⚠️ No se encontró ninguna fecha válida para auto-seleccionar');
+                        // Limpiar fecha si no hay fechas disponibles
+                        picker.clear();
+                    }
+                }
             } else {
                 console.error('[AA][Reservation] ❌ CalendarAdminUI no disponible');
             }
