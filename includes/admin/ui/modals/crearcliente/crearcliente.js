@@ -136,8 +136,10 @@
 
     /**
      * Guardar cliente via AJAX
+     * @param {boolean} isInlineMode - Si está en modo inline, no cerrar modales
+     * @param {HTMLElement} inlineContainer - Contenedor inline a limpiar después de guardar
      */
-    function saveNewClient() {
+    function saveNewClient(isInlineMode, inlineContainer) {
         const form = document.getElementById('aa-modal-form-cliente');
         if (!form) return;
 
@@ -207,12 +209,20 @@
                     }
                 }));
                 
-                // Cerrar modal después de 1 segundo
-                setTimeout(function() {
-                    if (window.AAAdmin && window.AAAdmin.closeModal) {
-                        window.AAAdmin.closeModal();
-                    }
-                }, 1000);
+                if (isInlineMode && inlineContainer) {
+                    // Modo inline: remover contenido y ocultar contenedor después de un breve delay
+                    setTimeout(function() {
+                        inlineContainer.innerHTML = '';
+                        inlineContainer.style.display = 'none';
+                    }, 1500);
+                } else {
+                    // Modo modal: cerrar modal después de 1 segundo
+                    setTimeout(function() {
+                        if (window.AAAdmin && window.AAAdmin.closeModal) {
+                            window.AAAdmin.closeModal();
+                        }
+                    }, 1000);
+                }
             } else {
                 const errorMsg = result.data && result.data.message 
                     ? result.data.message 
@@ -239,9 +249,91 @@
     }
 
     /**
-     * Abrir modal de nuevo cliente
+     * Renderizar formulario inline en un contenedor
+     * @param {HTMLElement} container - Contenedor donde renderizar
      */
-    function openNewClientModal() {
+    function renderInlineForm(container) {
+        if (!container) {
+            console.error('Contenedor no proporcionado para modo inline');
+            return;
+        }
+
+        // Limpiar contenedor
+        container.innerHTML = '';
+
+        // Crear wrapper
+        const wrapper = document.createElement('div');
+        wrapper.className = 'aa-client-inline-form';
+        wrapper.style.cssText = 'padding: 16px; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; margin-top: 8px;';
+
+        // Título
+        const title = document.createElement('h3');
+        title.textContent = 'Nuevo Cliente';
+        title.style.cssText = 'margin: 0 0 16px 0; font-size: 18px; font-weight: 600; color: #111827;';
+        wrapper.appendChild(title);
+
+        // Formulario
+        const formContent = createNewClientForm();
+        wrapper.appendChild(formContent);
+
+        // Footer
+        const footerContent = createModalFooter();
+        // Modificar botón cancelar para limpiar el contenedor
+        const cancelBtn = footerContent.querySelector('.aa-btn-cancelar');
+        if (cancelBtn) {
+            cancelBtn.removeAttribute('data-aa-modal-close');
+            cancelBtn.addEventListener('click', function() {
+                container.innerHTML = '';
+                container.style.display = 'none';
+            });
+        }
+        wrapper.appendChild(footerContent);
+
+        container.appendChild(wrapper);
+
+        // Agregar event listener al botón guardar
+        setTimeout(function() {
+            const saveBtn = document.getElementById('aa-modal-save-cliente');
+            if (saveBtn) {
+                // Remover listeners previos para evitar duplicados
+                const newSaveBtn = saveBtn.cloneNode(true);
+                saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+                newSaveBtn.addEventListener('click', function() {
+                    saveNewClient(true, container);
+                });
+            }
+
+            // Focus en primer campo
+            const nombreInput = document.getElementById('modal-cliente-nombre');
+            if (nombreInput) {
+                nombreInput.focus();
+            }
+        }, 50);
+    }
+
+    /**
+     * Abrir modal de nuevo cliente
+     * @param {Object} [options] - Opciones de apertura
+     * @param {string} [options.mode='modal'] - Modo: 'modal' o 'inline'
+     * @param {HTMLElement} [options.container] - Contenedor para modo inline
+     */
+    function openNewClientModal(options) {
+        // Valores por defecto
+        const opts = options || {};
+        const mode = opts.mode || 'modal';
+        const container = opts.container;
+
+        // Modo inline
+        if (mode === 'inline') {
+            if (!container) {
+                console.error('Container es requerido para modo inline');
+                return;
+            }
+            renderInlineForm(container);
+            return;
+        }
+
+        // Modo modal (comportamiento por defecto)
         if (!window.AAAdmin || !window.AAAdmin.openModal) {
             console.error('AAAdmin.openModal no está disponible');
             alert('Error: Sistema de modales no disponible');
@@ -264,7 +356,9 @@
                 // Remover listeners previos para evitar duplicados
                 const newSaveBtn = saveBtn.cloneNode(true);
                 saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
-                newSaveBtn.addEventListener('click', saveNewClient);
+                newSaveBtn.addEventListener('click', function() {
+                    saveNewClient(false, null);
+                });
             }
 
             // Focus en primer campo

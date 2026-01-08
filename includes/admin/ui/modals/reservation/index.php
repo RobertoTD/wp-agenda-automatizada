@@ -61,6 +61,8 @@ $duraciones = [30, 60, 90];
                         Crear cliente
                     </button>
                 </div>
+                <!-- Contenedor inline para crear cliente (se muestra cuando se hace clic en "Crear cliente") -->
+                <div id="aa-reservation-client-inline" style="display: none;"></div>
                 <select id="cita-cliente" name="cliente_id" required>
                     <option value="">-- Selecciona un cliente --</option>
                     <?php foreach ($clientes as $cliente): ?>

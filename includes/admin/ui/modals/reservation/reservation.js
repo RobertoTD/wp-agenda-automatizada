@@ -1091,6 +1091,9 @@
             const self = this;
             let searchTimeout = null;
             let previousSelectedValue = null;
+            
+            // Obtener contenedor inline (disponible en todo el scope de initClientSearch)
+            const inlineContainer = document.getElementById('aa-reservation-client-inline');
 
             /**
              * Repopulate select with client results
@@ -1235,16 +1238,25 @@
                 }
             });
 
-            // Botón "Crear cliente" - abre modal de crear cliente
+            // Botón "Crear cliente" - abre formulario inline de crear cliente
             const btnCrearCliente = document.getElementById('aa-btn-crear-cliente-reservation');
-            if (btnCrearCliente) {
+            
+            if (btnCrearCliente && inlineContainer) {
                 btnCrearCliente.addEventListener('click', function(event) {
                     event.preventDefault();
                     event.stopPropagation();
                     
                     if (window.AAAdmin && window.AAAdmin.ClientCreateModal) {
-                        console.log('[AA][Reservation] Abriendo modal de crear cliente...');
-                        window.AAAdmin.ClientCreateModal.openCreate();
+                        console.log('[AA][Reservation] Abriendo formulario inline de crear cliente...');
+                        
+                        // Mostrar contenedor inline
+                        inlineContainer.style.display = 'block';
+                        
+                        // Abrir formulario en modo inline
+                        window.AAAdmin.ClientCreateModal.openCreate({
+                            mode: 'inline',
+                            container: inlineContainer
+                        });
                     } else {
                         console.error('[AA][Reservation] AAAdmin.ClientCreateModal no está disponible');
                         alert('Error: Sistema de crear cliente no disponible');
@@ -1277,6 +1289,11 @@
                 }
 
                 console.log('[AA][Reservation] Cliente guardado, recargando lista y seleccionando:', clienteId);
+                
+                // Ocultar contenedor inline si está visible
+                if (inlineContainer) {
+                    inlineContainer.style.display = 'none';
+                }
                 
                 // Recargar clientes y seleccionar el recién creado
                 searchClients('', false, clienteId);
