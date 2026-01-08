@@ -125,6 +125,9 @@
                 // 5️⃣ Inicializar flujo Servicio → Fecha → Staff (paralelo)
                 this.initAssignmentFlow();
 
+                // 6️⃣ Inicializar búsqueda de clientes
+                this.initClientSearch();
+
                 this.initialized = true;
                 console.log('[ReservationModal] ✅ Todos los controladores inicializados');
                 
@@ -1068,6 +1071,153 @@
             }
             
             console.log('[AA][Reservation] ✅ Select de slots renderizado con ' + slotsHHMM.length + ' opciones');
+        },
+
+        /**
+         * Initialize client search functionality
+         * Loads initial 15 most active clients and enables real-time search
+         */
+        initClientSearch: function() {
+            console.log('[AA][Reservation] Inicializando búsqueda de clientes...');
+
+            const searchInput = document.getElementById('aa-cliente-search');
+            const clienteSelect = document.getElementById('cita-cliente');
+
+            if (!searchInput || !clienteSelect) {
+                console.warn('[AA][Reservation] Elementos de búsqueda de clientes no encontrados');
+                return;
+            }
+
+            const self = this;
+            let searchTimeout = null;
+            let previousSelectedValue = null;
+
+            /**
+             * Repopulate select with client results
+             * @param {Array} clients - Array of client objects
+             * @param {boolean} preserveSelection - Whether to preserve current selection if still valid
+             */
+            function repopulateSelect(clients, preserveSelection) {
+                // Store current selection
+                if (preserveSelection) {
+                    previousSelectedValue = clienteSelect.value;
+                }
+
+                // Clear all options
+                clienteSelect.innerHTML = '';
+
+                // Add client options
+                if (clients && clients.length > 0) {
+                    clients.forEach(function(cliente, index) {
+                        const option = document.createElement('option');
+                        option.value = String(cliente.id);
+                        option.textContent = cliente.nombre + ' (' + cliente.telefono + ')';
+                        option.dataset.nombre = cliente.nombre || '';
+                        option.dataset.telefono = cliente.telefono || '';
+                        option.dataset.correo = cliente.correo || '';
+                        clienteSelect.appendChild(option);
+                    });
+
+                    // Restore selection if it still exists, otherwise select first result
+                    if (preserveSelection && previousSelectedValue) {
+                        const optionExists = Array.from(clienteSelect.options).some(function(opt) {
+                            return opt.value === previousSelectedValue;
+                        });
+                        if (optionExists) {
+                            clienteSelect.value = previousSelectedValue;
+                        } else {
+                            // Selected client no longer in results, select first
+                            clienteSelect.selectedIndex = 0;
+                            previousSelectedValue = null;
+                            console.log('[AA][Reservation] Cliente seleccionado ya no está en resultados, seleccionando primero');
+                        }
+                    } else {
+                        // Select first result automatically
+                        clienteSelect.selectedIndex = 0;
+                    }
+                } else {
+                    // No results
+                    const noResultsOption = document.createElement('option');
+                    noResultsOption.value = '';
+                    noResultsOption.textContent = 'Sin coincidencias';
+                    noResultsOption.disabled = true;
+                    clienteSelect.appendChild(noResultsOption);
+                    clienteSelect.selectedIndex = 0;
+                }
+            }
+
+            /**
+             * Search clients via AJAX
+             * @param {string} query - Search query
+             * @param {boolean} preserveSelection - Whether to preserve current selection
+             */
+            function searchClients(query, preserveSelection) {
+                const ajaxurl = window.ajaxurl || '/wp-admin/admin-ajax.php';
+                
+                // Prepare form data
+                const formData = new FormData();
+                formData.append('action', 'aa_search_clientes');
+                formData.append('query', query || '');
+                formData.append('limit', '15');
+                formData.append('offset', '0');
+
+                // Show loading state (disable select but keep current options visible)
+                clienteSelect.disabled = true;
+
+                // Make AJAX call
+                fetch(ajaxurl, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(function(response) {
+                    return response.json();
+                })
+                .then(function(result) {
+                    clienteSelect.disabled = false;
+
+                    if (result.success && result.data && result.data.clients) {
+                        console.log('[AA][Reservation] Clientes encontrados:', result.data.clients.length);
+                        repopulateSelect(result.data.clients, preserveSelection);
+                    } else {
+                        console.warn('[AA][Reservation] Error en búsqueda de clientes:', result);
+                        repopulateSelect([], preserveSelection);
+                    }
+                })
+                .catch(function(error) {
+                    console.error('[AA][Reservation] Error al buscar clientes:', error);
+                    clienteSelect.disabled = false;
+                    repopulateSelect([], preserveSelection);
+                });
+            }
+
+            // Initial load: 15 most active clients (empty query returns most active)
+            searchClients('', false);
+
+            // Debounced search on input change
+            searchInput.addEventListener('input', function() {
+                const query = this.value.trim();
+
+                // Clear previous timeout
+                if (searchTimeout) {
+                    clearTimeout(searchTimeout);
+                }
+
+                // Set new timeout (300ms debounce)
+                searchTimeout = setTimeout(function() {
+                    console.log('[AA][Reservation] Buscando clientes con query:', query);
+                    searchClients(query, true);
+                }, 300);
+            });
+
+            // Clear search on escape
+            searchInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    this.value = '';
+                    this.dispatchEvent(new Event('input'));
+                }
+            });
+
+            console.log('[AA][Reservation] ✅ Búsqueda de clientes inicializada');
         },
 
         /**

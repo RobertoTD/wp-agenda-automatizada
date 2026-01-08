@@ -42,6 +42,14 @@ $duraciones = [30, 60, 90];
             <!-- Campo: Cliente -->
             <div class="aa-form-cita-group">
                 <label for="cita-cliente">Cliente *</label>
+                <input 
+                    type="text" 
+                    id="aa-cliente-search" 
+                    class="aa-cliente-search-input"
+                    placeholder="Buscar cliente por nombre, teléfono o correo..."
+                    autocomplete="off"
+                    style="width: 100%; padding: 8px; margin-bottom: 8px; font-size: 14px; border: 1px solid #ddd; border-radius: 4px;"
+                >
                 <select id="cita-cliente" name="cliente_id" required>
                     <option value="">-- Selecciona un cliente --</option>
                     <?php foreach ($clientes as $cliente): ?>
