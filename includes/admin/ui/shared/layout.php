@@ -130,6 +130,12 @@ header('Content-Type: text/html; charset=utf-8');
         nonce_crear_cliente_desde_cita: '<?php echo esc_js(wp_create_nonce('aa_crear_cliente_desde_cita')); ?>',
         nonce_editar_cliente: '<?php echo esc_js(wp_create_nonce('aa_editar_cliente')); ?>'
     };
+    
+    // Nonces para operaciones de clientes (usado por modal independiente de crear/editar cliente)
+    window.AA_CLIENTS_NONCES = {
+        crear_cliente: '<?php echo esc_js(wp_create_nonce('aa_crear_cliente')); ?>',
+        editar_cliente: '<?php echo esc_js(wp_create_nonce('aa_editar_cliente')); ?>'
+    };
 </script>
 
 <!-- ============================================
