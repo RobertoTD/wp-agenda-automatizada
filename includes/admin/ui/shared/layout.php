@@ -188,6 +188,9 @@ header('Content-Type: text/html; charset=utf-8');
 <!-- Transversal Modal: Assignment -->
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'includes/admin/ui/modals/assignment/assignment-modal.js'); ?>" defer></script>
 
+<!-- Transversal Modal: Client Create/Edit -->
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'includes/admin/ui/modals/crearcliente/crearcliente.js'); ?>" defer></script>
+
     <div id="aa-admin-app" class="w-full">
         <?php require_once __DIR__ . '/header.php'; ?>
         
@@ -213,6 +216,7 @@ header('Content-Type: text/html; charset=utf-8');
     <?php require_once dirname(__DIR__) . '/modals/reservation/index.php'; ?>
     <?php require_once dirname(__DIR__) . '/modals/appointments/index.php'; ?>
     <?php require_once dirname(__DIR__) . '/modals/assignment/index.php'; ?>
+    <?php require_once dirname(__DIR__) . '/modals/crearcliente/index.php'; ?>
 
 </body>
 </html>
