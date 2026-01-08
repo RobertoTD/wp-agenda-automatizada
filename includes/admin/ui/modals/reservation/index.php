@@ -42,14 +42,25 @@ $duraciones = [30, 60, 90];
             <!-- Campo: Cliente -->
             <div class="aa-form-cita-group">
                 <label for="cita-cliente">Cliente *</label>
-                <input 
-                    type="text" 
-                    id="aa-cliente-search" 
-                    class="aa-cliente-search-input"
-                    placeholder="Buscar cliente por nombre, teléfono o correo..."
-                    autocomplete="off"
-                    style="width: 100%; padding: 8px; margin-bottom: 8px; font-size: 14px; border: 1px solid #ddd; border-radius: 4px;"
-                >
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <input 
+                        type="text" 
+                        id="aa-cliente-search" 
+                        class="aa-cliente-search-input"
+                        placeholder="Buscar cliente por nombre, teléfono o correo..."
+                        autocomplete="off"
+                        style="flex: 1; padding: 8px; font-size: 14px; border: 1px solid #ddd; border-radius: 4px;"
+                    >
+                    <span style="color: #666; font-size: 14px;">o</span>
+                    <button 
+                        type="button" 
+                        id="aa-btn-crear-cliente-reservation"
+                        class="aa-btn-crear-cliente-reservation"
+                        style="padding: 8px 16px; font-size: 14px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;"
+                    >
+                        Crear cliente
+                    </button>
+                </div>
                 <select id="cita-cliente" name="cliente_id" required>
                     <option value="">-- Selecciona un cliente --</option>
                     <?php foreach ($clientes as $cliente): ?>

@@ -1096,8 +1096,9 @@
              * Repopulate select with client results
              * @param {Array} clients - Array of client objects
              * @param {boolean} preserveSelection - Whether to preserve current selection if still valid
+             * @param {string|number} [selectClientId] - Optional client ID to select after repopulating
              */
-            function repopulateSelect(clients, preserveSelection) {
+            function repopulateSelect(clients, preserveSelection, selectClientId) {
                 // Store current selection
                 if (preserveSelection) {
                     previousSelectedValue = clienteSelect.value;
@@ -1118,8 +1119,24 @@
                         clienteSelect.appendChild(option);
                     });
 
+                    // If a specific client ID is provided, select it
+                    if (selectClientId !== undefined && selectClientId !== null) {
+                        const clientIdStr = String(selectClientId);
+                        const optionExists = Array.from(clienteSelect.options).some(function(opt) {
+                            return opt.value === clientIdStr;
+                        });
+                        if (optionExists) {
+                            clienteSelect.value = clientIdStr;
+                            previousSelectedValue = clientIdStr;
+                            console.log('[AA][Reservation] Cliente seleccionado automáticamente:', clientIdStr);
+                        } else {
+                            // Client not found, select first result
+                            clienteSelect.selectedIndex = 0;
+                            console.warn('[AA][Reservation] Cliente ID no encontrado en resultados:', clientIdStr);
+                        }
+                    }
                     // Restore selection if it still exists, otherwise select first result
-                    if (preserveSelection && previousSelectedValue) {
+                    else if (preserveSelection && previousSelectedValue) {
                         const optionExists = Array.from(clienteSelect.options).some(function(opt) {
                             return opt.value === previousSelectedValue;
                         });
@@ -1150,8 +1167,9 @@
              * Search clients via AJAX
              * @param {string} query - Search query
              * @param {boolean} preserveSelection - Whether to preserve current selection
+             * @param {string|number} [selectClientId] - Optional client ID to select after loading
              */
-            function searchClients(query, preserveSelection) {
+            function searchClients(query, preserveSelection, selectClientId) {
                 const ajaxurl = window.ajaxurl || '/wp-admin/admin-ajax.php';
                 
                 // Prepare form data
@@ -1177,16 +1195,16 @@
 
                     if (result.success && result.data && result.data.clients) {
                         console.log('[AA][Reservation] Clientes encontrados:', result.data.clients.length);
-                        repopulateSelect(result.data.clients, preserveSelection);
+                        repopulateSelect(result.data.clients, preserveSelection, selectClientId);
                     } else {
                         console.warn('[AA][Reservation] Error en búsqueda de clientes:', result);
-                        repopulateSelect([], preserveSelection);
+                        repopulateSelect([], preserveSelection, selectClientId);
                     }
                 })
                 .catch(function(error) {
                     console.error('[AA][Reservation] Error al buscar clientes:', error);
                     clienteSelect.disabled = false;
-                    repopulateSelect([], preserveSelection);
+                    repopulateSelect([], preserveSelection, selectClientId);
                 });
             }
 
@@ -1216,6 +1234,56 @@
                     this.dispatchEvent(new Event('input'));
                 }
             });
+
+            // Botón "Crear cliente" - abre modal de crear cliente
+            const btnCrearCliente = document.getElementById('aa-btn-crear-cliente-reservation');
+            if (btnCrearCliente) {
+                btnCrearCliente.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    
+                    if (window.AAAdmin && window.AAAdmin.ClientCreateModal) {
+                        console.log('[AA][Reservation] Abriendo modal de crear cliente...');
+                        window.AAAdmin.ClientCreateModal.openCreate();
+                    } else {
+                        console.error('[AA][Reservation] AAAdmin.ClientCreateModal no está disponible');
+                        alert('Error: Sistema de crear cliente no disponible');
+                    }
+                });
+            }
+
+            // Escuchar evento de cliente guardado para recargar y seleccionar
+            // Solo procesar si el modal de reservas está abierto (select existe)
+            function handleClientSaved(event) {
+                // Verificar que el select de clientes existe (modal está abierto)
+                const clienteSelect = document.getElementById('cita-cliente');
+                if (!clienteSelect) {
+                    // Modal de reservas no está abierto, ignorar evento
+                    return;
+                }
+
+                const clienteData = event.detail && event.detail.cliente ? event.detail.cliente : null;
+                
+                if (!clienteData) {
+                    console.warn('[AA][Reservation] Evento aa:client:saved sin datos de cliente');
+                    return;
+                }
+
+                const clienteId = clienteData.id;
+                
+                if (!clienteId) {
+                    console.warn('[AA][Reservation] Cliente guardado sin ID');
+                    return;
+                }
+
+                console.log('[AA][Reservation] Cliente guardado, recargando lista y seleccionando:', clienteId);
+                
+                // Recargar clientes y seleccionar el recién creado
+                searchClients('', false, clienteId);
+            }
+
+            // Registrar listener global (se ejecuta solo si el select existe)
+            document.addEventListener('aa:client:saved', handleClientSaved);
 
             console.log('[AA][Reservation] ✅ Búsqueda de clientes inicializada');
         },
