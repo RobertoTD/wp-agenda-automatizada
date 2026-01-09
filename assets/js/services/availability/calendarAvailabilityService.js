@@ -51,6 +51,25 @@
         return { minDate, maxDate, startYmd, endYmd };
     }
 
+    /**
+     * Construye objeto availableDays desde schedule
+     * @param {Object} schedule - Schedule object
+     * @param {Date} minDate - Fecha mínima
+     * @param {Date} maxDate - Fecha máxima
+     * @returns {Object} { 'YYYY-MM-DD': true/false }
+     */
+    function buildAvailableDaysFromSchedule(schedule, minDate, maxDate) {
+        const availableDays = {};
+        for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
+            const day = new Date(d);
+            const weekday = window.DateUtils.getWeekdayName(day);
+            const dayKey = window.DateUtils.ymd(day);
+            const intervals = window.DateUtils.getDayIntervals(schedule, weekday);
+            availableDays[dayKey] = intervals.length > 0;
+        }
+        return availableDays;
+    }
+
     // ============================================
     // Métodos públicos
     // ============================================
@@ -70,15 +89,8 @@
         // Caso: Servicio fixed
         if (isFixedServiceKey(serviceKey)) {
             const schedule = getSchedule();
-            for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
-                const day = new Date(d);
-                const weekday = window.DateUtils.getWeekdayName(day);
-                const intervals = window.DateUtils.getDayIntervals(schedule, weekday);
-                if (intervals.length > 0) {
-                    return true; // Encontró al menos un día disponible
-                }
-            }
-            return false; // No hay días disponibles
+            const availableDays = buildAvailableDaysFromSchedule(schedule, minDate, maxDate);
+            return Object.values(availableDays).some(Boolean);
         }
 
         // Caso: Servicio por assignments
@@ -91,23 +103,15 @@
                     endYmd
                 );
                 
-                if (result.success && Array.isArray(result.data?.dates) && result.data.dates.length > 0) {
-                    // Verificar que al menos una fecha esté en el rango
-                    const hasValidDate = result.data.dates.some(dateStr => {
-                        return window.DateUtils.isDateInRange(dateStr, minDate, maxDate);
-                    });
-                    return hasValidDate;
-                }
-                return false;
+                return result.success && Array.isArray(result.data?.dates) && result.data.dates.length > 0;
             } catch (error) {
                 console.error('[CalendarAvailabilityService] Error al evaluar disponibilidad de servicio:', serviceKey, error);
                 return false;
             }
-        } else {
-            // Fallback permisivo con warn
-            console.warn('[CalendarAvailabilityService] AAAssignmentsAvailability.getAssignmentDatesByService no disponible, retornando true (fallback permisivo)');
-            return true;
         }
+        
+        // Fallback permisivo
+        return true;
     }
 
     /**
@@ -127,13 +131,7 @@
         // Caso vacío o fixed → calcular desde schedule
         if (!serviceKey || isFixedServiceKey(serviceKey)) {
             const schedule = getSchedule();
-            for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
-                const day = new Date(d);
-                const weekday = window.DateUtils.getWeekdayName(day);
-                const dayKey = window.DateUtils.ymd(day);
-                const intervals = window.DateUtils.getDayIntervals(schedule, weekday);
-                availableDays[dayKey] = intervals.length > 0;
-            }
+            availableDays = buildAvailableDaysFromSchedule(schedule, minDate, maxDate);
         } else {
             // Servicio con assignments → obtener fechas de assignments
             if (typeof window.AAAssignmentsAvailability !== 'undefined' && 
