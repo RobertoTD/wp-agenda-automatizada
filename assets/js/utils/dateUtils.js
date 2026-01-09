@@ -173,6 +173,41 @@ function generateSlotsForDay(date, intervals, busyRanges, slotDuration = 30) {
   return slots;
 }
 
+// ✅ Extrae fecha en formato YYYY-MM-DD desde diferentes tipos de entrada
+// @param {Date|string} value - Valor a convertir (Date, string YYYY-MM-DD, o string datetime parseable)
+// @returns {string|null} - Fecha en formato YYYY-MM-DD o null si no se puede parsear
+function extractYmd(value) {
+  if (!value) return null;
+  
+  // Si value es Date => return ymd(value)
+  if (value instanceof Date) {
+    if (isNaN(value.getTime())) {
+      return null; // Invalid date
+    }
+    return ymd(value);
+  }
+  
+  // Si value ya es "YYYY-MM-DD" => return value
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+  
+  // Si value es string datetime parseable => const d = new Date(value); si válido return ymd(d)
+  if (typeof value === 'string') {
+    try {
+      const d = new Date(value);
+      if (!isNaN(d.getTime())) {
+        return ymd(d);
+      }
+    } catch (e) {
+      // Fall through to return null
+    }
+  }
+  
+  // Si no se puede parsear => return null
+  return null;
+}
+
 // ✅ Exponer globalmente
 window.DateUtils = {
   ymd,
@@ -187,7 +222,8 @@ window.DateUtils = {
   hasEnoughFreeTime,
   normalizeIntervalToSlotGrid,
   generateSlotsFromStartTime,
-  generateSlotsForDay
+  generateSlotsForDay,
+  extractYmd
 };
 
 console.log('✅ dateUtils.js cargado y exportado');

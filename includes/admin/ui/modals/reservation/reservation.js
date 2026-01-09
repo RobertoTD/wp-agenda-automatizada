@@ -530,31 +530,6 @@
          * @param {string} datetime - DateTime string (various formats)
          * @returns {string} Date in YYYY-MM-DD format
          */
-        extractDate: function(datetime) {
-            if (!datetime) return null;
-            
-            // If already in YYYY-MM-DD format
-            if (/^\d{4}-\d{2}-\d{2}$/.test(datetime)) {
-                return datetime;
-            }
-            
-            // Try to parse and format
-            try {
-                const date = new Date(datetime);
-                if (!isNaN(date.getTime())) {
-                    return date.toISOString().split('T')[0];
-                }
-            } catch (e) {
-                console.warn('[AA][Reservation] Error parsing date:', e);
-            }
-            
-            // Fallback: extract first 10 chars if looks like date
-            if (datetime.length >= 10) {
-                return datetime.substring(0, 10);
-            }
-            
-            return datetime;
-        },
 
         /**
          * Check if both service and date are selected, then load assignments
