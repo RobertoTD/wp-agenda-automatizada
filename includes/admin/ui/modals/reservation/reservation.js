@@ -315,69 +315,9 @@
             console.group('[AA][Reservation] Actualizando calendario admin por servicio');
             console.log('Servicio:', serviceKey || '(vacío - reset)');
             
-            // Obtener límites de fecha
+            // Delegar cálculo de disponibilidad al servicio
             const futureWindow = window.aa_future_window || 14;
-            const minDate = new Date();
-            minDate.setHours(0, 0, 0, 0);
-            const maxDate = new Date();
-            maxDate.setDate(minDate.getDate() + futureWindow);
-            maxDate.setHours(23, 59, 59, 999);
-            
-            let availableDays = {};
-            
-            // Caso A: Servicio vacío → reset a disponibilidad general basada en aa_schedule
-            if (!serviceKey) {
-                console.log('[AA][Reservation] Reseteando a disponibilidad general (schedule)');
-                
-                const schedule = window.aa_schedule || {};
-                for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
-                    const day = new Date(d);
-                    const weekday = window.DateUtils.getWeekdayName(day);
-                    const dayKey = window.DateUtils.ymd(day);
-                    const intervals = window.DateUtils.getDayIntervals(schedule, weekday);
-                    availableDays[dayKey] = intervals.length > 0;
-                }
-                console.log('[AA][Reservation] ✅ Disponibilidad calculada desde schedule');
-            }
-            // Caso B: Servicio por assignments
-            else if (!this.isFixedService(serviceKey)) {
-                console.log('[AA][Reservation] Obteniendo fechas de assignments para servicio:', serviceKey);
-                
-                try {
-                    const result = await window.AAAssignmentsAvailability.getAssignmentDatesByService(
-                        serviceKey,
-                        window.DateUtils.ymd(minDate),
-                        window.DateUtils.ymd(maxDate)
-                    );
-                    
-                    if (result.success && Array.isArray(result.data.dates)) {
-                        result.data.dates.forEach(dateStr => {
-                            if (window.DateUtils.isDateInRange(dateStr, minDate, maxDate)) {
-                                availableDays[dateStr] = true;
-                            }
-                        });
-                        console.log(`[AA][Reservation] ✅ ${result.data.dates.length} fechas encontradas para servicio`);
-                    } else {
-                        console.warn('[AA][Reservation] ⚠️ No se pudieron obtener fechas de assignments');
-                    }
-                } catch (error) {
-                    console.error('[AA][Reservation] ❌ Error al obtener fechas de assignments:', error);
-                }
-            }
-            // Caso C: Servicio fixed → calcular disponibilidad por weekday usando schedule
-            else {
-                console.log('[AA][Reservation] 🔧 Servicio fixed, calculando disponibilidad desde schedule');
-                
-                const schedule = window.aa_schedule || {};
-                for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
-                    const day = new Date(d);
-                    const weekday = window.DateUtils.getWeekdayName(day);
-                    const dayKey = window.DateUtils.ymd(day);
-                    const intervals = window.DateUtils.getDayIntervals(schedule, weekday);
-                    availableDays[dayKey] = intervals.length > 0;
-                }
-                console.log('[AA][Reservation] ✅ Disponibilidad fixed calculada desde schedule');
-            }
+            const { availableDays, minDate, maxDate } = await window.CalendarAvailabilityService.getAvailableDaysByService(serviceKey, { futureWindowDays: futureWindow });
             
             // Aplicar la disponibilidad al Flatpickr del admin
             const fechaInput = document.getElementById('cita-fecha');
