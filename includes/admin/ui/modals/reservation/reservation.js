@@ -624,17 +624,52 @@
                     slotDuration: slotDuration
                 });
 
-                // 2️⃣ Crear objeto Date para la fecha seleccionada
+                // 2️⃣ Construir busyRanges (locales y externos)
+                console.log('[AA][Reservation][FIXED] Obteniendo busy ranges...');
+                
+                // Obtener busy ranges locales
+                const localBusy = (window.BusyRanges && window.BusyRanges.loadLocalBusyRanges)
+                    ? window.BusyRanges.loadLocalBusyRanges()
+                    : [];
+                
+                // Obtener busy ranges externos (si existe fuente clara)
+                let externalBusy = [];
+                if (window.BusyRanges && typeof window.BusyRanges.generateBusyRanges === 'function') {
+                    const externalBusyRaw = window.aa_availability?.busy || [];
+                    if (externalBusyRaw && externalBusyRaw.length > 0) {
+                        externalBusy = window.BusyRanges.generateBusyRanges(externalBusyRaw);
+                    }
+                }
+                
+                // Combinar ambos arrays
+                const busyRanges = [...localBusy, ...externalBusy];
+                
+                console.log('[AA][Reservation][FIXED] Busy Ranges obtenidos:', {
+                    local: localBusy.length,
+                    external: externalBusy.length,
+                    total: busyRanges.length
+                });
+                
+                // Loggear rangos en HH:MM para debug (solo si hay rangos)
+                if (busyRanges.length > 0) {
+                    console.log('[AA][Reservation][FIXED] Rangos ocupados:');
+                    busyRanges.forEach(function(r) {
+                        const startStr = r.start ? window.DateUtils.hm(r.start) : 'N/A';
+                        const endStr = r.end ? window.DateUtils.hm(r.end) : 'N/A';
+                        console.log('   - ' + startStr + ' - ' + endStr);
+                    });
+                }
+
+                // 3️⃣ Crear objeto Date para la fecha seleccionada
                 const selectedDateObj = new Date(this.state.selectedDate + 'T00:00:00');
 
-                // 3️⃣ Calcular slots para la fecha específica usando SlotCalculator
-                // Para servicios fixed en admin, NO usar busy ranges (array vacío)
-                console.log('[AA][Reservation][FIXED] Calculando slots sin busy ranges...');
+                // 4️⃣ Calcular slots para la fecha específica usando SlotCalculator
+                console.log('[AA][Reservation][FIXED] Calculando slots con busy ranges...');
                 
                 const slots = window.SlotCalculator.calculateSlotsForDate(
                     selectedDateObj,
                     schedule,
-                    [], // Busy ranges vacío para servicios fixed
+                    busyRanges,
                     slotDuration
                 );
 

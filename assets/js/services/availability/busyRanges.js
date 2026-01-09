@@ -49,10 +49,91 @@ function loadLocalBusyRanges() {
   return localBusyRanges;
 }
 
+/**
+ * Convierte busyRanges con strings de fecha a objetos Date
+ * @param {Array} busyRangesRaw - Array de objetos con {start: string, end: string, title?: string}
+ * @returns {Array} Array de objetos con {start: Date, end: Date, title?: string}
+ */
+function toDateRanges(busyRangesRaw) {
+  if (!Array.isArray(busyRangesRaw)) {
+    console.warn('⚠️ toDateRanges: busyRangesRaw debe ser un array');
+    return [];
+  }
+
+  const dateRanges = [];
+  
+  busyRangesRaw.forEach((range, index) => {
+    if (!range || typeof range !== 'object') {
+      console.warn(`⚠️ toDateRanges: Rango en índice ${index} no es un objeto válido`);
+      return;
+    }
+
+    const start = new Date(range.start);
+    const end = new Date(range.end);
+    
+    // Filtrar inválidos (NaN dates)
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      console.warn(`⚠️ toDateRanges: Rango en índice ${index} tiene fechas inválidas`, range);
+      return;
+    }
+
+    const dateRange = {
+      start: start,
+      end: end
+    };
+
+    // Preservar title si existe
+    if (range.title) {
+      dateRange.title = range.title;
+    }
+
+    dateRanges.push(dateRange);
+  });
+
+  return dateRanges;
+}
+
+/**
+ * Filtra slots según busyRanges usando DateUtils.hasEnoughFreeTime
+ * @param {Array<Date>} slots - Array de fechas/horas de slots
+ * @param {number} durationMinutes - Duración del slot en minutos
+ * @param {Array} busyRanges - Array de objetos {start: Date, end: Date, ...}
+ * @returns {Array<Date>} Array de slots filtrados (solo los que tienen suficiente tiempo libre)
+ */
+function filterSlotsByBusyRanges(slots, durationMinutes, busyRanges) {
+  if (!Array.isArray(slots)) {
+    console.warn('⚠️ filterSlotsByBusyRanges: slots debe ser un array');
+    return [];
+  }
+
+  if (!Array.isArray(busyRanges)) {
+    console.warn('⚠️ filterSlotsByBusyRanges: busyRanges debe ser un array');
+    return slots; // Retornar todos los slots si no hay busyRanges válidos
+  }
+
+  // Verificar si DateUtils existe
+  if (typeof window.DateUtils === 'undefined' || typeof window.DateUtils.hasEnoughFreeTime !== 'function') {
+    console.warn('⚠️ filterSlotsByBusyRanges: DateUtils.hasEnoughFreeTime no disponible, retornando todos los slots');
+    return slots; // Fallback: retornar todos los slots
+  }
+
+  const filteredSlots = slots.filter(slot => {
+    if (!(slot instanceof Date) || isNaN(slot.getTime())) {
+      return false; // Filtrar slots inválidos
+    }
+    
+    return window.DateUtils.hasEnoughFreeTime(slot, durationMinutes, busyRanges);
+  });
+
+  return filteredSlots;
+}
+
 // ✅ Exponer globalmente
 window.BusyRanges = {
   generateBusyRanges,
-  loadLocalBusyRanges
+  loadLocalBusyRanges,
+  toDateRanges,
+  filterSlotsByBusyRanges
 };
 
 console.log('✅ busyRanges.js cargado');

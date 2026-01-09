@@ -364,48 +364,20 @@
                 maxDate = state.initialMaxDate ? new Date(state.initialMaxDate) : new Date();
                 console.log('✅ [FrontendAssignments] Usando datos iniciales guardados');
             } else {
-                // Usar CalendarAvailabilityService para calcular desde schedule
-                if (window.CalendarAvailabilityService) {
-                    const result = await window.CalendarAvailabilityService.getAvailableDaysByService(null, { futureWindowDays: futureWindow });
-                    availableDays = result.availableDays;
-                    minDate = result.minDate;
-                    maxDate = result.maxDate;
-                    console.log('✅ [FrontendAssignments] Calculado desde schedule vía CalendarAvailabilityService');
-                } else {
-                    // Fallback local (por si el servicio no está disponible)
-                    minDate = new Date();
-                    minDate.setHours(0, 0, 0, 0);
-                    maxDate = new Date();
-                    maxDate.setDate(minDate.getDate() + futureWindow);
-                    maxDate.setHours(23, 59, 59, 999);
-                    const schedule = window.aa_schedule || {};
-                    for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
-                        const day = new Date(d);
-                        const weekday = window.DateUtils.getWeekdayName(day);
-                        const dayKey = window.DateUtils.ymd(day);
-                        const intervals = window.DateUtils.getDayIntervals(schedule, weekday);
-                        availableDays[dayKey] = intervals.length > 0;
-                    }
-                    console.log('✅ [FrontendAssignments] Calculado desde schedule (fallback local)');
-                }
-            }
-        } else {
-            // Usar CalendarAvailabilityService para obtener availableDays
-            if (window.CalendarAvailabilityService) {
-                const result = await window.CalendarAvailabilityService.getAvailableDaysByService(serviceKey, { futureWindowDays: futureWindow });
+                // Delegar cálculo al servicio
+                const result = await window.CalendarAvailabilityService.getAvailableDaysByService(null, { futureWindowDays: futureWindow });
                 availableDays = result.availableDays;
                 minDate = result.minDate;
                 maxDate = result.maxDate;
-                console.log('✅ [FrontendAssignments] Obtenido desde CalendarAvailabilityService');
-            } else {
-                // Fallback local (por si el servicio no está disponible)
-                minDate = new Date();
-                minDate.setHours(0, 0, 0, 0);
-                maxDate = new Date();
-                maxDate.setDate(minDate.getDate() + futureWindow);
-                maxDate.setHours(23, 59, 59, 999);
-                console.warn('⚠️ [FrontendAssignments] CalendarAvailabilityService no disponible, usando fallback local');
+                console.log('✅ [FrontendAssignments] Calculado desde schedule vía CalendarAvailabilityService');
             }
+        } else {
+            // Delegar cálculo al servicio
+            const result = await window.CalendarAvailabilityService.getAvailableDaysByService(serviceKey, { futureWindowDays: futureWindow });
+            availableDays = result.availableDays;
+            minDate = result.minDate;
+            maxDate = result.maxDate;
+            console.log('✅ [FrontendAssignments] Obtenido desde CalendarAvailabilityService');
         }
         
         // Actualizar calendario usando WPAgenda
