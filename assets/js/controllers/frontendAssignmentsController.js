@@ -764,18 +764,11 @@
             // 2️⃣ Obtener busy ranges (locales y externos)
             console.log('🔄 [FrontendAssignments][FIXED] Obteniendo busy ranges...');
             
-            // Obtener busy ranges locales
-            const localBusyRanges = window.AvailabilityService.loadLocal() || [];
-            
-            // Obtener busy ranges externos desde window.aa_availability
-            let externalBusyRanges = [];
-            if (window.BusyRanges && typeof window.BusyRanges.generateBusyRanges === 'function') {
-                const externalBusy = window.aa_availability?.busy || [];
-                externalBusyRanges = window.BusyRanges.generateBusyRanges(externalBusy);
-            }
-            
-            // Combinar ambos arrays
-            const busyRanges = [...localBusyRanges, ...externalBusyRanges];
+            const built = (window.BusyRanges && window.BusyRanges.buildBusyRanges)
+                ? window.BusyRanges.buildBusyRanges()
+                : { busyRanges: [], localBusy: [], externalBusy: [] };
+
+            const { busyRanges, localBusy: localBusyRanges, externalBusy: externalBusyRanges } = built;
             
             console.log('📊 [FrontendAssignments][FIXED] Busy Ranges obtenidos:', busyRanges.length);
             console.log('   - Locales:', localBusyRanges.length);

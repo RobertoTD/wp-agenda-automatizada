@@ -627,22 +627,11 @@
                 // 2️⃣ Construir busyRanges (locales y externos)
                 console.log('[AA][Reservation][FIXED] Obteniendo busy ranges...');
                 
-                // Obtener busy ranges locales
-                const localBusy = (window.BusyRanges && window.BusyRanges.loadLocalBusyRanges)
-                    ? window.BusyRanges.loadLocalBusyRanges()
-                    : [];
-                
-                // Obtener busy ranges externos (si existe fuente clara)
-                let externalBusy = [];
-                if (window.BusyRanges && typeof window.BusyRanges.generateBusyRanges === 'function') {
-                    const externalBusyRaw = window.aa_availability?.busy || [];
-                    if (externalBusyRaw && externalBusyRaw.length > 0) {
-                        externalBusy = window.BusyRanges.generateBusyRanges(externalBusyRaw);
-                    }
-                }
-                
-                // Combinar ambos arrays
-                const busyRanges = [...localBusy, ...externalBusy];
+                const built = (window.BusyRanges && window.BusyRanges.buildBusyRanges)
+                    ? window.BusyRanges.buildBusyRanges()
+                    : { busyRanges: [], localBusy: [], externalBusy: [] };
+
+                const { busyRanges, localBusy, externalBusy } = built;
                 
                 console.log('[AA][Reservation][FIXED] Busy Ranges obtenidos:', {
                     local: localBusy.length,

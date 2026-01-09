@@ -128,12 +128,48 @@ function filterSlotsByBusyRanges(slots, durationMinutes, busyRanges) {
   return filteredSlots;
 }
 
+/**
+ * Construye busyRanges combinando locales y externos
+ * @param {Object} [opts={}] - Opciones
+ * @param {boolean} [opts.includeLocal=true] - Incluir busy ranges locales
+ * @param {boolean} [opts.includeExternal=true] - Incluir busy ranges externos
+ * @param {Array} [opts.externalRaw=null] - Raw data para external busy (si null, usa window.aa_availability?.busy)
+ * @returns {Object} { busyRanges: Array, localBusy: Array, externalBusy: Array }
+ */
+function buildBusyRanges(opts = {}) {
+  const {
+    includeLocal = true,
+    includeExternal = true,
+    externalRaw = null
+  } = opts;
+
+  // Obtener busy ranges locales
+  const localBusy = includeLocal && typeof loadLocalBusyRanges === 'function'
+    ? loadLocalBusyRanges()
+    : [];
+
+  // Obtener busy ranges externos
+  let externalBusy = [];
+  if (includeExternal && typeof generateBusyRanges === 'function') {
+    const raw = externalRaw ?? (window.aa_availability?.busy || []);
+    if (Array.isArray(raw) && raw.length > 0) {
+      externalBusy = generateBusyRanges(raw);
+    }
+  }
+
+  // Combinar ambos arrays
+  const busyRanges = [...localBusy, ...externalBusy];
+
+  return { busyRanges, localBusy, externalBusy };
+}
+
 // ✅ Exponer globalmente
 window.BusyRanges = {
   generateBusyRanges,
   loadLocalBusyRanges,
   toDateRanges,
-  filterSlotsByBusyRanges
+  filterSlotsByBusyRanges,
+  buildBusyRanges
 };
 
 console.log('✅ busyRanges.js cargado');
