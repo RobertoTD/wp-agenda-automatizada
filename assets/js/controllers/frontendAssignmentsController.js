@@ -293,6 +293,11 @@
     // Detectar servicio de horario fijo
     // ============================================
     function isFixedService(service) {
+        // Delegar a CalendarAvailabilityService si está disponible
+        if (window.CalendarAvailabilityService && window.CalendarAvailabilityService.isFixedServiceKey) {
+            return window.CalendarAvailabilityService.isFixedServiceKey(service);
+        }
+        // Fallback local
         return typeof service === 'string' && service.startsWith('fixed::');
     }
 
@@ -344,13 +349,9 @@
         
         // Obtener límites de fecha
         const futureWindow = window.aa_future_window || 14;
-        const minDate = new Date();
-        minDate.setHours(0, 0, 0, 0);
-        const maxDate = new Date();
-        maxDate.setDate(minDate.getDate() + futureWindow);
-        maxDate.setHours(23, 59, 59, 999);
         
         let availableDays = {};
+        let minDate, maxDate;
         
         // Caso vacío → reset a disponibilidad inicial
         if (!serviceKey) {
@@ -359,53 +360,51 @@
             // Si tenemos datos iniciales guardados, usarlos
             if (state.initialAvailableDays) {
                 availableDays = { ...state.initialAvailableDays };
+                minDate = state.initialMinDate ? new Date(state.initialMinDate) : new Date();
+                maxDate = state.initialMaxDate ? new Date(state.initialMaxDate) : new Date();
                 console.log('✅ [FrontendAssignments] Usando datos iniciales guardados');
             } else {
-                // Calcular desde schedule (fallback)
-                const schedule = window.aa_schedule || {};
-                for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
-                    const day = new Date(d);
-                    const weekday = window.DateUtils.getWeekdayName(day);
-                    const dayKey = window.DateUtils.ymd(day);
-                    const intervals = window.DateUtils.getDayIntervals(schedule, weekday);
-                    availableDays[dayKey] = intervals.length > 0;
-                }
-                console.log('✅ [FrontendAssignments] Calculado desde schedule');
-            }
-        } else if (!isFixedService(serviceKey)) {
-            // Servicio con assignments → obtener fechas de assignments
-            console.log('🔍 [FrontendAssignments] Obteniendo fechas de assignments para servicio:', serviceKey);
-            
-            try {
-                const result = await window.AAAssignmentsAvailability.getAssignmentDatesByService(
-                    serviceKey,
-                    window.DateUtils.ymd(minDate),
-                    window.DateUtils.ymd(maxDate)
-                );
-                
-                if (result.success && Array.isArray(result.data.dates)) {
-                    result.data.dates.forEach(dateStr => {
-                        if (window.DateUtils.isDateInRange(dateStr, minDate, maxDate)) {
-                            availableDays[dateStr] = true;
-                        }
-                    });
-                    console.log(`✅ [FrontendAssignments] ${result.data.dates.length} fechas encontradas para servicio`);
+                // Usar CalendarAvailabilityService para calcular desde schedule
+                if (window.CalendarAvailabilityService) {
+                    const result = await window.CalendarAvailabilityService.getAvailableDaysByService(null, { futureWindowDays: futureWindow });
+                    availableDays = result.availableDays;
+                    minDate = result.minDate;
+                    maxDate = result.maxDate;
+                    console.log('✅ [FrontendAssignments] Calculado desde schedule vía CalendarAvailabilityService');
                 } else {
-                    console.warn('⚠️ [FrontendAssignments] No se pudieron obtener fechas de assignments');
+                    // Fallback local (por si el servicio no está disponible)
+                    minDate = new Date();
+                    minDate.setHours(0, 0, 0, 0);
+                    maxDate = new Date();
+                    maxDate.setDate(minDate.getDate() + futureWindow);
+                    maxDate.setHours(23, 59, 59, 999);
+                    const schedule = window.aa_schedule || {};
+                    for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
+                        const day = new Date(d);
+                        const weekday = window.DateUtils.getWeekdayName(day);
+                        const dayKey = window.DateUtils.ymd(day);
+                        const intervals = window.DateUtils.getDayIntervals(schedule, weekday);
+                        availableDays[dayKey] = intervals.length > 0;
+                    }
+                    console.log('✅ [FrontendAssignments] Calculado desde schedule (fallback local)');
                 }
-            } catch (error) {
-                console.error('❌ [FrontendAssignments] Error al obtener fechas de assignments:', error);
             }
         } else {
-            // Servicio fixed → usar disponibilidad inicial (schedule)
-            console.log('🔧 [FrontendAssignments] Servicio fixed, usando disponibilidad inicial');
-            const schedule = window.aa_schedule || {};
-            for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
-                const day = new Date(d);
-                const weekday = window.DateUtils.getWeekdayName(day);
-                const dayKey = window.DateUtils.ymd(day);
-                const intervals = window.DateUtils.getDayIntervals(schedule, weekday);
-                availableDays[dayKey] = intervals.length > 0;
+            // Usar CalendarAvailabilityService para obtener availableDays
+            if (window.CalendarAvailabilityService) {
+                const result = await window.CalendarAvailabilityService.getAvailableDaysByService(serviceKey, { futureWindowDays: futureWindow });
+                availableDays = result.availableDays;
+                minDate = result.minDate;
+                maxDate = result.maxDate;
+                console.log('✅ [FrontendAssignments] Obtenido desde CalendarAvailabilityService');
+            } else {
+                // Fallback local (por si el servicio no está disponible)
+                minDate = new Date();
+                minDate.setHours(0, 0, 0, 0);
+                maxDate = new Date();
+                maxDate.setDate(minDate.getDate() + futureWindow);
+                maxDate.setHours(23, 59, 59, 999);
+                console.warn('⚠️ [FrontendAssignments] CalendarAvailabilityService no disponible, usando fallback local');
             }
         }
         

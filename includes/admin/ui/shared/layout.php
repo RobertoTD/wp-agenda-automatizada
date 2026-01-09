@@ -170,6 +170,9 @@ header('Content-Type: text/html; charset=utf-8');
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/availability/availabilityAssignments.js'); ?>" defer></script>
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/availability/busyRangesAssignments.js'); ?>" defer></script>
 
+<!-- Calendar Availability Service (neutral, no UI) -->
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/availability/calendarAvailabilityService.js'); ?>" defer></script>
+
 <!-- Other Services -->
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/reservationService.js'); ?>" defer></script>
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/adminCalendarService.js'); ?>" defer></script>
@@ -186,6 +189,7 @@ header('Content-Type: text/html; charset=utf-8');
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/ui-adapters/datePickerAdapter.js'); ?>" defer></script>
 
 <!-- Transversal Modal: Reservation (último, usa todos los anteriores) -->
+<!-- Requiere: calendarAvailabilityService.js debe cargarse antes -->
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'includes/admin/ui/modals/reservation/reservation.js'); ?>" defer></script>
 
 <!-- Transversal Modal: Appointments -->

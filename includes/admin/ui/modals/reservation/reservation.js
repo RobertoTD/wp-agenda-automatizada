@@ -239,60 +239,12 @@
          * @returns {boolean} true si el servicio empieza con "fixed::"
          */
         isFixedService: function(serviceKey) {
+            // Delegar a CalendarAvailabilityService si está disponible
+            if (window.CalendarAvailabilityService && window.CalendarAvailabilityService.isFixedServiceKey) {
+                return window.CalendarAvailabilityService.isFixedServiceKey(serviceKey);
+            }
+            // Fallback local
             return typeof serviceKey === 'string' && serviceKey.startsWith('fixed::');
-        },
-
-        /**
-         * Evalúa si un servicio tiene fechas disponibles dentro de la ventana futura
-         * @param {string} serviceKey - Clave del servicio
-         * @returns {Promise<boolean>} true si el servicio tiene al menos una fecha disponible
-         */
-        hasAvailableDates: async function(serviceKey) {
-            if (!serviceKey) return false;
-
-            // Obtener límites de fecha
-            const futureWindow = window.aa_future_window || 14;
-            const minDate = new Date();
-            minDate.setHours(0, 0, 0, 0);
-            const maxDate = new Date();
-            maxDate.setDate(minDate.getDate() + futureWindow);
-            maxDate.setHours(23, 59, 59, 999);
-
-            // Caso: Servicio fixed
-            if (this.isFixedService(serviceKey)) {
-                const schedule = window.aa_schedule || {};
-                for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
-                    const day = new Date(d);
-                    const weekday = window.DateUtils.getWeekdayName(day);
-                    const intervals = window.DateUtils.getDayIntervals(schedule, weekday);
-                    if (intervals.length > 0) {
-                        return true; // Encontró al menos un día disponible
-                    }
-                }
-                return false; // No hay días disponibles
-            }
-            // Caso: Servicio por assignments
-            else {
-                try {
-                    const result = await window.AAAssignmentsAvailability.getAssignmentDatesByService(
-                        serviceKey,
-                        window.DateUtils.ymd(minDate),
-                        window.DateUtils.ymd(maxDate)
-                    );
-                    
-                    if (result.success && Array.isArray(result.data.dates) && result.data.dates.length > 0) {
-                        // Verificar que al menos una fecha esté en el rango
-                        const hasValidDate = result.data.dates.some(dateStr => {
-                            return window.DateUtils.isDateInRange(dateStr, minDate, maxDate);
-                        });
-                        return hasValidDate;
-                    }
-                    return false;
-                } catch (error) {
-                    console.error('[AA][Reservation] Error al evaluar disponibilidad de servicio:', serviceKey, error);
-                    return false;
-                }
-            }
         },
 
         /**
@@ -319,7 +271,17 @@
 
                 if (!serviceKey) continue; // Saltar opciones vacías
 
-                const hasDates = await this.hasAvailableDates(serviceKey);
+                // Usar CalendarAvailabilityService si está disponible
+                const futureWindow = window.aa_future_window || 14;
+                let hasDates = false;
+                
+                if (window.CalendarAvailabilityService) {
+                    hasDates = await window.CalendarAvailabilityService.hasAvailableDates(serviceKey, { futureWindowDays: futureWindow });
+                } else {
+                    console.warn('[AA][Reservation] CalendarAvailabilityService no disponible, usando fallback');
+                    // Fallback: asumir que tiene fechas disponibles
+                    hasDates = true;
+                }
                 
                 if (!hasDates) {
                     console.log(`[AA][Reservation] ❌ Servicio sin fechas: ${serviceKey} - removiendo`);
