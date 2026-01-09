@@ -214,15 +214,13 @@
           : AvailabilityService.findFirstAvailable(minDate, maxDate, availableSlotsPerDay);
         
         if (dateToSelect && picker) {
-          const validSlots = window.AvailabilityService.slotsForDate(proxy, dateToSelect);
+          console.log(`📅 Admin: Actualizando fecha para ${ymd(dateToSelect)}`);
           
-          console.log(`📅 Admin: Actualizando slots para ${ymd(dateToSelect)}`);
-          console.log(`📅 Admin: ${validSlots.length} slots disponibles (con Google)`);
-          
+          // Disparar evento con selectedDate (validSlots ya no es necesario)
+          // AdminReservationAssignmentFlowController calcula slots directamente
           document.dispatchEvent(new CustomEvent('aa:admin:date-selected', {
             detail: {
               containerId: slotContainerSelector,
-              validSlots,
               selectedDate: dateToSelect,
               fechaInput
             }

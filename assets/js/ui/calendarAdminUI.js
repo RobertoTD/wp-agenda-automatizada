@@ -52,25 +52,13 @@ console.log('🔄 Cargando calendarAdminUI.js...');
         
         const selectedDate = selectedDates[0];
         
-        console.log('🔍 DEBUG onChange:', {
-          proxyExists: !!window.availabilityProxyInstance,
-          proxyHasSlots: window.availabilityProxyInstance ? Object.keys(window.availabilityProxyInstance.availableSlotsPerDay || {}).length : 0,
-          selectedDateKey: window.DateUtils.ymd(selectedDate)
-        });
-        
-        const validSlots = window.AvailabilityService.slotsForDate(
-          window.availabilityProxyInstance || {}, 
-          selectedDate
-        );
-        
         console.log(`📅 Admin: Fecha seleccionada: ${selectedDate.toLocaleDateString()}`);
-        console.log(`📅 Admin: Slots disponibles: ${validSlots.length}`);
         
-        // Disparar evento personalizado para que SlotSelectorAdminUI lo maneje
+        // Disparar evento personalizado para que AdminReservationAssignmentFlowController lo maneje
+        // Mantener compatibilidad: solo selectedDate es necesario ahora
         document.dispatchEvent(new CustomEvent('aa:admin:date-selected', {
           detail: {
             containerId: slotContainerSelector,
-            validSlots,
             selectedDate,
             fechaInput
           }

@@ -157,7 +157,7 @@ header('Content-Type: text/html; charset=utf-8');
 
 <!-- UI Components -->
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/ui/calendarAdminUI.js'); ?>" defer></script>
-<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/ui/slotSelectorAdminUI.js'); ?>" defer></script>
+<!-- slotSelectorAdminUI.js removido: ya no se usa, el modal renderiza slots directamente con renderAssignmentSlots() -->
 
 <!-- Availability Services (orden de dependencias) -->
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/availability/proxyFetch.js'); ?>" defer></script>
@@ -191,8 +191,11 @@ header('Content-Type: text/html; charset=utf-8');
 <!-- Reservation Client Controller (requiere AAAdmin.ClientCreateModal) -->
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/controllers/reservationClientController.js'); ?>" defer></script>
 
+<!-- Admin Reservation Assignment Flow Controller (requiere CalendarAvailabilityService, BusyRanges, SlotCalculator, AAAssignmentsAvailability) -->
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/controllers/adminReservationAssignmentFlowController.js'); ?>" defer></script>
+
 <!-- Transversal Modal: Reservation (último, usa todos los anteriores) -->
-<!-- Requiere: calendarAvailabilityService.js y reservationClientController.js deben cargarse antes -->
+<!-- Requiere: calendarAvailabilityService.js, reservationClientController.js y adminReservationAssignmentFlowController.js deben cargarse antes -->
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'includes/admin/ui/modals/reservation/reservation.js'); ?>" defer></script>
 
 <!-- Transversal Modal: Appointments -->

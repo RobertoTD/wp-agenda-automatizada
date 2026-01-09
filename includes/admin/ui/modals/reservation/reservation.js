@@ -51,6 +51,11 @@
         _intervals: [],
 
         /**
+         * Assignment flow controller instance (for cleanup)
+         */
+        _assignmentFlow: null,
+
+        /**
          * Client controller instance (for cleanup)
          */
         _clientController: null,
@@ -147,8 +152,29 @@
                 // 4️⃣ Filtrar servicios sin fechas disponibles
                 this.filterServiceOptions();
 
+                // Reset state antes de inicializar flujo
+                this.resetState();
+
                 // 5️⃣ Inicializar flujo Servicio → Fecha → Staff (paralelo)
-                this.initAssignmentFlow();
+                if (window.AdminReservationAssignmentFlowController) {
+                    this._assignmentFlow = window.AdminReservationAssignmentFlowController.init({
+                        getState: () => this.state,
+                        elements: {
+                            serviceSelectId: 'cita-servicio',
+                            staffSelectId: 'aa-reservation-staff'
+                        },
+                        callbacks: {
+                            hideStaffSelector: () => this.hideStaffSelector(),
+                            showStaffSelector: () => this.showStaffSelector(),
+                            resetStaffSelect: () => this.resetStaffSelect(),
+                            updateAssignmentIdInput: (assignmentId) => this.updateAssignmentIdInput(assignmentId),
+                            renderAssignmentSlots: (slotStrings, date, assignmentId) => this.renderAssignmentSlots(slotStrings, date, assignmentId),
+                            refreshAdminCalendarByService: (serviceKey) => this.refreshAdminCalendarByService(serviceKey)
+                        }
+                    });
+                } else {
+                    console.warn('[ReservationModal] AdminReservationAssignmentFlowController no disponible');
+                }
 
                 // 6️⃣ Inicializar búsqueda de clientes
                 if (window.ReservationClientController) {
@@ -171,131 +197,6 @@
             this._timeouts.push(timeoutId);
         },
 
-        /**
-         * Initialize assignment-based flow (Servicio → Fecha → Staff)
-         * This runs in parallel with legacy flow, only logs results
-         */
-        initAssignmentFlow: function() {
-            console.log('[AA][Reservation] Inicializando flujo de asignaciones...');
-
-            const self = this;
-            const servicioSelect = document.getElementById('cita-servicio');
-            const fechaInput = document.getElementById('cita-fecha');
-            const staffSelect = document.getElementById('aa-reservation-staff');
-
-            if (!servicioSelect || !fechaInput || !staffSelect) {
-                console.warn('[AA][Reservation] Elementos del flujo de asignaciones no encontrados');
-                return;
-            }
-
-            // Reset state
-            this.resetState();
-
-            // Listen for service changes
-            servicioSelect.addEventListener('change', async function() {
-                self.state.selectedService = this.value;
-                console.log('[AA][Reservation] Servicio seleccionado:', self.state.selectedService);
-                
-                // Actualizar disponibilidad del calendario según el servicio
-                await self.refreshAdminCalendarByService(self.state.selectedService);
-                
-                // Detectar si es servicio fixed
-                if (self.isFixedService(self.state.selectedService)) {
-                    console.log('[AA][Reservation] 🔧 Servicio fixed detectado');
-                    // Ocultar selector de staff (no se usa para servicios fixed)
-                    self.hideStaffSelector();
-                    // Resetear staff select
-                    self.resetStaffSelect();
-                    // Si ya hay fecha seleccionada, calcular slots inmediatamente
-                    if (self.state.selectedDate) {
-                        self.calculateFixedSlotsForAdmin();
-                    }
-                    // NO llamar checkAndLoadAssignments para servicios fixed
-                } else {
-                    // Comportamiento normal para servicios con assignments
-                    // Mostrar selector de staff
-                    self.showStaffSelector();
-                    self.checkAndLoadAssignments();
-                }
-            });
-
-            // Listen for date changes using the existing 'aa:admin:date-selected' event
-            // This event is fired by CalendarAdminUI when flatpickr changes, and provides a Date object
-            // This avoids format issues with reading fechaInput.value directly (which has format "d-m-Y")
-            // Bind once: solo registrar una vez
-            if (!this._bound) {
-                this._handlers.onAdminDateSelected = function(event) {
-                    // Verificar que el modal está abierto (select existe)
-                    const servicioSelect = document.getElementById('cita-servicio');
-                    if (!servicioSelect) {
-                        // Modal no está abierto, ignorar evento
-                        return;
-                    }
-
-                    const selectedDateObj = event.detail.selectedDate;
-
-                    if (!selectedDateObj || !(selectedDateObj instanceof Date)) {
-                        return;
-                    }
-
-                    // Use DateUtils.ymd() to convert Date object to YYYY-MM-DD format
-                    if (typeof window.DateUtils !== 'undefined' && typeof window.DateUtils.ymd === 'function') {
-                        const newDate = window.DateUtils.ymd(selectedDateObj);
-                        if (newDate && newDate !== self.state.selectedDate) {
-                            self.state.selectedDate = newDate;
-                            console.log('[AA][Reservation] Fecha seleccionada (desde evento):', self.state.selectedDate);
-                            
-                            // Detectar si es servicio fixed
-                            if (self.state.selectedService && self.isFixedService(self.state.selectedService)) {
-                                console.log('[AA][Reservation] 🔧 Servicio fixed detectado, calculando slots desde schedule...');
-                                // Asegurar que el selector de staff esté oculto
-                                self.hideStaffSelector();
-                                self.calculateFixedSlotsForAdmin();
-                            } else {
-                                // Comportamiento normal para servicios con assignments
-                                // Asegurar que el selector de staff esté visible
-                                self.showStaffSelector();
-                                self.checkAndLoadAssignments();
-                            }
-                        }
-                    }
-                };
-
-                document.addEventListener('aa:admin:date-selected', this._handlers.onAdminDateSelected);
-                this._bound = true;
-            }
-
-            // Listen for staff selection
-            staffSelect.addEventListener('change', function() {
-                self.state.selectedStaff = this.value;
-                self.handleStaffSelection();
-            });
-
-            // Set initial service if already selected
-            if (servicioSelect.value) {
-                this.state.selectedService = servicioSelect.value;
-                console.log('[AA][Reservation] Servicio inicial:', this.state.selectedService);
-                
-                // Actualizar disponibilidad del calendario con el servicio inicial
-                this.refreshAdminCalendarByService(this.state.selectedService);
-            }
-
-            console.log('[AA][Reservation] ✅ Flujo de asignaciones inicializado');
-        },
-
-        /**
-         * Helper: Detecta si un servicio es de horario fijo
-         * @param {string} serviceKey - Clave del servicio
-         * @returns {boolean} true si el servicio empieza con "fixed::"
-         */
-        isFixedService: function(serviceKey) {
-            // Delegar a CalendarAvailabilityService si está disponible
-            if (window.CalendarAvailabilityService && window.CalendarAvailabilityService.isFixedServiceKey) {
-                return window.CalendarAvailabilityService.isFixedServiceKey(serviceKey);
-            }
-            // Fallback local
-            return typeof serviceKey === 'string' && serviceKey.startsWith('fixed::');
-        },
 
         /**
          * Filtra las opciones del select de servicios, removiendo las que no tienen fechas disponibles
@@ -477,129 +378,6 @@
             }
         },
 
-        /**
-         * Extract date (YYYY-MM-DD) from datetime string
-         * @param {string} datetime - DateTime string (various formats)
-         * @returns {string} Date in YYYY-MM-DD format
-         */
-
-        /**
-         * Check if both service and date are selected, then load assignments
-         */
-        checkAndLoadAssignments: async function() {
-            const { selectedService, selectedDate } = this.state;
-
-            console.log('[AA][Reservation] Verificando:', { selectedService, selectedDate });
-
-            if (!selectedService || !selectedDate) {
-                console.log('[AA][Reservation] Faltan datos para cargar asignaciones');
-                this.resetStaffSelect();
-                return;
-            }
-
-            // Both are defined, load assignments
-            console.log('[AA][Reservation] ✅ Servicio y fecha definidos, cargando asignaciones...');
-            
-            await this.loadAssignmentsForServiceAndDate(selectedService, selectedDate);
-        },
-
-        /**
-         * Load assignments for service and date using AAAssignmentsAvailability
-         * @param {string} serviceKey 
-         * @param {string} date 
-         */
-        loadAssignmentsForServiceAndDate: async function(serviceKey, date) {
-            const staffSelect = document.getElementById('aa-reservation-staff');
-            
-            if (!staffSelect) {
-                console.error('[AA][Reservation] Staff select not found');
-                return;
-            }
-
-            // Show loading state
-            staffSelect.disabled = true;
-            staffSelect.innerHTML = '<option value="">Cargando personal...</option>';
-
-            try {
-                // Check if AAAssignmentsAvailability is available
-                if (typeof window.AAAssignmentsAvailability === 'undefined') {
-                    console.warn('[AA][Reservation] AAAssignmentsAvailability no disponible');
-                    staffSelect.innerHTML = '<option value="">Sistema de asignaciones no disponible</option>';
-                    return;
-                }
-
-                // Call the service
-                const result = await window.AAAssignmentsAvailability.getAssignmentsByServiceAndDate(serviceKey, date);
-
-                console.log('[AA][Reservation] Resultado de asignaciones:', result);
-
-                if (result.success && result.data && result.data.assignments) {
-                    this.state.currentAssignments = result.data.assignments;
-                    this.populateStaffSelect(result.data.assignments);
-                } else {
-                    this.state.currentAssignments = [];
-                    staffSelect.innerHTML = '<option value="">No hay personal disponible</option>';
-                    console.log('[AA][Reservation] No hay asignaciones para este servicio y fecha');
-                }
-            } catch (error) {
-                console.error('[AA][Reservation] Error al cargar asignaciones:', error);
-                staffSelect.innerHTML = '<option value="">Error al cargar personal</option>';
-            }
-        },
-
-        /**
-         * Populate staff select with unique staff from assignments
-         * @param {Array} assignments 
-         */
-        populateStaffSelect: function(assignments) {
-            const staffSelect = document.getElementById('aa-reservation-staff');
-            
-            if (!staffSelect) return;
-
-            // Asegurar que el selector esté visible (para servicios por assignments)
-            this.showStaffSelector();
-
-            // Extract unique staff
-            const staffMap = new Map();
-            
-            assignments.forEach(function(assignment) {
-                if (assignment.staff_id && assignment.staff_name) {
-                    staffMap.set(assignment.staff_id, assignment.staff_name);
-                }
-            });
-
-            console.log('[AA][Reservation] Staff únicos encontrados:', staffMap.size);
-
-            if (staffMap.size === 0) {
-                staffSelect.innerHTML = '<option value="">No hay personal disponible</option>';
-                staffSelect.disabled = true;
-                return;
-            }
-
-            // Build options
-            let html = '<option value="">-- Selecciona personal --</option>';
-            
-            staffMap.forEach(function(name, id) {
-                html += '<option value="' + id + '">' + name + '</option>';
-            });
-
-            staffSelect.innerHTML = html;
-            staffSelect.disabled = false;
-
-            console.log('[AA][Reservation] ✅ Select de staff poblado con', staffMap.size, 'opciones');
-
-            // Auto-seleccionar la primera opción válida si existe
-            const validOptions = Array.from(staffSelect.options).filter(opt => opt.value !== '');
-            if (validOptions.length > 0) {
-                const firstOption = validOptions[0];
-                staffSelect.value = firstOption.value;
-                this.state.selectedStaff = firstOption.value;
-                console.log('[AA][Reservation] 🔄 Auto-seleccionando primer staff:', firstOption.value, '-', firstOption.text);
-                
-                // Ejecutar el mismo flujo que ocurre en una selección manual
-                this.handleStaffSelection();
-            }
-        },
 
         /**
          * Ocultar selector de staff (para servicios fixed)
@@ -642,108 +420,6 @@
             console.log('[AA][Reservation] 👤 Selector de staff visible');
         },
 
-        /**
-         * Calcular slots para servicio fixed en admin
-         * Replica la lógica del frontend pero sin busy ranges
-         */
-        calculateFixedSlotsForAdmin: function() {
-            console.group('[AA][Reservation][FIXED] Calculando slots de horario fijo...');
-            console.log('Servicio:', this.state.selectedService);
-            console.log('Fecha:', this.state.selectedDate);
-
-            try {
-                // Validar dependencias necesarias
-                if (typeof window.SlotCalculator === 'undefined') {
-                    console.error('[AA][Reservation][FIXED] ❌ SlotCalculator no disponible');
-                    console.groupEnd();
-                    return;
-                }
-
-                if (typeof window.DateUtils === 'undefined') {
-                    console.error('[AA][Reservation][FIXED] ❌ DateUtils no disponible');
-                    console.groupEnd();
-                    return;
-                }
-
-                // 1️⃣ Obtener schedule y configuración
-                const schedule = window.aa_schedule || {};
-                const slotDuration = window.aa_slot_duration || 30;
-
-                console.log('[AA][Reservation][FIXED] Configuración:', {
-                    schedule: schedule,
-                    slotDuration: slotDuration
-                });
-
-                // 2️⃣ Construir busyRanges (locales y externos)
-                console.log('[AA][Reservation][FIXED] Obteniendo busy ranges...');
-                
-                const built = (window.BusyRanges && window.BusyRanges.buildBusyRanges)
-                    ? window.BusyRanges.buildBusyRanges()
-                    : { busyRanges: [], localBusy: [], externalBusy: [] };
-
-                const { busyRanges, localBusy, externalBusy } = built;
-                
-                console.log('[AA][Reservation][FIXED] Busy Ranges obtenidos:', {
-                    local: localBusy.length,
-                    external: externalBusy.length,
-                    total: busyRanges.length
-                });
-                
-                // Loggear rangos en HH:MM para debug (solo si hay rangos)
-                if (busyRanges.length > 0) {
-                    console.log('[AA][Reservation][FIXED] Rangos ocupados:');
-                    busyRanges.forEach(function(r) {
-                        const startStr = r.start ? window.DateUtils.hm(r.start) : 'N/A';
-                        const endStr = r.end ? window.DateUtils.hm(r.end) : 'N/A';
-                        console.log('   - ' + startStr + ' - ' + endStr);
-                    });
-                }
-
-                // 3️⃣ Crear objeto Date para la fecha seleccionada
-                const selectedDateObj = new Date(this.state.selectedDate + 'T00:00:00');
-
-                // 4️⃣ Calcular slots para la fecha específica usando SlotCalculator
-                console.log('[AA][Reservation][FIXED] Calculando slots con busy ranges...');
-                
-                const slots = window.SlotCalculator.calculateSlotsForDate(
-                    selectedDateObj,
-                    schedule,
-                    busyRanges,
-                    slotDuration
-                );
-
-                console.log('[AA][Reservation][FIXED] Slots calculados:', slots ? slots.length : 0);
-
-                if (slots && slots.length > 0) {
-                    // Convertir slots Date a formato "HH:MM"
-                    const slotsHHMM = slots.map(function(slot) {
-                        if (slot instanceof Date) {
-                            return window.DateUtils.hm(slot);
-                        }
-                        return String(slot);
-                    });
-
-                    console.log('[AA][Reservation][FIXED] Horarios disponibles:', slotsHHMM);
-
-                    // 4️⃣ Renderizar slots en el formato del admin
-                    this.renderAssignmentSlots(slotsHHMM, this.state.selectedDate, null);
-                } else {
-                    console.log('[AA][Reservation][FIXED] ❌ No hay horarios disponibles para esta fecha');
-                    // Limpiar contenedor de slots
-                    const container = document.getElementById('slot-container-admin');
-                    if (container) {
-                        container.innerHTML = 'No hay horarios disponibles para esta fecha.';
-                    }
-                }
-
-                console.log('[AA][Reservation][FIXED] ✅ Cálculo completado');
-                console.groupEnd();
-
-            } catch (error) {
-                console.error('[AA][Reservation][FIXED] ❌ Error al calcular slots fijos:', error);
-                console.groupEnd();
-            }
-        },
 
         /**
          * Reset staff select to initial state
@@ -762,123 +438,6 @@
             this.updateAssignmentIdInput(null);
         },
 
-        /**
-         * Handle staff selection (only log, no slot generation yet)
-         */
-        handleStaffSelection: function() {
-            const { selectedStaff, selectedDate, currentAssignments } = this.state;
-
-            if (!selectedStaff) {
-                console.log('[AA][Reservation] Staff deseleccionado');
-                return;
-            }
-
-            // Filter assignments for selected staff
-            const staffAssignments = currentAssignments.filter(function(a) {
-                return String(a.staff_id) === String(selectedStaff);
-            });
-
-            console.log('[AA][Reservation] Staff seleccionado:', selectedStaff);
-            console.log('[AA][Reservation] Asignaciones completas:', staffAssignments);
-
-            // Guardar assignment_id (por ahora usamos el primer assignment si hay múltiples)
-            // TODO: Refinar para seleccionar assignment específico cuando se implemente selección de slots
-            if (staffAssignments && staffAssignments.length > 0) {
-                const firstAssignment = staffAssignments[0];
-                this.state.selectedAssignmentId = firstAssignment.id;
-                this.updateAssignmentIdInput(firstAssignment.id);
-                console.log('[AA][Reservation] Assignment ID seleccionado:', firstAssignment.id);
-            } else {
-                this.state.selectedAssignmentId = null;
-                this.updateAssignmentIdInput(null);
-            }
-            
-            // Log details for debugging
-            staffAssignments.forEach(function(assignment, index) {
-                console.log('[AA][Reservation] Asignación #' + (index + 1) + ':', {
-                    id: assignment.id,
-                    start: assignment.start_time,
-                    end: assignment.end_time,
-                    staff: assignment.staff_name,
-                    area: assignment.service_area_name,
-                    capacity: assignment.capacity
-                });
-            });
-
-            // ============================================
-            // 🧮 CALCULAR SLOTS FINALES (base + filtrado por busy ranges)
-            // ============================================
-            const self = this;
-            const slotDuration = 30; // Duración fija de slots en admin
-            
-            // Usar el servicio unificado para obtener slots finales
-            if (typeof window.AAAssignmentsAvailability !== 'undefined' && 
-                typeof window.AAAssignmentsAvailability.getFinalSlotsForStaffAndDate === 'function') {
-                
-                window.AAAssignmentsAvailability.getFinalSlotsForStaffAndDate(
-                    staffAssignments,
-                    selectedDate,
-                    slotDuration
-                )
-                .then(function(result) {
-                    const finalSlots = result.finalSlots || [];
-                    const baseSlots = result.baseSlots || [];
-                    const busyRanges = result.busyRanges || [];
-                    
-                    console.log('[AA][Reservation] 📊 Slots calculados:', {
-                        staffAssignments: staffAssignments.length,
-                        baseSlots: baseSlots.length,
-                        finalSlots: finalSlots.length,
-                        busyRanges: busyRanges.length
-                    });
-                    
-                    // Convertir slots Date a formato "HH:MM" para renderAssignmentSlots
-                    const finalSlotStrings = finalSlots.map(function(slot) {
-                        if (slot instanceof Date) {
-                            return window.DateUtils.hm(slot);
-                        }
-                        return String(slot);
-                    });
-                    
-                    // Renderizar slots finales
-                    self.renderAssignmentSlots(finalSlotStrings, selectedDate, self.state.selectedAssignmentId);
-                })
-                .catch(function(error) {
-                    console.error('[AA][Reservation] Error al calcular slots finales:', error);
-                    // Fallback seguro: usar getSlotsForStaffAndDate sin filtrado
-                    if (typeof window.AAAssignmentsAvailability.getSlotsForStaffAndDate === 'function') {
-                        const baseSlots = window.AAAssignmentsAvailability.getSlotsForStaffAndDate(
-                            staffAssignments,
-                            selectedDate,
-                            slotDuration
-                        );
-                        if (baseSlots && baseSlots.length > 0) {
-                            const baseSlotStrings = baseSlots.map(function(s) {
-                                return window.DateUtils.hm(s);
-                            });
-                            self.renderAssignmentSlots(baseSlotStrings, selectedDate, self.state.selectedAssignmentId);
-                        }
-                    }
-                });
-            } else {
-                // Fallback seguro si el service no existe
-                console.warn('[AA][Reservation] AAAssignmentsAvailability.getFinalSlotsForStaffAndDate no disponible, usando fallback');
-                if (typeof window.AAAssignmentsAvailability !== 'undefined' && 
-                    typeof window.AAAssignmentsAvailability.getSlotsForStaffAndDate === 'function') {
-                    const baseSlots = window.AAAssignmentsAvailability.getSlotsForStaffAndDate(
-                        staffAssignments,
-                        selectedDate,
-                        slotDuration
-                    );
-                    if (baseSlots && baseSlots.length > 0) {
-                        const baseSlotStrings = baseSlots.map(function(s) {
-                            return window.DateUtils.hm(s);
-                        });
-                        this.renderAssignmentSlots(baseSlotStrings, selectedDate, this.state.selectedAssignmentId);
-                    }
-                }
-            }
-        },
 
         /**
          * Render assignment-based slots in the legacy slot selector container
@@ -1047,9 +606,10 @@
                 return;
             }
 
-            // Cleanup: remover listeners globales
-            if (this._handlers.onAdminDateSelected) {
-                document.removeEventListener('aa:admin:date-selected', this._handlers.onAdminDateSelected);
+            // Cleanup: destruir controller de assignment flow
+            if (this._assignmentFlow) {
+                this._assignmentFlow.destroy();
+                this._assignmentFlow = null;
             }
 
             // Cleanup: destruir controller de clientes
@@ -1073,9 +633,6 @@
             AAAdmin.closeModal();
             this.initialized = false;
             this.resetState();
-            
-            // NOT resetear _bound: mantener true para que handlers solo se registren una vez
-            // Los handlers ya verifican si el modal está abierto (select existe)
             
             console.log('[ReservationModal] Modal cerrado y limpiado');
         },
