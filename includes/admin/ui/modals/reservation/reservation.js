@@ -31,6 +31,26 @@
         initialized: false,
 
         /**
+         * Track if global listeners are bound (bind once)
+         */
+        _bound: false,
+
+        /**
+         * Store handler references for cleanup
+         */
+        _handlers: {},
+
+        /**
+         * Store timeout IDs for cleanup
+         */
+        _timeouts: [],
+
+        /**
+         * Store interval IDs for cleanup
+         */
+        _intervals: [],
+
+        /**
          * State for new assignment-based flow
          */
         state: {
@@ -69,7 +89,7 @@
             console.log('[ReservationModal] Inicializando controladores...');
 
             // Pequeño delay para asegurar que el DOM está listo
-            setTimeout(() => {
+            const timeoutId = setTimeout(() => {
                 // 1️⃣ Inicializar AvailabilityController
                 if (typeof window.AvailabilityController !== 'undefined') {
                     console.log('[ReservationModal] Inicializando AvailabilityController...');
@@ -132,6 +152,9 @@
                 console.log('[ReservationModal] ✅ Todos los controladores inicializados');
                 
             }, 100); // 100ms delay para asegurar DOM ready
+            
+            // Guardar timeout ID para cleanup
+            this._timeouts.push(timeoutId);
         },
 
         /**
@@ -185,35 +208,48 @@
             // Listen for date changes using the existing 'aa:admin:date-selected' event
             // This event is fired by CalendarAdminUI when flatpickr changes, and provides a Date object
             // This avoids format issues with reading fechaInput.value directly (which has format "d-m-Y")
-            document.addEventListener('aa:admin:date-selected', function(event) {
-                const selectedDateObj = event.detail.selectedDate;
-                
-                if (!selectedDateObj || !(selectedDateObj instanceof Date)) {
-                    return;
-                }
-                
-                // Use DateUtils.ymd() to convert Date object to YYYY-MM-DD format
-                if (typeof window.DateUtils !== 'undefined' && typeof window.DateUtils.ymd === 'function') {
-                    const newDate = window.DateUtils.ymd(selectedDateObj);
-                    if (newDate && newDate !== self.state.selectedDate) {
-                        self.state.selectedDate = newDate;
-                        console.log('[AA][Reservation] Fecha seleccionada (desde evento):', self.state.selectedDate);
-                        
-                        // Detectar si es servicio fixed
-                        if (self.state.selectedService && self.isFixedService(self.state.selectedService)) {
-                            console.log('[AA][Reservation] 🔧 Servicio fixed detectado, calculando slots desde schedule...');
-                            // Asegurar que el selector de staff esté oculto
-                            self.hideStaffSelector();
-                            self.calculateFixedSlotsForAdmin();
-                        } else {
-                            // Comportamiento normal para servicios con assignments
-                            // Asegurar que el selector de staff esté visible
-                            self.showStaffSelector();
-                            self.checkAndLoadAssignments();
+            // Bind once: solo registrar una vez
+            if (!this._bound) {
+                this._handlers.onAdminDateSelected = function(event) {
+                    // Verificar que el modal está abierto (select existe)
+                    const servicioSelect = document.getElementById('cita-servicio');
+                    if (!servicioSelect) {
+                        // Modal no está abierto, ignorar evento
+                        return;
+                    }
+
+                    const selectedDateObj = event.detail.selectedDate;
+
+                    if (!selectedDateObj || !(selectedDateObj instanceof Date)) {
+                        return;
+                    }
+
+                    // Use DateUtils.ymd() to convert Date object to YYYY-MM-DD format
+                    if (typeof window.DateUtils !== 'undefined' && typeof window.DateUtils.ymd === 'function') {
+                        const newDate = window.DateUtils.ymd(selectedDateObj);
+                        if (newDate && newDate !== self.state.selectedDate) {
+                            self.state.selectedDate = newDate;
+                            console.log('[AA][Reservation] Fecha seleccionada (desde evento):', self.state.selectedDate);
+                            
+                            // Detectar si es servicio fixed
+                            if (self.state.selectedService && self.isFixedService(self.state.selectedService)) {
+                                console.log('[AA][Reservation] 🔧 Servicio fixed detectado, calculando slots desde schedule...');
+                                // Asegurar que el selector de staff esté oculto
+                                self.hideStaffSelector();
+                                self.calculateFixedSlotsForAdmin();
+                            } else {
+                                // Comportamiento normal para servicios con assignments
+                                // Asegurar que el selector de staff esté visible
+                                self.showStaffSelector();
+                                self.checkAndLoadAssignments();
+                            }
                         }
                     }
-                }
-            });
+                };
+
+                document.addEventListener('aa:admin:date-selected', this._handlers.onAdminDateSelected);
+                this._bound = true;
+            }
 
             // Listen for staff selection
             staffSelect.addEventListener('change', function() {
@@ -756,116 +792,77 @@
             });
 
             // ============================================
-            // 🧮 CALCULAR SLOTS DE 30 MINUTOS
+            // 🧮 CALCULAR SLOTS FINALES (base + filtrado por busy ranges)
             // ============================================
-            // Delegar cálculo al service
+            const self = this;
+            const slotDuration = 30; // Duración fija de slots en admin
+            
+            // Usar el servicio unificado para obtener slots finales
             if (typeof window.AAAssignmentsAvailability !== 'undefined' && 
-                typeof window.AAAssignmentsAvailability.getSlotsForStaffAndDate === 'function') {
+                typeof window.AAAssignmentsAvailability.getFinalSlotsForStaffAndDate === 'function') {
                 
-                const availableSlots = window.AAAssignmentsAvailability.getSlotsForStaffAndDate(
+                window.AAAssignmentsAvailability.getFinalSlotsForStaffAndDate(
                     staffAssignments,
                     selectedDate,
-                    30
-                );
-
-                if (availableSlots) {
-                    console.log('[AA][Reservation] ✅ Slots disponibles calculados:', availableSlots.length);
-                    console.log('[AA][Reservation] 🧮 Slots disponibles:', availableSlots.map(function(s) {
-                        return typeof window.DateUtils !== 'undefined' && typeof window.DateUtils.hm === 'function' 
-                            ? window.DateUtils.hm(s) 
-                            : s.toTimeString().substring(0, 5);
-                    }));
+                    slotDuration
+                )
+                .then(function(result) {
+                    const finalSlots = result.finalSlots || [];
+                    const baseSlots = result.baseSlots || [];
+                    const busyRanges = result.busyRanges || [];
                     
-                    // ============================================
-                    // 📊 OBTENER Y CALCULAR SLOTS OCUPADOS
-                    // ============================================
-                    const self = this;
-                    const assignmentIds = staffAssignments.map(function(a) {
-                        return parseInt(a.id);
+                    console.log('[AA][Reservation] 📊 Slots calculados:', {
+                        staffAssignments: staffAssignments.length,
+                        baseSlots: baseSlots.length,
+                        finalSlots: finalSlots.length,
+                        busyRanges: busyRanges.length
                     });
                     
-                    if (assignmentIds.length > 0 && typeof window.AABusyRangesAssignments !== 'undefined' &&
-                        typeof window.AABusyRangesAssignments.getBusyRangesByAssignments === 'function') {
-                        
-                        window.AABusyRangesAssignments.getBusyRangesByAssignments(assignmentIds, selectedDate)
-                            .then(function(result) {
-                                if (result.success && result.data && result.data.busy_ranges) {
-                                    const busyRanges = result.data.busy_ranges;
-                                    console.log('[AA][Reservation] 📋 Busy ranges obtenidos:', busyRanges.length);
-                                    
-                                    // Generar slots ocupados desde busy ranges
-                                    const occupiedSlots = [];
-                                    
-                                    busyRanges.forEach(function(range) {
-                                        // range.start es datetime (ej: "2026-01-02 15:00:00")
-                                        // Extraer solo la hora
-                                        const startDateTime = new Date(range.start);
-                                        const startTime = window.DateUtils.hm(startDateTime);
-                                        
-                                        // Calcular duración en minutos
-                                        const endDateTime = new Date(range.end);
-                                        const durationMinutes = Math.round((endDateTime - startDateTime) / (1000 * 60));
-                                        
-                                        // Generar slots ocupados
-                                        const reservationSlots = window.DateUtils.generateSlotsFromStartTime(
-                                            startTime,
-                                            durationMinutes,
-                                            30
-                                        );
-                                        
-                                        occupiedSlots.push(...reservationSlots);
-                                        console.log('[AA][Reservation] 📌 Reserva:', {
-                                            start: startTime,
-                                            duration: durationMinutes + ' min',
-                                            slots: reservationSlots
-                                        });
-                                    });
-                                    
-                                    // Eliminar duplicados y ordenar
-                                    const uniqueOccupiedSlots = [...new Set(occupiedSlots)].sort();
-                                    console.log('[AA][Reservation] 🚫 Slots ocupados (total):', uniqueOccupiedSlots);
-                                    
-                                    // Descontar slots ocupados de slots disponibles
-                                    if (typeof window.DateUtils !== 'undefined' && typeof window.DateUtils.hm === 'function') {
-                                        const availableSlotStrings = availableSlots.map(function(s) {
-                                            return window.DateUtils.hm(s);
-                                        });
-                                        
-                                        const finalSlots = availableSlotStrings.filter(function(slot) {
-                                            return !uniqueOccupiedSlots.includes(slot);
-                                        });
-                                        
-                                        console.log('[AA][Reservation] ✅ Slots disponibles finales (después de descontar ocupados):', finalSlots);
-                                        console.log('[AA][Reservation] 📊 Resumen:', {
-                                            disponibles: availableSlotStrings.length,
-                                            ocupados: uniqueOccupiedSlots.length,
-                                            finales: finalSlots.length
-                                        });
-                                        
-                                        // 🎨 RENDERIZAR SLOTS EN EL SELECTOR LEGACY
-                                        self.renderAssignmentSlots(finalSlots, selectedDate, self.state.selectedAssignmentId);
-                                    }
-                                } else {
-                                    // No hay busy ranges, usar slots disponibles directamente
-                                    console.log('[AA][Reservation] No hay busy ranges para descontar');
-                                    const availableSlotStrings = availableSlots.map(function(s) {
-                                        return window.DateUtils.hm(s);
-                                    });
-                                    // Renderizar slots disponibles (sin ocupados)
-                                    self.renderAssignmentSlots(availableSlotStrings, selectedDate, self.state.selectedAssignmentId);
-                                }
-                            })
-                            .catch(function(error) {
-                                console.error('[AA][Reservation] Error al obtener busy ranges:', error);
+                    // Convertir slots Date a formato "HH:MM" para renderAssignmentSlots
+                    const finalSlotStrings = finalSlots.map(function(slot) {
+                        if (slot instanceof Date) {
+                            return window.DateUtils.hm(slot);
+                        }
+                        return String(slot);
+                    });
+                    
+                    // Renderizar slots finales
+                    self.renderAssignmentSlots(finalSlotStrings, selectedDate, self.state.selectedAssignmentId);
+                })
+                .catch(function(error) {
+                    console.error('[AA][Reservation] Error al calcular slots finales:', error);
+                    // Fallback seguro: usar getSlotsForStaffAndDate sin filtrado
+                    if (typeof window.AAAssignmentsAvailability.getSlotsForStaffAndDate === 'function') {
+                        const baseSlots = window.AAAssignmentsAvailability.getSlotsForStaffAndDate(
+                            staffAssignments,
+                            selectedDate,
+                            slotDuration
+                        );
+                        if (baseSlots && baseSlots.length > 0) {
+                            const baseSlotStrings = baseSlots.map(function(s) {
+                                return window.DateUtils.hm(s);
                             });
-                    } else {
-                        console.log('[AA][Reservation] No se pudieron obtener busy ranges (servicio no disponible)');
+                            self.renderAssignmentSlots(baseSlotStrings, selectedDate, self.state.selectedAssignmentId);
+                        }
                     }
-                } else {
-                    console.log('[AA][Reservation] No se pudieron calcular slots');
-                }
+                });
             } else {
-                console.warn('[AA][Reservation] AAAssignmentsAvailability.getSlotsForStaffAndDate no disponible');
+                // Fallback seguro si el service no existe
+                console.warn('[AA][Reservation] AAAssignmentsAvailability.getFinalSlotsForStaffAndDate no disponible, usando fallback');
+                if (typeof window.AAAssignmentsAvailability !== 'undefined' && 
+                    typeof window.AAAssignmentsAvailability.getSlotsForStaffAndDate === 'function') {
+                    const baseSlots = window.AAAssignmentsAvailability.getSlotsForStaffAndDate(
+                        staffAssignments,
+                        selectedDate,
+                        slotDuration
+                    );
+                    if (baseSlots && baseSlots.length > 0) {
+                        const baseSlotStrings = baseSlots.map(function(s) {
+                            return window.DateUtils.hm(s);
+                        });
+                        this.renderAssignmentSlots(baseSlotStrings, selectedDate, this.state.selectedAssignmentId);
+                    }
+                }
             }
         },
 
@@ -990,8 +987,12 @@
             }
 
             const self = this;
-            let searchTimeout = null;
             let previousSelectedValue = null;
+            
+            // Guardar último timeout ID para cleanup (se actualiza en cada input)
+            if (!this._handlers.searchTimeoutId) {
+                this._handlers.searchTimeoutId = null;
+            }
             
             // Obtener contenedor inline (disponible en todo el scope de initClientSearch)
             const inlineContainer = document.getElementById('aa-reservation-client-inline');
@@ -1153,15 +1154,24 @@
                 const query = this.value.trim();
 
                 // Clear previous timeout
-                if (searchTimeout) {
-                    clearTimeout(searchTimeout);
+                if (self._handlers.searchTimeoutId) {
+                    clearTimeout(self._handlers.searchTimeoutId);
+                    // Remover del array de timeouts si estaba
+                    const index = self._timeouts.indexOf(self._handlers.searchTimeoutId);
+                    if (index > -1) {
+                        self._timeouts.splice(index, 1);
+                    }
                 }
 
                 // Set new timeout (300ms debounce)
-                searchTimeout = setTimeout(function() {
+                const timeoutId = setTimeout(function() {
                     console.log('[AA][Reservation] Buscando clientes con query:', query);
                     searchClients(query, true);
                 }, 300);
+                
+                // Guardar timeout ID
+                self._handlers.searchTimeoutId = timeoutId;
+                self._timeouts.push(timeoutId);
             });
 
             // Clear search on escape
@@ -1200,55 +1210,72 @@
 
             // Escuchar evento de cliente guardado para recargar y seleccionar
             // Solo procesar si el modal de reservas está abierto (select existe)
-            function handleClientSaved(event) {
-                // Verificar que el select de clientes existe (modal está abierto)
-                const clienteSelect = document.getElementById('cita-cliente');
-                if (!clienteSelect) {
-                    // Modal de reservas no está abierto, ignorar evento
-                    return;
-                }
-
-                // Obtener teléfono con prioridad:
-                // 1) event.detail.telefono (explícito)
-                // 2) event.detail.cliente?.telefono (si existe)
-                // 3) fallback: leer del input dentro del inlineContainer si el form sigue montado
-                let telefono = null;
+            // Bind once: solo registrar una vez
+            // Guardar referencia a searchClients que se actualizará cada vez que se llama initClientSearch
+            this._handlers.searchClientsRef = searchClients;
+            
+            if (!this._handlers.onClientSaved) {
+                const self = this;
                 
-                if (event.detail && event.detail.telefono) {
-                    telefono = event.detail.telefono;
-                } else if (event.detail && event.detail.cliente && event.detail.cliente.telefono) {
-                    telefono = event.detail.cliente.telefono;
-                } else if (inlineContainer) {
-                    // Fallback: intentar leer del input del formulario inline si aún está montado
-                    const telefonoInput = inlineContainer.querySelector('#modal-cliente-telefono');
-                    if (telefonoInput && telefonoInput.value) {
-                        telefono = telefonoInput.value.trim();
+                this._handlers.onClientSaved = function(event) {
+                    // Verificar que el select de clientes existe (modal está abierto)
+                    const clienteSelect = document.getElementById('cita-cliente');
+                    if (!clienteSelect) {
+                        // Modal de reservas no está abierto, ignorar evento
+                        return;
                     }
-                }
-                
-                if (!telefono || telefono === '') {
-                    console.warn('[AA][Reservation] Cliente guardado sin teléfono disponible');
-                    return;
-                }
 
-                console.log('[AA][Reservation] Cliente guardado, recargando lista y seleccionando por teléfono:', telefono);
-                
-                // Ocultar contenedor inline si está visible
-                if (inlineContainer) {
-                    inlineContainer.style.display = 'none';
-                }
-                
-                // Setear el input de búsqueda con el teléfono
-                if (searchInput) {
-                    searchInput.value = telefono;
-                }
-                
-                // Recargar clientes y seleccionar el recién creado por teléfono (match exacto)
-                searchClients(telefono, false, null, telefono);
+                    // Obtener teléfono con prioridad:
+                    // 1) event.detail.telefono (explícito)
+                    // 2) event.detail.cliente?.telefono (si existe)
+                    // 3) fallback: leer del input dentro del inlineContainer si el form sigue montado
+                    let telefono = null;
+                    
+                    if (event.detail && event.detail.telefono) {
+                        telefono = event.detail.telefono;
+                    } else if (event.detail && event.detail.cliente && event.detail.cliente.telefono) {
+                        telefono = event.detail.cliente.telefono;
+                    } else {
+                        // Fallback: intentar leer del input del formulario inline si aún está montado
+                        const inlineContainerEl = document.getElementById('aa-reservation-client-inline');
+                        if (inlineContainerEl) {
+                            const telefonoInput = inlineContainerEl.querySelector('#modal-cliente-telefono');
+                            if (telefonoInput && telefonoInput.value) {
+                                telefono = telefonoInput.value.trim();
+                            }
+                        }
+                    }
+                    
+                    if (!telefono || telefono === '') {
+                        console.warn('[AA][Reservation] Cliente guardado sin teléfono disponible');
+                        return;
+                    }
+
+                    console.log('[AA][Reservation] Cliente guardado, recargando lista y seleccionando por teléfono:', telefono);
+                    
+                    // Ocultar contenedor inline si está visible
+                    const inlineContainerEl = document.getElementById('aa-reservation-client-inline');
+                    if (inlineContainerEl) {
+                        inlineContainerEl.style.display = 'none';
+                    }
+                    
+                    // Setear el input de búsqueda con el teléfono
+                    const searchInputEl = document.getElementById('aa-cliente-search');
+                    if (searchInputEl) {
+                        searchInputEl.value = telefono;
+                    }
+                    
+                    // Recargar clientes y seleccionar el recién creado por teléfono (match exacto)
+                    // Usar la referencia actualizada guardada en _handlers
+                    if (self._handlers.searchClientsRef && typeof self._handlers.searchClientsRef === 'function') {
+                        self._handlers.searchClientsRef(telefono, false, null, telefono);
+                    } else {
+                        console.warn('[AA][Reservation] searchClients no disponible en handler');
+                    }
+                };
+
+                document.addEventListener('aa:client:saved', this._handlers.onClientSaved);
             }
-
-            // Registrar listener global (se ejecuta solo si el select existe)
-            document.addEventListener('aa:client:saved', handleClientSaved);
 
             console.log('[AA][Reservation] ✅ Búsqueda de clientes inicializada');
         },
@@ -1314,11 +1341,41 @@
                 return;
             }
 
+            // Cleanup: remover listeners globales
+            if (this._handlers.onAdminDateSelected) {
+                document.removeEventListener('aa:admin:date-selected', this._handlers.onAdminDateSelected);
+            }
+            
+            if (this._handlers.onClientSaved) {
+                document.removeEventListener('aa:client:saved', this._handlers.onClientSaved);
+            }
+
+            // Cleanup: limpiar todos los timeouts
+            this._timeouts.forEach(function(timeoutId) {
+                clearTimeout(timeoutId);
+            });
+            this._timeouts = [];
+
+            // Cleanup: limpiar todos los intervals (si hay)
+            this._intervals.forEach(function(intervalId) {
+                clearInterval(intervalId);
+            });
+            this._intervals = [];
+
+            // Limpiar referencia de searchTimeoutId
+            if (this._handlers.searchTimeoutId) {
+                clearTimeout(this._handlers.searchTimeoutId);
+                this._handlers.searchTimeoutId = null;
+            }
+
             AAAdmin.closeModal();
             this.initialized = false;
             this.resetState();
             
-            console.log('[ReservationModal] Modal cerrado');
+            // NOT resetear _bound: mantener true para que handlers solo se registren una vez
+            // Los handlers ya verifican si el modal está abierto (select existe)
+            
+            console.log('[ReservationModal] Modal cerrado y limpiado');
         },
 
         /**
