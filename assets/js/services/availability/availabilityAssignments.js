@@ -237,6 +237,117 @@
         }
     }
 
+    /**
+     * Get final slots for staff and date (after filtering by busy ranges)
+     * This method unifies the slot calculation logic for assignments
+     * 
+     * @param {Array} assignments - Array of assignment objects with start_time and end_time
+     * @param {string} date - Date in YYYY-MM-DD format
+     * @param {number} slotDuration - Slot duration in minutes (default: 30)
+     * @returns {Promise<Object>} { baseSlots: Array<Date>, finalSlots: Array<Date>, busyRanges: Array }
+     */
+    async function getFinalSlotsForStaffAndDate(assignments, date, slotDuration = 30) {
+        console.log('🔍 [AAAssignmentsAvailability] getFinalSlotsForStaffAndDate() llamado', {
+            assignmentsCount: assignments?.length || 0,
+            date: date,
+            slotDuration: slotDuration
+        });
+
+        try {
+            // 1️⃣ Obtener slots base
+            const baseSlots = getSlotsForStaffAndDate(assignments, date, slotDuration);
+            
+            if (!baseSlots || baseSlots.length === 0) {
+                console.log('[AAAssignmentsAvailability] No hay slots base, retornando vacío');
+                return { baseSlots: [], finalSlots: [], busyRanges: [] };
+            }
+
+            // 2️⃣ Extraer assignment IDs
+            const assignmentIds = assignments.map(a => parseInt(a.id)).filter(Number.isFinite);
+            
+            if (assignmentIds.length === 0) {
+                console.warn('[AAAssignmentsAvailability] No hay assignment IDs válidos');
+                return { baseSlots, finalSlots: baseSlots, busyRanges: [] };
+            }
+
+            // 3️⃣ Obtener busy ranges externos por assignments
+            let rawBusyRanges = [];
+            if (typeof window.AABusyRangesAssignments !== 'undefined' && 
+                typeof window.AABusyRangesAssignments.getBusyRangesByAssignments === 'function') {
+                try {
+                    const res = await window.AABusyRangesAssignments.getBusyRangesByAssignments(assignmentIds, date);
+                    rawBusyRanges = res?.data?.busy_ranges || [];
+                } catch (error) {
+                    console.error('[AAAssignmentsAvailability] Error al obtener busy ranges externos:', error);
+                    // Continuar con busy ranges locales únicamente
+                }
+            }
+
+            // 4️⃣ Convertir a rangos Date
+            let busyExternal = [];
+            if (typeof window.BusyRanges !== 'undefined' && 
+                typeof window.BusyRanges.toDateRanges === 'function') {
+                busyExternal = window.BusyRanges.toDateRanges(rawBusyRanges);
+            } else {
+                // Fallback: convertir manualmente si BusyRanges.toDateRanges no está disponible
+                busyExternal = rawBusyRanges.map(function(range) {
+                    return {
+                        start: new Date(range.start),
+                        end: new Date(range.end),
+                        title: range.title || 'Ocupado'
+                    };
+                }).filter(function(r) {
+                    return !isNaN(r.start.getTime()) && !isNaN(r.end.getTime());
+                });
+            }
+
+            // Obtener busy ranges locales
+            let busyLocal = [];
+            if (typeof window.BusyRanges !== 'undefined' && 
+                typeof window.BusyRanges.loadLocalBusyRanges === 'function') {
+                busyLocal = window.BusyRanges.loadLocalBusyRanges() || [];
+            }
+
+            // Combinar ambos arrays
+            const busyRanges = [...busyLocal, ...busyExternal];
+
+            // 5️⃣ Filtrar slots
+            let finalSlots = baseSlots;
+            if (typeof window.BusyRanges !== 'undefined' && 
+                typeof window.BusyRanges.filterSlotsByBusyRanges === 'function') {
+                finalSlots = window.BusyRanges.filterSlotsByBusyRanges(baseSlots, slotDuration, busyRanges);
+            } else {
+                // Fallback: filtrar manualmente si BusyRanges.filterSlotsByBusyRanges no está disponible
+                if (typeof window.DateUtils !== 'undefined' && 
+                    typeof window.DateUtils.hasEnoughFreeTime === 'function') {
+                    finalSlots = baseSlots.filter(function(slot) {
+                        return window.DateUtils.hasEnoughFreeTime(slot, slotDuration, busyRanges);
+                    });
+                } else {
+                    // Si no hay DateUtils, retornar todos los slots base
+                    console.warn('[AAAssignmentsAvailability] DateUtils.hasEnoughFreeTime no disponible, retornando todos los slots base');
+                    finalSlots = baseSlots;
+                }
+            }
+
+            console.log('[AAAssignmentsAvailability] ✅ Slots finales calculados:', {
+                baseSlots: baseSlots.length,
+                finalSlots: finalSlots.length,
+                busyRanges: busyRanges.length,
+                busyLocal: busyLocal.length,
+                busyExternal: busyExternal.length
+            });
+
+            return { baseSlots, finalSlots, busyRanges };
+
+        } catch (error) {
+            console.error('[AAAssignmentsAvailability] Error al calcular slots finales:', error);
+            // Fallback: retornar slots base sin filtrar
+            const baseSlots = getSlotsForStaffAndDate(assignments, date, slotDuration) || [];
+            return { baseSlots, finalSlots: baseSlots, busyRanges: [] };
+        }
+    }
+
     // ============================================
     // Expose to global namespace
     // ============================================
@@ -244,7 +355,8 @@
         getAssignmentDates: getAssignmentDates,
         getAssignmentDatesByService: getAssignmentDatesByService,
         getAssignmentsByServiceAndDate: getAssignmentsByServiceAndDate,
-        getSlotsForStaffAndDate: getSlotsForStaffAndDate
+        getSlotsForStaffAndDate: getSlotsForStaffAndDate,
+        getFinalSlotsForStaffAndDate: getFinalSlotsForStaffAndDate
     };
 
     console.log('✅ [AAAssignmentsAvailability] Módulo cargado y expuesto en window.AAAssignmentsAvailability');
@@ -253,6 +365,7 @@
     console.log('   - AAAssignmentsAvailability.getAssignmentDatesByService(serviceKey, startDate?, endDate?)');
     console.log('   - AAAssignmentsAvailability.getAssignmentsByServiceAndDate(serviceKey, date)');
     console.log('   - AAAssignmentsAvailability.getSlotsForStaffAndDate(assignments, date, slotDuration?)');
+    console.log('   - AAAssignmentsAvailability.getFinalSlotsForStaffAndDate(assignments, date, slotDuration?)');
 
 })();
 

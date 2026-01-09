@@ -874,74 +874,24 @@
                 return;
             }
 
-            // 2️⃣ Obtener slots base desde las asignaciones
-            console.log('🔄 [FrontendAssignments] Obteniendo slots base...');
+            // 2️⃣ Obtener slots finales (base + filtrado por busy ranges)
+            console.log('🔄 [FrontendAssignments] Calculando slots finales...');
             
-            const baseSlots = window.AAAssignmentsAvailability.getSlotsForStaffAndDate(
+            const result = await window.AAAssignmentsAvailability.getFinalSlotsForStaffAndDate(
                 staffAssignments,
                 state.selectedDate,
                 state.slotDuration
             );
-
-            console.log('📊 [FrontendAssignments] Slots Base:', baseSlots);
             
-            if (baseSlots && baseSlots.length > 0) {
-                console.log('   Horarios:', baseSlots.map(function(s) {
-                    return window.DateUtils.hm(s);
-                }));
-            }
-
-            // 3️⃣ Obtener busy ranges
-            console.log('🔄 [FrontendAssignments] Obteniendo busy ranges...');
+            const finalSlots = result.finalSlots || [];
             
-            const assignmentIds = staffAssignments.map(function(a) {
-                return a.id;
+            console.log('📊 [FrontendAssignments] Slots calculados:', {
+                base: result.baseSlots?.length || 0,
+                final: finalSlots.length,
+                busyRanges: result.busyRanges?.length || 0
             });
 
-            const busyResult = await window.AABusyRangesAssignments.getBusyRangesByAssignments(
-                assignmentIds,
-                state.selectedDate
-            );
-
-            let busyRanges = [];
-            if (busyResult.success && busyResult.data.busy_ranges) {
-                // Convertir busy ranges a objetos Date
-                busyRanges = busyResult.data.busy_ranges.map(function(range) {
-                    return {
-                        start: new Date(range.start),
-                        end: new Date(range.end),
-                        title: range.title || 'Ocupado'
-                    };
-                });
-            }
-
-            console.log('📊 [FrontendAssignments] Busy Ranges:', busyRanges);
-            
-            if (busyRanges.length > 0) {
-                console.log('   Rangos ocupados:');
-                busyRanges.forEach(function(r) {
-                    console.log('   - ' + window.DateUtils.hm(r.start) + ' - ' + window.DateUtils.hm(r.end) + ' (' + r.title + ')');
-                });
-            }
-
-            // 4️⃣ Filtrar slots disponibles (quitar los que colisionan con busy ranges)
-            console.log('🔄 [FrontendAssignments] Filtrando slots disponibles...');
-            
-            let finalSlots = [];
-            
-            if (baseSlots && baseSlots.length > 0) {
-                finalSlots = baseSlots.filter(function(slot) {
-                    // Usar hasEnoughFreeTime de DateUtils para verificar
-                    const isAvailable = window.DateUtils.hasEnoughFreeTime(
-                        slot,
-                        state.slotDuration,
-                        busyRanges
-                    );
-                    return isAvailable;
-                });
-            }
-
-            // 5️⃣ Resultado final
+            // 3️⃣ Resultado final
             console.log('');
             console.log('═══════════════════════════════════════════════════════');
             console.log('✅ [FrontendAssignments] SLOTS FINALES CALCULADOS:', finalSlots.length);
@@ -979,8 +929,8 @@
                 selectedStaff: state.selectedStaff,
                 totalAssignments: state.currentAssignments.length,
                 staffAssignments: staffAssignments.length,
-                baseSlots: baseSlots ? baseSlots.length : 0,
-                busyRanges: busyRanges.length,
+                baseSlots: result.baseSlots?.length || 0,
+                busyRanges: result.busyRanges?.length || 0,
                 finalSlots: finalSlots.length
             });
 
