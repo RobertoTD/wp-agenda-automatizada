@@ -188,8 +188,11 @@ header('Content-Type: text/html; charset=utf-8');
 <!-- UI Adapters -->
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/ui-adapters/datePickerAdapter.js'); ?>" defer></script>
 
+<!-- Reservation Client Controller (requiere AAAdmin.ClientCreateModal) -->
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/controllers/reservationClientController.js'); ?>" defer></script>
+
 <!-- Transversal Modal: Reservation (último, usa todos los anteriores) -->
-<!-- Requiere: calendarAvailabilityService.js debe cargarse antes -->
+<!-- Requiere: calendarAvailabilityService.js y reservationClientController.js deben cargarse antes -->
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'includes/admin/ui/modals/reservation/reservation.js'); ?>" defer></script>
 
 <!-- Transversal Modal: Appointments -->

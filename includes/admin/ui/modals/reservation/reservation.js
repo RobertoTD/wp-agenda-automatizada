@@ -51,6 +51,11 @@
         _intervals: [],
 
         /**
+         * Client controller instance (for cleanup)
+         */
+        _clientController: null,
+
+        /**
          * State for new assignment-based flow
          */
         state: {
@@ -146,7 +151,16 @@
                 this.initAssignmentFlow();
 
                 // 6️⃣ Inicializar búsqueda de clientes
-                this.initClientSearch();
+                if (window.ReservationClientController) {
+                    this._clientController = window.ReservationClientController.init({
+                        searchInputId: 'aa-cliente-search',
+                        selectId: 'cita-cliente',
+                        inlineContainerId: 'aa-reservation-client-inline',
+                        createButtonId: 'aa-btn-crear-cliente-reservation'
+                    });
+                } else {
+                    console.warn('[ReservationModal] ReservationClientController no disponible');
+                }
 
                 this.initialized = true;
                 console.log('[ReservationModal] ✅ Todos los controladores inicializados');
@@ -971,314 +985,6 @@
             console.log('[AA][Reservation] ✅ Select de slots renderizado con ' + slotsHHMM.length + ' opciones');
         },
 
-        /**
-         * Initialize client search functionality
-         * Loads initial 15 most active clients and enables real-time search
-         */
-        initClientSearch: function() {
-            console.log('[AA][Reservation] Inicializando búsqueda de clientes...');
-
-            const searchInput = document.getElementById('aa-cliente-search');
-            const clienteSelect = document.getElementById('cita-cliente');
-
-            if (!searchInput || !clienteSelect) {
-                console.warn('[AA][Reservation] Elementos de búsqueda de clientes no encontrados');
-                return;
-            }
-
-            const self = this;
-            let previousSelectedValue = null;
-            
-            // Guardar último timeout ID para cleanup (se actualiza en cada input)
-            if (!this._handlers.searchTimeoutId) {
-                this._handlers.searchTimeoutId = null;
-            }
-            
-            // Obtener contenedor inline (disponible en todo el scope de initClientSearch)
-            const inlineContainer = document.getElementById('aa-reservation-client-inline');
-
-            /**
-             * Repopulate select with client results
-             * @param {Array} clients - Array of client objects
-             * @param {boolean} preserveSelection - Whether to preserve current selection if still valid
-             * @param {string|number} [selectClientId] - Optional client ID to select after repopulating
-             * @param {string} [selectClientPhone] - Optional client phone to select after repopulating (exact match)
-             */
-            function repopulateSelect(clients, preserveSelection, selectClientId, selectClientPhone) {
-                // Store current selection
-                if (preserveSelection) {
-                    previousSelectedValue = clienteSelect.value;
-                }
-
-                // Clear all options
-                clienteSelect.innerHTML = '';
-
-                // Add client options
-                if (clients && clients.length > 0) {
-                    clients.forEach(function(cliente, index) {
-                        const option = document.createElement('option');
-                        option.value = String(cliente.id);
-                        option.textContent = cliente.nombre + ' (' + cliente.telefono + ')';
-                        option.dataset.nombre = cliente.nombre || '';
-                        option.dataset.telefono = cliente.telefono || '';
-                        option.dataset.correo = cliente.correo || '';
-                        clienteSelect.appendChild(option);
-                    });
-
-                    // If a specific client phone is provided, try to select by phone first (exact match)
-                    if (selectClientPhone !== undefined && selectClientPhone !== null && selectClientPhone !== '') {
-                        const phoneStr = String(selectClientPhone).trim();
-                        const optionByPhone = Array.from(clienteSelect.options).find(function(opt) {
-                            return opt.dataset.telefono === phoneStr;
-                        });
-                        if (optionByPhone) {
-                            clienteSelect.value = optionByPhone.value;
-                            previousSelectedValue = optionByPhone.value;
-                            console.log('[AA][Reservation] Cliente seleccionado automáticamente por teléfono:', phoneStr);
-                        } else {
-                            // Phone not found, try by ID if provided, otherwise select first
-                            if (selectClientId !== undefined && selectClientId !== null) {
-                                const clientIdStr = String(selectClientId);
-                                const optionExists = Array.from(clienteSelect.options).some(function(opt) {
-                                    return opt.value === clientIdStr;
-                                });
-                                if (optionExists) {
-                                    clienteSelect.value = clientIdStr;
-                                    previousSelectedValue = clientIdStr;
-                                    console.log('[AA][Reservation] Cliente seleccionado automáticamente por ID:', clientIdStr);
-                                } else {
-                                    clienteSelect.selectedIndex = 0;
-                                    console.warn('[AA][Reservation] Cliente no encontrado por teléfono ni ID, seleccionando primero');
-                                }
-                            } else {
-                                clienteSelect.selectedIndex = 0;
-                                console.warn('[AA][Reservation] Cliente no encontrado por teléfono, seleccionando primero');
-                            }
-                        }
-                    }
-                    // If a specific client ID is provided (and no phone), select it
-                    else if (selectClientId !== undefined && selectClientId !== null) {
-                        const clientIdStr = String(selectClientId);
-                        const optionExists = Array.from(clienteSelect.options).some(function(opt) {
-                            return opt.value === clientIdStr;
-                        });
-                        if (optionExists) {
-                            clienteSelect.value = clientIdStr;
-                            previousSelectedValue = clientIdStr;
-                            console.log('[AA][Reservation] Cliente seleccionado automáticamente por ID:', clientIdStr);
-                        } else {
-                            // Client not found, select first result
-                            clienteSelect.selectedIndex = 0;
-                            console.warn('[AA][Reservation] Cliente ID no encontrado en resultados:', clientIdStr);
-                        }
-                    }
-                    // Restore selection if it still exists, otherwise select first result
-                    else if (preserveSelection && previousSelectedValue) {
-                        const optionExists = Array.from(clienteSelect.options).some(function(opt) {
-                            return opt.value === previousSelectedValue;
-                        });
-                        if (optionExists) {
-                            clienteSelect.value = previousSelectedValue;
-                        } else {
-                            // Selected client no longer in results, select first
-                            clienteSelect.selectedIndex = 0;
-                            previousSelectedValue = null;
-                            console.log('[AA][Reservation] Cliente seleccionado ya no está en resultados, seleccionando primero');
-                        }
-                    } else {
-                        // Select first result automatically
-                        clienteSelect.selectedIndex = 0;
-                    }
-                } else {
-                    // No results
-                    const noResultsOption = document.createElement('option');
-                    noResultsOption.value = '';
-                    noResultsOption.textContent = 'Sin coincidencias';
-                    noResultsOption.disabled = true;
-                    clienteSelect.appendChild(noResultsOption);
-                    clienteSelect.selectedIndex = 0;
-                }
-            }
-
-            /**
-             * Search clients via AJAX
-             * @param {string} query - Search query
-             * @param {boolean} preserveSelection - Whether to preserve current selection
-             * @param {string|number} [selectClientId] - Optional client ID to select after loading
-             * @param {string} [selectClientPhone] - Optional client phone to select after loading (exact match)
-             */
-            function searchClients(query, preserveSelection, selectClientId, selectClientPhone) {
-                const ajaxurl = window.ajaxurl || '/wp-admin/admin-ajax.php';
-                
-                // Prepare form data
-                const formData = new FormData();
-                formData.append('action', 'aa_search_clientes');
-                formData.append('query', query || '');
-                formData.append('limit', '15');
-                formData.append('offset', '0');
-
-                // Show loading state (disable select but keep current options visible)
-                clienteSelect.disabled = true;
-
-                // Make AJAX call
-                fetch(ajaxurl, {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(function(response) {
-                    return response.json();
-                })
-                .then(function(result) {
-                    clienteSelect.disabled = false;
-
-                    if (result.success && result.data && result.data.clients) {
-                        console.log('[AA][Reservation] Clientes encontrados:', result.data.clients.length);
-                        repopulateSelect(result.data.clients, preserveSelection, selectClientId, selectClientPhone);
-                    } else {
-                        console.warn('[AA][Reservation] Error en búsqueda de clientes:', result);
-                        repopulateSelect([], preserveSelection, selectClientId, selectClientPhone);
-                    }
-                })
-                .catch(function(error) {
-                    console.error('[AA][Reservation] Error al buscar clientes:', error);
-                    clienteSelect.disabled = false;
-                    repopulateSelect([], preserveSelection, selectClientId, selectClientPhone);
-                });
-            }
-
-            // Initial load: 15 most active clients (empty query returns most active)
-            searchClients('', false);
-
-            // Debounced search on input change
-            searchInput.addEventListener('input', function() {
-                const query = this.value.trim();
-
-                // Clear previous timeout
-                if (self._handlers.searchTimeoutId) {
-                    clearTimeout(self._handlers.searchTimeoutId);
-                    // Remover del array de timeouts si estaba
-                    const index = self._timeouts.indexOf(self._handlers.searchTimeoutId);
-                    if (index > -1) {
-                        self._timeouts.splice(index, 1);
-                    }
-                }
-
-                // Set new timeout (300ms debounce)
-                const timeoutId = setTimeout(function() {
-                    console.log('[AA][Reservation] Buscando clientes con query:', query);
-                    searchClients(query, true);
-                }, 300);
-                
-                // Guardar timeout ID
-                self._handlers.searchTimeoutId = timeoutId;
-                self._timeouts.push(timeoutId);
-            });
-
-            // Clear search on escape
-            searchInput.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape') {
-                    this.value = '';
-                    this.dispatchEvent(new Event('input'));
-                }
-            });
-
-            // Botón "Crear cliente" - abre formulario inline de crear cliente
-            const btnCrearCliente = document.getElementById('aa-btn-crear-cliente-reservation');
-            
-            if (btnCrearCliente && inlineContainer) {
-                btnCrearCliente.addEventListener('click', function(event) {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    
-                    if (window.AAAdmin && window.AAAdmin.ClientCreateModal) {
-                        console.log('[AA][Reservation] Abriendo formulario inline de crear cliente...');
-                        
-                        // Mostrar contenedor inline
-                        inlineContainer.style.display = 'block';
-                        
-                        // Abrir formulario en modo inline
-                        window.AAAdmin.ClientCreateModal.openCreate({
-                            mode: 'inline',
-                            container: inlineContainer
-                        });
-                    } else {
-                        console.error('[AA][Reservation] AAAdmin.ClientCreateModal no está disponible');
-                        alert('Error: Sistema de crear cliente no disponible');
-                    }
-                });
-            }
-
-            // Escuchar evento de cliente guardado para recargar y seleccionar
-            // Solo procesar si el modal de reservas está abierto (select existe)
-            // Bind once: solo registrar una vez
-            // Guardar referencia a searchClients que se actualizará cada vez que se llama initClientSearch
-            this._handlers.searchClientsRef = searchClients;
-            
-            if (!this._handlers.onClientSaved) {
-                const self = this;
-                
-                this._handlers.onClientSaved = function(event) {
-                    // Verificar que el select de clientes existe (modal está abierto)
-                    const clienteSelect = document.getElementById('cita-cliente');
-                    if (!clienteSelect) {
-                        // Modal de reservas no está abierto, ignorar evento
-                        return;
-                    }
-
-                    // Obtener teléfono con prioridad:
-                    // 1) event.detail.telefono (explícito)
-                    // 2) event.detail.cliente?.telefono (si existe)
-                    // 3) fallback: leer del input dentro del inlineContainer si el form sigue montado
-                    let telefono = null;
-                    
-                    if (event.detail && event.detail.telefono) {
-                        telefono = event.detail.telefono;
-                    } else if (event.detail && event.detail.cliente && event.detail.cliente.telefono) {
-                        telefono = event.detail.cliente.telefono;
-                    } else {
-                        // Fallback: intentar leer del input del formulario inline si aún está montado
-                        const inlineContainerEl = document.getElementById('aa-reservation-client-inline');
-                        if (inlineContainerEl) {
-                            const telefonoInput = inlineContainerEl.querySelector('#modal-cliente-telefono');
-                            if (telefonoInput && telefonoInput.value) {
-                                telefono = telefonoInput.value.trim();
-                            }
-                        }
-                    }
-                    
-                    if (!telefono || telefono === '') {
-                        console.warn('[AA][Reservation] Cliente guardado sin teléfono disponible');
-                        return;
-                    }
-
-                    console.log('[AA][Reservation] Cliente guardado, recargando lista y seleccionando por teléfono:', telefono);
-                    
-                    // Ocultar contenedor inline si está visible
-                    const inlineContainerEl = document.getElementById('aa-reservation-client-inline');
-                    if (inlineContainerEl) {
-                        inlineContainerEl.style.display = 'none';
-                    }
-                    
-                    // Setear el input de búsqueda con el teléfono
-                    const searchInputEl = document.getElementById('aa-cliente-search');
-                    if (searchInputEl) {
-                        searchInputEl.value = telefono;
-                    }
-                    
-                    // Recargar clientes y seleccionar el recién creado por teléfono (match exacto)
-                    // Usar la referencia actualizada guardada en _handlers
-                    if (self._handlers.searchClientsRef && typeof self._handlers.searchClientsRef === 'function') {
-                        self._handlers.searchClientsRef(telefono, false, null, telefono);
-                    } else {
-                        console.warn('[AA][Reservation] searchClients no disponible en handler');
-                    }
-                };
-
-                document.addEventListener('aa:client:saved', this._handlers.onClientSaved);
-            }
-
-            console.log('[AA][Reservation] ✅ Búsqueda de clientes inicializada');
-        },
 
         /**
          * Setup form submit handler to close modal on success
@@ -1345,9 +1051,11 @@
             if (this._handlers.onAdminDateSelected) {
                 document.removeEventListener('aa:admin:date-selected', this._handlers.onAdminDateSelected);
             }
-            
-            if (this._handlers.onClientSaved) {
-                document.removeEventListener('aa:client:saved', this._handlers.onClientSaved);
+
+            // Cleanup: destruir controller de clientes
+            if (this._clientController) {
+                this._clientController.destroy();
+                this._clientController = null;
             }
 
             // Cleanup: limpiar todos los timeouts
@@ -1361,12 +1069,6 @@
                 clearInterval(intervalId);
             });
             this._intervals = [];
-
-            // Limpiar referencia de searchTimeoutId
-            if (this._handlers.searchTimeoutId) {
-                clearTimeout(this._handlers.searchTimeoutId);
-                this._handlers.searchTimeoutId = null;
-            }
 
             AAAdmin.closeModal();
             this.initialized = false;
