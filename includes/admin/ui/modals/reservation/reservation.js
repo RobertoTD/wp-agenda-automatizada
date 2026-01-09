@@ -1100,8 +1100,9 @@
              * @param {Array} clients - Array of client objects
              * @param {boolean} preserveSelection - Whether to preserve current selection if still valid
              * @param {string|number} [selectClientId] - Optional client ID to select after repopulating
+             * @param {string} [selectClientPhone] - Optional client phone to select after repopulating (exact match)
              */
-            function repopulateSelect(clients, preserveSelection, selectClientId) {
+            function repopulateSelect(clients, preserveSelection, selectClientId, selectClientPhone) {
                 // Store current selection
                 if (preserveSelection) {
                     previousSelectedValue = clienteSelect.value;
@@ -1122,8 +1123,39 @@
                         clienteSelect.appendChild(option);
                     });
 
-                    // If a specific client ID is provided, select it
-                    if (selectClientId !== undefined && selectClientId !== null) {
+                    // If a specific client phone is provided, try to select by phone first (exact match)
+                    if (selectClientPhone !== undefined && selectClientPhone !== null && selectClientPhone !== '') {
+                        const phoneStr = String(selectClientPhone).trim();
+                        const optionByPhone = Array.from(clienteSelect.options).find(function(opt) {
+                            return opt.dataset.telefono === phoneStr;
+                        });
+                        if (optionByPhone) {
+                            clienteSelect.value = optionByPhone.value;
+                            previousSelectedValue = optionByPhone.value;
+                            console.log('[AA][Reservation] Cliente seleccionado automáticamente por teléfono:', phoneStr);
+                        } else {
+                            // Phone not found, try by ID if provided, otherwise select first
+                            if (selectClientId !== undefined && selectClientId !== null) {
+                                const clientIdStr = String(selectClientId);
+                                const optionExists = Array.from(clienteSelect.options).some(function(opt) {
+                                    return opt.value === clientIdStr;
+                                });
+                                if (optionExists) {
+                                    clienteSelect.value = clientIdStr;
+                                    previousSelectedValue = clientIdStr;
+                                    console.log('[AA][Reservation] Cliente seleccionado automáticamente por ID:', clientIdStr);
+                                } else {
+                                    clienteSelect.selectedIndex = 0;
+                                    console.warn('[AA][Reservation] Cliente no encontrado por teléfono ni ID, seleccionando primero');
+                                }
+                            } else {
+                                clienteSelect.selectedIndex = 0;
+                                console.warn('[AA][Reservation] Cliente no encontrado por teléfono, seleccionando primero');
+                            }
+                        }
+                    }
+                    // If a specific client ID is provided (and no phone), select it
+                    else if (selectClientId !== undefined && selectClientId !== null) {
                         const clientIdStr = String(selectClientId);
                         const optionExists = Array.from(clienteSelect.options).some(function(opt) {
                             return opt.value === clientIdStr;
@@ -1131,7 +1163,7 @@
                         if (optionExists) {
                             clienteSelect.value = clientIdStr;
                             previousSelectedValue = clientIdStr;
-                            console.log('[AA][Reservation] Cliente seleccionado automáticamente:', clientIdStr);
+                            console.log('[AA][Reservation] Cliente seleccionado automáticamente por ID:', clientIdStr);
                         } else {
                             // Client not found, select first result
                             clienteSelect.selectedIndex = 0;
@@ -1171,8 +1203,9 @@
              * @param {string} query - Search query
              * @param {boolean} preserveSelection - Whether to preserve current selection
              * @param {string|number} [selectClientId] - Optional client ID to select after loading
+             * @param {string} [selectClientPhone] - Optional client phone to select after loading (exact match)
              */
-            function searchClients(query, preserveSelection, selectClientId) {
+            function searchClients(query, preserveSelection, selectClientId, selectClientPhone) {
                 const ajaxurl = window.ajaxurl || '/wp-admin/admin-ajax.php';
                 
                 // Prepare form data
@@ -1198,16 +1231,16 @@
 
                     if (result.success && result.data && result.data.clients) {
                         console.log('[AA][Reservation] Clientes encontrados:', result.data.clients.length);
-                        repopulateSelect(result.data.clients, preserveSelection, selectClientId);
+                        repopulateSelect(result.data.clients, preserveSelection, selectClientId, selectClientPhone);
                     } else {
                         console.warn('[AA][Reservation] Error en búsqueda de clientes:', result);
-                        repopulateSelect([], preserveSelection, selectClientId);
+                        repopulateSelect([], preserveSelection, selectClientId, selectClientPhone);
                     }
                 })
                 .catch(function(error) {
                     console.error('[AA][Reservation] Error al buscar clientes:', error);
                     clienteSelect.disabled = false;
-                    repopulateSelect([], preserveSelection, selectClientId);
+                    repopulateSelect([], preserveSelection, selectClientId, selectClientPhone);
                 });
             }
 
@@ -1274,29 +1307,43 @@
                     return;
                 }
 
-                const clienteData = event.detail && event.detail.cliente ? event.detail.cliente : null;
+                // Obtener teléfono con prioridad:
+                // 1) event.detail.telefono (explícito)
+                // 2) event.detail.cliente?.telefono (si existe)
+                // 3) fallback: leer del input dentro del inlineContainer si el form sigue montado
+                let telefono = null;
                 
-                if (!clienteData) {
-                    console.warn('[AA][Reservation] Evento aa:client:saved sin datos de cliente');
+                if (event.detail && event.detail.telefono) {
+                    telefono = event.detail.telefono;
+                } else if (event.detail && event.detail.cliente && event.detail.cliente.telefono) {
+                    telefono = event.detail.cliente.telefono;
+                } else if (inlineContainer) {
+                    // Fallback: intentar leer del input del formulario inline si aún está montado
+                    const telefonoInput = inlineContainer.querySelector('#modal-cliente-telefono');
+                    if (telefonoInput && telefonoInput.value) {
+                        telefono = telefonoInput.value.trim();
+                    }
+                }
+                
+                if (!telefono || telefono === '') {
+                    console.warn('[AA][Reservation] Cliente guardado sin teléfono disponible');
                     return;
                 }
 
-                const clienteId = clienteData.id;
-                
-                if (!clienteId) {
-                    console.warn('[AA][Reservation] Cliente guardado sin ID');
-                    return;
-                }
-
-                console.log('[AA][Reservation] Cliente guardado, recargando lista y seleccionando:', clienteId);
+                console.log('[AA][Reservation] Cliente guardado, recargando lista y seleccionando por teléfono:', telefono);
                 
                 // Ocultar contenedor inline si está visible
                 if (inlineContainer) {
                     inlineContainer.style.display = 'none';
                 }
                 
-                // Recargar clientes y seleccionar el recién creado
-                searchClients('', false, clienteId);
+                // Setear el input de búsqueda con el teléfono
+                if (searchInput) {
+                    searchInput.value = telefono;
+                }
+                
+                // Recargar clientes y seleccionar el recién creado por teléfono (match exacto)
+                searchClients(telefono, false, null, telefono);
             }
 
             // Registrar listener global (se ejecuta solo si el select existe)

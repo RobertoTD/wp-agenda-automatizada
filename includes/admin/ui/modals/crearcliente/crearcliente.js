@@ -204,6 +204,7 @@
                 
                 document.dispatchEvent(new CustomEvent('aa:client:saved', {
                     detail: {
+                        telefono: telefono, // Incluir teléfono explícitamente
                         cliente: clienteData,
                         isEdit: false
                     }

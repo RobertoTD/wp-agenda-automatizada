@@ -1165,6 +1165,10 @@ body.aa-modal-open {
   visibility: visible;
 }
 
+.fixed {
+  position: fixed;
+}
+
 .absolute {
   position: absolute;
 }
@@ -1293,6 +1297,10 @@ body.aa-modal-open {
 
 .inline-block {
   display: inline-block;
+}
+
+.inline {
+  display: inline;
 }
 
 .flex {
