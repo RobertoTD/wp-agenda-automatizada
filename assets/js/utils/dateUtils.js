@@ -152,7 +152,17 @@ function generateSlotsForDay(date, intervals, busyRanges, slotDuration = 30) {
   console.log(`🕒 Generando slots para ${ymd(date)} con duración de ${slotDuration} min (política: allow in-progress slot until end time)`);
   
   intervals.forEach(iv => {
-    for (let min = iv.start; min < iv.end; min += 30) {
+    // Calcular el último minuto de inicio permitido para que el slot no rebase el fin del intervalo
+    const latestStartMin = iv.end - slotDuration;
+    
+    // Log debug si el intervalo es insuficiente para generar slots con esta duración
+    if (latestStartMin < iv.start) {
+      console.log(`⚠️ Intervalo insuficiente: ${Math.floor(iv.start/60)}:${String(iv.start%60).padStart(2,'0')}-${Math.floor(iv.end/60)}:${String(iv.end%60).padStart(2,'0')} no puede alojar slots de ${slotDuration}min (último inicio permitido: ${Math.floor(latestStartMin/60)}:${String(latestStartMin%60).padStart(2,'0')})`);
+      return; // Saltar este intervalo (no genera slots)
+    }
+    
+    // Iterar solo hasta latestStartMin para evitar que slotEnd rebase iv.end
+    for (let min = iv.start; min <= latestStartMin; min += 30) {
       const slot = new Date(date);
       slot.setHours(Math.floor(min / 60), min % 60, 0, 0);
       

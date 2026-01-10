@@ -56,6 +56,10 @@
     form.addEventListener('submit', async function(e) {
       e.preventDefault();
 
+      // 🔹 Leer checkbox de auto-confirmación al inicio del submit
+      const autoConfirmEl = document.getElementById('aa-reservation-auto-confirm');
+      const autoConfirm = !!(autoConfirmEl && autoConfirmEl.checked && autoConfirmEl.value === 'confirmed');
+
       const clienteSelect = document.getElementById('cita-cliente');
       const slotSelector = document.getElementById('slot-selector-admin');
       const selectedSlotISO = slotSelector ? slotSelector.value : null;
@@ -102,16 +106,46 @@
           console.warn('⚠️ No se recibió ID de reserva en la respuesta del backend.');
         }
 
-        // 🔹 PASO 3: Enviar confirmación usando ReservationService (sin bloquear)
-        window.ReservationService.sendConfirmation(datos).catch(emailError => {
-          console.warn('⚠️ Error al enviar correo (no crítico):', emailError);
-        });
+        // 🔹 PASO 3: Manejar auto-confirmación o envío de correo normal
+        if (autoConfirm) {
+          // Auto-confirmación activada: confirmar la cita inmediatamente
+          if (!datos.id_reserva) {
+            console.warn('⚠️ No se puede confirmar: ID de reserva no disponible');
+            alert('✅ Cita agendada correctamente, pero no se pudo confirmar automáticamente (ID no disponible).');
+          } else if (!window.ConfirmService || typeof window.ConfirmService.confirmar !== 'function') {
+            alert('❌ Error: ConfirmService no disponible. La cita se creó pero no se pudo confirmar.');
+            console.error('❌ ConfirmService no disponible o método confirmar no existe');
+          } else {
+            try {
+              const confirmResp = await window.ConfirmService.confirmar(datos.id_reserva);
+              
+              if (confirmResp.success) {
+                alert('✅ Cita agendada y confirmada.');
+                console.log('✅ Cita confirmada automáticamente:', confirmResp);
+              } else {
+                alert('⚠️ Cita agendada pero NO se pudo confirmar: ' + (confirmResp.data?.message || 'Error desconocido'));
+                console.warn('⚠️ Error al confirmar cita:', confirmResp);
+              }
+            } catch (confirmErr) {
+              alert('⚠️ Cita agendada pero NO se pudo confirmar: ' + confirmErr.message);
+              console.error('❌ Error al confirmar cita:', confirmErr);
+            }
+          }
+          
+          // NO llamar sendConfirmation cuando auto-confirm está activo
+          // (el flujo de confirmar ya maneja la confirmación)
+        } else {
+          // Comportamiento normal: enviar correo de confirmación
+          window.ReservationService.sendConfirmation(datos).catch(emailError => {
+            console.warn('⚠️ Error al enviar correo (no crítico):', emailError);
+          });
 
-        // 🔹 PASO 4: Mostrar mensaje de éxito
-        // NOTA: En modal, el cierre se maneja en reservation.js
-        alert('✅ Cita agendada correctamente. Se ha enviado correo de confirmación.');
+          // Mostrar mensaje de éxito
+          alert('✅ Cita agendada correctamente. Se ha enviado correo de confirmación.');
+        }
         
-        // Solo recargar si NO estamos en modal (legacy behavior)
+        // 🔹 PASO 4: Recargar solo si NO estamos en modal (legacy behavior)
+        // NOTA: En modal, el cierre se maneja en reservation.js
         if (btnToggle) {
           location.reload();
         }

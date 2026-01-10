@@ -58,7 +58,7 @@ $duraciones = [30, 60, 90];
                         class="aa-btn-crear-cliente-reservation"
                         style="padding: 8px 16px; font-size: 14px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;"
                     >
-                        Crear cliente
+                        + cliente
                     </button>
                 </div>
                 <!-- Contenedor inline para crear cliente (se muestra cuando se hace clic en "Crear cliente") -->
@@ -136,9 +136,22 @@ $duraciones = [30, 60, 90];
                 </select>
             </div>
             
-            <!-- Contenedor de slots -->
+            <!-- Contenedor de slots con checkbox de confirmación -->
             <div class="aa-form-cita-group">
-                <div id="slot-container-admin"></div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div id="slot-container-admin" style="flex: 1;"></div>
+                    <div>
+                        <label for="aa-reservation-auto-confirm" style="white-space: nowrap; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <input 
+                                type="checkbox" 
+                                id="aa-reservation-auto-confirm" 
+                                name="aa_reservation_auto_confirm" 
+                                value="confirmed"
+                            >
+                            <span>Confirmar</span>
+                        </label>
+                    </div>
+                </div>
             </div>
             
             <!-- Botones -->
