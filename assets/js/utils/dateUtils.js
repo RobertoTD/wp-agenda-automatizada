@@ -149,17 +149,23 @@ function generateSlotsForDay(date, intervals, busyRanges, slotDuration = 30) {
   const now = new Date();
   const isToday = date.toDateString() === now.toDateString();
   
-  const minAvailableTime = new Date(now.getTime() + 60 * 60 * 1000); // +1 hora
-  
-  console.log(`🕒 Generando slots para ${ymd(date)} con duración de ${slotDuration} min`);
+  console.log(`🕒 Generando slots para ${ymd(date)} con duración de ${slotDuration} min (política: allow in-progress slot until end time)`);
   
   intervals.forEach(iv => {
     for (let min = iv.start; min < iv.end; min += 30) {
       const slot = new Date(date);
       slot.setHours(Math.floor(min / 60), min % 60, 0, 0);
       
-      if (isToday && slot < minAvailableTime) {
-        continue;
+      // Para slots de hoy: permitir solo si el slot aún no ha terminado
+      if (isToday) {
+        const slotEnd = new Date(slot.getTime() + slotDuration * 60000);
+        
+        // Si el slot ya terminó (slotEnd <= now), bloquearlo
+        if (slotEnd <= now) {
+          continue;
+        }
+        
+        // Si slotEnd > now, el slot está en curso o futuro, puede pasar a validación
       }
       
       if (hasEnoughFreeTime(slot, slotDuration, busyRanges)) {
