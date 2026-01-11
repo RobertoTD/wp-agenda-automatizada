@@ -61,6 +61,9 @@ require_once plugin_dir_path(__FILE__) . 'historial-citas.php';
 // 8️⃣ Admin: Iframe Test (UI aislada)
 require_once plugin_dir_path(__FILE__) . 'includes/admin/iframe-test.php';
 
+// 9️⃣ Routes: Agenda App endpoint
+require_once plugin_dir_path(__FILE__) . 'includes/routes/agenda-app.php';
+
 // ================================
 // 🔹 REGISTRO DE WEBHOOKS REST API
 // ================================
@@ -321,6 +324,15 @@ register_activation_hook(__FILE__, function() {
     if (get_option('aa_service_schedule') === false) {
         add_option('aa_service_schedule', ''); // ⚠️ Cambia 'aa_nuevo_campo' y el valor por defecto según necesites
     }
+    
+    // 🔹 Flush rewrite rules for /agenda-app endpoint
+    add_rewrite_rule('^agenda-app/?$', 'index.php?aa_agenda_app=1', 'top');
+    flush_rewrite_rules();
+});
+
+// 🔹 Flush rewrite rules on deactivation
+register_deactivation_hook(__FILE__, function() {
+    flush_rewrite_rules();
 });
 
 // ===============================
