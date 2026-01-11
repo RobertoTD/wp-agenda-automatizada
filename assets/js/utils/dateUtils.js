@@ -167,15 +167,17 @@ function generateSlotsForDay(date, intervals, busyRanges, slotDuration = 30) {
       slot.setHours(Math.floor(min / 60), min % 60, 0, 0);
       
       // Para slots de hoy: permitir solo si el slot aún no ha terminado
+      // Usar "gate" de máximo 30 min para el start-bound (independiente de duración real de la cita)
       if (isToday) {
-        const slotEnd = new Date(slot.getTime() + slotDuration * 60000);
+        const gateMinutes = Math.min(30, slotDuration);
+        const gateEnd = new Date(slot.getTime() + gateMinutes * 60000);
         
-        // Si el slot ya terminó (slotEnd <= now), bloquearlo
-        if (slotEnd <= now) {
+        // Si el slot ya terminó (gateEnd <= now), bloquearlo
+        if (gateEnd <= now) {
           continue;
         }
         
-        // Si slotEnd > now, el slot está en curso o futuro, puede pasar a validación
+        // Si gateEnd > now, el slot está en curso o futuro, puede pasar a validación
       }
       
       if (hasEnoughFreeTime(slot, slotDuration, busyRanges)) {
