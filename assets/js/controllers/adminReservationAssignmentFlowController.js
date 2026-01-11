@@ -52,10 +52,15 @@
         const serviceSelect = document.getElementById(serviceSelectId);
         const staffSelect = document.getElementById(staffSelectId);
         const fechaInput = document.getElementById('cita-fecha');
+        const duracionSelect = document.getElementById('cita-duracion');
 
         if (!serviceSelect || !fechaInput || !staffSelect) {
             console.warn('[AdminReservationAssignmentFlowController] Elementos del flujo de asignaciones no encontrados');
             return null;
+        }
+
+        if (!duracionSelect) {
+            console.warn('[AdminReservationAssignmentFlowController] Select de duración no encontrado (#cita-duracion)');
         }
 
         // Helper: Detectar si un servicio es de horario fijo
@@ -68,10 +73,25 @@
             return typeof serviceKey === 'string' && serviceKey.startsWith('fixed::');
         }
 
+        // Helper: Obtener duración seleccionada del select
+        function getSelectedDurationMinutes() {
+            if (!duracionSelect) {
+                // Fallback si el select no existe
+                return window.aa_slot_duration || 60;
+            }
+            const v = parseInt(duracionSelect.value, 10);
+            if (isNaN(v) || v <= 0) {
+                // Fallback si el valor es inválido
+                return window.aa_slot_duration || 60;
+            }
+            return v;
+        }
+
         // Event handlers (will be stored for cleanup)
         let handleServiceChange = null;
         let handleStaffChange = null;
         let handleDateSelected = null;
+        let handleDurationChange = null;
         let dateSelectedBound = false;
 
         /**
@@ -239,7 +259,7 @@
 
                 // 1️⃣ Obtener schedule y configuración
                 const schedule = window.aa_schedule || {};
-                const slotDuration = window.aa_slot_duration || 30;
+                const slotDuration = getSelectedDurationMinutes();
 
                 log('[AdminReservationAssignmentFlowController][FIXED] Configuración:', {
                     schedule: schedule,
@@ -384,7 +404,8 @@
             // ============================================
             // 🧮 CALCULAR SLOTS FINALES (base + filtrado por busy ranges)
             // ============================================
-            const slotDuration = 30; // Duración fija de slots en admin
+            // appointmentDuration = duración de la cita (30/60/90). El grid interno sigue siendo 30.
+            const appointmentDuration = getSelectedDurationMinutes();
             
             // Usar el servicio unificado para obtener slots finales
             if (typeof window.AAAssignmentsAvailability !== 'undefined' && 
@@ -394,7 +415,7 @@
                     const result = await window.AAAssignmentsAvailability.getFinalSlotsForStaffAndDate(
                         staffAssignments,
                         selectedDate,
-                        slotDuration
+                        appointmentDuration
                     );
                     
                     const finalSlots = result.finalSlots || [];
@@ -425,7 +446,7 @@
                         const baseSlots = window.AAAssignmentsAvailability.getSlotsForStaffAndDate(
                             staffAssignments,
                             selectedDate,
-                            slotDuration
+                            appointmentDuration
                         );
                         if (baseSlots && baseSlots.length > 0) {
                             const baseSlotStrings = baseSlots.map(function(s) {
@@ -443,7 +464,7 @@
                     const baseSlots = window.AAAssignmentsAvailability.getSlotsForStaffAndDate(
                         staffAssignments,
                         selectedDate,
-                        slotDuration
+                        appointmentDuration
                     );
                     if (baseSlots && baseSlots.length > 0) {
                         const baseSlotStrings = baseSlots.map(function(s) {
@@ -548,6 +569,30 @@
         };
         staffSelect.addEventListener('change', handleStaffChange);
 
+        // Listen for duration changes
+        if (duracionSelect) {
+            handleDurationChange = function() {
+                const state = getState();
+                
+                // Solo recalcular si hay fecha y servicio seleccionados
+                if (!state.selectedDate || !state.selectedService) {
+                    return;
+                }
+                
+                // Si es servicio fixed, recalcular slots
+                if (isFixedService(state.selectedService)) {
+                    calculateFixedSlotsForAdmin(state.selectedDate);
+                } else {
+                    // Para assignments, recalcular solo si ya hay staff seleccionado
+                    const selectedStaffId = staffSelect.value;
+                    if (selectedStaffId) {
+                        handleStaffSelection(selectedStaffId);
+                    }
+                }
+            };
+            duracionSelect.addEventListener('change', handleDurationChange);
+        }
+
         // Listen for date changes using the existing 'aa:admin:date-selected' event
         // Bind once: solo registrar una vez (usar flag interno)
         if (!dateSelectedBound) {
@@ -634,6 +679,9 @@
                 if (handleDateSelected) {
                     document.removeEventListener('aa:admin:date-selected', handleDateSelected);
                     dateSelectedBound = false;
+                }
+                if (handleDurationChange && duracionSelect) {
+                    duracionSelect.removeEventListener('change', handleDurationChange);
                 }
 
                 log('[AdminReservationAssignmentFlowController] ✅ Destruido y limpiado');
