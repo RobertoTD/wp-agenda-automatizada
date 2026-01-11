@@ -31,8 +31,46 @@ function aa_render_iframe_test_page() {
 // Handler: Delegate to UI layer
 // ================================
 add_action('admin_post_aa_iframe_content', 'aa_handle_iframe_content');
+add_action('admin_post_nopriv_aa_iframe_content', 'aa_handle_iframe_content_nopriv');
+
+/**
+ * Handle iframe content request for non-authenticated users
+ * Redirects to login with redirect_to parameter
+ */
+function aa_handle_iframe_content_nopriv() {
+    // Build target URL (where to return after login)
+    $target_url = admin_url('admin-post.php?action=aa_iframe_content');
+    
+    // Add module parameter if present
+    if (isset($_GET['module']) && !empty($_GET['module'])) {
+        $module = sanitize_key($_GET['module']);
+        $target_url = add_query_arg('module', $module, $target_url);
+    }
+    
+    // Redirect to login with redirect_to parameter
+    $login_url = wp_login_url($target_url);
+    wp_safe_redirect($login_url);
+    exit;
+}
 
 function aa_handle_iframe_content() {
+    // Defensive guard: redirect to login if not logged in
+    if (!is_user_logged_in()) {
+        // Build target URL (where to return after login)
+        $target_url = admin_url('admin-post.php?action=aa_iframe_content');
+        
+        // Add module parameter if present
+        if (isset($_GET['module']) && !empty($_GET['module'])) {
+            $module = sanitize_key($_GET['module']);
+            $target_url = add_query_arg('module', $module, $target_url);
+        }
+        
+        // Redirect to login
+        $login_url = wp_login_url($target_url);
+        wp_safe_redirect($login_url);
+        exit;
+    }
+    
     // Permission check
     if (!current_user_can('manage_options')) {
         wp_die('Acceso denegado', 'Error', ['response' => 403]);
