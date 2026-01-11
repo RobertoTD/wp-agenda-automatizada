@@ -35,7 +35,7 @@ add_action('admin_menu', function() {
 
 // Render iframe container for settings page
 function aa_render_settings_iframe_page() {
-    $iframe_url = admin_url('admin-post.php?action=aa_iframe_content&module=settings');
+    $iframe_url = admin_url('admin-post.php?action=aa_iframe_content&module=calendar');
     ?>
     <div class="wrap aa-iframe-wrapper" style="margin: 0; padding: 0;">
         <iframe 

@@ -15,7 +15,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
 // Render iframe container
 // ================================
 function aa_render_iframe_test_page() {
-    $iframe_url = admin_url('admin-post.php?action=aa_iframe_content');
+    $iframe_url = admin_url('admin-post.php?action=aa_iframe_content&module=calendar');
     ?>
     <div class="wrap">
         <iframe 
