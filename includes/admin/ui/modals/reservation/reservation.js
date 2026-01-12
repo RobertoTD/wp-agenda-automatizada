@@ -127,8 +127,6 @@
                         this.setupFormSubmitHandler(form);
                         
                         window.AdminReservationController.init({
-                            btnToggle: null, // No se usa toggle en modal
-                            formNuevaCita: form,
                             btnCancelar: btnCancelar,
                             form: form
                         });

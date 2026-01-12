@@ -11,37 +11,18 @@
    */
   function initAdminReservationController(config) {
     const {
-      btnToggle,
-      formNuevaCita,
       btnCancelar,
       form
     } = config;
 
-    // En modal, btnToggle puede ser null
-    if (!formNuevaCita || !form) {
-      console.error('❌ No se encontraron los elementos del formulario de admin');
+    if (!form) {
+      console.error('❌ No se encontró el formulario de admin');
       return;
-    }
-
-    // Toggle formulario (solo si btnToggle existe)
-    if (btnToggle) {
-      btnToggle.addEventListener('click', function() {
-        formNuevaCita.classList.toggle('visible');
-        if (formNuevaCita.classList.contains('visible')) {
-          btnToggle.textContent = '− Ocultar formulario';
-        } else {
-          btnToggle.textContent = '+ Crear nueva cita';
-        }
-      });
     }
 
     // Cancelar formulario
     if (btnCancelar) {
       btnCancelar.addEventListener('click', function() {
-        if (btnToggle) {
-          formNuevaCita.classList.remove('visible');
-          btnToggle.textContent = '+ Crear nueva cita';
-        }
         form.reset();
         const slotContainer = document.getElementById('slot-container-admin');
         if (slotContainer) {
@@ -192,11 +173,7 @@
           console.warn('⚠️ AdminCalendarController.recargar no disponible, el calendario no se actualizará automáticamente');
         }
         
-        // 🔹 PASO 6: Recargar página solo si NO estamos en modal (legacy behavior)
-        // NOTA: En modal, el cierre se maneja en reservation.js
-        if (btnToggle) {
-          location.reload();
-        }
+        // NOTA: El cierre del modal se maneja en reservation.js
 
       } catch (err) {
         console.error('❌ Error al agendar:', err);
