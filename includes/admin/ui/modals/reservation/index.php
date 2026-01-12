@@ -3,7 +3,6 @@
  * Reservation Modal - HTML Content Template
  * 
  * This file provides the body content for the reservation modal.
- * Uses EXACT same IDs as legacy admin form (asistant-controls.php)
  * 
  * Required IDs (NO CAMBIAR):
  * - form-crear-cita-admin
