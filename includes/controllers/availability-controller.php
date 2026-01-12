@@ -6,7 +6,6 @@
 if (!defined('ABSPATH')) exit;
 
 require_once plugin_dir_path(__FILE__) . '../models/ReservationsModel.php';
-require_once plugin_dir_path(__FILE__) . '../services/availability-proxy.php';
 
 /**
  * Hook para encolar datos de disponibilidad local en el FRONTEND

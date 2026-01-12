@@ -101,14 +101,6 @@ header('Content-Type: text/html; charset=utf-8');
         nonce: '<?php echo esc_js(wp_create_nonce('aa_reservation_nonce')); ?>'
     };
     
-    // Configuración de disponibilidad
-    window.aa_backend = {
-        ajax_url: '<?php echo esc_js(admin_url('admin-ajax.php')); ?>',
-        action: 'aa_get_availability',
-        email: '<?php echo esc_js($email); ?>',
-        gsync_status: '<?php echo esc_js(get_option("aa_estado_gsync", "active")); ?>'
-    };
-    
     window.aa_schedule = <?php echo wp_json_encode($schedule); ?>;
     window.aa_future_window = <?php echo intval($future_window); ?>;
     window.aa_slot_duration = <?php echo intval($slot_duration); ?>;
@@ -160,8 +152,6 @@ header('Content-Type: text/html; charset=utf-8');
 <!-- slotSelectorAdminUI.js removido: ya no se usa, el modal renderiza slots directamente con renderAssignmentSlots() -->
 
 <!-- Availability Services (orden de dependencias) -->
-<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/availability/proxyFetch.js'); ?>" defer></script>
-<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/availability/combineLocalExternal.js'); ?>" defer></script>
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/availability/busyRanges.js'); ?>" defer></script>
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/availability/slotCalculator.js'); ?>" defer></script>
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/availabilityService.js'); ?>" defer></script>

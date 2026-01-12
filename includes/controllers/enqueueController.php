@@ -86,11 +86,9 @@ function wpaa_enqueue_frontend_assets() {
         ['aa-modal-default-adapter',     'assets/js/ui-adapters/modalDefaultAdapter.js', ['wpaa-date-utils', 'aa-wpagenda-kernel'], false],
         ['wpaa-calendar-ui',             'assets/js/ui/calendarUI.js', ['flatpickr-js', 'flatpickr-es', 'wpaa-date-utils'], false],
         ['wpaa-slot-selector-ui',        'assets/js/ui/slotSelectorUI.js', ['wpaa-date-utils'], false],
-        ['wpaa-proxy-fetch',             'assets/js/services/availability/proxyFetch.js', [], false],
-        ['wpaa-combine-local-external',  'assets/js/services/availability/combineLocalExternal.js', [], false],
         ['wpaa-busy-ranges',             'assets/js/services/availability/busyRanges.js', [], false],
         ['wpaa-slot-calculator',         'assets/js/services/availability/slotCalculator.js', ['wpaa-date-utils'], false],
-        ['wpaa-availability-service',    'assets/js/services/availabilityService.js', ['wpaa-date-utils', 'wpaa-proxy-fetch', 'wpaa-combine-local-external', 'wpaa-busy-ranges', 'wpaa-slot-calculator'], false],
+        ['wpaa-availability-service',    'assets/js/services/availabilityService.js', ['wpaa-date-utils', 'wpaa-busy-ranges', 'wpaa-slot-calculator'], false],
         ['wpaa-reservation-service',     'assets/js/services/reservationService.js', [], false],
         ['wpaa-availability-controller', 'assets/js/controllers/availabilityController.js', ['wpaa-date-utils', 'wpaa-calendar-ui', 'wpaa-slot-selector-ui', 'wpaa-availability-service', 'aa-wpagenda-kernel', 'aa-calendar-default-adapter', 'aa-slots-default-adapter', 'aa-modal-default-adapter'], false],
         ['wpaa-reservation-controller',  'assets/js/controllers/reservationController.js', ['wpaa-reservation-service', 'aa-wpagenda-kernel', 'aa-calendar-default-adapter', 'aa-slots-default-adapter', 'aa-modal-default-adapter'], false],
@@ -113,12 +111,6 @@ function wpaa_enqueue_frontend_assets() {
         'before'
     );
 
-    wpaa_localize('wpaa-availability-controller', 'aa_backend', [
-        'ajax_url'     => admin_url('admin-ajax.php'),
-        'action'       => 'aa_get_availability',
-        'email'        => get_option('aa_google_email', ''),
-        'gsync_status' => get_option('aa_estado_gsync', 'active'),
-    ]);
 
     wpaa_localize('wpaa-availability-controller', 'aa_schedule',      get_option('aa_schedule', []));
     wpaa_localize('wpaa-availability-controller', 'aa_future_window', intval(get_option('aa_future_window', 15)));

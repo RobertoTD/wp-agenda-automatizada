@@ -1,100 +1,13 @@
 /**
- * Servicio Proxy de Disponibilidad
+ * Servicio de Disponibilidad Local
  */
 (function() {
   'use strict';
 
   // ✅ Referencias locales (dentro del IIFE)
-  const { startFetchLoop, stopFetchLoop } = window.ProxyFetch;
-  const { combineLocalExternal } = window.CombineLocalExternal;
-  const { generateBusyRanges, loadLocalBusyRanges } = window.BusyRanges;
+  const { loadLocalBusyRanges } = window.BusyRanges;
   const { calculateSlotsRange } = window.SlotCalculator;
   const { ymd, getWeekdayName, getDayIntervals, computeLimits, isDateInRange } = window.DateUtils;
-
-  class AvailabilityProxy {
-    constructor(config = {}) {
-      this.ajaxUrl = config.ajaxUrl || '/wp-admin/admin-ajax.php';
-      this.action = config.action || 'aa_get_availability';
-      this.email = config.email || '';
-      this.maxAttempts = config.maxAttempts || 20;
-      this.retryInterval = config.retryInterval || 15000;
-      
-      this.availableSlotsPerDay = {};
-      this.busyRanges = [];
-    }
-
-    calculateAvailableSlots(schedule, futureWindow, slotDuration) {
-      const minDate = new Date();
-      const maxDate = new Date();
-      maxDate.setDate(minDate.getDate() + futureWindow);
-
-      this.availableSlotsPerDay = calculateSlotsRange(
-        minDate, 
-        maxDate, 
-        schedule, 
-        this.busyRanges, 
-        slotDuration
-      );
-      
-      return this.availableSlotsPerDay;
-    }
-
-    isDateAvailable(date) {
-      return (this.availableSlotsPerDay[window.DateUtils.ymd(date)]?.length || 0) > 0;
-    }
-
-    disableDate(date) {
-      return !this.isDateAvailable(date);
-    }
-
-    getSlotsForDate(date) {
-      const key = window.DateUtils.ymd(date);
-      const slots = this.availableSlotsPerDay[key] || [];
-      
-      console.log(`🔍 getSlotsForDate(${key}): ${slots.length} slots disponibles`);
-      
-      return slots;
-    }
-
-    start() {
-      console.log("🚀 Iniciando AvailabilityProxy");
-      
-      const config = {
-        ajaxUrl: this.ajaxUrl,
-        action: this.action,
-        email: this.email,
-        maxAttempts: this.maxAttempts,
-        retryInterval: this.retryInterval
-      };
-
-      const onSuccess = (data) => {
-        combineLocalExternal(window.aa_availability, window.aa_local_availability);
-        this.busyRanges = generateBusyRanges(window.aa_availability?.busy || []);
-
-        console.log("🔔 Disparando evento 'aa:availability:loaded' con proxy");
-        document.dispatchEvent(new CustomEvent('aa:availability:loaded', { 
-          detail: {
-            ...data,
-            busyRanges: this.busyRanges,
-            proxy: this
-          }
-        }));
-      };
-
-      const onError = (err) => {
-        console.error("❌ Error al cargar disponibilidad:", err);
-      };
-
-      startFetchLoop(config, onSuccess, onError);
-    }
-
-    stop() {
-      stopFetchLoop();
-    }
-  }
-
-  // ✅ Exponer clase globalmente
-  window.AvailabilityProxy = AvailabilityProxy;
 
   // ==============================
   // 🔹 Capa de Servicio
@@ -211,22 +124,37 @@
       return null;
     },
 
-    calculate(proxy, { schedule, futureWindow, slotDuration }) {
-      return proxy.calculateAvailableSlots(schedule, futureWindow, slotDuration);
+    calculate(busyRanges, { schedule, futureWindow, slotDuration }) {
+      const minDate = new Date();
+      const maxDate = new Date();
+      maxDate.setDate(minDate.getDate() + futureWindow);
+
+      return calculateSlotsRange(
+        minDate, 
+        maxDate, 
+        schedule, 
+        busyRanges, 
+        slotDuration
+      );
     },
 
-    disable(proxy, date) {
-      return proxy.disableDate(date);
+    isDateAvailable(availableSlotsPerDay, date) {
+      const key = window.DateUtils.ymd(date);
+      return (availableSlotsPerDay[key]?.length || 0) > 0;
     },
 
-    slotsForDate(proxy, date) {
-      return proxy.getSlotsForDate(date);
+    disable(availableSlotsPerDay, date) {
+      return !this.isDateAvailable(availableSlotsPerDay, date);
+    },
+
+    slotsForDate(availableSlotsPerDay, date) {
+      const key = window.DateUtils.ymd(date);
+      return availableSlotsPerDay[key] || [];
     }
   };
 
   // ✅ Exponer servicio globalmente
   window.AvailabilityService = AvailabilityService;
 
-  console.log('✅ AvailabilityProxy cargado');
-  console.log('✅ AvailabilityService cargado');
+  console.log('✅ AvailabilityService cargado (local only)');
 })();

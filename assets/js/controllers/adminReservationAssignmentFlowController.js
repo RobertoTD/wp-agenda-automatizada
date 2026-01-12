@@ -266,18 +266,16 @@
                     slotDuration: slotDuration
                 });
 
-                // 2️⃣ Construir busyRanges (locales y externos)
+                // 2️⃣ Construir busyRanges (solo locales)
                 log('[AdminReservationAssignmentFlowController][FIXED] Obteniendo busy ranges...');
                 
                 const built = (window.BusyRanges && window.BusyRanges.buildBusyRanges)
                     ? window.BusyRanges.buildBusyRanges()
-                    : { busyRanges: [], localBusy: [], externalBusy: [] };
+                    : { busyRanges: [] };
 
-                const { busyRanges, localBusy, externalBusy } = built;
+                const { busyRanges } = built;
                 
                 log('[AdminReservationAssignmentFlowController][FIXED] Busy Ranges obtenidos:', {
-                    local: localBusy.length,
-                    external: externalBusy.length,
                     total: busyRanges.length
                 });
                 
