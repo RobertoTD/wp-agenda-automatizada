@@ -612,28 +612,35 @@
                 if (typeof window.DateUtils !== 'undefined' && typeof window.DateUtils.ymd === 'function') {
                     const newDate = window.DateUtils.ymd(selectedDateObj);
                     const state = getState();
-                    if (newDate && newDate !== state.selectedDate) {
-                        // Update state
+                    
+                    if (!newDate) {
+                        return;
+                    }
+                    
+                    // Actualizar state.selectedDate solo si la fecha es distinta
+                    if (newDate !== state.selectedDate) {
                         if (setState) {
                             setState({ selectedDate: newDate });
                         } else {
                             state.selectedDate = newDate;
                         }
-                        
                         log('[AdminReservationAssignmentFlowController] Fecha seleccionada (desde evento):', newDate);
-                        
-                        // Detectar si es servicio fixed
-                        if (state.selectedService && isFixedService(state.selectedService)) {
-                            log('[AdminReservationAssignmentFlowController] 🔧 Servicio fixed detectado, calculando slots desde schedule...');
-                            // Asegurar que el selector de staff esté oculto
-                            hideStaffSelector();
-                            calculateFixedSlotsForAdmin(newDate);
-                        } else {
-                            // Comportamiento normal para servicios con assignments
-                            // Asegurar que el selector de staff esté visible
-                            showStaffSelector();
-                            checkAndLoadAssignments();
-                        }
+                    } else {
+                        log('[AdminReservationAssignmentFlowController] Fecha recalculada (misma fecha, refrescando slots):', newDate);
+                    }
+                    
+                    // Siempre recalcular slots, incluso si la fecha es la misma
+                    // Esto permite refrescar slots cuando aa_local_availability se actualiza
+                    if (state.selectedService && isFixedService(state.selectedService)) {
+                        log('[AdminReservationAssignmentFlowController] 🔧 Servicio fixed detectado, calculando slots desde schedule...');
+                        // Asegurar que el selector de staff esté oculto
+                        hideStaffSelector();
+                        calculateFixedSlotsForAdmin(newDate);
+                    } else if (state.selectedService) {
+                        // Comportamiento normal para servicios con assignments
+                        // Asegurar que el selector de staff esté visible
+                        showStaffSelector();
+                        checkAndLoadAssignments();
                     }
                 }
             };

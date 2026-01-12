@@ -73,6 +73,9 @@
       }
 
       try {
+        // Variable para almacenar mensaje de éxito (se mostrará al final del flujo)
+        let successMsg = null;
+
         // 🔹 PASO 1: Guardar la reserva usando ReservationService
         const data = await window.ReservationService.saveReservation(datos);
 
@@ -92,7 +95,7 @@
           // Auto-confirmación activada: confirmar la cita inmediatamente
           if (!datos.id_reserva) {
             console.warn('⚠️ No se puede confirmar: ID de reserva no disponible');
-            alert('✅ Cita agendada correctamente, pero no se pudo confirmar automáticamente (ID no disponible).');
+            successMsg = '✅ Cita agendada correctamente, pero no se pudo confirmar automáticamente (ID no disponible).';
           } else if (!window.ConfirmService || typeof window.ConfirmService.confirmar !== 'function') {
             alert('❌ Error: ConfirmService no disponible. La cita se creó pero no se pudo confirmar.');
             console.error('❌ ConfirmService no disponible o método confirmar no existe');
@@ -101,7 +104,7 @@
               const confirmResp = await window.ConfirmService.confirmar(datos.id_reserva);
               
               if (confirmResp.success) {
-                alert('✅ Cita agendada y confirmada.');
+                successMsg = '✅ Cita agendada y confirmada.';
                 console.log('✅ Cita confirmada automáticamente:', confirmResp);
               } else {
                 alert('⚠️ Cita agendada pero NO se pudo confirmar: ' + (confirmResp.data?.message || 'Error desconocido'));
@@ -121,8 +124,8 @@
             console.warn('⚠️ Error al enviar correo (no crítico):', emailError);
           });
 
-          // Mostrar mensaje de éxito
-          alert('✅ Cita agendada correctamente. Se ha enviado correo de confirmación.');
+          // Guardar mensaje de éxito para mostrar al final
+          successMsg = '✅ Cita agendada correctamente. Se ha enviado correo de confirmación.';
         }
         
         // 🔹 PASO 4: Si estamos en modal, refrescar disponibilidad local y recalcular slots
@@ -131,7 +134,8 @@
         if (isModal) {
           try {
             // Refrescar disponibilidad local desde BD vía AJAX
-            const ajaxurl = window.aa_asistant_vars?.ajaxurl || (typeof ajaxurl !== 'undefined' ? ajaxurl : '/wp-admin/admin-ajax.php');
+            // Usar window.ajaxurl (WordPress lo define en admin) o URL directa como fallback
+            const ajaxurl = window.ajaxurl || '/wp-admin/admin-ajax.php';
             const formData = new FormData();
             formData.append('action', 'aa_get_local_availability');
             
@@ -171,6 +175,12 @@
           console.log('✅ Calendario recargado después de crear reserva');
         } else {
           console.warn('⚠️ AdminCalendarController.recargar no disponible, el calendario no se actualizará automáticamente');
+        }
+        
+        // 🔹 PASO 6: Mostrar mensaje de éxito al final (después de todas las actualizaciones)
+        // Esto permite que reservation.js intercepte el alert y cierre el modal con el estado ya actualizado
+        if (successMsg) {
+          alert(successMsg);
         }
         
         // NOTA: El cierre del modal se maneja en reservation.js
