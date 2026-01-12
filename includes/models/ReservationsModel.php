@@ -24,23 +24,21 @@ class ReservationsModel {
         global $wpdb;
         $table = $wpdb->prefix . 'aa_reservas';
         
-        // 🔹 Obtener slot_duration configurado
-        $slot_duration = intval(get_option('aa_slot_duration', 60));
-        
         // 🔹 Consultar solo citas confirmadas que NO han terminado
+        // Usar la duración real de cada reserva (columna duracion), no aa_slot_duration
         $now = aa_get_current_datetime();
         
         $rows = $wpdb->get_results($wpdb->prepare("
             SELECT 
                 fecha as start,
-                DATE_ADD(fecha, INTERVAL %d MINUTE) as end,
+                DATE_ADD(fecha, INTERVAL duracion MINUTE) as end,
                 servicio,
                 nombre
             FROM $table 
             WHERE estado = 'confirmed'
-            AND DATE_ADD(fecha, INTERVAL %d MINUTE) >= %s
+            AND DATE_ADD(fecha, INTERVAL duracion MINUTE) >= %s
             ORDER BY fecha ASC
-        ", $slot_duration, $slot_duration, $now));
+        ", $now));
         
         if ($wpdb->last_error) {
             error_log("❌ [ReservationsModel] Error en consulta: " . $wpdb->last_error);

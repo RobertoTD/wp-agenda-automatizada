@@ -82,3 +82,29 @@ function aa_enqueue_admin_local_availability_data($hook) {
     
     error_log("✅ [AvailabilityController-Admin] Datos locales enviados");
 }
+
+/**
+ * Endpoint AJAX para obtener disponibilidad local (admin-only)
+ * Usado para refrescar disponibilidad después de crear reservas sin recargar la página
+ */
+add_action('wp_ajax_aa_get_local_availability', 'aa_get_local_availability');
+
+function aa_get_local_availability() {
+    // Validar permisos admin
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'Permisos insuficientes']);
+        return;
+    }
+    
+    // Obtener datos de disponibilidad local
+    $local_busy = ReservationsModel::get_internal_busy_slots();
+    
+    $availability_config = [
+        'local_busy' => $local_busy,
+        'slot_duration' => intval(get_option('aa_slot_duration', 60)),
+        'timezone' => get_option('aa_timezone', 'America/Mexico_City'),
+        'total_confirmed' => ReservationsModel::count_confirmed(),
+    ];
+    
+    wp_send_json_success($availability_config);
+}

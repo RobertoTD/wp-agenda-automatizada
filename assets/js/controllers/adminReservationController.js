@@ -144,7 +144,55 @@
           alert('✅ Cita agendada correctamente. Se ha enviado correo de confirmación.');
         }
         
-        // 🔹 PASO 4: Recargar solo si NO estamos en modal (legacy behavior)
+        // 🔹 PASO 4: Si estamos en modal, refrescar disponibilidad local y recalcular slots
+        const isModal = !!document.getElementById('form-crear-cita-admin');
+        
+        if (isModal) {
+          try {
+            // Refrescar disponibilidad local desde BD vía AJAX
+            const ajaxurl = window.aa_asistant_vars?.ajaxurl || (typeof ajaxurl !== 'undefined' ? ajaxurl : '/wp-admin/admin-ajax.php');
+            const formData = new FormData();
+            formData.append('action', 'aa_get_local_availability');
+            
+            const refreshResponse = await fetch(ajaxurl, {
+              method: 'POST',
+              body: formData
+            });
+            
+            const refreshResult = await refreshResponse.json();
+            
+            if (refreshResult.success && refreshResult.data) {
+              // Actualizar window.aa_local_availability con datos frescos desde BD
+              window.aa_local_availability = refreshResult.data;
+              
+              // Re-disparar recálculo del modal usando el evento existente
+              // Construir selectedDate como Date del día del slot seleccionado
+              if (selectedSlotISO) {
+                const selectedDate = new Date(selectedSlotISO);
+                if (!isNaN(selectedDate.getTime())) {
+                  document.dispatchEvent(new CustomEvent('aa:admin:date-selected', {
+                    detail: { selectedDate }
+                  }));
+                }
+              }
+            } else {
+              console.warn('⚠️ No se pudo refrescar disponibilidad local:', refreshResult);
+            }
+          } catch (refreshErr) {
+            console.warn('⚠️ Error al refrescar disponibilidad local:', refreshErr);
+          }
+        }
+        
+        // 🔹 PASO 5: Recargar calendario del día actual sin recargar la página
+        // Usar la API pública de AdminCalendarController para mantener separación de responsabilidades
+        if (window.AdminCalendarController && typeof window.AdminCalendarController.recargar === 'function') {
+          window.AdminCalendarController.recargar();
+          console.log('✅ Calendario recargado después de crear reserva');
+        } else {
+          console.warn('⚠️ AdminCalendarController.recargar no disponible, el calendario no se actualizará automáticamente');
+        }
+        
+        // 🔹 PASO 6: Recargar página solo si NO estamos en modal (legacy behavior)
         // NOTA: En modal, el cierre se maneja en reservation.js
         if (btnToggle) {
           location.reload();

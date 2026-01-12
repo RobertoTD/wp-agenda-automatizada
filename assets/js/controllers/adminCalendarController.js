@@ -178,13 +178,26 @@ window.AdminCalendarController = (function() {
         });
     }
     
+    /**
+     * Recargar el calendario del día actual
+     * Llama al callback de recarga registrado en init()
+     */
+    function recargar() {
+        if (recargarCallback) {
+            recargarCallback();
+        } else {
+            console.warn('⚠️ AdminCalendarController.recargar: No hay callback de recarga registrado');
+        }
+    }
+    
     // API pública
     return {
         init: init,
         setDate: setDate,
         getCurrentDate: getCurrentDate,
         cargarCitasDelDia: cargarCitasDelDia,
-        handleCitaAction: handleCitaAction
+        handleCitaAction: handleCitaAction,
+        recargar: recargar
     };
 })();
 
