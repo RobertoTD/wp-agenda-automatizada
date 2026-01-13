@@ -194,11 +194,25 @@
     console.log('✅ AdminReservationController inicializado');
   }
 
+  /**
+   * Refrescar disponibilidad local (API pública para UI)
+   * @param {Date} [selectedDate] - Fecha opcional para recalcular slots
+   */
+  function refreshLocalAvailability(selectedDate) {
+    if (typeof window.LocalAvailabilityService !== 'undefined' && typeof window.LocalAvailabilityService.refresh === 'function') {
+      return window.LocalAvailabilityService.refresh(selectedDate);
+    } else {
+      console.warn('⚠️ LocalAvailabilityService no disponible');
+      return Promise.resolve(null);
+    }
+  }
+
   // ==============================
   // 🔹 Exponer en window
   // ==============================
   window.AdminReservationController = {
-    init: initAdminReservationController
+    init: initAdminReservationController,
+    refreshLocalAvailability: refreshLocalAvailability
   };
 
   console.log('✅ AdminReservationController cargado y expuesto globalmente');

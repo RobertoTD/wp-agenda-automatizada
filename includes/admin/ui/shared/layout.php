@@ -167,6 +167,7 @@ header('Content-Type: text/html; charset=utf-8');
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/reservationService.js'); ?>" defer></script>
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/adminCalendarService.js'); ?>" defer></script>
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/confirmService.js'); ?>" defer></script>
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/localAvailabilityService.js'); ?>" defer></script>
 
 <!-- Controllers -->
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/controllers/availabilityController.js'); ?>" defer></script>

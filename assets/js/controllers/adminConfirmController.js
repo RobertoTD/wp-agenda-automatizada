@@ -74,6 +74,11 @@ window.AdminConfirmController = (function() {
                     if (recargarCallback) {
                         recargarCallback();
                     }
+                    
+                    // Refrescar disponibilidad local después de cancelar
+                    if (typeof window.LocalAvailabilityService !== 'undefined' && typeof window.LocalAvailabilityService.refresh === 'function') {
+                        window.LocalAvailabilityService.refresh();
+                    }
                 } else {
                     alert('❌ Error: ' + (data.data?.message || 'No se pudo cancelar la cita.'));
                 }

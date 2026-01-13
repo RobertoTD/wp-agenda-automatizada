@@ -189,6 +189,11 @@
                 this.initialized = true;
                 console.log('[ReservationModal] ✅ Todos los controladores inicializados');
                 
+                // 7️⃣ Refrescar disponibilidad local al abrir el modal
+                if (window.AdminReservationController && typeof window.AdminReservationController.refreshLocalAvailability === 'function') {
+                    window.AdminReservationController.refreshLocalAvailability();
+                }
+                
             }, 100); // 100ms delay para asegurar DOM ready
             
             // Guardar timeout ID para cleanup
