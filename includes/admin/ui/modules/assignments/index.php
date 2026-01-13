@@ -11,8 +11,11 @@
 defined('ABSPATH') or die('¡Sin acceso directo!');
 
 // Resolver rutas de scripts
+$base_dir = __DIR__;
 $plugin_url = plugin_dir_url(__FILE__);
-$module_js_url = $plugin_url . 'assignments-module.js';
+
+// Cache-busting: usar filemtime para versionar scripts
+$module_js_url = $plugin_url . 'assignments-module.js?v=' . filemtime($base_dir . '/assignments-module.js');
 ?>
 
 <div class="max-w-5xl mx-auto py-2">
@@ -162,13 +165,13 @@ $module_js_url = $plugin_url . 'assignments-module.js';
 <script src="<?php echo esc_url($module_js_url); ?>" defer></script>
 
 <!-- Areas Section JS -->
-<script src="<?php echo esc_url($plugin_url . 'areas-section/areas.js'); ?>" defer></script>
+<script src="<?php echo esc_url($plugin_url . 'areas-section/areas.js?v=' . filemtime($base_dir . '/areas-section/areas.js')); ?>" defer></script>
 
 <!-- Staff Section JS -->
-<script src="<?php echo esc_url($plugin_url . 'staff-section/staff.js'); ?>" defer></script>
+<script src="<?php echo esc_url($plugin_url . 'staff-section/staff.js?v=' . filemtime($base_dir . '/staff-section/staff.js')); ?>" defer></script>
 
 <!-- Assignments Section JS -->
-<script src="<?php echo esc_url($plugin_url . 'assignments-section/assignments-section.js'); ?>" defer></script>
+<script src="<?php echo esc_url($plugin_url . 'assignments-section/assignments-section.js?v=' . filemtime($base_dir . '/assignments-section/assignments-section.js')); ?>" defer></script>
 
 <!-- Assignment Modal Template and JS are loaded in layout.php -->
 <!-- No need to load them here as they are transversal modals -->
