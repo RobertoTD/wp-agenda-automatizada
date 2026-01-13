@@ -86,19 +86,20 @@
             const isActive = parseInt(staff.active) === 1;
             const staffId = parseInt(staff.id);
             
-            html += '<li class="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200">';
+            html += '<li class="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">';
+            // Main content row
+            html += '<div class="flex items-center gap-2 p-3">';
             html += '<span class="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex-shrink-0">';
             html += '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
             html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>';
             html += '</svg>';
             html += '</span>';
             html += '<span class="text-sm font-medium text-gray-900">' + escapeHtml(staff.name) + '</span>';
-            // Edit button
-            html += '<button type="button" class="aa-btn-editar-staff inline-flex items-center gap-1 px-2 py-1 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded border border-blue-200 transition-colors" title="Editar personal" data-id="' + staffId + '">';
-            html += '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
-            html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>';
+            // Toggle services button (chevron)
+            html += '<button type="button" class="aa-staff-toggle-services inline-flex items-center justify-center w-6 h-6 text-gray-500 hover:text-gray-700 transition-colors" data-staff-id="' + staffId + '" title="Ver servicios">';
+            html += '<svg class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
+            html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>';
             html += '</svg>';
-            html += ' Editar';
             html += '</button>';
             // Toggle switch
             html += '<div class="ml-auto relative">';
@@ -115,6 +116,14 @@
             html += '<div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 peer-checked:translate-x-5"></div>';
             html += '</label>';
             html += '</div>';
+            html += '</div>';
+            // Collapsable services panel
+            html += '<div class="aa-staff-services-panel hidden border-t border-gray-200 p-3" data-staff-id="' + staffId + '">';
+            html += '<select class="aa-staff-services-select w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" data-staff-id="' + staffId + '">';
+            html += '<option value="">Seleccionar servicio</option>';
+            html += '</select>';
+            html += '<div class="aa-staff-services-selected mt-3"></div>';
+            html += '</div>';
             html += '</li>';
         });
         
@@ -124,6 +133,9 @@
         
         // Setup toggle handlers after rendering
         setupToggleHandlers();
+        
+        // Setup services panel toggle handlers
+        setupServicesPanelHandlers();
     }
 
     /**
@@ -135,6 +147,33 @@
         toggles.forEach(function(toggle) {
             toggle.addEventListener('change', function() {
                 handleToggleChange(this);
+            });
+        });
+    }
+
+    /**
+     * Setup handlers for services panel toggle (chevron button)
+     */
+    function setupServicesPanelHandlers() {
+        const toggleButtons = document.querySelectorAll('.aa-staff-toggle-services');
+        
+        toggleButtons.forEach(function(button) {
+            button.addEventListener('click', function() {
+                const staffId = this.getAttribute('data-staff-id');
+                const panel = document.querySelector('.aa-staff-services-panel[data-staff-id="' + staffId + '"]');
+                const chevron = this.querySelector('svg');
+                
+                if (panel) {
+                    // Toggle panel visibility
+                    panel.classList.toggle('hidden');
+                    
+                    // Rotate chevron
+                    if (panel.classList.contains('hidden')) {
+                        chevron.classList.remove('rotate-90');
+                    } else {
+                        chevron.classList.add('rotate-90');
+                    }
+                }
             });
         });
     }

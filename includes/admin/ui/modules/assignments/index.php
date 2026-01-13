@@ -146,6 +146,35 @@ $module_js_url = $plugin_url . 'assignments-module.js?v=' . filemtime($base_dir 
         </div>
     </details>
 
+    <!-- ═══════════════════════════════════════════════════════════════
+         SECCIÓN: Servicios
+    ═══════════════════════════════════════════════════════════════ -->
+    <details class="bg-white rounded-xl shadow border border-gray-200 mb-6 overflow-hidden group">
+        <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
+            <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-purple-100 text-purple-600">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                        </svg>
+                    </span>
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">Servicios</h3>
+                        <p class="text-sm text-gray-500 mt-0.5">Gestiona los servicios disponibles para asignar al personal.</p>
+                    </div>
+                </div>
+                <svg class="aa-chevron w-5 h-5 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </div>
+        </summary>
+        
+        <div class="p-6 transition-all duration-200">
+            <!-- Root container for services section JS -->
+            <div id="aa-services-root"></div>
+        </div>
+    </details>
+
 </div>
 
 <!-- Datos iniciales del módulo -->
@@ -169,6 +198,9 @@ $module_js_url = $plugin_url . 'assignments-module.js?v=' . filemtime($base_dir 
 
 <!-- Staff Section JS -->
 <script src="<?php echo esc_url($plugin_url . 'staff-section/staff.js?v=' . filemtime($base_dir . '/staff-section/staff.js')); ?>" defer></script>
+
+<!-- Services Section JS -->
+<script src="<?php echo esc_url($plugin_url . 'services-section/servicesSection.js?v=' . filemtime($base_dir . '/services-section/servicesSection.js')); ?>" defer></script>
 
 <!-- Assignments Section JS -->
 <script src="<?php echo esc_url($plugin_url . 'assignments-section/assignments-section.js?v=' . filemtime($base_dir . '/assignments-section/assignments-section.js')); ?>" defer></script>

@@ -270,11 +270,9 @@ register_activation_hook(__FILE__, function() {
     $staff_sql = "CREATE TABLE $staff_table (
         id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
         name varchar(191) NOT NULL,
-        id_service bigint(20) unsigned DEFAULT NULL,
         active tinyint(1) DEFAULT 1,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY  (id),
-        KEY id_service (id_service)
+        PRIMARY KEY  (id)
     ) $charset;";
     
     dbDelta($staff_sql);
@@ -332,6 +330,26 @@ register_activation_hook(__FILE__, function() {
     ) $charset;";
     
     dbDelta($services_sql);
+    
+    // 🔹 Crear tabla pivote para relación muchos-a-muchos entre staff y services
+    $staff_services_table = $wpdb->prefix . 'aa_staff_services';
+    $staff_services_sql = "CREATE TABLE $staff_services_table (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        staff_id bigint(20) unsigned NOT NULL,
+        service_id bigint(20) unsigned NOT NULL,
+        PRIMARY KEY  (id),
+        UNIQUE KEY unique_staff_service (staff_id, service_id),
+        KEY staff_id (staff_id),
+        KEY service_id (service_id)
+    ) $charset;";
+    
+    dbDelta($staff_services_sql);
+    
+    // NOTA: FOREIGN KEY constraints no se incluyen aquí porque dbDelta() puede tener problemas
+    // con ellos. Si se necesitan, deben agregarse manualmente después de la creación:
+    // ALTER TABLE {$wpdb->prefix}aa_staff_services 
+    //   ADD CONSTRAINT fk_staff FOREIGN KEY (staff_id) REFERENCES {$wpdb->prefix}aa_staff(id) ON DELETE CASCADE,
+    //   ADD CONSTRAINT fk_service FOREIGN KEY (service_id) REFERENCES {$wpdb->prefix}aa_services(id) ON DELETE CASCADE;
     
     // 🔹 Inicializar estado de sincronización como válido
     if (get_option('aa_estado_gsync') === false) {
