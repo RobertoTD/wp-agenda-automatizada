@@ -270,9 +270,11 @@ register_activation_hook(__FILE__, function() {
     $staff_sql = "CREATE TABLE $staff_table (
         id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
         name varchar(191) NOT NULL,
+        id_service bigint(20) unsigned DEFAULT NULL,
         active tinyint(1) DEFAULT 1,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY  (id)
+        PRIMARY KEY  (id),
+        KEY id_service (id_service)
     ) $charset;";
     
     dbDelta($staff_sql);
@@ -304,6 +306,7 @@ register_activation_hook(__FILE__, function() {
         repeat_weekly tinyint(1) DEFAULT 0,
         repeat_until date DEFAULT NULL,
         status varchar(50) DEFAULT 'active',
+        color text DEFAULT NULL,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY  (id),
         KEY staff_id (staff_id),
@@ -313,6 +316,22 @@ register_activation_hook(__FILE__, function() {
     ) $charset;";
     
     dbDelta($assignments_sql);
+    
+    // 🔹 Crear tabla de servicios (services)
+    $services_table = $wpdb->prefix . 'aa_services';
+    $services_sql = "CREATE TABLE $services_table (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        name varchar(191) NOT NULL,
+        code varchar(191) NOT NULL,
+        price decimal(10,2) DEFAULT NULL,
+        active tinyint(1) DEFAULT 1,
+        created_at datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        KEY code (code),
+        KEY active (active)
+    ) $charset;";
+    
+    dbDelta($services_sql);
     
     // 🔹 Inicializar estado de sincronización como válido
     if (get_option('aa_estado_gsync') === false) {
