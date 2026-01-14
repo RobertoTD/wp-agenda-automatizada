@@ -297,6 +297,193 @@ class AssignmentsModel {
     }
 
     /**
+     * Obtener un servicio por ID
+     * 
+     * @param int $id ID del servicio
+     * @return array|false Array con los datos del servicio o false si no existe
+     */
+    public static function get_service_by_id($id) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_services';
+        
+        $id = intval($id);
+        
+        if ($id <= 0) {
+            return false;
+        }
+        
+        $query = "SELECT id, name, code, description, price, active, created_at 
+                  FROM $table 
+                  WHERE id = %d
+                  LIMIT 1";
+        
+        $service = $wpdb->get_row($wpdb->prepare($query, $id), ARRAY_A);
+        
+        if ($wpdb->last_error) {
+            error_log("❌ [AssignmentsModel] Error al obtener servicio ID $id: " . $wpdb->last_error);
+            return false;
+        }
+        
+        return $service ? $service : false;
+    }
+
+    /**
+     * Actualizar un servicio
+     * 
+     * @param int $id ID del servicio
+     * @param array $data Array con los campos a actualizar: code, price, description
+     * @return array|false Array con los datos actualizados o false en error
+     */
+    public static function update_service($id, $data) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_services';
+        
+        $id = intval($id);
+        
+        if ($id <= 0) {
+            error_log("❌ [AssignmentsModel] ID inválido para actualizar servicio: $id");
+            return false;
+        }
+        
+        // Preparar datos para actualizar
+        $update_data = [];
+        $format = [];
+        
+        // Code
+        if (isset($data['code'])) {
+            $update_data['code'] = sanitize_text_field($data['code']);
+            $format[] = '%s';
+        }
+        
+        // Price (convertir vacío a NULL)
+        if (isset($data['price'])) {
+            $price = $data['price'];
+            if ($price === '' || $price === null) {
+                $update_data['price'] = null;
+                $format[] = null; // WordPress manejará NULL
+            } else {
+                $update_data['price'] = floatval($price);
+                $format[] = '%f';
+            }
+        }
+        
+        // Description
+        if (isset($data['description'])) {
+            $update_data['description'] = sanitize_textarea_field($data['description']);
+            $format[] = '%s';
+        }
+        
+        if (empty($update_data)) {
+            error_log("❌ [AssignmentsModel] No hay datos para actualizar en servicio ID $id");
+            return false;
+        }
+        
+        // Actualizar en la base de datos
+        // WordPress 4.4+ soporta NULL en $format para campos NULL
+        $result = $wpdb->update(
+            $table,
+            $update_data,
+            ['id' => $id],
+            $format,
+            ['%d']
+        );
+        
+        if ($result === false) {
+            error_log("❌ [AssignmentsModel] Error al actualizar servicio ID $id: " . $wpdb->last_error);
+            return false;
+        }
+        
+        // Retornar el servicio actualizado
+        $updated_service = self::get_service_by_id($id);
+        if ($updated_service) {
+            error_log("✅ [AssignmentsModel] Servicio ID $id actualizado correctamente");
+        }
+        
+        return $updated_service;
+    }
+
+    /**
+     * Eliminar un servicio
+     * 
+     * @param int $id ID del servicio
+     * @return bool true en éxito, false en error
+     */
+    public static function delete_service($id) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_services';
+        
+        $id = intval($id);
+        
+        if ($id <= 0) {
+            error_log("❌ [AssignmentsModel] ID inválido para eliminar servicio: $id");
+            return false;
+        }
+        
+        // Eliminar de la base de datos
+        $result = $wpdb->delete(
+            $table,
+            ['id' => $id],
+            ['%d']
+        );
+        
+        if ($result === false) {
+            error_log("❌ [AssignmentsModel] Error al eliminar servicio ID $id: " . $wpdb->last_error);
+            return false;
+        }
+        
+        if ($result === 0) {
+            error_log("⚠️ [AssignmentsModel] No se encontró servicio con ID $id para eliminar");
+            return false;
+        }
+        
+        error_log("✅ [AssignmentsModel] Servicio ID $id eliminado correctamente");
+        
+        return true;
+    }
+
+    /**
+     * Actualizar estado activo de un servicio
+     * 
+     * @param int $id ID del servicio
+     * @param int $active 0 para desactivar, 1 para activar
+     * @return bool true en éxito, false en error
+     */
+    public static function set_service_active($id, $active) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_services';
+        
+        // Validar parámetros
+        $id = intval($id);
+        $active = intval($active);
+        
+        // Asegurar que active sea 0 o 1
+        $active = ($active === 1) ? 1 : 0;
+        
+        if ($id <= 0) {
+            error_log("❌ [AssignmentsModel] ID inválido para actualizar servicio: $id");
+            return false;
+        }
+        
+        // Actualizar en la base de datos
+        $result = $wpdb->update(
+            $table,
+            ['active' => $active],
+            ['id' => $id],
+            ['%d'],
+            ['%d']
+        );
+        
+        if ($result === false) {
+            error_log("❌ [AssignmentsModel] Error al actualizar servicio ID $id: " . $wpdb->last_error);
+            return false;
+        }
+        
+        error_log("✅ [AssignmentsModel] Servicio ID $id actualizado (active = $active)");
+        
+        return true;
+    }
+
+    /**
      * Actualizar estado activo de un miembro del personal
      * 
      * @param int $id ID del personal

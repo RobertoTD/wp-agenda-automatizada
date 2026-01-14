@@ -133,6 +133,9 @@
         
         // Setup details panel toggle handlers
         setupDetailsPanelHandlers();
+        
+        // Setup save and delete handlers
+        setupSaveDeleteHandlers();
     }
 
     /**
@@ -153,10 +156,44 @@
      * @param {HTMLElement} toggle - The toggle checkbox element
      */
     function handleToggleChange(toggle) {
-        // TODO: Implement AJAX call to update service active status
         const serviceId = parseInt(toggle.getAttribute('data-id'));
+        const previousActive = parseInt(toggle.getAttribute('data-active'));
         const newActive = toggle.checked ? 1 : 0;
-        console.log('[Services Section] Toggle service', serviceId, 'to', newActive);
+        
+        // Get ajaxurl from global data
+        const ajaxurl = (window.AA_ASSIGNMENTS_DATA && window.AA_ASSIGNMENTS_DATA.ajaxurl) 
+            || window.ajaxurl 
+            || '/wp-admin/admin-ajax.php';
+
+        // Prepare FormData for AJAX request
+        const formData = new FormData();
+        formData.append('action', 'aa_toggle_service');
+        formData.append('id', serviceId);
+        formData.append('active', newActive);
+
+        // Make AJAX request
+        fetch(ajaxurl, {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(response) {
+            return response.json();
+        })
+        .then(function(data) {
+            if (data.success) {
+                // Update data-active attribute
+                toggle.setAttribute('data-active', newActive);
+            } else {
+                // Revert toggle state on error
+                toggle.checked = previousActive === 1;
+                console.error('[Services Section] Error al actualizar servicio:', data);
+            }
+        })
+        .catch(function(error) {
+            // Revert toggle state on error
+            toggle.checked = previousActive === 1;
+            console.error('[Services Section] Error en petición AJAX:', error);
+        });
     }
 
     /**
@@ -183,6 +220,160 @@
                     }
                 }
             });
+        });
+    }
+
+    /**
+     * Setup handlers for save and delete buttons
+     */
+    function setupSaveDeleteHandlers() {
+        // Use event delegation on the root element to handle dynamically added buttons
+        if (!servicesRoot) return;
+        
+        servicesRoot.addEventListener('click', function(event) {
+            const target = event.target.closest('.aa-service-save, .aa-service-delete');
+            if (!target) return;
+            
+            const serviceId = parseInt(target.getAttribute('data-service-id'));
+            if (!serviceId || serviceId <= 0) return;
+            
+            if (target.classList.contains('aa-service-save')) {
+                event.preventDefault();
+                saveService(serviceId);
+            } else if (target.classList.contains('aa-service-delete')) {
+                event.preventDefault();
+                deleteService(serviceId);
+            }
+        });
+    }
+
+    /**
+     * Save a service
+     * @param {number} serviceId - ID of the service to save
+     */
+    function saveService(serviceId) {
+        // Get input values
+        const codeInput = document.getElementById('aa-service-code-' + serviceId);
+        const priceInput = document.getElementById('aa-service-price-' + serviceId);
+        const descriptionInput = document.getElementById('aa-service-description-' + serviceId);
+        
+        if (!codeInput || !priceInput || !descriptionInput) {
+            console.warn('[Services Section] Inputs not found for service ID:', serviceId);
+            return;
+        }
+        
+        const code = codeInput.value.trim();
+        const price = priceInput.value.trim();
+        const description = descriptionInput.value.trim();
+        
+        // Get ajaxurl from global data
+        const ajaxurl = (window.AA_ASSIGNMENTS_DATA && window.AA_ASSIGNMENTS_DATA.ajaxurl) 
+            || window.ajaxurl 
+            || '/wp-admin/admin-ajax.php';
+
+        // Prepare FormData for AJAX request
+        const formData = new FormData();
+        formData.append('action', 'aa_update_service_db');
+        formData.append('id', serviceId);
+        formData.append('code', code);
+        formData.append('price', price);
+        formData.append('description', description);
+
+        // Disable button during request
+        const saveButton = document.querySelector('.aa-service-save[data-service-id="' + serviceId + '"]');
+        const originalButtonText = saveButton ? saveButton.textContent : '';
+        if (saveButton) {
+            saveButton.disabled = true;
+            saveButton.textContent = 'Guardando...';
+        }
+
+        // Make AJAX request
+        fetch(ajaxurl, {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(response) {
+            return response.json();
+        })
+        .then(function(data) {
+            if (data.success) {
+                console.log('[Services Section] Servicio actualizado correctamente');
+                // Reload the list of services
+                if (servicesRoot) {
+                    loadServices(servicesRoot);
+                }
+            } else {
+                console.error('[Services Section] Error al actualizar servicio:', data);
+            }
+        })
+        .catch(function(error) {
+            console.error('[Services Section] Error en petición AJAX:', error);
+        })
+        .finally(function() {
+            // Re-enable button
+            if (saveButton) {
+                saveButton.disabled = false;
+                saveButton.textContent = originalButtonText;
+            }
+        });
+    }
+
+    /**
+     * Delete a service
+     * @param {number} serviceId - ID of the service to delete
+     */
+    function deleteService(serviceId) {
+        // Confirm deletion
+        if (!confirm('¿Eliminar este servicio?')) {
+            return;
+        }
+        
+        // Get ajaxurl from global data
+        const ajaxurl = (window.AA_ASSIGNMENTS_DATA && window.AA_ASSIGNMENTS_DATA.ajaxurl) 
+            || window.ajaxurl 
+            || '/wp-admin/admin-ajax.php';
+
+        // Prepare FormData for AJAX request
+        const formData = new FormData();
+        formData.append('action', 'aa_delete_service_db');
+        formData.append('id', serviceId);
+
+        // Disable button during request
+        const deleteButton = document.querySelector('.aa-service-delete[data-service-id="' + serviceId + '"]');
+        const originalButtonText = deleteButton ? deleteButton.textContent : '';
+        if (deleteButton) {
+            deleteButton.disabled = true;
+            deleteButton.textContent = 'Eliminando...';
+        }
+
+        // Make AJAX request
+        fetch(ajaxurl, {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(response) {
+            return response.json();
+        })
+        .then(function(data) {
+            if (data.success) {
+                console.log('[Services Section] Servicio eliminado correctamente');
+                // Reload the list of services
+                if (servicesRoot) {
+                    loadServices(servicesRoot);
+                }
+            } else {
+                console.error('[Services Section] Error al eliminar servicio:', data);
+            }
+        })
+        .catch(function(error) {
+            console.error('[Services Section] Error en petición AJAX:', error);
+        })
+        .finally(function() {
+            // Re-enable button
+            if (deleteButton) {
+                deleteButton.disabled = false;
+                deleteButton.textContent = originalButtonText;
+            }
         });
     }
 
@@ -275,7 +466,7 @@
     }
 
     /**
-     * Render service details in a form-like read-only layout
+     * Render service details in an editable form layout
      * @param {Object} service - Service object with all fields
      * @returns {string} HTML string for service details
      */
@@ -298,41 +489,46 @@
             }
         }
 
-        // Helper function to format price
-        function formatPrice(price) {
-            if (!price && price !== 0) return '—';
-            const numPrice = parseFloat(price);
-            if (isNaN(numPrice)) return '—';
-            return new Intl.NumberFormat('es-ES', {
-                style: 'currency',
-                currency: 'EUR'
-            }).format(numPrice);
-        }
-
+        const serviceId = parseInt(service.id);
+        
         let html = '<div class="aa-service-details-content">';
         
         // Details grid
         html += '<div class="grid grid-cols-2 gap-4">';
         
-        // Código
+        // Código (editable input)
         html += '<div>';
-        html += '<span class="text-xs text-gray-500 block mb-1">Código</span>';
-        html += '<span class="text-sm font-medium text-gray-900">' + escapeHtml(service.code || '—') + '</span>';
+        html += '<label class="text-xs text-gray-500 block mb-1">Código</label>';
+        html += '<input type="text" ';
+        html += 'id="aa-service-code-' + serviceId + '" ';
+        html += 'class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" ';
+        html += 'data-service-id="' + serviceId + '" ';
+        html += 'data-field="code" ';
+        html += 'value="' + escapeHtml(service.code || '') + '" ';
+        html += '/>';
         html += '</div>';
         
-        // Precio
+        // Precio (editable input number)
         html += '<div>';
-        html += '<span class="text-xs text-gray-500 block mb-1">Precio</span>';
-        html += '<span class="text-sm font-medium text-gray-900">' + formatPrice(service.price) + '</span>';
+        html += '<label class="text-xs text-gray-500 block mb-1">Precio</label>';
+        html += '<input type="number" ';
+        html += 'step="0.01" ';
+        html += 'inputmode="decimal" ';
+        html += 'id="aa-service-price-' + serviceId + '" ';
+        html += 'class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" ';
+        html += 'data-service-id="' + serviceId + '" ';
+        html += 'data-field="price" ';
+        html += 'value="' + (service.price !== null && service.price !== undefined ? escapeHtml(service.price) : '') + '" ';
+        html += '/>';
         html += '</div>';
         
-        // Creado
+        // Creado (read-only)
         html += '<div>';
         html += '<span class="text-xs text-gray-500 block mb-1">Creado</span>';
         html += '<span class="text-sm font-medium text-gray-900">' + formatDateTime(service.created_at) + '</span>';
         html += '</div>';
         
-        // ID (opcional, pequeño)
+        // ID (read-only, pequeño)
         html += '<div>';
         html += '<span class="text-xs text-gray-500 block mb-1">ID</span>';
         html += '<span class="text-xs font-medium text-gray-600">' + escapeHtml(service.id || '—') + '</span>';
@@ -340,10 +536,29 @@
         
         html += '</div>'; // End grid
         
-        // Descripción (full width)
+        // Descripción (editable textarea)
         html += '<div class="mt-4 pt-4 border-t border-gray-200">';
-        html += '<span class="text-xs text-gray-500 block mb-1">Descripción</span>';
-        html += '<span class="text-sm text-gray-900 whitespace-pre-wrap">' + escapeHtml(service.description || '—') + '</span>';
+        html += '<label class="text-xs text-gray-500 block mb-1">Descripción</label>';
+        html += '<textarea rows="3" ';
+        html += 'id="aa-service-description-' + serviceId + '" ';
+        html += 'class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y" ';
+        html += 'data-service-id="' + serviceId + '" ';
+        html += 'data-field="description" ';
+        html += '>';
+        html += escapeHtml(service.description || '');
+        html += '</textarea>';
+        html += '</div>';
+        
+        // Action buttons (Guardar y Eliminar)
+        html += '<div class="mt-4 pt-4 border-t border-gray-200 flex justify-end gap-2">';
+        html += '<button type="button" ';
+        html += 'class="aa-service-save px-3 py-2 text-sm font-medium rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors" ';
+        html += 'data-service-id="' + serviceId + '" ';
+        html += '>Guardar</button>';
+        html += '<button type="button" ';
+        html += 'class="aa-service-delete px-3 py-2 text-sm font-medium rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors" ';
+        html += 'data-service-id="' + serviceId + '" ';
+        html += '>Eliminar</button>';
         html += '</div>';
         
         html += '</div>'; // End details content
