@@ -41,6 +41,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/services/notificationsService
 require_once plugin_dir_path(__FILE__) . 'includes/services/appointmentsService.php';
 require_once plugin_dir_path(__FILE__) . 'includes/services/assignmentsService.php';
 require_once plugin_dir_path(__FILE__) . 'includes/services/assignments/servicesService.php';
+require_once plugin_dir_path(__FILE__) . 'includes/services/assignments/staffService.php';
 
 // 4️⃣ Controladores (lógica de negocio)
 require_once plugin_dir_path(__FILE__) . 'includes/controllers/availability-controller.php';

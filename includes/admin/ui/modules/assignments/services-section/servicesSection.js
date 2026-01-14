@@ -9,6 +9,9 @@
 
     // Store root element reference for reuse
     let servicesRoot = null;
+    
+    // Flag to track if save/delete handlers are already bound
+    let saveDeleteHandlersBound = false;
 
     /**
      * Initialize the services section
@@ -22,6 +25,9 @@
             return;
         }
 
+        // Setup save and delete handlers (only once)
+        setupSaveDeleteHandlers();
+        
         // Load and render services
         loadServices(servicesRoot);
         
@@ -134,8 +140,8 @@
         // Setup details panel toggle handlers
         setupDetailsPanelHandlers();
         
-        // Setup save and delete handlers
-        setupSaveDeleteHandlers();
+        // Note: save/delete handlers are set up once in initServicesSection()
+        // to avoid duplicate listeners on re-render
     }
 
     /**
@@ -224,27 +230,43 @@
     }
 
     /**
+     * Handle click events on services root (event delegation)
+     * @param {Event} event - Click event
+     */
+    function onServicesRootClick(event) {
+        const target = event.target.closest('.aa-service-save, .aa-service-delete');
+        if (!target) return;
+        
+        const serviceId = parseInt(target.getAttribute('data-service-id'));
+        if (!serviceId || serviceId <= 0) return;
+        
+        if (target.classList.contains('aa-service-save')) {
+            event.preventDefault();
+            saveService(serviceId);
+        } else if (target.classList.contains('aa-service-delete')) {
+            event.preventDefault();
+            deleteService(serviceId);
+        }
+    }
+
+    /**
      * Setup handlers for save and delete buttons
+     * Only registers once to avoid duplicate listeners
      */
     function setupSaveDeleteHandlers() {
-        // Use event delegation on the root element to handle dynamically added buttons
-        if (!servicesRoot) return;
+        // Prevent duplicate registration
+        if (saveDeleteHandlersBound) {
+            return;
+        }
         
-        servicesRoot.addEventListener('click', function(event) {
-            const target = event.target.closest('.aa-service-save, .aa-service-delete');
-            if (!target) return;
-            
-            const serviceId = parseInt(target.getAttribute('data-service-id'));
-            if (!serviceId || serviceId <= 0) return;
-            
-            if (target.classList.contains('aa-service-save')) {
-                event.preventDefault();
-                saveService(serviceId);
-            } else if (target.classList.contains('aa-service-delete')) {
-                event.preventDefault();
-                deleteService(serviceId);
-            }
-        });
+        // Use event delegation on the root element to handle dynamically added buttons
+        if (!servicesRoot) {
+            console.warn('[Services Section] Cannot setup save/delete handlers: servicesRoot not found');
+            return;
+        }
+        
+        servicesRoot.addEventListener('click', onServicesRootClick);
+        saveDeleteHandlersBound = true;
     }
 
     /**
