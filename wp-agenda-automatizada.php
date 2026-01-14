@@ -284,6 +284,7 @@ register_activation_hook(__FILE__, function() {
         id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
         name varchar(191) NOT NULL,
         description text,
+        color text DEFAULT NULL,
         active tinyint(1) DEFAULT 1,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY  (id)

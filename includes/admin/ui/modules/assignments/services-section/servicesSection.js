@@ -119,7 +119,7 @@
             html += '</div>';
             // Collapsable details panel
             html += '<div class="aa-service-details-panel hidden border-t border-gray-200 p-3" data-service-id="' + serviceId + '">';
-            html += '<div class="aa-service-details-content"></div>';
+            html += renderServiceDetails(service);
             html += '</div>';
             html += '</li>';
         });
@@ -272,6 +272,83 @@
                 addButton.textContent = originalButtonText;
             }
         });
+    }
+
+    /**
+     * Render service details in a form-like read-only layout
+     * @param {Object} service - Service object with all fields
+     * @returns {string} HTML string for service details
+     */
+    function renderServiceDetails(service) {
+        // Helper function to format datetime string
+        function formatDateTime(datetimeStr) {
+            if (!datetimeStr) return '—';
+            try {
+                const date = new Date(datetimeStr);
+                if (isNaN(date.getTime())) return datetimeStr;
+                return date.toLocaleString('es-ES', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } catch (e) {
+                return datetimeStr;
+            }
+        }
+
+        // Helper function to format price
+        function formatPrice(price) {
+            if (!price && price !== 0) return '—';
+            const numPrice = parseFloat(price);
+            if (isNaN(numPrice)) return '—';
+            return new Intl.NumberFormat('es-ES', {
+                style: 'currency',
+                currency: 'EUR'
+            }).format(numPrice);
+        }
+
+        let html = '<div class="aa-service-details-content">';
+        
+        // Details grid
+        html += '<div class="grid grid-cols-2 gap-4">';
+        
+        // Código
+        html += '<div>';
+        html += '<span class="text-xs text-gray-500 block mb-1">Código</span>';
+        html += '<span class="text-sm font-medium text-gray-900">' + escapeHtml(service.code || '—') + '</span>';
+        html += '</div>';
+        
+        // Precio
+        html += '<div>';
+        html += '<span class="text-xs text-gray-500 block mb-1">Precio</span>';
+        html += '<span class="text-sm font-medium text-gray-900">' + formatPrice(service.price) + '</span>';
+        html += '</div>';
+        
+        // Creado
+        html += '<div>';
+        html += '<span class="text-xs text-gray-500 block mb-1">Creado</span>';
+        html += '<span class="text-sm font-medium text-gray-900">' + formatDateTime(service.created_at) + '</span>';
+        html += '</div>';
+        
+        // ID (opcional, pequeño)
+        html += '<div>';
+        html += '<span class="text-xs text-gray-500 block mb-1">ID</span>';
+        html += '<span class="text-xs font-medium text-gray-600">' + escapeHtml(service.id || '—') + '</span>';
+        html += '</div>';
+        
+        html += '</div>'; // End grid
+        
+        // Descripción (full width)
+        html += '<div class="mt-4 pt-4 border-t border-gray-200">';
+        html += '<span class="text-xs text-gray-500 block mb-1">Descripción</span>';
+        html += '<span class="text-sm text-gray-900 whitespace-pre-wrap">' + escapeHtml(service.description || '—') + '</span>';
+        html += '</div>';
+        
+        html += '</div>'; // End details content
+        
+        return html;
     }
 
     /**

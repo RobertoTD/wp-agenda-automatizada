@@ -270,7 +270,7 @@ class AssignmentsModel {
      * Obtener lista de servicios
      * 
      * @param bool $only_active Si es true, solo retorna servicios activos
-     * @return array Array de servicios con id, name, active, created_at
+     * @return array Array de servicios con id, name, code, description, price, active, created_at
      */
     public static function get_services($only_active = false) {
         global $wpdb;
@@ -281,7 +281,7 @@ class AssignmentsModel {
             $where_clause = "WHERE active = 1";
         }
         
-        $query = "SELECT id, name, active, created_at 
+        $query = "SELECT id, name, code, description, price, active, created_at 
                   FROM $table 
                   $where_clause 
                   ORDER BY name ASC";
