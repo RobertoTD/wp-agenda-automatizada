@@ -217,6 +217,56 @@ class AssignmentsModel {
     }
 
     /**
+     * Crear nuevo servicio
+     * 
+     * @param string $name Nombre del servicio
+     * @return array|false Array con id y name en éxito, false en error
+     */
+    public static function create_service($name) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_services';
+        
+        // Sanitizar nombre
+        $name = sanitize_text_field($name);
+        
+        // Validar que el nombre no esté vacío
+        if (empty($name)) {
+            error_log("❌ [AssignmentsModel] Intento de crear servicio con nombre vacío");
+            return false;
+        }
+        
+        // Insertar en la base de datos
+        $result = $wpdb->insert(
+            $table,
+            [
+                'name' => $name,
+                'active' => 1,
+                'created_at' => current_time('mysql')
+            ],
+            ['%s', '%d', '%s']
+        );
+        
+        if ($result === false) {
+            error_log("❌ [AssignmentsModel] Error al crear servicio: " . $wpdb->last_error);
+            return false;
+        }
+        
+        $new_id = $wpdb->insert_id;
+        
+        if (!$new_id) {
+            error_log("❌ [AssignmentsModel] Servicio creado pero no se obtuvo insert_id");
+            return false;
+        }
+        
+        error_log("✅ [AssignmentsModel] Servicio creado ID: $new_id (nombre: $name)");
+        
+        return [
+            'id' => $new_id,
+            'name' => $name
+        ];
+    }
+
+    /**
      * Actualizar estado activo de un miembro del personal
      * 
      * @param int $id ID del personal

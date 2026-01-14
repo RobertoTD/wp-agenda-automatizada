@@ -40,6 +40,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/services/ClienteService.php';
 require_once plugin_dir_path(__FILE__) . 'includes/services/notificationsService.php';
 require_once plugin_dir_path(__FILE__) . 'includes/services/appointmentsService.php';
 require_once plugin_dir_path(__FILE__) . 'includes/services/assignmentsService.php';
+require_once plugin_dir_path(__FILE__) . 'includes/services/assignments/servicesService.php';
 
 // 4️⃣ Controladores (lógica de negocio)
 require_once plugin_dir_path(__FILE__) . 'includes/controllers/availability-controller.php';
@@ -321,6 +322,7 @@ register_activation_hook(__FILE__, function() {
         id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
         name varchar(191) NOT NULL,
         code varchar(191) NOT NULL,
+        description text DEFAULT NULL,
         price decimal(10,2) DEFAULT NULL,
         active tinyint(1) DEFAULT 1,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,

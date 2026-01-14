@@ -22,17 +22,194 @@
             return;
         }
 
-        // Render services
-        renderServices(servicesRoot);
+        // Load and render services
+        loadServices(servicesRoot);
+        
+        // Setup create service button handler
+        setupCreateServiceHandler();
+    }
+
+    /**
+     * Load services from server via AJAX
+     * @param {HTMLElement} root - The root container element
+     */
+    function loadServices(root) {
+        // TODO: Implement AJAX call to load services
+        // For now, render empty state
+        renderServices(root, []);
     }
 
     /**
      * Render services list
      * @param {HTMLElement} root - The root container element
+     * @param {Array} servicesList - Array of service objects
      */
-    function renderServices(root) {
-        // Placeholder content for now
-        root.innerHTML = '<p class="text-sm text-gray-500">No hay servicios registrados.</p>';
+    function renderServices(root, servicesList) {
+        if (!servicesList || servicesList.length === 0) {
+            root.innerHTML = '<p class="text-sm text-gray-500">No hay servicios registrados.</p>';
+            return;
+        }
+
+        // Build HTML for services list
+        let html = '<ul class="space-y-2">';
+        
+        servicesList.forEach(function(service) {
+            const isActive = parseInt(service.active) === 1;
+            const serviceId = parseInt(service.id);
+            
+            html += '<li class="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">';
+            // Main content row
+            html += '<div class="flex items-center gap-2 p-3">';
+            html += '<span class="flex items-center justify-center w-8 h-8 rounded-lg bg-purple-100 text-purple-600 flex-shrink-0">';
+            html += '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
+            html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>';
+            html += '</svg>';
+            html += '</span>';
+            html += '<span class="text-sm font-medium text-gray-900">' + escapeHtml(service.name) + '</span>';
+            // Toggle details button (chevron)
+            html += '<button type="button" class="aa-service-toggle-details inline-flex items-center justify-center w-6 h-6 text-gray-500 hover:text-gray-700 transition-colors" data-service-id="' + serviceId + '" title="Ver detalles">';
+            html += '<svg class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
+            html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>';
+            html += '</svg>';
+            html += '</button>';
+            // Toggle switch
+            html += '<div class="ml-auto relative">';
+            html += '<label class="flex items-center cursor-pointer">';
+            html += '<input type="checkbox" ';
+            html += 'class="toggle-service-active peer sr-only" ';
+            html += 'data-id="' + serviceId + '" ';
+            html += 'data-active="' + service.active + '" ';
+            if (isActive) {
+                html += 'checked ';
+            }
+            html += '/>';
+            html += '<div class="w-11 h-6 bg-gray-300 peer-checked:bg-blue-500 rounded-full transition-colors duration-200"></div>';
+            html += '<div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 peer-checked:translate-x-5"></div>';
+            html += '</label>';
+            html += '</div>';
+            html += '</div>';
+            // Collapsable details panel
+            html += '<div class="aa-service-details-panel hidden border-t border-gray-200 p-3" data-service-id="' + serviceId + '">';
+            html += '<div class="aa-service-details-content"></div>';
+            html += '</div>';
+            html += '</li>';
+        });
+        
+        html += '</ul>';
+
+        root.innerHTML = html;
+        
+        // Setup toggle handlers after rendering
+        setupToggleHandlers();
+        
+        // Setup details panel toggle handlers
+        setupDetailsPanelHandlers();
+    }
+
+    /**
+     * Setup handlers for toggle switches
+     */
+    function setupToggleHandlers() {
+        const toggles = document.querySelectorAll('.toggle-service-active');
+        
+        toggles.forEach(function(toggle) {
+            toggle.addEventListener('change', function() {
+                handleToggleChange(this);
+            });
+        });
+    }
+
+    /**
+     * Handle toggle change event
+     * @param {HTMLElement} toggle - The toggle checkbox element
+     */
+    function handleToggleChange(toggle) {
+        // TODO: Implement AJAX call to update service active status
+        const serviceId = parseInt(toggle.getAttribute('data-id'));
+        const newActive = toggle.checked ? 1 : 0;
+        console.log('[Services Section] Toggle service', serviceId, 'to', newActive);
+    }
+
+    /**
+     * Setup handlers for details panel toggle (chevron button)
+     */
+    function setupDetailsPanelHandlers() {
+        const toggleButtons = document.querySelectorAll('.aa-service-toggle-details');
+        
+        toggleButtons.forEach(function(button) {
+            button.addEventListener('click', function() {
+                const serviceId = this.getAttribute('data-service-id');
+                const panel = document.querySelector('.aa-service-details-panel[data-service-id="' + serviceId + '"]');
+                const chevron = this.querySelector('svg');
+                
+                if (panel) {
+                    // Toggle panel visibility
+                    panel.classList.toggle('hidden');
+                    
+                    // Rotate chevron
+                    if (panel.classList.contains('hidden')) {
+                        chevron.classList.remove('rotate-90');
+                    } else {
+                        chevron.classList.add('rotate-90');
+                    }
+                }
+            });
+        });
+    }
+
+    /**
+     * Setup handler for create service button
+     */
+    function setupCreateServiceHandler() {
+        const addButton = document.getElementById('aa-add-service');
+        const nameInput = document.getElementById('aa-service-name-input');
+        
+        if (!addButton || !nameInput) {
+            console.warn('[Services Section] Create service button or input not found');
+            return;
+        }
+        
+        // Handle button click
+        addButton.addEventListener('click', function() {
+            createService(nameInput);
+        });
+        
+        // Handle Enter key in input
+        nameInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                createService(nameInput);
+            }
+        });
+    }
+
+    /**
+     * Create a new service
+     * @param {HTMLElement} nameInput - The input element containing the service name
+     */
+    function createService(nameInput) {
+        const name = nameInput.value.trim();
+        
+        // Validate input
+        if (!name) {
+            console.warn('[Services Section] Intento de crear servicio con nombre vacío');
+            return;
+        }
+        
+        // TODO: Implement AJAX call to create service
+        console.log('[Services Section] Create service:', name);
+    }
+
+    /**
+     * Escape HTML to prevent XSS
+     * @param {string} text - Text to escape
+     * @returns {string} Escaped text
+     */
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     // Initialize on DOMContentLoaded

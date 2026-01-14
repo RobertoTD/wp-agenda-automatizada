@@ -172,6 +172,19 @@ $module_js_url = $plugin_url . 'assignments-module.js?v=' . filemtime($base_dir 
         <div class="p-6 transition-all duration-200">
             <!-- Root container for services section JS -->
             <div id="aa-services-root"></div>
+            
+            <!-- Form to add new service -->
+            <div class="flex gap-2 mt-4">
+                <input type="text" 
+                       id="aa-service-name-input" 
+                       placeholder="Ej: Consulta médica" 
+                       class="flex-1 px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow placeholder:text-gray-400">
+                <button type="button" 
+                        id="aa-add-service" 
+                        class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm">
+                    Agregar
+                </button>
+            </div>
         </div>
     </details>
 
