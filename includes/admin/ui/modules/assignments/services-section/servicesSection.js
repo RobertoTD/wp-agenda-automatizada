@@ -34,9 +34,38 @@
      * @param {HTMLElement} root - The root container element
      */
     function loadServices(root) {
-        // TODO: Implement AJAX call to load services
-        // For now, render empty state
-        renderServices(root, []);
+        // Get ajaxurl from global data
+        const ajaxurl = (window.AA_ASSIGNMENTS_DATA && window.AA_ASSIGNMENTS_DATA.ajaxurl) 
+            || window.ajaxurl 
+            || '/wp-admin/admin-ajax.php';
+
+        // Prepare FormData for AJAX request
+        const formData = new FormData();
+        formData.append('action', 'aa_get_services_db');
+
+        // Show loading state
+        root.innerHTML = '<p class="text-sm text-gray-500">Cargando servicios...</p>';
+
+        // Make AJAX request
+        fetch(ajaxurl, {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(response) {
+            return response.json();
+        })
+        .then(function(data) {
+            if (data.success && data.data && data.data.services) {
+                renderServices(root, data.data.services);
+            } else {
+                console.error('[Services Section] Error en respuesta:', data);
+                root.innerHTML = '<p class="text-sm text-red-500">Error al cargar los servicios.</p>';
+            }
+        })
+        .catch(function(error) {
+            console.error('[Services Section] Error en petición AJAX:', error);
+            root.innerHTML = '<p class="text-sm text-red-500">Error al conectar con el servidor.</p>';
+        });
     }
 
     /**
@@ -196,8 +225,53 @@
             return;
         }
         
-        // TODO: Implement AJAX call to create service
-        console.log('[Services Section] Create service:', name);
+        // Get ajaxurl from global data
+        const ajaxurl = (window.AA_ASSIGNMENTS_DATA && window.AA_ASSIGNMENTS_DATA.ajaxurl) 
+            || window.ajaxurl 
+            || '/wp-admin/admin-ajax.php';
+
+        // Prepare FormData for AJAX request
+        const formData = new FormData();
+        formData.append('action', 'aa_create_service');
+        formData.append('name', name);
+
+        // Disable button during request
+        const addButton = document.getElementById('aa-add-service');
+        const originalButtonText = addButton.textContent;
+        addButton.disabled = true;
+        addButton.textContent = 'Agregando...';
+
+        // Make AJAX request
+        fetch(ajaxurl, {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(response) {
+            return response.json();
+        })
+        .then(function(data) {
+            if (data.success) {
+                // Clear input
+                nameInput.value = '';
+                
+                // Reload the list of services
+                if (servicesRoot) {
+                    loadServices(servicesRoot);
+                }
+            } else {
+                console.error('[Services Section] Error al crear servicio:', data);
+            }
+        })
+        .catch(function(error) {
+            console.error('[Services Section] Error en petición AJAX:', error);
+        })
+        .finally(function() {
+            // Re-enable button
+            if (addButton) {
+                addButton.disabled = false;
+                addButton.textContent = originalButtonText;
+            }
+        });
     }
 
     /**

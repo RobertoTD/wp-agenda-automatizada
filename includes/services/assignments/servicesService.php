@@ -14,7 +14,38 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
 /**
  * Register AJAX endpoints for services
  */
+add_action('wp_ajax_aa_get_services_db', 'aa_get_services_db');
 add_action('wp_ajax_aa_create_service', 'aa_create_service');
+
+/**
+ * Get list of services from database
+ * 
+ * AJAX handler for retrieving services list from wp_aa_services table
+ * Note: This endpoint reads from the database table, not from wp_options.
+ * Legacy endpoint aa_get_services (in assignmentsService.php) reads from wp_options.
+ */
+function aa_get_services_db() {
+    // Validar permisos
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'No tienes permisos para realizar esta acción']);
+        return;
+    }
+    
+    try {
+        // Obtener servicios desde el modelo
+        $services = AssignmentsModel::get_services(false);
+        
+        wp_send_json_success([
+            'services' => $services,
+            'count' => count($services)
+        ]);
+    } catch (Exception $e) {
+        error_log("❌ [servicesService] Error al obtener servicios: " . $e->getMessage());
+        wp_send_json_error([
+            'message' => 'Error al obtener los servicios: ' . $e->getMessage()
+        ]);
+    }
+}
 
 /**
  * Create a new service

@@ -267,6 +267,36 @@ class AssignmentsModel {
     }
 
     /**
+     * Obtener lista de servicios
+     * 
+     * @param bool $only_active Si es true, solo retorna servicios activos
+     * @return array Array de servicios con id, name, active, created_at
+     */
+    public static function get_services($only_active = false) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_services';
+        
+        $where_clause = '';
+        if ($only_active) {
+            $where_clause = "WHERE active = 1";
+        }
+        
+        $query = "SELECT id, name, active, created_at 
+                  FROM $table 
+                  $where_clause 
+                  ORDER BY name ASC";
+        
+        $results = $wpdb->get_results($query, ARRAY_A);
+        
+        if ($wpdb->last_error) {
+            error_log("❌ [AssignmentsModel] Error al obtener servicios: " . $wpdb->last_error);
+            return [];
+        }
+        
+        return $results ? $results : [];
+    }
+
+    /**
      * Actualizar estado activo de un miembro del personal
      * 
      * @param int $id ID del personal
