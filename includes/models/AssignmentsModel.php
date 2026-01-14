@@ -526,6 +526,156 @@ class AssignmentsModel {
     }
 
     /**
+     * Obtener IDs de servicios asignados a un staff
+     * 
+     * @param int $staff_id ID del staff
+     * @return array Array de service_id
+     */
+    public static function get_staff_service_ids($staff_id) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_staff_services';
+        
+        $staff_id = intval($staff_id);
+        
+        if ($staff_id <= 0) {
+            error_log("❌ [AssignmentsModel] ID inválido para obtener servicios de staff: $staff_id");
+            return [];
+        }
+        
+        $query = "SELECT service_id FROM $table WHERE staff_id = %d";
+        $results = $wpdb->get_col($wpdb->prepare($query, $staff_id));
+        
+        if ($wpdb->last_error) {
+            error_log("❌ [AssignmentsModel] Error al obtener service_ids de staff: " . $wpdb->last_error);
+            return [];
+        }
+        
+        return $results ? array_map('intval', $results) : [];
+    }
+
+    /**
+     * Obtener servicios completos asignados a un staff
+     * 
+     * @param int $staff_id ID del staff
+     * @return array Array de servicios con id, name
+     */
+    public static function get_staff_services($staff_id) {
+        global $wpdb;
+        $pivot_table = $wpdb->prefix . 'aa_staff_services';
+        $services_table = $wpdb->prefix . 'aa_services';
+        
+        $staff_id = intval($staff_id);
+        
+        if ($staff_id <= 0) {
+            error_log("❌ [AssignmentsModel] ID inválido para obtener servicios de staff: $staff_id");
+            return [];
+        }
+        
+        $query = "SELECT s.id, s.name 
+                  FROM $services_table s
+                  INNER JOIN $pivot_table ss ON s.id = ss.service_id
+                  WHERE ss.staff_id = %d
+                  ORDER BY s.name ASC";
+        
+        $results = $wpdb->get_results($wpdb->prepare($query, $staff_id), ARRAY_A);
+        
+        if ($wpdb->last_error) {
+            error_log("❌ [AssignmentsModel] Error al obtener servicios de staff: " . $wpdb->last_error);
+            return [];
+        }
+        
+        return $results ? $results : [];
+    }
+
+    /**
+     * Agregar relación staff-service
+     * 
+     * @param int $staff_id ID del staff
+     * @param int $service_id ID del servicio
+     * @return bool|int true en éxito, false en error, o insert_id si se necesita
+     */
+    public static function add_staff_service($staff_id, $service_id) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_staff_services';
+        
+        $staff_id = intval($staff_id);
+        $service_id = intval($service_id);
+        
+        if ($staff_id <= 0 || $service_id <= 0) {
+            error_log("❌ [AssignmentsModel] IDs inválidos para agregar relación staff-service: staff=$staff_id, service=$service_id");
+            return false;
+        }
+        
+        // Insertar en la tabla pivote
+        $result = $wpdb->insert(
+            $table,
+            [
+                'staff_id' => $staff_id,
+                'service_id' => $service_id
+            ],
+            ['%d', '%d']
+        );
+        
+        if ($result === false) {
+            // Verificar si es error de duplicado (UNIQUE constraint)
+            if ($wpdb->last_error && strpos($wpdb->last_error, 'Duplicate') !== false) {
+                error_log("⚠️ [AssignmentsModel] Relación staff-service ya existe: staff=$staff_id, service=$service_id");
+                return false;
+            }
+            error_log("❌ [AssignmentsModel] Error al agregar relación staff-service: " . $wpdb->last_error);
+            return false;
+        }
+        
+        error_log("✅ [AssignmentsModel] Relación staff-service agregada: staff=$staff_id, service=$service_id");
+        
+        return true;
+    }
+
+    /**
+     * Eliminar relación staff-service
+     * 
+     * @param int $staff_id ID del staff
+     * @param int $service_id ID del servicio
+     * @return bool true en éxito, false en error
+     */
+    public static function remove_staff_service($staff_id, $service_id) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_staff_services';
+        
+        $staff_id = intval($staff_id);
+        $service_id = intval($service_id);
+        
+        if ($staff_id <= 0 || $service_id <= 0) {
+            error_log("❌ [AssignmentsModel] IDs inválidos para eliminar relación staff-service: staff=$staff_id, service=$service_id");
+            return false;
+        }
+        
+        // Eliminar de la tabla pivote
+        $result = $wpdb->delete(
+            $table,
+            [
+                'staff_id' => $staff_id,
+                'service_id' => $service_id
+            ],
+            ['%d', '%d']
+        );
+        
+        if ($result === false) {
+            error_log("❌ [AssignmentsModel] Error al eliminar relación staff-service: " . $wpdb->last_error);
+            return false;
+        }
+        
+        if ($result === 0) {
+            error_log("⚠️ [AssignmentsModel] No se encontró relación staff-service para eliminar: staff=$staff_id, service=$service_id");
+            return false;
+        }
+        
+        error_log("✅ [AssignmentsModel] Relación staff-service eliminada: staff=$staff_id, service=$service_id");
+        
+        return true;
+    }
+
+    /**
      * Obtener asignaciones
      * 
      * @return array Array asociativo con las asignaciones enriquecidas con nombres de staff y zonas
