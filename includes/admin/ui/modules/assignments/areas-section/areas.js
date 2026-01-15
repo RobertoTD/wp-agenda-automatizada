@@ -86,17 +86,21 @@
             const isActive = parseInt(area.active) === 1;
             const areaId = parseInt(area.id);
             
-            html += '<li class="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200">';
-            html += '<span class="flex items-center justify-center w-8 h-8 rounded-lg bg-green-100 text-green-600 flex-shrink-0">';
-            html += '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
-            html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>';
-            html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>';
-            html += '</svg>';
+            html += '<li class="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">';
+            // Main content row (header)
+            html += '<div class="flex items-center gap-2 p-3">';
+            // Color indicator circle
+            const areaColor = area.color || '#3b82f6';
+            html += '<span class="aa-area-color-bg flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0" style="background-color: ' + areaColor + '20;">';
+            html += '<span class="aa-area-color-indicator w-4 h-4 rounded-full border-2 border-white shadow-sm" style="background-color: ' + areaColor + ';"></span>';
             html += '</span>';
             html += '<span class="text-sm font-medium text-gray-900">' + escapeHtml(area.name) + '</span>';
-            if (area.description) {
-                html += '<span class="text-xs text-gray-500 ml-2">- ' + escapeHtml(area.description) + '</span>';
-            }
+            // Toggle details button (chevron)
+            html += '<button type="button" class="aa-area-toggle-details inline-flex items-center justify-center w-6 h-6 text-gray-500 hover:text-gray-700 transition-colors" data-area-id="' + areaId + '" title="Ver detalles">';
+            html += '<svg class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
+            html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>';
+            html += '</svg>';
+            html += '</button>';
             // Toggle switch
             html += '<div class="ml-auto relative">';
             html += '<label class="flex items-center cursor-pointer">';
@@ -112,6 +116,27 @@
             html += '<div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 peer-checked:translate-x-5"></div>';
             html += '</label>';
             html += '</div>';
+            html += '</div>';
+            // Collapsable details panel
+            html += '<div class="aa-area-details-panel hidden border-t border-gray-200 p-3" data-area-id="' + areaId + '">';
+            if (area.description) {
+                html += '<div class="mb-3">';
+                html += '<label class="block text-xs font-medium text-gray-700 mb-1">Descripción</label>';
+                html += '<p class="text-sm text-gray-600">' + escapeHtml(area.description) + '</p>';
+                html += '</div>';
+            } else {
+                html += '<p class="text-xs text-gray-500 mb-3">No hay descripción disponible.</p>';
+            }
+            // Color picker field
+            html += '<div class="mb-2">';
+            html += '<label class="block text-xs font-medium text-gray-700 mb-1">Color</label>';
+            html += '<input type="text" ';
+            html += 'class="aa-area-color-picker" ';
+            html += 'data-area-id="' + areaId + '" ';
+            html += 'value="' + (area.color || '#3b82f6') + '" ';
+            html += 'style="width: 100%; max-width: 200px;" />';
+            html += '</div>';
+            html += '</div>';
             html += '</li>';
         });
         
@@ -121,6 +146,12 @@
         
         // Setup toggle handlers after rendering
         setupToggleHandlers();
+        
+        // Setup details panel toggle handlers
+        setupDetailsPanelHandlers();
+        
+        // Initialize color pickers after rendering
+        initializeColorPickers();
     }
 
     /**
@@ -133,6 +164,133 @@
             toggle.addEventListener('change', function() {
                 handleToggleChange(this);
             });
+        });
+    }
+
+    /**
+     * Setup handlers for details panel toggle (chevron button)
+     */
+    function setupDetailsPanelHandlers() {
+        const toggleButtons = document.querySelectorAll('.aa-area-toggle-details');
+        
+        toggleButtons.forEach(function(button) {
+            button.addEventListener('click', function() {
+                const areaId = this.getAttribute('data-area-id');
+                const panel = document.querySelector('.aa-area-details-panel[data-area-id="' + areaId + '"]');
+                const chevron = this.querySelector('svg');
+                
+                if (panel) {
+                    // Toggle panel visibility
+                    const isOpening = panel.classList.contains('hidden');
+                    panel.classList.toggle('hidden');
+                    
+                    // Rotate chevron
+                    if (panel.classList.contains('hidden')) {
+                        chevron.classList.remove('rotate-90');
+                    } else {
+                        chevron.classList.add('rotate-90');
+                        
+                        // Initialize color picker if panel is being opened and picker not yet initialized
+                        if (isOpening) {
+                            // Pequeño delay para asegurar que el DOM esté listo
+                            setTimeout(function() {
+                                const colorPicker = panel.querySelector('.aa-area-color-picker');
+                                if (colorPicker && !jQuery(colorPicker).hasClass('wp-color-picker')) {
+                                    initializeSingleColorPicker(colorPicker);
+                                }
+                            }, 50);
+                        }
+                    }
+                }
+            });
+        });
+    }
+    
+    /**
+     * Initialize a single color picker
+     * @param {HTMLElement} picker - The color picker input element
+     */
+    function initializeSingleColorPicker(picker) {
+        if (typeof jQuery === 'undefined' || typeof jQuery.fn.wpColorPicker === 'undefined') {
+            console.warn('[Areas Section] wp-color-picker no disponible');
+            return;
+        }
+        
+        jQuery(picker).wpColorPicker({
+            defaultColor: '#3b82f6',
+            change: function(event, ui) {
+                const areaId = picker.getAttribute('data-area-id');
+                const newColor = ui.color.toString();
+                
+                // Actualizar indicador visual en la card
+                const card = picker.closest('li');
+                if (card) {
+                    const colorIndicator = card.querySelector('.aa-area-color-indicator');
+                    if (colorIndicator) {
+                        colorIndicator.style.backgroundColor = newColor;
+                        const parentBg = card.querySelector('.aa-area-color-bg');
+                        if (parentBg) {
+                            parentBg.style.backgroundColor = newColor + '20';
+                        }
+                    }
+                }
+                
+                // Guardar color en BD vía AJAX
+                updateServiceAreaColor(areaId, newColor);
+            },
+            clear: function() {
+                const areaId = picker.getAttribute('data-area-id');
+                const defaultColor = '#3b82f6';
+                
+                const card = picker.closest('li');
+                if (card) {
+                    const colorIndicator = card.querySelector('.aa-area-color-indicator');
+                    if (colorIndicator) {
+                        colorIndicator.style.backgroundColor = defaultColor;
+                        const parentBg = card.querySelector('.aa-area-color-bg');
+                        if (parentBg) {
+                            parentBg.style.backgroundColor = defaultColor + '20';
+                        }
+                    }
+                }
+                
+                // Guardar color por defecto en BD vía AJAX
+                updateServiceAreaColor(areaId, defaultColor);
+            }
+        });
+    }
+    
+    /**
+     * Update service area color via AJAX
+     * @param {number} areaId - ID of the service area
+     * @param {string} color - Color in hexadecimal format (e.g., #16225b)
+     */
+    function updateServiceAreaColor(areaId, color) {
+        const ajaxurl = (window.AA_ASSIGNMENTS_DATA && window.AA_ASSIGNMENTS_DATA.ajaxurl) 
+            || window.ajaxurl 
+            || '/wp-admin/admin-ajax.php';
+
+        const formData = new FormData();
+        formData.append('action', 'aa_update_service_area_color');
+        formData.append('id', areaId);
+        formData.append('color', color);
+
+        fetch(ajaxurl, {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(response) {
+            return response.json();
+        })
+        .then(function(data) {
+            if (data.success) {
+                console.log('[Areas Section] Color guardado correctamente para zona ' + areaId + ': ' + color);
+            } else {
+                console.error('[Areas Section] Error al guardar color:', data.message);
+            }
+        })
+        .catch(function(error) {
+            console.error('[Areas Section] Error en petición AJAX para guardar color:', error);
         });
     }
 
@@ -265,6 +423,27 @@
             if (addButton) {
                 addButton.disabled = false;
                 addButton.textContent = originalButtonText;
+            }
+        });
+    }
+
+    /**
+     * Initialize WordPress color pickers
+     */
+    function initializeColorPickers() {
+        // Wait for wp-color-picker to be available
+        if (typeof jQuery === 'undefined' || typeof jQuery.fn.wpColorPicker === 'undefined') {
+            console.warn('[Areas Section] wp-color-picker no disponible, reintentando...');
+            setTimeout(initializeColorPickers, 100);
+            return;
+        }
+        
+        const colorPickers = document.querySelectorAll('.aa-area-color-picker');
+        
+        colorPickers.forEach(function(picker) {
+            // Only initialize if not already initialized
+            if (!jQuery(picker).hasClass('wp-color-picker')) {
+                initializeSingleColorPicker(picker);
             }
         });
     }

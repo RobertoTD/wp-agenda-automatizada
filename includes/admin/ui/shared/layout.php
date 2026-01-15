@@ -83,6 +83,16 @@ header('Content-Type: text/html; charset=utf-8');
     <!-- Flatpickr CSS (requerido por calendario y modales) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     
+    <?php
+    // Cargar jQuery y wp-color-picker (requerido para selector de color en zonas)
+    wp_enqueue_script('jquery');
+    wp_enqueue_style('wp-color-picker');
+    wp_enqueue_script('wp-color-picker', false, ['jquery']);
+    wp_print_scripts('jquery');
+    wp_print_styles('wp-color-picker');
+    wp_print_scripts('wp-color-picker');
+    ?>
+    
 </head>
 <body class="flex flex-col min-h-screen" style="background-color: rgb(240, 240, 241);">
 

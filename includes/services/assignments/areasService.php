@@ -17,6 +17,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
 add_action('wp_ajax_aa_get_service_areas', 'aa_get_service_areas');
 add_action('wp_ajax_aa_create_service_area', 'aa_create_service_area');
 add_action('wp_ajax_aa_toggle_service_area', 'aa_toggle_service_area');
+add_action('wp_ajax_aa_update_service_area_color', 'aa_update_service_area_color');
 
 /**
  * Get service areas (zonas de atención)
@@ -158,6 +159,65 @@ function aa_toggle_service_area() {
         error_log("❌ [areasService] Error al actualizar zona de atención: " . $e->getMessage());
         wp_send_json_error([
             'message' => 'Error al actualizar el estado: ' . $e->getMessage()
+        ]);
+    }
+}
+
+/**
+ * Update service area color
+ * 
+ * Updates the color of a service area.
+ * 
+ * @return void JSON response
+ */
+function aa_update_service_area_color() {
+    // Validar permisos
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'No tienes permisos para realizar esta acción']);
+        return;
+    }
+    
+    // Leer y validar datos POST
+    if (!isset($_POST['id'])) {
+        wp_send_json_error(['message' => 'Falta el parámetro ID']);
+        return;
+    }
+    
+    $id = intval($_POST['id']);
+    $color = isset($_POST['color']) ? sanitize_text_field($_POST['color']) : '';
+    
+    // Validar ID
+    if ($id <= 0) {
+        wp_send_json_error(['message' => 'ID inválido']);
+        return;
+    }
+    
+    // Validar formato de color si se proporciona
+    if (!empty($color) && !preg_match('/^#[a-fA-F0-9]{6}$/', $color)) {
+        wp_send_json_error(['message' => 'Formato de color inválido. Debe ser hexadecimal (ej: #16225b)']);
+        return;
+    }
+    
+    try {
+        // Llamar al modelo para actualizar el color
+        $result = AssignmentsModel::update_service_area_color($id, $color);
+        
+        if ($result === false) {
+            wp_send_json_error([
+                'message' => 'Error al actualizar el color de la zona de atención'
+            ]);
+            return;
+        }
+        
+        wp_send_json_success([
+            'message' => 'Color de la zona actualizado correctamente',
+            'id' => $id,
+            'color' => $color
+        ]);
+    } catch (Exception $e) {
+        error_log("❌ [areasService] Error al actualizar color de zona: " . $e->getMessage());
+        wp_send_json_error([
+            'message' => 'Error al actualizar el color: ' . $e->getMessage()
         ]);
     }
 }

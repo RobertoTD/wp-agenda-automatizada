@@ -308,7 +308,6 @@ register_activation_hook(__FILE__, function() {
         repeat_weekly tinyint(1) DEFAULT 0,
         repeat_until date DEFAULT NULL,
         status varchar(50) DEFAULT 'active',
-        color text DEFAULT NULL,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY  (id),
         KEY staff_id (staff_id),

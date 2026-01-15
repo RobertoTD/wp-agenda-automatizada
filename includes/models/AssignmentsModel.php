@@ -29,7 +29,7 @@ class AssignmentsModel {
             $where_clause = "WHERE active = 1";
         }
         
-        $query = "SELECT id, name, description, active, created_at 
+        $query = "SELECT id, name, description, color, active, created_at 
                   FROM $table 
                   $where_clause 
                   ORDER BY name ASC";
@@ -132,6 +132,56 @@ class AssignmentsModel {
         }
         
         error_log("✅ [AssignmentsModel] Zona de atención ID $id actualizada (active = $active)");
+        
+        return true;
+    }
+
+    /**
+     * Actualizar color de una zona de atención
+     * 
+     * @param int $id ID de la zona de atención
+     * @param string $color Color en formato hexadecimal (ej: #16225b)
+     * @return bool true en éxito, false en error
+     */
+    public static function update_service_area_color($id, $color) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_service_areas';
+        
+        // Validar parámetros
+        $id = intval($id);
+        
+        if ($id <= 0) {
+            error_log("❌ [AssignmentsModel] ID inválido para actualizar color de zona: $id");
+            return false;
+        }
+        
+        // Validar formato de color (hexadecimal)
+        $color = sanitize_text_field($color);
+        if (!empty($color) && !preg_match('/^#[a-fA-F0-9]{6}$/', $color)) {
+            error_log("❌ [AssignmentsModel] Formato de color inválido: $color");
+            return false;
+        }
+        
+        // Si está vacío, establecer NULL
+        if (empty($color)) {
+            $color = null;
+        }
+        
+        // Actualizar en la base de datos
+        $result = $wpdb->update(
+            $table,
+            ['color' => $color],
+            ['id' => $id],
+            ['%s'],
+            ['%d']
+        );
+        
+        if ($result === false) {
+            error_log("❌ [AssignmentsModel] Error al actualizar color de zona ID $id: " . $wpdb->last_error);
+            return false;
+        }
+        
+        error_log("✅ [AssignmentsModel] Color de zona ID $id actualizado: $color");
         
         return true;
     }
