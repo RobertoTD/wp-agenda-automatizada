@@ -835,6 +835,10 @@ class AssignmentsModel {
     /**
      * Obtener asignaciones
      * 
+     * Solo retorna asignaciones con fecha actual o futura (assignment_date >= CURDATE())
+     * y que no estén ocultas (is_hidden = 0).
+     * Las asignaciones con fechas pasadas o marcadas como ocultas no se incluyen en los resultados.
+     * 
      * @return array Array asociativo con las asignaciones enriquecidas con nombres de staff y zonas
      */
     public static function get_assignments() {
@@ -856,6 +860,8 @@ class AssignmentsModel {
                   FROM $assignments_table a
                   LEFT JOIN $staff_table s ON s.id = a.staff_id
                   LEFT JOIN $service_areas_table sa ON sa.id = a.service_area_id
+                  WHERE a.assignment_date >= CURDATE()
+                    AND a.is_hidden = 0
                   ORDER BY a.assignment_date ASC, a.start_time ASC";
         
         $results = $wpdb->get_results($query, ARRAY_A);
@@ -869,9 +875,12 @@ class AssignmentsModel {
     }
 
     /**
-     * Eliminar una asignación
+     * Ocultar una asignación (establece status = 'inactive' e is_hidden = 1)
      * 
-     * @param int $id ID de la asignación a eliminar
+     * En lugar de eliminar el registro, se marca como oculta e inactiva
+     * para mantener la integridad referencial con otras tablas.
+     * 
+     * @param int $id ID de la asignación a ocultar
      * @return bool true en éxito, false en error
      */
     public static function delete_assignment($id) {
@@ -882,28 +891,78 @@ class AssignmentsModel {
         $id = intval($id);
         
         if ($id <= 0) {
-            error_log("❌ [AssignmentsModel] ID inválido para eliminar asignación: $id");
+            error_log("❌ [AssignmentsModel] ID inválido para ocultar asignación: $id");
             return false;
         }
         
-        // Eliminar de la base de datos
-        $result = $wpdb->delete(
+        // Actualizar status a 'inactive' e is_hidden a 1 en lugar de eliminar
+        $result = $wpdb->update(
             $table,
+            [
+                'status' => 'inactive',
+                'is_hidden' => 1
+            ],
             ['id' => $id],
+            ['%s', '%d'],
             ['%d']
         );
         
         if ($result === false) {
-            error_log("❌ [AssignmentsModel] Error al eliminar asignación ID $id: " . $wpdb->last_error);
+            error_log("❌ [AssignmentsModel] Error al ocultar asignación ID $id: " . $wpdb->last_error);
             return false;
         }
         
         if ($result === 0) {
-            error_log("⚠️ [AssignmentsModel] No se encontró asignación con ID $id para eliminar");
+            error_log("⚠️ [AssignmentsModel] No se encontró asignación con ID $id para ocultar");
             return false;
         }
         
-        error_log("✅ [AssignmentsModel] Asignación ID $id eliminada correctamente");
+        error_log("✅ [AssignmentsModel] Asignación ID $id ocultada correctamente (status = 'inactive', is_hidden = 1)");
+        
+        return true;
+    }
+
+    /**
+     * Actualizar status de una asignación
+     * 
+     * @param int $id ID de la asignación
+     * @param string $status Nuevo status ('active' o 'inactive')
+     * @return bool true en éxito, false en error
+     */
+    public static function update_assignment_status($id, $status) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_assignments';
+        
+        // Validar parámetros
+        $id = intval($id);
+        
+        if ($id <= 0) {
+            error_log("❌ [AssignmentsModel] ID inválido para actualizar status de asignación: $id");
+            return false;
+        }
+        
+        // Validar que status sea 'active' o 'inactive'
+        $status = sanitize_text_field($status);
+        if ($status !== 'active' && $status !== 'inactive') {
+            error_log("❌ [AssignmentsModel] Status inválido: $status (debe ser 'active' o 'inactive')");
+            return false;
+        }
+        
+        // Actualizar en la base de datos
+        $result = $wpdb->update(
+            $table,
+            ['status' => $status],
+            ['id' => $id],
+            ['%s'],
+            ['%d']
+        );
+        
+        if ($result === false) {
+            error_log("❌ [AssignmentsModel] Error al actualizar status de asignación ID $id: " . $wpdb->last_error);
+            return false;
+        }
+        
+        error_log("✅ [AssignmentsModel] Status de asignación ID $id actualizado: $status");
         
         return true;
     }

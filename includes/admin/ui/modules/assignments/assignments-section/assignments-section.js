@@ -102,10 +102,22 @@
             html += '<div class="text-xs text-gray-500">' + escapeHtml(timeRange) + '</div>';
             html += '</div>';
             
-            // Chevron indicator (solo uno, al extremo derecho)
-            html += '<svg class="aa-card-chevron w-4 h-4 text-gray-400 transition-transform duration-200 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
-            html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>';
-            html += '</svg>';
+            // Toggle switch
+            const isActive = assignment.status === 'active';
+            html += '<div class="ml-auto relative">';
+            html += '<label class="flex items-center cursor-pointer">';
+            html += '<input type="checkbox" ';
+            html += 'class="toggle-assignment-active peer sr-only" ';
+            html += 'data-id="' + assignmentId + '" ';
+            html += 'data-status="' + (assignment.status || 'active') + '" ';
+            if (isActive) {
+                html += 'checked ';
+            }
+            html += '/>';
+            html += '<div class="w-11 h-6 bg-gray-300 peer-checked:bg-blue-500 rounded-full transition-colors duration-200"></div>';
+            html += '<div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 peer-checked:translate-x-5"></div>';
+            html += '</label>';
+            html += '</div>';
             
             html += '</div>'; // End header
             
@@ -141,13 +153,13 @@
             
             html += '</div>'; // End grid
             
-            // Delete button
+            // Hide button
             html += '<div class="pt-3 border-t border-gray-100">';
             html += '<button type="button" class="aa-delete-assignment px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-medium rounded-lg transition-colors" data-id="' + assignmentId + '">';
             html += '<svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
             html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>';
             html += '</svg>';
-            html += 'Eliminar';
+            html += 'Ocultar';
             html += '</button>';
             html += '</div>';
             
@@ -165,6 +177,9 @@
         
         // Setup delete handlers
         setupDeleteHandlers();
+        
+        // Setup checkbox handlers (prevent toggle when clicking checkbox)
+        setupCheckboxHandlers();
     }
 
     /**
@@ -175,8 +190,12 @@
         
         toggles.forEach(function(toggle) {
             toggle.addEventListener('click', function(event) {
-                // Don't toggle if clicking on a button inside
-                if (event.target.closest('button')) {
+                // Don't toggle if clicking on a button, checkbox, or label inside
+                const target = event.target;
+                if (target.closest('button') || 
+                    target.closest('input[type="checkbox"]') || 
+                    target.closest('label') ||
+                    target.closest('.toggle-assignment-active')) {
                     return;
                 }
                 
@@ -184,16 +203,91 @@
                 if (!card) return;
                 
                 const body = card.querySelector('.aa-assignment-body');
-                const chevron = card.querySelector('.aa-card-chevron');
                 
                 if (body) {
                     body.classList.toggle('hidden');
                 }
-                
-                if (chevron) {
-                    chevron.classList.toggle('rotate-180');
-                }
             });
+        });
+    }
+
+    /**
+     * Setup handlers for checkbox toggles
+     * Prevents the card toggle from firing when clicking the checkbox
+     * Also handles status updates when checkbox is toggled
+     */
+    function setupCheckboxHandlers() {
+        const checkboxes = assignmentsRoot.querySelectorAll('.toggle-assignment-active');
+        
+        checkboxes.forEach(function(checkbox) {
+            // Prevent event propagation on checkbox and label
+            checkbox.addEventListener('click', function(event) {
+                event.stopPropagation();
+            });
+            
+            // Handle change event to update status
+            checkbox.addEventListener('change', function() {
+                const assignmentId = parseInt(this.getAttribute('data-id'));
+                const previousStatus = this.getAttribute('data-status');
+                const newStatus = this.checked ? 'active' : 'inactive';
+                
+                // Update status via AJAX
+                handleToggleAssignment(assignmentId, newStatus, previousStatus, this);
+            });
+            
+            // Also prevent on the label wrapper
+            const label = checkbox.closest('label');
+            if (label) {
+                label.addEventListener('click', function(event) {
+                    // Only stop propagation if clicking directly on the label, not the checkbox itself
+                    if (event.target === label || event.target.closest('.w-11') || event.target.closest('.absolute')) {
+                        event.stopPropagation();
+                    }
+                });
+            }
+        });
+    }
+    
+    /**
+     * Handle assignment status toggle
+     * @param {number} assignmentId - Assignment ID
+     * @param {string} newStatus - New status ('active' or 'inactive')
+     * @param {string} previousStatus - Previous status for rollback on error
+     * @param {HTMLElement} checkbox - The checkbox element
+     */
+    function handleToggleAssignment(assignmentId, newStatus, previousStatus, checkbox) {
+        const ajaxurl = (window.AA_ASSIGNMENTS_DATA && window.AA_ASSIGNMENTS_DATA.ajaxurl) 
+            || window.ajaxurl 
+            || '/wp-admin/admin-ajax.php';
+
+        const formData = new FormData();
+        formData.append('action', 'aa_update_assignment_status');
+        formData.append('id', assignmentId);
+        formData.append('status', newStatus);
+
+        // Make AJAX request
+        fetch(ajaxurl, {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(response) {
+            return response.json();
+        })
+        .then(function(data) {
+            if (data.success) {
+                // Update data attribute to reflect new state
+                checkbox.setAttribute('data-status', newStatus);
+                console.log('[Assignments Section] Status actualizado para asignación ' + assignmentId + ': ' + newStatus);
+            } else {
+                // Revert checkbox state on error
+                checkbox.checked = (previousStatus === 'active');
+                console.error('[Assignments Section] Error al actualizar status:', data.message);
+            }
+        })
+        .catch(function(error) {
+            // Revert checkbox state on error
+            checkbox.checked = (previousStatus === 'active');
+            console.error('[Assignments Section] Error en petición AJAX:', error);
         });
     }
 
@@ -221,7 +315,7 @@
      */
     function handleDeleteAssignment(id) {
         // Simple confirmation
-        if (!confirm('¿Estás seguro de eliminar esta asignación?')) {
+        if (!confirm('¿Estás seguro de ocultar esta asignación?')) {
             return;
         }
         
@@ -248,8 +342,8 @@
                 // Re-render the list
                 loadAssignments();
             } else {
-                console.error('[Assignments Section] Error al eliminar:', data);
-                alert('Error al eliminar la asignación');
+                console.error('[Assignments Section] Error al ocultar:', data);
+                alert('Error al ocultar la asignación');
             }
         })
         .catch(function(error) {

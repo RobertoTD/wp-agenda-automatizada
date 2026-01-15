@@ -101,6 +101,7 @@
         // Initialize modal after opening
         setTimeout(function() {
             initializeDatePicker();
+            setDefaultStartTime();
             loadStaffOptions();
             loadServiceAreaOptions();
             loadServiceOptions();
@@ -125,6 +126,7 @@
             dateInput.type = 'date';
             const today = new Date().toISOString().split('T')[0];
             dateInput.setAttribute('min', today);
+            dateInput.value = today; // Set current date as default
             return;
         }
 
@@ -136,13 +138,19 @@
 
         // Initialize Flatpickr
         try {
+            // Get current date in YYYY-MM-DD format
+            const today = new Date();
+            const todayStr = today.getFullYear() + '-' + 
+                           String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                           String(today.getDate()).padStart(2, '0');
+            
             datePicker = flatpickr(dateInput, {
                 dateFormat: 'Y-m-d',
                 locale: 'es',
                 minDate: 'today',
                 allowInput: false,
                 clickOpens: true,
-                defaultDate: null,
+                defaultDate: todayStr,
                 onChange: function(selectedDates, dateStr, instance) {
                     // Validate that a date was selected
                     if (dateStr) {
@@ -158,7 +166,25 @@
             dateInput.type = 'date';
             const today = new Date().toISOString().split('T')[0];
             dateInput.setAttribute('min', today);
+            dateInput.value = today; // Set current date as default
         }
+    }
+
+    /**
+     * Set default start time to current time
+     */
+    function setDefaultStartTime() {
+        const startInput = document.getElementById('aa-assignment-start');
+        if (!startInput) return;
+        
+        // Get current time in HH:MM format
+        const now = new Date();
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const currentTime = hours + ':' + minutes;
+        
+        // Set the value
+        startInput.value = currentTime;
     }
 
     /**

@@ -309,6 +309,7 @@ register_activation_hook(__FILE__, function() {
         repeat_weekly tinyint(1) DEFAULT 0,
         repeat_until date DEFAULT NULL,
         status varchar(50) DEFAULT 'active',
+        is_hidden tinyint(1) NOT NULL DEFAULT 0,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY  (id),
         KEY staff_id (staff_id),
@@ -350,6 +351,20 @@ register_activation_hook(__FILE__, function() {
     ) $charset;";
     
     dbDelta($staff_services_sql);
+    
+    // 🔹 Crear tabla pivote para relación muchos-a-muchos entre assignments y services
+    $assignment_services_table = $wpdb->prefix . 'aa_assignment_services';
+    $assignment_services_sql = "CREATE TABLE $assignment_services_table (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        assignment_id bigint(20) unsigned NOT NULL,
+        service_id bigint(20) unsigned NOT NULL,
+        PRIMARY KEY  (id),
+        UNIQUE KEY assignment_service (assignment_id, service_id),
+        KEY assignment_id (assignment_id),
+        KEY service_id (service_id)
+    ) $charset;";
+    
+    dbDelta($assignment_services_sql);
     
     // NOTA: FOREIGN KEY constraints no se incluyen aquí porque dbDelta() puede tener problemas
     // con ellos. Si se necesitan, deben agregarse manualmente después de la creación:

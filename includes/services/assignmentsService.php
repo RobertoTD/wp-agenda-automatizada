@@ -16,6 +16,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
  */
 add_action('wp_ajax_aa_get_assignments', 'aa_get_assignments');
 add_action('wp_ajax_aa_delete_assignment', 'aa_delete_assignment');
+add_action('wp_ajax_aa_update_assignment_status', 'aa_update_assignment_status');
 add_action('wp_ajax_aa_get_services', 'aa_get_services');
 add_action('wp_ajax_aa_create_assignment', 'aa_create_assignment');
 
@@ -56,9 +57,9 @@ function aa_get_assignments() {
 }
 
 /**
- * Delete assignment
+ * Hide assignment (set status = 'inactive' and is_hidden = 1)
  * 
- * Deletes an assignment from the database.
+ * Instead of deleting the record, it marks it as hidden and inactive.
  * 
  * @return void JSON response
  */
@@ -84,24 +85,24 @@ function aa_delete_assignment() {
     }
     
     try {
-        // Llamar al modelo para eliminar la asignación
+        // Llamar al modelo para ocultar la asignación
         $result = AssignmentsModel::delete_assignment($id);
         
         if ($result === false) {
             wp_send_json_error([
-                'message' => 'Error al eliminar la asignación'
+                'message' => 'Error al ocultar la asignación'
             ]);
             return;
         }
         
         wp_send_json_success([
-            'message' => 'Asignación eliminada correctamente',
+            'message' => 'Asignación ocultada correctamente',
             'id' => $id
         ]);
     } catch (Exception $e) {
-        error_log("❌ [assignmentsService] Error al eliminar asignación: " . $e->getMessage());
+        error_log("❌ [assignmentsService] Error al ocultar asignación: " . $e->getMessage());
         wp_send_json_error([
-            'message' => 'Error al eliminar la asignación: ' . $e->getMessage()
+            'message' => 'Error al ocultar la asignación: ' . $e->getMessage()
         ]);
     }
 }
@@ -415,6 +416,65 @@ function aa_get_busy_ranges_by_assignments() {
         error_log("❌ [assignmentsService] Error al obtener busy ranges: " . $e->getMessage());
         wp_send_json_error([
             'message' => 'Error al obtener los rangos ocupados: ' . $e->getMessage()
+        ]);
+    }
+}
+
+/**
+ * Update assignment status
+ * 
+ * Updates the status of an assignment (active/inactive).
+ * 
+ * @return void JSON response
+ */
+function aa_update_assignment_status() {
+    // Validar permisos
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'No tienes permisos para realizar esta acción']);
+        return;
+    }
+    
+    // Leer y validar datos POST
+    if (!isset($_POST['id']) || !isset($_POST['status'])) {
+        wp_send_json_error(['message' => 'Faltan parámetros requeridos']);
+        return;
+    }
+    
+    $id = intval($_POST['id']);
+    $status = sanitize_text_field($_POST['status']);
+    
+    // Validar ID
+    if ($id <= 0) {
+        wp_send_json_error(['message' => 'ID inválido']);
+        return;
+    }
+    
+    // Validar que status sea 'active' o 'inactive'
+    if ($status !== 'active' && $status !== 'inactive') {
+        wp_send_json_error(['message' => 'Status inválido. Debe ser "active" o "inactive"']);
+        return;
+    }
+    
+    try {
+        // Llamar al modelo para actualizar el status
+        $result = AssignmentsModel::update_assignment_status($id, $status);
+        
+        if ($result === false) {
+            wp_send_json_error([
+                'message' => 'Error al actualizar el status de la asignación'
+            ]);
+            return;
+        }
+        
+        wp_send_json_success([
+            'message' => 'Status de la asignación actualizado correctamente',
+            'id' => $id,
+            'status' => $status
+        ]);
+    } catch (Exception $e) {
+        error_log("❌ [assignmentsService] Error al actualizar status de asignación: " . $e->getMessage());
+        wp_send_json_error([
+            'message' => 'Error al actualizar el status: ' . $e->getMessage()
         ]);
     }
 }
