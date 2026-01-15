@@ -345,8 +345,8 @@
      * @param {number} serviceId - ID of the service to delete
      */
     function deleteService(serviceId) {
-        // Confirm deletion
-        if (!confirm('¿Eliminar este servicio?')) {
+        // Confirm hiding
+        if (!confirm('¿Ocultar este servicio?')) {
             return;
         }
         
@@ -365,7 +365,7 @@
         const originalButtonText = deleteButton ? deleteButton.textContent : '';
         if (deleteButton) {
             deleteButton.disabled = true;
-            deleteButton.textContent = 'Eliminando...';
+            deleteButton.textContent = 'Ocultando...';
         }
 
         // Make AJAX request
@@ -378,13 +378,13 @@
         })
         .then(function(data) {
             if (data.success) {
-                console.log('[Services Section] Servicio eliminado correctamente');
+                console.log('[Services Section] Servicio ocultado correctamente');
                 // Reload the list of services
                 if (servicesRoot) {
                     loadServices(servicesRoot);
                 }
             } else {
-                console.error('[Services Section] Error al eliminar servicio:', data);
+                console.error('[Services Section] Error al ocultar servicio:', data);
             }
         })
         .catch(function(error) {
@@ -580,7 +580,7 @@
         html += '<button type="button" ';
         html += 'class="aa-service-delete px-3 py-2 text-sm font-medium rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors" ';
         html += 'data-service-id="' + serviceId + '" ';
-        html += '>Eliminar</button>';
+        html += '>Ocultar</button>';
         html += '</div>';
         
         html += '</div>'; // End details content

@@ -274,6 +274,7 @@ register_activation_hook(__FILE__, function() {
         id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
         name varchar(191) NOT NULL,
         active tinyint(1) DEFAULT 1,
+        is_hidden tinyint(1) NOT NULL DEFAULT 0,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY  (id)
     ) $charset;";
@@ -327,6 +328,7 @@ register_activation_hook(__FILE__, function() {
         description text DEFAULT NULL,
         price decimal(10,2) DEFAULT NULL,
         active tinyint(1) DEFAULT 1,
+        is_hidden tinyint(1) NOT NULL DEFAULT 0,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY  (id),
         KEY code (code),

@@ -178,9 +178,9 @@ function aa_update_service_db() {
 }
 
 /**
- * Delete a service
+ * Hide a service (set is_hidden = 1)
  * 
- * AJAX handler for deleting a service
+ * AJAX handler for hiding a service instead of deleting it
  */
 function aa_delete_service_db() {
     // Validar permisos
@@ -209,14 +209,14 @@ function aa_delete_service_db() {
         
         if ($result === false) {
             wp_send_json_error([
-                'message' => 'Error al eliminar el servicio'
+                'message' => 'Error al ocultar el servicio'
             ]);
             return;
         }
         
         wp_send_json_success([
-            'message' => 'Servicio eliminado correctamente',
-            'deleted' => true,
+            'message' => 'Servicio ocultado correctamente',
+            'hidden' => true,
             'id' => $id
         ]);
     } catch (Exception $e) {

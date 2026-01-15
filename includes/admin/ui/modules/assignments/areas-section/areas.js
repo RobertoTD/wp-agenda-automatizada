@@ -119,14 +119,24 @@
             html += '</div>';
             // Collapsable details panel
             html += '<div class="aa-area-details-panel hidden border-t border-gray-200 p-3" data-area-id="' + areaId + '">';
-            if (area.description) {
-                html += '<div class="mb-3">';
-                html += '<label class="block text-xs font-medium text-gray-700 mb-1">Descripción</label>';
-                html += '<p class="text-sm text-gray-600">' + escapeHtml(area.description) + '</p>';
-                html += '</div>';
-            } else {
-                html += '<p class="text-xs text-gray-500 mb-3">No hay descripción disponible.</p>';
-            }
+            // Name field (editable)
+            html += '<div class="mb-3">';
+            html += '<label class="block text-xs font-medium text-gray-700 mb-1">Nombre</label>';
+            html += '<input type="text" ';
+            html += 'class="aa-area-name-input w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow" ';
+            html += 'data-area-id="' + areaId + '" ';
+            html += 'value="' + escapeHtml(area.name || '') + '" ';
+            html += 'placeholder="Nombre de la zona..." />';
+            html += '</div>';
+            // Description field (editable)
+            html += '<div class="mb-3">';
+            html += '<label class="block text-xs font-medium text-gray-700 mb-1">Descripción</label>';
+            html += '<textarea ';
+            html += 'class="aa-area-description-input w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow resize-none" ';
+            html += 'data-area-id="' + areaId + '" ';
+            html += 'rows="3" ';
+            html += 'placeholder="Agregar descripción...">' + escapeHtml(area.description || '') + '</textarea>';
+            html += '</div>';
             // Color picker field
             html += '<div class="mb-2">';
             html += '<label class="block text-xs font-medium text-gray-700 mb-1">Color</label>';
@@ -152,6 +162,12 @@
         
         // Initialize color pickers after rendering
         initializeColorPickers();
+        
+        // Setup description field handlers
+        setupDescriptionHandlers();
+        
+        // Setup name field handlers
+        setupNameHandlers();
     }
 
     /**
@@ -197,6 +213,50 @@
                                 const colorPicker = panel.querySelector('.aa-area-color-picker');
                                 if (colorPicker && !jQuery(colorPicker).hasClass('wp-color-picker')) {
                                     initializeSingleColorPicker(colorPicker);
+                                }
+                                
+                                // Setup name handler para este panel
+                                const nameInput = panel.querySelector('.aa-area-name-input');
+                                if (nameInput) {
+                                    nameInput.setAttribute('data-original-value', nameInput.value);
+                                    nameInput.addEventListener('blur', function() {
+                                        const areaId = this.getAttribute('data-area-id');
+                                        const newName = this.value.trim();
+                                        const originalValue = this.getAttribute('data-original-value');
+                                        
+                                        if (!newName) {
+                                            this.value = originalValue;
+                                            return;
+                                        }
+                                        
+                                        if (newName !== originalValue) {
+                                            updateServiceAreaName(areaId, newName);
+                                            this.setAttribute('data-original-value', newName);
+                                            updateNameInCard(areaId, newName);
+                                        }
+                                    });
+                                    nameInput.addEventListener('keypress', function(event) {
+                                        if (event.key === 'Enter') {
+                                            event.preventDefault();
+                                            this.blur();
+                                        }
+                                    });
+                                }
+                                
+                                // Setup description handler para este panel
+                                const descriptionInput = panel.querySelector('.aa-area-description-input');
+                                if (descriptionInput) {
+                                    descriptionInput.setAttribute('data-original-value', descriptionInput.value);
+                                    descriptionInput.addEventListener('blur', function() {
+                                        const areaId = this.getAttribute('data-area-id');
+                                        const newDescription = this.value.trim();
+                                        const originalValue = this.getAttribute('data-original-value');
+                                        
+                                        if (newDescription !== originalValue) {
+                                            updateServiceAreaDescription(areaId, newDescription);
+                                            this.setAttribute('data-original-value', newDescription);
+                                        }
+                                    });
                                 }
                             }, 50);
                         }
@@ -260,6 +320,164 @@
         });
     }
     
+    /**
+     * Setup handlers for name input fields
+     */
+    function setupNameHandlers() {
+        const nameInputs = document.querySelectorAll('.aa-area-name-input');
+        
+        nameInputs.forEach(function(input) {
+            // Guardar valor original para comparar
+            input.setAttribute('data-original-value', input.value);
+            
+            // Evento blur: guardar cuando se sale del campo
+            input.addEventListener('blur', function() {
+                const areaId = this.getAttribute('data-area-id');
+                const newName = this.value.trim();
+                const originalValue = this.getAttribute('data-original-value');
+                
+                // Validar que no esté vacío
+                if (!newName) {
+                    // Restaurar valor original si está vacío
+                    this.value = originalValue;
+                    console.warn('[Areas Section] El nombre no puede estar vacío');
+                    return;
+                }
+                
+                // Solo actualizar si cambió
+                if (newName !== originalValue) {
+                    updateServiceAreaName(areaId, newName);
+                    // Actualizar valor original
+                    this.setAttribute('data-original-value', newName);
+                    // Actualizar nombre en la card header
+                    updateNameInCard(areaId, newName);
+                }
+            });
+            
+            // También guardar con Enter
+            input.addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    this.blur();
+                }
+            });
+        });
+    }
+    
+    /**
+     * Update name in card header
+     * @param {number} areaId - ID of the service area
+     * @param {string} newName - New name
+     */
+    function updateNameInCard(areaId, newName) {
+        // Buscar el panel primero
+        const panel = document.querySelector('.aa-area-details-panel[data-area-id="' + areaId + '"]');
+        if (panel) {
+            // Buscar el card padre (li)
+            const card = panel.closest('li');
+            if (card) {
+                const nameSpan = card.querySelector('.aa-area-name');
+                if (nameSpan) {
+                    nameSpan.textContent = newName;
+                }
+            }
+        }
+    }
+    
+    /**
+     * Update service area name via AJAX
+     * @param {number} areaId - ID of the service area
+     * @param {string} name - Name text
+     */
+    function updateServiceAreaName(areaId, name) {
+        const ajaxurl = (window.AA_ASSIGNMENTS_DATA && window.AA_ASSIGNMENTS_DATA.ajaxurl) 
+            || window.ajaxurl 
+            || '/wp-admin/admin-ajax.php';
+
+        const formData = new FormData();
+        formData.append('action', 'aa_update_service_area_name');
+        formData.append('id', areaId);
+        formData.append('name', name);
+
+        fetch(ajaxurl, {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(response) {
+            return response.json();
+        })
+        .then(function(data) {
+            if (data.success) {
+                console.log('[Areas Section] Nombre guardado correctamente para zona ' + areaId);
+            } else {
+                console.error('[Areas Section] Error al guardar nombre:', data.message);
+            }
+        })
+        .catch(function(error) {
+            console.error('[Areas Section] Error en petición AJAX para guardar nombre:', error);
+        });
+    }
+
+    /**
+     * Setup handlers for description textarea fields
+     */
+    function setupDescriptionHandlers() {
+        const descriptionInputs = document.querySelectorAll('.aa-area-description-input');
+        
+        descriptionInputs.forEach(function(input) {
+            // Guardar valor original para comparar
+            input.setAttribute('data-original-value', input.value);
+            
+            // Evento blur: guardar cuando se sale del campo
+            input.addEventListener('blur', function() {
+                const areaId = this.getAttribute('data-area-id');
+                const newDescription = this.value.trim();
+                const originalValue = this.getAttribute('data-original-value');
+                
+                // Solo actualizar si cambió
+                if (newDescription !== originalValue) {
+                    updateServiceAreaDescription(areaId, newDescription);
+                    // Actualizar valor original
+                    this.setAttribute('data-original-value', newDescription);
+                }
+            });
+        });
+    }
+    
+    /**
+     * Update service area description via AJAX
+     * @param {number} areaId - ID of the service area
+     * @param {string} description - Description text
+     */
+    function updateServiceAreaDescription(areaId, description) {
+        const ajaxurl = (window.AA_ASSIGNMENTS_DATA && window.AA_ASSIGNMENTS_DATA.ajaxurl) 
+            || window.ajaxurl 
+            || '/wp-admin/admin-ajax.php';
+
+        const formData = new FormData();
+        formData.append('action', 'aa_update_service_area_description');
+        formData.append('id', areaId);
+        formData.append('description', description);
+
+        fetch(ajaxurl, {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(response) {
+            return response.json();
+        })
+        .then(function(data) {
+            if (data.success) {
+                console.log('[Areas Section] Descripción guardada correctamente para zona ' + areaId);
+            } else {
+                console.error('[Areas Section] Error al guardar descripción:', data.message);
+            }
+        })
+        .catch(function(error) {
+            console.error('[Areas Section] Error en petición AJAX para guardar descripción:', error);
+        });
+    }
+
     /**
      * Update service area color via AJAX
      * @param {number} areaId - ID of the service area

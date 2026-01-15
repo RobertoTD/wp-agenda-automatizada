@@ -187,6 +187,94 @@ class AssignmentsModel {
     }
 
     /**
+     * Actualizar descripción de una zona de atención
+     * 
+     * @param int $id ID de la zona de atención
+     * @param string $description Descripción de la zona
+     * @return bool true en éxito, false en error
+     */
+    public static function update_service_area_description($id, $description) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_service_areas';
+        
+        // Validar parámetros
+        $id = intval($id);
+        
+        if ($id <= 0) {
+            error_log("❌ [AssignmentsModel] ID inválido para actualizar descripción de zona: $id");
+            return false;
+        }
+        
+        // Sanitizar descripción
+        $description = sanitize_textarea_field($description);
+        
+        // Actualizar en la base de datos
+        $result = $wpdb->update(
+            $table,
+            ['description' => $description],
+            ['id' => $id],
+            ['%s'],
+            ['%d']
+        );
+        
+        if ($result === false) {
+            error_log("❌ [AssignmentsModel] Error al actualizar descripción de zona ID $id: " . $wpdb->last_error);
+            return false;
+        }
+        
+        error_log("✅ [AssignmentsModel] Descripción de zona ID $id actualizada");
+        
+        return true;
+    }
+
+    /**
+     * Actualizar nombre de una zona de atención
+     * 
+     * @param int $id ID de la zona de atención
+     * @param string $name Nombre de la zona
+     * @return bool true en éxito, false en error
+     */
+    public static function update_service_area_name($id, $name) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_service_areas';
+        
+        // Validar parámetros
+        $id = intval($id);
+        
+        if ($id <= 0) {
+            error_log("❌ [AssignmentsModel] ID inválido para actualizar nombre de zona: $id");
+            return false;
+        }
+        
+        // Sanitizar nombre
+        $name = sanitize_text_field($name);
+        
+        // Validar que el nombre no esté vacío
+        if (empty(trim($name))) {
+            error_log("❌ [AssignmentsModel] Intento de actualizar zona con nombre vacío");
+            return false;
+        }
+        
+        // Actualizar en la base de datos
+        $result = $wpdb->update(
+            $table,
+            ['name' => $name],
+            ['id' => $id],
+            ['%s'],
+            ['%d']
+        );
+        
+        if ($result === false) {
+            error_log("❌ [AssignmentsModel] Error al actualizar nombre de zona ID $id: " . $wpdb->last_error);
+            return false;
+        }
+        
+        error_log("✅ [AssignmentsModel] Nombre de zona ID $id actualizado: $name");
+        
+        return true;
+    }
+
+    /**
      * Obtener personal (staff)
      * 
      * @param bool $only_active Si es true, solo retorna personal activo
@@ -319,6 +407,8 @@ class AssignmentsModel {
     /**
      * Obtener lista de servicios
      * 
+     * Solo retorna servicios que no están ocultos (is_hidden = 0).
+     * 
      * @param bool $only_active Si es true, solo retorna servicios activos
      * @return array Array de servicios con id, name, code, description, price, active, created_at
      */
@@ -326,9 +416,18 @@ class AssignmentsModel {
         global $wpdb;
         $table = $wpdb->prefix . 'aa_services';
         
-        $where_clause = '';
+        $where_conditions = [];
+        
+        // Filtrar por is_hidden = 0 (solo mostrar servicios no ocultos)
+        $where_conditions[] = "is_hidden = 0";
+        
         if ($only_active) {
-            $where_clause = "WHERE active = 1";
+            $where_conditions[] = "active = 1";
+        }
+        
+        $where_clause = '';
+        if (!empty($where_conditions)) {
+            $where_clause = "WHERE " . implode(" AND ", $where_conditions);
         }
         
         $query = "SELECT id, name, code, description, price, active, created_at 
@@ -453,7 +552,10 @@ class AssignmentsModel {
     }
 
     /**
-     * Eliminar un servicio
+     * Ocultar un servicio (establece is_hidden = 1 y active = 0)
+     * 
+     * En lugar de eliminar el registro, se marca como oculto e inactivo
+     * para mantener la integridad referencial con otras tablas.
      * 
      * @param int $id ID del servicio
      * @return bool true en éxito, false en error
@@ -465,28 +567,33 @@ class AssignmentsModel {
         $id = intval($id);
         
         if ($id <= 0) {
-            error_log("❌ [AssignmentsModel] ID inválido para eliminar servicio: $id");
+            error_log("❌ [AssignmentsModel] ID inválido para ocultar servicio: $id");
             return false;
         }
         
-        // Eliminar de la base de datos
-        $result = $wpdb->delete(
+        // Actualizar is_hidden a 1 y active a 0 en lugar de eliminar
+        $result = $wpdb->update(
             $table,
+            [
+                'is_hidden' => 1,
+                'active' => 0
+            ],
             ['id' => $id],
+            ['%d', '%d'],
             ['%d']
         );
         
         if ($result === false) {
-            error_log("❌ [AssignmentsModel] Error al eliminar servicio ID $id: " . $wpdb->last_error);
+            error_log("❌ [AssignmentsModel] Error al ocultar servicio ID $id: " . $wpdb->last_error);
             return false;
         }
         
         if ($result === 0) {
-            error_log("⚠️ [AssignmentsModel] No se encontró servicio con ID $id para eliminar");
+            error_log("⚠️ [AssignmentsModel] No se encontró servicio con ID $id para ocultar");
             return false;
         }
         
-        error_log("✅ [AssignmentsModel] Servicio ID $id eliminado correctamente");
+        error_log("✅ [AssignmentsModel] Servicio ID $id ocultado correctamente (is_hidden = 1, active = 0)");
         
         return true;
     }

@@ -18,6 +18,8 @@ add_action('wp_ajax_aa_get_service_areas', 'aa_get_service_areas');
 add_action('wp_ajax_aa_create_service_area', 'aa_create_service_area');
 add_action('wp_ajax_aa_toggle_service_area', 'aa_toggle_service_area');
 add_action('wp_ajax_aa_update_service_area_color', 'aa_update_service_area_color');
+add_action('wp_ajax_aa_update_service_area_description', 'aa_update_service_area_description');
+add_action('wp_ajax_aa_update_service_area_name', 'aa_update_service_area_name');
 
 /**
  * Get service areas (zonas de atención)
@@ -218,6 +220,118 @@ function aa_update_service_area_color() {
         error_log("❌ [areasService] Error al actualizar color de zona: " . $e->getMessage());
         wp_send_json_error([
             'message' => 'Error al actualizar el color: ' . $e->getMessage()
+        ]);
+    }
+}
+
+/**
+ * Update service area description
+ * 
+ * Updates the description of a service area.
+ * 
+ * @return void JSON response
+ */
+function aa_update_service_area_description() {
+    // Validar permisos
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'No tienes permisos para realizar esta acción']);
+        return;
+    }
+    
+    // Leer y validar datos POST
+    if (!isset($_POST['id'])) {
+        wp_send_json_error(['message' => 'Falta el parámetro ID']);
+        return;
+    }
+    
+    $id = intval($_POST['id']);
+    $description = isset($_POST['description']) ? sanitize_textarea_field($_POST['description']) : '';
+    
+    // Validar ID
+    if ($id <= 0) {
+        wp_send_json_error(['message' => 'ID inválido']);
+        return;
+    }
+    
+    try {
+        // Llamar al modelo para actualizar la descripción
+        $result = AssignmentsModel::update_service_area_description($id, $description);
+        
+        if ($result === false) {
+            wp_send_json_error([
+                'message' => 'Error al actualizar la descripción de la zona de atención'
+            ]);
+            return;
+        }
+        
+        wp_send_json_success([
+            'message' => 'Descripción de la zona actualizada correctamente',
+            'id' => $id,
+            'description' => $description
+        ]);
+    } catch (Exception $e) {
+        error_log("❌ [areasService] Error al actualizar descripción de zona: " . $e->getMessage());
+        wp_send_json_error([
+            'message' => 'Error al actualizar la descripción: ' . $e->getMessage()
+        ]);
+    }
+}
+
+/**
+ * Update service area name
+ * 
+ * Updates the name of a service area.
+ * 
+ * @return void JSON response
+ */
+function aa_update_service_area_name() {
+    // Validar permisos
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'No tienes permisos para realizar esta acción']);
+        return;
+    }
+    
+    // Leer y validar datos POST
+    if (!isset($_POST['id'])) {
+        wp_send_json_error(['message' => 'Falta el parámetro ID']);
+        return;
+    }
+    
+    $id = intval($_POST['id']);
+    $name = isset($_POST['name']) ? sanitize_text_field($_POST['name']) : '';
+    
+    // Validar ID
+    if ($id <= 0) {
+        wp_send_json_error(['message' => 'ID inválido']);
+        return;
+    }
+    
+    // Validar que el nombre no esté vacío
+    if (empty(trim($name))) {
+        wp_send_json_error(['message' => 'El nombre no puede estar vacío']);
+        return;
+    }
+    
+    try {
+        // Llamar al modelo para actualizar el nombre
+        $result = AssignmentsModel::update_service_area_name($id, $name);
+        
+        if ($result === false) {
+            wp_send_json_error([
+                'message' => 'Error al actualizar el nombre de la zona de atención'
+            ]);
+            return;
+        }
+        
+        wp_send_json_success([
+            'message' => 'Nombre de la zona actualizado correctamente',
+            'id' => $id,
+            'name' => $name
+        ]);
+    } catch (Exception $e) {
+        error_log("❌ [areasService] Error al actualizar nombre de zona: " . $e->getMessage());
+        wp_send_json_error([
+            'message' => 'Error al actualizar el nombre: ' . $e->getMessage()
         ]);
     }
 }
