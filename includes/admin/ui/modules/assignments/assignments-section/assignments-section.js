@@ -139,10 +139,12 @@
             html += '<span class="text-sm font-medium text-gray-900">' + escapeHtml(assignment.service_area_name || '-') + '</span>';
             html += '</div>';
             
-            // Servicio (service key)
+            // Servicio (services from pivot table)
             html += '<div>';
-            html += '<span class="text-xs text-gray-500 block">Servicio</span>';
-            html += '<span class="text-sm font-medium text-gray-900">' + escapeHtml(assignment.service_key || '-') + '</span>';
+            html += '<span class="text-xs text-gray-500 block">Servicios</span>';
+            html += '<div class="aa-assignment-services-' + assignmentId + ' text-sm font-medium text-gray-900">';
+            html += '<span class="text-gray-400">Cargando...</span>';
+            html += '</div>';
             html += '</div>';
             
             // Capacidad (capacity)
@@ -180,6 +182,9 @@
         
         // Setup checkbox handlers (prevent toggle when clicking checkbox)
         setupCheckboxHandlers();
+        
+        // Load services for all assignments
+        loadAssignmentServices(assignments);
     }
 
     /**
@@ -391,6 +396,86 @@
         } catch (e) {
             return timeStr;
         }
+    }
+
+    /**
+     * Load services for all assignments
+     * @param {Array} assignments - Array of assignment objects
+     */
+    function loadAssignmentServices(assignments) {
+        if (!assignments || assignments.length === 0) {
+            return;
+        }
+        
+        // Get ajaxurl from global data
+        const ajaxurl = (window.AA_ASSIGNMENTS_DATA && window.AA_ASSIGNMENTS_DATA.ajaxurl) 
+            || window.ajaxurl 
+            || '/wp-admin/admin-ajax.php';
+        
+        // Load services for each assignment
+        assignments.forEach(function(assignment) {
+            const assignmentId = parseInt(assignment.id);
+            if (!assignmentId || assignmentId <= 0) {
+                return;
+            }
+            
+            // Prepare FormData for AJAX request
+            const formData = new FormData();
+            formData.append('action', 'aa_get_assignment_services');
+            formData.append('assignment_id', assignmentId);
+            
+            // Make AJAX request
+            fetch(ajaxurl, {
+                method: 'POST',
+                body: formData
+            })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.success && data.data && data.data.services) {
+                    updateAssignmentServicesUI(assignmentId, data.data.services);
+                } else {
+                    // No services found or error
+                    updateAssignmentServicesUI(assignmentId, []);
+                }
+            })
+            .catch(function(error) {
+                console.error('[Assignments Section] Error al cargar servicios para asignación ' + assignmentId + ':', error);
+                updateAssignmentServicesUI(assignmentId, []);
+            });
+        });
+    }
+
+    /**
+     * Update UI with assignment services
+     * @param {number} assignmentId - ID of the assignment
+     * @param {Array} services - Array of service objects with id and name
+     */
+    function updateAssignmentServicesUI(assignmentId, services) {
+        const servicesContainer = assignmentsRoot.querySelector('.aa-assignment-services-' + assignmentId);
+        if (!servicesContainer) {
+            return;
+        }
+        
+        if (!services || services.length === 0) {
+            servicesContainer.innerHTML = '<span class="text-gray-400">Sin servicios</span>';
+            return;
+        }
+        
+        // Build services list
+        let html = '';
+        if (services.length === 1) {
+            html = '<span>' + escapeHtml(services[0].name) + '</span>';
+        } else {
+            // Multiple services - show as comma-separated list
+            const serviceNames = services.map(function(service) {
+                return escapeHtml(service.name);
+            });
+            html = '<span>' + serviceNames.join(', ') + '</span>';
+        }
+        
+        servicesContainer.innerHTML = html;
     }
 
     /**

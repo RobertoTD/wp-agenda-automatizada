@@ -20,6 +20,7 @@ add_action('wp_ajax_aa_update_assignment_status', 'aa_update_assignment_status')
 add_action('wp_ajax_aa_get_services', 'aa_get_services');
 add_action('wp_ajax_aa_create_assignment', 'aa_create_assignment');
 add_action('wp_ajax_aa_add_assignment_service', 'aa_add_assignment_service');
+add_action('wp_ajax_aa_get_assignment_services', 'aa_get_assignment_services');
 
 // Endpoints para disponibilidad basada en assignments
 add_action('wp_ajax_aa_get_assignment_dates', 'aa_get_assignment_dates');
@@ -529,6 +530,51 @@ function aa_add_assignment_service() {
         error_log("❌ [assignmentsService] Error al agregar servicio a asignación: " . $e->getMessage());
         wp_send_json_error([
             'message' => 'Error al agregar el servicio: ' . $e->getMessage()
+        ]);
+    }
+}
+
+/**
+ * Get assignment services
+ * 
+ * Returns list of services assigned to a specific assignment.
+ * 
+ * @return void JSON response
+ */
+function aa_get_assignment_services() {
+    // Validar permisos
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'No tienes permisos para realizar esta acción']);
+        return;
+    }
+    
+    // Leer y validar datos POST
+    if (!isset($_POST['assignment_id']) || empty($_POST['assignment_id'])) {
+        wp_send_json_error(['message' => 'El ID de la asignación es requerido']);
+        return;
+    }
+    
+    $assignment_id = intval($_POST['assignment_id']);
+    
+    // Validar ID
+    if ($assignment_id <= 0) {
+        wp_send_json_error(['message' => 'ID inválido']);
+        return;
+    }
+    
+    try {
+        // Llamar al modelo para obtener los servicios
+        $services = AssignmentsModel::get_assignment_services($assignment_id);
+        
+        wp_send_json_success([
+            'services' => $services,
+            'count' => count($services),
+            'assignment_id' => $assignment_id
+        ]);
+    } catch (Exception $e) {
+        error_log("❌ [assignmentsService] Error al obtener servicios de asignación: " . $e->getMessage());
+        wp_send_json_error([
+            'message' => 'Error al obtener los servicios: ' . $e->getMessage()
         ]);
     }
 }

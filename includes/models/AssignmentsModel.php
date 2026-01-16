@@ -879,6 +879,40 @@ class AssignmentsModel {
     }
 
     /**
+     * Obtener servicios completos asignados a una asignación
+     * 
+     * @param int $assignment_id ID de la asignación
+     * @return array Array de servicios con id, name
+     */
+    public static function get_assignment_services($assignment_id) {
+        global $wpdb;
+        $pivot_table = $wpdb->prefix . 'aa_assignment_services';
+        $services_table = $wpdb->prefix . 'aa_services';
+        
+        $assignment_id = intval($assignment_id);
+        
+        if ($assignment_id <= 0) {
+            error_log("❌ [AssignmentsModel] ID inválido para obtener servicios de asignación: $assignment_id");
+            return [];
+        }
+        
+        $query = "SELECT s.id, s.name 
+                  FROM $services_table s
+                  INNER JOIN $pivot_table as_rel ON s.id = as_rel.service_id
+                  WHERE as_rel.assignment_id = %d
+                  ORDER BY s.name ASC";
+        
+        $results = $wpdb->get_results($wpdb->prepare($query, $assignment_id), ARRAY_A);
+        
+        if ($wpdb->last_error) {
+            error_log("❌ [AssignmentsModel] Error al obtener servicios de asignación: " . $wpdb->last_error);
+            return [];
+        }
+        
+        return $results ? $results : [];
+    }
+
+    /**
      * Obtener asignaciones
      * 
      * Solo retorna asignaciones con fecha actual o futura (assignment_date >= CURDATE())

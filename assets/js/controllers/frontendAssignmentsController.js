@@ -761,22 +761,20 @@
                 slotDuration: slotDuration
             });
 
-            // 2️⃣ Obtener busy ranges (locales y externos)
+            // 2️⃣ Obtener busy ranges (solo locales)
             console.log('🔄 [FrontendAssignments][FIXED] Obteniendo busy ranges...');
             
             const built = (window.BusyRanges && window.BusyRanges.buildBusyRanges)
                 ? window.BusyRanges.buildBusyRanges()
-                : { busyRanges: [], localBusy: [], externalBusy: [] };
+                : { busyRanges: [], localBusy: [] };
 
-            const { busyRanges, localBusy: localBusyRanges, externalBusy: externalBusyRanges } = built;
+            const localBusyRanges = built.localBusy || [];
             
-            console.log('📊 [FrontendAssignments][FIXED] Busy Ranges obtenidos:', busyRanges.length);
-            console.log('   - Locales:', localBusyRanges.length);
-            console.log('   - Externos:', externalBusyRanges.length);
+            console.log('📊 [FrontendAssignments][FIXED] Busy Ranges (local):', localBusyRanges.length);
             
-            if (busyRanges && busyRanges.length > 0) {
+            if (localBusyRanges && localBusyRanges.length > 0) {
                 console.log('   Rangos ocupados:');
-                busyRanges.forEach(function(r) {
+                localBusyRanges.forEach(function(r) {
                     const startStr = r.start ? window.DateUtils.hm(r.start) : 'N/A';
                     const endStr = r.end ? window.DateUtils.hm(r.end) : 'N/A';
                     console.log('   - ' + startStr + ' - ' + endStr);
@@ -792,7 +790,7 @@
             const slots = window.SlotCalculator.calculateSlotsForDate(
                 selectedDateObj,
                 schedule,
-                busyRanges || [],
+                localBusyRanges,
                 slotDuration
             );
 
@@ -832,7 +830,7 @@
                 selectedService: state.selectedService,
                 selectedDate: state.selectedDate,
                 selectedStaff: null,
-                busyRanges: busyRanges ? busyRanges.length : 0,
+                busyRanges: localBusyRanges ? localBusyRanges.length : 0,
                 finalSlots: slots ? slots.length : 0
             });
 
