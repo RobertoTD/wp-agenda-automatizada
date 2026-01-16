@@ -19,6 +19,7 @@ add_action('wp_ajax_aa_delete_assignment', 'aa_delete_assignment');
 add_action('wp_ajax_aa_update_assignment_status', 'aa_update_assignment_status');
 add_action('wp_ajax_aa_get_services', 'aa_get_services');
 add_action('wp_ajax_aa_create_assignment', 'aa_create_assignment');
+add_action('wp_ajax_aa_add_assignment_service', 'aa_add_assignment_service');
 
 // Endpoints para disponibilidad basada en assignments
 add_action('wp_ajax_aa_get_assignment_dates', 'aa_get_assignment_dates');
@@ -158,7 +159,7 @@ function aa_create_assignment() {
     }
     
     // Validar campos requeridos
-    $required_fields = ['assignment_date', 'start_time', 'end_time', 'staff_id', 'service_area_id', 'service_key'];
+    $required_fields = ['assignment_date', 'start_time', 'end_time', 'staff_id', 'service_area_id'];
     
     foreach ($required_fields as $field) {
         if (!isset($_POST[$field]) || empty($_POST[$field])) {
@@ -174,7 +175,7 @@ function aa_create_assignment() {
         'end_time' => sanitize_text_field($_POST['end_time']),
         'staff_id' => intval($_POST['staff_id']),
         'service_area_id' => intval($_POST['service_area_id']),
-        'service_key' => sanitize_text_field($_POST['service_key']),
+        'service_key' => isset($_POST['service_key']) && !empty($_POST['service_key']) ? sanitize_text_field($_POST['service_key']) : '',
         'capacity' => isset($_POST['capacity']) ? intval($_POST['capacity']) : 1
     ];
     
@@ -475,6 +476,59 @@ function aa_update_assignment_status() {
         error_log("❌ [assignmentsService] Error al actualizar status de asignación: " . $e->getMessage());
         wp_send_json_error([
             'message' => 'Error al actualizar el status: ' . $e->getMessage()
+        ]);
+    }
+}
+
+/**
+ * Add assignment service
+ * 
+ * Adds a relationship between an assignment and a service in the pivot table.
+ * 
+ * @return void JSON response
+ */
+function aa_add_assignment_service() {
+    // Validar permisos
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'No tienes permisos para realizar esta acción']);
+        return;
+    }
+    
+    // Leer y validar datos POST
+    if (!isset($_POST['assignment_id']) || !isset($_POST['service_id'])) {
+        wp_send_json_error(['message' => 'Faltan parámetros requeridos']);
+        return;
+    }
+    
+    $assignment_id = intval($_POST['assignment_id']);
+    $service_id = intval($_POST['service_id']);
+    
+    // Validar IDs
+    if ($assignment_id <= 0 || $service_id <= 0) {
+        wp_send_json_error(['message' => 'IDs inválidos']);
+        return;
+    }
+    
+    try {
+        // Llamar al modelo para agregar la relación
+        $result = AssignmentsModel::add_assignment_service($assignment_id, $service_id);
+        
+        if ($result === false) {
+            wp_send_json_error([
+                'message' => 'Error al agregar el servicio a la asignación'
+            ]);
+            return;
+        }
+        
+        wp_send_json_success([
+            'message' => 'Servicio agregado a la asignación correctamente',
+            'assignment_id' => $assignment_id,
+            'service_id' => $service_id
+        ]);
+    } catch (Exception $e) {
+        error_log("❌ [assignmentsService] Error al agregar servicio a asignación: " . $e->getMessage());
+        wp_send_json_error([
+            'message' => 'Error al agregar el servicio: ' . $e->getMessage()
         ]);
     }
 }

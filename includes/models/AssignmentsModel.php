@@ -833,6 +833,52 @@ class AssignmentsModel {
     }
 
     /**
+     * Agregar relación assignment-service
+     * 
+     * Inserta un registro en la tabla pivote wp_aa_assignment_services.
+     * 
+     * @param int $assignment_id ID del assignment
+     * @param int $service_id ID del servicio
+     * @return bool true en éxito, false en error
+     */
+    public static function add_assignment_service($assignment_id, $service_id) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_assignment_services';
+        
+        $assignment_id = intval($assignment_id);
+        $service_id = intval($service_id);
+        
+        if ($assignment_id <= 0 || $service_id <= 0) {
+            error_log("❌ [AssignmentsModel] IDs inválidos para agregar relación assignment-service: assignment=$assignment_id, service=$service_id");
+            return false;
+        }
+        
+        // Insertar en la tabla pivote
+        $result = $wpdb->insert(
+            $table,
+            [
+                'assignment_id' => $assignment_id,
+                'service_id' => $service_id
+            ],
+            ['%d', '%d']
+        );
+        
+        if ($result === false) {
+            // Verificar si es error de duplicado (UNIQUE constraint)
+            if ($wpdb->last_error && strpos($wpdb->last_error, 'Duplicate') !== false) {
+                error_log("⚠️ [AssignmentsModel] Relación assignment-service ya existe: assignment=$assignment_id, service=$service_id");
+                return false;
+            }
+            error_log("❌ [AssignmentsModel] Error al agregar relación assignment-service: " . $wpdb->last_error);
+            return false;
+        }
+        
+        error_log("✅ [AssignmentsModel] Relación assignment-service agregada: assignment=$assignment_id, service=$service_id");
+        
+        return true;
+    }
+
+    /**
      * Obtener asignaciones
      * 
      * Solo retorna asignaciones con fecha actual o futura (assignment_date >= CURDATE())
@@ -987,7 +1033,7 @@ class AssignmentsModel {
         $table = $wpdb->prefix . 'aa_assignments';
         
         // Validar datos requeridos
-        $required = ['assignment_date', 'start_time', 'end_time', 'staff_id', 'service_area_id', 'service_key'];
+        $required = ['assignment_date', 'start_time', 'end_time', 'staff_id', 'service_area_id'];
         foreach ($required as $field) {
             if (empty($data[$field])) {
                 error_log("❌ [AssignmentsModel] Campo requerido vacío: $field");
@@ -1036,7 +1082,7 @@ class AssignmentsModel {
             'end_time' => $end_time,
             'staff_id' => intval($data['staff_id']),
             'service_area_id' => intval($data['service_area_id']),
-            'service_key' => sanitize_text_field($data['service_key']),
+            'service_key' => isset($data['service_key']) && !empty($data['service_key']) ? sanitize_text_field($data['service_key']) : '',
             'capacity' => isset($data['capacity']) ? intval($data['capacity']) : 1,
             'status' => 'active',
             'created_at' => current_time('mysql')

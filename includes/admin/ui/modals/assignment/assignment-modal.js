@@ -557,7 +557,6 @@
         formData.append('end_time', endInput.value);
         formData.append('staff_id', staffSelect.value);
         formData.append('service_area_id', areaSelect.value);
-        formData.append('service_key', serviceSelect.value);
         formData.append('capacity', capacityInput.value || 1);
 
         // Send AJAX request
@@ -570,39 +569,162 @@
         })
         .then(function(data) {
             if (data.success) {
-                // Clean up date picker before closing
-                cleanupDatePicker();
+                // Get assignment ID from response
+                const assignmentId = data.data && data.data.assignment && data.data.assignment.id 
+                    ? data.data.assignment.id 
+                    : null;
                 
-                // Close modal
-                if (window.AAAdmin && window.AAAdmin.modal) {
-                    AAAdmin.modal.close();
+                if (!assignmentId) {
+                    console.error('[Assignment Modal] No se obtuvo el ID de la asignación creada');
+                    showError('Error: No se pudo obtener el ID de la asignación creada');
+                    return;
                 }
                 
-                // Reload assignments list if function exists
-                if (window.reloadAssignmentsList) {
-                    window.reloadAssignmentsList();
+                // Get all service IDs from selected services list
+                const serviceIdInputs = document.querySelectorAll('#aa-assignment-services-selected input[name="service_ids[]"]');
+                const serviceIds = Array.from(serviceIdInputs).map(function(input) {
+                    return parseInt(input.value);
+                }).filter(function(id) {
+                    return id > 0;
+                });
+                
+                // If there are services to add, add them to the assignment
+                if (serviceIds.length > 0) {
+                    addAssignmentServices(assignmentId, serviceIds, saveBtn);
                 } else {
-                    // Fallback: trigger custom event
-                    document.dispatchEvent(new CustomEvent('aa-assignment-created'));
+                    // No services to add, close modal and reload
+                    finishAssignmentCreation(saveBtn);
                 }
             } else {
                 const message = data.data && data.data.message 
                     ? data.data.message 
                     : 'Error al guardar la asignación';
                 showError(message);
+                
+                // Re-enable save button on error
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = 'Guardar asignación';
+                }
             }
         })
         .catch(function(error) {
             console.error('[Assignment Modal] Error saving:', error);
             showError('Error de conexión al guardar');
-        })
-        .finally(function() {
-            // Re-enable save button
+            
+            // Re-enable save button on error
             if (saveBtn) {
                 saveBtn.disabled = false;
                 saveBtn.textContent = 'Guardar asignación';
             }
         });
+    }
+
+    /**
+     * Add services to assignment via AJAX
+     * @param {number} assignmentId - The assignment ID
+     * @param {Array} serviceIds - Array of service IDs to add
+     * @param {HTMLElement} saveBtn - Save button element
+     */
+    function addAssignmentServices(assignmentId, serviceIds, saveBtn) {
+        if (!serviceIds || serviceIds.length === 0) {
+            finishAssignmentCreation(saveBtn);
+            return;
+        }
+        
+        // Update button text
+        if (saveBtn) {
+            saveBtn.textContent = 'Agregando servicios...';
+        }
+        
+        // Process services sequentially
+        let currentIndex = 0;
+        const errors = [];
+        
+        function addNextService() {
+            if (currentIndex >= serviceIds.length) {
+                // All services added, finish
+                if (errors.length > 0) {
+                    console.warn('[Assignment Modal] Algunos servicios no se pudieron agregar:', errors);
+                    showError('Asignación creada, pero algunos servicios no se pudieron agregar');
+                    
+                    // Still finish the process
+                    finishAssignmentCreation(saveBtn);
+                } else {
+                    finishAssignmentCreation(saveBtn);
+                }
+                return;
+            }
+            
+            const serviceId = serviceIds[currentIndex];
+            const formData = new FormData();
+            formData.append('action', 'aa_add_assignment_service');
+            formData.append('assignment_id', assignmentId);
+            formData.append('service_id', serviceId);
+            
+            fetch(getAjaxUrl(), {
+                method: 'POST',
+                body: formData
+            })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.success) {
+                    console.log('[Assignment Modal] Servicio agregado:', serviceId);
+                } else {
+                    const errorMsg = data.data && data.data.message 
+                        ? data.data.message 
+                        : 'Error al agregar servicio';
+                    errors.push({ serviceId: serviceId, error: errorMsg });
+                    console.error('[Assignment Modal] Error al agregar servicio:', serviceId, errorMsg);
+                }
+                
+                // Move to next service
+                currentIndex++;
+                addNextService();
+            })
+            .catch(function(error) {
+                console.error('[Assignment Modal] Error en petición AJAX para servicio:', serviceId, error);
+                errors.push({ serviceId: serviceId, error: 'Error de conexión' });
+                
+                // Move to next service even on error
+                currentIndex++;
+                addNextService();
+            });
+        }
+        
+        // Start adding services
+        addNextService();
+    }
+
+    /**
+     * Finish assignment creation process
+     * Clean up date picker, close modal, and reload list
+     * @param {HTMLElement} saveBtn - Save button element
+     */
+    function finishAssignmentCreation(saveBtn) {
+        // Clean up date picker before closing
+        cleanupDatePicker();
+        
+        // Close modal
+        if (window.AAAdmin && window.AAAdmin.modal) {
+            AAAdmin.modal.close();
+        }
+        
+        // Re-enable save button
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Guardar asignación';
+        }
+        
+        // Reload assignments list if function exists
+        if (window.reloadAssignmentsList) {
+            window.reloadAssignmentsList();
+        } else {
+            // Fallback: trigger custom event
+            document.dispatchEvent(new CustomEvent('aa-assignment-created'));
+        }
     }
 
     /**
