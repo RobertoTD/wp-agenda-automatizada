@@ -16,6 +16,10 @@
 
     // Flatpickr instance reference
     let datePicker = null;
+    
+    // Services state management
+    let availableServices = []; // Array of {id, name}
+    let selectedServices = []; // Array of {id, name}
 
     /**
      * Get AJAX URL
@@ -102,9 +106,9 @@
         setTimeout(function() {
             initializeDatePicker();
             setDefaultStartTime();
+            resetServicesUI(); // Reset services state when opening modal
             loadStaffOptions();
             loadServiceAreaOptions();
-            loadServiceOptions();
             setupEventListeners();
         }, 100);
     }
@@ -265,41 +269,6 @@
         });
     }
 
-    /**
-     * Load services into select
-     */
-    function loadServiceOptions() {
-        const serviceSelect = document.getElementById('aa-assignment-service');
-        if (!serviceSelect) return;
-
-        const formData = new FormData();
-        formData.append('action', 'aa_get_services');
-
-        fetch(getAjaxUrl(), {
-            method: 'POST',
-            body: formData
-        })
-        .then(function(response) {
-            return response.json();
-        })
-        .then(function(data) {
-            if (data.success && data.data && data.data.services) {
-                let html = '<option value="">-- Selecciona servicio --</option>';
-                
-                data.data.services.forEach(function(service) {
-                    html += '<option value="' + escapeHtml(service) + '">' + escapeHtml(service) + '</option>';
-                });
-                
-                serviceSelect.innerHTML = html;
-            } else {
-                serviceSelect.innerHTML = '<option value="">No hay servicios configurados</option>';
-            }
-        })
-        .catch(function(error) {
-            console.error('[Assignment Modal] Error loading services:', error);
-            serviceSelect.innerHTML = '<option value="">Error al cargar</option>';
-        });
-    }
 
     /**
      * Setup event listeners for modal
@@ -311,7 +280,238 @@
             saveBtn.addEventListener('click', handleSave);
         }
 
+        // Staff select change listener
+        setupStaffSelectListener();
+
         // Cancel button - handled by data-aa-modal-close attribute
+    }
+
+    /**
+     * Listen to changes in staff select and fetch staff services
+     */
+    function setupStaffSelectListener() {
+        const staffSelect = document.getElementById('aa-assignment-staff');
+        if (!staffSelect) {
+            console.warn('[Assignment Modal] Staff select not found for listener setup');
+            return;
+        }
+
+        staffSelect.addEventListener('change', function() {
+            const selectedValue = this.value;
+            console.log('[Assignment Modal] Staff selected:', selectedValue);
+            
+            // If no staff is selected, reset service select and selected list
+            if (!selectedValue || selectedValue === '') {
+                console.log('[Assignment Modal] No staff selected, resetting services');
+                resetServicesUI();
+                return;
+            }
+            
+            // Fetch staff services via AJAX
+            fetchStaffServices(selectedValue);
+        });
+        
+        // Listen to service select changes
+        const serviceSelect = document.getElementById('aa-assignment-service');
+        if (serviceSelect) {
+            serviceSelect.addEventListener('change', function() {
+                const selectedValue = this.value;
+                if (selectedValue && selectedValue !== '') {
+                    addSelectedService(parseInt(selectedValue));
+                    // Reset select to default option after adding
+                    this.value = '';
+                }
+            });
+        }
+        
+        // Listen to remove button clicks in selected services list
+        const selectedDiv = document.getElementById('aa-assignment-services-selected');
+        if (selectedDiv) {
+            selectedDiv.addEventListener('click', function(event) {
+                const removeButton = event.target.closest('.aa-assignment-service-remove');
+                if (removeButton) {
+                    const serviceId = parseInt(removeButton.getAttribute('data-service-id'));
+                    if (serviceId > 0) {
+                        removeSelectedService(serviceId);
+                    }
+                }
+            });
+        }
+    }
+
+    /**
+     * Reset services UI (select and selected list)
+     */
+    function resetServicesUI() {
+        availableServices = [];
+        selectedServices = [];
+        
+        const serviceSelect = document.getElementById('aa-assignment-service');
+        const selectedDiv = document.getElementById('aa-assignment-services-selected');
+        
+        if (serviceSelect) {
+            serviceSelect.innerHTML = '<option value="">-- Selecciona servicio(s) --</option>';
+        }
+        
+        if (selectedDiv) {
+            selectedDiv.innerHTML = '';
+        }
+    }
+
+    /**
+     * Fetch staff services from database via AJAX and populate service select
+     * @param {string} staffId - The staff ID
+     */
+    function fetchStaffServices(staffId) {
+        const serviceSelect = document.getElementById('aa-assignment-service');
+        if (!serviceSelect) {
+            console.warn('[Assignment Modal] Service select not found');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('action', 'aa_get_staff_services');
+        formData.append('staff_id', staffId);
+
+        fetch(getAjaxUrl(), {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(response) {
+            return response.json();
+        })
+        .then(function(data) {
+            if (data.success && data.data && data.data.selected) {
+                console.log('[Assignment Modal] Staff services:', data.data.selected);
+                console.log('[Assignment Modal] Services count:', data.data.count);
+                
+                // Reset state
+                availableServices = data.data.selected.map(function(s) {
+                    return { id: parseInt(s.id), name: s.name };
+                });
+                selectedServices = [];
+                
+                // Update UI
+                updateServiceSelect();
+                updateSelectedServicesList();
+            } else {
+                console.warn('[Assignment Modal] No services found or error in response:', data);
+                const serviceSelect = document.getElementById('aa-assignment-service');
+                if (serviceSelect) {
+                    serviceSelect.innerHTML = '<option value="">-- Selecciona servicio(s) --</option>';
+                }
+                resetServicesUI();
+            }
+        })
+        .catch(function(error) {
+            console.error('[Assignment Modal] Error fetching staff services:', error);
+            resetServicesUI();
+        });
+    }
+
+    /**
+     * Update service select with available services
+     */
+    function updateServiceSelect() {
+        const serviceSelect = document.getElementById('aa-assignment-service');
+        if (!serviceSelect) return;
+        
+        // Get IDs of selected services
+        const selectedIds = selectedServices.map(function(s) {
+            return s.id;
+        });
+        
+        // Build options with only unselected services
+        let html = '<option value="">-- Selecciona servicio(s) --</option>';
+        
+        availableServices.forEach(function(service) {
+            if (selectedIds.indexOf(service.id) === -1) {
+                html += '<option value="' + escapeHtml(service.id) + '">' + escapeHtml(service.name) + '</option>';
+            }
+        });
+        
+        serviceSelect.innerHTML = html;
+    }
+
+    /**
+     * Add a service to the selected list
+     * @param {number} serviceId - The service ID
+     */
+    function addSelectedService(serviceId) {
+        // Find service in available services
+        const service = availableServices.find(function(s) {
+            return s.id === serviceId;
+        });
+        
+        if (!service) {
+            console.warn('[Assignment Modal] Service not found:', serviceId);
+            return;
+        }
+        
+        // Check if already selected
+        const alreadySelected = selectedServices.find(function(s) {
+            return s.id === serviceId;
+        });
+        
+        if (alreadySelected) {
+            console.warn('[Assignment Modal] Service already selected:', serviceId);
+            return;
+        }
+        
+        // Add to selected
+        selectedServices.push(service);
+        
+        // Update UI
+        updateServiceSelect();
+        updateSelectedServicesList();
+    }
+
+    /**
+     * Remove a service from the selected list
+     * @param {number} serviceId - The service ID
+     */
+    function removeSelectedService(serviceId) {
+        // Remove from selected
+        selectedServices = selectedServices.filter(function(s) {
+            return s.id !== serviceId;
+        });
+        
+        // Update UI
+        updateServiceSelect();
+        updateSelectedServicesList();
+    }
+
+    /**
+     * Update the selected services list UI
+     */
+    function updateSelectedServicesList() {
+        const selectedDiv = document.getElementById('aa-assignment-services-selected');
+        if (!selectedDiv) return;
+        
+        if (selectedServices.length === 0) {
+            selectedDiv.innerHTML = '';
+            return;
+        }
+        
+        let html = '<ul class="space-y-2">';
+        
+        selectedServices.forEach(function(service) {
+            html += '<li class="flex items-center justify-between p-2 bg-gray-50 rounded-lg border border-gray-200">';
+            html += '<input type="hidden" name="service_ids[]" value="' + escapeHtml(service.id) + '">';
+            html += '<span class="text-sm text-gray-900">' + escapeHtml(service.name) + '</span>';
+            html += '<button type="button" ';
+            html += 'class="aa-assignment-service-remove inline-flex items-center justify-center w-6 h-6 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors" ';
+            html += 'data-service-id="' + service.id + '" ';
+            html += 'title="Eliminar servicio">';
+            html += '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
+            html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>';
+            html += '</svg>';
+            html += '</button>';
+            html += '</li>';
+        });
+        
+        html += '</ul>';
+        selectedDiv.innerHTML = html;
     }
 
     /**
@@ -327,12 +527,11 @@
         const endInput = document.getElementById('aa-assignment-end');
         const staffSelect = document.getElementById('aa-assignment-staff');
         const areaSelect = document.getElementById('aa-assignment-area');
-        const serviceSelect = document.getElementById('aa-assignment-service');
         const capacityInput = document.getElementById('aa-assignment-capacity');
 
         // Validate required fields
         if (!dateInput.value || !startInput.value || !endInput.value || 
-            !staffSelect.value || !areaSelect.value || !serviceSelect.value) {
+            !staffSelect.value || !areaSelect.value || selectedServices.length === 0) {
             showError('Por favor completa todos los campos requeridos');
             return;
         }
