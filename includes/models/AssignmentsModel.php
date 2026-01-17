@@ -1304,6 +1304,70 @@ class AssignmentsModel {
     }
 
     /**
+     * Obtener fechas de asignaciones por service_id (usando tabla pivote)
+     * 
+     * Consulta la tabla pivote aa_assignment_services para obtener fechas
+     * de asignaciones que tienen un servicio específico asignado.
+     * 
+     * @param int $service_id ID del servicio
+     * @param string|null $start_date Fecha inicio (YYYY-MM-DD)
+     * @param string|null $end_date Fecha fin (YYYY-MM-DD)
+     * @return array Array de fechas únicas
+     */
+    public static function get_assignment_dates_by_service_id($service_id, $start_date = null, $end_date = null) {
+        global $wpdb;
+        $assignments_table = $wpdb->prefix . 'aa_assignments';
+        $pivot_table = $wpdb->prefix . 'aa_assignment_services';
+        
+        $service_id = intval($service_id);
+        
+        if ($service_id <= 0) {
+            error_log("❌ [AssignmentsModel] ID de servicio inválido: $service_id");
+            return [];
+        }
+        
+        $where_clauses = [
+            "a.status = 'active'",
+            "a.is_hidden = 0",
+            "p.service_id = %d"
+        ];
+        $params = [$service_id];
+        
+        // Por defecto, desde hoy
+        if ($start_date) {
+            $where_clauses[] = "a.assignment_date >= %s";
+            $params[] = $start_date;
+        } else {
+            $where_clauses[] = "a.assignment_date >= CURDATE()";
+        }
+        
+        if ($end_date) {
+            $where_clauses[] = "a.assignment_date <= %s";
+            $params[] = $end_date;
+        }
+        
+        $where_sql = implode(' AND ', $where_clauses);
+        
+        $query = $wpdb->prepare(
+            "SELECT DISTINCT a.assignment_date 
+             FROM $assignments_table a
+             INNER JOIN $pivot_table p ON p.assignment_id = a.id
+             WHERE $where_sql
+             ORDER BY a.assignment_date ASC",
+            ...$params
+        );
+        
+        $results = $wpdb->get_col($query);
+        
+        if ($wpdb->last_error) {
+            error_log("❌ [AssignmentsModel] Error al obtener fechas por service_id: " . $wpdb->last_error);
+            return [];
+        }
+        
+        return $results ? $results : [];
+    }
+
+    /**
      * Obtener asignaciones por servicio y fecha
      * Incluye datos enriquecidos de staff y zona
      * 

@@ -92,7 +92,20 @@
     async function getAssignmentDatesByService(serviceKey, startDate = null, endDate = null) {
         console.log(`🔍 [AAAssignmentsAvailability] getAssignmentDatesByService("${serviceKey}", "${startDate}", "${endDate}") llamado`);
         
-        const data = { service_key: serviceKey };
+        // Detectar si serviceKey es numérico (service_id) o string (service_key legacy)
+        const maybeId = parseInt(serviceKey, 10);
+        const isNumeric = !isNaN(maybeId) && String(maybeId) === String(serviceKey);
+        
+        const data = {};
+        
+        // Si es numérico, enviar service_id; si no, enviar service_key (legacy)
+        if (isNumeric) {
+            data.service_id = maybeId;
+            console.log(`📊 [AAAssignmentsAvailability] Detectado service_id numérico: ${maybeId}`);
+        } else {
+            data.service_key = serviceKey;
+            console.log(`📊 [AAAssignmentsAvailability] Usando service_key legacy: "${serviceKey}"`);
+        }
         
         if (startDate) {
             data.start_date = startDate;
