@@ -18,12 +18,12 @@ $plugin_url = plugin_dir_url(__FILE__);
 $module_js_url = $plugin_url . 'calendar-module.js';
 ?>
 
-<details open class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden group">
+<div class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
 
     <!-- =========================
-         🔹 HEADER / SUMMARY
+         🔹 HEADER
          ========================= -->
-    <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
+    <div class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
         <div class="flex items-center justify-between gap-3">
 
             <!-- Izquierda: icono + texto -->
@@ -46,37 +46,30 @@ $module_js_url = $plugin_url . 'calendar-module.js';
                 </div>
             </div>
 
-            <!-- Derecha: flecha (aunque esté abierto) -->
-            <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180"
-                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M19 9l-7 7-7-7"/>
-            </svg>
-
         </div>
-    </summary>
+    </div>
 
     <!-- =========================
          🔹 CONTENIDO / BODY
          ========================= -->
-    <div class="p-6 transition-all duration-200">
+    <div class="p-0 transition-all duration-200">
 
         <!-- =========================
              🔹 SELECTOR DE FECHA
              ========================= -->
-        <div id="aa-date-selector" class="mb-4 flex items-center gap-2">
+        <div id="aa-date-selector" class="mt-2 mx-2 mb-4 flex items-center gap-2">
             <!-- Botón anterior -->
-            <button id="aa-date-prev" type="button" class="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg border border-gray-300 transition-colors">
+            <button id="aa-date-prev" type="button" class="px-2 py-[0.3rem] bg-gray-100 hover:bg-gray-200 rounded-lg border border-gray-300 transition-colors">
                 <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                 </svg>
             </button>
             
             <!-- Input Flatpickr -->
-            <input type="text" id="aa-date-picker" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Seleccionar fecha" readonly>
+            <input type="text" id="aa-date-picker" class="w-32 px-2 py-[0.3rem] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Seleccionar fecha" readonly>
             
             <!-- Botón siguiente -->
-            <button id="aa-date-next" type="button" class="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg border border-gray-300 transition-colors">
+            <button id="aa-date-next" type="button" class="px-2 py-[0.3rem] bg-gray-100 hover:bg-gray-200 rounded-lg border border-gray-300 transition-colors">
                 <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                 </svg>
@@ -86,7 +79,7 @@ $module_js_url = $plugin_url . 'calendar-module.js';
         <!-- =========================
              🔹 AGENDA TIMELINE
              ========================= -->
-        <section class="aa-day-timeline relative bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <section class="aa-day-timeline relative bg-white border border-gray-200 overflow-hidden">
 
             <!-- Indicador de hora actual -->
             <div
@@ -104,7 +97,7 @@ $module_js_url = $plugin_url . 'calendar-module.js';
 
     </div>
 
-</details>
+</div>
 
 <!-- Scripts: Orden crítico - datos primero, luego dependencias, luego módulo -->
 <!-- Datos base del calendario -->

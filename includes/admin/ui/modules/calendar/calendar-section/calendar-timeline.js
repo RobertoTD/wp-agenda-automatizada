@@ -28,6 +28,8 @@
         grid.style.display = 'grid';
         grid.style.gridTemplateColumns = 'auto 1fr';
         grid.style.gridAutoRows = 'auto';
+        grid.style.borderRadius = '0'; // Quitar esquinas redondeadas
+        grid.style.borderTop = '10px solid rgb(243, 244, 246)'; // Línea horizontal gruesa en la parte superior
 
         // Limpiar contenido existente
         grid.innerHTML = '';
@@ -78,12 +80,20 @@
             // Label (columna 1)
             const label = document.createElement('div');
             label.className = 'aa-time-label';
-            label.textContent = timeStr;
             label.style.gridColumn = '1';
             label.style.gridRow = `${index + 1}`;
-            label.style.padding = '8px 12px';
+            label.style.padding = '0px 5px 10px 5px'; // Padding mínimo arriba para desplazar texto hacia arriba
             label.style.minWidth = '40px';
             label.style.position = 'relative';
+            label.style.display = 'flex';
+            label.style.alignItems = 'flex-start'; // Alinear texto hacia arriba del contenedor
+            label.style.justifyContent = 'flex-start';
+            
+            // Crear span para el texto para poder aplicar transform solo al texto
+            const textSpan = document.createElement('span');
+            textSpan.textContent = timeStr;
+            textSpan.style.color = '#6b7280'; // Gris medio-claro para el texto
+            label.appendChild(textSpan);
             
             // Diferenciar visualmente slots pasados vs futuros (SOLO en label, solo si es hoy)
             if (isToday && minutosActuales !== null && minutes < minutosActuales) {
@@ -96,12 +106,25 @@
             
             grid.appendChild(label);
             
+            // Reducir el tamaño de fuente en 3px y desplazar texto hacia arriba después de que el elemento esté en el DOM
+            const computedStyle = window.getComputedStyle(textSpan);
+            const currentFontSize = parseFloat(computedStyle.fontSize);
+            if (!isNaN(currentFontSize)) {
+                textSpan.style.fontSize = `${currentFontSize - 3}px`;
+                // Desplazar texto hacia arriba para que la línea divisoria quede en medio del texto
+                // La línea está en el borde superior del label, así que desplazamos el texto hacia arriba la mitad de su altura
+                const textHeight = currentFontSize - 3; // Altura aproximada del texto
+                textSpan.style.transform = `translateY(-${textHeight / 2}px)`;
+                textSpan.style.display = 'inline-block'; // Necesario para que transform funcione en span
+            }
+            
             // Content (columna 2) - vacío por ahora, las citas se insertarán aquí
             const content = document.createElement('div');
             content.className = 'aa-time-content';
             content.style.gridColumn = '2';
             content.style.gridRow = `${index + 1}`;
             content.style.minHeight = '40px';
+            content.style.borderBottom = '1px solid #e5e7eb'; // Línea horizontal gris muy clara
             // Sin estilos de fondo - área limpia para citas
             grid.appendChild(content);
             
