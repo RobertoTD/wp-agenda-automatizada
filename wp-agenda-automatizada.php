@@ -451,6 +451,24 @@ function wpaa_render_form() {
         }
     }
     
+    // Obtener servicios activos desde la base de datos
+    $servicios_bd = [];
+    if (class_exists('AssignmentsModel')) {
+        $servicios_bd = AssignmentsModel::get_services(true); // true = solo activos (filtra is_hidden = 0 y active = 1)
+    }
+    
+    // Agregar servicios desde la base de datos (solo activos y no ocultos)
+    if (!empty($servicios_bd)) {
+        foreach ($servicios_bd as $servicio) {
+            // Filtrar solo servicios activos (active = 1)
+            if (isset($servicio['active']) && intval($servicio['active']) === 1) {
+                $service_id = esc_attr($servicio['id']);
+                $service_name = esc_html($servicio['name']);
+                echo "<option value='{$service_id}'>{$service_name}</option>";
+            }
+        }
+    }
+    
     // Agregar opción de horario fijo si existe
     $service_schedule = get_option('aa_service_schedule', '');
     if (!empty($service_schedule)) {
