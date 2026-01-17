@@ -339,18 +339,12 @@ function aa_get_assignments_by_service_and_date() {
         return;
     }
     
-    // Validar campos requeridos
-    if (!isset($_POST['service_key']) || empty($_POST['service_key'])) {
-        wp_send_json_error(['message' => 'El campo service_key es requerido']);
-        return;
-    }
-    
+    // Validar campo date (siempre requerido)
     if (!isset($_POST['date']) || empty($_POST['date'])) {
         wp_send_json_error(['message' => 'El campo date es requerido']);
         return;
     }
     
-    $service_key = sanitize_text_field($_POST['service_key']);
     $date = sanitize_text_field($_POST['date']);
     
     // Validar formato de fecha
@@ -359,15 +353,33 @@ function aa_get_assignments_by_service_and_date() {
         return;
     }
     
+    // Validar: debe venir service_id (int > 0) o service_key (string no vacío)
+    $service_id = isset($_POST['service_id']) ? intval($_POST['service_id']) : 0;
+    $service_key = isset($_POST['service_key']) ? sanitize_text_field($_POST['service_key']) : '';
+    
+    if ($service_id <= 0 && empty($service_key)) {
+        wp_send_json_error(['message' => 'Se requiere service_id o service_key']);
+        return;
+    }
+    
     try {
-        $assignments = AssignmentsModel::get_assignments_by_service_and_date($service_key, $date);
+        $assignments = [];
+        $response_data = ['date' => $date];
         
-        wp_send_json_success([
-            'service_key' => $service_key,
-            'date' => $date,
-            'assignments' => $assignments,
-            'count' => count($assignments)
-        ]);
+        // Si viene service_id, usar el nuevo método con tabla pivote
+        if ($service_id > 0) {
+            $assignments = AssignmentsModel::get_assignments_by_service_id_and_date($service_id, $date);
+            $response_data['service_id'] = $service_id;
+        } else {
+            // Legacy: usar service_key
+            $assignments = AssignmentsModel::get_assignments_by_service_and_date($service_key, $date);
+            $response_data['service_key'] = $service_key;
+        }
+        
+        $response_data['assignments'] = $assignments;
+        $response_data['count'] = count($assignments);
+        
+        wp_send_json_success($response_data);
     } catch (Exception $e) {
         error_log("❌ [assignmentsService] Error al obtener asignaciones por servicio y fecha: " . $e->getMessage());
         wp_send_json_error([

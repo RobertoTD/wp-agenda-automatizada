@@ -127,17 +127,29 @@
      * Get assignments by service and date
      * Returns all assignments for a specific service on a specific date
      * 
-     * @param {string} serviceKey - Service identifier
+     * @param {string} serviceKey - Service identifier (can be numeric service_id or string service_key)
      * @param {string} date - Date (YYYY-MM-DD)
      * @returns {Promise<Object>} Response with assignments array
      */
     async function getAssignmentsByServiceAndDate(serviceKey, date) {
         console.log(`🔍 [AAAssignmentsAvailability] getAssignmentsByServiceAndDate("${serviceKey}", "${date}") llamado`);
         
-        const result = await ajaxRequest('aa_get_assignments_by_service_and_date', {
-            service_key: serviceKey,
-            date: date
-        });
+        // Detectar si serviceKey es numérico (service_id) o string (service_key legacy)
+        const maybeId = parseInt(serviceKey, 10);
+        const isNumeric = !isNaN(maybeId) && String(maybeId) === String(serviceKey);
+        
+        const data = { date: date };
+        
+        // Si es numérico, enviar service_id; si no, enviar service_key (legacy)
+        if (isNumeric) {
+            data.service_id = maybeId;
+            console.log(`📊 [AAAssignmentsAvailability] Detectado service_id numérico: ${maybeId}`);
+        } else {
+            data.service_key = serviceKey;
+            console.log(`📊 [AAAssignmentsAvailability] Usando service_key legacy: "${serviceKey}"`);
+        }
+        
+        const result = await ajaxRequest('aa_get_assignments_by_service_and_date', data);
         
         if (result.success) {
             console.log(`✅ [AAAssignmentsAvailability] ${result.data.assignments?.length || 0} asignaciones encontradas`);

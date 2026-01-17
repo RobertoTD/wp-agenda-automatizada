@@ -1415,6 +1415,65 @@ class AssignmentsModel {
     }
 
     /**
+     * Obtener asignaciones por service_id y fecha (usando tabla pivote)
+     * 
+     * Consulta la tabla pivote aa_assignment_services para obtener asignaciones
+     * que tienen un servicio específico asignado en una fecha determinada.
+     * 
+     * @param int $service_id ID del servicio
+     * @param string $date Fecha (YYYY-MM-DD)
+     * @return array Array de asignaciones con staff y área
+     */
+    public static function get_assignments_by_service_id_and_date($service_id, $date) {
+        global $wpdb;
+        $assignments_table = $wpdb->prefix . 'aa_assignments';
+        $staff_table = $wpdb->prefix . 'aa_staff';
+        $service_areas_table = $wpdb->prefix . 'aa_service_areas';
+        $pivot_table = $wpdb->prefix . 'aa_assignment_services';
+        
+        $service_id = intval($service_id);
+        
+        if ($service_id <= 0) {
+            error_log("❌ [AssignmentsModel] ID de servicio inválido: $service_id");
+            return [];
+        }
+        
+        $query = $wpdb->prepare(
+            "SELECT 
+                a.id,
+                a.assignment_date,
+                a.start_time,
+                a.end_time,
+                a.service_key,
+                a.capacity,
+                a.staff_id,
+                a.service_area_id,
+                s.name AS staff_name,
+                sa.name AS service_area_name
+             FROM $assignments_table a
+             INNER JOIN $pivot_table p ON p.assignment_id = a.id
+             LEFT JOIN $staff_table s ON s.id = a.staff_id
+             LEFT JOIN $service_areas_table sa ON sa.id = a.service_area_id
+             WHERE p.service_id = %d 
+             AND a.assignment_date = %s
+             AND a.status = 'active'
+             AND a.is_hidden = 0
+             ORDER BY a.start_time ASC",
+            $service_id,
+            $date
+        );
+        
+        $results = $wpdb->get_results($query, ARRAY_A);
+        
+        if ($wpdb->last_error) {
+            error_log("❌ [AssignmentsModel] Error al obtener asignaciones por service_id y fecha: " . $wpdb->last_error);
+            return [];
+        }
+        
+        return $results ? $results : [];
+    }
+
+    /**
      * Obtener rangos ocupados para asignaciones específicas
      * Consulta reservas existentes que ocupan las asignaciones
      * 
