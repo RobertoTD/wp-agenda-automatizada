@@ -8,9 +8,11 @@
     /**
      * Renderizar timeline para una fecha específica
      * @param {string} fechaStr - Fecha en formato YYYY-MM-DD
+     * @param {Object} options - Opciones adicionales
+     * @param {Array<{start: number, end: number}>} options.assignmentIntervals - Intervalos de asignaciones en minutos
      * @returns {Object} - Objeto con slotRowIndex y timeSlots para uso externo
      */
-    function renderTimelineForDate(fechaStr) {
+    function renderTimelineForDate(fechaStr, options) {
         const grid = document.getElementById('aa-time-grid');
         if (!grid) {
             console.error('❌ No se encontró el contenedor #aa-time-grid');
@@ -22,7 +24,15 @@
         // Convertir fecha string a Date
         const fecha = new Date(fechaStr + 'T00:00:00');
         const weekday = window.DateUtils.getWeekdayName(fecha);
-        const intervals = window.DateUtils.getDayIntervals(schedule, weekday);
+        
+        // 1. Obtener intervalos del schedule fijo
+        const scheduleIntervals = window.DateUtils.getDayIntervals(schedule, weekday) || [];
+        
+        // 2. Obtener intervalos de asignaciones (si existen)
+        const assignmentIntervals = (options && options.assignmentIntervals) ? options.assignmentIntervals : [];
+        
+        // 3. Unir ambos sets de intervalos
+        const allIntervals = [...scheduleIntervals, ...assignmentIntervals];
         
         // Configurar CSS Grid
         grid.style.display = 'grid';
@@ -34,8 +44,8 @@
         // Limpiar contenido existente
         grid.innerHTML = '';
 
-        // Si no hay intervalos o el día no está habilitado
-        if (!intervals || intervals.length === 0) {
+        // Si no hay intervalos de ninguna fuente (schedule ni assignments)
+        if (!allIntervals || allIntervals.length === 0) {
             const mensaje = document.createElement('div');
             mensaje.style.gridColumn = '1 / -1';
             mensaje.style.padding = '2rem';
@@ -53,15 +63,15 @@
             return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
         }
 
-        // Generar todos los bloques de 30 minutos de todos los intervalos
+        // 4. Resolver el rango total: mínimo start y máximo end
+        const minStart = Math.min(...allIntervals.map(iv => iv.start));
+        const maxEnd = Math.max(...allIntervals.map(iv => iv.end));
+
+        // 5. Generar timeSlots de 30 minutos sobre el rango unificado (sin duplicar)
         const timeSlots = [];
-        
-        intervals.forEach((interval) => {
-            // Generar bloques de 30 minutos dentro del intervalo
-            for (let min = interval.start; min < interval.end; min += 30) {
-                timeSlots.push(min);
-            }
-        });
+        for (let min = minStart; min < maxEnd; min += 30) {
+            timeSlots.push(min);
+        }
 
         // Mapa de minutos -> índice de fila en el grid (para calcular grid-row)
         const slotRowIndex = new Map();

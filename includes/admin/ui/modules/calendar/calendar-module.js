@@ -105,29 +105,101 @@
     }
 
     /**
+     * Obtener intervalos de asignaciones para una fecha específica
+     * @param {string} fechaStr - Fecha en formato YYYY-MM-DD
+     * @returns {Promise<Array<{start: number, end: number}>>} - Intervalos normalizados en minutos
+     */
+    function fetchAssignmentIntervals(fechaStr) {
+        return new Promise(function(resolve) {
+            const ajaxurl = (window.AA_CALENDAR_DATA && window.AA_CALENDAR_DATA.ajaxurl) 
+                || window.ajaxurl 
+                || '/wp-admin/admin-ajax.php';
+            
+            const formData = new FormData();
+            formData.append('action', 'aa_get_assignments');
+            
+            fetch(ajaxurl, {
+                method: 'POST',
+                body: formData
+            })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (!data.success || !data.data || !data.data.assignments) {
+                    resolve([]);
+                    return;
+                }
+                
+                const assignments = data.data.assignments;
+                const intervals = [];
+                
+                // Filtrar asignaciones del día seleccionado
+                assignments.forEach(function(assignment) {
+                    if (assignment.assignment_date !== fechaStr) {
+                        return;
+                    }
+                    
+                    // Convertir start_time y end_time a minutos
+                    const startMin = window.DateUtils.timeStrToMinutes(assignment.start_time);
+                    const endMin = window.DateUtils.timeStrToMinutes(assignment.end_time);
+                    
+                    // Normalizar el intervalo usando DateUtils
+                    // normalizeIntervalToSlotGrid devuelve {start, end} donde end es el último slot válido
+                    const normalized = window.DateUtils.normalizeIntervalToSlotGrid(startMin, endMin, 30);
+                    
+                    // Ignorar los null (intervalos inválidos)
+                    if (normalized) {
+                        // Convertir end de "último slot" a "límite superior" sumando 30
+                        // Esto es necesario porque el timeline genera slots con: min < end
+                        intervals.push({
+                            start: normalized.start,
+                            end: normalized.end + 30
+                        });
+                    }
+                });
+                
+                resolve(intervals);
+            })
+            .catch(function(error) {
+                console.error('[Calendar Module] Error al obtener asignaciones:', error);
+                resolve([]);
+            });
+        });
+    }
+
+    /**
      * Renderizar timeline para una fecha específica
      * @param {string} fechaStr - Fecha en formato YYYY-MM-DD
      */
     function renderTimelineForDate(fechaStr) {
-        // Delegar render del timeline a CalendarTimeline
-        const result = window.CalendarTimeline?.renderTimelineForDate(fechaStr);
-        
-        if (!result) {
-            // Si no hay resultado (día sin horarios), no hay nada que hacer
-            return;
-        }
-        
-        // Guardar referencias para recarga
-        currentSlotRowIndex = result.slotRowIndex;
-        currentTimeSlots = result.timeSlots;
-        
-        // Cargar y renderizar citas del día seleccionado usando CalendarAppointments
-        if (window.CalendarAppointments?.cargarYRenderizarCitas) {
-            window.CalendarAppointments.cargarYRenderizarCitas(result.slotRowIndex, result.timeSlots, fechaStr);
-        }
-        
-        // Configurar event listener delegado para acciones de botones
-        configurarEventListeners();
+        // Primero obtener intervalos de asignaciones, luego renderizar
+        fetchAssignmentIntervals(fechaStr).then(function(assignmentIntervals) {
+            // Preparar options con los intervalos de asignaciones
+            const options = {
+                assignmentIntervals: assignmentIntervals
+            };
+            
+            // Delegar render del timeline a CalendarTimeline
+            const result = window.CalendarTimeline?.renderTimelineForDate(fechaStr, options);
+            
+            if (!result) {
+                // Si no hay resultado (día sin horarios ni asignaciones), no hay nada que hacer
+                return;
+            }
+            
+            // Guardar referencias para recarga
+            currentSlotRowIndex = result.slotRowIndex;
+            currentTimeSlots = result.timeSlots;
+            
+            // Cargar y renderizar citas del día seleccionado usando CalendarAppointments
+            if (window.CalendarAppointments?.cargarYRenderizarCitas) {
+                window.CalendarAppointments.cargarYRenderizarCitas(result.slotRowIndex, result.timeSlots, fechaStr);
+            }
+            
+            // Configurar event listener delegado para acciones de botones
+            configurarEventListeners();
+        });
     }
 
     function initCalendar() {
