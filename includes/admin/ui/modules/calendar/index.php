@@ -121,6 +121,7 @@ $module_js_url = $plugin_url . 'calendar-module.js';
 <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'calendar-section/calendar-overlap.js'); ?>" defer></script>
 <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'calendar-section/calendar-appointments.js'); ?>" defer></script>
 <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'calendar-section/calendar-timeline.js'); ?>" defer></script>
+<script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'calendar-section/calendar-assignments.js'); ?>" defer></script>
 
 <!-- Módulo del calendario (SIEMPRE AL FINAL) -->
 <script src="<?php echo esc_url($module_js_url); ?>" defer></script>

@@ -105,11 +105,11 @@
     }
 
     /**
-     * Obtener intervalos de asignaciones para una fecha específica
+     * Obtener asignaciones para una fecha específica
      * @param {string} fechaStr - Fecha en formato YYYY-MM-DD
-     * @returns {Promise<Array<{start: number, end: number}>>} - Intervalos normalizados en minutos
+     * @returns {Promise<{intervals: Array, assignments: Array}>} - Intervalos normalizados y asignaciones completas
      */
-    function fetchAssignmentIntervals(fechaStr) {
+    function fetchAssignmentsData(fechaStr) {
         return new Promise(function(resolve) {
             const ajaxurl = (window.AA_CALENDAR_DATA && window.AA_CALENDAR_DATA.ajaxurl) 
                 || window.ajaxurl 
@@ -127,18 +127,22 @@
             })
             .then(function(data) {
                 if (!data.success || !data.data || !data.data.assignments) {
-                    resolve([]);
+                    resolve({ intervals: [], assignments: [] });
                     return;
                 }
                 
-                const assignments = data.data.assignments;
+                const allAssignments = data.data.assignments;
                 const intervals = [];
+                const dayAssignments = []; // Asignaciones completas del día
                 
                 // Filtrar asignaciones del día seleccionado
-                assignments.forEach(function(assignment) {
+                allAssignments.forEach(function(assignment) {
                     if (assignment.assignment_date !== fechaStr) {
                         return;
                     }
+                    
+                    // Guardar asignación completa del día
+                    dayAssignments.push(assignment);
                     
                     // Convertir start_time y end_time a minutos
                     const startMin = window.DateUtils.timeStrToMinutes(assignment.start_time);
@@ -159,11 +163,14 @@
                     }
                 });
                 
-                resolve(intervals);
+                resolve({
+                    intervals: intervals,
+                    assignments: dayAssignments
+                });
             })
             .catch(function(error) {
                 console.error('[Calendar Module] Error al obtener asignaciones:', error);
-                resolve([]);
+                resolve({ intervals: [], assignments: [] });
             });
         });
     }
@@ -173,11 +180,11 @@
      * @param {string} fechaStr - Fecha en formato YYYY-MM-DD
      */
     function renderTimelineForDate(fechaStr) {
-        // Primero obtener intervalos de asignaciones, luego renderizar
-        fetchAssignmentIntervals(fechaStr).then(function(assignmentIntervals) {
+        // Primero obtener datos de asignaciones, luego renderizar
+        fetchAssignmentsData(fechaStr).then(function(assignmentsData) {
             // Preparar options con los intervalos de asignaciones
             const options = {
-                assignmentIntervals: assignmentIntervals
+                assignmentIntervals: assignmentsData.intervals
             };
             
             // Delegar render del timeline a CalendarTimeline
@@ -191,6 +198,11 @@
             // Guardar referencias para recarga
             currentSlotRowIndex = result.slotRowIndex;
             currentTimeSlots = result.timeSlots;
+            
+            // Renderizar overlays de asignaciones (capa visual)
+            if (window.CalendarAssignments?.render) {
+                window.CalendarAssignments.render(assignmentsData.assignments, result.slotRowIndex);
+            }
             
             // Cargar y renderizar citas del día seleccionado usando CalendarAppointments
             if (window.CalendarAppointments?.cargarYRenderizarCitas) {

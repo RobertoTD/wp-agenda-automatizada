@@ -935,6 +935,8 @@ class AssignmentsModel {
                     a.service_key,
                     a.capacity,
                     a.status,
+                    a.service_area_id,
+                    a.staff_id,
                     s.name AS staff_name,
                     sa.name AS service_area_name
                   FROM $assignments_table a
