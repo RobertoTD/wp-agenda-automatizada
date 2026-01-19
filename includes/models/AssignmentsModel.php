@@ -938,12 +938,12 @@ class AssignmentsModel {
                     a.service_area_id,
                     a.staff_id,
                     s.name AS staff_name,
-                    sa.name AS service_area_name
+                    sa.name AS service_area_name,
+                    sa.color AS service_area_color
                   FROM $assignments_table a
                   LEFT JOIN $staff_table s ON s.id = a.staff_id
                   LEFT JOIN $service_areas_table sa ON sa.id = a.service_area_id
-                  WHERE a.assignment_date >= CURDATE()
-                    AND a.is_hidden = 0
+                  WHERE a.is_hidden = 0
                   ORDER BY a.assignment_date ASC, a.start_time ASC";
         
         $results = $wpdb->get_results($query, ARRAY_A);

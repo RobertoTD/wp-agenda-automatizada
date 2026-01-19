@@ -8,28 +8,28 @@
 (function() {
     'use strict';
 
-    // Color palette for different service areas
-    const AREA_COLORS = [
-        'rgba(59, 130, 246, 0.15)',   // blue
-        'rgba(16, 185, 129, 0.15)',   // green
-        'rgba(249, 115, 22, 0.15)',   // orange
-        'rgba(139, 92, 246, 0.15)',   // purple
-        'rgba(236, 72, 153, 0.15)',   // pink
-        'rgba(20, 184, 166, 0.15)',   // teal
-        'rgba(245, 158, 11, 0.15)',   // amber
-        'rgba(99, 102, 241, 0.15)'    // indigo
-    ];
-
-    const AREA_BORDER_COLORS = [
-        'rgba(59, 130, 246, 0.4)',    // blue
-        'rgba(16, 185, 129, 0.4)',    // green
-        'rgba(249, 115, 22, 0.4)',    // orange
-        'rgba(139, 92, 246, 0.4)',    // purple
-        'rgba(236, 72, 153, 0.4)',    // pink
-        'rgba(20, 184, 166, 0.4)',    // teal
-        'rgba(245, 158, 11, 0.4)',    // amber
-        'rgba(99, 102, 241, 0.4)'     // indigo
-    ];
+    /**
+     * Convert hex color to rgba with specified alpha
+     * @param {string} hex - Hex color (e.g., "#71cc30" or "71cc30")
+     * @param {number} alpha - Alpha value (0-1)
+     * @returns {string} rgba color string
+     */
+    function hexToRgba(hex, alpha) {
+        if (!hex) {
+            // Fallback to neutral gray if no color provided
+            return 'rgba(107, 114, 128, ' + alpha + ')';
+        }
+        
+        // Remove # if present
+        hex = hex.replace('#', '');
+        
+        // Parse hex to RGB
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+        
+        return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + alpha + ')';
+    }
 
     /**
      * Remove existing assignment overlays from the grid
@@ -140,10 +140,10 @@
         const widthPercent = 100 / totalAreas;
         const leftPercent = areaIndex * widthPercent;
 
-        // Get color for this area
-        const colorIndex = areaIndex % AREA_COLORS.length;
-        const bgColor = AREA_COLORS[colorIndex];
-        const borderColor = AREA_BORDER_COLORS[colorIndex];
+        // Get color from service area configuration
+        const baseColor = assignment.service_area_color || null;
+        const bgColor = hexToRgba(baseColor, 0.15);
+        const borderColor = hexToRgba(baseColor, 0.4);
 
         // Create overlay element
         const overlay = document.createElement('div');
