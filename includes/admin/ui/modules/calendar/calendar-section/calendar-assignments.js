@@ -42,6 +42,12 @@
         overlays.forEach(function(overlay) {
             overlay.remove();
         });
+
+        // Also clear area top borders
+        const areaBorders = grid.querySelectorAll('.aa-assignment-area-border');
+        areaBorders.forEach(function(border) {
+            border.remove();
+        });
     }
 
     /**
@@ -93,6 +99,9 @@
         assignments.forEach(function(assignment) {
             renderAssignmentOverlay(assignment, slotRowIndex, areaIndexMap, totalAreas, grid);
         });
+
+        // 4. Render area top borders (one per unique service_area_name)
+        renderAreaTopBorders(assignments, areaIndexMap, totalAreas, grid);
     }
 
     /**
@@ -206,6 +215,113 @@
 
         // Insert into grid
         grid.appendChild(overlay);
+    }
+
+    /**
+     * Render top borders for each unique service area name
+     * These borders are positioned over the grid's border-top (15px)
+     * Only spans the width of column 2 (aa-time-content), not column 1 (aa-time-label)
+     * @param {Array} assignments - Array of assignment objects
+     * @param {Object} areaIndexMap - Map of service_area_id -> column index
+     * @param {number} totalAreas - Total number of unique areas
+     * @param {HTMLElement} grid - The grid element
+     */
+    function renderAreaTopBorders(assignments, areaIndexMap, totalAreas, grid) {
+        if (!assignments || assignments.length === 0) {
+            return;
+        }
+
+        // Calculate the width of column 2 (content) relative to the grid
+        // Grid has: column 1 (auto width for labels) + column 2 (1fr for content)
+        const gridRect = grid.getBoundingClientRect();
+        const gridWidth = gridRect.width;
+        
+        // Find the first content element to get its position
+        const firstContent = grid.querySelector('.aa-time-content');
+        if (!firstContent) {
+            return; // No content column found
+        }
+        
+        const contentRect = firstContent.getBoundingClientRect();
+        const gridRectLeft = gridRect.left;
+        const contentLeft = contentRect.left;
+        
+        // Calculate offset: distance from grid left edge to content left edge
+        const contentOffset = contentLeft - gridRectLeft;
+        const contentWidth = contentRect.width;
+        
+        // Calculate percentages relative to grid width
+        const contentLeftPercent = (contentOffset / gridWidth) * 100;
+        const contentWidthPercent = (contentWidth / gridWidth) * 100;
+
+        // Group assignments by service_area_name
+        const assignmentsByAreaName = {};
+        assignments.forEach(function(assignment) {
+            const areaName = assignment.service_area_name || 'Sin área';
+            if (!assignmentsByAreaName[areaName]) {
+                assignmentsByAreaName[areaName] = [];
+            }
+            assignmentsByAreaName[areaName].push(assignment);
+        });
+
+        // For each unique area name, create one border
+        Object.keys(assignmentsByAreaName).forEach(function(areaName) {
+            const areaAssignments = assignmentsByAreaName[areaName];
+            if (areaAssignments.length === 0) return;
+
+            // Get the first assignment to extract color and area info
+            const firstAssignment = areaAssignments[0];
+            const areaId = firstAssignment.service_area_id;
+            const areaIndex = areaIndexMap[areaId] !== undefined ? areaIndexMap[areaId] : 0;
+            
+            // Calculate width and position as percentage of content column only
+            const areaWidthPercent = contentWidthPercent / totalAreas;
+            const areaLeftPercent = contentLeftPercent + (areaIndex * areaWidthPercent);
+
+            // Get color from service area configuration
+            const baseColor = firstAssignment.service_area_color || null;
+            const borderColor = hexToRgba(baseColor, 1.0); // Full opacity for top border
+
+            // Create area border element
+            const areaBorder = document.createElement('div');
+            areaBorder.className = 'aa-assignment-area-border';
+            areaBorder.setAttribute('data-area-name', areaName);
+            areaBorder.setAttribute('data-area-id', areaId || '');
+
+            // Position absolutely over the grid's border-top (15px height)
+            // The grid has a 15px border-top, so we position at -15px to overlay it
+            // Position only over column 2 (content), not column 1 (labels)
+            areaBorder.style.position = 'absolute';
+            areaBorder.style.top = '-15px';
+            areaBorder.style.left = areaLeftPercent + '%';
+            areaBorder.style.width = areaWidthPercent + '%';
+            areaBorder.style.height = '15px';
+            areaBorder.style.backgroundColor = borderColor;
+            areaBorder.style.borderRadius = '0'; // No rounded corners
+            areaBorder.style.boxSizing = 'border-box';
+            areaBorder.style.display = 'flex';
+            areaBorder.style.alignItems = 'center';
+            areaBorder.style.justifyContent = 'center';
+            areaBorder.style.zIndex = '10'; // Above the grid border
+
+            // Add area name text
+            const areaNameText = document.createElement('span');
+            areaNameText.textContent = areaName;
+            areaNameText.style.color = '#ffffff';
+            areaNameText.style.fontSize = '11px';
+            areaNameText.style.fontWeight = '600';
+            areaNameText.style.whiteSpace = 'nowrap';
+            areaNameText.style.overflow = 'hidden';
+            areaNameText.style.textOverflow = 'ellipsis';
+            areaNameText.style.padding = '0 6px';
+            areaNameText.style.lineHeight = '1.2';
+
+            areaBorder.appendChild(areaNameText);
+
+            // Insert into grid (positioned relative to grid)
+            grid.style.position = 'relative'; // Ensure grid is positioned for absolute children
+            grid.appendChild(areaBorder);
+        });
     }
 
     // Expose public API

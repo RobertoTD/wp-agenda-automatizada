@@ -39,7 +39,7 @@
         grid.style.gridTemplateColumns = 'auto 1fr';
         grid.style.gridAutoRows = 'auto';
         grid.style.borderRadius = '0'; // Quitar esquinas redondeadas
-        grid.style.borderTop = '10px solid rgb(243, 244, 246)'; // Línea horizontal gruesa en la parte superior
+        grid.style.borderTop = '15px solid rgb(243, 244, 246)'; // Línea horizontal gruesa en la parte superior
 
         // Limpiar contenido existente
         grid.innerHTML = '';
