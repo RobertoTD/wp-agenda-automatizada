@@ -164,13 +164,45 @@
         // Visual styling
         overlay.style.backgroundColor = bgColor;
         overlay.style.borderLeft = '3px solid ' + borderColor;
-        overlay.style.borderRadius = '2px';
+        overlay.style.borderTop = '3px solid ' + borderColor;
+        overlay.style.borderTopLeftRadius = '10px';
+        overlay.style.borderTopRightRadius = '10px';
+        overlay.style.borderBottomLeftRadius = '2px';
+        overlay.style.borderBottomRightRadius = '2px';
 
         // Non-interactive
         overlay.style.pointerEvents = 'none';
 
         // Z-index below appointment cards
         overlay.style.zIndex = '1';
+
+        // Add staff name label at the top
+        if (assignment.staff_name) {
+            const staffLabel = document.createElement('div');
+            staffLabel.className = 'aa-assignment-staff-label';
+            staffLabel.textContent = assignment.staff_name;
+            
+            // Style the staff label
+            staffLabel.style.position = 'absolute';
+            staffLabel.style.top = '0';
+            staffLabel.style.left = '0';
+            staffLabel.style.right = '0';
+            staffLabel.style.color = '#ffffff';
+            staffLabel.style.fontSize = '11px';
+            staffLabel.style.fontWeight = '600';
+            staffLabel.style.padding = '4px 6px';
+            staffLabel.style.borderTopLeftRadius = '10px';
+            staffLabel.style.borderTopRightRadius = '10px';
+            staffLabel.style.backgroundColor = borderColor;
+            staffLabel.style.boxSizing = 'border-box';
+            staffLabel.style.overflow = 'hidden';
+            staffLabel.style.textOverflow = 'ellipsis';
+            staffLabel.style.whiteSpace = 'nowrap';
+            staffLabel.style.lineHeight = '1.2';
+            staffLabel.style.zIndex = '2';
+            
+            overlay.appendChild(staffLabel);
+        }
 
         // Insert into grid
         grid.appendChild(overlay);
