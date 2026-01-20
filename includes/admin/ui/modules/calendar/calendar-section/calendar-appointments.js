@@ -286,8 +286,15 @@
         
         // Mostrar el body automáticamente en modo expandido
         const body = card.querySelector('.aa-appointment-body');
+        const header = card.querySelector('.aa-appointment-header');
         if (body) {
             body.removeAttribute('hidden');
+            // Actualizar estilos del header cuando el body se muestra
+            if (header) {
+                header.style.flex = '0 0 auto';
+                header.style.flexShrink = '0';
+                body.style.flex = '1';
+            }
         }
         
         grid.appendChild(card);
@@ -314,6 +321,26 @@
             // Remover todos los listeners existentes clonando el header
             const nuevoHeader = header.cloneNode(true);
             header.parentNode.replaceChild(nuevoHeader, header);
+            
+            // Función helper para actualizar estilos del header según el estado del body
+            function actualizarEstilosHeaderCard() {
+                const currentHeader = card.querySelector('.aa-appointment-header');
+                const currentBody = card.querySelector('.aa-appointment-body');
+                if (!currentHeader || !currentBody) return;
+                
+                const isHidden = currentBody.hasAttribute('hidden');
+                if (isHidden) {
+                    // Body oculto: header ocupa todo el espacio vertical
+                    currentHeader.style.flex = '1';
+                    currentHeader.style.flexShrink = '0';
+                    currentBody.style.flex = '0';
+                } else {
+                    // Body visible: header tamaño normal, body ocupa el resto
+                    currentHeader.style.flex = '0 0 auto';
+                    currentHeader.style.flexShrink = '0';
+                    currentBody.style.flex = '1';
+                }
+            }
             
             // Agregar nuestro handler personalizado
             nuevoHeader.addEventListener('click', function(e) {
@@ -366,14 +393,17 @@
                         } else {
                             // Ya está expandida, solo mostrar el body
                             currentBody.removeAttribute('hidden');
+                            actualizarEstilosHeaderCard();
                         }
                     } else {
                         // Sin solapamiento, solo toggle normal
                         currentBody.removeAttribute('hidden');
+                        actualizarEstilosHeaderCard();
                     }
                 } else {
                     // Cerrar acordeón
                     currentBody.setAttribute('hidden', '');
+                    actualizarEstilosHeaderCard();
                     
                     // Si esta cita estaba expandida, colapsar y re-renderizar
                     if (expandedCitaId === cita.id) {
@@ -386,6 +416,9 @@
                     }
                 }
             });
+            
+            // Inicializar estilos según el estado inicial
+            actualizarEstilosHeaderCard();
         }
         
         return card;

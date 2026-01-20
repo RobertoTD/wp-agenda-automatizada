@@ -30,7 +30,11 @@
         header.style.color = '#fff';
         header.style.fontWeight = '500';
         header.style.fontSize = '14px';
-        header.style.flexShrink = '0';
+        // Inicialmente, cuando el body está oculto, el header ocupa todo el espacio
+        header.style.flex = '1';
+        header.style.display = 'flex';
+        header.style.alignItems = 'center';
+        header.style.minHeight = '40px';
         
         const clienteNombre = cita.nombre || 'Sin nombre';
         const servicio = cita.servicio || 'Sin servicio';
@@ -43,7 +47,7 @@
         body.style.padding = '12px';
         body.style.backgroundColor = '#f9fafb';
         body.style.fontSize = '13px';
-        body.style.flex = '1';
+        body.style.flexShrink = '0';
         
         // Información de la cita
         const info = document.createElement('div');
@@ -80,6 +84,25 @@
             body.appendChild(botones);
         }
         
+        // Función para actualizar estilos según el estado del body
+        function actualizarEstilosHeader() {
+            const isHidden = body.hasAttribute('hidden');
+            if (isHidden) {
+                // Body oculto: header ocupa todo el espacio vertical
+                header.style.flex = '1';
+                header.style.flexShrink = '0';
+                body.style.flex = '0';
+            } else {
+                // Body visible: header tamaño normal, body ocupa el resto
+                header.style.flex = '0 0 auto';
+                header.style.flexShrink = '0';
+                body.style.flex = '1';
+            }
+        }
+        
+        // Inicializar estilos según el estado inicial (body oculto)
+        actualizarEstilosHeader();
+        
         // Toggle acordeón: click en header abre/cierra body
         header.addEventListener('click', function(e) {
             e.stopPropagation();
@@ -89,6 +112,8 @@
             } else {
                 body.setAttribute('hidden', '');
             }
+            // Actualizar estilos después del toggle
+            actualizarEstilosHeader();
         });
         
         // Ensamblar card
