@@ -199,9 +199,15 @@
             currentSlotRowIndex = result.slotRowIndex;
             currentTimeSlots = result.timeSlots;
             
+            // Obtener intervalos del schedule fijo para el día (para overlay de horario fijo)
+            const fecha = new Date(fechaStr + 'T00:00:00');
+            const weekday = window.DateUtils.getWeekdayName(fecha);
+            const scheduleIntervals = window.DateUtils.getDayIntervals(window.AA_CALENDAR_DATA.schedule, weekday) || [];
+            
             // Renderizar overlays de asignaciones (capa visual)
+            // Pasar también los intervalos del schedule para incluir el horario fijo en la división horizontal
             if (window.CalendarAssignments?.render) {
-                window.CalendarAssignments.render(assignmentsData.assignments, result.slotRowIndex);
+                window.CalendarAssignments.render(assignmentsData.assignments, result.slotRowIndex, scheduleIntervals);
             }
             
             // Cargar y renderizar citas del día seleccionado usando CalendarAppointments

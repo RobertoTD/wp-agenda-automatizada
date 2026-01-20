@@ -226,6 +226,37 @@ function extractYmd(value) {
   return null;
 }
 
+// ✅ Filtra un array de objetos para retornar solo aquellos con fecha actual o futura
+// @param {Array} items - Array de objetos que contienen una propiedad con fecha
+// @param {string} dateField - Nombre del campo que contiene la fecha en formato YYYY-MM-DD (default: 'assignment_date')
+// @returns {Array} - Array filtrado con solo elementos de fecha actual o futura
+function filterCurrentAndFutureDates(items, dateField = 'assignment_date') {
+  if (!Array.isArray(items) || items.length === 0) {
+    return [];
+  }
+  
+  // Obtener fecha actual en formato YYYY-MM-DD (sin hora, solo fecha)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayYmd = ymd(today);
+  
+  // Filtrar elementos cuya fecha sea >= hoy
+  return items.filter(function(item) {
+    if (!item || !item[dateField]) {
+      return false;
+    }
+    
+    // Extraer fecha en formato YYYY-MM-DD
+    const itemDateStr = extractYmd(item[dateField]);
+    if (!itemDateStr) {
+      return false;
+    }
+    
+    // Comparar fechas (YYYY-MM-DD se puede comparar como string)
+    return itemDateStr >= todayYmd;
+  });
+}
+
 // ✅ Exponer globalmente
 window.DateUtils = {
   ymd,
@@ -241,7 +272,8 @@ window.DateUtils = {
   normalizeIntervalToSlotGrid,
   generateSlotsFromStartTime,
   generateSlotsForDay,
-  extractYmd
+  extractYmd,
+  filterCurrentAndFutureDates
 };
 
 console.log('✅ dateUtils.js cargado y exportado');

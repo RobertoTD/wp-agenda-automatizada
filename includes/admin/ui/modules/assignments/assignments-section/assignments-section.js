@@ -53,7 +53,50 @@
         })
         .then(function(data) {
             if (data.success && data.data && data.data.assignments) {
-                renderAssignments(data.data.assignments);
+                // Filtrar asignaciones para mostrar solo las de fecha actual o futura
+                let filteredAssignments = data.data.assignments;
+                
+                // Función helper para filtrar fechas (fallback si DateUtils no está disponible)
+                function filterByCurrentAndFutureDates(items, dateField) {
+                    if (!Array.isArray(items) || items.length === 0) {
+                        return [];
+                    }
+                    
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const todayYmd = today.getFullYear() + '-' + 
+                                    String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                                    String(today.getDate()).padStart(2, '0');
+                    
+                    return items.filter(function(item) {
+                        if (!item || !item[dateField]) {
+                            return false;
+                        }
+                        
+                        const itemDateStr = item[dateField];
+                        if (!itemDateStr || typeof itemDateStr !== 'string') {
+                            return false;
+                        }
+                        
+                        // Comparar fechas (YYYY-MM-DD se puede comparar como string)
+                        return itemDateStr >= todayYmd;
+                    });
+                }
+                
+                // Intentar usar DateUtils si está disponible, sino usar fallback
+                if (window.DateUtils && typeof window.DateUtils.filterCurrentAndFutureDates === 'function') {
+                    filteredAssignments = window.DateUtils.filterCurrentAndFutureDates(
+                        data.data.assignments,
+                        'assignment_date'
+                    );
+                    console.log('[Assignments Section] Asignaciones filtradas: ' + filteredAssignments.length + ' de ' + data.data.assignments.length + ' (solo actuales o futuras)');
+                } else {
+                    // Fallback: filtrar manualmente
+                    filteredAssignments = filterByCurrentAndFutureDates(data.data.assignments, 'assignment_date');
+                    console.log('[Assignments Section] Asignaciones filtradas (fallback): ' + filteredAssignments.length + ' de ' + data.data.assignments.length + ' (solo actuales o futuras)');
+                }
+                
+                renderAssignments(filteredAssignments);
             } else {
                 console.error('[Assignments Section] Error en respuesta:', data);
                 assignmentsRoot.innerHTML = '<p class="text-sm text-red-500">Error al cargar las asignaciones.</p>';

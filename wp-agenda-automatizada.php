@@ -382,6 +382,11 @@ register_activation_hook(__FILE__, function() {
         add_option('aa_service_schedule', ''); // ⚠️ Cambia 'aa_nuevo_campo' y el valor por defecto según necesites
     }
     
+    // 🔹 Inicializar campo de personal con valor por defecto
+    if (get_option('aa_staff_schedule') === false) {
+        add_option('aa_staff_schedule', '');
+    }
+    
     // 🔹 Flush rewrite rules for /agenda-app endpoint
     add_rewrite_rule('^agenda-app/?$', 'index.php?aa_agenda_app=1', 'top');
     flush_rewrite_rules();

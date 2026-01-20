@@ -38,8 +38,15 @@
         const grid = document.getElementById('aa-time-grid');
         if (!grid) return;
 
+        // Clear assignment overlays
         const overlays = grid.querySelectorAll('.aa-assignment-overlay');
         overlays.forEach(function(overlay) {
+            overlay.remove();
+        });
+
+        // Clear schedule overlays (horario fijo)
+        const scheduleOverlays = grid.querySelectorAll('.aa-schedule-overlay');
+        scheduleOverlays.forEach(function(overlay) {
             overlay.remove();
         });
 
@@ -48,14 +55,21 @@
         areaBorders.forEach(function(border) {
             border.remove();
         });
+
+        // Clear schedule top border
+        const scheduleBorders = grid.querySelectorAll('.aa-schedule-area-border');
+        scheduleBorders.forEach(function(border) {
+            border.remove();
+        });
     }
 
     /**
      * Render assignment overlays on the timeline
      * @param {Array} assignments - Array of assignment objects for the current day
      * @param {Map} slotRowIndex - Map of minutes -> { rowIndex, labelElement }
+     * @param {Array} scheduleIntervals - Array of schedule intervals for the day (optional)
      */
-    function render(assignments, slotRowIndex) {
+    function render(assignments, slotRowIndex, scheduleIntervals) {
         const grid = document.getElementById('aa-time-grid');
         if (!grid) {
             console.error('[CalendarAssignments] Grid #aa-time-grid not found');
@@ -65,43 +79,167 @@
         // Clear existing overlays
         clearOverlays();
 
-        // If no assignments, nothing to render
-        if (!assignments || assignments.length === 0) {
+        // Check if we have schedule intervals (horario fijo)
+        const hasSchedule = scheduleIntervals && scheduleIntervals.length > 0;
+        
+        // If no assignments and no schedule, nothing to render
+        if ((!assignments || assignments.length === 0) && !hasSchedule) {
             return;
         }
 
         // 1. Get unique service_area_ids for horizontal division
         const uniqueAreaIds = [];
-        assignments.forEach(function(assignment) {
-            const areaId = assignment.service_area_id;
-            if (areaId && uniqueAreaIds.indexOf(areaId) === -1) {
-                uniqueAreaIds.push(areaId);
-            }
-        });
+        if (assignments && assignments.length > 0) {
+            assignments.forEach(function(assignment) {
+                const areaId = assignment.service_area_id;
+                if (areaId && uniqueAreaIds.indexOf(areaId) === -1) {
+                    uniqueAreaIds.push(areaId);
+                }
+            });
 
-        // Sort for consistent ordering
-        uniqueAreaIds.sort(function(a, b) {
-            return parseInt(a) - parseInt(b);
-        });
+            // Sort for consistent ordering
+            uniqueAreaIds.sort(function(a, b) {
+                return parseInt(a) - parseInt(b);
+            });
+        }
 
-        const totalAreas = uniqueAreaIds.length;
-        if (totalAreas === 0) {
+        // 2. Calculate total columns: schedule (if exists) + assignments areas
+        // Schedule takes the first column (index 0), assignments start at index 1 (or 0 if no schedule)
+        const scheduleColumnIndex = hasSchedule ? 0 : -1; // -1 means no schedule column
+        const assignmentStartIndex = hasSchedule ? 1 : 0;
+        const totalColumns = (hasSchedule ? 1 : 0) + uniqueAreaIds.length;
+
+        // If no columns at all, nothing to render
+        if (totalColumns === 0) {
             return;
         }
 
-        // 2. Create a map of areaId -> index for positioning
+        // 3. Create a map of areaId -> column index for positioning
+        // Assignments start after the schedule column (if it exists)
         const areaIndexMap = {};
         uniqueAreaIds.forEach(function(areaId, index) {
-            areaIndexMap[areaId] = index;
+            areaIndexMap[areaId] = assignmentStartIndex + index;
         });
 
-        // 3. Render each assignment as an overlay
-        assignments.forEach(function(assignment) {
-            renderAssignmentOverlay(assignment, slotRowIndex, areaIndexMap, totalAreas, grid);
-        });
+        // 4. Render schedule overlay (horario fijo) if it exists
+        if (hasSchedule) {
+            renderScheduleOverlay(scheduleIntervals, slotRowIndex, scheduleColumnIndex, totalColumns, grid);
+        }
 
-        // 4. Render area top borders (one per unique service_area_name)
-        renderAreaTopBorders(assignments, areaIndexMap, totalAreas, grid);
+        // 5. Render each assignment as an overlay
+        if (assignments && assignments.length > 0) {
+            assignments.forEach(function(assignment) {
+                renderAssignmentOverlay(assignment, slotRowIndex, areaIndexMap, totalColumns, grid);
+            });
+        }
+
+        // 6. Render area top borders (one per unique service_area_name, plus schedule if exists)
+        renderAreaTopBorders(assignments, areaIndexMap, totalColumns, grid, hasSchedule, scheduleColumnIndex);
+    }
+
+    /**
+     * Render schedule overlay (horario fijo)
+     * @param {Array} scheduleIntervals - Array of {start, end} in minutes
+     * @param {Map} slotRowIndex - Map of minutes -> { rowIndex }
+     * @param {number} columnIndex - Column index for horizontal positioning
+     * @param {number} totalColumns - Total number of columns
+     * @param {HTMLElement} grid - The grid element
+     */
+    function renderScheduleOverlay(scheduleIntervals, slotRowIndex, columnIndex, totalColumns, grid) {
+        if (!scheduleIntervals || scheduleIntervals.length === 0) {
+            return;
+        }
+
+        // Color azul desaturado para el horario fijo
+        const scheduleColor = '107, 142, 185'; // Azul desaturado (RGB)
+        const bgColor = 'rgba(' + scheduleColor + ', 0.12)';
+        const borderColor = 'rgba(' + scheduleColor + ', 0.35)';
+
+        // Calculate horizontal position
+        const widthPercent = 100 / totalColumns;
+        const leftPercent = columnIndex * widthPercent;
+
+        // Render each schedule interval as an overlay
+        scheduleIntervals.forEach(function(interval) {
+            // Get start and end row from slotRowIndex
+            const startSlotData = slotRowIndex.get(interval.start);
+            
+            if (!startSlotData) {
+                return;
+            }
+
+            const startRow = startSlotData.rowIndex;
+            
+            // Find end row
+            let endRow;
+            const endSlotData = slotRowIndex.get(interval.end - 30); // -30 because end is exclusive
+            if (endSlotData) {
+                endRow = endSlotData.rowIndex + 1;
+            } else {
+                // Calculate based on duration
+                const slots = (interval.end - interval.start) / 30;
+                endRow = startRow + slots;
+            }
+
+            // Create overlay element
+            const overlay = document.createElement('div');
+            overlay.className = 'aa-schedule-overlay';
+            overlay.setAttribute('data-schedule-interval', interval.start + '-' + interval.end);
+
+            // Position using CSS Grid
+            overlay.style.gridColumn = '2';
+            overlay.style.gridRow = startRow + ' / ' + endRow;
+
+            // Horizontal positioning within the cell
+            overlay.style.position = 'relative';
+            overlay.style.marginLeft = leftPercent + '%';
+            overlay.style.width = widthPercent + '%';
+            overlay.style.boxSizing = 'border-box';
+
+            // Visual styling - azul desaturado
+            overlay.style.backgroundColor = bgColor;
+            overlay.style.borderLeft = '3px solid ' + borderColor;
+            overlay.style.borderTop = '3px solid ' + borderColor;
+            overlay.style.borderTopLeftRadius = '10px';
+            overlay.style.borderTopRightRadius = '10px';
+            overlay.style.borderBottomLeftRadius = '2px';
+            overlay.style.borderBottomRightRadius = '2px';
+
+            // Non-interactive
+            overlay.style.pointerEvents = 'none';
+
+            // Z-index below appointment cards but same as assignment overlays
+            overlay.style.zIndex = '1';
+
+            // Add label at the top
+            const scheduleLabel = document.createElement('div');
+            scheduleLabel.className = 'aa-schedule-label';
+            scheduleLabel.textContent = 'Horario fijo';
+            
+            // Style the label
+            scheduleLabel.style.position = 'absolute';
+            scheduleLabel.style.top = '0';
+            scheduleLabel.style.left = '0';
+            scheduleLabel.style.right = '0';
+            scheduleLabel.style.color = '#ffffff';
+            scheduleLabel.style.fontSize = '11px';
+            scheduleLabel.style.fontWeight = '600';
+            scheduleLabel.style.padding = '4px 6px';
+            scheduleLabel.style.borderTopLeftRadius = '10px';
+            scheduleLabel.style.borderTopRightRadius = '10px';
+            scheduleLabel.style.backgroundColor = borderColor;
+            scheduleLabel.style.boxSizing = 'border-box';
+            scheduleLabel.style.overflow = 'hidden';
+            scheduleLabel.style.textOverflow = 'ellipsis';
+            scheduleLabel.style.whiteSpace = 'nowrap';
+            scheduleLabel.style.lineHeight = '1.2';
+            scheduleLabel.style.zIndex = '2';
+            
+            overlay.appendChild(scheduleLabel);
+
+            // Insert into grid
+            grid.appendChild(overlay);
+        });
     }
 
     /**
@@ -223,14 +361,12 @@
      * Only spans the width of column 2 (aa-time-content), not column 1 (aa-time-label)
      * @param {Array} assignments - Array of assignment objects
      * @param {Object} areaIndexMap - Map of service_area_id -> column index
-     * @param {number} totalAreas - Total number of unique areas
+     * @param {number} totalColumns - Total number of columns (including schedule if exists)
      * @param {HTMLElement} grid - The grid element
+     * @param {boolean} hasSchedule - Whether there's a schedule overlay
+     * @param {number} scheduleColumnIndex - Column index for the schedule (0 if exists, -1 if not)
      */
-    function renderAreaTopBorders(assignments, areaIndexMap, totalAreas, grid) {
-        if (!assignments || assignments.length === 0) {
-            return;
-        }
-
+    function renderAreaTopBorders(assignments, areaIndexMap, totalColumns, grid, hasSchedule, scheduleColumnIndex) {
         // Calculate the width of column 2 (content) relative to the grid
         // Grid has: column 1 (auto width for labels) + column 2 (1fr for content)
         const gridRect = grid.getBoundingClientRect();
@@ -254,6 +390,58 @@
         const contentLeftPercent = (contentOffset / gridWidth) * 100;
         const contentWidthPercent = (contentWidth / gridWidth) * 100;
 
+        // Ensure grid is positioned for absolute children
+        grid.style.position = 'relative';
+
+        // 1. Render schedule top border if it exists
+        if (hasSchedule && scheduleColumnIndex >= 0) {
+            const scheduleColor = '107, 142, 185'; // Azul desaturado (RGB)
+            const scheduleBorderColor = 'rgba(' + scheduleColor + ', 1.0)';
+            
+            // Calculate width and position
+            const scheduleWidthPercent = contentWidthPercent / totalColumns;
+            const scheduleLeftPercent = contentLeftPercent + (scheduleColumnIndex * scheduleWidthPercent);
+
+            // Create schedule border element
+            const scheduleBorder = document.createElement('div');
+            scheduleBorder.className = 'aa-schedule-area-border';
+            scheduleBorder.setAttribute('data-area-name', 'Horario fijo');
+
+            // Position absolutely over the grid's border-top (15px height)
+            scheduleBorder.style.position = 'absolute';
+            scheduleBorder.style.top = '-15px';
+            scheduleBorder.style.left = scheduleLeftPercent + '%';
+            scheduleBorder.style.width = scheduleWidthPercent + '%';
+            scheduleBorder.style.height = '15px';
+            scheduleBorder.style.backgroundColor = scheduleBorderColor;
+            scheduleBorder.style.borderRadius = '0';
+            scheduleBorder.style.boxSizing = 'border-box';
+            scheduleBorder.style.display = 'flex';
+            scheduleBorder.style.alignItems = 'center';
+            scheduleBorder.style.justifyContent = 'center';
+            scheduleBorder.style.zIndex = '10';
+
+            // Add label text
+            const scheduleLabelText = document.createElement('span');
+            scheduleLabelText.textContent = 'Horario fijo';
+            scheduleLabelText.style.color = '#ffffff';
+            scheduleLabelText.style.fontSize = '11px';
+            scheduleLabelText.style.fontWeight = '600';
+            scheduleLabelText.style.whiteSpace = 'nowrap';
+            scheduleLabelText.style.overflow = 'hidden';
+            scheduleLabelText.style.textOverflow = 'ellipsis';
+            scheduleLabelText.style.padding = '0 6px';
+            scheduleLabelText.style.lineHeight = '1.2';
+
+            scheduleBorder.appendChild(scheduleLabelText);
+            grid.appendChild(scheduleBorder);
+        }
+
+        // 2. Render assignment area borders (if there are assignments)
+        if (!assignments || assignments.length === 0) {
+            return;
+        }
+
         // Group assignments by service_area_name
         const assignmentsByAreaName = {};
         assignments.forEach(function(assignment) {
@@ -275,7 +463,7 @@
             const areaIndex = areaIndexMap[areaId] !== undefined ? areaIndexMap[areaId] : 0;
             
             // Calculate width and position as percentage of content column only
-            const areaWidthPercent = contentWidthPercent / totalAreas;
+            const areaWidthPercent = contentWidthPercent / totalColumns;
             const areaLeftPercent = contentLeftPercent + (areaIndex * areaWidthPercent);
 
             // Get color from service area configuration
@@ -319,7 +507,6 @@
             areaBorder.appendChild(areaNameText);
 
             // Insert into grid (positioned relative to grid)
-            grid.style.position = 'relative'; // Ensure grid is positioned for absolute children
             grid.appendChild(areaBorder);
         });
     }
