@@ -32,12 +32,12 @@ $days = [
         <!-- ═══════════════════════════════════════════════════════════════
              SECCIÓN: Horarios y Disponibilidad
         ═══════════════════════════════════════════════════════════════ -->
-        <details class="bg-white rounded-xl shadow border border-gray-200 mb-6 overflow-hidden group">
+        <details class="bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
             <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
                 <div class="flex items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
-                        <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100 text-blue-600">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-600">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                             </svg>
                         </span>
@@ -89,8 +89,8 @@ $days = [
                                            value="1" 
                                            <?php checked($enabled, true); ?> 
                                            class="peer sr-only">
-                                    <div class="w-11 h-6 bg-gray-300 peer-checked:bg-blue-500 rounded-full transition-colors duration-200"></div>
-                                    <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 peer-checked:translate-x-5"></div>
+                                    <div class="w-9 h-5 bg-gray-300 peer-checked:bg-blue-500 rounded-full transition-colors duration-200"></div>
+                                    <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 peer-checked:translate-x-4"></div>
                                 </div>
                                 <span class="aa-day-name font-medium text-gray-700 select-none"><?php echo esc_html($label); ?></span>
                             </label>
@@ -154,56 +154,15 @@ $days = [
         <!-- ═══════════════════════════════════════════════════════════════
              GRID: Servicios + Parámetros (2 columnas en desktop)
         ═══════════════════════════════════════════════════════════════ -->
-        <div class="grid lg:grid-cols-2 gap-6 mb-6">
-
-            <!-- SECCIÓN: Tipos de Cita / Servicios -->
-            <details class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden group">
-                <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
-                    <div class="flex items-center justify-between gap-3">
-                        <div class="flex items-center gap-3">
-                            <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100 text-blue-600">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
-                                </svg>
-                            </span>
-                            <div>
-                                <h3 class="text-lg font-semibold text-gray-900">Tipos de Cita</h3>
-                                <p class="text-sm text-gray-500 mt-0.5">Servicios que ofreces</p>
-                            </div>
-                        </div>
-                        <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                        </svg>
-                    </div>
-                </summary>
-                
-                <div class="p-6 transition-all duration-200" id="aa-motivos-container">
-                    <ul id="aa-motivos-list" class="space-y-2 mb-4"></ul>
-
-                    <div class="flex gap-2">
-                        <input type="text" 
-                               id="aa-motivo-input" 
-                               placeholder="Ej: Corte de cabello" 
-                               class="flex-1 px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow placeholder:text-gray-400">
-                        <button type="button" 
-                                id="aa-add-motivo" 
-                                class="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg border border-gray-300 transition-colors shadow-sm">
-                            Agregar
-                        </button>
-                    </div>
-
-                    <input type="hidden" name="aa_google_motivo" id="aa-google-motivo-hidden"
-                        value='<?php echo esc_attr(get_option("aa_google_motivo", json_encode(["Cita general"]))); ?>'>
-                </div>
-            </details>
+        <div class="grid lg:grid-cols-2 gap-6 mb-2">
 
             <!-- SECCIÓN: Parámetros Generales -->
             <details class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden group">
                 <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
                     <div class="flex items-center justify-between gap-3">
                         <div class="flex items-center gap-3">
-                            <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100 text-blue-600">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 text-blue-600">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                 </svg>
                             </span>
@@ -286,12 +245,12 @@ $days = [
         <!-- ═══════════════════════════════════════════════════════════════
              SECCIÓN: Datos del Negocio
         ═══════════════════════════════════════════════════════════════ -->
-        <details class="bg-white rounded-xl shadow border border-gray-200 mb-6 overflow-hidden group">
+        <details class="bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
             <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
                 <div class="flex items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
-                        <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100 text-blue-600">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-600">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
                             </svg>
                         </span>
@@ -368,12 +327,12 @@ $days = [
         <!-- ═══════════════════════════════════════════════════════════════
              SECCIÓN: Google Calendar
         ═══════════════════════════════════════════════════════════════ -->
-        <details class="bg-white rounded-xl shadow border border-gray-200 mb-6 overflow-hidden group">
+        <details class="bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
             <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
                 <div class="flex items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
-                        <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100 text-blue-600">
-                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                        <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 text-blue-600">
+                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11zM9 11H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm-8 4H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/>
                             </svg>
                         </span>
