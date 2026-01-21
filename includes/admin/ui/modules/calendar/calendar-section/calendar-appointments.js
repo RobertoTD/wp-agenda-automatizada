@@ -46,6 +46,20 @@
         .then(response => response.json())
         .then(data => {
             if (data.success && data.data && data.data.citas) {
+                // Log de citas recibidas desde el servidor
+                console.log('[CalendarAppointments] Citas recibidas:', data.data.citas.length);
+                data.data.citas.forEach(cita => {
+                    console.log('[CalendarAppointments] Cita procesada:', {
+                        id: cita.id,
+                        nombre: cita.nombre,
+                        servicio: cita.servicio,
+                        duracion: cita.duracion,
+                        assignment_id: cita.assignment_id,
+                        estado: cita.estado,
+                        fecha: cita.fecha
+                    });
+                });
+                
                 // Calcular posiciones de TODAS las citas primero
                 const citasConPosicion = [];
                 
@@ -100,14 +114,18 @@
         const grid = document.getElementById('aa-time-grid');
         if (!grid) return;
         
-        // Eliminar solo los wrappers y cards, no los elementos del timeline (labels y content)
+        // Clear all cards from hosts first
+        if (window.CalendarAssignments?.clearHosts) {
+            window.CalendarAssignments.clearHosts();
+        }
+        
+        // Eliminar solo los wrappers y cards directos del grid (fallback cards no dentro de hosts)
         const elementosAEliminar = [];
         grid.childNodes.forEach(node => {
             if (node.nodeType === 1) {
-                // Si es un wrapper de cita o una card directa
+                // Si es una card directa en el grid (no dentro de un host)
                 if (node.classList && (
-                    node.classList.contains('aa-appointment-card') ||
-                    (node.querySelector && node.querySelector('.aa-appointment-card'))
+                    node.classList.contains('aa-appointment-card')
                 )) {
                     elementosAEliminar.push(node);
                 }
@@ -193,6 +211,7 @@
     
     /**
      * Renderizar un grupo de citas (pueden estar solapadas o no)
+     * Ahora renderiza cards DENTRO del host del overlay de asignación correspondiente.
      * @param {Array} grupo - Array de citas del grupo
      * @param {Object} overlaps - Mapa de overlaps
      * @param {Map} slotRowIndex - Mapa de slots
@@ -205,100 +224,107 @@
         const grid = document.getElementById('aa-time-grid');
         if (!grid) return;
         
-        // Calcular el rango que cubre todas las citas del grupo
-        let minStartRow = Infinity;
-        let maxEndRow = -Infinity;
-        
-        grupo.forEach(citaConPos => {
-            minStartRow = Math.min(minStartRow, citaConPos.startRow);
-            maxEndRow = Math.max(maxEndRow, citaConPos.startRow + citaConPos.bloquesOcupados);
-        });
-        
-        const startRow = minStartRow;
-        const bloquesOcupados = maxEndRow - minStartRow;
-        
-        // Verificar si hay solapamiento en este grupo
-        const tieneSolapamiento = grupo.some(c => overlaps[c.id] && overlaps[c.id].overlapCount > 1);
-        
         // Flag para determinar si este grupo está expandido
         const isExpandedGroup = expandedCitaId !== null && expandedGroupKey === groupKey;
         
-        // Estructura clara: una sola rama lógica por caso
         if (isExpandedGroup) {
             // Modo expandido: renderizar solo la cita expandida
             const citaExpandida = grupo.find(c => c.id === expandedCitaId);
             if (citaExpandida) {
-                // Renderizar solo la cita expandida con ancho 100%
-                // Usar el rango original de la cita, no el del grupo
-                renderizarCitaExpandida(citaExpandida, citaExpandida.startRow, citaExpandida.bloquesOcupados);
+                renderizarCitaEnHost(citaExpandida, overlaps, true);
             }
-        } else if (tieneSolapamiento) {
-            // Modo split horizontal: renderizar todas las citas del grupo con flexbox
-            const wrapper = document.createElement('div');
-            wrapper.style.gridColumn = '2';
-            wrapper.style.gridRow = `${startRow} / span ${bloquesOcupados}`;
-            wrapper.style.display = 'flex';
-            wrapper.style.width = '100%';
-            wrapper.style.gap = '2px';
-            wrapper.style.position = 'relative';
-            
-            grupo.forEach(citaConPos => {
-                const overlapInfo = overlaps[citaConPos.id];
-                const card = crearCardConInteraccion(citaConPos.cita, overlapInfo, false);
-                if (card) {
-                    // Usar flex: 1 para dividir el espacio equitativamente
-                    card.style.flex = '1';
-                    card.style.minWidth = '0'; // Permite que flex funcione correctamente
-                    card.style.position = 'relative'; // Para que los clicks funcionen
-                    wrapper.appendChild(card);
-                }
-            });
-            
-            grid.appendChild(wrapper);
         } else {
-            // Sin solapamiento: renderizar normalmente
-            grupo.forEach(citaConPos => {
-                const card = crearCardConInteraccion(citaConPos.cita, null, false);
-                if (card) {
-                    card.style.gridColumn = '2';
-                    card.style.gridRow = `${citaConPos.startRow} / span ${citaConPos.bloquesOcupados}`;
-                    grid.appendChild(card);
-                }
+            // Renderizar todas las citas del grupo dentro de sus hosts correspondientes
+            grupo.forEach((citaConPos, index) => {
+                const overlapInfo = overlaps[citaConPos.id];
+                renderizarCitaEnHost(citaConPos, overlaps, false, overlapInfo, index);
             });
         }
     }
     
     /**
-     * Renderizar una cita en modo expandido (ancho 100%)
+     * Renderizar una cita dentro de su host de overlay correspondiente
+     * @param {Object} citaConPos - Objeto con cita y posición
+     * @param {Object} overlaps - Mapa de overlaps
+     * @param {boolean} isExpanded - Si la cita está en modo expandido
+     * @param {Object} overlapInfo - Información de solapamiento (opcional)
+     * @param {number} overlapIndex - Índice para z-index en caso de solapamiento
      */
-    function renderizarCitaExpandida(citaConPos, startRow, bloquesOcupados) {
+    function renderizarCitaEnHost(citaConPos, overlaps, isExpanded, overlapInfo, overlapIndex) {
         const grid = document.getElementById('aa-time-grid');
         if (!grid) return;
         
-        const card = crearCardConInteraccion(citaConPos.cita, null, true);
+        // Buscar el host apropiado para esta cita
+        const host = window.CalendarAssignments?.getCardsHostForCita(citaConPos.cita, citaConPos);
+        
+        // Crear la card con interacción
+        const card = crearCardConInteraccion(citaConPos.cita, overlapInfo || null, isExpanded);
         if (!card) return;
         
-        // Configurar para modo expandido
-        card.style.gridColumn = '2';
-        card.style.gridRow = `${startRow} / span ${bloquesOcupados}`;
-        card.style.width = '100%';
-        card.style.position = 'relative'; // Permite crecimiento vertical
-        
-        // Mostrar el body automáticamente en modo expandido
-        const body = card.querySelector('.aa-appointment-body');
-        const header = card.querySelector('.aa-appointment-header');
-        if (body) {
-            body.removeAttribute('hidden');
-            // Actualizar estilos del header cuando el body se muestra
-            if (header) {
-                header.style.flex = '0 0 auto';
-                header.style.flexShrink = '0';
-                body.style.flex = '1';
+        if (host) {
+            // ===== RENDER INSIDE HOST =====
+            const hostStartRow = parseInt(host.getAttribute('data-start-row'), 10);
+            
+            // Calculate relative position within the host's grid
+            const relativeStart = citaConPos.startRow - hostStartRow + 1;
+            
+            // Position card using the host's internal grid
+            card.style.gridColumn = '1';
+            card.style.gridRow = relativeStart + ' / span ' + citaConPos.bloquesOcupados;
+            card.style.width = '100%';
+            card.style.position = 'relative';
+            
+            // Handle overlaps: use z-index to stack cards (no horizontal split)
+            if (overlapInfo && overlapInfo.overlapCount > 1) {
+                card.style.zIndex = String(20 + (overlapIndex || 0));
+            } else {
+                card.style.zIndex = '20';
             }
+            
+            // If expanded, show body
+            if (isExpanded) {
+                const body = card.querySelector('.aa-appointment-body');
+                const header = card.querySelector('.aa-appointment-header');
+                if (body) {
+                    body.removeAttribute('hidden');
+                    if (header) {
+                        header.style.flex = '0 0 auto';
+                        header.style.flexShrink = '0';
+                        body.style.flex = '1';
+                    }
+                }
+            }
+            
+            // Append to host
+            host.appendChild(card);
+        } else {
+            // ===== FALLBACK: RENDER DIRECTLY ON GRID =====
+            console.warn('[CalendarAppointments] No host found for cita:', citaConPos.cita.id, '- using fallback grid positioning');
+            
+            card.style.gridColumn = '2';
+            card.style.gridRow = citaConPos.startRow + ' / span ' + citaConPos.bloquesOcupados;
+            card.style.position = 'relative';
+            card.style.zIndex = '20';
+            
+            // If expanded, show body
+            if (isExpanded) {
+                const body = card.querySelector('.aa-appointment-body');
+                const header = card.querySelector('.aa-appointment-header');
+                if (body) {
+                    body.removeAttribute('hidden');
+                    if (header) {
+                        header.style.flex = '0 0 auto';
+                        header.style.flexShrink = '0';
+                        body.style.flex = '1';
+                    }
+                }
+            }
+            
+            grid.appendChild(card);
         }
-        
-        grid.appendChild(card);
     }
+    
+    // renderizarCitaExpandida is now handled by renderizarCitaEnHost with isExpanded=true
     
     /**
      * Crear card con interacción de expandir/colapsar

@@ -3,10 +3,14 @@
  * 
  * Renders semi-transparent blocks showing assignment time ranges,
  * divided horizontally by service_area_id.
+ * Also creates interactive hosts for appointment cards within each overlay.
  */
 
 (function() {
     'use strict';
+
+    // Map interno para guardar referencias: assignmentId -> host element
+    var hostsMap = {};
 
     /**
      * Convert hex color to rgba with specified alpha
@@ -50,6 +54,12 @@
             overlay.remove();
         });
 
+        // Clear cards hosts (new interactive containers)
+        const cardsHosts = grid.querySelectorAll('.aa-overlay-cards-host');
+        cardsHosts.forEach(function(host) {
+            host.remove();
+        });
+
         // Also clear area top borders
         const areaBorders = grid.querySelectorAll('.aa-assignment-area-border');
         areaBorders.forEach(function(border) {
@@ -61,6 +71,9 @@
         scheduleBorders.forEach(function(border) {
             border.remove();
         });
+
+        // Clear hosts map
+        hostsMap = {};
     }
 
     /**
@@ -239,6 +252,53 @@
 
             // Insert into grid
             grid.appendChild(overlay);
+
+            // ===== CREATE INTERACTIVE HOST FOR FIXED APPOINTMENT CARDS =====
+            const host = document.createElement('div');
+            host.className = 'aa-overlay-cards-host';
+            
+            // Dataset attributes for matching fixed citas
+            host.setAttribute('data-type', 'schedule');
+            host.setAttribute('data-start-row', startRow);
+            host.setAttribute('data-end-row', endRow);
+            host.setAttribute('data-start-min', interval.start);
+            host.setAttribute('data-end-min', interval.end);
+
+            // Position using CSS Grid (same as overlay)
+            host.style.gridColumn = '2';
+            host.style.gridRow = startRow + ' / ' + endRow;
+
+            // Horizontal positioning (same as overlay)
+            host.style.position = 'relative';
+            host.style.marginLeft = leftPercent + '%';
+            host.style.width = widthPercent + '%';
+            host.style.boxSizing = 'border-box';
+
+            // Transparent background, interactive
+            host.style.background = 'transparent';
+            host.style.pointerEvents = 'auto';
+            host.style.zIndex = '5';
+
+            // CSS Grid for internal card layout
+            host.style.display = 'grid';
+            host.style.gridTemplateColumns = '1fr';
+
+            // Calculate rowHeight from the first .aa-time-content element
+            const firstContent = grid.querySelector('.aa-time-content');
+            let rowHeight = 40; // fallback
+            if (firstContent) {
+                const rect = firstContent.getBoundingClientRect();
+                if (rect.height > 0) {
+                    rowHeight = rect.height;
+                }
+            }
+            host.style.gridAutoRows = rowHeight + 'px';
+
+            // Insert host into grid (after overlay, so it's on top)
+            grid.appendChild(host);
+
+            // Save reference in hostsMap with special key
+            hostsMap['schedule_' + interval.start + '_' + interval.end] = host;
         });
     }
 
@@ -292,7 +352,7 @@
         const bgColor = hexToRgba(baseColor, 0.15);
         const borderColor = hexToRgba(baseColor, 0.4);
 
-        // Create overlay element
+        // Create overlay element (visual, non-interactive)
         const overlay = document.createElement('div');
         overlay.className = 'aa-assignment-overlay';
         overlay.setAttribute('data-assignment-id', assignment.id || '');
@@ -351,8 +411,59 @@
             overlay.appendChild(staffLabel);
         }
 
-        // Insert into grid
+        // Insert overlay into grid
         grid.appendChild(overlay);
+
+        // ===== CREATE INTERACTIVE HOST FOR APPOINTMENT CARDS =====
+        const host = document.createElement('div');
+        host.className = 'aa-overlay-cards-host';
+        
+        // Dataset attributes for matching citas
+        host.setAttribute('data-assignment-id', assignment.id || '');
+        host.setAttribute('data-area-id', areaId || '');
+        host.setAttribute('data-staff-id', assignment.staff_id || '');
+        host.setAttribute('data-start-row', startRow);
+        host.setAttribute('data-end-row', endRow);
+        host.setAttribute('data-start-min', startMin);
+        host.setAttribute('data-end-min', endMin);
+
+        // Position using CSS Grid (same as overlay)
+        host.style.gridColumn = '2';
+        host.style.gridRow = startRow + ' / ' + endRow;
+
+        // Horizontal positioning (same as overlay)
+        host.style.position = 'relative';
+        host.style.marginLeft = leftPercent + '%';
+        host.style.width = widthPercent + '%';
+        host.style.boxSizing = 'border-box';
+
+        // Transparent background, interactive
+        host.style.background = 'transparent';
+        host.style.pointerEvents = 'auto';
+        host.style.zIndex = '5';
+
+        // CSS Grid for internal card layout
+        host.style.display = 'grid';
+        host.style.gridTemplateColumns = '1fr';
+
+        // Calculate rowHeight from the first .aa-time-content element
+        const firstContent = grid.querySelector('.aa-time-content');
+        let rowHeight = 40; // fallback
+        if (firstContent) {
+            const rect = firstContent.getBoundingClientRect();
+            if (rect.height > 0) {
+                rowHeight = rect.height;
+            }
+        }
+        host.style.gridAutoRows = rowHeight + 'px';
+
+        // Insert host into grid (after overlay, so it's on top)
+        grid.appendChild(host);
+
+        // Save reference in the hosts map
+        if (assignment.id) {
+            hostsMap[assignment.id] = host;
+        }
     }
 
     /**
@@ -511,10 +622,119 @@
         });
     }
 
+    /**
+     * Find the appropriate cards host for a given appointment
+     * @param {Object} cita - Appointment object (may have assignment_id, staff_id, area_id)
+     * @param {Object} posicion - Position data with slotInicio (minutes) and bloquesOcupados
+     * @returns {HTMLElement|null} - The host element or null if not found
+     */
+    function getCardsHostForCita(cita, posicion) {
+        const grid = document.getElementById('aa-time-grid');
+        if (!grid) return null;
+
+        // 1. If cita has assignment_id, try direct match
+        if (cita.assignment_id && hostsMap[cita.assignment_id]) {
+            return hostsMap[cita.assignment_id];
+        }
+
+        // Calculate cita's time range in minutes
+        const citaStartMin = posicion ? posicion.slotInicio : null;
+        const citaDuration = posicion ? (posicion.bloquesOcupados * 30) : 0;
+        const citaEndMin = citaStartMin !== null ? (citaStartMin + citaDuration) : null;
+
+        // 2. CITAS FIXED: assignment_id === null AND (servicio starts with "fixed::" OR no staff_id)
+        const isFixedCita = !cita.assignment_id && (
+            (cita.servicio && typeof cita.servicio === 'string' && cita.servicio.startsWith('fixed::')) ||
+            (!cita.assignment_id && !cita.staff_id)
+        );
+        
+        if (isFixedCita && citaStartMin !== null) {
+            // Find schedule host where cita's time falls within
+            const hosts = grid.querySelectorAll('.aa-overlay-cards-host[data-type="schedule"]');
+            for (let i = 0; i < hosts.length; i++) {
+                const host = hosts[i];
+                const hostStartMin = parseInt(host.getAttribute('data-start-min'), 10);
+                const hostEndMin = parseInt(host.getAttribute('data-end-min'), 10);
+                
+                // Cita start must be within host's range (start >= hostStart AND start < hostEnd)
+                if (citaStartMin >= hostStartMin && citaStartMin < hostEndMin) {
+                    return host;
+                }
+            }
+        }
+
+        // 3. If cita has staff_id, find host where staff matches AND time overlaps
+        if (cita.staff_id) {
+            const hosts = grid.querySelectorAll('.aa-overlay-cards-host');
+            for (let i = 0; i < hosts.length; i++) {
+                const host = hosts[i];
+                const hostStaffId = host.getAttribute('data-staff-id');
+                
+                if (hostStaffId && hostStaffId == cita.staff_id) {
+                    // Check if cita falls within host's time range
+                    if (citaStartMin !== null) {
+                        const hostStartMin = parseInt(host.getAttribute('data-start-min'), 10);
+                        const hostEndMin = parseInt(host.getAttribute('data-end-min'), 10);
+                        
+                        // Cita must be within host's range (start >= hostStart AND end <= hostEnd)
+                        if (citaStartMin >= hostStartMin && citaEndMin <= hostEndMin) {
+                            return host;
+                        }
+                    } else {
+                        // No position data, return first match by staff
+                        return host;
+                    }
+                }
+            }
+        }
+
+        // 4. Fallback: try to match by area_id
+        if (cita.area_id || cita.service_area_id) {
+            const areaId = cita.area_id || cita.service_area_id;
+            const hosts = grid.querySelectorAll('.aa-overlay-cards-host');
+            for (let i = 0; i < hosts.length; i++) {
+                const host = hosts[i];
+                const hostAreaId = host.getAttribute('data-area-id');
+                
+                if (hostAreaId && hostAreaId == areaId) {
+                    // Check time range if available
+                    if (citaStartMin !== null) {
+                        const hostStartMin = parseInt(host.getAttribute('data-start-min'), 10);
+                        const hostEndMin = parseInt(host.getAttribute('data-end-min'), 10);
+                        
+                        if (citaStartMin >= hostStartMin && citaEndMin <= hostEndMin) {
+                            return host;
+                        }
+                    } else {
+                        return host;
+                    }
+                }
+            }
+        }
+
+        // 5. No match found
+        return null;
+    }
+
+    /**
+     * Clear all cards from hosts (empty their content)
+     */
+    function clearHosts() {
+        const grid = document.getElementById('aa-time-grid');
+        if (!grid) return;
+        
+        const hosts = grid.querySelectorAll('.aa-overlay-cards-host');
+        hosts.forEach(function(host) {
+            host.innerHTML = '';
+        });
+    }
+
     // Expose public API
     window.CalendarAssignments = {
         render: render,
-        clear: clearOverlays
+        clear: clearOverlays,
+        getCardsHostForCita: getCardsHostForCita,
+        clearHosts: clearHosts
     };
 
 })();

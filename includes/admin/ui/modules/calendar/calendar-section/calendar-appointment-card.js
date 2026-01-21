@@ -73,7 +73,33 @@
         estado.style.fontWeight = '500';
         info.appendChild(estado);
         
+        // Mostrar duración
+        if (cita.duracion) {
+            const duracion = document.createElement('div');
+            duracion.textContent = `Duración: ${cita.duracion} minutos`;
+            duracion.style.marginBottom = '4px';
+            info.appendChild(duracion);
+        }
+        
+        // Mostrar assignment_id
+        if (cita.assignment_id) {
+            const asignacion = document.createElement('div');
+            asignacion.textContent = `Asignación: ${cita.assignment_id}`;
+            asignacion.style.marginBottom = '4px';
+            info.appendChild(asignacion);
+        }
+        
         body.appendChild(info);
+        
+        // Log de datos de la card renderizada
+        console.log('[CalendarAppointmentCard] Card renderizada:', {
+            id: cita.id,
+            nombre: cita.nombre,
+            servicio: cita.servicio,
+            duracion: cita.duracion,
+            assignment_id: cita.assignment_id,
+            estado: cita.estado
+        });
         
         // Determinar si la cita es próxima o pasada usando el service
         const esProxima = window.AdminCalendarService?.esCitaProxima(cita) || false;

@@ -30,6 +30,7 @@ function aa_ajax_get_citas_por_dia() {
     global $wpdb;
     $table_reservas = $wpdb->prefix . 'aa_reservas';
     $table_clientes = $wpdb->prefix . 'aa_clientes';
+    $table_assignments = $wpdb->prefix . 'aa_assignments';
     
     // 🔹 Obtener fecha (opcional)
     $fecha = isset($_POST['fecha']) ? sanitize_text_field($_POST['fecha']) : '';
@@ -49,8 +50,9 @@ function aa_ajax_get_citas_por_dia() {
     $fecha_inicio = $fecha . ' 00:00:00';
     $fecha_fin = $fecha . ' 23:59:59';
     
-    // 🔹 Consulta: SELECT explícito desde aa_reservas con LEFT JOIN a aa_clientes
+    // 🔹 Consulta: SELECT explícito desde aa_reservas con LEFT JOIN a aa_clientes y aa_assignments
     // Usa datos reales del cliente desde aa_clientes, nunca datos legacy de reservas
+    // Incluye assignment_id y datos de la asignación relacionada
     $query = "SELECT 
                 r.id,
                 r.servicio,
@@ -60,16 +62,24 @@ function aa_ajax_get_citas_por_dia() {
                 r.calendar_uid,
                 r.created_at,
                 r.id_cliente,
+                r.assignment_id,
                 c.nombre,
                 c.telefono,
                 c.correo,
                 DATE_ADD(r.fecha, INTERVAL IFNULL(r.duracion, 60) MINUTE) as fecha_fin
               FROM $table_reservas r
               LEFT JOIN $table_clientes c ON r.id_cliente = c.id
+              LEFT JOIN $table_assignments a ON r.assignment_id = a.id
               WHERE r.fecha BETWEEN %s AND %s 
               ORDER BY r.fecha ASC";
     
     $citas = $wpdb->get_results($wpdb->prepare($query, $fecha_inicio, $fecha_fin));
+    
+    // Log de datos obtenidos
+    error_log("✅ [proximasCitasController] Obtenidas " . count($citas) . " citas para fecha: $fecha");
+    foreach ($citas as $cita) {
+        error_log("📋 [Cita ID: {$cita->id}] duracion: {$cita->duracion}, assignment_id: " . ($cita->assignment_id ?? 'NULL'));
+    }
     
     wp_send_json_success([
         'fecha' => $fecha,
