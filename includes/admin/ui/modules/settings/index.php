@@ -187,7 +187,7 @@ $days = [
                                class="flex-1 px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow placeholder:text-gray-400">
                         <button type="button" 
                                 id="aa-add-motivo" 
-                                class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm">
+                                class="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg border border-gray-300 transition-colors shadow-sm">
                             Agregar
                         </button>
                     </div>
@@ -476,7 +476,7 @@ $days = [
         ═══════════════════════════════════════════════════════════════ -->
         <div class="-mx-4 lg:w-screen lg:relative lg:left-1/2 lg:-translate-x-1/2 lg:mx-0 px-4 lg:px-[calc((100vw-80rem)/2+1rem)] py-4 mt-6 flex justify-end">
             <button type="submit" 
-                    class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-lg shadow-blue-500/25 transition-all hover:shadow-xl hover:shadow-blue-500/30 flex items-center gap-2">
+                    class="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg border border-gray-300 transition-all shadow-sm flex items-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                 </svg>

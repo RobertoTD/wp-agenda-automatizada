@@ -16,28 +16,12 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                     </svg>
                 </span>
-                <h1 class="text-sm font-semibold text-gray-900 truncate">Agenda Automatizada</h1>
             </div>
             
-            <!-- Right: Appointments + Notifications + Agendar Button -->
+            <!-- Right: Notifications + Agendar Button -->
             <div class="flex items-center gap-2">
-                <!-- Group: Small icon buttons (Explorer + Notifications) -->
+                <!-- Group: Small icon buttons (Notifications) -->
                 <div class="flex items-center gap-0">
-                    <!-- Appointments Explorer Button -->
-                    <button 
-                        id="aa-btn-open-appointments-modal" 
-                        type="button"
-                        class="inline-flex items-center justify-center w-9 h-9 text-gray-500 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-                        aria-label="Ver citas"
-                    >
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                  d="M15 19H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8" />
-                            <circle cx="11" cy="11" r="2.5" stroke-width="2" />
-                            <path stroke-linecap="round" stroke-width="2" d="M13.2 12.8L15.6 15.2" />
-                        </svg>
-                    </button>
-                    
                     <!-- Notifications Container (relative for popover positioning) -->
                     <div class="relative">
                         <!-- Notifications Bell -->
@@ -81,7 +65,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
                 <button 
                     id="aa-btn-open-reservation-modal" 
                     type="button"
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg border border-gray-300 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
                 >
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>

@@ -102,6 +102,19 @@
                 }
             });
         }
+        
+        // Configurar botón "+ Horario" para abrir modal de assignments
+        const btnAddSchedule = document.getElementById('aa-btn-add-schedule');
+        if (btnAddSchedule) {
+            btnAddSchedule.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (typeof window.openAssignmentModal === 'function') {
+                    window.openAssignmentModal();
+                } else {
+                    console.warn('[Calendar Module] openAssignmentModal no disponible');
+                }
+            });
+        }
     }
 
     /**

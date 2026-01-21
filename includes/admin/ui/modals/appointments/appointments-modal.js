@@ -115,15 +115,16 @@
      * Initialize event listeners
      */
     function init() {
-        const btnOpenModal = document.getElementById('aa-btn-open-appointments-modal');
+        // Botón de búsqueda en el calendario
+        const btnSearch = document.getElementById('aa-btn-search');
         
-        if (btnOpenModal) {
-            btnOpenModal.addEventListener('click', function(event) {
+        if (btnSearch) {
+            btnSearch.addEventListener('click', function(event) {
                 event.preventDefault();
                 AppointmentsModal.open();
             });
             
-            console.log('[AppointmentsModal] ✅ Listener registrado para botón header');
+            console.log('[AppointmentsModal] ✅ Listener registrado para botón de búsqueda');
         }
     }
 

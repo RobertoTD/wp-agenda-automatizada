@@ -197,10 +197,52 @@
             const isHidden = popover.classList.contains('hidden');
             popover.classList.toggle('hidden');
             
-            // When opening, refresh the list
+            // When opening, refresh the list and adjust position
             if (isHidden) {
                 renderNotificationsList();
+                ajustarPosicionPopover();
             }
+        }
+        
+        /**
+         * Ajustar posición del popover para que no se salga de la pantalla
+         */
+        function ajustarPosicionPopover() {
+            // Reset estilos para calcular posición natural
+            popover.style.left = '';
+            popover.style.right = '';
+            popover.style.transform = '';
+            
+            // Obtener dimensiones
+            const btnRect = btnNotifications.getBoundingClientRect();
+            const popoverRect = popover.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const padding = 8; // Margen mínimo desde el borde
+            
+            // Centrar el popover debajo del botón
+            const btnCenterX = btnRect.left + (btnRect.width / 2);
+            const popoverHalfWidth = popoverRect.width / 2;
+            
+            // Calcular posición izquierda ideal (centrado)
+            let idealLeft = btnCenterX - popoverHalfWidth;
+            
+            // Ajustar si se sale por la derecha
+            if (idealLeft + popoverRect.width > viewportWidth - padding) {
+                idealLeft = viewportWidth - popoverRect.width - padding;
+            }
+            
+            // Ajustar si se sale por la izquierda
+            if (idealLeft < padding) {
+                idealLeft = padding;
+            }
+            
+            // Convertir a posición relativa al padre (que tiene position: relative)
+            const parentRect = btnNotifications.parentElement.getBoundingClientRect();
+            const relativeLeft = idealLeft - parentRect.left;
+            
+            // Aplicar estilos
+            popover.style.left = relativeLeft + 'px';
+            popover.style.right = 'auto';
         }
 
         /**
@@ -232,6 +274,15 @@
         document.addEventListener('click', function(e) {
             if (!popover.contains(e.target) && !btnNotifications.contains(e.target)) {
                 closePopover();
+            }
+        });
+        
+        /**
+         * Re-ajustar posición cuando cambia el tamaño de la ventana
+         */
+        window.addEventListener('resize', function() {
+            if (!popover.classList.contains('hidden')) {
+                ajustarPosicionPopover();
             }
         });
     }

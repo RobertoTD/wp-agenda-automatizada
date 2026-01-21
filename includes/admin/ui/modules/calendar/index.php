@@ -59,21 +59,36 @@ $module_js_url = $plugin_url . 'calendar-module.js';
              ========================= -->
         <div id="aa-date-selector" class="mt-2 mx-2 mb-4 flex items-center gap-2">
             <!-- Botón anterior -->
-            <button id="aa-date-prev" type="button" class="px-2 py-[0.3rem] bg-gray-100 hover:bg-gray-200 rounded-lg border border-gray-300 transition-colors">
-                <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button id="aa-date-prev" type="button" class="px-1.5 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg border border-gray-300 transition-colors">
+                <svg class="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                 </svg>
             </button>
             
             <!-- Input Flatpickr -->
-            <input type="text" id="aa-date-picker" class="w-32 px-2 py-[0.3rem] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Seleccionar fecha" readonly>
+            <input type="text" id="aa-date-picker" class="w-32 px-2 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Seleccionar fecha" readonly>
             
             <!-- Botón siguiente -->
-            <button id="aa-date-next" type="button" class="px-2 py-[0.3rem] bg-gray-100 hover:bg-gray-200 rounded-lg border border-gray-300 transition-colors">
-                <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button id="aa-date-next" type="button" class="px-1.5 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg border border-gray-300 transition-colors">
+                <svg class="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                 </svg>
             </button>
+            
+            <!-- Botones a la derecha -->
+            <div class="ml-auto flex items-center gap-2">
+                <!-- Botón de búsqueda (lupa) -->
+                <button id="aa-btn-search" type="button" class="px-1.5 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg border border-gray-300 transition-colors">
+                    <svg class="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                </button>
+                
+                <!-- Botón + Horario -->
+                <button id="aa-btn-add-schedule" type="button" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg border border-gray-300 transition-colors text-xs font-medium">
+                    + Horario
+                </button>
+            </div>
         </div>
 
         <!-- =========================
