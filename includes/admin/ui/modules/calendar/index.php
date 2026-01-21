@@ -18,7 +18,7 @@ $plugin_url = plugin_dir_url(__FILE__);
 $module_js_url = $plugin_url . 'calendar-module.js';
 ?>
 
-<div class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
+<div class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden mt-2">
 
     <!-- =========================
          🔹 HEADER
