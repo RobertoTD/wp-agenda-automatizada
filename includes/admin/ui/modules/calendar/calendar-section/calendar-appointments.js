@@ -207,6 +207,156 @@
             const groupKey = `${citaConPos.startRow}-${citaConPos.startRow + citaConPos.bloquesOcupados}`;
             renderizarGrupoCitas([citaConPos], overlaps, slotRowIndex, timeSlots, groupKey);
         });
+        
+        // Crear controles de ciclado para cards apiladas en el mismo slot
+        crearControlesCicladoStack();
+    }
+    
+    /**
+     * Crear controles de ciclado para cards superpuestas visualmente
+     * UN solo control por grupo de cards superpuestas
+     */
+    function crearControlesCicladoStack() {
+        const grid = document.getElementById('aa-time-grid');
+        if (!grid) return;
+        
+        // Limpiar contenedor de controles
+        let controlsContainer = grid.querySelector('.aa-stack-controls-container');
+        if (controlsContainer) {
+            controlsContainer.remove();
+        }
+        
+        // Obtener todas las cards en hosts
+        const hosts = grid.querySelectorAll('.aa-overlay-cards-host');
+        hosts.forEach(host => procesarCardsEnHost(host));
+    }
+    
+    /**
+     * Procesar cards en un host y crear UN control por grupo superpuesto
+     */
+    function procesarCardsEnHost(host) {
+        const cards = Array.from(host.querySelectorAll('.aa-appointment-card'));
+        if (cards.length < 2) return;
+        
+        // Extraer posición de cada card
+        const cardsInfo = cards.map(card => {
+            const gridRowStyle = card.style.gridRow || '';
+            let startRow = 1, span = 1;
+            
+            const matchSpan = gridRowStyle.match(/^(\d+)\s*\/\s*span\s+(\d+)/);
+            if (matchSpan) {
+                startRow = parseInt(matchSpan[1], 10);
+                span = parseInt(matchSpan[2], 10);
+            } else {
+                const match = gridRowStyle.match(/^(\d+)/);
+                if (match) startRow = parseInt(match[1], 10);
+                const bloques = parseInt(card.dataset.citaBloquesOcupados, 10);
+                if (!isNaN(bloques)) span = bloques;
+            }
+            
+            return { card, startRow, endRow: startRow + span };
+        });
+        
+        // Detectar grupos superpuestos (Union-Find)
+        const n = cardsInfo.length;
+        const parent = Array.from({length: n}, (_, i) => i);
+        
+        const find = (i) => parent[i] === i ? i : (parent[i] = find(parent[i]));
+        const union = (i, j) => { parent[find(i)] = find(j); };
+        
+        for (let i = 0; i < n; i++) {
+            for (let j = i + 1; j < n; j++) {
+                // Se superponen si comparten al menos una fila
+                if (cardsInfo[i].startRow < cardsInfo[j].endRow && 
+                    cardsInfo[j].startRow < cardsInfo[i].endRow) {
+                    union(i, j);
+                }
+            }
+        }
+        
+        // Agrupar
+        const grupos = {};
+        for (let i = 0; i < n; i++) {
+            const root = find(i);
+            if (!grupos[root]) grupos[root] = [];
+            grupos[root].push(cardsInfo[i]);
+        }
+        
+        // Crear UN control por grupo con más de 1 card
+        Object.values(grupos).forEach(grupo => {
+            if (grupo.length > 1) crearControlUnico(host, grupo);
+        });
+    }
+    
+    /**
+     * Crear UN solo control de ciclado para un grupo de cards superpuestas
+     */
+    function crearControlUnico(host, grupo) {
+        // Ordenar por startRow
+        grupo.sort((a, b) => a.startRow - b.startRow);
+        
+        let currentIndex = grupo.length - 1; // Última al frente
+        
+        // Asignar z-index inicial
+        grupo.forEach((info, idx) => {
+            info.card.style.zIndex = String(20 + idx);
+            info.card.style.position = 'relative';
+        });
+        
+        // Crear control
+        const control = document.createElement('div');
+        control.className = 'aa-slot-stack-control';
+        control.innerHTML = '⟳';
+        control.title = `Ciclar entre ${grupo.length} citas superpuestas`;
+        
+        Object.assign(control.style, {
+            position: 'absolute',
+            top: '4px',
+            right: '4px',
+            zIndex: '50',
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            color: '#fff',
+            width: '24px',
+            height: '24px',
+            borderRadius: '50%',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            userSelect: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.4)',
+            transition: 'background-color 0.15s, transform 0.15s'
+        });
+        
+        control.addEventListener('mouseenter', () => {
+            control.style.backgroundColor = 'rgba(59, 130, 246, 0.9)';
+            control.style.transform = 'rotate(180deg)';
+        });
+        control.addEventListener('mouseleave', () => {
+            control.style.backgroundColor = 'rgba(0, 0, 0, 0.75)';
+            control.style.transform = 'rotate(0deg)';
+        });
+        
+        control.addEventListener('click', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            
+            // Rotar al siguiente
+            currentIndex = (currentIndex + 1) % grupo.length;
+            
+            // Actualizar z-index
+            grupo.forEach((info, idx) => {
+                info.card.style.zIndex = idx === currentIndex ? '29' : String(20 + idx);
+            });
+            
+            // Mover control a la nueva card al frente
+            grupo[currentIndex].card.appendChild(control);
+        });
+        
+        // Agregar a la card actualmente al frente
+        grupo[currentIndex].card.appendChild(control);
     }
     
     /**
@@ -261,6 +411,10 @@
         const card = crearCardConInteraccion(citaConPos.cita, overlapInfo || null, isExpanded);
         if (!card) return;
         
+        // Store position data in card dataset for use when expanding/collapsing
+        card.dataset.citaStartRow = citaConPos.startRow;
+        card.dataset.citaBloquesOcupados = citaConPos.bloquesOcupados;
+        
         if (host) {
             // ===== RENDER INSIDE HOST =====
             const hostStartRow = parseInt(host.getAttribute('data-start-row'), 10);
@@ -268,17 +422,39 @@
             // Calculate relative position within the host's grid
             const relativeStart = citaConPos.startRow - hostStartRow + 1;
             
-            // Position card using the host's internal grid
-            card.style.gridColumn = '1';
-            card.style.gridRow = relativeStart + ' / span ' + citaConPos.bloquesOcupados;
-            card.style.width = '100%';
-            card.style.position = 'relative';
+            // Store original host and position data for restoration when collapsed
+            card.dataset.originalHost = 'true';
+            card.dataset.originalGridColumn = '1';
+            card.dataset.originalGridRow = relativeStart + ' / span ' + citaConPos.bloquesOcupados;
             
             // Handle overlaps: use z-index to stack cards (no horizontal split)
-            if (overlapInfo && overlapInfo.overlapCount > 1) {
-                card.style.zIndex = String(20 + (overlapIndex || 0));
+            // If expanded, use higher z-index (30) to ensure it's above other cards
+            if (isExpanded) {
+                // When expanded, move card to grid directly to escape host restrictions
+                card.style.gridColumn = '2';
+                card.style.gridRow = citaConPos.startRow + ' / span ' + citaConPos.bloquesOcupados;
+                card.style.width = '100%';
+                card.style.marginLeft = '0%';
+                card.style.position = 'relative';
+                card.style.zIndex = '30';
+                
+                // Move card from host to grid
+                grid.appendChild(card);
             } else {
-                card.style.zIndex = '20';
+                // Position card using the host's internal grid
+                card.style.gridColumn = '1';
+                card.style.gridRow = relativeStart + ' / span ' + citaConPos.bloquesOcupados;
+                card.style.width = '100%';
+                card.style.position = 'relative';
+                
+                if (overlapInfo && overlapInfo.overlapCount > 1) {
+                    card.style.zIndex = String(20 + (overlapIndex || 0));
+                } else {
+                    card.style.zIndex = '20';
+                }
+                
+                // Append to host
+                host.appendChild(card);
             }
             
             // If expanded, show body
@@ -294,9 +470,6 @@
                     }
                 }
             }
-            
-            // Append to host
-            host.appendChild(card);
         } else {
             // ===== FALLBACK: RENDER DIRECTLY ON GRID =====
             console.warn('[CalendarAppointments] No host found for cita:', citaConPos.cita.id, '- using fallback grid positioning');
@@ -304,7 +477,8 @@
             card.style.gridColumn = '2';
             card.style.gridRow = citaConPos.startRow + ' / span ' + citaConPos.bloquesOcupados;
             card.style.position = 'relative';
-            card.style.zIndex = '20';
+            // If expanded, use higher z-index (30) to ensure it's above other cards
+            card.style.zIndex = isExpanded ? '30' : '20';
             
             // If expanded, show body
             if (isExpanded) {
@@ -354,17 +528,59 @@
                 const currentBody = card.querySelector('.aa-appointment-body');
                 if (!currentHeader || !currentBody) return;
                 
+                const grid = document.getElementById('aa-time-grid');
                 const isHidden = currentBody.hasAttribute('hidden');
+                const wasInHost = card.dataset.originalHost === 'true';
+                
                 if (isHidden) {
                     // Body oculto: header ocupa todo el espacio vertical
                     currentHeader.style.flex = '1';
                     currentHeader.style.flexShrink = '0';
                     currentBody.style.flex = '0';
+                    // Reset z-index when collapsed
+                    if (overlapInfo && overlapInfo.overlapCount > 1) {
+                        card.style.zIndex = String(20 + (overlapInfo.overlapIndex || 0));
+                    } else {
+                        card.style.zIndex = '20';
+                    }
+                    
+                    // If card was originally in host, move it back to host
+                    if (wasInHost && grid) {
+                        const host = window.CalendarAssignments?.getCardsHostForCita(cita, null);
+                        if (host && card.parentNode !== host) {
+                            // Restore original position within host
+                            card.style.gridColumn = card.dataset.originalGridColumn || '1';
+                            card.style.gridRow = card.dataset.originalGridRow || '1';
+                            card.style.width = '100%';
+                            card.style.marginLeft = '';
+                            // Move card back to host
+                            host.appendChild(card);
+                        }
+                    }
                 } else {
                     // Body visible: header tamaño normal, body ocupa el resto
                     currentHeader.style.flex = '0 0 auto';
                     currentHeader.style.flexShrink = '0';
                     currentBody.style.flex = '1';
+                    // Increase z-index when expanded to ensure it's above other cards
+                    card.style.zIndex = '30';
+                    
+                    // If card was originally in host, move it to grid to escape host restrictions
+                    if (wasInHost && grid && card.parentNode !== grid) {
+                        // Get position data from card dataset
+                        const startRow = parseInt(card.dataset.citaStartRow, 10);
+                        const bloquesOcupados = parseInt(card.dataset.citaBloquesOcupados, 10);
+                        
+                        if (!isNaN(startRow) && !isNaN(bloquesOcupados)) {
+                            // Position directly on grid with full width
+                            card.style.gridColumn = '2';
+                            card.style.gridRow = startRow + ' / span ' + bloquesOcupados;
+                            card.style.width = '100%';
+                            card.style.marginLeft = '0%';
+                            // Move card from host to grid
+                            grid.appendChild(card);
+                        }
+                    }
                 }
             }
             

@@ -16,7 +16,7 @@
         // Estilos base sin altura fija
         card.style.border = '1px solid #e5e7eb';
         card.style.borderRadius = '4px';
-        card.style.overflow = 'hidden';
+        // overflow removed to allow full visibility when expanded
         card.style.cursor = 'pointer';
         card.style.display = 'flex';
         card.style.flexDirection = 'column';
