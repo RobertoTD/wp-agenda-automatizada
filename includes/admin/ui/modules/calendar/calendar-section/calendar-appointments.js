@@ -414,6 +414,7 @@
         // Store position data in card dataset for use when expanding/collapsing
         card.dataset.citaStartRow = citaConPos.startRow;
         card.dataset.citaBloquesOcupados = citaConPos.bloquesOcupados;
+        card.dataset.citaSlotInicio = citaConPos.slotInicio; // Store slotInicio in minutes for host matching
         
         if (host) {
             // ===== RENDER INSIDE HOST =====
@@ -546,7 +547,12 @@
                     
                     // If card was originally in host, move it back to host
                     if (wasInHost && grid) {
-                        const host = window.CalendarAssignments?.getCardsHostForCita(cita, null);
+                        // Build position object from saved dataset for host matching
+                        const savedPosicion = {
+                            slotInicio: parseInt(card.dataset.citaSlotInicio, 10),
+                            bloquesOcupados: parseInt(card.dataset.citaBloquesOcupados, 10)
+                        };
+                        const host = window.CalendarAssignments?.getCardsHostForCita(cita, savedPosicion);
                         if (host && card.parentNode !== host) {
                             // Restore original position within host
                             card.style.gridColumn = card.dataset.originalGridColumn || '1';

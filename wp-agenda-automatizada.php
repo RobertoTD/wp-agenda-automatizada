@@ -444,19 +444,9 @@ function wpaa_render_form() {
 
         <!-- Servicio -->
         <select id="servicio" name="servicio" required>
-    <option value="">Motivo de la cita</option>
+    <option value="">-- Selecciona un servicio --</option>
     <?php
-    $motivos_json = get_option('aa_google_motivo', json_encode(['Cita general']));
-    $motivos = json_decode($motivos_json, true);
-
-    if (is_array($motivos) && !empty($motivos)) {
-        foreach ($motivos as $motivo) {
-            $motivo = esc_html($motivo);
-            echo "<option value='{$motivo}'>{$motivo}</option>";
-        }
-    }
-    
-    // Obtener servicios activos desde la base de datos
+    // Servicios desde asignaciones (solo activos y no ocultos)
     $servicios_bd = [];
     if (class_exists('AssignmentsModel')) {
         $servicios_bd = AssignmentsModel::get_services(true); // true = solo activos (filtra is_hidden = 0 y active = 1)

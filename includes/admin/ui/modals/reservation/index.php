@@ -24,13 +24,8 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
 
 // Obtener datos necesarios para los selects
 $clientes = function_exists('aa_get_all_clientes') ? aa_get_all_clientes(200) : [];
-$motivos_json = get_option('aa_google_motivo', json_encode(['Cita general']));
-$motivos = json_decode($motivos_json, true);
-if (!is_array($motivos) || empty($motivos)) {
-    $motivos = ['Cita general'];
-}
 
-// Obtener servicios activos desde la base de datos
+// Obtener servicios activos desde la base de datos (assignments)
 $servicios_bd = [];
 if (class_exists('AssignmentsModel')) {
     $servicios_bd = AssignmentsModel::get_services(true); // true = solo activos (filtra is_hidden = 0 y active = 1)
@@ -88,14 +83,9 @@ $duraciones = [30, 60, 90];
             <div class="aa-form-cita-group">
                 <label for="cita-servicio">Motivo de la cita *</label>
                 <select id="cita-servicio" name="servicio" required>
-                    <?php foreach ($motivos as $motivo): ?>
-                    <option value="<?php echo esc_attr($motivo); ?>">
-                        <?php echo esc_html($motivo); ?>
-                    </option>
-                    <?php endforeach; ?>
-                    
+                    <option value="">-- Selecciona un servicio --</option>
                     <?php
-                    // Agregar servicios desde la base de datos (solo activos y no ocultos)
+                    // Servicios desde asignaciones (solo activos y no ocultos)
                     if (!empty($servicios_bd)) {
                         foreach ($servicios_bd as $servicio) {
                             // Filtrar solo servicios activos (active = 1)

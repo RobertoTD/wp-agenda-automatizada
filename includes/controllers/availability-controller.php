@@ -25,15 +25,16 @@ function aa_enqueue_local_availability_data() {
         return;
     }
     
+    // Solo reservas FIXED (assignment_id IS NULL) para el flujo legacy
     $local_busy = ReservationsModel::get_internal_busy_slots();
     
-    error_log("📊 [AvailabilityController-Frontend] Slots ocupados locales: " . count($local_busy));
+    error_log("📊 [AvailabilityController-Frontend] Slots ocupados locales (FIXED): " . count($local_busy));
     
     $availability_config = [
         'local_busy' => $local_busy,
         'slot_duration' => intval(get_option('aa_slot_duration', 60)),
         'timezone' => get_option('aa_timezone', 'America/Mexico_City'),
-        'total_confirmed' => ReservationsModel::count_confirmed(),
+        'total_confirmed' => ReservationsModel::count_confirmed_fixed(),
     ];
     
     wp_localize_script(
@@ -62,15 +63,16 @@ function aa_enqueue_admin_local_availability_data($hook) {
         return;
     }
     
+    // Solo reservas FIXED (assignment_id IS NULL) para el flujo legacy
     $local_busy = ReservationsModel::get_internal_busy_slots();
     
-    error_log("📊 [AvailabilityController-Admin] Slots ocupados locales: " . count($local_busy));
+    error_log("📊 [AvailabilityController-Admin] Slots ocupados locales (FIXED): " . count($local_busy));
     
     $availability_config = [
         'local_busy' => $local_busy,
         'slot_duration' => intval(get_option('aa_slot_duration', 60)),
         'timezone' => get_option('aa_timezone', 'America/Mexico_City'),
-        'total_confirmed' => ReservationsModel::count_confirmed(),
+        'total_confirmed' => ReservationsModel::count_confirmed_fixed(),
     ];
     
     wp_localize_script(
@@ -95,14 +97,14 @@ function aa_get_local_availability() {
         return;
     }
     
-    // Obtener datos de disponibilidad local
+    // Obtener datos de disponibilidad local (solo FIXED: assignment_id IS NULL)
     $local_busy = ReservationsModel::get_internal_busy_slots();
     
     $availability_config = [
         'local_busy' => $local_busy,
         'slot_duration' => intval(get_option('aa_slot_duration', 60)),
         'timezone' => get_option('aa_timezone', 'America/Mexico_City'),
-        'total_confirmed' => ReservationsModel::count_confirmed(),
+        'total_confirmed' => ReservationsModel::count_confirmed_fixed(),
     ];
     
     wp_send_json_success($availability_config);

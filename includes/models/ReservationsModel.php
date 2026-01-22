@@ -16,7 +16,11 @@ if (!defined('ABSPATH')) exit;
 class ReservationsModel {
 
     /**
-     * Obtener slots ocupados desde la base de datos local
+     * Obtener slots ocupados desde la base de datos local (SOLO FIXED)
+     * 
+     * Solo retorna reservas con assignment_id IS NULL (reservas fixed/legacy).
+     * Las reservas con assignment_id se manejan por el flujo de assignments
+     * (AABusyRangesAssignments.getBusyRangesByAssignments).
      * 
      * @return array Array de slots ocupados con formato [start, end]
      */
@@ -24,7 +28,7 @@ class ReservationsModel {
         global $wpdb;
         $table = $wpdb->prefix . 'aa_reservas';
         
-        // 🔹 Consultar solo citas confirmadas que NO han terminado
+        // 🔹 Consultar solo citas confirmadas FIXED (assignment_id IS NULL) que NO han terminado
         // Usar la duración real de cada reserva (columna duracion), no aa_slot_duration
         $now = aa_get_current_datetime();
         
@@ -36,6 +40,7 @@ class ReservationsModel {
                 nombre
             FROM $table 
             WHERE estado = 'confirmed'
+            AND assignment_id IS NULL
             AND DATE_ADD(fecha, INTERVAL duracion MINUTE) >= %s
             ORDER BY fecha ASC
         ", $now));
@@ -45,7 +50,7 @@ class ReservationsModel {
             return [];
         }
         
-        error_log("✅ [ReservationsModel] Encontradas " . count($rows) . " citas confirmadas");
+        error_log("✅ [ReservationsModel] Encontradas " . count($rows) . " citas confirmadas FIXED (sin assignment)");
         
         // 🔹 Formatear resultados en estructura compatible con Google Calendar
         return array_map(function($row) {
@@ -79,7 +84,7 @@ class ReservationsModel {
     }
     
     /**
-     * Contar citas confirmadas
+     * Contar citas confirmadas (todas)
      * 
      * @return int
      */
@@ -91,6 +96,27 @@ class ReservationsModel {
             SELECT COUNT(*) 
             FROM $table 
             WHERE estado = 'confirmed'
+        ");
+        
+        return intval($count);
+    }
+
+    /**
+     * Contar citas confirmadas FIXED (assignment_id IS NULL)
+     * 
+     * Solo cuenta reservas sin assignment (flujo legacy/fixed).
+     * 
+     * @return int
+     */
+    public static function count_confirmed_fixed() {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_reservas';
+        
+        $count = $wpdb->get_var("
+            SELECT COUNT(*) 
+            FROM $table 
+            WHERE estado = 'confirmed'
+            AND assignment_id IS NULL
         ");
         
         return intval($count);

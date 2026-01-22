@@ -23,9 +23,7 @@ add_action('wp_ajax_aa_toggle_service', 'aa_toggle_service');
 /**
  * Get list of services from database
  * 
- * AJAX handler for retrieving services list from wp_aa_services table
- * Note: This endpoint reads from the database table, not from wp_options.
- * Legacy endpoint aa_get_services (in assignmentsService.php) reads from wp_options.
+ * AJAX handler for retrieving services list from wp_aa_services table.
  */
 function aa_get_services_db() {
     // Validar permisos

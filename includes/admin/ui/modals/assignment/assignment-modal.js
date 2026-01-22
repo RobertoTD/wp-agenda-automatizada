@@ -6,7 +6,7 @@
  * - Initialize flatpickr on date input
  * - Load staff via AJAX
  * - Load service areas via AJAX
- * - Load services from aa_google_motivo
+ * - Load services from assignments (aa_get_services_db)
  * - Submit form via AJAX
  * - Display backend errors
  */

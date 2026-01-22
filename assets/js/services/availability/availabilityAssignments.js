@@ -269,13 +269,15 @@
      * @param {Array} assignments - Array of assignment objects with start_time and end_time
      * @param {string} date - Date in YYYY-MM-DD format
      * @param {number} slotDuration - Slot duration in minutes (default: 30)
+     * @param {number|string|null} selectedAssignmentId - Optional: filter busy ranges to only this assignment
      * @returns {Promise<Object>} { baseSlots: Array<Date>, finalSlots: Array<Date>, busyRanges: Array }
      */
-    async function getFinalSlotsForStaffAndDate(assignments, date, slotDuration = 30) {
+    async function getFinalSlotsForStaffAndDate(assignments, date, slotDuration = 30, selectedAssignmentId = null) {
         console.log('🔍 [AAAssignmentsAvailability] getFinalSlotsForStaffAndDate() llamado', {
             assignmentsCount: assignments?.length || 0,
             date: date,
-            slotDuration: slotDuration
+            slotDuration: slotDuration,
+            selectedAssignmentId: selectedAssignmentId
         });
 
         try {
@@ -306,6 +308,25 @@
                     console.error('[AAAssignmentsAvailability] Error al obtener busy ranges externos:', error);
                     // Continuar con busy ranges locales únicamente
                 }
+            }
+
+            // 3.1️⃣ Filtrar busy ranges por selectedAssignmentId si está definido
+            // Esto evita que reservas de otras asignaciones cancelen slots de la asignación activa
+            if (selectedAssignmentId !== null && rawBusyRanges.length > 0) {
+                const selectedId = parseInt(selectedAssignmentId, 10);
+                const beforeFilter = rawBusyRanges.length;
+                
+                rawBusyRanges = rawBusyRanges.filter(function(range) {
+                    // Solo incluir rangos que pertenecen a la asignación seleccionada
+                    return parseInt(range.assignment_id, 10) === selectedId;
+                });
+                
+                console.log('[AAAssignmentsAvailability] 🔍 Filtrado busy ranges por assignment_id:', {
+                    selectedAssignmentId: selectedId,
+                    antes: beforeFilter,
+                    despues: rawBusyRanges.length,
+                    filtrados: beforeFilter - rawBusyRanges.length
+                });
             }
 
             // 4️⃣ Convertir a rangos Date
@@ -360,7 +381,8 @@
                 finalSlots: finalSlots.length,
                 busyRanges: busyRanges.length,
                 busyLocal: busyLocal.length,
-                busyExternal: busyExternal.length
+                busyExternal: busyExternal.length,
+                selectedAssignmentId: selectedAssignmentId
             });
 
             return { baseSlots, finalSlots, busyRanges };
@@ -390,7 +412,7 @@
     console.log('   - AAAssignmentsAvailability.getAssignmentDatesByService(serviceKey, startDate?, endDate?)');
     console.log('   - AAAssignmentsAvailability.getAssignmentsByServiceAndDate(serviceKey, date)');
     console.log('   - AAAssignmentsAvailability.getSlotsForStaffAndDate(assignments, date, slotDuration?)');
-    console.log('   - AAAssignmentsAvailability.getFinalSlotsForStaffAndDate(assignments, date, slotDuration?)');
+    console.log('   - AAAssignmentsAvailability.getFinalSlotsForStaffAndDate(assignments, date, slotDuration?, selectedAssignmentId?)');
 
 })();
 

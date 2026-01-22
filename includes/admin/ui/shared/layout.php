@@ -45,6 +45,8 @@ try {
     $now_str = current_time('mysql');
 }
 
+// Solo reservas FIXED (assignment_id IS NULL) para el flujo legacy
+// Las reservas con assignment_id se manejan por AABusyRangesAssignments
 $confirmed = $wpdb->get_results($wpdb->prepare("
     SELECT 
         fecha as start,
@@ -53,6 +55,7 @@ $confirmed = $wpdb->get_results($wpdb->prepare("
         nombre as attendee
     FROM $table 
     WHERE estado = 'confirmed' 
+    AND assignment_id IS NULL
     AND DATE_ADD(fecha, INTERVAL duracion MINUTE) >= %s
     ORDER BY fecha ASC
 ", $now_str));

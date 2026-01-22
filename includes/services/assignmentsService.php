@@ -17,7 +17,6 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
 add_action('wp_ajax_aa_get_assignments', 'aa_get_assignments');
 add_action('wp_ajax_aa_delete_assignment', 'aa_delete_assignment');
 add_action('wp_ajax_aa_update_assignment_status', 'aa_update_assignment_status');
-add_action('wp_ajax_aa_get_services', 'aa_get_services');
 add_action('wp_ajax_aa_create_assignment', 'aa_create_assignment');
 add_action('wp_ajax_aa_add_assignment_service', 'aa_add_assignment_service');
 add_action('wp_ajax_aa_get_assignment_services', 'aa_get_assignment_services');
@@ -105,41 +104,6 @@ function aa_delete_assignment() {
         error_log("❌ [assignmentsService] Error al ocultar asignación: " . $e->getMessage());
         wp_send_json_error([
             'message' => 'Error al ocultar la asignación: ' . $e->getMessage()
-        ]);
-    }
-}
-
-/**
- * Get services list
- * 
- * Returns list of configured services from aa_google_motivo option.
- * 
- * @return void JSON response
- */
-function aa_get_services() {
-    // Validar permisos
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error(['message' => 'No tienes permisos para realizar esta acción']);
-        return;
-    }
-    
-    try {
-        // Obtener servicios desde la opción
-        $motivos_json = get_option('aa_google_motivo', json_encode(['Cita general']));
-        $motivos = json_decode($motivos_json, true);
-        
-        if (!is_array($motivos) || empty($motivos)) {
-            $motivos = ['Cita general'];
-        }
-        
-        wp_send_json_success([
-            'services' => $motivos,
-            'count' => count($motivos)
-        ]);
-    } catch (Exception $e) {
-        error_log("❌ [assignmentsService] Error al obtener servicios: " . $e->getMessage());
-        wp_send_json_error([
-            'message' => 'Error al obtener los servicios: ' . $e->getMessage()
         ]);
     }
 }

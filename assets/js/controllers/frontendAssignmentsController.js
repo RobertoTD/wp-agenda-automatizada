@@ -875,10 +875,14 @@
             // 2️⃣ Obtener slots finales (base + filtrado por busy ranges)
             console.log('🔄 [FrontendAssignments] Calculando slots finales...');
             
+            // Obtener el assignment_id seleccionado para filtrar busy ranges correctamente
+            const selectedAssignmentId = staffAssignments.length > 0 ? staffAssignments[0].id : null;
+            
             const result = await window.AAAssignmentsAvailability.getFinalSlotsForStaffAndDate(
                 staffAssignments,
                 state.selectedDate,
-                state.slotDuration
+                state.slotDuration,
+                selectedAssignmentId  // Solo considerar reservas de esta asignación específica
             );
             
             const finalSlots = result.finalSlots || [];
