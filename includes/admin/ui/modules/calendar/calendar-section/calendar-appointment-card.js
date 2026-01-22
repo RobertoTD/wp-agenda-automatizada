@@ -16,16 +16,19 @@
         // Estilos base sin altura fija
         card.style.border = '1px solid #e5e7eb';
         card.style.borderRadius = '4px';
-        // overflow removed to allow full visibility when expanded
+        card.style.overflow = 'hidden'; // Prevent content from overflowing
         card.style.cursor = 'pointer';
         card.style.display = 'flex';
         card.style.flexDirection = 'column';
         card.style.minHeight = '40px';
+        card.style.minWidth = '0'; // Allow card to shrink below content size in flex/grid
+        card.style.maxWidth = '100%'; // Never exceed container width
+        card.style.boxSizing = 'border-box';
         
         // Header (siempre visible)
         const header = document.createElement('div');
         header.className = 'aa-appointment-header';
-        header.style.padding = '8px 12px';
+        header.style.padding = '8px 6px'; // Reduced horizontal padding for narrow columns
         header.style.backgroundColor = getEstadoColor(cita.estado);
         header.style.color = '#fff';
         header.style.fontWeight = '500';
@@ -35,6 +38,11 @@
         header.style.display = 'flex';
         header.style.alignItems = 'center';
         header.style.minHeight = '40px';
+        header.style.minWidth = '0'; // Allow header to shrink below content size
+        header.style.overflow = 'hidden'; // Hide overflowing text
+        header.style.textOverflow = 'ellipsis'; // Show ellipsis for truncated text
+        header.style.whiteSpace = 'nowrap'; // Prevent text wrapping
+        header.style.boxSizing = 'border-box';
         
         const clienteNombre = cita.nombre || 'Sin nombre';
         const servicio = cita.servicio || 'Sin servicio';

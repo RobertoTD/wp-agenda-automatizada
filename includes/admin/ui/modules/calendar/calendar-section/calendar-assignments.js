@@ -278,10 +278,11 @@
             host.style.background = 'transparent';
             host.style.pointerEvents = 'auto';
             host.style.zIndex = '5';
+            host.style.overflow = 'hidden'; // Prevent cards from overflowing host bounds
 
             // CSS Grid for internal card layout
             host.style.display = 'grid';
-            host.style.gridTemplateColumns = '1fr';
+            host.style.gridTemplateColumns = 'minmax(0, 1fr)'; // Allow column to shrink below content size
 
             // Calculate rowHeight from the first .aa-time-content element
             const firstContent = grid.querySelector('.aa-time-content');
@@ -441,10 +442,11 @@
         host.style.background = 'transparent';
         host.style.pointerEvents = 'auto';
         host.style.zIndex = '5';
+        host.style.overflow = 'hidden'; // Prevent cards from overflowing host bounds
 
         // CSS Grid for internal card layout
         host.style.display = 'grid';
-        host.style.gridTemplateColumns = '1fr';
+        host.style.gridTemplateColumns = 'minmax(0, 1fr)'; // Allow column to shrink below content size
 
         // Calculate rowHeight from the first .aa-time-content element
         const firstContent = grid.querySelector('.aa-time-content');
