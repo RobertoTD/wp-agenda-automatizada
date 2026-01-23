@@ -224,47 +224,7 @@
             // Z-index below appointment cards but same as assignment overlays
             overlay.style.zIndex = '1';
 
-            // Add label at the top with staff name and service from fixed schedule
-            const scheduleLabel = document.createElement('div');
-            scheduleLabel.className = 'aa-schedule-label';
-            
-            // Build label text: "{staff_name} - {service_name}" or fallback
-            const fixedStaffName = window.AA_CALENDAR_DATA?.fixedStaffName || '';
-            const fixedServiceName = window.AA_CALENDAR_DATA?.fixedServiceName || '';
-            let scheduleLabelText = 'Horario fijo'; // fallback
-            
-            if (fixedStaffName && fixedServiceName) {
-                scheduleLabelText = fixedStaffName + ' - ' + fixedServiceName;
-            } else if (fixedStaffName) {
-                scheduleLabelText = fixedStaffName;
-            } else if (fixedServiceName) {
-                scheduleLabelText = fixedServiceName;
-            }
-            
-            scheduleLabel.textContent = scheduleLabelText;
-            
-            // Style the label
-            scheduleLabel.style.position = 'absolute';
-            scheduleLabel.style.top = '0';
-            scheduleLabel.style.left = '0';
-            scheduleLabel.style.right = '0';
-            scheduleLabel.style.color = '#ffffff';
-            scheduleLabel.style.fontSize = '11px';
-            scheduleLabel.style.fontWeight = '600';
-            scheduleLabel.style.padding = '4px 6px';
-            scheduleLabel.style.borderTopLeftRadius = '10px';
-            scheduleLabel.style.borderTopRightRadius = '10px';
-            scheduleLabel.style.backgroundColor = borderColor;
-            scheduleLabel.style.boxSizing = 'border-box';
-            scheduleLabel.style.overflow = 'hidden';
-            scheduleLabel.style.textOverflow = 'ellipsis';
-            scheduleLabel.style.whiteSpace = 'nowrap';
-            scheduleLabel.style.lineHeight = '1.2';
-            scheduleLabel.style.zIndex = '2';
-            
-            overlay.appendChild(scheduleLabel);
-
-            // Insert into grid
+            // Insert overlay into grid (without label - label goes to host for clickability)
             grid.appendChild(overlay);
 
             // ===== CREATE INTERACTIVE HOST FOR FIXED APPOINTMENT CARDS =====
@@ -311,6 +271,51 @@
 
             // Insert host into grid (after overlay, so it's on top)
             grid.appendChild(host);
+
+            // ===== ADD CLICKABLE LABEL TO HOST (not overlay) =====
+            const fixedStaffName = window.AA_CALENDAR_DATA?.fixedStaffName || '';
+            const fixedServiceName = window.AA_CALENDAR_DATA?.fixedServiceName || '';
+            let scheduleLabelText = 'Horario fijo'; // fallback
+            
+            if (fixedStaffName && fixedServiceName) {
+                scheduleLabelText = fixedStaffName + ' - ' + fixedServiceName;
+            } else if (fixedStaffName) {
+                scheduleLabelText = fixedStaffName;
+            } else if (fixedServiceName) {
+                scheduleLabelText = fixedServiceName;
+            }
+            
+            const scheduleLabel = document.createElement('div');
+            scheduleLabel.className = 'aa-schedule-label';
+            scheduleLabel.textContent = scheduleLabelText;
+            
+            // Add popover data attributes for click interaction
+            scheduleLabel.setAttribute('data-aa-popover', '1');
+            scheduleLabel.setAttribute('data-aa-popover-staff', fixedStaffName);
+            scheduleLabel.setAttribute('data-aa-popover-services', fixedServiceName);
+            
+            // Style the label - positioned at top of host
+            scheduleLabel.style.position = 'absolute';
+            scheduleLabel.style.top = '0';
+            scheduleLabel.style.left = '0';
+            scheduleLabel.style.right = '0';
+            scheduleLabel.style.color = '#ffffff';
+            scheduleLabel.style.fontSize = '11px';
+            scheduleLabel.style.fontWeight = '600';
+            scheduleLabel.style.padding = '3px 6px';
+            scheduleLabel.style.borderTopLeftRadius = '10px';
+            scheduleLabel.style.borderTopRightRadius = '10px';
+            scheduleLabel.style.backgroundColor = borderColor;
+            scheduleLabel.style.boxSizing = 'border-box';
+            scheduleLabel.style.overflow = 'hidden';
+            scheduleLabel.style.textOverflow = 'ellipsis';
+            scheduleLabel.style.whiteSpace = 'nowrap';
+            scheduleLabel.style.lineHeight = '1.2';
+            scheduleLabel.style.zIndex = '25'; // High z-index within host
+            scheduleLabel.style.cursor = 'pointer';
+            scheduleLabel.style.pointerEvents = 'auto';
+            
+            host.appendChild(scheduleLabel);
 
             // Save reference in hostsMap with special key
             hostsMap['schedule_' + interval.start + '_' + interval.end] = host;
@@ -398,44 +403,7 @@
         // Z-index below appointment cards
         overlay.style.zIndex = '1';
 
-        // Add staff name label at the top with services
-        if (assignment.staff_name) {
-            const staffLabel = document.createElement('div');
-            staffLabel.className = 'aa-assignment-staff-label';
-            
-            // Build label text: "{staff_name} - {services}" or just staff name
-            let labelText = assignment.staff_name;
-            
-            // Check if assignment has services (service_names array from backend)
-            if (assignment.service_names && assignment.service_names.length > 0) {
-                labelText = assignment.staff_name + ' - ' + assignment.service_names.join(', ');
-            }
-            
-            staffLabel.textContent = labelText;
-            
-            // Style the staff label
-            staffLabel.style.position = 'absolute';
-            staffLabel.style.top = '0';
-            staffLabel.style.left = '0';
-            staffLabel.style.right = '0';
-            staffLabel.style.color = '#ffffff';
-            staffLabel.style.fontSize = '11px';
-            staffLabel.style.fontWeight = '600';
-            staffLabel.style.padding = '4px 6px';
-            staffLabel.style.borderTopLeftRadius = '10px';
-            staffLabel.style.borderTopRightRadius = '10px';
-            staffLabel.style.backgroundColor = borderColor;
-            staffLabel.style.boxSizing = 'border-box';
-            staffLabel.style.overflow = 'hidden';
-            staffLabel.style.textOverflow = 'ellipsis';
-            staffLabel.style.whiteSpace = 'nowrap';
-            staffLabel.style.lineHeight = '1.2';
-            staffLabel.style.zIndex = '2';
-            
-            overlay.appendChild(staffLabel);
-        }
-
-        // Insert overlay into grid
+        // Insert overlay into grid (without label - label goes to host for clickability)
         grid.appendChild(overlay);
 
         // ===== CREATE INTERACTIVE HOST FOR APPOINTMENT CARDS =====
@@ -484,6 +452,54 @@
 
         // Insert host into grid (after overlay, so it's on top)
         grid.appendChild(host);
+
+        // ===== ADD CLICKABLE LABEL TO HOST (not overlay) =====
+        if (assignment.staff_name) {
+            const staffLabel = document.createElement('div');
+            staffLabel.className = 'aa-assignment-staff-label';
+            
+            // Build label text: "{staff_name} - {services}" or just staff name
+            let labelText = assignment.staff_name;
+            
+            // Check if assignment has services (service_names array from backend)
+            const servicesStr = (assignment.service_names && assignment.service_names.length > 0) 
+                ? assignment.service_names.join(', ') 
+                : '';
+            
+            if (servicesStr) {
+                labelText = assignment.staff_name + ' - ' + servicesStr;
+            }
+            
+            staffLabel.textContent = labelText;
+            
+            // Add popover data attributes for click interaction
+            staffLabel.setAttribute('data-aa-popover', '1');
+            staffLabel.setAttribute('data-aa-popover-staff', assignment.staff_name || '');
+            staffLabel.setAttribute('data-aa-popover-services', servicesStr);
+            
+            // Style the staff label - positioned at top of host
+            staffLabel.style.position = 'absolute';
+            staffLabel.style.top = '0';
+            staffLabel.style.left = '0';
+            staffLabel.style.right = '0';
+            staffLabel.style.color = '#ffffff';
+            staffLabel.style.fontSize = '11px';
+            staffLabel.style.fontWeight = '600';
+            staffLabel.style.padding = '3px 6px';
+            staffLabel.style.borderTopLeftRadius = '10px';
+            staffLabel.style.borderTopRightRadius = '10px';
+            staffLabel.style.backgroundColor = borderColor;
+            staffLabel.style.boxSizing = 'border-box';
+            staffLabel.style.overflow = 'hidden';
+            staffLabel.style.textOverflow = 'ellipsis';
+            staffLabel.style.whiteSpace = 'nowrap';
+            staffLabel.style.lineHeight = '1.2';
+            staffLabel.style.zIndex = '25'; // High z-index within host
+            staffLabel.style.cursor = 'pointer';
+            staffLabel.style.pointerEvents = 'auto';
+            
+            host.appendChild(staffLabel);
+        }
 
         // Save reference in the hosts map
         if (assignment.id) {
@@ -756,6 +772,7 @@
 
     /**
      * Clear all cards from hosts (empty their content)
+     * Preserves labels (.aa-schedule-label and .aa-assignment-staff-label)
      */
     function clearHosts() {
         const grid = document.getElementById('aa-time-grid');
@@ -763,7 +780,11 @@
         
         const hosts = grid.querySelectorAll('.aa-overlay-cards-host');
         hosts.forEach(function(host) {
-            host.innerHTML = '';
+            // Find and remove only appointment cards, preserving labels
+            const cards = host.querySelectorAll('.aa-appointment-card');
+            cards.forEach(function(card) {
+                card.remove();
+            });
         });
     }
 

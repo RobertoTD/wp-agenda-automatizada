@@ -431,6 +431,286 @@ window.AAAdmin = window.AAAdmin || {};
     };
 
     /**
+     * Popover System - Global popover management
+     * Provides lightweight popover functionality for labels and tooltips
+     */
+    AAAdmin.popover = (function() {
+        let isPopoverOpen = false;
+        let currentAnchor = null;
+        let popoverRoot = null;
+        let popoverElement = null;
+
+        /**
+         * Ensure popover root exists in DOM
+         */
+        function ensurePopoverRoot() {
+            if (popoverRoot) return popoverRoot;
+
+            popoverRoot = document.getElementById('aa-popover-root');
+            if (!popoverRoot) {
+                const appContainer = document.getElementById('aa-admin-app');
+                if (appContainer) {
+                    popoverRoot = document.createElement('div');
+                    popoverRoot.id = 'aa-popover-root';
+                    popoverRoot.style.position = 'absolute';
+                    popoverRoot.style.top = '0';
+                    popoverRoot.style.left = '0';
+                    popoverRoot.style.width = '100%';
+                    popoverRoot.style.height = '0';
+                    popoverRoot.style.overflow = 'visible';
+                    popoverRoot.style.pointerEvents = 'none';
+                    popoverRoot.style.zIndex = '9998';
+                    appContainer.appendChild(popoverRoot);
+                }
+            }
+            return popoverRoot;
+        }
+
+        /**
+         * Position popover relative to anchor element
+         * @param {HTMLElement} anchorEl - The anchor element
+         */
+        function positionPopover(anchorEl) {
+            console.log('[Popover] positionPopover called with anchorEl:', anchorEl);
+            
+            if (!popoverElement || !anchorEl) {
+                console.warn('[Popover] positionPopover: missing popoverElement or anchorEl');
+                return;
+            }
+
+            const anchorRect = anchorEl.getBoundingClientRect();
+            const popoverRect = popoverElement.getBoundingClientRect();
+            const appContainer = document.getElementById('aa-admin-app');
+            const appRect = appContainer ? appContainer.getBoundingClientRect() : { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight };
+
+            console.log('[Popover] Positioning data:', {
+                anchorRect: { left: anchorRect.left, top: anchorRect.top, width: anchorRect.width, height: anchorRect.height },
+                popoverRect: { width: popoverRect.width, height: popoverRect.height },
+                appRect: { left: appRect.left, top: appRect.top, width: appRect.width || window.innerWidth }
+            });
+
+            // Calculate position relative to app container
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+
+            // Center horizontally relative to anchor
+            let left = anchorRect.left + (anchorRect.width / 2) - (popoverRect.width / 2) - appRect.left;
+            
+            // Position below anchor by default
+            let top = anchorRect.bottom - appRect.top + 4; // 4px gap
+
+            // Clamp horizontal position to stay within viewport
+            const minLeft = 8; // padding from edge
+            const maxLeft = appRect.width - popoverRect.width - 8;
+            left = Math.max(minLeft, Math.min(left, maxLeft));
+
+            // If popover would go below viewport, show above anchor
+            const viewportHeight = window.innerHeight;
+            if (anchorRect.bottom + popoverRect.height + 4 > viewportHeight) {
+                top = anchorRect.top - appRect.top - popoverRect.height - 4;
+                console.log('[Popover] Popover would overflow viewport, showing above anchor');
+            }
+
+            // Ensure top is not negative
+            top = Math.max(4, top);
+
+            popoverElement.style.left = left + 'px';
+            popoverElement.style.top = top + 'px';
+            
+            console.log('[Popover] Popover positioned at:', { left: left + 'px', top: top + 'px' });
+        }
+
+        /**
+         * Open popover
+         * @param {Object} options - Popover options
+         * @param {HTMLElement} options.anchorEl - Element to anchor popover to
+         * @param {string} [options.title] - Optional title (bold)
+         * @param {Array<string>} options.lines - Array of text lines to display
+         */
+        function openPopover(options) {
+            console.log('[Popover] openPopover called with options:', options);
+            
+            if (!options || !options.anchorEl) {
+                console.warn('AAAdmin.popover.open: anchorEl is required');
+                return;
+            }
+
+            // Close any existing popover first
+            if (isPopoverOpen) {
+                console.log('[Popover] Closing existing popover before opening new one');
+                closePopover();
+            }
+
+            ensurePopoverRoot();
+            if (!popoverRoot) {
+                console.error('AAAdmin.popover.open: Could not create popover root');
+                return;
+            }
+
+            console.log('[Popover] Popover root found/created:', popoverRoot);
+
+            currentAnchor = options.anchorEl;
+
+            // Create popover element
+            popoverElement = document.createElement('div');
+            popoverElement.className = 'aa-popover';
+            popoverElement.style.pointerEvents = 'auto';
+
+            // Build content
+            let contentHTML = '';
+
+            if (options.title) {
+                contentHTML += '<div class="aa-popover-title">' + escapeHtml(options.title) + '</div>';
+            }
+
+            if (options.lines && options.lines.length > 0) {
+                options.lines.forEach(function(line) {
+                    if (line && line.trim()) {
+                        contentHTML += '<div class="aa-popover-line">' + escapeHtml(line) + '</div>';
+                    }
+                });
+            }
+
+            console.log('[Popover] Content HTML:', contentHTML);
+
+            popoverElement.innerHTML = contentHTML;
+
+            // Append to root (initially hidden for measurement)
+            popoverElement.style.visibility = 'hidden';
+            popoverRoot.appendChild(popoverElement);
+            console.log('[Popover] Popover element appended to root');
+
+            // Position after adding to DOM (so we can measure it)
+            positionPopover(options.anchorEl);
+            console.log('[Popover] Popover positioned, making visible');
+            popoverElement.style.visibility = 'visible';
+
+            isPopoverOpen = true;
+            console.log('[Popover] Popover opened successfully, isPopoverOpen:', isPopoverOpen);
+        }
+
+        /**
+         * Close popover
+         */
+        function closePopover() {
+            if (popoverElement && popoverElement.parentNode) {
+                popoverElement.parentNode.removeChild(popoverElement);
+            }
+            popoverElement = null;
+            currentAnchor = null;
+            isPopoverOpen = false;
+        }
+
+        /**
+         * Escape HTML to prevent XSS
+         * @param {string} str - String to escape
+         * @returns {string} Escaped string
+         */
+        function escapeHtml(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        /**
+         * Initialize popover system
+         * Sets up event delegation for popover triggers
+         */
+        function init() {
+            console.log('[Popover] Initializing popover system');
+            
+            // Event delegation for popover triggers
+            document.addEventListener('click', function(event) {
+                console.log('[Popover] Click detected on:', event.target, 'closest trigger:', event.target.closest('[data-aa-popover="1"]'));
+                
+                const trigger = event.target.closest('[data-aa-popover="1"]');
+
+                if (trigger) {
+                    console.log('[Popover] Trigger found!', trigger);
+                    console.log('[Popover] Trigger classes:', trigger.className);
+                    console.log('[Popover] Trigger data attributes:', {
+                        staff: trigger.getAttribute('data-aa-popover-staff'),
+                        services: trigger.getAttribute('data-aa-popover-services')
+                    });
+                    
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    // Toggle: if same anchor, close; otherwise open new
+                    if (isPopoverOpen && currentAnchor === trigger) {
+                        console.log('[Popover] Closing popover (toggle)');
+                        closePopover();
+                        return;
+                    }
+
+                    // Read data attributes
+                    const staff = trigger.getAttribute('data-aa-popover-staff') || '';
+                    const services = trigger.getAttribute('data-aa-popover-services') || '';
+
+                    // Build lines
+                    const lines = [];
+                    if (staff) {
+                        lines.push('Staff: ' + staff);
+                    }
+                    if (services) {
+                        lines.push('Servicios: ' + services);
+                    }
+
+                    console.log('[Popover] Lines to display:', lines);
+
+                    // Open popover if we have content
+                    if (lines.length > 0) {
+                        console.log('[Popover] Opening popover with', lines.length, 'lines');
+                        openPopover({
+                            anchorEl: trigger,
+                            lines: lines
+                        });
+                    } else {
+                        console.warn('[Popover] No lines to display, skipping popover');
+                    }
+
+                    return;
+                }
+
+                // Click outside popover: close it
+                if (isPopoverOpen) {
+                    // Check if click is inside the popover itself
+                    if (popoverElement && popoverElement.contains(event.target)) {
+                        console.log('[Popover] Click inside popover, keeping it open');
+                        return; // Don't close if clicking inside popover
+                    }
+                    console.log('[Popover] Click outside popover, closing');
+                    closePopover();
+                }
+            }, true); // Use capture phase to catch events earlier
+
+            // ESC key to close
+            document.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape' && isPopoverOpen) {
+                    closePopover();
+                }
+            });
+        }
+
+        // Initialize on DOM ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+
+        // Public API
+        return {
+            open: openPopover,
+            close: closePopover,
+            isOpen: function() {
+                return isPopoverOpen;
+            }
+        };
+    })();
+
+    /**
      * Collapsible card overlay system
      * Handles cards with [data-aa-card] attribute and toggles via [data-aa-card-toggle]
      */
