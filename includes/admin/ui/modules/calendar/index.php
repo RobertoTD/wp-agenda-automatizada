@@ -13,6 +13,10 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
 // Obtener schedule
 $schedule = get_option('aa_schedule', []);
 
+// Obtener datos del horario fijo (staff y servicio)
+$fixed_staff_name = get_option('aa_staff_schedule', '');
+$fixed_service_name = get_option('aa_service_schedule', '');
+
 // Resolver rutas de scripts
 $plugin_url = plugin_dir_url(__FILE__);
 $module_js_url = $plugin_url . 'calendar-module.js';
@@ -120,6 +124,8 @@ $module_js_url = $plugin_url . 'calendar-module.js';
   // Datos específicos del módulo Calendar (complementa variables globales de layout.php)
   window.AA_CALENDAR_DATA = {
     schedule: <?php echo wp_json_encode($schedule); ?>,
+    fixedStaffName: <?php echo wp_json_encode($fixed_staff_name); ?>,
+    fixedServiceName: <?php echo wp_json_encode($fixed_service_name); ?>,
     nonce: '<?php echo wp_create_nonce('aa_proximas_citas'); ?>',
     historialNonce: '<?php echo wp_create_nonce('aa_historial_citas'); ?>',
     ajaxurl: window.ajaxurl || '<?php echo admin_url('admin-ajax.php'); ?>'

@@ -224,10 +224,24 @@
             // Z-index below appointment cards but same as assignment overlays
             overlay.style.zIndex = '1';
 
-            // Add label at the top
+            // Add label at the top with staff name and service from fixed schedule
             const scheduleLabel = document.createElement('div');
             scheduleLabel.className = 'aa-schedule-label';
-            scheduleLabel.textContent = 'Horario fijo';
+            
+            // Build label text: "{staff_name} - {service_name}" or fallback
+            const fixedStaffName = window.AA_CALENDAR_DATA?.fixedStaffName || '';
+            const fixedServiceName = window.AA_CALENDAR_DATA?.fixedServiceName || '';
+            let scheduleLabelText = 'Horario fijo'; // fallback
+            
+            if (fixedStaffName && fixedServiceName) {
+                scheduleLabelText = fixedStaffName + ' - ' + fixedServiceName;
+            } else if (fixedStaffName) {
+                scheduleLabelText = fixedStaffName;
+            } else if (fixedServiceName) {
+                scheduleLabelText = fixedServiceName;
+            }
+            
+            scheduleLabel.textContent = scheduleLabelText;
             
             // Style the label
             scheduleLabel.style.position = 'absolute';
@@ -384,11 +398,20 @@
         // Z-index below appointment cards
         overlay.style.zIndex = '1';
 
-        // Add staff name label at the top
+        // Add staff name label at the top with services
         if (assignment.staff_name) {
             const staffLabel = document.createElement('div');
             staffLabel.className = 'aa-assignment-staff-label';
-            staffLabel.textContent = assignment.staff_name;
+            
+            // Build label text: "{staff_name} - {services}" or just staff name
+            let labelText = assignment.staff_name;
+            
+            // Check if assignment has services (service_names array from backend)
+            if (assignment.service_names && assignment.service_names.length > 0) {
+                labelText = assignment.staff_name + ' - ' + assignment.service_names.join(', ');
+            }
+            
+            staffLabel.textContent = labelText;
             
             // Style the staff label
             staffLabel.style.position = 'absolute';
@@ -515,10 +538,23 @@
             const scheduleWidthPercent = contentWidthPercent / totalColumns;
             const scheduleLeftPercent = contentLeftPercent + (scheduleColumnIndex * scheduleWidthPercent);
 
+            // Build label text for schedule border (same logic as schedule overlay)
+            const fixedStaffNameBorder = window.AA_CALENDAR_DATA?.fixedStaffName || '';
+            const fixedServiceNameBorder = window.AA_CALENDAR_DATA?.fixedServiceName || '';
+            let scheduleBorderLabelText = 'Horario fijo'; // fallback
+            
+            if (fixedStaffNameBorder && fixedServiceNameBorder) {
+                scheduleBorderLabelText = fixedStaffNameBorder + ' - ' + fixedServiceNameBorder;
+            } else if (fixedStaffNameBorder) {
+                scheduleBorderLabelText = fixedStaffNameBorder;
+            } else if (fixedServiceNameBorder) {
+                scheduleBorderLabelText = fixedServiceNameBorder;
+            }
+            
             // Create schedule border element
             const scheduleBorder = document.createElement('div');
             scheduleBorder.className = 'aa-schedule-area-border';
-            scheduleBorder.setAttribute('data-area-name', 'Horario fijo');
+            scheduleBorder.setAttribute('data-area-name', scheduleBorderLabelText);
 
             // Position absolutely over the grid's border-top (15px height)
             scheduleBorder.style.position = 'absolute';
@@ -535,18 +571,18 @@
             scheduleBorder.style.zIndex = '10';
 
             // Add label text
-            const scheduleLabelText = document.createElement('span');
-            scheduleLabelText.textContent = 'Horario fijo';
-            scheduleLabelText.style.color = '#ffffff';
-            scheduleLabelText.style.fontSize = '11px';
-            scheduleLabelText.style.fontWeight = '600';
-            scheduleLabelText.style.whiteSpace = 'nowrap';
-            scheduleLabelText.style.overflow = 'hidden';
-            scheduleLabelText.style.textOverflow = 'ellipsis';
-            scheduleLabelText.style.padding = '0 6px';
-            scheduleLabelText.style.lineHeight = '1.2';
+            const scheduleLabelSpan = document.createElement('span');
+            scheduleLabelSpan.textContent = scheduleBorderLabelText;
+            scheduleLabelSpan.style.color = '#ffffff';
+            scheduleLabelSpan.style.fontSize = '11px';
+            scheduleLabelSpan.style.fontWeight = '600';
+            scheduleLabelSpan.style.whiteSpace = 'nowrap';
+            scheduleLabelSpan.style.overflow = 'hidden';
+            scheduleLabelSpan.style.textOverflow = 'ellipsis';
+            scheduleLabelSpan.style.padding = '0 6px';
+            scheduleLabelSpan.style.lineHeight = '1.2';
 
-            scheduleBorder.appendChild(scheduleLabelText);
+            scheduleBorder.appendChild(scheduleLabelSpan);
             grid.appendChild(scheduleBorder);
         }
 

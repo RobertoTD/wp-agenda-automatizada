@@ -40,6 +40,7 @@
         grid.style.gridAutoRows = 'auto';
         grid.style.borderRadius = '0'; // Quitar esquinas redondeadas
         grid.style.borderTop = '15px solid rgb(243, 244, 246)'; // Línea horizontal gruesa en la parte superior
+        grid.style.paddingTop = '2px'; // Padding superior del grid
 
         // Limpiar contenido existente
         grid.innerHTML = '';
@@ -124,7 +125,12 @@
                 // Desplazar texto hacia arriba para que la línea divisoria quede en medio del texto
                 // La línea está en el borde superior del label, así que desplazamos el texto hacia arriba la mitad de su altura
                 const textHeight = currentFontSize - 3; // Altura aproximada del texto
-                textSpan.style.transform = `translateY(-${textHeight / 2}px)`;
+                // Para el primer elemento (index === 0), usar translateY(-3.5px), para los demás usar el cálculo normal
+                if (index === 0) {
+                    textSpan.style.transform = 'translateY(-3.5px)';
+                } else {
+                    textSpan.style.transform = `translateY(-${textHeight / 2}px)`;
+                }
                 textSpan.style.display = 'inline-block'; // Necesario para que transform funcione en span
             }
             

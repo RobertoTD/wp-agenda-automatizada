@@ -45,6 +45,17 @@ function aa_get_assignments() {
         // Llamar al modelo
         $assignments = AssignmentsModel::get_assignments();
         
+        // Enriquecer cada asignación con sus servicios asociados
+        foreach ($assignments as &$assignment) {
+            $services = AssignmentsModel::get_assignment_services($assignment['id']);
+            // Extraer solo los nombres de los servicios para el label
+            $assignment['services'] = $services;
+            $assignment['service_names'] = array_map(function($s) { 
+                return $s['name']; 
+            }, $services);
+        }
+        unset($assignment); // Romper referencia
+        
         wp_send_json_success([
             'assignments' => $assignments,
             'count' => count($assignments)
