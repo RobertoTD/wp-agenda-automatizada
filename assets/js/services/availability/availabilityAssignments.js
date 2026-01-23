@@ -203,11 +203,12 @@
                 const startMin = window.DateUtils.timeStrToMinutes(a.start_time);
                 const endMin = window.DateUtils.timeStrToMinutes(a.end_time);
 
-                // Normalizar a grilla de slots
+                // Normalizar a grilla fija de 30 min (NO usar slotDuration aquí)
+                // La validación de si cabe la duración se hace en generateSlotsForDay()
                 const normalized = window.DateUtils.normalizeIntervalToSlotGrid(
                     startMin,
                     endMin,
-                    slotDuration
+                    30  // Grilla fija de 30 min
                 );
 
                 if (!normalized) {

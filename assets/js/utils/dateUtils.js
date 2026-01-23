@@ -100,10 +100,12 @@ function isSlotBusy(slotDate, busyRanges) {
 }
 
 // ✅ Normaliza un intervalo a una grilla fija de slots
-// Redondea el inicio hacia arriba y el fin hacia abajo al múltiplo más cercano de slotDuration
-function normalizeIntervalToSlotGrid(startMin, endMin, slotDuration) {
-  const normalizedStart = Math.ceil(startMin / slotDuration) * slotDuration;
-  const normalizedEnd = Math.floor((endMin - slotDuration) / slotDuration) * slotDuration;
+// Redondea el inicio hacia arriba y el fin hacia abajo al múltiplo más cercano de gridMinutes
+// NOTA: Esta función NO valida si cabe una duración específica de cita.
+//       Esa validación se hace en generateSlotsForDay() con el parámetro slotDuration.
+function normalizeIntervalToSlotGrid(startMin, endMin, gridMinutes = 30) {
+  const normalizedStart = Math.ceil(startMin / gridMinutes) * gridMinutes;
+  const normalizedEnd = Math.floor(endMin / gridMinutes) * gridMinutes;
 
   if (normalizedStart > normalizedEnd) {
     return null;
