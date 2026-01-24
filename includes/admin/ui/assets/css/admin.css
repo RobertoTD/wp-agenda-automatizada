@@ -755,6 +755,12 @@ details > div {
   padding-bottom: 0.25rem;
 }
 
+/* Add padding to appointments list when cards are open to prevent overlay from touching modal border */
+
+.aa-appointments-list:has([data-aa-card].is-open) {
+  padding-bottom: 20px;
+}
+
 /* Grid container for cards - allow overflow for overlays */
 
 .aa-clients-grid {
@@ -939,6 +945,12 @@ details > div {
   --tw-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
   --tw-shadow-colored: 0 20px 25px -5px var(--tw-shadow-color), 0 8px 10px -6px var(--tw-shadow-color);
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+}
+
+/* Add padding-bottom to modal when one of the last 3 cards is open to prevent overlay from touching modal border */
+
+.aa-modal:has(.aa-appointments-list > [data-aa-card].is-open:nth-last-child(-n+3)) {
+  padding-bottom: 180px;
 }
 
 /* Modal header */
@@ -1194,6 +1206,14 @@ body.aa-modal-open {
 
 .aa-popover-line + .aa-popover-line {
   margin-top: 0.125rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+       APPOINTMENTS STYLES
+    ═══════════════════════════════════════════════════════════════ */
+
+.aa-appointments-pagination {
+  margin-top: 15px;
 }
 
 .sr-only {

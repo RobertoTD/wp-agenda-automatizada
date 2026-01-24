@@ -51,6 +51,11 @@
         _intervals: [],
 
         /**
+         * Store event handler references for cleanup
+         */
+        _onReservationCreated: null,
+
+        /**
          * Assignment flow controller instance (for cleanup)
          */
         _assignmentFlow: null,
@@ -555,27 +560,14 @@
         setupFormSubmitHandler: function(form) {
             const self = this;
             
-            // Interceptar el submit para cerrar modal después de éxito
-            form.addEventListener('submit', async function(e) {
-                // El AdminReservationController maneja la lógica de submit
-                // Solo necesitamos escuchar el éxito para cerrar el modal
-                
-                // Crear observer para detectar cuando se muestra el alert de éxito
-                // y luego cerrar el modal
-                const originalAlert = window.alert;
-                window.alert = function(message) {
-                    originalAlert(message);
-                    
-                    // Si el mensaje indica éxito, cerrar modal
-                    if (message && message.includes('✅')) {
-                        console.log('[ReservationModal] Éxito detectado, cerrando modal...');
-                        self.close();
-                    }
-                    
-                    // Restaurar alert original
-                    window.alert = originalAlert;
-                };
-            }, true); // Capture phase para ejecutar antes
+            // 🔹 Escuchar evento aa:reservation:created para cerrar modal (flujo optimista)
+            // Guardamos la referencia del handler para poder removerlo en close()
+            this._onReservationCreated = function(e) {
+                console.log('[ReservationModal] Reserva creada, cerrando modal...', e.detail);
+                self.close();
+            };
+            
+            document.addEventListener('aa:reservation:created', this._onReservationCreated);
         },
 
         /**
@@ -607,6 +599,12 @@
             if (typeof AAAdmin === 'undefined' || typeof AAAdmin.closeModal !== 'function') {
                 console.error('[ReservationModal] AAAdmin.closeModal no disponible');
                 return;
+            }
+
+            // Cleanup: remover listener de evento aa:reservation:created (evitar leaks)
+            if (this._onReservationCreated) {
+                document.removeEventListener('aa:reservation:created', this._onReservationCreated);
+                this._onReservationCreated = null;
             }
 
             // Cleanup: destruir controller de assignment flow

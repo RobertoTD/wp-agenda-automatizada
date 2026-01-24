@@ -34,8 +34,22 @@
     // ==============================
     // 🔹 Envío del formulario (USANDO ReservationService)
     // ==============================
+    
+    // 🔹 Flag anti-double-submit (closure scope)
+    let isSubmitting = false;
+    
     form.addEventListener('submit', async function(e) {
       e.preventDefault();
+
+      // 🔹 A. Anti-double-submit: ignorar si ya está en proceso
+      if (isSubmitting) {
+        console.log('⚠️ Submit ignorado: ya hay una reserva en proceso');
+        return;
+      }
+      
+      // 🔹 Obtener botón submit y guardar texto original
+      const submitBtn = form.querySelector('.aa-btn-agendar-cita');
+      const originalBtnText = submitBtn ? submitBtn.textContent : '';
 
       // 🔹 Leer checkbox de auto-confirmación al inicio del submit
       const autoConfirmEl = document.getElementById('aa-reservation-auto-confirm');
@@ -73,13 +87,17 @@
       }
 
       try {
-        // Variable para almacenar mensaje de éxito (se mostrará al final del flujo)
-        let successMsg = null;
+        // 🔹 A. Activar flag y deshabilitar botón
+        isSubmitting = true;
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Agendando…';
+        }
 
-        // 🔹 PASO 1: Guardar la reserva usando ReservationService
+        // 🔹 B. PASO 1: Guardar la reserva usando ReservationService (await)
         const data = await window.ReservationService.saveReservation(datos);
 
-        // 🔹 PASO 2: Añadir ID de la reserva
+        // 🔹 B. PASO 2: Extraer ID de la reserva
         if (data.data && data.data.id) {
           datos.id_reserva = data.data.id;
           console.log('🆔 ID de reserva asignado:', datos.id_reserva);
@@ -90,51 +108,11 @@
           console.warn('⚠️ No se recibió ID de reserva en la respuesta del backend.');
         }
 
-        // 🔹 PASO 3: Manejar auto-confirmación o envío de correo normal
-        if (autoConfirm) {
-          // Auto-confirmación activada: confirmar la cita inmediatamente
-          if (!datos.id_reserva) {
-            console.warn('⚠️ No se puede confirmar: ID de reserva no disponible');
-            successMsg = '✅ Cita agendada correctamente, pero no se pudo confirmar automáticamente (ID no disponible).';
-          } else if (!window.ConfirmService || typeof window.ConfirmService.confirmar !== 'function') {
-            alert('❌ Error: ConfirmService no disponible. La cita se creó pero no se pudo confirmar.');
-            console.error('❌ ConfirmService no disponible o método confirmar no existe');
-          } else {
-            try {
-              const confirmResp = await window.ConfirmService.confirmar(datos.id_reserva);
-              
-              if (confirmResp.success) {
-                successMsg = '✅ Cita agendada y confirmada.';
-                console.log('✅ Cita confirmada automáticamente:', confirmResp);
-              } else {
-                alert('⚠️ Cita agendada pero NO se pudo confirmar: ' + (confirmResp.data?.message || 'Error desconocido'));
-                console.warn('⚠️ Error al confirmar cita:', confirmResp);
-              }
-            } catch (confirmErr) {
-              alert('⚠️ Cita agendada pero NO se pudo confirmar: ' + confirmErr.message);
-              console.error('❌ Error al confirmar cita:', confirmErr);
-            }
-          }
-          
-          // NO llamar sendConfirmation cuando auto-confirm está activo
-          // (el flujo de confirmar ya maneja la confirmación)
-        } else {
-          // Comportamiento normal: enviar correo de confirmación
-          window.ReservationService.sendConfirmation(datos).catch(emailError => {
-            console.warn('⚠️ Error al enviar correo (no crítico):', emailError);
-          });
-
-          // Guardar mensaje de éxito para mostrar al final
-          successMsg = '✅ Cita agendada correctamente. Se ha enviado correo de confirmación.';
-        }
-        
-        // 🔹 PASO 4: Si estamos en modal, refrescar disponibilidad local y recalcular slots
+        // 🔹 C. PASO 3: Refrescar disponibilidad local (antes de cerrar modal)
         const isModal = !!document.getElementById('form-crear-cita-admin');
         
         if (isModal) {
           try {
-            // Refrescar disponibilidad local desde BD vía AJAX
-            // Usar window.ajaxurl (WordPress lo define en admin) o URL directa como fallback
             const ajaxurl = window.ajaxurl || '/wp-admin/admin-ajax.php';
             const formData = new FormData();
             formData.append('action', 'aa_get_local_availability');
@@ -147,11 +125,8 @@
             const refreshResult = await refreshResponse.json();
             
             if (refreshResult.success && refreshResult.data) {
-              // Actualizar window.aa_local_availability con datos frescos desde BD
               window.aa_local_availability = refreshResult.data;
               
-              // Re-disparar recálculo del modal usando el evento existente
-              // Construir selectedDate como Date del día del slot seleccionado
               if (selectedSlotISO) {
                 const selectedDate = new Date(selectedSlotISO);
                 if (!isNaN(selectedDate.getTime())) {
@@ -167,27 +142,66 @@
             console.warn('⚠️ Error al refrescar disponibilidad local:', refreshErr);
           }
         }
-        
-        // 🔹 PASO 5: Recargar calendario del día actual sin recargar la página
-        // Usar la API pública de AdminCalendarController para mantener separación de responsabilidades
+
+        // 🔹 C. PASO 4: Recargar calendario INMEDIATAMENTE
         if (window.AdminCalendarController && typeof window.AdminCalendarController.recargar === 'function') {
           window.AdminCalendarController.recargar();
           console.log('✅ Calendario recargado después de crear reserva');
         } else {
-          console.warn('⚠️ AdminCalendarController.recargar no disponible, el calendario no se actualizará automáticamente');
+          console.warn('⚠️ AdminCalendarController.recargar no disponible');
         }
         
-        // 🔹 PASO 6: Mostrar mensaje de éxito al final (después de todas las actualizaciones)
-        // Esto permite que reservation.js intercepte el alert y cierre el modal con el estado ya actualizado
-        if (successMsg) {
-          alert(successMsg);
+        // 🔹 C. PASO 5: Disparar evento para cerrar modal (flujo optimista)
+        document.dispatchEvent(new CustomEvent('aa:reservation:created', {
+          detail: { id: datos.id_reserva, autoConfirm }
+        }));
+        console.log('✅ Reserva guardada en BD, modal cerrado (flujo optimista)');
+
+        // 🔹 D. PASO 6: Confirmación en SEGUNDO PLANO (sin await)
+        if (autoConfirm) {
+          if (datos.id_reserva && window.ConfirmService && typeof window.ConfirmService.confirmar === 'function') {
+            // Llamar sin await - no bloquea UI
+            window.ConfirmService.confirmar(datos.id_reserva)
+              .then(function(confirmResp) {
+                if (confirmResp.success) {
+                  console.log('✅ Cita confirmada en background:', confirmResp);
+                  // Recargar calendario para reflejar estado "confirmed"
+                  if (window.AdminCalendarController && typeof window.AdminCalendarController.recargar === 'function') {
+                    window.AdminCalendarController.recargar();
+                    console.log('✅ Calendario recargado tras confirmación remota');
+                  }
+                } else {
+                  console.warn('⚠️ Confirmación remota falló:', confirmResp.data?.message || 'Error desconocido');
+                }
+              })
+              .catch(function(confirmErr) {
+                console.error('❌ Error en confirmación remota (background):', confirmErr.message);
+              });
+          } else if (!datos.id_reserva) {
+            console.warn('⚠️ No se puede confirmar en background: ID de reserva no disponible');
+          } else {
+            console.error('❌ ConfirmService no disponible para confirmación en background');
+          }
+        } else {
+          // Comportamiento normal: enviar correo de confirmación (también sin await)
+          window.ReservationService.sendConfirmation(datos).catch(function(emailError) {
+            console.warn('⚠️ Error al enviar correo (no crítico):', emailError);
+          });
         }
         
-        // NOTA: El cierre del modal se maneja en reservation.js
+        // 🔹 E. NO hay alert de éxito - el modal ya se cerró por evento
 
       } catch (err) {
+        // 🔹 F. Error crítico: restaurar botón y mostrar alert
         console.error('❌ Error al agendar:', err);
         alert('❌ Error al agendar: ' + err.message);
+        
+        // Restaurar botón en caso de error
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalBtnText;
+        }
+        isSubmitting = false;
       }
     });
 

@@ -68,6 +68,11 @@
         @apply py-1;
     }
 
+    /* Add padding to appointments list when cards are open to prevent overlay from touching modal border */
+    .aa-appointments-list:has([data-aa-card].is-open) {
+        padding-bottom: 20px;
+    }
+
     /* Grid container for cards - allow overflow for overlays */
     .aa-clients-grid {
         @apply relative;
@@ -135,6 +140,11 @@
     /* Modal container */
     .aa-modal {
         @apply relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-auto;
+    }
+
+    /* Add padding-bottom to modal when one of the last 3 cards is open to prevent overlay from touching modal border */
+    .aa-modal:has(.aa-appointments-list > [data-aa-card].is-open:nth-last-child(-n+3)) {
+        padding-bottom: 180px;
     }
 
     /* Modal header */
@@ -240,6 +250,14 @@
 
     .aa-popover-line + .aa-popover-line {
         @apply mt-0.5;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       APPOINTMENTS STYLES
+    ═══════════════════════════════════════════════════════════════ */
+    
+    .aa-appointments-pagination {
+        margin-top: 15px;
     }
 }
 

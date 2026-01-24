@@ -558,54 +558,21 @@
             
             const [group, value] = filterAttr.split(':');
             const isChecked = checkbox.checked;
-            const filtersPanel = document.querySelector(this.selectors.filters);
             
-            if (!filtersPanel) return;
+            // Ensure the group array exists
+            if (!this.state.panelFilters[group]) {
+                this.state.panelFilters[group] = [];
+            }
             
-            // Handle "all" checkbox logic
-            if (value === 'all') {
-                if (isChecked) {
-                    // Uncheck all other checkboxes in this group
-                    const groupCheckboxes = filtersPanel.querySelectorAll(`[data-filter^="${group}:"]`);
-                    groupCheckboxes.forEach(function(cb) {
-                        if (cb.getAttribute('data-filter') !== `${group}:all`) {
-                            cb.checked = false;
-                        }
-                    });
-                    // Clear the group filter (all means no filter)
-                    this.state.panelFilters[group] = [];
+            // Update the state array
+            if (isChecked) {
+                // Add value if not already present
+                if (!this.state.panelFilters[group].includes(value)) {
+                    this.state.panelFilters[group].push(value);
                 }
             } else {
-                // Uncheck "all" if selecting a specific value
-                const allCheckbox = filtersPanel.querySelector(`[data-filter="${group}:all"]`);
-                if (allCheckbox) {
-                    allCheckbox.checked = false;
-                }
-                
-                // Update the state array
-                if (isChecked) {
-                    if (!this.state.panelFilters[group].includes(value)) {
-                        this.state.panelFilters[group].push(value);
-                    }
-                } else {
-                    this.state.panelFilters[group] = this.state.panelFilters[group].filter(v => v !== value);
-                }
-                
-                // Check if all specific values are selected, then mark "all" and clear
-                const groupFieldset = filtersPanel.querySelector(`[data-filter-group="${group}"]`);
-                if (groupFieldset) {
-                    const specificCheckboxes = groupFieldset.querySelectorAll(`[data-filter^="${group}:"]:not([data-filter="${group}:all"])`);
-                    const allSpecificChecked = Array.from(specificCheckboxes).every(cb => cb.checked);
-                    
-                    if (allSpecificChecked && specificCheckboxes.length > 0) {
-                        // All specific ones checked = mark "all" and uncheck others
-                        if (allCheckbox) {
-                            allCheckbox.checked = true;
-                        }
-                        specificCheckboxes.forEach(cb => cb.checked = false);
-                        this.state.panelFilters[group] = [];
-                    }
-                }
+                // Remove value from array
+                this.state.panelFilters[group] = this.state.panelFilters[group].filter(v => v !== value);
             }
             
             console.log('[AppointmentsController] Filtros actualizados:', this.state.panelFilters);

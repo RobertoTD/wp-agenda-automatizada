@@ -43,10 +43,6 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
                 <legend class="text-sm font-medium text-gray-700 mb-2">Por tiempo</legend>
                 <div class="flex flex-wrap gap-3">
                     <label class="inline-flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
-                        <input type="checkbox" data-filter="time:all" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                        <span>Todas</span>
-                    </label>
-                    <label class="inline-flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
                         <input type="checkbox" data-filter="time:future" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
                         <span>Futuras</span>
                     </label>
@@ -61,10 +57,6 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
             <fieldset class="mb-3" data-filter-group="status">
                 <legend class="text-sm font-medium text-gray-700 mb-2">Por estado</legend>
                 <div class="flex flex-wrap gap-3">
-                    <label class="inline-flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
-                        <input type="checkbox" data-filter="status:all" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                        <span>Todas</span>
-                    </label>
                     <label class="inline-flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
                         <input type="checkbox" data-filter="status:cancelled" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
                         <span>Canceladas</span>
@@ -84,10 +76,6 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
             <fieldset data-filter-group="notification">
                 <legend class="text-sm font-medium text-gray-700 mb-2">Por notificación</legend>
                 <div class="flex flex-wrap gap-3">
-                    <label class="inline-flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
-                        <input type="checkbox" data-filter="notification:all" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                        <span>Todas</span>
-                    </label>
                     <label class="inline-flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
                         <input type="checkbox" data-filter="notification:unread" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
                         <span>Nuevas</span>
