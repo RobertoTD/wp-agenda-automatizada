@@ -38,33 +38,34 @@ $duraciones = [30, 60, 90];
 <!-- Template for Reservation Modal (content not rendered until cloned by JS) -->
 <template id="aa-reservation-modal-template">
     <div class="aa-reservation-modal">
-        <form id="form-crear-cita-admin">
+        <form id="form-crear-cita-admin" class="space-y-4">
             
             <!-- Campo: Cliente -->
-            <div class="aa-form-cita-group">
-                <label for="cita-cliente">Cliente *</label>
-                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <div>
+                <label for="cita-cliente" class="block text-sm font-medium text-gray-700 mb-1">
+                    Cliente <span class="text-red-500">*</span>
+                </label>
+                <div class="flex items-center gap-2 mb-2">
                     <input 
                         type="text" 
                         id="aa-cliente-search" 
-                        class="aa-cliente-search-input"
-                        placeholder="Buscar cliente por nombre, teléfono o correo..."
+                        class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                        placeholder="Buscar cliente..."
                         autocomplete="off"
-                        style="flex: 1; padding: 8px; font-size: 14px; border: 1px solid #ddd; border-radius: 4px;"
                     >
-                    <span style="color: #666; font-size: 14px;">o</span>
+                    <span class="text-gray-500 text-sm">o</span>
                     <button 
                         type="button" 
                         id="aa-btn-crear-cliente-reservation"
-                        class="aa-btn-crear-cliente-reservation"
-                        style="padding: 8px 16px; font-size: 14px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;"
+                        class="px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap"
                     >
                         + cliente
                     </button>
                 </div>
-                <!-- Contenedor inline para crear cliente (se muestra cuando se hace clic en "Crear cliente") -->
-                <div id="aa-reservation-client-inline" style="display: none;"></div>
-                <select id="cita-cliente" name="cliente_id" required>
+                <!-- Contenedor inline para crear cliente -->
+                <div id="aa-reservation-client-inline" class="hidden"></div>
+                <select id="cita-cliente" name="cliente_id" required
+                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white">
                     <option value="">-- Selecciona un cliente --</option>
                     <?php foreach ($clientes as $cliente): ?>
                     <option 
@@ -80,9 +81,12 @@ $duraciones = [30, 60, 90];
             </div>
             
             <!-- Campo: Servicio/Motivo -->
-            <div class="aa-form-cita-group">
-                <label for="cita-servicio">Motivo de la cita *</label>
-                <select id="cita-servicio" name="servicio" required>
+            <div>
+                <label for="cita-servicio" class="block text-sm font-medium text-gray-700 mb-1">
+                    Motivo de la cita <span class="text-red-500">*</span>
+                </label>
+                <select id="cita-servicio" name="servicio" required
+                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white">
                     <option value="">-- Selecciona un servicio --</option>
                     <?php
                     // Servicios desde asignaciones (solo activos y no ocultos)
@@ -111,9 +115,12 @@ $duraciones = [30, 60, 90];
             </div>
             
             <!-- Campo: Duración -->
-            <div class="aa-form-cita-group">
-                <label for="cita-duracion">Duración *</label>
-                <select id="cita-duracion" name="duracion" required>
+            <div>
+                <label for="cita-duracion" class="block text-sm font-medium text-gray-700 mb-1">
+                    Duración <span class="text-red-500">*</span>
+                </label>
+                <select id="cita-duracion" name="duracion" required
+                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white">
                     <?php foreach ($duraciones as $duracion): ?>
                     <option 
                         value="<?php echo esc_attr($duracion); ?>"
@@ -126,8 +133,10 @@ $duraciones = [30, 60, 90];
             </div>
             
             <!-- Campo: Fecha y Hora -->
-            <div class="aa-form-cita-group">
-                <label for="cita-fecha">Fecha y hora *</label>
+            <div>
+                <label for="cita-fecha" class="block text-sm font-medium text-gray-700 mb-1">
+                    Fecha y hora <span class="text-red-500">*</span>
+                </label>
                 <input 
                     type="text" 
                     id="cita-fecha" 
@@ -135,45 +144,55 @@ $duraciones = [30, 60, 90];
                     required 
                     readonly 
                     placeholder="Selecciona fecha..."
+                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
                 >
             </div>
             
-            <!-- Campo: Personal disponible (nuevo - basado en assignments) -->
-            <div class="aa-form-cita-group">
-                <label for="aa-reservation-staff">Personal disponible</label>
-                <select id="aa-reservation-staff" name="staff_id" disabled>
+            <!-- Campo: Personal disponible -->
+            <div>
+                <label for="aa-reservation-staff" class="block text-sm font-medium text-gray-700 mb-1">
+                    Personal disponible
+                </label>
+                <select id="aa-reservation-staff" name="staff_id" disabled
+                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed">
                     <option value="">Seleccione primero un servicio y una fecha</option>
                 </select>
             </div>
             
             <!-- Contenedor de slots con checkbox de confirmación -->
-            <div class="aa-form-cita-group">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <div id="slot-container-admin" style="flex: 1;"></div>
-                    <div>
-                        <label for="aa-reservation-auto-confirm" style="white-space: nowrap; display: flex; align-items: center; gap: 6px; cursor: pointer;">
-                            <input 
-                                type="checkbox" 
-                                id="aa-reservation-auto-confirm" 
-                                name="aa_reservation_auto_confirm" 
-                                value="confirmed"
-                            >
-                            <span>Confirmar</span>
-                        </label>
-                    </div>
+            <div>
+                <div class="flex items-center gap-3">
+                    <div id="slot-container-admin" class="flex-1"></div>
+                    <label for="aa-reservation-auto-confirm" class="flex items-center gap-2 cursor-pointer whitespace-nowrap text-sm text-gray-700">
+                        <input 
+                            type="checkbox" 
+                            id="aa-reservation-auto-confirm" 
+                            name="aa_reservation_auto_confirm" 
+                            value="confirmed"
+                            class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                        >
+                        <span>Confirmar</span>
+                    </label>
                 </div>
             </div>
             
-            <!-- Botones -->
-            <div class="aa-form-cita-actions">
-                <button type="submit" class="aa-btn-agendar-cita">
-                    ✓ Agendar Cita
-                </button>
-                <button type="button" class="aa-btn-cancelar-cita-form" id="btn-cancelar-cita-form">
-                    Cancelar
-                </button>
-            </div>
-            
         </form>
+    </div>
+</template>
+
+<!-- Template for Reservation Modal Footer -->
+<template id="aa-reservation-modal-footer-template">
+    <div class="flex justify-end gap-3">
+        <button type="button" 
+                id="btn-cancelar-cita-form"
+                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                data-aa-modal-close>
+            Cancelar
+        </button>
+        <button type="submit" 
+                form="form-crear-cita-admin"
+                class="aa-btn-agendar-cita px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors">
+            ✓ Agendar Cita
+        </button>
     </div>
 </template>

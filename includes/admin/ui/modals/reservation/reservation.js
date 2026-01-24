@@ -22,7 +22,8 @@
         config: {
             buttonId: 'aa-btn-open-reservation-modal',
             title: 'Agendar cita',
-            templateId: 'aa-reservation-modal-template'
+            templateId: 'aa-reservation-modal-template',
+            footerTemplateId: 'aa-reservation-modal-footer-template'
         },
 
         /**
@@ -95,6 +96,24 @@
             // Fallback if template not found
             console.error('[ReservationModal] Template not found: #' + this.config.templateId);
             return '<div class="p-4 text-red-600">Error: Template de reservación no encontrado.</div>';
+        },
+
+        /**
+         * Get the modal footer content from template
+         * @returns {string} HTML content for modal footer
+         */
+        getFooterContent: function() {
+            const template = document.getElementById(this.config.footerTemplateId);
+            if (template && template.content) {
+                const clone = template.content.cloneNode(true);
+                const container = document.createElement('div');
+                container.appendChild(clone);
+                return container.innerHTML;
+            }
+
+            // Fallback if template not found
+            console.error('[ReservationModal] Footer template not found: #' + this.config.footerTemplateId);
+            return '';
         },
 
         /**
@@ -475,16 +494,10 @@
             
             console.log('[AA][Reservation] 🎨 Renderizando ' + slotsHHMM.length + ' slots en selector legacy');
             
-            // Crear select con el mismo formato legacy
+            // Crear select con estilos Tailwind (homogéneo con modal de asignaciones)
             const select = document.createElement('select');
             select.id = 'slot-selector-admin';
-            select.className = 'slot-selector-admin';
-            select.style.width = '100%';
-            select.style.padding = '8px';
-            select.style.marginTop = '10px';
-            select.style.fontSize = '14px';
-            select.style.border = '1px solid #ddd';
-            select.style.borderRadius = '4px';
+            select.className = 'w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white';
             
             // Agregar opciones
             slotsHHMM.forEach(function(timeStr, index) {
@@ -583,7 +596,8 @@
 
             AAAdmin.openModal({
                 title: this.config.title,
-                body: this.getBodyContent()
+                body: this.getBodyContent(),
+                footer: this.getFooterContent()
             });
 
             // Inicializar controladores después de abrir
