@@ -354,7 +354,7 @@
         // In that case, use start + number of slots
         let endRow;
         if (endSlotData) {
-            endRow = endSlotData.rowIndex + 1; // +1 because end is inclusive
+            endRow = endSlotData.rowIndex; // end is exclusive boundary
         } else {
             // Calculate based on duration
             const slots = (normalized.end - normalized.start) / 30;
@@ -405,6 +405,7 @@
 
         // Insert overlay into grid (without label - label goes to host for clickability)
         grid.appendChild(overlay);
+        console.log('✅ Overlay insertado en grid con gridRow:', overlay.style.gridRow);
 
         // ===== CREATE INTERACTIVE HOST FOR APPOINTMENT CARDS =====
         const host = document.createElement('div');
@@ -422,6 +423,13 @@
         // Position using CSS Grid (same as overlay)
         host.style.gridColumn = '2';
         host.style.gridRow = startRow + ' / ' + endRow;
+        console.log('✅ Host creado con gridRow:', host.style.gridRow, 'y atributos data:', {
+            'data-assignment-id': host.getAttribute('data-assignment-id'),
+            'data-start-row': host.getAttribute('data-start-row'),
+            'data-end-row': host.getAttribute('data-end-row'),
+            'data-start-min': host.getAttribute('data-start-min'),
+            'data-end-min': host.getAttribute('data-end-min')
+        });
 
         // Horizontal positioning (same as overlay)
         host.style.position = 'relative';
