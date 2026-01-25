@@ -150,12 +150,24 @@ function aa_rest_confirmar_reserva(WP_REST_Request $request) {
     error_log("✅ Reserva ID $id actualizada: estado=confirmed" . (!empty($calendar_uid) ? ", calendar_uid=$calendar_uid" : ""));
     
     // =========================================================================
-    // 🛡️ LÓGICA DE CANCELACIÓN EN CASCADA (también para correos)
+    // 🛡️ LÓGICA DE CANCELACIÓN EN CASCADA (con overlap + assignment)
     // =========================================================================
-    $conflictos = ReservationsModel::get_pending_conflicts($reserva->fecha, $id);
+    // Calcular rango de tiempo de la reserva confirmada
+    $start = $reserva->fecha;
+    $duracion_minutos = isset($reserva->duracion) && !empty($reserva->duracion) 
+        ? intval($reserva->duracion) 
+        : 60; // fallback 60 min
+    $end = date('Y-m-d H:i:s', strtotime($reserva->fecha) + ($duracion_minutos * 60));
+    $assignment_id = isset($reserva->assignment_id) ? $reserva->assignment_id : null;
+    
+    error_log("🔍 [REST API] Buscando conflictos por overlap:");
+    error_log("   Rango confirmado: $start → $end");
+    error_log("   Assignment ID: " . ($assignment_id === null ? 'NULL (FIXED)' : $assignment_id));
+
+    $conflictos = ReservationsModel::get_pending_conflicts_overlapping($start, $end, $assignment_id, $id);
 
     if (!empty($conflictos)) {
-        error_log("⚔️ [REST API] Se encontraron " . count($conflictos) . " citas pendientes en conflicto para la fecha: " . $reserva->fecha);
+        error_log("⚔️ [REST API] Se encontraron " . count($conflictos) . " citas pendientes en conflicto por overlap");
         
         foreach ($conflictos as $conflicto) {
             $cancelado = $wpdb->update(

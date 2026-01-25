@@ -125,6 +125,7 @@ class ReservationsModel {
     /**
      * Obtener citas pendientes que coinciden en fecha/hora (para cancelación automática)
      * 
+     * @deprecated Usar get_pending_conflicts_overlapping() para detección por solapamiento
      * @param string $fecha DateTime string (Y-m-d H:i:s)
      * @param int $exclude_id ID de la cita que estamos confirmando (para no cancelarla a ella misma)
      * @return array
@@ -142,6 +143,61 @@ class ReservationsModel {
             AND fecha = %s 
             AND id != %d
         ", $fecha, $exclude_id));
+        
+        return $rows ?? [];
+    }
+
+    /**
+     * Obtener citas pendientes que se solapan en tiempo con un rango dado
+     * 
+     * Usa la regla de overlap: startA < endB AND endA > startB
+     * (misma lógica que DateUtils.hasEnoughFreeTime en JS)
+     * 
+     * Además filtra por assignment_id:
+     * - Si $assignment_id es NULL => solo cancela pending con assignment_id IS NULL
+     * - Si $assignment_id tiene valor => solo cancela pending con ese assignment_id
+     * 
+     * @param string $start Inicio de la reserva confirmada (Y-m-d H:i:s)
+     * @param string $end Fin de la reserva confirmada (Y-m-d H:i:s)
+     * @param int|null $assignment_id ID del assignment (o null para FIXED)
+     * @param int $exclude_id ID de la cita que estamos confirmando (para no cancelarla)
+     * @return array Rows con id, nombre, correo, fecha, duracion, assignment_id
+     */
+    public static function get_pending_conflicts_overlapping($start, $end, $assignment_id, $exclude_id) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_reservas';
+        
+        // Overlap: fecha_pending < end_confirm AND (fecha_pending + duracion) > start_confirm
+        // Equivalente a: startA < endB AND endA > startB
+        
+        if ($assignment_id === null) {
+            // FIXED: solo cancelar pending con assignment_id IS NULL
+            $rows = $wpdb->get_results($wpdb->prepare("
+                SELECT id, nombre, correo, fecha, duracion, assignment_id 
+                FROM $table 
+                WHERE estado = 'pending' 
+                AND id != %d
+                AND assignment_id IS NULL
+                AND fecha < %s
+                AND DATE_ADD(fecha, INTERVAL duracion MINUTE) > %s
+            ", $exclude_id, $end, $start));
+        } else {
+            // ASSIGNMENT: solo cancelar pending con el mismo assignment_id
+            $rows = $wpdb->get_results($wpdb->prepare("
+                SELECT id, nombre, correo, fecha, duracion, assignment_id 
+                FROM $table 
+                WHERE estado = 'pending' 
+                AND id != %d
+                AND assignment_id = %d
+                AND fecha < %s
+                AND DATE_ADD(fecha, INTERVAL duracion MINUTE) > %s
+            ", $exclude_id, $assignment_id, $end, $start));
+        }
+        
+        if ($wpdb->last_error) {
+            error_log("❌ [ReservationsModel] Error en get_pending_conflicts_overlapping: " . $wpdb->last_error);
+            return [];
+        }
         
         return $rows ?? [];
     }

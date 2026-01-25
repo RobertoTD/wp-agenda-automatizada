@@ -55,14 +55,26 @@ function confirm_backend_service_confirmar($reserva_id) {
     error_log("✅ [ConfirmService] Cita ID $reserva_id marcada como 'confirmed' en WordPress");
     
     // =========================================================================
-    // 🛡️ LÓGICA DE CANCELACIÓN EN CASCADA
+    // 🛡️ LÓGICA DE CANCELACIÓN EN CASCADA (con overlap + assignment)
     // =========================================================================
     require_once plugin_dir_path(__FILE__) . '../models/ReservationsModel.php';
 
-    $conflictos = ReservationsModel::get_pending_conflicts($reserva->fecha, $reserva_id);
+    // Calcular rango de tiempo de la reserva confirmada
+    $start = $reserva->fecha;
+    $duracion_minutos = isset($reserva->duracion) && !empty($reserva->duracion) 
+        ? intval($reserva->duracion) 
+        : 60; // fallback 60 min
+    $end = date('Y-m-d H:i:s', strtotime($reserva->fecha) + ($duracion_minutos * 60));
+    $assignment_id = isset($reserva->assignment_id) ? $reserva->assignment_id : null;
+    
+    error_log("🔍 [ConfirmService] Buscando conflictos por overlap:");
+    error_log("   Rango confirmado: $start → $end");
+    error_log("   Assignment ID: " . ($assignment_id === null ? 'NULL (FIXED)' : $assignment_id));
+
+    $conflictos = ReservationsModel::get_pending_conflicts_overlapping($start, $end, $assignment_id, $reserva_id);
 
     if (!empty($conflictos)) {
-        error_log("⚔️ [ConfirmService] Se encontraron " . count($conflictos) . " citas pendientes en conflicto para la fecha: " . $reserva->fecha);
+        error_log("⚔️ [ConfirmService] Se encontraron " . count($conflictos) . " citas pendientes en conflicto por overlap");
         
         foreach ($conflictos as $conflicto) {
             $cancelado = $wpdb->update(
