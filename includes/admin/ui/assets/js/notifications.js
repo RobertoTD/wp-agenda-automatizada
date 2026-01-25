@@ -190,6 +190,13 @@
         // Load initial badge count
         updateNotificationsBadge();
 
+        // 🔹 Listener global para refrescar badge de notificaciones
+        document.addEventListener('aa:notifications:refresh', function() {
+            if (typeof updateNotificationsBadge === 'function') {
+                updateNotificationsBadge();
+            }
+        });
+
         /**
          * Toggle popover visibility
          */

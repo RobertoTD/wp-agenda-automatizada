@@ -151,6 +151,11 @@
           console.warn('⚠️ AdminCalendarController.recargar no disponible');
         }
         
+        // 🔹 C. PASO 4.5: Refrescar badge de notificaciones
+        document.dispatchEvent(new CustomEvent('aa:notifications:refresh', {
+          detail: { source: 'reservation-created' }
+        }));
+        
         // 🔹 C. PASO 5: Disparar evento para cerrar modal (flujo optimista)
         document.dispatchEvent(new CustomEvent('aa:reservation:created', {
           detail: { id: datos.id_reserva, autoConfirm }

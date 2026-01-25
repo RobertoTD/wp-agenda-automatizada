@@ -10,6 +10,7 @@
     let currentTimeSlots = null;
     let eventListenersConfigured = false;
     let gridClickHandler = null;
+    let assignmentEventBound = false;
 
     // Función para esperar a que las dependencias estén disponibles
     function waitForDependencies(callback, maxAttempts = 50) {
@@ -266,6 +267,13 @@
         // Esto permite que confirmar/cancelar actualicen automáticamente el timeline
         if (window.AdminConfirmController?.init) {
             window.AdminConfirmController.init(recargarTimelineDelDiaActual);
+        }
+        
+        // Escuchar evento de asignación creada para refrescar timeline
+        // Solo registrar una vez para evitar listeners duplicados
+        if (!assignmentEventBound) {
+            document.addEventListener('aa-assignment-created', recargarTimelineDelDiaActual);
+            assignmentEventBound = true;
         }
     }
 

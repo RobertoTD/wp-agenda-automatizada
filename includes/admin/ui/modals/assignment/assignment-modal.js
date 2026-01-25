@@ -718,13 +718,14 @@
             saveBtn.textContent = 'Guardar asignación';
         }
         
-        // Reload assignments list if function exists
+        // Reload assignments list if function exists (para módulo de assignments)
         if (window.reloadAssignmentsList) {
             window.reloadAssignmentsList();
-        } else {
-            // Fallback: trigger custom event
-            document.dispatchEvent(new CustomEvent('aa-assignment-created'));
         }
+        
+        // Siempre disparar evento para que el calendario se refresque
+        // Esto asegura que el timeline se actualice incluso si reloadAssignmentsList existe
+        document.dispatchEvent(new CustomEvent('aa-assignment-created'));
     }
 
     /**
