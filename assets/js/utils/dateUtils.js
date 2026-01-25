@@ -259,6 +259,53 @@ function filterCurrentAndFutureDates(items, dateField = 'assignment_date') {
   });
 }
 
+// ✅ Parsea datetime tipo MySQL "YYYY-MM-DD HH:MM:SS" a Date
+// @param {Date|string} value - Date existente o string datetime
+// @returns {Date|null} - Date parseado o null si no se puede parsear
+function parseMysqlDateTime(value) {
+  if (!value) return null;
+  
+  // Si ya es Date, retornar Date
+  if (value instanceof Date) {
+    return isNaN(value.getTime()) ? null : value;
+  }
+  
+  // Si es string con espacio, reemplazar primer espacio por T y hacer new Date
+  if (typeof value === 'string') {
+    const isoStr = value.replace(' ', 'T');
+    const d = new Date(isoStr);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  
+  return null;
+}
+
+// ✅ Determina si una cita sigue activa (próxima) o ya terminó (pasada)
+// Una cita es "activa" mientras NO haya terminado (now < endTime)
+// @param {Object} cita - Objeto de cita con fecha, fecha_fin y/o duracion
+// @param {Date} now - Fecha/hora de referencia (default: new Date())
+// @returns {boolean} - true si la cita sigue activa, false si ya terminó
+function isAppointmentActive(cita, now = new Date()) {
+  if (!cita || !cita.fecha) return false;
+  
+  const start = parseMysqlDateTime(cita.fecha);
+  if (!start) return false;
+  
+  // Calcular endTime: usar fecha_fin si existe, si no calcular con duración
+  let end;
+  if (cita.fecha_fin) {
+    end = parseMysqlDateTime(cita.fecha_fin);
+    if (!end) return false;
+  } else {
+    // Fallback: fechaInicio + duración (o 60 min por defecto)
+    const dur = parseInt(cita.duracion, 10) || 60;
+    end = new Date(start.getTime() + dur * 60000);
+  }
+  
+  // PRÓXIMA/ACTIVA: mientras no haya terminado
+  return now < end;
+}
+
 // ✅ Exponer globalmente
 window.DateUtils = {
   ymd,
@@ -275,7 +322,9 @@ window.DateUtils = {
   generateSlotsFromStartTime,
   generateSlotsForDay,
   extractYmd,
-  filterCurrentAndFutureDates
+  filterCurrentAndFutureDates,
+  parseMysqlDateTime,
+  isAppointmentActive
 };
 
 console.log('✅ dateUtils.js cargado y exportado');

@@ -23,30 +23,19 @@ window.AdminCalendarService = (function() {
     }
     
     /**
-     * Determinar si una cita es próxima o pasada
-     * @param {Object} cita - Objeto de cita con fecha y fecha_fin
-     * @returns {boolean} - true si es próxima, false si es pasada
+     * Determinar si una cita es próxima/activa o pasada
+     * Delega a DateUtils.isAppointmentActive para mantener la lógica centralizada
+     * 
+     * @param {Object} cita - Objeto de cita con fecha, fecha_fin y/o duracion
+     * @returns {boolean} - true si es próxima/activa, false si ya terminó
      */
     function esCitaProxima(cita) {
-        if (!cita.fecha) return false;
-        
-        const ahora = new Date();
-        const fechaInicio = new Date(cita.fecha);
-        
-        // PRÓXIMA: fecha_inicio > ahora
-        if (fechaInicio > ahora) {
-            return true;
+        // Delegar a DateUtils si está disponible
+        if (window.DateUtils && typeof window.DateUtils.isAppointmentActive === 'function') {
+            return window.DateUtils.isAppointmentActive(cita);
         }
         
-        // PASADA: fecha_fin < ahora
-        if (cita.fecha_fin) {
-            const fechaFin = new Date(cita.fecha_fin);
-            if (fechaFin < ahora) {
-                return false;
-            }
-        }
-        
-        // Si no hay fecha_fin y fecha_inicio <= ahora, considerar pasada
+        // Fallback simple si DateUtils no está disponible
         return false;
     }
     
