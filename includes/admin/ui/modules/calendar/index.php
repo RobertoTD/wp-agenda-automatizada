@@ -98,7 +98,7 @@ $module_js_url = $plugin_url . 'calendar-module.js';
         <!-- =========================
              🔹 AGENDA TIMELINE
              ========================= -->
-        <section class="aa-day-timeline relative bg-white border border-gray-200 overflow-hidden">
+        <section class="aa-day-timeline relative bg-white border border-gray-200 overflow-visible">
 
             <!-- Indicador de hora actual -->
             <div

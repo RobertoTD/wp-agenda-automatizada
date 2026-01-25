@@ -257,17 +257,10 @@
             // CSS Grid for internal card layout
             host.style.display = 'grid';
             host.style.gridTemplateColumns = 'minmax(0, 1fr)'; // Allow column to shrink below content size
-
-            // Calculate rowHeight from the first .aa-time-content element
-            const firstContent = grid.querySelector('.aa-time-content');
-            let rowHeight = 40; // fallback
-            if (firstContent) {
-                const rect = firstContent.getBoundingClientRect();
-                if (rect.height > 0) {
-                    rowHeight = rect.height;
-                }
-            }
-            host.style.gridAutoRows = rowHeight + 'px';
+            
+            // Altura fija de filas (debe coincidir con calendar-timeline.js ROW_HEIGHT)
+            const ROW_HEIGHT_SCHEDULE = 40;
+            host.style.gridAutoRows = ROW_HEIGHT_SCHEDULE + 'px';
 
             // Insert host into grid (after overlay, so it's on top)
             grid.appendChild(host);
@@ -446,17 +439,10 @@
         // CSS Grid for internal card layout
         host.style.display = 'grid';
         host.style.gridTemplateColumns = 'minmax(0, 1fr)'; // Allow column to shrink below content size
-
-        // Calculate rowHeight from the first .aa-time-content element
-        const firstContent = grid.querySelector('.aa-time-content');
-        let rowHeight = 40; // fallback
-        if (firstContent) {
-            const rect = firstContent.getBoundingClientRect();
-            if (rect.height > 0) {
-                rowHeight = rect.height;
-            }
-        }
-        host.style.gridAutoRows = rowHeight + 'px';
+        
+        // Altura fija de filas (debe coincidir con calendar-timeline.js ROW_HEIGHT)
+        const ROW_HEIGHT = 40;
+        host.style.gridAutoRows = ROW_HEIGHT + 'px';
 
         // Insert host into grid (after overlay, so it's on top)
         grid.appendChild(host);

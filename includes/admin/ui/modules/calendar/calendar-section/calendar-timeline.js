@@ -5,6 +5,9 @@
 (function() {
     'use strict';
 
+    // Altura fija de cada fila del grid (debe coincidir en todos los archivos)
+    const ROW_HEIGHT = 40;
+
     /**
      * Renderizar timeline para una fecha específica
      * @param {string} fechaStr - Fecha en formato YYYY-MM-DD
@@ -37,7 +40,7 @@
         // Configurar CSS Grid
         grid.style.display = 'grid';
         grid.style.gridTemplateColumns = 'auto 1fr';
-        grid.style.gridAutoRows = 'auto';
+        grid.style.gridAutoRows = ROW_HEIGHT + 'px'; // Altura FIJA para evitar que cards estiren filas
         grid.style.borderRadius = '0'; // Quitar esquinas redondeadas
         grid.style.borderTop = '15px solid rgb(243, 244, 246)'; // Línea horizontal gruesa en la parte superior
         grid.style.paddingTop = '2px'; // Padding superior del grid
@@ -139,7 +142,9 @@
             content.className = 'aa-time-content';
             content.style.gridColumn = '2';
             content.style.gridRow = `${index + 1}`;
-            content.style.minHeight = '40px';
+            content.style.minHeight = ROW_HEIGHT + 'px';
+            content.style.maxHeight = ROW_HEIGHT + 'px'; // Forzar altura exacta
+            content.style.height = ROW_HEIGHT + 'px';
             content.style.borderBottom = '1px solid #e5e7eb'; // Línea horizontal gris muy clara
             // Sin estilos de fondo - área limpia para citas
             grid.appendChild(content);
@@ -150,6 +155,18 @@
                 labelElement: label
             });
         });
+
+        // Crear overlay global para cards expandidas (columna 2 completa)
+        // Las cards expandidas se mueven aquí para ocupar todo el ancho sin invadir horarios
+        const expandedOverlay = document.createElement('div');
+        expandedOverlay.id = 'aa-expanded-cards-overlay';
+        expandedOverlay.style.gridColumn = '2';
+        expandedOverlay.style.gridRow = '1 / ' + (timeSlots.length + 1);
+        expandedOverlay.style.position = 'relative';
+        expandedOverlay.style.zIndex = '200';
+        expandedOverlay.style.pointerEvents = 'none'; // No bloquea clicks en elementos debajo
+        expandedOverlay.style.overflow = 'visible'; // Permite que cards expandidas desborden
+        grid.appendChild(expandedOverlay);
 
         // Agregar indicador de hora actual (SOLO en label, solo si es hoy)
         if (isToday && minutosActuales !== null) {

@@ -5,9 +5,14 @@
 (function() {
     'use strict';
 
-    // Estado UI local para trackear cita expandida
-    let expandedCitaId = null;
-    let expandedGroupKey = null; // Identificador del grupo expandido (ej: "5-8")
+    // Altura fija de cada fila del grid (debe coincidir con calendar-timeline.js)
+    const ROW_HEIGHT = 40;
+    
+    // Mapa de hosts con cards expandidas (para manejar overflow)
+    const hostsConExpandidas = new Set();
+    
+    // Estado global: solo una card expandida a la vez (UX guardrail)
+    let currentlyExpandedCard = null;
     
     // Cache de datos de citas para re-renderizado
     let citasCache = null;
@@ -93,9 +98,8 @@
                 slotRowIndexCache = slotRowIndex;
                 timeSlotsCache = timeSlots;
                 
-                // Resetear estado expandido al cargar nuevas citas
-                expandedCitaId = null;
-                expandedGroupKey = null;
+                // Resetear estado de card expandida al cargar nuevas citas
+                currentlyExpandedCard = null;
                 
                 // Renderizar todas las citas
                 renderizarTodasLasCitas(citasConPosicion, overlaps, slotRowIndex, timeSlots);
@@ -113,6 +117,17 @@
         // Limpiar citas existentes del grid (solo las cards, no los elementos del timeline)
         const grid = document.getElementById('aa-time-grid');
         if (!grid) return;
+        
+        // Restaurar overflow de todos los hosts que tenían cards expandidas
+        hostsConExpandidas.forEach(host => {
+            if (host) {
+                host.style.overflow = host.dataset.overflowPrev || 'hidden';
+                host.style.zIndex = host.dataset.zIndexPrev || '5';
+                delete host.dataset.overflowPrev;
+                delete host.dataset.zIndexPrev;
+            }
+        });
+        hostsConExpandidas.clear();
         
         // Clear all cards from hosts first
         if (window.CalendarAssignments?.clearHosts) {
@@ -361,7 +376,8 @@
     
     /**
      * Renderizar un grupo de citas (pueden estar solapadas o no)
-     * Ahora renderiza cards DENTRO del host del overlay de asignación correspondiente.
+     * SIMPLIFICADO: Siempre renderiza todas las cards del grupo.
+     * El z-index se maneja individualmente en cada card al expandir/colapsar.
      * @param {Array} grupo - Array de citas del grupo
      * @param {Object} overlaps - Mapa de overlaps
      * @param {Map} slotRowIndex - Mapa de slots
@@ -371,29 +387,19 @@
     function renderizarGrupoCitas(grupo, overlaps, slotRowIndex, timeSlots, groupKey) {
         if (grupo.length === 0) return;
         
-        const grid = document.getElementById('aa-time-grid');
-        if (!grid) return;
-        
-        // Flag para determinar si este grupo está expandido
-        const isExpandedGroup = expandedCitaId !== null && expandedGroupKey === groupKey;
-        
-        if (isExpandedGroup) {
-            // Modo expandido: renderizar solo la cita expandida
-            const citaExpandida = grupo.find(c => c.id === expandedCitaId);
-            if (citaExpandida) {
-                renderizarCitaEnHost(citaExpandida, overlaps, true);
-            }
-        } else {
-            // Renderizar todas las citas del grupo dentro de sus hosts correspondientes
-            grupo.forEach((citaConPos, index) => {
-                const overlapInfo = overlaps[citaConPos.id];
-                renderizarCitaEnHost(citaConPos, overlaps, false, overlapInfo, index);
-            });
-        }
+        // Siempre renderizar todas las cards del grupo
+        // El z-index se maneja individualmente en cada card
+        grupo.forEach((citaConPos, index) => {
+            const overlapInfo = overlaps[citaConPos.id];
+            renderizarCitaEnHost(citaConPos, overlaps, false, overlapInfo, index);
+        });
     }
     
     /**
      * Renderizar una cita dentro de su host de overlay correspondiente
+     * REGLA: La card SIEMPRE vive dentro del host, nunca se mueve al grid.
+     * La expansión se logra cambiando overflow del host a 'visible'.
+     * 
      * @param {Object} citaConPos - Objeto con cita y posición
      * @param {Object} overlaps - Mapa de overlaps
      * @param {boolean} isExpanded - Si la cita está en modo expandido
@@ -408,58 +414,67 @@
         const host = window.CalendarAssignments?.getCardsHostForCita(citaConPos.cita, citaConPos);
         
         // Crear la card con interacción
-        const card = crearCardConInteraccion(citaConPos.cita, overlapInfo || null, isExpanded);
+        const card = crearCardConInteraccion(citaConPos.cita, overlapInfo || null, isExpanded, host);
         if (!card) return;
         
         // Store position data in card dataset for use when expanding/collapsing
         card.dataset.citaStartRow = citaConPos.startRow;
         card.dataset.citaBloquesOcupados = citaConPos.bloquesOcupados;
-        card.dataset.citaSlotInicio = citaConPos.slotInicio; // Store slotInicio in minutes for host matching
+        card.dataset.citaSlotInicio = citaConPos.slotInicio;
         
         if (host) {
-            // ===== RENDER INSIDE HOST =====
+            // ===== SIEMPRE RENDER INSIDE HOST =====
             const hostStartRow = parseInt(host.getAttribute('data-start-row'), 10);
             
             // Calculate relative position within the host's grid
             const relativeStart = citaConPos.startRow - hostStartRow + 1;
             
-            // Store original host and position data for restoration when collapsed
+            // Store host reference para poder regresar la card al colapsar
             card.dataset.originalHost = 'true';
             card.dataset.originalGridColumn = '1';
             card.dataset.originalGridRow = relativeStart + ' / span ' + citaConPos.bloquesOcupados;
             
-            // Handle overlaps: use z-index to stack cards (no horizontal split)
-            // If expanded, use higher z-index (30) to ensure it's above other cards
-            if (isExpanded) {
-                // When expanded, move card to grid directly to escape host restrictions
-                card.style.gridColumn = '2';
-                card.style.gridRow = citaConPos.startRow + ' / span ' + citaConPos.bloquesOcupados;
-                card.style.width = '100%';
-                card.style.marginLeft = '0%';
-                card.style.position = 'relative';
-                card.style.zIndex = '30';
-                
-                // Move card from host to grid
-                grid.appendChild(card);
-            } else {
-                // Position card using the host's internal grid
-                card.style.gridColumn = '1';
-                card.style.gridRow = relativeStart + ' / span ' + citaConPos.bloquesOcupados;
-                card.style.width = '100%';
-                card.style.position = 'relative';
-                
-                if (overlapInfo && overlapInfo.overlapCount > 1) {
-                    card.style.zIndex = String(20 + (overlapIndex || 0));
-                } else {
-                    card.style.zIndex = '20';
-                }
-                
-                // Append to host
-                host.appendChild(card);
+            // Guardar referencia al host por sus IDs (necesario cuando la card está en overlay)
+            card.dataset.hostAssignmentId = host.dataset.assignmentId || '';
+            card.dataset.hostStaffId = host.dataset.staffId || '';
+            card.dataset.hostAreaId = host.dataset.areaId || '';
+            
+            // Guardar atributos del host "schedule" (fixed) para poder encontrarlo al colapsar
+            const hostType = host.getAttribute('data-type');
+            if (hostType === 'schedule') {
+                card.dataset.hostType = 'schedule';
+                card.dataset.hostStartRow = host.getAttribute('data-start-row') || '';
+                card.dataset.hostEndRow = host.getAttribute('data-end-row') || '';
+                card.dataset.hostStartMin = host.getAttribute('data-start-min') || '';
+                card.dataset.hostEndMin = host.getAttribute('data-end-min') || '';
             }
             
-            // If expanded, show body
+            // Guardar posición absoluta para calcular top/height en overlay
+            card.dataset.citaStartRow = String(citaConPos.startRow);
+            card.dataset.citaBloquesOcupados = String(citaConPos.bloquesOcupados);
+            
+            // Position card using the host's internal grid
+            card.style.gridColumn = '1';
+            card.style.gridRow = relativeStart + ' / span ' + citaConPos.bloquesOcupados;
+            card.style.width = '100%';
+            card.style.position = 'relative';
+            card.style.overflow = 'hidden';
+            card.style.minHeight = '0'; // Evitar que min-content fuerce altura
+            
             if (isExpanded) {
+                // EXPANDIDA: host permite overflow, z-index elevado
+                if (!host.dataset.overflowPrev) {
+                    host.dataset.overflowPrev = host.style.overflow || 'hidden';
+                    host.dataset.zIndexPrev = host.style.zIndex || '5';
+                }
+                host.style.overflow = 'visible';
+                host.style.zIndex = '50';
+                hostsConExpandidas.add(host);
+                
+                card.style.zIndex = '60';
+                card.style.overflow = 'visible';
+                
+                // Mostrar body
                 const body = card.querySelector('.aa-appointment-body');
                 const header = card.querySelector('.aa-appointment-header');
                 if (body) {
@@ -470,15 +485,27 @@
                         body.style.flex = '1';
                     }
                 }
+            } else {
+                // COLAPSADA: z-index normal, overflow hidden
+                if (overlapInfo && overlapInfo.overlapCount > 1) {
+                    card.style.zIndex = String(20 + (overlapIndex || 0));
+                } else {
+                    card.style.zIndex = '20';
+                }
             }
+            
+            // SIEMPRE append al host
+            host.appendChild(card);
+            
         } else {
-            // ===== FALLBACK: RENDER DIRECTLY ON GRID =====
+            // ===== FALLBACK: RENDER DIRECTLY ON GRID (sin host) =====
             console.warn('[CalendarAppointments] No host found for cita:', citaConPos.cita.id, '- using fallback grid positioning');
             
             card.style.gridColumn = '2';
             card.style.gridRow = citaConPos.startRow + ' / span ' + citaConPos.bloquesOcupados;
             card.style.position = 'relative';
-            // If expanded, use higher z-index (30) to ensure it's above other cards
+            card.style.overflow = isExpanded ? 'visible' : 'hidden';
+            card.style.minHeight = '0';
             card.style.zIndex = isExpanded ? '30' : '20';
             
             // If expanded, show body
@@ -499,20 +526,214 @@
         }
     }
     
+    /**
+     * Restaurar overflow/z-index de un host cuando no tiene cards expandidas
+     */
+    function restaurarHostOverflow(host) {
+        if (!host) return;
+        
+        // Verificar si aún tiene cards expandidas
+        const cardsExpandidas = host.querySelectorAll('.aa-appointment-card[data-expanded="true"]');
+        if (cardsExpandidas.length === 0) {
+            host.style.overflow = host.dataset.overflowPrev || 'hidden';
+            host.style.zIndex = host.dataset.zIndexPrev || '5';
+            delete host.dataset.overflowPrev;
+            delete host.dataset.zIndexPrev;
+            hostsConExpandidas.delete(host);
+        }
+    }
+    
+    /**
+     * Colapsar una card específica (helper reutilizable)
+     * @param {HTMLElement} cardToCollapse - La card a colapsar
+     */
+    function colapsarCard(cardToCollapse) {
+        if (!cardToCollapse) return;
+        
+        const body = cardToCollapse.querySelector('.aa-appointment-body');
+        const header = cardToCollapse.querySelector('.aa-appointment-header');
+        if (!body || !header) return;
+        
+        // Ocultar body
+        body.setAttribute('hidden', '');
+        
+        // Restaurar estilos de colapsada
+        header.style.flex = '1';
+        header.style.flexShrink = '0';
+        body.style.flex = '0';
+        cardToCollapse.style.overflow = 'hidden';
+        cardToCollapse.dataset.expanded = 'false';
+        
+        // Restaurar z-index (usar el guardado en dataset o default)
+        const overlapIndex = cardToCollapse.dataset.overlapIndex;
+        if (overlapIndex !== undefined) {
+            cardToCollapse.style.zIndex = String(20 + parseInt(overlapIndex, 10));
+        } else {
+            cardToCollapse.style.zIndex = '20';
+        }
+        
+        // Restaurar overflow del host
+        const cardHost = cardToCollapse.closest('.aa-overlay-cards-host');
+        if (cardHost) {
+            restaurarHostOverflow(cardHost);
+        }
+        
+        // Si la card estaba en el overlay, devolverla al host
+        if (cardToCollapse.classList.contains('aa-expanded-in-overlay')) {
+            colapsarDeOverlay(cardToCollapse);
+        }
+    }
+    
+    /**
+     * Mover card al overlay global para que ocupe todo el ancho de columna 2
+     * @param {HTMLElement} card - La card a expandir en overlay
+     */
+    function expandirEnOverlay(card) {
+        const overlay = document.getElementById('aa-expanded-cards-overlay');
+        if (!overlay) {
+            console.warn('[CalendarAppointments] No se encontró #aa-expanded-cards-overlay');
+            return;
+        }
+        
+        // No mover si ya está en overlay
+        if (card.classList.contains('aa-expanded-in-overlay')) return;
+        
+        // Calcular posición usando dataset
+        const startRow = parseInt(card.dataset.citaStartRow, 10);
+        const spans = parseInt(card.dataset.citaBloquesOcupados, 10);
+        
+        if (isNaN(startRow) || isNaN(spans)) {
+            console.warn('[CalendarAppointments] Datos de posición inválidos para expandirEnOverlay');
+            return;
+        }
+        
+        const top = (startRow - 1) * ROW_HEIGHT;
+        const height = spans * ROW_HEIGHT;
+        
+        // Mover card al overlay
+        overlay.appendChild(card);
+        
+        // Aplicar estilos de overlay mode
+        card.style.position = 'absolute';
+        card.style.top = top + 'px';
+        card.style.left = '0px';
+        card.style.width = '100%'; // Ocupa toda la columna 2
+        card.style.height = height + 'px'; // Altura base (body puede desbordar)
+        card.style.pointerEvents = 'auto';
+        card.style.zIndex = '300';
+        card.style.gridColumn = ''; // Quitar propiedades grid
+        card.style.gridRow = '';
+        card.classList.add('aa-expanded-in-overlay');
+    }
+    
+    /**
+     * Devolver card del overlay al host original
+     * @param {HTMLElement} card - La card a devolver al host
+     */
+    function colapsarDeOverlay(card) {
+        if (!card.classList.contains('aa-expanded-in-overlay')) return;
+        
+        // Buscar host original por sus IDs (asignaciones normales)
+        const assignmentId = card.dataset.hostAssignmentId;
+        const staffId = card.dataset.hostStaffId;
+        const areaId = card.dataset.hostAreaId;
+        
+        let host = null;
+        
+        // Si tiene IDs, buscar por IDs (asignaciones normales)
+        if (assignmentId || staffId || areaId) {
+            let selector = '.aa-overlay-cards-host';
+            if (assignmentId) selector += `[data-assignment-id="${assignmentId}"]`;
+            if (staffId) selector += `[data-staff-id="${staffId}"]`;
+            if (areaId) selector += `[data-area-id="${areaId}"]`;
+            
+            host = document.querySelector(selector);
+        }
+        
+        // Si no se encontró por IDs, buscar por atributos "schedule" (fixed)
+        if (!host && card.dataset.hostType === 'schedule') {
+            const hostStartRow = card.dataset.hostStartRow;
+            const hostEndRow = card.dataset.hostEndRow;
+            const hostStartMin = card.dataset.hostStartMin;
+            const hostEndMin = card.dataset.hostEndMin;
+            
+            // Buscar host "schedule" por sus atributos de rango
+            const grid = document.getElementById('aa-time-grid');
+            if (grid) {
+                const scheduleHosts = grid.querySelectorAll('.aa-overlay-cards-host[data-type="schedule"]');
+                for (let i = 0; i < scheduleHosts.length; i++) {
+                    const candidate = scheduleHosts[i];
+                    const candidateStartRow = candidate.getAttribute('data-start-row');
+                    const candidateEndRow = candidate.getAttribute('data-end-row');
+                    const candidateStartMin = candidate.getAttribute('data-start-min');
+                    const candidateEndMin = candidate.getAttribute('data-end-min');
+                    
+                    // Coincidir por todos los atributos guardados
+                    if (candidateStartRow === hostStartRow &&
+                        candidateEndRow === hostEndRow &&
+                        candidateStartMin === hostStartMin &&
+                        candidateEndMin === hostEndMin) {
+                        host = candidate;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if (!host) {
+            console.warn('[CalendarAppointments] No se encontró host original para colapsar card', {
+                assignmentId,
+                staffId,
+                areaId,
+                hostType: card.dataset.hostType,
+                hostStartRow: card.dataset.hostStartRow
+            });
+            return;
+        }
+        
+        // Mover card de vuelta al host
+        host.appendChild(card);
+        
+        // Restaurar estilos de grid interno
+        card.style.position = 'relative';
+        card.style.top = '';
+        card.style.left = '';
+        card.style.height = '';
+        card.style.width = '100%';
+        card.style.pointerEvents = '';
+        card.style.gridColumn = card.dataset.originalGridColumn || '1';
+        card.style.gridRow = card.dataset.originalGridRow || '';
+        card.classList.remove('aa-expanded-in-overlay');
+    }
+    
     // renderizarCitaExpandida is now handled by renderizarCitaEnHost with isExpanded=true
     
     /**
      * Crear card con interacción de expandir/colapsar
+     * REGLA: La card SIEMPRE permanece dentro de su host.
+     * La expansión se logra modificando overflow del host, no moviendo la card.
+     * 
      * @param {Object} cita - Objeto de cita
      * @param {Object} overlapInfo - Información de solapamiento
      * @param {boolean} isExpanded - Si la cita está en modo expandido
+     * @param {HTMLElement} host - Host contenedor de la card (puede ser null)
      */
-    function crearCardConInteraccion(cita, overlapInfo, isExpanded) {
+    function crearCardConInteraccion(cita, overlapInfo, isExpanded, host) {
         if (!cita.fecha) return null;
         
         // Crear la card usando CalendarAppointmentCard
         const card = window.CalendarAppointmentCard?.crearCardCita(cita);
         if (!card) return null;
+        
+        // Guardar overlapIndex en dataset para poder restaurarlo al colapsar
+        if (overlapInfo && overlapInfo.overlapCount > 1) {
+            card.dataset.overlapIndex = String(overlapInfo.overlapIndex || 0);
+        }
+        
+        // Marcar si está expandida inicialmente
+        if (isExpanded) {
+            card.dataset.expanded = 'true';
+        }
         
         // Interceptar el click del header para manejar expandir/colapsar
         const header = card.querySelector('.aa-appointment-header');
@@ -523,74 +744,57 @@
             const nuevoHeader = header.cloneNode(true);
             header.parentNode.replaceChild(nuevoHeader, header);
             
-            // Función helper para actualizar estilos del header según el estado del body
-            function actualizarEstilosHeaderCard() {
+            // Función helper para actualizar estilos de la card (SIN mover entre contenedores)
+            function actualizarEstilosCard() {
                 const currentHeader = card.querySelector('.aa-appointment-header');
                 const currentBody = card.querySelector('.aa-appointment-body');
                 if (!currentHeader || !currentBody) return;
                 
-                const grid = document.getElementById('aa-time-grid');
                 const isHidden = currentBody.hasAttribute('hidden');
-                const wasInHost = card.dataset.originalHost === 'true';
+                const cardHost = card.closest('.aa-overlay-cards-host');
                 
                 if (isHidden) {
-                    // Body oculto: header ocupa todo el espacio vertical
+                    // === COLAPSADA ===
                     currentHeader.style.flex = '1';
                     currentHeader.style.flexShrink = '0';
                     currentBody.style.flex = '0';
-                    // Reset z-index when collapsed
+                    card.style.overflow = 'hidden';
+                    card.dataset.expanded = 'false';
+                    
+                    // Reset z-index
                     if (overlapInfo && overlapInfo.overlapCount > 1) {
                         card.style.zIndex = String(20 + (overlapInfo.overlapIndex || 0));
                     } else {
                         card.style.zIndex = '20';
                     }
                     
-                    // If card was originally in host, move it back to host
-                    if (wasInHost && grid) {
-                        // Build position object from saved dataset for host matching
-                        const savedPosicion = {
-                            slotInicio: parseInt(card.dataset.citaSlotInicio, 10),
-                            bloquesOcupados: parseInt(card.dataset.citaBloquesOcupados, 10)
-                        };
-                        const host = window.CalendarAssignments?.getCardsHostForCita(cita, savedPosicion);
-                        if (host && card.parentNode !== host) {
-                            // Restore original position within host
-                            card.style.gridColumn = card.dataset.originalGridColumn || '1';
-                            card.style.gridRow = card.dataset.originalGridRow || '1';
-                            card.style.width = '100%';
-                            card.style.marginLeft = '';
-                            // Move card back to host
-                            host.appendChild(card);
-                        }
+                    // Restaurar overflow del host si no tiene más cards expandidas
+                    if (cardHost) {
+                        restaurarHostOverflow(cardHost);
                     }
                 } else {
-                    // Body visible: header tamaño normal, body ocupa el resto
+                    // === EXPANDIDA ===
                     currentHeader.style.flex = '0 0 auto';
                     currentHeader.style.flexShrink = '0';
                     currentBody.style.flex = '1';
-                    // Increase z-index when expanded to ensure it's above other cards
-                    card.style.zIndex = '30';
+                    card.style.overflow = 'visible';
+                    card.style.zIndex = '60';
+                    card.dataset.expanded = 'true';
                     
-                    // If card was originally in host, move it to grid to escape host restrictions
-                    if (wasInHost && grid && card.parentNode !== grid) {
-                        // Get position data from card dataset
-                        const startRow = parseInt(card.dataset.citaStartRow, 10);
-                        const bloquesOcupados = parseInt(card.dataset.citaBloquesOcupados, 10);
-                        
-                        if (!isNaN(startRow) && !isNaN(bloquesOcupados)) {
-                            // Position directly on grid with full width
-                            card.style.gridColumn = '2';
-                            card.style.gridRow = startRow + ' / span ' + bloquesOcupados;
-                            card.style.width = '100%';
-                            card.style.marginLeft = '0%';
-                            // Move card from host to grid
-                            grid.appendChild(card);
+                    // Elevar overflow del host para permitir que la card desborde
+                    if (cardHost) {
+                        if (!cardHost.dataset.overflowPrev) {
+                            cardHost.dataset.overflowPrev = cardHost.style.overflow || 'hidden';
+                            cardHost.dataset.zIndexPrev = cardHost.style.zIndex || '5';
                         }
+                        cardHost.style.overflow = 'visible';
+                        cardHost.style.zIndex = '50';
+                        hostsConExpandidas.add(cardHost);
                     }
                 }
             }
             
-            // Agregar nuestro handler personalizado
+            // Agregar nuestro handler personalizado - SIMPLIFICADO: solo toggle, sin re-renderizado
             nuevoHeader.addEventListener('click', function(e) {
                 e.stopPropagation();
                 e.preventDefault();
@@ -601,72 +805,39 @@
                 const isHidden = currentBody.hasAttribute('hidden');
                 
                 if (isHidden) {
-                    // Abrir acordeón
-                    if (overlapInfo && overlapInfo.overlapCount > 1) {
-                        // Si hay solapamiento, expandir esta cita (ocultar solo las del mismo grupo)
-                        if (expandedCitaId !== cita.id) {
-                            expandedCitaId = cita.id;
-                            // Calcular el groupKey de esta cita encontrando su grupo
-                            if (citasCache && overlapsCache) {
-                                const citaData = citasCache.find(ct => ct.id === cita.id);
-                                if (citaData) {
-                                    let minStartRow = citaData.startRow;
-                                    let maxEndRow = citaData.startRow + citaData.bloquesOcupados;
-                                    
-                                    // Encontrar todas las citas que se solapan con esta
-                                    citasCache.forEach(c => {
-                                        if (c.id === cita.id) return;
-                                        
-                                        const o = overlapsCache[c.id];
-                                        if (o && o.overlapCount > 1) {
-                                            const cStartRow = c.startRow;
-                                            const cEndRow = c.startRow + c.bloquesOcupados;
-                                            
-                                            // Si se solapan verticalmente
-                                            if (citaData.startRow < cEndRow && cStartRow < (citaData.startRow + citaData.bloquesOcupados)) {
-                                                minStartRow = Math.min(minStartRow, cStartRow);
-                                                maxEndRow = Math.max(maxEndRow, cEndRow);
-                                            }
-                                        }
-                                    });
-                                    
-                                    expandedGroupKey = `${minStartRow}-${maxEndRow}`;
-                                }
-                            }
-                            
-                            // Re-renderizar todas las citas
-                            if (citasCache && overlapsCache && slotRowIndexCache && timeSlotsCache) {
-                                renderizarTodasLasCitas(citasCache, overlapsCache, slotRowIndexCache, timeSlotsCache);
-                            }
-                        } else {
-                            // Ya está expandida, solo mostrar el body
-                            currentBody.removeAttribute('hidden');
-                            actualizarEstilosHeaderCard();
-                        }
-                    } else {
-                        // Sin solapamiento, solo toggle normal
-                        currentBody.removeAttribute('hidden');
-                        actualizarEstilosHeaderCard();
+                    // === ABRIR ACORDEÓN ===
+                    // UX Guardrail: Si hay otra card expandida, colapsarla primero
+                    if (currentlyExpandedCard && currentlyExpandedCard !== card) {
+                        colapsarCard(currentlyExpandedCard);
+                        currentlyExpandedCard = null;
                     }
-                } else {
-                    // Cerrar acordeón
-                    currentBody.setAttribute('hidden', '');
-                    actualizarEstilosHeaderCard();
                     
-                    // Si esta cita estaba expandida, colapsar y re-renderizar
-                    if (expandedCitaId === cita.id) {
-                        expandedCitaId = null;
-                        expandedGroupKey = null;
-                        // Re-renderizar todas las citas
-                        if (citasCache && overlapsCache && slotRowIndexCache && timeSlotsCache) {
-                            renderizarTodasLasCitas(citasCache, overlapsCache, slotRowIndexCache, timeSlotsCache);
-                        }
+                    // Expandir la card actual
+                    currentBody.removeAttribute('hidden');
+                    actualizarEstilosCard();
+                    
+                    // Mover card al overlay para ocupar todo el ancho de columna 2
+                    expandirEnOverlay(card);
+                    
+                    currentlyExpandedCard = card;
+                } else {
+                    // === CERRAR ACORDEÓN ===
+                    // Devolver card al host original primero
+                    colapsarDeOverlay(card);
+                    
+                    // Ocultar el body y restaurar estilos
+                    currentBody.setAttribute('hidden', '');
+                    actualizarEstilosCard();
+                    
+                    // Resetear estado global si esta era la card expandida
+                    if (currentlyExpandedCard === card) {
+                        currentlyExpandedCard = null;
                     }
                 }
             });
             
             // Inicializar estilos según el estado inicial
-            actualizarEstilosHeaderCard();
+            actualizarEstilosCard();
         }
         
         return card;

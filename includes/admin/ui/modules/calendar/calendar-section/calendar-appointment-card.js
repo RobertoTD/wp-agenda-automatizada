@@ -13,14 +13,15 @@
         card.className = 'aa-appointment-card';
         card.setAttribute('data-id', cita.id || '');
         
-        // Estilos base sin altura fija
+        // Estilos base - altura controlada por el grid, NO por min-content
         card.style.border = '1px solid #e5e7eb';
         card.style.borderRadius = '4px';
-        card.style.overflow = 'hidden'; // Prevent content from overflowing
+        card.style.overflow = 'hidden'; // Prevent content from overflowing (se cambia a visible al expandir)
         card.style.cursor = 'pointer';
         card.style.display = 'flex';
         card.style.flexDirection = 'column';
-        card.style.minHeight = '40px';
+        card.style.minHeight = '0'; // NO forzar altura - el grid la controla
+        card.style.height = '100%'; // Ocupar todo el espacio del grid item
         card.style.minWidth = '0'; // Allow card to shrink below content size in flex/grid
         card.style.maxWidth = '100%'; // Never exceed container width
         card.style.boxSizing = 'border-box';
@@ -28,16 +29,17 @@
         // Header (siempre visible)
         const header = document.createElement('div');
         header.className = 'aa-appointment-header';
-        header.style.padding = '8px 6px'; // Reduced horizontal padding for narrow columns
+        header.style.padding = '4px 6px'; // Padding reducido para caber en 40px
         header.style.backgroundColor = getEstadoColor(cita.estado);
         header.style.color = '#fff';
         header.style.fontWeight = '500';
-        header.style.fontSize = '14px';
+        header.style.fontSize = '13px'; // Fuente ligeramente más pequeña
+        header.style.lineHeight = '1.2'; // Line-height compacto
         // Inicialmente, cuando el body está oculto, el header ocupa todo el espacio
         header.style.flex = '1';
         header.style.display = 'flex';
         header.style.alignItems = 'center';
-        header.style.minHeight = '40px';
+        header.style.minHeight = '0'; // NO forzar altura - el grid la controla
         header.style.minWidth = '0'; // Allow header to shrink below content size
         header.style.overflow = 'hidden'; // Hide overflowing text
         header.style.textOverflow = 'ellipsis'; // Show ellipsis for truncated text
