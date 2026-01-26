@@ -30,8 +30,13 @@
         const header = document.createElement('div');
         header.className = 'aa-appointment-header';
         header.style.padding = '4px 6px'; // Padding reducido para caber en 40px
-        header.style.backgroundColor = getEstadoColor(cita.estado);
-        header.style.color = '#fff';
+        // Background gris claro fijo
+        header.style.backgroundColor = 'rgb(249, 250, 251)';
+        // Borde de 3px con color dinámico según estado
+        const estadoColor = getEstadoColor(cita.estado);
+        header.style.border = '3px solid ' + estadoColor;
+        // Color del texto igual al color dinámico del estado
+        header.style.color = estadoColor;
         header.style.fontWeight = '500';
         header.style.fontSize = '13px'; // Fuente ligeramente más pequeña
         header.style.lineHeight = '1.2'; // Line-height compacto
