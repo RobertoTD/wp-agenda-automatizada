@@ -145,7 +145,7 @@
             content.style.minHeight = ROW_HEIGHT + 'px';
             content.style.maxHeight = ROW_HEIGHT + 'px'; // Forzar altura exacta
             content.style.height = ROW_HEIGHT + 'px';
-            content.style.borderBottom = '1px solid #e5e7eb'; // Línea horizontal gris muy clara
+            content.style.borderBottom = '1px solid rgb(247, 247, 247)'; // Línea horizontal gris muy tenue
             // Sin estilos de fondo - área limpia para citas
             grid.appendChild(content);
             
