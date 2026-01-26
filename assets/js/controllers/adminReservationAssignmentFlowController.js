@@ -363,6 +363,12 @@
             log('[AdminReservationAssignmentFlowController] Staff seleccionado:', selectedStaffId);
             log('[AdminReservationAssignmentFlowController] Asignaciones completas:', staffAssignments);
 
+            // Guardar staffAssignments en contexto global para que reservation.js pueda recalcular assignment_id por slot
+            window.AA_RESERVATION_CTX = window.AA_RESERVATION_CTX || {};
+            window.AA_RESERVATION_CTX.staffAssignments = staffAssignments || [];
+            window.AA_RESERVATION_CTX.selectedDate = selectedDate; // YYYY-MM-DD
+            log('[AdminReservationAssignmentFlowController] Contexto global actualizado:', window.AA_RESERVATION_CTX);
+
             // Guardar assignment_id (por ahora usamos el primer assignment si hay múltiples)
             let assignmentId = null;
             if (staffAssignments && staffAssignments.length > 0) {

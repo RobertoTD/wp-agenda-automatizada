@@ -467,11 +467,60 @@
 
 
         /**
+         * Resolver el assignment_id correcto para un slot dado.
+         * Busca en staffAssignments (contexto global) cuál asignación contiene el slot.
+         * @param {Date} chosenDateObj - Fecha/hora del slot seleccionado
+         * @returns {number|null} - ID del assignment que contiene el slot, o null si no se encuentra
+         */
+        resolveAssignmentIdForSlot: function(chosenDateObj) {
+            const ctx = window.AA_RESERVATION_CTX || {};
+            const list = ctx.staffAssignments || [];
+            
+            if (!list.length || typeof window.DateUtils === 'undefined') {
+                return null;
+            }
+
+            // Obtener minutos del slot desde medianoche
+            const slotMin = window.DateUtils.minutesFromDate(chosenDateObj);
+            
+            // Obtener duración de la cita del input
+            const duracionInput = document.getElementById('cita-duracion');
+            const dur = parseInt(duracionInput?.value, 10) || 60;
+
+            // Buscar el assignment que contiene el slot (slot + duración debe caber)
+            for (let i = 0; i < list.length; i++) {
+                const a = list[i];
+                const startMin = window.DateUtils.timeStrToMinutes(a.start_time);
+                const endMin = window.DateUtils.timeStrToMinutes(a.end_time);
+                
+                // El slot debe iniciar >= start y (slot + duración) <= end
+                if (slotMin >= startMin && (slotMin + dur) <= endMin) {
+                    console.log('[Reservation] ✅ resolved assignment_id for slot:', {
+                        slotTime: window.DateUtils.hm(chosenDateObj),
+                        slotMin: slotMin,
+                        duration: dur,
+                        assignmentId: a.id,
+                        assignmentRange: a.start_time + ' - ' + a.end_time
+                    });
+                    return a.id;
+                }
+            }
+
+            console.warn('[Reservation] ⚠️ No se encontró assignment para el slot:', {
+                slotTime: window.DateUtils.hm(chosenDateObj),
+                slotMin: slotMin,
+                duration: dur,
+                staffAssignments: list.map(function(a) { return { id: a.id, range: a.start_time + '-' + a.end_time }; })
+            });
+            return null;
+        },
+
+        /**
          * Render assignment-based slots in the legacy slot selector container
          * Replaces legacy slot UI with assignment-based slots while maintaining compatibility
          * @param {Array<string>} slotsHHMM - Array of time strings in "HH:MM" format
          * @param {string} dateStr - Date string in YYYY-MM-DD format
-         * @param {number|string} assignmentId - Assignment ID for data attribute
+         * @param {number|string} assignmentId - Assignment ID for data attribute (legacy, puede ser sobreescrito)
          */
         renderAssignmentSlots: function(slotsHHMM, dateStr, assignmentId) {
             const container = document.getElementById('slot-container-admin');
@@ -522,7 +571,7 @@
                 select.appendChild(option);
             });
             
-            // Evento de cambio (compatibilidad legacy)
+            // Evento de cambio - recalcular assignment_id basado en el slot seleccionado
             var self = this;
             select.addEventListener('change', function() {
                 const chosenSlot = new Date(select.value);
@@ -539,18 +588,29 @@
                     fechaInput.value = formattedDate + ' ' + formattedTime;
                 }
                 
+                // Recalcular assignment_id basado en el slot seleccionado
+                const resolvedId = self.resolveAssignmentIdForSlot(chosenSlot);
+                if (resolvedId !== null) {
+                    self.updateAssignmentIdInput(resolvedId);
+                    selectedOption.dataset.assignmentId = resolvedId; // Actualizar para debug
+                } else {
+                    // No borrar input para no romper flujo, solo warn
+                    console.warn('[Reservation] ⚠️ No se pudo resolver assignment_id para slot, manteniendo valor anterior');
+                }
+                
                 // Log para debug
                 console.log('[AA][Reservation] 🕒 Slot seleccionado:', {
                     time: window.DateUtils ? window.DateUtils.hm(chosenSlot) : chosenSlot.toTimeString(),
                     iso: chosenSlot.toISOString(),
-                    assignmentId: selectedOption.dataset.assignmentId || null
+                    resolvedAssignmentId: resolvedId,
+                    datasetAssignmentId: selectedOption.dataset.assignmentId || null
                 });
             });
             
             // Agregar al contenedor
             container.appendChild(select);
             
-            // Seleccionar primer slot por defecto y actualizar fechaInput
+            // Seleccionar primer slot por defecto y actualizar fechaInput + assignment_id
             if (slotsHHMM.length > 0 && fechaInput && typeof window.DateUtils !== 'undefined') {
                 const firstSlot = new Date(select.value);
                 const formattedDate = firstSlot.toLocaleDateString('es-MX', {
@@ -560,6 +620,17 @@
                 });
                 const formattedTime = window.DateUtils.hm(firstSlot);
                 fechaInput.value = formattedDate + ' ' + formattedTime;
+                
+                // Resolver assignment_id correcto para el primer slot (puede diferir del firstAssignment)
+                const initialResolvedId = this.resolveAssignmentIdForSlot(firstSlot);
+                if (initialResolvedId !== null) {
+                    this.updateAssignmentIdInput(initialResolvedId);
+                    // Actualizar dataset de la primera opción
+                    if (select.options.length > 0) {
+                        select.options[0].dataset.assignmentId = initialResolvedId;
+                    }
+                    console.log('[Reservation] 🎯 assignment_id inicial resuelto:', initialResolvedId);
+                }
             }
             
             console.log('[AA][Reservation] ✅ Select de slots renderizado con ' + slotsHHMM.length + ' opciones');

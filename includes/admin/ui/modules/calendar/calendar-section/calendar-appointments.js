@@ -434,20 +434,8 @@
             card.dataset.originalGridColumn = '1';
             card.dataset.originalGridRow = relativeStart + ' / span ' + citaConPos.bloquesOcupados;
             
-            // Guardar referencia al host por sus IDs (necesario cuando la card está en overlay)
-            card.dataset.hostAssignmentId = host.dataset.assignmentId || '';
-            card.dataset.hostStaffId = host.dataset.staffId || '';
-            card.dataset.hostAreaId = host.dataset.areaId || '';
-            
-            // Guardar atributos del host "schedule" (fixed) para poder encontrarlo al colapsar
-            const hostType = host.getAttribute('data-type');
-            if (hostType === 'schedule') {
-                card.dataset.hostType = 'schedule';
-                card.dataset.hostStartRow = host.getAttribute('data-start-row') || '';
-                card.dataset.hostEndRow = host.getAttribute('data-end-row') || '';
-                card.dataset.hostStartMin = host.getAttribute('data-start-min') || '';
-                card.dataset.hostEndMin = host.getAttribute('data-end-min') || '';
-            }
+            // Guardar referencia directa al host (simplifica colapsarDeOverlay)
+            card.__aaHostRef = host;
             
             // Guardar posición absoluta para calcular top/height en overlay
             card.dataset.citaStartRow = String(citaConPos.startRow);
@@ -633,61 +621,11 @@
     function colapsarDeOverlay(card) {
         if (!card.classList.contains('aa-expanded-in-overlay')) return;
         
-        // Buscar host original por sus IDs (asignaciones normales)
-        const assignmentId = card.dataset.hostAssignmentId;
-        const staffId = card.dataset.hostStaffId;
-        const areaId = card.dataset.hostAreaId;
-        
-        let host = null;
-        
-        // Si tiene IDs, buscar por IDs (asignaciones normales)
-        if (assignmentId || staffId || areaId) {
-            let selector = '.aa-overlay-cards-host';
-            if (assignmentId) selector += `[data-assignment-id="${assignmentId}"]`;
-            if (staffId) selector += `[data-staff-id="${staffId}"]`;
-            if (areaId) selector += `[data-area-id="${areaId}"]`;
-            
-            host = document.querySelector(selector);
-        }
-        
-        // Si no se encontró por IDs, buscar por atributos "schedule" (fixed)
-        if (!host && card.dataset.hostType === 'schedule') {
-            const hostStartRow = card.dataset.hostStartRow;
-            const hostEndRow = card.dataset.hostEndRow;
-            const hostStartMin = card.dataset.hostStartMin;
-            const hostEndMin = card.dataset.hostEndMin;
-            
-            // Buscar host "schedule" por sus atributos de rango
-            const grid = document.getElementById('aa-time-grid');
-            if (grid) {
-                const scheduleHosts = grid.querySelectorAll('.aa-overlay-cards-host[data-type="schedule"]');
-                for (let i = 0; i < scheduleHosts.length; i++) {
-                    const candidate = scheduleHosts[i];
-                    const candidateStartRow = candidate.getAttribute('data-start-row');
-                    const candidateEndRow = candidate.getAttribute('data-end-row');
-                    const candidateStartMin = candidate.getAttribute('data-start-min');
-                    const candidateEndMin = candidate.getAttribute('data-end-min');
-                    
-                    // Coincidir por todos los atributos guardados
-                    if (candidateStartRow === hostStartRow &&
-                        candidateEndRow === hostEndRow &&
-                        candidateStartMin === hostStartMin &&
-                        candidateEndMin === hostEndMin) {
-                        host = candidate;
-                        break;
-                    }
-                }
-            }
-        }
+        // Usar referencia directa al host (guardada en renderizarCitaEnHost)
+        const host = card.__aaHostRef;
         
         if (!host) {
-            console.warn('[CalendarAppointments] No se encontró host original para colapsar card', {
-                assignmentId,
-                staffId,
-                areaId,
-                hostType: card.dataset.hostType,
-                hostStartRow: card.dataset.hostStartRow
-            });
+            console.warn('[CalendarAppointments] No se encontró referencia al host original para colapsar card');
             return;
         }
         
