@@ -77,6 +77,8 @@ function aa_get_appointments() {
     $reservas_table = $wpdb->prefix . 'aa_reservas';
     $notifications_table = $wpdb->prefix . 'aa_notifications';
     $clientes_table = $wpdb->prefix . 'aa_clientes';
+    $table_assignment_services = $wpdb->prefix . 'aa_assignment_services';
+    $table_services = $wpdb->prefix . 'aa_services';
     
     // Get current datetime in business timezone
     $timezone = get_option('aa_timezone', 'America/Mexico_City');
@@ -165,10 +167,11 @@ function aa_get_appointments() {
     
     // Get appointments with unread notification status
     // Use subquery to check if there's an unread notification for each appointment
+    // Include JOIN with assignment_services and services to get service name
     $select_sql = "
         SELECT DISTINCT
             r.id,
-            r.servicio,
+            COALESCE(MIN(s.name), r.servicio) as servicio,
             r.fecha,
             r.duracion,
             r.nombre,
@@ -177,6 +180,7 @@ function aa_get_appointments() {
             r.estado,
             r.created_at,
             r.id_cliente,
+            r.assignment_id,
             c.nombre as cliente_nombre,
             CASE 
                 WHEN EXISTS (
@@ -190,8 +194,12 @@ function aa_get_appointments() {
             END as unread
         FROM {$reservas_table} r
         LEFT JOIN {$clientes_table} c ON r.id_cliente = c.id
+        LEFT JOIN {$table_assignment_services} as_rel ON r.assignment_id = as_rel.assignment_id
+        LEFT JOIN {$table_services} s ON as_rel.service_id = s.id
         {$join_clause}
         {$where_sql}
+        GROUP BY r.id, r.servicio, r.fecha, r.duracion, r.nombre, r.telefono, r.correo, 
+                 r.estado, r.created_at, r.id_cliente, r.assignment_id, c.nombre
         ORDER BY r.created_at DESC
         LIMIT %d OFFSET %d
     ";

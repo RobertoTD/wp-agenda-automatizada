@@ -311,9 +311,10 @@
                 }
             }
 
-            // 3.1️⃣ Filtrar busy ranges por selectedAssignmentId si está definido
-            // Esto evita que reservas de otras asignaciones cancelen slots de la asignación activa
-            if (selectedAssignmentId !== null && rawBusyRanges.length > 0) {
+            // 3.1️⃣ Filtrar busy ranges por selectedAssignmentId SOLO si hay exactamente 1 assignment
+            // Si hay múltiples assignments del mismo staff, queremos considerar busy ranges de TODAS
+            // ya que los slots base se generan combinando intervalos de múltiples assignments
+            if (selectedAssignmentId !== null && rawBusyRanges.length > 0 && assignments.length === 1) {
                 const selectedId = parseInt(selectedAssignmentId, 10);
                 const beforeFilter = rawBusyRanges.length;
                 
@@ -322,11 +323,17 @@
                     return parseInt(range.assignment_id, 10) === selectedId;
                 });
                 
-                console.log('[AAAssignmentsAvailability] 🔍 Filtrado busy ranges por assignment_id:', {
+                console.log('[AAAssignmentsAvailability] 🔍 Filtrado busy ranges por assignment_id (single assignment):', {
                     selectedAssignmentId: selectedId,
                     antes: beforeFilter,
                     despues: rawBusyRanges.length,
                     filtrados: beforeFilter - rawBusyRanges.length
+                });
+            } else if (assignments.length > 1) {
+                console.log('[AAAssignmentsAvailability] 📊 Múltiples assignments detectados, usando busy ranges de TODAS:', {
+                    assignmentsCount: assignments.length,
+                    busyRangesCount: rawBusyRanges.length,
+                    assignmentIds: assignments.map(a => a.id)
                 });
             }
 

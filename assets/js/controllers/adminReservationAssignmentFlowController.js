@@ -416,12 +416,14 @@
                 typeof window.AAAssignmentsAvailability.getFinalSlotsForStaffAndDate === 'function') {
                 
                 try {
-                    // Pasar assignmentId como 4to param para filtrar busy ranges solo de esta asignación
+                    // Pasar null como 4to param para considerar busy ranges de TODAS las asignaciones del staff
+                    // Los slots base ya se generan con intervalos de múltiples assignments,
+                    // por lo que debemos descontar busy ranges de todas ellas
                     const result = await window.AAAssignmentsAvailability.getFinalSlotsForStaffAndDate(
                         staffAssignments,
                         selectedDate,
                         appointmentDuration,
-                        assignmentId  // Solo considerar reservas de esta asignación específica
+                        null  // Considerar busy ranges de todas las asignaciones del staff
                     );
                     
                     const finalSlots = result.finalSlots || [];
