@@ -15,7 +15,7 @@
         
         // Estilos base - altura controlada por el grid, NO por min-content
         card.style.border = '1px solid #e5e7eb';
-        card.style.borderRadius = '4px';
+        card.style.borderRadius = '10px';
         card.style.overflow = 'hidden'; // Prevent content from overflowing (se cambia a visible al expandir)
         card.style.cursor = 'pointer';
         card.style.display = 'flex';
@@ -45,6 +45,12 @@
         header.style.textOverflow = 'ellipsis'; // Show ellipsis for truncated text
         header.style.whiteSpace = 'nowrap'; // Prevent text wrapping
         header.style.boxSizing = 'border-box';
+        // Border radius: esquinas superiores siempre a 10px, inferiores solo cuando body está oculto
+        header.style.borderTopLeftRadius = '10px';
+        header.style.borderTopRightRadius = '10px';
+        // Inicialmente el body está oculto, así que el header tiene todas las esquinas redondeadas
+        header.style.borderBottomLeftRadius = '10px';
+        header.style.borderBottomRightRadius = '10px';
         
         const clienteNombre = cita.nombre || 'Sin nombre';
         const servicio = cita.servicio || 'Sin servicio';
@@ -58,6 +64,9 @@
         body.style.backgroundColor = '#f9fafb';
         body.style.fontSize = '13px';
         body.style.flexShrink = '0';
+        // Border radius: esquinas inferiores
+        body.style.borderBottomLeftRadius = '10px';
+        body.style.borderBottomRightRadius = '10px';
         
         // Información de la cita
         const info = document.createElement('div');
@@ -78,7 +87,8 @@
         }
         
         const estado = document.createElement('div');
-        estado.textContent = `Estado: ${cita.estado || 'pending'}`;
+        const estadoTraducido = traducirEstado(cita.estado || 'pending');
+        estado.textContent = `Estado: ${estadoTraducido}`;
         estado.style.marginBottom = '8px';
         estado.style.fontWeight = '500';
         info.appendChild(estado);
@@ -89,14 +99,6 @@
             duracion.textContent = `Duración: ${cita.duracion} minutos`;
             duracion.style.marginBottom = '4px';
             info.appendChild(duracion);
-        }
-        
-        // Mostrar assignment_id
-        if (cita.assignment_id) {
-            const asignacion = document.createElement('div');
-            asignacion.textContent = `Asignación: ${cita.assignment_id}`;
-            asignacion.style.marginBottom = '4px';
-            info.appendChild(asignacion);
         }
         
         body.appendChild(info);
@@ -124,15 +126,19 @@
         function actualizarEstilosHeader() {
             const isHidden = body.hasAttribute('hidden');
             if (isHidden) {
-                // Body oculto: header ocupa todo el espacio vertical
+                // Body oculto: header ocupa todo el espacio vertical y tiene todas las esquinas redondeadas
                 header.style.flex = '1';
                 header.style.flexShrink = '0';
                 body.style.flex = '0';
+                header.style.borderBottomLeftRadius = '10px';
+                header.style.borderBottomRightRadius = '10px';
             } else {
                 // Body visible: header tamaño normal, body ocupa el resto
                 header.style.flex = '0 0 auto';
                 header.style.flexShrink = '0';
                 body.style.flex = '1';
+                header.style.borderBottomLeftRadius = '0';
+                header.style.borderBottomRightRadius = '0';
             }
         }
         
@@ -292,6 +298,33 @@
         }
         
         return leyenda;
+    }
+
+    /**
+     * Traducir estado de la cita al español
+     * @param {string} estado - Estado de la cita
+     * @returns {string} Estado traducido
+     */
+    function traducirEstado(estado) {
+        const traducciones = {
+            'confirmed': 'Confirmada',
+            'pending': 'Pendiente',
+            'cancelled': 'Cancelada',
+            'asistió': 'Asistió',
+            'no asistió': 'No asistió'
+        };
+        
+        // Si existe traducción, usarla; si no, capitalizar primera letra
+        if (traducciones[estado]) {
+            return traducciones[estado];
+        }
+        
+        // Para estados que no tienen traducción específica, capitalizar primera letra
+        if (estado && estado.length > 0) {
+            return estado.charAt(0).toUpperCase() + estado.slice(1);
+        }
+        
+        return estado || 'Pendiente';
     }
 
     /**

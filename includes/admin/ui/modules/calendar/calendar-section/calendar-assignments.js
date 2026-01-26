@@ -211,8 +211,6 @@
 
             // Visual styling - azul desaturado
             overlay.style.backgroundColor = bgColor;
-            overlay.style.borderLeft = '3px solid ' + borderColor;
-            overlay.style.borderTop = '3px solid ' + borderColor;
             overlay.style.borderTopLeftRadius = '10px';
             overlay.style.borderTopRightRadius = '10px';
             overlay.style.borderBottomLeftRadius = '2px';
@@ -383,8 +381,6 @@
 
         // Visual styling
         overlay.style.backgroundColor = bgColor;
-        overlay.style.borderLeft = '3px solid ' + borderColor;
-        overlay.style.borderTop = '3px solid ' + borderColor;
         overlay.style.borderTopLeftRadius = '10px';
         overlay.style.borderTopRightRadius = '10px';
         overlay.style.borderBottomLeftRadius = '2px';
@@ -488,7 +484,7 @@
             staffLabel.style.textOverflow = 'ellipsis';
             staffLabel.style.whiteSpace = 'nowrap';
             staffLabel.style.lineHeight = '1.2';
-            staffLabel.style.zIndex = '25'; // High z-index within host
+            staffLabel.style.zIndex = '45'; // Above collapsed cards (20-39), below controls (60)
             staffLabel.style.cursor = 'pointer';
             staffLabel.style.pointerEvents = 'auto';
             
@@ -572,7 +568,7 @@
             scheduleBorder.style.left = scheduleLeftPercent + '%';
             scheduleBorder.style.width = scheduleWidthPercent + '%';
             scheduleBorder.style.height = '15px';
-            scheduleBorder.style.backgroundColor = scheduleBorderColor;
+            scheduleBorder.style.backgroundColor = 'transparent';
             scheduleBorder.style.borderRadius = '0';
             scheduleBorder.style.boxSizing = 'border-box';
             scheduleBorder.style.display = 'flex';
@@ -583,7 +579,7 @@
             // Add label text
             const scheduleLabelSpan = document.createElement('span');
             scheduleLabelSpan.textContent = scheduleBorderLabelText;
-            scheduleLabelSpan.style.color = '#ffffff';
+            scheduleLabelSpan.style.color = scheduleBorderColor;
             scheduleLabelSpan.style.fontSize = '11px';
             scheduleLabelSpan.style.fontWeight = '600';
             scheduleLabelSpan.style.whiteSpace = 'nowrap';
@@ -643,7 +639,7 @@
             areaBorder.style.left = areaLeftPercent + '%';
             areaBorder.style.width = areaWidthPercent + '%';
             areaBorder.style.height = '15px';
-            areaBorder.style.backgroundColor = borderColor;
+            areaBorder.style.backgroundColor = 'transparent';
             areaBorder.style.borderRadius = '0'; // No rounded corners
             areaBorder.style.boxSizing = 'border-box';
             areaBorder.style.display = 'flex';
@@ -654,7 +650,7 @@
             // Add area name text
             const areaNameText = document.createElement('span');
             areaNameText.textContent = areaName;
-            areaNameText.style.color = '#ffffff';
+            areaNameText.style.color = borderColor;
             areaNameText.style.fontSize = '11px';
             areaNameText.style.fontWeight = '600';
             areaNameText.style.whiteSpace = 'nowrap';

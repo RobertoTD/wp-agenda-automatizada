@@ -307,14 +307,28 @@
      * Crear UN solo control de ciclado para un grupo de cards superpuestas
      */
     function crearControlUnico(host, grupo) {
-        // Ordenar por startRow
-        grupo.sort((a, b) => a.startRow - b.startRow);
+        // Ordenar por startRow primero, luego priorizar cards con estado "confirmed" al final (arriba visualmente)
+        grupo.sort((a, b) => {
+            // Primero por startRow
+            if (a.startRow !== b.startRow) {
+                return a.startRow - b.startRow;
+            }
+            // Si mismo startRow, priorizar "confirmed" (va al final = arriba visualmente)
+            const aConfirmed = a.card.dataset.citaEstado === 'confirmed' ? 1 : 0;
+            const bConfirmed = b.card.dataset.citaEstado === 'confirmed' ? 1 : 0;
+            return aConfirmed - bConfirmed; // confirmed cards go last (higher z-index)
+        });
         
-        let currentIndex = grupo.length - 1; // Última al frente
+        // Encontrar el índice de la card con estado confirmed (si existe) para ponerla al frente inicialmente
+        let currentIndex = grupo.length - 1; // Por defecto, última al frente
+        const confirmedIdx = grupo.findIndex(info => info.card.dataset.citaEstado === 'confirmed');
+        if (confirmedIdx !== -1) {
+            currentIndex = confirmedIdx;
+        }
         
-        // Asignar z-index inicial
+        // Asignar z-index inicial (cards confirmed tienen prioridad visual)
         grupo.forEach((info, idx) => {
-            info.card.style.zIndex = String(20 + idx);
+            info.card.style.zIndex = idx === currentIndex ? '39' : String(20 + idx);
             info.card.style.position = 'relative';
         });
         
@@ -328,7 +342,7 @@
             position: 'absolute',
             top: '4px',
             right: '4px',
-            zIndex: '50',
+            zIndex: '60',
             backgroundColor: 'rgba(0, 0, 0, 0.75)',
             color: '#fff',
             width: '24px',
@@ -361,9 +375,9 @@
             // Rotar al siguiente
             currentIndex = (currentIndex + 1) % grupo.length;
             
-            // Actualizar z-index
+            // Actualizar z-index: card activa va a 39, las demás a 20+idx
             grupo.forEach((info, idx) => {
-                info.card.style.zIndex = idx === currentIndex ? '29' : String(20 + idx);
+                info.card.style.zIndex = idx === currentIndex ? '39' : String(20 + idx);
             });
             
             // Mover control a la nueva card al frente
@@ -421,6 +435,7 @@
         card.dataset.citaStartRow = citaConPos.startRow;
         card.dataset.citaBloquesOcupados = citaConPos.bloquesOcupados;
         card.dataset.citaSlotInicio = citaConPos.slotInicio;
+        card.dataset.citaEstado = citaConPos.cita.estado || 'pending'; // Para priorizar confirmed en stack
         
         if (host) {
             // ===== SIEMPRE RENDER INSIDE HOST =====
@@ -456,10 +471,10 @@
                     host.dataset.zIndexPrev = host.style.zIndex || '5';
                 }
                 host.style.overflow = 'visible';
-                host.style.zIndex = '50';
+                host.style.zIndex = '70';
                 hostsConExpandidas.add(host);
                 
-                card.style.zIndex = '60';
+                card.style.zIndex = '80';
                 card.style.overflow = 'visible';
                 
                 // Mostrar body
@@ -471,6 +486,9 @@
                         header.style.flex = '0 0 auto';
                         header.style.flexShrink = '0';
                         body.style.flex = '1';
+                        // Quitar border-radius de esquinas inferiores cuando body está visible
+                        header.style.borderBottomLeftRadius = '0';
+                        header.style.borderBottomRightRadius = '0';
                     }
                 }
             } else {
@@ -506,6 +524,9 @@
                         header.style.flex = '0 0 auto';
                         header.style.flexShrink = '0';
                         body.style.flex = '1';
+                        // Quitar border-radius de esquinas inferiores cuando body está visible
+                        header.style.borderBottomLeftRadius = '0';
+                        header.style.borderBottomRightRadius = '0';
                     }
                 }
             }
@@ -549,6 +570,9 @@
         header.style.flex = '1';
         header.style.flexShrink = '0';
         body.style.flex = '0';
+        // Restaurar border-radius de esquinas inferiores cuando body está oculto
+        header.style.borderBottomLeftRadius = '10px';
+        header.style.borderBottomRightRadius = '10px';
         cardToCollapse.style.overflow = 'hidden';
         cardToCollapse.dataset.expanded = 'false';
         
@@ -570,6 +594,11 @@
         if (cardToCollapse.classList.contains('aa-expanded-in-overlay')) {
             colapsarDeOverlay(cardToCollapse);
         }
+        
+        // Recrear controles de stack después de colapsar para restaurar la UI
+        setTimeout(() => {
+            crearControlesCicladoStack();
+        }, 0);
     }
     
     /**
@@ -698,6 +727,9 @@
                     currentBody.style.flex = '0';
                     card.style.overflow = 'hidden';
                     card.dataset.expanded = 'false';
+                    // Restaurar border-radius de esquinas inferiores cuando body está oculto
+                    currentHeader.style.borderBottomLeftRadius = '10px';
+                    currentHeader.style.borderBottomRightRadius = '10px';
                     
                     // Reset z-index
                     if (overlapInfo && overlapInfo.overlapCount > 1) {
@@ -716,8 +748,11 @@
                     currentHeader.style.flexShrink = '0';
                     currentBody.style.flex = '1';
                     card.style.overflow = 'visible';
-                    card.style.zIndex = '60';
+                    card.style.zIndex = '80';
                     card.dataset.expanded = 'true';
+                    // Quitar border-radius de esquinas inferiores cuando body está visible
+                    currentHeader.style.borderBottomLeftRadius = '0';
+                    currentHeader.style.borderBottomRightRadius = '0';
                     
                     // Elevar overflow del host para permitir que la card desborde
                     if (cardHost) {
@@ -726,7 +761,7 @@
                             cardHost.dataset.zIndexPrev = cardHost.style.zIndex || '5';
                         }
                         cardHost.style.overflow = 'visible';
-                        cardHost.style.zIndex = '50';
+                        cardHost.style.zIndex = '70';
                         hostsConExpandidas.add(cardHost);
                     }
                 }
@@ -771,6 +806,11 @@
                     if (currentlyExpandedCard === card) {
                         currentlyExpandedCard = null;
                     }
+                    
+                    // Recrear controles de stack después de colapsar para restaurar la UI
+                    setTimeout(() => {
+                        crearControlesCicladoStack();
+                    }, 0);
                 }
             });
             
