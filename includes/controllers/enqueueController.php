@@ -116,9 +116,9 @@ function wpaa_enqueue_frontend_assets() {
     );
 
     // ✅ Inyectar datos para WhatsApp (ANTES del controller)
-    $business_whatsapp = get_option('aa_business_whatsapp', '');
+    $whatsapp_number = get_option('aa_whatsapp_number', '5215522992290');
     $whatsapp_data = [
-        'businessWhatsapp' => $business_whatsapp,
+        'businessWhatsapp' => $whatsapp_number,
         'defaultWhatsappMessage' => 'Hola, quiero agendar una cita.'
     ];
     wp_add_inline_script(
@@ -139,9 +139,8 @@ function wpaa_enqueue_frontend_assets() {
 
     $timezone = get_option('aa_timezone', 'America/Mexico_City');
     
-    // whatsapp_number: prioriza aa_business_whatsapp, fallback a aa_whatsapp_number legacy
-    $whatsapp_number = get_option('aa_business_whatsapp', '') 
-        ?: get_option('aa_whatsapp_number', '5215522992290');
+    // whatsapp_number: valor registrado en Settings (aa_whatsapp_number)
+    $whatsapp_number = get_option('aa_whatsapp_number', '5215522992290');
     
     wpaa_localize('wpaa-reservation-controller', 'wpaa_vars', [
         'ajax_url' => admin_url('admin-ajax.php'),
