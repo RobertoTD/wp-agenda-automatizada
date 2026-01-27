@@ -306,6 +306,26 @@ function isAppointmentActive(cita, now = new Date()) {
   return now < end;
 }
 
+// ✅ Determina si una fecha MySQL datetime es pasada (anterior a ahora)
+// @param {string} fechaStr - Fecha en formato MySQL datetime "YYYY-MM-DD HH:MM:SS"
+// @param {Date} now - Fecha/hora de referencia (default: new Date())
+// @returns {boolean} - true si la fecha es pasada, false si es futura o no se puede parsear
+function isPastMysqlDateTime(fechaStr, now = new Date()) {
+  const d = parseMysqlDateTime(fechaStr);
+  if (!d) return false;
+  return d < now;
+}
+
+// ✅ Determina si una fecha MySQL datetime es futura (posterior a ahora)
+// @param {string} fechaStr - Fecha en formato MySQL datetime "YYYY-MM-DD HH:MM:SS"
+// @param {Date} now - Fecha/hora de referencia (default: new Date())
+// @returns {boolean} - true si la fecha es futura, false si es pasada o no se puede parsear
+function isFutureMysqlDateTime(fechaStr, now = new Date()) {
+  const d = parseMysqlDateTime(fechaStr);
+  if (!d) return false;
+  return d > now;
+}
+
 // ✅ Formatea datetime MySQL "YYYY-MM-DD HH:MM:SS" a formato legible es-MX
 // Ejemplo: "2026-01-27 10:30:00" -> "lunes 27 de enero a las 10:30"
 // @param {string} fechaStr - Fecha en formato MySQL datetime
@@ -347,6 +367,8 @@ window.DateUtils = {
   filterCurrentAndFutureDates,
   parseMysqlDateTime,
   isAppointmentActive,
+  isPastMysqlDateTime,
+  isFutureMysqlDateTime,
   formatMySQLDateTimeEsMX
 };
 

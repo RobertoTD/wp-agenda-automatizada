@@ -77,6 +77,18 @@
       fecha = window.DateUtils.formatMySQLDateTimeEsMX(data.datetime);
     }
     
+    // Determinar si la cita es pasada usando DateUtils
+    let isPast = false;
+    if (data.datetime && typeof window.DateUtils?.isPastMysqlDateTime === 'function') {
+      isPast = window.DateUtils.isPastMysqlDateTime(data.datetime);
+    }
+    
+    // Aplicar regla: pending/confirmed pasados -> usar mensaje de "no asistió"
+    let statusEffective = data.status || 'pending';
+    if ((statusEffective === 'pending' || statusEffective === 'confirmed') && isPast) {
+      statusEffective = 'no asistió';
+    }
+    
     const mensajes = {
       'pending': `Hola${name}, te escribo de ${businessName}. ¿Te gustaría confirmar tu cita de ${service}${fecha ? ' para el ' + fecha : ''}?`,
       'confirmed': `Hola${name}, te escribo de ${businessName} para recordarte tu cita de ${service}${fecha ? ' el ' + fecha : ''}. ¡Te esperamos!`,
@@ -85,7 +97,7 @@
       'no asistió': `Hola${name}, te escribo de ${businessName}. Notamos que no pudiste asistir a tu cita de ${service}. ¿Te gustaría reagendar?`
     };
     
-    return mensajes[data.status] || mensajes['pending'];
+    return mensajes[statusEffective] || mensajes['pending'];
   }
 
   /**

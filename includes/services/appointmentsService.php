@@ -234,6 +234,7 @@ function aa_get_appointments() {
             'servicio' => $row->servicio,
             'fecha' => $fecha_formatted,
             'hora' => $hora_formatted,
+            'fecha_raw' => $row->fecha, // MySQL datetime format for WhatsApp messages
             'duracion' => (int) $row->duracion,
             'nombre' => $row->nombre,
             'cliente_nombre' => $row->cliente_nombre ?: $row->nombre,
