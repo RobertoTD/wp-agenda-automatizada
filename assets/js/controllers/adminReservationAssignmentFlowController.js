@@ -243,6 +243,11 @@
             log('[AdminReservationAssignmentFlowController][FIXED] Servicio:', state.selectedService);
             log('[AdminReservationAssignmentFlowController][FIXED] Fecha:', selectedDate);
 
+            // 🧹 Asegurar contexto limpio para fixed (defensivo: por si se llama sin pasar por handleServiceChange)
+            window.AA_RESERVATION_CTX = window.AA_RESERVATION_CTX || {};
+            window.AA_RESERVATION_CTX.staffAssignments = [];
+            updateAssignmentIdInput(null);
+
             try {
                 // Validar dependencias necesarias
                 if (typeof window.SlotCalculator === 'undefined') {
@@ -260,11 +265,6 @@
                 // 1️⃣ Obtener schedule y configuración
                 const schedule = window.aa_schedule || {};
                 const slotDuration = getSelectedDurationMinutes();
-
-                log('[AdminReservationAssignmentFlowController][FIXED] Configuración:', {
-                    schedule: schedule,
-                    slotDuration: slotDuration
-                });
 
                 // 2️⃣ Construir busyRanges (solo locales)
                 log('[AdminReservationAssignmentFlowController][FIXED] Obteniendo busy ranges...');
@@ -551,6 +551,16 @@
             // Detectar si es servicio fixed
             if (isFixedService(serviceKey)) {
                 log('[AdminReservationAssignmentFlowController] 🔧 Servicio fixed detectado');
+                
+                // 🧹 LIMPIAR contexto de assignments previo (evita arrastrar assignment_id de otro servicio)
+                window.AA_RESERVATION_CTX = window.AA_RESERVATION_CTX || {};
+                window.AA_RESERVATION_CTX.staffAssignments = [];
+                log('[AdminReservationAssignmentFlowController] 🧹 Limpiado AA_RESERVATION_CTX.staffAssignments para servicio fixed');
+                
+                // 🧹 LIMPIAR hidden input de assignment_id (servicios fixed no usan assignments)
+                updateAssignmentIdInput(null);
+                log('[AdminReservationAssignmentFlowController] 🧹 Limpiado assignment_id input para servicio fixed');
+                
                 // Ocultar selector de staff (no se usa para servicios fixed)
                 hideStaffSelector();
                 // Resetear staff select

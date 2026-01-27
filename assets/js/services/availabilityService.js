@@ -40,7 +40,6 @@
 
       console.log('📅 [AvailabilityService] Calculando días disponibles...');
       console.log(`   Rango: ${ymd(minDate)} al ${ymd(maxDate)}`);
-      console.log(`   Ventana futura: ${futureWindow} días`);
 
       const availableDays = {};
 
@@ -62,7 +61,6 @@
       }
 
       const scheduleDaysCount = Object.values(availableDays).filter(v => v === true).length;
-      console.log(`📅 [AvailabilityService] Días desde schedule: ${scheduleDaysCount}`);
 
       // Función helper para combinar días de assignments
       async function mergeAssignmentDays(availableDays, minDate, maxDate) {

@@ -342,7 +342,6 @@
         });
 
         grid.appendChild(overlay);
-        console.log('✅ Overlay insertado en grid con gridRow:', overlay.style.gridRow);
 
         // ===== HOST (Interactive container) =====
         const host = document.createElement('div');

@@ -21,8 +21,6 @@ console.log('🔄 Cargando calendarAdminUI.js...');
       disableDateFn
     } = config;
 
-    console.log('🔄 CalendarAdminUI.render() llamado con config:', config);
-    
     if (!fechaInput) {
       console.error('❌ calendarAdminUI: fechaInput no proporcionado');
       return null;
@@ -65,12 +63,9 @@ console.log('🔄 Cargando calendarAdminUI.js...');
         }));
       },
       onReady: function() {
-        console.log('✅ Flatpickr admin inicializado correctamente');
       }
     });
-    
-    console.log('✅ Calendario admin renderizado');
-    
+
     return picker;
   }
 

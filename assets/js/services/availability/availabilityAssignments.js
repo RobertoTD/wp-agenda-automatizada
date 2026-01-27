@@ -43,8 +43,6 @@
             formData.append(key, data[key]);
         });
 
-        console.log(`📤 [AAAssignmentsAvailability] Enviando request: ${action}`, data);
-
         try {
             const response = await fetch(getAjaxUrl(), {
                 method: 'POST',
@@ -52,8 +50,6 @@
             });
 
             const result = await response.json();
-            
-            console.log(`📥 [AAAssignmentsAvailability] Respuesta de ${action}:`, result);
 
             return result;
         } catch (error) {
@@ -90,8 +86,6 @@
      * @returns {Promise<Object>} Response with dates array
      */
     async function getAssignmentDatesByService(serviceKey, startDate = null, endDate = null) {
-        console.log(`🔍 [AAAssignmentsAvailability] getAssignmentDatesByService("${serviceKey}", "${startDate}", "${endDate}") llamado`);
-        
         // Detectar si serviceKey es numérico (service_id) o string (service_key legacy)
         const maybeId = parseInt(serviceKey, 10);
         const isNumeric = !isNaN(maybeId) && String(maybeId) === String(serviceKey);
@@ -101,7 +95,6 @@
         // Si es numérico, enviar service_id; si no, enviar service_key (legacy)
         if (isNumeric) {
             data.service_id = maybeId;
-            console.log(`📊 [AAAssignmentsAvailability] Detectado service_id numérico: ${maybeId}`);
         } else {
             data.service_key = serviceKey;
             console.log(`📊 [AAAssignmentsAvailability] Usando service_key legacy: "${serviceKey}"`);
@@ -115,11 +108,7 @@
         }
         
         const result = await ajaxRequest('aa_get_assignment_dates_by_service', data);
-        
-        if (result.success) {
-            console.log(`✅ [AAAssignmentsAvailability] ${result.data.dates?.length || 0} fechas encontradas para servicio "${serviceKey}"`);
-        }
-        
+
         return result;
     }
 
@@ -143,7 +132,6 @@
         // Si es numérico, enviar service_id; si no, enviar service_key (legacy)
         if (isNumeric) {
             data.service_id = maybeId;
-            console.log(`📊 [AAAssignmentsAvailability] Detectado service_id numérico: ${maybeId}`);
         } else {
             data.service_key = serviceKey;
             console.log(`📊 [AAAssignmentsAvailability] Usando service_key legacy: "${serviceKey}"`);
@@ -355,15 +343,19 @@
                 });
             }
 
-            // Obtener busy ranges locales
-            let busyLocal = [];
-            if (typeof window.BusyRanges !== 'undefined' && 
-                typeof window.BusyRanges.loadLocalBusyRanges === 'function') {
-                busyLocal = window.BusyRanges.loadLocalBusyRanges() || [];
-            }
-
-            // Combinar ambos arrays
-            const busyRanges = [...busyLocal, ...busyExternal];
+            // 🚫 NO incluir busy ranges locales (fixed) en flujo de assignments
+            // Los busy ranges locales representan reservas con assignment_id IS NULL (fixed/legacy)
+            // En el flujo de assignments solo importan los busy ranges de las asignaciones específicas
+            const busyLocal = [];
+            
+            // Solo usar busy ranges externos (por assignment IDs)
+            const busyRanges = busyExternal;
+            
+            console.log('[AAAssignmentsAvailability] 📊 Busy ranges (solo externos, sin fixed):', {
+                busyExternal: busyExternal.length,
+                busyLocal: 0,
+                nota: 'busyLocal excluido intencionalmente en flujo assignments'
+            });
 
             // 5️⃣ Filtrar slots
             let finalSlots = baseSlots;
@@ -413,14 +405,6 @@
         getSlotsForStaffAndDate: getSlotsForStaffAndDate,
         getFinalSlotsForStaffAndDate: getFinalSlotsForStaffAndDate
     };
-
-    console.log('✅ [AAAssignmentsAvailability] Módulo cargado y expuesto en window.AAAssignmentsAvailability');
-    console.log('📋 Métodos disponibles:');
-    console.log('   - AAAssignmentsAvailability.getAssignmentDates()');
-    console.log('   - AAAssignmentsAvailability.getAssignmentDatesByService(serviceKey, startDate?, endDate?)');
-    console.log('   - AAAssignmentsAvailability.getAssignmentsByServiceAndDate(serviceKey, date)');
-    console.log('   - AAAssignmentsAvailability.getSlotsForStaffAndDate(assignments, date, slotDuration?)');
-    console.log('   - AAAssignmentsAvailability.getFinalSlotsForStaffAndDate(assignments, date, slotDuration?, selectedAssignmentId?)');
 
 })();
 

@@ -622,8 +622,6 @@ window.AAAdmin = window.AAAdmin || {};
             
             // Event delegation for popover triggers
             document.addEventListener('click', function(event) {
-                console.log('[Popover] Click detected on:', event.target, 'closest trigger:', event.target.closest('[data-aa-popover="1"]'));
-                
                 const trigger = event.target.closest('[data-aa-popover="1"]');
 
                 if (trigger) {

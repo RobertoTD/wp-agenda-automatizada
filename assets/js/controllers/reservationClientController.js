@@ -176,7 +176,6 @@
                 clienteSelect.disabled = false;
 
                 if (result.success && result.data && result.data.clients) {
-                    console.log('[ReservationClientController] Clientes encontrados:', result.data.clients.length);
                     repopulateSelect(result.data.clients, preserveSelection, selectClientId, selectClientPhone);
                 } else {
                     console.warn('[ReservationClientController] Error en búsqueda de clientes:', result);

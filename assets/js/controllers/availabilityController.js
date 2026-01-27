@@ -21,10 +21,6 @@
   // 🔹 PASO 3: Renderizar UI con datos iniciales
   // ==============================
   function renderInitialUI(fechaInputSelector, slotContainerSelector, isAdmin, initialData) {
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('🎨 RENDERIZANDO UI INICIAL');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-
     const fechaInput = document.querySelector(fechaInputSelector);
     if (!fechaInput) {
       console.warn(`⚠️ No se encontró ${fechaInputSelector}`);

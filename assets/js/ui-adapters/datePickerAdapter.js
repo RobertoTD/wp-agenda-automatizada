@@ -56,8 +56,6 @@ window.DatePickerAdapter = (function() {
         if (initialDate) {
             setDate(initialDate);
         }
-        
-        console.log('✅ DatePickerAdapter inicializado');
     }
     
     /**

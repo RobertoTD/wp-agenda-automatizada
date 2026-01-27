@@ -201,6 +201,12 @@
         header.appendChild(titleText);
         
         // =============================================
+        // INDICADOR DE ESTADO (visible en card colapsada)
+        // =============================================
+        const statusIndicator = crearIndicadorEstadoCompacto(estado, config);
+        header.appendChild(statusIndicator);
+        
+        // =============================================
         // BODY - Panel expandido premium
         // =============================================
         const body = document.createElement('div');
@@ -266,16 +272,6 @@
             body.appendChild(contactSection);
         }
         
-        // Log de datos de la card renderizada
-        console.log('[CalendarAppointmentCard] Card renderizada:', {
-            id: cita.id,
-            nombre: cita.nombre,
-            servicio: cita.servicio,
-            duracion: cita.duracion,
-            assignment_id: cita.assignment_id,
-            estado: cita.estado
-        });
-        
         // Determinar si la cita es próxima o pasada usando el service
         const esProxima = window.AdminCalendarService?.esCitaProxima(cita) || false;
         
@@ -333,6 +329,57 @@
         card.appendChild(body);
         
         return card;
+    }
+
+    /**
+     * Crear indicador de estado compacto para header (card colapsada)
+     * Un dot pequeño + texto mini que es sutil pero legible
+     */
+    function crearIndicadorEstadoCompacto(estado, config) {
+        const indicator = document.createElement('span');
+        indicator.className = 'aa-status-indicator';
+        
+        Object.assign(indicator.style, {
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: `2px ${TOKENS.space2}`,
+            borderRadius: TOKENS.radiusSm,
+            fontSize: '10px',
+            fontWeight: '500',
+            lineHeight: '1',
+            backgroundColor: config.badgeBg,
+            color: config.badgeText,
+            flexShrink: '0',
+            opacity: '0.9',
+            whiteSpace: 'nowrap'
+        });
+        
+        // Dot de color
+        const dot = document.createElement('span');
+        Object.assign(dot.style, {
+            width: '6px',
+            height: '6px',
+            borderRadius: '50%',
+            backgroundColor: config.barColor,
+            flexShrink: '0'
+        });
+        
+        // Texto abreviado del estado
+        const statusText = document.createElement('span');
+        const abreviaciones = {
+            'pending': 'Pend.',
+            'confirmed': 'Conf.',
+            'cancelled': 'Canc.',
+            'asistió': 'Asist.',
+            'no asistió': 'No asist.'
+        };
+        statusText.textContent = abreviaciones[estado] || config.badgeLabel;
+        
+        indicator.appendChild(dot);
+        indicator.appendChild(statusText);
+        
+        return indicator;
     }
 
     /**

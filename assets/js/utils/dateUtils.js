@@ -21,7 +21,6 @@ const hm = (d) => {
 function getWeekdayName(date) {
   const days = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
   const dayIndex = date.getDay();
-  console.log(`🗓️ ${date.toDateString()} -> día ${dayIndex} (${days[dayIndex]})`);
   return days[dayIndex];
 }
 

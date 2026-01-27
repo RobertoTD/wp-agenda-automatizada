@@ -123,8 +123,6 @@
                 event.preventDefault();
                 AppointmentsModal.open();
             });
-            
-            console.log('[AppointmentsModal] ✅ Listener registrado para botón de búsqueda');
         }
     }
 

@@ -34,8 +34,7 @@ window.LocalAvailabilityService = (function() {
             if (result.success && result.data) {
                 // Actualizar window.aa_local_availability con datos frescos desde BD
                 window.aa_local_availability = result.data;
-                console.log('[LocalAvailabilityService] ✅ Disponibilidad local actualizada');
-                
+
                 // Si se proporciona selectedDate, disparar evento para recalcular slots
                 if (selectedDate && selectedDate instanceof Date && !isNaN(selectedDate.getTime())) {
                     document.dispatchEvent(new CustomEvent('aa:admin:date-selected', {

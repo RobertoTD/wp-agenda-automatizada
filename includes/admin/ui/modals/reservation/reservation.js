@@ -126,8 +126,6 @@
             const timeoutId = setTimeout(() => {
                 // 1️⃣ Inicializar AvailabilityController
                 if (typeof window.AvailabilityController !== 'undefined') {
-                    console.log('[ReservationModal] Inicializando AvailabilityController...');
-                    
                     window.AvailabilityController.init({
                         fechaInputSelector: '#cita-fecha',
                         slotContainerSelector: 'slot-container-admin',
@@ -262,7 +260,6 @@
                 }
                 
                 if (!hasDates) {
-                    console.log(`[AA][Reservation] ❌ Servicio sin fechas: ${serviceKey} - removiendo`);
                     servicesToRemove.push(option);
                 } else {
                     console.log(`[AA][Reservation] ✅ Servicio con fechas: ${serviceKey} - manteniendo`);
@@ -405,6 +402,21 @@
             }
         },
 
+        /**
+         * Limpiar assignment_id y contexto global de assignments
+         * Útil para servicios fixed que no usan assignments
+         * Expuesto como window.AAReservationModal.clearAssignmentId()
+         */
+        clearAssignmentId: function() {
+            // Limpiar hidden input
+            this.updateAssignmentIdInput(null);
+            
+            // Limpiar contexto global de assignments
+            window.AA_RESERVATION_CTX = window.AA_RESERVATION_CTX || {};
+            window.AA_RESERVATION_CTX.staffAssignments = [];
+            
+            console.log('[ReservationModal] 🧹 assignment_id y contexto de assignments limpiados');
+        },
 
         /**
          * Ocultar selector de staff (para servicios fixed)
@@ -594,8 +606,10 @@
                     self.updateAssignmentIdInput(resolvedId);
                     selectedOption.dataset.assignmentId = resolvedId; // Actualizar para debug
                 } else {
-                    // No borrar input para no romper flujo, solo warn
-                    console.warn('[Reservation] ⚠️ No se pudo resolver assignment_id para slot, manteniendo valor anterior');
+                    // 🧹 Limpiar assignment_id si no hay un assignment válido para el slot
+                    // (ej: servicio fixed donde staffAssignments está vacío por diseño)
+                    self.updateAssignmentIdInput(null);
+                    console.log('[Reservation] 🧹 assignment_id limpiado (no hay assignment para este slot)');
                 }
                 
                 // Log para debug
@@ -630,6 +644,10 @@
                         select.options[0].dataset.assignmentId = initialResolvedId;
                     }
                     console.log('[Reservation] 🎯 assignment_id inicial resuelto:', initialResolvedId);
+                } else {
+                    // 🧹 Servicio fixed o sin assignments: limpiar cualquier assignment_id previo
+                    this.updateAssignmentIdInput(null);
+                    console.log('[Reservation] 🧹 Sin assignment_id para primer slot (servicio fixed o sin assignments)');
                 }
             }
             
@@ -739,8 +757,6 @@
                 event.preventDefault();
                 self.open();
             });
-
-            console.log('[ReservationModal] ✅ Inicializado correctamente');
         }
     };
 

@@ -113,8 +113,6 @@
       return true;
     }
     window.WhatsAppController._adminInited = true;
-    
-    console.log('🔄 Inicializando WhatsAppController admin...');
 
     if (typeof window.WhatsAppService === 'undefined') {
       console.error('[WhatsAppController] WhatsAppService no está disponible');
@@ -152,7 +150,6 @@
       });
     });
 
-    console.log('✅ WhatsAppController admin inicializado (delegación activa)');
     return true;
   }
 
@@ -161,6 +158,4 @@
     initFrontend,
     initAdmin
   };
-
-  console.log('✅ WhatsAppController cargado');
 })();

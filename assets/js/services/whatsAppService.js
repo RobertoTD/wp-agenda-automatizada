@@ -107,6 +107,4 @@
     buildUrl,
     openChat
   };
-
-  console.log('✅ WhatsAppService cargado');
 })();
