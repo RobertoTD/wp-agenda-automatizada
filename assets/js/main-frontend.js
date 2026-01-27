@@ -68,5 +68,12 @@ document.addEventListener('DOMContentLoaded', function () {
     console.warn('⚠️ FrontendAssignmentsController no está cargado (opcional en Fase 2)');
   }
 
+  // ==============================
+  // 🔹 FASE 6: Inicializar botón flotante de WhatsApp
+  // ==============================
+  if (typeof window.WhatsAppController?.initFrontend === 'function') {
+    window.WhatsAppController.initFrontend();
+  }
+
   console.log('✅ Aplicación frontend inicializada correctamente');
 });

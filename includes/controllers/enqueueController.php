@@ -96,7 +96,11 @@ function wpaa_enqueue_frontend_assets() {
         ['wpaa-busy-ranges-assignments',  'assets/js/services/availability/busyRangesAssignments.js', [], false],
         ['wpaa-calendar-availability-service', 'assets/js/services/availability/calendarAvailabilityService.js', ['wpaa-date-utils', 'wpaa-availability-assignments'], false],
         ['wpaa-frontend-assignments-controller', 'assets/js/controllers/frontendAssignmentsController.js', ['wpaa-date-utils', 'wpaa-availability-assignments', 'wpaa-busy-ranges-assignments', 'wpaa-calendar-availability-service'], false],
-        ['wpaa-main-frontend',           'assets/js/main-frontend.js', ['wpaa-availability-controller', 'wpaa-reservation-controller', 'wpaa-availability-assignments', 'wpaa-busy-ranges-assignments', 'wpaa-frontend-assignments-controller'], false],
+        // WhatsApp integration
+        ['wpaa-whatsapp-service',        'assets/js/services/whatsAppService.js', [], false],
+        ['wpaa-whatsapp-ui',             'assets/js/ui/whatsAppUI.js', ['wpaa-whatsapp-service'], false],
+        ['wpaa-whatsapp-controller',     'assets/js/controllers/whatsAppController.js', ['wpaa-whatsapp-service', 'wpaa-whatsapp-ui'], false],
+        ['wpaa-main-frontend',           'assets/js/main-frontend.js', ['wpaa-availability-controller', 'wpaa-reservation-controller', 'wpaa-availability-assignments', 'wpaa-busy-ranges-assignments', 'wpaa-frontend-assignments-controller', 'wpaa-whatsapp-controller'], false],
     ];
 
     foreach ($frontend_scripts as [$h, $p, $d, $m]) {
@@ -108,6 +112,18 @@ function wpaa_enqueue_frontend_assets() {
     wp_add_inline_script(
         'wpaa-frontend-assignments-controller',
         'window.ajaxurl = "' . esc_url(admin_url('admin-ajax.php')) . '";',
+        'before'
+    );
+
+    // ✅ Inyectar datos para WhatsApp (ANTES del controller)
+    $business_whatsapp = get_option('aa_business_whatsapp', '');
+    $whatsapp_data = [
+        'businessWhatsapp' => $business_whatsapp,
+        'defaultWhatsappMessage' => 'Hola, quiero agendar una cita.'
+    ];
+    wp_add_inline_script(
+        'wpaa-whatsapp-controller',
+        'window.AA_FRONTEND_DATA = ' . wp_json_encode($whatsapp_data) . ';',
         'before'
     );
 
@@ -123,10 +139,14 @@ function wpaa_enqueue_frontend_assets() {
 
     $timezone = get_option('aa_timezone', 'America/Mexico_City');
     
+    // whatsapp_number: prioriza aa_business_whatsapp, fallback a aa_whatsapp_number legacy
+    $whatsapp_number = get_option('aa_business_whatsapp', '') 
+        ?: get_option('aa_whatsapp_number', '5215522992290');
+    
     wpaa_localize('wpaa-reservation-controller', 'wpaa_vars', [
         'ajax_url' => admin_url('admin-ajax.php'),
         'nonce' => wp_create_nonce('aa_reservation_nonce'),
-        'whatsapp_number' => get_option('aa_whatsapp_number', '5215522992290'),
+        'whatsapp_number' => $whatsapp_number,
         'timezone' => $timezone,
         'locale' => wpaa_locale_from_timezone($timezone)
     ]);
