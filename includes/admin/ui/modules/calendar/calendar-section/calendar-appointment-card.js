@@ -79,8 +79,28 @@
         
         if (cita.telefono) {
             const telefono = document.createElement('div');
-            telefono.textContent = `📞 ${cita.telefono}`;
             telefono.style.marginBottom = '4px';
+            
+            // Crear link clickeable para WhatsApp (sin listener - usa delegación)
+            const phoneLink = document.createElement('span');
+            phoneLink.className = 'aa-whatsapp-link';
+            phoneLink.textContent = `📞 ${cita.telefono}`;
+            
+            // Data attributes para delegación
+            phoneLink.dataset.phone = cita.telefono;
+            phoneLink.dataset.status = cita.estado || 'pending';
+            phoneLink.dataset.service = cita.servicio || '';
+            phoneLink.dataset.datetime = cita.fecha || '';
+            phoneLink.dataset.name = cita.nombre || '';
+            
+            // Estilos inline para link clickeable
+            phoneLink.style.cursor = 'pointer';
+            phoneLink.style.color = '#25D366';
+            phoneLink.style.textDecoration = 'underline';
+            phoneLink.style.fontWeight = '500';
+            phoneLink.title = 'Enviar WhatsApp';
+            
+            telefono.appendChild(phoneLink);
             info.appendChild(telefono);
         }
         

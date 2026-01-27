@@ -58,14 +58,50 @@
   }
 
   /**
-   * Inicializa WhatsApp para el iframe de admin (uso futuro).
+   * Construye mensaje de WhatsApp según el estado de la cita
+   * @param {Object} data - Datos de la cita
+   * @param {string} data.status - Estado de la cita
+   * @param {string} data.name - Nombre del cliente
+   * @param {string} data.service - Nombre del servicio
+   * @param {string} data.datetime - Fecha/hora en formato MySQL
+   * @param {string} businessName - Nombre del negocio
+   * @returns {string} Mensaje formateado
+   */
+  function buildMessageForStatus(data, businessName) {
+    const name = data.name ? ` ${data.name}` : '';
+    const service = data.service || 'tu cita';
+    
+    // Usar DateUtils para formatear fecha
+    let fecha = '';
+    if (data.datetime && typeof window.DateUtils?.formatMySQLDateTimeEsMX === 'function') {
+      fecha = window.DateUtils.formatMySQLDateTimeEsMX(data.datetime);
+    }
+    
+    const mensajes = {
+      'pending': `Hola${name}, te escribo de ${businessName}. ¿Te gustaría confirmar tu cita de ${service}${fecha ? ' para el ' + fecha : ''}?`,
+      'confirmed': `Hola${name}, te escribo de ${businessName} para recordarte tu cita de ${service}${fecha ? ' el ' + fecha : ''}. ¡Te esperamos!`,
+      'cancelled': `Hola${name}, te escribo de ${businessName}. Vimos que tu cita de ${service} fue cancelada. ¿Te gustaría reagendar?`,
+      'asistió': `Hola${name}, te escribo de ${businessName}. ¡Gracias por asistir a tu cita de ${service}! Esperamos verte pronto.`,
+      'no asistió': `Hola${name}, te escribo de ${businessName}. Notamos que no pudiste asistir a tu cita de ${service}. ¿Te gustaría reagendar?`
+    };
+    
+    return mensajes[data.status] || mensajes['pending'];
+  }
+
+  /**
+   * Inicializa WhatsApp para el iframe de admin con delegación de eventos.
+   * Un solo listener en document para todos los links .aa-whatsapp-link
    * 
-   * @param {Object} options - Opciones de configuración
-   * @param {string} options.phone - Número de teléfono
-   * @param {string} [options.message=''] - Mensaje precargado
    * @returns {boolean} true si se inicializó correctamente
    */
-  function initAdmin(options = {}) {
+  function initAdmin() {
+    // Guard: evitar doble inicialización
+    if (window.WhatsAppController._adminInited) {
+      console.log('[WhatsAppController] Admin ya inicializado, saltando...');
+      return true;
+    }
+    window.WhatsAppController._adminInited = true;
+    
     console.log('🔄 Inicializando WhatsAppController admin...');
 
     if (typeof window.WhatsAppService === 'undefined') {
@@ -73,9 +109,38 @@
       return false;
     }
 
-    // Para admin, el servicio queda disponible para uso directo
-    // La UI se manejará de forma diferente (no botón flotante)
-    console.log('✅ WhatsAppController admin inicializado (servicio disponible)');
+    // Delegación de eventos: un solo listener para todos los links de WhatsApp
+    document.addEventListener('click', function(e) {
+      const el = e.target.closest('.aa-whatsapp-link');
+      if (!el) return;
+      
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Leer datos del elemento
+      const phone = el.dataset.phone;
+      const status = el.dataset.status || 'pending';
+      const service = el.dataset.service || '';
+      const datetime = el.dataset.datetime || '';
+      const name = el.dataset.name || '';
+      
+      // Obtener nombre del negocio desde config global
+      const businessName = window.AA_ADMIN_DATA?.businessName || 'nuestro negocio';
+      
+      // Construir mensaje según estado
+      const message = buildMessageForStatus({ status, name, service, datetime }, businessName);
+      
+      console.log('📱 [WhatsAppController Admin] Abriendo chat:', { phone, status, message });
+      
+      // Abrir WhatsApp
+      window.WhatsAppService.openChat({
+        phone: phone,
+        message: message,
+        newTab: true
+      });
+    });
+
+    console.log('✅ WhatsAppController admin inicializado (delegación activa)');
     return true;
   }
 

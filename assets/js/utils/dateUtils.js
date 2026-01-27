@@ -306,6 +306,28 @@ function isAppointmentActive(cita, now = new Date()) {
   return now < end;
 }
 
+// ✅ Formatea datetime MySQL "YYYY-MM-DD HH:MM:SS" a formato legible es-MX
+// Ejemplo: "2026-01-27 10:30:00" -> "lunes 27 de enero a las 10:30"
+// @param {string} fechaStr - Fecha en formato MySQL datetime
+// @returns {string} - Fecha formateada o string vacío si no se puede parsear
+function formatMySQLDateTimeEsMX(fechaStr) {
+  const d = parseMysqlDateTime(fechaStr);
+  if (!d) return '';
+  
+  // Formatear fecha: "lunes 27 de enero"
+  const opcionesFecha = { 
+    weekday: 'long', 
+    day: 'numeric', 
+    month: 'long' 
+  };
+  const fechaFormateada = d.toLocaleDateString('es-MX', opcionesFecha);
+  
+  // Formatear hora: "10:30"
+  const horaFormateada = hm(d);
+  
+  return `${fechaFormateada} a las ${horaFormateada}`;
+}
+
 // ✅ Exponer globalmente
 window.DateUtils = {
   ymd,
@@ -324,7 +346,8 @@ window.DateUtils = {
   extractYmd,
   filterCurrentAndFutureDates,
   parseMysqlDateTime,
-  isAppointmentActive
+  isAppointmentActive,
+  formatMySQLDateTimeEsMX
 };
 
 console.log('✅ dateUtils.js cargado y exportado');

@@ -141,6 +141,11 @@ header('Content-Type: text/html; charset=utf-8');
         crear_cliente: '<?php echo esc_js(wp_create_nonce('aa_crear_cliente')); ?>',
         editar_cliente: '<?php echo esc_js(wp_create_nonce('aa_editar_cliente')); ?>'
     };
+    
+    // Datos para WhatsApp Admin
+    window.AA_ADMIN_DATA = {
+        businessName: <?php echo wp_json_encode(get_option('aa_business_name', 'Nuestro negocio')); ?>
+    };
 </script>
 
 <!-- ============================================
@@ -159,6 +164,9 @@ header('Content-Type: text/html; charset=utf-8');
 
 <!-- Utils -->
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/utils/dateUtils.js'); ?>" defer></script>
+
+<!-- WhatsApp Service (reusable, depende de dateUtils) -->
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/services/whatsAppService.js'); ?>" defer></script>
 
 <!-- UI Components -->
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/ui/calendarAdminUI.js'); ?>" defer></script>
@@ -197,6 +205,9 @@ header('Content-Type: text/html; charset=utf-8');
 
 <!-- Admin Reservation Assignment Flow Controller (requiere CalendarAvailabilityService, BusyRanges, SlotCalculator, AAAssignmentsAvailability) -->
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/controllers/adminReservationAssignmentFlowController.js'); ?>" defer></script>
+
+<!-- WhatsApp Controller (requiere WhatsAppService, DateUtils) -->
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'assets/js/controllers/whatsAppController.js'); ?>" defer></script>
 
 <!-- Transversal Modal: Reservation (último, usa todos los anteriores) -->
 <!-- Requiere: calendarAvailabilityService.js, reservationClientController.js y adminReservationAssignmentFlowController.js deben cargarse antes -->
@@ -237,6 +248,16 @@ header('Content-Type: text/html; charset=utf-8');
     <?php require_once dirname(__DIR__) . '/modals/appointments/index.php'; ?>
     <?php require_once dirname(__DIR__) . '/modals/assignment/index.php'; ?>
     <?php require_once dirname(__DIR__) . '/modals/crearcliente/index.php'; ?>
+
+    <!-- Inicializar controladores globales -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Inicializar WhatsApp admin (delegación de eventos para links en cards)
+        if (window.WhatsAppController?.initAdmin) {
+            window.WhatsAppController.initAdmin();
+        }
+    });
+    </script>
 
 </body>
 </html>
