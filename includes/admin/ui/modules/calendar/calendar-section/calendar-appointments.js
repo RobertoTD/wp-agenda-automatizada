@@ -315,17 +315,26 @@
         
         // =============================================
         // CONTROL STYLING - Diseño premium
+        // Colocado como hijo del host (no de la card) y z-index > ceja (45)
+        // para que sea clickeable por encima de la ceja sin cambiar z de ceja/cards
         // =============================================
         const control = document.createElement('div');
         control.className = 'aa-slot-stack-control';
         control.innerHTML = '⟳';
         control.title = `Ciclar entre ${grupo.length} citas superpuestas`;
         
+        function posicionarControlSobreCardFrontal() {
+            const frontInfo = grupo[currentIndex];
+            const topPx = (frontInfo.startRow - 1) * ROW_HEIGHT + 6;
+            control.style.top = topPx + 'px';
+            control.style.right = '6px';
+        }
+        
         Object.assign(control.style, {
             position: 'absolute',
             top: '6px',
             right: '6px',
-            zIndex: '60',
+            zIndex: '50',
             backgroundColor: 'rgba(55, 65, 81, 0.9)',
             color: '#fff',
             width: '22px',
@@ -342,6 +351,7 @@
             transition: `all ${TOKENS.transitionNormal}`,
             border: '1px solid rgba(255, 255, 255, 0.1)'
         });
+        posicionarControlSobreCardFrontal();
         
         control.addEventListener('mouseenter', () => {
             control.style.backgroundColor = 'rgba(59, 130, 246, 0.95)';
@@ -361,14 +371,13 @@
             grupo.forEach((info, idx) => {
                 const isFront = idx === currentIndex;
                 info.card.style.zIndex = isFront ? '39' : String(20 + idx);
-                // Actualizar opacidad al ciclar: frontal completa, traseras semi-transparentes
                 info.card.style.opacity = isFront ? FRONT_OPACITY : BACK_OPACITY;
             });
             
-            grupo[currentIndex].card.appendChild(control);
+            posicionarControlSobreCardFrontal();
         });
         
-        grupo[currentIndex].card.appendChild(control);
+        host.appendChild(control);
     }
     
     /**

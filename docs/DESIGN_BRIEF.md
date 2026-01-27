@@ -271,6 +271,95 @@ white-space: nowrap;
 overflow: hidden;
 ```
 
+### 3.6 Toolbar / Control Bar
+
+Las toolbars son filas de controles que permiten al usuario operar sobre el contenido de una vista (navegar, filtrar, crear, etc.). Su diseño debe reducir el "UI clutter" y comunicar jerarquía clara.
+
+#### Principios fundamentales
+
+1. **Agrupación por zona**: Los controles se organizan en dos zonas principales:
+   - **Izquierda**: Navegación y contexto (selector de fecha, navegación temporal, filtros de vista).
+   - **Derecha**: Acciones (buscar, crear, exportar, configurar).
+
+2. **Jerarquía visual**: No todos los controles deben "gritar" igual:
+   - El control de **contexto principal** (ej. fecha actual) puede ser más prominente.
+   - Las **acciones secundarias frecuentes** (buscar, filtrar) deben estar disponibles pero discretas.
+   - Las **acciones de creación** (+ Crear) deben tener presencia sin dominar la pantalla si compiten visualmente con el contenido.
+
+3. **Coherencia de alturas**: Todos los controles de una misma toolbar deben compartir la misma altura visual para reducir ruido. Evitar mezclar botones grandes con inputs pequeños o iconos diminutos.
+
+4. **Controles compuestos sobre elementos sueltos**: Cuando varios controles tienen relación directa (ej. prev + fecha + next), unificarlos como un solo "segmented control" o "date navigator". El usuario debe leerlos como una unidad, no como 3 elementos independientes.
+
+5. **Radios y bordes consistentes**: Usar el mismo border-radius en todos los elementos de la toolbar. Si se usa un grupo unificado, solo los extremos tienen radio redondeado.
+
+#### Cuándo usar contenedor (background)
+
+- **Usar contenedor** (franja suave o tarjeta) cuando la toolbar necesita sentirse "anclada" al contenido, separada del header, o cuando hay mucho espacio en blanco alrededor.
+- **Evitar contenedor** si ya existe suficiente estructura visual (bordes de cards, headers, etc.) que proporcione separación. Más cajas = más ruido.
+
+#### Anti-patterns de toolbars
+
+❌ Muchos botones pequeños aislados con bordes independientes (parece fragmentado).
+❌ Mezclar alturas inconsistentes en la misma fila.
+❌ Acciones primarias y secundarias con el mismo peso visual.
+❌ Usar background contenedor cuando ya hay mucha "caja" en la UI.
+
+✅ Controles agrupados lógicamente.
+✅ Alturas uniformes en toda la fila.
+✅ Jerarquía clara: contexto → acciones secundarias → acción principal.
+✅ Un solo radio consistente para elementos de la misma familia.
+
+### 3.7 Tertiary / Ghost Buttons (Icon Buttons)
+
+Los botones ghost o terciarios son acciones de **baja prominencia** pero **alta disponibilidad**. Típicamente usados para icon buttons frecuentes en dashboards.
+
+#### Concepto
+
+- Deben estar **disponibles pero no deben gritar**.
+- Son ideales para acciones secundarias que el usuario usa frecuentemente (buscar, filtros, configuración) pero que no son la acción principal de la vista.
+- Su estilo es minimalista: casi invisibles en reposo, se revelan sutilmente en hover.
+
+#### Reglas de estilo
+
+1. **Estado default**:
+   - Sin borde visible o con borde ultra sutil (transparente o muy claro).
+   - Fondo transparente.
+   - Icono en color gris medio (no negro, no muy claro).
+
+2. **Estado hover**:
+   - Fondo muy tenue (gris claro, no blanco puro).
+   - El hover debe ser **sutil**, no convertir el botón en una tarjeta o card.
+   - Evitar sombras en hover; preferir solo cambio de background.
+
+3. **Estado focus**:
+   - Ring visible para accesibilidad (usando la escala de focus estándar).
+   - El focus ring debe ser claro y no confundirse con hover.
+
+4. **Estado active/pressed**:
+   - Background ligeramente más oscuro que hover.
+   - Feedback inmediato al click.
+
+#### Cuándo usar Ghost Buttons
+
+✅ **Usar para**:
+- Acciones secundarias de alta frecuencia (búsqueda, filtros, toggle vista).
+- Icon buttons en toolbars donde hay otras acciones más importantes.
+- Acciones disponibles pero no promocionadas.
+
+❌ **NO usar para**:
+- Acciones primarias (crear, guardar, confirmar) → usar Primary.
+- Acciones destructivas importantes → usar Danger visible.
+- Botones que deben llamar la atención del usuario.
+
+#### Jerarquía de botones
+
+```
+Primary (Azul sólido)     → Acción principal de la vista
+Secondary (Borde gris)    → Acciones alternativas importantes
+Success/Danger            → Confirmar/Cancelar con semántica
+Tertiary/Ghost            → Acciones disponibles pero discretas
+```
+
 ---
 
 ## 4. Interacciones
