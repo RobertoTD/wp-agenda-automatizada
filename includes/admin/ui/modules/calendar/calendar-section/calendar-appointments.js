@@ -301,9 +301,16 @@
             currentIndex = confirmedIdx;
         }
         
+        // Opacidad para cards apiladas
+        const FRONT_OPACITY = '1';
+        const BACK_OPACITY = '0.5';
+        
         grupo.forEach((info, idx) => {
-            info.card.style.zIndex = idx === currentIndex ? '39' : String(20 + idx);
+            const isFront = idx === currentIndex;
+            info.card.style.zIndex = isFront ? '39' : String(20 + idx);
             info.card.style.position = 'relative';
+            // Opacidad: card frontal completa, cards traseras semi-transparentes
+            info.card.style.opacity = isFront ? FRONT_OPACITY : BACK_OPACITY;
         });
         
         // =============================================
@@ -352,7 +359,10 @@
             currentIndex = (currentIndex + 1) % grupo.length;
             
             grupo.forEach((info, idx) => {
-                info.card.style.zIndex = idx === currentIndex ? '39' : String(20 + idx);
+                const isFront = idx === currentIndex;
+                info.card.style.zIndex = isFront ? '39' : String(20 + idx);
+                // Actualizar opacidad al ciclar: frontal completa, traseras semi-transparentes
+                info.card.style.opacity = isFront ? FRONT_OPACITY : BACK_OPACITY;
             });
             
             grupo[currentIndex].card.appendChild(control);
@@ -572,7 +582,8 @@
             gridColumn: '',
             gridRow: '',
             boxShadow: TOKENS.shadowLg,
-            borderColor: TOKENS.gray300
+            borderColor: TOKENS.gray300,
+            opacity: '1' // Card expandida siempre opacidad completa
         });
         card.classList.add('aa-expanded-in-overlay');
     }
@@ -672,6 +683,8 @@
                     currentHeader.style.borderBottomRightRadius = '0';
                     card.style.boxShadow = TOKENS.shadowLg;
                     card.style.borderColor = TOKENS.gray300;
+                    // Card expandida siempre tiene opacidad completa
+                    card.style.opacity = '1';
                     
                     if (cardHost) {
                         if (!cardHost.dataset.overflowPrev) {
