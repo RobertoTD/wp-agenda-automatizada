@@ -1,39 +1,55 @@
 /**
  * Calendar Appointments - Load and render appointments
+ * 
+ * Design System: See /docs/DESIGN_BRIEF.md
+ * - Panel expandido premium con sombras y organización clara
+ * - Transiciones suaves
+ * - Z-index respetando la escala del sistema
  */
 
 (function() {
     'use strict';
 
-    // Altura fija de cada fila del grid (debe coincidir con calendar-timeline.js)
+    // =============================================
+    // DESIGN TOKENS
+    // =============================================
+    const TOKENS = {
+        gray200: '#e5e7eb',
+        gray300: '#d1d5db',
+        
+        radiusMd: '6px',
+        
+        shadowXs: '0 1px 2px rgba(0, 0, 0, 0.05)',
+        shadowSm: '0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06)',
+        shadowLg: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+        
+        transitionNormal: '200ms ease'
+    };
+
+    // Altura fija de cada fila del grid
     const ROW_HEIGHT = 40;
     
-    // Mapa de hosts con cards expandidas (para manejar overflow)
+    // Mapa de hosts con cards expandidas
     const hostsConExpandidas = new Set();
     
-    // Estado global: solo una card expandida a la vez (UX guardrail)
+    // Estado global: solo una card expandida a la vez
     let currentlyExpandedCard = null;
     
-    // Cache de datos de citas para re-renderizado
+    // Cache de datos
     let citasCache = null;
     let overlapsCache = null;
     let slotRowIndexCache = null;
     let timeSlotsCache = null;
 
     /**
-     * Cargar citas de un día específico y renderizarlas en el timeline
-     * @param {Map} slotRowIndex - Mapa de slots
-     * @param {Array} timeSlots - Array de time slots
-     * @param {string} fechaStr - Fecha en formato YYYY-MM-DD (opcional, usa hoy por defecto)
+     * Cargar citas de un día específico y renderizarlas
      */
     function cargarYRenderizarCitas(slotRowIndex, timeSlots, fechaStr) {
-        // Si no se proporciona fecha, usar hoy
         if (!fechaStr) {
             const today = new Date();
             fechaStr = window.DateUtils.ymd(today);
         }
         
-        // Preparar datos para la petición AJAX
         const formData = new FormData();
         formData.append('action', 'aa_get_citas_por_dia');
         formData.append('fecha', fechaStr);
@@ -51,7 +67,6 @@
         .then(response => response.json())
         .then(data => {
             if (data.success && data.data && data.data.citas) {
-                // Log de citas recibidas desde el servidor
                 console.log('[CalendarAppointments] Citas recibidas:', data.data.citas.length);
                 data.data.citas.forEach(cita => {
                     console.log('[CalendarAppointments] Cita procesada:', {
@@ -65,19 +80,15 @@
                     });
                 });
                 
-                // Calcular posiciones de TODAS las citas primero
                 const citasConPosicion = [];
                 
                 data.data.citas.forEach(cita => {
-                    // Usar el service para calcular posición
                     const posicion = window.AdminCalendarService?.calcularPosicionCita(cita);
                     if (!posicion) return;
                     
                     const { slotInicio, bloquesOcupados } = posicion;
-                    
-                    // Obtener el índice de fila del slot inicial
                     const slotData = slotRowIndex.get(slotInicio);
-                    if (!slotData) return; // Slot no encontrado
+                    if (!slotData) return;
                     const startRow = slotData.rowIndex;
                     
                     citasConPosicion.push({
@@ -89,19 +100,15 @@
                     });
                 });
                 
-                // Calcular solapamientos usando CalendarOverlap
                 const overlaps = window.CalendarOverlap?.computeOverlaps(citasConPosicion) || {};
                 
-                // Guardar en cache para re-renderizado
                 citasCache = citasConPosicion;
                 overlapsCache = overlaps;
                 slotRowIndexCache = slotRowIndex;
                 timeSlotsCache = timeSlots;
                 
-                // Resetear estado de card expandida al cargar nuevas citas
                 currentlyExpandedCard = null;
                 
-                // Renderizar todas las citas
                 renderizarTodasLasCitas(citasConPosicion, overlaps, slotRowIndex, timeSlots);
             }
         })
@@ -111,14 +118,13 @@
     }
 
     /**
-     * Renderizar todas las citas con manejo de estado expandido
+     * Renderizar todas las citas
      */
     function renderizarTodasLasCitas(citasConPosicion, overlaps, slotRowIndex, timeSlots) {
-        // Limpiar citas existentes del grid (solo las cards, no los elementos del timeline)
         const grid = document.getElementById('aa-time-grid');
         if (!grid) return;
         
-        // Restaurar overflow de todos los hosts que tenían cards expandidas
+        // Restaurar overflow de hosts
         hostsConExpandidas.forEach(host => {
             if (host) {
                 host.style.overflow = host.dataset.overflowPrev || 'hidden';
@@ -129,27 +135,21 @@
         });
         hostsConExpandidas.clear();
         
-        // Clear all cards from hosts first
         if (window.CalendarAssignments?.clearHosts) {
             window.CalendarAssignments.clearHosts();
         }
         
-        // Eliminar solo los wrappers y cards directos del grid (fallback cards no dentro de hosts)
         const elementosAEliminar = [];
         grid.childNodes.forEach(node => {
             if (node.nodeType === 1) {
-                // Si es una card directa en el grid (no dentro de un host)
-                if (node.classList && (
-                    node.classList.contains('aa-appointment-card')
-                )) {
+                if (node.classList && node.classList.contains('aa-appointment-card')) {
                     elementosAEliminar.push(node);
                 }
             }
         });
         elementosAEliminar.forEach(el => el.remove());
         
-        // Agrupar citas por grupos de solapamiento real
-        // Usar un algoritmo de componentes conectados basado en overlaps
+        // Agrupar citas por solapamiento
         const gruposSolapamiento = [];
         const citasSinGrupo = [];
         const procesadas = new Set();
@@ -159,8 +159,6 @@
             
             const overlapInfo = overlaps[citaConPos.id];
             if (overlapInfo && overlapInfo.overlapCount > 1) {
-                // Esta cita está en un grupo de solapamiento
-                // Encontrar todas las citas que se solapan con esta (transitivamente)
                 const grupo = [];
                 const porProcesar = [index];
                 
@@ -172,19 +170,16 @@
                     const citaActual = citasConPosicion[idxActual];
                     grupo.push(citaActual);
                     
-                    // Buscar otras citas que se solapan con esta
                     citasConPosicion.forEach((otraCita, otroIndex) => {
                         if (procesadas.has(otroIndex)) return;
                         
                         const otraOverlap = overlaps[otraCita.id];
                         if (otraOverlap && otraOverlap.overlapCount > 1) {
-                            // Verificar si se solapan en el mismo rango de filas
                             const startRow1 = citaActual.startRow;
                             const endRow1 = startRow1 + citaActual.bloquesOcupados;
                             const startRow2 = otraCita.startRow;
                             const endRow2 = startRow2 + otraCita.bloquesOcupados;
                             
-                            // Si se solapan verticalmente
                             if (startRow1 < endRow2 && startRow2 < endRow1) {
                                 porProcesar.push(otroIndex);
                             }
@@ -196,15 +191,12 @@
                     gruposSolapamiento.push(grupo);
                 }
             } else {
-                // Cita sin solapamiento
                 procesadas.add(index);
                 citasSinGrupo.push(citaConPos);
             }
         });
         
-        // Renderizar grupos de solapamiento
         gruposSolapamiento.forEach((grupo) => {
-            // Calcular key del grupo para comparación
             let minStartRow = Infinity;
             let maxEndRow = -Infinity;
             grupo.forEach(c => {
@@ -212,48 +204,40 @@
                 maxEndRow = Math.max(maxEndRow, c.startRow + c.bloquesOcupados);
             });
             const groupKey = `${minStartRow}-${maxEndRow}`;
-            
             renderizarGrupoCitas(grupo, overlaps, slotRowIndex, timeSlots, groupKey);
         });
         
-        // Renderizar citas sin solapamiento
         citasSinGrupo.forEach((citaConPos) => {
-            // Cada cita sin solapamiento es su propio grupo
             const groupKey = `${citaConPos.startRow}-${citaConPos.startRow + citaConPos.bloquesOcupados}`;
             renderizarGrupoCitas([citaConPos], overlaps, slotRowIndex, timeSlots, groupKey);
         });
         
-        // Crear controles de ciclado para cards apiladas en el mismo slot
         crearControlesCicladoStack();
     }
     
     /**
-     * Crear controles de ciclado para cards superpuestas visualmente
-     * UN solo control por grupo de cards superpuestas
+     * Crear controles de ciclado para cards superpuestas
      */
     function crearControlesCicladoStack() {
         const grid = document.getElementById('aa-time-grid');
         if (!grid) return;
         
-        // Limpiar contenedor de controles
         let controlsContainer = grid.querySelector('.aa-stack-controls-container');
         if (controlsContainer) {
             controlsContainer.remove();
         }
         
-        // Obtener todas las cards en hosts
         const hosts = grid.querySelectorAll('.aa-overlay-cards-host');
         hosts.forEach(host => procesarCardsEnHost(host));
     }
     
     /**
-     * Procesar cards en un host y crear UN control por grupo superpuesto
+     * Procesar cards en un host
      */
     function procesarCardsEnHost(host) {
         const cards = Array.from(host.querySelectorAll('.aa-appointment-card'));
         if (cards.length < 2) return;
         
-        // Extraer posición de cada card
         const cardsInfo = cards.map(card => {
             const gridRowStyle = card.style.gridRow || '';
             let startRow = 1, span = 1;
@@ -272,7 +256,7 @@
             return { card, startRow, endRow: startRow + span };
         });
         
-        // Detectar grupos superpuestos (Union-Find)
+        // Union-Find para detectar grupos
         const n = cardsInfo.length;
         const parent = Array.from({length: n}, (_, i) => i);
         
@@ -281,7 +265,6 @@
         
         for (let i = 0; i < n; i++) {
             for (let j = i + 1; j < n; j++) {
-                // Se superponen si comparten al menos una fila
                 if (cardsInfo[i].startRow < cardsInfo[j].endRow && 
                     cardsInfo[j].startRow < cardsInfo[i].endRow) {
                     union(i, j);
@@ -289,7 +272,6 @@
             }
         }
         
-        // Agrupar
         const grupos = {};
         for (let i = 0; i < n; i++) {
             const root = find(i);
@@ -297,42 +279,36 @@
             grupos[root].push(cardsInfo[i]);
         }
         
-        // Crear UN control por grupo con más de 1 card
         Object.values(grupos).forEach(grupo => {
             if (grupo.length > 1) crearControlUnico(host, grupo);
         });
     }
     
     /**
-     * Crear UN solo control de ciclado para un grupo de cards superpuestas
+     * Crear control de ciclado para un grupo
      */
     function crearControlUnico(host, grupo) {
-        // Ordenar por startRow primero, luego priorizar cards con estado "confirmed" al final (arriba visualmente)
         grupo.sort((a, b) => {
-            // Primero por startRow
-            if (a.startRow !== b.startRow) {
-                return a.startRow - b.startRow;
-            }
-            // Si mismo startRow, priorizar "confirmed" (va al final = arriba visualmente)
+            if (a.startRow !== b.startRow) return a.startRow - b.startRow;
             const aConfirmed = a.card.dataset.citaEstado === 'confirmed' ? 1 : 0;
             const bConfirmed = b.card.dataset.citaEstado === 'confirmed' ? 1 : 0;
-            return aConfirmed - bConfirmed; // confirmed cards go last (higher z-index)
+            return aConfirmed - bConfirmed;
         });
         
-        // Encontrar el índice de la card con estado confirmed (si existe) para ponerla al frente inicialmente
-        let currentIndex = grupo.length - 1; // Por defecto, última al frente
+        let currentIndex = grupo.length - 1;
         const confirmedIdx = grupo.findIndex(info => info.card.dataset.citaEstado === 'confirmed');
         if (confirmedIdx !== -1) {
             currentIndex = confirmedIdx;
         }
         
-        // Asignar z-index inicial (cards confirmed tienen prioridad visual)
         grupo.forEach((info, idx) => {
             info.card.style.zIndex = idx === currentIndex ? '39' : String(20 + idx);
             info.card.style.position = 'relative';
         });
         
-        // Crear control
+        // =============================================
+        // CONTROL STYLING - Diseño premium
+        // =============================================
         const control = document.createElement('div');
         control.className = 'aa-slot-stack-control';
         control.innerHTML = '⟳';
@@ -340,69 +316,57 @@
         
         Object.assign(control.style, {
             position: 'absolute',
-            top: '4px',
-            right: '4px',
+            top: '6px',
+            right: '6px',
             zIndex: '60',
-            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            backgroundColor: 'rgba(55, 65, 81, 0.9)',
             color: '#fff',
-            width: '24px',
-            height: '24px',
-            borderRadius: '50%',
-            fontSize: '14px',
-            fontWeight: 'bold',
+            width: '22px',
+            height: '22px',
+            borderRadius: '6px',
+            fontSize: '12px',
+            fontWeight: '600',
             cursor: 'pointer',
             userSelect: 'none',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.4)',
-            transition: 'background-color 0.15s, transform 0.15s'
+            boxShadow: TOKENS.shadowSm,
+            transition: `all ${TOKENS.transitionNormal}`,
+            border: '1px solid rgba(255, 255, 255, 0.1)'
         });
         
         control.addEventListener('mouseenter', () => {
-            control.style.backgroundColor = 'rgba(59, 130, 246, 0.9)';
-            control.style.transform = 'rotate(180deg)';
+            control.style.backgroundColor = 'rgba(59, 130, 246, 0.95)';
+            control.style.transform = 'rotate(180deg) scale(1.05)';
         });
         control.addEventListener('mouseleave', () => {
-            control.style.backgroundColor = 'rgba(0, 0, 0, 0.75)';
-            control.style.transform = 'rotate(0deg)';
+            control.style.backgroundColor = 'rgba(55, 65, 81, 0.9)';
+            control.style.transform = 'rotate(0deg) scale(1)';
         });
         
         control.addEventListener('click', (e) => {
             e.stopPropagation();
             e.preventDefault();
             
-            // Rotar al siguiente
             currentIndex = (currentIndex + 1) % grupo.length;
             
-            // Actualizar z-index: card activa va a 39, las demás a 20+idx
             grupo.forEach((info, idx) => {
                 info.card.style.zIndex = idx === currentIndex ? '39' : String(20 + idx);
             });
             
-            // Mover control a la nueva card al frente
             grupo[currentIndex].card.appendChild(control);
         });
         
-        // Agregar a la card actualmente al frente
         grupo[currentIndex].card.appendChild(control);
     }
     
     /**
-     * Renderizar un grupo de citas (pueden estar solapadas o no)
-     * SIMPLIFICADO: Siempre renderiza todas las cards del grupo.
-     * El z-index se maneja individualmente en cada card al expandir/colapsar.
-     * @param {Array} grupo - Array de citas del grupo
-     * @param {Object} overlaps - Mapa de overlaps
-     * @param {Map} slotRowIndex - Mapa de slots
-     * @param {Array} timeSlots - Array de time slots
-     * @param {string} groupKey - Identificador único del grupo (ej: "5-8")
+     * Renderizar un grupo de citas
      */
     function renderizarGrupoCitas(grupo, overlaps, slotRowIndex, timeSlots, groupKey) {
         if (grupo.length === 0) return;
         
-        // Siempre renderizar todas las cards del grupo
-        // El z-index se maneja individualmente en cada card
         grupo.forEach((citaConPos, index) => {
             const overlapInfo = overlaps[citaConPos.id];
             renderizarCitaEnHost(citaConPos, overlaps, false, overlapInfo, index);
@@ -410,62 +374,44 @@
     }
     
     /**
-     * Renderizar una cita dentro de su host de overlay correspondiente
-     * REGLA: La card SIEMPRE vive dentro del host, nunca se mueve al grid.
-     * La expansión se logra cambiando overflow del host a 'visible'.
-     * 
-     * @param {Object} citaConPos - Objeto con cita y posición
-     * @param {Object} overlaps - Mapa de overlaps
-     * @param {boolean} isExpanded - Si la cita está en modo expandido
-     * @param {Object} overlapInfo - Información de solapamiento (opcional)
-     * @param {number} overlapIndex - Índice para z-index en caso de solapamiento
+     * Renderizar una cita dentro de su host
      */
     function renderizarCitaEnHost(citaConPos, overlaps, isExpanded, overlapInfo, overlapIndex) {
         const grid = document.getElementById('aa-time-grid');
         if (!grid) return;
         
-        // Buscar el host apropiado para esta cita
         const host = window.CalendarAssignments?.getCardsHostForCita(citaConPos.cita, citaConPos);
         
-        // Crear la card con interacción
         const card = crearCardConInteraccion(citaConPos.cita, overlapInfo || null, isExpanded, host);
         if (!card) return;
         
-        // Store position data in card dataset for use when expanding/collapsing
         card.dataset.citaStartRow = citaConPos.startRow;
         card.dataset.citaBloquesOcupados = citaConPos.bloquesOcupados;
         card.dataset.citaSlotInicio = citaConPos.slotInicio;
-        card.dataset.citaEstado = citaConPos.cita.estado || 'pending'; // Para priorizar confirmed en stack
+        card.dataset.citaEstado = citaConPos.cita.estado || 'pending';
         
         if (host) {
-            // ===== SIEMPRE RENDER INSIDE HOST =====
             const hostStartRow = parseInt(host.getAttribute('data-start-row'), 10);
-            
-            // Calculate relative position within the host's grid
             const relativeStart = citaConPos.startRow - hostStartRow + 1;
             
-            // Store host reference para poder regresar la card al colapsar
             card.dataset.originalHost = 'true';
             card.dataset.originalGridColumn = '1';
             card.dataset.originalGridRow = relativeStart + ' / span ' + citaConPos.bloquesOcupados;
-            
-            // Guardar referencia directa al host (simplifica colapsarDeOverlay)
             card.__aaHostRef = host;
-            
-            // Guardar posición absoluta para calcular top/height en overlay
             card.dataset.citaStartRow = String(citaConPos.startRow);
             card.dataset.citaBloquesOcupados = String(citaConPos.bloquesOcupados);
             
-            // Position card using the host's internal grid
-            card.style.gridColumn = '1';
-            card.style.gridRow = relativeStart + ' / span ' + citaConPos.bloquesOcupados;
-            card.style.width = '100%';
-            card.style.position = 'relative';
-            card.style.overflow = 'hidden';
-            card.style.minHeight = '0'; // Evitar que min-content fuerce altura
+            Object.assign(card.style, {
+                gridColumn: '1',
+                gridRow: relativeStart + ' / span ' + citaConPos.bloquesOcupados,
+                width: '100%',
+                position: 'relative',
+                overflow: 'hidden',
+                minHeight: '0',
+                transition: `box-shadow ${TOKENS.transitionNormal}, border-color ${TOKENS.transitionNormal}`
+            });
             
             if (isExpanded) {
-                // EXPANDIDA: host permite overflow, z-index elevado
                 if (!host.dataset.overflowPrev) {
                     host.dataset.overflowPrev = host.style.overflow || 'hidden';
                     host.dataset.zIndexPrev = host.style.zIndex || '5';
@@ -476,8 +422,8 @@
                 
                 card.style.zIndex = '80';
                 card.style.overflow = 'visible';
+                card.style.boxShadow = TOKENS.shadowLg;
                 
-                // Mostrar body
                 const body = card.querySelector('.aa-appointment-body');
                 const header = card.querySelector('.aa-appointment-header');
                 if (body) {
@@ -486,13 +432,11 @@
                         header.style.flex = '0 0 auto';
                         header.style.flexShrink = '0';
                         body.style.flex = '1';
-                        // Quitar border-radius de esquinas inferiores cuando body está visible
                         header.style.borderBottomLeftRadius = '0';
                         header.style.borderBottomRightRadius = '0';
                     }
                 }
             } else {
-                // COLAPSADA: z-index normal, overflow hidden
                 if (overlapInfo && overlapInfo.overlapCount > 1) {
                     card.style.zIndex = String(20 + (overlapIndex || 0));
                 } else {
@@ -500,22 +444,22 @@
                 }
             }
             
-            // SIEMPRE append al host
             host.appendChild(card);
             
         } else {
-            // ===== FALLBACK: RENDER DIRECTLY ON GRID (sin host) =====
             console.warn('[CalendarAppointments] No host found for cita:', citaConPos.cita.id, '- using fallback grid positioning');
             
-            card.style.gridColumn = '2';
-            card.style.gridRow = citaConPos.startRow + ' / span ' + citaConPos.bloquesOcupados;
-            card.style.position = 'relative';
-            card.style.overflow = isExpanded ? 'visible' : 'hidden';
-            card.style.minHeight = '0';
-            card.style.zIndex = isExpanded ? '30' : '20';
+            Object.assign(card.style, {
+                gridColumn: '2',
+                gridRow: citaConPos.startRow + ' / span ' + citaConPos.bloquesOcupados,
+                position: 'relative',
+                overflow: isExpanded ? 'visible' : 'hidden',
+                minHeight: '0',
+                zIndex: isExpanded ? '30' : '20'
+            });
             
-            // If expanded, show body
             if (isExpanded) {
+                card.style.boxShadow = TOKENS.shadowLg;
                 const body = card.querySelector('.aa-appointment-body');
                 const header = card.querySelector('.aa-appointment-header');
                 if (body) {
@@ -524,7 +468,6 @@
                         header.style.flex = '0 0 auto';
                         header.style.flexShrink = '0';
                         body.style.flex = '1';
-                        // Quitar border-radius de esquinas inferiores cuando body está visible
                         header.style.borderBottomLeftRadius = '0';
                         header.style.borderBottomRightRadius = '0';
                     }
@@ -536,12 +479,11 @@
     }
     
     /**
-     * Restaurar overflow/z-index de un host cuando no tiene cards expandidas
+     * Restaurar overflow de un host
      */
     function restaurarHostOverflow(host) {
         if (!host) return;
         
-        // Verificar si aún tiene cards expandidas
         const cardsExpandidas = host.querySelectorAll('.aa-appointment-card[data-expanded="true"]');
         if (cardsExpandidas.length === 0) {
             host.style.overflow = host.dataset.overflowPrev || 'hidden';
@@ -553,8 +495,7 @@
     }
     
     /**
-     * Colapsar una card específica (helper reutilizable)
-     * @param {HTMLElement} cardToCollapse - La card a colapsar
+     * Colapsar una card
      */
     function colapsarCard(cardToCollapse) {
         if (!cardToCollapse) return;
@@ -563,20 +504,17 @@
         const header = cardToCollapse.querySelector('.aa-appointment-header');
         if (!body || !header) return;
         
-        // Ocultar body
         body.setAttribute('hidden', '');
         
-        // Restaurar estilos de colapsada
         header.style.flex = '1';
         header.style.flexShrink = '0';
         body.style.flex = '0';
-        // Restaurar border-radius de esquinas inferiores cuando body está oculto
-        header.style.borderBottomLeftRadius = '10px';
-        header.style.borderBottomRightRadius = '10px';
+        header.style.borderBottomLeftRadius = '0';
+        header.style.borderBottomRightRadius = TOKENS.radiusMd;
         cardToCollapse.style.overflow = 'hidden';
         cardToCollapse.dataset.expanded = 'false';
+        cardToCollapse.style.boxShadow = TOKENS.shadowXs;
         
-        // Restaurar z-index (usar el guardado en dataset o default)
         const overlapIndex = cardToCollapse.dataset.overlapIndex;
         if (overlapIndex !== undefined) {
             cardToCollapse.style.zIndex = String(20 + parseInt(overlapIndex, 10));
@@ -584,26 +522,22 @@
             cardToCollapse.style.zIndex = '20';
         }
         
-        // Restaurar overflow del host
         const cardHost = cardToCollapse.closest('.aa-overlay-cards-host');
         if (cardHost) {
             restaurarHostOverflow(cardHost);
         }
         
-        // Si la card estaba en el overlay, devolverla al host
         if (cardToCollapse.classList.contains('aa-expanded-in-overlay')) {
             colapsarDeOverlay(cardToCollapse);
         }
         
-        // Recrear controles de stack después de colapsar para restaurar la UI
         setTimeout(() => {
             crearControlesCicladoStack();
         }, 0);
     }
     
     /**
-     * Mover card al overlay global para que ocupe todo el ancho de columna 2
-     * @param {HTMLElement} card - La card a expandir en overlay
+     * Mover card al overlay global
      */
     function expandirEnOverlay(card) {
         const overlay = document.getElementById('aa-expanded-cards-overlay');
@@ -612,10 +546,8 @@
             return;
         }
         
-        // No mover si ya está en overlay
         if (card.classList.contains('aa-expanded-in-overlay')) return;
         
-        // Calcular posición usando dataset
         const startRow = parseInt(card.dataset.citaStartRow, 10);
         const spans = parseInt(card.dataset.citaBloquesOcupados, 10);
         
@@ -627,30 +559,30 @@
         const top = (startRow - 1) * ROW_HEIGHT;
         const height = spans * ROW_HEIGHT;
         
-        // Mover card al overlay
         overlay.appendChild(card);
         
-        // Aplicar estilos de overlay mode
-        card.style.position = 'absolute';
-        card.style.top = top + 'px';
-        card.style.left = '0px';
-        card.style.width = '100%'; // Ocupa toda la columna 2
-        card.style.height = height + 'px'; // Altura base (body puede desbordar)
-        card.style.pointerEvents = 'auto';
-        card.style.zIndex = '300';
-        card.style.gridColumn = ''; // Quitar propiedades grid
-        card.style.gridRow = '';
+        Object.assign(card.style, {
+            position: 'absolute',
+            top: top + 'px',
+            left: '0px',
+            width: '100%',
+            height: height + 'px',
+            pointerEvents: 'auto',
+            zIndex: '300',
+            gridColumn: '',
+            gridRow: '',
+            boxShadow: TOKENS.shadowLg,
+            borderColor: TOKENS.gray300
+        });
         card.classList.add('aa-expanded-in-overlay');
     }
     
     /**
-     * Devolver card del overlay al host original
-     * @param {HTMLElement} card - La card a devolver al host
+     * Devolver card del overlay al host
      */
     function colapsarDeOverlay(card) {
         if (!card.classList.contains('aa-expanded-in-overlay')) return;
         
-        // Usar referencia directa al host (guardada en renderizarCitaEnHost)
         const host = card.__aaHostRef;
         
         if (!host) {
@@ -658,60 +590,47 @@
             return;
         }
         
-        // Mover card de vuelta al host
         host.appendChild(card);
         
-        // Restaurar estilos de grid interno
-        card.style.position = 'relative';
-        card.style.top = '';
-        card.style.left = '';
-        card.style.height = '';
-        card.style.width = '100%';
-        card.style.pointerEvents = '';
-        card.style.gridColumn = card.dataset.originalGridColumn || '1';
-        card.style.gridRow = card.dataset.originalGridRow || '';
+        Object.assign(card.style, {
+            position: 'relative',
+            top: '',
+            left: '',
+            height: '',
+            width: '100%',
+            pointerEvents: '',
+            gridColumn: card.dataset.originalGridColumn || '1',
+            gridRow: card.dataset.originalGridRow || '',
+            boxShadow: TOKENS.shadowXs,
+            borderColor: TOKENS.gray200
+        });
         card.classList.remove('aa-expanded-in-overlay');
     }
     
-    // renderizarCitaExpandida is now handled by renderizarCitaEnHost with isExpanded=true
-    
     /**
-     * Crear card con interacción de expandir/colapsar
-     * REGLA: La card SIEMPRE permanece dentro de su host.
-     * La expansión se logra modificando overflow del host, no moviendo la card.
-     * 
-     * @param {Object} cita - Objeto de cita
-     * @param {Object} overlapInfo - Información de solapamiento
-     * @param {boolean} isExpanded - Si la cita está en modo expandido
-     * @param {HTMLElement} host - Host contenedor de la card (puede ser null)
+     * Crear card con interacción
      */
     function crearCardConInteraccion(cita, overlapInfo, isExpanded, host) {
         if (!cita.fecha) return null;
         
-        // Crear la card usando CalendarAppointmentCard
         const card = window.CalendarAppointmentCard?.crearCardCita(cita);
         if (!card) return null;
         
-        // Guardar overlapIndex en dataset para poder restaurarlo al colapsar
         if (overlapInfo && overlapInfo.overlapCount > 1) {
             card.dataset.overlapIndex = String(overlapInfo.overlapIndex || 0);
         }
         
-        // Marcar si está expandida inicialmente
         if (isExpanded) {
             card.dataset.expanded = 'true';
         }
         
-        // Interceptar el click del header para manejar expandir/colapsar
         const header = card.querySelector('.aa-appointment-header');
         const body = card.querySelector('.aa-appointment-body');
         
         if (header && body) {
-            // Remover todos los listeners existentes clonando el header
             const nuevoHeader = header.cloneNode(true);
             header.parentNode.replaceChild(nuevoHeader, header);
             
-            // Función helper para actualizar estilos de la card (SIN mover entre contenedores)
             function actualizarEstilosCard() {
                 const currentHeader = card.querySelector('.aa-appointment-header');
                 const currentBody = card.querySelector('.aa-appointment-body');
@@ -727,18 +646,17 @@
                     currentBody.style.flex = '0';
                     card.style.overflow = 'hidden';
                     card.dataset.expanded = 'false';
-                    // Restaurar border-radius de esquinas inferiores cuando body está oculto
-                    currentHeader.style.borderBottomLeftRadius = '10px';
-                    currentHeader.style.borderBottomRightRadius = '10px';
+                    currentHeader.style.borderBottomLeftRadius = '0';
+                    currentHeader.style.borderBottomRightRadius = TOKENS.radiusMd;
+                    card.style.boxShadow = TOKENS.shadowXs;
+                    card.style.borderColor = TOKENS.gray200;
                     
-                    // Reset z-index
                     if (overlapInfo && overlapInfo.overlapCount > 1) {
                         card.style.zIndex = String(20 + (overlapInfo.overlapIndex || 0));
                     } else {
                         card.style.zIndex = '20';
                     }
                     
-                    // Restaurar overflow del host si no tiene más cards expandidas
                     if (cardHost) {
                         restaurarHostOverflow(cardHost);
                     }
@@ -750,11 +668,11 @@
                     card.style.overflow = 'visible';
                     card.style.zIndex = '80';
                     card.dataset.expanded = 'true';
-                    // Quitar border-radius de esquinas inferiores cuando body está visible
                     currentHeader.style.borderBottomLeftRadius = '0';
                     currentHeader.style.borderBottomRightRadius = '0';
+                    card.style.boxShadow = TOKENS.shadowLg;
+                    card.style.borderColor = TOKENS.gray300;
                     
-                    // Elevar overflow del host para permitir que la card desborde
                     if (cardHost) {
                         if (!cardHost.dataset.overflowPrev) {
                             cardHost.dataset.overflowPrev = cardHost.style.overflow || 'hidden';
@@ -767,7 +685,6 @@
                 }
             }
             
-            // Agregar nuestro handler personalizado - SIMPLIFICADO: solo toggle, sin re-renderizado
             nuevoHeader.addEventListener('click', function(e) {
                 e.stopPropagation();
                 e.preventDefault();
@@ -778,43 +695,32 @@
                 const isHidden = currentBody.hasAttribute('hidden');
                 
                 if (isHidden) {
-                    // === ABRIR ACORDEÓN ===
-                    // UX Guardrail: Si hay otra card expandida, colapsarla primero
+                    // === ABRIR ===
                     if (currentlyExpandedCard && currentlyExpandedCard !== card) {
                         colapsarCard(currentlyExpandedCard);
                         currentlyExpandedCard = null;
                     }
                     
-                    // Expandir la card actual
                     currentBody.removeAttribute('hidden');
                     actualizarEstilosCard();
-                    
-                    // Mover card al overlay para ocupar todo el ancho de columna 2
                     expandirEnOverlay(card);
-                    
                     currentlyExpandedCard = card;
                 } else {
-                    // === CERRAR ACORDEÓN ===
-                    // Devolver card al host original primero
+                    // === CERRAR ===
                     colapsarDeOverlay(card);
-                    
-                    // Ocultar el body y restaurar estilos
                     currentBody.setAttribute('hidden', '');
                     actualizarEstilosCard();
                     
-                    // Resetear estado global si esta era la card expandida
                     if (currentlyExpandedCard === card) {
                         currentlyExpandedCard = null;
                     }
                     
-                    // Recrear controles de stack después de colapsar para restaurar la UI
                     setTimeout(() => {
                         crearControlesCicladoStack();
                     }, 0);
                 }
             });
             
-            // Inicializar estilos según el estado inicial
             actualizarEstilosCard();
         }
         
@@ -827,4 +733,3 @@
     };
 
 })();
-
