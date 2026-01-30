@@ -63,7 +63,20 @@ add_action('wp_enqueue_scripts', 'wpaa_enqueue_frontend_assets');
 
 function wpaa_enqueue_frontend_assets() {
     global $post;
-    if (!is_a($post, 'WP_Post') || !has_shortcode($post->post_content, 'agenda_automatizada')) {
+    
+    // Calcular si debería encolar por defecto (lógica original)
+    $should_enqueue_default = is_a($post, 'WP_Post') && has_shortcode($post->post_content, 'agenda_automatizada');
+    
+    /**
+     * Filtro para permitir que temas/plugins fuercen la carga de assets del frontend
+     * Útil cuando el shortcode se renderiza fuera de the_content (ej: hero del tema)
+     * 
+     * @param bool $should_enqueue Si se deben cargar los assets
+     * @return bool
+     */
+    $should_enqueue = apply_filters('wpaa_should_enqueue_frontend_assets', $should_enqueue_default);
+    
+    if (!$should_enqueue) {
         return;
     }
 
