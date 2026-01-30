@@ -1,9 +1,9 @@
 <?php
 /**
  * Plugin Name: WP Agenda Automatizada
- * Description: Sistema de gestión de citas con integración a Google Calendar
+ * Description: Sistema de gestión de citas con integración a Google Calendar, pega este Shortcode donde quieras mostrar tu calendario: [agenda_automatizada]
  * Version: 2.0.0
- * Author: Tu Nombre
+ * Author: Roberto Tejada
  */
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
