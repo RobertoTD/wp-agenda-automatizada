@@ -92,12 +92,20 @@ $module_js_url = $plugin_url . 'calendar-module.js';
                     </svg>
                 </button>
                 
-                <!-- Botón + Horario (acción de crear, presencia moderada) -->
+                <!-- Botón + Horario (acción secundaria) -->
                 <button id="aa-btn-add-schedule" type="button" class="aa-btn-create">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                     </svg>
                     <span>Horario</span>
+                </button>
+                
+                <!-- Botón + Agendar (acción principal del módulo) -->
+                <button id="aa-btn-open-reservation-modal" type="button" class="inline-flex items-center gap-1.5 h-8 px-3 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 border border-blue-600 rounded-md transition-all cursor-pointer">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    <span>Agendar</span>
                 </button>
             </div>
         </div>

@@ -382,5 +382,34 @@
     .aa-btn-create:active {
         @apply bg-gray-100;
     }
+
+    /* ═══════════════════════════════════════════════════════════════
+       PRIMARY BUTTON - Main action, clear but not overwhelming
+    ═══════════════════════════════════════════════════════════════ */
+    
+    .aa-btn-primary {
+        @apply inline-flex items-center gap-1.5;
+        @apply h-8 px-3;
+        @apply text-xs font-medium text-white;
+        @apply bg-blue-600 border border-blue-600 rounded-md;
+        @apply transition-all duration-150;
+        @apply cursor-pointer;
+    }
+
+    .aa-btn-primary:hover {
+        @apply bg-blue-700 border-blue-700;
+    }
+
+    .aa-btn-primary:focus {
+        @apply outline-none ring-2 ring-blue-500 ring-offset-1;
+    }
+
+    .aa-btn-primary:active {
+        @apply bg-blue-800;
+    }
+
+    .aa-btn-primary:disabled {
+        @apply bg-blue-400 border-blue-400 cursor-not-allowed;
+    }
 }
 
