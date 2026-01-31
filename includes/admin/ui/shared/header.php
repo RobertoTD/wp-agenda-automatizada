@@ -1,330 +1,127 @@
 <?php
 /**
- * Shared Header - Minimal app shell with clear hierarchy
- * 
- * Architecture:
- * - Single compact row (~44px)
- * - Left: Subtle identifier
- * - Center: Horizontal text navigation (no icons, no heavy backgrounds)
- * - Right: Utilities (notifications as ghost button)
- * 
- * Design principles (from Design Brief):
- * - Neutrals as base, color only as accent
- * - Clear hierarchy
- * - Reduce UI clutter
- * - Navigation should not compete with content
+ * Shared Header - Compact tab navigation with icons
  */
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
-
-// Navigation items
-$nav_items = [
-    'calendar' => 'Calendario',
-    'clients' => 'Clientes', 
-    'assignments' => 'Asignaciones',
-    'settings' => 'Configuración',
-];
 ?>
-<header class="aa-app-header">
-    <div class="aa-header-inner">
-        <!-- Left: Subtle identifier -->
-        <div class="aa-header-brand">
-            <span class="aa-brand-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                    <line x1="16" y1="2" x2="16" y2="6"></line>
-                    <line x1="8" y1="2" x2="8" y2="6"></line>
-                    <line x1="3" y1="10" x2="21" y2="10"></line>
-                </svg>
-            </span>
-        </div>
-        
-        <!-- Center: Navigation -->
-        <nav class="aa-header-nav" role="navigation" aria-label="Navegación principal">
-            <?php foreach ($nav_items as $module => $label): 
-                $is_active = isset($active_module) && $active_module === $module;
-                $url = admin_url('admin-post.php?action=aa_iframe_content&module=' . $module);
-            ?>
-            <a href="<?php echo esc_url($url); ?>" 
-               class="aa-nav-item <?php echo $is_active ? 'is-active' : ''; ?>"
-               <?php echo $is_active ? 'aria-current="page"' : ''; ?>>
-                <?php echo esc_html($label); ?>
-            </a>
-            <?php endforeach; ?>
-        </nav>
-        
-        <!-- Right: Utilities -->
-        <div class="aa-header-utils">
-            <!-- Notifications -->
-            <div class="aa-notifications-wrapper">
-                <button 
-                    id="aa-btn-notifications" 
-                    type="button"
-                    class="aa-util-btn"
-                    aria-label="Notificaciones"
-                    aria-haspopup="true"
-                    aria-expanded="false"
-                >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+<header class="bg-white border-b border-gray-200 shadow-sm">
+    <div class="px-4 py-3">
+        <!-- Branding + Action Button Row -->
+        <div class="flex items-center justify-between mb-3">
+            <!-- Left: Branding -->
+            <div class="flex items-center gap-2">
+                <span class="flex items-center justify-center w-7 h-7 rounded-lg bg-blue-100 text-blue-600 flex-shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                     </svg>
-                    <span id="aa-notifications-badge" class="aa-badge" aria-live="polite">0</span>
-                </button>
-                
-                <!-- Notifications Popover -->
-                <div id="aa-notifications-popover" class="aa-popover aa-notifications-popover hidden" role="dialog" aria-label="Panel de notificaciones">
-                    <div class="aa-popover-header">
-                        <span class="aa-popover-title">Notificaciones</span>
+                </span>
+            </div>
+            
+            <!-- Right: Notifications + Agendar Button -->
+            <div class="flex items-center gap-2">
+                <!-- Group: Small icon buttons (Notifications) -->
+                <div class="flex items-center gap-0">
+                    <!-- Notifications Container (relative for popover positioning) -->
+                    <div class="relative">
+                        <!-- Notifications Bell -->
                         <button 
-                            id="aa-btn-close-notifications" 
+                            id="aa-btn-notifications" 
                             type="button"
-                            class="aa-popover-close"
-                            aria-label="Cerrar"
+                            class="inline-flex items-center justify-center w-9 h-9 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                            aria-label="Notificaciones"
                         >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <line x1="18" y1="6" x2="6" y2="18"></line>
-                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
                             </svg>
                         </button>
-                    </div>
-                    <div class="aa-notifications-content">
-                        <!-- Content rendered by notifications.js -->
+                        <span id="aa-notifications-badge" class="absolute top-0 right-2 text-xs font-medium text-gray-500 leading-none">0</span>
+                        
+                        <!-- Notifications Popover (hidden by default) -->
+                        <div id="aa-notifications-popover" class="hidden absolute right-0 top-full mt-2 z-50 w-80 bg-white rounded-lg shadow-lg border border-gray-200">
+                            <div class="p-4">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h3 class="text-sm font-semibold text-gray-900">Notificaciones</h3>
+                                    <button 
+                                        id="aa-btn-close-notifications" 
+                                        type="button"
+                                        class="text-gray-400 hover:text-gray-600 transition-colors"
+                                        aria-label="Cerrar"
+                                    >
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div class="aa-notifications-content">
+                                    <!-- Content will be rendered dynamically by notifications.js -->
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
+                
+                <!-- Agendar Button -->
+                <button 
+                    id="aa-btn-open-reservation-modal" 
+                    type="button"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg border border-gray-300 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    <span>Agendar</span>
+                </button>
             </div>
         </div>
+        
+        <!-- Tab Navigation - Icon above, label below -->
+        <nav class="flex items-center justify-center gap-2">
+            <!-- Configuración -->
+            <a href="<?php echo esc_url(admin_url('admin-post.php?action=aa_iframe_content&module=settings')); ?>" 
+               class="flex flex-col items-center justify-center min-w-[60px] px-2 py-2 rounded-lg transition-all <?php echo (isset($active_module) && $active_module === 'settings') ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?>">
+                <span class="flex items-center justify-center w-6 h-6 mb-1 <?php echo (isset($active_module) && $active_module === 'settings') ? 'text-blue-600' : 'text-gray-500'; ?>">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                </span>
+                <span class="text-xs font-medium leading-tight text-center">Config</span>
+            </a>
+            
+            <!-- Calendario -->
+            <a href="<?php echo esc_url(admin_url('admin-post.php?action=aa_iframe_content&module=calendar')); ?>" 
+               class="flex flex-col items-center justify-center min-w-[60px] px-2 py-2 rounded-lg transition-all <?php echo (isset($active_module) && $active_module === 'calendar') ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?>">
+                <span class="flex items-center justify-center w-6 h-6 mb-1 <?php echo (isset($active_module) && $active_module === 'calendar') ? 'text-blue-600' : 'text-gray-500'; ?>">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                </span>
+                <span class="text-xs font-medium leading-tight text-center">Calendario</span>
+            </a>
+            
+            <!-- Clientes -->
+            <a href="<?php echo esc_url(admin_url('admin-post.php?action=aa_iframe_content&module=clients')); ?>" 
+               class="flex flex-col items-center justify-center min-w-[60px] px-2 py-2 rounded-lg transition-all <?php echo (isset($active_module) && $active_module === 'clients') ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?>">
+                <span class="flex items-center justify-center w-6 h-6 mb-1 <?php echo (isset($active_module) && $active_module === 'clients') ? 'text-blue-600' : 'text-gray-500'; ?>">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                    </svg>
+                </span>
+                <span class="text-xs font-medium leading-tight text-center">Clientes</span>
+            </a>
+            
+            <!-- Asignaciones -->
+            <a href="<?php echo esc_url(admin_url('admin-post.php?action=aa_iframe_content&module=assignments')); ?>" 
+               class="flex flex-col items-center justify-center min-w-[60px] px-2 py-2 rounded-lg transition-all <?php echo (isset($active_module) && $active_module === 'assignments') ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?>">
+                <span class="flex items-center justify-center w-6 h-6 mb-1 <?php echo (isset($active_module) && $active_module === 'assignments') ? 'text-blue-600' : 'text-gray-500'; ?>">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                    </svg>
+                </span>
+                <span class="text-xs font-medium leading-tight text-center">Asignaciones</span>
+            </a>
+        </nav>
     </div>
 </header>
 
-<style>
-/* ============================================
-   App Shell Header - Design Brief Compliant
-   ============================================ */
-
-.aa-app-header {
-    background-color: #ffffff;
-    border-bottom: 1px solid #e5e7eb;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-}
-
-.aa-header-inner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    height: 44px;
-    padding: 0 16px;
-    max-width: 100%;
-}
-
-/* Brand - Subtle identifier */
-.aa-header-brand {
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
-}
-
-.aa-brand-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #6b7280;
-    opacity: 0.7;
-}
-
-/* Navigation - Center, horizontal, text-only */
-.aa-header-nav {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    margin: 0 auto;
-}
-
-.aa-nav-item {
-    position: relative;
-    padding: 8px 14px;
-    font-size: 13px;
-    font-weight: 500;
-    color: #6b7280;
-    text-decoration: none;
-    border-radius: 6px;
-    transition: color 150ms ease, background-color 150ms ease;
-}
-
-.aa-nav-item:hover {
-    color: #374151;
-    background-color: #f9fafb;
-}
-
-.aa-nav-item:focus-visible {
-    outline: 2px solid #3b82f6;
-    outline-offset: 2px;
-}
-
-.aa-nav-item.is-active {
-    color: #111827;
-    background-color: #f3f4f6;
-}
-
-/* Active indicator - subtle underline */
-.aa-nav-item.is-active::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 24px;
-    height: 2px;
-    background-color: #3b82f6;
-    border-radius: 1px;
-}
-
-/* Utilities - Right side */
-.aa-header-utils {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
-}
-
-/* Utility button - Ghost style */
-.aa-util-btn {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    background: transparent;
-    border: none;
-    border-radius: 6px;
-    color: #9ca3af;
-    cursor: pointer;
-    transition: color 150ms ease, background-color 150ms ease;
-}
-
-.aa-util-btn:hover {
-    color: #6b7280;
-    background-color: #f3f4f6;
-}
-
-.aa-util-btn:focus-visible {
-    outline: 2px solid #3b82f6;
-    outline-offset: 2px;
-}
-
-.aa-util-btn:active {
-    background-color: #e5e7eb;
-    color: #374151;
-}
-
-/* Badge - Notification count */
-.aa-badge {
-    position: absolute;
-    top: 2px;
-    right: 2px;
-    min-width: 14px;
-    height: 14px;
-    padding: 0 4px;
-    font-size: 10px;
-    font-weight: 600;
-    line-height: 14px;
-    text-align: center;
-    color: #6b7280;
-    background: transparent;
-    border-radius: 7px;
-}
-
-/* Show badge only when there are notifications */
-.aa-badge:not(:empty):not([data-count="0"]) {
-    color: #ffffff;
-    background-color: #ef4444;
-}
-
-/* Hide badge when empty or zero */
-.aa-badge:empty,
-.aa-badge[data-count="0"] {
-    display: none;
-}
-
-/* Notifications wrapper */
-.aa-notifications-wrapper {
-    position: relative;
-}
-
-/* Popover - Notifications panel */
-.aa-notifications-popover {
-    position: absolute;
-    right: 0;
-    top: calc(100% + 8px);
-    width: 320px;
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    z-index: 200;
-}
-
-.aa-notifications-popover.hidden {
-    display: none;
-}
-
-.aa-popover-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 16px;
-    border-bottom: 1px solid #f3f4f6;
-}
-
-.aa-popover-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: #111827;
-}
-
-.aa-popover-close {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    padding: 0;
-    background: transparent;
-    border: none;
-    border-radius: 4px;
-    color: #9ca3af;
-    cursor: pointer;
-    transition: color 150ms ease, background-color 150ms ease;
-}
-
-.aa-popover-close:hover {
-    color: #6b7280;
-    background-color: #f3f4f6;
-}
-
-.aa-notifications-content {
-    padding: 12px 16px;
-    max-height: 320px;
-    overflow-y: auto;
-}
-
-/* Responsive adjustments */
-@media (max-width: 480px) {
-    .aa-header-inner {
-        padding: 0 12px;
-    }
-    
-    .aa-nav-item {
-        padding: 8px 10px;
-        font-size: 12px;
-    }
-    
-    .aa-brand-icon {
-        display: none;
-    }
-}
-</style>
