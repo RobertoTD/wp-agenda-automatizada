@@ -152,16 +152,13 @@ $days = [
         </details>
 
         <!-- ═══════════════════════════════════════════════════════════════
-             GRID: Servicios + Parámetros (2 columnas en desktop)
+             SECCIÓN: Parámetros Generales
         ═══════════════════════════════════════════════════════════════ -->
-        <div class="grid lg:grid-cols-2 gap-6 mb-2">
-
-            <!-- SECCIÓN: Parámetros Generales -->
-            <details class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden group">
+        <details class="bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
                 <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
                     <div class="flex items-center justify-between gap-3">
                         <div class="flex items-center gap-3">
-                            <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 text-blue-600">
+                            <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-600">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                 </svg>
@@ -239,8 +236,6 @@ $days = [
                     </div>
                 </div>
             </details>
-
-        </div>
 
         <!-- ═══════════════════════════════════════════════════════════════
              SECCIÓN: Datos del Negocio
@@ -331,7 +326,7 @@ $days = [
             <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
                 <div class="flex items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
-                        <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 text-blue-600">
+                        <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-600">
                             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11zM9 11H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm-8 4H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/>
                             </svg>

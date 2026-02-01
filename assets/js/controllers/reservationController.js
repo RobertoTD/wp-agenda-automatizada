@@ -121,7 +121,7 @@ function initReservationController(formSelector) {
 function redirectToWhatsApp(nombre, servicio, fechaLegible, telefono) {
   const whatsappNumber = (typeof wpaa_vars !== 'undefined' && wpaa_vars.whatsapp_number) 
     ? wpaa_vars.whatsapp_number 
-    : '5215522992290';
+    : '5212214365851';
 
   const mensaje = `Hola, soy ${nombre}. Me gustaría agendar una cita para: ${servicio} el día ${fechaLegible}. Mi teléfono es ${telefono}.`;
   
