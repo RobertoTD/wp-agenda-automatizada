@@ -1,0 +1,40 @@
+name: Build plugin zip and attach to GitHub Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create plugin zip with correct root folder
+        run: |
+          PLUGIN_DIR="wp-agenda-automatizada"
+          ZIP_NAME="wp-agenda-automatizada.zip"
+
+          mkdir -p dist/$PLUGIN_DIR
+
+          rsync -av --delete \
+            --exclude ".git" \
+            --exclude ".github" \
+            --exclude "node_modules" \
+            --exclude ".vscode" \
+            --exclude "*.zip" \
+            ./ dist/$PLUGIN_DIR/
+
+          cd dist
+          zip -r "../$ZIP_NAME" "$PLUGIN_DIR"
+          cd ..
+
+      - name: Upload zip to the GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: wp-agenda-automatizada.zip
