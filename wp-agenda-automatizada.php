@@ -24,6 +24,28 @@ if (strpos($site_url, 'localhost') !== false || strpos($site_url, '127.0.0.1') !
 }
 
 // ===============================
+// 🔹 LIBRERÍA PLUGIN UPDATE CHECKER
+// ===============================
+require_once __DIR__ . '/plugin-update-checker/plugin-update-checker.php';
+
+// ===============================
+// 🔹 AUTO-UPDATES DESDE GITHUB RELEASES
+// ===============================
+use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
+
+$updateChecker = PucFactory::buildUpdateChecker(
+    'https://github.com/RobertoTD/wp-agenda-automatizada/',
+    __FILE__,
+    'wp-agenda-automatizada'
+);
+
+// Repo privado => necesitas token (ver abajo)
+$updateChecker->setBranch('main');
+
+// Que use Releases (assets) en vez de "source code"
+$updateChecker->getVcsApi()->enableReleaseAssets();
+
+// ===============================
 // 🔹 ORDEN CORRECTO DE INCLUSIÓN
 // ===============================
 
