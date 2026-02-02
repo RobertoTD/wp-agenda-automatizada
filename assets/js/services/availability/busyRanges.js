@@ -28,6 +28,7 @@ function generateBusyRanges(busyEvents) {
  */
 function loadLocalBusyRanges() {
   const localBusyRanges = [];
+  console.log('[BusyRanges] loadLocalBusyRanges: typeof aa_local_availability=', typeof window.aa_local_availability, window.aa_local_availability ? 'local_busy=' + (window.aa_local_availability.local_busy ? window.aa_local_availability.local_busy.length : 0) : 'N/A');
 
   if (typeof window.aa_local_availability !== 'undefined' && window.aa_local_availability.local_busy) {
     console.log('✅ Datos locales encontrados:', window.aa_local_availability);

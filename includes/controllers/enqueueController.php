@@ -88,9 +88,6 @@ function wpaa_enqueue_frontend_assets() {
     wp_enqueue_script('flatpickr-js', 'https://cdn.jsdelivr.net/npm/flatpickr', [], null, true);
     wp_enqueue_script('flatpickr-es', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js', ['flatpickr-js'], null, true);
 
-    // ✅ IMPORTANTE: Cargar datos locales ANTES de cualquier script
-    wpaa_localize_local_availability();
-
     $frontend_scripts = [
         ['wpaa-date-utils',              'assets/js/utils/dateUtils.js',              [], false],
         ['aa-wpagenda-kernel',           'assets/js/ui-adapters/WPAgenda.js',         ['wpaa-date-utils'], false],
@@ -120,6 +117,9 @@ function wpaa_enqueue_frontend_assets() {
     foreach ($frontend_scripts as [$h, $p, $d, $m]) {
         wpaa_register_js($h, $p, $d, $m);
     }
+
+    // ✅ Localizar aa_local_availability DESPUÉS de registrar scripts (handle debe existir)
+    wpaa_localize_local_availability();
 
     // ✅ Exponer window.ajaxurl en frontend (WordPress solo lo define en admin)
     // Necesario para availabilityAssignments.js y busyRangesAssignments.js
@@ -168,7 +168,7 @@ function wpaa_enqueue_frontend_assets() {
 /**
  * Inyectar disponibilidad local ANTES de scripts JS
  */
-function wpaa_localize_local_availability($script_handle = 'wpaa-availability-controller') {
+function wpaa_localize_local_availability($script_handle = 'wpaa-date-utils') {
     global $wpdb;
     $table = $wpdb->prefix . 'aa_reservas';
     $slot_duration = intval(get_option('aa_slot_duration', 60));
@@ -211,6 +211,7 @@ function wpaa_localize_local_availability($script_handle = 'wpaa-availability-co
         'timezone' => $timezone_string,
         'total_confirmed' => count($local_busy)
     ]);
+    error_log('[wpaa] aa_local_availability localizado en ' . $script_handle . ', local_busy=' . count($local_busy));
 }
 
 /* ============================================================

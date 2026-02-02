@@ -19,6 +19,46 @@
 if (!defined('ABSPATH')) exit;
 
 /**
+ * Transforma el valor de servicio para enviar al backend
+ * 
+ * - Si empieza con "fixed::", extrae solo el nombre (ej: "fixed::Informes" -> "Informes")
+ * - Si es un ID numérico, busca el nombre del servicio en la BD (tabla aa_services)
+ * - Si no encuentra el servicio, retorna el valor original como fallback
+ * 
+ * @param string $servicio_raw Valor de servicio tal como viene del formulario o BD
+ * @return string Nombre legible del servicio
+ */
+function aa_transform_servicio_for_backend($servicio_raw) {
+    // Caso 1: Servicio con prefijo "fixed::"
+    if (strpos($servicio_raw, 'fixed::') === 0) {
+        $nombre = substr($servicio_raw, 7); // strlen('fixed::') = 7
+        error_log("🔄 [ServicioTransform] fixed:: detectado, extrayendo nombre: '$nombre'");
+        return $nombre;
+    }
+    
+    // Caso 2: ID numérico (servicio de assignment)
+    if (is_numeric($servicio_raw)) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_services';
+        
+        $service_name = $wpdb->get_var($wpdb->prepare(
+            "SELECT name FROM $table WHERE id = %d",
+            intval($servicio_raw)
+        ));
+        
+        if ($service_name) {
+            error_log("🔄 [ServicioTransform] ID $servicio_raw resuelto a nombre: '$service_name'");
+            return $service_name;
+        }
+        
+        error_log("⚠️ [ServicioTransform] No se encontró servicio con ID $servicio_raw, usando valor original");
+    }
+    
+    // Caso 3: Ya es un nombre o valor desconocido, retornar tal cual
+    return $servicio_raw;
+}
+
+/**
  * Confirmar una cita enviando solicitud al backend
  * 
  * @param int $reserva_id ID de la reserva
@@ -263,11 +303,15 @@ function confirm_backend_service_enviar_correo($datos) {
         $duracion = 60;
     }
 
+    // 🔄 Transformar servicio: "fixed::Nombre" -> "Nombre", "ID" -> "Nombre del servicio"
+    $servicio_raw = $datos['servicio'] ?? '';
+    $servicio_transformed = aa_transform_servicio_for_backend($servicio_raw);
+
     // 🔹 Reorganizar datos para enviar al backend
     $backend_data = [
         'domain' => $domain,
         'nombre' => $datos['nombre'] ?? '',
-        'servicio' => $datos['servicio'] ?? '',
+        'servicio' => $servicio_transformed,
         'fecha' => $datos['fecha'] ?? '',
         'telefono' => $datos['telefono'] ?? '',
         'email' => $datos['correo'] ?? '',

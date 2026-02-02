@@ -15,13 +15,14 @@ add_action('wp_enqueue_scripts', 'aa_enqueue_local_availability_data', 20);
 
 function aa_enqueue_local_availability_data() {
     global $post;
-    if (!is_a($post, 'WP_Post') || !has_shortcode($post->post_content, 'agenda_automatizada')) {
+    $in_content = is_a($post, 'WP_Post') && has_shortcode($post->post_content, 'agenda_automatizada');
+    $theme_hero = is_front_page() && get_theme_mod('deoia_show_calendar_in_hero', true);
+    if (!$in_content && !$theme_hero) {
+        error_log('[aa_local] Frontend: skip (no shortcode en post, no hero)');
         return;
     }
-    
-    // ✅ Verificar que el script esté encolado antes de localizarlo
-    if (!wp_script_is('wpaa-availability-controller', 'enqueued')) {
-        error_log("⚠️ [AvailabilityController-Frontend] wpaa-availability-controller NO está encolado");
+    if (!wp_script_is('wpaa-date-utils', 'enqueued')) {
+        error_log("⚠️ [aa_local] wpaa-date-utils NO encolado");
         return;
     }
     
@@ -38,12 +39,12 @@ function aa_enqueue_local_availability_data() {
     ];
     
     wp_localize_script(
-        'wpaa-availability-controller',
+        'wpaa-date-utils',
         'aa_local_availability',
         $availability_config
     );
     
-    error_log("✅ [AvailabilityController-Frontend] Datos locales enviados");
+    error_log('[aa_local] Frontend: localizado en wpaa-date-utils, local_busy=' . count($local_busy));
 }
 
 /**
