@@ -130,6 +130,11 @@ function aa_save_reservation() {
     // ✅ Sanitización y conversión de fecha a la zona horaria del negocio
     $servicio = sanitize_text_field($data['servicio']);
     
+    // 🔹 Extraer prefijo "fixed::" si existe (guardar solo el nombre del servicio)
+    if (strpos($servicio, 'fixed::') === 0) {
+        $servicio = substr($servicio, 7); // strlen('fixed::') = 7
+    }
+    
     // 🔹 Convertir ISO UTC a DateTime en zona horaria local
     try {
         $fechaObj = new DateTime($data['fecha'], new DateTimeZone('UTC'));

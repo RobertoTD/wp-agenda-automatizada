@@ -101,9 +101,12 @@ function initReservationController(formSelector) {
 
       respuestaDiv.innerText = '✅ Cita agendada correctamente. Redirigiendo a WhatsApp...';
 
-      // 🔹 PASO 5: Redirigir a WhatsApp después de 2 segundos
+      // 🔹 PASO 5: Nombre del servicio para el mensaje (fixed:: → solo nombre; asignación → text del option)
+      const servicioDisplayName = getServiceDisplayName(form, datos.servicio);
+
+      // 🔹 PASO 6: Redirigir a WhatsApp después de 2 segundos
       setTimeout(() => {
-        redirectToWhatsApp(datos.nombre, datos.servicio, fechaLegible, datos.telefono);
+        redirectToWhatsApp(datos.nombre, servicioDisplayName, fechaLegible);
       }, 2000);
 
     } catch (err) {
@@ -116,14 +119,32 @@ function initReservationController(formSelector) {
 }
 
 /**
+ * Obtiene el nombre a mostrar del servicio para el mensaje de WhatsApp.
+ * - Si es fixed:: (ej. "fixed::Informes") devuelve solo el nombre (ej. "Informes").
+ * - Si es asignación (id numérico), devuelve el text del option seleccionado en #servicio.
+ */
+function getServiceDisplayName(form, servicioValue) {
+  if (!servicioValue) return '';
+  if (String(servicioValue).startsWith('fixed::')) {
+    return String(servicioValue).replace(/^fixed::/, '').trim();
+  }
+  const servicioSelect = form && form.servicio;
+  if (servicioSelect && servicioSelect.options && servicioSelect.selectedIndex >= 0) {
+    const optionText = servicioSelect.options[servicioSelect.selectedIndex].text;
+    if (optionText) return optionText.trim();
+  }
+  return String(servicioValue);
+}
+
+/**
  * Redirige a WhatsApp con mensaje prellenado
  */
-function redirectToWhatsApp(nombre, servicio, fechaLegible, telefono) {
+function redirectToWhatsApp(nombre, servicioDisplayName, fechaLegible) {
   const whatsappNumber = (typeof wpaa_vars !== 'undefined' && wpaa_vars.whatsapp_number) 
     ? wpaa_vars.whatsapp_number 
     : '5212214365851';
 
-  const mensaje = `Hola, soy ${nombre}. Me gustaría agendar una cita para: ${servicio} el día ${fechaLegible}. Mi teléfono es ${telefono}.`;
+  const mensaje = `Hola, soy ${nombre}. Me gustaría agendar una cita para: ${servicioDisplayName} el día ${fechaLegible}.`;
   
   window.location.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(mensaje)}`;
 }

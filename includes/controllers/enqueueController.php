@@ -108,7 +108,8 @@ function wpaa_enqueue_frontend_assets() {
         ['wpaa-availability-assignments', 'assets/js/services/availability/availabilityAssignments.js', ['wpaa-date-utils'], false],
         ['wpaa-busy-ranges-assignments',  'assets/js/services/availability/busyRangesAssignments.js', [], false],
         ['wpaa-calendar-availability-service', 'assets/js/services/availability/calendarAvailabilityService.js', ['wpaa-date-utils', 'wpaa-availability-assignments'], false],
-        ['wpaa-frontend-assignments-controller', 'assets/js/controllers/frontendAssignmentsController.js', ['wpaa-date-utils', 'wpaa-availability-assignments', 'wpaa-busy-ranges-assignments', 'wpaa-calendar-availability-service'], false],
+        // ✅ Depende de wpaa-availability-controller para que aa_local_availability exista antes de BusyRanges.buildBusyRanges()
+        ['wpaa-frontend-assignments-controller', 'assets/js/controllers/frontendAssignmentsController.js', ['wpaa-date-utils', 'wpaa-availability-assignments', 'wpaa-busy-ranges-assignments', 'wpaa-calendar-availability-service', 'wpaa-availability-controller'], false],
         // WhatsApp integration
         ['wpaa-whatsapp-service',        'assets/js/services/whatsAppService.js', [], false],
         ['wpaa-whatsapp-ui',             'assets/js/ui/whatsAppUI.js', ['wpaa-whatsapp-service'], false],

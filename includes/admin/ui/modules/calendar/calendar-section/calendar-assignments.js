@@ -603,10 +603,7 @@
         const citaDuration = posicion ? (posicion.bloquesOcupados * 30) : 0;
         const citaEndMin = citaStartMin !== null ? (citaStartMin + citaDuration) : null;
 
-        const isFixedCita = !cita.assignment_id && (
-            (cita.servicio && typeof cita.servicio === 'string' && cita.servicio.startsWith('fixed::')) ||
-            (!cita.assignment_id && !cita.staff_id)
-        );
+        const isFixedCita = !cita.assignment_id;
         
         if (isFixedCita && citaStartMin !== null) {
             const hosts = grid.querySelectorAll('.aa-overlay-cards-host[data-type="schedule"]');
