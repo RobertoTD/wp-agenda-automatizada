@@ -155,6 +155,9 @@ header('Content-Type: text/html; charset=utf-8');
 <!-- Shared Admin JS (AAAdmin namespace) -->
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'includes/admin/ui/assets/js/main.js'); ?>" defer></script>
 
+<!-- Sidebar -->
+<script src="<?php echo esc_url(AA_PLUGIN_URL . 'includes/admin/ui/assets/js/sidebar.js'); ?>" defer></script>
+
 <!-- Notifications -->
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'includes/admin/ui/assets/js/notifications.js'); ?>" defer></script>
 
@@ -239,6 +242,9 @@ header('Content-Type: text/html; charset=utf-8');
         
         <?php require_once __DIR__ . '/footer.php'; ?>
     </div>
+
+    <!-- Shared Sidebar (drawer navigation) -->
+    <?php require_once __DIR__ . '/sidebar.php'; ?>
 
     <!-- Shared Modals (base structure) -->
     <?php require_once __DIR__ . '/modals.php'; ?>
