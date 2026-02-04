@@ -221,7 +221,7 @@
             
             // Unread bell icon (only if unread)
             const bellIcon = isUnread ? `
-                <div class="aa-unread-bell absolute top-2 right-2 z-10">
+                <div class="aa-unread-bell absolute z-10">
                     <svg class="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                         <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>
                     </svg>
@@ -230,11 +230,11 @@
             
             // Header (clickable toggle)
             const header = document.createElement('div');
-            header.className = 'aa-appointment-header';
+            header.className = 'aa-appointment-header relative';
             header.setAttribute('data-aa-card-toggle', '');
             header.innerHTML = `
                 ${bellIcon}
-                <div class="flex items-center justify-between w-full">
+                <div class="flex items-center justify-between w-full pr-8">
                     <div class="flex flex-col">
                         <span class="font-medium text-gray-900">${this.escapeHtml(item.cliente_nombre)}</span>
                         <span class="text-sm text-gray-500">${this.escapeHtml(item.servicio)}</span>

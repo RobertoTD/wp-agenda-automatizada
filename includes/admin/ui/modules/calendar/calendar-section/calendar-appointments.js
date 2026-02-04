@@ -751,7 +751,14 @@
 
     // Exponer API pública
     window.CalendarAppointments = {
-        cargarYRenderizarCitas: cargarYRenderizarCitas
+        cargarYRenderizarCitas: cargarYRenderizarCitas,
+        /** Colapsa la card de cita expandida si hay alguna (p. ej. al abrir el sidebar). */
+        colapsarCardExpandida: function() {
+            if (currentlyExpandedCard) {
+                colapsarCard(currentlyExpandedCard);
+                currentlyExpandedCard = null;
+            }
+        }
     };
 
 })();

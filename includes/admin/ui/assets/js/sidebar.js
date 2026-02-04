@@ -90,6 +90,11 @@
         open: function() {
             if (this.isOpen) return;
 
+            // Cerrar card de cita expandida en el calendario si hay una abierta
+            if (window.CalendarAppointments && typeof window.CalendarAppointments.colapsarCardExpandida === 'function') {
+                window.CalendarAppointments.colapsarCardExpandida();
+            }
+
             const sidebar = this.els.sidebar;
             const overlay = this.els.overlay;
             const trigger = this.els.trigger;

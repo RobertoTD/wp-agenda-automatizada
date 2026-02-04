@@ -115,7 +115,7 @@ $module_js_url = $plugin_url . 'calendar-module.js';
             </div>
 
             <!-- Grid de horarios -->
-            <div id="aa-time-grid" class="aa-time-grid">
+            <div id="aa-time-grid" class="aa-time-grid min-h-[100px]">
               <!-- 🔥 JS renderiza aquí dinámicamente las filas de horarios -->
             </div>
 

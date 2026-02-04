@@ -225,11 +225,11 @@ header('Content-Type: text/html; charset=utf-8');
 <!-- Transversal Modal: Client Create/Edit -->
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'includes/admin/ui/modals/crearcliente/crearcliente.js'); ?>" defer></script>
 
-    <div id="aa-admin-app" class="w-full">
+    <div id="aa-admin-app" class="w-full flex flex-col min-h-screen">
         <?php require_once __DIR__ . '/header.php'; ?>
         
         <main id="aa-admin-content" class="flex-1 px-2 pt-2 pb-2">
-
+            <div id="aa-module-root">
             <?php
             // Load module content
             if (file_exists($module_path)) {
@@ -238,6 +238,7 @@ header('Content-Type: text/html; charset=utf-8');
                 echo '<div class="p-4 bg-red-50 text-red-700 rounded">Módulo no encontrado.</div>';
             }
             ?>
+            </div>
         </main>
         
         <?php require_once __DIR__ . '/footer.php'; ?>

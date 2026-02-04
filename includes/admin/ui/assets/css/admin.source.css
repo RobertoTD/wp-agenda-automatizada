@@ -3,6 +3,16 @@
 @tailwind utilities;
 
 @layer components {
+    /* Notifications badge - centered text */
+    #aa-notifications-badge {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        line-height: 18px;
+        padding: 0 0 0 0;
+    }
+
     /* Accordion styles */
     /* Hide default summary marker */
     details summary::-webkit-details-marker {
@@ -296,7 +306,7 @@
     }
 
     .aa-date-nav-btn:focus {
-        @apply outline-none ring-2 ring-blue-500 ring-inset;
+        @apply outline-none;
     }
 
     .aa-date-nav-btn:active {
@@ -382,5 +392,16 @@
     .aa-btn-create:active {
         @apply bg-gray-100;
     }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   OVERRIDES - Rules that need to win over Tailwind utilities
+   (placed after @layer so they come last in the cascade)
+═══════════════════════════════════════════════════════════════ */
+
+/* Unread bell position in modal appointment cards */
+.aa-unread-bell {
+    top: 7px;
+    right: 5px;
 }
 

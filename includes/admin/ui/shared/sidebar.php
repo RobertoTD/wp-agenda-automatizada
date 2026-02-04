@@ -19,14 +19,14 @@ $active_module = isset($active_module) ? $active_module : 'calendar';
 <!-- Sidebar Overlay (backdrop) -->
 <div 
     id="aa-sidebar-overlay" 
-    class="fixed inset-0 bg-black/50 z-40 hidden opacity-0 transition-opacity duration-300"
+    class="fixed inset-0 bg-black/50 z-[210] hidden opacity-0 transition-opacity duration-300"
     aria-hidden="true"
 ></div>
 
 <!-- Sidebar Drawer -->
 <aside 
     id="aa-sidebar" 
-    class="fixed top-0 left-0 h-full w-64 bg-white shadow-xl z-50 transform -translate-x-full transition-transform duration-300 ease-in-out"
+    class="fixed top-0 left-0 h-full w-64 bg-white shadow-xl z-[220] transform -translate-x-full transition-transform duration-300 ease-in-out"
     role="dialog"
     aria-modal="true"
     aria-label="Menú de navegación"

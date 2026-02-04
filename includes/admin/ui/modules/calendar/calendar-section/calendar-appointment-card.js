@@ -217,8 +217,10 @@
             backgroundColor: '#ffffff',
             fontSize: TOKENS.textBase,
             flexShrink: '0',
-            borderBottomLeftRadius: '0',
-            borderBottomRightRadius: TOKENS.radiusMd
+            borderBottomLeftRadius: TOKENS.radiusMd,
+            borderBottomRightRadius: TOKENS.radiusMd,
+            borderTop: `1px solid ${TOKENS.gray100}`,
+            boxShadow: 'inset 0 1px 2px rgba(0, 0, 0, 0.03), 0 4px 8px -2px rgba(0, 0, 0, 0.06), 0 2px 4px -1px rgba(0, 0, 0, 0.04)'
         });
         
         // ----- Sección: Estado (Badge) -----

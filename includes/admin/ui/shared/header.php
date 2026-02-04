@@ -48,7 +48,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
                     <!-- Badge -->
                     <span 
                         id="aa-notifications-badge" 
-                        class="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-semibold text-white bg-blue-500 rounded-full ring-2 ring-white"
+                        class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] text-[10px] font-semibold text-white bg-blue-500 rounded-full ring-2 ring-white"
                     >0</span>
                     
                     <!-- Notifications Popover -->

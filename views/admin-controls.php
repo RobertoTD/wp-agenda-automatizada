@@ -240,22 +240,49 @@ add_action('admin_footer', function () {
     <script>
         (function () {
             'use strict';
-            
+
             const iframe = document.getElementById('aa-settings-iframe');
             if (!iframe) return;
 
+            let lastContentHeight = 0;
+            let lastAppliedHeight = 0;
+
+            function getAvailableHeight() {
+                const rect = iframe.getBoundingClientRect();
+                const top = rect.top;
+                return Math.max(200, Math.floor(window.innerHeight - top - 16));
+            }
+
+            function applyHeight(contentHeight) {
+                const available = getAvailableHeight();
+                const target = Math.max(contentHeight, available);
+                if (target !== lastAppliedHeight) {
+                    iframe.style.height = target + 'px';
+                    lastAppliedHeight = target;
+                }
+                return { available: available, applied: lastAppliedHeight };
+            }
+
             window.addEventListener('message', function (event) {
-                // Security: Only accept messages from same origin
                 if (event.origin !== window.location.origin) return;
 
                 if (event.data && event.data.type === 'aa-iframe-resize') {
-                    const newHeight = event.data.height;
-                    
-                    // Only update if height actually changed (avoid unnecessary reflows)
-                    if (iframe.style.height !== newHeight + 'px') {
-                        iframe.style.height = newHeight + 'px';
-                    }
+                    lastContentHeight = event.data.height;
+                    applyHeight(lastContentHeight);
                 }
+            });
+
+            window.addEventListener('resize', function () {
+                if (lastContentHeight > 0) {
+                    applyHeight(lastContentHeight);
+                }
+            });
+
+            iframe.addEventListener('load', function () {
+                lastContentHeight = 0;
+                const availableHeight = getAvailableHeight();
+                iframe.style.height = availableHeight + 'px';
+                lastAppliedHeight = availableHeight;
             });
         })();
     </script>

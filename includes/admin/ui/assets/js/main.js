@@ -63,26 +63,29 @@ window.AAAdmin = window.AAAdmin || {};
         let resizeTimeout = null;
 
         function sendHeight(source = 'unknown') {
-            // Get the actual content container instead of body
-            // The body has min-h-screen which forces minimum height
-            const appContainer = document.getElementById('aa-admin-app');
+            // Measure actual content height by summing header + footer + moduleRoot
+            // This avoids the feedback loop caused by flex-1/min-h-screen inflating scrollHeight
+            const header = document.querySelector('#aa-admin-app > header');
+            const footer = document.querySelector('#aa-admin-app > footer');
+            const main = document.getElementById('aa-admin-content');
+            const moduleRoot = document.getElementById('aa-module-root');
             const body = document.body;
             const html = document.documentElement;
 
             let height;
 
-            if (appContainer) {
-                // Measure the actual content container
-                // Use getBoundingClientRect for accurate measurement
-                const rect = appContainer.getBoundingClientRect();
-                height = Math.ceil(rect.height);
-                
-                // Fallback: use scrollHeight if getBoundingClientRect doesn't work
-                if (height === 0 || isNaN(height)) {
-                    height = appContainer.scrollHeight;
-                }
+            const headerH = header ? header.offsetHeight : 0;
+            const footerH = footer ? footer.offsetHeight : 0;
+            const moduleH = moduleRoot ? moduleRoot.scrollHeight : (main ? main.scrollHeight : 0);
+            const mainStyles = main ? getComputedStyle(main) : null;
+            const padT = mainStyles ? parseFloat(mainStyles.paddingTop) || 0 : 0;
+            const padB = mainStyles ? parseFloat(mainStyles.paddingBottom) || 0 : 0;
+
+            if (moduleRoot || main) {
+                // Calculate real content height: header + main padding + module content + footer
+                height = Math.ceil(headerH + padT + moduleH + padB + footerH);
             } else {
-                // Fallback to body measurement if container not found
+                // Fallback to body measurement if containers not found
                 height = Math.max(
                     body.scrollHeight,
                     body.offsetHeight,
@@ -92,23 +95,14 @@ window.AAAdmin = window.AAAdmin || {};
                 );
             }
 
-            // Debug logging
-            console.log(`[iframe-resize] Source: ${source}, Height: ${height}px, Last: ${lastHeight}px, Container: ${appContainer ? 'found' : 'not found'}`);
-
             // Only send if height changed (avoid unnecessary updates)
             if (height !== lastHeight) {
                 lastHeight = height;
-
-                console.log(`[iframe-resize] Sending new height: ${height}px to parent window`);
-
-                // Send height to parent window
                 window.parent.postMessage({
                     type: 'aa-iframe-resize',
                     height: height,
                     iframeId: 'aa-settings-iframe'
                 }, '*');
-            } else {
-                console.log(`[iframe-resize] Height unchanged (${height}px), skipping update`);
             }
         }
 
