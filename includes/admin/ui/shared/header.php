@@ -7,17 +7,17 @@
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
 ?>
-<header class="bg-white border-b border-gray-200">
+<header class="bg-transparent">
     <div class="px-4 py-2.5">
         <!-- Header Row -->
         <div class="flex items-center justify-between">
-            <!-- Left: Sidebar trigger + Branding -->
+            <!-- Left: Sidebar trigger (island) + Branding -->
             <div class="flex items-center gap-3">
-                <!-- Sidebar Trigger (Ghost/Tertiary style) -->
+                <!-- Sidebar Trigger: isla circular -->
                 <button 
                     id="aa-btn-sidebar" 
                     type="button"
-                    class="inline-flex items-center justify-center w-9 h-9 text-gray-500 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 rounded-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:ring-offset-1"
+                    class="inline-flex items-center justify-center w-9 h-9 text-gray-600 bg-white border border-gray-200 shadow-sm rounded-lg hover:bg-gray-50 hover:shadow hover:border-gray-300 active:bg-gray-100 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:ring-offset-1"
                     aria-label="Abrir menú"
                     aria-expanded="false"
                     aria-controls="aa-sidebar"
@@ -31,14 +31,14 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
                 <span class="text-sm font-semibold text-gray-800 tracking-tight hidden sm:block">Agenda</span>
             </div>
             
-            <!-- Right: Notifications + Agendar CTA -->
+            <!-- Right: Notifications (island) -->
             <div class="flex items-center gap-2">
-                <!-- Notifications (Ghost/Tertiary style) -->
+                <!-- Notifications: isla circular -->
                 <div class="relative">
                     <button 
                         id="aa-btn-notifications" 
                         type="button"
-                        class="inline-flex items-center justify-center w-9 h-9 text-gray-500 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 rounded-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:ring-offset-1"
+                        class="inline-flex items-center justify-center w-9 h-9 text-gray-600 bg-white border border-gray-200 shadow-sm rounded-lg hover:bg-gray-50 hover:shadow hover:border-gray-300 active:bg-gray-100 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:ring-offset-1"
                         aria-label="Notificaciones"
                     >
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
@@ -74,17 +74,6 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
                     </div>
                 </div>
                 
-                <!-- Agendar CTA (Primary Button) -->
-                <button 
-                    id="aa-btn-open-reservation-modal" 
-                    type="button"
-                    class="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 active:bg-blue-700 rounded-md shadow-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:ring-offset-1"
-                >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-                    </svg>
-                    <span>Agendar</span>
-                </button>
             </div>
         </div>
     </div>

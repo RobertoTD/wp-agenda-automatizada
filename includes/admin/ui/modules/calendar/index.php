@@ -153,3 +153,17 @@ $module_js_url = $plugin_url . 'calendar-module.js';
 
 <!-- Módulo del calendario (SIEMPRE AL FINAL) -->
 <script src="<?php echo esc_url($module_js_url); ?>" defer></script>
+
+<!-- =========================
+     🔹 FAB: AGENDAR
+     ========================= -->
+<button 
+    id="aa-btn-open-reservation-modal" 
+    type="button"
+    class="fixed bottom-6 right-6 z-50 flex items-center justify-center w-14 h-14 text-white bg-blue-500 hover:bg-blue-600 active:bg-blue-700 rounded-full shadow-xl shadow-blue-500/25 hover:shadow-2xl hover:shadow-blue-500/30 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-blue-500/30"
+    aria-label="Agendar nueva cita"
+>
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+    </svg>
+</button>

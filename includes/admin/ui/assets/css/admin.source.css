@@ -277,7 +277,7 @@
     /* Toolbar container - flexible row with spacing */
     .aa-toolbar {
         @apply flex items-center justify-between gap-3;
-        @apply px-3 py-2 mt-1 mx-1 mb-3;
+        @apply px-3 py-2 mt-3 mx-1 mb-3;
     }
 
     /* ═══════════════════════════════════════════════════════════════
@@ -404,4 +404,3 @@
     top: 7px;
     right: 5px;
 }
-
