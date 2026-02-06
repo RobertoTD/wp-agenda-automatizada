@@ -99,15 +99,46 @@ function initReservationController(formSelector) {
         timeZone: wpaa_vars.timezone || 'America/Mexico_City'
       });
 
-      respuestaDiv.innerText = '✅ Cita agendada correctamente. Redirigiendo a WhatsApp...';
-
       // 🔹 PASO 5: Nombre del servicio para el mensaje (fixed:: → solo nombre; asignación → text del option)
       const servicioDisplayName = getServiceDisplayName(form, datos.servicio);
 
-      // 🔹 PASO 6: Redirigir a WhatsApp después de 2 segundos
-      setTimeout(() => {
-        redirectToWhatsApp(datos.nombre, servicioDisplayName, fechaLegible);
-      }, 2000);
+      // 🔹 PASO 5b: Construir URL de WhatsApp
+      const whatsappNumber = (typeof wpaa_vars !== 'undefined' && wpaa_vars.whatsapp_number)
+        ? wpaa_vars.whatsapp_number
+        : '5212214365851';
+      const whatsappMsg = `Hola, soy ${datos.nombre}. Me gustaría agendar una cita para: ${servicioDisplayName} el día ${fechaLegible}.`;
+      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMsg)}`;
+
+      // 🔹 PASO 5c: Payload de evento compartido (incluye whatsappUrl)
+      const eventPayload = {
+        nombre: datos.nombre,
+        telefono: datos.telefono,
+        correo: datos.correo,
+        servicio: servicioDisplayName,
+        fechaISO: selectedSlotISO,
+        fechaLegible,
+        id_reserva: datos.id_reserva || null,
+        whatsappUrl
+      };
+
+      // 🔹 PASO 5d: Mensaje de éxito con info de correo
+      const correoLine = datos.correo
+        ? `\nTe enviaremos un correo a ${datos.correo} con los detalles.\nDesde ese correo podrás confirmar tu asistencia con un clic.\nSi no llega en 2–3 minutos, revisa Spam/Promociones.`
+        : '';
+      respuestaDiv.innerText = `✅ Tu solicitud de reserva fue registrada.${correoLine}\nAbriendo WhatsApp…`;
+
+      // 🔹 PASO 5e: Emitir evento cancelable aa:reservation:processed
+      // Si un listener llama e.preventDefault(), notCanceled será false → no auto-redirect.
+      const evt = new CustomEvent('aa:reservation:processed', { detail: eventPayload, cancelable: true });
+      const notCanceled = window.dispatchEvent(evt);
+
+      // 🔹 PASO 6: Redirigir a WhatsApp solo si ningún listener canceló el evento (flujo free)
+      if (notCanceled) {
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('aa:whatsapp:redirecting', { detail: eventPayload }));
+          redirectToWhatsApp(datos.nombre, servicioDisplayName, fechaLegible);
+        }, 3000);
+      }
 
     } catch (err) {
       console.error('❌ Error al agendar:', err);

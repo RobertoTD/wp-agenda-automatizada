@@ -397,9 +397,7 @@
 /* ═══════════════════════════════════════════════════════════════
    OVERRIDES - Rules that need to win over Tailwind utilities
    (placed after @layer so they come last in the cascade)
-═══════════════════════════════════════════════════════════════ */
-
-/* Unread bell position in modal appointment cards */
+═══════════════════════════════════════════════════════════════ *//* Unread bell position in modal appointment cards */
 .aa-unread-bell {
     top: 7px;
     right: 5px;
