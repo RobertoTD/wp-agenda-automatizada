@@ -155,6 +155,36 @@ function confirm_backend_service_confirmar($reserva_id) {
     }
     // =========================================================================
 
+    // =========================================================================
+    // 🔔 MARCAR NOTIFICACIÓN PENDING COMO LEÍDA (admin ya conoce la acción)
+    // =========================================================================
+    $notifications_table = $wpdb->prefix . 'aa_notifications';
+    
+    $pending_notification_id = $wpdb->get_var($wpdb->prepare(
+        "SELECT id FROM $notifications_table 
+         WHERE entity_type = %s AND entity_id = %d AND type = %s AND is_read = 0",
+        'reservation',
+        $reserva_id,
+        'pending'
+    ));
+    
+    if ($pending_notification_id) {
+        $notif_updated = $wpdb->update(
+            $notifications_table,
+            ['is_read' => 1],
+            ['id' => $pending_notification_id],
+            ['%d'],
+            ['%d']
+        );
+        
+        if ($notif_updated !== false) {
+            error_log("✅ [ConfirmService] Notificación pending ID $pending_notification_id marcada como leída para reserva confirmada ID $reserva_id");
+        } else {
+            error_log("⚠️ [ConfirmService] Error al marcar notificación pending como leída: " . $wpdb->last_error);
+        }
+    }
+    // =========================================================================
+
      // ---------------------------------------------------------
     // 🛑 Validar si existe email antes de seguir
     // ---------------------------------------------------------

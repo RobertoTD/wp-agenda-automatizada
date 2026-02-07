@@ -37,6 +37,7 @@ window.AdminConfirmController = (function() {
             .then(data => {
                 if (data.success) {
                     alert('✅ Cita confirmada. Se envió correo de confirmación.');
+                    document.dispatchEvent(new CustomEvent('aa-cita-action-completed'));
                     if (recargarCallback) {
                         recargarCallback();
                     }
@@ -71,6 +72,7 @@ window.AdminConfirmController = (function() {
                     }
                     
                     alert(mensaje);
+                    document.dispatchEvent(new CustomEvent('aa-cita-action-completed'));
                     if (recargarCallback) {
                         recargarCallback();
                     }

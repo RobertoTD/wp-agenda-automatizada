@@ -39,6 +39,35 @@ function aa_ajax_get_unread_notifications() {
         ]);
     }
     
+    // =========================================================================
+    // 🧹 CLEANUP PASIVO: marcar como leídas notificaciones de citas ya pasadas
+    // =========================================================================
+    $reservas_table = $wpdb->prefix . 'aa_reservas';
+    $timezone_str = get_option('aa_timezone', 'America/Mexico_City');
+    
+    try {
+        $now = new DateTime('now', new DateTimeZone($timezone_str));
+    } catch (Exception $e) {
+        $now = new DateTime('now', new DateTimeZone('America/Mexico_City'));
+    }
+    $now_sql = $now->format('Y-m-d H:i:s');
+    
+    $cleanup_result = $wpdb->query($wpdb->prepare(
+        "UPDATE {$table} n
+         INNER JOIN {$reservas_table} r 
+            ON n.entity_type = 'reservation' 
+            AND n.entity_id = r.id
+         SET n.is_read = 1
+         WHERE n.is_read = 0
+           AND DATE_ADD(r.fecha, INTERVAL COALESCE(r.duracion, 60) MINUTE) < %s",
+        $now_sql
+    ));
+    
+    if ($cleanup_result > 0) {
+        error_log("🧹 [Notifications Cleanup] $cleanup_result notificaciones de citas pasadas marcadas como leídas");
+    }
+    // =========================================================================
+    
     // Query: Get counts grouped by type for unread notifications
     $results = $wpdb->get_results(
         "SELECT type, COUNT(*) as count 

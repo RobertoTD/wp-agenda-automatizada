@@ -126,6 +126,7 @@ window.AdminCalendarController = (function() {
         .then(data => {
             if (data.success) {
                 alert('✅ Asistencia registrada');
+                document.dispatchEvent(new CustomEvent('aa-cita-action-completed'));
                 if (recargarCallback) {
                     recargarCallback();
                 }
@@ -165,6 +166,7 @@ window.AdminCalendarController = (function() {
         .then(data => {
             if (data.success) {
                 alert('❌ No asistencia registrada');
+                document.dispatchEvent(new CustomEvent('aa-cita-action-completed'));
                 if (recargarCallback) {
                     recargarCallback();
                 }

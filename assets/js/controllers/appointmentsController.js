@@ -10,6 +10,10 @@
 (function() {
     'use strict';
 
+    // Guard flags for event listeners (persist across modal re-opens)
+    let _actionListenerBound = false;
+    let _actionRefreshListenerBound = false;
+
     /**
      * Estado badge colors mapping
      */
@@ -24,6 +28,14 @@
         },
         'cancelled': {
             label: 'Cancelada',
+            classes: 'bg-red-100 text-red-800'
+        },
+        'asistió': {
+            label: 'Asistió',
+            classes: 'bg-green-100 text-green-800'
+        },
+        'no asistió': {
+            label: 'No asistió',
             classes: 'bg-red-100 text-red-800'
         }
     };
@@ -93,6 +105,12 @@
             
             // Pre-select checkboxes based on initial filters
             this.applyInitialFiltersToPanel(filters);
+            
+            // Setup action buttons click delegation
+            this.setupActionButtonsListener();
+            
+            // Listen for action completion to refresh list
+            this.setupActionRefreshListener();
             
             // Load appointments
             this.loadAppointments();
@@ -291,6 +309,7 @@
                         <span class="px-2 py-1 text-xs font-medium rounded ${badge.classes}">${badge.label}</span>
                     </div>
                 </div>
+                ${this.renderActionButtons(item)}
             `;
             
             overlay.appendChild(body);
@@ -461,6 +480,126 @@
             const div = document.createElement('div');
             div.textContent = str;
             return div.innerHTML;
+        },
+
+        /**
+         * Determine if an appointment has ended (is in the past).
+         * Uses fecha_raw (MySQL datetime) and duracion to calculate end time.
+         * Delegates to DateUtils.isAppointmentActive when available.
+         * @param {Object} item - Appointment data from aa_get_appointments
+         * @returns {boolean} true if the appointment has already ended
+         */
+        isAppointmentPast: function(item) {
+            if (!item.fecha_raw) return false;
+            // Map modal item to timeline-compatible shape for DateUtils
+            const citaLike = { fecha: item.fecha_raw, duracion: item.duracion };
+            if (window.DateUtils && typeof window.DateUtils.isAppointmentActive === 'function') {
+                return !window.DateUtils.isAppointmentActive(citaLike);
+            }
+            // Fallback: manual calculation
+            const end = new Date(item.fecha_raw.replace(' ', 'T'));
+            if (isNaN(end.getTime())) return false;
+            end.setMinutes(end.getMinutes() + (parseInt(item.duracion, 10) || 60));
+            return new Date() >= end;
+        },
+
+        /**
+         * Render action buttons for a card based on estado and time.
+         * Same rules as the timeline cards:
+         *   - Próxima + pending   => Confirmar / Cancelar
+         *   - Próxima + confirmed => Cancelar
+         *   - Pasada  + confirmed => Asistió / No asistió
+         *   - cancelled / asistió / no asistió => no buttons
+         * Uses inline styles (like timeline) for consistency.
+         * @param {Object} item - Appointment data
+         * @returns {string} HTML string (empty string if no actions apply)
+         */
+        renderActionButtons: function(item) {
+            const estado = item.estado || 'pending';
+            const esPasada = this.isAppointmentPast(item);
+            const buttons = [];
+
+            if (!esPasada) {
+                // Cita próxima / activa
+                if (estado === 'pending') {
+                    buttons.push({ label: 'Confirmar', action: 'confirmar', variant: 'success' });
+                    buttons.push({ label: 'Cancelar', action: 'cancelar', variant: 'danger' });
+                } else if (estado === 'confirmed') {
+                    buttons.push({ label: 'Cancelar', action: 'cancelar', variant: 'danger' });
+                }
+            } else {
+                // Cita pasada
+                if (estado === 'confirmed') {
+                    buttons.push({ label: 'Asistió', action: 'asistio', variant: 'success' });
+                    buttons.push({ label: 'No asistió', action: 'no-asistio', variant: 'danger' });
+                }
+            }
+
+            if (buttons.length === 0) return '';
+
+            // Inline styles (same approach as timeline cards)
+            const variantStyles = {
+                success: 'padding: 8px 12px; background-color: #22c55e; color: #ffffff; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; line-height: 1; transition: all 150ms ease;',
+                danger: 'padding: 8px 12px; background-color: #ffffff; color: #dc2626; border: 1px solid #fecaca; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; line-height: 1; transition: all 150ms ease;'
+            };
+
+            const buttonsHtml = buttons.map(function(btn) {
+                const styles = variantStyles[btn.variant] || variantStyles.danger;
+                return '<button type="button" data-action="' + btn.action + '" data-id="' + item.id + '" ' +
+                    'style="' + styles + '">' + btn.label + '</button>';
+            }).join('');
+
+            return '<div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f3f4f6; display: flex; gap: 8px; flex-wrap: wrap;">' + buttonsHtml + '</div>';
+        },
+
+        /**
+         * Setup delegated click handler for action buttons within the modal.
+         * Listens on .aa-modal-body so it catches clicks on dynamically rendered buttons.
+         * Delegates to AdminCalendarController.handleCitaAction.
+         */
+        setupActionButtonsListener: function() {
+            if (_actionListenerBound) return;
+            _actionListenerBound = true;
+
+            const modalBody = document.querySelector('.aa-modal-body');
+            if (!modalBody) return;
+
+            modalBody.addEventListener('click', function(e) {
+                const btn = e.target.closest('[data-action]');
+                if (!btn) return;
+
+                const action = btn.getAttribute('data-action');
+                const citaId = btn.getAttribute('data-id');
+                if (!action || !citaId) return;
+
+                // Prevent card toggle/close
+                e.stopPropagation();
+
+                if (window.AdminCalendarController && typeof window.AdminCalendarController.handleCitaAction === 'function') {
+                    window.AdminCalendarController.handleCitaAction(action, citaId);
+                } else {
+                    console.warn('[AppointmentsController] AdminCalendarController.handleCitaAction no disponible');
+                }
+            });
+        },
+
+        /**
+         * Listen for custom event dispatched after a cita action completes successfully.
+         * Reloads the modal list so the card reflects the new state.
+         */
+        setupActionRefreshListener: function() {
+            if (_actionRefreshListenerBound) return;
+            _actionRefreshListenerBound = true;
+
+            const self = this;
+            document.addEventListener('aa-cita-action-completed', function() {
+                // Only reload if the modal is currently visible
+                const modalRoot = document.getElementById('aa-modal-root');
+                if (modalRoot && !modalRoot.classList.contains('hidden')) {
+                    console.log('[AppointmentsController] Acción completada, recargando lista del modal...');
+                    self.loadAppointments();
+                }
+            });
         },
 
         /**
