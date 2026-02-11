@@ -185,24 +185,6 @@ function confirm_backend_service_confirmar($reserva_id) {
     }
     // =========================================================================
 
-     // ---------------------------------------------------------
-    // 🛑 Validar si existe email antes de seguir
-    // ---------------------------------------------------------
-    $google_email = get_option('aa_google_email', '');
-
-    if (empty($google_email)) {
-        error_log("ℹ️ [ConfirmService] Modo Local: Sin email configurado.");
-        return [
-            'success' => true,
-            'message' => 'Cita confirmada localmente (Sin sincronización con Google Calendar).',
-            'data' => [
-                'existed' => false,
-                'calendar_sync' => false
-            ]
-        ];
-    }
-    // ---------------------------------------------------------
-
     // 2️⃣ Obtener configuración
     $business_name = get_option('aa_business_name', get_bloginfo('name'));
     $business_address = get_option('aa_business_address', 'No especificada');
@@ -263,7 +245,7 @@ function confirm_backend_service_confirmar($reserva_id) {
         error_log("⚠️ [ConfirmService] Error al contactar backend: " . $response->get_error_message());
         return [
             'success' => true,
-            'message' => 'Cita confirmada en WordPress, pero no se pudo sincronizar con Google Calendar: ' . $response->get_error_message(),
+            'message' => 'Cita confirmada en WordPress, pero no se pudo notificar al backend: ' . $response->get_error_message(),
             'calendar_sync' => false
         ];
     }
@@ -279,24 +261,33 @@ function confirm_backend_service_confirmar($reserva_id) {
     if ($status >= 200 && $status < 300 && isset($decoded['success']) && $decoded['success']) {
         // ✅ Backend confirmó exitosamente
         
-        // 9️⃣ Actualizar calendar_uid en WordPress
         $calendar_uid = $decoded['data']['event_id'] ?? null;
+        $calendar_skipped = $decoded['data']['calendarSkipped'] ?? false;
+        $existed = $decoded['data']['existed'] ?? false;
         
+        // 9️⃣ Actualizar calendar_uid en WordPress (solo si hay evento)
         if ($calendar_uid) {
             $wpdb->update($table, ['calendar_uid' => $calendar_uid], ['id' => $reserva_id]);
             error_log("✅ [ConfirmService] calendar_uid actualizado: $calendar_uid");
         }
         
+        // Determinar mensaje según estado de Calendar
+        if ($calendar_skipped) {
+            $message = 'Cita confirmada. Se notificó al cliente por correo (Calendar omitido).';
+        } elseif ($existed) {
+            $message = 'Cita confirmada. El evento ya existía en Google Calendar.';
+        } else {
+            $message = 'Cita confirmada y agregada a Google Calendar.';
+        }
+        
         return [
             'success' => true,
-            'message' => $decoded['data']['existed'] 
-                ? 'Cita confirmada. El evento ya existía en Google Calendar.' 
-                : 'Cita confirmada y agregada a Google Calendar.',
+            'message' => $message,
             'data' => [
                 'event_id' => $calendar_uid,
                 'event_link' => $decoded['data']['event_link'] ?? null,
-                'existed' => $decoded['data']['existed'] ?? false,
-                'calendar_sync' => true
+                'existed' => $existed,
+                'calendar_sync' => !$calendar_skipped
             ]
         ];
         
@@ -308,7 +299,7 @@ function confirm_backend_service_confirmar($reserva_id) {
         
         return [
             'success' => true,
-            'message' => "Cita confirmada en WordPress, pero falló la sincronización con Google Calendar: $error_message",
+            'message' => "Cita confirmada en WordPress, pero no se pudo notificar al backend: $error_message",
             'calendar_sync' => false
         ];
     }

@@ -56,7 +56,7 @@ function aa_send_authenticated_request($endpoint, $method = 'POST', $data = []) 
     
     if (!$client_secret) {
         error_log("❌ aa_auth: No hay client_secret configurado");
-        return new WP_Error('no_secret', 'Client secret no configurado. Conecta con Google primero.');
+        return new WP_Error('no_secret', 'Client secret no configurado. No se puede autenticar con el backend.');
     }
 
     // 🔹 Generar timestamp y nonce

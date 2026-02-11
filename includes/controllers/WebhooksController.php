@@ -39,6 +39,15 @@ class Webhooks_Controller extends WP_REST_Controller {
                 'args'                => $this->get_sync_status_params(),
             ),
         ));
+
+        // 🔹 Branding endpoint — devuelve logo y nombre del negocio al backend Node
+        register_rest_route($this->namespace, '/branding', array(
+            array(
+                'methods'             => WP_REST_Server::READABLE,
+                'callback'            => array($this, 'handle_branding'),
+                'permission_callback' => '__return_true',
+            ),
+        ));
     }
 
     /**
@@ -84,5 +93,44 @@ class Webhooks_Controller extends WP_REST_Controller {
 
         // Respuesta exitosa
         return new WP_REST_Response($result, 200);
+    }
+
+    /**
+     * Devuelve los datos de branding del negocio al backend Node.
+     *
+     * GET /wp-json/aa/v1/branding
+     *
+     * @param WP_REST_Request $request Objeto de solicitud REST.
+     * @return WP_REST_Response Datos de branding.
+     */
+    public function handle_branding($request) {
+        // 1. Domain
+        $domain = function_exists('aa_get_clean_domain') ? aa_get_clean_domain() : '';
+
+        // 2. Business name
+        $business_name = get_option('aa_business_name', get_bloginfo('name'));
+
+        // 3. Logo PNG — Site Icon (preferir 192px, fallback 96px)
+        $logo_png_url = get_site_icon_url(192);
+        if (!$logo_png_url) {
+            $logo_png_url = get_site_icon_url(96);
+        }
+
+        // 4. Logo SVG — Customizer attachment (si el theme lo soporta)
+        $logo_svg_url = '';
+        $svg_attachment_id = get_theme_mod('deoia_svg_logo');
+        if ($svg_attachment_id) {
+            $svg_attachment_id = absint($svg_attachment_id);
+            if ($svg_attachment_id && get_post_mime_type($svg_attachment_id) === 'image/svg+xml') {
+                $logo_svg_url = wp_get_attachment_url($svg_attachment_id);
+            }
+        }
+
+        return new WP_REST_Response(array(
+            'domain'       => $domain,
+            'businessName' => $business_name,
+            'logoPngUrl'   => $logo_png_url ?: '',
+            'logoSvgUrl'   => $logo_svg_url ?: '',
+        ), 200);
     }
 }
