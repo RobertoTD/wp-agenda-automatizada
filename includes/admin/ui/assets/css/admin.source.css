@@ -89,6 +89,12 @@
         overflow: visible !important;
     }
 
+    /* Add padding-bottom to clients container when one of the last 3 cards is open to prevent overlay from being cut off */
+    #aa-module-root .p-3:has(#aa-clients-grid > [data-aa-card].is-open:nth-last-child(-n+3)) {
+        padding-bottom: 200px;
+        transition: padding-bottom 0.2s ease;
+    }
+
     /* Action bar for clients module */
     .aa-clients-action-bar {
         @apply flex flex-wrap items-center gap-3 mb-4;
