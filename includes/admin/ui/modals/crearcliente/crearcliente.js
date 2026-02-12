@@ -67,14 +67,14 @@
         
         const correoLabel = document.createElement('label');
         correoLabel.setAttribute('for', 'modal-cliente-correo');
-        correoLabel.textContent = 'Correo electrónico *';
+        correoLabel.textContent = 'Correo electrónico';
         
         const correoInput = document.createElement('input');
         correoInput.type = 'email';
         correoInput.id = 'modal-cliente-correo';
         correoInput.name = 'correo';
-        correoInput.required = true;
-        correoInput.placeholder = 'Ej: cliente@email.com';
+        correoInput.required = false;
+        correoInput.placeholder = 'Ej: cliente@email.com (opcional)';
         
         correoGroup.appendChild(correoLabel);
         correoGroup.appendChild(correoInput);
@@ -144,20 +144,29 @@
         if (!form) return;
 
         const nombre = document.getElementById('modal-cliente-nombre').value.trim();
-        const telefono = document.getElementById('modal-cliente-telefono').value.trim();
+        const telefonoRaw = document.getElementById('modal-cliente-telefono').value.trim();
         const correo = document.getElementById('modal-cliente-correo').value.trim();
 
-        // Validación básica
-        if (!nombre || !telefono || !correo) {
-            showFormStatus('Todos los campos son obligatorios.', true);
+        // Validación básica (correo es opcional)
+        if (!nombre || !telefonoRaw) {
+            showFormStatus('Nombre y teléfono son obligatorios.', true);
             return;
         }
 
-        // Validar formato de correo
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(correo)) {
-            showFormStatus('El correo electrónico no es válido.', true);
+        // Normalizar teléfono: solo dígitos, exactamente 10
+        const telefono = telefonoRaw.replace(/\D/g, '');
+        if (telefono.length !== 10) {
+            showFormStatus('El teléfono debe tener exactamente 10 dígitos numéricos.', true);
             return;
+        }
+
+        // Validar formato de correo solo si se proporcionó
+        if (correo) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(correo)) {
+                showFormStatus('El correo electrónico no es válido.', true);
+                return;
+            }
         }
 
         // Obtener nonce
@@ -432,15 +441,15 @@
         
         const correoLabel = document.createElement('label');
         correoLabel.setAttribute('for', 'modal-editar-cliente-correo');
-        correoLabel.textContent = 'Correo electrónico *';
+        correoLabel.textContent = 'Correo electrónico';
         
         const correoInput = document.createElement('input');
         correoInput.type = 'email';
         correoInput.id = 'modal-editar-cliente-correo';
         correoInput.name = 'correo';
-        correoInput.required = true;
+        correoInput.required = false;
         correoInput.value = cliente.correo || '';
-        correoInput.placeholder = 'Ej: cliente@email.com';
+        correoInput.placeholder = 'Ej: cliente@email.com (opcional)';
         
         correoGroup.appendChild(correoLabel);
         correoGroup.appendChild(correoInput);
@@ -509,20 +518,29 @@
 
         const clienteId = document.getElementById('modal-editar-cliente-id').value;
         const nombre = document.getElementById('modal-editar-cliente-nombre').value.trim();
-        const telefono = document.getElementById('modal-editar-cliente-telefono').value.trim();
+        const telefonoRaw = document.getElementById('modal-editar-cliente-telefono').value.trim();
         const correo = document.getElementById('modal-editar-cliente-correo').value.trim();
 
-        // Validación básica
-        if (!clienteId || !nombre || !telefono || !correo) {
-            showEditFormStatus('Todos los campos son obligatorios.', true);
+        // Validación básica (correo es opcional)
+        if (!clienteId || !nombre || !telefonoRaw) {
+            showEditFormStatus('Nombre y teléfono son obligatorios.', true);
             return;
         }
 
-        // Validar formato de correo
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(correo)) {
-            showEditFormStatus('El correo electrónico no es válido.', true);
+        // Normalizar teléfono: solo dígitos, exactamente 10
+        const telefono = telefonoRaw.replace(/\D/g, '');
+        if (telefono.length !== 10) {
+            showEditFormStatus('El teléfono debe tener exactamente 10 dígitos numéricos.', true);
             return;
+        }
+
+        // Validar formato de correo solo si se proporcionó
+        if (correo) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(correo)) {
+                showEditFormStatus('El correo electrónico no es válido.', true);
+                return;
+            }
         }
 
         // Obtener nonce

@@ -312,6 +312,17 @@ function confirm_backend_service_confirmar($reserva_id) {
  * @return array ['success' => bool, 'message' => string, 'data' => array]
  */
 function confirm_backend_service_enviar_correo($datos) {
+    // 🔹 Si no hay correo del cliente, omitir envío de email
+    $correo = $datos['correo'] ?? '';
+    if (empty($correo)) {
+        error_log("ℹ️ [EmailService] Correo vacío → envío de confirmación por email omitido");
+        return [
+            'success' => true,
+            'message' => 'Correo no disponible, envío de email omitido.',
+            'skipped' => true
+        ];
+    }
+
     // 🔹 Usar la función centralizada para obtener el domain
     $domain = aa_get_clean_domain();
 

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WP Agenda Automatizada
  * Description: Sistema de gestión de citas con integración a Google Calendar, pega este Shortcode donde quieras mostrar tu calendario: [agenda_automatizada]
- * Version: 2.1.3
+ * Version: 2.1.4
  * Author: Roberto Tejada
  */
 
@@ -144,9 +144,20 @@ function aa_save_reservation() {
         wp_send_json_error(['message' => 'Formato de fecha inválido.']);
     }
     
-    $nombre   = sanitize_text_field($data['nombre']);
-    $telefono = sanitize_text_field($data['telefono']);
-    $correo   = sanitize_email($data['correo']);
+    $nombre       = sanitize_text_field($data['nombre']);
+    $telefono_raw = sanitize_text_field($data['telefono']);
+    $correo       = isset($data['correo']) ? sanitize_email($data['correo']) : '';
+
+    // 🔹 Validar teléfono obligatorio
+    if (empty($telefono_raw)) {
+        wp_send_json_error(['message' => 'El teléfono es obligatorio.']);
+    }
+
+    // 🔹 Normalizar teléfono (10 dígitos)
+    $telefono = aa_normalize_telefono($telefono_raw);
+    if (is_wp_error($telefono)) {
+        wp_send_json_error(['message' => $telefono->get_error_message()]);
+    }
     
     // 🔹 Obtener duración (validar que sea 30, 60 o 90, por defecto 60)
     $duracion = isset($data['duracion']) ? intval($data['duracion']) : 60;
@@ -154,17 +165,17 @@ function aa_save_reservation() {
         $duracion = 60; // Valor por defecto si no es válido
     }
 
-    // 🔹 Buscar o crear cliente usando ClienteService
-    try {
-        $cliente_id = ClienteService::getOrCreate([
-            'nombre' => $nombre,
-            'telefono' => $telefono,
-            'correo' => $correo
-        ]);
-    } catch (Exception $e) {
-        error_log("❌ Error al obtener/crear cliente: " . $e->getMessage());
+    // 🔹 Buscar o crear cliente usando ClienteService (con reglas de correo mismatch)
+    $cliente_id = ClienteService::getOrCreate([
+        'nombre' => $nombre,
+        'telefono' => $telefono,
+        'correo' => $correo
+    ]);
+
+    if (is_wp_error($cliente_id)) {
+        error_log("❌ Error al obtener/crear cliente: " . $cliente_id->get_error_message());
         wp_send_json_error([
-            'message' => 'Error al procesar los datos del cliente: ' . $e->getMessage()
+            'message' => $cliente_id->get_error_message()
         ]);
     }
 

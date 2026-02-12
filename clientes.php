@@ -2,6 +2,30 @@
 if (!defined('ABSPATH')) exit;
 
 // ===============================
+// 🔹 Normalización y validación de teléfono (función central)
+// ===============================
+
+/**
+ * Normaliza un teléfono: solo dígitos, exactamente 10.
+ *
+ * @param string $telefono  Valor crudo del formulario
+ * @return string|WP_Error  Teléfono normalizado (10 dígitos) o WP_Error
+ */
+function aa_normalize_telefono($telefono) {
+    // Quitar todo lo que no sea dígito
+    $digits = preg_replace('/\D/', '', $telefono);
+
+    if (strlen($digits) !== 10) {
+        return new WP_Error(
+            'telefono_invalido',
+            'El teléfono debe tener exactamente 10 dígitos numéricos.'
+        );
+    }
+
+    return $digits;
+}
+
+// ===============================
 // 🔹 Crear tabla de clientes
 // ===============================
 function aa_create_clientes_table() {
@@ -13,12 +37,12 @@ function aa_create_clientes_table() {
         id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
         nombre varchar(255) NOT NULL,
         telefono varchar(50) NOT NULL,
-        correo varchar(255) NOT NULL,
+        correo varchar(255) NOT NULL DEFAULT '',
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY  (id),
-        UNIQUE KEY correo (correo),
-        KEY telefono (telefono)
+        UNIQUE KEY telefono (telefono),
+        KEY correo (correo)
     ) $charset;";
 
     require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
@@ -26,6 +50,114 @@ function aa_create_clientes_table() {
     
     error_log("✅ Tabla aa_clientes creada/actualizada");
 }
+
+/**
+ * Migración: correo ahora es opcional en aa_clientes.
+ * - Quita UNIQUE KEY en correo.
+ * - Pone DEFAULT '' en la columna correo.
+ * Se ejecuta una sola vez en admin_init.
+ */
+function aa_migrate_correo_optional() {
+    if (get_option('aa_correo_optional_migrated')) return;
+
+    global $wpdb;
+    $table = $wpdb->prefix . 'aa_clientes';
+
+    // 1. Verificar si existe UNIQUE KEY 'correo'
+    $indexes = $wpdb->get_results(
+        "SHOW INDEX FROM $table WHERE Key_name = 'correo' AND Non_unique = 0"
+    );
+
+    if (!empty($indexes)) {
+        $wpdb->query("ALTER TABLE $table DROP INDEX correo");
+        error_log("✅ [Migración] UNIQUE KEY 'correo' eliminado de aa_clientes");
+    }
+
+    // 2. Modificar columna para permitir DEFAULT ''
+    $wpdb->query("ALTER TABLE $table MODIFY correo varchar(255) NOT NULL DEFAULT ''");
+
+    // 3. Agregar índice normal (no único) si no existe
+    $idx = $wpdb->get_results("SHOW INDEX FROM $table WHERE Key_name = 'correo'");
+    if (empty($idx)) {
+        $wpdb->query("ALTER TABLE $table ADD INDEX correo (correo)");
+    }
+
+    update_option('aa_correo_optional_migrated', true);
+    error_log("✅ [Migración] correo ahora es opcional en aa_clientes");
+}
+add_action('admin_init', 'aa_migrate_correo_optional');
+
+/**
+ * Migración: teléfono es identidad única en aa_clientes.
+ * - Normaliza teléfonos existentes (solo dígitos).
+ * - Resuelve duplicados por teléfono (mantiene canonical, re-apunta reservas).
+ * - Agrega UNIQUE KEY telefono.
+ * Se ejecuta una sola vez en admin_init.
+ */
+function aa_migrate_telefono_unique() {
+    if (get_option('aa_telefono_unique_migrated')) return;
+
+    global $wpdb;
+    $table = $wpdb->prefix . 'aa_clientes';
+    $table_reservas = $wpdb->prefix . 'aa_reservas';
+
+    error_log("🔄 [Migración telefono_unique] Iniciando...");
+
+    // 1. Normalizar todos los teléfonos existentes (solo dígitos)
+    $all_clients = $wpdb->get_results("SELECT id, telefono FROM $table ORDER BY id ASC");
+    foreach ($all_clients as $client) {
+        $normalized = preg_replace('/\D/', '', $client->telefono);
+        if ($normalized !== $client->telefono) {
+            $wpdb->update($table, ['telefono' => $normalized], ['id' => $client->id]);
+            error_log("   Normalizado: ID {$client->id} '{$client->telefono}' → '{$normalized}'");
+        }
+    }
+
+    // 2. Detectar y resolver duplicados por teléfono normalizado
+    $duplicates = $wpdb->get_results(
+        "SELECT telefono, GROUP_CONCAT(id ORDER BY 
+            CASE WHEN correo != '' THEN 0 ELSE 1 END, id ASC) AS ids,
+            COUNT(*) AS cnt
+         FROM $table 
+         GROUP BY telefono 
+         HAVING cnt > 1"
+    );
+
+    foreach ($duplicates as $dup) {
+        $ids = array_map('intval', explode(',', $dup->ids));
+        $canonical_id = $ids[0]; // El primero: tiene correo y/o es más antiguo
+        $to_remove = array_slice($ids, 1);
+
+        error_log("   Duplicado tel '{$dup->telefono}': canonical ID {$canonical_id}, eliminando IDs: " . implode(',', $to_remove));
+
+        // Re-apuntar reservas de los duplicados al canonical
+        foreach ($to_remove as $old_id) {
+            $wpdb->update($table_reservas, ['id_cliente' => $canonical_id], ['id_cliente' => $old_id]);
+        }
+
+        // Eliminar registros duplicados
+        $placeholders = implode(',', array_fill(0, count($to_remove), '%d'));
+        $wpdb->query($wpdb->prepare(
+            "DELETE FROM $table WHERE id IN ($placeholders)",
+            ...$to_remove
+        ));
+    }
+
+    // 3. Quitar índice normal de telefono si existe, antes de poner UNIQUE
+    $existing_idx = $wpdb->get_results(
+        "SHOW INDEX FROM $table WHERE Key_name = 'telefono'"
+    );
+    if (!empty($existing_idx)) {
+        $wpdb->query("ALTER TABLE $table DROP INDEX telefono");
+    }
+
+    // 4. Agregar UNIQUE KEY
+    $wpdb->query("ALTER TABLE $table ADD UNIQUE KEY telefono (telefono)");
+
+    update_option('aa_telefono_unique_migrated', true);
+    error_log("✅ [Migración telefono_unique] Completada. UNIQUE KEY telefono agregado.");
+}
+add_action('admin_init', 'aa_migrate_telefono_unique');
 
 // ===============================
 // 🔹 Agregar columna id_cliente a tabla de reservas
@@ -51,40 +183,52 @@ function aa_add_cliente_column_to_reservas() {
 }
 
 // ===============================
-// 🔹 Buscar o crear cliente (SOLO por correo)
+// 🔹 Buscar o crear cliente (teléfono es identidad única)
 // ===============================
+/**
+ * Busca un cliente por teléfono (identidad única).
+ * - Si existe: devuelve su ID sin modificar datos.
+ * - Si no existe: crea uno nuevo.
+ * NOTA: Para flujos admin (crear/editar) se usan los AJAX handlers directamente.
+ *       Esta función se mantiene solo como legacy/interna.
+ *       Los flujos frontend usan ClienteService::getOrCreate().
+ *
+ * @param string $nombre
+ * @param string $telefono  Ya normalizado (10 dígitos)
+ * @param string $correo    Opcional
+ * @return int|WP_Error     ID del cliente o WP_Error
+ */
 function aa_get_or_create_cliente($nombre, $telefono, $correo) {
     global $wpdb;
     $table = $wpdb->prefix . 'aa_clientes';
-    
+
+    // 1. Buscar por teléfono (identidad única)
     $cliente = $wpdb->get_row($wpdb->prepare(
-        "SELECT id FROM $table WHERE correo = %s LIMIT 1",
-        $correo
+        "SELECT id, correo FROM $table WHERE telefono = %s LIMIT 1",
+        $telefono
     ));
-    
+
     if ($cliente) {
-        $wpdb->update(
-            $table,
-            [
-                'nombre' => $nombre,
-                'telefono' => $telefono,
-                'updated_at' => current_time('mysql')
-            ],
-            ['id' => $cliente->id]
-        );
-        error_log("✅ Cliente existente actualizado ID: {$cliente->id} (correo: $correo)");
-        return $cliente->id;
-    } else {
-        $wpdb->insert($table, [
-            'nombre' => $nombre,
-            'telefono' => $telefono,
-            'correo' => $correo,
-            'created_at' => current_time('mysql')
-        ]);
-        $nuevo_id = $wpdb->insert_id;
-        error_log("✅ Nuevo cliente creado ID: $nuevo_id (correo: $correo)");
-        return $nuevo_id;
+        error_log("✅ Cliente existente por teléfono ID: {$cliente->id} (tel: $telefono)");
+        return (int) $cliente->id;
     }
+
+    // 2. Crear nuevo cliente
+    $result = $wpdb->insert($table, [
+        'nombre' => $nombre,
+        'telefono' => $telefono,
+        'correo' => $correo,
+        'created_at' => current_time('mysql')
+    ]);
+
+    if ($result === false) {
+        error_log("❌ Error al crear cliente: " . $wpdb->last_error);
+        return new WP_Error('db_error', 'Error al crear el cliente: ' . $wpdb->last_error);
+    }
+
+    $nuevo_id = $wpdb->insert_id;
+    error_log("✅ Nuevo cliente creado ID: $nuevo_id (tel: $telefono, correo: " . ($correo ?: 'sin correo') . ")");
+    return (int) $nuevo_id;
 }
 
 // ===============================
@@ -254,7 +398,7 @@ function aa_ajax_search_clientes() {
 }
 
 // ===============================
-// 🔹 AJAX: Crear nuevo cliente
+// 🔹 AJAX: Crear nuevo cliente (admin)
 // ===============================
 add_action('wp_ajax_aa_crear_cliente', 'aa_ajax_crear_cliente');
 function aa_ajax_crear_cliente() {
@@ -265,27 +409,57 @@ function aa_ajax_crear_cliente() {
     }
     
     $nombre = sanitize_text_field($_POST['nombre']);
-    $telefono = sanitize_text_field($_POST['telefono']);
-    $correo = sanitize_email($_POST['correo']);
+    $telefono_raw = sanitize_text_field($_POST['telefono']);
+    $correo = isset($_POST['correo']) ? sanitize_email($_POST['correo']) : '';
     
-    if (empty($nombre) || empty($telefono) || empty($correo)) {
-        wp_send_json_error(['message' => 'Todos los campos son obligatorios.']);
+    if (empty($nombre) || empty($telefono_raw)) {
+        wp_send_json_error(['message' => 'Nombre y teléfono son obligatorios.']);
     }
-    
-    $cliente_id = aa_get_or_create_cliente($nombre, $telefono, $correo);
-    
-    if ($cliente_id) {
-        wp_send_json_success([
-            'message' => 'Cliente guardado correctamente.',
-            'cliente_id' => $cliente_id
-        ]);
-    } else {
+
+    // Normalizar teléfono
+    $telefono = aa_normalize_telefono($telefono_raw);
+    if (is_wp_error($telefono)) {
+        wp_send_json_error(['message' => $telefono->get_error_message()]);
+    }
+
+    // Verificar unicidad de teléfono
+    global $wpdb;
+    $table = $wpdb->prefix . 'aa_clientes';
+    $existente = $wpdb->get_var($wpdb->prepare(
+        "SELECT id FROM $table WHERE telefono = %s LIMIT 1",
+        $telefono
+    ));
+    if ($existente) {
+        wp_send_json_error(['message' => "El cliente con teléfono $telefono ya existe."]);
+    }
+
+    // Crear cliente
+    $result = $wpdb->insert($table, [
+        'nombre'     => $nombre,
+        'telefono'   => $telefono,
+        'correo'     => $correo,
+        'created_at' => current_time('mysql')
+    ]);
+
+    if ($result === false) {
         wp_send_json_error(['message' => 'Error al guardar el cliente.']);
     }
+
+    $cliente_id = $wpdb->insert_id;
+    wp_send_json_success([
+        'message' => 'Cliente guardado correctamente.',
+        'cliente_id' => $cliente_id,
+        'cliente' => [
+            'id' => $cliente_id,
+            'nombre' => $nombre,
+            'telefono' => $telefono,
+            'correo' => $correo
+        ]
+    ]);
 }
 
 // ===============================
-// 🔹 AJAX: Crear cliente desde cita
+// 🔹 AJAX: Crear cliente desde cita (admin)
 // ===============================
 add_action('wp_ajax_aa_crear_cliente_desde_cita', 'aa_ajax_crear_cliente_desde_cita');
 function aa_ajax_crear_cliente_desde_cita() {
@@ -297,17 +471,23 @@ function aa_ajax_crear_cliente_desde_cita() {
     
     $reserva_id = intval($_POST['reserva_id']);
     $nombre = sanitize_text_field($_POST['nombre']);
-    $telefono = sanitize_text_field($_POST['telefono']);
-    $correo = sanitize_email($_POST['correo']);
+    $telefono_raw = sanitize_text_field($_POST['telefono']);
+    $correo = isset($_POST['correo']) ? sanitize_email($_POST['correo']) : '';
     
-    if (!$reserva_id || empty($nombre) || empty($telefono) || empty($correo)) {
+    if (!$reserva_id || empty($nombre) || empty($telefono_raw)) {
         wp_send_json_error(['message' => 'Datos incompletos.']);
     }
-    
+
+    // Normalizar teléfono
+    $telefono = aa_normalize_telefono($telefono_raw);
+    if (is_wp_error($telefono)) {
+        wp_send_json_error(['message' => $telefono->get_error_message()]);
+    }
+
+    // Buscar o crear cliente (teléfono como identidad)
     $cliente_id = aa_get_or_create_cliente($nombre, $telefono, $correo);
-    
-    if (!$cliente_id) {
-        wp_send_json_error(['message' => 'Error al crear el cliente.']);
+    if (is_wp_error($cliente_id)) {
+        wp_send_json_error(['message' => $cliente_id->get_error_message()]);
     }
     
     global $wpdb;
@@ -330,7 +510,7 @@ function aa_ajax_crear_cliente_desde_cita() {
 }
 
 // ===============================
-// 🔹 AJAX: Editar cliente
+// 🔹 AJAX: Editar cliente (admin)
 // ===============================
 add_action('wp_ajax_aa_editar_cliente', 'aa_ajax_editar_cliente');
 function aa_ajax_editar_cliente() {
@@ -342,25 +522,30 @@ function aa_ajax_editar_cliente() {
     
     $cliente_id = intval($_POST['cliente_id']);
     $nombre = sanitize_text_field($_POST['nombre']);
-    $telefono = sanitize_text_field($_POST['telefono']);
-    $correo = sanitize_email($_POST['correo']);
+    $telefono_raw = sanitize_text_field($_POST['telefono']);
+    $correo = isset($_POST['correo']) ? sanitize_email($_POST['correo']) : '';
     
-    if (!$cliente_id || empty($nombre) || empty($telefono) || empty($correo)) {
-        wp_send_json_error(['message' => 'Todos los campos son obligatorios.']);
+    if (!$cliente_id || empty($nombre) || empty($telefono_raw)) {
+        wp_send_json_error(['message' => 'Nombre y teléfono son obligatorios.']);
+    }
+
+    // Normalizar teléfono
+    $telefono = aa_normalize_telefono($telefono_raw);
+    if (is_wp_error($telefono)) {
+        wp_send_json_error(['message' => $telefono->get_error_message()]);
     }
     
     global $wpdb;
     $table = $wpdb->prefix . 'aa_clientes';
-    
-    // Verificar si el correo ya existe en otro cliente
-    $correo_existente = $wpdb->get_var($wpdb->prepare(
-        "SELECT id FROM $table WHERE correo = %s AND id != %d LIMIT 1",
-        $correo,
+
+    // Verificar que el teléfono no esté usado por OTRO cliente
+    $tel_existente = $wpdb->get_var($wpdb->prepare(
+        "SELECT id FROM $table WHERE telefono = %s AND id != %d LIMIT 1",
+        $telefono,
         $cliente_id
     ));
-    
-    if ($correo_existente) {
-        wp_send_json_error(['message' => 'El correo electrónico ya está registrado en otro cliente.']);
+    if ($tel_existente) {
+        wp_send_json_error(['message' => "El teléfono $telefono ya está registrado en otro cliente."]);
     }
     
     // Actualizar cliente

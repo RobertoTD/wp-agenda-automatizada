@@ -75,7 +75,7 @@
         fecha: selectedSlotISO,
         nombre: clienteOption.dataset.nombre,
         telefono: clienteOption.dataset.telefono,
-        correo: clienteOption.dataset.correo,
+        correo: clienteOption.dataset.correo || '',
         duracion: parseInt(document.getElementById('cita-duracion').value, 10) || 60,
         nonce: window.aa_asistant_vars.nonce_crear_cita || ''
       };
@@ -189,9 +189,14 @@
           }
         } else {
           // Comportamiento normal: enviar correo de confirmación (también sin await)
-          window.ReservationService.sendConfirmation(datos).catch(function(emailError) {
-            console.warn('⚠️ Error al enviar correo (no crítico):', emailError);
-          });
+          // Solo enviar si el cliente tiene correo
+          if (datos.correo) {
+            window.ReservationService.sendConfirmation(datos).catch(function(emailError) {
+              console.warn('⚠️ Error al enviar correo (no crítico):', emailError);
+            });
+          } else {
+            console.log('ℹ️ Correo vacío → confirmación por email omitida');
+          }
         }
         
         // 🔹 E. NO hay alert de éxito - el modal ya se cerró por evento

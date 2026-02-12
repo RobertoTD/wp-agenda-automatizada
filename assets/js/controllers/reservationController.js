@@ -46,12 +46,20 @@ function initReservationController(formSelector) {
       return;
     }
 
+    // 🔹 Normalizar teléfono (solo dígitos, 10 exactos)
+    const telefonoRaw = (form.telefono.value || '').trim();
+    const telefonoNorm = telefonoRaw.replace(/\D/g, '');
+    if (telefonoNorm.length !== 10) {
+      respuestaDiv.innerText = '❌ El teléfono debe tener exactamente 10 dígitos numéricos.';
+      return;
+    }
+
     // 🔹 Construir objeto de datos
     const datos = {
       servicio: form.servicio.value,
       fecha: selectedSlotISO,
       nombre: form.nombre.value,
-      telefono: form.telefono.value,
+      telefono: telefonoNorm,
       correo: form.correo.value || '',
       nonce: wpaa_vars.nonce,
       extra_field: honeypot.value || ''
@@ -80,9 +88,14 @@ function initReservationController(formSelector) {
       }
 
       // 🔹 PASO 3: Enviar confirmación por correo (sin bloquear el flujo)
-      window.ReservationService.sendConfirmation(datos).catch(emailError => {
-        console.warn('⚠️ Error al enviar correo (no crítico):', emailError);
-      });
+      // Solo enviar si el cliente tiene correo
+      if (datos.correo) {
+        window.ReservationService.sendConfirmation(datos).catch(emailError => {
+          console.warn('⚠️ Error al enviar correo (no crítico):', emailError);
+        });
+      } else {
+        console.log('ℹ️ Correo vacío → confirmación por email omitida');
+      }
 
       // 🔹 PASO 4: Formatear la fecha para WhatsApp
       const fechaObj = new Date(selectedSlotISO);
