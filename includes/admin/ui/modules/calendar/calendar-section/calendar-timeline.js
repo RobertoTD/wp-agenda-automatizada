@@ -181,6 +181,15 @@
             overflow: 'visible'
         });
         grid.appendChild(expandedOverlay);
+        
+        // DEBUG: Log overlay creation if debug flag is active
+        if (window.AA_DEBUG_CALENDAR_OVERFLOW) {
+            console.log('[Timeline] overlay created', expandedOverlay, {
+                gridRow: expandedOverlay.style.gridRow,
+                timeSlots: timeSlots.length,
+                overflow: expandedOverlay.style.overflow
+            });
+        }
 
         // =============================================
         // CURRENT TIME INDICATOR

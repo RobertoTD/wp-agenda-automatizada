@@ -41,6 +41,224 @@
     let slotRowIndexCache = null;
     let timeSlotsCache = null;
 
+    // =============================================
+    // DEBUG HELPERS - Overflow diagnostics
+    // =============================================
+    
+    /**
+     * Snapshot de overflow para diagnosticar recortes de cards expandidas
+     * @param {string} label - Etiqueta del snapshot (ej: 'OPEN', 'CLOSE')
+     * @param {HTMLElement} card - Card a inspeccionar
+     */
+    function debugOverflowSnapshot(label, card) {
+        // Solo si el flag de debug está activo
+        if (!window.AA_DEBUG_CALENDAR_OVERFLOW) return;
+        
+        console.groupCollapsed(`[OverflowDebug] ${label} @ ${new Date().toISOString().split('T')[1].slice(0, -1)}`);
+        
+        try {
+            // Seleccionar elementos clave
+            const section = document.querySelector('.aa-day-timeline');
+            const overlay = document.getElementById('aa-expanded-cards-overlay');
+            const grid = document.getElementById('aa-time-grid');
+            
+            // Obtener header y body de la card
+            const header = card ? card.querySelector('.aa-appointment-header') : null;
+            const body = card ? (card.querySelector('.aa-appointment-body:not([hidden])') || card.querySelector('.aa-appointment-body')) : null;
+            
+            // Obtener rects
+            const sectionRect = section ? section.getBoundingClientRect() : null;
+            const cardRect = card ? card.getBoundingClientRect() : null;
+            const headerRect = header ? header.getBoundingClientRect() : null;
+            const bodyRect = body ? body.getBoundingClientRect() : null;
+            const overlayRect = overlay ? overlay.getBoundingClientRect() : null;
+            const gridRect = grid ? grid.getBoundingClientRect() : null;
+            
+            // Calcular el bottom real del contenido (max entre card y body)
+            const contentBottom = Math.max(
+                cardRect?.bottom ?? -Infinity,
+                bodyRect?.bottom ?? -Infinity
+            );
+            
+            // Calcular overflow vs section
+            const overflowVsSection = (sectionRect && contentBottom > -Infinity) 
+                ? contentBottom - sectionRect.bottom 
+                : null;
+            
+            // Warning si body no existe o está hidden
+            const bodyVisible = body && !body.hasAttribute('hidden');
+            if (!body) {
+                console.warn('⚠️  .aa-appointment-body NO encontrado en la card');
+            } else if (!bodyVisible) {
+                console.warn('⚠️  .aa-appointment-body encontrado pero está [hidden]');
+            }
+            
+            // Datos de la card
+            const cardData = card ? {
+                citaStartRow: card.dataset.citaStartRow,
+                citaBloquesOcupados: card.dataset.citaBloquesOcupados,
+                expanded: card.dataset.expanded,
+                hasClass_expanded: card.classList.contains('aa-expanded-in-overlay')
+            } : null;
+            
+            // Estilos computados del section
+            const sectionStyles = section ? {
+                paddingBottom: getComputedStyle(section).paddingBottom,
+                marginBottom: getComputedStyle(section).marginBottom,
+                overflow: getComputedStyle(section).overflow,
+                overflowY: getComputedStyle(section).overflowY
+            } : null;
+            
+            // Heights
+            const heights = {
+                documentScrollHeight: document.documentElement.scrollHeight,
+                documentClientHeight: document.documentElement.clientHeight,
+                gridScrollHeight: grid ? grid.scrollHeight : null,
+                overlayScrollHeight: overlay ? overlay.scrollHeight : null,
+                sectionScrollHeight: section ? section.scrollHeight : null
+            };
+            
+            // Detectar primer ancestro recortador
+            let clipper = null;
+            let clipperRect = null;
+            if (card) {
+                let el = card.parentElement;
+                while (el && el !== document.body) {
+                    const computed = getComputedStyle(el);
+                    const ovf = computed.overflow;
+                    const ovfY = computed.overflowY;
+                    
+                    if (ovf !== 'visible' && ovfY !== 'visible') {
+                        const elRect = el.getBoundingClientRect();
+                        clipperRect = elRect;
+                        clipper = {
+                            element: `${el.tagName}.${el.className || '(no-class)'}`,
+                            id: el.id || '(no-id)',
+                            overflow: ovf,
+                            overflowY: ovfY,
+                            rectBottom: elRect.bottom,
+                            rectHeight: elRect.height
+                        };
+                        break;
+                    }
+                    el = el.parentElement;
+                }
+            }
+            
+            // Calcular overflow vs clipper
+            const overflowVsClipper = (clipperRect && contentBottom > -Infinity)
+                ? contentBottom - clipperRect.bottom
+                : null;
+            
+            // Log estructurado
+            console.log('📍 Label:', label);
+            console.log('📊 Card data:', cardData);
+            console.log('');
+            console.log('📐 Bottoms (Y positions):');
+            console.log('  - Header rect.bottom:', headerRect?.bottom?.toFixed(2) ?? 'N/A');
+            console.log('  - Body rect.bottom:', bodyRect?.bottom?.toFixed(2) ?? 'N/A');
+            console.log('  - Card rect.bottom:', cardRect?.bottom?.toFixed(2) ?? 'N/A');
+            console.log('  - Section rect.bottom:', sectionRect?.bottom?.toFixed(2) ?? 'N/A');
+            console.log('  - Content bottom (real):', contentBottom > -Infinity ? contentBottom.toFixed(2) : 'N/A');
+            console.log('');
+            console.log('⚠️  Overflow vs Section:', overflowVsSection !== null ? `${overflowVsSection.toFixed(2)}px` : 'N/A');
+            if (overflowVsClipper !== null) {
+                console.log('⚠️  Overflow vs Clipper:', `${overflowVsClipper.toFixed(2)}px`);
+            }
+            console.log('');
+            console.log('🎨 Section styles:', sectionStyles);
+            console.log('📏 Heights:', heights);
+            console.log('✂️  First clipper ancestor:', clipper || 'none (all visible)');
+            console.log('📦 Overlay rect:', {
+                top: overlayRect?.top,
+                bottom: overlayRect?.bottom,
+                height: overlayRect?.height
+            });
+            console.log('📦 Grid rect:', {
+                top: gridRect?.top,
+                bottom: gridRect?.bottom,
+                height: gridRect?.height
+            });
+            
+            // Si hay overflow, resaltar
+            if (overflowVsSection && overflowVsSection > 0) {
+                console.warn(`🚨 OVERFLOW DETECTADO: ${overflowVsSection.toFixed(2)}px por debajo del section`);
+            }
+            if (overflowVsClipper && overflowVsClipper > 0) {
+                console.warn(`🚨 OVERFLOW vs CLIPPER: ${overflowVsClipper.toFixed(2)}px por debajo del elemento recortador`);
+            }
+            
+        } catch (err) {
+            console.error('Error en debugOverflowSnapshot:', err);
+        }
+        
+        console.groupEnd();
+    }
+
+    // =============================================
+    // TIMELINE PADDING HELPERS - Fix para cards expandidas
+    // =============================================
+    
+    /**
+     * Obtener el section del timeline
+     * @returns {HTMLElement|null}
+     */
+    function getTimelineSection() {
+        return document.querySelector('.aa-day-timeline');
+    }
+    
+    /**
+     * Resetear el padding-bottom del section a 0
+     */
+    function resetTimelinePadding() {
+        const section = getTimelineSection();
+        if (section) {
+            section.style.paddingBottom = '0px';
+        }
+    }
+    
+    /**
+     * Aplicar padding-bottom dinámico al section para evitar recorte de card expandida
+     * @param {HTMLElement} card - Card expandida
+     */
+    function applyTimelinePaddingForExpandedCard(card) {
+        const section = getTimelineSection();
+        if (!section || !card) return;
+        
+        const sectionRect = section.getBoundingClientRect();
+        
+        // Obtener body de la card (el contenido real)
+        const body = card.querySelector('.aa-appointment-body:not([hidden])') || card.querySelector('.aa-appointment-body');
+        const cardRect = card.getBoundingClientRect();
+        const bodyRect = body ? body.getBoundingClientRect() : null;
+        
+        // Calcular el bottom real del contenido
+        const contentBottom = Math.max(
+            cardRect.bottom,
+            bodyRect?.bottom ?? -Infinity
+        );
+        
+        // Calcular overflow vs section
+        const overflow = contentBottom - sectionRect.bottom;
+        
+        if (overflow > 0) {
+            // Agregar padding extra para dar "piso" (+2px colchón)
+            const extraPx = Math.ceil(overflow) + 2;
+            section.style.paddingBottom = extraPx + 'px';
+            
+            // Debug opcional
+            if (window.AA_DEBUG_CALENDAR_OVERFLOW) {
+                console.log(`[TimelinePadding] Applied ${extraPx}px padding-bottom to section (overflow: ${overflow.toFixed(2)}px)`);
+            }
+        } else {
+            section.style.paddingBottom = '0px';
+            
+            if (window.AA_DEBUG_CALENDAR_OVERFLOW) {
+                console.log('[TimelinePadding] No overflow detected, padding reset to 0px');
+            }
+        }
+    }
+
     /**
      * Cargar citas de un día específico y renderizarlas
      */
@@ -108,6 +326,9 @@
                 timeSlotsCache = timeSlots;
                 
                 currentlyExpandedCard = null;
+                
+                // Reset padding al cargar nuevas citas
+                resetTimelinePadding();
                 
                 renderizarTodasLasCitas(citasConPosicion, overlaps, slotRowIndex, timeSlots);
             }
@@ -721,12 +942,27 @@
                     if (currentlyExpandedCard && currentlyExpandedCard !== card) {
                         colapsarCard(currentlyExpandedCard);
                         currentlyExpandedCard = null;
+                        
+                        // Reset padding al colapsar la anterior
+                        resetTimelinePadding();
+                        window.AAAdmin?.iframeResize?.();
                     }
                     
                     currentBody.removeAttribute('hidden');
                     actualizarEstilosCard();
                     expandirEnOverlay(card);
                     currentlyExpandedCard = card;
+                    
+                    // DEBUG: Medir después de pintar (2 frames para asegurar layout completo)
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            debugOverflowSnapshot('OPEN', card);
+                            
+                            // Aplicar padding dinámico para evitar recorte
+                            applyTimelinePaddingForExpandedCard(card);
+                            window.AAAdmin?.iframeResize?.();
+                        });
+                    });
                 } else {
                     // === CERRAR ===
                     colapsarDeOverlay(card);
@@ -736,6 +972,15 @@
                     if (currentlyExpandedCard === card) {
                         currentlyExpandedCard = null;
                     }
+                    
+                    // DEBUG: Medir después de colapsar
+                    requestAnimationFrame(() => {
+                        debugOverflowSnapshot('CLOSE', card);
+                        
+                        // Reset padding al cerrar
+                        resetTimelinePadding();
+                        window.AAAdmin?.iframeResize?.();
+                    });
                     
                     setTimeout(() => {
                         crearControlesCicladoStack();
@@ -757,6 +1002,10 @@
             if (currentlyExpandedCard) {
                 colapsarCard(currentlyExpandedCard);
                 currentlyExpandedCard = null;
+                
+                // Reset padding al colapsar programáticamente
+                resetTimelinePadding();
+                window.AAAdmin?.iframeResize?.();
             }
         }
     };
