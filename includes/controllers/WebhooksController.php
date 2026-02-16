@@ -40,6 +40,16 @@ class Webhooks_Controller extends WP_REST_Controller {
             ),
         ));
 
+        // 🔹 Reminders bulk — recibe appointment_ids del worker Node y devuelve datos de citas
+        register_rest_route($this->namespace, '/' . $this->rest_base . '/reminders-bulk', array(
+            array(
+                'methods'             => WP_REST_Server::CREATABLE,
+                'callback'            => array($this, 'handle_reminders_bulk'),
+                'permission_callback' => '__return_true',
+                'args'                => $this->get_reminders_bulk_params(),
+            ),
+        ));
+
         // 🔹 Branding endpoint — devuelve logo y nombre del negocio al backend Node
         register_rest_route($this->namespace, '/branding', array(
             array(
@@ -132,5 +142,82 @@ class Webhooks_Controller extends WP_REST_Controller {
             'logoPngUrl'   => $logo_png_url ?: '',
             'logoSvgUrl'   => $logo_svg_url ?: '',
         ), 200);
+    }
+
+    // =========================================================================
+    // 🔹 Reminders Bulk
+    // =========================================================================
+
+    /**
+     * Parámetros para el endpoint reminders-bulk.
+     *
+     * @return array
+     */
+    protected function get_reminders_bulk_params() {
+        return array(
+            'appointment_ids' => array(
+                'required'          => true,
+                'type'              => 'array',
+                'description'       => 'Array de IDs de reservas (max 200)',
+                'sanitize_callback' => function ($value) {
+                    if (!is_array($value)) {
+                        $value = array();
+                    }
+                    // Convertir a ints positivos, únicos, máximo 200
+                    $ids = array_values(array_unique(array_filter(
+                        array_map('absint', $value),
+                        function ($id) { return $id > 0; }
+                    )));
+                    return array_slice($ids, 0, 200);
+                },
+                'validate_callback' => function ($value) {
+                    return is_array($value) && !empty($value);
+                },
+            ),
+        );
+    }
+
+    /**
+     * POST /wp-json/aa/v1/webhooks/reminders-bulk
+     *
+     * Recibe { appointment_ids: [461,462,...] } del worker Node.
+     * Devuelve datos de citas confirmadas con email para envío de recordatorios.
+     *
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response|WP_Error
+     */
+    public function handle_reminders_bulk($request) {
+        // 🔹 Validación condicional de token
+        $expected_token = get_option('aa_webhook_token', '');
+
+        if (!empty($expected_token)) {
+            $provided_token = $request->get_header('x-aa-webhook-token');
+
+            if (empty($provided_token) || !hash_equals($expected_token, $provided_token)) {
+                return new WP_Error(
+                    'unauthorized',
+                    'Invalid or missing webhook token.',
+                    array('status' => 401)
+                );
+            }
+        }
+        // TODO: enable token validation — set aa_webhook_token in wp_options
+        //       and configure the same value in the Node backend (agenda_clients.webhook_token).
+
+        $ids = (array) $request->get_param('appointment_ids');
+
+        if (empty($ids)) {
+            return new WP_Error(
+                'invalid_params',
+                'appointment_ids vacío después de sanitización.',
+                array('status' => 400)
+            );
+        }
+
+        require_once plugin_dir_path(__FILE__) . '../services/RemindersService.php';
+
+        $result = RemindersService::build_bulk_payload($ids);
+
+        return new WP_REST_Response($result, 200);
     }
 }

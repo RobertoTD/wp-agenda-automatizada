@@ -123,6 +123,35 @@ class ReservationsModel {
     }
 
     /**
+     * Obtener reservas por un array de IDs.
+     *
+     * @param array $ids Array de IDs (int) de reservas.
+     * @return array Rows con id, estado, fecha, nombre, telefono, correo, servicio, duracion, assignment_id
+     */
+    public static function get_by_ids(array $ids) {
+        if (empty($ids)) return [];
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_reservas';
+
+        $placeholders = implode(',', array_fill(0, count($ids), '%d'));
+
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT id, estado, fecha, nombre, telefono, correo, servicio, duracion, assignment_id
+             FROM $table
+             WHERE id IN ($placeholders)",
+            ...$ids
+        ));
+
+        if ($wpdb->last_error) {
+            error_log("❌ [ReservationsModel] Error en get_by_ids: " . $wpdb->last_error);
+            return [];
+        }
+
+        return $rows ?? [];
+    }
+
+    /**
      * Obtener citas pendientes que coinciden en fecha/hora (para cancelación automática)
      * 
      * @deprecated Usar get_pending_conflicts_overlapping() para detección por solapamiento
