@@ -127,12 +127,17 @@ class SyncService {
      *
      * @param string $email Email de la cuenta de Google conectada
      * @param string $secret Secret del cliente OAuth
+     * @param string $webhook_token Token para autenticar webhooks entrantes del backend (opcional)
      * @return bool True si se actualizó correctamente
      */
-    public static function handle_oauth_success($email, $secret) {
+    public static function handle_oauth_success($email, $secret, $webhook_token = '') {
         // Actualizar opciones de WordPress
         update_option('aa_google_email', sanitize_email($email));
         update_option('aa_client_secret', sanitize_text_field($secret));
+
+        if (!empty($webhook_token)) {
+            update_option('aa_webhook_token', sanitize_text_field($webhook_token));
+        }
         
         // Resetear el estado de sincronización a válido
         $reset_success = self::reset_sync_status();
@@ -140,8 +145,9 @@ class SyncService {
         // Registrar en logs
         if (function_exists('error_log')) {
             error_log(sprintf(
-                '[WP Agenda] OAuth exitoso - Email: %s, Estado sync: valid en %s',
+                '[WP Agenda] OAuth exitoso - Email: %s, webhook_token: %s, Estado sync: valid en %s',
                 $email,
+                !empty($webhook_token) ? 'set' : 'not_provided',
                 current_time('mysql')
             ));
         }

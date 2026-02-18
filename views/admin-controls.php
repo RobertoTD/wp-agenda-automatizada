@@ -73,10 +73,10 @@ add_action('admin_post_aa_connect_google', function() {
 
     $email = !empty($_GET['email']) ? $_GET['email'] : '';
     $secret = !empty($_GET['client_secret']) ? $_GET['client_secret'] : '';
+    $webhook_token = !empty($_GET['webhook_token']) ? $_GET['webhook_token'] : '';
 
     if ($email && $secret) {
-        // Usar el servicio para manejar el éxito del OAuth
-        SyncService::handle_oauth_success($email, $secret);
+        SyncService::handle_oauth_success($email, $secret, $webhook_token);
     }
 
     wp_redirect(admin_url('admin.php?page=agenda-automatizada-settings'));
