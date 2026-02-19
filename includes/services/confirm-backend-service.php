@@ -220,17 +220,20 @@ function confirm_backend_service_confirmar($reserva_id) {
         ];
     }
     
-    // 6️⃣ Construir payload para el backend
+    // 6️⃣ Construir payload para el backend (servicio como nombre, whatsapp del negocio)
+    $servicio_para_backend = aa_transform_servicio_for_backend($reserva->servicio ?? '');
+    $whatsapp = get_option('aa_whatsapp_number', '');
     $payload = [
         'domain' => $domain,
         'nombre' => $reserva->nombre,
-        'servicio' => $reserva->servicio,
+        'servicio' => $servicio_para_backend,
         'fecha' => $fecha_iso,
         'telefono' => $reserva->telefono,
         'email' => $reserva->correo,
-        'slot_duration' => $duracion, // Mantener compatibilidad con backend
+        'slot_duration' => $duracion,
         'businessName' => $business_name,
         'businessAddress' => $business_address,
+        'whatsapp' => $whatsapp,
         'id_reserva' => $reserva_id
     ];
     

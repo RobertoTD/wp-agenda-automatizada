@@ -114,19 +114,26 @@ class Webhooks_Controller extends WP_REST_Controller {
      * @return WP_REST_Response Datos de branding.
      */
     public function handle_branding($request) {
-        // 1. Domain
+        // 1. Validar token (X-AA-Webhook-Token)
+        $provided = $request->get_header('X-AA-Webhook-Token');
+        $stored_token = get_option('aa_webhook_token', '');
+        if (empty($stored_token) || empty($provided) || !hash_equals($stored_token, $provided)) {
+            return new WP_Error('forbidden', 'Forbidden', array('status' => 403));
+        }
+
+        // 2. Domain
         $domain = function_exists('aa_get_clean_domain') ? aa_get_clean_domain() : '';
 
-        // 2. Business name
+        // 3. Business name
         $business_name = get_option('aa_business_name', get_bloginfo('name'));
 
-        // 3. Logo PNG — Site Icon (preferir 192px, fallback 96px)
+        // 4. Logo PNG — Site Icon (preferir 192px, fallback 96px)
         $logo_png_url = get_site_icon_url(192);
         if (!$logo_png_url) {
             $logo_png_url = get_site_icon_url(96);
         }
 
-        // 4. Logo SVG — Customizer attachment (si el theme lo soporta)
+        // 5. Logo SVG — Customizer attachment (si el theme lo soporta)
         $logo_svg_url = '';
         $svg_attachment_id = get_theme_mod('deoia_svg_logo');
         if ($svg_attachment_id) {
@@ -136,7 +143,7 @@ class Webhooks_Controller extends WP_REST_Controller {
             }
         }
 
-        // 5. Business address & phone (WhatsApp)
+        // 6. Business address & phone (WhatsApp)
         $business_address = get_option('aa_business_address', '');
         $whatsapp = get_option('aa_whatsapp_number', '');
 
