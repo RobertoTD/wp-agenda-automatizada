@@ -12,6 +12,7 @@
 if (!defined('ABSPATH')) exit;
 
 require_once plugin_dir_path(__FILE__) . '../models/ReservationsModel.php';
+require_once plugin_dir_path(__FILE__) . '../models/AssignmentsModel.php';
 
 class RemindersService {
 
@@ -58,13 +59,25 @@ class RemindersService {
                 continue;
             }
 
+            // Resolver servicio: si es ID numérico, obtener nombre desde aa_services
+            $servicio_raw = trim($row->servicio ?? '');
+            $servicio = $servicio_raw;
+            if ($servicio_raw !== '' && ctype_digit($servicio_raw) && (int) $servicio_raw > 0) {
+                $svc = AssignmentsModel::get_service_by_id((int) $servicio_raw);
+                $servicio = is_array($svc) && !empty($svc['name'])
+                    ? sanitize_text_field($svc['name'])
+                    : sanitize_text_field($servicio_raw);
+            } else {
+                $servicio = sanitize_text_field($servicio_raw);
+            }
+
             // Válida → agregar a confirmed
             $confirmed[$key] = [
                 'id'            => intval($row->id),
                 'nombre'        => sanitize_text_field($row->nombre ?? ''),
                 'email'         => sanitize_email($email),
                 'telefono'      => sanitize_text_field($row->telefono ?? ''),
-                'servicio'      => sanitize_text_field($row->servicio ?? ''),
+                'servicio'      => $servicio,
                 'fecha'         => $row->fecha,
                 'duracion'      => intval($row->duracion ?? 60),
                 'assignment_id' => $row->assignment_id !== null ? intval($row->assignment_id) : null,

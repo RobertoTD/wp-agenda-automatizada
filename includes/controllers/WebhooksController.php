@@ -136,11 +136,17 @@ class Webhooks_Controller extends WP_REST_Controller {
             }
         }
 
+        // 5. Business address & phone (WhatsApp)
+        $business_address = get_option('aa_business_address', '');
+        $whatsapp = get_option('aa_whatsapp_number', '');
+
         return new WP_REST_Response(array(
-            'domain'       => $domain,
-            'businessName' => $business_name,
-            'logoPngUrl'   => $logo_png_url ?: '',
-            'logoSvgUrl'   => $logo_svg_url ?: '',
+            'domain'          => $domain,
+            'businessName'    => $business_name,
+            'logoPngUrl'      => $logo_png_url ?: '',
+            'logoSvgUrl'      => $logo_svg_url ?: '',
+            'businessAddress' => $business_address,
+            'whatsapp'        => $whatsapp,
         ), 200);
     }
 
