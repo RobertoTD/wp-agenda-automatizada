@@ -5,7 +5,7 @@
  * Centraliza la lógica de búsqueda y creación de clientes para WP Agenda Automatizada.
  * 
  * Reglas de negocio:
- * - Teléfono es identidad única (UNIQUE KEY en BD, exactamente 10 dígitos).
+ * - Teléfono es identidad única (UNIQUE KEY en BD, formato canónico: código país + dígitos).
  * - Correo es opcional.
  * - Si el teléfono ya existe:
  *     - Coincide correo (o ambos vacíos) → usar cliente existente sin modificar.
@@ -79,7 +79,7 @@ class ClienteService {
     /**
      * Busca un cliente por teléfono (ya normalizado).
      * 
-     * @param string $telefono Teléfono normalizado (10 dígitos)
+     * @param string $telefono Teléfono en formato canónico (código país + dígitos)
      * @return object|null Cliente encontrado o null
      */
     public static function findByTelefono(string $telefono): ?object {
@@ -115,7 +115,7 @@ class ClienteService {
      * Crea un nuevo cliente en la base de datos.
      * 
      * @param string $nombre   Nombre del cliente
-     * @param string $telefono Teléfono normalizado (10 dígitos)
+     * @param string $telefono Teléfono en formato canónico (código país + dígitos)
      * @param string $correo   Correo del cliente (puede ser '')
      * @return int|WP_Error    ID del cliente creado o WP_Error
      */

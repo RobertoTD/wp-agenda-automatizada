@@ -6,23 +6,36 @@ if (!defined('ABSPATH')) exit;
 // ===============================
 
 /**
- * Normaliza un teléfono: solo dígitos, exactamente 10.
+ * Normaliza un teléfono al formato canónico: solo dígitos con código de país.
+ * Soportados: 52 (MX 12 dígitos), 1 (US 11 dígitos), 34 (ES 11 dígitos).
+ * Compatibilidad: 10 dígitos → asume México (52); 11 dígitos con 1 o 34 al inicio → acepta.
  *
- * @param string $telefono  Valor crudo del formulario
- * @return string|WP_Error  Teléfono normalizado (10 dígitos) o WP_Error
+ * @param string $telefono Valor crudo (p. ej. 525512345678, 5512345678 o con espacios/guiones)
+ * @return string|WP_Error Teléfono canónico (solo dígitos) o WP_Error
  */
 function aa_normalize_telefono($telefono) {
-    // Quitar todo lo que no sea dígito
     $digits = preg_replace('/\D/', '', $telefono);
 
-    if (strlen($digits) !== 10) {
-        return new WP_Error(
-            'telefono_invalido',
-            'El teléfono debe tener exactamente 10 dígitos numéricos.'
-        );
+    // Formato canónico: 52 + 10 (12), 1 + 10 (11), 34 + 9 (11)
+    if (strlen($digits) === 12 && strpos($digits, '52') === 0) {
+        return $digits;
+    }
+    if (strlen($digits) === 11 && strpos($digits, '34') === 0) {
+        return $digits;
+    }
+    if (strlen($digits) === 11 && strpos($digits, '1') === 0) {
+        return $digits;
     }
 
-    return $digits;
+    // Compatibilidad reserva pública: 10 dígitos → México
+    if (strlen($digits) === 10) {
+        return '52' . $digits;
+    }
+
+    return new WP_Error(
+        'telefono_invalido',
+        'Teléfono inválido. Debe incluir código de país (52/1/34) y longitud válida.'
+    );
 }
 
 // ===============================

@@ -46,11 +46,16 @@ function initReservationController(formSelector) {
       return;
     }
 
-    // 🔹 Normalizar teléfono (solo dígitos, 10 exactos)
+    // 🔹 Normalizar teléfono a formato canónico (sin selector de país)
     const telefonoRaw = (form.telefono.value || '').trim();
-    const telefonoNorm = telefonoRaw.replace(/\D/g, '');
-    if (telefonoNorm.length !== 10) {
-      respuestaDiv.innerText = '❌ El teléfono debe tener exactamente 10 dígitos numéricos.';
+    const digits = telefonoRaw.replace(/\D/g, '');
+    let telefonoCanon;
+    if (digits.length === 10) {
+      telefonoCanon = '52' + digits;
+    } else if (digits.length === 11 && digits.startsWith('1')) {
+      telefonoCanon = digits;
+    } else {
+      respuestaDiv.innerText = '❌ Teléfono inválido. Usa 10 dígitos (México) o 11 dígitos iniciando con 1 (USA).';
       return;
     }
 
@@ -59,7 +64,7 @@ function initReservationController(formSelector) {
       servicio: form.servicio.value,
       fecha: selectedSlotISO,
       nombre: form.nombre.value,
-      telefono: telefonoNorm,
+      telefono: telefonoCanon,
       correo: form.correo.value || '',
       nonce: wpaa_vars.nonce,
       extra_field: honeypot.value || ''

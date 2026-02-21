@@ -16,6 +16,80 @@
 (function() {
     'use strict';
 
+    /** Configuración de países para teléfono canónico (código + longitud nacional) */
+    var COUNTRY_CONFIG = {
+        '52': { label: 'México (+52)', placeholder: 'Ej: 5512345678', nationalLen: 10, totalLen: 12 },
+        '1':  { label: 'USA (+1)',   placeholder: 'Ej: 2025550123', nationalLen: 10, totalLen: 11 },
+        '34': { label: 'España (+34)', placeholder: 'Ej: 612345678', nationalLen: 9, totalLen: 11 }
+    };
+
+    /**
+     * Obtiene dígitos nacionales y teléfono canónico desde input + país.
+     * Si el usuario pegó el número completo (country+national), lo recorta.
+     * @param {string} digits - Solo dígitos del input
+     * @param {string} country - Código de país ('52','1','34')
+     * @returns {{ nationalDigits: string, telefonoCanon: string }|{ error: string }}
+     */
+    function normalizePhoneForCountry(digits, country) {
+        var cfg = COUNTRY_CONFIG[country];
+        if (!cfg) return { error: 'País no soportado.' };
+
+        var nationalDigits = digits;
+
+        // Si empieza con el código de país y la longitud total es la esperada, recortar
+        if (digits.length === cfg.totalLen && digits.indexOf(country) === 0) {
+            nationalDigits = digits.slice(country.length);
+        }
+
+        if (nationalDigits.length !== cfg.nationalLen) {
+            var msg = 'Teléfono inválido. ';
+            if (country === '52') msg += 'México: 10 dígitos (ej: 5512345678).';
+            else if (country === '1') msg += 'USA: 10 dígitos (ej: 2025550123).';
+            else if (country === '34') msg += 'España: 9 dígitos (ej: 612345678).';
+            else msg += 'Longitud incorrecta para el país seleccionado.';
+            return { error: msg };
+        }
+
+        var telefonoCanon = country + nationalDigits;
+        return { nationalDigits: nationalDigits, telefonoCanon: telefonoCanon };
+    }
+
+    /**
+     * Actualiza el placeholder del input teléfono según el país seleccionado
+     * @param {string} countrySelectId - ID del select de país
+     * @param {string} phoneInputId - ID del input teléfono
+     */
+    function updatePhonePlaceholder(countrySelectId, phoneInputId) {
+        var sel = document.getElementById(countrySelectId);
+        var input = document.getElementById(phoneInputId);
+        if (sel && input && COUNTRY_CONFIG[sel.value]) {
+            input.placeholder = COUNTRY_CONFIG[sel.value].placeholder;
+        }
+    }
+
+    /**
+     * Parsea un teléfono canónico guardado para obtener país y parte nacional (para formulario editar)
+     * @param {string} telefono - Teléfono en BD (canónico o legacy 10 dígitos)
+     * @returns {{ country: string, nationalDigits: string }}
+     */
+    function parseStoredPhone(telefono) {
+        var digits = (telefono || '').replace(/\D/g, '');
+        if (digits.length === 12 && digits.indexOf('52') === 0) {
+            return { country: '52', nationalDigits: digits.slice(2) };
+        }
+        if (digits.length === 11 && digits.indexOf('1') === 0) {
+            return { country: '1', nationalDigits: digits.slice(1) };
+        }
+        if (digits.length === 11 && digits.indexOf('34') === 0) {
+            return { country: '34', nationalDigits: digits.slice(2) };
+        }
+        // Legacy: 10 dígitos asumir México
+        if (digits.length === 10) {
+            return { country: '52', nationalDigits: digits };
+        }
+        return { country: '52', nationalDigits: digits };
+    }
+
     /**
      * Crear contenido del formulario para nuevo cliente
      * @returns {HTMLElement} - Elemento del formulario
@@ -43,23 +117,40 @@
         nombreGroup.appendChild(nombreLabel);
         nombreGroup.appendChild(nombreInput);
 
-        // Campo: Teléfono
+        // Campo: País + Teléfono
         const telefonoGroup = document.createElement('div');
         telefonoGroup.className = 'aa-form-group';
-        
+
+        const telefonoRow = document.createElement('div');
+        telefonoRow.style.cssText = 'display:flex;gap:8px;align-items:flex-start;';
+
+        const countrySelect = document.createElement('select');
+        countrySelect.id = 'modal-cliente-country';
+        countrySelect.name = 'country';
+        countrySelect.style.cssText = 'flex:0 0 auto;min-width:140px;';
+        countrySelect.innerHTML = '<option value="52">México (+52)</option><option value="1">USA (+1)</option><option value="34">España (+34)</option>';
+
+        const phoneWrapper = document.createElement('div');
+        phoneWrapper.style.flex = '1';
         const telefonoLabel = document.createElement('label');
         telefonoLabel.setAttribute('for', 'modal-cliente-telefono');
         telefonoLabel.textContent = 'Teléfono *';
-        
         const telefonoInput = document.createElement('input');
         telefonoInput.type = 'tel';
         telefonoInput.id = 'modal-cliente-telefono';
         telefonoInput.name = 'telefono';
         telefonoInput.required = true;
         telefonoInput.placeholder = 'Ej: 5512345678';
-        
-        telefonoGroup.appendChild(telefonoLabel);
-        telefonoGroup.appendChild(telefonoInput);
+        phoneWrapper.appendChild(telefonoLabel);
+        phoneWrapper.appendChild(telefonoInput);
+
+        telefonoRow.appendChild(countrySelect);
+        telefonoRow.appendChild(phoneWrapper);
+        telefonoGroup.appendChild(telefonoRow);
+
+        countrySelect.addEventListener('change', function() {
+            updatePhonePlaceholder('modal-cliente-country', 'modal-cliente-telefono');
+        });
 
         // Campo: Correo
         const correoGroup = document.createElement('div');
@@ -146,6 +237,7 @@
         const nombre = document.getElementById('modal-cliente-nombre').value.trim();
         const telefonoRaw = document.getElementById('modal-cliente-telefono').value.trim();
         const correo = document.getElementById('modal-cliente-correo').value.trim();
+        const country = (document.getElementById('modal-cliente-country') || {}).value || '52';
 
         // Validación básica (correo es opcional)
         if (!nombre || !telefonoRaw) {
@@ -153,12 +245,14 @@
             return;
         }
 
-        // Normalizar teléfono: solo dígitos, exactamente 10
-        const telefono = telefonoRaw.replace(/\D/g, '');
-        if (telefono.length !== 10) {
-            showFormStatus('El teléfono debe tener exactamente 10 dígitos numéricos.', true);
+        // Normalizar teléfono canónico por país
+        var digits = telefonoRaw.replace(/\D/g, '');
+        var phoneResult = normalizePhoneForCountry(digits, country);
+        if (phoneResult.error) {
+            showFormStatus(phoneResult.error, true);
             return;
         }
+        var telefono = phoneResult.telefonoCanon;
 
         // Validar formato de correo solo si se proporcionó
         if (correo) {
@@ -416,24 +510,43 @@
         nombreGroup.appendChild(nombreLabel);
         nombreGroup.appendChild(nombreInput);
 
-        // Campo: Teléfono
+        // Campo: País + Teléfono
+        var parsed = parseStoredPhone(cliente.telefono || '');
         const telefonoGroup = document.createElement('div');
         telefonoGroup.className = 'aa-form-group';
-        
+
+        const telefonoRow = document.createElement('div');
+        telefonoRow.style.cssText = 'display:flex;gap:8px;align-items:flex-start;';
+
+        const countrySelect = document.createElement('select');
+        countrySelect.id = 'modal-cliente-country-edit';
+        countrySelect.name = 'country';
+        countrySelect.style.cssText = 'flex:0 0 auto;min-width:140px;';
+        countrySelect.innerHTML = '<option value="52">México (+52)</option><option value="1">USA (+1)</option><option value="34">España (+34)</option>';
+        countrySelect.value = parsed.country;
+
+        const phoneWrapper = document.createElement('div');
+        phoneWrapper.style.flex = '1';
         const telefonoLabel = document.createElement('label');
         telefonoLabel.setAttribute('for', 'modal-editar-cliente-telefono');
         telefonoLabel.textContent = 'Teléfono *';
-        
         const telefonoInput = document.createElement('input');
         telefonoInput.type = 'tel';
         telefonoInput.id = 'modal-editar-cliente-telefono';
         telefonoInput.name = 'telefono';
         telefonoInput.required = true;
-        telefonoInput.value = cliente.telefono || '';
-        telefonoInput.placeholder = 'Ej: 5512345678';
-        
-        telefonoGroup.appendChild(telefonoLabel);
-        telefonoGroup.appendChild(telefonoInput);
+        telefonoInput.value = parsed.nationalDigits;
+        telefonoInput.placeholder = (COUNTRY_CONFIG[parsed.country] || COUNTRY_CONFIG['52']).placeholder;
+        phoneWrapper.appendChild(telefonoLabel);
+        phoneWrapper.appendChild(telefonoInput);
+
+        telefonoRow.appendChild(countrySelect);
+        telefonoRow.appendChild(phoneWrapper);
+        telefonoGroup.appendChild(telefonoRow);
+
+        countrySelect.addEventListener('change', function() {
+            updatePhonePlaceholder('modal-cliente-country-edit', 'modal-editar-cliente-telefono');
+        });
 
         // Campo: Correo
         const correoGroup = document.createElement('div');
@@ -520,6 +633,7 @@
         const nombre = document.getElementById('modal-editar-cliente-nombre').value.trim();
         const telefonoRaw = document.getElementById('modal-editar-cliente-telefono').value.trim();
         const correo = document.getElementById('modal-editar-cliente-correo').value.trim();
+        const country = (document.getElementById('modal-cliente-country-edit') || {}).value || '52';
 
         // Validación básica (correo es opcional)
         if (!clienteId || !nombre || !telefonoRaw) {
@@ -527,12 +641,14 @@
             return;
         }
 
-        // Normalizar teléfono: solo dígitos, exactamente 10
-        const telefono = telefonoRaw.replace(/\D/g, '');
-        if (telefono.length !== 10) {
-            showEditFormStatus('El teléfono debe tener exactamente 10 dígitos numéricos.', true);
+        // Normalizar teléfono canónico por país
+        var digitsEdit = telefonoRaw.replace(/\D/g, '');
+        var phoneResultEdit = normalizePhoneForCountry(digitsEdit, country);
+        if (phoneResultEdit.error) {
+            showEditFormStatus(phoneResultEdit.error, true);
             return;
         }
+        var telefono = phoneResultEdit.telefonoCanon;
 
         // Validar formato de correo solo si se proporcionó
         if (correo) {

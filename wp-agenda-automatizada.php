@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WP Agenda Automatizada
  * Description: Sistema de gestión de citas con integración a Google Calendar, pega este Shortcode donde quieras mostrar tu calendario: [agenda_automatizada]
- * Version: 2.1.6
+ * Version: 2.1.7
  * Author: Roberto Tejada
  */
 
@@ -153,7 +153,7 @@ function aa_save_reservation() {
         wp_send_json_error(['message' => 'El teléfono es obligatorio.']);
     }
 
-    // 🔹 Normalizar teléfono (10 dígitos)
+    // 🔹 Normalizar teléfono a formato canónico
     $telefono = aa_normalize_telefono($telefono_raw);
     if (is_wp_error($telefono)) {
         wp_send_json_error(['message' => $telefono->get_error_message()]);
