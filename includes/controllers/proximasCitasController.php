@@ -52,16 +52,11 @@ function aa_ajax_get_citas_por_dia() {
     $fecha_inicio = $fecha . ' 00:00:00';
     $fecha_fin = $fecha . ' 23:59:59';
     
-    // 🔹 Consulta: SELECT explícito desde aa_reservas con LEFT JOIN a aa_clientes, aa_assignments,
-    // tabla pivote aa_assignment_services y aa_services para obtener el nombre del servicio
-    // Usa datos reales del cliente desde aa_clientes, nunca datos legacy de reservas
-    // Si la reserva tiene assignment_id, obtiene el nombre del servicio desde la tabla pivote
-    // Si no tiene assignment_id (reserva legacy/fixed), usa el campo r.servicio como fallback
-    // Usa GROUP BY para evitar duplicados cuando una asignación tiene múltiples servicios
-    // Toma el primer nombre de servicio (MIN) si hay múltiples
+    // 🔹 Consulta: nombre del servicio desde aa_services por el ID reservado (r.servicio);
+    // si r.servicio es numérico = service_id; si no, fallback a r.servicio (legacy/fixed).
     $query = "SELECT 
                 r.id,
-                COALESCE(MIN(s.name), r.servicio) as servicio,
+                COALESCE(s.name, r.servicio) as servicio,
                 r.fecha,
                 r.duracion,
                 r.estado,
@@ -76,11 +71,8 @@ function aa_ajax_get_citas_por_dia() {
               FROM $table_reservas r
               LEFT JOIN $table_clientes c ON r.id_cliente = c.id
               LEFT JOIN $table_assignments a ON r.assignment_id = a.id
-              LEFT JOIN $table_assignment_services as_rel ON r.assignment_id = as_rel.assignment_id
-              LEFT JOIN $table_services s ON as_rel.service_id = s.id
+              LEFT JOIN $table_services s ON s.id = CAST(r.servicio AS UNSIGNED)
               WHERE r.fecha BETWEEN %s AND %s 
-              GROUP BY r.id, r.servicio, r.fecha, r.duracion, r.estado, r.calendar_uid, 
-                       r.created_at, r.id_cliente, r.assignment_id, c.nombre, c.telefono, c.correo
               ORDER BY r.fecha ASC";
     
     $citas = $wpdb->get_results($wpdb->prepare($query, $fecha_inicio, $fecha_fin));

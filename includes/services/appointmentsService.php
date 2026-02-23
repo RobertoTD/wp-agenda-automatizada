@@ -165,13 +165,11 @@ function aa_get_appointments() {
     $page = min($page, max(1, $total_pages));
     $offset = ($page - 1) * $limit;
     
-    // Get appointments with unread notification status
-    // Use subquery to check if there's an unread notification for each appointment
-    // Include JOIN with assignment_services and services to get service name
+    // Resolver nombre del servicio: r.servicio numérico = service_id → aa_services.name; si no, r.servicio (legacy).
     $select_sql = "
         SELECT DISTINCT
             r.id,
-            COALESCE(MIN(s.name), r.servicio) as servicio,
+            COALESCE(s.name, r.servicio) as servicio,
             r.fecha,
             r.duracion,
             r.nombre,
@@ -194,12 +192,9 @@ function aa_get_appointments() {
             END as unread
         FROM {$reservas_table} r
         LEFT JOIN {$clientes_table} c ON r.id_cliente = c.id
-        LEFT JOIN {$table_assignment_services} as_rel ON r.assignment_id = as_rel.assignment_id
-        LEFT JOIN {$table_services} s ON as_rel.service_id = s.id
+        LEFT JOIN {$table_services} s ON s.id = CAST(r.servicio AS UNSIGNED)
         {$join_clause}
         {$where_sql}
-        GROUP BY r.id, r.servicio, r.fecha, r.duracion, r.nombre, r.telefono, r.correo, 
-                 r.estado, r.created_at, r.id_cliente, r.assignment_id, c.nombre
         ORDER BY r.created_at DESC
         LIMIT %d OFFSET %d
     ";
