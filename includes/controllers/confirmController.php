@@ -76,7 +76,12 @@ function aa_ajax_enviar_confirmacion() {
         wp_send_json_error(['message' => 'JSON inválido o vacío']);
         return;
     }
-    
+
+    // 🔹 Origen: admin vs frontend (para que el backend sepa si enviar correo al negocio)
+    $datos['source'] = (current_user_can('aa_view_panel') || current_user_can('administrator'))
+        ? 'admin'
+        : 'frontend';
+
     error_log("📤 JSON COMPLETO QUE SE ENVÍA AL BACKEND:");
     error_log(json_encode($datos, JSON_PRETTY_PRINT));
 

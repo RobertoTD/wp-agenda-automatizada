@@ -355,6 +355,7 @@ function confirm_backend_service_enviar_correo($datos) {
         'businessAddress' => get_option('aa_business_address', 'No especificada'),
         'whatsapp' => get_option('aa_whatsapp_number', ''),
         'slot_duration' => $duracion, // Mantener compatibilidad con backend
+        'source' => $datos['source'] ?? 'frontend',
     ];
 
     error_log("📦 [EmailService] Datos reorganizados para backend:");
