@@ -12,6 +12,9 @@
     
     // Flag to track if save/delete handlers are already bound
     let saveDeleteHandlersBound = false;
+    
+    // Flag to track if attendance/virtual change handlers are already bound
+    let attendanceVirtualHandlersBound = false;
 
     /**
      * Initialize the services section
@@ -27,6 +30,9 @@
 
         // Setup save and delete handlers (only once)
         setupSaveDeleteHandlers();
+        
+        // Setup attendance/virtual change handlers (only once)
+        setupAttendanceVirtualHandlers();
         
         // Load and render services
         loadServices(servicesRoot);
@@ -250,6 +256,47 @@
     }
 
     /**
+     * Handle change events on attendance_type and virtual_channel (event delegation)
+     * @param {Event} event - Change event
+     */
+    function onServicesRootChange(event) {
+        const target = event.target;
+        if (!target) return;
+        
+        if (target.classList.contains('aa-service-attendance-type')) {
+            const serviceId = target.getAttribute('data-service-id');
+            const container = document.getElementById('aa-service-virtual-container-' + serviceId);
+            if (container) {
+                if (target.value === 'virtual') {
+                    container.classList.remove('hidden');
+                } else {
+                    container.classList.add('hidden');
+                }
+            }
+        } else if (target.classList.contains('aa-service-virtual-channel')) {
+            const serviceId = target.getAttribute('data-service-id');
+            const hint = document.querySelector('.aa-service-virtual-hint[data-service-id="' + serviceId + '"]');
+            if (hint) {
+                hint.textContent = target.value === 'custom_link'
+                    ? 'El enlace se definirá al crear la reservación.'
+                    : 'El enlace se generará automáticamente al agendar.';
+            }
+        }
+    }
+
+    /**
+     * Setup handlers for attendance_type and virtual_channel change events
+     * Only registers once using event delegation
+     */
+    function setupAttendanceVirtualHandlers() {
+        if (attendanceVirtualHandlersBound) return;
+        if (!servicesRoot) return;
+        
+        servicesRoot.addEventListener('change', onServicesRootChange);
+        attendanceVirtualHandlersBound = true;
+    }
+
+    /**
      * Setup handlers for save and delete buttons
      * Only registers once to avoid duplicate listeners
      */
@@ -279,6 +326,8 @@
         const priceInput = document.getElementById('aa-service-price-' + serviceId);
         const descriptionInput = document.getElementById('aa-service-description-' + serviceId);
         const indicacionesInput = document.getElementById('aa-service-indicaciones-cita-' + serviceId);
+        const attendanceTypeInput = document.getElementById('aa-service-attendance-type-' + serviceId);
+        const virtualChannelInput = document.getElementById('aa-service-virtual-channel-' + serviceId);
         
         if (!codeInput || !priceInput || !descriptionInput) {
             console.warn('[Services Section] Inputs not found for service ID:', serviceId);
@@ -289,10 +338,14 @@
         const price = priceInput.value.trim();
         const description = descriptionInput.value.trim();
         const indicaciones = indicacionesInput ? indicacionesInput.value.trim() : '';
-        
+        const attendanceType = attendanceTypeInput ? attendanceTypeInput.value.trim() : '';
+        const virtualChannel = (attendanceType === 'virtual' && virtualChannelInput)
+            ? virtualChannelInput.value.trim()
+            : '';
+
         // Get ajaxurl from global data
-        const ajaxurl = (window.AA_ASSIGNMENTS_DATA && window.AA_ASSIGNMENTS_DATA.ajaxurl) 
-            || window.ajaxurl 
+        const ajaxurl = (window.AA_ASSIGNMENTS_DATA && window.AA_ASSIGNMENTS_DATA.ajaxurl)
+            || window.ajaxurl
             || '/wp-admin/admin-ajax.php';
 
         // Prepare FormData for AJAX request
@@ -303,6 +356,8 @@
         formData.append('price', price);
         formData.append('description', description);
         formData.append('indicaciones_cita', indicaciones);
+        formData.append('attendance_type', attendanceType || '');
+        formData.append('virtual_channel', virtualChannel);
 
         // Disable button during request
         const saveButton = document.querySelector('.aa-service-save[data-service-id="' + serviceId + '"]');
@@ -586,6 +641,41 @@
         html += '>';
         html += escapeHtml(service.indicaciones_cita || '');
         html += '</textarea>';
+        html += '</div>';
+        
+        // Tipo (physical/virtual)
+        var defaultType = (window.AA_ASSIGNMENTS_DATA && window.AA_ASSIGNMENTS_DATA.defaultAttendanceType) || 'physical';
+        var attendanceTypeVal = (service.attendance_type && (service.attendance_type === 'physical' || service.attendance_type === 'virtual'))
+            ? service.attendance_type
+            : defaultType;
+        html += '<div class="mt-4 pt-4 border-t border-gray-200">';
+        html += '<label class="text-xs text-gray-500 block mb-1">Tipo</label>';
+        html += '<select id="aa-service-attendance-type-' + serviceId + '" ';
+        html += 'class="aa-service-attendance-type w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" ';
+        html += 'data-service-id="' + serviceId + '">';
+        html += '<option value="physical"' + (attendanceTypeVal === 'physical' ? ' selected' : '') + '>Físico</option>';
+        html += '<option value="virtual"' + (attendanceTypeVal === 'virtual' ? ' selected' : '') + '>Virtual</option>';
+        html += '</select>';
+        html += '</div>';
+        
+        // Bloque virtual (condicional)
+        var virtualChannelVal = (service.virtual_channel && ['whatsapp', 'google_meet', 'custom_link'].indexOf(service.virtual_channel) >= 0)
+            ? service.virtual_channel
+            : 'whatsapp';
+        var virtualContainerVisible = attendanceTypeVal === 'virtual' ? '' : ' hidden';
+        html += '<div id="aa-service-virtual-container-' + serviceId + '" class="aa-service-virtual-container mt-4 pt-4 border-t border-gray-200' + virtualContainerVisible + '" data-service-id="' + serviceId + '">';
+        html += '<label class="text-xs text-gray-500 block mb-1">Canal</label>';
+        html += '<select id="aa-service-virtual-channel-' + serviceId + '" ';
+        html += 'class="aa-service-virtual-channel w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" ';
+        html += 'data-service-id="' + serviceId + '">';
+        html += '<option value="whatsapp"' + (virtualChannelVal === 'whatsapp' ? ' selected' : '') + '>WhatsApp</option>';
+        html += '<option value="google_meet"' + (virtualChannelVal === 'google_meet' ? ' selected' : '') + '>Google Meet</option>';
+        html += '<option value="custom_link"' + (virtualChannelVal === 'custom_link' ? ' selected' : '') + '>Enlace personalizado</option>';
+        html += '</select>';
+        var virtualHintText = virtualChannelVal === 'custom_link'
+            ? 'El enlace se definirá al crear la reservación.'
+            : 'El enlace se generará automáticamente al agendar.';
+        html += '<p class="aa-service-virtual-hint text-xs text-gray-500 mt-1" data-service-id="' + serviceId + '">' + escapeHtml(virtualHintText) + '</p>';
         html += '</div>';
         
         // Action buttons (Guardar y Eliminar)

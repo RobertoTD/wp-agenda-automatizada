@@ -199,7 +199,8 @@ $module_js_url = $plugin_url . 'assignments-module.js?v=' . filemtime($base_dir 
     
     // Datos del módulo Assignments
     window.AA_ASSIGNMENTS_DATA = {
-        ajaxurl: window.ajaxurl || '<?php echo admin_url('admin-ajax.php'); ?>'
+        ajaxurl: window.ajaxurl || '<?php echo admin_url('admin-ajax.php'); ?>',
+        defaultAttendanceType: <?php echo (int) get_option('aa_is_virtual', 0) === 1 ? "'virtual'" : "'physical'"; ?>
     };
 </script>
 

@@ -430,7 +430,7 @@ class AssignmentsModel {
             $where_clause = "WHERE " . implode(" AND ", $where_conditions);
         }
         
-        $query = "SELECT id, name, code, description, indicaciones_cita, price, active, created_at 
+        $query = "SELECT id, name, code, description, indicaciones_cita, price, active, created_at, attendance_type, virtual_channel 
                   FROM $table 
                   $where_clause 
                   ORDER BY name ASC";
@@ -461,7 +461,7 @@ class AssignmentsModel {
             return false;
         }
         
-        $query = "SELECT id, name, code, description, price, active, created_at 
+        $query = "SELECT id, name, code, description, price, active, created_at, attendance_type, virtual_channel 
                   FROM $table 
                   WHERE id = %d
                   LIMIT 1";
@@ -529,6 +529,28 @@ class AssignmentsModel {
                 $format[] = null;
             } else {
                 $update_data['indicaciones_cita'] = sanitize_textarea_field($data['indicaciones_cita']);
+                $format[] = '%s';
+            }
+        }
+
+        // attendance_type (permite NULL)
+        if (array_key_exists('attendance_type', $data)) {
+            if ($data['attendance_type'] === null) {
+                $update_data['attendance_type'] = null;
+                $format[] = null;
+            } else {
+                $update_data['attendance_type'] = sanitize_text_field($data['attendance_type']);
+                $format[] = '%s';
+            }
+        }
+
+        // virtual_channel (permite NULL)
+        if (array_key_exists('virtual_channel', $data)) {
+            if ($data['virtual_channel'] === null) {
+                $update_data['virtual_channel'] = null;
+                $format[] = null;
+            } else {
+                $update_data['virtual_channel'] = sanitize_text_field($data['virtual_channel']);
                 $format[] = '%s';
             }
         }

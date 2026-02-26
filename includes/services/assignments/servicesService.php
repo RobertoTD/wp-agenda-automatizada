@@ -156,6 +156,29 @@ function aa_update_service_db() {
             $data['indicaciones_cita'] = sanitize_textarea_field($valor);
         }
     }
+
+    // attendance_type (permitir solo physical|virtual, vacío → NULL)
+    if (isset($_POST['attendance_type'])) {
+        $val = trim((string) $_POST['attendance_type']);
+        if ($val === 'physical' || $val === 'virtual') {
+            $data['attendance_type'] = $val;
+        } else {
+            $data['attendance_type'] = null;
+        }
+    }
+
+    // virtual_channel (permitir solo whatsapp|google_meet|custom_link; si attendance_type !== virtual → NULL)
+    $attendance_type = isset($data['attendance_type']) ? $data['attendance_type'] : (isset($_POST['attendance_type']) ? trim((string) $_POST['attendance_type']) : null);
+    if ($attendance_type === 'virtual' && isset($_POST['virtual_channel'])) {
+        $val = trim((string) $_POST['virtual_channel']);
+        if (in_array($val, ['whatsapp', 'google_meet', 'custom_link'], true)) {
+            $data['virtual_channel'] = $val;
+        } else {
+            $data['virtual_channel'] = null;
+        }
+    } else {
+        $data['virtual_channel'] = null;
+    }
     
     if (empty($data)) {
         wp_send_json_error(['message' => 'No hay datos para actualizar']);
