@@ -278,6 +278,7 @@
         const codeInput = document.getElementById('aa-service-code-' + serviceId);
         const priceInput = document.getElementById('aa-service-price-' + serviceId);
         const descriptionInput = document.getElementById('aa-service-description-' + serviceId);
+        const indicacionesInput = document.getElementById('aa-service-indicaciones-cita-' + serviceId);
         
         if (!codeInput || !priceInput || !descriptionInput) {
             console.warn('[Services Section] Inputs not found for service ID:', serviceId);
@@ -287,6 +288,7 @@
         const code = codeInput.value.trim();
         const price = priceInput.value.trim();
         const description = descriptionInput.value.trim();
+        const indicaciones = indicacionesInput ? indicacionesInput.value.trim() : '';
         
         // Get ajaxurl from global data
         const ajaxurl = (window.AA_ASSIGNMENTS_DATA && window.AA_ASSIGNMENTS_DATA.ajaxurl) 
@@ -300,6 +302,7 @@
         formData.append('code', code);
         formData.append('price', price);
         formData.append('description', description);
+        formData.append('indicaciones_cita', indicaciones);
 
         // Disable button during request
         const saveButton = document.querySelector('.aa-service-save[data-service-id="' + serviceId + '"]');
@@ -568,6 +571,20 @@
         html += 'data-field="description" ';
         html += '>';
         html += escapeHtml(service.description || '');
+        html += '</textarea>';
+        html += '</div>';
+        
+        // Indicaciones para cita (editable textarea)
+        html += '<div class="mt-4 pt-4 border-t border-gray-200">';
+        html += '<label class="text-xs text-gray-500 block mb-1">Indicaciones para cita</label>';
+        html += '<textarea rows="3" ';
+        html += 'id="aa-service-indicaciones-cita-' + serviceId + '" ';
+        html += 'class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y" ';
+        html += 'data-service-id="' + serviceId + '" ';
+        html += 'data-field="indicaciones_cita" ';
+        html += 'placeholder="Estas indicaciones se mostrarán en los correos de confirmación al cliente." ';
+        html += '>';
+        html += escapeHtml(service.indicaciones_cita || '');
         html += '</textarea>';
         html += '</div>';
         

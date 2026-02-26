@@ -59,6 +59,46 @@ function aa_transform_servicio_for_backend($servicio_raw) {
 }
 
 /**
+ * Transforma el valor de servicio y devuelve nombre + description + indicaciones_cita para el backend
+ *
+ * - Si es ID numérico: consulta aa_services y devuelve name, description, indicaciones_cita
+ * - Si es fixed::... o no hay fila: name (legible) y description/indicaciones_cita como null
+ *
+ * @param string $servicio_raw Valor de servicio tal como viene del formulario o BD
+ * @return array{name: string, description: string|null, indicaciones_cita: string|null}
+ */
+function aa_transform_servicio_for_backend_full($servicio_raw) {
+    $empty = ['name' => (string) $servicio_raw, 'description' => null, 'indicaciones_cita' => null];
+
+    if (strpos($servicio_raw, 'fixed::') === 0) {
+        $nombre = substr($servicio_raw, 7);
+        return ['name' => $nombre, 'description' => null, 'indicaciones_cita' => null];
+    }
+
+    if (is_numeric($servicio_raw)) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_services';
+        $row = $wpdb->get_row($wpdb->prepare(
+            "SELECT name, description, indicaciones_cita FROM $table WHERE id = %d",
+            intval($servicio_raw)
+        ), ARRAY_A);
+
+        if ($row) {
+            return [
+                'name' => isset($row['name']) ? (string) $row['name'] : (string) $servicio_raw,
+                'description' => isset($row['description']) && $row['description'] !== '' ? (string) $row['description'] : null,
+                'indicaciones_cita' => isset($row['indicaciones_cita']) && $row['indicaciones_cita'] !== '' ? (string) $row['indicaciones_cita'] : null,
+            ];
+        }
+        $empty['name'] = (string) $servicio_raw;
+        return $empty;
+    }
+
+    $empty['name'] = (string) $servicio_raw;
+    return $empty;
+}
+
+/**
  * Confirmar una cita enviando solicitud al backend
  * 
  * @param int $reserva_id ID de la reserva
@@ -220,13 +260,15 @@ function confirm_backend_service_confirmar($reserva_id) {
         ];
     }
     
-    // 6️⃣ Construir payload para el backend (servicio como nombre, whatsapp del negocio)
-    $servicio_para_backend = aa_transform_servicio_for_backend($reserva->servicio ?? '');
+    // 6️⃣ Construir payload para el backend (servicio nombre + description + indicaciones_cita)
+    $servicio_full = aa_transform_servicio_for_backend_full($reserva->servicio ?? '');
     $whatsapp = get_option('aa_whatsapp_number', '');
     $payload = [
         'domain' => $domain,
         'nombre' => $reserva->nombre,
-        'servicio' => $servicio_para_backend,
+        'servicio' => $servicio_full['name'],
+        'servicio_description' => $servicio_full['description'],
+        'servicio_indicaciones_cita' => $servicio_full['indicaciones_cita'],
         'fecha' => $fecha_iso,
         'telefono' => $reserva->telefono,
         'email' => $reserva->correo,
@@ -338,15 +380,17 @@ function confirm_backend_service_enviar_correo($datos) {
         $duracion = 60;
     }
 
-    // 🔄 Transformar servicio: "fixed::Nombre" -> "Nombre", "ID" -> "Nombre del servicio"
+    // 🔄 Transformar servicio con metadatos (nombre, description, indicaciones_cita)
     $servicio_raw = $datos['servicio'] ?? '';
-    $servicio_transformed = aa_transform_servicio_for_backend($servicio_raw);
+    $servicio_full = aa_transform_servicio_for_backend_full($servicio_raw);
 
     // 🔹 Reorganizar datos para enviar al backend
     $backend_data = [
         'domain' => $domain,
         'nombre' => $datos['nombre'] ?? '',
-        'servicio' => $servicio_transformed,
+        'servicio' => $servicio_full['name'],
+        'servicio_description' => $servicio_full['description'],
+        'servicio_indicaciones_cita' => $servicio_full['indicaciones_cita'],
         'fecha' => $datos['fecha'] ?? '',
         'telefono' => $datos['telefono'] ?? '',
         'email' => $datos['correo'] ?? '',

@@ -430,7 +430,7 @@ class AssignmentsModel {
             $where_clause = "WHERE " . implode(" AND ", $where_conditions);
         }
         
-        $query = "SELECT id, name, code, description, price, active, created_at 
+        $query = "SELECT id, name, code, description, indicaciones_cita, price, active, created_at 
                   FROM $table 
                   $where_clause 
                   ORDER BY name ASC";
@@ -504,8 +504,8 @@ class AssignmentsModel {
             $format[] = '%s';
         }
         
-        // Price (convertir vacío a NULL)
-        if (isset($data['price'])) {
+        // Price (convertir vacío a NULL; array_key_exists para no saltarse el caso null)
+        if (array_key_exists('price', $data)) {
             $price = $data['price'];
             if ($price === '' || $price === null) {
                 $update_data['price'] = null;
@@ -520,6 +520,17 @@ class AssignmentsModel {
         if (isset($data['description'])) {
             $update_data['description'] = sanitize_textarea_field($data['description']);
             $format[] = '%s';
+        }
+        
+        // Indicaciones para cita (permite NULL para vacío)
+        if (array_key_exists('indicaciones_cita', $data)) {
+            if ($data['indicaciones_cita'] === null) {
+                $update_data['indicaciones_cita'] = null;
+                $format[] = null;
+            } else {
+                $update_data['indicaciones_cita'] = sanitize_textarea_field($data['indicaciones_cita']);
+                $format[] = '%s';
+            }
         }
         
         if (empty($update_data)) {

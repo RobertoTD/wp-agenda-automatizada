@@ -365,6 +365,7 @@ register_activation_hook(__FILE__, function() {
         name varchar(191) NOT NULL,
         code varchar(191) NOT NULL,
         description text DEFAULT NULL,
+        indicaciones_cita text DEFAULT NULL,
         price decimal(10,2) DEFAULT NULL,
         active tinyint(1) DEFAULT 1,
         is_hidden tinyint(1) NOT NULL DEFAULT 0,

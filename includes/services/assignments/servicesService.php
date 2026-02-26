@@ -147,6 +147,16 @@ function aa_update_service_db() {
         $data['description'] = sanitize_textarea_field($_POST['description']);
     }
     
+    // Indicaciones para cita (vacío → NULL en BD)
+    if (isset($_POST['indicaciones_cita'])) {
+        $valor = trim((string) $_POST['indicaciones_cita']);
+        if ($valor === '') {
+            $data['indicaciones_cita'] = null;
+        } else {
+            $data['indicaciones_cita'] = sanitize_textarea_field($valor);
+        }
+    }
+    
     if (empty($data)) {
         wp_send_json_error(['message' => 'No hay datos para actualizar']);
         return;
