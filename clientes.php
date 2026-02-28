@@ -196,6 +196,29 @@ function aa_add_cliente_column_to_reservas() {
 }
 
 // ===============================
+// 🔹 Agregar columna join_token a tabla de reservas
+// ===============================
+function aa_add_join_token_column_to_reservas() {
+    global $wpdb;
+    $table = $wpdb->prefix . 'aa_reservas';
+
+    $column_exists = $wpdb->get_results(
+        $wpdb->prepare(
+            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = 'join_token'",
+            DB_NAME,
+            $table
+        )
+    );
+
+    if (empty($column_exists)) {
+        $wpdb->query("ALTER TABLE $table ADD COLUMN join_token varchar(64) NULL AFTER virtual_link");
+        $wpdb->query("ALTER TABLE $table ADD UNIQUE INDEX join_token (join_token)");
+        error_log("✅ Columna join_token agregada a aa_reservas");
+    }
+}
+
+// ===============================
 // 🔹 Buscar o crear cliente (teléfono es identidad única)
 // ===============================
 /**

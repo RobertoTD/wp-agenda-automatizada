@@ -263,6 +263,32 @@ function confirm_backend_service_confirmar($reserva_id) {
     // 6️⃣ Construir payload para el backend (servicio nombre + description + indicaciones_cita)
     $servicio_full = aa_transform_servicio_for_backend_full($reserva->servicio ?? '');
     $whatsapp = get_option('aa_whatsapp_number', '');
+
+    // virtual_link desde la reserva
+    $virtual_link = $reserva->virtual_link ?? null;
+
+    // attendance_type y virtual_channel desde aa_services si servicio es ID numérico
+    $attendance_type = null;
+    $virtual_channel = null;
+    $servicio_raw = $reserva->servicio ?? '';
+    if (is_numeric($servicio_raw)) {
+        $services_table = $wpdb->prefix . 'aa_services';
+        $row = $wpdb->get_row($wpdb->prepare(
+            "SELECT attendance_type, virtual_channel FROM $services_table WHERE id = %d",
+            intval($servicio_raw)
+        ), ARRAY_A);
+        if ($row) {
+            $attendance_type = isset($row['attendance_type']) && $row['attendance_type'] !== '' ? $row['attendance_type'] : null;
+            $virtual_channel = isset($row['virtual_channel']) && $row['virtual_channel'] !== '' ? $row['virtual_channel'] : null;
+        }
+    }
+
+    $join_url = null;
+    $join_token = $reserva->join_token ?? null;
+    if ($attendance_type === 'virtual' && !empty($join_token)) {
+        $join_url = home_url('/citas-virtuales/?token=' . rawurlencode($join_token));
+    }
+
     $payload = [
         'domain' => $domain,
         'nombre' => $reserva->nombre,
@@ -276,7 +302,11 @@ function confirm_backend_service_confirmar($reserva_id) {
         'businessName' => $business_name,
         'businessAddress' => $business_address,
         'whatsapp' => $whatsapp,
-        'id_reserva' => $reserva_id
+        'id_reserva' => $reserva_id,
+        'attendance_type' => $attendance_type,
+        'virtual_channel' => $virtual_channel,
+        'virtual_link' => $virtual_link,
+        'join_url' => $join_url,
     ];
     
     error_log("📤 [ConfirmService] Enviando confirmación al backend:");
@@ -384,6 +414,42 @@ function confirm_backend_service_enviar_correo($datos) {
     $servicio_raw = $datos['servicio'] ?? '';
     $servicio_full = aa_transform_servicio_for_backend_full($servicio_raw);
 
+    // 🔹 attendance_type, virtual_channel, virtual_link (desde reserva y servicio)
+    $attendance_type = null;
+    $virtual_channel = null;
+    $virtual_link = null;
+    $join_token = null;
+    $reserva_id = isset($datos['id_reserva']) ? intval($datos['id_reserva']) : 0;
+    if ($reserva_id > 0) {
+        global $wpdb;
+        $reservas_table = $wpdb->prefix . 'aa_reservas';
+        $reserva_row = $wpdb->get_row($wpdb->prepare(
+            "SELECT servicio, virtual_link, join_token FROM $reservas_table WHERE id = %d",
+            $reserva_id
+        ), ARRAY_A);
+        if ($reserva_row) {
+            $virtual_link = isset($reserva_row['virtual_link']) && $reserva_row['virtual_link'] !== '' ? $reserva_row['virtual_link'] : null;
+            $join_token = isset($reserva_row['join_token']) && $reserva_row['join_token'] !== '' ? $reserva_row['join_token'] : null;
+            $servicio_from_reserva = $reserva_row['servicio'] ?? '';
+            if (is_numeric($servicio_from_reserva)) {
+                $services_table = $wpdb->prefix . 'aa_services';
+                $service_row = $wpdb->get_row($wpdb->prepare(
+                    "SELECT attendance_type, virtual_channel FROM $services_table WHERE id = %d",
+                    intval($servicio_from_reserva)
+                ), ARRAY_A);
+                if ($service_row) {
+                    $attendance_type = isset($service_row['attendance_type']) && $service_row['attendance_type'] !== '' ? $service_row['attendance_type'] : null;
+                    $virtual_channel = isset($service_row['virtual_channel']) && $service_row['virtual_channel'] !== '' ? $service_row['virtual_channel'] : null;
+                }
+            }
+        }
+    }
+
+    $join_url = null;
+    if ($attendance_type === 'virtual' && !empty($join_token)) {
+        $join_url = home_url('/citas-virtuales/?token=' . rawurlencode($join_token));
+    }
+
     // 🔹 Reorganizar datos para enviar al backend
     $backend_data = [
         'domain' => $domain,
@@ -400,6 +466,10 @@ function confirm_backend_service_enviar_correo($datos) {
         'whatsapp' => get_option('aa_whatsapp_number', ''),
         'slot_duration' => $duracion, // Mantener compatibilidad con backend
         'source' => $datos['source'] ?? 'frontend',
+        'attendance_type' => $attendance_type,
+        'virtual_channel' => $virtual_channel,
+        'virtual_link' => $virtual_link,
+        'join_url' => $join_url,
     ];
 
     error_log("📦 [EmailService] Datos reorganizados para backend:");

@@ -3,66 +3,96 @@ Architecture Principles (Summary)
 PLUGIN ROOT
 │
 ├── assets/
-│   ├── js/
-│   │   ├── main-admin.js
-│   │   ├── main-frontend.js
-│   │   │
-│   │   ├── controllers/
-│   │   │   ├── adminConfirmController.js
-│   │   │   ├── adminReservationController.js
-│   │   │   ├── availabilityController.js
-│   │   │   ├── proximasCitasController.js
-│   │   │   └── reservationController.js
-│   │   │
-│   │   ├── services/
-│   │   │   ├── availability/
-│   │   │   │   ├── busyRanges.js
-│   │   │   │   ├── combineLocalExternal.js
-│   │   │   │   ├── proxyFetch.js
-│   │   │   │   └── slotCalculator.js
-│   │   │   │
-│   │   │   ├── availabilityService.js
-│   │   │   ├── confirmService.js
-│   │   │   └── reservationService.js
-│   │   │
-│   │   ├── ui/
-│   │   │   ├── calendarAdminUI.js
-│   │   │   ├── calendarUI.js
-│   │   │   ├── proximasCitasUI.js
-│   │   │   ├── slotSelectorAdminUI.js
-│   │   │   └── slotSelectorUI.js
-│   │   │
-│   │   └── utils/
-│   │       ├── dateUtils.js
-│   │       └── (otros utilitarios *.js que no se ven en el screenshot)
-│   │
-│   ├── css/
-│   │   └── styles.css
-│   │
-│   └── docs/
-│       ├── 01-mvp-scope.md
-│       └── 02-architecture-principles.md
+│   └── js/
+│       ├── main-admin.js
+│       ├── main-frontend.js
+│       ├── controllers/
+│       │   ├── adminCalendarController.js
+│       │   ├── adminConfirmController.js
+│       │   ├── adminReservationAssignmentFlowController.js
+│       │   ├── adminReservationController.js
+│       │   ├── appointmentsController.js
+│       │   ├── availabilityController.js
+│       │   ├── frontendAssignmentsController.js
+│       │   ├── reservationClientController.js
+│       │   ├── reservationController.js
+│       │   └── whatsAppController.js
+│       ├── services/
+│       │   ├── availability/
+│       │   │   ├── availabilityAssignments.js
+│       │   │   ├── busyRanges.js
+│       │   │   ├── busyRangesAssignments.js
+│       │   │   ├── calendarAvailabilityService.js
+│       │   │   └── slotCalculator.js
+│       │   ├── adminCalendarService.js
+│       │   ├── availabilityService.js
+│       │   ├── confirmService.js
+│       │   ├── localAvailabilityService.js
+│       │   ├── reservationService.js
+│       │   └── whatsAppService.js
+│       ├── ui/
+│       │   ├── calendarAdminUI.js
+│       │   ├── calendarUI.js
+│       │   ├── slotSelectorUI.js
+│       │   └── whatsAppUI.js
+│       ├── ui-adapters/
+│       │   ├── calendarDefaultAdapter.js
+│       │   ├── datePickerAdapter.js
+│       │   ├── modalDefaultAdapter.js
+│       │   ├── slotsDefaultAdapter.js
+│       │   └── WPAgenda.js
+│       └── utils/
+│           └── dateUtils.js
+│
+├── css/
+│   ├── calendar-default.css
+│   └── styles.css
+│
+├── docs/
+│   ├── 01-mvp-scope.md
+│   ├── 02-architecture-principles.md
+│   └── DESIGN_BRIEF.md
 │
 ├── includes/
+│   ├── admin/
+│   │   ├── iframe-test.php
+│   │   └── ui/
+│   │       ├── index.php, README.md, TAILWIND.md
+│   │       ├── assets/ (css: admin.css, admin.source.css | js: main.js, notifications.js, sidebar.js)
+│   │       ├── modals/ (appointments, assignment, crearcliente, reservation)
+│   │       ├── modules/ (assignments, calendar, clients, settings)
+│   │       └── shared/ (footer.php, header.php, layout.php, modals.php, sidebar.php)
 │   ├── controllers/
 │   │   ├── availability-controller.php
-│   │   ├── confirm-admin-controller.php
+│   │   ├── confirmController.php
 │   │   ├── enqueueController.php
-│   │   └── proximasCitasController.php
-│   │
+│   │   ├── proximasCitasController.php
+│   │   └── WebhooksController.php
 │   ├── models/
+│   │   ├── AssignmentsModel.php
 │   │   └── ReservationsModel.php
-│   │
+│   ├── routes/
+│   │   └── agenda-app.php
 │   └── services/
-│       ├── availability-proxy.php
+│       ├── assignments/ (areasService.php, servicesService.php, staffService.php)
+│       ├── appointmentsService.php
+│       ├── assignmentsService.php
+│       ├── auth-helper.php
+│       ├── ClienteService.php
 │       ├── confirm-backend-service.php
-│       └── auth-helper.php
+│       ├── notificationsService.php
+│       ├── RemindersService.php
+│       └── SyncService.php
+│
+├── js/
+│   └── admin-controls.js
 │
 ├── views/
-|   │
-|   └── templates/
-|
-|── wp-agenda-automatizada.php
+│   └── admin-controls.php
+│
+├── clientes.php
+├── historial-citas.php
+└── wp-agenda-automatizada.php
 
 ## JS Layer (assets/js)
 
@@ -87,8 +117,9 @@ PLUGIN ROOT
   Funciones puras y reutilizables: fechas, helpers, parsing, formateo.  
   No tienen estado ni acceso al DOM.
 
-- **css/**  
-  Estilos del plugin.
+- **ui-adapters/**  
+  Adaptadores para integrar el plugin con temas o entornos (calendario, modal, slots, datePicker).  
+  Permiten que el frontend funcione con distintas implementaciones de UI.
 
 ## PHP Layer (includes/)
 
@@ -105,21 +136,41 @@ PLUGIN ROOT
 
 - **services/**  
   Conexión con servicios externos (backend Node.js, API externas).  
-  Lógica de integración.
+  Lógica de integración. Incluye subcarpeta `assignments/` (areas, services, staff).
 
-## Vistas y Plantillas
+- **routes/**  
+  Páginas especiales vía rewrite rules.  
+  `agenda-app.php`: registro de la ruta `/agenda-app`, query var y `template_redirect`.
+
+## Estilos y documentación
+
+- **css/** (en raíz del plugin)  
+  Estilos globales: `styles.css`, `calendar-default.css`.
+
+- **docs/** (en raíz del plugin)  
+  Documentación: scope MVP, principios de arquitectura, design brief.
+
+## Vistas y plantillas
 
 - **views/**  
-  Vistas completas del plugin (pantallas principales como `assistant-controls.php`).
+  Vistas completas del plugin (ej. `admin-controls.php`).
 
-- **templates/**  
-  Fragmentos HTML reutilizables.
+- **includes/admin/ui/**  
+  UI del admin: módulos (calendar, assignments, clients, settings), modales, layout compartido.
 
 ## Plugin Root
 
 - **wp-agenda-automatizada.php**  
-  Archivo principal.  
-  Registra hooks, carga controladores, inicia el plugin.
+  Archivo principal. Registra hooks, shortcode del formulario, `aa_save_reservation`, creación de tablas y migraciones, carga de rutas y controladores.
+
+- **clientes.php**  
+  Tabla y lógica de clientes; migraciones de columnas en reservas (`id_cliente`, `join_token`).
+
+- **historial-citas.php**  
+  Pantalla de historial de citas.
+
+- **includes/routes/agenda-app.php**  
+  Ruta `/agenda-app`: rewrite rule, query var `aa_agenda_app`, `template_redirect` (login o redirect al iframe del admin).
 
 ---
 

@@ -88,6 +88,9 @@ require_once plugin_dir_path(__FILE__) . 'includes/admin/iframe-test.php';
 // 9️⃣ Routes: Agenda App endpoint
 require_once plugin_dir_path(__FILE__) . 'includes/routes/agenda-app.php';
 
+// 🔟 Routes: Citas Virtuales portal (join by token)
+require_once plugin_dir_path(__FILE__) . 'includes/routes/citas-virtuales.php';
+
 // ================================
 // 🔹 REGISTRO DE WEBHOOKS REST API
 // ================================
@@ -129,7 +132,24 @@ function aa_save_reservation() {
     
     // ✅ Sanitización y conversión de fecha a la zona horaria del negocio
     $servicio = sanitize_text_field($data['servicio']);
-    
+
+    // 🔹 Determinar si el servicio es virtual (antes de recortar fixed::)
+    $join_token = null;
+    $is_virtual = false;
+    if (strpos($servicio, 'fixed::') !== 0 && is_numeric($servicio)) {
+        $service_row = class_exists('AssignmentsModel')
+            ? AssignmentsModel::get_service_by_id(intval($servicio))
+            : false;
+        if ($service_row && isset($service_row['attendance_type']) && $service_row['attendance_type'] === 'virtual') {
+            $is_virtual = true;
+        }
+    }
+
+    // 🔹 Generar join_token para servicios virtuales
+    if ($is_virtual) {
+        $join_token = bin2hex(random_bytes(16));
+    }
+
     // 🔹 Extraer prefijo "fixed::" si existe (guardar solo el nombre del servicio)
     if (strpos($servicio, 'fixed::') === 0) {
         $servicio = substr($servicio, 7); // strlen('fixed::') = 7
@@ -200,8 +220,26 @@ function aa_save_reservation() {
         }
     }
 
-    // ✅ Inserción en la tabla
-    $result = $wpdb->insert($table, $insert_data);
+    // 🔹 Incluir join_token en insert_data (null si no es virtual)
+    $insert_data['join_token'] = $join_token;
+
+    // ✅ Inserción en la tabla (reintentos por colisión de join_token en servicios virtuales)
+    $max_attempts = $is_virtual ? 3 : 1;
+    $result = false;
+    for ($attempt = 1; $attempt <= $max_attempts; $attempt++) {
+        if ($is_virtual && $attempt > 1) {
+            $join_token = bin2hex(random_bytes(16));
+            $insert_data['join_token'] = $join_token;
+            error_log("🔄 [aa_save_reservation] Reintento $attempt por colisión de join_token");
+        }
+        $result = $wpdb->insert($table, $insert_data);
+        if ($result !== false) {
+            break;
+        }
+        if (!$is_virtual || strpos($wpdb->last_error, 'Duplicate entry') === false) {
+            break;
+        }
+    }
 
     // ✅ Control de error
     if ($result === false) {
@@ -253,9 +291,10 @@ function aa_save_reservation() {
     }
     
     wp_send_json_success([
-        'message' => 'Reserva almacenada correctamente.',
-        'id' => $reserva_id,
-        'cliente_id' => $cliente_id
+        'message'    => 'Reserva almacenada correctamente.',
+        'id'         => $reserva_id,
+        'cliente_id' => $cliente_id,
+        'join_token' => $join_token,
     ]);
 }
 
@@ -277,10 +316,12 @@ register_activation_hook(__FILE__, function() {
         estado varchar(50) DEFAULT 'pending',
         calendar_uid varchar(255) DEFAULT NULL,
         virtual_link text DEFAULT NULL,
+        join_token varchar(64) DEFAULT NULL,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY  (id),
         KEY calendar_uid (calendar_uid),
-        KEY idx_assignment_id (assignment_id)
+        KEY idx_assignment_id (assignment_id),
+        UNIQUE KEY join_token (join_token)
     ) $charset;";
 
     require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
@@ -289,6 +330,7 @@ register_activation_hook(__FILE__, function() {
     aa_create_clientes_table();
     aa_add_cliente_column_to_reservas();
     aa_add_calendar_uid_column();
+    aa_add_join_token_column_to_reservas();
     
     // 🔹 Crear tabla de notificaciones
     $notifications_table = $wpdb->prefix . 'aa_notifications';
@@ -429,8 +471,9 @@ register_activation_hook(__FILE__, function() {
         add_option('aa_staff_schedule', '');
     }
     
-    // 🔹 Flush rewrite rules for /agenda-app endpoint
+    // 🔹 Flush rewrite rules for custom endpoints
     add_rewrite_rule('^agenda-app/?$', 'index.php?aa_agenda_app=1', 'top');
+    add_rewrite_rule('^citas-virtuales/?$', 'index.php?aa_citas_virtuales=1', 'top');
     flush_rewrite_rules();
 });
 

@@ -138,6 +138,14 @@ function aa_rest_confirmar_reserva(WP_REST_Request $request) {
         error_log("✅ calendar_uid recibido para reserva ID $id: $calendar_uid");
     }
 
+    // 🔹 Si viene virtual_link (Meet u otro), guardarlo en la reserva
+    $virtual_link = isset($request['virtual_link']) ? esc_url_raw($request['virtual_link']) : '';
+    if (!empty($virtual_link)) {
+        $update_data['virtual_link'] = $virtual_link;
+        $update_format[] = '%s';
+        error_log("✅ virtual_link recibido para reserva ID $id: $virtual_link");
+    }
+
     // 🔹 Actualizar registro
     $updated = $wpdb->update(
         $table,
