@@ -223,6 +223,11 @@ function aa_save_reservation() {
     // 🔹 Incluir join_token en insert_data (null si no es virtual)
     $insert_data['join_token'] = $join_token;
 
+    // 🔹 virtual_link: solo si viene y no vacío (permite null si no viene)
+    if (isset($data['virtual_link']) && trim((string) $data['virtual_link']) !== '') {
+        $insert_data['virtual_link'] = esc_url_raw(trim($data['virtual_link']));
+    }
+
     // ✅ Inserción en la tabla (reintentos por colisión de join_token en servicios virtuales)
     $max_attempts = $is_virtual ? 3 : 1;
     $result = false;
@@ -544,6 +549,10 @@ function wpaa_render_form() {
             if (isset($servicio['active']) && intval($servicio['active']) === 1) {
                 $service_id = esc_attr($servicio['id']);
                 $service_name = esc_html($servicio['name']);
+                // Label informativo en el select: prefijo "• Videollamada" solo para servicios virtuales
+                if (isset($servicio['attendance_type']) && $servicio['attendance_type'] === 'virtual') {
+                    $service_name = '• Videollamada ' . $service_name;
+                }
                 echo "<option value='{$service_id}'>{$service_name}</option>";
             }
         }

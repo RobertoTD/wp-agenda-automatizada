@@ -179,8 +179,13 @@ function getServiceDisplayName(form, servicioValue) {
   }
   const servicioSelect = form && form.servicio;
   if (servicioSelect && servicioSelect.options && servicioSelect.selectedIndex >= 0) {
-    const optionText = servicioSelect.options[servicioSelect.selectedIndex].text;
-    if (optionText) return optionText.trim();
+    let optionText = servicioSelect.options[servicioSelect.selectedIndex].text;
+    if (optionText) {
+      optionText = optionText.trim();
+      // Quitar prefijo informativo "• Videollamada " para WhatsApp y otros usos (solo es label en el select)
+      optionText = optionText.replace(/^\s*•\s*Videollamada\s+/i, '').trim();
+      return optionText || String(servicioValue);
+    }
   }
   return String(servicioValue);
 }

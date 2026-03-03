@@ -64,6 +64,8 @@ function aa_ajax_get_citas_por_dia() {
                 r.created_at,
                 r.id_cliente,
                 r.assignment_id,
+                r.join_token,
+                s.attendance_type,
                 c.nombre,
                 c.telefono,
                 c.correo,
@@ -76,6 +78,13 @@ function aa_ajax_get_citas_por_dia() {
               ORDER BY r.fecha ASC";
     
     $citas = $wpdb->get_results($wpdb->prepare($query, $fecha_inicio, $fecha_fin));
+    
+    foreach ($citas as $cita) {
+        if (isset($cita->attendance_type) && $cita->attendance_type === 'virtual' && !empty($cita->join_token)) {
+            $cita->join_url = home_url('/citas-virtuales/?token=' . rawurlencode($cita->join_token));
+        }
+        unset($cita->join_token);
+    }
     
     // Log de datos obtenidos
     error_log("✅ [proximasCitasController] Obtenidas " . count($citas) . " citas para fecha: $fecha");

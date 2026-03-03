@@ -85,6 +85,7 @@ $duraciones = [30, 60, 90];
                 <label for="cita-servicio" class="block text-sm font-medium text-gray-700 mb-1">
                     Motivo de la cita <span class="text-red-500">*</span>
                 </label>
+                <span id="aa-service-virtual-badge" class="hidden ml-2 text-xs font-medium text-indigo-600">Servicio virtual</span>
                 <select id="cita-servicio" name="servicio" required
                         class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white">
                     <option value="">-- Selecciona un servicio --</option>
@@ -96,7 +97,9 @@ $duraciones = [30, 60, 90];
                             if (isset($servicio['active']) && intval($servicio['active']) === 1) {
                                 $service_id = esc_attr($servicio['id']);
                                 $service_name = esc_html($servicio['name']);
-                                echo "<option value='{$service_id}'>{$service_name}</option>";
+                                $att = isset($servicio['attendance_type']) ? esc_attr($servicio['attendance_type']) : '';
+                                $vch = isset($servicio['virtual_channel']) ? esc_attr($servicio['virtual_channel']) : '';
+                                echo "<option value='" . $service_id . "' data-attendance-type='" . $att . "' data-virtual-channel='" . $vch . "'>" . $service_name . "</option>";
                             }
                         }
                     }
@@ -112,6 +115,14 @@ $duraciones = [30, 60, 90];
                     }
                     ?>
                 </select>
+            </div>
+            
+            <!-- Enlace de videollamada (solo para servicio virtual con custom_link) -->
+            <div id="aa-virtual-link-field-wrap" class="hidden">
+                <label for="cita-virtual-link" class="block text-sm font-medium text-gray-700 mb-1">Enlace de videollamada</label>
+                <input type="url" id="cita-virtual-link" name="virtual_link"
+                       class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                       placeholder="https://...">
             </div>
             
             <!-- Campo: Duración -->

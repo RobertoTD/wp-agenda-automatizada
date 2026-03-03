@@ -170,7 +170,16 @@
                 }
 
                 // 4️⃣ Filtrar servicios sin fechas disponibles
-                this.filterServiceOptions();
+                this.filterServiceOptions().then(() => {
+                    this.updateServiceVirtualUI();
+                });
+
+                // 4b️⃣ Bind change del select de servicio una sola vez (virtual UI)
+                const servicioSelect = document.getElementById('cita-servicio');
+                if (servicioSelect && servicioSelect.dataset.virtualUiBound !== '1') {
+                    servicioSelect.dataset.virtualUiBound = '1';
+                    servicioSelect.addEventListener('change', () => this.updateServiceVirtualUI());
+                }
 
                 // Reset state antes de inicializar flujo
                 this.resetState();
@@ -215,6 +224,9 @@
                 if (window.AdminReservationController && typeof window.AdminReservationController.refreshLocalAvailability === 'function') {
                     window.AdminReservationController.refreshLocalAvailability();
                 }
+
+                // 8️⃣ Actualizar UI virtual (badge + campo enlace) al abrir modal
+                this.updateServiceVirtualUI();
                 
             }, 100); // 100ms delay para asegurar DOM ready
             
@@ -222,6 +234,38 @@
             this._timeouts.push(timeoutId);
         },
 
+
+        /**
+         * Actualiza badge "Servicio virtual" y campo "Enlace de videollamada" según la opción seleccionada.
+         * isVirtual = attendanceType === 'virtual'; needsCustomLink = isVirtual && virtualChannel === 'custom_link'.
+         */
+        updateServiceVirtualUI: function() {
+            const servicioSelect = document.getElementById('cita-servicio');
+            const badge = document.getElementById('aa-service-virtual-badge');
+            const wrap = document.getElementById('aa-virtual-link-field-wrap');
+            const input = document.getElementById('cita-virtual-link');
+            if (!servicioSelect) return;
+
+            const selectedOption = servicioSelect.options[servicioSelect.selectedIndex];
+            const isVirtual = selectedOption && selectedOption.dataset.attendanceType === 'virtual';
+            const needsCustomLink = isVirtual && selectedOption && selectedOption.dataset.virtualChannel === 'custom_link';
+
+            if (badge) {
+                if (isVirtual) {
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+            }
+            if (wrap && input) {
+                if (needsCustomLink) {
+                    wrap.classList.remove('hidden');
+                } else {
+                    wrap.classList.add('hidden');
+                    input.value = '';
+                }
+            }
+        },
 
         /**
          * Filtra las opciones del select de servicios, removiendo las que no tienen fechas disponibles

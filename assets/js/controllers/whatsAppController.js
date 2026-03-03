@@ -89,14 +89,22 @@
       statusEffective = 'no asistió';
     }
     
-    const mensajes = {
+    const isVirtual = data.attendanceType === 'virtual';
+    const joinUrl = data.joinUrl || '';
+
+    let mensajes = {
       'pending': `Hola${name}, te escribo de ${businessName}. ¿Te gustaría confirmar tu cita de ${service}${fecha ? ' para el ' + fecha : ''}?`,
       'confirmed': `Hola${name}, te escribo de ${businessName} para recordarte tu cita de ${service}${fecha ? ' el ' + fecha : ''}. ¡Te esperamos!`,
       'cancelled': `Hola${name}, te escribo de ${businessName}. Vimos que tu cita de ${service} fue cancelada. ¿Te gustaría reagendar?`,
       'asistió': `Hola${name}, te escribo de ${businessName}. ¡Gracias por asistir a tu cita de ${service}! Esperamos verte pronto.`,
       'no asistió': `Hola${name}, te escribo de ${businessName}. Notamos que no pudiste asistir a tu cita de ${service}. ¿Te gustaría reagendar?`
     };
-    
+
+    if (isVirtual) {
+      mensajes.pending = `Hola${name}, te escribo de ${businessName}. ¿Te gustaría confirmar tu cita virtual de ${service} por videollamada${fecha ? ' para el ' + fecha : ''}?`;
+      mensajes.confirmed = `Hola${name}, te escribo de ${businessName} para recordarte tu cita de ${service} que se realizará por videollamada en el siguiente portal ${joinUrl}${fecha ? ' el ' + fecha : ''}. ¡Te esperamos!`;
+    }
+
     return mensajes[statusEffective] || mensajes['pending'];
   }
 
@@ -133,12 +141,14 @@
       const service = el.dataset.service || '';
       const datetime = el.dataset.datetime || '';
       const name = el.dataset.name || '';
+      const attendanceType = el.dataset.attendanceType || '';
+      const joinUrl = el.dataset.joinUrl || '';
       
       // Obtener nombre del negocio desde config global
       const businessName = window.AA_ADMIN_DATA?.businessName || 'nuestro negocio';
       
-      // Construir mensaje según estado
-      const message = buildMessageForStatus({ status, name, service, datetime }, businessName);
+      // Construir mensaje según estado (y virtual vs presencial)
+      const message = buildMessageForStatus({ status, name, service, datetime, attendanceType, joinUrl }, businessName);
       
       console.log('📱 [WhatsAppController Admin] Abriendo chat:', { phone, status, message });
       

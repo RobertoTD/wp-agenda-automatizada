@@ -119,26 +119,26 @@ $fecha_legible = $start_dt->format('d/m/Y H:i');
 // 6. Render HTML
 // ──────────────────────────────────────────
 ?>
-<div class="aa-join-portal" style="max-width:480px;margin:40px auto;padding:24px;text-align:center;font-family:sans-serif;">
+<div class="aa-join-portal">
 
-    <h2 style="margin-bottom:4px;">Cita Virtual</h2>
-    <p style="color:#555;margin-top:0;">
+    <h2>Cita Virtual</h2>
+    <p class="aa-join-meta">
         <?php echo esc_html($fecha_legible); ?>
         &nbsp;·&nbsp;<?php echo intval($duracion); ?> min
     </p>
 
     <?php if ($reserva['estado'] === 'cancelled'): ?>
-        <p style="color:#b91c1c;">Esta cita fue cancelada.</p>
+        <p class="aa-join-error">Esta cita fue cancelada.</p>
     <?php elseif ($link_pending): ?>
-        <p style="color:#92400e;">Aún no está disponible el enlace de la cita. Vuelve a intentar más tarde.</p>
+        <p class="aa-join-warning">Aún no está disponible el enlace de la cita. Vuelve a intentar más tarde.</p>
     <?php else: ?>
-        <div id="aa-join-status" style="margin:16px 0;font-size:14px;color:#555;"></div>
-        <div id="aa-join-countdown" style="font-size:28px;font-weight:700;margin:12px 0;font-variant-numeric:tabular-nums;"></div>
+        <div id="aa-join-status"></div>
+        <div id="aa-join-countdown"></div>
         <a  id="aa-join-btn"
             href="<?php echo esc_url($join_url ?? '#'); ?>"
             target="_blank"
             rel="noopener noreferrer"
-            style="display:none;inline-size:fit-content;margin:0 auto;padding:12px 28px;background:#2563eb;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:16px;">
+            style="display:none;">
             Entrar a la cita
         </a>
     <?php endif; ?>

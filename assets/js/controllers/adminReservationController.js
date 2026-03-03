@@ -70,8 +70,15 @@
       const assignmentIdInput = document.getElementById('assignment-id');
       const assignmentId = assignmentIdInput ? assignmentIdInput.value : null;
 
+      const servicioSelect = document.getElementById('cita-servicio');
+      const selectedOption = servicioSelect && servicioSelect.options[servicioSelect.selectedIndex];
+      const isVirtual = selectedOption && selectedOption.dataset.attendanceType === 'virtual';
+      const needsCustomLink = isVirtual && selectedOption && selectedOption.dataset.virtualChannel === 'custom_link';
+      const virtualLinkInput = document.getElementById('cita-virtual-link');
+      const virtualLinkValue = needsCustomLink && virtualLinkInput && virtualLinkInput.value ? virtualLinkInput.value.trim() : '';
+
       const datos = {
-        servicio: document.getElementById('cita-servicio').value,
+        servicio: servicioSelect ? servicioSelect.value : '',
         fecha: selectedSlotISO,
         nombre: clienteOption.dataset.nombre,
         telefono: clienteOption.dataset.telefono,
@@ -84,6 +91,10 @@
       if (assignmentId) {
         datos.assignment_id = parseInt(assignmentId, 10);
         console.log('🆔 Assignment ID incluido en reserva:', datos.assignment_id);
+      }
+
+      if (virtualLinkValue) {
+        datos.virtual_link = virtualLinkValue;
       }
 
       try {

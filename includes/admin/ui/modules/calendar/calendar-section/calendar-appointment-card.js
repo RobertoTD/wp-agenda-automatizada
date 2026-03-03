@@ -201,10 +201,31 @@
         header.appendChild(titleText);
         
         // =============================================
-        // INDICADOR DE ESTADO (visible en card colapsada)
+        // INDICADOR DE ESTADO + label Virtual (visible en card colapsada)
         // =============================================
         const statusIndicator = crearIndicadorEstadoCompacto(estado, config);
-        header.appendChild(statusIndicator);
+        const metaCol = document.createElement('div');
+        Object.assign(metaCol.style, {
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-end',
+            gap: '2px',
+            flexShrink: '0'
+        });
+        metaCol.appendChild(statusIndicator);
+        if (cita.attendance_type === 'virtual') {
+            const virtualLabel = document.createElement('span');
+            virtualLabel.textContent = 'Virtual';
+            Object.assign(virtualLabel.style, {
+                fontSize: '10px',
+                fontWeight: '500',
+                lineHeight: '1',
+                color: TOKENS.gray500,
+                whiteSpace: 'nowrap'
+            });
+            metaCol.appendChild(virtualLabel);
+        }
+        header.appendChild(metaCol);
         
         // =============================================
         // BODY - Panel expandido premium
@@ -250,6 +271,36 @@
         }
         
         body.appendChild(estadoSection);
+        
+        // ----- Sección: Enlace cita virtual (arriba del WhatsApp; no en pendiente, join aún no creado) -----
+        if (cita.attendance_type === 'virtual' && cita.join_url && cita.estado !== 'pending') {
+            const virtualLinkSection = document.createElement('div');
+            Object.assign(virtualLinkSection.style, {
+                marginBottom: TOKENS.space4,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: TOKENS.space2
+            });
+            const virtualLink = document.createElement('a');
+            virtualLink.href = cita.join_url;
+            virtualLink.target = '_blank';
+            virtualLink.rel = 'noopener noreferrer';
+            virtualLink.textContent = 'Unirse a la cita virtual';
+            Object.assign(virtualLink.style, {
+                fontSize: TOKENS.textSm,
+                color: TOKENS.blue600,
+                fontWeight: '500',
+                textDecoration: 'none'
+            });
+            virtualLink.addEventListener('mouseenter', function() {
+                virtualLink.style.textDecoration = 'underline';
+            });
+            virtualLink.addEventListener('mouseleave', function() {
+                virtualLink.style.textDecoration = 'none';
+            });
+            virtualLinkSection.appendChild(virtualLink);
+            body.appendChild(virtualLinkSection);
+        }
         
         // ----- Sección: Contacto -----
         const contactSection = document.createElement('div');
@@ -430,6 +481,8 @@
             phoneLink.dataset.service = cita.servicio || '';
             phoneLink.dataset.datetime = cita.fecha || '';
             phoneLink.dataset.name = cita.nombre || '';
+            phoneLink.dataset.attendanceType = cita.attendance_type || '';
+            phoneLink.dataset.joinUrl = cita.join_url || '';
             
             Object.assign(phoneLink.style, {
                 display: 'inline-flex',
