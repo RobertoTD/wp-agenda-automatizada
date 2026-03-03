@@ -328,6 +328,7 @@
         const indicacionesInput = document.getElementById('aa-service-indicaciones-cita-' + serviceId);
         const attendanceTypeInput = document.getElementById('aa-service-attendance-type-' + serviceId);
         const virtualChannelInput = document.getElementById('aa-service-virtual-channel-' + serviceId);
+        const publicCalendarInput = document.getElementById('aa-service-public-calendar-' + serviceId);
         
         if (!codeInput || !priceInput || !descriptionInput) {
             console.warn('[Services Section] Inputs not found for service ID:', serviceId);
@@ -358,6 +359,7 @@
         formData.append('indicaciones_cita', indicaciones);
         formData.append('attendance_type', attendanceType || '');
         formData.append('virtual_channel', virtualChannel);
+        formData.append('public_calendar', (publicCalendarInput && publicCalendarInput.checked) ? '1' : '0');
 
         // Disable button during request
         const saveButton = document.querySelector('.aa-service-save[data-service-id="' + serviceId + '"]');
@@ -551,24 +553,6 @@
      * @returns {string} HTML string for service details
      */
     function renderServiceDetails(service) {
-        // Helper function to format datetime string
-        function formatDateTime(datetimeStr) {
-            if (!datetimeStr) return '—';
-            try {
-                const date = new Date(datetimeStr);
-                if (isNaN(date.getTime())) return datetimeStr;
-                return date.toLocaleString('es-ES', {
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-            } catch (e) {
-                return datetimeStr;
-            }
-        }
-
         const serviceId = parseInt(service.id);
         
         let html = '<div class="aa-service-details-content">';
@@ -602,19 +586,20 @@
         html += '/>';
         html += '</div>';
         
-        // Creado (read-only)
-        html += '<div>';
-        html += '<span class="text-xs text-gray-500 block mb-1">Creado</span>';
-        html += '<span class="text-sm font-medium text-gray-900">' + formatDateTime(service.created_at) + '</span>';
-        html += '</div>';
-        
-        // ID (read-only, pequeño)
-        html += '<div>';
-        html += '<span class="text-xs text-gray-500 block mb-1">ID</span>';
-        html += '<span class="text-xs font-medium text-gray-600">' + escapeHtml(service.id || '—') + '</span>';
-        html += '</div>';
-        
         html += '</div>'; // End grid
+        
+        // Mostrar en calendario público (checkbox; backend may return number or string from DB)
+        var publicCalendarChecked = (Number(service.public_calendar) === 1);
+        html += '<div class="mt-4 pt-4 border-t border-gray-200">';
+        html += '<label class="flex items-center gap-2 cursor-pointer">';
+        html += '<input type="checkbox" id="aa-service-public-calendar-' + serviceId + '" ';
+        html += 'class="aa-service-public-calendar rounded border-gray-300 text-blue-600 focus:ring-blue-500" ';
+        html += 'data-service-id="' + serviceId + '" ';
+        if (publicCalendarChecked) { html += 'checked '; }
+        html += '/>';
+        html += '<span class="text-sm text-gray-700">Mostrar en calendario público</span>';
+        html += '</label>';
+        html += '</div>';
         
         // Descripción (editable textarea)
         html += '<div class="mt-4 pt-4 border-t border-gray-200">';

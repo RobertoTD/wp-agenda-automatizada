@@ -179,6 +179,11 @@ function aa_update_service_db() {
     } else {
         $data['virtual_channel'] = null;
     }
+
+    // public_calendar (0|1) — only passed to model; model only updates if column exists
+    if (isset($_POST['public_calendar'])) {
+        $data['public_calendar'] = (intval($_POST['public_calendar']) === 1) ? 1 : 0;
+    }
     
     if (empty($data)) {
         wp_send_json_error(['message' => 'No hay datos para actualizar']);

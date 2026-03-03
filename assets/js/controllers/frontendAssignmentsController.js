@@ -49,6 +49,11 @@
     let flatpickrInstance = null;
 
     // ============================================
+    // Cache de disponibilidad por servicio
+    // ============================================
+    const availabilityCache = new Map();
+
+    // ============================================
     // Inicialización
     // ============================================
     function init(config) {
@@ -97,6 +102,9 @@
 
         // Leer valores iniciales si ya existen
         readInitialValues();
+
+        // Decorar options del select con indicador de disponibilidad (fire-and-forget)
+        decorateServiceOptionsAvailability();
 
         console.log('✅ [FrontendAssignments] Controlador inicializado');
         console.groupEnd();
@@ -244,6 +252,65 @@
         } catch (error) {
             console.warn('⚠️ [FrontendAssignments] No se pudieron guardar datos iniciales:', error);
         }
+    }
+
+    // ============================================
+    // Decorar options del select con "| Disponible"
+    // ============================================
+    async function decorateServiceOptionsAvailability() {
+        if (!elements.serviceSelect) return;
+
+        if (typeof window.CalendarAvailabilityService === 'undefined' ||
+            typeof window.CalendarAvailabilityService.hasAvailableDates !== 'function') {
+            console.warn('[FrontendAssignments] CalendarAvailabilityService no disponible, omitiendo decoración');
+            return;
+        }
+
+        const futureWindow = (typeof window.aa_future_window !== 'undefined')
+            ? parseInt(window.aa_future_window, 10) || 14
+            : 14;
+
+        const options = Array.from(elements.serviceSelect.options);
+        const promises = [];
+
+        for (let i = 0; i < options.length; i++) {
+            const option = options[i];
+            const val = option.value;
+
+            if (!val) continue;
+
+            if (!option.dataset.baseLabel) {
+                option.dataset.baseLabel = option.textContent.trim();
+            }
+
+            const serviceKey = val;
+
+            promises.push(
+                (async () => {
+                    try {
+                        let hasDates;
+                        if (availabilityCache.has(serviceKey)) {
+                            hasDates = availabilityCache.get(serviceKey);
+                        } else {
+                            hasDates = await window.CalendarAvailabilityService.hasAvailableDates(
+                                serviceKey, { futureWindowDays: futureWindow }
+                            );
+                            availabilityCache.set(serviceKey, hasDates);
+                        }
+
+                        option.textContent = hasDates
+                            ? option.dataset.baseLabel + ' | Disponible'
+                            : option.dataset.baseLabel;
+                    } catch (err) {
+                        console.warn('[FrontendAssignments] Error evaluando disponibilidad para', serviceKey, err);
+                        option.textContent = option.dataset.baseLabel;
+                    }
+                })()
+            );
+        }
+
+        await Promise.allSettled(promises);
+        console.log('[FrontendAssignments] Decoración de disponibilidad completada');
     }
 
     // ============================================

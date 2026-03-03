@@ -405,6 +405,45 @@ class AssignmentsModel {
     }
 
     /**
+     * Whether wp_aa_services has the public_calendar column (cached per request).
+     * Backend tolerates missing column when plugin is updated without reactivation.
+     *
+     * @return bool
+     */
+    public static function services_table_has_public_calendar() {
+        static $has = null;
+        if ($has !== null) {
+            return $has;
+        }
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_services';
+        $col = $wpdb->get_results($wpdb->prepare("SHOW COLUMNS FROM {$table} LIKE %s", 'public_calendar'));
+        $has = !empty($col);
+        return $has;
+    }
+
+    /**
+     * Whether a service is marked for the public calendar.
+     *
+     * - Service not found → false
+     * - Column public_calendar missing → true (backwards compat)
+     * - Column exists → true only when public_calendar == 1
+     *
+     * @param int $service_id
+     * @return bool
+     */
+    public static function is_service_public_calendar($service_id) {
+        $service = self::get_service_by_id(intval($service_id));
+        if (!$service) {
+            return false;
+        }
+        if (!self::services_table_has_public_calendar()) {
+            return true;
+        }
+        return (isset($service['public_calendar']) && intval($service['public_calendar']) === 1);
+    }
+
+    /**
      * Obtener lista de servicios
      * 
      * Solo retorna servicios que no están ocultos (is_hidden = 0).
@@ -430,10 +469,11 @@ class AssignmentsModel {
             $where_clause = "WHERE " . implode(" AND ", $where_conditions);
         }
         
-        $query = "SELECT id, name, code, description, indicaciones_cita, price, active, created_at, attendance_type, virtual_channel 
-                  FROM $table 
-                  $where_clause 
-                  ORDER BY name ASC";
+        $cols = "id, name, code, description, indicaciones_cita, price, active, created_at, attendance_type, virtual_channel";
+        if (self::services_table_has_public_calendar()) {
+            $cols .= ", public_calendar";
+        }
+        $query = "SELECT $cols FROM $table $where_clause ORDER BY name ASC";
         
         $results = $wpdb->get_results($query, ARRAY_A);
         
@@ -461,10 +501,11 @@ class AssignmentsModel {
             return false;
         }
         
-        $query = "SELECT id, name, code, description, price, active, created_at, attendance_type, virtual_channel 
-                  FROM $table 
-                  WHERE id = %d
-                  LIMIT 1";
+        $cols = "id, name, code, description, price, active, created_at, attendance_type, virtual_channel";
+        if (self::services_table_has_public_calendar()) {
+            $cols .= ", public_calendar";
+        }
+        $query = "SELECT $cols FROM $table WHERE id = %d LIMIT 1";
         
         $service = $wpdb->get_row($wpdb->prepare($query, $id), ARRAY_A);
         
@@ -553,6 +594,13 @@ class AssignmentsModel {
                 $update_data['virtual_channel'] = sanitize_text_field($data['virtual_channel']);
                 $format[] = '%s';
             }
+        }
+
+        // public_calendar (0|1) — only if column exists (guardrail for missing column)
+        if (self::services_table_has_public_calendar() && array_key_exists('public_calendar', $data)) {
+            $val = isset($data['public_calendar']) ? intval($data['public_calendar']) : 0;
+            $update_data['public_calendar'] = ($val === 1) ? 1 : 0;
+            $format[] = '%d';
         }
         
         if (empty($update_data)) {

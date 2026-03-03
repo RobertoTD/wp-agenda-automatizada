@@ -417,6 +417,7 @@ register_activation_hook(__FILE__, function() {
         price decimal(10,2) DEFAULT NULL,
         active tinyint(1) DEFAULT 1,
         is_hidden tinyint(1) NOT NULL DEFAULT 0,
+        public_calendar tinyint(1) NOT NULL DEFAULT 0,
         attendance_type varchar(20) DEFAULT NULL,
         virtual_channel varchar(50) DEFAULT NULL,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
@@ -426,6 +427,12 @@ register_activation_hook(__FILE__, function() {
     ) $charset;";
     
     dbDelta($services_sql);
+    
+    // Ensure public_calendar column exists for existing installs (no extra migrations)
+    $col = $wpdb->get_results($wpdb->prepare("SHOW COLUMNS FROM {$services_table} LIKE %s", 'public_calendar'));
+    if (empty($col)) {
+        $wpdb->query("ALTER TABLE {$services_table} ADD COLUMN public_calendar tinyint(1) NOT NULL DEFAULT 0");
+    }
     
     // 🔹 Crear tabla pivote para relación muchos-a-muchos entre staff y services
     $staff_services_table = $wpdb->prefix . 'aa_staff_services';
@@ -547,6 +554,10 @@ function wpaa_render_form() {
         foreach ($servicios_bd as $servicio) {
             // Filtrar solo servicios activos (active = 1)
             if (isset($servicio['active']) && intval($servicio['active']) === 1) {
+                // Excluir servicios no marcados para calendario público
+                if (isset($servicio['public_calendar']) && intval($servicio['public_calendar']) !== 1) {
+                    continue;
+                }
                 $service_id = esc_attr($servicio['id']);
                 $service_name = esc_html($servicio['name']);
                 // Label informativo en el select: prefijo "• Videollamada" solo para servicios virtuales
