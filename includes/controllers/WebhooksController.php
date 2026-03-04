@@ -28,6 +28,26 @@ class Webhooks_Controller extends WP_REST_Controller {
     }
 
     /**
+     * Valida que la petición lleve el header X-AA-Webhook-Token con el valor
+     * almacenado en wp_options (aa_webhook_token). Fail-closed: si el option
+     * está vacío (OAuth aún no completado) el endpoint queda bloqueado hasta
+     * que se reconecte OAuth y se setee el token.
+     *
+     * @param WP_REST_Request $request
+     * @return true|WP_Error
+     */
+    public function permission_webhook_token($request) {
+        $provided = $request->get_header('X-AA-Webhook-Token');
+        $stored   = get_option('aa_webhook_token', '');
+
+        if (empty($stored) || empty($provided) || !hash_equals($stored, $provided)) {
+            return new WP_Error('forbidden', 'Forbidden', array('status' => 403));
+        }
+
+        return true;
+    }
+
+    /**
      * Registra las rutas del controlador.
      */
     public function register_routes() {
@@ -35,7 +55,7 @@ class Webhooks_Controller extends WP_REST_Controller {
             array(
                 'methods'             => WP_REST_Server::CREATABLE,
                 'callback'            => array($this, 'handle_sync_status'),
-                'permission_callback' => '__return_true', // Público - validaremos el payload
+                'permission_callback' => array($this, 'permission_webhook_token'),
                 'args'                => $this->get_sync_status_params(),
             ),
         ));
@@ -45,7 +65,7 @@ class Webhooks_Controller extends WP_REST_Controller {
             array(
                 'methods'             => WP_REST_Server::CREATABLE,
                 'callback'            => array($this, 'handle_reminders_bulk'),
-                'permission_callback' => '__return_true',
+                'permission_callback' => array($this, 'permission_webhook_token'),
                 'args'                => $this->get_reminders_bulk_params(),
             ),
         ));
@@ -200,23 +220,6 @@ class Webhooks_Controller extends WP_REST_Controller {
      * @return WP_REST_Response|WP_Error
      */
     public function handle_reminders_bulk($request) {
-        // 🔹 Validación condicional de token
-        $expected_token = get_option('aa_webhook_token', '');
-
-        if (!empty($expected_token)) {
-            $provided_token = $request->get_header('x-aa-webhook-token');
-
-            if (empty($provided_token) || !hash_equals($expected_token, $provided_token)) {
-                return new WP_Error(
-                    'unauthorized',
-                    'Invalid or missing webhook token.',
-                    array('status' => 401)
-                );
-            }
-        }
-        // TODO: enable token validation — set aa_webhook_token in wp_options
-        //       and configure the same value in the Node backend (agenda_clients.webhook_token).
-
         $ids = (array) $request->get_param('appointment_ids');
 
         if (empty($ids)) {

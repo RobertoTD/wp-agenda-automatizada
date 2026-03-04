@@ -77,6 +77,30 @@ function aa_ajax_enviar_confirmacion() {
         return;
     }
 
+    // 🔹 Validar nonce (mismo que usa saveReservation / reservationController.js)
+    if (empty($datos['nonce']) || !wp_verify_nonce($datos['nonce'], 'aa_reservation_nonce')) {
+        wp_send_json_error(['message' => 'Error de validación de seguridad (nonce inválido).']);
+        return;
+    }
+
+    // 🔹 Rate limit por IP (10 solicitudes / 300 s)
+    $ip = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown';
+    $rl_key = 'aa_rl_enviar_confirmacion_' . md5($ip);
+    $rl_count = (int) get_transient($rl_key);
+
+    if ($rl_count >= 10) {
+        wp_send_json_error(['message' => 'Demasiadas solicitudes. Intenta más tarde.']);
+        return;
+    }
+
+    set_transient($rl_key, $rl_count + 1, 300);
+
+    // 🔹 Validar campos mínimos
+    if (empty($datos['id_reserva']) || empty($datos['correo']) || empty($datos['nombre'])) {
+        wp_send_json_error(['message' => 'Datos incompletos.']);
+        return;
+    }
+
     // 🔹 Origen: admin vs frontend (para que el backend sepa si enviar correo al negocio)
     $datos['source'] = (current_user_can('aa_view_panel') || current_user_can('administrator'))
         ? 'admin'
@@ -99,11 +123,31 @@ function aa_ajax_enviar_confirmacion() {
 // ===============================
 // 🔹 REST API: Confirmar reserva desde backend
 // ===============================
+
+/**
+ * Valida que la petición lleve el header X-AA-Webhook-Token con el valor
+ * almacenado en wp_options (aa_webhook_token). Fail-closed: si el option
+ * está vacío (OAuth aún no completado) el endpoint queda bloqueado hasta
+ * que se reconecte OAuth y se setee el token.
+ *
+ * Patrón idéntico a WebhooksController::handle_branding().
+ */
+function aa_rest_permission_webhook_token(WP_REST_Request $request) {
+    $provided    = $request->get_header('X-AA-Webhook-Token');
+    $stored      = get_option('aa_webhook_token', '');
+
+    if (empty($stored) || empty($provided) || !hash_equals($stored, $provided)) {
+        return new WP_Error('forbidden', 'Forbidden', array('status' => 403));
+    }
+
+    return true;
+}
+
 add_action('rest_api_init', function () {
     register_rest_route('aa/v1', '/confirmar-reserva', [
         'methods' => 'POST',
         'callback' => 'aa_rest_confirmar_reserva',
-        'permission_callback' => '__return_true',
+        'permission_callback' => 'aa_rest_permission_webhook_token',
     ]);
 });
 
