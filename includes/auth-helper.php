@@ -106,18 +106,6 @@ function aa_send_authenticated_request($endpoint, $method = 'POST', $data = []) 
     if ($method === 'POST' && $body) {
         $args['body'] = $body;
     }
-    
-    // 🔹 Log mejorado
-    error_log("🔐 aa_auth: Enviando request autenticado");
-    error_log("   Domain: $domain");
-    error_log("   Client Secret (primeros 10 chars): " . substr($client_secret, 0, 10) . "...");
-    error_log("   Method: $method");
-    error_log("   Path: $path");
-    error_log("   Body length: " . strlen($body));
-    error_log("   Body compacto: " . $body);
-    error_log("   Timestamp: $timestamp");
-    error_log("   Message to sign: " . substr($message, 0, 200) . "...");
-    error_log("   Signature: $signature");
-    
+
     return wp_remote_request($endpoint, $args);
 }

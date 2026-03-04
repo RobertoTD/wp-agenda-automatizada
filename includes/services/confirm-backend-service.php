@@ -472,9 +472,6 @@ function confirm_backend_service_enviar_correo($datos) {
         'join_url' => $join_url,
     ];
 
-    error_log("📦 [EmailService] Datos reorganizados para backend:");
-    error_log(print_r($backend_data, true));
-
     // 🔹 Determinar URL del backend según entorno
     $site_url = get_site_url();
     $backend_url = (strpos($site_url, 'localhost') !== false)
@@ -496,8 +493,6 @@ function confirm_backend_service_enviar_correo($datos) {
     $status = wp_remote_retrieve_response_code($response);
     $body = wp_remote_retrieve_body($response);
     $decoded = json_decode($body, true);
-
-    error_log("📥 [EmailService] Respuesta del backend (status $status): " . print_r($decoded, true));
 
     if ($status >= 200 && $status < 300 && isset($decoded['success']) && $decoded['success']) {
         return [
