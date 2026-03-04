@@ -157,6 +157,7 @@
             // Prepare form data
             const formData = new FormData();
             formData.append('action', 'aa_search_clientes');
+            formData.append('_wpnonce', (typeof wpaa_vars !== 'undefined' && wpaa_vars.nonce_search_clientes) ? wpaa_vars.nonce_search_clientes : '');
             formData.append('query', query || '');
             formData.append('limit', '15');
             formData.append('offset', '0');

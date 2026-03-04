@@ -367,6 +367,14 @@ function aa_search_clientes($query = '', $limit = 10, $offset = 0) {
 // ===============================
 add_action('wp_ajax_aa_search_clientes', 'aa_ajax_search_clientes');
 function aa_ajax_search_clientes() {
+    // Validar nonce (CSRF)
+    $nonce = isset($_REQUEST['_wpnonce']) ? $_REQUEST['_wpnonce'] : '';
+    if (!wp_verify_nonce($nonce, 'aa_search_clientes')) {
+        status_header(403);
+        wp_send_json_error(['message' => 'Error de validación de seguridad.']);
+        return;
+    }
+
     // Verificar permisos
     if (!current_user_can('aa_view_panel') && !current_user_can('administrator')) {
         wp_send_json_error(['message' => 'No tienes permisos.']);

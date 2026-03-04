@@ -10,12 +10,11 @@
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
 
-// Resolver rutas de scripts
+// Resolver rutas de scripts y versión (cache-busting unificado)
 $base_dir = __DIR__;
 $plugin_url = plugin_dir_url(__FILE__);
-
-// Cache-busting: usar filemtime para versionar scripts
-$module_js_url = $plugin_url . 'assignments-module.js?v=' . filemtime($base_dir . '/assignments-module.js');
+$ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
+$module_js_url = $plugin_url . 'assignments-module.js?ver=' . rawurlencode($ver);
 ?>
 
 <div class="max-w-5xl mx-auto py-2">
@@ -208,16 +207,16 @@ $module_js_url = $plugin_url . 'assignments-module.js?v=' . filemtime($base_dir 
 <script src="<?php echo esc_url($module_js_url); ?>" defer></script>
 
 <!-- Areas Section JS -->
-<script src="<?php echo esc_url($plugin_url . 'areas-section/areas.js?v=' . filemtime($base_dir . '/areas-section/areas.js')); ?>" defer></script>
+<script src="<?php echo esc_url($plugin_url . 'areas-section/areas.js?ver=' . rawurlencode($ver)); ?>" defer></script>
 
 <!-- Staff Section JS -->
-<script src="<?php echo esc_url($plugin_url . 'staff-section/staff.js?v=' . filemtime($base_dir . '/staff-section/staff.js')); ?>" defer></script>
+<script src="<?php echo esc_url($plugin_url . 'staff-section/staff.js?ver=' . rawurlencode($ver)); ?>" defer></script>
 
 <!-- Services Section JS -->
-<script src="<?php echo esc_url($plugin_url . 'services-section/servicesSection.js?v=' . filemtime($base_dir . '/services-section/servicesSection.js')); ?>" defer></script>
+<script src="<?php echo esc_url($plugin_url . 'services-section/servicesSection.js?ver=' . rawurlencode($ver)); ?>" defer></script>
 
 <!-- Assignments Section JS -->
-<script src="<?php echo esc_url($plugin_url . 'assignments-section/assignments-section.js?v=' . filemtime($base_dir . '/assignments-section/assignments-section.js')); ?>" defer></script>
+<script src="<?php echo esc_url($plugin_url . 'assignments-section/assignments-section.js?ver=' . rawurlencode($ver)); ?>" defer></script>
 
 <!-- Assignment Modal Template and JS are loaded in layout.php -->
 <!-- No need to load them here as they are transversal modals -->

@@ -292,6 +292,7 @@
         // Preparar datos
         const formData = new FormData();
         formData.append('action', 'aa_search_clientes');
+        formData.append('_wpnonce', window.AA_CLIENTS_NONCES.search_clientes || '');
         formData.append('query', currentQuery);
         formData.append('limit', currentLimit);
         formData.append('offset', currentOffset);

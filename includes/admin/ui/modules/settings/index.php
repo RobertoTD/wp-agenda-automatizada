@@ -443,5 +443,6 @@ $days = [
 
 <!-- Time picker logic handled in module.js -->
 
+<?php $settings_module_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0'; ?>
 <!-- Module JS -->
-<script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'module.js'); ?>"></script>
+<script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'module.js?ver=' . rawurlencode($settings_module_ver)); ?>"></script>

@@ -13,6 +13,8 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
 // ===============================
 define('AA_PLUGIN_PATH', plugin_dir_path(__FILE__));
 define('AA_PLUGIN_URL', plugin_dir_url(__FILE__));
+$plugin_data = get_file_data(__FILE__, ['Version' => 'Version']);
+define('AA_PLUGIN_VERSION', $plugin_data['Version']);
 
 // Detectar entorno automáticamente
 $site_url = get_site_url();

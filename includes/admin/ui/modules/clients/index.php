@@ -44,11 +44,16 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
         window.ajaxurl = '<?php echo admin_url('admin-ajax.php'); ?>';
     }
     
-    // Nonces para operaciones de clientes
-    window.AA_CLIENTS_NONCES = {
-        crear_cliente: '<?php echo wp_create_nonce('aa_crear_cliente'); ?>',
-        editar_cliente: '<?php echo wp_create_nonce('aa_editar_cliente'); ?>'
-    };
+    // Nonces para operaciones de clientes (merge para no sobrescribir si layout ya definió el objeto)
+    window.AA_CLIENTS_NONCES = Object.assign(window.AA_CLIENTS_NONCES || {}, {
+        crear_cliente: '<?php echo esc_js(wp_create_nonce('aa_crear_cliente')); ?>',
+        editar_cliente: '<?php echo esc_js(wp_create_nonce('aa_editar_cliente')); ?>',
+        search_clientes: '<?php echo esc_js(wp_create_nonce('aa_search_clientes')); ?>'
+    });
 </script>
 
-<script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'clients-module.js'); ?>" defer></script>
+<?php
+$clients_module_js = plugin_dir_url(__FILE__) . 'clients-module.js';
+$clients_module_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
+?>
+<script src="<?php echo esc_url($clients_module_js . '?ver=' . rawurlencode($clients_module_ver)); ?>" defer></script>

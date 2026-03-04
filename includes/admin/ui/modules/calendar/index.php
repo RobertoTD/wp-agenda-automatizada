@@ -17,9 +17,10 @@ $schedule = get_option('aa_schedule', []);
 $fixed_staff_name = get_option('aa_staff_schedule', '');
 $fixed_service_name = get_option('aa_service_schedule', '');
 
-// Resolver rutas de scripts
+// Resolver rutas de scripts y versión (cache-busting unificado)
 $plugin_url = plugin_dir_url(__FILE__);
-$module_js_url = $plugin_url . 'calendar-module.js';
+$calendar_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
+$module_js_url = $plugin_url . 'calendar-module.js?ver=' . rawurlencode($calendar_ver);
 ?>
 
 <div class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden mt-2">
@@ -145,11 +146,11 @@ $module_js_url = $plugin_url . 'calendar-module.js';
 -->
 
 <!-- Archivos de sección del calendario (específicos del módulo) -->
-<script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'calendar-section/calendar-appointment-card.js'); ?>" defer></script>
-<script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'calendar-section/calendar-overlap.js'); ?>" defer></script>
-<script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'calendar-section/calendar-appointments.js'); ?>" defer></script>
-<script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'calendar-section/calendar-timeline.js'); ?>" defer></script>
-<script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'calendar-section/calendar-assignments.js'); ?>" defer></script>
+<script src="<?php echo esc_url($plugin_url . 'calendar-section/calendar-appointment-card.js?ver=' . rawurlencode($calendar_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($plugin_url . 'calendar-section/calendar-overlap.js?ver=' . rawurlencode($calendar_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($plugin_url . 'calendar-section/calendar-appointments.js?ver=' . rawurlencode($calendar_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($plugin_url . 'calendar-section/calendar-timeline.js?ver=' . rawurlencode($calendar_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($plugin_url . 'calendar-section/calendar-assignments.js?ver=' . rawurlencode($calendar_ver)); ?>" defer></script>
 
 <!-- Módulo del calendario (SIEMPRE AL FINAL) -->
 <script src="<?php echo esc_url($module_js_url); ?>" defer></script>
