@@ -31,6 +31,13 @@ add_action('wp_ajax_aa_get_appointments', 'aa_get_appointments');
  */
 function aa_get_appointments() {
     global $wpdb;
+
+    if (!current_user_can('aa_view_panel') && !current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'No tienes permisos para realizar esta acción.'], 403);
+        return;
+    }
+
+    check_ajax_referer('aa_appointments_nonce', '_wpnonce');
     
     // Fixed limit
     $limit = 20;
@@ -276,6 +283,13 @@ add_action('wp_ajax_aa_mark_appointment_notification_read', 'aa_mark_appointment
  */
 function aa_mark_appointment_notification_read() {
     global $wpdb;
+
+    if (!current_user_can('aa_view_panel') && !current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'No tienes permisos para realizar esta acción.'], 403);
+        return;
+    }
+
+    check_ajax_referer('aa_appointments_nonce', '_wpnonce');
     
     // Get appointment_id
     $appointment_id = isset($_REQUEST['appointment_id']) ? intval($_REQUEST['appointment_id']) : 0;

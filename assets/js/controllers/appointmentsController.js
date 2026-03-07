@@ -128,7 +128,8 @@
             const ajaxurl = window.ajaxurl || '/wp-admin/admin-ajax.php';
             const params = new URLSearchParams({
                 action: 'aa_get_appointments',
-                page: this.state.page
+                page: this.state.page,
+                _wpnonce: window.aa_asistant_vars?.nonce_appointments || ''
             });
             
             // Add legacy filters (for backwards compatibility)
@@ -648,7 +649,8 @@
             const ajaxurl = window.ajaxurl || '/wp-admin/admin-ajax.php';
             const params = new URLSearchParams({
                 action: 'aa_mark_appointment_notification_read',
-                appointment_id: appointmentId
+                appointment_id: appointmentId,
+                _wpnonce: window.aa_asistant_vars?.nonce_appointments || ''
             });
             
             const url = ajaxurl + '?' + params.toString();

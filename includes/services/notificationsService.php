@@ -26,6 +26,13 @@ add_action('wp_ajax_aa_get_unread_notifications', 'aa_ajax_get_unread_notificati
  */
 function aa_ajax_get_unread_notifications() {
     global $wpdb;
+
+    if (!current_user_can('aa_view_panel') && !current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'No tienes permisos para realizar esta acción.'], 403);
+        return;
+    }
+
+    check_ajax_referer('aa_notifications_nonce', '_wpnonce');
     
     $table = $wpdb->prefix . 'aa_notifications';
     
@@ -111,6 +118,13 @@ add_action('wp_ajax_aa_mark_notifications_as_read', 'aa_ajax_mark_notifications_
  */
 function aa_ajax_mark_notifications_as_read() {
     global $wpdb;
+
+    if (!current_user_can('aa_view_panel') && !current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'No tienes permisos para realizar esta acción.'], 403);
+        return;
+    }
+
+    check_ajax_referer('aa_notifications_nonce', '_wpnonce');
     
     // Get and validate type parameter
     $type = isset($_REQUEST['type']) ? sanitize_key($_REQUEST['type']) : '';
@@ -149,11 +163,10 @@ function aa_ajax_mark_notifications_as_read() {
     
     if ($result === false) {
         error_log("❌ Error marking notifications as read: " . $wpdb->last_error);
-        wp_send_json_error(['message' => 'Database error: ' . $wpdb->last_error]);
+        wp_send_json_error(['message' => 'Error al actualizar notificaciones']);
         return;
     }
     
     // Return success response
     wp_send_json_success();
 }
-

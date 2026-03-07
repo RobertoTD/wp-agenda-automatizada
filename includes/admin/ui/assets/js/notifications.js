@@ -21,7 +21,8 @@
      */
     function fetchNotificationsData() {
         const ajaxurl = window.ajaxurl || '/wp-admin/admin-ajax.php';
-        const url = ajaxurl + '?action=aa_get_unread_notifications';
+        const nonce = window.aa_asistant_vars?.nonce_notifications || '';
+        const url = ajaxurl + '?action=aa_get_unread_notifications&_wpnonce=' + encodeURIComponent(nonce);
 
         return fetch(url)
             .then(response => response.json())
@@ -152,7 +153,8 @@
      */
     function markNotificationsAsRead(type) {
         const ajaxurl = window.ajaxurl || '/wp-admin/admin-ajax.php';
-        const url = ajaxurl + '?action=aa_mark_notifications_as_read&type=' + encodeURIComponent(type);
+        const nonce = window.aa_asistant_vars?.nonce_notifications || '';
+        const url = ajaxurl + '?action=aa_mark_notifications_as_read&type=' + encodeURIComponent(type) + '&_wpnonce=' + encodeURIComponent(nonce);
 
         fetch(url)
             .then(response => response.json())
