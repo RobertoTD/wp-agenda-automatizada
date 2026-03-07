@@ -104,6 +104,7 @@ class SyncService {
 
     /**
      * Genera la URL de autorización OAuth de Google.
+     * Incluye flow_id y provision_challenge para el canje seguro de secretos.
      *
      * @return string URL completa para iniciar el flujo OAuth
      */
@@ -111,14 +112,21 @@ class SyncService {
         $backend_url = AA_API_BASE_URL . '/oauth/authorize';
         $state = home_url();
         $redirect_uri = admin_url('admin-post.php?action=aa_connect_google');
-        
-        // 🔹 Obtener el email del administrador de WordPress para usarlo como contact_email
         $contact_email = get_option('admin_email', '');
-        
-        return $backend_url 
-            . '?state=' . urlencode($state) 
+
+        // Provision PKCE-like: verifier stays local, only challenge travels to backend
+        $flow_id = wp_generate_uuid4();
+        $provision_verifier = bin2hex(random_bytes(32));
+        $provision_challenge = hash('sha256', $provision_verifier);
+
+        set_transient('aa_oauth_flow_' . $flow_id, $provision_verifier, 10 * MINUTE_IN_SECONDS);
+
+        return $backend_url
+            . '?state=' . urlencode($state)
             . '&redirect_uri=' . urlencode($redirect_uri)
-            . '&contact_email=' . urlencode($contact_email);
+            . '&contact_email=' . urlencode($contact_email)
+            . '&flow_id=' . urlencode($flow_id)
+            . '&provision_challenge=' . urlencode($provision_challenge);
     }
 
     /**
@@ -153,6 +161,51 @@ class SyncService {
         }
         
         return $reset_success;
+    }
+
+    /**
+     * Canjea el provision_code por los secretos reales vía POST server-to-server.
+     *
+     * @param string $flow_id    Identificador del flujo OAuth
+     * @param string $provision_code  Código de un solo uso recibido en el redirect
+     * @return array|WP_Error  Array asociativo con email, client_secret, webhook_token, o WP_Error
+     */
+    public static function redeem_secrets($flow_id, $provision_code) {
+        $transient_key = 'aa_oauth_flow_' . $flow_id;
+        $provision_verifier = get_transient($transient_key);
+
+        if (empty($provision_verifier)) {
+            return new WP_Error('missing_verifier', 'No se encontró el verifier para este flow_id (expirado o inválido).');
+        }
+
+        $endpoint = AA_API_BASE_URL . '/oauth/redeem-secrets';
+
+        $response = wp_remote_post($endpoint, array(
+            'headers' => array('Content-Type' => 'application/json'),
+            'body'    => wp_json_encode(array(
+                'flow_id'             => $flow_id,
+                'provision_code'      => $provision_code,
+                'provision_verifier'  => $provision_verifier,
+            )),
+            'timeout' => 15,
+        ));
+
+        // Limpiar transient independientemente del resultado
+        delete_transient($transient_key);
+
+        if (is_wp_error($response)) {
+            return $response;
+        }
+
+        $code = wp_remote_retrieve_response_code($response);
+        $body = json_decode(wp_remote_retrieve_body($response), true);
+
+        if ($code !== 200 || empty($body['client_secret'])) {
+            $error_msg = isset($body['error']) ? $body['error'] : 'Respuesta inesperada del backend';
+            return new WP_Error('redeem_failed', $error_msg);
+        }
+
+        return $body;
     }
 
     /**

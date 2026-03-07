@@ -86,14 +86,12 @@ function aa_send_authenticated_request($endpoint, $method = 'POST', $data = []) 
     // 🔹 Calcular firma HMAC-SHA256
     $signature = hash_hmac('sha256', $message, $client_secret);
     
-    // 🔹 Headers de autenticación
     $headers = [
         'Content-Type' => 'application/json',
         'X-Client-Id' => $domain,
         'X-Timestamp' => (string)$timestamp,
         'X-Nonce' => $nonce,
         'X-Signature' => $signature,
-        'X-Client-Secret' => $client_secret,
     ];
     
     // 🔹 Configurar argumentos para wp_remote_request

@@ -67,16 +67,33 @@ add_action('admin_init', function() {
 // Note: Settings page UI has been moved to includes/admin/ui/modules/settings/
 // This file now only contains backend logic (register_setting, admin_post handlers, etc.)
 
-// Guardar el email de Google al volver del backend
+// Procesar retorno del OAuth callback y canjear secretos server-to-server
 add_action('admin_post_aa_connect_google', function() {
     if (!current_user_can('manage_options')) return;
 
-    $email = !empty($_GET['email']) ? $_GET['email'] : '';
-    $secret = !empty($_GET['client_secret']) ? $_GET['client_secret'] : '';
-    $webhook_token = !empty($_GET['webhook_token']) ? $_GET['webhook_token'] : '';
+    $success = isset($_GET['success']) ? $_GET['success'] : '';
 
-    if ($email && $secret) {
-        SyncService::handle_oauth_success($email, $secret, $webhook_token);
+    if ($success !== 'true') {
+        wp_redirect(admin_url('admin.php?page=agenda-automatizada-settings'));
+        exit;
+    }
+
+    $flow_id        = isset($_GET['flow_id']) ? sanitize_text_field($_GET['flow_id']) : '';
+    $provision_code = isset($_GET['provision_code']) ? sanitize_text_field($_GET['provision_code']) : '';
+
+    if (empty($flow_id) || empty($provision_code)) {
+        wp_redirect(admin_url('admin.php?page=agenda-automatizada-settings'));
+        exit;
+    }
+
+    $result = SyncService::redeem_secrets($flow_id, $provision_code);
+
+    if (!is_wp_error($result) && !empty($result['email']) && !empty($result['client_secret'])) {
+        $webhook_token = isset($result['webhook_token']) ? $result['webhook_token'] : '';
+        SyncService::handle_oauth_success($result['email'], $result['client_secret'], $webhook_token);
+    } else {
+        $err_msg = is_wp_error($result) ? $result->get_error_message() : 'Error desconocido al canjear credenciales';
+        error_log('[WP Agenda] OAuth redeem failed: ' . $err_msg);
     }
 
     wp_redirect(admin_url('admin.php?page=agenda-automatizada-settings'));
