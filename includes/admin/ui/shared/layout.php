@@ -146,7 +146,9 @@ header('Content-Type: text/html; charset=utf-8');
         nonce_crear_cliente: '<?php echo esc_js(wp_create_nonce('aa_crear_cliente')); ?>',
         nonce_crear_cita: '<?php echo esc_js(wp_create_nonce('aa_reservation_nonce')); ?>',
         nonce_crear_cliente_desde_cita: '<?php echo esc_js(wp_create_nonce('aa_crear_cliente_desde_cita')); ?>',
-        nonce_editar_cliente: '<?php echo esc_js(wp_create_nonce('aa_editar_cliente')); ?>'
+        nonce_editar_cliente: '<?php echo esc_js(wp_create_nonce('aa_editar_cliente')); ?>',
+        nonce_appointments: '<?php echo esc_js(wp_create_nonce('aa_appointments_nonce')); ?>',
+        nonce_notifications: '<?php echo esc_js(wp_create_nonce('aa_notifications_nonce')); ?>'
     };
     
     // Nonces para operaciones de clientes (usado por modal independiente de crear/editar cliente)
