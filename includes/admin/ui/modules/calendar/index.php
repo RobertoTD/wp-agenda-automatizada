@@ -156,15 +156,28 @@ $module_js_url = $plugin_url . 'calendar-module.js?ver=' . rawurlencode($calenda
 <script src="<?php echo esc_url($module_js_url); ?>" defer></script>
 
 <!-- =========================
-     🔹 FAB: AGENDAR
+     🔹 FLOATING ACTIONS: AGENDAR
      ========================= -->
-<button 
-    id="aa-btn-open-reservation-modal" 
-    type="button"
-    class="fixed bottom-6 right-6 z-50 flex items-center justify-center w-14 h-14 text-white bg-blue-500 hover:bg-blue-600 active:bg-blue-700 rounded-full shadow-xl shadow-blue-500/25 hover:shadow-2xl hover:shadow-blue-500/30 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-blue-500/30"
-    aria-label="Agendar nueva cita"
->
-    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-    </svg>
-</button>
+<div class="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+    <button
+        id="aa-btn-open-fastappointment-modal"
+        type="button"
+        class="inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-full shadow-lg hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-slate-300/40"
+        aria-label="Abrir cita rapida">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 5l-7 7 7 7M5 12h14"/>
+        </svg>
+        <span>Cita rapida</span>
+    </button>
+
+    <button 
+        id="aa-btn-open-reservation-modal" 
+        type="button"
+        class="flex items-center justify-center w-14 h-14 text-white bg-blue-500 hover:bg-blue-600 active:bg-blue-700 rounded-full shadow-xl shadow-blue-500/25 hover:shadow-2xl hover:shadow-blue-500/30 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-blue-500/30"
+        aria-label="Agendar nueva cita"
+    >
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+        </svg>
+    </button>
+</div>

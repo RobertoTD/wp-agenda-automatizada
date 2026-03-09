@@ -201,6 +201,8 @@ header('Content-Type: text/html; charset=utf-8');
 
 <!-- Calendar Availability Service (neutral, no UI) -->
 <script src="<?php echo aa_asset_url('assets/js/services/availability/calendarAvailabilityService.js'); ?>" defer></script>
+<script src="<?php echo aa_asset_url('assets/js/services/availability/fastAppointmentPrerequisitesService.js'); ?>" defer></script>
+<script src="<?php echo aa_asset_url('assets/js/services/availability/fastAppointmentTimeAvailabilityService.js'); ?>" defer></script>
 
 <!-- Other Services -->
 <script src="<?php echo aa_asset_url('assets/js/services/reservationService.js'); ?>" defer></script>
@@ -230,6 +232,11 @@ header('Content-Type: text/html; charset=utf-8');
 <!-- Transversal Modal: Reservation (último, usa todos los anteriores) -->
 <!-- Requiere: calendarAvailabilityService.js, reservationClientController.js y adminReservationAssignmentFlowController.js deben cargarse antes -->
 <script src="<?php echo aa_asset_url('includes/admin/ui/modals/reservation/reservation.js'); ?>" defer></script>
+
+<!-- Transversal Modal: Fast Appointment (Flow + Controller + wiring) -->
+<script src="<?php echo aa_asset_url('assets/js/controllers/adminFastappointmentFlowController.js'); ?>" defer></script>
+<script src="<?php echo aa_asset_url('assets/js/controllers/adminFastappointmentController.js'); ?>" defer></script>
+<script src="<?php echo aa_asset_url('includes/admin/ui/modals/fastappointment/fastappointment.js'); ?>" defer></script>
 
 <!-- Transversal Modal: Appointments -->
 <script src="<?php echo aa_asset_url('includes/admin/ui/modals/appointments/appointments-modal.js'); ?>" defer></script>
@@ -267,6 +274,7 @@ header('Content-Type: text/html; charset=utf-8');
     
     <!-- Transversal Modal Templates (uses <template> tag, content not rendered until cloned by JS) -->
     <?php require_once dirname(__DIR__) . '/modals/reservation/index.php'; ?>
+    <?php require_once dirname(__DIR__) . '/modals/fastappointment/index.php'; ?>
     <?php require_once dirname(__DIR__) . '/modals/appointments/index.php'; ?>
     <?php require_once dirname(__DIR__) . '/modals/assignment/index.php'; ?>
     <?php require_once dirname(__DIR__) . '/modals/crearcliente/index.php'; ?>

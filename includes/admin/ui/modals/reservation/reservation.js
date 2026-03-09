@@ -5,6 +5,12 @@
  * existentes (AvailabilityController, AdminReservationController).
  * 
  * NO duplica lógica de negocio - solo coordina.
+ *
+ * GUARDRAIL: This modal uses assignment-based availability
+ * (availabilityAssignments.js).  It does NOT share availability logic
+ * with the Fast Appointment modal, which has its own motor
+ * (fastAppointmentTimeAvailabilityService.js).
+ * See docs/fast-appointment-vs-assignment-availability.md
  * 
  * @package AgendaAutomatizada
  * @since 1.0.0

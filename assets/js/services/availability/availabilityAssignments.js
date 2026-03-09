@@ -1,17 +1,26 @@
 /**
- * Availability Assignments Service
- * 
- * Provides methods to query assignment-based availability.
- * This is a PARALLEL service - does NOT replace legacy AvailabilityService.
- * 
+ * GUARDRAIL — Assignment-based Availability Service
+ *
+ * Motor: Reservation / public calendar (assignment-based availability)
+ *
+ * In this motor, assignments ARE the source of availability.
+ * Dates and time slots are derived from active assignments.
+ *
+ * DO NOT reuse this service for Fast Appointment.
+ * Fast Appointment has its own availability motor where assignments
+ * are only a bridge (assignment_id → staff_id), not a source of
+ * availability.  See fastAppointmentTimeAvailabilityService.js.
+ *
+ * See docs/fast-appointment-vs-assignment-availability.md
+ *
  * Exposes:
  * - window.AAAssignmentsAvailability
- * 
+ *
  * Methods:
  * - getAssignmentDates()
  * - getAssignmentDatesByService(serviceKey, startDate, endDate)
  * - getAssignmentsByServiceAndDate(serviceKey, date)
- * 
+ *
  * @package AgendaAutomatizada
  * @since 2.0.0
  */
