@@ -282,6 +282,44 @@
             });
         }
 
+        function getEligibleServices(prerequisites) {
+            if (!prerequisites || !Array.isArray(prerequisites.usableStaff)) {
+                return [];
+            }
+
+            var activeServiceIds = new Set(
+                (prerequisites.activeServices || []).map(function(s) { return String(s.id); })
+            );
+            var fromStaff = prerequisites.usableStaff.flatMap(function(s) {
+                return s.services || [];
+            });
+            var eligible = fromStaff.filter(function(s) {
+                return activeServiceIds.has(String(s.id));
+            });
+
+            var byId = new Map();
+            eligible.forEach(function(s) {
+                byId.set(s.id, s);
+            });
+            return Array.from(byId.values()).sort(function(a, b) {
+                return (a.name || '').localeCompare(b.name || '');
+            });
+        }
+
+        function populateServiceSelect(eligibleServices) {
+            var serviceSelect = document.getElementById('aa-fastappointment-service');
+            if (!serviceSelect) {
+                return;
+            }
+
+            var html = '<option value="">-- Selecciona un servicio --</option>';
+            (eligibleServices || []).forEach(function(s) {
+                html += '<option value="' + escapeHtml(String(s.id)) + '">' + escapeHtml(s.name || '') + '</option>';
+            });
+
+            serviceSelect.innerHTML = html;
+        }
+
         function resetStepsAfterTime() {
             const serviceSelect = document.getElementById('aa-fastappointment-service');
             const staffSelect = document.getElementById('aa-fastappointment-staff');
@@ -390,6 +428,11 @@
                 });
 
                 resetStepsAfterTime();
+
+                var state = getState() || {};
+                var prerequisites = state.fastAppointmentPrerequisites || null;
+                var eligibleServices = getEligibleServices(prerequisites);
+                populateServiceSelect(eligibleServices);
             };
 
             timeSelect.addEventListener('change', handleTimeChange);

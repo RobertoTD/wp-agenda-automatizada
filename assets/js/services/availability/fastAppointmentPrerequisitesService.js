@@ -179,6 +179,7 @@
                     areas: serviceAreas.length
                 },
                 usableStaff: usableStaff,
+                activeServices: services,
                 checkedAt: new Date().toISOString()
             };
 
@@ -202,6 +203,7 @@
                     areas: 0
                 },
                 usableStaff: [],
+                activeServices: [],
                 checkedAt: new Date().toISOString(),
                 error: error && error.message ? error.message : 'Unknown error'
             };
