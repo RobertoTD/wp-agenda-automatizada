@@ -180,6 +180,7 @@
                 },
                 usableStaff: usableStaff,
                 activeServices: services,
+                activeServiceAreas: serviceAreas,
                 checkedAt: new Date().toISOString()
             };
 
@@ -204,6 +205,7 @@
                 },
                 usableStaff: [],
                 activeServices: [],
+                activeServiceAreas: [],
                 checkedAt: new Date().toISOString(),
                 error: error && error.message ? error.message : 'Unknown error'
             };

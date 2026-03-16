@@ -110,6 +110,10 @@ defined('ABSPATH') or die('No direct access');
                     class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white">
                     <option value="">-- Selecciona personal --</option>
                 </select>
+
+                <div
+                    id="aa-fastappointment-staff-message"
+                    class="hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"></div>
             </div>
 
             <div id="aa-fastappointment-step-area" class="space-y-3 rounded-xl border border-gray-200 bg-white p-4">
@@ -124,6 +128,10 @@ defined('ABSPATH') or die('No direct access');
                     class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white">
                     <option value="">-- Selecciona una zona --</option>
                 </select>
+
+                <div
+                    id="aa-fastappointment-area-message"
+                    class="hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"></div>
             </div>
 
             <div id="aa-fastappointment-step-confirm" class="space-y-3 rounded-xl border border-gray-200 bg-white p-4">
