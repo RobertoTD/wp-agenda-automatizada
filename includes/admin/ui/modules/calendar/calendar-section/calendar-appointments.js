@@ -621,6 +621,7 @@
         if (!grid) return;
         
         const host = window.CalendarAssignments?.getCardsHostForCita(citaConPos.cita, citaConPos);
+        if (!host) return;
         
         const card = crearCardConInteraccion(citaConPos.cita, overlapInfo || null, isExpanded, host);
         if (!card) return;
@@ -630,92 +631,60 @@
         card.dataset.citaSlotInicio = citaConPos.slotInicio;
         card.dataset.citaEstado = citaConPos.cita.estado || 'pending';
         
-        if (host) {
-            const hostStartRow = parseInt(host.getAttribute('data-start-row'), 10);
-            const relativeStart = citaConPos.startRow - hostStartRow + 1;
+        const hostStartRow = parseInt(host.getAttribute('data-start-row'), 10);
+        const relativeStart = citaConPos.startRow - hostStartRow + 1;
+        
+        card.dataset.originalHost = 'true';
+        card.dataset.originalGridColumn = '1';
+        card.dataset.originalGridRow = relativeStart + ' / span ' + citaConPos.bloquesOcupados;
+        card.__aaHostRef = host;
+        card.dataset.citaStartRow = String(citaConPos.startRow);
+        card.dataset.citaBloquesOcupados = String(citaConPos.bloquesOcupados);
+        
+        Object.assign(card.style, {
+            gridColumn: '1',
+            gridRow: relativeStart + ' / span ' + citaConPos.bloquesOcupados,
+            width: '100%',
+            position: 'relative',
+            overflow: 'hidden',
+            minHeight: '0',
+            transition: `box-shadow ${TOKENS.transitionNormal}, border-color ${TOKENS.transitionNormal}`
+        });
+        
+        if (isExpanded) {
+            if (!host.dataset.overflowPrev) {
+                host.dataset.overflowPrev = host.style.overflow || 'hidden';
+                host.dataset.zIndexPrev = host.style.zIndex || '5';
+            }
+            host.style.overflow = 'visible';
+            host.style.zIndex = '70';
+            hostsConExpandidas.add(host);
             
-            card.dataset.originalHost = 'true';
-            card.dataset.originalGridColumn = '1';
-            card.dataset.originalGridRow = relativeStart + ' / span ' + citaConPos.bloquesOcupados;
-            card.__aaHostRef = host;
-            card.dataset.citaStartRow = String(citaConPos.startRow);
-            card.dataset.citaBloquesOcupados = String(citaConPos.bloquesOcupados);
+            card.style.zIndex = '80';
+            card.style.overflow = 'visible';
+            card.style.boxShadow = TOKENS.shadowLg;
             
-            Object.assign(card.style, {
-                gridColumn: '1',
-                gridRow: relativeStart + ' / span ' + citaConPos.bloquesOcupados,
-                width: '100%',
-                position: 'relative',
-                overflow: 'hidden',
-                minHeight: '0',
-                transition: `box-shadow ${TOKENS.transitionNormal}, border-color ${TOKENS.transitionNormal}`
-            });
-            
-            if (isExpanded) {
-                if (!host.dataset.overflowPrev) {
-                    host.dataset.overflowPrev = host.style.overflow || 'hidden';
-                    host.dataset.zIndexPrev = host.style.zIndex || '5';
-                }
-                host.style.overflow = 'visible';
-                host.style.zIndex = '70';
-                hostsConExpandidas.add(host);
-                
-                card.style.zIndex = '80';
-                card.style.overflow = 'visible';
-                card.style.boxShadow = TOKENS.shadowLg;
-                
-                const body = card.querySelector('.aa-appointment-body');
-                const header = card.querySelector('.aa-appointment-header');
-                if (body) {
-                    body.removeAttribute('hidden');
-                    if (header) {
-                        header.style.flex = '0 0 auto';
-                        header.style.flexShrink = '0';
-                        body.style.flex = '1';
-                        header.style.borderBottomLeftRadius = '0';
-                        header.style.borderBottomRightRadius = '0';
-                    }
-                }
-            } else {
-                if (overlapInfo && overlapInfo.overlapCount > 1) {
-                    card.style.zIndex = String(20 + (overlapIndex || 0));
-                } else {
-                    card.style.zIndex = '20';
+            const body = card.querySelector('.aa-appointment-body');
+            const header = card.querySelector('.aa-appointment-header');
+            if (body) {
+                body.removeAttribute('hidden');
+                if (header) {
+                    header.style.flex = '0 0 auto';
+                    header.style.flexShrink = '0';
+                    body.style.flex = '1';
+                    header.style.borderBottomLeftRadius = '0';
+                    header.style.borderBottomRightRadius = '0';
                 }
             }
-            
-            host.appendChild(card);
-            
         } else {
-            console.warn('[CalendarAppointments] No host found for cita:', citaConPos.cita.id, '- using fallback grid positioning');
-            
-            Object.assign(card.style, {
-                gridColumn: '2',
-                gridRow: citaConPos.startRow + ' / span ' + citaConPos.bloquesOcupados,
-                position: 'relative',
-                overflow: isExpanded ? 'visible' : 'hidden',
-                minHeight: '0',
-                zIndex: isExpanded ? '30' : '20'
-            });
-            
-            if (isExpanded) {
-                card.style.boxShadow = TOKENS.shadowLg;
-                const body = card.querySelector('.aa-appointment-body');
-                const header = card.querySelector('.aa-appointment-header');
-                if (body) {
-                    body.removeAttribute('hidden');
-                    if (header) {
-                        header.style.flex = '0 0 auto';
-                        header.style.flexShrink = '0';
-                        body.style.flex = '1';
-                        header.style.borderBottomLeftRadius = '0';
-                        header.style.borderBottomRightRadius = '0';
-                    }
-                }
+            if (overlapInfo && overlapInfo.overlapCount > 1) {
+                card.style.zIndex = String(20 + (overlapIndex || 0));
+            } else {
+                card.style.zIndex = '20';
             }
-            
-            grid.appendChild(card);
         }
+
+        host.appendChild(card);
     }
     
     /**

@@ -399,6 +399,7 @@
             staffLabel.setAttribute('data-aa-popover', '1');
             staffLabel.setAttribute('data-aa-popover-staff', assignment.staff_name || '');
             staffLabel.setAttribute('data-aa-popover-services', servicesStr);
+            staffLabel.setAttribute('data-aa-popover-assignment-id', assignment.id || '');
             
             Object.assign(staffLabel.style, {
                 position: 'absolute',

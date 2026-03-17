@@ -994,6 +994,58 @@ class AssignmentsModel {
     }
 
     /**
+     * Obtener una asignación por ID
+     * 
+     * Retorna una sola fila con los campos necesarios para recrear fragmentos.
+     * 
+     * @param int $id ID de la asignación
+     * @return array|null Array asociativo con la asignación o null si no existe
+     */
+    public static function get_assignment_by_id($id) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_assignments';
+        
+        $id = intval($id);
+        
+        if ($id <= 0) {
+            error_log("❌ [AssignmentsModel] ID inválido para obtener asignación: $id");
+            return null;
+        }
+        
+        $query = $wpdb->prepare(
+            "SELECT 
+                id,
+                assignment_date,
+                start_time,
+                end_time,
+                staff_id,
+                service_area_id,
+                service_key,
+                capacity,
+                status,
+                is_hidden
+             FROM $table
+             WHERE id = %d
+             LIMIT 1",
+            $id
+        );
+        
+        $result = $wpdb->get_row($query, ARRAY_A);
+        
+        if ($wpdb->last_error) {
+            error_log("❌ [AssignmentsModel] Error al obtener asignación ID $id: " . $wpdb->last_error);
+            return null;
+        }
+        
+        if (!$result) {
+            error_log("⚠️ [AssignmentsModel] No se encontró asignación con ID $id");
+            return null;
+        }
+        
+        return $result;
+    }
+
+    /**
      * Obtener asignaciones
      * 
      * Solo retorna asignaciones con fecha actual o futura (assignment_date >= CURDATE())

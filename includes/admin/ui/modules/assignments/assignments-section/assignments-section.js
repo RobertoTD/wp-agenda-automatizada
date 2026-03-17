@@ -198,13 +198,19 @@
             
             html += '</div>'; // End grid
             
-            // Hide button
-            html += '<div class="pt-3 border-t border-gray-100">';
-            html += '<button type="button" class="aa-delete-assignment px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-medium rounded-lg transition-colors" data-id="' + assignmentId + '">';
+            // Action buttons
+            html += '<div class="pt-3 border-t border-gray-100 flex items-center gap-2 flex-wrap">';
+            html += '<button type="button" class="aa-delete-assignment px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-600 text-xs font-medium rounded-lg transition-colors" data-id="' + assignmentId + '" title="Libera los horarios libres de esta asignacion para otras reservaciones o asignaciones">';
             html += '<svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
-            html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>';
+            html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h7m0 0l-3-3m3 3l-3 3M20 17h-7m0 0l3-3m-3 3l3 3"/>';
             html += '</svg>';
-            html += 'Ocultar';
+            html += 'Liberar';
+            html += '</button>';
+            html += '<button type="button" class="aa-remove-assignment px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-medium rounded-lg transition-colors" data-id="' + assignmentId + '" title="Elimina la asignacion y cancela todas las citas activas asociadas">';
+            html += '<svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
+            html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 7h12M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-7 4v6m4-6v6m5-10l-1 12a2 2 0 01-2 2H10a2 2 0 01-2-2L7 7"/>';
+            html += '</svg>';
+            html += 'Eliminar';
             html += '</button>';
             html += '</div>';
             
@@ -222,6 +228,9 @@
         
         // Setup delete handlers
         setupDeleteHandlers();
+
+        // Setup remove handlers
+        setupRemoveHandlers();
         
         // Setup checkbox handlers (prevent toggle when clicking checkbox)
         setupCheckboxHandlers();
@@ -358,6 +367,24 @@
     }
 
     /**
+     * Setup handlers for remove buttons
+     */
+    function setupRemoveHandlers() {
+        const removeButtons = assignmentsRoot.querySelectorAll('.aa-remove-assignment');
+        
+        removeButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.stopPropagation();
+                
+                const assignmentId = parseInt(this.getAttribute('data-id'));
+                if (assignmentId > 0) {
+                    handleRemoveAssignment(assignmentId);
+                }
+            });
+        });
+    }
+
+    /**
      * Handle assignment deletion
      * @param {number} id - Assignment ID to delete
      */
@@ -396,6 +423,89 @@
         })
         .catch(function(error) {
             console.error('[Assignments Section] Error en petición AJAX:', error);
+            alert('Error al conectar con el servidor');
+        });
+    }
+
+    /**
+     * Get active reservations count for an assignment
+     * @param {number} id - Assignment ID
+     * @returns {Promise<number>}
+     */
+    function getActiveReservationsCount(id) {
+        const ajaxurl = (window.AA_ASSIGNMENTS_DATA && window.AA_ASSIGNMENTS_DATA.ajaxurl) 
+            || window.ajaxurl 
+            || '/wp-admin/admin-ajax.php';
+
+        const formData = new FormData();
+        formData.append('action', 'aa_get_assignment_active_reservations_count');
+        formData.append('id', id);
+
+        return fetch(ajaxurl, {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(response) {
+            return response.json();
+        })
+        .then(function(data) {
+            if (!data.success || !data.data) {
+                throw new Error('No se pudo obtener el conteo de citas activas');
+            }
+
+            return parseInt(data.data.active_reservations_count || 0, 10);
+        });
+    }
+
+    /**
+     * Handle assignment removal with reservation cancellation
+     * @param {number} id - Assignment ID to remove
+     */
+    function handleRemoveAssignment(id) {
+        getActiveReservationsCount(id)
+        .then(function(activeReservationsCount) {
+            const confirmationMessage = activeReservationsCount > 0
+                ? 'Esta acción eliminará la asignación y cancelará todas las citas pendientes o confirmadas asociadas.\n\nSi deseas conservar las citas y solo liberar el espacio disponible, utiliza el botón Liberar.\n\n¿Deseas continuar?'
+                : '¿Seguro que deseas eliminar esta asignación?';
+
+            if (!confirm(confirmationMessage)) {
+                return null;
+            }
+
+            const ajaxurl = (window.AA_ASSIGNMENTS_DATA && window.AA_ASSIGNMENTS_DATA.ajaxurl) 
+                || window.ajaxurl 
+                || '/wp-admin/admin-ajax.php';
+
+            const formData = new FormData();
+            formData.append('action', 'aa_remove_assignment');
+            formData.append('id', id);
+
+            return fetch(ajaxurl, {
+                method: 'POST',
+                body: formData
+            });
+        })
+        .then(function(response) {
+            if (!response) {
+                return null;
+            }
+
+            return response.json();
+        })
+        .then(function(data) {
+            if (!data) {
+                return;
+            }
+
+            if (data.success) {
+                loadAssignments();
+            } else {
+                console.error('[Assignments Section] Error al eliminar asignación:', data);
+                alert((data.data && data.data.message) || 'Error al eliminar la asignación');
+            }
+        })
+        .catch(function(error) {
+            console.error('[Assignments Section] Error al eliminar asignación:', error);
             alert('Error al conectar con el servidor');
         });
     }

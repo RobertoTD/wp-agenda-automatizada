@@ -152,6 +152,87 @@ class ReservationsModel {
     }
 
     /**
+     * Obtener reservas activas de una asignación
+     * 
+     * Retorna reservas con estado pending o confirmed asociadas
+     * a una asignación específica.
+     * 
+     * @param int $assignment_id ID de la asignación
+     * @return array
+     */
+    public static function get_active_by_assignment_id($assignment_id) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_reservas';
+        
+        $assignment_id = intval($assignment_id);
+        
+        if ($assignment_id <= 0) {
+            error_log("❌ [ReservationsModel] ID inválido para obtener reservas activas por asignación: $assignment_id");
+            return [];
+        }
+        
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT id, estado, fecha, duracion, assignment_id, nombre, telefono, correo, servicio
+             FROM $table
+             WHERE assignment_id = %d
+             AND estado IN ('pending', 'confirmed')
+             ORDER BY fecha ASC",
+            $assignment_id
+        ), ARRAY_A);
+        
+        if ($wpdb->last_error) {
+            error_log("❌ [ReservationsModel] Error al obtener reservas activas de asignación $assignment_id: " . $wpdb->last_error);
+            return [];
+        }
+        
+        error_log("✅ [ReservationsModel] Encontradas " . count($rows) . " reservas activas para asignación $assignment_id");
+        
+        return $rows ? $rows : [];
+    }
+
+    /**
+     * Reasignar una reserva a un nuevo assignment_id
+     * 
+     * @param int $reservation_id ID de la reserva
+     * @param int $new_assignment_id Nuevo ID de asignación
+     * @return bool true en éxito, false en error
+     */
+    public static function update_assignment_id($reservation_id, $new_assignment_id) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_reservas';
+        
+        $reservation_id = intval($reservation_id);
+        $new_assignment_id = intval($new_assignment_id);
+        
+        if ($reservation_id <= 0 || $new_assignment_id <= 0) {
+            error_log("❌ [ReservationsModel] IDs inválidos para reasignar reserva: reserva=$reservation_id, assignment=$new_assignment_id");
+            return false;
+        }
+        
+        $result = $wpdb->update(
+            $table,
+            ['assignment_id' => $new_assignment_id],
+            ['id' => $reservation_id],
+            ['%d'],
+            ['%d']
+        );
+        
+        if ($result === false) {
+            error_log("❌ [ReservationsModel] Error al reasignar reserva $reservation_id a assignment $new_assignment_id: " . $wpdb->last_error);
+            return false;
+        }
+        
+        if ($result === 0) {
+            error_log("⚠️ [ReservationsModel] No se actualizó assignment_id para reserva $reservation_id");
+            return false;
+        }
+        
+        error_log("✅ [ReservationsModel] Reserva $reservation_id reasignada a assignment $new_assignment_id");
+        
+        return true;
+    }
+
+    /**
      * Obtener citas pendientes que coinciden en fecha/hora (para cancelación automática)
      * 
      * @deprecated Usar get_pending_conflicts_overlapping() para detección por solapamiento

@@ -434,6 +434,123 @@ window.AAAdmin = window.AAAdmin || {};
         let popoverRoot = null;
         let popoverElement = null;
 
+        function getPopoverAjaxUrl() {
+            return (window.AA_CALENDAR_DATA && window.AA_CALENDAR_DATA.ajaxurl)
+                || window.ajaxurl
+                || '/wp-admin/admin-ajax.php';
+        }
+
+        function createActionButton(action) {
+            const button = document.createElement('button');
+            const isDanger = action && action.variant === 'danger';
+
+            button.type = 'button';
+            button.textContent = action.label || 'Acción';
+            button.className = isDanger
+                ? 'aa-popover-action aa-popover-action-danger'
+                : 'aa-popover-action aa-popover-action-secondary';
+
+            Object.assign(button.style, {
+                padding: '6px 10px',
+                borderRadius: '8px',
+                border: '1px solid ' + (isDanger ? '#fecaca' : '#d8b4fe'),
+                backgroundColor: isDanger ? '#fef2f2' : '#faf5ff',
+                color: isDanger ? '#dc2626' : '#7c3aed',
+                fontSize: '12px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'background-color 150ms ease'
+            });
+
+            button.addEventListener('mouseenter', function() {
+                button.style.backgroundColor = isDanger ? '#fee2e2' : '#f3e8ff';
+            });
+
+            button.addEventListener('mouseleave', function() {
+                button.style.backgroundColor = isDanger ? '#fef2f2' : '#faf5ff';
+            });
+
+            button.addEventListener('click', function(event) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                if (typeof action.onClick === 'function') {
+                    action.onClick();
+                }
+            });
+
+            return button;
+        }
+
+        function appendActions(actions) {
+            if (!popoverElement || !actions || actions.length === 0) {
+                return;
+            }
+
+            const validActions = actions.filter(function(action) {
+                return action && action.label && typeof action.onClick === 'function';
+            });
+
+            if (validActions.length === 0) {
+                return;
+            }
+
+            const actionsContainer = document.createElement('div');
+            Object.assign(actionsContainer.style, {
+                marginTop: '10px',
+                paddingTop: '10px',
+                borderTop: '1px solid #e5e7eb',
+                display: 'flex',
+                gap: '8px',
+                flexWrap: 'wrap'
+            });
+
+            validActions.forEach(function(action) {
+                actionsContainer.appendChild(createActionButton(action));
+            });
+
+            popoverElement.appendChild(actionsContainer);
+        }
+
+        function refreshCalendarTimeline() {
+            document.dispatchEvent(new CustomEvent('aa-assignment-created'));
+        }
+
+        function executeAssignmentAction(assignmentId, actionName, confirmMessage) {
+            if (!assignmentId || assignmentId <= 0) {
+                return;
+            }
+
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('action', actionName);
+            formData.append('id', assignmentId);
+
+            fetch(getPopoverAjaxUrl(), {
+                method: 'POST',
+                body: formData
+            })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.success) {
+                    closePopover();
+                    refreshCalendarTimeline();
+                } else {
+                    console.error('[Popover] Error al ejecutar acción de asignación:', data);
+                    alert((data.data && data.data.message) || 'Error al ejecutar la acción');
+                }
+            })
+            .catch(function(error) {
+                console.error('[Popover] Error en petición AJAX:', error);
+                alert('Error al conectar con el servidor');
+            });
+        }
+
         /**
          * Ensure popover root exists in DOM
          */
@@ -568,6 +685,7 @@ window.AAAdmin = window.AAAdmin || {};
             console.log('[Popover] Content HTML:', contentHTML);
 
             popoverElement.innerHTML = contentHTML;
+            appendActions(options.actions || []);
 
             // Append to root (initially hidden for measurement)
             popoverElement.style.visibility = 'hidden';
@@ -623,7 +741,8 @@ window.AAAdmin = window.AAAdmin || {};
                     console.log('[Popover] Trigger classes:', trigger.className);
                     console.log('[Popover] Trigger data attributes:', {
                         staff: trigger.getAttribute('data-aa-popover-staff'),
-                        services: trigger.getAttribute('data-aa-popover-services')
+                        services: trigger.getAttribute('data-aa-popover-services'),
+                        assignmentId: trigger.getAttribute('data-aa-popover-assignment-id')
                     });
                     
                     event.preventDefault();
@@ -639,6 +758,7 @@ window.AAAdmin = window.AAAdmin || {};
                     // Read data attributes
                     const staff = trigger.getAttribute('data-aa-popover-staff') || '';
                     const services = trigger.getAttribute('data-aa-popover-services') || '';
+                    const assignmentId = parseInt(trigger.getAttribute('data-aa-popover-assignment-id') || '0', 10);
 
                     // Build lines
                     const lines = [];
@@ -654,9 +774,35 @@ window.AAAdmin = window.AAAdmin || {};
                     // Open popover if we have content
                     if (lines.length > 0) {
                         console.log('[Popover] Opening popover with', lines.length, 'lines');
+                        const actions = assignmentId > 0 ? [
+                            {
+                                label: 'Liberar',
+                                variant: 'secondary',
+                                onClick: function() {
+                                    executeAssignmentAction(
+                                        assignmentId,
+                                        'aa_delete_assignment',
+                                        '¿Deseas liberar esta asignación?'
+                                    );
+                                }
+                            },
+                            {
+                                label: 'Eliminar',
+                                variant: 'danger',
+                                onClick: function() {
+                                    executeAssignmentAction(
+                                        assignmentId,
+                                        'aa_remove_assignment',
+                                        '¿Deseas eliminar esta asignación y cancelar sus citas activas?'
+                                    );
+                                }
+                            }
+                        ] : [];
+
                         openPopover({
                             anchorEl: trigger,
-                            lines: lines
+                            lines: lines,
+                            actions: actions
                         });
                     } else {
                         console.warn('[Popover] No lines to display, skipping popover');
