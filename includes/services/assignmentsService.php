@@ -555,10 +555,6 @@ function aa_get_assignment_dates_by_service() {
         
         // Si viene service_id, usar el nuevo método con tabla pivote
         if ($service_id > 0) {
-            if (!AssignmentsModel::is_service_public_calendar($service_id)) {
-                wp_send_json_success(['service_id' => $service_id, 'dates' => [], 'count' => 0]);
-                return;
-            }
             $dates = AssignmentsModel::get_assignment_dates_by_service_id($service_id, $start_date, $end_date);
             $response_data = [
                 'service_id' => $service_id,
@@ -621,10 +617,6 @@ function aa_get_assignments_by_service_and_date() {
         
         // Si viene service_id, usar el nuevo método con tabla pivote
         if ($service_id > 0) {
-            if (!AssignmentsModel::is_service_public_calendar($service_id)) {
-                wp_send_json_success(['date' => $date, 'service_id' => $service_id, 'assignments' => [], 'count' => 0]);
-                return;
-            }
             $assignments = AssignmentsModel::get_assignments_by_service_id_and_date($service_id, $date);
             $response_data['service_id'] = $service_id;
         } else {

@@ -48,15 +48,29 @@
 
         const stepClient = document.querySelector(stepClientSelector);
         const clientSelect = document.getElementById(clientSelectId);
+        const stepDate = document.querySelector(stepDateSelector);
         const stepTime = document.querySelector(stepTimeSelector);
+        const stepService = document.getElementById('aa-fastappointment-step-service');
+        const stepStaff = document.getElementById('aa-fastappointment-step-staff');
+        const stepArea = document.getElementById('aa-fastappointment-step-area');
         const timeSelect = document.getElementById(timeSelectId);
         const serviceSelect = document.getElementById('aa-fastappointment-service');
         const staffSelect = document.getElementById('aa-fastappointment-staff');
         const staffMessageBox = document.getElementById('aa-fastappointment-staff-message');
         const areaSelect = document.getElementById('aa-fastappointment-area');
         const areaMessageBox = document.getElementById('aa-fastappointment-area-message');
+        const confirmCheckbox = document.getElementById('aa-fastappointment-confirm');
         const formEl = document.getElementById('aa-fastappointment-form');
         const summaryBox = document.querySelector(summarySelector);
+        const stepOrder = ['client', 'date', 'time', 'service', 'staff', 'area'];
+        const stepElements = {
+            client: stepClient,
+            date: stepDate,
+            time: stepTime,
+            service: stepService,
+            staff: stepStaff,
+            area: stepArea
+        };
 
         if (!stepClient || !clientSelect) {
             console.warn('[AdminFastappointmentFlowController] Bloque Cliente no disponible');
@@ -71,8 +85,12 @@
         let handleStaffChange = null;
         let handleAreaChange = null;
         let handleFormSubmit = null;
+        let handleClientSavedForFlow = null;
+        let handleStepHeaderClick = null;
         let datePicker = null;
         let isDestroyed = false;
+        let clientSelectedByUser = false;
+        let expandedCompletedStepId = null;
         let timeAvailabilityRequestId = 0;
         let staffAvailabilityRequestId = 0;
         let areaAvailabilityRequestId = 0;
@@ -82,10 +100,253 @@
 
             if (setState) {
                 setState(Object.assign({}, currentState, patch));
+                renderVisualSteps();
                 return;
             }
 
             Object.assign(currentState, patch);
+            renderVisualSteps();
+        }
+
+        function getStepBody(stepElement) {
+            if (!stepElement) {
+                return null;
+            }
+
+            return stepElement.querySelector('[data-aa-fastappointment-step-body]');
+        }
+
+        function getStepSummaryElement(stepElement) {
+            if (!stepElement) {
+                return null;
+            }
+
+            return stepElement.querySelector('[data-aa-fastappointment-step-summary]');
+        }
+
+        function getSelectedOptionLabel(selectElement) {
+            if (!selectElement || selectElement.selectedIndex < 0) {
+                return '';
+            }
+
+            const option = selectElement.options[selectElement.selectedIndex];
+
+            if (!option || !option.value) {
+                return '';
+            }
+
+            return String(option.textContent || '').trim();
+        }
+
+        function formatSelectedDate(dateStr) {
+            if (!dateStr) {
+                return '';
+            }
+
+            try {
+                return new Intl.DateTimeFormat('es-MX', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric'
+                }).format(new Date(dateStr + 'T00:00:00'));
+            } catch (error) {
+                return dateStr;
+            }
+        }
+
+        function getCompletedStepSummaryMap() {
+            const state = getState() || {};
+            const selectedClient = state.selectedClient || null;
+
+            return {
+                client: selectedClient && selectedClient.nombre ? selectedClient.nombre : getSelectedOptionLabel(clientSelect),
+                date: formatSelectedDate(state.selectedDate || ''),
+                time: state.selectedTime || '',
+                service: getSelectedOptionLabel(serviceSelect),
+                staff: getSelectedOptionLabel(staffSelect),
+                area: getSelectedOptionLabel(areaSelect)
+            };
+        }
+
+        function getCompletedStepMap() {
+            const state = getState() || {};
+
+            return {
+                client: !!state.isClientStepReady,
+                date: !!state.selectedDate && !!state.isDateStepReady,
+                time: !!state.selectedTime,
+                service: !!state.selectedServiceId,
+                staff: !!state.selectedStaffId,
+                area: !!state.selectedAreaId
+            };
+        }
+
+        function getSubmitButton() {
+            return document.getElementById('aa-fastappointment-submit');
+        }
+
+        function isFormReady() {
+            const state = getState() || {};
+
+            return !!(
+                state.selectedClientId &&
+                state.selectedDate &&
+                state.selectedTime &&
+                state.selectedServiceId &&
+                state.selectedStaffId &&
+                state.selectedAreaId
+            );
+        }
+
+        function updateSubmitButtonState() {
+            const submitBtn = getSubmitButton();
+
+            if (!submitBtn) {
+                return;
+            }
+
+            const ready = isFormReady();
+
+            submitBtn.disabled = !ready;
+            submitBtn.classList.toggle('opacity-50', !ready);
+            submitBtn.classList.toggle('cursor-not-allowed', !ready);
+            submitBtn.classList.toggle('hover:bg-indigo-700', ready);
+
+            console.log('[FastAppointment] submit button state:', {
+                ready: ready
+            });
+        }
+
+        function getVisualStepStateMap() {
+            const completedMap = getCompletedStepMap();
+            const visualStateMap = {};
+            let activeStepId = null;
+            let activeAssigned = false;
+
+            stepOrder.forEach(function(stepId) {
+                if (completedMap[stepId]) {
+                    visualStateMap[stepId] = 'completed';
+                    return;
+                }
+
+                if (!activeAssigned) {
+                    activeAssigned = true;
+                    activeStepId = stepId;
+                    visualStateMap[stepId] = 'active';
+                    return;
+                }
+
+                visualStateMap[stepId] = 'disabled';
+            });
+
+            console.log('[FastAppointmentSteps] active step calculated:', activeStepId);
+            console.log('[FastAppointmentSteps] visual state map:', visualStateMap);
+
+            return {
+                activeStepId: activeStepId,
+                visualStateMap: visualStateMap
+            };
+        }
+
+        function renderVisualSteps() {
+            const visual = getVisualStepStateMap();
+            const summaryMap = getCompletedStepSummaryMap();
+
+            if (expandedCompletedStepId && visual.visualStateMap[expandedCompletedStepId] !== 'completed') {
+                expandedCompletedStepId = null;
+            }
+
+            stepOrder.forEach(function(stepId) {
+                const stepElement = stepElements[stepId];
+                const status = visual.visualStateMap[stepId] || 'disabled';
+
+                if (!stepElement) {
+                    return;
+                }
+
+                const header = stepElement.querySelector('[data-aa-fastappointment-step-header]');
+                const body = getStepBody(stepElement);
+                const summary = getStepSummaryElement(stepElement);
+                const check = stepElement.querySelector('[data-aa-fastappointment-step-check]');
+                const isExpanded = status === 'active' || expandedCompletedStepId === stepId;
+
+                stepElement.dataset.visualState = status;
+                stepElement.classList.remove('border-indigo-100', 'bg-indigo-50', 'border-gray-200', 'bg-white', 'bg-gray-50', 'opacity-60');
+
+                if (status === 'active') {
+                    stepElement.classList.add('border-indigo-100', 'bg-indigo-50');
+                } else if (status === 'completed') {
+                    stepElement.classList.add('border-gray-200', 'bg-white');
+                } else {
+                    stepElement.classList.add('border-gray-200', 'bg-gray-50', 'opacity-60');
+                }
+
+                if (header) {
+                    header.disabled = status === 'disabled';
+                    header.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+                    header.setAttribute('aria-disabled', status === 'disabled' ? 'true' : 'false');
+                    header.classList.remove('cursor-pointer', 'cursor-not-allowed');
+                    header.classList.add(status === 'disabled' ? 'cursor-not-allowed' : 'cursor-pointer');
+                }
+
+                if (body) {
+                    body.classList.toggle('hidden', !isExpanded);
+                }
+
+                if (summary) {
+                    const summaryText = status === 'completed' ? (summaryMap[stepId] || '') : '';
+                    summary.textContent = summaryText;
+                    summary.classList.toggle('hidden', !summaryText);
+                }
+
+                if (check) {
+                    check.classList.toggle('hidden', status !== 'completed');
+                }
+            });
+
+            console.log('[FastAppointmentSteps] visual render applied:', {
+                activeStepId: visual.activeStepId,
+                expandedCompletedStepId: expandedCompletedStepId,
+                visualStateMap: visual.visualStateMap
+            });
+
+            updateSubmitButtonState();
+        }
+
+        function bindStepHeaderInteraction() {
+            if (!formEl) {
+                return;
+            }
+
+            handleStepHeaderClick = function(event) {
+                const header = event.target.closest('[data-aa-fastappointment-step-header]');
+
+                if (!header || !formEl.contains(header)) {
+                    return;
+                }
+
+                const stepElement = header.closest('[data-aa-fastappointment-step]');
+                const stepId = stepElement ? stepElement.dataset.aaFastappointmentStep : '';
+                const status = stepElement ? (stepElement.dataset.visualState || 'disabled') : 'disabled';
+
+                if (!stepId || status === 'disabled') {
+                    return;
+                }
+
+                expandedCompletedStepId = status === 'completed'
+                    ? (expandedCompletedStepId === stepId ? null : stepId)
+                    : null;
+
+                console.log('[FastAppointmentSteps] header interaction:', {
+                    stepId: stepId,
+                    status: status,
+                    expandedCompletedStepId: expandedCompletedStepId
+                });
+
+                renderVisualSteps();
+            };
+
+            formEl.addEventListener('click', handleStepHeaderClick);
         }
 
         function getOrCreatePrerequisitesNotice() {
@@ -93,6 +354,7 @@
                 return null;
             }
 
+            const stepTimeBody = getStepBody(stepTime);
             let notice = stepTime.querySelector('[data-aa-fastappointment-prerequisites]');
 
             if (notice) {
@@ -101,10 +363,12 @@
 
             notice = document.createElement('div');
             notice.setAttribute('data-aa-fastappointment-prerequisites', '1');
-            notice.className = 'hidden rounded-lg border px-3 py-3 text-sm';
+            notice.className = 'hidden rounded-lg border px-3 py-2 text-sm';
 
-            if (timeSelect && timeSelect.parentNode === stepTime) {
-                stepTime.insertBefore(notice, timeSelect);
+            if (stepTimeBody && timeSelect && timeSelect.parentNode === stepTimeBody) {
+                stepTimeBody.insertBefore(notice, timeSelect);
+            } else if (stepTimeBody) {
+                stepTimeBody.appendChild(notice);
             } else {
                 stepTime.appendChild(notice);
             }
@@ -122,7 +386,7 @@
             const list = Array.isArray(messages) ? messages.filter(Boolean) : [];
 
             if (!list.length) {
-                notice.className = 'hidden rounded-lg border px-3 py-3 text-sm';
+                notice.className = 'hidden rounded-lg border px-3 py-2 text-sm';
                 notice.innerHTML = '';
                 return;
             }
@@ -133,7 +397,7 @@
                 success: 'border-emerald-200 bg-emerald-50 text-emerald-800'
             };
 
-            notice.className = 'rounded-lg border px-3 py-3 text-sm ' + (toneMap[tone] || toneMap.info);
+            notice.className = 'rounded-lg border px-3 py-2 text-sm ' + (toneMap[tone] || toneMap.info);
             notice.innerHTML = list.map(function(message) {
                 return '<p>' + escapeHtml(message) + '</p>';
             }).join('');
@@ -252,18 +516,20 @@
 
         function syncSelectedClient() {
             const selectedClient = getSelectedClientData();
+            const isReady = clientSelectedByUser && !!selectedClient;
 
             updateState({
                 selectedClientId: selectedClient ? selectedClient.id : null,
                 selectedClient: selectedClient,
-                isClientStepReady: !!selectedClient
+                isClientStepReady: isReady
             });
 
-            stepClient.dataset.clientReady = selectedClient ? '1' : '0';
+            stepClient.dataset.clientReady = isReady ? '1' : '0';
         }
 
         function bindClientSelection() {
             handleClientChange = function() {
+                clientSelectedByUser = true;
                 syncSelectedClient();
             };
 
@@ -272,6 +538,18 @@
 
         function observeClientSelectUpdates() {
             clientSelectObserver = new MutationObserver(function() {
+                var firstOption = clientSelect.options[0];
+                if (!firstOption || firstOption.value !== '') {
+                    clientSelectObserver.disconnect();
+                    var placeholder = document.createElement('option');
+                    placeholder.value = '';
+                    placeholder.textContent = '-- Selecciona un cliente --';
+                    clientSelect.insertBefore(placeholder, clientSelect.firstChild);
+                    if (!clientSelectedByUser) {
+                        clientSelect.selectedIndex = 0;
+                    }
+                    clientSelectObserver.observe(clientSelect, { childList: true });
+                }
                 syncSelectedClient();
             });
 
@@ -405,8 +683,6 @@
         }
 
         function resetStepsAfterService() {
-            const confirmCheckbox = document.getElementById('aa-fastappointment-confirm');
-
             invalidateStaffAvailabilityRequests();
             invalidateAreaAvailabilityRequests();
 
@@ -432,8 +708,6 @@
         }
 
         function resetStepsAfterTime() {
-            const confirmCheckbox = document.getElementById('aa-fastappointment-confirm');
-
             invalidateStaffAvailabilityRequests();
             invalidateAreaAvailabilityRequests();
 
@@ -463,8 +737,6 @@
         }
 
         function resetStepsAfterStaff() {
-            const confirmCheckbox = document.getElementById('aa-fastappointment-confirm');
-
             invalidateAreaAvailabilityRequests();
 
             if (areaSelect && areaSelect.options.length > 0) {
@@ -949,8 +1221,7 @@
                     var selectedClient = finalState.selectedClient || {};
                     var selectedSlotISO = buildSelectedSlotISO(payload.date, payload.time);
 
-                    var confirmEl = document.getElementById('aa-fastappointment-confirm');
-                    var autoConfirm = !!(confirmEl && confirmEl.checked && confirmEl.value === 'confirmed');
+                    var autoConfirm = !!(confirmCheckbox && confirmCheckbox.checked && confirmCheckbox.value === 'confirmed');
 
                     var datos = {
                         servicio: payload.service_id,
@@ -1022,9 +1293,9 @@
                 } finally {
                     isSubmitting = false;
                     if (submitBtn) {
-                        submitBtn.disabled = false;
                         submitBtn.textContent = 'Agendar cita';
                     }
+                    updateSubmitButtonState();
                 }
             };
 
@@ -1036,8 +1307,6 @@
          * Limpia UI y estado para que se vuelvan a elegir tras cambiar la fecha.
          */
         function resetStepsAfterDate() {
-            const confirmCheckbox = document.getElementById('aa-fastappointment-confirm');
-
             invalidateStaffAvailabilityRequests();
             invalidateAreaAvailabilityRequests();
 
@@ -1094,16 +1363,6 @@
                 dateInput.type = 'date';
                 var todayStr = new Date().toISOString().split('T')[0];
                 dateInput.setAttribute('min', todayStr);
-                dateInput.value = todayStr;
-                if (stepDate) {
-                    stepDate.dataset.dateReady = '1';
-                }
-                updateState({
-                    selectedDate: todayStr,
-                    isDateStepReady: true
-                });
-                resetStepsAfterDate();
-                loadTimeAvailabilityForDate(todayStr);
                 dateInput.addEventListener('change', function() {
                     var selectedValue = dateInput.value || '';
 
@@ -1132,18 +1391,12 @@
             }
 
             try {
-                var today = new Date();
-                var todayStr = today.getFullYear() + '-' +
-                    String(today.getMonth() + 1).padStart(2, '0') + '-' +
-                    String(today.getDate()).padStart(2, '0');
-
                 datePicker = flatpickr(dateInput, {
                     dateFormat: 'Y-m-d',
                     locale: 'es',
                     minDate: 'today',
                     allowInput: false,
                     clickOpens: true,
-                    defaultDate: todayStr,
                     onChange: async function(selectedDates, dateStr) {
                         if (dateStr) {
                             updateState({
@@ -1158,31 +1411,11 @@
                         }
                     }
                 });
-
-                updateState({
-                    selectedDate: todayStr,
-                    isDateStepReady: true
-                });
-                if (stepDate) {
-                    stepDate.dataset.dateReady = '1';
-                }
-                resetStepsAfterDate();
-                loadTimeAvailabilityForDate(todayStr);
             } catch (error) {
                 console.error('[AdminFastappointmentFlowController] Error init Flatpickr:', error);
                 dateInput.type = 'date';
                 var todayStr = new Date().toISOString().split('T')[0];
                 dateInput.setAttribute('min', todayStr);
-                dateInput.value = todayStr;
-                if (stepDate) {
-                    stepDate.dataset.dateReady = '1';
-                }
-                updateState({
-                    selectedDate: todayStr,
-                    isDateStepReady: true
-                });
-                resetStepsAfterDate();
-                loadTimeAvailabilityForDate(todayStr);
                 dateInput.addEventListener('change', function() {
                     var selectedValue = dateInput.value || '';
 
@@ -1216,8 +1449,16 @@
             }
         }
 
+        bindStepHeaderInteraction();
+        renderVisualSteps();
         initClientController();
         bindClientSelection();
+
+        handleClientSavedForFlow = function() {
+            clientSelectedByUser = true;
+        };
+        document.addEventListener('aa:client:saved', handleClientSavedForFlow);
+
         bindTimeSelection();
         bindServiceSelection();
         bindStaffSelection();
@@ -1238,6 +1479,14 @@
 
                 if (handleClientChange) {
                     clientSelect.removeEventListener('change', handleClientChange);
+                }
+
+                if (handleClientSavedForFlow) {
+                    document.removeEventListener('aa:client:saved', handleClientSavedForFlow);
+                }
+
+                if (handleStepHeaderClick && formEl) {
+                    formEl.removeEventListener('click', handleStepHeaderClick);
                 }
 
                 if (handleTimeChange && timeSelect) {
