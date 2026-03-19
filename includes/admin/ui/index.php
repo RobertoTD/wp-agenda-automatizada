@@ -19,6 +19,7 @@ if (!current_user_can('manage_options')) {
 
 // Allowed UI modules (whitelist)
 $allowed_modules = [
+    'dashboard',
     'settings',
     'calendar',
     'clients',
@@ -28,12 +29,12 @@ $allowed_modules = [
 // Resolve requested module
 $requested_module = isset($_GET['module'])
     ? sanitize_key($_GET['module'])
-    : 'calendar';
+    : 'dashboard';
 
 // Fallback to default module
 $active_module = in_array($requested_module, $allowed_modules, true)
     ? $requested_module
-    : 'calendar';
+    : 'dashboard';
 
 // Resolve module path
 $module_path = __DIR__ . '/modules/' . $active_module . '/index.php';

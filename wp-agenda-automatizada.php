@@ -64,6 +64,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/services/ClienteService.php';
 require_once plugin_dir_path(__FILE__) . 'includes/services/notificationsService.php';
 require_once plugin_dir_path(__FILE__) . 'includes/services/appointmentsService.php';
 require_once plugin_dir_path(__FILE__) . 'includes/services/assignmentsService.php';
+require_once plugin_dir_path(__FILE__) . 'includes/services/dashboardService.php';
 require_once plugin_dir_path(__FILE__) . 'includes/services/assignments/servicesService.php';
 require_once plugin_dir_path(__FILE__) . 'includes/services/assignments/staffService.php';
 require_once plugin_dir_path(__FILE__) . 'includes/services/assignments/areasService.php';

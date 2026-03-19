@@ -347,6 +347,33 @@ function formatMySQLDateTimeEsMX(fechaStr) {
   return `${fechaFormateada} a las ${horaFormateada}`;
 }
 
+// ✅ Formatea la diferencia entre una fecha futura y una fecha base como texto corto en español
+// Ejemplos: "Ahora", "En 45 min", "En 2 h 10 min", "En 3 d 2 h 30 min"
+// @param {Date} targetDate - Fecha/hora destino (debe ser futura respecto a baseDate)
+// @param {Date} baseDate - Fecha/hora de referencia (default: new Date())
+// @returns {string} - Texto corto del tiempo restante, o '' si targetDate es inválida/pasada
+function formatTimeUntil(targetDate, baseDate) {
+  if (!targetDate || !(targetDate instanceof Date) || isNaN(targetDate.getTime())) return '';
+  if (!baseDate) baseDate = new Date();
+
+  var diffMs = targetDate.getTime() - baseDate.getTime();
+  if (diffMs <= 0) return 'Ahora';
+
+  var totalMin = Math.floor(diffMs / 60000);
+  if (totalMin < 1) return 'Ahora';
+
+  var days = Math.floor(totalMin / 1440);
+  var hours = Math.floor((totalMin % 1440) / 60);
+  var mins = totalMin % 60;
+
+  var parts = [];
+  if (days > 0) parts.push(days + ' d');
+  if (hours > 0) parts.push(hours + ' h');
+  if (mins > 0) parts.push(mins + ' min');
+
+  return 'En ' + parts.join(' ');
+}
+
 // ✅ Exponer globalmente
 window.DateUtils = {
   ymd,
@@ -368,7 +395,8 @@ window.DateUtils = {
   isAppointmentActive,
   isPastMysqlDateTime,
   isFutureMysqlDateTime,
-  formatMySQLDateTimeEsMX
+  formatMySQLDateTimeEsMX,
+  formatTimeUntil
 };
 
 console.log('✅ dateUtils.js cargado y exportado');

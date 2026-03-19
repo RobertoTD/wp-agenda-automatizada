@@ -56,6 +56,21 @@ $active_module = isset($active_module) ? $active_module : 'calendar';
     <!-- Sidebar Navigation -->
     <nav class="px-3 py-4">
         <ul class="space-y-1">
+            <!-- Resumen (Dashboard) -->
+            <li>
+                <a 
+                    href="<?php echo esc_url(admin_url('admin-post.php?action=aa_iframe_content&module=dashboard')); ?>" 
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors <?php echo ($active_module === 'dashboard') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'; ?>"
+                >
+                    <span class="flex items-center justify-center w-6 h-6 <?php echo ($active_module === 'dashboard') ? 'text-blue-600' : 'text-gray-500'; ?>">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/>
+                        </svg>
+                    </span>
+                    <span class="text-sm font-medium">Resumen</span>
+                </a>
+            </li>
+            
             <!-- Calendario -->
             <li>
                 <a 
