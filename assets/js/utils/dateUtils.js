@@ -374,6 +374,111 @@ function formatTimeUntil(targetDate, baseDate) {
   return 'En ' + parts.join(' ');
 }
 
+// ==============================
+// 🔹 Helpers de rangos de fecha (revenue, reportes, etc.)
+// ==============================
+
+var MONTH_NAMES_ES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+];
+
+var MONTH_NAMES_SHORT_ES = [
+  'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+  'jul', 'ago', 'sep', 'oct', 'nov', 'dic'
+];
+
+function formatDayLabel(dateStr) {
+  var d = new Date(dateStr + 'T00:00:00');
+  return d.getDate() + ' ' + MONTH_NAMES_SHORT_ES[d.getMonth()] + ' ' + d.getFullYear();
+}
+
+function formatWeekLabel(startDate, endDate) {
+  var sDay = startDate.getDate();
+  var eDay = endDate.getDate();
+  var sMonth = MONTH_NAMES_SHORT_ES[startDate.getMonth()];
+  var eMonth = MONTH_NAMES_SHORT_ES[endDate.getMonth()];
+  var sYear = startDate.getFullYear();
+  var eYear = endDate.getFullYear();
+
+  if (sYear !== eYear) {
+    return sDay + ' ' + sMonth + ' ' + sYear + ' – ' + eDay + ' ' + eMonth + ' ' + eYear;
+  }
+  if (startDate.getMonth() !== endDate.getMonth()) {
+    return sDay + ' ' + sMonth + ' – ' + eDay + ' ' + eMonth + ' ' + eYear;
+  }
+  return sDay + '–' + eDay + ' ' + sMonth + ' ' + eYear;
+}
+
+function formatMonthLabel(monthIndex, year) {
+  return MONTH_NAMES_ES[monthIndex] + ' ' + year;
+}
+
+// Rango de un solo día: { value, startDate, endDate, label }
+function getDayRange(dateStr) {
+  return {
+    value: dateStr,
+    startDate: dateStr,
+    endDate: dateStr,
+    label: formatDayLabel(dateStr)
+  };
+}
+
+// Lunes de la semana ISO que contiene la fecha dada
+function _getMonday(date) {
+  var d = new Date(date);
+  var dow = d.getDay();
+  d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+  return d;
+}
+
+// Últimas 12 semanas (semana actual + 11 previas), lun–dom
+function getLast12Weeks(refDateStr) {
+  var ref = refDateStr ? new Date(refDateStr + 'T00:00:00') : new Date();
+  var monday = _getMonday(ref);
+
+  var weeks = [];
+  for (var i = 0; i < 12; i++) {
+    var ws = new Date(monday);
+    ws.setDate(monday.getDate() - i * 7);
+    var we = new Date(ws);
+    we.setDate(ws.getDate() + 6);
+
+    weeks.push({
+      value: ymd(ws),
+      startDate: ymd(ws),
+      endDate: ymd(we),
+      label: formatWeekLabel(ws, we)
+    });
+  }
+  return weeks;
+}
+
+// Últimos 12 meses (mes actual + 11 previos)
+function getLast12Months(refDateStr) {
+  var ref = refDateStr ? new Date(refDateStr + 'T00:00:00') : new Date();
+  var refYear = ref.getFullYear();
+  var refMonth = ref.getMonth();
+
+  var months = [];
+  for (var i = 0; i < 12; i++) {
+    var m = refMonth - i;
+    var y = refYear;
+    while (m < 0) { m += 12; y--; }
+
+    var first = new Date(y, m, 1);
+    var last = new Date(y, m + 1, 0);
+
+    months.push({
+      value: y + '-' + String(m + 1).padStart(2, '0'),
+      startDate: ymd(first),
+      endDate: ymd(last),
+      label: formatMonthLabel(m, y)
+    });
+  }
+  return months;
+}
+
 // ✅ Exponer globalmente
 window.DateUtils = {
   ymd,
@@ -396,7 +501,13 @@ window.DateUtils = {
   isPastMysqlDateTime,
   isFutureMysqlDateTime,
   formatMySQLDateTimeEsMX,
-  formatTimeUntil
+  formatTimeUntil,
+  formatDayLabel,
+  formatWeekLabel,
+  formatMonthLabel,
+  getDayRange,
+  getLast12Weeks,
+  getLast12Months
 };
 
 console.log('✅ dateUtils.js cargado y exportado');

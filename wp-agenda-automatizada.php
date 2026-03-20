@@ -135,16 +135,28 @@ function aa_save_reservation() {
     
     // ✅ Sanitización y conversión de fecha a la zona horaria del negocio
     $servicio = sanitize_text_field($data['servicio']);
+    $is_fixed_service = strpos($servicio, 'fixed::') === 0;
+    $service_price_snapshot = null;
 
     // 🔹 Determinar si el servicio es virtual (antes de recortar fixed::)
     $join_token = null;
     $is_virtual = false;
-    if (strpos($servicio, 'fixed::') !== 0 && is_numeric($servicio)) {
+    if (!$is_fixed_service && is_numeric($servicio)) {
         $service_row = class_exists('AssignmentsModel')
             ? AssignmentsModel::get_service_by_id(intval($servicio))
             : false;
         if ($service_row && isset($service_row['attendance_type']) && $service_row['attendance_type'] === 'virtual') {
             $is_virtual = true;
+        }
+
+        $services_table = $wpdb->prefix . 'aa_services';
+        $service_price = $wpdb->get_var($wpdb->prepare(
+            "SELECT price FROM {$services_table} WHERE id = %d LIMIT 1",
+            intval($servicio)
+        ));
+
+        if ($service_price !== null) {
+            $service_price_snapshot = $service_price;
         }
     }
 
@@ -154,7 +166,7 @@ function aa_save_reservation() {
     }
 
     // 🔹 Extraer prefijo "fixed::" si existe (guardar solo el nombre del servicio)
-    if (strpos($servicio, 'fixed::') === 0) {
+    if ($is_fixed_service) {
         $servicio = substr($servicio, 7); // strlen('fixed::') = 7
     }
     
@@ -212,6 +224,7 @@ function aa_save_reservation() {
         'correo'     => $correo,
         'id_cliente' => $cliente_id,
         'estado'     => 'pending',
+        'service_price_snapshot' => $service_price_snapshot,
         'created_at' => current_time('mysql')
     ];
 
@@ -325,6 +338,8 @@ register_activation_hook(__FILE__, function() {
         calendar_uid varchar(255) DEFAULT NULL,
         virtual_link text DEFAULT NULL,
         join_token varchar(64) DEFAULT NULL,
+        service_price_snapshot decimal(10,2) DEFAULT NULL,
+        amount_charged decimal(10,2) DEFAULT NULL,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY  (id),
         KEY calendar_uid (calendar_uid),

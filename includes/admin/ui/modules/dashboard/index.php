@@ -102,21 +102,36 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
     <!-- Row 2: Ingreso estimado + Resumen semanal -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
 
-        <!-- Card: Ingreso estimado hoy -->
+        <!-- Card: Ingreso estimado -->
         <div class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
-            <div class="px-4 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
-                <div class="flex items-center gap-2.5">
-                    <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                    </span>
-                    <h3 class="text-base font-semibold text-gray-900">Ingreso estimado hoy</h3>
+            <div class="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+                <div class="flex items-center justify-between gap-2 flex-wrap">
+                    <div class="flex items-center gap-2.5">
+                        <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                        </span>
+                        <select
+                            id="aa-dash-revenue-mode"
+                            class="text-sm font-semibold text-gray-900 bg-transparent border-none focus:ring-0 focus:outline-none cursor-pointer pr-6 -ml-1 appearance-none"
+                            style="background-image: url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 fill=%27none%27 viewBox=%270 0 20 20%27%3E%3Cpath stroke=%27%236b7280%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27 stroke-width=%271.5%27 d=%27m6 8 4 4 4-4%27/%3E%3C/svg%3E'); background-position: right 0 center; background-repeat: no-repeat; background-size: 1.25em;"
+                        >
+                            <option value="day">Ingresos del día</option>
+                            <option value="week">Ingresos de la semana</option>
+                            <option value="month">Ingresos del mes</option>
+                        </select>
+                    </div>
+                    <div id="aa-dash-revenue-control">
+                        <input type="text" id="aa-dash-revenue-date" class="text-xs border border-gray-200 rounded-lg px-2.5 py-1 w-28 text-center text-gray-700 cursor-pointer focus:ring-1 focus:ring-emerald-300 focus:border-emerald-300" readonly>
+                        <select id="aa-dash-revenue-select" class="text-xs border border-gray-200 rounded-lg px-2.5 py-1 text-gray-700 focus:ring-1 focus:ring-emerald-300 focus:border-emerald-300 hidden"></select>
+                    </div>
                 </div>
             </div>
             <div class="p-4">
-                <p id="aa-dash-revenue" class="text-3xl font-bold text-emerald-700">--</p>
-                <p id="aa-dash-revenue-detail" class="text-xs text-gray-500 mt-1">--</p>
+                <h3 id="aa-dash-revenue-title" class="text-xs font-medium text-gray-500 mb-1">Ingresos del día</h3>
+                <p id="aa-dash-revenue" class="text-3xl font-bold text-emerald-700 transition-opacity duration-150">--</p>
+                <p id="aa-dash-revenue-detail" class="text-xs text-gray-500 mt-1 transition-opacity duration-150">--</p>
             </div>
         </div>
 

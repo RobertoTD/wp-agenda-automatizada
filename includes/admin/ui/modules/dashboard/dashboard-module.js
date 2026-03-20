@@ -170,15 +170,36 @@
 
     var REVENUE_IDS = {
         amount: 'aa-dash-revenue',
-        detail: 'aa-dash-revenue-detail'
+        detail: 'aa-dash-revenue-detail',
+        mode: 'aa-dash-revenue-mode',
+        dateInput: 'aa-dash-revenue-date',
+        select: 'aa-dash-revenue-select'
     };
+
+    var revenueState = {
+        mode: 'day',
+        value: null
+    };
+
+    var revenueDatepicker = null;
+
+    var REVENUE_TITLES = {
+        day: 'Ingresos del día',
+        week: 'Ingresos de la semana',
+        month: 'Ingresos del mes'
+    };
+
+    function updateRevenueTitle(mode) {
+        var el = document.getElementById('aa-dash-revenue-title');
+        if (el) el.textContent = REVENUE_TITLES[mode] || REVENUE_TITLES.day;
+    }
 
     function setRevenueValues(total, count, currency) {
         var amountEl = document.getElementById(REVENUE_IDS.amount);
         var detailEl = document.getElementById(REVENUE_IDS.detail);
 
         if (amountEl) amountEl.textContent = formatCurrency(total, currency);
-        if (detailEl) detailEl.textContent = count + ' servicios confirmados';
+        if (detailEl) detailEl.textContent = count + ' citas consideradas';
     }
 
     function setRevenueLoading() {
@@ -194,7 +215,7 @@
         var detailEl = document.getElementById(REVENUE_IDS.detail);
 
         if (amountEl) amountEl.textContent = formatCurrency(0, 'MXN');
-        if (detailEl) detailEl.textContent = 'Sin servicios hoy';
+        if (detailEl) detailEl.textContent = 'Sin ingresos en este periodo';
     }
 
     function setRevenueError() {
@@ -205,22 +226,142 @@
         if (detailEl) detailEl.textContent = 'Error al cargar';
     }
 
-    function loadRevenueCard() {
-        var data = window.AA_DASHBOARD_DATA;
-        if (!data || !data.today) return;
+    function resolveRevenueRange() {
+        var DU = window.DateUtils;
+        if (!DU) return null;
 
+        if (revenueState.mode === 'day') {
+            return DU.getDayRange(revenueState.value);
+        }
+
+        if (revenueState.mode === 'week') {
+            var weeks = DU.getLast12Weeks(revenueState.value);
+            for (var i = 0; i < weeks.length; i++) {
+                if (weeks[i].value === revenueState.value) return weeks[i];
+            }
+            return weeks[0] || null;
+        }
+
+        if (revenueState.mode === 'month') {
+            var months = DU.getLast12Months(revenueState.value);
+            for (var j = 0; j < months.length; j++) {
+                if (months[j].value === revenueState.value) return months[j];
+            }
+            return months[0] || null;
+        }
+
+        return null;
+    }
+
+    function renderRevenueOptions(options) {
+        var sel = document.getElementById(REVENUE_IDS.select);
+        if (!sel) return;
+        sel.innerHTML = '';
+        for (var i = 0; i < options.length; i++) {
+            var opt = document.createElement('option');
+            opt.value = options[i].value;
+            opt.textContent = options[i].label;
+            sel.appendChild(opt);
+        }
+    }
+
+    function switchRevenueMode(mode) {
+        var DU = window.DateUtils;
+        var data = window.AA_DASHBOARD_DATA;
+        var today = (data && data.today) || (DU ? DU.ymd(new Date()) : '');
+
+        revenueState.mode = mode;
+        updateRevenueTitle(mode);
+
+        var dateInput = document.getElementById(REVENUE_IDS.dateInput);
+        var sel = document.getElementById(REVENUE_IDS.select);
+        if (!dateInput || !sel) return;
+
+        if (mode === 'day') {
+            dateInput.classList.remove('hidden');
+            sel.classList.add('hidden');
+            revenueState.value = today;
+            initRevenueDatepicker(today);
+        } else if (mode === 'week' && DU) {
+            dateInput.classList.add('hidden');
+            sel.classList.remove('hidden');
+            var weeks = DU.getLast12Weeks(today);
+            renderRevenueOptions(weeks);
+            revenueState.value = weeks.length ? weeks[0].value : today;
+            sel.value = revenueState.value;
+        } else if (mode === 'month' && DU) {
+            dateInput.classList.add('hidden');
+            sel.classList.remove('hidden');
+            var months = DU.getLast12Months(today);
+            renderRevenueOptions(months);
+            revenueState.value = months.length ? months[0].value : today;
+            sel.value = revenueState.value;
+        }
+
+        loadRevenueCard();
+    }
+
+    function initRevenueDatepicker(initialDate) {
+        var input = document.getElementById(REVENUE_IDS.dateInput);
+        if (!input || typeof flatpickr === 'undefined') return;
+
+        if (revenueDatepicker) {
+            revenueDatepicker.setDate(initialDate, false);
+            return;
+        }
+
+        revenueDatepicker = flatpickr(input, {
+            dateFormat: 'Y-m-d',
+            locale: 'es',
+            allowInput: false,
+            clickOpens: true,
+            defaultDate: initialDate,
+            onChange: function (_, dateStr) {
+                if (dateStr && revenueState.mode === 'day') {
+                    revenueState.value = dateStr;
+                    loadRevenueCard();
+                }
+            }
+        });
+    }
+
+    function bindRevenueControls() {
+        var modeSelect = document.getElementById(REVENUE_IDS.mode);
+        if (modeSelect) {
+            modeSelect.addEventListener('change', function () {
+                switchRevenueMode(this.value);
+            });
+        }
+
+        var sel = document.getElementById(REVENUE_IDS.select);
+        if (sel) {
+            sel.addEventListener('change', function () {
+                revenueState.value = this.value;
+                loadRevenueCard();
+            });
+        }
+    }
+
+    function loadRevenueCard() {
         if (!window.DashboardService || !window.DashboardService.getRevenueSummary) {
             console.warn('[DashboardModule] DashboardService.getRevenueSummary not available');
             return;
         }
 
-        setRevenueLoading();
+        var range = resolveRevenueRange();
+        if (!range) return;
 
-        var today = data.today;
-        var currency = data.currency || 'MXN';
+        var amountEl = document.getElementById(REVENUE_IDS.amount);
+        var detailEl = document.getElementById(REVENUE_IDS.detail);
+        if (amountEl) amountEl.style.opacity = '0.4';
+        if (detailEl) detailEl.style.opacity = '0.4';
 
-        window.DashboardService.getRevenueSummary(today, today)
+        var currency = (window.AA_DASHBOARD_DATA && window.AA_DASHBOARD_DATA.currency) || 'MXN';
+
+        window.DashboardService.getRevenueSummary(range.startDate, range.endDate)
             .then(function (rev) {
+                if (amountEl) amountEl.style.opacity = '';
+                if (detailEl) detailEl.style.opacity = '';
                 if (rev.count === 0) {
                     setRevenueEmpty();
                     return;
@@ -228,6 +369,8 @@
                 setRevenueValues(rev.total, rev.count, currency);
             })
             .catch(function (err) {
+                if (amountEl) amountEl.style.opacity = '';
+                if (detailEl) detailEl.style.opacity = '';
                 console.error('[DashboardModule] Error loading revenue:', err);
                 setRevenueError();
             });
@@ -517,6 +660,10 @@
 
         loadNextAppointmentCard();
 
+        revenueState.value = data.today;
+        updateRevenueTitle(revenueState.mode);
+        initRevenueDatepicker(data.today);
+        bindRevenueControls();
         loadRevenueCard();
 
         bindWeeklyControls();

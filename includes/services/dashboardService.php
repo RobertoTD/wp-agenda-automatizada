@@ -119,7 +119,12 @@ add_action('wp_ajax_aa_get_dashboard_revenue', 'aa_get_dashboard_revenue');
  *   start_date (YYYY-MM-DD) — required
  *   end_date   (YYYY-MM-DD) — required
  *
- * Only counts reservations with billable status (confirmed, asistió).
+ * Revenue hierarchy per reservation:
+ * - amount_charged if present, regardless of estado
+ * - service_price_snapshot if present and estado is effective
+ * - current service price as fallback only for effective estados
+ *
+ * Count stays aligned with the same reservations considered in the total.
  *
  * @return void JSON { total: float, count: int }
  */
@@ -153,13 +158,40 @@ function aa_get_dashboard_revenue() {
 
     $query = $wpdb->prepare(
         "SELECT
-            COALESCE(SUM(s.price), 0) AS total,
-            COUNT(*) AS count
+            COALESCE(SUM(
+                CASE
+                    WHEN r.amount_charged IS NOT NULL THEN r.amount_charged
+                    WHEN r.service_price_snapshot IS NOT NULL
+                         AND r.estado IN ({$placeholders}) THEN r.service_price_snapshot
+                    WHEN r.amount_charged IS NULL
+                         AND r.service_price_snapshot IS NULL
+                         AND s.price IS NOT NULL
+                         AND r.estado IN ({$placeholders}) THEN s.price
+                    ELSE 0
+                END
+            ), 0) AS total,
+            COALESCE(SUM(
+                CASE
+                    WHEN r.amount_charged IS NOT NULL THEN 1
+                    WHEN r.service_price_snapshot IS NOT NULL
+                         AND r.estado IN ({$placeholders}) THEN 1
+                    WHEN r.amount_charged IS NULL
+                         AND r.service_price_snapshot IS NULL
+                         AND s.price IS NOT NULL
+                         AND r.estado IN ({$placeholders}) THEN 1
+                    ELSE 0
+                END
+            ), 0) AS count
          FROM {$table_reservas} r
          LEFT JOIN {$table_services} s ON s.id = CAST(r.servicio AS UNSIGNED)
-         WHERE r.fecha BETWEEN %s AND %s
-           AND r.estado IN ({$placeholders})",
-        array_merge([$range_start, $range_end], $billable_states)
+         WHERE r.fecha BETWEEN %s AND %s",
+        array_merge(
+            $billable_states,
+            $billable_states,
+            $billable_states,
+            $billable_states,
+            [$range_start, $range_end]
+        )
     );
 
     $row = $wpdb->get_row($query);
