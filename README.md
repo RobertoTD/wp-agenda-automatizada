@@ -34,7 +34,7 @@ Plugin de WordPress para gestión de citas con integración a Google Calendar. S
 ## How to work in this repo
 
 - **Do:** Respetar separación PHP = estructura + datos iniciales; JS = UI + consumo de controladores/servicios ya definidos.
-- **Do:** Añadir endpoints o flujos solo si están descritos o alineados con `docs/` (MVP, arquitectura, design brief).
+- **Do:** Añadir endpoints o flujos solo si están descritos o alineados con `docs/` (estrategia de producto, arquitectura, design brief).
 - **Do:** Pasar datos desde PHP (localized script) y consumirlos desde JS; no reimplementar en JS lógica que ya vive en PHP.
 - **Do:** Mantener controladores como orquestadores; lógica de negocio en services; UI en módulos `ui/` o equivalentes.
 - **Do:** Consultar `docs/DESIGN_BRIEF.md` para tokens y componentes antes de tocar estilos o nuevos componentes.
@@ -42,12 +42,12 @@ Plugin de WordPress para gestión de citas con integración a Google Calendar. S
 - **Don’t:** Poner lógica de negocio en controladores ni en componentes de UI.
 - **Don’t:** Duplicar reglas de negocio entre capa PHP y capa JS.
 - **Don’t:** Mezclar responsabilidades (p. ej. domain logic en models o en archivos de vista).
-- **Don’t:** Añadir features fuera del alcance MVP (app móvil, pagos, multi-sede, etc.) sin actualizar primero los docs.
+- **Don’t:** Añadir features grandes (app móvil nativa, pagos, multi-sede, etc.) sin alinear con [01-product-strategy.md](docs/01-product-strategy.md) y sin usuarios que las validen.
 
 ## Docs
 
 Documentación de referencia dentro del plugin (no inventar flujos ni endpoints que no figuren aquí):
 
-- [01-mvp-scope.md](docs/01-mvp-scope.md) — Alcance MVP, roles (Owner, Assistant, Client), features (reservas, staff, servicios, reportes), restricciones técnicas y no-goals.
+- [01-product-strategy.md](docs/01-product-strategy.md) — Estado actual del producto, problema que resuelve, modelo de uso, cuello de botella (distribución) y fases siguientes; guía de decisiones alineada con el código.
 - [02-architecture-principles.md](docs/02-architecture-principles.md) — Principios y capas PHP/JS; estructura de carpetas y responsabilidades de cada capa.
 - [DESIGN_BRIEF.md](docs/DESIGN_BRIEF.md) — Sistema de diseño: tokens (colores, espaciado, tipografía), componentes (cards, botones, badges, toolbars), interacciones y anti-patterns.
