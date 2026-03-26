@@ -242,9 +242,7 @@ function confirm_backend_service_confirmar($reserva_id) {
     $domain = aa_get_clean_domain();
     
     // 4️⃣ Determinar URL del backend
-    $backend_url = (strpos(get_site_url(), 'localhost') !== false)
-        ? 'http://localhost:3000/calendar/crear-reserva-directa'
-        : 'https://deoia-oauth-backend.onrender.com/calendar/crear-reserva-directa';
+    $backend_url = AA_API_BASE_URL . '/calendar/crear-reserva-directa';
     
     // 5️⃣ Formatear fecha según el backend espera (ISO 8601 con timezone)
     $timezone = get_option('aa_timezone', 'America/Mexico_City');
@@ -474,9 +472,7 @@ function confirm_backend_service_enviar_correo($datos) {
 
     // 🔹 Determinar URL del backend según entorno
     $site_url = get_site_url();
-    $backend_url = (strpos($site_url, 'localhost') !== false)
-        ? 'http://localhost:3000/correos/confirmacion'
-        : 'https://deoia-oauth-backend.onrender.com/correos/confirmacion';
+    $backend_url = AA_API_BASE_URL . '/correos/confirmacion';
 
     // 🔹 Enviar petición autenticada con HMAC
     $response = aa_send_authenticated_request($backend_url, 'POST', $backend_data);

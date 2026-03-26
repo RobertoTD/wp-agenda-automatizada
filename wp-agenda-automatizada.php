@@ -22,7 +22,7 @@ $site_url = get_site_url();
 if (strpos($site_url, 'localhost') !== false || strpos($site_url, '127.0.0.1') !== false) {
     define('AA_API_BASE_URL', 'http://localhost:3000');
 } else {
-    define('AA_API_BASE_URL', 'https://deoia-oauth-backend.onrender.com');
+    define('AA_API_BASE_URL', 'https://api.deoia.com');
 }
 
 // ===============================

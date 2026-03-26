@@ -178,9 +178,7 @@ function aa_cancel_reservation_internal($reserva_id) {
 
         $domain = aa_get_clean_domain();
         $site_url = get_site_url();
-        $backend_url = (strpos($site_url, 'localhost') !== false)
-            ? 'http://localhost:3000/cancelaciones/cancelar-cita'
-            : 'https://deoia-oauth-backend.onrender.com/cancelaciones/cancelar-cita';
+        $backend_url = AA_API_BASE_URL . '/cancelaciones/cancelar-cita';
 
         $backend_data = [
             'domain' => $domain,
