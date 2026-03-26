@@ -6,6 +6,8 @@
  */
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
+
+$brand_logo_url = aa_asset_url('includes/admin/ui/assets/img/deoia-citas-logo.svg');
 ?>
 <header class="bg-transparent">
     <div class="px-4 py-2.5">
@@ -28,7 +30,15 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
                 </button>
                 
                 <!-- Branding -->
-                <span class="text-sm font-semibold text-gray-800 tracking-tight hidden sm:block">Agenda</span>
+                <span class="hidden sm:flex items-center" style="gap: 0.375rem;">
+                    <img
+                        src="<?php echo $brand_logo_url; ?>"
+                        alt="DEOIA Citas"
+                        class="shrink-0"
+                        style="width: 1.5rem; height: 1.5rem; padding-left: 2px; padding-right: 2px;"
+                    >
+                    <span class="text-sm font-semibold text-gray-800 tracking-tight" style="position: relative; top: 1px;">DEOIA Citas</span>
+                </span>
             </div>
             
             <!-- Right: Notifications (island) -->

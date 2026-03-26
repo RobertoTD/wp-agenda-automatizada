@@ -14,6 +14,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
 
 // $active_module is available from parent scope (layout.php → index.php)
 $active_module = isset($active_module) ? $active_module : 'calendar';
+$brand_logo_url = aa_asset_url('includes/admin/ui/assets/img/deoia-citas-logo.svg');
 ?>
 
 <!-- Sidebar Overlay (backdrop) -->
@@ -34,12 +35,14 @@ $active_module = isset($active_module) ? $active_module : 'calendar';
     <!-- Sidebar Header -->
     <div class="flex items-center justify-between px-4 py-4 border-b border-gray-200">
         <div class="flex items-center gap-2">
-            <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 text-blue-600">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                </svg>
+            <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-violet-100">
+                <img
+                    src="<?php echo $brand_logo_url; ?>"
+                    alt="DEOIA Citas"
+                    class="w-5 h-5"
+                >
             </span>
-            <span class="text-sm font-semibold text-gray-900">Agenda</span>
+            <span class="text-sm font-semibold text-gray-900">DEOIA Citas</span>
         </div>
         <button 
             id="aa-sidebar-close" 
