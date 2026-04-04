@@ -333,7 +333,7 @@ $days = [
                         </span>
                         <div>
                             <h3 class="text-lg font-semibold text-gray-900">Google Calendar</h3>
-                            <p class="text-sm text-gray-500 mt-0.5">Sincroniza citas para evitar conflictos</p>
+                            <p class="text-sm text-gray-500 mt-0.5">Sincronizar con tu calendario de Google</p>
                         </div>
                     </div>
                     <svg class="aa-chevron w-5 h-5 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -346,6 +346,8 @@ $days = [
                 <?php 
                 $google_email = get_option('aa_google_email', '');
                 $is_sync_invalid = SyncService::is_sync_invalid();
+                $privacy_policy_url = 'https://deoia.com/politica-de-privacidad/';
+                $terms_url = 'https://deoia.com/terminos/';
 
                 echo '<input type="hidden" name="aa_google_email" value="' . esc_attr($google_email) . '">';
                 
@@ -422,6 +424,25 @@ $days = [
                         </a>
                     </div>
                 <?php endif; ?>
+
+                <div class="mt-4 border-t border-gray-100 pt-4 text-center">
+                    <p class="text-xs text-gray-500">
+                        Al conectar tu cuenta aceptas consultar nuestra
+                        <a href="<?php echo esc_url($privacy_policy_url); ?>"
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           class="text-gray-600 underline decoration-gray-300 underline-offset-2 transition-colors hover:text-gray-800">
+                            Política de privacidad
+                        </a>
+                        y
+                        <a href="<?php echo esc_url($terms_url); ?>"
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           class="text-gray-600 underline decoration-gray-300 underline-offset-2 transition-colors hover:text-gray-800">
+                            Términos y condiciones
+                        </a>.
+                    </p>
+                </div>
             </div>
         </details>
 
