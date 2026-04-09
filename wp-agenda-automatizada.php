@@ -65,6 +65,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/services/notificationsService
 require_once plugin_dir_path(__FILE__) . 'includes/services/appointmentsService.php';
 require_once plugin_dir_path(__FILE__) . 'includes/services/assignmentsService.php';
 require_once plugin_dir_path(__FILE__) . 'includes/services/dashboardService.php';
+require_once plugin_dir_path(__FILE__) . 'includes/services/ai/ai-module.php';
 require_once plugin_dir_path(__FILE__) . 'includes/services/assignments/servicesService.php';
 require_once plugin_dir_path(__FILE__) . 'includes/services/assignments/staffService.php';
 require_once plugin_dir_path(__FILE__) . 'includes/services/assignments/areasService.php';
@@ -93,6 +94,9 @@ require_once plugin_dir_path(__FILE__) . 'includes/routes/agenda-app.php';
 
 // 🔟 Routes: Citas Virtuales portal (join by token)
 require_once plugin_dir_path(__FILE__) . 'includes/routes/citas-virtuales.php';
+
+// 1️⃣1️⃣ AI: conexión mínima del endpoint AJAX del chat admin
+AA_AI_Module::register();
 
 // ================================
 // 🔹 REGISTRO DE WEBHOOKS REST API

@@ -138,6 +138,11 @@ $module_js_url = $plugin_url . 'calendar-module.js?ver=' . rawurlencode($calenda
     historialNonce: '<?php echo wp_create_nonce('aa_historial_citas'); ?>',
     ajaxurl: window.ajaxurl || '<?php echo admin_url('admin-ajax.php'); ?>'
   };
+
+  // Nonce real del endpoint AI para pruebas manuales y futura UI del chat.
+  window.AA_AI_CHAT = {
+    nonce: '<?php echo esc_js(wp_create_nonce('aa_admin_ai_chat_nonce')); ?>'
+  };
 </script>
 
 <!-- 

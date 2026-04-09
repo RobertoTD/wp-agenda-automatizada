@@ -59,6 +59,9 @@ PLUGIN ROOT
 │   ├── 01-product-strategy.md
 │   ├── 02-architecture-principles.md
 │   ├── DESIGN_BRIEF.md
+│   ├── ai/
+│   │   ├── 01-ai-module-overview.md
+│   │   └── 02-ai-chat-contract.md
 │   └── fast-appointment-vs-assignment-availability.md
 │
 ├── includes/
@@ -71,6 +74,8 @@ PLUGIN ROOT
 │   │       ├── modules/ (assignments, calendar, clients, dashboard, settings)
 │   │       └── shared/ (footer.php, header.php, layout.php, modals.php, sidebar.php)
 │   ├── controllers/
+│   │   ├── ai/
+│   │   │   └── admin-ai-chat-controller.php
 │   │   ├── availability-controller.php
 │   │   ├── confirmController.php
 │   │   ├── enqueueController.php
@@ -83,6 +88,14 @@ PLUGIN ROOT
 │   │   ├── agenda-app.php
 │   │   └── citas-virtuales.php
 │   └── services/
+│       ├── ai/
+│       │   ├── ai-module.php
+│       │   ├── contracts/
+│       │   ├── providers/ollama/
+│       │   ├── chat/
+│       │   ├── prompts/
+│       │   ├── mappers/
+│       │   └── skills/
 │       ├── assignments/ (areasService.php, servicesService.php, staffService.php)
 │       ├── appointmentsService.php
 │       ├── assignmentsService.php
@@ -151,6 +164,9 @@ PLUGIN ROOT
   Lógica de integración. Incluye subcarpeta `assignments/` (areas, services, staff).  
   **`dashboardService.php`:** endpoints `wp_ajax_*` dedicados al panel Resumen (ingresos por rango, comparativa de citas, alertas de pendientes). Helpers compartidos (`aa_dashboard_resolve_estados`, `aa_dashboard_count_reservas`, `aa_dashboard_resolve_ranges`, permisos). Mantiene agregaciones que no encajan en un controller existente.
 
+- **services/ai/ + controllers/ai/**  
+  Bounded context de AI. Separa proveedor LLM, caso de uso de chat, prompts, mapeo al dominio y skills reservadas. No debe cargarse en bootstrap hasta que exista un caso de uso real activado.
+
 - **routes/**  
   Páginas especiales vía rewrite rules.  
   - `agenda-app.php`: registro de la ruta `/agenda-app`, query var y `template_redirect` (entrada típica al iframe admin → módulo `dashboard`).  
@@ -192,6 +208,12 @@ PLUGIN ROOT
 - **JS (flujo UI):** `adminFastappointmentFlowController.js` + `adminFastappointmentController.js` + `includes/admin/ui/modals/fastappointment/fastappointment.js`.
 
 - **Integración:** mismos building blocks que el calendario admin (`CalendarAvailabilityService`, busy ranges assignments, etc.), cargados en `layout.php` antes de los controladores del modal.
+
+## AI (bounded context)
+
+- **Backend:** `includes/controllers/ai/` + `includes/services/ai/` — frontera reservada para chat admin con LLM, prompts, proveedor y adaptación al dominio.
+
+- **UI inicial:** no existe módulo visual independiente en `includes/admin/ui/modules/ai/`; el primer punto real de uso del chat deberá vivir dentro de `includes/admin/ui/modules/calendar/`, junto al flujo donde el admin crea citas.
 
 ## Estilos y documentación
 
