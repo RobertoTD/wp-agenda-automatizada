@@ -2,22 +2,21 @@
 /**
  * Create Booking Intent Handler
  *
- * Primer caso de uso real del bounded context AI.
- * Recibe un parsed normalizado con intent=create_booking y devuelve
- * una respuesta de negocio inicial sin resolver entidades ni disponibilidad.
+ * Caso de uso real del bounded context AI para create_booking.
+ * Recibe un parsed normalizado y devuelve una respuesta de negocio
+ * con resolución temporal heurística.
  *
  * Frontera actual:
  * - No ejecuta SQL.
  * - No resuelve cliente/staff/servicio/zona contra BD.
- * - No convierte fecha natural a DateTime.
  * - No consulta disponibilidad.
  * - No crea reservas.
- *
- * Fases posteriores agregarán resolución de entidades, disponibilidad
- * y ejecución real aquí o en clases delegadas desde aquí.
+ * - Sí resuelve fecha/hora natural a datetime local del negocio.
  */
 
 defined('ABSPATH') or die('No direct access');
+
+require_once __DIR__ . '/class-aa-ai-datetime-resolver.php';
 
 final class AA_AI_Create_Booking_Intent_Handler {
 
@@ -29,11 +28,25 @@ final class AA_AI_Create_Booking_Intent_Handler {
      *     @type string $intent     Siempre 'create_booking'.
      *     @type string $status     Estado del flujo de negocio.
      *     @type string $reply      Texto legible para el admin.
-     *     @type array  $resolution Datos de resolución parcial.
+     *     @type array  $resolution {
+     *         @type array  $parsed_input            Datos crudos del parser.
+     *         @type array  $missing_fields          Campos requeridos ausentes.
+     *         @type array  $ambiguous_fields        Campos con más de un candidato (futuro).
+     *         @type array  $resolved                Entidades ya resueltas contra BD (futuro).
+     *         @type array  $proposed                Valores propuestos por heurística (futuro).
+     *         @type bool   $ready_for_confirmation  true cuando el draft esté listo para confirmar.
+     *         @type array  $datetime_resolution     Resolución temporal heurística.
+     *     }
      * }
      */
     public function handle(array $parsed) {
         $missing = $this->detect_missing_fields($parsed);
+
+        $dt_resolver = new AA_AI_Datetime_Resolver();
+        $datetime_resolution = $dt_resolver->resolve(
+            $parsed['date_text'] ?? null,
+            $parsed['time_text'] ?? null
+        );
 
         $reply = $this->build_reply($parsed, $missing);
 
@@ -42,8 +55,13 @@ final class AA_AI_Create_Booking_Intent_Handler {
             'status'     => 'needs_resolution',
             'reply'      => $reply,
             'resolution' => [
-                'parsed_input'   => $parsed,
-                'missing_fields' => $missing,
+                'parsed_input'           => $parsed,
+                'missing_fields'         => $missing,
+                'ambiguous_fields'       => new \stdClass(),
+                'resolved'               => new \stdClass(),
+                'proposed'               => new \stdClass(),
+                'ready_for_confirmation' => false,
+                'datetime_resolution'    => $datetime_resolution,
             ],
         ];
     }
