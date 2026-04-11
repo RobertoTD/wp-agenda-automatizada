@@ -88,10 +88,62 @@ final class AA_Admin_AI_Chat_Service {
 
         $parsed = $this->normalize_parsed($parsed);
 
+        $intent_result = $this->dispatch_intent($parsed);
+
         return [
-            'ok'         => true,
-            'reply_text' => $content,
-            'parsed'     => $parsed,
+            'ok'            => true,
+            'reply_text'    => $content,
+            'parsed'        => $parsed,
+            'intent_result' => $intent_result,
+        ];
+    }
+
+    /**
+     * Enruta el parsed normalizado al handler correspondiente según intent.
+     *
+     * @param array $parsed
+     * @return array Estructura uniforme: intent, status, reply, resolution.
+     */
+    private function dispatch_intent(array $parsed) {
+        $intent = $parsed['intent'] ?? 'unknown';
+
+        if ($intent === 'create_booking') {
+            return $this->handle_create_booking($parsed);
+        }
+
+        return $this->handle_unimplemented_intent($parsed);
+    }
+
+    /**
+     * Delega al handler dedicado de create_booking.
+     *
+     * @param array $parsed
+     * @return array
+     */
+    private function handle_create_booking(array $parsed) {
+        require_once __DIR__ . '/class-aa-ai-create-booking-intent-handler.php';
+
+        $handler = new AA_AI_Create_Booking_Intent_Handler();
+
+        return $handler->handle($parsed);
+    }
+
+    /**
+     * Respuesta controlada para intents que aún no tienen handler dedicado.
+     *
+     * @param array $parsed
+     * @return array
+     */
+    private function handle_unimplemented_intent(array $parsed) {
+        $intent = $parsed['intent'] ?? 'unknown';
+
+        return [
+            'intent'     => $intent,
+            'status'     => 'not_implemented',
+            'reply'      => "La acción \"{$intent}\" aún no está disponible.",
+            'resolution' => [
+                'parsed_input' => $parsed,
+            ],
         ];
     }
 
@@ -102,24 +154,56 @@ final class AA_Admin_AI_Chat_Service {
      */
     private function build_system_prompt() {
         return <<<'PROMPT'
-Eres un asistente de una agenda de citas. Tu trabajo es interpretar mensajes del administrador del negocio y extraer datos estructurados.
+Eres un parser de una agenda de citas. Tu ÚNICO trabajo es extraer datos estructurados del mensaje del administrador.
 
-Responde SIEMPRE con un objeto JSON y nada más. El objeto debe tener exactamente estos campos:
+Responde SIEMPRE con un objeto JSON y NADA MÁS. Sin explicaciones, sin texto extra.
 
-- "intent": una de estas opciones exactas: "create_booking", "check_availability", "find_client", "list_services", "unknown"
-- "client_name": nombre del cliente mencionado, o null si no se menciona
-- "service_name": nombre del servicio solicitado, o null si no se menciona
-- "staff_name": nombre del profesional o empleado, o null si no se menciona
-- "zone_name": nombre del área o zona, o null si no se menciona
-- "date_text": la fecha mencionada tal cual la dice el usuario (ej: "mañana", "el lunes", "15 de abril"), o null
-- "time_text": la hora mencionada tal cual la dice el usuario (ej: "a las 4", "4pm", "16:00"), o null
-- "notes": cualquier detalle adicional relevante, o null
+CAMPOS (exactamente estos 8):
+- "intent": "create_booking" | "check_availability" | "find_client" | "list_services" | "unknown"
+- "client_name": string | null
+- "service_name": string | null
+- "staff_name": string | null
+- "zone_name": string | null
+- "date_text": string | null
+- "time_text": string | null
+- "notes": string | null
 
-Reglas:
-- Si un dato no está presente en el mensaje, el campo debe ser null.
-- No inventes datos que no estén en el mensaje.
-- Si no puedes determinar la intención, usa "unknown".
-- No incluyas explicaciones, solo el JSON.
+CÓMO IDENTIFICAR ROLES EN LA ORACIÓN:
+- "agendar/agenda/agéndame A [nombre]" → client_name (la persona a quien se agenda)
+- "para [servicio]" → service_name (el servicio solicitado)
+- "con [nombre]" → staff_name (el profesional que atiende)
+- "en [lugar/zona]" → zone_name
+- Referencias temporales como "mañana", "el lunes", "15 de abril" → date_text (copiar tal cual)
+- Referencias de hora como "a las 5", "4pm", "16:00" → time_text (copiar tal cual)
+
+REGLAS:
+- Si un dato no aparece en el mensaje → null.
+- No inventes datos.
+- Si la intención no es clara → "unknown".
+- Extrae nombres propios tal cual aparecen.
+
+EJEMPLOS:
+
+Input: "Agéndame a José mañana a las 5 para cejas con Anahí"
+Output: {"intent":"create_booking","client_name":"José","service_name":"cejas","staff_name":"Anahí","zone_name":null,"date_text":"mañana","time_text":"a las 5","notes":null}
+
+Input: "Agenda una cita para María López el viernes a las 10 para corte de cabello"
+Output: {"intent":"create_booking","client_name":"María López","service_name":"corte de cabello","staff_name":null,"zone_name":null,"date_text":"el viernes","time_text":"a las 10","notes":null}
+
+Input: "Ponle cita a Pedro con la Dra. Gómez para limpieza dental mañana a las 3 en sucursal norte"
+Output: {"intent":"create_booking","client_name":"Pedro","service_name":"limpieza dental","staff_name":"Dra. Gómez","zone_name":"sucursal norte","date_text":"mañana","time_text":"a las 3","notes":null}
+
+Input: "Agenda una cita mañana"
+Output: {"intent":"create_booking","client_name":null,"service_name":null,"staff_name":null,"zone_name":null,"date_text":"mañana","time_text":null,"notes":null}
+
+Input: "Qué servicios tienen disponibles?"
+Output: {"intent":"list_services","client_name":null,"service_name":null,"staff_name":null,"zone_name":null,"date_text":null,"time_text":null,"notes":null}
+
+Input: "Hay disponibilidad el martes en la tarde?"
+Output: {"intent":"check_availability","client_name":null,"service_name":null,"staff_name":null,"zone_name":null,"date_text":"el martes","time_text":"en la tarde","notes":null}
+
+Input: "Busca al cliente Ana Martínez"
+Output: {"intent":"find_client","client_name":"Ana Martínez","service_name":null,"staff_name":null,"zone_name":null,"date_text":null,"time_text":null,"notes":null}
 PROMPT;
     }
 

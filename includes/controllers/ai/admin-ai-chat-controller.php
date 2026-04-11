@@ -41,10 +41,12 @@ final class AA_Admin_AI_Chat_Controller {
         $result  = $service->handle($message);
 
         if (!empty($result['ok'])) {
-            wp_send_json_success([
-                'reply_text' => $result['reply_text'],
-                'parsed'     => $result['parsed'],
-            ]);
+            $data = [
+                'reply_text'    => $result['reply_text'],
+                'parsed'        => $result['parsed'],
+                'intent_result' => $result['intent_result'] ?? null,
+            ];
+            wp_send_json_success($data);
         }
 
         $error_data = ['message' => $result['error'] ?? 'Error desconocido.'];
