@@ -141,6 +141,21 @@ function aa_update_service_db() {
             $data['price'] = floatval($price);
         }
     }
+
+    // duration_minutes (permitir vacío para NULL; solo 30, 60 o 90)
+    if (isset($_POST['duration_minutes'])) {
+        $raw_duration = trim((string) $_POST['duration_minutes']);
+        if ($raw_duration === '') {
+            $data['duration_minutes'] = null;
+        } else {
+            $duration_minutes = intval($raw_duration);
+            if (!in_array($duration_minutes, [30, 60, 90], true)) {
+                wp_send_json_error(['message' => 'La duración del servicio debe ser 30, 60 o 90 minutos']);
+                return;
+            }
+            $data['duration_minutes'] = $duration_minutes;
+        }
+    }
     
     // Description
     if (isset($_POST['description'])) {

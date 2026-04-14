@@ -62,7 +62,7 @@
         const confirmCheckbox = document.getElementById('aa-fastappointment-confirm');
         const formEl = document.getElementById('aa-fastappointment-form');
         const summaryBox = document.querySelector(summarySelector);
-        const stepOrder = ['client', 'date', 'time', 'service', 'staff', 'area'];
+        const stepOrder = ['client', 'service', 'date', 'time', 'staff', 'area'];
         const stepElements = {
             client: stepClient,
             date: stepDate,
@@ -173,10 +173,10 @@
 
             return {
                 client: !!state.isClientStepReady,
+                service: !!state.selectedServiceId,
                 date: !!state.selectedDate && !!state.isDateStepReady,
                 time: !!state.selectedTime,
-                service: !!state.selectedServiceId,
-                staff: !!state.selectedStaffId,
+                staff: !!state.selectedStaffId && !!state.isSelectedStaffAvailable,
                 area: !!state.selectedAreaId
             };
         }
@@ -190,10 +190,11 @@
 
             return !!(
                 state.selectedClientId &&
+                state.selectedServiceId &&
                 state.selectedDate &&
                 state.selectedTime &&
-                state.selectedServiceId &&
                 state.selectedStaffId &&
+                state.isSelectedStaffAvailable &&
                 state.selectedAreaId
             );
         }
@@ -487,6 +488,9 @@
             applyPrerequisitesResult(result);
 
             if (result && result.canStart) {
+                var eligibleServices = getEligibleServices(result);
+                populateServiceSelect(eligibleServices);
+
                 const currentState = getState() || {};
                 const currentDate = currentState.selectedDate || null;
 
@@ -577,19 +581,28 @@
                 return [];
             }
 
-            var activeServiceIds = new Set(
-                (prerequisites.activeServices || []).map(function(s) { return String(s.id); })
-            );
+            var activeServicesMap = new Map();
+            (prerequisites.activeServices || []).forEach(function(s) {
+                activeServicesMap.set(String(s.id), s);
+            });
+
             var fromStaff = prerequisites.usableStaff.flatMap(function(s) {
                 return s.services || [];
             });
             var eligible = fromStaff.filter(function(s) {
-                return activeServiceIds.has(String(s.id));
+                return activeServicesMap.has(String(s.id));
             });
 
             var byId = new Map();
             eligible.forEach(function(s) {
-                byId.set(s.id, s);
+                if (!byId.has(s.id)) {
+                    var activeData = activeServicesMap.get(String(s.id)) || {};
+                    byId.set(s.id, {
+                        id: s.id,
+                        name: s.name || activeData.name || '',
+                        duration_minutes: activeData.duration_minutes || null
+                    });
+                }
             });
             return Array.from(byId.values()).sort(function(a, b) {
                 return (a.name || '').localeCompare(b.name || '');
@@ -603,25 +616,42 @@
 
             var html = '<option value="">-- Selecciona un servicio --</option>';
             (eligibleServices || []).forEach(function(s) {
-                html += '<option value="' + escapeHtml(String(s.id)) + '">' + escapeHtml(s.name || '') + '</option>';
+                var durationAttr = s.duration_minutes
+                    ? ' data-duration-minutes="' + escapeHtml(String(s.duration_minutes)) + '"'
+                    : '';
+                html += '<option value="' + escapeHtml(String(s.id)) + '"' + durationAttr + '>' + escapeHtml(s.name || '') + '</option>';
             });
 
             serviceSelect.innerHTML = html;
             serviceSelect.disabled = !(eligibleServices || []).length;
         }
 
-        function populateStaffSelect(availableStaff) {
+        function populateStaffSelect(allStaff) {
             if (!staffSelect) {
                 return;
             }
 
+            var list = allStaff || [];
+            var available = list.filter(function(s) { return s.available; });
+            var unavailable = list.filter(function(s) { return !s.available; });
+
             var html = '<option value="">-- Selecciona personal --</option>';
-            (availableStaff || []).forEach(function(staff) {
-                html += '<option value="' + escapeHtml(String(staff.id)) + '">' + escapeHtml(staff.name || '') + '</option>';
+
+            available.forEach(function(staff) {
+                html += '<option value="' + escapeHtml(String(staff.id)) + '"'
+                    + ' data-available="1">'
+                    + escapeHtml(staff.name || '') + '</option>';
+            });
+
+            unavailable.forEach(function(staff) {
+                html += '<option value="' + escapeHtml(String(staff.id)) + '"'
+                    + ' data-available="0"'
+                    + ' data-reason="' + escapeHtml(staff.reason || '') + '">'
+                    + escapeHtml(staff.name || '') + ' (no disponible)</option>';
             });
 
             staffSelect.innerHTML = html;
-            staffSelect.disabled = !(availableStaff || []).length;
+            staffSelect.disabled = !list.length;
         }
 
         function renderStaffAvailabilityMessage(text) {
@@ -686,6 +716,9 @@
             invalidateStaffAvailabilityRequests();
             invalidateAreaAvailabilityRequests();
 
+            if (timeSelect && timeSelect.options.length > 0) {
+                timeSelect.selectedIndex = 0;
+            }
             if (staffSelect) {
                 staffSelect.selectedIndex = 0;
             }
@@ -697,23 +730,41 @@
             }
 
             updateState({
+                selectedDate: null,
+                isDateStepReady: false,
+                selectedTime: null,
                 selectedStaffId: null,
+                isSelectedStaffAvailable: false,
                 selectedAreaId: null
             });
 
+            const state = getState() || {};
+            setTimeStepBlockedState(!state.canStartFastAppointment);
+
+            if (timeSelect) {
+                timeSelect.innerHTML = '<option value="">-- Selecciona una hora --</option>';
+            }
             populateStaffSelect([]);
             renderStaffAvailabilityMessage('');
             populateAreaSelect([]);
             renderAreaAvailabilityMessage('');
+
+            var dateInput = document.getElementById(dateInputId);
+            if (dateInput) {
+                dateInput.value = '';
+            }
+            if (datePicker && typeof datePicker.clear === 'function') {
+                datePicker.clear();
+            }
+            if (stepDate) {
+                stepDate.dataset.dateReady = '0';
+            }
         }
 
         function resetStepsAfterTime() {
             invalidateStaffAvailabilityRequests();
             invalidateAreaAvailabilityRequests();
 
-            if (serviceSelect && serviceSelect.options.length > 0) {
-                serviceSelect.selectedIndex = 0;
-            }
             if (staffSelect && staffSelect.options.length > 0) {
                 staffSelect.selectedIndex = 0;
             }
@@ -725,8 +776,8 @@
             }
 
             updateState({
-                selectedServiceId: null,
                 selectedStaffId: null,
+                isSelectedStaffAvailable: false,
                 selectedAreaId: null
             });
 
@@ -824,7 +875,7 @@
         }
 
         async function loadAvailableStaffForSelection(dateStr, timeStr, serviceId) {
-            if (!serviceSelect || !staffSelect) {
+            if (!staffSelect) {
                 return null;
             }
 
@@ -835,8 +886,8 @@
             }
 
             if (!window.FastAppointmentTimeAvailabilityService ||
-                typeof window.FastAppointmentTimeAvailabilityService.getAvailableStaffBySelection !== 'function') {
-                console.warn('[AdminFastappointmentFlowController] FastAppointmentTimeAvailabilityService.getAvailableStaffBySelection no disponible');
+                typeof window.FastAppointmentTimeAvailabilityService.getAllStaffWithAvailability !== 'function') {
+                console.warn('[AdminFastappointmentFlowController] FastAppointmentTimeAvailabilityService.getAllStaffWithAvailability no disponible');
                 populateStaffSelect([]);
                 renderStaffAvailabilityMessage('');
                 return null;
@@ -854,7 +905,7 @@
             console.log('[FastAppointmentFlow] loadAvailableStaffForSelection requestId=' + myRequestId +
                 ' date=' + dateStr + ' time=' + timeStr + ' serviceId=' + serviceId);
 
-            const result = await window.FastAppointmentTimeAvailabilityService.getAvailableStaffBySelection(
+            const result = await window.FastAppointmentTimeAvailabilityService.getAllStaffWithAvailability(
                 dateStr,
                 timeStr,
                 serviceId,
@@ -874,13 +925,18 @@
                 return result;
             }
 
-            var availableStaff = result && Array.isArray(result.staff) ? result.staff : [];
+            var allStaff = result && Array.isArray(result.staff) ? result.staff : [];
+            var hasAvailable = allStaff.some(function(s) { return s.available; });
 
-            populateStaffSelect(availableStaff);
+            populateStaffSelect(allStaff);
 
-            if (!availableStaff.length) {
+            if (!allStaff.length) {
                 renderStaffAvailabilityMessage(
-                    'El personal que brinda este servicio esta ocupado a las ' + timeStr + '. Elige otra hora o selecciona otro servicio.'
+                    'No hay personal registrado. Agrega personal en Asignaciones > Personal.'
+                );
+            } else if (!hasAvailable) {
+                renderStaffAvailabilityMessage(
+                    'Todo el personal esta ocupado u no tiene este servicio asignado a las ' + timeStr + '.'
                 );
             } else {
                 renderStaffAvailabilityMessage('');
@@ -950,7 +1006,7 @@
                 return;
             }
 
-            handleTimeChange = function() {
+            handleTimeChange = async function() {
                 const selectedTime = this.value || null;
 
                 updateState({
@@ -960,14 +1016,15 @@
                 resetStepsAfterTime();
 
                 if (!selectedTime) {
-                    populateServiceSelect([]);
                     return;
                 }
 
                 var state = getState() || {};
-                var prerequisites = state.fastAppointmentPrerequisites || null;
-                var eligibleServices = getEligibleServices(prerequisites);
-                populateServiceSelect(eligibleServices);
+                await loadAvailableStaffForSelection(
+                    state.selectedDate || null,
+                    selectedTime,
+                    state.selectedServiceId || null
+                );
             };
 
             timeSelect.addEventListener('change', handleTimeChange);
@@ -978,7 +1035,7 @@
                 return;
             }
 
-            handleServiceChange = async function() {
+            handleServiceChange = function() {
                 const selectedServiceId = this.value || null;
 
                 updateState({
@@ -986,20 +1043,17 @@
                 });
 
                 resetStepsAfterService();
-
-                if (!selectedServiceId) {
-                    return;
-                }
-
-                const state = getState() || {};
-                await loadAvailableStaffForSelection(
-                    state.selectedDate || null,
-                    state.selectedTime || null,
-                    selectedServiceId
-                );
             };
 
             serviceSelect.addEventListener('change', handleServiceChange);
+        }
+
+        function getSelectedServiceName() {
+            if (!serviceSelect || serviceSelect.selectedIndex < 1) {
+                return '';
+            }
+            var opt = serviceSelect.options[serviceSelect.selectedIndex];
+            return opt ? (opt.textContent || '').replace(/\s*\(no disponible\)\s*$/, '').trim() : '';
         }
 
         function bindStaffSelection() {
@@ -1009,18 +1063,41 @@
 
             handleStaffChange = async function() {
                 const selectedStaffId = this.value || null;
+                const selectedOption = this.options[this.selectedIndex];
+                const isAvailable = !selectedOption || selectedOption.dataset.available !== '0';
+                const reason = selectedOption ? (selectedOption.dataset.reason || '') : '';
+                const state = getState() || {};
 
                 updateState({
-                    selectedStaffId: selectedStaffId
+                    selectedStaffId: selectedStaffId,
+                    isSelectedStaffAvailable: selectedStaffId ? isAvailable : false
                 });
 
                 resetStepsAfterStaff();
 
                 if (!selectedStaffId) {
+                    renderStaffAvailabilityMessage('');
                     return;
                 }
 
-                const state = getState() || {};
+                if (!isAvailable) {
+                    var serviceName = getSelectedServiceName();
+                    if (reason === 'no_service') {
+                        renderStaffAvailabilityMessage(
+                            'Este profesional no tiene asignado el servicio "' + serviceName +
+                            '". Puedes agregarlo en Asignaciones > Personal.'
+                        );
+                    } else {
+                        renderStaffAvailabilityMessage(
+                            'Este profesional esta ocupado a las ' + (state.selectedTime || '') +
+                            '. Selecciona otra hora u otro profesional.'
+                        );
+                    }
+                    return;
+                }
+
+                renderStaffAvailabilityMessage('');
+
                 await loadAvailableAreasForSelection(
                     state.selectedDate || null,
                     state.selectedTime || null,
@@ -1174,7 +1251,12 @@
 
                 console.log('[FastAppointment] Submit payload', payload);
 
-                var slotDuration = parseInt(window.aa_slot_duration, 10) || 60;
+                var prerequisites = state.fastAppointmentPrerequisites || {};
+                var selectedServiceData = (prerequisites.activeServices || []).find(function(s) {
+                    return String(s.id) === String(payload.service_id);
+                });
+                var slotDuration = (selectedServiceData && parseInt(selectedServiceData.duration_minutes, 10))
+                    || parseInt(window.aa_slot_duration, 10) || 60;
 
                 try {
                     var result = await window.FastAppointmentTimeAvailabilityService
@@ -1302,19 +1384,12 @@
             formEl.addEventListener('submit', handleFormSubmit);
         }
 
-        /**
-         * Reset pasos posteriores a Fecha: hora, servicio, staff, zona, confirmar.
-         * Limpia UI y estado para que se vuelvan a elegir tras cambiar la fecha.
-         */
         function resetStepsAfterDate() {
             invalidateStaffAvailabilityRequests();
             invalidateAreaAvailabilityRequests();
 
             if (timeSelect && timeSelect.options.length > 0) {
                 timeSelect.selectedIndex = 0;
-            }
-            if (serviceSelect && serviceSelect.options.length > 0) {
-                serviceSelect.selectedIndex = 0;
             }
             if (staffSelect && staffSelect.options.length > 0) {
                 staffSelect.selectedIndex = 0;
@@ -1328,8 +1403,8 @@
 
             updateState({
                 selectedTime: null,
-                selectedServiceId: null,
                 selectedStaffId: null,
+                isSelectedStaffAvailable: false,
                 selectedAreaId: null
             });
 
@@ -1339,7 +1414,6 @@
             if (timeSelect) {
                 timeSelect.innerHTML = '<option value="">-- Selecciona una hora --</option>';
             }
-            populateServiceSelect([]);
             populateStaffSelect([]);
             populateAreaSelect([]);
             renderStaffAvailabilityMessage('');
@@ -1459,8 +1533,8 @@
         };
         document.addEventListener('aa:client:saved', handleClientSavedForFlow);
 
-        bindTimeSelection();
         bindServiceSelection();
+        bindTimeSelection();
         bindStaffSelection();
         bindAreaSelection();
         bindFormSubmit();

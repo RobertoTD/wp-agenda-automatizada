@@ -738,9 +738,80 @@
         };
     }
 
+    async function getAllStaffWithAvailability(date, time, serviceId, context) {
+        var evaluatedDate = date || null;
+        var selectedTime = time || null;
+        var selectedServiceId = String(serviceId || '');
+        var ctx = context || {};
+        var slotDuration = 30;
+        var usableStaff = normalizeUsableStaff(ctx.usableStaff);
+
+        console.log('[FastAppt] getAllStaffWithAvailability', evaluatedDate,
+            '| time:', selectedTime,
+            '| service:', selectedServiceId,
+            '| usableStaff:', usableStaff.length);
+
+        if (!evaluatedDate || !selectedTime || !selectedServiceId || !usableStaff.length) {
+            return {
+                implemented: true,
+                date: evaluatedDate,
+                time: selectedTime,
+                serviceId: selectedServiceId,
+                staff: [],
+                source: 'confirmed_reservations_filter'
+            };
+        }
+
+        var occupancySnapshot = await buildOccupancySnapshot(evaluatedDate, usableStaff);
+
+        var result = usableStaff.map(function(staff) {
+            var hasService = Array.isArray(staff.services) && staff.services.some(function(service) {
+                return String(service.id) === selectedServiceId;
+            });
+            var isBusy = isStaffBusyAtSlot(staff, selectedTime, slotDuration, occupancySnapshot.staffBusy);
+
+            var available = hasService && !isBusy;
+            var reason = null;
+            if (!hasService) {
+                reason = 'no_service';
+            } else if (isBusy) {
+                reason = 'busy';
+            }
+
+            return {
+                id: staff.id,
+                name: staff.name || '',
+                available: available,
+                reason: reason
+            };
+        });
+
+        result.sort(function(a, b) {
+            if (a.available !== b.available) {
+                return a.available ? -1 : 1;
+            }
+            return (a.name || '').localeCompare(b.name || '');
+        });
+
+        console.log('[FastAppt] AllStaff result — total:', result.length,
+            '| available:', result.filter(function(s) { return s.available; }).length,
+            '| unavailable:', result.filter(function(s) { return !s.available; }).length);
+
+        return {
+            implemented: true,
+            date: evaluatedDate,
+            time: selectedTime,
+            serviceId: selectedServiceId,
+            slotDuration: slotDuration,
+            staff: result,
+            source: 'confirmed_reservations_filter'
+        };
+    }
+
     window.FastAppointmentTimeAvailabilityService = {
         getAvailabilityByDate: getAvailabilityByDate,
         getAvailableStaffBySelection: getAvailableStaffBySelection,
+        getAllStaffWithAvailability: getAllStaffWithAvailability,
         getAreaAvailabilityBySelection: getAreaAvailabilityBySelection,
         findCompatibleAssignment: findCompatibleAssignment
     };

@@ -99,7 +99,11 @@ $duraciones = [30, 60, 90];
                                 $service_name = esc_html($servicio['name']);
                                 $att = isset($servicio['attendance_type']) ? esc_attr($servicio['attendance_type']) : '';
                                 $vch = isset($servicio['virtual_channel']) ? esc_attr($servicio['virtual_channel']) : '';
-                                echo "<option value='" . $service_id . "' data-attendance-type='" . $att . "' data-virtual-channel='" . $vch . "'>" . $service_name . "</option>";
+                                $duration_attr = '';
+                                if (isset($servicio['duration_minutes']) && $servicio['duration_minutes'] !== null && $servicio['duration_minutes'] !== '') {
+                                    $duration_attr = " data-duration-minutes='" . esc_attr($servicio['duration_minutes']) . "'";
+                                }
+                                echo "<option value='" . $service_id . "' data-attendance-type='" . $att . "' data-virtual-channel='" . $vch . "'" . $duration_attr . ">" . $service_name . "</option>";
                             }
                         }
                     }

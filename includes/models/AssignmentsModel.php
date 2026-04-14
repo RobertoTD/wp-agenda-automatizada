@@ -423,6 +423,23 @@ class AssignmentsModel {
     }
 
     /**
+     * Whether wp_aa_services has the duration_minutes column (cached per request).
+     *
+     * @return bool
+     */
+    public static function services_table_has_duration_minutes() {
+        static $has = null;
+        if ($has !== null) {
+            return $has;
+        }
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_services';
+        $col = $wpdb->get_results($wpdb->prepare("SHOW COLUMNS FROM {$table} LIKE %s", 'duration_minutes'));
+        $has = !empty($col);
+        return $has;
+    }
+
+    /**
      * Whether a service is marked for the public calendar.
      *
      * - Service not found → false
@@ -473,6 +490,9 @@ class AssignmentsModel {
         if (self::services_table_has_public_calendar()) {
             $cols .= ", public_calendar";
         }
+        if (self::services_table_has_duration_minutes()) {
+            $cols .= ", duration_minutes";
+        }
         $query = "SELECT $cols FROM $table $where_clause ORDER BY name ASC";
         
         $results = $wpdb->get_results($query, ARRAY_A);
@@ -501,9 +521,12 @@ class AssignmentsModel {
             return false;
         }
         
-        $cols = "id, name, code, description, price, active, created_at, attendance_type, virtual_channel";
+        $cols = "id, name, code, description, indicaciones_cita, price, active, created_at, attendance_type, virtual_channel";
         if (self::services_table_has_public_calendar()) {
             $cols .= ", public_calendar";
+        }
+        if (self::services_table_has_duration_minutes()) {
+            $cols .= ", duration_minutes";
         }
         $query = "SELECT $cols FROM $table WHERE id = %d LIMIT 1";
         
@@ -554,6 +577,17 @@ class AssignmentsModel {
             } else {
                 $update_data['price'] = floatval($price);
                 $format[] = '%f';
+            }
+        }
+
+        // duration_minutes (permite NULL; solo 30, 60, 90 llegan validados desde el servicio)
+        if (self::services_table_has_duration_minutes() && array_key_exists('duration_minutes', $data)) {
+            if ($data['duration_minutes'] === null || $data['duration_minutes'] === '') {
+                $update_data['duration_minutes'] = null;
+                $format[] = null;
+            } else {
+                $update_data['duration_minutes'] = intval($data['duration_minutes']);
+                $format[] = '%d';
             }
         }
         

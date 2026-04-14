@@ -177,14 +177,18 @@
 
                 // 4️⃣ Filtrar servicios sin fechas disponibles
                 this.filterServiceOptions().then(() => {
+                    this.syncDurationFromSelectedService();
                     this.updateServiceVirtualUI();
                 });
 
-                // 4b️⃣ Bind change del select de servicio una sola vez (virtual UI)
+                // 4b️⃣ Bind change del select de servicio una sola vez (virtual UI + duración)
                 const servicioSelect = document.getElementById('cita-servicio');
-                if (servicioSelect && servicioSelect.dataset.virtualUiBound !== '1') {
-                    servicioSelect.dataset.virtualUiBound = '1';
-                    servicioSelect.addEventListener('change', () => this.updateServiceVirtualUI());
+                if (servicioSelect && servicioSelect.dataset.serviceUiBound !== '1') {
+                    servicioSelect.dataset.serviceUiBound = '1';
+                    servicioSelect.addEventListener('change', () => {
+                        this.syncDurationFromSelectedService();
+                        this.updateServiceVirtualUI();
+                    });
                 }
 
                 // Reset state antes de inicializar flujo
@@ -270,6 +274,31 @@
                     wrap.classList.add('hidden');
                     input.value = '';
                 }
+            }
+        },
+
+        /**
+         * Si el servicio tiene duración propia, la refleja en el select explícito
+         * para que el resto del flujo use esa duración como base editable.
+         */
+        syncDurationFromSelectedService: function() {
+            const servicioSelect = document.getElementById('cita-servicio');
+            const duracionSelect = document.getElementById('cita-duracion');
+
+            if (!servicioSelect || !duracionSelect) {
+                return;
+            }
+
+            const selectedOption = servicioSelect.options[servicioSelect.selectedIndex];
+            const serviceDuration = selectedOption && selectedOption.dataset
+                ? selectedOption.dataset.durationMinutes
+                : '';
+            const fallbackDuration = String(parseInt(window.aa_slot_duration, 10) || 60);
+            const nextDuration = serviceDuration || fallbackDuration;
+
+            if (duracionSelect.value !== nextDuration) {
+                duracionSelect.value = nextDuration;
+                duracionSelect.dispatchEvent(new Event('change', { bubbles: true }));
             }
         },
 

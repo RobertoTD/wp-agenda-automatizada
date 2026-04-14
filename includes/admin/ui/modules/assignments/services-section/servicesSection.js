@@ -326,6 +326,7 @@
         const priceInput = document.getElementById('aa-service-price-' + serviceId);
         const descriptionInput = document.getElementById('aa-service-description-' + serviceId);
         const indicacionesInput = document.getElementById('aa-service-indicaciones-cita-' + serviceId);
+        const durationMinutesInput = document.getElementById('aa-service-duration-minutes-' + serviceId);
         const attendanceTypeInput = document.getElementById('aa-service-attendance-type-' + serviceId);
         const virtualChannelInput = document.getElementById('aa-service-virtual-channel-' + serviceId);
         const publicCalendarInput = document.getElementById('aa-service-public-calendar-' + serviceId);
@@ -339,6 +340,7 @@
         const price = priceInput.value.trim();
         const description = descriptionInput.value.trim();
         const indicaciones = indicacionesInput ? indicacionesInput.value.trim() : '';
+        const durationMinutes = durationMinutesInput ? durationMinutesInput.value.trim() : '';
         const attendanceType = attendanceTypeInput ? attendanceTypeInput.value.trim() : '';
         const virtualChannel = (attendanceType === 'virtual' && virtualChannelInput)
             ? virtualChannelInput.value.trim()
@@ -357,6 +359,7 @@
         formData.append('price', price);
         formData.append('description', description);
         formData.append('indicaciones_cita', indicaciones);
+        formData.append('duration_minutes', durationMinutes);
         formData.append('attendance_type', attendanceType || '');
         formData.append('virtual_channel', virtualChannel);
         formData.append('public_calendar', (publicCalendarInput && publicCalendarInput.checked) ? '1' : '0');
@@ -626,6 +629,23 @@
         html += '>';
         html += escapeHtml(service.indicaciones_cita || '');
         html += '</textarea>';
+        html += '</div>';
+
+        // Duración del servicio (opcional; vacío = usar configuración general)
+        var durationMinutesVal = '';
+        if (service.duration_minutes !== null && service.duration_minutes !== undefined && service.duration_minutes !== '') {
+            durationMinutesVal = String(service.duration_minutes);
+        }
+        html += '<div class="mt-4 pt-4 border-t border-gray-200">';
+        html += '<label class="text-xs text-gray-500 block mb-1">Duración</label>';
+        html += '<select id="aa-service-duration-minutes-' + serviceId + '" ';
+        html += 'class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" ';
+        html += 'data-service-id="' + serviceId + '">';
+        html += '<option value=""' + (durationMinutesVal === '' ? ' selected' : '') + '>Usar configuración general</option>';
+        html += '<option value="30"' + (durationMinutesVal === '30' ? ' selected' : '') + '>30 min</option>';
+        html += '<option value="60"' + (durationMinutesVal === '60' ? ' selected' : '') + '>60 min</option>';
+        html += '<option value="90"' + (durationMinutesVal === '90' ? ' selected' : '') + '>90 min</option>';
+        html += '</select>';
         html += '</div>';
         
         // Tipo (physical/virtual)

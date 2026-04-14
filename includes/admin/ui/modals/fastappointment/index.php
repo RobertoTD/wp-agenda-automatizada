@@ -57,6 +57,31 @@ defined('ABSPATH') or die('No direct access');
                 </div>
             </div>
 
+            <div id="aa-fastappointment-step-service" data-aa-fastappointment-step="service" class="aa-fastappointment-step rounded-xl border border-gray-200 bg-white">
+                <button type="button" data-aa-fastappointment-step-header class="aa-fastappointment-step-header flex w-full items-center justify-between gap-2 px-4 py-2 text-left">
+                    <div class="min-w-0">
+                        <h4 class="text-sm font-semibold text-gray-900">Servicio</h4>
+                    </div>
+                    <div class="flex items-center gap-2 pl-2">
+                        <span data-aa-fastappointment-step-summary class="hidden max-w-[12rem] truncate text-sm text-gray-500"></span>
+                        <span data-aa-fastappointment-step-check class="aa-fastappointment-step-check hidden h-5 w-5 text-emerald-600" aria-hidden="true">
+                            <svg viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5">
+                                <path fill-rule="evenodd" d="M16.704 5.29a1 1 0 010 1.42l-7.25 7.25a1 1 0 01-1.414 0l-3-3a1 1 0 111.414-1.42l2.293 2.294 6.543-6.544a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                            </svg>
+                        </span>
+                    </div>
+                </button>
+                <div data-aa-fastappointment-step-body class="aa-fastappointment-step-body hidden space-y-2 border-t border-gray-200 p-3">
+                    <p data-aa-fastappointment-step-description class="text-xs text-gray-500">Selecciona el servicio para esta cita.</p>
+                    <select
+                        id="aa-fastappointment-service"
+                        name="servicio"
+                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white">
+                        <option value="">-- Selecciona un servicio --</option>
+                    </select>
+                </div>
+            </div>
+
             <div id="aa-fastappointment-step-date" data-aa-fastappointment-step="date" class="aa-fastappointment-step rounded-xl border border-gray-200 bg-white">
                 <button type="button" data-aa-fastappointment-step-header class="aa-fastappointment-step-header flex w-full items-center justify-between gap-2 px-4 py-2 text-left">
                     <div class="min-w-0">
@@ -104,31 +129,6 @@ defined('ABSPATH') or die('No direct access');
                         name="hora"
                         class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white">
                         <option value="">-- Selecciona una hora --</option>
-                    </select>
-                </div>
-            </div>
-
-            <div id="aa-fastappointment-step-service" data-aa-fastappointment-step="service" class="aa-fastappointment-step rounded-xl border border-gray-200 bg-white">
-                <button type="button" data-aa-fastappointment-step-header class="aa-fastappointment-step-header flex w-full items-center justify-between gap-2 px-4 py-2 text-left">
-                    <div class="min-w-0">
-                        <h4 class="text-sm font-semibold text-gray-900">Servicio</h4>
-                    </div>
-                    <div class="flex items-center gap-2 pl-2">
-                        <span data-aa-fastappointment-step-summary class="hidden max-w-[12rem] truncate text-sm text-gray-500"></span>
-                        <span data-aa-fastappointment-step-check class="aa-fastappointment-step-check hidden h-5 w-5 text-emerald-600" aria-hidden="true">
-                            <svg viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5">
-                                <path fill-rule="evenodd" d="M16.704 5.29a1 1 0 010 1.42l-7.25 7.25a1 1 0 01-1.414 0l-3-3a1 1 0 111.414-1.42l2.293 2.294 6.543-6.544a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                            </svg>
-                        </span>
-                    </div>
-                </button>
-                <div data-aa-fastappointment-step-body class="aa-fastappointment-step-body hidden space-y-2 border-t border-gray-200 p-3">
-                    <p data-aa-fastappointment-step-description class="text-xs text-gray-500">Selecciona el servicio para esta cita.</p>
-                    <select
-                        id="aa-fastappointment-service"
-                        name="servicio"
-                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white">
-                        <option value="">-- Selecciona un servicio --</option>
                     </select>
                 </div>
             </div>

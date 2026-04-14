@@ -437,6 +437,7 @@ register_activation_hook(__FILE__, function() {
         description text DEFAULT NULL,
         indicaciones_cita text DEFAULT NULL,
         price decimal(10,2) DEFAULT NULL,
+        duration_minutes smallint unsigned DEFAULT NULL,
         active tinyint(1) DEFAULT 1,
         is_hidden tinyint(1) NOT NULL DEFAULT 0,
         public_calendar tinyint(1) NOT NULL DEFAULT 0,
@@ -454,6 +455,12 @@ register_activation_hook(__FILE__, function() {
     $col = $wpdb->get_results($wpdb->prepare("SHOW COLUMNS FROM {$services_table} LIKE %s", 'public_calendar'));
     if (empty($col)) {
         $wpdb->query("ALTER TABLE {$services_table} ADD COLUMN public_calendar tinyint(1) NOT NULL DEFAULT 0");
+    }
+
+    // Ensure duration_minutes column exists for existing installs
+    $col = $wpdb->get_results($wpdb->prepare("SHOW COLUMNS FROM {$services_table} LIKE %s", 'duration_minutes'));
+    if (empty($col)) {
+        $wpdb->query("ALTER TABLE {$services_table} ADD COLUMN duration_minutes smallint unsigned DEFAULT NULL");
     }
     
     // 🔹 Crear tabla pivote para relación muchos-a-muchos entre staff y services
