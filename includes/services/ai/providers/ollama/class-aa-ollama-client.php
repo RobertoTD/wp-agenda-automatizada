@@ -2,7 +2,10 @@
 /**
  * Ollama Client
  *
- * Adaptador HTTP para Ollama en entorno local.
+ * Adaptador HTTP para Ollama.
+ * Soporta tanto runtime local (http://127.0.0.1:11434) como
+ * Ollama Cloud (https://ollama.com) mediante la misma interfaz,
+ * usando `Authorization: Bearer` cuando se inyecta `api_key`.
  *
  * No debe conocer: SQL, lógica de citas, render del chat admin.
  */
@@ -20,19 +23,25 @@ final class AA_Ollama_Client implements AA_LLM_Client_Interface {
     /** @var int Timeout en segundos para wp_remote_post. */
     private $timeout;
 
+    /** @var string|null API key opcional (requerida para Ollama Cloud). */
+    private $api_key;
+
     /**
-     * @param string $base_url Base URL del runtime local de Ollama.
-     * @param string $model    Modelo por defecto.
-     * @param int    $timeout  Timeout HTTP en segundos.
+     * @param string      $base_url Base URL del runtime (local o cloud).
+     * @param string      $model    Modelo por defecto.
+     * @param int         $timeout  Timeout HTTP en segundos.
+     * @param string|null $api_key  API key opcional. Si se pasa, se envía como Bearer.
      */
     public function __construct(
         $base_url = 'http://127.0.0.1:11434',
         $model    = 'qwen2.5:3b',
-        $timeout  = 120
+        $timeout  = 120,
+        $api_key  = null
     ) {
         $this->base_url = untrailingslashit((string) $base_url);
         $this->model    = (string) $model;
         $this->timeout  = (int) $timeout;
+        $this->api_key  = is_string($api_key) && $api_key !== '' ? $api_key : null;
     }
 
     /**
@@ -70,8 +79,14 @@ final class AA_Ollama_Client implements AA_LLM_Client_Interface {
 
         $url = $this->base_url . '/api/chat';
 
+        $headers = ['Content-Type' => 'application/json'];
+
+        if ($this->api_key !== null) {
+            $headers['Authorization'] = 'Bearer ' . $this->api_key;
+        }
+
         $response = wp_remote_post($url, [
-            'headers' => ['Content-Type' => 'application/json'],
+            'headers' => $headers,
             'body'    => wp_json_encode($body),
             'timeout' => $this->timeout,
         ]);

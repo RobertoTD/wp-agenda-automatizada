@@ -2689,6 +2689,14 @@ body.aa-modal-open {
   text-decoration-line: underline;
 }
 
+.decoration-gray-300 {
+  text-decoration-color: #d1d5db;
+}
+
+.underline-offset-2 {
+  text-underline-offset: 2px;
+}
+
 .opacity-0 {
   opacity: 0;
 }
@@ -2947,6 +2955,11 @@ body.aa-modal-open {
 .hover\:text-gray-700:hover {
   --tw-text-opacity: 1;
   color: rgb(55 65 81 / var(--tw-text-opacity, 1));
+}
+
+.hover\:text-gray-800:hover {
+  --tw-text-opacity: 1;
+  color: rgb(31 41 55 / var(--tw-text-opacity, 1));
 }
 
 .hover\:text-gray-900:hover {

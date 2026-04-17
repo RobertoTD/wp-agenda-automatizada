@@ -4,20 +4,27 @@
  *
  * Caso de uso real del bounded context AI para create_booking.
  * Recibe un parsed normalizado y devuelve una respuesta de negocio
- * con resolución temporal heurística y resolución de cliente contra BD.
+ * con resolución temporal heurística y resolución de entidades contra BD.
  *
  * Frontera actual:
  * - Resuelve fecha/hora natural a datetime local del negocio.
  * - Resuelve client_name contra clientes reales (aa_search_clientes).
- * - No resuelve staff/servicio/zona contra BD.
- * - No consulta disponibilidad.
- * - No crea reservas ni clientes.
+ * - Resuelve service_name contra servicios reales (AssignmentsModel).
+ * - Resuelve staff_name contra personal real (AssignmentsModel).
+ * - Resuelve zone_name contra zonas de atención reales (AssignmentsModel).
+ * - Evalúa factibilidad temprana del servicio (catálogo + capacidad staff).
+ * - No consulta disponibilidad real, assignments ni ocupación.
+ * - No crea reservas, clientes, servicios, staff ni zonas.
  */
 
 defined('ABSPATH') or die('No direct access');
 
 require_once __DIR__ . '/class-aa-ai-datetime-resolver.php';
 require_once __DIR__ . '/class-aa-ai-client-resolver.php';
+require_once __DIR__ . '/class-aa-ai-service-resolver.php';
+require_once __DIR__ . '/class-aa-ai-staff-resolver.php';
+require_once __DIR__ . '/class-aa-ai-zone-resolver.php';
+require_once __DIR__ . '/class-aa-ai-service-feasibility-evaluator.php';
 
 final class AA_AI_Create_Booking_Intent_Handler {
 
@@ -50,14 +57,29 @@ final class AA_AI_Create_Booking_Intent_Handler {
             $parsed['time_text'] ?? null
         );
 
-        $client_resolver = new AA_AI_Client_Resolver();
-        $client_result   = $client_resolver->resolve($parsed['client_name'] ?? null);
+        $client_resolver  = new AA_AI_Client_Resolver();
+        $client_result    = $client_resolver->resolve($parsed['client_name'] ?? null);
 
-        $resolved        = [];
+        $service_resolver = new AA_AI_Service_Resolver();
+        $service_result   = $service_resolver->resolve($parsed['service_name'] ?? null);
+
+        $staff_resolver   = new AA_AI_Staff_Resolver();
+        $staff_result     = $staff_resolver->resolve($parsed['staff_name'] ?? null);
+
+        $zone_resolver    = new AA_AI_Zone_Resolver();
+        $zone_result      = $zone_resolver->resolve($parsed['zone_name'] ?? null);
+
+        $resolved         = [];
         $ambiguous_fields = [];
-        $lookup          = [];
+        $lookup           = [];
 
-        $this->place_client_result($client_result, $resolved, $ambiguous_fields, $lookup);
+        $this->place_entity_result('client', $client_result, $resolved, $ambiguous_fields, $lookup);
+        $this->place_entity_result('service', $service_result, $resolved, $ambiguous_fields, $lookup);
+        $this->place_entity_result('staff', $staff_result, $resolved, $ambiguous_fields, $lookup);
+        $this->place_entity_result('zone', $zone_result, $resolved, $ambiguous_fields, $lookup);
+
+        $feasibility_evaluator = new AA_AI_Service_Feasibility_Evaluator();
+        $feasibility = $feasibility_evaluator->evaluate($resolved, $ambiguous_fields, $lookup);
 
         $reply = $this->build_reply($parsed, $missing);
 
@@ -74,27 +96,30 @@ final class AA_AI_Create_Booking_Intent_Handler {
                 'ready_for_confirmation' => false,
                 'datetime_resolution'    => $datetime_resolution,
                 'lookup'                 => !empty($lookup) ? $lookup : new \stdClass(),
+                'feasibility'            => $feasibility,
             ],
         ];
     }
 
     /**
-     * Coloca el resultado del client resolver en el slot correcto del contrato.
+     * Coloca el resultado de un resolver de entidad en el slot correcto del contrato.
+     *
+     * @param string $entity_key Clave de la entidad (e.g. 'client', 'service').
      */
-    private function place_client_result(array $result, array &$resolved, array &$ambiguous, array &$lookup): void {
+    private function place_entity_result(string $entity_key, array $result, array &$resolved, array &$ambiguous, array &$lookup): void {
         switch ($result['status']) {
             case 'resolved':
-                $resolved['client'] = $result;
+                $resolved[$entity_key] = $result;
                 break;
 
             case 'ambiguous':
-                $ambiguous['client'] = $result;
+                $ambiguous[$entity_key] = $result;
                 break;
 
             case 'missing':
             case 'no_match':
             default:
-                $lookup['client'] = $result;
+                $lookup[$entity_key] = $result;
                 break;
         }
     }

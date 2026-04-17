@@ -74,7 +74,8 @@ final class AA_Admin_AI_Chat_Service {
 
         $content = $result['data']['message']['content'] ?? '';
 
-        $parsed = json_decode($content, true);
+        $json_candidate = $this->extract_json_payload($content);
+        $parsed = $json_candidate !== null ? json_decode($json_candidate, true) : null;
 
         if (json_last_error() !== JSON_ERROR_NONE || !is_array($parsed)) {
             return [
@@ -82,7 +83,10 @@ final class AA_Admin_AI_Chat_Service {
                 'reply_text' => $content,
                 'parsed'     => null,
                 'error'      => 'El modelo no devolvió JSON válido.',
-                'debug'      => ['raw_content' => $content],
+                'debug'      => [
+                    'raw_content'    => $content,
+                    'json_candidate' => $json_candidate,
+                ],
             ];
         }
 
@@ -236,5 +240,41 @@ PROMPT;
         }
 
         return $normalized;
+    }
+
+    /**
+     * Extrae el bloque JSON utilizable del contenido devuelto por el modelo.
+     *
+     * Compatibilidad local/cloud:
+     * - Modelos locales con format=json suelen devolver JSON puro.
+     * - Modelos cloud pueden envolver el JSON en fences markdown
+     *   tipo ```json ... ``` o ``` ... ```.
+     * - Algunos modelos agregan texto antes o después del JSON.
+     *
+     * No interpreta campos tipo "thinking": si el JSON final no los
+     * contiene, `normalize_parsed` ya los descarta.
+     *
+     * @param string $content
+     * @return string|null JSON crudo listo para json_decode, o null si no hay candidato.
+     */
+    private function extract_json_payload($content) {
+        $raw = is_string($content) ? trim($content) : '';
+
+        if ($raw === '') {
+            return null;
+        }
+
+        if (preg_match('/```(?:json)?\s*(\{.*?\}|\[.*?\])\s*```/si', $raw, $matches)) {
+            return trim($matches[1]);
+        }
+
+        $first_brace = strpos($raw, '{');
+        $last_brace  = strrpos($raw, '}');
+
+        if ($first_brace !== false && $last_brace !== false && $last_brace > $first_brace) {
+            return trim(substr($raw, $first_brace, $last_brace - $first_brace + 1));
+        }
+
+        return $raw;
     }
 }
