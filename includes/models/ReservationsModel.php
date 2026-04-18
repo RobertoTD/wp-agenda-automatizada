@@ -311,4 +311,98 @@ class ReservationsModel {
         
         return $rows ?? [];
     }
+
+    /**
+     * Verificar si existe una cita confirmed solapada para el mismo staff real.
+     *
+     * El staff se resuelve a través de aa_assignments (assignment_id -> staff_id).
+     * Solo considera reservas confirmed con assignment_id resoluble.
+     *
+     * @param string $start Inicio de la reserva a confirmar (Y-m-d H:i:s)
+     * @param string $end Fin de la reserva a confirmar (Y-m-d H:i:s)
+     * @param int $staff_id ID real del staff a validar
+     * @param int $exclude_id ID de la reserva que estamos confirmando
+     * @return bool true si existe conflicto, false si no
+     */
+    public static function has_confirmed_staff_overlap($start, $end, $staff_id, $exclude_id) {
+        global $wpdb;
+        $reservas_table = $wpdb->prefix . 'aa_reservas';
+        $assignments_table = $wpdb->prefix . 'aa_assignments';
+
+        $staff_id = intval($staff_id);
+        $exclude_id = intval($exclude_id);
+
+        if ($staff_id <= 0 || $exclude_id <= 0 || empty($start) || empty($end)) {
+            return false;
+        }
+
+        $count = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*)
+             FROM $reservas_table r
+             INNER JOIN $assignments_table a ON a.id = r.assignment_id
+             WHERE r.estado = 'confirmed'
+             AND r.id != %d
+             AND a.staff_id = %d
+             AND r.fecha < %s
+             AND DATE_ADD(r.fecha, INTERVAL r.duracion MINUTE) > %s",
+            $exclude_id,
+            $staff_id,
+            $end,
+            $start
+        ));
+
+        if ($wpdb->last_error) {
+            error_log("❌ [ReservationsModel] Error en has_confirmed_staff_overlap: " . $wpdb->last_error);
+            return false;
+        }
+
+        return intval($count) > 0;
+    }
+
+    /**
+     * Obtener citas pending que se solapan en tiempo para el mismo staff real.
+     *
+     * El staff se resuelve por assignment_id -> aa_assignments.staff_id.
+     * Ignora assignment_id y zona; solo importa el staff real + overlap temporal.
+     *
+     * @param string $start Inicio de la reserva confirmada (Y-m-d H:i:s)
+     * @param string $end Fin de la reserva confirmada (Y-m-d H:i:s)
+     * @param int $staff_id ID real del staff
+     * @param int $exclude_id ID de la reserva que estamos confirmando
+     * @return array Rows con id, nombre, correo, fecha, duracion, assignment_id
+     */
+    public static function get_pending_conflicts_for_staff_overlap($start, $end, $staff_id, $exclude_id) {
+        global $wpdb;
+        $reservas_table = $wpdb->prefix . 'aa_reservas';
+        $assignments_table = $wpdb->prefix . 'aa_assignments';
+
+        $staff_id = intval($staff_id);
+        $exclude_id = intval($exclude_id);
+
+        if ($staff_id <= 0 || $exclude_id <= 0 || empty($start) || empty($end)) {
+            return [];
+        }
+
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT r.id, r.nombre, r.correo, r.fecha, r.duracion, r.assignment_id
+             FROM $reservas_table r
+             INNER JOIN $assignments_table a ON a.id = r.assignment_id
+             WHERE r.estado = 'pending'
+             AND r.id != %d
+             AND a.staff_id = %d
+             AND r.fecha < %s
+             AND DATE_ADD(r.fecha, INTERVAL r.duracion MINUTE) > %s",
+            $exclude_id,
+            $staff_id,
+            $end,
+            $start
+        ));
+
+        if ($wpdb->last_error) {
+            error_log("❌ [ReservationsModel] Error en get_pending_conflicts_for_staff_overlap: " . $wpdb->last_error);
+            return [];
+        }
+
+        return $rows ?? [];
+    }
 }

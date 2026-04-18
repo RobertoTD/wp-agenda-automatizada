@@ -92,7 +92,81 @@
         let handleStaffChange = null;
         let handleDateSelected = null;
         let handleDurationChange = null;
+        let handleAreaChange = null;
         let dateSelectedBound = false;
+
+        // Helper: Obtener elementos del selector de zona (pueden no existir en plantillas viejas)
+        function getAreaSelect() {
+            return document.getElementById('aa-reservation-area');
+        }
+        function getAreaWrap() {
+            return document.getElementById('aa-reservation-area-wrap');
+        }
+
+        // Ocultar y limpiar selector de zona
+        function hideAreaSelector() {
+            const wrap = getAreaWrap();
+            const sel = getAreaSelect();
+            if (wrap) wrap.classList.add('hidden');
+            if (sel) {
+                sel.innerHTML = '<option value="">-- Selecciona zona --</option>';
+                sel.value = '';
+            }
+        }
+
+        /**
+         * Render area selector only when there are multiple assignments for the same staff.
+         * Each option maps to a unique service_area_id; on change, filters
+         * AA_RESERVATION_CTX.staffAssignments and updates assignment_id destination.
+         * Does NOT recompute slots nor touch backend.
+         * @param {Array} staffAssignments - Assignments filtered by selected staff
+         */
+        function renderAreaSelector(staffAssignments) {
+            const wrap = getAreaWrap();
+            const sel = getAreaSelect();
+            if (!wrap || !sel) return;
+
+            if (!Array.isArray(staffAssignments) || staffAssignments.length <= 1) {
+                hideAreaSelector();
+                return;
+            }
+
+            // Unique areas preservando orden
+            const seen = {};
+            const areas = [];
+            for (let i = 0; i < staffAssignments.length; i++) {
+                const a = staffAssignments[i];
+                const id = a && a.service_area_id != null ? String(a.service_area_id) : '';
+                if (!id || seen[id]) continue;
+                seen[id] = true;
+                areas.push({
+                    id: id,
+                    name: a.service_area_name || ('Zona ' + id)
+                });
+            }
+
+            if (areas.length <= 1) {
+                // Mismo staff con múltiples assignments en la misma zona: no hay elección real.
+                hideAreaSelector();
+                return;
+            }
+
+            // Primera zona = primera assignment (mantiene comportamiento actual por defecto)
+            const defaultAreaId = staffAssignments[0] && staffAssignments[0].service_area_id != null
+                ? String(staffAssignments[0].service_area_id)
+                : '';
+
+            sel.innerHTML = '';
+            areas.forEach(function(area) {
+                const opt = document.createElement('option');
+                opt.value = area.id;
+                opt.textContent = area.name;
+                if (area.id === defaultAreaId) opt.selected = true;
+                sel.appendChild(opt);
+            });
+            wrap.classList.remove('hidden');
+            log('[AdminReservationAssignmentFlowController] 🗺️ Selector de zona visible con ' + areas.length + ' zonas');
+        }
 
         /**
          * Load assignments for service and date using AAAssignmentsAvailability
@@ -345,6 +419,7 @@
 
             if (!selectedStaffId) {
                 log('[AdminReservationAssignmentFlowController] Staff deseleccionado');
+                hideAreaSelector();
                 return;
             }
 
@@ -365,9 +440,15 @@
 
             // Guardar staffAssignments en contexto global para que reservation.js pueda recalcular assignment_id por slot
             window.AA_RESERVATION_CTX = window.AA_RESERVATION_CTX || {};
+            // allStaffAssignments = lista maestra (se conserva íntegra para el selector de zona).
+            // staffAssignments   = lista activa usada por resolveAssignmentIdForSlot (puede filtrarse por zona).
+            window.AA_RESERVATION_CTX.allStaffAssignments = (staffAssignments || []).slice();
             window.AA_RESERVATION_CTX.staffAssignments = staffAssignments || [];
             window.AA_RESERVATION_CTX.selectedDate = selectedDate; // YYYY-MM-DD
             log('[AdminReservationAssignmentFlowController] Contexto global actualizado:', window.AA_RESERVATION_CTX);
+
+            // Mostrar selector de zona solo si hay múltiples assignments (zonas distintas) para este staff
+            renderAreaSelector(staffAssignments || []);
 
             // Guardar assignment_id (por ahora usamos el primer assignment si hay múltiples)
             let assignmentId = null;
@@ -555,7 +636,11 @@
                 // 🧹 LIMPIAR contexto de assignments previo (evita arrastrar assignment_id de otro servicio)
                 window.AA_RESERVATION_CTX = window.AA_RESERVATION_CTX || {};
                 window.AA_RESERVATION_CTX.staffAssignments = [];
+                window.AA_RESERVATION_CTX.allStaffAssignments = [];
                 log('[AdminReservationAssignmentFlowController] 🧹 Limpiado AA_RESERVATION_CTX.staffAssignments para servicio fixed');
+
+                // Ocultar selector de zona (no aplica en servicios fixed)
+                hideAreaSelector();
                 
                 // 🧹 LIMPIAR hidden input de assignment_id (servicios fixed no usan assignments)
                 updateAssignmentIdInput(null);
@@ -586,6 +671,47 @@
             handleStaffSelection(selectedStaffId);
         };
         staffSelect.addEventListener('change', handleStaffChange);
+
+        // Listen for area (zona) selection: solo cambia el destino del assignment_id,
+        // NO recalcula slots ni disponibilidad.
+        const areaSelectEl = getAreaSelect();
+        if (areaSelectEl) {
+            handleAreaChange = function() {
+                const selectedAreaId = this.value;
+                const ctx = window.AA_RESERVATION_CTX || {};
+                const all = Array.isArray(ctx.allStaffAssignments) ? ctx.allStaffAssignments : [];
+
+                if (!selectedAreaId || all.length === 0) {
+                    return;
+                }
+
+                // Filtrar la lista activa a la zona elegida para que resolveAssignmentIdForSlot
+                // apunte al assignment correcto.
+                const filtered = all.filter(function(a) {
+                    return String(a.service_area_id) === String(selectedAreaId);
+                });
+                window.AA_RESERVATION_CTX.staffAssignments = filtered;
+
+                // Actualizar assignment_id destino al primero que matchee la zona
+                const newAssignmentId = filtered.length > 0 ? filtered[0].id : null;
+                if (setState) {
+                    setState({ selectedAssignmentId: newAssignmentId });
+                } else {
+                    const state = getState();
+                    state.selectedAssignmentId = newAssignmentId;
+                }
+                updateAssignmentIdInput(newAssignmentId);
+                log('[AdminReservationAssignmentFlowController] 🗺️ Zona cambiada → assignment_id:', newAssignmentId, 'service_area_id:', selectedAreaId);
+
+                // Re-resolver assignment_id para el slot seleccionado actualmente
+                // (reservation.js ya tiene la lógica en el change handler del slot selector).
+                const slotSelector = document.getElementById('slot-selector-admin');
+                if (slotSelector) {
+                    slotSelector.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            };
+            areaSelectEl.addEventListener('change', handleAreaChange);
+        }
 
         // Listen for duration changes
         if (duracionSelect) {
@@ -707,6 +833,10 @@
                 }
                 if (handleDurationChange && duracionSelect) {
                     duracionSelect.removeEventListener('change', handleDurationChange);
+                }
+                if (handleAreaChange) {
+                    const areaEl = getAreaSelect();
+                    if (areaEl) areaEl.removeEventListener('change', handleAreaChange);
                 }
 
                 log('[AdminReservationAssignmentFlowController] ✅ Destruido y limpiado');

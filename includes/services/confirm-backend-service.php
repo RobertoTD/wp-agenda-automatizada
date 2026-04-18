@@ -120,6 +120,34 @@ function confirm_backend_service_confirmar($reserva_id) {
             'message' => 'Reserva no encontrada.'
         ];
     }
+
+    require_once plugin_dir_path(__FILE__) . '../models/ReservationsModel.php';
+    require_once plugin_dir_path(__FILE__) . '../models/AssignmentsModel.php';
+
+    // Calcular rango de tiempo de la reserva a confirmar
+    $start = $reserva->fecha;
+    $duracion_minutos = isset($reserva->duracion) && !empty($reserva->duracion)
+        ? intval($reserva->duracion)
+        : 60; // fallback 60 min
+    $end = date('Y-m-d H:i:s', strtotime($reserva->fecha) + ($duracion_minutos * 60));
+    $assignment_id = isset($reserva->assignment_id) ? intval($reserva->assignment_id) : null;
+
+    // Regla dura de confirmación:
+    // impedir doble booking confirmed del mismo staff aunque sea otra assignment/zona.
+    $staff_id = 0;
+
+    if (!empty($assignment_id)) {
+        $assignment = AssignmentsModel::get_assignment_by_id($assignment_id);
+        $staff_id = isset($assignment['staff_id']) ? intval($assignment['staff_id']) : 0;
+
+        if ($staff_id > 0 && ReservationsModel::has_confirmed_staff_overlap($start, $end, $staff_id, $reserva_id)) {
+            error_log("❌ [ConfirmService] Conflicto real de staff detectado al confirmar reserva ID $reserva_id");
+            return [
+                'success' => false,
+                'message' => 'El personal seleccionado ya tiene una cita confirmada en ese horario'
+            ];
+        }
+    }
     
     // 🔹 PASO 1: Actualizar estado en WordPress PRIMERO
     $updated = $wpdb->update($table, ['estado' => 'confirmed'], ['id' => $reserva_id]);
@@ -135,23 +163,15 @@ function confirm_backend_service_confirmar($reserva_id) {
     error_log("✅ [ConfirmService] Cita ID $reserva_id marcada como 'confirmed' en WordPress");
     
     // =========================================================================
-    // 🛡️ LÓGICA DE CANCELACIÓN EN CASCADA (con overlap + assignment)
+    // 🛡️ LÓGICA DE CANCELACIÓN EN CASCADA (con overlap + staff real)
     // =========================================================================
-    require_once plugin_dir_path(__FILE__) . '../models/ReservationsModel.php';
-
-    // Calcular rango de tiempo de la reserva confirmada
-    $start = $reserva->fecha;
-    $duracion_minutos = isset($reserva->duracion) && !empty($reserva->duracion) 
-        ? intval($reserva->duracion) 
-        : 60; // fallback 60 min
-    $end = date('Y-m-d H:i:s', strtotime($reserva->fecha) + ($duracion_minutos * 60));
-    $assignment_id = isset($reserva->assignment_id) ? $reserva->assignment_id : null;
-    
     error_log("🔍 [ConfirmService] Buscando conflictos por overlap:");
     error_log("   Rango confirmado: $start → $end");
     error_log("   Assignment ID: " . ($assignment_id === null ? 'NULL (FIXED)' : $assignment_id));
 
-    $conflictos = ReservationsModel::get_pending_conflicts_overlapping($start, $end, $assignment_id, $reserva_id);
+    $conflictos = $staff_id > 0
+        ? ReservationsModel::get_pending_conflicts_for_staff_overlap($start, $end, $staff_id, $reserva_id)
+        : [];
 
     if (!empty($conflictos)) {
         error_log("⚔️ [ConfirmService] Se encontraron " . count($conflictos) . " citas pendientes en conflicto por overlap");
