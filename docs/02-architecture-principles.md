@@ -1,4 +1,4 @@
-<!-- Última actualización del documento: 2026-03-21 -->
+<!-- Última actualización del documento: 2026-04-17 -->
 
 Architecture Principles (Summary)
 
@@ -97,6 +97,8 @@ PLUGIN ROOT
 │       │   ├── mappers/
 │       │   └── skills/
 │       ├── assignments/ (areasService.php, servicesService.php, staffService.php)
+│       ├── availability/
+│       │   └── class-aa-area-availability-service.php   ← reglas de disponibilidad de zona (assignment_guard + occupancy)
 │       ├── appointmentsService.php
 │       ├── assignmentsService.php
 │       ├── auth-helper.php
@@ -129,10 +131,12 @@ PLUGIN ROOT
   **Fast appointment:** `adminFastappointmentFlowController.js` (flujo y disponibilidad) y `adminFastappointmentController.js` (wiring / modal).
 
 - **services/**  
-  Lógica del negocio (domain logic).  
-  Pueden incluir llamadas a APIs externas (Node backend, WP Ajax).  
-  Cuando existe una carpeta de servicio (ej. `availability/`), el archivo principal del service actúa como *administrador* de sus sub-módulos.  
-  **Dashboard:** `dashboardService.js` normaliza respuestas de endpoints `aa_get_*` usados solo por el módulo Resumen; no sustituye a los servicios de dominio en PHP.
+  Capa **de proyección de UI**, no fuente de verdad del dominio.  
+  Su responsabilidad es: hablar con endpoints AJAX/HTTP del backend, normalizar las respuestas para el consumo del DOM, cachear de forma efímera lo que necesita la pantalla y exponer una API ergonómica para los controladores.  
+  **No definen reglas de negocio**: cualquier regla operativa (qué cuenta como ocupado, qué bloquea una zona, qué se puede confirmar, qué duración aplica, cómo se resuelve una colisión) es responsabilidad de los servicios PHP de dominio (ver *Domain Logic Ownership* y *Availability Domain Layer*).  
+  Cuando existe una carpeta de servicio (ej. `availability/`), el archivo principal actúa como *administrador* de sus sub-módulos, pero sigue siendo un cliente del dominio PHP, no su réplica.  
+  **Dashboard:** `dashboardService.js` normaliza respuestas de endpoints `aa_get_*` usados solo por el módulo Resumen; no sustituye a los servicios de dominio en PHP.  
+  **Nota histórica:** algunos servicios de `availability/` (ej. `fastAppointmentTimeAvailabilityService.js`) aún concentran lógica de cálculo de huecos por razones de UX en tiempo real; esa lógica se considera **espejo** del dominio PHP y debe mantenerse alineada, no divergente. Cualquier nueva regla nace en PHP.
 
 - **ui/**  
   Manipulación del DOM, renderizado, interacción visual, calendarios, listas de slots, componentes, etc.  
@@ -245,10 +249,73 @@ PLUGIN ROOT
 - **includes/routes/agenda-app.php**  
   Ruta `/agenda-app`: rewrite rule, query var `aa_agenda_app`, `template_redirect` (login o redirect al iframe del admin, típicamente módulo dashboard).
 
+## Domain Logic Ownership
+
+La lógica de negocio crítica del plugin **vive en PHP**, dentro de `includes/services/` (incluyendo subcarpetas como `availability/`, `assignments/`, `ai/`). El frontend la consume, no la define.
+
+Pertenecen al dominio PHP, entre otras:
+
+- **Disponibilidad** (zona, staff, slot): qué cuenta como libre/ocupado, ventanas válidas, reglas de overlap, prioridad entre fuentes (assignments vs reservas confirmadas).
+- **Confirmación de citas:** qué reservas pueden pasar a `confirmed`, manejo de colisiones, cancelación de pendientes, snapshot de precio.
+- **Colisiones:** entre reservas confirmadas (`has_confirmed_staff_overlap`), entre reservas pending (`get_pending_conflicts_overlapping`, `get_pending_conflicts_for_staff_overlap`) y entre assignments operativos (`assignment_guard` por zona).
+- **Assignments y zonas:** alta/edición/cierre, validaciones operativas (mismo staff, misma zona, misma ventana), reglas de reasignación.
+- **Clientes y reservas:** snapshot de datos, migraciones de columnas, validaciones de unicidad y consistencia.
+
+El JS puede mostrar advertencias tempranas o pre-validar para dar buena UX, pero **toda decisión vinculante** (commit, escritura, ocupación efectiva) se calcula en PHP.
+
+## Availability Domain Layer (PHP)
+
+Carpeta dedicada: `includes/services/availability/`.
+
+Su propósito es **centralizar las reglas de disponibilidad** del negocio en servicios PHP unitarios y testeables, alimentados por queries puras de los models.
+
+- **`AA_Area_Availability_Service`** (`class-aa-area-availability-service.php`):  
+  Fuente de verdad para la disponibilidad de una **zona de atención** ante una propuesta `(zone_id, staff_id, start_datetime, duration)`.  
+  Devuelve dos fenómenos separados:
+  - `assignment_guard`: la zona está **operativamente reservada** por una assignment activa de otro staff en ese horario (`zone_reserved_for_other_staff`).
+  - `occupancy`: la zona está **físicamente ocupada** por una reserva `confirmed` (`zone_busy`, con `busy_range`).
+
+  No mezcla ambos conceptos. No hace SQL: delega en `AssignmentsModel::get_active_assignments_overlapping_in_area()` y `ReservationsModel::get_confirmed_overlap_in_area()`.
+
+Reglas de la capa:
+
+- **Models** = queries puras (sin reglas).
+- **Availability services** = reglas de negocio (sin SQL).
+- **Consumidores** (AI evaluators, controllers de fast appointment / asignaciones, futuros endpoints): solo invocan al service y traducen el resultado a su contexto (chat, modal, AJAX).
+
+Esta capa es la base sobre la que crecen futuros servicios análogos (`AA_Staff_Availability_Service`, `AA_Slot_Availability_Service`, `AA_Booking_Confirmation_Service`).
+
+## AI Layer Responsibility
+
+El bounded context AI (`includes/services/ai/`, `includes/controllers/ai/`) tiene una responsabilidad acotada y **no compite con el dominio**:
+
+- **No define reglas de negocio.** No decide qué cuenta como ocupado, qué bloquea una zona, qué duración aplica ni qué constituye una colisión.
+- **Consume servicios de dominio.** Para cada decisión operativa invoca al service correspondiente (ej. `AA_Area_Availability_Service::evaluate_zone()`), igual que lo haría cualquier otro consumidor.
+- **Interpreta resultados.** Su trabajo es traducir la respuesta del dominio a un formato que la AI pueda razonar (`status` + `reason` por dimensión: `service_basic`, `staff_service_match`, `staff_time_availability`, `zone_basic`, `zone_assignment_guard`, `zone_time_occupancy`, …) y producir un texto natural cuando aplica.
+- **No escribe estado vinculante.** Resuelve, evalúa y propone. La creación efectiva de la reserva pasa por los mismos servicios y validaciones que cualquier otro flujo (`confirmController`, `appointmentsService`, etc.).
+
+Si una nueva regla aparece dentro del flujo AI, no se queda en el evaluator: se mueve al servicio de dominio correspondiente y el evaluator se limita a llamarlo.
+
+## Single Source of Truth
+
+**Backend (PHP) = fuente única de verdad del dominio.**  
+**Frontend (JS) = proyección de esa verdad para la UI.**
+
+Implicaciones:
+
+- Si una regla existe en JS *y* en PHP, el PHP gana. El JS debe alinearse o eliminarse.
+- Si una regla nueva nace en una pantalla, su sitio definitivo es un service PHP; el JS solo la consume.
+- Cualquier discrepancia entre lo que el JS muestra y lo que el PHP escribe se resuelve **moviendo la regla al PHP**, no duplicándola.
+- Endpoints AJAX (`wp_ajax_*`) son la frontera estable entre ambas capas: contratos versionables, no atajos para meter lógica en JS.
+- La AI sigue la misma regla: consume el dominio PHP, no lo reemplaza ni lo bypassea.
+
+Esto evita el problema clásico de tener "dos verdades" (UI optimista vs backend escrito) que generan bugs silenciosos en disponibilidad, ocupación y confirmación.
+
 ---
 
 ### Regla Global
 **Cada función debe residir en el módulo que coincide con su responsabilidad.**  
 No mezclar UI con lógica, no mezclar controladores con domain logic, no mezclar models con orquestación.  
 Respetar estrictamente:  
-**main → controller → service → utils/UI**, según el flujo natural del plugin.
+**main → controller → service → utils/UI**, según el flujo natural del plugin.  
+Y por encima de todo: **domain logic vive en PHP, JS proyecta** (ver *Single Source of Truth*).

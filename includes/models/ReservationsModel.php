@@ -360,6 +360,53 @@ class ReservationsModel {
     }
 
     /**
+     * Obtener reservas confirmed que solapan en tiempo dentro de una zona.
+     *
+     * Solo consulta. Sin lógica de negocio. La zona se resuelve via
+     * assignment_id -> aa_assignments.service_area_id.
+     *
+     * Regla de overlap (idéntica a get_pending_conflicts_overlapping):
+     *   r.fecha < $end AND DATE_ADD(r.fecha, INTERVAL r.duracion MINUTE) > $start.
+     *
+     * @param string $start           Inicio del rango a evaluar (Y-m-d H:i:s)
+     * @param string $end             Fin del rango a evaluar (Y-m-d H:i:s)
+     * @param int    $service_area_id ID de la zona
+     * @return array[] Filas con id, fecha, duracion, assignment_id
+     */
+    public static function get_confirmed_overlap_in_area($start, $end, $service_area_id) {
+        global $wpdb;
+        $reservas_table = $wpdb->prefix . 'aa_reservas';
+        $assignments_table = $wpdb->prefix . 'aa_assignments';
+
+        $service_area_id = intval($service_area_id);
+
+        if ($service_area_id <= 0 || empty($start) || empty($end)) {
+            return [];
+        }
+
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT r.id, r.fecha, r.duracion, r.assignment_id
+             FROM $reservas_table r
+             INNER JOIN $assignments_table a ON a.id = r.assignment_id
+             WHERE r.estado = 'confirmed'
+             AND a.service_area_id = %d
+             AND r.fecha < %s
+             AND DATE_ADD(r.fecha, INTERVAL r.duracion MINUTE) > %s
+             ORDER BY r.fecha ASC",
+            $service_area_id,
+            $end,
+            $start
+        ), ARRAY_A);
+
+        if ($wpdb->last_error) {
+            error_log("❌ [ReservationsModel] Error en get_confirmed_overlap_in_area: " . $wpdb->last_error);
+            return [];
+        }
+
+        return $rows ? $rows : [];
+    }
+
+    /**
      * Obtener citas pending que se solapan en tiempo para el mismo staff real.
      *
      * El staff se resuelve por assignment_id -> aa_assignments.staff_id.

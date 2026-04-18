@@ -1381,6 +1381,52 @@ class AssignmentsModel {
         return intval($count) > 0;
     }
 
+    /**
+     * Obtener assignments activas que solapan con un rango horario en una zona.
+     *
+     * Solo consulta. Sin lógica de negocio. Devuelve filas con id, staff_id,
+     * start_time y end_time para que el caller decida la regla a aplicar.
+     *
+     * Regla de overlap aplicada en SQL: start_time < end AND end_time > start.
+     *
+     * @param string $date            YYYY-MM-DD
+     * @param string $start_time      HH:MM[:SS] (inicio del rango a evaluar)
+     * @param string $end_time        HH:MM[:SS] (fin del rango a evaluar)
+     * @param int    $service_area_id ID de la zona
+     * @return array[] Filas con id, staff_id, start_time, end_time
+     */
+    public static function get_active_assignments_overlapping_in_area($date, $start_time, $end_time, $service_area_id) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_assignments';
+
+        $service_area_id = intval($service_area_id);
+
+        if ($service_area_id <= 0 || empty($date) || empty($start_time) || empty($end_time)) {
+            return [];
+        }
+
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT id, staff_id, start_time, end_time
+             FROM $table
+             WHERE assignment_date = %s
+             AND service_area_id = %d
+             AND status = 'active'
+             AND (%s < end_time AND %s > start_time)
+             ORDER BY start_time ASC",
+            $date,
+            $service_area_id,
+            $start_time,
+            $end_time
+        ), ARRAY_A);
+
+        if ($wpdb->last_error) {
+            error_log("❌ [AssignmentsModel] Error en get_active_assignments_overlapping_in_area: " . $wpdb->last_error);
+            return [];
+        }
+
+        return $rows ? $rows : [];
+    }
+
     // ============================================
     // MÉTODOS PARA DISPONIBILIDAD BASADA EN ASSIGNMENTS
     // ============================================
