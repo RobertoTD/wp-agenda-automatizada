@@ -1219,7 +1219,7 @@ class AssignmentsModel {
     /**
      * Crear nueva asignación
      * 
-     * Valida colisiones con asignaciones existentes antes de insertar.
+     * Valida colisión por zona con asignaciones existentes antes de insertar.
      * 
      * @param array $data Datos de la asignación:
      *   - assignment_date (string): Fecha YYYY-MM-DD
@@ -1248,22 +1248,8 @@ class AssignmentsModel {
         $start_time = strlen($data['start_time']) === 5 ? $data['start_time'] . ':00' : $data['start_time'];
         $end_time = strlen($data['end_time']) === 5 ? $data['end_time'] . ':00' : $data['end_time'];
         
-        // Verificar colisión por staff (mismo personal, misma fecha, horario traslapado)
-        $staff_collision = self::check_staff_collision(
-            $data['assignment_date'],
-            $start_time,
-            $end_time,
-            $data['staff_id']
-        );
-        
-        if ($staff_collision) {
-            error_log("❌ [AssignmentsModel] Colisión detectada: personal ya tiene asignación en ese horario");
-            return [
-                'error' => 'El personal seleccionado ya tiene una asignación en ese horario'
-            ];
-        }
-        
-        // Verificar colisión por zona (misma zona, misma fecha, horario traslapado)
+        // Verificar colisión por zona (misma zona, misma fecha, horario traslapado).
+        // El staff puede tener assignments traslapadas siempre que pertenezcan a zonas distintas.
         $area_collision = self::check_area_collision(
             $data['assignment_date'],
             $start_time,

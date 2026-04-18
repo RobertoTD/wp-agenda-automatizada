@@ -25,6 +25,8 @@ require_once __DIR__ . '/class-aa-ai-service-resolver.php';
 require_once __DIR__ . '/class-aa-ai-staff-resolver.php';
 require_once __DIR__ . '/class-aa-ai-zone-resolver.php';
 require_once __DIR__ . '/class-aa-ai-service-feasibility-evaluator.php';
+require_once __DIR__ . '/class-aa-ai-staff-feasibility-evaluator.php';
+require_once __DIR__ . '/class-aa-ai-staff-time-feasibility-evaluator.php';
 
 final class AA_AI_Create_Booking_Intent_Handler {
 
@@ -78,8 +80,27 @@ final class AA_AI_Create_Booking_Intent_Handler {
         $this->place_entity_result('staff', $staff_result, $resolved, $ambiguous_fields, $lookup);
         $this->place_entity_result('zone', $zone_result, $resolved, $ambiguous_fields, $lookup);
 
-        $feasibility_evaluator = new AA_AI_Service_Feasibility_Evaluator();
-        $feasibility = $feasibility_evaluator->evaluate($resolved, $ambiguous_fields, $lookup);
+        $service_feasibility_evaluator = new AA_AI_Service_Feasibility_Evaluator();
+        $service_feasibility = $service_feasibility_evaluator->evaluate($resolved, $ambiguous_fields, $lookup);
+
+        $staff_feasibility_evaluator = new AA_AI_Staff_Feasibility_Evaluator();
+        $staff_feasibility = $staff_feasibility_evaluator->evaluate(
+            $resolved,
+            $ambiguous_fields,
+            $lookup,
+            $service_feasibility
+        );
+
+        $staff_time_feasibility_evaluator = new AA_AI_Staff_Time_Feasibility_Evaluator();
+        $staff_time_feasibility = $staff_time_feasibility_evaluator->evaluate(
+            $resolved,
+            $ambiguous_fields,
+            $lookup,
+            $datetime_resolution,
+            $service_feasibility
+        );
+
+        $feasibility = array_merge($service_feasibility, $staff_feasibility, $staff_time_feasibility);
 
         $reply = $this->build_reply($parsed, $missing);
 
