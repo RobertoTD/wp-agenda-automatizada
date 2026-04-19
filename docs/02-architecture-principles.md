@@ -2,6 +2,35 @@
 
 Architecture Principles (Summary)
 
+## North Star (resumen ejecutivo)
+
+> Para la guía operativa diaria (qué entra dónde, cómo decidir en caliente),
+> ver `docs/00-paradigm-cheatsheet.md`. Este documento es la referencia larga.
+
+**Paradigma:** Hexagonal ligero + Use Cases + Single Source of Truth en PHP.
+
+**Capas objetivo dentro de `includes/`:**
+
+- `http/`            → entrada HTTP/AJAX. Parsea, autentica, delega, serializa.
+- `application/`     → casos de uso. 1 flujo del producto = 1 clase con `execute()`.
+- `domain/`          → reglas puras del negocio. Sin WP, sin SQL. Testeable en aislamiento.
+- `repositories/`    → SQL puro (lo que hoy es `models/`). Cero reglas.
+- `infrastructure/`  → integración con WP, schema, providers (LLM, Node backend), notificaciones.
+- `ui/`              → admin UI (lo que hoy es `admin/ui/`).
+
+**Migración por contagio, no por revolución.** Las features nuevas nacen ya
+en estas carpetas. Las viejas se reubican solo cuando se tocan por otra
+razón. Convivencia explícita durante la transición.
+
+**Regla diaria (la única que hay que recordar):**
+
+> *¿Esta feature es dominio, flujo o UI?*
+> - Dominio → `includes/domain/`
+> - Flujo   → `includes/application/` como `{Verbo}{Cosa}UseCase`
+> - UI      → `assets/js/` y consume un Use Case por AJAX
+>
+> Models = SQL. Controllers AJAX = parsean y delegan.
+
 PLUGIN ROOT
 │
 ├── assets/
