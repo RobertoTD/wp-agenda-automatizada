@@ -110,6 +110,9 @@ PLUGIN ROOT
 │   │   ├── enqueueController.php
 │   │   ├── proximasCitasController.php
 │   │   └── WebhooksController.php
+│   ├── domain/                           ← capa de reglas puras (paradigma objetivo)
+│   │   └── availability/
+│   │       └── class-aa-area-availability-service.php   ← canónico (Domain Service)
 │   ├── models/
 │   │   ├── AssignmentsModel.php
 │   │   └── ReservationsModel.php
@@ -127,7 +130,7 @@ PLUGIN ROOT
 │       │   └── skills/
 │       ├── assignments/ (areasService.php, servicesService.php, staffService.php)
 │       ├── availability/
-│       │   └── class-aa-area-availability-service.php   ← reglas de disponibilidad de zona (assignment_guard + occupancy)
+│       │   └── class-aa-area-availability-service.php   ← SHIM deprecated → ver includes/domain/availability/
 │       ├── appointmentsService.php
 │       ├── assignmentsService.php
 │       ├── auth-helper.php
@@ -294,11 +297,14 @@ El JS puede mostrar advertencias tempranas o pre-validar para dar buena UX, pero
 
 ## Availability Domain Layer (PHP)
 
-Carpeta dedicada: `includes/services/availability/`.
+Carpeta canónica: `includes/domain/availability/`.
+(Compatibilidad: `includes/services/availability/class-aa-area-availability-service.php`
+sigue existiendo como SHIM `require_once` al canónico, hasta migrar
+los consumidores legacy.)
 
 Su propósito es **centralizar las reglas de disponibilidad** del negocio en servicios PHP unitarios y testeables, alimentados por queries puras de los models.
 
-- **`AA_Area_Availability_Service`** (`class-aa-area-availability-service.php`):  
+- **`AA_Area_Availability_Service`** (`includes/domain/availability/class-aa-area-availability-service.php`):  
   Fuente de verdad para la disponibilidad de una **zona de atención** ante una propuesta `(zone_id, staff_id, start_datetime, duration)`.  
   Devuelve dos fenómenos separados:
   - `assignment_guard`: la zona está **operativamente reservada** por una assignment activa de otro staff en ese horario (`zone_reserved_for_other_staff`).
