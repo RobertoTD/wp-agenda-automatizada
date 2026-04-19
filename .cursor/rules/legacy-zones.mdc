@@ -1,0 +1,18 @@
+---
+description: Recordatorio de contagio al tocar zonas legacy.
+globs:
+  - "includes/models/**"
+  - "includes/services/**"
+  - "includes/controllers/**"
+  - "wp-agenda-automatizada.php"
+---
+# Zona legacy — aplica contagio antes de añadir
+Estás editando un archivo en zona legacy. Antes del patch:
+1. Si vas a **modificar** un método existente, comprueba si está en "Métodos del Model con deuda explícita" de `docs/00-paradigm-cheatsheet.md`. Si está listado → descomponlo (SQL → `includes/repositories/`, regla → `includes/domain/`). Si NO está listado pero mezcla SQL + regla, añádelo a esa lista en el mismo patch.
+2. Si vas a **añadir** funcionalidad nueva, NO la añadas aquí. Ubica:
+   - En `includes/models/` → método nuevo va al Repository correspondiente.
+   - En `includes/services/` → si es endpoint AJAX, va a `includes/http/ajax/`. Si es regla, a `includes/domain/`. Si es flujo, a `includes/application/`.
+   - En `includes/controllers/` → si es AJAX, migra a `includes/http/ajax/`.
+   - En `wp-agenda-automatizada.php` → solo `require_once` y registros de hook. Cualquier lógica va a su capa.
+3. Antes de proponer el patch, declara explícitamente:
+> **Contagio:** voy a [extraer X a Y / mover X a Y / mantener como-is porque Z]

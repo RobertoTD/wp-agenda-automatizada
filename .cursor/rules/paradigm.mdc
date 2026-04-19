@@ -1,0 +1,26 @@
+---
+description: Paradigma arquitectónico del plugin (capas, contagio, auto-reporte).
+alwaysApply: true
+---
+# Paradigma del plugin wp-agenda-automatizada
+Antes de proponer cualquier cambio en código del plugin, responde mentalmente:
+1. ¿Es **regla de negocio**? → `includes/domain/<contexto>/`
+2. ¿Es **flujo end-to-end** que orquesta varias piezas? → `includes/application/<contexto>/<Verbo><Cosa>UseCase.php`
+3. ¿Es **acceso SQL puro**? → `includes/repositories/`
+4. ¿Es **endpoint AJAX/HTTP**? → `includes/http/ajax/<Cosa>Ajax.php`
+5. ¿Es **infraestructura WP** (schema, lifecycle hooks, rewrite, cron)? → `includes/infrastructure/`
+6. ¿Es **UI**? → `assets/js/` (consume Use Cases vía AJAX; sin reglas de negocio embebidas)
+Detalle en `docs/02-architecture-principles.md`. Resumen operativo en `docs/00-paradigm-cheatsheet.md`.
+## Migración por contagio (obligatoria)
+Si tu cambio toca un archivo en zona legacy (`includes/models/`, `includes/services/`, `includes/controllers/`, `wp-agenda-automatizada.php` más allá de los `require_once`), **NO añadas lógica nueva ahí**. Extrae a la capa correcta y deja el legacy como shim o elimínalo si nadie más lo consume.
+Si tocas un método listado en "Métodos del Model con deuda explícita" del cheatsheet, descomponlo: SQL → Repository, regla → Domain.
+## Auto-reporte (obligatorio en cada respuesta con cambios)
+Antes del patch, declara en una línea:
+> **Paradigma:** [una de: `Capa nueva en X` / `Contagio sobre Y` / `Sin impacto de paradigma`]
+Si por descubrimiento implícito (sin explorar de más) ves una violación en archivos que no estás tocando, anota:
+> **Violación detectada (no corregida):** [archivo:línea — 1 línea]
+No abras exploraciones para cazar violaciones. Solo lo que pase por delante.
+## Mantenimiento automático de docs
+Si tu cambio introduce un patrón nuevo, una carpeta nueva, una convención nueva, o invalida algo del cheatsheet/principles, **actualiza los docs en el mismo patch** y reporta:
+> **Docs actualizados:** [archivo — 1 línea de qué cambió]
+Si el cambio no altera el paradigma, no toques los docs.

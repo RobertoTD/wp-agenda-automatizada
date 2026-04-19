@@ -190,10 +190,21 @@ PLUGIN ROOT
   Reciben solicitudes, coordinan Models y Services, retornan respuestas.  
   `enqueueController.php` se encarga de encolar JS/CSS.
 
-- **models/**  
-  Acceso a base de datos.  
-  Consultas, inserciones, actualizaciones.  
-  Sin lógica de negocio.
+- **models/** *(legacy, en migración)*
+  Acceso a base de datos histórico. **Congelado para añadidos**: ningún
+  método nuevo se agrega aquí. Sus métodos siguen funcionando y son
+  invocables también vía la capa canónica `repositories/` por herencia.
+  Migración por contagio: cuando un consumidor se toque, su llamada se
+  actualiza al nombre `Repository` correspondiente.
+
+- **repositories/** *(canónico)*
+  Capa canónica de acceso SQL. `AssignmentsRepository` y
+  `ReservationsRepository` extienden los Models actuales para garantizar
+  que cualquier método antiguo sigue accesible desde el nuevo nombre.
+  **Reglas:** cero `if` de negocio, métodos nuevos siempre aquí, y los
+  métodos del Model que mezclen SQL + reglas se descomponen al tocarlos
+  (SQL aquí, reglas en `domain/`). Ver `docs/00-paradigm-cheatsheet.md`
+  → "Veda de los Models".
 
 - **services/**  
   Conexión con servicios externos (backend Node.js, API externas).  

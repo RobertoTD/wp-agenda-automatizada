@@ -66,3 +66,76 @@ Lo viejo coexiste con su nombre histórico hasta que se toque por otra razón.
 - **Controller AJAX:** traductor HTTP↔Use Case. Autentica, sanitiza, delega, serializa.
 - **Infrastructure:** todo lo que toca el mundo exterior (WP, MySQL via repos, LLMs, webhooks, notifs).
 - **UI:** todo lo que pinta y captura interacción. No es fuente de verdad.
+
+## Veda de los Models (regla operativa)
+
+A partir de ahora, los archivos de `includes/models/` están **en
+congelación** para añadidos:
+
+- ❌ **NO se añaden métodos nuevos** a `AssignmentsModel` ni a
+  `ReservationsModel`.
+- ✅ **Métodos SQL nuevos** van a `includes/repositories/AssignmentsRepository.php`
+  o `includes/repositories/ReservationsRepository.php`.
+- ✅ **Reglas de negocio nuevas** (incluso si "necesitan datos") van a
+  `includes/domain/{contexto}/`. El Domain Service llama al Repository
+  para los datos crudos.
+
+Los métodos existentes en los Models siguen funcionando y son llamables
+también vía el Repository (por herencia), así que **no hay urgencia de
+migrar consumidores**. La migración es por contagio:
+
+> *Cuando toques un consumidor por otra razón (feature nueva, fix de bug,
+> refactor), aprovecha y cambia su llamada de `AssignmentsModel::foo()`
+> a `AssignmentsRepository::foo()`. Si el método mezcla SQL + reglas,
+> ese es el momento de descomponerlo.*
+
+Cuando ningún consumidor importe ya los archivos de `includes/models/`,
+podremos vaciarlos y finalmente eliminarlos.
+
+### Métodos del Model con deuda explícita (a descomponer al tocarlos)
+
+Métodos identificados que mezclan SQL + semántica de negocio. Cuando se
+toquen por una feature, fix o refactor, se parten en dos: la parte SQL
+queda en el Repository correspondiente, la regla "qué cuenta como X" se
+mueve a un Domain Service en `includes/domain/{contexto}/`.
+
+#### En `AssignmentsModel`
+
+- `AssignmentsModel::get_busy_ranges_by_assignment_ids()` — define qué
+  ventanas se consideran "ocupadas" para una asignación.
+- `AssignmentsModel::create_assignment()` — embebe la regla "una zona no
+  puede tener dos asignaciones activas que se traslapen" y devuelve
+  `['error' => 'La zona seleccionada ya tiene una asignación en ese horario']`
+  como mensaje de negocio.
+- `AssignmentsModel::is_service_public_calendar()` — regla de
+  compatibilidad hacia atrás: `true` si la columna `public_calendar` no
+  existe (legacy) o si existe y vale `1`.
+- `AssignmentsModel::delete_service()` — semántica "ocultar servicio =
+  `is_hidden=1` + `active=0`" embebida en el UPDATE.
+- `AssignmentsModel::delete_assignment()` — semántica "ocultar asignación =
+  `status='inactive'` + `is_hidden=1`" embebida en el UPDATE.
+- `AssignmentsModel::get_service_areas($only_active = true)` — embebe la regla "activa = active=1" en SQL. Al descomponer: SQL parametrizado → Repository, definición de "activa" → Domain.
+
+#### En `ReservationsModel`
+
+- `ReservationsModel::has_confirmed_staff_overlap()` — regla "qué cuenta
+  como overlap entre reservas confirmadas del mismo staff".
+- `ReservationsModel::get_pending_conflicts_for_staff_overlap()` — regla
+  de "conflicto" entre pendientes vs confirmadas del mismo staff.
+- `ReservationsModel::get_pending_conflicts_overlapping()` — regla de
+  "conflicto" entre pendientes que se traslapan en tiempo.
+- `ReservationsModel::get_internal_busy_slots()` — define qué cuenta como
+  "fixed busy slot" (`estado='confirmed'` + `assignment_id IS NULL` +
+  `not finished`).
+- `ReservationsModel::get_pending_conflicts()` — `@deprecated`. Define
+  "conflicto" como coincidencia exacta de `fecha`. Cuando se elimine al
+  consumidor, retirar también el método.
+- `ReservationsModel::get_confirmed_overlap_in_area()` — la regla de
+  overlap (`r.fecha < end AND DATE_ADD(...) > start`) y el filtro
+  `estado='confirmed'` viven embebidos en el SQL; al descomponer, la
+  parte SQL queda en `ReservationsRepository` y la decisión "qué cuenta
+  como ocupación" se ancla en `AA_Area_Availability_Service` (que ya la
+  consume).
+
+> Esta lista no es exhaustiva. Si al tocar un consumidor descubres otro
+> método del Model que mezcle SQL + reglas, añádelo aquí en el momento.

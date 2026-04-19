@@ -117,7 +117,7 @@ final class CreateReservationUseCase {
         }
 
         $nombre       = sanitize_text_field($input['nombre']);
-        $telefono_raw = sanitize_text_field($input['telefono']);
+        $telefono_raw = isset($input['telefono']) ? sanitize_text_field($input['telefono']) : '';
         $correo       = isset($input['correo']) ? sanitize_email($input['correo']) : '';
 
         // 🔹 Validar teléfono obligatorio
