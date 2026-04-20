@@ -141,7 +141,8 @@ $module_js_url = $plugin_url . 'calendar-module.js?ver=' . rawurlencode($calenda
 
   // Nonce real del endpoint AI para pruebas manuales y futura UI del chat.
   window.AA_AI_CHAT = {
-    nonce: '<?php echo esc_js(wp_create_nonce('aa_admin_ai_chat_nonce')); ?>'
+    nonce: '<?php echo esc_js(wp_create_nonce('aa_admin_ai_chat_nonce')); ?>',
+    confirm_nonce: '<?php echo esc_js(wp_create_nonce('aa_ai_confirm_booking_nonce')); ?>'
   };
 </script>
 
