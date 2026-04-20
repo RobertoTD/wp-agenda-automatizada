@@ -177,7 +177,7 @@
                 date: !!state.selectedDate && !!state.isDateStepReady,
                 time: !!state.selectedTime,
                 staff: !!state.selectedStaffId && !!state.isSelectedStaffAvailable,
-                area: !!state.selectedAreaId
+                area: !!state.selectedAreaId && !!state.isSelectedAreaAvailable
             };
         }
 
@@ -195,7 +195,8 @@
                 state.selectedTime &&
                 state.selectedStaffId &&
                 state.isSelectedStaffAvailable &&
-                state.selectedAreaId
+                state.selectedAreaId &&
+                state.isSelectedAreaAvailable
             );
         }
 
@@ -674,19 +675,29 @@
                 return;
             }
 
-            var html = '<option value="">-- Selecciona una zona --</option>';
-            (areas || []).forEach(function(area) {
-                var label = area.name || '';
-                if (area.occupied) {
-                    label += ' /ocupado';
-                }
+            var list = areas || [];
+            var available = list.filter(function(a) { return !a.occupied; });
+            var unavailable = list.filter(function(a) { return a.occupied; });
 
-                html += '<option value="' + escapeHtml(String(area.id)) + '" data-occupied="' +
-                    (area.occupied ? '1' : '0') + '">' + escapeHtml(label) + '</option>';
+            var html = '<option value="">-- Selecciona una zona --</option>';
+
+            available.forEach(function(area) {
+                html += '<option value="' + escapeHtml(String(area.id)) + '"'
+                    + ' data-available="1"'
+                    + ' data-occupied="0">'
+                    + escapeHtml(area.name || '') + '</option>';
+            });
+
+            unavailable.forEach(function(area) {
+                html += '<option value="' + escapeHtml(String(area.id)) + '"'
+                    + ' data-available="0"'
+                    + ' data-occupied="1"'
+                    + ' data-reason="' + escapeHtml(area.reason || '') + '">'
+                    + escapeHtml(area.name || '') + ' (no disponible)</option>';
             });
 
             areaSelect.innerHTML = html;
-            areaSelect.disabled = !(areas || []).length;
+            areaSelect.disabled = !list.length;
         }
 
         function renderAreaAvailabilityMessage(text) {
@@ -735,7 +746,8 @@
                 selectedTime: null,
                 selectedStaffId: null,
                 isSelectedStaffAvailable: false,
-                selectedAreaId: null
+                selectedAreaId: null,
+                isSelectedAreaAvailable: false
             });
 
             const state = getState() || {};
@@ -778,7 +790,8 @@
             updateState({
                 selectedStaffId: null,
                 isSelectedStaffAvailable: false,
-                selectedAreaId: null
+                selectedAreaId: null,
+                isSelectedAreaAvailable: false
             });
 
             populateStaffSelect([]);
@@ -798,7 +811,8 @@
             }
 
             updateState({
-                selectedAreaId: null
+                selectedAreaId: null,
+                isSelectedAreaAvailable: false
             });
 
             populateAreaSelect([]);
@@ -976,12 +990,15 @@
             console.log('[FastAppointmentFlow] loadAvailableAreasForSelection requestId=' + myRequestId +
                 ' date=' + dateStr + ' time=' + timeStr + ' staffId=' + staffId);
 
+            const selectedServiceId = state.selectedServiceId || null;
+
             const result = await window.FastAppointmentTimeAvailabilityService.getAreaAvailabilityBySelection(
                 dateStr,
                 timeStr,
                 staffId,
                 {
-                    activeServiceAreas: activeServiceAreas
+                    activeServiceAreas: activeServiceAreas,
+                    serviceId: selectedServiceId
                 }
             );
 
@@ -1116,23 +1133,52 @@
             handleAreaChange = function() {
                 const selectedAreaId = this.value || null;
                 const selectedOption = this.options[this.selectedIndex];
-                const isOccupied = !!(selectedOption && selectedOption.dataset.occupied === '1');
+                const isAvailable = !selectedOption || selectedOption.dataset.available !== '0';
+                const reason = selectedOption ? (selectedOption.dataset.reason || '') : '';
                 const state = getState() || {};
-                const selectedTime = state.selectedTime || null;
+                const selectedTime = state.selectedTime || '';
 
                 updateState({
-                    selectedAreaId: selectedAreaId
+                    selectedAreaId: selectedAreaId,
+                    isSelectedAreaAvailable: selectedAreaId ? isAvailable : false
                 });
 
-                if (!selectedAreaId || !isOccupied || !selectedTime) {
+                if (!selectedAreaId || isAvailable) {
                     renderAreaAvailabilityMessage('');
                     return;
                 }
 
-                renderAreaAvailabilityMessage(
-                    'La zona de atencion seleccionada esta ocupada a las ' + selectedTime +
-                    '. Elige otra zona o selecciona otra hora disponible.'
-                );
+                switch (reason) {
+                    case 'busy_reservation':
+                        renderAreaAvailabilityMessage(
+                            'Esta zona esta ocupada por otra reservacion a las ' + selectedTime +
+                            '. Elige otra zona o selecciona otra hora disponible.'
+                        );
+                        break;
+                    case 'zone_reserved_for_other_staff':
+                        renderAreaAvailabilityMessage(
+                            'Esta zona ya esta reservada por otro profesional a las ' + selectedTime +
+                            '. Elige otra zona o selecciona otra hora.'
+                        );
+                        break;
+                    case 'service_not_offered':
+                        renderAreaAvailabilityMessage(
+                            'En esta zona el profesional tiene un turno a las ' + selectedTime +
+                            ' que no incluye el servicio seleccionado. Edita el turno o elige otra zona.'
+                        );
+                        break;
+                    case 'out_of_turn':
+                        renderAreaAvailabilityMessage(
+                            'En esta zona el profesional tiene un turno que no contiene la hora seleccionada. ' +
+                            'Elige una hora dentro del turno o cambia de zona.'
+                        );
+                        break;
+                    default:
+                        renderAreaAvailabilityMessage(
+                            'La zona de atencion seleccionada esta ocupada a las ' + selectedTime +
+                            '. Elige otra zona o selecciona otra hora disponible.'
+                        );
+                }
             };
 
             areaSelect.addEventListener('change', handleAreaChange);
@@ -1279,6 +1325,31 @@
 
                     var currentState = getState() || {};
 
+                    if (currentState.resolvedAssignmentMode === 'reject_service_not_offered'
+                        || currentState.resolvedAssignmentMode === 'reject_out_of_turn') {
+                        console.warn('[FastAppointment] Submit abortado por modo:',
+                            currentState.resolvedAssignmentMode,
+                            '| rejection:', result.rejection);
+
+                        var rejectionMessage = (result.rejection && result.rejection.message)
+                            ? result.rejection.message
+                            : 'No se puede agendar la cita con la zona/horario seleccionado.';
+
+                        renderAreaAvailabilityMessage(rejectionMessage);
+
+                        updateState({
+                            resolvedAssignmentId: null
+                        });
+
+                        isSubmitting = false;
+                        if (submitBtn) {
+                            submitBtn.disabled = false;
+                            submitBtn.textContent = 'Agendar cita';
+                        }
+                        updateSubmitButtonState();
+                        return;
+                    }
+
                     if (currentState.resolvedAssignmentMode === 'existing') {
                         console.log('[FastAppointment] Assignment existente reutilizada, ID:',
                             currentState.resolvedAssignmentId);
@@ -1405,7 +1476,8 @@
                 selectedTime: null,
                 selectedStaffId: null,
                 isSelectedStaffAvailable: false,
-                selectedAreaId: null
+                selectedAreaId: null,
+                isSelectedAreaAvailable: false
             });
 
             const state = getState() || {};

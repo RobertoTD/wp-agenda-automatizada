@@ -466,23 +466,75 @@
         });
     }
 
-    function orderAreasByOccupancy(activeAreas, slotValue, slotDuration, areaBusy) {
+    /**
+     * Clasifica cada zona como disponible u ocupada para el slot solicitado,
+     * con razón diferenciada cuando está ocupada. Proyecta a UI las mismas
+     * reglas que el dominio aplica en backend (Paso 1.7):
+     *
+     *  1. busy_reservation             — reserva confirmada que solapa el slot.
+     *  2. zone_reserved_for_other_staff — assignment activa en la zona de
+     *                                     otro staff que solapa el slot.
+     *  3. service_not_offered          — assignment activa del mismo staff
+     *                                     que CONTIENE el slot, pero no
+     *                                     ofrece el `serviceId`. Solo se
+     *                                     evalúa si hay `serviceId`.
+     *  4. out_of_turn                  — assignment activa del mismo staff
+     *                                     que solapa pero no contiene el slot.
+     *  5. null                         — disponible.
+     *
+     * Si varias razones aplican, gana la primera según el orden anterior.
+     *
+     * Output por zona:
+     *   { id, name, occupied, reason, detail }
+     */
+    function orderAreasByOccupancy(activeAreas, slotValue, slotDuration, areaBusy, ctx) {
+        var safeCtx = ctx || {};
+        var assignmentsForDate = Array.isArray(safeCtx.assignmentsForDate) ? safeCtx.assignmentsForDate : [];
+        var staffId = String(safeCtx.staffId || '');
+        var serviceId = String(safeCtx.serviceId || '');
+        var slotStart = timeToMinutes(slotValue);
+        var slotEnd = slotStart + slotDuration;
+
+        var assignmentsByArea = {};
+        assignmentsForDate.forEach(function(assignment) {
+            if (assignment.status !== 'active') return;
+            var areaKey = String(assignment.service_area_id || '');
+            if (!assignmentsByArea[areaKey]) {
+                assignmentsByArea[areaKey] = [];
+            }
+            assignmentsByArea[areaKey].push(assignment);
+        });
+
         var availableAreas = [];
         var occupiedAreas = [];
 
         activeAreas.forEach(function(area) {
+            var areaKey = String(area.id);
+            var areaAssignments = assignmentsByArea[areaKey] || [];
+
+            var classification = classifyAreaForSlot(
+                area,
+                areaAssignments,
+                slotStart,
+                slotEnd,
+                staffId,
+                serviceId,
+                isAreaBusyAtSlot(area, slotValue, slotDuration, areaBusy)
+            );
+
             var normalizedArea = {
                 id: area.id,
                 name: area.name || '',
-                occupied: isAreaBusyAtSlot(area, slotValue, slotDuration, areaBusy)
+                occupied: classification.occupied,
+                reason: classification.reason,
+                detail: classification.detail
             };
 
             if (normalizedArea.occupied) {
                 occupiedAreas.push(normalizedArea);
-                return;
+            } else {
+                availableAreas.push(normalizedArea);
             }
-
-            availableAreas.push(normalizedArea);
         });
 
         availableAreas.sort(function(a, b) {
@@ -493,6 +545,112 @@
         });
 
         return availableAreas.concat(occupiedAreas);
+    }
+
+    function classifyAreaForSlot(area, areaAssignments, slotStart, slotEnd, staffId, serviceId, busyByReservation) {
+        if (busyByReservation) {
+            return {
+                occupied: true,
+                reason: 'busy_reservation',
+                detail: null
+            };
+        }
+
+        var sameStaffOverlapping = [];
+
+        for (var i = 0; i < areaAssignments.length; i++) {
+            var assignment = areaAssignments[i];
+            var aStart = timeToMinutes(assignment.start_time);
+            var aEnd = timeToMinutes(assignment.end_time);
+
+            if (!rangesOverlap(slotStart, slotEnd, aStart, aEnd)) {
+                continue;
+            }
+
+            var assignmentStaffId = String(assignment.staff_id || '');
+
+            if (staffId && assignmentStaffId !== staffId) {
+                return {
+                    occupied: true,
+                    reason: 'zone_reserved_for_other_staff',
+                    detail: {
+                        assignment_id: assignment.id,
+                        other_staff_id: assignment.staff_id,
+                        assignment_range: {
+                            start_time: extractTimePart(assignment.start_time),
+                            end_time: extractTimePart(assignment.end_time)
+                        }
+                    }
+                };
+            }
+
+            sameStaffOverlapping.push({ assignment: assignment, aStart: aStart, aEnd: aEnd });
+        }
+
+        if (sameStaffOverlapping.length === 0) {
+            return { occupied: false, reason: null, detail: null };
+        }
+
+        var containing = null;
+        var overlappingNotContaining = null;
+
+        for (var j = 0; j < sameStaffOverlapping.length; j++) {
+            var entry = sameStaffOverlapping[j];
+            var contains = (entry.aStart <= slotStart) && (entry.aEnd >= slotEnd);
+            if (contains) {
+                if (!containing) containing = entry;
+            } else if (!overlappingNotContaining) {
+                overlappingNotContaining = entry;
+            }
+        }
+
+        if (containing) {
+            if (!serviceId) {
+                return { occupied: false, reason: null, detail: null };
+            }
+
+            var hasService = Array.isArray(containing.assignment.services) &&
+                containing.assignment.services.some(function(s) {
+                    return String(s.id) === serviceId;
+                });
+
+            if (hasService) {
+                return { occupied: false, reason: null, detail: null };
+            }
+
+            return {
+                occupied: true,
+                reason: 'service_not_offered',
+                detail: {
+                    assignment_id: containing.assignment.id,
+                    assignment_range: {
+                        start_time: extractTimePart(containing.assignment.start_time),
+                        end_time: extractTimePart(containing.assignment.end_time)
+                    },
+                    assignment_services: Array.isArray(containing.assignment.services)
+                        ? containing.assignment.services.map(function(s) {
+                            return { id: s.id, name: s.name || '' };
+                        })
+                        : []
+                }
+            };
+        }
+
+        if (overlappingNotContaining) {
+            return {
+                occupied: true,
+                reason: 'out_of_turn',
+                detail: {
+                    assignment_id: overlappingNotContaining.assignment.id,
+                    assignment_range: {
+                        start_time: extractTimePart(overlappingNotContaining.assignment.start_time),
+                        end_time: extractTimePart(overlappingNotContaining.assignment.end_time)
+                    }
+                }
+            };
+        }
+
+        return { occupied: false, reason: null, detail: null };
     }
 
     // ──────────────────────────────────────────────
@@ -637,17 +795,32 @@
         };
     }
 
+    /**
+     * Devuelve la lista de zonas para la cita rápida ordenadas por
+     * disponibilidad (disponibles primero, ocupadas al final), cada una con
+     * razón diferenciada cuando está ocupada (ver `orderAreasByOccupancy`).
+     *
+     * Context aceptado:
+     *   - activeServiceAreas: zonas elegibles del servicio (obligatorio).
+     *   - serviceId        : opcional. Si está presente, se evalúan también
+     *                        los rechazos `service_not_offered`. Si falta,
+     *                        esa razón no se evalúa (las demás sí).
+     *   - slotDuration     : opcional. Default 30 min (slot configurable
+     *                        a futuro).
+     */
     async function getAreaAvailabilityBySelection(date, time, staffId, context) {
         var evaluatedDate = date || null;
         var selectedTime = time || null;
         var selectedStaffId = String(staffId || '');
         var ctx = context || {};
-        var slotDuration = 30;
+        var slotDuration = parseInt(ctx.slotDuration, 10) || 30;
         var activeAreas = normalizeActiveServiceAreas(ctx.activeServiceAreas);
+        var selectedServiceId = String(ctx.serviceId || '');
 
         console.log('[FastAppt] getAreaAvailabilityBySelection', evaluatedDate,
             '| time:', selectedTime,
             '| staff:', selectedStaffId,
+            '| service:', selectedServiceId || '(none)',
             '| activeAreas:', activeAreas.length);
 
         if (!evaluatedDate || !selectedTime || !selectedStaffId || !activeAreas.length) {
@@ -663,10 +836,22 @@
         }
 
         var occupancySnapshot = await buildAreaOccupancySnapshot(evaluatedDate, activeAreas);
-        var areas = orderAreasByOccupancy(activeAreas, selectedTime, slotDuration, occupancySnapshot.areaBusy);
+        var areas = orderAreasByOccupancy(
+            activeAreas,
+            selectedTime,
+            slotDuration,
+            occupancySnapshot.areaBusy,
+            {
+                assignmentsForDate: occupancySnapshot.assignmentsForDate,
+                staffId: selectedStaffId,
+                serviceId: selectedServiceId
+            }
+        );
 
         console.log('[FastAppt] Area result — total:', areas.length,
             '| occupied:', areas.filter(function(area) { return area.occupied; }).length,
+            '| reasons:', areas.filter(function(area) { return area.occupied; })
+                .map(function(area) { return area.reason; }),
             '| busyRanges:', occupancySnapshot.busyRanges.length);
 
         return {
@@ -680,6 +865,34 @@
         };
     }
 
+    /**
+     * Decide qué hacer con la (zona, staff, slot) propuestos para una cita
+     * rápida. Separa dos preguntas que la versión anterior mezclaba:
+     *
+     *   1. ¿Existe una assignment activa del mismo staff en la misma zona
+     *      cuyo rango CONTIENE el slot solicitado?  (reuso operativo)
+     *   2. Si la respuesta a (1) es sí, ¿esa assignment ofrece el servicio
+     *      solicitado?                                (compatibilidad de
+     *                                                  servicio)
+     *
+     * Modos de retorno:
+     *
+     *  - 'existing'                      : (1)=sí, (2)=sí. Reusar.
+     *  - 'reject_service_not_offered'    : (1)=sí, (2)=no. La assignment
+     *      contiene el slot, pero no ofrece el servicio. NO se puede
+     *      crear una segunda paralela: el dominio la rechazaría con
+     *      `staff_already_assigned_in_zone`.
+     *  - 'reject_out_of_turn'            : Hay assignment del mismo staff
+     *      en la misma zona que SOLAPA con el slot pero no lo contiene.
+     *      Tampoco se puede crear paralela.
+     *  - 'create_new'                    : No hay overlap del mismo staff
+     *      en la misma zona. La creación al backend será aceptada por
+     *      `is_zone_assignable_for_staff` (a menos que otro staff bloquee).
+     *
+     * Nota: la última palabra sobre creación la tiene el dominio en backend.
+     * Aquí solo decidimos UX: reusar, abortar con mensaje específico, o
+     * delegar al backend para crear.
+     */
     async function findCompatibleAssignment(date, criteria) {
         var selectedDate = date || null;
         var crit = criteria || {};
@@ -690,7 +903,13 @@
         var slotDuration = parseInt(crit.slotDuration, 10) || (window.aa_slot_duration || 60);
 
         if (!selectedDate || !staffId || !areaId || !serviceId || !selectedTime) {
-            return { assignment: null, mode: 'create_new', candidates: [], allDayAssignments: [] };
+            return {
+                mode: 'create_new',
+                assignment: null,
+                rejection: null,
+                candidates: [],
+                allDayAssignments: []
+            };
         }
 
         var assignments = await fetchAssignmentsForDay(selectedDate);
@@ -700,42 +919,122 @@
         var appointmentStart = timeToMinutes(selectedTime);
         var appointmentEnd = appointmentStart + slotDuration;
 
-        var compatible = assignments.filter(function(a) {
+        var sameZoneAssignments = assignments.filter(function(a) {
             if (String(a.staff_id) !== staffId) return false;
             if (String(a.service_area_id) !== areaId) return false;
             if (a.status !== 'active') return false;
-
-            var hasService = Array.isArray(a.services) && a.services.some(function(s) {
-                return String(s.id) === serviceId;
-            });
-            if (!hasService) return false;
-
-            var aStart = timeToMinutes(a.start_time);
-            var aEnd = timeToMinutes(a.end_time);
-            if (aStart > appointmentStart || aEnd < appointmentEnd) return false;
-
             return true;
         });
 
-        console.log('[FastAppointment] Assignments compatibles (' + compatible.length + ')');
+        var containing = [];
+        var overlappingNotContaining = [];
 
-        if (compatible.length > 0) {
-            console.log('[FastAppointment] Assignment existente reutilizable: ID ' + compatible[0].id);
+        sameZoneAssignments.forEach(function(a) {
+            var aStart = timeToMinutes(a.start_time);
+            var aEnd = timeToMinutes(a.end_time);
+
+            var overlaps = rangesOverlap(appointmentStart, appointmentEnd, aStart, aEnd);
+            if (!overlaps) return;
+
+            var contains = (aStart <= appointmentStart) && (aEnd >= appointmentEnd);
+            if (contains) {
+                containing.push(a);
+            } else {
+                overlappingNotContaining.push(a);
+            }
+        });
+
+        console.log('[FastAppointment] same-zone assignments:', sameZoneAssignments.length,
+            '| containing:', containing.length,
+            '| overlapping_not_containing:', overlappingNotContaining.length);
+
+        if (containing.length > 1) {
+            console.warn('[FastAppointment] Anomalía: más de una assignment activa contiene el slot ' +
+                '(invariante de dominio violada). Detalle:', containing.map(function(a) {
+                    return { id: a.id, start: a.start_time, end: a.end_time };
+                }));
+        }
+
+        if (containing.length > 0) {
+            var picked = containing[0];
+            var hasService = Array.isArray(picked.services) && picked.services.some(function(s) {
+                return String(s.id) === serviceId;
+            });
+
+            if (hasService) {
+                console.log('[FastAppointment] Assignment existente reutilizable: ID ' + picked.id);
+                return {
+                    mode: 'existing',
+                    assignment: picked,
+                    rejection: null,
+                    candidates: containing,
+                    allDayAssignments: assignments
+                };
+            }
+
+            var assignmentServices = Array.isArray(picked.services)
+                ? picked.services.map(function(s) {
+                    return { id: s.id, name: s.name || '' };
+                })
+                : [];
+
             return {
-                assignment: compatible[0],
-                mode: 'existing',
-                candidates: compatible,
+                mode: 'reject_service_not_offered',
+                assignment: picked,
+                rejection: {
+                    code: 'service_not_offered',
+                    message: 'El staff ya tiene un turno en esa zona y horario, pero no incluye el servicio seleccionado. Edita el turno para agregar el servicio o elige otra hora.',
+                    requested_service_id: parseInt(serviceId, 10),
+                    assignment_services: assignmentServices
+                },
+                candidates: containing,
                 allDayAssignments: assignments
             };
         }
 
-        console.log('[FastAppointment] No existe assignment compatible, se debera crear uno nuevo');
+        if (overlappingNotContaining.length > 0) {
+            var conflicting = overlappingNotContaining[0];
+            var assignmentRange = {
+                start_time: extractTimePart(conflicting.start_time),
+                end_time: extractTimePart(conflicting.end_time)
+            };
+            var requestedRange = {
+                start_time: minutesToTime(appointmentStart),
+                end_time: minutesToTime(appointmentEnd)
+            };
+
+            return {
+                mode: 'reject_out_of_turn',
+                assignment: conflicting,
+                rejection: {
+                    code: 'out_of_turn',
+                    message: 'El staff tiene un turno en esa zona (' +
+                        assignmentRange.start_time + '-' + assignmentRange.end_time +
+                        ') pero la cita propuesta sale de ese horario. Elige una hora dentro del turno o pide a un admin que lo amplíe.',
+                    requested_range: requestedRange,
+                    assignment_range: assignmentRange
+                },
+                candidates: overlappingNotContaining,
+                allDayAssignments: assignments
+            };
+        }
+
+        console.log('[FastAppointment] No existe assignment del mismo staff en la zona, se creara una nueva');
         return {
-            assignment: null,
             mode: 'create_new',
+            assignment: null,
+            rejection: null,
             candidates: [],
             allDayAssignments: assignments
         };
+    }
+
+    function minutesToTime(totalMinutes) {
+        var clamped = Math.max(0, parseInt(totalMinutes, 10) || 0);
+        var hours = Math.floor(clamped / 60);
+        var minutes = clamped % 60;
+        return (hours < 10 ? '0' + hours : String(hours)) + ':' +
+            (minutes < 10 ? '0' + minutes : String(minutes));
     }
 
     async function getAllStaffWithAvailability(date, time, serviceId, context) {

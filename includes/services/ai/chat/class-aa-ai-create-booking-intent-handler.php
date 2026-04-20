@@ -29,6 +29,7 @@ require_once __DIR__ . '/class-aa-ai-staff-feasibility-evaluator.php';
 require_once __DIR__ . '/class-aa-ai-staff-time-feasibility-evaluator.php';
 require_once __DIR__ . '/class-aa-ai-zone-feasibility-evaluator.php';
 require_once __DIR__ . '/../../availability/class-aa-area-availability-service.php';
+require_once __DIR__ . '/../../../domain/booking/class-aa-booking-draft-aggregator.php';
 
 final class AA_AI_Create_Booking_Intent_Handler {
 
@@ -122,6 +123,23 @@ final class AA_AI_Create_Booking_Intent_Handler {
 
         $reply = $this->build_reply($parsed, $missing);
 
+        $aa_slot_duration_raw     = get_option('aa_slot_duration', false);
+        $aa_slot_duration_minutes = (is_numeric($aa_slot_duration_raw) && (int) $aa_slot_duration_raw > 0)
+            ? (int) $aa_slot_duration_raw
+            : null;
+
+        $aggregator  = new AA_Booking_Draft_Aggregator();
+        $draft_state = $aggregator->aggregate([
+            'parsed_input'        => $parsed,
+            'missing_fields'      => $missing,
+            'ambiguous_fields'    => $ambiguous_fields,
+            'resolved'            => $resolved,
+            'lookup'              => $lookup,
+            'datetime_resolution' => $datetime_resolution,
+            'feasibility'         => $feasibility,
+            'duration_settings'   => ['default_minutes' => $aa_slot_duration_minutes],
+        ]);
+
         return [
             'intent'     => 'create_booking',
             'status'     => 'needs_resolution',
@@ -136,6 +154,7 @@ final class AA_AI_Create_Booking_Intent_Handler {
                 'datetime_resolution'    => $datetime_resolution,
                 'lookup'                 => !empty($lookup) ? $lookup : new \stdClass(),
                 'feasibility'            => $feasibility,
+                'draft_state'            => $draft_state,
             ],
         ];
     }

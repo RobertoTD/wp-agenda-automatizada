@@ -1218,9 +1218,29 @@ class AssignmentsModel {
 
     /**
      * Crear nueva asignación
-     * 
-     * Valida colisión por zona con asignaciones existentes antes de insertar.
-     * 
+     *
+     * Valida que la zona sea asignable al staff en ese horario antes de
+     * insertar. La regla canónica vive en
+     * `AA_Area_Availability_Service::is_zone_assignable_for_staff()`
+     * (capa `includes/domain/availability/`):
+     *
+     *  - Sin assignment activa traslapada en la zona     → asignable.
+     *  - Assignment activa de OTRO staff que se traslapa → bloqueada con
+     *    `reason: 'zone_reserved_for_other_staff'`.
+     *  - Assignment activa del MISMO staff que se traslapa → bloqueada con
+     *    `reason: 'staff_already_assigned_in_zone'` (la invariante de
+     *    dominio prohíbe duplicados; el caller debe reusar la existente
+     *    o ajustar el horario).
+     *
+     * Antes (legacy), se llamaba a `self::check_area_collision()` que
+     * bloqueaba cualquier overlap en la zona sin distinguir el dueño.
+     * Ese método sobrevive como público huérfano hasta un retiro futuro.
+     *
+     * Deuda residual (no se resuelve aquí): este método sigue siendo
+     * `static` y vive en `includes/models/`. Su sitio definitivo es un
+     * Use Case en `includes/application/booking/` que orqueste validación
+     * + persistencia. Migración por contagio en un prompt futuro.
+     *
      * @param array $data Datos de la asignación:
      *   - assignment_date (string): Fecha YYYY-MM-DD
      *   - start_time (string): Hora inicio HH:MM
@@ -1247,22 +1267,53 @@ class AssignmentsModel {
         // Normalizar horas a formato HH:MM:SS
         $start_time = strlen($data['start_time']) === 5 ? $data['start_time'] . ':00' : $data['start_time'];
         $end_time = strlen($data['end_time']) === 5 ? $data['end_time'] . ':00' : $data['end_time'];
-        
-        // Verificar colisión por zona (misma zona, misma fecha, horario traslapado).
-        // El staff puede tener assignments traslapadas siempre que pertenezcan a zonas distintas.
-        $area_collision = self::check_area_collision(
-            $data['assignment_date'],
-            $start_time,
-            $end_time,
-            $data['service_area_id']
-        );
-        
-        if ($area_collision) {
-            error_log("❌ [AssignmentsModel] Colisión detectada: zona ya tiene asignación en ese horario");
+
+        // Validación de zona delegada al dominio canónico.
+        require_once dirname(__DIR__) . '/domain/availability/class-aa-area-availability-service.php';
+        $zone_guard = (new AA_Area_Availability_Service())
+            ->is_zone_assignable_for_staff(
+                (int) $data['service_area_id'],
+                (int) $data['staff_id'],
+                $data['assignment_date'],
+                $start_time,
+                $end_time
+            );
+
+        if (!$zone_guard['assignable']) {
+            $conflict = is_array($zone_guard['conflicting'] ?? null) ? $zone_guard['conflicting'] : [];
+            $reason   = $zone_guard['reason'] ?? null;
+
+            $assignment_id_log = isset($conflict['assignment_id']) ? (int) $conflict['assignment_id'] : 0;
+            $staff_id_log      = isset($conflict['staff_id']) ? (int) $conflict['staff_id'] : 0;
+            $start_log         = isset($conflict['start_time']) ? (string) $conflict['start_time'] : '';
+            $end_log           = isset($conflict['end_time']) ? (string) $conflict['end_time'] : '';
+
+            if ($reason === 'staff_already_assigned_in_zone') {
+                $error_message = 'El staff ya tiene un turno asignado en esa zona en ese horario';
+                error_log(sprintf(
+                    '❌ [AssignmentsModel] El staff ya tiene un turno en esa zona (assignment %d, %s-%s)',
+                    $assignment_id_log,
+                    $start_log,
+                    $end_log
+                ));
+            } else {
+                $error_message = 'La zona ya está reservada por otro staff en ese horario';
+                error_log(sprintf(
+                    '❌ [AssignmentsModel] Zona reservada por otro staff (assignment %d, staff %d, %s-%s)',
+                    $assignment_id_log,
+                    $staff_id_log,
+                    $start_log,
+                    $end_log
+                ));
+            }
+
             return [
-                'error' => 'La zona seleccionada ya tiene una asignación en ese horario'
+                'error'    => $error_message,
+                'reason'   => $reason,
+                'conflict' => $conflict,
             ];
         }
+
         
         // Preparar datos para inserción
         $insert_data = [

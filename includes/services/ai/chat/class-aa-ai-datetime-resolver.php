@@ -103,6 +103,22 @@ final class AA_AI_Datetime_Resolver {
             ];
         }
 
+        if ($text === 'ayer') {
+            return [
+                'date'        => $this->now->modify('-1 day'),
+                'source_type' => 'interpreted',
+                'error'       => null,
+            ];
+        }
+
+        if ($text === 'anteayer') {
+            return [
+                'date'        => $this->now->modify('-2 days'),
+                'source_type' => 'interpreted',
+                'error'       => null,
+            ];
+        }
+
         $day_result = $this->resolve_day_name($text);
         if ($day_result !== null) {
             return $day_result;
@@ -290,6 +306,18 @@ final class AA_AI_Datetime_Resolver {
                 'timezone'       => $this->tz_name,
             ];
         } elseif ($has_date && !$has_time) {
+            // Detección día-vs-día: si la fecha pertenece a un día
+            // anterior al actual del negocio, marcamos `invalid_or_past`
+            // aunque no tengamos hora. Hoy (mismo día calendario) sigue
+            // siendo válido aunque sea de noche.
+            $today_start = $this->now->setTime(0, 0, 0);
+            $date_start  = $date_result['date']->setTime(0, 0, 0);
+
+            if ($date_start < $today_start) {
+                $is_past = true;
+                $status  = 'invalid_or_past';
+            }
+
             $normalized = [
                 'local_datetime' => null,
                 'local_date'     => $date_result['date']->format('Y-m-d'),

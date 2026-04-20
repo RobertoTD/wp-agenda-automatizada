@@ -47,6 +47,124 @@ final class AA_Area_Availability_Service {
     }
 
     /**
+     * Determina si una zona es asignable a un staff en una ventana horaria.
+     *
+     * Predicado canónico para flujos de CREACIÓN/EDICIÓN de assignments
+     * (cita rápida, modal "Horario", futuros Use Cases). Hace cumplir la
+     * invariante de dominio:
+     *
+     *   ⟹ A lo más una assignment activa por (staff, zona, ventana
+     *     horaria traslapada).
+     *
+     * Reglas (en orden de evaluación; primer overlap detectado gana):
+     *
+     *  - Sin assignment activa traslapada en la zona       → asignable.
+     *  - Assignment activa de OTRO staff que se traslapa   → no asignable
+     *      con `reason: 'zone_reserved_for_other_staff'`.
+     *  - Assignment activa del MISMO staff que se traslapa → no asignable
+     *      con `reason: 'staff_already_assigned_in_zone'` (en lugar de
+     *      crear una segunda assignment paralela; el caller debe REUSAR
+     *      la existente o ajustar el horario).
+     *
+     * ─── Distinción semántica deliberada con `evaluate_assignment_guard` ─
+     *
+     * `evaluate_assignment_guard()` (privado, consumido por
+     * `evaluate_zone()`) responde una pregunta DISTINTA:
+     *
+     *   "¿está la zona OPERATIVAMENTE bloqueada para esta cita en este
+     *    instante?"
+     *
+     * Para esa pregunta, una assignment del MISMO staff NO bloquea la
+     * cita: significaría que la cita podría caer en el turno de ese
+     * staff y reusarlo. Por eso aquel método sigue reportando
+     * `compatible` cuando el overlap es del mismo staff.
+     *
+     * Este método (`is_zone_assignable_for_staff`) responde una pregunta
+     * complementaria pero no equivalente:
+     *
+     *   "¿se puede CREAR una nueva assignment activa con este (zona,
+     *    staff, ventana)?"
+     *
+     * Y la respuesta es no si ya existe cualquier overlap, incluso del
+     * mismo staff: la invariante prohíbe duplicados, sin importar el
+     * dueño del turno previo.
+     *
+     * @param int      $zone_id
+     * @param int      $staff_id
+     * @param string   $date                  YYYY-MM-DD
+     * @param string   $start_time            HH:MM[:SS]
+     * @param string   $end_time              HH:MM[:SS]
+     * @param int|null $exclude_assignment_id Para flujos de edición.
+     * @return array{
+     *     assignable: bool,
+     *     reason: ?string,
+     *     conflicting: ?array{assignment_id:int, staff_id:int, start_time:string, end_time:string}
+     * }
+     */
+    public function is_zone_assignable_for_staff(
+        int $zone_id,
+        int $staff_id,
+        string $date,
+        string $start_time,
+        string $end_time,
+        ?int $exclude_assignment_id = null
+    ): array {
+        if (!class_exists('AssignmentsModel')) {
+            return [
+                'assignable'  => true,
+                'reason'      => null,
+                'conflicting' => null,
+            ];
+        }
+
+        $assignments = \AssignmentsModel::get_active_assignments_overlapping_in_area(
+            $date,
+            $start_time,
+            $end_time,
+            $zone_id
+        );
+
+        if (empty($assignments)) {
+            return [
+                'assignable'  => true,
+                'reason'      => null,
+                'conflicting' => null,
+            ];
+        }
+
+        foreach ($assignments as $assignment) {
+            $assignment_id = isset($assignment['id']) ? (int) $assignment['id'] : 0;
+
+            if ($exclude_assignment_id !== null && $assignment_id === $exclude_assignment_id) {
+                continue;
+            }
+
+            $assignment_staff_id = isset($assignment['staff_id']) ? (int) $assignment['staff_id'] : 0;
+
+            $reason = ($assignment_staff_id === $staff_id)
+                ? 'staff_already_assigned_in_zone'
+                : 'zone_reserved_for_other_staff';
+
+            return [
+                'assignable'  => false,
+                'reason'      => $reason,
+                'conflicting' => [
+                    'assignment_id' => $assignment_id,
+                    'staff_id'      => $assignment_staff_id,
+                    'start_time'    => (string) ($assignment['start_time'] ?? ''),
+                    'end_time'      => (string) ($assignment['end_time'] ?? ''),
+                ],
+            ];
+        }
+
+        return [
+            'assignable'  => true,
+            'reason'      => null,
+            'conflicting' => null,
+        ];
+    }
+
+    /**
      * Restricción operativa por assignment activa de la zona.
      *
      * - sin assignment activa traslapada -> compatible
