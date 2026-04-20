@@ -83,6 +83,32 @@ final class AA_AI_Datetime_Resolver {
             return ['date' => null, 'source_type' => null, 'error' => 'missing'];
         }
 
+        $composite = $this->try_resolve_composite_keyword_and_explicit($text);
+        if ($composite !== null) {
+            return $composite;
+        }
+
+        $single_kw = $this->resolve_date_single_keyword($text);
+        if ($single_kw !== null) {
+            return $single_kw;
+        }
+
+        $explicit_result = $this->resolve_explicit_date($text);
+        if ($explicit_result !== null) {
+            return $explicit_result;
+        }
+
+        return ['date' => null, 'source_type' => 'captured', 'error' => 'unrecognized'];
+    }
+
+    /**
+     * Igualdad estricta y nombres de día (sin rama compuesta). Extraído
+     * para reutilizar la lógica en keyword+explicit sin recursión.
+     *
+     * @param string $text
+     * @return array{date: \DateTimeImmutable|null, source_type: string, error: string|null}|null
+     */
+    private function resolve_date_single_keyword($text) {
         if ($text === 'hoy') {
             return ['date' => $this->now, 'source_type' => 'interpreted', 'error' => null];
         }
@@ -119,17 +145,87 @@ final class AA_AI_Datetime_Resolver {
             ];
         }
 
-        $day_result = $this->resolve_day_name($text);
-        if ($day_result !== null) {
-            return $day_result;
+        return $this->resolve_day_name($text);
+    }
+
+    /**
+     * Detecta <keyword><sep><explicit> (keyword relativa o nombre de día
+     * con prefijos el/este/próximo) y fusiona con la fecha explícita.
+     *
+     * @param string $text
+     * @return array{date: \DateTimeImmutable|null, source_type: string, error: string|null}|null
+     */
+    private function try_resolve_composite_keyword_and_explicit($text) {
+        $kw  = null;
+        $rest = null;
+
+        $relative = ['pasado mañana', 'anteayer', 'mañana', 'ayer', 'hoy'];
+        usort($relative, static function ($a, $b) {
+            return strlen($b) <=> strlen($a);
+        });
+
+        foreach ($relative as $k) {
+            $klen = mb_strlen($k, 'UTF-8');
+            if (mb_strpos($text, $k, 0, 'UTF-8') !== 0 || mb_strlen($text, 'UTF-8') <= $klen) {
+                continue;
+            }
+            $after = ltrim(mb_substr($text, $klen, null, 'UTF-8'), " \t\n\r\0\x0B,");
+            if ($after === '') {
+                continue;
+            }
+            $kw   = $k;
+            $rest = $after;
+            break;
         }
 
-        $explicit_result = $this->resolve_explicit_date($text);
-        if ($explicit_result !== null) {
-            return $explicit_result;
+        if ($kw === null) {
+            $day_keys = array_keys(self::DAY_MAP);
+            usort($day_keys, static function ($a, $b) {
+                return strlen($b) <=> strlen($a);
+            });
+            $alt = implode('|', array_map('preg_quote', $day_keys, array_fill(0, count($day_keys), '/')));
+            if (preg_match(
+                '/^((?:(?:el|este|próximo|proximo)\s+)*(' . $alt . '))[\s,]+(.+)$/u',
+                $text,
+                $m
+            )) {
+                $kw   = trim($m[1]);
+                $rest = trim($m[3]);
+            }
         }
 
-        return ['date' => null, 'source_type' => 'captured', 'error' => 'unrecognized'];
+        if ($kw === null || $rest === null || $rest === '') {
+            return null;
+        }
+
+        $kw_result = $this->resolve_date_single_keyword($kw);
+        if ($kw_result === null) {
+            return null;
+        }
+
+        $ex_result = $this->resolve_explicit_date($rest);
+
+        $kw_ok = ($kw_result['date'] !== null && ($kw_result['error'] ?? null) === null);
+        $ex_ok = ($ex_result !== null && $ex_result['date'] !== null && ($ex_result['error'] ?? null) === null);
+
+        if ($kw_ok && $ex_ok) {
+            $d_kw = $kw_result['date']->format('Y-m-d');
+            $d_ex = $ex_result['date']->format('Y-m-d');
+            if ($d_kw === $d_ex) {
+                return $ex_result;
+            }
+            return ['date' => null, 'source_type' => 'captured', 'error' => 'invalid'];
+        }
+
+        if ($ex_ok) {
+            return $ex_result;
+        }
+
+        if ($kw_ok) {
+            return $kw_result;
+        }
+
+        return null;
     }
 
     /**
@@ -151,33 +247,52 @@ final class AA_AI_Datetime_Resolver {
     }
 
     /**
-     * Handles: "15 de abril", "15 abril", "15/04", "15-04"
+     * Fecha explícita: dd/mm[/yyyy], dd-mm[-yyyy], "15 de abril [yyyy]",
+     * "15 abril [yyyy]". Año 1970–2100; fuera de rango → error `invalid`.
      *
      * @param string $text
-     * @return array|null
+     * @return array{date: \DateTimeImmutable|null, source_type: string, error: string|null}|null
      */
     private function resolve_explicit_date($text) {
-        $day   = null;
-        $month = null;
-
-        // "15 de abril" or "15 abril"
-        if (preg_match('/^(\d{1,2})\s+(?:de\s+)?(\w+)$/u', $text, $m)) {
-            $day = (int) $m[1];
-            $month_name = mb_strtolower($m[2]);
-            $month = self::MONTH_MAP[$month_name] ?? null;
+        // dd/mm/yyyy o dd-mm-yyyy
+        if (preg_match('/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/', $text, $m)) {
+            return $this->build_date_from_parts((int) $m[1], (int) $m[2], (int) $m[3]);
         }
 
-        // "15/04" or "15-04"
-        if ($day === null && preg_match('/^(\d{1,2})[\/\-](\d{1,2})$/', $text, $m)) {
-            $day   = (int) $m[1];
-            $month = (int) $m[2];
+        // dd/mm o dd-mm (año = año calendario actual del negocio)
+        if (preg_match('/^(\d{1,2})[\/\-](\d{1,2})$/', $text, $m)) {
+            $year = (int) $this->now->format('Y');
+            return $this->build_date_from_parts((int) $m[1], (int) $m[2], $year);
         }
 
-        if ($day === null || $month === null || $month < 1 || $month > 12 || $day < 1 || $day > 31) {
-            return null;
+        // "15 de abril 2026", "15 abril 2026", "15 de abril", "15 abril"
+        if (preg_match('/^(\d{1,2})\s+(?:de\s+)?(\w+)(?:\s+(\d{4}))?$/u', $text, $m)) {
+            $day        = (int) $m[1];
+            $month_name = mb_strtolower($m[2], 'UTF-8');
+            $month      = self::MONTH_MAP[$month_name] ?? null;
+            if ($month === null) {
+                return null;
+            }
+            $year = (isset($m[3]) && $m[3] !== '')
+                ? (int) $m[3]
+                : (int) $this->now->format('Y');
+            return $this->build_date_from_parts($day, $month, $year);
         }
 
-        $year = (int) $this->now->format('Y');
+        return null;
+    }
+
+    /**
+     * @return array{date: \DateTimeImmutable|null, source_type: string, error: string|null}
+     */
+    private function build_date_from_parts(int $day, int $month, int $year): array {
+        if ($year < 1970 || $year > 2100) {
+            return ['date' => null, 'source_type' => 'captured', 'error' => 'invalid'];
+        }
+
+        if ($month < 1 || $month > 12 || $day < 1 || $day > 31) {
+            return ['date' => null, 'source_type' => 'captured', 'error' => 'invalid'];
+        }
 
         if (!checkdate($month, $day, $year)) {
             return ['date' => null, 'source_type' => 'captured', 'error' => 'invalid'];

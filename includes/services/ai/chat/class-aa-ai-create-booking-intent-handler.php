@@ -30,6 +30,7 @@ require_once __DIR__ . '/class-aa-ai-staff-time-feasibility-evaluator.php';
 require_once __DIR__ . '/class-aa-ai-zone-feasibility-evaluator.php';
 require_once __DIR__ . '/../../availability/class-aa-area-availability-service.php';
 require_once __DIR__ . '/../../../domain/booking/class-aa-booking-draft-aggregator.php';
+require_once __DIR__ . '/../../../domain/booking/class-aa-booking-assignment-resolver.php';
 
 final class AA_AI_Create_Booking_Intent_Handler {
 
@@ -128,16 +129,23 @@ final class AA_AI_Create_Booking_Intent_Handler {
             ? (int) $aa_slot_duration_raw
             : null;
 
+        $assignment_resolution = $this->resolve_assignment_if_possible(
+            $resolved,
+            $datetime_resolution,
+            $aa_slot_duration_minutes
+        );
+
         $aggregator  = new AA_Booking_Draft_Aggregator();
         $draft_state = $aggregator->aggregate([
-            'parsed_input'        => $parsed,
-            'missing_fields'      => $missing,
-            'ambiguous_fields'    => $ambiguous_fields,
-            'resolved'            => $resolved,
-            'lookup'              => $lookup,
-            'datetime_resolution' => $datetime_resolution,
-            'feasibility'         => $feasibility,
-            'duration_settings'   => ['default_minutes' => $aa_slot_duration_minutes],
+            'parsed_input'          => $parsed,
+            'missing_fields'        => $missing,
+            'ambiguous_fields'      => $ambiguous_fields,
+            'resolved'              => $resolved,
+            'lookup'                => $lookup,
+            'datetime_resolution'   => $datetime_resolution,
+            'feasibility'           => $feasibility,
+            'duration_settings'     => ['default_minutes' => $aa_slot_duration_minutes],
+            'assignment_resolution' => $assignment_resolution,
         ]);
 
         return [
@@ -157,6 +165,116 @@ final class AA_AI_Create_Booking_Intent_Handler {
                 'draft_state'            => $draft_state,
             ],
         ];
+    }
+
+    /**
+     * Invoca el `AA_Booking_Assignment_Resolver` SOLO si tenemos todas
+     * las entradas mínimas (staff, zona, servicio resueltos + datetime
+     * válido + duración > 0). Si falta cualquier pieza, devuelve `null`
+     * y el aggregator no proyecta `draft.assignment`.
+     *
+     * Esto implementa AC5 a nivel de handler: cuando hay blockers
+     * upstream críticos (staff no resuelto, zona no resuelta, datetime
+     * inválido, etc.), omitimos la consulta al resolver para evitar
+     * blockers redundantes. La cadena de responsabilidad queda clara:
+     *
+     *   - entidad ausente/ambigua → lookup/ambiguous_fields + required_literal.
+     *   - datetime inválido/past   → datetime_resolution + blocker `datetime_past`.
+     *   - assignment incompatible  → este resolver + blocker `assignment_*`.
+     *
+     * @param array $resolved            Salida de `place_entity_result`.
+     * @param array $datetime_resolution Salida del datetime resolver.
+     * @param int|null $default_duration_minutes Cascada: setting WP si
+     *                                           la hay, `null` → fallback 30.
+     * @return array|null Shape del output del resolver, o `null` si no
+     *                    se invocó.
+     */
+    private function resolve_assignment_if_possible(
+        array $resolved,
+        array $datetime_resolution,
+        ?int $default_duration_minutes
+    ): ?array {
+        $staff_id   = isset($resolved['staff']['id']) ? (int) $resolved['staff']['id'] : 0;
+        $zone_id    = isset($resolved['zone']['id']) ? (int) $resolved['zone']['id'] : 0;
+        $service_id = isset($resolved['service']['id']) ? (int) $resolved['service']['id'] : 0;
+
+        if ($staff_id <= 0 || $zone_id <= 0 || $service_id <= 0) {
+            return null;
+        }
+
+        $dt_status = $datetime_resolution['status'] ?? null;
+        if ($dt_status !== 'resolved') {
+            return null;
+        }
+
+        $local_datetime = isset($datetime_resolution['normalized']['local_datetime'])
+            ? (string) $datetime_resolution['normalized']['local_datetime']
+            : '';
+
+        if ($local_datetime === '') {
+            return null;
+        }
+
+        $start_datetime = $this->to_mysql_datetime($local_datetime);
+        if ($start_datetime === null) {
+            return null;
+        }
+
+        $duration_minutes = $this->resolve_duration_for_resolver($resolved, $default_duration_minutes);
+
+        if ($duration_minutes <= 0) {
+            return null;
+        }
+
+        $resolver = new AA_Booking_Assignment_Resolver();
+        return $resolver->resolve([
+            'staff_id'         => $staff_id,
+            'service_area_id'  => $zone_id,
+            'service_id'       => $service_id,
+            'start_datetime'   => $start_datetime,
+            'duration_minutes' => $duration_minutes,
+        ]);
+    }
+
+    /**
+     * Normaliza `local_datetime` al shape `Y-m-d H:i:s` que el resolver
+     * exige. El datetime resolver hoy emite `Y-m-d H:i:s` pero hacemos
+     * defensa en profundidad aceptando ISO-8601 con 'T' por si el
+     * contrato upstream cambia.
+     */
+    private function to_mysql_datetime(string $local_datetime): ?string {
+        $formats = ['Y-m-d H:i:s', 'Y-m-d\TH:i:s', 'Y-m-d H:i', 'Y-m-d\TH:i'];
+
+        foreach ($formats as $fmt) {
+            $dt = \DateTimeImmutable::createFromFormat($fmt, $local_datetime);
+            if ($dt instanceof \DateTimeImmutable) {
+                return $dt->format('Y-m-d H:i:s');
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Duplica la cascada de duración del aggregator para alimentar al
+     * resolver SIN cargarlo con settings. Mantener las dos cascadas
+     * sincronizadas es deuda conocida; una opción es exponer un helper
+     * compartido en dominio (Paso futuro).
+     */
+    private function resolve_duration_for_resolver(array $resolved, ?int $default_duration_minutes): int {
+        $service_duration = isset($resolved['service']['duration_minutes'])
+            ? (int) $resolved['service']['duration_minutes']
+            : 0;
+
+        if ($service_duration > 0) {
+            return $service_duration;
+        }
+
+        if (is_int($default_duration_minutes) && $default_duration_minutes > 0) {
+            return $default_duration_minutes;
+        }
+
+        return 30;
     }
 
     /**

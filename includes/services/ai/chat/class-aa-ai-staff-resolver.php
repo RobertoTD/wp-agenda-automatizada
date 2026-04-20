@@ -13,6 +13,8 @@
 
 defined('ABSPATH') or die('No direct access');
 
+require_once __DIR__ . '/../../../domain/text/class-aa-text-folder.php';
+
 final class AA_AI_Staff_Resolver {
 
     /**
@@ -39,15 +41,15 @@ final class AA_AI_Staff_Resolver {
             ];
         }
 
-        $needle = mb_strtolower($trimmed, 'UTF-8');
+        $needle = AA_Text_Folder::fold($trimmed);
 
         $exact = array_filter($staff_list, function (array $member) use ($needle) {
-            return mb_strtolower(trim($member['name']), 'UTF-8') === $needle;
+            return AA_Text_Folder::fold($member['name']) === $needle;
         });
 
         if (empty($exact)) {
             $exact = array_filter($staff_list, function (array $member) use ($needle) {
-                return mb_strpos(mb_strtolower(trim($member['name']), 'UTF-8'), $needle) !== false;
+                return mb_strpos(AA_Text_Folder::fold($member['name']), $needle, 0, 'UTF-8') !== false;
             });
         }
 

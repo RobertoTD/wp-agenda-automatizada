@@ -38,6 +38,11 @@
  *     'duration_settings'   => array{    // opcional, alimenta la cascada
  *         default_minutes: int|null,    // null si la opción WP no fue guardada
  *     },
+ *     'assignment_resolution' => array|null, // opcional, output del
+ *                                            // `AA_Booking_Assignment_Resolver`.
+ *                                            // Si el handler no tenía datos
+ *                                            // suficientes para invocarlo (AC5),
+ *                                            // viene `null` y no se proyecta.
  *   ]
  *
  * Cualquier clave puede faltar; el agregador es defensivo y cubre
@@ -51,12 +56,18 @@
  *              | 'needs_confirmation_of_proposals'
  *              | 'ready_for_confirmation',
  *     'draft' => [
- *       'client'   => {id,nombre,telefono,correo}|null,
- *       'service'  => {id,name,duration_minutes,price}|null,
- *       'staff'    => {id,name}|null,
- *       'zone'     => {id,name}|null,
- *       'datetime' => {local_datetime,local_date,local_time,timezone}|null,
- *       'duration' => ['minutes'=>int,'source'=>'service'|'setting'|'fallback'],
+ *       'client'     => {id,nombre,telefono,correo}|null,
+ *       'service'    => {id,name,duration_minutes,price}|null,
+ *       'staff'      => {id,name}|null,
+ *       'zone'       => {id,name}|null,
+ *       'datetime'   => {local_datetime,local_date,local_time,timezone}|null,
+ *       'duration'   => ['minutes'=>int,'source'=>'service'|'setting'|'fallback'],
+ *       'assignment' => null | {
+ *           mode: 'reuse' | 'create_new',
+ *           assignment_id: int|null,
+ *           rationale: string,
+ *           pending_creation: array|null,
+ *       },
  *     ],
  *     'required_literal' => [
  *       {field, reason, hint, candidates?}
@@ -123,19 +134,31 @@ final class AA_Booking_Draft_Aggregator {
      * @return array `draft_state` con el shape descrito en el docblock.
      */
     public function aggregate(array $context): array {
-        $parsed_input        = $this->safe_array($context, 'parsed_input');
-        $ambiguous_fields    = $this->safe_array($context, 'ambiguous_fields');
-        $resolved            = $this->safe_array($context, 'resolved');
-        $lookup              = $this->safe_array($context, 'lookup');
-        $datetime_resolution = $this->safe_array($context, 'datetime_resolution');
-        $feasibility         = $this->safe_array($context, 'feasibility');
-        $duration_settings   = $this->safe_array($context, 'duration_settings');
+        $parsed_input          = $this->safe_array($context, 'parsed_input');
+        $ambiguous_fields      = $this->safe_array($context, 'ambiguous_fields');
+        $resolved              = $this->safe_array($context, 'resolved');
+        $lookup                = $this->safe_array($context, 'lookup');
+        $datetime_resolution   = $this->safe_array($context, 'datetime_resolution');
+        $feasibility           = $this->safe_array($context, 'feasibility');
+        $duration_settings     = $this->safe_array($context, 'duration_settings');
+        $assignment_resolution = isset($context['assignment_resolution']) && is_array($context['assignment_resolution'])
+            ? $context['assignment_resolution']
+            : null;
 
         $draft = $this->build_draft($resolved, $datetime_resolution, $duration_settings);
+        $draft['assignment'] = $this->project_assignment($assignment_resolution);
 
         $required_literal       = $this->build_required_literal($lookup, $ambiguous_fields, $resolved, $datetime_resolution);
         $confirmable_heuristics = $this->build_confirmable_heuristics($draft, $datetime_resolution);
         $blockers               = $this->build_blockers($feasibility, $datetime_resolution);
+
+        $assignment_side_effects = $this->apply_assignment_conflicts($assignment_resolution);
+        if (!empty($assignment_side_effects['blockers'])) {
+            $blockers = array_merge($blockers, $assignment_side_effects['blockers']);
+        }
+        if (!empty($assignment_side_effects['required_literal'])) {
+            $required_literal = array_merge($required_literal, $assignment_side_effects['required_literal']);
+        }
 
         $state = $this->compute_state($blockers, $required_literal, $confirmable_heuristics);
 
@@ -155,6 +178,102 @@ final class AA_Booking_Draft_Aggregator {
         ];
     }
 
+    // ─── Assignment resolution projection ────────────────────────────
+
+    /**
+     * Proyecta el output del `AA_Booking_Assignment_Resolver` al campo
+     * `draft.assignment`. Devuelve `null` si:
+     *   - no hay `assignment_resolution` (handler no invocó al resolver),
+     *   - o el resolver devolvió `mode: 'unresolved'`.
+     *
+     * En el caso `unresolved` con conflicto, la información del conflicto
+     * se materializa más adelante como `blocker` + `required_literal`
+     * (ver `apply_assignment_conflicts()`), NO aquí. Este método se
+     * limita a la proyección al draft.
+     *
+     * @return array|null
+     */
+    private function project_assignment(?array $assignment_resolution): ?array {
+        if ($assignment_resolution === null) {
+            return null;
+        }
+
+        $mode = $assignment_resolution['mode'] ?? null;
+
+        if ($mode !== 'reuse' && $mode !== 'create_new') {
+            return null;
+        }
+
+        $assignment_id = $assignment_resolution['assignment_id'] ?? null;
+
+        return [
+            'mode'             => (string) $mode,
+            'assignment_id'    => is_int($assignment_id) ? $assignment_id : null,
+            'rationale'        => (string) ($assignment_resolution['rationale'] ?? ''),
+            'pending_creation' => isset($assignment_resolution['pending_creation']) && is_array($assignment_resolution['pending_creation'])
+                ? $assignment_resolution['pending_creation']
+                : null,
+        ];
+    }
+
+    /**
+     * Traduce un conflicto del resolver a blocker + required_literal.
+     *
+     * Solo aplica cuando `mode === 'unresolved'` y
+     * `rationale === 'existing_overlap_incompatible'`. Los demás casos
+     * (incluido `missing_inputs`) no emiten efectos: si faltan datos
+     * hay otros blockers o required_literal upstream que cubren la
+     * situación (`staff_not_found`, `service_not_found`, `missing_date`,
+     * etc.).
+     *
+     * @return array{blockers: array<int, array<string,mixed>>, required_literal: array<int, array<string,mixed>>}
+     */
+    private function apply_assignment_conflicts(?array $assignment_resolution): array {
+        $blockers = [];
+        $required = [];
+
+        if ($assignment_resolution === null) {
+            return ['blockers' => $blockers, 'required_literal' => $required];
+        }
+
+        $mode      = $assignment_resolution['mode'] ?? null;
+        $rationale = $assignment_resolution['rationale'] ?? null;
+
+        if ($mode !== 'unresolved' || $rationale !== 'existing_overlap_incompatible') {
+            return ['blockers' => $blockers, 'required_literal' => $required];
+        }
+
+        $conflict = $this->safe_array($assignment_resolution, 'conflict');
+        $code     = $conflict['code'] ?? null;
+        $detail   = $this->safe_array($conflict, 'detail');
+
+        if ($code === 'service_not_offered') {
+            $blockers[] = [
+                'code'   => 'assignment_service_not_offered',
+                'field'  => 'service',
+                'detail' => $detail,
+            ];
+            $required[] = [
+                'field'  => 'service',
+                'reason' => 'service_not_in_turn',
+                'hint'   => 'el turno existente en esa zona no incluye ese servicio; elige otro servicio o ajusta el turno',
+            ];
+        } elseif ($code === 'out_of_turn') {
+            $blockers[] = [
+                'code'   => 'assignment_out_of_turn',
+                'field'  => 'datetime',
+                'detail' => $detail,
+            ];
+            $required[] = [
+                'field'  => 'datetime',
+                'reason' => 'out_of_turn',
+                'hint'   => 'el staff tiene un turno en esa zona pero la hora propuesta se sale; elige una hora dentro del turno',
+            ];
+        }
+
+        return ['blockers' => $blockers, 'required_literal' => $required];
+    }
+
     // ─── Draft snapshot ──────────────────────────────────────────────
 
     /**
@@ -164,7 +283,8 @@ final class AA_Booking_Draft_Aggregator {
      *     staff: array|null,
      *     zone: array|null,
      *     datetime: array|null,
-     *     duration: array{minutes:int,source:string}
+     *     duration: array{minutes:int,source:string},
+     *     assignment: array|null
      * }
      */
     private function build_draft(array $resolved, array $datetime_resolution, array $duration_settings): array {
@@ -174,12 +294,13 @@ final class AA_Booking_Draft_Aggregator {
         $zone_resolved    = $this->safe_array($resolved, 'zone');
 
         return [
-            'client'   => $this->snapshot_client($client_resolved),
-            'service'  => $this->snapshot_service($service_resolved),
-            'staff'    => $this->snapshot_staff($staff_resolved),
-            'zone'     => $this->snapshot_zone($zone_resolved),
-            'datetime' => $this->snapshot_datetime($datetime_resolution),
-            'duration' => $this->resolve_duration($service_resolved, $duration_settings),
+            'client'     => $this->snapshot_client($client_resolved),
+            'service'    => $this->snapshot_service($service_resolved),
+            'staff'      => $this->snapshot_staff($staff_resolved),
+            'zone'       => $this->snapshot_zone($zone_resolved),
+            'datetime'   => $this->snapshot_datetime($datetime_resolution),
+            'duration'   => $this->resolve_duration($service_resolved, $duration_settings),
+            'assignment' => null,
         ];
     }
 
