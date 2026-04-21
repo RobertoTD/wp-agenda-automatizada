@@ -37,8 +37,10 @@ final class AA_Admin_AI_Chat_Controller {
 
         $message = isset($_POST['message']) ? sanitize_text_field(wp_unslash($_POST['message'])) : '';
 
+        $previous_parsed = self::read_previous_parsed_from_post();
+
         $service = self::build_service();
-        $result  = $service->handle($message);
+        $result  = $service->handle($message, $previous_parsed);
 
         if (!empty($result['ok'])) {
             $data = [
@@ -55,6 +57,38 @@ final class AA_Admin_AI_Chat_Controller {
         }
 
         wp_send_json_error($error_data);
+    }
+
+    /**
+     * Lee y decodifica el snapshot `previous_parsed` del POST.
+     *
+     * Defensa en profundidad: si la clave falta, no es string, o el
+     * JSON es inválido / no es un array asociativo, devuelve `null`
+     * para que el service trate la petición como turno aislado. NUNCA
+     * responde 4xx por este motivo: un sessionStorage corrupto en el
+     * cliente no debe romper la conversación.
+     *
+     * @return array<string,mixed>|null
+     */
+    private static function read_previous_parsed_from_post(): ?array {
+        if (!isset($_POST['previous_parsed']) || !is_string($_POST['previous_parsed'])) {
+            return null;
+        }
+
+        $raw = wp_unslash($_POST['previous_parsed']);
+        if ($raw === '') {
+            return null;
+        }
+
+        $decoded = json_decode($raw, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return null;
+        }
+        if (!is_array($decoded)) {
+            return null;
+        }
+
+        return $decoded;
     }
 
     /**

@@ -1,5 +1,5 @@
 /**
- * AI Chat Assistant — Panel UI (Step 5.b: backend-wired)
+ * AI Chat Assistant — Panel UI (Step 6.b: multi-turn + sessionStorage)
  *
  * Self-mounts on calendar admin by locating the shared FAB stack
  * (`.fixed.bottom-6.right-6.z-50.flex.flex-col.items-end.gap-3`).
@@ -9,16 +9,39 @@
  * Backend wiring:
  *   - `sendMessage(text)` POSTs to `aa_admin_ai_chat` with
  *     `window.AA_AI_CHAT.nonce` and maps `reply_ui` → Message.
+ *     Sends `previous_parsed` (last server-side merged snapshot) on
+ *     follow-up turns so the server can fuse the new utterance with
+ *     the previous draft (paso 6.a).
  *   - The "Confirmar cita" button POSTs to `aa_ai_confirm_booking`
  *     with `window.AA_AI_CHAT.confirm_nonce` using the last received
  *     `draft_state.draft`, and dispatches `aa-assignment-created`
  *     so the calendar timeline (calendar-module.js:275) refreshes.
+ *
+ * Persistence (paso 6.b):
+ *   - `messages`, `lastParsedInput` and `lastDraftState` are persisted
+ *     in `sessionStorage` under `AA_AI_CHAT_STORAGE_KEY` and rehydrated
+ *     on mount. `isOpen` and `isTyping` are intentionally NOT persisted.
+ *   - Storage is cleared on (a) successful booking confirmation,
+ *     (b) explicit "Nueva conversación" button, (c) hydration failures
+ *     (corrupt JSON or unknown message kinds).
  */
 (function () {
     'use strict';
 
     // ============================================================
-    // State (in-memory, per page load)
+    // Constants
+    // ============================================================
+    const AA_AI_CHAT_STORAGE_KEY = 'aa_ai_chat_state_v1';
+    const KNOWN_MESSAGE_KINDS = [
+        'text',
+        'confirm_cta',
+        'ambiguous_choices',
+        'highlights',
+        'fix_blocker'
+    ];
+
+    // ============================================================
+    // State (in-memory, per page load; subset persisted)
     // ============================================================
     const state = {
         isOpen: false,
@@ -27,7 +50,12 @@
         // Last `draft_state` returned by the chat endpoint. Source of
         // truth for the Confirm button payload. Reset to null after a
         // successful confirmation.
-        lastDraftState: null
+        lastDraftState: null,
+        // Last `parsed` snapshot returned by the chat endpoint (already
+        // merged server-side). Reused as `previous_parsed` on the next
+        // turn so the conversation accumulates context. Reset to null
+        // after a successful confirmation or an explicit reset.
+        lastParsedInput: null
     };
 
     // ============================================================
@@ -37,6 +65,7 @@
         fab: null,
         panel: null,
         closeBtn: null,
+        resetBtn: null,
         history: null,
         composer: null,
         input: null,
@@ -103,11 +132,13 @@
         dom.panel = panelNode;
 
         dom.closeBtn = panelNode.querySelector('#aa-ai-chat-close');
+        dom.resetBtn = panelNode.querySelector('#aa-ai-chat-reset');
         dom.history = panelNode.querySelector('#aa-ai-chat-history');
         dom.composer = panelNode.querySelector('#aa-ai-chat-composer');
         dom.input = panelNode.querySelector('#aa-ai-chat-input');
         dom.sendBtn = panelNode.querySelector('#aa-ai-chat-send');
 
+        hydrateState();
         bindEvents();
         render();
     }
@@ -118,6 +149,11 @@
     function bindEvents() {
         dom.fab.addEventListener('click', togglePanel);
         dom.closeBtn.addEventListener('click', closePanel);
+        if (dom.resetBtn) {
+            dom.resetBtn.addEventListener('click', function () {
+                resetConversation({ confirm: true });
+            });
+        }
 
         dom.composer.addEventListener('submit', function (ev) {
             ev.preventDefault();
@@ -296,7 +332,18 @@
         updateSendDisabled();
         render();
 
-        ajaxPost('aa_admin_ai_chat', { message: String(text) })
+        const extraBody = { message: String(text) };
+        if (state.lastParsedInput !== null) {
+            try {
+                extraBody.previous_parsed = JSON.stringify(state.lastParsedInput);
+            } catch (_e) {
+                // If stringify fails (circular ref shouldn't occur on a
+                // server-shaped POJO, but defensive), skip the field.
+                // The server treats absent `previous_parsed` as a fresh turn.
+            }
+        }
+
+        ajaxPost('aa_admin_ai_chat', extraBody)
             .then(function (res) {
                 state.isTyping = false;
                 if (res.ok) {
@@ -305,6 +352,8 @@
                     const replyUi = resolution.reply_ui || null;
                     const draftState = resolution.draft_state || null;
                     state.lastDraftState = draftState;
+                    state.lastParsedInput = (res.data && res.data.parsed) ? res.data.parsed : null;
+                    persistState();
                     const fallbackText = res.data && res.data.reply_text;
                     pushMessage(mapReplyUiToMessage(replyUi, draftState, fallbackText));
                 } else {
@@ -330,6 +379,7 @@
 
     function pushMessage(msg) {
         state.messages.push(msg);
+        persistState();
         render();
     }
 
@@ -506,7 +556,6 @@
         ajaxPost('aa_ai_confirm_booking', body)
             .then(function (res) {
                 if (res.ok) {
-                    state.lastDraftState = null;
                     pushMessage({
                         id: uid(),
                         role: 'assistant',
@@ -515,6 +564,10 @@
                         ts: Date.now()
                     });
                     document.dispatchEvent(new CustomEvent('aa-assignment-created'));
+                    // Wipe the conversation so the next utterance starts
+                    // from a clean slate (no stale `previous_parsed`,
+                    // no stale draft, no leftover history).
+                    resetConversation({ confirm: false });
                 } else {
                     const stage = (res.data && res.data.stage) || 'unknown';
                     const serverMsg = (res.data && res.data.message) || 'No pude confirmar la cita.';
@@ -531,6 +584,144 @@
             .catch(function (err) {
                 pushMessage(buildNetworkErrorMessage(err, 'No pude confirmar: error de red.'));
             });
+    }
+
+    // ============================================================
+    // Persistence (sessionStorage)
+    // ============================================================
+
+    /**
+     * Serializes the persistable subset of `state` into sessionStorage.
+     * Wrapped in try/catch: if storage is full, blocked by privacy
+     * settings, or otherwise unavailable, the UX continues unaffected
+     * (in-memory state is the source of truth for the live session).
+     *
+     * Only `messages`, `lastParsedInput` and `lastDraftState` are
+     * persisted. `isOpen` and `isTyping` are intentionally excluded:
+     *   - `isOpen` should always start `false` after a reload (the
+     *     panel re-opening on its own would be invasive).
+     *   - `isTyping` is meaningless across reloads (no in-flight
+     *     fetch can survive a page navigation).
+     */
+    function persistState() {
+        try {
+            const payload = JSON.stringify({
+                messages:        state.messages,
+                lastParsedInput: state.lastParsedInput,
+                lastDraftState:  state.lastDraftState
+            });
+            window.sessionStorage.setItem(AA_AI_CHAT_STORAGE_KEY, payload);
+        } catch (_e) {
+            // Silent: persistence failure must never break the UI.
+        }
+    }
+
+    /**
+     * Reads sessionStorage and rehydrates the persistable subset of
+     * `state`. Validates structure and message kinds against a
+     * whitelist; any mismatch (corrupt JSON, unknown kind, wrong
+     * shape, leftover from a previous schema version) purges the
+     * key and starts fresh. `isOpen` and `isTyping` from storage
+     * are always ignored.
+     */
+    function hydrateState() {
+        let raw;
+        try {
+            raw = window.sessionStorage.getItem(AA_AI_CHAT_STORAGE_KEY);
+        } catch (_e) {
+            return;
+        }
+        if (!raw) return;
+
+        let parsed;
+        try {
+            parsed = JSON.parse(raw);
+        } catch (_e) {
+            clearStorage();
+            return;
+        }
+
+        if (!parsed || typeof parsed !== 'object') {
+            clearStorage();
+            return;
+        }
+
+        const messages = parsed.messages;
+        const lastParsedInput = parsed.lastParsedInput;
+        const lastDraftState = parsed.lastDraftState;
+
+        if (!Array.isArray(messages)) {
+            clearStorage();
+            return;
+        }
+        if (lastParsedInput !== null && (typeof lastParsedInput !== 'object' || Array.isArray(lastParsedInput))) {
+            clearStorage();
+            return;
+        }
+        if (lastDraftState !== null && (typeof lastDraftState !== 'object' || Array.isArray(lastDraftState))) {
+            clearStorage();
+            return;
+        }
+
+        for (let i = 0; i < messages.length; i++) {
+            const m = messages[i];
+            if (!m || typeof m !== 'object') {
+                clearStorage();
+                return;
+            }
+            if (m.role !== 'user' && m.role !== 'assistant') {
+                clearStorage();
+                return;
+            }
+            if (KNOWN_MESSAGE_KINDS.indexOf(m.kind) === -1) {
+                clearStorage();
+                return;
+            }
+        }
+
+        state.messages = messages;
+        state.lastParsedInput = lastParsedInput == null ? null : lastParsedInput;
+        state.lastDraftState = lastDraftState == null ? null : lastDraftState;
+    }
+
+    function clearStorage() {
+        try {
+            window.sessionStorage.removeItem(AA_AI_CHAT_STORAGE_KEY);
+        } catch (_e) {
+            // Silent.
+        }
+    }
+
+    /**
+     * Wipes the conversation: messages, parsed snapshot, draft state,
+     * and the persistent copy. Used by:
+     *   - The header "Nueva conversación" button (with `confirm:true`).
+     *   - The successful confirmation flow (with `confirm:false`).
+     *
+     * If `options.confirm === true` and there is something to lose,
+     * shows a `window.confirm` first and aborts on cancel. With an
+     * empty history the prompt is suppressed (nothing to confirm).
+     *
+     * Returns focus to the textarea if the panel is open.
+     */
+    function resetConversation(options) {
+        const opts = options || {};
+        const askConfirmation = opts.confirm !== false;
+
+        if (askConfirmation && state.messages.length > 0) {
+            const ok = window.confirm('¿Iniciar una nueva conversación? Se perderá el historial actual.');
+            if (!ok) return;
+        }
+
+        state.messages = [];
+        state.lastParsedInput = null;
+        state.lastDraftState = null;
+        clearStorage();
+        render();
+
+        if (state.isOpen && dom.input) {
+            dom.input.focus();
+        }
     }
 
     // ============================================================

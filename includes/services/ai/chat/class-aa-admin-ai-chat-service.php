@@ -32,15 +32,24 @@ final class AA_Admin_AI_Chat_Service {
     /**
      * Procesa un mensaje del admin y devuelve la respuesta del modelo.
      *
-     * @param string $message Texto en lenguaje natural del admin.
+     * Multi-turno (paso 6.a): si `$previous_parsed` no es null, se
+     * añade un hint de contexto al system prompt y, tras parsear, el
+     * resultado del LLM se fusiona con el snapshot previo mediante
+     * `AA_AI_Parsed_Merger`. El campo `parsed` devuelto es siempre
+     * el snapshot acumulado (merged), de modo que el cliente puede
+     * reenviarlo como `previous_parsed` en el turno siguiente sin
+     * preocuparse por la fusión.
+     *
+     * @param string                   $message         Texto en lenguaje natural del admin.
+     * @param array<string,mixed>|null $previous_parsed Snapshot del turno anterior (opcional).
      * @return array {
      *     @type bool        $ok
      *     @type string|null $reply_text  Respuesta textual del modelo.
-     *     @type array|null  $parsed      Objeto estructurado extraído.
+     *     @type array|null  $parsed      Objeto estructurado extraído (merged si hubo previo).
      *     @type array|null  $debug       Solo presente si hubo error de parseo.
      * }
      */
-    public function handle($message) {
+    public function handle($message, ?array $previous_parsed = null) {
         $message = is_string($message) ? trim($message) : '';
 
         if ($message === '') {
@@ -53,6 +62,13 @@ final class AA_Admin_AI_Chat_Service {
         }
 
         $system_prompt = $this->build_system_prompt();
+
+        if ($previous_parsed !== null) {
+            $hint = $this->build_context_hint($previous_parsed);
+            if ($hint !== '') {
+                $system_prompt .= "\n\n" . $hint;
+            }
+        }
 
         $result = $this->llm_client->chat([
             'messages' => [
@@ -92,6 +108,11 @@ final class AA_Admin_AI_Chat_Service {
 
         $parsed = $this->normalize_parsed($parsed);
 
+        if ($previous_parsed !== null) {
+            $merger = $this->build_merger();
+            $parsed = $merger->merge($previous_parsed, $parsed);
+        }
+
         $intent_result = $this->dispatch_intent($parsed);
 
         return [
@@ -100,6 +121,94 @@ final class AA_Admin_AI_Chat_Service {
             'parsed'        => $parsed,
             'intent_result' => $intent_result,
         ];
+    }
+
+    /**
+     * Lazy-require + factory del merger de dominio.
+     *
+     * Sigue el patrón de `handle_create_booking`: el require_once vive
+     * en el método que lo necesita, no en el bootstrap del módulo.
+     *
+     * @return AA_AI_Parsed_Merger
+     */
+    private function build_merger() {
+        require_once dirname(__DIR__, 3) . '/domain/ai/class-aa-ai-parsed-merger.php';
+        return new AA_AI_Parsed_Merger();
+    }
+
+    /**
+     * Construye un bloque de contexto para anexar al system prompt
+     * cuando el cliente reenvía el snapshot del turno anterior.
+     *
+     * Política:
+     * - Si tras filtrar no hay ningún campo significativo y el intent
+     *   normalizado es `unknown`, se devuelve `''` (el caller no debe
+     *   anexar hints vacíos: contaminarían el prompt).
+     * - Solo se listan los campos con valor real (no se enumeran nulls).
+     * - Se instruye al LLM a (a) interpretar el mensaje como
+     *   refinamiento, (b) emitir `null` en los campos NO mencionados
+     *   por el usuario, y (c) preservar el intent salvo cambio claro.
+     *
+     * Mismo hint para todos los proveedores (local / backend / cloud);
+     * la optimización por modelo se deja fuera de alcance.
+     *
+     * @param array<string,mixed> $previous_parsed
+     * @return string
+     */
+    private function build_context_hint(array $previous_parsed): string {
+        $labels = [
+            'intent'       => 'intención',
+            'client_name'  => 'cliente',
+            'service_name' => 'servicio',
+            'staff_name'   => 'profesional',
+            'zone_name'    => 'zona',
+            'date_text'    => 'fecha',
+            'time_text'    => 'hora',
+            'notes'        => 'notas',
+        ];
+
+        $intent_raw = isset($previous_parsed['intent']) && is_string($previous_parsed['intent'])
+            ? trim($previous_parsed['intent'])
+            : '';
+        $intent = $intent_raw !== '' ? $intent_raw : 'unknown';
+
+        $lines = [];
+
+        if ($intent !== 'unknown') {
+            $lines[] = '- ' . $labels['intent'] . ': ' . $intent;
+        }
+
+        $data_fields = ['client_name', 'service_name', 'staff_name', 'zone_name', 'date_text', 'time_text', 'notes'];
+        foreach ($data_fields as $field) {
+            $value = $previous_parsed[$field] ?? null;
+            if (!is_string($value)) {
+                continue;
+            }
+            $value = trim($value);
+            if ($value === '') {
+                continue;
+            }
+            $lines[] = '- ' . $labels[$field] . ': ' . $value;
+        }
+
+        if (empty($lines)) {
+            return '';
+        }
+
+        $body = implode("\n", $lines);
+
+        return <<<HINT
+CONTEXTO DE CONVERSACIÓN PREVIA:
+El administrador ya ha indicado los siguientes datos en mensajes anteriores:
+
+{$body}
+
+REGLAS DE REFINAMIENTO:
+- Interpreta el mensaje actual como CORRECCIÓN o COMPLEMENTO del borrador previo, no como solicitud nueva.
+- Si el usuario menciona un dato que YA estaba en el contexto, emite el nuevo valor (lo está cambiando).
+- Si el usuario NO menciona un dato, emite null en ese campo: el servidor conservará el valor previo automáticamente.
+- Mantén el mismo intent del contexto a menos que el mensaje sea claramente sobre otra cosa.
+HINT;
     }
 
     /**
