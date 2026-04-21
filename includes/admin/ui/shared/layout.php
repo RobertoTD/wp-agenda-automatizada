@@ -238,6 +238,9 @@ header('Content-Type: text/html; charset=utf-8');
 <script src="<?php echo aa_asset_url('assets/js/controllers/adminFastappointmentController.js'); ?>" defer></script>
 <script src="<?php echo aa_asset_url('includes/admin/ui/modals/fastappointment/fastappointment.js'); ?>" defer></script>
 
+<!-- Transversal Modal: AI Chat Assistant (panel + FAB, UI skeleton) -->
+<script src="<?php echo aa_asset_url('includes/admin/ui/modals/aichat/aichat.js'); ?>" defer></script>
+
 <!-- Transversal Modal: Appointments -->
 <script src="<?php echo aa_asset_url('includes/admin/ui/modals/appointments/appointments-modal.js'); ?>" defer></script>
 
@@ -275,6 +278,7 @@ header('Content-Type: text/html; charset=utf-8');
     <!-- Transversal Modal Templates (uses <template> tag, content not rendered until cloned by JS) -->
     <?php require_once dirname(__DIR__) . '/modals/reservation/index.php'; ?>
     <?php require_once dirname(__DIR__) . '/modals/fastappointment/index.php'; ?>
+    <?php require_once dirname(__DIR__) . '/modals/aichat/index.php'; ?>
     <?php require_once dirname(__DIR__) . '/modals/appointments/index.php'; ?>
     <?php require_once dirname(__DIR__) . '/modals/assignment/index.php'; ?>
     <?php require_once dirname(__DIR__) . '/modals/crearcliente/index.php'; ?>
