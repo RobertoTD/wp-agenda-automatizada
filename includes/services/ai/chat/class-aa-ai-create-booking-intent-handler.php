@@ -31,6 +31,7 @@ require_once __DIR__ . '/class-aa-ai-zone-feasibility-evaluator.php';
 require_once __DIR__ . '/../../availability/class-aa-area-availability-service.php';
 require_once __DIR__ . '/../../../domain/booking/class-aa-booking-draft-aggregator.php';
 require_once __DIR__ . '/../../../domain/booking/class-aa-booking-assignment-resolver.php';
+require_once __DIR__ . '/../../../domain/booking/class-aa-booking-reply-builder.php';
 
 final class AA_AI_Create_Booking_Intent_Handler {
 
@@ -122,8 +123,6 @@ final class AA_AI_Create_Booking_Intent_Handler {
             $zone_feasibility
         );
 
-        $reply = $this->build_reply($parsed, $missing);
-
         $aa_slot_duration_raw     = get_option('aa_slot_duration', false);
         $aa_slot_duration_minutes = (is_numeric($aa_slot_duration_raw) && (int) $aa_slot_duration_raw > 0)
             ? (int) $aa_slot_duration_raw
@@ -148,10 +147,13 @@ final class AA_AI_Create_Booking_Intent_Handler {
             'assignment_resolution' => $assignment_resolution,
         ]);
 
+        $reply_builder = new AA_Booking_Reply_Builder();
+        $reply_ui      = $reply_builder->build($draft_state);
+
         return [
             'intent'     => 'create_booking',
             'status'     => 'needs_resolution',
-            'reply'      => $reply,
+            'reply'      => $reply_ui['text'],
             'resolution' => [
                 'parsed_input'           => $parsed,
                 'missing_fields'         => $missing,
@@ -163,6 +165,7 @@ final class AA_AI_Create_Booking_Intent_Handler {
                 'lookup'                 => !empty($lookup) ? $lookup : new \stdClass(),
                 'feasibility'            => $feasibility,
                 'draft_state'            => $draft_state,
+                'reply_ui'               => $reply_ui,
             ],
         ];
     }
@@ -319,32 +322,4 @@ final class AA_AI_Create_Booking_Intent_Handler {
         return $missing;
     }
 
-    /**
-     * Genera un texto de respuesta indicando el estado de la solicitud.
-     *
-     * @param array    $parsed
-     * @param string[] $missing
-     * @return string
-     */
-    private function build_reply(array $parsed, array $missing) {
-        if (empty($missing)) {
-            return 'Solicitud de reserva recibida. Se iniciará la resolución de datos.';
-        }
-
-        $labels = [
-            'client_name'  => 'cliente',
-            'service_name' => 'servicio',
-            'date_text'    => 'fecha',
-            'time_text'    => 'hora',
-        ];
-
-        $readable = array_map(
-            function ($field) use ($labels) {
-                return $labels[$field] ?? $field;
-            },
-            $missing
-        );
-
-        return 'Solicitud de reserva recibida. Faltan datos: ' . implode(', ', $readable) . '.';
-    }
 }
