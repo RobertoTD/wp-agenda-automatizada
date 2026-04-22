@@ -119,11 +119,23 @@ final class AA_Admin_AI_Chat_Service {
             $parsed = $merger->merge($previous_parsed, $parsed);
         }
 
-        $intent_result = $this->dispatch_intent($parsed);
+        $intent_result = $this->dispatch_intent($parsed, $message);
+
+        $reply_text_out = $content;
+        $resolution     = isset($intent_result['resolution']) && is_array($intent_result['resolution'])
+            ? $intent_result['resolution']
+            : null;
+        if ($resolution !== null
+            && isset($resolution['reply_ui']['text'])
+            && is_string($resolution['reply_ui']['text'])
+            && trim($resolution['reply_ui']['text']) !== ''
+        ) {
+            $reply_text_out = trim($resolution['reply_ui']['text']);
+        }
 
         return [
             'ok'            => true,
-            'reply_text'    => $content,
+            'reply_text'    => $reply_text_out,
             'parsed'        => $parsed,
             'intent_result' => $intent_result,
         ];
@@ -131,8 +143,8 @@ final class AA_Admin_AI_Chat_Service {
 
     /**
      * Heurística conservadora: el usuario quiere abortar el borrador actual.
-     * No usar un "no" suelto ni subcadenas ambiguas (p. ej. "olvida" dentro
-     * de otra frase salvo frases listadas o cancela/cancelar como palabra).
+     * "ya no quiero" solo en mensaje casi literal (no subcadena en correcciones).
+     * "no gracias" no se usa (demasiado ambiguo con negociación de hora).
      *
      * @param string $message Mensaje ya recortado (trim).
      */
@@ -146,8 +158,6 @@ final class AA_Admin_AI_Chat_Service {
         $phrases = [
             'cancela la cita',
             'cancelar la cita',
-            'ya no quiero',
-            'no gracias',
             'olvídalo',
             'olvidalo',
             'déjalo',
@@ -157,6 +167,10 @@ final class AA_Admin_AI_Chat_Service {
             if (mb_strpos($m, $p, 0, 'UTF-8') !== false) {
                 return true;
             }
+        }
+
+        if (preg_match('/^ya no quiero\s*[.!…]*$/u', $m)) {
+            return true;
         }
 
         // "mejor no" solo en mensaje corto/casi literal (evita "mejor no quiero cambiar…").
@@ -316,17 +330,19 @@ HINT;
     /**
      * Enruta el parsed normalizado al handler correspondiente según intent.
      *
-     * @param array $parsed
+     * @param array  $parsed
+     * @param string $user_message Texto original del admin (trim), para copy
+     *                             seguro en intents no implementados.
      * @return array Estructura uniforme: intent, status, reply, resolution.
      */
-    private function dispatch_intent(array $parsed) {
+    private function dispatch_intent(array $parsed, string $user_message) {
         $intent = $parsed['intent'] ?? 'unknown';
 
         if ($intent === 'create_booking') {
             return $this->handle_create_booking($parsed);
         }
 
-        return $this->handle_unimplemented_intent($parsed);
+        return $this->handle_unimplemented_intent($parsed, $user_message);
     }
 
     /**
@@ -346,20 +362,109 @@ HINT;
     /**
      * Respuesta controlada para intents que aún no tienen handler dedicado.
      *
-     * @param array $parsed
+     * Incluye `resolution.reply_ui` mínimo para que el cliente del chat no
+     * caiga en `reply_text` (JSON crudo del LLM) cuando `reply_ui` falta.
+     *
+     * @param array  $parsed
+     * @param string $user_message Mensaje del usuario (trim).
      * @return array
      */
-    private function handle_unimplemented_intent(array $parsed) {
-        $intent = $parsed['intent'] ?? 'unknown';
+    private function handle_unimplemented_intent(array $parsed, string $user_message) {
+        $intent  = $parsed['intent'] ?? 'unknown';
+        $ui_text = $this->resolve_unimplemented_ui_text($intent, $user_message);
+
+        $reply_ui = [
+            'text'       => $ui_text,
+            'cta'        => 'noop',
+            'highlights' => [],
+            'choices'    => [],
+            'draft_echo' => [
+                'client'   => null,
+                'service'  => null,
+                'staff'    => null,
+                'zone'     => null,
+                'datetime' => null,
+            ],
+        ];
 
         return [
             'intent'     => $intent,
             'status'     => 'not_implemented',
-            'reply'      => "La acción \"{$intent}\" aún no está disponible.",
+            'reply'      => $ui_text,
             'resolution' => [
                 'parsed_input' => $parsed,
+                'reply_ui'     => $reply_ui,
             ],
         ];
+    }
+
+    /**
+     * Texto breve y neutro para intents sin handler. Cuatro buckets locales
+     * para `unknown`: saludo simple, agradecimiento simple, acuse/cierre
+     * suave (sin LLM), y guía genérica. Mensajes largos no entran en los
+     * tres primeros para no pisar posibles datos de cita mal clasificados.
+     *
+     * @param string $intent         Intent normalizado.
+     * @param string $user_message   Mensaje original (trim).
+     */
+    private function resolve_unimplemented_ui_text(string $intent, string $user_message): string {
+        $fallback = 'Puedo ayudarte a crear una cita. Indícame cliente, servicio, fecha, hora, profesional y/o zona.';
+
+        if ($intent !== 'unknown') {
+            return $fallback;
+        }
+
+        $u = mb_strtolower(trim($user_message), 'UTF-8');
+        if ($u === '') {
+            return $fallback;
+        }
+
+        if (mb_strlen($u, 'UTF-8') > 52) {
+            return $fallback;
+        }
+
+        if (preg_match('/^(hola|hi|hey)\s*[.!…,]*$/u', $u)) {
+            return 'Hola. Estoy listo para ayudarte a crear una cita.';
+        }
+
+        if (preg_match('/^(buenos\s+d[ií]as|buenas\s+tardes|buenas\s+noches)\s*[.!…,]*$/u', $u)) {
+            return 'Hola. Estoy listo para ayudarte a crear una cita.';
+        }
+
+        if (preg_match('/^(gracias|muchas gracias|mil gracias)\s*[.!…,]*$/u', $u)) {
+            return 'De nada.';
+        }
+
+        if ($this->is_soft_ack_message($u)) {
+            return 'Perfecto. Cuando quieras crear una cita, dime los datos.';
+        }
+
+        return $fallback;
+    }
+
+    /**
+     * Acuse o cierre suave (ok, entendido, vale, etc.). Solo patrones
+     * anclados y mensajes cortos; el caller ya acotó longitud.
+     *
+     * @param string $u Mensaje en minúsculas (trim).
+     */
+    private function is_soft_ack_message(string $u): bool {
+        $patterns = [
+            '/^ok\s*[.!…,]*$/u',
+            '/^entendido\s*[.!…,]*$/u',
+            '/^ya\s+entend[ií]\s*[.!…,]*$/u',
+            '/^gracias\s+por\s+la\s+info\s*[.!…,]*$/u',
+            '/^gracias\s+por\s+la\s+(informaci[oó]n|informacion)\s*[.!…,]*$/u',
+            '/^ok\s*,?\s*gracias\s*[.!…,]*$/u',
+            '/^perfecto\s*[.!…,]*$/u',
+            '/^vale\s*[.!…,]*$/u',
+        ];
+        foreach ($patterns as $re) {
+            if (preg_match($re, $u) === 1) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
