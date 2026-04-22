@@ -1,6 +1,6 @@
 <?php
 /**
- * Harness standalone de `AA_Booking_Reply_Builder` (AC1–AC15).
+ * Harness standalone de `AA_Booking_Reply_Builder` (AC1–AC19).
  *
  *   php tests/domain/booking/test-booking-reply-builder-ac.php
  *
@@ -297,6 +297,86 @@ ac(
     'AC14 confirm_heuristics',
     $u14['cta'] === 'confirm_heuristics' && stripos($u14['text'], 'confirmar') !== false,
     $u14['text']
+);
+
+// ─── AC16 collect_input multi: cliente + servicio + hora (sin usar solo el primer hint) ─
+$d16 = [
+    'state' => 'needs_input',
+    'draft' => [],
+    'required_literal' => [
+        ['field' => 'client', 'reason' => 'missing', 'hint' => 'indica el nombre del cliente'],
+        ['field' => 'service', 'reason' => 'missing', 'hint' => 'indica qué servicio'],
+        ['field' => 'time', 'reason' => 'missing'],
+    ],
+    'confirmable_heuristics' => [],
+    'proposals'              => [],
+    'blockers'               => [],
+];
+$u16 = $builder->build($d16);
+$exp16 = 'Para continuar, indícame cliente, servicio y hora.';
+ac(
+    'AC16 collect_input multi agrupa tres campos',
+    $u16['cta'] === 'collect_input' && $u16['text'] === $exp16,
+    $u16['text']
+);
+
+// ─── AC17 collect_input fecha + hora (copy dedicado) ──────────────────
+$d17 = [
+    'state' => 'needs_input',
+    'draft' => [],
+    'required_literal' => [
+        ['field' => 'time', 'reason' => 'missing'],
+        ['field' => 'date', 'reason' => 'missing'],
+    ],
+    'confirmable_heuristics' => [],
+    'proposals'              => [],
+    'blockers'               => [],
+];
+$u17 = $builder->build($d17);
+$exp17 = 'Ya casi está. Solo me faltan fecha y hora.';
+ac(
+    'AC17 collect_input fecha+hora',
+    $u17['cta'] === 'collect_input' && $u17['text'] === $exp17,
+    $u17['text']
+);
+
+// ─── AC18 collect_input dos campos (no fecha/hora) ───────────────────
+$d18 = [
+    'state' => 'needs_input',
+    'draft' => [],
+    'required_literal' => [
+        ['field' => 'staff', 'reason' => 'missing', 'hint' => 'indica con qué profesional'],
+        ['field' => 'zone', 'reason' => 'missing', 'hint' => 'indica en qué zona'],
+    ],
+    'confirmable_heuristics' => [],
+    'proposals'              => [],
+    'blockers'               => [],
+];
+$u18 = $builder->build($d18);
+$exp18 = 'Compárteme profesional y zona para continuar.';
+ac(
+    'AC18 collect_input dos campos Compárteme…',
+    $u18['cta'] === 'collect_input' && $u18['text'] === $exp18,
+    $u18['text']
+);
+
+// ─── AC19 ambiguous + missing: CTA sigue pick_ambiguous ───────────────
+$d19 = [
+    'state' => 'needs_input',
+    'draft' => [],
+    'required_literal' => [
+        ['field' => 'client', 'reason' => 'ambiguous', 'hint' => '', 'candidates' => [['id' => 1, 'nombre' => 'A']]],
+        ['field' => 'time', 'reason' => 'missing'],
+    ],
+    'confirmable_heuristics' => [],
+    'proposals'              => [],
+    'blockers'               => [],
+];
+$u19 = $builder->build($d19);
+ac(
+    'AC19 ambiguous domina sobre missing',
+    $u19['cta'] === 'pick_ambiguous',
+    json_encode($u19, JSON_UNESCAPED_UNICODE)
 );
 
 // ─── AC15 idempotencia estructural ───────────────────────────────────

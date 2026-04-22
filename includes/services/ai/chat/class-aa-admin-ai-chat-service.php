@@ -61,6 +61,12 @@ final class AA_Admin_AI_Chat_Service {
             ];
         }
 
+        // Aborto conversacional explícito: sin LLM, sin merge, sin dispatch.
+        // Debe devolver ok:true para que el frontend no muestre un error.
+        if ($this->is_cancel_message($message)) {
+            return $this->build_cancel_success_response();
+        }
+
         $system_prompt = $this->build_system_prompt();
 
         if ($previous_parsed !== null) {
@@ -120,6 +126,102 @@ final class AA_Admin_AI_Chat_Service {
             'reply_text'    => $content,
             'parsed'        => $parsed,
             'intent_result' => $intent_result,
+        ];
+    }
+
+    /**
+     * Heurística conservadora: el usuario quiere abortar el borrador actual.
+     * No usar un "no" suelto ni subcadenas ambiguas (p. ej. "olvida" dentro
+     * de otra frase salvo frases listadas o cancela/cancelar como palabra).
+     *
+     * @param string $message Mensaje ya recortado (trim).
+     */
+    private function is_cancel_message($message): bool {
+        if (!is_string($message) || $message === '') {
+            return false;
+        }
+
+        $m = mb_strtolower($message, 'UTF-8');
+
+        $phrases = [
+            'cancela la cita',
+            'cancelar la cita',
+            'ya no quiero',
+            'no gracias',
+            'olvídalo',
+            'olvidalo',
+            'déjalo',
+            'dejalo',
+        ];
+        foreach ($phrases as $p) {
+            if (mb_strpos($m, $p, 0, 'UTF-8') !== false) {
+                return true;
+            }
+        }
+
+        // "mejor no" solo en mensaje corto/casi literal (evita "mejor no quiero cambiar…").
+        if (preg_match('/^mejor no\s*[.!…]*$/u', $m)) {
+            return true;
+        }
+
+        if (preg_match('/^(cancela|cancelar|olvida|déjalo|dejalo)\s*[.!…]*$/u', $m)) {
+            return true;
+        }
+
+        if (preg_match('/\b(cancela|cancelar)\b/u', $m)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Respuesta de éxito compatible con el envelope del controller y
+     * con `aichat.js` (reply_ui + draft_state null + parsed limpio).
+     *
+     * @return array<string,mixed>
+     */
+    private function build_cancel_success_response(): array {
+        $text = 'De acuerdo, cancelé la operación actual.';
+
+        $parsed = $this->normalize_parsed([
+            'intent'       => 'unknown',
+            'client_name'  => null,
+            'service_name' => null,
+            'staff_name'   => null,
+            'zone_name'    => null,
+            'date_text'    => null,
+            'time_text'    => null,
+            'notes'        => null,
+        ]);
+
+        $reply_ui = [
+            'text'       => $text,
+            'cta'        => 'noop',
+            'highlights' => [],
+            'choices'    => [],
+            'draft_echo' => [
+                'client'   => null,
+                'service'  => null,
+                'staff'    => null,
+                'zone'     => null,
+                'datetime' => null,
+            ],
+        ];
+
+        return [
+            'ok'            => true,
+            'reply_text'    => $text,
+            'parsed'        => $parsed,
+            'intent_result' => [
+                'intent'     => 'unknown',
+                'status'     => 'aborted',
+                'reply'      => $text,
+                'resolution' => [
+                    'reply_ui'    => $reply_ui,
+                    'draft_state' => null,
+                ],
+            ],
         ];
     }
 

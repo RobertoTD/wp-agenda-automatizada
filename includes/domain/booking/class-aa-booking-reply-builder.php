@@ -344,9 +344,90 @@ final class AA_Booking_Reply_Builder {
     }
 
     /**
+     * Orden fijo para enumerar faltantes simples en copy multi-campo
+     * (independiente del orden en `required_literal`).
+     */
+    private const COLLECT_FIELD_PRIORITY = [
+        'client'   => 0,
+        'service'  => 1,
+        'staff'    => 2,
+        'zone'     => 3,
+        'date'     => 4,
+        'time'     => 5,
+        'datetime' => 6,
+    ];
+
+    /**
      * @param array<int, array<string,mixed>> $required
      */
     private function text_collect_input(array $required): string {
+        $simple = $this->extract_simple_collect_rows($required);
+        if (count($simple) === 0) {
+            return 'Indícame el dato que falta para continuar.';
+        }
+
+        if (count($simple) === 1) {
+            $row = $simple[0];
+            $hint = isset($row['hint']) ? trim((string) $row['hint']) : '';
+            if ($hint !== '') {
+                return $hint;
+            }
+            return $this->fallback_for_required($row);
+        }
+
+        $fields = [];
+        foreach ($simple as $row) {
+            $f = isset($row['field']) ? trim((string) $row['field']) : '';
+            if ($f !== '') {
+                $fields[$f] = true;
+            }
+        }
+        $ordered = $this->order_collect_fields(array_keys($fields));
+        $labels  = [];
+        foreach ($ordered as $f) {
+            $label = $this->human_label_for_collect_field($f);
+            if ($label !== null && $label !== '') {
+                $labels[] = $label;
+            }
+        }
+
+        if (count($labels) === 0) {
+            return 'Indícame el dato que falta para continuar.';
+        }
+
+        // Varias filas pero todas apuntan al mismo campo (poco habitual):
+        // reutilizar la ruta de un solo faltante.
+        if (count($labels) === 1) {
+            $field = $ordered[0];
+            $representative = null;
+            foreach ($simple as $row) {
+                $rf = isset($row['field']) ? trim((string) $row['field']) : '';
+                if ($rf === $field) {
+                    $representative = $row;
+                    break;
+                }
+            }
+            $representative = $representative ?? $simple[0];
+            $hint = isset($representative['hint']) ? trim((string) $representative['hint']) : '';
+            if ($hint !== '') {
+                return $hint;
+            }
+            return $this->fallback_for_required($representative);
+        }
+
+        return $this->compose_multi_missing_message($ordered, $labels);
+    }
+
+    /**
+     * Filas de `required_literal` que aplican a `collect_input`: no-array
+     * se ignoran; `reason === 'ambiguous'` se ignora (el CTA ya sería
+     * `pick_ambiguous`).
+     *
+     * @param array<int, array<string,mixed>> $required
+     * @return array<int, array<string,mixed>>
+     */
+    private function extract_simple_collect_rows(array $required): array {
+        $out = [];
         foreach ($required as $row) {
             if (!is_array($row)) {
                 continue;
@@ -354,13 +435,89 @@ final class AA_Booking_Reply_Builder {
             if (($row['reason'] ?? '') === 'ambiguous') {
                 continue;
             }
-            $hint = isset($row['hint']) ? trim((string) $row['hint']) : '';
-            if ($hint !== '') {
-                return $hint;
-            }
-            return $this->fallback_for_required($row);
+            $out[] = $row;
         }
-        return 'Indícame el dato que falta para continuar.';
+        return $out;
+    }
+
+    /**
+     * @param array<int, string> $fields
+     * @return array<int, string>
+     */
+    private function order_collect_fields(array $fields): array {
+        $unique = array_values(array_unique($fields));
+        usort($unique, function ($a, $b) {
+            $pa = self::COLLECT_FIELD_PRIORITY[$a] ?? 99;
+            $pb = self::COLLECT_FIELD_PRIORITY[$b] ?? 99;
+            if ($pa === $pb) {
+                return strcmp($a, $b);
+            }
+            return $pa <=> $pb;
+        });
+        return $unique;
+    }
+
+    /**
+     * @return string|null null si el campo no está mapeado (se omite del copy).
+     */
+    private function human_label_for_collect_field(string $field): ?string {
+        $map = [
+            'client'   => 'cliente',
+            'service'  => 'servicio',
+            'staff'    => 'profesional',
+            'zone'     => 'zona',
+            'date'     => 'fecha',
+            'time'     => 'hora',
+            'datetime' => 'fecha y hora',
+        ];
+        return array_key_exists($field, $map) ? $map[$field] : null;
+    }
+
+    /**
+     * Une etiquetas en español: "a y b" o "a, b y c".
+     *
+     * @param array<int, string> $labels
+     */
+    private function join_human_labels(array $labels): string {
+        $n = count($labels);
+        if ($n === 0) {
+            return '';
+        }
+        if ($n === 1) {
+            return $labels[0];
+        }
+        if ($n === 2) {
+            return $labels[0] . ' y ' . $labels[1];
+        }
+        $copy = $labels;
+        $last = array_pop($copy);
+        return implode(', ', $copy) . ' y ' . $last;
+    }
+
+    /**
+     * @param array<int, string> $ordered_fields
+     * @param array<int, string> $labels
+     */
+    private function compose_multi_missing_message(array $ordered_fields, array $labels): string {
+        $joined = $this->join_human_labels($labels);
+        if ($joined === '') {
+            return 'Indícame el dato que falta para continuar.';
+        }
+
+        $n = count($labels);
+        if ($n === 2
+            && count($ordered_fields) === 2
+            && $ordered_fields[0] === 'date'
+            && $ordered_fields[1] === 'time'
+        ) {
+            return 'Ya casi está. Solo me faltan fecha y hora.';
+        }
+
+        if ($n === 2) {
+            return 'Compárteme ' . $joined . ' para continuar.';
+        }
+
+        return 'Para continuar, indícame ' . $joined . '.';
     }
 
     /**
