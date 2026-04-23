@@ -449,6 +449,16 @@
                     persistState();
                     const fallbackText = res.data && res.data.reply_text;
                     pushMessage(mapReplyUiToMessage(replyUi, draftState, fallbackText));
+
+                    // Paso 3: el backend ya puede confirmar vía sub_intent=confirm_draft.
+                    // Cuando lo hace, responde con intent_result.status === 'booking_confirmed'.
+                    // Simulamos aquí lo mismo que runConfirmBookingAjax hace tras éxito:
+                    // marcar el CTA anterior como usado y notificar al calendario para refresco.
+                    // El reset de lastDraftState/lastParsedInput ya quedó hecho arriba (server envió nulls).
+                    if (result.status === 'booking_confirmed') {
+                        markLastConfirmCtaMessageDisabled();
+                        document.dispatchEvent(new CustomEvent('aa-assignment-created'));
+                    }
                 } else {
                     const serverMsg = (res.data && res.data.message) || 'Error desconocido';
                     pushMessage({

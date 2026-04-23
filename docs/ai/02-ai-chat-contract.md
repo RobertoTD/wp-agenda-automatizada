@@ -59,3 +59,248 @@ Más adelante este contrato podrá extenderse con:
 - validaciones de seguridad por acción
 
 No se debe introducir esa complejidad hasta que la primera vuelta de chat en calendar esté funcionando.
+
+---
+
+## Extensión del `parsed`: subintenciones conversacionales
+
+> **Estado**: Fase 3 del plan de reorganización conversacional de
+> `create_booking`. El merger consume `affected_fields` como regla
+> central (Paso 2) y `sub_intent` ya gobierna server-side la
+> cancelación (`cancel_draft`) y la confirmación (`confirm_draft`)
+> del borrador (Paso 3). Las heurísticas legacy (`is_cancel_message`
+> y `isPureConfirmMessage`) permanecen como red de seguridad.
+
+### Motivación
+
+Originalmente la decisión de cancelar / confirmar / modificar /
+completar un borrador estaba repartida entre heurísticas en
+`AA_Admin_AI_Chat_Service::is_cancel_message`,
+`has_change_intent`, `lock_resolved_fields_from_previous`, la
+política interna del merger y el detector `isPureConfirmMessage` del
+frontend (`aichat.js`). Esto producía falsos negativos (p. ej. "ya
+no gracias" no se reconocía como cancelar) y reglas en tensión (el
+lock pre-merge y la política del merger terminaban a veces
+ignorando una intención de cambio).
+
+La Fase 2 resuelve la mitad estructural del problema: el merger ya
+NO depende de `lock_resolved_fields_from_previous` ni de
+`has_change_intent` — esos métodos fueron **eliminados** del service.
+El merger usa `affected_fields` como señal explícita: si el usuario
+dijo "quiero cambiar el servicio" el campo se limpia (y el draft
+queda incompleto), no se conserva por inercia.
+
+Lo que sigue para Fase 3 es mover `sub_intent` al dispatcher para
+que `cancel_draft` y `confirm_draft` dejen de depender de
+`is_cancel_message` + `isPureConfirmMessage`.
+
+### Campos nuevos en `parsed`
+
+Se añaden 3 campos al objeto `parsed` que hoy tiene 8 claves canónicas:
+
+```jsonc
+{
+  // 8 campos legacy (sin cambios):
+  "intent":       "create_booking|check_availability|find_client|list_services|unknown",
+  "client_name":  "string|null",
+  "service_name": "string|null",
+  "staff_name":   "string|null",
+  "zone_name":    "string|null",
+  "date_text":    "string|null",
+  "time_text":    "string|null",
+  "notes":        "string|null",
+
+  // 3 campos nuevos (Fase 1):
+  "sub_intent":      "new_booking|fill_missing_fields|modify_fields|confirm_draft|cancel_draft|ask_availability|ask_draft_state|other",
+  "affected_fields": ["client", "service", "staff", "zone", "date", "time", "notes"],
+  "confidence":      0.0
+}
+```
+
+### Semántica de `sub_intent`
+
+| Valor                 | Uso                                                                 |
+|-----------------------|---------------------------------------------------------------------|
+| `new_booking`         | Primera mención de una cita (sin contexto previo relevante).        |
+| `fill_missing_fields` | El usuario aporta datos que faltaban, sin modificar nada ya fijado. |
+| `modify_fields`       | El usuario cambia un campo ya fijado. Aplica también cuando pide cambiar sin dar valor nuevo (“quiero cambiar el servicio”). |
+| `confirm_draft`       | Afirmación pura sobre borrador ya propuesto (“sí”, “ok”).           |
+| `cancel_draft`        | Abortar el borrador actual (“cancela”, “ya no gracias”).            |
+| `ask_availability`    | Pregunta sobre disponibilidad sin proponer agendar aún.             |
+| `ask_draft_state`     | Pregunta sobre el estado del borrador actual.                       |
+| `other`               | Saludo, charla fuera de alcance, o nada encaja. **Default** cuando el LLM falla o emite un valor desconocido. |
+
+### Semántica de `affected_fields`
+
+Lista normalizada y cerrada con un subconjunto de:
+`["client", "service", "staff", "zone", "date", "time", "notes"]`.
+
+Convenciones:
+
+- Solo contiene los campos que el usuario está creando, completando o
+  modificando en **este** turno.
+- Para `confirm_draft`, `cancel_draft`, `ask_draft_state` y `other` es `[]`.
+- Para `modify_fields` puede traer el campo aunque el usuario todavía
+  no haya aportado el nuevo valor (“quiero cambiar el servicio” →
+  `["service"]` con `service_name=null`).
+- Las claves son los alias cortos de entidad (no los nombres internos
+  del parsed como `client_name`). Esto las alinea con el vocabulario
+  que ya consumen `AA_Booking_Draft_Aggregator` y
+  `AA_Booking_Reply_Builder`.
+
+### Semántica de `confidence`
+
+Número en `[0.0, 1.0]` o `null`. Representa la confianza del LLM en la
+clasificación de `sub_intent`. Se usará a futuro como gate para caer
+en fallbacks heurísticos cuando la confianza sea baja.
+
+### Defaults y normalización
+
+El contrato lo define
+`AA_AI_Conversation_Contract`
+(`includes/domain/ai/class-aa-ai-conversation-contract.php`). Es una
+pieza de **dominio puro**: solo constantes y normalización, sin
+estado, sin SQL, sin hooks.
+
+- Entrada no válida en `sub_intent` → `AA_AI_Conversation_Contract::DEFAULT_SUB_INTENT` (= `other`).
+- Entrada no válida en `affected_fields` → `[]`. Se filtran valores
+  fuera del enum, se aplica trim+lowercase, se deduplica.
+- Entrada no válida en `confidence` → `null`. Se acepta numérico
+  dentro de `[0, 1]` (incluye strings numéricos).
+
+La normalización ocurre en dos lugares:
+
+- `AA_Admin_AI_Chat_Service::normalize_parsed()` para el parsed raw
+  del turno actual (antes del merge).
+- `AA_AI_Parsed_Merger::merge()` delega en el contrato para
+  normalizar ambos lados (previous y current) al entrar. Esto es lo
+  que hace que desde Fase 2 ya no haga falta un parche post-merge:
+  el merger entiende el shape completo (11 claves canónicas) y
+  emite las 3 señales siempre desde el current (nunca se heredan
+  del previous porque son **por turno**, no estado acumulado).
+
+### Estado actual (Fase 3)
+
+**Merger (Paso 2)** — `AA_AI_Parsed_Merger` emite 11 claves canónicas
+(`intent`, 7 campos de datos, `sub_intent`, `affected_fields`,
+`confidence`) y aplica `affected_fields` como regla central:
+
+| Campo está en `affected_fields` | Current significativo | Current vacío/null  |
+|---------------------------------|-----------------------|---------------------|
+| **Sí**                          | usar current          | **limpiar (null)**  |
+| **No**                          | usar current          | preservar previous  |
+
+`has_change_intent`, `lock_resolved_fields_from_previous` y
+`preserve_conversation_fields_after_merge` están retirados.
+
+**Dispatch de cancelación (Paso 3)** — el chat service intercepta
+`sub_intent === 'cancel_draft'` **justo después** de normalizar el
+parsed del LLM, antes del merge y antes del dispatch por intent.
+Reutiliza `build_cancel_success_response()`: devuelve mensaje de
+cancelación, resetea `parsed` a todos-null con
+`sub_intent=cancel_draft` y `confidence=1.0`, y pone `draft_state=null`.
+
+La heurística previa `is_cancel_message()` sigue viva como
+short-circuit pre-LLM: cuando matchea, ahorra la llamada al modelo.
+No es ya la fuente principal de cancelación; es red de seguridad
+para frases obvias.
+
+**Dispatch de confirmación (Paso 3)** — el chat service intercepta
+`sub_intent === 'confirm_draft'` **después** del merge y **después**
+de `dispatch_intent()`, porque necesita el `draft_state` ya
+construido por `handle_create_booking`.
+
+Camino server-side:
+
+1. Si `draft_state.state !== 'ready_for_confirmation'` → fallback al
+   reply builder normal (ya explica qué falta). Log:
+   `confirm_action: rejected_not_ready`.
+2. Traduce `draft_state.draft` al input de
+   `AA_AI_Confirm_Booking_Use_Case::execute()` — el **mismo** use
+   case que consume el endpoint `aa_ai_confirm_booking`. Cero
+   duplicación de reglas de reserva/assignment/auto-confirm.
+3. Si el use case responde `ok` → respuesta `booking_confirmed` con
+   `parsed` reseteado, `draft_state=null` y
+   `resolution.confirmation = { reservation_id, assignment_id, ... }`.
+4. Si el use case responde error → `booking_confirm_failed`,
+   preserva `parsed` para reintento, anexa
+   `resolution.confirmation_error = { stage, message }`.
+
+El frontend (`aichat.js`) detecta `intent_result.status === 'booking_confirmed'`
+y dispara `aa-assignment-created` para refrescar el calendario +
+deshabilita el CTA del turno anterior (mismo efecto que ya hacía
+tras `runConfirmBookingAjax`).
+
+`isPureConfirmMessage` en `aichat.js` y el endpoint
+`aa_ai_confirm_booking` permanecen: el botón "Confirmar cita" y
+las frases puras tipo "sí" siguen POSTeando al endpoint directo
+sin pasar por el chat. Cuando esa ruta **no** se activa (frase
+menos obvia, LLM confirma con matiz, etc.) el camino server-side
+del chat se encarga.
+
+El dispatcher sigue enrutando por `intent` para `create_booking`;
+`sub_intent` gobierna sólo los dos casos de borde
+(`cancel_draft`, `confirm_draft`). El reply builder sigue sin
+consumir `sub_intent`.
+
+### Telemetría
+
+Cuando el constant PHP `AA_AI_CHAT_DEBUG` está definido y truthy, el
+service emite una línea JSON por turno vía `error_log`, con la raíz
+`AA_AI_CHAT_TURN`:
+
+```json
+{"AA_AI_CHAT_TURN":{
+  "message":"cambia la hora a las 6",
+  "previous_parsed":{"intent":"create_booking","client_name":"…", "…":"…"},
+  "parsed_raw":{"intent":"create_booking","time_text":"a las 6","sub_intent":"modify_fields","affected_fields":["time"],"confidence":0.95},
+  "parsed":{"intent":"create_booking","client_name":"…","time_text":"a las 6","sub_intent":"modify_fields","affected_fields":["time"]},
+  "sub_intent":"modify_fields",
+  "affected_fields":["time"]
+}}
+```
+
+Filtra en `wp-content/debug.log` con `grep AA_AI_CHAT_TURN`.
+
+Para activar en desarrollo:
+
+```php
+define('AA_AI_CHAT_DEBUG', true);
+```
+
+Por default el logger es no-op: no hay ruido en producción si el
+define no está presente.
+
+**Campos adicionales (Paso 3)** en la línea de log cuando corresponda:
+
+- `short_circuit: "is_cancel_message"` → canceló por heurística pre-LLM.
+- `short_circuit: "sub_intent_cancel_draft"` → canceló por clasificación
+  del LLM.
+- `confirm_action: "ok"` + `reservation_id`, `assignment_id` → se ejecutó
+  la confirmación server-side con éxito.
+- `confirm_action: "error"` + `stage`, `error_message` → el use case
+  rechazó la confirmación.
+- `confirm_action: "rejected_not_ready"` + `draft_state` → el usuario
+  quiso confirmar pero el borrador no está listo (fallback al reply
+  builder).
+- `confirm_action: "rejected_invalid_draft"` → salvaguarda defensiva:
+  `ready_for_confirmation` pero al intentar traducir el draft algo
+  esencial no estaba presente.
+
+### Roadmap de fases siguientes
+
+- **Fase 2 (hecha)**: `AA_AI_Parsed_Merger` consume `affected_fields`
+  como regla central. Se retiran `lock_resolved_fields_from_previous`,
+  `has_change_intent` y `preserve_conversation_fields_after_merge`.
+- **Fase 3 (hecha)**: `sub_intent` gobierna server-side
+  `cancel_draft` (pre-merge) y `confirm_draft` (post-dispatch,
+  reutilizando `AA_AI_Confirm_Booking_Use_Case`).
+  `is_cancel_message` e `isPureConfirmMessage` siguen como red de
+  seguridad temporal.
+- **Fase 4**: rama dedicada `ask_availability` que, sobre el draft en
+  curso, propone huecos alternativos en lugar de repetir blockers
+  rígidos.
+- **Fase 5**: retirar las heurísticas legacy de cancel/change/confirm
+  y el endpoint directo `aa_ai_confirm_booking` del camino del
+  botón (o convertirlo en fino wrapper sobre la misma ruta de
+  chat). Consolidar el contrato nuevo como única fuente de verdad.

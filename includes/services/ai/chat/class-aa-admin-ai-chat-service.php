@@ -23,6 +23,23 @@ final class AA_Admin_AI_Chat_Service {
     ];
 
     /**
+     * Campos canónicos que forman el shape normalizado del `parsed`.
+     * Incluye los 8 campos legacy del parser + los 3 campos nuevos
+     * introducidos en la Fase 1 de la reorganización conversacional
+     * (`sub_intent`, `affected_fields`, `confidence`). `confidence` es
+     * nullable por diseño: puede no venir del LLM.
+     */
+    private const PARSED_DATA_FIELDS = [
+        'client_name',
+        'service_name',
+        'staff_name',
+        'zone_name',
+        'date_text',
+        'time_text',
+        'notes',
+    ];
+
+    /**
      * @param AA_LLM_Client_Interface $llm_client
      */
     public function __construct(AA_LLM_Client_Interface $llm_client) {
@@ -64,6 +81,11 @@ final class AA_Admin_AI_Chat_Service {
         // Aborto conversacional explícito: sin LLM, sin merge, sin dispatch.
         // Debe devolver ok:true para que el frontend no muestre un error.
         if ($this->is_cancel_message($message)) {
+            $this->log_turn_debug([
+                'message'         => $message,
+                'previous_parsed' => $previous_parsed,
+                'short_circuit'   => 'is_cancel_message',
+            ]);
             return $this->build_cancel_success_response();
         }
 
@@ -97,9 +119,16 @@ final class AA_Admin_AI_Chat_Service {
         $content = $result['data']['message']['content'] ?? '';
 
         $json_candidate = $this->extract_json_payload($content);
-        $parsed = $json_candidate !== null ? json_decode($json_candidate, true) : null;
+        $parsed_raw = $json_candidate !== null ? json_decode($json_candidate, true) : null;
 
-        if (json_last_error() !== JSON_ERROR_NONE || !is_array($parsed)) {
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($parsed_raw)) {
+            $this->log_turn_debug([
+                'message'         => $message,
+                'previous_parsed' => $previous_parsed,
+                'parsed_raw'      => $parsed_raw,
+                'error'           => 'invalid_json_from_llm',
+                'raw_content'     => $content,
+            ]);
             return [
                 'ok'         => false,
                 'reply_text' => $content,
@@ -112,18 +141,55 @@ final class AA_Admin_AI_Chat_Service {
             ];
         }
 
-        $parsed = $this->normalize_parsed($parsed);
+        $parsed = $this->normalize_parsed($parsed_raw);
+
+        // Paso 3: cancelación server-side dirigida por sub_intent.
+        // Ocurre ANTES del merge porque cancelar no necesita draft: si el
+        // LLM clasifica "ya no gracias" / "déjalo" / etc. como
+        // cancel_draft, no gastamos merge ni dispatch. Cuando la frase
+        // cae también bajo `is_cancel_message` el corto-circuito legacy
+        // ya la atrapó arriba; este camino cubre todo lo que la regex
+        // no ve.
+        $this->require_conversation_contract();
+        if (($parsed['sub_intent'] ?? null) === AA_AI_Conversation_Contract::SUB_INTENT_CANCEL_DRAFT) {
+            $this->log_turn_debug([
+                'message'         => $message,
+                'previous_parsed' => $previous_parsed,
+                'parsed_raw'      => $parsed_raw,
+                'parsed'          => $parsed,
+                'sub_intent'      => $parsed['sub_intent'],
+                'affected_fields' => $parsed['affected_fields'] ?? [],
+                'short_circuit'   => 'sub_intent_cancel_draft',
+            ]);
+            return $this->build_cancel_success_response();
+        }
 
         if ($previous_parsed !== null) {
-            if (!$this->has_change_intent($message)) {
-                $parsed = $this->lock_resolved_fields_from_previous($parsed, $previous_parsed);
-            }
-
             $merger = $this->build_merger();
             $parsed = $merger->merge($previous_parsed, $parsed);
         }
 
+        $this->log_turn_debug([
+            'message'         => $message,
+            'previous_parsed' => $previous_parsed,
+            'parsed_raw'      => $parsed_raw,
+            'parsed'          => $parsed,
+            'sub_intent'      => $parsed['sub_intent'] ?? null,
+            'affected_fields' => $parsed['affected_fields'] ?? [],
+        ]);
+
         $intent_result = $this->dispatch_intent($parsed, $message);
+
+        // Paso 3: confirmación server-side dirigida por sub_intent.
+        // Ocurre DESPUÉS de dispatch porque necesitamos el `draft_state`
+        // ya construido por `handle_create_booking`: no confirmamos a
+        // menos que el aggregator haya producido `ready_for_confirmation`.
+        // Si no está listo, este método devuelve null y caemos al flujo
+        // normal (el reply builder ya explicará qué falta).
+        $confirm_outcome = $this->try_confirm_by_sub_intent($parsed, $intent_result);
+        if ($confirm_outcome !== null) {
+            return $confirm_outcome;
+        }
 
         $reply_text_out = $content;
         $resolution     = isset($intent_result['resolution']) && is_array($intent_result['resolution'])
@@ -202,15 +268,20 @@ final class AA_Admin_AI_Chat_Service {
     private function build_cancel_success_response(): array {
         $text = 'De acuerdo, cancelé la operación actual.';
 
+        $this->require_conversation_contract();
+
         $parsed = $this->normalize_parsed([
-            'intent'       => 'unknown',
-            'client_name'  => null,
-            'service_name' => null,
-            'staff_name'   => null,
-            'zone_name'    => null,
-            'date_text'    => null,
-            'time_text'    => null,
-            'notes'        => null,
+            'intent'          => 'unknown',
+            'client_name'     => null,
+            'service_name'    => null,
+            'staff_name'      => null,
+            'zone_name'       => null,
+            'date_text'       => null,
+            'time_text'       => null,
+            'notes'           => null,
+            'sub_intent'      => AA_AI_Conversation_Contract::SUB_INTENT_CANCEL_DRAFT,
+            'affected_fields' => [],
+            'confidence'      => 1.0,
         ]);
 
         $reply_ui = [
@@ -244,88 +315,290 @@ final class AA_Admin_AI_Chat_Service {
     }
 
     /**
-     * Paso 6.j — Pre-merge gate.
+     * Paso 3 — intenta cerrar el borrador server-side cuando el turno
+     * actual clasifica como `confirm_draft` y el draft está listo.
      *
-     * Detecta señales explícitas de que el usuario quiere MODIFICAR datos
-     * ya establecidos en el borrador. Política binaria:
-     *   - true  → comportamiento actual (merger deja pasar el parsed current).
-     *   - false → se bloquean los campos que el previous ya tenía (v1 no granular).
+     * Reutiliza `AA_AI_Confirm_Booking_Use_Case`, el mismo caso de uso
+     * que expone el endpoint `aa_ai_confirm_booking` al botón del
+     * frontend. Este método NO reimplementa reglas de reservation,
+     * assignment o auto-confirm: solo traduce `draft_state.draft` al
+     * input del use case, delega, y formatea la respuesta al shape
+     * del chat.
      *
-     * Heurística conservadora: preferimos falsos negativos (no detectar un
-     * cambio sutil que el usuario sí quiso) a falsos positivos (permitir que
-     * el LLM reinterprete y rompa entidades ya resueltas). Si falla, el
-     * usuario siempre puede repetir con una frase explícita ("cambia la hora
-     * a las 6").
+     * Política:
+     *   - sub_intent distinto de `confirm_draft` → null (flujo normal).
+     *   - draft_state sin `ready_for_confirmation` → null (fallback al
+     *     reply builder existente, que ya explica qué falta).
+     *   - input inválido (faltan IDs pese a `ready_for_confirmation`)
+     *     → null (defensa; el caller sigue flujo normal).
+     *   - use case ok      → respuesta de éxito con parsed reseteado.
+     *   - use case error   → respuesta tipo "no pude confirmar" que
+     *     preserva el parsed actual para que el usuario pueda reintentar.
      *
-     * Se excluye `\bmejor no\b` porque `is_cancel_message` ya lo trata como
-     * cancelación; dejarlo como change-intent confundiría las capas.
-     *
-     * @param mixed $message Texto original del usuario (trim).
-     * @return bool
+     * @param array<string,mixed> $parsed        Parsed merged del turno actual.
+     * @param array<string,mixed> $intent_result Salida de dispatch_intent ya calculada.
+     * @return array<string,mixed>|null Respuesta cerrada o null si no aplica.
      */
-    private function has_change_intent($message): bool {
-        if (!is_string($message) || $message === '') {
-            return false;
+    private function try_confirm_by_sub_intent(array $parsed, array $intent_result): ?array {
+        $this->require_conversation_contract();
+
+        $sub_intent = $parsed['sub_intent'] ?? null;
+        if ($sub_intent !== AA_AI_Conversation_Contract::SUB_INTENT_CONFIRM_DRAFT) {
+            return null;
         }
 
-        $m = mb_strtolower($message, 'UTF-8');
+        $resolution  = isset($intent_result['resolution']) && is_array($intent_result['resolution'])
+            ? $intent_result['resolution']
+            : [];
+        $draft_state = isset($resolution['draft_state']) && is_array($resolution['draft_state'])
+            ? $resolution['draft_state']
+            : null;
+        $state       = $draft_state !== null ? ($draft_state['state'] ?? null) : null;
+        $draft       = $draft_state !== null && isset($draft_state['draft']) && is_array($draft_state['draft'])
+            ? $draft_state['draft']
+            : null;
 
-        $patterns = [
-            '/\bcambia(?:r|d|mos|lo|la)?\b/u',
-            '/\ben\s+lugar\s+de\b/u',
-            '/\ben\s+vez\s+de\b/u',
-            '/\ben\s+cambio\b/u',
-            '/\bno\s+con\b/u',
-            '/\bquiero\s+otr[oa]\b/u',
-            '/\botro\s+(?:profesional|servicio|cliente)\b/u',
-            '/\botra\s+(?:hora|fecha|zona)\b/u',
-        ];
-
-        foreach ($patterns as $pattern) {
-            if (preg_match($pattern, $m)) {
-                return true;
-            }
+        if ($state !== 'ready_for_confirmation' || $draft === null) {
+            $this->log_turn_debug([
+                'parsed'         => $parsed,
+                'sub_intent'     => $sub_intent,
+                'confirm_action' => 'rejected_not_ready',
+                'draft_state'    => is_string($state) ? $state : null,
+            ]);
+            return null;
         }
 
-        if (preg_match('/\bmejor\b/u', $m) && !preg_match('/\bmejor\s+no\b/u', $m)) {
-            return true;
+        $input = $this->build_confirm_input_from_draft($draft);
+        if ($input === null) {
+            $this->log_turn_debug([
+                'parsed'         => $parsed,
+                'sub_intent'     => $sub_intent,
+                'confirm_action' => 'rejected_invalid_draft',
+            ]);
+            return null;
         }
 
-        return false;
+        require_once dirname(__DIR__, 3) . '/application/ai/AI_Confirm_Booking_Use_Case.php';
+        require_once dirname(__DIR__, 3) . '/application/booking/CreateReservationUseCase.php';
+        require_once dirname(__DIR__, 3) . '/services/confirm-backend-service.php';
+
+        $result = (new AA_AI_Confirm_Booking_Use_Case())->execute($input);
+
+        if (($result['status'] ?? null) === 'ok') {
+            $this->log_turn_debug([
+                'parsed'         => $parsed,
+                'sub_intent'     => $sub_intent,
+                'confirm_action' => 'ok',
+                'reservation_id' => isset($result['reservation_id']) ? (int) $result['reservation_id'] : null,
+                'assignment_id'  => isset($result['assignment_id']) ? (int) $result['assignment_id'] : null,
+            ]);
+            return $this->build_confirm_success_response($result);
+        }
+
+        $this->log_turn_debug([
+            'parsed'         => $parsed,
+            'sub_intent'     => $sub_intent,
+            'confirm_action' => 'error',
+            'stage'          => isset($result['stage']) ? (string) $result['stage'] : null,
+            'error_message'  => isset($result['message']) ? (string) $result['message'] : null,
+        ]);
+        return $this->build_confirm_error_response($parsed, $intent_result, $result);
     }
 
     /**
-     * Paso 6.j — Bloqueo campo-a-campo pre-merge.
+     * Traduce el `draft_state.draft` al input exacto que espera
+     * `AA_AI_Confirm_Booking_Use_Case::execute()`.
      *
-     * Fuerza `null` en el `parsed` actual para cualquier campo de datos
-     * cuyo `previous_parsed` contenía un string significativo. Así el
-     * merger (que preserva previous cuando current no es significativo)
-     * no pisa valores ya establecidos. `intent` no se toca: el merger
-     * preserva intent previo si el actual es `unknown`.
+     * El shape del draft es el proyectado por `AA_Booking_Draft_Aggregator`:
+     *   client/service/staff/zone {id, ...}, datetime {local_datetime},
+     *   duration {minutes}, assignment {mode, assignment_id?}.
      *
-     * @param array<string,mixed> $parsed          Parsed normalizado del turno actual.
-     * @param array<string,mixed> $previous_parsed Snapshot del turno anterior.
-     * @return array<string,mixed>
+     * Devuelve `null` si algún ID/campo requerido no es válido; el
+     * use case exige esos invariantes y preferimos fallar temprano con
+     * un fallback al flujo normal antes que invocar al use case con
+     * basura.
+     *
+     * @param array<string,mixed> $draft
+     * @return array<string,mixed>|null
      */
-    private function lock_resolved_fields_from_previous(array $parsed, array $previous_parsed): array {
-        $data_fields = [
-            'client_name',
-            'service_name',
-            'staff_name',
-            'zone_name',
-            'date_text',
-            'time_text',
-            'notes',
-        ];
+    private function build_confirm_input_from_draft(array $draft): ?array {
+        $client     = isset($draft['client'])     && is_array($draft['client'])     ? $draft['client']     : null;
+        $service    = isset($draft['service'])    && is_array($draft['service'])    ? $draft['service']    : null;
+        $staff      = isset($draft['staff'])      && is_array($draft['staff'])      ? $draft['staff']      : null;
+        $zone       = isset($draft['zone'])       && is_array($draft['zone'])       ? $draft['zone']       : null;
+        $datetime   = isset($draft['datetime'])   && is_array($draft['datetime'])   ? $draft['datetime']   : null;
+        $duration   = isset($draft['duration'])   && is_array($draft['duration'])   ? $draft['duration']   : null;
+        $assignment = isset($draft['assignment']) && is_array($draft['assignment']) ? $draft['assignment'] : null;
 
-        foreach ($data_fields as $field) {
-            $prev = $previous_parsed[$field] ?? null;
-            if (is_string($prev) && trim($prev) !== '') {
-                $parsed[$field] = null;
-            }
+        $client_id        = $client   !== null && isset($client['id'])            ? (int) $client['id']            : 0;
+        $service_id       = $service  !== null && isset($service['id'])           ? (int) $service['id']           : 0;
+        $staff_id         = $staff    !== null && isset($staff['id'])             ? (int) $staff['id']             : 0;
+        $zone_id          = $zone     !== null && isset($zone['id'])              ? (int) $zone['id']              : 0;
+        $start_local      = $datetime !== null && isset($datetime['local_datetime']) ? (string) $datetime['local_datetime'] : '';
+        $duration_minutes = $duration !== null && isset($duration['minutes'])     ? (int) $duration['minutes']     : 0;
+        $mode             = $assignment !== null && isset($assignment['mode'])    ? (string) $assignment['mode']   : '';
+        $assignment_id    = $assignment !== null && isset($assignment['assignment_id']) ? (int) $assignment['assignment_id'] : 0;
+
+        if ($client_id <= 0 || $service_id <= 0 || $staff_id <= 0 || $zone_id <= 0) {
+            return null;
+        }
+        if ($start_local === '' || $duration_minutes <= 0) {
+            return null;
+        }
+        if ($mode !== 'reuse' && $mode !== 'create_new') {
+            return null;
+        }
+        if ($mode === 'reuse' && $assignment_id <= 0) {
+            return null;
         }
 
-        return $parsed;
+        $input = [
+            'client_id'        => $client_id,
+            'service_id'       => $service_id,
+            'staff_id'         => $staff_id,
+            'zone_id'          => $zone_id,
+            'start_datetime'   => $start_local,
+            'duration_minutes' => $duration_minutes,
+            'assignment_mode'  => $mode,
+        ];
+        if ($mode === 'reuse') {
+            $input['assignment_id'] = $assignment_id;
+        }
+
+        return $input;
+    }
+
+    /**
+     * Respuesta de éxito tras confirmar server-side. Misma forma del
+     * envelope que el flujo normal del chat + señales específicas para
+     * que el cliente pueda:
+     *   - limpiar `lastParsedInput` y `lastDraftState`,
+     *   - disparar `aa-assignment-created` para refrescar el calendario,
+     *   - deshabilitar el CTA de confirmación del turno previo.
+     *
+     * `intent_result.status = 'booking_confirmed'` es el discriminador
+     * que consume el frontend en `aichat.js`.
+     *
+     * @param array<string,mixed> $use_case_result Salida ok de `AA_AI_Confirm_Booking_Use_Case::execute()`.
+     */
+    private function build_confirm_success_response(array $use_case_result): array {
+        $text = 'Cita confirmada. Cita agendada.';
+
+        $this->require_conversation_contract();
+
+        $parsed = $this->normalize_parsed([
+            'intent'          => 'unknown',
+            'client_name'     => null,
+            'service_name'    => null,
+            'staff_name'      => null,
+            'zone_name'       => null,
+            'date_text'       => null,
+            'time_text'       => null,
+            'notes'           => null,
+            'sub_intent'      => AA_AI_Conversation_Contract::SUB_INTENT_CONFIRM_DRAFT,
+            'affected_fields' => [],
+            'confidence'      => 1.0,
+        ]);
+
+        $reply_ui = [
+            'text'       => $text,
+            'cta'        => 'noop',
+            'highlights' => [],
+            'choices'    => [],
+            'draft_echo' => [
+                'client'   => null,
+                'service'  => null,
+                'staff'    => null,
+                'zone'     => null,
+                'datetime' => null,
+            ],
+        ];
+
+        $confirmation = [
+            'reservation_id'     => isset($use_case_result['reservation_id']) ? (int) $use_case_result['reservation_id'] : 0,
+            'assignment_id'      => isset($use_case_result['assignment_id']) ? (int) $use_case_result['assignment_id'] : 0,
+            'created_assignment' => !empty($use_case_result['created_assignment']),
+            'confirmed'          => !empty($use_case_result['confirmed']),
+        ];
+
+        return [
+            'ok'            => true,
+            'reply_text'    => $text,
+            'parsed'        => $parsed,
+            'intent_result' => [
+                'intent'     => 'create_booking',
+                'status'     => 'booking_confirmed',
+                'reply'      => $text,
+                'resolution' => [
+                    'reply_ui'     => $reply_ui,
+                    'draft_state'  => null,
+                    'confirmation' => $confirmation,
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * Respuesta cuando el use case de confirmación falla server-side.
+     *
+     * Política:
+     *   - Preservamos el `parsed` actual para que el draft siga vivo y
+     *     el usuario pueda reintentar o corregir sin perder contexto.
+     *   - Sustituimos el texto del `reply_ui` por uno explícito de
+     *     error (incluye `stage` para pistas rápidas en QA).
+     *   - Marcamos `intent_result.status = 'booking_confirm_failed'` y
+     *     anexamos `resolution.confirmation_error` para trazabilidad.
+     *
+     * El frontend trata esto como un mensaje de chat normal: el usuario
+     * ve el aviso y el botón CTA del turno anterior sigue habilitado
+     * (reintento), igual que pasa hoy con el endpoint directo cuando
+     * devuelve error.
+     *
+     * @param array<string,mixed> $parsed          Parsed merged del turno.
+     * @param array<string,mixed> $intent_result   Resultado ya calculado de dispatch.
+     * @param array<string,mixed> $use_case_result Salida error del use case.
+     */
+    private function build_confirm_error_response(array $parsed, array $intent_result, array $use_case_result): array {
+        $stage = isset($use_case_result['stage']) ? (string) $use_case_result['stage'] : 'unknown';
+        $text  = 'No pude confirmar la cita (' . $stage . '). Intenta de nuevo o corrige el borrador.';
+
+        $resolution = isset($intent_result['resolution']) && is_array($intent_result['resolution'])
+            ? $intent_result['resolution']
+            : [];
+
+        $reply_ui = isset($resolution['reply_ui']) && is_array($resolution['reply_ui'])
+            ? $resolution['reply_ui']
+            : [
+                'text'       => $text,
+                'cta'        => 'noop',
+                'highlights' => [],
+                'choices'    => [],
+                'draft_echo' => [
+                    'client'   => null,
+                    'service'  => null,
+                    'staff'    => null,
+                    'zone'     => null,
+                    'datetime' => null,
+                ],
+            ];
+        $reply_ui['text'] = $text;
+
+        $resolution['reply_ui']           = $reply_ui;
+        $resolution['confirmation_error'] = [
+            'stage'   => $stage,
+            'message' => isset($use_case_result['message']) ? (string) $use_case_result['message'] : '',
+        ];
+
+        $intent_result['status']     = 'booking_confirm_failed';
+        $intent_result['reply']      = $text;
+        $intent_result['resolution'] = $resolution;
+
+        return [
+            'ok'            => true,
+            'reply_text'    => $text,
+            'parsed'        => $parsed,
+            'intent_result' => $intent_result,
+        ];
     }
 
     /**
@@ -557,17 +830,24 @@ HINT;
     }
 
     /**
-     * Prompt de sistema para extracción estructurada.
+     * Prompt de sistema para extracción estructurada + clasificación
+     * de subintención conversacional.
+     *
+     * Fase 1: el prompt ya pide `sub_intent`, `affected_fields` y
+     * `confidence`, pero ESAS señales todavía NO gobiernan el dispatch.
+     * El servidor las normaliza y las emite como señal estructurada,
+     * lista para que el merger y el orquestador las consuman en pasos
+     * posteriores.
      *
      * @return string
      */
     private function build_system_prompt() {
         return <<<'PROMPT'
-Eres un parser de una agenda de citas. Tu ÚNICO trabajo es extraer datos estructurados del mensaje del administrador.
+Eres un parser de una agenda de citas. Tu trabajo es (a) extraer datos estructurados del mensaje del administrador y (b) clasificar qué está haciendo el usuario en este turno respecto al borrador en curso.
 
 Responde SIEMPRE con un objeto JSON y NADA MÁS. Sin explicaciones, sin texto extra.
 
-CAMPOS (exactamente estos 8):
+CAMPOS (exactamente estos 11):
 - "intent": "create_booking" | "check_availability" | "find_client" | "list_services" | "unknown"
 - "client_name": string | null
 - "service_name": string | null
@@ -576,6 +856,9 @@ CAMPOS (exactamente estos 8):
 - "date_text": string | null
 - "time_text": string | null
 - "notes": string | null
+- "sub_intent": "new_booking" | "fill_missing_fields" | "modify_fields" | "confirm_draft" | "cancel_draft" | "ask_availability" | "ask_draft_state" | "other"
+- "affected_fields": array con un subconjunto de ["client","service","staff","zone","date","time","notes"]
+- "confidence": número entre 0 y 1 (tu confianza en la clasificación de sub_intent)
 
 CÓMO IDENTIFICAR ROLES EN LA ORACIÓN:
 - "agendar/agenda/agéndame A [nombre]" → client_name (la persona a quien se agenda)
@@ -585,66 +868,125 @@ CÓMO IDENTIFICAR ROLES EN LA ORACIÓN:
 - Referencias temporales como "mañana", "el lunes", "15 de abril" → date_text (copiar tal cual)
 - Referencias de hora como "a las 5", "4pm", "16:00" → time_text (copiar tal cual)
 
-REGLAS:
+REGLAS DE EXTRACCIÓN:
 - Si un dato no aparece en el mensaje → null.
 - No inventes datos.
-- Si la intención no es clara → "unknown".
+- Si la intención de alto nivel no es clara → intent:"unknown".
 - Extrae nombres propios tal cual aparecen.
+
+REGLAS DE SUB_INTENT:
+- "new_booking": primera mención de una cita completa o casi completa, típicamente sin contexto previo.
+- "fill_missing_fields": el usuario aporta datos que el sistema había pedido, sin cambiar nada ya fijado.
+- "modify_fields": el usuario cambia un dato ya fijado. Aplica aunque NO traiga un nuevo valor concreto (p. ej. "quiero cambiar el servicio" → modify_fields con affected_fields:["service"] y service_name:null).
+- "confirm_draft": afirmación pura sobre un borrador ya propuesto ("sí", "ok", "confirmar", "de acuerdo", "dale").
+- "cancel_draft": abortar el borrador actual ("cancela", "ya no gracias", "olvídalo", "déjalo", "mejor no").
+- "ask_availability": pregunta sobre disponibilidad sin proponer agendar aún ("a qué hora tiene libre", "¿a las 5 está libre?", "¿hay espacio mañana?").
+- "ask_draft_state": pregunta sobre qué tiene ya el borrador actual ("¿qué cliente tengo?", "¿qué datos llevo?").
+- "other": saludo, agradecimiento, charla fuera de alcance, o cualquier cosa que no encaje en las anteriores.
+
+REGLAS DE AFFECTED_FIELDS:
+- Solo incluye los campos que el usuario está creando, completando o modificando en ESTE mensaje.
+- Para "confirm_draft", "cancel_draft", "ask_draft_state" y "other" debe ser [].
+- Para "ask_availability" puede incluir el/los campos sobre los que pregunta (típicamente ["time"] o ["date","time"]).
+- Para "modify_fields" incluye los campos que el usuario quiere cambiar aunque aún no dé el nuevo valor.
+- Usa exactamente estas claves cortas: client, service, staff, zone, date, time, notes.
+
+REGLAS DE CONFIDENCE:
+- Número entre 0 y 1.
+- Usa >=0.8 si el mensaje es inequívoco, 0.5-0.8 si hay alguna ambigüedad, <0.5 si dudas entre varias subintenciones.
 
 EJEMPLOS:
 
 Input: "Agéndame a José mañana a las 5 para cejas con Anahí"
-Output: {"intent":"create_booking","client_name":"José","service_name":"cejas","staff_name":"Anahí","zone_name":null,"date_text":"mañana","time_text":"a las 5","notes":null}
+Output: {"intent":"create_booking","client_name":"José","service_name":"cejas","staff_name":"Anahí","zone_name":null,"date_text":"mañana","time_text":"a las 5","notes":null,"sub_intent":"new_booking","affected_fields":["client","service","staff","date","time"],"confidence":0.95}
 
 Input: "Agenda una cita para María López el viernes a las 10 para corte de cabello"
-Output: {"intent":"create_booking","client_name":"María López","service_name":"corte de cabello","staff_name":null,"zone_name":null,"date_text":"el viernes","time_text":"a las 10","notes":null}
+Output: {"intent":"create_booking","client_name":"María López","service_name":"corte de cabello","staff_name":null,"zone_name":null,"date_text":"el viernes","time_text":"a las 10","notes":null,"sub_intent":"new_booking","affected_fields":["client","service","date","time"],"confidence":0.95}
+
+Input: "armando hoyos, en consultorio 3"
+Output: {"intent":"create_booking","client_name":"armando hoyos","service_name":null,"staff_name":null,"zone_name":"consultorio 3","date_text":null,"time_text":null,"notes":null,"sub_intent":"fill_missing_fields","affected_fields":["client","zone"],"confidence":0.9}
+
+Input: "mejor para consulta general"
+Output: {"intent":"create_booking","client_name":null,"service_name":"consulta general","staff_name":null,"zone_name":null,"date_text":null,"time_text":null,"notes":null,"sub_intent":"modify_fields","affected_fields":["service"],"confidence":0.9}
+
+Input: "quiero cambiar el servicio"
+Output: {"intent":"create_booking","client_name":null,"service_name":null,"staff_name":null,"zone_name":null,"date_text":null,"time_text":null,"notes":null,"sub_intent":"modify_fields","affected_fields":["service"],"confidence":0.9}
+
+Input: "cambia la hora a las 6"
+Output: {"intent":"create_booking","client_name":null,"service_name":null,"staff_name":null,"zone_name":null,"date_text":null,"time_text":"a las 6","notes":null,"sub_intent":"modify_fields","affected_fields":["time"],"confidence":0.95}
+
+Input: "sí"
+Output: {"intent":"unknown","client_name":null,"service_name":null,"staff_name":null,"zone_name":null,"date_text":null,"time_text":null,"notes":null,"sub_intent":"confirm_draft","affected_fields":[],"confidence":0.9}
+
+Input: "ok"
+Output: {"intent":"unknown","client_name":null,"service_name":null,"staff_name":null,"zone_name":null,"date_text":null,"time_text":null,"notes":null,"sub_intent":"confirm_draft","affected_fields":[],"confidence":0.85}
+
+Input: "ya no gracias"
+Output: {"intent":"unknown","client_name":null,"service_name":null,"staff_name":null,"zone_name":null,"date_text":null,"time_text":null,"notes":null,"sub_intent":"cancel_draft","affected_fields":[],"confidence":0.9}
+
+Input: "cancela"
+Output: {"intent":"unknown","client_name":null,"service_name":null,"staff_name":null,"zone_name":null,"date_text":null,"time_text":null,"notes":null,"sub_intent":"cancel_draft","affected_fields":[],"confidence":0.98}
+
+Input: "a qué hora tiene libre"
+Output: {"intent":"check_availability","client_name":null,"service_name":null,"staff_name":null,"zone_name":null,"date_text":null,"time_text":null,"notes":null,"sub_intent":"ask_availability","affected_fields":["time"],"confidence":0.9}
+
+Input: "¿a las 5 está libre?"
+Output: {"intent":"check_availability","client_name":null,"service_name":null,"staff_name":null,"zone_name":null,"date_text":null,"time_text":"a las 5","notes":null,"sub_intent":"ask_availability","affected_fields":["time"],"confidence":0.9}
 
 Input: "Ponle cita a Pedro con la Dra. Gómez para limpieza dental mañana a las 3 en sucursal norte"
-Output: {"intent":"create_booking","client_name":"Pedro","service_name":"limpieza dental","staff_name":"Dra. Gómez","zone_name":"sucursal norte","date_text":"mañana","time_text":"a las 3","notes":null}
-
-Input: "Agenda una cita mañana"
-Output: {"intent":"create_booking","client_name":null,"service_name":null,"staff_name":null,"zone_name":null,"date_text":"mañana","time_text":null,"notes":null}
+Output: {"intent":"create_booking","client_name":"Pedro","service_name":"limpieza dental","staff_name":"Dra. Gómez","zone_name":"sucursal norte","date_text":"mañana","time_text":"a las 3","notes":null,"sub_intent":"new_booking","affected_fields":["client","service","staff","zone","date","time"],"confidence":0.95}
 
 Input: "Qué servicios tienen disponibles?"
-Output: {"intent":"list_services","client_name":null,"service_name":null,"staff_name":null,"zone_name":null,"date_text":null,"time_text":null,"notes":null}
-
-Input: "Hay disponibilidad el martes en la tarde?"
-Output: {"intent":"check_availability","client_name":null,"service_name":null,"staff_name":null,"zone_name":null,"date_text":"el martes","time_text":"en la tarde","notes":null}
+Output: {"intent":"list_services","client_name":null,"service_name":null,"staff_name":null,"zone_name":null,"date_text":null,"time_text":null,"notes":null,"sub_intent":"other","affected_fields":[],"confidence":0.8}
 
 Input: "Busca al cliente Ana Martínez"
-Output: {"intent":"find_client","client_name":"Ana Martínez","service_name":null,"staff_name":null,"zone_name":null,"date_text":null,"time_text":null,"notes":null}
+Output: {"intent":"find_client","client_name":"Ana Martínez","service_name":null,"staff_name":null,"zone_name":null,"date_text":null,"time_text":null,"notes":null,"sub_intent":"other","affected_fields":[],"confidence":0.8}
 PROMPT;
     }
 
     /**
      * Normaliza el objeto parseado para garantizar shape uniforme.
      *
+     * Incluye los 8 campos legacy (`intent` + 7 data fields) y los 3
+     * campos nuevos de Fase 1 (`sub_intent`, `affected_fields`,
+     * `confidence`), normalizados vía `AA_AI_Conversation_Contract`.
+     *
+     * Los 3 campos nuevos se EMITEN siempre en el output aunque el LLM
+     * no los devuelva (defaults seguros). Esto blinda a consumers río
+     * abajo que asumen shape estable. En esta fase NO gobiernan dispatch
+     * ni merge: existen como señal estructurada lista para Paso 2.
+     *
      * @param array $parsed
      * @return array
      */
     private function normalize_parsed(array $parsed) {
-        $fields = [
-            'intent'       => null,
-            'client_name'  => null,
-            'service_name' => null,
-            'staff_name'   => null,
-            'zone_name'    => null,
-            'date_text'    => null,
-            'time_text'    => null,
-            'notes'        => null,
-        ];
+        $normalized = ['intent' => $parsed['intent'] ?? null];
 
-        $normalized = [];
-        foreach ($fields as $key => $default) {
-            $value = isset($parsed[$key]) && $parsed[$key] !== '' ? $parsed[$key] : $default;
-            $normalized[$key] = $value;
+        foreach (self::PARSED_DATA_FIELDS as $field) {
+            $value = isset($parsed[$field]) && $parsed[$field] !== '' ? $parsed[$field] : null;
+            $normalized[$field] = $value;
         }
 
         if (!in_array($normalized['intent'], self::VALID_INTENTS, true)) {
             $normalized['intent'] = 'unknown';
         }
 
+        $this->require_conversation_contract();
+
+        $normalized['sub_intent']      = AA_AI_Conversation_Contract::normalize_sub_intent($parsed['sub_intent'] ?? null);
+        $normalized['affected_fields'] = AA_AI_Conversation_Contract::normalize_affected_fields($parsed['affected_fields'] ?? null);
+        $normalized['confidence']      = AA_AI_Conversation_Contract::normalize_confidence($parsed['confidence'] ?? null);
+
         return $normalized;
+    }
+
+    /**
+     * Lazy-require del contrato de dominio. Sigue el mismo patrón que
+     * `build_merger()`: los `require_once` viven en los métodos que
+     * los necesitan, no en el bootstrap del módulo AI.
+     */
+    private function require_conversation_contract(): void {
+        require_once dirname(__DIR__, 3) . '/domain/ai/class-aa-ai-conversation-contract.php';
     }
 
     /**
@@ -681,5 +1023,148 @@ PROMPT;
         }
 
         return $raw;
+    }
+
+    /**
+     * Telemetría mínima del turno conversacional (Fase 1).
+     *
+     * Pensada para depurar la clasificación de `sub_intent` y el flujo
+     * del parsed durante la transición al nuevo contrato. Gated por
+     * `AA_AI_CHAT_DEBUG` (define PHP) para no ensuciar logs de producción.
+     * Si el define no está presente o es falsy, el método es un no-op.
+     *
+     * Formato: una sola línea JSON por turno con una clave raíz
+     * `AA_AI_CHAT_TURN` para grep fácil.
+     *
+     * Campos truncados/resumidos para mantener el log acotado:
+     *   - `message` se limita a 300 caracteres (coincide con el cap del
+     *     frontend en `aichat.js`).
+     *   - `previous_parsed` se resume a las claves con valor no trivial.
+     *   - `parsed_raw` solo incluye los campos que el contrato conoce;
+     *     el resto del payload del LLM se descarta.
+     *
+     * @param array<string,mixed> $context
+     */
+    private function log_turn_debug(array $context): void {
+        if (!defined('AA_AI_CHAT_DEBUG') || !AA_AI_CHAT_DEBUG) {
+            return;
+        }
+
+        $payload = [
+            'message'         => $this->truncate_for_log($context['message'] ?? null, 300),
+            'previous_parsed' => $this->summarize_parsed_for_log($context['previous_parsed'] ?? null),
+            'parsed_raw'      => $this->summarize_parsed_raw_for_log($context['parsed_raw'] ?? null),
+            'parsed'          => $this->summarize_parsed_for_log($context['parsed'] ?? null),
+            'sub_intent'      => $context['sub_intent'] ?? null,
+            'affected_fields' => isset($context['affected_fields']) && is_array($context['affected_fields'])
+                ? $context['affected_fields']
+                : null,
+        ];
+
+        if (isset($context['short_circuit'])) {
+            $payload['short_circuit'] = (string) $context['short_circuit'];
+        }
+        if (isset($context['error'])) {
+            $payload['error'] = (string) $context['error'];
+        }
+        if (isset($context['raw_content'])) {
+            $payload['raw_content'] = $this->truncate_for_log($context['raw_content'], 500);
+        }
+
+        // Paso 3: marcadores del nuevo camino server-side de confirm_draft.
+        // `confirm_action` toma uno de:
+        //   'ok' | 'error' | 'rejected_not_ready' | 'rejected_invalid_draft'
+        if (isset($context['confirm_action'])) {
+            $payload['confirm_action'] = (string) $context['confirm_action'];
+        }
+        if (isset($context['draft_state'])) {
+            $payload['draft_state'] = is_string($context['draft_state']) ? $context['draft_state'] : null;
+        }
+        if (array_key_exists('reservation_id', $context)) {
+            $payload['reservation_id'] = $context['reservation_id'];
+        }
+        if (array_key_exists('assignment_id', $context)) {
+            $payload['assignment_id'] = $context['assignment_id'];
+        }
+        if (isset($context['stage'])) {
+            $payload['stage'] = (string) $context['stage'];
+        }
+        if (isset($context['error_message'])) {
+            $payload['error_message'] = $this->truncate_for_log((string) $context['error_message'], 240);
+        }
+
+        $line = wp_json_encode(['AA_AI_CHAT_TURN' => $payload]);
+        if ($line === false) {
+            return;
+        }
+
+        error_log($line);
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private function truncate_for_log($value, int $max): ?string {
+        if (!is_string($value)) {
+            return null;
+        }
+        if (mb_strlen($value, 'UTF-8') <= $max) {
+            return $value;
+        }
+        return mb_substr($value, 0, $max, 'UTF-8') . '…';
+    }
+
+    /**
+     * Resumen de un parsed normalizado: solo claves con valor no trivial
+     * (no null, no string vacío, no array vacío).
+     *
+     * @param mixed $parsed
+     */
+    private function summarize_parsed_for_log($parsed): ?array {
+        if (!is_array($parsed)) {
+            return null;
+        }
+
+        $out = [];
+        foreach ($parsed as $k => $v) {
+            if ($v === null || $v === '' || (is_array($v) && $v === [])) {
+                continue;
+            }
+            if (is_string($v)) {
+                $out[$k] = $this->truncate_for_log($v, 120);
+                continue;
+            }
+            $out[$k] = $v;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Resumen del parsed crudo del LLM: solo los campos del contrato
+     * conocido. Descarta claves extra (p. ej. "thinking" de algunos
+     * modelos) para que el log sea compacto.
+     *
+     * @param mixed $parsed_raw
+     */
+    private function summarize_parsed_raw_for_log($parsed_raw): ?array {
+        if (!is_array($parsed_raw)) {
+            return null;
+        }
+
+        $known_keys = array_merge(
+            ['intent'],
+            self::PARSED_DATA_FIELDS,
+            ['sub_intent', 'affected_fields', 'confidence']
+        );
+
+        $slice = [];
+        foreach ($known_keys as $k) {
+            if (array_key_exists($k, $parsed_raw)) {
+                $slice[$k] = $parsed_raw[$k];
+            }
+        }
+
+        return $this->summarize_parsed_for_log($slice);
     }
 }
