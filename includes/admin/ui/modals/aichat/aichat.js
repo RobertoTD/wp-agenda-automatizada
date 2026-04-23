@@ -20,10 +20,16 @@
  * Persistence (paso 6.b):
  *   - `messages`, `lastParsedInput` and `lastDraftState` are persisted
  *     in `sessionStorage` under `AA_AI_CHAT_STORAGE_KEY` and rehydrated
- *     on mount. `isOpen` and `isTyping` are intentionally NOT persisted.
- *   - Storage is cleared on (a) successful booking confirmation,
- *     (b) explicit "Nueva conversación" button, (c) hydration failures
- *     (corrupt JSON or unknown message kinds).
+ *     on mount. `isOpen`, `isTyping`, `lastUserChatSendAt` and
+ *     `isConfirmBookingRequest` are intentionally NOT persisted.
+ *   - Storage is cleared on (a) explicit "Nueva conversación" button,
+ *     (b) hydration failures (corrupt JSON or unknown message kinds).
+ *
+ * Paso 6.h: confirmación por lenguaje natural (solo afirmación pura,
+ * sin `aa_admin_ai_chat`) reutiliza el mismo POST que el botón.
+ *
+ * Paso 6.i: tras confirmar con éxito se mantiene el historial; la última
+ * tarjeta `confirm_cta` queda con el botón deshabilitado (`confirmDisabled`).
  */
 (function () {
     'use strict';
@@ -32,6 +38,9 @@
     // Constants
     // ============================================================
     const AA_AI_CHAT_STORAGE_KEY = 'aa_ai_chat_state_v1';
+    /** Paso 6.g: límite de caracteres y cooldown entre envíos (solo frontend). */
+    const AA_AI_CHAT_MAX_MESSAGE_LENGTH = 300;
+    const AA_AI_CHAT_SEND_COOLDOWN_MS = 2000;
     const KNOWN_MESSAGE_KINDS = [
         'text',
         'confirm_cta',
@@ -55,7 +64,12 @@
         // merged server-side). Reused as `previous_parsed` on the next
         // turn so the conversation accumulates context. Reset to null
         // after a successful confirmation or an explicit reset.
-        lastParsedInput: null
+        lastParsedInput: null,
+        // Timestamp (ms) del último envío de chat aceptado (pasa validación).
+        // No persistido; independiente de `isTyping` (paso 6.g).
+        lastUserChatSendAt: null,
+        // POST `aa_ai_confirm_booking` en curso (botón o afirmación pura).
+        isConfirmBookingRequest: false
     };
 
     // ============================================================
@@ -195,6 +209,9 @@
             }
             const confirmBtn = ev.target.closest('[data-aa-ai-chat-confirm]');
             if (confirmBtn) {
+                if (confirmBtn.disabled) {
+                    return;
+                }
                 confirmDraft(confirmBtn);
                 return;
             }
@@ -205,6 +222,13 @@
         const raw = dom.input.value;
         const text = raw.replace(/\s+$/g, '');
         if (!text || state.isTyping) return;
+
+        const outboundBlock = getUserOutboundSendBlockReason(text);
+        if (outboundBlock) {
+            pushUserOutboundRejected(outboundBlock);
+            return;
+        }
+
         dom.input.value = '';
         autoresizeInput();
         updateSendDisabled();
@@ -221,7 +245,7 @@
 
     function updateSendDisabled() {
         const hasText = dom.input.value.trim().length > 0;
-        dom.sendBtn.disabled = !hasText || state.isTyping;
+        dom.sendBtn.disabled = !hasText || state.isTyping || state.isConfirmBookingRequest;
     }
 
     // ============================================================
@@ -313,6 +337,49 @@
     // ============================================================
 
     /**
+     * @param {string} text Mensaje tal como se enviaría al backend.
+     * @returns {'length'|'cooldown'|null} null si el envío puede proceder.
+     */
+    function getUserOutboundSendBlockReason(text) {
+        const t = String(text);
+        if (t.length > AA_AI_CHAT_MAX_MESSAGE_LENGTH) {
+            return 'length';
+        }
+        if (state.lastUserChatSendAt != null) {
+            const elapsed = Date.now() - state.lastUserChatSendAt;
+            if (elapsed < AA_AI_CHAT_SEND_COOLDOWN_MS) {
+                return 'cooldown';
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Aviso local (sin AJAX) cuando longitud o cooldown bloquean el envío.
+     */
+    function pushUserOutboundRejected(reason) {
+        if (reason === 'length') {
+            pushMessage({
+                id: uid(),
+                role: 'assistant',
+                kind: 'fix_blocker',
+                text: 'El mensaje es demasiado largo. Resume la solicitud en menos de 300 caracteres.',
+                payload: { blocker: 'Máximo 300 caracteres' },
+                ts: Date.now()
+            });
+            return;
+        }
+        pushMessage({
+            id: uid(),
+            role: 'assistant',
+            kind: 'fix_blocker',
+            text: 'Espera un momento antes de enviar otro mensaje.',
+            payload: { blocker: 'Espera 2 segundos' },
+            ts: Date.now()
+        });
+    }
+
+    /**
      * Single entry point for outgoing user messages.
      *
      * Pushes the user bubble synchronously, shows typing indicator,
@@ -320,6 +387,32 @@
      * Message and persists `draft_state` in `state.lastDraftState`.
      */
     function sendMessage(text) {
+        const outboundBlock = getUserOutboundSendBlockReason(text);
+        if (outboundBlock) {
+            pushUserOutboundRejected(outboundBlock);
+            return;
+        }
+
+        if (state.isConfirmBookingRequest) {
+            return;
+        }
+
+        // Paso 6.h: afirmación pura + borrador confirmable → mismo POST que el botón (sin chat).
+        if (isPureConfirmMessage(text) && lastDraftStateIsConfirmableShell()) {
+            const prep = validateDraftStateForConfirmBooking();
+            if (prep.ok) {
+                state.isConfirmBookingRequest = true;
+                updateSendDisabled();
+                runConfirmBookingAjax(prep.body, function () {
+                    state.isConfirmBookingRequest = false;
+                    updateSendDisabled();
+                });
+                return;
+            }
+        }
+
+        state.lastUserChatSendAt = Date.now();
+
         pushMessage({
             id: uid(),
             role: 'user',
@@ -484,31 +577,22 @@
     // ============================================================
 
     /**
-     * Handles a click on a "Confirmar cita" button. Reads the last
-     * `draft_state.draft`, validates required IDs, POSTs to
-     * `aa_ai_confirm_booking`, then pushes a result message and
-     * dispatches `aa-assignment-created` so the calendar timeline
-     * recargue (calendar-module.js:275).
-     *
-     * The clicked button is disabled in-place for visual feedback
-     * during the in-flight request. Note: `pushMessage` calls
-     * `render()` which replaces the history's innerHTML, so the
-     * original button DOM node is destroyed once the request resolves.
-     * That's intentional — a stale CTA from the previous turn should
-     * not stay clickable after a new assistant message arrives.
+     * @returns {boolean} true si hay shell de borrador listo (sin validar IDs).
      */
-    function confirmDraft(btn) {
+    function lastDraftStateIsConfirmableShell() {
+        const ds = state.lastDraftState;
+        return !!(ds && ds.state === 'ready_for_confirmation' && ds.draft);
+    }
+
+    /**
+     * Valida `state.lastDraftState` y construye el body del POST de confirmación.
+     *
+     * @returns {{ ok:true, body:object }|{ ok:false, reason:'no_draft'|'missing', missing?:string[] }}
+     */
+    function validateDraftStateForConfirmBooking() {
         const draftState = state.lastDraftState;
         if (!draftState || draftState.state !== 'ready_for_confirmation' || !draftState.draft) {
-            pushMessage({
-                id: uid(),
-                role: 'assistant',
-                kind: 'fix_blocker',
-                text: 'No hay borrador listo para confirmar.',
-                payload: { blocker: 'Borrador no disponible' },
-                ts: Date.now()
-            });
-            return;
+            return { ok: false, reason: 'no_draft' };
         }
 
         const draft = draftState.draft;
@@ -526,19 +610,8 @@
             return v == null || v === 0 || v === '';
         });
         if (missing.length > 0) {
-            pushMessage({
-                id: uid(),
-                role: 'assistant',
-                kind: 'fix_blocker',
-                text: 'Faltan datos en el borrador para confirmar.',
-                payload: { blocker: 'Campos faltantes: ' + missing.join(', ') },
-                ts: Date.now()
-            });
-            return;
+            return { ok: false, reason: 'missing', missing: missing };
         }
-
-        btn.disabled = true;
-        btn.textContent = 'Confirmando…';
 
         const body = {
             client_id:        required.client_id,
@@ -553,9 +626,40 @@
             body.assignment_id = draft.assignment.assignment_id;
         }
 
+        return { ok: true, body: body };
+    }
+
+    /**
+     * Marca la última burbuja `confirm_cta` del historial como ya usada (paso 6.i).
+     * El render deshabilita el botón y cambia el label.
+     */
+    function markLastConfirmCtaMessageDisabled() {
+        for (let i = state.messages.length - 1; i >= 0; i--) {
+            const m = state.messages[i];
+            if (m && m.role === 'assistant' && m.kind === 'confirm_cta') {
+                m.confirmDisabled = true;
+                return;
+            }
+        }
+    }
+
+    /**
+     * POST `aa_ai_confirm_booking` — única implementación (botón y paso 6.h).
+     *
+     * @param {object} body Payload ya validado.
+     * @param {function} [onComplete] Siempre al terminar (éxito, error o red).
+     */
+    function runConfirmBookingAjax(body, onComplete) {
+        const done = typeof onComplete === 'function' ? onComplete : function () {};
+
         ajaxPost('aa_ai_confirm_booking', body)
             .then(function (res) {
                 if (res.ok) {
+                    state.lastDraftState = null;
+                    state.lastParsedInput = null;
+                    state.lastUserChatSendAt = null;
+                    state.isConfirmBookingRequest = false;
+                    markLastConfirmCtaMessageDisabled();
                     pushMessage({
                         id: uid(),
                         role: 'assistant',
@@ -564,10 +668,6 @@
                         ts: Date.now()
                     });
                     document.dispatchEvent(new CustomEvent('aa-assignment-created'));
-                    // Wipe the conversation so the next utterance starts
-                    // from a clean slate (no stale `previous_parsed`,
-                    // no stale draft, no leftover history).
-                    resetConversation({ confirm: false });
                 } else {
                     const stage = (res.data && res.data.stage) || 'unknown';
                     const serverMsg = (res.data && res.data.message) || 'No pude confirmar la cita.';
@@ -583,7 +683,126 @@
             })
             .catch(function (err) {
                 pushMessage(buildNetworkErrorMessage(err, 'No pude confirmar: error de red.'));
+            })
+            .then(function () {
+                done();
             });
+    }
+
+    /**
+     * Afirmación pura conservadora (paso 6.h). Falso negativo preferible a falso positivo.
+     *
+     * @param {string} text
+     * @returns {boolean}
+     */
+    function isPureConfirmMessage(text) {
+        const raw = String(text);
+        const norm = raw.trim().toLowerCase().replace(/\s+/g, ' ');
+        if (norm === '') {
+            return false;
+        }
+
+        if (/,/.test(raw)) {
+            return false;
+        }
+        if (/\bpero\b/i.test(raw)) {
+            return false;
+        }
+        if (/\bcambia(d|mos|r)?\b/i.test(raw) || /\bcambiar\b/i.test(raw)) {
+            return false;
+        }
+        if (/\bmejor\b/i.test(raw)) {
+            return false;
+        }
+        if (/\bexcepto\b/i.test(raw)) {
+            return false;
+        }
+        if (/\bmañana\b/i.test(raw) || /\bhoy\b/i.test(raw) || /\bayer\b/i.test(raw)) {
+            return false;
+        }
+        if (/\bpasado\b/i.test(raw)) {
+            return false;
+        }
+        if (/\d{1,2}:\d{2}/.test(raw)) {
+            return false;
+        }
+        if (/\ba las\s+\d/i.test(raw)) {
+            return false;
+        }
+        if (/\d{1,2}\/\d{1,2}/.test(raw)) {
+            return false;
+        }
+        if (/\b(?:am|pm)\b/i.test(raw)) {
+            return false;
+        }
+
+        const phrases = [
+            'sí',
+            'si',
+            'confirmado',
+            'confirmar',
+            'ok',
+            'vale',
+            'dale',
+            'listo',
+            'correcto',
+            'de acuerdo'
+        ];
+        return phrases.indexOf(norm) !== -1;
+    }
+
+    /**
+     * Handles a click on a "Confirmar cita" button. Reads the last
+     * `draft_state.draft`, validates required IDs, POSTs to
+     * `aa_ai_confirm_booking`, then pushes a result message and
+     * dispatches `aa-assignment-created` so the calendar timeline
+     * recargue (calendar-module.js:275).
+     *
+     * The clicked button is disabled in-place for visual feedback
+     * during the in-flight request. Note: `pushMessage` calls
+     * `render()` which replaces the history's innerHTML, so the
+     * original button DOM node is destroyed once the request resolves.
+     * That's intentional — a stale CTA from the previous turn should
+     * not stay clickable after a new assistant message arrives.
+     */
+    function confirmDraft(btn) {
+        if (state.isConfirmBookingRequest) {
+            return;
+        }
+
+        const prep = validateDraftStateForConfirmBooking();
+        if (!prep.ok) {
+            if (prep.reason === 'no_draft') {
+                pushMessage({
+                    id: uid(),
+                    role: 'assistant',
+                    kind: 'fix_blocker',
+                    text: 'No hay borrador listo para confirmar.',
+                    payload: { blocker: 'Borrador no disponible' },
+                    ts: Date.now()
+                });
+            } else {
+                pushMessage({
+                    id: uid(),
+                    role: 'assistant',
+                    kind: 'fix_blocker',
+                    text: 'Faltan datos en el borrador para confirmar.',
+                    payload: { blocker: 'Campos faltantes: ' + (prep.missing || []).join(', ') },
+                    ts: Date.now()
+                });
+            }
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Confirmando…';
+
+        state.isConfirmBookingRequest = true;
+        updateSendDisabled();
+        runConfirmBookingAjax(prep.body, function () {
+            state.isConfirmBookingRequest = false;
+            updateSendDisabled();
+        });
     }
 
     // ============================================================
@@ -597,11 +816,13 @@
      * (in-memory state is the source of truth for the live session).
      *
      * Only `messages`, `lastParsedInput` and `lastDraftState` are
-     * persisted. `isOpen` and `isTyping` are intentionally excluded:
+     * persisted. `isOpen`, `isTyping`, `lastUserChatSendAt` and
+     * `isConfirmBookingRequest` are intentionally excluded:
      *   - `isOpen` should always start `false` after a reload (the
      *     panel re-opening on its own would be invasive).
      *   - `isTyping` is meaningless across reloads (no in-flight
      *     fetch can survive a page navigation).
+     *   - `isConfirmBookingRequest` is in-memory only.
      */
     function persistState() {
         try {
@@ -696,7 +917,6 @@
      * Wipes the conversation: messages, parsed snapshot, draft state,
      * and the persistent copy. Used by:
      *   - The header "Nueva conversación" button (with `confirm:true`).
-     *   - The successful confirmation flow (with `confirm:false`).
      *
      * If `options.confirm === true` and there is something to lose,
      * shows a `window.confirm` first and aborts on cancel. With an
@@ -716,12 +936,15 @@
         state.messages = [];
         state.lastParsedInput = null;
         state.lastDraftState = null;
+        state.lastUserChatSendAt = null;
+        state.isConfirmBookingRequest = false;
         clearStorage();
         render();
 
         if (state.isOpen && dom.input) {
             dom.input.focus();
         }
+        updateSendDisabled();
     }
 
     // ============================================================
@@ -879,7 +1102,9 @@
     function renderAssistantConfirmCta(msg) {
         const p = msg.payload || {};
         const rows = Array.isArray(p.draftEcho) ? p.draftEcho : [];
-        const confirmLabel = p.confirmLabel || 'Confirmar cita';
+        const used = !!msg.confirmDisabled;
+        const confirmLabelActive = p.confirmLabel || 'Confirmar cita';
+        const confirmLabelShown = used ? 'Cita confirmada' : confirmLabelActive;
 
         const rowsHtml = rows.map(function (row) {
             return (
@@ -896,9 +1121,16 @@
             '</div>'
         );
 
+        const btnActiveCls =
+            'w-full px-3 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/40';
+        const btnUsedCls =
+            'w-full px-3 py-2 text-sm font-semibold text-slate-500 bg-slate-200 border border-slate-300 rounded-xl cursor-not-allowed opacity-95 focus:outline-none focus:ring-2 focus:ring-slate-400/30';
+
         const btn = (
-            '<button type="button" data-aa-ai-chat-confirm class="w-full px-3 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/40">' +
-                escapeHtml(confirmLabel) +
+            '<button type="button" data-aa-ai-chat-confirm' +
+                (used ? ' disabled aria-disabled="true"' : '') +
+                ' class="' + (used ? btnUsedCls : btnActiveCls) + '">' +
+                escapeHtml(confirmLabelShown) +
             '</button>'
         );
 

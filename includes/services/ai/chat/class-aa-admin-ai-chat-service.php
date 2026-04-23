@@ -115,6 +115,10 @@ final class AA_Admin_AI_Chat_Service {
         $parsed = $this->normalize_parsed($parsed);
 
         if ($previous_parsed !== null) {
+            if (!$this->has_change_intent($message)) {
+                $parsed = $this->lock_resolved_fields_from_previous($parsed, $previous_parsed);
+            }
+
             $merger = $this->build_merger();
             $parsed = $merger->merge($previous_parsed, $parsed);
         }
@@ -237,6 +241,91 @@ final class AA_Admin_AI_Chat_Service {
                 ],
             ],
         ];
+    }
+
+    /**
+     * Paso 6.j — Pre-merge gate.
+     *
+     * Detecta señales explícitas de que el usuario quiere MODIFICAR datos
+     * ya establecidos en el borrador. Política binaria:
+     *   - true  → comportamiento actual (merger deja pasar el parsed current).
+     *   - false → se bloquean los campos que el previous ya tenía (v1 no granular).
+     *
+     * Heurística conservadora: preferimos falsos negativos (no detectar un
+     * cambio sutil que el usuario sí quiso) a falsos positivos (permitir que
+     * el LLM reinterprete y rompa entidades ya resueltas). Si falla, el
+     * usuario siempre puede repetir con una frase explícita ("cambia la hora
+     * a las 6").
+     *
+     * Se excluye `\bmejor no\b` porque `is_cancel_message` ya lo trata como
+     * cancelación; dejarlo como change-intent confundiría las capas.
+     *
+     * @param mixed $message Texto original del usuario (trim).
+     * @return bool
+     */
+    private function has_change_intent($message): bool {
+        if (!is_string($message) || $message === '') {
+            return false;
+        }
+
+        $m = mb_strtolower($message, 'UTF-8');
+
+        $patterns = [
+            '/\bcambia(?:r|d|mos|lo|la)?\b/u',
+            '/\ben\s+lugar\s+de\b/u',
+            '/\ben\s+vez\s+de\b/u',
+            '/\ben\s+cambio\b/u',
+            '/\bno\s+con\b/u',
+            '/\bquiero\s+otr[oa]\b/u',
+            '/\botro\s+(?:profesional|servicio|cliente)\b/u',
+            '/\botra\s+(?:hora|fecha|zona)\b/u',
+        ];
+
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $m)) {
+                return true;
+            }
+        }
+
+        if (preg_match('/\bmejor\b/u', $m) && !preg_match('/\bmejor\s+no\b/u', $m)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Paso 6.j — Bloqueo campo-a-campo pre-merge.
+     *
+     * Fuerza `null` en el `parsed` actual para cualquier campo de datos
+     * cuyo `previous_parsed` contenía un string significativo. Así el
+     * merger (que preserva previous cuando current no es significativo)
+     * no pisa valores ya establecidos. `intent` no se toca: el merger
+     * preserva intent previo si el actual es `unknown`.
+     *
+     * @param array<string,mixed> $parsed          Parsed normalizado del turno actual.
+     * @param array<string,mixed> $previous_parsed Snapshot del turno anterior.
+     * @return array<string,mixed>
+     */
+    private function lock_resolved_fields_from_previous(array $parsed, array $previous_parsed): array {
+        $data_fields = [
+            'client_name',
+            'service_name',
+            'staff_name',
+            'zone_name',
+            'date_text',
+            'time_text',
+            'notes',
+        ];
+
+        foreach ($data_fields as $field) {
+            $prev = $previous_parsed[$field] ?? null;
+            if (is_string($prev) && trim($prev) !== '') {
+                $parsed[$field] = null;
+            }
+        }
+
+        return $parsed;
     }
 
     /**
