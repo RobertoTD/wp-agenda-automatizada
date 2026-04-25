@@ -268,7 +268,7 @@ final class AA_Booking_Reply_Builder {
             case 'pick_ambiguous':
                 return $this->text_pick_ambiguous($required);
             case 'collect_input':
-                return $this->text_collect_input($required);
+                return $this->text_collect_input($required, $echo);
             case 'confirm_heuristics':
                 return 'Hay detalles por confirmar antes de agendar la cita.';
             case 'confirm':
@@ -291,23 +291,24 @@ final class AA_Booking_Reply_Builder {
         if (count($blockers) > 1) {
             $msg .= ' (y hay otros conflictos)';
         }
+        $msg .= ' Seguimos armando la misma cita; dime cómo quieres ajustarla.';
         return $msg;
     }
 
     private function blocker_message(string $code): string {
         $map = [
-            'service_not_found'                 => 'No encuentro ese servicio en el catálogo.',
-            'staff_not_found'                   => 'No encuentro a ese profesional.',
-            'zone_not_found'                    => 'No encuentro esa zona.',
-            'staff_does_not_offer_service'      => 'Ese profesional no ofrece ese servicio.',
-            'staff_has_no_services'             => 'Ese profesional no ofrece ese servicio.',
-            'staff_service_mismatch'            => 'Ese profesional no ofrece ese servicio.',
-            'no_active_staff_for_service'       => 'Ese profesional no ofrece ese servicio.',
-            'staff_busy'                        => 'Ese profesional ya tiene una cita en ese horario.',
-            'zone_reserved_for_other_staff'     => 'La zona está reservada por otro profesional en ese horario.',
-            'zone_busy'                         => 'La zona ya está ocupada en ese horario.',
-            'assignment_out_of_turn'            => 'El turno existente no es suficientemente amplio para esa cita.',
-            'assignment_service_not_offered'    => 'El turno existente en esa zona no incluye ese servicio.',
+            'service_not_found'                 => 'No encuentro ese servicio en el catálogo. Revisa el nombre o elige otro del catálogo.',
+            'staff_not_found'                   => 'No encuentro a ese profesional. Verifica el nombre tal como está en el sistema o prueba con otro profesional.',
+            'zone_not_found'                    => 'No encuentro esa zona. Indica otra zona o revisa el nombre.',
+            'staff_does_not_offer_service'      => 'Ese profesional no ofrece ese servicio. Cambia de profesional o de servicio.',
+            'staff_has_no_services'             => 'Ese profesional no ofrece ese servicio. Cambia de profesional o de servicio.',
+            'staff_service_mismatch'            => 'Ese profesional no ofrece ese servicio. Cambia de profesional o de servicio.',
+            'no_active_staff_for_service'       => 'Ese profesional no ofrece ese servicio. Cambia de profesional o de servicio.',
+            'staff_busy'                        => 'Ese profesional ya tiene una cita en ese horario. Prueba otra hora u otro profesional.',
+            'zone_reserved_for_other_staff'     => 'La zona está reservada por otro profesional en ese horario. Cambia de hora, de zona o de profesional.',
+            'zone_busy'                         => 'La zona ya está ocupada en ese horario. Prueba otra hora u otra zona.',
+            'assignment_out_of_turn'            => 'El turno existente no es suficientemente amplio para esa cita. Ajusta hora o duración.',
+            'assignment_service_not_offered'    => 'El turno existente en esa zona no incluye ese servicio. Cambia de servicio o de asignación.',
             'datetime_past'                       => 'Esa fecha ya pasó. Indícame una fecha futura.',
         ];
         if (isset($map[$code])) {
@@ -359,20 +360,23 @@ final class AA_Booking_Reply_Builder {
 
     /**
      * @param array<int, array<string,mixed>> $required
+     * @param array{client:?string,service:?string,staff:?string,zone:?string,datetime:?string} $echo
      */
-    private function text_collect_input(array $required): string {
+    private function text_collect_input(array $required, array $echo): string {
+        $prefix = $this->prefix_when_draft_has_partial_echo($echo);
+
         $simple = $this->extract_simple_collect_rows($required);
         if (count($simple) === 0) {
-            return 'Indícame el dato que falta para continuar.';
+            return $prefix . 'Indícame el dato que falta para continuar.';
         }
 
         if (count($simple) === 1) {
             $row = $simple[0];
             $hint = isset($row['hint']) ? trim((string) $row['hint']) : '';
             if ($hint !== '') {
-                return $hint;
+                return $prefix . $hint;
             }
-            return $this->fallback_for_required($row);
+            return $prefix . $this->fallback_for_required($row);
         }
 
         $fields = [];
@@ -392,7 +396,7 @@ final class AA_Booking_Reply_Builder {
         }
 
         if (count($labels) === 0) {
-            return 'Indícame el dato que falta para continuar.';
+            return $prefix . 'Indícame el dato que falta para continuar.';
         }
 
         // Varias filas pero todas apuntan al mismo campo (poco habitual):
@@ -410,12 +414,27 @@ final class AA_Booking_Reply_Builder {
             $representative = $representative ?? $simple[0];
             $hint = isset($representative['hint']) ? trim((string) $representative['hint']) : '';
             if ($hint !== '') {
-                return $hint;
+                return $prefix . $hint;
             }
-            return $this->fallback_for_required($representative);
+            return $prefix . $this->fallback_for_required($representative);
         }
 
-        return $this->compose_multi_missing_message($ordered, $labels);
+        return $prefix . $this->compose_multi_missing_message($ordered, $labels);
+    }
+
+    /**
+     * Prefijo breve cuando el borrador ya tiene datos visibles: refuerza
+     * que no se reinició el flujo (Paso 3.5, UX mínima).
+     *
+     * @param array{client:?string,service:?string,staff:?string,zone:?string,datetime:?string} $echo
+     */
+    private function prefix_when_draft_has_partial_echo(array $echo): string {
+        foreach ($echo as $v) {
+            if ($v !== null && $v !== '') {
+                return 'Seguimos con tu cita. ';
+            }
+        }
+        return '';
     }
 
     /**

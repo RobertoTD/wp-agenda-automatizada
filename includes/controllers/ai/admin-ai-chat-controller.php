@@ -52,6 +52,9 @@ final class AA_Admin_AI_Chat_Controller {
         }
 
         $error_data = ['message' => $result['error'] ?? 'Error desconocido.'];
+        if (!empty($result['code'])) {
+            $error_data['code'] = $result['code'];
+        }
         if (!empty($result['debug'])) {
             $error_data['debug'] = $result['debug'];
         }

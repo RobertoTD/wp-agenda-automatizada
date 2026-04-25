@@ -109,6 +109,13 @@ final class AA_Backend_LLM_Client implements AA_LLM_Client_Interface {
         }
 
         $content = $decoded['data']['message']['content'] ?? '';
+        if (!is_string($content) || trim($content) === '') {
+            return [
+                'ok'    => false,
+                'error' => 'El backend AI devolvió message.content vacío.',
+                'raw'   => $raw_body,
+            ];
+        }
 
         return [
             'ok'   => true,

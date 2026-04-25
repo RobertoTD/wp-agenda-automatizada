@@ -22,6 +22,9 @@ final class AA_Admin_AI_Chat_Service {
         'unknown',
     ];
 
+    /** Mensaje unificado cuando el proveedor LLM no entrega salida usable o falla el transporte. */
+    private const AI_UNAVAILABLE_USER_MESSAGE = 'No pude conectarme con el asistente en este momento. Intenta de nuevo más tarde.';
+
     /**
      * Campos canónicos que forman el shape normalizado del `parsed`.
      * Incluye los 8 campos legacy del parser + los 3 campos nuevos
@@ -63,7 +66,9 @@ final class AA_Admin_AI_Chat_Service {
      *     @type bool        $ok
      *     @type string|null $reply_text  Respuesta textual del modelo.
      *     @type array|null  $parsed      Objeto estructurado extraído (merged si hubo previo).
-     *     @type array|null  $debug       Solo presente si hubo error de parseo.
+     *     @type string|null $error       Mensaje de error si ok=false.
+     *     @type string|null $code        p.ej. `ai_unavailable` cuando el LLM no entrega salida usable.
+     *     @type array|null  $debug       Solo presente si hubo error de parseo o diagnóstico.
      * }
      */
     public function handle($message, ?array $previous_parsed = null) {
@@ -107,38 +112,43 @@ final class AA_Admin_AI_Chat_Service {
         ]);
 
         if (empty($result['ok'])) {
-            return [
-                'ok'         => false,
-                'reply_text' => null,
-                'parsed'     => null,
-                'error'      => $result['error'] ?? 'Error desconocido del proveedor LLM.',
-                'debug'      => ['provider_raw' => $result['raw'] ?? null],
-            ];
+            return $this->build_ai_unavailable_response([
+                'message'         => $message,
+                'previous_parsed' => $previous_parsed,
+                'reason'          => 'provider_error',
+                'provider_ok'     => false,
+                'provider_error'  => $result['error'] ?? null,
+                'provider_raw'    => $result['raw'] ?? null,
+            ]);
         }
 
         $content = $result['data']['message']['content'] ?? '';
+        if (!is_string($content)) {
+            $content = '';
+        }
 
-        $json_candidate = $this->extract_json_payload($content);
-        $parsed_raw = $json_candidate !== null ? json_decode($json_candidate, true) : null;
-
-        if (json_last_error() !== JSON_ERROR_NONE || !is_array($parsed_raw)) {
-            $this->log_turn_debug([
+        if (!$this->is_llm_content_usable($content)) {
+            return $this->build_ai_unavailable_response([
                 'message'         => $message,
                 'previous_parsed' => $previous_parsed,
-                'parsed_raw'      => $parsed_raw,
-                'error'           => 'invalid_json_from_llm',
-                'raw_content'     => $content,
+                'reason'          => 'unusable_content',
+                'provider_ok'     => true,
+                'raw_content_len' => strlen($content),
             ]);
-            return [
-                'ok'         => false,
-                'reply_text' => $content,
-                'parsed'     => null,
-                'error'      => 'El modelo no devolvió JSON válido.',
-                'debug'      => [
-                    'raw_content'    => $content,
-                    'json_candidate' => $json_candidate,
-                ],
-            ];
+        }
+
+        $json_candidate = $this->extract_json_payload(trim($content));
+        $parsed_raw     = $json_candidate !== null ? json_decode($json_candidate, true) : null;
+
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($parsed_raw)) {
+            return $this->build_ai_unavailable_response([
+                'message'          => $message,
+                'previous_parsed'  => $previous_parsed,
+                'reason'           => 'json_decode_mismatch',
+                'provider_ok'      => true,
+                'json_candidate'   => $json_candidate,
+                'json_last_error'  => json_last_error_msg(),
+            ]);
         }
 
         $parsed = $this->normalize_parsed($parsed_raw);
@@ -169,6 +179,15 @@ final class AA_Admin_AI_Chat_Service {
             $parsed = $merger->merge($previous_parsed, $parsed);
         }
 
+        // Paso 3.5 — orquestación: no romper create_booking por intent
+        // check_availability; evitar confirm_draft fantasma del LLM en
+        // mensajes que son correcciones ("sí, el profesional es…").
+        $parsed = $this->apply_post_merge_create_booking_orchestration_v35(
+            $parsed,
+            $previous_parsed,
+            $message
+        );
+
         $this->log_turn_debug([
             'message'         => $message,
             'previous_parsed' => $previous_parsed,
@@ -186,7 +205,9 @@ final class AA_Admin_AI_Chat_Service {
         // menos que el aggregator haya producido `ready_for_confirmation`.
         // Si no está listo, este método devuelve null y caemos al flujo
         // normal (el reply builder ya explicará qué falta).
-        $confirm_outcome = $this->try_confirm_by_sub_intent($parsed, $intent_result);
+        // Paso 3.5: además exige afirmación explícita del usuario y ausencia
+        // de errores de resolución/feasibility (ver try_confirm_by_sub_intent).
+        $confirm_outcome = $this->try_confirm_by_sub_intent($parsed, $intent_result, $message);
         if ($confirm_outcome !== null) {
             return $confirm_outcome;
         }
@@ -315,6 +336,206 @@ final class AA_Admin_AI_Chat_Service {
     }
 
     /**
+     * Paso 3.5 — ajustes de orquestación tras el merge del parsed.
+     *
+     *   1) Si el borrador venía de `create_booking` y el turno actual es
+     *      `ask_availability`, el LLM suele emitir `intent:check_availability`
+     *      lo cual desvía el dispatch y rompe el hilo. Se fuerza
+     *      `intent = create_booking` para seguir en el mismo flujo.
+     *
+     *   2) Si el modelo etiqueta `confirm_draft` pero el texto del
+     *      usuario no es una afirmación explícita de cierre (p. ej.
+     *      "sí, el profesional es Adrian"), se rebaja a `sub_intent:other`
+     *      para que NO dispare la confirmación server-side del Paso 3.
+     *
+     * @param array<string,mixed>      $parsed          Parsed ya mergeado.
+     * @param array<string,mixed>|null $previous_parsed Snapshot previo o null.
+     * @param string                   $message         Mensaje del usuario (trim).
+     * @return array<string,mixed>
+     */
+    private function apply_post_merge_create_booking_orchestration_v35(
+        array $parsed,
+        ?array $previous_parsed,
+        string $message
+    ): array {
+        $this->require_conversation_contract();
+
+        if ($previous_parsed !== null
+            && (($previous_parsed['intent'] ?? '') === 'create_booking')
+            && (($parsed['sub_intent'] ?? '') === AA_AI_Conversation_Contract::SUB_INTENT_ASK_AVAILABILITY)
+        ) {
+            $parsed['intent'] = 'create_booking';
+            $this->log_turn_debug([
+                'message'         => $message,
+                'orchestration_v35' => 'intent_pinned_create_booking_for_ask_availability',
+            ]);
+        }
+
+        if (($parsed['sub_intent'] ?? null) === AA_AI_Conversation_Contract::SUB_INTENT_CONFIRM_DRAFT
+            && !$this->is_message_affirmation_for_server_booking($message)
+        ) {
+            $parsed['sub_intent'] = AA_AI_Conversation_Contract::SUB_INTENT_OTHER;
+            $this->log_turn_debug([
+                'message'           => $message,
+                'orchestration_v35' => 'confirm_draft_downgraded_not_affirmation',
+            ]);
+        }
+
+        return $parsed;
+    }
+
+    /**
+     * Paso 3.5 — puerta conservadora alineada con `isPureConfirmMessage`
+     * en `aichat.js`, más frases cortas habituales en español que deben
+     * poder cerrar la cita por chat sin pasar por el botón.
+     *
+     * Objetivo: el ÚNICO camino que ejecuta `AA_AI_Confirm_Booking_Use_Case`
+     * desde el chat exige `sub_intent === confirm_draft` **y** que este
+     * método devuelva true. Así evitamos falsos positivos tipo
+     * "sí, el profesional es Adrian Fernandez" donde el "sí" engaña al LLM.
+     *
+     * @param string $message Mensaje del usuario (trim).
+     */
+    private function is_message_affirmation_for_server_booking(string $message): bool {
+        if ($message === '') {
+            return false;
+        }
+
+        $norm = mb_strtolower(preg_replace('/\s+/u', ' ', trim($message)), 'UTF-8');
+
+        // Frases explícitas de cierre aunque lleven coma (el filtro de
+        // coma estricto de abajo las bloquearía sin este bloque previo).
+        if (preg_match('/^(dale|ok|sí|si|vale)\s*,\s*(ag[ée]ndala|agendala|conf[íi]rmala|confirma)\b/u', $norm)) {
+            return true;
+        }
+        if (preg_match('/^conf[íi]rma(r)?\s+la\s+cita\b/u', $norm)) {
+            return true;
+        }
+
+        if (mb_strpos($message, ',', 0, 'UTF-8') !== false) {
+            return false;
+        }
+        if (preg_match('/\bpero\b/u', $message)) {
+            return false;
+        }
+        if (preg_match('/\bcambia(d|mos|r)?\b/u', $message) || preg_match('/\bcambiar\b/u', $message)) {
+            return false;
+        }
+        if (preg_match('/\bmejor\b/u', $message)) {
+            return false;
+        }
+        if (preg_match('/\bexcepto\b/u', $message)) {
+            return false;
+        }
+        if (preg_match('/\bmañana\b/u', $message) || preg_match('/\bhoy\b/u', $message) || preg_match('/\bayer\b/u', $message)) {
+            return false;
+        }
+        if (preg_match('/\bpasado\b/u', $message)) {
+            return false;
+        }
+        if (preg_match('/\d{1,2}:\d{2}/', $message)) {
+            return false;
+        }
+        if (preg_match('/\ba las\s+\d/u', $message)) {
+            return false;
+        }
+        if (preg_match('/\d{1,2}\/\d{1,2}/', $message)) {
+            return false;
+        }
+        if (preg_match('/\b(?:am|pm)\b/i', $message)) {
+            return false;
+        }
+
+        // Correcciones / aclaraciones típicas: no son cierre de cita.
+        if (preg_match('/\b(existe|profesional|cliente|servicio|zona|consultorio|correg|corrige|nombre)\b/u', $norm)) {
+            return false;
+        }
+
+        $phrases = [
+            'sí', 'si', 'confirmado', 'confirmar', 'ok', 'vale', 'dale', 'listo', 'correcto', 'de acuerdo',
+        ];
+        if (in_array($norm, $phrases, true)) {
+            return true;
+        }
+
+        // Afirmaciones muy cortas de dos palabras ("sí dale", "ok dale").
+        if (preg_match('/^(sí|si|ok|vale)\s+dale$/u', $norm)) {
+            return true;
+        }
+        if (preg_match('/^dale\s+(sí|si|ok|vale)$/u', $norm)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Paso 3.5 — bloquea confirmación server-side si el resolution trae
+     * señales de error, ambigüedad o datos aún no cerrados.
+     *
+     * @param array<string,mixed> $resolution Salida `intent_result.resolution` del handler.
+     */
+    private function resolution_blocks_server_booking_confirm(array $resolution): bool {
+        $draft_state = isset($resolution['draft_state']) && is_array($resolution['draft_state'])
+            ? $resolution['draft_state']
+            : null;
+
+        if ($draft_state === null) {
+            return true;
+        }
+
+        $state = isset($draft_state['state']) ? (string) $draft_state['state'] : '';
+        if ($state === 'incompatible') {
+            return true;
+        }
+
+        $blockers = isset($draft_state['blockers']) && is_array($draft_state['blockers'])
+            ? $draft_state['blockers']
+            : [];
+        if (count($blockers) > 0) {
+            return true;
+        }
+
+        $required = isset($draft_state['required_literal']) && is_array($draft_state['required_literal'])
+            ? $draft_state['required_literal']
+            : [];
+        if (count($required) > 0) {
+            return true;
+        }
+
+        $amb = $resolution['ambiguous_fields'] ?? null;
+        if (is_array($amb) && count($amb) > 0) {
+            return true;
+        }
+        if (is_object($amb) && count(get_object_vars($amb)) > 0) {
+            return true;
+        }
+
+        $feas = $resolution['feasibility'] ?? null;
+        if (is_array($feas)) {
+            foreach ($feas as $row) {
+                if (is_array($row) && (($row['status'] ?? '') === 'incompatible')) {
+                    return true;
+                }
+            }
+        }
+
+        $lookup = $resolution['lookup'] ?? null;
+        $lookup_arr = is_array($lookup) ? $lookup : (is_object($lookup) ? get_object_vars($lookup) : []);
+        foreach ($lookup_arr as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+            $st = isset($entry['status']) ? (string) $entry['status'] : '';
+            if (in_array($st, ['no_match', 'ambiguous', 'missing'], true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Paso 3 — intenta cerrar el borrador server-side cuando el turno
      * actual clasifica como `confirm_draft` y el draft está listo.
      *
@@ -335,11 +556,17 @@ final class AA_Admin_AI_Chat_Service {
      *   - use case error   → respuesta tipo "no pude confirmar" que
      *     preserva el parsed actual para que el usuario pueda reintentar.
      *
+     * Paso 3.5 — además:
+     *   - el texto del usuario debe pasar `is_message_affirmation_for_server_booking`;
+     *   - el resolution no debe traer blockers, lookup roto, feasibility
+     *     incompatible, required_literal pendiente ni ambigüedades.
+     *
      * @param array<string,mixed> $parsed        Parsed merged del turno actual.
      * @param array<string,mixed> $intent_result Salida de dispatch_intent ya calculada.
+     * @param string                $message      Mensaje del usuario (trim).
      * @return array<string,mixed>|null Respuesta cerrada o null si no aplica.
      */
-    private function try_confirm_by_sub_intent(array $parsed, array $intent_result): ?array {
+    private function try_confirm_by_sub_intent(array $parsed, array $intent_result, string $message): ?array {
         $this->require_conversation_contract();
 
         $sub_intent = $parsed['sub_intent'] ?? null;
@@ -347,9 +574,28 @@ final class AA_Admin_AI_Chat_Service {
             return null;
         }
 
+        if (!$this->is_message_affirmation_for_server_booking($message)) {
+            $this->log_turn_debug([
+                'parsed'         => $parsed,
+                'sub_intent'     => $sub_intent,
+                'confirm_action' => 'rejected_not_affirmation_utterance',
+            ]);
+            return null;
+        }
+
         $resolution  = isset($intent_result['resolution']) && is_array($intent_result['resolution'])
             ? $intent_result['resolution']
             : [];
+
+        if ($this->resolution_blocks_server_booking_confirm($resolution)) {
+            $this->log_turn_debug([
+                'parsed'         => $parsed,
+                'sub_intent'     => $sub_intent,
+                'confirm_action' => 'rejected_resolution_guard',
+            ]);
+            return null;
+        }
+
         $draft_state = isset($resolution['draft_state']) && is_array($resolution['draft_state'])
             ? $resolution['draft_state']
             : null;
@@ -990,6 +1236,106 @@ PROMPT;
     }
 
     /**
+     * Respuesta de error homogénea cuando el asistente no está disponible o
+     * la salida del modelo no es utilizable (evita merge/dispatch con draft).
+     *
+     * @param array<string,mixed> $context Metadatos para log_turn_debug / debug AJAX.
+     * @return array<string,mixed>
+     */
+    private function build_ai_unavailable_response(array $context) {
+        $this->log_turn_debug(array_merge(
+            [
+                'error_code'    => 'ai_unavailable',
+                'short_circuit' => 'ai_unavailable',
+            ],
+            $context
+        ));
+
+        return [
+            'ok'         => false,
+            'reply_text' => null,
+            'parsed'     => null,
+            'error'      => self::AI_UNAVAILABLE_USER_MESSAGE,
+            'code'       => 'ai_unavailable',
+            'debug'      => array_merge(
+                [
+                    'error_code' => 'ai_unavailable',
+                ],
+                $context
+            ),
+        ];
+    }
+
+    /**
+     * Indica si el contenido crudo del LLM es apto para continuar el flujo.
+     *
+     * Requiere string no vacío (tras trim), JSON extraíble y decodificable,
+     * objeto/array no vacío, intersección con claves del contrato del parser
+     * y al menos una señal semántica (intent/sub_intent no vacíos, dato de
+     * cita, affected_fields no vacío o confidence numérico). Un objeto `{}`
+     * decodificado como array vacío en PHP no pasa.
+     *
+     * @param mixed $content Valor de message.content del proveedor.
+     */
+    private function is_llm_content_usable($content): bool {
+        if (!is_string($content) || trim($content) === '') {
+            return false;
+        }
+
+        $json_candidate = $this->extract_json_payload(trim($content));
+        if ($json_candidate === null || trim($json_candidate) === '') {
+            return false;
+        }
+
+        $parsed_raw = json_decode($json_candidate, true);
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($parsed_raw)) {
+            return false;
+        }
+
+        if ($parsed_raw === []) {
+            return false;
+        }
+
+        $contract_flip = array_flip(array_merge(
+            ['intent', 'sub_intent', 'affected_fields', 'confidence'],
+            self::PARSED_DATA_FIELDS
+        ));
+
+        $intersect = array_intersect_key($parsed_raw, $contract_flip);
+        if ($intersect === []) {
+            return false;
+        }
+
+        if (isset($intersect['intent']) && is_string($intersect['intent']) && trim($intersect['intent']) !== '') {
+            return true;
+        }
+
+        if (isset($intersect['sub_intent']) && is_string($intersect['sub_intent']) && trim($intersect['sub_intent']) !== '') {
+            return true;
+        }
+
+        foreach (self::PARSED_DATA_FIELDS as $field) {
+            if (!isset($intersect[$field])) {
+                continue;
+            }
+            $v = $intersect[$field];
+            if (is_string($v) && trim($v) !== '') {
+                return true;
+            }
+        }
+
+        if (isset($intersect['affected_fields']) && is_array($intersect['affected_fields']) && count($intersect['affected_fields']) > 0) {
+            return true;
+        }
+
+        if (isset($intersect['confidence']) && is_numeric($intersect['confidence'])) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * Extrae el bloque JSON utilizable del contenido devuelto por el modelo.
      *
      * Compatibilidad local/cloud:
@@ -1091,6 +1437,9 @@ PROMPT;
         }
         if (isset($context['error_message'])) {
             $payload['error_message'] = $this->truncate_for_log((string) $context['error_message'], 240);
+        }
+        if (isset($context['orchestration_v35'])) {
+            $payload['orchestration_v35'] = (string) $context['orchestration_v35'];
         }
 
         $line = wp_json_encode(['AA_AI_CHAT_TURN' => $payload]);

@@ -120,6 +120,15 @@ final class AA_Ollama_Client implements AA_LLM_Client_Interface {
             ];
         }
 
+        $inner_content = isset($decoded['message']['content']) ? $decoded['message']['content'] : null;
+        if (!is_string($inner_content) || trim($inner_content) === '') {
+            return [
+                'ok'    => false,
+                'error' => 'Ollama devolvió message.content vacío.',
+                'raw'   => $raw_body,
+            ];
+        }
+
         return [
             'ok'   => true,
             'data' => $decoded,

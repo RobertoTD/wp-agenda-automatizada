@@ -64,12 +64,14 @@ No se debe introducir esa complejidad hasta que la primera vuelta de chat en cal
 
 ## Extensión del `parsed`: subintenciones conversacionales
 
-> **Estado**: Fase 3 del plan de reorganización conversacional de
-> `create_booking`. El merger consume `affected_fields` como regla
-> central (Paso 2) y `sub_intent` ya gobierna server-side la
-> cancelación (`cancel_draft`) y la confirmación (`confirm_draft`)
-> del borrador (Paso 3). Las heurísticas legacy (`is_cancel_message`
-> y `isPureConfirmMessage`) permanecen como red de seguridad.
+> **Estado**: Fases 3 + 3.5 del plan de reorganización conversacional de
+> `create_booking`. El merger consume `affected_fields` (Paso 2);
+> `sub_intent` gobierna cancelación y confirmación server-side (Paso 3),
+> endurecida por **Paso 3.5** (puerta de afirmación explícita, guard
+> sobre resolution con errores, pin de `intent` para
+> `ask_availability` dentro de `create_booking`, y copy de bloqueo /
+> collect más clara). Las heurísticas legacy (`is_cancel_message` y
+> `isPureConfirmMessage`) siguen como red de seguridad.
 
 ### Motivación
 
@@ -212,19 +214,36 @@ construido por `handle_create_booking`.
 
 Camino server-side:
 
-1. Si `draft_state.state !== 'ready_for_confirmation'` → fallback al
+1. **Paso 3.5 — afirmación**: el texto del usuario debe pasar
+   `is_message_affirmation_for_server_booking()` (afirmación corta o
+   frases tipo «dale, agéndala»; rechaza comas, horas, «profesional»,
+   «existe», etc.). Si no, log `rejected_not_affirmation_utterance` y
+   no se confirma.
+2. **Paso 3.5 — guard de resolution**: si hay `blockers`, `state`
+   incompatible, `required_literal` pendiente, `ambiguous_fields`,
+   alguna fila de `feasibility` con `status: incompatible`, o `lookup`
+   con `no_match` / `ambiguous` / `missing`, no se confirma. Log
+   `rejected_resolution_guard`.
+3. Si `draft_state.state !== 'ready_for_confirmation'` → fallback al
    reply builder normal (ya explica qué falta). Log:
    `confirm_action: rejected_not_ready`.
-2. Traduce `draft_state.draft` al input de
+4. Traduce `draft_state.draft` al input de
    `AA_AI_Confirm_Booking_Use_Case::execute()` — el **mismo** use
    case que consume el endpoint `aa_ai_confirm_booking`. Cero
    duplicación de reglas de reserva/assignment/auto-confirm.
-3. Si el use case responde `ok` → respuesta `booking_confirmed` con
+5. Si el use case responde `ok` → respuesta `booking_confirmed` con
    `parsed` reseteado, `draft_state=null` y
    `resolution.confirmation = { reservation_id, assignment_id, ... }`.
-4. Si el use case responde error → `booking_confirm_failed`,
+6. Si el use case responde error → `booking_confirm_failed`,
    preserva `parsed` para reintento, anexa
    `resolution.confirmation_error = { stage, message }`.
+
+**Paso 3.5 — post-merge (mismo `handle`)**: si
+`previous_parsed.intent === 'create_booking'` y el modelo clasifica
+`sub_intent === 'ask_availability'`, se fuerza `intent = create_booking`
+para no caer en `handle_unimplemented_intent` con copy genérico. Si
+el modelo clasifica `confirm_draft` pero el mensaje no es afirmación
+válida, se rebaja `sub_intent` a `other` antes del dispatch.
 
 El frontend (`aichat.js`) detecta `intent_result.status === 'booking_confirmed'`
 y dispara `aa-assignment-created` para refrescar el calendario +
