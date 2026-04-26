@@ -453,6 +453,8 @@ final class AA_Admin_AI_Chat_Service {
 
         $phrases = [
             'sí', 'si', 'confirmado', 'confirmar', 'ok', 'vale', 'dale', 'listo', 'correcto', 'de acuerdo',
+            // Imperativos de una sola palabra (coincidencia exacta sobre $norm; p. ej. "agéndala para mañana" cae antes por exclusiones).
+            'agéndala', 'agendala', 'agendarla', 'confírmala', 'confirmala',
         ];
         if (in_array($norm, $phrases, true)) {
             return true;
@@ -1016,7 +1018,27 @@ HINT;
      * @param string $user_message   Mensaje original (trim).
      */
     private function resolve_unimplemented_ui_text(string $intent, string $user_message): string {
-        $fallback = 'Puedo ayudarte a crear una cita. Indícame cliente, servicio, fecha, hora, profesional y/o zona.';
+        $fallback_variants = [
+            'Puedo ayudarte a crear una cita. Indícame cliente, servicio, fecha, hora, profesional y/o zona.',
+            'Claro, puedo ayudarte a agendar. Compárteme cliente, servicio, fecha, hora, profesional y zona.',
+            'Para crear la cita necesito estos datos: cliente, servicio, fecha, hora, profesional y zona.',
+        ];
+        $fallback_hash = (int) sprintf('%u', crc32($user_message));
+        $fallback_idx  = $fallback_hash % count($fallback_variants);
+        $fallback      = $fallback_variants[$fallback_idx];
+
+        if ($intent === 'check_availability') {
+            $variants = [
+                'Aún no puedo consultar horarios libres desde el chat. Puedes revisar la disponibilidad manualmente en el timeline del calendario.',
+                'Todavía no tengo habilitada la consulta automática de horarios disponibles desde este chat. Por ahora puedes revisarlos directamente en el timeline del calendario.',
+                'Por ahora no puedo mostrarte disponibilidad en tiempo real desde aquí. Puedes consultar los espacios libres manualmente en el calendario.',
+            ];
+
+            $hash = (int) sprintf('%u', crc32($user_message));
+            $idx  = $hash % count($variants);
+
+            return $variants[$idx];
+        }
 
         if ($intent !== 'unknown') {
             return $fallback;

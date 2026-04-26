@@ -34,6 +34,8 @@ require_once __DIR__ . '/../../../domain/booking/class-aa-booking-assignment-res
 require_once __DIR__ . '/../../../domain/booking/class-aa-booking-reply-builder.php';
 
 final class AA_AI_Create_Booking_Intent_Handler {
+    /** Copy provisional cuando se pregunta disponibilidad por chat. */
+    private const ASK_AVAILABILITY_OVERLAY_TEXT = 'Aún no puedo consultar horarios libres desde el chat. Puedes revisar la disponibilidad manualmente en el timeline del calendario o proponer otra hora.';
 
     /**
      * Procesa un parsed normalizado de create_booking.
@@ -149,6 +151,7 @@ final class AA_AI_Create_Booking_Intent_Handler {
 
         $reply_builder = new AA_Booking_Reply_Builder();
         $reply_ui      = $reply_builder->build($draft_state);
+        $reply_ui      = $this->apply_ask_availability_overlay_to_reply_ui($reply_ui, $parsed);
 
         return [
             'intent'     => 'create_booking',
@@ -320,6 +323,32 @@ final class AA_AI_Create_Booking_Intent_Handler {
         }
 
         return $missing;
+    }
+
+    /**
+     * Superpone una aclaración provisional cuando el turno es ask_availability,
+     * conservando el resto del flujo de create_booking (cta, draft_echo, etc.).
+     *
+     * @param array<string,mixed> $reply_ui
+     * @param array<string,mixed> $parsed
+     * @return array<string,mixed>
+     */
+    private function apply_ask_availability_overlay_to_reply_ui(array $reply_ui, array $parsed): array {
+        if (($parsed['sub_intent'] ?? '') !== 'ask_availability') {
+            return $reply_ui;
+        }
+
+        $normal_text = '';
+        if (isset($reply_ui['text']) && is_string($reply_ui['text'])) {
+            $normal_text = trim($reply_ui['text']);
+        }
+
+        $reply_ui['text'] = self::ASK_AVAILABILITY_OVERLAY_TEXT;
+        if ($normal_text !== '') {
+            $reply_ui['text'] .= "\n\n" . $normal_text;
+        }
+
+        return $reply_ui;
     }
 
 }

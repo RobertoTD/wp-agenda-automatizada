@@ -132,6 +132,7 @@ final class AA_AI_Parsed_Merger {
     public function merge(?array $previous, ?array $current): array {
         $p = $this->normalize_side($previous);
         $c = $this->normalize_side($current);
+        $is_read_only_sub_intent = (($c['sub_intent'] ?? '') === 'ask_availability');
 
         $affected_parsed_keys = AA_AI_Conversation_Contract::affected_fields_as_parsed_keys($c['affected_fields']);
         $affected_lookup      = array_fill_keys($affected_parsed_keys, true);
@@ -144,7 +145,13 @@ final class AA_AI_Parsed_Merger {
             $current_value   = $c[$field];
             $previous_value  = $p[$field];
             $current_has_val = $current_value !== null;
-            $is_affected     = isset($affected_lookup[$field]);
+
+            if ($is_read_only_sub_intent) {
+                $merged[$field] = $previous_value;
+                continue;
+            }
+
+            $is_affected     = !$is_read_only_sub_intent && isset($affected_lookup[$field]);
 
             if ($is_affected) {
                 $merged[$field] = $current_has_val ? $current_value : null;

@@ -536,7 +536,15 @@ final class AA_Booking_Reply_Builder {
             return 'Compárteme ' . $joined . ' para continuar.';
         }
 
-        return 'Para continuar, indícame ' . $joined . '.';
+        $variants = [
+            'Para continuar, indícame ' . $joined . '.',
+            'Seguimos con tu cita. Compárteme ' . $joined . ' para continuar.',
+            'Aún necesito ' . $joined . ' para completar la cita.',
+        ];
+        $hash = (int) sprintf('%u', crc32($joined));
+        $idx  = $hash % count($variants);
+
+        return $variants[$idx];
     }
 
     /**

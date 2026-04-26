@@ -444,8 +444,14 @@
                     const resolution = (result && result.resolution) || {};
                     const replyUi = resolution.reply_ui || null;
                     const draftState = resolution.draft_state || null;
+                    const parsed = (res.data && res.data.parsed) ? res.data.parsed : null;
+                    const intent = parsed && parsed.intent ? parsed.intent : null;
                     state.lastDraftState = draftState;
-                    state.lastParsedInput = (res.data && res.data.parsed) ? res.data.parsed : null;
+                    if (intent === 'create_booking') {
+                        state.lastParsedInput = parsed;
+                    } else {
+                        state.lastParsedInput = null;
+                    }
                     persistState();
                     const fallbackText = res.data && res.data.reply_text;
                     pushMessage(mapReplyUiToMessage(replyUi, draftState, fallbackText));
@@ -756,7 +762,12 @@
             'dale',
             'listo',
             'correcto',
-            'de acuerdo'
+            'de acuerdo',
+            'agéndala',
+            'agendala',
+            'agendarla',
+            'confírmala',
+            'confirmala'
         ];
         return phrases.indexOf(norm) !== -1;
     }
