@@ -25,6 +25,21 @@ final class AA_AI_Zone_Resolver {
         $trimmed = $zone_name !== null ? trim($zone_name) : '';
 
         if ($trimmed === '') {
+            $areas = $this->get_active_areas();
+            if (count($areas) === 1) {
+                $match = $this->normalize_area($areas[0]);
+                return [
+                    'status'      => 'resolved',
+                    'match_type'  => 'unique',
+                    'matched_by'  => 'single_active_area',
+                    'source_text' => null,
+                    'id'          => $match['id'],
+                    'name'        => $match['name'],
+                    'description' => $match['description'],
+                    'color'       => $match['color'],
+                ];
+            }
+
             return [
                 'status'      => 'missing',
                 'source_text' => null,

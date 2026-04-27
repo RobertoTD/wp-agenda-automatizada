@@ -1,6 +1,6 @@
 <?php
 /**
- * AC1–AC15 para AA_AI_Datetime_Resolver (Paso 1.8).
+ * AC1–AC21 para AA_AI_Datetime_Resolver (Paso 1.8).
  *
  * Ejecutar: php tests/domain/booking/test-ai-datetime-resolver-ac.php
  *
@@ -157,6 +157,54 @@ $r = $resolver->resolve('pasado mañana 22/04/2026', '10:00');
 ac_assert(
     'AC15',
     $r['status'] === 'resolved' && ($r['normalized']['local_date'] ?? null) === '2026-04-22',
+    json_encode($r['normalized'] ?? [], JSON_UNESCAPED_UNICODE)
+);
+
+// AC16
+$r = $resolver->resolve('el 10 de mayo del 2026', '10:00');
+ac_assert(
+    'AC16',
+    $r['status'] === 'resolved' && ($r['normalized']['local_date'] ?? null) === '2026-05-10',
+    json_encode($r['normalized'] ?? [], JSON_UNESCAPED_UNICODE)
+);
+
+// AC17
+$r = $resolver->resolve('el 10 de mayo de 2026', '10:00');
+ac_assert(
+    'AC17',
+    $r['status'] === 'resolved' && ($r['normalized']['local_date'] ?? null) === '2026-05-10',
+    json_encode($r['normalized'] ?? [], JSON_UNESCAPED_UNICODE)
+);
+
+// AC18
+$r = $resolver->resolve('10 de mayo del 2026', '10:00');
+ac_assert(
+    'AC18',
+    $r['status'] === 'resolved' && ($r['normalized']['local_date'] ?? null) === '2026-05-10',
+    json_encode($r['normalized'] ?? [], JSON_UNESCAPED_UNICODE)
+);
+
+// AC19
+$r = $resolver->resolve('10 de mayo de 2026', '10:00');
+ac_assert(
+    'AC19',
+    $r['status'] === 'resolved' && ($r['normalized']['local_date'] ?? null) === '2026-05-10',
+    json_encode($r['normalized'] ?? [], JSON_UNESCAPED_UNICODE)
+);
+
+// AC20
+$r = $resolver->resolve('10 mayo 2026', '10:00');
+ac_assert(
+    'AC20',
+    $r['status'] === 'resolved' && ($r['normalized']['local_date'] ?? null) === '2026-05-10',
+    json_encode($r['normalized'] ?? [], JSON_UNESCAPED_UNICODE)
+);
+
+// AC21
+$r = $resolver->resolve('10 de mayo', '10:00');
+ac_assert(
+    'AC21',
+    $r['status'] === 'resolved' && ($r['normalized']['local_date'] ?? null) === '2026-05-10',
     json_encode($r['normalized'] ?? [], JSON_UNESCAPED_UNICODE)
 );
 

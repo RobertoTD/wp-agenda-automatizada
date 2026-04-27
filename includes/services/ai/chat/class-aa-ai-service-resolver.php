@@ -24,6 +24,46 @@ final class AA_AI_Service_Resolver {
         $trimmed = $service_name !== null ? trim($service_name) : '';
 
         if ($trimmed === '') {
+            $services = $this->get_active_services();
+            $active_staff = class_exists('AssignmentsModel') ? \AssignmentsModel::get_staff(true) : [];
+
+            $eligible = array_values(array_filter($services, function (array $svc) use ($active_staff): bool {
+                $service_id = isset($svc['id']) ? (int) $svc['id'] : 0;
+                if ($service_id <= 0) {
+                    return false;
+                }
+
+                foreach ($active_staff as $member) {
+                    if (!is_array($member)) {
+                        continue;
+                    }
+                    $staff_id = isset($member['id']) ? (int) $member['id'] : 0;
+                    if ($staff_id <= 0) {
+                        continue;
+                    }
+                    $service_ids = \AssignmentsModel::get_staff_service_ids($staff_id);
+                    if (is_array($service_ids) && in_array($service_id, $service_ids, true)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }));
+
+            if (count($eligible) === 1) {
+                $match = $this->normalize_service($eligible[0]);
+                return [
+                    'status'           => 'resolved',
+                    'match_type'       => 'unique',
+                    'matched_by'       => 'single_active_service',
+                    'source_text'      => null,
+                    'id'               => $match['id'],
+                    'name'             => $match['name'],
+                    'duration_minutes' => $match['duration_minutes'],
+                    'price'            => $match['price'],
+                ];
+            }
+
             return [
                 'status'      => 'missing',
                 'source_text' => null,

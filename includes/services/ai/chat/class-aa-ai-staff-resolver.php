@@ -25,6 +25,31 @@ final class AA_AI_Staff_Resolver {
         $trimmed = $staff_name !== null ? trim($staff_name) : '';
 
         if ($trimmed === '') {
+            $active_staff = $this->get_active_staff();
+            $eligible = array_values(array_filter($active_staff, function (array $member): bool {
+                if (!class_exists('AssignmentsModel')) {
+                    return false;
+                }
+                $staff_id = isset($member['id']) ? (int) $member['id'] : 0;
+                if ($staff_id <= 0) {
+                    return false;
+                }
+                $service_ids = \AssignmentsModel::get_staff_service_ids($staff_id);
+                return is_array($service_ids) && count($service_ids) > 0;
+            }));
+
+            if (count($eligible) === 1) {
+                $match = $this->normalize_staff($eligible[0]);
+                return [
+                    'status'      => 'resolved',
+                    'match_type'  => 'unique',
+                    'matched_by'  => 'single_active_staff',
+                    'source_text' => null,
+                    'id'          => $match['id'],
+                    'name'        => $match['name'],
+                ];
+            }
+
             return [
                 'status'      => 'missing',
                 'source_text' => null,

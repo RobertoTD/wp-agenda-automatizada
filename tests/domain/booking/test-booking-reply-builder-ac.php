@@ -181,10 +181,11 @@ $d8 = [
 ];
 $u8 = $builder->build($d8);
 ac(
-    'AC8 dos blockers: primero + sufijo',
+    'AC8 dos blockers: solo el primero + cierre (sin sufijo genérico)',
     $u8['cta'] === 'fix_blocker'
         && strpos($u8['text'], 'cita en ese horario') !== false
-        && strpos($u8['text'], '(y hay otros conflictos)') !== false,
+        && strpos($u8['text'], 'Seguimos armando la misma cita') !== false
+        && strpos($u8['text'], '(y hay otros conflictos)') === false,
     $u8['text']
 );
 

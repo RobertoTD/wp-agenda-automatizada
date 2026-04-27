@@ -247,8 +247,8 @@ final class AA_AI_Datetime_Resolver {
     }
 
     /**
-     * Fecha explícita: dd/mm[/yyyy], dd-mm[-yyyy], "15 de abril [yyyy]",
-     * "15 abril [yyyy]". Año 1970–2100; fuera de rango → error `invalid`.
+     * Fecha explícita: dd/mm[/yyyy], dd-mm[-yyyy], "[el] 15 de abril [yyyy]",
+     * "[el] 15 abril [yyyy]". Año 1970–2100; fuera de rango → error `invalid`.
      *
      * @param string $text
      * @return array{date: \DateTimeImmutable|null, source_type: string, error: string|null}|null
@@ -265,8 +265,9 @@ final class AA_AI_Datetime_Resolver {
             return $this->build_date_from_parts((int) $m[1], (int) $m[2], $year);
         }
 
-        // "15 de abril 2026", "15 abril 2026", "15 de abril", "15 abril"
-        if (preg_match('/^(\d{1,2})\s+(?:de\s+)?(\w+)(?:\s+(\d{4}))?$/u', $text, $m)) {
+        // "15 de abril 2026", "15 de abril de 2026", "15 de abril del 2026",
+        // "15 abril 2026", "el 15 de abril", "15 abril".
+        if (preg_match('/^(?:el\s+)?(\d{1,2})\s+(?:de\s+)?(\w+)(?:(?:\s+|(?:\s+de\s+)|(?:\s+del\s+))(\d{4}))?$/u', $text, $m)) {
             $day        = (int) $m[1];
             $month_name = mb_strtolower($m[2], 'UTF-8');
             $month      = self::MONTH_MAP[$month_name] ?? null;

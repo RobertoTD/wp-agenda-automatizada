@@ -288,9 +288,6 @@ final class AA_Booking_Reply_Builder {
         $first = $blockers[0];
         $code  = is_array($first) && isset($first['code']) ? (string) $first['code'] : 'unknown';
         $msg   = $this->blocker_message($code);
-        if (count($blockers) > 1) {
-            $msg .= ' (y hay otros conflictos)';
-        }
         $msg .= ' Seguimos armando la misma cita; dime cómo quieres ajustarla.';
         return $msg;
     }
@@ -538,8 +535,8 @@ final class AA_Booking_Reply_Builder {
 
         $variants = [
             'Para continuar, indícame ' . $joined . '.',
-            'Seguimos con tu cita. Compárteme ' . $joined . ' para continuar.',
-            'Aún necesito ' . $joined . ' para completar la cita.',
+            'Compárteme ' . $joined . ' para continuar.',
+            'Por favor compárteme ' . $joined . ' para completar la cita.',
         ];
         $hash = (int) sprintf('%u', crc32($joined));
         $idx  = $hash % count($variants);

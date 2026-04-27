@@ -212,6 +212,8 @@ final class AA_Admin_AI_Chat_Service {
             return $confirm_outcome;
         }
 
+        $this->rewrite_first_turn_create_booking_prefix($previous_parsed, $parsed, $message, $intent_result);
+
         $reply_text_out = $content;
         $resolution     = isset($intent_result['resolution']) && is_array($intent_result['resolution'])
             ? $intent_result['resolution']
@@ -230,6 +232,51 @@ final class AA_Admin_AI_Chat_Service {
             'parsed'        => $parsed,
             'intent_result' => $intent_result,
         ];
+    }
+
+    /**
+     * Primer turno de create_booking (sin previous_parsed): sustituye el prefijo
+     * "Seguimos con tu cita." por una apertura de inicio (mismo significado).
+     *
+     * @param array<string,mixed>|null $previous_parsed
+     * @param array<string,mixed>      $parsed
+     * @param array<string,mixed>      $intent_result  Por referencia: muta reply_ui.text si aplica.
+     */
+    private function rewrite_first_turn_create_booking_prefix(
+        ?array $previous_parsed,
+        array $parsed,
+        string $message,
+        array &$intent_result
+    ): void {
+        if ($previous_parsed !== null) {
+            return;
+        }
+        if (($parsed['intent'] ?? '') !== 'create_booking') {
+            return;
+        }
+        if (!isset($intent_result['resolution']) || !is_array($intent_result['resolution'])) {
+            return;
+        }
+        $reply_ui = $intent_result['resolution']['reply_ui'] ?? null;
+        if (!is_array($reply_ui) || !isset($reply_ui['text']) || !is_string($reply_ui['text'])) {
+            return;
+        }
+
+        $prefix_old = 'Seguimos con tu cita. ';
+        $text       = $reply_ui['text'];
+        if ($text === '' || strncmp($text, $prefix_old, strlen($prefix_old)) !== 0) {
+            return;
+        }
+
+        $variants = [
+            'Claro, vamos a crear la cita. ',
+            'Perfecto, empecemos con la cita. ',
+            'De acuerdo, iniciemos la cita. ',
+        ];
+        $hash = (int) sprintf('%u', crc32($message));
+        $idx  = $hash % count($variants);
+
+        $intent_result['resolution']['reply_ui']['text'] = $variants[$idx] . substr($text, strlen($prefix_old));
     }
 
     /**
