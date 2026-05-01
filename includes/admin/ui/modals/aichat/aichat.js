@@ -41,8 +41,11 @@
     /** Paso 6.g: límite de caracteres y cooldown entre envíos (solo frontend). */
     const AA_AI_CHAT_MAX_MESSAGE_LENGTH = 300;
     const AA_AI_CHAT_SEND_COOLDOWN_MS = 2000;
+    const AA_AI_CHAT_WELCOME_DELAY_MS = 850;
     const KNOWN_MESSAGE_KINDS = [
         'text',
+        'welcome',
+        'intent_choices',
         'confirm_cta',
         'ambiguous_choices',
         'highlights',
@@ -69,7 +72,9 @@
         // No persistido; independiente de `isTyping` (paso 6.g).
         lastUserChatSendAt: null,
         // POST `aa_ai_confirm_booking` en curso (botón o afirmación pura).
-        isConfirmBookingRequest: false
+        isConfirmBookingRequest: false,
+        // Timer local para el welcome inicial. No se persiste.
+        initialWelcomeTimer: null
     };
 
     // ============================================================
@@ -199,8 +204,70 @@
             }
         });
 
-        // Delegated clicks inside history: chips + confirm button.
+        // Delegated clicks inside history: welcome choices, chips + confirm button.
         dom.history.addEventListener('click', function (ev) {
+            const intentChoice = ev.target.closest('[data-aa-ai-chat-intent-choice]');
+            if (intentChoice) {
+                if (intentChoice.disabled) {
+                    return;
+                }
+
+                const messageId = intentChoice.getAttribute('data-message-id') || '';
+                const sendText = intentChoice.getAttribute('data-send-text') || '';
+                if (!messageId || !sendText) {
+                    return;
+                }
+
+                let targetMsg = null;
+                for (let i = 0; i < state.messages.length; i++) {
+                    const m = state.messages[i];
+                    if (m && m.id === messageId && m.kind === 'intent_choices') {
+                        targetMsg = m;
+                        break;
+                    }
+                }
+                if (!targetMsg || targetMsg.intentChoicesDisabled) {
+                    return;
+                }
+
+                targetMsg.intentChoicesDisabled = true;
+                persistState();
+                render();
+                sendMessage(sendText);
+                return;
+            }
+
+            const welcomeChoice = ev.target.closest('[data-aa-ai-chat-welcome-choice]');
+            if (welcomeChoice) {
+                if (welcomeChoice.disabled) {
+                    return;
+                }
+
+                const messageId = welcomeChoice.getAttribute('data-message-id') || '';
+                const sendText = welcomeChoice.getAttribute('data-send-text') || '';
+                if (!messageId || !sendText) {
+                    return;
+                }
+
+                let targetMsg = null;
+                for (let i = 0; i < state.messages.length; i++) {
+                    const m = state.messages[i];
+                    if (m && m.id === messageId && m.kind === 'welcome') {
+                        targetMsg = m;
+                        break;
+                    }
+                }
+                if (!targetMsg || targetMsg.welcomeChoicesDisabled) {
+                    return;
+                }
+
+                targetMsg.welcomeChoicesDisabled = true;
+                persistState();
+                render();
+                sendMessage(sendText);
+                return;
+            }
+
             const chip = ev.target.closest('[data-aa-ai-chat-chip]');
             if (chip) {
                 const label = chip.getAttribute('data-label') || chip.textContent.trim();
@@ -267,11 +334,73 @@
         dom.panel.classList.add('aa-ai-chat-panel-enter');
         dom.fab.setAttribute('aria-expanded', 'true');
 
+        scheduleInitialWelcomeIfNeeded();
+
         // Focus the textarea after the animation frame so screen readers
         // pick it up cleanly.
         requestAnimationFrame(function () {
             if (dom.input) dom.input.focus();
         });
+    }
+
+    function scheduleInitialWelcomeIfNeeded() {
+        if (!shouldShowInitialWelcome()) {
+            return;
+        }
+        if (state.initialWelcomeTimer !== null) {
+            return;
+        }
+
+        state.isTyping = true;
+        updateSendDisabled();
+        render();
+
+        state.initialWelcomeTimer = window.setTimeout(function () {
+            state.initialWelcomeTimer = null;
+            state.isTyping = false;
+
+            if (!shouldShowInitialWelcome()) {
+                updateSendDisabled();
+                render();
+                return;
+            }
+
+            pushMessage({
+                id: uid(),
+                role: 'assistant',
+                kind: 'welcome',
+                text: 'Hola. ¿En qué puedo ayudarte?',
+                isWelcome: true,
+                welcomeChoicesDisabled: false,
+                payload: {
+                    choices: [
+                        {
+                            key: 'create_booking',
+                            label: 'Crear una cita',
+                            message: 'Quiero crear una cita'
+                        }
+                    ]
+                },
+                ts: Date.now()
+            });
+            updateSendDisabled();
+        }, AA_AI_CHAT_WELCOME_DELAY_MS);
+    }
+
+    function cancelInitialWelcomeTimer() {
+        if (state.initialWelcomeTimer === null) {
+            return;
+        }
+
+        window.clearTimeout(state.initialWelcomeTimer);
+        state.initialWelcomeTimer = null;
+        state.isTyping = false;
+    }
+
+    function shouldShowInitialWelcome() {
+        return state.messages.length === 0
+            && state.lastParsedInput === null
+            && state.lastDraftState === null;
     }
 
     function closePanel() {
@@ -500,6 +629,7 @@
      * | confirm             | confirm_cta         | { confirmLabel:'Confirmar cita', draftEcho: buildDraftEcho(draft_echo) } |
      * | confirm_heuristics  | confirm_cta         | (idéntico a `confirm`)                                                   |
      * | pick_ambiguous      | ambiguous_choices   | { field: choices[0].field, choices: choices[0].candidates }              |
+     * | choose_intent       | intent_choices      | { choices:[{key,label,message}] }                                        |
      * | collect_input       | text                | (sin payload)                                                            |
      * | fix_blocker         | fix_blocker         | { blocker: '', actions: [{label,url}] }                                  |
      * | noop                | text                | (sin payload)                                                            |
@@ -547,6 +677,15 @@
                     payload: { field: field, choices: candidates }
                 });
             }
+
+            case 'choose_intent':
+                return Object.assign(base, {
+                    kind: 'intent_choices',
+                    intentChoicesDisabled: false,
+                    payload: {
+                        choices: normalizeIntentChoices(reply_ui.choices)
+                    }
+                });
 
             case 'fix_blocker':
                 return Object.assign(base, {
@@ -610,6 +749,23 @@
             if (!label || !url) return out;
 
             out.push({ label: label, url: url });
+            return out;
+        }, []);
+    }
+
+    function normalizeIntentChoices(choices) {
+        if (!Array.isArray(choices)) return [];
+
+        return choices.reduce(function (out, choice) {
+            if (!choice || typeof choice !== 'object') return out;
+
+            const key = choice.key == null ? '' : String(choice.key).trim();
+            const label = choice.label == null ? '' : String(choice.label).trim();
+            const message = choice.message == null ? '' : String(choice.message).trim();
+
+            if (!key || !label || !message) return out;
+
+            out.push({ key: key, label: label, message: message });
             return out;
         }, []);
     }
@@ -975,11 +1131,12 @@
         const opts = options || {};
         const askConfirmation = opts.confirm !== false;
 
-        if (askConfirmation && state.messages.length > 0) {
+        if (askConfirmation && hasNonWelcomeMessages()) {
             const ok = window.confirm('¿Iniciar una nueva conversación? Se perderá el historial actual.');
             if (!ok) return;
         }
 
+        cancelInitialWelcomeTimer();
         state.messages = [];
         state.lastParsedInput = null;
         state.lastDraftState = null;
@@ -992,6 +1149,12 @@
             dom.input.focus();
         }
         updateSendDisabled();
+    }
+
+    function hasNonWelcomeMessages() {
+        return state.messages.some(function (msg) {
+            return !(msg && msg.isWelcome === true);
+        });
     }
 
     // ============================================================
@@ -1103,6 +1266,8 @@
             return renderUserBubble(msg);
         }
         switch (msg.kind) {
+            case 'welcome':            return renderAssistantWelcome(msg);
+            case 'intent_choices':     return renderAssistantIntentChoices(msg);
             case 'confirm_cta':        return renderAssistantConfirmCta(msg);
             case 'ambiguous_choices':  return renderAssistantAmbiguousChoices(msg);
             case 'highlights':         return renderAssistantHighlights(msg);
@@ -1144,6 +1309,86 @@
 
     function renderAssistantText(msg) {
         return wrapAssistant(assistantBubble(msg.text));
+    }
+
+    /**
+     * Welcome local con botones de intención. El click envía
+     * `choice.message` por el mismo flujo normal de `sendMessage()`.
+     */
+    function renderAssistantWelcome(msg) {
+        const p = msg.payload || {};
+        const choices = Array.isArray(p.choices) ? p.choices : [];
+        const used = !!msg.welcomeChoicesDisabled;
+
+        const btnActiveCls =
+            'w-full px-3 py-2 text-xs font-semibold text-indigo-700 bg-white border border-indigo-200 hover:bg-indigo-50 rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/40';
+        const btnUsedCls =
+            'w-full px-3 py-2 text-xs font-semibold text-slate-500 bg-slate-100 border border-slate-200 rounded-xl cursor-not-allowed opacity-90 focus:outline-none';
+
+        const buttonsHtml = choices.map(function (choice) {
+            if (!choice || typeof choice !== 'object') return '';
+
+            const label = choice.label == null ? '' : String(choice.label);
+            const sendText = choice.message == null ? '' : String(choice.message);
+            if (!label || !sendText) return '';
+
+            return (
+                '<button type="button"' +
+                    ' data-aa-ai-chat-welcome-choice' +
+                    ' data-message-id="' + escapeHtml(msg.id) + '"' +
+                    ' data-send-text="' + escapeHtml(sendText) + '"' +
+                    (used ? ' disabled aria-disabled="true"' : '') +
+                    ' class="' + (used ? btnUsedCls : btnActiveCls) + '">' +
+                    escapeHtml(label) +
+                '</button>'
+            );
+        }).join('');
+
+        const choicesRow = buttonsHtml
+            ? '<div class="flex flex-col gap-2">' + buttonsHtml + '</div>'
+            : '';
+
+        return wrapAssistant(assistantBubble(msg.text) + choicesRow);
+    }
+
+    /**
+     * Botones de intención enviados por backend (`reply_ui.cta=choose_intent`).
+     * No fijan intent: cada botón envía texto normal por `sendMessage()`.
+     */
+    function renderAssistantIntentChoices(msg) {
+        const p = msg.payload || {};
+        const choices = Array.isArray(p.choices) ? p.choices : [];
+        const used = !!msg.intentChoicesDisabled;
+
+        const btnActiveCls =
+            'w-full px-3 py-2 text-xs font-semibold text-indigo-700 bg-white border border-indigo-200 hover:bg-indigo-50 rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/40';
+        const btnUsedCls =
+            'w-full px-3 py-2 text-xs font-semibold text-slate-500 bg-slate-100 border border-slate-200 rounded-xl cursor-not-allowed opacity-90 focus:outline-none';
+
+        const buttonsHtml = choices.map(function (choice) {
+            if (!choice || typeof choice !== 'object') return '';
+
+            const label = choice.label == null ? '' : String(choice.label);
+            const sendText = choice.message == null ? '' : String(choice.message);
+            if (!label || !sendText) return '';
+
+            return (
+                '<button type="button"' +
+                    ' data-aa-ai-chat-intent-choice' +
+                    ' data-message-id="' + escapeHtml(msg.id) + '"' +
+                    ' data-send-text="' + escapeHtml(sendText) + '"' +
+                    (used ? ' disabled aria-disabled="true"' : '') +
+                    ' class="' + (used ? btnUsedCls : btnActiveCls) + '">' +
+                    escapeHtml(label) +
+                '</button>'
+            );
+        }).join('');
+
+        const choicesRow = buttonsHtml
+            ? '<div class="flex flex-col gap-2">' + buttonsHtml + '</div>'
+            : '';
+
+        return wrapAssistant(assistantBubble(msg.text) + choicesRow);
     }
 
     function renderAssistantConfirmCta(msg) {

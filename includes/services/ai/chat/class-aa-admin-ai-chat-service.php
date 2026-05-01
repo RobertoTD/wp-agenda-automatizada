@@ -16,6 +16,7 @@ final class AA_Admin_AI_Chat_Service {
 
     private const VALID_INTENTS = [
         'create_booking',
+        'create_client',
         'check_availability',
         'find_client',
         'list_services',
@@ -152,6 +153,7 @@ final class AA_Admin_AI_Chat_Service {
         }
 
         $parsed = $this->normalize_parsed($parsed_raw);
+        $parsed = $this->apply_initial_create_client_intent_gate($parsed, $previous_parsed, $message);
 
         // Paso 3: cancelación server-side dirigida por sub_intent.
         // Ocurre ANTES del merge porque cancelar no necesita draft: si el
@@ -513,6 +515,81 @@ final class AA_Admin_AI_Chat_Service {
         }
 
         return false;
+    }
+
+    /**
+     * Gate de clasificación inicial para `create_client`.
+     *
+     * - Si hay `previous_parsed`, el intent no se activa y el turno se
+     *   neutraliza para no contaminar un borrador activo de cita.
+     * - Si no hay contexto previo, acepta el intent del LLM o lo promueve
+     *   desde `unknown`/`create_booking` solo con una frase explícita de
+     *   creación/alta/registro de cliente.
+     *
+     * @param array<string,mixed>      $parsed
+     * @param array<string,mixed>|null $previous_parsed
+     * @param string                   $message
+     * @return array<string,mixed>
+     */
+    private function apply_initial_create_client_intent_gate(
+        array $parsed,
+        ?array $previous_parsed,
+        string $message
+    ): array {
+        $this->require_initial_intent_detector();
+        $is_clear_create_client = AA_AI_Initial_Intent_Detector::is_clear_create_client_request($message);
+
+        if ($previous_parsed !== null) {
+            if (($parsed['intent'] ?? '') === 'create_client' || $is_clear_create_client) {
+                $parsed = $this->build_neutral_current_turn_parsed();
+            }
+            return $parsed;
+        }
+
+        if (($parsed['intent'] ?? '') === 'create_client') {
+            return $is_clear_create_client ? $parsed : $this->build_neutral_current_turn_parsed();
+        }
+
+        if (!in_array(($parsed['intent'] ?? ''), ['unknown', 'create_booking'], true)) {
+            return $parsed;
+        }
+
+        if (!$is_clear_create_client) {
+            return $parsed;
+        }
+
+        $this->require_conversation_contract();
+
+        $parsed['intent']          = 'create_client';
+        $parsed['sub_intent']      = AA_AI_Conversation_Contract::SUB_INTENT_OTHER;
+        $parsed['affected_fields'] = [];
+        $parsed['confidence']      = 0.95;
+
+        return $parsed;
+    }
+
+    /**
+     * Parsed neutral para ignorar un intent inicial no permitido dentro
+     * de un flujo activo, sin cambiar el shape canónico del service.
+     *
+     * @return array<string,mixed>
+     */
+    private function build_neutral_current_turn_parsed(): array {
+        $this->require_conversation_contract();
+
+        return $this->normalize_parsed([
+            'intent'          => 'unknown',
+            'client_name'     => null,
+            'service_name'    => null,
+            'staff_name'      => null,
+            'zone_name'       => null,
+            'date_text'       => null,
+            'time_text'       => null,
+            'notes'           => null,
+            'sub_intent'      => AA_AI_Conversation_Contract::SUB_INTENT_OTHER,
+            'affected_fields' => [],
+            'confidence'      => null,
+        ]);
     }
 
     /**
@@ -1083,6 +1160,10 @@ HINT;
             return $this->handle_create_booking($parsed);
         }
 
+        if ($intent === 'create_client') {
+            return $this->handle_create_client_intent($parsed);
+        }
+
         if ($intent === 'unknown') {
             return $this->handle_unknown_intent($parsed, $user_message);
         }
@@ -1112,6 +1193,44 @@ HINT;
     }
 
     /**
+     * Respuesta temporal controlada para creación de clientes desde chat.
+     *
+     * No ejecuta creación real, no abre formularios y no inicia conversación
+     * multi-turn. Solo informa que la acción aún no está habilitada.
+     *
+     * @param array<string,mixed> $parsed
+     * @return array<string,mixed>
+     */
+    private function handle_create_client_intent(array $parsed): array {
+        $ui_text = 'Por ahora no puedo crear clientes desde este asistente, pero puedes crearlo manualmente en la sección de Clientes.';
+
+        $reply_ui = [
+            'text'       => $ui_text,
+            'cta'        => 'noop',
+            'highlights' => [],
+            'choices'    => [],
+            'draft_echo' => [
+                'client'   => null,
+                'service'  => null,
+                'staff'    => null,
+                'zone'     => null,
+                'datetime' => null,
+            ],
+        ];
+
+        return [
+            'intent'     => 'create_client',
+            'status'     => 'not_implemented',
+            'reply'      => $ui_text,
+            'resolution' => [
+                'parsed_input' => $parsed,
+                'reply_ui'     => $reply_ui,
+                'draft_state'  => null,
+            ],
+        ];
+    }
+
+    /**
      * Respuesta neutral cuando no se pudo clasificar la intención.
      *
      * No pide campos de cita ni sugiere que `create_booking` haya sido
@@ -1123,13 +1242,15 @@ HINT;
      * @return array
      */
     private function handle_unknown_intent(array $parsed, string $user_message): array {
-        $ui_text = $this->resolve_unknown_ui_text($user_message);
+        $social_text = $this->resolve_simple_unknown_social_reply($user_message);
+        $ui_text     = $social_text !== null ? $social_text : $this->resolve_unknown_ui_text($user_message);
+        $show_intent_choices = $this->should_offer_intent_choices_for_unknown($user_message, $social_text);
 
         $reply_ui = [
             'text'       => $ui_text,
-            'cta'        => 'noop',
+            'cta'        => $show_intent_choices ? 'choose_intent' : 'noop',
             'highlights' => [],
-            'choices'    => [],
+            'choices'    => $show_intent_choices ? $this->build_unknown_intent_choices() : [],
             'draft_echo' => [
                 'client'   => null,
                 'service'  => null,
@@ -1148,6 +1269,95 @@ HINT;
                 'reply_ui'     => $reply_ui,
             ],
         ];
+    }
+
+    private function should_offer_intent_choices_for_unknown(string $user_message, ?string $social_text): bool {
+        if ($social_text === null) {
+            return true;
+        }
+
+        $normalized = $this->normalize_simple_unknown_social_message($user_message);
+        $opening_messages = [
+            'hola',
+            'hi',
+            'hey',
+            'buenos dias',
+            'buen dia',
+            'buenas tardes',
+            'buenas noches',
+            'como estas',
+            'como esta',
+            'que tal',
+        ];
+
+        return in_array($normalized, $opening_messages, true);
+    }
+
+    /**
+     * @return array<int, array{key:string,label:string,message:string}>
+     */
+    private function build_unknown_intent_choices(): array {
+        return [
+            [
+                'key'     => 'create_booking',
+                'label'   => 'Crear una cita',
+                'message' => 'Quiero crear una cita',
+            ],
+        ];
+    }
+
+    /**
+     * Respuestas sociales exactas para mensajes que ya quedaron en `unknown`.
+     * No usa contains ni fuzzy matching: frases compuestas caen al fallback.
+     */
+    private function resolve_simple_unknown_social_reply(string $user_message): ?string {
+        $normalized = $this->normalize_simple_unknown_social_message($user_message);
+        if ($normalized === '') {
+            return null;
+        }
+
+        $replies = [
+            'hola'          => 'Hola. ¿En qué puedo ayudarte?',
+            'hi'            => 'Hola. ¿En qué puedo ayudarte?',
+            'hey'           => 'Hola. ¿En qué puedo ayudarte?',
+            'buenos dias'   => 'Buenos días. ¿En qué puedo ayudarte?',
+            'buen dia'      => 'Buenos días. ¿En qué puedo ayudarte?',
+            'buenas tardes' => 'Buenas tardes. ¿En qué puedo ayudarte?',
+            'buenas noches' => 'Buenas noches. ¿En qué puedo ayudarte?',
+            'como estas'    => 'Bien, gracias. Estoy listo para ayudarte con tu agenda. ¿Qué necesitas?',
+            'como esta'     => 'Bien, gracias. Estoy listo para ayudarte con tu agenda. ¿Qué necesitas?',
+            'que tal'       => 'Todo bien. ¿En qué puedo ayudarte?',
+            'gracias'       => 'De nada.',
+            'muchas gracias' => 'De nada.',
+            'mil gracias'   => 'De nada.',
+            'ok'            => 'Perfecto. ¿Qué necesitas hacer?',
+            'vale'          => 'Perfecto. ¿Qué necesitas hacer?',
+            'entiendo'      => 'Perfecto. ¿Qué necesitas hacer?',
+            'entendido'     => 'Perfecto. ¿Qué necesitas hacer?',
+            'perfecto'      => 'Perfecto. ¿Qué necesitas hacer?',
+        ];
+
+        return $replies[$normalized] ?? null;
+    }
+
+    private function normalize_simple_unknown_social_message(string $message): string {
+        $normalized = mb_strtolower(trim($message), 'UTF-8');
+        if ($normalized === '') {
+            return '';
+        }
+
+        $normalized = strtr($normalized, [
+            'á' => 'a',
+            'é' => 'e',
+            'í' => 'i',
+            'ó' => 'o',
+            'ú' => 'u',
+            'ü' => 'u',
+        ]);
+        $normalized = preg_replace('/^[\s\.,!¡\?¿…]+|[\s\.,!¡\?¿…]+$/u', '', $normalized);
+        $normalized = preg_replace('/\s+/u', ' ', (string) $normalized);
+
+        return is_string($normalized) ? trim($normalized) : '';
     }
 
     /**
@@ -1251,7 +1461,7 @@ Eres un parser de una agenda de citas. Tu trabajo es (a) extraer datos estructur
 Responde SIEMPRE con un objeto JSON y NADA MÁS. Sin explicaciones, sin texto extra.
 
 CAMPOS (exactamente estos 11):
-- "intent": "create_booking" | "check_availability" | "find_client" | "list_services" | "unknown"
+- "intent": "create_booking" | "create_client" | "check_availability" | "find_client" | "list_services" | "unknown"
 - "client_name": string | null
 - "service_name": string | null
 - "staff_name": string | null
@@ -1276,6 +1486,8 @@ REGLAS DE EXTRACCIÓN:
 - No inventes datos.
 - Si la intención de alto nivel no es clara → intent:"unknown".
 - Extrae nombres propios tal cual aparecen.
+- Usa intent:"create_client" solo cuando el usuario pida explícitamente crear, agregar, registrar o dar de alta un cliente. Debe aparecer una señal clara como "cliente", "nuevo cliente", "crear cliente", "registrar cliente", "dar de alta cliente" o "agregar cliente".
+- No uses intent:"create_client" para citas, disponibilidad o agenda. "agenda a Juan", "crea cita para Juan" y "agrega a Juan a una cita" son de cita/agenda, no creación de cliente.
 
 REGLAS DE SUB_INTENT:
 - "new_booking": primera mención de una cita completa o casi completa, típicamente sin contexto previo.
@@ -1348,6 +1560,18 @@ Output: {"intent":"check_availability","client_name":null,"service_name":null,"s
 Input: "Ponle cita a Pedro con la Dra. Gómez para limpieza dental mañana a las 3 en sucursal norte"
 Output: {"intent":"create_booking","client_name":"Pedro","service_name":"limpieza dental","staff_name":"Dra. Gómez","zone_name":"sucursal norte","date_text":"mañana","time_text":"a las 3","notes":null,"sub_intent":"new_booking","affected_fields":["client","service","staff","zone","date","time"],"confidence":0.95}
 
+Input: "crea cliente Juan Pérez"
+Output: {"intent":"create_client","client_name":"Juan Pérez","service_name":null,"staff_name":null,"zone_name":null,"date_text":null,"time_text":null,"notes":null,"sub_intent":"other","affected_fields":[],"confidence":0.95}
+
+Input: "agrega cliente María López con correo"
+Output: {"intent":"create_client","client_name":"María López","service_name":null,"staff_name":null,"zone_name":null,"date_text":null,"time_text":null,"notes":null,"sub_intent":"other","affected_fields":[],"confidence":0.95}
+
+Input: "registra nuevo cliente Pedro Gómez"
+Output: {"intent":"create_client","client_name":"Pedro Gómez","service_name":null,"staff_name":null,"zone_name":null,"date_text":null,"time_text":null,"notes":null,"sub_intent":"other","affected_fields":[],"confidence":0.95}
+
+Input: "agrega a Juan a una cita"
+Output: {"intent":"create_booking","client_name":"Juan","service_name":null,"staff_name":null,"zone_name":null,"date_text":null,"time_text":null,"notes":null,"sub_intent":"new_booking","affected_fields":["client"],"confidence":0.8}
+
 Input: "Qué servicios tienen disponibles?"
 Output: {"intent":"list_services","client_name":null,"service_name":null,"staff_name":null,"zone_name":null,"date_text":null,"time_text":null,"notes":null,"sub_intent":"other","affected_fields":[],"confidence":0.8}
 
@@ -1399,6 +1623,13 @@ PROMPT;
      */
     private function require_conversation_contract(): void {
         require_once dirname(__DIR__, 3) . '/domain/ai/class-aa-ai-conversation-contract.php';
+    }
+
+    /**
+     * Lazy-require del detector puro de clasificación inicial.
+     */
+    private function require_initial_intent_detector(): void {
+        require_once dirname(__DIR__, 3) . '/domain/ai/class-aa-ai-initial-intent-detector.php';
     }
 
     /**

@@ -103,7 +103,7 @@ Se añaden 3 campos al objeto `parsed` que hoy tiene 8 claves canónicas:
 ```jsonc
 {
   // 8 campos legacy (sin cambios):
-  "intent":       "create_booking|check_availability|find_client|list_services|unknown",
+  "intent":       "create_booking|create_client|check_availability|find_client|list_services|unknown",
   "client_name":  "string|null",
   "service_name": "string|null",
   "staff_name":   "string|null",
@@ -261,6 +261,21 @@ El dispatcher sigue enrutando por `intent` para `create_booking`;
 `sub_intent` gobierna sólo los dos casos de borde
 (`cancel_draft`, `confirm_draft`). El reply builder sigue sin
 consumir `sub_intent`.
+
+### Extensión inicial: `create_client`
+
+`create_client` es un intent top-level reconocido solo en clasificación
+inicial (`previous_parsed === null`). No inicia conversación multi-turn,
+no pide campos faltantes, no crea clientes y no toca SQL. El chat service
+devuelve una respuesta textual controlada con `reply_ui.cta = "noop"`:
+
+> Por ahora no puedo crear clientes desde este asistente, pero puedes crearlo manualmente en la sección de Clientes.
+
+La detección combina prompt LLM y un detector puro/conservador en
+`includes/domain/ai/`: exige señal explícita de cliente ("crear cliente",
+"agregar cliente", "registrar nuevo cliente", "dar de alta cliente") y
+rechaza menciones de cita/disponibilidad para no colisionar con
+`create_booking` ni `check_availability`.
 
 ### Telemetría
 
