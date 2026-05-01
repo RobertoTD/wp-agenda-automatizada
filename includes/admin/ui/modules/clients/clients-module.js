@@ -283,6 +283,65 @@
     }
 
     /**
+     * Reads optional setup_focus query param used by AI chat actions.
+     */
+    function applySetupFocusFromUrl() {
+        const params = new URLSearchParams(window.location.search);
+        const focusKey = params.get('setup_focus');
+
+        if (focusKey !== 'clients' && focusKey !== 'client') {
+            return;
+        }
+
+        window.requestAnimationFrame(function() {
+            focusClientCreateButton();
+        });
+    }
+
+    /**
+     * Guides the user to the client creation action without opening the modal.
+     */
+    function focusClientCreateButton() {
+        const actionBar = document.getElementById('aa-clients-action-bar');
+        const newButton = document.getElementById('aa-clients-new');
+
+        if (!newButton) {
+            return;
+        }
+
+        (actionBar || newButton).scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+        });
+
+        applyTemporaryHighlight(newButton);
+
+        if (typeof newButton.focus === 'function') {
+            window.setTimeout(function() {
+                newButton.focus({ preventScroll: true });
+            }, 350);
+        }
+    }
+
+    /**
+     * Applies a temporary inline highlight without relying on generated CSS.
+     *
+     * @param {HTMLElement} element
+     */
+    function applyTemporaryHighlight(element) {
+        const previousBoxShadow = element.style.boxShadow;
+        const previousTransition = element.style.transition;
+
+        element.style.transition = 'box-shadow 180ms ease';
+        element.style.boxShadow = '0 0 0 4px rgba(79, 70, 229, 0.22)';
+
+        window.setTimeout(function() {
+            element.style.boxShadow = previousBoxShadow;
+            element.style.transition = previousTransition;
+        }, 2200);
+    }
+
+    /**
      * Buscar clientes via AJAX
      */
     function searchClients() {
@@ -354,6 +413,8 @@
     function init() {
         // Renderizar barra de acciones
         renderActionBar();
+
+        applySetupFocusFromUrl();
 
         // Siempre cargar datos via AJAX (ordenados por total_citas DESC)
         searchClients();

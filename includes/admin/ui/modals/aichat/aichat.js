@@ -501,7 +501,7 @@
      * | confirm_heuristics  | confirm_cta         | (idéntico a `confirm`)                                                   |
      * | pick_ambiguous      | ambiguous_choices   | { field: choices[0].field, choices: choices[0].candidates }              |
      * | collect_input       | text                | (sin payload)                                                            |
-     * | fix_blocker         | fix_blocker         | { blocker: '' }                                                          |
+     * | fix_blocker         | fix_blocker         | { blocker: '', actions: [{label,url}] }                                  |
      * | noop                | text                | (sin payload)                                                            |
      *
      * Si `reply_ui` viene ausente/vacío, cae a `text` con `fallbackText`
@@ -551,7 +551,10 @@
             case 'fix_blocker':
                 return Object.assign(base, {
                     kind: 'fix_blocker',
-                    payload: { blocker: '' }
+                    payload: {
+                        blocker: '',
+                        actions: normalizeReplyActions(reply_ui.actions)
+                    }
                 });
 
             case 'collect_input':
@@ -586,6 +589,29 @@
             rows.push({ label: label, value: String(value) });
         }
         return rows;
+    }
+
+    /**
+     * Normalizes optional server-provided action links for assistant messages.
+     * The backend decides what actions exist; the frontend only renders them.
+     *
+     * @param {unknown} actions
+     * @returns {Array<{label:string,url:string}>}
+     */
+    function normalizeReplyActions(actions) {
+        if (!Array.isArray(actions)) return [];
+
+        return actions.reduce(function (out, action) {
+            if (!action || typeof action !== 'object') return out;
+
+            const label = action.label == null ? '' : String(action.label).trim();
+            const url = action.url == null ? '' : String(action.url).trim();
+
+            if (!label || !url) return out;
+
+            out.push({ label: label, url: url });
+            return out;
+        }, []);
     }
 
     // ============================================================
@@ -1213,6 +1239,7 @@
     function renderAssistantFixBlocker(msg) {
         const p = msg.payload || {};
         const blocker = p.blocker ? escapeHtml(p.blocker) : '';
+        const actions = Array.isArray(p.actions) ? p.actions : [];
         const warningIcon = (
             '<svg class="w-4 h-4 shrink-0 mt-0.5 text-amber-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">' +
                 '<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>' +
@@ -1227,7 +1254,19 @@
                 '</div>' +
             '</div>'
         );
-        return wrapAssistant(bubble);
+        const actionLinkCls =
+            'block w-full px-3 py-2 text-center text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/40 shadow-sm';
+        const actionsHtml = actions.length > 0
+            ? '<div class="flex flex-col gap-2">' + actions.map(function (action) {
+                return (
+                    '<a href="' + escapeHtml(action.url) + '" class="' + actionLinkCls + '">' +
+                        escapeHtml(action.label) +
+                    '</a>'
+                );
+            }).join('') + '</div>'
+            : '';
+
+        return wrapAssistant(bubble + actionsHtml);
     }
 
     function renderTypingIndicator() {

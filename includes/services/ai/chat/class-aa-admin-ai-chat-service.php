@@ -188,6 +188,8 @@ final class AA_Admin_AI_Chat_Service {
             $message
         );
 
+        $parsed = $this->promote_initial_create_booking_intent_if_clear($parsed, $previous_parsed, $message);
+
         $this->log_turn_debug([
             'message'         => $message,
             'previous_parsed' => $previous_parsed,
@@ -429,6 +431,88 @@ final class AA_Admin_AI_Chat_Service {
         }
 
         return $parsed;
+    }
+
+    /**
+     * Refuerzo conservador para primer turno: si el LLM dejó `unknown`
+     * pero el administrador pide claramente iniciar una cita, fijamos
+     * `create_booking` antes del dispatch sin tocar otros intents.
+     *
+     * @param array<string,mixed>      $parsed
+     * @param array<string,mixed>|null $previous_parsed
+     * @param string                   $message
+     * @return array<string,mixed>
+     */
+    private function promote_initial_create_booking_intent_if_clear(
+        array $parsed,
+        ?array $previous_parsed,
+        string $message
+    ): array {
+        if ($previous_parsed !== null) {
+            return $parsed;
+        }
+        if (($parsed['intent'] ?? '') !== 'unknown') {
+            return $parsed;
+        }
+        if (!$this->is_clear_initial_create_booking_request($message)) {
+            return $parsed;
+        }
+
+        $this->require_conversation_contract();
+
+        $parsed['intent']          = 'create_booking';
+        $parsed['sub_intent']      = AA_AI_Conversation_Contract::SUB_INTENT_NEW_BOOKING;
+        $parsed['affected_fields'] = [];
+        $parsed['confidence']      = 0.95;
+
+        return $parsed;
+    }
+
+    /**
+     * Allowlist estricta de frases cortas e inequívocas para iniciar una cita.
+     * Evita preguntas, negaciones y consultas meta ("cómo crear una cita").
+     */
+    private function is_clear_initial_create_booking_request(string $message): bool {
+        $m = mb_strtolower(trim($message), 'UTF-8');
+        if ($m === '') {
+            return false;
+        }
+
+        $m = preg_replace('/\s+/u', ' ', $m);
+        if (!is_string($m) || $m === '') {
+            return false;
+        }
+
+        if (preg_match('/[?¿]/u', $m)) {
+            return false;
+        }
+
+        $deny_patterns = [
+            '/\b(?:c[oó]mo|explicame|expl[ií]came|explicar|funciona|funcionan|tutorial|ayuda)\b/u',
+            '/\bno\s+(?:quiero|deseo|necesito|voy\s+a|vaya\s+a)?\s*(?:crear|agendar|programar|hacer)\s+(?:una\s+)?cita\b/u',
+            '/\b(?:no|nunca|jam[aá]s)\s+(?:me\s+)?(?:agendes|agendar|crees|crear|programar)\b/u',
+            '/\b(?:cancelar|cancela|eliminar|borra|borrar)\s+(?:una\s+)?cita\b/u',
+        ];
+        foreach ($deny_patterns as $pattern) {
+            if (preg_match($pattern, $m)) {
+                return false;
+            }
+        }
+
+        $allow_patterns = [
+            '/^(?:por\s+favor\s+)?(?:crea|crear|crear(me)?|cr[eé]ame|haz|hacer)\s+(?:una\s+)?cita(?:\s+por\s+favor)?[.!…]*$/u',
+            '/^(?:por\s+favor\s+)?(?:agenda|agendar|ag[eé]ndame|agendame)\s+(?:una\s+)?cita(?:\s+por\s+favor)?[.!…]*$/u',
+            '/^(?:por\s+favor\s+)?(?:programa|programar|progr[aá]mame|programame)\s+(?:una\s+)?cita(?:\s+por\s+favor)?[.!…]*$/u',
+            '/^(?:yo\s+)?(?:quiero|quieor|necesito|quisiera|me\s+gustar[ií]a)\s+(?:crear|agendar|programar|hacer)\s+(?:una\s+)?cita(?:\s+por\s+favor)?[.!…]*$/u',
+            '/^(?:vamos\s+a|empecemos\s+a|iniciemos\s+a)\s+(?:crear|agendar|programar|hacer)\s+(?:una\s+)?cita[.!…]*$/u',
+        ];
+        foreach ($allow_patterns as $pattern) {
+            if (preg_match($pattern, $m)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -999,6 +1083,10 @@ HINT;
             return $this->handle_create_booking($parsed);
         }
 
+        if ($intent === 'unknown') {
+            return $this->handle_unknown_intent($parsed, $user_message);
+        }
+
         return $this->handle_unimplemented_intent($parsed, $user_message);
     }
 
@@ -1009,11 +1097,57 @@ HINT;
      * @return array
      */
     private function handle_create_booking(array $parsed) {
+        require_once dirname(__DIR__, 3) . '/application/ai/AI_Booking_Setup_Check_Use_Case.php';
+
+        $setup_result = (new AA_AI_Booking_Setup_Check_Use_Case())->execute($parsed);
+        if (($setup_result['status'] ?? null) === 'setup_incomplete') {
+            return $setup_result;
+        }
+
         require_once __DIR__ . '/class-aa-ai-create-booking-intent-handler.php';
 
         $handler = new AA_AI_Create_Booking_Intent_Handler();
 
         return $handler->handle($parsed);
+    }
+
+    /**
+     * Respuesta neutral cuando no se pudo clasificar la intención.
+     *
+     * No pide campos de cita ni sugiere que `create_booking` haya sido
+     * detectado; solo abre la interacción para que el administrador
+     * reformule qué quiere hacer.
+     *
+     * @param array  $parsed
+     * @param string $user_message Mensaje original del usuario (trim).
+     * @return array
+     */
+    private function handle_unknown_intent(array $parsed, string $user_message): array {
+        $ui_text = $this->resolve_unknown_ui_text($user_message);
+
+        $reply_ui = [
+            'text'       => $ui_text,
+            'cta'        => 'noop',
+            'highlights' => [],
+            'choices'    => [],
+            'draft_echo' => [
+                'client'   => null,
+                'service'  => null,
+                'staff'    => null,
+                'zone'     => null,
+                'datetime' => null,
+            ],
+        ];
+
+        return [
+            'intent'     => 'unknown',
+            'status'     => 'unknown_intent',
+            'reply'      => $ui_text,
+            'resolution' => [
+                'parsed_input' => $parsed,
+                'reply_ui'     => $reply_ui,
+            ],
+        ];
     }
 
     /**
@@ -1056,23 +1190,31 @@ HINT;
     }
 
     /**
-     * Texto breve y neutro para intents sin handler. Cuatro buckets locales
-     * para `unknown`: saludo simple, agradecimiento simple, acuse/cierre
-     * suave (sin LLM), y guía genérica. Mensajes largos no entran en los
-     * tres primeros para no pisar posibles datos de cita mal clasificados.
+     * Texto neutral para intención no clasificada.
+     *
+     * @param string $user_message Mensaje original (trim), usado solo para
+     *                             variar copy de forma determinista.
+     */
+    private function resolve_unknown_ui_text(string $user_message): string {
+        $variants = [
+            'No entendí qué quieres hacer. Puedo ayudarte con tu agenda. ¿Qué quieres hacer?',
+            'No logré identificar la intención. Puedo ayudarte con tu agenda. ¿Qué necesitas hacer?',
+            'No me quedó claro qué quieres hacer. Puedo ayudarte con tu agenda. Dime qué necesitas.',
+        ];
+        $hash = (int) sprintf('%u', crc32($user_message));
+        $idx  = $hash % count($variants);
+
+        return $variants[$idx];
+    }
+
+    /**
+     * Texto breve para intents reconocidos que aún no tienen handler dedicado.
      *
      * @param string $intent         Intent normalizado.
      * @param string $user_message   Mensaje original (trim).
      */
     private function resolve_unimplemented_ui_text(string $intent, string $user_message): string {
-        $fallback_variants = [
-            'Puedo ayudarte a crear una cita. Indícame cliente, servicio, fecha, hora, profesional y/o zona.',
-            'Claro, puedo ayudarte a agendar. Compárteme cliente, servicio, fecha, hora, profesional y zona.',
-            'Para crear la cita necesito estos datos: cliente, servicio, fecha, hora, profesional y zona.',
-        ];
-        $fallback_hash = (int) sprintf('%u', crc32($user_message));
-        $fallback_idx  = $fallback_hash % count($fallback_variants);
-        $fallback      = $fallback_variants[$fallback_idx];
+        $fallback = 'Todavía no tengo habilitada esa acción desde el chat.';
 
         if ($intent === 'check_availability') {
             $variants = [
@@ -1087,61 +1229,7 @@ HINT;
             return $variants[$idx];
         }
 
-        if ($intent !== 'unknown') {
-            return $fallback;
-        }
-
-        $u = mb_strtolower(trim($user_message), 'UTF-8');
-        if ($u === '') {
-            return $fallback;
-        }
-
-        if (mb_strlen($u, 'UTF-8') > 52) {
-            return $fallback;
-        }
-
-        if (preg_match('/^(hola|hi|hey)\s*[.!…,]*$/u', $u)) {
-            return 'Hola. Estoy listo para ayudarte a crear una cita.';
-        }
-
-        if (preg_match('/^(buenos\s+d[ií]as|buenas\s+tardes|buenas\s+noches)\s*[.!…,]*$/u', $u)) {
-            return 'Hola. Estoy listo para ayudarte a crear una cita.';
-        }
-
-        if (preg_match('/^(gracias|muchas gracias|mil gracias)\s*[.!…,]*$/u', $u)) {
-            return 'De nada.';
-        }
-
-        if ($this->is_soft_ack_message($u)) {
-            return 'Perfecto. Cuando quieras crear una cita, dime los datos.';
-        }
-
         return $fallback;
-    }
-
-    /**
-     * Acuse o cierre suave (ok, entendido, vale, etc.). Solo patrones
-     * anclados y mensajes cortos; el caller ya acotó longitud.
-     *
-     * @param string $u Mensaje en minúsculas (trim).
-     */
-    private function is_soft_ack_message(string $u): bool {
-        $patterns = [
-            '/^ok\s*[.!…,]*$/u',
-            '/^entendido\s*[.!…,]*$/u',
-            '/^ya\s+entend[ií]\s*[.!…,]*$/u',
-            '/^gracias\s+por\s+la\s+info\s*[.!…,]*$/u',
-            '/^gracias\s+por\s+la\s+(informaci[oó]n|informacion)\s*[.!…,]*$/u',
-            '/^ok\s*,?\s*gracias\s*[.!…,]*$/u',
-            '/^perfecto\s*[.!…,]*$/u',
-            '/^vale\s*[.!…,]*$/u',
-        ];
-        foreach ($patterns as $re) {
-            if (preg_match($re, $u) === 1) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /**
@@ -1211,6 +1299,15 @@ REGLAS DE CONFIDENCE:
 - Usa >=0.8 si el mensaje es inequívoco, 0.5-0.8 si hay alguna ambigüedad, <0.5 si dudas entre varias subintenciones.
 
 EJEMPLOS:
+
+Input: "crea una cita"
+Output: {"intent":"create_booking","client_name":null,"service_name":null,"staff_name":null,"zone_name":null,"date_text":null,"time_text":null,"notes":null,"sub_intent":"new_booking","affected_fields":[],"confidence":0.95}
+
+Input: "quiero agendar una cita"
+Output: {"intent":"create_booking","client_name":null,"service_name":null,"staff_name":null,"zone_name":null,"date_text":null,"time_text":null,"notes":null,"sub_intent":"new_booking","affected_fields":[],"confidence":0.95}
+
+Input: "programa una cita"
+Output: {"intent":"create_booking","client_name":null,"service_name":null,"staff_name":null,"zone_name":null,"date_text":null,"time_text":null,"notes":null,"sub_intent":"new_booking","affected_fields":[],"confidence":0.95}
 
 Input: "Agéndame a José mañana a las 5 para cejas con Anahí"
 Output: {"intent":"create_booking","client_name":"José","service_name":"cejas","staff_name":"Anahí","zone_name":null,"date_text":"mañana","time_text":"a las 5","notes":null,"sub_intent":"new_booking","affected_fields":["client","service","staff","date","time"],"confidence":0.95}

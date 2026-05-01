@@ -34,8 +34,102 @@ if (!defined('ABSPATH')) exit;
 require_once plugin_dir_path(__FILE__) . '../models/AssignmentsModel.php';
 
 class AssignmentsRepository extends AssignmentsModel {
-    // Intencionalmente vacío.
-    //
-    // Todos los métodos del padre quedan disponibles vía herencia.
-    // Los métodos NUEVOS se añaden aquí.
+    /**
+     * Cuenta profesionales activos.
+     *
+     * Query pura para prerequisitos de reserva; la decisión de negocio
+     * vive fuera del repository.
+     *
+     * @return int
+     */
+    public static function count_active_staff() {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'aa_staff';
+        $count = $wpdb->get_var("SELECT COUNT(*) FROM {$table} WHERE active = 1");
+
+        if ($wpdb->last_error) {
+            error_log('[AssignmentsRepository] Error al contar staff activo: ' . $wpdb->last_error);
+            return 0;
+        }
+
+        return (int) $count;
+    }
+
+    /**
+     * Cuenta servicios activos y no ocultos.
+     *
+     * Query pura para prerequisitos de reserva; la decisión de negocio
+     * vive fuera del repository.
+     *
+     * @return int
+     */
+    public static function count_active_services() {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'aa_services';
+        $count = $wpdb->get_var("SELECT COUNT(*) FROM {$table} WHERE active = 1 AND is_hidden = 0");
+
+        if ($wpdb->last_error) {
+            error_log('[AssignmentsRepository] Error al contar servicios activos: ' . $wpdb->last_error);
+            return 0;
+        }
+
+        return (int) $count;
+    }
+
+    /**
+     * Cuenta zonas de atención activas.
+     *
+     * Query pura para prerequisitos de reserva; la decisión de negocio
+     * vive fuera del repository.
+     *
+     * @return int
+     */
+    public static function count_active_service_areas() {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'aa_service_areas';
+        $count = $wpdb->get_var("SELECT COUNT(*) FROM {$table} WHERE active = 1");
+
+        if ($wpdb->last_error) {
+            error_log('[AssignmentsRepository] Error al contar zonas de atención activas: ' . $wpdb->last_error);
+            return 0;
+        }
+
+        return (int) $count;
+    }
+
+    /**
+     * Cuenta profesionales activos con al menos un servicio activo asignado.
+     *
+     * Query pura para prerequisitos de reserva; la decisión de negocio
+     * vive fuera del repository.
+     *
+     * @return int
+     */
+    public static function count_active_staff_with_active_services() {
+        global $wpdb;
+
+        $staff_table = $wpdb->prefix . 'aa_staff';
+        $staff_services_table = $wpdb->prefix . 'aa_staff_services';
+        $services_table = $wpdb->prefix . 'aa_services';
+
+        $count = $wpdb->get_var(
+            "SELECT COUNT(DISTINCT st.id)
+             FROM {$staff_table} st
+             INNER JOIN {$staff_services_table} ss ON ss.staff_id = st.id
+             INNER JOIN {$services_table} svc ON svc.id = ss.service_id
+             WHERE st.active = 1
+               AND svc.active = 1
+               AND svc.is_hidden = 0"
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[AssignmentsRepository] Error al contar staff activo con servicios activos: ' . $wpdb->last_error);
+            return 0;
+        }
+
+        return (int) $count;
+    }
 }

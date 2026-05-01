@@ -2179,6 +2179,11 @@ body.aa-modal-open {
   border-color: rgb(226 232 240 / var(--tw-border-opacity, 1));
 }
 
+.border-slate-300 {
+  --tw-border-opacity: 1;
+  border-color: rgb(203 213 225 / var(--tw-border-opacity, 1));
+}
+
 .border-transparent {
   border-color: transparent;
 }
@@ -2323,6 +2328,11 @@ body.aa-modal-open {
 .bg-slate-100 {
   --tw-bg-opacity: 1;
   background-color: rgb(241 245 249 / var(--tw-bg-opacity, 1));
+}
+
+.bg-slate-200 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(226 232 240 / var(--tw-bg-opacity, 1));
 }
 
 .bg-slate-50\/40 {
@@ -2820,6 +2830,10 @@ body.aa-modal-open {
   opacity: 0.6;
 }
 
+.opacity-95 {
+  opacity: 0.95;
+}
+
 .shadow {
   --tw-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
   --tw-shadow-colored: 0 1px 3px 0 var(--tw-shadow-color), 0 1px 2px -1px var(--tw-shadow-color);
@@ -3269,6 +3283,10 @@ body.aa-modal-open {
 
 .focus\:ring-slate-300\/40:focus {
   --tw-ring-color: rgb(203 213 225 / 0.4);
+}
+
+.focus\:ring-slate-400\/30:focus {
+  --tw-ring-color: rgb(148 163 184 / 0.3);
 }
 
 .focus\:ring-offset-1:focus {
