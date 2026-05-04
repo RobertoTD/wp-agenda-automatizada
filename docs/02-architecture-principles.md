@@ -111,8 +111,10 @@ PLUGIN ROOT
 │   │   ├── proximasCitasController.php
 │   │   └── WebhooksController.php
 │   ├── domain/                           ← capa de reglas puras (paradigma objetivo)
-│   │   └── availability/
-│   │       └── class-aa-area-availability-service.php   ← canónico (Domain Service)
+│   │   ├── availability/
+│   │   │   └── class-aa-area-availability-service.php   ← canónico (Domain Service)
+│   │   └── tenant/
+│   │       └── class-aa-tenant-domain.php               ← identidad canónica del tenant (espejo de utils/tenantDomain.js del backend)
 │   ├── models/
 │   │   ├── AssignmentsModel.php
 │   │   └── ReservationsModel.php

@@ -2,41 +2,53 @@
 if (!defined('ABSPATH')) exit;
 
 /**
- * Obtiene el dominio limpio para identificar al cliente en el backend.
- * Para localhost, incluye el primer nivel del path para diferenciar instalaciones.
- * 
+ * Shim de compatibilidad. La regla canónica vive en
+ * `includes/domain/tenant/class-aa-tenant-domain.php` y debe coincidir
+ * con `utils/tenantDomain.js` del backend.
+ *
+ * Devuelve el identificador canónico del tenant que viaja como
+ * `X-Client-Id` y se busca en `agenda_clients.domain`.
+ *
  * Ejemplos:
- *   http://localhost/wpagenda -> localhost/wpagenda
- *   http://localhost/agendatheme -> localhost/agendatheme
- *   https://www.example.com/ -> example.com
- *   https://sitio.deoia.com -> sitio.deoia.com
- * 
- * @return string Dominio limpio
+ *   http://localhost/deoia-platform/agenda-roby/ -> localhost/deoia-platform/agenda-roby
+ *   http://localhost/wpagenda/                   -> localhost/wpagenda
+ *   https://www.example.com/                     -> example.com
+ *   https://sitio.deoia.com/                     -> sitio.deoia.com
+ *   https://cliente.com/agenda/                  -> cliente.com/agenda
+ *
+ * @return string Dominio canónico
  */
 function aa_get_clean_domain() {
-    $site_url = get_site_url();
-    $parsed = parse_url($site_url);
-    
-    $host = $parsed['host'] ?? 'localhost';
-    
-    // Si tiene puerto no estándar, agregarlo
-    if (!empty($parsed['port']) && $parsed['port'] != 80 && $parsed['port'] != 443) {
-        $host .= ':' . $parsed['port'];
-    }
-    
-    // Eliminar www.
-    $host = preg_replace('/^www\./', '', $host);
-    
-    // 🔹 Si es localhost, incluir el primer nivel del path para diferenciar instalaciones
-    if ($host === 'localhost' || strpos($host, 'localhost:') === 0 || $host === '127.0.0.1') {
-        $path = trim($parsed['path'] ?? '', '/');
-        $first_path = explode('/', $path)[0] ?? '';
-        
-        if (!empty($first_path)) {
-            return $host . '/' . $first_path;
+    if (!class_exists('AA_Tenant_Domain')) {
+        $candidate = dirname(__FILE__) . '/domain/tenant/class-aa-tenant-domain.php';
+        if (is_readable($candidate)) {
+            require_once $candidate;
         }
     }
-    
+
+    if (class_exists('AA_Tenant_Domain')) {
+        return AA_Tenant_Domain::canonical(get_site_url());
+    }
+
+    // Fallback defensivo si el archivo de dominio no estuviera disponible
+    // (no debería ocurrir en runtime normal): replica la regla canónica
+    // mínima sin romper instalaciones existentes.
+    $parsed = parse_url((string) get_site_url());
+    $host = isset($parsed['host']) ? strtolower((string) $parsed['host']) : 'localhost';
+
+    if (!empty($parsed['port']) && (int) $parsed['port'] !== 80 && (int) $parsed['port'] !== 443) {
+        $host .= ':' . (int) $parsed['port'];
+    }
+
+    if (strpos($host, 'www.') === 0) {
+        $host = substr($host, 4);
+    }
+
+    $path = isset($parsed['path']) ? rtrim((string) $parsed['path'], '/') : '';
+    if ($path !== '' && $path !== '/') {
+        return $host . $path;
+    }
+
     return $host;
 }
 
