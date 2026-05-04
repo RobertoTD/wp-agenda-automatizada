@@ -1,6 +1,6 @@
 <?php
 /**
- * Harness standalone de `AA_Booking_Reply_Builder` (AC1–AC19).
+ * Harness standalone de `AA_Booking_Reply_Builder` (AC1–AC19 + AC3b).
  *
  *   php tests/domain/booking/test-booking-reply-builder-ac.php
  *
@@ -97,6 +97,31 @@ $d3    = [
 ];
 $u3 = $builder->build($d3);
 ac('AC3 hint literal', $u3['cta'] === 'collect_input' && $u3['text'] === $hint3, $u3['text']);
+
+// ─── AC3b client no_match + fecha/hora: hint primero, sin pedir “cliente” genérico ─
+$hint3b = 'ese cliente no existe; elige uno o créalo manualmente';
+$d3b    = [
+    'state' => 'needs_input',
+    'draft' => [
+        'client' => ['nombre' => 'Armando Sánchez'],
+    ],
+    'required_literal' => [
+        ['field' => 'client', 'reason' => 'no_match', 'hint' => $hint3b],
+        ['field' => 'date', 'reason' => 'missing'],
+        ['field' => 'time', 'reason' => 'missing'],
+    ],
+    'confirmable_heuristics' => [],
+    'proposals'              => [],
+    'blockers'               => [],
+];
+$u3b = $builder->build($d3b);
+$ok3b = $u3b['cta'] === 'collect_input'
+    && strpos($u3b['text'], 'Seguimos con tu cita.') === 0
+    && strpos($u3b['text'], $hint3b . '.') !== false
+    && stripos($u3b['text'], 'fecha') !== false
+    && stripos($u3b['text'], 'hora') !== false
+    && stripos($u3b['text'], 'compárteme cliente') === false;
+ac('AC3b client no_match + date/time sin lista genérica de cliente', $ok3b, $u3b['text']);
 
 // ─── AC4 ─────────────────────────────────────────────────────────────
 $cands = [

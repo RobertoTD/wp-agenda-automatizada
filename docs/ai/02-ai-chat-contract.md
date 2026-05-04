@@ -277,6 +277,14 @@ La detección combina prompt LLM y un detector puro/conservador en
 rechaza menciones de cita/disponibilidad para no colisionar con
 `create_booking` ni `check_availability`.
 
+Cuando esa misma petición aparece dentro de un flujo activo de
+`create_booking`, no cambia el intent principal ni limpia el draft. El
+service conserva el flujo normal de booking y adjunta a
+`reply_ui.assistive_notice` un bloque secundario con texto y actions
+(`clients_create`) para navegar a Clientes. El frontend renderiza ese
+bloque debajo de la respuesta principal sin reemplazar el CTA normal
+(`collect_input`, `confirm`, `pick_ambiguous`, etc.).
+
 ### Telemetría
 
 Cuando el constant PHP `AA_AI_CHAT_DEBUG` está definido y truthy, el

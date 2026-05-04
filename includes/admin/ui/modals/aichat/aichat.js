@@ -652,6 +652,15 @@
         const text = String(reply_ui.text || fallbackText || '');
         const cta = reply_ui.cta || 'noop';
         const base = { id: uid(), role: 'assistant', text: text, ts: Date.now() };
+        const assistiveNotice = normalizeAssistiveNotice(reply_ui.assistive_notice);
+        if (assistiveNotice) {
+            base.assistiveNotice = assistiveNotice;
+        }
+
+        const footerActions = normalizeReplyActions(reply_ui.footer_actions);
+        if (footerActions.length > 0) {
+            base.footerActions = footerActions;
+        }
 
         switch (cta) {
             case 'confirm':
@@ -751,6 +760,24 @@
             out.push({ label: label, url: url });
             return out;
         }, []);
+    }
+
+    /**
+     * Normalizes an optional secondary notice attached to any reply_ui.
+     * It never changes the primary message kind or CTA.
+     *
+     * @param {unknown} notice
+     * @returns {{text:string,actions:Array<{label:string,url:string}>}|null}
+     */
+    function normalizeAssistiveNotice(notice) {
+        if (!notice || typeof notice !== 'object') return null;
+
+        const text = notice.text == null ? '' : String(notice.text).trim();
+        const actions = normalizeReplyActions(notice.actions);
+
+        if (!text && actions.length === 0) return null;
+
+        return { text: text, actions: actions };
     }
 
     function normalizeIntentChoices(choices) {
@@ -1307,8 +1334,35 @@
         );
     }
 
+    /**
+     * Links compactos bajo el texto principal (p. ej. client no_match en create_booking).
+     * Sin caja ni copy adicional.
+     */
+    function renderFooterActions(actions) {
+        if (!Array.isArray(actions) || actions.length === 0) return '';
+
+        const linkCls =
+            'inline-flex items-center px-2.5 py-1 text-xs font-semibold text-indigo-700 bg-white border border-indigo-200 hover:bg-indigo-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/40';
+
+        return (
+            '<div class="flex flex-wrap gap-2">' +
+                actions.map(function (action) {
+                    return (
+                        '<a href="' + escapeHtml(action.url) + '" class="' + linkCls + '">' +
+                            escapeHtml(action.label) +
+                        '</a>'
+                    );
+                }).join('') +
+            '</div>'
+        );
+    }
+
     function renderAssistantText(msg) {
-        return wrapAssistant(assistantBubble(msg.text));
+        return wrapAssistant(
+            assistantBubble(msg.text) +
+            renderFooterActions(msg.footerActions) +
+            renderAssistiveNotice(msg.assistiveNotice)
+        );
     }
 
     /**
@@ -1348,7 +1402,7 @@
             ? '<div class="flex flex-col gap-2">' + buttonsHtml + '</div>'
             : '';
 
-        return wrapAssistant(assistantBubble(msg.text) + choicesRow);
+        return wrapAssistant(assistantBubble(msg.text) + choicesRow + renderAssistiveNotice(msg.assistiveNotice));
     }
 
     /**
@@ -1429,7 +1483,8 @@
         return wrapAssistant(
             assistantBubble(msg.text) +
             miniCard +
-            btn
+            btn +
+            renderAssistiveNotice(msg.assistiveNotice)
         );
     }
 
@@ -1452,7 +1507,8 @@
 
         return wrapAssistant(
             assistantBubble(msg.text) +
-            chipsRow
+            chipsRow +
+            renderAssistiveNotice(msg.assistiveNotice)
         );
     }
 
@@ -1477,7 +1533,8 @@
 
         return wrapAssistant(
             assistantBubble(msg.text) +
-            miniCard
+            miniCard +
+            renderAssistiveNotice(msg.assistiveNotice)
         );
     }
 
@@ -1511,7 +1568,37 @@
             }).join('') + '</div>'
             : '';
 
-        return wrapAssistant(bubble + actionsHtml);
+        return wrapAssistant(bubble + actionsHtml + renderAssistiveNotice(msg.assistiveNotice));
+    }
+
+    function renderAssistiveNotice(notice) {
+        if (!notice || typeof notice !== 'object') return '';
+
+        const text = notice.text == null ? '' : String(notice.text);
+        const actions = Array.isArray(notice.actions) ? notice.actions : [];
+        if (!text && actions.length === 0) return '';
+
+        const actionLinkCls =
+            'block w-full px-3 py-2 text-center text-sm font-semibold text-indigo-700 bg-white border border-indigo-200 hover:bg-indigo-50 rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/40 shadow-sm';
+        const textHtml = text
+            ? '<div class="text-sm text-slate-700 whitespace-pre-wrap break-words">' + escapeHtml(text) + '</div>'
+            : '';
+        const actionsHtml = actions.length > 0
+            ? '<div class="flex flex-col gap-2">' + actions.map(function (action) {
+                return (
+                    '<a href="' + escapeHtml(action.url) + '" class="' + actionLinkCls + '">' +
+                        escapeHtml(action.label) +
+                    '</a>'
+                );
+            }).join('') + '</div>'
+            : '';
+
+        return (
+            '<div class="px-3 py-2 bg-indigo-50 border border-indigo-100 rounded-2xl rounded-bl-sm space-y-2 shadow-sm">' +
+                textHtml +
+                actionsHtml +
+            '</div>'
+        );
     }
 
     function renderTypingIndicator() {

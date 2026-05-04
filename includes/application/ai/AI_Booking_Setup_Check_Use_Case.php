@@ -11,6 +11,7 @@ defined('ABSPATH') or die('No direct access');
 require_once dirname(__DIR__, 2) . '/repositories/AssignmentsRepository.php';
 require_once dirname(__DIR__, 2) . '/repositories/ClientsRepository.php';
 require_once dirname(__DIR__, 2) . '/domain/booking/class-aa-booking-setup-policy.php';
+require_once __DIR__ . '/AI_Setup_Action_Link_Builder.php';
 
 final class AA_AI_Booking_Setup_Check_Use_Case {
 
@@ -95,64 +96,6 @@ final class AA_AI_Booking_Setup_Check_Use_Case {
      * @return array<int, array<string,string>>
      */
     private function build_actions(array $missing_setup): array {
-        $actions = [];
-        $action_config = [
-            'assignments_staff' => [
-                'label' => 'Ir a profesionales',
-                'focus' => 'staff',
-                'hash'  => '#aa-staff-root',
-            ],
-            'assignments_services' => [
-                'label' => 'Ir a Servicios',
-                'focus' => 'services',
-                'hash'  => '#aa-services-root',
-            ],
-            'assignments_areas' => [
-                'label' => 'Ir a Zonas de atención',
-                'module' => 'assignments',
-                'focus' => 'areas',
-                'hash'  => '#aa-areas-root',
-            ],
-            'assignments_staff_services' => [
-                'label' => 'Asignar servicios al personal',
-                'module' => 'assignments',
-                'focus' => 'staff_services',
-                'hash'  => '#aa-staff-root',
-            ],
-            'clients_create' => [
-                'label' => 'Ir a Clientes',
-                'module' => 'clients',
-                'focus' => 'clients',
-                'hash'  => '#aa-clients-grid',
-            ],
-        ];
-
-        foreach ($missing_setup as $item) {
-            if (!is_array($item)) {
-                continue;
-            }
-
-            $action_key = isset($item['action_key']) ? (string) $item['action_key'] : '';
-            if (isset($action_config[$action_key])) {
-                $config = $action_config[$action_key];
-                $assignments_url = add_query_arg(
-                    [
-                        'action'       => 'aa_iframe_content',
-                        'module'       => $config['module'] ?? 'assignments',
-                        'setup_focus'  => $config['focus'],
-                    ],
-                    admin_url('admin-post.php')
-                );
-                $assignments_url .= $config['hash'];
-
-                $actions[] = [
-                    'key'   => $action_key,
-                    'label' => $config['label'],
-                    'url'   => $assignments_url,
-                ];
-            }
-        }
-
-        return $actions;
+        return (new AA_AI_Setup_Action_Link_Builder())->build_actions($missing_setup);
     }
 }

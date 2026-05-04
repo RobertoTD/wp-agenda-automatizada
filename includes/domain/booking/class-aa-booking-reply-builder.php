@@ -376,12 +376,23 @@ final class AA_Booking_Reply_Builder {
             return $prefix . $this->fallback_for_required($row);
         }
 
+        $client_no_match_hint = $this->extract_client_no_match_hint($simple);
+        $hint_lead            = $this->lead_after_client_no_match($client_no_match_hint);
+
         $fields = [];
         foreach ($simple as $row) {
             $f = isset($row['field']) ? trim((string) $row['field']) : '';
-            if ($f !== '') {
-                $fields[$f] = true;
+            if ($f === '') {
+                continue;
             }
+            if (
+                $client_no_match_hint !== null
+                && $f === 'client'
+                && (($row['reason'] ?? '') === 'no_match')
+            ) {
+                continue;
+            }
+            $fields[$f] = true;
         }
         $ordered = $this->order_collect_fields(array_keys($fields));
         $labels  = [];
@@ -393,7 +404,7 @@ final class AA_Booking_Reply_Builder {
         }
 
         if (count($labels) === 0) {
-            return $prefix . 'Indícame el dato que falta para continuar.';
+            return $prefix . ($hint_lead !== '' ? $hint_lead : '') . 'Indícame el dato que falta para continuar.';
         }
 
         // Varias filas pero todas apuntan al mismo campo (poco habitual):
@@ -411,12 +422,50 @@ final class AA_Booking_Reply_Builder {
             $representative = $representative ?? $simple[0];
             $hint = isset($representative['hint']) ? trim((string) $representative['hint']) : '';
             if ($hint !== '') {
-                return $prefix . $hint;
+                return $prefix . $hint_lead . $hint;
             }
-            return $prefix . $this->fallback_for_required($representative);
+            return $prefix . $hint_lead . $this->fallback_for_required($representative);
         }
 
-        return $prefix . $this->compose_multi_missing_message($ordered, $labels);
+        return $prefix . $hint_lead . $this->compose_multi_missing_message($ordered, $labels);
+    }
+
+    /**
+     * Hint explícito de cliente inexistente (required_literal), si existe.
+     *
+     * @param array<int, array<string,mixed>> $simple
+     */
+    private function extract_client_no_match_hint(array $simple): ?string {
+        foreach ($simple as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            if (($row['field'] ?? '') !== 'client' || ($row['reason'] ?? '') !== 'no_match') {
+                continue;
+            }
+            $hint = isset($row['hint']) ? trim((string) $row['hint']) : '';
+            if ($hint !== '') {
+                return $hint;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Prefijo de copy cuando hay cliente no_match y además otros faltantes:
+     * el hint + separación clara antes del mensaje genérico.
+     */
+    private function lead_after_client_no_match(?string $hint): string {
+        if ($hint === null || $hint === '') {
+            return '';
+        }
+        $lead = $hint;
+        if ($lead !== '' && !preg_match('/[.!?]$/u', $lead)) {
+            $lead .= '.';
+        }
+
+        return $lead . ' ';
     }
 
     /**

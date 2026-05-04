@@ -29,6 +29,7 @@ require_once __DIR__ . '/class-aa-ai-staff-feasibility-evaluator.php';
 require_once __DIR__ . '/class-aa-ai-staff-time-feasibility-evaluator.php';
 require_once __DIR__ . '/class-aa-ai-zone-feasibility-evaluator.php';
 require_once __DIR__ . '/../../availability/class-aa-area-availability-service.php';
+require_once __DIR__ . '/../../../application/ai/AI_Setup_Action_Link_Builder.php';
 require_once __DIR__ . '/../../../domain/booking/class-aa-booking-draft-aggregator.php';
 require_once __DIR__ . '/../../../domain/booking/class-aa-booking-assignment-resolver.php';
 require_once __DIR__ . '/../../../domain/booking/class-aa-booking-reply-builder.php';
@@ -152,6 +153,7 @@ final class AA_AI_Create_Booking_Intent_Handler {
         $reply_builder = new AA_Booking_Reply_Builder();
         $reply_ui      = $reply_builder->build($draft_state);
         $reply_ui      = $this->apply_ask_availability_overlay_to_reply_ui($reply_ui, $parsed);
+        $reply_ui      = $this->attach_footer_actions_when_client_no_match($reply_ui, $draft_state);
 
         return [
             'intent'     => 'create_booking',
@@ -347,6 +349,45 @@ final class AA_AI_Create_Booking_Intent_Handler {
         if ($normal_text !== '') {
             $reply_ui['text'] .= "\n\n" . $normal_text;
         }
+
+        return $reply_ui;
+    }
+
+    /**
+     * Enlace compacto a Clientes cuando el borrador indica cliente inexistente (no_match).
+     * No altera texto, CTA ni draft; solo añade `reply_ui.footer_actions`.
+     *
+     * @param array<string,mixed> $reply_ui
+     * @param array<string,mixed> $draft_state
+     * @return array<string,mixed>
+     */
+    private function attach_footer_actions_when_client_no_match(array $reply_ui, array $draft_state): array {
+        $required = isset($draft_state['required_literal']) && is_array($draft_state['required_literal'])
+            ? $draft_state['required_literal']
+            : [];
+
+        $has_client_no_match = false;
+        foreach ($required as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            if (($row['field'] ?? '') === 'client' && ($row['reason'] ?? '') === 'no_match') {
+                $has_client_no_match = true;
+                break;
+            }
+        }
+
+        if (!$has_client_no_match) {
+            return $reply_ui;
+        }
+
+        $builder = new AA_AI_Setup_Action_Link_Builder();
+        $action  = $builder->build_action_for_key('clients_create');
+        if ($action === null) {
+            return $reply_ui;
+        }
+
+        $reply_ui['footer_actions'] = [$action];
 
         return $reply_ui;
     }

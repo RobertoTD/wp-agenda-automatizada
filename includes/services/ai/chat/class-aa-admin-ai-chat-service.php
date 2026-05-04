@@ -153,6 +153,7 @@ final class AA_Admin_AI_Chat_Service {
         }
 
         $parsed = $this->normalize_parsed($parsed_raw);
+        $attach_create_client_assistive_notice = $this->should_attach_create_client_assistive_notice($previous_parsed, $message);
         $parsed = $this->apply_initial_create_client_intent_gate($parsed, $previous_parsed, $message);
 
         // Paso 3: cancelación server-side dirigida por sub_intent.
@@ -202,6 +203,9 @@ final class AA_Admin_AI_Chat_Service {
         ]);
 
         $intent_result = $this->dispatch_intent($parsed, $message);
+        if ($attach_create_client_assistive_notice) {
+            $this->attach_create_client_assistive_notice($intent_result);
+        }
 
         // Paso 3: confirmación server-side dirigida por sub_intent.
         // Ocurre DESPUÉS de dispatch porque necesitamos el `draft_state`
@@ -590,6 +594,48 @@ final class AA_Admin_AI_Chat_Service {
             'affected_fields' => [],
             'confidence'      => null,
         ]);
+    }
+
+    /**
+     * Detecta una petición explícita de crear cliente mientras hay un
+     * borrador de cita activo. Esto no cambia el intent ni corta el flujo:
+     * solo habilita un aviso auxiliar después del dispatch normal.
+     *
+     * @param array<string,mixed>|null $previous_parsed
+     */
+    private function should_attach_create_client_assistive_notice(?array $previous_parsed, string $message): bool {
+        if ($previous_parsed === null || (($previous_parsed['intent'] ?? '') !== 'create_booking')) {
+            return false;
+        }
+
+        $this->require_initial_intent_detector();
+        return AA_AI_Initial_Intent_Detector::is_clear_create_client_request($message);
+    }
+
+    /**
+     * Añade un bloque secundario al reply normal de create_booking sin tocar
+     * `cta`, `draft_state`, intent principal ni el texto de continuación.
+     *
+     * @param array<string,mixed> $intent_result
+     */
+    private function attach_create_client_assistive_notice(array &$intent_result): void {
+        if (($intent_result['intent'] ?? '') !== 'create_booking') {
+            return;
+        }
+        if (!isset($intent_result['resolution']) || !is_array($intent_result['resolution'])) {
+            return;
+        }
+        if (!isset($intent_result['resolution']['reply_ui']) || !is_array($intent_result['resolution']['reply_ui'])) {
+            return;
+        }
+
+        require_once dirname(__DIR__, 3) . '/application/ai/AI_Setup_Action_Link_Builder.php';
+        $clients_action = (new AA_AI_Setup_Action_Link_Builder())->build_action_for_key('clients_create');
+
+        $intent_result['resolution']['reply_ui']['assistive_notice'] = [
+            'text'    => 'Por ahora no puedo crear clientes desde este asistente, pero puedes crearlo manualmente en la sección de Clientes.',
+            'actions' => $clients_action !== null ? [$clients_action] : [],
+        ];
     }
 
     /**
@@ -1203,10 +1249,12 @@ HINT;
      */
     private function handle_create_client_intent(array $parsed): array {
         $ui_text = 'Por ahora no puedo crear clientes desde este asistente, pero puedes crearlo manualmente en la sección de Clientes.';
+        require_once dirname(__DIR__, 3) . '/application/ai/AI_Setup_Action_Link_Builder.php';
+        $clients_action = (new AA_AI_Setup_Action_Link_Builder())->build_action_for_key('clients_create');
 
         $reply_ui = [
             'text'       => $ui_text,
-            'cta'        => 'noop',
+            'cta'        => 'fix_blocker',
             'highlights' => [],
             'choices'    => [],
             'draft_echo' => [
@@ -1216,6 +1264,7 @@ HINT;
                 'zone'     => null,
                 'datetime' => null,
             ],
+            'actions'    => $clients_action !== null ? [$clients_action] : [],
         ];
 
         return [
