@@ -6,30 +6,29 @@
 
 ## Objetivo
 
-Chat en lenguaje natural entre el dueño del negocio y un LLM (Ollama
-local; backend remoto como alternativa) que ejecute acciones sobre la
-agenda. Escalable a múltiples skills.
+Chat en lenguaje natural entre el dueño del negocio y el gateway AI del
+backend Node, que centraliza proveedor, cuotas y seguridad. Escalable a
+múltiples skills.
 
 ## Estado real
 
-Existe un bounded context AI con esqueleto avanzado: controller, chat
-service, intent handler, 5 resolvers (cliente, datetime, servicio, staff,
-zona), 4 feasibility evaluators, 2 providers tras `interface-aa-llm-client`,
-mapper a dominio, prompts versionados, skill registry y la skill
-`create_appointment`. Falta: wiring del módulo, UI en calendar, ejecución
-end-to-end probada. Detalle en `docs/ai/01-ai-module-overview.md`.
+Existe un bounded context AI con controller, chat service, intent handler,
+5 resolvers (cliente, datetime, servicio, staff, zona), 4 feasibility
+evaluators, un cliente backend tras `interface-aa-llm-client`, mapper a
+dominio, prompts versionados, skill registry y la skill
+`create_appointment`. Detalle en `docs/ai/01-ai-module-overview.md`.
 
 ## Encaje con el paradigma
 
-El **diseño interno** del bounded context (interfaz LLM, providers
-intercambiables, mappers, prompts versionados, skills) ya es coherente
+El **diseño interno** del bounded context (interfaz LLM, gateway backend,
+mappers, prompts versionados, skills) ya es coherente
 con el paradigma hexagonal. El **sitio físico** está en zonas legacy:
 
 - `includes/controllers/ai/` → destino `includes/http/ajax/`
 - `includes/services/ai/` → destino reparto por rol:
   - Resolvers / feasibility evaluators → `includes/domain/booking/`
   - Intent handler / chat service / skills / mapper → `includes/application/ai/`
-  - Providers LLM y prompts → `includes/infrastructure/ai/`
+  - Gateway AI backend y prompts → `includes/infrastructure/ai/`
 
 **Migración por contagio**: cada archivo se mueve cuando se toque por
 una razón funcional. No hay reorganización en bloque.
@@ -38,7 +37,7 @@ una razón funcional. No hay reorganización en bloque.
 
 Dentro:
 - Una intent: `create_booking`.
-- Wiring del endpoint y conexión real con Ollama.
+- Wiring del endpoint y conexión real con Node `/ai/parse`.
 - UI mínima del chat dentro del módulo `calendar`.
 - Confirmación explícita antes de ejecutar.
 - Delegación final en `CreateReservationUseCase::execute()`.

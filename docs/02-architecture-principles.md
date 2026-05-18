@@ -125,7 +125,7 @@ PLUGIN ROOT
 │       ├── ai/
 │       │   ├── ai-module.php
 │       │   ├── contracts/
-│       │   ├── providers/ollama/
+│       │   ├── providers/backend/
 │       │   ├── chat/
 │       │   ├── prompts/
 │       │   ├── mappers/

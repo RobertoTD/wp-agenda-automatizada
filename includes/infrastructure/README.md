@@ -1,13 +1,13 @@
 # `includes/infrastructure/` — Integración con el mundo exterior
 
-Todo lo que toca **WordPress, BD vía repositorios, APIs externas, LLMs,
+Todo lo que toca **WordPress, BD vía repositorios, APIs externas,
 notificaciones, schema, enqueue, cron, webhooks**. Lo que hace que el
 plugin funcione *dentro de* su entorno.
 
 ## Qué entra aquí
 
 - `wp/` — adaptadores WP: `Schema.php` (DDL/migraciones), `Enqueue.php`, `Hooks.php`, `ClockService.php` (zona horaria del negocio).
-- `ai/providers/` — implementaciones concretas de proveedores LLM (Ollama, OpenAI, etc.).
+- `ai/` — resolución del gateway AI. El plugin solo llama al backend Node; no guarda API keys de proveedores LLM.
 - `notifications/` — envío de WhatsApp, email, push.
 - `node_backend/` — cliente HTTP hacia el backend Node.
 - `webhooks/` — receptores de eventos externos.
@@ -26,8 +26,9 @@ plugin funcione *dentro de* su entorno.
 2. Los servicios de dominio que necesiten datos del entorno (ej. zona horaria,
    currency, feature flags) los reciben **inyectados** desde infrastructure,
    no los leen directamente.
-3. Cambiar el proveedor LLM, el sistema de notificaciones o el motor de
-   persistencia debería tocar **solo** archivos de esta carpeta.
+3. Cambiar el proveedor LLM ocurre en el backend Node, no en WordPress. Cambiar
+   el sistema de notificaciones o el motor de persistencia debería tocar
+   **solo** archivos de esta carpeta.
 
 ## Organización sugerida
 
@@ -38,8 +39,7 @@ infrastructure/
 │   ├── Enqueue.php
 │   └── ClockService.php
 ├── ai/
-│   └── providers/
-│       └── ollama/
+│   └── class-aa-ai-llm-client-factory.php
 └── notifications/
     └── whatsapp/
 ```

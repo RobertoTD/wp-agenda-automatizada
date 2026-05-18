@@ -7,7 +7,7 @@ Este documento define la frontera inicial del bounded context de AI dentro del p
 La intención es preparar una base escalable para:
 
 - chat en lenguaje natural dentro del admin
-- integración con proveedores LLM locales o remotos
+- integración con el gateway AI del backend Node
 - traducción de salida AI a comandos compatibles con el dominio de citas
 - incorporación gradual de skills futuras
 
@@ -53,12 +53,12 @@ No debe:
 Responsabilidad:
 
 - contener la lógica del bounded context AI
-- separar proveedor, prompts, validación y adaptación al dominio
+- separar gateway backend, prompts, validación y adaptación al dominio
 
 Sub-áreas iniciales:
 
 - `contracts/`: contratos estables entre capas
-- `providers/ollama/`: integración con Ollama
+- `providers/backend/`: integración HMAC con Node `POST /ai/parse`
 - `chat/`: caso de uso del chat admin
 - `prompts/`: prompts de sistema
 - `mappers/`: adaptación de salida AI al dominio de citas
@@ -74,29 +74,21 @@ Sub-áreas iniciales:
 
 ## Estado actual
 
-En esta fase solo existe el esqueleto arquitectónico:
+El chat admin usa el backend Node como único camino de inferencia:
 
-- archivos ancla
-- contratos base
-- clases stub
-- documentación mínima
-
-Todavía no existe:
-
-- wiring en `wp-agenda-automatizada.php`
-- endpoint activo
-- conexión real con Ollama
-- UI del chat renderizada dentro de calendar
-- registry operativo de skills
+- endpoint AJAX `aa_admin_ai_chat`
+- `AA_Backend_LLM_Client` hacia `POST /ai/parse`
+- prompt y lógica conversacional en `AA_Admin_AI_Chat_Service`
+- registry de skills reservado para fases futuras
 
 ## Fases previstas
 
 ### Fase 1
 
-- `AA_Ollama_Client`
+- `AA_Backend_LLM_Client`
 - endpoint `aa_admin_ai_chat`
-- conexión endpoint -> Ollama
-- mostrar JSON en chat básico dentro de calendar
+- conexión endpoint -> Node `/ai/parse`
+- mostrar respuesta estructurada en chat dentro de calendar
 
 ### Fase 2
 

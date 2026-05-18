@@ -10,7 +10,7 @@
 
 ```
 http (AJAX)  →  application (Use Cases)  →  domain (reglas puras)  →  repositories (SQL)
-                                                                  ↘  infrastructure (WP, providers)
+                                                                 ↘  infrastructure (WP, backend adapters)
 ui (JS)      →  http (vía AJAX)
 ```
 
@@ -18,7 +18,7 @@ ui (JS)      →  http (vía AJAX)
 - `repositories/` solo contiene SQL. Cero `if` de negocio.
 - `application/` orquesta. No define reglas nuevas.
 - `http/` parsea, autentica, delega y serializa. Nada más.
-- `infrastructure/` integra con WP, schema, Node backend, providers (LLM, notifs).
+- `infrastructure/` integra con WP, schema, Node backend y notificaciones. El LLM se consume solo vía backend.
 - `ui/` (JS) pinta y consume endpoints. No decide nada vinculante.
 
 ## Invariantes (no negociables)
@@ -38,7 +38,7 @@ ui (JS)      →  http (vía AJAX)
 | Una regla pura del negocio                    | `includes/domain/{contexto}/`           |
 | Un flujo que orquesta varias reglas           | `includes/application/{contexto}/{Verbo}UseCase.php` |
 | El handler de un request HTTP/AJAX            | `includes/http/ajax/`                   |
-| Llamada a WP, Node backend, LLM, notifs       | `includes/infrastructure/{adaptador}/`  |
+| Llamada a WP, Node backend o notifs           | `includes/infrastructure/{adaptador}/`  |
 | Pintar DOM, calendarios, modales              | `assets/js/ui/`                         |
 | Cliente HTTP que consume endpoint y cachea    | `assets/js/services/`                   |
 

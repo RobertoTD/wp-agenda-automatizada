@@ -2,12 +2,14 @@
 /**
  * Backend Gateway LLM Client
  *
- * Adaptador HTTP que delega el chat LLM al backend Node (gateway AI).
- * El backend guarda la API key del proveedor cloud y decide qué modelo usar.
+ * Único adaptador LLM del plugin: delega el chat al backend Node
+ * (gateway AI). El backend guarda la API key del proveedor y decide
+ * qué modelo usar.
  *
- * Este cliente NO habla con Ollama directamente: habla con `POST /ai/parse`
- * del backend, firmado con el mismo HMAC que el resto de integraciones
- * plugin ↔ backend (reutiliza `aa_send_authenticated_request`).
+ * Este cliente no habla con proveedores LLM directamente: habla con
+ * `POST /ai/parse` del backend, firmado con el mismo HMAC que el resto
+ * de integraciones plugin ↔ backend (reutiliza
+ * `aa_send_authenticated_request`).
  *
  * No debe conocer: SQL, lógica de citas, render del chat admin, prompts.
  */
@@ -29,8 +31,7 @@ final class AA_Backend_LLM_Client implements AA_LLM_Client_Interface {
     /**
      * Reenvía el payload de chat al backend gateway.
      *
-     * Contrato de respuesta alineado con AA_Ollama_Client para que
-     * AA_Admin_AI_Chat_Service sea indiferente al proveedor:
+     * Contrato de respuesta esperado por AA_Admin_AI_Chat_Service:
      *   éxito: ['ok' => true,  'data' => [ 'message' => [ 'content' => '…' ] ]]
      *   error: ['ok' => false, 'error' => '…', 'code' => '…', 'http_status' => int, 'raw' => … ]
      *

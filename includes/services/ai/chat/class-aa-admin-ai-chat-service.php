@@ -1160,8 +1160,8 @@ final class AA_Admin_AI_Chat_Service {
      *   refinamiento, (b) emitir `null` en los campos NO mencionados
      *   por el usuario, y (c) preservar el intent salvo cambio claro.
      *
-     * Mismo hint para todos los proveedores (local / backend / cloud);
-     * la optimización por modelo se deja fuera de alcance.
+     * Mismo hint para el gateway backend; la optimización por modelo se
+     * deja fuera de alcance.
      *
      * @param array<string,mixed> $previous_parsed
      * @return string
@@ -1888,10 +1888,9 @@ PROMPT;
     /**
      * Extrae el bloque JSON utilizable del contenido devuelto por el modelo.
      *
-     * Compatibilidad local/cloud:
-     * - Modelos locales con format=json suelen devolver JSON puro.
-     * - Modelos cloud pueden envolver el JSON en fences markdown
-     *   tipo ```json ... ``` o ``` ... ```.
+     * Compatibilidad con respuestas del modelo:
+     * - El gateway pide format=json, pero algunos modelos pueden envolver
+     *   el JSON en fences markdown tipo ```json ... ``` o ``` ... ```.
      * - Algunos modelos agregan texto antes o después del JSON.
      *
      * No interpreta campos tipo "thinking": si el JSON final no los

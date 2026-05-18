@@ -131,7 +131,7 @@ final class AA_Admin_AI_Chat_Controller {
     }
 
     /**
-     * Carga contratos, providers y factory (Ollama se mantiene para dev no gestionado).
+     * Carga contratos, gateway backend y factory.
      */
     private static function load_llm_dependencies(): void {
         static $loaded = false;
@@ -143,7 +143,6 @@ final class AA_Admin_AI_Chat_Controller {
         $infrastructure_ai = dirname(__DIR__, 2) . '/infrastructure/ai';
 
         require_once $services_ai . '/contracts/interface-aa-llm-client.php';
-        require_once $services_ai . '/providers/ollama/class-aa-ollama-client.php';
         require_once $services_ai . '/providers/backend/class-aa-backend-llm-client.php';
         require_once $infrastructure_ai . '/class-aa-ai-llm-client-factory.php';
         require_once $services_ai . '/chat/class-aa-admin-ai-chat-service.php';

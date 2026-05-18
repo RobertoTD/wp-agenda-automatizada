@@ -30,12 +30,6 @@ if (!function_exists('wp_json_encode')) {
     }
 }
 
-if (!function_exists('untrailingslashit')) {
-    function untrailingslashit($string) {
-        return rtrim((string) $string, '/');
-    }
-}
-
 if (!function_exists('aa_send_authenticated_request')) {
 function aa_send_authenticated_request($endpoint, $method = 'POST', $data = []) {
     return [];
@@ -45,7 +39,6 @@ function aa_send_authenticated_request($endpoint, $method = 'POST', $data = []) 
 $root = dirname(__DIR__, 3);
 
 require_once $root . '/includes/services/ai/contracts/interface-aa-llm-client.php';
-require_once $root . '/includes/services/ai/providers/ollama/class-aa-ollama-client.php';
 require_once $root . '/includes/services/ai/providers/backend/class-aa-backend-llm-client.php';
 require_once $root . '/includes/infrastructure/ai/class-aa-ai-llm-client-factory.php';
 require_once $root . '/includes/services/ai/chat/class-aa-admin-ai-chat-service.php';
@@ -66,7 +59,7 @@ function reset_options(): void {
     $GLOBALS['aa_test_options'] = [];
 }
 
-// --- Factory: managed + secret → backend ---
+// --- Factory: secret → backend ---
 reset_options();
 $GLOBALS['aa_test_options'] = [
     'aa_client_secret'   => 'test-secret',
@@ -74,7 +67,7 @@ $GLOBALS['aa_test_options'] = [
 ];
 $res = AA_AI_LLM_Client_Factory::resolve();
 ac(
-    'managed tenant with secret resolves backend',
+    'tenant with secret resolves backend',
     !empty($res['ok'])
         && ($res['effective_mode'] ?? '') === 'backend'
         && $res['client'] instanceof AA_Backend_LLM_Client
@@ -97,15 +90,16 @@ ac(
     json_encode($res)
 );
 
-// --- Factory: non-managed default → local ---
+// --- Factory: no secret → backend config error, no fallback ---
 reset_options();
 $res = AA_AI_LLM_Client_Factory::resolve();
 ac(
-    'non-managed default resolves local',
-    !empty($res['ok'])
-        && ($res['effective_mode'] ?? '') === 'local'
-        && $res['client'] instanceof AA_Ollama_Client,
-    json_encode($res['meta'] ?? [])
+    'tenant without secret fails with ai_backend_not_configured',
+    empty($res['ok'])
+        && ($res['code'] ?? '') === 'ai_backend_not_configured'
+        && ($res['meta']['fallback'] ?? true) === false
+        && ($res['meta']['effective_mode'] ?? '') === 'backend',
+    json_encode($res)
 );
 
 // --- Factory: explicit backend without secret via try_build (no constant pollution) ---

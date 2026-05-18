@@ -2,9 +2,10 @@
 
 ## Propósito
 
-Este documento describe el contrato inicial esperado para el flujo `admin chat -> chat service -> provider`.
+Este documento describe el contrato esperado para el flujo `admin chat -> chat service -> backend AI gateway`.
 
-Es un contrato de trabajo para la siguiente fase. No implica que el endpoint ni el cliente Ollama ya estén activos.
+El plugin no llama proveedores LLM directamente. Toda inferencia sale por
+el backend Node mediante `POST /ai/parse`.
 
 ## Flujo objetivo
 
@@ -12,15 +13,13 @@ Es un contrato de trabajo para la siguiente fase. No implica que el endpoint ni 
 2. El endpoint `aa_admin_ai_chat` valida permisos, nonce y payload.
 3. El validator normaliza el request.
 4. El chat service construye contexto y prompt.
-5. El proveedor LLM ejecuta la inferencia.
+5. El backend Node ejecuta la inferencia vía su proveedor configurado.
 6. La respuesta vuelve a la UI para mostrarse inicialmente como JSON.
 
-## Gateway LLM (producción / tenant gestionado)
+## Gateway LLM
 
-En agendas vinculadas al backend SaaS (`aa_backend_status === 'ready'` **o**
-`aa_client_secret` presente), **toda** inferencia pasa por Node
-`POST /ai/parse` (`AA_Backend_LLM_Client`). No hay fallback silencioso a
-Ollama local/cloud desde WordPress.
+Todas las agendas usan Node `POST /ai/parse` (`AA_Backend_LLM_Client`).
+No hay fallback a proveedores LLM desde WordPress.
 
 Resolución: `AA_AI_LLM_Client_Factory` (log `AA_AI_LLM_RESOLVE`).
 
@@ -29,9 +28,9 @@ Errores con `code` preservado hacia el AJAX (no colapsados a
 `no_installation_id`, `ai_not_configured`, `quota_service_unavailable`,
 `quota_denied`, `ai_backend_not_configured`.
 
-Sitios de desarrollo sin credenciales backend pueden seguir en modo
-`local` vía `AA_AI_PROVIDER_MODE` (sin tenant gestionado). Modo
-`backend` explícito sin credenciales devuelve error, sin caer a local.
+El desarrollo local también debe usar backend Node local. Si falta
+`AA_API_BASE_URL`, `aa_send_authenticated_request` o `aa_client_secret`,
+el chat devuelve `ai_backend_not_configured`.
 
 ## Request lógico esperado
 
@@ -47,15 +46,16 @@ Sitios de desarrollo sin credenciales backend pueden seguir en modo
 
 ## Respuesta inicial esperada
 
-Durante la primera integración, la respuesta puede mantenerse casi cruda para inspección:
+Respuesta interna esperada desde el gateway backend:
 
 ```json
 {
-  "provider": "ollama",
-  "model": "qwen2.5:3b",
-  "raw": {},
-  "text": "",
-  "parsed": null
+  "ok": true,
+  "data": {
+    "message": {
+      "content": "{\"intent\":\"create_booking\"}"
+    }
+  }
 }
 ```
 
