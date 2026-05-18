@@ -27,6 +27,19 @@ final class AA_Admin_AI_Chat_Service {
     private const AI_UNAVAILABLE_USER_MESSAGE = 'No pude conectarme con el asistente en este momento. Intenta de nuevo más tarde.';
 
     /**
+     * Códigos de error del gateway Node que deben conservarse (no colapsar a ai_unavailable).
+     */
+    private const PRESERVED_PROVIDER_ERROR_CODES = [
+        'quota_exceeded',
+        'backend_disabled',
+        'no_installation_id',
+        'ai_not_configured',
+        'quota_service_unavailable',
+        'quota_denied',
+        'ai_backend_not_configured',
+    ];
+
+    /**
      * Campos canónicos que forman el shape normalizado del `parsed`.
      * Incluye los 8 campos legacy del parser + los 3 campos nuevos
      * introducidos en la Fase 1 de la reorganización conversacional
@@ -113,12 +126,30 @@ final class AA_Admin_AI_Chat_Service {
         ]);
 
         if (empty($result['ok'])) {
+            $provider_code = isset($result['code']) ? (string) $result['code'] : '';
+            if ($provider_code !== '' && $this->is_preserved_provider_error_code($provider_code)) {
+                return $this->build_preserved_provider_error_response(
+                    $provider_code,
+                    isset($result['error']) ? (string) $result['error'] : '',
+                    [
+                        'message'          => $message,
+                        'previous_parsed'  => $previous_parsed,
+                        'reason'           => 'provider_error',
+                        'provider_code'    => $provider_code,
+                        'provider_error'   => $result['error'] ?? null,
+                        'provider_raw'     => $result['raw'] ?? null,
+                        'provider_http_status' => $result['http_status'] ?? null,
+                    ]
+                );
+            }
+
             return $this->build_ai_unavailable_response([
                 'message'         => $message,
                 'previous_parsed' => $previous_parsed,
                 'reason'          => 'provider_error',
                 'provider_ok'     => false,
                 'provider_error'  => $result['error'] ?? null,
+                'provider_code'   => $provider_code !== '' ? $provider_code : null,
                 'provider_raw'    => $result['raw'] ?? null,
             ]);
         }
@@ -1679,6 +1710,79 @@ PROMPT;
      */
     private function require_initial_intent_detector(): void {
         require_once dirname(__DIR__, 3) . '/domain/ai/class-aa-ai-initial-intent-detector.php';
+    }
+
+    /**
+     * @param string $code
+     * @return bool
+     */
+    private function is_preserved_provider_error_code($code) {
+        return in_array((string) $code, self::PRESERVED_PROVIDER_ERROR_CODES, true);
+    }
+
+    /**
+     * Error del gateway con code explícito (cuotas, plan, configuración).
+     *
+     * @param string              $code
+     * @param string              $provider_error Mensaje del backend si existe.
+     * @param array<string,mixed> $context
+     * @return array<string,mixed>
+     */
+    private function build_preserved_provider_error_response($code, $provider_error, array $context) {
+        $user_message = $this->user_message_for_provider_code($code, $provider_error);
+
+        $this->log_turn_debug(array_merge(
+            [
+                'error_code'    => $code,
+                'short_circuit' => 'provider_error_preserved',
+            ],
+            $context
+        ));
+
+        return [
+            'ok'         => false,
+            'reply_text' => null,
+            'parsed'     => null,
+            'error'      => $user_message,
+            'code'       => $code,
+            'debug'      => array_merge(
+                [
+                    'error_code' => $code,
+                ],
+                $context
+            ),
+        ];
+    }
+
+    /**
+     * @param string $code
+     * @param string $provider_error
+     * @return string
+     */
+    private function user_message_for_provider_code($code, $provider_error) {
+        $trimmed = trim($provider_error);
+        if ($trimmed !== '') {
+            return $trimmed;
+        }
+
+        switch ($code) {
+            case 'quota_exceeded':
+                return 'Has alcanzado el límite de consultas de IA para este período.';
+            case 'backend_disabled':
+                return 'Tu plan actual no incluye consultas de IA en el servidor.';
+            case 'no_installation_id':
+                return 'La agenda no está vinculada a una instalación. Contacta a soporte.';
+            case 'ai_not_configured':
+                return 'El servicio de IA no está configurado en el servidor. Intenta más tarde.';
+            case 'quota_service_unavailable':
+                return 'El servicio de cuotas no está disponible. Intenta más tarde.';
+            case 'quota_denied':
+                return 'No es posible procesar la consulta de IA en este momento.';
+            case 'ai_backend_not_configured':
+                return 'El asistente de IA no está configurado en esta agenda. Contacta a soporte.';
+            default:
+                return $trimmed !== '' ? $trimmed : self::AI_UNAVAILABLE_USER_MESSAGE;
+        }
     }
 
     /**

@@ -39,7 +39,18 @@ final class AA_Admin_AI_Chat_Controller {
 
         $previous_parsed = self::read_previous_parsed_from_post();
 
-        $service = self::build_service();
+        $resolution = self::resolve_llm_client();
+        if (empty($resolution['ok'])) {
+            $error_data = [
+                'message' => $resolution['error'] ?? 'El asistente de IA no está disponible.',
+            ];
+            if (!empty($resolution['code'])) {
+                $error_data['code'] = $resolution['code'];
+            }
+            wp_send_json_error($error_data);
+        }
+
+        $service = self::build_service($resolution['client']);
         $result  = $service->handle($message, $previous_parsed);
 
         if (!empty($result['ok'])) {
@@ -95,116 +106,48 @@ final class AA_Admin_AI_Chat_Controller {
     }
 
     /**
-     * Construye la cadena service → client con require_once local.
-     *
-     * Configuración inyectable vía constantes PHP (overrides técnicos):
-     * - AA_AI_PROVIDER_MODE     'local' | 'backend' | 'cloud'   (default: 'local')
-     *
-     * Modo 'local' (Ollama directo en la máquina):
-     * - AA_AI_LOCAL_BASE_URL   (default: 'http://127.0.0.1:11434')
-     * - AA_AI_LOCAL_MODEL      (default: 'qwen2.5:3b')
-     * - AA_AI_LOCAL_TIMEOUT    (default: 120)
-     *
-     * Modo 'backend' (gateway Node con HMAC ya existente del plugin):
-     * - AA_AI_BACKEND_PATH     (default: '/ai/parse'; se concatena con AA_API_BASE_URL)
-     * - Reutiliza `aa_send_authenticated_request` + `aa_client_secret`.
-     *
-     * Modo 'cloud' (llamada directa a Ollama Cloud desde WP; no recomendado
-     * en producción porque la API key quedaría en WordPress):
-     * - AA_AI_CLOUD_API_KEY  (requerida)
-     * - AA_AI_CLOUD_BASE_URL (default: 'https://ollama.com')
-     * - AA_AI_CLOUD_MODEL    (default: 'ministral-3:8b')
-     * - AA_AI_CLOUD_TIMEOUT  (default: 60)
-     *
-     * Si el modo configurado no tiene credenciales válidas, se cae al
-     * cliente local para no romper el flujo en desarrollo.
-     *
+     * @return array{
+     *     ok: bool,
+     *     client?: AA_LLM_Client_Interface,
+     *     code?: string,
+     *     error?: string,
+     *     meta?: array<string,mixed>
+     * }
+     */
+    private static function resolve_llm_client(): array {
+        self::load_llm_dependencies();
+
+        return AA_AI_LLM_Client_Factory::resolve();
+    }
+
+    /**
+     * @param AA_LLM_Client_Interface $client
      * @return AA_Admin_AI_Chat_Service
      */
-    private static function build_service() {
-        $services_ai = dirname(__DIR__, 2) . '/services/ai';
-
-        require_once $services_ai . '/contracts/interface-aa-llm-client.php';
-        require_once $services_ai . '/providers/ollama/class-aa-ollama-client.php';
-        require_once $services_ai . '/providers/backend/class-aa-backend-llm-client.php';
-        require_once $services_ai . '/chat/class-aa-admin-ai-chat-service.php';
-
-        $client = self::build_llm_client();
+    private static function build_service(AA_LLM_Client_Interface $client) {
+        self::load_llm_dependencies();
 
         return new AA_Admin_AI_Chat_Service($client);
     }
 
     /**
-     * Elige el proveedor LLM según configuración.
-     *
-     * Mantiene la composición concreta aquí (no en ai-module.php)
-     * mientras el módulo AI no tenga un factory dedicado.
-     *
-     * @return AA_LLM_Client_Interface
+     * Carga contratos, providers y factory (Ollama se mantiene para dev no gestionado).
      */
-    private static function build_llm_client() {
-        $mode = defined('AA_AI_PROVIDER_MODE') ? (string) AA_AI_PROVIDER_MODE : 'local';
-
-        if ($mode === 'backend') {
-            $backend_client = self::try_build_backend_client();
-            if ($backend_client !== null) {
-                return $backend_client;
-            }
+    private static function load_llm_dependencies(): void {
+        static $loaded = false;
+        if ($loaded) {
+            return;
         }
 
-        if ($mode === 'cloud') {
-            $cloud_client = self::try_build_cloud_client();
-            if ($cloud_client !== null) {
-                return $cloud_client;
-            }
-        }
+        $services_ai       = dirname(__DIR__, 2) . '/services/ai';
+        $infrastructure_ai = dirname(__DIR__, 2) . '/infrastructure/ai';
 
-        return self::build_local_client();
-    }
+        require_once $services_ai . '/contracts/interface-aa-llm-client.php';
+        require_once $services_ai . '/providers/ollama/class-aa-ollama-client.php';
+        require_once $services_ai . '/providers/backend/class-aa-backend-llm-client.php';
+        require_once $infrastructure_ai . '/class-aa-ai-llm-client-factory.php';
+        require_once $services_ai . '/chat/class-aa-admin-ai-chat-service.php';
 
-    /**
-     * @return AA_Backend_LLM_Client|null null si falta configuración mínima.
-     */
-    private static function try_build_backend_client() {
-        if (!defined('AA_API_BASE_URL') || !function_exists('aa_send_authenticated_request')) {
-            return null;
-        }
-
-        $client_secret = get_option('aa_client_secret');
-        if (empty($client_secret)) {
-            return null;
-        }
-
-        $path     = defined('AA_AI_BACKEND_PATH') ? (string) AA_AI_BACKEND_PATH : '/ai/parse';
-        $endpoint = rtrim((string) AA_API_BASE_URL, '/') . '/' . ltrim($path, '/');
-
-        return new AA_Backend_LLM_Client($endpoint);
-    }
-
-    /**
-     * @return AA_Ollama_Client|null null si falta API key.
-     */
-    private static function try_build_cloud_client() {
-        $api_key = defined('AA_AI_CLOUD_API_KEY') ? (string) AA_AI_CLOUD_API_KEY : '';
-        if ($api_key === '') {
-            return null;
-        }
-
-        $base_url = defined('AA_AI_CLOUD_BASE_URL') ? (string) AA_AI_CLOUD_BASE_URL : 'https://ollama.com';
-        $model    = defined('AA_AI_CLOUD_MODEL')    ? (string) AA_AI_CLOUD_MODEL    : 'ministral-3:8b';
-        $timeout  = defined('AA_AI_CLOUD_TIMEOUT')  ? (int)    AA_AI_CLOUD_TIMEOUT  : 60;
-
-        return new AA_Ollama_Client($base_url, $model, $timeout, $api_key);
-    }
-
-    /**
-     * @return AA_Ollama_Client
-     */
-    private static function build_local_client() {
-        $base_url = defined('AA_AI_LOCAL_BASE_URL') ? (string) AA_AI_LOCAL_BASE_URL : 'http://127.0.0.1:11434';
-        $model    = defined('AA_AI_LOCAL_MODEL')    ? (string) AA_AI_LOCAL_MODEL    : 'qwen2.5:3b';
-        $timeout  = defined('AA_AI_LOCAL_TIMEOUT')  ? (int)    AA_AI_LOCAL_TIMEOUT  : 120;
-
-        return new AA_Ollama_Client($base_url, $model, $timeout, null);
+        $loaded = true;
     }
 }

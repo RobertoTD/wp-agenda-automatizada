@@ -15,6 +15,24 @@ Es un contrato de trabajo para la siguiente fase. No implica que el endpoint ni 
 5. El proveedor LLM ejecuta la inferencia.
 6. La respuesta vuelve a la UI para mostrarse inicialmente como JSON.
 
+## Gateway LLM (producción / tenant gestionado)
+
+En agendas vinculadas al backend SaaS (`aa_backend_status === 'ready'` **o**
+`aa_client_secret` presente), **toda** inferencia pasa por Node
+`POST /ai/parse` (`AA_Backend_LLM_Client`). No hay fallback silencioso a
+Ollama local/cloud desde WordPress.
+
+Resolución: `AA_AI_LLM_Client_Factory` (log `AA_AI_LLM_RESOLVE`).
+
+Errores con `code` preservado hacia el AJAX (no colapsados a
+`ai_unavailable`): `quota_exceeded`, `backend_disabled`,
+`no_installation_id`, `ai_not_configured`, `quota_service_unavailable`,
+`quota_denied`, `ai_backend_not_configured`.
+
+Sitios de desarrollo sin credenciales backend pueden seguir en modo
+`local` vía `AA_AI_PROVIDER_MODE` (sin tenant gestionado). Modo
+`backend` explícito sin credenciales devuelve error, sin caer a local.
+
 ## Request lógico esperado
 
 ```json

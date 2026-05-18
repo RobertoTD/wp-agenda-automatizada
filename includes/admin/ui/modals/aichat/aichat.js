@@ -52,6 +52,41 @@
         'fix_blocker'
     ];
 
+    /**
+     * Mensaje de usuario para errores AJAX del chat (conserva codes del gateway).
+     *
+     * @param {{ message?: string, code?: string }|null|undefined} data
+     * @returns {{ text: string, code: string|null }}
+     */
+    function mapChatAjaxErrorToUi(data) {
+        const code = data && data.code ? String(data.code) : null;
+        const serverMsg = (data && data.message) ? String(data.message) : '';
+
+        if (code === 'quota_exceeded') {
+            return {
+                text: serverMsg || 'Has alcanzado el límite de consultas de IA para este período.',
+                code: code
+            };
+        }
+        if (code === 'backend_disabled') {
+            return {
+                text: serverMsg || 'Tu plan actual no incluye consultas de IA en el servidor.',
+                code: code
+            };
+        }
+        if (code === 'ai_backend_not_configured') {
+            return {
+                text: serverMsg || 'El asistente de IA no está configurado en esta agenda. Contacta a soporte.',
+                code: code
+            };
+        }
+
+        return {
+            text: serverMsg || 'No pude procesar la solicitud.',
+            code: code
+        };
+    }
+
     // ============================================================
     // State (in-memory, per page load; subset persisted)
     // ============================================================
@@ -595,13 +630,16 @@
                         document.dispatchEvent(new CustomEvent('aa-assignment-created'));
                     }
                 } else {
-                    const serverMsg = (res.data && res.data.message) || 'Error desconocido';
+                    const errUi = mapChatAjaxErrorToUi(res.data || null);
                     pushMessage({
                         id: uid(),
                         role: 'assistant',
                         kind: 'fix_blocker',
-                        text: 'No pude procesar la solicitud.',
-                        payload: { blocker: serverMsg },
+                        text: errUi.text,
+                        payload: {
+                            blocker: errUi.text,
+                            error_code: errUi.code || undefined
+                        },
                         ts: Date.now()
                     });
                 }
