@@ -1,0 +1,91 @@
+/**
+ * Provisional UX-3B; migrable después a admin.source.css / Tailwind.
+ * Toast/snackbar de beneficios — admin iframe only.
+ */
+
+.aa-benefit-toast-root {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 9997;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  max-width: min(360px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.aa-benefit-toast {
+  pointer-events: auto;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 12px 36px 12px 14px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #1f2937;
+  position: relative;
+}
+
+.aa-benefit-toast-warning {
+  border-left: 4px solid #f59e0b;
+}
+
+.aa-benefit-toast-error {
+  border-left: 4px solid #dc2626;
+}
+
+.aa-benefit-toast-success {
+  border-left: 4px solid #16a34a;
+}
+
+.aa-benefit-toast-info {
+  border-left: 4px solid #3b82f6;
+}
+
+.aa-benefit-toast-title {
+  font-weight: 600;
+  font-size: 14px;
+  margin: 0 0 4px;
+}
+
+.aa-benefit-toast-message {
+  margin: 0;
+  font-size: 13px;
+}
+
+.aa-benefit-toast-details {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  color: #4b5563;
+}
+
+.aa-benefit-toast-fallback {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.aa-benefit-toast-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+.aa-benefit-toast-close:hover {
+  color: #374151;
+}

@@ -9,7 +9,7 @@ Principio del sistema:
 1. Node produce hechos.
 2. PHP/WordPress propaga hechos.
 3. **JS (este módulo) traduce hechos a notificaciones.**
-4. Un renderer toast/snackbar (UX-3B+) mostrará esas notificaciones.
+4. **Renderer toast** (`AAAdmin.toast`, UX-3B) muestra esas notificaciones en el admin iframe.
 
 ## Módulo
 
@@ -91,7 +91,107 @@ Los notices sintetizados son **internos al mapper**; no se escriben de vuelta al
 - **No** renderiza UI.
 - **No** reemplaza `alert()` ni `confirm()`.
 - **No** está integrado en controladores todavía (UX-4).
-- **No** está enqueued en admin hasta integración (UX-4 cargará el script).
+
+## UX-3B — Renderer toast (admin iframe)
+
+### Propósito
+
+Mostrar **notification models** ya construidos por el mapper como toasts/snackbars no bloqueantes dentro del shell del admin iframe.
+
+### Ubicación (shell admin, no `assets/js/ui/`)
+
+| Archivo | Rol |
+|---------|-----|
+| `includes/admin/ui/assets/js/benefit-notification-toast.js` | Renderer DOM |
+| `includes/admin/ui/assets/css/benefit-notification-toast.css` | Estilos provisionales prefijados `aa-benefit-toast-*` |
+| `includes/admin/ui/shared/layout.php` | Enqueue de CSS + JS |
+
+El mapper sigue en `assets/js/services/benefitNotificationMapper.js` (portable, sin DOM).
+
+### API
+
+```js
+window.AAAdmin.toast = {
+  show(notification, options),
+  showMany(notifications, options),
+  clear()
+};
+
+window.BenefitNotificationToast = window.AAAdmin.toast;
+```
+
+- `show(notification, options?)` — un toast; `options.autoDismiss === false` desactiva autocierre.
+- `showMany(notifications, options?)` — varios toasts; máximo **3 visibles** (el más antiguo se elimina al mostrar el 4.º).
+- `clear()` — elimina todos los toasts y timers.
+
+**No** se modifica `AAAdmin.notify` (stub `console.log` en `main.js`).
+
+### Relación mapper → toast
+
+```js
+var notifications = BenefitNotificationMapper.mapBenefitResponseToNotifications({
+  response: ajaxPayload,
+  context: 'confirm_admin'
+});
+BenefitNotificationToast.showMany(notifications);
+```
+
+El renderer **no** llama al mapper internamente.
+
+### Carga en `layout.php`
+
+1. `<head>`: `benefit-notification-toast.css` después de `admin.css`.
+2. Scripts shared admin: `main.js` → `sidebar.js` → `notifications.js` → `benefit-notification-toast.js`.
+3. Antes de Controllers: `assets/js/services/benefitNotificationMapper.js`.
+
+### CSS provisional
+
+Archivo standalone con comentario de migración futura a `admin.source.css` / Tailwind. `z-index: 9997` (debajo de modal `9999` y popover `9998`). Sin `@apply` ni dependencia de Tailwind en UX-3B.
+
+### Prueba manual (consola del iframe admin)
+
+Tras cargar la página:
+
+```js
+typeof AAAdmin.toast
+typeof BenefitNotificationToast
+typeof BenefitNotificationMapper
+
+AAAdmin.toast.show({
+  severity: "warning",
+  title: "Cita confirmada",
+  message: "No se creó el evento en Google Calendar.",
+  details: ["Límite de sincronizaciones alcanzado."],
+  fallback: "Puedes revisar Calendar manualmente.",
+  durationMs: 5000,
+  blocking: false,
+  actions: [],
+  notices: []
+});
+
+AAAdmin.toast.showMany([/* ... */]);
+AAAdmin.toast.clear();
+
+document.querySelectorAll('#aa-benefit-toast-root').length  // → 1
+```
+
+Cadena mapper → toast:
+
+```js
+BenefitNotificationToast.showMany(
+  BenefitNotificationMapper.mapBenefitResponseToNotifications({
+    response: { success: false, data: { code: "email_quota_exceeded", benefit_notices: [] } },
+    context: "send_confirmation_request"
+  })
+);
+```
+
+### Alcance UX-3B (explícito)
+
+- **No** reemplaza `alert()` ni `confirm()`.
+- **No** integra controladores (UX-4).
+- **No** conoce `benefit_notices` ni hace AJAX.
+- **No** rediseño visual final (sin `DESIGN_BRIEF`).
 
 ## Tests
 

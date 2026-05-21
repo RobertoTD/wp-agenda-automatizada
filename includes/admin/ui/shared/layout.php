@@ -94,6 +94,9 @@ header('Content-Type: text/html; charset=utf-8');
     
     <!-- Tailwind CSS (usando constante global para URL limpia) -->
     <link rel="stylesheet" href="<?php echo aa_asset_url('includes/admin/ui/assets/css/admin.css'); ?>">
+
+    <!-- Benefit notification toasts (UX-3B, provisional — migrable a admin.source.css) -->
+    <link rel="stylesheet" href="<?php echo aa_asset_url('includes/admin/ui/assets/css/benefit-notification-toast.css'); ?>">
     
     <!-- Flatpickr CSS (requerido por calendario y modales) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
@@ -176,6 +179,9 @@ header('Content-Type: text/html; charset=utf-8');
 <!-- Notifications -->
 <script src="<?php echo aa_asset_url('includes/admin/ui/assets/js/notifications.js'); ?>" defer></script>
 
+<!-- Benefit notification toast renderer (UX-3B, requiere AAAdmin de main.js) -->
+<script src="<?php echo aa_asset_url('includes/admin/ui/assets/js/benefit-notification-toast.js'); ?>" defer></script>
+
 <!-- Flatpickr JS -->
 <script src="https://cdn.jsdelivr.net/npm/flatpickr" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js" defer></script>
@@ -209,6 +215,9 @@ header('Content-Type: text/html; charset=utf-8');
 <script src="<?php echo aa_asset_url('assets/js/services/adminCalendarService.js'); ?>" defer></script>
 <script src="<?php echo aa_asset_url('assets/js/services/confirmService.js'); ?>" defer></script>
 <script src="<?php echo aa_asset_url('assets/js/services/localAvailabilityService.js'); ?>" defer></script>
+
+<!-- Benefit notification mapper (UX-3A, puro — disponible para UX-4 y consola) -->
+<script src="<?php echo aa_asset_url('assets/js/services/benefitNotificationMapper.js'); ?>" defer></script>
 
 <!-- Controllers -->
 <script src="<?php echo aa_asset_url('assets/js/controllers/availabilityController.js'); ?>" defer></script>
