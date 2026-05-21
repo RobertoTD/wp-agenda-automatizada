@@ -339,32 +339,47 @@ function confirm_backend_service_confirmar($reserva_id) {
         return [
             'success' => true,
             'message' => 'Cita confirmada en WordPress, pero no se pudo notificar al backend: ' . $response->get_error_message(),
-            'calendar_sync' => false
+            'local_confirmed' => true,
+            'calendar_sync' => false,
         ];
     }
-    
+
     // 8️⃣ Procesar respuesta
     $status = wp_remote_retrieve_response_code($response);
     $body = wp_remote_retrieve_body($response);
     $decoded = json_decode($body, true);
-    
+    if (!is_array($decoded)) {
+        $decoded = null;
+    }
+
     error_log("📥 [ConfirmService] Respuesta del backend (HTTP $status):");
     error_log("   " . print_r($decoded, true));
-    
-    if ($status >= 200 && $status < 300 && isset($decoded['success']) && $decoded['success']) {
-        // ✅ Backend confirmó exitosamente
-        
-        $calendar_uid = $decoded['data']['event_id'] ?? null;
-        $calendar_skipped = $decoded['data']['calendarSkipped'] ?? false;
-        $existed = $decoded['data']['existed'] ?? false;
-        
-        // 9️⃣ Actualizar calendar_uid en WordPress (solo si hay evento)
+
+    if ($status >= 200 && $status < 300 && is_array($decoded) && !empty($decoded['success'])) {
+        $backend_response = $decoded;
+
+        $data_node = isset($decoded['data']) && is_array($decoded['data']) ? $decoded['data'] : [];
+
+        $calendar_uid = isset($data_node['event_id']) ? $data_node['event_id'] : null;
+        $event_link = isset($data_node['event_link']) ? $data_node['event_link'] : null;
+        $calendar_skipped = !empty($data_node['calendarSkipped']);
+        $calendar_quota_code = isset($data_node['calendarQuotaCode']) && $data_node['calendarQuotaCode'] !== ''
+            ? (string) $data_node['calendarQuotaCode']
+            : null;
+        $existed = !empty($data_node['existed']);
+
+        $email = isset($decoded['email']) && is_array($decoded['email']) ? $decoded['email'] : null;
+
+        $benefit_notices = null;
+        if (isset($decoded['benefit_notices']) && is_array($decoded['benefit_notices']) && count($decoded['benefit_notices']) > 0) {
+            $benefit_notices = $decoded['benefit_notices'];
+        }
+
         if ($calendar_uid) {
             $wpdb->update($table, ['calendar_uid' => $calendar_uid], ['id' => $reserva_id]);
             error_log("✅ [ConfirmService] calendar_uid actualizado: $calendar_uid");
         }
-        
-        // Determinar mensaje según estado de Calendar
+
         if ($calendar_skipped) {
             $message = 'Cita confirmada. Se notificó al cliente por correo (Calendar omitido).';
         } elseif ($existed) {
@@ -372,30 +387,104 @@ function confirm_backend_service_confirmar($reserva_id) {
         } else {
             $message = 'Cita confirmada y agregada a Google Calendar.';
         }
-        
-        return [
+
+        $legacy_data = [
+            'event_id' => $calendar_uid,
+            'event_link' => $event_link,
+            'existed' => $existed,
+            'calendar_sync' => !$calendar_skipped,
+            'calendarSkipped' => $calendar_skipped,
+        ];
+
+        if ($calendar_quota_code !== null) {
+            $legacy_data['calendarQuotaCode'] = $calendar_quota_code;
+        }
+
+        $result = [
             'success' => true,
             'message' => $message,
-            'data' => [
-                'event_id' => $calendar_uid,
-                'event_link' => $decoded['data']['event_link'] ?? null,
-                'existed' => $existed,
-                'calendar_sync' => !$calendar_skipped
-            ]
+            'local_confirmed' => true,
+            'calendar_uid' => $calendar_uid,
+            'calendar_skipped' => $calendar_skipped,
+            'data' => $legacy_data,
+            'backend_response' => $backend_response,
         ];
-        
-    } else {
-        // ❌ Backend respondió con error
-        $error_message = $decoded['message'] ?? 'Error desconocido del backend.';
-        
-        error_log("⚠️ [ConfirmService] Backend respondió con error: $error_message");
-        
-        return [
-            'success' => true,
-            'message' => "Cita confirmada en WordPress, pero no se pudo notificar al backend: $error_message",
-            'calendar_sync' => false
-        ];
+
+        if ($calendar_quota_code !== null) {
+            $result['calendar_quota_code'] = $calendar_quota_code;
+        }
+
+        if ($email !== null) {
+            $result['email'] = $email;
+        }
+
+        if ($benefit_notices !== null) {
+            $result['benefit_notices'] = $benefit_notices;
+        }
+
+        return $result;
     }
+
+    $error_message = is_array($decoded) && isset($decoded['message'])
+        ? $decoded['message']
+        : 'Error desconocido del backend.';
+
+    error_log("⚠️ [ConfirmService] Backend respondió con error: $error_message");
+
+    return [
+        'success' => true,
+        'message' => "Cita confirmada en WordPress, pero no se pudo notificar al backend: $error_message",
+        'local_confirmed' => true,
+        'calendar_sync' => false,
+    ];
+}
+
+/**
+ * Payload JSON para wp_send_json_success tras confirmación admin (crear-reserva-directa).
+ *
+ * @param array $result Retorno de confirm_backend_service_confirmar().
+ * @return array<string, mixed>
+ */
+function aa_build_confirm_cita_ajax_success_payload($result) {
+    $payload = [
+        'success' => true,
+        'message' => isset($result['message']) ? $result['message'] : 'Cita confirmada correctamente.',
+        'local_confirmed' => true,
+    ];
+
+    if (array_key_exists('calendar_uid', $result)) {
+        $payload['calendar_uid'] = $result['calendar_uid'];
+    }
+
+    if (array_key_exists('calendar_skipped', $result)) {
+        $payload['calendar_skipped'] = (bool) $result['calendar_skipped'];
+    }
+
+    if (!empty($result['calendar_quota_code'])) {
+        $payload['calendar_quota_code'] = $result['calendar_quota_code'];
+    }
+
+    if (!empty($result['email']) && is_array($result['email'])) {
+        $payload['email'] = $result['email'];
+    }
+
+    if (!empty($result['benefit_notices']) && is_array($result['benefit_notices'])) {
+        $payload['benefit_notices'] = $result['benefit_notices'];
+    }
+
+    if (!empty($result['backend_response']) && is_array($result['backend_response'])) {
+        $payload['backend_response'] = $result['backend_response'];
+    }
+
+    if (isset($result['data']) && is_array($result['data'])) {
+        $payload['data'] = $result['data'];
+    }
+
+    if (array_key_exists('calendar_sync', $result)) {
+        $payload['calendar_sync'] = (bool) $result['calendar_sync'];
+    }
+
+    return $payload;
 }
 
 /**

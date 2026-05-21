@@ -53,7 +53,7 @@ function aa_ajax_confirmar_cita() {
     
     // ✅ Retornar respuesta
     if (isset($result['success']) && $result['success']) {
-        wp_send_json_success($result);
+        wp_send_json_success(aa_build_confirm_cita_ajax_success_payload($result));
     } else {
         wp_send_json_error($result);
     }
