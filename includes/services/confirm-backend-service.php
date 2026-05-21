@@ -488,6 +488,90 @@ function aa_build_confirm_cita_ajax_success_payload($result) {
 }
 
 /**
+ * Fusiona campos de la respuesta Node en el retorno del servicio (sin inventar benefit_notices).
+ *
+ * @param array<string, mixed> $base
+ * @param array<string, mixed>|null $decoded
+ * @return array<string, mixed>
+ */
+function aa_enviar_correo_apply_decoded_fields(array $base, $decoded) {
+    if (!is_array($decoded)) {
+        return $base;
+    }
+
+    $base['backend_response'] = $decoded;
+
+    if (isset($decoded['code']) && $decoded['code'] !== '') {
+        $base['code'] = (string) $decoded['code'];
+    }
+
+    if (isset($decoded['error']) && $decoded['error'] !== '') {
+        $base['error'] = is_string($decoded['error']) ? $decoded['error'] : (string) $decoded['error'];
+    }
+
+    if (array_key_exists('skipped', $decoded)) {
+        $base['skipped'] = (bool) $decoded['skipped'];
+    }
+
+    if (isset($decoded['reason']) && $decoded['reason'] !== '') {
+        $base['reason'] = (string) $decoded['reason'];
+    }
+
+    if (isset($decoded['sent']) && is_array($decoded['sent'])) {
+        $base['sent'] = $decoded['sent'];
+    }
+
+    if (isset($decoded['benefit_notices']) && is_array($decoded['benefit_notices']) && count($decoded['benefit_notices']) > 0) {
+        $base['benefit_notices'] = $decoded['benefit_notices'];
+    }
+
+    return $base;
+}
+
+/**
+ * Payload JSON para wp_send_json_success / wp_send_json_error tras aa_enviar_confirmacion.
+ *
+ * @param array<string, mixed> $result Retorno de confirm_backend_service_enviar_correo().
+ * @return array<string, mixed>
+ */
+function aa_build_enviar_confirmacion_ajax_payload($result) {
+    $payload = [
+        'success' => !empty($result['success']),
+        'message' => isset($result['message']) ? $result['message'] : '',
+    ];
+
+    if (isset($result['code']) && $result['code'] !== '') {
+        $payload['code'] = (string) $result['code'];
+    }
+
+    if (isset($result['error']) && $result['error'] !== '') {
+        $payload['error'] = is_string($result['error']) ? $result['error'] : (string) $result['error'];
+    }
+
+    if (array_key_exists('skipped', $result)) {
+        $payload['skipped'] = (bool) $result['skipped'];
+    }
+
+    if (isset($result['reason']) && $result['reason'] !== '') {
+        $payload['reason'] = (string) $result['reason'];
+    }
+
+    if (isset($result['sent']) && is_array($result['sent'])) {
+        $payload['sent'] = $result['sent'];
+    }
+
+    if (!empty($result['benefit_notices']) && is_array($result['benefit_notices'])) {
+        $payload['benefit_notices'] = $result['benefit_notices'];
+    }
+
+    if (!empty($result['backend_response']) && is_array($result['backend_response'])) {
+        $payload['backend_response'] = $result['backend_response'];
+    }
+
+    return $payload;
+}
+
+/**
  * Enviar correo de confirmación al backend
  * 
  * @param array $datos Datos de la reserva desde AJAX
@@ -501,7 +585,8 @@ function confirm_backend_service_enviar_correo($datos) {
         return [
             'success' => true,
             'message' => 'Correo no disponible, envío de email omitido.',
-            'skipped' => true
+            'skipped' => true,
+            'reason' => 'email_not_provided',
         ];
     }
 
@@ -598,18 +683,21 @@ function confirm_backend_service_enviar_correo($datos) {
     $status = wp_remote_retrieve_response_code($response);
     $body = wp_remote_retrieve_body($response);
     $decoded = json_decode($body, true);
+    if (!is_array($decoded)) {
+        $decoded = null;
+    }
 
-    if ($status >= 200 && $status < 300 && isset($decoded['success']) && $decoded['success']) {
-        return [
+    if ($status >= 200 && $status < 300 && is_array($decoded) && !empty($decoded['success'])) {
+        $result = [
             'success' => true,
             'message' => 'Correos enviados correctamente',
-            'backend_response' => $decoded
         ];
-    } else {
-        return [
-            'success' => false,
-            'message' => 'El backend respondió con error',
-            'backend_response' => $decoded
-        ];
+        return aa_enviar_correo_apply_decoded_fields($result, $decoded);
     }
+
+    $result = [
+        'success' => false,
+        'message' => 'El backend respondió con error',
+    ];
+    return aa_enviar_correo_apply_decoded_fields($result, $decoded);
 }

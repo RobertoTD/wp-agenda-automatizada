@@ -112,11 +112,12 @@ function aa_ajax_enviar_confirmacion() {
     // ✅ Delegar al servicio
     $result = confirm_backend_service_enviar_correo($datos);
     
-    // ✅ Retornar respuesta
-    if ($result['success']) {
-        wp_send_json_success($result);
+    // ✅ Retornar respuesta (propaga benefit_notices y metadata Node — UX-2C)
+    $ajax_payload = aa_build_enviar_confirmacion_ajax_payload($result);
+    if (!empty($result['success'])) {
+        wp_send_json_success($ajax_payload);
     } else {
-        wp_send_json_error($result);
+        wp_send_json_error($ajax_payload);
     }
 }
 
