@@ -1434,9 +1434,21 @@
                     } else {
                         if (datos.correo) {
                             console.log('[FastAppointment] Enviando correo de confirmacion pending para reserva ID:', datos.id_reserva);
-                            window.ReservationService.sendConfirmation(datos).catch(function(emailError) {
-                                console.warn('[FastAppointment] Error al enviar correo (no critico):', emailError);
-                            });
+                            window.ReservationService.sendConfirmation(datos)
+                                .then(function(wpResponse) {
+                                    if (
+                                        window.AdminConfirmController &&
+                                        typeof window.AdminConfirmController.showSendConfirmationResultNotification === 'function'
+                                    ) {
+                                        window.AdminConfirmController.showSendConfirmationResultNotification(wpResponse);
+                                    } else {
+                                        console.log('[FastAppointment] Resultado del envío de solicitud:', wpResponse);
+                                    }
+                                })
+                                .catch(function(emailError) {
+                                    console.warn('[FastAppointment] Error al enviar correo (no critico):', emailError);
+                                    alert('❌ Error de conexión al enviar la solicitud: ' + (emailError.message || emailError));
+                                });
                         }
                     }
 

@@ -296,7 +296,7 @@ Errores (`success: false`, `.catch`, servicio no cargado) siguen con `alert` leg
 
 El servicio `ReservationService` es compartido con frontend público, por eso **no** contiene lógica de toast. UX-4C.1 solo conecta el caller admin clásico con `AdminConfirmController.showSendConfirmationResultNotification(wpResponse)`.
 
-**Fuera de alcance:** cita rápida (`adminFastappointmentFlowController.js`, UX-4D), frontend público (`reservationController.js`), PHP, Node, mapper y renderer.
+**Fuera de alcance:** cita rápida (UX-4D.1), frontend público (`reservationController.js`), PHP, Node, mapper y renderer.
 
 ### Comportamiento
 
@@ -331,7 +331,39 @@ El servicio `ReservationService` es compartido con frontend público, por eso **
 
 **C — Skipped:** `email_not_provided` / `duplicate_reminder` / `no_billable_recipients` → toast de mapper; no dice “Correo enviado”.
 
-**D — Regresión:** confirmación admin UX-4B y cancelación UX-4A siguen usando sus toasts; cita rápida y frontend público no cambian.
+**D — Regresión:** confirmación admin UX-4B y cancelación UX-4A siguen usando sus toasts; frontend público no cambia.
+
+## UX-4D.1 — Cita rápida pending + solicitud de confirmación
+
+### Flujo
+
+`adminFastappointmentFlowController.js` crea la reserva con `ReservationService.saveReservation` (pending). Si el checkbox “Confirmar cita al agendar” **no** está marcado y el cliente tiene correo, en background llama `ReservationService.sendConfirmation(datos)` → `aa_enviar_confirmacion`.
+
+El resultado se muestra con `AdminConfirmController.showSendConfirmationResultNotification(wpResponse)` (misma función que UX-4C.1).
+
+`ReservationService` no se modifica: es compartido con frontend público.
+
+### Alcance
+
+| Cubre | No cubre (otro ciclo) |
+|-------|------------------------|
+| Fast pending + `datos.correo` + toast tras `sendConfirmation` | `autoConfirm` + `ConfirmService.confirmar` → **UX-4D.2** |
+| Cuota blocked / happy / skipped con respuesta backend | Sin correo → **UX-4E** |
+| | Modal reserva legacy (ya UX-4C.1) |
+
+### Comportamiento
+
+- Background (sin `await`): no bloquea cierre del modal ni recarga del calendario.
+- `wpResponse.success === false` con `benefit_notices` → toast (p. ej. cuota), no solo `console.warn`.
+- `.catch` de red → `console.warn` + alert corto de conexión (igual que UX-4C.1).
+
+### Pruebas manuales
+
+**A — Happy:** cita rápida sin “Confirmar al agendar”, cliente con email, quota OK → toast “Solicitud enviada” + detail cliente; Network: `aa_enviar_confirmacion`, `success: true`, `sent.client` truthy.
+
+**B — Cuota:** zorro8 past_due, mismo flujo → toast “Solicitud no enviada” + cuota/billing; Network: `success: false`, `code: email_quota_exceeded`, notice `blocked`.
+
+**C — Regresión:** legacy UX-4C.1, confirmar UX-4B, cancelar UX-4A; fast con autoConfirm o sin correo sin cambios en este ciclo.
 
 ## Tests
 
