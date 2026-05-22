@@ -1419,7 +1419,14 @@
                             window.ConfirmService.confirmar(datos.id_reserva)
                                 .then(function(confirmResp) {
                                     if (confirmResp.success) {
-                                        console.log('[FastAppointment] Cita confirmada en background');
+                                        if (
+                                            window.AdminConfirmController &&
+                                            typeof window.AdminConfirmController.showConfirmResultNotification === 'function'
+                                        ) {
+                                            window.AdminConfirmController.showConfirmResultNotification(confirmResp);
+                                        } else {
+                                            console.log('[FastAppointment] Cita confirmada en background');
+                                        }
                                         if (window.AdminCalendarController && typeof window.AdminCalendarController.recargar === 'function') {
                                             window.AdminCalendarController.recargar();
                                         }

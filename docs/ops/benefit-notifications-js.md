@@ -209,7 +209,7 @@ BenefitNotificationToast.showMany(
 
 - **No** reemplaza `confirm()` destructivo.
 - UX-3B.1 solo afecta el renderer toast (click-to-extend); no cambia el modelo de notificación UX-3A.
-- Integración en controladores: UX-4A.1 (cancelación), UX-4B.1 (confirmación admin).
+- Integración en controladores: UX-4A.1 (cancelación), UX-4B.1 (confirmación admin), UX-4C.1/4D.1/4D.2 (solicitud/confirmación desde modales).
 - **No** conoce `benefit_notices` ni hace AJAX.
 - **No** rediseño visual final (sin `DESIGN_BRIEF`).
 
@@ -347,7 +347,7 @@ El resultado se muestra con `AdminConfirmController.showSendConfirmationResultNo
 
 | Cubre | No cubre (otro ciclo) |
 |-------|------------------------|
-| Fast pending + `datos.correo` + toast tras `sendConfirmation` | `autoConfirm` + `ConfirmService.confirmar` → **UX-4D.2** |
+| Fast pending + `datos.correo` + toast tras `sendConfirmation` | `autoConfirm` + `confirmar` → **UX-4D.2** (implementado) |
 | Cuota blocked / happy / skipped con respuesta backend | Sin correo → **UX-4E** |
 | | Modal reserva legacy (ya UX-4C.1) |
 
@@ -363,7 +363,32 @@ El resultado se muestra con `AdminConfirmController.showSendConfirmationResultNo
 
 **B — Cuota:** zorro8 past_due, mismo flujo → toast “Solicitud no enviada” + cuota/billing; Network: `success: false`, `code: email_quota_exceeded`, notice `blocked`.
 
-**C — Regresión:** legacy UX-4C.1, confirmar UX-4B, cancelar UX-4A; fast con autoConfirm o sin correo sin cambios en este ciclo.
+**C — Regresión:** legacy UX-4C.1, confirmar UX-4B, cancelar UX-4A; fast pending sigue UX-4D.1.
+
+## UX-4D.2 — Cita rápida con “Confirmar al agendar”
+
+### Flujo
+
+`adminFastappointmentFlowController.js` crea la reserva y, si el checkbox “Confirmar al agendar” está marcado (`autoConfirm`), llama en background `ConfirmService.confirmar(datos.id_reserva)` → `aa_confirmar_cita`.
+
+Cuando `confirmResp.success === true`, muestra el resultado con `AdminConfirmController.showConfirmResultNotification(confirmResp)` — la misma función que UX-4B.1 en el botón confirmar del calendario (exportada en el `return` público de `AdminConfirmController`).
+
+### Alcance
+
+| Cubre | No cubre |
+|-------|----------|
+| Fast `autoConfirm` + `confirmResp.success === true` + toast | `confirmResp.success === false` (solo `console.warn` por ahora) |
+| Happy path y cuota vía mapper `confirm_admin` | `.catch` de red (solo `console.error` por ahora) |
+| Recarga de calendario tras toast (como antes) | Pending + `sendConfirmation` (UX-4D.1) |
+| | Sin correo (UX-4E) |
+
+### Pruebas manuales
+
+**A — Happy:** cita rápida con checkbox marcado, email, quota OK → toast “Cita confirmada” + details Calendar/correo si la respuesta los trae; calendario recarga.
+
+**B — Cuota:** zorro8 past_due, mismo flujo → toast warning con Calendar/email omitidos + billing; `confirmResp.success` sigue siendo `true` con `benefit_notices`.
+
+**C — Regresión:** fast pending (UX-4D.1), legacy UX-4C.1, confirmar calendario UX-4B.1, cancelar UX-4A.1.
 
 ## Tests
 

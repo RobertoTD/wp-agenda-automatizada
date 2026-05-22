@@ -565,6 +565,7 @@ window.AdminConfirmController = (function() {
         onConfirmar,
         onCancelar,
         onCrearCliente,
-        showSendConfirmationResultNotification
+        showSendConfirmationResultNotification,
+        showConfirmResultNotification
     };
 })();
