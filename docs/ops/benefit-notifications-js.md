@@ -90,7 +90,7 @@ Los notices sintetizados son **internos al mapper**; no se escriben de vuelta al
 
 - **No** renderiza UI.
 - **No** reemplaza `alert()` ni `confirm()`.
-- **No** está integrado en controladores todavía (UX-4).
+- Integrado en cancelación admin (UX-4A.1); otros flujos en UX-4B+.
 
 ## UX-3B — Renderer toast (admin iframe)
 
@@ -188,10 +188,45 @@ BenefitNotificationToast.showMany(
 
 ### Alcance UX-3B (explícito)
 
-- **No** reemplaza `alert()` ni `confirm()`.
-- **No** integra controladores (UX-4).
+- **No** reemplaza `confirm()` destructivo.
+- Integración en controladores: UX-4A.1 (cancelación) y siguientes microciclos.
 - **No** conoce `benefit_notices` ni hace AJAX.
 - **No** rediseño visual final (sin `DESIGN_BRIEF`).
+
+## UX-4A.1 — Cancelación admin
+
+### Flujo
+
+`AdminCalendarController.handleCitaAction('cancelar')` → `confirm('¿Cancelar esta cita?')` (**intacto**) → `AdminConfirmController.onCancelar` → `ConfirmService.cancelar` → `aa_cancelar_cita`.
+
+Tras `data.success === true`, el `alert()` de éxito posterior se reemplaza por `showCancelResultNotification(data)` en `assets/js/controllers/adminConfirmController.js` (mapper + `AAAdmin.toast`).
+
+Errores (`success: false`, `.catch`, servicio no cargado) siguen con `alert` legacy.
+
+### Escenarios
+
+| Caso | Señales en `data` | Toast |
+|------|-------------------|-------|
+| 1. Solo cancelación local | `calendar_deleted: false`, sin `calendar_delete_skipped` / `benefit_notices` | success — “Cita cancelada.” sin mencionar Calendar |
+| 2. Calendar eliminado | `calendar_deleted: true` | success + detail “Evento de Google Calendar eliminado.” (integrador) |
+| 3. Calendar omitido (cuota) | `calendar_delete_skipped`, `benefit_notices` | warning vía mapper `cancel_admin` + billing si aplica |
+| 4. Fallo técnico backend | Mismo shape que (1) en JS hoy | success sin Calendar — **UX-4A.2** (metadata PHP) |
+
+### Post-proceso en el integrador (no en el mapper)
+
+- Detail positivo Calendar solo si `calendar_deleted === true` y severidad no es `warning`/`error`.
+- Si hay `details` y título “Cita cancelada”, `message` breve: “Cita cancelada.”
+- Fallback a `alert` si faltan `BenefitNotificationMapper` o `AAAdmin.toast`.
+
+### Pruebas manuales
+
+**A — Cuota:** zorro8 past_due + syncs agotados, cita con `calendar_uid` → `confirm` sí, `alert` éxito no, toast warning; Network: `calendar_delete_skipped`, `benefit_notices`.
+
+**B — Calendar eliminado:** cuenta active / cuota OK → toast success + detail Calendar eliminado.
+
+**C — Sin Calendar:** sin `calendar_uid` o sin OAuth aplicable → toast success sin mencionar Calendar.
+
+**D — Regresión:** `success: false` y errores de red → `alert`; `confirm` destructivo sin cambios.
 
 ## Tests
 

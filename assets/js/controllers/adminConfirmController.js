@@ -51,6 +51,80 @@ window.AdminConfirmController = (function() {
             });
     }
     
+    var CALENDAR_DELETED_DETAIL = 'Evento de Google Calendar eliminado.';
+
+    /**
+     * Toast (o alert legacy) tras cancelación exitosa. Recibe respuesta AJAX completa.
+     * @param {{ success?: boolean, data?: Record<string, unknown> }} wpResponse
+     */
+    function showCancelResultNotification(wpResponse) {
+        var payload = wpResponse && wpResponse.data ? wpResponse.data : {};
+
+        function legacySuccessAlert() {
+            var mensaje = '✅ Cita cancelada correctamente.';
+            if (payload.calendar_deleted) {
+                mensaje += '\n🗓️ El evento también fue eliminado de Google Calendar.';
+            }
+            alert(mensaje);
+        }
+
+        var mapper = window.BenefitNotificationMapper;
+        var toastApi = window.AAAdmin && window.AAAdmin.toast;
+        if (
+            !mapper ||
+            typeof mapper.mapBenefitResponseToNotifications !== 'function' ||
+            !toastApi ||
+            typeof toastApi.showMany !== 'function'
+        ) {
+            legacySuccessAlert();
+            return;
+        }
+
+        var notifications = mapper.mapBenefitResponseToNotifications({
+            response: wpResponse,
+            context: 'cancel_admin',
+            baseOutcome: {
+                status: 'success',
+                message: 'Cita cancelada.'
+            }
+        });
+
+        if (!notifications || notifications.length === 0) {
+            notifications = [{
+                severity: 'success',
+                title: 'Cita cancelada',
+                message: 'Cita cancelada.',
+                details: [],
+                fallback: null,
+                durationMs: 3500,
+                blocking: false,
+                actions: [],
+                notices: []
+            }];
+        }
+
+        var first = notifications[0];
+        if (!first.details || !Array.isArray(first.details)) {
+            first.details = [];
+        }
+
+        var severity = typeof first.severity === 'string' ? first.severity.toLowerCase() : '';
+        var mayAddCalendarDeleted =
+            payload.calendar_deleted === true &&
+            severity !== 'warning' &&
+            severity !== 'error';
+
+        if (mayAddCalendarDeleted && first.details.indexOf(CALENDAR_DELETED_DETAIL) === -1) {
+            first.details.push(CALENDAR_DELETED_DETAIL);
+        }
+
+        if (first.title === 'Cita cancelada' && first.details.length > 0) {
+            first.message = 'Cita cancelada.';
+        }
+
+        toastApi.showMany(notifications);
+    }
+
     /**
      * Cancelar una cita
      * @param {number} id - ID de la cita
@@ -65,13 +139,7 @@ window.AdminConfirmController = (function() {
         window.ConfirmService.cancelar(id)
             .then(data => {
                 if (data.success) {
-                    let mensaje = '✅ Cita cancelada correctamente.';
-                    
-                    if (data.data?.calendar_deleted) {
-                        mensaje += '\n🗓️ El evento también fue eliminado de Google Calendar.';
-                    }
-                    
-                    alert(mensaje);
+                    showCancelResultNotification(data);
                     document.dispatchEvent(new CustomEvent('aa-cita-action-completed'));
                     if (recargarCallback) {
                         recargarCallback();
