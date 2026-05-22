@@ -348,7 +348,7 @@ El resultado se muestra con `AdminConfirmController.showSendConfirmationResultNo
 | Cubre | No cubre (otro ciclo) |
 |-------|------------------------|
 | Fast pending + `datos.correo` + toast tras `sendConfirmation` | `autoConfirm` + `confirmar` → **UX-4D.2** (implementado) |
-| Cuota blocked / happy / skipped con respuesta backend | Sin correo → **UX-4E** |
+| Cuota blocked / happy / skipped con respuesta backend | Sin correo → **UX-4E** (implementado) |
 | | Modal reserva legacy (ya UX-4C.1) |
 
 ### Comportamiento
@@ -389,6 +389,54 @@ Cuando `confirmResp.success === true`, muestra el resultado con `AdminConfirmCon
 **B — Cuota:** zorro8 past_due, mismo flujo → toast warning con Calendar/email omitidos + billing; `confirmResp.success` sigue siendo `true` con `benefit_notices`.
 
 **C — Regresión:** fast pending (UX-4D.1), legacy UX-4C.1, confirmar calendario UX-4B.1, cancelar UX-4A.1.
+
+## UX-4E — Cita pendiente sin correo (notificación local)
+
+### Flujo
+
+Tras crear una cita **pending** desde admin, si `datos.correo` está vacío/falsy **no** se llama `ReservationService.sendConfirmation` → no hay `aa_enviar_confirmacion`, no hay `benefit_notices` reales.
+
+`AdminConfirmController.showPendingCreatedWithoutEmailNotification()` construye el modelo de notificación y llama `AAAdmin.toast.showMany` **sin** `BenefitNotificationMapper` ni pseudo-response.
+
+| Caller | Condición |
+|--------|-----------|
+| `adminReservationController.js` | `!autoConfirm && !datos.correo` |
+| `adminFastappointmentFlowController.js` | `!autoConfirm && !datos.correo` |
+
+### Copy
+
+| Campo | Texto |
+|-------|--------|
+| `severity` | `warning` |
+| `title` | Cita pendiente creada |
+| `message` | Cita pendiente creada. |
+| `details[0]` | El cliente no tiene correo electrónico registrado. |
+| `fallback` | Puedes notificar al cliente manualmente. |
+
+Si `AAAdmin.toast` no está disponible: `console.log` de fallback (sin error).
+
+### Alcance
+
+| Cubre | No cubre |
+|-------|----------|
+| Reserva legacy pending sin correo | `autoConfirm` sin correo → **UX-4D.2** / `showConfirmResultNotification` si el backend devuelve `email.skipped` |
+| Cita rápida pending sin correo | Pending + correo (UX-4C.1 / UX-4D.1) |
+| | Confirmación desde calendario (UX-4B), cancelación (UX-4A) |
+| | Frontend público (`reservationController.js`), chat IA, recordatorios |
+
+### Pruebas manuales
+
+**A — Legacy sin correo:** modal reserva, sin auto-confirm, cliente sin email → toast warning UX-4E; sin request `aa_enviar_confirmacion`.
+
+**B — Fast sin correo:** sin “Confirmar al agendar”, sin email → mismo toast; sin `aa_enviar_confirmacion`.
+
+**C — Legacy con correo:** UX-4C.1; no toast UX-4E.
+
+**D — Fast con correo:** UX-4D.1; no toast UX-4E.
+
+**E — AutoConfirm sin correo:** no toast “Cita pendiente creada”; UX-4D.2 / confirmación según respuesta backend.
+
+**F — Regresión:** confirmar calendario UX-4B, cancelar UX-4A.
 
 ## Tests
 

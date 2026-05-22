@@ -219,6 +219,12 @@
               });
           } else {
             console.log('ℹ️ Correo vacío → confirmación por email omitida');
+            if (
+              window.AdminConfirmController &&
+              typeof window.AdminConfirmController.showPendingCreatedWithoutEmailNotification === 'function'
+            ) {
+              window.AdminConfirmController.showPendingCreatedWithoutEmailNotification();
+            }
           }
         }
         

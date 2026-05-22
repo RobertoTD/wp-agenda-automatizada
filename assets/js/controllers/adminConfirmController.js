@@ -313,6 +313,29 @@ window.AdminConfirmController = (function() {
     }
 
     /**
+     * Toast local cuando se crea una cita pendiente sin correo del cliente.
+     * No hay llamada a aa_enviar_confirmacion ni benefit_notices reales.
+     */
+    function showPendingCreatedWithoutEmailNotification() {
+        var toastApi = window.AAAdmin && window.AAAdmin.toast;
+        if (!toastApi || typeof toastApi.showMany !== 'function') {
+            console.log('ℹ️ Cita pendiente creada sin correo: el cliente no tiene correo electrónico registrado.');
+            return;
+        }
+        toastApi.showMany([{
+            severity: 'warning',
+            title: 'Cita pendiente creada',
+            message: 'Cita pendiente creada.',
+            details: ['El cliente no tiene correo electrónico registrado.'],
+            fallback: 'Puedes notificar al cliente manualmente.',
+            durationMs: 5000,
+            blocking: false,
+            actions: [],
+            notices: []
+        }]);
+    }
+
+    /**
      * Toast (o alert legacy) tras solicitud de confirmación por correo.
      * Recibe respuesta AJAX completa de aa_enviar_confirmacion.
      * @param {{ success?: boolean, data?: Record<string, unknown> }} wpResponse
@@ -566,6 +589,7 @@ window.AdminConfirmController = (function() {
         onCancelar,
         onCrearCliente,
         showSendConfirmationResultNotification,
-        showConfirmResultNotification
+        showConfirmResultNotification,
+        showPendingCreatedWithoutEmailNotification
     };
 })();

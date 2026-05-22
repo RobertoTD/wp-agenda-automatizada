@@ -1456,6 +1456,14 @@
                                     console.warn('[FastAppointment] Error al enviar correo (no critico):', emailError);
                                     alert('❌ Error de conexión al enviar la solicitud: ' + (emailError.message || emailError));
                                 });
+                        } else {
+                            console.log('[FastAppointment] Correo vacío → confirmación por email omitida');
+                            if (
+                                window.AdminConfirmController &&
+                                typeof window.AdminConfirmController.showPendingCreatedWithoutEmailNotification === 'function'
+                            ) {
+                                window.AdminConfirmController.showPendingCreatedWithoutEmailNotification();
+                            }
                         }
                     }
 
