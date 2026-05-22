@@ -1,7 +1,8 @@
 /**
- * Admin iframe — benefit notification toast renderer (UX-3B).
+ * Admin iframe — benefit notification toast renderer (UX-3B / UX-3B.1).
  *
  * Renders notification models from BenefitNotificationMapper (UX-3A).
+ * UX-3B.1: click en cuerpo extiende permanencia (DEFAULT_EXTEND_ON_CLICK_MS).
  * No mapper calls, no AJAX, no business rules.
  */
 
@@ -19,9 +20,23 @@ window.AAAdmin = window.AAAdmin || {};
         error: 7000
     };
     var VALID_SEVERITIES = ['success', 'warning', 'error', 'info'];
+    var DEFAULT_EXTEND_ON_CLICK_MS = 15000;
 
     /** @type {Map<HTMLElement, number>} */
     var dismissTimers = new Map();
+
+    /**
+     * @param {object} [options]
+     * @returns {number}
+     */
+    function getExtendOnClickMs(options) {
+        options = options || {};
+        var ms = options.extendOnClickMs;
+        if (typeof ms === 'number' && ms > 0 && isFinite(ms)) {
+            return ms;
+        }
+        return DEFAULT_EXTEND_ON_CLICK_MS;
+    }
 
     function escapeHtml(str) {
         if (str == null) return '';
@@ -66,6 +81,7 @@ window.AAAdmin = window.AAAdmin || {};
     function removeToast(el) {
         if (!el || !el.parentNode) return;
         clearDismissTimer(el);
+        el.classList.remove('aa-benefit-toast-extended');
         el.parentNode.removeChild(el);
     }
 
@@ -83,6 +99,52 @@ window.AAAdmin = window.AAAdmin || {};
             removeToast(el);
         }, durationMs);
         dismissTimers.set(el, timerId);
+    }
+
+    /**
+     * @param {HTMLElement} el
+     * @param {number} ms
+     * @param {object} [options]
+     */
+    function extendDismiss(el, ms, options) {
+        options = options || {};
+        if (options.autoDismiss === false) {
+            return;
+        }
+        if (!el || !el.parentNode) {
+            return;
+        }
+        scheduleDismiss(el, ms);
+        el.classList.add('aa-benefit-toast-extended');
+    }
+
+    /**
+     * @param {HTMLElement} el
+     * @param {object} [showOptions]
+     */
+    function attachToastInteraction(el, showOptions) {
+        showOptions = showOptions || {};
+        var extendMs = getExtendOnClickMs(showOptions);
+        var canAutoDismiss = showOptions.autoDismiss !== false;
+        var closeBtn = el.querySelector('.aa-benefit-toast-close');
+
+        if (closeBtn) {
+            closeBtn.addEventListener('click', function (ev) {
+                ev.stopPropagation();
+                removeToast(el);
+            });
+        }
+
+        el.addEventListener('click', function (ev) {
+            if (ev.target.closest('.aa-benefit-toast-close')) {
+                return;
+            }
+            if (!canAutoDismiss) {
+                el.classList.add('aa-benefit-toast-extended');
+                return;
+            }
+            extendDismiss(el, extendMs, showOptions);
+        });
     }
 
     /**
@@ -108,9 +170,6 @@ window.AAAdmin = window.AAAdmin || {};
         closeBtn.className = 'aa-benefit-toast-close';
         closeBtn.setAttribute('aria-label', 'Cerrar notificación');
         closeBtn.innerHTML = '&times;';
-        closeBtn.addEventListener('click', function () {
-            removeToast(el);
-        });
 
         var html = '';
 
@@ -150,6 +209,8 @@ window.AAAdmin = window.AAAdmin || {};
         options = options || {};
         var el = buildToastElement(notification);
         if (!el) return null;
+
+        attachToastInteraction(el, options);
 
         var root = ensureRoot();
         root.appendChild(el);

@@ -124,6 +124,25 @@ window.BenefitNotificationToast = window.AAAdmin.toast;
 - `showMany(notifications, options?)` — varios toasts; máximo **3 visibles** (el más antiguo se elimina al mostrar el 4.º).
 - `clear()` — elimina todos los toasts y timers.
 
+### UX-3B.1 — Click para extender permanencia
+
+- Por defecto el toast se autocierra (`durationMs` o default por severity).
+- **Click en el cuerpo** (no en ×): cancela el timer actual y programa cierre **15 s** después (`DEFAULT_EXTEND_ON_CLICK_MS`). Clicks repetidos reinician otros 15 s. Añade clase `aa-benefit-toast-extended`.
+- **Click en ×**: cierra al instante; `stopPropagation` evita extender.
+- `options.extendOnClickMs` — override del tiempo de extensión (número > 0).
+- `options.autoDismiss === false` — sin timer al mostrar ni al hacer click; el click solo puede añadir la clase visual extended.
+
+**Pruebas manuales (consola iframe):**
+
+| Caso | Qué hacer | Esperado |
+|------|-----------|----------|
+| A | `show({ durationMs: 3000, ... })`, click cuerpo antes de 3 s | ~15 s más visible + clase extended |
+| B | Click en × | Cierra de inmediato |
+| C | Varios clicks en cuerpo | Cada click reinicia 15 s |
+| D | `showMany` con 4+ items | Máx. 3 visibles |
+| E | `clear()` tras toast largo | Sin reaparición por timers |
+| F | `show(n, { autoDismiss: false })`, click cuerpo | No autocierre |
+
 **No** se modifica `AAAdmin.notify` (stub `console.log` en `main.js`).
 
 ### Relación mapper → toast
@@ -186,9 +205,10 @@ BenefitNotificationToast.showMany(
 );
 ```
 
-### Alcance UX-3B (explícito)
+### Alcance UX-3B / UX-3B.1 (explícito)
 
 - **No** reemplaza `confirm()` destructivo.
+- UX-3B.1 solo afecta el renderer toast (click-to-extend); no cambia el modelo de notificación UX-3A.
 - Integración en controladores: UX-4A.1 (cancelación) y siguientes microciclos.
 - **No** conoce `benefit_notices` ni hace AJAX.
 - **No** rediseño visual final (sin `DESIGN_BRIEF`).
