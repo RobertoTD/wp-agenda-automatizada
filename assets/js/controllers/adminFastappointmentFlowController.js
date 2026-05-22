@@ -1427,6 +1427,14 @@
                                         } else {
                                             console.log('[FastAppointment] Cita confirmada en background');
                                         }
+                                        if (
+                                            window.AdminConfirmController &&
+                                            typeof window.AdminConfirmController.isConfirmAutomationIncomplete === 'function' &&
+                                            window.AdminConfirmController.isConfirmAutomationIncomplete(confirmResp) &&
+                                            typeof window.AdminConfirmController.showAutomationConnectionFailedNotification === 'function'
+                                        ) {
+                                            window.AdminConfirmController.showAutomationConnectionFailedNotification('auto_confirm');
+                                        }
                                         if (window.AdminCalendarController && typeof window.AdminCalendarController.recargar === 'function') {
                                             window.AdminCalendarController.recargar();
                                         }
@@ -1436,6 +1444,12 @@
                                 })
                                 .catch(function(confirmErr) {
                                     console.error('[FastAppointment] Error en confirmacion remota:', confirmErr.message);
+                                    if (
+                                        window.AdminConfirmController &&
+                                        typeof window.AdminConfirmController.showAutomationConnectionFailedNotification === 'function'
+                                    ) {
+                                        window.AdminConfirmController.showAutomationConnectionFailedNotification('auto_confirm');
+                                    }
                                 });
                         }
                     } else {

@@ -438,6 +438,64 @@ Si `AAAdmin.toast` no está disponible: `console.log` de fallback (sin error).
 
 **F — Regresión:** confirmar calendario UX-4B, cancelar UX-4A.
 
+## UX-5A.1 — Fallo de conexión con backend Node (cita rápida autoConfirm)
+
+### Qué es
+
+Fallo **técnico** al comunicar con el servicio de automatización (Node) vía PHP, cuando la acción **local en WordPress** (p. ej. confirmar la cita) ya pudo completarse. No es:
+
+- Google Calendar desconectado / OAuth ausente
+- Calendar o email omitidos por **cuota** (`benefit_notices`)
+- Billing degraded
+- Falta de correo (UX-4E)
+- Retry automático desde frontend
+
+### Comportamiento
+
+En `adminFastappointmentFlowController.js`, rama **autoConfirm** (`ConfirmService.confirmar`):
+
+1. Si `confirmResp.success === true`, se mantiene **`showConfirmResultNotification(confirmResp)`** (toast verde / mapper — éxito local).
+2. Si además **`isConfirmAutomationIncomplete(confirmResp)`**, se muestra un **segundo toast warning** con `showAutomationConnectionFailedNotification('auto_confirm')`.
+3. En **`.catch`** (fetch/JSON/red rota), solo el warning UX-5A (sin alert).
+
+El renderer admite varios toasts visibles; el warning es **adicional**, no sustituye el éxito local.
+
+### Detector (`isConfirmAutomationIncomplete`)
+
+Devuelve `true` solo si (conservador):
+
+- `wpResponse.success === true`
+- `wpResponse.data.calendar_sync === false`
+- Sin `benefit_notices` (o array vacío) — si hay notices, es cuota/beneficio y lo cubre el mapper
+- `data.message` contiene indicios de fallo backend: `backend`, `notificar al backend`, `no se pudo notificar`, `no pudo notificar`
+
+### Copy (warning adicional)
+
+| Campo | Texto |
+|-------|--------|
+| `severity` | `warning` |
+| `title` | Automatización incompleta |
+| `message` | No se pudo conectar con el servicio de automatización. |
+| `details[0]` | Revisa el estado de la cita. |
+| `fallback` | Notifica manualmente al cliente si corresponde. |
+| `durationMs` | `7000` |
+
+Sin mencionar Calendar, OAuth, cuota ni “correo enviado”.
+
+### Pruebas manuales
+
+**A — Node caído + autoConfirm:** dos toasts (verde confirmación local + warning automatización); sin copy de Calendar/cuota/correo enviado.
+
+**B — Cuota agotada (Node arriba):** solo toasts de `benefit_notices`/mapper; **no** warning UX-5A (hay `benefit_notices`).
+
+**C — Happy path (Node arriba, cuota OK):** solo toast normal de confirmación; sin warning UX-5A.
+
+**D — Catch (fetch/JSON roto):** warning UX-5A; sin alert.
+
+### Fuera de alcance (5A.1)
+
+Legacy autoConfirm, pending/`sendConfirmation`, confirmar/cancelar desde calendario, PHP, Node, mapper, toast renderer, servicios compartidos.
+
 ## Tests
 
 ```bash

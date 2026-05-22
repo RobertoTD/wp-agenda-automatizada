@@ -312,6 +312,86 @@ window.AdminConfirmController = (function() {
         }
     }
 
+    var AUTOMATION_CONNECTION_FAILED_COPY = {
+        auto_confirm: {
+            severity: 'warning',
+            title: 'Automatización incompleta',
+            message: 'No se pudo conectar con el servicio de automatización.',
+            details: ['Revisa el estado de la cita.'],
+            fallback: 'Notifica manualmente al cliente si corresponde.',
+            durationMs: 7000
+        }
+    };
+
+    var AUTOMATION_BACKEND_MESSAGE_MARKERS = [
+        'backend',
+        'notificar al backend',
+        'no se pudo notificar',
+        'no pudo notificar'
+    ];
+
+    /**
+     * Detecta confirmación local OK pero automatización externa (Node) degradada por fallo de conexión.
+     * Conservador: no activar si hay benefit_notices (cuota/billing ya cubiertos por mapper).
+     * @param {{ success?: boolean, data?: Record<string, unknown> }} wpResponse
+     * @returns {boolean}
+     */
+    function isConfirmAutomationIncomplete(wpResponse) {
+        if (!wpResponse || wpResponse.success !== true) {
+            return false;
+        }
+        var payload = wpResponse.data;
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+            return false;
+        }
+        if (payload.calendar_sync !== false) {
+            return false;
+        }
+        var notices = payload.benefit_notices;
+        if (notices && Array.isArray(notices) && notices.length > 0) {
+            return false;
+        }
+        var msg = String(payload.message || '').toLowerCase();
+        if (!msg) {
+            return false;
+        }
+        for (var i = 0; i < AUTOMATION_BACKEND_MESSAGE_MARKERS.length; i++) {
+            if (msg.indexOf(AUTOMATION_BACKEND_MESSAGE_MARKERS[i]) !== -1) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Toast warning adicional cuando falla la conexión con el servicio de automatización (Node).
+     * No usa mapper ni benefit_notices. Complementa el toast de éxito local si aplica.
+     * @param {string} context — p. ej. 'auto_confirm'
+     */
+    function showAutomationConnectionFailedNotification(context) {
+        var copy = AUTOMATION_CONNECTION_FAILED_COPY[context];
+        if (!copy) {
+            console.warn('[Automation] Contexto de conexión desconocido:', context);
+            return;
+        }
+        var toastApi = window.AAAdmin && window.AAAdmin.toast;
+        if (!toastApi || typeof toastApi.showMany !== 'function') {
+            console.warn('[Automation] No se pudo conectar con el servicio de automatización.');
+            return;
+        }
+        toastApi.showMany([{
+            severity: copy.severity,
+            title: copy.title,
+            message: copy.message,
+            details: copy.details.slice(),
+            fallback: copy.fallback,
+            durationMs: copy.durationMs,
+            blocking: false,
+            actions: [],
+            notices: []
+        }]);
+    }
+
     /**
      * Toast local cuando se crea una cita pendiente sin correo del cliente.
      * No hay llamada a aa_enviar_confirmacion ni benefit_notices reales.
@@ -590,6 +670,8 @@ window.AdminConfirmController = (function() {
         onCrearCliente,
         showSendConfirmationResultNotification,
         showConfirmResultNotification,
-        showPendingCreatedWithoutEmailNotification
+        showPendingCreatedWithoutEmailNotification,
+        isConfirmAutomationIncomplete,
+        showAutomationConnectionFailedNotification
     };
 })();
