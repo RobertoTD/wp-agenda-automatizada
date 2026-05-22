@@ -90,7 +90,7 @@ Los notices sintetizados son **internos al mapper**; no se escriben de vuelta al
 
 - **No** renderiza UI.
 - **No** reemplaza `alert()` ni `confirm()`.
-- Integrado en cancelación admin (UX-4A.1); otros flujos en UX-4B+.
+- Integrado en cancelación (UX-4A.1) y confirmación admin (UX-4B.1); otros flujos pendientes.
 
 ## UX-3B — Renderer toast (admin iframe)
 
@@ -209,7 +209,7 @@ BenefitNotificationToast.showMany(
 
 - **No** reemplaza `confirm()` destructivo.
 - UX-3B.1 solo afecta el renderer toast (click-to-extend); no cambia el modelo de notificación UX-3A.
-- Integración en controladores: UX-4A.1 (cancelación) y siguientes microciclos.
+- Integración en controladores: UX-4A.1 (cancelación), UX-4B.1 (confirmación admin).
 - **No** conoce `benefit_notices` ni hace AJAX.
 - **No** rediseño visual final (sin `DESIGN_BRIEF`).
 
@@ -247,6 +247,46 @@ Errores (`success: false`, `.catch`, servicio no cargado) siguen con `alert` leg
 **C — Sin Calendar:** sin `calendar_uid` o sin OAuth aplicable → toast success sin mencionar Calendar.
 
 **D — Regresión:** `success: false` y errores de red → `alert`; `confirm` destructivo sin cambios.
+
+## UX-4B.1 — Confirmación admin
+
+### Flujo
+
+`AdminCalendarController.handleCitaAction('confirmar')` → `AdminConfirmController.onConfirmar` → `ConfirmService.confirmar` → `aa_confirmar_cita`.
+
+Tras `data.success === true`, el `alert()` fijo de éxito se reemplaza por `showConfirmResultNotification(data)` (mapper + `AAAdmin.toast`).
+
+Errores (`success: false`, `.catch`, servicio no cargado) siguen con `alert` legacy.
+
+**Fuera de alcance:** fast appointment (`ConfirmService.confirmar` directo), chat IA, frontend público, solicitud de confirmación (`aa_enviar_confirmacion`).
+
+### Escenarios
+
+| Caso | Toast |
+|------|-------|
+| Solo confirmación local | success — “Cita confirmada.” |
+| Calendar creado | success/warning + detail “Evento de Google Calendar creado.” (o “ya existía” si `data.existed`) |
+| Correo enviado | + detail “Correo de confirmación enviado.” solo si `email.sent === true` |
+| Calendar/email omitidos (cuota) | warning vía mapper `confirm_admin` + billing |
+| Mixto (Calendar OK + email omitido) | warning con detail positivo Calendar + detail negativo email (mapper) |
+| Fallo técnico backend | Mismo shape ambiguo que éxito local — **UX-4B.2** |
+
+### Post-proceso en el integrador
+
+- Positivos Calendar: `calendar_uid` o `data.event_id`, sin `calendar_skipped` ni notice `create_event` skipped.
+- Positivo email: `email.sent === true`, sin `email.skipped` ni notice `send_confirmed_email` skipped.
+- Caso mixto: positivos y skips en el mismo toast si no se contradicen.
+- Fallback: `alert('✅ ' + payload.message)` si faltan mapper/toast.
+
+### Pruebas manuales
+
+**A — Cuota:** zorro8 past_due, confirmar pending → toast warning, sin “correo enviado” ni “Calendar creado”; Network: `calendar_skipped`, `email.skipped`, `benefit_notices`.
+
+**B — Happy path:** active + email → toast success con details Calendar + correo; `email.sent === true`, `calendar_uid` o `event_id`.
+
+**C — Sin email:** no detail “Correo enviado”; mapper indica omisión si aplica.
+
+**D — Error:** `success: false` → `alert` legacy.
 
 ## Tests
 

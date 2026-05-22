@@ -36,7 +36,7 @@ window.AdminConfirmController = (function() {
         window.ConfirmService.confirmar(id)
             .then(data => {
                 if (data.success) {
-                    alert('✅ Cita confirmada. Se envió correo de confirmación.');
+                    showConfirmResultNotification(data);
                     document.dispatchEvent(new CustomEvent('aa-cita-action-completed'));
                     if (recargarCallback) {
                         recargarCallback();
@@ -52,6 +52,226 @@ window.AdminConfirmController = (function() {
     }
     
     var CALENDAR_DELETED_DETAIL = 'Evento de Google Calendar eliminado.';
+    var CALENDAR_CREATED_DETAIL = 'Evento de Google Calendar creado.';
+    var CALENDAR_EXISTED_DETAIL = 'El evento ya existía en Google Calendar.';
+    var EMAIL_SENT_DETAIL = 'Correo de confirmación enviado.';
+
+    /**
+     * @param {{ details?: string[] }} notification
+     * @param {string} line
+     */
+    function pushDetailUnique(notification, line) {
+        if (!line) {
+            return;
+        }
+        if (!notification.details || !Array.isArray(notification.details)) {
+            notification.details = [];
+        }
+        if (notification.details.indexOf(line) === -1) {
+            notification.details.push(line);
+        }
+    }
+
+    /**
+     * @param {Record<string, unknown>} payload
+     * @returns {Record<string, unknown>}
+     */
+    function getPayloadDataNode(payload) {
+        var data = payload.data;
+        if (data !== null && data !== undefined && typeof data === 'object' && !Array.isArray(data)) {
+            return /** @type {Record<string, unknown>} */ (data);
+        }
+        return {};
+    }
+
+    /**
+     * @param {Record<string, unknown>} payload
+     * @param {{ notices?: unknown[] }} notification
+     * @returns {unknown[]}
+     */
+    function getNoticeList(payload, notification) {
+        if (notification.notices && Array.isArray(notification.notices) && notification.notices.length > 0) {
+            return notification.notices;
+        }
+        if (payload.benefit_notices && Array.isArray(payload.benefit_notices)) {
+            return payload.benefit_notices;
+        }
+        return [];
+    }
+
+    /**
+     * @param {unknown[]} notices
+     * @param {string} resource
+     * @param {string} operation
+     * @returns {boolean}
+     */
+    function hasSkippedNotice(notices, resource, operation) {
+        for (var i = 0; i < notices.length; i++) {
+            var notice = notices[i];
+            if (!notice || typeof notice !== 'object') {
+                continue;
+            }
+            var n = /** @type {Record<string, unknown>} */ (notice);
+            var res = String(n.resource || '').toLowerCase();
+            var op = String(n.operation || '').toLowerCase();
+            var status = String(n.status || '').toLowerCase();
+            if (res === resource && op === operation && status === 'skipped') {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @returns {{ mapper: object, toastApi: object }|null}
+     */
+    function getMapperAndToast() {
+        var mapper = window.BenefitNotificationMapper;
+        var toastApi = window.AAAdmin && window.AAAdmin.toast;
+        if (
+            !mapper ||
+            typeof mapper.mapBenefitResponseToNotifications !== 'function' ||
+            !toastApi ||
+            typeof toastApi.showMany !== 'function'
+        ) {
+            return null;
+        }
+        return { mapper: mapper, toastApi: toastApi };
+    }
+
+    /**
+     * @param {Record<string, unknown>} payload
+     * @param {{ notices?: unknown[] }} notification
+     * @returns {boolean}
+     */
+    function hasCalendarCreateSkipped(payload, notification) {
+        var dataNode = getPayloadDataNode(payload);
+        if (payload.calendar_skipped === true || dataNode.calendarSkipped === true) {
+            return true;
+        }
+        return hasSkippedNotice(
+            getNoticeList(payload, notification),
+            'google_calendar_sync',
+            'create_event'
+        );
+    }
+
+    /**
+     * @param {Record<string, unknown>} payload
+     * @param {{ notices?: unknown[] }} notification
+     * @returns {boolean}
+     */
+    function hasEmailSendSkipped(payload, notification) {
+        var email = payload.email;
+        if (email !== null && email !== undefined && typeof email === 'object' && !Array.isArray(email)) {
+            var emailObj = /** @type {Record<string, unknown>} */ (email);
+            if (emailObj.skipped === true) {
+                return true;
+            }
+        }
+        return hasSkippedNotice(
+            getNoticeList(payload, notification),
+            'email',
+            'send_confirmed_email'
+        );
+    }
+
+    /**
+     * @param {Record<string, unknown>} payload
+     * @returns {boolean}
+     */
+    function hasCalendarEventEvidence(payload) {
+        var dataNode = getPayloadDataNode(payload);
+        return !!(payload.calendar_uid || dataNode.event_id);
+    }
+
+    /**
+     * @param {{ details?: string[], notices?: unknown[] }} first
+     * @param {Record<string, unknown>} payload
+     */
+    function appendConfirmPositiveDetails(first, payload) {
+        if (!first.details || !Array.isArray(first.details)) {
+            first.details = [];
+        }
+        var dataNode = getPayloadDataNode(payload);
+
+        if (!hasCalendarCreateSkipped(payload, first) && hasCalendarEventEvidence(payload)) {
+            var calendarLine = dataNode.existed === true
+                ? CALENDAR_EXISTED_DETAIL
+                : CALENDAR_CREATED_DETAIL;
+            pushDetailUnique(first, calendarLine);
+        }
+
+        var email = payload.email;
+        if (
+            email !== null &&
+            email !== undefined &&
+            typeof email === 'object' &&
+            !Array.isArray(email)
+        ) {
+            var emailObj = /** @type {Record<string, unknown>} */ (email);
+            if (emailObj.sent === true && !hasEmailSendSkipped(payload, first)) {
+                pushDetailUnique(first, EMAIL_SENT_DETAIL);
+            }
+        }
+    }
+
+    /**
+     * @param {{ title?: string, message?: string, details?: string[] }} first
+     */
+    function normalizeConfirmMessage(first) {
+        if (first.title === 'Cita confirmada' && first.details && first.details.length > 0) {
+            first.message = 'Cita confirmada.';
+        }
+    }
+
+    /**
+     * Toast (o alert legacy) tras confirmación exitosa. Recibe respuesta AJAX completa.
+     * @param {{ success?: boolean, data?: Record<string, unknown> }} wpResponse
+     */
+    function showConfirmResultNotification(wpResponse) {
+        var payload = wpResponse && wpResponse.data ? wpResponse.data : {};
+
+        function legacySuccessAlert() {
+            var message = payload.message || 'Cita confirmada correctamente.';
+            alert('✅ ' + message);
+        }
+
+        var stack = getMapperAndToast();
+        if (!stack) {
+            legacySuccessAlert();
+            return;
+        }
+
+        var notifications = stack.mapper.mapBenefitResponseToNotifications({
+            response: wpResponse,
+            context: 'confirm_admin',
+            baseOutcome: {
+                status: 'success',
+                message: 'Cita confirmada.'
+            }
+        });
+
+        if (!notifications || notifications.length === 0) {
+            notifications = [{
+                severity: 'success',
+                title: 'Cita confirmada',
+                message: 'Cita confirmada.',
+                details: [],
+                fallback: null,
+                durationMs: 3500,
+                blocking: false,
+                actions: [],
+                notices: []
+            }];
+        }
+
+        var first = notifications[0];
+        appendConfirmPositiveDetails(first, payload);
+        normalizeConfirmMessage(first);
+
+        stack.toastApi.showMany(notifications);
+    }
 
     /**
      * Toast (o alert legacy) tras cancelación exitosa. Recibe respuesta AJAX completa.
@@ -68,19 +288,13 @@ window.AdminConfirmController = (function() {
             alert(mensaje);
         }
 
-        var mapper = window.BenefitNotificationMapper;
-        var toastApi = window.AAAdmin && window.AAAdmin.toast;
-        if (
-            !mapper ||
-            typeof mapper.mapBenefitResponseToNotifications !== 'function' ||
-            !toastApi ||
-            typeof toastApi.showMany !== 'function'
-        ) {
+        var stack = getMapperAndToast();
+        if (!stack) {
             legacySuccessAlert();
             return;
         }
 
-        var notifications = mapper.mapBenefitResponseToNotifications({
+        var notifications = stack.mapper.mapBenefitResponseToNotifications({
             response: wpResponse,
             context: 'cancel_admin',
             baseOutcome: {
@@ -114,15 +328,15 @@ window.AdminConfirmController = (function() {
             severity !== 'warning' &&
             severity !== 'error';
 
-        if (mayAddCalendarDeleted && first.details.indexOf(CALENDAR_DELETED_DETAIL) === -1) {
-            first.details.push(CALENDAR_DELETED_DETAIL);
+        if (mayAddCalendarDeleted) {
+            pushDetailUnique(first, CALENDAR_DELETED_DETAIL);
         }
 
         if (first.title === 'Cita cancelada' && first.details.length > 0) {
             first.message = 'Cita cancelada.';
         }
 
-        toastApi.showMany(notifications);
+        stack.toastApi.showMany(notifications);
     }
 
     /**
