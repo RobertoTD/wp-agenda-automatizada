@@ -202,9 +202,21 @@
           // Comportamiento normal: enviar correo de confirmación (también sin await)
           // Solo enviar si el cliente tiene correo
           if (datos.correo) {
-            window.ReservationService.sendConfirmation(datos).catch(function(emailError) {
-              console.warn('⚠️ Error al enviar correo (no crítico):', emailError);
-            });
+            window.ReservationService.sendConfirmation(datos)
+              .then(function(wpResponse) {
+                if (
+                  window.AdminConfirmController &&
+                  typeof window.AdminConfirmController.showSendConfirmationResultNotification === 'function'
+                ) {
+                  window.AdminConfirmController.showSendConfirmationResultNotification(wpResponse);
+                } else {
+                  console.log('📧 Resultado del envío de solicitud:', wpResponse);
+                }
+              })
+              .catch(function(emailError) {
+                console.warn('⚠️ Error al enviar correo (no crítico):', emailError);
+                alert('❌ Error de conexión al enviar la solicitud: ' + (emailError.message || emailError));
+              });
           } else {
             console.log('ℹ️ Correo vacío → confirmación por email omitida');
           }

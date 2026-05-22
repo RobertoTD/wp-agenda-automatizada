@@ -55,6 +55,8 @@ window.AdminConfirmController = (function() {
     var CALENDAR_CREATED_DETAIL = 'Evento de Google Calendar creado.';
     var CALENDAR_EXISTED_DETAIL = 'El evento ya existía en Google Calendar.';
     var EMAIL_SENT_DETAIL = 'Correo de confirmación enviado.';
+    var SEND_CONFIRMATION_CLIENT_DETAIL = 'Correo de solicitud enviado al cliente.';
+    var SEND_CONFIRMATION_OWNER_DETAIL = 'Correo enviado al negocio.';
 
     /**
      * @param {{ details?: string[] }} notification
@@ -116,6 +118,34 @@ window.AdminConfirmController = (function() {
             var op = String(n.operation || '').toLowerCase();
             var status = String(n.status || '').toLowerCase();
             if (res === resource && op === operation && status === 'skipped') {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @param {unknown[]} notices
+     * @param {string} resource
+     * @param {string} operation
+     * @param {string[]} statuses
+     * @returns {boolean}
+     */
+    function hasNoticeWithStatus(notices, resource, operation, statuses) {
+        for (var i = 0; i < notices.length; i++) {
+            var notice = notices[i];
+            if (!notice || typeof notice !== 'object') {
+                continue;
+            }
+            var n = /** @type {Record<string, unknown>} */ (notice);
+            var res = String(n.resource || '').toLowerCase();
+            var op = String(n.operation || '').toLowerCase();
+            var status = String(n.status || '').toLowerCase();
+            if (
+                res === resource &&
+                op === operation &&
+                statuses.indexOf(status) !== -1
+            ) {
                 return true;
             }
         }
@@ -223,6 +253,129 @@ window.AdminConfirmController = (function() {
         if (first.title === 'Cita confirmada' && first.details && first.details.length > 0) {
             first.message = 'Cita confirmada.';
         }
+    }
+
+    /**
+     * @param {Record<string, unknown>} payload
+     * @param {{ notices?: unknown[] }} notification
+     * @returns {boolean}
+     */
+    function hasSendConfirmationSkippedOrBlocked(payload, notification) {
+        if (payload.skipped === true) {
+            return true;
+        }
+        return hasNoticeWithStatus(
+            getNoticeList(payload, notification),
+            'email',
+            'send_confirmation_request',
+            ['skipped', 'blocked']
+        );
+    }
+
+    /**
+     * @param {{ details?: string[], notices?: unknown[] }} first
+     * @param {Record<string, unknown>} payload
+     */
+    function appendSendConfirmationPositiveDetails(first, payload) {
+        if (!first.details || !Array.isArray(first.details)) {
+            first.details = [];
+        }
+        if (hasSendConfirmationSkippedOrBlocked(payload, first)) {
+            return;
+        }
+
+        var sent = payload.sent;
+        if (sent === null || sent === undefined || typeof sent !== 'object' || Array.isArray(sent)) {
+            return;
+        }
+
+        var sentObj = /** @type {Record<string, unknown>} */ (sent);
+        if (sentObj.client) {
+            pushDetailUnique(first, SEND_CONFIRMATION_CLIENT_DETAIL);
+        }
+        if (sentObj.owner) {
+            pushDetailUnique(first, SEND_CONFIRMATION_OWNER_DETAIL);
+        }
+    }
+
+    /**
+     * @param {{ title?: string, message?: string, details?: string[] }} first
+     */
+    function normalizeSendConfirmationMessage(first) {
+        if (!first.details || first.details.length === 0) {
+            return;
+        }
+        if (first.title === 'Solicitud enviada') {
+            first.message = 'Solicitud de confirmacion enviada al cliente vía correo electrónico.';
+        } else if (first.title === 'Solicitud no enviada') {
+            first.message = 'Solicitud de confirmacion por correo al cliente no enviada.';
+        }
+    }
+
+    /**
+     * Toast (o alert legacy) tras solicitud de confirmación por correo.
+     * Recibe respuesta AJAX completa de aa_enviar_confirmacion.
+     * @param {{ success?: boolean, data?: Record<string, unknown> }} wpResponse
+     */
+    function showSendConfirmationResultNotification(wpResponse) {
+        var payload = wpResponse && wpResponse.data ? wpResponse.data : {};
+
+        function legacyAlert() {
+            if (wpResponse && wpResponse.success === true) {
+                alert('✅ ' + (payload.message || 'Solicitud enviada.'));
+            } else {
+                alert('❌ ' + (payload.error || payload.message || 'No se pudo enviar la solicitud de confirmación.'));
+            }
+        }
+
+        var stack = getMapperAndToast();
+        if (!stack) {
+            legacyAlert();
+            return;
+        }
+
+        var notifications = stack.mapper.mapBenefitResponseToNotifications({
+            response: wpResponse,
+            context: 'send_confirmation_request',
+            baseOutcome: {
+                status: 'success',
+                message: 'Solicitud enviada.'
+            }
+        });
+
+        if (!notifications || notifications.length === 0) {
+            if (wpResponse && wpResponse.success === true) {
+                notifications = [{
+                    severity: 'success',
+                    title: 'Solicitud enviada',
+                    message: 'Solicitud enviada.',
+                    details: [],
+                    fallback: null,
+                    durationMs: 3500,
+                    blocking: false,
+                    actions: [],
+                    notices: []
+                }];
+            } else {
+                notifications = [{
+                    severity: 'error',
+                    title: 'Solicitud no enviada',
+                    message: payload.error || payload.message || 'No se pudo enviar la solicitud de confirmación.',
+                    details: [],
+                    fallback: null,
+                    durationMs: 7000,
+                    blocking: false,
+                    actions: [],
+                    notices: []
+                }];
+            }
+        }
+
+        var first = notifications[0];
+        appendSendConfirmationPositiveDetails(first, payload);
+        normalizeSendConfirmationMessage(first);
+
+        stack.toastApi.showMany(notifications);
     }
 
     /**
@@ -411,6 +564,7 @@ window.AdminConfirmController = (function() {
         init,
         onConfirmar,
         onCancelar,
-        onCrearCliente
+        onCrearCliente,
+        showSendConfirmationResultNotification
     };
 })();

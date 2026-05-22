@@ -258,7 +258,7 @@ Tras `data.success === true`, el `alert()` fijo de éxito se reemplaza por `show
 
 Errores (`success: false`, `.catch`, servicio no cargado) siguen con `alert` legacy.
 
-**Fuera de alcance:** fast appointment (`ConfirmService.confirmar` directo), chat IA, frontend público, solicitud de confirmación (`aa_enviar_confirmacion`).
+**Fuera de alcance:** fast appointment (`ConfirmService.confirmar` directo), chat IA, frontend público. Solicitud de confirmación (`aa_enviar_confirmacion`) se cubre en UX-4C.1 para el modal admin clásico.
 
 ### Escenarios
 
@@ -287,6 +287,51 @@ Errores (`success: false`, `.catch`, servicio no cargado) siguen con `alert` leg
 **C — Sin email:** no detail “Correo enviado”; mapper indica omisión si aplica.
 
 **D — Error:** `success: false` → `alert` legacy.
+
+## UX-4C.1 — Solicitud de confirmación desde modal admin clásico
+
+### Flujo
+
+`AdminReservationController` crea una reserva pending desde el modal clásico → `ReservationService.sendConfirmation(datos)` → `aa_enviar_confirmacion`.
+
+El servicio `ReservationService` es compartido con frontend público, por eso **no** contiene lógica de toast. UX-4C.1 solo conecta el caller admin clásico con `AdminConfirmController.showSendConfirmationResultNotification(wpResponse)`.
+
+**Fuera de alcance:** cita rápida (`adminFastappointmentFlowController.js`, UX-4D), frontend público (`reservationController.js`), PHP, Node, mapper y renderer.
+
+### Comportamiento
+
+- Si `BenefitNotificationMapper` y `AAAdmin.toast` están cargados, el resultado se muestra como toast.
+- Si faltan mapper/toast, se usa `alert` legacy mínimo.
+- `wpResponse.success === false` con `benefit_notices` (por ejemplo cuota agotada) **también** se muestra como toast; no se trata como error técnico genérico.
+- Error de red / JSON en `.catch` conserva `console.warn` y muestra alert corto de conexión.
+- Si `datos.correo` está vacío, se mantiene el comportamiento previo: no se llama backend y solo se escribe en consola.
+
+### Escenarios
+
+| Caso | Señales | Toast |
+|------|---------|-------|
+| Happy path | `sent.client` truthy | success — “Solicitud enviada.” + “Correo de solicitud enviado al cliente.” |
+| Correo al negocio | `sent.owner` truthy | detail opcional “Correo enviado al negocio.” |
+| Cuota blocked | `success: false`, `code: email_quota_exceeded`, notice `send_confirmation_request` `blocked` | error vía mapper — “Solicitud no enviada” + cuota + billing si aplica |
+| Skipped | `skipped: true` o notice `skipped` | mapper — `email_not_provided`, `duplicate_reminder`, `no_billable_recipients`, etc. |
+| Error técnico sin notices | sin mapper output | toast error simple si toast existe; fallback alert solo si mapper/toast faltan |
+
+### Post-proceso en el integrador
+
+- Positivo cliente: solo si `sent.client` es truthy.
+- Positivo negocio: solo si `sent.owner` es truthy.
+- No se agregan positivos si `skipped === true` o existe notice `email/send_confirmation_request` con `status: skipped|blocked`.
+- Si hay details y título “Solicitud enviada” / “Solicitud no enviada”, el mensaje queda breve.
+
+### Pruebas manuales
+
+**A — Cuota:** zorro8 past_due + `deoia_email_sends` agotado, crear reserva pending desde modal admin clásico con correo → toast “Solicitud no enviada”; Network: `aa_enviar_confirmacion`, `success: false`, `code: email_quota_exceeded`, notice `blocked`.
+
+**B — Happy path:** zorro8 active, crear reserva pending con correo → toast success “Solicitud enviada” + detail cliente; Network: `success: true`, `sent.client` truthy.
+
+**C — Skipped:** `email_not_provided` / `duplicate_reminder` / `no_billable_recipients` → toast de mapper; no dice “Correo enviado”.
+
+**D — Regresión:** confirmación admin UX-4B y cancelación UX-4A siguen usando sus toasts; cita rápida y frontend público no cambian.
 
 ## Tests
 
