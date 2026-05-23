@@ -460,7 +460,7 @@ Si `AAAdmin.toast` no está disponible: `console.log` de fallback (sin error).
 
 Opciones opcionales: `title`, `message`, `durationMs`. Fallback sin toast: `console.log('[LocalAction]', …)`.
 
-**Integrado:** `attendance_registered`, `no_show_registered` (UX-6E), `appointment_pending_created` (UX-6B), `appointment_confirmed_local` en fast autoConfirm (UX-6C.1). **Pendiente:** UX-6C.2 legacy autoConfirm, UX-6D cancelación, UX-6F conexión, UX-6G copy externo.
+**Integrado:** `attendance_registered`, `no_show_registered` (UX-6E), `appointment_pending_created` (UX-6B), `appointment_confirmed_local` en fast y legacy autoConfirm (UX-6C.1 / UX-6C.2). **Pendiente:** UX-6D cancelación, UX-6F conexión, UX-6G copy externo.
 
 ### UX-6E — Asistencia / no asistencia
 
@@ -523,9 +523,9 @@ Tras `ConfirmService.confirmar` con `confirmResp.success === true` en **cita rá
 3. Si no → `showConfirmResultNotification(confirmResp)` (UX-4D.2, Calendar/correo/cuota).
 4. `AdminCalendarController.recargar()`.
 
-El toast local no depende de Calendar, email, cuota ni Node. **No** cubre modal reserva legacy autoConfirm (UX-6C.2).
+El toast local no depende de Calendar, email, cuota ni Node. Legacy autoConfirm: **UX-6C.2**.
 
-#### Pruebas manuales
+#### Pruebas manuales (UX-6C.1 fast)
 
 **A — Cuota OK:** verde “Cita confirmada localmente” + externo Calendar/correo; sin pending.
 
@@ -534,6 +534,31 @@ El toast local no depende de Calendar, email, cuota ni Node. **No** cubre modal 
 **C — Node caído:** verde local + warning UX-5A; **sin** toast genérico “Cita confirmada.”; sin pending.
 
 **D — Fast pending:** solo “Cita pendiente creada” (UX-6B); sin “Cita confirmada localmente”.
+
+### UX-6C.2 — Reserva legacy autoConfirm confirmada localmente
+
+Mismo patrón que UX-6C.1 en `adminReservationController.js` (rama `if (autoConfirm)` → `ConfirmService.confirmar`):
+
+1. `showLocalActionSuccessNotification('appointment_confirmed_local')`.
+2. Si `isConfirmAutomationIncomplete(confirmResp)` → `showAutomationConnectionFailedNotification('auto_confirm')`; **no** `showConfirmResultNotification`.
+3. Si no → `showConfirmResultNotification(confirmResp)` (Calendar/correo/cuota vía mapper).
+4. `AdminCalendarController.recargar()` tras éxito.
+
+`.catch`: `console.error` + warning automatización (sin toast local; no hay `confirmResp.success`).
+
+**Fuera de alcance:** pending legacy (UX-6B / UX-4C / UX-4E), cita rápida (sin cambios en este ciclo).
+
+#### Pruebas manuales (UX-6C.2 legacy)
+
+**A — Node OK + cuota OK:** local + externo; sin “Cita pendiente creada”.
+
+**B — Cuota agotada:** local + warning mapper; sin “Automatización incompleta”.
+
+**C — Node caído:** local + “Automatización incompleta”; sin toast genérico “Cita confirmada.”
+
+**D — Legacy pending:** UX-6B + 4C/4E; sin “Cita confirmada localmente”.
+
+**E — Fast autoConfirm:** regresión UX-6C.1 sin cambios.
 
 ## UX-5A.1 — Fallo de conexión con backend Node (cita rápida autoConfirm)
 

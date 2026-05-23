@@ -180,8 +180,34 @@
             window.ConfirmService.confirmar(datos.id_reserva)
               .then(function(confirmResp) {
                 if (confirmResp.success) {
-                  console.log('✅ Cita confirmada en background:', confirmResp);
-                  // Recargar calendario para reflejar estado "confirmed"
+                  if (
+                    window.AdminConfirmController &&
+                    typeof window.AdminConfirmController.showLocalActionSuccessNotification === 'function'
+                  ) {
+                    window.AdminConfirmController.showLocalActionSuccessNotification('appointment_confirmed_local');
+                  } else {
+                    console.log('[AdminReservation] Cita confirmada localmente');
+                  }
+                  var automationIncomplete = !!(
+                    window.AdminConfirmController &&
+                    typeof window.AdminConfirmController.isConfirmAutomationIncomplete === 'function' &&
+                    window.AdminConfirmController.isConfirmAutomationIncomplete(confirmResp)
+                  );
+                  if (automationIncomplete) {
+                    if (
+                      window.AdminConfirmController &&
+                      typeof window.AdminConfirmController.showAutomationConnectionFailedNotification === 'function'
+                    ) {
+                      window.AdminConfirmController.showAutomationConnectionFailedNotification('auto_confirm');
+                    }
+                  } else if (
+                    window.AdminConfirmController &&
+                    typeof window.AdminConfirmController.showConfirmResultNotification === 'function'
+                  ) {
+                    window.AdminConfirmController.showConfirmResultNotification(confirmResp);
+                  } else {
+                    console.log('✅ Cita confirmada en background:', confirmResp);
+                  }
                   if (window.AdminCalendarController && typeof window.AdminCalendarController.recargar === 'function') {
                     window.AdminCalendarController.recargar();
                     console.log('✅ Calendario recargado tras confirmación remota');
@@ -192,6 +218,12 @@
               })
               .catch(function(confirmErr) {
                 console.error('❌ Error en confirmación remota (background):', confirmErr.message);
+                if (
+                  window.AdminConfirmController &&
+                  typeof window.AdminConfirmController.showAutomationConnectionFailedNotification === 'function'
+                ) {
+                  window.AdminConfirmController.showAutomationConnectionFailedNotification('auto_confirm');
+                }
               });
           } else if (!datos.id_reserva) {
             console.warn('⚠️ No se puede confirmar en background: ID de reserva no disponible');
