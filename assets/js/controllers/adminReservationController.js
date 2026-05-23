@@ -199,6 +199,15 @@
             console.error('❌ ConfirmService no disponible para confirmación en background');
           }
         } else {
+          if (
+            window.AdminConfirmController &&
+            typeof window.AdminConfirmController.showLocalActionSuccessNotification === 'function'
+          ) {
+            window.AdminConfirmController.showLocalActionSuccessNotification('appointment_pending_created');
+          } else {
+            console.log('[LocalAction] Cita pendiente creada: Cita pendiente de confirmación creada localmente.');
+          }
+
           // Comportamiento normal: enviar correo de confirmación (también sin await)
           // Solo enviar si el cliente tiene correo
           if (datos.correo) {

@@ -1453,6 +1453,15 @@
                                 });
                         }
                     } else {
+                        if (
+                            window.AdminConfirmController &&
+                            typeof window.AdminConfirmController.showLocalActionSuccessNotification === 'function'
+                        ) {
+                            window.AdminConfirmController.showLocalActionSuccessNotification('appointment_pending_created');
+                        } else {
+                            console.log('[LocalAction] Cita pendiente creada: Cita pendiente de confirmación creada localmente.');
+                        }
+
                         if (datos.correo) {
                             console.log('[FastAppointment] Enviando correo de confirmacion pending para reserva ID:', datos.id_reserva);
                             window.ReservationService.sendConfirmation(datos)

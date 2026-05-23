@@ -460,7 +460,7 @@ Si `AAAdmin.toast` no está disponible: `console.log` de fallback (sin error).
 
 Opciones opcionales: `title`, `message`, `durationMs`. Fallback sin toast: `console.log('[LocalAction]', …)`.
 
-**Integrado en 6A+6E:** `attendance_registered`, `no_show_registered`. **Pendiente:** UX-6B pending, UX-6C autoConfirm, UX-6D cancelación, UX-6F conexión, UX-6G copy externo.
+**Integrado:** `attendance_registered`, `no_show_registered` (UX-6E), `appointment_pending_created` (UX-6B). **Pendiente:** UX-6C autoConfirm, UX-6D cancelación, UX-6F conexión, UX-6G copy externo.
 
 ### UX-6E — Asistencia / no asistencia
 
@@ -484,6 +484,35 @@ Opciones opcionales: `title`, `message`, `durationMs`. Fallback sin toast: `cons
 **D — Error AJAX:** alerts de error igual que antes.
 
 **E — Regresión:** confirmar/cancelar calendario, cita rápida, reserva legacy sin cambios en este ciclo.
+
+### UX-6B — Cita pending creada localmente (legacy + cita rápida)
+
+Tras `saveReservation` exitoso en rama **`!autoConfirm`**, se muestra siempre:
+
+`showLocalActionSuccessNotification('appointment_pending_created')`
+
+| Caller | Condición |
+|--------|-----------|
+| `adminReservationController.js` | Modal reserva legacy, sin auto-confirm |
+| `adminFastappointmentFlowController.js` | Sin checkbox “Confirmar al agendar” |
+
+El toast verde local es **independiente** de `sendConfirmation`, cuota, Node y correo. Convive con UX-4C.1/4D.1 (solicitud) y UX-4E (sin correo). **No** se muestra en `autoConfirm` (UX-6C usará `appointment_confirmed_local`).
+
+Fallback sin helper: `console.log` breve; sin `alert`.
+
+#### Pruebas manuales
+
+**A — Legacy pending + correo + cuota OK:** verde “Cita pendiente creada” + toast solicitud enviada.
+
+**B — Legacy pending + correo + cuota agotada:** verde local + warning solicitud/cuota.
+
+**C — Legacy pending sin correo:** verde local + warning UX-4E.
+
+**D — Fast pending + correo:** verde local + toast solicitud según cuota.
+
+**E — Fast pending sin correo:** verde local + UX-4E.
+
+**F — Fast autoConfirm:** sin “Cita pendiente creada” (UX-6C).
 
 ## UX-5A.1 — Fallo de conexión con backend Node (cita rápida autoConfirm)
 
