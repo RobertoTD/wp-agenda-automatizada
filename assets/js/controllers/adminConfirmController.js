@@ -312,6 +312,62 @@ window.AdminConfirmController = (function() {
         }
     }
 
+    var LOCAL_ACTION_SUCCESS_COPY = {
+        appointment_pending_created: {
+            title: 'Cita pendiente creada',
+            message: 'Cita pendiente de confirmación creada localmente.'
+        },
+        appointment_confirmed_local: {
+            title: 'Cita confirmada',
+            message: 'Cita confirmada localmente.'
+        },
+        appointment_cancelled_local: {
+            title: 'Cita cancelada',
+            message: 'Cita cancelada localmente.'
+        },
+        attendance_registered: {
+            title: 'Asistencia registrada',
+            message: 'Asistencia registrada.'
+        },
+        no_show_registered: {
+            title: 'No asistencia registrada',
+            message: 'No asistencia registrada.'
+        }
+    };
+
+    /**
+     * Toast verde de acción local exitosa en WordPress (sin mapper ni Node).
+     * @param {string} actionType — clave en LOCAL_ACTION_SUCCESS_COPY
+     * @param {{ title?: string, message?: string, durationMs?: number }} [options]
+     */
+    function showLocalActionSuccessNotification(actionType, options) {
+        var copy = LOCAL_ACTION_SUCCESS_COPY[actionType];
+        if (!copy) {
+            console.warn('[LocalAction] Tipo de acción desconocido:', actionType);
+            return;
+        }
+        var opts = options || {};
+        var title = opts.title != null ? String(opts.title) : copy.title;
+        var message = opts.message != null ? String(opts.message) : copy.message;
+        var durationMs = typeof opts.durationMs === 'number' ? opts.durationMs : 3500;
+        var toastApi = window.AAAdmin && window.AAAdmin.toast;
+        if (!toastApi || typeof toastApi.showMany !== 'function') {
+            console.log('[LocalAction] ' + title + ': ' + message);
+            return;
+        }
+        toastApi.showMany([{
+            severity: 'success',
+            title: title,
+            message: message,
+            details: [],
+            fallback: null,
+            durationMs: durationMs,
+            blocking: false,
+            actions: [],
+            notices: []
+        }]);
+    }
+
     var AUTOMATION_CONNECTION_FAILED_COPY = {
         auto_confirm: {
             severity: 'warning',
@@ -672,6 +728,7 @@ window.AdminConfirmController = (function() {
         showConfirmResultNotification,
         showPendingCreatedWithoutEmailNotification,
         isConfirmAutomationIncomplete,
-        showAutomationConnectionFailedNotification
+        showAutomationConnectionFailedNotification,
+        showLocalActionSuccessNotification
     };
 })();

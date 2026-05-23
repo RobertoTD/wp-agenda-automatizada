@@ -438,6 +438,53 @@ Si `AAAdmin.toast` no está disponible: `console.log` de fallback (sin error).
 
 **F — Regresión:** confirmar calendario UX-4B, cancelar UX-4A.
 
+## UX-6 — Normalización local vs. externa (etapa)
+
+### Principio
+
+1. **Toast local verde** — hecho confirmado en WordPress / BD (sin depender de Node).
+2. **Toast externo** — automatización (email, Calendar, cuotas, conexión Node) vía mapper o helpers dedicados.
+3. Un toast externo **no** debe reemplazar ni ocultar el toast local.
+
+### UX-6A — Helper de toast local (`showLocalActionSuccessNotification`)
+
+`AdminConfirmController.showLocalActionSuccessNotification(actionType, options?)` usa `AAAdmin.toast.showMany` con `severity: success`. No usa mapper ni `benefit_notices`.
+
+| `actionType` | Título | Mensaje |
+|--------------|--------|---------|
+| `appointment_pending_created` | Cita pendiente creada | Cita pendiente de confirmación creada localmente. |
+| `appointment_confirmed_local` | Cita confirmada | Cita confirmada localmente. |
+| `appointment_cancelled_local` | Cita cancelada | Cita cancelada localmente. |
+| `attendance_registered` | Asistencia registrada | Asistencia registrada. |
+| `no_show_registered` | No asistencia registrada | No asistencia registrada. |
+
+Opciones opcionales: `title`, `message`, `durationMs`. Fallback sin toast: `console.log('[LocalAction]', …)`.
+
+**Integrado en 6A+6E:** `attendance_registered`, `no_show_registered`. **Pendiente:** UX-6B pending, UX-6C autoConfirm, UX-6D cancelación, UX-6F conexión, UX-6G copy externo.
+
+### UX-6E — Asistencia / no asistencia
+
+`adminCalendarController.js` — `aa_marcar_asistencia` / `aa_marcar_no_asistencia` (solo WP, sin Node).
+
+| Comportamiento | Estado |
+|----------------|--------|
+| `confirm()` previo | **Se mantiene** |
+| Éxito AJAX | Toast local UX-6A (sin `alert` de éxito) |
+| Sin helper / sin toast | Fallback `alert` legacy |
+| Error / `.catch` | `alert` legacy sin cambios |
+
+### Pruebas manuales (6A + 6E)
+
+**A — Asistió:** `confirm` → aceptar → toast verde “Asistencia registrada.”; sin alert de éxito.
+
+**B — No asistió:** igual con “No asistencia registrada.”
+
+**C — Cancelar `confirm()`:** sin AJAX ni toast.
+
+**D — Error AJAX:** alerts de error igual que antes.
+
+**E — Regresión:** confirmar/cancelar calendario, cita rápida, reserva legacy sin cambios en este ciclo.
+
 ## UX-5A.1 — Fallo de conexión con backend Node (cita rápida autoConfirm)
 
 ### Qué es

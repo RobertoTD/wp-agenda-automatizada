@@ -125,7 +125,14 @@ window.AdminCalendarController = (function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert('✅ Asistencia registrada');
+                if (
+                    window.AdminConfirmController &&
+                    typeof window.AdminConfirmController.showLocalActionSuccessNotification === 'function'
+                ) {
+                    window.AdminConfirmController.showLocalActionSuccessNotification('attendance_registered');
+                } else {
+                    alert('✅ Asistencia registrada');
+                }
                 document.dispatchEvent(new CustomEvent('aa-cita-action-completed'));
                 if (recargarCallback) {
                     recargarCallback();
@@ -165,7 +172,14 @@ window.AdminCalendarController = (function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert('❌ No asistencia registrada');
+                if (
+                    window.AdminConfirmController &&
+                    typeof window.AdminConfirmController.showLocalActionSuccessNotification === 'function'
+                ) {
+                    window.AdminConfirmController.showLocalActionSuccessNotification('no_show_registered');
+                } else {
+                    alert('❌ No asistencia registrada');
+                }
                 document.dispatchEvent(new CustomEvent('aa-cita-action-completed'));
                 if (recargarCallback) {
                     recargarCallback();
