@@ -460,7 +460,7 @@ Si `AAAdmin.toast` no está disponible: `console.log` de fallback (sin error).
 
 Opciones opcionales: `title`, `message`, `durationMs`. Fallback sin toast: `console.log('[LocalAction]', …)`.
 
-**Integrado:** `attendance_registered`, `no_show_registered` (UX-6E), `appointment_pending_created` (UX-6B). **Pendiente:** UX-6C autoConfirm, UX-6D cancelación, UX-6F conexión, UX-6G copy externo.
+**Integrado:** `attendance_registered`, `no_show_registered` (UX-6E), `appointment_pending_created` (UX-6B), `appointment_confirmed_local` en fast autoConfirm (UX-6C.1). **Pendiente:** UX-6C.2 legacy autoConfirm, UX-6D cancelación, UX-6F conexión, UX-6G copy externo.
 
 ### UX-6E — Asistencia / no asistencia
 
@@ -512,7 +512,28 @@ Fallback sin helper: `console.log` breve; sin `alert`.
 
 **E — Fast pending sin correo:** verde local + UX-4E.
 
-**F — Fast autoConfirm:** sin “Cita pendiente creada” (UX-6C).
+**F — Fast autoConfirm:** sin “Cita pendiente creada” (UX-6C.1).
+
+### UX-6C.1 — Cita rápida autoConfirm confirmada localmente
+
+Tras `ConfirmService.confirmar` con `confirmResp.success === true` en **cita rápida** con “Confirmar al agendar”:
+
+1. `showLocalActionSuccessNotification('appointment_confirmed_local')` — primero.
+2. Si `isConfirmAutomationIncomplete(confirmResp)` → solo `showAutomationConnectionFailedNotification('auto_confirm')` (UX-5A.1); **no** `showConfirmResultNotification` (evita toast genérico “Cita confirmada.” sin detalle).
+3. Si no → `showConfirmResultNotification(confirmResp)` (UX-4D.2, Calendar/correo/cuota).
+4. `AdminCalendarController.recargar()`.
+
+El toast local no depende de Calendar, email, cuota ni Node. **No** cubre modal reserva legacy autoConfirm (UX-6C.2).
+
+#### Pruebas manuales
+
+**A — Cuota OK:** verde “Cita confirmada localmente” + externo Calendar/correo; sin pending.
+
+**B — Cuota agotada:** verde local + warning externo omitidos; sin pending.
+
+**C — Node caído:** verde local + warning UX-5A; **sin** toast genérico “Cita confirmada.”; sin pending.
+
+**D — Fast pending:** solo “Cita pendiente creada” (UX-6B); sin “Cita confirmada localmente”.
 
 ## UX-5A.1 — Fallo de conexión con backend Node (cita rápida autoConfirm)
 

@@ -1421,19 +1421,29 @@
                                     if (confirmResp.success) {
                                         if (
                                             window.AdminConfirmController &&
+                                            typeof window.AdminConfirmController.showLocalActionSuccessNotification === 'function'
+                                        ) {
+                                            window.AdminConfirmController.showLocalActionSuccessNotification('appointment_confirmed_local');
+                                        } else {
+                                            console.log('[LocalAction] Cita confirmada: Cita confirmada localmente.');
+                                        }
+                                        var automationIncomplete =
+                                            window.AdminConfirmController &&
+                                            typeof window.AdminConfirmController.isConfirmAutomationIncomplete === 'function' &&
+                                            window.AdminConfirmController.isConfirmAutomationIncomplete(confirmResp);
+                                        if (automationIncomplete) {
+                                            if (
+                                                typeof window.AdminConfirmController.showAutomationConnectionFailedNotification === 'function'
+                                            ) {
+                                                window.AdminConfirmController.showAutomationConnectionFailedNotification('auto_confirm');
+                                            }
+                                        } else if (
+                                            window.AdminConfirmController &&
                                             typeof window.AdminConfirmController.showConfirmResultNotification === 'function'
                                         ) {
                                             window.AdminConfirmController.showConfirmResultNotification(confirmResp);
                                         } else {
                                             console.log('[FastAppointment] Cita confirmada en background');
-                                        }
-                                        if (
-                                            window.AdminConfirmController &&
-                                            typeof window.AdminConfirmController.isConfirmAutomationIncomplete === 'function' &&
-                                            window.AdminConfirmController.isConfirmAutomationIncomplete(confirmResp) &&
-                                            typeof window.AdminConfirmController.showAutomationConnectionFailedNotification === 'function'
-                                        ) {
-                                            window.AdminConfirmController.showAutomationConnectionFailedNotification('auto_confirm');
                                         }
                                         if (window.AdminCalendarController && typeof window.AdminCalendarController.recargar === 'function') {
                                             window.AdminCalendarController.recargar();
