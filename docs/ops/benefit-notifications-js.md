@@ -460,7 +460,7 @@ Si `AAAdmin.toast` no está disponible: `console.log` de fallback (sin error).
 
 Opciones opcionales: `title`, `message`, `durationMs`. Fallback sin toast: `console.log('[LocalAction]', …)`.
 
-**Integrado:** `attendance_registered`, `no_show_registered` (UX-6E), `appointment_pending_created` (UX-6B), `appointment_confirmed_local` (UX-6C, UX-6F.1 manual), `appointment_cancelled_local` + externos cancel (UX-6D), sendConfirmation conexión (UX-6F.2). **Pendiente:** UX-6H.2 toasts IA, UX-6G copy externo.
+**Integrado:** `attendance_registered`, `no_show_registered` (UX-6E), `appointment_pending_created` (UX-6B), `appointment_confirmed_local` (UX-6C, UX-6F.1 manual, UX-6H.2 IA), `appointment_cancelled_local` + externos cancel (UX-6D), sendConfirmation conexión (UX-6F.2). **Pendiente:** UX-6G copy externo.
 
 ### UX-6E — Asistencia / no asistencia
 
@@ -651,7 +651,43 @@ El flujo IA autoconfirma server-side vía `AA_AI_Confirm_Booking_Use_Case` → `
 
 **C — Regresión:** flujos manuales legacy/fast/cancel/6F sin cambios en sus endpoints.
 
-**Siguiente:** UX-6H.2 cableará `confirm_notification` a `showLocalActionSuccessNotification` + `showConfirmResultNotification` / `isConfirmAutomationIncomplete`.
+### UX-6H.2 — Chat IA: toasts desde `confirm_notification`
+
+Consume el contrato UX-6H.1 sin sistema paralelo. Mismo patrón que UX-6C.1/6C.2 (autoConfirm manual).
+
+**JS:**
+
+- `AdminConfirmController.showAutoConfirmBookingNotifications(confirmed, confirmNotification)`:
+  1. `showLocalActionSuccessNotification('appointment_confirmed_local')`
+  2. Si `isConfirmAutomationIncomplete({ success: true, data: confirmNotification })` → `showAutomationConnectionFailedNotification('auto_confirm')` y **return**
+  3. Si no → `showConfirmResultNotification` (mapper `confirm_admin`: Calendar, email, cuota, happy path)
+
+- `aichat.js` → `notifyAiBookingConfirmed` llama al helper desde:
+  - `intent_result.status === 'booking_confirmed'` (`resolution.confirmation`)
+  - `runConfirmBookingAjax` éxito (`data.confirmed`, `data.confirm_notification`)
+
+**No toca:** PHP, Node, mapper, toast renderer, `pushMessage` / copy conversacional / `reply_ui` / `draft_state`.
+
+| Escenario | Toasts |
+|-----------|--------|
+| Active + Node OK | Local + externo Calendar/correo; sin “Automatización incompleta” |
+| past_due / cuota | Local + warning mapper (`benefit_notices`); sin warning conexión |
+| Node caído | Local + “Automatización incompleta”; **sin** toast genérico “Cita confirmada.” |
+| `confirmed: false` / sin `confirm_notification` | No-op |
+
+Los entrypoints chat vs `aa_ai_confirm_booking` son mutuamente excluyentes por gesto (afirmación pura/botón vs confirmación server-side en chat).
+
+#### Pruebas manuales (UX-6H.2)
+
+**A — IA active:** local + externo; chat conserva mensaje; sin warning conexión.
+
+**B — IA past_due:** local + mapper cuota; sin warning conexión.
+
+**C — IA Node caído:** local + “Automatización incompleta”; sin “Cita confirmada.” genérico.
+
+**D — confirmed false:** sin toasts falsos.
+
+**E — Regresión:** UX-6B–6F manuales sin cambios.
 
 ### UX-6D.1 — Cancelación admin: local vs. externo
 

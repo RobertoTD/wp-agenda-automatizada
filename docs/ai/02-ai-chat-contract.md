@@ -254,7 +254,9 @@ Camino server-side:
    `resolution.confirmation = { reservation_id, assignment_id, confirmed, ... }`.
    Cuando `confirmed === true` y la confirmación backend devolvió `success`,
    se añade **`confirm_notification`**: mismo shape que
-   `aa_build_confirm_cita_ajax_success_payload` (UX-6H.1; toasts en UX-6H.2).
+   `aa_build_confirm_cita_ajax_success_payload` (UX-6H.1). El frontend
+   (`aichat.js` vía `AdminConfirmController.showAutoConfirmBookingNotifications`)
+   muestra toasts operativos UX-6 sin alterar el mensaje conversacional (UX-6H.2).
 6. Si el use case responde error → `booking_confirm_failed`,
    preserva `parsed` para reintento, anexa
    `resolution.confirmation_error = { stage, message }`.
@@ -269,7 +271,9 @@ válida, se rebaja `sub_intent` a `other` antes del dispatch.
 El frontend (`aichat.js`) detecta `intent_result.status === 'booking_confirmed'`
 y dispara `aa-assignment-created` para refrescar el calendario +
 deshabilita el CTA del turno anterior (mismo efecto que ya hacía
-tras `runConfirmBookingAjax`).
+tras `runConfirmBookingAjax`). Si `confirmation.confirm_notification`
+está presente, también dispara toasts UX-6 (local + externos o warning
+de automatización) vía `showAutoConfirmBookingNotifications`.
 
 `isPureConfirmMessage` en `aichat.js` y el endpoint
 `aa_ai_confirm_booking` permanecen: el botón "Confirmar cita" y

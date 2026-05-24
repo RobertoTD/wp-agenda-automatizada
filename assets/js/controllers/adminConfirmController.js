@@ -549,6 +549,36 @@ window.AdminConfirmController = (function() {
     }
 
     /**
+     * Toasts UX-6 tras confirmación IA o autoConfirm (mismo patrón que UX-6C legacy/fast).
+     * @param {boolean} confirmed
+     * @param {Record<string, unknown>|null|undefined} confirmNotification
+     *   Shape de aa_build_confirm_cita_ajax_success_payload (UX-6H.1).
+     */
+    function showAutoConfirmBookingNotifications(confirmed, confirmNotification) {
+        if (!confirmed) {
+            return;
+        }
+
+        if (!confirmNotification || typeof confirmNotification !== 'object' || Array.isArray(confirmNotification)) {
+            return;
+        }
+
+        var wpResponse = {
+            success: true,
+            data: confirmNotification
+        };
+
+        showLocalActionSuccessNotification('appointment_confirmed_local');
+
+        if (isConfirmAutomationIncomplete(wpResponse)) {
+            showAutomationConnectionFailedNotification('auto_confirm');
+            return;
+        }
+
+        showConfirmResultNotification(wpResponse);
+    }
+
+    /**
      * Toast local cuando se crea una cita pendiente sin correo del cliente.
      * No hay llamada a aa_enviar_confirmacion ni benefit_notices reales.
      */
@@ -951,6 +981,7 @@ window.AdminConfirmController = (function() {
         showPendingCreatedWithoutEmailNotification,
         isConfirmAutomationIncomplete,
         showAutomationConnectionFailedNotification,
-        showLocalActionSuccessNotification
+        showLocalActionSuccessNotification,
+        showAutoConfirmBookingNotifications
     };
 })();

@@ -628,6 +628,11 @@
                     if (result.status === 'booking_confirmed') {
                         markLastConfirmCtaMessageDisabled();
                         document.dispatchEvent(new CustomEvent('aa-assignment-created'));
+                        var confirmation = resolution.confirmation || {};
+                        notifyAiBookingConfirmed(
+                            !!confirmation.confirmed,
+                            confirmation.confirm_notification
+                        );
                     }
                 } else {
                     const errUi = mapChatAjaxErrorToUi(res.data || null);
@@ -907,6 +912,19 @@
     }
 
     /**
+     * Feedback operativo UX-6 tras confirmación IA (UX-6H.2).
+     * @param {boolean} confirmed
+     * @param {object|null|undefined} confirmNotification
+     */
+    function notifyAiBookingConfirmed(confirmed, confirmNotification) {
+        var ctrl = window.AdminConfirmController;
+        if (!ctrl || typeof ctrl.showAutoConfirmBookingNotifications !== 'function') {
+            return;
+        }
+        ctrl.showAutoConfirmBookingNotifications(confirmed, confirmNotification);
+    }
+
+    /**
      * POST `aa_ai_confirm_booking` — única implementación (botón y paso 6.h).
      *
      * @param {object} body Payload ya validado.
@@ -931,6 +949,10 @@
                         ts: Date.now()
                     });
                     document.dispatchEvent(new CustomEvent('aa-assignment-created'));
+                    notifyAiBookingConfirmed(
+                        !!(res.data && res.data.confirmed),
+                        res.data && res.data.confirm_notification
+                    );
                 } else {
                     const stage = (res.data && res.data.stage) || 'unknown';
                     const serverMsg = (res.data && res.data.message) || 'No pude confirmar la cita.';
