@@ -38,12 +38,23 @@ final class AA_Admin_AI_Confirm_Booking_Controller {
         $result = (new AA_AI_Confirm_Booking_Use_Case())->execute($input);
 
         if (($result['status'] ?? null) === 'ok') {
-            wp_send_json_success([
+            $payload = [
                 'reservation_id'     => (int) ($result['reservation_id'] ?? 0),
                 'assignment_id'      => (int) ($result['assignment_id'] ?? 0),
                 'created_assignment' => (bool) ($result['created_assignment'] ?? false),
                 'confirmed'          => (bool) ($result['confirmed'] ?? false),
-            ]);
+            ];
+
+            $confirm_result = $result['confirm_result'] ?? null;
+            if (
+                !empty($payload['confirmed'])
+                && is_array($confirm_result)
+                && !empty($confirm_result['success'])
+            ) {
+                $payload['confirm_notification'] = aa_build_confirm_cita_ajax_success_payload($confirm_result);
+            }
+
+            wp_send_json_success($payload);
         }
 
         wp_send_json_error([

@@ -460,7 +460,7 @@ Si `AAAdmin.toast` no está disponible: `console.log` de fallback (sin error).
 
 Opciones opcionales: `title`, `message`, `durationMs`. Fallback sin toast: `console.log('[LocalAction]', …)`.
 
-**Integrado:** `attendance_registered`, `no_show_registered` (UX-6E), `appointment_pending_created` (UX-6B), `appointment_confirmed_local` (UX-6C, UX-6F.1 manual), `appointment_cancelled_local` + externos cancel (UX-6D), sendConfirmation conexión (UX-6F.2). **Pendiente:** UX-6G copy externo.
+**Integrado:** `attendance_registered`, `no_show_registered` (UX-6E), `appointment_pending_created` (UX-6B), `appointment_confirmed_local` (UX-6C, UX-6F.1 manual), `appointment_cancelled_local` + externos cancel (UX-6D), sendConfirmation conexión (UX-6F.2). **Pendiente:** UX-6H.2 toasts IA, UX-6G copy externo.
 
 ### UX-6E — Asistencia / no asistencia
 
@@ -611,6 +611,47 @@ Tras crear cita pending (UX-6B) con correo, `ReservationService.sendConfirmation
 **E — Happy path:** verde local + “Solicitud enviada”; sin warning conexión.
 
 **F — Regresión:** UX-6F.1 confirm manual, UX-6C autoConfirm, UX-6D cancel, UX-6E asistencia sin cambios.
+
+### UX-6H.1 — Chat IA: contrato `confirm_notification` (sin toasts)
+
+El flujo IA autoconfirma server-side vía `AA_AI_Confirm_Booking_Use_Case` → `confirm_backend_service_confirmar` (mismo servicio que `aa_confirmar_cita`). Antes sólo se exponía `confirmed: boolean`; ahora se propaga metadata rica para UX-6H.2.
+
+**PHP:**
+
+- `AI_Confirm_Booking_Use_Case`: `try_auto_confirm` devuelve el array crudo del servicio; output `ok` incluye `confirm_result`.
+- `build_confirm_success_response` (`aa_admin_ai_chat`): si `confirmed` y `confirm_result.success`, añade `resolution.confirmation.confirm_notification` = `aa_build_confirm_cita_ajax_success_payload($confirm_result)`.
+- `aa_ai_confirm_booking`: mismo campo en `data.confirm_notification`.
+
+**No incluye en este ciclo:** toasts, `aichat.js`, `AdminConfirmController`, mapper, toast renderer, Node, copy conversacional (`reply_text` / `reply_ui` sin cambios).
+
+**Rutas Network:**
+
+| Entrada | Campo |
+|---------|--------|
+| Chat natural | `data.intent_result.resolution.confirmation.confirm_notification` |
+| Botón / `aa_ai_confirm_booking` | `data.confirm_notification` |
+
+**Ausente cuando:** `confirmed === false` (confirmación WP/backend falló con `success: false` en el servicio).
+
+#### Shapes de referencia (validación H.1)
+
+**A — Node OK + cuota OK:** `local_confirmed: true`, `calendar_sync: true`, `email.sent` si aplica, sin `benefit_notices` si no hay omisiones.
+
+**B — Cuota / past_due:** `local_confirmed: true`, `calendar_sync: false`, `calendar_skipped`, `benefit_notices`, `email.skipped` si aplica; `confirmed: true` en `confirmation`.
+
+**C — Node caído:** `local_confirmed: true`, `calendar_sync: false`, `message` con fallo de backend; sin `benefit_notices`.
+
+**D — Confirm fallida:** `confirmed: false`; sin clave `confirm_notification`.
+
+#### Pruebas manuales (UX-6H.1)
+
+**A — Chat:** confirmar draft → `aa_admin_ai_chat` → ver `confirm_notification` en Network; **sin** toasts nuevos.
+
+**B — Botón:** `aa_ai_confirm_booking` → `data.confirm_notification` con mismo shape.
+
+**C — Regresión:** flujos manuales legacy/fast/cancel/6F sin cambios en sus endpoints.
+
+**Siguiente:** UX-6H.2 cableará `confirm_notification` a `showLocalActionSuccessNotification` + `showConfirmResultNotification` / `isConfirmAutomationIncomplete`.
 
 ### UX-6D.1 — Cancelación admin: local vs. externo
 

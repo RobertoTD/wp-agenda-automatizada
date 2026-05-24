@@ -177,6 +177,8 @@ ac('AC1 reuse feliz',
     && $r['created_assignment'] === false
     && $r['reservation_id'] > 0
     && $r['confirmed'] === true
+    && is_array($r['confirm_result'] ?? null)
+    && !empty($r['confirm_result']['success'])
     && empty(AssignmentsModel::$pivot_calls),
     $r
 );
@@ -247,7 +249,9 @@ $r = (new AA_AI_Confirm_Booking_Use_Case())->execute($base_input);
 ac('AC6 confirm falla → status:ok, confirmed:false',
     $r['status'] === 'ok'
     && $r['confirmed'] === false
-    && $r['reservation_id'] > 0,
+    && $r['reservation_id'] > 0
+    && is_array($r['confirm_result'] ?? null)
+    && empty($r['confirm_result']['success']),
     $r
 );
 

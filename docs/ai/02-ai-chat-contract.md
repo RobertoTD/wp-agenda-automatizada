@@ -251,7 +251,10 @@ Camino server-side:
    duplicación de reglas de reserva/assignment/auto-confirm.
 5. Si el use case responde `ok` → respuesta `booking_confirmed` con
    `parsed` reseteado, `draft_state=null` y
-   `resolution.confirmation = { reservation_id, assignment_id, ... }`.
+   `resolution.confirmation = { reservation_id, assignment_id, confirmed, ... }`.
+   Cuando `confirmed === true` y la confirmación backend devolvió `success`,
+   se añade **`confirm_notification`**: mismo shape que
+   `aa_build_confirm_cita_ajax_success_payload` (UX-6H.1; toasts en UX-6H.2).
 6. Si el use case responde error → `booking_confirm_failed`,
    preserva `parsed` para reintento, anexa
    `resolution.confirmation_error = { stage, message }`.

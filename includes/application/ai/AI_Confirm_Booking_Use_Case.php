@@ -43,6 +43,7 @@
  *     'assignment_id'      => int,
  *     'created_assignment' => bool,
  *     'confirmed'          => bool,
+ *     'confirm_result'     => array|null Retorno crudo de confirm_backend_service_confirmar().
  *   ]
  *
  * Output error:
@@ -139,7 +140,8 @@ final class AA_AI_Confirm_Booking_Use_Case {
             return $this->err('reservation', 'Reserva creada sin id válido', $res['data'] ?? null);
         }
 
-        $confirmed = $this->try_auto_confirm($reservation_id);
+        $confirm_result = $this->try_auto_confirm($reservation_id);
+        $confirmed      = is_array($confirm_result) && !empty($confirm_result['success']);
 
         return [
             'status'             => 'ok',
@@ -147,6 +149,7 @@ final class AA_AI_Confirm_Booking_Use_Case {
             'assignment_id'      => $effective_assignment_id,
             'created_assignment' => $created_assignment,
             'confirmed'          => $confirmed,
+            'confirm_result'     => $confirm_result,
         ];
     }
 
@@ -338,16 +341,19 @@ final class AA_AI_Confirm_Booking_Use_Case {
     // ─── Auto-confirm ────────────────────────────────────────────────
 
     /**
-     * No es fatal: devolvemos siempre bool. El reportería ya queda en
-     * `error_log` del propio `confirm_backend_service_confirmar`.
+     * No es fatal: el caller deriva `confirmed` de `success`. El reportería
+     * queda en `error_log` del propio `confirm_backend_service_confirmar`.
+     *
+     * @return array<string,mixed>|null Retorno crudo del servicio de confirmación.
      */
-    private function try_auto_confirm(int $reservation_id): bool {
+    private function try_auto_confirm(int $reservation_id): ?array {
         if (!function_exists('confirm_backend_service_confirmar')) {
-            return false;
+            return null;
         }
 
-        $r = \confirm_backend_service_confirmar($reservation_id);
-        return is_array($r) && !empty($r['success']);
+        $result = \confirm_backend_service_confirmar($reservation_id);
+
+        return is_array($result) ? $result : null;
     }
 
     // ─── Result helpers ──────────────────────────────────────────────

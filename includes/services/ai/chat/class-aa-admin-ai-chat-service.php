@@ -1054,6 +1054,21 @@ final class AA_Admin_AI_Chat_Service {
             'confirmed'          => !empty($use_case_result['confirmed']),
         ];
 
+        $confirm_result = isset($use_case_result['confirm_result']) && is_array($use_case_result['confirm_result'])
+            ? $use_case_result['confirm_result']
+            : null;
+
+        if (
+            !empty($use_case_result['confirmed'])
+            && is_array($confirm_result)
+            && !empty($confirm_result['success'])
+        ) {
+            if (!function_exists('aa_build_confirm_cita_ajax_success_payload')) {
+                require_once dirname(__DIR__, 3) . '/services/confirm-backend-service.php';
+            }
+            $confirmation['confirm_notification'] = aa_build_confirm_cita_ajax_success_payload($confirm_result);
+        }
+
         return [
             'ok'            => true,
             'reply_text'    => $text,
