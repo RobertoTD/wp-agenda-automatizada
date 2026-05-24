@@ -460,7 +460,7 @@ Si `AAAdmin.toast` no está disponible: `console.log` de fallback (sin error).
 
 Opciones opcionales: `title`, `message`, `durationMs`. Fallback sin toast: `console.log('[LocalAction]', …)`.
 
-**Integrado:** `attendance_registered`, `no_show_registered` (UX-6E), `appointment_pending_created` (UX-6B), `appointment_confirmed_local` (UX-6C, UX-6F.1 manual), `appointment_cancelled_local` + externos cancel (UX-6D). **Pendiente:** UX-6F.2 sendConfirmation conexión, UX-6G copy externo.
+**Integrado:** `attendance_registered`, `no_show_registered` (UX-6E), `appointment_pending_created` (UX-6B), `appointment_confirmed_local` (UX-6C, UX-6F.1 manual), `appointment_cancelled_local` + externos cancel (UX-6D), sendConfirmation conexión (UX-6F.2). **Pendiente:** UX-6G copy externo.
 
 ### UX-6E — Asistencia / no asistencia
 
@@ -574,7 +574,7 @@ Detector reutilizado (sin PHP/Node): `success: true`, `data.calendar_sync === fa
 
 Copy warning `confirm` en `AUTOMATION_CONNECTION_FAILED_COPY`: “Automatización incompleta” + conexión al servicio de automatización + detalle confirmación local + fallback notificar al cliente. Sin Calendar/OAuth/cuota en ese toast.
 
-**Fuera de alcance:** autoConfirm legacy/fast (UX-6C), `sendConfirmation` (UX-6F.2), cancelación, pending, asistencia, frontend público.
+**Fuera de alcance:** autoConfirm legacy/fast (UX-6C), `sendConfirmation` (UX-6F.2), cancelación, asistencia, frontend público.
 
 #### Pruebas manuales (UX-6F.1)
 
@@ -585,6 +585,32 @@ Copy warning `confirm` en `AUTOMATION_CONNECTION_FAILED_COPY`: “Automatizació
 **C — Happy path:** verde local + toast externo mapper (Calendar/correo si aplica); **sin** warning conexión.
 
 **D — Regresión:** UX-6C.1/6C.2 autoConfirm, UX-6D cancel, UX-6B/4C/4E pending, UX-6E asistencia sin cambios.
+
+### UX-6F.2 — Solicitud de confirmación pending: conexión backend
+
+Tras crear cita pending (UX-6B) con correo, `ReservationService.sendConfirmation` → `aa_enviar_confirmacion` → `confirm_backend_service_enviar_correo`. Legacy y fast admin llaman `showSendConfirmationResultNotification(wpResponse)` en `.then` (WordPress devuelve JSON aunque `success: false`).
+
+**PHP** (`confirm-backend-service.php`): en fallos técnicos sin `benefit_notices` ni códigos de negocio excluidos, el servicio añade `code: backend_connection_failed` y `reason` (`node_unreachable`, `backend_http_error`, `backend_invalid_response`). `aa_build_enviar_confirmacion_ajax_payload` ya propaga `code`/`reason` al AJAX.
+
+**JS** (`showSendConfirmationResultNotification`): si `hasSendConfirmationBackendConnectionFailure(wpResponse)` → `showAutomationConnectionFailedNotification('send_confirmation_request')` y **return** (sin mapper). Copy: “Solicitud no enviada” + conexión al servicio de automatización + detalle de solicitud no enviada + fallback notificar al cliente.
+
+**No cubre:** cuota/past_due (`benefit_notices` o codes de cuota), `email_not_provided` (UX-4E, no se llama send), `duplicate_reminder`, `no_billable_recipients`, `backend_disabled`, `no_installation_id`, `quota_service_unavailable`, frontend público (no usa este hub).
+
+**No toca:** `BenefitNotificationMapper`, toast renderer, `adminReservationController`, `adminFastappointmentFlowController`, Node, flujos 6F.1 / 6C / 6D / 6E.
+
+#### Pruebas manuales (UX-6F.2)
+
+**A — Legacy pending + correo + Node caído:** verde “Cita pendiente creada” + warning conexión homologado; **sin** toast mapper genérico redundante. Network: `success: false`, `data.code: backend_connection_failed`, `data.reason: node_unreachable` (o `backend_http_error`).
+
+**B — Fast pending + correo + Node caído:** igual A.
+
+**C — Pending + cuota/past_due:** verde local + warning mapper cuota; **sin** warning conexión (`benefit_notices` o code de cuota).
+
+**D — Pending sin correo:** verde local + UX-4E; no `sendConfirmation`; sin warning conexión.
+
+**E — Happy path:** verde local + “Solicitud enviada”; sin warning conexión.
+
+**F — Regresión:** UX-6F.1 confirm manual, UX-6C autoConfirm, UX-6D cancel, UX-6E asistencia sin cambios.
 
 ### UX-6D.1 — Cancelación admin: local vs. externo
 

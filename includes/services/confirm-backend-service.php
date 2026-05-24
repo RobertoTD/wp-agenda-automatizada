@@ -529,6 +529,70 @@ function aa_enviar_correo_apply_decoded_fields(array $base, $decoded) {
 }
 
 /**
+ * Códigos de negocio que no deben etiquetarse como fallo técnico de conexión al backend.
+ *
+ * @param string $code
+ * @return bool
+ */
+function aa_enviar_correo_is_excluded_business_code($code) {
+    if ($code === '') {
+        return false;
+    }
+    $excluded = [
+        'email_quota_exceeded',
+        'quota_exceeded',
+        'quota_service_unavailable',
+        'google_calendar_quota_service_unavailable',
+        'email_not_provided',
+        'duplicate_reminder',
+        'no_billable_recipients',
+        'backend_disabled',
+        'google_calendar_backend_disabled',
+        'no_installation_id',
+        'google_calendar_no_installation_id',
+    ];
+    return in_array(strtolower($code), $excluded, true);
+}
+
+/**
+ * @param array<string, mixed> $result
+ * @return bool
+ */
+function aa_enviar_correo_should_mark_backend_connection_failed(array $result) {
+    if (!empty($result['benefit_notices']) && is_array($result['benefit_notices']) && count($result['benefit_notices']) > 0) {
+        return false;
+    }
+    if (!empty($result['skipped'])) {
+        return false;
+    }
+    if (isset($result['reason']) && strtolower((string) $result['reason']) === 'email_not_provided') {
+        return false;
+    }
+    $code = isset($result['code']) ? strtolower((string) $result['code']) : '';
+    if ($code === 'backend_connection_failed') {
+        return false;
+    }
+    if (aa_enviar_correo_is_excluded_business_code($code)) {
+        return false;
+    }
+    return true;
+}
+
+/**
+ * @param array<string, mixed> $result
+ * @param string $reason node_unreachable|backend_http_error|backend_invalid_response
+ * @return array<string, mixed>
+ */
+function aa_enviar_correo_apply_backend_connection_failed_if_needed(array $result, $reason) {
+    if (!aa_enviar_correo_should_mark_backend_connection_failed($result)) {
+        return $result;
+    }
+    $result['code'] = 'backend_connection_failed';
+    $result['reason'] = $reason;
+    return $result;
+}
+
+/**
  * Payload JSON para wp_send_json_success / wp_send_json_error tras aa_enviar_confirmacion.
  *
  * @param array<string, mixed> $result Retorno de confirm_backend_service_enviar_correo().
@@ -676,7 +740,9 @@ function confirm_backend_service_enviar_correo($datos) {
         return [
             'success' => false,
             'message' => 'Error de conexión con el backend',
-            'error' => $response->get_error_message()
+            'code' => 'backend_connection_failed',
+            'reason' => 'node_unreachable',
+            'error' => $response->get_error_message(),
         ];
     }
 
@@ -699,5 +765,8 @@ function confirm_backend_service_enviar_correo($datos) {
         'success' => false,
         'message' => 'El backend respondió con error',
     ];
-    return aa_enviar_correo_apply_decoded_fields($result, $decoded);
+    $result = aa_enviar_correo_apply_decoded_fields($result, $decoded);
+    $connection_reason = is_array($decoded) ? 'backend_http_error' : 'backend_invalid_response';
+
+    return aa_enviar_correo_apply_backend_connection_failed_if_needed($result, $connection_reason);
 }

@@ -400,8 +400,32 @@ window.AdminConfirmController = (function() {
             ],
             fallback: 'Notifica manualmente al cliente si corresponde.',
             durationMs: 7000
+        },
+        send_confirmation_request: {
+            severity: 'warning',
+            title: 'Solicitud no enviada',
+            message: 'No se pudo conectar con el servicio de automatización.',
+            details: [
+                'No se pudo enviar la solicitud de confirmación.'
+            ],
+            fallback: 'Notifica manualmente al cliente.',
+            durationMs: 7000
         }
     };
+
+    var SEND_CONFIRMATION_EXCLUDED_CODES = [
+        'email_quota_exceeded',
+        'quota_exceeded',
+        'quota_service_unavailable',
+        'google_calendar_quota_service_unavailable',
+        'email_not_provided',
+        'duplicate_reminder',
+        'no_billable_recipients',
+        'backend_disabled',
+        'google_calendar_backend_disabled',
+        'no_installation_id',
+        'google_calendar_no_installation_id'
+    ];
 
     var AUTOMATION_BACKEND_MESSAGE_MARKERS = [
         'backend',
@@ -440,6 +464,58 @@ window.AdminConfirmController = (function() {
                 return true;
             }
         }
+        return false;
+    }
+
+    /**
+     * Fallo técnico al enviar solicitud de confirmación (aa_enviar_confirmacion) por conexión/backend.
+     * Conservador: no activar con benefit_notices ni códigos de negocio (cuota, config, sin correo, etc.).
+     * @param {{ success?: boolean, data?: Record<string, unknown> }} wpResponse
+     * @returns {boolean}
+     */
+    function hasSendConfirmationBackendConnectionFailure(wpResponse) {
+        if (!wpResponse || wpResponse.success === true) {
+            return false;
+        }
+
+        var payload = wpResponse.data;
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+            return false;
+        }
+
+        if (payload.skipped === true) {
+            return false;
+        }
+
+        if (payload.reason === 'email_not_provided') {
+            return false;
+        }
+
+        if (Array.isArray(payload.benefit_notices) && payload.benefit_notices.length > 0) {
+            return false;
+        }
+
+        var code = String(payload.code || '').toLowerCase();
+
+        if (code === 'backend_connection_failed') {
+            return true;
+        }
+
+        for (var i = 0; i < SEND_CONFIRMATION_EXCLUDED_CODES.length; i++) {
+            if (code === SEND_CONFIRMATION_EXCLUDED_CODES[i]) {
+                return false;
+            }
+        }
+
+        var msg = String(payload.message || '').toLowerCase();
+        if (msg.indexOf('conexión') !== -1 || msg.indexOf('conexion') !== -1) {
+            return true;
+        }
+
+        if (payload.error && String(payload.error).trim() !== '') {
+            return true;
+        }
+
         return false;
     }
 
@@ -501,6 +577,11 @@ window.AdminConfirmController = (function() {
      * @param {{ success?: boolean, data?: Record<string, unknown> }} wpResponse
      */
     function showSendConfirmationResultNotification(wpResponse) {
+        if (hasSendConfirmationBackendConnectionFailure(wpResponse)) {
+            showAutomationConnectionFailedNotification('send_confirmation_request');
+            return;
+        }
+
         var payload = wpResponse && wpResponse.data ? wpResponse.data : {};
 
         function legacyAlert() {
