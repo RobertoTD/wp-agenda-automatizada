@@ -230,7 +230,7 @@ Errores (`success: false`, `.catch`, servicio no cargado) siguen con `alert` leg
 | 1. Solo cancelación local | `calendar_deleted: false`, sin `calendar_delete_skipped` / `benefit_notices` | success — “Cita cancelada.” sin mencionar Calendar |
 | 2. Calendar eliminado | `calendar_deleted: true` | success + detail “Evento de Google Calendar eliminado.” (integrador) |
 | 3. Calendar omitido (cuota) | `calendar_delete_skipped`, `benefit_notices` | warning vía mapper `cancel_admin` + billing si aplica |
-| 4. Fallo técnico backend | Mismo shape que (1) en JS hoy | success sin Calendar — **UX-4A.2** (metadata PHP) |
+| 4. Fallo técnico backend | Mismo shape que (1) en JS hoy | solo local en UX-6D.1 — **UX-6D.2** (metadata PHP) |
 
 ### Post-proceso en el integrador (no en el mapper)
 
@@ -460,7 +460,7 @@ Si `AAAdmin.toast` no está disponible: `console.log` de fallback (sin error).
 
 Opciones opcionales: `title`, `message`, `durationMs`. Fallback sin toast: `console.log('[LocalAction]', …)`.
 
-**Integrado:** `attendance_registered`, `no_show_registered` (UX-6E), `appointment_pending_created` (UX-6B), `appointment_confirmed_local` en fast y legacy autoConfirm (UX-6C.1 / UX-6C.2). **Pendiente:** UX-6D cancelación, UX-6F conexión, UX-6G copy externo.
+**Integrado:** `attendance_registered`, `no_show_registered` (UX-6E), `appointment_pending_created` (UX-6B), `appointment_confirmed_local` (UX-6C), `appointment_cancelled_local` + externos cancel (UX-6D.1). **Pendiente:** UX-6D.2 cancel Node metadata, UX-6F conexión otros flujos, UX-6G copy externo.
 
 ### UX-6E — Asistencia / no asistencia
 
@@ -559,6 +559,37 @@ Mismo patrón que UX-6C.1 en `adminReservationController.js` (rama `if (autoConf
 **D — Legacy pending:** UX-6B + 4C/4E; sin “Cita confirmada localmente”.
 
 **E — Fast autoConfirm:** regresión UX-6C.1 sin cambios.
+
+### UX-6D.1 — Cancelación admin: local vs. externo
+
+`onCancelar` → `aa_cancelar_cita` con `local_cancelled: true` en éxito.
+
+1. Siempre (si `local_cancelled !== false`): `showLocalActionSuccessNotification('appointment_cancelled_local')`.
+2. Si `shouldShowCancelExternalNotification(data)`:
+   - **`calendar_deleted` sin señales de cuota** → `showCancelCalendarDeletedNotification()` (verde: “Google Calendar actualizado” / “Evento de Google Calendar eliminado.”). **No** `showCancelResultNotification`.
+   - **Cuota / `benefit_notices`** → `showCancelResultNotification(data, { localAlreadyShown: true })` (mapper `cancel_admin`; título post-procesado “Sincronización omitida”).
+3. Sin `calendar_uid`, sin `google_email`, OAuth desconectado: solo toast local.
+4. **Node caído** con `calendar_uid`: mismo shape que (3) en JS hoy → solo local. **UX-6D.2** (metadata PHP) para warning de conexión.
+
+**Futuro:** correo de cancelación al cliente → otro toast externo (fuera de 6D.1).
+
+#### Pruebas manuales (UX-6D.1)
+
+**A — Sin `calendar_uid`:** solo “Cita cancelada localmente.”
+
+**B — Active + delete OK:** local + “Google Calendar actualizado”; sin toast genérico “Cita cancelada.” extra.
+
+**C — past_due + `calendar_uid`:** local + warning cuota (mapper); sin “Automatización incompleta”.
+
+**D — OAuth/Google desconectado:** solo local.
+
+**E — Node caído + `calendar_uid`:** solo local (pendiente UX-6D.2).
+
+**F — Regresión:** confirmar, pending, autoConfirm, asistencia sin cambios.
+
+### UX-6D.2 — Pendiente
+
+Warning “Automatización incompleta” en cancelación cuando Node falla pero WP canceló localmente. Requiere metadata en respuesta PHP (indistinguible de “solo local” hoy).
 
 ## UX-5A.1 — Fallo de conexión con backend Node (cita rápida autoConfirm)
 

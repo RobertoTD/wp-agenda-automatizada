@@ -586,11 +586,72 @@ window.AdminConfirmController = (function() {
     }
 
     /**
+     * @param {{ success?: boolean, data?: Record<string, unknown> }} wpResponse
+     * @returns {Record<string, unknown>}
+     */
+    function getCancelPayload(wpResponse) {
+        return wpResponse && wpResponse.data ? wpResponse.data : {};
+    }
+
+    /**
+     * @param {{ success?: boolean, data?: Record<string, unknown> }} wpResponse
+     * @returns {boolean}
+     */
+    function hasCancelQuotaSignals(wpResponse) {
+        var payload = getCancelPayload(wpResponse);
+        return !!(
+            payload.calendar_delete_skipped === true ||
+            payload.calendar_quota_code ||
+            (Array.isArray(payload.benefit_notices) && payload.benefit_notices.length > 0)
+        );
+    }
+
+    /**
+     * @param {{ success?: boolean, data?: Record<string, unknown> }} wpResponse
+     * @returns {boolean}
+     */
+    function shouldShowCancelExternalNotification(wpResponse) {
+        var payload = getCancelPayload(wpResponse);
+        if (payload.calendar_deleted === true) {
+            return true;
+        }
+        if (hasCancelQuotaSignals(wpResponse)) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Toast verde externo: evento eliminado en Google Calendar (sin mapper).
+     */
+    function showCancelCalendarDeletedNotification() {
+        var toastApi = window.AAAdmin && window.AAAdmin.toast;
+        if (!toastApi || typeof toastApi.showMany !== 'function') {
+            console.log('[Cancelación] Evento de Google Calendar eliminado.');
+            return;
+        }
+        toastApi.showMany([{
+            severity: 'success',
+            title: 'Google Calendar actualizado',
+            message: 'Evento de Google Calendar eliminado.',
+            details: [],
+            fallback: null,
+            durationMs: 3500,
+            blocking: false,
+            actions: [],
+            notices: []
+        }]);
+    }
+
+    /**
      * Toast (o alert legacy) tras cancelación exitosa. Recibe respuesta AJAX completa.
      * @param {{ success?: boolean, data?: Record<string, unknown> }} wpResponse
+     * @param {{ localAlreadyShown?: boolean }} [options]
      */
-    function showCancelResultNotification(wpResponse) {
-        var payload = wpResponse && wpResponse.data ? wpResponse.data : {};
+    function showCancelResultNotification(wpResponse, options) {
+        var opts = options || {};
+        var localAlreadyShown = opts.localAlreadyShown === true;
+        var payload = getCancelPayload(wpResponse);
 
         function legacySuccessAlert() {
             var mensaje = '✅ Cita cancelada correctamente.';
@@ -602,7 +663,11 @@ window.AdminConfirmController = (function() {
 
         var stack = getMapperAndToast();
         if (!stack) {
-            legacySuccessAlert();
+            if (localAlreadyShown) {
+                console.warn('[Cancelación] Automatizaciones externas no mostradas (mapper/toast no disponible).');
+            } else {
+                legacySuccessAlert();
+            }
             return;
         }
 
@@ -616,6 +681,9 @@ window.AdminConfirmController = (function() {
         });
 
         if (!notifications || notifications.length === 0) {
+            if (localAlreadyShown) {
+                return;
+            }
             notifications = [{
                 severity: 'success',
                 title: 'Cita cancelada',
@@ -634,18 +702,29 @@ window.AdminConfirmController = (function() {
             first.details = [];
         }
 
-        var severity = typeof first.severity === 'string' ? first.severity.toLowerCase() : '';
-        var mayAddCalendarDeleted =
-            payload.calendar_deleted === true &&
-            severity !== 'warning' &&
-            severity !== 'error';
+        if (localAlreadyShown) {
+            if (first.title === 'Cita cancelada') {
+                first.title = 'Sincronización omitida';
+            }
+            if (first.details.length > 0) {
+                first.message = 'Algunas automatizaciones no se completaron.';
+            } else if (first.title === 'Sincronización omitida') {
+                first.message = 'Algunas automatizaciones no se completaron.';
+            }
+        } else {
+            var severity = typeof first.severity === 'string' ? first.severity.toLowerCase() : '';
+            var mayAddCalendarDeleted =
+                payload.calendar_deleted === true &&
+                severity !== 'warning' &&
+                severity !== 'error';
 
-        if (mayAddCalendarDeleted) {
-            pushDetailUnique(first, CALENDAR_DELETED_DETAIL);
-        }
+            if (mayAddCalendarDeleted) {
+                pushDetailUnique(first, CALENDAR_DELETED_DETAIL);
+            }
 
-        if (first.title === 'Cita cancelada' && first.details.length > 0) {
-            first.message = 'Cita cancelada.';
+            if (first.title === 'Cita cancelada' && first.details.length > 0) {
+                first.message = 'Cita cancelada.';
+            }
         }
 
         stack.toastApi.showMany(notifications);
@@ -665,7 +744,19 @@ window.AdminConfirmController = (function() {
         window.ConfirmService.cancelar(id)
             .then(data => {
                 if (data.success) {
-                    showCancelResultNotification(data);
+                    var cancelPayload = getCancelPayload(data);
+                    if (cancelPayload.local_cancelled !== false) {
+                        showLocalActionSuccessNotification('appointment_cancelled_local');
+                    }
+                    if (shouldShowCancelExternalNotification(data)) {
+                        if (cancelPayload.calendar_deleted === true && !hasCancelQuotaSignals(data)) {
+                            showCancelCalendarDeletedNotification();
+                        } else if (hasCancelQuotaSignals(data)) {
+                            showCancelResultNotification(data, { localAlreadyShown: true });
+                        }
+                    } else if (cancelPayload.local_cancelled === false) {
+                        showCancelResultNotification(data);
+                    }
                     document.dispatchEvent(new CustomEvent('aa-cita-action-completed'));
                     if (recargarCallback) {
                         recargarCallback();
