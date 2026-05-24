@@ -254,7 +254,7 @@ Errores (`success: false`, `.catch`, servicio no cargado) siguen con `alert` leg
 
 `AdminCalendarController.handleCitaAction('confirmar')` → `AdminConfirmController.onConfirmar` → `ConfirmService.confirmar` → `aa_confirmar_cita`.
 
-Tras `data.success === true`, el `alert()` fijo de éxito se reemplaza por `showConfirmResultNotification(data)` (mapper + `AAAdmin.toast`).
+Tras `data.success === true`: toast local + `showConfirmResultNotification` o warning conexión según **UX-6F.1** (ver abajo). Errores siguen con `alert`.
 
 Errores (`success: false`, `.catch`, servicio no cargado) siguen con `alert` legacy.
 
@@ -460,7 +460,7 @@ Si `AAAdmin.toast` no está disponible: `console.log` de fallback (sin error).
 
 Opciones opcionales: `title`, `message`, `durationMs`. Fallback sin toast: `console.log('[LocalAction]', …)`.
 
-**Integrado:** `attendance_registered`, `no_show_registered` (UX-6E), `appointment_pending_created` (UX-6B), `appointment_confirmed_local` (UX-6C), `appointment_cancelled_local` + externos cancel (UX-6D.1). **Pendiente:** UX-6D.2 cancel Node metadata, UX-6F conexión otros flujos, UX-6G copy externo.
+**Integrado:** `attendance_registered`, `no_show_registered` (UX-6E), `appointment_pending_created` (UX-6B), `appointment_confirmed_local` (UX-6C, UX-6F.1 manual), `appointment_cancelled_local` + externos cancel (UX-6D). **Pendiente:** UX-6F.2 sendConfirmation conexión, UX-6G copy externo.
 
 ### UX-6E — Asistencia / no asistencia
 
@@ -559,6 +559,32 @@ Mismo patrón que UX-6C.1 en `adminReservationController.js` (rama `if (autoConf
 **D — Legacy pending:** UX-6B + 4C/4E; sin “Cita confirmada localmente”.
 
 **E — Fast autoConfirm:** regresión UX-6C.1 sin cambios.
+
+### UX-6F.1 — Confirmación manual admin/timeline: local + conexión backend
+
+`AdminConfirmController.onConfirmar` → `ConfirmService.confirmar` → `aa_confirmar_cita` (mismo flujo que UX-4B; post-proceso actualizado).
+
+Tras `data.success === true`:
+
+1. `showLocalActionSuccessNotification('appointment_confirmed_local')` — siempre primero.
+2. Si `isConfirmAutomationIncomplete(data)` → `showAutomationConnectionFailedNotification('confirm')`; **no** `showConfirmResultNotification` (evita toast genérico “Cita confirmada.” cuando Node/backend no responde).
+3. Si no → `showConfirmResultNotification(data)` (happy path, cuota/past_due vía mapper `confirm_admin`).
+
+Detector reutilizado (sin PHP/Node): `success: true`, `data.calendar_sync === false`, mensaje con marcadores “backend” / “notificar al backend”, sin `benefit_notices`.
+
+Copy warning `confirm` en `AUTOMATION_CONNECTION_FAILED_COPY`: “Automatización incompleta” + conexión al servicio de automatización + detalle confirmación local + fallback notificar al cliente. Sin Calendar/OAuth/cuota en ese toast.
+
+**Fuera de alcance:** autoConfirm legacy/fast (UX-6C), `sendConfirmation` (UX-6F.2), cancelación, pending, asistencia, frontend público.
+
+#### Pruebas manuales (UX-6F.1)
+
+**A — Node caído:** confirmar pending desde timeline → verde “Cita confirmada localmente” + warning “Automatización incompleta”; **sin** toast genérico “Cita confirmada.”
+
+**B — Cuota agotada:** verde local + warning mapper cuota; **sin** “Automatización incompleta”.
+
+**C — Happy path:** verde local + toast externo mapper (Calendar/correo si aplica); **sin** warning conexión.
+
+**D — Regresión:** UX-6C.1/6C.2 autoConfirm, UX-6D cancel, UX-6B/4C/4E pending, UX-6E asistencia sin cambios.
 
 ### UX-6D.1 — Cancelación admin: local vs. externo
 

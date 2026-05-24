@@ -36,7 +36,13 @@ window.AdminConfirmController = (function() {
         window.ConfirmService.confirmar(id)
             .then(data => {
                 if (data.success) {
-                    showConfirmResultNotification(data);
+                    showLocalActionSuccessNotification('appointment_confirmed_local');
+                    var automationIncomplete = isConfirmAutomationIncomplete(data);
+                    if (automationIncomplete) {
+                        showAutomationConnectionFailedNotification('confirm');
+                    } else {
+                        showConfirmResultNotification(data);
+                    }
                     document.dispatchEvent(new CustomEvent('aa-cita-action-completed'));
                     if (recargarCallback) {
                         recargarCallback();
@@ -383,6 +389,16 @@ window.AdminConfirmController = (function() {
             message: 'No se pudo conectar con el servicio de automatización.',
             details: ['La cita se canceló localmente, pero algunas acciones externas no pudieron completarse.'],
             fallback: 'Realiza manualmente las acciones externas si corresponde.',
+            durationMs: 7000
+        },
+        confirm: {
+            severity: 'warning',
+            title: 'Automatización incompleta',
+            message: 'No se pudo conectar con el servicio de automatización.',
+            details: [
+                'La cita se confirmó localmente, pero algunas acciones externas no pudieron completarse.'
+            ],
+            fallback: 'Notifica manualmente al cliente si corresponde.',
             durationMs: 7000
         }
     };
