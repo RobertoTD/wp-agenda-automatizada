@@ -569,7 +569,7 @@ Mismo patrón que UX-6C.1 en `adminReservationController.js` (rama `if (autoConf
    - **`calendar_deleted` sin señales de cuota** → `showCancelCalendarDeletedNotification()` (verde: “Google Calendar actualizado” / “Evento de Google Calendar eliminado.”). **No** `showCancelResultNotification`.
    - **Cuota / `benefit_notices`** → `showCancelResultNotification(data, { localAlreadyShown: true })` (mapper `cancel_admin`; título post-procesado “Sincronización omitida”).
 3. Sin `calendar_uid`, sin `google_email`, OAuth desconectado: solo toast local.
-4. **Node caído** con `calendar_uid`: mismo shape que (3) en JS hoy → solo local. **UX-6D.2** (metadata PHP) para warning de conexión.
+4. **Node caído** con `calendar_uid`: UX-6D.2 añade metadata PHP y muestra warning conexión conservador.
 
 **Futuro:** correo de cancelación al cliente → otro toast externo (fuera de 6D.1).
 
@@ -583,13 +583,40 @@ Mismo patrón que UX-6C.1 en `adminReservationController.js` (rama `if (autoConf
 
 **D — OAuth/Google desconectado:** solo local.
 
-**E — Node caído + `calendar_uid`:** solo local (pendiente UX-6D.2).
+**E — Node caído + `calendar_uid`:** local + “Automatización incompleta”.
 
 **F — Regresión:** confirmar, pending, autoConfirm, asistencia sin cambios.
 
-### UX-6D.2 — Pendiente
+### UX-6D.2 — Fallo real de conexión Node en cancelación
 
-Warning “Automatización incompleta” en cancelación cuando Node falla pero WP canceló localmente. Requiere metadata en respuesta PHP (indistinguible de “solo local” hoy).
+Cuando WordPress cancela localmente y además **sí** se intentó contactar Node para eliminar una automatización externa, PHP añade metadata aditiva:
+
+| Campo | Significado |
+|-------|-------------|
+| `calendar_delete_attempted` | Se entró al bloque `calendar_uid` + `aa_google_email` y se intentó Node |
+| `calendar_delete_backend_failed` | El contacto/respuesta técnica de Node falló |
+| `calendar_delete_backend_error_code` | `node_unreachable`, `backend_http_error` o `backend_invalid_response` |
+| `calendar_delete_backend_http_status` | Status HTTP cuando aplica |
+
+JS muestra `showAutomationConnectionFailedNotification('cancel')` solo si:
+
+- `local_cancelled === true`
+- `calendar_delete_attempted === true`
+- `calendar_delete_backend_failed === true`
+- no hay `benefit_notices`, `calendar_delete_skipped` ni `calendar_quota_code`
+
+Copy del warning: “Automatización incompleta” / “No se pudo conectar con el servicio de automatización.” / “La cita se canceló localmente, pero algunas acciones externas no pudieron completarse.” / “Realiza manualmente las acciones externas si corresponde.”
+
+No se menciona Calendar/OAuth/cuota en este warning genérico.
+
+Casos que **no** disparan warning conexión:
+
+- Sin `calendar_uid`: solo local.
+- Sin `aa_google_email` / OAuth desconectado: solo local.
+- Cuota/past_due: mapper `cancel_admin` (“Sincronización omitida”).
+- HTTP 404/410: se mantiene `calendar_deleted: true`; local + “Google Calendar actualizado”.
+
+Node backend no se toca. Futuro correo de cancelación queda fuera.
 
 ## UX-5A.1 — Fallo de conexión con backend Node (cita rápida autoConfirm)
 

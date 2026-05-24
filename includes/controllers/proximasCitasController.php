@@ -175,9 +175,14 @@ function aa_cancel_reservation_internal($reserva_id) {
     $calendar_quota_code = null;
     $benefit_notices = null;
     $backend_response = null;
+    $calendar_delete_attempted = false;
+    $calendar_delete_backend_failed = false;
+    $calendar_delete_backend_error_code = null;
+    $calendar_delete_backend_http_status = null;
     $google_email = get_option('aa_google_email', '');
 
     if (!empty($reserva->calendar_uid) && !empty($google_email)) {
+        $calendar_delete_attempted = true;
         error_log("🗓️ [proximasCitasController] Intentando eliminar evento de Google Calendar para cita $reserva_id: {$reserva->calendar_uid}");
 
         $domain = aa_get_clean_domain();
@@ -194,6 +199,8 @@ function aa_cancel_reservation_internal($reserva_id) {
 
         if (is_wp_error($response)) {
             error_log("⚠️ [proximasCitasController] Error al contactar backend para cancelar cita $reserva_id: " . $response->get_error_message());
+            $calendar_delete_backend_failed = true;
+            $calendar_delete_backend_error_code = 'node_unreachable';
         } else {
             $status = wp_remote_retrieve_response_code($response);
             $body = wp_remote_retrieve_body($response);
@@ -233,11 +240,38 @@ function aa_cancel_reservation_internal($reserva_id) {
                 } else {
                     error_log("ℹ️ [proximasCitasController] Backend cancelación OK para cita $reserva_id; calendar_deleted=false");
                 }
+            } elseif ($status >= 200 && $status < 300 && is_array($decoded) && (
+                !empty($decoded['calendar_delete_skipped']) ||
+                (isset($decoded['calendar_quota_code']) && $decoded['calendar_quota_code'] !== '') ||
+                (isset($decoded['benefit_notices']) && is_array($decoded['benefit_notices']) && count($decoded['benefit_notices']) > 0)
+            )) {
+                $backend_response = $decoded;
+
+                if (array_key_exists('calendar_delete_skipped', $decoded)) {
+                    $calendar_delete_skipped = (bool) $decoded['calendar_delete_skipped'];
+                }
+
+                if (isset($decoded['calendar_quota_code']) && $decoded['calendar_quota_code'] !== '') {
+                    $calendar_quota_code = (string) $decoded['calendar_quota_code'];
+                }
+
+                if (isset($decoded['benefit_notices']) && is_array($decoded['benefit_notices']) && count($decoded['benefit_notices']) > 0) {
+                    $benefit_notices = $decoded['benefit_notices'];
+                }
+
+                error_log("⚠️ [proximasCitasController] Calendar DELETE omitido para cita $reserva_id por señales de cuota/benefit_notices");
             } elseif ($status === 404 || $status === 410) {
                 error_log("ℹ️ [proximasCitasController] El evento ya no existe en Google Calendar para cita $reserva_id");
                 $calendar_deleted = true;
+            } elseif ($status >= 200 && $status < 300) {
+                error_log("⚠️ [proximasCitasController] Respuesta inválida del backend al cancelar en Google Calendar para cita $reserva_id");
+                $calendar_delete_backend_failed = true;
+                $calendar_delete_backend_error_code = 'backend_invalid_response';
             } else {
                 error_log("⚠️ [proximasCitasController] El backend respondió con error al cancelar en Google Calendar para cita $reserva_id");
+                $calendar_delete_backend_failed = true;
+                $calendar_delete_backend_error_code = 'backend_http_error';
+                $calendar_delete_backend_http_status = $status;
             }
         }
     } else {
@@ -271,6 +305,22 @@ function aa_cancel_reservation_internal($reserva_id) {
         $result['backend_response'] = $backend_response;
     }
 
+    if ($calendar_delete_attempted) {
+        $result['calendar_delete_attempted'] = true;
+    }
+
+    if ($calendar_delete_backend_failed) {
+        $result['calendar_delete_backend_failed'] = true;
+    }
+
+    if ($calendar_delete_backend_error_code !== null) {
+        $result['calendar_delete_backend_error_code'] = $calendar_delete_backend_error_code;
+    }
+
+    if ($calendar_delete_backend_http_status !== null) {
+        $result['calendar_delete_backend_http_status'] = $calendar_delete_backend_http_status;
+    }
+
     return $result;
 }
 
@@ -301,6 +351,22 @@ function aa_build_cancel_cita_ajax_success_payload($result) {
 
     if (!empty($result['backend_response']) && is_array($result['backend_response'])) {
         $payload['backend_response'] = $result['backend_response'];
+    }
+
+    if (!empty($result['calendar_delete_attempted'])) {
+        $payload['calendar_delete_attempted'] = true;
+    }
+
+    if (!empty($result['calendar_delete_backend_failed'])) {
+        $payload['calendar_delete_backend_failed'] = true;
+    }
+
+    if (!empty($result['calendar_delete_backend_error_code'])) {
+        $payload['calendar_delete_backend_error_code'] = $result['calendar_delete_backend_error_code'];
+    }
+
+    if (array_key_exists('calendar_delete_backend_http_status', $result)) {
+        $payload['calendar_delete_backend_http_status'] = intval($result['calendar_delete_backend_http_status']);
     }
 
     return $payload;

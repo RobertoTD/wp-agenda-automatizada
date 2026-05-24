@@ -376,6 +376,14 @@ window.AdminConfirmController = (function() {
             details: ['Revisa el estado de la cita.'],
             fallback: 'Notifica manualmente al cliente si corresponde.',
             durationMs: 7000
+        },
+        cancel: {
+            severity: 'warning',
+            title: 'Automatización incompleta',
+            message: 'No se pudo conectar con el servicio de automatización.',
+            details: ['La cita se canceló localmente, pero algunas acciones externas no pudieron completarse.'],
+            fallback: 'Realiza manualmente las acciones externas si corresponde.',
+            durationMs: 7000
         }
     };
 
@@ -610,6 +618,30 @@ window.AdminConfirmController = (function() {
      * @param {{ success?: boolean, data?: Record<string, unknown> }} wpResponse
      * @returns {boolean}
      */
+    function hasCancelBackendConnectionFailure(wpResponse) {
+        if (!wpResponse || wpResponse.success !== true) {
+            return false;
+        }
+        var payload = getCancelPayload(wpResponse);
+        if (!payload || payload.local_cancelled === false) {
+            return false;
+        }
+        if (payload.calendar_delete_attempted !== true) {
+            return false;
+        }
+        if (payload.calendar_delete_backend_failed !== true) {
+            return false;
+        }
+        if (hasCancelQuotaSignals(wpResponse)) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * @param {{ success?: boolean, data?: Record<string, unknown> }} wpResponse
+     * @returns {boolean}
+     */
     function shouldShowCancelExternalNotification(wpResponse) {
         var payload = getCancelPayload(wpResponse);
         if (payload.calendar_deleted === true) {
@@ -748,7 +780,9 @@ window.AdminConfirmController = (function() {
                     if (cancelPayload.local_cancelled !== false) {
                         showLocalActionSuccessNotification('appointment_cancelled_local');
                     }
-                    if (shouldShowCancelExternalNotification(data)) {
+                    if (hasCancelBackendConnectionFailure(data)) {
+                        showAutomationConnectionFailedNotification('cancel');
+                    } else if (shouldShowCancelExternalNotification(data)) {
                         if (cancelPayload.calendar_deleted === true && !hasCancelQuotaSignals(data)) {
                             showCancelCalendarDeletedNotification();
                         } else if (hasCancelQuotaSignals(data)) {
