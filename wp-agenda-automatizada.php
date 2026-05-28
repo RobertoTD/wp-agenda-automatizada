@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WP Agenda Automatizada
  * Description: Sistema de gestión de citas con integración a Google Calendar, pega este Shortcode donde quieras mostrar tu calendario: [agenda_automatizada]
- * Version: 2.2.6
+ * Version: 2.2.7
  * Author: Roberto Tejada
  */
 
@@ -115,6 +115,14 @@ add_action('rest_api_init', function() {
 // ================================
 require_once __DIR__ . '/includes/http/ajax/ReservationsAjax.php';
 ReservationsAjax::register();
+
+// ================================
+// 🔹 Endpoint AJAX: Estado de cuenta (capa http/ajax)
+// ================================
+require_once __DIR__ . '/includes/infrastructure/backend/class-aa-account-status-backend-client.php';
+require_once __DIR__ . '/includes/application/account/GetAccountStatusUseCase.php';
+require_once __DIR__ . '/includes/http/ajax/AccountStatusAjax.php';
+AccountStatusAjax::register();
 
 // ===============================
 // 🔹 Schema lifecycle: registra el activation hook con AA_Schema::install

@@ -1,0 +1,242 @@
+<?php
+/**
+ * AC para GetAccountStatusUseCase (M4D).
+ *
+ * Uso:
+ *   php tests/application/account/test-get-account-status-use-case-ac.php
+ *
+ * @package WP_Agenda_Automatizada
+ */
+
+if (!defined('ABSPATH')) {
+    define('ABSPATH', __DIR__);
+}
+
+$GLOBALS['aa_test_options'] = [];
+
+if (!function_exists('get_option')) {
+    function get_option($key, $default = false) {
+        if (array_key_exists($key, $GLOBALS['aa_test_options'])) {
+            return $GLOBALS['aa_test_options'][$key];
+        }
+        return $default;
+    }
+}
+
+if (!function_exists('is_wp_error')) {
+    function is_wp_error($thing) {
+        return $thing instanceof WP_Error;
+    }
+}
+
+if (!defined('AA_API_BASE_URL')) {
+    define('AA_API_BASE_URL', 'http://localhost:3000');
+}
+
+$root = dirname(__DIR__, 3);
+
+require_once $root . '/includes/infrastructure/backend/class-aa-account-status-backend-client.php';
+require_once $root . '/includes/application/account/GetAccountStatusUseCase.php';
+
+final class Mock_Account_Status_Backend_Client extends AA_Account_Status_Backend_Client {
+
+    /** @var array<string,mixed> */
+    public static $response = [
+        'ok' => false,
+        'code' => 'account_backend_error',
+        'error' => 'unset',
+        'http_status' => 500,
+    ];
+
+    public function fetch(): array {
+        return self::$response;
+    }
+}
+
+$passed = 0;
+$total  = 0;
+
+function ac(string $label, bool $ok, string $detail = ''): void {
+    global $passed, $total;
+    $total++;
+    if ($ok) {
+        $passed++;
+    }
+    echo ($ok ? 'OK   ' : 'FAIL ') . $label . ($ok ? '' : ' — ' . $detail) . "\n";
+}
+
+function reset_options(): void {
+    $GLOBALS['aa_test_options'] = [];
+}
+
+/**
+ * @param array<string,mixed> $payload
+ * @return list<string>
+ */
+function forbidden_keys_in_payload(array $payload): array {
+    $forbidden = [
+        'stripe_customer_id',
+        'stripe_subscription_id',
+        'stripeCustomerId',
+        'account_id',
+        'accountId',
+        'installation_id',
+        'installationId',
+        'subscription_id',
+        'subscriptionId',
+        'client_secret',
+        'aa_client_secret',
+        'token',
+        'token_hash',
+        'raw',
+        'id',
+    ];
+
+    $json = wp_json_encode_safe($payload);
+    $found = [];
+    foreach ($forbidden as $key) {
+        if (stripos($json, '"' . $key . '"') !== false) {
+            $found[] = $key;
+        }
+    }
+    return $found;
+}
+
+function wp_json_encode_safe($data): string {
+    if (function_exists('wp_json_encode')) {
+        $encoded = wp_json_encode($data);
+        return is_string($encoded) ? $encoded : '';
+    }
+    return (string) json_encode($data);
+}
+
+// --- pro active ---
+reset_options();
+$GLOBALS['aa_test_options']['aa_client_secret'] = 'test-secret';
+Mock_Account_Status_Backend_Client::$response = [
+    'ok' => true,
+    'account_status' => [
+        'plan_tier'               => 'pro',
+        'stripe_status'           => 'active',
+        'effective_access_tier'   => 'pro',
+        'billing_state'           => 'active',
+        'current_period_end'      => '2026-06-28T00:00:00.000Z',
+        'cancel_at'               => null,
+        'is_cancel_scheduled'     => false,
+        'sync_pending'            => false,
+        'payment_action_required' => false,
+        'messages'                => [],
+        'stripe_customer_id'      => 'cus_SHOULD_NOT_PASS',
+        'id'                      => 'sub-internal',
+    ],
+];
+
+$use_case = new GetAccountStatusUseCase(new Mock_Account_Status_Backend_Client());
+$result   = $use_case->execute();
+
+ac(
+    'pro active returns success',
+    !empty($result['success'])
+        && ($result['data']['account_status']['plan_tier'] ?? '') === 'pro'
+        && ($result['data']['account_status']['effective_access_tier'] ?? '') === 'pro',
+    wp_json_encode_safe($result)
+);
+
+$forbidden = forbidden_keys_in_payload($result['data']['account_status'] ?? []);
+ac(
+    'pro active strips forbidden fields',
+    empty($forbidden),
+    implode(', ', $forbidden)
+);
+
+ac(
+    'pro active normalizes booleans',
+    ($result['data']['account_status']['is_cancel_scheduled'] ?? null) === false
+        && ($result['data']['account_status']['sync_pending'] ?? null) === false,
+    wp_json_encode_safe($result['data']['account_status'] ?? [])
+);
+
+// --- missing subscription ---
+reset_options();
+$GLOBALS['aa_test_options']['aa_client_secret'] = 'test-secret';
+Mock_Account_Status_Backend_Client::$response = [
+    'ok' => true,
+    'account_status' => [
+        'plan_tier'               => null,
+        'stripe_status'           => null,
+        'effective_access_tier'   => 'freemium',
+        'billing_state'           => 'missing',
+        'current_period_end'      => null,
+        'cancel_at'               => null,
+        'is_cancel_scheduled'     => false,
+        'sync_pending'            => false,
+        'payment_action_required' => false,
+        'messages'                => ['No hay suscripción vinculada a esta agenda.'],
+    ],
+];
+
+$result = (new GetAccountStatusUseCase(new Mock_Account_Status_Backend_Client()))->execute();
+ac(
+    'missing subscription returns freemium/missing',
+    !empty($result['success'])
+        && ($result['data']['account_status']['billing_state'] ?? '') === 'missing'
+        && ($result['data']['account_status']['effective_access_tier'] ?? '') === 'freemium',
+    wp_json_encode_safe($result)
+);
+
+// --- sin aa_client_secret ---
+reset_options();
+Mock_Account_Status_Backend_Client::$response = [
+    'ok' => true,
+    'account_status' => ['plan_tier' => 'pro'],
+];
+
+$result = (new GetAccountStatusUseCase(new Mock_Account_Status_Backend_Client()))->execute();
+ac(
+    'sin aa_client_secret returns account_backend_not_configured',
+    empty($result['success'])
+        && ($result['error']['code'] ?? '') === 'account_backend_not_configured',
+    wp_json_encode_safe($result)
+);
+
+// --- backend error ---
+reset_options();
+$GLOBALS['aa_test_options']['aa_client_secret'] = 'test-secret';
+Mock_Account_Status_Backend_Client::$response = [
+    'ok'          => false,
+    'code'        => 'account_backend_error',
+    'error'       => 'Invalid signature',
+    'http_status' => 403,
+];
+
+$result = (new GetAccountStatusUseCase(new Mock_Account_Status_Backend_Client()))->execute();
+ac(
+    'backend error propagates code and message',
+    empty($result['success'])
+        && ($result['error']['code'] ?? '') === 'account_backend_error'
+        && ($result['error']['message'] ?? '') === 'Invalid signature',
+    wp_json_encode_safe($result)
+);
+
+// --- messages normalization ---
+reset_options();
+$GLOBALS['aa_test_options']['aa_client_secret'] = 'test-secret';
+Mock_Account_Status_Backend_Client::$response = [
+    'ok' => true,
+    'account_status' => [
+        'plan_tier' => 'pro',
+        'messages'  => ['  Aviso uno  ', '', 123, 'Aviso dos'],
+    ],
+];
+
+$result = (new GetAccountStatusUseCase(new Mock_Account_Status_Backend_Client()))->execute();
+$messages = $result['data']['account_status']['messages'] ?? null;
+ac(
+    'messages normalized as string array',
+    is_array($messages)
+        && $messages === ['Aviso uno', 'Aviso dos'],
+    wp_json_encode_safe($messages)
+);
+
+echo "\n{$passed}/{$total} passed\n";
+exit($passed === $total ? 0 : 1);
