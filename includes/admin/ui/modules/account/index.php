@@ -61,6 +61,19 @@ $account_module_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0'
                     <div id="aa-account-notice" class="hidden rounded-lg border p-4 text-sm"></div>
 
                     <ul id="aa-account-messages" class="hidden list-disc list-inside space-y-1 text-sm text-gray-600"></ul>
+
+                    <div id="aa-account-billing-action" class="hidden pt-4 border-t border-gray-100">
+                        <p id="aa-account-billing-hint" class="hidden text-sm text-gray-600 mb-2"></p>
+                        <button
+                            type="button"
+                            id="aa-account-billing-button"
+                            class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                        ></button>
+                        <p id="aa-account-billing-loading" class="hidden text-sm text-gray-600 mt-2">
+                            Abriendo gestión de suscripción…
+                        </p>
+                        <p id="aa-account-billing-error" class="hidden text-sm text-red-700 mt-2"></p>
+                    </div>
                 </div>
 
                 <div id="aa-account-status-error" class="hidden rounded-lg border border-gray-200 bg-gray-50 p-4">
@@ -80,7 +93,8 @@ $account_module_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0'
 
     window.AA_ACCOUNT_DATA = {
         ajaxUrl: window.ajaxurl || '<?php echo esc_js(admin_url('admin-ajax.php')); ?>',
-        nonce: '<?php echo esc_js(wp_create_nonce('aa_get_account_status_nonce')); ?>'
+        nonce: '<?php echo esc_js(wp_create_nonce('aa_get_account_status_nonce')); ?>',
+        billingNonce: '<?php echo esc_js(wp_create_nonce('aa_create_billing_portal_session_nonce')); ?>'
     };
 </script>
 <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'module.js?ver=' . rawurlencode($account_module_ver)); ?>" defer></script>

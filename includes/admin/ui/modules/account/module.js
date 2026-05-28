@@ -1,14 +1,23 @@
 /**
  * Account Module - subscription status UI
  *
- * Fetches aa_get_account_status via admin-ajax and renders a read-only summary.
- * Pure UI: no billing rules, no backend Node calls from the browser.
+ * Fetches aa_get_account_status via admin-ajax and renders account summary.
+ * Billing portal opens via aa_create_billing_portal_session (server-side only).
  */
 
 (function () {
     'use strict';
 
     var BADGE_BASE = 'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border';
+
+    var BILLING_ERROR_MESSAGE = 'No pudimos abrir la gestión de suscripción en este momento.';
+
+    var BILLING_LABELS = {
+        PAYMENT_PENDING: 'Actualizar pago',
+        CANCEL_SCHEDULED: 'Revisar suscripción',
+        ACTIVE: 'Gestionar suscripción',
+        SYNC_DISABLED: 'Gestionar suscripción'
+    };
 
     var VIEW = {
         SYNC_PENDING: 'sync_pending',
@@ -19,6 +28,8 @@
         INACTIVE: 'inactive',
         FALLBACK: 'fallback'
     };
+
+    var billingClickBound = false;
 
     function getConfig() {
         return window.AA_ACCOUNT_DATA || {};
@@ -82,6 +93,139 @@
         }
 
         return VIEW.FALLBACK;
+    }
+
+    /**
+     * @param {object} status
+     * @returns {{ mode: string, label?: string, hint?: string }}
+     */
+    function resolveBillingAction(status) {
+        var view = resolveViewState(status);
+
+        switch (view) {
+            case VIEW.SYNC_PENDING:
+                return {
+                    mode: 'disabled',
+                    label: BILLING_LABELS.SYNC_DISABLED,
+                    hint: 'Estamos sincronizando tu suscripción.'
+                };
+            case VIEW.PAYMENT_PENDING:
+                return { mode: 'visible', label: BILLING_LABELS.PAYMENT_PENDING };
+            case VIEW.CANCEL_SCHEDULED:
+                return { mode: 'visible', label: BILLING_LABELS.CANCEL_SCHEDULED };
+            case VIEW.ACTIVE:
+                return { mode: 'visible', label: BILLING_LABELS.ACTIVE };
+            default:
+                return { mode: 'hidden' };
+        }
+    }
+
+    /**
+     * @param {string} url
+     * @returns {boolean}
+     */
+    function isSafeStripeBillingPortalUrl(url) {
+        if (typeof url !== 'string' || url.trim() === '') {
+            return false;
+        }
+
+        try {
+            var parsed = new URL(url);
+            return parsed.protocol === 'https:' && parsed.hostname === 'billing.stripe.com';
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function setHidden(el, hidden) {
+        if (!el) {
+            return;
+        }
+        if (hidden) {
+            el.classList.add('hidden');
+        } else {
+            el.classList.remove('hidden');
+        }
+    }
+
+    function clearBillingError() {
+        var errorEl = getEl('aa-account-billing-error');
+        if (!errorEl) {
+            return;
+        }
+        errorEl.textContent = '';
+        setHidden(errorEl, true);
+    }
+
+    function showBillingError(message) {
+        var errorEl = getEl('aa-account-billing-error');
+        if (!errorEl) {
+            return;
+        }
+        errorEl.textContent = message;
+        setHidden(errorEl, false);
+    }
+
+    function setBillingLoading(isLoading) {
+        var buttonEl = getEl('aa-account-billing-button');
+        var loadingEl = getEl('aa-account-billing-loading');
+
+        setHidden(loadingEl, !isLoading);
+
+        if (buttonEl) {
+            buttonEl.disabled = isLoading;
+        }
+    }
+
+    /**
+     * @param {object} status
+     */
+    function renderBillingAction(status) {
+        var actionEl = getEl('aa-account-billing-action');
+        var hintEl = getEl('aa-account-billing-hint');
+        var buttonEl = getEl('aa-account-billing-button');
+        var loadingEl = getEl('aa-account-billing-loading');
+        var billingAction = resolveBillingAction(status);
+        var config = getConfig();
+
+        clearBillingError();
+        setHidden(loadingEl, true);
+
+        if (!actionEl || !buttonEl) {
+            return;
+        }
+
+        if (billingAction.mode === 'hidden') {
+            setHidden(actionEl, true);
+            buttonEl.disabled = false;
+            buttonEl.textContent = '';
+            if (hintEl) {
+                hintEl.textContent = '';
+                setHidden(hintEl, true);
+            }
+            return;
+        }
+
+        if (!config.billingNonce) {
+            console.warn('[AccountModule] Missing billingNonce for aa_create_billing_portal_session');
+            setHidden(actionEl, true);
+            return;
+        }
+
+        setHidden(actionEl, false);
+        buttonEl.textContent = billingAction.label || '';
+
+        if (hintEl) {
+            if (billingAction.hint) {
+                hintEl.textContent = billingAction.hint;
+                setHidden(hintEl, false);
+            } else {
+                hintEl.textContent = '';
+                setHidden(hintEl, true);
+            }
+        }
+
+        buttonEl.disabled = billingAction.mode === 'disabled';
     }
 
     function setBadge(el, label, className) {
@@ -210,6 +354,7 @@
 
         setNotice(noticeEl, primaryNotice, noticeClass);
         renderMessages(messagesEl, status.messages);
+        renderBillingAction(status);
     }
 
     function showLoading() {
@@ -296,12 +441,89 @@
             });
     }
 
+    function createBillingPortalSession() {
+        var config = getConfig();
+        var ajaxUrl = config.ajaxUrl || window.ajaxurl || '/wp-admin/admin-ajax.php';
+        var billingNonce = config.billingNonce || '';
+
+        if (!billingNonce) {
+            return Promise.resolve({ ok: false });
+        }
+
+        return fetch(ajaxUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: new URLSearchParams({
+                action: 'aa_create_billing_portal_session',
+                _wpnonce: billingNonce
+            })
+        })
+            .then(function (response) {
+                return response.json();
+            })
+            .then(function (data) {
+                if (data && data.success && data.data && typeof data.data.url === 'string') {
+                    return { ok: true, url: data.data.url };
+                }
+
+                if (data && !data.success && data.data) {
+                    console.warn('[AccountModule] Billing portal error:', data.data.code || '');
+                }
+
+                return { ok: false };
+            })
+            .catch(function (err) {
+                console.error('[AccountModule] Billing portal fetch failed:', err);
+                return { ok: false };
+            });
+    }
+
+    function handleBillingButtonClick() {
+        var buttonEl = getEl('aa-account-billing-button');
+
+        if (!buttonEl || buttonEl.disabled) {
+            return;
+        }
+
+        clearBillingError();
+        setBillingLoading(true);
+
+        createBillingPortalSession().then(function (result) {
+            if (result.ok && isSafeStripeBillingPortalUrl(result.url)) {
+                window.location.href = result.url;
+                return;
+            }
+
+            setBillingLoading(false);
+            buttonEl.disabled = false;
+            showBillingError(BILLING_ERROR_MESSAGE);
+        });
+    }
+
+    function bindBillingClickHandler() {
+        if (billingClickBound) {
+            return;
+        }
+
+        var buttonEl = getEl('aa-account-billing-button');
+        if (!buttonEl) {
+            return;
+        }
+
+        buttonEl.addEventListener('click', handleBillingButtonClick);
+        billingClickBound = true;
+    }
+
     function init() {
         var root = getEl('aa-account-status-root');
         if (!root) {
             return;
         }
 
+        bindBillingClickHandler();
         showLoading();
 
         fetchAccountStatus().then(function (status) {
