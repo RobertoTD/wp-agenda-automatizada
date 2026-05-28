@@ -1,13 +1,15 @@
 <?php
 /**
- * Account Module - Account & subscription UI shell
+ * Account Module - Account & subscription UI
  *
  * This module handles:
- * - Placeholder for account, access and subscription management
- * - No business logic (billing and portal integration in later stages)
+ * - Display of account/subscription status (via admin AJAX)
+ * - No business logic (data from GetAccountStatusUseCase via AJAX)
  */
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
+
+$account_module_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
 ?>
 
 <div class="max-w-5xl mx-auto py-2">
@@ -31,12 +33,54 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
         </div>
 
         <div class="p-4 transition-all duration-200">
-            <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                <p class="text-sm text-gray-600">
-                    La información de suscripción se conectará en una etapa posterior.
-                </p>
+            <div id="aa-account-status-root" class="space-y-4">
+
+                <div id="aa-account-status-loading" class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <p class="text-sm text-gray-600">Consultando estado de cuenta…</p>
+                </div>
+
+                <div id="aa-account-status-content" class="hidden space-y-4">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span
+                            id="aa-account-status-badge"
+                            class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border"
+                        ></span>
+                    </div>
+
+                    <dl class="grid gap-3 sm:grid-cols-2">
+                        <div>
+                            <dt class="text-sm text-gray-500">Plan</dt>
+                            <dd id="aa-account-plan" class="text-sm font-medium text-gray-900 mt-0.5">—</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm text-gray-500">Acceso actual</dt>
+                            <dd id="aa-account-access" class="text-sm font-medium text-gray-900 mt-0.5">—</dd>
+                        </div>
+                    </dl>
+
+                    <div id="aa-account-notice" class="hidden rounded-lg border p-4 text-sm"></div>
+
+                    <ul id="aa-account-messages" class="hidden list-disc list-inside space-y-1 text-sm text-gray-600"></ul>
+                </div>
+
+                <div id="aa-account-status-error" class="hidden rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <p class="text-sm text-gray-600">No pudimos consultar el estado de cuenta en este momento.</p>
+                </div>
+
             </div>
         </div>
     </div>
 
 </div>
+
+<script>
+    if (typeof window.ajaxurl === 'undefined') {
+        window.ajaxurl = '<?php echo esc_js(admin_url('admin-ajax.php')); ?>';
+    }
+
+    window.AA_ACCOUNT_DATA = {
+        ajaxUrl: window.ajaxurl || '<?php echo esc_js(admin_url('admin-ajax.php')); ?>',
+        nonce: '<?php echo esc_js(wp_create_nonce('aa_get_account_status_nonce')); ?>'
+    };
+</script>
+<script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'module.js?ver=' . rawurlencode($account_module_ver)); ?>" defer></script>
