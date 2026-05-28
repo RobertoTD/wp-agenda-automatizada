@@ -124,6 +124,14 @@ require_once __DIR__ . '/includes/application/account/GetAccountStatusUseCase.ph
 require_once __DIR__ . '/includes/http/ajax/AccountStatusAjax.php';
 AccountStatusAjax::register();
 
+// ================================
+// 🔹 Endpoint AJAX: Billing Portal session (capa http/ajax)
+// ================================
+require_once __DIR__ . '/includes/infrastructure/backend/class-aa-billing-portal-backend-client.php';
+require_once __DIR__ . '/includes/application/account/CreateBillingPortalSessionUseCase.php';
+require_once __DIR__ . '/includes/http/ajax/BillingPortalAjax.php';
+BillingPortalAjax::register();
+
 // ===============================
 // 🔹 Schema lifecycle: registra el activation hook con AA_Schema::install
 // ===============================
