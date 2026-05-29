@@ -34,8 +34,25 @@ if (!defined('ABSPATH')) exit;
 require_once plugin_dir_path(__FILE__) . '../models/ReservationsModel.php';
 
 class ReservationsRepository extends ReservationsModel {
-    // Intencionalmente vacío.
-    //
-    // Todos los métodos del padre quedan disponibles vía herencia.
-    // Los métodos NUEVOS se añaden aquí.
+    /**
+     * Cuenta cualquier reserva/cita creada.
+     *
+     * Query pura para onboarding inicial; no filtra por estado porque el
+     * objetivo es saber si el usuario ya logró crear al menos una cita.
+     *
+     * @return int
+     */
+    public static function count_created_reservations() {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'aa_reservas';
+        $count = $wpdb->get_var("SELECT COUNT(*) FROM {$table}");
+
+        if ($wpdb->last_error) {
+            error_log('[ReservationsRepository] Error al contar reservas creadas: ' . $wpdb->last_error);
+            return 0;
+        }
+
+        return (int) $count;
+    }
 }

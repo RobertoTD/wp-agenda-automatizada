@@ -113,6 +113,8 @@ PLUGIN ROOT
 │   ├── domain/                           ← capa de reglas puras (paradigma objetivo)
 │   │   ├── availability/
 │   │   │   └── class-aa-area-availability-service.php   ← canónico (Domain Service)
+│   │   ├── onboarding/
+│   │   │   └── class-aa-onboarding-activation-policy.php ← reglas puras del onboarding inicial
 │   │   └── tenant/
 │   │       └── class-aa-tenant-domain.php               ← identidad canónica del tenant (espejo de utils/tenantDomain.js del backend)
 │   ├── models/

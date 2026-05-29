@@ -42,6 +42,11 @@ ui (JS)      →  http (vía AJAX)
 | Pintar DOM, calendarios, modales              | `assets/js/ui/`                         |
 | Cliente HTTP que consume endpoint y cachea    | `assets/js/services/`                   |
 
+### Contextos actuales relevantes
+
+- `booking`: creacion/resolucion de citas y disponibilidad asociada.
+- `onboarding`: estado de activacion inicial hacia la primera cita.
+
 ## Naming (para archivos NUEVOS, no migramos lo viejo todavía)
 
 - **PHP clases:** `AA_{Contexto}_{Rol}` → archivo `class-aa-{contexto}-{rol}.php`
