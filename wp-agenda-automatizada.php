@@ -132,6 +132,12 @@ require_once __DIR__ . '/includes/application/account/CreateBillingPortalSession
 require_once __DIR__ . '/includes/http/ajax/BillingPortalAjax.php';
 BillingPortalAjax::register();
 
+// ================================
+// Endpoint AJAX: Estado onboarding inicial (capa http/ajax)
+// ================================
+require_once __DIR__ . '/includes/http/ajax/OnboardingStatusAjax.php';
+OnboardingStatusAjax::register();
+
 // ===============================
 // 🔹 Schema lifecycle: registra el activation hook con AA_Schema::install
 // ===============================
