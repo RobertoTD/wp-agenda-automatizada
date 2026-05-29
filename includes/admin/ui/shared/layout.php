@@ -180,6 +180,9 @@ header('Content-Type: text/html; charset=utf-8');
 <!-- Shared Admin JS (AAAdmin namespace) -->
 <script src="<?php echo aa_asset_url('includes/admin/ui/assets/js/main.js'); ?>" defer></script>
 
+<!-- Onboarding welcome modal (first open; requiere AAAdmin.openModal) -->
+<script src="<?php echo aa_asset_url('includes/admin/ui/modals/onboarding/onboardingWelcome.js'); ?>" defer></script>
+
 <!-- Sidebar -->
 <script src="<?php echo aa_asset_url('includes/admin/ui/assets/js/sidebar.js'); ?>" defer></script>
 
@@ -301,6 +304,7 @@ header('Content-Type: text/html; charset=utf-8');
     <?php require_once dirname(__DIR__) . '/modals/appointments/index.php'; ?>
     <?php require_once dirname(__DIR__) . '/modals/assignment/index.php'; ?>
     <?php require_once dirname(__DIR__) . '/modals/crearcliente/index.php'; ?>
+    <?php require_once dirname(__DIR__) . '/modals/onboarding/index.php'; ?>
 
     <!-- Inicializar controladores globales -->
     <script>
