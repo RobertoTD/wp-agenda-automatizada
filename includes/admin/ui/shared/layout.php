@@ -164,6 +164,13 @@ header('Content-Type: text/html; charset=utf-8');
     window.AA_ADMIN_DATA = {
         businessName: <?php echo wp_json_encode(get_option('aa_business_name', 'Nuestro negocio')); ?>
     };
+
+    // Onboarding inicial (estado de activación; consumo vía OnboardingStatusService)
+    window.AA_ONBOARDING_DATA = {
+        ajaxUrl: window.ajaxurl || '<?php echo esc_js(admin_url('admin-ajax.php')); ?>',
+        action: 'aa_get_onboarding_status',
+        nonce: '<?php echo esc_js(wp_create_nonce('aa_get_onboarding_status_nonce')); ?>'
+    };
 </script>
 
 <!-- ============================================
@@ -218,6 +225,9 @@ header('Content-Type: text/html; charset=utf-8');
 
 <!-- Benefit notification mapper (UX-3A, puro — disponible para UX-4 y consola) -->
 <script src="<?php echo aa_asset_url('assets/js/services/benefitNotificationMapper.js'); ?>" defer></script>
+
+<!-- Onboarding status (read-only; MC3 transport only) -->
+<script src="<?php echo aa_asset_url('assets/js/services/onboardingStatusService.js'); ?>" defer></script>
 
 <!-- Controllers -->
 <script src="<?php echo aa_asset_url('assets/js/controllers/availabilityController.js'); ?>" defer></script>
