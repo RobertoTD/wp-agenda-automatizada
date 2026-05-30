@@ -235,6 +235,9 @@ header('Content-Type: text/html; charset=utf-8');
 <!-- Onboarding activation guide (MC5A manual open; requiere OnboardingStatusService) -->
 <script src="<?php echo aa_asset_url('includes/admin/ui/modals/onboarding/onboardingActivationGuide.js'); ?>" defer></script>
 
+<!-- Onboarding activation guide auto-open coordinator (MC5C1; requiere OnboardingStatusService + OnboardingActivationGuide) -->
+<script src="<?php echo aa_asset_url('includes/admin/ui/modals/onboarding/onboardingActivationCoordinator.js'); ?>" defer></script>
+
 <!-- Controllers -->
 <script src="<?php echo aa_asset_url('assets/js/controllers/availabilityController.js'); ?>" defer></script>
 <script src="<?php echo aa_asset_url('assets/js/controllers/adminReservationController.js'); ?>" defer></script>
