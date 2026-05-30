@@ -32,6 +32,7 @@
         initIntervals();
         convertInputsToDesktopSelectors();
         observeResizeChanges();
+        applySetupFocusFromUrl();
     });
 
     // ================================
@@ -422,6 +423,77 @@
                 input.dataset.converted = 'true';
             }
         });
+    }
+
+    // ================================
+    // 🔹 SETUP FOCUS (onboarding / deep links)
+    // ================================
+
+    /**
+     * Reads the optional setup_focus query param used by onboarding CTAs.
+     */
+    function applySetupFocusFromUrl() {
+        const params = new URLSearchParams(window.location.search);
+        const focusKey = params.get('setup_focus');
+
+        if (focusKey !== 'google_calendar') {
+            return;
+        }
+
+        window.requestAnimationFrame(function() {
+            focusGoogleCalendarSetup();
+        });
+    }
+
+    /**
+     * Opens Google Calendar section, scrolls, highlights and focuses connect/reconnect CTA.
+     */
+    function focusGoogleCalendarSetup() {
+        const root = document.getElementById('aa-google-calendar-root');
+
+        if (!root) {
+            return;
+        }
+
+        if (!root.open) {
+            root.open = true;
+        }
+
+        root.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+        });
+
+        applyTemporaryHighlight(root);
+
+        const connectButton = document.getElementById('aa-google-calendar-connect');
+
+        if (connectButton && typeof connectButton.focus === 'function') {
+            window.setTimeout(function() {
+                connectButton.focus({ preventScroll: true });
+            }, 350);
+        }
+    }
+
+    /**
+     * Applies a temporary inline highlight without relying on Tailwind classes.
+     *
+     * @param {HTMLElement} element
+     */
+    function applyTemporaryHighlight(element) {
+        const previousBoxShadow = element.style.boxShadow;
+        const previousBorderColor = element.style.borderColor;
+        const previousTransition = element.style.transition;
+
+        element.style.transition = 'box-shadow 180ms ease, border-color 180ms ease';
+        element.style.boxShadow = '0 0 0 4px rgba(79, 70, 229, 0.22)';
+        element.style.borderColor = 'rgb(99, 102, 241)';
+
+        window.setTimeout(function() {
+            element.style.boxShadow = previousBoxShadow;
+            element.style.borderColor = previousBorderColor;
+            element.style.transition = previousTransition;
+        }, 2200);
     }
 
     // ================================

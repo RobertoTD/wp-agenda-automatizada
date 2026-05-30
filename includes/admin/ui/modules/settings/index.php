@@ -322,7 +322,7 @@ $days = [
         <!-- ═══════════════════════════════════════════════════════════════
              SECCIÓN: Google Calendar
         ═══════════════════════════════════════════════════════════════ -->
-        <details class="bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
+        <details id="aa-google-calendar-root" class="bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
             <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
                 <div class="flex items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
@@ -383,7 +383,8 @@ $days = [
                                 <p class="text-sm font-medium text-amber-800">Reconexión requerida</p>
                                 <p class="text-sm text-amber-700 mt-1">El token ha caducado. Reconecta para seguir sincronizando.</p>
                                 <p class="text-xs text-amber-600 mt-2">Cuenta anterior: <?php echo esc_html($google_email); ?></p>
-                                <a href="<?php echo esc_url(SyncService::get_auth_url()); ?>" 
+                                <a id="aa-google-calendar-connect"
+                                   href="<?php echo esc_url(SyncService::get_auth_url()); ?>" 
                                    target="_blank"
                                    rel="noopener noreferrer"
                                    class="inline-flex items-center gap-2 mt-3 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition-colors">
@@ -410,7 +411,8 @@ $days = [
                         <p class="text-sm text-gray-500 mb-4 max-w-sm mx-auto">
                             Conecta tu cuenta de Google Calendar para sincronizar tus citas automáticamente
                         </p>
-                        <a href="<?php echo esc_url(SyncService::get_auth_url()); ?>" 
+                        <a id="aa-google-calendar-connect"
+                           href="<?php echo esc_url(SyncService::get_auth_url()); ?>" 
                            target="_blank"
                            rel="noopener noreferrer"
                            class="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg transition-colors shadow-sm">
