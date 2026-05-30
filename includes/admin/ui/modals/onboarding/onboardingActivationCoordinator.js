@@ -1,5 +1,5 @@
 /**
- * Onboarding Activation Coordinator — MC5C1 auto-open, MC5C2 fast appointment guard.
+ * Onboarding Activation Coordinator — MC5C1 auto-open, MC5C2 fast appointment guard, MC5C3B re-open on setup progress.
  *
  * Coordinates welcome modal vs activation guide. Does not render or change business rules.
  */
@@ -16,9 +16,19 @@
     var WELCOME_SEEN_POLL_MAX_MS = 5000;
     var FAST_APPOINTMENT_GUARD_RETRY_MS = 50;
     var FAST_APPOINTMENT_GUARD_MAX_ATTEMPTS = 40;
+    var SETUP_MUTATION_DEBOUNCE_MS = 300;
+    var GUIDE_REOPEN_AFTER_MODAL_CLOSE_MS = 350;
 
     var welcomeCloseObserver = null;
     var welcomeCloseHandled = false;
+
+    /** @type {object|null|undefined} */
+    var lastStatus = null;
+    var setupMutationDebounceTimer = null;
+    var setupMutationRefreshInFlight = false;
+    var setupMutationRefreshQueued = false;
+    var lastOpenedTransitionKey = null;
+    var guideReopenObserver = null;
 
     function hasSeenWelcome() {
         try {
@@ -65,6 +75,269 @@
         }
 
         return status.show_activation_guide === true;
+    }
+
+    function fetchOnboardingStatus() {
+        if (!window.OnboardingStatusService || typeof window.OnboardingStatusService.fetchStatus !== 'function') {
+            return Promise.reject(new Error('OnboardingStatusService.fetchStatus no disponible'));
+        }
+
+        return window.OnboardingStatusService.fetchStatus();
+    }
+
+    /**
+     * @param {string|null|undefined} step
+     * @returns {string}
+     */
+    function normalizeNextStep(step) {
+        if (step === null || step === undefined) {
+            return '';
+        }
+
+        return String(step);
+    }
+
+    /**
+     * @param {object} oldStatus
+     * @param {object} newStatus
+     * @returns {string}
+     */
+    function buildTransitionKey(oldStatus, newStatus) {
+        return normalizeNextStep(oldStatus.next_step) + '>' + normalizeNextStep(newStatus.next_step) +
+            '|' + String(!!newStatus.setup_complete) + '|' + String(!!newStatus.activation_complete);
+    }
+
+    /**
+     * @param {object|null|undefined} oldStatus
+     * @param {object|null|undefined} newStatus
+     * @returns {boolean}
+     */
+    function hasSignificantTransition(oldStatus, newStatus) {
+        if (!oldStatus || !newStatus || typeof oldStatus !== 'object' || typeof newStatus !== 'object') {
+            return false;
+        }
+
+        return normalizeNextStep(oldStatus.next_step) !== normalizeNextStep(newStatus.next_step) ||
+            oldStatus.setup_complete !== newStatus.setup_complete ||
+            oldStatus.activation_complete !== newStatus.activation_complete;
+    }
+
+    /**
+     * @param {object|null|undefined} status
+     * @returns {boolean}
+     */
+    function shouldReopenGuideAfterTransition(status) {
+        if (!status || typeof status !== 'object') {
+            return false;
+        }
+
+        if (status.activation_complete === true) {
+            return false;
+        }
+
+        return status.show_activation_guide === true;
+    }
+
+    function primeLastStatus() {
+        return fetchOnboardingStatus()
+            .then(function (status) {
+                lastStatus = status;
+                return status;
+            })
+            .catch(function (err) {
+                console.warn('[OnboardingActivationCoordinator] primeLastStatus failed:', err);
+            });
+    }
+
+    function disconnectGuideReopenObserver() {
+        if (guideReopenObserver) {
+            guideReopenObserver.disconnect();
+            guideReopenObserver = null;
+        }
+    }
+
+    /**
+     * @param {() => void} callback
+     */
+    function whenModalClosedThen(callback) {
+        var root = document.getElementById('aa-modal-root');
+
+        if (!root || !isModalOpen()) {
+            window.setTimeout(callback, GUIDE_REOPEN_AFTER_MODAL_CLOSE_MS);
+            return;
+        }
+
+        disconnectGuideReopenObserver();
+
+        guideReopenObserver = new MutationObserver(function () {
+            if (root.classList.contains('hidden')) {
+                disconnectGuideReopenObserver();
+                window.setTimeout(callback, GUIDE_REOPEN_AFTER_MODAL_CLOSE_MS);
+            }
+        });
+
+        guideReopenObserver.observe(root, {
+            attributes: true,
+            attributeFilter: ['class']
+        });
+    }
+
+    /**
+     * @param {string} transitionKey
+     * @returns {Promise<*>}
+     */
+    function tryReopenActivationGuide(transitionKey) {
+        if (!window.OnboardingActivationGuide || typeof window.OnboardingActivationGuide.open !== 'function') {
+            console.warn('[OnboardingActivationCoordinator] OnboardingActivationGuide.open no disponible');
+            return Promise.resolve();
+        }
+
+        if (!shouldReopenGuideAfterTransition(lastStatus)) {
+            return Promise.resolve();
+        }
+
+        function openGuideNow() {
+            if (!shouldReopenGuideAfterTransition(lastStatus)) {
+                return Promise.resolve();
+            }
+
+            if (isModalOpen()) {
+                return new Promise(function (resolve) {
+                    whenModalClosedThen(function () {
+                        resolve(openGuideNow());
+                    });
+                });
+            }
+
+            return window.OnboardingActivationGuide.open().then(function () {
+                lastOpenedTransitionKey = transitionKey;
+            });
+        }
+
+        return openGuideNow();
+    }
+
+    function processSetupMutationRefresh() {
+        if (!window.OnboardingStatusService || typeof window.OnboardingStatusService.fetchStatus !== 'function') {
+            return Promise.resolve();
+        }
+
+        if (!lastStatus) {
+            return fetchOnboardingStatus()
+                .then(function (status) {
+                    lastStatus = status;
+                })
+                .catch(function (err) {
+                    console.warn('[OnboardingActivationCoordinator] setup mutation baseline fetch failed:', err);
+                });
+        }
+
+        var oldStatus = lastStatus;
+
+        return fetchOnboardingStatus()
+            .then(function (newStatus) {
+                lastStatus = newStatus;
+
+                if (!hasSignificantTransition(oldStatus, newStatus)) {
+                    return;
+                }
+
+                if (!shouldReopenGuideAfterTransition(newStatus)) {
+                    return;
+                }
+
+                var transitionKey = buildTransitionKey(oldStatus, newStatus);
+
+                if (transitionKey === lastOpenedTransitionKey) {
+                    return;
+                }
+
+                return tryReopenActivationGuide(transitionKey);
+            })
+            .catch(function (err) {
+                console.warn('[OnboardingActivationCoordinator] setup mutation refresh failed:', err);
+            });
+    }
+
+    function runSetupMutationRefresh() {
+        if (setupMutationRefreshInFlight) {
+            setupMutationRefreshQueued = true;
+            return;
+        }
+
+        setupMutationRefreshInFlight = true;
+
+        processSetupMutationRefresh()
+            .finally(function () {
+                setupMutationRefreshInFlight = false;
+
+                if (setupMutationRefreshQueued) {
+                    setupMutationRefreshQueued = false;
+                    runSetupMutationRefresh();
+                }
+            });
+    }
+
+    function scheduleSetupMutationRefresh() {
+        if (setupMutationDebounceTimer) {
+            window.clearTimeout(setupMutationDebounceTimer);
+        }
+
+        setupMutationDebounceTimer = window.setTimeout(function () {
+            setupMutationDebounceTimer = null;
+            runSetupMutationRefresh();
+        }, SETUP_MUTATION_DEBOUNCE_MS);
+    }
+
+    /**
+     * @param {Event} event
+     * @returns {string|null}
+     */
+    function resolveSetupMutationSource(event) {
+        if (!event || !event.type) {
+            return null;
+        }
+
+        if (event.type === 'aa:client:saved') {
+            if (event.detail && event.detail.isEdit === true) {
+                return null;
+            }
+
+            return 'client';
+        }
+
+        if (event.type === 'aa:onboarding:setup-mutated') {
+            return event.detail && event.detail.source ? event.detail.source : null;
+        }
+
+        if (event.type === 'aa:reservation:created') {
+            return 'reservation';
+        }
+
+        if (event.type === 'aa:notifications:refresh') {
+            if (event.detail && event.detail.source === 'fastappointment-created') {
+                return 'fastappointment';
+            }
+
+            return null;
+        }
+
+        return null;
+    }
+
+    function onSetupMutationEvent(event) {
+        if (!resolveSetupMutationSource(event)) {
+            return;
+        }
+
+        scheduleSetupMutationRefresh();
+    }
+
+    function installSetupMutationListeners() {
+        document.addEventListener('aa:client:saved', onSetupMutationEvent);
+        document.addEventListener('aa:onboarding:setup-mutated', onSetupMutationEvent);
+        document.addEventListener('aa:reservation:created', onSetupMutationEvent);
+        document.addEventListener('aa:notifications:refresh', onSetupMutationEvent);
     }
 
     function disconnectWelcomeCloseObserver() {
@@ -157,8 +430,10 @@
             return Promise.resolve();
         }
 
-        return window.OnboardingStatusService.fetchStatus()
+        return fetchOnboardingStatus()
             .then(function (status) {
+                lastStatus = status;
+
                 if (!shouldAutoOpenFromStatus(status)) {
                     return status;
                 }
@@ -168,6 +443,10 @@
                 }
 
                 return window.OnboardingActivationGuide.open().then(function (openedStatus) {
+                    if (openedStatus && typeof openedStatus === 'object') {
+                        lastStatus = openedStatus;
+                    }
+
                     if (shouldAutoOpenFromStatus(openedStatus) && isModalOpen()) {
                         markAutoGuideSeenInSession();
                     }
@@ -208,11 +487,18 @@
                 return callOriginalFastAppointmentOpen(originalOpen, callArgs);
             }
 
-            return window.OnboardingStatusService.fetchStatus()
+            return fetchOnboardingStatus()
                 .then(function (status) {
+                    lastStatus = status;
+
                     if (status && status.setup_complete === false) {
                         if (window.OnboardingActivationGuide && typeof window.OnboardingActivationGuide.open === 'function') {
-                            return window.OnboardingActivationGuide.open();
+                            return window.OnboardingActivationGuide.open().then(function (openedStatus) {
+                                if (openedStatus && typeof openedStatus === 'object') {
+                                    lastStatus = openedStatus;
+                                }
+                                return openedStatus;
+                            });
                         }
 
                         console.warn('[OnboardingActivationCoordinator] OnboardingActivationGuide.open no disponible; abriendo cita rápida');
@@ -246,9 +532,7 @@
         }, FAST_APPOINTMENT_GUARD_RETRY_MS);
     }
 
-    function init() {
-        tryInstallFastAppointmentGuard(FAST_APPOINTMENT_GUARD_MAX_ATTEMPTS);
-
+    function initInitialAutoOpen() {
         if (hasSeenAutoGuideInSession()) {
             return;
         }
@@ -263,9 +547,21 @@
         watchWelcomeModalClose();
     }
 
+    function init() {
+        installSetupMutationListeners();
+        tryInstallFastAppointmentGuard(FAST_APPOINTMENT_GUARD_MAX_ATTEMPTS);
+
+        primeLastStatus().finally(function () {
+            initInitialAutoOpen();
+        });
+    }
+
     window.OnboardingActivationCoordinator = {
         tryAutoOpen: tryAutoOpen,
         installFastAppointmentGuard: installFastAppointmentGuard,
+        getLastStatus: function () {
+            return lastStatus;
+        },
         hasSeenAutoGuideInSession: hasSeenAutoGuideInSession,
         resetAutoGuideSessionSeen: function () {
             try {
