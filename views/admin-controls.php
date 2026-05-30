@@ -1,12 +1,12 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-// 🔹 Banner de notificación global cuando la sincronización está inválida
+// 🔹 Banner de notificación global cuando Google estuvo conectado y la sync es inválida
 add_action('admin_notices', function() {
     // Solo mostrar en páginas del plugin para administradores
     if (!current_user_can('manage_options')) return;
     
-    if (SyncService::is_sync_invalid()) {
+    if (SyncService::needs_reconnect()) {
         ?>
         <div class="notice notice-error">
             <p>

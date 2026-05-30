@@ -103,6 +103,26 @@ class SyncService {
     }
 
     /**
+     * Whether a Google account email was stored after a prior OAuth connection.
+     *
+     * @return bool
+     */
+    public static function has_google_connection() {
+        $email = get_option('aa_google_email', '');
+
+        return is_string($email) && trim($email) !== '';
+    }
+
+    /**
+     * Whether sync is invalid and the site had connected Google before (reconnect case).
+     *
+     * @return bool
+     */
+    public static function needs_reconnect() {
+        return self::has_google_connection() && self::is_sync_invalid();
+    }
+
+    /**
      * Genera la URL de autorización OAuth de Google.
      * Incluye flow_id y provision_challenge para el canje seguro de secretos.
      *
