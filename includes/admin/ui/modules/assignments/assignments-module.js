@@ -8,14 +8,13 @@
 (function() {
     'use strict';
 
+    const STAFF_SERVICES_WAIT_MS = 5000;
+    const SETUP_FOCUS_POLL_MS = 100;
+
     const SETUP_FOCUS_TARGETS = {
         staff: {
             root: '#aa-staff-root',
             input: '#aa-staff-name-input'
-        },
-        staff_services: {
-            root: '#aa-staff-root',
-            input: '.aa-staff-toggle-services'
         },
         services: {
             root: '#aa-services-root',
@@ -52,6 +51,14 @@
     function applySetupFocusFromUrl() {
         const params = new URLSearchParams(window.location.search);
         const focusKey = params.get('setup_focus');
+
+        if (focusKey === 'staff_services') {
+            window.requestAnimationFrame(function() {
+                focusStaffServicesSetup();
+            });
+            return;
+        }
+
         const target = focusKey ? SETUP_FOCUS_TARGETS[focusKey] : null;
 
         if (!target) {
@@ -61,6 +68,83 @@
         // Wait one frame so <details> layout is stable after module boot.
         window.requestAnimationFrame(function() {
             focusSetupTarget(target);
+        });
+    }
+
+    /**
+     * Polls until selector matches inside container (staff list loads via AJAX).
+     *
+     * @param {HTMLElement} container
+     * @param {string} selector
+     * @param {number} timeoutMs
+     * @param {(el: Element) => void} callback
+     */
+    function waitForSelector(container, selector, timeoutMs, callback) {
+        const startedAt = Date.now();
+
+        function tick() {
+            const match = container.querySelector(selector);
+
+            if (match) {
+                callback(match);
+                return;
+            }
+
+            if (Date.now() - startedAt >= timeoutMs) {
+                console.warn('[Assignments Module] setup_focus=staff_services: no se encontró', selector, 'en el tiempo esperado');
+                return;
+            }
+
+            window.setTimeout(tick, SETUP_FOCUS_POLL_MS);
+        }
+
+        tick();
+    }
+
+    /**
+     * Opens staff services assignment panel for onboarding / AI staff_services focus.
+     */
+    function focusStaffServicesSetup() {
+        const root = document.querySelector('#aa-staff-root');
+
+        if (!root) {
+            return;
+        }
+
+        const details = root.closest('details');
+        if (details && !details.open) {
+            details.open = true;
+        }
+
+        waitForSelector(root, '.aa-staff-toggle-services', STAFF_SERVICES_WAIT_MS, function(toggleBtn) {
+            const staffId = toggleBtn.getAttribute('data-staff-id');
+
+            if (!staffId) {
+                return;
+            }
+
+            const panel = root.querySelector('.aa-staff-services-panel[data-staff-id="' + staffId + '"]');
+
+            if (panel && panel.classList.contains('hidden')) {
+                toggleBtn.click();
+            }
+
+            const highlightEl = panel || toggleBtn.closest('li') || details || root;
+
+            highlightEl.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center'
+            });
+
+            applyTemporaryHighlight(highlightEl);
+
+            const select = panel ? panel.querySelector('.aa-staff-services-select') : null;
+
+            if (select && typeof select.focus === 'function') {
+                window.setTimeout(function() {
+                    select.focus({ preventScroll: true });
+                }, 350);
+            }
         });
     }
 

@@ -1,5 +1,5 @@
 /**
- * Onboarding Activation Guide — manual checklist modal (MC5A).
+ * Onboarding Activation Guide — checklist modal (MC5A render, MC5B CTAs).
  *
  * Renders backend status from OnboardingStatusService; no business rules in JS.
  */
@@ -28,9 +28,18 @@
         first_appointment: 'Crear cita rápida'
     };
 
+    /** Same contract as AA_AI_Setup_Action_Link_Builder + module setup_focus handlers. */
+    var NAV_TARGETS = {
+        client: { module: 'clients', setupFocus: 'clients', hash: 'aa-clients-grid' },
+        service: { module: 'assignments', setupFocus: 'services', hash: 'aa-services-root' },
+        area: { module: 'assignments', setupFocus: 'areas', hash: 'aa-areas-root' }
+    };
+
     var CHECK_ICON = '<svg class="w-4 h-4 shrink-0 text-emerald-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">'
         + '<path fill-rule="evenodd" d="M16.704 5.29a1 1 0 010 1.42l-7.25 7.25a1 1 0 01-1.414 0l-3-3a1 1 0 111.414-1.42l2.293 2.294 6.543-6.544a1 1 0 011.414 0z" clip-rule="evenodd"></path>'
         + '</svg>';
+
+    var CTA_ENABLED_CLASS = 'aa-onboarding-activation-cta inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors';
 
     var lastStatus = null;
 
@@ -41,6 +50,119 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
+    }
+
+    function closeGuideModal() {
+        if (window.AAAdmin && typeof window.AAAdmin.closeModal === 'function') {
+            window.AAAdmin.closeModal();
+        }
+    }
+
+    /**
+     * @param {string} module
+     * @param {string} setupFocus
+     * @param {string} hash
+     */
+    function navigateToModule(module, setupFocus, hash) {
+        closeGuideModal();
+
+        try {
+            var url = new URL(window.location.href);
+            url.searchParams.set('action', 'aa_iframe_content');
+            url.searchParams.set('module', module);
+            url.searchParams.set('setup_focus', setupFocus);
+            url.hash = hash.charAt(0) === '#' ? hash : '#' + hash;
+            window.location.href = url.toString();
+        } catch (err) {
+            console.error('[OnboardingActivationGuide] navigateToModule failed:', err);
+        }
+    }
+
+    /**
+     * @param {object|null|undefined} step
+     * @returns {{module:string,setupFocus:string,hash:string}}
+     */
+    function staffNavTarget(step) {
+        if (step && step.reason === 'missing_staff_service_assignment') {
+            return {
+                module: 'assignments',
+                setupFocus: 'staff_services',
+                hash: 'aa-staff-root'
+            };
+        }
+
+        return {
+            module: 'assignments',
+            setupFocus: 'staff',
+            hash: 'aa-staff-root'
+        };
+    }
+
+    /**
+     * @param {string} stepKey
+     * @param {object|null|undefined} step
+     * @returns {{type:'navigate',module:string,setupFocus:string,hash:string}|{type:'fast_appointment'}|null}
+     */
+    function resolveCtaTarget(stepKey, step) {
+        if (stepKey === 'first_appointment') {
+            return { type: 'fast_appointment' };
+        }
+
+        if (stepKey === 'staff') {
+            var staffTarget = staffNavTarget(step);
+            return {
+                type: 'navigate',
+                module: staffTarget.module,
+                setupFocus: staffTarget.setupFocus,
+                hash: staffTarget.hash
+            };
+        }
+
+        var nav = NAV_TARGETS[stepKey];
+        if (!nav) {
+            return null;
+        }
+
+        return {
+            type: 'navigate',
+            module: nav.module,
+            setupFocus: nav.setupFocus,
+            hash: nav.hash
+        };
+    }
+
+    /**
+     * @param {string} stepKey
+     * @param {object|null|undefined} step
+     * @param {object} status
+     */
+    function handleCtaClick(stepKey, step, status) {
+        if (status.next_step !== stepKey) {
+            return;
+        }
+
+        var target = resolveCtaTarget(stepKey, step);
+        if (!target) {
+            return;
+        }
+
+        if (target.type === 'fast_appointment') {
+            if (!status.setup_complete) {
+                return;
+            }
+
+            closeGuideModal();
+
+            if (window.FastAppointmentModal && typeof window.FastAppointmentModal.open === 'function') {
+                window.FastAppointmentModal.open();
+            } else {
+                console.warn('[OnboardingActivationGuide] FastAppointmentModal.open no disponible');
+            }
+
+            return;
+        }
+
+        navigateToModule(target.module, target.setupFocus, target.hash);
     }
 
     function getTemplateHtml(templateId) {
@@ -133,7 +255,7 @@
                 + '  </div>'
                 + '  <p class="mt-2 text-sm text-gray-700 leading-relaxed">' + escapeHtml(instruction) + '</p>'
                 + '  <div class="mt-3">'
-                + '    <button type="button" disabled class="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-indigo-400 rounded-lg cursor-not-allowed opacity-80">'
+                + '    <button type="button" class="' + CTA_ENABLED_CLASS + '" data-aa-onboarding-step-key="' + escapeHtml(stepKey) + '">'
                 + escapeHtml(ctaLabel)
                 + '    </button>'
                 + '  </div>'
@@ -171,8 +293,6 @@
     }
 
     /**
-     * Fills the cloned body template with rendered steps.
-     *
      * @param {object} status
      * @returns {string}
      */
@@ -213,6 +333,31 @@
 
     /**
      * @param {object} status
+     */
+    function bindCtaButtons(status) {
+        var root = document.querySelector('[data-aa-onboarding-activation-guide="1"]');
+        var nextStep = status.next_step;
+
+        if (!root || !nextStep) {
+            return;
+        }
+
+        var button = root.querySelector('.aa-onboarding-activation-cta[data-aa-onboarding-step-key="' + nextStep + '"]');
+        if (!button || button.dataset.onboardingCtaBound === '1') {
+            return;
+        }
+
+        var steps = status.steps || {};
+        var step = steps[nextStep] || {};
+
+        button.dataset.onboardingCtaBound = '1';
+        button.addEventListener('click', function () {
+            handleCtaClick(nextStep, step, status);
+        });
+    }
+
+    /**
+     * @param {object} status
      * @returns {{title: string, body: string, footer: string}}
      */
     function render(status) {
@@ -234,9 +379,7 @@
 
         button.dataset.onboardingGuideBound = '1';
         button.addEventListener('click', function () {
-            if (window.AAAdmin && typeof window.AAAdmin.closeModal === 'function') {
-                window.AAAdmin.closeModal();
-            }
+            closeGuideModal();
         });
     }
 
@@ -261,6 +404,7 @@
         });
 
         bindCloseButton();
+        bindCtaButtons(status);
     }
 
     /**
@@ -300,6 +444,7 @@
         render: render,
         refresh: refresh,
         openWithStatus: openWithStatus,
+        navigateToModule: navigateToModule,
         getLastStatus: function () {
             return lastStatus;
         }
