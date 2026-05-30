@@ -11,6 +11,15 @@
     let areasRoot = null;
 
     /**
+     * @param {'area'} source
+     */
+    function dispatchOnboardingSetupMutated(source) {
+        document.dispatchEvent(new CustomEvent('aa:onboarding:setup-mutated', {
+            detail: { source: source }
+        }));
+    }
+
+    /**
      * Initialize the areas section
      */
     function initAreasSection() {
@@ -544,6 +553,9 @@
             if (data.success) {
                 // Update data attribute to reflect new state
                 toggle.setAttribute('data-active', newActive);
+                if (newActive === 1) {
+                    dispatchOnboardingSetupMutated('area');
+                }
             } else {
                 // Revert toggle state on error
                 toggle.checked = previousActive === 1;
@@ -629,6 +641,7 @@
                 if (areasRoot) {
                     loadServiceAreas(areasRoot);
                 }
+                dispatchOnboardingSetupMutated('area');
             } else {
                 console.error('[Areas Section] Error al crear zona:', data);
             }

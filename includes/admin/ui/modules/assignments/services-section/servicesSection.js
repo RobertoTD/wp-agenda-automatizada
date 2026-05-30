@@ -17,6 +17,15 @@
     let attendanceVirtualHandlersBound = false;
 
     /**
+     * @param {'service'} source
+     */
+    function dispatchOnboardingSetupMutated(source) {
+        document.dispatchEvent(new CustomEvent('aa:onboarding:setup-mutated', {
+            detail: { source: source }
+        }));
+    }
+
+    /**
      * Initialize the services section
      */
     function initServicesSection() {
@@ -195,6 +204,9 @@
             if (data.success) {
                 // Update data-active attribute
                 toggle.setAttribute('data-active', newActive);
+                if (newActive === 1) {
+                    dispatchOnboardingSetupMutated('service');
+                }
             } else {
                 // Revert toggle state on error
                 toggle.checked = previousActive === 1;
@@ -534,6 +546,7 @@
                 if (servicesRoot) {
                     loadServices(servicesRoot);
                 }
+                dispatchOnboardingSetupMutated('service');
             } else {
                 console.error('[Services Section] Error al crear servicio:', data);
             }

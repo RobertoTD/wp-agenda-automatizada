@@ -17,6 +17,15 @@
     let servicesHandlersBound = false;
 
     /**
+     * @param {'staff' | 'staff_service_assignment'} source
+     */
+    function dispatchOnboardingSetupMutated(source) {
+        document.dispatchEvent(new CustomEvent('aa:onboarding:setup-mutated', {
+            detail: { source: source }
+        }));
+    }
+
+    /**
      * Initialize the staff section
      */
     function initStaffSection() {
@@ -228,6 +237,9 @@
             if (data.success) {
                 // Update data attribute to reflect new state
                 toggle.setAttribute('data-active', newActive);
+                if (newActive === 1) {
+                    dispatchOnboardingSetupMutated('staff');
+                }
             } else {
                 // Revert toggle state on error
                 toggle.checked = previousActive === 1;
@@ -313,6 +325,7 @@
                 if (staffRoot) {
                     loadStaff(staffRoot);
                 }
+                dispatchOnboardingSetupMutated('staff');
             } else {
                 console.error('[Staff Section] Error al crear personal:', data);
             }
@@ -556,6 +569,7 @@
             if (data.success) {
                 // Reload services for this staff to update UI
                 loadStaffServices(staffId);
+                dispatchOnboardingSetupMutated('staff_service_assignment');
             } else {
                 console.error('[Staff Section] Error al agregar servicio:', data);
             }
