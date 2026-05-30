@@ -1,6 +1,22 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
+/**
+ * Settings module inside the iframe app, focused on Google Calendar setup.
+ *
+ * @return string
+ */
+function aa_iframe_settings_google_calendar_url() {
+    return add_query_arg(
+        array(
+            'action'      => 'aa_iframe_content',
+            'module'      => 'settings',
+            'setup_focus' => 'google_calendar',
+        ),
+        admin_url('admin-post.php')
+    );
+}
+
 // 🔹 Banner de notificación global cuando Google estuvo conectado y la sync es inválida
 add_action('admin_notices', function() {
     // Solo mostrar en páginas del plugin para administradores
@@ -12,7 +28,7 @@ add_action('admin_notices', function() {
             <p>
                 <strong>⚠️ Sincronización de Google Calendar detenida</strong><br>
                 El token de autenticación ha caducado o fue rechazado. 
-                <a href="<?php echo esc_url(admin_url('admin.php?page=agenda-automatizada-settings')); ?>">
+                <a href="<?php echo esc_url(aa_iframe_settings_google_calendar_url()); ?>">
                     Dirígete a la configuración para reconectar tu cuenta de Google.
                 </a>
             </p>
@@ -73,8 +89,10 @@ add_action('admin_post_aa_connect_google', function() {
 
     $success = isset($_GET['success']) ? $_GET['success'] : '';
 
+    $return_url = aa_iframe_settings_google_calendar_url();
+
     if ($success !== 'true') {
-        wp_redirect(admin_url('admin.php?page=agenda-automatizada-settings'));
+        wp_safe_redirect($return_url);
         exit;
     }
 
@@ -82,7 +100,7 @@ add_action('admin_post_aa_connect_google', function() {
     $provision_code = isset($_GET['provision_code']) ? sanitize_text_field($_GET['provision_code']) : '';
 
     if (empty($flow_id) || empty($provision_code)) {
-        wp_redirect(admin_url('admin.php?page=agenda-automatizada-settings'));
+        wp_safe_redirect($return_url);
         exit;
     }
 
@@ -96,7 +114,7 @@ add_action('admin_post_aa_connect_google', function() {
         error_log('[WP Agenda] OAuth redeem failed: ' . $err_msg);
     }
 
-    wp_redirect(admin_url('admin.php?page=agenda-automatizada-settings'));
+    wp_safe_redirect($return_url);
     exit;
 });
 

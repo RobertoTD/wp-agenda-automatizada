@@ -1,5 +1,5 @@
 /**
- * Onboarding Activation Guide — checklist modal (MC5A render, MC5B CTAs).
+ * Onboarding Activation Guide — checklist modal (MC5A render, MC5B CTAs, MC5D3 Google recommended).
  *
  * Renders backend status from OnboardingStatusService; no business rules in JS.
  */
@@ -41,6 +41,18 @@
 
     var CTA_ENABLED_CLASS = 'aa-onboarding-activation-cta inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors';
 
+    var GOOGLE_CALENDAR_NAV = {
+        module: 'settings',
+        setupFocus: 'google_calendar',
+        hash: 'aa-google-calendar-root'
+    };
+
+    var GOOGLE_RECOMMENDED_TITLE = 'Recomendado: vincula tu cuenta de Google';
+
+    var GOOGLE_RECOMMENDED_BODY = 'Sincroniza automáticamente tus citas con Google Calendar. Si usas Gmail, '
+        + 'probablemente ya tienes Google Calendar incluido gratis. Esto puede ayudarte a recibir recordatorios '
+        + 'y reducir olvidos o faltas a las citas.';
+
     var lastStatus = null;
 
     function escapeHtml(value) {
@@ -76,6 +88,26 @@
         } catch (err) {
             console.error('[OnboardingActivationGuide] navigateToModule failed:', err);
         }
+    }
+
+    function navigateToGoogleCalendarSettings() {
+        navigateToModule(
+            GOOGLE_CALENDAR_NAV.module,
+            GOOGLE_CALENDAR_NAV.setupFocus,
+            GOOGLE_CALENDAR_NAV.hash
+        );
+    }
+
+    /**
+     * @param {object} status
+     * @returns {object|null}
+     */
+    function getGoogleCalendarRecommendation(status) {
+        if (!status || !status.recommendations || !status.recommendations.google_calendar) {
+            return null;
+        }
+
+        return status.recommendations.google_calendar;
     }
 
     /**
@@ -273,6 +305,97 @@
     }
 
     /**
+     * @param {object} google
+     * @returns {string}
+     */
+    function renderGoogleCalendarRecommendationBlock(google) {
+        if (!google || typeof google.status !== 'string') {
+            return '';
+        }
+
+        var status = google.status;
+        var email = google.email ? String(google.email) : '';
+
+        if (status === 'connected') {
+            var connectedLines = '<p class="text-sm font-medium text-emerald-800">Google Calendar conectado</p>';
+
+            if (email) {
+                connectedLines += '<p class="mt-1 text-sm text-emerald-700">Conectado como '
+                    + escapeHtml(email)
+                    + '</p>';
+            }
+
+            return ''
+                + '<div class="rounded-xl border border-emerald-200 bg-emerald-50/80 p-4" data-aa-onboarding-google-recommended="1">'
+                + '  <p class="text-xs font-medium uppercase tracking-wide text-emerald-700">Recomendado</p>'
+                + '  <div class="mt-2">' + connectedLines + '</div>'
+                + '</div>';
+        }
+
+        if (status === 'needs_reconnect') {
+            return ''
+                + '<div class="rounded-xl border border-amber-200 bg-amber-50/90 p-4" data-aa-onboarding-google-recommended="1">'
+                + '  <div class="flex flex-wrap items-center gap-2">'
+                + '    <span class="text-xs font-medium uppercase tracking-wide text-amber-800">Recomendado</span>'
+                + '    <span class="text-xs font-semibold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full">Requiere reconexión</span>'
+                + '  </div>'
+                + '  <h4 class="mt-2 text-sm font-semibold text-gray-900">' + escapeHtml(GOOGLE_RECOMMENDED_TITLE) + '</h4>'
+                + '  <p class="mt-2 text-sm text-gray-700 leading-relaxed">' + escapeHtml(GOOGLE_RECOMMENDED_BODY) + '</p>'
+                + '  <div class="mt-3">'
+                + '    <button type="button" class="' + CTA_ENABLED_CLASS + ' bg-amber-600 hover:bg-amber-700 aa-onboarding-google-calendar-cta">'
+                + 'Reconectar Google Calendar'
+                + '    </button>'
+                + '  </div>'
+                + '</div>';
+        }
+
+        if (status === 'not_connected') {
+            return ''
+                + '<div class="rounded-xl border border-sky-200 bg-sky-50/70 p-4" data-aa-onboarding-google-recommended="1">'
+                + '  <p class="text-xs font-medium uppercase tracking-wide text-sky-800">Recomendado</p>'
+                + '  <h4 class="mt-2 text-sm font-semibold text-gray-900">' + escapeHtml(GOOGLE_RECOMMENDED_TITLE) + '</h4>'
+                + '  <p class="mt-2 text-sm text-gray-700 leading-relaxed">' + escapeHtml(GOOGLE_RECOMMENDED_BODY) + '</p>'
+                + '  <div class="mt-3">'
+                + '    <button type="button" class="' + CTA_ENABLED_CLASS + ' aa-onboarding-google-calendar-cta">'
+                + 'Configurar Google Calendar'
+                + '    </button>'
+                + '  </div>'
+                + '</div>';
+        }
+
+        return '';
+    }
+
+    /**
+     * @param {object} status
+     * @returns {string}
+     */
+    function buildGoogleCalendarRecommendationHtml(status) {
+        var google = getGoogleCalendarRecommendation(status);
+
+        return renderGoogleCalendarRecommendationBlock(google);
+    }
+
+    function bindGoogleCalendarCta() {
+        var root = document.querySelector('[data-aa-onboarding-activation-guide="1"]');
+
+        if (!root) {
+            return;
+        }
+
+        var button = root.querySelector('.aa-onboarding-google-calendar-cta');
+
+        if (!button || button.dataset.onboardingGoogleCtaBound === '1') {
+            return;
+        }
+
+        button.dataset.onboardingGoogleCtaBound = '1';
+        button.addEventListener('click', function () {
+            navigateToGoogleCalendarSettings();
+        });
+    }
+
+    /**
      * @param {object} status
      * @returns {string}
      */
@@ -308,6 +431,7 @@
 
         var summaryEl = wrapper.querySelector('#aa-onboarding-activation-guide-summary');
         var stepsEl = wrapper.querySelector('#aa-onboarding-activation-guide-steps');
+        var googleEl = wrapper.querySelector('#aa-onboarding-activation-guide-google-recommended');
 
         if (!summaryEl || !stepsEl) {
             console.error('[OnboardingActivationGuide] Contenedores de guía no encontrados');
@@ -327,6 +451,10 @@
         });
 
         stepsEl.innerHTML = stepsHtml;
+
+        if (googleEl) {
+            googleEl.innerHTML = buildGoogleCalendarRecommendationHtml(status);
+        }
 
         return wrapper.innerHTML;
     }
@@ -405,6 +533,7 @@
 
         bindCloseButton();
         bindCtaButtons(status);
+        bindGoogleCalendarCta();
     }
 
     /**

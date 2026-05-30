@@ -35,6 +35,7 @@ defined('ABSPATH') or die('No direct access');
     <div class="aa-onboarding-activation-guide" data-aa-onboarding-activation-guide="1">
         <div id="aa-onboarding-activation-guide-summary" class="mb-3"></div>
         <div id="aa-onboarding-activation-guide-steps" class="space-y-2"></div>
+        <div id="aa-onboarding-activation-guide-google-recommended" class="mt-4"></div>
     </div>
 </template>
 
