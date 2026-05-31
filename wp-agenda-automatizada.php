@@ -58,6 +58,10 @@ require_once plugin_dir_path(__FILE__) . 'includes/auth-helper.php';
 // 1️⃣b Infrastructure: WP schema lifecycle (activation hook)
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/Schema.php';
 
+// 1️⃣c App login context detection (AL-1; visual skin in AL-2)
+require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/auth/AppLoginSkin.php';
+AA_App_Login_Skin::register();
+
 // 2️⃣ Modelos (acceso a datos)
 require_once plugin_dir_path(__FILE__) . 'clientes.php';
 require_once plugin_dir_path(__FILE__) . 'includes/models/AssignmentsModel.php';
@@ -98,6 +102,10 @@ require_once plugin_dir_path(__FILE__) . 'includes/routes/agenda-app.php';
 
 // 🔟 Routes: Citas Virtuales portal (join by token)
 require_once plugin_dir_path(__FILE__) . 'includes/routes/citas-virtuales.php';
+
+// 🔟b PWA: manifest + service worker for admin app shell
+require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/pwa/PwaRoutes.php';
+AA_Pwa_Routes::register();
 
 // 1️⃣1️⃣ AI: conexión mínima del endpoint AJAX del chat admin
 AA_AI_Module::register();

@@ -48,7 +48,7 @@ function aa_handle_iframe_content_nopriv() {
     }
     
     // Redirect to login with redirect_to parameter
-    $login_url = wp_login_url($target_url);
+    $login_url = aa_app_login_url($target_url);
     wp_safe_redirect($login_url);
     exit;
 }
@@ -66,7 +66,7 @@ function aa_handle_iframe_content() {
         }
         
         // Redirect to login
-        $login_url = wp_login_url($target_url);
+        $login_url = aa_app_login_url($target_url);
         wp_safe_redirect($login_url);
         exit;
     }

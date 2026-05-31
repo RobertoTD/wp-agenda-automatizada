@@ -91,7 +91,11 @@ header('Content-Type: text/html; charset=utf-8');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Agenda Automatizada - Admin</title>
-    
+    <meta name="theme-color" content="#8b5cf6">
+    <?php if (class_exists('AA_Pwa_Routes')) : ?>
+    <link rel="manifest" href="<?php echo esc_url(AA_Pwa_Routes::manifest_url()); ?>">
+    <?php endif; ?>
+
     <!-- Tailwind CSS (usando constante global para URL limpia) -->
     <link rel="stylesheet" href="<?php echo aa_asset_url('includes/admin/ui/assets/css/admin.css'); ?>">
 
@@ -110,7 +114,24 @@ header('Content-Type: text/html; charset=utf-8');
     wp_print_styles('wp-color-picker');
     wp_print_scripts('wp-color-picker');
     ?>
-    
+    <?php if (class_exists('AA_Pwa_Routes')) : ?>
+    <script>
+    (function () {
+        if (!('serviceWorker' in navigator)) {
+            return;
+        }
+        window.addEventListener('load', function () {
+            navigator.serviceWorker.register(
+                <?php echo wp_json_encode(AA_Pwa_Routes::service_worker_url()); ?>,
+                { scope: <?php echo wp_json_encode(AA_Pwa_Routes::scope_path()); ?> }
+            ).catch(function (err) {
+                console.warn('[DEOIA PWA] Service worker registration failed:', err);
+            });
+        });
+    })();
+    </script>
+    <?php endif; ?>
+
 </head>
 <body class="flex flex-col min-h-screen" style="background-color: rgb(240, 240, 241);">
 

@@ -44,7 +44,7 @@ function aa_handle_agenda_app_redirect() {
     // Check if user is logged in
     if (!is_user_logged_in()) {
         // Redirect to login with redirect_to parameter
-        $redirect_url = wp_login_url(home_url('/agenda-app/'));
+        $redirect_url = aa_app_login_url(home_url('/agenda-app/'));
         wp_redirect($redirect_url);
         exit;
     }
