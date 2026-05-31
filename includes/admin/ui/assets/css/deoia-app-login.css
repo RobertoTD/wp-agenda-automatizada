@@ -4,6 +4,17 @@
  */
 
 body.login.aa-deoia-app-login {
+    --deoia-login-focus: #8b5cf6;
+    --deoia-login-focus-ring: rgba(139, 92, 246, 0.24);
+    --wp-admin-theme-color: var(--deoia-login-focus);
+    --wp-admin-theme-color--rgb: 139, 92, 246;
+    --wp-admin-theme-color-darker-10: #7c3aed;
+    --wp-admin-theme-color-darker-10--rgb: 124, 58, 237;
+    --wp-admin-theme-color-darker-20: #6d28d9;
+    --wp-admin-border-focus-color: var(--deoia-login-focus);
+    --wp-components-color-accent: var(--deoia-login-focus);
+    --wp-components-color-accent-darker-10: #7c3aed;
+    --wp-components-color-accent-darker-20: #6d28d9;
     background: linear-gradient(160deg, #f0f0f1 0%, #ede9fe 45%, #f5f3ff 100%);
     min-height: 100vh;
 }
@@ -86,7 +97,10 @@ body.login.aa-deoia-app-login #registerform {
 body.login.aa-deoia-app-login .login form .input,
 body.login.aa-deoia-app-login .login input[type="text"],
 body.login.aa-deoia-app-login .login input[type="password"],
-body.login.aa-deoia-app-login .login input[type="email"] {
+body.login.aa-deoia-app-login .login input[type="email"],
+body.login.aa-deoia-app-login #login #user_login,
+body.login.aa-deoia-app-login #login #user_pass,
+body.login.aa-deoia-app-login #loginform .password-input {
     margin-bottom: 16px;
     padding: 12px 14px;
     border: 1px solid #d1d5db;
@@ -94,18 +108,60 @@ body.login.aa-deoia-app-login .login input[type="email"] {
     background: #f9fafb;
     font-size: 15px;
     line-height: 1.4;
-    box-shadow: none;
+    box-shadow: none !important;
+    outline-color: transparent;
+    -webkit-tap-highlight-color: transparent;
     transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
 
+/*
+ * AL-2c: wp-login.css uses #login form input:focus (ID specificity).
+ * Class-only selectors lose even with !important; target #user_login / #user_pass.
+ * Brand focus: --deoia-login-focus (#8b5cf6, DEOIA primary / logo — no separate bright blue in plugin/theme).
+ */
+body.login.aa-deoia-app-login #login #user_login:focus,
+body.login.aa-deoia-app-login #login #user_login:focus-visible,
+body.login.aa-deoia-app-login #login #user_login:active,
+body.login.aa-deoia-app-login #login #user_pass:focus,
+body.login.aa-deoia-app-login #login #user_pass:focus-visible,
+body.login.aa-deoia-app-login #login #user_pass:active,
+body.login.aa-deoia-app-login #loginform #user_login:focus,
+body.login.aa-deoia-app-login #loginform #user_login:focus-visible,
+body.login.aa-deoia-app-login #loginform #user_login:active,
+body.login.aa-deoia-app-login #loginform #user_pass:focus,
+body.login.aa-deoia-app-login #loginform #user_pass:focus-visible,
+body.login.aa-deoia-app-login #loginform #user_pass:active,
+body.login.aa-deoia-app-login #login form .input:focus,
+body.login.aa-deoia-app-login #login form .input:focus-visible,
+body.login.aa-deoia-app-login #login form .input:active,
+body.login.aa-deoia-app-login #login form input[type="text"]:focus,
+body.login.aa-deoia-app-login #login form input[type="text"]:focus-visible,
+body.login.aa-deoia-app-login #login form input[type="text"]:active,
+body.login.aa-deoia-app-login #login form input[type="password"]:focus,
+body.login.aa-deoia-app-login #login form input[type="password"]:focus-visible,
+body.login.aa-deoia-app-login #login form input[type="password"]:active,
+body.login.aa-deoia-app-login #login form input[type="email"]:focus,
+body.login.aa-deoia-app-login #login form input[type="email"]:focus-visible,
+body.login.aa-deoia-app-login #login form input[type="email"]:active,
 body.login.aa-deoia-app-login .login form .input:focus,
+body.login.aa-deoia-app-login .login form .input:focus-visible,
+body.login.aa-deoia-app-login .login form .input:active,
 body.login.aa-deoia-app-login .login input[type="text"]:focus,
+body.login.aa-deoia-app-login .login input[type="text"]:focus-visible,
+body.login.aa-deoia-app-login .login input[type="text"]:active,
 body.login.aa-deoia-app-login .login input[type="password"]:focus,
-body.login.aa-deoia-app-login .login input[type="email"]:focus {
-    border-color: #8b5cf6;
-    background: #fff;
-    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.18);
-    outline: none;
+body.login.aa-deoia-app-login .login input[type="password"]:focus-visible,
+body.login.aa-deoia-app-login .login input[type="password"]:active,
+body.login.aa-deoia-app-login .login input[type="email"]:focus,
+body.login.aa-deoia-app-login .login input[type="email"]:focus-visible,
+body.login.aa-deoia-app-login .login input[type="email"]:active {
+    border: 1px solid var(--deoia-login-focus) !important;
+    border-color: var(--deoia-login-focus) !important;
+    background: #fff !important;
+    box-shadow: 0 0 0 1px var(--deoia-login-focus), 0 0 0 4px var(--deoia-login-focus-ring) !important;
+    outline: 2px solid transparent !important;
+    outline-offset: 0 !important;
+    -webkit-focus-ring-color: var(--deoia-login-focus);
 }
 
 body.login.aa-deoia-app-login .login label {
@@ -123,34 +179,115 @@ body.login.aa-deoia-app-login .login .forgetmenot label {
     font-size: 13px;
 }
 
-/* Primary button */
+body.login.aa-deoia-app-login .login .forgetmenot input[type="checkbox"] {
+    accent-color: #8b5cf6;
+}
+
+body.login.aa-deoia-app-login .login .forgetmenot input[type="checkbox"]:focus,
+body.login.aa-deoia-app-login .login .forgetmenot input[type="checkbox"]:focus-visible {
+    outline: 2px solid #c4b5fd;
+    outline-offset: 1px;
+    box-shadow: none;
+}
+
+/* Password field wrapper + show/hide toggle (WP core) */
+body.login.aa-deoia-app-login .wp-pwd,
+body.login.aa-deoia-app-login .user-pass-wrap {
+    position: relative;
+}
+
+body.login.aa-deoia-app-login .wp-pwd .password-input {
+    padding-right: 44px;
+}
+
+body.login.aa-deoia-app-login .wp-hide-pw,
+body.login.aa-deoia-app-login button.wp-hide-pw {
+    border: 1px solid #d1d5db !important;
+    border-radius: 8px !important;
+    background: #fff !important;
+    color: #6d28d9 !important;
+    box-shadow: none !important;
+}
+
+body.login.aa-deoia-app-login .wp-hide-pw:hover,
+body.login.aa-deoia-app-login button.wp-hide-pw:hover {
+    border-color: #8b5cf6 !important;
+    background: #f5f3ff !important;
+    color: #7c3aed !important;
+}
+
+body.login.aa-deoia-app-login .wp-hide-pw:focus,
+body.login.aa-deoia-app-login .wp-hide-pw:focus-visible,
+body.login.aa-deoia-app-login button.wp-hide-pw:focus,
+body.login.aa-deoia-app-login button.wp-hide-pw:focus-visible {
+    border-color: #8b5cf6 !important;
+    background: #f5f3ff !important;
+    color: #7c3aed !important;
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.22) !important;
+    outline: none !important;
+}
+
+body.login.aa-deoia-app-login .wp-hide-pw .dashicons,
+body.login.aa-deoia-app-login button.wp-hide-pw .dashicons {
+    color: #6d28d9;
+}
+
+body.login.aa-deoia-app-login .wp-hide-pw:hover .dashicons,
+body.login.aa-deoia-app-login button.wp-hide-pw:hover .dashicons,
+body.login.aa-deoia-app-login .wp-hide-pw:focus .dashicons,
+body.login.aa-deoia-app-login button.wp-hide-pw:focus .dashicons {
+    color: #7c3aed;
+}
+
+/* Primary button — override WP admin blue on all states */
 body.login.aa-deoia-app-login .wp-core-ui .button-primary,
-body.login.aa-deoia-app-login .wp-core-ui .button-primary:hover,
-body.login.aa-deoia-app-login .wp-core-ui .button-primary:focus {
+body.login.aa-deoia-app-login .wp-core-ui .button-primary.focus,
+body.login.aa-deoia-app-login input[type="submit"].button-primary,
+body.login.aa-deoia-app-login #wp-submit {
     width: 100%;
     min-height: 44px;
     margin-top: 4px;
     padding: 10px 16px;
-    border: 0;
+    border: 0 !important;
     border-radius: 10px;
-    background: #8b5cf6;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
-    color: #fff;
+    background: #8b5cf6 !important;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08) !important;
+    color: #fff !important;
     font-size: 15px;
     font-weight: 600;
     line-height: 1.3;
-    text-shadow: none;
-    transition: background-color 0.15s ease, box-shadow 0.15s ease;
+    text-shadow: none !important;
+    transition: background-color 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
 body.login.aa-deoia-app-login .wp-core-ui .button-primary:hover,
-body.login.aa-deoia-app-login .wp-core-ui .button-primary:focus {
-    background: #7c3aed;
-    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.28);
+body.login.aa-deoia-app-login .wp-core-ui .button-primary:focus,
+body.login.aa-deoia-app-login .wp-core-ui .button-primary:focus-visible,
+body.login.aa-deoia-app-login input[type="submit"].button-primary:hover,
+body.login.aa-deoia-app-login input[type="submit"].button-primary:focus,
+body.login.aa-deoia-app-login #wp-submit:hover,
+body.login.aa-deoia-app-login #wp-submit:focus,
+body.login.aa-deoia-app-login #wp-submit:focus-visible {
+    background: #7c3aed !important;
+    border-color: #7c3aed !important;
+    color: #fff !important;
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.28) !important;
 }
 
-body.login.aa-deoia-app-login .wp-core-ui .button-primary:focus {
-    outline: 2px solid #c4b5fd;
+body.login.aa-deoia-app-login .wp-core-ui .button-primary:active,
+body.login.aa-deoia-app-login input[type="submit"].button-primary:active,
+body.login.aa-deoia-app-login #wp-submit:active {
+    background: #6d28d9 !important;
+    border-color: #6d28d9 !important;
+    box-shadow: inset 0 2px 4px rgba(91, 33, 182, 0.25) !important;
+}
+
+body.login.aa-deoia-app-login .wp-core-ui .button-primary:focus,
+body.login.aa-deoia-app-login .wp-core-ui .button-primary:focus-visible,
+body.login.aa-deoia-app-login input[type="submit"].button-primary:focus,
+body.login.aa-deoia-app-login #wp-submit:focus,
+body.login.aa-deoia-app-login #wp-submit:focus-visible {
+    outline: 2px solid #c4b5fd !important;
     outline-offset: 2px;
 }
 
@@ -170,9 +307,16 @@ body.login.aa-deoia-app-login #backtoblog a {
 }
 
 body.login.aa-deoia-app-login #nav a:hover,
-body.login.aa-deoia-app-login #backtoblog a:hover {
-    color: #5b21b6;
+body.login.aa-deoia-app-login #backtoblog a:hover,
+body.login.aa-deoia-app-login #nav a:focus,
+body.login.aa-deoia-app-login #nav a:focus-visible,
+body.login.aa-deoia-app-login #backtoblog a:focus,
+body.login.aa-deoia-app-login #backtoblog a:focus-visible {
+    color: #7c3aed;
     text-decoration: underline;
+    outline: 2px solid #c4b5fd;
+    outline-offset: 2px;
+    box-shadow: none;
 }
 
 /* Native WP errors and notices */
@@ -212,9 +356,34 @@ body.login.aa-deoia-app-login .language-switcher select {
     font-size: 13px;
 }
 
-body.login.aa-deoia-app-login .language-switcher .button {
+body.login.aa-deoia-app-login .language-switcher select:focus,
+body.login.aa-deoia-app-login .language-switcher select:focus-visible {
+    border-color: #8b5cf6 !important;
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.22) !important;
+    outline: none !important;
+}
+
+body.login.aa-deoia-app-login .language-switcher .button,
+body.login.aa-deoia-app-login .wp-core-ui .button.button-secondary {
     margin-left: 6px;
+    border: 1px solid #c4b5fd !important;
     border-radius: 8px;
+    background: #fff !important;
+    color: #6d28d9 !important;
+    box-shadow: none !important;
+}
+
+body.login.aa-deoia-app-login .language-switcher .button:hover,
+body.login.aa-deoia-app-login .language-switcher .button:focus,
+body.login.aa-deoia-app-login .language-switcher .button:focus-visible,
+body.login.aa-deoia-app-login .wp-core-ui .button.button-secondary:hover,
+body.login.aa-deoia-app-login .wp-core-ui .button.button-secondary:focus,
+body.login.aa-deoia-app-login .wp-core-ui .button.button-secondary:focus-visible {
+    border-color: #8b5cf6 !important;
+    background: #f5f3ff !important;
+    color: #7c3aed !important;
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.18) !important;
+    outline: none !important;
 }
 
 /* Privacy / policy links if present */
@@ -225,6 +394,14 @@ body.login.aa-deoia-app-login .privacy-policy-page-link {
 
 body.login.aa-deoia-app-login .privacy-policy-page-link a {
     color: #6d28d9;
+}
+
+body.login.aa-deoia-app-login .privacy-policy-page-link a:hover,
+body.login.aa-deoia-app-login .privacy-policy-page-link a:focus,
+body.login.aa-deoia-app-login .privacy-policy-page-link a:focus-visible {
+    color: #7c3aed;
+    outline: 2px solid #c4b5fd;
+    outline-offset: 2px;
 }
 
 @media (max-width: 480px) {

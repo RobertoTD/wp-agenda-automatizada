@@ -21,6 +21,7 @@ class AA_App_Login_Skin {
         add_filter('login_headerurl', [__CLASS__, 'filter_login_headerurl']);
         add_filter('login_headertext', [__CLASS__, 'filter_login_headertext']);
         add_action('login_head', [__CLASS__, 'render_login_head_meta']);
+        add_action('login_footer', [__CLASS__, 'default_rememberme_checked']);
     }
 
     public static function filter_login_message(string $message): string {
@@ -79,6 +80,29 @@ class AA_App_Login_Skin {
         }
 
         echo '<meta name="theme-color" content="#8b5cf6">' . "\n";
+    }
+
+    /**
+     * Check "Recuérdame" by default on first app login view (PWA-friendly).
+     * Skips lost-password flows and re-renders after a login attempt.
+     */
+    public static function default_rememberme_checked(): void {
+        if (!aa_is_deoia_app_login_context()) {
+            return;
+        }
+
+        $action = isset($_GET['action']) ? sanitize_key(wp_unslash((string) $_GET['action'])) : '';
+        if ($action !== '' && $action !== 'login') {
+            return;
+        }
+
+        if (isset($_POST['log']) || isset($_POST['pwd'])) {
+            return;
+        }
+
+        echo "<script>\n";
+        echo "(function(){var el=document.getElementById('rememberme');if(el){el.checked=true;}})();\n";
+        echo "</script>\n";
     }
 }
 
