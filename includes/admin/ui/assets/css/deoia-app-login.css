@@ -1,0 +1,238 @@
+/**
+ * DEOIA Citas — app login skin (wp-login.php, context aa-deoia-app-login only).
+ * Scoped to body.login.aa-deoia-app-login; does not affect default WP login.
+ */
+
+body.login.aa-deoia-app-login {
+    background: linear-gradient(160deg, #f0f0f1 0%, #ede9fe 45%, #f5f3ff 100%);
+    min-height: 100vh;
+}
+
+body.login.aa-deoia-app-login #login {
+    width: 100%;
+    max-width: 400px;
+    padding: 48px 16px 24px;
+    margin: 0 auto;
+}
+
+/* Replace WordPress logo with DEOIA Citas mark */
+body.login.aa-deoia-app-login #login h1,
+body.login.aa-deoia-app-login h1.wp-login-logo {
+    margin-bottom: 20px;
+}
+
+body.login.aa-deoia-app-login #login h1 a,
+body.login.aa-deoia-app-login h1.wp-login-logo a {
+    background-image: url('../img/deoia-citas-logo.svg');
+    background-size: 72px 72px;
+    background-position: center center;
+    background-repeat: no-repeat;
+    width: 72px;
+    height: 72px;
+    margin: 0 auto;
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+    background-color: #fff;
+    transition: box-shadow 0.2s ease;
+}
+
+body.login.aa-deoia-app-login #login h1 a:hover,
+body.login.aa-deoia-app-login h1.wp-login-logo a:hover {
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.2);
+}
+
+body.login.aa-deoia-app-login #login h1 a:focus,
+body.login.aa-deoia-app-login h1.wp-login-logo a:focus {
+    outline: 2px solid #8b5cf6;
+    outline-offset: 2px;
+    box-shadow: none;
+}
+
+/* Welcome copy (login_message) */
+body.login.aa-deoia-app-login .aa-deoia-login-message {
+    margin: 0 0 16px;
+    padding: 12px 16px;
+    border: 0;
+    border-left: 4px solid #8b5cf6;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    color: #374151;
+    font-size: 14px;
+    line-height: 1.45;
+    text-align: center;
+}
+
+body.login.aa-deoia-app-login .aa-deoia-login-message strong {
+    color: #111827;
+    font-weight: 600;
+}
+
+/* Card: login, lost password, reset password */
+body.login.aa-deoia-app-login #loginform,
+body.login.aa-deoia-app-login #lostpasswordform,
+body.login.aa-deoia-app-login #resetpassform,
+body.login.aa-deoia-app-login #registerform {
+    margin-top: 0;
+    padding: 28px 28px 24px;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow:
+        0 4px 6px -1px rgba(15, 23, 42, 0.06),
+        0 10px 24px -4px rgba(139, 92, 246, 0.08);
+}
+
+body.login.aa-deoia-app-login .login form .input,
+body.login.aa-deoia-app-login .login input[type="text"],
+body.login.aa-deoia-app-login .login input[type="password"],
+body.login.aa-deoia-app-login .login input[type="email"] {
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    background: #f9fafb;
+    font-size: 15px;
+    line-height: 1.4;
+    box-shadow: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+body.login.aa-deoia-app-login .login form .input:focus,
+body.login.aa-deoia-app-login .login input[type="text"]:focus,
+body.login.aa-deoia-app-login .login input[type="password"]:focus,
+body.login.aa-deoia-app-login .login input[type="email"]:focus {
+    border-color: #8b5cf6;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.18);
+    outline: none;
+}
+
+body.login.aa-deoia-app-login .login label {
+    color: #374151;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+body.login.aa-deoia-app-login .login .forgetmenot {
+    margin-bottom: 16px;
+}
+
+body.login.aa-deoia-app-login .login .forgetmenot label {
+    font-weight: 400;
+    font-size: 13px;
+}
+
+/* Primary button */
+body.login.aa-deoia-app-login .wp-core-ui .button-primary,
+body.login.aa-deoia-app-login .wp-core-ui .button-primary:hover,
+body.login.aa-deoia-app-login .wp-core-ui .button-primary:focus {
+    width: 100%;
+    min-height: 44px;
+    margin-top: 4px;
+    padding: 10px 16px;
+    border: 0;
+    border-radius: 10px;
+    background: #8b5cf6;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.3;
+    text-shadow: none;
+    transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+body.login.aa-deoia-app-login .wp-core-ui .button-primary:hover,
+body.login.aa-deoia-app-login .wp-core-ui .button-primary:focus {
+    background: #7c3aed;
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.28);
+}
+
+body.login.aa-deoia-app-login .wp-core-ui .button-primary:focus {
+    outline: 2px solid #c4b5fd;
+    outline-offset: 2px;
+}
+
+/* Nav: lost password, back to login */
+body.login.aa-deoia-app-login #nav,
+body.login.aa-deoia-app-login #backtoblog {
+    margin: 16px 0 0;
+    padding: 0;
+    text-align: center;
+}
+
+body.login.aa-deoia-app-login #nav a,
+body.login.aa-deoia-app-login #backtoblog a {
+    color: #6d28d9;
+    text-decoration: none;
+    font-size: 13px;
+}
+
+body.login.aa-deoia-app-login #nav a:hover,
+body.login.aa-deoia-app-login #backtoblog a:hover {
+    color: #5b21b6;
+    text-decoration: underline;
+}
+
+/* Native WP errors and notices */
+body.login.aa-deoia-app-login #login_error,
+body.login.aa-deoia-app-login .login .message,
+body.login.aa-deoia-app-login .login .success {
+    margin-bottom: 16px;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+body.login.aa-deoia-app-login #login_error {
+    border-left-color: #dc2626;
+}
+
+body.login.aa-deoia-app-login .login .success {
+    border-left-color: #059669;
+}
+
+/* Language switcher (WP core) */
+body.login.aa-deoia-app-login .language-switcher {
+    margin-top: 20px;
+    text-align: center;
+}
+
+body.login.aa-deoia-app-login .language-switcher label {
+    color: #6b7280;
+    font-size: 13px;
+}
+
+body.login.aa-deoia-app-login .language-switcher select {
+    margin-left: 6px;
+    padding: 6px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #fff;
+    font-size: 13px;
+}
+
+body.login.aa-deoia-app-login .language-switcher .button {
+    margin-left: 6px;
+    border-radius: 8px;
+}
+
+/* Privacy / policy links if present */
+body.login.aa-deoia-app-login .privacy-policy-page-link {
+    text-align: center;
+    font-size: 12px;
+}
+
+body.login.aa-deoia-app-login .privacy-policy-page-link a {
+    color: #6d28d9;
+}
+
+@media (max-width: 480px) {
+    body.login.aa-deoia-app-login #loginform,
+    body.login.aa-deoia-app-login #lostpasswordform,
+    body.login.aa-deoia-app-login #resetpassform,
+    body.login.aa-deoia-app-login #registerform {
+        padding: 22px 20px 20px;
+        border-radius: 14px;
+    }
+}
