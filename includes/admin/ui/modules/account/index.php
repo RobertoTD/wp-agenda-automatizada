@@ -10,6 +10,7 @@
 defined('ABSPATH') or die('¡Sin acceso directo!');
 
 $account_module_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
+$aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
 ?>
 
 <div class="max-w-5xl mx-auto py-2">
@@ -80,6 +81,18 @@ $account_module_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0'
                     <p class="text-sm text-gray-600">No pudimos consultar el estado de cuenta en este momento.</p>
                 </div>
 
+            </div>
+
+            <div id="aa-account-session-section" class="pt-4 mt-4 border-t border-gray-100">
+                <h4 class="text-sm font-medium text-gray-900 mb-2">Sesión</h4>
+                <a
+                    href="<?php echo esc_url($aa_logout_url); ?>"
+                    target="_top"
+                    rel="noopener noreferrer"
+                    class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                >
+                    Cerrar sesión
+                </a>
             </div>
         </div>
     </div>
