@@ -171,23 +171,94 @@ body.login.aa-deoia-app-login .login label {
 }
 
 body.login.aa-deoia-app-login .login .forgetmenot {
-    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
 }
 
 body.login.aa-deoia-app-login .login .forgetmenot label {
-    font-weight: 400;
-    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    font-weight: 500;
+    font-size: 15px;
+    line-height: 1.4;
+    color: #374151;
+    cursor: pointer;
 }
 
-body.login.aa-deoia-app-login .login .forgetmenot input[type="checkbox"] {
-    accent-color: #8b5cf6;
+/*
+ * AL-2e: WP styles #login form .forgetmenot input:checked with admin blue / ::before.
+ * accent-color alone loses to WP checkbox rules — reset appearance and paint DEOIA.
+ */
+body.login.aa-deoia-app-login #login #rememberme,
+body.login.aa-deoia-app-login #loginform #rememberme,
+body.login.aa-deoia-app-login .login .forgetmenot input[type="checkbox"]#rememberme {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    min-height: 20px;
+    margin: 0;
+    padding: 0;
+    border: 2px solid #d1d5db;
+    border-radius: 6px;
+    background: #fff !important;
+    box-shadow: none !important;
+    cursor: pointer;
+    flex-shrink: 0;
+    position: relative;
+    vertical-align: middle;
+    accent-color: var(--deoia-login-focus, #8b5cf6);
+    transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-body.login.aa-deoia-app-login .login .forgetmenot input[type="checkbox"]:focus,
-body.login.aa-deoia-app-login .login .forgetmenot input[type="checkbox"]:focus-visible {
-    outline: 2px solid #c4b5fd;
-    outline-offset: 1px;
-    box-shadow: none;
+body.login.aa-deoia-app-login #login #rememberme:hover,
+body.login.aa-deoia-app-login #loginform #rememberme:hover,
+body.login.aa-deoia-app-login .login .forgetmenot input[type="checkbox"]#rememberme:hover {
+    border-color: #a78bfa !important;
+}
+
+body.login.aa-deoia-app-login #login #rememberme:checked,
+body.login.aa-deoia-app-login #loginform #rememberme:checked,
+body.login.aa-deoia-app-login .login .forgetmenot input[type="checkbox"]#rememberme:checked {
+    background: var(--deoia-login-focus, #8b5cf6) !important;
+    border-color: var(--deoia-login-focus, #8b5cf6) !important;
+}
+
+body.login.aa-deoia-app-login #login #rememberme:checked::before,
+body.login.aa-deoia-app-login #loginform #rememberme:checked::before,
+body.login.aa-deoia-app-login .login .forgetmenot input[type="checkbox"]#rememberme:checked::before {
+    content: "" !important;
+    display: block !important;
+    position: absolute !important;
+    top: 1px !important;
+    left: 5px !important;
+    width: 5px !important;
+    height: 10px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: solid #fff !important;
+    border-width: 0 2.5px 2.5px 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+    transform: rotate(45deg) !important;
+    float: none !important;
+}
+
+body.login.aa-deoia-app-login #login #rememberme:focus,
+body.login.aa-deoia-app-login #login #rememberme:focus-visible,
+body.login.aa-deoia-app-login #loginform #rememberme:focus,
+body.login.aa-deoia-app-login #loginform #rememberme:focus-visible,
+body.login.aa-deoia-app-login .login .forgetmenot input[type="checkbox"]#rememberme:focus,
+body.login.aa-deoia-app-login .login .forgetmenot input[type="checkbox"]#rememberme:focus-visible {
+    outline: 2px solid #c4b5fd !important;
+    outline-offset: 2px !important;
+    box-shadow: none !important;
+    border-color: var(--deoia-login-focus, #8b5cf6) !important;
 }
 
 /* Password field wrapper + show/hide toggle (WP core) */
