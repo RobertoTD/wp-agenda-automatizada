@@ -5,7 +5,8 @@
  * Responsabilidad:
  *  - DDL de las tablas propias del plugin (aa_reservas, aa_notifications,
  *    aa_staff, aa_service_areas, aa_assignments, aa_services,
- *    aa_staff_services, aa_assignment_services).
+ *    aa_staff_services, aa_assignment_services,
+ *    aa_learning_recommendation_state).
  *  - Migraciones inline de columnas para instalaciones existentes
  *    (public_calendar, duration_minutes, calendar_uid).
  *  - Inicialización de options con valor por defecto (aa_estado_gsync,
@@ -63,7 +64,7 @@ final class AA_Schema {
      * Independiente de la versión del plugin. Solo refleja el estado
      * de las tablas/columnas/índices.
      */
-    public const DB_VERSION = '1';
+    public const DB_VERSION = '2';
 
     /**
      * Registra el activation hook y el chequeo de migraciones.
@@ -278,6 +279,25 @@ final class AA_Schema {
         ) $charset;";
 
         dbDelta($assignment_services_sql);
+
+        // 🔹 Estado por instalación de recomendaciones de aprendizaje (Guías/Aprendizaje)
+        $learning_state_table = $wpdb->prefix . 'aa_learning_recommendation_state';
+        $learning_state_sql = "CREATE TABLE $learning_state_table (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            recommendation_key varchar(100) NOT NULL,
+            is_completed tinyint(1) NOT NULL DEFAULT 0,
+            is_ignored tinyint(1) NOT NULL DEFAULT 0,
+            list_override tinyint(1) DEFAULT NULL,
+            last_suggested_at datetime DEFAULT NULL,
+            completed_at datetime DEFAULT NULL,
+            ignored_at datetime DEFAULT NULL,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime DEFAULT NULL,
+            PRIMARY KEY  (id),
+            UNIQUE KEY recommendation_key (recommendation_key)
+        ) $charset;";
+
+        dbDelta($learning_state_sql);
 
         // NOTA: FOREIGN KEY constraints no se incluyen aquí porque dbDelta() puede tener problemas
         // con ellos. Si se necesitan, deben agregarse manualmente después de la creación:
