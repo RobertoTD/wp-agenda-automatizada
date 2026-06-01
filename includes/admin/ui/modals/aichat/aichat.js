@@ -164,15 +164,14 @@
             return;
         }
 
-        // Insert FAB as the FIRST child of the flex-col stack
-        // (visually appears above the "Cita rápida" FAB).
+        // Append FAB as the last child (below the primary "Crear cita" FAB).
         const fabHtml = cloneTemplateHtml('aa-ai-chat-fab-template');
         if (!fabHtml) return;
         const fabWrap = document.createElement('div');
         fabWrap.innerHTML = fabHtml.trim();
         const fabNode = fabWrap.firstElementChild;
         if (!fabNode) return;
-        stack.insertBefore(fabNode, stack.firstChild);
+        stack.appendChild(fabNode);
         dom.fab = fabNode;
 
         // Inject the panel into <body>.

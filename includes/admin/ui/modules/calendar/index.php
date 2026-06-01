@@ -160,11 +160,8 @@ $module_js_url = $plugin_url . 'calendar-module.js?ver=' . rawurlencode($calenda
     <button
         id="aa-btn-open-fastappointment-modal"
         type="button"
-        class="inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-full shadow-lg hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-slate-300/40"
-        aria-label="Abrir cita rapida">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M13 5l-7 7 7 7M5 12h14"/>
-        </svg>
-        <span>Cita rapida</span>
+        class="inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold text-white bg-violet-600 hover:bg-violet-700 active:bg-violet-800 rounded-full shadow-lg shadow-violet-600/30 hover:shadow-xl hover:shadow-violet-600/35 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-violet-500/40"
+        aria-label="Crear cita">
+        <span>+ Crear cita</span>
     </button>
 </div>
