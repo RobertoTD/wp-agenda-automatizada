@@ -231,6 +231,95 @@ ac_assert(
     $r_recent['effective_list'] === AA_Learning_Visibility_Policy::LIST_PRIMARY
 );
 
+// AC10: aging_days por item.
+$aging_def = $catalog['configure_services'];
+$aging_def['aging_days'] = 3;
+$r_item_aging = learning_eval(
+    $aging_def,
+    ['last_suggested_at' => '2026-05-28 12:00:00'],
+    [],
+    $now
+);
+ac_assert(
+    'AC10 item aging_days=3 moves to list 2 after 4 days',
+    $r_item_aging['effective_list'] === AA_Learning_Visibility_Policy::LIST_SECONDARY
+);
+
+$r_default_aging = learning_eval(
+    $catalog['configure_services'],
+    ['last_suggested_at' => '2026-05-28 12:00:00'],
+    [],
+    $now
+);
+ac_assert(
+    'AC10 default aging keeps list 1 after 4 days',
+    $r_default_aging['effective_list'] === AA_Learning_Visibility_Policy::LIST_PRIMARY
+);
+
+$invalid_aging_def = $catalog['configure_services'];
+$invalid_aging_def['aging_days'] = 0;
+$r_invalid_aging = learning_eval(
+    $invalid_aging_def,
+    ['last_suggested_at' => '2026-05-28 12:00:00'],
+    [],
+    $now
+);
+ac_assert(
+    'AC10 invalid aging_days falls back to default',
+    $r_invalid_aging['effective_list'] === AA_Learning_Visibility_Policy::LIST_PRIMARY
+);
+
+// AC11: dismiss_hours por item.
+$dismiss_def = $catalog['install_pwa'];
+$dismiss_def['dismiss_hours'] = 1;
+$r_item_dismiss = learning_eval($dismiss_def, [
+    'is_dismissed' => 1,
+    'dismissed_at' => '2026-06-01 10:00:00',
+], [], $now);
+ac_assert(
+    'AC11 item dismiss_hours=1 returns to list 2 after 2 hours',
+    $r_item_dismiss['visible'] === true
+    && $r_item_dismiss['is_dismiss_active'] === false
+    && $r_item_dismiss['effective_list'] === AA_Learning_Visibility_Policy::LIST_SECONDARY
+);
+
+$r_default_dismiss = learning_eval($catalog['install_pwa'], [
+    'is_dismissed' => 1,
+    'dismissed_at' => '2026-06-01 10:00:00',
+], [], $now);
+ac_assert(
+    'AC11 default dismiss_hours keeps hidden after 2 hours',
+    $r_default_dismiss['visible'] === false
+    && $r_default_dismiss['is_dismiss_active'] === true
+);
+
+$invalid_dismiss_def = $catalog['install_pwa'];
+$invalid_dismiss_def['dismiss_hours'] = -5;
+$r_invalid_dismiss = learning_eval($invalid_dismiss_def, [
+    'is_dismissed' => 1,
+    'dismissed_at' => '2026-06-01 10:00:00',
+], [], $now);
+ac_assert(
+    'AC11 invalid dismiss_hours falls back to default',
+    $r_invalid_dismiss['visible'] === false
+    && $r_invalid_dismiss['is_dismiss_active'] === true
+);
+
+// AC12: item rule gana sobre options global.
+$item_over_options = $catalog['configure_services'];
+$item_over_options['aging_days'] = 3;
+$r_item_wins = learning_eval(
+    $item_over_options,
+    ['last_suggested_at' => '2026-05-28 12:00:00'],
+    [],
+    $now,
+    ['aging_days' => 14]
+);
+ac_assert(
+    'AC12 catalog aging_days wins over options',
+    $r_item_wins['effective_list'] === AA_Learning_Visibility_Policy::LIST_SECONDARY
+);
+
 // AC8: Inactiva no aparece en evaluate_all.
 $inactive = $catalog['configure_services'];
 $inactive['active'] = false;

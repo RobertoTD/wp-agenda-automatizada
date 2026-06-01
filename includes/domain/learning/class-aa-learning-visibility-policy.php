@@ -83,7 +83,7 @@ final class AA_Learning_Visibility_Policy {
         $is_completed = $manual_completed || $auto_completed;
         $is_ignored = $this->bool_value($state_row['is_ignored'] ?? false);
         $is_dismissed = $this->bool_value($state_row['is_dismissed'] ?? false);
-        $is_dismiss_active = $this->is_dismiss_active($state_row, $now, $options);
+        $is_dismiss_active = $this->is_dismiss_active($definition, $state_row, $now, $options);
 
         $visible = $active && !$is_completed && !$is_dismiss_active;
 
@@ -198,7 +198,7 @@ final class AA_Learning_Visibility_Policy {
             return self::LIST_SECONDARY;
         }
 
-        if ($this->is_aged_to_secondary($state, $now, $options)) {
+        if ($this->is_aged_to_secondary($definition, $state, $now, $options)) {
             return self::LIST_SECONDARY;
         }
 
@@ -206,11 +206,56 @@ final class AA_Learning_Visibility_Policy {
     }
 
     /**
+     * Precedencia: definition > options > DEFAULT_DISMISS_HOURS.
+     *
+     * @param array<string,mixed> $definition
+     * @param array<string,mixed> $options
+     */
+    private function resolve_dismiss_hours(array $definition, array $options): int {
+        $from_definition = $this->normalize_positive_int($definition['dismiss_hours'] ?? null);
+
+        if ($from_definition !== null) {
+            return $from_definition;
+        }
+
+        $from_options = $this->normalize_positive_int($options['dismiss_hours'] ?? null);
+
+        if ($from_options !== null) {
+            return $from_options;
+        }
+
+        return self::DEFAULT_DISMISS_HOURS;
+    }
+
+    /**
+     * Precedencia: definition > options > DEFAULT_AGING_DAYS.
+     *
+     * @param array<string,mixed> $definition
+     * @param array<string,mixed> $options
+     */
+    private function resolve_aging_days(array $definition, array $options): int {
+        $from_definition = $this->normalize_positive_int($definition['aging_days'] ?? null);
+
+        if ($from_definition !== null) {
+            return $from_definition;
+        }
+
+        $from_options = $this->normalize_positive_int($options['aging_days'] ?? null);
+
+        if ($from_options !== null) {
+            return $from_options;
+        }
+
+        return self::DEFAULT_AGING_DAYS;
+    }
+
+    /**
+     * @param array<string,mixed> $definition
      * @param array<string,mixed> $state
      * @param string              $now
      * @param array<string,mixed> $options
      */
-    private function is_dismiss_active(array $state, string $now, array $options): bool {
+    private function is_dismiss_active(array $definition, array $state, string $now, array $options): bool {
         if (!$this->bool_value($state['is_dismissed'] ?? false)) {
             return false;
         }
@@ -228,9 +273,7 @@ final class AA_Learning_Visibility_Policy {
             return true;
         }
 
-        $dismiss_hours = isset($options['dismiss_hours'])
-            ? max(1, (int) $options['dismiss_hours'])
-            : self::DEFAULT_DISMISS_HOURS;
+        $dismiss_hours = $this->resolve_dismiss_hours($definition, $options);
 
         return ($dismissed_ts + ($dismiss_hours * 3600)) > $now_ts;
     }
@@ -254,20 +297,19 @@ final class AA_Learning_Visibility_Policy {
     }
 
     /**
+     * @param array<string,mixed> $definition
      * @param array<string,mixed> $state
      * @param string              $now
      * @param array<string,mixed> $options
      */
-    private function is_aged_to_secondary(array $state, string $now, array $options): bool {
+    private function is_aged_to_secondary(array $definition, array $state, string $now, array $options): bool {
         $last_suggested = $state['last_suggested_at'] ?? null;
 
         if (!is_string($last_suggested) || trim($last_suggested) === '') {
             return false;
         }
 
-        $aging_days = isset($options['aging_days'])
-            ? max(1, (int) $options['aging_days'])
-            : self::DEFAULT_AGING_DAYS;
+        $aging_days = $this->resolve_aging_days($definition, $options);
 
         $suggested_ts = strtotime($last_suggested);
         $now_ts = strtotime($now);
@@ -299,5 +341,22 @@ final class AA_Learning_Visibility_Policy {
      */
     private function bool_value($value): bool {
         return !empty($value);
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private function normalize_positive_int($value): ?int {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $normalized = (int) $value;
+
+        if ($normalized < 1) {
+            return null;
+        }
+
+        return $normalized;
     }
 }

@@ -182,7 +182,8 @@ final class AA_Learning_Catalog {
      * @param string      $completion_type
      * @param string|null $completion_fact
      * @param array<string,string|null> $navigation
-     * @param bool        $active
+     * @param bool                      $active
+     * @param array<string,mixed>       $rules Opcional: aging_days, dismiss_hours (enteros >= 1).
      * @return array<string,mixed>
      */
     private static function item(
@@ -194,9 +195,10 @@ final class AA_Learning_Catalog {
         string $completion_type,
         ?string $completion_fact,
         array $navigation,
-        bool $active = true
+        bool $active = true,
+        array $rules = []
     ): array {
-        return [
+        $item = [
             'key' => $key,
             'title' => $title,
             'description' => $description,
@@ -207,5 +209,34 @@ final class AA_Learning_Catalog {
             'completion_fact' => $completion_fact,
             'navigation' => $navigation,
         ];
+
+        $aging_days = self::normalize_rule_int($rules['aging_days'] ?? null);
+        if ($aging_days !== null) {
+            $item['aging_days'] = $aging_days;
+        }
+
+        $dismiss_hours = self::normalize_rule_int($rules['dismiss_hours'] ?? null);
+        if ($dismiss_hours !== null) {
+            $item['dismiss_hours'] = $dismiss_hours;
+        }
+
+        return $item;
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private static function normalize_rule_int($value): ?int {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $normalized = (int) $value;
+
+        if ($normalized < 1) {
+            return null;
+        }
+
+        return $normalized;
     }
 }
