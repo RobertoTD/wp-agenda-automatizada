@@ -32,16 +32,21 @@ $brand_logo_url = aa_asset_url('includes/admin/ui/assets/img/deoia-citas-logo.sv
     aria-label="Menú de navegación"
 >
     <!-- Sidebar Header -->
-    <div class="flex items-center justify-between px-4 py-4 border-b border-gray-200">
-        <div class="flex items-center gap-2">
-            <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-violet-100">
+    <div class="flex items-center justify-between gap-2 px-4 py-4 border-b border-gray-200">
+        <div class="flex items-center gap-2 min-w-0 flex-1">
+            <span class="flex shrink-0 items-center justify-center w-8 h-8 rounded-lg bg-violet-100">
                 <img
                     src="<?php echo $brand_logo_url; ?>"
                     alt="DEOIA Citas"
                     class="w-5 h-5"
                 >
             </span>
-            <span class="text-sm font-semibold text-gray-900">DEOIA Citas</span>
+            <div class="flex min-w-0 flex-col leading-none">
+                <span class="text-sm font-semibold text-gray-900">DEOIA Citas</span>
+                <?php if (!empty($aa_installation_slug)) : ?>
+                    <span class="text-xs text-gray-500 truncate">Agenda: <?php echo esc_html($aa_installation_slug); ?></span>
+                <?php endif; ?>
+            </div>
         </div>
         <button 
             id="aa-sidebar-close" 

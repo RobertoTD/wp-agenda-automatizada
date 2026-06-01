@@ -19,6 +19,10 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
 $active_module = isset($active_module) ? $active_module : 'settings';
 $module_path = isset($module_path) ? $module_path : '';
 
+$aa_installation_slug = class_exists('AA_Installation_Display_Slug')
+    ? AA_Installation_Display_Slug::resolve()
+    : null;
+
 // ============================================
 // 🔹 PREPARE DATA FOR JS (antes del HTML)
 // ============================================
