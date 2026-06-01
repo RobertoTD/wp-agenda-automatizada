@@ -25,6 +25,7 @@ $allowed_modules = [
     'calendar',
     'clients',
     'assignments',
+    'learning',
 ];
 
 // Resolve requested module
