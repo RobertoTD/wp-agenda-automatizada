@@ -84,15 +84,6 @@
             );
         }
 
-        if (item.can_complete_manually) {
-            actions.push(
-                '<button type="button" data-learning-action="complete" data-recommendation-key="' + key + '"'
-                + ' class="' + btnClass(false) + ' text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200">'
-                + 'Marcar como hecho'
-                + '</button>'
-            );
-        }
-
         var actionsHtml = actions.length > 0
             ? '<div class="flex flex-wrap gap-2 mt-3 aa-learning-card-actions">' + actions.join('') + '</div>'
             : '';
@@ -239,8 +230,6 @@
             fn = service.ignoreRecommendation.bind(service);
         } else if (action === 'dismiss' && typeof service.dismissRecommendation === 'function') {
             fn = service.dismissRecommendation.bind(service);
-        } else if (action === 'complete' && typeof service.completeRecommendation === 'function') {
-            fn = service.completeRecommendation.bind(service);
         }
 
         if (!fn) {

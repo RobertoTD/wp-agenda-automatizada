@@ -43,7 +43,7 @@ $module_js_url = $plugin_url . 'calendar-module.js?ver=' . rawurlencode($calenda
 
                 <div>
                     <h3 class="text-lg font-semibold text-gray-900">
-                        Calendario
+                        Agenda
                     </h3>
                     <p class="text-sm text-gray-500 mt-0.5">
                         Agenda del día y próximas citas
