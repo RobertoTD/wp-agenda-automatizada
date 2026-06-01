@@ -52,6 +52,7 @@ $get_uc = file_get_contents($files['use_case']);
 ac_assert('Get use case exposes can_defer flag', strpos($get_uc, 'can_defer') !== false);
 ac_assert('Get use case exposes can_dismiss flag', strpos($get_uc, 'can_dismiss') !== false);
 ac_assert('Get use case exposes is_dismissed flag', strpos($get_uc, 'is_dismissed') !== false);
+ac_assert('Get use case uses is_dismiss_active flag', strpos($get_uc, 'is_dismiss_active') !== false);
 
 $index_php = file_get_contents($plugin_root . '/includes/admin/ui/modules/learning/index.php');
 ac_assert('index.php exposes AA_LEARNING_DATA', strpos($index_php, 'AA_LEARNING_DATA') !== false);

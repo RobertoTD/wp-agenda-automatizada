@@ -127,13 +127,16 @@ final class GetLearningRecommendationsUseCase {
         $is_auto_completed = !empty($item['is_auto_completed']);
         $is_ignored = !empty($item['is_ignored']);
         $is_dismissed = !empty($item['is_dismissed']);
+        $is_dismiss_active = !empty($item['is_dismiss_active']);
         $effective_list = (int) ($item['effective_list'] ?? 0);
 
+        $item['is_dismissed'] = $is_dismissed;
+        $item['is_dismiss_active'] = $is_dismiss_active;
         $item['can_complete_manually'] = $completion_type === AA_Learning_Catalog::COMPLETION_MANUAL
             && !$is_auto_completed;
         $item['can_defer'] = $effective_list === AA_Learning_Visibility_Policy::LIST_PRIMARY && !$is_ignored;
-        $item['can_dismiss'] = $effective_list === AA_Learning_Visibility_Policy::LIST_SECONDARY && !$is_dismissed;
-        $item['can_reactivate'] = $is_ignored;
+        $item['can_dismiss'] = $effective_list === AA_Learning_Visibility_Policy::LIST_SECONDARY && !$is_dismiss_active;
+        $item['can_reactivate'] = $is_ignored || $is_dismissed;
 
         return $item;
     }

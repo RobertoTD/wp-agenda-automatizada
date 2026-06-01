@@ -87,6 +87,7 @@ final class LearningRecommendationStateRepository {
             'last_suggested_at' => $row->last_suggested_at,
             'completed_at' => $row->completed_at,
             'ignored_at' => $row->ignored_at,
+            'dismissed_at' => $row->dismissed_at,
             'created_at' => $row->created_at,
             'updated_at' => $row->updated_at,
         ];
@@ -256,7 +257,7 @@ final class LearningRecommendationStateRepository {
     }
 
     /**
-     * Limpia ignored/completed; conserva last_suggested_at y list_override.
+     * Limpia ignored/completed/dismissed; conserva last_suggested_at y list_override.
      *
      * @param string $recommendation_key
      * @return array<string,mixed>|null

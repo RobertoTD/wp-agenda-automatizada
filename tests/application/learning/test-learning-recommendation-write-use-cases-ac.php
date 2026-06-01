@@ -74,6 +74,7 @@ ac_assert('learning-module no reactivate button', strpos($module_js, 'Reactivar'
 $get_uc = file_get_contents($plugin_root . '/includes/application/learning/GetLearningRecommendationsUseCase.php');
 ac_assert('Get use case exposes can_defer', strpos($get_uc, 'can_defer') !== false);
 ac_assert('Get use case exposes can_dismiss', strpos($get_uc, 'can_dismiss') !== false);
+ac_assert('Get use case checks is_dismiss_active', strpos($get_uc, 'is_dismiss_active') !== false);
 
 $dismiss_uc = file_get_contents($plugin_root . '/includes/application/learning/DismissLearningRecommendationUseCase.php');
 ac_assert('Dismiss use case file exists', is_readable($plugin_root . '/includes/application/learning/DismissLearningRecommendationUseCase.php'));
@@ -164,6 +165,35 @@ if ($wp_load !== '' && is_readable($wp_load)) {
         }
     );
     ac_assert('Some list_2 items expose can_dismiss', count($list2_items) > 0);
+
+    $old_dismissed_at = '2026-05-01 10:00:00';
+    LearningRecommendationStateRepository::upsert($list2_key, [
+        'is_dismissed' => 1,
+        'dismissed_at' => $old_dismissed_at,
+    ]);
+
+    $expired_recommendations = (new GetLearningRecommendationsUseCase())->execute();
+    $expired_visible_items = array_filter(
+        $expired_recommendations['list_2'],
+        static function (array $item) use ($list2_key): bool {
+            return ($item['key'] ?? '') === $list2_key
+                && !empty($item['can_dismiss'])
+                && !empty($item['is_dismissed'])
+                && empty($item['is_dismiss_active']);
+        }
+    );
+    ac_assert('Expired dismissed item returns to list 2 with can_dismiss', count($expired_visible_items) === 1);
+
+    $redismiss_result = (new DismissLearningRecommendationUseCase())->execute($list2_key);
+    ac_assert('Expired dismissed item can be dismissed again', !empty($redismiss_result['success']));
+
+    $redismissed_row = LearningRecommendationStateRepository::find_by_key($list2_key);
+    ac_assert(
+        'Dismiss again updates dismissed_at',
+        ($redismissed_row['is_dismissed'] ?? 0) === 1
+        && !empty($redismissed_row['dismissed_at'])
+        && ($redismissed_row['dismissed_at'] ?? '') !== $old_dismissed_at
+    );
 
     $complete_auto = (new CompleteLearningRecommendationUseCase())->execute($auto_key);
     ac_assert(

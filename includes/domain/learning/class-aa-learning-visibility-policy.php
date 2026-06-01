@@ -15,6 +15,8 @@ final class AA_Learning_Visibility_Policy {
 
     public const DEFAULT_AGING_DAYS = 14;
 
+    public const DEFAULT_DISMISS_HOURS = 24;
+
     /**
      * Evalúa todas las definiciones del catálogo y devuelve listas agrupadas (solo visibles).
      *
@@ -22,7 +24,7 @@ final class AA_Learning_Visibility_Policy {
      * @param array<string,array<string,mixed>> $states_by_key   Estado persistido por key (puede faltar).
      * @param array<string,mixed>               $facts           Hechos ya resueltos (p. ej. google_connected).
      * @param string                            $now             Fecha/hora de referencia (Y-m-d H:i:s).
-     * @param array<string,mixed>               $options         aging_days (int).
+     * @param array<string,mixed>               $options         aging_days (int), dismiss_hours (int).
      * @return array{list_1:list<array<string,mixed>>,list_2:list<array<string,mixed>>,all_visible:list<array<string,mixed>>}
      */
     public function evaluate_all(
@@ -81,13 +83,16 @@ final class AA_Learning_Visibility_Policy {
         $is_completed = $manual_completed || $auto_completed;
         $is_ignored = $this->bool_value($state_row['is_ignored'] ?? false);
         $is_dismissed = $this->bool_value($state_row['is_dismissed'] ?? false);
+        $is_dismiss_active = $this->is_dismiss_active($state_row, $now, $options);
 
-        $visible = $active && !$is_completed && !$is_dismissed;
+        $visible = $active && !$is_completed && !$is_dismiss_active;
 
         $effective_list = $this->resolve_effective_list(
             $definition,
             $state_row,
             $is_ignored,
+            $is_dismissed,
+            $is_dismiss_active,
             $now,
             $options
         );
@@ -104,6 +109,7 @@ final class AA_Learning_Visibility_Policy {
             'is_auto_completed' => $auto_completed,
             'is_ignored' => $is_ignored,
             'is_dismissed' => $is_dismissed,
+            'is_dismiss_active' => $is_dismiss_active,
             'completion_type' => $completion_type,
             'navigation' => is_array($definition['navigation'] ?? null)
                 ? $definition['navigation']
@@ -158,6 +164,8 @@ final class AA_Learning_Visibility_Policy {
      * @param array<string,mixed> $definition
      * @param array<string,mixed> $state
      * @param bool                $is_ignored
+     * @param bool                $is_dismissed
+     * @param bool                $is_dismiss_active
      * @param string              $now
      * @param array<string,mixed> $options
      */
@@ -165,10 +173,16 @@ final class AA_Learning_Visibility_Policy {
         array $definition,
         array $state,
         bool $is_ignored,
+        bool $is_dismissed,
+        bool $is_dismiss_active,
         string $now,
         array $options
     ): int {
         $default_list = $this->normalize_list($definition['default_list'] ?? self::LIST_PRIMARY);
+
+        if ($is_dismissed && !$is_dismiss_active) {
+            return self::LIST_SECONDARY;
+        }
 
         $override = $state['list_override'] ?? null;
 
@@ -189,6 +203,36 @@ final class AA_Learning_Visibility_Policy {
         }
 
         return $default_list;
+    }
+
+    /**
+     * @param array<string,mixed> $state
+     * @param string              $now
+     * @param array<string,mixed> $options
+     */
+    private function is_dismiss_active(array $state, string $now, array $options): bool {
+        if (!$this->bool_value($state['is_dismissed'] ?? false)) {
+            return false;
+        }
+
+        $dismissed_at = $state['dismissed_at'] ?? null;
+
+        if (!is_string($dismissed_at) || trim($dismissed_at) === '') {
+            return true;
+        }
+
+        $dismissed_ts = strtotime($dismissed_at);
+        $now_ts = strtotime($now);
+
+        if ($dismissed_ts === false || $now_ts === false) {
+            return true;
+        }
+
+        $dismiss_hours = isset($options['dismiss_hours'])
+            ? max(1, (int) $options['dismiss_hours'])
+            : self::DEFAULT_DISMISS_HOURS;
+
+        return ($dismissed_ts + ($dismiss_hours * 3600)) > $now_ts;
     }
 
     /**

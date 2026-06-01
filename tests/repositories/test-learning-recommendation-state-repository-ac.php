@@ -50,6 +50,7 @@ ac_assert('Repository defines get_all', strpos($repo_src, 'function get_all') !=
 ac_assert('Repository defines find_by_key', strpos($repo_src, 'function find_by_key') !== false);
 ac_assert('Repository defines upsert', strpos($repo_src, 'function upsert') !== false);
 ac_assert('Repository defines mark_dismissed', strpos($repo_src, 'function mark_dismissed') !== false);
+ac_assert('Repository maps dismissed_at', strpos($repo_src, "'dismissed_at' => \$row->dismissed_at") !== false);
 
 if (!defined('ABSPATH')) {
     define('ABSPATH', $plugin_root . '/');
@@ -95,9 +96,12 @@ if ($wp_load !== '' && is_readable($wp_load)) {
         'is_completed' => 1,
         'completed_at' => '2026-06-01 11:00:00',
         'is_ignored' => 0,
+        'is_dismissed' => 1,
+        'dismissed_at' => '2026-06-01 12:00:00',
     ]);
     ac_assert('upsert update same key', is_array($second) && ($second['is_completed'] ?? 0) === 1);
     ac_assert('upsert update clears is_ignored when set', ($second['is_ignored'] ?? 1) === 0);
+    ac_assert('upsert update maps dismissed_at', ($second['dismissed_at'] ?? '') === '2026-06-01 12:00:00');
 
     $count = (int) $wpdb->get_var(
         $wpdb->prepare(

@@ -126,17 +126,63 @@ ac_assert(
     && $r['effective_list'] === AA_Learning_Visibility_Policy::LIST_SECONDARY
 );
 
-// AC5b: is_dismissed oculta la recomendación.
-$r_dismissed = learning_eval($catalog['install_pwa'], ['is_dismissed' => 1]);
+// AC5b: is_dismissed reciente oculta temporalmente la recomendación.
+$r_dismissed = learning_eval($catalog['install_pwa'], [
+    'is_dismissed' => 1,
+    'dismissed_at' => '2026-06-01 06:00:00',
+]);
 ac_assert(
-    'AC5b dismissed hides recommendation',
+    'AC5b recent dismissed hides recommendation',
     $r_dismissed['visible'] === false
     && $r_dismissed['is_dismissed'] === true
+    && $r_dismissed['is_dismiss_active'] === true
 );
+
+// AC5c: is_dismissed antiguo vuelve visible en lista 2.
+$r_expired_dismiss = learning_eval($catalog['install_pwa'], [
+    'is_dismissed' => 1,
+    'dismissed_at' => '2026-05-30 11:00:00',
+]);
+ac_assert(
+    'AC5c expired dismissed returns to list 2',
+    $r_expired_dismiss['visible'] === true
+    && $r_expired_dismiss['is_dismissed'] === true
+    && $r_expired_dismiss['is_dismiss_active'] === false
+    && $r_expired_dismiss['effective_list'] === AA_Learning_Visibility_Policy::LIST_SECONDARY
+);
+
+$r_empty_dismiss_date = learning_eval($catalog['install_pwa'], [
+    'is_dismissed' => 1,
+    'dismissed_at' => '',
+]);
+ac_assert('AC5d dismissed empty date hides defensively', $r_empty_dismiss_date['visible'] === false);
+
+$r_invalid_dismiss_date = learning_eval($catalog['install_pwa'], [
+    'is_dismissed' => 1,
+    'dismissed_at' => 'not-a-date',
+]);
+ac_assert('AC5e dismissed invalid date hides defensively', $r_invalid_dismiss_date['visible'] === false);
+
+$r_expired_auto_completed = learning_eval(
+    $catalog['configure_services'],
+    [
+        'is_dismissed' => 1,
+        'dismissed_at' => '2026-05-30 11:00:00',
+    ],
+    ['has_active_service' => true]
+);
+ac_assert('AC5f expired dismissed auto-completed stays hidden', $r_expired_auto_completed['visible'] === false);
+
+$r_expired_manual_completed = learning_eval($catalog['install_pwa'], [
+    'is_dismissed' => 1,
+    'dismissed_at' => '2026-05-30 11:00:00',
+    'is_completed' => 1,
+]);
+ac_assert('AC5g expired dismissed manually completed stays hidden', $r_expired_manual_completed['visible'] === false);
 
 $r_deferred_visible = learning_eval($catalog['install_pwa'], ['is_ignored' => 1]);
 ac_assert(
-    'AC5c ignored native list 2 stays visible',
+    'AC5h ignored native list 2 stays visible',
     $r_deferred_visible['visible'] === true
     && $r_deferred_visible['effective_list'] === AA_Learning_Visibility_Policy::LIST_SECONDARY
 );

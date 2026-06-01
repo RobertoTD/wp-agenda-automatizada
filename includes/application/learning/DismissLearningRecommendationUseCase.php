@@ -62,16 +62,6 @@ final class DismissLearningRecommendationUseCase {
             ];
         }
 
-        if (!empty($evaluated['is_dismissed'])) {
-            return [
-                'success' => false,
-                'error' => [
-                    'code' => 'already_dismissed',
-                    'message' => 'Esta recomendación ya fue ignorada.',
-                ],
-            ];
-        }
-
         $now = LearningRecommendationEvaluator::resolve_now();
         $row = LearningRecommendationStateRepository::mark_dismissed($key, $now);
 
