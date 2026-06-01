@@ -25,10 +25,12 @@ final class LearningRecommendationStateRepository {
     private const UPSERT_COLUMNS = [
         'is_completed',
         'is_ignored',
+        'is_dismissed',
         'list_override',
         'last_suggested_at',
         'completed_at',
         'ignored_at',
+        'dismissed_at',
     ];
 
     /**
@@ -80,6 +82,7 @@ final class LearningRecommendationStateRepository {
             'recommendation_key' => (string) $row->recommendation_key,
             'is_completed' => (int) $row->is_completed,
             'is_ignored' => (int) $row->is_ignored,
+            'is_dismissed' => (int) $row->is_dismissed,
             'list_override' => $row->list_override === null ? null : (int) $row->list_override,
             'last_suggested_at' => $row->last_suggested_at,
             'completed_at' => $row->completed_at,
@@ -174,10 +177,12 @@ final class LearningRecommendationStateRepository {
                     'recommendation_key' => $key,
                     'is_completed' => 0,
                     'is_ignored' => 0,
+                    'is_dismissed' => 0,
                     'list_override' => null,
                     'last_suggested_at' => null,
                     'completed_at' => null,
                     'ignored_at' => null,
+                    'dismissed_at' => null,
                     'created_at' => $now,
                     'updated_at' => $now,
                 ],
@@ -215,6 +220,98 @@ final class LearningRecommendationStateRepository {
     }
 
     /**
+     * @param string $recommendation_key
+     * @param string $datetime
+     * @return array<string,mixed>|null
+     */
+    public static function mark_dismissed($recommendation_key, $datetime) {
+        return self::upsert($recommendation_key, [
+            'is_dismissed' => 1,
+            'dismissed_at' => $datetime,
+        ]);
+    }
+
+    /**
+     * @param string $recommendation_key
+     * @param string $datetime
+     * @return array<string,mixed>|null
+     */
+    public static function mark_ignored($recommendation_key, $datetime) {
+        return self::upsert($recommendation_key, [
+            'is_ignored' => 1,
+            'ignored_at' => $datetime,
+        ]);
+    }
+
+    /**
+     * @param string $recommendation_key
+     * @param string $datetime
+     * @return array<string,mixed>|null
+     */
+    public static function mark_completed($recommendation_key, $datetime) {
+        return self::upsert($recommendation_key, [
+            'is_completed' => 1,
+            'completed_at' => $datetime,
+        ]);
+    }
+
+    /**
+     * Limpia ignored/completed; conserva last_suggested_at y list_override.
+     *
+     * @param string $recommendation_key
+     * @return array<string,mixed>|null
+     */
+    public static function reactivate($recommendation_key) {
+        return self::upsert($recommendation_key, [
+            'is_ignored' => 0,
+            'is_completed' => 0,
+            'is_dismissed' => 0,
+            'ignored_at' => null,
+            'completed_at' => null,
+            'dismissed_at' => null,
+        ]);
+    }
+
+    /**
+     * Escribe last_suggested_at solo si aún está vacío (insert o update condicional).
+     *
+     * @param string $recommendation_key
+     * @param string $datetime
+     * @return array<string,mixed>|null
+     */
+    public static function ensure_suggested_at($recommendation_key, $datetime) {
+        $key = self::normalize_key($recommendation_key);
+
+        if ($key === null) {
+            return null;
+        }
+
+        $existing = self::find_by_key($key);
+
+        if ($existing !== null && !empty($existing['last_suggested_at'])) {
+            return $existing;
+        }
+
+        return self::upsert($key, [
+            'last_suggested_at' => $datetime,
+        ]);
+    }
+
+    /**
+     * @param list<string> $recommendation_keys
+     * @param string       $datetime
+     */
+    public static function ensure_suggested_at_many(array $recommendation_keys, $datetime) {
+        foreach ($recommendation_keys as $recommendation_key) {
+            if (!is_string($recommendation_key) || $recommendation_key === '') {
+                continue;
+            }
+
+            self::ensure_suggested_at($recommendation_key, $datetime);
+        }
+    }
+
+    /**
      * @param array<string,mixed> $data
      * @return array<string,mixed>
      */
@@ -238,7 +335,7 @@ final class LearningRecommendationStateRepository {
      * @return mixed
      */
     private static function normalize_column_value($column, $value) {
-        if (in_array($column, ['is_completed', 'is_ignored'], true)) {
+        if (in_array($column, ['is_completed', 'is_ignored', 'is_dismissed'], true)) {
             return !empty($value) ? 1 : 0;
         }
 
@@ -250,7 +347,7 @@ final class LearningRecommendationStateRepository {
             return (int) $value;
         }
 
-        if (in_array($column, ['last_suggested_at', 'completed_at', 'ignored_at'], true)) {
+        if (in_array($column, ['last_suggested_at', 'completed_at', 'ignored_at', 'dismissed_at'], true)) {
             if ($value === null || $value === '') {
                 return null;
             }
@@ -269,7 +366,7 @@ final class LearningRecommendationStateRepository {
         $formats = [];
 
         foreach (array_keys($row) as $column) {
-            if (in_array($column, ['is_completed', 'is_ignored'], true)) {
+            if (in_array($column, ['is_completed', 'is_ignored', 'is_dismissed'], true)) {
                 $formats[] = '%d';
                 continue;
             }

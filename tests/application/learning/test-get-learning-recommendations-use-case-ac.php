@@ -44,6 +44,15 @@ ac_assert(
     strpos($bootstrap, 'LearningRecommendationsAjax::register') !== false
 );
 
+$module_js = file_get_contents($files['module_js']);
+ac_assert('learning-module uses can_defer', strpos($module_js, 'can_defer') !== false);
+ac_assert('learning-module uses can_dismiss', strpos($module_js, 'can_dismiss') !== false);
+
+$get_uc = file_get_contents($files['use_case']);
+ac_assert('Get use case exposes can_defer flag', strpos($get_uc, 'can_defer') !== false);
+ac_assert('Get use case exposes can_dismiss flag', strpos($get_uc, 'can_dismiss') !== false);
+ac_assert('Get use case exposes is_dismissed flag', strpos($get_uc, 'is_dismissed') !== false);
+
 $index_php = file_get_contents($plugin_root . '/includes/admin/ui/modules/learning/index.php');
 ac_assert('index.php exposes AA_LEARNING_DATA', strpos($index_php, 'AA_LEARNING_DATA') !== false);
 ac_assert('index.php loads learningService.js', strpos($index_php, 'learningService.js') !== false);

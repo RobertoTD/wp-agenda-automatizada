@@ -80,8 +80,9 @@ final class AA_Learning_Visibility_Policy {
         $auto_completed = $this->is_auto_completed($definition, $facts);
         $is_completed = $manual_completed || $auto_completed;
         $is_ignored = $this->bool_value($state_row['is_ignored'] ?? false);
+        $is_dismissed = $this->bool_value($state_row['is_dismissed'] ?? false);
 
-        $visible = $active && !$is_completed;
+        $visible = $active && !$is_completed && !$is_dismissed;
 
         $effective_list = $this->resolve_effective_list(
             $definition,
@@ -102,6 +103,7 @@ final class AA_Learning_Visibility_Policy {
             'is_completed' => $is_completed,
             'is_auto_completed' => $auto_completed,
             'is_ignored' => $is_ignored,
+            'is_dismissed' => $is_dismissed,
             'completion_type' => $completion_type,
             'navigation' => is_array($definition['navigation'] ?? null)
                 ? $definition['navigation']

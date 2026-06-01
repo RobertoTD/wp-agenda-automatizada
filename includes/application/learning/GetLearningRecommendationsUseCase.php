@@ -36,11 +36,35 @@ final class GetLearningRecommendationsUseCase {
             $now
         );
 
+        $this->seal_suggested_at_for_visible($grouped['all_visible'], $now);
+
         return [
             'list_1' => $this->enrich_items($grouped['list_1']),
             'list_2' => $this->enrich_items($grouped['list_2']),
             'all_visible' => $this->enrich_items($grouped['all_visible']),
         ];
+    }
+
+    /**
+     * @param list<array<string,mixed>> $visible_items
+     * @param string                  $now
+     */
+    private function seal_suggested_at_for_visible(array $visible_items, string $now): void {
+        $keys = [];
+
+        foreach ($visible_items as $item) {
+            $key = isset($item['key']) ? (string) $item['key'] : '';
+
+            if ($key !== '') {
+                $keys[] = $key;
+            }
+        }
+
+        if ($keys === []) {
+            return;
+        }
+
+        LearningRecommendationStateRepository::ensure_suggested_at_many($keys, $now);
     }
 
     /**
@@ -98,6 +122,18 @@ final class GetLearningRecommendationsUseCase {
 
         $item['action_url'] = $action_url;
         $item['action_label'] = $action_url !== null ? 'Ir' : null;
+
+        $completion_type = (string) ($item['completion_type'] ?? '');
+        $is_auto_completed = !empty($item['is_auto_completed']);
+        $is_ignored = !empty($item['is_ignored']);
+        $is_dismissed = !empty($item['is_dismissed']);
+        $effective_list = (int) ($item['effective_list'] ?? 0);
+
+        $item['can_complete_manually'] = $completion_type === AA_Learning_Catalog::COMPLETION_MANUAL
+            && !$is_auto_completed;
+        $item['can_defer'] = $effective_list === AA_Learning_Visibility_Policy::LIST_PRIMARY && !$is_ignored;
+        $item['can_dismiss'] = $effective_list === AA_Learning_Visibility_Policy::LIST_SECONDARY && !$is_dismissed;
+        $item['can_reactivate'] = $is_ignored;
 
         return $item;
     }

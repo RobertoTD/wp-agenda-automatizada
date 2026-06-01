@@ -64,7 +64,7 @@ final class AA_Schema {
      * Independiente de la versión del plugin. Solo refleja el estado
      * de las tablas/columnas/índices.
      */
-    public const DB_VERSION = '2';
+    public const DB_VERSION = '3';
 
     /**
      * Registra el activation hook y el chequeo de migraciones.
@@ -291,6 +291,8 @@ final class AA_Schema {
             last_suggested_at datetime DEFAULT NULL,
             completed_at datetime DEFAULT NULL,
             ignored_at datetime DEFAULT NULL,
+            is_dismissed tinyint(1) NOT NULL DEFAULT 0,
+            dismissed_at datetime DEFAULT NULL,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             updated_at datetime DEFAULT NULL,
             PRIMARY KEY  (id),

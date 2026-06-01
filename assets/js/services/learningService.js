@@ -1,5 +1,5 @@
 /**
- * Learning Service — consume aa_get_learning_recommendations para Guías/Aprendizaje.
+ * Learning Service — Guías/Aprendizaje (lectura y acciones de estado).
  *
  * Depends on window.AA_LEARNING_DATA (ajaxUrl, action, nonce).
  */
@@ -17,9 +17,11 @@
     }
 
     /**
-     * @returns {Promise<{list_1:Array,list_2:Array,all_visible:Array}>}
+     * @param {string} action
+     * @param {Object} [extraFields]
+     * @returns {Promise<Object>}
      */
-    function getRecommendations() {
+    function postAction(action, extraFields) {
         var cfg = getConfig();
 
         if (!cfg) {
@@ -27,8 +29,14 @@
         }
 
         var formData = new FormData();
-        formData.append('action', cfg.action);
+        formData.append('action', action);
         formData.append('_wpnonce', cfg.nonce);
+
+        if (extraFields) {
+            Object.keys(extraFields).forEach(function (field) {
+                formData.append(field, extraFields[field]);
+            });
+        }
 
         return fetch(cfg.ajaxUrl, {
             method: 'POST',
@@ -41,22 +49,82 @@
                 return response.json();
             })
             .then(function (result) {
-                if (!result.success || !result.data) {
-                    var message = (result.data && result.data.message)
-                        ? result.data.message
-                        : 'No se pudieron cargar las recomendaciones.';
-                    throw new Error(message);
+                if (!result.success) {
+                    var payload = result.data || {};
+                    var message = payload.message || 'No se pudo completar la acción.';
+                    var err = new Error(message);
+                    err.code = payload.code || 'unknown_error';
+                    throw err;
                 }
 
-                return {
-                    list_1: Array.isArray(result.data.list_1) ? result.data.list_1 : [],
-                    list_2: Array.isArray(result.data.list_2) ? result.data.list_2 : [],
-                    all_visible: Array.isArray(result.data.all_visible) ? result.data.all_visible : []
-                };
+                return result.data || {};
             });
     }
 
+    /**
+     * @returns {Promise<{list_1:Array,list_2:Array,all_visible:Array}>}
+     */
+    function getRecommendations() {
+        var cfg = getConfig();
+
+        if (!cfg) {
+            return Promise.reject(new Error('AA_LEARNING_DATA no configurado'));
+        }
+
+        return postAction(cfg.action).then(function (data) {
+            return {
+                list_1: Array.isArray(data.list_1) ? data.list_1 : [],
+                list_2: Array.isArray(data.list_2) ? data.list_2 : [],
+                all_visible: Array.isArray(data.all_visible) ? data.all_visible : []
+            };
+        });
+    }
+
+    /**
+     * @param {string} recommendationKey
+     * @returns {Promise<Object>}
+     */
+    function ignoreRecommendation(recommendationKey) {
+        return postAction('aa_ignore_learning_recommendation', {
+            recommendation_key: recommendationKey
+        });
+    }
+
+    /**
+     * @param {string} recommendationKey
+     * @returns {Promise<Object>}
+     */
+    function dismissRecommendation(recommendationKey) {
+        return postAction('aa_dismiss_learning_recommendation', {
+            recommendation_key: recommendationKey
+        });
+    }
+
+    /**
+     * @param {string} recommendationKey
+     * @returns {Promise<Object>}
+     */
+    function completeRecommendation(recommendationKey) {
+        return postAction('aa_complete_learning_recommendation', {
+            recommendation_key: recommendationKey
+        });
+    }
+
+    /**
+     * @param {string} recommendationKey
+     * @returns {Promise<Object>}
+     */
+    function reactivateRecommendation(recommendationKey) {
+        return postAction('aa_reactivate_learning_recommendation', {
+            recommendation_key: recommendationKey
+        });
+    }
+
     window.LearningService = {
-        getRecommendations: getRecommendations
+        getRecommendations: getRecommendations,
+        ignoreRecommendation: ignoreRecommendation,
+        dismissRecommendation: dismissRecommendation,
+        completeRecommendation: completeRecommendation,
+        reactivateRecommendation: reactivateRecommendation
     };
 })();

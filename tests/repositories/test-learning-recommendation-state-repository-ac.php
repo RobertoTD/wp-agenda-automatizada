@@ -34,11 +34,13 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 
 $schema_src = file_get_contents($schema_file);
 ac_assert('Schema file readable', $schema_src !== false);
-ac_assert('DB_VERSION is 2', strpos($schema_src, "DB_VERSION = '2'") !== false);
+ac_assert('DB_VERSION is 3', strpos($schema_src, "DB_VERSION = '3'") !== false);
 ac_assert(
     'CREATE TABLE aa_learning_recommendation_state',
     strpos($schema_src, 'aa_learning_recommendation_state') !== false
         && strpos($schema_src, 'recommendation_key varchar(100)') !== false
+        && strpos($schema_src, 'is_dismissed tinyint(1)') !== false
+        && strpos($schema_src, 'dismissed_at datetime') !== false
         && strpos($schema_src, 'UNIQUE KEY recommendation_key') !== false
 );
 
@@ -47,6 +49,7 @@ ac_assert('Repository file readable', $repo_src !== false);
 ac_assert('Repository defines get_all', strpos($repo_src, 'function get_all') !== false);
 ac_assert('Repository defines find_by_key', strpos($repo_src, 'function find_by_key') !== false);
 ac_assert('Repository defines upsert', strpos($repo_src, 'function upsert') !== false);
+ac_assert('Repository defines mark_dismissed', strpos($repo_src, 'function mark_dismissed') !== false);
 
 if (!defined('ABSPATH')) {
     define('ABSPATH', $plugin_root . '/');

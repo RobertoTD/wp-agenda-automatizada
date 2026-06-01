@@ -126,6 +126,21 @@ ac_assert(
     && $r['effective_list'] === AA_Learning_Visibility_Policy::LIST_SECONDARY
 );
 
+// AC5b: is_dismissed oculta la recomendación.
+$r_dismissed = learning_eval($catalog['install_pwa'], ['is_dismissed' => 1]);
+ac_assert(
+    'AC5b dismissed hides recommendation',
+    $r_dismissed['visible'] === false
+    && $r_dismissed['is_dismissed'] === true
+);
+
+$r_deferred_visible = learning_eval($catalog['install_pwa'], ['is_ignored' => 1]);
+ac_assert(
+    'AC5c ignored native list 2 stays visible',
+    $r_deferred_visible['visible'] === true
+    && $r_deferred_visible['effective_list'] === AA_Learning_Visibility_Policy::LIST_SECONDARY
+);
+
 // AC6: list_override manda sobre default_list.
 $r = learning_eval(
     $catalog['configure_areas'],
