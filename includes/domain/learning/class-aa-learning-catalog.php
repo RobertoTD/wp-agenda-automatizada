@@ -31,6 +31,11 @@ final class AA_Learning_Catalog {
                     'module' => 'settings',
                     'setup_focus' => 'google_calendar',
                     'fragment' => 'aa-google-calendar-root',
+                ],
+                true,
+                [
+                    'aging_days' => 30,
+                    'dismiss_hours' => 24,
                 ]
             ),
             self::item(
@@ -45,6 +50,11 @@ final class AA_Learning_Catalog {
                     'module' => 'settings',
                     'setup_focus' => null,
                     'fragment' => null,
+                ],
+                true,
+                [
+                    'aging_days' => 7,
+                    'dismiss_hours' => 24,
                 ]
             ),
             self::item(
@@ -101,6 +111,11 @@ final class AA_Learning_Catalog {
                     'module' => 'clients',
                     'setup_focus' => 'clients',
                     'fragment' => 'aa-clients-grid',
+                ],
+                true,
+                [
+                    'aging_days' => 7,
+                    'dismiss_hours' => 24,
                 ]
             ),
             self::item(
@@ -115,6 +130,10 @@ final class AA_Learning_Catalog {
                     'module' => null,
                     'setup_focus' => null,
                     'fragment' => null,
+                ],
+                true,
+                [
+                    'dismiss_hours' => 48,
                 ]
             ),
             self::item(
@@ -129,6 +148,10 @@ final class AA_Learning_Catalog {
                     'module' => 'dashboard',
                     'setup_focus' => null,
                     'fragment' => null,
+                ],
+                true,
+                [
+                    'dismiss_hours' => 72,
                 ]
             ),
             self::item(
@@ -143,6 +166,10 @@ final class AA_Learning_Catalog {
                     'module' => 'calendar',
                     'setup_focus' => null,
                     'fragment' => null,
+                ],
+                true,
+                [
+                    'dismiss_hours' => 24,
                 ]
             ),
         ];
