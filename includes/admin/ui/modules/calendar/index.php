@@ -92,14 +92,6 @@ $module_js_url = $plugin_url . 'calendar-module.js?ver=' . rawurlencode($calenda
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                     </svg>
                 </button>
-                
-                <!-- Botón + Horario (acción de crear, presencia moderada) -->
-                <button id="aa-btn-add-schedule" type="button" class="aa-btn-create">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                    </svg>
-                    <span>Horario</span>
-                </button>
             </div>
         </div>
 
@@ -174,16 +166,5 @@ $module_js_url = $plugin_url . 'calendar-module.js?ver=' . rawurlencode($calenda
             <path stroke-linecap="round" stroke-linejoin="round" d="M13 5l-7 7 7 7M5 12h14"/>
         </svg>
         <span>Cita rapida</span>
-    </button>
-
-    <button 
-        id="aa-btn-open-reservation-modal" 
-        type="button"
-        class="flex items-center justify-center w-14 h-14 text-white bg-blue-500 hover:bg-blue-600 active:bg-blue-700 rounded-full shadow-xl shadow-blue-500/25 hover:shadow-2xl hover:shadow-blue-500/30 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-blue-500/30"
-        aria-label="Agendar nueva cita"
-    >
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-        </svg>
     </button>
 </div>
