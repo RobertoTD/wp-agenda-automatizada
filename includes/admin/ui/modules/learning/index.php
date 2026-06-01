@@ -1,14 +1,13 @@
 <?php
 /**
  * Learning Module - Guías / Aprendizaje UI
- *
- * Shell visual for guides and recommendations (no persistence in this cycle).
  */
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
 
 $learning_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
 $learning_js  = plugin_dir_url(__FILE__) . 'learning-module.js';
+$learning_service_js = AA_PLUGIN_URL . 'assets/js/services/learningService.js';
 ?>
 
 <div class="max-w-5xl mx-auto py-2">
@@ -39,23 +38,35 @@ $learning_js  = plugin_dir_url(__FILE__) . 'learning-module.js';
         </summary>
 
         <div id="aa-learning-recommendations-root" class="p-4 transition-all duration-200">
-            <ul id="aa-learning-recommendations-list" class="space-y-3">
-                <li class="rounded-lg border border-gray-200 bg-gray-50/80 p-4">
-                    <p class="text-sm font-semibold text-gray-900">Completa tu primer cliente</p>
-                    <p class="text-sm text-gray-600 mt-1">Agrega al menos un cliente para poder agendar citas con datos de contacto.</p>
-                </li>
-                <li class="rounded-lg border border-gray-200 bg-gray-50/80 p-4">
-                    <p class="text-sm font-semibold text-gray-900">Configura servicios y zonas</p>
-                    <p class="text-sm text-gray-600 mt-1">Define qué ofreces y dónde atiendes en Asignaciones antes de abrir horarios.</p>
-                </li>
-                <li class="rounded-lg border border-gray-200 bg-gray-50/80 p-4">
-                    <p class="text-sm font-semibold text-gray-900">Revisa tu agenda del día</p>
-                    <p class="text-sm text-gray-600 mt-1">Usa el módulo Agenda para ver citas confirmadas y pendientes de hoy.</p>
-                </li>
-            </ul>
+            <p id="aa-learning-loading" class="text-sm text-gray-500">Cargando recomendaciones…</p>
+            <p id="aa-learning-error" class="hidden text-sm text-red-600"></p>
+            <p id="aa-learning-empty" class="hidden text-sm text-gray-500">No hay recomendaciones activas en este momento.</p>
+
+            <div id="aa-learning-list-primary-wrap" class="hidden space-y-3">
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Principales</p>
+                <ul id="aa-learning-list-primary" class="space-y-3"></ul>
+            </div>
+
+            <div id="aa-learning-list-secondary-wrap" class="hidden mt-5 space-y-3">
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Otras sugerencias</p>
+                <ul id="aa-learning-list-secondary" class="space-y-3"></ul>
+            </div>
         </div>
     </details>
 
 </div>
 
+<script>
+    if (typeof window.ajaxurl === 'undefined') {
+        window.ajaxurl = '<?php echo admin_url('admin-ajax.php'); ?>';
+    }
+
+    window.AA_LEARNING_DATA = {
+        ajaxUrl: window.ajaxurl || '<?php echo admin_url('admin-ajax.php'); ?>',
+        action: 'aa_get_learning_recommendations',
+        nonce: '<?php echo esc_js(wp_create_nonce('aa_get_learning_recommendations_nonce')); ?>'
+    };
+</script>
+
+<script src="<?php echo esc_url($learning_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($learning_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>

@@ -146,6 +146,12 @@ BillingPortalAjax::register();
 require_once __DIR__ . '/includes/http/ajax/OnboardingStatusAjax.php';
 OnboardingStatusAjax::register();
 
+// ================================
+// Endpoint AJAX: Recomendaciones Guías/Aprendizaje (capa http/ajax)
+// ================================
+require_once __DIR__ . '/includes/http/ajax/LearningRecommendationsAjax.php';
+LearningRecommendationsAjax::register();
+
 // ===============================
 // 🔹 Schema lifecycle: registra el activation hook con AA_Schema::install
 // ===============================
