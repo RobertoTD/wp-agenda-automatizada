@@ -12,7 +12,7 @@ defined('ABSPATH') or die('No direct access');
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
-    <title>Agenda en preparación</title>
+    <title>Sitio web en preparación</title>
     <style>
         :root {
             color-scheme: light;
@@ -20,6 +20,7 @@ defined('ABSPATH') or die('No direct access');
             --aa-secondary: #6366f1;
             --aa-text: #0f172a;
             --aa-muted: #64748b;
+            --aa-muted-light: #94a3b8;
             --aa-surface: #ffffff;
             --aa-bg: #f8fafc;
         }
@@ -52,29 +53,8 @@ defined('ABSPATH') or die('No direct access');
             text-align: center;
         }
 
-        .brand {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 20px;
-            padding: 7px 12px;
-            border-radius: 999px;
-            color: var(--aa-primary);
-            background: rgba(139, 92, 246, 0.10);
-            font-size: 13px;
-            font-weight: 700;
-            letter-spacing: 0.01em;
-        }
-
-        .brand-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 999px;
-            background: linear-gradient(135deg, var(--aa-primary), var(--aa-secondary));
-        }
-
         h1 {
-            margin: 0 0 12px;
+            margin: 0 0 16px;
             font-size: clamp(32px, 8vw, 44px);
             line-height: 1.05;
             letter-spacing: -0.04em;
@@ -91,17 +71,24 @@ defined('ABSPATH') or die('No direct access');
             margin-top: 10px;
             font-size: 15px;
         }
+
+        .provider {
+            margin-top: 28px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(148, 163, 184, 0.18);
+            color: var(--aa-muted-light);
+            font-size: 12px;
+            line-height: 1.5;
+            letter-spacing: 0.01em;
+        }
     </style>
 </head>
 <body>
     <main aria-labelledby="aa-maintenance-title">
-        <div class="brand" aria-label="DEOIA Citas">
-            <span class="brand-dot" aria-hidden="true"></span>
-            <span>DEOIA Citas</span>
-        </div>
-        <h1 id="aa-maintenance-title">Agenda en preparación</h1>
-        <p>Esta agenda estará disponible pronto.</p>
-        <p class="secondary">Estamos terminando de configurar el sitio web público.</p>
+        <h1 id="aa-maintenance-title">Sitio web en preparación</h1>
+        <p>Este sitio web estará disponible pronto para que puedas conocer el negocio y agendar citas en línea.</p>
+        <p class="secondary">Estamos terminando la configuración para que los clientes puedan reservar de forma automática.</p>
+        <p class="provider">Provisto por DEOIA Citas</p>
     </main>
 </body>
 </html>
