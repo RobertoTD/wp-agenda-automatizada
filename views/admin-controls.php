@@ -66,6 +66,7 @@ function aa_render_settings_iframe_page() {
 
 // Registrar settings
 add_action('admin_init', function() {
+    // LEGACY_FIXED_SCHEDULE: deprecated runtime path kept for backward compatibility. Do not extend; prefer assignment-based availability. Remove only with a dedicated migration plan.
     register_setting('agenda_automatizada_settings', 'aa_schedule');
     register_setting('agenda_automatizada_settings', 'aa_slot_duration');
     register_setting('agenda_automatizada_settings', 'aa_future_window');
@@ -76,6 +77,7 @@ add_action('admin_init', function() {
     register_setting('agenda_automatizada_settings', 'aa_business_address');
     register_setting('agenda_automatizada_settings', 'aa_is_virtual');
     register_setting('agenda_automatizada_settings', 'aa_whatsapp_number');
+    // LEGACY_FIXED_SCHEDULE (aa_service_schedule, aa_staff_schedule): see aa_schedule above.
     register_setting('agenda_automatizada_settings', 'aa_service_schedule', ['sanitize_callback' => 'sanitize_text_field']);
     register_setting('agenda_automatizada_settings', 'aa_staff_schedule', ['sanitize_callback' => 'sanitize_text_field']);
 });

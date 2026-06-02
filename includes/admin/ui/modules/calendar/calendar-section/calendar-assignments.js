@@ -145,6 +145,9 @@
 
     /**
      * Render schedule overlay (horario fijo)
+     *
+     * LEGACY_FIXED_SCHEDULE: deprecated visual column from aa_schedule intervals.
+     * Do not extend; prefer assignment overlays. Remove only with a dedicated migration plan.
      */
     function renderScheduleOverlay(scheduleIntervals, slotRowIndex, columnIndex, totalColumns, grid) {
         if (!scheduleIntervals || scheduleIntervals.length === 0) {

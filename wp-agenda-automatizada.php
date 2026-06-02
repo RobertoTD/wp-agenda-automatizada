@@ -221,6 +221,7 @@ function wpaa_render_form() {
         }
     }
     
+    // LEGACY_FIXED_SCHEDULE: deprecated runtime path kept for backward compatibility. Do not extend; prefer assignment-based availability. Remove only with a dedicated migration plan.
     // Agregar opción de horario fijo si existe
     $service_schedule = get_option('aa_service_schedule', '');
     if (!empty($service_schedule)) {

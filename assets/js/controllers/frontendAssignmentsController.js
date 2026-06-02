@@ -357,8 +357,9 @@
     }
 
     // ============================================
-    // Detectar servicio de horario fijo
+    // Detectar servicio de horario fijo (LEGACY_FIXED_SCHEDULE)
     // ============================================
+    // LEGACY_FIXED_SCHEDULE: deprecated fixed availability path kept for backward compatibility. Do not extend; prefer assignment-based availability.
     function isFixedService(service) {
         // Delegar a CalendarAvailabilityService si está disponible
         if (window.CalendarAvailabilityService && window.CalendarAvailabilityService.isFixedServiceKey) {
@@ -791,8 +792,9 @@
     }
 
     // ============================================
-    // Calcular slots para servicio de horario fijo
+    // Calcular slots para servicio de horario fijo (LEGACY_FIXED_SCHEDULE)
     // ============================================
+    // LEGACY_FIXED_SCHEDULE: slots from aa_schedule + local busy (assignment_id IS NULL). Do not extend.
     async function calculateFixedSlots() {
         console.group('🧮 [FrontendAssignments][FIXED] Calculando slots de horario fijo...');
         console.log('Servicio:', state.selectedService);

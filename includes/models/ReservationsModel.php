@@ -17,7 +17,10 @@ class ReservationsModel {
 
     /**
      * Obtener slots ocupados desde la base de datos local (SOLO FIXED)
-     * 
+     *
+     * LEGACY_FIXED_SCHEDULE: deprecated runtime path kept for backward compatibility.
+     * Do not extend; prefer assignment-based availability. Remove only with a dedicated migration plan.
+     *
      * Solo retorna reservas con assignment_id IS NULL (reservas fixed/legacy).
      * Las reservas con assignment_id se manejan por el flujo de assignments
      * (AABusyRangesAssignments.getBusyRangesByAssignments).
@@ -103,8 +106,8 @@ class ReservationsModel {
 
     /**
      * Contar citas confirmadas FIXED (assignment_id IS NULL)
-     * 
-     * Solo cuenta reservas sin assignment (flujo legacy/fixed).
+     *
+     * LEGACY_FIXED_SCHEDULE: counts confirmed rows with assignment_id IS NULL (fixed/legacy busy).
      * 
      * @return int
      */
@@ -281,7 +284,7 @@ class ReservationsModel {
         // Equivalente a: startA < endB AND endA > startB
         
         if ($assignment_id === null) {
-            // FIXED: solo cancelar pending con assignment_id IS NULL
+            // LEGACY_FIXED_SCHEDULE: FIXED — solo cancelar pending con assignment_id IS NULL
             $rows = $wpdb->get_results($wpdb->prepare("
                 SELECT id, nombre, correo, fecha, duracion, assignment_id 
                 FROM $table 

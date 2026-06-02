@@ -14,6 +14,7 @@
 
     /**
      * Horario fijo legacy: vacío o no-objeto significa "sin fixed activo", no dependencia faltante.
+     * LEGACY_FIXED_SCHEDULE: not an init gate (see waitForDependencies); used for overlay/visual intervals only.
      * @returns {Object}
      */
     function getCalendarSchedule() {
@@ -221,6 +222,7 @@
         fetchAssignmentsData(fechaStr).then(function(assignmentsData) {
             const fecha = new Date(fechaStr + 'T00:00:00');
             const weekday = window.DateUtils.getWeekdayName(fecha);
+            // LEGACY_FIXED_SCHEDULE: overlay/visual column from aa_schedule; not required for module init.
             const scheduleIntervals = window.DateUtils.getDayIntervals(getCalendarSchedule(), weekday) || [];
             const assignmentIntervals = assignmentsData.intervals || [];
             const visualIntervals = scheduleIntervals.concat(assignmentIntervals);

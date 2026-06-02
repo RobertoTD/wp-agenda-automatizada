@@ -1,6 +1,9 @@
 <?php
 /**
  * Controlador: Disponibilidad Local
+ *
+ * LEGACY_FIXED_SCHEDULE: local_busy uses ReservationsModel::get_internal_busy_slots()
+ * (confirmed + assignment_id IS NULL). Deprecated path; do not extend. See docs/legacy-fixed-schedule.md.
  */
 
 if (!defined('ABSPATH')) exit;

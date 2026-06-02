@@ -312,6 +312,7 @@ final class AA_Schema {
             add_option('aa_estado_gsync', 'valid');
         }
 
+        // LEGACY_FIXED_SCHEDULE: default options for deprecated fixed schedule (aa_service_schedule, aa_staff_schedule). Do not extend.
         // 🔹 Inicializar nuevo campo con valor por defecto
         if (get_option('aa_service_schedule') === false) {
             add_option('aa_service_schedule', ''); // ⚠️ Cambia 'aa_nuevo_campo' y el valor por defecto según necesites

@@ -1,9 +1,12 @@
 /**
  * Calendar Availability Service
- * 
+ *
  * Centralized service for calendar availability logic (fixed vs assignments).
  * No UI rendering - pure business logic.
- * 
+ *
+ * LEGACY_FIXED_SCHEDULE: deprecated fixed availability path kept for backward compatibility.
+ * Do not extend; prefer assignment-based availability. Remove only with a dedicated migration plan.
+ *
  * @package AgendaAutomatizada
  * @since 2.0.0
  */
@@ -20,6 +23,7 @@
      * @param {string} serviceKey - Clave del servicio
      * @returns {boolean}
      */
+    // LEGACY_FIXED_SCHEDULE: fixed:: prefix and aa_schedule-based days/slots.
     function isFixedServiceKey(serviceKey) {
         return typeof serviceKey === 'string' && serviceKey.startsWith('fixed::');
     }
@@ -28,6 +32,7 @@
      * Obtiene el schedule desde las variables globales
      * @returns {Object}
      */
+    // LEGACY_FIXED_SCHEDULE: reads window.aa_schedule / AA_CALENDAR_DATA.schedule.
     function getSchedule() {
         return window.aa_schedule || window.AA_CALENDAR_DATA?.schedule || {};
     }
@@ -128,7 +133,7 @@
         const { minDate, maxDate, startYmd, endYmd } = getRange(futureWindowDays);
         let availableDays = {};
 
-        // Caso vacío o fixed → calcular desde schedule
+        // LEGACY_FIXED_SCHEDULE: empty serviceKey or fixed:: → days from aa_schedule.
         if (!serviceKey || isFixedServiceKey(serviceKey)) {
             const schedule = getSchedule();
             availableDays = buildAvailableDaysFromSchedule(schedule, minDate, maxDate);

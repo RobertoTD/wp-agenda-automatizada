@@ -10,7 +10,8 @@
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
 
-// UI de horario fijo deprecada; aa_schedule / aa_service_schedule / aa_staff_schedule siguen en BD para runtime legacy.
+// LEGACY_FIXED_SCHEDULE: Settings UI hidden by default (AA_SHOW_LEGACY_FIXED_SCHEDULE_UI / aa_show_legacy_fixed_schedule_ui).
+// Options aa_schedule, aa_service_schedule, aa_staff_schedule remain in DB for runtime legacy. Do not extend.
 $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
     'aa_show_legacy_fixed_schedule_ui',
     defined('AA_SHOW_LEGACY_FIXED_SCHEDULE_UI') && AA_SHOW_LEGACY_FIXED_SCHEDULE_UI

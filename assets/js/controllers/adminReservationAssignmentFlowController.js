@@ -63,6 +63,7 @@
             console.warn('[AdminReservationAssignmentFlowController] Select de duración no encontrado (#cita-duracion)');
         }
 
+        // LEGACY_FIXED_SCHEDULE: deprecated fixed availability path kept for backward compatibility. Do not extend; prefer assignment-based availability.
         // Helper: Detectar si un servicio es de horario fijo
         function isFixedService(serviceKey) {
             // Delegar a CalendarAvailabilityService si está disponible
@@ -311,6 +312,7 @@
          * Calculate slots for fixed service in admin
          * @param {string} selectedDate - Date in YYYY-MM-DD format
          */
+        // LEGACY_FIXED_SCHEDULE: admin modal slots from aa_schedule + local busy (assignment_id IS NULL). Do not extend.
         function calculateFixedSlotsForAdmin(selectedDate) {
             console.group('[AdminReservationAssignmentFlowController][FIXED] Calculando slots de horario fijo...');
             const state = getState();
