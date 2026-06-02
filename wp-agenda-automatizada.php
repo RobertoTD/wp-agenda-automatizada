@@ -60,6 +60,8 @@ require_once plugin_dir_path(__FILE__) . 'includes/auth-helper.php';
 
 // 1️⃣b Infrastructure: WP schema lifecycle (activation hook)
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/Schema.php';
+require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/PublicSiteMaintenanceGuard.php';
+AA_Public_Site_Maintenance_Guard::register();
 
 // 1️⃣c App login context detection (AL-1; visual skin in AL-2)
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/auth/AppLoginSkin.php';
