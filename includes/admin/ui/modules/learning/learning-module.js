@@ -45,6 +45,47 @@
     }
 
     /**
+     * Resuelve la acción primaria renderizable desde item.action o legacy action_url.
+     *
+     * @param {object} item
+     * @returns {{kind: 'navigate', url: string, label: string}|null}
+     */
+    function resolvePrimaryAction(item) {
+        var action = item.action;
+
+        if (action && typeof action === 'object' && action.type === 'navigate') {
+            var navigateUrl = action.url || '';
+
+            if (navigateUrl) {
+                return {
+                    kind: 'navigate',
+                    url: navigateUrl,
+                    label: action.label || 'Ir'
+                };
+            }
+
+            return null;
+        }
+
+        if (action && typeof action === 'object' && action.type === 'handler') {
+            // Ciclo 3+: registro de handlers; no renderizar sin ejecutor disponible.
+            return null;
+        }
+
+        var legacyUrl = item.action_url || '';
+
+        if (legacyUrl) {
+            return {
+                kind: 'navigate',
+                url: legacyUrl,
+                label: item.action_label || 'Ir'
+            };
+        }
+
+        return null;
+    }
+
+    /**
      * @param {object} item
      * @returns {string}
      */
@@ -52,16 +93,15 @@
         var key = escapeHtml(item.key || '');
         var title = escapeHtml(item.title || '');
         var description = escapeHtml(item.description || '');
-        var actionUrl = item.action_url || '';
-        var actionLabel = escapeHtml(item.action_label || 'Ir');
+        var primaryAction = resolvePrimaryAction(item);
 
         var actions = [];
 
-        if (actionUrl) {
+        if (primaryAction && primaryAction.kind === 'navigate') {
             actions.push(
-                '<a href="' + escapeHtml(actionUrl) + '"'
+                '<a href="' + escapeHtml(primaryAction.url) + '"'
                 + ' class="' + btnClass(false) + ' text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200">'
-                + actionLabel
+                + escapeHtml(primaryAction.label)
                 + '</a>'
             );
         }

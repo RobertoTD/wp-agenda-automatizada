@@ -120,6 +120,10 @@ ac_assert(
 $module_js = file_get_contents($files['module_js']);
 ac_assert('learning-module uses can_defer', strpos($module_js, 'can_defer') !== false);
 ac_assert('learning-module uses can_dismiss', strpos($module_js, 'can_dismiss') !== false);
+ac_assert('learning-module resolves primary action from item.action', strpos($module_js, 'resolvePrimaryAction') !== false);
+ac_assert('learning-module reads item.action type navigate', strpos($module_js, "action.type === 'navigate'") !== false);
+ac_assert('learning-module keeps legacy action_url fallback', strpos($module_js, 'item.action_url') !== false);
+ac_assert('learning-module defers handler render until registry exists', strpos($module_js, "action.type === 'handler'") !== false);
 
 $get_uc = file_get_contents($files['use_case']);
 ac_assert('Get use case exposes can_defer flag', strpos($get_uc, 'can_defer') !== false);
