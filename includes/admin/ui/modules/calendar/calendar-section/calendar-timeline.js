@@ -32,6 +32,9 @@
 
     /**
      * Renderizar timeline para una fecha específica
+     * @param {string} fechaStr - Fecha YYYY-MM-DD
+     * @param {Object} [options]
+     * @param {Array<{start: number, end: number}>} [options.visualIntervals] - Rango visual (fixed + assignments); lo arma calendar-module.js
      */
     function renderTimelineForDate(fechaStr, options) {
         const grid = document.getElementById('aa-time-grid');
@@ -40,14 +43,8 @@
             return null;
         }
 
-        const schedule = window.AA_CALENDAR_DATA.schedule;
-        
-        const fecha = new Date(fechaStr + 'T00:00:00');
-        const weekday = window.DateUtils.getWeekdayName(fecha);
-        
-        const scheduleIntervals = window.DateUtils.getDayIntervals(schedule, weekday) || [];
-        const assignmentIntervals = (options && options.assignmentIntervals) ? options.assignmentIntervals : [];
-        const allIntervals = [...scheduleIntervals, ...assignmentIntervals];
+        options = options || {};
+        const visualIntervals = Array.isArray(options.visualIntervals) ? options.visualIntervals : [];
         
         // =============================================
         // GRID CONTAINER STYLES
@@ -64,7 +61,7 @@
 
         grid.innerHTML = '';
 
-        if (!allIntervals || allIntervals.length === 0) {
+        if (visualIntervals.length === 0) {
             const mensaje = document.createElement('div');
             Object.assign(mensaje.style, {
                 gridColumn: '1 / -1',
@@ -72,7 +69,7 @@
                 textAlign: 'center',
                 color: TOKENS.gray500
             });
-            mensaje.textContent = 'No hay horarios configurados para hoy';
+            mensaje.textContent = 'No hay horarios ni asignaciones para este día';
             grid.appendChild(mensaje);
             return null;
         }
@@ -83,8 +80,8 @@
             return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
         }
 
-        const minStart = Math.min(...allIntervals.map(iv => iv.start));
-        const maxEnd = Math.max(...allIntervals.map(iv => iv.end));
+        const minStart = Math.min(...visualIntervals.map(function(iv) { return iv.start; }));
+        const maxEnd = Math.max(...visualIntervals.map(function(iv) { return iv.end; }));
 
         const timeSlots = [];
         for (let min = minStart; min < maxEnd; min += 30) {
@@ -92,7 +89,7 @@
         }
 
         const slotRowIndex = new Map();
-        
+
         const now = new Date();
         const todayStr = window.DateUtils.ymd(now);
         const isToday = fechaStr === todayStr;

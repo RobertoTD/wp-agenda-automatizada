@@ -12,14 +12,37 @@
     let gridClickHandler = null;
     let assignmentEventBound = false;
 
+    /**
+     * Horario fijo legacy: vacío o no-objeto significa "sin fixed activo", no dependencia faltante.
+     * @returns {Object}
+     */
+    function getCalendarSchedule() {
+        if (typeof window.AA_CALENDAR_DATA === 'undefined') {
+            return {};
+        }
+        const raw = window.AA_CALENDAR_DATA.schedule;
+        if (raw === null || raw === undefined || raw === '') {
+            return {};
+        }
+        if (typeof raw === 'object' && !Array.isArray(raw)) {
+            return raw;
+        }
+        return {};
+    }
+
+    function ensureCalendarDataNormalized() {
+        if (typeof window.AA_CALENDAR_DATA !== 'undefined') {
+            window.AA_CALENDAR_DATA.schedule = getCalendarSchedule();
+        }
+    }
+
     // Función para esperar a que las dependencias estén disponibles
     function waitForDependencies(callback, maxAttempts = 50) {
         const hasDateUtils = typeof window.DateUtils !== 'undefined' && 
                             typeof window.DateUtils.getWeekdayName === 'function' &&
                             typeof window.DateUtils.getDayIntervals === 'function';
         
-        const hasSchedule = typeof window.AA_CALENDAR_DATA !== 'undefined' && 
-                           window.AA_CALENDAR_DATA?.schedule;
+        const hasCalendarData = typeof window.AA_CALENDAR_DATA !== 'undefined';
         
         const hasCalendarService = typeof window.AdminCalendarService !== 'undefined' &&
                                   typeof window.AdminCalendarService.esCitaProxima === 'function' &&
@@ -42,7 +65,8 @@
         const hasCalendarTimeline = typeof window.CalendarTimeline !== 'undefined' &&
                                    typeof window.CalendarTimeline.renderTimelineForDate === 'function';
         
-        if (hasDateUtils && hasSchedule && hasCalendarService && hasCalendarController && hasDatePickerAdapter && hasFlatpickr && hasCalendarAppointmentCard && hasCalendarAppointments && hasCalendarTimeline) {
+        if (hasDateUtils && hasCalendarData && hasCalendarService && hasCalendarController && hasDatePickerAdapter && hasFlatpickr && hasCalendarAppointmentCard && hasCalendarAppointments && hasCalendarTimeline) {
+            ensureCalendarDataNormalized();
             callback();
             return;
         }
@@ -194,32 +218,24 @@
      * @param {string} fechaStr - Fecha en formato YYYY-MM-DD
      */
     function renderTimelineForDate(fechaStr) {
-        // Primero obtener datos de asignaciones, luego renderizar
         fetchAssignmentsData(fechaStr).then(function(assignmentsData) {
-            // Preparar options con los intervalos de asignaciones
-            const options = {
-                assignmentIntervals: assignmentsData.intervals
-            };
-            
-            // Delegar render del timeline a CalendarTimeline
-            const result = window.CalendarTimeline?.renderTimelineForDate(fechaStr, options);
-            
-            if (!result) {
-                // Si no hay resultado (día sin horarios ni asignaciones), no hay nada que hacer
-                return;
-            }
-            
-            // Guardar referencias para recarga
-            currentSlotRowIndex = result.slotRowIndex;
-            currentTimeSlots = result.timeSlots;
-            
-            // Obtener intervalos del schedule fijo para el día (para overlay de horario fijo)
             const fecha = new Date(fechaStr + 'T00:00:00');
             const weekday = window.DateUtils.getWeekdayName(fecha);
-            const scheduleIntervals = window.DateUtils.getDayIntervals(window.AA_CALENDAR_DATA.schedule, weekday) || [];
-            
-            // Renderizar overlays de asignaciones (capa visual)
-            // Pasar también los intervalos del schedule para incluir el horario fijo en la división horizontal
+            const scheduleIntervals = window.DateUtils.getDayIntervals(getCalendarSchedule(), weekday) || [];
+            const assignmentIntervals = assignmentsData.intervals || [];
+            const visualIntervals = scheduleIntervals.concat(assignmentIntervals);
+
+            const result = window.CalendarTimeline?.renderTimelineForDate(fechaStr, {
+                visualIntervals: visualIntervals
+            });
+
+            if (!result) {
+                return;
+            }
+
+            currentSlotRowIndex = result.slotRowIndex;
+            currentTimeSlots = result.timeSlots;
+
             if (window.CalendarAssignments?.render) {
                 window.CalendarAssignments.render(assignmentsData.assignments, result.slotRowIndex, scheduleIntervals);
             }
@@ -235,6 +251,8 @@
     }
 
     function initCalendar() {
+        ensureCalendarDataNormalized();
+
         // Inicializar selector de fecha
         initDatePicker();
         

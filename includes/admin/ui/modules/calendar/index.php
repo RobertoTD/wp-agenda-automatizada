@@ -10,8 +10,11 @@
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
 
-// Obtener schedule
+// Obtener schedule (legacy: en instalaciones viejas puede ser "" en vez de array)
 $schedule = get_option('aa_schedule', []);
+if (!is_array($schedule)) {
+    $schedule = [];
+}
 
 // Obtener datos del horario fijo (staff y servicio)
 $fixed_staff_name = get_option('aa_staff_schedule', '');
