@@ -116,12 +116,19 @@ final class GetLearningRecommendationsUseCase {
      */
     private function enrich_item(array $item): array {
         $navigation = is_array($item['navigation'] ?? null) ? $item['navigation'] : [];
-        $action_url = self::resolve_navigation_url($navigation);
+        $raw_action = array_key_exists('action', $item) ? $item['action'] : null;
+        $has_explicit_action = array_key_exists('action', $item);
+        $action = self::resolve_action_payload($has_explicit_action ? $raw_action : null, $navigation, $has_explicit_action);
 
         unset($item['navigation']);
 
-        $item['action_url'] = $action_url;
-        $item['action_label'] = $action_url !== null ? 'Ir' : null;
+        $item['action'] = $action;
+        $item['action_url'] = is_array($action) && ($action['type'] ?? '') === 'navigate'
+            ? (string) ($action['url'] ?? '')
+            : null;
+        $item['action_label'] = is_array($action)
+            ? (string) ($action['label'] ?? '')
+            : null;
 
         $completion_type = (string) ($item['completion_type'] ?? '');
         $is_auto_completed = !empty($item['is_auto_completed']);
@@ -142,7 +149,81 @@ final class GetLearningRecommendationsUseCase {
     }
 
     /**
-     * @param array<string,string|null> $navigation
+     * @param mixed                     $raw_action
+     * @param array<string,string|null> $legacy_navigation
+     * @return array{type:string,label:string,url?:string,handler?:string}|null
+     */
+    public static function resolve_action_payload($raw_action, array $legacy_navigation = [], bool $has_explicit_action = true): ?array {
+        if (!$has_explicit_action) {
+            return self::resolve_navigate_action($legacy_navigation);
+        }
+
+        if (!is_array($raw_action)) {
+            return null;
+        }
+
+        $type = isset($raw_action['type']) ? (string) $raw_action['type'] : '';
+
+        if ($type === 'navigate') {
+            return self::resolve_navigate_action($raw_action);
+        }
+
+        if ($type === 'handler') {
+            return self::resolve_handler_action($raw_action);
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string,mixed> $action
+     * @return array{type:string,label:string,url:string}|null
+     */
+    private static function resolve_navigate_action(array $action): ?array {
+        $url = self::resolve_navigation_url($action);
+
+        if ($url === null && isset($action['url']) && is_string($action['url']) && trim($action['url']) !== '') {
+            $url = trim($action['url']);
+        }
+
+        if ($url === null) {
+            return null;
+        }
+
+        $label = isset($action['label']) && is_string($action['label']) ? trim($action['label']) : '';
+
+        return [
+            'type' => 'navigate',
+            'label' => $label !== '' ? $label : 'Ir',
+            'url' => $url,
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $action
+     * @return array{type:string,label:string,handler:string}|null
+     */
+    private static function resolve_handler_action(array $action): ?array {
+        $handler = isset($action['handler']) && is_string($action['handler'])
+            ? trim($action['handler'])
+            : '';
+        $label = isset($action['label']) && is_string($action['label'])
+            ? trim($action['label'])
+            : '';
+
+        if ($handler === '' || $label === '') {
+            return null;
+        }
+
+        return [
+            'type' => 'handler',
+            'label' => $label,
+            'handler' => $handler,
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $navigation
      */
     public static function resolve_navigation_url(array $navigation): ?string {
         $module = isset($navigation['module']) ? (string) $navigation['module'] : '';

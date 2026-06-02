@@ -3,7 +3,7 @@
  * Learning Catalog — definiciones base versionadas de recomendaciones.
  *
  * Catálogo de producto (no editable por el usuario en esta etapa).
- * Sin WordPress, SQL ni URLs resueltas; navigation es destino conceptual para Ciclo C.
+ * Sin WordPress, SQL ni URLs resueltas; action/navigation son intención conceptual.
  */
 
 defined('ABSPATH') or die('No direct access');
@@ -208,9 +208,10 @@ final class AA_Learning_Catalog {
      * @param int         $default_list
      * @param string      $completion_type
      * @param string|null $completion_fact
-     * @param array<string,string|null> $navigation
-     * @param bool                      $active
-     * @param array<string,mixed>       $rules Opcional: aging_days, dismiss_hours (enteros >= 1).
+     * @param array<string,string|null>      $navigation
+     * @param bool                           $active
+     * @param array<string,mixed>            $rules Opcional: aging_days, dismiss_hours (enteros >= 1).
+     * @param array<string,mixed>|null|false $action Acción primaria opcional. Si es false, se usa navigation como legacy adapter.
      * @return array<string,mixed>
      */
     private static function item(
@@ -223,7 +224,8 @@ final class AA_Learning_Catalog {
         ?string $completion_fact,
         array $navigation,
         bool $active = true,
-        array $rules = []
+        array $rules = [],
+        $action = false
     ): array {
         $item = [
             'key' => $key,
@@ -236,6 +238,10 @@ final class AA_Learning_Catalog {
             'completion_fact' => $completion_fact,
             'navigation' => $navigation,
         ];
+
+        if ($action !== false) {
+            $item['action'] = is_array($action) ? $action : null;
+        }
 
         $aging_days = self::normalize_rule_int($rules['aging_days'] ?? null);
         if ($aging_days !== null) {

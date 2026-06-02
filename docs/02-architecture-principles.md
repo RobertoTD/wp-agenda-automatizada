@@ -186,6 +186,12 @@ PLUGIN ROOT
   Adaptadores para integrar el plugin con temas o entornos (calendario, modal, slots, datePicker).  
   Permiten que el frontend funcione con distintas implementaciones de UI.
 
+## Learning Recommendations
+
+- El catálogo de `includes/domain/learning/` define la intención de cada recomendación, incluida la acción primaria opcional (`action`).
+- `includes/application/learning/GetLearningRecommendationsUseCase.php` normaliza el contrato para la UI: adapta `navigation` legacy, resuelve URLs de navegación y descarta acciones inválidas de forma conservadora.
+- Las acciones `handler` son claves estables para JS; PHP no decide disponibilidad de navegador ni ejecuta lógica runtime como instalación PWA.
+
 ## PHP Layer (includes/)
 
 - **controllers/**  

@@ -46,6 +46,13 @@ ui (JS)      →  http (vía AJAX)
 
 - `booking`: creacion/resolucion de citas y disponibilidad asociada.
 - `onboarding`: estado de activacion inicial hacia la primera cita.
+- `learning`: recomendaciones de producto; el catalogo declara intencion (`action`) y Application normaliza el payload ejecutable.
+
+### Learning: acciones primarias
+
+- El catalogo (`includes/domain/learning/`) puede declarar `action` opcional como intencion: `navigate`, `handler` o `null`.
+- `GetLearningRecommendationsUseCase` normaliza esa intencion: resuelve URLs para `navigate`, valida `handler`, y conserva `navigation` como adapter legacy.
+- La UI solo renderiza/ejecuta el contrato ya normalizado; la disponibilidad runtime de handlers (ej. PWA install) vive en JS, no en PHP.
 
 ## Naming (para archivos NUEVOS, no migramos lo viejo todavía)
 
