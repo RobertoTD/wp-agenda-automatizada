@@ -39,18 +39,25 @@ final class GetAccountStatusUseCase {
     /**
      * @return array{
      *     success: true,
-     *     data: array{account_status: array<string,mixed>}
+     *     data: array{
+     *         account_status: array<string,mixed>,
+     *         public_site: array<string,mixed>
+     *     }
      * }|array{
      *     success: false,
-     *     error: array{code: string, message: string}
+     *     error: array{code: string, message: string},
+     *     data: array{public_site: array<string,mixed>}
      * }
      */
     public function execute(): array {
+        $public_site = $this->resolvePublicSitePayload();
+
         $client_secret = (string) get_option('aa_client_secret', '');
         if ($client_secret === '') {
             return $this->failure(
                 'account_backend_not_configured',
-                'Falta el client secret del backend. Vuelve a vincular la agenda o contacta a soporte.'
+                'Falta el client secret del backend. Vuelve a vincular la agenda o contacta a soporte.',
+                $public_site
             );
         }
 
@@ -59,7 +66,8 @@ final class GetAccountStatusUseCase {
         if (empty($backend['ok'])) {
             return $this->failure(
                 (string) ($backend['code'] ?? 'account_backend_error'),
-                (string) ($backend['error'] ?? 'No se pudo consultar el estado de cuenta.')
+                (string) ($backend['error'] ?? 'No se pudo consultar el estado de cuenta.'),
+                $public_site
             );
         }
 
@@ -69,6 +77,7 @@ final class GetAccountStatusUseCase {
             'success' => true,
             'data'    => [
                 'account_status' => $sanitized,
+                'public_site'    => $public_site,
             ],
         ];
     }
@@ -143,14 +152,71 @@ final class GetAccountStatusUseCase {
     }
 
     /**
-     * @return array{success: false, error: array{code: string, message: string}}
+     * Local read-only snapshot for the public website status section in Account.
+     *
+     * @return array{
+     *     is_provisioned: bool,
+     *     status: string,
+     *     show_section: bool,
+     *     can_activate: bool,
+     *     can_deactivate: bool,
+     *     public_url: string|null
+     * }
      */
-    private function failure(string $code, string $message): array {
+    private function resolvePublicSitePayload(): array {
+        $is_provisioned = class_exists('AA_Installation_Provisioning_Detector')
+            && AA_Installation_Provisioning_Detector::is_provisioned();
+
+        if (!$is_provisioned) {
+            return [
+                'is_provisioned' => false,
+                'status'         => AA_Public_Site_Status::STATUS_ACTIVE,
+                'show_section'   => false,
+                'can_activate'   => false,
+                'can_deactivate' => false,
+                'public_url'     => null,
+            ];
+        }
+
+        $status = class_exists('AA_Public_Site_Status')
+            ? AA_Public_Site_Status::current()
+            : AA_Public_Site_Status::STATUS_ACTIVE;
+
+        return [
+            'is_provisioned' => true,
+            'status'         => $status,
+            'show_section'   => true,
+            'can_activate'   => false,
+            'can_deactivate' => false,
+            'public_url'     => $this->resolvePublicSitePreviewUrl(),
+        ];
+    }
+
+    private function resolvePublicSitePreviewUrl(): string {
+        if (class_exists('AA_Public_Site_Preview')) {
+            return AA_Public_Site_Preview::public_url();
+        }
+
+        return add_query_arg('deoia_public_preview', '1', home_url('/'));
+    }
+
+    /**
+     * @param array<string,mixed> $public_site
+     * @return array{
+     *     success: false,
+     *     error: array{code: string, message: string},
+     *     data: array{public_site: array<string,mixed>}
+     * }
+     */
+    private function failure(string $code, string $message, array $public_site): array {
         return [
             'success' => false,
             'error'   => [
                 'code'    => $code,
                 'message' => $message,
+            ],
+            'data'    => [
+                'public_site' => $public_site,
             ],
         ];
     }

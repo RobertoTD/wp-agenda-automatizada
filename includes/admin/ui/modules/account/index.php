@@ -75,6 +75,36 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
                         </p>
                         <p id="aa-account-billing-error" class="hidden text-sm text-red-700 mt-2"></p>
                     </div>
+
+                    <div id="aa-account-public-site-section" class="hidden pt-4 border-t border-gray-100">
+                        <h4 class="text-sm font-medium text-gray-900 mb-2">Sitio web público</h4>
+                        <p class="text-sm text-gray-600">
+                            <span class="text-gray-500">Estado:</span>
+                            <span id="aa-account-public-site-status" class="font-medium text-gray-900"></span>
+                        </p>
+                        <div id="aa-account-public-site-action" class="hidden mt-3">
+                            <button
+                                type="button"
+                                id="aa-account-public-site-activate-button"
+                                disabled
+                                class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-violet-600 text-white opacity-60 cursor-not-allowed"
+                            >
+                                Activar sitio web
+                            </button>
+                            <p id="aa-account-public-site-help" class="text-sm text-gray-500 mt-2">
+                                Disponible cuando el sitio web esté configurado.
+                            </p>
+                        </div>
+                        <a
+                            id="aa-account-public-site-preview-link"
+                            href="#"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="hidden inline-flex items-center mt-3 text-sm font-medium text-violet-700 hover:text-violet-800"
+                        >
+                            Ver sitio web público
+                        </a>
+                    </div>
                 </div>
 
                 <div id="aa-account-status-error" class="hidden rounded-lg border border-gray-200 bg-gray-50 p-4">

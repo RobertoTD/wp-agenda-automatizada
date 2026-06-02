@@ -30,9 +30,11 @@ final class AccountStatusAjax {
         }
 
         $error = $result['error'] ?? [];
+        $public_site = $result['data']['public_site'] ?? [];
         wp_send_json_error([
-            'message' => (string) ($error['message'] ?? 'No se pudo consultar el estado de cuenta.'),
-            'code'    => (string) ($error['code'] ?? 'account_backend_error'),
+            'message'     => (string) ($error['message'] ?? 'No se pudo consultar el estado de cuenta.'),
+            'code'        => (string) ($error['code'] ?? 'account_backend_error'),
+            'public_site' => is_array($public_site) ? $public_site : [],
         ]);
     }
 }

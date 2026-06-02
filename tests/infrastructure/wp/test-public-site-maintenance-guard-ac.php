@@ -190,7 +190,7 @@ ac_assert('guard sends Retry-After header', strpos($guard_source, 'Retry-After:'
 ac_assert('guard sends X-Robots noindex header', strpos($guard_source, 'X-Robots-Tag: noindex, nofollow') !== false);
 ac_assert('guard sends no-store cache header', strpos($guard_source, 'no-store') !== false);
 ac_assert('view includes noindex/nofollow meta', strpos($view_source, 'noindex, nofollow') !== false);
-ac_assert('view includes maintenance title', strpos($view_source, 'Agenda en preparación') !== false);
+ac_assert('view includes maintenance title', strpos($view_source, 'Sitio web en preparación') !== false);
 ac_assert('view includes DEOIA Citas brand', strpos($view_source, 'DEOIA Citas') !== false);
 ac_assert('view does not load theme header', strpos($view_source, 'get_header') === false && strpos($view_source, 'wp_head') === false);
 ac_assert('view does not load public shortcode', strpos($view_source, 'do_shortcode') === false && strpos($view_source, 'agenda_automatizada') === false);

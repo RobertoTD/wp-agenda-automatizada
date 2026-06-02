@@ -279,6 +279,66 @@
         }
     }
 
+    function renderPublicSiteSection(publicSite) {
+        var sectionEl = getEl('aa-account-public-site-section');
+        var statusEl = getEl('aa-account-public-site-status');
+        var actionEl = getEl('aa-account-public-site-action');
+        var buttonEl = getEl('aa-account-public-site-activate-button');
+        var previewLinkEl = getEl('aa-account-public-site-preview-link');
+
+        if (!sectionEl || !statusEl) {
+            return;
+        }
+
+        if (!publicSite || publicSite.show_section !== true) {
+            setHidden(sectionEl, true);
+            setHidden(actionEl, true);
+            setHidden(previewLinkEl, true);
+            return;
+        }
+
+        setHidden(sectionEl, false);
+
+        if (publicSite.status === 'maintenance') {
+            statusEl.textContent = 'En mantenimiento';
+            setHidden(actionEl, false);
+            if (buttonEl) {
+                buttonEl.disabled = true;
+            }
+        } else {
+            statusEl.textContent = 'Activo';
+            setHidden(actionEl, true);
+        }
+
+        if (previewLinkEl) {
+            if (typeof publicSite.public_url === 'string' && publicSite.public_url.trim() !== '') {
+                previewLinkEl.href = publicSite.public_url;
+                setHidden(previewLinkEl, false);
+            } else {
+                previewLinkEl.removeAttribute('href');
+                setHidden(previewLinkEl, true);
+            }
+        }
+    }
+
+    function setBillingSummaryVisible(visible) {
+        var badgeEl = getEl('aa-account-status-badge');
+        var summaryEl = badgeEl ? badgeEl.closest('.flex.flex-wrap') : null;
+        var planGridEl = getEl('aa-account-plan') ? getEl('aa-account-plan').closest('dl') : null;
+        var billingActionEl = getEl('aa-account-billing-action');
+        var noticeEl = getEl('aa-account-notice');
+        var messagesEl = getEl('aa-account-messages');
+
+        setHidden(summaryEl, !visible);
+        setHidden(planGridEl, !visible);
+        setHidden(billingActionEl, !visible);
+
+        if (!visible) {
+            setNotice(noticeEl, '', '');
+            renderMessages(messagesEl, []);
+        }
+    }
+
     /**
      * @param {object} status
      */
@@ -425,12 +485,19 @@
                 return response.json();
             })
             .then(function (data) {
-                if (data && data.success && data.data && data.data.account_status) {
-                    return data.data.account_status;
+                if (data && data.success && data.data) {
+                    return {
+                        accountStatus: data.data.account_status || null,
+                        publicSite: data.data.public_site || null
+                    };
                 }
 
                 if (data && !data.success && data.data) {
                     console.warn('[AccountModule] Account status error:', data.data.code || '', data.data.message || '');
+                    return {
+                        accountStatus: null,
+                        publicSite: data.data.public_site || null
+                    };
                 }
 
                 return null;
@@ -526,13 +593,33 @@
         bindBillingClickHandler();
         showLoading();
 
-        fetchAccountStatus().then(function (status) {
-            if (!status) {
+        fetchAccountStatus().then(function (payload) {
+            if (!payload) {
                 showError();
                 return;
             }
 
-            renderAccountStatus(status);
+            var hasBilling = !!(payload.accountStatus && typeof payload.accountStatus === 'object');
+            var hasPublicSite = !!(payload.publicSite && payload.publicSite.show_section === true);
+
+            if (!hasBilling && !hasPublicSite) {
+                showError();
+                return;
+            }
+
+            if (hasBilling) {
+                setBillingSummaryVisible(true);
+                renderAccountStatus(payload.accountStatus);
+            } else {
+                setBillingSummaryVisible(false);
+                setNotice(
+                    getEl('aa-account-notice'),
+                    'No pudimos consultar el estado de cuenta en este momento.',
+                    'border-gray-200 bg-gray-50 text-gray-700'
+                );
+            }
+
+            renderPublicSiteSection(payload.publicSite);
             showContent();
         });
     }

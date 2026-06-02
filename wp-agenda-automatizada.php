@@ -62,6 +62,8 @@ require_once plugin_dir_path(__FILE__) . 'includes/auth-helper.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/Schema.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/PublicSiteMaintenanceGuard.php';
 AA_Public_Site_Maintenance_Guard::register();
+require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/PublicSitePreview.php';
+AA_Public_Site_Preview::register();
 
 // 1️⃣c App login context detection (AL-1; visual skin in AL-2)
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/auth/AppLoginSkin.php';
