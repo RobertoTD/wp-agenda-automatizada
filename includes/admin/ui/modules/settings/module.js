@@ -26,12 +26,10 @@
         initVirtualAddressToggle();
 
         // ================================
-        // 🔹 Schedule Intervals Management
+        // 🔹 Legacy fixed schedule UI (only when section is rendered)
         // ================================
-        initDayToggles();
-        initIntervals();
-        convertInputsToDesktopSelectors();
-        observeResizeChanges();
+        initLegacyFixedScheduleUi();
+
         applySetupFocusFromUrl();
     });
 
@@ -293,6 +291,24 @@
                 hourSelect.click();
             }
         });
+    }
+
+    // ================================
+    // 🔹 LEGACY FIXED SCHEDULE UI
+    // ================================
+
+    /**
+     * Binds schedule UI only when the deprecated fixed-availability section is in the DOM.
+     */
+    function initLegacyFixedScheduleUi() {
+        if (!document.querySelector('.day-intervals')) {
+            return;
+        }
+
+        initDayToggles();
+        initIntervals();
+        convertInputsToDesktopSelectors();
+        observeResizeChanges();
     }
 
     // ================================

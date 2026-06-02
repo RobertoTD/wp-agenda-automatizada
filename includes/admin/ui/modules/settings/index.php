@@ -10,17 +10,11 @@
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
 
-// Get data for form
-$schedule = get_option('aa_schedule', []);
-$days = [
-    'monday'    => 'Lunes',
-    'tuesday'   => 'Martes',
-    'wednesday' => 'Miércoles',
-    'thursday'  => 'Jueves',
-    'friday'    => 'Viernes',
-    'saturday'  => 'Sábado',
-    'sunday'    => 'Domingo'
-];
+// UI de horario fijo deprecada; aa_schedule / aa_service_schedule / aa_staff_schedule siguen en BD para runtime legacy.
+$aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
+    'aa_show_legacy_fixed_schedule_ui',
+    defined('AA_SHOW_LEGACY_FIXED_SCHEDULE_UI') && AA_SHOW_LEGACY_FIXED_SCHEDULE_UI
+);
 ?>
 
 <div class="max-w-5xl mx-auto py-2">
@@ -29,8 +23,20 @@ $days = [
         <?php settings_fields('agenda_automatizada_settings'); ?>
         <?php do_settings_sections('agenda_automatizada_settings'); ?>
 
+        <?php if ($aa_show_legacy_fixed_schedule_ui) :
+            $schedule = get_option('aa_schedule', []);
+            $days = [
+                'monday'    => 'Lunes',
+                'tuesday'   => 'Martes',
+                'wednesday' => 'Miércoles',
+                'thursday'  => 'Jueves',
+                'friday'    => 'Viernes',
+                'saturday'  => 'Sábado',
+                'sunday'    => 'Domingo',
+            ];
+        ?>
         <!-- ═══════════════════════════════════════════════════════════════
-             SECCIÓN: Horarios y Disponibilidad
+             SECCIÓN: Horarios y Disponibilidad (legacy; soporte vía AA_SHOW_LEGACY_FIXED_SCHEDULE_UI)
         ═══════════════════════════════════════════════════════════════ -->
         <details class="bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
             <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
@@ -150,6 +156,7 @@ $days = [
                 </div>
             </div>
         </details>
+        <?php endif; ?>
 
         <!-- ═══════════════════════════════════════════════════════════════
              SECCIÓN: Parámetros Generales
