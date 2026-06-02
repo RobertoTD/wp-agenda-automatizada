@@ -54,6 +54,7 @@ ui (JS)      →  http (vía AJAX)
 - `GetLearningRecommendationsUseCase` normaliza esa intencion: resuelve URLs para `navigate`, valida `handler`, y conserva `navigation` como adapter legacy.
 - La UI solo renderiza/ejecuta el contrato ya normalizado; la disponibilidad runtime de handlers (ej. PWA install) vive en JS, no en PHP.
 - `learning-action-handlers.js` registra handlers por clave estable. Un handler solo se renderiza si existe, tiene `run` y `isAvailable(action, item)` confirma disponibilidad.
+- `pwa.install` es el primer handler real: captura `beforeinstallprompt`/`appinstalled` en closure (sin `window.deferredPrompt`) y solo está disponible si hay prompt diferido y no se está en modo standalone.
 
 ## Naming (para archivos NUEVOS, no migramos lo viejo todavía)
 

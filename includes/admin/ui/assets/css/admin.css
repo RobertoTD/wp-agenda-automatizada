@@ -1433,12 +1433,12 @@ body.aa-modal-open {
   pointer-events: none;
 }
 
-.visible {
-  visibility: visible;
-}
-
 .\!visible {
   visibility: visible !important;
+}
+
+.visible {
+  visibility: visible;
 }
 
 .invisible {
@@ -2586,16 +2586,12 @@ body.aa-modal-open {
   font-variant-numeric: var(--tw-ordinal) var(--tw-slashed-zero) var(--tw-numeric-figure) var(--tw-numeric-spacing) var(--tw-numeric-fraction);
 }
 
-.leading-relaxed {
-  line-height: 1.625;
-}
-
-.leading-tight {
-  line-height: 1.25;
-}
-
 .leading-none {
   line-height: 1;
+}
+
+.leading-relaxed {
+  line-height: 1.625;
 }
 
 .tracking-tight {
@@ -2791,6 +2787,11 @@ body.aa-modal-open {
   color: rgb(15 23 42 / var(--tw-text-opacity, 1));
 }
 
+.text-violet-700 {
+  --tw-text-opacity: 1;
+  color: rgb(109 40 217 / var(--tw-text-opacity, 1));
+}
+
 .text-white {
   --tw-text-opacity: 1;
   color: rgb(255 255 255 / var(--tw-text-opacity, 1));
@@ -2814,11 +2815,6 @@ body.aa-modal-open {
 .text-yellow-800 {
   --tw-text-opacity: 1;
   color: rgb(133 77 14 / var(--tw-text-opacity, 1));
-}
-
-.text-violet-700 {
-  --tw-text-opacity: 1;
-  color: rgb(109 40 217 / var(--tw-text-opacity, 1));
 }
 
 .underline {

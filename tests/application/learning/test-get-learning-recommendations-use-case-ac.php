@@ -74,7 +74,14 @@ function run_action_contract_assertions(): void {
         $install_has_explicit_action
     );
 
-    ac_assert('install_pwa legacy navigation resolves to null action', $install_action === null);
+    ac_assert(
+        'install_pwa resolves to pwa.install handler action',
+        is_array($install_action)
+        && ($install_action['type'] ?? '') === 'handler'
+        && ($install_action['handler'] ?? '') === 'pwa.install'
+        && ($install_action['label'] ?? '') === 'Instalar'
+        && !isset($install_action['url'])
+    );
 
     $invalid_handler_action = GetLearningRecommendationsUseCase::resolve_action_payload([
         'type' => 'handler',
@@ -95,6 +102,87 @@ function run_action_contract_assertions(): void {
         && ($valid_handler_action['type'] ?? '') === 'handler'
         && ($valid_handler_action['label'] ?? '') === 'Instalar'
         && ($valid_handler_action['handler'] ?? '') === 'pwa.install'
+    );
+
+    run_policy_action_pipeline_assertions();
+}
+
+/**
+ * Simula el enriquecimiento de action tal como enrich_item() del use case.
+ *
+ * @param array<string,mixed> $item
+ * @return array<string,mixed>
+ */
+function enrich_action_fields_for_test(array $item): array {
+    $navigation = is_array($item['navigation'] ?? null) ? $item['navigation'] : [];
+    $raw_action = array_key_exists('action', $item) ? $item['action'] : null;
+    $has_explicit_action = array_key_exists('action', $item);
+    $action = GetLearningRecommendationsUseCase::resolve_action_payload(
+        $has_explicit_action ? $raw_action : null,
+        $navigation,
+        $has_explicit_action
+    );
+
+    $item['action'] = $action;
+    $item['action_url'] = is_array($action) && ($action['type'] ?? '') === 'navigate'
+        ? (string) ($action['url'] ?? '')
+        : null;
+    $item['action_label'] = is_array($action)
+        ? (string) ($action['label'] ?? '')
+        : null;
+
+    return $item;
+}
+
+function run_policy_action_pipeline_assertions(): void {
+    $catalog = AA_Learning_Catalog::definitions();
+    $policy = new AA_Learning_Visibility_Policy();
+    $now = '2026-06-01 12:00:00';
+
+    $install_def = $catalog['install_pwa'] ?? [];
+    $evaluated_install = $policy->evaluate($install_def, null, [], $now);
+
+    ac_assert(
+        'policy evaluate preserves install_pwa action',
+        array_key_exists('action', $evaluated_install)
+        && is_array($evaluated_install['action'])
+        && ($evaluated_install['action']['type'] ?? '') === 'handler'
+        && ($evaluated_install['action']['handler'] ?? '') === 'pwa.install'
+        && ($evaluated_install['action']['label'] ?? '') === 'Instalar'
+    );
+
+    $enriched_install = enrich_action_fields_for_test($evaluated_install);
+
+    ac_assert(
+        'install_pwa enriched payload exposes handler action',
+        is_array($enriched_install['action'] ?? null)
+        && ($enriched_install['action']['type'] ?? '') === 'handler'
+        && ($enriched_install['action']['handler'] ?? '') === 'pwa.install'
+        && ($enriched_install['action']['label'] ?? '') === 'Instalar'
+    );
+    ac_assert(
+        'install_pwa enriched action_url stays null for handler',
+        array_key_exists('action_url', $enriched_install) && $enriched_install['action_url'] === null
+    );
+
+    $legacy_def = $catalog['configure_services'] ?? [];
+    $evaluated_legacy = $policy->evaluate($legacy_def, null, [], $now);
+
+    ac_assert(
+        'legacy recommendation policy evaluate has no explicit action key',
+        !array_key_exists('action', $evaluated_legacy)
+    );
+
+    $enriched_legacy = enrich_action_fields_for_test($evaluated_legacy);
+
+    ac_assert(
+        'legacy recommendation enriched via navigation adapter',
+        is_array($enriched_legacy['action'] ?? null)
+        && ($enriched_legacy['action']['type'] ?? '') === 'navigate'
+        && ($enriched_legacy['action']['label'] ?? '') === 'Ir'
+        && !empty($enriched_legacy['action']['url'])
+        && !empty($enriched_legacy['action_url'])
+        && ($enriched_legacy['action_label'] ?? '') === 'Ir'
     );
 }
 
@@ -136,7 +224,13 @@ ac_assert('learning-action-handlers exposes isAvailable', strpos($handlers_js, '
 ac_assert('learning-action-handlers exposes run', strpos($handlers_js, 'run: run') !== false);
 ac_assert('learning-action-handlers exposes onAvailabilityChange', strpos($handlers_js, 'onAvailabilityChange: onAvailabilityChange') !== false);
 ac_assert('learning-action-handlers normalizes run to Promise', strpos($handlers_js, 'Promise.resolve(handler.run') !== false);
-ac_assert('learning-action-handlers does not register pwa.install', strpos($handlers_js, 'pwa.install') === false);
+ac_assert('learning-action-handlers registers pwa.install handler', strpos($handlers_js, "register('pwa.install'") !== false);
+ac_assert('pwa.install captures beforeinstallprompt', strpos($handlers_js, 'beforeinstallprompt') !== false);
+ac_assert('pwa.install listens appinstalled', strpos($handlers_js, 'appinstalled') !== false);
+ac_assert('pwa.install detects standalone display-mode', strpos($handlers_js, '(display-mode: standalone)') !== false);
+ac_assert('pwa.install checks navigator.standalone for iOS', strpos($handlers_js, 'navigator.standalone') !== false);
+ac_assert('pwa.install keeps deferredPrompt out of window', strpos($handlers_js, 'window.deferredPrompt') === false);
+ac_assert('pwa.install does not complete recommendation yet', strpos($handlers_js, 'completeRecommendation') === false && strpos($handlers_js, 'ctx.complete') === false);
 
 $get_uc = file_get_contents($files['use_case']);
 ac_assert('Get use case exposes can_defer flag', strpos($get_uc, 'can_defer') !== false);
@@ -264,9 +358,14 @@ if ($wp_load !== '' && is_readable($wp_load)) {
 
     if (!empty($install_items)) {
         $install_pwa = $install_items[0];
-        ac_assert('install_pwa action is null', array_key_exists('action', $install_pwa) && $install_pwa['action'] === null);
-        ac_assert('install_pwa action_url is null', array_key_exists('action_url', $install_pwa) && $install_pwa['action_url'] === null);
-        ac_assert('install_pwa action_label is null', array_key_exists('action_label', $install_pwa) && $install_pwa['action_label'] === null);
+        ac_assert(
+            'install_pwa exposes pwa.install handler action',
+            is_array($install_pwa['action'] ?? null)
+            && ($install_pwa['action']['type'] ?? '') === 'handler'
+            && ($install_pwa['action']['handler'] ?? '') === 'pwa.install'
+            && ($install_pwa['action']['label'] ?? '') === 'Instalar'
+        );
+        ac_assert('install_pwa action_url stays null for handler', array_key_exists('action_url', $install_pwa) && $install_pwa['action_url'] === null);
     }
 
     // Simular handler AJAX (sin HTTP).

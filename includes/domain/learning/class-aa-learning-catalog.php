@@ -134,6 +134,11 @@ final class AA_Learning_Catalog {
                 true,
                 [
                     'dismiss_hours' => 48,
+                ],
+                [
+                    'type' => 'handler',
+                    'handler' => 'pwa.install',
+                    'label' => 'Instalar',
                 ]
             ),
             self::item(

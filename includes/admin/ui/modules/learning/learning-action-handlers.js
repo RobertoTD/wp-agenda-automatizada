@@ -109,4 +109,82 @@
         run: run,
         onAvailabilityChange: onAvailabilityChange
     };
+
+    // ─── Handler real: pwa.install ───────────────────────────────
+    // deferredPrompt vive solo en este closure, nunca expuesto en el objeto window.
+    (function registerPwaInstallHandler() {
+        var deferredPrompt = null;
+        var installed = false;
+
+        function isStandalone() {
+            try {
+                if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
+                    return true;
+                }
+            } catch (err) {
+                // matchMedia puede no existir en entornos muy antiguos; tratamos como no standalone.
+            }
+
+            return window.navigator && window.navigator.standalone === true;
+        }
+
+        function canInstallNow() {
+            return !!deferredPrompt && !installed && !isStandalone();
+        }
+
+        window.addEventListener('beforeinstallprompt', function (event) {
+            event.preventDefault();
+            deferredPrompt = event;
+            notifyAvailabilityChanged();
+        });
+
+        window.addEventListener('appinstalled', function () {
+            deferredPrompt = null;
+            installed = true;
+            notifyAvailabilityChanged();
+        });
+
+        register('pwa.install', {
+            isAvailable: function () {
+                return canInstallNow();
+            },
+            run: function () {
+                if (!canInstallNow()) {
+                    return Promise.resolve({ completed: false, outcome: 'unavailable' });
+                }
+
+                var promptEvent = deferredPrompt;
+                // El prompt solo puede usarse una vez; lo limpiamos de inmediato.
+                deferredPrompt = null;
+
+                var promptResult;
+
+                try {
+                    promptResult = promptEvent.prompt();
+                } catch (err) {
+                    notifyAvailabilityChanged();
+                    return Promise.reject(err);
+                }
+
+                return Promise.resolve(promptResult)
+                    .then(function () {
+                        return promptEvent.userChoice
+                            ? Promise.resolve(promptEvent.userChoice)
+                            : Promise.resolve(null);
+                    })
+                    .then(function (choice) {
+                        notifyAvailabilityChanged();
+
+                        var outcome = choice && choice.outcome ? choice.outcome : 'unknown';
+
+                        // 3C completará la recomendación; aquí solo reportamos el resultado.
+                        return { completed: false, outcome: outcome };
+                    })
+                    .catch(function (err) {
+                        notifyAvailabilityChanged();
+                        throw err;
+                    });
+            }
+        });
+    })();
 })();

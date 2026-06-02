@@ -67,6 +67,22 @@ ac_assert(
     && ($catalog['install_pwa']['completion_fact'] ?? null) === null
 );
 
+$r_install_visible = learning_eval($catalog['install_pwa']);
+ac_assert(
+    'install_pwa evaluate preserves explicit action',
+    array_key_exists('action', $r_install_visible)
+    && is_array($r_install_visible['action'])
+    && ($r_install_visible['action']['type'] ?? '') === 'handler'
+    && ($r_install_visible['action']['handler'] ?? '') === 'pwa.install'
+    && ($r_install_visible['action']['label'] ?? '') === 'Instalar'
+);
+
+$r_legacy_visible = learning_eval($catalog['configure_services']);
+ac_assert(
+    'legacy evaluate does not add explicit action key',
+    !array_key_exists('action', $r_legacy_visible)
+);
+
 // AC1: Activa sin estado usa default_list.
 $r = learning_eval($catalog['configure_services']);
 ac_assert('AC1 visible with empty state', $r['visible'] === true);

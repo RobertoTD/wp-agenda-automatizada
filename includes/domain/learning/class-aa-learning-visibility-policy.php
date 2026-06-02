@@ -97,7 +97,7 @@ final class AA_Learning_Visibility_Policy {
             $options
         );
 
-        return [
+        $result = [
             'key' => $key,
             'title' => (string) ($definition['title'] ?? ''),
             'description' => (string) ($definition['description'] ?? ''),
@@ -115,6 +115,12 @@ final class AA_Learning_Visibility_Policy {
                 ? $definition['navigation']
                 : [],
         ];
+
+        if (array_key_exists('action', $definition)) {
+            $result['action'] = $definition['action'];
+        }
+
+        return $result;
     }
 
     /**
