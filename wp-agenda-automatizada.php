@@ -54,6 +54,8 @@ $updateChecker->getVcsApi()->enableReleaseAssets();
 // 1️⃣ Helpers y utilidades base
 require_once plugin_dir_path(__FILE__) . 'includes/domain/tenant/class-aa-tenant-domain.php';
 require_once plugin_dir_path(__FILE__) . 'includes/domain/tenant/class-aa-installation-display-slug.php';
+require_once plugin_dir_path(__FILE__) . 'includes/domain/tenant/class-aa-installation-provisioning-detector.php';
+require_once plugin_dir_path(__FILE__) . 'includes/domain/site/class-aa-public-site-status.php';
 require_once plugin_dir_path(__FILE__) . 'includes/auth-helper.php';
 
 // 1️⃣b Infrastructure: WP schema lifecycle (activation hook)
