@@ -104,6 +104,7 @@ $files = [
     'use_case' => $plugin_root . '/includes/application/learning/GetLearningRecommendationsUseCase.php',
     'ajax' => $plugin_root . '/includes/http/ajax/LearningRecommendationsAjax.php',
     'service_js' => $plugin_root . '/assets/js/services/learningService.js',
+    'handlers_js' => $plugin_root . '/includes/admin/ui/modules/learning/learning-action-handlers.js',
     'module_js' => $plugin_root . '/includes/admin/ui/modules/learning/learning-module.js',
 ];
 
@@ -118,12 +119,24 @@ ac_assert(
 );
 
 $module_js = file_get_contents($files['module_js']);
+$handlers_js = file_get_contents($files['handlers_js']);
 ac_assert('learning-module uses can_defer', strpos($module_js, 'can_defer') !== false);
 ac_assert('learning-module uses can_dismiss', strpos($module_js, 'can_dismiss') !== false);
 ac_assert('learning-module resolves primary action from item.action', strpos($module_js, 'resolvePrimaryAction') !== false);
 ac_assert('learning-module reads item.action type navigate', strpos($module_js, "action.type === 'navigate'") !== false);
 ac_assert('learning-module keeps legacy action_url fallback', strpos($module_js, 'item.action_url') !== false);
-ac_assert('learning-module defers handler render until registry exists', strpos($module_js, "action.type === 'handler'") !== false);
+ac_assert('learning-module checks handler action availability', strpos($module_js, 'registry.isAvailable(action, item)') !== false);
+ac_assert('learning-module renders primary handler button', strpos($module_js, 'data-learning-action="primary-handler"') !== false);
+ac_assert('learning-module runs primary handler via registry', strpos($module_js, 'registry.run(action, item') !== false);
+ac_assert('learning-module rerenders on handler availability changes', strpos($module_js, 'onAvailabilityChange') !== false);
+
+ac_assert('learning-action-handlers exposes register', strpos($handlers_js, 'register: register') !== false);
+ac_assert('learning-action-handlers exposes get', strpos($handlers_js, 'get: get') !== false);
+ac_assert('learning-action-handlers exposes isAvailable', strpos($handlers_js, 'isAvailable: isAvailable') !== false);
+ac_assert('learning-action-handlers exposes run', strpos($handlers_js, 'run: run') !== false);
+ac_assert('learning-action-handlers exposes onAvailabilityChange', strpos($handlers_js, 'onAvailabilityChange: onAvailabilityChange') !== false);
+ac_assert('learning-action-handlers normalizes run to Promise', strpos($handlers_js, 'Promise.resolve(handler.run') !== false);
+ac_assert('learning-action-handlers does not register pwa.install', strpos($handlers_js, 'pwa.install') === false);
 
 $get_uc = file_get_contents($files['use_case']);
 ac_assert('Get use case exposes can_defer flag', strpos($get_uc, 'can_defer') !== false);
@@ -135,6 +148,15 @@ ac_assert('Get use case exposes normalized action payload', strpos($get_uc, 'res
 $index_php = file_get_contents($plugin_root . '/includes/admin/ui/modules/learning/index.php');
 ac_assert('index.php exposes AA_LEARNING_DATA', strpos($index_php, 'AA_LEARNING_DATA') !== false);
 ac_assert('index.php loads learningService.js', strpos($index_php, 'learningService.js') !== false);
+ac_assert('index.php loads learning-action-handlers.js', strpos($index_php, 'learning-action-handlers.js') !== false);
+ac_assert(
+    'index.php loads handlers before learning module',
+    strpos($index_php, 'learning-action-handlers.js') !== false
+    && strpos($index_php, 'learning-module.js') !== false
+    && strpos($index_php, '$learning_handlers_js .') !== false
+    && strpos($index_php, '$learning_js .') !== false
+    && strpos($index_php, '$learning_handlers_js .') < strpos($index_php, '$learning_js .')
+);
 ac_assert('index.php has primary/secondary containers', strpos($index_php, 'aa-learning-list-primary') !== false);
 
 // ─── Contrato action sin WordPress (si no hay integración) ───

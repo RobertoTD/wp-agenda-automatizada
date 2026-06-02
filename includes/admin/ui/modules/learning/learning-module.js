@@ -9,6 +9,8 @@
 
     var isActionPending = false;
     var FADE_MS = 150;
+    var lastRecommendationsPayload = null;
+    var isAvailabilityRerenderBound = false;
 
     function escapeHtml(value) {
         if (value === null || value === undefined) {
@@ -48,7 +50,7 @@
      * Resuelve la acción primaria renderizable desde item.action o legacy action_url.
      *
      * @param {object} item
-     * @returns {{kind: 'navigate', url: string, label: string}|null}
+     * @returns {{kind: 'navigate', url: string, label: string}|{kind: 'handler', handler: string, label: string}|null}
      */
     function resolvePrimaryAction(item) {
         var action = item.action;
@@ -68,7 +70,24 @@
         }
 
         if (action && typeof action === 'object' && action.type === 'handler') {
-            // Ciclo 3+: registro de handlers; no renderizar sin ejecutor disponible.
+            var registry = window.LearningActionHandlers;
+            var handlerKey = action.handler || '';
+
+            if (
+                handlerKey
+                && registry
+                && typeof registry.get === 'function'
+                && typeof registry.isAvailable === 'function'
+                && registry.get(handlerKey)
+                && registry.isAvailable(action, item)
+            ) {
+                return {
+                    kind: 'handler',
+                    handler: handlerKey,
+                    label: action.label || 'Ir'
+                };
+            }
+
             return null;
         }
 
@@ -103,6 +122,15 @@
                 + ' class="' + btnClass(false) + ' text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200">'
                 + escapeHtml(primaryAction.label)
                 + '</a>'
+            );
+        } else if (primaryAction && primaryAction.kind === 'handler') {
+            actions.push(
+                '<button type="button" data-learning-action="primary-handler"'
+                + ' data-recommendation-key="' + key + '"'
+                + ' data-learning-handler="' + escapeHtml(primaryAction.handler) + '"'
+                + ' class="' + btnClass(false) + ' text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200">'
+                + escapeHtml(primaryAction.label)
+                + '</button>'
             );
         }
 
@@ -188,6 +216,52 @@
     }
 
     /**
+     * @param {{list_1?:Array,list_2?:Array,all_visible?:Array}} data
+     */
+    function renderRecommendationsPayload(data) {
+        var emptyEl = document.getElementById('aa-learning-empty');
+        var primaryWrap = document.getElementById('aa-learning-list-primary-wrap');
+        var secondaryWrap = document.getElementById('aa-learning-list-secondary-wrap');
+        var primaryList = document.getElementById('aa-learning-list-primary');
+        var secondaryList = document.getElementById('aa-learning-list-secondary');
+
+        var list1 = data.list_1 || [];
+        var list2 = data.list_2 || [];
+        var hasAny = list1.length > 0 || list2.length > 0;
+
+        setVisible(emptyEl, !hasAny);
+        setVisible(primaryWrap, list1.length > 0);
+        setVisible(secondaryWrap, list2.length > 0);
+
+        renderList(primaryList, list1);
+        renderList(secondaryList, list2);
+    }
+
+    /**
+     * @param {string} recommendationKey
+     * @returns {object|null}
+     */
+    function findRecommendationItem(recommendationKey) {
+        var payload = lastRecommendationsPayload || {};
+        var items = []
+            .concat(payload.all_visible || [])
+            .concat(payload.list_1 || [])
+            .concat(payload.list_2 || []);
+        var found = null;
+
+        items.some(function (item) {
+            if (item && item.key === recommendationKey) {
+                found = item;
+                return true;
+            }
+
+            return false;
+        });
+
+        return found;
+    }
+
+    /**
      * @param {{silent?:boolean}} [options]
      * @returns {Promise<void>}
      */
@@ -199,10 +273,6 @@
         var loadingEl = document.getElementById('aa-learning-loading');
         var errorEl = document.getElementById('aa-learning-error');
         var emptyEl = document.getElementById('aa-learning-empty');
-        var primaryWrap = document.getElementById('aa-learning-list-primary-wrap');
-        var secondaryWrap = document.getElementById('aa-learning-list-secondary-wrap');
-        var primaryList = document.getElementById('aa-learning-list-primary');
-        var secondaryList = document.getElementById('aa-learning-list-secondary');
 
         if (!root) {
             return Promise.resolve();
@@ -226,16 +296,8 @@
             .then(function (data) {
                 setVisible(loadingEl, false);
 
-                var list1 = data.list_1 || [];
-                var list2 = data.list_2 || [];
-                var hasAny = list1.length > 0 || list2.length > 0;
-
-                setVisible(emptyEl, !hasAny);
-                setVisible(primaryWrap, list1.length > 0);
-                setVisible(secondaryWrap, list2.length > 0);
-
-                renderList(primaryList, list1);
-                renderList(secondaryList, list2);
+                lastRecommendationsPayload = data;
+                renderRecommendationsPayload(data);
 
                 if (silent) {
                     window.requestAnimationFrame(function () {
@@ -245,12 +307,65 @@
             })
             .catch(function (err) {
                 setVisible(loadingEl, false);
+                renderRecommendationsPayload({
+                    list_1: [],
+                    list_2: [],
+                    all_visible: []
+                });
                 setVisible(emptyEl, false);
-                setVisible(primaryWrap, false);
-                setVisible(secondaryWrap, false);
                 setRootFade(root, 1);
                 showActionError((err && err.message) ? err.message : 'No se pudieron cargar las recomendaciones.');
                 console.error('[Learning Module]', err);
+            });
+    }
+
+    /**
+     * @param {string} recommendationKey
+     */
+    function runPrimaryHandler(recommendationKey) {
+        var registry = window.LearningActionHandlers;
+        var item = findRecommendationItem(recommendationKey);
+        var action = item && item.action;
+
+        if (
+            isActionPending
+            || !recommendationKey
+            || !item
+            || !action
+            || action.type !== 'handler'
+            || !registry
+            || typeof registry.isAvailable !== 'function'
+            || typeof registry.run !== 'function'
+            || !registry.isAvailable(action, item)
+        ) {
+            return;
+        }
+
+        isActionPending = true;
+        setCardsDisabled(true);
+
+        registry.run(action, item, {
+            key: recommendationKey,
+            item: item,
+            reload: function () {
+                return loadRecommendations({ silent: true });
+            },
+            showError: showActionError
+        })
+            .then(function (result) {
+                if (result && result.reload) {
+                    return loadRecommendations({ silent: true });
+                }
+
+                return null;
+            })
+            .catch(function (err) {
+                showActionError((err && err.message) ? err.message : 'No se pudo completar la acción.');
+                console.error('[Learning Module] handler action failed:', err);
+            })
+            .finally(function () {
+                isActionPending = false;
+                setCardsDisabled(false);
             });
     }
 
@@ -317,12 +432,39 @@
             }
 
             event.preventDefault();
+
+            if (action === 'primary-handler') {
+                runPrimaryHandler(key);
+                return;
+            }
+
             runLearningAction(action, key);
+        });
+    }
+
+    function bindAvailabilityRerender() {
+        var registry = window.LearningActionHandlers;
+
+        if (
+            isAvailabilityRerenderBound
+            || !registry
+            || typeof registry.onAvailabilityChange !== 'function'
+        ) {
+            return;
+        }
+
+        isAvailabilityRerenderBound = true;
+
+        registry.onAvailabilityChange(function () {
+            if (lastRecommendationsPayload) {
+                renderRecommendationsPayload(lastRecommendationsPayload);
+            }
         });
     }
 
     function initLearningModule() {
         bindActionDelegation();
+        bindAvailabilityRerender();
         loadRecommendations();
     }
 

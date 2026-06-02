@@ -191,6 +191,7 @@ PLUGIN ROOT
 - El catálogo de `includes/domain/learning/` define la intención de cada recomendación, incluida la acción primaria opcional (`action`).
 - `includes/application/learning/GetLearningRecommendationsUseCase.php` normaliza el contrato para la UI: adapta `navigation` legacy, resuelve URLs de navegación y descarta acciones inválidas de forma conservadora.
 - Las acciones `handler` son claves estables para JS; PHP no decide disponibilidad de navegador ni ejecuta lógica runtime como instalación PWA.
+- `includes/admin/ui/modules/learning/learning-action-handlers.js` mantiene el registry genérico de handlers. La UI consulta ese registry para decidir si renderiza un botón handler y para ejecutarlo con un contexto acotado.
 
 ## PHP Layer (includes/)
 

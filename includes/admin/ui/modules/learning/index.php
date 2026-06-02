@@ -7,6 +7,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
 
 $learning_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
 $learning_js  = plugin_dir_url(__FILE__) . 'learning-module.js';
+$learning_handlers_js = plugin_dir_url(__FILE__) . 'learning-action-handlers.js';
 $learning_service_js = AA_PLUGIN_URL . 'assets/js/services/learningService.js';
 ?>
 
@@ -69,4 +70,5 @@ $learning_service_js = AA_PLUGIN_URL . 'assets/js/services/learningService.js';
 </script>
 
 <script src="<?php echo esc_url($learning_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($learning_handlers_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($learning_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
