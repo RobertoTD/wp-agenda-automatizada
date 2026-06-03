@@ -22,6 +22,7 @@
         shadowXs: '0 1px 2px rgba(0, 0, 0, 0.05)',
         shadowSm: '0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06)',
         shadowLg: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+        shadowExpanded: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05), 0 -10px 15px -3px rgba(0, 0, 0, 0.1), 0 -4px 6px -2px rgba(0, 0, 0, 0.05)',
         
         transitionNormal: '200ms ease'
     };
@@ -662,7 +663,7 @@
             
             card.style.zIndex = '80';
             card.style.overflow = 'visible';
-            card.style.boxShadow = TOKENS.shadowLg;
+            card.style.boxShadow = TOKENS.shadowExpanded;
             
             const body = card.querySelector('.aa-appointment-body');
             const header = card.querySelector('.aa-appointment-header');
@@ -811,7 +812,7 @@
             zIndex: '300',
             gridColumn: '',
             gridRow: '',
-            boxShadow: TOKENS.shadowLg,
+            boxShadow: TOKENS.shadowExpanded,
             borderColor: TOKENS.gray300,
             opacity: '1' // Card expandida siempre opacidad completa
         });
@@ -905,6 +906,7 @@
                     }
 
                     aplicarClearanceCejaEnHeader(currentHeader, card, true);
+                    currentBody.style.cursor = '';
                 } else {
                     // === EXPANDIDA ===
                     currentHeader.style.flex = '0 0 auto';
@@ -916,7 +918,7 @@
                     currentHeader.style.borderBottomLeftRadius = '0';
                     currentHeader.style.borderBottomRightRadius = '0';
                     currentHeader.style.borderTopLeftRadius = TOKENS.radiusMd;
-                    card.style.boxShadow = TOKENS.shadowLg;
+                    card.style.boxShadow = TOKENS.shadowExpanded;
                     card.style.borderColor = TOKENS.gray300;
                     // Card expandida siempre tiene opacidad completa
                     card.style.opacity = '1';
@@ -932,7 +934,33 @@
                     }
 
                     aplicarClearanceCejaEnHeader(currentHeader, card, false);
+                    currentBody.style.cursor = 'pointer';
                 }
+            }
+
+            const BODY_INTERACTIVE_SELECTOR = 'a, button, [data-action], .aa-whatsapp-link, input, select, textarea';
+
+            function cerrarCardExpandida() {
+                const currentBody = card.querySelector('.aa-appointment-body');
+                if (!currentBody || currentBody.hasAttribute('hidden')) return;
+
+                colapsarDeOverlay(card);
+                currentBody.setAttribute('hidden', '');
+                actualizarEstilosCard();
+
+                if (currentlyExpandedCard === card) {
+                    currentlyExpandedCard = null;
+                }
+
+                requestAnimationFrame(() => {
+                    debugOverflowSnapshot('CLOSE', card);
+                    resetTimelinePadding();
+                    window.AAAdmin?.iframeResize?.();
+                });
+
+                setTimeout(() => {
+                    crearControlesCicladoStack();
+                }, 0);
             }
             
             nuevoHeader.addEventListener('click', function(e) {
@@ -971,28 +999,17 @@
                         });
                     });
                 } else {
-                    // === CERRAR ===
-                    colapsarDeOverlay(card);
-                    currentBody.setAttribute('hidden', '');
-                    actualizarEstilosCard();
-                    
-                    if (currentlyExpandedCard === card) {
-                        currentlyExpandedCard = null;
-                    }
-                    
-                    // DEBUG: Medir después de colapsar
-                    requestAnimationFrame(() => {
-                        debugOverflowSnapshot('CLOSE', card);
-                        
-                        // Reset padding al cerrar
-                        resetTimelinePadding();
-                        window.AAAdmin?.iframeResize?.();
-                    });
-                    
-                    setTimeout(() => {
-                        crearControlesCicladoStack();
-                    }, 0);
+                    cerrarCardExpandida();
                 }
+            });
+
+            body.addEventListener('click', function(e) {
+                if (body.hasAttribute('hidden')) return;
+                if (e.target.closest(BODY_INTERACTIVE_SELECTOR)) return;
+
+                e.stopPropagation();
+                e.preventDefault();
+                cerrarCardExpandida();
             });
             
             actualizarEstilosCard();
