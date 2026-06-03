@@ -47,6 +47,14 @@
         @apply flex items-center justify-between;
     }
 
+    [data-aa-card]:not(.is-open) [data-aa-card-toggle] {
+        @apply rounded-lg;
+    }
+
+    [data-aa-card].is-open [data-aa-card-toggle] {
+        @apply rounded-t-lg;
+    }
+
     /* Chevron indicator for card toggle */
     [data-aa-card-toggle]::after {
         content: '';

@@ -268,6 +268,24 @@
             duracionBadge.innerHTML = `<span style="font-size: 10px;">⏱</span> ${cita.duracion} min`;
             estadoSection.appendChild(duracionBadge);
         }
+
+        if (cita.fecha) {
+            const horaStr = window.DateUtils?.hm
+                ? window.DateUtils.hm(new Date(cita.fecha))
+                : (cita.fecha.match(/\d{2}:\d{2}/) || [])[0] || '';
+            if (horaStr) {
+                const horaBadge = document.createElement('span');
+                Object.assign(horaBadge.style, {
+                    fontSize: TOKENS.textXs,
+                    color: TOKENS.gray500,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                });
+                horaBadge.textContent = horaStr + ' hrs';
+                estadoSection.appendChild(horaBadge);
+            }
+        }
         
         body.appendChild(estadoSection);
         

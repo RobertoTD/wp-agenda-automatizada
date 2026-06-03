@@ -388,16 +388,11 @@
             const staffLabel = document.createElement('div');
             staffLabel.className = 'aa-assignment-staff-label';
             
-            let labelText = assignment.staff_name;
             const servicesStr = (assignment.service_names && assignment.service_names.length > 0) 
                 ? assignment.service_names.join(', ') 
                 : '';
             
-            if (servicesStr) {
-                labelText = assignment.staff_name + ' - ' + servicesStr;
-            }
-            
-            staffLabel.textContent = labelText;
+            staffLabel.textContent = assignment.staff_name;
             
             staffLabel.setAttribute('data-aa-popover', '1');
             staffLabel.setAttribute('data-aa-popover-staff', assignment.staff_name || '');

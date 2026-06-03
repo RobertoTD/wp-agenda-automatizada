@@ -14,8 +14,8 @@ $learning_service_js = AA_PLUGIN_URL . 'assets/js/services/learningService.js';
 <div class="max-w-5xl mx-auto py-2">
 
     <div class="mb-4">
-        <h2 class="text-xl font-bold text-gray-900">Guías / Aprendizaje</h2>
-        <p class="text-sm text-gray-500 mt-0.5">Recursos y recomendaciones para sacar más provecho de tu agenda.</p>
+        <h2 class="text-xl font-bold text-gray-900">Listas / Tareas</h2>
+        <p class="text-sm text-gray-500 mt-0.5">Tareas organizadas inteligentemente para lograr tus ojetivos con eficacia.</p>
     </div>
 
     <details id="aa-learning-recommendations" class="bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group" open>
