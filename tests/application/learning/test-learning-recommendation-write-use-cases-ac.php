@@ -65,11 +65,13 @@ ac_assert('learningService ignoreRecommendation', strpos($service_js, 'ignoreRec
 ac_assert('learningService dismissRecommendation', strpos($service_js, 'dismissRecommendation') !== false);
 ac_assert('learningService completeRecommendation', strpos($service_js, 'completeRecommendation') !== false);
 
+$renderer_js = file_get_contents($plugin_root . '/assets/js/ui/learningRecommendationRenderer.js');
 $module_js = file_get_contents($plugin_root . '/includes/admin/ui/modules/learning/learning-module.js');
-ac_assert('learning-module defer action', strpos($module_js, 'data-learning-action="defer"') !== false);
-ac_assert('learning-module dismiss action', strpos($module_js, 'data-learning-action="dismiss"') !== false);
-ac_assert('learning-module shows Ignorar label', strpos($module_js, 'Ignorar') !== false);
-ac_assert('learning-module no reactivate button', strpos($module_js, 'Reactivar') === false);
+ac_assert('learning renderer defer action', strpos($renderer_js, 'data-learning-action="defer"') !== false);
+ac_assert('learning renderer dismiss action', strpos($renderer_js, 'data-learning-action="dismiss"') !== false);
+ac_assert('learning renderer shows Ignorar label', strpos($renderer_js, 'Ignorar') !== false);
+ac_assert('learning renderer no reactivate button', strpos($renderer_js, 'Reactivar') === false);
+ac_assert('learning-module delegates render to shared renderer', strpos($module_js, 'AALearningRecommendationRenderer') !== false);
 
 $get_uc = file_get_contents($plugin_root . '/includes/application/learning/GetLearningRecommendationsUseCase.php');
 ac_assert('Get use case exposes can_defer', strpos($get_uc, 'can_defer') !== false);

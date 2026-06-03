@@ -193,6 +193,7 @@ $files = [
     'ajax' => $plugin_root . '/includes/http/ajax/LearningRecommendationsAjax.php',
     'service_js' => $plugin_root . '/assets/js/services/learningService.js',
     'handlers_js' => $plugin_root . '/includes/admin/ui/modules/learning/learning-action-handlers.js',
+    'renderer_js' => $plugin_root . '/assets/js/ui/learningRecommendationRenderer.js',
     'module_js' => $plugin_root . '/includes/admin/ui/modules/learning/learning-module.js',
 ];
 
@@ -207,14 +208,17 @@ ac_assert(
 );
 
 $module_js = file_get_contents($files['module_js']);
+$renderer_js = file_get_contents($files['renderer_js']);
 $handlers_js = file_get_contents($files['handlers_js']);
-ac_assert('learning-module uses can_defer', strpos($module_js, 'can_defer') !== false);
-ac_assert('learning-module uses can_dismiss', strpos($module_js, 'can_dismiss') !== false);
-ac_assert('learning-module resolves primary action from item.action', strpos($module_js, 'resolvePrimaryAction') !== false);
-ac_assert('learning-module reads item.action type navigate', strpos($module_js, "action.type === 'navigate'") !== false);
-ac_assert('learning-module keeps legacy action_url fallback', strpos($module_js, 'item.action_url') !== false);
-ac_assert('learning-module checks handler action availability', strpos($module_js, 'registry.isAvailable(action, item)') !== false);
-ac_assert('learning-module renders primary handler button', strpos($module_js, 'data-learning-action="primary-handler"') !== false);
+ac_assert('learning renderer uses can_defer', strpos($renderer_js, 'can_defer') !== false);
+ac_assert('learning renderer uses can_dismiss', strpos($renderer_js, 'can_dismiss') !== false);
+ac_assert('learning renderer resolves primary action from item.action', strpos($renderer_js, 'resolvePrimaryAction') !== false);
+ac_assert('learning renderer reads item.action type navigate', strpos($renderer_js, "action.type === 'navigate'") !== false);
+ac_assert('learning renderer keeps legacy action_url fallback', strpos($renderer_js, 'item.action_url') !== false);
+ac_assert('learning renderer checks handler action availability', strpos($renderer_js, 'registry.isAvailable(action, item)') !== false);
+ac_assert('learning renderer renders primary handler button', strpos($renderer_js, 'data-learning-action="primary-handler"') !== false);
+ac_assert('learning renderer exposes AALearningRecommendationRenderer', strpos($renderer_js, 'AALearningRecommendationRenderer') !== false);
+ac_assert('learning-module uses shared renderer', strpos($module_js, 'AALearningRecommendationRenderer') !== false);
 ac_assert('learning-module runs primary handler via registry', strpos($module_js, 'registry.run(action, item') !== false);
 ac_assert('learning-module rerenders on handler availability changes', strpos($module_js, 'onAvailabilityChange') !== false);
 
@@ -240,7 +244,11 @@ ac_assert('pwa.install hides card in standalone via shouldHideRecommendation', s
 ac_assert('pwa.install hides card when installed via shouldHideRecommendation', strpos($handlers_js, 'shouldHideRecommendation: function') !== false && strpos($handlers_js, 'installed') !== false);
 ac_assert('pwa.install isAvailable only gates install button', strpos($handlers_js, 'canInstallNow()') !== false && strpos($handlers_js, 'shouldHideRecommendation: function') !== false);
 ac_assert('learning-module filters recommendations before renderList', strpos($module_js, 'filterRecommendationsForRender') !== false && strpos($module_js, 'renderList(primaryList, list1)') !== false);
-ac_assert('learning-module uses shouldShowRecommendation for card filter not isAvailable', strpos($module_js, 'shouldShowRecommendation') !== false && strpos($module_js, 'filterRecommendationsForRender') !== false && strpos($module_js, 'filterRecommendationsForRender') < strpos($module_js, 'function renderList'));
+ac_assert(
+    'learning renderer uses shouldShowRecommendation for card filter not isAvailable',
+    strpos($renderer_js, 'shouldShowRecommendation') !== false
+    && strpos($renderer_js, 'filterRecommendationsForRender') !== false
+);
 
 $get_uc = file_get_contents($files['use_case']);
 ac_assert('Get use case exposes can_defer flag', strpos($get_uc, 'can_defer') !== false);
@@ -253,6 +261,15 @@ $index_php = file_get_contents($plugin_root . '/includes/admin/ui/modules/learni
 ac_assert('index.php exposes AA_LEARNING_DATA', strpos($index_php, 'AA_LEARNING_DATA') !== false);
 ac_assert('index.php loads learningService.js', strpos($index_php, 'learningService.js') !== false);
 ac_assert('index.php loads learning-action-handlers.js', strpos($index_php, 'learning-action-handlers.js') !== false);
+ac_assert('index.php loads learningRecommendationRenderer.js', strpos($index_php, 'learningRecommendationRenderer.js') !== false);
+ac_assert(
+    'index.php loads renderer before learning module',
+    strpos($index_php, 'learningRecommendationRenderer.js') !== false
+    && strpos($index_php, 'learning-module.js') !== false
+    && strpos($index_php, '$learning_renderer_js .') !== false
+    && strpos($index_php, '$learning_js .') !== false
+    && strpos($index_php, '$learning_renderer_js .') < strpos($index_php, '$learning_js .')
+);
 ac_assert(
     'index.php loads handlers before learning module',
     strpos($index_php, 'learning-action-handlers.js') !== false
