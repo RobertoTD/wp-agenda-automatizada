@@ -416,7 +416,6 @@
                 borderTopLeftRadius: TOKENS.radiusMd,
                 borderTopRightRadius: TOKENS.radiusMd,
                 backgroundColor: headerBgColor,
-                borderBottom: `2px solid ${borderColor}`,
                 boxSizing: 'border-box',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',

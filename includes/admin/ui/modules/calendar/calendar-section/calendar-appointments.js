@@ -674,6 +674,7 @@
                     body.style.flex = '1';
                     header.style.borderBottomLeftRadius = '0';
                     header.style.borderBottomRightRadius = '0';
+                    header.style.borderTopLeftRadius = TOKENS.radiusMd;
                 }
             }
         } else {
@@ -685,6 +686,13 @@
         }
 
         host.appendChild(card);
+
+        if (!isExpanded) {
+            const header = card.querySelector('.aa-appointment-header');
+            if (header) {
+                aplicarClearanceCejaEnHeader(header, card, true);
+            }
+        }
     }
     
     /**
@@ -700,6 +708,25 @@
             delete host.dataset.overflowPrev;
             delete host.dataset.zIndexPrev;
             hostsConExpandidas.delete(host);
+        }
+    }
+
+    /**
+     * Evita superposición ceja/header en citas de 30 min colapsadas.
+     */
+    function aplicarClearanceCejaEnHeader(header, card, collapsed) {
+        const isSlot30 = parseInt(card.dataset.citaBloquesOcupados, 10) === 1;
+        if (collapsed && isSlot30) {
+            const host = card.closest('.aa-overlay-cards-host');
+            const label = host?.querySelector('.aa-assignment-staff-label, .aa-schedule-label');
+            const clearance = label?.offsetHeight ?? 18;
+            header.style.paddingTop = clearance + 'px';
+            header.style.alignItems = 'flex-end';
+            header.style.paddingBottom = '2px';
+        } else {
+            header.style.paddingTop = '';
+            header.style.alignItems = 'center';
+            header.style.paddingBottom = '';
         }
     }
     
@@ -720,6 +747,7 @@
         body.style.flex = '0';
         header.style.borderBottomLeftRadius = '0';
         header.style.borderBottomRightRadius = TOKENS.radiusMd;
+        header.style.borderTopLeftRadius = '0';
         cardToCollapse.style.overflow = 'hidden';
         cardToCollapse.dataset.expanded = 'false';
         cardToCollapse.style.boxShadow = TOKENS.shadowXs;
@@ -739,6 +767,8 @@
         if (cardToCollapse.classList.contains('aa-expanded-in-overlay')) {
             colapsarDeOverlay(cardToCollapse);
         }
+
+        aplicarClearanceCejaEnHeader(header, cardToCollapse, true);
         
         setTimeout(() => {
             crearControlesCicladoStack();
@@ -775,7 +805,8 @@
             top: top + 'px',
             left: '0px',
             width: '100%',
-            height: height + 'px',
+            height: 'auto',
+            minHeight: height + 'px',
             pointerEvents: 'auto',
             zIndex: '300',
             gridColumn: '',
@@ -807,6 +838,7 @@
             top: '',
             left: '',
             height: '',
+            minHeight: '',
             width: '100%',
             pointerEvents: '',
             gridColumn: card.dataset.originalGridColumn || '1',
@@ -858,6 +890,7 @@
                     card.dataset.expanded = 'false';
                     currentHeader.style.borderBottomLeftRadius = '0';
                     currentHeader.style.borderBottomRightRadius = TOKENS.radiusMd;
+                    currentHeader.style.borderTopLeftRadius = '0';
                     card.style.boxShadow = TOKENS.shadowXs;
                     card.style.borderColor = TOKENS.gray200;
                     
@@ -870,6 +903,8 @@
                     if (cardHost) {
                         restaurarHostOverflow(cardHost);
                     }
+
+                    aplicarClearanceCejaEnHeader(currentHeader, card, true);
                 } else {
                     // === EXPANDIDA ===
                     currentHeader.style.flex = '0 0 auto';
@@ -880,6 +915,7 @@
                     card.dataset.expanded = 'true';
                     currentHeader.style.borderBottomLeftRadius = '0';
                     currentHeader.style.borderBottomRightRadius = '0';
+                    currentHeader.style.borderTopLeftRadius = TOKENS.radiusMd;
                     card.style.boxShadow = TOKENS.shadowLg;
                     card.style.borderColor = TOKENS.gray300;
                     // Card expandida siempre tiene opacidad completa
@@ -894,6 +930,8 @@
                         cardHost.style.zIndex = '70';
                         hostsConExpandidas.add(cardHost);
                     }
+
+                    aplicarClearanceCejaEnHeader(currentHeader, card, false);
                 }
             }
             
