@@ -74,6 +74,33 @@
         }
     }
 
+    /**
+     * Visibilidad runtime de la card completa (conservadora).
+     * No usar isAvailable aquí: ese método solo controla el botón primario.
+     */
+    function shouldShowRecommendation(action, item) {
+        if (!action || typeof action !== 'object' || action.type !== 'handler') {
+            return true;
+        }
+
+        var handler = getHandlerFromAction(action);
+
+        if (!handler) {
+            return true;
+        }
+
+        if (typeof handler.shouldHideRecommendation !== 'function') {
+            return true;
+        }
+
+        try {
+            return handler.shouldHideRecommendation(action, item) !== true;
+        } catch (err) {
+            console.warn('[LearningActionHandlers] recommendation visibility check failed:', err);
+            return true;
+        }
+    }
+
     function run(action, item, ctx) {
         var handler = getHandlerFromAction(action);
 
@@ -106,6 +133,7 @@
         register: register,
         get: get,
         isAvailable: isAvailable,
+        shouldShowRecommendation: shouldShowRecommendation,
         run: run,
         onAvailabilityChange: onAvailabilityChange
     };
@@ -145,6 +173,9 @@
         });
 
         register('pwa.install', {
+            shouldHideRecommendation: function () {
+                return isStandalone() || installed;
+            },
             isAvailable: function () {
                 return canInstallNow();
             },

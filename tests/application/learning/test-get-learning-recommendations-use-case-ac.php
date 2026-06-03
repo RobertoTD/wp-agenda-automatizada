@@ -223,6 +223,10 @@ ac_assert('learning-action-handlers exposes get', strpos($handlers_js, 'get: get
 ac_assert('learning-action-handlers exposes isAvailable', strpos($handlers_js, 'isAvailable: isAvailable') !== false);
 ac_assert('learning-action-handlers exposes run', strpos($handlers_js, 'run: run') !== false);
 ac_assert('learning-action-handlers exposes onAvailabilityChange', strpos($handlers_js, 'onAvailabilityChange: onAvailabilityChange') !== false);
+ac_assert('learning-action-handlers exposes shouldShowRecommendation', strpos($handlers_js, 'shouldShowRecommendation: shouldShowRecommendation') !== false);
+ac_assert('shouldShowRecommendation is conservative for non-handler actions', strpos($handlers_js, "action.type !== 'handler'") !== false);
+ac_assert('shouldShowRecommendation delegates hide only via shouldHideRecommendation', strpos($handlers_js, 'shouldHideRecommendation') !== false);
+ac_assert('isAvailable and shouldShowRecommendation are separate registry methods', strpos($handlers_js, 'isAvailable: isAvailable') !== false && strpos($handlers_js, 'shouldShowRecommendation: shouldShowRecommendation') !== false);
 ac_assert('learning-action-handlers normalizes run to Promise', strpos($handlers_js, 'Promise.resolve(handler.run') !== false);
 ac_assert('learning-action-handlers registers pwa.install handler', strpos($handlers_js, "register('pwa.install'") !== false);
 ac_assert('pwa.install captures beforeinstallprompt', strpos($handlers_js, 'beforeinstallprompt') !== false);
@@ -231,6 +235,12 @@ ac_assert('pwa.install detects standalone display-mode', strpos($handlers_js, '(
 ac_assert('pwa.install checks navigator.standalone for iOS', strpos($handlers_js, 'navigator.standalone') !== false);
 ac_assert('pwa.install keeps deferredPrompt out of window', strpos($handlers_js, 'window.deferredPrompt') === false);
 ac_assert('pwa.install does not complete recommendation yet', strpos($handlers_js, 'completeRecommendation') === false && strpos($handlers_js, 'ctx.complete') === false);
+ac_assert('pwa.install defines shouldHideRecommendation for card visibility', strpos($handlers_js, 'shouldHideRecommendation: function') !== false);
+ac_assert('pwa.install hides card in standalone via shouldHideRecommendation', strpos($handlers_js, 'shouldHideRecommendation: function') !== false && strpos($handlers_js, 'isStandalone()') !== false);
+ac_assert('pwa.install hides card when installed via shouldHideRecommendation', strpos($handlers_js, 'shouldHideRecommendation: function') !== false && strpos($handlers_js, 'installed') !== false);
+ac_assert('pwa.install isAvailable only gates install button', strpos($handlers_js, 'canInstallNow()') !== false && strpos($handlers_js, 'shouldHideRecommendation: function') !== false);
+ac_assert('learning-module filters recommendations before renderList', strpos($module_js, 'filterRecommendationsForRender') !== false && strpos($module_js, 'renderList(primaryList, list1)') !== false);
+ac_assert('learning-module uses shouldShowRecommendation for card filter not isAvailable', strpos($module_js, 'shouldShowRecommendation') !== false && strpos($module_js, 'filterRecommendationsForRender') !== false && strpos($module_js, 'filterRecommendationsForRender') < strpos($module_js, 'function renderList'));
 
 $get_uc = file_get_contents($files['use_case']);
 ac_assert('Get use case exposes can_defer flag', strpos($get_uc, 'can_defer') !== false);

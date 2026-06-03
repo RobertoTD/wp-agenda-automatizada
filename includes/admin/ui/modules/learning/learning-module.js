@@ -164,6 +164,40 @@
     }
 
     /**
+     * Filtra recomendaciones ocultas en runtime (p. ej. install_pwa en standalone).
+     *
+     * @param {Array} items
+     * @returns {Array}
+     */
+    function filterRecommendationsForRender(items) {
+        if (!items || !items.length) {
+            return [];
+        }
+
+        var registry = window.LearningActionHandlers;
+
+        return items.filter(function (item) {
+            if (!item || typeof item !== 'object') {
+                return false;
+            }
+
+            var action = item.action;
+
+            if (
+                !action
+                || typeof action !== 'object'
+                || action.type !== 'handler'
+                || !registry
+                || typeof registry.shouldShowRecommendation !== 'function'
+            ) {
+                return true;
+            }
+
+            return registry.shouldShowRecommendation(action, item) === true;
+        });
+    }
+
+    /**
      * @param {HTMLElement} listEl
      * @param {Array} items
      */
@@ -225,8 +259,8 @@
         var primaryList = document.getElementById('aa-learning-list-primary');
         var secondaryList = document.getElementById('aa-learning-list-secondary');
 
-        var list1 = data.list_1 || [];
-        var list2 = data.list_2 || [];
+        var list1 = filterRecommendationsForRender(data.list_1 || []);
+        var list2 = filterRecommendationsForRender(data.list_2 || []);
         var hasAny = list1.length > 0 || list2.length > 0;
 
         setVisible(emptyEl, !hasAny);

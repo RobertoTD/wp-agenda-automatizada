@@ -117,7 +117,7 @@ $module_js_url = $plugin_url . 'assignments-module.js?ver=' . rawurlencode($ver)
                     </span>
                     <div>
                         <h3 class="text-lg font-semibold text-gray-900">Personal</h3>
-                        <p class="text-sm text-gray-500 mt-0.5">Gestiona el personal que atiende clientes y sus capacidades.</p>
+                        <p class="text-sm text-gray-500 mt-0.5">Personal que atiende las reservas de los clientes. Y sus capacidades (servicios que puede atender).</p>
                     </div>
                 </div>
                 <svg class="aa-chevron w-5 h-5 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -159,7 +159,7 @@ $module_js_url = $plugin_url . 'assignments-module.js?ver=' . rawurlencode($ver)
                     </span>
                     <div>
                         <h3 class="text-lg font-semibold text-gray-900">Servicios</h3>
-                        <p class="text-sm text-gray-500 mt-0.5">Gestiona los servicios disponibles para asignar al personal.</p>
+                        <p class="text-sm text-gray-500 mt-0.5">Servicios que los clientes pueden reservar.</p>
                     </div>
                 </div>
                 <svg class="aa-chevron w-5 h-5 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
