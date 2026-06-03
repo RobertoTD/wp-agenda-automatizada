@@ -888,6 +888,12 @@ window.AAAdmin = window.AAAdmin || {};
             return card.contains(target);
         }
 
+        function isCardInteractiveTarget(target) {
+            return target.closest(
+                'a, button, input, select, textarea, label, [role="button"], [data-aa-no-collapse], .aa-whatsapp-link'
+            );
+        }
+
         // Event delegation: handle clicks on toggle elements
         document.addEventListener('click', function(event) {
             const toggle = event.target.closest('[data-aa-card-toggle]');
@@ -906,6 +912,15 @@ window.AAAdmin = window.AAAdmin || {};
                     } else {
                         openCard(card);
                     }
+                    return;
+                }
+            }
+
+            const openedCard = event.target.closest('[data-aa-card].is-open');
+            if (openedCard && !isCardInteractiveTarget(event.target)) {
+                const collapseZone = event.target.closest('.aa-card-body, .aa-card-overlay');
+                if (collapseZone && openedCard.contains(collapseZone)) {
+                    openedCard.classList.remove('is-open');
                     return;
                 }
             }

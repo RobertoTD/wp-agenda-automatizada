@@ -39,6 +39,10 @@
         @apply relative bg-white border border-gray-200 rounded-lg mb-2;
     }
 
+    [data-aa-card].is-open {
+        @apply rounded-t-lg rounded-b-none border-b-0;
+    }
+
     /* Card header - clickable toggle */
     [data-aa-card-toggle] {
         @apply px-4 py-3 cursor-pointer select-none;
@@ -68,7 +72,9 @@
 
     /* Overlay - hidden by default, positioned absolutely */
     .aa-card-overlay {
-        @apply hidden absolute left-0 right-0 top-full z-50;
+        @apply hidden absolute top-full z-50;
+        left: -1px;
+        right: -1px;
         @apply bg-white border border-gray-200 border-t-0 rounded-b-lg shadow-lg;
     }
 
@@ -84,6 +90,26 @@
 
     .aa-card-body > div {
         @apply py-1;
+    }
+
+    [data-aa-card].is-open .aa-card-body {
+        @apply cursor-pointer;
+    }
+
+    [data-aa-card].is-open .aa-card-body :is(a, button, input, select, textarea, label, [role="button"]) {
+        cursor: auto;
+    }
+
+    .aa-whatsapp-link {
+        @apply inline-flex items-center gap-1.5 cursor-pointer font-medium text-xs;
+        color: #25D366;
+        padding: 4px 6px;
+        border-radius: 4px;
+        transition: background-color 150ms ease;
+    }
+
+    .aa-whatsapp-link:hover {
+        background-color: rgba(37, 211, 102, 0.1);
     }
 
     /* Add padding to appointments list when cards are open to prevent overlay from touching modal border */

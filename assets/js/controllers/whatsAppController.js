@@ -147,8 +147,10 @@
       // Obtener nombre del negocio desde config global
       const businessName = window.AA_ADMIN_DATA?.businessName || 'nuestro negocio';
       
-      // Construir mensaje según estado (y virtual vs presencial)
-      const message = buildMessageForStatus({ status, name, service, datetime, attendanceType, joinUrl }, businessName);
+      // Construir mensaje según estado (y virtual vs presencial), salvo enlace directo sin mensaje
+      const message = el.dataset.waMessage === 'none'
+        ? ''
+        : buildMessageForStatus({ status, name, service, datetime, attendanceType, joinUrl }, businessName);
       
       console.log('📱 [WhatsAppController Admin] Abriendo chat:', { phone, status, message });
       
