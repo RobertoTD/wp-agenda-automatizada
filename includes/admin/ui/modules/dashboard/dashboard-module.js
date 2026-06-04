@@ -719,7 +719,7 @@
             });
     }
 
-    // ─── Citas: subsecciones colapsables ───────────────────────
+    // ─── Dashboard: filas y subsecciones colapsables ───────────
 
     var dashboardCollapsiblesBound = false;
 
@@ -747,7 +747,6 @@
     function setDashboardCollapseOpen(collapseEl, isOpen) {
         var toggle = collapseEl.querySelector('[data-aa-dashboard-collapse-toggle]');
         var body = collapseEl.querySelector('[data-aa-dashboard-collapse-body]');
-        var chevron = collapseEl.querySelector('.aa-dash-collapse-chevron');
 
         if (!toggle || !body) {
             return;
@@ -756,10 +755,6 @@
         collapseEl.classList.toggle('is-open', isOpen);
         body.classList.toggle('hidden', !isOpen);
         toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-
-        if (chevron) {
-            chevron.classList.toggle('rotate-180', isOpen);
-        }
     }
 
     function toggleDashboardCollapse(collapseEl) {
@@ -769,7 +764,7 @@
     }
 
     function bindDashboardCollapsibles() {
-        var root = document.getElementById('aa-dash-citas-cards');
+        var root = document.getElementById('aa-dashboard-root');
 
         if (!root || dashboardCollapsiblesBound) {
             return;

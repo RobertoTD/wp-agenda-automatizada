@@ -6,7 +6,7 @@
  *  - DDL de las tablas propias del plugin (aa_reservas, aa_notifications,
  *    aa_staff, aa_service_areas, aa_assignments, aa_services,
  *    aa_staff_services, aa_assignment_services,
- *    aa_learning_recommendation_state).
+ *    aa_learning_recommendation_state, aa_task_lists, aa_tasks).
  *  - Migraciones inline de columnas para instalaciones existentes
  *    (public_calendar, duration_minutes, calendar_uid).
  *  - Inicialización de options con valor por defecto (aa_estado_gsync,
@@ -64,7 +64,7 @@ final class AA_Schema {
      * Independiente de la versión del plugin. Solo refleja el estado
      * de las tablas/columnas/índices.
      */
-    public const DB_VERSION = '3';
+    public const DB_VERSION = '4';
 
     /**
      * Registra el activation hook y el chequeo de migraciones.
@@ -300,6 +300,49 @@ final class AA_Schema {
         ) $charset;";
 
         dbDelta($learning_state_sql);
+
+        // 🔹 Listas de tareas (Listas/Tareas — MC1)
+        $task_lists_table = $wpdb->prefix . 'aa_task_lists';
+        $task_lists_sql = "CREATE TABLE $task_lists_table (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            title varchar(255) NOT NULL,
+            description text DEFAULT NULL,
+            owner_type varchar(20) NOT NULL DEFAULT 'user',
+            importance int NOT NULL DEFAULT 0,
+            status varchar(20) NOT NULL DEFAULT 'active',
+            position int NOT NULL DEFAULT 0,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime DEFAULT NULL,
+            PRIMARY KEY  (id),
+            KEY status (status),
+            KEY owner_type (owner_type),
+            KEY position (position)
+        ) $charset;";
+
+        dbDelta($task_lists_sql);
+
+        // 🔹 Tareas por lista (Listas/Tareas — MC1)
+        $tasks_table = $wpdb->prefix . 'aa_tasks';
+        $tasks_sql = "CREATE TABLE $tasks_table (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            list_id bigint(20) unsigned NOT NULL,
+            title varchar(255) NOT NULL,
+            notes text DEFAULT NULL,
+            status varchar(20) NOT NULL DEFAULT 'pending',
+            source varchar(20) NOT NULL DEFAULT 'user',
+            importance int NOT NULL DEFAULT 0,
+            due_at datetime DEFAULT NULL,
+            position int NOT NULL DEFAULT 0,
+            completed_at datetime DEFAULT NULL,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime DEFAULT NULL,
+            PRIMARY KEY  (id),
+            KEY list_id (list_id),
+            KEY status (status),
+            KEY due_at (due_at)
+        ) $charset;";
+
+        dbDelta($tasks_sql);
 
         // NOTA: FOREIGN KEY constraints no se incluyen aquí porque dbDelta() puede tener problemas
         // con ellos. Si se necesitan, deben agregarse manualmente después de la creación:
