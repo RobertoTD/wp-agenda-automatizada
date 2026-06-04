@@ -15,12 +15,25 @@ $tasks_renderer_js = AA_PLUGIN_URL . 'assets/js/ui/taskBoardRenderer.js';
 $tasks_board_js = plugin_dir_url(__FILE__) . 'tasks-board-module.js';
 ?>
 
-<div class="max-w-5xl mx-auto py-2">
+<div id="aa-tasks-module-root" class="max-w-5xl mx-auto py-2">
 
     <div class="mb-4">
         <h2 class="text-xl font-bold text-gray-900">Listas / Tareas</h2>
         <p class="text-sm text-gray-500 mt-0.5">Tareas organizadas inteligentemente para lograr tus ojetivos con eficacia.</p>
     </div>
+
+    <section id="aa-executive-proposal" class="bg-white rounded-xl shadow border border-gray-200 mb-4 overflow-hidden">
+        <div class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
+            <h3 class="text-lg font-semibold text-gray-900">Propuesta ejecutiva</h3>
+            <p class="text-sm text-gray-500 mt-0.5">Acciones recomendadas ahora.</p>
+        </div>
+        <div class="p-4">
+            <p id="aa-executive-empty" class="hidden text-sm text-gray-500">
+                No hay acciones pendientes recomendadas. Crea tareas o revisa tus listas.
+            </p>
+            <ul id="aa-executive-list" class="space-y-3"></ul>
+        </div>
+    </section>
 
     <details id="aa-learning-recommendations" class="bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group" open>
         <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">

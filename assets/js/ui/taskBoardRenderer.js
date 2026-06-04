@@ -127,6 +127,87 @@
     }
 
     /**
+     * @param {Array} lists
+     * @returns {Object<number, object>}
+     */
+    function indexActiveLists(lists) {
+        var map = {};
+
+        (lists || []).forEach(function (list) {
+            if (!list || list.id === undefined || list.id === null || String(list.status || 'active') === 'archived') {
+                return;
+            }
+
+            map[Number(list.id)] = list;
+        });
+
+        return map;
+    }
+
+    /**
+     * @param {{lists:Array,tasks:Array,organization:Object}} payload
+     * @returns {Array<{task:object,list:object}>}
+     */
+    function resolveExecutiveCandidates(payload) {
+        var lists = payload.lists || [];
+        var tasks = payload.tasks || [];
+        var organization = payload.organization || {};
+        var candidateIds = Array.isArray(organization.executive_candidates)
+            ? organization.executive_candidates
+            : [];
+        var taskMap = indexTasks(tasks);
+        var listMap = indexActiveLists(lists);
+        var resolved = [];
+
+        candidateIds.forEach(function (taskId) {
+            var task = taskMap[Number(taskId)];
+            var list = task ? listMap[Number(task.list_id)] : null;
+
+            if (!task || !list || String(task.status || '') === 'done') {
+                return;
+            }
+
+            resolved.push({
+                task: task,
+                list: list
+            });
+        });
+
+        return resolved;
+    }
+
+    /**
+     * @param {{task:object,list:object}} candidate
+     * @returns {string}
+     */
+    function renderExecutiveCandidate(candidate) {
+        var task = candidate.task;
+        var list = candidate.list;
+        var taskId = escapeHtml(task.id);
+        var dueHtml = task.due_at
+            ? '<span class="text-xs text-gray-500"> · Vence: ' + escapeHtml(task.due_at) + '</span>'
+            : '';
+
+        return ''
+            + '<li class="aa-executive-candidate rounded-lg border border-blue-100 bg-blue-50/50 p-4" data-task-id="' + taskId + '">'
+            + '<div class="flex items-start justify-between gap-3">'
+            + '<div class="min-w-0 flex-1">'
+            + '<p class="text-sm font-semibold text-gray-900">' + escapeHtml(task.title || 'Tarea sin título') + '</p>'
+            + '<p class="text-xs text-gray-600 mt-1">'
+            + 'Lista: ' + escapeHtml(list.title || 'Lista sin título')
+            + dueHtml
+            + ' · Pendiente'
+            + '</p>'
+            + '</div>'
+            + '<button type="button" data-tasks-action="complete" data-task-id="' + taskId + '"'
+            + ' class="flex-shrink-0 text-xs font-medium text-green-700 hover:text-green-800 px-3 py-1.5 rounded-lg border border-green-200 bg-green-50">'
+            + 'Completar'
+            + '</button>'
+            + '</div>'
+            + '</li>';
+    }
+
+    /**
      * @param {object} task
      * @returns {string}
      */
@@ -214,9 +295,25 @@
         }).join('');
     }
 
+    /**
+     * @param {{lists:Array,tasks:Array,organization:Object}} payload
+     * @returns {string}
+     */
+    function renderExecutiveProposal(payload) {
+        var candidates = resolveExecutiveCandidates(payload || {});
+
+        if (candidates.length === 0) {
+            return '';
+        }
+
+        return candidates.map(renderExecutiveCandidate).join('');
+    }
+
     window.AATaskBoardRenderer = {
         escapeHtml: escapeHtml,
+        renderExecutiveProposal: renderExecutiveProposal,
         renderBoard: renderBoard,
+        resolveExecutiveCandidates: resolveExecutiveCandidates,
         resolveListOrder: resolveListOrder,
         resolveTasksForList: resolveTasksForList
     };

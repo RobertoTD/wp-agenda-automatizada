@@ -43,7 +43,7 @@
     }
 
     function setBoardDisabled(disabled) {
-        var root = document.getElementById('aa-tasks-board-root');
+        var root = document.getElementById('aa-tasks-module-root');
 
         if (!root) {
             return;
@@ -58,6 +58,31 @@
                 button.classList.remove('opacity-60', 'cursor-not-allowed');
             }
         });
+    }
+
+    /**
+     * @param {{lists:Array,tasks:Array,organization:Object}} data
+     */
+    function renderExecutiveProposal(data) {
+        var emptyEl = document.getElementById('aa-executive-empty');
+        var listEl = document.getElementById('aa-executive-list');
+        var renderer = getRenderer();
+
+        if (!emptyEl || !listEl) {
+            return;
+        }
+
+        if (!renderer || typeof renderer.renderExecutiveProposal !== 'function'
+            || typeof renderer.resolveExecutiveCandidates !== 'function') {
+            listEl.innerHTML = '';
+            setVisible(emptyEl, true);
+            return;
+        }
+
+        var candidates = renderer.resolveExecutiveCandidates(data || {});
+
+        setVisible(emptyEl, candidates.length === 0);
+        listEl.innerHTML = candidates.length > 0 ? renderer.renderExecutiveProposal(data) : '';
     }
 
     function updateActionButtons() {
@@ -120,6 +145,8 @@
         var emptyEl = document.getElementById('aa-tasks-empty');
         var listsRoot = document.getElementById('aa-tasks-lists-root');
         var renderer = getRenderer();
+
+        renderExecutiveProposal(data);
 
         if (!listsRoot) {
             return;
@@ -419,7 +446,7 @@
     }
 
     function bindBoardDelegation() {
-        var root = document.getElementById('aa-tasks-board-root');
+        var root = document.getElementById('aa-tasks-module-root');
 
         if (!root || root.dataset.tasksActionsBound === '1') {
             return;
