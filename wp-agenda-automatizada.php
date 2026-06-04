@@ -159,6 +159,12 @@ OnboardingStatusAjax::register();
 require_once __DIR__ . '/includes/http/ajax/LearningRecommendationsAjax.php';
 LearningRecommendationsAjax::register();
 
+// ================================
+// Endpoint AJAX: Listas/Tareas (capa http/ajax)
+// ================================
+require_once __DIR__ . '/includes/http/ajax/TasksAjax.php';
+TasksAjax::register();
+
 // ===============================
 // 🔹 Schema lifecycle: registra el activation hook con AA_Schema::install
 // ===============================
