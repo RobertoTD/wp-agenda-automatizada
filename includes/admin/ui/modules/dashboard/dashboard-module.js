@@ -719,6 +719,107 @@
             });
     }
 
+    // ─── Citas: subsecciones colapsables ───────────────────────
+
+    var dashboardCollapsiblesBound = false;
+
+    function isDashboardCollapseInteractiveTarget(target) {
+        // No incluir [role="button"]: el toggle lleva role="button" y sería ignorado siempre.
+        return !!target.closest(
+            'button, a, select, input, textarea, label, [data-aa-no-collapse]'
+        );
+    }
+
+    function notifyDashboardIframeResize() {
+        if (window.self === window.top) {
+            return;
+        }
+
+        window.requestAnimationFrame(function () {
+            window.dispatchEvent(new Event('resize'));
+
+            if (window.AAAdmin && typeof window.AAAdmin.iframeResize === 'function') {
+                window.AAAdmin.iframeResize();
+            }
+        });
+    }
+
+    function setDashboardCollapseOpen(collapseEl, isOpen) {
+        var toggle = collapseEl.querySelector('[data-aa-dashboard-collapse-toggle]');
+        var body = collapseEl.querySelector('[data-aa-dashboard-collapse-body]');
+        var chevron = collapseEl.querySelector('.aa-dash-collapse-chevron');
+
+        if (!toggle || !body) {
+            return;
+        }
+
+        collapseEl.classList.toggle('is-open', isOpen);
+        body.classList.toggle('hidden', !isOpen);
+        toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+
+        if (chevron) {
+            chevron.classList.toggle('rotate-180', isOpen);
+        }
+    }
+
+    function toggleDashboardCollapse(collapseEl) {
+        var isOpen = collapseEl.classList.contains('is-open');
+        setDashboardCollapseOpen(collapseEl, !isOpen);
+        notifyDashboardIframeResize();
+    }
+
+    function bindDashboardCollapsibles() {
+        var root = document.getElementById('aa-dash-citas-cards');
+
+        if (!root || dashboardCollapsiblesBound) {
+            return;
+        }
+
+        dashboardCollapsiblesBound = true;
+
+        root.addEventListener('click', function (event) {
+            if (isDashboardCollapseInteractiveTarget(event.target)) {
+                return;
+            }
+
+            var toggle = event.target.closest('[data-aa-dashboard-collapse-toggle]');
+
+            if (!toggle || !root.contains(toggle)) {
+                return;
+            }
+
+            var collapse = toggle.closest('[data-aa-dashboard-collapse]');
+
+            if (!collapse) {
+                return;
+            }
+
+            event.preventDefault();
+            toggleDashboardCollapse(collapse);
+        });
+
+        root.addEventListener('keydown', function (event) {
+            if (event.key !== 'Enter' && event.key !== ' ') {
+                return;
+            }
+
+            var toggle = event.target.closest('[data-aa-dashboard-collapse-toggle]');
+
+            if (!toggle || !root.contains(toggle) || isDashboardCollapseInteractiveTarget(event.target)) {
+                return;
+            }
+
+            var collapse = toggle.closest('[data-aa-dashboard-collapse]');
+
+            if (!collapse) {
+                return;
+            }
+
+            event.preventDefault();
+            toggleDashboardCollapse(collapse);
+        });
+    }
+
     // ─── Init ─────────────────────────────────────────────────
 
     function init() {
@@ -729,6 +830,8 @@
         }
 
         renderGreeting();
+
+        bindDashboardCollapsibles();
 
         loadCurrentTaskCard();
 
