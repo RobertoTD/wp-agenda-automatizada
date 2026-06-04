@@ -1,0 +1,196 @@
+<?php
+/**
+ * Task — Value Object normalizado para tareas (Listas/Tareas).
+ *
+ * Sin WordPress, SQL ni reglas de priorización.
+ */
+
+defined('ABSPATH') or die('No direct access');
+
+final class AA_Task {
+
+    public const STATUS_PENDING = 'pending';
+
+    public const STATUS_DONE = 'done';
+
+    /** @var int */
+    private $id;
+
+    /** @var int */
+    private $list_id;
+
+    /** @var string */
+    private $title;
+
+    /** @var string|null */
+    private $notes;
+
+    /** @var string */
+    private $status;
+
+    /** @var string */
+    private $source;
+
+    /** @var int */
+    private $importance;
+
+    /** @var string|null */
+    private $due_at;
+
+    /** @var int */
+    private $position;
+
+    /** @var string|null */
+    private $completed_at;
+
+    /**
+     * @param array<string,mixed> $data
+     */
+    private function __construct(array $data) {
+        $this->id = (int) ($data['id'] ?? 0);
+        $this->list_id = (int) ($data['list_id'] ?? 0);
+        $this->title = (string) ($data['title'] ?? '');
+        $this->notes = self::nullable_string($data['notes'] ?? null);
+        $this->status = self::normalize_status($data['status'] ?? self::STATUS_PENDING);
+        $this->source = self::normalize_string($data['source'] ?? 'user', 'user');
+        $this->importance = (int) ($data['importance'] ?? 0);
+        $this->due_at = self::nullable_string($data['due_at'] ?? null);
+        $this->position = (int) ($data['position'] ?? 0);
+        $this->completed_at = self::nullable_string($data['completed_at'] ?? null);
+    }
+
+    /**
+     * @param array<string,mixed> $data
+     */
+    public static function from_array(array $data): self {
+        return new self($data);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function to_array(): array {
+        return [
+            'id' => $this->id,
+            'list_id' => $this->list_id,
+            'title' => $this->title,
+            'notes' => $this->notes,
+            'status' => $this->status,
+            'source' => $this->source,
+            'importance' => $this->importance,
+            'due_at' => $this->due_at,
+            'position' => $this->position,
+            'completed_at' => $this->completed_at,
+        ];
+    }
+
+    public function id(): int {
+        return $this->id;
+    }
+
+    public function list_id(): int {
+        return $this->list_id;
+    }
+
+    public function title(): string {
+        return $this->title;
+    }
+
+    public function status(): string {
+        return $this->status;
+    }
+
+    public function importance(): int {
+        return $this->importance;
+    }
+
+    /**
+     * @return string|null Y-m-d H:i:s
+     */
+    public function due_at(): ?string {
+        return $this->due_at;
+    }
+
+    public function position(): int {
+        return $this->position;
+    }
+
+    public function is_pending(): bool {
+        return $this->status === self::STATUS_PENDING;
+    }
+
+    public function is_done(): bool {
+        return $this->status === self::STATUS_DONE;
+    }
+
+    /**
+     * @param string $now Y-m-d H:i:s
+     */
+    public function is_overdue(string $now): bool {
+        if (!$this->is_pending() || $this->due_at === null || trim($this->due_at) === '') {
+            return false;
+        }
+
+        $due_ts = strtotime($this->due_at);
+        $now_ts = strtotime($now);
+
+        if ($due_ts === false || $now_ts === false) {
+            return false;
+        }
+
+        return $due_ts < $now_ts;
+    }
+
+    /**
+     * @param string $now Y-m-d H:i:s
+     */
+    public function has_upcoming_due(string $now): bool {
+        if (!$this->is_pending() || $this->due_at === null || trim($this->due_at) === '') {
+            return false;
+        }
+
+        $due_ts = strtotime($this->due_at);
+        $now_ts = strtotime($now);
+
+        if ($due_ts === false || $now_ts === false) {
+            return false;
+        }
+
+        return $due_ts >= $now_ts;
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private static function nullable_string($value): ?string {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return is_string($value) ? $value : null;
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private static function normalize_string($value, string $default): string {
+        if (!is_string($value) || trim($value) === '') {
+            return $default;
+        }
+
+        return $value;
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private static function normalize_status($value): string {
+        $status = is_string($value) ? strtolower(trim($value)) : '';
+
+        if ($status === self::STATUS_DONE) {
+            return self::STATUS_DONE;
+        }
+
+        return self::STATUS_PENDING;
+    }
+}
