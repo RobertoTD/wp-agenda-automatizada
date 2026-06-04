@@ -1,0 +1,149 @@
+/**
+ * Tasks Service — Listas/Tareas (HTTP client).
+ *
+ * Depends on window.AA_TASKS_DATA (ajaxUrl, nonce).
+ */
+(function () {
+    'use strict';
+
+    function getConfig() {
+        var cfg = window.AA_TASKS_DATA;
+
+        if (!cfg || !cfg.ajaxUrl || !cfg.nonce) {
+            return null;
+        }
+
+        return cfg;
+    }
+
+    /**
+     * @param {string} action
+     * @param {Object} [extraFields]
+     * @returns {Promise<Object>}
+     */
+    function postAction(action, extraFields) {
+        var cfg = getConfig();
+
+        if (!cfg) {
+            return Promise.reject(new Error('AA_TASKS_DATA no configurado'));
+        }
+
+        var formData = new FormData();
+        formData.append('action', action);
+        formData.append('_wpnonce', cfg.nonce);
+
+        if (extraFields) {
+            Object.keys(extraFields).forEach(function (field) {
+                var value = extraFields[field];
+
+                if (value === undefined || value === null) {
+                    return;
+                }
+
+                formData.append(field, String(value));
+            });
+        }
+
+        return fetch(cfg.ajaxUrl, {
+            method: 'POST',
+            body: formData
+        })
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status);
+                }
+
+                return response.json();
+            })
+            .then(function (result) {
+                if (!result.success) {
+                    var payload = result.data || {};
+                    var message = payload.message || 'No se pudo completar la acción.';
+                    var err = new Error(message);
+                    err.code = payload.code || 'unknown_error';
+                    throw err;
+                }
+
+                return result.data || {};
+            });
+    }
+
+    /**
+     * @returns {Promise<{lists:Array,tasks:Array,organization:Object}>}
+     */
+    function getTaskBoard() {
+        return postAction('aa_get_task_board').then(function (data) {
+            return {
+                lists: Array.isArray(data.lists) ? data.lists : [],
+                tasks: Array.isArray(data.tasks) ? data.tasks : [],
+                organization: data.organization && typeof data.organization === 'object'
+                    ? data.organization
+                    : {
+                        list_order: [],
+                        task_order_by_list: {},
+                        executive_candidates: []
+                    }
+            };
+        });
+    }
+
+    /**
+     * @param {{title:string,description?:string,importance?:number}} payload
+     * @returns {Promise<Object>}
+     */
+    function createTaskList(payload) {
+        return postAction('aa_create_task_list', {
+            title: payload.title,
+            description: payload.description || '',
+            importance: payload.importance !== undefined && payload.importance !== null
+                ? payload.importance
+                : 0
+        });
+    }
+
+    /**
+     * @param {number|string} listId
+     * @returns {Promise<Object>}
+     */
+    function archiveTaskList(listId) {
+        return postAction('aa_archive_task_list', {
+            list_id: listId
+        });
+    }
+
+    /**
+     * @param {{list_id:number|string,title:string,notes?:string,due_at?:string,importance?:number}} payload
+     * @returns {Promise<Object>}
+     */
+    function createTask(payload) {
+        return postAction('aa_create_task', {
+            list_id: payload.list_id,
+            title: payload.title,
+            notes: payload.notes || '',
+            due_at: payload.due_at || '',
+            importance: payload.importance !== undefined && payload.importance !== null
+                ? payload.importance
+                : 0
+        });
+    }
+
+    /**
+     * @param {number|string} taskId
+     * @param {'pending'|'done'} status
+     * @returns {Promise<Object>}
+     */
+    function changeTaskStatus(taskId, status) {
+        return postAction('aa_change_task_status', {
+            task_id: taskId,
+            status: status
+        });
+    }
+
+    window.TasksService = {
+        getTaskBoard: getTaskBoard,
+        createTaskList: createTaskList,
+        archiveTaskList: archiveTaskList,
+        createTask: createTask,
+        changeTaskStatus: changeTaskStatus
+    };
+})();
