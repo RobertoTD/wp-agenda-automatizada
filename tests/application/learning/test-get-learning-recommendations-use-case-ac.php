@@ -218,6 +218,8 @@ ac_assert('learning renderer keeps legacy action_url fallback', strpos($renderer
 ac_assert('learning renderer checks handler action availability', strpos($renderer_js, 'registry.isAvailable(action, item)') !== false);
 ac_assert('learning renderer renders primary handler button', strpos($renderer_js, 'data-learning-action="primary-handler"') !== false);
 ac_assert('learning renderer exposes AALearningRecommendationRenderer', strpos($renderer_js, 'AALearningRecommendationRenderer') !== false);
+ac_assert('learning renderer exposes pickFirstVisibleRecommendation', strpos($renderer_js, 'pickFirstVisibleRecommendation') !== false);
+ac_assert('learning renderer supports conservative render options', strpos($renderer_js, 'showHandlerPrimary') !== false && strpos($renderer_js, 'normalizeRenderOptions') !== false);
 ac_assert('learning-module uses shared renderer', strpos($module_js, 'AALearningRecommendationRenderer') !== false);
 ac_assert('learning-module runs primary handler via registry', strpos($module_js, 'registry.run(action, item') !== false);
 ac_assert('learning-module rerenders on handler availability changes', strpos($module_js, 'onAvailabilityChange') !== false);

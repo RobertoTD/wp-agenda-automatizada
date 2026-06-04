@@ -28,6 +28,34 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
         <p id="aa-dashboard-date" class="text-sm text-gray-500 mt-0.5"></p>
     </div>
 
+    <!-- Tarea actual -->
+    <div class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden mb-3">
+        <div class="px-4 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+                <div class="flex items-center gap-2.5">
+                    <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-violet-100 text-violet-600">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                        </svg>
+                    </span>
+                    <h3 class="text-base font-semibold text-gray-900">Tarea actual</h3>
+                </div>
+                <a
+                    href="<?php echo esc_url(admin_url('admin-post.php?action=aa_iframe_content&module=learning')); ?>"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-lg border border-violet-200 transition-colors"
+                >
+                    Ir a Listas/tareas
+                </a>
+            </div>
+        </div>
+        <div id="aa-dash-current-task" class="p-4">
+            <p id="aa-dash-current-task-loading" class="text-sm text-gray-500">Cargando tarea…</p>
+            <p id="aa-dash-current-task-empty" class="hidden text-sm text-gray-500">Sin tareas pendientes por ahora.</p>
+            <p id="aa-dash-current-task-error" class="hidden text-sm text-red-600">Error al cargar la tarea.</p>
+            <div id="aa-dash-current-task-content" class="hidden"></div>
+        </div>
+    </div>
+
     <!-- Row 1: Hoy + Próxima cita -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
 
@@ -238,12 +266,22 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
         ?>',
         currency: '<?php echo esc_js(get_option('aa_currency', 'MXN')); ?>'
     };
+
+    window.AA_LEARNING_DATA = {
+        ajaxUrl: window.ajaxurl || '<?php echo admin_url('admin-ajax.php'); ?>',
+        action: 'aa_get_learning_recommendations',
+        nonce: '<?php echo esc_js(wp_create_nonce('aa_get_learning_recommendations_nonce')); ?>'
+    };
 </script>
 
 <!-- Dashboard Service (consumes aa_get_citas_por_dia, must load before module) -->
 <?php
+$learning_service_js = AA_PLUGIN_URL . 'assets/js/services/learningService.js';
+$learning_renderer_js = AA_PLUGIN_URL . 'assets/js/ui/learningRecommendationRenderer.js';
 $dashboard_service_js = AA_PLUGIN_URL . 'assets/js/services/dashboardService.js';
 $dashboard_module_js = $plugin_url . 'dashboard-module.js';
 ?>
+<script src="<?php echo esc_url($learning_service_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($learning_renderer_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($dashboard_service_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($dashboard_module_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>

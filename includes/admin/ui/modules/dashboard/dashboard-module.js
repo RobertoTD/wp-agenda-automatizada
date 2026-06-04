@@ -645,6 +645,80 @@
             });
     }
 
+    // ─── Card: Tarea actual ───────────────────────────────────
+
+    var CURRENT_TASK_IDS = {
+        loading: 'aa-dash-current-task-loading',
+        empty: 'aa-dash-current-task-empty',
+        error: 'aa-dash-current-task-error',
+        content: 'aa-dash-current-task-content'
+    };
+
+    var DASHBOARD_TASK_RENDER_OPTIONS = {
+        showDefer: false,
+        showDismiss: false,
+        showHandlerPrimary: false,
+        wrapper: 'div'
+    };
+
+    function setCurrentTaskVisible(state) {
+        var loadingEl = document.getElementById(CURRENT_TASK_IDS.loading);
+        var emptyEl = document.getElementById(CURRENT_TASK_IDS.empty);
+        var errorEl = document.getElementById(CURRENT_TASK_IDS.error);
+        var contentEl = document.getElementById(CURRENT_TASK_IDS.content);
+
+        if (loadingEl) loadingEl.classList.toggle('hidden', state !== 'loading');
+        if (emptyEl) emptyEl.classList.toggle('hidden', state !== 'empty');
+        if (errorEl) errorEl.classList.toggle('hidden', state !== 'error');
+        if (contentEl) contentEl.classList.toggle('hidden', state !== 'content');
+    }
+
+    function loadCurrentTaskCard() {
+        var contentEl = document.getElementById(CURRENT_TASK_IDS.content);
+        var renderer = window.AALearningRecommendationRenderer;
+
+        if (!document.getElementById(CURRENT_TASK_IDS.loading)) {
+            return;
+        }
+
+        if (!window.LearningService || typeof window.LearningService.getRecommendations !== 'function') {
+            console.warn('[DashboardModule] LearningService not available for current task');
+            setCurrentTaskVisible('error');
+            return;
+        }
+
+        if (!renderer || typeof renderer.pickFirstVisibleRecommendation !== 'function'
+            || typeof renderer.renderRecommendationCard !== 'function') {
+            console.warn('[DashboardModule] AALearningRecommendationRenderer not available for current task');
+            setCurrentTaskVisible('error');
+            return;
+        }
+
+        setCurrentTaskVisible('loading');
+
+        window.LearningService.getRecommendations()
+            .then(function (data) {
+                var item = renderer.pickFirstVisibleRecommendation(data);
+
+                if (!item) {
+                    if (contentEl) contentEl.innerHTML = '';
+                    setCurrentTaskVisible('empty');
+                    return;
+                }
+
+                if (contentEl) {
+                    contentEl.innerHTML = renderer.renderRecommendationCard(item, DASHBOARD_TASK_RENDER_OPTIONS);
+                }
+
+                setCurrentTaskVisible('content');
+            })
+            .catch(function (err) {
+                console.error('[DashboardModule] Error loading current task:', err);
+                if (contentEl) contentEl.innerHTML = '';
+                setCurrentTaskVisible('error');
+            });
+    }
+
     // ─── Init ─────────────────────────────────────────────────
 
     function init() {
@@ -655,6 +729,8 @@
         }
 
         renderGreeting();
+
+        loadCurrentTaskCard();
 
         loadTodayCard();
 
