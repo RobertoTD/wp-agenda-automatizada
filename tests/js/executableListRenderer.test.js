@@ -250,6 +250,165 @@ describe('AAExecutableListRenderer', () => {
         assert.match(html, /data-list-id="7"/);
     });
 
+    it('conserva comportamiento default cuando no recibe callbacks', () => {
+        var list = baseList({
+            buckets: [
+                {
+                    key: 'primary',
+                    label: 'Principales',
+                    items: [
+                        baseItem({
+                            id: 'install_pwa',
+                            origin_key: 'install_pwa',
+                            capabilities: {
+                                can_defer: true,
+                                can_dismiss: true
+                            },
+                            primary_action: {
+                                type: 'handler',
+                                label: 'Instalar',
+                                handler: 'pwa.install'
+                            }
+                        })
+                    ]
+                }
+            ]
+        });
+
+        assert.equal(renderer.renderFeed([list], {}), renderer.renderFeed([list]));
+    });
+
+    it('shouldRenderItem puede ocultar un item completo', () => {
+        var list = baseList({
+            buckets: [
+                {
+                    key: 'primary',
+                    label: 'Principales',
+                    items: [
+                        baseItem({ id: 'visible', title: 'Visible' }),
+                        baseItem({ id: 'hidden', title: 'Oculto' })
+                    ]
+                }
+            ]
+        });
+
+        var html = renderer.renderFeed([list], {
+            shouldRenderItem: function (item) {
+                return item.id !== 'hidden';
+            }
+        });
+
+        assert.match(html, /Visible/);
+        assert.doesNotMatch(html, /Oculto/);
+        assert.doesNotMatch(html, /data-item-id="hidden"/);
+    });
+
+    it('shouldRenderPrimaryAction puede ocultar una acción handler', () => {
+        var item = baseItem({
+            origin_key: 'install_pwa',
+            capabilities: {
+                can_defer: true,
+                can_dismiss: true
+            },
+            primary_action: {
+                type: 'handler',
+                label: 'Instalar',
+                handler: 'pwa.install'
+            }
+        });
+
+        var html = renderer.renderItem(item, {
+            shouldRenderPrimaryAction: function (action) {
+                return action.type !== 'handler';
+            }
+        });
+
+        assert.doesNotMatch(html, /data-learning-action="primary-handler"/);
+        assert.doesNotMatch(html, />Instalar</);
+        assert.match(html, /data-learning-action="defer"/);
+        assert.match(html, /data-learning-action="dismiss"/);
+    });
+
+    it('shouldRenderPrimaryAction puede ocultar una acción navigate', () => {
+        var item = baseItem({
+            primary_action: {
+                type: 'navigate',
+                label: 'Ir',
+                url: 'https://example.test/admin-post.php?module=assignments'
+            }
+        });
+
+        var html = renderer.renderItem(item, {
+            shouldRenderPrimaryAction: function (action) {
+                return action.type !== 'navigate';
+            }
+        });
+
+        assert.doesNotMatch(html, /<a href="https:\/\/example\.test/);
+        assert.doesNotMatch(html, />Ir</);
+    });
+
+    it('shouldRenderPrimaryAction puede ocultar una acción status', () => {
+        var item = baseItem({
+            id: '42',
+            source: 'user',
+            primary_action: {
+                type: 'status',
+                label: 'Completar',
+                to: 'done'
+            }
+        });
+
+        var html = renderer.renderItem(item, {
+            shouldRenderPrimaryAction: function (action) {
+                return action.type !== 'status';
+            }
+        });
+
+        assert.doesNotMatch(html, /data-tasks-action="complete"/);
+        assert.doesNotMatch(html, />Completar</);
+    });
+
+    it('callbacks reciben context con list, bucket, item e índices', () => {
+        var capturedItemContext = null;
+        var capturedActionContext = null;
+        var item = baseItem({
+            id: 'ctx-item',
+            source: 'user',
+            primary_action: {
+                type: 'status',
+                label: 'Completar',
+                to: 'done'
+            }
+        });
+        var bucket = { key: 'default', label: '', items: [item] };
+        var list = baseList({
+            id: 'ctx-list',
+            source: 'user',
+            buckets: [bucket]
+        });
+
+        renderer.renderFeed([list], {
+            shouldRenderItem: function (_item, context) {
+                capturedItemContext = context;
+                return true;
+            },
+            shouldRenderPrimaryAction: function (_action, _item, context) {
+                capturedActionContext = context;
+                return true;
+            }
+        });
+
+        assert.equal(capturedItemContext.list, list);
+        assert.equal(capturedItemContext.bucket, bucket);
+        assert.equal(capturedItemContext.item, item);
+        assert.equal(capturedItemContext.source, 'user');
+        assert.equal(capturedItemContext.listIndex, 0);
+        assert.equal(capturedItemContext.bucketIndex, 0);
+        assert.equal(capturedItemContext.itemIndex, 0);
+        assert.deepEqual(capturedActionContext, capturedItemContext);
+    });
+
     it('no muta el fixture original', () => {
         var list = baseList({
             buckets: [

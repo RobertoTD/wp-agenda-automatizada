@@ -47,6 +47,56 @@
     }
 
     /**
+     * @param {object|undefined|null} options
+     * @returns {object}
+     */
+    function normalizeOptions(options) {
+        return options && typeof options === 'object' ? options : {};
+    }
+
+    /**
+     * @param {Function|undefined} callback
+     * @param {Array} args
+     * @returns {boolean}
+     */
+    function callbackAllows(callback, args) {
+        if (typeof callback !== 'function') {
+            return true;
+        }
+
+        try {
+            return callback.apply(null, args) !== false;
+        } catch (err) {
+            if (typeof console !== 'undefined' && typeof console.warn === 'function') {
+                console.warn('[AAExecutableListRenderer] runtime callback failed:', err);
+            }
+
+            return true;
+        }
+    }
+
+    /**
+     * @param {object} context
+     * @param {object} additions
+     * @returns {object}
+     */
+    function extendContext(context, additions) {
+        var next = {};
+        var base = context && typeof context === 'object' ? context : {};
+        var extra = additions && typeof additions === 'object' ? additions : {};
+
+        Object.keys(base).forEach(function (key) {
+            next[key] = base[key];
+        });
+
+        Object.keys(extra).forEach(function (key) {
+            next[key] = extra[key];
+        });
+
+        return next;
+    }
+
+    /**
      * @param {object} item
      * @returns {string}
      */
@@ -67,10 +117,18 @@
     /**
      * @param {object|null|undefined} action
      * @param {object} item
+     * @param {object} [options]
+     * @param {object} [context]
      * @returns {string}
      */
-    function renderPrimaryAction(action, item) {
+    function renderPrimaryAction(action, item, options, context) {
+        var opts = normalizeOptions(options);
+
         if (!action || typeof action !== 'object') {
+            return '';
+        }
+
+        if (!callbackAllows(opts.shouldRenderPrimaryAction, [action, item, context || {}])) {
             return '';
         }
 
@@ -193,10 +251,12 @@
 
     /**
      * @param {object} item
+     * @param {object} [options]
+     * @param {object} [context]
      * @returns {string}
      */
-    function renderItemActions(item) {
-        var primary = renderPrimaryAction(item.primary_action, item);
+    function renderItemActions(item, options, context) {
+        var primary = renderPrimaryAction(item.primary_action, item, options, context);
         var secondary = renderSecondaryActions(item);
         var combined = primary + secondary;
 
@@ -209,10 +269,24 @@
 
     /**
      * @param {object} item
+     * @param {object} [options]
+     * @param {object} [context]
+     * @param {number} [itemIndex]
      * @returns {string}
      */
-    function renderItem(item) {
+    function renderItem(item, options, context, itemIndex) {
         if (!item || typeof item !== 'object') {
+            return '';
+        }
+
+        var opts = normalizeOptions(options);
+        var itemContext = extendContext(context, {
+            item: item,
+            source: item.source || (context && context.source) || '',
+            itemIndex: typeof itemIndex === 'number' ? itemIndex : undefined
+        });
+
+        if (!callbackAllows(opts.shouldRenderItem, [item, itemContext])) {
             return '';
         }
 
@@ -229,7 +303,7 @@
         var dueHtml = item.due_at
             ? '<span class="text-xs text-gray-500 ml-2">Vence: ' + escapeHtml(item.due_at) + '</span>'
             : '';
-        var actionsHtml = renderItemActions(item);
+        var actionsHtml = renderItemActions(item, opts, itemContext);
 
         return ''
             + '<li class="aa-executable-item rounded-lg border border-gray-200 bg-gray-50/80 p-4"'
@@ -246,18 +320,27 @@
 
     /**
      * @param {object} bucket
+     * @param {object} [options]
+     * @param {object} [context]
+     * @param {number} [bucketIndex]
      * @returns {string}
      */
-    function renderBucket(bucket) {
+    function renderBucket(bucket, options, context, bucketIndex) {
         if (!bucket || typeof bucket !== 'object') {
             return '';
         }
 
+        var bucketContext = extendContext(context, {
+            bucket: bucket,
+            bucketIndex: typeof bucketIndex === 'number' ? bucketIndex : undefined
+        });
         var key = asString(bucket.key).trim().toLowerCase();
         var label = asString(bucket.label).trim();
         var items = Array.isArray(bucket.items) ? bucket.items : [];
         var itemsHtml = items.length > 0
-            ? items.map(renderItem).join('')
+            ? items.map(function (item, itemIndex) {
+                return renderItem(item, options, bucketContext, itemIndex);
+            }).join('')
             : '';
         var labelHtml = '';
 
@@ -285,13 +368,20 @@
 
     /**
      * @param {object} list
+     * @param {object} [options]
+     * @param {number} [listIndex]
      * @returns {string}
      */
-    function renderList(list) {
+    function renderList(list, options, listIndex) {
         if (!list || typeof list !== 'object') {
             return '';
         }
 
+        var listContext = {
+            list: list,
+            source: list.source || '',
+            listIndex: typeof listIndex === 'number' ? listIndex : undefined
+        };
         var listId = escapeHtml(list.id);
         var source = escapeHtml(list.source || '');
         var title = escapeHtml(list.title || 'Lista sin título');
@@ -302,7 +392,9 @@
             ? list.capabilities
             : {};
         var buckets = Array.isArray(list.buckets) ? list.buckets : [];
-        var bucketsHtml = buckets.map(renderBucket).join('');
+        var bucketsHtml = buckets.map(function (bucket, bucketIndex) {
+            return renderBucket(bucket, options, listContext, bucketIndex);
+        }).join('');
         var archiveHtml = capabilities.can_archive
             ? '<button type="button" data-tasks-action="archive-list" data-list-id="' + listId + '"'
                 + ' class="text-xs font-medium text-gray-500 hover:text-red-600 px-2 py-1 rounded border border-gray-200 whitespace-nowrap">'
@@ -332,14 +424,17 @@
 
     /**
      * @param {Array} lists
+     * @param {object} [options]
      * @returns {string}
      */
-    function renderFeed(lists) {
+    function renderFeed(lists, options) {
         if (!Array.isArray(lists) || lists.length === 0) {
             return '';
         }
 
-        return lists.map(renderList).join('');
+        return lists.map(function (list, listIndex) {
+            return renderList(list, options, listIndex);
+        }).join('');
     }
 
     var api = {
