@@ -43,13 +43,9 @@
     }
 
     function setBoardDisabled(disabled) {
-        var root = document.getElementById('aa-tasks-module-root');
-
-        if (!root) {
-            return;
-        }
-
-        root.querySelectorAll('[data-tasks-action], #aa-tasks-new-list, #aa-tasks-new-task').forEach(function (button) {
+        document.querySelectorAll(
+            '#aa-tasks-module-root [data-tasks-action], #aa-tasks-new-list, #aa-tasks-new-task'
+        ).forEach(function (button) {
             button.disabled = disabled;
 
             if (disabled) {
@@ -85,21 +81,10 @@
         listEl.innerHTML = candidates.length > 0 ? renderer.renderExecutiveProposal(data) : '';
     }
 
-    function updateActionButtons() {
-        var newTaskBtn = document.getElementById('aa-tasks-new-task');
-        var hasLists = lastBoardPayload && Array.isArray(lastBoardPayload.lists) && lastBoardPayload.lists.length > 0;
-
-        if (newTaskBtn) {
-            newTaskBtn.disabled = !hasLists;
-
-            if (!hasLists) {
-                newTaskBtn.classList.add('opacity-60', 'cursor-not-allowed');
-                newTaskBtn.title = 'Crea una lista antes de añadir tareas';
-            } else {
-                newTaskBtn.classList.remove('opacity-60', 'cursor-not-allowed');
-                newTaskBtn.title = '';
-            }
-        }
+    function hasUserLists() {
+        return lastBoardPayload
+            && Array.isArray(lastBoardPayload.lists)
+            && lastBoardPayload.lists.length > 0;
     }
 
     function populateTaskListSelect() {
@@ -165,7 +150,6 @@
         }
 
         listsRoot.innerHTML = hasLists ? renderer.renderBoard(data) : '';
-        updateActionButtons();
         populateTaskListSelect();
     }
 
@@ -484,6 +468,7 @@
 
         if (newListBtn) {
             newListBtn.addEventListener('click', function () {
+                clearBoardError();
                 resetListForm();
                 openModal('aa-task-list-modal');
             });
@@ -491,11 +476,12 @@
 
         if (newTaskBtn) {
             newTaskBtn.addEventListener('click', function () {
-                if (newTaskBtn.disabled) {
-                    showBoardError('Crea tu primera lista antes de añadir tareas.');
+                if (!hasUserLists()) {
+                    showBoardError('Crea una lista primero para poder agregar tareas.');
                     return;
                 }
 
+                clearBoardError();
                 resetTaskForm();
                 openModal('aa-task-modal');
             });

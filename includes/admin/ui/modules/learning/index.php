@@ -35,71 +35,70 @@ $tasks_board_js = plugin_dir_url(__FILE__) . 'tasks-board-module.js';
         </div>
     </section>
 
-    <details id="aa-learning-recommendations" class="bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group" open>
-        <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
-            <div class="flex items-center justify-between gap-3">
-                <div class="flex items-center gap-3">
-                    <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-amber-100 text-amber-600">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-                        </svg>
-                    </span>
-                    <div>
-                        <h3 class="text-lg font-semibold text-gray-900">Recomendaciones</h3>
-                        <p class="text-sm text-gray-500 mt-0.5">Sugerencias para configurar y usar tu agenda.</p>
+    <section id="aa-lists-section" class="pb-24">
+        <div class="mb-3">
+            <h3 class="text-lg font-semibold text-gray-900">Listas</h3>
+            <p class="text-sm text-gray-500 mt-0.5">Sugerencias del sistema y listas propias en un solo lugar.</p>
+        </div>
+
+        <p id="aa-tasks-error" class="hidden text-sm text-red-600 mb-3"></p>
+
+        <div id="aa-lists-feed" class="space-y-4">
+            <article id="aa-learning-recommendations" class="aa-task-list-card aa-system-list-card bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
+                <div class="px-4 py-4 border-b border-gray-100 bg-gradient-to-r from-amber-50 to-white">
+                    <div class="flex items-center gap-3">
+                        <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-amber-100 text-amber-600 shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                            </svg>
+                        </span>
+                        <div class="min-w-0">
+                            <h4 class="text-base font-semibold text-gray-900">Recomendaciones</h4>
+                            <p class="text-sm text-gray-500 mt-0.5">Sugerencias para configurar y usar tu agenda.</p>
+                        </div>
                     </div>
                 </div>
-                <svg class="aa-chevron w-5 h-5 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                </svg>
-            </div>
-        </summary>
 
-        <div id="aa-learning-recommendations-root" class="p-4 transition-all duration-200">
-            <p id="aa-learning-loading" class="text-sm text-gray-500">Cargando recomendaciones…</p>
-            <p id="aa-learning-error" class="hidden text-sm text-red-600"></p>
-            <p id="aa-learning-empty" class="hidden text-sm text-gray-500">No hay recomendaciones activas en este momento.</p>
+                <div id="aa-learning-recommendations-root" class="p-4 transition-all duration-200">
+                    <p id="aa-learning-loading" class="text-sm text-gray-500">Cargando recomendaciones…</p>
+                    <p id="aa-learning-error" class="hidden text-sm text-red-600"></p>
+                    <p id="aa-learning-empty" class="hidden text-sm text-gray-500">No hay recomendaciones activas en este momento.</p>
 
-            <div id="aa-learning-list-primary-wrap" class="hidden space-y-3">
-                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Principales</p>
-                <ul id="aa-learning-list-primary" class="space-y-3"></ul>
-            </div>
+                    <div id="aa-learning-list-primary-wrap" class="hidden space-y-3">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Principales</p>
+                        <ul id="aa-learning-list-primary" class="space-y-3"></ul>
+                    </div>
 
-            <div id="aa-learning-list-secondary-wrap" class="hidden mt-5 space-y-3">
-                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Otras sugerencias</p>
-                <ul id="aa-learning-list-secondary" class="space-y-3"></ul>
-            </div>
-        </div>
-    </details>
+                    <div id="aa-learning-list-secondary-wrap" class="hidden mt-5 space-y-3">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Otras sugerencias</p>
+                        <ul id="aa-learning-list-secondary" class="space-y-3"></ul>
+                    </div>
+                </div>
+            </article>
 
-    <section id="aa-tasks-board" class="mt-4">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
-            <div>
-                <h3 class="text-lg font-semibold text-gray-900">Mis listas</h3>
-                <p class="text-sm text-gray-500 mt-0.5">Organiza tareas manuales con un objetivo común.</p>
+            <div id="aa-tasks-board-root">
+                <p id="aa-tasks-loading" class="text-sm text-gray-500">Cargando listas y tareas…</p>
+                <p id="aa-tasks-empty" class="hidden text-sm text-gray-500 bg-white rounded-xl border border-dashed border-gray-200 px-4 py-3">
+                    Aún no tienes listas propias. Usa el botón flotante para crear una.
+                </p>
+                <div id="aa-tasks-lists-root" class="hidden space-y-4"></div>
             </div>
-            <div class="flex flex-wrap gap-2">
-                <button type="button" id="aa-tasks-new-list"
-                    class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
-                    Nueva lista
-                </button>
-                <button type="button" id="aa-tasks-new-task"
-                    class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100">
-                    Nueva tarea
-                </button>
-            </div>
-        </div>
-
-        <div id="aa-tasks-board-root" class="bg-white rounded-xl shadow border border-gray-200 p-4">
-            <p id="aa-tasks-loading" class="text-sm text-gray-500">Cargando listas y tareas…</p>
-            <p id="aa-tasks-error" class="hidden text-sm text-red-600 mb-3"></p>
-            <p id="aa-tasks-empty" class="hidden text-sm text-gray-500">
-                Crea tu primera lista para organizar tareas con un objetivo común.
-            </p>
-            <div id="aa-tasks-lists-root" class="hidden space-y-4"></div>
         </div>
     </section>
 
+</div>
+
+<div id="aa-tasks-fab-stack" class="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+    <button type="button" id="aa-tasks-new-list"
+        class="inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 active:bg-gray-100 rounded-full shadow-lg shadow-gray-900/10 hover:shadow-xl transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-gray-300/40"
+        aria-label="Nueva lista">
+        <span>+ Nueva lista</span>
+    </button>
+    <button type="button" id="aa-tasks-new-task"
+        class="inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold text-white bg-violet-600 hover:bg-violet-700 active:bg-violet-800 rounded-full shadow-lg shadow-violet-600/30 hover:shadow-xl hover:shadow-violet-600/35 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-violet-500/40"
+        aria-label="Nueva tarea">
+        <span>+ Nueva tarea</span>
+    </button>
 </div>
 
 <!-- Modal: nueva lista -->
