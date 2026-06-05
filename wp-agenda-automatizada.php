@@ -165,6 +165,12 @@ LearningRecommendationsAjax::register();
 require_once __DIR__ . '/includes/http/ajax/TasksAjax.php';
 TasksAjax::register();
 
+// ================================
+// Endpoint AJAX: Feed ejecutable de listas (capa http/ajax)
+// ================================
+require_once __DIR__ . '/includes/http/ajax/ExecutableListsAjax.php';
+ExecutableListsAjax::register();
+
 // ===============================
 // 🔹 Schema lifecycle: registra el activation hook con AA_Schema::install
 // ===============================
