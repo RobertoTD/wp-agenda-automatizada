@@ -14,7 +14,9 @@ $tasks_service_js = AA_PLUGIN_URL . 'assets/js/services/tasksService.js';
 $tasks_renderer_js = AA_PLUGIN_URL . 'assets/js/ui/taskBoardRenderer.js';
 $tasks_board_js = plugin_dir_url(__FILE__) . 'tasks-board-module.js';
 $executable_lists_service_js = AA_PLUGIN_URL . 'assets/js/services/executableListsService.js';
+$executable_lists_renderer_js = AA_PLUGIN_URL . 'assets/js/ui/executableListRenderer.js';
 $executable_lists_shadow_js = plugin_dir_url(__FILE__) . 'executable-lists-shadow-module.js';
+$executable_lists_module_js = plugin_dir_url(__FILE__) . 'executable-lists-module.js';
 ?>
 
 <div id="aa-tasks-module-root" class="max-w-5xl mx-auto py-2">
@@ -86,6 +88,14 @@ $executable_lists_shadow_js = plugin_dir_url(__FILE__) . 'executable-lists-shado
                 <div id="aa-tasks-lists-root" class="hidden space-y-4"></div>
             </div>
         </div>
+
+        <section id="aa-executable-lists-experimental" class="hidden mt-6 border border-dashed border-amber-300 rounded-xl overflow-hidden bg-white">
+            <div class="px-4 py-3 border-b border-amber-200 bg-amber-50">
+                <h4 class="text-sm font-semibold text-amber-900">Feed executable experimental</h4>
+                <p class="text-xs text-amber-800 mt-0.5">Solo visible en modo debug. Acciones desactivadas.</p>
+            </div>
+            <div id="aa-executable-lists-root" inert class="pointer-events-none p-4 space-y-4"></div>
+        </section>
     </section>
 
 </div>
@@ -224,4 +234,6 @@ $executable_lists_shadow_js = plugin_dir_url(__FILE__) . 'executable-lists-shado
 <script src="<?php echo esc_url($tasks_renderer_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($tasks_board_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($executable_lists_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($executable_lists_renderer_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($executable_lists_shadow_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($executable_lists_module_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
