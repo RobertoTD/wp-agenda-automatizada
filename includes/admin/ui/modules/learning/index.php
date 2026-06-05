@@ -13,6 +13,8 @@ $learning_renderer_js = AA_PLUGIN_URL . 'assets/js/ui/learningRecommendationRend
 $tasks_service_js = AA_PLUGIN_URL . 'assets/js/services/tasksService.js';
 $tasks_renderer_js = AA_PLUGIN_URL . 'assets/js/ui/taskBoardRenderer.js';
 $tasks_board_js = plugin_dir_url(__FILE__) . 'tasks-board-module.js';
+$executable_lists_service_js = AA_PLUGIN_URL . 'assets/js/services/executableListsService.js';
+$executable_lists_shadow_js = plugin_dir_url(__FILE__) . 'executable-lists-shadow-module.js';
 ?>
 
 <div id="aa-tasks-module-root" class="max-w-5xl mx-auto py-2">
@@ -206,6 +208,12 @@ $tasks_board_js = plugin_dir_url(__FILE__) . 'tasks-board-module.js';
         ajaxUrl: window.ajaxurl || '<?php echo admin_url('admin-ajax.php'); ?>',
         nonce: '<?php echo esc_js(wp_create_nonce('aa_tasks_nonce')); ?>'
     };
+
+    window.AA_EXECUTABLE_LISTS_DATA = {
+        ajaxUrl: window.ajaxurl || '<?php echo admin_url('admin-ajax.php'); ?>',
+        action: 'aa_get_executable_lists_feed',
+        nonce: '<?php echo esc_js(wp_create_nonce('aa_executable_lists_nonce')); ?>'
+    };
 </script>
 
 <script src="<?php echo esc_url($learning_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
@@ -215,3 +223,5 @@ $tasks_board_js = plugin_dir_url(__FILE__) . 'tasks-board-module.js';
 <script src="<?php echo esc_url($tasks_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($tasks_renderer_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($tasks_board_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($executable_lists_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($executable_lists_shadow_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
