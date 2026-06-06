@@ -36,6 +36,20 @@ final class AA_Executable_Contract {
 
     public const ACTION_STATUS = 'status';
 
+    public const ACTION_INTENT = 'intent';
+
+    public const VISIBLE_CATEGORY_MECHANICAL = 'mechanical';
+
+    public const VISIBLE_CATEGORY_DECLARATIVE = 'declarative';
+
+    public const VISIBLE_CATEGORY_INTENT = 'intent';
+
+    public const VISIBLE_CATEGORY_RECOVERY = 'recovery';
+
+    public const VISIBLE_PLACEMENT_PRIMARY = 'primary';
+
+    public const VISIBLE_PLACEMENT_SECONDARY = 'secondary';
+
     /**
      * @param array<string,mixed> $list
      * @return array<string,mixed>
@@ -110,6 +124,7 @@ final class AA_Executable_Contract {
             'state' => self::normalize_item_state($item['state'] ?? []),
             'capabilities' => self::normalize_item_capabilities($item['capabilities'] ?? []),
             'primary_action' => self::normalize_primary_action($item['primary_action'] ?? null),
+            'visible_actions' => self::normalize_visible_actions($item['visible_actions'] ?? []),
             'is_executive_candidate' => !empty($item['is_executive_candidate']),
         ];
     }
@@ -156,6 +171,7 @@ final class AA_Executable_Contract {
             'state',
             'capabilities',
             'primary_action',
+            'visible_actions',
             'is_executive_candidate',
         ];
     }
@@ -363,6 +379,126 @@ final class AA_Executable_Contract {
         }
 
         return null;
+    }
+
+    /**
+     * @param mixed $actions
+     * @return list<array{
+     *     key:string,
+     *     type:string,
+     *     category:string,
+     *     label:string,
+     *     placement:string,
+     *     target_status:string|null,
+     *     url:string|null,
+     *     handler:string|null
+     * }>
+     */
+    private static function normalize_visible_actions($actions): array {
+        if (!is_array($actions)) {
+            return [];
+        }
+
+        $normalized = [];
+
+        foreach ($actions as $action) {
+            if (!is_array($action)) {
+                continue;
+            }
+
+            $row = self::normalize_visible_action($action);
+
+            if ($row !== null) {
+                $normalized[] = $row;
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param array<string,mixed> $action
+     * @return array<string,mixed>|null
+     */
+    private static function normalize_visible_action(array $action): ?array {
+        $type = isset($action['type']) ? strtolower(trim((string) $action['type'])) : '';
+        $label = isset($action['label']) ? trim((string) $action['label']) : '';
+        $key = isset($action['key']) ? trim((string) $action['key']) : '';
+
+        if ($key === '' || $label === '') {
+            return null;
+        }
+
+        if (
+            $type !== self::ACTION_NAVIGATE
+            && $type !== self::ACTION_HANDLER
+            && $type !== self::ACTION_STATUS
+            && $type !== self::ACTION_INTENT
+        ) {
+            return null;
+        }
+
+        $category = isset($action['category']) ? strtolower(trim((string) $action['category'])) : '';
+
+        if (
+            $category !== self::VISIBLE_CATEGORY_MECHANICAL
+            && $category !== self::VISIBLE_CATEGORY_DECLARATIVE
+            && $category !== self::VISIBLE_CATEGORY_INTENT
+            && $category !== self::VISIBLE_CATEGORY_RECOVERY
+        ) {
+            return null;
+        }
+
+        $placement = isset($action['placement']) ? strtolower(trim((string) $action['placement'])) : '';
+
+        if ($placement !== self::VISIBLE_PLACEMENT_PRIMARY && $placement !== self::VISIBLE_PLACEMENT_SECONDARY) {
+            return null;
+        }
+
+        $target_status = null;
+        $raw_target = $action['target_status'] ?? null;
+
+        if ($raw_target !== null && $raw_target !== '') {
+            $target_status = self::normalize_item_status((string) $raw_target);
+        }
+
+        $url = null;
+        $handler = null;
+
+        if ($type === self::ACTION_NAVIGATE) {
+            $normalized_url = isset($action['url']) ? trim((string) $action['url']) : '';
+
+            if ($normalized_url === '') {
+                return null;
+            }
+
+            $url = $normalized_url;
+        }
+
+        if ($type === self::ACTION_HANDLER) {
+            $normalized_handler = isset($action['handler']) ? trim((string) $action['handler']) : '';
+
+            if ($normalized_handler === '') {
+                return null;
+            }
+
+            $handler = $normalized_handler;
+        }
+
+        if ($type === self::ACTION_STATUS && $target_status === null) {
+            return null;
+        }
+
+        return [
+            'key' => $key,
+            'type' => $type,
+            'category' => $category,
+            'label' => $label,
+            'placement' => $placement,
+            'target_status' => $target_status,
+            'url' => $url,
+            'handler' => $handler,
+        ];
     }
 
     /**

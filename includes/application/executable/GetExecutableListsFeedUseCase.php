@@ -7,6 +7,7 @@
 
 defined('ABSPATH') or die('No direct access');
 
+require_once __DIR__ . '/ExecutableVisibleActionsEnricher.php';
 require_once __DIR__ . '/LearningRecommendationsToExecutableMapper.php';
 require_once __DIR__ . '/TaskBoardToExecutableMapper.php';
 
@@ -71,7 +72,9 @@ final class GetExecutableListsFeedUseCase {
             ];
         }
 
-        $lists = $this->assemble_lists($system_list, $user_lists);
+        $lists = ExecutableVisibleActionsEnricher::enrich_lists(
+            $this->assemble_lists($system_list, $user_lists)
+        );
 
         return [
             'success' => true,

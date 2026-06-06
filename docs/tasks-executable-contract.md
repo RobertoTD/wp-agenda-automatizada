@@ -77,6 +77,7 @@ Sublistas internas de una lista (Principales, Otras sugerencias, default).
         'can_reactivate' => bool,
     ],
     'primary_action' => null|navigate|handler|status,
+    'visible_actions' => VisibleAction[],
     'is_executive_candidate' => bool,
 ]
 ```
@@ -129,7 +130,15 @@ Contexto declarativo mínimo:
 ]
 ```
 
-En el ciclo 1A esta policy queda documentada y testeada, pero **no** se conecta todavía a los mappers productivos, endpoint ni renderer. El renderer futuro deberá pintar `visible_actions`; mientras tanto el feed sigue usando `primary_action` y `capabilities` como compatibilidad.
+En el ciclo 1B el feed executable ya puede incluir `visible_actions` resueltas por `ExecutableVisibleActionsEnricher` + `AA_Executable_Visible_Actions_Policy`. El renderer experimental **todavía no las consume**; sigue usando `primary_action` y `capabilities` como compatibilidad temporal. La disponibilidad runtime de handlers (`pwa.install`, standalone, prompt) sigue resolviéndose en JS.
+
+Proyección común (MC11B):
+
+```php
+ExecutableVisibleActionsEnricher::enrich_lists(array $lists, array $context = []): array
+```
+
+Se invoca desde `GetExecutableListsFeedUseCase` después de ensamblar listas. Los mappers de fuente siguen produciendo items base sin resolver acciones visibles.
 
 ## Mapeo Learning → Executable
 
@@ -183,7 +192,8 @@ Salida: **una ExecutableList por lista de usuario**:
 ## Archivos MC7
 
 - `includes/domain/executable/class-aa-executable-contract.php` — normalizador puro
-- `includes/domain/executable/class-aa-executable-visible-actions-policy.php` — policy pura de acciones visibles (no conectada al feed en MC11A)
+- `includes/domain/executable/class-aa-executable-visible-actions-policy.php` — policy pura de acciones visibles
+- `includes/application/executable/ExecutableVisibleActionsEnricher.php` — enricher común del feed (MC11B)
 - `includes/application/executable/LearningRecommendationsToExecutableMapper.php`
 - `includes/application/executable/TaskBoardToExecutableMapper.php`
 - `tests/application/executable/test-executable-contract-mappers-ac.php`

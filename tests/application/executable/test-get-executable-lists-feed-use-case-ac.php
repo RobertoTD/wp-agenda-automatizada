@@ -144,6 +144,8 @@ ac_assert('Plugin bootstrap registers ExecutableListsAjax', strpos($bootstrap_sr
 $use_case_src = file_get_contents($plugin_root . '/includes/application/executable/GetExecutableListsFeedUseCase.php');
 ac_assert('Use case requires LearningRecommendationsToExecutableMapper', strpos($use_case_src, 'LearningRecommendationsToExecutableMapper.php') !== false);
 ac_assert('Use case requires TaskBoardToExecutableMapper', strpos($use_case_src, 'TaskBoardToExecutableMapper.php') !== false);
+ac_assert('Use case requires ExecutableVisibleActionsEnricher', strpos($use_case_src, 'ExecutableVisibleActionsEnricher.php') !== false);
+ac_assert('Use case enriches lists with visible actions', strpos($use_case_src, 'ExecutableVisibleActionsEnricher::enrich_lists') !== false);
 ac_assert('Use case lazy-loads GetLearningRecommendationsUseCase', strpos($use_case_src, 'GetLearningRecommendationsUseCase.php') !== false);
 ac_assert('Use case lazy-loads GetTaskBoardUseCase', strpos($use_case_src, 'GetTaskBoardUseCase.php') !== false);
 
@@ -206,6 +208,45 @@ ac_assert(
     'Happy path excludes done user tasks from active bucket',
     $first_user_item_ids === ['10']
     && (int) ($happy['meta']['sources']['tasks']['item_count'] ?? -1) === 2
+);
+
+$system_list = is_array($happy_lists[0] ?? null) ? $happy_lists[0] : [];
+$system_primary_item = null;
+
+foreach ($system_list['buckets'] ?? [] as $bucket) {
+    if (!is_array($bucket)) {
+        continue;
+    }
+
+    if (($bucket['key'] ?? '') === AA_Executable_Contract::BUCKET_PRIMARY) {
+        $system_primary_item = is_array($bucket['items'][0] ?? null) ? $bucket['items'][0] : null;
+        break;
+    }
+}
+
+$system_visible_keys = is_array($system_primary_item)
+    ? array_map(static function (array $action): string {
+        return (string) ($action['key'] ?? '');
+    }, is_array($system_primary_item['visible_actions'] ?? null) ? $system_primary_item['visible_actions'] : [])
+    : [];
+$first_user_item = is_array($first_user_items[0] ?? null) ? $first_user_items[0] : null;
+$user_visible_keys = is_array($first_user_item)
+    ? array_map(static function (array $action): string {
+        return (string) ($action['key'] ?? '');
+    }, is_array($first_user_item['visible_actions'] ?? null) ? $first_user_item['visible_actions'] : [])
+    : [];
+
+ac_assert(
+    'Happy path learning item includes visible_actions',
+    $system_visible_keys === ['navigate', 'defer']
+    && is_array($system_primary_item)
+    && array_key_exists('visible_actions', $system_primary_item)
+);
+ac_assert(
+    'Happy path user pending item includes visible_actions complete',
+    $user_visible_keys === ['complete']
+    && is_array($first_user_item)
+    && ($first_user_item['primary_action']['type'] ?? '') === AA_Executable_Contract::ACTION_STATUS
 );
 
 // ─── Vacíos ──────────────────────────────────────────────────
