@@ -324,7 +324,74 @@ Fuera de alcance MC12C: `reactivate`, navegación `<a href>`, auto-complete post
 
 El feed legacy visible **no se sustituye**; puede quedar desincronizado hasta reload manual en debug.
 
-El coordinator usa delegación en capture sobre `#aa-executable-lists-root` con `stopPropagation()` para evitar doble ejecución con `tasks-board-module.js` (mismo `#aa-tasks-module-root` ancestro).
+El coordinator usa delegación en capture sobre cada root inicializado (`#aa-executable-lists-root` experimental, `#aa-executable-user-lists-root` visible MC13A) con `stopPropagation()` para evitar doble ejecución con `tasks-board-module.js` (mismo `#aa-tasks-module-root` ancestro).
+
+## MC13A — feed user visible (infra, no swap)
+
+Flag **`AA_EXECUTABLE_VISIBLE_FEED=user`** (fuentes: `sessionStorage`, `window.AA_EXECUTABLE_VISIBLE_FEED`, opcional `AA_EXECUTABLE_LISTS_DATA.visibleFeed`). **Off por defecto** — producción sin cambios.
+
+Roots nuevos en `index.php` (ocultos por defecto):
+
+| Elemento | Rol |
+|----------|-----|
+| `#aa-executable-user-lists-visible` | Sección contenedora (violeta, comparación MC13A) |
+| `#aa-executable-user-lists-root` | Render target del feed user filtrado |
+| `#aa-executable-user-lists-error` | Errores de acciones en el root visible |
+
+Separado del sandbox amber `#aa-executable-lists-experimental`.
+
+Comportamiento con flag **user**:
+
+1. Muestra la sección visible user.
+2. `ExecutableListsService.getFeed()` → `lists.filter(l => l.source === 'user')`.
+3. Render con `AAExecutableListRenderer.renderFeed(userLists, buildRenderOptions())`.
+4. `ExecutableActionsCoordinator.init()` en el root visible con **acciones activas** (no requiere `AA_EXECUTABLE_LISTS_ACTIONS_DEBUG`).
+5. `findLearningItem` devuelve `null` en este root (solo user lists).
+6. Refresco documentado: `window.AAExecutableUserListsVisibleFeed.reload()` (MC13B cableará post-CRUD legacy).
+
+**No oculta** `#aa-tasks-board-root`, Learning legacy, propuesta ejecutiva ni FABs/modales. Comparación side-by-side antes de MC13B.
+
+**Experimental debug:** si solo `AA_EXECUTABLE_VISIBLE_FEED=user`, el sandbox amber sigue oculto salvo `AA_EXECUTABLE_LISTS_DEBUG=1`. Ambos flags pueden coexistir (coordinator multi-root idempotente por `root.id`).
+
+**`done` en active feed user:** la proyección actual excluye tareas `status=done` del feed activo executable; el board legacy puede seguir mostrándolas — diferencia conocida, no bug MC13A. Sin vista `completed`, sin `Reabrir` en active feed, sin reintroducir `done` al feed activo.
+
+Rollback: `sessionStorage.removeItem('AA_EXECUTABLE_VISIBLE_FEED'); location.reload();`
+
+## MC13B — user-swap (feed principal, legacy oculto)
+
+Nuevo valor de flag: **`AA_EXECUTABLE_VISIBLE_FEED=user-swap`** (mismas fuentes que MC13A). **`user` conserva semántica MC13A** (paralelo).
+
+| Valor | Comportamiento |
+|-------|----------------|
+| *(off)* | UI legacy |
+| `user` | Feed executable user visible + board legacy visible (MC13A) |
+| `user-swap` | Feed executable user como render principal; `#aa-tasks-board-root` oculto visualmente |
+
+**Siguen visibles en swap:** `#aa-executive-proposal`, Learning legacy, `#aa-tasks-error`, FABs/modales.
+
+**`tasks-board-module.js` sigue activo:** `loadBoard()` alimenta executive, selector de listas, `lastBoardPayload`, validación FAB “crea una lista primero”. El board legacy se oculta con `hidden`; no se elimina del DOM.
+
+**Refresh post-mutación:**
+
+- CRUD/modales/executive (`tasks-board-module`): `loadBoard({ silent: true })` + `AAExecutableUserListsVisibleFeed.reload()` best-effort.
+- Acciones en feed user swap (coordinator): `reloadVisibleUserFeedWithBoardSync()` → feed executable + `AATasksBoard.reload({ silent: true })` para executive/selector.
+
+**API pública:**
+
+- `window.AATasksBoard.reload(options)` — recarga board legacy (executive + selector + render oculto).
+- `window.AAExecutableUserListsVisibleFeed.reload()` — recarga feed user executable.
+- `AAExecutableUserListsVisibleFeed.isSwapEnabled()` — true solo en `user-swap`.
+
+**Empty swap:** copy con CTA al FAB “+ Nueva lista”.
+
+**`done`:** sin cambios respecto MC13A — fuera del active feed executable; sin vista `completed` ni `Reabrir`.
+
+Activar swap:
+
+```javascript
+sessionStorage.setItem('AA_EXECUTABLE_VISIBLE_FEED', 'user-swap');
+location.reload();
+```
 
 Proyección común (MC11B):
 

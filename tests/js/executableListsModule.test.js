@@ -127,7 +127,7 @@ describe('executable-lists-module hooks', () => {
         const fs = require('node:fs');
         const moduleSrc = fs.readFileSync(modulePath, 'utf8');
 
-        assert.match(moduleSrc, /if \(!isDebugEnabled\(\)\) \{\s*setSectionVisible\(false\);\s*return;/);
+        assert.match(moduleSrc, /if \(!isDebugEnabled\(\)\) \{\s*setExperimentalSectionVisible\(false\);\s*return;/);
     });
 
     it('isActionsEnabled es false sin debug visible', () => {
@@ -324,6 +324,440 @@ describe('executable-lists-module hooks', () => {
     });
 });
 
+describe('executable-lists-module MC13A visible user feed', () => {
+    let originalVisibleFeed;
+    let originalData;
+    let originalSessionStorage;
+    let originalRenderer;
+    let originalService;
+    let originalCoordinator;
+    let originalDocument;
+
+    beforeEach(() => {
+        originalVisibleFeed = globalThis.AA_EXECUTABLE_VISIBLE_FEED;
+        originalData = globalThis.AA_EXECUTABLE_LISTS_DATA;
+        originalSessionStorage = globalThis.sessionStorage;
+        originalRenderer = globalThis.AAExecutableListRenderer;
+        originalService = globalThis.ExecutableListsService;
+        originalCoordinator = globalThis.ExecutableActionsCoordinator;
+        originalDocument = globalThis.document;
+    });
+
+    afterEach(() => {
+        if (originalVisibleFeed === undefined) {
+            delete globalThis.AA_EXECUTABLE_VISIBLE_FEED;
+        } else {
+            globalThis.AA_EXECUTABLE_VISIBLE_FEED = originalVisibleFeed;
+        }
+
+        if (originalData === undefined) {
+            delete globalThis.AA_EXECUTABLE_LISTS_DATA;
+        } else {
+            globalThis.AA_EXECUTABLE_LISTS_DATA = originalData;
+        }
+
+        if (originalSessionStorage === undefined) {
+            delete globalThis.sessionStorage;
+        } else {
+            globalThis.sessionStorage = originalSessionStorage;
+        }
+
+        if (originalRenderer === undefined) {
+            delete globalThis.AAExecutableListRenderer;
+        } else {
+            globalThis.AAExecutableListRenderer = originalRenderer;
+        }
+
+        if (originalService === undefined) {
+            delete globalThis.ExecutableListsService;
+        } else {
+            globalThis.ExecutableListsService = originalService;
+        }
+
+        if (originalCoordinator === undefined) {
+            delete globalThis.ExecutableActionsCoordinator;
+        } else {
+            globalThis.ExecutableActionsCoordinator = originalCoordinator;
+        }
+
+        if (originalDocument === undefined) {
+            delete globalThis.document;
+        } else {
+            globalThis.document = originalDocument;
+        }
+    });
+
+    it('isVisibleUserFeedEnabled es false sin flag', () => {
+        delete globalThis.AA_EXECUTABLE_VISIBLE_FEED;
+        delete globalThis.AA_EXECUTABLE_LISTS_DATA;
+        delete globalThis.sessionStorage;
+
+        assert.equal(hooks.isVisibleUserFeedEnabled(), false);
+    });
+
+    it('isVisibleUserFeedEnabled respeta window.AA_EXECUTABLE_VISIBLE_FEED=user', () => {
+        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'user';
+
+        assert.equal(hooks.isVisibleUserFeedEnabled(), true);
+    });
+
+    it('isVisibleUserFeedEnabled respeta AA_EXECUTABLE_LISTS_DATA.visibleFeed', () => {
+        globalThis.AA_EXECUTABLE_LISTS_DATA = {
+            visibleFeed: 'user'
+        };
+
+        assert.equal(hooks.isVisibleUserFeedEnabled(), true);
+    });
+
+    it('isVisibleUserFeedEnabled respeta sessionStorage AA_EXECUTABLE_VISIBLE_FEED=user', () => {
+        globalThis.sessionStorage = {
+            getItem: function (key) {
+                return key === 'AA_EXECUTABLE_VISIBLE_FEED' ? 'user' : null;
+            }
+        };
+
+        assert.equal(hooks.isVisibleUserFeedEnabled(), true);
+        assert.equal(hooks.isSessionStorageVisibleFeedUserEnabled(), true);
+    });
+
+    it('filterUserLists deja solo source=user', () => {
+        var lists = [
+            { source: 'user', id: '1' },
+            { source: 'system', id: 'system:learning.recommendations' },
+            { source: 'user', id: '2' }
+        ];
+
+        var filtered = hooks.filterUserLists(lists);
+
+        assert.equal(filtered.length, 2);
+        assert.equal(filtered[0].id, '1');
+        assert.equal(filtered[1].id, '2');
+    });
+
+    it('renderVisibleUserPayload no incluye system:learning.recommendations', () => {
+        var renderedLists = null;
+
+        globalThis.AAExecutableListRenderer = {
+            renderFeed: function (lists) {
+                renderedLists = lists;
+                return '<div>feed</div>';
+            }
+        };
+
+        globalThis.document = {
+            getElementById: function (id) {
+                if (id === 'aa-executable-user-lists-root') {
+                    return { innerHTML: '' };
+                }
+
+                return null;
+            }
+        };
+
+        hooks.renderVisibleUserPayload({
+            lists: [
+                { source: 'user', id: '10', buckets: [] },
+                { source: 'system', id: 'system:learning.recommendations', buckets: [] }
+            ]
+        });
+
+        assert.ok(renderedLists);
+        assert.equal(renderedLists.length, 1);
+        assert.equal(renderedLists[0].id, '10');
+    });
+
+    it('loadVisibleUserFeed llama getFeed y re-renderiza user lists', async () => {
+        var getFeedCalls = 0;
+        var root = { innerHTML: '' };
+
+        globalThis.ExecutableListsService = {
+            getFeed: function () {
+                getFeedCalls += 1;
+                return Promise.resolve({
+                    lists: [
+                        { source: 'user', id: '7', buckets: [] },
+                        { source: 'system', id: 'system:learning.recommendations', buckets: [] }
+                    ]
+                });
+            }
+        };
+
+        globalThis.AAExecutableListRenderer = {
+            renderFeed: function (lists) {
+                assert.equal(lists.length, 1);
+                assert.equal(lists[0].id, '7');
+                return '<div>user-feed</div>';
+            }
+        };
+
+        globalThis.document = {
+            getElementById: function (id) {
+                if (id === 'aa-executable-user-lists-root') {
+                    return root;
+                }
+
+                return null;
+            }
+        };
+
+        await hooks.loadVisibleUserFeed();
+
+        assert.equal(getFeedCalls, 1);
+        assert.match(root.innerHTML, /user-feed/);
+    });
+
+    it('AAExecutableUserListsVisibleFeed.reload expone loadVisibleUserFeed', async () => {
+        var getFeedCalls = 0;
+        var root = { innerHTML: '' };
+
+        globalThis.ExecutableListsService = {
+            getFeed: function () {
+                getFeedCalls += 1;
+                return Promise.resolve({ lists: [] });
+            }
+        };
+
+        globalThis.AAExecutableListRenderer = {
+            renderFeed: function () {
+                return '<p>empty</p>';
+            }
+        };
+
+        globalThis.document = {
+            getElementById: function (id) {
+                if (id === 'aa-executable-user-lists-root') {
+                    return root;
+                }
+
+                return null;
+            }
+        };
+
+        await hooks.visibleUserFeedApi.reload();
+
+        assert.equal(getFeedCalls, 1);
+    });
+
+    it('initVisibleUserCoordinator inicializa coordinator con acciones activas', () => {
+        var initCalls = [];
+
+        globalThis.ExecutableActionsCoordinator = {
+            init: function (opts) {
+                initCalls.push(opts);
+            }
+        };
+
+        var root = { id: 'aa-executable-user-lists-root' };
+
+        hooks.initVisibleUserCoordinator(root);
+        hooks.initVisibleUserCoordinator(root);
+
+        assert.equal(initCalls.length, 1);
+        assert.equal(initCalls[0].root, root);
+        assert.equal(typeof initCalls[0].reload, 'function');
+        assert.equal(initCalls[0].findLearningItem(), null);
+    });
+
+    it('flag off mantiene root visible user oculto en init', () => {
+        const fs = require('node:fs');
+        const moduleSrc = fs.readFileSync(modulePath, 'utf8');
+
+        assert.match(moduleSrc, /if \(!isVisibleUserFeedEnabled\(\)\) \{\s*setVisibleUserSectionVisible\(false\);\s*setLegacyBoardVisible\(true\);\s*return;/);
+    });
+
+    it('visible user feed no depende de AA_EXECUTABLE_LISTS_ACTIONS_DEBUG', () => {
+        const fs = require('node:fs');
+        const moduleSrc = fs.readFileSync(modulePath, 'utf8');
+        var visibleInitBlock = moduleSrc.match(/function initVisibleUserFeedModule\(\)[\s\S]{0,700}/);
+
+        assert.ok(visibleInitBlock, 'initVisibleUserFeedModule definido');
+        assert.match(visibleInitBlock[0], /enableInteractiveRoot\(root\)/);
+        assert.match(visibleInitBlock[0], /initVisibleUserCoordinator\(root\)/);
+        assert.doesNotMatch(visibleInitBlock[0], /isActionsEnabled/);
+    });
+
+    it('experimental debug sigue gated por AA_EXECUTABLE_LISTS_DEBUG', () => {
+        const fs = require('node:fs');
+        const moduleSrc = fs.readFileSync(modulePath, 'utf8');
+
+        assert.match(moduleSrc, /function initExperimentalModule\(\)/);
+        assert.match(moduleSrc, /if \(!isDebugEnabled\(\)\)/);
+    });
+});
+
+describe('executable-lists-module MC13B user-swap', () => {
+    let originalVisibleFeed;
+    let originalBoard;
+    let originalDocument;
+
+    beforeEach(() => {
+        originalVisibleFeed = globalThis.AA_EXECUTABLE_VISIBLE_FEED;
+        originalBoard = globalThis.AATasksBoard;
+        originalDocument = globalThis.document;
+    });
+
+    afterEach(() => {
+        if (originalVisibleFeed === undefined) {
+            delete globalThis.AA_EXECUTABLE_VISIBLE_FEED;
+        } else {
+            globalThis.AA_EXECUTABLE_VISIBLE_FEED = originalVisibleFeed;
+        }
+
+        if (originalBoard === undefined) {
+            delete globalThis.AATasksBoard;
+        } else {
+            globalThis.AATasksBoard = originalBoard;
+        }
+
+        if (originalDocument === undefined) {
+            delete globalThis.document;
+        } else {
+            globalThis.document = originalDocument;
+        }
+    });
+
+    it('isUserSwapEnabled es true con user-swap', () => {
+        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'user-swap';
+
+        assert.equal(hooks.isUserSwapEnabled(), true);
+        assert.equal(hooks.isVisibleUserFeedEnabled(), true);
+        assert.equal(hooks.readVisibleFeedFlag(), 'user-swap');
+    });
+
+    it('user conserva semántica parallel sin swap', () => {
+        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'user';
+
+        assert.equal(hooks.isVisibleUserFeedEnabled(), true);
+        assert.equal(hooks.isUserSwapEnabled(), false);
+    });
+
+    it('getVisibleUserEmptyMessage en swap incluye CTA FAB', () => {
+        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'user-swap';
+
+        assert.match(hooks.getVisibleUserEmptyMessage(), /botón flotante/i);
+    });
+
+    it('applyUserSwapLayout oculta legacy board en user-swap', () => {
+        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'user-swap';
+
+        var legacyBoard = {
+            classList: {
+                classes: [],
+                add: function (name) {
+                    if (!this.classes.includes(name)) {
+                        this.classes.push(name);
+                    }
+                },
+                remove: function (name) {
+                    this.classes = this.classes.filter(function (item) {
+                        return item !== name;
+                    });
+                }
+            }
+        };
+
+        globalThis.document = {
+            getElementById: function (id) {
+                if (id === 'aa-tasks-board-root') {
+                    return legacyBoard;
+                }
+
+                return null;
+            }
+        };
+
+        hooks.applyUserSwapLayout();
+
+        assert.equal(legacyBoard.classList.classes.includes('hidden'), true);
+    });
+
+    it('applyUserSwapLayout mantiene legacy visible en modo user', () => {
+        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'user';
+
+        var legacyBoard = {
+            classList: {
+                classes: ['hidden'],
+                add: function (name) {
+                    if (!this.classes.includes(name)) {
+                        this.classes.push(name);
+                    }
+                },
+                remove: function (name) {
+                    this.classes = this.classes.filter(function (item) {
+                        return item !== name;
+                    });
+                }
+            }
+        };
+
+        globalThis.document = {
+            getElementById: function (id) {
+                if (id === 'aa-tasks-board-root') {
+                    return legacyBoard;
+                }
+
+                return null;
+            }
+        };
+
+        hooks.applyUserSwapLayout();
+
+        assert.equal(legacyBoard.classList.classes.includes('hidden'), false);
+    });
+
+    it('reloadVisibleUserFeedWithBoardSync recarga board en swap', async () => {
+        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'user-swap';
+
+        var boardReloadCalls = 0;
+        var getFeedCalls = 0;
+        var root = { innerHTML: '' };
+
+        globalThis.AATasksBoard = {
+            reload: function (options) {
+                boardReloadCalls += 1;
+                assert.equal(options.silent, true);
+                return Promise.resolve();
+            }
+        };
+
+        globalThis.ExecutableListsService = {
+            getFeed: function () {
+                getFeedCalls += 1;
+                return Promise.resolve({ lists: [] });
+            }
+        };
+
+        globalThis.AAExecutableListRenderer = {
+            renderFeed: function () {
+                return '<p>empty</p>';
+            }
+        };
+
+        globalThis.document = {
+            getElementById: function (id) {
+                if (id === 'aa-executable-user-lists-root') {
+                    return root;
+                }
+
+                return null;
+            }
+        };
+
+        await hooks.reloadVisibleUserFeedWithBoardSync();
+
+        assert.equal(getFeedCalls, 1);
+        assert.equal(boardReloadCalls, 1);
+    });
+
+    it('initVisibleUserCoordinator usa reload compuesto en swap', () => {
+        const fs = require('node:fs');
+        const moduleSrc = fs.readFileSync(modulePath, 'utf8');
+
+        assert.match(moduleSrc, /reloadVisibleUserFeedWithBoardSync/);
+        assert.match(moduleSrc, /reload: reloadVisibleUserFeedWithBoardSync/);
+    });
+});
+
 describe('executable-lists-module wiring', () => {
     it('index.php carga renderer, coordinator y módulo experimental', () => {
         const fs = require('node:fs');
@@ -336,6 +770,9 @@ describe('executable-lists-module wiring', () => {
         assert.match(indexSrc, /id="aa-executable-lists-experimental"/);
         assert.match(indexSrc, /id="aa-executable-lists-root"/);
         assert.match(indexSrc, /id="aa-executable-lists-error"/);
+        assert.match(indexSrc, /id="aa-executable-user-lists-visible"/);
+        assert.match(indexSrc, /id="aa-executable-user-lists-root"/);
+        assert.match(indexSrc, /id="aa-executable-user-lists-error"/);
     });
 
     it('modo preview aplica interaction guard cuando acciones no están activas', () => {
@@ -345,7 +782,8 @@ describe('executable-lists-module wiring', () => {
         assert.match(moduleSrc, /if \(isActionsEnabled\(\)\)/);
         assert.match(moduleSrc, /bindInteractionGuard\(root\)/);
         assert.match(moduleSrc, /enableInteractiveRoot\(root\)/);
-        assert.match(moduleSrc, /initActionsCoordinator\(root\)/);
+        assert.match(moduleSrc, /initExperimentalCoordinator\(root\)/);
+        assert.match(moduleSrc, /initVisibleUserCoordinator\(root\)/);
     });
 
     it('modo preview bloquea interacción con inert y capture listener', () => {
@@ -359,5 +797,6 @@ describe('executable-lists-module wiring', () => {
         assert.match(moduleSrc, /renderFeed\(lists, buildRenderOptions\(\)\)/);
         assert.match(moduleSrc, /AA_EXECUTABLE_LISTS_DEBUG/);
         assert.match(moduleSrc, /AA_EXECUTABLE_LISTS_ACTIONS_DEBUG/);
+        assert.match(moduleSrc, /AA_EXECUTABLE_VISIBLE_FEED/);
     });
 });

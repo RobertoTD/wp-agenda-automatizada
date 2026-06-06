@@ -81,6 +81,15 @@ $executable_actions_coordinator_js = plugin_dir_url(__FILE__) . 'executable-acti
                 </div>
             </article>
 
+            <section id="aa-executable-user-lists-visible" class="hidden mb-4 border border-dashed border-violet-300 rounded-xl overflow-hidden bg-white">
+                <div id="aa-executable-user-lists-visible-header" class="px-4 py-3 border-b border-violet-200 bg-violet-50">
+                    <h4 id="aa-executable-user-lists-visible-title" class="text-sm font-semibold text-violet-900">Listas de usuario (executable visible)</h4>
+                    <p id="aa-executable-user-lists-visible-subtitle" class="text-xs text-violet-800 mt-0.5">Comparación MC13A: feed user filtrado; legacy sigue visible abajo.</p>
+                </div>
+                <p id="aa-executable-user-lists-error" class="hidden text-sm text-red-600 px-4 pt-3"></p>
+                <div id="aa-executable-user-lists-root" class="p-4 space-y-4"></div>
+            </section>
+
             <div id="aa-tasks-board-root">
                 <p id="aa-tasks-loading" class="text-sm text-gray-500">Cargando listas y tareas…</p>
                 <p id="aa-tasks-empty" class="hidden text-sm text-gray-500 bg-white rounded-xl border border-dashed border-gray-200 px-4 py-3">

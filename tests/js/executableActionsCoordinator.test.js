@@ -969,3 +969,50 @@ describe('ExecutableActionsCoordinator', () => {
         assert.equal(learningButton.disabled, true);
     });
 });
+
+describe('ExecutableActionsCoordinator multi-root init', () => {
+    beforeEach(() => {
+        coordinatorApi.resetBinding();
+    });
+
+    it('init es idempotente por root y permite múltiples roots', () => {
+        var listenersA = 0;
+        var listenersB = 0;
+        var rootA = {
+            id: 'aa-executable-lists-root',
+            addEventListener: function () {
+                listenersA += 1;
+            }
+        };
+        var rootB = {
+            id: 'aa-executable-user-lists-root',
+            addEventListener: function () {
+                listenersB += 1;
+            }
+        };
+
+        coordinatorApi.init({ root: rootA, reload: function () {} });
+        coordinatorApi.init({ root: rootA, reload: function () {} });
+        coordinatorApi.init({ root: rootB, reload: function () {} });
+
+        assert.equal(coordinatorApi.isDelegationBound(rootA), true);
+        assert.equal(coordinatorApi.isDelegationBound(rootB), true);
+        assert.equal(listenersA, 1);
+        assert.equal(listenersB, 1);
+    });
+
+    it('resetBinding limpia todos los roots', () => {
+        var root = {
+            id: 'aa-executable-user-lists-root',
+            addEventListener: function () {}
+        };
+
+        coordinatorApi.init({ root: root, reload: function () {} });
+        assert.equal(coordinatorApi.isDelegationBound(root), true);
+
+        coordinatorApi.resetBinding();
+
+        assert.equal(coordinatorApi.isDelegationBound(root), false);
+        assert.equal(coordinatorApi.isDelegationBound(), false);
+    });
+});

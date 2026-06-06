@@ -6,6 +6,9 @@
 (function () {
     'use strict';
 
+    var globalRoot = typeof window !== 'undefined'
+        ? window
+        : (typeof globalThis !== 'undefined' ? globalThis : this);
     var isActionPending = false;
     var lastBoardPayload = null;
 
@@ -157,6 +160,35 @@
      * @param {{silent?:boolean}} [options]
      * @returns {Promise<void>}
      */
+    function reloadBoardAfterMutation(options) {
+        return loadBoard(options || { silent: true }).then(function () {
+            return reloadExecutableUserFeedBestEffort();
+        });
+    }
+
+    /**
+     * MC13B: refresca feed executable user si el flag visible está activo (best-effort, silent).
+     *
+     * @returns {Promise<void>}
+     */
+    function reloadExecutableUserFeedBestEffort() {
+        var api = globalRoot.AAExecutableUserListsVisibleFeed;
+
+        if (!api || typeof api.isEnabled !== 'function' || !api.isEnabled()) {
+            return Promise.resolve();
+        }
+
+        if (typeof api.reload !== 'function') {
+            return Promise.resolve();
+        }
+
+        return api.reload().catch(function () {});
+    }
+
+    /**
+     * @param {{silent?:boolean}} [options]
+     * @returns {Promise<void>}
+     */
     function loadBoard(options) {
         var opts = options || {};
         var silent = opts.silent === true;
@@ -275,7 +307,7 @@
             .then(function () {
                 closeModal('aa-task-list-modal');
                 resetListForm();
-                return loadBoard({ silent: true });
+                return reloadBoardAfterMutation({ silent: true });
             })
             .catch(function (err) {
                 showFormError('aa-task-list-form-error', (err && err.message) ? err.message : 'No se pudo crear la lista.');
@@ -350,7 +382,7 @@
             .then(function () {
                 closeModal('aa-task-modal');
                 resetTaskForm();
-                return loadBoard({ silent: true });
+                return reloadBoardAfterMutation({ silent: true });
             })
             .catch(function (err) {
                 showFormError('aa-task-form-error', (err && err.message) ? err.message : 'No se pudo crear la tarea.');
@@ -383,7 +415,7 @@
 
         service.changeTaskStatus(taskId, status)
             .then(function () {
-                return loadBoard({ silent: true });
+                return reloadBoardAfterMutation({ silent: true });
             })
             .catch(function (err) {
                 showBoardError((err && err.message) ? err.message : 'No se pudo actualizar la tarea.');
@@ -418,7 +450,7 @@
 
         service.archiveTaskList(listId)
             .then(function () {
-                return loadBoard({ silent: true });
+                return reloadBoardAfterMutation({ silent: true });
             })
             .catch(function (err) {
                 showBoardError((err && err.message) ? err.message : 'No se pudo archivar la lista.');
@@ -507,6 +539,25 @@
         bindBoardDelegation();
         bindModals();
         loadBoard();
+    }
+
+    globalRoot.AATasksBoard = {
+        reload: function (options) {
+            return loadBoard(options || { silent: true });
+        }
+    };
+
+    var moduleExports = {
+        reloadExecutableUserFeedBestEffort: reloadExecutableUserFeedBestEffort,
+        reloadBoardAfterMutation: reloadBoardAfterMutation
+    };
+
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = moduleExports;
+    }
+
+    if (typeof document === 'undefined') {
+        return;
     }
 
     if (document.readyState === 'loading') {

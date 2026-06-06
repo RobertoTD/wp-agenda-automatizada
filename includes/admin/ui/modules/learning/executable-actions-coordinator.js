@@ -14,8 +14,7 @@
         : (typeof globalThis !== 'undefined' ? globalThis : this);
 
     var isActionPending = false;
-    var isDelegationBound = false;
-    var boundRoot = null;
+    var boundRoots = {};
 
     var ARCHIVE_CONFIRM_MESSAGE = '¿Archivar esta lista? Las tareas se conservarán.';
 
@@ -540,18 +539,36 @@
     var defaultCoordinator = createCoordinator({});
 
     /**
+     * @param {HTMLElement|null|undefined} root
+     * @returns {string}
+     */
+    function resolveRootKey(root) {
+        if (!root) {
+            return '';
+        }
+
+        var rootId = asString(root.id).trim();
+
+        if (rootId !== '') {
+            return rootId;
+        }
+
+        return '__anonymous_root__';
+    }
+
+    /**
      * @param {object} options root, reload, showError, clearError, findLearningItem
      */
     function init(options) {
         var opts = options || {};
         var root = opts.root;
+        var rootKey = resolveRootKey(root);
 
-        if (!root || isDelegationBound) {
+        if (!root || rootKey === '' || boundRoots[rootKey]) {
             return;
         }
 
-        isDelegationBound = true;
-        boundRoot = root;
+        boundRoots[rootKey] = true;
 
         var ctx = {
             root: root,
@@ -566,6 +583,23 @@
         }, true);
     }
 
+    /**
+     * @param {HTMLElement|null|undefined} [root]
+     * @returns {boolean}
+     */
+    function isDelegationBound(root) {
+        if (!root) {
+            return Object.keys(boundRoots).length > 0;
+        }
+
+        return !!boundRoots[resolveRootKey(root)];
+    }
+
+    function resetBinding() {
+        boundRoots = {};
+        isActionPending = false;
+    }
+
     var api = {
         init: init,
         createCoordinator: createCoordinator,
@@ -573,14 +607,8 @@
         TASK_ACTION_SELECTOR: TASK_ACTION_SELECTOR,
         LEARNING_ACTION_SELECTOR: LEARNING_ACTION_SELECTOR,
         ACTIONABLE_BUTTON_SELECTOR: ACTIONABLE_BUTTON_SELECTOR,
-        isDelegationBound: function () {
-            return isDelegationBound;
-        },
-        resetBinding: function () {
-            isDelegationBound = false;
-            boundRoot = null;
-            isActionPending = false;
-        }
+        isDelegationBound: isDelegationBound,
+        resetBinding: resetBinding
     };
 
     globalRoot.ExecutableActionsCoordinator = api;
