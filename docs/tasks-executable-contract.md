@@ -301,7 +301,24 @@ Acciones habilitadas en MC12B (Learning simple):
 
 **Semántica MC12 (dominio/backend, no coordinator):** ver tabla en [Modelo de señales, estado y procedencia](#modelo-de-señales-estado-y-procedencia). Resumen: defer/dismiss/complete **registran señales**; la proyección en buckets/feed es interpretación de policy, no efecto absoluto.
 
-Fuera de alcance MC12B: `reactivate`, `primary-handler`, `pwa.install`, navegación `<a href>`. MC12C cubrirá handlers runtime (idealmente emitiendo señales/eventos futuros, no solo mutaciones).
+Acciones habilitadas en MC12C (Learning primary-handler):
+
+| Markup DOM | Ejecución |
+|------------|-----------|
+| `data-learning-action="primary-handler"` + `data-recommendation-key` + `data-learning-handler` | `LearningActionHandlers.run(action, item, ctx)` |
+
+Flujo MC12C:
+
+1. Resolver item desde `lastPayload` vía `findLearningItem(key)` (`origin_key \|\| id`; preferir `source=system`).
+2. Resolver `action` desde `item.visible_actions` donde `type=handler` y `handler === data-learning-handler`.
+3. Validar `LearningActionHandlers.isAvailable(action, item)` al momento del click.
+4. Ejecutar `run`; **no** llamar `LearningService.completeRecommendation`.
+5. **Reload** del feed solo si el handler devuelve `{ reload: true }` (p. ej. `pwa.install` devuelve `{ completed: false, outcome }` sin reload automático).
+6. Disponibilidad runtime (`beforeinstallprompt`, standalone, `appinstalled`) sigue en `LearningActionHandlers`; el renderer experimental oculta botones vía `buildRenderOptions()`.
+
+No hay action log ni counters en MC12C. `pwa.install` no completa automáticamente la recomendación en BD.
+
+Fuera de alcance MC12C: `reactivate`, navegación `<a href>`, auto-complete post-handler, action log/counters.
 
 **Deuda lista:** ver [Deuda: acciones de lista](#deuda-acciones-de-lista-archive-list).
 

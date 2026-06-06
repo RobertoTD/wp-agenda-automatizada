@@ -2,7 +2,7 @@
  * Executable Lists Module — feed experimental visible solo en debug.
  *
  * Renderiza el feed MC7/MC9 sin sustituir pipelines legacy.
- * MC12A: modo interactivo debug opcional vía ExecutableActionsCoordinator (user tasks).
+ * MC12A: modo interactivo debug opcional vía ExecutableActionsCoordinator (user tasks + Learning handlers).
  */
 (function () {
     'use strict';
@@ -118,7 +118,7 @@
         }
 
         if (isActionsEnabled()) {
-            modeEl.textContent = 'Modo debug interactivo: acciones de tareas de usuario habilitadas.';
+            modeEl.textContent = 'Modo debug interactivo: acciones de tareas y handlers Learning habilitadas.';
             return;
         }
 
@@ -176,6 +176,87 @@
 
     function getLearningRegistry() {
         return globalRoot.LearningActionHandlers || null;
+    }
+
+    /**
+     * @param {object|null|undefined} item
+     * @returns {string}
+     */
+    function resolveExecutableItemKey(item) {
+        if (!item || typeof item !== 'object') {
+            return '';
+        }
+
+        var originKey = asString(item.origin_key).trim();
+
+        if (originKey !== '') {
+            return originKey;
+        }
+
+        return asString(item.id).trim();
+    }
+
+    /**
+     * @param {unknown} value
+     * @returns {string}
+     */
+    function asString(value) {
+        return value === null || value === undefined ? '' : String(value);
+    }
+
+    /**
+     * @param {string} key
+     * @returns {object|null}
+     */
+    function findLearningItem(key) {
+        var normalizedKey = asString(key).trim();
+
+        if (normalizedKey === '' || !lastPayload) {
+            return null;
+        }
+
+        var lists = Array.isArray(lastPayload.lists) ? lastPayload.lists : [];
+        var preferred = null;
+        var fallback = null;
+        var listIndex = 0;
+        var bucketIndex = 0;
+        var itemIndex = 0;
+
+        for (listIndex = 0; listIndex < lists.length; listIndex += 1) {
+            var list = lists[listIndex];
+
+            if (!list || typeof list !== 'object') {
+                continue;
+            }
+
+            var buckets = Array.isArray(list.buckets) ? list.buckets : [];
+
+            for (bucketIndex = 0; bucketIndex < buckets.length; bucketIndex += 1) {
+                var bucket = buckets[bucketIndex];
+
+                if (!bucket || typeof bucket !== 'object') {
+                    continue;
+                }
+
+                var items = Array.isArray(bucket.items) ? bucket.items : [];
+
+                for (itemIndex = 0; itemIndex < items.length; itemIndex += 1) {
+                    var item = items[itemIndex];
+
+                    if (!item || resolveExecutableItemKey(item) !== normalizedKey) {
+                        continue;
+                    }
+
+                    if (asString(item.source).trim().toLowerCase() === 'system') {
+                        preferred = item;
+                    } else if (!fallback) {
+                        fallback = item;
+                    }
+                }
+            }
+        }
+
+        return preferred || fallback;
     }
 
     /**
@@ -363,7 +444,8 @@
             root: root,
             reload: loadExperimentalFeed,
             showError: showExperimentalError,
-            clearError: clearExperimentalError
+            clearError: clearExperimentalError,
+            findLearningItem: findLearningItem
         });
     }
 
@@ -411,7 +493,9 @@
             renderPayload: renderPayload,
             showExperimentalError: showExperimentalError,
             clearExperimentalError: clearExperimentalError,
-            updateExperimentalModeCopy: updateExperimentalModeCopy
+            updateExperimentalModeCopy: updateExperimentalModeCopy,
+            findLearningItem: findLearningItem,
+            resolveExecutableItemKey: resolveExecutableItemKey
         };
     }
 

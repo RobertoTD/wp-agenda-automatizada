@@ -130,10 +130,37 @@ function createCoordinatorFactory(options) {
                 }
             };
         },
+        getLearningActionHandlers: options.getLearningActionHandlers || function () {
+            return options.learningActionHandlers || null;
+        },
         confirm: options.confirm || function () {
             return options.confirmResult !== false;
         }
     });
+}
+
+function createInstallPwaItem(visibleActionsOverride) {
+    return {
+        id: 'install_pwa',
+        source: 'system',
+        origin_key: 'install_pwa',
+        visible_actions: visibleActionsOverride !== undefined
+            ? visibleActionsOverride
+            : [{
+                key: 'pwa.install',
+                type: 'handler',
+                handler: 'pwa.install',
+                label: 'Instalar'
+            }]
+    };
+}
+
+function createPrimaryHandlerButton(attrs) {
+    return createLearningButton(Object.assign({
+        'data-learning-action': 'primary-handler',
+        'data-recommendation-key': 'install_pwa',
+        'data-learning-handler': 'pwa.install'
+    }, attrs || {}));
 }
 
 describe('ExecutableActionsCoordinator', () => {
@@ -141,6 +168,7 @@ describe('ExecutableActionsCoordinator', () => {
     let coordinator;
     let tasksCalls;
     let learningCalls;
+    let handlerCalls;
     let reloadCalls;
     let errorMessage;
     let confirmResult;
@@ -148,6 +176,7 @@ describe('ExecutableActionsCoordinator', () => {
     beforeEach(() => {
         tasksCalls = [];
         learningCalls = [];
+        handlerCalls = [];
         reloadCalls = 0;
         errorMessage = null;
         confirmResult = true;
@@ -436,25 +465,391 @@ describe('ExecutableActionsCoordinator', () => {
         assert.equal(event.stopped(), false);
     });
 
-    it('primary-handler no llama LearningService', async () => {
-        var button = createLearningButton({
-            'data-learning-action': 'primary-handler',
-            'data-recommendation-key': 'install_pwa'
+    it('primary-handler llama LearningActionHandlers.run(action, item, ctx)', async () => {
+        var installItem = createInstallPwaItem();
+
+        coordinator = createCoordinatorFactory({
+            tasksCalls: tasksCalls,
+            learningCalls: learningCalls,
+            learningActionHandlers: {
+                isAvailable: function () {
+                    return true;
+                },
+                run: function (action, item, ctx) {
+                    handlerCalls.push({ action: action, item: item, ctx: ctx });
+                    return Promise.resolve({ completed: false, outcome: 'accepted' });
+                }
+            }
         });
+        coordinator.resetPending();
+
+        var button = createPrimaryHandlerButton();
         var root = createRoot(button);
         var event = createEvent(button);
 
-        var handled = await coordinator.handleClick(event, {
+        await coordinator.handleClick(event, {
             root: root,
+            findLearningItem: function (key) {
+                return key === 'install_pwa' ? installItem : null;
+            },
             reload: function () {
                 reloadCalls += 1;
                 return Promise.resolve();
             }
         });
 
-        assert.equal(handled, false);
+        assert.equal(handlerCalls.length, 1);
+        assert.deepEqual(handlerCalls[0].action, {
+            type: 'handler',
+            label: 'Instalar',
+            handler: 'pwa.install'
+        });
+        assert.equal(handlerCalls[0].item, installItem);
+        assert.equal(handlerCalls[0].ctx.key, 'install_pwa');
         assert.equal(learningCalls.length, 0);
         assert.equal(reloadCalls, 0);
+        assert.equal(event.stopped(), true);
+        assert.equal(event.prevented(), true);
+    });
+
+    it('primary-handler no ejecuta si handler no está en visible_actions', async () => {
+        coordinator = createCoordinatorFactory({
+            tasksCalls: tasksCalls,
+            learningCalls: learningCalls,
+            learningActionHandlers: {
+                isAvailable: function () {
+                    return true;
+                },
+                run: function () {
+                    handlerCalls.push({ method: 'run' });
+                    return Promise.resolve({});
+                }
+            }
+        });
+        coordinator.resetPending();
+
+        var button = createPrimaryHandlerButton();
+        var root = createRoot(button);
+        var event = createEvent(button);
+
+        await coordinator.handleClick(event, {
+            root: root,
+            findLearningItem: function () {
+                return createInstallPwaItem([]);
+            },
+            reload: function () {
+                reloadCalls += 1;
+                return Promise.resolve();
+            }
+        });
+
+        assert.equal(handlerCalls.length, 0);
+        assert.equal(reloadCalls, 0);
+        assert.equal(learningCalls.length, 0);
+    });
+
+    it('primary-handler no ejecuta si item no existe', async () => {
+        coordinator = createCoordinatorFactory({
+            tasksCalls: tasksCalls,
+            learningCalls: learningCalls,
+            learningActionHandlers: {
+                isAvailable: function () {
+                    return true;
+                },
+                run: function () {
+                    handlerCalls.push({ method: 'run' });
+                    return Promise.resolve({});
+                }
+            }
+        });
+        coordinator.resetPending();
+
+        var button = createPrimaryHandlerButton();
+        var root = createRoot(button);
+        var event = createEvent(button);
+
+        await coordinator.handleClick(event, {
+            root: root,
+            findLearningItem: function () {
+                return null;
+            },
+            reload: function () {
+                reloadCalls += 1;
+                return Promise.resolve();
+            }
+        });
+
+        assert.equal(handlerCalls.length, 0);
+        assert.equal(reloadCalls, 0);
+    });
+
+    it('primary-handler no ejecuta si registry no existe', async () => {
+        coordinator = coordinatorApi.createCoordinator({});
+        coordinator.resetPending();
+
+        var button = createPrimaryHandlerButton();
+        var root = createRoot(button);
+        var event = createEvent(button);
+
+        await coordinator.handleClick(event, {
+            root: root,
+            findLearningItem: function () {
+                return createInstallPwaItem();
+            },
+            reload: function () {
+                reloadCalls += 1;
+                return Promise.resolve();
+            }
+        });
+
+        assert.equal(handlerCalls.length, 0);
+        assert.equal(reloadCalls, 0);
+    });
+
+    it('primary-handler no ejecuta si isAvailable es false', async () => {
+        coordinator = createCoordinatorFactory({
+            tasksCalls: tasksCalls,
+            learningCalls: learningCalls,
+            learningActionHandlers: {
+                isAvailable: function () {
+                    return false;
+                },
+                run: function () {
+                    handlerCalls.push({ method: 'run' });
+                    return Promise.resolve({});
+                }
+            }
+        });
+        coordinator.resetPending();
+
+        var button = createPrimaryHandlerButton();
+        var root = createRoot(button);
+        var event = createEvent(button);
+
+        await coordinator.handleClick(event, {
+            root: root,
+            findLearningItem: function () {
+                return createInstallPwaItem();
+            },
+            reload: function () {
+                reloadCalls += 1;
+                return Promise.resolve();
+            }
+        });
+
+        assert.equal(handlerCalls.length, 0);
+        assert.equal(reloadCalls, 0);
+    });
+
+    it('primary-handler outcome accepted no llama reload', async () => {
+        coordinator = createCoordinatorFactory({
+            tasksCalls: tasksCalls,
+            learningCalls: learningCalls,
+            learningActionHandlers: {
+                isAvailable: function () {
+                    return true;
+                },
+                run: function () {
+                    return Promise.resolve({ completed: false, outcome: 'accepted' });
+                }
+            }
+        });
+        coordinator.resetPending();
+
+        var button = createPrimaryHandlerButton();
+        var root = createRoot(button);
+        var event = createEvent(button);
+
+        await coordinator.handleClick(event, {
+            root: root,
+            findLearningItem: function () {
+                return createInstallPwaItem();
+            },
+            reload: function () {
+                reloadCalls += 1;
+                return Promise.resolve();
+            }
+        });
+
+        assert.equal(reloadCalls, 0);
+        assert.equal(learningCalls.length, 0);
+    });
+
+    it('primary-handler llama reload solo si result.reload es true', async () => {
+        coordinator = createCoordinatorFactory({
+            tasksCalls: tasksCalls,
+            learningCalls: learningCalls,
+            learningActionHandlers: {
+                isAvailable: function () {
+                    return true;
+                },
+                run: function () {
+                    return Promise.resolve({ reload: true });
+                }
+            }
+        });
+        coordinator.resetPending();
+
+        var button = createPrimaryHandlerButton();
+        var root = createRoot(button);
+        var event = createEvent(button);
+
+        await coordinator.handleClick(event, {
+            root: root,
+            findLearningItem: function () {
+                return createInstallPwaItem();
+            },
+            reload: function () {
+                reloadCalls += 1;
+                return Promise.resolve();
+            }
+        });
+
+        assert.equal(reloadCalls, 1);
+    });
+
+    it('primary-handler reject llama showError', async () => {
+        coordinator = createCoordinatorFactory({
+            tasksCalls: tasksCalls,
+            learningCalls: learningCalls,
+            learningActionHandlers: {
+                isAvailable: function () {
+                    return true;
+                },
+                run: function () {
+                    return Promise.reject(new Error('fallo handler'));
+                }
+            }
+        });
+        coordinator.resetPending();
+
+        var button = createPrimaryHandlerButton();
+        var root = createRoot(button);
+        var event = createEvent(button);
+
+        await coordinator.handleClick(event, {
+            root: root,
+            findLearningItem: function () {
+                return createInstallPwaItem();
+            },
+            reload: function () {
+                reloadCalls += 1;
+                return Promise.resolve();
+            },
+            showError: function (message) {
+                errorMessage = message;
+            }
+        });
+
+        assert.equal(errorMessage, 'fallo handler');
+        assert.equal(reloadCalls, 0);
+    });
+
+    it('primary-handler no llama LearningService.completeRecommendation', async () => {
+        coordinator = createCoordinatorFactory({
+            tasksCalls: tasksCalls,
+            learningCalls: learningCalls,
+            learningActionHandlers: {
+                isAvailable: function () {
+                    return true;
+                },
+                run: function () {
+                    return Promise.resolve({ completed: false, outcome: 'accepted' });
+                }
+            }
+        });
+        coordinator.resetPending();
+
+        var button = createPrimaryHandlerButton();
+        var root = createRoot(button);
+        var event = createEvent(button);
+
+        await coordinator.handleClick(event, {
+            root: root,
+            findLearningItem: function () {
+                return createInstallPwaItem();
+            },
+            reload: function () {
+                reloadCalls += 1;
+                return Promise.resolve();
+            }
+        });
+
+        assert.equal(learningCalls.length, 0);
+    });
+
+    it('pending guard evita doble ejecución en primary-handler', async () => {
+        var resolveFirst;
+        var serviceCalls = 0;
+        var button = createPrimaryHandlerButton();
+        var root = createRoot(button);
+        var event = createEvent(button);
+        var ctx = {
+            root: root,
+            findLearningItem: function () {
+                return createInstallPwaItem();
+            },
+            reload: function () {
+                return Promise.resolve();
+            }
+        };
+
+        coordinator = createCoordinatorFactory({
+            learningActionHandlers: {
+                isAvailable: function () {
+                    return true;
+                },
+                run: function () {
+                    serviceCalls += 1;
+                    return new Promise(function (resolve) {
+                        resolveFirst = resolve;
+                    });
+                }
+            }
+        });
+        coordinator.resetPending();
+
+        var first = coordinator.handleClick(event, ctx);
+        var second = coordinator.handleClick(event, ctx);
+
+        resolveFirst({ completed: false, outcome: 'accepted' });
+        await first;
+        await second;
+
+        assert.equal(serviceCalls, 1);
+    });
+
+    it('stopPropagation se invoca al manejar primary-handler', async () => {
+        coordinator = createCoordinatorFactory({
+            tasksCalls: tasksCalls,
+            learningCalls: learningCalls,
+            learningActionHandlers: {
+                isAvailable: function () {
+                    return true;
+                },
+                run: function () {
+                    return Promise.resolve({ completed: false, outcome: 'accepted' });
+                }
+            }
+        });
+        coordinator.resetPending();
+
+        var button = createPrimaryHandlerButton();
+        var root = createRoot(button);
+        var event = createEvent(button);
+
+        await coordinator.handleClick(event, {
+            root: root,
+            findLearningItem: function () {
+                return createInstallPwaItem();
+            },
+            reload: function () {
+                return Promise.resolve();
+            }
+        });
+
+        assert.equal(event.stopped(), true);
+        assert.equal(event.prevented(), true);
     });
 
     it('pending guard evita doble ejecución en tasks', async () => {

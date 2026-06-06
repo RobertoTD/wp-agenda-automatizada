@@ -1,8 +1,9 @@
 /**
- * Executable Actions Coordinator — ejecución debug MC12A/12B.
+ * Executable Actions Coordinator — ejecución debug MC12A/12B/12C.
  *
  * MC12A: user tasks (complete, pending, archive-list).
  * MC12B: Learning simple (defer, dismiss, complete).
+ * MC12C: Learning primary-handler vía LearningActionHandlers.
  * Delega clicks en #aa-executable-lists-root; no sustituye módulos legacy.
  */
 (function () {
@@ -39,6 +40,9 @@
         var resolveLearningService = deps.getLearningService || function () {
             return globalRoot.LearningService || null;
         };
+        var resolveLearningActionHandlers = deps.getLearningActionHandlers || function () {
+            return globalRoot.LearningActionHandlers || null;
+        };
         var confirmFn = deps.confirm || function (message) {
             return globalRoot.confirm(message);
         };
@@ -65,6 +69,19 @@
                     button.classList.remove('opacity-60', 'cursor-not-allowed');
                 }
             });
+        }
+
+        /**
+         * @param {MouseEvent|object} event
+         */
+        function stopEvent(event) {
+            if (typeof event.preventDefault === 'function') {
+                event.preventDefault();
+            }
+
+            if (typeof event.stopPropagation === 'function') {
+                event.stopPropagation();
+            }
         }
 
         /**
@@ -141,19 +158,43 @@
         }
 
         /**
+         * @param {object} item
+         * @param {string} handlerName
+         * @returns {object|null}
+         */
+        function findHandlerVisibleAction(item, handlerName) {
+            var visibleActions = Array.isArray(item.visible_actions) ? item.visible_actions : [];
+            var index = 0;
+
+            for (index = 0; index < visibleActions.length; index += 1) {
+                var visibleAction = visibleActions[index];
+
+                if (!visibleAction || visibleAction.type !== 'handler') {
+                    continue;
+                }
+
+                if (asString(visibleAction.handler).trim() !== handlerName) {
+                    continue;
+                }
+
+                return {
+                    type: 'handler',
+                    label: visibleAction.label || '',
+                    handler: visibleAction.handler || ''
+                };
+            }
+
+            return null;
+        }
+
+        /**
          * @param {MouseEvent|object} event
          * @param {object} ctx
-         * @param {Promise<void|null>} actionPromise
+         * @param {Promise<*>} actionPromise
          * @returns {Promise<boolean>}
          */
         function executeActionPromise(event, ctx, actionPromise) {
-            if (typeof event.preventDefault === 'function') {
-                event.preventDefault();
-            }
-
-            if (typeof event.stopPropagation === 'function') {
-                event.stopPropagation();
-            }
+            stopEvent(event);
 
             if (isActionPending) {
                 return Promise.resolve(true);
@@ -194,6 +235,123 @@
                     isActionPending = false;
                     setRootButtonsDisabled(root, false);
                 });
+        }
+
+        /**
+         * MC12C: handlers runtime — reload solo si result.reload === true.
+         *
+         * @param {MouseEvent|object} event
+         * @param {object} ctx
+         * @param {Promise<*>} actionPromise
+         * @returns {Promise<boolean>}
+         */
+        function executeHandlerPromise(event, ctx, actionPromise) {
+            stopEvent(event);
+
+            if (isActionPending) {
+                return Promise.resolve(true);
+            }
+
+            var root = ctx.root;
+
+            isActionPending = true;
+            setRootButtonsDisabled(root, true);
+
+            if (typeof ctx.clearError === 'function') {
+                ctx.clearError();
+            }
+
+            return actionPromise
+                .then(function (result) {
+                    if (result && result.reload === true && typeof ctx.reload === 'function') {
+                        return Promise.resolve(ctx.reload());
+                    }
+
+                    return undefined;
+                })
+                .then(function () {
+                    return true;
+                })
+                .catch(function (err) {
+                    if (typeof ctx.showError === 'function') {
+                        ctx.showError((err && err.message) ? err.message : 'No se pudo completar la acción.');
+                    }
+
+                    return true;
+                })
+                .finally(function () {
+                    isActionPending = false;
+                    setRootButtonsDisabled(root, false);
+                });
+        }
+
+        /**
+         * @param {MouseEvent|object} event
+         * @param {object} ctx
+         * @returns {Promise<boolean>}
+         */
+        function handlePrimaryHandlerClick(event, ctx) {
+            var root = ctx && ctx.root;
+
+            if (!root || !event || !event.target) {
+                return Promise.resolve(false);
+            }
+
+            var button = event.target.closest
+                ? event.target.closest(LEARNING_ACTION_SELECTOR)
+                : null;
+
+            if (!button || button.disabled || !root.contains(button)) {
+                return Promise.resolve(false);
+            }
+
+            if (asString(button.getAttribute('data-learning-action')).trim().toLowerCase() !== 'primary-handler') {
+                return Promise.resolve(false);
+            }
+
+            var recommendationKey = asString(button.getAttribute('data-recommendation-key')).trim();
+            var handlerName = asString(button.getAttribute('data-learning-handler')).trim();
+
+            if (recommendationKey === '' || handlerName === '') {
+                return Promise.resolve(false);
+            }
+
+            stopEvent(event);
+
+            if (isActionPending) {
+                return Promise.resolve(true);
+            }
+
+            var findLearningItem = ctx.findLearningItem;
+            var item = typeof findLearningItem === 'function'
+                ? findLearningItem(recommendationKey)
+                : null;
+            var handlerAction = item ? findHandlerVisibleAction(item, handlerName) : null;
+            var registry = resolveLearningActionHandlers();
+
+            if (
+                !item
+                || !handlerAction
+                || !registry
+                || typeof registry.run !== 'function'
+                || typeof registry.isAvailable !== 'function'
+                || registry.isAvailable(handlerAction, item) !== true
+            ) {
+                return Promise.resolve(true);
+            }
+
+            var handlerCtx = {
+                key: recommendationKey,
+                item: item,
+                reload: ctx.reload,
+                showError: ctx.showError
+            };
+
+            return executeHandlerPromise(
+                event,
+                ctx,
+                Promise.resolve(registry.run(handlerAction, item, handlerCtx))
+            );
         }
 
         /**
@@ -269,6 +427,10 @@
 
             var action = asString(button.getAttribute('data-learning-action')).trim().toLowerCase();
 
+            if (action === 'primary-handler') {
+                return handlePrimaryHandlerClick(event, ctx);
+            }
+
             if (!LEARNING_ACTIONS_MC12B[action]) {
                 return Promise.resolve(false);
             }
@@ -308,23 +470,41 @@
         /**
          * @param {MouseEvent|object} event
          * @param {object} ctx
+         * @returns {boolean}
+         */
+        function isPrimaryHandlerButton(event, ctx) {
+            var root = ctx && ctx.root;
+
+            if (!root || !event || !event.target || !event.target.closest) {
+                return false;
+            }
+
+            var button = event.target.closest(LEARNING_ACTION_SELECTOR);
+
+            if (!button || button.disabled || !root.contains(button)) {
+                return false;
+            }
+
+            return asString(button.getAttribute('data-learning-action')).trim().toLowerCase() === 'primary-handler';
+        }
+
+        /**
+         * @param {MouseEvent|object} event
+         * @param {object} ctx
          * @returns {Promise<boolean>} true si manejó el click
          */
         function handleClick(event, ctx) {
             if (isActionPending) {
-                if (typeof event.preventDefault === 'function') {
-                    event.preventDefault();
-                }
-
-                if (typeof event.stopPropagation === 'function') {
-                    event.stopPropagation();
-                }
-
+                stopEvent(event);
                 return Promise.resolve(true);
             }
 
             if (isActionableTaskButton(event, ctx)) {
                 return handleTaskClick(event, ctx);
+            }
+
+            if (isPrimaryHandlerButton(event, ctx)) {
+                return handlePrimaryHandlerClick(event, ctx);
             }
 
             return handleLearningClick(event, ctx);
@@ -334,9 +514,11 @@
             handleClick: handleClick,
             handleTaskClick: handleTaskClick,
             handleLearningClick: handleLearningClick,
+            handlePrimaryHandlerClick: handlePrimaryHandlerClick,
             runTaskStatusAction: runTaskStatusAction,
             runArchiveListAction: runArchiveListAction,
             runLearningAction: runLearningAction,
+            findHandlerVisibleAction: findHandlerVisibleAction,
             setRootButtonsDisabled: setRootButtonsDisabled,
             getIsActionPending: function () {
                 return isActionPending;
@@ -358,7 +540,7 @@
     var defaultCoordinator = createCoordinator({});
 
     /**
-     * @param {object} options root, reload, showError, clearError
+     * @param {object} options root, reload, showError, clearError, findLearningItem
      */
     function init(options) {
         var opts = options || {};
@@ -375,7 +557,8 @@
             root: root,
             reload: opts.reload,
             showError: opts.showError,
-            clearError: opts.clearError
+            clearError: opts.clearError,
+            findLearningItem: opts.findLearningItem
         };
 
         root.addEventListener('click', function (event) {
