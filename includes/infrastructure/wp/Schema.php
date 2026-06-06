@@ -6,7 +6,7 @@
  *  - DDL de las tablas propias del plugin (aa_reservas, aa_notifications,
  *    aa_staff, aa_service_areas, aa_assignments, aa_services,
  *    aa_staff_services, aa_assignment_services,
- *    aa_learning_recommendation_state, aa_task_lists, aa_tasks).
+ *    aa_learning_recommendation_state, aa_task_lists, aa_tasks, aa_task_state).
  *  - Migraciones inline de columnas para instalaciones existentes
  *    (public_calendar, duration_minutes, calendar_uid).
  *  - Inicialización de options con valor por defecto (aa_estado_gsync,
@@ -64,7 +64,7 @@ final class AA_Schema {
      * Independiente de la versión del plugin. Solo refleja el estado
      * de las tablas/columnas/índices.
      */
-    public const DB_VERSION = '4';
+    public const DB_VERSION = '5';
 
     /**
      * Registra el activation hook y el chequeo de migraciones.
@@ -343,6 +343,23 @@ final class AA_Schema {
         ) $charset;";
 
         dbDelta($tasks_sql);
+
+        // 🔹 Señales operativas por tarea (Listas/Tareas — MC13G-A)
+        $task_state_table = $wpdb->prefix . 'aa_task_state';
+        $task_state_sql = "CREATE TABLE $task_state_table (
+            task_id bigint(20) unsigned NOT NULL,
+            last_deferred_at datetime DEFAULT NULL,
+            defer_until datetime DEFAULT NULL,
+            defer_count int NOT NULL DEFAULT 0,
+            last_dismissed_at datetime DEFAULT NULL,
+            dismiss_until datetime DEFAULT NULL,
+            dismiss_count int NOT NULL DEFAULT 0,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime DEFAULT NULL,
+            PRIMARY KEY  (task_id)
+        ) $charset;";
+
+        dbDelta($task_state_sql);
 
         // NOTA: FOREIGN KEY constraints no se incluyen aquí porque dbDelta() puede tener problemas
         // con ellos. Si se necesitan, deben agregarse manualmente después de la creación:

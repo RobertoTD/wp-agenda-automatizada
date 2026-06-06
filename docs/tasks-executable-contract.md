@@ -57,7 +57,9 @@ Regla de ownership:
 
 MC13E extiende `AA_Task_Prioritization_Policy` para que user tasks emitan `task_bucket_order_by_list` sin meter criterios en el mapper. Criterio activo provisional: tareas pending vencidas o con alta importancia (`importance < 0`) → bucket `primary` / label `Prioritarias`; resto pending → bucket `secondary` / label `Otras tareas`. Es una interpretación modificable de la view activa, no pertenencia estable del item.
 
-MC13F documenta el modelo futuro de señales user (`defer`/`dismiss`) y el desacople conceptual entre buckets y `visible_actions`. Sin storage, endpoints ni botones todavía.
+MC13F documenta el modelo futuro de señales user (`defer`/`dismiss`) y el desacople conceptual entre buckets y `visible_actions`. Sin endpoints ni botones todavía.
+
+MC13G-A implementa persistencia write-only en `aa_task_state` + repositorio + use cases de registro. Sin lectura en feed, sin `visible_actions`, sin endpoints ni JS.
 
 ## Modelo de señales, estado y procedencia
 
@@ -91,7 +93,9 @@ Las acciones del usuario registran **señales o decisiones interpretables**. No 
 - Tarea: `status` (`pending` \| `done`), `completed_at` — declaración del usuario al marcar hecha/reabrir.
 - Tarea: `due_at`, `importance`, `position`, `source`, `notes`, `list_id` — datos operables para policies de proyección; no son señales de defer/dismiss.
 - Lista: `status` (`active` \| `archived`) — declaración al archivar; no hay `archived_at` ni unarchive hoy.
-- **No existe hoy** persistencia de defer/dismiss para user tasks (`last_deferred_at`, `defer_until`, `last_dismissed_at`, `dismiss_until`, contadores, etc.). MC13F documenta la ruta futura; ver [User task signals: defer/dismiss futuro (MC13F)](#user-task-signals-deferdismiss-futuro-mc13f).
+- **MC13G-A (implementado):** persistencia write-only en `aa_task_state` vía `TaskStateRepository` y use cases `RecordTaskDeferSignalUseCase` / `RecordTaskDismissSignalUseCase`. Señales registradas: `defer` (Ahora no), `dismiss` (Ignorar). No hay lectura en feed, `visible_actions`, endpoints ni JS todavía.
+- **MC13G-B (futuro):** leer state en `GetTaskBoardUseCase`; policy de capabilities; mapper; desacople `visible_actions`.
+- **MC13G-C (futuro):** endpoints AJAX, `TasksService`, coordinator, botones.
 
 Ninguna de estas tablas es un **action log**. Solo guardan el **último estado** (y timestamps del último cambio por tipo de señal). Re-dismiss o re-defer **sobrescriben** el timestamp anterior; no queda historial.
 
@@ -119,9 +123,9 @@ Ninguna de estas tablas es un **action log**. Solo guardan el **último estado**
 
 El coordinator experimental (MC12) **solo ejecuta** la mutación vía servicio y refresca el feed; **no** implementa estas reglas de proyección.
 
-## User task signals: defer/dismiss futuro (MC13F)
+## User task signals: defer/dismiss (MC13F / MC13G-A)
 
-Documentación conceptual. **No implementado** en MC13F: sin schema, repositorios, use cases, endpoints, capabilities activas ni botones user para `Ahora no` / `Ignorar`.
+MC13F documentó el modelo conceptual. **MC13G-A implementa solo escritura** (schema + repositorio + use cases). Sin lectura en feed, capabilities activas, endpoints ni botones user para `Ahora no` / `Ignorar`.
 
 ### Estado actual
 
@@ -142,50 +146,46 @@ Tasks user en el feed executable (`view=active`, `user-swap`) soporta:
 
 Learning conserva nombres legacy (`is_ignored` = “Ahora no”, `is_dismissed` = “Ignorar”). **Tasks user debe usar nombres semánticos claros** al implementar; no copiar nombres ciegamente.
 
-### Persistencia futura preferida (aplazada)
+### Persistencia (MC13G-A)
 
-Opción recomendada para el primer ciclo de implementación real (MC13G+): tabla separada **`aa_task_state`**, una fila por `task_id`, porque defer/dismiss son **señales operativas**, no atributos esenciales de la fila principal `aa_tasks`.
+Tabla **`aa_task_state`**, una fila por `task_id` (`DB_VERSION = 5`). Defer/dismiss son **señales operativas**, no atributos de `aa_tasks`.
 
-Shape conceptual *(no implementado)*:
+Shape implementado:
 
 ```php
 [
     'task_id' => int,
     'last_deferred_at' => string|null,
-    'defer_until' => string|null,
+    'defer_until' => string|null,   // MC13G-A: siempre null al registrar
     'defer_count' => int,
     'last_dismissed_at' => string|null,
-    'dismiss_until' => string|null,
+    'dismiss_until' => string|null, // MC13G-A: siempre null al registrar
     'dismiss_count' => int,
+    'created_at' => string|null,
     'updated_at' => string|null,
 ]
 ```
 
-Alternativas evaluadas y aplazadas:
+**Write-only MC13G-A:** `TaskStateRepository::record_defer` / `record_dismiss` incrementan contadores y timestamps; no calculan `*_until`, no mueven buckets, no ocultan tareas, no tocan `aa_tasks.status`.
 
-| Opción | Veredicto MC13F |
-|--------|-----------------|
-| Columnas en `aa_tasks` | Más simple, pero ensucia la entidad core; menos limpio al crecer señales. |
-| Tabla `aa_task_state` | **Preferida** para MC13G+. |
-| Tabla común cross-source (`source` + `item_id`) | Prematura hasta haya más fuentes editables con el mismo patrón. |
-| Action log / event stream | Prematura hasta una policy concreta consuma historial o contadores. |
+Use cases: `RecordTaskDeferSignalUseCase`, `RecordTaskDismissSignalUseCase`. Validan: tarea existe, `status=pending`, lista `active`. Respuesta: `{ success, data: { task_state } }`.
 
-Los contadores (`defer_count`, `dismiss_count`) pueden vivir en `aa_task_state` como **resumen derivado** del último estado, no como action log append-only.
+**No implementado aún:** lectura en `GetTaskBoardUseCase`, capabilities `can_defer`/`can_dismiss`, `visible_actions`, AJAX, JS (MC13G-B/C).
 
-Evitar campos tipo `suggested_view = 'secondary'` como verdad rígida: si existieran, serían **datos considerables por policy**, no pertenencia al bucket.
+### Ownership (lectura y escritura)
 
-### Ownership futuro (lectura y escritura)
+**MC13G-A (write):** use cases `RecordTaskDeferSignalUseCase`, `RecordTaskDismissSignalUseCase` → `TaskStateRepository` → `aa_task_state`. Sin AJAX ni `TasksService` todavía.
 
-Cuando se implemente:
+**MC13G-B/C (futuro):**
 
-1. **Write:** use cases dedicados (p. ej. `RecordTaskDeferSignalUseCase`, `RecordTaskDismissSignalUseCase`) → repositorio `aa_task_state` → AJAX + `TasksService`.
-2. **Read:** `GetTaskBoardUseCase` (o enricher de fuente Tasks) carga señales y las expone al dominio.
-3. **Policy Tasks:** interpreta estado + señales + facts (`due_at`, `importance`, defer/dismiss windows) para:
+1. **Read:** `GetTaskBoardUseCase` (o enricher de fuente Tasks) carga señales y las expone al dominio.
+2. **Policy Tasks:** interpreta estado + señales + facts (`due_at`, `importance`, defer/dismiss windows) para:
    - proyección de buckets (`task_bucket_order_by_list`);
    - visibilidad en `view=active`;
    - **capabilities** (`can_defer`, `can_dismiss`, `can_reactivate` futuro).
-4. **Mapper executable:** traduce `state` y `capabilities` ya decididos; no inventa reglas.
-5. **Enricher + `AA_Executable_Visible_Actions_Policy`:** proyectan `visible_actions` desde capabilities/state + view; **no** desde bucket membership.
+3. **Mapper executable:** traduce `state` y `capabilities` ya decididos; no inventa reglas.
+4. **Enricher + `AA_Executable_Visible_Actions_Policy`:** proyectan `visible_actions` desde capabilities/state + view; **no** desde bucket membership.
+5. **MC13G-C:** AJAX + `TasksService` + coordinator + botones.
 
 ### Buckets y visible_actions: proyecciones hermanas (MC13F)
 
