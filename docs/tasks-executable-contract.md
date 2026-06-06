@@ -23,6 +23,40 @@ La UI futura consumirá **solo** el contrato normalizado, no las tablas ni el ca
 
 **Executable es proyección, no fuente de verdad.** Los mappers y el feed reflejan el estado y las reglas de cada fuente en un momento dado; no persisten señales ni sustituyen el storage de Learning ni Tasks.
 
+## Views, projections y buckets
+
+El feed executable actual opera sobre **`view=active`**. Esa vista activa no es una tabla ni un estado persistido: es una configuración de proyección que decide qué criterios aplicar y qué buckets renderizar ahora.
+
+Modelo conceptual:
+
+| Concepto | Significado |
+|----------|-------------|
+| **Lista** | Entidad/categoría operable (`ExecutableList`) |
+| **Item** | Entidad operable dentro de una lista (`ExecutableItem`) |
+| **Estado / señales / facts** | Información registrada o calculada por la fuente |
+| **Policy** | Interpreta estado, señales y facts con criterios mutables |
+| **View** | Configuración de lectura/proyección (`active` hoy) |
+| **Bucket** | Sección renderizable producida por la view (`primary`, `secondary`, `default`) |
+
+`primary`, `secondary` y `default` son **buckets de proyección**, no listas internas fijas ni pertenencia sustancial del item. Un item no “vive” en `primary` o `secondary`; cumple criterios actuales que hacen que una view lo proyecte en uno u otro bucket. Si cambian señales, facts o criterios de policy, el mismo item puede aparecer en otro bucket o salir de la view.
+
+Estado actual:
+
+- **Learning** ya proyecta `list_1` / `list_2` a buckets `primary` / `secondary`.
+- **Tasks user** siguen proyectando la vista activa a un bucket `default`; esto es deuda explícita, no una decisión conceptual definitiva.
+- **`completed`, `ignored`, `archived`, `today`** y otras lecturas son futuras views o proyecciones. No existen todavía como feed real ni como buckets activos implementados.
+- `done` en Tasks sigue fuera de `view=active`; no hay vista `completed` ni `Reabrir` en active feed.
+
+Regla de ownership:
+
+- Las **policies de fuente** deciden criterios de proyección.
+- Los **mappers** traducen una proyección ya decidida al contrato executable.
+- El **Use Case feed** orquesta fuentes y fija/recibe la view.
+- El **enricher** proyecta `visible_actions` para la view/bucket recibidos; no decide pertenencia.
+- El **renderer** solo presenta buckets; no decide reglas.
+
+Próximo paso posible: `TaskBucketProjectionPolicy` o extensión equivalente de `AA_Task_Prioritization_Policy` para que user tasks emitan `primary` / `secondary` sin meter criterios en el mapper.
+
 ## Modelo de señales, estado y procedencia
 
 Las acciones del usuario registran **señales o decisiones interpretables**. No deben modelarse ni documentarse como movimientos absolutos ni reglas definitivas. Una policy lee estado persistido, facts y (en el futuro) eventos/counters, y **proyecta** qué aparece en cada vista. Si los criterios cambian, la misma señal puede proyectarse distinto.
@@ -392,6 +426,41 @@ Activar swap:
 sessionStorage.setItem('AA_EXECUTABLE_VISIBLE_FEED', 'user-swap');
 location.reload();
 ```
+
+## MC13C — hardening UX user-swap
+
+Sin cambios de backend ni reglas de proyección. Endurece estados visuales del feed user cuando actúa como render principal.
+
+### Loading
+
+- `#aa-executable-user-lists-loading` — texto “Cargando listas…” visible durante `loadVisibleUserFeed()` (inicial, reload post-acción, reload post-CRUD vía best-effort).
+- El root `#aa-executable-user-lists-root` se vacía mientras carga.
+
+### Errores unificados
+
+- Carga y acciones del feed user visible → `#aa-executable-user-lists-error`.
+- Reload exitoso → limpia error y oculta loading.
+- `#aa-tasks-error` sigue reservado a board/modales/executive (no mezclar).
+
+### Empty states
+
+| Caso | Copy / comportamiento |
+|------|------------------------|
+| Sin listas user (swap) | “Aún no tienes listas propias. Usa el botón flotante + Nueva lista.” |
+| Lista user sin tareas pending (all-done u otras) | “No hay tareas pendientes en esta lista.” dentro de la card |
+| Modo `user` paralelo | Empty técnico MC13A conservado |
+
+**`done`:** sigue fuera del active feed; no hay Reabrir ni vista `completed`.
+
+### Sync best-effort
+
+Si falla `AAExecutableUserListsVisibleFeed.reload()` tras CRUD legacy, o `AATasksBoard.reload()` tras acción executable, el flujo principal no se rompe; feed o executive pueden quedar stale hasta el siguiente reload manual. Errores silenciosos en `.catch()` best-effort.
+
+### Debug flags
+
+Con `user-swap` + `AA_EXECUTABLE_LISTS_DEBUG=1` puede coexistir feed user principal + sandbox amber completo; útil para comparación, no para producción.
+
+Rollback: `sessionStorage.removeItem('AA_EXECUTABLE_VISIBLE_FEED'); location.reload();`
 
 Proyección común (MC11B):
 

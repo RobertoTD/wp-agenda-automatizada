@@ -87,6 +87,7 @@ $executable_actions_coordinator_js = plugin_dir_url(__FILE__) . 'executable-acti
                     <p id="aa-executable-user-lists-visible-subtitle" class="text-xs text-violet-800 mt-0.5">Comparación MC13A: feed user filtrado; legacy sigue visible abajo.</p>
                 </div>
                 <p id="aa-executable-user-lists-error" class="hidden text-sm text-red-600 px-4 pt-3"></p>
+                <p id="aa-executable-user-lists-loading" class="hidden text-sm text-gray-500 px-4 pt-3">Cargando listas…</p>
                 <div id="aa-executable-user-lists-root" class="p-4 space-y-4"></div>
             </section>
 

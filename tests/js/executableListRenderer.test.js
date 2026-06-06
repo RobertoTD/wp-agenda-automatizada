@@ -312,6 +312,33 @@ describe('AAExecutableListRenderer', () => {
         assert.match(html, /data-list-id="7"/);
     });
 
+    it('lista user sin items visibles muestra mensaje de tareas pendientes', () => {
+        var list = baseList({
+            id: '9',
+            source: 'user',
+            title: 'Lista vacía pending',
+            buckets: [{ key: 'default', label: '', items: [] }]
+        });
+
+        var html = renderer.renderList(list);
+
+        assert.match(html, /No hay tareas pendientes en esta lista/);
+        assert.doesNotMatch(html, /data-tasks-action="pending"/);
+        assert.doesNotMatch(html, /Reabrir/);
+    });
+
+    it('lista system sin items no muestra mensaje de tareas pendientes user', () => {
+        var list = baseList({
+            id: 'system:learning.recommendations',
+            source: 'system',
+            buckets: [{ key: 'primary', label: 'Principales', items: [] }]
+        });
+
+        var html = renderer.renderList(list);
+
+        assert.doesNotMatch(html, /No hay tareas pendientes en esta lista/);
+    });
+
     it('conserva comportamiento default cuando no recibe callbacks', () => {
         var list = baseList({
             buckets: [

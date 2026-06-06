@@ -758,6 +758,283 @@ describe('executable-lists-module MC13B user-swap', () => {
     });
 });
 
+describe('executable-lists-module MC13C user-swap hardening', () => {
+    let originalVisibleFeed;
+    let originalRenderer;
+    let originalService;
+    let originalDocument;
+
+    beforeEach(() => {
+        originalVisibleFeed = globalThis.AA_EXECUTABLE_VISIBLE_FEED;
+        originalRenderer = globalThis.AAExecutableListRenderer;
+        originalService = globalThis.ExecutableListsService;
+        originalDocument = globalThis.document;
+    });
+
+    afterEach(() => {
+        if (originalVisibleFeed === undefined) {
+            delete globalThis.AA_EXECUTABLE_VISIBLE_FEED;
+        } else {
+            globalThis.AA_EXECUTABLE_VISIBLE_FEED = originalVisibleFeed;
+        }
+
+        if (originalRenderer === undefined) {
+            delete globalThis.AAExecutableListRenderer;
+        } else {
+            globalThis.AAExecutableListRenderer = originalRenderer;
+        }
+
+        if (originalService === undefined) {
+            delete globalThis.ExecutableListsService;
+        } else {
+            globalThis.ExecutableListsService = originalService;
+        }
+
+        if (originalDocument === undefined) {
+            delete globalThis.document;
+        } else {
+            globalThis.document = originalDocument;
+        }
+    });
+
+    it('loadVisibleUserFeed muestra loading durante fetch', async () => {
+        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'user-swap';
+
+        var resolveFeed;
+        var loadingVisible = false;
+        var root = { innerHTML: 'prev' };
+        var loadingEl = {
+            textContent: '',
+            classList: {
+                classes: ['hidden'],
+                add: function (name) {
+                    if (name === 'hidden') {
+                        loadingVisible = false;
+                    }
+
+                    if (!this.classes.includes(name)) {
+                        this.classes.push(name);
+                    }
+                },
+                remove: function (name) {
+                    if (name === 'hidden') {
+                        loadingVisible = true;
+                    }
+
+                    this.classes = this.classes.filter(function (item) {
+                        return item !== name;
+                    });
+                }
+            }
+        };
+        var errorEl = {
+            textContent: '',
+            classList: {
+                classes: ['hidden'],
+                add: function (name) {
+                    if (!this.classes.includes(name)) {
+                        this.classes.push(name);
+                    }
+                },
+                remove: function () {}
+            }
+        };
+
+        globalThis.ExecutableListsService = {
+            getFeed: function () {
+                return new Promise(function (resolve) {
+                    resolveFeed = resolve;
+                });
+            }
+        };
+
+        globalThis.AAExecutableListRenderer = {
+            renderFeed: function () {
+                return '<div>feed</div>';
+            }
+        };
+
+        globalThis.document = {
+            getElementById: function (id) {
+                if (id === 'aa-executable-user-lists-root') {
+                    return root;
+                }
+
+                if (id === 'aa-executable-user-lists-loading') {
+                    return loadingEl;
+                }
+
+                if (id === 'aa-executable-user-lists-error') {
+                    return errorEl;
+                }
+
+                return null;
+            }
+        };
+
+        var pending = hooks.loadVisibleUserFeed();
+
+        assert.equal(loadingVisible, true);
+        assert.equal(root.innerHTML, '');
+
+        resolveFeed({ lists: [{ source: 'user', id: '1', buckets: [] }] });
+        await pending;
+
+        assert.equal(loadingVisible, false);
+        assert.match(root.innerHTML, /feed/);
+    });
+
+    it('error de carga usa #aa-executable-user-lists-error', async () => {
+        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'user-swap';
+
+        var errorMessage = '';
+        var errorVisible = false;
+        var root = { innerHTML: 'content' };
+        var loadingEl = {
+            textContent: '',
+            classList: {
+                classes: [],
+                add: function (name) {
+                    if (!this.classes.includes(name)) {
+                        this.classes.push(name);
+                    }
+                },
+                remove: function () {}
+            }
+        };
+        var errorEl = {
+            textContent: '',
+            classList: {
+                classes: ['hidden'],
+                add: function (name) {
+                    if (name === 'hidden') {
+                        errorVisible = false;
+                    }
+                },
+                remove: function (name) {
+                    if (name === 'hidden') {
+                        errorVisible = true;
+                    }
+                }
+            }
+        };
+
+        globalThis.ExecutableListsService = {
+            getFeed: function () {
+                return Promise.reject(new Error('feed caído'));
+            }
+        };
+
+        globalThis.document = {
+            getElementById: function (id) {
+                if (id === 'aa-executable-user-lists-root') {
+                    return root;
+                }
+
+                if (id === 'aa-executable-user-lists-loading') {
+                    return loadingEl;
+                }
+
+                if (id === 'aa-executable-user-lists-error') {
+                    return errorEl;
+                }
+
+                return null;
+            }
+        };
+
+        await hooks.loadVisibleUserFeed();
+
+        assert.equal(errorVisible, true);
+        assert.match(errorEl.textContent, /feed caído/);
+        assert.equal(root.innerHTML, '');
+    });
+
+    it('reload exitoso limpia error previo', async () => {
+        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'user-swap';
+
+        var errorEl = {
+            textContent: 'error previo',
+            classList: {
+                classes: [],
+                add: function (name) {
+                    if (!this.classes.includes(name)) {
+                        this.classes.push(name);
+                    }
+                },
+                remove: function (name) {
+                    this.classes = this.classes.filter(function (item) {
+                        return item !== name;
+                    });
+                }
+            }
+        };
+        var loadingEl = {
+            textContent: '',
+            classList: {
+                classes: [],
+                add: function () {},
+                remove: function () {}
+            }
+        };
+        var root = { innerHTML: '' };
+
+        globalThis.ExecutableListsService = {
+            getFeed: function () {
+                return Promise.resolve({ lists: [] });
+            }
+        };
+
+        globalThis.AAExecutableListRenderer = {
+            renderFeed: function () {
+                return '';
+            }
+        };
+
+        globalThis.document = {
+            getElementById: function (id) {
+                if (id === 'aa-executable-user-lists-root') {
+                    return root;
+                }
+
+                if (id === 'aa-executable-user-lists-loading') {
+                    return loadingEl;
+                }
+
+                if (id === 'aa-executable-user-lists-error') {
+                    return errorEl;
+                }
+
+                return null;
+            }
+        };
+
+        await hooks.loadVisibleUserFeed();
+
+        assert.equal(errorEl.textContent, '');
+        assert.equal(errorEl.classList.classes.includes('hidden'), true);
+    });
+
+    it('index.php incluye contenedor de loading del feed user', () => {
+        const fs = require('node:fs');
+        const indexPath = path.join(__dirname, '../../includes/admin/ui/modules/learning/index.php');
+        const indexSrc = fs.readFileSync(indexPath, 'utf8');
+
+        assert.match(indexSrc, /id="aa-executable-user-lists-loading"/);
+        assert.match(indexSrc, /Cargando listas/);
+    });
+
+    it('showVisibleUserLoadError delega al canal de error dedicado', () => {
+        const fs = require('node:fs');
+        const moduleSrc = fs.readFileSync(modulePath, 'utf8');
+        var loadErrorBlock = moduleSrc.match(/function showVisibleUserLoadError[\s\S]{0,350}/);
+
+        assert.ok(loadErrorBlock, 'showVisibleUserLoadError definido');
+        assert.match(loadErrorBlock[0], /showVisibleUserError/);
+        assert.doesNotMatch(loadErrorBlock[0], /innerHTML = '<p class="text-sm text-red-600"/);
+    });
+});
+
 describe('executable-lists-module wiring', () => {
     it('index.php carga renderer, coordinator y módulo experimental', () => {
         const fs = require('node:fs');

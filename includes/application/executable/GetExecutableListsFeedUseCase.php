@@ -15,6 +15,8 @@ final class GetExecutableListsFeedUseCase {
 
     public const META_VERSION = 1;
 
+    public const VIEW_ACTIVE = AA_Executable_Visible_Actions_Policy::VIEW_ACTIVE;
+
     /** @var callable|null */
     private $learning_reader;
 
@@ -73,7 +75,8 @@ final class GetExecutableListsFeedUseCase {
         }
 
         $lists = ExecutableVisibleActionsEnricher::enrich_lists(
-            $this->assemble_lists($system_list, $user_lists)
+            $this->assemble_lists($system_list, $user_lists),
+            ['view' => self::VIEW_ACTIVE]
         );
 
         return [

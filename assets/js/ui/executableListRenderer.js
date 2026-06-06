@@ -617,6 +617,12 @@
         var bucketsHtml = buckets.map(function (bucket, bucketIndex) {
             return renderBucket(bucket, options, listContext, bucketIndex);
         }).join('');
+        var bodyHtml = bucketsHtml;
+
+        if (bodyHtml === '' && asString(list.source).trim().toLowerCase() === 'user') {
+            bodyHtml = '<p class="text-sm text-gray-500 aa-executable-list-empty-pending">No hay tareas pendientes en esta lista.</p>';
+        }
+
         var archiveHtml = capabilities.can_archive
             ? '<button type="button" data-tasks-action="archive-list" data-list-id="' + listId + '"'
                 + ' class="text-xs font-medium text-gray-500 hover:text-red-600 px-2 py-1 rounded border border-gray-200 whitespace-nowrap">'
@@ -640,7 +646,7 @@
             + archiveHtml
             + '</div>'
             + '</div>'
-            + '<div class="px-4 py-4">' + bucketsHtml + '</div>'
+            + '<div class="px-4 py-4">' + bodyHtml + '</div>'
             + '</article>';
     }
 

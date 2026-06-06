@@ -5,6 +5,7 @@
  * MC12: coordinator en sandbox debug (flags DEBUG + ACTIONS_DEBUG).
  * MC13A: feed user visible bajo AA_EXECUTABLE_VISIBLE_FEED=user (comparación, no swap).
  * MC13B: AA_EXECUTABLE_VISIBLE_FEED=user-swap — feed user principal, board legacy oculto.
+ * MC13C: hardening UX user-swap — loading, errores unificados, empty intra-lista.
  */
 (function () {
     'use strict';
@@ -271,6 +272,31 @@
 
     function getVisibleUserErrorEl() {
         return document.getElementById('aa-executable-user-lists-error');
+    }
+
+    function getVisibleUserLoadingEl() {
+        return document.getElementById('aa-executable-user-lists-loading');
+    }
+
+    var VISIBLE_USER_LOADING_MESSAGE = 'Cargando listas…';
+
+    function setVisibleUserLoading(visible) {
+        var loadingEl = getVisibleUserLoadingEl();
+        var root = getVisibleUserRoot();
+
+        if (loadingEl) {
+            loadingEl.textContent = VISIBLE_USER_LOADING_MESSAGE;
+
+            if (visible) {
+                loadingEl.classList.remove('hidden');
+            } else {
+                loadingEl.classList.add('hidden');
+            }
+        }
+
+        if (root && visible) {
+            root.innerHTML = '';
+        }
     }
 
     function setSectionVisible(section, visible) {
@@ -576,8 +602,10 @@
      * @param {HTMLElement|null} root
      * @param {Array} lists
      * @param {string} emptyMessage
+     * @param {{useVisibleUserErrorChannel?: boolean}} [renderOptions]
      */
-    function renderListsIntoRoot(root, lists, emptyMessage) {
+    function renderListsIntoRoot(root, lists, emptyMessage, renderOptions) {
+        var opts = renderOptions || {};
         var renderer = globalRoot.AAExecutableListRenderer;
 
         if (!root) {
@@ -585,7 +613,15 @@
         }
 
         if (!renderer || typeof renderer.renderFeed !== 'function') {
-            root.innerHTML = '<p class="text-sm text-red-600">No se pudo inicializar el renderer executable.</p>';
+            var rendererError = 'No se pudo inicializar el renderer executable.';
+
+            if (opts.useVisibleUserErrorChannel) {
+                root.innerHTML = '';
+                showVisibleUserError(rendererError);
+                return;
+            }
+
+            root.innerHTML = '<p class="text-sm text-red-600">' + rendererError + '</p>';
             return;
         }
 
@@ -628,7 +664,8 @@
         renderListsIntoRoot(
             root,
             lists,
-            getVisibleUserEmptyMessage()
+            getVisibleUserEmptyMessage(),
+            { useVisibleUserErrorChannel: true }
         );
     }
 
@@ -679,12 +716,19 @@
         }
     }
 
+    /**
+     * MC13C: errores de carga en el mismo canal que acciones (#aa-executable-user-lists-error).
+     *
+     * @param {string} message
+     */
     function showVisibleUserLoadError(message) {
         var root = getVisibleUserRoot();
 
         if (root) {
-            root.innerHTML = '<p class="text-sm text-red-600">' + String(message || 'No se pudo cargar el feed executable de usuario.') + '</p>';
+            root.innerHTML = '';
         }
+
+        showVisibleUserError(message || 'No se pudo cargar el feed executable de usuario.');
     }
 
     /**
@@ -717,17 +761,23 @@
     function loadVisibleUserFeed() {
         var service = globalRoot.ExecutableListsService;
 
+        setVisibleUserLoading(true);
+
         if (!service || typeof service.getFeed !== 'function') {
+            setVisibleUserLoading(false);
             showVisibleUserLoadError('ExecutableListsService no disponible.');
             return Promise.resolve();
         }
 
         return service.getFeed()
             .then(function (payload) {
+                setVisibleUserLoading(false);
+                clearVisibleUserError();
                 lastVisibleUserPayload = payload;
                 renderVisibleUserPayload(payload);
             })
             .catch(function (err) {
+                setVisibleUserLoading(false);
                 lastVisibleUserPayload = null;
                 showVisibleUserLoadError((err && err.message) ? err.message : 'No se pudo cargar el feed executable de usuario.');
             });
@@ -883,6 +933,11 @@
         applyUserSwapLayout: applyUserSwapLayout,
         applyVisibleUserSectionChrome: applyVisibleUserSectionChrome,
         getVisibleUserEmptyMessage: getVisibleUserEmptyMessage,
+        setVisibleUserLoading: setVisibleUserLoading,
+        showVisibleUserError: showVisibleUserError,
+        clearVisibleUserError: clearVisibleUserError,
+        showVisibleUserLoadError: showVisibleUserLoadError,
+        VISIBLE_USER_LOADING_MESSAGE: VISIBLE_USER_LOADING_MESSAGE,
         reloadVisibleUserFeedWithBoardSync: reloadVisibleUserFeedWithBoardSync,
         reloadLegacyBoardBestEffort: reloadLegacyBoardBestEffort,
         buildRenderOptions: buildRenderOptions,
