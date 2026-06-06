@@ -22,12 +22,14 @@ function baseItem(overrides) {
 
 describe('executable-lists-module hooks', () => {
     let originalDebug;
+    let originalActionsDebug;
     let originalData;
     let originalHandlers;
     let originalSessionStorage;
 
     beforeEach(() => {
         originalDebug = globalThis.AA_EXECUTABLE_LISTS_DEBUG;
+        originalActionsDebug = globalThis.AA_EXECUTABLE_LISTS_ACTIONS_DEBUG;
         originalData = globalThis.AA_EXECUTABLE_LISTS_DATA;
         originalHandlers = globalThis.LearningActionHandlers;
         originalSessionStorage = globalThis.sessionStorage;
@@ -38,6 +40,12 @@ describe('executable-lists-module hooks', () => {
             delete globalThis.AA_EXECUTABLE_LISTS_DEBUG;
         } else {
             globalThis.AA_EXECUTABLE_LISTS_DEBUG = originalDebug;
+        }
+
+        if (originalActionsDebug === undefined) {
+            delete globalThis.AA_EXECUTABLE_LISTS_ACTIONS_DEBUG;
+        } else {
+            globalThis.AA_EXECUTABLE_LISTS_ACTIONS_DEBUG = originalActionsDebug;
         }
 
         if (originalData === undefined) {
@@ -120,6 +128,84 @@ describe('executable-lists-module hooks', () => {
         const moduleSrc = fs.readFileSync(modulePath, 'utf8');
 
         assert.match(moduleSrc, /if \(!isDebugEnabled\(\)\) \{\s*setSectionVisible\(false\);\s*return;/);
+    });
+
+    it('isActionsEnabled es false sin debug visible', () => {
+        globalThis.AA_EXECUTABLE_LISTS_ACTIONS_DEBUG = true;
+        delete globalThis.AA_EXECUTABLE_LISTS_DEBUG;
+        delete globalThis.AA_EXECUTABLE_LISTS_DATA;
+        delete globalThis.sessionStorage;
+
+        assert.equal(hooks.isActionsEnabled(), false);
+    });
+
+    it('isActionsEnabled requiere debug visible y flag de acciones', () => {
+        globalThis.AA_EXECUTABLE_LISTS_DEBUG = true;
+        globalThis.AA_EXECUTABLE_LISTS_ACTIONS_DEBUG = true;
+
+        assert.equal(hooks.isActionsEnabled(), true);
+    });
+
+    it('isActionsEnabled respeta sessionStorage AA_EXECUTABLE_LISTS_ACTIONS_DEBUG=1', () => {
+        globalThis.sessionStorage = {
+            getItem: function (key) {
+                if (key === 'AA_EXECUTABLE_LISTS_DEBUG') {
+                    return '1';
+                }
+
+                if (key === 'AA_EXECUTABLE_LISTS_ACTIONS_DEBUG') {
+                    return '1';
+                }
+
+                return null;
+            }
+        };
+
+        assert.equal(hooks.isActionsEnabled(), true);
+    });
+
+    it('enableInteractiveRoot quita inert y pointer-events-none', () => {
+        var root = {
+            attributes: { inert: 'inert' },
+            classList: {
+                classes: ['pointer-events-none', 'p-4'],
+                remove: function (name) {
+                    this.classes = this.classes.filter(function (item) {
+                        return item !== name;
+                    });
+                }
+            },
+            removeAttribute: function (name) {
+                delete this.attributes[name];
+            }
+        };
+
+        hooks.enableInteractiveRoot(root);
+
+        assert.equal(root.attributes.inert, undefined);
+        assert.equal(root.classList.classes.includes('pointer-events-none'), false);
+    });
+
+    it('enablePreviewRoot aplica inert y pointer-events-none', () => {
+        var root = {
+            attributes: {},
+            classList: {
+                classes: ['p-4'],
+                add: function (name) {
+                    if (!this.classes.includes(name)) {
+                        this.classes.push(name);
+                    }
+                }
+            },
+            setAttribute: function (name, value) {
+                this.attributes[name] = value;
+            }
+        };
+
+        hooks.enablePreviewRoot(root);
+
+        assert.notEqual(root.attributes.inert, undefined);
+        assert.equal(root.classList.classes.includes('pointer-events-none'), true);
     });
 
     it('buildRenderOptions consulta LearningActionHandlers para handler items', () => {
@@ -239,18 +325,30 @@ describe('executable-lists-module hooks', () => {
 });
 
 describe('executable-lists-module wiring', () => {
-    it('index.php carga renderer y módulo experimental', () => {
+    it('index.php carga renderer, coordinator y módulo experimental', () => {
         const fs = require('node:fs');
         const indexPath = path.join(__dirname, '../../includes/admin/ui/modules/learning/index.php');
         const indexSrc = fs.readFileSync(indexPath, 'utf8');
 
         assert.match(indexSrc, /executableListRenderer\.js/);
+        assert.match(indexSrc, /executable-actions-coordinator\.js/);
         assert.match(indexSrc, /executable-lists-module\.js/);
         assert.match(indexSrc, /id="aa-executable-lists-experimental"/);
         assert.match(indexSrc, /id="aa-executable-lists-root"/);
+        assert.match(indexSrc, /id="aa-executable-lists-error"/);
     });
 
-    it('módulo bloquea interacción con inert y capture listener', () => {
+    it('modo preview aplica interaction guard cuando acciones no están activas', () => {
+        const fs = require('node:fs');
+        const moduleSrc = fs.readFileSync(modulePath, 'utf8');
+
+        assert.match(moduleSrc, /if \(isActionsEnabled\(\)\)/);
+        assert.match(moduleSrc, /bindInteractionGuard\(root\)/);
+        assert.match(moduleSrc, /enableInteractiveRoot\(root\)/);
+        assert.match(moduleSrc, /initActionsCoordinator\(root\)/);
+    });
+
+    it('modo preview bloquea interacción con inert y capture listener', () => {
         const fs = require('node:fs');
         const moduleSrc = fs.readFileSync(modulePath, 'utf8');
 
@@ -259,7 +357,7 @@ describe('executable-lists-module wiring', () => {
         assert.match(moduleSrc, /stopPropagation\(\)/);
         assert.match(moduleSrc, /service\.getFeed\(\)/);
         assert.match(moduleSrc, /renderFeed\(lists, buildRenderOptions\(\)\)/);
-        assert.match(moduleSrc, /sessionStorage/);
         assert.match(moduleSrc, /AA_EXECUTABLE_LISTS_DEBUG/);
+        assert.match(moduleSrc, /AA_EXECUTABLE_LISTS_ACTIONS_DEBUG/);
     });
 });

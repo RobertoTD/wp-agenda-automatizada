@@ -1,7 +1,8 @@
 /**
  * Executable Lists Module — feed experimental visible solo en debug.
  *
- * Renderiza el feed MC7/MC9 sin sustituir pipelines legacy ni activar acciones reales.
+ * Renderiza el feed MC7/MC9 sin sustituir pipelines legacy.
+ * MC12A: modo interactivo debug opcional vía ExecutableActionsCoordinator (user tasks).
  */
 (function () {
     'use strict';
@@ -14,6 +15,7 @@
     var isInteractionGuardBound = false;
 
     var SESSION_STORAGE_DEBUG_KEY = 'AA_EXECUTABLE_LISTS_DEBUG';
+    var SESSION_STORAGE_ACTIONS_DEBUG_KEY = 'AA_EXECUTABLE_LISTS_ACTIONS_DEBUG';
 
     /**
      * @returns {boolean}
@@ -27,6 +29,23 @@
             }
 
             return storage.getItem(SESSION_STORAGE_DEBUG_KEY) === '1';
+        } catch (err) {
+            return false;
+        }
+    }
+
+    /**
+     * @returns {boolean}
+     */
+    function isSessionStorageActionsDebugEnabled() {
+        try {
+            var storage = globalRoot.sessionStorage;
+
+            if (!storage || typeof storage.getItem !== 'function') {
+                return false;
+            }
+
+            return storage.getItem(SESSION_STORAGE_ACTIONS_DEBUG_KEY) === '1';
         } catch (err) {
             return false;
         }
@@ -46,12 +65,35 @@
         return isSessionStorageDebugEnabled();
     }
 
+    /**
+     * @returns {boolean}
+     */
+    function isActionsEnabled() {
+        if (!isDebugEnabled()) {
+            return false;
+        }
+
+        if (globalRoot.AA_EXECUTABLE_LISTS_ACTIONS_DEBUG === true) {
+            return true;
+        }
+
+        return isSessionStorageActionsDebugEnabled();
+    }
+
     function getExperimentalSection() {
         return document.getElementById('aa-executable-lists-experimental');
     }
 
     function getExperimentalRoot() {
         return document.getElementById('aa-executable-lists-root');
+    }
+
+    function getExperimentalErrorEl() {
+        return document.getElementById('aa-executable-lists-error');
+    }
+
+    function getExperimentalModeEl() {
+        return document.getElementById('aa-executable-lists-mode');
     }
 
     function setSectionVisible(visible) {
@@ -66,6 +108,70 @@
         } else {
             section.classList.add('hidden');
         }
+    }
+
+    function updateExperimentalModeCopy() {
+        var modeEl = getExperimentalModeEl();
+
+        if (!modeEl) {
+            return;
+        }
+
+        if (isActionsEnabled()) {
+            modeEl.textContent = 'Modo debug interactivo: acciones de tareas de usuario habilitadas.';
+            return;
+        }
+
+        modeEl.textContent = 'Modo preview: acciones desactivadas.';
+    }
+
+    /**
+     * @param {HTMLElement|null} root
+     */
+    function enableInteractiveRoot(root) {
+        if (!root) {
+            return;
+        }
+
+        root.removeAttribute('inert');
+        root.classList.remove('pointer-events-none');
+    }
+
+    /**
+     * @param {HTMLElement|null} root
+     */
+    function enablePreviewRoot(root) {
+        if (!root) {
+            return;
+        }
+
+        root.setAttribute('inert', '');
+        root.classList.add('pointer-events-none');
+    }
+
+    function clearExperimentalError() {
+        var errorEl = getExperimentalErrorEl();
+
+        if (!errorEl) {
+            return;
+        }
+
+        errorEl.textContent = '';
+        errorEl.classList.add('hidden');
+    }
+
+    /**
+     * @param {string} message
+     */
+    function showExperimentalError(message) {
+        var errorEl = getExperimentalErrorEl();
+
+        if (!errorEl) {
+            return;
+        }
+
+        errorEl.textContent = String(message || 'No se pudo completar la acción.');
+        errorEl.classList.remove('hidden');
     }
 
     function getLearningRegistry() {
@@ -167,8 +273,7 @@
         }
 
         isInteractionGuardBound = true;
-        root.setAttribute('inert', '');
-        root.classList.add('pointer-events-none');
+        enablePreviewRoot(root);
 
         ['click', 'submit', 'keydown'].forEach(function (eventName) {
             root.addEventListener(eventName, function (event) {
@@ -243,6 +348,25 @@
         });
     }
 
+    /**
+     * @param {HTMLElement} root
+     */
+    function initActionsCoordinator(root) {
+        var coordinator = globalRoot.ExecutableActionsCoordinator;
+
+        if (!coordinator || typeof coordinator.init !== 'function') {
+            showExperimentalError('ExecutableActionsCoordinator no disponible.');
+            return;
+        }
+
+        coordinator.init({
+            root: root,
+            reload: loadExperimentalFeed,
+            showError: showExperimentalError,
+            clearError: clearExperimentalError
+        });
+    }
+
     function initExperimentalModule() {
         if (!document.getElementById('aa-tasks-module-root')) {
             return;
@@ -260,8 +384,17 @@
         }
 
         setSectionVisible(true);
-        bindInteractionGuard(root);
+        updateExperimentalModeCopy();
+        clearExperimentalError();
         bindAvailabilityRerender();
+
+        if (isActionsEnabled()) {
+            enableInteractiveRoot(root);
+            initActionsCoordinator(root);
+        } else {
+            bindInteractionGuard(root);
+        }
+
         loadExperimentalFeed();
     }
 
@@ -269,7 +402,16 @@
         module.exports = {
             isDebugEnabled: isDebugEnabled,
             isSessionStorageDebugEnabled: isSessionStorageDebugEnabled,
-            buildRenderOptions: buildRenderOptions
+            isActionsEnabled: isActionsEnabled,
+            isSessionStorageActionsDebugEnabled: isSessionStorageActionsDebugEnabled,
+            buildRenderOptions: buildRenderOptions,
+            enableInteractiveRoot: enableInteractiveRoot,
+            enablePreviewRoot: enablePreviewRoot,
+            loadExperimentalFeed: loadExperimentalFeed,
+            renderPayload: renderPayload,
+            showExperimentalError: showExperimentalError,
+            clearExperimentalError: clearExperimentalError,
+            updateExperimentalModeCopy: updateExperimentalModeCopy
         };
     }
 

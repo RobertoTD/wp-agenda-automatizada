@@ -144,7 +144,44 @@ El renderer traduce `visible_actions` a markup legacy-compatible según `item.so
 | `type=intent` defer/dismiss/reactivate | `data-learning-action` + `data-recommendation-key` | — |
 | `type=navigate` | `<a href="...">` | `<a href="...">` |
 
-El feed experimental sigue **preview/inert**: renderiza botones pero no ejecuta acciones reales. Un coordinator executable (ciclo posterior) consumirá estos mismos canales DOM.
+El feed experimental tiene dos modos debug (MC12A):
+
+**Modo preview** — solo visibilidad del feed:
+
+```js
+sessionStorage.setItem('AA_EXECUTABLE_LISTS_DEBUG', '1');
+sessionStorage.removeItem('AA_EXECUTABLE_LISTS_ACTIONS_DEBUG');
+location.reload();
+```
+
+- Sección experimental visible.
+- Root `#aa-executable-lists-root` con `inert` y clicks bloqueados.
+- No ejecuta mutaciones.
+
+**Modo interactivo debug** — requiere ambos flags:
+
+```js
+sessionStorage.setItem('AA_EXECUTABLE_LISTS_DEBUG', '1');
+sessionStorage.setItem('AA_EXECUTABLE_LISTS_ACTIONS_DEBUG', '1');
+// alternativa: window.AA_EXECUTABLE_LISTS_ACTIONS_DEBUG = true
+location.reload();
+```
+
+- Quita `inert` del root experimental.
+- Inicializa `ExecutableActionsCoordinator` (`executable-actions-coordinator.js`).
+- Ejecuta mutaciones **solo** vía servicios existentes; refresca con `ExecutableListsService.getFeed()` sin llamar loaders legacy.
+
+Acciones habilitadas en MC12A (user tasks únicamente):
+
+| Markup DOM | Servicio |
+|------------|----------|
+| `data-tasks-action="complete"` | `TasksService.changeTaskStatus(taskId, 'done')` |
+| `data-tasks-action="pending"` | `TasksService.changeTaskStatus(taskId, 'pending')` |
+| `data-tasks-action="archive-list"` | `TasksService.archiveTaskList(listId)` (+ confirm) |
+
+Fuera de alcance MC12A (ciclos posteriores): Learning defer/dismiss/complete, `primary-handler`, `pwa.install`. El feed legacy visible **no se sustituye**; puede quedar desincronizado hasta reload manual en debug.
+
+El coordinator usa delegación en capture sobre `#aa-executable-lists-root` con `stopPropagation()` para evitar doble ejecución con `tasks-board-module.js` (mismo `#aa-tasks-module-root` ancestro).
 
 Proyección común (MC11B):
 
