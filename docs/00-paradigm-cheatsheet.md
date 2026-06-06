@@ -47,7 +47,7 @@ ui (JS)      →  http (vía AJAX)
 - `booking`: creacion/resolucion de citas y disponibilidad asociada.
 - `onboarding`: estado de activacion inicial hacia la primera cita.
 - `learning`: recomendaciones de producto; el catalogo declara intencion (`action`) y Application normaliza el payload ejecutable.
-- `executable`: contrato comun de proyeccion (`AA_Executable_Contract`) para listas/items ejecutables; mappers en `application/executable/` traducen salidas de fuentes (learning, tasks) sin fusionar persistencia. Ver `docs/tasks-executable-contract.md`.
+- `executable`: contrato comun de proyeccion (`AA_Executable_Contract`) para listas/items ejecutables; mappers en `application/executable/` traducen salidas de fuentes (learning, tasks) sin fusionar persistencia. Ver `docs/tasks-executable-contract.md`. **Señales/estado/eventos:** las acciones del usuario registran señales interpretables por policies; no son reglas absolutas. `visible_actions` proyecta botones actuales, no historial ni contadores.
 
 ### Learning: acciones primarias
 

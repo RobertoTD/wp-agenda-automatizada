@@ -21,6 +21,116 @@ Evitar dos sistemas incompatibles (Learning rico vs Tasks pobre) sin fusionar al
 
 La UI futura consumirá **solo** el contrato normalizado, no las tablas ni el catálogo directamente.
 
+**Executable es proyección, no fuente de verdad.** Los mappers y el feed reflejan el estado y las reglas de cada fuente en un momento dado; no persisten señales ni sustituyen el storage de Learning ni Tasks.
+
+## Modelo de señales, estado y procedencia
+
+Las acciones del usuario registran **señales o decisiones interpretables**. No deben modelarse ni documentarse como movimientos absolutos ni reglas definitivas. Una policy lee estado persistido, facts y (en el futuro) eventos/counters, y **proyecta** qué aparece en cada vista. Si los criterios cambian, la misma señal puede proyectarse distinto.
+
+### Capas conceptuales (qué es cada cosa)
+
+| Capa | Qué representa | Persistido hoy | Consumidor típico |
+|------|----------------|----------------|-------------------|
+| **Estado actual** | Snapshot compacto del item/lista en su fuente | Sí (por fuente) | Use Cases, policies de fuente, mappers |
+| **Declaración del usuario** | Intención o afirmación subjetiva del operador | Parcialmente (como flags/columnas de estado) | Write Use Cases → estado actual |
+| **Fact / verificación automática** | Observación recalculable del sistema | No en tablas de señales; facts en runtime | `AA_Learning_Visibility_Policy`, evaluators |
+| **Evento histórico** *(futuro)* | Registro append-only: qué ocurrió, cuándo, con qué outcome | **No implementado** | Policies analíticas, auditoría, IA premium |
+| **Contador / resumen** *(futuro)* | Vista derivada sobre eventos o estado (`defer_count`, `last_action_at`) | **No implementado** | Policies que inhiben o re-priorizan |
+| **capabilities** | Posibilidades técnicas/latentes del item | Proyección (mapper + enricher) | `AA_Executable_Visible_Actions_Policy` |
+| **visible_actions** | Botones que **esta vista/bucket** debe mostrar **ahora** | Proyección (enricher + policy) | Renderer, coordinator |
+| **source / procedencia** | Origen lógico del item/lista (`system`, `user`, `ai`) | En contrato executable; parcial en BD Tasks | Policies, renderer (canal DOM) |
+
+### Estado actual por fuente (persistencia real)
+
+**Learning** — tabla `aa_learning_recommendation_state`, una fila por `recommendation_key`:
+
+- `is_completed`, `completed_at` — declaración manual de completion (recomendaciones `completion_type=manual`).
+- `is_ignored`, `ignored_at` — señal “Ahora no” / defer (postergación declarada).
+- `is_dismissed`, `dismissed_at` — señal “Ignorar” / dismiss (ocultamiento declarado).
+- `list_override`, `last_suggested_at` — auxiliares de proyección (aging, override); no son eventos.
+- `dismiss_active` — **no se persiste**; la policy la calcula desde `is_dismissed` + `dismissed_at` + `dismiss_hours`.
+
+**Tasks** — tablas `aa_tasks` / `aa_task_lists`:
+
+- Tarea: `status` (`pending` \| `done`), `completed_at` — declaración del usuario al marcar hecha/reabrir.
+- Lista: `status` (`active` \| `archived`) — declaración al archivar; no hay `archived_at` ni unarchive hoy.
+
+Ninguna de estas tablas es un **action log**. Solo guardan el **último estado** (y timestamps del último cambio por tipo de señal). Re-dismiss o re-defer **sobrescriben** el timestamp anterior; no queda historial.
+
+### Declaración del usuario vs fact automático
+
+| Concepto | Learning | Tasks |
+|----------|----------|-------|
+| **Completion declarada** | `is_completed=1` vía `CompleteLearningRecommendationUseCase` (solo manual) | `status=done`, `completed_at` vía `ChangeTaskStatusUseCase` |
+| **Completion verificada / automática** | `completion_fact` evaluado en lectura (`is_auto_completed`); **no escribe BD** | No existe hoy |
+| **Proyección en ExecutableItem** | `state.completed`, `state.auto_completed` | `state.completed` (= done); `auto_completed` siempre `false` |
+
+`status=done` en Tasks y `is_completed` en Learning manual significan **“el usuario declaró completado”**, no verificación objetiva de que la acción ocurrió en el mundo real.
+
+### Semántica de señales de usuario (no movimientos absolutos)
+
+| Señal UX | Registro persistido | Interpretación policy *(ejemplos actuales, no garantías)* |
+|----------|---------------------|-------------------------------------------------------------|
+| **Ahora no** (defer) | Learning: `is_ignored`, `ignored_at` | La policy **puede** proyectar el item fuera de `primary` (p. ej. bucket `secondary`) **si** no hay criterios que lo contradigan. No es “mover definitivamente a secondary”. |
+| **Ignorar** (dismiss) | Learning: `is_dismissed`, `dismissed_at` | La policy **puede** excluir el item del feed activo mientras `dismiss_active` aplique. No es borrado permanente: al expirar la ventana, el flag puede seguir en BD pero la proyección cambia. |
+| **Completar** (manual) | Learning: `is_completed`; Tasks: `status=done` | Declaración del usuario; puede sacar el item del feed activo. Distinta de auto-completion por fact. |
+| **Reabrir** (Tasks) | `status=pending`, `completed_at=null` | Declaración inversa; no implica evento histórico de “des-completado verificado”. |
+| **Archivar lista** | `aa_task_lists.status=archived` | Declaración sobre la lista; tareas conservadas. Acción de **lista**, no de item. |
+
+El coordinator experimental (MC12) **solo ejecuta** la mutación vía servicio y refresca el feed; **no** implementa estas reglas de proyección.
+
+### Qué no existe todavía (diseño futuro)
+
+Explícitamente **fuera de alcance** hasta que una policy concreta lo consuma:
+
+- **Action log** — tabla o stream append-only de eventos (`clicked_defer`, `handler_attempted`, etc.).
+- **Counters** — `defer_count`, `last_user_action_at`, agregados derivados.
+- **Tabla común de eventos** cross-fuente (Learning + Tasks + handlers + premium/IA).
+
+Cuando exista demanda (p. ej. “no mostrar defer si ya pospuso 3 veces”, auditoría de PWA install, ranking global), el diseño candidato separará:
+
+```php
+// Shape conceptual futuro — NO implementado
+[
+    'event_key' => 'clicked_defer',           // clicked_complete, handler_attempted, ...
+    'subject_type' => 'item'|'list',
+    'subject_source' => 'system'|'user'|'ai',
+    'subject_id' => string,
+    'origin_key' => string|null,
+    'actor_type' => 'user',
+    'channel' => 'executable'|'legacy',
+    'occurred_at' => string,
+    'payload' => array,
+    'outcome' => string|null,
+]
+```
+
+Los **counters** serían vista derivada (materializada o calculada), no fuente de verdad inicial. `visible_actions` **no** absorberá historial ni contadores.
+
+### source / procedencia
+
+| Valor | Significado hoy | Ejemplo |
+|-------|-----------------|---------|
+| `system` | Learning / recomendaciones de producto | Lista `system:learning.recommendations` |
+| `user` | Tasks creadas por el operador | Listas `aa_task_lists` |
+| `ai` | Reservado en contrato; ningún mapper lo emite aún | — |
+
+`origin_key` estabiliza la clave lógica dentro de la fuente (p. ej. recommendation `key`). Tasks usan `origin_key=null` en items; comparación global futura puede requerir convenciones explícitas (`tasks.list.{id}`).
+
+### Deuda: acciones de lista (`archive-list`)
+
+Hoy `archive-list` es acción de **lista**, no de item:
+
+- Capability: `list.capabilities.can_archive`.
+- Renderer: botón con `data-tasks-action="archive-list"` + `data-list-id` (namespace tasks provisional).
+- Coordinator MC12A: `TasksService.archiveTaskList` tras confirm.
+
+**Modelo futuro** (no implementar hasta ciclo dedicado):
+
+- `list.visible_actions` en contrato normalizado.
+- `AA_List_Visible_Actions_Policy` (o equivalente) + enricher de lista.
+- Namespace DOM propio (p. ej. `data-executable-list-action="archive"`), deprecando el atajo `data-tasks-action` en feed experimental.
+
 ## ExecutableList
 
 ```php
@@ -61,13 +171,13 @@ Sublistas internas de una lista (Principales, Otras sugerencias, default).
     'description' => string|null,
     'importance' => int,
     'due_at' => string|null,       // Y-m-d H:i:s
-    'status' => 'pending'|'done',
-    'state' => [
-        'completed' => bool,
-        'ignored' => bool,
-        'dismissed' => bool,
-        'dismiss_active' => bool,
-        'auto_completed' => bool,
+    'status' => 'pending'|'done',   // proyección: done = declaración usuario (Tasks) o completion (Learning); no implica verificación objetiva
+    'state' => [                    // snapshot interpretado por la fuente; no es action log
+        'completed' => bool,        // true si la fuente considera el item completado (manual o auto)
+        'ignored' => bool,          // señal defer persistida (Learning)
+        'dismissed' => bool,        // señal dismiss persistida (Learning)
+        'dismiss_active' => bool,   // ventana dismiss vigente (calculada; Learning)
+        'auto_completed' => bool,   // completion por fact; distinta de declaración manual
     ],
     'capabilities' => [
         'can_complete' => bool,
@@ -86,7 +196,7 @@ Sublistas internas de una lista (Principales, Otras sugerencias, default).
 
 - **navigate:** `{ type: 'navigate', label, url }`
 - **handler:** `{ type: 'handler', label, handler }` — ejecución runtime en JS (handlers registrados)
-- **status:** `{ type: 'status', label, to: 'pending'|'done' }` — cambio de estado vía Use Case de la fuente
+- **status:** `{ type: 'status', label, to: 'pending'|'done' }` — mutación de **declaración** del usuario vía Use Case de la fuente (no verificación automática)
 
 `primary_action` es un campo temporal/backward-compatible: expresa una acción principal heredada de los mappers actuales, pero no alcanza para modelar la coexistencia de acciones visibles (`Ir` + `Completar` + `Ahora no`, por ejemplo).
 
@@ -109,10 +219,10 @@ Shape conceptual:
 ]
 ```
 
-- **capabilities:** posibilidades técnicas o latentes (`can_complete`, `can_reopen`, etc.). No equivalen automáticamente a botones.
+- **capabilities:** posibilidades técnicas o latentes según estado/fuente (`can_complete`, `can_reopen`, etc.). **No** equivalen automáticamente a botones visibles.
 - **primary_action:** acción principal temporal usada por el contrato actual y renderers experimentales.
-- **visible_actions:** resultado de resolver reglas de vista/bucket/fuente/estado para decidir botones visibles.
-- **runtime availability:** decisión final de JS para handlers (`pwa.install`, standalone, prompt disponible). JS puede ocultar/deshabilitar un handler no disponible, pero no debe inventar reglas de negocio de visibilidad.
+- **visible_actions:** proyección de **qué botones mostrar ahora** en esta vista/bucket; resultado de policy + contexto. **No** es historial, contador, lista de acciones posibles ni fuente de verdad de señales.
+- **runtime availability:** disponibilidad JS de handlers (`pwa.install`, standalone, prompt). JS puede ocultar/deshabilitar un handler no disponible; no persiste señales ni define proyección de feed.
 
 La policy pura `AA_Executable_Visible_Actions_Policy` vive en `includes/domain/executable/` y expone:
 
@@ -171,7 +281,7 @@ location.reload();
 - Inicializa `ExecutableActionsCoordinator` (`executable-actions-coordinator.js`).
 - Ejecuta mutaciones **solo** vía servicios existentes; refresca con `ExecutableListsService.getFeed()` sin llamar loaders legacy.
 
-Acciones habilitadas en MC12A (user tasks únicamente):
+Acciones habilitadas en MC12A (user tasks):
 
 | Markup DOM | Servicio |
 |------------|----------|
@@ -179,7 +289,23 @@ Acciones habilitadas en MC12A (user tasks únicamente):
 | `data-tasks-action="pending"` | `TasksService.changeTaskStatus(taskId, 'pending')` |
 | `data-tasks-action="archive-list"` | `TasksService.archiveTaskList(listId)` (+ confirm) |
 
-Fuera de alcance MC12A (ciclos posteriores): Learning defer/dismiss/complete, `primary-handler`, `pwa.install`. El feed legacy visible **no se sustituye**; puede quedar desincronizado hasta reload manual en debug.
+Acciones habilitadas en MC12B (Learning simple):
+
+| Markup DOM | Servicio |
+|------------|----------|
+| `data-learning-action="defer"` | `LearningService.ignoreRecommendation(key)` |
+| `data-learning-action="dismiss"` | `LearningService.dismissRecommendation(key)` |
+| `data-learning-action="complete"` | `LearningService.completeRecommendation(key)` |
+
+`key` = `data-recommendation-key`.
+
+**Semántica MC12 (dominio/backend, no coordinator):** ver tabla en [Modelo de señales, estado y procedencia](#modelo-de-señales-estado-y-procedencia). Resumen: defer/dismiss/complete **registran señales**; la proyección en buckets/feed es interpretación de policy, no efecto absoluto.
+
+Fuera de alcance MC12B: `reactivate`, `primary-handler`, `pwa.install`, navegación `<a href>`. MC12C cubrirá handlers runtime (idealmente emitiendo señales/eventos futuros, no solo mutaciones).
+
+**Deuda lista:** ver [Deuda: acciones de lista](#deuda-acciones-de-lista-archive-list).
+
+El feed legacy visible **no se sustituye**; puede quedar desincronizado hasta reload manual en debug.
 
 El coordinator usa delegación en capture sobre `#aa-executable-lists-root` con `stopPropagation()` para evitar doble ejecución con `tasks-board-module.js` (mismo `#aa-tasks-module-root` ancestro).
 
@@ -201,8 +327,8 @@ Salida: **una** `ExecutableList`:
 - `id`: `system:learning.recommendations`
 - `origin_key`: `learning.recommendations`
 - `title`: Recomendaciones
-- Bucket `primary` ← `list_1` (label: Principales)
-- Bucket `secondary` ← `list_2` (label: Otras sugerencias)
+- Bucket `primary` ← items con `effective_list=1` según policy de Learning (label: Principales)
+- Bucket `secondary` ← items con `effective_list=2` según policy de Learning (label: Otras sugerencias); proyección interpretada, no posición permanente
 - Item `origin_key` = `key` de recomendación
 - `can_complete_manually` → `capabilities.can_complete`
 - `can_defer` / `can_dismiss` / `can_reactivate` preservados
@@ -220,12 +346,12 @@ Salida: **una ExecutableList por lista de usuario**:
 - `source`: `user`
 - `id`: id numérico de lista como string
 - Bucket único `default` (feed activo/normal)
-- Solo tareas **pending**; `done` no se proyecta al bucket activo
+- Solo tareas **pending** en bucket activo; tareas con `status=done` (declaración usuario) no se proyectan al feed activo actual
 - Tareas ordenadas según `organization.task_order_by_list[list_id]` (solo pending proyectadas)
 - `notes` → `description`
 - `due_at`, `importance` preservados
-- Pending: `can_complete`, `primary_action` status→done
-- Done: fuera del feed activo; `can_reopen` / reabrir reservado para futura vista de completadas
+- Pending: `can_complete`, `primary_action` status→done (declaración, no verificación)
+- Done: reservado para futura vista `completed`; `can_reopen` no implica historial de eventos
 - Lista activa: `capabilities.can_archive` en la lista
 - `is_executive_candidate` si task id ∈ `organization.executive_candidates`
 
@@ -239,6 +365,7 @@ Salida: **una ExecutableList por lista de usuario**:
 - Propuesta ejecutiva multi-fuente
 - Backend premium / IA
 - Migración de Learning a `aa_tasks`
+- Action log, counters y tabla común de eventos (diseño documentado; implementación cuando haya policy consumidora)
 
 ## Archivos MC7
 

@@ -1,6 +1,8 @@
 /**
- * Executable Actions Coordinator — ejecución debug MC12A (user tasks only).
+ * Executable Actions Coordinator — ejecución debug MC12A/12B.
  *
+ * MC12A: user tasks (complete, pending, archive-list).
+ * MC12B: Learning simple (defer, dismiss, complete).
  * Delega clicks en #aa-executable-lists-root; no sustituye módulos legacy.
  */
 (function () {
@@ -17,6 +19,14 @@
     var ARCHIVE_CONFIRM_MESSAGE = '¿Archivar esta lista? Las tareas se conservarán.';
 
     var TASK_ACTION_SELECTOR = '[data-tasks-action]';
+    var LEARNING_ACTION_SELECTOR = '[data-learning-action]';
+    var ACTIONABLE_BUTTON_SELECTOR = TASK_ACTION_SELECTOR + ', ' + LEARNING_ACTION_SELECTOR;
+
+    var LEARNING_ACTIONS_MC12B = {
+        defer: true,
+        dismiss: true,
+        complete: true
+    };
 
     /**
      * @param {object} deps
@@ -25,6 +35,9 @@
     function createCoordinator(deps) {
         var resolveTasksService = deps.getTasksService || function () {
             return globalRoot.TasksService || null;
+        };
+        var resolveLearningService = deps.getLearningService || function () {
+            return globalRoot.LearningService || null;
         };
         var confirmFn = deps.confirm || function (message) {
             return globalRoot.confirm(message);
@@ -39,7 +52,7 @@
                 return;
             }
 
-            root.querySelectorAll(TASK_ACTION_SELECTOR).forEach(function (button) {
+            root.querySelectorAll(ACTIONABLE_BUTTON_SELECTOR).forEach(function (button) {
                 button.disabled = disabled;
 
                 if (!button.classList) {
@@ -72,7 +85,7 @@
 
         /**
          * @param {string} listId
-         * @returns {Promise<void>}
+         * @returns {Promise<void|null>}
          */
         function runArchiveListAction(listId) {
             if (!confirmFn(ARCHIVE_CONFIRM_MESSAGE)) {
@@ -89,31 +102,51 @@
         }
 
         /**
+         * @param {string} action
+         * @param {string} recommendationKey
+         * @returns {Promise<void>}
+         */
+        function runLearningAction(action, recommendationKey) {
+            var service = resolveLearningService();
+
+            if (!service) {
+                return Promise.reject(new Error('LearningService no disponible.'));
+            }
+
+            if (action === 'defer') {
+                if (typeof service.ignoreRecommendation !== 'function') {
+                    return Promise.reject(new Error('LearningService no disponible.'));
+                }
+
+                return Promise.resolve(service.ignoreRecommendation(recommendationKey));
+            }
+
+            if (action === 'dismiss') {
+                if (typeof service.dismissRecommendation !== 'function') {
+                    return Promise.reject(new Error('LearningService no disponible.'));
+                }
+
+                return Promise.resolve(service.dismissRecommendation(recommendationKey));
+            }
+
+            if (action === 'complete') {
+                if (typeof service.completeRecommendation !== 'function') {
+                    return Promise.reject(new Error('LearningService no disponible.'));
+                }
+
+                return Promise.resolve(service.completeRecommendation(recommendationKey));
+            }
+
+            return Promise.reject(new Error('Acción Learning no soportada.'));
+        }
+
+        /**
          * @param {MouseEvent|object} event
          * @param {object} ctx
-         * @returns {Promise<boolean>} true si manejó el click
+         * @param {Promise<void|null>} actionPromise
+         * @returns {Promise<boolean>}
          */
-        function handleClick(event, ctx) {
-            var root = ctx && ctx.root;
-
-            if (!root || !event || !event.target) {
-                return Promise.resolve(false);
-            }
-
-            var button = event.target.closest
-                ? event.target.closest(TASK_ACTION_SELECTOR)
-                : null;
-
-            if (!button || button.disabled || !root.contains(button)) {
-                return Promise.resolve(false);
-            }
-
-            var action = button.getAttribute('data-tasks-action');
-
-            if (action !== 'complete' && action !== 'pending' && action !== 'archive-list') {
-                return Promise.resolve(false);
-            }
-
+        function executeActionPromise(event, ctx, actionPromise) {
             if (typeof event.preventDefault === 'function') {
                 event.preventDefault();
             }
@@ -126,27 +159,7 @@
                 return Promise.resolve(true);
             }
 
-            var taskId = button.getAttribute('data-task-id');
-            var listId = button.getAttribute('data-list-id');
-            var actionPromise = null;
-
-            if (action === 'complete' || action === 'pending') {
-                if (!taskId) {
-                    return Promise.resolve(true);
-                }
-
-                actionPromise = runTaskStatusAction(action, taskId);
-            } else if (action === 'archive-list') {
-                if (!listId) {
-                    return Promise.resolve(true);
-                }
-
-                actionPromise = runArchiveListAction(listId);
-            }
-
-            if (!actionPromise) {
-                return Promise.resolve(true);
-            }
+            var root = ctx.root;
 
             isActionPending = true;
             setRootButtonsDisabled(root, true);
@@ -183,10 +196,147 @@
                 });
         }
 
+        /**
+         * @param {MouseEvent|object} event
+         * @param {object} ctx
+         * @returns {Promise<boolean>}
+         */
+        function handleTaskClick(event, ctx) {
+            var root = ctx && ctx.root;
+
+            if (!root || !event || !event.target) {
+                return Promise.resolve(false);
+            }
+
+            var button = event.target.closest
+                ? event.target.closest(TASK_ACTION_SELECTOR)
+                : null;
+
+            if (!button || button.disabled || !root.contains(button)) {
+                return Promise.resolve(false);
+            }
+
+            var action = button.getAttribute('data-tasks-action');
+
+            if (action !== 'complete' && action !== 'pending' && action !== 'archive-list') {
+                return Promise.resolve(false);
+            }
+
+            var taskId = button.getAttribute('data-task-id');
+            var listId = button.getAttribute('data-list-id');
+            var actionPromise = null;
+
+            if (action === 'complete' || action === 'pending') {
+                if (!taskId) {
+                    return Promise.resolve(false);
+                }
+
+                actionPromise = runTaskStatusAction(action, taskId);
+            } else if (action === 'archive-list') {
+                if (!listId) {
+                    return Promise.resolve(false);
+                }
+
+                actionPromise = runArchiveListAction(listId);
+            }
+
+            if (!actionPromise) {
+                return Promise.resolve(false);
+            }
+
+            return executeActionPromise(event, ctx, actionPromise);
+        }
+
+        /**
+         * @param {MouseEvent|object} event
+         * @param {object} ctx
+         * @returns {Promise<boolean>}
+         */
+        function handleLearningClick(event, ctx) {
+            var root = ctx && ctx.root;
+
+            if (!root || !event || !event.target) {
+                return Promise.resolve(false);
+            }
+
+            var button = event.target.closest
+                ? event.target.closest(LEARNING_ACTION_SELECTOR)
+                : null;
+
+            if (!button || button.disabled || !root.contains(button)) {
+                return Promise.resolve(false);
+            }
+
+            var action = asString(button.getAttribute('data-learning-action')).trim().toLowerCase();
+
+            if (!LEARNING_ACTIONS_MC12B[action]) {
+                return Promise.resolve(false);
+            }
+
+            var recommendationKey = asString(button.getAttribute('data-recommendation-key')).trim();
+
+            if (recommendationKey === '') {
+                return Promise.resolve(false);
+            }
+
+            return executeActionPromise(event, ctx, runLearningAction(action, recommendationKey));
+        }
+
+        /**
+         * @param {MouseEvent|object} event
+         * @param {object} ctx
+         * @returns {boolean}
+         */
+        function isActionableTaskButton(event, ctx) {
+            var root = ctx && ctx.root;
+
+            if (!root || !event || !event.target || !event.target.closest) {
+                return false;
+            }
+
+            var button = event.target.closest(TASK_ACTION_SELECTOR);
+
+            if (!button || button.disabled || !root.contains(button)) {
+                return false;
+            }
+
+            var action = button.getAttribute('data-tasks-action');
+
+            return action === 'complete' || action === 'pending' || action === 'archive-list';
+        }
+
+        /**
+         * @param {MouseEvent|object} event
+         * @param {object} ctx
+         * @returns {Promise<boolean>} true si manejó el click
+         */
+        function handleClick(event, ctx) {
+            if (isActionPending) {
+                if (typeof event.preventDefault === 'function') {
+                    event.preventDefault();
+                }
+
+                if (typeof event.stopPropagation === 'function') {
+                    event.stopPropagation();
+                }
+
+                return Promise.resolve(true);
+            }
+
+            if (isActionableTaskButton(event, ctx)) {
+                return handleTaskClick(event, ctx);
+            }
+
+            return handleLearningClick(event, ctx);
+        }
+
         return {
             handleClick: handleClick,
+            handleTaskClick: handleTaskClick,
+            handleLearningClick: handleLearningClick,
             runTaskStatusAction: runTaskStatusAction,
             runArchiveListAction: runArchiveListAction,
+            runLearningAction: runLearningAction,
             setRootButtonsDisabled: setRootButtonsDisabled,
             getIsActionPending: function () {
                 return isActionPending;
@@ -195,6 +345,14 @@
                 isActionPending = false;
             }
         };
+    }
+
+    /**
+     * @param {unknown} value
+     * @returns {string}
+     */
+    function asString(value) {
+        return value === null || value === undefined ? '' : String(value);
     }
 
     var defaultCoordinator = createCoordinator({});
@@ -229,6 +387,9 @@
         init: init,
         createCoordinator: createCoordinator,
         ARCHIVE_CONFIRM_MESSAGE: ARCHIVE_CONFIRM_MESSAGE,
+        TASK_ACTION_SELECTOR: TASK_ACTION_SELECTOR,
+        LEARNING_ACTION_SELECTOR: LEARNING_ACTION_SELECTOR,
+        ACTIONABLE_BUTTON_SELECTOR: ACTIONABLE_BUTTON_SELECTOR,
         isDelegationBound: function () {
             return isDelegationBound;
         },
