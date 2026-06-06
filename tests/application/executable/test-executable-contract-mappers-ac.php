@@ -351,6 +351,99 @@ ac_assert(
     && ($first_list_bucket['key'] ?? '') === AA_Executable_Contract::BUCKET_DEFAULT
 );
 
+$task_bucket_payload = [
+    'lists' => [
+        [
+            'id' => 3,
+            'title' => 'Ventas',
+            'description' => 'Seguimientos',
+            'importance' => 0,
+            'position' => 0,
+            'status' => 'active',
+        ],
+    ],
+    'tasks' => [
+        [
+            'id' => 30,
+            'list_id' => 3,
+            'title' => 'Vencida',
+            'notes' => 'Prioritaria por policy',
+            'status' => 'pending',
+            'importance' => 5,
+            'due_at' => '2026-06-01 10:00:00',
+        ],
+        [
+            'id' => 31,
+            'list_id' => 3,
+            'title' => 'Normal',
+            'notes' => 'Pendiente normal',
+            'status' => 'pending',
+            'importance' => 2,
+            'due_at' => null,
+        ],
+        [
+            'id' => 32,
+            'list_id' => 3,
+            'title' => 'Done no active',
+            'notes' => 'No debe aparecer',
+            'status' => 'done',
+            'importance' => -10,
+            'due_at' => '2026-06-01 09:00:00',
+        ],
+    ],
+    'organization' => [
+        'list_order' => [3],
+        'task_order_by_list' => [
+            3 => [30, 31, 32],
+        ],
+        'task_bucket_order_by_list' => [
+            3 => [
+                'primary' => [30, 32],
+                'secondary' => [31],
+            ],
+        ],
+        'executive_candidates' => [31],
+    ],
+];
+
+$task_bucket_lists = TaskBoardToExecutableMapper::map($task_bucket_payload);
+$task_bucket_list = $task_bucket_lists[0] ?? [];
+$task_buckets = is_array($task_bucket_list) && is_array($task_bucket_list['buckets'] ?? null)
+    ? $task_bucket_list['buckets']
+    : [];
+$task_bucket_keys = array_map(static function (array $bucket): string {
+    return (string) ($bucket['key'] ?? '');
+}, $task_buckets);
+$primary_bucket = $task_buckets[0] ?? null;
+$secondary_bucket = $task_buckets[1] ?? null;
+$primary_bucket_items = is_array($primary_bucket) && is_array($primary_bucket['items'] ?? null)
+    ? $primary_bucket['items']
+    : [];
+$secondary_bucket_items = is_array($secondary_bucket) && is_array($secondary_bucket['items'] ?? null)
+    ? $secondary_bucket['items']
+    : [];
+
+ac_assert(
+    'Task projected buckets map to primary and secondary labels',
+    $task_bucket_keys === [AA_Executable_Contract::BUCKET_PRIMARY, AA_Executable_Contract::BUCKET_SECONDARY]
+    && ($primary_bucket['label'] ?? '') === 'Prioritarias'
+    && ($secondary_bucket['label'] ?? '') === 'Otras tareas'
+);
+ac_assert(
+    'Task projected buckets preserve order and exclude done',
+    array_map(static function (array $item): string {
+        return (string) ($item['id'] ?? '');
+    }, $primary_bucket_items) === ['30']
+    && array_map(static function (array $item): string {
+        return (string) ($item['id'] ?? '');
+    }, $secondary_bucket_items) === ['31']
+);
+ac_assert(
+    'Task projected buckets keep executive_candidates independent',
+    ($primary_bucket_items[0]['is_executive_candidate'] ?? true) === false
+    && ($secondary_bucket_items[0]['is_executive_candidate'] ?? false) === true
+);
+
 // ─── Resumen ─────────────────────────────────────────────────
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";

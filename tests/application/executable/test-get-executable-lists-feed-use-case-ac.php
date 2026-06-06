@@ -97,7 +97,7 @@ function feed_fixture_tasks_payload(): array {
                 'title' => 'Llamar cliente',
                 'notes' => 'Seguimiento',
                 'status' => 'pending',
-                'importance' => 2,
+                'importance' => -1,
                 'due_at' => '2026-06-08 10:00:00',
             ],
             [
@@ -107,6 +107,15 @@ function feed_fixture_tasks_payload(): array {
                 'notes' => 'WhatsApp',
                 'status' => 'done',
                 'importance' => 4,
+                'due_at' => null,
+            ],
+            [
+                'id' => 12,
+                'list_id' => 1,
+                'title' => 'Enviar propuesta',
+                'notes' => 'Correo',
+                'status' => 'pending',
+                'importance' => 2,
                 'due_at' => null,
             ],
             [
@@ -122,8 +131,18 @@ function feed_fixture_tasks_payload(): array {
         'organization' => [
             'list_order' => [1, 2],
             'task_order_by_list' => [
-                1 => [10, 11],
+                1 => [10, 12, 11],
                 2 => [20],
+            ],
+            'task_bucket_order_by_list' => [
+                1 => [
+                    'primary' => [10, 11],
+                    'secondary' => [12],
+                ],
+                2 => [
+                    'primary' => [],
+                    'secondary' => [20],
+                ],
             ],
             'executive_candidates' => [10, 20],
         ],
@@ -205,9 +224,20 @@ $first_user_item_ids = array_map(static function (array $item): string {
     return (string) ($item['id'] ?? '');
 }, $first_user_items);
 ac_assert(
-    'Happy path excludes done user tasks from active bucket',
+    'Happy path excludes done user tasks from active buckets',
     $first_user_item_ids === ['10']
-    && (int) ($happy['meta']['sources']['tasks']['item_count'] ?? -1) === 2
+    && (int) ($happy['meta']['sources']['tasks']['item_count'] ?? -1) === 3
+);
+
+$first_user_secondary_items = is_array($first_user_list['buckets'][1]['items'] ?? null)
+    ? $first_user_list['buckets'][1]['items']
+    : [];
+ac_assert(
+    'Happy path counts user items across multiple task buckets',
+    ($first_user_list['buckets'][0]['key'] ?? '') === AA_Executable_Contract::BUCKET_PRIMARY
+    && ($first_user_list['buckets'][1]['key'] ?? '') === AA_Executable_Contract::BUCKET_SECONDARY
+    && count($first_user_items) === 1
+    && count($first_user_secondary_items) === 1
 );
 
 $system_list = is_array($happy_lists[0] ?? null) ? $happy_lists[0] : [];

@@ -4,7 +4,7 @@
  *
  * Mapea la salida de GetTaskBoardUseCase al contrato común.
  * No reevalúa AA_Task_Prioritization_Policy ni altera organization.
- * El feed activo/default proyecta solo tareas pending; done queda fuera hasta vista completadas.
+ * El feed activo proyecta solo tareas pending; done queda fuera hasta vista completadas.
  */
 
 defined('ABSPATH') or die('No direct access');
@@ -12,6 +12,10 @@ defined('ABSPATH') or die('No direct access');
 require_once dirname(__DIR__, 2) . '/domain/executable/class-aa-executable-contract.php';
 
 final class TaskBoardToExecutableMapper {
+
+    private const PRIMARY_BUCKET_LABEL = 'Prioritarias';
+
+    private const SECONDARY_BUCKET_LABEL = 'Otras tareas';
 
     /**
      * @param array{
@@ -178,14 +182,91 @@ final class TaskBoardToExecutableMapper {
             'capabilities' => [
                 'can_archive' => !$is_archived,
             ],
-            'buckets' => [
-                [
-                    'key' => AA_Executable_Contract::BUCKET_DEFAULT,
-                    'label' => '',
-                    'items' => self::map_list_tasks($list_id, $tasks_by_id, $organization, $executive_candidates),
-                ],
-            ],
+            'buckets' => self::map_list_buckets($list_id, $tasks_by_id, $organization, $executive_candidates),
         ]);
+    }
+
+    /**
+     * @param array<int,array<string,mixed>> $tasks_by_id
+     * @param array<string,mixed>            $organization
+     * @param array<int,bool>                $executive_candidates
+     * @return list<array<string,mixed>>
+     */
+    private static function map_list_buckets(
+        int $list_id,
+        array $tasks_by_id,
+        array $organization,
+        array $executive_candidates
+    ): array {
+        $projected_buckets = self::map_projected_task_buckets(
+            $list_id,
+            $tasks_by_id,
+            $organization,
+            $executive_candidates
+        );
+
+        if ($projected_buckets !== null) {
+            return $projected_buckets;
+        }
+
+        return [
+            [
+                'key' => AA_Executable_Contract::BUCKET_DEFAULT,
+                'label' => '',
+                'items' => self::map_list_tasks($list_id, $tasks_by_id, $organization, $executive_candidates),
+            ],
+        ];
+    }
+
+    /**
+     * @param array<int,array<string,mixed>> $tasks_by_id
+     * @param array<string,mixed>            $organization
+     * @param array<int,bool>                $executive_candidates
+     * @return list<array<string,mixed>>|null
+     */
+    private static function map_projected_task_buckets(
+        int $list_id,
+        array $tasks_by_id,
+        array $organization,
+        array $executive_candidates
+    ): ?array {
+        $raw_buckets_by_list = $organization['task_bucket_order_by_list'] ?? null;
+
+        if (!is_array($raw_buckets_by_list)) {
+            return null;
+        }
+
+        $raw_list_buckets = $raw_buckets_by_list[$list_id] ?? null;
+
+        if (!is_array($raw_list_buckets)) {
+            return null;
+        }
+
+        $bucket_defs = [
+            AA_Executable_Contract::BUCKET_PRIMARY => self::PRIMARY_BUCKET_LABEL,
+            AA_Executable_Contract::BUCKET_SECONDARY => self::SECONDARY_BUCKET_LABEL,
+        ];
+        $mapped = [];
+
+        foreach ($bucket_defs as $bucket_key => $label) {
+            $items = self::map_tasks_by_order(
+                $raw_list_buckets[$bucket_key] ?? [],
+                $tasks_by_id,
+                $executive_candidates
+            );
+
+            if ($items === []) {
+                continue;
+            }
+
+            $mapped[] = [
+                'key' => $bucket_key,
+                'label' => $label,
+                'items' => $items,
+            ];
+        }
+
+        return $mapped;
     }
 
     /**
@@ -221,9 +302,25 @@ final class TaskBoardToExecutableMapper {
             }
         }
 
+        return self::map_tasks_by_order($ordered_ids, $tasks_by_id, $executive_candidates);
+    }
+
+    /**
+     * @param mixed                         $raw_order
+     * @param array<int,array<string,mixed>> $tasks_by_id
+     * @param array<int,bool>                $executive_candidates
+     * @return list<array<string,mixed>>
+     */
+    private static function map_tasks_by_order($raw_order, array $tasks_by_id, array $executive_candidates): array {
+        if (!is_array($raw_order)) {
+            return [];
+        }
+
         $mapped = [];
 
-        foreach ($ordered_ids as $task_id) {
+        foreach ($raw_order as $task_id) {
+            $task_id = (int) $task_id;
+
             if (!isset($tasks_by_id[$task_id])) {
                 continue;
             }
