@@ -115,6 +115,191 @@
     }
 
     /**
+     * @param {object} item
+     * @returns {boolean}
+     */
+    function hasVisibleActions(item) {
+        return !!item
+            && typeof item === 'object'
+            && Array.isArray(item.visible_actions)
+            && item.visible_actions.length > 0;
+    }
+
+    /**
+     * @param {object} action
+     * @returns {object}
+     */
+    function mapVisibleActionForCallback(action) {
+        if (!action || typeof action !== 'object') {
+            return action;
+        }
+
+        var type = asString(action.type).trim();
+
+        if (type === 'status') {
+            return {
+                type: 'status',
+                label: action.label,
+                to: action.target_status
+            };
+        }
+
+        return action;
+    }
+
+    /**
+     * @param {object} action
+     * @param {object} item
+     * @param {object} [options]
+     * @param {object} [context]
+     * @returns {boolean}
+     */
+    function actionRenderAllowed(action, item, options, context) {
+        var opts = normalizeOptions(options);
+        var ctx = context || {};
+
+        if (typeof opts.shouldRenderAction === 'function') {
+            return callbackAllows(opts.shouldRenderAction, [action, item, ctx]);
+        }
+
+        return callbackAllows(
+            opts.shouldRenderPrimaryAction,
+            [mapVisibleActionForCallback(action), item, ctx]
+        );
+    }
+
+    /**
+     * @param {object|null|undefined} action
+     * @param {object} item
+     * @param {object} [options]
+     * @param {object} [context]
+     * @returns {string}
+     */
+    function renderVisibleAction(action, item, options, context) {
+        if (!action || typeof action !== 'object') {
+            return '';
+        }
+
+        if (!actionRenderAllowed(action, item, options, context)) {
+            return '';
+        }
+
+        var type = asString(action.type).trim();
+        var label = asString(action.label).trim();
+        var recommendationKey = resolveRecommendationKey(item);
+
+        if (type === 'navigate') {
+            var url = asString(action.url).trim();
+
+            if (url === '') {
+                return '';
+            }
+
+            return ''
+                + '<a href="' + escapeHtml(url) + '"'
+                + ' class="' + btnClass(false) + ' text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200">'
+                + escapeHtml(label || 'Ir')
+                + '</a>';
+        }
+
+        if (type === 'handler') {
+            var handler = asString(action.handler).trim();
+
+            if (handler === '' || label === '' || recommendationKey === '') {
+                return '';
+            }
+
+            return ''
+                + '<button type="button" data-learning-action="primary-handler"'
+                + ' data-recommendation-key="' + escapeHtml(recommendationKey) + '"'
+                + ' data-learning-handler="' + escapeHtml(handler) + '"'
+                + ' class="' + btnClass(false) + ' text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200">'
+                + escapeHtml(label)
+                + '</button>';
+        }
+
+        if (type === 'status') {
+            var taskId = asString(item.id).trim();
+            var targetStatus = asString(action.target_status).trim().toLowerCase();
+
+            if (taskId === '') {
+                return '';
+            }
+
+            if (targetStatus === 'done') {
+                return ''
+                    + '<button type="button" data-tasks-action="complete" data-task-id="' + escapeHtml(taskId) + '"'
+                    + ' class="' + btnClass(false) + ' text-green-700 hover:text-green-800 border-green-200 bg-green-50">'
+                    + escapeHtml(label || 'Completar')
+                    + '</button>';
+            }
+
+            if (targetStatus === 'pending') {
+                return ''
+                    + '<button type="button" data-tasks-action="pending" data-task-id="' + escapeHtml(taskId) + '"'
+                    + ' class="' + btnClass(false) + ' text-gray-600 hover:text-gray-800 border-gray-200">'
+                    + escapeHtml(label || 'Reabrir')
+                    + '</button>';
+            }
+
+            return '';
+        }
+
+        if (type === 'intent') {
+            var intentKey = asString(action.key).trim().toLowerCase();
+
+            if (recommendationKey === '') {
+                return '';
+            }
+
+            if (intentKey === 'defer') {
+                return ''
+                    + '<button type="button" data-learning-action="defer"'
+                    + ' data-recommendation-key="' + escapeHtml(recommendationKey) + '"'
+                    + ' class="' + btnClass(false) + ' text-gray-600 bg-white hover:bg-gray-50 border-gray-300">'
+                    + escapeHtml(label || 'Ahora no')
+                    + '</button>';
+            }
+
+            if (intentKey === 'dismiss') {
+                return ''
+                    + '<button type="button" data-learning-action="dismiss"'
+                    + ' data-recommendation-key="' + escapeHtml(recommendationKey) + '"'
+                    + ' class="' + btnClass(false) + ' text-gray-600 bg-white hover:bg-gray-50 border-gray-300">'
+                    + escapeHtml(label || 'Ignorar')
+                    + '</button>';
+            }
+
+            if (intentKey === 'reactivate') {
+                return ''
+                    + '<button type="button" data-learning-action="reactivate"'
+                    + ' data-recommendation-key="' + escapeHtml(recommendationKey) + '"'
+                    + ' class="' + btnClass(false) + ' text-gray-600 bg-white hover:bg-gray-50 border-gray-300">'
+                    + escapeHtml(label || 'Reactivar')
+                    + '</button>';
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @param {object} item
+     * @param {object} [options]
+     * @param {object} [context]
+     * @returns {string}
+     */
+    function renderVisibleActions(item, options, context) {
+        if (!hasVisibleActions(item)) {
+            return '';
+        }
+
+        return item.visible_actions.map(function (action) {
+            return renderVisibleAction(action, item, options, context);
+        }).join('');
+    }
+
+    /**
      * @param {object|null|undefined} action
      * @param {object} item
      * @param {object} [options]
@@ -258,9 +443,10 @@
      * @returns {string}
      */
     function renderItemActions(item, options, context) {
-        var primary = renderPrimaryAction(item.primary_action, item, options, context);
-        var secondary = renderSecondaryActions(item, options);
-        var combined = primary + secondary;
+        var combined = hasVisibleActions(item)
+            ? renderVisibleActions(item, options, context)
+            : renderPrimaryAction(item.primary_action, item, options, context)
+                + renderSecondaryActions(item, options);
 
         if (combined === '') {
             return '';
@@ -446,7 +632,8 @@
         renderBucket: renderBucket,
         renderItem: renderItem,
         renderItemActions: renderItemActions,
-        resolveRecommendationKey: resolveRecommendationKey
+        resolveRecommendationKey: resolveRecommendationKey,
+        hasVisibleActions: hasVisibleActions
     };
 
     if (typeof window !== 'undefined') {

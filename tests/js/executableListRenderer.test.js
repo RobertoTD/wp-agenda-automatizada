@@ -32,7 +32,21 @@ function baseItem(overrides) {
             can_reactivate: false
         },
         primary_action: null,
+        visible_actions: [],
         is_executive_candidate: false
+    }, overrides || {});
+}
+
+function visibleAction(overrides) {
+    return Object.assign({
+        key: 'navigate',
+        type: 'navigate',
+        category: 'mechanical',
+        label: 'Ir',
+        placement: 'primary',
+        target_status: null,
+        url: 'https://example.test/admin-post.php?module=assignments',
+        handler: null
     }, overrides || {});
 }
 
@@ -479,5 +493,297 @@ describe('AAExecutableListRenderer', () => {
         renderer.renderFeed([list]);
 
         assert.equal(JSON.stringify(list), snapshot);
+    });
+});
+
+describe('AAExecutableListRenderer visible_actions', () => {
+    it('prefiere visible_actions sobre primary_action y capabilities', () => {
+        var item = baseItem({
+            capabilities: {
+                can_defer: true,
+                can_dismiss: true,
+                can_complete: true
+            },
+            primary_action: {
+                type: 'navigate',
+                label: 'Legacy Ir',
+                url: 'https://example.test/legacy'
+            },
+            visible_actions: [
+                visibleAction({
+                    key: 'navigate',
+                    type: 'navigate',
+                    label: 'Ir',
+                    url: 'https://example.test/admin-post.php?module=assignments'
+                }),
+                visibleAction({
+                    key: 'defer',
+                    type: 'intent',
+                    category: 'intent',
+                    label: 'Ahora no',
+                    placement: 'secondary',
+                    url: null,
+                    handler: null
+                })
+            ]
+        });
+
+        var html = renderer.renderItem(item);
+
+        assert.match(html, /https:\/\/example\.test\/admin-post\.php\?module=assignments/);
+        assert.match(html, />Ir</);
+        assert.match(html, /data-learning-action="defer"/);
+        assert.doesNotMatch(html, /Legacy Ir/);
+        assert.doesNotMatch(html, /https:\/\/example\.test\/legacy/);
+        assert.doesNotMatch(html, /data-learning-action="dismiss"/);
+        assert.doesNotMatch(html, /data-tasks-action="complete"/);
+    });
+
+    it('visible_action navigate genera link', () => {
+        var html = renderer.renderItem(baseItem({
+            visible_actions: [
+                visibleAction({
+                    key: 'navigate',
+                    type: 'navigate',
+                    label: 'Ir',
+                    url: 'https://example.test/admin-post.php?module=assignments'
+                })
+            ]
+        }));
+
+        assert.match(html, /<a href="https:\/\/example\.test\/admin-post\.php\?module=assignments"/);
+        assert.match(html, />Ir</);
+    });
+
+    it('visible_action handler genera primary-handler y learning-handler', () => {
+        var html = renderer.renderItem(baseItem({
+            origin_key: 'install_pwa',
+            visible_actions: [
+                visibleAction({
+                    key: 'pwa.install',
+                    type: 'handler',
+                    category: 'mechanical',
+                    label: 'Instalar',
+                    placement: 'primary',
+                    url: null,
+                    handler: 'pwa.install'
+                })
+            ]
+        }));
+
+        assert.match(html, /data-learning-action="primary-handler"/);
+        assert.match(html, /data-recommendation-key="install_pwa"/);
+        assert.match(html, /data-learning-handler="pwa\.install"/);
+    });
+
+    it('visible_action status done genera complete', () => {
+        var html = renderer.renderItem(baseItem({
+            id: '42',
+            source: 'user',
+            origin_key: null,
+            visible_actions: [
+                visibleAction({
+                    key: 'complete',
+                    type: 'status',
+                    category: 'declarative',
+                    label: 'Completar',
+                    placement: 'secondary',
+                    target_status: 'done',
+                    url: null,
+                    handler: null
+                })
+            ]
+        }));
+
+        assert.match(html, /data-tasks-action="complete"/);
+        assert.match(html, /data-task-id="42"/);
+    });
+
+    it('visible_action status pending genera pending', () => {
+        var html = renderer.renderItem(baseItem({
+            id: '42',
+            source: 'user',
+            origin_key: null,
+            status: 'done',
+            visible_actions: [
+                visibleAction({
+                    key: 'reopen',
+                    type: 'status',
+                    category: 'recovery',
+                    label: 'Reabrir',
+                    placement: 'secondary',
+                    target_status: 'pending',
+                    url: null,
+                    handler: null
+                })
+            ]
+        }));
+
+        assert.match(html, /data-tasks-action="pending"/);
+        assert.match(html, /data-task-id="42"/);
+    });
+
+    it('visible_action intent defer genera defer', () => {
+        var html = renderer.renderItem(baseItem({
+            origin_key: 'configure_services',
+            visible_actions: [
+                visibleAction({
+                    key: 'defer',
+                    type: 'intent',
+                    category: 'intent',
+                    label: 'Ahora no',
+                    placement: 'secondary',
+                    url: null,
+                    handler: null
+                })
+            ]
+        }));
+
+        assert.match(html, /data-learning-action="defer"/);
+        assert.match(html, /data-recommendation-key="configure_services"/);
+        assert.match(html, />Ahora no</);
+    });
+
+    it('visible_action intent dismiss genera dismiss', () => {
+        var html = renderer.renderItem(baseItem({
+            origin_key: 'install_pwa',
+            visible_actions: [
+                visibleAction({
+                    key: 'dismiss',
+                    type: 'intent',
+                    category: 'intent',
+                    label: 'Ignorar',
+                    placement: 'secondary',
+                    url: null,
+                    handler: null
+                })
+            ]
+        }));
+
+        assert.match(html, /data-learning-action="dismiss"/);
+        assert.match(html, /data-recommendation-key="install_pwa"/);
+        assert.match(html, />Ignorar</);
+    });
+
+    it('fallback legacy sigue funcionando sin visible_actions', () => {
+        var item = baseItem({
+            capabilities: {
+                can_defer: true
+            },
+            primary_action: {
+                type: 'navigate',
+                label: 'Ir',
+                url: 'https://example.test/admin-post.php?module=assignments'
+            }
+        });
+
+        delete item.visible_actions;
+
+        var html = renderer.renderItem(item);
+
+        assert.match(html, /https:\/\/example\.test\/admin-post\.php\?module=assignments/);
+        assert.match(html, /data-learning-action="defer"/);
+    });
+
+    it('fallback legacy sigue funcionando con visible_actions vacío', () => {
+        var item = baseItem({
+            visible_actions: [],
+            capabilities: {
+                can_dismiss: true
+            }
+        });
+
+        var html = renderer.renderItem(item);
+
+        assert.match(html, /data-learning-action="dismiss"/);
+    });
+
+    it('shouldRenderAction puede ocultar handler visible_action', () => {
+        var item = baseItem({
+            origin_key: 'install_pwa',
+            visible_actions: [
+                visibleAction({
+                    key: 'pwa.install',
+                    type: 'handler',
+                    category: 'mechanical',
+                    label: 'Instalar',
+                    placement: 'primary',
+                    url: null,
+                    handler: 'pwa.install'
+                }),
+                visibleAction({
+                    key: 'defer',
+                    type: 'intent',
+                    category: 'intent',
+                    label: 'Ahora no',
+                    placement: 'secondary',
+                    url: null,
+                    handler: null
+                })
+            ]
+        });
+
+        var html = renderer.renderItem(item, {
+            shouldRenderAction: function (action) {
+                return action.type !== 'handler';
+            }
+        });
+
+        assert.doesNotMatch(html, /data-learning-action="primary-handler"/);
+        assert.doesNotMatch(html, />Instalar</);
+        assert.match(html, /data-learning-action="defer"/);
+    });
+
+    it('shouldRenderPrimaryAction sigue filtrando visible_action handler por compatibilidad', () => {
+        var item = baseItem({
+            origin_key: 'install_pwa',
+            visible_actions: [
+                visibleAction({
+                    key: 'pwa.install',
+                    type: 'handler',
+                    category: 'mechanical',
+                    label: 'Instalar',
+                    placement: 'primary',
+                    url: null,
+                    handler: 'pwa.install'
+                })
+            ]
+        });
+
+        var html = renderer.renderItem(item, {
+            shouldRenderPrimaryAction: function (action) {
+                return action.type !== 'handler';
+            }
+        });
+
+        assert.doesNotMatch(html, /data-learning-action="primary-handler"/);
+    });
+
+    it('escapa HTML en visible_actions label y url', () => {
+        var html = renderer.renderItem(baseItem({
+            visible_actions: [
+                visibleAction({
+                    label: '<script>alert(1)</script>',
+                    url: 'https://example.test/?q="><img onerror=1>'
+                })
+            ]
+        }));
+
+        assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+        assert.match(html, /&quot;&gt;&lt;img onerror=1&gt;/);
+        assert.doesNotMatch(html, /<script>/);
+    });
+
+    it('no muta fixture con visible_actions', () => {
+        var item = baseItem({
+            visible_actions: [
+                visibleAction({ label: 'Ir' })
+            ]
+        });
+        var snapshot = JSON.stringify(item);
+
+        renderer.renderItem(item);
+
+        assert.equal(JSON.stringify(item), snapshot);
     });
 });
