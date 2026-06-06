@@ -297,8 +297,10 @@ ac_assert(
 );
 
 $first_list_bucket = $task_lists[0]['buckets'][0] ?? null;
-$pending_task = is_array($first_list_bucket) ? ($first_list_bucket['items'][0] ?? null) : null;
-$done_task = is_array($first_list_bucket) ? ($first_list_bucket['items'][1] ?? null) : null;
+$first_list_items = is_array($first_list_bucket) && is_array($first_list_bucket['items'] ?? null)
+    ? $first_list_bucket['items']
+    : [];
+$pending_task = $first_list_items[0] ?? null;
 
 ac_assert(
     'Task item preserves due_at notes as description and importance',
@@ -317,12 +319,15 @@ ac_assert(
 );
 
 ac_assert(
-    'Task done item projects as completed with reopen capability',
-    is_array($done_task)
-    && ($done_task['status'] ?? '') === AA_Executable_Contract::ITEM_STATUS_DONE
-    && ($done_task['state']['completed'] ?? false) === true
-    && ($done_task['capabilities']['can_reopen'] ?? false) === true
-    && ($done_task['primary_action']['to'] ?? '') === AA_Executable_Contract::ITEM_STATUS_PENDING
+    'Task done item excluded from active default bucket',
+    count($first_list_items) === 1
+    && ($first_list_items[0]['id'] ?? '') === '10'
+);
+
+ac_assert(
+    'Task order preserved for pending items only',
+    is_array($pending_task)
+    && ($pending_task['id'] ?? '') === '10'
 );
 
 $second_list_item = $task_lists[1]['buckets'][0]['items'][0] ?? null;
@@ -333,8 +338,6 @@ ac_assert(
     && ($pending_task['is_executive_candidate'] ?? false) === true
     && is_array($second_list_item)
     && ($second_list_item['is_executive_candidate'] ?? false) === true
-    && is_array($done_task)
-    && ($done_task['is_executive_candidate'] ?? false) === false
 );
 
 ac_assert(

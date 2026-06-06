@@ -4,6 +4,7 @@
  *
  * Mapea la salida de GetTaskBoardUseCase al contrato común.
  * No reevalúa AA_Task_Prioritization_Policy ni altera organization.
+ * El feed activo/default proyecta solo tareas pending; done queda fuera hasta vista completadas.
  */
 
 defined('ABSPATH') or die('No direct access');
@@ -227,10 +228,25 @@ final class TaskBoardToExecutableMapper {
                 continue;
             }
 
-            $mapped[] = self::map_task($tasks_by_id[$task_id], $executive_candidates);
+            $task = $tasks_by_id[$task_id];
+
+            if (self::is_done_task($task)) {
+                continue;
+            }
+
+            $mapped[] = self::map_task($task, $executive_candidates);
         }
 
         return $mapped;
+    }
+
+    /**
+     * @param array<string,mixed> $task
+     */
+    private static function is_done_task(array $task): bool {
+        $status = strtolower(trim((string) ($task['status'] ?? AA_Executable_Contract::ITEM_STATUS_PENDING)));
+
+        return $status === AA_Executable_Contract::ITEM_STATUS_DONE;
     }
 
     /**

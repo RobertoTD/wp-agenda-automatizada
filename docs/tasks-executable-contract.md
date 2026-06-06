@@ -115,13 +115,13 @@ Salida: **una ExecutableList por lista de usuario**:
 
 - `source`: `user`
 - `id`: id numérico de lista como string
-- Bucket único `default`
-- Tareas ordenadas según `organization.task_order_by_list[list_id]`
+- Bucket único `default` (feed activo/normal)
+- Solo tareas **pending**; `done` no se proyecta al bucket activo
+- Tareas ordenadas según `organization.task_order_by_list[list_id]` (solo pending proyectadas)
 - `notes` → `description`
 - `due_at`, `importance` preservados
-- `status` pending/done → `state.completed`
 - Pending: `can_complete`, `primary_action` status→done
-- Done: `can_reopen`, `primary_action` status→pending
+- Done: fuera del feed activo; `can_reopen` / reabrir reservado para futura vista de completadas
 - Lista activa: `capabilities.can_archive` en la lista
 - `is_executive_candidate` si task id ∈ `organization.executive_candidates`
 

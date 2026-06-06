@@ -101,6 +101,15 @@ function feed_fixture_tasks_payload(): array {
                 'due_at' => '2026-06-08 10:00:00',
             ],
             [
+                'id' => 11,
+                'list_id' => 1,
+                'title' => 'Enviar recordatorio',
+                'notes' => 'WhatsApp',
+                'status' => 'done',
+                'importance' => 4,
+                'due_at' => null,
+            ],
+            [
                 'id' => 20,
                 'list_id' => 2,
                 'title' => 'Revisar agenda',
@@ -113,7 +122,7 @@ function feed_fixture_tasks_payload(): array {
         'organization' => [
             'list_order' => [1, 2],
             'task_order_by_list' => [
-                1 => [10],
+                1 => [10, 11],
                 2 => [20],
             ],
             'executive_candidates' => [10, 20],
@@ -184,6 +193,19 @@ ac_assert('Happy path meta order matches list ids', $happy_order === $happy_ids)
 ac_assert(
     'Happy path order starts with system list',
     ($happy_order[0] ?? '') === LearningRecommendationsToExecutableMapper::LIST_ID
+);
+
+$first_user_list = is_array($happy_lists[1] ?? null) ? $happy_lists[1] : [];
+$first_user_items = is_array($first_user_list['buckets'][0]['items'] ?? null)
+    ? $first_user_list['buckets'][0]['items']
+    : [];
+$first_user_item_ids = array_map(static function (array $item): string {
+    return (string) ($item['id'] ?? '');
+}, $first_user_items);
+ac_assert(
+    'Happy path excludes done user tasks from active bucket',
+    $first_user_item_ids === ['10']
+    && (int) ($happy['meta']['sources']['tasks']['item_count'] ?? -1) === 2
 );
 
 // ─── Vacíos ──────────────────────────────────────────────────
