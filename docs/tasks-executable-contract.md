@@ -87,6 +87,50 @@ Sublistas internas de una lista (Principales, Otras sugerencias, default).
 - **handler:** `{ type: 'handler', label, handler }` — ejecución runtime en JS (handlers registrados)
 - **status:** `{ type: 'status', label, to: 'pending'|'done' }` — cambio de estado vía Use Case de la fuente
 
+`primary_action` es un campo temporal/backward-compatible: expresa una acción principal heredada de los mappers actuales, pero no alcanza para modelar la coexistencia de acciones visibles (`Ir` + `Completar` + `Ahora no`, por ejemplo).
+
+## Acciones visibles
+
+`visible_actions` representa las acciones que una vista/bucket debe mostrar **ahora** para un `ExecutableItem`. No es historial, no es un contador de eventos, no enumera todas las acciones técnicamente posibles y no decide disponibilidad runtime de handlers.
+
+Shape conceptual:
+
+```php
+[
+    'key' => string,                         // clave estable: complete, defer, pwa.install, etc.
+    'type' => 'navigate'|'handler'|'status'|'intent',
+    'category' => 'mechanical'|'declarative'|'intent'|'recovery',
+    'label' => string,
+    'placement' => 'primary'|'secondary',
+    'target_status' => 'done'|'pending'|null,
+    'url' => string|null,
+    'handler' => string|null,
+]
+```
+
+- **capabilities:** posibilidades técnicas o latentes (`can_complete`, `can_reopen`, etc.). No equivalen automáticamente a botones.
+- **primary_action:** acción principal temporal usada por el contrato actual y renderers experimentales.
+- **visible_actions:** resultado de resolver reglas de vista/bucket/fuente/estado para decidir botones visibles.
+- **runtime availability:** decisión final de JS para handlers (`pwa.install`, standalone, prompt disponible). JS puede ocultar/deshabilitar un handler no disponible, pero no debe inventar reglas de negocio de visibilidad.
+
+La policy pura `AA_Executable_Visible_Actions_Policy` vive en `includes/domain/executable/` y expone:
+
+```php
+AA_Executable_Visible_Actions_Policy::resolve(array $item, array $context = []): array
+```
+
+Contexto declarativo mínimo:
+
+```php
+[
+    'view' => 'active'|'completed'|'ignored',
+    'bucket_key' => 'primary'|'secondary'|'default'|'completed'|'ignored',
+    'source' => 'system'|'user'|'ai',
+]
+```
+
+En el ciclo 1A esta policy queda documentada y testeada, pero **no** se conecta todavía a los mappers productivos, endpoint ni renderer. El renderer futuro deberá pintar `visible_actions`; mientras tanto el feed sigue usando `primary_action` y `capabilities` como compatibilidad.
+
 ## Mapeo Learning → Executable
 
 Entrada: salida enriquecida de `GetLearningRecommendationsUseCase` (`list_1`, `list_2`, items con `action`, `can_*`).
@@ -139,6 +183,7 @@ Salida: **una ExecutableList por lista de usuario**:
 ## Archivos MC7
 
 - `includes/domain/executable/class-aa-executable-contract.php` — normalizador puro
+- `includes/domain/executable/class-aa-executable-visible-actions-policy.php` — policy pura de acciones visibles (no conectada al feed en MC11A)
 - `includes/application/executable/LearningRecommendationsToExecutableMapper.php`
 - `includes/application/executable/TaskBoardToExecutableMapper.php`
 - `tests/application/executable/test-executable-contract-mappers-ac.php`
