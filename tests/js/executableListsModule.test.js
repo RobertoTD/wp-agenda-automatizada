@@ -162,6 +162,80 @@ describe('executable-lists-module hooks', () => {
         assert.equal(options.shouldRenderPrimaryAction(navigateItem.primary_action, navigateItem, {}), true);
         assert.equal(options.shouldRenderPrimaryAction(statusItem.primary_action, statusItem, {}), true);
     });
+
+    it('buildRenderOptions filtra handler desde visible_actions sin primary_action', () => {
+        var calls = { show: 0, available: 0 };
+
+        globalThis.LearningActionHandlers = {
+            shouldShowRecommendation: function (action) {
+                calls.show += 1;
+                return action && action.handler === 'pwa.install';
+            },
+            isAvailable: function (action) {
+                calls.available += 1;
+                return action && action.handler === 'pwa.install';
+            }
+        };
+
+        var options = hooks.buildRenderOptions();
+        var item = baseItem({
+            primary_action: null,
+            visible_actions: [
+                {
+                    key: 'pwa.install',
+                    type: 'handler',
+                    category: 'mechanical',
+                    label: 'Instalar',
+                    placement: 'primary',
+                    target_status: null,
+                    url: null,
+                    handler: 'pwa.install'
+                }
+            ]
+        });
+
+        assert.equal(options.shouldRenderItem(item, {}), true);
+        assert.equal(
+            options.shouldRenderPrimaryAction(item.visible_actions[0], item, {}),
+            true
+        );
+        assert.equal(calls.show, 1);
+        assert.equal(calls.available, 1);
+    });
+
+    it('buildRenderOptions oculta item cuando visible_actions handler no debe mostrarse', () => {
+        globalThis.LearningActionHandlers = {
+            shouldShowRecommendation: function () {
+                return false;
+            },
+            isAvailable: function () {
+                return false;
+            }
+        };
+
+        var options = hooks.buildRenderOptions();
+        var item = baseItem({
+            primary_action: null,
+            visible_actions: [
+                {
+                    key: 'pwa.install',
+                    type: 'handler',
+                    category: 'mechanical',
+                    label: 'Instalar',
+                    placement: 'primary',
+                    target_status: null,
+                    url: null,
+                    handler: 'pwa.install'
+                }
+            ]
+        });
+
+        assert.equal(options.shouldRenderItem(item, {}), false);
+        assert.equal(
+            options.shouldRenderPrimaryAction(item.visible_actions[0], item, {}),
+            false
+        );
+    });
 });
 
 describe('executable-lists-module wiring', () => {

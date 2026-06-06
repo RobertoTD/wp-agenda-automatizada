@@ -100,6 +100,18 @@
      * @param {object} item
      * @returns {string}
      */
+    function resolveItemSource(item) {
+        if (!item || typeof item !== 'object') {
+            return '';
+        }
+
+        return asString(item.source).trim().toLowerCase();
+    }
+
+    /**
+     * @param {object} item
+     * @returns {string}
+     */
     function resolveRecommendationKey(item) {
         if (!item || typeof item !== 'object') {
             return '';
@@ -219,22 +231,44 @@
         }
 
         if (type === 'status') {
+            var itemSource = resolveItemSource(item);
             var taskId = asString(item.id).trim();
             var targetStatus = asString(action.target_status).trim().toLowerCase();
 
-            if (taskId === '') {
+            if (targetStatus === 'done') {
+                if (itemSource === 'system') {
+                    if (recommendationKey === '') {
+                        return '';
+                    }
+
+                    return ''
+                        + '<button type="button" data-learning-action="complete"'
+                        + ' data-recommendation-key="' + escapeHtml(recommendationKey) + '"'
+                        + ' class="' + btnClass(false) + ' text-green-700 hover:text-green-800 border-green-200 bg-green-50">'
+                        + escapeHtml(label || 'Completar')
+                        + '</button>';
+                }
+
+                if (itemSource === 'user') {
+                    if (taskId === '') {
+                        return '';
+                    }
+
+                    return ''
+                        + '<button type="button" data-tasks-action="complete" data-task-id="' + escapeHtml(taskId) + '"'
+                        + ' class="' + btnClass(false) + ' text-green-700 hover:text-green-800 border-green-200 bg-green-50">'
+                        + escapeHtml(label || 'Completar')
+                        + '</button>';
+                }
+
                 return '';
             }
 
-            if (targetStatus === 'done') {
-                return ''
-                    + '<button type="button" data-tasks-action="complete" data-task-id="' + escapeHtml(taskId) + '"'
-                    + ' class="' + btnClass(false) + ' text-green-700 hover:text-green-800 border-green-200 bg-green-50">'
-                    + escapeHtml(label || 'Completar')
-                    + '</button>';
-            }
-
             if (targetStatus === 'pending') {
+                if (itemSource !== 'user' || taskId === '') {
+                    return '';
+                }
+
                 return ''
                     + '<button type="button" data-tasks-action="pending" data-task-id="' + escapeHtml(taskId) + '"'
                     + ' class="' + btnClass(false) + ' text-gray-600 hover:text-gray-800 border-gray-200">'

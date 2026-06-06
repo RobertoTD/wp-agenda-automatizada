@@ -130,7 +130,21 @@ Contexto declarativo mínimo:
 ]
 ```
 
-En el ciclo 1B el feed executable ya puede incluir `visible_actions` resueltas por `ExecutableVisibleActionsEnricher` + `AA_Executable_Visible_Actions_Policy`. El renderer experimental **todavía no las consume**; sigue usando `primary_action` y `capabilities` como compatibilidad temporal. La disponibilidad runtime de handlers (`pwa.install`, standalone, prompt) sigue resolviéndose en JS.
+En el ciclo MC11B el feed executable incluye `visible_actions` resueltas por `ExecutableVisibleActionsEnricher` + `AA_Executable_Visible_Actions_Policy`. Desde MC11C el renderer experimental **prefiere `visible_actions`** cuando el array tiene contenido; si está vacío o ausente, mantiene fallback temporal a `primary_action` + `capabilities`. La disponibilidad runtime de handlers (`pwa.install`, standalone, prompt) sigue resolviéndose en JS vía `LearningActionHandlers` (coordinator/options del módulo experimental), no en el renderer.
+
+### Canal DOM por source (renderer experimental, MC11D)
+
+El renderer traduce `visible_actions` a markup legacy-compatible según `item.source`:
+
+| Acción visible | `source=system` (Learning) | `source=user` (Tasks) |
+|----------------|----------------------------|------------------------|
+| `type=status`, `target_status=done` | `data-learning-action="complete"` + `data-recommendation-key` | `data-tasks-action="complete"` + `data-task-id` |
+| `type=status`, `target_status=pending` | *(no renderiza en vista activa)* | `data-tasks-action="pending"` + `data-task-id` |
+| `type=handler` | `data-learning-action="primary-handler"` + `data-learning-handler` | — |
+| `type=intent` defer/dismiss/reactivate | `data-learning-action` + `data-recommendation-key` | — |
+| `type=navigate` | `<a href="...">` | `<a href="...">` |
+
+El feed experimental sigue **preview/inert**: renderiza botones pero no ejecuta acciones reales. Un coordinator executable (ciclo posterior) consumirá estos mismos canales DOM.
 
 Proyección común (MC11B):
 

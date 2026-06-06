@@ -576,7 +576,7 @@ describe('AAExecutableListRenderer visible_actions', () => {
         assert.match(html, /data-learning-handler="pwa\.install"/);
     });
 
-    it('visible_action status done genera complete', () => {
+    it('visible_action status done genera complete en canal Tasks para user', () => {
         var html = renderer.renderItem(baseItem({
             id: '42',
             source: 'user',
@@ -597,9 +597,35 @@ describe('AAExecutableListRenderer visible_actions', () => {
 
         assert.match(html, /data-tasks-action="complete"/);
         assert.match(html, /data-task-id="42"/);
+        assert.doesNotMatch(html, /data-learning-action="complete"/);
     });
 
-    it('visible_action status pending genera pending', () => {
+    it('visible_action status done genera complete en canal Learning para system', () => {
+        var html = renderer.renderItem(baseItem({
+            id: 'install_pwa',
+            source: 'system',
+            origin_key: 'install_pwa',
+            visible_actions: [
+                visibleAction({
+                    key: 'complete',
+                    type: 'status',
+                    category: 'declarative',
+                    label: 'Completar',
+                    placement: 'secondary',
+                    target_status: 'done',
+                    url: null,
+                    handler: null
+                })
+            ]
+        }));
+
+        assert.match(html, /data-learning-action="complete"/);
+        assert.match(html, /data-recommendation-key="install_pwa"/);
+        assert.doesNotMatch(html, /data-tasks-action="complete"/);
+        assert.doesNotMatch(html, /data-task-id="/);
+    });
+
+    it('visible_action status pending genera pending solo para user', () => {
         var html = renderer.renderItem(baseItem({
             id: '42',
             source: 'user',
@@ -621,6 +647,49 @@ describe('AAExecutableListRenderer visible_actions', () => {
 
         assert.match(html, /data-tasks-action="pending"/);
         assert.match(html, /data-task-id="42"/);
+    });
+
+    it('visible_action status pending no renderiza para system', () => {
+        var html = renderer.renderItem(baseItem({
+            id: 'install_pwa',
+            source: 'system',
+            origin_key: 'install_pwa',
+            visible_actions: [
+                visibleAction({
+                    key: 'reopen',
+                    type: 'status',
+                    category: 'recovery',
+                    label: 'Reabrir',
+                    placement: 'secondary',
+                    target_status: 'pending',
+                    url: null,
+                    handler: null
+                })
+            ]
+        }));
+
+        assert.doesNotMatch(html, /data-tasks-action="pending"/);
+        assert.doesNotMatch(html, /data-learning-action="/);
+        assert.doesNotMatch(html, />Reabrir</);
+    });
+
+    it('active view no muestra reactivate si no viene en visible_actions', () => {
+        var html = renderer.renderItem(baseItem({
+            capabilities: {
+                can_reactivate: true
+            },
+            visible_actions: [
+                visibleAction({
+                    key: 'navigate',
+                    type: 'navigate',
+                    label: 'Ir',
+                    url: 'https://example.test/admin-post.php?module=assignments'
+                })
+            ]
+        }));
+
+        assert.doesNotMatch(html, /data-learning-action="reactivate"/);
+        assert.doesNotMatch(html, />Reactivar</);
     });
 
     it('visible_action intent defer genera defer', () => {

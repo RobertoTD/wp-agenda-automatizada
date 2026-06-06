@@ -73,6 +73,59 @@
     }
 
     /**
+     * @param {object|null|undefined} action
+     * @returns {object|null}
+     */
+    function asHandlerAction(action) {
+        if (!action || typeof action !== 'object' || action.type !== 'handler') {
+            return null;
+        }
+
+        return action;
+    }
+
+    /**
+     * @param {object|null|undefined} item
+     * @returns {object|null}
+     */
+    function resolveItemHandlerAction(item) {
+        if (!item || typeof item !== 'object') {
+            return null;
+        }
+
+        var visibleActions = Array.isArray(item.visible_actions) ? item.visible_actions : [];
+        var index = 0;
+
+        for (index = 0; index < visibleActions.length; index += 1) {
+            var visibleHandler = asHandlerAction(visibleActions[index]);
+
+            if (visibleHandler) {
+                return visibleHandler;
+            }
+        }
+
+        return asHandlerAction(item.primary_action);
+    }
+
+    /**
+     * @param {object|null|undefined} action
+     * @returns {object|null}
+     */
+    function mapHandlerForRegistry(action) {
+        var handlerAction = asHandlerAction(action);
+
+        if (!handlerAction) {
+            return null;
+        }
+
+        return {
+            type: 'handler',
+            label: handlerAction.label || '',
+            handler: handlerAction.handler || ''
+        };
+    }
+
+    /**
      * @returns {object}
      */
     function buildRenderOptions() {
@@ -80,9 +133,9 @@
 
         return {
             shouldRenderItem: function (item) {
-                var action = item && item.primary_action;
+                var handlerAction = resolveItemHandlerAction(item);
 
-                if (!action || typeof action !== 'object' || action.type !== 'handler') {
+                if (!handlerAction) {
                     return true;
                 }
 
@@ -90,14 +143,12 @@
                     return true;
                 }
 
-                return registry.shouldShowRecommendation(action, item) === true;
+                return registry.shouldShowRecommendation(mapHandlerForRegistry(handlerAction), item) === true;
             },
             shouldRenderPrimaryAction: function (action, item) {
-                if (!action || typeof action !== 'object') {
-                    return true;
-                }
+                var handlerAction = mapHandlerForRegistry(action);
 
-                if (action.type !== 'handler') {
+                if (!handlerAction) {
                     return true;
                 }
 
@@ -105,7 +156,7 @@
                     return false;
                 }
 
-                return registry.isAvailable(action, item) === true;
+                return registry.isAvailable(handlerAction, item) === true;
             }
         };
     }
