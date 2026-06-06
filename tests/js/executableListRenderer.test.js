@@ -236,6 +236,54 @@ describe('AAExecutableListRenderer', () => {
         assert.match(html, />Ignorar</);
     });
 
+    it('can_reactivate no genera botón Reactivar por defecto', () => {
+        var item = baseItem({
+            origin_key: 'install_pwa',
+            capabilities: {
+                can_reactivate: true
+            }
+        });
+
+        var html = renderer.renderItem(item);
+
+        assert.doesNotMatch(html, /data-learning-action="reactivate"/);
+        assert.doesNotMatch(html, />Reactivar</);
+    });
+
+    it('showReactivate true permite renderizar Reactivar explícitamente', () => {
+        var item = baseItem({
+            origin_key: 'install_pwa',
+            capabilities: {
+                can_reactivate: true
+            }
+        });
+
+        var html = renderer.renderItem(item, { showReactivate: true });
+
+        assert.match(html, /data-learning-action="reactivate"/);
+        assert.match(html, /data-recommendation-key="install_pwa"/);
+        assert.match(html, />Reactivar</);
+    });
+
+    it('showReactivate no afecta Ahora no ni Ignorar', () => {
+        var item = baseItem({
+            origin_key: 'install_pwa',
+            capabilities: {
+                can_defer: true,
+                can_dismiss: true,
+                can_reactivate: true
+            }
+        });
+
+        var html = renderer.renderItem(item);
+
+        assert.match(html, /data-learning-action="defer"/);
+        assert.match(html, />Ahora no</);
+        assert.match(html, /data-learning-action="dismiss"/);
+        assert.match(html, />Ignorar</);
+        assert.doesNotMatch(html, /data-learning-action="reactivate"/);
+    });
+
     it('can_archive genera data-tasks-action archive-list', () => {
         var list = baseList({
             id: '7',

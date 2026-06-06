@@ -203,13 +203,15 @@
 
     /**
      * @param {object} item
+     * @param {object} [options]
      * @returns {string}
      */
-    function renderSecondaryActions(item) {
+    function renderSecondaryActions(item, options) {
         if (!item || typeof item !== 'object') {
             return '';
         }
 
+        var opts = normalizeOptions(options);
         var capabilities = item.capabilities && typeof item.capabilities === 'object'
             ? item.capabilities
             : {};
@@ -236,7 +238,7 @@
             );
         }
 
-        if (capabilities.can_reactivate && recommendationKey !== '') {
+        if (opts.showReactivate === true && capabilities.can_reactivate && recommendationKey !== '') {
             actions.push(
                 '<button type="button" data-learning-action="reactivate"'
                 + ' data-recommendation-key="' + escapeHtml(recommendationKey) + '"'
@@ -257,7 +259,7 @@
      */
     function renderItemActions(item, options, context) {
         var primary = renderPrimaryAction(item.primary_action, item, options, context);
-        var secondary = renderSecondaryActions(item);
+        var secondary = renderSecondaryActions(item, options);
         var combined = primary + secondary;
 
         if (combined === '') {
