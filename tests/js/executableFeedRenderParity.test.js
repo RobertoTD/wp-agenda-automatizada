@@ -188,8 +188,8 @@ function activeFeedFixture() {
                             capabilities: {
                                 can_complete: true,
                                 can_reopen: false,
-                                can_defer: false,
-                                can_dismiss: false,
+                                can_defer: true,
+                                can_dismiss: true,
                                 can_reactivate: false
                             },
                             primary_action: {
@@ -205,6 +205,24 @@ function activeFeedFixture() {
                                     label: 'Completar',
                                     placement: 'secondary',
                                     target_status: 'done',
+                                    url: null,
+                                    handler: null
+                                }),
+                                visibleAction({
+                                    key: 'defer',
+                                    type: 'intent',
+                                    category: 'intent',
+                                    label: 'Ahora no',
+                                    placement: 'secondary',
+                                    url: null,
+                                    handler: null
+                                }),
+                                visibleAction({
+                                    key: 'dismiss',
+                                    type: 'intent',
+                                    category: 'intent',
+                                    label: 'Ignorar',
+                                    placement: 'secondary',
                                     url: null,
                                     handler: null
                                 })
@@ -240,6 +258,15 @@ describe('executable feed render parity', () => {
 
         assert.match(html, /data-tasks-action="complete"/);
         assert.match(html, /data-task-id="10"/);
+    });
+
+    it('renderiza User defer/dismiss en canal Tasks', () => {
+        var html = renderer.renderFeed(activeFeedFixture());
+
+        assert.match(html, /data-tasks-action="defer"/);
+        assert.match(html, /data-task-id="10"/);
+        assert.match(html, /data-tasks-action="dismiss"/);
+        assert.doesNotMatch(html, /data-learning-action="defer"[^>]*data-task-id="10"/);
     });
 
     it('active feed no muestra Reabrir ni Reactivar', () => {

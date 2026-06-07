@@ -321,6 +321,13 @@ ac_assert(
 );
 
 ac_assert(
+    'Task pending without evaluation keeps can_defer/can_dismiss false',
+    is_array($pending_task)
+    && ($pending_task['capabilities']['can_defer'] ?? true) === false
+    && ($pending_task['capabilities']['can_dismiss'] ?? true) === false
+);
+
+ac_assert(
     'Task done item excluded from active default bucket',
     count($first_list_items) === 1
     && ($first_list_items[0]['id'] ?? '') === '10'
@@ -512,10 +519,10 @@ ac_assert(
     && ($task_signal_item['state']['dismissed'] ?? true) === false
 );
 ac_assert(
-    'Task mapper keeps can_defer/can_dismiss false in feed',
+    'Task mapper publishes can_defer/can_dismiss from evaluation capabilities',
     is_array($task_signal_item)
-    && ($task_signal_item['capabilities']['can_defer'] ?? true) === false
-    && ($task_signal_item['capabilities']['can_dismiss'] ?? true) === false
+    && ($task_signal_item['capabilities']['can_defer'] ?? false) === true
+    && ($task_signal_item['capabilities']['can_dismiss'] ?? false) === true
 );
 
 $enriched_signal_lists = ExecutableVisibleActionsEnricher::enrich_lists($task_signal_lists, [
@@ -526,13 +533,32 @@ $enriched_action_keys = array_map(static function (array $action): string {
     return (string) ($action['key'] ?? '');
 }, is_array($enriched_signal_item['visible_actions'] ?? null) ? $enriched_signal_item['visible_actions'] : []);
 ac_assert(
-    'Task feed does not expose defer/dismiss visible_actions in MC13G-B',
-    !in_array('defer', $enriched_action_keys, true)
-    && !in_array('dismiss', $enriched_action_keys, true)
+    'Task feed exposes defer/dismiss visible_actions from evaluation capabilities',
+    in_array('defer', $enriched_action_keys, true)
+    && in_array('dismiss', $enriched_action_keys, true)
 );
 ac_assert(
     'Task feed still exposes complete visible_action',
     in_array('complete', $enriched_action_keys, true)
+);
+
+$task_signal_primary_payload = $task_signal_payload;
+$task_signal_primary_payload['organization']['task_bucket_order_by_list'][4] = [
+    'primary' => [40],
+    'secondary' => [],
+];
+$task_signal_primary_lists = TaskBoardToExecutableMapper::map($task_signal_primary_payload);
+$enriched_signal_primary_lists = ExecutableVisibleActionsEnricher::enrich_lists($task_signal_primary_lists, [
+    'view' => AA_Executable_Visible_Actions_Policy::VIEW_ACTIVE,
+]);
+$enriched_signal_primary_item = $enriched_signal_primary_lists[0]['buckets'][0]['items'][0] ?? null;
+$enriched_primary_action_keys = array_map(static function (array $action): string {
+    return (string) ($action['key'] ?? '');
+}, is_array($enriched_signal_primary_item['visible_actions'] ?? null) ? $enriched_signal_primary_item['visible_actions'] : []);
+ac_assert(
+    'User dismiss in primary bucket does not depend on Learning secondary gate',
+    in_array('defer', $enriched_primary_action_keys, true)
+    && in_array('dismiss', $enriched_primary_action_keys, true)
 );
 
 // ─── Resumen ─────────────────────────────────────────────────

@@ -740,6 +740,31 @@ describe('AAExecutableListRenderer visible_actions', () => {
         assert.match(html, />Ahora no</);
     });
 
+    it('visible_action intent defer user genera data-tasks-action defer', () => {
+        var html = renderer.renderItem(baseItem({
+            id: '42',
+            source: 'user',
+            origin_key: null,
+            visible_actions: [
+                visibleAction({
+                    key: 'defer',
+                    type: 'intent',
+                    category: 'intent',
+                    label: 'Ahora no',
+                    placement: 'secondary',
+                    url: null,
+                    handler: null
+                })
+            ]
+        }));
+
+        assert.match(html, /data-tasks-action="defer"/);
+        assert.match(html, /data-task-id="42"/);
+        assert.match(html, />Ahora no</);
+        assert.doesNotMatch(html, /data-learning-action="defer"/);
+        assert.doesNotMatch(html, /data-recommendation-key=/);
+    });
+
     it('visible_action intent dismiss genera dismiss', () => {
         var html = renderer.renderItem(baseItem({
             origin_key: 'install_pwa',
@@ -759,6 +784,31 @@ describe('AAExecutableListRenderer visible_actions', () => {
         assert.match(html, /data-learning-action="dismiss"/);
         assert.match(html, /data-recommendation-key="install_pwa"/);
         assert.match(html, />Ignorar</);
+    });
+
+    it('visible_action intent dismiss user genera data-tasks-action dismiss', () => {
+        var html = renderer.renderItem(baseItem({
+            id: '43',
+            source: 'user',
+            origin_key: null,
+            visible_actions: [
+                visibleAction({
+                    key: 'dismiss',
+                    type: 'intent',
+                    category: 'intent',
+                    label: 'Ignorar',
+                    placement: 'secondary',
+                    url: null,
+                    handler: null
+                })
+            ]
+        }));
+
+        assert.match(html, /data-tasks-action="dismiss"/);
+        assert.match(html, /data-task-id="43"/);
+        assert.match(html, />Ignorar</);
+        assert.doesNotMatch(html, /data-learning-action="dismiss"/);
+        assert.doesNotMatch(html, /data-recommendation-key=/);
     });
 
     it('fallback legacy sigue funcionando sin visible_actions', () => {

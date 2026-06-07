@@ -145,6 +145,26 @@ function feed_fixture_tasks_payload(): array {
                 ],
             ],
             'executive_candidates' => [10, 20],
+            'task_evaluations_by_id' => [
+                10 => [
+                    'capabilities' => [
+                        'can_defer' => true,
+                        'can_dismiss' => true,
+                    ],
+                ],
+                12 => [
+                    'capabilities' => [
+                        'can_defer' => true,
+                        'can_dismiss' => true,
+                    ],
+                ],
+                20 => [
+                    'capabilities' => [
+                        'can_defer' => true,
+                        'can_dismiss' => true,
+                    ],
+                ],
+            ],
         ],
     ];
 }
@@ -273,10 +293,23 @@ ac_assert(
     && array_key_exists('visible_actions', $system_primary_item)
 );
 ac_assert(
-    'Happy path user pending item includes visible_actions complete',
-    $user_visible_keys === ['complete']
+    'Happy path user pending item includes visible_actions complete defer dismiss',
+    $user_visible_keys === ['complete', 'defer', 'dismiss']
     && is_array($first_user_item)
     && ($first_user_item['primary_action']['type'] ?? '') === AA_Executable_Contract::ACTION_STATUS
+    && ($first_user_item['capabilities']['can_defer'] ?? false) === true
+    && ($first_user_item['capabilities']['can_dismiss'] ?? false) === true
+);
+
+$first_user_secondary_item = is_array($first_user_secondary_items[0] ?? null) ? $first_user_secondary_items[0] : null;
+$secondary_user_visible_keys = is_array($first_user_secondary_item)
+    ? array_map(static function (array $action): string {
+        return (string) ($action['key'] ?? '');
+    }, is_array($first_user_secondary_item['visible_actions'] ?? null) ? $first_user_secondary_item['visible_actions'] : [])
+    : [];
+ac_assert(
+    'Happy path user secondary bucket still exposes defer/dismiss without bucket gate',
+    $secondary_user_visible_keys === ['complete', 'defer', 'dismiss']
 );
 
 // ─── Vacíos ──────────────────────────────────────────────────

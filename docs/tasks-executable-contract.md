@@ -63,6 +63,8 @@ MC13G-A implementa persistencia write-only en `aa_task_state` + repositorio + us
 
 MC13G-B conecta lectura de señales al board/feed: `GetTaskBoardUseCase` carga `task_state_by_id`, `AA_Task_Signal_Policy` produce `task_evaluations_by_id`, el mapper refleja `state` en ExecutableItem. Sin botones, sin `visible_actions` defer/dismiss, sin cambios de buckets MC13E.
 
+MC13G-C2 activa botones visibles **Ahora no** / **Ignorar** para user tasks: capabilities desde evaluaciones, `visible_actions` user, renderer `data-tasks-action`. Canal Learning intacto. Sin efectos de proyección (MC13G-D).
+
 ## Modelo de señales, estado y procedencia
 
 Las acciones del usuario registran **señales o decisiones interpretables**. No deben modelarse ni documentarse como movimientos absolutos ni reglas definitivas. Una policy lee estado persistido, facts y (en el futuro) eventos/counters, y **proyecta** qué aparece en cada vista. Si los criterios cambian, la misma señal puede proyectarse distinto.
@@ -98,7 +100,7 @@ Las acciones del usuario registran **señales o decisiones interpretables**. No 
 - **MC13G-A (implementado):** persistencia write-only en `aa_task_state` vía `TaskStateRepository` y use cases `RecordTaskDeferSignalUseCase` / `RecordTaskDismissSignalUseCase`.
 - **MC13G-B (implementado):** lectura batch en `GetTaskBoardUseCase`; interpretación en `AA_Task_Signal_Policy`; payload enriquecido con `task_state_by_id` y `organization.task_evaluations_by_id`; mapper refleja señales en `ExecutableItem.state`. `can_defer`/`can_dismiss` siguen `false` en feed; sin `visible_actions` defer/dismiss; buckets MC13E sin cambios.
 - **MC13G-C1 (implementado):** canal técnico defer/dismiss — `TasksAjax` (`aa_defer_task`, `aa_dismiss_task`), `TasksService.deferTask`/`dismissTask`, coordinator `data-tasks-action`. Sin botones visibles; capabilities siguen false en feed.
-- **MC13G-C2 (futuro):** mapper publica capabilities + renderer source-aware + `visible_actions` user.
+- **MC13G-C2 (implementado):** mapper publica `can_defer`/`can_dismiss` desde `task_evaluations_by_id`; enricher + policy emiten `visible_actions` user; renderer source-aware usa canal Tasks (`data-tasks-action` + `data-task-id`). Sin efectos de proyección (defer no mueve bucket; dismiss no oculta).
 - **MC13G-D (futuro):** efectos de proyección (visibilidad, buckets) si producto lo confirma.
 
 Ninguna de estas tablas es un **action log**. Solo guardan el **último estado** (y timestamps del último cambio por tipo de señal). Re-dismiss o re-defer **sobrescriben** el timestamp anterior; no queda historial.
@@ -119,27 +121,29 @@ Ninguna de estas tablas es un **action log**. Solo guardan el **último estado**
 |----------|---------------------|-------------------------------------------------------------|
 | **Ahora no** (defer) | Learning: `is_ignored`, `ignored_at` | La policy **puede** proyectar el item fuera de `primary` (p. ej. bucket `secondary`) **si** no hay criterios que lo contradigan. No es “mover definitivamente a secondary”. |
 | **Ignorar** (dismiss) | Learning: `is_dismissed`, `dismissed_at` | La policy **puede** excluir el item del feed activo mientras `dismiss_active` aplique. No es borrado permanente: al expirar la ventana, el flag puede seguir en BD pero la proyección cambia. |
-| **Ahora no** (defer) — Tasks user | `aa_task_state`: `last_deferred_at`, `defer_count`, `defer_until` | Señal de postergación; MC13G-B la lee y expone en evaluaciones/`state.ignored`; **no** mueve buckets ni botones todavía. |
-| **Ignorar** (dismiss) — Tasks user | `aa_task_state`: `last_dismissed_at`, `dismiss_count`, `dismiss_until` | Señal de ocultamiento; MC13G-B la lee y expone en `state.dismissed`/`dismiss_active`; **no** oculta del feed todavía. |
+| **Ahora no** (defer) — Tasks user | `aa_task_state`: `last_deferred_at`, `defer_count`, `defer_until` | Señal de postergación; MC13G-B la lee y expone en evaluaciones/`state.ignored`; MC13G-C2 muestra botón y registra señal vía canal Tasks; **no** mueve buckets todavía. |
+| **Ignorar** (dismiss) — Tasks user | `aa_task_state`: `last_dismissed_at`, `dismiss_count`, `dismiss_until` | Señal de ocultamiento; MC13G-B la lee y expone en `state.dismissed`/`dismiss_active`; MC13G-C2 muestra botón y registra señal vía canal Tasks; **no** oculta del feed todavía. |
 | **Completar** (manual) | Learning: `is_completed`; Tasks: `status=done` | Declaración del usuario; puede sacar el item del feed activo. Distinta de auto-completion por fact. |
 | **Reabrir** (Tasks) | `status=pending`, `completed_at=null` | Declaración inversa; no implica evento histórico de “des-completado verificado”. |
 | **Archivar lista** | `aa_task_lists.status=archived` | Declaración sobre la lista; tareas conservadas. Acción de **lista**, no de item. |
 
 El coordinator experimental (MC12) **solo ejecuta** la mutación vía servicio y refresca el feed; **no** implementa estas reglas de proyección.
 
-## User task signals: defer/dismiss (MC13F / MC13G-A / MC13G-B)
+## User task signals: defer/dismiss (MC13F / MC13G-A / MC13G-B / MC13G-C)
 
-MC13F documentó el modelo conceptual. **MC13G-A** implementa escritura. **MC13G-B** implementa lectura e interpretación en el board/feed, sin botones ni endpoints.
+MC13F documentó el modelo conceptual. **MC13G-A** implementa escritura. **MC13G-B** implementa lectura e interpretación en el board/feed. **MC13G-C2** activa botones visibles y canal DOM Tasks.
 
 ### Estado actual
 
 Tasks user en el feed executable (`view=active`, `user-swap`) soporta:
 
 - **Completar** — declaración `status=done` vía `ChangeTaskStatusUseCase`.
+- **Ahora no** (defer) — señal vía `RecordTaskDeferSignalUseCase`; botón `data-tasks-action="defer"` + `data-task-id`.
+- **Ignorar** (dismiss) — señal vía `RecordTaskDismissSignalUseCase`; botón `data-tasks-action="dismiss"` + `data-task-id`.
 - **Reabrir** — reservado; no aparece en active feed (`done` excluido).
 - **Archivar lista** — acción de lista, no de item.
 
-**No soporta aún** defer/dismiss en UI. El mapper publica `can_defer: false`, `can_dismiss: false` en el feed executable (MC13G-B). Las señales persistidas sí se reflejan en `ExecutableItem.state` (`ignored`, `dismissed`, `dismiss_active`) cuando existen evaluaciones.
+El mapper publica `can_defer` / `can_dismiss` desde `organization.task_evaluations_by_id[task_id].capabilities` (sin recalcular reglas ni depender de bucket). Fallback sin evaluación: ambos `false`. Learning (`source=system`) conserva canal `data-learning-action` + gate por bucket.
 
 ### Semántica objetivo (cuando exista storage)
 
@@ -207,13 +211,15 @@ Shape implementado:
 - `visible_in_active` = `true` siempre en MC13G-B (sin ocultamiento)
 - Sin ventana fallback desde `last_*_at`
 
-`TaskBoardToExecutableMapper` traduce evaluaciones a `ExecutableItem.state` pero mantiene `capabilities.can_defer` / `can_dismiss` en `false` hasta MC13G-C2.
+`TaskBoardToExecutableMapper` traduce evaluaciones a `ExecutableItem.state` y publica `capabilities.can_defer` / `can_dismiss` desde la evaluación (MC13G-C2). Sin evaluación: `false`.
 
-`AA_Executable_Visible_Actions_Policy`: para `source=user`, defer/dismiss futuros dependerán solo de capabilities (sin `bucket_key`); Learning (`source=system`) conserva gate por bucket. MC13G-C1 no emite intents defer/dismiss para user porque capabilities publicadas siguen en false.
+`AA_Executable_Visible_Actions_Policy`: para `source=user`, defer/dismiss dependen solo de capabilities (sin `bucket_key`); Learning (`source=system`) conserva gate por bucket (`primary` → defer, `secondary` → dismiss).
 
-**MC13G-C1 (canal técnico):** endpoints `aa_defer_task` / `aa_dismiss_task` → `RecordTaskDeferSignalUseCase` / `RecordTaskDismissSignalUseCase`; `TasksService.deferTask` / `dismissTask`; coordinator enruta `data-tasks-action="defer|dismiss"` + `data-task-id`. Sin botones visibles todavía.
+**MC13G-C1 (canal técnico):** endpoints `aa_defer_task` / `aa_dismiss_task` → use cases de señal; `TasksService.deferTask` / `dismissTask`; coordinator enruta `data-tasks-action="defer|dismiss"` + `data-task-id`.
 
-**No implementado aún:** capabilities/visible_actions en feed user (MC13G-C2), ventanas en write UC, efectos visibles/buckets (MC13G-D).
+**MC13G-C2 (botones visibles):** mapper + enricher + policy emiten `visible_actions` defer/dismiss para user pending; renderer source-aware renderiza canal Tasks. Click registra señal y refresca feed; la tarea puede seguir visible (sin efecto de proyección).
+
+**No implementado aún:** ventanas `defer_until`/`dismiss_until` en write UC, efectos visibles/buckets (MC13G-D), vistas completed/ignored.
 
 ### Ownership (lectura y escritura)
 
@@ -223,18 +229,9 @@ Shape implementado:
 
 **MC13G-C1 (transport):** `TasksAjax` + `TasksService` + coordinator tasks channel para defer/dismiss.
 
-**MC13G-C2/D (futuro):**
+**MC13G-C2 (visible actions + renderer):** mapper publica capabilities desde evaluaciones; enricher + policy generan intents; `executableListRenderer.js` usa `data-tasks-action` para `source=user` y conserva `data-learning-action` para Learning.
 
-1. **Read:** `GetTaskBoardUseCase` (o enricher de fuente Tasks) carga señales y las expone al dominio.
-2. **Policy Tasks:** interpreta estado + señales + facts (`due_at`, `importance`, defer/dismiss windows) para:
-   - proyección de buckets (`task_bucket_order_by_list`);
-   - visibilidad en `view=active`;
-   - **capabilities** (`can_defer`, `can_dismiss`, `can_reactivate` futuro).
-3. **Mapper executable:** traduce `state` y `capabilities` ya decididos; no inventa reglas.
-4. **Enricher + `AA_Executable_Visible_Actions_Policy`:** proyectan `visible_actions` desde capabilities/state + view; **no** desde bucket membership.
-5. **MC13G-C2:** publicar capabilities + renderer source-aware + botones visibles en feed.
-6. **MC13G-C1:** AJAX + `TasksService` + coordinator (sin botones visibles).
-7. **MC13G-D:** efectos de proyección (visibilidad/buckets) si se decide.
+**MC13G-D (futuro):** efectos de proyección (visibilidad/buckets) si se decide.
 
 ### Buckets y visible_actions: proyecciones hermanas (MC13F)
 
@@ -261,9 +258,7 @@ Bucket y `visible_actions` son **proyecciones hermanas** desde datos interpretab
 
 Ejemplo: una tarea puede proyectarse en `primary` por vencimiento, pero “Ahora no” solo debe aparecer si la policy de Tasks decide `can_defer=true` dado su estado/señales actuales — no porque esté en “Prioritarias”. Igual para “Ignorar” y `secondary`.
 
-**Deuda documentada (código actual):** `AA_Executable_Visible_Actions_Policy` en vista `active` filtra `defer`/`dismiss` por `bucket_key` (`primary` / `secondary`). Eso refleja el contrato histórico de Learning, **no** el modelo objetivo para Tasks user. Un ciclo posterior (MC13G+) debe alinear la policy executable con capabilities ya resueltas por la fuente, reduciendo o eliminando la dependencia de bucket como gate de elegibilidad.
-
-Hoy Tasks user solo emite `can_complete` en pending; por tanto el feed muestra solo “Completar” aunque MC13E ya separe buckets.
+**Deuda documentada (Learning):** `AA_Executable_Visible_Actions_Policy` en vista `active` filtra defer/dismiss por `bucket_key` (`primary` / `secondary`) **solo para `source=system`**. Tasks user (`source=user`) ya usa capabilities sin gate por bucket (MC13G-C2).
 
 ### Qué no existe todavía (diseño futuro)
 
@@ -485,8 +480,8 @@ Acciones habilitadas en MC12A (user tasks):
 | `data-tasks-action="complete"` | `TasksService.changeTaskStatus(taskId, 'done')` |
 | `data-tasks-action="pending"` | `TasksService.changeTaskStatus(taskId, 'pending')` |
 | `data-tasks-action="archive-list"` | `TasksService.archiveTaskList(listId)` (+ confirm) |
-| `data-tasks-action="defer"` *(MC13G-C1, sin botón visible hasta C2)* | `TasksService.deferTask(taskId)` |
-| `data-tasks-action="dismiss"` *(MC13G-C1, sin botón visible hasta C2)* | `TasksService.dismissTask(taskId)` |
+| `data-tasks-action="defer"` | `TasksService.deferTask(taskId)` |
+| `data-tasks-action="dismiss"` | `TasksService.dismissTask(taskId)` |
 
 Acciones habilitadas en MC12B (Learning simple):
 
@@ -678,7 +673,7 @@ Salida: **una ExecutableList por lista de usuario**:
 
 **No** se reevalúa `AA_Task_Prioritization_Policy` en el mapper. `executive_candidates` sigue siendo independiente de los buckets: alimenta la propuesta ejecutiva global y no define `primary`.
 
-Capabilities defer/dismiss: hardcoded `false` hasta existir señales persistidas y policy de fuente (MC13G+). Ver [User task signals: defer/dismiss futuro (MC13F)](#user-task-signals-deferdismiss-futuro-mc13f).
+Capabilities defer/dismiss: desde `task_evaluations_by_id[task_id].capabilities` cuando existe evaluación (MC13G-C2); fallback `false`. Ver [User task signals: defer/dismiss](#user-task-signals-deferdismiss-mc13f--mc13g-a--mc13g-b--mc13g-c).
 
 ## Fuera de alcance MC7
 

@@ -281,6 +281,33 @@
 
         if (type === 'intent') {
             var intentKey = asString(action.key).trim().toLowerCase();
+            var intentItemSource = resolveItemSource(item);
+
+            if (intentItemSource === 'user') {
+                var intentTaskId = asString(item.id).trim();
+
+                if (intentTaskId === '') {
+                    return '';
+                }
+
+                if (intentKey === 'defer') {
+                    return ''
+                        + '<button type="button" data-tasks-action="defer" data-task-id="' + escapeHtml(intentTaskId) + '"'
+                        + ' class="' + btnClass(false) + ' text-gray-600 bg-white hover:bg-gray-50 border-gray-300">'
+                        + escapeHtml(label || 'Ahora no')
+                        + '</button>';
+                }
+
+                if (intentKey === 'dismiss') {
+                    return ''
+                        + '<button type="button" data-tasks-action="dismiss" data-task-id="' + escapeHtml(intentTaskId) + '"'
+                        + ' class="' + btnClass(false) + ' text-gray-600 bg-white hover:bg-gray-50 border-gray-300">'
+                        + escapeHtml(label || 'Ignorar')
+                        + '</button>';
+                }
+
+                return '';
+            }
 
             if (recommendationKey === '') {
                 return '';

@@ -361,6 +361,7 @@ final class TaskBoardToExecutableMapper {
         $is_pending = !$is_done;
         $evaluation = self::resolve_task_evaluation($organization, $task_id);
         $signal_state = self::resolve_executable_signal_state($evaluation);
+        $signal_capabilities = self::resolve_task_signal_capabilities($evaluation, $is_pending);
 
         return AA_Executable_Contract::normalize_item([
             'id' => (string) $task_id,
@@ -383,8 +384,8 @@ final class TaskBoardToExecutableMapper {
             'capabilities' => [
                 'can_complete' => $is_pending,
                 'can_reopen' => $is_done,
-                'can_defer' => false,
-                'can_dismiss' => false,
+                'can_defer' => $signal_capabilities['can_defer'],
+                'can_dismiss' => $signal_capabilities['can_dismiss'],
                 'can_reactivate' => false,
             ],
             'primary_action' => $is_pending
@@ -416,6 +417,26 @@ final class TaskBoardToExecutableMapper {
         $evaluation = $evaluations[$task_id] ?? null;
 
         return is_array($evaluation) ? $evaluation : null;
+    }
+
+    /**
+     * @param array<string,mixed>|null $evaluation
+     * @return array{can_defer:bool,can_dismiss:bool}
+     */
+    private static function resolve_task_signal_capabilities(?array $evaluation, bool $is_pending): array {
+        if (!$is_pending || $evaluation === null) {
+            return [
+                'can_defer' => false,
+                'can_dismiss' => false,
+            ];
+        }
+
+        $capabilities = is_array($evaluation['capabilities'] ?? null) ? $evaluation['capabilities'] : [];
+
+        return [
+            'can_defer' => !empty($capabilities['can_defer']),
+            'can_dismiss' => !empty($capabilities['can_dismiss']),
+        ];
     }
 
     /**
