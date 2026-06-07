@@ -139,11 +139,33 @@
         });
     }
 
+    /**
+     * @param {number|string} taskId
+     * @returns {Promise<Object>}
+     */
+    function deferTask(taskId) {
+        return postAction('aa_defer_task', {
+            task_id: taskId
+        });
+    }
+
+    /**
+     * @param {number|string} taskId
+     * @returns {Promise<Object>}
+     */
+    function dismissTask(taskId) {
+        return postAction('aa_dismiss_task', {
+            task_id: taskId
+        });
+    }
+
     window.TasksService = {
         getTaskBoard: getTaskBoard,
         createTaskList: createTaskList,
         archiveTaskList: archiveTaskList,
         createTask: createTask,
-        changeTaskStatus: changeTaskStatus
+        changeTaskStatus: changeTaskStatus,
+        deferTask: deferTask,
+        dismissTask: dismissTask
     };
 })();

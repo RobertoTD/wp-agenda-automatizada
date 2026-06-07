@@ -111,6 +111,14 @@ function createCoordinatorFactory(options) {
                 archiveTaskList: function (listId) {
                     options.tasksCalls.push({ method: 'archiveTaskList', listId: listId });
                     return Promise.resolve({});
+                },
+                deferTask: function (taskId) {
+                    options.tasksCalls.push({ method: 'deferTask', taskId: taskId });
+                    return Promise.resolve({});
+                },
+                dismissTask: function (taskId) {
+                    options.tasksCalls.push({ method: 'dismissTask', taskId: taskId });
+                    return Promise.resolve({});
                 }
             };
         },
@@ -292,6 +300,133 @@ describe('ExecutableActionsCoordinator', () => {
 
         assert.equal(tasksCalls.length, 0);
         assert.equal(reloadCalls, 0);
+    });
+
+    it('task defer llama TasksService.deferTask(taskId)', async () => {
+        var button = createButton({
+            'data-tasks-action': 'defer',
+            'data-task-id': '55'
+        });
+        var root = createRoot(button);
+        var event = createEvent(button);
+
+        await coordinator.handleClick(event, {
+            root: root,
+            reload: function () {
+                reloadCalls += 1;
+                return Promise.resolve();
+            }
+        });
+
+        assert.deepEqual(tasksCalls[0], {
+            method: 'deferTask',
+            taskId: '55'
+        });
+        assert.equal(learningCalls.length, 0);
+        assert.equal(reloadCalls, 1);
+        assert.equal(event.stopped(), true);
+        assert.equal(event.prevented(), true);
+    });
+
+    it('task dismiss llama TasksService.dismissTask(taskId)', async () => {
+        var button = createButton({
+            'data-tasks-action': 'dismiss',
+            'data-task-id': '56'
+        });
+        var root = createRoot(button);
+        var event = createEvent(button);
+
+        await coordinator.handleClick(event, {
+            root: root,
+            reload: function () {
+                reloadCalls += 1;
+                return Promise.resolve();
+            }
+        });
+
+        assert.deepEqual(tasksCalls[0], {
+            method: 'dismissTask',
+            taskId: '56'
+        });
+        assert.equal(learningCalls.length, 0);
+        assert.equal(reloadCalls, 1);
+        assert.equal(event.stopped(), true);
+        assert.equal(event.prevented(), true);
+    });
+
+    it('task defer error llama showError y no reload', async () => {
+        coordinator = coordinatorApi.createCoordinator({
+            getTasksService: function () {
+                return {
+                    deferTask: function () {
+                        return Promise.reject(new Error('fallo defer task'));
+                    }
+                };
+            }
+        });
+        coordinator.resetPending();
+
+        var button = createButton({
+            'data-tasks-action': 'defer',
+            'data-task-id': '55'
+        });
+        var root = createRoot(button);
+        var event = createEvent(button);
+
+        await coordinator.handleClick(event, {
+            root: root,
+            reload: function () {
+                reloadCalls += 1;
+                return Promise.resolve();
+            },
+            showError: function (message) {
+                errorMessage = message;
+            }
+        });
+
+        assert.equal(errorMessage, 'fallo defer task');
+        assert.equal(reloadCalls, 0);
+        assert.equal(learningCalls.length, 0);
+    });
+
+    it('pending guard evita doble ejecución en task defer', async () => {
+        var resolveFirst;
+        var serviceCalls = 0;
+        var button = createButton({
+            'data-tasks-action': 'defer',
+            'data-task-id': '55'
+        });
+        var root = createRoot(button);
+        var event = createEvent(button);
+        var ctx = {
+            root: root,
+            reload: function () {
+                return Promise.resolve();
+            }
+        };
+
+        coordinator = coordinatorApi.createCoordinator({
+            getTasksService: function () {
+                return {
+                    deferTask: function () {
+                        serviceCalls += 1;
+                        return new Promise(function (resolve) {
+                            resolveFirst = resolve;
+                        });
+                    }
+                };
+            }
+        });
+        coordinator.resetPending();
+
+        var first = coordinator.handleClick(event, ctx);
+        var second = coordinator.handleClick(event, ctx);
+
+        resolveFirst({});
+        await first;
+        await second;
+
+        assert.equal(serviceCalls, 1);
     });
 
     it('defer llama LearningService.ignoreRecommendation(key)', async () => {

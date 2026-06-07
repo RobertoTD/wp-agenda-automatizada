@@ -100,6 +100,34 @@
         }
 
         /**
+         * @param {string} taskId
+         * @returns {Promise<void>}
+         */
+        function runTaskDeferAction(taskId) {
+            var service = resolveTasksService();
+
+            if (!service || typeof service.deferTask !== 'function') {
+                return Promise.reject(new Error('TasksService no disponible.'));
+            }
+
+            return Promise.resolve(service.deferTask(taskId));
+        }
+
+        /**
+         * @param {string} taskId
+         * @returns {Promise<void>}
+         */
+        function runTaskDismissAction(taskId) {
+            var service = resolveTasksService();
+
+            if (!service || typeof service.dismissTask !== 'function') {
+                return Promise.reject(new Error('TasksService no disponible.'));
+            }
+
+            return Promise.resolve(service.dismissTask(taskId));
+        }
+
+        /**
          * @param {string} listId
          * @returns {Promise<void|null>}
          */
@@ -375,7 +403,13 @@
 
             var action = button.getAttribute('data-tasks-action');
 
-            if (action !== 'complete' && action !== 'pending' && action !== 'archive-list') {
+            if (
+                action !== 'complete'
+                && action !== 'pending'
+                && action !== 'defer'
+                && action !== 'dismiss'
+                && action !== 'archive-list'
+            ) {
                 return Promise.resolve(false);
             }
 
@@ -389,6 +423,18 @@
                 }
 
                 actionPromise = runTaskStatusAction(action, taskId);
+            } else if (action === 'defer') {
+                if (!taskId) {
+                    return Promise.resolve(false);
+                }
+
+                actionPromise = runTaskDeferAction(taskId);
+            } else if (action === 'dismiss') {
+                if (!taskId) {
+                    return Promise.resolve(false);
+                }
+
+                actionPromise = runTaskDismissAction(taskId);
             } else if (action === 'archive-list') {
                 if (!listId) {
                     return Promise.resolve(false);
@@ -463,7 +509,11 @@
 
             var action = button.getAttribute('data-tasks-action');
 
-            return action === 'complete' || action === 'pending' || action === 'archive-list';
+            return action === 'complete'
+                || action === 'pending'
+                || action === 'defer'
+                || action === 'dismiss'
+                || action === 'archive-list';
         }
 
         /**
@@ -515,6 +565,8 @@
             handleLearningClick: handleLearningClick,
             handlePrimaryHandlerClick: handlePrimaryHandlerClick,
             runTaskStatusAction: runTaskStatusAction,
+            runTaskDeferAction: runTaskDeferAction,
+            runTaskDismissAction: runTaskDismissAction,
             runArchiveListAction: runArchiveListAction,
             runLearningAction: runLearningAction,
             findHandlerVisibleAction: findHandlerVisibleAction,
