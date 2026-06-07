@@ -49,6 +49,12 @@ $executable_actions_coordinator_js = plugin_dir_url(__FILE__) . 'executable-acti
         <p id="aa-tasks-error" class="hidden text-sm text-red-600 mb-3"></p>
 
         <div id="aa-lists-feed" class="space-y-4">
+            <section id="aa-executable-lists-active" class="hidden space-y-4">
+                <p id="aa-executable-lists-active-error" class="hidden text-sm text-red-600"></p>
+                <p id="aa-executable-lists-active-loading" class="hidden text-sm text-gray-500">Cargando listas…</p>
+                <div id="aa-executable-lists-active-root" class="space-y-4"></div>
+            </section>
+
             <article id="aa-learning-recommendations" class="aa-task-list-card aa-system-list-card bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
                 <div class="px-4 py-4 border-b border-gray-100 bg-gradient-to-r from-amber-50 to-white">
                     <div class="flex items-center gap-3">

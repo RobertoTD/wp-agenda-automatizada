@@ -100,7 +100,6 @@ ac_assert('TaskList invalid status falls back to active', AA_Task_List::from_arr
 $empty = $policy->prioritize([]);
 ac_assert('Empty snapshot list_order', $empty['list_order'] === []);
 ac_assert('Empty snapshot task_order_by_list', $empty['task_order_by_list'] === []);
-ac_assert('Empty snapshot task_bucket_order_by_list', $empty['task_bucket_order_by_list'] === []);
 ac_assert('Empty snapshot executive_candidates', $empty['executive_candidates'] === []);
 
 $defensive = $policy->prioritize([
@@ -110,7 +109,6 @@ $defensive = $policy->prioritize([
 ac_assert('Invalid lists/tasks normalize to empty output', $defensive === [
     'list_order' => [],
     'task_order_by_list' => [],
-    'task_bucket_order_by_list' => [],
     'executive_candidates' => [],
 ]);
 
@@ -164,30 +162,6 @@ $done_result = tasks_prioritize($base_list, [
 ]);
 ac_assert('Pending before done in task order', ($done_result['task_order_by_list'][1] ?? []) === [402, 401]);
 ac_assert('Done excluded from executive_candidates', $done_result['executive_candidates'] === [402]);
-ac_assert(
-    'Done excluded from active task buckets',
-    ($done_result['task_bucket_order_by_list'][1]['primary'] ?? []) === []
-    && ($done_result['task_bucket_order_by_list'][1]['secondary'] ?? []) === [402]
-);
-
-$bucket_result = tasks_prioritize($base_list, [
-    ['id' => 701, 'list_id' => 1, 'title' => 'Normal', 'importance' => 0, 'status' => 'pending'],
-    ['id' => 702, 'list_id' => 1, 'title' => 'Vencida', 'due_at' => '2026-06-01 10:00:00', 'importance' => 5, 'status' => 'pending'],
-    ['id' => 703, 'list_id' => 1, 'title' => 'Alta importancia', 'importance' => -1, 'status' => 'pending'],
-    ['id' => 704, 'list_id' => 1, 'title' => 'Hecha alta', 'due_at' => '2026-06-01 09:00:00', 'importance' => -10, 'status' => 'done'],
-]);
-ac_assert(
-    'Active task buckets project overdue and high importance to primary',
-    ($bucket_result['task_bucket_order_by_list'][1]['primary'] ?? []) === [702, 703]
-);
-ac_assert(
-    'Active task buckets project normal pending to secondary',
-    ($bucket_result['task_bucket_order_by_list'][1]['secondary'] ?? []) === [701]
-);
-ac_assert(
-    'Task order remains available independently from task buckets',
-    ($bucket_result['task_order_by_list'][1] ?? []) === [702, 703, 701, 704]
-);
 
 $position_result = tasks_prioritize($base_list, [
     ['id' => 501, 'list_id' => 1, 'title' => 'T2', 'position' => 20, 'status' => 'pending'],
@@ -229,10 +203,6 @@ ac_assert(
 
 $empty_list_tasks = tasks_prioritize($base_list, []);
 ac_assert('Empty task list per list returns empty order', ($empty_list_tasks['task_order_by_list'][1] ?? []) === []);
-ac_assert('Empty task list per list returns empty task buckets', ($empty_list_tasks['task_bucket_order_by_list'][1] ?? null) === [
-    'primary' => [],
-    'secondary' => [],
-]);
 ac_assert('Empty tasks yield empty executive candidates', $empty_list_tasks['executive_candidates'] === []);
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";

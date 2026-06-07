@@ -312,6 +312,39 @@ describe('AAExecutableListRenderer', () => {
         assert.match(html, /data-list-id="7"/);
     });
 
+    it('source=system muestra badge Recomendado', () => {
+        var list = baseList({
+            source: 'system',
+            title: 'Recomendaciones',
+            capabilities: { can_archive: false },
+            buckets: [{ key: 'primary', label: 'Principales', items: [baseItem()] }]
+        });
+
+        var html = renderer.renderList(list);
+
+        assert.match(html, /aa-executable-list-source-badge/);
+        assert.match(html, />Recomendado</);
+        assert.doesNotMatch(html, /data-tasks-action="archive-list"/);
+    });
+
+    it('source=user muestra badge Mis listas', () => {
+        var list = baseList({
+            source: 'user',
+            title: 'Lista de casa',
+            capabilities: { can_archive: true },
+            buckets: [{ key: 'primary', label: 'Prioritarias', items: [] }]
+        });
+
+        var html = renderer.renderList(list);
+
+        assert.match(html, />Mis listas</);
+        assert.match(html, /data-tasks-action="archive-list"/);
+    });
+
+    it('resolveSourceBadgeLabel mapea ai a IA', () => {
+        assert.equal(renderer.resolveSourceBadgeLabel('ai'), 'IA');
+    });
+
     it('lista user sin items visibles muestra mensaje de tareas pendientes', () => {
         var list = baseList({
             id: '9',

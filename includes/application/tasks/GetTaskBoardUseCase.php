@@ -5,6 +5,7 @@
 
 defined('ABSPATH') or die('No direct access');
 
+require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-active-view-projection-policy.php';
 require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-prioritization-policy.php';
 require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-signal-policy.php';
 require_once dirname(__DIR__, 2) . '/repositories/TaskStateRepository.php';
@@ -32,19 +33,34 @@ final class GetTaskBoardUseCase {
         $now = TaskUseCaseSupport::resolve_now();
         $task_state_by_id = TaskStateRepository::find_by_task_ids($this->collect_task_ids($tasks));
 
-        $organization = (new AA_Task_Prioritization_Policy())->prioritize([
+        $base_organization = (new AA_Task_Prioritization_Policy())->prioritize([
             'lists' => $lists,
             'tasks' => $tasks,
             'now' => $now,
         ]);
 
-        $task_evaluations_by_id = (new AA_Task_Signal_Policy())->evaluate_all([
+        $signal_evaluations_by_id = (new AA_Task_Signal_Policy())->evaluate_all([
             'tasks' => $tasks,
             'task_state_by_id' => $task_state_by_id,
             'now' => $now,
         ]);
 
-        $organization['task_evaluations_by_id'] = $task_evaluations_by_id;
+        $active_projection = (new AA_Task_Active_View_Projection_Policy())->project([
+            'lists' => $lists,
+            'tasks' => $tasks,
+            'list_order' => $base_organization['list_order'],
+            'task_order_by_list' => $base_organization['task_order_by_list'],
+            'task_evaluations_by_id' => $signal_evaluations_by_id,
+            'now' => $now,
+        ]);
+
+        $organization = [
+            'list_order' => $base_organization['list_order'],
+            'task_order_by_list' => $base_organization['task_order_by_list'],
+            'task_bucket_order_by_list' => $active_projection['task_bucket_order_by_list'],
+            'executive_candidates' => $base_organization['executive_candidates'],
+            'task_evaluations_by_id' => $active_projection['task_evaluations_by_id'],
+        ];
 
         return [
             'lists' => $lists,

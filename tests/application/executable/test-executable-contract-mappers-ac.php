@@ -407,8 +407,8 @@ $task_bucket_payload = [
         ],
         'task_bucket_order_by_list' => [
             3 => [
-                'primary' => [30, 32],
-                'secondary' => [31],
+                'primary' => [30, 31],
+                'secondary' => [],
             ],
         ],
         'executive_candidates' => [31],
@@ -433,24 +433,21 @@ $secondary_bucket_items = is_array($secondary_bucket) && is_array($secondary_buc
     : [];
 
 ac_assert(
-    'Task projected buckets map to primary and secondary labels',
-    $task_bucket_keys === [AA_Executable_Contract::BUCKET_PRIMARY, AA_Executable_Contract::BUCKET_SECONDARY]
+    'Task projected buckets map to primary label when secondary empty',
+    $task_bucket_keys === [AA_Executable_Contract::BUCKET_PRIMARY]
     && ($primary_bucket['label'] ?? '') === 'Prioritarias'
-    && ($secondary_bucket['label'] ?? '') === 'Otras tareas'
 );
 ac_assert(
     'Task projected buckets preserve order and exclude done',
     array_map(static function (array $item): string {
         return (string) ($item['id'] ?? '');
-    }, $primary_bucket_items) === ['30']
-    && array_map(static function (array $item): string {
-        return (string) ($item['id'] ?? '');
-    }, $secondary_bucket_items) === ['31']
+    }, $primary_bucket_items) === ['30', '31']
+    && $secondary_bucket_items === []
 );
 ac_assert(
     'Task projected buckets keep executive_candidates independent',
     ($primary_bucket_items[0]['is_executive_candidate'] ?? true) === false
-    && ($secondary_bucket_items[0]['is_executive_candidate'] ?? false) === true
+    && ($primary_bucket_items[1]['is_executive_candidate'] ?? false) === true
 );
 
 $task_signal_payload = [
@@ -500,11 +497,18 @@ $task_signal_payload = [
                     'is_dismiss_active' => false,
                 ],
                 'capabilities' => [
-                    'can_defer' => true,
+                    'can_defer' => false,
                     'can_dismiss' => true,
                     'can_reactivate' => false,
                 ],
                 'visible_in_active' => true,
+                'projection' => [
+                    'view' => 'active',
+                    'visible_in_active' => true,
+                    'projected_bucket' => 'secondary',
+                    'projection_reason' => 'deferred',
+                    'suggested_active_bucket' => 'primary',
+                ],
             ],
         ],
     ],
@@ -519,9 +523,9 @@ ac_assert(
     && ($task_signal_item['state']['dismissed'] ?? true) === false
 );
 ac_assert(
-    'Task mapper publishes can_defer/can_dismiss from evaluation capabilities',
+    'Task mapper publishes filtered capabilities from deferred projection',
     is_array($task_signal_item)
-    && ($task_signal_item['capabilities']['can_defer'] ?? false) === true
+    && ($task_signal_item['capabilities']['can_defer'] ?? true) === false
     && ($task_signal_item['capabilities']['can_dismiss'] ?? false) === true
 );
 
@@ -533,32 +537,12 @@ $enriched_action_keys = array_map(static function (array $action): string {
     return (string) ($action['key'] ?? '');
 }, is_array($enriched_signal_item['visible_actions'] ?? null) ? $enriched_signal_item['visible_actions'] : []);
 ac_assert(
-    'Task feed exposes defer/dismiss visible_actions from evaluation capabilities',
-    in_array('defer', $enriched_action_keys, true)
-    && in_array('dismiss', $enriched_action_keys, true)
+    'Deferred secondary task exposes dismiss visible_action only',
+    $enriched_action_keys === ['complete', 'dismiss']
 );
 ac_assert(
-    'Task feed still exposes complete visible_action',
-    in_array('complete', $enriched_action_keys, true)
-);
-
-$task_signal_primary_payload = $task_signal_payload;
-$task_signal_primary_payload['organization']['task_bucket_order_by_list'][4] = [
-    'primary' => [40],
-    'secondary' => [],
-];
-$task_signal_primary_lists = TaskBoardToExecutableMapper::map($task_signal_primary_payload);
-$enriched_signal_primary_lists = ExecutableVisibleActionsEnricher::enrich_lists($task_signal_primary_lists, [
-    'view' => AA_Executable_Visible_Actions_Policy::VIEW_ACTIVE,
-]);
-$enriched_signal_primary_item = $enriched_signal_primary_lists[0]['buckets'][0]['items'][0] ?? null;
-$enriched_primary_action_keys = array_map(static function (array $action): string {
-    return (string) ($action['key'] ?? '');
-}, is_array($enriched_signal_primary_item['visible_actions'] ?? null) ? $enriched_signal_primary_item['visible_actions'] : []);
-ac_assert(
-    'User dismiss in primary bucket does not depend on Learning secondary gate',
-    in_array('defer', $enriched_primary_action_keys, true)
-    && in_array('dismiss', $enriched_primary_action_keys, true)
+    'Deferred secondary task does not expose defer visible_action',
+    !in_array('defer', $enriched_action_keys, true)
 );
 
 // ─── Resumen ─────────────────────────────────────────────────

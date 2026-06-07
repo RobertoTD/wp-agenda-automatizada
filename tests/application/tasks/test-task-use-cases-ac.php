@@ -75,6 +75,7 @@ ac_assert('Plugin bootstrap registers TasksAjax', strpos($bootstrap_src, 'TasksA
 $get_board_src = file_get_contents($plugin_root . '/includes/application/tasks/GetTaskBoardUseCase.php');
 ac_assert('GetTaskBoardUseCase uses prioritization policy', strpos($get_board_src, 'AA_Task_Prioritization_Policy') !== false);
 ac_assert('GetTaskBoardUseCase uses signal policy', strpos($get_board_src, 'AA_Task_Signal_Policy') !== false);
+ac_assert('GetTaskBoardUseCase uses active view projection policy', strpos($get_board_src, 'AA_Task_Active_View_Projection_Policy') !== false);
 ac_assert('GetTaskBoardUseCase loads task_state_by_id', strpos($get_board_src, 'task_state_by_id') !== false);
 ac_assert('GetTaskBoardUseCase returns organization key', strpos($get_board_src, "'organization'") !== false);
 ac_assert('GetTaskBoardUseCase returns task_evaluations_by_id', strpos($get_board_src, 'task_evaluations_by_id') !== false);
@@ -192,9 +193,15 @@ if ($wp_integration) {
         is_array($later_eval) && ($later_eval['signals']['has_defer'] ?? false) === true
     );
     ac_assert(
-        'Board buckets unchanged after defer signal',
-        ($board_with_signal['organization']['task_bucket_order_by_list'][$list_id]['primary'] ?? []) === ($board['organization']['task_bucket_order_by_list'][$list_id]['primary'] ?? [])
-        && ($board_with_signal['organization']['task_bucket_order_by_list'][$list_id]['secondary'] ?? []) === ($board['organization']['task_bucket_order_by_list'][$list_id]['secondary'] ?? [])
+        'Board moves deferred task to secondary bucket',
+        in_array($later_task_id, $board_with_signal['organization']['task_bucket_order_by_list'][$list_id]['secondary'] ?? [], true)
+        && !in_array($later_task_id, $board_with_signal['organization']['task_bucket_order_by_list'][$list_id]['primary'] ?? [], true)
+    );
+    ac_assert(
+        'Board deferred task exposes dismiss capability only',
+        is_array($later_eval)
+        && ($later_eval['capabilities']['can_defer'] ?? true) === false
+        && ($later_eval['capabilities']['can_dismiss'] ?? false) === true
     );
 
     $state_table = $wpdb->prefix . 'aa_task_state';

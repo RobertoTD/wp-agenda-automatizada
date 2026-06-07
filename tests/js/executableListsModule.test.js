@@ -1050,6 +1050,17 @@ describe('executable-lists-module wiring', () => {
         assert.match(indexSrc, /id="aa-executable-user-lists-visible"/);
         assert.match(indexSrc, /id="aa-executable-user-lists-root"/);
         assert.match(indexSrc, /id="aa-executable-user-lists-error"/);
+        assert.match(indexSrc, /id="aa-executable-lists-active"/);
+        assert.match(indexSrc, /id="aa-executable-lists-active-root"/);
+    });
+
+    it('modo unified cablea coordinator dedicado', () => {
+        const fs = require('node:fs');
+        const moduleSrc = fs.readFileSync(modulePath, 'utf8');
+
+        assert.match(moduleSrc, /function initUnifiedFeedModule\(\)/);
+        assert.match(moduleSrc, /initUnifiedCoordinator\(root\)/);
+        assert.match(moduleSrc, /isUnifiedFeedEnabled\(\)/);
     });
 
     it('modo preview aplica interaction guard cuando acciones no están activas', () => {
@@ -1075,5 +1086,311 @@ describe('executable-lists-module wiring', () => {
         assert.match(moduleSrc, /AA_EXECUTABLE_LISTS_DEBUG/);
         assert.match(moduleSrc, /AA_EXECUTABLE_LISTS_ACTIONS_DEBUG/);
         assert.match(moduleSrc, /AA_EXECUTABLE_VISIBLE_FEED/);
+    });
+});
+
+describe('executable-lists-module MC13H unified feed', () => {
+    let originalVisibleFeed;
+    let originalDocument;
+    let originalRenderer;
+    let originalService;
+
+    beforeEach(() => {
+        originalVisibleFeed = globalThis.AA_EXECUTABLE_VISIBLE_FEED;
+        originalDocument = globalThis.document;
+        originalRenderer = globalThis.AAExecutableListRenderer;
+        originalService = globalThis.ExecutableListsService;
+    });
+
+    afterEach(() => {
+        if (originalVisibleFeed === undefined) {
+            delete globalThis.AA_EXECUTABLE_VISIBLE_FEED;
+        } else {
+            globalThis.AA_EXECUTABLE_VISIBLE_FEED = originalVisibleFeed;
+        }
+
+        if (originalDocument === undefined) {
+            delete globalThis.document;
+        } else {
+            globalThis.document = originalDocument;
+        }
+
+        if (originalRenderer === undefined) {
+            delete globalThis.AAExecutableListRenderer;
+        } else {
+            globalThis.AAExecutableListRenderer = originalRenderer;
+        }
+
+        if (originalService === undefined) {
+            delete globalThis.ExecutableListsService;
+        } else {
+            globalThis.ExecutableListsService = originalService;
+        }
+    });
+
+    it('isUnifiedFeedEnabled es true con unified', () => {
+        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'unified';
+
+        assert.equal(hooks.isUnifiedFeedEnabled(), true);
+        assert.equal(hooks.isExecutableVisibleFeedEnabled(), true);
+        assert.equal(hooks.isVisibleUserFeedEnabled(), false);
+        assert.equal(hooks.readVisibleFeedFlag(), 'unified');
+    });
+
+    it('unified no activa modo user-swap', () => {
+        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'unified';
+
+        assert.equal(hooks.isUserSwapEnabled(), false);
+    });
+
+    it('filterListsForUnifiedRender incluye system con items y user lists', () => {
+        var lists = [
+            {
+                id: 'system:learning.recommendations',
+                source: 'system',
+                buckets: [{ key: 'primary', items: [{ id: 'a' }] }]
+            },
+            {
+                id: '7',
+                source: 'user',
+                buckets: [{ key: 'primary', items: [] }]
+            }
+        ];
+
+        var filtered = hooks.filterListsForUnifiedRender(lists);
+
+        assert.equal(filtered.length, 2);
+        assert.equal(filtered[0].source, 'system');
+        assert.equal(filtered[1].source, 'user');
+    });
+
+    it('filterListsForUnifiedRender omite system list vacía', () => {
+        var lists = [
+            {
+                id: 'system:learning.recommendations',
+                source: 'system',
+                buckets: []
+            },
+            {
+                id: '7',
+                source: 'user',
+                buckets: [{ key: 'primary', items: [] }]
+            }
+        ];
+
+        var filtered = hooks.filterListsForUnifiedRender(lists);
+
+        assert.equal(filtered.length, 1);
+        assert.equal(filtered[0].source, 'user');
+    });
+
+    it('renderUnifiedPayload renderiza system y user sin filtrar user-only', () => {
+        globalThis.AAExecutableListRenderer = {
+            renderFeed: function (lists) {
+                return lists.map(function (list) {
+                    return list.source;
+                }).join(',');
+            }
+        };
+
+        var root = { innerHTML: '' };
+
+        globalThis.document = {
+            getElementById: function (id) {
+                if (id === 'aa-executable-lists-active-root') {
+                    return root;
+                }
+
+                return null;
+            }
+        };
+
+        hooks.renderUnifiedPayload({
+            lists: [
+                {
+                    id: 'system:learning.recommendations',
+                    source: 'system',
+                    buckets: [{ key: 'primary', items: [{ id: 'rec' }] }]
+                },
+                {
+                    id: '7',
+                    source: 'user',
+                    buckets: [{ key: 'primary', items: [{ id: '10' }] }]
+                }
+            ]
+        });
+
+        assert.match(root.innerHTML, /system,user/);
+    });
+
+    it('applyUnifiedLayout oculta legacy learning, user visible y board', () => {
+        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'unified';
+
+        function makeEl() {
+            return {
+                classList: {
+                    classes: [],
+                    add: function (name) {
+                        if (!this.classes.includes(name)) {
+                            this.classes.push(name);
+                        }
+                    },
+                    remove: function (name) {
+                        this.classes = this.classes.filter(function (item) {
+                            return item !== name;
+                        });
+                    }
+                }
+            };
+        }
+
+        var learning = makeEl();
+        var userVisible = makeEl();
+        var board = makeEl();
+        var unified = makeEl();
+        unified.classList.classes = ['hidden'];
+
+        globalThis.document = {
+            getElementById: function (id) {
+                if (id === 'aa-learning-recommendations') {
+                    return learning;
+                }
+
+                if (id === 'aa-executable-user-lists-visible') {
+                    return userVisible;
+                }
+
+                if (id === 'aa-tasks-board-root') {
+                    return board;
+                }
+
+                if (id === 'aa-executable-lists-active') {
+                    return unified;
+                }
+
+                return null;
+            }
+        };
+
+        hooks.applyUnifiedLayout();
+
+        assert.equal(learning.classList.classes.includes('hidden'), true);
+        assert.equal(userVisible.classList.classes.includes('hidden'), true);
+        assert.equal(board.classList.classes.includes('hidden'), true);
+        assert.equal(unified.classList.classes.includes('hidden'), false);
+    });
+
+    it('findUnifiedLearningItem resuelve item system desde payload unified', () => {
+        var payload = {
+            lists: [{
+                source: 'system',
+                buckets: [{
+                    items: [{
+                        id: 'install_pwa',
+                        source: 'system',
+                        origin_key: 'install_pwa'
+                    }]
+                }]
+            }]
+        };
+
+        var item = hooks.findLearningItemInPayload(payload, 'install_pwa');
+
+        assert.equal(item && item.origin_key, 'install_pwa');
+    });
+
+    it('initUnifiedCoordinator cablea findLearningItem funcional', () => {
+        const fs = require('node:fs');
+        const moduleSrc = fs.readFileSync(modulePath, 'utf8');
+        var unifiedCoordinatorBlock = moduleSrc.match(/function initUnifiedCoordinator[\s\S]{0,450}/);
+
+        assert.ok(unifiedCoordinatorBlock, 'initUnifiedCoordinator definido');
+        assert.match(unifiedCoordinatorBlock[0], /findLearningItem: findUnifiedLearningItem/);
+        assert.match(unifiedCoordinatorBlock[0], /reloadUnifiedFeedWithBoardSync/);
+    });
+
+    it('reloadExecutableVisibleFeed usa unified cuando flag unified está activo', async () => {
+        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'unified';
+
+        var unifiedReloadCalls = 0;
+
+        globalThis.ExecutableListsService = {
+            getFeed: function () {
+                unifiedReloadCalls += 1;
+                return Promise.resolve({ lists: [] });
+            }
+        };
+
+        globalThis.AAExecutableListRenderer = {
+            renderFeed: function () {
+                return '';
+            }
+        };
+
+        globalThis.document = {
+            getElementById: function (id) {
+                if (id === 'aa-executable-lists-active-root') {
+                    return { innerHTML: '' };
+                }
+
+                if (id === 'aa-executable-lists-active-loading') {
+                    return {
+                        textContent: '',
+                        classList: {
+                            classes: [],
+                            add: function (name) {
+                                this.classes.push(name);
+                            },
+                            remove: function () {}
+                        }
+                    };
+                }
+
+                if (id === 'aa-executable-lists-active-error') {
+                    return {
+                        textContent: '',
+                        classList: {
+                            classes: ['hidden'],
+                            add: function () {},
+                            remove: function () {}
+                        }
+                    };
+                }
+
+                return null;
+            }
+        };
+
+        await hooks.reloadExecutableVisibleFeed();
+
+        assert.equal(unifiedReloadCalls, 1);
+    });
+
+    it('user-swap sigue intacto con flag user-swap', () => {
+        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'user-swap';
+
+        assert.equal(hooks.isUserSwapEnabled(), true);
+        assert.equal(hooks.isUnifiedFeedEnabled(), false);
+        assert.equal(hooks.isVisibleUserFeedEnabled(), true);
+    });
+
+    it('debug experimental sigue gated por isDebugEnabled', () => {
+        delete globalThis.AA_EXECUTABLE_LISTS_DEBUG;
+        delete globalThis.AA_EXECUTABLE_LISTS_DATA;
+        delete globalThis.sessionStorage;
+
+        assert.equal(hooks.isDebugEnabled(), false);
+        assert.equal(hooks.isActionsEnabled(), false);
+    });
+
+    it('index.php incluye contenedor unified active feed', () => {
+        const fs = require('node:fs');
+        const indexPath = path.join(__dirname, '../../includes/admin/ui/modules/learning/index.php');
+        const indexSrc = fs.readFileSync(indexPath, 'utf8');
+
+        assert.match(indexSrc, /id="aa-executable-lists-active"/);
+        assert.match(indexSrc, /id="aa-executable-lists-active-root"/);
+        assert.match(indexSrc, /id="aa-executable-lists-active-loading"/);
+        assert.match(indexSrc, /id="aa-executable-lists-active-error"/);
     });
 });

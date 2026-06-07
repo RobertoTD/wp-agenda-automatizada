@@ -616,6 +616,50 @@
     }
 
     /**
+     * @param {unknown} source
+     * @returns {string}
+     */
+    function resolveSourceBadgeLabel(source) {
+        var normalized = asString(source).trim().toLowerCase();
+
+        if (normalized === 'system') {
+            return 'Recomendado';
+        }
+
+        if (normalized === 'user') {
+            return 'Mis listas';
+        }
+
+        if (normalized === 'ai') {
+            return 'IA';
+        }
+
+        if (normalized === '') {
+            return '';
+        }
+
+        return normalized;
+    }
+
+    /**
+     * @param {unknown} source
+     * @returns {string}
+     */
+    function renderSourceBadge(source) {
+        var label = resolveSourceBadgeLabel(source);
+
+        if (label === '') {
+            return '';
+        }
+
+        return ''
+            + '<span class="aa-executable-list-source-badge shrink-0 text-xs font-medium text-gray-500'
+            + ' bg-gray-100 border border-gray-200 rounded-full px-2 py-0.5">'
+            + escapeHtml(label)
+            + '</span>';
+    }
+
+    /**
      * @param {object} list
      * @param {object} [options]
      * @param {number} [listIndex]
@@ -650,11 +694,15 @@
             bodyHtml = '<p class="text-sm text-gray-500 aa-executable-list-empty-pending">No hay tareas pendientes en esta lista.</p>';
         }
 
+        var badgeHtml = renderSourceBadge(list.source);
         var archiveHtml = capabilities.can_archive
             ? '<button type="button" data-tasks-action="archive-list" data-list-id="' + listId + '"'
                 + ' class="text-xs font-medium text-gray-500 hover:text-red-600 px-2 py-1 rounded border border-gray-200 whitespace-nowrap">'
                 + 'Archivar'
                 + '</button>'
+            : '';
+        var headerActionsHtml = badgeHtml !== '' || archiveHtml !== ''
+            ? '<div class="flex flex-col items-end gap-2 shrink-0">' + badgeHtml + archiveHtml + '</div>'
             : '';
         var headerGradient = source === 'system'
             ? 'from-amber-50 to-white'
@@ -670,7 +718,7 @@
             + '<h4 class="text-base font-semibold text-gray-900">' + title + '</h4>'
             + description
             + '</div>'
-            + archiveHtml
+            + headerActionsHtml
             + '</div>'
             + '</div>'
             + '<div class="px-4 py-4">' + bodyHtml + '</div>'
@@ -694,6 +742,8 @@
 
     var api = {
         escapeHtml: escapeHtml,
+        resolveSourceBadgeLabel: resolveSourceBadgeLabel,
+        renderSourceBadge: renderSourceBadge,
         renderFeed: renderFeed,
         renderList: renderList,
         renderBucket: renderBucket,

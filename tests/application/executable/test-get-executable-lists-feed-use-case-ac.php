@@ -16,6 +16,9 @@ $plugin_root = dirname(__DIR__, 3);
 require_once $plugin_root . '/includes/application/executable/GetExecutableListsFeedUseCase.php';
 require_once $plugin_root . '/includes/application/executable/LearningRecommendationsToExecutableMapper.php';
 require_once $plugin_root . '/includes/domain/executable/class-aa-executable-contract.php';
+require_once $plugin_root . '/includes/domain/tasks/class-aa-task-prioritization-policy.php';
+require_once $plugin_root . '/includes/domain/tasks/class-aa-task-signal-policy.php';
+require_once $plugin_root . '/includes/domain/tasks/class-aa-task-active-view-projection-policy.php';
 
 $total = 0;
 $passed = 0;
@@ -68,104 +71,110 @@ function feed_fixture_learning_payload(): array {
 }
 
 /**
+ * @param list<array<string,mixed>> $lists
+ * @param list<array<string,mixed>> $tasks
+ * @param array<int,array<string,mixed>> $task_state_by_id
+ * @return array<string,mixed>
+ */
+function feed_build_task_organization(
+    array $lists,
+    array $tasks,
+    array $task_state_by_id = [],
+    string $now = '2026-06-04 12:00:00'
+): array {
+    $base = (new AA_Task_Prioritization_Policy())->prioritize([
+        'lists' => $lists,
+        'tasks' => $tasks,
+        'now' => $now,
+    ]);
+    $signal_evaluations = (new AA_Task_Signal_Policy())->evaluate_all([
+        'tasks' => $tasks,
+        'task_state_by_id' => $task_state_by_id,
+        'now' => $now,
+    ]);
+    $projection = (new AA_Task_Active_View_Projection_Policy())->project([
+        'lists' => $lists,
+        'tasks' => $tasks,
+        'list_order' => $base['list_order'],
+        'task_order_by_list' => $base['task_order_by_list'],
+        'task_evaluations_by_id' => $signal_evaluations,
+        'now' => $now,
+    ]);
+
+    return [
+        'list_order' => $base['list_order'],
+        'task_order_by_list' => $base['task_order_by_list'],
+        'task_bucket_order_by_list' => $projection['task_bucket_order_by_list'],
+        'executive_candidates' => $base['executive_candidates'],
+        'task_evaluations_by_id' => $projection['task_evaluations_by_id'],
+    ];
+}
+
+/**
  * @return array{lists:list<array<string,mixed>>,tasks:list<array<string,mixed>>,organization:array<string,mixed>}
  */
 function feed_fixture_tasks_payload(): array {
+    $lists = [
+        [
+            'id' => 1,
+            'title' => 'Clientes',
+            'description' => 'Pendientes',
+            'importance' => 0,
+            'position' => 0,
+            'status' => 'active',
+        ],
+        [
+            'id' => 2,
+            'title' => 'Operación',
+            'description' => 'Día a día',
+            'importance' => 5,
+            'position' => 1,
+            'status' => 'active',
+        ],
+    ];
+    $tasks = [
+        [
+            'id' => 10,
+            'list_id' => 1,
+            'title' => 'Llamar cliente',
+            'notes' => 'Seguimiento',
+            'status' => 'pending',
+            'importance' => -1,
+            'due_at' => '2026-06-08 10:00:00',
+        ],
+        [
+            'id' => 11,
+            'list_id' => 1,
+            'title' => 'Enviar recordatorio',
+            'notes' => 'WhatsApp',
+            'status' => 'done',
+            'importance' => 4,
+            'due_at' => null,
+        ],
+        [
+            'id' => 12,
+            'list_id' => 1,
+            'title' => 'Enviar propuesta',
+            'notes' => 'Correo',
+            'status' => 'pending',
+            'importance' => 2,
+            'due_at' => null,
+        ],
+        [
+            'id' => 20,
+            'list_id' => 2,
+            'title' => 'Revisar agenda',
+            'notes' => 'Mañana',
+            'status' => 'pending',
+            'importance' => 1,
+            'due_at' => null,
+        ],
+    ];
+
     return [
-        'lists' => [
-            [
-                'id' => 1,
-                'title' => 'Clientes',
-                'description' => 'Pendientes',
-                'importance' => 0,
-                'position' => 0,
-                'status' => 'active',
-            ],
-            [
-                'id' => 2,
-                'title' => 'Operación',
-                'description' => 'Día a día',
-                'importance' => 5,
-                'position' => 1,
-                'status' => 'active',
-            ],
-        ],
-        'tasks' => [
-            [
-                'id' => 10,
-                'list_id' => 1,
-                'title' => 'Llamar cliente',
-                'notes' => 'Seguimiento',
-                'status' => 'pending',
-                'importance' => -1,
-                'due_at' => '2026-06-08 10:00:00',
-            ],
-            [
-                'id' => 11,
-                'list_id' => 1,
-                'title' => 'Enviar recordatorio',
-                'notes' => 'WhatsApp',
-                'status' => 'done',
-                'importance' => 4,
-                'due_at' => null,
-            ],
-            [
-                'id' => 12,
-                'list_id' => 1,
-                'title' => 'Enviar propuesta',
-                'notes' => 'Correo',
-                'status' => 'pending',
-                'importance' => 2,
-                'due_at' => null,
-            ],
-            [
-                'id' => 20,
-                'list_id' => 2,
-                'title' => 'Revisar agenda',
-                'notes' => 'Mañana',
-                'status' => 'pending',
-                'importance' => 1,
-                'due_at' => null,
-            ],
-        ],
-        'organization' => [
-            'list_order' => [1, 2],
-            'task_order_by_list' => [
-                1 => [10, 12, 11],
-                2 => [20],
-            ],
-            'task_bucket_order_by_list' => [
-                1 => [
-                    'primary' => [10, 11],
-                    'secondary' => [12],
-                ],
-                2 => [
-                    'primary' => [],
-                    'secondary' => [20],
-                ],
-            ],
-            'executive_candidates' => [10, 20],
-            'task_evaluations_by_id' => [
-                10 => [
-                    'capabilities' => [
-                        'can_defer' => true,
-                        'can_dismiss' => true,
-                    ],
-                ],
-                12 => [
-                    'capabilities' => [
-                        'can_defer' => true,
-                        'can_dismiss' => true,
-                    ],
-                ],
-                20 => [
-                    'capabilities' => [
-                        'can_defer' => true,
-                        'can_dismiss' => true,
-                    ],
-                ],
-            ],
-        ],
+        'lists' => $lists,
+        'tasks' => $tasks,
+        'organization' => feed_build_task_organization($lists, $tasks),
     ];
 }
 
@@ -245,7 +254,7 @@ $first_user_item_ids = array_map(static function (array $item): string {
 }, $first_user_items);
 ac_assert(
     'Happy path excludes done user tasks from active buckets',
-    $first_user_item_ids === ['10']
+    $first_user_item_ids === ['10', '12']
     && (int) ($happy['meta']['sources']['tasks']['item_count'] ?? -1) === 3
 );
 
@@ -253,11 +262,10 @@ $first_user_secondary_items = is_array($first_user_list['buckets'][1]['items'] ?
     ? $first_user_list['buckets'][1]['items']
     : [];
 ac_assert(
-    'Happy path counts user items across multiple task buckets',
+    'Happy path pending user tasks without signals stay in primary bucket',
     ($first_user_list['buckets'][0]['key'] ?? '') === AA_Executable_Contract::BUCKET_PRIMARY
-    && ($first_user_list['buckets'][1]['key'] ?? '') === AA_Executable_Contract::BUCKET_SECONDARY
-    && count($first_user_items) === 1
-    && count($first_user_secondary_items) === 1
+    && count($first_user_items) === 2
+    && count($first_user_secondary_items) === 0
 );
 
 $system_list = is_array($happy_lists[0] ?? null) ? $happy_lists[0] : [];
@@ -293,23 +301,127 @@ ac_assert(
     && array_key_exists('visible_actions', $system_primary_item)
 );
 ac_assert(
-    'Happy path user pending item includes visible_actions complete defer dismiss',
-    $user_visible_keys === ['complete', 'defer', 'dismiss']
+    'Happy path user pending item includes visible_actions complete defer only',
+    $user_visible_keys === ['complete', 'defer']
     && is_array($first_user_item)
     && ($first_user_item['primary_action']['type'] ?? '') === AA_Executable_Contract::ACTION_STATUS
     && ($first_user_item['capabilities']['can_defer'] ?? false) === true
-    && ($first_user_item['capabilities']['can_dismiss'] ?? false) === true
+    && ($first_user_item['capabilities']['can_dismiss'] ?? true) === false
 );
 
-$first_user_secondary_item = is_array($first_user_secondary_items[0] ?? null) ? $first_user_secondary_items[0] : null;
-$secondary_user_visible_keys = is_array($first_user_secondary_item)
+$second_user_list = is_array($happy_lists[2] ?? null) ? $happy_lists[2] : [];
+$second_user_items = is_array($second_user_list['buckets'][0]['items'] ?? null)
+    ? $second_user_list['buckets'][0]['items']
+    : [];
+$second_user_item = is_array($second_user_items[0] ?? null) ? $second_user_items[0] : null;
+$second_user_visible_keys = is_array($second_user_item)
     ? array_map(static function (array $action): string {
         return (string) ($action['key'] ?? '');
-    }, is_array($first_user_secondary_item['visible_actions'] ?? null) ? $first_user_secondary_item['visible_actions'] : [])
+    }, is_array($second_user_item['visible_actions'] ?? null) ? $second_user_item['visible_actions'] : [])
     : [];
 ac_assert(
-    'Happy path user secondary bucket still exposes defer/dismiss without bucket gate',
-    $secondary_user_visible_keys === ['complete', 'defer', 'dismiss']
+    'Happy path second list pending user also exposes defer only in primary',
+    $second_user_visible_keys === ['complete', 'defer']
+);
+
+$defer_payload = feed_fixture_tasks_payload();
+$defer_payload['tasks'] = array_values(array_filter(
+    $defer_payload['tasks'],
+    static function (array $task): bool {
+        return (int) ($task['id'] ?? 0) !== 12;
+    }
+));
+$defer_payload['tasks'][] = [
+    'id' => 12,
+    'list_id' => 1,
+    'title' => 'Enviar propuesta',
+    'notes' => 'Correo',
+    'status' => 'pending',
+    'importance' => 2,
+    'due_at' => null,
+];
+$defer_payload['organization'] = feed_build_task_organization(
+    $defer_payload['lists'],
+    $defer_payload['tasks'],
+    [
+        12 => [
+            'task_id' => 12,
+            'last_deferred_at' => '2026-06-04 10:00:00',
+            'defer_count' => 1,
+            'last_dismissed_at' => null,
+            'dismiss_count' => 0,
+            'defer_until' => null,
+            'dismiss_until' => null,
+        ],
+    ]
+);
+$defer_feed = (new GetExecutableListsFeedUseCase(
+    static function (): array {
+        return feed_fixture_learning_payload();
+    },
+    static function () use ($defer_payload): array {
+        return $defer_payload;
+    }
+))->execute();
+$defer_user_list = is_array($defer_feed['lists'][1] ?? null) ? $defer_feed['lists'][1] : [];
+$defer_secondary_items = is_array($defer_user_list['buckets'][1]['items'] ?? null)
+    ? $defer_user_list['buckets'][1]['items']
+    : [];
+$defer_secondary_item = is_array($defer_secondary_items[0] ?? null) ? $defer_secondary_items[0] : null;
+$defer_secondary_keys = is_array($defer_secondary_item)
+    ? array_map(static function (array $action): string {
+        return (string) ($action['key'] ?? '');
+    }, is_array($defer_secondary_item['visible_actions'] ?? null) ? $defer_secondary_item['visible_actions'] : [])
+    : [];
+ac_assert(
+    'Deferred user task moves to secondary and exposes dismiss only',
+    array_map(static function (array $item): string {
+        return (string) ($item['id'] ?? '');
+    }, $defer_secondary_items) === ['12']
+    && $defer_secondary_keys === ['complete', 'dismiss']
+);
+
+$dismiss_payload = feed_fixture_tasks_payload();
+$dismiss_payload['organization'] = feed_build_task_organization(
+    $dismiss_payload['lists'],
+    $dismiss_payload['tasks'],
+    [
+        10 => [
+            'task_id' => 10,
+            'last_deferred_at' => null,
+            'defer_count' => 0,
+            'last_dismissed_at' => '2026-06-04 11:00:00',
+            'dismiss_count' => 1,
+            'defer_until' => null,
+            'dismiss_until' => null,
+        ],
+    ]
+);
+$dismiss_feed = (new GetExecutableListsFeedUseCase(
+    static function (): array {
+        return feed_fixture_learning_payload();
+    },
+    static function () use ($dismiss_payload): array {
+        return $dismiss_payload;
+    }
+))->execute();
+$dismiss_user_list = is_array($dismiss_feed['lists'][1] ?? null) ? $dismiss_feed['lists'][1] : [];
+$dismiss_user_item_ids = [];
+foreach ($dismiss_user_list['buckets'] ?? [] as $bucket) {
+    if (!is_array($bucket)) {
+        continue;
+    }
+
+    foreach ($bucket['items'] ?? [] as $item) {
+        if (is_array($item)) {
+            $dismiss_user_item_ids[] = (string) ($item['id'] ?? '');
+        }
+    }
+}
+ac_assert(
+    'Dismissed user task disappears from active feed buckets',
+    !in_array('10', $dismiss_user_item_ids, true)
+    && in_array('12', $dismiss_user_item_ids, true)
 );
 
 // ─── Vacíos ──────────────────────────────────────────────────

@@ -3,7 +3,7 @@
  * Task Board → Executable projection.
  *
  * Mapea la salida de GetTaskBoardUseCase al contrato común.
- * No reevalúa AA_Task_Prioritization_Policy ni altera organization.
+ * No reevalúa policies de Tasks ni altera organization.
  * El feed activo proyecta solo tareas pending; done queda fuera hasta vista completadas.
  */
 

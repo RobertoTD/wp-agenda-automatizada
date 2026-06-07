@@ -20,14 +20,11 @@ final class AA_Task_Prioritization_Policy implements AA_Prioritization_Provider_
 
     private const DUE_BUCKET_NONE = 2;
 
-    private const ACTIVE_BUCKET_PRIMARY_IMPORTANCE_MAX = -1;
-
     /**
      * @param array<string,mixed> $snapshot
      * @return array{
      *     list_order:list<int>,
      *     task_order_by_list:array<int,list<int>>,
-     *     task_bucket_order_by_list:array<int,array{primary:list<int>,secondary:list<int>}>,
      *     executive_candidates:list<int>
      * }
      */
@@ -70,7 +67,6 @@ final class AA_Task_Prioritization_Policy implements AA_Prioritization_Provider_
         }
 
         $task_order_by_list = [];
-        $task_bucket_order_by_list = [];
         $executive_candidates = [];
 
         foreach ($list_order as $list_id) {
@@ -85,19 +81,9 @@ final class AA_Task_Prioritization_Policy implements AA_Prioritization_Provider_
             }, $list_tasks);
 
             $task_order_by_list[$list_id] = $ordered_ids;
-            $task_bucket_order_by_list[$list_id] = [
-                'primary' => [],
-                'secondary' => [],
-            ];
 
             foreach ($list_tasks as $task) {
                 if ($task->is_pending()) {
-                    if ($this->projects_to_active_primary_bucket($task, $now)) {
-                        $task_bucket_order_by_list[$list_id]['primary'][] = $task->id();
-                    } else {
-                        $task_bucket_order_by_list[$list_id]['secondary'][] = $task->id();
-                    }
-
                     $executive_candidates[] = $task->id();
                 }
             }
@@ -117,7 +103,6 @@ final class AA_Task_Prioritization_Policy implements AA_Prioritization_Provider_
         return [
             'list_order' => $list_order,
             'task_order_by_list' => $task_order_by_list,
-            'task_bucket_order_by_list' => $task_bucket_order_by_list,
             'executive_candidates' => $executive_candidates,
         ];
     }
@@ -126,7 +111,6 @@ final class AA_Task_Prioritization_Policy implements AA_Prioritization_Provider_
      * @return array{
      *     list_order:list<int>,
      *     task_order_by_list:array<int,list<int>>,
-     *     task_bucket_order_by_list:array<int,array{primary:list<int>,secondary:list<int>}>,
      *     executive_candidates:list<int>
      * }
      */
@@ -134,7 +118,6 @@ final class AA_Task_Prioritization_Policy implements AA_Prioritization_Provider_
         return [
             'list_order' => [],
             'task_order_by_list' => [],
-            'task_bucket_order_by_list' => [],
             'executive_candidates' => [],
         ];
     }
@@ -283,15 +266,6 @@ final class AA_Task_Prioritization_Policy implements AA_Prioritization_Provider_
         }
 
         return strcmp($a->title(), $b->title());
-    }
-
-    private function projects_to_active_primary_bucket(AA_Task $task, string $now): bool {
-        if (!$task->is_pending()) {
-            return false;
-        }
-
-        return $task->is_overdue($now)
-            || $task->importance() <= self::ACTIVE_BUCKET_PRIMARY_IMPORTANCE_MAX;
     }
 
     /**

@@ -189,7 +189,7 @@ function activeFeedFixture() {
                                 can_complete: true,
                                 can_reopen: false,
                                 can_defer: true,
-                                can_dismiss: true,
+                                can_dismiss: false,
                                 can_reactivate: false
                             },
                             primary_action: {
@@ -213,15 +213,6 @@ function activeFeedFixture() {
                                     type: 'intent',
                                     category: 'intent',
                                     label: 'Ahora no',
-                                    placement: 'secondary',
-                                    url: null,
-                                    handler: null
-                                }),
-                                visibleAction({
-                                    key: 'dismiss',
-                                    type: 'intent',
-                                    category: 'intent',
-                                    label: 'Ignorar',
                                     placement: 'secondary',
                                     url: null,
                                     handler: null
@@ -265,7 +256,7 @@ describe('executable feed render parity', () => {
 
         assert.match(html, /data-tasks-action="defer"/);
         assert.match(html, /data-task-id="10"/);
-        assert.match(html, /data-tasks-action="dismiss"/);
+        assert.doesNotMatch(html, /data-tasks-action="dismiss"/);
         assert.doesNotMatch(html, /data-learning-action="defer"[^>]*data-task-id="10"/);
     });
 
@@ -286,5 +277,22 @@ describe('executable feed render parity', () => {
         assert.match(installPwaSection, /data-learning-action="dismiss"/);
         assert.doesNotMatch(installPwaSection, /data-learning-action="defer"/);
         assert.doesNotMatch(installPwaSection, /data-learning-action="reactivate"/);
+    });
+
+    it('feed mixto system+user se renderiza en una sola salida', () => {
+        var html = renderer.renderFeed(activeFeedFixture());
+
+        assert.match(html, /data-list-source="system"/);
+        assert.match(html, /data-list-source="user"/);
+        assert.match(html, />Recomendado</);
+        assert.match(html, />Mis listas</);
+    });
+
+    it('feed mixto mantiene canales Learning y Tasks', () => {
+        var html = renderer.renderFeed(activeFeedFixture());
+
+        assert.match(html, /data-learning-action="defer"/);
+        assert.match(html, /data-tasks-action="complete"/);
+        assert.match(html, /data-tasks-action="defer"/);
     });
 });
