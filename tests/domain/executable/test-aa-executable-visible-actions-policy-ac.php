@@ -274,6 +274,52 @@ AA_Executable_Visible_Actions_Policy::resolve($immutable_item, [
 ]);
 ac_assert('Policy does not mutate item', serialize($immutable_item) === $immutable_before);
 
+$user_defer_primary = executable_visible_action_item([
+    'id' => '99',
+    'source' => AA_Executable_Contract::SOURCE_USER,
+    'origin_key' => null,
+    'capabilities' => [
+        'can_defer' => true,
+        'can_dismiss' => true,
+    ],
+]);
+$user_defer_primary_actions = AA_Executable_Visible_Actions_Policy::resolve($user_defer_primary, [
+    'view' => AA_Executable_Visible_Actions_Policy::VIEW_ACTIVE,
+    'bucket_key' => AA_Executable_Contract::BUCKET_SECONDARY,
+    'source' => AA_Executable_Contract::SOURCE_USER,
+]);
+$user_defer_action = executable_visible_action_find($user_defer_primary_actions, 'defer');
+$user_dismiss_action = executable_visible_action_find($user_defer_primary_actions, 'dismiss');
+ac_assert(
+    'User source defer does not depend on primary bucket',
+    is_array($user_defer_action)
+    && ($user_defer_action['key'] ?? '') === 'defer'
+);
+ac_assert(
+    'User source dismiss does not depend on secondary bucket',
+    is_array($user_dismiss_action)
+    && ($user_dismiss_action['key'] ?? '') === 'dismiss'
+);
+
+$user_no_capabilities = executable_visible_action_item([
+    'id' => '100',
+    'source' => AA_Executable_Contract::SOURCE_USER,
+    'capabilities' => [
+        'can_complete' => true,
+        'can_defer' => false,
+        'can_dismiss' => false,
+    ],
+]);
+$user_no_capability_actions = AA_Executable_Visible_Actions_Policy::resolve($user_no_capabilities, [
+    'view' => AA_Executable_Visible_Actions_Policy::VIEW_ACTIVE,
+    'bucket_key' => AA_Executable_Contract::BUCKET_PRIMARY,
+    'source' => AA_Executable_Contract::SOURCE_USER,
+]);
+ac_assert(
+    'User source without defer capability emits no defer action',
+    executable_visible_action_find($user_no_capability_actions, 'defer') === null
+);
+
 // ─── Resumen ─────────────────────────────────────────────────
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";

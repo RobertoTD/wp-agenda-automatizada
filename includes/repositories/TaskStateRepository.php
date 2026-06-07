@@ -89,6 +89,57 @@ final class TaskStateRepository {
     }
 
     /**
+     * Carga estados de señales para múltiples tareas (solo lectura).
+     *
+     * @param list<int|string> $task_ids
+     * @return array<int,array<string,mixed>> task_id => state row
+     */
+    public static function find_by_task_ids(array $task_ids): array {
+        $normalized_ids = [];
+
+        foreach ($task_ids as $task_id) {
+            $normalized = (int) $task_id;
+
+            if ($normalized < 1) {
+                continue;
+            }
+
+            $normalized_ids[$normalized] = $normalized;
+        }
+
+        if ($normalized_ids === []) {
+            return [];
+        }
+
+        global $wpdb;
+
+        $table = self::table_name();
+        $ids = array_values($normalized_ids);
+        $placeholders = implode(', ', array_fill(0, count($ids), '%d'));
+        $query = "SELECT * FROM {$table} WHERE task_id IN ({$placeholders})";
+        $rows = $wpdb->get_results($wpdb->prepare($query, ...$ids));
+
+        if ($wpdb->last_error) {
+            error_log('[TaskStateRepository] find_by_task_ids: ' . $wpdb->last_error);
+            return [];
+        }
+
+        $mapped = [];
+
+        foreach ($rows as $row) {
+            $state = self::map_row($row);
+
+            if ($state === null) {
+                continue;
+            }
+
+            $mapped[(int) $state['task_id']] = $state;
+        }
+
+        return $mapped;
+    }
+
+    /**
      * Crea o actualiza el estado de señales de una tarea (PK task_id).
      *
      * @param int                  $task_id

@@ -62,6 +62,7 @@ ac_assert('TaskStateRepository defines find_by_task_id', strpos($repo_src, 'func
 ac_assert('TaskStateRepository defines upsert', strpos($repo_src, 'function upsert') !== false);
 ac_assert('TaskStateRepository defines record_defer', strpos($repo_src, 'function record_defer') !== false);
 ac_assert('TaskStateRepository defines record_dismiss', strpos($repo_src, 'function record_dismiss') !== false);
+ac_assert('TaskStateRepository defines find_by_task_ids', strpos($repo_src, 'function find_by_task_ids') !== false);
 ac_assert('record_defer leaves defer_until null', strpos($repo_src, "'defer_until' => null") !== false);
 ac_assert('record_dismiss leaves dismiss_until null', strpos($repo_src, "'dismiss_until' => null") !== false);
 
@@ -164,6 +165,13 @@ if ($wp_load !== '' && is_readable($wp_load)) {
 
     $found = TaskStateRepository::find_by_task_id($task_id);
     ac_assert('find_by_task_id returns persisted row', is_array($found) && (int) ($found['task_id'] ?? 0) === $task_id);
+
+    ac_assert('find_by_task_ids empty input returns []', TaskStateRepository::find_by_task_ids([]) === []);
+    ac_assert('find_by_task_ids ignores invalid ids', TaskStateRepository::find_by_task_ids([0, -1, 'abc']) === []);
+
+    $batch = TaskStateRepository::find_by_task_ids([$task_id, 99999999]);
+    ac_assert('find_by_task_ids returns map keyed by task_id', isset($batch[$task_id]) && is_array($batch[$task_id]));
+    ac_assert('find_by_task_ids omits missing ids', !isset($batch[99999999]));
 
     $task_after = TaskRepository::find_by_id($task_id);
     ac_assert('aa_tasks status unchanged', ($task_after['status'] ?? '') === ($task_before['status'] ?? ''));

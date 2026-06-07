@@ -14,6 +14,8 @@ if (!defined('ABSPATH')) {
 require_once __DIR__ . '/../../../includes/domain/executable/class-aa-executable-contract.php';
 require_once __DIR__ . '/../../../includes/application/executable/LearningRecommendationsToExecutableMapper.php';
 require_once __DIR__ . '/../../../includes/application/executable/TaskBoardToExecutableMapper.php';
+require_once __DIR__ . '/../../../includes/application/executable/ExecutableVisibleActionsEnricher.php';
+require_once __DIR__ . '/../../../includes/domain/executable/class-aa-executable-visible-actions-policy.php';
 
 $total = 0;
 $passed = 0;
@@ -442,6 +444,95 @@ ac_assert(
     'Task projected buckets keep executive_candidates independent',
     ($primary_bucket_items[0]['is_executive_candidate'] ?? true) === false
     && ($secondary_bucket_items[0]['is_executive_candidate'] ?? false) === true
+);
+
+$task_signal_payload = [
+    'lists' => [
+        [
+            'id' => 4,
+            'title' => 'Señales',
+            'description' => null,
+            'importance' => 0,
+            'position' => 0,
+            'status' => 'active',
+        ],
+    ],
+    'tasks' => [
+        [
+            'id' => 40,
+            'list_id' => 4,
+            'title' => 'Con defer',
+            'notes' => 'Señal registrada',
+            'status' => 'pending',
+            'importance' => 0,
+            'due_at' => null,
+        ],
+    ],
+    'organization' => [
+        'list_order' => [4],
+        'task_order_by_list' => [
+            4 => [40],
+        ],
+        'task_bucket_order_by_list' => [
+            4 => [
+                'primary' => [],
+                'secondary' => [40],
+            ],
+        ],
+        'executive_candidates' => [40],
+        'task_evaluations_by_id' => [
+            40 => [
+                'signals' => [
+                    'has_defer' => true,
+                    'has_dismiss' => false,
+                    'defer_count' => 1,
+                    'dismiss_count' => 0,
+                ],
+                'state' => [
+                    'is_defer_active' => false,
+                    'is_dismiss_active' => false,
+                ],
+                'capabilities' => [
+                    'can_defer' => true,
+                    'can_dismiss' => true,
+                    'can_reactivate' => false,
+                ],
+                'visible_in_active' => true,
+            ],
+        ],
+    ],
+];
+
+$task_signal_lists = TaskBoardToExecutableMapper::map($task_signal_payload);
+$task_signal_item = $task_signal_lists[0]['buckets'][0]['items'][0] ?? null;
+ac_assert(
+    'Task mapper reflects deferred signal in state.ignored',
+    is_array($task_signal_item)
+    && ($task_signal_item['state']['ignored'] ?? false) === true
+    && ($task_signal_item['state']['dismissed'] ?? true) === false
+);
+ac_assert(
+    'Task mapper keeps can_defer/can_dismiss false in feed',
+    is_array($task_signal_item)
+    && ($task_signal_item['capabilities']['can_defer'] ?? true) === false
+    && ($task_signal_item['capabilities']['can_dismiss'] ?? true) === false
+);
+
+$enriched_signal_lists = ExecutableVisibleActionsEnricher::enrich_lists($task_signal_lists, [
+    'view' => AA_Executable_Visible_Actions_Policy::VIEW_ACTIVE,
+]);
+$enriched_signal_item = $enriched_signal_lists[0]['buckets'][0]['items'][0] ?? null;
+$enriched_action_keys = array_map(static function (array $action): string {
+    return (string) ($action['key'] ?? '');
+}, is_array($enriched_signal_item['visible_actions'] ?? null) ? $enriched_signal_item['visible_actions'] : []);
+ac_assert(
+    'Task feed does not expose defer/dismiss visible_actions in MC13G-B',
+    !in_array('defer', $enriched_action_keys, true)
+    && !in_array('dismiss', $enriched_action_keys, true)
+);
+ac_assert(
+    'Task feed still exposes complete visible_action',
+    in_array('complete', $enriched_action_keys, true)
 );
 
 // ─── Resumen ─────────────────────────────────────────────────

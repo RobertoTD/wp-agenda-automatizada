@@ -66,12 +66,24 @@ final class AA_Executable_Visible_Actions_Policy {
         }
 
         if ($view === self::VIEW_ACTIVE) {
-            if ($bucket_key === AA_Executable_Contract::BUCKET_PRIMARY && !empty($capabilities['can_defer'])) {
-                $actions[] = self::intent_action('defer', 'Ahora no');
-            }
+            $source = self::normalize_source($context['source'] ?? '');
 
-            if ($bucket_key === AA_Executable_Contract::BUCKET_SECONDARY && !empty($capabilities['can_dismiss'])) {
-                $actions[] = self::intent_action('dismiss', 'Ignorar');
+            if ($source === AA_Executable_Contract::SOURCE_USER) {
+                if (!empty($capabilities['can_defer'])) {
+                    $actions[] = self::intent_action('defer', 'Ahora no');
+                }
+
+                if (!empty($capabilities['can_dismiss'])) {
+                    $actions[] = self::intent_action('dismiss', 'Ignorar');
+                }
+            } else {
+                if ($bucket_key === AA_Executable_Contract::BUCKET_PRIMARY && !empty($capabilities['can_defer'])) {
+                    $actions[] = self::intent_action('defer', 'Ahora no');
+                }
+
+                if ($bucket_key === AA_Executable_Contract::BUCKET_SECONDARY && !empty($capabilities['can_dismiss'])) {
+                    $actions[] = self::intent_action('dismiss', 'Ignorar');
+                }
             }
         }
 
@@ -226,6 +238,23 @@ final class AA_Executable_Visible_Actions_Policy {
         }
 
         return AA_Executable_Contract::BUCKET_DEFAULT;
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private static function normalize_source($value): string {
+        $source = is_string($value) ? strtolower(trim($value)) : '';
+
+        if (
+            $source === AA_Executable_Contract::SOURCE_SYSTEM
+            || $source === AA_Executable_Contract::SOURCE_USER
+            || $source === AA_Executable_Contract::SOURCE_AI
+        ) {
+            return $source;
+        }
+
+        return AA_Executable_Contract::SOURCE_SYSTEM;
     }
 
     /**

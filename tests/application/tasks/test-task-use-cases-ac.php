@@ -70,7 +70,10 @@ ac_assert('Plugin bootstrap registers TasksAjax', strpos($bootstrap_src, 'TasksA
 
 $get_board_src = file_get_contents($plugin_root . '/includes/application/tasks/GetTaskBoardUseCase.php');
 ac_assert('GetTaskBoardUseCase uses prioritization policy', strpos($get_board_src, 'AA_Task_Prioritization_Policy') !== false);
+ac_assert('GetTaskBoardUseCase uses signal policy', strpos($get_board_src, 'AA_Task_Signal_Policy') !== false);
+ac_assert('GetTaskBoardUseCase loads task_state_by_id', strpos($get_board_src, 'task_state_by_id') !== false);
 ac_assert('GetTaskBoardUseCase returns organization key', strpos($get_board_src, "'organization'") !== false);
+ac_assert('GetTaskBoardUseCase returns task_evaluations_by_id', strpos($get_board_src, 'task_evaluations_by_id') !== false);
 
 $change_status_src = file_get_contents($plugin_root . '/includes/application/tasks/ChangeTaskStatusUseCase.php');
 ac_assert('ChangeTaskStatusUseCase uses mark_completed', strpos($change_status_src, 'mark_completed') !== false);
@@ -163,6 +166,35 @@ if ($wp_integration) {
         'GetTaskBoard executive_candidates prioritize overdue pending',
         ($board['organization']['executive_candidates'][0] ?? null) === $task_id
     );
+
+    ac_assert('GetTaskBoard returns task_state_by_id', is_array($board['task_state_by_id'] ?? null));
+    ac_assert(
+        'GetTaskBoard returns task_evaluations_by_id',
+        is_array($board['organization']['task_evaluations_by_id'] ?? null)
+    );
+
+    require_once $plugin_root . '/includes/application/tasks/RecordTaskDeferSignalUseCase.php';
+    $defer_signal = (new RecordTaskDeferSignalUseCase())->execute(['task_id' => $later_task_id]);
+    ac_assert('Record defer signal for board read path', !empty($defer_signal['success']));
+
+    $board_with_signal = (new GetTaskBoardUseCase())->execute();
+    ac_assert(
+        'Board task_state_by_id includes deferred task',
+        is_array($board_with_signal['task_state_by_id'][$later_task_id] ?? null)
+    );
+    $later_eval = $board_with_signal['organization']['task_evaluations_by_id'][$later_task_id] ?? null;
+    ac_assert(
+        'Board task_evaluations_by_id marks has_defer',
+        is_array($later_eval) && ($later_eval['signals']['has_defer'] ?? false) === true
+    );
+    ac_assert(
+        'Board buckets unchanged after defer signal',
+        ($board_with_signal['organization']['task_bucket_order_by_list'][$list_id]['primary'] ?? []) === ($board['organization']['task_bucket_order_by_list'][$list_id]['primary'] ?? [])
+        && ($board_with_signal['organization']['task_bucket_order_by_list'][$list_id]['secondary'] ?? []) === ($board['organization']['task_bucket_order_by_list'][$list_id]['secondary'] ?? [])
+    );
+
+    $state_table = $wpdb->prefix . 'aa_task_state';
+    $wpdb->delete($state_table, ['task_id' => $later_task_id], ['%d']);
 
     $status_done = (new ChangeTaskStatusUseCase())->execute([
         'task_id' => $task_id,

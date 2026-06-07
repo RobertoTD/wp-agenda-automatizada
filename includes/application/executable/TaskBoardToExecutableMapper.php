@@ -252,7 +252,8 @@ final class TaskBoardToExecutableMapper {
             $items = self::map_tasks_by_order(
                 $raw_list_buckets[$bucket_key] ?? [],
                 $tasks_by_id,
-                $executive_candidates
+                $executive_candidates,
+                $organization
             );
 
             if ($items === []) {
@@ -302,16 +303,17 @@ final class TaskBoardToExecutableMapper {
             }
         }
 
-        return self::map_tasks_by_order($ordered_ids, $tasks_by_id, $executive_candidates);
+        return self::map_tasks_by_order($ordered_ids, $tasks_by_id, $executive_candidates, $organization);
     }
 
     /**
      * @param mixed                         $raw_order
      * @param array<int,array<string,mixed>> $tasks_by_id
      * @param array<int,bool>                $executive_candidates
+     * @param array<string,mixed>            $organization
      * @return list<array<string,mixed>>
      */
-    private static function map_tasks_by_order($raw_order, array $tasks_by_id, array $executive_candidates): array {
+    private static function map_tasks_by_order($raw_order, array $tasks_by_id, array $executive_candidates, array $organization): array {
         if (!is_array($raw_order)) {
             return [];
         }
@@ -331,7 +333,7 @@ final class TaskBoardToExecutableMapper {
                 continue;
             }
 
-            $mapped[] = self::map_task($task, $executive_candidates);
+            $mapped[] = self::map_task($task, $executive_candidates, $organization);
         }
 
         return $mapped;
@@ -349,13 +351,16 @@ final class TaskBoardToExecutableMapper {
     /**
      * @param array<string,mixed> $task
      * @param array<int,bool>     $executive_candidates
+     * @param array<string,mixed> $organization
      * @return array<string,mixed>
      */
-    private static function map_task(array $task, array $executive_candidates): array {
+    private static function map_task(array $task, array $executive_candidates, array $organization): array {
         $task_id = (int) ($task['id'] ?? 0);
         $status = strtolower(trim((string) ($task['status'] ?? AA_Executable_Contract::ITEM_STATUS_PENDING)));
         $is_done = $status === AA_Executable_Contract::ITEM_STATUS_DONE;
         $is_pending = !$is_done;
+        $evaluation = self::resolve_task_evaluation($organization, $task_id);
+        $signal_state = self::resolve_executable_signal_state($evaluation);
 
         return AA_Executable_Contract::normalize_item([
             'id' => (string) $task_id,
@@ -370,9 +375,9 @@ final class TaskBoardToExecutableMapper {
                 : AA_Executable_Contract::ITEM_STATUS_PENDING,
             'state' => [
                 'completed' => $is_done,
-                'ignored' => false,
-                'dismissed' => false,
-                'dismiss_active' => false,
+                'ignored' => $signal_state['ignored'],
+                'dismissed' => $signal_state['dismissed'],
+                'dismiss_active' => $signal_state['dismiss_active'],
                 'auto_completed' => false,
             ],
             'capabilities' => [
@@ -395,5 +400,49 @@ final class TaskBoardToExecutableMapper {
                 ],
             'is_executive_candidate' => isset($executive_candidates[$task_id]),
         ]);
+    }
+
+    /**
+     * @param array<string,mixed> $organization
+     * @return array<string,mixed>|null
+     */
+    private static function resolve_task_evaluation(array $organization, int $task_id): ?array {
+        $evaluations = $organization['task_evaluations_by_id'] ?? null;
+
+        if (!is_array($evaluations)) {
+            return null;
+        }
+
+        $evaluation = $evaluations[$task_id] ?? null;
+
+        return is_array($evaluation) ? $evaluation : null;
+    }
+
+    /**
+     * @param array<string,mixed>|null $evaluation
+     * @return array{ignored:bool,dismissed:bool,dismiss_active:bool}
+     */
+    private static function resolve_executable_signal_state(?array $evaluation): array {
+        if ($evaluation === null) {
+            return [
+                'ignored' => false,
+                'dismissed' => false,
+                'dismiss_active' => false,
+            ];
+        }
+
+        $signals = is_array($evaluation['signals'] ?? null) ? $evaluation['signals'] : [];
+        $state = is_array($evaluation['state'] ?? null) ? $evaluation['state'] : [];
+
+        $has_defer = !empty($signals['has_defer']);
+        $has_dismiss = !empty($signals['has_dismiss']);
+        $is_defer_active = !empty($state['is_defer_active']);
+        $is_dismiss_active = !empty($state['is_dismiss_active']);
+
+        return [
+            'ignored' => $has_defer || $is_defer_active,
+            'dismissed' => $has_dismiss,
+            'dismiss_active' => $is_dismiss_active,
+        ];
     }
 }
