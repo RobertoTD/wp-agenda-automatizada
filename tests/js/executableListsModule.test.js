@@ -324,770 +324,6 @@ describe('executable-lists-module hooks', () => {
     });
 });
 
-describe('executable-lists-module MC13A visible user feed', () => {
-    let originalVisibleFeed;
-    let originalData;
-    let originalSessionStorage;
-    let originalRenderer;
-    let originalService;
-    let originalCoordinator;
-    let originalDocument;
-
-    beforeEach(() => {
-        originalVisibleFeed = globalThis.AA_EXECUTABLE_VISIBLE_FEED;
-        originalData = globalThis.AA_EXECUTABLE_LISTS_DATA;
-        originalSessionStorage = globalThis.sessionStorage;
-        originalRenderer = globalThis.AAExecutableListRenderer;
-        originalService = globalThis.ExecutableListsService;
-        originalCoordinator = globalThis.ExecutableActionsCoordinator;
-        originalDocument = globalThis.document;
-    });
-
-    afterEach(() => {
-        if (originalVisibleFeed === undefined) {
-            delete globalThis.AA_EXECUTABLE_VISIBLE_FEED;
-        } else {
-            globalThis.AA_EXECUTABLE_VISIBLE_FEED = originalVisibleFeed;
-        }
-
-        if (originalData === undefined) {
-            delete globalThis.AA_EXECUTABLE_LISTS_DATA;
-        } else {
-            globalThis.AA_EXECUTABLE_LISTS_DATA = originalData;
-        }
-
-        if (originalSessionStorage === undefined) {
-            delete globalThis.sessionStorage;
-        } else {
-            globalThis.sessionStorage = originalSessionStorage;
-        }
-
-        if (originalRenderer === undefined) {
-            delete globalThis.AAExecutableListRenderer;
-        } else {
-            globalThis.AAExecutableListRenderer = originalRenderer;
-        }
-
-        if (originalService === undefined) {
-            delete globalThis.ExecutableListsService;
-        } else {
-            globalThis.ExecutableListsService = originalService;
-        }
-
-        if (originalCoordinator === undefined) {
-            delete globalThis.ExecutableActionsCoordinator;
-        } else {
-            globalThis.ExecutableActionsCoordinator = originalCoordinator;
-        }
-
-        if (originalDocument === undefined) {
-            delete globalThis.document;
-        } else {
-            globalThis.document = originalDocument;
-        }
-    });
-
-    it('isVisibleUserFeedEnabled es false sin flag', () => {
-        delete globalThis.AA_EXECUTABLE_VISIBLE_FEED;
-        delete globalThis.AA_EXECUTABLE_LISTS_DATA;
-        delete globalThis.sessionStorage;
-
-        assert.equal(hooks.isVisibleUserFeedEnabled(), false);
-    });
-
-    it('isVisibleUserFeedEnabled respeta window.AA_EXECUTABLE_VISIBLE_FEED=user', () => {
-        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'user';
-
-        assert.equal(hooks.isVisibleUserFeedEnabled(), true);
-    });
-
-    it('isVisibleUserFeedEnabled respeta AA_EXECUTABLE_LISTS_DATA.visibleFeed', () => {
-        globalThis.AA_EXECUTABLE_LISTS_DATA = {
-            visibleFeed: 'user'
-        };
-
-        assert.equal(hooks.isVisibleUserFeedEnabled(), true);
-    });
-
-    it('isVisibleUserFeedEnabled respeta sessionStorage AA_EXECUTABLE_VISIBLE_FEED=user', () => {
-        globalThis.sessionStorage = {
-            getItem: function (key) {
-                return key === 'AA_EXECUTABLE_VISIBLE_FEED' ? 'user' : null;
-            }
-        };
-
-        assert.equal(hooks.isVisibleUserFeedEnabled(), true);
-        assert.equal(hooks.isSessionStorageVisibleFeedUserEnabled(), true);
-    });
-
-    it('filterUserLists deja solo source=user', () => {
-        var lists = [
-            { source: 'user', id: '1' },
-            { source: 'system', id: 'system:learning.recommendations' },
-            { source: 'user', id: '2' }
-        ];
-
-        var filtered = hooks.filterUserLists(lists);
-
-        assert.equal(filtered.length, 2);
-        assert.equal(filtered[0].id, '1');
-        assert.equal(filtered[1].id, '2');
-    });
-
-    it('renderVisibleUserPayload no incluye system:learning.recommendations', () => {
-        var renderedLists = null;
-
-        globalThis.AAExecutableListRenderer = {
-            renderFeed: function (lists) {
-                renderedLists = lists;
-                return '<div>feed</div>';
-            }
-        };
-
-        globalThis.document = {
-            getElementById: function (id) {
-                if (id === 'aa-executable-user-lists-root') {
-                    return { innerHTML: '' };
-                }
-
-                return null;
-            }
-        };
-
-        hooks.renderVisibleUserPayload({
-            lists: [
-                { source: 'user', id: '10', buckets: [] },
-                { source: 'system', id: 'system:learning.recommendations', buckets: [] }
-            ]
-        });
-
-        assert.ok(renderedLists);
-        assert.equal(renderedLists.length, 1);
-        assert.equal(renderedLists[0].id, '10');
-    });
-
-    it('loadVisibleUserFeed llama getFeed y re-renderiza user lists', async () => {
-        var getFeedCalls = 0;
-        var root = { innerHTML: '' };
-
-        globalThis.ExecutableListsService = {
-            getFeed: function () {
-                getFeedCalls += 1;
-                return Promise.resolve({
-                    lists: [
-                        { source: 'user', id: '7', buckets: [] },
-                        { source: 'system', id: 'system:learning.recommendations', buckets: [] }
-                    ]
-                });
-            }
-        };
-
-        globalThis.AAExecutableListRenderer = {
-            renderFeed: function (lists) {
-                assert.equal(lists.length, 1);
-                assert.equal(lists[0].id, '7');
-                return '<div>user-feed</div>';
-            }
-        };
-
-        globalThis.document = {
-            getElementById: function (id) {
-                if (id === 'aa-executable-user-lists-root') {
-                    return root;
-                }
-
-                return null;
-            }
-        };
-
-        await hooks.loadVisibleUserFeed();
-
-        assert.equal(getFeedCalls, 1);
-        assert.match(root.innerHTML, /user-feed/);
-    });
-
-    it('AAExecutableUserListsVisibleFeed.reload expone loadVisibleUserFeed', async () => {
-        var getFeedCalls = 0;
-        var root = { innerHTML: '' };
-
-        globalThis.ExecutableListsService = {
-            getFeed: function () {
-                getFeedCalls += 1;
-                return Promise.resolve({ lists: [] });
-            }
-        };
-
-        globalThis.AAExecutableListRenderer = {
-            renderFeed: function () {
-                return '<p>empty</p>';
-            }
-        };
-
-        globalThis.document = {
-            getElementById: function (id) {
-                if (id === 'aa-executable-user-lists-root') {
-                    return root;
-                }
-
-                return null;
-            }
-        };
-
-        await hooks.visibleUserFeedApi.reload();
-
-        assert.equal(getFeedCalls, 1);
-    });
-
-    it('initVisibleUserCoordinator inicializa coordinator con acciones activas', () => {
-        var initCalls = [];
-
-        globalThis.ExecutableActionsCoordinator = {
-            init: function (opts) {
-                initCalls.push(opts);
-            }
-        };
-
-        var root = { id: 'aa-executable-user-lists-root' };
-
-        hooks.initVisibleUserCoordinator(root);
-        hooks.initVisibleUserCoordinator(root);
-
-        assert.equal(initCalls.length, 1);
-        assert.equal(initCalls[0].root, root);
-        assert.equal(typeof initCalls[0].reload, 'function');
-        assert.equal(initCalls[0].findLearningItem(), null);
-    });
-
-    it('flag off mantiene root visible user oculto en init', () => {
-        const fs = require('node:fs');
-        const moduleSrc = fs.readFileSync(modulePath, 'utf8');
-
-        assert.match(moduleSrc, /if \(!isVisibleUserFeedEnabled\(\)\) \{\s*setVisibleUserSectionVisible\(false\);\s*setLegacyBoardVisible\(true\);\s*return;/);
-    });
-
-    it('visible user feed no depende de AA_EXECUTABLE_LISTS_ACTIONS_DEBUG', () => {
-        const fs = require('node:fs');
-        const moduleSrc = fs.readFileSync(modulePath, 'utf8');
-        var visibleInitBlock = moduleSrc.match(/function initVisibleUserFeedModule\(\)[\s\S]{0,700}/);
-
-        assert.ok(visibleInitBlock, 'initVisibleUserFeedModule definido');
-        assert.match(visibleInitBlock[0], /enableInteractiveRoot\(root\)/);
-        assert.match(visibleInitBlock[0], /initVisibleUserCoordinator\(root\)/);
-        assert.doesNotMatch(visibleInitBlock[0], /isActionsEnabled/);
-    });
-
-    it('experimental debug sigue gated por AA_EXECUTABLE_LISTS_DEBUG', () => {
-        const fs = require('node:fs');
-        const moduleSrc = fs.readFileSync(modulePath, 'utf8');
-
-        assert.match(moduleSrc, /function initExperimentalModule\(\)/);
-        assert.match(moduleSrc, /if \(!isDebugEnabled\(\)\)/);
-    });
-});
-
-describe('executable-lists-module MC13B user-swap', () => {
-    let originalVisibleFeed;
-    let originalBoard;
-    let originalDocument;
-
-    beforeEach(() => {
-        originalVisibleFeed = globalThis.AA_EXECUTABLE_VISIBLE_FEED;
-        originalBoard = globalThis.AATasksBoard;
-        originalDocument = globalThis.document;
-    });
-
-    afterEach(() => {
-        if (originalVisibleFeed === undefined) {
-            delete globalThis.AA_EXECUTABLE_VISIBLE_FEED;
-        } else {
-            globalThis.AA_EXECUTABLE_VISIBLE_FEED = originalVisibleFeed;
-        }
-
-        if (originalBoard === undefined) {
-            delete globalThis.AATasksBoard;
-        } else {
-            globalThis.AATasksBoard = originalBoard;
-        }
-
-        if (originalDocument === undefined) {
-            delete globalThis.document;
-        } else {
-            globalThis.document = originalDocument;
-        }
-    });
-
-    it('isUserSwapEnabled es true con user-swap', () => {
-        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'user-swap';
-
-        assert.equal(hooks.isUserSwapEnabled(), true);
-        assert.equal(hooks.isVisibleUserFeedEnabled(), true);
-        assert.equal(hooks.readVisibleFeedFlag(), 'user-swap');
-    });
-
-    it('user conserva semántica parallel sin swap', () => {
-        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'user';
-
-        assert.equal(hooks.isVisibleUserFeedEnabled(), true);
-        assert.equal(hooks.isUserSwapEnabled(), false);
-    });
-
-    it('getVisibleUserEmptyMessage en swap incluye CTA FAB', () => {
-        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'user-swap';
-
-        assert.match(hooks.getVisibleUserEmptyMessage(), /botón flotante/i);
-    });
-
-    it('applyUserSwapLayout oculta legacy board en user-swap', () => {
-        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'user-swap';
-
-        var legacyBoard = {
-            classList: {
-                classes: [],
-                add: function (name) {
-                    if (!this.classes.includes(name)) {
-                        this.classes.push(name);
-                    }
-                },
-                remove: function (name) {
-                    this.classes = this.classes.filter(function (item) {
-                        return item !== name;
-                    });
-                }
-            }
-        };
-
-        globalThis.document = {
-            getElementById: function (id) {
-                if (id === 'aa-tasks-board-root') {
-                    return legacyBoard;
-                }
-
-                return null;
-            }
-        };
-
-        hooks.applyUserSwapLayout();
-
-        assert.equal(legacyBoard.classList.classes.includes('hidden'), true);
-    });
-
-    it('applyUserSwapLayout mantiene legacy visible en modo user', () => {
-        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'user';
-
-        var legacyBoard = {
-            classList: {
-                classes: ['hidden'],
-                add: function (name) {
-                    if (!this.classes.includes(name)) {
-                        this.classes.push(name);
-                    }
-                },
-                remove: function (name) {
-                    this.classes = this.classes.filter(function (item) {
-                        return item !== name;
-                    });
-                }
-            }
-        };
-
-        globalThis.document = {
-            getElementById: function (id) {
-                if (id === 'aa-tasks-board-root') {
-                    return legacyBoard;
-                }
-
-                return null;
-            }
-        };
-
-        hooks.applyUserSwapLayout();
-
-        assert.equal(legacyBoard.classList.classes.includes('hidden'), false);
-    });
-
-    it('reloadVisibleUserFeedWithBoardSync recarga board en swap', async () => {
-        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'user-swap';
-
-        var boardReloadCalls = 0;
-        var getFeedCalls = 0;
-        var root = { innerHTML: '' };
-
-        globalThis.AATasksBoard = {
-            reload: function (options) {
-                boardReloadCalls += 1;
-                assert.equal(options.silent, true);
-                return Promise.resolve();
-            }
-        };
-
-        globalThis.ExecutableListsService = {
-            getFeed: function () {
-                getFeedCalls += 1;
-                return Promise.resolve({ lists: [] });
-            }
-        };
-
-        globalThis.AAExecutableListRenderer = {
-            renderFeed: function () {
-                return '<p>empty</p>';
-            }
-        };
-
-        globalThis.document = {
-            getElementById: function (id) {
-                if (id === 'aa-executable-user-lists-root') {
-                    return root;
-                }
-
-                return null;
-            }
-        };
-
-        await hooks.reloadVisibleUserFeedWithBoardSync();
-
-        assert.equal(getFeedCalls, 1);
-        assert.equal(boardReloadCalls, 1);
-    });
-
-    it('initVisibleUserCoordinator usa reload compuesto en swap', () => {
-        const fs = require('node:fs');
-        const moduleSrc = fs.readFileSync(modulePath, 'utf8');
-
-        assert.match(moduleSrc, /reloadVisibleUserFeedWithBoardSync/);
-        assert.match(moduleSrc, /reload: reloadVisibleUserFeedWithBoardSync/);
-    });
-});
-
-describe('executable-lists-module MC13C user-swap hardening', () => {
-    let originalVisibleFeed;
-    let originalRenderer;
-    let originalService;
-    let originalDocument;
-
-    beforeEach(() => {
-        originalVisibleFeed = globalThis.AA_EXECUTABLE_VISIBLE_FEED;
-        originalRenderer = globalThis.AAExecutableListRenderer;
-        originalService = globalThis.ExecutableListsService;
-        originalDocument = globalThis.document;
-    });
-
-    afterEach(() => {
-        if (originalVisibleFeed === undefined) {
-            delete globalThis.AA_EXECUTABLE_VISIBLE_FEED;
-        } else {
-            globalThis.AA_EXECUTABLE_VISIBLE_FEED = originalVisibleFeed;
-        }
-
-        if (originalRenderer === undefined) {
-            delete globalThis.AAExecutableListRenderer;
-        } else {
-            globalThis.AAExecutableListRenderer = originalRenderer;
-        }
-
-        if (originalService === undefined) {
-            delete globalThis.ExecutableListsService;
-        } else {
-            globalThis.ExecutableListsService = originalService;
-        }
-
-        if (originalDocument === undefined) {
-            delete globalThis.document;
-        } else {
-            globalThis.document = originalDocument;
-        }
-    });
-
-    it('loadVisibleUserFeed muestra loading durante fetch', async () => {
-        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'user-swap';
-
-        var resolveFeed;
-        var loadingVisible = false;
-        var root = { innerHTML: 'prev' };
-        var loadingEl = {
-            textContent: '',
-            classList: {
-                classes: ['hidden'],
-                add: function (name) {
-                    if (name === 'hidden') {
-                        loadingVisible = false;
-                    }
-
-                    if (!this.classes.includes(name)) {
-                        this.classes.push(name);
-                    }
-                },
-                remove: function (name) {
-                    if (name === 'hidden') {
-                        loadingVisible = true;
-                    }
-
-                    this.classes = this.classes.filter(function (item) {
-                        return item !== name;
-                    });
-                }
-            }
-        };
-        var errorEl = {
-            textContent: '',
-            classList: {
-                classes: ['hidden'],
-                add: function (name) {
-                    if (!this.classes.includes(name)) {
-                        this.classes.push(name);
-                    }
-                },
-                remove: function () {}
-            }
-        };
-
-        globalThis.ExecutableListsService = {
-            getFeed: function () {
-                return new Promise(function (resolve) {
-                    resolveFeed = resolve;
-                });
-            }
-        };
-
-        globalThis.AAExecutableListRenderer = {
-            renderFeed: function () {
-                return '<div>feed</div>';
-            }
-        };
-
-        globalThis.document = {
-            getElementById: function (id) {
-                if (id === 'aa-executable-user-lists-root') {
-                    return root;
-                }
-
-                if (id === 'aa-executable-user-lists-loading') {
-                    return loadingEl;
-                }
-
-                if (id === 'aa-executable-user-lists-error') {
-                    return errorEl;
-                }
-
-                return null;
-            }
-        };
-
-        var pending = hooks.loadVisibleUserFeed();
-
-        assert.equal(loadingVisible, true);
-        assert.equal(root.innerHTML, '');
-
-        resolveFeed({ lists: [{ source: 'user', id: '1', buckets: [] }] });
-        await pending;
-
-        assert.equal(loadingVisible, false);
-        assert.match(root.innerHTML, /feed/);
-    });
-
-    it('error de carga usa #aa-executable-user-lists-error', async () => {
-        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'user-swap';
-
-        var errorMessage = '';
-        var errorVisible = false;
-        var root = { innerHTML: 'content' };
-        var loadingEl = {
-            textContent: '',
-            classList: {
-                classes: [],
-                add: function (name) {
-                    if (!this.classes.includes(name)) {
-                        this.classes.push(name);
-                    }
-                },
-                remove: function () {}
-            }
-        };
-        var errorEl = {
-            textContent: '',
-            classList: {
-                classes: ['hidden'],
-                add: function (name) {
-                    if (name === 'hidden') {
-                        errorVisible = false;
-                    }
-                },
-                remove: function (name) {
-                    if (name === 'hidden') {
-                        errorVisible = true;
-                    }
-                }
-            }
-        };
-
-        globalThis.ExecutableListsService = {
-            getFeed: function () {
-                return Promise.reject(new Error('feed caído'));
-            }
-        };
-
-        globalThis.document = {
-            getElementById: function (id) {
-                if (id === 'aa-executable-user-lists-root') {
-                    return root;
-                }
-
-                if (id === 'aa-executable-user-lists-loading') {
-                    return loadingEl;
-                }
-
-                if (id === 'aa-executable-user-lists-error') {
-                    return errorEl;
-                }
-
-                return null;
-            }
-        };
-
-        await hooks.loadVisibleUserFeed();
-
-        assert.equal(errorVisible, true);
-        assert.match(errorEl.textContent, /feed caído/);
-        assert.equal(root.innerHTML, '');
-    });
-
-    it('reload exitoso limpia error previo', async () => {
-        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'user-swap';
-
-        var errorEl = {
-            textContent: 'error previo',
-            classList: {
-                classes: [],
-                add: function (name) {
-                    if (!this.classes.includes(name)) {
-                        this.classes.push(name);
-                    }
-                },
-                remove: function (name) {
-                    this.classes = this.classes.filter(function (item) {
-                        return item !== name;
-                    });
-                }
-            }
-        };
-        var loadingEl = {
-            textContent: '',
-            classList: {
-                classes: [],
-                add: function () {},
-                remove: function () {}
-            }
-        };
-        var root = { innerHTML: '' };
-
-        globalThis.ExecutableListsService = {
-            getFeed: function () {
-                return Promise.resolve({ lists: [] });
-            }
-        };
-
-        globalThis.AAExecutableListRenderer = {
-            renderFeed: function () {
-                return '';
-            }
-        };
-
-        globalThis.document = {
-            getElementById: function (id) {
-                if (id === 'aa-executable-user-lists-root') {
-                    return root;
-                }
-
-                if (id === 'aa-executable-user-lists-loading') {
-                    return loadingEl;
-                }
-
-                if (id === 'aa-executable-user-lists-error') {
-                    return errorEl;
-                }
-
-                return null;
-            }
-        };
-
-        await hooks.loadVisibleUserFeed();
-
-        assert.equal(errorEl.textContent, '');
-        assert.equal(errorEl.classList.classes.includes('hidden'), true);
-    });
-
-    it('index.php incluye contenedor de loading del feed user', () => {
-        const fs = require('node:fs');
-        const indexPath = path.join(__dirname, '../../includes/admin/ui/modules/learning/index.php');
-        const indexSrc = fs.readFileSync(indexPath, 'utf8');
-
-        assert.match(indexSrc, /id="aa-executable-user-lists-loading"/);
-        assert.match(indexSrc, /Cargando listas/);
-    });
-
-    it('showVisibleUserLoadError delega al canal de error dedicado', () => {
-        const fs = require('node:fs');
-        const moduleSrc = fs.readFileSync(modulePath, 'utf8');
-        var loadErrorBlock = moduleSrc.match(/function showVisibleUserLoadError[\s\S]{0,350}/);
-
-        assert.ok(loadErrorBlock, 'showVisibleUserLoadError definido');
-        assert.match(loadErrorBlock[0], /showVisibleUserError/);
-        assert.doesNotMatch(loadErrorBlock[0], /innerHTML = '<p class="text-sm text-red-600"/);
-    });
-});
-
-describe('executable-lists-module wiring', () => {
-    it('index.php carga renderer, coordinator y módulo experimental', () => {
-        const fs = require('node:fs');
-        const indexPath = path.join(__dirname, '../../includes/admin/ui/modules/learning/index.php');
-        const indexSrc = fs.readFileSync(indexPath, 'utf8');
-
-        assert.match(indexSrc, /executableListRenderer\.js/);
-        assert.match(indexSrc, /executable-actions-coordinator\.js/);
-        assert.match(indexSrc, /executable-lists-module\.js/);
-        assert.match(indexSrc, /id="aa-executable-lists-experimental"/);
-        assert.match(indexSrc, /id="aa-executable-lists-root"/);
-        assert.match(indexSrc, /id="aa-executable-lists-error"/);
-        assert.match(indexSrc, /id="aa-executable-user-lists-visible"/);
-        assert.match(indexSrc, /id="aa-executable-user-lists-root"/);
-        assert.match(indexSrc, /id="aa-executable-user-lists-error"/);
-        assert.match(indexSrc, /id="aa-executable-lists-active"/);
-        assert.match(indexSrc, /id="aa-executable-lists-active-root"/);
-    });
-
-    it('modo unified cablea coordinator dedicado', () => {
-        const fs = require('node:fs');
-        const moduleSrc = fs.readFileSync(modulePath, 'utf8');
-
-        assert.match(moduleSrc, /function initUnifiedFeedModule\(\)/);
-        assert.match(moduleSrc, /initUnifiedCoordinator\(root\)/);
-        assert.match(moduleSrc, /isUnifiedFeedEnabled\(\)/);
-    });
-
-    it('modo preview aplica interaction guard cuando acciones no están activas', () => {
-        const fs = require('node:fs');
-        const moduleSrc = fs.readFileSync(modulePath, 'utf8');
-
-        assert.match(moduleSrc, /if \(isActionsEnabled\(\)\)/);
-        assert.match(moduleSrc, /bindInteractionGuard\(root\)/);
-        assert.match(moduleSrc, /enableInteractiveRoot\(root\)/);
-        assert.match(moduleSrc, /initExperimentalCoordinator\(root\)/);
-        assert.match(moduleSrc, /initVisibleUserCoordinator\(root\)/);
-    });
-
-    it('modo preview bloquea interacción con inert y capture listener', () => {
-        const fs = require('node:fs');
-        const moduleSrc = fs.readFileSync(modulePath, 'utf8');
-
-        assert.match(moduleSrc, /setAttribute\('inert'/);
-        assert.match(moduleSrc, /pointer-events-none/);
-        assert.match(moduleSrc, /stopPropagation\(\)/);
-        assert.match(moduleSrc, /service\.getFeed\(\)/);
-        assert.match(moduleSrc, /renderFeed\(lists, buildRenderOptions\(\)\)/);
-        assert.match(moduleSrc, /AA_EXECUTABLE_LISTS_DEBUG/);
-        assert.match(moduleSrc, /AA_EXECUTABLE_LISTS_ACTIONS_DEBUG/);
-        assert.match(moduleSrc, /AA_EXECUTABLE_VISIBLE_FEED/);
-    });
-});
 
 describe('executable-lists-module MC13H unified feed', () => {
     let originalVisibleFeed;
@@ -1133,7 +369,7 @@ describe('executable-lists-module MC13H unified feed', () => {
 
         assert.equal(hooks.isUnifiedFeedEnabled(), true);
         assert.equal(hooks.isExecutableVisibleFeedEnabled(), true);
-        assert.equal(hooks.isVisibleUserFeedEnabled(), false);
+        assert.equal(hooks.isUserSwapEnabled(), false);
         assert.equal(hooks.readVisibleFeedFlag(), 'unified');
     });
 
@@ -1223,9 +459,7 @@ describe('executable-lists-module MC13H unified feed', () => {
         assert.match(root.innerHTML, /system,user/);
     });
 
-    it('applyUnifiedLayout oculta legacy learning, user visible y board', () => {
-        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'unified';
-
+    it('applyUnifiedLayout oculta board y muestra active root', () => {
         function makeEl() {
             return {
                 classList: {
@@ -1244,22 +478,12 @@ describe('executable-lists-module MC13H unified feed', () => {
             };
         }
 
-        var learning = makeEl();
-        var userVisible = makeEl();
         var board = makeEl();
         var unified = makeEl();
         unified.classList.classes = ['hidden'];
 
         globalThis.document = {
             getElementById: function (id) {
-                if (id === 'aa-learning-recommendations') {
-                    return learning;
-                }
-
-                if (id === 'aa-executable-user-lists-visible') {
-                    return userVisible;
-                }
-
                 if (id === 'aa-tasks-board-root') {
                     return board;
                 }
@@ -1274,8 +498,6 @@ describe('executable-lists-module MC13H unified feed', () => {
 
         hooks.applyUnifiedLayout();
 
-        assert.equal(learning.classList.classes.includes('hidden'), true);
-        assert.equal(userVisible.classList.classes.includes('hidden'), true);
         assert.equal(board.classList.classes.includes('hidden'), true);
         assert.equal(unified.classList.classes.includes('hidden'), false);
     });
@@ -1309,9 +531,7 @@ describe('executable-lists-module MC13H unified feed', () => {
         assert.match(unifiedCoordinatorBlock[0], /reloadUnifiedFeedWithBoardSync/);
     });
 
-    it('reloadExecutableVisibleFeed usa unified cuando flag unified está activo', async () => {
-        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'unified';
-
+    it('reloadExecutableVisibleFeed siempre usa flujo unified', async () => {
         var unifiedReloadCalls = 0;
 
         globalThis.ExecutableListsService = {
@@ -1366,12 +586,11 @@ describe('executable-lists-module MC13H unified feed', () => {
         assert.equal(unifiedReloadCalls, 1);
     });
 
-    it('user-swap sigue intacto con flag user-swap', () => {
-        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'user-swap';
-
-        assert.equal(hooks.isUserSwapEnabled(), true);
-        assert.equal(hooks.isUnifiedFeedEnabled(), false);
-        assert.equal(hooks.isVisibleUserFeedEnabled(), true);
+    it('visibleUserFeedApi expone reload e isEnabled', () => {
+        assert.equal(typeof hooks.visibleUserFeedApi.reload, 'function');
+        assert.equal(typeof hooks.visibleUserFeedApi.isEnabled, 'function');
+        assert.equal(typeof hooks.visibleUserFeedApi.isUnifiedEnabled, 'function');
+        assert.equal(hooks.visibleUserFeedApi.isSwapEnabled(), false);
     });
 
     it('debug experimental sigue gated por isDebugEnabled', () => {
@@ -1455,10 +674,9 @@ describe('executable-lists-module MC13J unified default', () => {
         assert.equal(hooks.resolveEffectiveFeedMode(), 'unified');
         assert.equal(hooks.isUnifiedFeedEnabled(), true);
         assert.equal(hooks.isExecutableVisibleFeedEnabled(), true);
-        assert.equal(hooks.isVisibleUserFeedEnabled(), false);
     });
 
-    it('sin flag → applyUnifiedLayout oculta legacy y muestra active root', () => {
+    it('sin flag → applyUnifiedLayout oculta board y muestra active root', () => {
         clearAllFeedFlags();
 
         function makeEl() {
@@ -1479,22 +697,12 @@ describe('executable-lists-module MC13J unified default', () => {
             };
         }
 
-        var learning = makeEl();
-        var userVisible = makeEl();
         var board = makeEl();
         var unified = makeEl();
         unified.classList.classes = ['hidden'];
 
         globalThis.document = {
             getElementById: function (id) {
-                if (id === 'aa-learning-recommendations') {
-                    return learning;
-                }
-
-                if (id === 'aa-executable-user-lists-visible') {
-                    return userVisible;
-                }
-
                 if (id === 'aa-tasks-board-root') {
                     return board;
                 }
@@ -1510,29 +718,28 @@ describe('executable-lists-module MC13J unified default', () => {
         assert.equal(hooks.isUnifiedFeedEnabled(), true);
         hooks.applyUnifiedLayout();
 
-        assert.equal(learning.classList.classes.includes('hidden'), true);
-        assert.equal(userVisible.classList.classes.includes('hidden'), true);
         assert.equal(board.classList.classes.includes('hidden'), true);
         assert.equal(unified.classList.classes.includes('hidden'), false);
     });
 
-    it('legacy → vista legacy activa sin unified', () => {
+    it('legacy mapea a unified (MC13J-2B)', () => {
         globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'legacy';
 
-        assert.equal(hooks.resolveEffectiveFeedMode(), 'legacy');
-        assert.equal(hooks.isLegacyListsViewEnabled(), true);
-        assert.equal(hooks.isUnifiedFeedEnabled(), false);
-        assert.equal(hooks.isExecutableVisibleFeedEnabled(), false);
+        assert.equal(hooks.normalizeVisibleFeedFlag('legacy'), 'unified');
+        assert.equal(hooks.resolveEffectiveFeedMode(), 'unified');
+        assert.equal(hooks.isLegacyListsViewEnabled(), false);
+        assert.equal(hooks.isUnifiedFeedEnabled(), true);
+        assert.equal(hooks.isExecutableVisibleFeedEnabled(), true);
     });
 
-    it('off normaliza a legacy y activa vista legacy', () => {
+    it('off mapea a unified (MC13J-2B)', () => {
         globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'off';
 
-        assert.equal(hooks.normalizeVisibleFeedFlag('off'), 'legacy');
-        assert.equal(hooks.readVisibleFeedFlag(), 'legacy');
-        assert.equal(hooks.resolveEffectiveFeedMode(), 'legacy');
-        assert.equal(hooks.isUnifiedFeedEnabled(), false);
-        assert.equal(hooks.isLegacyListsViewEnabled(), true);
+        assert.equal(hooks.normalizeVisibleFeedFlag('off'), 'unified');
+        assert.equal(hooks.readVisibleFeedFlag(), 'unified');
+        assert.equal(hooks.resolveEffectiveFeedMode(), 'unified');
+        assert.equal(hooks.isUnifiedFeedEnabled(), true);
+        assert.equal(hooks.isLegacyListsViewEnabled(), false);
     });
 
     it('unified explícito sigue activo', () => {
@@ -1542,22 +749,23 @@ describe('executable-lists-module MC13J unified default', () => {
         assert.equal(hooks.isUnifiedFeedEnabled(), true);
     });
 
-    it('user histórico sigue intacto', () => {
+    it('user mapea a unified (MC13J-2C)', () => {
         globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'user';
 
-        assert.equal(hooks.resolveEffectiveFeedMode(), 'user');
-        assert.equal(hooks.isVisibleUserFeedEnabled(), true);
-        assert.equal(hooks.isUnifiedFeedEnabled(), false);
+        assert.equal(hooks.normalizeVisibleFeedFlag('user'), 'unified');
+        assert.equal(hooks.resolveEffectiveFeedMode(), 'unified');
+        assert.equal(hooks.isUnifiedFeedEnabled(), true);
+        assert.equal(hooks.isUserSwapEnabled(), false);
         assert.equal(hooks.isExecutableVisibleFeedEnabled(), true);
     });
 
-    it('user-swap histórico sigue intacto', () => {
+    it('user-swap mapea a unified (MC13J-2C)', () => {
         globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'user-swap';
 
-        assert.equal(hooks.resolveEffectiveFeedMode(), 'user-swap');
-        assert.equal(hooks.isUserSwapEnabled(), true);
-        assert.equal(hooks.isUnifiedFeedEnabled(), false);
-        assert.equal(hooks.isVisibleUserFeedEnabled(), true);
+        assert.equal(hooks.normalizeVisibleFeedFlag('user-swap'), 'unified');
+        assert.equal(hooks.resolveEffectiveFeedMode(), 'unified');
+        assert.equal(hooks.isUnifiedFeedEnabled(), true);
+        assert.equal(hooks.isUserSwapEnabled(), false);
     });
 
     it('reload() por default usa flujo unified', async () => {
@@ -1615,17 +823,17 @@ describe('executable-lists-module MC13J unified default', () => {
         assert.equal(unifiedReloadCalls, 1);
     });
 
-    it('window legacy tiene prioridad sobre cfg unified', () => {
+    it('window legacy mapea a unified aunque cfg diga unified (MC13J-2B)', () => {
         globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'legacy';
         globalThis.AA_EXECUTABLE_LISTS_DATA = {
             visibleFeed: 'unified'
         };
 
-        assert.equal(hooks.resolveEffectiveFeedMode(), 'legacy');
-        assert.equal(hooks.isUnifiedFeedEnabled(), false);
+        assert.equal(hooks.resolveEffectiveFeedMode(), 'unified');
+        assert.equal(hooks.isUnifiedFeedEnabled(), true);
     });
 
-    it('sessionStorage legacy gana solo sin window ni cfg', () => {
+    it('sessionStorage legacy mapea a unified sin window ni cfg (MC13J-2B)', () => {
         globalThis.sessionStorage = {
             getItem: function (key) {
                 if (key === 'AA_EXECUTABLE_VISIBLE_FEED') {
@@ -1636,8 +844,8 @@ describe('executable-lists-module MC13J unified default', () => {
             }
         };
 
-        assert.equal(hooks.resolveEffectiveFeedMode(), 'legacy');
-        assert.equal(hooks.isUnifiedFeedEnabled(), false);
+        assert.equal(hooks.resolveEffectiveFeedMode(), 'unified');
+        assert.equal(hooks.isUnifiedFeedEnabled(), true);
     });
 
     it('index.php ancla visibleFeed unified en AA_EXECUTABLE_LISTS_DATA', () => {
@@ -1648,11 +856,54 @@ describe('executable-lists-module MC13J unified default', () => {
         assert.match(indexSrc, /visibleFeed:\s*'unified'/);
     });
 
-    it('initExecutableListsModule usa isUnifiedFeedEnabled para modo default', () => {
+    it('index.php no incluye DOM Learning legacy (MC13J-2B)', () => {
+        const fs = require('node:fs');
+        const indexPath = path.join(__dirname, '../../includes/admin/ui/modules/learning/index.php');
+        const indexSrc = fs.readFileSync(indexPath, 'utf8');
+
+        assert.doesNotMatch(indexSrc, /id="aa-learning-recommendations"/);
+        assert.doesNotMatch(indexSrc, /learning-module\.js/);
+        assert.doesNotMatch(indexSrc, /learningRecommendationRenderer\.js/);
+        assert.match(indexSrc, /learningService\.js/);
+        assert.match(indexSrc, /learning-action-handlers\.js/);
+    });
+
+    it('initExecutableListsModule inicia unified y experimental', () => {
         const fs = require('node:fs');
         const moduleSrc = fs.readFileSync(modulePath, 'utf8');
 
         assert.match(moduleSrc, /function resolveEffectiveFeedMode\(\)/);
-        assert.match(moduleSrc, /if \(isUnifiedFeedEnabled\(\)\)/);
+        assert.match(moduleSrc, /initUnifiedFeedModule\(\)/);
+        assert.match(moduleSrc, /initExperimentalModule\(\)/);
+        assert.doesNotMatch(moduleSrc, /initVisibleUserFeedModule/);
+        assert.doesNotMatch(moduleSrc, /aa-executable-user-lists-visible/);
+    });
+});
+
+describe('executable-lists-module MC13J-2C user modes retired', () => {
+    it('index.php no contiene DOM user-only', () => {
+        const fs = require('node:fs');
+        const indexPath = path.join(__dirname, '../../includes/admin/ui/modules/learning/index.php');
+        const indexSrc = fs.readFileSync(indexPath, 'utf8');
+
+        assert.doesNotMatch(indexSrc, /id="aa-executable-user-lists-visible"/);
+        assert.doesNotMatch(indexSrc, /id="aa-executable-user-lists-root"/);
+        assert.doesNotMatch(indexSrc, /id="aa-executable-user-lists-error"/);
+        assert.match(indexSrc, /id="aa-executable-lists-active-root"/);
+    });
+
+    it('reloadExecutableVisibleFeed delega a reloadUnifiedFeedWithBoardSync', () => {
+        const fs = require('node:fs');
+        const moduleSrc = fs.readFileSync(modulePath, 'utf8');
+
+        assert.match(moduleSrc, /function reloadExecutableVisibleFeed\(\)/);
+        assert.match(moduleSrc, /return reloadUnifiedFeedWithBoardSync\(\)/);
+    });
+
+    it('API pública no expone filterUserLists ni renderVisibleUserPayload', () => {
+        assert.equal(typeof hooks.visibleUserFeedApi.filterUserLists, 'undefined');
+        assert.equal(typeof hooks.visibleUserFeedApi.renderVisibleUserPayload, 'undefined');
+        assert.equal(typeof hooks.visibleUserFeedApi.filterListsForUnifiedRender, 'function');
+        assert.equal(typeof hooks.visibleUserFeedApi.renderUnifiedPayload, 'function');
     });
 });

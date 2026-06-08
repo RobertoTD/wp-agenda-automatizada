@@ -263,24 +263,19 @@ $index_php = file_get_contents($plugin_root . '/includes/admin/ui/modules/learni
 ac_assert('index.php exposes AA_LEARNING_DATA', strpos($index_php, 'AA_LEARNING_DATA') !== false);
 ac_assert('index.php loads learningService.js', strpos($index_php, 'learningService.js') !== false);
 ac_assert('index.php loads learning-action-handlers.js', strpos($index_php, 'learning-action-handlers.js') !== false);
-ac_assert('index.php loads learningRecommendationRenderer.js', strpos($index_php, 'learningRecommendationRenderer.js') !== false);
 ac_assert(
-    'index.php loads renderer before learning module',
-    strpos($index_php, 'learningRecommendationRenderer.js') !== false
-    && strpos($index_php, 'learning-module.js') !== false
-    && strpos($index_php, '$learning_renderer_js .') !== false
-    && strpos($index_php, '$learning_js .') !== false
-    && strpos($index_php, '$learning_renderer_js .') < strpos($index_php, '$learning_js .')
+    'index.php Listas does not load learning-module.js (MC13J-2B)',
+    strpos($index_php, 'learning-module.js') === false
 );
 ac_assert(
-    'index.php loads handlers before learning module',
-    strpos($index_php, 'learning-action-handlers.js') !== false
-    && strpos($index_php, 'learning-module.js') !== false
-    && strpos($index_php, '$learning_handlers_js .') !== false
-    && strpos($index_php, '$learning_js .') !== false
-    && strpos($index_php, '$learning_handlers_js .') < strpos($index_php, '$learning_js .')
+    'index.php Listas does not load learningRecommendationRenderer.js (MC13J-2B)',
+    strpos($index_php, 'learningRecommendationRenderer.js') === false
 );
-ac_assert('index.php has primary/secondary containers', strpos($index_php, 'aa-learning-list-primary') !== false);
+ac_assert(
+    'index.php Listas has no legacy learning DOM (MC13J-2B)',
+    strpos($index_php, 'aa-learning-recommendations') === false
+    && strpos($index_php, 'aa-learning-list-primary') === false
+);
 
 // ─── Contrato action sin WordPress (si no hay integración) ───
 

@@ -530,7 +530,7 @@ Fuera de alcance MC12C: `reactivate`, navegación `<a href>`, auto-complete post
 
 El feed legacy visible **no se sustituye**; puede quedar desincronizado hasta reload manual en debug.
 
-El coordinator usa delegación en capture sobre cada root inicializado (`#aa-executable-lists-root` experimental, `#aa-executable-user-lists-root` visible MC13A) con `stopPropagation()` para evitar doble ejecución con `tasks-board-module.js` (mismo `#aa-tasks-module-root` ancestro).
+El coordinator usa delegación en capture sobre cada root inicializado (`#aa-executable-lists-active-root` unified, `#aa-executable-lists-root` experimental DEBUG) con `stopPropagation()` para evitar doble ejecución con `tasks-board-module.js` (mismo `#aa-tasks-module-root` ancestro). *(MC13J-2C retiró `#aa-executable-user-lists-root`.)*
 
 ## MC13A — feed user visible (infra, no swap)
 
@@ -653,10 +653,10 @@ Nuevo valor de flag: **`AA_EXECUTABLE_VISIBLE_FEED=unified`**. Modos anteriores 
 - `#aa-executable-lists-active-loading` / `#aa-executable-lists-active-error`
 - `#aa-executable-lists-active-root` — root único del feed
 
-**Legacy oculto en unified (no eliminado del DOM):**
+**Legacy oculto en unified (MC13J-2B/2C: Learning y user-only DOM eliminados; resto pendiente limpieza):**
 
-- `#aa-learning-recommendations`
-- `#aa-executable-user-lists-visible`
+- ~~`#aa-learning-recommendations`~~ — eliminado MC13J-2B
+- ~~`#aa-executable-user-lists-visible`~~ — eliminado MC13J-2C
 - `#aa-tasks-board-root` (sigue cargando en background para propuesta ejecutiva, FABs, modales, selectors)
 
 **Procedencia:** metadata por lista (`list.source`); badge MVP en renderer:
@@ -709,15 +709,13 @@ Resolución (`resolveEffectiveFeedMode()` en `executable-lists-module.js`):
 
 1. Lee flag desde `window.AA_EXECUTABLE_VISIBLE_FEED` → `AA_EXECUTABLE_LISTS_DATA.visibleFeed` → `sessionStorage` (misma prioridad que MC13A–H).
 2. Si no hay valor válido → **`unified`** (default).
-3. `off` se normaliza a `legacy` (alias de fallback).
+3. Cualquier flag histórico (`legacy`, `off`, `user`, `user-swap`) → **`unified`** (MC13J-2B/2C).
 
 | Modo efectivo | Comportamiento |
 |---------------|----------------|
 | *(default / sin flag)* | Unified — feed executable system + user |
 | `unified` | Igual que default |
-| `legacy` / `off` | Fallback temporal: Learning legacy + board visible |
-| `user` | MC13A histórico / dev |
-| `user-swap` | MC13B histórico / dev |
+| `legacy` / `off` / `user` / `user-swap` | Mapean a `unified` (sin vista alternativa en Listas) |
 
 **Ancla PHP:** `AA_EXECUTABLE_LISTS_DATA.visibleFeed = 'unified'` en `index.php` (override posible vía `window` o `sessionStorage`).
 
@@ -727,16 +725,11 @@ Resolución (`resolveEffectiveFeedMode()` en `executable-lists-module.js`):
 - `isExecutableVisibleFeedEnabled()` — true por default (unified activo)
 - `AAExecutableUserListsVisibleFeed.reload()` — flujo unified por default
 
-**Rollback temporal a legacy:**
+**Rollback temporal a legacy:** retirado en MC13J-2B (`legacy`/`off` resuelven a `unified`). Revert git para recuperar vista anterior.
 
-```js
-sessionStorage.setItem('AA_EXECUTABLE_VISIBLE_FEED', 'legacy');
-location.reload();
-```
+Volver a oficial: `sessionStorage.removeItem('AA_EXECUTABLE_VISIBLE_FEED'); location.reload();` (default ya es unified).
 
-Volver a oficial: `sessionStorage.removeItem('AA_EXECUTABLE_VISIBLE_FEED'); location.reload();`
-
-**Deprecated (dev/comparación, no producción):** modos `user`, `user-swap`; vista legacy como principal; activación manual de unified en sessionStorage.
+**Deprecated (retirados MC13J-2C):** modos `user`, `user-swap` (MC13A/B/C); vista user-only separada; sección “Mis listas” fuera del feed unified.
 
 **No incluido MC13J-1:** eliminación DOM/código legacy; skip AJAX Learning duplicado (→ MC13J-2).
 
@@ -758,11 +751,58 @@ Volver a oficial: `sessionStorage.removeItem('AA_EXECUTABLE_VISIBLE_FEED'); loca
 - `learningService.js` — mutaciones defer/dismiss/complete vía coordinator
 - `learning-action-handlers.js` — PWA install, `onAvailabilityChange` (executable-lists-module re-renderiza unified)
 
-**DOM/scripts legacy:** conservados en `index.php` (MC13J-2B eliminará markup/script cuando 2A esté validado).
+**DOM/scripts legacy:** eliminados en Listas MC13J-2B (ver sección MC13J-2B).
 
 Resolución de modo en `learning-module.js`: misma prioridad MC13J (`window` → `AA_EXECUTABLE_LISTS_DATA.visibleFeed` → `sessionStorage`; `off`→`legacy`; sin flag→unified). Solo `legacy` activa el módulo.
 
 **No incluido MC13J-2A:** eliminar DOM `#aa-learning-recommendations`; quitar `<script>` learning-module; limpiar modos `user`/`user-swap`; skip board render.
+
+## MC13J-2B — eliminación visual Learning legacy en Listas
+
+**Producción:** DOM `#aa-learning-*` retirado de `index.php` Listas. Scripts `learning-module.js` y `learningRecommendationRenderer.js` ya no se cargan en esta pantalla (archivos conservados en repo; dashboard sigue con su bundle).
+
+| Elemento | Estado en Listas |
+|----------|------------------|
+| `#aa-learning-recommendations` y hijos | Eliminado del DOM |
+| `learning-module.js` | Sin enqueue en Listas |
+| `learningRecommendationRenderer.js` | Sin enqueue en Listas |
+| `AA_LEARNING_DATA` | Conservado (mutaciones LearningService) |
+| `learningService.js` | Conservado |
+| `learning-action-handlers.js` | Conservado |
+
+**Flags `legacy` / `off`:** mapean a `unified` en `normalizeVisibleFeedFlag()` (`executable-lists-module.js`). No hay rollback visual vía sessionStorage; revert git si hace falta.
+
+**Recomendaciones visuales:** única fuente en Listas = `aa_get_executable_lists_feed` → feed unified.
+
+**No incluido MC13J-2B:** skip render board (`#aa-tasks-lists-root` → MC13J-2D); shadow feed duplicado (→ MC13J-2E); borrar archivos `learning-module.js` del repo.
+
+## MC13J-2C — retiro modos user/user-swap y DOM user-only
+
+**Producción:** unified es la **única** vista oficial. Flags `user` y `user-swap` mapean a `unified` (igual que `legacy`/`off`).
+
+| Elemento | Estado |
+|----------|--------|
+| `#aa-executable-user-lists-visible` y hijos | Eliminado del DOM Listas |
+| `filterUserLists`, `loadVisibleUserFeed`, `initVisibleUserFeedModule`, etc. | Eliminados de `executable-lists-module.js` |
+| Listas user | Cards en feed unified (`source=user`, badge “Mis listas”) |
+| `AAExecutableUserListsVisibleFeed` | **Nombre conservado** (compatibilidad); `reload()` → unified; `isSwapEnabled()` stub `false` |
+
+**MC13A/B/C:** histórico retirado (no activables en producción).
+
+**Siguen activos:**
+
+- Feed unified + coordinator en `#aa-executable-lists-active-root`
+- `reloadUnifiedFeedWithBoardSync` (mutaciones + sync executive/selector)
+- Restore archivadas vía `AAExecutableUserListsVisibleFeed.reload()`
+- `tasks-board-module.js` en background (executive, FABs, modales) — sin cambio MC13J-2D
+
+**Deuda no bloqueante post-2C:**
+
+- Renombrar `AAExecutableUserListsVisibleFeed` (cosmético)
+- Skip render `#aa-tasks-lists-root` en unified (MC13J-2D)
+- Shadow feed duplicado DEBUG/producción (MC13J-2E)
+
+**No incluido MC13J-2C:** tocar `tasks-board-module.js`; shadow module; backend.
 
 Proyección común (MC11B):
 

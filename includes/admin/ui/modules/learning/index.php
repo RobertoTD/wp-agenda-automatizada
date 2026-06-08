@@ -6,10 +6,8 @@
 defined('ABSPATH') or die('¡Sin acceso directo!');
 
 $learning_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
-$learning_js  = plugin_dir_url(__FILE__) . 'learning-module.js';
 $learning_handlers_js = plugin_dir_url(__FILE__) . 'learning-action-handlers.js';
 $learning_service_js = AA_PLUGIN_URL . 'assets/js/services/learningService.js';
-$learning_renderer_js = AA_PLUGIN_URL . 'assets/js/ui/learningRecommendationRenderer.js';
 $tasks_service_js = AA_PLUGIN_URL . 'assets/js/services/tasksService.js';
 $tasks_renderer_js = AA_PLUGIN_URL . 'assets/js/ui/taskBoardRenderer.js';
 $tasks_board_js = plugin_dir_url(__FILE__) . 'tasks-board-module.js';
@@ -67,48 +65,6 @@ $lists_area_tools_js = plugin_dir_url(__FILE__) . 'lists-area-tools.js';
                 <p id="aa-executable-lists-active-error" class="hidden text-sm text-red-600"></p>
                 <p id="aa-executable-lists-active-loading" class="hidden text-sm text-gray-500">Cargando listas…</p>
                 <div id="aa-executable-lists-active-root" class="space-y-4"></div>
-            </section>
-
-            <article id="aa-learning-recommendations" class="aa-task-list-card aa-system-list-card bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
-                <div class="px-4 py-4 border-b border-gray-100 bg-gradient-to-r from-amber-50 to-white">
-                    <div class="flex items-center gap-3">
-                        <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-amber-100 text-amber-600 shrink-0">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-                            </svg>
-                        </span>
-                        <div class="min-w-0">
-                            <h4 class="text-base font-semibold text-gray-900">Recomendaciones</h4>
-                            <p class="text-sm text-gray-500 mt-0.5">Sugerencias para configurar y usar tu agenda.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="aa-learning-recommendations-root" class="p-4 transition-all duration-200">
-                    <p id="aa-learning-loading" class="text-sm text-gray-500">Cargando recomendaciones…</p>
-                    <p id="aa-learning-error" class="hidden text-sm text-red-600"></p>
-                    <p id="aa-learning-empty" class="hidden text-sm text-gray-500">No hay recomendaciones activas en este momento.</p>
-
-                    <div id="aa-learning-list-primary-wrap" class="hidden space-y-3">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Principales</p>
-                        <ul id="aa-learning-list-primary" class="space-y-3"></ul>
-                    </div>
-
-                    <div id="aa-learning-list-secondary-wrap" class="hidden mt-5 space-y-3">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Otras sugerencias</p>
-                        <ul id="aa-learning-list-secondary" class="space-y-3"></ul>
-                    </div>
-                </div>
-            </article>
-
-            <section id="aa-executable-user-lists-visible" class="hidden mb-4 border border-dashed border-violet-300 rounded-xl overflow-hidden bg-white">
-                <div id="aa-executable-user-lists-visible-header" class="px-4 py-3 border-b border-violet-200 bg-violet-50">
-                    <h4 id="aa-executable-user-lists-visible-title" class="text-sm font-semibold text-violet-900">Listas de usuario (executable visible)</h4>
-                    <p id="aa-executable-user-lists-visible-subtitle" class="text-xs text-violet-800 mt-0.5">Comparación MC13A: feed user filtrado; legacy sigue visible abajo.</p>
-                </div>
-                <p id="aa-executable-user-lists-error" class="hidden text-sm text-red-600 px-4 pt-3"></p>
-                <p id="aa-executable-user-lists-loading" class="hidden text-sm text-gray-500 px-4 pt-3">Cargando listas…</p>
-                <div id="aa-executable-user-lists-root" class="p-4 space-y-4"></div>
             </section>
 
             <div id="aa-tasks-board-root">
@@ -293,8 +249,6 @@ $lists_area_tools_js = plugin_dir_url(__FILE__) . 'lists-area-tools.js';
 
 <script src="<?php echo esc_url($learning_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($learning_handlers_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
-<script src="<?php echo esc_url($learning_renderer_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
-<script src="<?php echo esc_url($learning_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($tasks_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($tasks_renderer_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($tasks_board_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>

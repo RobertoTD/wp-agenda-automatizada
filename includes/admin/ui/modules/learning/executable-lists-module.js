@@ -1,13 +1,11 @@
 /**
- * Executable Lists Module — feed experimental debug + visible user feed MC13A.
+ * Executable Lists Module — feed unified oficial + sandbox experimental DEBUG.
  *
- * Renderiza el feed MC7/MC9 sin sustituir pipelines legacy.
  * MC12: coordinator en sandbox debug (flags DEBUG + ACTIONS_DEBUG).
- * MC13A: feed user visible bajo AA_EXECUTABLE_VISIBLE_FEED=user (comparación, no swap).
- * MC13B: AA_EXECUTABLE_VISIBLE_FEED=user-swap — feed user principal, board legacy oculto.
- * MC13C: hardening UX user-swap — loading, errores unificados, empty intra-lista.
- * MC13H: AA_EXECUTABLE_VISIBLE_FEED=unified — feed executable system + user en un solo root.
- * MC13J: unified es el modo operativo default; legacy/off como fallback explícito.
+ * MC13H: feed executable system + user en un solo root.
+ * MC13J: unified es el modo operativo default; flags históricos mapean a unified.
+ * MC13J-2B: DOM Learning legacy retirado de Listas.
+ * MC13J-2C: modos user/user-swap y DOM user-only retirados; unified única vista.
  */
 (function () {
     'use strict';
@@ -16,11 +14,9 @@
         ? window
         : (typeof globalThis !== 'undefined' ? globalThis : this);
     var lastPayload = null;
-    var lastVisibleUserPayload = null;
     var lastUnifiedPayload = null;
     var isAvailabilityBound = false;
     var isInteractionGuardBound = false;
-    var visibleUserCoordinatorInitialized = false;
     var unifiedCoordinatorInitialized = false;
 
     var SESSION_STORAGE_DEBUG_KEY = 'AA_EXECUTABLE_LISTS_DEBUG';
@@ -41,16 +37,16 @@
     function normalizeVisibleFeedFlag(value) {
         var normalized = asString(value).trim().toLowerCase();
 
-        if (normalized === VISIBLE_FEED_OFF) {
-            return VISIBLE_FEED_LEGACY;
+        if (
+            normalized === VISIBLE_FEED_OFF
+            || normalized === VISIBLE_FEED_LEGACY
+            || normalized === VISIBLE_FEED_USER
+            || normalized === VISIBLE_FEED_USER_SWAP
+        ) {
+            return VISIBLE_FEED_UNIFIED;
         }
 
-        if (
-            normalized === VISIBLE_FEED_USER
-            || normalized === VISIBLE_FEED_USER_SWAP
-            || normalized === VISIBLE_FEED_UNIFIED
-            || normalized === VISIBLE_FEED_LEGACY
-        ) {
+        if (normalized === VISIBLE_FEED_UNIFIED) {
             return normalized;
         }
 
@@ -91,23 +87,6 @@
     }
 
     /**
-     * @returns {boolean}
-     */
-    function isSessionStorageVisibleFeedUserEnabled() {
-        try {
-            var storage = globalRoot.sessionStorage;
-
-            if (!storage || typeof storage.getItem !== 'function') {
-                return false;
-            }
-
-            return normalizeVisibleFeedFlag(storage.getItem(SESSION_STORAGE_VISIBLE_FEED_KEY)) === VISIBLE_FEED_USER;
-        } catch (err) {
-            return false;
-        }
-    }
-
-    /**
      * MC13J: sin flag explícito → unified (producción).
      *
      * @returns {string}
@@ -140,105 +119,24 @@
      * @returns {boolean}
      */
     function isExecutableVisibleFeedEnabled() {
-        return isVisibleUserFeedEnabled() || isUnifiedFeedEnabled();
+        return isUnifiedFeedEnabled();
     }
 
     /**
-     * @returns {boolean}
-     */
-    function isVisibleUserFeedEnabled() {
-        var mode = resolveEffectiveFeedMode();
-
-        return mode === VISIBLE_FEED_USER || mode === VISIBLE_FEED_USER_SWAP;
-    }
-
-    /**
+     * MC13J-2C: stub — modos user-swap retirados.
+     *
      * @returns {boolean}
      */
     function isUserSwapEnabled() {
-        return resolveEffectiveFeedMode() === VISIBLE_FEED_USER_SWAP;
-    }
-
-    function getLegacyLearningSection() {
-        return document.getElementById('aa-learning-recommendations');
+        return false;
     }
 
     function getLegacyBoardRoot() {
         return document.getElementById('aa-tasks-board-root');
     }
 
-    function getVisibleUserSectionHeader() {
-        return document.getElementById('aa-executable-user-lists-visible-header');
-    }
-
-    function getVisibleUserSectionTitle() {
-        return document.getElementById('aa-executable-user-lists-visible-title');
-    }
-
-    function getVisibleUserSectionSubtitle() {
-        return document.getElementById('aa-executable-user-lists-visible-subtitle');
-    }
-
     function setLegacyBoardVisible(visible) {
         setSectionVisible(getLegacyBoardRoot(), visible);
-    }
-
-    function applyVisibleUserSectionChrome() {
-        var section = getVisibleUserSection();
-        var header = getVisibleUserSectionHeader();
-        var titleEl = getVisibleUserSectionTitle();
-        var subtitleEl = getVisibleUserSectionSubtitle();
-        var swap = isUserSwapEnabled();
-
-        if (section) {
-            section.classList.toggle('border-dashed', !swap);
-            section.classList.toggle('border-violet-300', !swap);
-            section.classList.toggle('border-gray-200', swap);
-        }
-
-        if (header) {
-            header.classList.toggle('border-violet-200', !swap);
-            header.classList.toggle('bg-violet-50', !swap);
-            header.classList.toggle('border-gray-100', swap);
-            header.classList.toggle('bg-gradient-to-r', swap);
-            header.classList.toggle('from-gray-50', swap);
-            header.classList.toggle('to-white', swap);
-        }
-
-        if (titleEl) {
-            titleEl.textContent = swap ? 'Mis listas' : 'Listas de usuario (executable visible)';
-            titleEl.classList.toggle('text-violet-900', !swap);
-            titleEl.classList.toggle('text-gray-900', swap);
-            titleEl.classList.toggle('text-base', swap);
-            titleEl.classList.toggle('font-semibold', swap);
-            titleEl.classList.toggle('text-sm', !swap);
-        }
-
-        if (subtitleEl) {
-            if (swap) {
-                subtitleEl.textContent = 'Tareas organizadas por lista.';
-                subtitleEl.classList.remove('hidden');
-            } else {
-                subtitleEl.textContent = 'Comparación MC13A: feed user filtrado; legacy sigue visible abajo.';
-                subtitleEl.classList.remove('hidden');
-            }
-
-            subtitleEl.classList.toggle('text-violet-800', !swap);
-            subtitleEl.classList.toggle('text-gray-500', swap);
-            subtitleEl.classList.toggle('text-xs', true);
-            subtitleEl.classList.toggle('text-sm', swap);
-            subtitleEl.classList.toggle('mt-0.5', !swap);
-            subtitleEl.classList.toggle('mt-1', swap);
-        }
-    }
-
-    function applyUserSwapLayout() {
-        if (isUserSwapEnabled()) {
-            setLegacyBoardVisible(false);
-            return;
-        }
-
-        setLegacyBoardVisible(true);
     }
 
     /**
@@ -336,43 +234,6 @@
         return document.getElementById('aa-executable-lists-active-loading');
     }
 
-    function getVisibleUserSection() {
-        return document.getElementById('aa-executable-user-lists-visible');
-    }
-
-    function getVisibleUserRoot() {
-        return document.getElementById('aa-executable-user-lists-root');
-    }
-
-    function getVisibleUserErrorEl() {
-        return document.getElementById('aa-executable-user-lists-error');
-    }
-
-    function getVisibleUserLoadingEl() {
-        return document.getElementById('aa-executable-user-lists-loading');
-    }
-
-    var VISIBLE_USER_LOADING_MESSAGE = 'Cargando listas…';
-
-    function setVisibleUserLoading(visible) {
-        var loadingEl = getVisibleUserLoadingEl();
-        var root = getVisibleUserRoot();
-
-        if (loadingEl) {
-            loadingEl.textContent = VISIBLE_USER_LOADING_MESSAGE;
-
-            if (visible) {
-                loadingEl.classList.remove('hidden');
-            } else {
-                loadingEl.classList.add('hidden');
-            }
-        }
-
-        if (root && visible) {
-            root.innerHTML = '';
-        }
-    }
-
     function setSectionVisible(section, visible) {
         if (!section) {
             return;
@@ -391,14 +252,6 @@
 
     function setUnifiedSectionVisible(visible) {
         setSectionVisible(getUnifiedSection(), visible);
-    }
-
-    function setLegacyLearningVisible(visible) {
-        setSectionVisible(getLegacyLearningSection(), visible);
-    }
-
-    function setVisibleUserSectionVisible(visible) {
-        setSectionVisible(getVisibleUserSection(), visible);
     }
 
     function updateExperimentalModeCopy() {
@@ -465,17 +318,6 @@
         errorEl.classList.remove('hidden');
     }
 
-    function clearVisibleUserError() {
-        var errorEl = getVisibleUserErrorEl();
-
-        if (!errorEl) {
-            return;
-        }
-
-        errorEl.textContent = '';
-        errorEl.classList.add('hidden');
-    }
-
     /**
      * @param {string} message
      */
@@ -537,21 +379,8 @@
     }
 
     function applyUnifiedLayout() {
-        setLegacyLearningVisible(false);
-        setVisibleUserSectionVisible(false);
         setLegacyBoardVisible(false);
         setUnifiedSectionVisible(true);
-    }
-
-    function showVisibleUserError(message) {
-        var errorEl = getVisibleUserErrorEl();
-
-        if (!errorEl) {
-            return;
-        }
-
-        errorEl.textContent = String(message || 'No se pudo completar la acción.');
-        errorEl.classList.remove('hidden');
     }
 
     function getLearningRegistry() {
@@ -582,22 +411,6 @@
      */
     function asString(value) {
         return value === null || value === undefined ? '' : String(value);
-    }
-
-    /**
-     * @param {Array|null|undefined} lists
-     * @returns {Array}
-     */
-    function filterUserLists(lists) {
-        if (!Array.isArray(lists)) {
-            return [];
-        }
-
-        return lists.filter(function (list) {
-            return list
-                && typeof list === 'object'
-                && asString(list.source).trim().toLowerCase() === 'user';
-        });
     }
 
     /**
@@ -820,7 +633,7 @@
      * @param {HTMLElement|null} root
      * @param {Array} lists
      * @param {string} emptyMessage
-     * @param {{useVisibleUserErrorChannel?: boolean, useUnifiedErrorChannel?: boolean}} [renderOptions]
+     * @param {{useUnifiedErrorChannel?: boolean}} [renderOptions]
      */
     function renderListsIntoRoot(root, lists, emptyMessage, renderOptions) {
         var opts = renderOptions || {};
@@ -832,12 +645,6 @@
 
         if (!renderer || typeof renderer.renderFeed !== 'function') {
             var rendererError = 'No se pudo inicializar el renderer executable.';
-
-            if (opts.useVisibleUserErrorChannel) {
-                root.innerHTML = '';
-                showVisibleUserError(rendererError);
-                return;
-            }
 
             if (opts.useUnifiedErrorChannel) {
                 root.innerHTML = '';
@@ -881,18 +688,6 @@
         );
     }
 
-    function renderVisibleUserPayload(payload) {
-        var root = getVisibleUserRoot();
-        var lists = filterUserLists(payload && payload.lists);
-
-        renderListsIntoRoot(
-            root,
-            lists,
-            getVisibleUserEmptyMessage(),
-            { useVisibleUserErrorChannel: true }
-        );
-    }
-
     function renderUnifiedPayload(payload) {
         var root = getUnifiedRoot();
         var lists = filterListsForUnifiedRender(payload && payload.lists);
@@ -919,17 +714,6 @@
     }
 
     /**
-     * @returns {string}
-     */
-    function getVisibleUserEmptyMessage() {
-        if (isUserSwapEnabled()) {
-            return 'Aún no tienes listas propias. Usa el botón flotante + Nueva lista.';
-        }
-
-        return 'No hay listas de usuario en el feed executable.';
-    }
-
-    /**
      * MC13H: tras mutación en feed unified, refresca también executive/selector.
      *
      * @returns {Promise<void>}
@@ -948,26 +732,7 @@
      * @returns {Promise<void>}
      */
     function reloadExecutableVisibleFeed() {
-        if (isUnifiedFeedEnabled()) {
-            return reloadUnifiedFeedWithBoardSync();
-        }
-
-        return loadVisibleUserFeed();
-    }
-
-    /**
-     * MC13B: tras mutación en feed user swap, refresca también executive/selector.
-     *
-     * @returns {Promise<void>}
-     */
-    function reloadVisibleUserFeedWithBoardSync() {
-        return loadVisibleUserFeed().then(function () {
-            if (!isUserSwapEnabled()) {
-                return;
-            }
-
-            return reloadLegacyBoardBestEffort();
-        });
+        return reloadUnifiedFeedWithBoardSync();
     }
 
     function showLoadError(message) {
@@ -976,21 +741,6 @@
         if (root) {
             root.innerHTML = '<p class="text-sm text-red-600">' + String(message || 'No se pudo cargar el feed executable.') + '</p>';
         }
-    }
-
-    /**
-     * MC13C: errores de carga en el mismo canal que acciones (#aa-executable-user-lists-error).
-     *
-     * @param {string} message
-     */
-    function showVisibleUserLoadError(message) {
-        var root = getVisibleUserRoot();
-
-        if (root) {
-            root.innerHTML = '';
-        }
-
-        showVisibleUserError(message || 'No se pudo cargar el feed executable de usuario.');
     }
 
     /**
@@ -1012,36 +762,6 @@
             .catch(function (err) {
                 lastPayload = null;
                 showLoadError((err && err.message) ? err.message : 'No se pudo cargar el feed executable.');
-            });
-    }
-
-    /**
-     * Refresco público MC13A — MC13B cableará post-CRUD legacy aquí.
-     *
-     * @returns {Promise<void>}
-     */
-    function loadVisibleUserFeed() {
-        var service = globalRoot.ExecutableListsService;
-
-        setVisibleUserLoading(true);
-
-        if (!service || typeof service.getFeed !== 'function') {
-            setVisibleUserLoading(false);
-            showVisibleUserLoadError('ExecutableListsService no disponible.');
-            return Promise.resolve();
-        }
-
-        return service.getFeed()
-            .then(function (payload) {
-                setVisibleUserLoading(false);
-                clearVisibleUserError();
-                lastVisibleUserPayload = payload;
-                renderVisibleUserPayload(payload);
-            })
-            .catch(function (err) {
-                setVisibleUserLoading(false);
-                lastVisibleUserPayload = null;
-                showVisibleUserLoadError((err && err.message) ? err.message : 'No se pudo cargar el feed executable de usuario.');
             });
     }
 
@@ -1128,24 +848,6 @@
         });
     }
 
-    function initVisibleUserCoordinator(root) {
-        if (visibleUserCoordinatorInitialized) {
-            return;
-        }
-
-        initActionsCoordinator(root, {
-            reload: reloadVisibleUserFeedWithBoardSync,
-            showError: showVisibleUserError,
-            clearError: clearVisibleUserError,
-            findLearningItem: function () {
-                return null;
-            },
-            onMissingCoordinator: showVisibleUserError.bind(null, 'ExecutableActionsCoordinator no disponible.')
-        });
-
-        visibleUserCoordinatorInitialized = true;
-    }
-
     function initUnifiedCoordinator(root) {
         if (unifiedCoordinatorInitialized) {
             return;
@@ -1209,46 +911,12 @@
         loadExperimentalFeed();
     }
 
-    function initVisibleUserFeedModule() {
-        if (isUnifiedFeedEnabled()) {
-            setVisibleUserSectionVisible(false);
-            return;
-        }
-
-        if (!isVisibleUserFeedEnabled()) {
-            setVisibleUserSectionVisible(false);
-            setLegacyBoardVisible(true);
-            return;
-        }
-
-        var root = getVisibleUserRoot();
-
-        if (!root) {
-            return;
-        }
-
-        applyUserSwapLayout();
-        applyVisibleUserSectionChrome();
-        setVisibleUserSectionVisible(true);
-        clearVisibleUserError();
-        enableInteractiveRoot(root);
-        initVisibleUserCoordinator(root);
-        loadVisibleUserFeed();
-    }
-
     function initExecutableListsModule() {
         if (!document.getElementById('aa-tasks-module-root')) {
             return;
         }
 
-        if (isUnifiedFeedEnabled()) {
-            initUnifiedFeedModule();
-        } else {
-            setUnifiedSectionVisible(false);
-            setLegacyLearningVisible(true);
-            initVisibleUserFeedModule();
-        }
-
+        initUnifiedFeedModule();
         initExperimentalModule();
     }
 
@@ -1257,9 +925,7 @@
         isEnabled: isExecutableVisibleFeedEnabled,
         isSwapEnabled: isUserSwapEnabled,
         isUnifiedEnabled: isUnifiedFeedEnabled,
-        filterUserLists: filterUserLists,
         filterListsForUnifiedRender: filterListsForUnifiedRender,
-        renderVisibleUserPayload: renderVisibleUserPayload,
         renderUnifiedPayload: renderUnifiedPayload
     };
 
@@ -1270,27 +936,18 @@
         isSessionStorageDebugEnabled: isSessionStorageDebugEnabled,
         isActionsEnabled: isActionsEnabled,
         isSessionStorageActionsDebugEnabled: isSessionStorageActionsDebugEnabled,
-        isVisibleUserFeedEnabled: isVisibleUserFeedEnabled,
         isUnifiedFeedEnabled: isUnifiedFeedEnabled,
         isExecutableVisibleFeedEnabled: isExecutableVisibleFeedEnabled,
         isUserSwapEnabled: isUserSwapEnabled,
-        isSessionStorageVisibleFeedUserEnabled: isSessionStorageVisibleFeedUserEnabled,
         readVisibleFeedFlag: readVisibleFeedFlag,
         resolveEffectiveFeedMode: resolveEffectiveFeedMode,
         isLegacyListsViewEnabled: isLegacyListsViewEnabled,
         normalizeVisibleFeedFlag: normalizeVisibleFeedFlag,
         VISIBLE_FEED_LEGACY: VISIBLE_FEED_LEGACY,
         VISIBLE_FEED_UNIFIED: VISIBLE_FEED_UNIFIED,
-        applyUserSwapLayout: applyUserSwapLayout,
+        VISIBLE_FEED_USER: VISIBLE_FEED_USER,
+        VISIBLE_FEED_USER_SWAP: VISIBLE_FEED_USER_SWAP,
         applyUnifiedLayout: applyUnifiedLayout,
-        applyVisibleUserSectionChrome: applyVisibleUserSectionChrome,
-        getVisibleUserEmptyMessage: getVisibleUserEmptyMessage,
-        setVisibleUserLoading: setVisibleUserLoading,
-        showVisibleUserError: showVisibleUserError,
-        clearVisibleUserError: clearVisibleUserError,
-        showVisibleUserLoadError: showVisibleUserLoadError,
-        VISIBLE_USER_LOADING_MESSAGE: VISIBLE_USER_LOADING_MESSAGE,
-        reloadVisibleUserFeedWithBoardSync: reloadVisibleUserFeedWithBoardSync,
         reloadUnifiedFeedWithBoardSync: reloadUnifiedFeedWithBoardSync,
         reloadExecutableVisibleFeed: reloadExecutableVisibleFeed,
         reloadLegacyBoardBestEffort: reloadLegacyBoardBestEffort,
@@ -1298,12 +955,9 @@
         enableInteractiveRoot: enableInteractiveRoot,
         enablePreviewRoot: enablePreviewRoot,
         loadExperimentalFeed: loadExperimentalFeed,
-        loadVisibleUserFeed: loadVisibleUserFeed,
         loadUnifiedFeed: loadUnifiedFeed,
         renderPayload: renderPayload,
-        renderVisibleUserPayload: renderVisibleUserPayload,
         renderUnifiedPayload: renderUnifiedPayload,
-        filterUserLists: filterUserLists,
         filterListsForUnifiedRender: filterListsForUnifiedRender,
         listHasBucketItems: listHasBucketItems,
         showUnifiedError: showUnifiedError,
@@ -1319,7 +973,6 @@
         findUnifiedLearningItem: findUnifiedLearningItem,
         findLearningItemInPayload: findLearningItemInPayload,
         resolveExecutableItemKey: resolveExecutableItemKey,
-        initVisibleUserCoordinator: initVisibleUserCoordinator,
         initUnifiedCoordinator: initUnifiedCoordinator,
         visibleUserFeedApi: visibleUserFeedApi
     };
