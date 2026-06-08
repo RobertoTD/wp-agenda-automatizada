@@ -180,6 +180,13 @@
         });
     }
 
+    /**
+     * @returns {Promise<{returned_count:number,task_ids:Array}>}
+     */
+    function returnIgnoredUserTasks() {
+        return postAction('aa_return_ignored_user_tasks');
+    }
+
     window.TasksService = {
         getTaskBoard: getTaskBoard,
         createTaskList: createTaskList,
@@ -189,6 +196,7 @@
         createTask: createTask,
         changeTaskStatus: changeTaskStatus,
         deferTask: deferTask,
-        dismissTask: dismissTask
+        dismissTask: dismissTask,
+        returnIgnoredUserTasks: returnIgnoredUserTasks
     };
 })();

@@ -152,4 +152,16 @@ describe('TasksService MC13G-C1', () => {
         assert.equal(readFormField(posts[0].body, 'list_id'), '12');
         assert.equal(readFormField(posts[0].body, '_wpnonce'), 'test-nonce');
     });
+
+    it('returnIgnoredUserTasks postea aa_return_ignored_user_tasks', async () => {
+        var loaded = loadTasksService();
+        var posts = loaded.posts;
+
+        await loaded.TasksService.returnIgnoredUserTasks();
+
+        assert.equal(posts.length, 1);
+        assert.equal(readFormField(posts[0].body, 'action'), 'aa_return_ignored_user_tasks');
+        assert.equal(readFormField(posts[0].body, '_wpnonce'), 'test-nonce');
+        assert.equal(readFormField(posts[0].body, 'task_id'), null);
+    });
 });

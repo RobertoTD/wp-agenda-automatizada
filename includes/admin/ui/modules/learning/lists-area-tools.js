@@ -1,7 +1,8 @@
 /**
- * Lists Area Tools — herramientas globales del header #aa-lists-section (MC13I).
+ * Lists Area Tools — herramientas globales del header #aa-lists-section (MC13I / MC13N-2).
  *
- * Restaurar listas archivadas: modal + TasksService; no usa executable-actions-coordinator.
+ * Menú de opciones del área + desarchivar listas + regresar tareas ignoradas.
+ * No usa executable-actions-coordinator.
  */
 (function () {
     'use strict';
@@ -11,9 +12,16 @@
         : (typeof globalThis !== 'undefined' ? globalThis : this);
 
     var MODAL_ID = 'aa-restore-archived-lists-modal';
+    var OPTIONS_TRIGGER_SELECTOR = '#aa-lists-options-trigger';
+    var OPTIONS_MENU_ID = 'aa-lists-options-menu';
     var RESTORE_TOOL_SELECTOR = '[data-lists-tool="restore-archived"]';
+    var RETURN_IGNORED_TOOL_SELECTOR = '[data-lists-tool="return-ignored-tasks"]';
+    var OPTIONS_MENU_TRIGGER_SELECTOR = '[data-lists-tool="options-menu"]';
+    var RETURN_IGNORED_CONFIRM_MESSAGE = 'Todas las tareas ignoradas de tus listas activas regresarán a sus listas. ¿Quieres continuar?';
+
     var isActionPending = false;
     var isBound = false;
+    var isMenuOpen = false;
 
     function getService() {
         return globalRoot.TasksService || null;
@@ -43,8 +51,20 @@
         return document.getElementById('aa-restore-archived-lists-error');
     }
 
+    function getAreaErrorEl() {
+        return document.getElementById('aa-lists-area-tools-error');
+    }
+
     function getSelectWrap() {
         return document.getElementById('aa-restore-archived-lists-select-wrap');
+    }
+
+    function getOptionsTrigger() {
+        return document.querySelector(OPTIONS_TRIGGER_SELECTOR);
+    }
+
+    function getOptionsMenu() {
+        return document.getElementById(OPTIONS_MENU_ID);
     }
 
     function setVisible(el, visible) {
@@ -85,6 +105,14 @@
         }
     }
 
+    function clearAreaError() {
+        setVisible(getAreaErrorEl(), false);
+
+        if (getAreaErrorEl()) {
+            getAreaErrorEl().textContent = '';
+        }
+    }
+
     function showError(message) {
         var errorEl = getErrorEl();
         setVisible(errorEl, true);
@@ -94,10 +122,34 @@
         }
     }
 
+    function showAreaError(message) {
+        var errorEl = getAreaErrorEl();
+        setVisible(errorEl, true);
+
+        if (errorEl) {
+            errorEl.textContent = message || 'No se pudo completar la acción.';
+        }
+    }
+
+    function setMenuItemDisabled(button, disabled) {
+        if (!button) {
+            return;
+        }
+
+        button.disabled = disabled;
+
+        if (disabled) {
+            button.classList.add('opacity-60', 'cursor-not-allowed');
+        } else {
+            button.classList.remove('opacity-60', 'cursor-not-allowed');
+        }
+    }
+
     function setControlsDisabled(disabled) {
         var select = getSelect();
         var submit = getSubmitButton();
-        var toolButton = document.querySelector(RESTORE_TOOL_SELECTOR);
+        var trigger = getOptionsTrigger();
+        var menu = getOptionsMenu();
 
         if (select) {
             select.disabled = disabled;
@@ -107,14 +159,20 @@
             submit.disabled = disabled || !select || !select.value;
         }
 
-        if (toolButton) {
-            toolButton.disabled = disabled;
+        if (trigger) {
+            trigger.disabled = disabled;
 
             if (disabled) {
-                toolButton.classList.add('opacity-60', 'cursor-not-allowed');
+                trigger.classList.add('opacity-60', 'cursor-not-allowed');
             } else {
-                toolButton.classList.remove('opacity-60', 'cursor-not-allowed');
+                trigger.classList.remove('opacity-60', 'cursor-not-allowed');
             }
+        }
+
+        if (menu) {
+            menu.querySelectorAll('[role="menuitem"]').forEach(function (item) {
+                setMenuItemDisabled(item, disabled);
+            });
         }
     }
 
@@ -148,6 +206,48 @@
         }
     }
 
+    function openOptionsMenu() {
+        var menu = getOptionsMenu();
+        var trigger = getOptionsTrigger();
+
+        if (!menu) {
+            return;
+        }
+
+        setVisible(menu, true);
+        isMenuOpen = true;
+
+        if (trigger) {
+            trigger.setAttribute('aria-expanded', 'true');
+        }
+    }
+
+    function closeOptionsMenu() {
+        var menu = getOptionsMenu();
+        var trigger = getOptionsTrigger();
+
+        if (!menu) {
+            isMenuOpen = false;
+            return;
+        }
+
+        setVisible(menu, false);
+        isMenuOpen = false;
+
+        if (trigger) {
+            trigger.setAttribute('aria-expanded', 'false');
+        }
+    }
+
+    function toggleOptionsMenu() {
+        if (isMenuOpen) {
+            closeOptionsMenu();
+            return;
+        }
+
+        openOptionsMenu();
+    }
+
     /**
      * @param {Array} lists
      */
@@ -175,7 +275,7 @@
         });
     }
 
-    function refreshFeedsAfterRestore() {
+    function refreshListsAreaFeeds() {
         var feedApi = globalRoot.AAExecutableUserListsVisibleFeed;
         var board = globalRoot.AATasksBoard;
         var reloadPromise = Promise.resolve();
@@ -272,10 +372,10 @@
             .then(function () {
                 closeModal(MODAL_ID);
                 resetModalState();
-                return refreshFeedsAfterRestore();
+                return refreshListsAreaFeeds();
             })
             .catch(function (err) {
-                showError((err && err.message) ? err.message : 'No se pudo restaurar la lista.');
+                showError((err && err.message) ? err.message : 'No se pudo desarchivar la lista.');
             })
             .finally(function () {
                 isActionPending = false;
@@ -289,8 +389,101 @@
             event.preventDefault();
         }
 
+        closeOptionsMenu();
         openModal(MODAL_ID);
         loadArchivedListsIntoModal();
+    }
+
+    function handleReturnIgnoredTasksClick(event) {
+        if (event && typeof event.preventDefault === 'function') {
+            event.preventDefault();
+        }
+
+        if (isActionPending) {
+            return Promise.resolve();
+        }
+
+        closeOptionsMenu();
+
+        var confirmFn = globalRoot.confirm;
+
+        if (typeof confirmFn !== 'function' || !confirmFn(RETURN_IGNORED_CONFIRM_MESSAGE)) {
+            return Promise.resolve();
+        }
+
+        var service = getService();
+
+        if (!service || typeof service.returnIgnoredUserTasks !== 'function') {
+            showAreaError('Servicio no disponible.');
+            return Promise.resolve();
+        }
+
+        isActionPending = true;
+        clearAreaError();
+        setControlsDisabled(true);
+
+        return service.returnIgnoredUserTasks()
+            .then(function () {
+                return refreshListsAreaFeeds();
+            })
+            .catch(function (err) {
+                showAreaError((err && err.message) ? err.message : 'No se pudieron regresar las tareas ignoradas.');
+            })
+            .finally(function () {
+                isActionPending = false;
+                setControlsDisabled(false);
+                updateSubmitEnabled();
+            });
+    }
+
+    function handleDocumentClick(event) {
+        var target = event.target;
+        var restoreButton = target && target.closest
+            ? target.closest(RESTORE_TOOL_SELECTOR)
+            : null;
+        var returnIgnoredButton = target && target.closest
+            ? target.closest(RETURN_IGNORED_TOOL_SELECTOR)
+            : null;
+        var optionsTrigger = target && target.closest
+            ? target.closest(OPTIONS_MENU_TRIGGER_SELECTOR)
+            : null;
+        var insideMenu = target && target.closest
+            ? target.closest('#' + OPTIONS_MENU_ID)
+            : null;
+        var insideTools = target && target.closest
+            ? target.closest('#aa-lists-area-tools')
+            : null;
+
+        if (optionsTrigger && !optionsTrigger.disabled) {
+            if (event && typeof event.preventDefault === 'function') {
+                event.preventDefault();
+            }
+
+            toggleOptionsMenu();
+            return;
+        }
+
+        if (restoreButton && !restoreButton.disabled) {
+            handleRestoreToolClick(event);
+            return;
+        }
+
+        if (returnIgnoredButton && !returnIgnoredButton.disabled) {
+            handleReturnIgnoredTasksClick(event);
+            return;
+        }
+
+        if (isMenuOpen && !insideMenu && !insideTools) {
+            closeOptionsMenu();
+        }
+    }
+
+    function handleDocumentKeydown(event) {
+        if (!event || event.key !== 'Escape' || !isMenuOpen) {
+            return;
+        }
+
+        closeOptionsMenu();
     }
 
     function bindModalCloseHandlers() {
@@ -316,18 +509,8 @@
 
         isBound = true;
 
-        document.addEventListener('click', function (event) {
-            var target = event.target;
-            var button = target && target.closest
-                ? target.closest(RESTORE_TOOL_SELECTOR)
-                : null;
-
-            if (!button || button.disabled) {
-                return;
-            }
-
-            handleRestoreToolClick(event);
-        });
+        document.addEventListener('click', handleDocumentClick);
+        document.addEventListener('keydown', handleDocumentKeydown);
 
         var select = getSelect();
 
@@ -364,15 +547,23 @@
 
     var moduleExports = {
         MODAL_ID: MODAL_ID,
+        OPTIONS_MENU_ID: OPTIONS_MENU_ID,
         RESTORE_TOOL_SELECTOR: RESTORE_TOOL_SELECTOR,
+        RETURN_IGNORED_TOOL_SELECTOR: RETURN_IGNORED_TOOL_SELECTOR,
+        RETURN_IGNORED_CONFIRM_MESSAGE: RETURN_IGNORED_CONFIRM_MESSAGE,
         openModal: openModal,
         closeModal: closeModal,
+        openOptionsMenu: openOptionsMenu,
+        closeOptionsMenu: closeOptionsMenu,
+        toggleOptionsMenu: toggleOptionsMenu,
         resetModalState: resetModalState,
         populateSelect: populateSelect,
         loadArchivedListsIntoModal: loadArchivedListsIntoModal,
         handleRestoreSubmit: handleRestoreSubmit,
         handleRestoreToolClick: handleRestoreToolClick,
-        refreshFeedsAfterRestore: refreshFeedsAfterRestore,
+        handleReturnIgnoredTasksClick: handleReturnIgnoredTasksClick,
+        refreshListsAreaFeeds: refreshListsAreaFeeds,
+        refreshFeedsAfterRestore: refreshListsAreaFeeds,
         updateSubmitEnabled: updateSubmitEnabled,
         bindListsAreaTools: bindListsAreaTools,
         initListsAreaTools: initListsAreaTools

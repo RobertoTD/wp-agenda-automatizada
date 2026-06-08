@@ -99,7 +99,7 @@ Las acciones del usuario registran **señales o decisiones interpretables**. No 
 - Tarea: `status` (`pending` \| `done`), `completed_at` — declaración del usuario al marcar hecha/reabrir.
 - Tarea: `due_at`, `importance`, `position`, `source`, `notes`, `list_id` — datos operables para policies de proyección; no son señales de defer/dismiss.
 - Lista: `status` (`active` \| `archived`) — declaración al archivar/restaurar; no hay `archived_at` (MC13I usa `updated_at` como proxy de fecha de archivado para ordenar listas archivadas).
-- **MC13I (implementado):** herramienta de área Listas (`#aa-lists-area-tools`, `lists-area-tools.js`) restaura listas user archivadas vía `ListArchivedTaskListsUseCase` + `RestoreTaskListUseCase` + `TasksAjax` (`aa_list_archived_task_lists`, `aa_restore_task_list`). Modal con select + botón explícito; no es acción de item/lista visible (`data-tasks-action`). Restore cambia `archived` → `active`; tareas y `aa_task_state` intactos; feed se refresca con `AAExecutableUserListsVisibleFeed.reload()`; policies sin cambios.
+- **MC13I (implementado):** herramienta de área Listas (`#aa-lists-area-tools`, `lists-area-tools.js`) desarchiva listas user archivadas vía `ListArchivedTaskListsUseCase` + `RestoreTaskListUseCase` + `TasksAjax` (`aa_list_archived_task_lists`, `aa_restore_task_list`). Modal con select + botón explícito; no es acción de item/lista visible (`data-tasks-action`). Restore cambia `archived` → `active`; tareas y `aa_task_state` intactos; feed se refresca con `AAExecutableUserListsVisibleFeed.reload()`; policies sin cambios. **MC13N-2:** el acceso vive en menú de opciones (ítem «Desarchivar listas»).
 - **MC13G-A (implementado):** persistencia write-only en `aa_task_state` vía `TaskStateRepository` y use cases `RecordTaskDeferSignalUseCase` / `RecordTaskDismissSignalUseCase`.
 - **MC13G-B (implementado):** lectura batch en `GetTaskBoardUseCase`; interpretación en `AA_Task_Signal_Policy`; payload enriquecido con `task_state_by_id` y `organization.task_evaluations_by_id`; mapper refleja señales en `ExecutableItem.state`. `can_defer`/`can_dismiss` siguen `false` en feed; sin `visible_actions` defer/dismiss; buckets MC13E sin cambios.
 - **MC13G-C1 (implementado):** canal técnico defer/dismiss — `TasksAjax` (`aa_defer_task`, `aa_dismiss_task`), `TasksService.deferTask`/`dismissTask`, coordinator `data-tasks-action`. Sin botones visibles; capabilities siguen false en feed.
@@ -833,6 +833,44 @@ Indicador UI: `<span class="aa-executable-list-source-label text-xs text-gray-50
 Fallback: contrato y renderer aplican defaults por `source`/`source_category` si faltan campos; no sustituyen metadata explícita de mappers.
 
 **No incluido MC13M:** registry de fuentes, `meta` anidado en lista, policies de orden, propuesta ejecutiva, IA/premium backend.
+
+## MC13N — regresar tareas ignoradas + menú de opciones del área Listas
+
+### MC13N-1 — backend (implementado)
+
+Separación de historial vs efecto activo de dismiss en user tasks:
+
+| Señal | Significado |
+|-------|-------------|
+| `has_dismiss` | Historial: la tarea fue ignorada alguna vez (`dismiss_count`, `last_dismissed_at`) |
+| `is_dismiss_hiding` | Efecto activo que la saca de `view=active` |
+
+Regla: `is_dismiss_hiding = has_dismiss && (dismiss_until === null || now < dismiss_until)`.
+
+- **Ignorar** (`record_dismiss`): `last_dismissed_at=now`, incrementa `dismiss_count`, `dismiss_until=null` → oculta.
+- **Regresar** (`ReturnIgnoredUserTasksUseCase`): escribe `dismiss_until=now` en tareas pending de listas `active` → vuelven visibles según policy (primary/secondary); **no** borra counters ni timestamps.
+- Endpoint: `aa_return_ignored_user_tasks`.
+
+`Recalcular` queda reservado para un motor futuro de orden/priorización; no aplica a esta acción.
+
+### MC13N-2 — UI menú de opciones (implementado)
+
+`#aa-lists-area-tools` usa un botón discreto de tres puntos (`Opciones de listas`) con dropdown:
+
+| Item | Acción |
+|------|--------|
+| Desarchivar listas | Abre modal existente (MC13I renombrado) |
+| Regresar tareas ignoradas | `window.confirm` nativo + `TasksService.returnIgnoredUserTasks()` |
+
+Copy confirm regresar:
+
+> Todas las tareas ignoradas de tus listas activas regresarán a sus listas. ¿Quieres continuar?
+
+Sin modal dedicado para regresar. Sin framework global de herramientas. Herramientas de área, no `data-tasks-action` ni coordinator.
+
+Post-acción: `AAExecutableUserListsVisibleFeed.reload()` + `AATasksBoard.reload({ silent: true })` best-effort.
+
+**No incluido MC13N:** Learning/system, propuesta ejecutiva, orden dinámico, vistas completed/ignored, action log, backend premium/IA.
 
 ## MC13L — listas colapsables en feed unified (presentación)
 

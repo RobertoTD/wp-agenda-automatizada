@@ -80,7 +80,7 @@ Lo viejo coexiste con su nombre histórico hasta que se toque por otra razón.
 - **Repository:** acceso a BD. Solo SQL. Sin `if` de negocio.
 - **Controller AJAX:** traductor HTTP↔Use Case. Autentica, sanitiza, delega, serializa.
 - **Infrastructure:** todo lo que toca el mundo exterior (WP, MySQL via repos, LLMs, webhooks, notifs).
-- **UI:** todo lo que pinta y captura interacción. No es fuente de verdad. **Herramientas de área** (ej. MC13I restaurar archivadas) viven en el header del contenedor (`#aa-lists-area-tools`), no como `data-tasks-action` de item/lista visible. **Listas colapsables (MC13L):** solo presentación en `executableListRenderer` (`<details>`/`<summary>`); sin persistencia ni cambio de feed/policies.
+- **UI:** todo lo que pinta y captura interacción. No es fuente de verdad. **Herramientas de área** (MC13I desarchivar, MC13N regresar ignoradas) viven en menú discreto `#aa-lists-area-tools` (MC13N-2), no como `data-tasks-action` de item/lista visible. **Listas colapsables (MC13L):** solo presentación en `executableListRenderer` (`<details>`/`<summary>`); sin persistencia ni cambio de feed/policies.
 
 ## Veda de los Models (regla operativa)
 

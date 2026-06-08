@@ -45,19 +45,44 @@ $lists_area_tools_js = plugin_dir_url(__FILE__) . 'lists-area-tools.js';
                 <h3 class="text-lg font-semibold text-gray-900">Listas</h3>
                 <p class="text-sm text-gray-500 mt-0.5">Todas las listas de tareas.</p>
             </div>
-            <div id="aa-lists-area-tools" class="flex items-center gap-2 shrink-0">
+            <div id="aa-lists-area-tools" class="relative flex items-center gap-2 shrink-0">
                 <button type="button"
-                    data-lists-tool="restore-archived"
-                    title="Restaurar listas archivadas"
-                    class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300/60 transition-colors">
-                    <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v6h6M20 20v-6h-6M5 19a9 9 0 0014-7.5M19 5a9 9 0 00-14 7.5"/>
+                    id="aa-lists-options-trigger"
+                    data-lists-tool="options-menu"
+                    title="Opciones de listas"
+                    aria-haspopup="true"
+                    aria-expanded="false"
+                    class="inline-flex items-center justify-center w-8 h-8 text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300/60 transition-colors">
+                    <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="5" cy="12" r="1.75"/>
+                        <circle cx="12" cy="12" r="1.75"/>
+                        <circle cx="19" cy="12" r="1.75"/>
                     </svg>
-                    <span>Restaurar</span>
                 </button>
+                <div id="aa-lists-options-menu"
+                    class="hidden absolute right-0 top-full z-20 mt-2 min-w-[12rem] rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+                    role="menu">
+                    <button type="button" role="menuitem"
+                        data-lists-tool="restore-archived"
+                        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
+                        <svg class="w-4 h-4 shrink-0 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v6h6M20 20v-6h-6M5 19a9 9 0 0014-7.5M19 5a9 9 0 00-14 7.5"/>
+                        </svg>
+                        <span>Desarchivar listas</span>
+                    </button>
+                    <button type="button" role="menuitem"
+                        data-lists-tool="return-ignored-tasks"
+                        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
+                        <svg class="w-4 h-4 shrink-0 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14L4 9m0 0l5-5M4 9h12a4 4 0 014 4v1"/>
+                        </svg>
+                        <span>Regresar tareas ignoradas</span>
+                    </button>
+                </div>
             </div>
         </div>
 
+        <p id="aa-lists-area-tools-error" class="hidden text-sm text-red-600 mb-3"></p>
         <p id="aa-tasks-error" class="hidden text-sm text-red-600 mb-3"></p>
 
         <div id="aa-lists-feed" class="space-y-4">
@@ -107,7 +132,7 @@ $lists_area_tools_js = plugin_dir_url(__FILE__) . 'lists-area-tools.js';
     <div class="relative z-10 flex min-h-full items-center justify-center p-4">
         <div class="w-full max-w-md bg-white rounded-xl shadow-lg border border-gray-200">
             <div class="px-5 py-4 border-b border-gray-100">
-                <h4 class="text-lg font-semibold text-gray-900">Restaurar listas archivadas</h4>
+                <h4 class="text-lg font-semibold text-gray-900">Desarchivar listas</h4>
                 <p class="text-sm text-gray-500 mt-1">Elige una lista archivada para volver a mostrarla en tus listas activas.</p>
             </div>
             <div class="px-5 py-4 space-y-4">
@@ -126,7 +151,7 @@ $lists_area_tools_js = plugin_dir_url(__FILE__) . 'lists-area-tools.js';
                     <button type="button" data-aa-tasks-modal-close="aa-restore-archived-lists-modal"
                         class="px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Cancelar</button>
                     <button type="button" id="aa-restore-archived-lists-submit" disabled
-                        class="px-3 py-2 text-sm font-medium rounded-lg border border-blue-200 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">Restaurar</button>
+                        class="px-3 py-2 text-sm font-medium rounded-lg border border-blue-200 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">Desarchivar</button>
                 </div>
             </div>
         </div>
