@@ -18,6 +18,7 @@ $executable_lists_renderer_js = AA_PLUGIN_URL . 'assets/js/ui/executableListRend
 $executable_lists_shadow_js = plugin_dir_url(__FILE__) . 'executable-lists-shadow-module.js';
 $executable_lists_module_js = plugin_dir_url(__FILE__) . 'executable-lists-module.js';
 $executable_actions_coordinator_js = plugin_dir_url(__FILE__) . 'executable-actions-coordinator.js';
+$lists_area_tools_js = plugin_dir_url(__FILE__) . 'lists-area-tools.js';
 ?>
 
 <div id="aa-tasks-module-root" class="max-w-5xl mx-auto py-2">
@@ -41,9 +42,22 @@ $executable_actions_coordinator_js = plugin_dir_url(__FILE__) . 'executable-acti
     </section>
 
     <section id="aa-lists-section" class="pb-24">
-        <div class="mb-3">
-            <h3 class="text-lg font-semibold text-gray-900">Listas</h3>
-            <p class="text-sm text-gray-500 mt-0.5">Sugerencias del sistema y listas propias en un solo lugar.</p>
+        <div class="mb-3 flex items-start justify-between gap-3">
+            <div class="min-w-0">
+                <h3 class="text-lg font-semibold text-gray-900">Listas</h3>
+                <p class="text-sm text-gray-500 mt-0.5">Sugerencias del sistema y listas propias en un solo lugar.</p>
+            </div>
+            <div id="aa-lists-area-tools" class="flex items-center gap-2 shrink-0">
+                <button type="button"
+                    data-lists-tool="restore-archived"
+                    title="Restaurar listas archivadas"
+                    class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300/60 transition-colors">
+                    <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v6h6M20 20v-6h-6M5 19a9 9 0 0014-7.5M19 5a9 9 0 00-14 7.5"/>
+                    </svg>
+                    <span>Restaurar</span>
+                </button>
+            </div>
         </div>
 
         <p id="aa-tasks-error" class="hidden text-sm text-red-600 mb-3"></p>
@@ -129,6 +143,38 @@ $executable_actions_coordinator_js = plugin_dir_url(__FILE__) . 'executable-acti
         aria-label="Nueva tarea">
         <span>+ Nueva tarea</span>
     </button>
+</div>
+
+<!-- Modal: restaurar listas archivadas -->
+<div id="aa-restore-archived-lists-modal" class="fixed inset-0 z-[300] hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-black/40" data-aa-tasks-modal-close="aa-restore-archived-lists-modal"></div>
+    <div class="relative z-10 flex min-h-full items-center justify-center p-4">
+        <div class="w-full max-w-md bg-white rounded-xl shadow-lg border border-gray-200">
+            <div class="px-5 py-4 border-b border-gray-100">
+                <h4 class="text-lg font-semibold text-gray-900">Restaurar listas archivadas</h4>
+                <p class="text-sm text-gray-500 mt-1">Elige una lista archivada para volver a mostrarla en tus listas activas.</p>
+            </div>
+            <div class="px-5 py-4 space-y-4">
+                <p id="aa-restore-archived-lists-loading" class="hidden text-sm text-gray-500">Cargando listas archivadas…</p>
+                <p id="aa-restore-archived-lists-empty" class="hidden text-sm text-gray-500">No hay listas archivadas para restaurar.</p>
+                <div id="aa-restore-archived-lists-select-wrap">
+                    <label for="aa-restore-archived-lists-select" class="block text-sm font-medium text-gray-700 mb-1">Lista archivada</label>
+                    <select id="aa-restore-archived-lists-select"
+                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        disabled>
+                        <option value="">Selecciona una lista</option>
+                    </select>
+                </div>
+                <p id="aa-restore-archived-lists-error" class="hidden text-sm text-red-600"></p>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" data-aa-tasks-modal-close="aa-restore-archived-lists-modal"
+                        class="px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Cancelar</button>
+                    <button type="button" id="aa-restore-archived-lists-submit" disabled
+                        class="px-3 py-2 text-sm font-medium rounded-lg border border-blue-200 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">Restaurar</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Modal: nueva lista -->
@@ -256,3 +302,4 @@ $executable_actions_coordinator_js = plugin_dir_url(__FILE__) . 'executable-acti
 <script src="<?php echo esc_url($executable_lists_shadow_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($executable_actions_coordinator_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($executable_lists_module_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($lists_area_tools_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>

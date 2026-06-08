@@ -9,6 +9,8 @@ require_once dirname(__DIR__, 2) . '/application/tasks/GetTaskBoardUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/tasks/CreateTaskListUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/tasks/UpdateTaskListUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/tasks/ArchiveTaskListUseCase.php';
+require_once dirname(__DIR__, 2) . '/application/tasks/ListArchivedTaskListsUseCase.php';
+require_once dirname(__DIR__, 2) . '/application/tasks/RestoreTaskListUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/tasks/CreateTaskUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/tasks/UpdateTaskUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/tasks/ChangeTaskStatusUseCase.php';
@@ -24,6 +26,8 @@ final class TasksAjax {
         add_action('wp_ajax_aa_create_task_list', [__CLASS__, 'handle_create_list']);
         add_action('wp_ajax_aa_update_task_list', [__CLASS__, 'handle_update_list']);
         add_action('wp_ajax_aa_archive_task_list', [__CLASS__, 'handle_archive_list']);
+        add_action('wp_ajax_aa_list_archived_task_lists', [__CLASS__, 'handle_list_archived_lists']);
+        add_action('wp_ajax_aa_restore_task_list', [__CLASS__, 'handle_restore_list']);
         add_action('wp_ajax_aa_create_task', [__CLASS__, 'handle_create_task']);
         add_action('wp_ajax_aa_update_task', [__CLASS__, 'handle_update_task']);
         add_action('wp_ajax_aa_change_task_status', [__CLASS__, 'handle_change_status']);
@@ -64,6 +68,24 @@ final class TasksAjax {
         self::authorize();
 
         $result = (new ArchiveTaskListUseCase())->execute([
+            'list_id' => self::post_scalar('list_id'),
+        ]);
+
+        self::respond_use_case($result);
+    }
+
+    public static function handle_list_archived_lists(): void {
+        self::authorize();
+
+        $result = (new ListArchivedTaskListsUseCase())->execute();
+
+        self::respond_use_case($result);
+    }
+
+    public static function handle_restore_list(): void {
+        self::authorize();
+
+        $result = (new RestoreTaskListUseCase())->execute([
             'list_id' => self::post_scalar('list_id'),
         ]);
 

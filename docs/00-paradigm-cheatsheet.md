@@ -80,7 +80,7 @@ Lo viejo coexiste con su nombre histórico hasta que se toque por otra razón.
 - **Repository:** acceso a BD. Solo SQL. Sin `if` de negocio.
 - **Controller AJAX:** traductor HTTP↔Use Case. Autentica, sanitiza, delega, serializa.
 - **Infrastructure:** todo lo que toca el mundo exterior (WP, MySQL via repos, LLMs, webhooks, notifs).
-- **UI:** todo lo que pinta y captura interacción. No es fuente de verdad.
+- **UI:** todo lo que pinta y captura interacción. No es fuente de verdad. **Herramientas de área** (ej. MC13I restaurar archivadas) viven en el header del contenedor (`#aa-lists-area-tools`), no como `data-tasks-action` de item/lista visible.
 
 ## Veda de los Models (regla operativa)
 

@@ -213,6 +213,49 @@ final class TaskListRepository {
     }
 
     /**
+     * Listas archivadas de usuario, más recientes primero (proxy: updated_at).
+     *
+     * @return list<array<string,mixed>>
+     */
+    public static function list_archived_recent_first() {
+        global $wpdb;
+
+        $table = self::table_name();
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT * FROM {$table} WHERE status = %s AND owner_type = %s ORDER BY updated_at DESC, id DESC",
+                'archived',
+                'user'
+            )
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[TaskListRepository] list_archived_recent_first: ' . $wpdb->last_error);
+            return [];
+        }
+
+        $mapped = [];
+
+        foreach ($rows as $row) {
+            $item = self::map_row($row);
+
+            if ($item !== null) {
+                $mapped[] = $item;
+            }
+        }
+
+        return $mapped;
+    }
+
+    /**
+     * @param int $id
+     * @return array<string,mixed>|null
+     */
+    public static function restore($id) {
+        return self::update($id, ['status' => 'active']);
+    }
+
+    /**
      * @param array<string,mixed> $data
      * @return array<string,mixed>
      */

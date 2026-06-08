@@ -49,6 +49,8 @@ require_once $plugin_root . '/includes/application/tasks/GetTaskBoardUseCase.php
 require_once $plugin_root . '/includes/application/tasks/CreateTaskListUseCase.php';
 require_once $plugin_root . '/includes/application/tasks/UpdateTaskListUseCase.php';
 require_once $plugin_root . '/includes/application/tasks/ArchiveTaskListUseCase.php';
+require_once $plugin_root . '/includes/application/tasks/ListArchivedTaskListsUseCase.php';
+require_once $plugin_root . '/includes/application/tasks/RestoreTaskListUseCase.php';
 require_once $plugin_root . '/includes/application/tasks/CreateTaskUseCase.php';
 require_once $plugin_root . '/includes/application/tasks/UpdateTaskUseCase.php';
 require_once $plugin_root . '/includes/application/tasks/ChangeTaskStatusUseCase.php';
@@ -61,6 +63,10 @@ ac_assert('AJAX registers aa_get_task_board', strpos($ajax_src, 'aa_get_task_boa
 ac_assert('AJAX registers aa_create_task_list', strpos($ajax_src, 'aa_create_task_list') !== false);
 ac_assert('AJAX registers aa_update_task_list', strpos($ajax_src, 'aa_update_task_list') !== false);
 ac_assert('AJAX registers aa_archive_task_list', strpos($ajax_src, 'aa_archive_task_list') !== false);
+ac_assert('AJAX registers aa_list_archived_task_lists', strpos($ajax_src, 'aa_list_archived_task_lists') !== false);
+ac_assert('AJAX registers aa_restore_task_list', strpos($ajax_src, 'aa_restore_task_list') !== false);
+ac_assert('AJAX list archived uses ListArchivedTaskListsUseCase', strpos($ajax_src, 'ListArchivedTaskListsUseCase') !== false);
+ac_assert('AJAX restore uses RestoreTaskListUseCase', strpos($ajax_src, 'RestoreTaskListUseCase') !== false);
 ac_assert('AJAX registers aa_create_task', strpos($ajax_src, 'aa_create_task') !== false);
 ac_assert('AJAX registers aa_update_task', strpos($ajax_src, 'aa_update_task') !== false);
 ac_assert('AJAX registers aa_change_task_status', strpos($ajax_src, 'aa_change_task_status') !== false);
@@ -235,6 +241,46 @@ if ($wp_integration) {
     ac_assert(
         'Archived list excluded from active board',
         !in_array($list_id, $board_after_archive['organization']['list_order'] ?? [], true)
+    );
+
+    $list_archived = (new ListArchivedTaskListsUseCase())->execute();
+    ac_assert('List archived success', !empty($list_archived['success']));
+    ac_assert('List archived returns lists array', is_array($list_archived['data']['lists'] ?? null));
+    ac_assert(
+        'List archived includes archived list',
+        count(array_filter(
+            $list_archived['data']['lists'] ?? [],
+            static function ($row) use ($list_id) {
+                return is_array($row)
+                    && (int) ($row['id'] ?? 0) === $list_id
+                    && ($row['status'] ?? '') === 'archived';
+            }
+        )) === 1
+    );
+
+    $restore_list = (new RestoreTaskListUseCase())->execute(['list_id' => $list_id]);
+    ac_assert('Restore list success', !empty($restore_list['success']));
+    ac_assert('Restore list status active', ($restore_list['data']['list']['status'] ?? '') === 'active');
+    ac_assert('Restore preserves tasks', ($restore_list['data']['tasks_preserved'] ?? 0) >= 2);
+
+    $board_after_restore = (new GetTaskBoardUseCase())->execute();
+    ac_assert(
+        'Restored list included in active board',
+        in_array($list_id, $board_after_restore['organization']['list_order'] ?? [], true)
+    );
+
+    $restore_active = (new RestoreTaskListUseCase())->execute(['list_id' => $list_id]);
+    ac_assert('Restore active list idempotent success', !empty($restore_active['success']));
+    ac_assert(
+        'Restore active list idempotent status',
+        ($restore_active['data']['list']['status'] ?? '') === 'active'
+    );
+
+    $restore_missing = (new RestoreTaskListUseCase())->execute(['list_id' => 999999999]);
+    ac_assert('Restore missing list fails', empty($restore_missing['success']));
+    ac_assert(
+        'Restore missing list error code',
+        ($restore_missing['error']['code'] ?? '') === 'list_not_found'
     );
 
     $wpdb->delete($tasks_table, ['list_id' => $list_id], ['%d']);

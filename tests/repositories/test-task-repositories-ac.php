@@ -168,6 +168,66 @@ if ($wp_integration) {
         )) === 0
     );
 
+    $archived_recent = TaskListRepository::list_archived_recent_first();
+    ac_assert('list_archived_recent_first returns array', is_array($archived_recent));
+    ac_assert(
+        'list_archived_recent_first includes archived list',
+        count(array_filter(
+            $archived_recent,
+            static function ($row) use ($list_id) {
+                return is_array($row)
+                    && (int) ($row['id'] ?? 0) === $list_id
+                    && ($row['status'] ?? '') === 'archived';
+            }
+        )) === 1
+    );
+    ac_assert(
+        'list_archived_recent_first excludes active lists',
+        count(array_filter(
+            $archived_recent,
+            static function ($row) {
+                return is_array($row) && ($row['status'] ?? '') === 'active';
+            }
+        )) === 0
+    );
+
+    $older_archived = TaskListRepository::create([
+        'title' => 'Lista archivada antigua ' . $suffix,
+        'owner_type' => 'user',
+        'status' => 'archived',
+    ]);
+    $older_archived_id = (int) ($older_archived['id'] ?? 0);
+    ac_assert('older archived list has id', $older_archived_id > 0);
+
+    if ($older_archived_id > 0) {
+        $wpdb->update(
+            $lists_table,
+            ['updated_at' => '2020-01-01 00:00:00'],
+            ['id' => $older_archived_id],
+            ['%s'],
+            ['%d']
+        );
+    }
+
+    $archived_ordered = TaskListRepository::list_archived_recent_first();
+    $ordered_ids = array_map(
+        static function ($row) {
+            return is_array($row) ? (int) ($row['id'] ?? 0) : 0;
+        },
+        $archived_ordered
+    );
+    $list_id_pos = array_search($list_id, $ordered_ids, true);
+    $older_pos = array_search($older_archived_id, $ordered_ids, true);
+    ac_assert(
+        'list_archived_recent_first orders updated_at DESC',
+        $list_id_pos !== false
+        && $older_pos !== false
+        && $list_id_pos < $older_pos
+    );
+
+    $restored_list = TaskListRepository::restore($list_id);
+    ac_assert('restore list status active', ($restored_list['status'] ?? '') === 'active');
+
     $empty_list = TaskListRepository::create([
         'title' => 'Lista vacía AC ' . $suffix,
     ]);
@@ -215,6 +275,7 @@ if ($wp_integration) {
     $wpdb->delete($tasks_table, ['list_id' => $list_id], ['%d']);
     $wpdb->delete($lists_table, ['id' => $empty_list_id], ['%d']);
     $wpdb->delete($lists_table, ['id' => $list_id], ['%d']);
+    $wpdb->delete($lists_table, ['id' => $older_archived_id], ['%d']);
 } else {
     echo "\n[SKIP] Integración WP: define AA_WP_ROOT=/ruta/a/wordpress para probar migración y CRUD.\n";
 }

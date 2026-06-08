@@ -121,4 +121,35 @@ describe('TasksService MC13G-C1', () => {
         assert.equal(readFormField(posts[0].body, 'action'), 'aa_dismiss_task');
         assert.equal(readFormField(posts[0].body, 'task_id'), '99');
     });
+
+    it('getArchivedTaskLists postea aa_list_archived_task_lists', async () => {
+        var loaded = loadTasksService(function () {
+            return Promise.resolve({
+                ok: true,
+                json: function () {
+                    return Promise.resolve({
+                        success: true,
+                        data: { lists: [{ id: 3, title: 'Archivada', status: 'archived' }] }
+                    });
+                }
+            });
+        });
+
+        var result = await loaded.TasksService.getArchivedTaskLists();
+
+        assert.equal(result.lists.length, 1);
+        assert.equal(result.lists[0].id, 3);
+    });
+
+    it('restoreTaskList postea aa_restore_task_list con list_id', async () => {
+        var loaded = loadTasksService();
+        var posts = loaded.posts;
+
+        await loaded.TasksService.restoreTaskList(12);
+
+        assert.equal(posts.length, 1);
+        assert.equal(readFormField(posts[0].body, 'action'), 'aa_restore_task_list');
+        assert.equal(readFormField(posts[0].body, 'list_id'), '12');
+        assert.equal(readFormField(posts[0].body, '_wpnonce'), 'test-nonce');
+    });
 });

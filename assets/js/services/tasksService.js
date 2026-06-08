@@ -112,6 +112,27 @@
     }
 
     /**
+     * @returns {Promise<{lists:Array}>}
+     */
+    function getArchivedTaskLists() {
+        return postAction('aa_list_archived_task_lists').then(function (data) {
+            return {
+                lists: Array.isArray(data.lists) ? data.lists : []
+            };
+        });
+    }
+
+    /**
+     * @param {number|string} listId
+     * @returns {Promise<Object>}
+     */
+    function restoreTaskList(listId) {
+        return postAction('aa_restore_task_list', {
+            list_id: listId
+        });
+    }
+
+    /**
      * @param {{list_id:number|string,title:string,notes?:string,due_at?:string,importance?:number}} payload
      * @returns {Promise<Object>}
      */
@@ -163,6 +184,8 @@
         getTaskBoard: getTaskBoard,
         createTaskList: createTaskList,
         archiveTaskList: archiveTaskList,
+        getArchivedTaskLists: getArchivedTaskLists,
+        restoreTaskList: restoreTaskList,
         createTask: createTask,
         changeTaskStatus: changeTaskStatus,
         deferTask: deferTask,
