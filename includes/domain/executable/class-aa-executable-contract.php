@@ -16,6 +16,14 @@ final class AA_Executable_Contract {
 
     public const SOURCE_AI = 'ai';
 
+    public const SOURCE_CATEGORY_AGENDA_APP = 'agenda_app';
+
+    public const SOURCE_CATEGORY_USER = 'user';
+
+    public const SOURCE_CATEGORY_AI = 'ai';
+
+    public const SOURCE_CATEGORY_UNKNOWN = 'unknown';
+
     public const LIST_STATUS_ACTIVE = 'active';
 
     public const LIST_STATUS_ARCHIVED = 'archived';
@@ -67,10 +75,14 @@ final class AA_Executable_Contract {
 
         $source = self::normalize_source($list['source'] ?? self::SOURCE_USER);
         $status = self::normalize_list_status($list['status'] ?? self::LIST_STATUS_ACTIVE);
+        $source_category = self::normalize_source_category($list['source_category'] ?? null, $source);
+        $source_label = self::normalize_source_label($list['source_label'] ?? null, $source_category, $source);
 
         return [
             'id' => self::normalize_scalar_id($list['id'] ?? ''),
             'source' => $source,
+            'source_category' => $source_category,
+            'source_label' => $source_label,
             'origin_key' => self::nullable_string($list['origin_key'] ?? null),
             'title' => self::normalize_string($list['title'] ?? ''),
             'description' => self::nullable_string($list['description'] ?? null),
@@ -137,6 +149,8 @@ final class AA_Executable_Contract {
         return [
             'id',
             'source',
+            'source_category',
+            'source_label',
             'origin_key',
             'title',
             'description',
@@ -198,6 +212,91 @@ final class AA_Executable_Contract {
      */
     public static function missing_item_keys(array $row): array {
         return self::missing_keys($row, self::required_item_keys());
+    }
+
+    /**
+     * @param string $source
+     */
+    public static function default_source_category(string $source): string {
+        $normalized = strtolower(trim($source));
+
+        if ($normalized === self::SOURCE_SYSTEM) {
+            return self::SOURCE_CATEGORY_AGENDA_APP;
+        }
+
+        if ($normalized === self::SOURCE_USER) {
+            return self::SOURCE_CATEGORY_USER;
+        }
+
+        if ($normalized === self::SOURCE_AI) {
+            return self::SOURCE_CATEGORY_AI;
+        }
+
+        if ($normalized === '') {
+            return self::SOURCE_CATEGORY_UNKNOWN;
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param string $source_or_category
+     */
+    public static function default_source_label(string $source_or_category): string {
+        $normalized = strtolower(trim($source_or_category));
+
+        if ($normalized === self::SOURCE_SYSTEM || $normalized === self::SOURCE_CATEGORY_AGENDA_APP) {
+            return 'Agenda app';
+        }
+
+        if ($normalized === self::SOURCE_USER || $normalized === self::SOURCE_CATEGORY_USER) {
+            return 'Mis listas';
+        }
+
+        if ($normalized === self::SOURCE_AI || $normalized === self::SOURCE_CATEGORY_AI) {
+            return 'IA';
+        }
+
+        if ($normalized === '' || $normalized === self::SOURCE_CATEGORY_UNKNOWN) {
+            return '';
+        }
+
+        return ucfirst(str_replace('_', ' ', $normalized));
+    }
+
+    /**
+     * @param mixed $value
+     * @param string $source
+     */
+    private static function normalize_source_category($value, string $source): string {
+        $category = is_string($value) ? strtolower(trim($value)) : '';
+
+        if ($category !== '') {
+            return $category;
+        }
+
+        return self::default_source_category($source);
+    }
+
+    /**
+     * @param mixed  $value
+     * @param string $source_category
+     * @param string $source
+     */
+    private static function normalize_source_label($value, string $source_category, string $source): string {
+        $label = is_string($value) ? trim($value) : '';
+
+        if ($label !== '') {
+            return $label;
+        }
+
+        $from_category = self::default_source_label($source_category);
+
+        if ($from_category !== '') {
+            return $from_category;
+        }
+
+        return self::default_source_label($source);
     }
 
     /**

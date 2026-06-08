@@ -54,6 +54,8 @@ function baseList(overrides) {
     return Object.assign({
         id: 'system:learning.recommendations',
         source: 'system',
+        source_category: 'agenda_app',
+        source_label: 'Agenda app',
         origin_key: 'learning.recommendations',
         title: 'Recomendaciones',
         description: 'Sugerencias del sistema.',
@@ -312,9 +314,11 @@ describe('AAExecutableListRenderer', () => {
         assert.match(html, /data-list-id="7"/);
     });
 
-    it('source=system muestra badge Recomendado', () => {
+    it('source=system muestra label sutil Agenda app', () => {
         var list = baseList({
             source: 'system',
+            source_category: 'agenda_app',
+            source_label: 'Agenda app',
             title: 'Recomendaciones',
             capabilities: { can_archive: false },
             buckets: [{ key: 'primary', label: 'Principales', items: [baseItem()] }]
@@ -322,14 +326,18 @@ describe('AAExecutableListRenderer', () => {
 
         var html = renderer.renderList(list);
 
-        assert.match(html, /aa-executable-list-source-badge/);
-        assert.match(html, />Recomendado</);
+        assert.match(html, /aa-executable-list-source-label/);
+        assert.match(html, />Agenda app</);
+        assert.doesNotMatch(html, /aa-executable-list-source-badge/);
+        assert.doesNotMatch(html, />Recomendado</);
         assert.doesNotMatch(html, /data-tasks-action="archive-list"/);
     });
 
-    it('source=user muestra badge Mis listas', () => {
+    it('source=user muestra label sutil Mis listas', () => {
         var list = baseList({
             source: 'user',
+            source_category: 'user',
+            source_label: 'Mis listas',
             title: 'Lista de casa',
             capabilities: { can_archive: true },
             buckets: [{ key: 'primary', label: 'Prioritarias', items: [] }]
@@ -337,7 +345,9 @@ describe('AAExecutableListRenderer', () => {
 
         var html = renderer.renderList(list);
 
+        assert.match(html, /aa-executable-list-source-label/);
         assert.match(html, />Mis listas</);
+        assert.doesNotMatch(html, /aa-executable-list-source-badge/);
         assert.match(html, /data-tasks-action="archive-list"/);
     });
 
@@ -377,16 +387,19 @@ describe('AAExecutableListRenderer', () => {
         assert.match(html, /onclick="event\.stopPropagation\(\)"/);
     });
 
-    it('MC13L system list no muestra Archivar y conserva badge', () => {
+    it('MC13L system list no muestra Archivar y conserva source label', () => {
         var list = baseList({
             source: 'system',
+            source_category: 'agenda_app',
+            source_label: 'Agenda app',
             capabilities: { can_archive: false },
             buckets: [{ key: 'primary', label: 'Principales', items: [baseItem()] }]
         });
 
         var html = renderer.renderList(list);
 
-        assert.match(html, />Recomendado</);
+        assert.match(html, />Agenda app</);
+        assert.doesNotMatch(html, />Recomendado</);
         assert.doesNotMatch(html, /data-tasks-action="archive-list"/);
         assert.match(html, /<details/);
     });
@@ -456,8 +469,41 @@ describe('AAExecutableListRenderer', () => {
         assert.match(userHtml, /aa-executable-list-body[\s\S]*data-tasks-action="defer"/);
     });
 
-    it('resolveSourceBadgeLabel mapea ai a IA', () => {
-        assert.equal(renderer.resolveSourceBadgeLabel('ai'), 'IA');
+    it('resolveSourceLabel prioriza list.source_label', () => {
+        assert.equal(renderer.resolveSourceLabel({
+            source: 'system',
+            source_category: 'agenda_app',
+            source_label: 'Etiqueta custom'
+        }), 'Etiqueta custom');
+    });
+
+    it('resolveSourceLabel hace fallback por source si falta label', () => {
+        assert.equal(renderer.resolveSourceLabel({
+            source: 'ai',
+            source_category: 'ai'
+        }), 'IA');
+        assert.equal(renderer.resolveSourceLabel({
+            source: 'system'
+        }), 'Agenda app');
+    });
+
+    it('source label queda en columna izquierda del header', () => {
+        var list = baseList({
+            source: 'user',
+            source_category: 'user',
+            source_label: 'Mis listas',
+            capabilities: { can_archive: true },
+            buckets: [{ key: 'default', label: '', items: [] }]
+        });
+
+        var html = renderer.renderList(list);
+
+        assert.match(
+            html,
+            /min-w-0 flex-1[\s\S]*<h4[^>]*>[\s\S]*aa-executable-list-source-label[\s\S]*Mis listas/
+        );
+        assert.match(html, /data-tasks-action="archive-list"/);
+        assert.match(html, /aa-chevron/);
     });
 
     it('lista user sin items visibles muestra mensaje de tareas pendientes', () => {

@@ -171,6 +171,8 @@ final class TaskBoardToExecutableMapper {
         return AA_Executable_Contract::normalize_list([
             'id' => (string) $list_id,
             'source' => AA_Executable_Contract::SOURCE_USER,
+            'source_category' => AA_Executable_Contract::SOURCE_CATEGORY_USER,
+            'source_label' => 'Mis listas',
             'origin_key' => null,
             'title' => (string) ($list['title'] ?? ''),
             'description' => isset($list['description']) ? (string) $list['description'] : null,

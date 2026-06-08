@@ -49,6 +49,8 @@ final class LearningRecommendationsToExecutableMapper {
         return AA_Executable_Contract::normalize_list([
             'id' => self::LIST_ID,
             'source' => AA_Executable_Contract::SOURCE_SYSTEM,
+            'source_category' => AA_Executable_Contract::SOURCE_CATEGORY_AGENDA_APP,
+            'source_label' => 'Agenda app',
             'origin_key' => self::LIST_ORIGIN_KEY,
             'title' => 'Recomendaciones',
             'description' => 'Sugerencias para configurar y usar tu agenda.',

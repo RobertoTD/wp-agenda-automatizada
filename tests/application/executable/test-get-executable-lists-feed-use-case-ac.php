@@ -228,6 +228,14 @@ ac_assert(
     ($happy_lists[0]['id'] ?? '') === LearningRecommendationsToExecutableMapper::LIST_ID
     && ($happy_lists[0]['source'] ?? '') === AA_Executable_Contract::SOURCE_SYSTEM
 );
+
+ac_assert(
+    'Happy path preserves source metadata after enricher',
+    ($happy_lists[0]['source_category'] ?? '') === AA_Executable_Contract::SOURCE_CATEGORY_AGENDA_APP
+    && ($happy_lists[0]['source_label'] ?? '') === 'Agenda app'
+    && ($happy_lists[1]['source_category'] ?? '') === AA_Executable_Contract::SOURCE_CATEGORY_USER
+    && ($happy_lists[1]['source_label'] ?? '') === 'Mis listas'
+);
 ac_assert(
     'Happy path user lists follow system list',
     count($happy_lists) === 3

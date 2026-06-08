@@ -616,14 +616,14 @@
     }
 
     /**
-     * @param {unknown} source
+     * @param {unknown} sourceOrCategory
      * @returns {string}
      */
-    function resolveSourceBadgeLabel(source) {
-        var normalized = asString(source).trim().toLowerCase();
+    function defaultSourceLabel(sourceOrCategory) {
+        var normalized = asString(sourceOrCategory).trim().toLowerCase();
 
-        if (normalized === 'system') {
-            return 'Recomendado';
+        if (normalized === 'system' || normalized === 'agenda_app') {
+            return 'Agenda app';
         }
 
         if (normalized === 'user') {
@@ -638,23 +638,49 @@
             return '';
         }
 
-        return normalized;
+        return normalized.replace(/_/g, ' ').replace(/^\w/, function (char) {
+            return char.toUpperCase();
+        });
     }
 
     /**
-     * @param {unknown} source
+     * @param {object} list
      * @returns {string}
      */
-    function renderSourceBadge(source) {
-        var label = resolveSourceBadgeLabel(source);
+    function resolveSourceLabel(list) {
+        if (!list || typeof list !== 'object') {
+            return '';
+        }
+
+        var explicitLabel = asString(list.source_label).trim();
+
+        if (explicitLabel !== '') {
+            return explicitLabel;
+        }
+
+        var category = asString(list.source_category).trim().toLowerCase();
+        var fromCategory = defaultSourceLabel(category);
+
+        if (fromCategory !== '') {
+            return fromCategory;
+        }
+
+        return defaultSourceLabel(list.source);
+    }
+
+    /**
+     * @param {object} list
+     * @returns {string}
+     */
+    function renderSourceLabel(list) {
+        var label = resolveSourceLabel(list);
 
         if (label === '') {
             return '';
         }
 
         return ''
-            + '<span class="aa-executable-list-source-badge shrink-0 text-xs font-medium text-gray-500'
-            + ' bg-gray-100 border border-gray-200 rounded-full px-2 py-0.5">'
+            + '<span class="aa-executable-list-source-label block text-xs text-gray-500 truncate">'
             + escapeHtml(label)
             + '</span>';
     }
@@ -694,7 +720,7 @@
             bodyHtml = '<p class="text-sm text-gray-500 aa-executable-list-empty-pending">No hay tareas pendientes en esta lista.</p>';
         }
 
-        var badgeHtml = renderSourceBadge(list.source);
+        var sourceLabelHtml = renderSourceLabel(list);
         var archiveHtml = capabilities.can_archive
             ? '<button type="button" data-tasks-action="archive-list" data-list-id="' + listId + '"'
                 + ' onclick="event.stopPropagation()"'
@@ -702,8 +728,8 @@
                 + 'Archivar'
                 + '</button>'
             : '';
-        var headerMetaHtml = badgeHtml !== '' || archiveHtml !== ''
-            ? '<div class="flex flex-col items-end gap-2 shrink-0">' + badgeHtml + archiveHtml + '</div>'
+        var headerMetaHtml = archiveHtml !== ''
+            ? '<div class="flex flex-col items-end gap-2 shrink-0">' + archiveHtml + '</div>'
             : '';
         var chevronHtml = ''
             + '<svg class="aa-chevron w-5 h-5 text-gray-400 transition-transform duration-200 flex-shrink-0"'
@@ -725,6 +751,7 @@
             + '<div class="flex items-start justify-between gap-3">'
             + '<div class="min-w-0 flex-1">'
             + '<h4 class="text-base font-semibold text-gray-900">' + title + '</h4>'
+            + sourceLabelHtml
             + description
             + '</div>'
             + headerActionsHtml
@@ -751,8 +778,9 @@
 
     var api = {
         escapeHtml: escapeHtml,
-        resolveSourceBadgeLabel: resolveSourceBadgeLabel,
-        renderSourceBadge: renderSourceBadge,
+        resolveSourceLabel: resolveSourceLabel,
+        renderSourceLabel: renderSourceLabel,
+        defaultSourceLabel: defaultSourceLabel,
         renderFeed: renderFeed,
         renderList: renderList,
         renderBucket: renderBucket,

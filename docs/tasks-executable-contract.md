@@ -308,6 +308,16 @@ Los **counters** serían vista derivada (materializada o calculada), no fuente d
 | `user` | Tasks creadas por el operador | Listas `aa_task_lists` |
 | `ai` | Reservado en contrato; ningún mapper lo emite aún | — |
 
+**MC13M — tres capas de procedencia en lista:**
+
+| Campo | Rol | Ejemplo system | Ejemplo user |
+|-------|-----|----------------|--------------|
+| `source` | Canal técnico | `system` | `user` |
+| `source_category` | Categoría operable para policies futuras | `agenda_app` | `user` |
+| `source_label` | Copy renderizable (fuente primaria del indicador UI) | `Agenda app` | `Mis listas` |
+
+Los mappers definen `source_category` y `source_label` explícitamente. `AA_Executable_Contract::normalize_list()` conserva ambos y aplica fallback por `source` si faltan. El renderer **no inventa** el copy primario: usa `list.source_label` con fallback mínimo documentado.
+
 `origin_key` estabiliza la clave lógica dentro de la fuente (p. ej. recommendation `key`). Tasks usan `origin_key=null` en items; comparación global futura puede requerir convenciones explícitas (`tasks.list.{id}`).
 
 ### Deuda: acciones de lista (`archive-list`)
@@ -329,7 +339,9 @@ Hoy `archive-list` es acción de **lista**, no de item:
 ```php
 [
     'id' => string,              // estable por fuente (ej. system:learning.recommendations, "42")
-    'source' => 'system'|'user'|'ai',
+    'source' => 'system'|'user'|'ai', // canal técnico (DOM, policies)
+    'source_category' => string, // categoría/procedencia operable (ej. agenda_app, user, ai)
+    'source_label' => string,    // label renderizable para UI (ej. Agenda app, Mis listas)
     'origin_key' => string|null, // clave lógica de lista (ej. learning.recommendations)
     'title' => string,
     'description' => string|null,
@@ -659,11 +671,7 @@ Nuevo valor de flag: **`AA_EXECUTABLE_VISIBLE_FEED=unified`**. Modos anteriores 
 - ~~`#aa-executable-user-lists-visible`~~ — eliminado MC13J-2C
 - `#aa-tasks-board-root` (sigue cargando en background para propuesta ejecutiva, FABs, modales, selectors)
 
-**Procedencia:** metadata por lista (`list.source`); badge MVP en renderer:
-
-- `system` → Recomendado
-- `user` → Mis listas
-- `ai` → IA
+**Procedencia:** metadata por lista (`source`, `source_category`, `source_label`). Indicador visual sutil en renderer (MC13M): `text-xs text-gray-500`, sin badge encapsulado. Copy desde `source_label` del contrato, no hardcodeado por `source` en UI.
 
 No hay secciones separadas por source en unified.
 
@@ -784,7 +792,7 @@ Resolución de modo en `learning-module.js`: misma prioridad MC13J (`window` →
 |----------|--------|
 | `#aa-executable-user-lists-visible` y hijos | Eliminado del DOM Listas |
 | `filterUserLists`, `loadVisibleUserFeed`, `initVisibleUserFeedModule`, etc. | Eliminados de `executable-lists-module.js` |
-| Listas user | Cards en feed unified (`source=user`, badge “Mis listas”) |
+| Listas user | Cards en feed unified (`source=user`, `source_label` “Mis listas”) |
 | `AAExecutableUserListsVisibleFeed` | **Nombre conservado** (compatibilidad); `reload()` → unified; `isSwapEnabled()` stub `false` |
 
 **MC13A/B/C:** histórico retirado (no activables en producción).
@@ -804,6 +812,28 @@ Resolución de modo en `learning-module.js`: misma prioridad MC13J (`window` →
 
 **No incluido MC13J-2C:** tocar `tasks-board-module.js`; shadow module; backend.
 
+## MC13M — metadata de procedencia + indicador visual sutil
+
+**Alcance:** contrato executable, mappers Learning/Tasks, renderer, tests y docs. Sin schema, storage, feed use case, policies, coordinator ni orden de listas.
+
+Cada `ExecutableList` incluye:
+
+- `source_category` — slug operable (`agenda_app`, `user`, `ai`, …).
+- `source_label` — string renderizable (`Agenda app`, `Mis listas`, `IA`).
+
+Mappers actuales:
+
+| Fuente | `source_category` | `source_label` |
+|--------|-------------------|----------------|
+| Learning/Recomendaciones | `agenda_app` | `Agenda app` |
+| Tasks user | `user` | `Mis listas` |
+
+Indicador UI: `<span class="aa-executable-list-source-label text-xs text-gray-500 truncate">` bajo el título en la columna izquierda del `<summary>`. Sin `bg-*`, `border`, `rounded-full`. Columna derecha reservada a Archivar + chevron.
+
+Fallback: contrato y renderer aplican defaults por `source`/`source_category` si faltan campos; no sustituyen metadata explícita de mappers.
+
+**No incluido MC13M:** registry de fuentes, `meta` anidado en lista, policies de orden, propuesta ejecutiva, IA/premium backend.
+
 ## MC13L — listas colapsables en feed unified (presentación)
 
 **Alcance:** solo `executableListRenderer.js`. Sin cambios en dominio, feed use case, policies, coordinator, services ni persistencia.
@@ -811,7 +841,7 @@ Resolución de modo en `learning-module.js`: misma prioridad MC13J (`window` →
 Cada lista en `#aa-executable-lists-active-root` se renderiza como `<details class="aa-executable-list-card ...">`:
 
 - **Cerrada por defecto** — sin atributo `open`.
-- **Header** en `<summary>` (título, descripción, badge procedencia, `Archivar` si aplica, chevron `.aa-chevron`).
+- **Header** en `<summary>` (título, label de procedencia sutil, descripción, `Archivar` si aplica, chevron `.aa-chevron`).
 - **Body** en `<div class="aa-executable-list-body">` (buckets, items, empty intra-lista).
 - **Chevron** rota vía CSS existente (`details[open] summary .aa-chevron` en `admin.source.css`).
 - **Archivar** en summary con `onclick="event.stopPropagation()"` para no togglear el acordeón.
@@ -836,6 +866,8 @@ Entrada: salida enriquecida de `GetLearningRecommendationsUseCase` (`list_1`, `l
 Salida: **una** `ExecutableList`:
 
 - `source`: `system`
+- `source_category`: `agenda_app`
+- `source_label`: `Agenda app`
 - `id`: `system:learning.recommendations`
 - `origin_key`: `learning.recommendations`
 - `title`: Recomendaciones
@@ -856,6 +888,8 @@ Entrada: salida de `GetTaskBoardUseCase` (`lists`, `tasks`, `organization`).
 Salida: **una ExecutableList por lista de usuario**:
 
 - `source`: `user`
+- `source_category`: `user`
+- `source_label`: `Mis listas`
 - `id`: id numérico de lista como string
 - Buckets `primary` / `secondary` si `organization.task_bucket_order_by_list[list_id]` existe:
   - `primary` → label `Prioritarias`

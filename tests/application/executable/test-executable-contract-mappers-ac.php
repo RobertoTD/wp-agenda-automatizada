@@ -172,6 +172,12 @@ ac_assert(
     && ($learning_list['origin_key'] ?? '') === LearningRecommendationsToExecutableMapper::LIST_ORIGIN_KEY
 );
 
+ac_assert(
+    'Learning list carries agenda_app source metadata',
+    ($learning_list['source_category'] ?? '') === AA_Executable_Contract::SOURCE_CATEGORY_AGENDA_APP
+    && ($learning_list['source_label'] ?? '') === 'Agenda app'
+);
+
 $learning_bucket_keys = array_map(static function (array $bucket): string {
     return (string) ($bucket['key'] ?? '');
 }, $learning_list['buckets'] ?? []);
@@ -296,6 +302,32 @@ ac_assert(
     && ($task_lists[0]['source'] ?? '') === AA_Executable_Contract::SOURCE_USER
     && ($task_lists[0]['id'] ?? '') === '1'
     && ($task_lists[1]['id'] ?? '') === '2'
+);
+
+ac_assert(
+    'User list carries user source metadata',
+    ($task_lists[0]['source_category'] ?? '') === AA_Executable_Contract::SOURCE_CATEGORY_USER
+    && ($task_lists[0]['source_label'] ?? '') === 'Mis listas'
+    && ($task_lists[1]['source_category'] ?? '') === AA_Executable_Contract::SOURCE_CATEGORY_USER
+    && ($task_lists[1]['source_label'] ?? '') === 'Mis listas'
+);
+
+$fallback_system_list = AA_Executable_Contract::normalize_list([
+    'id' => 'system:test',
+    'source' => AA_Executable_Contract::SOURCE_SYSTEM,
+    'title' => 'Sin metadata explícita',
+    'buckets' => [],
+]);
+
+ac_assert(
+    'Contract falls back source_category and source_label from source',
+    ($fallback_system_list['source_category'] ?? '') === AA_Executable_Contract::SOURCE_CATEGORY_AGENDA_APP
+    && ($fallback_system_list['source_label'] ?? '') === 'Agenda app'
+);
+
+ac_assert(
+    'Contract normalized list includes source metadata keys',
+    AA_Executable_Contract::missing_list_keys($fallback_system_list) === []
 );
 
 $first_list_bucket = $task_lists[0]['buckets'][0] ?? null;

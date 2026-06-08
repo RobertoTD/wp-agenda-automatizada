@@ -25,6 +25,8 @@ function activeFeedFixture() {
         {
             id: 'system:learning.recommendations',
             source: 'system',
+            source_category: 'agenda_app',
+            source_label: 'Agenda app',
             origin_key: 'learning.recommendations',
             title: 'Recomendaciones',
             description: 'Sugerencias para configurar y usar tu agenda.',
@@ -157,6 +159,8 @@ function activeFeedFixture() {
         {
             id: '1',
             source: 'user',
+            source_category: 'user',
+            source_label: 'Mis listas',
             origin_key: null,
             title: 'Clientes',
             description: 'Pendientes',
@@ -284,8 +288,11 @@ describe('executable feed render parity', () => {
 
         assert.match(html, /data-list-source="system"/);
         assert.match(html, /data-list-source="user"/);
-        assert.match(html, />Recomendado</);
+        assert.match(html, /aa-executable-list-source-label/);
+        assert.match(html, />Agenda app</);
         assert.match(html, />Mis listas</);
+        assert.doesNotMatch(html, />Recomendado</);
+        assert.doesNotMatch(html, /aa-executable-list-source-badge/);
     });
 
     it('feed mixto mantiene canales Learning y Tasks', () => {
