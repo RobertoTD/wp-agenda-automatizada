@@ -701,6 +701,45 @@ location.reload();
 
 Con `unified` + `AA_EXECUTABLE_LISTS_DEBUG=1` puede coexistir feed unified + sandbox amber (duplicado solo debug; no producción).
 
+## MC13J — unified como modo oficial/default
+
+**Producción:** sin flag ni `sessionStorage`, la vista Listas carga en modo **unified**. Ya no hace falta activar manualmente `AA_EXECUTABLE_VISIBLE_FEED=unified`.
+
+Resolución (`resolveEffectiveFeedMode()` en `executable-lists-module.js`):
+
+1. Lee flag desde `window.AA_EXECUTABLE_VISIBLE_FEED` → `AA_EXECUTABLE_LISTS_DATA.visibleFeed` → `sessionStorage` (misma prioridad que MC13A–H).
+2. Si no hay valor válido → **`unified`** (default).
+3. `off` se normaliza a `legacy` (alias de fallback).
+
+| Modo efectivo | Comportamiento |
+|---------------|----------------|
+| *(default / sin flag)* | Unified — feed executable system + user |
+| `unified` | Igual que default |
+| `legacy` / `off` | Fallback temporal: Learning legacy + board visible |
+| `user` | MC13A histórico / dev |
+| `user-swap` | MC13B histórico / dev |
+
+**Ancla PHP:** `AA_EXECUTABLE_LISTS_DATA.visibleFeed = 'unified'` en `index.php` (override posible vía `window` o `sessionStorage`).
+
+**API pública (sin cambio de contrato):**
+
+- `isUnifiedFeedEnabled()` — true por default y con `unified` explícito
+- `isExecutableVisibleFeedEnabled()` — true por default (unified activo)
+- `AAExecutableUserListsVisibleFeed.reload()` — flujo unified por default
+
+**Rollback temporal a legacy:**
+
+```js
+sessionStorage.setItem('AA_EXECUTABLE_VISIBLE_FEED', 'legacy');
+location.reload();
+```
+
+Volver a oficial: `sessionStorage.removeItem('AA_EXECUTABLE_VISIBLE_FEED'); location.reload();`
+
+**Deprecated (dev/comparación, no producción):** modos `user`, `user-swap`; vista legacy como principal; activación manual de unified en sessionStorage.
+
+**No incluido MC13J-1:** eliminación DOM/código legacy; skip AJAX Learning duplicado (→ MC13J-2).
+
 Proyección común (MC11B):
 
 ```php

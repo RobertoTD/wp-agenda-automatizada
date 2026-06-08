@@ -45,7 +45,7 @@ $lists_area_tools_js = plugin_dir_url(__FILE__) . 'lists-area-tools.js';
         <div class="mb-3 flex items-start justify-between gap-3">
             <div class="min-w-0">
                 <h3 class="text-lg font-semibold text-gray-900">Listas</h3>
-                <p class="text-sm text-gray-500 mt-0.5">Sugerencias del sistema y listas propias en un solo lugar.</p>
+                <p class="text-sm text-gray-500 mt-0.5">Todas las listas de tareas.</p>
             </div>
             <div id="aa-lists-area-tools" class="flex items-center gap-2 shrink-0">
                 <button type="button"
@@ -286,7 +286,8 @@ $lists_area_tools_js = plugin_dir_url(__FILE__) . 'lists-area-tools.js';
     window.AA_EXECUTABLE_LISTS_DATA = {
         ajaxUrl: window.ajaxurl || '<?php echo admin_url('admin-ajax.php'); ?>',
         action: 'aa_get_executable_lists_feed',
-        nonce: '<?php echo esc_js(wp_create_nonce('aa_executable_lists_nonce')); ?>'
+        nonce: '<?php echo esc_js(wp_create_nonce('aa_executable_lists_nonce')); ?>',
+        visibleFeed: 'unified'
     };
 </script>
 

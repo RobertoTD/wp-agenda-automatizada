@@ -1394,3 +1394,265 @@ describe('executable-lists-module MC13H unified feed', () => {
         assert.match(indexSrc, /id="aa-executable-lists-active-error"/);
     });
 });
+
+describe('executable-lists-module MC13J unified default', () => {
+    let originalVisibleFeed;
+    let originalDocument;
+    let originalRenderer;
+    let originalService;
+    let originalData;
+
+    beforeEach(() => {
+        originalVisibleFeed = globalThis.AA_EXECUTABLE_VISIBLE_FEED;
+        originalDocument = globalThis.document;
+        originalRenderer = globalThis.AAExecutableListRenderer;
+        originalService = globalThis.ExecutableListsService;
+        originalData = globalThis.AA_EXECUTABLE_LISTS_DATA;
+    });
+
+    afterEach(() => {
+        if (originalVisibleFeed === undefined) {
+            delete globalThis.AA_EXECUTABLE_VISIBLE_FEED;
+        } else {
+            globalThis.AA_EXECUTABLE_VISIBLE_FEED = originalVisibleFeed;
+        }
+
+        if (originalDocument === undefined) {
+            delete globalThis.document;
+        } else {
+            globalThis.document = originalDocument;
+        }
+
+        if (originalRenderer === undefined) {
+            delete globalThis.AAExecutableListRenderer;
+        } else {
+            globalThis.AAExecutableListRenderer = originalRenderer;
+        }
+
+        if (originalService === undefined) {
+            delete globalThis.ExecutableListsService;
+        } else {
+            globalThis.ExecutableListsService = originalService;
+        }
+
+        if (originalData === undefined) {
+            delete globalThis.AA_EXECUTABLE_LISTS_DATA;
+        } else {
+            globalThis.AA_EXECUTABLE_LISTS_DATA = originalData;
+        }
+    });
+
+    function clearAllFeedFlags() {
+        delete globalThis.AA_EXECUTABLE_VISIBLE_FEED;
+        delete globalThis.AA_EXECUTABLE_LISTS_DATA;
+        delete globalThis.sessionStorage;
+    }
+
+    it('sin flag → resolveEffectiveFeedMode devuelve unified', () => {
+        clearAllFeedFlags();
+
+        assert.equal(hooks.readVisibleFeedFlag(), null);
+        assert.equal(hooks.resolveEffectiveFeedMode(), 'unified');
+        assert.equal(hooks.isUnifiedFeedEnabled(), true);
+        assert.equal(hooks.isExecutableVisibleFeedEnabled(), true);
+        assert.equal(hooks.isVisibleUserFeedEnabled(), false);
+    });
+
+    it('sin flag → applyUnifiedLayout oculta legacy y muestra active root', () => {
+        clearAllFeedFlags();
+
+        function makeEl() {
+            return {
+                classList: {
+                    classes: [],
+                    add: function (name) {
+                        if (!this.classes.includes(name)) {
+                            this.classes.push(name);
+                        }
+                    },
+                    remove: function (name) {
+                        this.classes = this.classes.filter(function (item) {
+                            return item !== name;
+                        });
+                    }
+                }
+            };
+        }
+
+        var learning = makeEl();
+        var userVisible = makeEl();
+        var board = makeEl();
+        var unified = makeEl();
+        unified.classList.classes = ['hidden'];
+
+        globalThis.document = {
+            getElementById: function (id) {
+                if (id === 'aa-learning-recommendations') {
+                    return learning;
+                }
+
+                if (id === 'aa-executable-user-lists-visible') {
+                    return userVisible;
+                }
+
+                if (id === 'aa-tasks-board-root') {
+                    return board;
+                }
+
+                if (id === 'aa-executable-lists-active') {
+                    return unified;
+                }
+
+                return null;
+            }
+        };
+
+        assert.equal(hooks.isUnifiedFeedEnabled(), true);
+        hooks.applyUnifiedLayout();
+
+        assert.equal(learning.classList.classes.includes('hidden'), true);
+        assert.equal(userVisible.classList.classes.includes('hidden'), true);
+        assert.equal(board.classList.classes.includes('hidden'), true);
+        assert.equal(unified.classList.classes.includes('hidden'), false);
+    });
+
+    it('legacy → vista legacy activa sin unified', () => {
+        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'legacy';
+
+        assert.equal(hooks.resolveEffectiveFeedMode(), 'legacy');
+        assert.equal(hooks.isLegacyListsViewEnabled(), true);
+        assert.equal(hooks.isUnifiedFeedEnabled(), false);
+        assert.equal(hooks.isExecutableVisibleFeedEnabled(), false);
+    });
+
+    it('off normaliza a legacy y activa vista legacy', () => {
+        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'off';
+
+        assert.equal(hooks.normalizeVisibleFeedFlag('off'), 'legacy');
+        assert.equal(hooks.readVisibleFeedFlag(), 'legacy');
+        assert.equal(hooks.resolveEffectiveFeedMode(), 'legacy');
+        assert.equal(hooks.isUnifiedFeedEnabled(), false);
+        assert.equal(hooks.isLegacyListsViewEnabled(), true);
+    });
+
+    it('unified explícito sigue activo', () => {
+        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'unified';
+
+        assert.equal(hooks.resolveEffectiveFeedMode(), 'unified');
+        assert.equal(hooks.isUnifiedFeedEnabled(), true);
+    });
+
+    it('user histórico sigue intacto', () => {
+        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'user';
+
+        assert.equal(hooks.resolveEffectiveFeedMode(), 'user');
+        assert.equal(hooks.isVisibleUserFeedEnabled(), true);
+        assert.equal(hooks.isUnifiedFeedEnabled(), false);
+        assert.equal(hooks.isExecutableVisibleFeedEnabled(), true);
+    });
+
+    it('user-swap histórico sigue intacto', () => {
+        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'user-swap';
+
+        assert.equal(hooks.resolveEffectiveFeedMode(), 'user-swap');
+        assert.equal(hooks.isUserSwapEnabled(), true);
+        assert.equal(hooks.isUnifiedFeedEnabled(), false);
+        assert.equal(hooks.isVisibleUserFeedEnabled(), true);
+    });
+
+    it('reload() por default usa flujo unified', async () => {
+        clearAllFeedFlags();
+
+        var unifiedReloadCalls = 0;
+
+        globalThis.ExecutableListsService = {
+            getFeed: function () {
+                unifiedReloadCalls += 1;
+                return Promise.resolve({ lists: [] });
+            }
+        };
+
+        globalThis.AAExecutableListRenderer = {
+            renderFeed: function () {
+                return '';
+            }
+        };
+
+        globalThis.document = {
+            getElementById: function (id) {
+                if (id === 'aa-executable-lists-active-root') {
+                    return { innerHTML: '' };
+                }
+
+                if (id === 'aa-executable-lists-active-loading') {
+                    return {
+                        textContent: '',
+                        classList: {
+                            classes: [],
+                            add: function () {},
+                            remove: function () {}
+                        }
+                    };
+                }
+
+                if (id === 'aa-executable-lists-active-error') {
+                    return {
+                        textContent: '',
+                        classList: {
+                            classes: ['hidden'],
+                            add: function () {},
+                            remove: function () {}
+                        }
+                    };
+                }
+
+                return null;
+            }
+        };
+
+        await hooks.reloadExecutableVisibleFeed();
+
+        assert.equal(unifiedReloadCalls, 1);
+    });
+
+    it('window legacy tiene prioridad sobre cfg unified', () => {
+        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'legacy';
+        globalThis.AA_EXECUTABLE_LISTS_DATA = {
+            visibleFeed: 'unified'
+        };
+
+        assert.equal(hooks.resolveEffectiveFeedMode(), 'legacy');
+        assert.equal(hooks.isUnifiedFeedEnabled(), false);
+    });
+
+    it('sessionStorage legacy gana solo sin window ni cfg', () => {
+        globalThis.sessionStorage = {
+            getItem: function (key) {
+                if (key === 'AA_EXECUTABLE_VISIBLE_FEED') {
+                    return 'legacy';
+                }
+
+                return null;
+            }
+        };
+
+        assert.equal(hooks.resolveEffectiveFeedMode(), 'legacy');
+        assert.equal(hooks.isUnifiedFeedEnabled(), false);
+    });
+
+    it('index.php ancla visibleFeed unified en AA_EXECUTABLE_LISTS_DATA', () => {
+        const fs = require('node:fs');
+        const indexPath = path.join(__dirname, '../../includes/admin/ui/modules/learning/index.php');
+        const indexSrc = fs.readFileSync(indexPath, 'utf8');
+
+        assert.match(indexSrc, /visibleFeed:\s*'unified'/);
+    });
+
+    it('initExecutableListsModule usa isUnifiedFeedEnabled para modo default', () => {
+        const fs = require('node:fs');
+        const moduleSrc = fs.readFileSync(modulePath, 'utf8');
+
+        assert.match(moduleSrc, /function resolveEffectiveFeedMode\(\)/);
+        assert.match(moduleSrc, /if \(isUnifiedFeedEnabled\(\)\)/);
+    });
+});

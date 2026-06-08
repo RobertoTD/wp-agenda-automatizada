@@ -7,6 +7,7 @@
  * MC13B: AA_EXECUTABLE_VISIBLE_FEED=user-swap — feed user principal, board legacy oculto.
  * MC13C: hardening UX user-swap — loading, errores unificados, empty intra-lista.
  * MC13H: AA_EXECUTABLE_VISIBLE_FEED=unified — feed executable system + user en un solo root.
+ * MC13J: unified es el modo operativo default; legacy/off como fallback explícito.
  */
 (function () {
     'use strict';
@@ -28,6 +29,8 @@
     var VISIBLE_FEED_USER = 'user';
     var VISIBLE_FEED_USER_SWAP = 'user-swap';
     var VISIBLE_FEED_UNIFIED = 'unified';
+    var VISIBLE_FEED_LEGACY = 'legacy';
+    var VISIBLE_FEED_OFF = 'off';
     var UNIFIED_EMPTY_MESSAGE = 'No hay listas activas.';
     var UNIFIED_LOADING_MESSAGE = 'Cargando listas…';
 
@@ -38,10 +41,15 @@
     function normalizeVisibleFeedFlag(value) {
         var normalized = asString(value).trim().toLowerCase();
 
+        if (normalized === VISIBLE_FEED_OFF) {
+            return VISIBLE_FEED_LEGACY;
+        }
+
         if (
             normalized === VISIBLE_FEED_USER
             || normalized === VISIBLE_FEED_USER_SWAP
             || normalized === VISIBLE_FEED_UNIFIED
+            || normalized === VISIBLE_FEED_LEGACY
         ) {
             return normalized;
         }
@@ -100,10 +108,32 @@
     }
 
     /**
+     * MC13J: sin flag explícito → unified (producción).
+     *
+     * @returns {string}
+     */
+    function resolveEffectiveFeedMode() {
+        var flag = readVisibleFeedFlag();
+
+        if (flag === null) {
+            return VISIBLE_FEED_UNIFIED;
+        }
+
+        return flag;
+    }
+
+    /**
+     * @returns {boolean}
+     */
+    function isLegacyListsViewEnabled() {
+        return resolveEffectiveFeedMode() === VISIBLE_FEED_LEGACY;
+    }
+
+    /**
      * @returns {boolean}
      */
     function isUnifiedFeedEnabled() {
-        return readVisibleFeedFlag() === VISIBLE_FEED_UNIFIED;
+        return resolveEffectiveFeedMode() === VISIBLE_FEED_UNIFIED;
     }
 
     /**
@@ -117,16 +147,16 @@
      * @returns {boolean}
      */
     function isVisibleUserFeedEnabled() {
-        var flag = readVisibleFeedFlag();
+        var mode = resolveEffectiveFeedMode();
 
-        return flag === VISIBLE_FEED_USER || flag === VISIBLE_FEED_USER_SWAP;
+        return mode === VISIBLE_FEED_USER || mode === VISIBLE_FEED_USER_SWAP;
     }
 
     /**
      * @returns {boolean}
      */
     function isUserSwapEnabled() {
-        return readVisibleFeedFlag() === VISIBLE_FEED_USER_SWAP;
+        return resolveEffectiveFeedMode() === VISIBLE_FEED_USER_SWAP;
     }
 
     function getLegacyLearningSection() {
@@ -1246,7 +1276,11 @@
         isUserSwapEnabled: isUserSwapEnabled,
         isSessionStorageVisibleFeedUserEnabled: isSessionStorageVisibleFeedUserEnabled,
         readVisibleFeedFlag: readVisibleFeedFlag,
+        resolveEffectiveFeedMode: resolveEffectiveFeedMode,
+        isLegacyListsViewEnabled: isLegacyListsViewEnabled,
         normalizeVisibleFeedFlag: normalizeVisibleFeedFlag,
+        VISIBLE_FEED_LEGACY: VISIBLE_FEED_LEGACY,
+        VISIBLE_FEED_UNIFIED: VISIBLE_FEED_UNIFIED,
         applyUserSwapLayout: applyUserSwapLayout,
         applyUnifiedLayout: applyUnifiedLayout,
         applyVisibleUserSectionChrome: applyVisibleUserSectionChrome,
