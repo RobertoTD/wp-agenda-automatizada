@@ -697,32 +697,41 @@
         var badgeHtml = renderSourceBadge(list.source);
         var archiveHtml = capabilities.can_archive
             ? '<button type="button" data-tasks-action="archive-list" data-list-id="' + listId + '"'
+                + ' onclick="event.stopPropagation()"'
                 + ' class="text-xs font-medium text-gray-500 hover:text-red-600 px-2 py-1 rounded border border-gray-200 whitespace-nowrap">'
                 + 'Archivar'
                 + '</button>'
             : '';
-        var headerActionsHtml = badgeHtml !== '' || archiveHtml !== ''
+        var headerMetaHtml = badgeHtml !== '' || archiveHtml !== ''
             ? '<div class="flex flex-col items-end gap-2 shrink-0">' + badgeHtml + archiveHtml + '</div>'
             : '';
+        var chevronHtml = ''
+            + '<svg class="aa-chevron w-5 h-5 text-gray-400 transition-transform duration-200 flex-shrink-0"'
+            + ' fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">'
+            + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>'
+            + '</svg>';
+        var headerActionsHtml = headerMetaHtml !== '' || chevronHtml !== ''
+            ? '<div class="flex items-start gap-2 shrink-0">' + headerMetaHtml + chevronHtml + '</div>'
+            : chevronHtml;
         var headerGradient = source === 'system'
             ? 'from-amber-50 to-white'
             : 'from-gray-50 to-white';
 
         return ''
-            + '<article class="aa-executable-list-card aa-task-list-card bg-white rounded-xl shadow border border-gray-200 overflow-hidden"'
+            + '<details class="aa-executable-list-card aa-task-list-card group bg-white rounded-xl shadow border border-gray-200 overflow-hidden"'
             + ' data-list-id="' + listId + '"'
             + ' data-list-source="' + source + '">'
-            + '<div class="px-4 py-4 border-b border-gray-100 bg-gradient-to-r ' + headerGradient + '">'
+            + '<summary class="px-4 py-4 border-b border-gray-100 bg-gradient-to-r ' + headerGradient + ' cursor-pointer list-none">'
             + '<div class="flex items-start justify-between gap-3">'
-            + '<div class="min-w-0">'
+            + '<div class="min-w-0 flex-1">'
             + '<h4 class="text-base font-semibold text-gray-900">' + title + '</h4>'
             + description
             + '</div>'
             + headerActionsHtml
             + '</div>'
-            + '</div>'
-            + '<div class="px-4 py-4">' + bodyHtml + '</div>'
-            + '</article>';
+            + '</summary>'
+            + '<div class="aa-executable-list-body px-4 py-4">' + bodyHtml + '</div>'
+            + '</details>';
     }
 
     /**

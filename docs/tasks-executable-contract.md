@@ -804,6 +804,23 @@ Resolución de modo en `learning-module.js`: misma prioridad MC13J (`window` →
 
 **No incluido MC13J-2C:** tocar `tasks-board-module.js`; shadow module; backend.
 
+## MC13L — listas colapsables en feed unified (presentación)
+
+**Alcance:** solo `executableListRenderer.js`. Sin cambios en dominio, feed use case, policies, coordinator, services ni persistencia.
+
+Cada lista en `#aa-executable-lists-active-root` se renderiza como `<details class="aa-executable-list-card ...">`:
+
+- **Cerrada por defecto** — sin atributo `open`.
+- **Header** en `<summary>` (título, descripción, badge procedencia, `Archivar` si aplica, chevron `.aa-chevron`).
+- **Body** en `<div class="aa-executable-list-body">` (buckets, items, empty intra-lista).
+- **Chevron** rota vía CSS existente (`details[open] summary .aa-chevron` en `admin.source.css`).
+- **Archivar** en summary con `onclick="event.stopPropagation()"` para no togglear el acordeón.
+- **Reload** vuelve a dejar todas las listas cerradas (sin localStorage ni backend).
+
+Acciones item (`data-learning-action`, `data-tasks-action`) viven en el body; comportamiento del coordinator sin cambios.
+
+**No incluido MC13L:** persistir estado abierto/cerrado; herramientas de área; restore archivadas.
+
 Proyección común (MC11B):
 
 ```php

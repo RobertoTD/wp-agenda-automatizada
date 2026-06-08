@@ -295,4 +295,14 @@ describe('executable feed render parity', () => {
         assert.match(html, /data-tasks-action="complete"/);
         assert.match(html, /data-tasks-action="defer"/);
     });
+
+    it('MC13L feed mixto renderiza listas como details cerradas', () => {
+        var html = renderer.renderFeed(activeFeedFixture());
+        var detailsCount = (html.match(/<details class="aa-executable-list-card/g) || []).length;
+
+        assert.equal(detailsCount, 2);
+        assert.doesNotMatch(html, /<details[^>]*\sopen(?:=|>)/);
+        assert.match(html, /aa-chevron/);
+        assert.match(html, /aa-executable-list-body/);
+    });
 });

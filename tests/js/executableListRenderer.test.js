@@ -341,6 +341,121 @@ describe('AAExecutableListRenderer', () => {
         assert.match(html, /data-tasks-action="archive-list"/);
     });
 
+    it('MC13L renderiza lista como details colapsable cerrada por defecto', () => {
+        var list = baseList({
+            buckets: [
+                {
+                    key: 'primary',
+                    label: 'Principales',
+                    items: [baseItem({ id: 'cfg', origin_key: 'configure_services' })]
+                }
+            ]
+        });
+
+        var html = renderer.renderList(list);
+
+        assert.match(html, /<details class="aa-executable-list-card/);
+        assert.doesNotMatch(html, /<details[^>]*\sopen(?:=|>)/);
+        assert.match(html, /<summary class="[^"]*cursor-pointer list-none/);
+        assert.match(html, /aa-chevron/);
+        assert.match(html, /aa-executable-list-body/);
+        assert.match(html, />Principales</);
+        assert.match(html, /aa-executable-item/);
+    });
+
+    it('MC13L archive-list en summary usa stopPropagation', () => {
+        var list = baseList({
+            id: '7',
+            source: 'user',
+            capabilities: { can_archive: true },
+            buckets: [{ key: 'default', label: '', items: [] }]
+        });
+
+        var html = renderer.renderList(list);
+
+        assert.match(html, /data-tasks-action="archive-list"/);
+        assert.match(html, /onclick="event\.stopPropagation\(\)"/);
+    });
+
+    it('MC13L system list no muestra Archivar y conserva badge', () => {
+        var list = baseList({
+            source: 'system',
+            capabilities: { can_archive: false },
+            buckets: [{ key: 'primary', label: 'Principales', items: [baseItem()] }]
+        });
+
+        var html = renderer.renderList(list);
+
+        assert.match(html, />Recomendado</);
+        assert.doesNotMatch(html, /data-tasks-action="archive-list"/);
+        assert.match(html, /<details/);
+    });
+
+    it('MC13L acciones item Learning y Tasks siguen en el body', () => {
+        var list = baseList({
+            source: 'user',
+            buckets: [
+                {
+                    key: 'primary',
+                    label: 'Prioritarias',
+                    items: [
+                        baseItem({
+                            id: '10',
+                            source: 'user',
+                            origin_key: null,
+                            capabilities: { can_defer: true },
+                            visible_actions: [
+                                visibleAction({
+                                    key: 'defer',
+                                    type: 'intent',
+                                    category: 'intent',
+                                    label: 'Ahora no',
+                                    placement: 'secondary',
+                                    url: null,
+                                    handler: null
+                                })
+                            ]
+                        })
+                    ]
+                }
+            ]
+        });
+        var learningList = baseList({
+            source: 'system',
+            buckets: [
+                {
+                    key: 'primary',
+                    label: 'Principales',
+                    items: [
+                        baseItem({
+                            capabilities: { can_defer: true },
+                            visible_actions: [
+                                visibleAction({
+                                    key: 'defer',
+                                    type: 'intent',
+                                    category: 'intent',
+                                    label: 'Ahora no',
+                                    placement: 'secondary',
+                                    url: null,
+                                    handler: null
+                                })
+                            ]
+                        })
+                    ]
+                }
+            ]
+        });
+
+        var userHtml = renderer.renderList(list);
+        var learningHtml = renderer.renderList(learningList);
+
+        assert.match(userHtml, /data-tasks-action="defer"/);
+        assert.match(userHtml, /data-task-id="10"/);
+        assert.match(learningHtml, /data-learning-action="defer"/);
+        assert.match(learningHtml, /data-recommendation-key="configure_services"/);
+        assert.match(userHtml, /aa-executable-list-body[\s\S]*data-tasks-action="defer"/);
+    });
+
     it('resolveSourceBadgeLabel mapea ai a IA', () => {
         assert.equal(renderer.resolveSourceBadgeLabel('ai'), 'IA');
     });
