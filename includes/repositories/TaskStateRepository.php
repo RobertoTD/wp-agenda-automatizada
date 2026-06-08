@@ -260,6 +260,63 @@ final class TaskStateRepository {
     }
 
     /**
+     * Cierra el efecto activo de ocultamiento por dismiss sin borrar historial.
+     *
+     * @param int    $task_id
+     * @param string $now Y-m-d H:i:s
+     * @return array<string,mixed>|null
+     */
+    public static function clear_dismiss_hiding_effect($task_id, $now) {
+        $normalized_task_id = (int) $task_id;
+
+        if ($normalized_task_id < 1) {
+            return null;
+        }
+
+        $existing = self::find_by_task_id($normalized_task_id);
+
+        if ($existing === null) {
+            return null;
+        }
+
+        $dismiss_count = (int) ($existing['dismiss_count'] ?? 0);
+        $last_dismissed_at = $existing['last_dismissed_at'] ?? null;
+
+        if ($dismiss_count < 1 || $last_dismissed_at === null || $last_dismissed_at === '') {
+            return null;
+        }
+
+        return self::upsert($normalized_task_id, [
+            'dismiss_until' => $now,
+        ]);
+    }
+
+    /**
+     * @param list<int|string> $task_ids
+     * @param string           $now Y-m-d H:i:s
+     * @return array<int,array<string,mixed>>
+     */
+    public static function clear_dismiss_hiding_effect_for_task_ids(array $task_ids, $now) {
+        $updated = [];
+
+        foreach ($task_ids as $task_id) {
+            $normalized_task_id = (int) $task_id;
+
+            if ($normalized_task_id < 1) {
+                continue;
+            }
+
+            $row = self::clear_dismiss_hiding_effect($normalized_task_id, $now);
+
+            if ($row !== null) {
+                $updated[$normalized_task_id] = $row;
+            }
+        }
+
+        return $updated;
+    }
+
+    /**
      * @param array<string,mixed> $data
      * @return array<string,mixed>
      */

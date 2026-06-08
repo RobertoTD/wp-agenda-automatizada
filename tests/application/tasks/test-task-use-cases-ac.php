@@ -74,6 +74,8 @@ ac_assert('AJAX registers aa_defer_task', strpos($ajax_src, 'aa_defer_task') !==
 ac_assert('AJAX registers aa_dismiss_task', strpos($ajax_src, 'aa_dismiss_task') !== false);
 ac_assert('AJAX defer uses RecordTaskDeferSignalUseCase', strpos($ajax_src, 'RecordTaskDeferSignalUseCase') !== false);
 ac_assert('AJAX dismiss uses RecordTaskDismissSignalUseCase', strpos($ajax_src, 'RecordTaskDismissSignalUseCase') !== false);
+ac_assert('AJAX registers aa_return_ignored_user_tasks', strpos($ajax_src, 'aa_return_ignored_user_tasks') !== false);
+ac_assert('AJAX return ignored uses ReturnIgnoredUserTasksUseCase', strpos($ajax_src, 'ReturnIgnoredUserTasksUseCase') !== false);
 
 $bootstrap_src = file_get_contents($plugin_root . '/wp-agenda-automatizada.php');
 ac_assert('Plugin bootstrap registers TasksAjax', strpos($bootstrap_src, 'TasksAjax::register()') !== false);

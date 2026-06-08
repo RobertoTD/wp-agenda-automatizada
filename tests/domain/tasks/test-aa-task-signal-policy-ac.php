@@ -87,6 +87,10 @@ $dismiss_state = [
 $dismiss_eval = $policy->evaluate_task(AA_Task::from_array($pending_task), $dismiss_state, $now);
 ac_assert('Dismiss signal sets has_dismiss true', ($dismiss_eval['signals']['has_dismiss'] ?? false) === true);
 ac_assert('Dismiss signal without until keeps is_dismiss_active false', ($dismiss_eval['state']['is_dismiss_active'] ?? true) === false);
+ac_assert(
+    'Dismiss signal without until sets is_dismiss_hiding true',
+    ($dismiss_eval['state']['is_dismiss_hiding'] ?? false) === true
+);
 
 $future_defer_state = [
     'task_id' => 10,
@@ -137,6 +141,11 @@ $past_dismiss_state = [
 ];
 $past_dismiss_eval = $policy->evaluate_task(AA_Task::from_array($pending_task), $past_dismiss_state, $now);
 ac_assert('Past dismiss_until sets is_dismiss_active false', ($past_dismiss_eval['state']['is_dismiss_active'] ?? true) === false);
+ac_assert(
+    'Past dismiss_until clears is_dismiss_hiding while has_dismiss stays true',
+    ($past_dismiss_eval['signals']['has_dismiss'] ?? false) === true
+    && ($past_dismiss_eval['state']['is_dismiss_hiding'] ?? true) === false
+);
 
 $all = task_signal_evaluate_all([$pending_task], [
     10 => $defer_state,

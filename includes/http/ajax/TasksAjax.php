@@ -16,6 +16,7 @@ require_once dirname(__DIR__, 2) . '/application/tasks/UpdateTaskUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/tasks/ChangeTaskStatusUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/tasks/RecordTaskDeferSignalUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/tasks/RecordTaskDismissSignalUseCase.php';
+require_once dirname(__DIR__, 2) . '/application/tasks/ReturnIgnoredUserTasksUseCase.php';
 
 final class TasksAjax {
 
@@ -33,6 +34,7 @@ final class TasksAjax {
         add_action('wp_ajax_aa_change_task_status', [__CLASS__, 'handle_change_status']);
         add_action('wp_ajax_aa_defer_task', [__CLASS__, 'handle_defer_task']);
         add_action('wp_ajax_aa_dismiss_task', [__CLASS__, 'handle_dismiss_task']);
+        add_action('wp_ajax_aa_return_ignored_user_tasks', [__CLASS__, 'handle_return_ignored_user_tasks']);
     }
 
     public static function handle_get_board(): void {
@@ -143,6 +145,14 @@ final class TasksAjax {
         $result = (new RecordTaskDismissSignalUseCase())->execute([
             'task_id' => self::post_scalar('task_id'),
         ]);
+
+        self::respond_use_case($result);
+    }
+
+    public static function handle_return_ignored_user_tasks(): void {
+        self::authorize();
+
+        $result = (new ReturnIgnoredUserTasksUseCase())->execute();
 
         self::respond_use_case($result);
     }
