@@ -740,6 +740,30 @@ Volver a oficial: `sessionStorage.removeItem('AA_EXECUTABLE_VISIBLE_FEED'); loca
 
 **No incluido MC13J-1:** eliminación DOM/código legacy; skip AJAX Learning duplicado (→ MC13J-2).
 
+## MC13J-2A — short-circuit Learning legacy en unified/default
+
+**Producción (modo efectivo unified):** `learning-module.js` **no** inicializa render legacy de Recomendaciones.
+
+| Comportamiento | unified/default | `legacy` / `off` |
+|----------------|-----------------|------------------|
+| `loadRecommendations()` | No | Sí |
+| AJAX `aa_get_learning_recommendations` | No | Sí |
+| `bindActionDelegation` en `#aa-learning-recommendations-root` | No | Sí |
+| `bindAvailabilityRerender` legacy | No | Sí |
+
+**Fuente visual oficial de Recomendaciones:** `aa_get_executable_lists_feed` → card `source=system` en feed unified.
+
+**Siguen activos (unified los necesita):**
+
+- `learningService.js` — mutaciones defer/dismiss/complete vía coordinator
+- `learning-action-handlers.js` — PWA install, `onAvailabilityChange` (executable-lists-module re-renderiza unified)
+
+**DOM/scripts legacy:** conservados en `index.php` (MC13J-2B eliminará markup/script cuando 2A esté validado).
+
+Resolución de modo en `learning-module.js`: misma prioridad MC13J (`window` → `AA_EXECUTABLE_LISTS_DATA.visibleFeed` → `sessionStorage`; `off`→`legacy`; sin flag→unified). Solo `legacy` activa el módulo.
+
+**No incluido MC13J-2A:** eliminar DOM `#aa-learning-recommendations`; quitar `<script>` learning-module; limpiar modos `user`/`user-swap`; skip board render.
+
 Proyección común (MC11B):
 
 ```php

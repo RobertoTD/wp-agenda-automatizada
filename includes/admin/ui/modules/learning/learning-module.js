@@ -2,18 +2,116 @@
  * Learning Module - Guías / Aprendizaje
  *
  * Carga, renderiza y acciones sobre recomendaciones vía LearningService.
+ * MC13J-2A: en unified/default no inicializa render legacy (feed executable es la fuente visual).
  */
 
 (function () {
     'use strict';
+
+    var globalRoot = typeof window !== 'undefined'
+        ? window
+        : (typeof globalThis !== 'undefined' ? globalThis : this);
+
+    var SESSION_STORAGE_VISIBLE_FEED_KEY = 'AA_EXECUTABLE_VISIBLE_FEED';
+    var VISIBLE_FEED_LEGACY = 'legacy';
+    var VISIBLE_FEED_OFF = 'off';
+    var VISIBLE_FEED_UNIFIED = 'unified';
+    var VISIBLE_FEED_USER = 'user';
+    var VISIBLE_FEED_USER_SWAP = 'user-swap';
 
     var isActionPending = false;
     var FADE_MS = 150;
     var lastRecommendationsPayload = null;
     var isAvailabilityRerenderBound = false;
 
+    /**
+     * @param {unknown} value
+     * @returns {string}
+     */
+    function asString(value) {
+        return value === null || value === undefined ? '' : String(value);
+    }
+
+    /**
+     * @param {unknown} value
+     * @returns {string|null}
+     */
+    function normalizeVisibleFeedFlag(value) {
+        var normalized = asString(value).trim().toLowerCase();
+
+        if (normalized === VISIBLE_FEED_OFF) {
+            return VISIBLE_FEED_LEGACY;
+        }
+
+        if (
+            normalized === VISIBLE_FEED_USER
+            || normalized === VISIBLE_FEED_USER_SWAP
+            || normalized === VISIBLE_FEED_UNIFIED
+            || normalized === VISIBLE_FEED_LEGACY
+        ) {
+            return normalized;
+        }
+
+        return null;
+    }
+
+    /**
+     * @returns {string|null}
+     */
+    function readVisibleFeedFlag() {
+        var windowFlag = normalizeVisibleFeedFlag(globalRoot.AA_EXECUTABLE_VISIBLE_FEED);
+
+        if (windowFlag) {
+            return windowFlag;
+        }
+
+        var cfg = globalRoot.AA_EXECUTABLE_LISTS_DATA;
+
+        if (cfg) {
+            var cfgFlag = normalizeVisibleFeedFlag(cfg.visibleFeed);
+
+            if (cfgFlag) {
+                return cfgFlag;
+            }
+        }
+
+        try {
+            var storage = globalRoot.sessionStorage;
+
+            if (!storage || typeof storage.getItem !== 'function') {
+                return null;
+            }
+
+            return normalizeVisibleFeedFlag(storage.getItem(SESSION_STORAGE_VISIBLE_FEED_KEY));
+        } catch (err) {
+            return null;
+        }
+    }
+
+    /**
+     * MC13J: sin flag explícito → unified (producción).
+     *
+     * @returns {string}
+     */
+    function resolveEffectiveFeedMode() {
+        var flag = readVisibleFeedFlag();
+
+        if (flag === null) {
+            return VISIBLE_FEED_UNIFIED;
+        }
+
+        return flag;
+    }
+
+    /**
+     * @returns {boolean}
+     */
+    function isLegacyListsViewEnabled() {
+        return resolveEffectiveFeedMode() === VISIBLE_FEED_LEGACY;
+    }
+
     function getRenderer() {
-        return window.AALearningRecommendationRenderer || null;
+        return globalRoot.AALearningRecommendationRenderer || null;
     }
 
     /**
@@ -157,7 +255,7 @@
             return Promise.resolve();
         }
 
-        if (!window.LearningService || typeof window.LearningService.getRecommendations !== 'function') {
+        if (!globalRoot.LearningService || typeof globalRoot.LearningService.getRecommendations !== 'function') {
             setVisible(loadingEl, false);
             showActionError('No se pudo inicializar el servicio de recomendaciones.');
             return Promise.resolve();
@@ -171,7 +269,7 @@
 
         setVisible(errorEl, false);
 
-        return window.LearningService.getRecommendations()
+        return globalRoot.LearningService.getRecommendations()
             .then(function (data) {
                 setVisible(loadingEl, false);
 
@@ -202,7 +300,7 @@
      * @param {string} recommendationKey
      */
     function runPrimaryHandler(recommendationKey) {
-        var registry = window.LearningActionHandlers;
+        var registry = globalRoot.LearningActionHandlers;
         var item = findRecommendationItem(recommendationKey);
         var action = item && item.action;
 
@@ -257,7 +355,7 @@
             return;
         }
 
-        var service = window.LearningService;
+        var service = globalRoot.LearningService;
         var fn = null;
 
         if (action === 'defer' && typeof service.ignoreRecommendation === 'function') {
@@ -322,7 +420,7 @@
     }
 
     function bindAvailabilityRerender() {
-        var registry = window.LearningActionHandlers;
+        var registry = globalRoot.LearningActionHandlers;
 
         if (
             isAvailabilityRerenderBound
@@ -342,9 +440,34 @@
     }
 
     function initLearningModule() {
+        if (!isLegacyListsViewEnabled()) {
+            return;
+        }
+
         bindActionDelegation();
         bindAvailabilityRerender();
         loadRecommendations();
+    }
+
+    var moduleExports = {
+        resolveEffectiveFeedMode: resolveEffectiveFeedMode,
+        isLegacyListsViewEnabled: isLegacyListsViewEnabled,
+        readVisibleFeedFlag: readVisibleFeedFlag,
+        normalizeVisibleFeedFlag: normalizeVisibleFeedFlag,
+        initLearningModule: initLearningModule,
+        loadRecommendations: loadRecommendations,
+        bindActionDelegation: bindActionDelegation,
+        bindAvailabilityRerender: bindAvailabilityRerender,
+        VISIBLE_FEED_LEGACY: VISIBLE_FEED_LEGACY,
+        VISIBLE_FEED_UNIFIED: VISIBLE_FEED_UNIFIED
+    };
+
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = moduleExports;
+    }
+
+    if (typeof document === 'undefined') {
+        return;
     }
 
     if (document.readyState === 'loading') {
