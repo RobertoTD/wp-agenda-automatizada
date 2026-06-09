@@ -287,6 +287,39 @@ final class TaskStateRepository {
     }
 
     /**
+     * Aplica migración idempotente de defer legacy (MC13O-F1); no incrementa en re-runs.
+     *
+     * @param int    $task_id
+     * @param string $last_deferred_at Y-m-d H:i:s
+     * @return array<string,mixed>|null
+     */
+    public static function apply_legacy_defer_migration($task_id, $last_deferred_at) {
+        $normalized_task_id = (int) $task_id;
+
+        if ($normalized_task_id < 1) {
+            return null;
+        }
+
+        if (!is_string($last_deferred_at) || trim($last_deferred_at) === '') {
+            return null;
+        }
+
+        $existing = self::find_by_task_id($normalized_task_id);
+        $next_defer_count = max($existing === null ? 0 : (int) ($existing['defer_count'] ?? 0), 1);
+        $resolved_last_deferred_at = $last_deferred_at;
+
+        if ($existing !== null && self::has_datetime($existing['last_deferred_at'] ?? null)) {
+            $resolved_last_deferred_at = (string) $existing['last_deferred_at'];
+        }
+
+        return self::upsert($normalized_task_id, [
+            'last_deferred_at' => $resolved_last_deferred_at,
+            'defer_until' => null,
+            'defer_count' => $next_defer_count,
+        ]);
+    }
+
+    /**
      * Registra señal defer (Ahora no): last_deferred_at + increment defer_count.
      *
      * @param int    $task_id
@@ -393,6 +426,13 @@ final class TaskStateRepository {
         }
 
         return $updated;
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private static function has_datetime($value): bool {
+        return is_string($value) && trim($value) !== '';
     }
 
     /**

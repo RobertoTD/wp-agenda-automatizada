@@ -592,10 +592,44 @@ Separación preservada:
 - `status=done` / `completed_at` = completion manual del usuario.
 - `completed_by_system` = hecho verificado por sistema.
 
-Pendiente MC13O-F:
+## MC13O-F1: migración parcial manual/idempotente de estado Learning
 
-- Migrar `aa_learning_recommendation_state` hacia estado comun (defer/dismiss/
-  completed manual legacy).
+MC13O-F1 introduce mapping y use case de migración **manual** (sin lifecycle ni
+gate D2) desde `aa_learning_recommendation_state` hacia el estado común de Tasks.
+
+Componentes:
+
+- `AA_Learning_Legacy_State_To_Task_State_Mapper` (domain/tasks): intención de
+  migración por fila legacy + tarea seeded destino.
+- `MigrateLearningRecommendationStateToTaskStateUseCase` (application/tasks):
+  lee legacy, resuelve `agenda_app` + `origin_key`, persiste intenciones
+  permitidas.
+- `TaskStateRepository::apply_legacy_defer_migration()`: defer idempotente sin
+  incrementar contador en re-runs.
+
+Qué se migra en F1:
+
+- `is_completed=1` + `completion_type=manual` → `aa_tasks.status=done` +
+  `completed_at`.
+- `is_ignored=1` (“Ahora no” legacy) → `aa_task_state` defer (`last_deferred_at`,
+  `defer_until=null`, `defer_count=max(existing,1)`).
+
+Qué NO se migra en F1:
+
+- `is_dismissed` (queda `dismissed_skipped`; policy nueva de regreso pendiente).
+- `last_suggested_at` / aging.
+- `list_override` (no modifica `default_bucket`).
+- `completed_by_system` / system facts (MC13O-E).
+
+Legacy:
+
+- `aa_learning_recommendation_state` no se borra ni modifica.
+
+Pendiente MC13O-F2/F3:
+
+- Lifecycle automático (`admin_init` + option version).
+- Gate D2 para no omitir Learning legacy hasta migrar estado accionable.
+- Migración/policy de dismissed legacy cuando se defina regreso de ignoradas.
 
 ## Preguntas abiertas
 

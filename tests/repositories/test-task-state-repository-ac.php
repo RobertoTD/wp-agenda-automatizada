@@ -80,6 +80,14 @@ ac_assert(
     'TaskStateRepository defines record_system_completion_evaluation',
     strpos($repo_src, 'function record_system_completion_evaluation') !== false
 );
+ac_assert(
+    'TaskStateRepository defines apply_legacy_defer_migration',
+    strpos($repo_src, 'function apply_legacy_defer_migration') !== false
+);
+ac_assert(
+    'apply_legacy_defer_migration uses max defer_count',
+    strpos($repo_src, 'max($existing === null ? 0 : (int) ($existing[\'defer_count\'] ?? 0), 1)') !== false
+);
 
 // ─── Integración WordPress ───────────────────────────────────
 
@@ -302,6 +310,31 @@ if ($wp_load !== '' && is_readable($wp_load)) {
     $system_task_after = TaskRepository::find_by_id($system_task_id);
     ac_assert('system evaluation leaves aa_tasks status pending', ($system_task_after['status'] ?? '') === 'pending');
     ac_assert('system evaluation leaves aa_tasks completed_at null', ($system_task_after['completed_at'] ?? null) === null);
+
+    $legacy_defer = TaskStateRepository::apply_legacy_defer_migration($system_task_id, '2026-06-07 08:00:00');
+    ac_assert('apply_legacy_defer_migration updates system task row', is_array($legacy_defer));
+    ac_assert(
+        'apply_legacy_defer_migration sets defer_count at least 1',
+        (int) ($legacy_defer['defer_count'] ?? 0) >= 1
+    );
+    ac_assert(
+        'apply_legacy_defer_migration leaves defer_until null',
+        ($legacy_defer['defer_until'] ?? 'x') === null
+    );
+    ac_assert(
+        'apply_legacy_defer_migration preserves completed_by_system',
+        (int) ($legacy_defer['completed_by_system'] ?? -1) === 0
+    );
+
+    $legacy_defer_second = TaskStateRepository::apply_legacy_defer_migration($system_task_id, '2026-06-07 09:00:00');
+    ac_assert(
+        'apply_legacy_defer_migration idempotent defer_count',
+        (int) ($legacy_defer_second['defer_count'] ?? 0) === (int) ($legacy_defer['defer_count'] ?? 0)
+    );
+    ac_assert(
+        'apply_legacy_defer_migration preserves first last_deferred_at',
+        ($legacy_defer_second['last_deferred_at'] ?? '') === '2026-06-07 08:00:00'
+    );
 
     $wpdb->delete($state_table, ['task_id' => $task_id], ['%d']);
     $wpdb->delete($state_table, ['task_id' => $system_task_id], ['%d']);
