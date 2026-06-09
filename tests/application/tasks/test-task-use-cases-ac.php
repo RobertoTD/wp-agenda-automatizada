@@ -79,6 +79,10 @@ ac_assert('AJAX return ignored uses ReturnIgnoredUserTasksUseCase', strpos($ajax
 
 $bootstrap_src = file_get_contents($plugin_root . '/wp-agenda-automatizada.php');
 ac_assert('Plugin bootstrap registers TasksAjax', strpos($bootstrap_src, 'TasksAjax::register()') !== false);
+ac_assert(
+    'Plugin bootstrap registers Learning state migration lifecycle',
+    strpos($bootstrap_src, 'AA_Learning_State_Migration_Lifecycle::register') !== false
+);
 
 $get_board_src = file_get_contents($plugin_root . '/includes/application/tasks/GetTaskBoardUseCase.php');
 ac_assert('GetTaskBoardUseCase uses prioritization policy', strpos($get_board_src, 'AA_Task_Prioritization_Policy') !== false);

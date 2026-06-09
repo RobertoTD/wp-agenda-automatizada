@@ -625,10 +625,30 @@ Legacy:
 
 - `aa_learning_recommendation_state` no se borra ni modifica.
 
-Pendiente MC13O-F2/F3:
+## MC13O-F2: lifecycle automático de migración legacy state
 
-- Lifecycle automático (`admin_init` + option version).
-- Gate D2 para no omitir Learning legacy hasta migrar estado accionable.
+MC13O-F2 ejecuta de forma controlada `MigrateLearningRecommendationStateToTaskStateUseCase`
+sin depender de invocación manual.
+
+Mecanismo:
+
+- `AA_Learning_State_Migration_Lifecycle` en `admin_init` prioridad **21** (después del
+  seed en prioridad 20).
+- Guards: no `DOING_AJAX`, no `DOING_CRON`, `aa_db_version >= 7`,
+  `aa_learning_catalog_seed_version >= AA_Learning_Catalog::SEED_VERSION`,
+  `aa_learning_state_migration_version < MIGRATION_VERSION`, transient lock 60s.
+- Éxito: bump `aa_learning_state_migration_version`, `aa_learning_state_migration_last_run_at`,
+  limpia `aa_learning_state_migration_last_error`.
+- Fallo: `error_log`, `aa_learning_state_migration_last_error`, sin bump version.
+
+Alcance F2:
+
+- No migra `is_dismissed` (sigue F1).
+- No ajusta D2 / `GetExecutableListsFeedUseCase` todavía.
+
+Pendiente MC13O-F3:
+
+- Gate D2 para no omitir Learning legacy si hay legacy actionable sin migrar.
 - Migración/policy de dismissed legacy cuando se defina regreso de ignoradas.
 
 ## Preguntas abiertas
