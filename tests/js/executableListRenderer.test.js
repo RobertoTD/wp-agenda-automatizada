@@ -101,7 +101,7 @@ describe('AAExecutableListRenderer', () => {
                 },
                 {
                     key: 'secondary',
-                    label: 'Otras sugerencias',
+                    label: 'Secundarias',
                     items: [baseItem({ id: 'b', origin_key: 'b' })]
                 }
             ]
@@ -110,7 +110,7 @@ describe('AAExecutableListRenderer', () => {
         var html = renderer.renderFeed([list]);
 
         assert.match(html, />Principales</);
-        assert.match(html, />Otras sugerencias</);
+        assert.match(html, />Secundarias</);
         assert.match(html, /data-bucket-key="primary"/);
         assert.match(html, /data-bucket-key="secondary"/);
     });
@@ -340,7 +340,7 @@ describe('AAExecutableListRenderer', () => {
             source_label: 'Mis listas',
             title: 'Lista de casa',
             capabilities: { can_archive: true },
-            buckets: [{ key: 'primary', label: 'Prioritarias', items: [] }]
+            buckets: [{ key: 'primary', label: 'Principales', items: [] }]
         });
 
         var html = renderer.renderList(list);
@@ -410,7 +410,7 @@ describe('AAExecutableListRenderer', () => {
             buckets: [
                 {
                     key: 'primary',
-                    label: 'Prioritarias',
+                    label: 'Principales',
                     items: [
                         baseItem({
                             id: '10',

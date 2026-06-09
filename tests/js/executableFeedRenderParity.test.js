@@ -90,7 +90,7 @@ function activeFeedFixture() {
                 },
                 {
                     key: 'secondary',
-                    label: 'Otras sugerencias',
+                    label: 'Secundarias',
                     items: [
                         {
                             id: 'install_pwa',

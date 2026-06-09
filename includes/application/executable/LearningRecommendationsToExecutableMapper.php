@@ -33,7 +33,7 @@ final class LearningRecommendationsToExecutableMapper {
         if ($list_1 !== []) {
             $buckets[] = [
                 'key' => AA_Executable_Contract::BUCKET_PRIMARY,
-                'label' => 'Principales',
+                'label' => AA_Executable_Contract::bucket_label(AA_Executable_Contract::BUCKET_PRIMARY),
                 'items' => self::map_items($list_1),
             ];
         }
@@ -41,7 +41,7 @@ final class LearningRecommendationsToExecutableMapper {
         if ($list_2 !== []) {
             $buckets[] = [
                 'key' => AA_Executable_Contract::BUCKET_SECONDARY,
-                'label' => 'Otras sugerencias',
+                'label' => AA_Executable_Contract::bucket_label(AA_Executable_Contract::BUCKET_SECONDARY),
                 'items' => self::map_items($list_2),
             ];
         }

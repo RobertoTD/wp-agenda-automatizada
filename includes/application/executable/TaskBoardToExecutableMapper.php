@@ -13,10 +13,6 @@ require_once dirname(__DIR__, 2) . '/domain/executable/class-aa-executable-contr
 
 final class TaskBoardToExecutableMapper {
 
-    private const PRIMARY_BUCKET_LABEL = 'Prioritarias';
-
-    private const SECONDARY_BUCKET_LABEL = 'Otras tareas';
-
     /**
      * @param array{
      *     lists?:list<array<string,mixed>>,
@@ -245,12 +241,13 @@ final class TaskBoardToExecutableMapper {
         }
 
         $bucket_defs = [
-            AA_Executable_Contract::BUCKET_PRIMARY => self::PRIMARY_BUCKET_LABEL,
-            AA_Executable_Contract::BUCKET_SECONDARY => self::SECONDARY_BUCKET_LABEL,
+            AA_Executable_Contract::BUCKET_PRIMARY,
+            AA_Executable_Contract::BUCKET_SECONDARY,
         ];
         $mapped = [];
 
-        foreach ($bucket_defs as $bucket_key => $label) {
+        foreach ($bucket_defs as $bucket_key) {
+            $label = AA_Executable_Contract::bucket_label($bucket_key);
             $items = self::map_tasks_by_order(
                 $raw_list_buckets[$bucket_key] ?? [],
                 $tasks_by_id,

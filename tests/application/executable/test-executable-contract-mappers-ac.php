@@ -114,6 +114,32 @@ ac_assert(
     AA_Executable_Contract::missing_item_keys($sample_item) === []
 );
 
+// ─── Contrato: labels canónicos de bucket (MC13O-0) ───────────
+
+ac_assert(
+    'Contract bucket_label primary is Principales',
+    AA_Executable_Contract::bucket_label(AA_Executable_Contract::BUCKET_PRIMARY) === 'Principales'
+);
+ac_assert(
+    'Contract bucket_label secondary is Secundarias',
+    AA_Executable_Contract::bucket_label(AA_Executable_Contract::BUCKET_SECONDARY) === 'Secundarias'
+);
+ac_assert(
+    'Contract bucket_label default is empty',
+    AA_Executable_Contract::bucket_label(AA_Executable_Contract::BUCKET_DEFAULT) === ''
+);
+
+$canonical_primary_bucket = AA_Executable_Contract::normalize_bucket([
+    'key' => AA_Executable_Contract::BUCKET_PRIMARY,
+    'label' => '',
+    'items' => [],
+]);
+ac_assert(
+    'Contract normalize_bucket applies canonical primary label when empty',
+    ($canonical_primary_bucket['key'] ?? '') === AA_Executable_Contract::BUCKET_PRIMARY
+    && ($canonical_primary_bucket['label'] ?? '') === 'Principales'
+);
+
 // ─── Learning mapper ─────────────────────────────────────────
 
 $learning_payload = [
@@ -188,18 +214,33 @@ ac_assert(
     && in_array(AA_Executable_Contract::BUCKET_SECONDARY, $learning_bucket_keys, true)
 );
 
+$learning_primary_bucket = null;
+$learning_secondary_bucket = null;
 $primary_item = null;
 $secondary_item = null;
 
 foreach ($learning_list['buckets'] as $bucket) {
     if (($bucket['key'] ?? '') === AA_Executable_Contract::BUCKET_PRIMARY) {
+        $learning_primary_bucket = $bucket;
         $primary_item = $bucket['items'][0] ?? null;
     }
 
     if (($bucket['key'] ?? '') === AA_Executable_Contract::BUCKET_SECONDARY) {
+        $learning_secondary_bucket = $bucket;
         $secondary_item = $bucket['items'][0] ?? null;
     }
 }
+
+ac_assert(
+    'Learning primary bucket uses canonical label Principales',
+    is_array($learning_primary_bucket)
+    && ($learning_primary_bucket['label'] ?? '') === 'Principales'
+);
+ac_assert(
+    'Learning secondary bucket uses canonical label Secundarias',
+    is_array($learning_secondary_bucket)
+    && ($learning_secondary_bucket['label'] ?? '') === 'Secundarias'
+);
 
 ac_assert(
     'Learning navigate item preserves primary_action navigate',
@@ -467,7 +508,11 @@ $secondary_bucket_items = is_array($secondary_bucket) && is_array($secondary_buc
 ac_assert(
     'Task projected buckets map to primary label when secondary empty',
     $task_bucket_keys === [AA_Executable_Contract::BUCKET_PRIMARY]
-    && ($primary_bucket['label'] ?? '') === 'Prioritarias'
+    && ($primary_bucket['label'] ?? '') === 'Principales'
+);
+ac_assert(
+    'Task secondary bucket uses canonical label Secundarias when present',
+    ($secondary_bucket === null || ($secondary_bucket['label'] ?? '') === 'Secundarias')
 );
 ac_assert(
     'Task projected buckets preserve order and exclude done',
@@ -547,7 +592,14 @@ $task_signal_payload = [
 ];
 
 $task_signal_lists = TaskBoardToExecutableMapper::map($task_signal_payload);
-$task_signal_item = $task_signal_lists[0]['buckets'][0]['items'][0] ?? null;
+$task_signal_secondary_bucket = $task_signal_lists[0]['buckets'][0] ?? null;
+ac_assert(
+    'Task user secondary bucket uses canonical label Secundarias',
+    is_array($task_signal_secondary_bucket)
+    && ($task_signal_secondary_bucket['key'] ?? '') === AA_Executable_Contract::BUCKET_SECONDARY
+    && ($task_signal_secondary_bucket['label'] ?? '') === 'Secundarias'
+);
+$task_signal_item = $task_signal_secondary_bucket['items'][0] ?? null;
 ac_assert(
     'Task mapper reflects deferred signal in state.ignored',
     is_array($task_signal_item)

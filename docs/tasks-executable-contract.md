@@ -142,7 +142,7 @@ MC13F documentó el modelo conceptual. **MC13G-A** implementa escritura. **MC13G
 Tasks user en el feed executable (`view=active`, `user-swap`) soporta:
 
 - **Completar** — declaración `status=done` vía `ChangeTaskStatusUseCase`.
-- **Ahora no** (defer) — señal vía `RecordTaskDeferSignalUseCase`; botón `data-tasks-action="defer"`. Tras refresh, la tarea proyecta en **Otras tareas** (`secondary`).
+- **Ahora no** (defer) — señal vía `RecordTaskDeferSignalUseCase`; botón `data-tasks-action="defer"`. Tras refresh, la tarea proyecta en bucket **Secundarias** (`secondary`).
 - **Ignorar** (dismiss) — señal vía `RecordTaskDismissSignalUseCase`; botón `data-tasks-action="dismiss"`. Tras refresh, la tarea sale de `view=active`.
 - **Reabrir** — reservado; no aparece en active feed (`done` excluido).
 - **Archivar lista** — acción de lista, no de item.
@@ -160,7 +160,7 @@ Proyección active MVP (`AA_Task_Active_View_Projection_Policy`):
 
 | Señal UX | Nombre preferido Tasks | Qué registra | Qué **no** significa |
 |----------|------------------------|--------------|----------------------|
-| **Ahora no** | `defer` / `deferred_*` | Postergación o reducción de prioridad declarada por el usuario | Mover definitivamente a bucket `secondary`; pertenencia estable en “Otras tareas”. |
+| **Ahora no** | `defer` / `deferred_*` | Postergación o reducción de prioridad declarada por el usuario | Mover definitivamente a bucket `secondary` (label: Secundarias). |
 | **Ignorar** | `dismiss` / `dismissed_*` (o `hidden_*` si se prefiere ocultamiento) | Ocultamiento temporal declarado | Borrar la tarea; ocultar para siempre; equivaler “Ignorar” con `status=done`. |
 
 Learning conserva nombres legacy (`is_ignored` = “Ahora no”, `is_dismissed` = “Ignorar”). **Tasks user debe usar nombres semánticos claros** al implementar; no copiar nombres ciegamente.
@@ -258,7 +258,7 @@ Shape implementado:
 estado + señales + facts
         ↓
    policy de fuente (Tasks)
-        ├→ bucket projection (Prioritarias / Otras tareas)
+        ├→ bucket projection (Principales / Secundarias)
         └→ action eligibility (can_defer, can_dismiss, can_complete, …)
                 ↓
         enricher + visible_actions policy
@@ -268,7 +268,7 @@ estado + señales + facts
 
 Bucket y `visible_actions` son **proyecciones hermanas** desde datos interpretables. Pueden compartir criterios (p. ej. una tarea vencida puede ser prioritaria **y** elegible para defer), pero **ninguna es fuente de verdad de la otra**.
 
-Ejemplo: una tarea puede proyectarse en `primary` por vencimiento, pero “Ahora no” solo debe aparecer si la policy de Tasks decide `can_defer=true` dado su estado/señales actuales — no porque esté en “Prioritarias”. Igual para “Ignorar” y `secondary`.
+Ejemplo: una tarea puede proyectarse en `primary` por vencimiento, pero “Ahora no” solo debe aparecer si la policy de Tasks decide `can_defer=true` dado su estado/señales actuales — no porque esté en Principales. Igual para “Ignorar” y `secondary`.
 
 **Deuda documentada (Learning):** `AA_Executable_Visible_Actions_Policy` en vista `active` filtra defer/dismiss por `bucket_key` (`primary` / `secondary`) **solo para `source=system`**. Tasks user (`source=user`) ya usa capabilities sin gate por bucket (MC13G-C2).
 
@@ -355,7 +355,7 @@ Hoy `archive-list` es acción de **lista**, no de item:
 
 ## ExecutableBucket
 
-Sublistas internas de una lista (Principales, Otras sugerencias, default).
+Sublistas internas de una lista (`primary`, `secondary`, `default`).
 
 ```php
 [
@@ -364,6 +364,22 @@ Sublistas internas de una lista (Principales, Otras sugerencias, default).
     'items' => ExecutableItem[],
 ]
 ```
+
+### Labels canónicos de bucket (MC13O-0)
+
+Los nombres visibles de buckets son **comunes a todas las fuentes** y pertenecen al contrato executable, no a cada mapper.
+
+| `key` | Label canónico |
+|-------|----------------|
+| `primary` | Principales |
+| `secondary` | Secundarias |
+| `default` | *(vacío — sin encabezado en UI)* |
+
+Helper: `AA_Executable_Contract::bucket_label(string $bucket_key)`.
+
+Los mappers (`LearningRecommendationsToExecutableMapper`, `TaskBoardToExecutableMapper`) **no deben inventar labels por source**. `normalize_bucket()` aplica el label canónico si el mapper envía `label` vacío.
+
+MC13O-0 no cambia persistencia, policies ni motor común; solo unifica copy visible del feed.
 
 ## ExecutableItem
 
@@ -909,8 +925,8 @@ Salida: **una** `ExecutableList`:
 - `id`: `system:learning.recommendations`
 - `origin_key`: `learning.recommendations`
 - `title`: Recomendaciones
-- Bucket `primary` ← items con `effective_list=1` según policy de Learning (label: Principales)
-- Bucket `secondary` ← items con `effective_list=2` según policy de Learning (label: Otras sugerencias); proyección interpretada, no posición permanente
+- Bucket `primary` ← items con `effective_list=1` según policy de Learning (label canónico: Principales)
+- Bucket `secondary` ← items con `effective_list=2` según policy de Learning (label canónico: Secundarias); proyección interpretada, no posición permanente
 - Item `origin_key` = `key` de recomendación
 - `can_complete_manually` → `capabilities.can_complete`
 - `can_defer` / `can_dismiss` / `can_reactivate` preservados
@@ -930,8 +946,8 @@ Salida: **una ExecutableList por lista de usuario**:
 - `source_label`: `Mis listas`
 - `id`: id numérico de lista como string
 - Buckets `primary` / `secondary` si `organization.task_bucket_order_by_list[list_id]` existe:
-  - `primary` → label `Prioritarias`
-  - `secondary` → label `Otras tareas`
+  - `primary` → label canónico `Principales` (`AA_Executable_Contract::bucket_label`)
+  - `secondary` → label canónico `Secundarias`
 - Fallback `default` solo si no existe `task_bucket_order_by_list`, para compatibilidad con fixtures/payloads previos.
 - Solo tareas **pending** en buckets activos; tareas con `status=done` (declaración usuario) no se proyectan al feed activo actual
 - Tareas ordenadas según ids recibidos por bucket; `organization.task_order_by_list[list_id]` se conserva como orden legacy/compatibilidad.

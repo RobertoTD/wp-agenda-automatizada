@@ -34,6 +34,10 @@ final class AA_Executable_Contract {
 
     public const BUCKET_DEFAULT = 'default';
 
+    public const BUCKET_LABEL_PRIMARY = 'Principales';
+
+    public const BUCKET_LABEL_SECONDARY = 'Secundarias';
+
     public const ITEM_STATUS_PENDING = 'pending';
 
     public const ITEM_STATUS_DONE = 'done';
@@ -98,6 +102,25 @@ final class AA_Executable_Contract {
      * @param array<string,mixed> $bucket
      * @return array<string,mixed>
      */
+    /**
+     * Label canónico de bucket para la vista executable (MC13O-0).
+     *
+     * @param string $bucket_key primary|secondary|default
+     */
+    public static function bucket_label(string $bucket_key): string {
+        $key = self::normalize_bucket_key($bucket_key);
+
+        if ($key === self::BUCKET_PRIMARY) {
+            return self::BUCKET_LABEL_PRIMARY;
+        }
+
+        if ($key === self::BUCKET_SECONDARY) {
+            return self::BUCKET_LABEL_SECONDARY;
+        }
+
+        return '';
+    }
+
     public static function normalize_bucket(array $bucket): array {
         $items = [];
 
@@ -109,9 +132,16 @@ final class AA_Executable_Contract {
             $items[] = self::normalize_item($item);
         }
 
+        $normalized_key = self::normalize_bucket_key($bucket['key'] ?? self::BUCKET_DEFAULT);
+        $label = self::normalize_string($bucket['label'] ?? '');
+
+        if ($label === '') {
+            $label = self::bucket_label($normalized_key);
+        }
+
         return [
-            'key' => self::normalize_bucket_key($bucket['key'] ?? self::BUCKET_DEFAULT),
-            'label' => self::normalize_string($bucket['label'] ?? ''),
+            'key' => $normalized_key,
+            'label' => $label,
             'items' => $items,
         ];
     }
