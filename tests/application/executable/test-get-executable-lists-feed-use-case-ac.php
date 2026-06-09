@@ -215,8 +215,9 @@ ac_assert('Use case enriches lists with visible actions', strpos($use_case_src, 
 ac_assert('Use case lazy-loads GetLearningRecommendationsUseCase', strpos($use_case_src, 'GetLearningRecommendationsUseCase.php') !== false);
 ac_assert('Use case lazy-loads GetTaskBoardUseCase', strpos($use_case_src, 'GetTaskBoardUseCase.php') !== false);
 ac_assert(
-    'Use case detects seeded Agenda app in task payload',
-    strpos($use_case_src, 'payload_has_seeded_agenda_app_list') !== false
+    'Use case detects ready seeded Agenda app in task payload',
+    strpos($use_case_src, 'payload_has_ready_seeded_agenda_app_list') !== false
+    && strpos($use_case_src, 'payload_list_has_tasks') !== false
 );
 
 // ─── Ensamblado feliz ────────────────────────────────────────
@@ -454,6 +455,38 @@ ac_assert(
     is_array($seeded_db_item)
     && ($seeded_db_item['origin_key'] ?? '') === 'review_agenda'
     && ($seeded_db_item['visible_actions'][0]['key'] ?? '') === 'navigate.calendar'
+);
+
+$incomplete_seeded_payload = feed_fixture_tasks_payload();
+$incomplete_seeded_payload['lists'][] = [
+    'id' => 55,
+    'title' => 'Recomendaciones',
+    'description' => 'Sugerencias para configurar y usar tu agenda.',
+    'owner_type' => 'developer',
+    'source_category' => 'agenda_app',
+    'origin_key' => 'learning.recommendations',
+    'managed_by' => 'developer',
+    'importance' => 0,
+    'position' => 0,
+    'status' => 'active',
+];
+$incomplete_seeded_payload['organization']['list_order'] = [1, 2, 55];
+$incomplete_seeded_reader_called = false;
+$incomplete_seeded_feed = (new GetExecutableListsFeedUseCase(
+    static function () use (&$incomplete_seeded_reader_called): array {
+        $incomplete_seeded_reader_called = true;
+
+        return feed_fixture_learning_payload();
+    },
+    static function () use ($incomplete_seeded_payload): array {
+        return $incomplete_seeded_payload;
+    }
+))->execute();
+ac_assert(
+    'Active seeded list without tasks keeps Learning legacy fallback',
+    $incomplete_seeded_reader_called
+    && ($incomplete_seeded_feed['meta']['sources']['learning']['status'] ?? '') === 'ok'
+    && ($incomplete_seeded_feed['lists'][0]['id'] ?? '') === LearningRecommendationsToExecutableMapper::LIST_ID
 );
 
 $other_agenda_payload = feed_fixture_tasks_payload();

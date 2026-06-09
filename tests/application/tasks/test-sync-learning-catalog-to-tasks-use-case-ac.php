@@ -40,6 +40,7 @@ ac_assert('Use case writes seeded list', strpos($use_case_src, 'upsert_seeded_li
 ac_assert('Use case writes seeded tasks', strpos($use_case_src, 'upsert_seeded_task') !== false);
 ac_assert('Use case writes task actions', strpos($use_case_src, 'TaskActionRepository::upsert') !== false);
 ac_assert('Use case has no automatic hook', strpos($use_case_src, 'add_action(') === false && strpos($use_case_src, 'register_activation_hook') === false && strpos($use_case_src, 'wp_schedule_event') === false);
+ac_assert('Use case upserts seeded list archived-first', strpos($use_case_src, "'status' => 'archived'") !== false);
 ac_assert('Use case does not touch Learning state repository', strpos($use_case_src, 'LearningRecommendationStateRepository') === false);
 ac_assert('Use case does not touch task state repository', strpos($use_case_src, 'TaskStateRepository') === false);
 
@@ -88,6 +89,7 @@ if ($wp_load !== '' && is_readable($wp_load)) {
     ac_assert('sync creates learning.recommendations list', is_array($list) && ($list['title'] ?? '') === 'Recomendaciones');
     ac_assert('seeded list source_category agenda_app', ($list['source_category'] ?? '') === 'agenda_app');
     ac_assert('seeded list owner_type developer', ($list['owner_type'] ?? '') === 'developer');
+    ac_assert('sync leaves seeded list archived until lifecycle activates', ($list['status'] ?? '') === 'archived');
 
     $definitions = AA_Learning_Catalog::definitions();
     $active_keys = [];

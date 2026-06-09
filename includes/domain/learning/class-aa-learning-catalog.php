@@ -15,6 +15,29 @@ final class AA_Learning_Catalog {
     public const COMPLETION_MANUAL = 'manual';
 
     /**
+     * Versión del catálogo para seed/sync hacia DB común (MC13O-D3).
+     * Bumpear cuando cambien definiciones activas del catálogo.
+     */
+    public const SEED_VERSION = '1';
+
+    /**
+     * @return list<string> Keys de definiciones activas del catálogo.
+     */
+    public static function active_definition_keys(): array {
+        $keys = [];
+
+        foreach (self::definitions() as $key => $definition) {
+            if (empty($definition['active'])) {
+                continue;
+            }
+
+            $keys[] = isset($definition['key']) ? (string) $definition['key'] : (string) $key;
+        }
+
+        return $keys;
+    }
+
+    /**
      * @return array<string,array<string,mixed>> Indexado por recommendation key.
      */
     public static function definitions(): array {

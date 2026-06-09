@@ -55,7 +55,7 @@ final class GetExecutableListsFeedUseCase {
             $tasks_source = $this->build_source_error_meta($exception->getMessage());
         }
 
-        if ($this->payload_has_seeded_agenda_app_list($task_payload)) {
+        if ($this->payload_has_ready_seeded_agenda_app_list($task_payload)) {
             $learning_source = $this->build_learning_source_skipped_meta();
         } else {
             try {
@@ -234,7 +234,7 @@ final class GetExecutableListsFeedUseCase {
      *     organization?:array<string,mixed>
      * } $task_payload
      */
-    private function payload_has_seeded_agenda_app_list(array $task_payload): bool {
+    private function payload_has_ready_seeded_agenda_app_list(array $task_payload): bool {
         $lists = is_array($task_payload['lists'] ?? null) ? $task_payload['lists'] : [];
 
         foreach ($lists as $list) {
@@ -251,10 +251,51 @@ final class GetExecutableListsFeedUseCase {
             $status = strtolower(trim((string) ($list['status'] ?? '')));
 
             if (
-                $source_category === AA_Executable_Contract::SOURCE_CATEGORY_AGENDA_APP
-                && $origin_key === LearningRecommendationsToExecutableMapper::LIST_ORIGIN_KEY
-                && $status === AA_Executable_Contract::LIST_STATUS_ACTIVE
+                $source_category !== AA_Executable_Contract::SOURCE_CATEGORY_AGENDA_APP
+                || $origin_key !== LearningRecommendationsToExecutableMapper::LIST_ORIGIN_KEY
+                || $status !== AA_Executable_Contract::LIST_STATUS_ACTIVE
             ) {
+                continue;
+            }
+
+            $list_id = (int) ($list['id'] ?? 0);
+
+            if ($list_id > 0 && $this->payload_list_has_tasks($task_payload, $list_id)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array{
+     *     lists?:list<array<string,mixed>>,
+     *     tasks?:list<array<string,mixed>>,
+     *     organization?:array<string,mixed>
+     * } $task_payload
+     */
+    private function payload_list_has_tasks(array $task_payload, int $list_id): bool {
+        $organization = is_array($task_payload['organization'] ?? null) ? $task_payload['organization'] : [];
+        $task_order_by_list = is_array($organization['task_order_by_list'] ?? null)
+            ? $organization['task_order_by_list']
+            : [];
+        $task_order = is_array($task_order_by_list[$list_id] ?? null)
+            ? $task_order_by_list[$list_id]
+            : [];
+
+        if ($task_order !== []) {
+            return true;
+        }
+
+        $tasks = is_array($task_payload['tasks'] ?? null) ? $task_payload['tasks'] : [];
+
+        foreach ($tasks as $task) {
+            if (!is_array($task)) {
+                continue;
+            }
+
+            if ((int) ($task['list_id'] ?? 0) === $list_id) {
                 return true;
             }
         }

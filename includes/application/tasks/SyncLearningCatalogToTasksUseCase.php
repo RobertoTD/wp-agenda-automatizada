@@ -118,7 +118,7 @@ final class SyncLearningCatalogToTasksUseCase {
             'source_category' => self::SOURCE_CATEGORY,
             'origin_key' => self::LIST_ORIGIN_KEY,
             'managed_by' => 'developer',
-            'status' => 'active',
+            'status' => 'archived',
             'importance' => 0,
             'position' => 0,
         ];

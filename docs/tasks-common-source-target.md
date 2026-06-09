@@ -324,7 +324,7 @@ Condicion previa objetivo:
 | Fase C | Implementada parcialmente en MC13O-C1/C2: repository + use case manual/testeable para seed/sync idempotente del catalogo Learning hacia DB comun; sin consumidores. |
 | Fase D1A | Implementada: read path DB comun para seeded `agenda_app` dentro del pipeline Tasks; metadata comun y `aa_task_actions` se proyectan al contrato executable, sin apagar Learning legacy. |
 | Fase D2 | Hecho: el feed omite Learning legacy cuando existe lista seeded activa `agenda_app` + `learning.recommendations` en DB comun. |
-| Fase D3 | Pendiente: ejecutar sync idempotente con hook controlado por option/version. |
+| Fase D3 | Hecho: sync idempotente controlado por `admin_init` + option version; archived-first; activacion al validar seed completo. |
 | Fase E | Feed desde fuente comun: Agenda app leida desde DB comun detras de transicion segura. |
 | Fase F | Migracion de estado Learning: mapear `aa_learning_recommendation_state` a estado comun. |
 | Fase G | Deprecacion: retirar mapper/pipeline Learning como fuente principal. |
@@ -494,7 +494,46 @@ Lo que sigue existiendo (transitorio):
 - No se migro `aa_learning_recommendation_state`. Riesgo aceptado: items
   completados/ignorados solo en legacy pueden reaparecer desde la DB seeded
   hasta un ciclo de migracion de estado (MC13O-F).
-- No hay sync automatico ni hooks nuevos en este ciclo.
+- El sync automatico se implementa en MC13O-D3 (ver abajo).
+
+## MC13O-D3: sync controlado Learning catalog → DB comun
+
+MC13O-D3 deja de depender del sync manual para sembrar el catalogo Learning en
+la DB comun, sin apagar Learning legacy si el seed queda incompleto.
+
+Mecanismo:
+
+- `AA_Learning_Catalog_Seed_Lifecycle` en `admin_init` prioridad 20.
+- Corre solo si `aa_db_version >= 7` y
+  `aa_learning_catalog_seed_version < AA_Learning_Catalog::SEED_VERSION`.
+- Guards: no `DOING_AJAX`, no `DOING_CRON`, transient lock 60s.
+- Ejecuta `SyncLearningCatalogToTasksUseCase` (archived-first).
+- Valida `list_id > 0` y `count(task_ids) === count(active_definition_keys())`.
+- Solo entonces activa lista `learning.recommendations` y bumpea option version.
+- Si falla: `error_log`, `aa_learning_catalog_seed_last_error`, sin bump version.
+
+Archived-first:
+
+- El use case upserta la lista seeded como `status=archived`.
+- La activacion a `active` la hace el lifecycle tras validar seed completo.
+- Si falla a mitad, la lista queda archived: `GetTaskBoardUseCase` no la carga
+  y D2 mantiene fallback Learning legacy.
+
+D2 defensivo (MC13O-D3):
+
+- `GetExecutableListsFeedUseCase` omite Learning legacy solo si la lista seeded
+  esta `active` **y** el payload incluye al menos una tarea asociada a esa lista.
+
+Options:
+
+- `aa_learning_catalog_seed_version` (gate principal).
+- `aa_learning_catalog_seed_last_error` (debug).
+- `aa_learning_catalog_seed_last_synced_at` (observabilidad).
+
+Pendiente:
+
+- No se migro `aa_learning_recommendation_state`.
+- No hay system facts ni UI nueva en este ciclo.
 
 Pendiente para MC13O-E:
 
