@@ -11,6 +11,24 @@ if (!defined('ABSPATH')) {
     define('ABSPATH', __DIR__);
 }
 
+if (!function_exists('sanitize_key')) {
+    function sanitize_key($key) {
+        return strtolower(preg_replace('/[^a-zA-Z0-9_\-]/', '', (string) $key));
+    }
+}
+
+if (!function_exists('admin_url')) {
+    function admin_url($path = '') {
+        return 'https://example.test/wp-admin/' . ltrim((string) $path, '/');
+    }
+}
+
+if (!function_exists('add_query_arg')) {
+    function add_query_arg(array $args, $url) {
+        return rtrim((string) $url, '?') . '?' . http_build_query($args);
+    }
+}
+
 $plugin_root = dirname(__DIR__, 3);
 
 require_once $plugin_root . '/includes/application/executable/GetExecutableListsFeedUseCase.php';
@@ -196,6 +214,10 @@ ac_assert('Use case requires ExecutableVisibleActionsEnricher', strpos($use_case
 ac_assert('Use case enriches lists with visible actions', strpos($use_case_src, 'ExecutableVisibleActionsEnricher::enrich_lists') !== false);
 ac_assert('Use case lazy-loads GetLearningRecommendationsUseCase', strpos($use_case_src, 'GetLearningRecommendationsUseCase.php') !== false);
 ac_assert('Use case lazy-loads GetTaskBoardUseCase', strpos($use_case_src, 'GetTaskBoardUseCase.php') !== false);
+ac_assert(
+    'Use case detects seeded Agenda app in task payload',
+    strpos($use_case_src, 'payload_has_seeded_agenda_app_list') !== false
+);
 
 // ─── Ensamblado feliz ────────────────────────────────────────
 
@@ -330,6 +352,162 @@ $second_user_visible_keys = is_array($second_user_item)
 ac_assert(
     'Happy path second list pending user also exposes defer only in primary',
     $second_user_visible_keys === ['complete', 'defer']
+);
+
+$seeded_payload = feed_fixture_tasks_payload();
+$seeded_payload['lists'][] = [
+    'id' => 50,
+    'title' => 'Recomendaciones',
+    'description' => 'Sugerencias para configurar y usar tu agenda.',
+    'owner_type' => 'developer',
+    'source_category' => 'agenda_app',
+    'origin_key' => 'learning.recommendations',
+    'managed_by' => 'developer',
+    'importance' => 0,
+    'position' => 0,
+    'status' => 'active',
+];
+$seeded_payload['tasks'][] = [
+    'id' => 500,
+    'list_id' => 50,
+    'title' => 'Revisa tu agenda',
+    'notes' => 'Consulta las citas de hoy.',
+    'status' => 'pending',
+    'source' => 'system',
+    'source_category' => 'agenda_app',
+    'origin_key' => 'review_agenda',
+    'managed_by' => 'developer',
+    'default_bucket' => 'secondary',
+    'completion_type' => 'manual',
+    'completion_fact_key' => null,
+    'importance' => 120,
+    'due_at' => null,
+];
+$seeded_payload['organization']['list_order'] = [1, 2, 50];
+$seeded_payload['organization']['task_order_by_list'][50] = [500];
+$seeded_payload['organization']['task_bucket_order_by_list'][50] = [
+    'primary' => [500],
+    'secondary' => [],
+];
+$seeded_payload['organization']['task_actions_by_id'][500] = [
+    [
+        'id' => 1,
+        'task_id' => 500,
+        'action_key' => 'navigate.calendar',
+        'type' => 'navigate',
+        'label' => 'Ir',
+        'placement' => 'primary',
+        'category' => 'mechanical',
+        'target_module' => 'calendar',
+        'target_setup_focus' => null,
+        'target_fragment' => null,
+        'handler' => null,
+        'enabled' => 1,
+        'position' => 0,
+    ],
+];
+
+$learning_reader_called = false;
+$seeded_feed = (new GetExecutableListsFeedUseCase(
+    static function () use (&$learning_reader_called): array {
+        $learning_reader_called = true;
+
+        return feed_fixture_learning_payload();
+    },
+    static function () use ($seeded_payload): array {
+        return $seeded_payload;
+    }
+))->execute();
+$seeded_lists = is_array($seeded_feed['lists'] ?? null) ? $seeded_feed['lists'] : [];
+$seeded_list_ids = array_map(static function (array $list): string {
+    return (string) ($list['id'] ?? '');
+}, $seeded_lists);
+$seeded_recommendations_lists = array_values(array_filter(
+    $seeded_lists,
+    static function (array $list): bool {
+        return ($list['origin_key'] ?? '') === LearningRecommendationsToExecutableMapper::LIST_ORIGIN_KEY;
+    }
+));
+$seeded_db_list = is_array($seeded_recommendations_lists[0] ?? null)
+    ? $seeded_recommendations_lists[0]
+    : [];
+$seeded_db_item = $seeded_db_list['buckets'][0]['items'][0] ?? null;
+ac_assert(
+    'Seeded Agenda app omits Learning legacy from feed',
+    !$learning_reader_called
+    && ($seeded_feed['meta']['sources']['learning']['status'] ?? '') === 'skipped'
+    && ($seeded_feed['meta']['sources']['learning']['reason'] ?? '') === 'seeded_agenda_app_available'
+    && count($seeded_lists) === 3
+    && !in_array(LearningRecommendationsToExecutableMapper::LIST_ID, $seeded_list_ids, true)
+);
+ac_assert(
+    'Seeded feed exposes single learning.recommendations list from DB',
+    count($seeded_recommendations_lists) === 1
+    && ($seeded_db_list['id'] ?? '') === '50'
+    && ($seeded_db_list['source'] ?? '') === AA_Executable_Contract::SOURCE_SYSTEM
+    && ($seeded_db_list['source_category'] ?? '') === AA_Executable_Contract::SOURCE_CATEGORY_AGENDA_APP
+    && ($seeded_db_list['source_label'] ?? '') === 'Agenda app'
+    && ($seeded_db_list['origin_key'] ?? '') === LearningRecommendationsToExecutableMapper::LIST_ORIGIN_KEY
+);
+ac_assert(
+    'Feed seeded Agenda app carries persisted navigate action',
+    is_array($seeded_db_item)
+    && ($seeded_db_item['origin_key'] ?? '') === 'review_agenda'
+    && ($seeded_db_item['visible_actions'][0]['key'] ?? '') === 'navigate.calendar'
+);
+
+$other_agenda_payload = feed_fixture_tasks_payload();
+$other_agenda_payload['lists'][] = [
+    'id' => 60,
+    'title' => 'Otra lista sistema',
+    'description' => 'No es learning.recommendations.',
+    'owner_type' => 'developer',
+    'source_category' => 'agenda_app',
+    'origin_key' => 'other.system.list',
+    'managed_by' => 'developer',
+    'importance' => 0,
+    'position' => 0,
+    'status' => 'active',
+];
+$other_agenda_payload['organization']['list_order'] = [1, 2, 60];
+$other_agenda_feed = (new GetExecutableListsFeedUseCase(
+    static function (): array {
+        return feed_fixture_learning_payload();
+    },
+    static function () use ($other_agenda_payload): array {
+        return $other_agenda_payload;
+    }
+))->execute();
+$other_agenda_lists = is_array($other_agenda_feed['lists'] ?? null) ? $other_agenda_feed['lists'] : [];
+ac_assert(
+    'Other agenda_app origin_key does not skip Learning legacy',
+    ($other_agenda_feed['meta']['sources']['learning']['status'] ?? '') === 'ok'
+    && ($other_agenda_lists[0]['id'] ?? '') === LearningRecommendationsToExecutableMapper::LIST_ID
+    && count($other_agenda_lists) === 4
+);
+
+$archived_seeded_payload = $seeded_payload;
+$archived_seeded_payload['lists'] = array_map(static function (array $list): array {
+    if ((int) ($list['id'] ?? 0) === 50) {
+        $list['status'] = 'archived';
+    }
+
+    return $list;
+}, $archived_seeded_payload['lists']);
+$archived_seeded_feed = (new GetExecutableListsFeedUseCase(
+    static function (): array {
+        return feed_fixture_learning_payload();
+    },
+    static function () use ($archived_seeded_payload): array {
+        return $archived_seeded_payload;
+    }
+))->execute();
+$archived_seeded_lists = is_array($archived_seeded_feed['lists'] ?? null) ? $archived_seeded_feed['lists'] : [];
+ac_assert(
+    'Archived seeded list keeps Learning legacy fallback',
+    ($archived_seeded_feed['meta']['sources']['learning']['status'] ?? '') === 'ok'
+    && ($archived_seeded_lists[0]['id'] ?? '') === LearningRecommendationsToExecutableMapper::LIST_ID
+    && count($archived_seeded_lists) === 4
 );
 
 $defer_payload = feed_fixture_tasks_payload();

@@ -11,6 +11,24 @@ if (!defined('ABSPATH')) {
     define('ABSPATH', __DIR__);
 }
 
+if (!function_exists('sanitize_key')) {
+    function sanitize_key($key) {
+        return strtolower(preg_replace('/[^a-zA-Z0-9_\-]/', '', (string) $key));
+    }
+}
+
+if (!function_exists('admin_url')) {
+    function admin_url($path = '') {
+        return 'https://example.test/wp-admin/' . ltrim((string) $path, '/');
+    }
+}
+
+if (!function_exists('add_query_arg')) {
+    function add_query_arg(array $args, $url) {
+        return rtrim((string) $url, '?') . '?' . http_build_query($args);
+    }
+}
+
 require_once __DIR__ . '/../../../includes/domain/executable/class-aa-executable-contract.php';
 require_once __DIR__ . '/../../../includes/application/executable/LearningRecommendationsToExecutableMapper.php';
 require_once __DIR__ . '/../../../includes/application/executable/TaskBoardToExecutableMapper.php';
@@ -112,6 +130,10 @@ $sample_item = $sample_bucket['items'][0];
 ac_assert(
     'Contract item has required keys',
     AA_Executable_Contract::missing_item_keys($sample_item) === []
+);
+ac_assert(
+    'Contract item carries source_category metadata',
+    ($sample_item['source_category'] ?? '') === AA_Executable_Contract::SOURCE_CATEGORY_USER
 );
 
 // ─── Contrato: labels canónicos de bucket (MC13O-0) ───────────
@@ -627,6 +649,168 @@ ac_assert(
 ac_assert(
     'Deferred secondary task does not expose defer visible_action',
     !in_array('defer', $enriched_action_keys, true)
+);
+
+// ─── Agenda app seeded desde DB común ─────────────────────────
+
+$agenda_seeded_payload = [
+    'lists' => [
+        [
+            'id' => 50,
+            'title' => 'Recomendaciones',
+            'description' => 'Sugerencias para configurar y usar tu agenda.',
+            'owner_type' => 'developer',
+            'source_category' => 'agenda_app',
+            'origin_key' => 'learning.recommendations',
+            'managed_by' => 'developer',
+            'importance' => 0,
+            'position' => 0,
+            'status' => 'active',
+        ],
+    ],
+    'tasks' => [
+        [
+            'id' => 500,
+            'list_id' => 50,
+            'title' => 'Completa los datos de tu negocio',
+            'notes' => 'Añade el nombre y la dirección de tu negocio.',
+            'status' => 'pending',
+            'source' => 'system',
+            'source_category' => 'agenda_app',
+            'origin_key' => 'complete_business_data',
+            'managed_by' => 'developer',
+            'default_bucket' => 'primary',
+            'completion_type' => 'system',
+            'completion_fact_key' => 'business_data_complete',
+            'importance' => -5,
+            'due_at' => null,
+        ],
+        [
+            'id' => 501,
+            'list_id' => 50,
+            'title' => 'Instala la app',
+            'notes' => 'Añade DEOIA Citas a la pantalla de inicio.',
+            'status' => 'pending',
+            'source' => 'system',
+            'source_category' => 'agenda_app',
+            'origin_key' => 'install_pwa',
+            'managed_by' => 'developer',
+            'default_bucket' => 'secondary',
+            'completion_type' => 'manual',
+            'completion_fact_key' => null,
+            'importance' => 100,
+            'due_at' => null,
+        ],
+    ],
+    'organization' => [
+        'list_order' => [50],
+        'task_order_by_list' => [
+            50 => [500, 501],
+        ],
+        'task_bucket_order_by_list' => [
+            50 => [
+                'primary' => [500, 501],
+                'secondary' => [],
+            ],
+        ],
+        'executive_candidates' => [],
+        'task_evaluations_by_id' => [],
+        'task_actions_by_id' => [
+            500 => [
+                [
+                    'id' => 1,
+                    'task_id' => 500,
+                    'action_key' => 'navigate.settings',
+                    'type' => 'navigate',
+                    'label' => 'Ir',
+                    'placement' => 'primary',
+                    'category' => 'mechanical',
+                    'target_module' => 'settings',
+                    'target_setup_focus' => null,
+                    'target_fragment' => null,
+                    'handler' => null,
+                    'enabled' => 1,
+                    'position' => 0,
+                ],
+            ],
+            501 => [
+                [
+                    'id' => 2,
+                    'task_id' => 501,
+                    'action_key' => 'pwa.install',
+                    'type' => 'handler',
+                    'label' => 'Instalar',
+                    'placement' => 'primary',
+                    'category' => 'mechanical',
+                    'target_module' => null,
+                    'target_setup_focus' => null,
+                    'target_fragment' => null,
+                    'handler' => 'pwa.install',
+                    'enabled' => 1,
+                    'position' => 0,
+                ],
+            ],
+        ],
+    ],
+];
+
+$agenda_lists = TaskBoardToExecutableMapper::map($agenda_seeded_payload);
+$agenda_list = $agenda_lists[0] ?? null;
+$agenda_primary_item = $agenda_list['buckets'][0]['items'][0] ?? null;
+$agenda_secondary_item = $agenda_list['buckets'][1]['items'][0] ?? null;
+
+ac_assert(
+    'Agenda app seeded list maps as system Agenda app',
+    is_array($agenda_list)
+    && ($agenda_list['source'] ?? '') === AA_Executable_Contract::SOURCE_SYSTEM
+    && ($agenda_list['source_category'] ?? '') === AA_Executable_Contract::SOURCE_CATEGORY_AGENDA_APP
+    && ($agenda_list['source_label'] ?? '') === 'Agenda app'
+    && ($agenda_list['origin_key'] ?? '') === 'learning.recommendations'
+);
+ac_assert(
+    'Agenda app seeded list cannot archive',
+    is_array($agenda_list)
+    && ($agenda_list['capabilities']['can_archive'] ?? true) === false
+);
+ac_assert(
+    'Agenda app seeded tasks map source metadata',
+    is_array($agenda_primary_item)
+    && ($agenda_primary_item['source'] ?? '') === AA_Executable_Contract::SOURCE_SYSTEM
+    && ($agenda_primary_item['source_category'] ?? '') === AA_Executable_Contract::SOURCE_CATEGORY_AGENDA_APP
+    && ($agenda_primary_item['origin_key'] ?? '') === 'complete_business_data'
+);
+ac_assert(
+    'Agenda app default_bucket controls projected bucket',
+    ($agenda_list['buckets'][0]['key'] ?? '') === AA_Executable_Contract::BUCKET_PRIMARY
+    && ($agenda_primary_item['id'] ?? '') === '500'
+    && ($agenda_list['buckets'][1]['key'] ?? '') === AA_Executable_Contract::BUCKET_SECONDARY
+    && is_array($agenda_secondary_item)
+    && ($agenda_secondary_item['id'] ?? '') === '501'
+);
+ac_assert(
+    'Agenda app navigate action maps to primary_action URL',
+    is_array($agenda_primary_item)
+    && ($agenda_primary_item['primary_action']['key'] ?? '') === 'navigate.settings'
+    && ($agenda_primary_item['primary_action']['type'] ?? '') === AA_Executable_Contract::ACTION_NAVIGATE
+    && strpos((string) ($agenda_primary_item['primary_action']['url'] ?? ''), 'module=settings') !== false
+);
+ac_assert(
+    'Agenda app handler action maps to primary_action handler',
+    is_array($agenda_secondary_item)
+    && ($agenda_secondary_item['primary_action']['key'] ?? '') === 'pwa.install'
+    && ($agenda_secondary_item['primary_action']['type'] ?? '') === AA_Executable_Contract::ACTION_HANDLER
+    && ($agenda_secondary_item['primary_action']['handler'] ?? '') === 'pwa.install'
+);
+
+$enriched_agenda_lists = ExecutableVisibleActionsEnricher::enrich_lists($agenda_lists, [
+    'view' => AA_Executable_Visible_Actions_Policy::VIEW_ACTIVE,
+]);
+$enriched_agenda_primary = $enriched_agenda_lists[0]['buckets'][0]['items'][0] ?? null;
+$enriched_agenda_secondary = $enriched_agenda_lists[0]['buckets'][1]['items'][0] ?? null;
+ac_assert(
+    'Agenda app visible_actions preserve persisted action keys',
+    ($enriched_agenda_primary['visible_actions'][0]['key'] ?? '') === 'navigate.settings'
+    && ($enriched_agenda_secondary['visible_actions'][0]['key'] ?? '') === 'pwa.install'
 );
 
 // ─── Resumen ─────────────────────────────────────────────────

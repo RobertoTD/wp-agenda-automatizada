@@ -85,8 +85,10 @@ ac_assert('GetTaskBoardUseCase uses prioritization policy', strpos($get_board_sr
 ac_assert('GetTaskBoardUseCase uses signal policy', strpos($get_board_src, 'AA_Task_Signal_Policy') !== false);
 ac_assert('GetTaskBoardUseCase uses active view projection policy', strpos($get_board_src, 'AA_Task_Active_View_Projection_Policy') !== false);
 ac_assert('GetTaskBoardUseCase loads task_state_by_id', strpos($get_board_src, 'task_state_by_id') !== false);
+ac_assert('GetTaskBoardUseCase loads task actions', strpos($get_board_src, 'TaskActionRepository::list_by_task_ids') !== false);
 ac_assert('GetTaskBoardUseCase returns organization key', strpos($get_board_src, "'organization'") !== false);
 ac_assert('GetTaskBoardUseCase returns task_evaluations_by_id', strpos($get_board_src, 'task_evaluations_by_id') !== false);
+ac_assert('GetTaskBoardUseCase returns task_actions_by_id', strpos($get_board_src, 'task_actions_by_id') !== false);
 
 $change_status_src = file_get_contents($plugin_root . '/includes/application/tasks/ChangeTaskStatusUseCase.php');
 ac_assert('ChangeTaskStatusUseCase uses mark_completed', strpos($change_status_src, 'mark_completed') !== false);
@@ -103,6 +105,7 @@ if ($wp_integration) {
     global $wpdb;
     $lists_table = $wpdb->prefix . 'aa_task_lists';
     $tasks_table = $wpdb->prefix . 'aa_tasks';
+    $actions_table = $wpdb->prefix . 'aa_task_actions';
     $suffix = (string) time();
 
     $missing_list = (new CreateTaskListUseCase())->execute(['title' => '   ']);
@@ -148,6 +151,19 @@ if ($wp_integration) {
     $task_id = (int) ($created_task['data']['task']['id'] ?? 0);
     ac_assert('Create task returns id', $task_id > 0);
 
+    if ($task_id > 0) {
+        TaskActionRepository::upsert($task_id, [
+            'action_key' => 'navigate.calendar',
+            'type' => 'navigate',
+            'label' => 'Ir',
+            'placement' => 'primary',
+            'category' => 'mechanical',
+            'target_module' => 'calendar',
+            'enabled' => 1,
+            'position' => 0,
+        ]);
+    }
+
     $later_task = (new CreateTaskUseCase())->execute([
         'list_id' => $list_id,
         'title' => 'Tarea lejana ' . $suffix,
@@ -184,6 +200,11 @@ if ($wp_integration) {
     ac_assert(
         'GetTaskBoard returns task_evaluations_by_id',
         is_array($board['organization']['task_evaluations_by_id'] ?? null)
+    );
+    ac_assert(
+        'GetTaskBoard returns task_actions_by_id',
+        is_array($board['organization']['task_actions_by_id'][$task_id] ?? null)
+        && ($board['organization']['task_actions_by_id'][$task_id][0]['action_key'] ?? '') === 'navigate.calendar'
     );
 
     require_once $plugin_root . '/includes/application/tasks/RecordTaskDeferSignalUseCase.php';
@@ -285,6 +306,7 @@ if ($wp_integration) {
         ($restore_missing['error']['code'] ?? '') === 'list_not_found'
     );
 
+    $wpdb->delete($actions_table, ['task_id' => $task_id], ['%d']);
     $wpdb->delete($tasks_table, ['list_id' => $list_id], ['%d']);
     $wpdb->delete($tasks_table, ['list_id' => $high_list_id], ['%d']);
     $wpdb->delete($lists_table, ['id' => $list_id], ['%d']);

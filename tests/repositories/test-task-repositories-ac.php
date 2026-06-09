@@ -84,6 +84,9 @@ ac_assert('TaskListRepository defines find_by_id', strpos($list_repo_src, 'funct
 ac_assert('TaskListRepository defines list_all', strpos($list_repo_src, 'function list_all') !== false);
 ac_assert('TaskListRepository defines update', strpos($list_repo_src, 'function update') !== false);
 ac_assert('TaskListRepository defines archive', strpos($list_repo_src, 'function archive') !== false);
+ac_assert('TaskListRepository maps source_category', strpos($list_repo_src, "'source_category' =>") !== false);
+ac_assert('TaskListRepository maps origin_key', strpos($list_repo_src, "'origin_key' =>") !== false);
+ac_assert('TaskListRepository maps managed_by', strpos($list_repo_src, "'managed_by' =>") !== false);
 
 $task_repo_src = file_get_contents($task_repo_file);
 ac_assert('TaskRepository file readable', $task_repo_src !== false);
@@ -92,6 +95,9 @@ ac_assert('TaskRepository defines find_by_id', strpos($task_repo_src, 'function 
 ac_assert('TaskRepository defines list_by_list_id', strpos($task_repo_src, 'function list_by_list_id') !== false);
 ac_assert('TaskRepository defines update_status', strpos($task_repo_src, 'function update_status') !== false);
 ac_assert('TaskRepository defines mark_completed', strpos($task_repo_src, 'function mark_completed') !== false);
+ac_assert('TaskRepository maps common source fields', strpos($task_repo_src, "'source_category' =>") !== false && strpos($task_repo_src, "'managed_by' =>") !== false);
+ac_assert('TaskRepository maps default_bucket', strpos($task_repo_src, "'default_bucket' =>") !== false);
+ac_assert('TaskRepository maps completion fields', strpos($task_repo_src, "'completion_type' =>") !== false && strpos($task_repo_src, "'completion_fact_key' =>") !== false);
 
 $wp_root = getenv('AA_WP_ROOT') ?: '';
 $wp_load = $wp_root !== '' ? rtrim($wp_root, '/') . '/wp-load.php' : '';
@@ -160,6 +166,7 @@ if ($wp_integration) {
     ac_assert('create list returns row', is_array($list) && ($list['title'] ?? '') === 'Lista AC ' . $suffix);
     ac_assert('create list maps importance', ($list['importance'] ?? null) === -5);
     ac_assert('create list default status active', ($list['status'] ?? '') === 'active');
+    ac_assert('create list maps common defaults', ($list['source_category'] ?? '') === 'user' && ($list['managed_by'] ?? '') === 'user');
 
     $list_id = (int) ($list['id'] ?? 0);
     ac_assert('create list has id', $list_id > 0);
@@ -278,6 +285,14 @@ if ($wp_integration) {
     ac_assert('create task returns row', is_array($task) && ($task['title'] ?? '') === 'Tarea AC ' . $suffix);
     ac_assert('create task maps list_id', (int) ($task['list_id'] ?? 0) === $empty_list_id);
     ac_assert('create task default status pending', ($task['status'] ?? '') === 'pending');
+    ac_assert(
+        'create task maps common defaults',
+        ($task['source_category'] ?? '') === 'user'
+        && ($task['managed_by'] ?? '') === 'user'
+        && ($task['default_bucket'] ?? '') === 'primary'
+        && ($task['completion_type'] ?? '') === 'manual'
+        && ($task['completion_fact_key'] ?? 'x') === null
+    );
 
     $task_id = (int) ($task['id'] ?? 0);
     ac_assert('create task has id', $task_id > 0);

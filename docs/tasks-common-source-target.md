@@ -322,7 +322,9 @@ Condicion previa objetivo:
 | Fase B1 | Implementada en MC13O-B1: schema aditivo base (`DB_VERSION=6`) en `aa_task_lists`, `aa_tasks` y `aa_task_state`; sin consumidores aun. |
 | Fase B2 | Implementada en MC13O-B2: schema-only de `aa_task_actions` task-only. |
 | Fase C | Implementada parcialmente en MC13O-C1/C2: repository + use case manual/testeable para seed/sync idempotente del catalogo Learning hacia DB comun; sin consumidores. |
-| Fase D | Motor comun: capabilities por `managed_by`, `default_bucket`, actions desde metadata persistida, adapter de facts. |
+| Fase D1A | Implementada: read path DB comun para seeded `agenda_app` dentro del pipeline Tasks; metadata comun y `aa_task_actions` se proyectan al contrato executable, sin apagar Learning legacy. |
+| Fase D2 | Hecho: el feed omite Learning legacy cuando existe lista seeded activa `agenda_app` + `learning.recommendations` en DB comun. |
+| Fase D3 | Pendiente: ejecutar sync idempotente con hook controlado por option/version. |
 | Fase E | Feed desde fuente comun: Agenda app leida desde DB comun detras de transicion segura. |
 | Fase F | Migracion de estado Learning: mapear `aa_learning_recommendation_state` a estado comun. |
 | Fase G | Deprecacion: retirar mapper/pipeline Learning como fuente principal. |
@@ -418,14 +420,87 @@ Guardrails de esta fase:
 - No borra ni recrea filas existentes; preserva ids y estado de usuario.
 - Si una tarea desaparece del catalogo, no se borra todavia.
 
-Duplicidad visual temporal:
+Duplicidad visual (cerrada en D2):
 
-Si durante desarrollo se ejecuta el sync manual, la lista seeded Agenda app
-puede coexistir temporalmente con la lista Learning legacy en el feed actual.
-Eso es aceptable en esta etapa porque el feed todavia lee Learning legacy como
-fuente runtime. La duplicidad se elimina en una fase posterior, cuando el feed
-deje de leer Learning/Recomendaciones legacy y consuma la definicion desde la
-DB comun.
+Antes de MC13O-D2, si el sync manual ya habia creado la lista seeded Agenda app,
+podia coexistir temporalmente con Learning legacy en el feed. D2 elimina esa
+duplicidad: cuando la DB comun tiene la lista activa, el feed ya no mapea
+`LearningRecommendationsToExecutableMapper`.
+
+## MC13O-D1A: read path DB comun para Agenda app seeded
+
+MC13O-D1A conecta el pipeline comun de Tasks con las filas seeded `agenda_app`
+sin apagar Learning legacy. El objetivo es que, si el sync manual ya creo datos
+en la DB comun, esas listas/tareas no se proyecten como "Mis listas".
+
+Alcance implementado:
+
+- `TaskListRepository` expone `source_category`, `origin_key` y `managed_by` en
+  reads.
+- `TaskRepository` expone `source_category`, `origin_key`, `managed_by`,
+  `default_bucket`, `completion_type` y `completion_fact_key` en reads.
+- `GetTaskBoardUseCase` carga `aa_task_actions` via `TaskActionRepository` y
+  las agrega a `organization.task_actions_by_id`.
+- `TaskBoardToExecutableMapper` interpreta `source_category=agenda_app` como
+  `source=system`, `source_label=Agenda app`, `can_archive=false` y conserva
+  `origin_key`.
+- Las acciones persistidas `navigate`/`handler` se proyectan como
+  `primary_action`; `ExecutableVisibleActionsEnricher` sigue derivando
+  `visible_actions`.
+- `default_bucket` se usa para seeded Agenda app cuando la policy comun aun no
+  sabe clasificar por definicion seeded.
+- `ExecutableNavigationUrlResolver` convierte `target_module`,
+  `target_setup_focus` y `target_fragment` a URL runtime sin persistir URL
+  absoluta.
+
+Guardrails preservados en D1A (D2 cambia solo la omision condicional del feed):
+
+- No hay hook automatico para ejecutar sync.
+- No se migra ni toca `aa_learning_recommendation_state`.
+- No se implementan facts de sistema ni `completed_by_system`.
+- No se renombra aun el adapter JS `LearningActionHandlers`; puede seguir
+  ejecutando `pwa.install` como adapter temporal de handlers executable.
+
+## MC13O-D2: omitir Learning legacy cuando DB seeded esta disponible
+
+MC13O-D2 cierra la duplicidad visual entre Learning legacy y la lista seeded
+`learning.recommendations` en DB comun.
+
+Regla en `GetExecutableListsFeedUseCase`:
+
+- Lee primero el payload de Tasks (`GetTaskBoardUseCase`).
+- Si el payload incluye una lista activa con
+  `source_category=agenda_app`, `origin_key=learning.recommendations` y
+  `status=active`, no llama a `GetLearningRecommendationsUseCase` ni a
+  `LearningRecommendationsToExecutableMapper`.
+- Si no existe esa lista seeded activa, conserva el fallback Learning legacy.
+
+Deteccion:
+
+- Se hace sobre el payload de tasks ya leido (`lists[]` del board), sin query
+  adicional.
+- No usa solo `source=system`; exige la tripleta de metadata comun.
+
+Meta del feed:
+
+- Cuando Learning legacy se omite, `meta.sources.learning.status=skipped` con
+  `reason=seeded_agenda_app_available`.
+
+Lo que sigue existiendo (transitorio):
+
+- `AA_Learning_Catalog` y el adapter `LearningRecommendationsToExecutableMapper`
+  siguen en el codigo; solo dejan de alimentar el feed cuando la DB seeded esta
+  lista.
+- No se migro `aa_learning_recommendation_state`. Riesgo aceptado: items
+  completados/ignorados solo en legacy pueden reaparecer desde la DB seeded
+  hasta un ciclo de migracion de estado (MC13O-F).
+- No hay sync automatico ni hooks nuevos en este ciclo.
+
+Pendiente para MC13O-E:
+
+`completion_type=system` y `completion_fact_key` quedan como definicion leida,
+pero D1A no evalua facts ni marca `completed_by_system`. Las tareas con facts ya
+cumplidos pueden seguir apareciendo hasta que exista el adapter de system facts.
 
 ## Preguntas abiertas
 

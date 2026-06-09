@@ -45,14 +45,7 @@ final class GetExecutableListsFeedUseCase {
         $user_lists = [];
         $learning_source = $this->build_source_error_meta('No se pudo cargar recomendaciones.');
         $tasks_source = $this->build_source_error_meta('No se pudo cargar listas de usuario.');
-
-        try {
-            $learning_payload = $this->read_learning();
-            $system_list = LearningRecommendationsToExecutableMapper::map($learning_payload);
-            $learning_source = $this->build_learning_source_meta($system_list);
-        } catch (\Throwable $exception) {
-            $learning_source = $this->build_source_error_meta($exception->getMessage());
-        }
+        $task_payload = [];
 
         try {
             $task_payload = $this->read_tasks();
@@ -60,6 +53,18 @@ final class GetExecutableListsFeedUseCase {
             $tasks_source = $this->build_tasks_source_meta($user_lists);
         } catch (\Throwable $exception) {
             $tasks_source = $this->build_source_error_meta($exception->getMessage());
+        }
+
+        if ($this->payload_has_seeded_agenda_app_list($task_payload)) {
+            $learning_source = $this->build_learning_source_skipped_meta();
+        } else {
+            try {
+                $learning_payload = $this->read_learning();
+                $system_list = LearningRecommendationsToExecutableMapper::map($learning_payload);
+                $learning_source = $this->build_learning_source_meta($system_list);
+            } catch (\Throwable $exception) {
+                $learning_source = $this->build_source_error_meta($exception->getMessage());
+            }
         }
 
         if (($learning_source['status'] ?? '') === 'error' && ($tasks_source['status'] ?? '') === 'error') {
@@ -219,6 +224,53 @@ final class GetExecutableListsFeedUseCase {
             'status' => 'ok',
             'list_count' => count($user_lists),
             'item_count' => $item_count,
+        ];
+    }
+
+    /**
+     * @param array{
+     *     lists?:list<array<string,mixed>>,
+     *     tasks?:list<array<string,mixed>>,
+     *     organization?:array<string,mixed>
+     * } $task_payload
+     */
+    private function payload_has_seeded_agenda_app_list(array $task_payload): bool {
+        $lists = is_array($task_payload['lists'] ?? null) ? $task_payload['lists'] : [];
+
+        foreach ($lists as $list) {
+            if (!is_array($list)) {
+                continue;
+            }
+
+            $source_category = is_string($list['source_category'] ?? null)
+                ? trim((string) $list['source_category'])
+                : '';
+            $origin_key = is_string($list['origin_key'] ?? null)
+                ? trim((string) $list['origin_key'])
+                : '';
+            $status = strtolower(trim((string) ($list['status'] ?? '')));
+
+            if (
+                $source_category === AA_Executable_Contract::SOURCE_CATEGORY_AGENDA_APP
+                && $origin_key === LearningRecommendationsToExecutableMapper::LIST_ORIGIN_KEY
+                && $status === AA_Executable_Contract::LIST_STATUS_ACTIVE
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @return array{status:string,list_count:int,item_count:int,reason:string}
+     */
+    private function build_learning_source_skipped_meta(): array {
+        return [
+            'status' => 'skipped',
+            'list_count' => 0,
+            'item_count' => 0,
+            'reason' => 'seeded_agenda_app_available',
         ];
     }
 

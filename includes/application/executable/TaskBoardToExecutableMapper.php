@@ -10,6 +10,7 @@
 defined('ABSPATH') or die('No direct access');
 
 require_once dirname(__DIR__, 2) . '/domain/executable/class-aa-executable-contract.php';
+require_once __DIR__ . '/ExecutableNavigationUrlResolver.php';
 
 final class TaskBoardToExecutableMapper {
 
@@ -163,13 +164,19 @@ final class TaskBoardToExecutableMapper {
         $list_id = (int) ($list['id'] ?? 0);
         $list_status = (string) ($list['status'] ?? AA_Executable_Contract::LIST_STATUS_ACTIVE);
         $is_archived = strtolower(trim($list_status)) === AA_Executable_Contract::LIST_STATUS_ARCHIVED;
+        $source_category = self::resolve_source_category($list);
+        $source = self::resolve_source($list);
+        $managed_by = self::resolve_managed_by($list);
+        $can_archive = !$is_archived
+            && $source_category === AA_Executable_Contract::SOURCE_CATEGORY_USER
+            && $managed_by === 'user';
 
         return AA_Executable_Contract::normalize_list([
             'id' => (string) $list_id,
-            'source' => AA_Executable_Contract::SOURCE_USER,
-            'source_category' => AA_Executable_Contract::SOURCE_CATEGORY_USER,
-            'source_label' => 'Mis listas',
-            'origin_key' => null,
+            'source' => $source,
+            'source_category' => $source_category,
+            'source_label' => AA_Executable_Contract::default_source_label($source_category),
+            'origin_key' => self::normalize_nullable_string($list['origin_key'] ?? null),
             'title' => (string) ($list['title'] ?? ''),
             'description' => isset($list['description']) ? (string) $list['description'] : null,
             'importance' => (int) ($list['importance'] ?? 0),
@@ -178,7 +185,7 @@ final class TaskBoardToExecutableMapper {
                 ? AA_Executable_Contract::LIST_STATUS_ARCHIVED
                 : AA_Executable_Contract::LIST_STATUS_ACTIVE,
             'capabilities' => [
-                'can_archive' => !$is_archived,
+                'can_archive' => $can_archive,
             ],
             'buckets' => self::map_list_buckets($list_id, $tasks_by_id, $organization, $executive_candidates),
         ]);
@@ -244,15 +251,18 @@ final class TaskBoardToExecutableMapper {
             AA_Executable_Contract::BUCKET_PRIMARY,
             AA_Executable_Contract::BUCKET_SECONDARY,
         ];
+        $all_ordered_ids = self::merge_bucket_task_ids($raw_list_buckets);
+        $should_remap_buckets = self::contains_agenda_app_task($all_ordered_ids, $tasks_by_id);
         $mapped = [];
 
         foreach ($bucket_defs as $bucket_key) {
             $label = AA_Executable_Contract::bucket_label($bucket_key);
             $items = self::map_tasks_by_order(
-                $raw_list_buckets[$bucket_key] ?? [],
+                $should_remap_buckets ? $all_ordered_ids : ($raw_list_buckets[$bucket_key] ?? []),
                 $tasks_by_id,
                 $executive_candidates,
-                $organization
+                $organization,
+                $bucket_key
             );
 
             if ($items === []) {
@@ -267,6 +277,48 @@ final class TaskBoardToExecutableMapper {
         }
 
         return $mapped;
+    }
+
+    /**
+     * @param array<string,mixed> $raw_list_buckets
+     * @return list<int>
+     */
+    private static function merge_bucket_task_ids(array $raw_list_buckets): array {
+        $ids = [];
+
+        foreach ([AA_Executable_Contract::BUCKET_PRIMARY, AA_Executable_Contract::BUCKET_SECONDARY] as $bucket_key) {
+            $raw_ids = $raw_list_buckets[$bucket_key] ?? [];
+
+            if (!is_array($raw_ids)) {
+                continue;
+            }
+
+            foreach ($raw_ids as $task_id) {
+                $normalized = (int) $task_id;
+
+                if ($normalized > 0 && !in_array($normalized, $ids, true)) {
+                    $ids[] = $normalized;
+                }
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
+     * @param list<int>                       $task_ids
+     * @param array<int,array<string,mixed>> $tasks_by_id
+     */
+    private static function contains_agenda_app_task(array $task_ids, array $tasks_by_id): bool {
+        foreach ($task_ids as $task_id) {
+            $task = $tasks_by_id[$task_id] ?? null;
+
+            if (is_array($task) && self::resolve_source_category($task) === AA_Executable_Contract::SOURCE_CATEGORY_AGENDA_APP) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -302,7 +354,7 @@ final class TaskBoardToExecutableMapper {
             }
         }
 
-        return self::map_tasks_by_order($ordered_ids, $tasks_by_id, $executive_candidates, $organization);
+        return self::map_tasks_by_order($ordered_ids, $tasks_by_id, $executive_candidates, $organization, null);
     }
 
     /**
@@ -312,7 +364,7 @@ final class TaskBoardToExecutableMapper {
      * @param array<string,mixed>            $organization
      * @return list<array<string,mixed>>
      */
-    private static function map_tasks_by_order($raw_order, array $tasks_by_id, array $executive_candidates, array $organization): array {
+    private static function map_tasks_by_order($raw_order, array $tasks_by_id, array $executive_candidates, array $organization, ?string $current_bucket): array {
         if (!is_array($raw_order)) {
             return [];
         }
@@ -329,6 +381,10 @@ final class TaskBoardToExecutableMapper {
             $task = $tasks_by_id[$task_id];
 
             if (self::is_done_task($task)) {
+                continue;
+            }
+
+            if ($current_bucket !== null && self::resolve_executable_bucket_for_task($task, $organization, $task_id, $current_bucket) !== $current_bucket) {
                 continue;
             }
 
@@ -361,11 +417,15 @@ final class TaskBoardToExecutableMapper {
         $evaluation = self::resolve_task_evaluation($organization, $task_id);
         $signal_state = self::resolve_executable_signal_state($evaluation);
         $signal_capabilities = self::resolve_task_signal_capabilities($evaluation, $is_pending);
+        $source_category = self::resolve_source_category($task);
+        $source = self::resolve_source($task);
+        $primary_action = self::resolve_primary_action($task, $organization, $is_pending, $is_done);
 
         return AA_Executable_Contract::normalize_item([
             'id' => (string) $task_id,
-            'source' => AA_Executable_Contract::SOURCE_USER,
-            'origin_key' => null,
+            'source' => $source,
+            'source_category' => $source_category,
+            'origin_key' => self::normalize_nullable_string($task['origin_key'] ?? null),
             'title' => (string) ($task['title'] ?? ''),
             'description' => isset($task['notes']) ? (string) $task['notes'] : null,
             'importance' => (int) ($task['importance'] ?? 0),
@@ -387,19 +447,243 @@ final class TaskBoardToExecutableMapper {
                 'can_dismiss' => $signal_capabilities['can_dismiss'],
                 'can_reactivate' => false,
             ],
-            'primary_action' => $is_pending
-                ? [
-                    'type' => AA_Executable_Contract::ACTION_STATUS,
-                    'label' => 'Completar',
-                    'to' => AA_Executable_Contract::ITEM_STATUS_DONE,
-                ]
-                : [
-                    'type' => AA_Executable_Contract::ACTION_STATUS,
-                    'label' => 'Reabrir',
-                    'to' => AA_Executable_Contract::ITEM_STATUS_PENDING,
-                ],
+            'primary_action' => $primary_action,
             'is_executive_candidate' => isset($executive_candidates[$task_id]),
         ]);
+    }
+
+    /**
+     * @param array<string,mixed> $task
+     */
+    private static function resolve_primary_action(array $task, array $organization, bool $is_pending, bool $is_done): ?array {
+        $persisted_action = self::resolve_persisted_primary_action($task, $organization);
+
+        if ($persisted_action !== null) {
+            return $persisted_action;
+        }
+
+        if (!$is_pending && !$is_done) {
+            return null;
+        }
+
+        if ($is_pending) {
+            return [
+                'type' => AA_Executable_Contract::ACTION_STATUS,
+                'label' => 'Completar',
+                'to' => AA_Executable_Contract::ITEM_STATUS_DONE,
+            ];
+        }
+
+        return [
+            'type' => AA_Executable_Contract::ACTION_STATUS,
+            'label' => 'Reabrir',
+            'to' => AA_Executable_Contract::ITEM_STATUS_PENDING,
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $task
+     * @return array<string,mixed>|null
+     */
+    private static function resolve_persisted_primary_action(array $task, array $organization): ?array {
+        $task_id = (int) ($task['id'] ?? 0);
+
+        if ($task_id < 1) {
+            return null;
+        }
+
+        $actions_by_id = $organization['task_actions_by_id'] ?? null;
+
+        if (!is_array($actions_by_id)) {
+            return null;
+        }
+
+        $actions = $actions_by_id[$task_id] ?? null;
+
+        if (!is_array($actions)) {
+            return null;
+        }
+
+        $candidates = [];
+
+        foreach ($actions as $action) {
+            if (!is_array($action) || !self::is_primary_mechanical_action($action)) {
+                continue;
+            }
+
+            $candidates[] = $action;
+        }
+
+        usort($candidates, static function (array $left, array $right): int {
+            $position_compare = (int) ($left['position'] ?? 0) <=> (int) ($right['position'] ?? 0);
+
+            if ($position_compare !== 0) {
+                return $position_compare;
+            }
+
+            return (int) ($left['id'] ?? 0) <=> (int) ($right['id'] ?? 0);
+        });
+
+        foreach ($candidates as $action) {
+            $mapped = self::map_persisted_action($action);
+
+            if ($mapped !== null) {
+                return $mapped;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string,mixed> $action
+     */
+    private static function is_primary_mechanical_action(array $action): bool {
+        return (int) ($action['enabled'] ?? 0) === 1
+            && strtolower(trim((string) ($action['placement'] ?? ''))) === AA_Executable_Contract::VISIBLE_PLACEMENT_PRIMARY
+            && strtolower(trim((string) ($action['category'] ?? ''))) === AA_Executable_Contract::VISIBLE_CATEGORY_MECHANICAL;
+    }
+
+    /**
+     * @param array<string,mixed> $action
+     * @return array<string,mixed>|null
+     */
+    private static function map_persisted_action(array $action): ?array {
+        $type = strtolower(trim((string) ($action['type'] ?? '')));
+        $label = trim((string) ($action['label'] ?? ''));
+        $action_key = trim((string) ($action['action_key'] ?? ''));
+
+        if ($action_key === '') {
+            return null;
+        }
+
+        if ($type === AA_Executable_Contract::ACTION_NAVIGATE) {
+            $url = ExecutableNavigationUrlResolver::resolve([
+                'module' => $action['target_module'] ?? null,
+                'setup_focus' => $action['target_setup_focus'] ?? null,
+                'fragment' => $action['target_fragment'] ?? null,
+            ]);
+
+            if ($url === null) {
+                return null;
+            }
+
+            return [
+                'key' => $action_key,
+                'type' => AA_Executable_Contract::ACTION_NAVIGATE,
+                'label' => $label !== '' ? $label : 'Ir',
+                'url' => $url,
+            ];
+        }
+
+        if ($type === AA_Executable_Contract::ACTION_HANDLER) {
+            $handler = trim((string) ($action['handler'] ?? ''));
+
+            if ($handler === '' || $label === '') {
+                return null;
+            }
+
+            return [
+                'key' => $action_key,
+                'type' => AA_Executable_Contract::ACTION_HANDLER,
+                'label' => $label,
+                'handler' => $handler,
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string,mixed> $task
+     */
+    private static function resolve_executable_bucket_for_task(array $task, array $organization, int $task_id, string $current_bucket): string {
+        if (self::resolve_source_category($task) !== AA_Executable_Contract::SOURCE_CATEGORY_AGENDA_APP) {
+            return $current_bucket;
+        }
+
+        $evaluation = self::resolve_task_evaluation($organization, $task_id);
+        $projection = is_array($evaluation) && is_array($evaluation['projection'] ?? null) ? $evaluation['projection'] : [];
+        $projection_reason = (string) ($projection['projection_reason'] ?? '');
+
+        if ($projection_reason === 'deferred') {
+            return AA_Executable_Contract::BUCKET_SECONDARY;
+        }
+
+        return self::resolve_default_bucket($task['default_bucket'] ?? null);
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private static function resolve_default_bucket($value): string {
+        $bucket = is_string($value) ? strtolower(trim($value)) : '';
+
+        if ($bucket === AA_Executable_Contract::BUCKET_SECONDARY) {
+            return AA_Executable_Contract::BUCKET_SECONDARY;
+        }
+
+        return AA_Executable_Contract::BUCKET_PRIMARY;
+    }
+
+    /**
+     * @param array<string,mixed> $row
+     */
+    private static function resolve_source(array $row): string {
+        $source_category = self::resolve_source_category($row);
+
+        if ($source_category === AA_Executable_Contract::SOURCE_CATEGORY_AGENDA_APP) {
+            return AA_Executable_Contract::SOURCE_SYSTEM;
+        }
+
+        if ($source_category === AA_Executable_Contract::SOURCE_CATEGORY_AI) {
+            return AA_Executable_Contract::SOURCE_AI;
+        }
+
+        $source = is_string($row['source'] ?? null) ? strtolower(trim((string) $row['source'])) : '';
+
+        if ($source === AA_Executable_Contract::SOURCE_SYSTEM || $source === AA_Executable_Contract::SOURCE_AI) {
+            return $source;
+        }
+
+        return AA_Executable_Contract::SOURCE_USER;
+    }
+
+    /**
+     * @param array<string,mixed> $row
+     */
+    private static function resolve_source_category(array $row): string {
+        $category = is_string($row['source_category'] ?? null)
+            ? strtolower(trim((string) $row['source_category']))
+            : '';
+
+        if ($category !== '') {
+            return $category;
+        }
+
+        return AA_Executable_Contract::SOURCE_CATEGORY_USER;
+    }
+
+    /**
+     * @param array<string,mixed> $row
+     */
+    private static function resolve_managed_by(array $row): string {
+        $managed_by = is_string($row['managed_by'] ?? null)
+            ? strtolower(trim((string) $row['managed_by']))
+            : '';
+
+        return $managed_by !== '' ? $managed_by : 'user';
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private static function normalize_nullable_string($value): ?string {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return is_string($value) ? $value : null;
     }
 
     /**

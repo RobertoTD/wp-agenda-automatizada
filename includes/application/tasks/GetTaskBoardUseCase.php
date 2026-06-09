@@ -8,6 +8,7 @@ defined('ABSPATH') or die('No direct access');
 require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-active-view-projection-policy.php';
 require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-prioritization-policy.php';
 require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-signal-policy.php';
+require_once dirname(__DIR__, 2) . '/repositories/TaskActionRepository.php';
 require_once dirname(__DIR__, 2) . '/repositories/TaskStateRepository.php';
 require_once __DIR__ . '/TaskUseCaseSupport.php';
 
@@ -23,15 +24,18 @@ final class GetTaskBoardUseCase {
      *         task_order_by_list:array<int,list<int>>,
      *         task_bucket_order_by_list:array<int,array{primary:list<int>,secondary:list<int>}>,
      *         executive_candidates:list<int>,
-     *         task_evaluations_by_id:array<int,array<string,mixed>>
+     *         task_evaluations_by_id:array<int,array<string,mixed>>,
+     *         task_actions_by_id:array<int,list<array<string,mixed>>>
      *     }
      * }
      */
     public function execute(): array {
         $lists = TaskListRepository::list_all('active');
         $tasks = $this->collect_tasks_for_lists($lists);
+        $task_ids = $this->collect_task_ids($tasks);
         $now = TaskUseCaseSupport::resolve_now();
-        $task_state_by_id = TaskStateRepository::find_by_task_ids($this->collect_task_ids($tasks));
+        $task_state_by_id = TaskStateRepository::find_by_task_ids($task_ids);
+        $task_actions_by_id = TaskActionRepository::list_by_task_ids($task_ids);
 
         $base_organization = (new AA_Task_Prioritization_Policy())->prioritize([
             'lists' => $lists,
@@ -60,6 +64,7 @@ final class GetTaskBoardUseCase {
             'task_bucket_order_by_list' => $active_projection['task_bucket_order_by_list'],
             'executive_candidates' => $base_organization['executive_candidates'],
             'task_evaluations_by_id' => $active_projection['task_evaluations_by_id'],
+            'task_actions_by_id' => $task_actions_by_id,
         ];
 
         return [

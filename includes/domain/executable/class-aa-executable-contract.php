@@ -157,6 +157,7 @@ final class AA_Executable_Contract {
         return [
             'id' => self::normalize_scalar_id($item['id'] ?? ''),
             'source' => $source,
+            'source_category' => self::normalize_source_category($item['source_category'] ?? null, $source),
             'origin_key' => self::nullable_string($item['origin_key'] ?? null),
             'title' => self::normalize_string($item['title'] ?? ''),
             'description' => self::nullable_string($item['description'] ?? null),
@@ -206,6 +207,7 @@ final class AA_Executable_Contract {
         return [
             'id',
             'source',
+            'source_category',
             'origin_key',
             'title',
             'description',
@@ -469,8 +471,10 @@ final class AA_Executable_Contract {
             }
 
             $label = isset($action['label']) ? trim((string) $action['label']) : '';
+            $key = isset($action['key']) ? trim((string) $action['key']) : '';
 
             return [
+                'key' => $key !== '' ? $key : self::ACTION_NAVIGATE,
                 'type' => self::ACTION_NAVIGATE,
                 'label' => $label !== '' ? $label : 'Ir',
                 'url' => $url,
@@ -485,7 +489,10 @@ final class AA_Executable_Contract {
                 return null;
             }
 
+            $key = isset($action['key']) ? trim((string) $action['key']) : '';
+
             return [
+                'key' => $key !== '' ? $key : $handler,
                 'type' => self::ACTION_HANDLER,
                 'label' => $label,
                 'handler' => $handler,
@@ -500,7 +507,10 @@ final class AA_Executable_Contract {
                 return null;
             }
 
+            $key = isset($action['key']) ? trim((string) $action['key']) : '';
+
             return [
+                'key' => $key !== '' ? $key : ($to === self::ITEM_STATUS_DONE ? 'complete' : 'reopen'),
                 'type' => self::ACTION_STATUS,
                 'label' => $label !== '' ? $label : ($to === self::ITEM_STATUS_DONE ? 'Completar' : 'Reabrir'),
                 'to' => $to,
