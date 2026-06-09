@@ -8,6 +8,8 @@ Evitar dos sistemas incompatibles (Learning rico vs Tasks pobre) sin fusionar al
 
 **Single Source of Truth:** las reglas siguen en dominio/application de cada fuente. Este contrato no recalcula visibilidad, buckets ni prioridad.
 
+**MC13O-A:** el modelo objetivo para evolucionar desde esta proyección común hacia una fuente común persistida está documentado en `docs/tasks-common-source-target.md`. Ese documento no cambia runtime ni schema; fija el destino para que `aa_task_lists`, `aa_tasks` y `aa_task_state` sean la fuente oficial ampliada, con tablas relacionadas mínimas solo cuando actions/facts lo requieran.
+
 ## Fuente vs persistencia vs proyección
 
 | Capa | Learning | Tasks (usuario) |
