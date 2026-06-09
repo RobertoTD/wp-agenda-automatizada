@@ -64,7 +64,7 @@ final class AA_Schema {
      * Independiente de la versión del plugin. Solo refleja el estado
      * de las tablas/columnas/índices.
      */
-    public const DB_VERSION = '5';
+    public const DB_VERSION = '6';
 
     /**
      * Registra el activation hook y el chequeo de migraciones.
@@ -301,13 +301,16 @@ final class AA_Schema {
 
         dbDelta($learning_state_sql);
 
-        // 🔹 Listas de tareas (Listas/Tareas — MC1)
+        // 🔹 Listas de tareas (Listas/Tareas — MC1 + MC13O-B1 fuente común)
         $task_lists_table = $wpdb->prefix . 'aa_task_lists';
         $task_lists_sql = "CREATE TABLE $task_lists_table (
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             title varchar(255) NOT NULL,
             description text DEFAULT NULL,
             owner_type varchar(20) NOT NULL DEFAULT 'user',
+            source_category varchar(20) NOT NULL DEFAULT 'user',
+            origin_key varchar(100) DEFAULT NULL,
+            managed_by varchar(20) NOT NULL DEFAULT 'user',
             importance int NOT NULL DEFAULT 0,
             status varchar(20) NOT NULL DEFAULT 'active',
             position int NOT NULL DEFAULT 0,
@@ -316,12 +319,15 @@ final class AA_Schema {
             PRIMARY KEY  (id),
             KEY status (status),
             KEY owner_type (owner_type),
+            KEY source_category (source_category),
             KEY position (position)
         ) $charset;";
 
         dbDelta($task_lists_sql);
+        self::ensure_index($task_lists_table, 'uniq_list_origin', 'ALTER TABLE ' . $task_lists_table . ' ADD UNIQUE KEY uniq_list_origin (source_category, origin_key)');
+        self::ensure_index($task_lists_table, 'source_category', 'ALTER TABLE ' . $task_lists_table . ' ADD KEY source_category (source_category)');
 
-        // 🔹 Tareas por lista (Listas/Tareas — MC1)
+        // 🔹 Tareas por lista (Listas/Tareas — MC1 + MC13O-B1 fuente común)
         $tasks_table = $wpdb->prefix . 'aa_tasks';
         $tasks_sql = "CREATE TABLE $tasks_table (
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -330,6 +336,12 @@ final class AA_Schema {
             notes text DEFAULT NULL,
             status varchar(20) NOT NULL DEFAULT 'pending',
             source varchar(20) NOT NULL DEFAULT 'user',
+            source_category varchar(20) NOT NULL DEFAULT 'user',
+            origin_key varchar(100) DEFAULT NULL,
+            managed_by varchar(20) NOT NULL DEFAULT 'user',
+            default_bucket varchar(20) NOT NULL DEFAULT 'primary',
+            completion_type varchar(20) NOT NULL DEFAULT 'manual',
+            completion_fact_key varchar(100) DEFAULT NULL,
             importance int NOT NULL DEFAULT 0,
             due_at datetime DEFAULT NULL,
             position int NOT NULL DEFAULT 0,
@@ -339,12 +351,15 @@ final class AA_Schema {
             PRIMARY KEY  (id),
             KEY list_id (list_id),
             KEY status (status),
+            KEY source_category (source_category),
             KEY due_at (due_at)
         ) $charset;";
 
         dbDelta($tasks_sql);
+        self::ensure_index($tasks_table, 'uniq_task_origin', 'ALTER TABLE ' . $tasks_table . ' ADD UNIQUE KEY uniq_task_origin (source_category, origin_key)');
+        self::ensure_index($tasks_table, 'source_category', 'ALTER TABLE ' . $tasks_table . ' ADD KEY source_category (source_category)');
 
-        // 🔹 Señales operativas por tarea (Listas/Tareas — MC13G-A)
+        // 🔹 Señales operativas por tarea (Listas/Tareas — MC13G-A + MC13O-B1 system completion)
         $task_state_table = $wpdb->prefix . 'aa_task_state';
         $task_state_sql = "CREATE TABLE $task_state_table (
             task_id bigint(20) unsigned NOT NULL,
@@ -354,6 +369,9 @@ final class AA_Schema {
             last_dismissed_at datetime DEFAULT NULL,
             dismiss_until datetime DEFAULT NULL,
             dismiss_count int NOT NULL DEFAULT 0,
+            completed_by_system tinyint(1) NOT NULL DEFAULT 0,
+            system_completed_at datetime DEFAULT NULL,
+            last_system_evaluated_at datetime DEFAULT NULL,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             updated_at datetime DEFAULT NULL,
             PRIMARY KEY  (task_id)
@@ -392,6 +410,30 @@ final class AA_Schema {
         // Esto cubre tanto la primera instalación (vía activation hook)
         // como las migraciones automáticas (vía maybe_migrate()).
         update_option('aa_db_version', self::DB_VERSION);
+    }
+
+    /**
+     * Asegura índices no cubiertos de forma confiable por dbDelta().
+     *
+     * @param string $table_name Nombre completo de tabla con prefijo.
+     * @param string $index_name Nombre del índice a verificar.
+     * @param string $alter_sql  ALTER TABLE idempotente a ejecutar si falta.
+     */
+    private static function ensure_index(string $table_name, string $index_name, string $alter_sql): void {
+        global $wpdb;
+
+        $existing = $wpdb->get_results(
+            $wpdb->prepare(
+                "SHOW INDEX FROM {$table_name} WHERE Key_name = %s",
+                $index_name
+            )
+        );
+
+        if (!empty($existing)) {
+            return;
+        }
+
+        $wpdb->query($alter_sql);
     }
 
     /**

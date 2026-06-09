@@ -35,22 +35,35 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 
 $schema_src = file_get_contents($schema_file);
 ac_assert('Schema file readable', $schema_src !== false);
-ac_assert('DB_VERSION is 5', strpos($schema_src, "DB_VERSION = '5'") !== false);
+ac_assert('DB_VERSION is 6', strpos($schema_src, "DB_VERSION = '6'") !== false);
 ac_assert(
     'CREATE TABLE aa_task_lists',
     strpos($schema_src, 'aa_task_lists') !== false
         && strpos($schema_src, 'owner_type varchar(20)') !== false
+        && strpos($schema_src, 'source_category varchar(20)') !== false
+        && strpos($schema_src, 'origin_key varchar(100)') !== false
+        && strpos($schema_src, 'managed_by varchar(20)') !== false
         && strpos($schema_src, 'importance int') !== false
         && strpos($schema_src, 'status varchar(20)') !== false
         && strpos($schema_src, 'position int') !== false
+        && strpos($schema_src, 'KEY source_category (source_category)') !== false
+        && strpos($schema_src, 'uniq_list_origin') !== false
 );
 ac_assert(
     'CREATE TABLE aa_tasks',
     strpos($schema_src, 'aa_tasks') !== false
         && strpos($schema_src, 'list_id bigint(20) unsigned') !== false
         && strpos($schema_src, 'source varchar(20)') !== false
+        && strpos($schema_src, 'source_category varchar(20)') !== false
+        && strpos($schema_src, 'origin_key varchar(100)') !== false
+        && strpos($schema_src, 'managed_by varchar(20)') !== false
+        && strpos($schema_src, 'default_bucket varchar(20)') !== false
+        && strpos($schema_src, 'completion_type varchar(20)') !== false
+        && strpos($schema_src, 'completion_fact_key varchar(100)') !== false
         && strpos($schema_src, 'due_at datetime') !== false
         && strpos($schema_src, 'completed_at datetime') !== false
+        && strpos($schema_src, 'KEY source_category (source_category)') !== false
+        && strpos($schema_src, 'uniq_task_origin') !== false
 );
 $tasks_block_start = strpos($schema_src, 'aa_tasks');
 $tasks_block = $tasks_block_start !== false
@@ -120,6 +133,21 @@ if ($wp_integration) {
 
     $tasks_exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $tasks_table));
     ac_assert('aa_tasks exists after install', $tasks_exists === $tasks_table, $tasks_table);
+
+    foreach (['source_category', 'origin_key', 'managed_by'] as $column) {
+        $exists = $wpdb->get_results($wpdb->prepare("SHOW COLUMNS FROM {$lists_table} LIKE %s", $column));
+        ac_assert("aa_task_lists has {$column}", !empty($exists));
+    }
+
+    foreach (['source_category', 'origin_key', 'managed_by', 'default_bucket', 'completion_type', 'completion_fact_key'] as $column) {
+        $exists = $wpdb->get_results($wpdb->prepare("SHOW COLUMNS FROM {$tasks_table} LIKE %s", $column));
+        ac_assert("aa_tasks has {$column}", !empty($exists));
+    }
+
+    $list_origin_index = $wpdb->get_results("SHOW INDEX FROM {$lists_table} WHERE Key_name = 'uniq_list_origin'");
+    ac_assert('aa_task_lists has uniq_list_origin', !empty($list_origin_index));
+    $task_origin_index = $wpdb->get_results("SHOW INDEX FROM {$tasks_table} WHERE Key_name = 'uniq_task_origin'");
+    ac_assert('aa_tasks has uniq_task_origin', !empty($task_origin_index));
 
     $suffix = (string) time();
     $list = TaskListRepository::create([

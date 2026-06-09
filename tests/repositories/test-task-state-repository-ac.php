@@ -31,7 +31,7 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 
 $schema_src = file_get_contents($schema_file);
 ac_assert('Schema file readable', $schema_src !== false);
-ac_assert('DB_VERSION is 5', strpos($schema_src, "DB_VERSION = '5'") !== false);
+ac_assert('DB_VERSION is 6', strpos($schema_src, "DB_VERSION = '6'") !== false);
 ac_assert(
     'CREATE TABLE aa_task_state',
     strpos($schema_src, 'aa_task_state') !== false
@@ -41,6 +41,9 @@ ac_assert(
         && strpos($schema_src, 'last_dismissed_at datetime') !== false
         && strpos($schema_src, 'dismiss_until datetime') !== false
         && strpos($schema_src, 'dismiss_count int') !== false
+        && strpos($schema_src, 'completed_by_system tinyint(1)') !== false
+        && strpos($schema_src, 'system_completed_at datetime') !== false
+        && strpos($schema_src, 'last_system_evaluated_at datetime') !== false
         && strpos($schema_src, 'PRIMARY KEY  (task_id)') !== false
 );
 
@@ -96,6 +99,11 @@ if ($wp_load !== '' && is_readable($wp_load)) {
         $wpdb->prepare('SHOW TABLES LIKE %s', $state_table)
     );
     ac_assert('aa_task_state table exists after install', $table_exists === $state_table);
+
+    foreach (['completed_by_system', 'system_completed_at', 'last_system_evaluated_at'] as $column) {
+        $exists = $wpdb->get_results($wpdb->prepare("SHOW COLUMNS FROM {$state_table} LIKE %s", $column));
+        ac_assert("aa_task_state has {$column}", !empty($exists));
+    }
 
     $missing = TaskStateRepository::find_by_task_id(99999999);
     ac_assert('find_by_task_id returns null when missing', $missing === null);

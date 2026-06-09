@@ -305,12 +305,42 @@ Condicion previa objetivo:
 |------|---------|
 | Fase 0 | Hecha: labels canonicos de buckets (`primary` -> Principales, `secondary` -> Secundarias). |
 | Fase A | Este documento: modelo objetivo de fuente comun persistida. |
-| Fase B | Schema aditivo: campos en `aa_task_lists`, `aa_tasks`, `aa_task_state`; tabla relacionada de actions si se aprueba; sin consumidores aun. |
+| Fase B1 | Implementada en MC13O-B1: schema aditivo base (`DB_VERSION=6`) en `aa_task_lists`, `aa_tasks` y `aa_task_state`; sin consumidores aun. |
+| Fase B2 | Pendiente: tabla relacionada de actions (`aa_task_actions`) cuando se apruebe el shape de seed/sync. |
 | Fase C | Seed/sync idempotente: catalogo Learning -> filas seeded en DB comun. |
 | Fase D | Motor comun: capabilities por `managed_by`, `default_bucket`, actions desde metadata persistida, adapter de facts. |
 | Fase E | Feed desde fuente comun: Agenda app leida desde DB comun detras de transicion segura. |
 | Fase F | Migracion de estado Learning: mapear `aa_learning_recommendation_state` a estado comun. |
 | Fase G | Deprecacion: retirar mapper/pipeline Learning como fuente principal. |
+
+
+## MC13O-B1: schema base preparado
+
+MC13O-B1 agrega solo columnas base e indices para preparar la fuente comun. No
+activa consumidores, no cambia el feed, no siembra Learning y no crea
+`aa_task_actions`.
+
+Columnas agregadas:
+
+| Tabla | Columnas |
+|-------|----------|
+| `aa_task_lists` | `source_category`, `origin_key`, `managed_by` |
+| `aa_tasks` | `source_category`, `origin_key`, `managed_by`, `default_bucket`, `completion_type`, `completion_fact_key` |
+| `aa_task_state` | `completed_by_system`, `system_completed_at`, `last_system_evaluated_at` |
+
+Indices agregados:
+
+- `aa_task_lists`: `uniq_list_origin (source_category, origin_key)`, `source_category`.
+- `aa_tasks`: `uniq_task_origin (source_category, origin_key)`, `source_category`.
+
+Decisiones preservadas:
+
+- `aa_task_actions` queda para MC13O-B2.
+- `definition_version` sigue como futuro opcional.
+- `source_label` sigue derivado del contrato executable.
+- `can_*` sigue siendo capability calculada por policy futura, no columna.
+- Completion por sistema queda preparada en `aa_task_state`, separada de
+  `aa_tasks.status/completed_at` (declaracion del usuario).
 
 ## Preguntas abiertas
 
