@@ -218,7 +218,7 @@ Capacidades que hoy existen en Learning deben migrar a datos operables:
 - action labels
 - action category
 
-Probable tabla relacionada futura:
+Tabla relacionada implementada como schema-only en MC13O-B2:
 
 ```text
 aa_task_actions
@@ -227,17 +227,31 @@ aa_task_actions
   action_key
   type
   label
-  url
-  handler
   placement
   category
   target_status
+  target_module
+  target_setup_focus
+  target_fragment
+  url
+  handler
+  payload_json
+  enabled
   position
+  created_at
+  updated_at
 ```
 
-Esta tabla no se implementa en MC13O-A. Solo documenta que acciones ricas no
-deben quedar escondidas en `AA_Learning_Catalog` como una segunda fuente
-operativa.
+MC13O-B2 crea solo el schema de `aa_task_actions`: task-only (`task_id` NOT
+NULL), sin `list_id`, sin repository y sin consumidores. Las acciones de lista
+quedan fuera hasta que exista una necesidad concreta. `navigate` debe preferir
+`target_module` / `target_setup_focus` / `target_fragment`; `url` queda como
+fallback. `handler` representa adapters como `pwa.install`. `payload_json` es
+escape hatch, no sustituto de campos explícitos.
+
+No se persisten acciones estándar derivables por policy (`complete`, `defer`,
+`dismiss`, `reopen`, `reactivate`, `edit`, `archive`, `delete`, return ignored).
+Esas siguen siendo capabilities/visible actions calculadas por policies futuras.
 
 ## Default bucket y naturaleza de tarea
 
@@ -306,8 +320,8 @@ Condicion previa objetivo:
 | Fase 0 | Hecha: labels canonicos de buckets (`primary` -> Principales, `secondary` -> Secundarias). |
 | Fase A | Este documento: modelo objetivo de fuente comun persistida. |
 | Fase B1 | Implementada en MC13O-B1: schema aditivo base (`DB_VERSION=6`) en `aa_task_lists`, `aa_tasks` y `aa_task_state`; sin consumidores aun. |
-| Fase B2 | Pendiente: tabla relacionada de actions (`aa_task_actions`) cuando se apruebe el shape de seed/sync. |
-| Fase C | Seed/sync idempotente: catalogo Learning -> filas seeded en DB comun. |
+| Fase B2 | Implementada en MC13O-B2: schema-only de `aa_task_actions` task-only; repository y consumidores quedan pendientes. |
+| Fase C | Seed/sync idempotente: catalogo Learning -> filas seeded en DB comun y rows `aa_task_actions`. |
 | Fase D | Motor comun: capabilities por `managed_by`, `default_bucket`, actions desde metadata persistida, adapter de facts. |
 | Fase E | Feed desde fuente comun: Agenda app leida desde DB comun detras de transicion segura. |
 | Fase F | Migracion de estado Learning: mapear `aa_learning_recommendation_state` a estado comun. |
@@ -349,7 +363,6 @@ Decisiones preservadas:
 - Que ocurre cuando una tarea seeded se remueve del catalogo? Recomendacion
   preliminar: archivar/deprecar fila, no borrar.
 - Cuando se evaluan facts de sistema? Sesion, reload, evento, cron o combinacion.
-- Donde viviran exactamente actions/facts? Columnas minimas, tabla relacionada
-  o mezcla.
+- Como se diseñara el repository/upsert de `aa_task_actions` durante seed/sync?
 - Cuando mover "Ahora no" fuera del header?
 - Como se expondria system-completed en UI?

@@ -64,7 +64,7 @@ final class AA_Schema {
      * Independiente de la versión del plugin. Solo refleja el estado
      * de las tablas/columnas/índices.
      */
-    public const DB_VERSION = '6';
+    public const DB_VERSION = '7';
 
     /**
      * Registra el activation hook y el chequeo de migraciones.
@@ -378,6 +378,38 @@ final class AA_Schema {
         ) $charset;";
 
         dbDelta($task_state_sql);
+
+        // 🔹 Acciones declaradas por tarea (Listas/Tareas — MC13O-B2 schema-only)
+        $task_actions_table = $wpdb->prefix . 'aa_task_actions';
+        $task_actions_sql = "CREATE TABLE $task_actions_table (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            task_id bigint(20) unsigned NOT NULL,
+            action_key varchar(100) NOT NULL,
+            type varchar(20) NOT NULL,
+            label varchar(120) NOT NULL,
+            placement varchar(20) NOT NULL DEFAULT 'primary',
+            category varchar(20) NOT NULL DEFAULT 'mechanical',
+            target_status varchar(20) DEFAULT NULL,
+            target_module varchar(100) DEFAULT NULL,
+            target_setup_focus varchar(100) DEFAULT NULL,
+            target_fragment varchar(100) DEFAULT NULL,
+            url text DEFAULT NULL,
+            handler varchar(100) DEFAULT NULL,
+            payload_json longtext DEFAULT NULL,
+            enabled tinyint(1) NOT NULL DEFAULT 1,
+            position int NOT NULL DEFAULT 0,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime DEFAULT NULL,
+            PRIMARY KEY  (id),
+            UNIQUE KEY uniq_task_action (task_id, action_key),
+            KEY task_id (task_id),
+            KEY action_key (action_key),
+            KEY type (type),
+            KEY enabled (enabled),
+            KEY position (position)
+        ) $charset;";
+
+        dbDelta($task_actions_sql);
 
         // NOTA: FOREIGN KEY constraints no se incluyen aquí porque dbDelta() puede tener problemas
         // con ellos. Si se necesitan, deben agregarse manualmente después de la creación:

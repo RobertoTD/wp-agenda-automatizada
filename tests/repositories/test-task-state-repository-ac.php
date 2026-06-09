@@ -31,7 +31,7 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 
 $schema_src = file_get_contents($schema_file);
 ac_assert('Schema file readable', $schema_src !== false);
-ac_assert('DB_VERSION is 6', strpos($schema_src, "DB_VERSION = '6'") !== false);
+ac_assert('DB_VERSION is 7', strpos($schema_src, "DB_VERSION = '7'") !== false);
 ac_assert(
     'CREATE TABLE aa_task_state',
     strpos($schema_src, 'aa_task_state') !== false
