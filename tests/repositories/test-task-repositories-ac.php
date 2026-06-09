@@ -98,6 +98,14 @@ ac_assert('TaskRepository defines mark_completed', strpos($task_repo_src, 'funct
 ac_assert('TaskRepository maps common source fields', strpos($task_repo_src, "'source_category' =>") !== false && strpos($task_repo_src, "'managed_by' =>") !== false);
 ac_assert('TaskRepository maps default_bucket', strpos($task_repo_src, "'default_bucket' =>") !== false);
 ac_assert('TaskRepository maps completion fields', strpos($task_repo_src, "'completion_type' =>") !== false && strpos($task_repo_src, "'completion_fact_key' =>") !== false);
+ac_assert('TaskRepository defines list_system_completion_candidates', strpos($task_repo_src, 'function list_system_completion_candidates') !== false);
+ac_assert(
+    'list_system_completion_candidates filters agenda_app system pending facts',
+    strpos($task_repo_src, "source_category = 'agenda_app'") !== false
+    && strpos($task_repo_src, "completion_type = 'system'") !== false
+    && strpos($task_repo_src, 'completion_fact_key') !== false
+    && strpos($task_repo_src, "status = 'pending'") !== false
+);
 
 $wp_root = getenv('AA_WP_ROOT') ?: '';
 $wp_load = $wp_root !== '' ? rtrim($wp_root, '/') . '/wp-load.php' : '';

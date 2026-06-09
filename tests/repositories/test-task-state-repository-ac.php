@@ -73,6 +73,13 @@ ac_assert(
     'TaskStateRepository defines clear_dismiss_hiding_effect_for_task_ids',
     strpos($repo_src, 'function clear_dismiss_hiding_effect_for_task_ids') !== false
 );
+ac_assert('TaskStateRepository maps completed_by_system', strpos($repo_src, "'completed_by_system' =>") !== false);
+ac_assert('TaskStateRepository maps system_completed_at', strpos($repo_src, "'system_completed_at' =>") !== false);
+ac_assert('TaskStateRepository maps last_system_evaluated_at', strpos($repo_src, "'last_system_evaluated_at' =>") !== false);
+ac_assert(
+    'TaskStateRepository defines record_system_completion_evaluation',
+    strpos($repo_src, 'function record_system_completion_evaluation') !== false
+);
 
 // ─── Integración WordPress ───────────────────────────────────
 
@@ -240,7 +247,65 @@ if ($wp_load !== '' && is_readable($wp_load)) {
         ($task_after['completed_at'] ?? null) === ($task_before['completed_at'] ?? null)
     );
 
+    $system_task_id = (int) $wpdb->insert(
+        $tasks_table,
+        [
+            'list_id' => $list_id,
+            'title' => 'System completion task ' . $suffix,
+            'source' => 'system',
+            'source_category' => 'agenda_app',
+            'origin_key' => 'configure_services',
+            'managed_by' => 'developer',
+            'completion_type' => 'system',
+            'completion_fact_key' => 'has_active_service',
+            'importance' => 0,
+            'status' => 'pending',
+            'position' => 2,
+            'created_at' => current_time('mysql'),
+        ],
+        ['%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%d', '%s']
+    );
+    $system_task_id = (int) $wpdb->insert_id;
+    ac_assert('Seed system completion task', $system_task_id > 0);
+
+    $first_system = TaskStateRepository::record_system_completion_evaluation($system_task_id, true, '2026-06-09 10:00:00');
+    ac_assert('record_system_completion_evaluation creates row', is_array($first_system));
+    ac_assert('first true sets completed_by_system=1', (int) ($first_system['completed_by_system'] ?? 0) === 1);
+    ac_assert(
+        'first true sets system_completed_at',
+        ($first_system['system_completed_at'] ?? '') === '2026-06-09 10:00:00'
+    );
+    ac_assert(
+        'first true sets last_system_evaluated_at',
+        ($first_system['last_system_evaluated_at'] ?? '') === '2026-06-09 10:00:00'
+    );
+
+    $second_system = TaskStateRepository::record_system_completion_evaluation($system_task_id, false, '2026-06-09 11:00:00');
+    ac_assert('false evaluation sets completed_by_system=0', (int) ($second_system['completed_by_system'] ?? 1) === 0);
+    ac_assert(
+        'false evaluation preserves sticky system_completed_at',
+        ($second_system['system_completed_at'] ?? '') === '2026-06-09 10:00:00'
+    );
+    ac_assert(
+        'false evaluation updates last_system_evaluated_at',
+        ($second_system['last_system_evaluated_at'] ?? '') === '2026-06-09 11:00:00'
+    );
+    ac_assert(
+        'system evaluation preserves defer_count',
+        (int) ($second_system['defer_count'] ?? -1) === 0
+    );
+    ac_assert(
+        'system evaluation preserves dismiss_count',
+        (int) ($second_system['dismiss_count'] ?? -1) === 0
+    );
+
+    $system_task_after = TaskRepository::find_by_id($system_task_id);
+    ac_assert('system evaluation leaves aa_tasks status pending', ($system_task_after['status'] ?? '') === 'pending');
+    ac_assert('system evaluation leaves aa_tasks completed_at null', ($system_task_after['completed_at'] ?? null) === null);
+
     $wpdb->delete($state_table, ['task_id' => $task_id], ['%d']);
+    $wpdb->delete($state_table, ['task_id' => $system_task_id], ['%d']);
+    $wpdb->delete($tasks_table, ['id' => $system_task_id], ['%d']);
     if (isset($second_task_id) && $second_task_id > 0) {
         $wpdb->delete($state_table, ['task_id' => $second_task_id], ['%d']);
         $wpdb->delete($tasks_table, ['id' => $second_task_id], ['%d']);

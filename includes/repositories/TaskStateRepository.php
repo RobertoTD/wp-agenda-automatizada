@@ -54,6 +54,9 @@ final class TaskStateRepository {
             'last_dismissed_at' => $row->last_dismissed_at,
             'dismiss_until' => $row->dismiss_until,
             'dismiss_count' => (int) $row->dismiss_count,
+            'completed_by_system' => (int) ($row->completed_by_system ?? 0),
+            'system_completed_at' => $row->system_completed_at ?? null,
+            'last_system_evaluated_at' => $row->last_system_evaluated_at ?? null,
             'created_at' => $row->created_at,
             'updated_at' => $row->updated_at,
         ];
@@ -201,6 +204,82 @@ final class TaskStateRepository {
 
         if ($result === false) {
             error_log('[TaskStateRepository] upsert update: ' . $wpdb->last_error);
+            return null;
+        }
+
+        return self::find_by_task_id($normalized_task_id);
+    }
+
+    /**
+     * Persiste evaluación de completion por sistema sin tocar defer/dismiss ni aa_tasks.
+     *
+     * @param int    $task_id
+     * @param bool   $completed
+     * @param string $now Y-m-d H:i:s
+     * @return array<string,mixed>|null
+     */
+    public static function record_system_completion_evaluation($task_id, $completed, $now) {
+        $normalized_task_id = (int) $task_id;
+
+        if ($normalized_task_id < 1) {
+            return null;
+        }
+
+        $existing = self::find_by_task_id($normalized_task_id);
+        $completed_flag = $completed ? 1 : 0;
+
+        global $wpdb;
+
+        $table = self::table_name();
+
+        if ($existing === null) {
+            $insert = [
+                'task_id' => $normalized_task_id,
+                'last_deferred_at' => null,
+                'defer_until' => null,
+                'defer_count' => 0,
+                'last_dismissed_at' => null,
+                'dismiss_until' => null,
+                'dismiss_count' => 0,
+                'completed_by_system' => $completed_flag,
+                'system_completed_at' => $completed ? $now : null,
+                'last_system_evaluated_at' => $now,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+
+            $result = $wpdb->insert($table, $insert, self::build_formats($insert));
+
+            if ($result === false) {
+                error_log('[TaskStateRepository] record_system_completion_evaluation insert: ' . $wpdb->last_error);
+                return null;
+            }
+
+            return self::find_by_task_id($normalized_task_id);
+        }
+
+        $update = [
+            'completed_by_system' => $completed_flag,
+            'last_system_evaluated_at' => $now,
+            'updated_at' => $now,
+        ];
+
+        if ($completed && ($existing['system_completed_at'] ?? null) === null) {
+            $update['system_completed_at'] = $now;
+        }
+
+        $formats = self::build_formats($update);
+
+        $result = $wpdb->update(
+            $table,
+            $update,
+            ['task_id' => $normalized_task_id],
+            $formats,
+            ['%d']
+        );
+
+        if ($result === false) {
+            error_log('[TaskStateRepository] record_system_completion_evaluation update: ' . $wpdb->last_error);
             return null;
         }
 
@@ -363,7 +442,7 @@ final class TaskStateRepository {
         $formats = [];
 
         foreach (array_keys($row) as $column) {
-            if (in_array($column, ['task_id', 'defer_count', 'dismiss_count'], true)) {
+            if (in_array($column, ['task_id', 'defer_count', 'dismiss_count', 'completed_by_system'], true)) {
                 $formats[] = '%d';
                 continue;
             }

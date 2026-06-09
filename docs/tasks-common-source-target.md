@@ -325,6 +325,8 @@ Condicion previa objetivo:
 | Fase D1A | Implementada: read path DB comun para seeded `agenda_app` dentro del pipeline Tasks; metadata comun y `aa_task_actions` se proyectan al contrato executable, sin apagar Learning legacy. |
 | Fase D2 | Hecho: el feed omite Learning legacy cuando existe lista seeded activa `agenda_app` + `learning.recommendations` en DB comun. |
 | Fase D3 | Hecho: sync idempotente controlado por `admin_init` + option version; archived-first; activacion al validar seed completo. |
+| Fase E1 | Hecho: evaluator + use case de system facts; persiste `completed_by_system` sin projection todavia. |
+| Fase E2 | Pendiente: invocar evaluator en read path; ocultar `completed_by_system=1` en active view. |
 | Fase E | Feed desde fuente comun: Agenda app leida desde DB comun detras de transicion segura. |
 | Fase F | Migracion de estado Learning: mapear `aa_learning_recommendation_state` a estado comun. |
 | Fase G | Deprecacion: retirar mapper/pipeline Learning como fuente principal. |
@@ -535,11 +537,43 @@ Pendiente:
 - No se migro `aa_learning_recommendation_state`.
 - No hay system facts ni UI nueva en este ciclo.
 
-Pendiente para MC13O-E:
+## MC13O-E1: evaluator y persistencia de system facts
 
-`completion_type=system` y `completion_fact_key` quedan como definicion leida,
-pero D1A no evalua facts ni marca `completed_by_system`. Las tareas con facts ya
-cumplidos pueden seguir apareciendo hasta que exista el adapter de system facts.
+MC13O-E1 introduce el motor de evaluacion/persistencia de facts para tareas
+seeded `agenda_app` sin cambiar todavia la visibilidad del feed.
+
+Componentes:
+
+- `TaskSystemCompletionFactResolver` (`infrastructure/tasks/`): resuelve en
+  batch los facts booleanos (`google_connected`, `business_data_complete`,
+  `has_active_service`, `has_active_area`, `has_staff_with_service`,
+  `has_registered_client`).
+- `EvaluateTaskSystemCompletionFactsUseCase` (`application/tasks/`): carga
+  candidatos `completion_type=system` + `completion_fact_key` + `status=pending`,
+  evalua facts y persiste en `aa_task_state`.
+- `TaskRepository::list_system_completion_candidates()`.
+- `TaskStateRepository::record_system_completion_evaluation()`.
+
+Reglas de persistencia:
+
+- `completed_by_system` refleja el estado actual del fact (reversible 0/1).
+- `system_completed_at` es sticky: se setea en el primer `false→true` y no se
+  borra si el fact vuelve a false.
+- `last_system_evaluated_at` se actualiza en cada evaluacion.
+- No toca `aa_tasks.status`, `completed_at`, defer ni dismiss.
+
+Alcance E1 (sin E2):
+
+- No se invoca automaticamente desde `GetTaskBoardUseCase` ni lifecycle.
+- No cambia `AA_Task_Signal_Policy`, `AA_Task_Active_View_Projection_Policy` ni
+  `TaskBoardToExecutableMapper`.
+- Las tareas con fact cumplido pueden seguir apareciendo en active hasta E2.
+
+Pendiente MC13O-E2:
+
+- Invocar evaluator en read path.
+- Ocultar tareas con `completed_by_system=1` de la vista active.
+- Ajustar `can_complete` / `auto_completed` en mapper para `completion_type=system`.
 
 ## Preguntas abiertas
 

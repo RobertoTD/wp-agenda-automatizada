@@ -179,6 +179,43 @@ final class TaskRepository {
     }
 
     /**
+     * Tareas seeded agenda_app con completion por sistema pendientes de evaluación.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public static function list_system_completion_candidates() {
+        global $wpdb;
+
+        $table = self::table_name();
+        $rows = $wpdb->get_results(
+            "SELECT * FROM {$table}
+             WHERE source_category = 'agenda_app'
+               AND completion_type = 'system'
+               AND completion_fact_key IS NOT NULL
+               AND completion_fact_key != ''
+               AND status = 'pending'
+             ORDER BY position ASC, id ASC"
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[TaskRepository] list_system_completion_candidates: ' . $wpdb->last_error);
+            return [];
+        }
+
+        $mapped = [];
+
+        foreach ($rows as $row) {
+            $item = self::map_row($row);
+
+            if ($item !== null) {
+                $mapped[] = $item;
+            }
+        }
+
+        return $mapped;
+    }
+
+    /**
      * @param int                  $id
      * @param array<string,mixed>  $data
      * @return array<string,mixed>|null
