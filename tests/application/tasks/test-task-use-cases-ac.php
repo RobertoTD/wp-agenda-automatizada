@@ -89,6 +89,16 @@ ac_assert('GetTaskBoardUseCase loads task actions', strpos($get_board_src, 'Task
 ac_assert('GetTaskBoardUseCase returns organization key', strpos($get_board_src, "'organization'") !== false);
 ac_assert('GetTaskBoardUseCase returns task_evaluations_by_id', strpos($get_board_src, 'task_evaluations_by_id') !== false);
 ac_assert('GetTaskBoardUseCase returns task_actions_by_id', strpos($get_board_src, 'task_actions_by_id') !== false);
+ac_assert(
+    'GetTaskBoardUseCase invokes system completion evaluator',
+    strpos($get_board_src, 'EvaluateTaskSystemCompletionFactsUseCase') !== false
+    && strpos($get_board_src, 'evaluate_system_completion_facts') !== false
+);
+ac_assert(
+    'GetTaskBoardUseCase logs evaluator failure without breaking board',
+    strpos($get_board_src, 'catch (\\Throwable $exception)') !== false
+    && strpos($get_board_src, 'EvaluateTaskSystemCompletionFactsUseCase failed') !== false
+);
 
 $change_status_src = file_get_contents($plugin_root . '/includes/application/tasks/ChangeTaskStatusUseCase.php');
 ac_assert('ChangeTaskStatusUseCase uses mark_completed', strpos($change_status_src, 'mark_completed') !== false);

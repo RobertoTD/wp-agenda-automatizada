@@ -326,7 +326,7 @@ Condicion previa objetivo:
 | Fase D2 | Hecho: el feed omite Learning legacy cuando existe lista seeded activa `agenda_app` + `learning.recommendations` en DB comun. |
 | Fase D3 | Hecho: sync idempotente controlado por `admin_init` + option version; archived-first; activacion al validar seed completo. |
 | Fase E1 | Hecho: evaluator + use case de system facts; persiste `completed_by_system` sin projection todavia. |
-| Fase E2 | Pendiente: invocar evaluator en read path; ocultar `completed_by_system=1` en active view. |
+| Fase E2 | Hecho: evaluator en `GetTaskBoardUseCase`; `completed_by_system=1` fuera de active; `completion_type=system` sin completar manual. |
 | Fase E | Feed desde fuente comun: Agenda app leida desde DB comun detras de transicion segura. |
 | Fase F | Migracion de estado Learning: mapear `aa_learning_recommendation_state` a estado comun. |
 | Fase G | Deprecacion: retirar mapper/pipeline Learning como fuente principal. |
@@ -569,11 +569,33 @@ Alcance E1 (sin E2):
   `TaskBoardToExecutableMapper`.
 - Las tareas con fact cumplido pueden seguir apareciendo en active hasta E2.
 
-Pendiente MC13O-E2:
+## MC13O-E2: system completion en board activo
 
-- Invocar evaluator en read path.
-- Ocultar tareas con `completed_by_system=1` de la vista active.
-- Ajustar `can_complete` / `auto_completed` en mapper para `completion_type=system`.
+MC13O-E2 conecta el evaluator de E1 con el flujo real de Tasks y el contrato
+executable, sin mezclar completion manual con system completion.
+
+Comportamiento:
+
+- `GetTaskBoardUseCase` invoca `EvaluateTaskSystemCompletionFactsUseCase` al
+  inicio de `execute()`. Si falla, loguea y continúa con el estado anterior.
+- `AA_Task_Signal_Policy` expone `state.is_system_completed` desde
+  `completed_by_system`.
+- `AA_Task_Active_View_Projection_Policy` oculta tareas con
+  `is_system_completed=true` (`REASON_SYSTEM_COMPLETED`), separado de
+  `status=done` (`REASON_NOT_PENDING`).
+- `TaskBoardToExecutableMapper`: `completion_type=system` →
+  `can_complete=false` y `can_reopen=false`; `state.auto_completed=true` si la
+  evaluation trae `is_system_completed`.
+
+Separación preservada:
+
+- `status=done` / `completed_at` = completion manual del usuario.
+- `completed_by_system` = hecho verificado por sistema.
+
+Pendiente MC13O-F:
+
+- Migrar `aa_learning_recommendation_state` hacia estado comun (defer/dismiss/
+  completed manual legacy).
 
 ## Preguntas abiertas
 

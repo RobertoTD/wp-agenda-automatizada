@@ -417,6 +417,8 @@ final class TaskBoardToExecutableMapper {
         $evaluation = self::resolve_task_evaluation($organization, $task_id);
         $signal_state = self::resolve_executable_signal_state($evaluation);
         $signal_capabilities = self::resolve_task_signal_capabilities($evaluation, $is_pending);
+        $is_system_completion_type = self::is_system_completion_type($task);
+        $is_system_completed = self::is_system_completed_evaluation($evaluation);
         $source_category = self::resolve_source_category($task);
         $source = self::resolve_source($task);
         $primary_action = self::resolve_primary_action($task, $organization, $is_pending, $is_done);
@@ -438,11 +440,11 @@ final class TaskBoardToExecutableMapper {
                 'ignored' => $signal_state['ignored'],
                 'dismissed' => $signal_state['dismissed'],
                 'dismiss_active' => $signal_state['dismiss_active'],
-                'auto_completed' => false,
+                'auto_completed' => $is_system_completed,
             ],
             'capabilities' => [
-                'can_complete' => $is_pending,
-                'can_reopen' => $is_done,
+                'can_complete' => $is_pending && !$is_system_completion_type,
+                'can_reopen' => $is_done && !$is_system_completion_type,
                 'can_defer' => $signal_capabilities['can_defer'],
                 'can_dismiss' => $signal_capabilities['can_dismiss'],
                 'can_reactivate' => false,
@@ -466,7 +468,7 @@ final class TaskBoardToExecutableMapper {
             return null;
         }
 
-        if ($is_pending) {
+        if ($is_pending && !self::is_system_completion_type($task)) {
             return [
                 'type' => AA_Executable_Contract::ACTION_STATUS,
                 'label' => 'Completar',
@@ -720,6 +722,26 @@ final class TaskBoardToExecutableMapper {
             'can_defer' => !empty($capabilities['can_defer']),
             'can_dismiss' => !empty($capabilities['can_dismiss']),
         ];
+    }
+
+    /**
+     * @param array<string,mixed> $task
+     */
+    private static function is_system_completion_type(array $task): bool {
+        return strtolower(trim((string) ($task['completion_type'] ?? 'manual'))) === 'system';
+    }
+
+    /**
+     * @param array<string,mixed>|null $evaluation
+     */
+    private static function is_system_completed_evaluation(?array $evaluation): bool {
+        if ($evaluation === null) {
+            return false;
+        }
+
+        $state = is_array($evaluation['state'] ?? null) ? $evaluation['state'] : [];
+
+        return !empty($state['is_system_completed']);
     }
 
     /**

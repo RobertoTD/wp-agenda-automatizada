@@ -812,6 +812,30 @@ ac_assert(
     ($enriched_agenda_primary['visible_actions'][0]['key'] ?? '') === 'navigate.settings'
     && ($enriched_agenda_secondary['visible_actions'][0]['key'] ?? '') === 'pwa.install'
 );
+ac_assert(
+    'Agenda app completion_type=system disables manual complete',
+    is_array($agenda_primary_item)
+    && ($agenda_primary_item['capabilities']['can_complete'] ?? true) === false
+    && ($agenda_primary_item['capabilities']['can_reopen'] ?? true) === false
+);
+ac_assert(
+    'Agenda app completion_type=manual keeps manual complete when pending',
+    is_array($agenda_secondary_item)
+    && ($agenda_secondary_item['capabilities']['can_complete'] ?? false) === true
+);
+
+$system_completed_payload = $agenda_seeded_payload;
+$system_completed_payload['organization']['task_evaluations_by_id'][500] = [
+    'state' => ['is_system_completed' => true],
+    'capabilities' => ['can_defer' => false, 'can_dismiss' => false],
+];
+$system_completed_lists = TaskBoardToExecutableMapper::map($system_completed_payload);
+$system_completed_item = $system_completed_lists[0]['buckets'][0]['items'][0] ?? null;
+ac_assert(
+    'Mapper projects auto_completed when evaluation is_system_completed',
+    is_array($system_completed_item)
+    && ($system_completed_item['state']['auto_completed'] ?? false) === true
+);
 
 // ─── Resumen ─────────────────────────────────────────────────
 

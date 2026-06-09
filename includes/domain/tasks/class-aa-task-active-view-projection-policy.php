@@ -27,6 +27,8 @@ final class AA_Task_Active_View_Projection_Policy {
 
     public const REASON_NOT_PENDING = 'not_pending';
 
+    public const REASON_SYSTEM_COMPLETED = 'system_completed';
+
     public const REASON_LIST_NOT_ACTIVE = 'list_not_active';
 
     /**
@@ -141,6 +143,19 @@ final class AA_Task_Active_View_Projection_Policy {
 
         $signals = is_array($base_eval['signals'] ?? null) ? $base_eval['signals'] : [];
         $signal_state = is_array($base_eval['state'] ?? null) ? $base_eval['state'] : [];
+        $is_system_completed = !empty($signal_state['is_system_completed']);
+
+        if ($is_system_completed) {
+            return $this->projection_result(
+                false,
+                null,
+                self::REASON_SYSTEM_COMPLETED,
+                $suggested_active_bucket,
+                false,
+                false
+            );
+        }
+
         $is_dismiss_hiding = !empty($signal_state['is_dismiss_hiding']);
         $has_defer = !empty($signals['has_defer']);
 

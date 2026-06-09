@@ -10,6 +10,7 @@ require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-prioritization-p
 require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-signal-policy.php';
 require_once dirname(__DIR__, 2) . '/repositories/TaskActionRepository.php';
 require_once dirname(__DIR__, 2) . '/repositories/TaskStateRepository.php';
+require_once __DIR__ . '/EvaluateTaskSystemCompletionFactsUseCase.php';
 require_once __DIR__ . '/TaskUseCaseSupport.php';
 
 final class GetTaskBoardUseCase {
@@ -30,6 +31,8 @@ final class GetTaskBoardUseCase {
      * }
      */
     public function execute(): array {
+        $this->evaluate_system_completion_facts();
+
         $lists = TaskListRepository::list_all('active');
         $tasks = $this->collect_tasks_for_lists($lists);
         $task_ids = $this->collect_task_ids($tasks);
@@ -117,5 +120,18 @@ final class GetTaskBoardUseCase {
         }
 
         return $ids;
+    }
+
+    private function evaluate_system_completion_facts(): void {
+        try {
+            $result = (new EvaluateTaskSystemCompletionFactsUseCase())->execute();
+
+            if (empty($result['success'])) {
+                $message = (string) ($result['error']['message'] ?? 'system completion evaluation failed');
+                error_log('[GetTaskBoardUseCase] EvaluateTaskSystemCompletionFactsUseCase failed: ' . $message);
+            }
+        } catch (\Throwable $exception) {
+            error_log('[GetTaskBoardUseCase] EvaluateTaskSystemCompletionFactsUseCase failed: ' . $exception->getMessage());
+        }
     }
 }

@@ -58,6 +58,7 @@ final class AA_Task_Signal_Policy {
         $is_defer_active = $defer_until !== null && $this->is_before($now, $defer_until);
         $is_dismiss_active = $dismiss_until !== null && $this->is_before($now, $dismiss_until);
         $is_dismiss_hiding = $has_dismiss && ($dismiss_until === null || $is_dismiss_active);
+        $is_system_completed = !empty($state['completed_by_system']);
         $visible_in_active = true;
 
         $is_pending = $task->is_pending();
@@ -73,6 +74,7 @@ final class AA_Task_Signal_Policy {
                 'is_defer_active' => $is_defer_active,
                 'is_dismiss_active' => $is_dismiss_active,
                 'is_dismiss_hiding' => $is_dismiss_hiding,
+                'is_system_completed' => $is_system_completed,
             ],
             'capabilities' => [
                 'can_defer' => $is_pending && $visible_in_active && !$is_defer_active,

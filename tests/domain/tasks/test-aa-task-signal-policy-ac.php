@@ -154,6 +154,41 @@ ac_assert('evaluate_all indexes by task id', isset($all[10]));
 ac_assert('evaluate_all visible_in_active true', ($all[10]['visible_in_active'] ?? false) === true);
 ac_assert('evaluate_all can_reactivate false', ($all[10]['capabilities']['can_reactivate'] ?? true) === false);
 
+$system_completed_state = [
+    'task_id' => 10,
+    'completed_by_system' => 1,
+    'system_completed_at' => '2026-06-06 09:00:00',
+    'last_system_evaluated_at' => '2026-06-06 12:00:00',
+    'defer_count' => 0,
+    'last_deferred_at' => null,
+    'defer_until' => null,
+    'dismiss_count' => 0,
+    'last_dismissed_at' => null,
+    'dismiss_until' => null,
+];
+$system_completed_eval = $policy->evaluate_task(AA_Task::from_array($pending_task), $system_completed_state, $now);
+ac_assert(
+    'completed_by_system=1 sets is_system_completed true',
+    ($system_completed_eval['state']['is_system_completed'] ?? false) === true
+);
+ac_assert(
+    'system completion does not alter defer signal',
+    ($system_completed_eval['signals']['has_defer'] ?? true) === false
+);
+ac_assert(
+    'system completion does not alter dismiss hiding',
+    ($system_completed_eval['state']['is_dismiss_hiding'] ?? true) === false
+);
+
+$system_not_completed_eval = $policy->evaluate_task(AA_Task::from_array($pending_task), [
+    'task_id' => 10,
+    'completed_by_system' => 0,
+], $now);
+ac_assert(
+    'completed_by_system=0 sets is_system_completed false',
+    ($system_not_completed_eval['state']['is_system_completed'] ?? true) === false
+);
+
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 
 if ($failed !== []) {

@@ -226,6 +226,37 @@ ac_assert(
     && (($done_result['task_evaluations_by_id'][14]['projection']['projection_reason'] ?? '') === AA_Task_Active_View_Projection_Policy::REASON_NOT_PENDING)
 );
 
+$system_completed_result = active_view_project($base_list, [
+    ['id' => 22, 'list_id' => 1, 'title' => 'System completed', 'status' => 'pending'],
+], [
+    22 => [
+        'task_id' => 22,
+        'completed_by_system' => 1,
+        'system_completed_at' => '2026-06-04 09:00:00',
+        'last_system_evaluated_at' => '2026-06-04 12:00:00',
+        'defer_count' => 0,
+        'last_deferred_at' => null,
+        'defer_until' => null,
+        'dismiss_count' => 0,
+        'last_dismissed_at' => null,
+        'dismiss_until' => null,
+    ],
+]);
+$system_completed_eval = $system_completed_result['task_evaluations_by_id'][22] ?? null;
+ac_assert(
+    'Pending system-completed task stays outside active buckets',
+    ($system_completed_result['task_bucket_order_by_list'][1]['primary'] ?? []) === []
+    && ($system_completed_result['task_bucket_order_by_list'][1]['secondary'] ?? []) === []
+);
+ac_assert(
+    'Pending system-completed task uses REASON_SYSTEM_COMPLETED',
+    is_array($system_completed_eval)
+    && ($system_completed_eval['visible_in_active'] ?? true) === false
+    && ($system_completed_eval['projection']['projection_reason'] ?? '') === AA_Task_Active_View_Projection_Policy::REASON_SYSTEM_COMPLETED
+    && ($system_completed_eval['capabilities']['can_defer'] ?? true) === false
+    && ($system_completed_eval['capabilities']['can_dismiss'] ?? true) === false
+);
+
 $archived_result = active_view_project(
     [[
         'id' => 2,
