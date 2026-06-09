@@ -320,8 +320,8 @@ Condicion previa objetivo:
 | Fase 0 | Hecha: labels canonicos de buckets (`primary` -> Principales, `secondary` -> Secundarias). |
 | Fase A | Este documento: modelo objetivo de fuente comun persistida. |
 | Fase B1 | Implementada en MC13O-B1: schema aditivo base (`DB_VERSION=6`) en `aa_task_lists`, `aa_tasks` y `aa_task_state`; sin consumidores aun. |
-| Fase B2 | Implementada en MC13O-B2: schema-only de `aa_task_actions` task-only; repository y consumidores quedan pendientes. |
-| Fase C | Seed/sync idempotente: catalogo Learning -> filas seeded en DB comun y rows `aa_task_actions`. |
+| Fase B2 | Implementada en MC13O-B2: schema-only de `aa_task_actions` task-only. |
+| Fase C | Implementada parcialmente en MC13O-C1/C2: repository + use case manual/testeable para seed/sync idempotente del catalogo Learning hacia DB comun; sin consumidores. |
 | Fase D | Motor comun: capabilities por `managed_by`, `default_bucket`, actions desde metadata persistida, adapter de facts. |
 | Fase E | Feed desde fuente comun: Agenda app leida desde DB comun detras de transicion segura. |
 | Fase F | Migracion de estado Learning: mapear `aa_learning_recommendation_state` a estado comun. |
@@ -356,6 +356,77 @@ Decisiones preservadas:
 - Completion por sistema queda preparada en `aa_task_state`, separada de
   `aa_tasks.status/completed_at` (declaracion del usuario).
 
+## MC13O-C1/C2: sync manual Learning -> DB comun
+
+MC13O-C1/C2 implementa un mecanismo manual e invocable para sembrar el
+catalogo actual de Learning/Recomendaciones hacia la fuente comun persistida:
+
+```text
+AA_Learning_Catalog
+  -> aa_task_lists
+  -> aa_tasks
+  -> aa_task_actions
+```
+
+El sync vive en `SyncLearningCatalogToTasksUseCase` porque el ownership del
+destino es Tasks. Usa repositories SQL-only:
+
+- `SeededTaskRepository`: UPSERT no destructivo de listas/tareas seeded por
+  `(source_category, origin_key)`.
+- `TaskActionRepository`: UPSERT de acciones declaradas por `(task_id,
+  action_key)`.
+
+Lista seeded:
+
+```text
+source_category = agenda_app
+origin_key = learning.recommendations
+owner_type = developer
+managed_by = developer
+title = Recomendaciones
+```
+
+Tareas seeded:
+
+- Una fila por item activo del catalogo Learning.
+- `source=system`, `source_category=agenda_app`, `managed_by=developer`.
+- `origin_key` es la key estable del catalogo.
+- `default_list=1` se persiste como `default_bucket=primary`;
+  `default_list=2` como `default_bucket=secondary`.
+- `completion_type=auto` se persiste como `system`; `manual` como `manual`.
+- `completion_fact` se persiste como `completion_fact_key`.
+- No se migran `aging_days`, `dismiss_hours`, `list_override` ni estado
+  Learning en esta fase.
+
+Acciones seeded:
+
+- Navegacion: `type=navigate`, `action_key=navigate.{module}` o
+  `navigate.{module}.{setup_focus}`, con `target_module`,
+  `target_setup_focus` y `target_fragment`.
+- PWA install: `action_key=pwa.install`, `type=handler`,
+  `handler=pwa.install`.
+- No se persisten como rows las acciones derivables por policy: `complete`,
+  `defer`, `dismiss`, `reopen`, `reactivate`, `edit`, `archive`, `delete` ni
+  return ignored.
+
+Guardrails de esta fase:
+
+- No hay hook automatico: no activation hook, no `admin_init`, no cron.
+- No cambia el feed oficial ni sus mappers.
+- No toca `aa_learning_recommendation_state`.
+- No toca `aa_task_state`.
+- No borra ni recrea filas existentes; preserva ids y estado de usuario.
+- Si una tarea desaparece del catalogo, no se borra todavia.
+
+Duplicidad visual temporal:
+
+Si durante desarrollo se ejecuta el sync manual, la lista seeded Agenda app
+puede coexistir temporalmente con la lista Learning legacy en el feed actual.
+Eso es aceptable en esta etapa porque el feed todavia lee Learning legacy como
+fuente runtime. La duplicidad se elimina en una fase posterior, cuando el feed
+deje de leer Learning/Recomendaciones legacy y consuma la definicion desde la
+DB comun.
+
 ## Preguntas abiertas
 
 - Puede el usuario ignorar tareas seeded Agenda app? Recomendacion: si, porque
@@ -363,6 +434,6 @@ Decisiones preservadas:
 - Que ocurre cuando una tarea seeded se remueve del catalogo? Recomendacion
   preliminar: archivar/deprecar fila, no borrar.
 - Cuando se evaluan facts de sistema? Sesion, reload, evento, cron o combinacion.
-- Como se diseñara el repository/upsert de `aa_task_actions` durante seed/sync?
+- Como se deshabilitan o archivan acciones seeded que desaparecen del catalogo?
 - Cuando mover "Ahora no" fuera del header?
 - Como se expondria system-completed en UI?
