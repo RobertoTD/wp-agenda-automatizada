@@ -420,6 +420,79 @@ describe('executable-lists-module MC13H unified feed', () => {
         assert.equal(filtered[0].source, 'user');
     });
 
+    it('filterListsForUnifiedRender omite agenda_app seeded vacía por regla system', () => {
+        var lists = [
+            {
+                id: '50',
+                source: 'system',
+                source_category: 'agenda_app',
+                origin_key: 'learning.recommendations',
+                buckets: []
+            },
+            {
+                id: '7',
+                source: 'user',
+                buckets: []
+            }
+        ];
+
+        var filtered = hooks.filterListsForUnifiedRender(lists);
+
+        assert.equal(filtered.length, 1);
+        assert.equal(filtered[0].source, 'user');
+        assert.equal(filtered[0].id, '7');
+    });
+
+    it('filterListsForUnifiedRender omite system con buckets sin items', () => {
+        var lists = [
+            {
+                id: 'system:learning.recommendations',
+                source: 'system',
+                buckets: [
+                    { key: 'primary', label: 'Principales', items: [] },
+                    { key: 'secondary', label: 'Secundarias', items: [] }
+                ]
+            }
+        ];
+
+        var filtered = hooks.filterListsForUnifiedRender(lists);
+
+        assert.equal(filtered.length, 0);
+    });
+
+    it('renderUnifiedPayload conserva user list vacía con mensaje de pendientes', () => {
+        var rendererPath = path.join(__dirname, '../../assets/js/ui/executableListRenderer.js');
+        var renderer = require(rendererPath);
+        var root = { innerHTML: '' };
+
+        globalThis.AAExecutableListRenderer = renderer;
+        globalThis.document = {
+            getElementById: function (id) {
+                if (id === 'aa-executable-lists-active-root') {
+                    return root;
+                }
+
+                return null;
+            }
+        };
+
+        hooks.renderUnifiedPayload({
+            lists: [
+                {
+                    id: '7',
+                    source: 'user',
+                    source_label: 'Mis listas',
+                    title: 'Vacía',
+                    description: 'Sin pendientes',
+                    buckets: []
+                }
+            ]
+        });
+
+        assert.match(root.innerHTML, /No hay tareas pendientes en esta lista/);
+        assert.doesNotMatch(root.innerHTML, /aa-executable-list-empty-pending[\s\S]*system/);
+    });
+
     it('renderUnifiedPayload renderiza system y user sin filtrar user-only', () => {
         globalThis.AAExecutableListRenderer = {
             renderFeed: function (lists) {

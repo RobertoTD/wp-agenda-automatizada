@@ -222,7 +222,7 @@ describe('AAExecutableListRenderer', () => {
         assert.match(html, /data-task-id="42"/);
     });
 
-    it('can_defer genera data-learning-action defer', () => {
+    it('[dormido] fallback legacy: can_defer sin visible_actions genera defer', () => {
         var item = baseItem({
             origin_key: 'configure_services',
             capabilities: {
@@ -281,11 +281,10 @@ describe('AAExecutableListRenderer', () => {
         assert.match(html, />Reactivar</);
     });
 
-    it('showReactivate no afecta Ahora no ni Ignorar', () => {
+    it('showReactivate no afecta Ignorar en fallback legacy', () => {
         var item = baseItem({
             origin_key: 'install_pwa',
             capabilities: {
-                can_defer: true,
                 can_dismiss: true,
                 can_reactivate: true
             }
@@ -293,11 +292,11 @@ describe('AAExecutableListRenderer', () => {
 
         var html = renderer.renderItem(item);
 
-        assert.match(html, /data-learning-action="defer"/);
-        assert.match(html, />Ahora no</);
         assert.match(html, /data-learning-action="dismiss"/);
         assert.match(html, />Ignorar</);
         assert.doesNotMatch(html, /data-learning-action="reactivate"/);
+        assert.doesNotMatch(html, /data-learning-action="defer"/);
+        assert.doesNotMatch(html, />Ahora no</);
     });
 
     it('can_archive genera data-tasks-action archive-list', () => {
@@ -404,7 +403,7 @@ describe('AAExecutableListRenderer', () => {
         assert.match(html, /<details/);
     });
 
-    it('MC13L acciones item Learning y Tasks siguen en el body', () => {
+    it('MC13L acciones item Learning y Tasks siguen en el body sin defer', () => {
         var list = baseList({
             source: 'user',
             buckets: [
@@ -416,13 +415,13 @@ describe('AAExecutableListRenderer', () => {
                             id: '10',
                             source: 'user',
                             origin_key: null,
-                            capabilities: { can_defer: true },
+                            capabilities: { can_dismiss: true },
                             visible_actions: [
                                 visibleAction({
-                                    key: 'defer',
+                                    key: 'dismiss',
                                     type: 'intent',
                                     category: 'intent',
-                                    label: 'Ahora no',
+                                    label: 'Ignorar',
                                     placement: 'secondary',
                                     url: null,
                                     handler: null
@@ -444,13 +443,10 @@ describe('AAExecutableListRenderer', () => {
                             capabilities: { can_defer: true },
                             visible_actions: [
                                 visibleAction({
-                                    key: 'defer',
-                                    type: 'intent',
-                                    category: 'intent',
-                                    label: 'Ahora no',
-                                    placement: 'secondary',
-                                    url: null,
-                                    handler: null
+                                    key: 'navigate',
+                                    type: 'navigate',
+                                    label: 'Ir',
+                                    url: 'https://example.test/admin-post.php?module=assignments'
                                 })
                             ]
                         })
@@ -462,11 +458,13 @@ describe('AAExecutableListRenderer', () => {
         var userHtml = renderer.renderList(list);
         var learningHtml = renderer.renderList(learningList);
 
-        assert.match(userHtml, /data-tasks-action="defer"/);
+        assert.match(userHtml, /data-tasks-action="dismiss"/);
         assert.match(userHtml, /data-task-id="10"/);
-        assert.match(learningHtml, /data-learning-action="defer"/);
-        assert.match(learningHtml, /data-recommendation-key="configure_services"/);
-        assert.match(userHtml, /aa-executable-list-body[\s\S]*data-tasks-action="defer"/);
+        assert.match(learningHtml, /https:\/\/example\.test\/admin-post\.php\?module=assignments/);
+        assert.doesNotMatch(userHtml, /data-tasks-action="defer"/);
+        assert.doesNotMatch(learningHtml, /data-learning-action="defer"/);
+        assert.doesNotMatch(userHtml, />Ahora no</);
+        assert.doesNotMatch(learningHtml, />Ahora no</);
     });
 
     it('resolveSourceLabel prioriza list.source_label', () => {
@@ -586,7 +584,7 @@ describe('AAExecutableListRenderer', () => {
         assert.doesNotMatch(html, /data-item-id="hidden"/);
     });
 
-    it('shouldRenderPrimaryAction puede ocultar una acción handler', () => {
+    it('[dormido] shouldRenderPrimaryAction oculta handler y expone fallback legacy defer/dismiss', () => {
         var item = baseItem({
             origin_key: 'install_pwa',
             capabilities: {
@@ -718,7 +716,7 @@ describe('AAExecutableListRenderer', () => {
 });
 
 describe('AAExecutableListRenderer visible_actions', () => {
-    it('prefiere visible_actions sobre primary_action y capabilities', () => {
+    it('prefiere visible_actions sobre primary_action y capabilities sin inferir defer', () => {
         var item = baseItem({
             capabilities: {
                 can_defer: true,
@@ -736,15 +734,6 @@ describe('AAExecutableListRenderer visible_actions', () => {
                     type: 'navigate',
                     label: 'Ir',
                     url: 'https://example.test/admin-post.php?module=assignments'
-                }),
-                visibleAction({
-                    key: 'defer',
-                    type: 'intent',
-                    category: 'intent',
-                    label: 'Ahora no',
-                    placement: 'secondary',
-                    url: null,
-                    handler: null
                 })
             ]
         });
@@ -753,7 +742,8 @@ describe('AAExecutableListRenderer visible_actions', () => {
 
         assert.match(html, /https:\/\/example\.test\/admin-post\.php\?module=assignments/);
         assert.match(html, />Ir</);
-        assert.match(html, /data-learning-action="defer"/);
+        assert.doesNotMatch(html, /data-learning-action="defer"/);
+        assert.doesNotMatch(html, />Ahora no</);
         assert.doesNotMatch(html, /Legacy Ir/);
         assert.doesNotMatch(html, /https:\/\/example\.test\/legacy/);
         assert.doesNotMatch(html, /data-learning-action="dismiss"/);
@@ -913,7 +903,7 @@ describe('AAExecutableListRenderer visible_actions', () => {
         assert.doesNotMatch(html, />Reactivar</);
     });
 
-    it('visible_action intent defer genera defer', () => {
+    it('[dormido] payload legacy manual: visible_action intent defer genera defer', () => {
         var html = renderer.renderItem(baseItem({
             origin_key: 'configure_services',
             visible_actions: [
@@ -934,7 +924,7 @@ describe('AAExecutableListRenderer visible_actions', () => {
         assert.match(html, />Ahora no</);
     });
 
-    it('visible_action intent defer user genera data-tasks-action defer', () => {
+    it('[dormido] payload legacy manual: intent defer user genera data-tasks-action defer', () => {
         var html = renderer.renderItem(baseItem({
             id: '42',
             source: 'user',
@@ -1032,7 +1022,7 @@ describe('AAExecutableListRenderer visible_actions', () => {
         assert.doesNotMatch(html, /data-recommendation-key=/);
     });
 
-    it('fallback legacy sigue funcionando sin visible_actions', () => {
+    it('[dormido] fallback legacy sin visible_actions sigue renderizando defer', () => {
         var item = baseItem({
             capabilities: {
                 can_defer: true
@@ -1105,7 +1095,7 @@ describe('AAExecutableListRenderer visible_actions', () => {
         }), '');
     });
 
-    it('shouldRenderAction puede ocultar handler visible_action', () => {
+    it('shouldRenderAction puede ocultar handler visible_action y conservar dismiss', () => {
         var item = baseItem({
             origin_key: 'install_pwa',
             visible_actions: [
@@ -1119,10 +1109,10 @@ describe('AAExecutableListRenderer visible_actions', () => {
                     handler: 'pwa.install'
                 }),
                 visibleAction({
-                    key: 'defer',
+                    key: 'dismiss',
                     type: 'intent',
                     category: 'intent',
-                    label: 'Ahora no',
+                    label: 'Ignorar',
                     placement: 'secondary',
                     url: null,
                     handler: null
@@ -1138,7 +1128,8 @@ describe('AAExecutableListRenderer visible_actions', () => {
 
         assert.doesNotMatch(html, /data-learning-action="primary-handler"/);
         assert.doesNotMatch(html, />Instalar</);
-        assert.match(html, /data-learning-action="defer"/);
+        assert.match(html, /data-learning-action="dismiss"/);
+        assert.doesNotMatch(html, /data-learning-action="defer"/);
     });
 
     it('shouldRenderPrimaryAction sigue filtrando visible_action handler por compatibilidad', () => {

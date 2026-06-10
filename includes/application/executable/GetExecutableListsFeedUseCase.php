@@ -148,7 +148,7 @@ final class GetExecutableListsFeedUseCase {
     private function assemble_lists(?array $system_list, array $user_lists): array {
         $lists = [];
 
-        if (is_array($system_list)) {
+        if (is_array($system_list) && !$this->user_lists_include_seeded_recommendations($user_lists)) {
             $lists[] = $system_list;
         }
 
@@ -159,6 +159,35 @@ final class GetExecutableListsFeedUseCase {
         }
 
         return $lists;
+    }
+
+    /**
+     * Evita duplicar recomendaciones cuando el mapper Tasks ya proyectó la lista seeded DB.
+     *
+     * @param list<array<string,mixed>> $user_lists
+     */
+    private function user_lists_include_seeded_recommendations(array $user_lists): bool {
+        foreach ($user_lists as $list) {
+            if (!is_array($list)) {
+                continue;
+            }
+
+            $origin_key = is_string($list['origin_key'] ?? null)
+                ? trim((string) $list['origin_key'])
+                : '';
+            $source_category = is_string($list['source_category'] ?? null)
+                ? trim((string) $list['source_category'])
+                : '';
+
+            if (
+                $origin_key === LearningRecommendationsToExecutableMapper::LIST_ORIGIN_KEY
+                && $source_category === AA_Executable_Contract::SOURCE_CATEGORY_AGENDA_APP
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

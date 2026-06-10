@@ -879,3 +879,47 @@ input interno con default `1`; no hay schema ni overrides en catálogo todavía.
 - Si conviene retirar en un ciclo posterior backend/JS legacy de `defer`
   (`aa_defer_task`, `TasksService.deferTask`, coordinator/renderer dormidos).
 - Como se expondria system-completed en UI?
+
+## MC13O-consolidation-audit: tests de modelo oficial Listas/Tareas
+
+MC13O-consolidation-audit cierra con evidencia que Listas/Tareas opera desde el
+feed común oficial (`aa_get_executable_lists_feed`) y no desde un segundo
+renderer Learning en la pantalla unified.
+
+Confirmado por tests:
+
+- `GetExecutableListsFeedUseCase` puede devolver lista seeded
+  `learning.recommendations` con `buckets` vacíos cuando no hay items active;
+  la UI unified oculta listas `source=system` sin items (MC13H).
+- Listas `source=user` vacías permanecen con mensaje de pendientes.
+- `can_archive=true` solo para `source_category=user` + `managed_by=user`.
+- Anti-duplicidad: si el mapper Tasks ya proyectó la lista seeded DB
+  (`origin_key=learning.recommendations`), `assemble_lists` no antepone la lista
+  Learning fallback legacy equivalente.
+- `index.php` Listas encola feed unified (`visibleFeed: unified`) y no carga
+  `learning-module.js` ni `learningRecommendationRenderer.js`.
+
+## MC13O-H3B-close: cierre documental y tests
+
+MC13O-H3B-close cierra el arco H3B sin tocar runtime PHP/JS de producción.
+
+Estado vigente tras H3B-3 + H3B-close:
+
+```text
+aa_tasks.default_bucket = primary | secondary
+→ única fuente activa de clasificación en projection active
+
+defer_* → legacy audit / deprecated
+→ no visible action
+→ no projection
+→ no state.ignored
+```
+
+- El feed común (`GetExecutableListsFeedUseCase` + enricher) no emite
+  `visible_actions.defer` ni botón “Ahora no”.
+- Tests JS de parity/renderer documentan `defer` solo como fallback dormido o
+  payload legacy manual; no como contrato del feed unified.
+- Renderer/coordinator/AJAX defer pueden quedar en repo como código dormido;
+  limpieza agresiva es opcional post-MVP.
+- Reclasificación primary↔secondary futura: modal/panel de edición sobre
+  `default_bucket`; no `defer` ni acción en card.

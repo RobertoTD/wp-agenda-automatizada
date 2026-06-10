@@ -37,8 +37,8 @@ function createButton(attrs) {
 
 function createLearningButton(attrs) {
     var values = Object.assign({
-        'data-learning-action': 'defer',
-        'data-recommendation-key': 'configure_services'
+        'data-learning-action': 'dismiss',
+        'data-recommendation-key': 'install_pwa'
     }, attrs || {});
 
     return {
@@ -302,7 +302,7 @@ describe('ExecutableActionsCoordinator', () => {
         assert.equal(reloadCalls, 0);
     });
 
-    it('task defer llama TasksService.deferTask(taskId)', async () => {
+    it('[dormido] task defer llama TasksService.deferTask(taskId)', async () => {
         var button = createButton({
             'data-tasks-action': 'defer',
             'data-task-id': '55'
@@ -354,7 +354,7 @@ describe('ExecutableActionsCoordinator', () => {
         assert.equal(event.prevented(), true);
     });
 
-    it('task defer error llama showError y no reload', async () => {
+    it('[dormido] task defer error llama showError y no reload', async () => {
         coordinator = coordinatorApi.createCoordinator({
             getTasksService: function () {
                 return {
@@ -389,7 +389,7 @@ describe('ExecutableActionsCoordinator', () => {
         assert.equal(learningCalls.length, 0);
     });
 
-    it('pending guard evita doble ejecución en task defer', async () => {
+    it('[dormido] pending guard evita doble ejecución en task defer', async () => {
         var resolveFirst;
         var serviceCalls = 0;
         var button = createButton({
@@ -429,7 +429,7 @@ describe('ExecutableActionsCoordinator', () => {
         assert.equal(serviceCalls, 1);
     });
 
-    it('defer llama LearningService.ignoreRecommendation(key)', async () => {
+    it('[dormido] defer llama LearningService.ignoreRecommendation(key)', async () => {
         var button = createLearningButton({
             'data-learning-action': 'defer',
             'data-recommendation-key': 'configure_services'
@@ -551,7 +551,7 @@ describe('ExecutableActionsCoordinator', () => {
         coordinator = coordinatorApi.createCoordinator({
             getLearningService: function () {
                 return {
-                    ignoreRecommendation: function () {
+                    dismissRecommendation: function () {
                         return Promise.reject(new Error('fallo learning'));
                     }
                 };
@@ -1040,7 +1040,7 @@ describe('ExecutableActionsCoordinator', () => {
         coordinator = coordinatorApi.createCoordinator({
             getLearningService: function () {
                 return {
-                    ignoreRecommendation: function () {
+                    dismissRecommendation: function () {
                         serviceCalls += 1;
                         return new Promise(function (resolve) {
                             resolveFirst = resolve;

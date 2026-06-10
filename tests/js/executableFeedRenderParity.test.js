@@ -20,6 +20,10 @@ function visibleAction(overrides) {
     }, overrides || {});
 }
 
+/**
+ * Fixture post-H3B-3: el feed común enriquecido no incluye visible_actions.defer.
+ * capabilities.can_defer puede quedar true en Learning como metadata legacy.
+ */
 function activeFeedFixture() {
     return [
         {
@@ -73,15 +77,6 @@ function activeFeedFixture() {
                                     type: 'navigate',
                                     label: 'Ir',
                                     url: 'https://example.test/admin-post.php?module=assignments'
-                                }),
-                                visibleAction({
-                                    key: 'defer',
-                                    type: 'intent',
-                                    category: 'intent',
-                                    label: 'Ahora no',
-                                    placement: 'secondary',
-                                    url: null,
-                                    handler: null
                                 })
                             ],
                             is_executive_candidate: false
@@ -192,8 +187,8 @@ function activeFeedFixture() {
                             capabilities: {
                                 can_complete: true,
                                 can_reopen: false,
-                                can_defer: true,
-                                can_dismiss: false,
+                                can_defer: false,
+                                can_dismiss: true,
                                 can_reactivate: false
                             },
                             primary_action: {
@@ -213,10 +208,10 @@ function activeFeedFixture() {
                                     handler: null
                                 }),
                                 visibleAction({
-                                    key: 'defer',
+                                    key: 'dismiss',
                                     type: 'intent',
                                     category: 'intent',
-                                    label: 'Ahora no',
+                                    label: 'Ignorar',
                                     placement: 'secondary',
                                     url: null,
                                     handler: null
@@ -232,12 +227,13 @@ function activeFeedFixture() {
 }
 
 describe('executable feed render parity', () => {
-    it('renderiza Learning navigate y defer desde visible_actions', () => {
+    it('renderiza Learning navigate sin defer en feed post-H3B-3', () => {
         var html = renderer.renderFeed(activeFeedFixture());
 
         assert.match(html, /https:\/\/example\.test\/admin-post\.php\?module=assignments/);
-        assert.match(html, /data-learning-action="defer"/);
-        assert.match(html, /data-recommendation-key="configure_services"/);
+        assert.match(html, />Ir</);
+        assert.doesNotMatch(html, /data-learning-action="defer"/);
+        assert.doesNotMatch(html, />Ahora no</);
     });
 
     it('renderiza Learning complete en canal Learning', () => {
@@ -255,13 +251,23 @@ describe('executable feed render parity', () => {
         assert.match(html, /data-task-id="10"/);
     });
 
-    it('renderiza User defer/dismiss en canal Tasks', () => {
+    it('renderiza User complete/dismiss en canal Tasks sin defer', () => {
         var html = renderer.renderFeed(activeFeedFixture());
 
-        assert.match(html, /data-tasks-action="defer"/);
+        assert.match(html, /data-tasks-action="complete"/);
+        assert.match(html, /data-tasks-action="dismiss"/);
         assert.match(html, /data-task-id="10"/);
-        assert.doesNotMatch(html, /data-tasks-action="dismiss"/);
+        assert.doesNotMatch(html, /data-tasks-action="defer"/);
         assert.doesNotMatch(html, /data-learning-action="defer"[^>]*data-task-id="10"/);
+        assert.doesNotMatch(html, />Ahora no</);
+    });
+
+    it('feed común post-H3B-3 no incluye botón defer ni Ahora no', () => {
+        var html = renderer.renderFeed(activeFeedFixture());
+
+        assert.doesNotMatch(html, /data-tasks-action="defer"/);
+        assert.doesNotMatch(html, /data-learning-action="defer"/);
+        assert.doesNotMatch(html, />Ahora no</);
     });
 
     it('active feed no muestra Reabrir ni Reactivar', () => {
@@ -273,11 +279,14 @@ describe('executable feed render parity', () => {
         assert.doesNotMatch(html, />Reactivar</);
     });
 
-    it('no infiere acciones extra desde capabilities cuando hay visible_actions', () => {
+    it('no infiere defer desde capabilities.can_defer cuando hay visible_actions', () => {
         var html = renderer.renderFeed(activeFeedFixture());
 
+        var configureServicesSection = html.split('Configura tus servicios')[1] || '';
         var installPwaSection = html.split('Instala la app')[1] || '';
 
+        assert.doesNotMatch(configureServicesSection, /data-learning-action="defer"/);
+        assert.doesNotMatch(configureServicesSection, />Ahora no</);
         assert.match(installPwaSection, /data-learning-action="dismiss"/);
         assert.doesNotMatch(installPwaSection, /data-learning-action="defer"/);
         assert.doesNotMatch(installPwaSection, /data-learning-action="reactivate"/);
@@ -295,12 +304,14 @@ describe('executable feed render parity', () => {
         assert.doesNotMatch(html, /aa-executable-list-source-badge/);
     });
 
-    it('feed mixto mantiene canales Learning y Tasks', () => {
+    it('feed mixto mantiene canales Learning y Tasks sin defer', () => {
         var html = renderer.renderFeed(activeFeedFixture());
 
-        assert.match(html, /data-learning-action="defer"/);
+        assert.match(html, /data-learning-action="complete"/);
         assert.match(html, /data-tasks-action="complete"/);
-        assert.match(html, /data-tasks-action="defer"/);
+        assert.match(html, /data-tasks-action="dismiss"/);
+        assert.doesNotMatch(html, /data-learning-action="defer"/);
+        assert.doesNotMatch(html, /data-tasks-action="defer"/);
     });
 
     it('MC13L feed mixto renderiza listas como details cerradas', () => {

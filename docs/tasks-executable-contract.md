@@ -239,7 +239,11 @@ Shape implementado:
 
 **MC13O-H3B-3 (proyección active vigente):** `aa_tasks.default_bucket` decide `primary` / `secondary`; `defer_*` queda auditoría legacy; `can_defer=false`; `visible_actions` no emite `defer` / “Ahora no”.
 
-**No implementado aún:** ventanas `defer_until`/`dismiss_until`, columna `suggested_active_bucket`, reset/reactivate, vistas completed/ignored.
+**MC13O-consolidation-audit (tests):** evidencia de modelo oficial unified — feed común como única fuente visual de listas; Learning legacy no renderiza en Listas; system lists vacías ocultas en JS (MC13H); user lists vacías persisten; dedup `learning.recommendations` seeded vs fallback en `assemble_lists`.
+
+**MC13O-H3B-close (tests/docs):** alinea tests JS y documentación con la deprecación funcional de `defer`. Sin cambios de runtime. El feed común post-H3B-3 **no** incluye `visible_actions.defer` ni botón “Ahora no”. `capabilities.can_defer` en payloads Learning puede persistir como metadata legacy; no es contrato activo ni visible action. Renderer/coordinator/AJAX defer pueden existir dormidos en el repo; no forman parte del contrato activo del feed unified. La reclasificación futura primary↔secondary se hará con flujo explícito de edición sobre `aa_tasks.default_bucket`, no con `defer`.
+
+**No implementado aún:** ventanas `defer_until`/`dismiss_until`, columna `suggested_active_bucket`, reset/reactivate, vistas completed/ignored; acción “Convertir a secundaria” en card.
 
 ### Ownership (lectura y escritura)
 

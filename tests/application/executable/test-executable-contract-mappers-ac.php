@@ -954,6 +954,83 @@ ac_assert(
     && ($system_completed_item['state']['auto_completed'] ?? false) === true
 );
 
+// ─── MC13O consolidation: can_archive oficial ────────────────
+
+$archive_rules_lists_data = [
+    [
+        'id' => 70,
+        'title' => 'User archivable',
+        'status' => 'active',
+        'source_category' => 'user',
+        'managed_by' => 'user',
+    ],
+    [
+        'id' => 71,
+        'title' => 'Developer agenda',
+        'status' => 'active',
+        'owner_type' => 'developer',
+        'source_category' => 'agenda_app',
+        'origin_key' => 'learning.recommendations',
+        'managed_by' => 'developer',
+    ],
+    [
+        'id' => 72,
+        'title' => 'Developer system',
+        'status' => 'active',
+        'owner_type' => 'developer',
+        'source_category' => 'system',
+        'origin_key' => 'other.system.list',
+        'managed_by' => 'developer',
+    ],
+    [
+        'id' => 73,
+        'title' => 'User archived',
+        'status' => 'archived',
+        'source_category' => 'user',
+        'managed_by' => 'user',
+    ],
+];
+$archive_rules_tasks_data = [
+    ['id' => 700, 'list_id' => 70, 'title' => 'Tarea user', 'status' => 'pending'],
+    ['id' => 701, 'list_id' => 71, 'title' => 'Tarea agenda', 'status' => 'pending'],
+    ['id' => 702, 'list_id' => 72, 'title' => 'Tarea system', 'status' => 'pending'],
+];
+$archive_rules_organization = mapper_build_task_organization(
+    $archive_rules_lists_data,
+    $archive_rules_tasks_data
+);
+$archive_rules_lists = TaskBoardToExecutableMapper::map([
+    'lists' => $archive_rules_lists_data,
+    'tasks' => $archive_rules_tasks_data,
+    'organization' => $archive_rules_organization,
+]);
+$archive_rules_by_id = [];
+
+foreach ($archive_rules_lists as $list) {
+    if (!is_array($list)) {
+        continue;
+    }
+
+    $archive_rules_by_id[(string) ($list['id'] ?? '')] = $list;
+}
+
+ac_assert(
+    'can_archive true only for active user managed_by=user',
+    ($archive_rules_by_id['70']['capabilities']['can_archive'] ?? false) === true
+);
+ac_assert(
+    'can_archive false for agenda_app developer list',
+    ($archive_rules_by_id['71']['capabilities']['can_archive'] ?? true) === false
+);
+ac_assert(
+    'can_archive false for generic developer system list',
+    ($archive_rules_by_id['72']['capabilities']['can_archive'] ?? true) === false
+);
+ac_assert(
+    'can_archive false for archived user list',
+    ($archive_rules_by_id['73']['capabilities']['can_archive'] ?? true) === false
+);
+
 // ─── Resumen ─────────────────────────────────────────────────
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";

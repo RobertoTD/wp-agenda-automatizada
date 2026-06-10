@@ -232,6 +232,47 @@ function feed_fixture_tasks_payload(): array {
     ];
 }
 
+/**
+ * @param array<string,mixed> $list
+ */
+function feed_count_items_in_executable_list(array $list): int {
+    $count = 0;
+
+    foreach ($list['buckets'] ?? [] as $bucket) {
+        if (!is_array($bucket)) {
+            continue;
+        }
+
+        $items = $bucket['items'] ?? [];
+
+        if (is_array($items)) {
+            $count += count($items);
+        }
+    }
+
+    return $count;
+}
+
+/**
+ * @param list<array<string,mixed>> $lists
+ * @return list<array<string,mixed>>
+ */
+function feed_find_recommendations_lists(array $lists): array {
+    $matches = [];
+
+    foreach ($lists as $list) {
+        if (!is_array($list)) {
+            continue;
+        }
+
+        if (($list['origin_key'] ?? '') === LearningRecommendationsToExecutableMapper::LIST_ORIGIN_KEY) {
+            $matches[] = $list;
+        }
+    }
+
+    return $matches;
+}
+
 // ─── Estáticos: wiring AJAX ──────────────────────────────────
 
 $ajax_src = file_get_contents($plugin_root . '/includes/http/ajax/ExecutableListsAjax.php');
@@ -538,11 +579,17 @@ $actionable_seeded_feed = (new GetExecutableListsFeedUseCase(
     }
 ))->execute();
 $actionable_seeded_lists = is_array($actionable_seeded_feed['lists'] ?? null) ? $actionable_seeded_feed['lists'] : [];
+$actionable_recommendations_lists = feed_find_recommendations_lists($actionable_seeded_lists);
 ac_assert(
     'Seeded DB with actionable legacy keeps Learning fallback when migration outdated',
     $actionable_reader_called
     && ($actionable_seeded_feed['meta']['sources']['learning']['status'] ?? '') === 'ok'
-    && ($actionable_seeded_lists[0]['id'] ?? '') === LearningRecommendationsToExecutableMapper::LIST_ID
+);
+ac_assert(
+    'Seeded DB with actionable legacy does not duplicate learning.recommendations lists',
+    count($actionable_recommendations_lists) === 1
+    && ($actionable_recommendations_lists[0]['id'] ?? '') === '50'
+    && ($actionable_recommendations_lists[0]['source_category'] ?? '') === AA_Executable_Contract::SOURCE_CATEGORY_AGENDA_APP
 );
 
 feed_reset_migration_gate_mocks();
@@ -594,11 +641,20 @@ $incomplete_seeded_feed = (new GetExecutableListsFeedUseCase(
         return $incomplete_seeded_payload;
     }
 ))->execute();
+$incomplete_seeded_feed_lists = is_array($incomplete_seeded_feed['lists'] ?? null)
+    ? $incomplete_seeded_feed['lists']
+    : [];
+$incomplete_recommendations_lists = feed_find_recommendations_lists($incomplete_seeded_feed_lists);
 ac_assert(
-    'Active seeded list without tasks keeps Learning legacy fallback',
+    'Active seeded list without tasks keeps Learning legacy fallback reader',
     $incomplete_seeded_reader_called
     && ($incomplete_seeded_feed['meta']['sources']['learning']['status'] ?? '') === 'ok'
-    && ($incomplete_seeded_feed['lists'][0]['id'] ?? '') === LearningRecommendationsToExecutableMapper::LIST_ID
+);
+ac_assert(
+    'Active seeded list without tasks exposes single seeded recommendations list',
+    count($incomplete_recommendations_lists) === 1
+    && ($incomplete_recommendations_lists[0]['id'] ?? '') === '55'
+    && feed_count_items_in_executable_list($incomplete_recommendations_lists[0]) === 0
 );
 
 $other_agenda_payload = feed_fixture_tasks_payload();
@@ -648,11 +704,16 @@ $archived_seeded_feed = (new GetExecutableListsFeedUseCase(
     }
 ))->execute();
 $archived_seeded_lists = is_array($archived_seeded_feed['lists'] ?? null) ? $archived_seeded_feed['lists'] : [];
+$archived_recommendations_lists = feed_find_recommendations_lists($archived_seeded_lists);
 ac_assert(
     'Archived seeded list keeps Learning legacy fallback',
     ($archived_seeded_feed['meta']['sources']['learning']['status'] ?? '') === 'ok'
-    && ($archived_seeded_lists[0]['id'] ?? '') === LearningRecommendationsToExecutableMapper::LIST_ID
-    && count($archived_seeded_lists) === 4
+    && count($archived_seeded_lists) === 3
+);
+ac_assert(
+    'Archived seeded feed does not duplicate learning.recommendations lists',
+    count($archived_recommendations_lists) === 1
+    && ($archived_recommendations_lists[0]['id'] ?? '') === '50'
 );
 
 $defer_payload = feed_fixture_tasks_payload();
@@ -755,6 +816,143 @@ ac_assert(
     !in_array('10', $dismiss_user_item_ids, true)
     && in_array('12', $dismiss_user_item_ids, true)
 );
+
+// ─── MC13O consolidation: seeded vacía en active ─────────────
+
+feed_enable_skip_learning_legacy_gate();
+
+$empty_seeded_lists_data = [
+    [
+        'id' => 50,
+        'title' => 'Recomendaciones',
+        'description' => 'Sugerencias para configurar y usar tu agenda.',
+        'owner_type' => 'developer',
+        'source_category' => 'agenda_app',
+        'origin_key' => 'learning.recommendations',
+        'managed_by' => 'developer',
+        'importance' => 0,
+        'position' => 0,
+        'status' => 'active',
+    ],
+];
+$empty_seeded_tasks_data = [
+    [
+        'id' => 500,
+        'list_id' => 50,
+        'title' => 'Completa los datos de tu negocio',
+        'notes' => 'System completed',
+        'status' => 'pending',
+        'source' => 'system',
+        'source_category' => 'agenda_app',
+        'origin_key' => 'complete_business_data',
+        'managed_by' => 'developer',
+        'default_bucket' => 'primary',
+        'completion_type' => 'system',
+        'completion_fact_key' => 'business_data_complete',
+        'importance' => 0,
+        'due_at' => null,
+    ],
+    [
+        'id' => 501,
+        'list_id' => 50,
+        'title' => 'Instala la app',
+        'notes' => 'Done',
+        'status' => 'done',
+        'source' => 'system',
+        'source_category' => 'agenda_app',
+        'origin_key' => 'install_pwa',
+        'managed_by' => 'developer',
+        'default_bucket' => 'secondary',
+        'completion_type' => 'manual',
+        'completion_fact_key' => null,
+        'importance' => 0,
+        'due_at' => null,
+    ],
+    [
+        'id' => 502,
+        'list_id' => 50,
+        'title' => 'Configura servicios',
+        'notes' => 'Dismissed',
+        'status' => 'pending',
+        'source' => 'system',
+        'source_category' => 'agenda_app',
+        'origin_key' => 'configure_services',
+        'managed_by' => 'developer',
+        'default_bucket' => 'primary',
+        'completion_type' => 'manual',
+        'completion_fact_key' => null,
+        'importance' => 0,
+        'due_at' => null,
+    ],
+];
+$empty_seeded_payload = [
+    'lists' => array_merge(feed_fixture_tasks_payload()['lists'], $empty_seeded_lists_data),
+    'tasks' => array_merge(
+        feed_fixture_tasks_payload()['tasks'],
+        $empty_seeded_tasks_data
+    ),
+];
+$empty_seeded_payload['organization'] = feed_build_task_organization(
+    $empty_seeded_payload['lists'],
+    $empty_seeded_payload['tasks'],
+    [
+        500 => [
+            'task_id' => 500,
+            'completed_by_system' => 1,
+            'defer_count' => 0,
+            'dismiss_count' => 0,
+            'last_deferred_at' => null,
+            'last_dismissed_at' => null,
+            'defer_until' => null,
+            'dismiss_until' => null,
+        ],
+        502 => [
+            'task_id' => 502,
+            'completed_by_system' => 0,
+            'defer_count' => 0,
+            'dismiss_count' => 1,
+            'last_deferred_at' => null,
+            'last_dismissed_at' => '2026-06-04 11:00:00',
+            'defer_until' => null,
+            'dismiss_until' => null,
+        ],
+    ]
+);
+$empty_seeded_reader_called = false;
+$empty_seeded_feed = (new GetExecutableListsFeedUseCase(
+    static function () use (&$empty_seeded_reader_called): array {
+        $empty_seeded_reader_called = true;
+
+        return feed_fixture_learning_payload();
+    },
+    static function () use ($empty_seeded_payload): array {
+        return $empty_seeded_payload;
+    }
+))->execute();
+$empty_seeded_feed_lists = is_array($empty_seeded_feed['lists'] ?? null) ? $empty_seeded_feed['lists'] : [];
+$empty_seeded_recommendations = feed_find_recommendations_lists($empty_seeded_feed_lists);
+$empty_seeded_db_list = is_array($empty_seeded_recommendations[0] ?? null) ? $empty_seeded_recommendations[0] : null;
+ac_assert(
+    'Seeded learning.recommendations with no active items skips Learning legacy reader',
+    !$empty_seeded_reader_called
+    && ($empty_seeded_feed['meta']['sources']['learning']['status'] ?? '') === 'skipped'
+);
+ac_assert(
+    'Seeded learning.recommendations empty in active still returns list in PHP feed',
+    count($empty_seeded_recommendations) === 1
+    && is_array($empty_seeded_db_list)
+    && ($empty_seeded_db_list['id'] ?? '') === '50'
+    && ($empty_seeded_db_list['source'] ?? '') === AA_Executable_Contract::SOURCE_SYSTEM
+    && ($empty_seeded_db_list['source_category'] ?? '') === AA_Executable_Contract::SOURCE_CATEGORY_AGENDA_APP
+);
+ac_assert(
+    'Seeded learning.recommendations empty in active has zero visible bucket items in feed',
+    is_array($empty_seeded_db_list)
+    && feed_count_items_in_executable_list($empty_seeded_db_list) === 0
+    && ($empty_seeded_db_list['buckets'] ?? null) === []
+);
+
+feed_reset_migration_gate_mocks();
 
 // ─── Vacíos ──────────────────────────────────────────────────
 
