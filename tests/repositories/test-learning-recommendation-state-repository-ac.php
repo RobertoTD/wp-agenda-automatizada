@@ -51,6 +51,12 @@ ac_assert('Repository defines find_by_key', strpos($repo_src, 'function find_by_
 ac_assert('Repository defines upsert', strpos($repo_src, 'function upsert') !== false);
 ac_assert('Repository defines mark_dismissed', strpos($repo_src, 'function mark_dismissed') !== false);
 ac_assert('Repository maps dismissed_at', strpos($repo_src, "'dismissed_at' => \$row->dismissed_at") !== false);
+ac_assert('Repository defines has_actionable_state', strpos($repo_src, 'function has_actionable_state') !== false);
+ac_assert(
+    'has_actionable_state checks completed ignored dismissed',
+    strpos($repo_src, 'is_completed = 1 OR is_ignored = 1 OR is_dismissed = 1') !== false
+);
+ac_assert('has_actionable_state uses LIMIT 1', strpos($repo_src, 'LIMIT 1') !== false);
 
 if (!defined('ABSPATH')) {
     define('ABSPATH', $plugin_root . '/');
@@ -64,6 +70,7 @@ ac_assert(
     method_exists('LearningRecommendationStateRepository', 'get_all')
     && method_exists('LearningRecommendationStateRepository', 'find_by_key')
     && method_exists('LearningRecommendationStateRepository', 'upsert')
+    && method_exists('LearningRecommendationStateRepository', 'has_actionable_state')
 );
 
 // ─── Integración WP (opcional) ─────────────────────────────
@@ -117,7 +124,21 @@ if ($wp_load !== '' && is_readable($wp_load)) {
     $found = LearningRecommendationStateRepository::find_by_key($test_key);
     ac_assert('find_by_key matches upsert', is_array($found) && ($found['is_completed'] ?? 0) === 1);
 
+    ac_assert('has_actionable_state true when actionable row exists', LearningRecommendationStateRepository::has_actionable_state() === true);
+
     $wpdb->delete($table, ['recommendation_key' => $test_key], ['%s']);
+    ac_assert('has_actionable_state false when no actionable rows', LearningRecommendationStateRepository::has_actionable_state() === false);
+
+    $dismiss_only_key = 'ac_test_dismiss_only_' . time();
+    LearningRecommendationStateRepository::upsert($dismiss_only_key, [
+        'is_dismissed' => 1,
+        'dismissed_at' => '2026-06-01 13:00:00',
+    ]);
+    ac_assert(
+        'has_actionable_state true for dismissed-only row',
+        LearningRecommendationStateRepository::has_actionable_state() === true
+    );
+    $wpdb->delete($table, ['recommendation_key' => $dismiss_only_key], ['%s']);
 } else {
     echo "\n[SKIP] Integración WP: define AA_WP_ROOT=/ruta/a/wordpress para probar migración y upsert.\n";
 }

@@ -644,11 +644,39 @@ Mecanismo:
 Alcance F2:
 
 - No migra `is_dismissed` (sigue F1).
-- No ajusta D2 / `GetExecutableListsFeedUseCase` todavía.
+- No ajusta D2 / `GetExecutableListsFeedUseCase` (gate D2 quedó en F3).
 
-Pendiente MC13O-F3:
+## MC13O-F3: gate D2 por migración de estado Learning legacy
 
-- Gate D2 para no omitir Learning legacy si hay legacy actionable sin migrar.
+MC13O-F3 protege instalaciones con historial Learning: el feed solo omite Learning
+legacy cuando la DB seeded está lista **y** el estado legacy es seguro de omitir.
+
+Regla:
+
+```text
+omitir Learning legacy SI
+  seeded DB lista (D2)
+  Y (
+    aa_learning_state_migration_version >= MIGRATION_VERSION
+    O
+    no hay legacy actionable state
+  )
+```
+
+Estado legacy accionable (`LearningRecommendationStateRepository::has_actionable_state`):
+
+- `is_completed = 1`
+- OR `is_ignored = 1`
+- OR `is_dismissed = 1`
+
+Notas:
+
+- `is_dismissed` cuenta como accionable aunque F1/F2 no lo migren todavía.
+- Si migration version no está al día y hay legacy accionable → fallback Learning.
+- Si el check falla → fallback seguro (no omitir Learning legacy).
+
+Pendiente post-F3:
+
 - Migración/policy de dismissed legacy cuando se defina regreso de ignoradas.
 
 ## Preguntas abiertas

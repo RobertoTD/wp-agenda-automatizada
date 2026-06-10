@@ -33,6 +33,18 @@ final class LearningRecommendationStateRepository {
         'dismissed_at',
     ];
 
+    /** @var callable|null Override for acceptance tests only. */
+    private static $has_actionable_state_override = null;
+
+    /**
+     * @internal Acceptance tests only.
+     *
+     * @param callable|null $override Debe devolver bool.
+     */
+    public static function set_has_actionable_state_override_for_tests(?callable $override): void {
+        self::$has_actionable_state_override = $override;
+    }
+
     /**
      * @return string
      */
@@ -119,6 +131,30 @@ final class LearningRecommendationStateRepository {
         }
 
         return $indexed;
+    }
+
+    /**
+     * True si existe al menos una fila con completion/ignored/dismissed persistido.
+     */
+    public static function has_actionable_state() {
+        if (self::$has_actionable_state_override !== null) {
+            return (bool) call_user_func(self::$has_actionable_state_override);
+        }
+
+        global $wpdb;
+
+        $table = self::table_name();
+        $row = $wpdb->get_var(
+            "SELECT 1 FROM {$table} WHERE is_completed = 1 OR is_ignored = 1 OR is_dismissed = 1 LIMIT 1"
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[LearningRecommendationStateRepository] has_actionable_state: ' . $wpdb->last_error);
+
+            return true;
+        }
+
+        return $row !== null;
     }
 
     /**

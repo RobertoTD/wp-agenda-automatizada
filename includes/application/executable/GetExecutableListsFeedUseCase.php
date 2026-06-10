@@ -55,7 +55,10 @@ final class GetExecutableListsFeedUseCase {
             $tasks_source = $this->build_source_error_meta($exception->getMessage());
         }
 
-        if ($this->payload_has_ready_seeded_agenda_app_list($task_payload)) {
+        if (
+            $this->payload_has_ready_seeded_agenda_app_list($task_payload)
+            && $this->learning_state_is_safe_to_skip()
+        ) {
             $learning_source = $this->build_learning_source_skipped_meta();
         } else {
             try {
@@ -301,6 +304,36 @@ final class GetExecutableListsFeedUseCase {
         }
 
         return false;
+    }
+
+    /**
+     * True cuando es seguro omitir Learning legacy: migración al día o sin estado accionable.
+     */
+    private function learning_state_is_safe_to_skip(): bool {
+        try {
+            require_once dirname(__DIR__, 2) . '/infrastructure/wp/LearningStateMigrationLifecycle.php';
+
+            $stored_migration_version = (string) get_option(
+                AA_Learning_State_Migration_Lifecycle::OPTION_MIGRATION_VERSION,
+                '0'
+            );
+
+            if (version_compare(
+                $stored_migration_version,
+                AA_Learning_State_Migration_Lifecycle::MIGRATION_VERSION,
+                '>='
+            )) {
+                return true;
+            }
+
+            require_once dirname(__DIR__, 2) . '/repositories/LearningRecommendationStateRepository.php';
+
+            return !LearningRecommendationStateRepository::has_actionable_state();
+        } catch (\Throwable $exception) {
+            error_log('[GetExecutableListsFeedUseCase] learning_state_is_safe_to_skip: ' . $exception->getMessage());
+
+            return false;
+        }
     }
 
     /**

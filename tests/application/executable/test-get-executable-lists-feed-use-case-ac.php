@@ -29,7 +29,43 @@ if (!function_exists('add_query_arg')) {
     }
 }
 
+$GLOBALS['aa_feed_test_options'] = [];
+
+if (!function_exists('get_option')) {
+    function get_option($key, $default = false) {
+        if (array_key_exists($key, $GLOBALS['aa_feed_test_options'])) {
+            return $GLOBALS['aa_feed_test_options'][$key];
+        }
+
+        return $default;
+    }
+}
+
+/**
+ * @param array<string,mixed> $options
+ */
+function feed_set_test_options(array $options): void {
+    $GLOBALS['aa_feed_test_options'] = $options;
+}
+
+function feed_reset_migration_gate_mocks(): void {
+    feed_set_test_options([]);
+    if (class_exists('LearningRecommendationStateRepository')) {
+        LearningRecommendationStateRepository::set_has_actionable_state_override_for_tests(null);
+    }
+}
+
+function feed_enable_skip_learning_legacy_gate(): void {
+    feed_set_test_options([
+        'aa_learning_state_migration_version' => AA_Learning_State_Migration_Lifecycle::MIGRATION_VERSION,
+    ]);
+    LearningRecommendationStateRepository::set_has_actionable_state_override_for_tests(null);
+}
+
 $plugin_root = dirname(__DIR__, 3);
+
+require_once $plugin_root . '/includes/infrastructure/wp/LearningStateMigrationLifecycle.php';
+require_once $plugin_root . '/includes/repositories/LearningRecommendationStateRepository.php';
 
 require_once $plugin_root . '/includes/application/executable/GetExecutableListsFeedUseCase.php';
 require_once $plugin_root . '/includes/application/executable/LearningRecommendationsToExecutableMapper.php';
@@ -219,6 +255,14 @@ ac_assert(
     strpos($use_case_src, 'payload_has_ready_seeded_agenda_app_list') !== false
     && strpos($use_case_src, 'payload_list_has_tasks') !== false
 );
+ac_assert(
+    'Use case gates Learning skip on migration state',
+    strpos($use_case_src, 'learning_state_is_safe_to_skip') !== false
+    && strpos($use_case_src, 'has_actionable_state') !== false
+    && strpos($use_case_src, 'OPTION_MIGRATION_VERSION') !== false
+);
+
+feed_reset_migration_gate_mocks();
 
 // ─── Ensamblado feliz ────────────────────────────────────────
 
@@ -408,6 +452,8 @@ $seeded_payload['organization']['task_actions_by_id'][500] = [
     ],
 ];
 
+feed_enable_skip_learning_legacy_gate();
+
 $learning_reader_called = false;
 $seeded_feed = (new GetExecutableListsFeedUseCase(
     static function () use (&$learning_reader_called): array {
@@ -456,6 +502,76 @@ ac_assert(
     && ($seeded_db_item['origin_key'] ?? '') === 'review_agenda'
     && ($seeded_db_item['visible_actions'][0]['key'] ?? '') === 'navigate.calendar'
 );
+
+feed_reset_migration_gate_mocks();
+feed_set_test_options(['aa_learning_state_migration_version' => '0']);
+LearningRecommendationStateRepository::set_has_actionable_state_override_for_tests(static function (): bool {
+    return false;
+});
+$no_actionable_reader_called = false;
+$no_actionable_seeded_feed = (new GetExecutableListsFeedUseCase(
+    static function () use (&$no_actionable_reader_called): array {
+        $no_actionable_reader_called = true;
+
+        return feed_fixture_learning_payload();
+    },
+    static function () use ($seeded_payload): array {
+        return $seeded_payload;
+    }
+))->execute();
+ac_assert(
+    'Seeded DB with outdated migration and no actionable legacy still skips Learning',
+    !$no_actionable_reader_called
+    && ($no_actionable_seeded_feed['meta']['sources']['learning']['status'] ?? '') === 'skipped'
+);
+
+feed_reset_migration_gate_mocks();
+feed_set_test_options(['aa_learning_state_migration_version' => '0']);
+LearningRecommendationStateRepository::set_has_actionable_state_override_for_tests(static function (): bool {
+    return true;
+});
+$actionable_reader_called = false;
+$actionable_seeded_feed = (new GetExecutableListsFeedUseCase(
+    static function () use (&$actionable_reader_called): array {
+        $actionable_reader_called = true;
+
+        return feed_fixture_learning_payload();
+    },
+    static function () use ($seeded_payload): array {
+        return $seeded_payload;
+    }
+))->execute();
+$actionable_seeded_lists = is_array($actionable_seeded_feed['lists'] ?? null) ? $actionable_seeded_feed['lists'] : [];
+ac_assert(
+    'Seeded DB with actionable legacy keeps Learning fallback when migration outdated',
+    $actionable_reader_called
+    && ($actionable_seeded_feed['meta']['sources']['learning']['status'] ?? '') === 'ok'
+    && ($actionable_seeded_lists[0]['id'] ?? '') === LearningRecommendationsToExecutableMapper::LIST_ID
+);
+
+feed_reset_migration_gate_mocks();
+feed_set_test_options(['aa_learning_state_migration_version' => '0']);
+LearningRecommendationStateRepository::set_has_actionable_state_override_for_tests(static function (): bool {
+    return true;
+});
+$dismissed_only_reader_called = false;
+$dismissed_only_seeded_feed = (new GetExecutableListsFeedUseCase(
+    static function () use (&$dismissed_only_reader_called): array {
+        $dismissed_only_reader_called = true;
+
+        return feed_fixture_learning_payload();
+    },
+    static function () use ($seeded_payload): array {
+        return $seeded_payload;
+    }
+))->execute();
+ac_assert(
+    'Dismissed-only actionable legacy keeps Learning fallback when migration outdated',
+    $dismissed_only_reader_called
+    && ($dismissed_only_seeded_feed['meta']['sources']['learning']['status'] ?? '') === 'ok'
+);
+
+feed_reset_migration_gate_mocks();
 
 $incomplete_seeded_payload = feed_fixture_tasks_payload();
 $incomplete_seeded_payload['lists'][] = [
