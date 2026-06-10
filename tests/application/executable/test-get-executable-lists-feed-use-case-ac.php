@@ -371,16 +371,16 @@ $user_visible_keys = is_array($first_user_item)
 
 ac_assert(
     'Happy path learning item includes visible_actions',
-    $system_visible_keys === ['navigate', 'defer']
+    $system_visible_keys === ['navigate']
     && is_array($system_primary_item)
     && array_key_exists('visible_actions', $system_primary_item)
 );
 ac_assert(
-    'Happy path user pending item includes visible_actions complete defer dismiss',
-    $user_visible_keys === ['complete', 'defer', 'dismiss']
+    'Happy path user pending item includes visible_actions complete dismiss',
+    $user_visible_keys === ['complete', 'dismiss']
     && is_array($first_user_item)
     && ($first_user_item['primary_action']['type'] ?? '') === AA_Executable_Contract::ACTION_STATUS
-    && ($first_user_item['capabilities']['can_defer'] ?? false) === true
+    && ($first_user_item['capabilities']['can_defer'] ?? true) === false
     && ($first_user_item['capabilities']['can_dismiss'] ?? false) === true
 );
 
@@ -395,8 +395,8 @@ $second_user_visible_keys = is_array($second_user_item)
     }, is_array($second_user_item['visible_actions'] ?? null) ? $second_user_item['visible_actions'] : [])
     : [];
 ac_assert(
-    'Happy path second list pending user also exposes defer and dismiss in primary',
-    $second_user_visible_keys === ['complete', 'defer', 'dismiss']
+    'Happy path second list pending user also exposes dismiss without defer',
+    $second_user_visible_keys === ['complete', 'dismiss']
 );
 
 $seeded_payload = feed_fixture_tasks_payload();
@@ -428,12 +428,7 @@ $seeded_payload['tasks'][] = [
     'importance' => 120,
     'due_at' => null,
 ];
-$seeded_payload['organization']['list_order'] = [1, 2, 50];
-$seeded_payload['organization']['task_order_by_list'][50] = [500];
-$seeded_payload['organization']['task_bucket_order_by_list'][50] = [
-    'primary' => [500],
-    'secondary' => [],
-];
+$seeded_payload['organization'] = feed_build_task_organization($seeded_payload['lists'], $seeded_payload['tasks']);
 $seeded_payload['organization']['task_actions_by_id'][500] = [
     [
         'id' => 1,
@@ -497,8 +492,9 @@ ac_assert(
     && ($seeded_db_list['origin_key'] ?? '') === LearningRecommendationsToExecutableMapper::LIST_ORIGIN_KEY
 );
 ac_assert(
-    'Feed seeded Agenda app carries persisted navigate action',
+    'Feed seeded Agenda app respects default_bucket and carries persisted navigate action',
     is_array($seeded_db_item)
+    && ($seeded_db_list['buckets'][0]['key'] ?? '') === AA_Executable_Contract::BUCKET_SECONDARY
     && ($seeded_db_item['origin_key'] ?? '') === 'review_agenda'
     && ($seeded_db_item['visible_actions'][0]['key'] ?? '') === 'navigate.calendar'
 );
@@ -672,6 +668,7 @@ $defer_payload['tasks'][] = [
     'title' => 'Enviar propuesta',
     'notes' => 'Correo',
     'status' => 'pending',
+    'default_bucket' => 'secondary',
     'importance' => 2,
     'due_at' => null,
 ];
@@ -709,7 +706,7 @@ $defer_secondary_keys = is_array($defer_secondary_item)
     }, is_array($defer_secondary_item['visible_actions'] ?? null) ? $defer_secondary_item['visible_actions'] : [])
     : [];
 ac_assert(
-    'Deferred user task moves to secondary and exposes dismiss only',
+    'Backfilled historical defer task appears in secondary by default_bucket',
     array_map(static function (array $item): string {
         return (string) ($item['id'] ?? '');
     }, $defer_secondary_items) === ['12']

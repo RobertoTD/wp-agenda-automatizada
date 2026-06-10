@@ -138,9 +138,9 @@ $learning_primary_actions = is_array($learning_primary_item)
     : [];
 
 ac_assert(
-    'Learning primary enricher includes navigate defer and dismiss when capability set',
+    'Learning primary enricher includes navigate and dismiss without defer',
     is_array($learning_primary_item)
-    && enricher_action_keys($learning_primary_actions) === ['navigate', 'defer', 'dismiss']
+    && enricher_action_keys($learning_primary_actions) === ['navigate', 'dismiss']
     && ($learning_primary_item['primary_action']['type'] ?? '') === AA_Executable_Contract::ACTION_NAVIGATE
 );
 

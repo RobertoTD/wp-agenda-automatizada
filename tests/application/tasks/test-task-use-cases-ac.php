@@ -267,12 +267,12 @@ if ($wp_integration) {
         is_array($later_eval) && ($later_eval['signals']['has_defer'] ?? false) === true
     );
     ac_assert(
-        'Board moves deferred task to secondary bucket',
-        in_array($later_task_id, $board_with_signal['organization']['task_bucket_order_by_list'][$list_id]['secondary'] ?? [], true)
-        && !in_array($later_task_id, $board_with_signal['organization']['task_bucket_order_by_list'][$list_id]['primary'] ?? [], true)
+        'Board keeps deferred legacy task in default primary bucket',
+        in_array($later_task_id, $board_with_signal['organization']['task_bucket_order_by_list'][$list_id]['primary'] ?? [], true)
+        && !in_array($later_task_id, $board_with_signal['organization']['task_bucket_order_by_list'][$list_id]['secondary'] ?? [], true)
     );
     ac_assert(
-        'Board deferred task exposes dismiss capability only',
+        'Board deferred legacy task exposes dismiss without defer capability',
         is_array($later_eval)
         && ($later_eval['capabilities']['can_defer'] ?? true) === false
         && ($later_eval['capabilities']['can_dismiss'] ?? false) === true

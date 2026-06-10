@@ -86,18 +86,37 @@ ac_assert(
     && ($default_result['task_bucket_order_by_list'][1]['secondary'] ?? []) === []
 );
 ac_assert(
-    'Pending user without signals can_defer and can_dismiss',
+    'Pending user without signals disables can_defer and allows can_dismiss',
     is_array($default_eval)
-    && ($default_eval['capabilities']['can_defer'] ?? false) === true
+    && ($default_eval['capabilities']['can_defer'] ?? true) === false
     && ($default_eval['capabilities']['can_dismiss'] ?? false) === true
     && ($default_eval['projection']['projection_reason'] ?? '') === AA_Task_Active_View_Projection_Policy::REASON_DEFAULT_PRIMARY
+    && ($default_eval['projection']['suggested_active_bucket'] ?? '') === AA_Task_Active_View_Projection_Policy::BUCKET_PRIMARY
 );
 
-$defer_result = active_view_project($base_list, [
-    ['id' => 11, 'list_id' => 1, 'title' => 'Deferred', 'status' => 'pending'],
+$secondary_result = active_view_project($base_list, [
+    ['id' => 11, 'list_id' => 1, 'title' => 'Secondary', 'status' => 'pending', 'default_bucket' => 'secondary'],
+]);
+$secondary_eval = $secondary_result['task_evaluations_by_id'][11] ?? null;
+ac_assert(
+    'Pending user default_bucket secondary projects to secondary',
+    ($secondary_result['task_bucket_order_by_list'][1]['primary'] ?? []) === []
+    && ($secondary_result['task_bucket_order_by_list'][1]['secondary'] ?? []) === [11]
+);
+ac_assert(
+    'Secondary task emits default_secondary reason and keeps dismiss available',
+    is_array($secondary_eval)
+    && ($secondary_eval['capabilities']['can_defer'] ?? true) === false
+    && ($secondary_eval['capabilities']['can_dismiss'] ?? false) === true
+    && ($secondary_eval['projection']['projection_reason'] ?? '') === AA_Task_Active_View_Projection_Policy::REASON_DEFAULT_SECONDARY
+    && ($secondary_eval['projection']['suggested_active_bucket'] ?? '') === AA_Task_Active_View_Projection_Policy::BUCKET_SECONDARY
+);
+
+$defer_primary_result = active_view_project($base_list, [
+    ['id' => 12, 'list_id' => 1, 'title' => 'Deferred primary', 'status' => 'pending', 'default_bucket' => 'primary'],
 ], [
-    11 => [
-        'task_id' => 11,
+    12 => [
+        'task_id' => 12,
         'last_deferred_at' => '2026-06-04 10:00:00',
         'defer_count' => 1,
         'last_dismissed_at' => null,
@@ -106,25 +125,46 @@ $defer_result = active_view_project($base_list, [
         'dismiss_until' => null,
     ],
 ]);
-$defer_eval = $defer_result['task_evaluations_by_id'][11] ?? null;
+$defer_primary_eval = $defer_primary_result['task_evaluations_by_id'][12] ?? null;
 ac_assert(
-    'Deferred task projects to secondary',
-    ($defer_result['task_bucket_order_by_list'][1]['primary'] ?? []) === []
-    && ($defer_result['task_bucket_order_by_list'][1]['secondary'] ?? []) === [11]
+    'Historical defer with default_bucket primary stays primary',
+    ($defer_primary_result['task_bucket_order_by_list'][1]['primary'] ?? []) === [12]
+    && ($defer_primary_result['task_bucket_order_by_list'][1]['secondary'] ?? []) === []
 );
 ac_assert(
-    'Deferred task can_defer false and can_dismiss true',
-    is_array($defer_eval)
-    && ($defer_eval['capabilities']['can_defer'] ?? true) === false
-    && ($defer_eval['capabilities']['can_dismiss'] ?? false) === true
-    && ($defer_eval['projection']['projection_reason'] ?? '') === AA_Task_Active_View_Projection_Policy::REASON_DEFERRED
+    'Historical defer remains audit metadata only',
+    is_array($defer_primary_eval)
+    && ($defer_primary_eval['signals']['has_defer'] ?? false) === true
+    && ($defer_primary_eval['capabilities']['can_defer'] ?? true) === false
+    && ($defer_primary_eval['capabilities']['can_dismiss'] ?? false) === true
+    && ($defer_primary_eval['projection']['projection_reason'] ?? '') === AA_Task_Active_View_Projection_Policy::REASON_DEFAULT_PRIMARY
+);
+
+$defer_secondary_result = active_view_project($base_list, [
+    ['id' => 13, 'list_id' => 1, 'title' => 'Deferred secondary', 'status' => 'pending', 'default_bucket' => 'secondary'],
+], [
+    13 => [
+        'task_id' => 13,
+        'last_deferred_at' => '2026-06-04 10:00:00',
+        'defer_count' => 1,
+        'last_dismissed_at' => null,
+        'dismiss_count' => 0,
+        'defer_until' => null,
+        'dismiss_until' => null,
+    ],
+]);
+ac_assert(
+    'Historical defer with default_bucket secondary stays secondary',
+    ($defer_secondary_result['task_bucket_order_by_list'][1]['primary'] ?? []) === []
+    && ($defer_secondary_result['task_bucket_order_by_list'][1]['secondary'] ?? []) === [13]
+    && (($defer_secondary_result['task_evaluations_by_id'][13]['projection']['projection_reason'] ?? '') === AA_Task_Active_View_Projection_Policy::REASON_DEFAULT_SECONDARY)
 );
 
 $dismiss_result = active_view_project($base_list, [
-    ['id' => 12, 'list_id' => 1, 'title' => 'Dismissed', 'status' => 'pending'],
+    ['id' => 14, 'list_id' => 1, 'title' => 'Dismissed', 'status' => 'pending', 'default_bucket' => 'secondary'],
 ], [
-    12 => [
-        'task_id' => 12,
+    14 => [
+        'task_id' => 14,
         'last_deferred_at' => null,
         'defer_count' => 0,
         'last_dismissed_at' => '2026-06-04 11:00:00',
@@ -133,7 +173,7 @@ $dismiss_result = active_view_project($base_list, [
         'dismiss_until' => null,
     ],
 ]);
-$dismiss_eval = $dismiss_result['task_evaluations_by_id'][12] ?? null;
+$dismiss_eval = $dismiss_result['task_evaluations_by_id'][14] ?? null;
 ac_assert(
     'Dismissed task stays outside active buckets',
     ($dismiss_result['task_bucket_order_by_list'][1]['primary'] ?? []) === []
@@ -149,10 +189,10 @@ ac_assert(
 );
 
 $dismiss_over_defer = active_view_project($base_list, [
-    ['id' => 13, 'list_id' => 1, 'title' => 'Both signals', 'status' => 'pending'],
+    ['id' => 15, 'list_id' => 1, 'title' => 'Both signals', 'status' => 'pending', 'default_bucket' => 'secondary'],
 ], [
-    13 => [
-        'task_id' => 13,
+    15 => [
+        'task_id' => 15,
         'last_deferred_at' => '2026-06-04 09:00:00',
         'defer_count' => 1,
         'last_dismissed_at' => '2026-06-04 12:00:00',
@@ -162,10 +202,10 @@ $dismiss_over_defer = active_view_project($base_list, [
     ],
 ]);
 ac_assert(
-    'Dismiss hiding dominates defer for active projection',
+    'Dismiss hiding dominates default_bucket for active projection',
     ($dismiss_over_defer['task_bucket_order_by_list'][1]['primary'] ?? []) === []
     && ($dismiss_over_defer['task_bucket_order_by_list'][1]['secondary'] ?? []) === []
-    && (($dismiss_over_defer['task_evaluations_by_id'][13]['projection']['projection_reason'] ?? '') === AA_Task_Active_View_Projection_Policy::REASON_DISMISSED)
+    && (($dismiss_over_defer['task_evaluations_by_id'][15]['projection']['projection_reason'] ?? '') === AA_Task_Active_View_Projection_Policy::REASON_DISMISSED)
 );
 
 $returned_dismiss_state = [
@@ -178,21 +218,21 @@ $returned_dismiss_state = [
     'dismiss_until' => '2026-06-04 12:00:00',
 ];
 $returned_result = active_view_project($base_list, [
-    ['id' => 20, 'list_id' => 1, 'title' => 'Returned dismissed', 'status' => 'pending'],
+    ['id' => 20, 'list_id' => 1, 'title' => 'Returned dismissed', 'status' => 'pending', 'default_bucket' => 'secondary'],
 ], [
     20 => $returned_dismiss_state,
 ]);
 $returned_eval = $returned_result['task_evaluations_by_id'][20] ?? null;
 ac_assert(
-    'Returned dismissed task projects back to primary',
-    ($returned_result['task_bucket_order_by_list'][1]['primary'] ?? []) === [20]
-    && ($returned_result['task_bucket_order_by_list'][1]['secondary'] ?? []) === []
+    'Returned dismissed task projects back to default_bucket',
+    ($returned_result['task_bucket_order_by_list'][1]['primary'] ?? []) === []
+    && ($returned_result['task_bucket_order_by_list'][1]['secondary'] ?? []) === [20]
 );
 ac_assert(
     'Returned dismissed task is visible in active view',
     is_array($returned_eval)
     && ($returned_eval['visible_in_active'] ?? false) === true
-    && ($returned_eval['projection']['projection_reason'] ?? '') === AA_Task_Active_View_Projection_Policy::REASON_DEFAULT_PRIMARY
+    && ($returned_eval['projection']['projection_reason'] ?? '') === AA_Task_Active_View_Projection_Policy::REASON_DEFAULT_SECONDARY
 );
 ac_assert(
     'Returned dismissed task exposes can_dismiss again',
@@ -210,7 +250,7 @@ $active_temp_dismiss_state = [
     'dismiss_until' => '2026-06-04 14:00:00',
 ];
 $active_temp_dismiss_result = active_view_project($base_list, [
-    ['id' => 23, 'list_id' => 1, 'title' => 'Temp dismissed', 'status' => 'pending'],
+    ['id' => 23, 'list_id' => 1, 'title' => 'Temp dismissed', 'status' => 'pending', 'default_bucket' => 'primary'],
 ], [
     23 => $active_temp_dismiss_state,
 ], '2026-06-04 12:00:00');
@@ -238,25 +278,25 @@ $returned_defer_state = [
     'dismiss_until' => '2026-06-04 12:00:00',
 ];
 $returned_defer_result = active_view_project($base_list, [
-    ['id' => 21, 'list_id' => 1, 'title' => 'Returned dismissed deferred', 'status' => 'pending'],
+    ['id' => 21, 'list_id' => 1, 'title' => 'Returned dismissed deferred', 'status' => 'pending', 'default_bucket' => 'primary'],
 ], [
     21 => $returned_defer_state,
 ]);
 ac_assert(
-    'Returned dismissed task with defer projects to secondary',
-    ($returned_defer_result['task_bucket_order_by_list'][1]['primary'] ?? []) === []
-    && ($returned_defer_result['task_bucket_order_by_list'][1]['secondary'] ?? []) === [21]
-    && (($returned_defer_result['task_evaluations_by_id'][21]['projection']['projection_reason'] ?? '') === AA_Task_Active_View_Projection_Policy::REASON_DEFERRED)
+    'Returned dismissed task with defer returns to default_bucket',
+    ($returned_defer_result['task_bucket_order_by_list'][1]['primary'] ?? []) === [21]
+    && ($returned_defer_result['task_bucket_order_by_list'][1]['secondary'] ?? []) === []
+    && (($returned_defer_result['task_evaluations_by_id'][21]['projection']['projection_reason'] ?? '') === AA_Task_Active_View_Projection_Policy::REASON_DEFAULT_PRIMARY)
 );
 
 $done_result = active_view_project($base_list, [
-    ['id' => 14, 'list_id' => 1, 'title' => 'Done', 'status' => 'done'],
+    ['id' => 24, 'list_id' => 1, 'title' => 'Done', 'status' => 'done', 'default_bucket' => 'secondary'],
 ]);
 ac_assert(
     'Done task stays outside active buckets',
     ($done_result['task_bucket_order_by_list'][1]['primary'] ?? []) === []
     && ($done_result['task_bucket_order_by_list'][1]['secondary'] ?? []) === []
-    && (($done_result['task_evaluations_by_id'][14]['projection']['projection_reason'] ?? '') === AA_Task_Active_View_Projection_Policy::REASON_NOT_PENDING)
+    && (($done_result['task_evaluations_by_id'][24]['projection']['projection_reason'] ?? '') === AA_Task_Active_View_Projection_Policy::REASON_NOT_PENDING)
 );
 
 $system_completed_result = active_view_project($base_list, [
@@ -329,12 +369,12 @@ ac_assert(
 
 $importance_result = active_view_project($base_list, [
     ['id' => 16, 'list_id' => 1, 'title' => 'Alta importancia', 'status' => 'pending', 'importance' => -10],
-    ['id' => 17, 'list_id' => 1, 'title' => 'Baja importancia', 'status' => 'pending', 'importance' => 10],
+    ['id' => 17, 'list_id' => 1, 'title' => 'Baja importancia', 'status' => 'pending', 'importance' => 10, 'default_bucket' => 'secondary'],
 ]);
 ac_assert(
-    'Importance does not decide primary/secondary without signals',
-    ($importance_result['task_bucket_order_by_list'][1]['primary'] ?? []) === [16, 17]
-    && ($importance_result['task_bucket_order_by_list'][1]['secondary'] ?? []) === []
+    'Importance does not decide primary/secondary; default_bucket does',
+    ($importance_result['task_bucket_order_by_list'][1]['primary'] ?? []) === [16]
+    && ($importance_result['task_bucket_order_by_list'][1]['secondary'] ?? []) === [17]
 );
 
 $order_result = active_view_project($base_list, [

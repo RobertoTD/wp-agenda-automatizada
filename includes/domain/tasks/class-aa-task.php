@@ -31,6 +31,9 @@ final class AA_Task {
     /** @var string */
     private $source;
 
+    /** @var string */
+    private $default_bucket;
+
     /** @var int */
     private $importance;
 
@@ -53,6 +56,7 @@ final class AA_Task {
         $this->notes = self::nullable_string($data['notes'] ?? null);
         $this->status = self::normalize_status($data['status'] ?? self::STATUS_PENDING);
         $this->source = self::normalize_string($data['source'] ?? 'user', 'user');
+        $this->default_bucket = self::normalize_default_bucket($data['default_bucket'] ?? 'primary');
         $this->importance = (int) ($data['importance'] ?? 0);
         $this->due_at = self::nullable_string($data['due_at'] ?? null);
         $this->position = (int) ($data['position'] ?? 0);
@@ -77,6 +81,7 @@ final class AA_Task {
             'notes' => $this->notes,
             'status' => $this->status,
             'source' => $this->source,
+            'default_bucket' => $this->default_bucket,
             'importance' => $this->importance,
             'due_at' => $this->due_at,
             'position' => $this->position,
@@ -98,6 +103,10 @@ final class AA_Task {
 
     public function status(): string {
         return $this->status;
+    }
+
+    public function default_bucket(): string {
+        return $this->default_bucket;
     }
 
     public function importance(): int {
@@ -192,5 +201,18 @@ final class AA_Task {
         }
 
         return self::STATUS_PENDING;
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private static function normalize_default_bucket($value): string {
+        $bucket = is_string($value) ? strtolower(trim($value)) : '';
+
+        if ($bucket === 'secondary') {
+            return 'secondary';
+        }
+
+        return 'primary';
     }
 }

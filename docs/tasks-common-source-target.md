@@ -249,25 +249,22 @@ quedan fuera hasta que exista una necesidad concreta. `navigate` debe preferir
 fallback. `handler` representa adapters como `pwa.install`. `payload_json` es
 escape hatch, no sustituto de campos explícitos.
 
-No se persisten acciones estándar derivables por policy (`complete`, `defer`,
-`dismiss`, `reopen`, `reactivate`, `edit`, `archive`, `delete`, return ignored).
-Esas siguen siendo capabilities/visible actions calculadas por policies futuras.
+No se persisten acciones estándar derivables por policy (`complete`, `dismiss`,
+`reopen`, `reactivate`, `edit`, `archive`, `delete`, return ignored).
+`defer` / “Ahora no” queda deprecado funcionalmente desde MC13O-H3B-3: no es
+acción visible activa ni fuente de clasificación.
 
 ## Default bucket y naturaleza de tarea
 
-`default_bucket` (o campo equivalente) representa la naturaleza inicial o
-propuesta de una tarea:
+`default_bucket` representa la naturaleza/clasificación activa de una tarea:
 
 - `primary`: principal/esencial
 - `secondary`: secundaria/complementaria
 
-No significa "donde se pinta siempre". Las policies pueden proyectar distinto
-segun senales, estado o facts.
-
-Hoy "Ahora no" / defer funciona como cambio de proyeccion hacia `secondary`.
-Conceptualmente no debe quedar necesariamente como regla final ni como accion
-rapida permanente del header. En un modelo posterior puede moverse a
-edicion/configuracion de tarea.
+Desde MC13O-H3B-3, `aa_tasks.default_bucket` es la única fuente activa para
+proyectar `primary` / `secondary` en Tasks común. `dismiss_until` puede ocultar
+temporalmente sin cambiar `default_bucket`; al vencer, la tarea vuelve a su
+bucket por defecto. `defer_*` no participa en projection.
 
 ## Aging legacy
 
@@ -747,11 +744,11 @@ MC13O-H3A corrige el read path de capabilities para **Ignorar** (`can_dismiss`):
 - `AA_Executable_Visible_Actions_Policy` para `source=system` ya **no exige**
   `bucket_key=secondary` para emitir la acción Ignorar.
 
-Reglas que se mantienen en H3A:
+Reglas que se mantenían en H3A antes de H3B-3:
 
-- `can_defer` sigue MC13G-D: true solo en camino primary sin defer; false con defer.
-- Bucket projection sin cambios: defer sigue empujando a secondary.
-- Write path defer/dismiss sin cambios (H1/H2).
+- `can_defer` seguía MC13G-D: true solo en camino primary sin defer; false con defer.
+- Bucket projection seguía usando defer como puente temporal hacia secondary.
+- Write path defer/dismiss seguía sin cambios (H1/H2).
 
 Deuda explícita:
 
@@ -826,6 +823,39 @@ Implementación:
 Conserva intacto: `defer_*`, `dismiss_*`, `completed_by_system`, `status`,
 `completed_at`. **No cambia projection** ni defer write path.
 
+## MC13O-H3B-3: `default_bucket` como única clasificación activa
+
+MC13O-H3B-3 depreca funcionalmente `defer` / “Ahora no” como acción activa y
+mueve la verdad de buckets a `aa_tasks.default_bucket`.
+
+Regla active projection en Tasks común:
+
+```text
+list inactive → invisible, reason=list_not_active
+not pending → invisible, reason=not_pending
+completed_by_system=1 → invisible, reason=system_completed
+dismiss hiding activo → invisible, reason=dismissed
+si no:
+  visible
+  projected_bucket = aa_tasks.default_bucket
+  suggested_active_bucket = aa_tasks.default_bucket
+  reason = default_primary | default_secondary
+```
+
+Cambios de semántica:
+
+- `AA_Task` modela `default_bucket` (`primary` \| `secondary`, default `primary`).
+- `REASON_DEFERRED` queda dormido/deprecated; ningún camino active debe emitirlo.
+- `can_defer=false` en projection y signal policy.
+- `AA_Executable_Visible_Actions_Policy` no emite `defer` / “Ahora no” aunque
+  llegue `can_defer=true` desde un payload viejo.
+- `state.ignored` en el mapper ya no representa `has_defer`; solo refleja
+  ocultamiento real por dismiss activo.
+- `TaskBoardToExecutableMapper` confía en `task_bucket_order_by_list`; se retira
+  el remapeo especial `agenda_app` por `default_bucket`/`deferred`.
+- `defer_*` se conserva en `aa_task_state` como auditoría legacy y para backfill
+  H3B-2; backend/JS legacy puede quedar dormido para rollback o limpieza futura.
+
 ### Configuración futura (documentada, no implementada)
 
 Tareas seeded/developer podrán definir duración configurable, p. ej.:
@@ -846,5 +876,6 @@ input interno con default `1`; no hay schema ni overrides en catálogo todavía.
   preliminar: archivar/deprecar fila, no borrar.
 - Cuando se evaluan facts de sistema? Sesion, reload, evento, cron o combinacion.
 - Como se deshabilitan o archivan acciones seeded que desaparecen del catalogo?
-- Cuando mover "Ahora no" fuera del header?
+- Si conviene retirar en un ciclo posterior backend/JS legacy de `defer`
+  (`aa_defer_task`, `TasksService.deferTask`, coordinator/renderer dormidos).
 - Como se expondria system-completed en UI?

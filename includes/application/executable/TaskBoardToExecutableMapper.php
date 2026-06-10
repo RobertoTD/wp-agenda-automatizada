@@ -251,18 +251,15 @@ final class TaskBoardToExecutableMapper {
             AA_Executable_Contract::BUCKET_PRIMARY,
             AA_Executable_Contract::BUCKET_SECONDARY,
         ];
-        $all_ordered_ids = self::merge_bucket_task_ids($raw_list_buckets);
-        $should_remap_buckets = self::contains_agenda_app_task($all_ordered_ids, $tasks_by_id);
         $mapped = [];
 
         foreach ($bucket_defs as $bucket_key) {
             $label = AA_Executable_Contract::bucket_label($bucket_key);
             $items = self::map_tasks_by_order(
-                $should_remap_buckets ? $all_ordered_ids : ($raw_list_buckets[$bucket_key] ?? []),
+                $raw_list_buckets[$bucket_key] ?? [],
                 $tasks_by_id,
                 $executive_candidates,
-                $organization,
-                $bucket_key
+                $organization
             );
 
             if ($items === []) {
@@ -277,48 +274,6 @@ final class TaskBoardToExecutableMapper {
         }
 
         return $mapped;
-    }
-
-    /**
-     * @param array<string,mixed> $raw_list_buckets
-     * @return list<int>
-     */
-    private static function merge_bucket_task_ids(array $raw_list_buckets): array {
-        $ids = [];
-
-        foreach ([AA_Executable_Contract::BUCKET_PRIMARY, AA_Executable_Contract::BUCKET_SECONDARY] as $bucket_key) {
-            $raw_ids = $raw_list_buckets[$bucket_key] ?? [];
-
-            if (!is_array($raw_ids)) {
-                continue;
-            }
-
-            foreach ($raw_ids as $task_id) {
-                $normalized = (int) $task_id;
-
-                if ($normalized > 0 && !in_array($normalized, $ids, true)) {
-                    $ids[] = $normalized;
-                }
-            }
-        }
-
-        return $ids;
-    }
-
-    /**
-     * @param list<int>                       $task_ids
-     * @param array<int,array<string,mixed>> $tasks_by_id
-     */
-    private static function contains_agenda_app_task(array $task_ids, array $tasks_by_id): bool {
-        foreach ($task_ids as $task_id) {
-            $task = $tasks_by_id[$task_id] ?? null;
-
-            if (is_array($task) && self::resolve_source_category($task) === AA_Executable_Contract::SOURCE_CATEGORY_AGENDA_APP) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**
@@ -354,7 +309,7 @@ final class TaskBoardToExecutableMapper {
             }
         }
 
-        return self::map_tasks_by_order($ordered_ids, $tasks_by_id, $executive_candidates, $organization, null);
+        return self::map_tasks_by_order($ordered_ids, $tasks_by_id, $executive_candidates, $organization);
     }
 
     /**
@@ -364,7 +319,7 @@ final class TaskBoardToExecutableMapper {
      * @param array<string,mixed>            $organization
      * @return list<array<string,mixed>>
      */
-    private static function map_tasks_by_order($raw_order, array $tasks_by_id, array $executive_candidates, array $organization, ?string $current_bucket): array {
+    private static function map_tasks_by_order($raw_order, array $tasks_by_id, array $executive_candidates, array $organization): array {
         if (!is_array($raw_order)) {
             return [];
         }
@@ -381,10 +336,6 @@ final class TaskBoardToExecutableMapper {
             $task = $tasks_by_id[$task_id];
 
             if (self::is_done_task($task)) {
-                continue;
-            }
-
-            if ($current_bucket !== null && self::resolve_executable_bucket_for_task($task, $organization, $task_id, $current_bucket) !== $current_bucket) {
                 continue;
             }
 
@@ -597,38 +548,6 @@ final class TaskBoardToExecutableMapper {
     }
 
     /**
-     * @param array<string,mixed> $task
-     */
-    private static function resolve_executable_bucket_for_task(array $task, array $organization, int $task_id, string $current_bucket): string {
-        if (self::resolve_source_category($task) !== AA_Executable_Contract::SOURCE_CATEGORY_AGENDA_APP) {
-            return $current_bucket;
-        }
-
-        $evaluation = self::resolve_task_evaluation($organization, $task_id);
-        $projection = is_array($evaluation) && is_array($evaluation['projection'] ?? null) ? $evaluation['projection'] : [];
-        $projection_reason = (string) ($projection['projection_reason'] ?? '');
-
-        if ($projection_reason === 'deferred') {
-            return AA_Executable_Contract::BUCKET_SECONDARY;
-        }
-
-        return self::resolve_default_bucket($task['default_bucket'] ?? null);
-    }
-
-    /**
-     * @param mixed $value
-     */
-    private static function resolve_default_bucket($value): string {
-        $bucket = is_string($value) ? strtolower(trim($value)) : '';
-
-        if ($bucket === AA_Executable_Contract::BUCKET_SECONDARY) {
-            return AA_Executable_Contract::BUCKET_SECONDARY;
-        }
-
-        return AA_Executable_Contract::BUCKET_PRIMARY;
-    }
-
-    /**
      * @param array<string,mixed> $row
      */
     private static function resolve_source(array $row): string {
@@ -760,13 +679,11 @@ final class TaskBoardToExecutableMapper {
         $signals = is_array($evaluation['signals'] ?? null) ? $evaluation['signals'] : [];
         $state = is_array($evaluation['state'] ?? null) ? $evaluation['state'] : [];
 
-        $has_defer = !empty($signals['has_defer']);
         $has_dismiss = !empty($signals['has_dismiss']);
-        $is_defer_active = !empty($state['is_defer_active']);
         $is_dismiss_active = !empty($state['is_dismiss_active']);
 
         return [
-            'ignored' => $has_defer || $is_defer_active,
+            'ignored' => $is_dismiss_active,
             'dismissed' => $has_dismiss,
             'dismiss_active' => $is_dismiss_active,
         ];

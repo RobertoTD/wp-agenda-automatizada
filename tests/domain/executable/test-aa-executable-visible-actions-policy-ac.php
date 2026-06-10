@@ -117,17 +117,13 @@ ac_assert(
 );
 
 ac_assert(
-    'Learning primary produces defer intent action',
-    is_array($learning_primary_defer)
-    && ($learning_primary_defer['type'] ?? '') === AA_Executable_Visible_Actions_Policy::ACTION_TYPE_INTENT
-    && ($learning_primary_defer['category'] ?? '') === AA_Executable_Visible_Actions_Policy::CATEGORY_INTENT
-    && ($learning_primary_defer['placement'] ?? '') === AA_Executable_Visible_Actions_Policy::PLACEMENT_SECONDARY
-    && ($learning_primary_defer['label'] ?? '') === 'Ahora no'
+    'Learning primary does not emit defer even when capability is present',
+    $learning_primary_defer === null
 );
 
 ac_assert(
-    'Learning primary action order is mechanical then intent',
-    executable_visible_action_keys($learning_primary_actions) === ['navigate', 'defer']
+    'Learning primary action order contains only mechanical action',
+    executable_visible_action_keys($learning_primary_actions) === ['navigate']
 );
 
 $learning_primary_dismiss = executable_visible_action_item([
@@ -147,9 +143,9 @@ $learning_primary_dismiss_actions = AA_Executable_Visible_Actions_Policy::resolv
     'source' => AA_Executable_Contract::SOURCE_SYSTEM,
 ]);
 ac_assert(
-    'System primary with can_dismiss emits dismiss without secondary bucket',
+    'System primary with can_dismiss emits dismiss without defer',
     executable_visible_action_find($learning_primary_dismiss_actions, 'dismiss') !== null
-    && executable_visible_action_keys($learning_primary_dismiss_actions) === ['navigate', 'defer', 'dismiss']
+    && executable_visible_action_keys($learning_primary_dismiss_actions) === ['navigate', 'dismiss']
 );
 
 $learning_secondary_no_dismiss = executable_visible_action_item([
@@ -179,7 +175,7 @@ $learning_secondary_defer_actions = AA_Executable_Visible_Actions_Policy::resolv
     'source' => AA_Executable_Contract::SOURCE_SYSTEM,
 ]);
 ac_assert(
-    'System defer remains gated to primary bucket',
+    'System never emits defer even when capability is present',
     executable_visible_action_find($learning_secondary_defer_actions, 'defer') === null
 );
 
@@ -344,9 +340,8 @@ $user_defer_primary_actions = AA_Executable_Visible_Actions_Policy::resolve($use
 $user_defer_action = executable_visible_action_find($user_defer_primary_actions, 'defer');
 $user_dismiss_action = executable_visible_action_find($user_defer_primary_actions, 'dismiss');
 ac_assert(
-    'User source defer does not depend on primary bucket',
-    is_array($user_defer_action)
-    && ($user_defer_action['key'] ?? '') === 'defer'
+    'User source never emits defer even when capability is present',
+    $user_defer_action === null
 );
 ac_assert(
     'User source dismiss does not depend on secondary bucket',

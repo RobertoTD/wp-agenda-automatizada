@@ -624,9 +624,10 @@ $task_signal_payload = [
         [
             'id' => 40,
             'list_id' => 4,
-            'title' => 'Con defer',
-            'notes' => 'Señal registrada',
+            'title' => 'Secundaria con defer histórico',
+            'notes' => 'Señal legacy registrada',
             'status' => 'pending',
+            'default_bucket' => 'secondary',
             'importance' => 0,
             'due_at' => null,
         ],
@@ -665,8 +666,8 @@ $task_signal_payload = [
                     'view' => 'active',
                     'visible_in_active' => true,
                     'projected_bucket' => 'secondary',
-                    'projection_reason' => 'deferred',
-                    'suggested_active_bucket' => 'primary',
+                    'projection_reason' => 'default_secondary',
+                    'suggested_active_bucket' => 'secondary',
                 ],
             ],
         ],
@@ -683,13 +684,13 @@ ac_assert(
 );
 $task_signal_item = $task_signal_secondary_bucket['items'][0] ?? null;
 ac_assert(
-    'Task mapper reflects deferred signal in state.ignored',
+    'Task mapper does not map historical defer to state.ignored',
     is_array($task_signal_item)
-    && ($task_signal_item['state']['ignored'] ?? false) === true
+    && ($task_signal_item['state']['ignored'] ?? true) === false
     && ($task_signal_item['state']['dismissed'] ?? true) === false
 );
 ac_assert(
-    'Task mapper publishes filtered capabilities from deferred projection',
+    'Task mapper publishes filtered capabilities from default_bucket projection',
     is_array($task_signal_item)
     && ($task_signal_item['capabilities']['can_defer'] ?? true) === false
     && ($task_signal_item['capabilities']['can_dismiss'] ?? false) === true
@@ -703,12 +704,49 @@ $enriched_action_keys = array_map(static function (array $action): string {
     return (string) ($action['key'] ?? '');
 }, is_array($enriched_signal_item['visible_actions'] ?? null) ? $enriched_signal_item['visible_actions'] : []);
 ac_assert(
-    'Deferred secondary task exposes dismiss visible_action only',
+    'Secondary task exposes complete and dismiss visible_actions without defer',
     $enriched_action_keys === ['complete', 'dismiss']
 );
 ac_assert(
-    'Deferred secondary task does not expose defer visible_action',
+    'Secondary task does not expose defer visible_action',
     !in_array('defer', $enriched_action_keys, true)
+);
+
+$legacy_defer_lists_data = [[
+    'id' => 41,
+    'title' => 'Legacy defer',
+    'status' => 'active',
+]];
+$legacy_defer_tasks_data = [[
+    'id' => 410,
+    'list_id' => 41,
+    'title' => 'Deferred audit only',
+    'status' => 'pending',
+    'default_bucket' => 'primary',
+]];
+$legacy_defer_organization = mapper_build_task_organization($legacy_defer_lists_data, $legacy_defer_tasks_data, [
+    410 => [
+        'task_id' => 410,
+        'last_deferred_at' => '2026-06-04 10:00:00',
+        'defer_count' => 1,
+        'last_dismissed_at' => null,
+        'dismiss_count' => 0,
+        'defer_until' => null,
+        'dismiss_until' => null,
+    ],
+]);
+$legacy_defer_lists = TaskBoardToExecutableMapper::map([
+    'lists' => $legacy_defer_lists_data,
+    'tasks' => $legacy_defer_tasks_data,
+    'organization' => $legacy_defer_organization,
+]);
+$legacy_defer_primary_item = $legacy_defer_lists[0]['buckets'][0]['items'][0] ?? null;
+ac_assert(
+    'Historical defer alone does not move task to secondary',
+    ($legacy_defer_lists[0]['buckets'][0]['key'] ?? '') === AA_Executable_Contract::BUCKET_PRIMARY
+    && is_array($legacy_defer_primary_item)
+    && ($legacy_defer_primary_item['id'] ?? '') === '410'
+    && ($legacy_defer_primary_item['state']['ignored'] ?? true) === false
 );
 
 // ─── Agenda app seeded desde DB común ─────────────────────────
@@ -896,7 +934,7 @@ $enriched_agenda_secondary_keys = is_array($enriched_agenda_secondary)
     : [];
 ac_assert(
     'Agenda app primary navigate item includes dismiss visible_action',
-    $enriched_agenda_primary_keys === ['navigate.settings', 'defer', 'dismiss']
+    $enriched_agenda_primary_keys === ['navigate.settings', 'dismiss']
 );
 ac_assert(
     'Agenda app secondary default_bucket item includes install complete dismiss',

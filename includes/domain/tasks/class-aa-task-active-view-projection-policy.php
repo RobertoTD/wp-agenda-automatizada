@@ -2,7 +2,7 @@
 /**
  * Task Active View Projection Policy — proyecta buckets/capabilities de view=active.
  *
- * Dominio puro: interpreta señales defer/dismiss y facts de task/lista para
+ * Dominio puro: interpreta default_bucket, dismiss y facts de task/lista para
  * producir task_bucket_order_by_list y evaluaciones enriquecidas. Sin SQL ni UI.
  */
 
@@ -21,6 +21,11 @@ final class AA_Task_Active_View_Projection_Policy {
 
     public const REASON_DEFAULT_PRIMARY = 'default_primary';
 
+    public const REASON_DEFAULT_SECONDARY = 'default_secondary';
+
+    /**
+     * @deprecated MC13O-H3B-3: defer_* queda como auditoría legacy y ya no decide projection.
+     */
     public const REASON_DEFERRED = 'deferred';
 
     public const REASON_DISMISSED = 'dismissed';
@@ -117,7 +122,8 @@ final class AA_Task_Active_View_Projection_Policy {
      * }
      */
     private function evaluate_task_projection(AA_Task $task, AA_Task_List $list, array $base_eval): array {
-        $suggested_active_bucket = self::BUCKET_PRIMARY;
+        $default_bucket = $task->default_bucket();
+        $suggested_active_bucket = $default_bucket;
 
         if (!$list->is_active()) {
             return $this->projection_result(
@@ -141,7 +147,6 @@ final class AA_Task_Active_View_Projection_Policy {
             );
         }
 
-        $signals = is_array($base_eval['signals'] ?? null) ? $base_eval['signals'] : [];
         $signal_state = is_array($base_eval['state'] ?? null) ? $base_eval['state'] : [];
         $is_system_completed = !empty($signal_state['is_system_completed']);
 
@@ -157,7 +162,6 @@ final class AA_Task_Active_View_Projection_Policy {
         }
 
         $is_dismiss_hiding = !empty($signal_state['is_dismiss_hiding']);
-        $has_defer = !empty($signals['has_defer']);
 
         if ($is_dismiss_hiding) {
             return $this->projection_result(
@@ -170,23 +174,12 @@ final class AA_Task_Active_View_Projection_Policy {
             );
         }
 
-        if ($has_defer) {
-            return $this->projection_result(
-                true,
-                self::BUCKET_SECONDARY,
-                self::REASON_DEFERRED,
-                $suggested_active_bucket,
-                false,
-                $this->resolve_can_dismiss($base_eval)
-            );
-        }
-
         return $this->projection_result(
             true,
-            self::BUCKET_PRIMARY,
-            self::REASON_DEFAULT_PRIMARY,
+            $default_bucket,
+            $default_bucket === self::BUCKET_SECONDARY ? self::REASON_DEFAULT_SECONDARY : self::REASON_DEFAULT_PRIMARY,
             $suggested_active_bucket,
-            true,
+            false,
             $this->resolve_can_dismiss($base_eval)
         );
     }

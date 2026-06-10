@@ -45,7 +45,7 @@ Modelo conceptual:
 Estado actual:
 
 - **Learning** ya proyecta `list_1` / `list_2` a buckets `primary` / `secondary`.
-- **Tasks user** proyectan `view=active` a buckets `primary` / `secondary` desde **MC13G-D** (`AA_Task_Active_View_Projection_Policy`). El fallback `default` queda solo para compatibilidad con payloads antiguos sin `task_bucket_order_by_list`.
+- **Tasks user** proyectan `view=active` a buckets `primary` / `secondary` desde **MC13G-D** (`AA_Task_Active_View_Projection_Policy`). Desde **MC13O-H3B-3**, la clasificación activa usa exclusivamente `aa_tasks.default_bucket`. El fallback `default` queda solo para compatibilidad con payloads antiguos sin `task_bucket_order_by_list`.
 - **`completed`, `ignored`, `archived`, `today`** y otras lecturas son futuras views o proyecciones. No existen todavía como feed real ni como buckets activos implementados.
 - `done` en Tasks sigue fuera de `view=active`; no hay vista `completed` ni `Reabrir` en active feed.
 
@@ -57,7 +57,7 @@ Regla de ownership:
 - El **enricher** proyecta `visible_actions` para la view recibida; no decide pertenencia ni elegibilidad de acciones desde bucket.
 - El **renderer** solo presenta buckets; no decide reglas.
 
-MC13E introdujo buckets `primary`/`secondary` en el contrato executable. **MC13G-D** reemplaza el criterio MC13E por proyección active MVP basada en señales defer/dismiss: pending sin señales → `primary`; defer → `secondary`; dismiss → fuera de active. `importance` ya no decide bucket; solo orden interno vía `AA_Task_Prioritization_Policy`.
+MC13E introdujo buckets `primary`/`secondary` en el contrato executable. **MC13G-D** usó temporalmente señales defer/dismiss para projection active. **MC13O-H3B-3 supersede esa regla:** pending visible → `aa_tasks.default_bucket`; dismiss activo → fuera de active; `defer_*` queda auditoría legacy. `importance` no decide bucket; solo orden interno vía `AA_Task_Prioritization_Policy`.
 
 MC13F documenta el modelo futuro de señales user (`defer`/`dismiss`) y el desacople conceptual entre buckets y `visible_actions`. Sin endpoints ni botones todavía.
 
@@ -65,7 +65,7 @@ MC13G-A implementa persistencia write-only en `aa_task_state` + repositorio + us
 
 MC13G-B conecta lectura de señales al board/feed: `GetTaskBoardUseCase` carga `task_state_by_id`, `AA_Task_Signal_Policy` produce `task_evaluations_by_id`, el mapper refleja `state` en ExecutableItem.
 
-MC13G-C2 activa botones visibles **Ahora no** / **Ignorar** para user tasks: capabilities desde evaluaciones, `visible_actions` user, renderer `data-tasks-action`. Canal Learning intacto.
+MC13G-C2 activó botones visibles **Ahora no** / **Ignorar** para user tasks. MC13O-H3B-3 depreca funcionalmente **Ahora no**: el contrato común ya no emite `defer`; Ignorar sigue activo vía `data-tasks-action="dismiss"` cuando aplica.
 
 MC13G-D implementa proyección active MVP: `AA_Task_Active_View_Projection_Policy` produce `task_bucket_order_by_list` y capabilities filtradas desde señales. Sin schema `suggested_bucket`, sin ventanas `*_until`, sin views completed/ignored.
 
@@ -103,10 +103,10 @@ Las acciones del usuario registran **señales o decisiones interpretables**. No 
 - Lista: `status` (`active` \| `archived`) — declaración al archivar/restaurar; no hay `archived_at` (MC13I usa `updated_at` como proxy de fecha de archivado para ordenar listas archivadas).
 - **MC13I (implementado):** herramienta de área Listas (`#aa-lists-area-tools`, `lists-area-tools.js`) desarchiva listas user archivadas vía `ListArchivedTaskListsUseCase` + `RestoreTaskListUseCase` + `TasksAjax` (`aa_list_archived_task_lists`, `aa_restore_task_list`). Modal con select + botón explícito; no es acción de item/lista visible (`data-tasks-action`). Restore cambia `archived` → `active`; tareas y `aa_task_state` intactos; feed se refresca con `AAExecutableUserListsVisibleFeed.reload()`; policies sin cambios. **MC13N-2:** el acceso vive en menú de opciones (ítem «Desarchivar listas»).
 - **MC13G-A (implementado):** persistencia write-only en `aa_task_state` vía `TaskStateRepository` y use cases `RecordTaskDeferSignalUseCase` / `RecordTaskDismissSignalUseCase`.
-- **MC13G-B (implementado):** lectura batch en `GetTaskBoardUseCase`; interpretación en `AA_Task_Signal_Policy`; payload enriquecido con `task_state_by_id` y `organization.task_evaluations_by_id`; mapper refleja señales en `ExecutableItem.state`. `can_defer`/`can_dismiss` siguen `false` en feed; sin `visible_actions` defer/dismiss; buckets MC13E sin cambios.
+- **MC13G-B (implementado):** lectura batch en `GetTaskBoardUseCase`; interpretación en `AA_Task_Signal_Policy`; payload enriquecido con `task_state_by_id` y `organization.task_evaluations_by_id`; mapper refleja señales en `ExecutableItem.state`. H3B-3 mantiene `defer_*` solo como metadata legacy.
 - **MC13G-C1 (implementado):** canal técnico defer/dismiss — `TasksAjax` (`aa_defer_task`, `aa_dismiss_task`), `TasksService.deferTask`/`dismissTask`, coordinator `data-tasks-action`. Sin botones visibles; capabilities siguen false en feed.
 - **MC13G-C2 (implementado):** mapper publica `can_defer`/`can_dismiss` desde evaluaciones; enricher + policy emiten `visible_actions` user; renderer source-aware usa canal Tasks.
-- **MC13G-D (implementado):** `AA_Task_Active_View_Projection_Policy` proyecta active view: default user pending → `primary`; defer → `secondary`; dismiss → fuera de active. **MC13O-H3A** supersede parcialmente capabilities: `can_dismiss` ya no depende de defer/bucket.
+- **MC13G-D (implementado, superseded por H3B-3):** `AA_Task_Active_View_Projection_Policy` proyectaba active view con defer → `secondary`. **MC13O-H3B-3:** `aa_tasks.default_bucket` es la única fuente activa de `primary` / `secondary`; `defer_*` no decide bucket ni visible actions.
 
 Ninguna de estas tablas es un **action log**. Solo guardan el **último estado** (y timestamps del último cambio por tipo de señal). Re-dismiss o re-defer **sobrescriben** el timestamp anterior; no queda historial.
 
@@ -126,7 +126,7 @@ Ninguna de estas tablas es un **action log**. Solo guardan el **último estado**
 |----------|---------------------|-------------------------------------------------------------|
 | **Ahora no** (defer) | Learning: `is_ignored`, `ignored_at` | La policy **puede** proyectar el item fuera de `primary` (p. ej. bucket `secondary`) **si** no hay criterios que lo contradigan. No es “mover definitivamente a secondary”. |
 | **Ignorar** (dismiss) | Learning: `is_dismissed`, `dismissed_at` | La policy **puede** excluir el item del feed activo mientras `dismiss_active` aplique. No es borrado permanente: al expirar la ventana, el flag puede seguir en BD pero la proyección cambia. |
-| **Ahora no** (defer) — Tasks user | `aa_task_state`: `last_deferred_at`, `defer_count`, `defer_until` | Señal sticky; MC13G-D proyecta la tarea en bucket `secondary`. **No es Ignorar** (H3B migrará a reclasificación vía `default_bucket`). |
+| **Ahora no** (defer) — Tasks user | `aa_task_state`: `last_deferred_at`, `defer_count`, `defer_until` | **Deprecated funcionalmente desde MC13O-H3B-3.** Se conserva como auditoría legacy; no mueve bucket, no produce `state.ignored`, no emite visible action ni reason active. |
 | **Ignorar** (dismiss) — Tasks user | `aa_task_state`: `last_dismissed_at`, `dismiss_count`, `dismiss_until` | Ocultamiento temporal (H1/H2); MC13O-H3A: `can_dismiss` independiente de defer/bucket. |
 | **Completar** (manual) | Learning: `is_completed`; Tasks: `status=done` | Declaración del usuario; puede sacar el item del feed activo. Distinta de auto-completion por fact. |
 | **Reabrir** (Tasks) | `status=pending`, `completed_at=null` | Declaración inversa; no implica evento histórico de “des-completado verificado”. |
@@ -141,33 +141,32 @@ MC13F documentó el modelo conceptual. **MC13G-A** implementa escritura. **MC13G
 
 ### Estado actual
 
-Tasks user en el feed executable (`view=active`, `user-swap`) soporta:
+Tasks user en el feed executable (`view=active`) soporta:
 
 - **Completar** — declaración `status=done` vía `ChangeTaskStatusUseCase`.
-- **Ahora no** (defer) — señal vía `RecordTaskDeferSignalUseCase`; botón `data-tasks-action="defer"`. Tras refresh, la tarea proyecta en bucket **Secundarias** (`secondary`).
 - **Ignorar** (dismiss) — señal vía `RecordTaskDismissSignalUseCase`; botón `data-tasks-action="dismiss"`. Tras refresh, la tarea sale de `view=active`.
 - **Reabrir** — reservado; no aparece en active feed (`done` excluido).
 - **Archivar lista** — acción de lista, no de item.
+- **Ahora no** (defer) — deprecated funcionalmente desde MC13O-H3B-3; backend/JS legacy puede existir dormido, pero el contrato común no emite botón.
 
-Proyección active MVP (`AA_Task_Active_View_Projection_Policy`):
+Proyección active actual (`AA_Task_Active_View_Projection_Policy`, MC13O-H3B-3):
 
-- Pending sin señales → `primary` + `can_defer=true`, `can_dismiss=true` (**MC13O-H3A**).
-- Defer registrado → `secondary` + `can_defer=false`, `can_dismiss=true`.
-- Dismiss registrado / ocultamiento activo → fuera de active + ambos false.
-- Dismiss domina defer.
-- `suggested_active_bucket=primary` implícito (sin columna persistida).
+- Pending visible → `projected_bucket = aa_tasks.default_bucket`.
+- `default_bucket=primary` → `REASON_DEFAULT_PRIMARY`; `default_bucket=secondary` → `REASON_DEFAULT_SECONDARY`.
+- Dismiss registrado / ocultamiento activo → fuera de active.
+- Dismiss domina classification sin cambiar `default_bucket`.
+- `suggested_active_bucket = aa_tasks.default_bucket`.
+- `can_defer=false` siempre; `can_dismiss` sigue H3A, independiente de bucket.
 - `importance` no decide bucket; solo orden interno.
 
-**Superseded parcialmente (MC13G-D → MC13O-H3A):** antes primary solo ofrecía defer
-y secondary/deferred solo dismiss. H3A desacopla `can_dismiss` de defer/bucket;
-Ignorar puede aparecer en primary y secondary. Defer sigue como compatibilidad
-temporal (H3B migrará reclasificación a `default_bucket`).
+**Superseded:** MC13G-D (`defer → secondary`) y H3A (`defer` temporal) quedan
+reemplazados por H3B-3 para classification/visible actions.
 
-### Semántica objetivo (cuando exista storage)
+### Semántica legacy de defer (deprecated)
 
 | Señal UX | Nombre preferido Tasks | Qué registra | Qué **no** significa |
 |----------|------------------------|--------------|----------------------|
-| **Ahora no** | `defer` / `deferred_*` | Postergación o reducción de prioridad declarada por el usuario | Mover definitivamente a bucket `secondary` (label: Secundarias). |
+| **Ahora no** | `defer` / `deferred_*` | Auditoría legacy dormida desde MC13O-H3B-3 | Mover a bucket `secondary`, producir botón visible, producir `state.ignored` o reason active. |
 | **Ignorar** | `dismiss` / `dismissed_*` (o `hidden_*` si se prefiere ocultamiento) | Ocultamiento temporal declarado | Borrar la tarea; ocultar para siempre; equivaler “Ignorar” con `status=done`. |
 
 Learning conserva nombres legacy (`is_ignored` = “Ahora no”, `is_dismissed` = “Ignorar”). **Tasks user debe usar nombres semánticos claros** al implementar; no copiar nombres ciegamente.
@@ -224,7 +223,7 @@ Shape implementado:
 
 - `has_defer` = `defer_count > 0` y `last_deferred_at` presente
 - `has_dismiss` = `dismiss_count > 0` y `last_dismissed_at` presente
-- `is_defer_active` = `defer_until !== null` y `now < defer_until`
+- `is_defer_active` = `defer_until !== null` y `now < defer_until` (metadata legacy)
 - `is_dismiss_active` = `dismiss_until !== null` y `now < dismiss_until`
 - `visible_in_active` = derivado por `AA_Task_Active_View_Projection_Policy` (MC13G-D)
 
@@ -236,7 +235,9 @@ Shape implementado:
 
 **MC13G-C2 (botones visibles):** renderer source-aware renderiza canal Tasks.
 
-**MC13G-D (proyección active):** defer mueve a `secondary`; dismiss oculta de active; capabilities filtradas por la misma policy (no por bucket en executable policy).
+**MC13G-D (proyección active):** defer movía a `secondary`; dismiss ocultaba de active.
+
+**MC13O-H3B-3 (proyección active vigente):** `aa_tasks.default_bucket` decide `primary` / `secondary`; `defer_*` queda auditoría legacy; `can_defer=false`; `visible_actions` no emite `defer` / “Ahora no”.
 
 **No implementado aún:** ventanas `defer_until`/`dismiss_until`, columna `suggested_active_bucket`, reset/reactivate, vistas completed/ignored.
 
@@ -256,7 +257,7 @@ Shape implementado:
 
 **Incorrecto (MC13G-D; dismiss superseded por MC13O-H3A):**
 
-- `bucket_key === primary` → mostrar “Ahora no” (defer sigue gated a primary en system).
+- ~~`bucket_key === primary` → mostrar “Ahora no”.~~ H3B-3: no se emite `defer`.
 - ~~`bucket_key === secondary` → mostrar “Ignorar”.~~ H3A: Ignorar si `capabilities.can_dismiss`, en primary o secondary.
 
 **Correcto:**
@@ -275,9 +276,9 @@ estado + señales + facts
 
 Bucket y `visible_actions` son **proyecciones hermanas** desde datos interpretables. Pueden compartir criterios (p. ej. una tarea vencida puede ser prioritaria **y** elegible para defer), pero **ninguna es fuente de verdad de la otra**.
 
-Ejemplo: una tarea puede proyectarse en `primary` por vencimiento, pero “Ahora no” solo debe aparecer si la policy de Tasks decide `can_defer=true` dado su estado/señales actuales — no porque esté en Principales. Igual para “Ignorar” y `secondary`.
+Ejemplo vigente: una tarea puede proyectarse en `secondary` por `default_bucket=secondary`, pero “Ignorar” aparece solo si la policy de Tasks decide `can_dismiss=true`; no porque esté en Secundarias. `defer` ya no es acción visible activa.
 
-**Deuda documentada (Learning):** `AA_Executable_Visible_Actions_Policy` en vista `active` filtra defer/dismiss por `bucket_key` (`primary` / `secondary`) **solo para `source=system`**. Tasks user (`source=user`) ya usa capabilities sin gate por bucket (MC13G-C2).
+**MC13O-H3B-3:** `AA_Executable_Visible_Actions_Policy` ya no emite `defer` para ninguna fuente aunque llegue `can_defer=true` desde payloads viejos. `dismiss` sigue gobernado por `can_dismiss`.
 
 ### Qué no existe todavía (diseño futuro)
 
@@ -402,7 +403,7 @@ MC13O-0 no cambia persistencia, policies ni motor común; solo unifica copy visi
     'status' => 'pending'|'done',   // proyección: done = declaración usuario (Tasks) o completion (Learning); no implica verificación objetiva
     'state' => [                    // snapshot interpretado por la fuente; no es action log
         'completed' => bool,        // true si la fuente considera el item completado (manual o auto)
-        'ignored' => bool,          // señal defer persistida (Learning)
+        'ignored' => bool,          // Tasks: ocultamiento real por dismiss activo; Learning legacy conserva su semántica propia
         'dismissed' => bool,        // señal dismiss persistida (Learning)
         'dismiss_active' => bool,   // ventana dismiss vigente (calculada; Learning)
         'auto_completed' => bool,   // completion por fact; distinta de declaración manual
@@ -426,7 +427,7 @@ MC13O-0 no cambia persistencia, policies ni motor común; solo unifica copy visi
 - **handler:** `{ type: 'handler', label, handler }` — ejecución runtime en JS (handlers registrados)
 - **status:** `{ type: 'status', label, to: 'pending'|'done' }` — mutación de **declaración** del usuario vía Use Case de la fuente (no verificación automática)
 
-`primary_action` es un campo temporal/backward-compatible: expresa una acción principal heredada de los mappers actuales, pero no alcanza para modelar la coexistencia de acciones visibles (`Ir` + `Completar` + `Ahora no`, por ejemplo).
+`primary_action` es un campo temporal/backward-compatible: expresa una acción principal heredada de los mappers actuales, pero no alcanza para modelar la coexistencia de acciones visibles (`Ir` + `Completar` + `Ignorar`, por ejemplo).
 
 ## Acciones visibles
 
@@ -436,7 +437,7 @@ Shape conceptual:
 
 ```php
 [
-    'key' => string,                         // clave estable: complete, defer, pwa.install, etc.
+    'key' => string,                         // clave estable: complete, dismiss, pwa.install, etc.
     'type' => 'navigate'|'handler'|'status'|'intent',
     'category' => 'mechanical'|'declarative'|'intent'|'recovery',
     'label' => string,
@@ -479,7 +480,7 @@ Contexto declarativo mínimo:
 
 En el ciclo MC11B el feed executable incluye `visible_actions` resueltas por `ExecutableVisibleActionsEnricher` + `AA_Executable_Visible_Actions_Policy`. Desde MC11C el renderer experimental **prefiere `visible_actions`** cuando el array tiene contenido; si está vacío o ausente, mantiene fallback temporal a `primary_action` + `capabilities`. La disponibilidad runtime de handlers (`pwa.install`, standalone, prompt) sigue resolviéndose en JS vía `LearningActionHandlers` (coordinator/options del módulo experimental), no en el renderer.
 
-Para Tasks user, el canal DOM de intents (`defer`/`dismiss`) **no está cableado** todavía; hoy solo `complete`/`pending`/`archive-list`. Ver [User task signals: defer/dismiss futuro (MC13F)](#user-task-signals-deferdismiss-futuro-mc13f).
+Para Tasks user, el canal DOM de `dismiss` está cableado en el feed común. El canal `defer` puede quedar en JS/backend legacy dormido, pero desde MC13O-H3B-3 el contrato común no lo emite como `visible_action`.
 
 ### Canal DOM por source (renderer experimental, MC11D)
 
@@ -490,7 +491,7 @@ El renderer traduce `visible_actions` a markup legacy-compatible según `item.so
 | `type=status`, `target_status=done` | `data-learning-action="complete"` + `data-recommendation-key` | `data-tasks-action="complete"` + `data-task-id` |
 | `type=status`, `target_status=pending` | *(no renderiza en vista activa)* | `data-tasks-action="pending"` + `data-task-id` |
 | `type=handler` | `data-learning-action="primary-handler"` + `data-learning-handler` | — |
-| `type=intent` defer/dismiss/reactivate | `data-learning-action` + `data-recommendation-key` | — |
+| `type=intent` dismiss/reactivate | `data-learning-action` + `data-recommendation-key` | — |
 | `type=navigate` | `<a href="...">` | `<a href="...">` |
 
 El feed experimental tiene dos modos debug (MC12A):
@@ -527,7 +528,7 @@ Acciones habilitadas en MC12A (user tasks):
 | `data-tasks-action="complete"` | `TasksService.changeTaskStatus(taskId, 'done')` |
 | `data-tasks-action="pending"` | `TasksService.changeTaskStatus(taskId, 'pending')` |
 | `data-tasks-action="archive-list"` | `TasksService.archiveTaskList(listId)` (+ confirm) |
-| `data-tasks-action="defer"` | `TasksService.deferTask(taskId)` |
+| `data-tasks-action="defer"` | Legacy/dormido desde MC13O-H3B-3; el contrato común no lo emite |
 | `data-tasks-action="dismiss"` | `TasksService.dismissTask(taskId)` — user tasks y agenda_app seeded DB común (**MC13O-H3C**) |
 
 Acciones habilitadas en MC12B (Learning simple):
@@ -540,7 +541,7 @@ Acciones habilitadas en MC12B (Learning simple):
 
 `key` = `data-recommendation-key`.
 
-**Semántica MC12 (dominio/backend, no coordinator):** ver tabla en [Modelo de señales, estado y procedencia](#modelo-de-señales-estado-y-procedencia). Resumen: defer/dismiss/complete **registran señales**; la proyección en buckets/feed es interpretación de policy, no efecto absoluto.
+**Semántica MC12 (dominio/backend, no coordinator):** ver tabla en [Modelo de señales, estado y procedencia](#modelo-de-señales-estado-y-procedencia). Resumen vigente: dismiss/complete registran señales/declaraciones activas; defer registra solo auditoría legacy si algún camino dormido lo invoca.
 
 Acciones habilitadas en MC12C (Learning primary-handler):
 
@@ -779,7 +780,7 @@ Volver a oficial: `sessionStorage.removeItem('AA_EXECUTABLE_VISIBLE_FEED'); loca
 
 **Siguen activos (unified los necesita):**
 
-- `learningService.js` — mutaciones defer/dismiss/complete vía coordinator
+- `learningService.js` — mutaciones legacy/dormidas y dismiss/complete vía coordinator
 - `learning-action-handlers.js` — PWA install, `onAvailabilityChange` (executable-lists-module re-renderiza unified)
 
 **DOM/scripts legacy:** eliminados en Listas MC13J-2B (ver sección MC13J-2B).
@@ -965,9 +966,9 @@ Salida: **una ExecutableList por lista de usuario**:
 - Lista activa: `capabilities.can_archive` en la lista
 - `is_executive_candidate` si task id ∈ `organization.executive_candidates`
 
-**No** se reevalúa proyección en el mapper. `AA_Task_Prioritization_Policy` solo ordena; `AA_Task_Active_View_Projection_Policy` decide buckets active. `executive_candidates` sigue siendo independiente de los buckets.
+**No** se reevalúa proyección en el mapper. `AA_Task_Prioritization_Policy` solo ordena; `AA_Task_Active_View_Projection_Policy` decide buckets active desde `aa_tasks.default_bucket`. `executive_candidates` sigue siendo independiente de los buckets.
 
-Capabilities defer/dismiss: filtradas por `AA_Task_Active_View_Projection_Policy` en `task_evaluations_by_id[task_id].capabilities` (MC13G-D). Ver [User task signals: defer/dismiss](#user-task-signals-deferdismiss-mc13f--mc13g-ad).
+Capabilities dismiss/defer: filtradas por `AA_Task_Active_View_Projection_Policy` en `task_evaluations_by_id[task_id].capabilities`; desde H3B-3 `can_defer=false` y `can_dismiss` sigue H3A. Ver [User task signals: defer/dismiss](#user-task-signals-deferdismiss-mc13f--mc13g-ad).
 
 ## Fuera de alcance MC7
 

@@ -69,18 +69,10 @@ final class AA_Executable_Visible_Actions_Policy {
             $source = self::normalize_source($context['source'] ?? '');
 
             if ($source === AA_Executable_Contract::SOURCE_USER) {
-                if (!empty($capabilities['can_defer'])) {
-                    $actions[] = self::intent_action('defer', 'Ahora no');
-                }
-
                 if (!empty($capabilities['can_dismiss'])) {
                     $actions[] = self::intent_action('dismiss', 'Ignorar');
                 }
             } else {
-                if ($bucket_key === AA_Executable_Contract::BUCKET_PRIMARY && !empty($capabilities['can_defer'])) {
-                    $actions[] = self::intent_action('defer', 'Ahora no');
-                }
-
                 if (!empty($capabilities['can_dismiss'])) {
                     $actions[] = self::intent_action('dismiss', 'Ignorar');
                 }

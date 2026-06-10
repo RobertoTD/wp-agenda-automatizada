@@ -77,7 +77,7 @@ final class AA_Task_Signal_Policy {
                 'is_system_completed' => $is_system_completed,
             ],
             'capabilities' => [
-                'can_defer' => $is_pending && $visible_in_active && !$is_defer_active,
+                'can_defer' => false,
                 'can_dismiss' => $is_pending && $visible_in_active && !$is_dismiss_active,
                 'can_reactivate' => false,
             ],
