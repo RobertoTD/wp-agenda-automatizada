@@ -799,8 +799,32 @@ MC13O-H3B-1 habilita persistencia controlada de clasificación natural en
 Fuera de alcance H3B-1:
 
 - Projection sigue usando `defer` como fuente de secondary (H3B-3).
-- Sin migración defer→`default_bucket` (H3B-2).
 - Sin copy “Convertir a tarea secundaria”, UI, JS ni endpoint AJAX.
+
+## MC13O-H3B-2: backfill defer histórico → `default_bucket`
+
+MC13O-H3B-2 protege tareas existentes antes de H3B-3 copiando la intención
+histórica de “Ahora no”/defer hacia la clasificación persistida:
+
+```text
+aa_task_state.defer_count > 0
+AND last_deferred_at IS NOT NULL (no vacío)
+AND aa_tasks.default_bucket = primary
+→ aa_tasks.default_bucket = secondary
+```
+
+Implementación:
+
+- `TaskRepository::backfill_deferred_primary_to_secondary_bucket()` — UPDATE
+  idempotente por site; **no filtra por status** ni lista archivada (backfill
+  semántico de dato histórico).
+- `MigrateDeferredTasksToDefaultBucketUseCase` — orquesta el backfill.
+- `AA_Task_Default_Bucket_Migration_Lifecycle` — `admin_init` prio **22** (tras
+  seed 20 y Learning state migration 21); opción
+  `aa_task_default_bucket_migration_version` (v1); lock transient.
+
+Conserva intacto: `defer_*`, `dismiss_*`, `completed_by_system`, `status`,
+`completed_at`. **No cambia projection** ni defer write path.
 
 ### Configuración futura (documentada, no implementada)
 

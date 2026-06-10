@@ -62,6 +62,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/auth-helper.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/Schema.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/LearningCatalogSeedLifecycle.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/LearningStateMigrationLifecycle.php';
+require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/TaskDefaultBucketMigrationLifecycle.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/PublicSiteMaintenanceGuard.php';
 AA_Public_Site_Maintenance_Guard::register();
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/PublicSitePreview.php';
@@ -179,6 +180,7 @@ ExecutableListsAjax::register();
 AA_Schema::register(__FILE__);
 AA_Learning_Catalog_Seed_Lifecycle::register(__FILE__);
 AA_Learning_State_Migration_Lifecycle::register(__FILE__);
+AA_Task_Default_Bucket_Migration_Lifecycle::register(__FILE__);
 
 // 🔹 Flush rewrite rules on deactivation
 register_deactivation_hook(__FILE__, function() {

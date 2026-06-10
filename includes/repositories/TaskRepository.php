@@ -282,6 +282,82 @@ final class TaskRepository {
     }
 
     /**
+     * Backfill idempotente MC13O-H3B-2: defer histórico + default_bucket primary → secondary.
+     *
+     * Criterio: aa_task_state.defer_count > 0, last_deferred_at no vacío,
+     * aa_tasks.default_bucket = primary. No filtra por status ni lista archivada.
+     * No modifica aa_task_state ni otros campos de aa_tasks.
+     *
+     * @return array{matched_count:int,updated_count:int,skipped_count:int}
+     */
+    public static function backfill_deferred_primary_to_secondary_bucket(): array {
+        global $wpdb;
+
+        $tasks_table = self::table_name();
+        $state_table = $wpdb->prefix . 'aa_task_state';
+        $where_sql = '
+            s.defer_count > 0
+            AND s.last_deferred_at IS NOT NULL
+            AND s.last_deferred_at != \'\'
+            AND t.default_bucket = %s
+        ';
+
+        $matched = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$tasks_table} t
+             INNER JOIN {$state_table} s ON s.task_id = t.id
+             WHERE {$where_sql}",
+            self::DEFAULT_BUCKET_PRIMARY
+        ));
+
+        if ($wpdb->last_error) {
+            error_log('[TaskRepository] backfill_deferred_primary_to_secondary_bucket count: ' . $wpdb->last_error);
+
+            return [
+                'matched_count' => 0,
+                'updated_count' => 0,
+                'skipped_count' => 0,
+            ];
+        }
+
+        if ($matched < 1) {
+            return [
+                'matched_count' => 0,
+                'updated_count' => 0,
+                'skipped_count' => 0,
+            ];
+        }
+
+        $now = current_time('mysql');
+        $updated = $wpdb->query($wpdb->prepare(
+            "UPDATE {$tasks_table} t
+             INNER JOIN {$state_table} s ON s.task_id = t.id
+             SET t.default_bucket = %s, t.updated_at = %s
+             WHERE {$where_sql}",
+            self::DEFAULT_BUCKET_SECONDARY,
+            $now,
+            self::DEFAULT_BUCKET_PRIMARY
+        ));
+
+        if ($updated === false) {
+            error_log('[TaskRepository] backfill_deferred_primary_to_secondary_bucket update: ' . $wpdb->last_error);
+
+            return [
+                'matched_count' => $matched,
+                'updated_count' => 0,
+                'skipped_count' => $matched,
+            ];
+        }
+
+        $updated_count = (int) $updated;
+
+        return [
+            'matched_count' => $matched,
+            'updated_count' => $updated_count,
+            'skipped_count' => max(0, $matched - $updated_count),
+        ];
+    }
+
+    /**
      * @param array<string,mixed> $data
      * @return array<string,mixed>
      */

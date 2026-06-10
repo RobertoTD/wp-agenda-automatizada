@@ -99,6 +99,10 @@ ac_assert(
     'Plugin bootstrap registers Learning state migration lifecycle',
     strpos($bootstrap_src, 'AA_Learning_State_Migration_Lifecycle::register') !== false
 );
+ac_assert(
+    'Plugin bootstrap registers Task default bucket migration lifecycle',
+    strpos($bootstrap_src, 'AA_Task_Default_Bucket_Migration_Lifecycle::register') !== false
+);
 
 $get_board_src = file_get_contents($plugin_root . '/includes/application/tasks/GetTaskBoardUseCase.php');
 ac_assert('GetTaskBoardUseCase uses prioritization policy', strpos($get_board_src, 'AA_Task_Prioritization_Policy') !== false);

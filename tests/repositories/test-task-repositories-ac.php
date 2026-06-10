@@ -99,6 +99,10 @@ ac_assert('TaskRepository maps common source fields', strpos($task_repo_src, "'s
 ac_assert('TaskRepository maps default_bucket', strpos($task_repo_src, "'default_bucket' =>") !== false);
 ac_assert('TaskRepository writable includes default_bucket', strpos($task_repo_src, "'default_bucket',") !== false);
 ac_assert('TaskRepository normalizes default_bucket', strpos($task_repo_src, 'normalize_default_bucket') !== false);
+ac_assert(
+    'TaskRepository defines deferred bucket backfill',
+    strpos($task_repo_src, 'backfill_deferred_primary_to_secondary_bucket') !== false
+);
 ac_assert('TaskRepository maps completion fields', strpos($task_repo_src, "'completion_type' =>") !== false && strpos($task_repo_src, "'completion_fact_key' =>") !== false);
 ac_assert('TaskRepository defines list_system_completion_candidates', strpos($task_repo_src, 'function list_system_completion_candidates') !== false);
 ac_assert(
