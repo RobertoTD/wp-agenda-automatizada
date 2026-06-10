@@ -959,7 +959,7 @@ describe('AAExecutableListRenderer visible_actions', () => {
         assert.doesNotMatch(html, /data-recommendation-key=/);
     });
 
-    it('visible_action intent dismiss genera dismiss', () => {
+    it('visible_action intent dismiss legacy Learning genera data-learning-action dismiss', () => {
         var html = renderer.renderItem(baseItem({
             origin_key: 'install_pwa',
             visible_actions: [
@@ -978,6 +978,33 @@ describe('AAExecutableListRenderer visible_actions', () => {
         assert.match(html, /data-learning-action="dismiss"/);
         assert.match(html, /data-recommendation-key="install_pwa"/);
         assert.match(html, />Ignorar</);
+        assert.doesNotMatch(html, /data-tasks-action="dismiss"/);
+    });
+
+    it('visible_action intent dismiss agenda_app DB común genera data-tasks-action dismiss', () => {
+        var html = renderer.renderItem(baseItem({
+            id: '500',
+            source: 'system',
+            source_category: 'agenda_app',
+            origin_key: 'complete_business_data',
+            visible_actions: [
+                visibleAction({
+                    key: 'dismiss',
+                    type: 'intent',
+                    category: 'intent',
+                    label: 'Ignorar',
+                    placement: 'secondary',
+                    url: null,
+                    handler: null
+                })
+            ]
+        }));
+
+        assert.match(html, /data-tasks-action="dismiss"/);
+        assert.match(html, /data-task-id="500"/);
+        assert.match(html, />Ignorar</);
+        assert.doesNotMatch(html, /data-learning-action="dismiss"/);
+        assert.doesNotMatch(html, /data-recommendation-key=/);
     });
 
     it('visible_action intent dismiss user genera data-tasks-action dismiss', () => {
@@ -1025,7 +1052,7 @@ describe('AAExecutableListRenderer visible_actions', () => {
         assert.match(html, /data-learning-action="defer"/);
     });
 
-    it('fallback legacy sigue funcionando con visible_actions vacío', () => {
+    it('fallback legacy dismiss sin task id común sigue en canal Learning', () => {
         var item = baseItem({
             visible_actions: [],
             capabilities: {
@@ -1036,6 +1063,46 @@ describe('AAExecutableListRenderer visible_actions', () => {
         var html = renderer.renderItem(item);
 
         assert.match(html, /data-learning-action="dismiss"/);
+        assert.doesNotMatch(html, /data-tasks-action="dismiss"/);
+    });
+
+    it('fallback agenda_app DB común dismiss usa canal Tasks', () => {
+        var item = baseItem({
+            id: '501',
+            source_category: 'agenda_app',
+            origin_key: 'install_pwa',
+            visible_actions: [],
+            capabilities: {
+                can_dismiss: true
+            }
+        });
+
+        var html = renderer.renderItem(item);
+
+        assert.match(html, /data-tasks-action="dismiss"/);
+        assert.match(html, /data-task-id="501"/);
+        assert.doesNotMatch(html, /data-learning-action="dismiss"/);
+    });
+
+    it('resolveTasksChannelTaskId distingue user, agenda_app numérico y legacy', () => {
+        assert.equal(renderer.resolveTasksChannelTaskId({ id: '10', source: 'user' }), '10');
+        assert.equal(renderer.resolveTasksChannelTaskId({
+            id: '500',
+            source: 'system',
+            source_category: 'agenda_app',
+            origin_key: 'complete_business_data'
+        }), '500');
+        assert.equal(renderer.resolveTasksChannelTaskId({
+            id: 'install_pwa',
+            source: 'system',
+            source_category: 'agenda_app',
+            origin_key: 'install_pwa'
+        }), '');
+        assert.equal(renderer.resolveTasksChannelTaskId({
+            id: 'item-1',
+            source: 'system',
+            origin_key: 'configure_services'
+        }), '');
     });
 
     it('shouldRenderAction puede ocultar handler visible_action', () => {

@@ -112,6 +112,49 @@
      * @param {object} item
      * @returns {string}
      */
+    function resolveSourceCategory(item) {
+        if (!item || typeof item !== 'object') {
+            return '';
+        }
+
+        return asString(item.source_category).trim().toLowerCase();
+    }
+
+    /**
+     * Task id para acciones del canal Tasks común (aa_*_task), si aplica.
+     *
+     * User tasks siempre; agenda_app seeded desde DB común usa id numérico de aa_tasks.
+     * Legacy Learning conserva ids slug (= origin_key) y sigue en canal Learning.
+     *
+     * @param {object} item
+     * @returns {string}
+     */
+    function resolveTasksChannelTaskId(item) {
+        if (!item || typeof item !== 'object') {
+            return '';
+        }
+
+        var taskId = asString(item.id).trim();
+
+        if (taskId === '') {
+            return '';
+        }
+
+        if (resolveItemSource(item) === 'user') {
+            return taskId;
+        }
+
+        if (resolveSourceCategory(item) === 'agenda_app' && /^\d+$/.test(taskId)) {
+            return taskId;
+        }
+
+        return '';
+    }
+
+    /**
+     * @param {object} item
+     * @returns {string}
+     */
     function resolveRecommendationKey(item) {
         if (!item || typeof item !== 'object') {
             return '';
@@ -323,6 +366,20 @@
             }
 
             if (intentKey === 'dismiss') {
+                var dismissTasksTaskId = resolveTasksChannelTaskId(item);
+
+                if (dismissTasksTaskId !== '') {
+                    return ''
+                        + '<button type="button" data-tasks-action="dismiss" data-task-id="' + escapeHtml(dismissTasksTaskId) + '"'
+                        + ' class="' + btnClass(false) + ' text-gray-600 bg-white hover:bg-gray-50 border-gray-300">'
+                        + escapeHtml(label || 'Ignorar')
+                        + '</button>';
+                }
+
+                if (recommendationKey === '') {
+                    return '';
+                }
+
                 return ''
                     + '<button type="button" data-learning-action="dismiss"'
                     + ' data-recommendation-key="' + escapeHtml(recommendationKey) + '"'
@@ -474,14 +531,25 @@
             );
         }
 
-        if (capabilities.can_dismiss && recommendationKey !== '') {
-            actions.push(
-                '<button type="button" data-learning-action="dismiss"'
-                + ' data-recommendation-key="' + escapeHtml(recommendationKey) + '"'
-                + ' class="' + btnClass(false) + ' text-gray-600 bg-white hover:bg-gray-50 border-gray-300">'
-                + 'Ignorar'
-                + '</button>'
-            );
+        if (capabilities.can_dismiss) {
+            var fallbackDismissTasksTaskId = resolveTasksChannelTaskId(item);
+
+            if (fallbackDismissTasksTaskId !== '') {
+                actions.push(
+                    '<button type="button" data-tasks-action="dismiss" data-task-id="' + escapeHtml(fallbackDismissTasksTaskId) + '"'
+                    + ' class="' + btnClass(false) + ' text-gray-600 bg-white hover:bg-gray-50 border-gray-300">'
+                    + 'Ignorar'
+                    + '</button>'
+                );
+            } else if (recommendationKey !== '') {
+                actions.push(
+                    '<button type="button" data-learning-action="dismiss"'
+                    + ' data-recommendation-key="' + escapeHtml(recommendationKey) + '"'
+                    + ' class="' + btnClass(false) + ' text-gray-600 bg-white hover:bg-gray-50 border-gray-300">'
+                    + 'Ignorar'
+                    + '</button>'
+                );
+            }
         }
 
         if (opts.showReactivate === true && capabilities.can_reactivate && recommendationKey !== '') {
@@ -787,6 +855,7 @@
         renderItem: renderItem,
         renderItemActions: renderItemActions,
         resolveRecommendationKey: resolveRecommendationKey,
+        resolveTasksChannelTaskId: resolveTasksChannelTaskId,
         hasVisibleActions: hasVisibleActions
     };
 

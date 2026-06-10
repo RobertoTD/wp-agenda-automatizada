@@ -528,14 +528,14 @@ Acciones habilitadas en MC12A (user tasks):
 | `data-tasks-action="pending"` | `TasksService.changeTaskStatus(taskId, 'pending')` |
 | `data-tasks-action="archive-list"` | `TasksService.archiveTaskList(listId)` (+ confirm) |
 | `data-tasks-action="defer"` | `TasksService.deferTask(taskId)` |
-| `data-tasks-action="dismiss"` | `TasksService.dismissTask(taskId)` |
+| `data-tasks-action="dismiss"` | `TasksService.dismissTask(taskId)` — user tasks y agenda_app seeded DB común (**MC13O-H3C**) |
 
 Acciones habilitadas en MC12B (Learning simple):
 
 | Markup DOM | Servicio |
 |------------|----------|
 | `data-learning-action="defer"` | `LearningService.ignoreRecommendation(key)` |
-| `data-learning-action="dismiss"` | `LearningService.dismissRecommendation(key)` |
+| `data-learning-action="dismiss"` | `LearningService.dismissRecommendation(key)` — solo fallback legacy sin task id DB común |
 | `data-learning-action="complete"` | `LearningService.completeRecommendation(key)` |
 
 `key` = `data-recommendation-key`.

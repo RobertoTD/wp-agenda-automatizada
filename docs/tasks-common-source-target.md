@@ -757,9 +757,28 @@ Deuda explícita:
 
 - **H3B:** reclasificación primary/secondary vía `aa_tasks.default_bucket`; deprecar
   defer como fuente de bucket.
-- **H3C:** click de Ignorar en seeded/developer aún puede usar canal legacy Learning
-  (`data-learning-action` → `DismissLearningRecommendationUseCase`) en lugar de
-  `aa_dismiss_task` / Tasks común; solo se corrige render/capabilities en H3A.
+
+## MC13O-H3C: canal Tasks para Ignorar en seeded/developer
+
+MC13O-H3C alinea el **click** de Ignorar en items `source=system` / `agenda_app`
+renderizados desde DB común con el flujo Tasks (H1/H2):
+
+```text
+data-tasks-action="dismiss" + data-task-id
+→ aa_dismiss_task
+→ RecordTaskDismissSignalUseCase
+→ aa_task_state.dismiss_until temporal
+```
+
+Criterio de canal en renderer (`executableListRenderer.js`):
+
+- `source=user` → siempre Tasks (`item.id`).
+- `source_category=agenda_app` + `item.id` numérico (id de `aa_tasks`) → Tasks.
+- Legacy Learning (id slug = `origin_key`, sin task id DB) → conserva
+  `data-learning-action="dismiss"` → `aa_dismiss_learning_recommendation`.
+
+H3A ya exponía Ignorar en capabilities; H3C conecta ese botón con el write path
+común. No cambia duración, copy, projection ni schema.
 
 Ignorar **no es** defer. Defer (“Ahora no”) queda como compatibilidad temporal
 hasta H3B; conceptualmente debe migrar a “convertir en secundaria” vía
