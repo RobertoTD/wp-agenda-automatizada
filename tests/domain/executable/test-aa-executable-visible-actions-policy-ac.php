@@ -130,6 +130,59 @@ ac_assert(
     executable_visible_action_keys($learning_primary_actions) === ['navigate', 'defer']
 );
 
+$learning_primary_dismiss = executable_visible_action_item([
+    'primary_action' => [
+        'type' => AA_Executable_Contract::ACTION_NAVIGATE,
+        'label' => 'Ir',
+        'url' => 'https://example.test/admin-post.php?module=settings',
+    ],
+    'capabilities' => [
+        'can_defer' => true,
+        'can_dismiss' => true,
+    ],
+]);
+$learning_primary_dismiss_actions = AA_Executable_Visible_Actions_Policy::resolve($learning_primary_dismiss, [
+    'view' => AA_Executable_Visible_Actions_Policy::VIEW_ACTIVE,
+    'bucket_key' => AA_Executable_Contract::BUCKET_PRIMARY,
+    'source' => AA_Executable_Contract::SOURCE_SYSTEM,
+]);
+ac_assert(
+    'System primary with can_dismiss emits dismiss without secondary bucket',
+    executable_visible_action_find($learning_primary_dismiss_actions, 'dismiss') !== null
+    && executable_visible_action_keys($learning_primary_dismiss_actions) === ['navigate', 'defer', 'dismiss']
+);
+
+$learning_secondary_no_dismiss = executable_visible_action_item([
+    'capabilities' => [
+        'can_complete' => true,
+        'can_dismiss' => false,
+    ],
+]);
+$learning_secondary_no_dismiss_actions = AA_Executable_Visible_Actions_Policy::resolve($learning_secondary_no_dismiss, [
+    'view' => AA_Executable_Visible_Actions_Policy::VIEW_ACTIVE,
+    'bucket_key' => AA_Executable_Contract::BUCKET_SECONDARY,
+    'source' => AA_Executable_Contract::SOURCE_SYSTEM,
+]);
+ac_assert(
+    'System without can_dismiss emits no dismiss action',
+    executable_visible_action_find($learning_secondary_no_dismiss_actions, 'dismiss') === null
+);
+
+$learning_secondary_defer_gate = executable_visible_action_item([
+    'capabilities' => [
+        'can_defer' => true,
+    ],
+]);
+$learning_secondary_defer_actions = AA_Executable_Visible_Actions_Policy::resolve($learning_secondary_defer_gate, [
+    'view' => AA_Executable_Visible_Actions_Policy::VIEW_ACTIVE,
+    'bucket_key' => AA_Executable_Contract::BUCKET_SECONDARY,
+    'source' => AA_Executable_Contract::SOURCE_SYSTEM,
+]);
+ac_assert(
+    'System defer remains gated to primary bucket',
+    executable_visible_action_find($learning_secondary_defer_actions, 'defer') === null
+);
+
 $learning_secondary = executable_visible_action_item([
     'id' => 'install_pwa',
     'origin_key' => 'install_pwa',

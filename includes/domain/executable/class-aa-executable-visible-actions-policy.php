@@ -81,7 +81,7 @@ final class AA_Executable_Visible_Actions_Policy {
                     $actions[] = self::intent_action('defer', 'Ahora no');
                 }
 
-                if ($bucket_key === AA_Executable_Contract::BUCKET_SECONDARY && !empty($capabilities['can_dismiss'])) {
+                if (!empty($capabilities['can_dismiss'])) {
                     $actions[] = self::intent_action('dismiss', 'Ignorar');
                 }
             }

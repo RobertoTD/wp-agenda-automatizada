@@ -127,6 +127,7 @@ $learning_primary_lists = enricher_single_list(
         ],
         'capabilities' => [
             'can_defer' => true,
+            'can_dismiss' => true,
         ],
     ]),
     AA_Executable_Contract::BUCKET_PRIMARY
@@ -137,9 +138,9 @@ $learning_primary_actions = is_array($learning_primary_item)
     : [];
 
 ac_assert(
-    'Learning primary enricher includes navigate and defer',
+    'Learning primary enricher includes navigate defer and dismiss when capability set',
     is_array($learning_primary_item)
-    && enricher_action_keys($learning_primary_actions) === ['navigate', 'defer']
+    && enricher_action_keys($learning_primary_actions) === ['navigate', 'defer', 'dismiss']
     && ($learning_primary_item['primary_action']['type'] ?? '') === AA_Executable_Contract::ACTION_NAVIGATE
 );
 

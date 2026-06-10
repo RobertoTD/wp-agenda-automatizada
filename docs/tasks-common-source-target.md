@@ -733,9 +733,37 @@ No hay backfill de filas legacy en este ciclo.
 
 - Schema / `DB_VERSION`.
 - UI / JS / copy visible.
-- Dónde aparece el botón Ignorar (sigue solo secondary defer).
+- Dónde aparece el botón Ignorar (corregido en MC13O-H3A).
 - Migración de `is_dismissed` legacy.
 - D2 / `GetExecutableListsFeedUseCase`.
+
+## MC13O-H3A: Ignorar desacoplado de defer/bucket
+
+MC13O-H3A corrige el read path de capabilities para **Ignorar** (`can_dismiss`):
+
+- Ya **no depende** de `has_defer`, bucket primary/secondary ni `default_bucket`.
+- Pending visible en active → `can_dismiss=true` salvo ocultamiento dismiss activo,
+  `completed_by_system`, not pending o done.
+- `AA_Executable_Visible_Actions_Policy` para `source=system` ya **no exige**
+  `bucket_key=secondary` para emitir la acción Ignorar.
+
+Reglas que se mantienen en H3A:
+
+- `can_defer` sigue MC13G-D: true solo en camino primary sin defer; false con defer.
+- Bucket projection sin cambios: defer sigue empujando a secondary.
+- Write path defer/dismiss sin cambios (H1/H2).
+
+Deuda explícita:
+
+- **H3B:** reclasificación primary/secondary vía `aa_tasks.default_bucket`; deprecar
+  defer como fuente de bucket.
+- **H3C:** click de Ignorar en seeded/developer aún puede usar canal legacy Learning
+  (`data-learning-action` → `DismissLearningRecommendationUseCase`) en lugar de
+  `aa_dismiss_task` / Tasks común; solo se corrige render/capabilities en H3A.
+
+Ignorar **no es** defer. Defer (“Ahora no”) queda como compatibilidad temporal
+hasta H3B; conceptualmente debe migrar a “convertir en secundaria” vía
+`default_bucket`, no como ocultamiento temporal.
 
 ### Configuración futura (documentada, no implementada)
 

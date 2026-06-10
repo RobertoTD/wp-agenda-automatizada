@@ -86,10 +86,10 @@ ac_assert(
     && ($default_result['task_bucket_order_by_list'][1]['secondary'] ?? []) === []
 );
 ac_assert(
-    'Pending user without signals can_defer only',
+    'Pending user without signals can_defer and can_dismiss',
     is_array($default_eval)
     && ($default_eval['capabilities']['can_defer'] ?? false) === true
-    && ($default_eval['capabilities']['can_dismiss'] ?? true) === false
+    && ($default_eval['capabilities']['can_dismiss'] ?? false) === true
     && ($default_eval['projection']['projection_reason'] ?? '') === AA_Task_Active_View_Projection_Policy::REASON_DEFAULT_PRIMARY
 );
 
@@ -113,7 +113,7 @@ ac_assert(
     && ($defer_result['task_bucket_order_by_list'][1]['secondary'] ?? []) === [11]
 );
 ac_assert(
-    'Deferred task can_dismiss only',
+    'Deferred task can_defer false and can_dismiss true',
     is_array($defer_eval)
     && ($defer_eval['capabilities']['can_defer'] ?? true) === false
     && ($defer_eval['capabilities']['can_dismiss'] ?? false) === true
@@ -193,6 +193,39 @@ ac_assert(
     is_array($returned_eval)
     && ($returned_eval['visible_in_active'] ?? false) === true
     && ($returned_eval['projection']['projection_reason'] ?? '') === AA_Task_Active_View_Projection_Policy::REASON_DEFAULT_PRIMARY
+);
+ac_assert(
+    'Returned dismissed task exposes can_dismiss again',
+    is_array($returned_eval)
+    && ($returned_eval['capabilities']['can_dismiss'] ?? false) === true
+);
+
+$active_temp_dismiss_state = [
+    'task_id' => 23,
+    'last_deferred_at' => null,
+    'defer_count' => 0,
+    'last_dismissed_at' => '2026-06-04 10:00:00',
+    'dismiss_count' => 1,
+    'defer_until' => null,
+    'dismiss_until' => '2026-06-04 14:00:00',
+];
+$active_temp_dismiss_result = active_view_project($base_list, [
+    ['id' => 23, 'list_id' => 1, 'title' => 'Temp dismissed', 'status' => 'pending'],
+], [
+    23 => $active_temp_dismiss_state,
+], '2026-06-04 12:00:00');
+$active_temp_dismiss_eval = $active_temp_dismiss_result['task_evaluations_by_id'][23] ?? null;
+ac_assert(
+    'Future dismiss_until hides task from active buckets',
+    ($active_temp_dismiss_result['task_bucket_order_by_list'][1]['primary'] ?? []) === []
+    && ($active_temp_dismiss_result['task_bucket_order_by_list'][1]['secondary'] ?? []) === []
+);
+ac_assert(
+    'Future dismiss_until disables can_dismiss',
+    is_array($active_temp_dismiss_eval)
+    && ($active_temp_dismiss_eval['visible_in_active'] ?? true) === false
+    && ($active_temp_dismiss_eval['capabilities']['can_dismiss'] ?? true) === false
+    && ($active_temp_dismiss_eval['projection']['projection_reason'] ?? '') === AA_Task_Active_View_Projection_Policy::REASON_DISMISSED
 );
 
 $returned_defer_state = [

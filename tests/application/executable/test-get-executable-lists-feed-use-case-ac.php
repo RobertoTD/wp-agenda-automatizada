@@ -376,12 +376,12 @@ ac_assert(
     && array_key_exists('visible_actions', $system_primary_item)
 );
 ac_assert(
-    'Happy path user pending item includes visible_actions complete defer only',
-    $user_visible_keys === ['complete', 'defer']
+    'Happy path user pending item includes visible_actions complete defer dismiss',
+    $user_visible_keys === ['complete', 'defer', 'dismiss']
     && is_array($first_user_item)
     && ($first_user_item['primary_action']['type'] ?? '') === AA_Executable_Contract::ACTION_STATUS
     && ($first_user_item['capabilities']['can_defer'] ?? false) === true
-    && ($first_user_item['capabilities']['can_dismiss'] ?? true) === false
+    && ($first_user_item['capabilities']['can_dismiss'] ?? false) === true
 );
 
 $second_user_list = is_array($happy_lists[2] ?? null) ? $happy_lists[2] : [];
@@ -395,8 +395,8 @@ $second_user_visible_keys = is_array($second_user_item)
     }, is_array($second_user_item['visible_actions'] ?? null) ? $second_user_item['visible_actions'] : [])
     : [];
 ac_assert(
-    'Happy path second list pending user also exposes defer only in primary',
-    $second_user_visible_keys === ['complete', 'defer']
+    'Happy path second list pending user also exposes defer and dismiss in primary',
+    $second_user_visible_keys === ['complete', 'defer', 'dismiss']
 );
 
 $seeded_payload = feed_fixture_tasks_payload();

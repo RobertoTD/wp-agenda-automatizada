@@ -34,6 +34,10 @@ require_once __DIR__ . '/../../../includes/application/executable/LearningRecomm
 require_once __DIR__ . '/../../../includes/application/executable/TaskBoardToExecutableMapper.php';
 require_once __DIR__ . '/../../../includes/application/executable/ExecutableVisibleActionsEnricher.php';
 require_once __DIR__ . '/../../../includes/domain/executable/class-aa-executable-visible-actions-policy.php';
+require_once __DIR__ . '/../../../includes/domain/tasks/class-aa-task.php';
+require_once __DIR__ . '/../../../includes/domain/tasks/class-aa-task-list.php';
+require_once __DIR__ . '/../../../includes/domain/tasks/class-aa-task-signal-policy.php';
+require_once __DIR__ . '/../../../includes/domain/tasks/class-aa-task-active-view-projection-policy.php';
 
 $total = 0;
 $passed = 0;
@@ -51,6 +55,62 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 
     $failed[] = $label;
     echo '[FAIL] ' . $label . ($detail !== '' ? ' - ' . $detail : '') . "\n";
+}
+
+/**
+ * @param list<array<string,mixed>> $lists
+ * @param list<array<string,mixed>> $tasks
+ * @param array<int,array<string,mixed>> $task_state_by_id
+ * @return array<string,mixed>
+ */
+function mapper_build_task_organization(
+    array $lists,
+    array $tasks,
+    array $task_state_by_id = [],
+    string $now = '2026-06-04 12:00:00'
+): array {
+    $list_order = array_values(array_map(static function (array $list): int {
+        return (int) ($list['id'] ?? 0);
+    }, $lists));
+    $task_order_by_list = [];
+
+    foreach ($lists as $list) {
+        $list_id = (int) ($list['id'] ?? 0);
+
+        if ($list_id < 1) {
+            continue;
+        }
+
+        $task_order_by_list[$list_id] = [];
+
+        foreach ($tasks as $task) {
+            if ((int) ($task['list_id'] ?? 0) === $list_id) {
+                $task_order_by_list[$list_id][] = (int) ($task['id'] ?? 0);
+            }
+        }
+    }
+
+    $signal_evaluations = (new AA_Task_Signal_Policy())->evaluate_all([
+        'tasks' => $tasks,
+        'task_state_by_id' => $task_state_by_id,
+        'now' => $now,
+    ]);
+    $projection = (new AA_Task_Active_View_Projection_Policy())->project([
+        'lists' => $lists,
+        'tasks' => $tasks,
+        'list_order' => $list_order,
+        'task_order_by_list' => $task_order_by_list,
+        'task_evaluations_by_id' => $signal_evaluations,
+        'now' => $now,
+    ]);
+
+    return [
+        'list_order' => $list_order,
+        'task_order_by_list' => $task_order_by_list,
+        'task_bucket_order_by_list' => $projection['task_bucket_order_by_list'],
+        'executive_candidates' => [],
+        'task_evaluations_by_id' => $projection['task_evaluations_by_id'],
+    ];
 }
 
 // ─── Contrato: lista vacía ─────────────────────────────────────
@@ -653,105 +713,95 @@ ac_assert(
 
 // ─── Agenda app seeded desde DB común ─────────────────────────
 
-$agenda_seeded_payload = [
-    'lists' => [
+$agenda_lists_data = [
+    [
+        'id' => 50,
+        'title' => 'Recomendaciones',
+        'description' => 'Sugerencias para configurar y usar tu agenda.',
+        'owner_type' => 'developer',
+        'source_category' => 'agenda_app',
+        'origin_key' => 'learning.recommendations',
+        'managed_by' => 'developer',
+        'importance' => 0,
+        'position' => 0,
+        'status' => 'active',
+    ],
+];
+$agenda_tasks_data = [
+    [
+        'id' => 500,
+        'list_id' => 50,
+        'title' => 'Completa los datos de tu negocio',
+        'notes' => 'Añade el nombre y la dirección de tu negocio.',
+        'status' => 'pending',
+        'source' => 'system',
+        'source_category' => 'agenda_app',
+        'origin_key' => 'complete_business_data',
+        'managed_by' => 'developer',
+        'default_bucket' => 'primary',
+        'completion_type' => 'system',
+        'completion_fact_key' => 'business_data_complete',
+        'importance' => -5,
+        'due_at' => null,
+    ],
+    [
+        'id' => 501,
+        'list_id' => 50,
+        'title' => 'Instala la app',
+        'notes' => 'Añade DEOIA Citas a la pantalla de inicio.',
+        'status' => 'pending',
+        'source' => 'system',
+        'source_category' => 'agenda_app',
+        'origin_key' => 'install_pwa',
+        'managed_by' => 'developer',
+        'default_bucket' => 'secondary',
+        'completion_type' => 'manual',
+        'completion_fact_key' => null,
+        'importance' => 100,
+        'due_at' => null,
+    ],
+];
+$agenda_organization = mapper_build_task_organization($agenda_lists_data, $agenda_tasks_data);
+$agenda_organization['task_actions_by_id'] = [
+    500 => [
         [
-            'id' => 50,
-            'title' => 'Recomendaciones',
-            'description' => 'Sugerencias para configurar y usar tu agenda.',
-            'owner_type' => 'developer',
-            'source_category' => 'agenda_app',
-            'origin_key' => 'learning.recommendations',
-            'managed_by' => 'developer',
-            'importance' => 0,
+            'id' => 1,
+            'task_id' => 500,
+            'action_key' => 'navigate.settings',
+            'type' => 'navigate',
+            'label' => 'Ir',
+            'placement' => 'primary',
+            'category' => 'mechanical',
+            'target_module' => 'settings',
+            'target_setup_focus' => null,
+            'target_fragment' => null,
+            'handler' => null,
+            'enabled' => 1,
             'position' => 0,
-            'status' => 'active',
         ],
     ],
-    'tasks' => [
+    501 => [
         [
-            'id' => 500,
-            'list_id' => 50,
-            'title' => 'Completa los datos de tu negocio',
-            'notes' => 'Añade el nombre y la dirección de tu negocio.',
-            'status' => 'pending',
-            'source' => 'system',
-            'source_category' => 'agenda_app',
-            'origin_key' => 'complete_business_data',
-            'managed_by' => 'developer',
-            'default_bucket' => 'primary',
-            'completion_type' => 'system',
-            'completion_fact_key' => 'business_data_complete',
-            'importance' => -5,
-            'due_at' => null,
-        ],
-        [
-            'id' => 501,
-            'list_id' => 50,
-            'title' => 'Instala la app',
-            'notes' => 'Añade DEOIA Citas a la pantalla de inicio.',
-            'status' => 'pending',
-            'source' => 'system',
-            'source_category' => 'agenda_app',
-            'origin_key' => 'install_pwa',
-            'managed_by' => 'developer',
-            'default_bucket' => 'secondary',
-            'completion_type' => 'manual',
-            'completion_fact_key' => null,
-            'importance' => 100,
-            'due_at' => null,
+            'id' => 2,
+            'task_id' => 501,
+            'action_key' => 'pwa.install',
+            'type' => 'handler',
+            'label' => 'Instalar',
+            'placement' => 'primary',
+            'category' => 'mechanical',
+            'target_module' => null,
+            'target_setup_focus' => null,
+            'target_fragment' => null,
+            'handler' => 'pwa.install',
+            'enabled' => 1,
+            'position' => 0,
         ],
     ],
-    'organization' => [
-        'list_order' => [50],
-        'task_order_by_list' => [
-            50 => [500, 501],
-        ],
-        'task_bucket_order_by_list' => [
-            50 => [
-                'primary' => [500, 501],
-                'secondary' => [],
-            ],
-        ],
-        'executive_candidates' => [],
-        'task_evaluations_by_id' => [],
-        'task_actions_by_id' => [
-            500 => [
-                [
-                    'id' => 1,
-                    'task_id' => 500,
-                    'action_key' => 'navigate.settings',
-                    'type' => 'navigate',
-                    'label' => 'Ir',
-                    'placement' => 'primary',
-                    'category' => 'mechanical',
-                    'target_module' => 'settings',
-                    'target_setup_focus' => null,
-                    'target_fragment' => null,
-                    'handler' => null,
-                    'enabled' => 1,
-                    'position' => 0,
-                ],
-            ],
-            501 => [
-                [
-                    'id' => 2,
-                    'task_id' => 501,
-                    'action_key' => 'pwa.install',
-                    'type' => 'handler',
-                    'label' => 'Instalar',
-                    'placement' => 'primary',
-                    'category' => 'mechanical',
-                    'target_module' => null,
-                    'target_setup_focus' => null,
-                    'target_fragment' => null,
-                    'handler' => 'pwa.install',
-                    'enabled' => 1,
-                    'position' => 0,
-                ],
-            ],
-        ],
-    ],
+];
+$agenda_seeded_payload = [
+    'lists' => $agenda_lists_data,
+    'tasks' => $agenda_tasks_data,
+    'organization' => $agenda_organization,
 ];
 
 $agenda_lists = TaskBoardToExecutableMapper::map($agenda_seeded_payload);
@@ -822,6 +872,35 @@ ac_assert(
     'Agenda app completion_type=manual keeps manual complete when pending',
     is_array($agenda_secondary_item)
     && ($agenda_secondary_item['capabilities']['can_complete'] ?? false) === true
+);
+ac_assert(
+    'Agenda app pending primary exposes can_dismiss capability',
+    is_array($agenda_primary_item)
+    && ($agenda_primary_item['capabilities']['can_dismiss'] ?? false) === true
+);
+ac_assert(
+    'Agenda app default_bucket secondary without defer exposes can_dismiss',
+    is_array($agenda_secondary_item)
+    && ($agenda_secondary_item['capabilities']['can_dismiss'] ?? false) === true
+);
+
+$enriched_agenda_primary_keys = is_array($enriched_agenda_primary)
+    ? array_map(static function (array $action): string {
+        return (string) ($action['key'] ?? '');
+    }, is_array($enriched_agenda_primary['visible_actions'] ?? null) ? $enriched_agenda_primary['visible_actions'] : [])
+    : [];
+$enriched_agenda_secondary_keys = is_array($enriched_agenda_secondary)
+    ? array_map(static function (array $action): string {
+        return (string) ($action['key'] ?? '');
+    }, is_array($enriched_agenda_secondary['visible_actions'] ?? null) ? $enriched_agenda_secondary['visible_actions'] : [])
+    : [];
+ac_assert(
+    'Agenda app primary navigate item includes dismiss visible_action',
+    $enriched_agenda_primary_keys === ['navigate.settings', 'defer', 'dismiss']
+);
+ac_assert(
+    'Agenda app secondary default_bucket item includes install complete dismiss',
+    $enriched_agenda_secondary_keys === ['pwa.install', 'complete', 'dismiss']
 );
 
 $system_completed_payload = $agenda_seeded_payload;

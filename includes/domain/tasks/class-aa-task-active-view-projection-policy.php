@@ -177,7 +177,7 @@ final class AA_Task_Active_View_Projection_Policy {
                 self::REASON_DEFERRED,
                 $suggested_active_bucket,
                 false,
-                true
+                $this->resolve_can_dismiss($base_eval)
             );
         }
 
@@ -187,8 +187,17 @@ final class AA_Task_Active_View_Projection_Policy {
             self::REASON_DEFAULT_PRIMARY,
             $suggested_active_bucket,
             true,
-            false
+            $this->resolve_can_dismiss($base_eval)
         );
+    }
+
+    /**
+     * @param array<string,mixed> $base_eval Evaluación de AA_Task_Signal_Policy.
+     */
+    private function resolve_can_dismiss(array $base_eval): bool {
+        $capabilities = is_array($base_eval['capabilities'] ?? null) ? $base_eval['capabilities'] : [];
+
+        return !empty($capabilities['can_dismiss']);
     }
 
     /**
