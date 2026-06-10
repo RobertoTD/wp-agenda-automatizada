@@ -97,6 +97,8 @@ ac_assert('TaskRepository defines update_status', strpos($task_repo_src, 'functi
 ac_assert('TaskRepository defines mark_completed', strpos($task_repo_src, 'function mark_completed') !== false);
 ac_assert('TaskRepository maps common source fields', strpos($task_repo_src, "'source_category' =>") !== false && strpos($task_repo_src, "'managed_by' =>") !== false);
 ac_assert('TaskRepository maps default_bucket', strpos($task_repo_src, "'default_bucket' =>") !== false);
+ac_assert('TaskRepository writable includes default_bucket', strpos($task_repo_src, "'default_bucket',") !== false);
+ac_assert('TaskRepository normalizes default_bucket', strpos($task_repo_src, 'normalize_default_bucket') !== false);
 ac_assert('TaskRepository maps completion fields', strpos($task_repo_src, "'completion_type' =>") !== false && strpos($task_repo_src, "'completion_fact_key' =>") !== false);
 ac_assert('TaskRepository defines list_system_completion_candidates', strpos($task_repo_src, 'function list_system_completion_candidates') !== false);
 ac_assert(
@@ -304,6 +306,51 @@ if ($wp_integration) {
 
     $task_id = (int) ($task['id'] ?? 0);
     ac_assert('create task has id', $task_id > 0);
+
+    $secondary_task = TaskRepository::create([
+        'list_id' => $empty_list_id,
+        'title' => 'Tarea secondary AC ' . $suffix,
+        'source' => 'user',
+        'default_bucket' => 'secondary',
+    ]);
+    ac_assert(
+        'create task with default_bucket secondary persists secondary',
+        is_array($secondary_task) && ($secondary_task['default_bucket'] ?? '') === 'secondary'
+    );
+
+    $invalid_bucket_task = TaskRepository::create([
+        'list_id' => $empty_list_id,
+        'title' => 'Tarea invalid bucket AC ' . $suffix,
+        'source' => 'user',
+        'default_bucket' => 'invalid',
+    ]);
+    ac_assert(
+        'create task invalid default_bucket normalizes to primary',
+        is_array($invalid_bucket_task) && ($invalid_bucket_task['default_bucket'] ?? '') === 'primary'
+    );
+
+    $bucket_updated = TaskRepository::update($task_id, ['default_bucket' => 'secondary']);
+    ac_assert(
+        'update task default_bucket to secondary',
+        is_array($bucket_updated) && ($bucket_updated['default_bucket'] ?? '') === 'secondary'
+    );
+    ac_assert(
+        'update default_bucket does not change status',
+        ($bucket_updated['status'] ?? '') === 'pending'
+        && ($bucket_updated['completed_at'] ?? null) === null
+    );
+
+    $bucket_primary = TaskRepository::update($task_id, ['default_bucket' => 'primary']);
+    ac_assert(
+        'update task default_bucket to primary',
+        is_array($bucket_primary) && ($bucket_primary['default_bucket'] ?? '') === 'primary'
+    );
+
+    $invalid_bucket_update = TaskRepository::update($task_id, ['default_bucket' => 'foo']);
+    ac_assert(
+        'update task invalid default_bucket normalizes to primary',
+        is_array($invalid_bucket_update) && ($invalid_bucket_update['default_bucket'] ?? '') === 'primary'
+    );
 
     $found_task = TaskRepository::find_by_id($task_id);
     ac_assert('find_by_id task matches create', is_array($found_task) && ($found_task['id'] ?? 0) === $task_id);

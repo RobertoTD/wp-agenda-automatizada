@@ -54,6 +54,7 @@ require_once $plugin_root . '/includes/application/tasks/RestoreTaskListUseCase.
 require_once $plugin_root . '/includes/application/tasks/CreateTaskUseCase.php';
 require_once $plugin_root . '/includes/application/tasks/UpdateTaskUseCase.php';
 require_once $plugin_root . '/includes/application/tasks/ChangeTaskStatusUseCase.php';
+require_once $plugin_root . '/includes/application/tasks/ChangeTaskDefaultBucketUseCase.php';
 
 // ─── Estáticos: AJAX wiring ──────────────────────────────────
 
@@ -121,6 +122,17 @@ ac_assert(
 
 $change_status_src = file_get_contents($plugin_root . '/includes/application/tasks/ChangeTaskStatusUseCase.php');
 ac_assert('ChangeTaskStatusUseCase uses mark_completed', strpos($change_status_src, 'mark_completed') !== false);
+
+$change_bucket_src = file_get_contents($plugin_root . '/includes/application/tasks/ChangeTaskDefaultBucketUseCase.php');
+ac_assert('ChangeTaskDefaultBucketUseCase file readable', $change_bucket_src !== false);
+ac_assert(
+    'ChangeTaskDefaultBucketUseCase updates default_bucket only via repository',
+    strpos($change_bucket_src, "'default_bucket'") !== false
+    && strpos($change_bucket_src, 'TaskStateRepository') === false
+);
+
+$create_task_src = file_get_contents($plugin_root . '/includes/application/tasks/CreateTaskUseCase.php');
+ac_assert('CreateTaskUseCase accepts optional default_bucket', strpos($create_task_src, 'default_bucket') !== false);
 
 // ─── Integración WordPress ───────────────────────────────────
 

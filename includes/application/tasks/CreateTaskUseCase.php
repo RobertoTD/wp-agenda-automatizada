@@ -27,7 +27,7 @@ final class CreateTaskUseCase {
             return TaskUseCaseSupport::fail('missing_title', 'El título de la tarea es obligatorio.');
         }
 
-        $row = TaskRepository::create([
+        $payload = [
             'list_id' => $list_id,
             'title' => $title,
             'notes' => TaskUseCaseSupport::normalize_optional_string($input['notes'] ?? null),
@@ -36,7 +36,15 @@ final class CreateTaskUseCase {
             'due_at' => TaskUseCaseSupport::normalize_due_at($input['due_at'] ?? null),
             'position' => TaskUseCaseSupport::normalize_position($input['position'] ?? 0),
             'status' => 'pending',
-        ]);
+        ];
+
+        if (array_key_exists('default_bucket', $input)) {
+            $payload['default_bucket'] = TaskUseCaseSupport::normalize_default_bucket_optional(
+                $input['default_bucket']
+            );
+        }
+
+        $row = TaskRepository::create($payload);
 
         if ($row === null) {
             return TaskUseCaseSupport::fail('persistence_failed', 'No se pudo crear la tarea.');

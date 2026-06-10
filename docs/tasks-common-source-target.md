@@ -784,6 +784,24 @@ Ignorar **no es** defer. Defer (“Ahora no”) queda como compatibilidad tempor
 hasta H3B; conceptualmente debe migrar a “convertir en secundaria” vía
 `default_bucket`, no como ocultamiento temporal.
 
+## MC13O-H3B-1: write path de `default_bucket`
+
+MC13O-H3B-1 habilita persistencia controlada de clasificación natural en
+`aa_tasks.default_bucket` sin cambiar projection ni feed:
+
+- `TaskRepository` escribe `default_bucket` (`primary` \| `secondary`); valores
+  inválidos en repository se **normalizan a `primary`**.
+- `CreateTaskUseCase` acepta `default_bucket` opcional (default lógico `primary`).
+- `ChangeTaskDefaultBucketUseCase` cambia clasificación con validación **estricta**
+  en application (`invalid_default_bucket` si el valor no es primary/secondary);
+  exige lista `active`; no toca `status`, `aa_task_state`, defer ni dismiss.
+
+Fuera de alcance H3B-1:
+
+- Projection sigue usando `defer` como fuente de secondary (H3B-3).
+- Sin migración defer→`default_bucket` (H3B-2).
+- Sin copy “Convertir a tarea secundaria”, UI, JS ni endpoint AJAX.
+
 ### Configuración futura (documentada, no implementada)
 
 Tareas seeded/developer podrán definir duración configurable, p. ej.:

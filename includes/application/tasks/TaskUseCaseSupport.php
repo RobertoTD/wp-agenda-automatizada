@@ -123,6 +123,36 @@ final class TaskUseCaseSupport {
     /**
      * @param mixed $value
      */
+    public static function normalize_default_bucket_strict($value): ?string {
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $bucket = strtolower(trim($value));
+
+        if ($bucket === TaskRepository::DEFAULT_BUCKET_PRIMARY || $bucket === TaskRepository::DEFAULT_BUCKET_SECONDARY) {
+            return $bucket;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param mixed $value
+     */
+    public static function normalize_default_bucket_optional($value): string {
+        $strict = self::normalize_default_bucket_strict($value);
+
+        if ($strict !== null) {
+            return $strict;
+        }
+
+        return TaskRepository::normalize_default_bucket($value);
+    }
+
+    /**
+     * @param mixed $value
+     */
     public static function normalize_task_status($value): ?string {
         if (!is_string($value)) {
             return null;

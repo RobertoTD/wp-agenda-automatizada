@@ -25,11 +25,16 @@ final class TaskRepository {
         'notes',
         'status',
         'source',
+        'default_bucket',
         'importance',
         'due_at',
         'position',
         'completed_at',
     ];
+
+    public const DEFAULT_BUCKET_PRIMARY = 'primary';
+
+    public const DEFAULT_BUCKET_SECONDARY = 'secondary';
 
     /**
      * @return string
@@ -316,6 +321,10 @@ final class TaskRepository {
             return is_string($value) ? $value : (string) $value;
         }
 
+        if ($column === 'default_bucket') {
+            return self::normalize_default_bucket($value);
+        }
+
         return $value;
     }
 
@@ -341,5 +350,18 @@ final class TaskRepository {
         }
 
         return $formats;
+    }
+
+    /**
+     * @param mixed $value
+     */
+    public static function normalize_default_bucket($value): string {
+        $bucket = is_string($value) ? strtolower(trim($value)) : '';
+
+        if ($bucket === self::DEFAULT_BUCKET_SECONDARY) {
+            return self::DEFAULT_BUCKET_SECONDARY;
+        }
+
+        return self::DEFAULT_BUCKET_PRIMARY;
     }
 }
