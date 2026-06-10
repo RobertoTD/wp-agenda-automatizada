@@ -8,6 +8,7 @@
 defined('ABSPATH') or die('No direct access');
 
 require_once __DIR__ . '/TaskUseCaseSupport.php';
+require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-work-cycle-policy.php';
 require_once dirname(__DIR__, 2) . '/repositories/TaskStateRepository.php';
 
 final class RecordTaskDismissSignalUseCase {
@@ -36,12 +37,23 @@ final class RecordTaskDismissSignalUseCase {
         }
 
         $now = TaskUseCaseSupport::resolve_now();
-        $task_state = TaskStateRepository::record_dismiss($task_id, $now);
+        $cycles = $this->resolve_ignore_cycles($input);
+        $dismiss_until = (new AA_Task_Work_Cycle_Policy())->resolve_ignore_until($now, $cycles);
+        $task_state = TaskStateRepository::record_dismiss($task_id, $now, $dismiss_until);
 
         if ($task_state === null) {
             return TaskUseCaseSupport::fail('persistence_failed', 'No se pudo registrar la señal de ocultamiento.');
         }
 
         return TaskUseCaseSupport::ok(['task_state' => $task_state]);
+    }
+
+    /**
+     * @param array<string,mixed> $input
+     */
+    private function resolve_ignore_cycles(array $input): int {
+        $raw_cycles = $input['ignore_cycles'] ?? $input['cycles'] ?? AA_Task_Work_Cycle_Policy::DEFAULT_IGNORE_CYCLES;
+
+        return max(1, (int) $raw_cycles);
     }
 }

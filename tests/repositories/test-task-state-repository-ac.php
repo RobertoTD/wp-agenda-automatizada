@@ -67,7 +67,7 @@ ac_assert('TaskStateRepository defines record_defer', strpos($repo_src, 'functio
 ac_assert('TaskStateRepository defines record_dismiss', strpos($repo_src, 'function record_dismiss') !== false);
 ac_assert('TaskStateRepository defines find_by_task_ids', strpos($repo_src, 'function find_by_task_ids') !== false);
 ac_assert('record_defer leaves defer_until null', strpos($repo_src, "'defer_until' => null") !== false);
-ac_assert('record_dismiss leaves dismiss_until null', strpos($repo_src, "'dismiss_until' => null") !== false);
+ac_assert('record_dismiss accepts dismiss_until parameter', strpos($repo_src, '$dismiss_until = null') !== false);
 ac_assert('TaskStateRepository defines clear_dismiss_hiding_effect', strpos($repo_src, 'function clear_dismiss_hiding_effect') !== false);
 ac_assert(
     'TaskStateRepository defines clear_dismiss_hiding_effect_for_task_ids',
@@ -180,7 +180,7 @@ if ($wp_load !== '' && is_readable($wp_load)) {
     );
     ac_assert('record_dismiss sets dismiss_count=1', (int) ($first_dismiss['dismiss_count'] ?? 0) === 1);
     ac_assert(
-        'record_dismiss leaves dismiss_until null',
+        'record_dismiss without dismiss_until leaves dismiss_until null (legacy permanent)',
         ($first_dismiss['dismiss_until'] ?? 'x') === null
     );
     ac_assert(
@@ -226,6 +226,37 @@ if ($wp_load !== '' && is_readable($wp_load)) {
     $second_task_id = (int) $wpdb->insert_id;
     ac_assert('Seed second task for bulk clear', $second_task_id > 0);
     TaskStateRepository::record_dismiss($second_task_id, '2026-06-06 15:00:00');
+
+    $third_task_insert = $wpdb->insert(
+        $tasks_table,
+        [
+            'list_id' => $list_id,
+            'title' => 'Temp dismiss task ' . $suffix,
+            'notes' => '',
+            'importance' => 0,
+            'status' => 'pending',
+            'position' => 2,
+            'created_at' => current_time('mysql'),
+        ],
+        ['%d', '%s', '%s', '%d', '%s', '%d', '%s']
+    );
+    $third_task_id = (int) $wpdb->insert_id;
+    ac_assert('Seed third task for temp dismiss_until', $third_task_id > 0);
+
+    $temp_dismiss = TaskStateRepository::record_dismiss(
+        $third_task_id,
+        '2026-06-06 15:00:00',
+        '2026-06-07 12:00:00'
+    );
+    ac_assert('record_dismiss persists explicit dismiss_until', is_array($temp_dismiss));
+    ac_assert(
+        'record_dismiss writes future dismiss_until',
+        ($temp_dismiss['dismiss_until'] ?? '') === '2026-06-07 12:00:00'
+    );
+    ac_assert(
+        'record_dismiss with dismiss_until preserves last_dismissed_at',
+        ($temp_dismiss['last_dismissed_at'] ?? '') === '2026-06-06 15:00:00'
+    );
 
     $bulk = TaskStateRepository::clear_dismiss_hiding_effect_for_task_ids(
         [$task_id, $second_task_id, 99999999],
@@ -342,6 +373,10 @@ if ($wp_load !== '' && is_readable($wp_load)) {
     if (isset($second_task_id) && $second_task_id > 0) {
         $wpdb->delete($state_table, ['task_id' => $second_task_id], ['%d']);
         $wpdb->delete($tasks_table, ['id' => $second_task_id], ['%d']);
+    }
+    if (isset($third_task_id) && $third_task_id > 0) {
+        $wpdb->delete($state_table, ['task_id' => $third_task_id], ['%d']);
+        $wpdb->delete($tasks_table, ['id' => $third_task_id], ['%d']);
     }
     $wpdb->delete($tasks_table, ['id' => $task_id], ['%d']);
     $wpdb->delete($lists_table, ['id' => $list_id], ['%d']);

@@ -348,11 +348,12 @@ final class TaskStateRepository {
     /**
      * Registra señal dismiss (Ignorar): last_dismissed_at + increment dismiss_count.
      *
-     * @param int    $task_id
-     * @param string $now Y-m-d H:i:s
+     * @param int         $task_id
+     * @param string      $now Y-m-d H:i:s
+     * @param string|null $dismiss_until null = ocultamiento permanente legacy; futuro = ignore temporal.
      * @return array<string,mixed>|null
      */
-    public static function record_dismiss($task_id, $now) {
+    public static function record_dismiss($task_id, $now, $dismiss_until = null) {
         $normalized_task_id = (int) $task_id;
 
         if ($normalized_task_id < 1) {
@@ -364,11 +365,18 @@ final class TaskStateRepository {
             ? 1
             : ((int) ($existing['dismiss_count'] ?? 0)) + 1;
 
-        return self::upsert($normalized_task_id, [
+        $payload = [
             'last_dismissed_at' => $now,
             'dismiss_count' => $next_count,
-            'dismiss_until' => null,
-        ]);
+        ];
+
+        if ($dismiss_until !== null) {
+            $payload['dismiss_until'] = $dismiss_until;
+        } else {
+            $payload['dismiss_until'] = null;
+        }
+
+        return self::upsert($normalized_task_id, $payload);
     }
 
     /**

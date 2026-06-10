@@ -40,6 +40,8 @@ ac_assert('Defer use case does not touch TaskRepository update', strpos($defer_s
 $dismiss_src = file_get_contents($dismiss_uc_file);
 ac_assert('RecordTaskDismissSignalUseCase file readable', $dismiss_src !== false);
 ac_assert('Dismiss use case uses record_dismiss', strpos($dismiss_src, 'record_dismiss') !== false);
+ac_assert('Dismiss use case uses AA_Task_Work_Cycle_Policy', strpos($dismiss_src, 'AA_Task_Work_Cycle_Policy') !== false);
+ac_assert('Dismiss use case passes dismiss_until to record_dismiss', strpos($dismiss_src, 'record_dismiss($task_id, $now, $dismiss_until)') !== false);
 ac_assert('Dismiss use case returns task_state', strpos($dismiss_src, "'task_state'") !== false);
 ac_assert('Dismiss use case checks pending', strpos($dismiss_src, 'task_not_pending') !== false);
 ac_assert('Dismiss use case does not touch TaskRepository update', strpos($dismiss_src, 'update_status') === false);
@@ -59,6 +61,7 @@ if ($wp_load !== '' && is_readable($wp_load)) {
     require_once $plugin_root . '/includes/application/tasks/CreateTaskUseCase.php';
     require_once $plugin_root . '/includes/application/tasks/ChangeTaskStatusUseCase.php';
     require_once $plugin_root . '/includes/application/tasks/ArchiveTaskListUseCase.php';
+    require_once $plugin_root . '/includes/domain/tasks/class-aa-task-work-cycle-policy.php';
     require_once $defer_uc_file;
     require_once $dismiss_uc_file;
 
@@ -105,9 +108,30 @@ if ($wp_load !== '' && is_readable($wp_load)) {
         'Dismiss response dismiss_count=1',
         (int) ($dismiss_result['data']['task_state']['dismiss_count'] ?? 0) === 1
     );
+    $dismiss_until = $dismiss_result['data']['task_state']['dismiss_until'] ?? null;
+    ac_assert('Dismiss response dismiss_until is set', is_string($dismiss_until) && $dismiss_until !== '');
+    $expected_dismiss_until = (new AA_Task_Work_Cycle_Policy())->resolve_ignore_until(
+        (string) ($dismiss_result['data']['task_state']['last_dismissed_at'] ?? ''),
+        AA_Task_Work_Cycle_Policy::DEFAULT_IGNORE_CYCLES
+    );
     ac_assert(
-        'Dismiss response dismiss_until null',
-        ($dismiss_result['data']['task_state']['dismiss_until'] ?? 'x') === null
+        'Dismiss response dismiss_until matches work cycle policy',
+        $dismiss_until === $expected_dismiss_until
+    );
+
+    $task_after_dismiss = TaskRepository::find_by_id($task_id);
+    ac_assert('Dismiss does not change task status', ($task_after_dismiss['status'] ?? '') === 'pending');
+    ac_assert(
+        'Dismiss preserves defer_count on task_state',
+        (int) ($dismiss_result['data']['task_state']['defer_count'] ?? 0) === 1
+    );
+    ac_assert(
+        'Dismiss preserves defer_until on task_state',
+        ($dismiss_result['data']['task_state']['defer_until'] ?? 'x') === null
+    );
+    ac_assert(
+        'Dismiss sets last_dismissed_at',
+        !empty($dismiss_result['data']['task_state']['last_dismissed_at'])
     );
 
     $not_found = (new RecordTaskDeferSignalUseCase())->execute(['task_id' => 99999999]);

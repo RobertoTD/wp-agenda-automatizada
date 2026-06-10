@@ -77,6 +77,21 @@ ac_assert('AJAX dismiss uses RecordTaskDismissSignalUseCase', strpos($ajax_src, 
 ac_assert('AJAX registers aa_return_ignored_user_tasks', strpos($ajax_src, 'aa_return_ignored_user_tasks') !== false);
 ac_assert('AJAX return ignored uses ReturnIgnoredUserTasksUseCase', strpos($ajax_src, 'ReturnIgnoredUserTasksUseCase') !== false);
 
+$dismiss_uc_src = file_get_contents($plugin_root . '/includes/application/tasks/RecordTaskDismissSignalUseCase.php');
+ac_assert('RecordTaskDismissSignalUseCase file readable', $dismiss_uc_src !== false);
+ac_assert(
+    'RecordTaskDismissSignalUseCase uses work cycle policy',
+    strpos($dismiss_uc_src, 'AA_Task_Work_Cycle_Policy') !== false
+);
+ac_assert(
+    'RecordTaskDismissSignalUseCase passes dismiss_until to repository',
+    strpos($dismiss_uc_src, 'record_dismiss($task_id, $now, $dismiss_until)') !== false
+);
+ac_assert(
+    'RecordTaskDismissSignalUseCase does not update task status',
+    strpos($dismiss_uc_src, 'update_status') === false
+);
+
 $bootstrap_src = file_get_contents($plugin_root . '/wp-agenda-automatizada.php');
 ac_assert('Plugin bootstrap registers TasksAjax', strpos($bootstrap_src, 'TasksAjax::register()') !== false);
 ac_assert(

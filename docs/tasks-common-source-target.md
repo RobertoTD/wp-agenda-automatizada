@@ -679,6 +679,76 @@ Pendiente post-F3:
 
 - Migración/policy de dismissed legacy cuando se defina regreso de ignoradas.
 
+## MC13O-H1/H2: Ignorar temporal por ciclo de trabajo
+
+MC13O-H1/H2 cambia el write path de **Ignorar** en Tasks común: deja de escribir
+`dismiss_until = null` (ocultamiento permanente) y pasa a escribir un
+`dismiss_until` futuro calculado por ciclo de trabajo.
+
+### Producto vs naming técnico
+
+- Concepto de producto: **Ignorar** / **Designorar**.
+- Persistencia técnica heredada: columnas `dismiss_*` en `aa_task_state`.
+- `dismiss_until` futuro se interpreta como **`ignored_until`** (oculto hasta esa fecha).
+
+### Ciclo de trabajo MVP
+
+- Reinicio diario a las **12:00 PM** hora local (la de `$now` / WordPress).
+- Default MVP: **1 ciclo** de trabajo por acción Ignorar.
+- Policy: `AA_Task_Work_Cycle_Policy::resolve_ignore_until($now, $cycles)`.
+- Si `$now` es antes de hoy 12:00 → próximo reset = hoy 12:00.
+- Si `$now` es igual o después de hoy 12:00 → próximo reset = mañana 12:00.
+- Si `$cycles > 1` → próximo reset + (`$cycles - 1`) días.
+
+### Write path (nuevo Ignorar)
+
+`RecordTaskDismissSignalUseCase`:
+
+```text
+last_dismissed_at = now
+dismiss_count = dismiss_count + 1
+dismiss_until = resolve_ignore_until(now, cycles=1)
+```
+
+No altera: `status`, `default_bucket`, defer, archivado ni eliminación.
+
+### Read path (sin cambios en este ciclo)
+
+`AA_Task_Signal_Policy` / `AA_Task_Active_View_Projection_Policy` ya interpretan:
+
+- `dismiss_until` futuro → oculto (`is_dismiss_hiding = true`).
+- `now >= dismiss_until` → designorado automático; vuelve a bucket natural según policy.
+- `dismiss_until = null` con `last_dismissed_at` → **legacy permanente** hasta
+  “Regresar tareas ignoradas” (`ReturnIgnoredUserTasksUseCase`).
+
+No hay backfill de filas legacy en este ciclo.
+
+### Designorar
+
+- Automático cuando `now >= dismiss_until`.
+- Manual con “Regresar tareas ignoradas” (sin cambios en F3/H2).
+- Conserva `last_dismissed_at` y `dismiss_count`.
+
+### Fuera de alcance H1/H2
+
+- Schema / `DB_VERSION`.
+- UI / JS / copy visible.
+- Dónde aparece el botón Ignorar (sigue solo secondary defer).
+- Migración de `is_dismissed` legacy.
+- D2 / `GetExecutableListsFeedUseCase`.
+
+### Configuración futura (documentada, no implementada)
+
+Tareas seeded/developer podrán definir duración configurable, p. ej.:
+
+```text
+ignore_duration_type = work_cycles
+ignore_duration_value = N
+```
+
+o fecha/hora concreta. Por ahora el use case acepta `ignore_cycles` / `cycles` en
+input interno con default `1`; no hay schema ni overrides en catálogo todavía.
+
 ## Preguntas abiertas
 
 - Puede el usuario ignorar tareas seeded Agenda app? Recomendacion: si, porque
