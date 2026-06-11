@@ -1185,3 +1185,117 @@ describe('AAExecutableListRenderer visible_actions', () => {
         assert.equal(JSON.stringify(item), snapshot);
     });
 });
+
+describe('executableListRenderer MC13 expandable items', () => {
+    function extractSummary(html) {
+        var match = html.match(/<summary[^>]*>[\s\S]*?<\/summary>/);
+
+        return match ? match[0] : '';
+    }
+
+    it('renderiza item como details colapsable cerrado por defecto', () => {
+        var html = renderer.renderItem(baseItem({
+            description: 'Detalle de la tarea'
+        }));
+
+        assert.match(html, /<details class="aa-executable-item/);
+        assert.doesNotMatch(html, /<details[^>]*\sopen(?:=|>)/);
+        assert.match(html, /<summary class="[^"]*aa-executable-item-summary/);
+        assert.match(html, /aa-executable-item-expanded/);
+    });
+
+    it('summary colapsado muestra título y preview sin acciones ni meta', () => {
+        var html = renderer.renderItem(baseItem({
+            id: '42',
+            source: 'user',
+            description: 'Descripción larga de la tarea para preview',
+            due_at: '2026-06-20 08:37:00',
+            importance: 5,
+            visible_actions: [
+                visibleAction({
+                    key: 'complete',
+                    type: 'status',
+                    category: 'declarative',
+                    label: 'Completar',
+                    placement: 'secondary',
+                    target_status: 'done'
+                })
+            ]
+        }));
+        var summary = extractSummary(html);
+
+        assert.match(summary, />Configura servicios</);
+        assert.match(summary, /aa-executable-item-desc-preview/);
+        assert.doesNotMatch(summary, /aa-executable-item-actions/);
+        assert.doesNotMatch(summary, /Vence:/);
+        assert.doesNotMatch(summary, /Importancia:/);
+        assert.doesNotMatch(summary, /aa-executable-item-chevron/);
+        assert.doesNotMatch(summary, /data-aa-task-edit/);
+        assert.doesNotMatch(summary, /data-tasks-action="complete"/);
+    });
+
+    it('contenido expandido incluye descripción completa, meta, acciones y chevron', () => {
+        var html = renderer.renderItem(baseItem({
+            id: '42',
+            source: 'user',
+            origin_key: null,
+            description: 'Detalles completos de la tarea',
+            due_at: '2026-06-20 08:37:00',
+            importance: 3,
+            visible_actions: [
+                visibleAction({
+                    key: 'complete',
+                    type: 'status',
+                    category: 'declarative',
+                    label: 'Completar',
+                    placement: 'secondary',
+                    target_status: 'done'
+                }),
+                visibleAction({
+                    key: 'dismiss',
+                    type: 'intent',
+                    category: 'intent',
+                    label: 'Ignorar',
+                    placement: 'secondary'
+                })
+            ]
+        }));
+
+        assert.match(html, /aa-executable-item-desc-full/);
+        assert.match(html, />Detalles completos de la tarea</);
+        assert.match(html, /Vence: 2026-06-20 08:37:00/);
+        assert.match(html, /Importancia: 3/);
+        assert.match(html, /aa-executable-item-actions/);
+        assert.match(html, /onclick="event\.stopPropagation\(\)"/);
+        assert.match(html, /data-tasks-action="complete"/);
+        assert.match(html, /data-tasks-action="dismiss"/);
+        assert.match(html, /aa-executable-item-chevron/);
+        assert.doesNotMatch(html, /data-aa-task-edit/);
+    });
+
+    it('no muestra importancia en expandido cuando es 0', () => {
+        var html = renderer.renderItem(baseItem({
+            description: 'Solo descripción',
+            importance: 0,
+            due_at: null
+        }));
+
+        assert.doesNotMatch(html, /Importancia:/);
+    });
+
+    it('conserva visible_actions navigate en panel expandido', () => {
+        var html = renderer.renderItem(baseItem({
+            visible_actions: [
+                visibleAction({
+                    key: 'navigate',
+                    type: 'navigate',
+                    label: 'Ir',
+                    url: 'https://example.test/admin-post.php?module=assignments'
+                })
+            ]
+        }));
+
+        assert.match(html, /https:\/\/example\.test\/admin-post\.php\?module=assignments/);
+        assert.match(html, />Ir</);
+    });
+});

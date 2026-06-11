@@ -51,6 +51,47 @@
         transition: opacity 0.2s ease-in-out;
     }
 
+    /* Executable feed — tareas colapsables (MC13 expandable items) */
+    details.aa-executable-item > summary.aa-executable-item-summary::-webkit-details-marker {
+        display: none;
+    }
+
+    details.aa-executable-item > summary.aa-executable-item-summary::marker {
+        display: none;
+    }
+
+    details.aa-executable-item:not([open]) .aa-executable-item-expanded,
+    details.aa-executable-item:not([open]) .aa-executable-item-chevron {
+        display: none;
+    }
+
+    details.aa-executable-item[open] .aa-executable-item-desc-preview {
+        display: none;
+    }
+
+    details.aa-executable-item[open] .aa-executable-item-chevron {
+        display: inline-flex;
+    }
+
+    details.aa-executable-item[open] .aa-executable-item-chevron.aa-chevron {
+        transform: rotate(180deg);
+    }
+
+    .aa-executable-item-desc-preview {
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 1;
+        line-clamp: 1;
+        -webkit-mask-image: linear-gradient(to right, #000 72%, transparent 100%);
+        mask-image: linear-gradient(to right, #000 72%, transparent 100%);
+    }
+
+    .aa-executable-item-desc-full {
+        max-height: 8rem;
+        overflow-y: auto;
+    }
+
     /* ═══════════════════════════════════════════════════════════════
        CARD SYSTEM - Collapsible cards with overlay
     ═══════════════════════════════════════════════════════════════ */

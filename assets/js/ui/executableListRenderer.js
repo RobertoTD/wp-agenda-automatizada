@@ -581,7 +581,80 @@
             return '';
         }
 
-        return '<div class="flex flex-wrap gap-2 mt-3 aa-executable-item-actions">' + combined + '</div>';
+        return ''
+            + '<div class="flex flex-wrap gap-2 aa-executable-item-actions"'
+            + ' onclick="event.stopPropagation()">'
+            + combined
+            + '</div>';
+    }
+
+    /**
+     * @param {object} item
+     * @returns {boolean}
+     */
+    function hasItemDescription(item) {
+        return asString(item && item.description).trim() !== '';
+    }
+
+    /**
+     * @param {string} description
+     * @returns {string}
+     */
+    function renderItemDescriptionPreview(description) {
+        return ''
+            + '<p class="aa-executable-item-desc-preview text-sm text-gray-600 mt-1">'
+            + escapeHtml(description)
+            + '</p>';
+    }
+
+    /**
+     * @param {string} description
+     * @returns {string}
+     */
+    function renderItemDescriptionFull(description) {
+        return ''
+            + '<div class="aa-executable-item-desc-full text-sm text-gray-600">'
+            + escapeHtml(description)
+            + '</div>';
+    }
+
+    /**
+     * @param {object} item
+     * @returns {string}
+     */
+    function renderItemExpandedMeta(item) {
+        var metaHtml = '';
+
+        if (item.due_at) {
+            metaHtml += ''
+                + '<p class="text-xs text-gray-500 mt-2">Vence: '
+                + escapeHtml(item.due_at)
+                + '</p>';
+        }
+
+        var importance = Number(item.importance);
+
+        if (!Number.isNaN(importance) && importance !== 0) {
+            metaHtml += ''
+                + '<p class="text-xs text-gray-500 mt-1">Importancia: '
+                + escapeHtml(String(importance))
+                + '</p>';
+        }
+
+        return metaHtml;
+    }
+
+    /**
+     * @returns {string}
+     */
+    function renderItemExpandedChevron() {
+        return ''
+            + '<span class="aa-executable-item-chevron aa-chevron inline-flex shrink-0 text-gray-400"'
+            + ' aria-hidden="true">'
+            + '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
+            + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>'
+            + '</svg>'
+            + '</span>';
     }
 
     /**
@@ -610,28 +683,43 @@
         var itemId = escapeHtml(item.id);
         var source = escapeHtml(item.source || '');
         var title = escapeHtml(item.title || '');
-        var description = item.description
-            ? '<p class="text-sm text-gray-600 mt-1">' + escapeHtml(item.description) + '</p>'
-            : '';
+        var descriptionText = asString(item.description).trim();
         var isDone = asString(item.status).toLowerCase() === 'done';
         var titleClass = isDone
             ? 'text-sm text-gray-400 line-through'
             : 'text-sm font-semibold text-gray-900';
-        var dueHtml = item.due_at
-            ? '<span class="text-xs text-gray-500 ml-2">Vence: ' + escapeHtml(item.due_at) + '</span>'
-            : '';
         var actionsHtml = renderItemActions(item, opts, itemContext);
+        var previewHtml = descriptionText !== ''
+            ? renderItemDescriptionPreview(descriptionText)
+            : '';
+        var expandedDescriptionHtml = descriptionText !== ''
+            ? renderItemDescriptionFull(descriptionText)
+            : '';
+        var metaHtml = renderItemExpandedMeta(item);
+        var needsExpandedPanel = descriptionText !== '' || metaHtml !== '' || actionsHtml !== '';
+        var expandedPanelHtml = needsExpandedPanel
+            ? ''
+                + '<div class="aa-executable-item-expanded px-4 pb-4 pt-0">'
+                + expandedDescriptionHtml
+                + metaHtml
+                + '<div class="aa-executable-item-expanded-footer flex items-start justify-between gap-2 mt-3">'
+                + '<div class="min-w-0 flex-1">' + actionsHtml + '</div>'
+                + renderItemExpandedChevron()
+                + '</div>'
+                + '</div>'
+            : '';
 
         return ''
-            + '<li class="aa-executable-item rounded-lg border border-gray-200 bg-gray-50/80 p-4"'
+            + '<li class="aa-executable-item-entry">'
+            + '<details class="aa-executable-item group rounded-lg border border-gray-200 bg-gray-50/80"'
             + ' data-item-id="' + itemId + '"'
             + ' data-item-source="' + source + '">'
-            + '<div class="flex flex-wrap items-center gap-1">'
+            + '<summary class="aa-executable-item-summary cursor-pointer list-none p-4">'
             + '<p class="' + titleClass + '">' + title + '</p>'
-            + dueHtml
-            + '</div>'
-            + description
-            + actionsHtml
+            + previewHtml
+            + '</summary>'
+            + expandedPanelHtml
+            + '</details>'
             + '</li>';
     }
 
