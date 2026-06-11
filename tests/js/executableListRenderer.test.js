@@ -1464,6 +1464,133 @@ describe('executableListRenderer MC13L-C list edit menu', () => {
     });
 });
 
+describe('executableListRenderer MC13 UX-A visual polish', () => {
+    it('lista agenda_app usa header neutral sin from-amber-50', () => {
+        var html = renderer.renderList(baseList({
+            source: 'system',
+            source_category: 'agenda_app',
+            buckets: [{ key: 'primary', label: 'Principales', items: [baseItem()] }]
+        }));
+
+        assert.match(html, /from-gray-50 to-white/);
+        assert.doesNotMatch(html, /from-amber-50/);
+    });
+
+    it('lista user usa el mismo header neutral', () => {
+        var html = renderer.renderList(baseList({
+            source: 'user',
+            source_category: 'user',
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+
+        assert.match(html, /from-gray-50 to-white/);
+        assert.doesNotMatch(html, /from-amber-50/);
+    });
+
+    it('label user usa modificador verde y agenda_app azul', () => {
+        var userHtml = renderer.renderList(baseList({
+            source: 'user',
+            source_category: 'user',
+            source_label: 'Mis listas',
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+        var agendaHtml = renderer.renderList(baseList({
+            source: 'system',
+            source_category: 'agenda_app',
+            source_label: 'Agenda app',
+            buckets: [{ key: 'primary', label: 'Principales', items: [baseItem()] }]
+        }));
+
+        assert.match(userHtml, /aa-executable-list-source-label--user/);
+        assert.match(userHtml, /text-emerald-700/);
+        assert.match(agendaHtml, /aa-executable-list-source-label--agenda-app/);
+        assert.match(agendaHtml, /text-blue-700/);
+    });
+
+    it('label de fuente desconocida conserva gris sin modificador', () => {
+        var html = renderer.renderList(baseList({
+            source: 'ai',
+            source_category: 'ai',
+            source_label: 'IA',
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+
+        assert.match(html, /text-gray-500/);
+        assert.doesNotMatch(html, /aa-executable-list-source-label--user/);
+        assert.doesNotMatch(html, /aa-executable-list-source-label--agenda-app/);
+    });
+
+    it('solo la primera tarea global recibe aa-executable-item-first', () => {
+        var html = renderer.renderList(baseList({
+            buckets: [{
+                key: 'default',
+                label: '',
+                items: [
+                    baseItem({ id: 't1', title: 'Primera' }),
+                    baseItem({ id: 't2', title: 'Segunda' })
+                ]
+            }]
+        }));
+
+        assert.equal((html.match(/aa-executable-item-first/g) || []).length, 1);
+        assert.match(html, /aa-executable-item-first" data-item-id="t1"/);
+        assert.doesNotMatch(html, /aa-executable-item-first" data-item-id="t2"/);
+    });
+
+    it('con bucket primary vacío marca la primera tarea de secondary', () => {
+        var html = renderer.renderList(baseList({
+            buckets: [
+                { key: 'primary', label: 'Principales', items: [] },
+                {
+                    key: 'secondary',
+                    label: 'Secundarias',
+                    items: [
+                        baseItem({ id: 'sec1', title: 'Secundaria 1' }),
+                        baseItem({ id: 'sec2', title: 'Secundaria 2' })
+                    ]
+                }
+            ]
+        }));
+
+        assert.equal((html.match(/aa-executable-item-first/g) || []).length, 1);
+        assert.match(html, /aa-executable-item-first" data-item-id="sec1"/);
+        assert.doesNotMatch(html, /aa-executable-item-first" data-item-id="sec2"/);
+    });
+
+    it('lista sin tareas no falla ni emite aa-executable-item-first', () => {
+        var html = renderer.renderList(baseList({
+            source: 'user',
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+
+        assert.doesNotMatch(html, /aa-executable-item-first/);
+        assert.match(html, /aa-executable-list-empty-pending/);
+    });
+
+    it('conserva chevron y menú ⋮ en listas user editables', () => {
+        var html = renderer.renderList(baseList({
+            source: 'user',
+            capabilities: { can_edit: true, can_archive: true },
+            buckets: [{
+                key: 'default',
+                label: '',
+                items: [baseItem({ id: 't1' })]
+            }]
+        }));
+
+        assert.match(html, /aa-chevron/);
+        assert.match(html, /aa-executable-list-options-trigger/);
+        assert.match(html, /aa-executable-item-first/);
+    });
+
+    it('CSS contiene resaltado de primera tarea expandida', () => {
+        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
+
+        assert.match(css, /details\.aa-executable-item\.aa-executable-item-first\[open\]/);
+        assert.match(css, /border-blue-100 bg-blue-50\/50/);
+    });
+});
+
 describe('executableListRenderer chevron rotation CSS', () => {
     it('usa selectores acotados por lista y tarea sin regla genérica anidada', () => {
         var css = fs.readFileSync(adminSourceCssPath, 'utf8');

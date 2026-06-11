@@ -760,10 +760,16 @@
                 + expandedActionsHtml
                 + '</div>'
             : '';
+        var firstItemClass = '';
+
+        if (context && context.firstItemState && !context.firstItemState.marked) {
+            context.firstItemState.marked = true;
+            firstItemClass = ' aa-executable-item-first';
+        }
 
         return ''
             + '<li class="aa-executable-item-entry">'
-            + '<details class="aa-executable-item group rounded-lg border border-gray-200 bg-gray-50/80"'
+            + '<details class="aa-executable-item group rounded-lg border border-gray-200 bg-gray-50/80' + firstItemClass + '"'
             + ' data-item-id="' + itemId + '"'
             + ' data-item-source="' + source + '">'
             + '<summary class="aa-executable-item-summary cursor-pointer list-none p-4">'
@@ -885,6 +891,29 @@
      * @param {object} list
      * @returns {string}
      */
+    function resolveSourceLabelModifier(list) {
+        if (!list || typeof list !== 'object') {
+            return '';
+        }
+
+        var category = asString(list.source_category).trim().toLowerCase();
+        var source = asString(list.source).trim().toLowerCase();
+
+        if (category === 'user' || source === 'user') {
+            return ' aa-executable-list-source-label--user text-emerald-700';
+        }
+
+        if (category === 'agenda_app' || source === 'system') {
+            return ' aa-executable-list-source-label--agenda-app text-blue-700';
+        }
+
+        return '';
+    }
+
+    /**
+     * @param {object} list
+     * @returns {string}
+     */
     function renderSourceLabel(list) {
         var label = resolveSourceLabel(list);
 
@@ -892,8 +921,11 @@
             return '';
         }
 
+        var modifier = resolveSourceLabelModifier(list);
+        var colorClass = modifier !== '' ? modifier : ' text-gray-500';
+
         return ''
-            + '<span class="aa-executable-list-source-label block text-xs text-gray-500 truncate">'
+            + '<span class="aa-executable-list-source-label block text-xs truncate' + colorClass + '">'
             + escapeHtml(label)
             + '</span>';
     }
@@ -1005,7 +1037,8 @@
         var listContext = {
             list: list,
             source: list.source || '',
-            listIndex: typeof listIndex === 'number' ? listIndex : undefined
+            listIndex: typeof listIndex === 'number' ? listIndex : undefined,
+            firstItemState: { marked: false }
         };
         var listId = escapeHtml(list.id);
         var source = escapeHtml(list.source || '');
@@ -1038,9 +1071,7 @@
             + optionsMenuHtml
             + chevronHtml
             + '</div>';
-        var headerGradient = source === 'system'
-            ? 'from-amber-50 to-white'
-            : 'from-gray-50 to-white';
+        var headerGradient = 'from-gray-50 to-white';
 
         return ''
             + '<details class="aa-executable-list-card aa-task-list-card group bg-white rounded-xl shadow border border-gray-200 overflow-hidden"'
@@ -1078,6 +1109,7 @@
     var api = {
         escapeHtml: escapeHtml,
         resolveSourceLabel: resolveSourceLabel,
+        resolveSourceLabelModifier: resolveSourceLabelModifier,
         renderSourceLabel: renderSourceLabel,
         defaultSourceLabel: defaultSourceLabel,
         renderFeed: renderFeed,

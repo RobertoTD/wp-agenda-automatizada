@@ -98,6 +98,19 @@
         position: relative;
     }
 
+    /* Executable feed — primera tarea expandida (MC13 UX-A) */
+    details.aa-executable-item.aa-executable-item-first[open] {
+        @apply border-blue-100 bg-blue-50/50;
+    }
+
+    .aa-executable-list-source-label--user {
+        @apply text-emerald-700;
+    }
+
+    .aa-executable-list-source-label--agenda-app {
+        @apply text-blue-700;
+    }
+
     /* ═══════════════════════════════════════════════════════════════
        CARD SYSTEM - Collapsible cards with overlay
     ═══════════════════════════════════════════════════════════════ */
