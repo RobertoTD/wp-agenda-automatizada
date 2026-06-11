@@ -226,16 +226,32 @@ $lists_area_tools_js = plugin_dir_url(__FILE__) . 'lists-area-tools.js';
                         class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Notas opcionales"></textarea>
                 </div>
-                <div>
-                    <label for="aa-task-form-due-at" class="block text-sm font-medium text-gray-700 mb-1">Vencimiento (opcional)</label>
-                    <input type="datetime-local" id="aa-task-form-due-at" name="due_at"
-                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                    <label for="aa-task-form-importance" class="block text-sm font-medium text-gray-700 mb-1">Importancia (opcional)</label>
-                    <input type="number" id="aa-task-form-importance" name="importance" value="0"
-                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
+                <details id="aa-task-form-options" class="rounded-lg border border-gray-200 bg-gray-50/50">
+                    <summary class="cursor-pointer select-none px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg">
+                        Opciones
+                    </summary>
+                    <div class="space-y-4 border-t border-gray-200 px-3 py-3">
+                        <div>
+                            <label for="aa-task-form-due-at" class="block text-sm font-medium text-gray-700 mb-1">Vencimiento (opcional)</label>
+                            <input type="datetime-local" id="aa-task-form-due-at" name="due_at"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                        </div>
+                        <div>
+                            <label for="aa-task-form-importance" class="block text-sm font-medium text-gray-700 mb-1">Importancia (opcional)</label>
+                            <input type="number" id="aa-task-form-importance" name="importance" value="0"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                        </div>
+                        <div>
+                            <label for="aa-task-form-default-bucket" class="block text-sm font-medium text-gray-700 mb-1">Clasificación</label>
+                            <select id="aa-task-form-default-bucket" name="default_bucket"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                                <option value="primary" selected>Principal</option>
+                                <option value="secondary">Secundaria</option>
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">Elige si esta tarea es indispensable para cumplir el objetivo de la lista, o si es una tarea sugerida, conveniente pero prescindible.</p>
+                        </div>
+                    </div>
+                </details>
                 <p id="aa-task-form-error" class="hidden text-sm text-red-600"></p>
                 <div class="flex justify-end gap-2 pt-2">
                     <button type="button" data-aa-tasks-modal-close="aa-task-modal"

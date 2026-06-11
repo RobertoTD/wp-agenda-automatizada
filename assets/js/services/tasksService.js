@@ -133,11 +133,11 @@
     }
 
     /**
-     * @param {{list_id:number|string,title:string,notes?:string,due_at?:string,importance?:number}} payload
+     * @param {{list_id:number|string,title:string,notes?:string,due_at?:string,importance?:number,default_bucket?:'primary'|'secondary'}} payload
      * @returns {Promise<Object>}
      */
     function createTask(payload) {
-        return postAction('aa_create_task', {
+        var fields = {
             list_id: payload.list_id,
             title: payload.title,
             notes: payload.notes || '',
@@ -145,7 +145,13 @@
             importance: payload.importance !== undefined && payload.importance !== null
                 ? payload.importance
                 : 0
-        });
+        };
+
+        if (payload.default_bucket) {
+            fields.default_bucket = payload.default_bucket;
+        }
+
+        return postAction('aa_create_task', fields);
     }
 
     /**

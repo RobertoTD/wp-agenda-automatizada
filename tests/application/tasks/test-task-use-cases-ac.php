@@ -69,6 +69,11 @@ ac_assert('AJAX registers aa_restore_task_list', strpos($ajax_src, 'aa_restore_t
 ac_assert('AJAX list archived uses ListArchivedTaskListsUseCase', strpos($ajax_src, 'ListArchivedTaskListsUseCase') !== false);
 ac_assert('AJAX restore uses RestoreTaskListUseCase', strpos($ajax_src, 'RestoreTaskListUseCase') !== false);
 ac_assert('AJAX registers aa_create_task', strpos($ajax_src, 'aa_create_task') !== false);
+ac_assert(
+    'AJAX create task passes default_bucket to CreateTaskUseCase',
+    strpos($ajax_src, "'default_bucket'") !== false
+    && strpos($ajax_src, "array_key_exists('default_bucket', \$_POST)") !== false
+);
 ac_assert('AJAX registers aa_update_task', strpos($ajax_src, 'aa_update_task') !== false);
 ac_assert('AJAX registers aa_change_task_status', strpos($ajax_src, 'aa_change_task_status') !== false);
 ac_assert('AJAX registers aa_defer_task', strpos($ajax_src, 'aa_defer_task') !== false);
@@ -138,6 +143,18 @@ ac_assert(
 $create_task_src = file_get_contents($plugin_root . '/includes/application/tasks/CreateTaskUseCase.php');
 ac_assert('CreateTaskUseCase accepts optional default_bucket', strpos($create_task_src, 'default_bucket') !== false);
 
+$tasks_service_src = file_get_contents($plugin_root . '/assets/js/services/tasksService.js');
+ac_assert('TasksService createTask propagates default_bucket', strpos($tasks_service_src, 'default_bucket') !== false);
+
+$learning_ui_src = file_get_contents($plugin_root . '/includes/admin/ui/modules/learning/index.php');
+ac_assert('Task modal includes Opciones collapsible section', strpos($learning_ui_src, 'aa-task-form-options') !== false);
+ac_assert('Task modal includes Clasificación field', strpos($learning_ui_src, 'Clasificación') !== false);
+ac_assert('Task modal includes default_bucket select', strpos($learning_ui_src, 'aa-task-form-default-bucket') !== false);
+
+$tasks_board_src = file_get_contents($plugin_root . '/includes/admin/ui/modules/learning/tasks-board-module.js');
+ac_assert('Tasks board module reads default_bucket on create', strpos($tasks_board_src, 'aa-task-form-default-bucket') !== false);
+ac_assert('Tasks board module sends secondary default_bucket', strpos($tasks_board_src, "createPayload.default_bucket = 'secondary'") !== false);
+
 // ─── Integración WordPress ───────────────────────────────────
 
 if ($wp_integration) {
@@ -195,6 +212,73 @@ if ($wp_integration) {
     ac_assert('Create task success', !empty($created_task['success']));
     $task_id = (int) ($created_task['data']['task']['id'] ?? 0);
     ac_assert('Create task returns id', $task_id > 0);
+    ac_assert(
+        'Create task without default_bucket defaults to primary',
+        ($created_task['data']['task']['default_bucket'] ?? '') === 'primary'
+    );
+
+    $secondary_task_result = (new CreateTaskUseCase())->execute([
+        'list_id' => $list_id,
+        'title' => 'Tarea secundaria UC ' . $suffix,
+        'default_bucket' => 'secondary',
+    ]);
+    ac_assert('Create secondary bucket task success', !empty($secondary_task_result['success']));
+    $secondary_task_id = (int) ($secondary_task_result['data']['task']['id'] ?? 0);
+    ac_assert('Create secondary bucket task returns id', $secondary_task_id > 0);
+    ac_assert(
+        'Create secondary bucket task persists default_bucket',
+        ($secondary_task_result['data']['task']['default_bucket'] ?? '') === 'secondary'
+    );
+    ac_assert(
+        'Create secondary bucket task keeps managed_by user',
+        ($secondary_task_result['data']['task']['managed_by'] ?? '') === 'user'
+    );
+
+    $board_with_secondary = (new GetTaskBoardUseCase())->execute();
+    $secondary_buckets = $board_with_secondary['organization']['task_bucket_order_by_list'][$list_id] ?? [];
+    ac_assert(
+        'Secondary bucket task appears in board secondary bucket',
+        in_array($secondary_task_id, $secondary_buckets['secondary'] ?? [], true)
+        && !in_array($secondary_task_id, $secondary_buckets['primary'] ?? [], true)
+    );
+
+    require_once $plugin_root . '/includes/application/executable/TaskBoardToExecutableMapper.php';
+    require_once $plugin_root . '/includes/domain/executable/class-aa-executable-contract.php';
+
+    $feed_lists = TaskBoardToExecutableMapper::map($board_with_secondary);
+    $user_feed_list = null;
+
+    foreach ($feed_lists as $feed_list) {
+        if (!is_array($feed_list)) {
+            continue;
+        }
+
+        if ((string) ($feed_list['id'] ?? '') === (string) $list_id) {
+            $user_feed_list = $feed_list;
+            break;
+        }
+    }
+
+    $feed_secondary_item_ids = [];
+
+    if (is_array($user_feed_list['buckets'] ?? null)) {
+        foreach ($user_feed_list['buckets'] as $bucket) {
+            if (!is_array($bucket) || ($bucket['key'] ?? '') !== AA_Executable_Contract::BUCKET_SECONDARY) {
+                continue;
+            }
+
+            foreach ($bucket['items'] ?? [] as $item) {
+                if (is_array($item)) {
+                    $feed_secondary_item_ids[] = (string) ($item['id'] ?? '');
+                }
+            }
+        }
+    }
+
+    ac_assert(
+        'Secondary bucket task appears in executable feed secondary bucket',
+        in_array((string) $secondary_task_id, $feed_secondary_item_ids, true)
+    );
 
     if ($task_id > 0) {
         TaskActionRepository::upsert($task_id, [

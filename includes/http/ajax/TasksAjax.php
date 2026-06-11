@@ -97,14 +97,20 @@ final class TasksAjax {
     public static function handle_create_task(): void {
         self::authorize();
 
-        $result = (new CreateTaskUseCase())->execute([
+        $input = [
             'list_id' => self::post_scalar('list_id'),
             'title' => self::post_string('title'),
             'notes' => self::post_string('notes'),
             'importance' => self::post_scalar('importance'),
             'due_at' => self::post_string('due_at'),
             'position' => self::post_scalar('position'),
-        ]);
+        ];
+
+        if (array_key_exists('default_bucket', $_POST)) {
+            $input['default_bucket'] = self::post_string('default_bucket');
+        }
+
+        $result = (new CreateTaskUseCase())->execute($input);
 
         self::respond_use_case($result);
     }

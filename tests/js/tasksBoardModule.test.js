@@ -94,3 +94,36 @@ describe('tasks-board-module wiring MC13B', () => {
         assert.match(moduleSrc, /return reloadBoardAfterMutation\(\{ silent: true \}\)/);
     });
 });
+
+describe('tasks-board-module create task classification', () => {
+    const indexPath = path.join(__dirname, '../../includes/admin/ui/modules/learning/index.php');
+    const servicePath = path.join(__dirname, '../../assets/js/services/tasksService.js');
+
+    it('modal incluye Opciones, Clasificación y default_bucket', () => {
+        const fs = require('node:fs');
+        const indexSrc = fs.readFileSync(indexPath, 'utf8');
+
+        assert.match(indexSrc, /id="aa-task-form-options"[\s\S]*?Opciones[\s\S]*?Clasificación/);
+        assert.match(indexSrc, /id="aa-task-form-default-bucket"/);
+        assert.match(indexSrc, /name="default_bucket"/);
+        assert.match(indexSrc, /value="primary"[^>]*>Principal</);
+        assert.match(indexSrc, /value="secondary"[^>]*>Secundaria</);
+    });
+
+    it('board module propaga default_bucket secundario al crear', () => {
+        const fs = require('node:fs');
+        const moduleSrc = fs.readFileSync(modulePath, 'utf8');
+
+        assert.match(moduleSrc, /aa-task-form-default-bucket/);
+        assert.match(moduleSrc, /createPayload\.default_bucket = 'secondary'/);
+        assert.match(moduleSrc, /function collapseTaskFormOptions/);
+    });
+
+    it('TasksService propaga default_bucket en createTask', () => {
+        const fs = require('node:fs');
+        const serviceSrc = fs.readFileSync(servicePath, 'utf8');
+
+        assert.match(serviceSrc, /default_bucket/);
+        assert.match(serviceSrc, /fields\.default_bucket = payload\.default_bucket/);
+    });
+});

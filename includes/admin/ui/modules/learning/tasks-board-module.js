@@ -240,6 +240,24 @@
         if (modal) {
             modal.classList.add('hidden');
         }
+
+        if (modalId === 'aa-task-modal') {
+            collapseTaskFormOptions();
+        }
+    }
+
+    function collapseTaskFormOptions() {
+        var options = document.getElementById('aa-task-form-options');
+
+        if (options) {
+            options.open = false;
+        }
+
+        var bucketSelect = document.getElementById('aa-task-form-default-bucket');
+
+        if (bucketSelect) {
+            bucketSelect.value = 'primary';
+        }
     }
 
     function resetListForm() {
@@ -260,6 +278,7 @@
         }
 
         populateTaskListSelect();
+        collapseTaskFormOptions();
         setVisible(document.getElementById('aa-task-form-error'), false);
     }
 
@@ -350,6 +369,7 @@
         var notesInput = document.getElementById('aa-task-form-notes');
         var dueInput = document.getElementById('aa-task-form-due-at');
         var importanceInput = document.getElementById('aa-task-form-importance');
+        var bucketSelect = document.getElementById('aa-task-form-default-bucket');
         var listId = listSelect ? String(listSelect.value || '').trim() : '';
         var title = titleInput ? String(titleInput.value || '').trim() : '';
 
@@ -372,13 +392,20 @@
         setBoardDisabled(true);
         setVisible(document.getElementById('aa-task-form-error'), false);
 
-        service.createTask({
+        var createPayload = {
             list_id: listId,
             title: title,
             notes: notesInput ? notesInput.value : '',
             due_at: normalizeDueAtInput(dueInput ? dueInput.value : ''),
             importance: importanceInput && importanceInput.value !== '' ? importanceInput.value : 0
-        })
+        };
+        var defaultBucket = bucketSelect ? String(bucketSelect.value || 'primary').trim() : 'primary';
+
+        if (defaultBucket === 'secondary') {
+            createPayload.default_bucket = 'secondary';
+        }
+
+        service.createTask(createPayload)
             .then(function () {
                 closeModal('aa-task-modal');
                 resetTaskForm();
