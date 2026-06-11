@@ -119,6 +119,11 @@ final class TasksAjax {
         self::authorize();
 
         $input = self::collect_post_fields(['task_id', 'title', 'notes', 'importance', 'due_at', 'position']);
+
+        if (array_key_exists('default_bucket', $_POST)) {
+            $input['default_bucket'] = self::post_string('default_bucket');
+        }
+
         $result = (new UpdateTaskUseCase())->execute($input);
 
         self::respond_use_case($result);

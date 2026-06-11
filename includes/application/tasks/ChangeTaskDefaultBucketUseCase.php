@@ -7,6 +7,7 @@
 
 defined('ABSPATH') or die('No direct access');
 
+require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-governance-policy.php';
 require_once __DIR__ . '/TaskUseCaseSupport.php';
 
 final class ChangeTaskDefaultBucketUseCase {
@@ -35,6 +36,10 @@ final class ChangeTaskDefaultBucketUseCase {
 
         if ($task === null) {
             return TaskUseCaseSupport::fail('task_not_found', 'Tarea no encontrada.');
+        }
+
+        if (!(new AA_Task_Governance_Policy())->can_edit_task($task)) {
+            return TaskUseCaseSupport::fail('task_not_editable', 'Esta tarea no se puede editar.');
         }
 
         $list_id = (int) ($task['list_id'] ?? 0);

@@ -12,6 +12,8 @@ require_once dirname(__DIR__, 2) . '/repositories/TaskRepository.php';
 
 final class TaskUseCaseSupport {
 
+    public const TASK_NOTES_MAX_LENGTH = 800;
+
     /**
      * @return array{success:false,error:array{code:string,message:string}}
      */
@@ -69,6 +71,27 @@ final class TaskUseCaseSupport {
         }
 
         return (int) $value;
+    }
+
+    /**
+     * @param mixed $value
+     */
+    public static function task_notes_exceed_max_length($value): bool {
+        if ($value === null || $value === '') {
+            return false;
+        }
+
+        if (!is_string($value)) {
+            return false;
+        }
+
+        $normalized = trim($value);
+
+        if ($normalized === '') {
+            return false;
+        }
+
+        return strlen($normalized) > self::TASK_NOTES_MAX_LENGTH;
     }
 
     /**

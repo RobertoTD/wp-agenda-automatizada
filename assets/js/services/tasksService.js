@@ -155,6 +155,42 @@
     }
 
     /**
+     * @param {{task_id:number|string,title?:string,notes?:string,due_at?:string,importance?:number,position?:number,default_bucket?:'primary'|'secondary'}} payload
+     * @returns {Promise<Object>}
+     */
+    function updateTask(payload) {
+        var fields = {
+            task_id: payload.task_id
+        };
+
+        if (payload.title !== undefined && payload.title !== null) {
+            fields.title = payload.title;
+        }
+
+        if (payload.notes !== undefined && payload.notes !== null) {
+            fields.notes = payload.notes;
+        }
+
+        if (payload.due_at !== undefined && payload.due_at !== null) {
+            fields.due_at = payload.due_at;
+        }
+
+        if (payload.importance !== undefined && payload.importance !== null) {
+            fields.importance = payload.importance;
+        }
+
+        if (payload.position !== undefined && payload.position !== null) {
+            fields.position = payload.position;
+        }
+
+        if (payload.default_bucket) {
+            fields.default_bucket = payload.default_bucket;
+        }
+
+        return postAction('aa_update_task', fields);
+    }
+
+    /**
      * @param {number|string} taskId
      * @param {'pending'|'done'} status
      * @returns {Promise<Object>}
@@ -200,6 +236,7 @@
         getArchivedTaskLists: getArchivedTaskLists,
         restoreTaskList: restoreTaskList,
         createTask: createTask,
+        updateTask: updateTask,
         changeTaskStatus: changeTaskStatus,
         deferTask: deferTask,
         dismissTask: dismissTask,

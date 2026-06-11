@@ -37,6 +37,8 @@ ac_assert('Use case does not touch TaskStateRepository', strpos($uc_src, 'TaskSt
 ac_assert('Use case does not touch record_defer', strpos($uc_src, 'record_defer') === false);
 ac_assert('Use case does not touch update_status', strpos($uc_src, 'update_status') === false);
 ac_assert('Use case returns task payload', strpos($uc_src, "'task'") !== false);
+ac_assert('Use case uses governance policy', strpos($uc_src, 'AA_Task_Governance_Policy') !== false);
+ac_assert('Use case rejects task_not_editable', strpos($uc_src, 'task_not_editable') !== false);
 
 $wp_root = getenv('AA_WP_ROOT') ?: '';
 $wp_load = $wp_root !== '' ? rtrim($wp_root, '/') . '/wp-load.php' : '';
@@ -52,12 +54,15 @@ if ($wp_load !== '' && is_readable($wp_load)) {
     require_once $plugin_root . '/includes/application/tasks/ArchiveTaskListUseCase.php';
     require_once $plugin_root . '/includes/application/tasks/RecordTaskDeferSignalUseCase.php';
     require_once $plugin_root . '/includes/application/tasks/RecordTaskDismissSignalUseCase.php';
+    require_once $plugin_root . '/includes/repositories/SeededTaskRepository.php';
     require_once $uc_file;
 
     AA_Schema::install();
 
     global $wpdb;
     $state_table = $wpdb->prefix . 'aa_task_state';
+    $lists_table = $wpdb->prefix . 'aa_task_lists';
+    $tasks_table = $wpdb->prefix . 'aa_tasks';
     $suffix = (string) time();
 
     $created_list = (new CreateTaskListUseCase())->execute([
@@ -162,6 +167,45 @@ if ($wp_load !== '' && is_readable($wp_load)) {
         'title' => 'Task on archived list',
     ]);
     ac_assert('Create on archived list fails', empty($archived_task['success']));
+
+    $seeded_list = SeededTaskRepository::upsert_seeded_list([
+        'title' => 'Bucket governance ' . $suffix,
+        'description' => 'Lista developer',
+        'owner_type' => 'developer',
+        'source_category' => 'agenda_app',
+        'origin_key' => 'bucket.governance.' . $suffix,
+        'managed_by' => 'developer',
+        'status' => 'active',
+        'importance' => 0,
+        'position' => 0,
+    ]);
+    ac_assert('Seed developer list for bucket guard', is_array($seeded_list));
+    $seeded_list_id = (int) ($seeded_list['id'] ?? 0);
+
+    $seeded_task = SeededTaskRepository::upsert_seeded_task([
+        'list_id' => $seeded_list_id,
+        'title' => 'Developer bucket task ' . $suffix,
+        'notes' => 'No editable',
+        'source_category' => 'agenda_app',
+        'origin_key' => 'bucket.governance.task.' . $suffix,
+        'managed_by' => 'developer',
+        'default_bucket' => 'primary',
+        'completion_type' => 'manual',
+    ]);
+    ac_assert('Seed developer task for bucket guard', is_array($seeded_task));
+    $developer_task_id = (int) ($seeded_task['id'] ?? 0);
+
+    $blocked_bucket = (new ChangeTaskDefaultBucketUseCase())->execute([
+        'task_id' => $developer_task_id,
+        'default_bucket' => 'secondary',
+    ]);
+    ac_assert(
+        'ChangeTaskDefaultBucketUseCase rejects developer task',
+        empty($blocked_bucket['success']) && ($blocked_bucket['error']['code'] ?? '') === 'task_not_editable'
+    );
+
+    $wpdb->delete($tasks_table, ['id' => $developer_task_id], ['%d']);
+    $wpdb->delete($lists_table, ['id' => $seeded_list_id], ['%d']);
 
     (new ArchiveTaskListUseCase())->execute(['list_id' => $list_id]);
     $inactive_change = (new ChangeTaskDefaultBucketUseCase())->execute([

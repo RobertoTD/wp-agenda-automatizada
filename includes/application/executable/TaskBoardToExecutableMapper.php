@@ -10,6 +10,7 @@
 defined('ABSPATH') or die('No direct access');
 
 require_once dirname(__DIR__, 2) . '/domain/executable/class-aa-executable-contract.php';
+require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-governance-policy.php';
 require_once __DIR__ . '/ExecutableNavigationUrlResolver.php';
 
 final class TaskBoardToExecutableMapper {
@@ -373,6 +374,7 @@ final class TaskBoardToExecutableMapper {
         $source_category = self::resolve_source_category($task);
         $source = self::resolve_source($task);
         $primary_action = self::resolve_primary_action($task, $organization, $is_pending, $is_done);
+        $governance = new AA_Task_Governance_Policy();
 
         return AA_Executable_Contract::normalize_item([
             'id' => (string) $task_id,
@@ -399,6 +401,7 @@ final class TaskBoardToExecutableMapper {
                 'can_defer' => $signal_capabilities['can_defer'],
                 'can_dismiss' => $signal_capabilities['can_dismiss'],
                 'can_reactivate' => false,
+                'can_edit' => $governance->can_edit_task($task),
             ],
             'primary_action' => $primary_action,
             'is_executive_candidate' => isset($executive_candidates[$task_id]),

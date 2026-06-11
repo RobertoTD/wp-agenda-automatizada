@@ -113,6 +113,7 @@ final class LearningRecommendationsToExecutableMapper {
                 'can_defer' => !empty($item['can_defer']),
                 'can_dismiss' => !empty($item['can_dismiss']),
                 'can_reactivate' => !empty($item['can_reactivate']),
+                'can_edit' => false,
             ],
             'primary_action' => self::map_primary_action($item['action'] ?? null),
             'is_executive_candidate' => false,

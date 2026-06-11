@@ -5,6 +5,7 @@
 
 defined('ABSPATH') or die('No direct access');
 
+require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-governance-policy.php';
 require_once __DIR__ . '/TaskUseCaseSupport.php';
 
 final class UpdateTaskUseCase {
@@ -21,6 +22,10 @@ final class UpdateTaskUseCase {
             return TaskUseCaseSupport::fail('task_not_found', 'Tarea no encontrada.');
         }
 
+        if (!(new AA_Task_Governance_Policy())->can_edit_task($task)) {
+            return TaskUseCaseSupport::fail('task_not_editable', 'Esta tarea no se puede editar.');
+        }
+
         $payload = [];
 
         if (array_key_exists('title', $input)) {
@@ -34,6 +39,13 @@ final class UpdateTaskUseCase {
         }
 
         if (array_key_exists('notes', $input)) {
+            if (TaskUseCaseSupport::task_notes_exceed_max_length($input['notes'])) {
+                return TaskUseCaseSupport::fail(
+                    'notes_too_long',
+                    'Las notas no pueden superar ' . TaskUseCaseSupport::TASK_NOTES_MAX_LENGTH . ' caracteres.'
+                );
+            }
+
             $payload['notes'] = TaskUseCaseSupport::normalize_optional_string($input['notes']);
         }
 
@@ -47,6 +59,12 @@ final class UpdateTaskUseCase {
 
         if (array_key_exists('position', $input)) {
             $payload['position'] = TaskUseCaseSupport::normalize_position($input['position']);
+        }
+
+        if (array_key_exists('default_bucket', $input)) {
+            $payload['default_bucket'] = TaskUseCaseSupport::normalize_default_bucket_optional(
+                $input['default_bucket']
+            );
         }
 
         if ($payload === []) {

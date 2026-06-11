@@ -75,6 +75,10 @@ ac_assert(
     && strpos($ajax_src, "array_key_exists('default_bucket', \$_POST)") !== false
 );
 ac_assert('AJAX registers aa_update_task', strpos($ajax_src, 'aa_update_task') !== false);
+ac_assert(
+    'AJAX update task passes default_bucket to UpdateTaskUseCase',
+    strpos($ajax_src, "array_key_exists('default_bucket', \$_POST)") !== false
+);
 ac_assert('AJAX registers aa_change_task_status', strpos($ajax_src, 'aa_change_task_status') !== false);
 ac_assert('AJAX registers aa_defer_task', strpos($ajax_src, 'aa_defer_task') !== false);
 ac_assert('AJAX registers aa_dismiss_task', strpos($ajax_src, 'aa_dismiss_task') !== false);
@@ -142,6 +146,16 @@ ac_assert(
 
 $create_task_src = file_get_contents($plugin_root . '/includes/application/tasks/CreateTaskUseCase.php');
 ac_assert('CreateTaskUseCase accepts optional default_bucket', strpos($create_task_src, 'default_bucket') !== false);
+ac_assert('CreateTaskUseCase validates notes_too_long', strpos($create_task_src, 'notes_too_long') !== false);
+
+$update_task_src = file_get_contents($plugin_root . '/includes/application/tasks/UpdateTaskUseCase.php');
+ac_assert('UpdateTaskUseCase uses governance policy', strpos($update_task_src, 'AA_Task_Governance_Policy') !== false);
+ac_assert('UpdateTaskUseCase rejects task_not_editable', strpos($update_task_src, 'task_not_editable') !== false);
+ac_assert('UpdateTaskUseCase supports default_bucket', strpos($update_task_src, 'default_bucket') !== false);
+
+$governance_src = file_get_contents($plugin_root . '/includes/domain/tasks/class-aa-task-governance-policy.php');
+ac_assert('Task governance policy file readable', $governance_src !== false);
+ac_assert('Task governance policy defines can_edit_task', strpos($governance_src, 'can_edit_task') !== false);
 
 $tasks_service_src = file_get_contents($plugin_root . '/assets/js/services/tasksService.js');
 ac_assert('TasksService createTask propagates default_bucket', strpos($tasks_service_src, 'default_bucket') !== false);

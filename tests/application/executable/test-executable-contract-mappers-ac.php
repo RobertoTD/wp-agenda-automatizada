@@ -341,6 +341,13 @@ ac_assert(
 );
 
 ac_assert(
+    'Learning fallback items expose can_edit false',
+    is_array($primary_item)
+    && ($primary_item['capabilities']['can_edit'] ?? true) === false
+    && is_array($secondary_item)
+    && ($secondary_item['capabilities']['can_edit'] ?? true) === false
+);
+ac_assert(
     'Learning item preserves defer/dismiss/reactivate/complete capabilities',
     is_array($primary_item)
     && ($primary_item['capabilities']['can_defer'] ?? false) === true
@@ -480,6 +487,11 @@ ac_assert(
     is_array($pending_task)
     && ($pending_task['capabilities']['can_defer'] ?? true) === false
     && ($pending_task['capabilities']['can_dismiss'] ?? true) === false
+);
+ac_assert(
+    'User pending task exposes can_edit true',
+    is_array($pending_task)
+    && ($pending_task['capabilities']['can_edit'] ?? false) === true
 );
 
 ac_assert(
@@ -910,6 +922,13 @@ ac_assert(
     'Agenda app completion_type=manual keeps manual complete when pending',
     is_array($agenda_secondary_item)
     && ($agenda_secondary_item['capabilities']['can_complete'] ?? false) === true
+);
+ac_assert(
+    'Agenda app developer tasks expose can_edit false',
+    is_array($agenda_primary_item)
+    && ($agenda_primary_item['capabilities']['can_edit'] ?? true) === false
+    && is_array($agenda_secondary_item)
+    && ($agenda_secondary_item['capabilities']['can_edit'] ?? true) === false
 );
 ac_assert(
     'Agenda app pending primary exposes can_dismiss capability',

@@ -27,6 +27,13 @@ final class CreateTaskUseCase {
             return TaskUseCaseSupport::fail('missing_title', 'El título de la tarea es obligatorio.');
         }
 
+        if (TaskUseCaseSupport::task_notes_exceed_max_length($input['notes'] ?? null)) {
+            return TaskUseCaseSupport::fail(
+                'notes_too_long',
+                'Las notas no pueden superar ' . TaskUseCaseSupport::TASK_NOTES_MAX_LENGTH . ' caracteres.'
+            );
+        }
+
         $payload = [
             'list_id' => $list_id,
             'title' => $title,
