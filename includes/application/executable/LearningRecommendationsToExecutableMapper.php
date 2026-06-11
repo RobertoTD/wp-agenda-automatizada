@@ -59,6 +59,7 @@ final class LearningRecommendationsToExecutableMapper {
             'status' => AA_Executable_Contract::LIST_STATUS_ACTIVE,
             'capabilities' => [
                 'can_archive' => false,
+                'can_edit' => false,
             ],
             'buckets' => $buckets,
         ]);

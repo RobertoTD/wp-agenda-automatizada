@@ -6,6 +6,7 @@
 defined('ABSPATH') or die('No direct access');
 
 require_once __DIR__ . '/TaskUseCaseSupport.php';
+require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-list-governance-policy.php';
 
 final class ArchiveTaskListUseCase {
 
@@ -23,6 +24,10 @@ final class ArchiveTaskListUseCase {
 
         if (($list['status'] ?? '') === 'archived') {
             return TaskUseCaseSupport::ok(['list' => $list]);
+        }
+
+        if (!(new AA_Task_List_Governance_Policy())->can_archive_list($list)) {
+            return TaskUseCaseSupport::fail('list_not_archivable', 'Esta lista no se puede archivar.');
         }
 
         $row = TaskListRepository::archive($list_id);

@@ -128,6 +128,7 @@ ac_assert(
     && $empty_list['source'] === AA_Executable_Contract::SOURCE_USER
     && $empty_list['buckets'] === []
     && $empty_list['capabilities']['can_archive'] === false
+    && ($empty_list['capabilities']['can_edit'] ?? true) === false
 );
 
 ac_assert(
@@ -284,6 +285,11 @@ ac_assert(
     'Learning list carries agenda_app source metadata',
     ($learning_list['source_category'] ?? '') === AA_Executable_Contract::SOURCE_CATEGORY_AGENDA_APP
     && ($learning_list['source_label'] ?? '') === 'Agenda app'
+);
+ac_assert(
+    'Learning fallback list exposes can_edit and can_archive false',
+    ($learning_list['capabilities']['can_edit'] ?? true) === false
+    && ($learning_list['capabilities']['can_archive'] ?? true) === false
 );
 
 $learning_bucket_keys = array_map(static function (array $bucket): string {
@@ -537,6 +543,10 @@ ac_assert(
 ac_assert(
     'Task user list exposes can_archive at list level',
     ($task_lists[0]['capabilities']['can_archive'] ?? false) === true
+);
+ac_assert(
+    'Task user list exposes can_edit at list level',
+    ($task_lists[0]['capabilities']['can_edit'] ?? false) === true
 );
 
 ac_assert(
@@ -891,6 +901,11 @@ ac_assert(
     && ($agenda_list['capabilities']['can_archive'] ?? true) === false
 );
 ac_assert(
+    'Agenda app seeded list cannot edit',
+    is_array($agenda_list)
+    && ($agenda_list['capabilities']['can_edit'] ?? true) === false
+);
+ac_assert(
     'Agenda app seeded tasks map source metadata',
     is_array($agenda_primary_item)
     && ($agenda_primary_item['source'] ?? '') === AA_Executable_Contract::SOURCE_SYSTEM
@@ -1064,16 +1079,32 @@ ac_assert(
     ($archive_rules_by_id['70']['capabilities']['can_archive'] ?? false) === true
 );
 ac_assert(
+    'can_edit true only for active user managed_by=user',
+    ($archive_rules_by_id['70']['capabilities']['can_edit'] ?? false) === true
+);
+ac_assert(
     'can_archive false for agenda_app developer list',
     ($archive_rules_by_id['71']['capabilities']['can_archive'] ?? true) === false
+);
+ac_assert(
+    'can_edit false for agenda_app developer list',
+    ($archive_rules_by_id['71']['capabilities']['can_edit'] ?? true) === false
 );
 ac_assert(
     'can_archive false for generic developer system list',
     ($archive_rules_by_id['72']['capabilities']['can_archive'] ?? true) === false
 );
 ac_assert(
+    'can_edit false for generic developer system list',
+    ($archive_rules_by_id['72']['capabilities']['can_edit'] ?? true) === false
+);
+ac_assert(
     'can_archive false for archived user list',
     ($archive_rules_by_id['73']['capabilities']['can_archive'] ?? true) === false
+);
+ac_assert(
+    'can_edit false for archived user list',
+    ($archive_rules_by_id['73']['capabilities']['can_edit'] ?? true) === false
 );
 
 // ─── Resumen ─────────────────────────────────────────────────

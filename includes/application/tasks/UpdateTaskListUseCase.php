@@ -6,6 +6,7 @@
 defined('ABSPATH') or die('No direct access');
 
 require_once __DIR__ . '/TaskUseCaseSupport.php';
+require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-list-governance-policy.php';
 
 final class UpdateTaskListUseCase {
 
@@ -19,6 +20,10 @@ final class UpdateTaskListUseCase {
 
         if ($list === null) {
             return TaskUseCaseSupport::fail('list_not_found', 'Lista no encontrada.');
+        }
+
+        if (!(new AA_Task_List_Governance_Policy())->can_edit_list($list)) {
+            return TaskUseCaseSupport::fail('list_not_editable', 'Esta lista no se puede editar.');
         }
 
         $payload = [];

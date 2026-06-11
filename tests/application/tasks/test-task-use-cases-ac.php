@@ -48,6 +48,7 @@ require_once $plugin_root . '/includes/application/tasks/TaskUseCaseSupport.php'
 require_once $plugin_root . '/includes/application/tasks/GetTaskBoardUseCase.php';
 require_once $plugin_root . '/includes/application/tasks/CreateTaskListUseCase.php';
 require_once $plugin_root . '/includes/application/tasks/UpdateTaskListUseCase.php';
+require_once $plugin_root . '/includes/domain/tasks/class-aa-task-list-governance-policy.php';
 require_once $plugin_root . '/includes/application/tasks/ArchiveTaskListUseCase.php';
 require_once $plugin_root . '/includes/application/tasks/ListArchivedTaskListsUseCase.php';
 require_once $plugin_root . '/includes/application/tasks/RestoreTaskListUseCase.php';
@@ -156,6 +157,17 @@ ac_assert('UpdateTaskUseCase supports default_bucket', strpos($update_task_src, 
 $governance_src = file_get_contents($plugin_root . '/includes/domain/tasks/class-aa-task-governance-policy.php');
 ac_assert('Task governance policy file readable', $governance_src !== false);
 ac_assert('Task governance policy defines can_edit_task', strpos($governance_src, 'can_edit_task') !== false);
+
+$list_governance_src = file_get_contents($plugin_root . '/includes/domain/tasks/class-aa-task-list-governance-policy.php');
+$update_list_src = file_get_contents($plugin_root . '/includes/application/tasks/UpdateTaskListUseCase.php');
+$archive_list_src = file_get_contents($plugin_root . '/includes/application/tasks/ArchiveTaskListUseCase.php');
+ac_assert('Task list governance policy file readable', $list_governance_src !== false);
+ac_assert('Task list governance policy defines can_edit_list', strpos($list_governance_src, 'can_edit_list') !== false);
+ac_assert('Task list governance policy defines can_archive_list', strpos($list_governance_src, 'can_archive_list') !== false);
+ac_assert('UpdateTaskListUseCase uses list governance policy', strpos($update_list_src, 'AA_Task_List_Governance_Policy') !== false);
+ac_assert('UpdateTaskListUseCase rejects list_not_editable', strpos($update_list_src, 'list_not_editable') !== false);
+ac_assert('ArchiveTaskListUseCase uses list governance policy', strpos($archive_list_src, 'AA_Task_List_Governance_Policy') !== false);
+ac_assert('ArchiveTaskListUseCase rejects list_not_archivable', strpos($archive_list_src, 'list_not_archivable') !== false);
 
 $tasks_service_src = file_get_contents($plugin_root . '/assets/js/services/tasksService.js');
 ac_assert('TasksService createTask propagates default_bucket', strpos($tasks_service_src, 'default_bucket') !== false);

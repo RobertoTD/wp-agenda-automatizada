@@ -11,6 +11,7 @@ defined('ABSPATH') or die('No direct access');
 
 require_once dirname(__DIR__, 2) . '/domain/executable/class-aa-executable-contract.php';
 require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-governance-policy.php';
+require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-list-governance-policy.php';
 require_once __DIR__ . '/ExecutableNavigationUrlResolver.php';
 
 final class TaskBoardToExecutableMapper {
@@ -167,10 +168,7 @@ final class TaskBoardToExecutableMapper {
         $is_archived = strtolower(trim($list_status)) === AA_Executable_Contract::LIST_STATUS_ARCHIVED;
         $source_category = self::resolve_source_category($list);
         $source = self::resolve_source($list);
-        $managed_by = self::resolve_managed_by($list);
-        $can_archive = !$is_archived
-            && $source_category === AA_Executable_Contract::SOURCE_CATEGORY_USER
-            && $managed_by === 'user';
+        $list_governance = new AA_Task_List_Governance_Policy();
 
         return AA_Executable_Contract::normalize_list([
             'id' => (string) $list_id,
@@ -186,7 +184,8 @@ final class TaskBoardToExecutableMapper {
                 ? AA_Executable_Contract::LIST_STATUS_ARCHIVED
                 : AA_Executable_Contract::LIST_STATUS_ACTIVE,
             'capabilities' => [
-                'can_archive' => $can_archive,
+                'can_archive' => $list_governance->can_archive_list($list),
+                'can_edit' => $list_governance->can_edit_list($list),
             ],
             'buckets' => self::map_list_buckets($list_id, $tasks_by_id, $organization, $executive_candidates),
         ]);

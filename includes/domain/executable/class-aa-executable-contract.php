@@ -406,11 +406,12 @@ final class AA_Executable_Contract {
 
     /**
      * @param array<string,mixed> $capabilities
-     * @return array{can_archive:bool}
+     * @return array{can_archive:bool,can_edit:bool}
      */
     private static function normalize_list_capabilities(array $capabilities): array {
         return [
             'can_archive' => !empty($capabilities['can_archive']),
+            'can_edit' => !empty($capabilities['can_edit']),
         ];
     }
 
