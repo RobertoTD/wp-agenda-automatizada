@@ -1,5 +1,5 @@
 /**
- * List Options Module — menú contextual ⋮ por lista en el feed executable.
+ * List Options Module — menú contextual ⋮ y coordinación de expansión en el feed executable.
  */
 (function () {
     'use strict';
@@ -10,6 +10,7 @@
 
     var isBound = false;
     var openListId = '';
+    var coordinatingListToggle = false;
 
     function asString(value) {
         return value === null || value === undefined ? '' : String(value);
@@ -125,14 +126,88 @@
         closeAllMenus();
     }
 
+    function isListCard(details) {
+        return details
+            && details.classList
+            && details.classList.contains('aa-executable-list-card');
+    }
+
+    function closeAllTasksInList(listDetails) {
+        if (!listDetails || typeof listDetails.querySelectorAll !== 'function') {
+            return;
+        }
+
+        listDetails.querySelectorAll('details.aa-executable-item').forEach(function (task) {
+            task.open = false;
+        });
+    }
+
+    function openFirstTaskInList(listDetails) {
+        if (!listDetails || typeof listDetails.querySelector !== 'function') {
+            return;
+        }
+
+        var firstTask = listDetails.querySelector('details.aa-executable-item');
+
+        if (firstTask) {
+            firstTask.open = true;
+        }
+    }
+
+    function closeOtherListCards(activeListDetails) {
+        if (!activeListDetails) {
+            return;
+        }
+
+        document.querySelectorAll('details.aa-executable-list-card[open]').forEach(function (listDetails) {
+            if (listDetails === activeListDetails) {
+                return;
+            }
+
+            coordinatingListToggle = true;
+
+            try {
+                closeAllTasksInList(listDetails);
+                listDetails.open = false;
+            } finally {
+                coordinatingListToggle = false;
+            }
+        });
+    }
+
     function handleListToggle(event) {
         var details = event.target;
 
-        if (!details || !details.classList || !details.classList.contains('aa-executable-list-card')) {
+        if (!isListCard(details)) {
             return;
         }
 
         closeAllMenus();
+
+        if (coordinatingListToggle) {
+            return;
+        }
+
+        if (details.open) {
+            coordinatingListToggle = true;
+
+            try {
+                closeOtherListCards(details);
+                openFirstTaskInList(details);
+            } finally {
+                coordinatingListToggle = false;
+            }
+
+            return;
+        }
+
+        coordinatingListToggle = true;
+
+        try {
+            closeAllTasksInList(details);
+        } finally {
+            coordinatingListToggle = false;
+        }
     }
 
     function handleMenuItemClick(event) {
@@ -171,7 +246,11 @@
             return openListId;
         },
         openMenu: openMenu,
-        toggleMenu: toggleMenu
+        toggleMenu: toggleMenu,
+        closeAllTasksInList: closeAllTasksInList,
+        openFirstTaskInList: openFirstTaskInList,
+        closeOtherListCards: closeOtherListCards,
+        handleListToggle: handleListToggle
     };
 
     if (typeof module !== 'undefined' && module.exports) {

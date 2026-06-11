@@ -12,6 +12,50 @@ const indexPath = path.join(__dirname, '../../includes/admin/ui/modules/learning
 const moduleSrc = fs.readFileSync(modulePath, 'utf8');
 const rendererSrc = fs.readFileSync(rendererPath, 'utf8');
 
+function nodeMatchesSelector(node, selector) {
+    if (!node || !node.classList) {
+        return false;
+    }
+
+    if (selector === 'details.aa-executable-list-card[open]') {
+        return node.tagName === 'details'
+            && node.classList.contains('aa-executable-list-card')
+            && node.open === true;
+    }
+
+    if (selector === 'details.aa-executable-item') {
+        return node.tagName === 'details' && node.classList.contains('aa-executable-item');
+    }
+
+    if (selector === 'details.aa-executable-item[open]') {
+        return node.tagName === 'details'
+            && node.classList.contains('aa-executable-item')
+            && node.open === true;
+    }
+
+    return false;
+}
+
+function queryDescendants(root, selector, firstOnly) {
+    var matches = [];
+
+    root.walk(function (node) {
+        if (node === root) {
+            return;
+        }
+
+        if (nodeMatchesSelector(node, selector)) {
+            matches.push(node);
+
+            if (firstOnly) {
+                return false;
+            }
+        }
+    });
+
+    return firstOnly ? (matches[0] || null) : matches;
+}
+
 function makeClassList(initialHidden) {
     var classes = initialHidden ? ['hidden'] : [];
 
@@ -84,6 +128,10 @@ function makeElement(tag, options) {
                 });
             }
 
+            if (selector.indexOf('details.aa-executable') === 0) {
+                return queryDescendants(this, selector, true);
+            }
+
             return null;
         },
         querySelectorAll: function (selector) {
@@ -99,6 +147,10 @@ function makeElement(tag, options) {
                 if (selector === '.aa-executable-list-options-trigger'
                     && node.getAttribute
                     && node.getAttribute('data-aa-list-options-trigger') === '1') {
+                    matches.push(node);
+                }
+
+                if (node !== this && nodeMatchesSelector(node, selector)) {
                     matches.push(node);
                 }
             });
@@ -154,6 +206,66 @@ function makeElement(tag, options) {
 
             return null;
         }
+    };
+}
+
+function buildTaskItem(taskId, open) {
+    var task = makeElement('details', {
+        attributes: {
+            'data-task-id': taskId
+        }
+    });
+
+    task.classList.classes.push('aa-executable-item');
+    task.open = !!open;
+
+    return task;
+}
+
+function buildListWithTasks(listId, taskIds, open) {
+    var dom = buildListCardDom(listId);
+    var tasks = taskIds.map(function (taskId) {
+        return buildTaskItem(taskId, false);
+    });
+    var body = makeElement('div', {
+        children: tasks
+    });
+
+    dom.details.appendChild(body);
+    dom.details.open = !!open;
+    dom.tasks = tasks;
+    dom.body = body;
+
+    return dom;
+}
+
+function buildFeedDom() {
+    var moduleRoot = makeElement('div', {
+        attributes: { id: 'aa-tasks-module-root' }
+    });
+
+    var documentMock = {
+        readyState: 'complete',
+        addEventListener: function (type, handler, useCapture) {
+            var key = type + (useCapture ? ':capture' : ':bubble');
+            documentMock.listeners[key] = documentMock.listeners[key] || [];
+            documentMock.listeners[key].push(handler);
+        },
+        listeners: {},
+        getElementById: function (id) {
+            return id === 'aa-tasks-module-root' ? moduleRoot : null;
+        },
+        querySelector: function (selector) {
+            return moduleRoot.querySelector(selector);
+        },
+        querySelectorAll: function (selector) {
+            return moduleRoot.querySelectorAll(selector);
+        }
+    };
+
+    return {
+        document: documentMock,
+        moduleRoot: moduleRoot
     };
 }
 
@@ -366,5 +478,91 @@ describe('list-options-module MC13L-B', () => {
 
         assert.equal(dom.archiveItem.getAttribute('data-tasks-action'), 'archive-list');
         assert.equal(dom.menu.classList.contains('hidden'), true);
+    });
+});
+
+describe('list-options-module list expansion coordination', () => {
+    it('abrir una lista cierra otras listas abiertas', () => {
+        var feed = buildFeedDom();
+        var listA = buildListWithTasks('1', ['a1'], true);
+        var listB = buildListWithTasks('2', ['b1'], false);
+
+        feed.moduleRoot.appendChild(listA.details);
+        feed.moduleRoot.appendChild(listB.details);
+        loadModule(feed);
+
+        listB.details.open = true;
+        dispatchToggle(listB.details, feed.document);
+
+        assert.equal(listA.details.open, false);
+        assert.equal(listB.details.open, true);
+    });
+
+    it('abrir una lista abre su primera tarea visible', () => {
+        var feed = buildFeedDom();
+        var list = buildListWithTasks('3', ['t1', 't2'], false);
+
+        feed.moduleRoot.appendChild(list.details);
+        loadModule(feed);
+
+        list.details.open = true;
+        dispatchToggle(list.details, feed.document);
+
+        assert.equal(list.tasks[0].open, true);
+        assert.equal(list.tasks[1].open, false);
+    });
+
+    it('cerrar una lista cierra todas sus tareas', () => {
+        var feed = buildFeedDom();
+        var list = buildListWithTasks('4', ['t1', 't2'], true);
+
+        list.tasks[0].open = true;
+        list.tasks[1].open = true;
+        feed.moduleRoot.appendChild(list.details);
+        loadModule(feed);
+
+        list.details.open = false;
+        dispatchToggle(list.details, feed.document);
+
+        assert.equal(list.tasks[0].open, false);
+        assert.equal(list.tasks[1].open, false);
+    });
+
+    it('lista sin tareas no genera error al expandirse', () => {
+        var feed = buildFeedDom();
+        var list = buildListWithTasks('5', [], false);
+
+        feed.moduleRoot.appendChild(list.details);
+        loadModule(feed);
+
+        list.details.open = true;
+
+        assert.doesNotThrow(function () {
+            dispatchToggle(list.details, feed.document);
+        });
+        assert.equal(list.details.open, true);
+    });
+
+    it('colapsar lista sigue cerrando el menú ⋮', () => {
+        var feed = buildFeedDom();
+        var list = buildListWithTasks('6', ['t1'], true);
+
+        feed.moduleRoot.appendChild(list.details);
+        loadModule(feed);
+
+        dispatchClick(list.trigger, feed.document);
+        assert.equal(list.menu.classList.contains('hidden'), false);
+
+        list.details.open = false;
+        dispatchToggle(list.details, feed.document);
+
+        assert.equal(list.menu.classList.contains('hidden'), true);
+    });
+
+    it('coordinación vive solo en JS del módulo de listas', () => {
+        assert.match(moduleSrc, /details\.aa-executable-list-card\[open\]/);
+        assert.match(moduleSrc, /openFirstTaskInList/);
+        assert.match(moduleSrc, /coordinatingListToggle/);
+        assert.doesNotMatch(rendererSrc, /coordinatingListToggle/);
     });
 });
