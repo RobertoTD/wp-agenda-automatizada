@@ -21,8 +21,10 @@
     details summary::marker {
         display: none;
     }
-    /* Rotate chevron when open */
-    details[open] summary .aa-chevron,
+    /* Rotate chevron when open — hijo directo de summary; evita rotar chevrons anidados */
+    details.aa-executable-list-card[open] > summary .aa-chevron,
+    details.aa-executable-item[open] > summary .aa-executable-item-chevron,
+    details[open] > summary .aa-chevron:not(.aa-executable-item-chevron),
     [data-aa-dashboard-collapse].is-open .aa-chevron {
         transform: rotate(180deg);
     }
@@ -60,21 +62,16 @@
         display: none;
     }
 
-    details.aa-executable-item:not([open]) .aa-executable-item-expanded,
-    details.aa-executable-item:not([open]) .aa-executable-item-chevron {
+    details.aa-executable-item:not([open]) .aa-executable-item-expanded {
+        display: none;
+    }
+
+    details.aa-executable-item:not([open]) .aa-executable-item-summary-edit {
         display: none;
     }
 
     details.aa-executable-item[open] .aa-executable-item-desc-preview {
         display: none;
-    }
-
-    details.aa-executable-item[open] .aa-executable-item-chevron {
-        display: inline-flex;
-    }
-
-    details.aa-executable-item[open] .aa-executable-item-chevron.aa-chevron {
-        transform: rotate(180deg);
     }
 
     .aa-executable-item-desc-preview {

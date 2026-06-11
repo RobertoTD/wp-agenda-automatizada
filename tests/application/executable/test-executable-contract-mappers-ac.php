@@ -348,6 +348,13 @@ ac_assert(
     && ($secondary_item['capabilities']['can_edit'] ?? true) === false
 );
 ac_assert(
+    'Learning fallback items expose default_bucket from default_list',
+    is_array($primary_item)
+    && ($primary_item['default_bucket'] ?? '') === AA_Executable_Contract::BUCKET_PRIMARY
+    && is_array($secondary_item)
+    && ($secondary_item['default_bucket'] ?? '') === AA_Executable_Contract::BUCKET_SECONDARY
+);
+ac_assert(
     'Learning item preserves defer/dismiss/reactivate/complete capabilities',
     is_array($primary_item)
     && ($primary_item['capabilities']['can_defer'] ?? false) === true
@@ -412,6 +419,7 @@ $task_payload = [
             'status' => 'pending',
             'importance' => 1,
             'due_at' => '2026-06-09 08:00:00',
+            'default_bucket' => 'secondary',
         ],
     ],
     'organization' => [
@@ -493,6 +501,11 @@ ac_assert(
     is_array($pending_task)
     && ($pending_task['capabilities']['can_edit'] ?? false) === true
 );
+ac_assert(
+    'User pending task exposes default_bucket primary when unset',
+    is_array($pending_task)
+    && ($pending_task['default_bucket'] ?? '') === AA_Executable_Contract::BUCKET_PRIMARY
+);
 
 ac_assert(
     'Task done item excluded from active default bucket',
@@ -514,6 +527,11 @@ ac_assert(
     && ($pending_task['is_executive_candidate'] ?? false) === true
     && is_array($second_list_item)
     && ($second_list_item['is_executive_candidate'] ?? false) === true
+);
+ac_assert(
+    'User secondary task exposes default_bucket secondary',
+    is_array($second_list_item)
+    && ($second_list_item['default_bucket'] ?? '') === AA_Executable_Contract::BUCKET_SECONDARY
 );
 
 ac_assert(
@@ -929,6 +947,14 @@ ac_assert(
     && ($agenda_primary_item['capabilities']['can_edit'] ?? true) === false
     && is_array($agenda_secondary_item)
     && ($agenda_secondary_item['capabilities']['can_edit'] ?? true) === false
+);
+ac_assert(
+    'Agenda app items may expose default_bucket without can_edit',
+    is_array($agenda_primary_item)
+    && ($agenda_primary_item['default_bucket'] ?? '') === AA_Executable_Contract::BUCKET_PRIMARY
+    && is_array($agenda_secondary_item)
+    && ($agenda_secondary_item['default_bucket'] ?? '') === AA_Executable_Contract::BUCKET_SECONDARY
+    && ($agenda_primary_item['capabilities']['can_edit'] ?? true) === false
 );
 ac_assert(
     'Agenda app pending primary exposes can_dismiss capability',

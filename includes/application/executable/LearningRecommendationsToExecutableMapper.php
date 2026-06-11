@@ -34,7 +34,7 @@ final class LearningRecommendationsToExecutableMapper {
             $buckets[] = [
                 'key' => AA_Executable_Contract::BUCKET_PRIMARY,
                 'label' => AA_Executable_Contract::bucket_label(AA_Executable_Contract::BUCKET_PRIMARY),
-                'items' => self::map_items($list_1),
+                'items' => self::map_items($list_1, AA_Executable_Contract::BUCKET_PRIMARY),
             ];
         }
 
@@ -42,7 +42,7 @@ final class LearningRecommendationsToExecutableMapper {
             $buckets[] = [
                 'key' => AA_Executable_Contract::BUCKET_SECONDARY,
                 'label' => AA_Executable_Contract::bucket_label(AA_Executable_Contract::BUCKET_SECONDARY),
-                'items' => self::map_items($list_2),
+                'items' => self::map_items($list_2, AA_Executable_Contract::BUCKET_SECONDARY),
             ];
         }
 
@@ -68,7 +68,7 @@ final class LearningRecommendationsToExecutableMapper {
      * @param list<array<string,mixed>> $items
      * @return list<array<string,mixed>>
      */
-    private static function map_items(array $items): array {
+    private static function map_items(array $items, string $bucket_key): array {
         $mapped = [];
 
         foreach ($items as $item) {
@@ -76,7 +76,7 @@ final class LearningRecommendationsToExecutableMapper {
                 continue;
             }
 
-            $mapped[] = self::map_item($item);
+            $mapped[] = self::map_item($item, $bucket_key);
         }
 
         return $mapped;
@@ -86,7 +86,7 @@ final class LearningRecommendationsToExecutableMapper {
      * @param array<string,mixed> $item
      * @return array<string,mixed>
      */
-    private static function map_item(array $item): array {
+    private static function map_item(array $item, string $bucket_key): array {
         $key = isset($item['key']) ? (string) $item['key'] : '';
 
         return AA_Executable_Contract::normalize_item([
@@ -97,6 +97,7 @@ final class LearningRecommendationsToExecutableMapper {
             'description' => isset($item['description']) ? (string) $item['description'] : null,
             'importance' => (int) ($item['importance'] ?? 0),
             'due_at' => null,
+            'default_bucket' => self::resolve_default_bucket($item, $bucket_key),
             'status' => !empty($item['is_completed'])
                 ? AA_Executable_Contract::ITEM_STATUS_DONE
                 : AA_Executable_Contract::ITEM_STATUS_PENDING,
@@ -118,6 +119,23 @@ final class LearningRecommendationsToExecutableMapper {
             'primary_action' => self::map_primary_action($item['action'] ?? null),
             'is_executive_candidate' => false,
         ]);
+    }
+
+    /**
+     * @param array<string,mixed> $item
+     */
+    private static function resolve_default_bucket(array $item, string $bucket_key): string {
+        if (array_key_exists('default_list', $item)) {
+            return (int) $item['default_list'] === 1
+                ? AA_Executable_Contract::BUCKET_PRIMARY
+                : AA_Executable_Contract::BUCKET_SECONDARY;
+        }
+
+        if ($bucket_key === AA_Executable_Contract::BUCKET_SECONDARY) {
+            return AA_Executable_Contract::BUCKET_SECONDARY;
+        }
+
+        return AA_Executable_Contract::BUCKET_PRIMARY;
     }
 
     /**

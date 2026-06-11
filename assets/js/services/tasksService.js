@@ -183,7 +183,7 @@
             fields.position = payload.position;
         }
 
-        if (payload.default_bucket) {
+        if (payload.default_bucket === 'primary' || payload.default_bucket === 'secondary') {
             fields.default_bucket = payload.default_bucket;
         }
 

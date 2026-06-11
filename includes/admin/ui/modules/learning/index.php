@@ -17,6 +17,7 @@ $executable_lists_shadow_js = plugin_dir_url(__FILE__) . 'executable-lists-shado
 $executable_lists_module_js = plugin_dir_url(__FILE__) . 'executable-lists-module.js';
 $executable_actions_coordinator_js = plugin_dir_url(__FILE__) . 'executable-actions-coordinator.js';
 $lists_area_tools_js = plugin_dir_url(__FILE__) . 'lists-area-tools.js';
+$task_edit_js = plugin_dir_url(__FILE__) . 'task-edit-module.js';
 ?>
 
 <div id="aa-tasks-module-root" class="max-w-5xl mx-auto py-2">
@@ -264,6 +265,66 @@ $lists_area_tools_js = plugin_dir_url(__FILE__) . 'lists-area-tools.js';
     </div>
 </div>
 
+<!-- Modal: editar tarea -->
+<div id="aa-task-edit-modal" class="fixed inset-0 z-[300] hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-black/40" data-aa-tasks-modal-close="aa-task-edit-modal"></div>
+    <div class="relative z-10 flex min-h-full items-center justify-center p-4">
+        <div class="w-full max-w-md bg-white rounded-xl shadow-lg border border-gray-200">
+            <div class="px-5 py-4 border-b border-gray-100">
+                <h4 class="text-lg font-semibold text-gray-900">Editar tarea</h4>
+            </div>
+            <form id="aa-task-edit-form" class="px-5 py-4 space-y-4">
+                <input type="hidden" id="aa-task-edit-form-task-id" name="task_id" value="">
+                <div>
+                    <label for="aa-task-edit-form-title" class="block text-sm font-medium text-gray-700 mb-1">Tarea</label>
+                    <input type="text" id="aa-task-edit-form-title" name="title" required maxlength="255"
+                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Qué necesitas hacer">
+                </div>
+                <div>
+                    <label for="aa-task-edit-form-notes" class="block text-sm font-medium text-gray-700 mb-1">Detalles o contexto</label>
+                    <textarea id="aa-task-edit-form-notes" name="notes" rows="3" maxlength="800"
+                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Notas opcionales"></textarea>
+                </div>
+                <details id="aa-task-edit-form-options" class="rounded-lg border border-gray-200 bg-gray-50/50">
+                    <summary class="cursor-pointer select-none px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg">
+                        Opciones
+                    </summary>
+                    <div class="space-y-4 border-t border-gray-200 px-3 py-3">
+                        <div>
+                            <label for="aa-task-edit-form-due-at" class="block text-sm font-medium text-gray-700 mb-1">Vencimiento (opcional)</label>
+                            <input type="datetime-local" id="aa-task-edit-form-due-at" name="due_at"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                        </div>
+                        <div>
+                            <label for="aa-task-edit-form-importance" class="block text-sm font-medium text-gray-700 mb-1">Importancia (opcional)</label>
+                            <input type="number" id="aa-task-edit-form-importance" name="importance" value="0"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                        </div>
+                        <div>
+                            <label for="aa-task-edit-form-default-bucket" class="block text-sm font-medium text-gray-700 mb-1">Clasificación</label>
+                            <select id="aa-task-edit-form-default-bucket" name="default_bucket"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                                <option value="primary" selected>Principal</option>
+                                <option value="secondary">Secundaria</option>
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">Elige si esta tarea es indispensable para cumplir el objetivo de la lista, o si es una tarea sugerida, conveniente pero prescindible.</p>
+                        </div>
+                    </div>
+                </details>
+                <p id="aa-task-edit-form-error" class="hidden text-sm text-red-600"></p>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" data-aa-tasks-modal-close="aa-task-edit-modal"
+                        class="px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Cancelar</button>
+                    <button type="submit"
+                        class="px-3 py-2 text-sm font-medium rounded-lg border border-blue-200 bg-blue-600 text-white hover:bg-blue-700">Guardar cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
     if (typeof window.ajaxurl === 'undefined') {
         window.ajaxurl = '<?php echo admin_url('admin-ajax.php'); ?>';
@@ -299,3 +360,4 @@ $lists_area_tools_js = plugin_dir_url(__FILE__) . 'lists-area-tools.js';
 <script src="<?php echo esc_url($executable_actions_coordinator_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($executable_lists_module_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($lists_area_tools_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($task_edit_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>

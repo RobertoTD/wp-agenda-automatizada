@@ -169,6 +169,27 @@ $tasks_board_src = file_get_contents($plugin_root . '/includes/admin/ui/modules/
 ac_assert('Tasks board module reads default_bucket on create', strpos($tasks_board_src, 'aa-task-form-default-bucket') !== false);
 ac_assert('Tasks board module sends secondary default_bucket', strpos($tasks_board_src, "createPayload.default_bucket = 'secondary'") !== false);
 
+$task_edit_src = file_get_contents($plugin_root . '/includes/admin/ui/modules/learning/task-edit-module.js');
+ac_assert('Task edit module file readable', $task_edit_src !== false);
+ac_assert('Edit modal markup exists in learning UI', strpos($learning_ui_src, 'aa-task-edit-modal') !== false);
+ac_assert('Edit modal title Editar tarea', strpos($learning_ui_src, 'Editar tarea') !== false);
+ac_assert('Edit form includes task_id hidden field', strpos($learning_ui_src, 'aa-task-edit-form-task-id') !== false);
+ac_assert('Edit form includes title notes due_at importance default_bucket', strpos($learning_ui_src, 'aa-task-edit-form-title') !== false
+    && strpos($learning_ui_src, 'aa-task-edit-form-notes') !== false
+    && strpos($learning_ui_src, 'aa-task-edit-form-due-at') !== false
+    && strpos($learning_ui_src, 'aa-task-edit-form-importance') !== false
+    && strpos($learning_ui_src, 'aa-task-edit-form-default-bucket') !== false);
+ac_assert('Edit form Opciones section', strpos($learning_ui_src, 'aa-task-edit-form-options') !== false);
+ac_assert('Edit module enqueued in learning UI', strpos($learning_ui_src, 'task-edit-module.js') !== false);
+ac_assert('Edit module calls TasksService.updateTask', strpos($task_edit_src, 'service.updateTask') !== false);
+ac_assert('Edit module handles notes_too_long client guard', strpos($task_edit_src, 'NOTES_MAX_LENGTH') !== false);
+ac_assert('Edit module reloads board and feed after success', strpos($task_edit_src, 'AATasksBoard') !== false
+    && strpos($task_edit_src, 'AAExecutableUserListsVisibleFeed') !== false);
+ac_assert('TasksService updateTask sends primary and secondary default_bucket', strpos($tasks_service_src, "payload.default_bucket === 'primary'") !== false
+    && strpos($tasks_service_src, "payload.default_bucket === 'secondary'") !== false);
+ac_assert('Renderer exposes edit button with can_edit guard', strpos(file_get_contents($plugin_root . '/assets/js/ui/executableListRenderer.js'), 'data-aa-task-edit') !== false
+    && strpos(file_get_contents($plugin_root . '/assets/js/ui/executableListRenderer.js'), 'capabilities.can_edit') !== false);
+
 // ─── Integración WordPress ───────────────────────────────────
 
 if ($wp_integration) {

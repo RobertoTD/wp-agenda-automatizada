@@ -3,8 +3,10 @@
 const assert = require('node:assert/strict');
 const { describe, it } = require('node:test');
 const path = require('node:path');
+const fs = require('node:fs');
 
 const rendererPath = path.join(__dirname, '../../assets/js/ui/executableListRenderer.js');
+const adminSourceCssPath = path.join(__dirname, '../../includes/admin/ui/assets/css/admin.source.css');
 const renderer = require(rendererPath);
 
 function baseItem(overrides) {
@@ -1229,12 +1231,13 @@ describe('executableListRenderer MC13 expandable items', () => {
         assert.doesNotMatch(summary, /aa-executable-item-actions/);
         assert.doesNotMatch(summary, /Vence:/);
         assert.doesNotMatch(summary, /Importancia:/);
-        assert.doesNotMatch(summary, /aa-executable-item-chevron/);
+        assert.match(summary, /aa-executable-item-chevron/);
+        assert.match(summary, /aa-executable-item-summary-actions/);
         assert.doesNotMatch(summary, /data-aa-task-edit/);
         assert.doesNotMatch(summary, /data-tasks-action="complete"/);
     });
 
-    it('contenido expandido incluye descripción completa, meta, acciones y chevron', () => {
+    it('contenido expandido incluye descripción completa, meta y acciones sin editar ni chevron', () => {
         var html = renderer.renderItem(baseItem({
             id: '42',
             source: 'user',
@@ -1269,8 +1272,63 @@ describe('executableListRenderer MC13 expandable items', () => {
         assert.match(html, /onclick="event\.stopPropagation\(\)"/);
         assert.match(html, /data-tasks-action="complete"/);
         assert.match(html, /data-tasks-action="dismiss"/);
-        assert.match(html, /aa-executable-item-chevron/);
-        assert.doesNotMatch(html, /data-aa-task-edit/);
+        assert.doesNotMatch(html, /aa-executable-item-expanded-footer/);
+        assert.doesNotMatch(html, /aa-executable-item-expanded[\s\S]*aa-executable-item-chevron/);
+    });
+
+    it('muestra chevron en summary y botón editar en summary solo si can_edit es true', () => {
+        var html = renderer.renderItem(baseItem({
+            id: '99',
+            source: 'user',
+            description: 'Notas de la tarea',
+            due_at: '2026-06-21 10:00:00',
+            importance: 2,
+            default_bucket: 'secondary',
+            capabilities: {
+                can_complete: true,
+                can_edit: true
+            }
+        }));
+        var summary = extractSummary(html);
+
+        assert.match(summary, /aa-executable-item-chevron/);
+        assert.match(summary, /aa-executable-item-summary-actions/);
+        assert.match(summary, /data-aa-task-edit="1"/);
+        assert.match(summary, /aria-label="Editar tarea"/);
+        assert.match(summary, /data-task-id="99"/);
+        assert.match(summary, /data-task-default-bucket="secondary"/);
+        assert.match(summary, /aa-executable-item-summary-edit/);
+        assert.doesNotMatch(html, /aa-executable-item-expanded-footer/);
+    });
+
+    it('no muestra botón editar si can_edit es false o ausente', () => {
+        var withoutFlag = renderer.renderItem(baseItem({
+            source: 'user',
+            description: 'Solo lectura'
+        }));
+        var explicitFalse = renderer.renderItem(baseItem({
+            source: 'user',
+            description: 'Solo lectura',
+            capabilities: {
+                can_edit: false
+            }
+        }));
+
+        assert.doesNotMatch(withoutFlag, /data-aa-task-edit/);
+        assert.doesNotMatch(explicitFalse, /data-aa-task-edit/);
+    });
+
+    it('no muestra botón eliminar tarea en panel expandido', () => {
+        var html = renderer.renderItem(baseItem({
+            source: 'user',
+            description: 'Editable',
+            capabilities: {
+                can_edit: true
+            }
+        }));
+
+        assert.doesNotMatch(html, /data-aa-task-delete/);
+        assert.doesNotMatch(html, /Eliminar tarea/);
     });
 
     it('no muestra importancia en expandido cuando es 0', () => {
@@ -1297,5 +1355,37 @@ describe('executableListRenderer MC13 expandable items', () => {
 
         assert.match(html, /https:\/\/example\.test\/admin-post\.php\?module=assignments/);
         assert.match(html, />Ir</);
+    });
+});
+
+describe('executableListRenderer chevron rotation CSS', () => {
+    it('usa selectores acotados por lista y tarea sin regla genérica anidada', () => {
+        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
+
+        assert.match(css, /details\.aa-executable-list-card\[open\] > summary \.aa-chevron/);
+        assert.match(css, /details\.aa-executable-item\[open\] > summary \.aa-executable-item-chevron/);
+        assert.doesNotMatch(css, /details\[open\] summary \.aa-chevron/);
+        assert.match(css, /details\[open\] > summary \.aa-chevron:not\(\.aa-executable-item-chevron\)/);
+    });
+
+    it('renderer expone clases de chevron compatibles con rotación acotada', () => {
+        var listHtml = renderer.renderList(baseList({
+            buckets: [
+                {
+                    key: 'default',
+                    label: '',
+                    items: [baseItem({ description: 'Preview' })]
+                }
+            ]
+        }));
+        var itemHtml = renderer.renderItem(baseItem({
+            description: 'Detalle',
+            capabilities: { can_edit: true }
+        }));
+
+        assert.match(listHtml, /aa-executable-list-card/);
+        assert.match(listHtml, /aa-chevron/);
+        assert.match(itemHtml, /aa-executable-item-chevron/);
+        assert.match(itemHtml, /aa-executable-item-chevron aa-chevron/);
     });
 });

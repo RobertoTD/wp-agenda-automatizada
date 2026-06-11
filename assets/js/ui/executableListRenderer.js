@@ -645,16 +645,66 @@
     }
 
     /**
+     * @param {object} item
      * @returns {string}
      */
-    function renderItemExpandedChevron() {
+    function renderItemEditButton(item) {
+        var capabilities = item.capabilities && typeof item.capabilities === 'object'
+            ? item.capabilities
+            : {};
+
+        if (!capabilities.can_edit) {
+            return '';
+        }
+
+        var defaultBucket = asString(item.default_bucket).trim().toLowerCase();
+
+        if (defaultBucket !== 'secondary') {
+            defaultBucket = 'primary';
+        }
+
         return ''
-            + '<span class="aa-executable-item-chevron aa-chevron inline-flex shrink-0 text-gray-400"'
+            + '<button type="button"'
+            + ' data-aa-task-edit="1"'
+            + ' data-task-id="' + escapeHtml(asString(item.id)) + '"'
+            + ' data-task-title="' + escapeHtml(asString(item.title)) + '"'
+            + ' data-task-notes="' + escapeHtml(asString(item.description)) + '"'
+            + ' data-task-due-at="' + escapeHtml(asString(item.due_at)) + '"'
+            + ' data-task-importance="' + escapeHtml(String(item.importance !== undefined && item.importance !== null ? item.importance : 0)) + '"'
+            + ' data-task-default-bucket="' + escapeHtml(defaultBucket) + '"'
+            + ' onclick="event.stopPropagation()"'
+            + ' class="aa-executable-item-summary-edit inline-flex items-center justify-center w-8 h-8 rounded-lg border border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50"'
+            + ' aria-label="Editar tarea">'
+            + '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">'
+            + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"'
+            + ' d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>'
+            + '</svg>'
+            + '</button>';
+    }
+
+    /**
+     * @returns {string}
+     */
+    function renderItemSummaryChevron() {
+        return ''
+            + '<span class="aa-executable-item-chevron aa-chevron inline-flex shrink-0 text-gray-400 transition-transform duration-200"'
             + ' aria-hidden="true">'
             + '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
             + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>'
             + '</svg>'
             + '</span>';
+    }
+
+    /**
+     * @param {object} item
+     * @returns {string}
+     */
+    function renderItemSummaryActions(item) {
+        return ''
+            + '<div class="aa-executable-item-summary-actions flex items-center gap-1 shrink-0">'
+            + renderItemEditButton(item)
+            + renderItemSummaryChevron()
+            + '</div>';
     }
 
     /**
@@ -696,16 +746,18 @@
             ? renderItemDescriptionFull(descriptionText)
             : '';
         var metaHtml = renderItemExpandedMeta(item);
-        var needsExpandedPanel = descriptionText !== '' || metaHtml !== '' || actionsHtml !== '';
+        var needsExpandedPanel = descriptionText !== ''
+            || metaHtml !== ''
+            || actionsHtml !== '';
+        var expandedActionsHtml = actionsHtml !== ''
+            ? '<div class="aa-executable-item-expanded-actions mt-3">' + actionsHtml + '</div>'
+            : '';
         var expandedPanelHtml = needsExpandedPanel
             ? ''
                 + '<div class="aa-executable-item-expanded px-4 pb-4 pt-0">'
                 + expandedDescriptionHtml
                 + metaHtml
-                + '<div class="aa-executable-item-expanded-footer flex items-start justify-between gap-2 mt-3">'
-                + '<div class="min-w-0 flex-1">' + actionsHtml + '</div>'
-                + renderItemExpandedChevron()
-                + '</div>'
+                + expandedActionsHtml
                 + '</div>'
             : '';
 
@@ -715,8 +767,13 @@
             + ' data-item-id="' + itemId + '"'
             + ' data-item-source="' + source + '">'
             + '<summary class="aa-executable-item-summary cursor-pointer list-none p-4">'
+            + '<div class="flex items-start justify-between gap-2">'
+            + '<div class="min-w-0 flex-1">'
             + '<p class="' + titleClass + '">' + title + '</p>'
             + previewHtml
+            + '</div>'
+            + renderItemSummaryActions(item)
+            + '</div>'
             + '</summary>'
             + expandedPanelHtml
             + '</details>'

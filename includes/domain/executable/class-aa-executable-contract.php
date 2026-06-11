@@ -163,6 +163,7 @@ final class AA_Executable_Contract {
             'description' => self::nullable_string($item['description'] ?? null),
             'importance' => (int) ($item['importance'] ?? 0),
             'due_at' => self::nullable_string($item['due_at'] ?? null),
+            'default_bucket' => self::normalize_item_default_bucket($item['default_bucket'] ?? null),
             'status' => $status,
             'state' => self::normalize_item_state($item['state'] ?? []),
             'capabilities' => self::normalize_item_capabilities($item['capabilities'] ?? []),
@@ -213,6 +214,7 @@ final class AA_Executable_Contract {
             'description',
             'importance',
             'due_at',
+            'default_bucket',
             'status',
             'state',
             'capabilities',
@@ -452,6 +454,19 @@ final class AA_Executable_Contract {
             'can_reactivate' => !empty($capabilities['can_reactivate']),
             'can_edit' => !empty($capabilities['can_edit']),
         ];
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private static function normalize_item_default_bucket($value): string {
+        $bucket = is_string($value) ? strtolower(trim($value)) : '';
+
+        if ($bucket === self::BUCKET_SECONDARY) {
+            return self::BUCKET_SECONDARY;
+        }
+
+        return self::BUCKET_PRIMARY;
     }
 
     /**

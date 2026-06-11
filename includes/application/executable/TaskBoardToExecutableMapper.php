@@ -385,6 +385,9 @@ final class TaskBoardToExecutableMapper {
             'description' => isset($task['notes']) ? (string) $task['notes'] : null,
             'importance' => (int) ($task['importance'] ?? 0),
             'due_at' => isset($task['due_at']) && $task['due_at'] !== '' ? (string) $task['due_at'] : null,
+            'default_bucket' => isset($task['default_bucket']) && $task['default_bucket'] !== ''
+                ? (string) $task['default_bucket']
+                : AA_Executable_Contract::BUCKET_PRIMARY,
             'status' => $is_done
                 ? AA_Executable_Contract::ITEM_STATUS_DONE
                 : AA_Executable_Contract::ITEM_STATUS_PENDING,
