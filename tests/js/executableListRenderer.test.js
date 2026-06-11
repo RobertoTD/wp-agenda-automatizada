@@ -301,7 +301,7 @@ describe('AAExecutableListRenderer', () => {
         assert.doesNotMatch(html, />Ahora no</);
     });
 
-    it('can_archive genera data-tasks-action archive-list', () => {
+    it('can_archive renderiza menú ⋮ con Archivar lista y sin botón suelto', () => {
         var list = baseList({
             id: '7',
             source: 'user',
@@ -311,8 +311,24 @@ describe('AAExecutableListRenderer', () => {
 
         var html = renderer.renderList(list);
 
-        assert.match(html, /data-tasks-action="archive-list"/);
+        assert.match(html, /data-aa-list-options-trigger="1"/);
+        assert.match(html, /aa-executable-list-options-menu/);
+        assert.match(html, /role="menuitem"[\s\S]*data-tasks-action="archive-list"/);
+        assert.match(html, />Archivar lista</);
         assert.match(html, /data-list-id="7"/);
+        assert.doesNotMatch(html, />Archivar</);
+        assert.doesNotMatch(html, /data-aa-list-edit/);
+    });
+
+    it('can_edit sin can_archive no renderiza menú ⋮ en L-B', () => {
+        var html = renderer.renderList(baseList({
+            source: 'user',
+            capabilities: { can_edit: true, can_archive: false },
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+
+        assert.doesNotMatch(html, /data-aa-list-options-trigger/);
+        assert.doesNotMatch(html, /data-tasks-action="archive-list"/);
     });
 
     it('source=system muestra label sutil Agenda app', () => {
@@ -332,6 +348,7 @@ describe('AAExecutableListRenderer', () => {
         assert.doesNotMatch(html, /aa-executable-list-source-badge/);
         assert.doesNotMatch(html, />Recomendado</);
         assert.doesNotMatch(html, /data-tasks-action="archive-list"/);
+        assert.doesNotMatch(html, /data-aa-list-options-trigger/);
     });
 
     it('source=user muestra label sutil Mis listas', () => {
@@ -350,6 +367,7 @@ describe('AAExecutableListRenderer', () => {
         assert.match(html, />Mis listas</);
         assert.doesNotMatch(html, /aa-executable-list-source-badge/);
         assert.match(html, /data-tasks-action="archive-list"/);
+        assert.match(html, /data-aa-list-options-trigger="1"/);
     });
 
     it('MC13L renderiza lista como details colapsable cerrada por defecto', () => {
@@ -374,7 +392,7 @@ describe('AAExecutableListRenderer', () => {
         assert.match(html, /aa-executable-item/);
     });
 
-    it('MC13L archive-list en summary usa stopPropagation', () => {
+    it('MC13L menú de lista en summary usa stopPropagation en trigger y archivar', () => {
         var list = baseList({
             id: '7',
             source: 'user',
@@ -384,8 +402,10 @@ describe('AAExecutableListRenderer', () => {
 
         var html = renderer.renderList(list);
 
+        assert.match(html, /data-aa-list-options-trigger="1"/);
         assert.match(html, /data-tasks-action="archive-list"/);
-        assert.match(html, /onclick="event\.stopPropagation\(\)"/);
+        assert.match(html, /aa-executable-list-options-trigger[\s\S]*onclick="event\.stopPropagation\(\)"/);
+        assert.doesNotMatch(html, /class="[^"]*text-xs[^"]*"[^>]*>Archivar</);
     });
 
     it('MC13L system list no muestra Archivar y conserva source label', () => {
@@ -402,6 +422,7 @@ describe('AAExecutableListRenderer', () => {
         assert.match(html, />Agenda app</);
         assert.doesNotMatch(html, />Recomendado</);
         assert.doesNotMatch(html, /data-tasks-action="archive-list"/);
+        assert.doesNotMatch(html, /data-aa-list-options-trigger/);
         assert.match(html, /<details/);
     });
 
@@ -504,6 +525,7 @@ describe('AAExecutableListRenderer', () => {
         );
         assert.match(html, /data-tasks-action="archive-list"/);
         assert.match(html, /aa-chevron/);
+        assert.doesNotMatch(html, /Eliminar lista/);
     });
 
     it('lista user sin items visibles muestra mensaje de tareas pendientes', () => {
@@ -1355,6 +1377,36 @@ describe('executableListRenderer MC13 expandable items', () => {
 
         assert.match(html, /https:\/\/example\.test\/admin-post\.php\?module=assignments/);
         assert.match(html, />Ir</);
+    });
+});
+
+describe('executableListRenderer MC13L-B list options menu', () => {
+    it('lista user archivable renderiza menú y conserva chevron sin delete', () => {
+        var html = renderer.renderList(baseList({
+            id: '12',
+            source: 'user',
+            capabilities: { can_archive: true, can_edit: true },
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+
+        assert.match(html, /aa-executable-list-options-trigger/);
+        assert.match(html, />Archivar lista</);
+        assert.match(html, /aa-chevron/);
+        assert.doesNotMatch(html, /data-aa-list-edit/);
+        assert.doesNotMatch(html, /Eliminar lista/);
+        assert.doesNotMatch(html, /class="[^"]*text-xs[^"]*"[^>]*>Archivar</);
+    });
+
+    it('lista agenda_app no renderiza menú de opciones', () => {
+        var html = renderer.renderList(baseList({
+            source: 'system',
+            source_category: 'agenda_app',
+            capabilities: { can_archive: false, can_edit: false },
+            buckets: [{ key: 'primary', label: 'Principales', items: [baseItem()] }]
+        }));
+
+        assert.doesNotMatch(html, /aa-executable-list-options/);
+        assert.match(html, /aa-chevron/);
     });
 });
 

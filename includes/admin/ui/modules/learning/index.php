@@ -18,6 +18,7 @@ $executable_lists_module_js = plugin_dir_url(__FILE__) . 'executable-lists-modul
 $executable_actions_coordinator_js = plugin_dir_url(__FILE__) . 'executable-actions-coordinator.js';
 $lists_area_tools_js = plugin_dir_url(__FILE__) . 'lists-area-tools.js';
 $task_edit_js = plugin_dir_url(__FILE__) . 'task-edit-module.js';
+$list_options_js = plugin_dir_url(__FILE__) . 'list-options-module.js';
 ?>
 
 <div id="aa-tasks-module-root" class="max-w-5xl mx-auto py-2">
@@ -361,3 +362,4 @@ $task_edit_js = plugin_dir_url(__FILE__) . 'task-edit-module.js';
 <script src="<?php echo esc_url($executable_lists_module_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($lists_area_tools_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($task_edit_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($list_options_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>

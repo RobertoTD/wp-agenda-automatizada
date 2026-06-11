@@ -89,6 +89,15 @@
         overflow-y: auto;
     }
 
+    /* Executable feed — menú de opciones por lista (MC13L-B) */
+    details.aa-executable-list-card:not([open]) .aa-executable-list-options {
+        display: none;
+    }
+
+    details.aa-executable-list-card > summary {
+        position: relative;
+    }
+
     /* ═══════════════════════════════════════════════════════════════
        CARD SYSTEM - Collapsible cards with overlay
     ═══════════════════════════════════════════════════════════════ */

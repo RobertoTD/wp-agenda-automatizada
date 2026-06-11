@@ -899,6 +899,77 @@
     }
 
     /**
+     * @param {object} capabilities
+     * @returns {boolean}
+     */
+    function listHasOptionsMenu(capabilities) {
+        return !!capabilities.can_archive || !!capabilities.can_edit;
+    }
+
+    /**
+     * @param {object} capabilities
+     * @param {string} listId
+     * @returns {string}
+     */
+    function renderListOptionsMenuItems(capabilities, listId) {
+        var items = '';
+
+        if (capabilities.can_archive) {
+            items += ''
+                + '<button type="button" role="menuitem"'
+                + ' data-tasks-action="archive-list"'
+                + ' data-list-id="' + listId + '"'
+                + ' onclick="event.stopPropagation()"'
+                + ' class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-50">'
+                + 'Archivar lista'
+                + '</button>';
+        }
+
+        return items;
+    }
+
+    /**
+     * @param {object} capabilities
+     * @param {string} listId
+     * @returns {string}
+     */
+    function renderListOptionsMenu(capabilities, listId) {
+        if (!listHasOptionsMenu(capabilities)) {
+            return '';
+        }
+
+        var menuItems = renderListOptionsMenuItems(capabilities, listId);
+
+        if (menuItems === '') {
+            return '';
+        }
+
+        return ''
+            + '<div class="relative aa-executable-list-options shrink-0">'
+            + '<button type="button"'
+            + ' data-aa-list-options-trigger="1"'
+            + ' data-list-id="' + listId + '"'
+            + ' onclick="event.stopPropagation()"'
+            + ' title="Opciones de lista"'
+            + ' aria-label="Opciones de lista"'
+            + ' aria-haspopup="menu"'
+            + ' aria-expanded="false"'
+            + ' class="aa-executable-list-options-trigger inline-flex items-center justify-center w-8 h-8 text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300/60 transition-colors">'
+            + '<svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">'
+            + '<circle cx="5" cy="12" r="1.75"/>'
+            + '<circle cx="12" cy="12" r="1.75"/>'
+            + '<circle cx="19" cy="12" r="1.75"/>'
+            + '</svg>'
+            + '</button>'
+            + '<div class="hidden aa-executable-list-options-menu absolute right-0 top-full z-20 mt-2 min-w-[12rem] rounded-lg border border-gray-200 bg-white py-1 shadow-lg"'
+            + ' role="menu"'
+            + ' data-list-id="' + listId + '">'
+            + menuItems
+            + '</div>'
+            + '</div>';
+    }
+
+    /**
      * @param {object} list
      * @param {object} [options]
      * @param {number} [listIndex]
@@ -934,24 +1005,17 @@
         }
 
         var sourceLabelHtml = renderSourceLabel(list);
-        var archiveHtml = capabilities.can_archive
-            ? '<button type="button" data-tasks-action="archive-list" data-list-id="' + listId + '"'
-                + ' onclick="event.stopPropagation()"'
-                + ' class="text-xs font-medium text-gray-500 hover:text-red-600 px-2 py-1 rounded border border-gray-200 whitespace-nowrap">'
-                + 'Archivar'
-                + '</button>'
-            : '';
-        var headerMetaHtml = archiveHtml !== ''
-            ? '<div class="flex flex-col items-end gap-2 shrink-0">' + archiveHtml + '</div>'
-            : '';
+        var optionsMenuHtml = renderListOptionsMenu(capabilities, listId);
         var chevronHtml = ''
             + '<svg class="aa-chevron w-5 h-5 text-gray-400 transition-transform duration-200 flex-shrink-0"'
             + ' fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">'
             + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>'
             + '</svg>';
-        var headerActionsHtml = headerMetaHtml !== '' || chevronHtml !== ''
-            ? '<div class="flex items-start gap-2 shrink-0">' + headerMetaHtml + chevronHtml + '</div>'
-            : chevronHtml;
+        var headerActionsHtml = ''
+            + '<div class="flex items-center gap-1 shrink-0">'
+            + optionsMenuHtml
+            + chevronHtml
+            + '</div>';
         var headerGradient = source === 'system'
             ? 'from-amber-50 to-white'
             : 'from-gray-50 to-white';
