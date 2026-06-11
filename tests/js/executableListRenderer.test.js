@@ -320,14 +320,24 @@ describe('AAExecutableListRenderer', () => {
         assert.doesNotMatch(html, /data-aa-list-edit/);
     });
 
-    it('can_edit sin can_archive no renderiza menú ⋮ en L-B', () => {
+    it('can_edit sin can_archive renderiza menú con Editar lista', () => {
         var html = renderer.renderList(baseList({
+            id: '21',
             source: 'user',
+            title: 'Lista editable',
+            description: 'Objetivo',
+            importance: 3,
             capabilities: { can_edit: true, can_archive: false },
             buckets: [{ key: 'default', label: '', items: [] }]
         }));
 
-        assert.doesNotMatch(html, /data-aa-list-options-trigger/);
+        assert.match(html, /data-aa-list-options-trigger="1"/);
+        assert.match(html, /data-aa-list-edit="1"/);
+        assert.match(html, />Editar lista</);
+        assert.match(html, /data-list-id="21"/);
+        assert.match(html, /data-list-title="Lista editable"/);
+        assert.match(html, /data-list-description="Objetivo"/);
+        assert.match(html, /data-list-importance="3"/);
         assert.doesNotMatch(html, /data-tasks-action="archive-list"/);
     });
 
@@ -1390,9 +1400,10 @@ describe('executableListRenderer MC13L-B list options menu', () => {
         }));
 
         assert.match(html, /aa-executable-list-options-trigger/);
+        assert.match(html, />Editar lista</);
         assert.match(html, />Archivar lista</);
+        assert.match(html, /data-aa-list-edit="1"/);
         assert.match(html, /aa-chevron/);
-        assert.doesNotMatch(html, /data-aa-list-edit/);
         assert.doesNotMatch(html, /Eliminar lista/);
         assert.doesNotMatch(html, /class="[^"]*text-xs[^"]*"[^>]*>Archivar</);
     });
@@ -1406,7 +1417,50 @@ describe('executableListRenderer MC13L-B list options menu', () => {
         }));
 
         assert.doesNotMatch(html, /aa-executable-list-options/);
+        assert.doesNotMatch(html, />Editar lista</);
         assert.match(html, /aa-chevron/);
+    });
+});
+
+describe('executableListRenderer MC13L-C list edit menu', () => {
+    it('Editar lista solo aparece con can_edit=true', () => {
+        var editable = renderer.renderList(baseList({
+            capabilities: { can_edit: true, can_archive: false },
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+        var notEditable = renderer.renderList(baseList({
+            capabilities: { can_archive: true },
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+
+        assert.match(editable, /data-aa-list-edit="1"/);
+        assert.doesNotMatch(notEditable, /data-aa-list-edit/);
+    });
+
+    it('data attrs de prefill escapan comillas en title y description', () => {
+        var html = renderer.renderList(baseList({
+            id: '55',
+            title: 'Lista "urgente"',
+            description: 'Objetivo con "comillas"',
+            importance: 0,
+            capabilities: { can_edit: true, can_archive: false },
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+
+        assert.match(html, /data-list-title="Lista &quot;urgente&quot;"/);
+        assert.match(html, /data-list-description="Objetivo con &quot;comillas&quot;"/);
+        assert.match(html, /data-list-importance="0"/);
+    });
+
+    it('sin capabilities no renderiza Editar lista ni Archivar lista', () => {
+        var html = renderer.renderList(baseList({
+            capabilities: {},
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+
+        assert.doesNotMatch(html, />Editar lista</);
+        assert.doesNotMatch(html, />Archivar lista</);
+        assert.doesNotMatch(html, /data-aa-list-options-trigger/);
     });
 });
 

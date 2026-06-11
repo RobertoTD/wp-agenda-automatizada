@@ -153,6 +153,26 @@ describe('TasksService MC13G-C1', () => {
         assert.equal(readFormField(posts[0].body, '_wpnonce'), 'test-nonce');
     });
 
+    it('updateTaskList postea aa_update_task_list con list_id, title, description e importance', async () => {
+        var loaded = loadTasksService();
+        var posts = loaded.posts;
+
+        await loaded.TasksService.updateTaskList({
+            list_id: 7,
+            title: 'Lista actualizada',
+            description: 'Nuevo objetivo',
+            importance: 2
+        });
+
+        assert.equal(posts.length, 1);
+        assert.equal(readFormField(posts[0].body, 'action'), 'aa_update_task_list');
+        assert.equal(readFormField(posts[0].body, 'list_id'), '7');
+        assert.equal(readFormField(posts[0].body, 'title'), 'Lista actualizada');
+        assert.equal(readFormField(posts[0].body, 'description'), 'Nuevo objetivo');
+        assert.equal(readFormField(posts[0].body, 'importance'), '2');
+        assert.equal(readFormField(posts[0].body, '_wpnonce'), 'test-nonce');
+    });
+
     it('returnIgnoredUserTasks postea aa_return_ignored_user_tasks', async () => {
         var loaded = loadTasksService();
         var posts = loaded.posts;

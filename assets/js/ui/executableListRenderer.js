@@ -908,11 +908,31 @@
 
     /**
      * @param {object} capabilities
-     * @param {string} listId
+     * @param {object} list
      * @returns {string}
      */
-    function renderListOptionsMenuItems(capabilities, listId) {
+    function renderListOptionsMenuItems(capabilities, list) {
         var items = '';
+        var listId = escapeHtml(asString(list.id));
+        var listTitle = escapeHtml(asString(list.title));
+        var listDescription = escapeHtml(asString(list.description || ''));
+        var listImportance = escapeHtml(asString(
+            list.importance !== undefined && list.importance !== null ? list.importance : 0
+        ));
+
+        if (capabilities.can_edit) {
+            items += ''
+                + '<button type="button" role="menuitem"'
+                + ' data-aa-list-edit="1"'
+                + ' data-list-id="' + listId + '"'
+                + ' data-list-title="' + listTitle + '"'
+                + ' data-list-description="' + listDescription + '"'
+                + ' data-list-importance="' + listImportance + '"'
+                + ' onclick="event.stopPropagation()"'
+                + ' class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">'
+                + 'Editar lista'
+                + '</button>';
+        }
 
         if (capabilities.can_archive) {
             items += ''
@@ -930,19 +950,21 @@
 
     /**
      * @param {object} capabilities
-     * @param {string} listId
+     * @param {object} list
      * @returns {string}
      */
-    function renderListOptionsMenu(capabilities, listId) {
+    function renderListOptionsMenu(capabilities, list) {
         if (!listHasOptionsMenu(capabilities)) {
             return '';
         }
 
-        var menuItems = renderListOptionsMenuItems(capabilities, listId);
+        var menuItems = renderListOptionsMenuItems(capabilities, list);
 
         if (menuItems === '') {
             return '';
         }
+
+        var listId = escapeHtml(asString(list.id));
 
         return ''
             + '<div class="relative aa-executable-list-options shrink-0">'
@@ -1005,7 +1027,7 @@
         }
 
         var sourceLabelHtml = renderSourceLabel(list);
-        var optionsMenuHtml = renderListOptionsMenu(capabilities, listId);
+        var optionsMenuHtml = renderListOptionsMenu(capabilities, list);
         var chevronHtml = ''
             + '<svg class="aa-chevron w-5 h-5 text-gray-400 transition-transform duration-200 flex-shrink-0"'
             + ' fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">'

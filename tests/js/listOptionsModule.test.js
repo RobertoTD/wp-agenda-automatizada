@@ -293,6 +293,8 @@ describe('list-options-module MC13L-B', () => {
         assert.match(rendererSrc, /data-aa-list-options-trigger/);
         assert.match(rendererSrc, /aa-executable-list-options-menu/);
         assert.match(rendererSrc, /Archivar lista/);
+        assert.match(rendererSrc, /Editar lista/);
+        assert.match(rendererSrc, /data-aa-list-edit/);
         assert.doesNotMatch(rendererSrc, /class="[^"]*text-xs[^"]*"[^>]*>Archivar</);
     });
 

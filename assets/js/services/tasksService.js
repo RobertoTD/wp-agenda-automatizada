@@ -102,6 +102,21 @@
     }
 
     /**
+     * @param {{list_id:number|string,title:string,description?:string,importance?:number}} payload
+     * @returns {Promise<Object>}
+     */
+    function updateTaskList(payload) {
+        return postAction('aa_update_task_list', {
+            list_id: payload.list_id,
+            title: payload.title,
+            description: payload.description || '',
+            importance: payload.importance !== undefined && payload.importance !== null
+                ? payload.importance
+                : 0
+        });
+    }
+
+    /**
      * @param {number|string} listId
      * @returns {Promise<Object>}
      */
@@ -232,6 +247,7 @@
     window.TasksService = {
         getTaskBoard: getTaskBoard,
         createTaskList: createTaskList,
+        updateTaskList: updateTaskList,
         archiveTaskList: archiveTaskList,
         getArchivedTaskLists: getArchivedTaskLists,
         restoreTaskList: restoreTaskList,
