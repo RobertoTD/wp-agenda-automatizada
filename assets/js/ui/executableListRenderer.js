@@ -807,8 +807,8 @@
         var descriptionText = asString(item.description).trim();
         var isDone = asString(item.status).toLowerCase() === 'done';
         var titleClass = isDone
-            ? 'text-sm text-gray-400 line-through'
-            : 'text-sm font-semibold text-gray-900';
+            ? 'aa-executable-item-title text-sm text-gray-400 line-through'
+            : 'aa-executable-item-title text-sm font-semibold text-gray-900';
         var actionsHtml = renderItemActions(item, opts, itemContext);
         var previewHtml = descriptionText !== ''
             ? renderItemDescriptionPreview(descriptionText)
@@ -1057,7 +1057,7 @@
                 + ' data-tasks-action="archive-list"'
                 + ' data-list-id="' + listId + '"'
                 + ' onclick="event.stopPropagation()"'
-                + ' class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-50">'
+                + ' class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">'
                 + 'Archivar lista'
                 + '</button>';
         }
@@ -1170,7 +1170,7 @@
         var headerGradient = 'from-gray-50 to-white';
 
         return ''
-            + '<details class="aa-executable-list-card aa-task-list-card group bg-white rounded-xl shadow border border-gray-200 overflow-hidden"'
+            + '<details class="aa-executable-list-card aa-task-list-card group bg-white rounded-xl shadow border border-gray-200"'
             + ' data-list-id="' + listId + '"'
             + ' data-list-source="' + source + '">'
             + '<summary class="px-4 py-4 border-b border-gray-100 bg-gradient-to-r ' + headerGradient + ' cursor-pointer list-none">'

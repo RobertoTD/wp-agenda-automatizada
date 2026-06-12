@@ -1467,7 +1467,8 @@ describe('executableListRenderer MC13L-B list options menu', () => {
         assert.match(html, />Eliminar lista</);
         assert.match(html, /data-tasks-action="delete-list"/);
         assert.match(html, /data-list-id="12"/);
-        assert.match(html, /text-red-600/);
+        assert.match(html, /data-tasks-action="archive-list"[^>]*class="[^"]*text-gray-700/);
+        assert.match(html, /data-tasks-action="delete-list"[^>]*class="[^"]*text-red-600/);
         assert.match(html, /aa-chevron/);
     });
 
@@ -1755,5 +1756,74 @@ describe('executableListRenderer chevron rotation CSS', () => {
         assert.match(listHtml, /aa-chevron/);
         assert.match(itemHtml, /aa-executable-item-chevron/);
         assert.match(itemHtml, /aa-executable-item-chevron aa-chevron/);
+    });
+});
+
+describe('executableListRenderer MC-UX-A visual polish', () => {
+    it('CSS oculta #aa-btn-open-aichat dentro de #aa-tasks-fab-stack', () => {
+        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
+
+        assert.match(css, /#aa-tasks-fab-stack #aa-btn-open-aichat/);
+        assert.match(css, /display:\s*none/);
+    });
+
+    it('Archivar lista usa text-gray-700 y Eliminar lista sigue en text-red-600', () => {
+        var html = renderer.renderList(baseList({
+            source: 'user',
+            capabilities: { can_archive: true, can_delete: true },
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+
+        assert.match(html, /data-tasks-action="archive-list"[^>]*class="[^"]*text-gray-700/);
+        assert.match(html, /data-tasks-action="delete-list"[^>]*class="[^"]*text-red-600/);
+        assert.doesNotMatch(html, /data-tasks-action="archive-list"[^>]*class="[^"]*text-red-600/);
+    });
+
+    it('Eliminar tarea sigue en text-red-600 y Archivar tarea en text-gray-700', () => {
+        var html = renderer.renderItem(baseItem({
+            source: 'user',
+            capabilities: { can_archive: true, can_delete: true }
+        }));
+
+        assert.match(html, /data-tasks-action="archive-task"[^>]*class="[^"]*text-gray-700/);
+        assert.match(html, /data-tasks-action="delete-task"[^>]*class="[^"]*text-red-600/);
+    });
+
+    it('renderer agrega clase aa-executable-item-title al título', () => {
+        var html = renderer.renderItem(baseItem({ title: 'Título largo de prueba' }));
+
+        assert.match(html, /class="aa-executable-item-title text-sm font-semibold text-gray-900"/);
+    });
+
+    it('CSS trunca título colapsado y lo muestra completo expandido', () => {
+        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
+
+        assert.match(css, /details\.aa-executable-item:not\(\[open\]\) \.aa-executable-item-title/);
+        assert.match(css, /-webkit-line-clamp:\s*1/);
+        assert.match(css, /details\.aa-executable-item\[open\] \.aa-executable-item-title/);
+        assert.match(css, /-webkit-mask-image:\s*none/);
+    });
+
+    it('CSS oculta .aa-executable-task-options cuando la tarea está colapsada', () => {
+        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
+
+        assert.match(css, /details\.aa-executable-item:not\(\[open\]\) \.aa-executable-task-options/);
+        assert.match(css, /display:\s*none/);
+    });
+
+    it('CSS mantiene overflow visible en card lista y z-index del menú de tarea', () => {
+        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
+
+        assert.match(css, /details\.aa-executable-list-card[\s\S]*overflow:\s*visible/);
+        assert.match(css, /\.aa-executable-task-options-menu[\s\S]*z-index:\s*30/);
+    });
+
+    it('renderer no incluye overflow-hidden en aa-executable-list-card', () => {
+        var html = renderer.renderList(baseList({
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+
+        assert.match(html, /aa-executable-list-card/);
+        assert.doesNotMatch(html, /aa-executable-list-card[\s\S]*overflow-hidden/);
     });
 });

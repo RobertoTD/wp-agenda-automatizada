@@ -742,6 +742,62 @@ details.aa-executable-list-card:not([open]) .aa-executable-list-options {
 
 details.aa-executable-list-card > summary {
   position: relative;
+  border-top-left-radius: 0.75rem;
+  border-top-right-radius: 0.75rem;
+}
+
+/* Executable feed — card lista: overflow visible para menús ⋮ (MC-UX-A) */
+
+details.aa-executable-list-card {
+  overflow: visible;
+}
+
+details.aa-executable-list-card > .aa-executable-list-body {
+  border-bottom-right-radius: 0.75rem;
+  border-bottom-left-radius: 0.75rem;
+}
+
+/* Executable feed — menú de opciones por tarea (MC-UX-A) */
+
+details.aa-executable-item:not([open]) .aa-executable-task-options {
+  display: none;
+}
+
+details.aa-executable-item > summary.aa-executable-item-summary,
+    .aa-executable-item-summary-actions,
+    .aa-executable-task-options {
+  overflow: visible;
+}
+
+.aa-executable-task-options-menu {
+  z-index: 30;
+}
+
+/* Executable feed — título truncado colapsado (MC-UX-A) */
+
+details.aa-executable-item:not([open]) .aa-executable-item-title {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  -webkit-mask-image: linear-gradient(to right, #000 72%, transparent 100%);
+  mask-image: linear-gradient(to right, #000 72%, transparent 100%);
+}
+
+details.aa-executable-item[open] .aa-executable-item-title {
+  overflow: visible;
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+/* Listas/Tareas — ocultar FAB asistente IA (MC-UX-A) */
+
+#aa-tasks-fab-stack #aa-btn-open-aichat {
+  display: none;
 }
 
 /* Executable feed — primera tarea expandida (MC13 UX-A) */
