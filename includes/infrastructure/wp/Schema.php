@@ -64,7 +64,7 @@ final class AA_Schema {
      * Independiente de la versión del plugin. Solo refleja el estado
      * de las tablas/columnas/índices.
      */
-    public const DB_VERSION = '7';
+    public const DB_VERSION = '8';
 
     /**
      * Registra el activation hook y el chequeo de migraciones.
@@ -346,6 +346,7 @@ final class AA_Schema {
             due_at datetime DEFAULT NULL,
             position int NOT NULL DEFAULT 0,
             completed_at datetime DEFAULT NULL,
+            archived_at datetime DEFAULT NULL,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             updated_at datetime DEFAULT NULL,
             PRIMARY KEY  (id),
@@ -358,6 +359,11 @@ final class AA_Schema {
         dbDelta($tasks_sql);
         self::ensure_index($tasks_table, 'uniq_task_origin', 'ALTER TABLE ' . $tasks_table . ' ADD UNIQUE KEY uniq_task_origin (source_category, origin_key)');
         self::ensure_index($tasks_table, 'source_category', 'ALTER TABLE ' . $tasks_table . ' ADD KEY source_category (source_category)');
+
+        $archived_at_col = $wpdb->get_results($wpdb->prepare("SHOW COLUMNS FROM {$tasks_table} LIKE %s", 'archived_at'));
+        if (empty($archived_at_col)) {
+            $wpdb->query("ALTER TABLE {$tasks_table} ADD COLUMN archived_at datetime DEFAULT NULL");
+        }
 
         // 🔹 Señales operativas por tarea (Listas/Tareas — MC13G-A + MC13O-B1 system completion)
         $task_state_table = $wpdb->prefix . 'aa_task_state';

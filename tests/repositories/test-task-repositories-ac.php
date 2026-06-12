@@ -35,7 +35,7 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 
 $schema_src = file_get_contents($schema_file);
 ac_assert('Schema file readable', $schema_src !== false);
-ac_assert('DB_VERSION is 7', strpos($schema_src, "DB_VERSION = '7'") !== false);
+ac_assert('DB_VERSION is 8', strpos($schema_src, "DB_VERSION = '8'") !== false);
 ac_assert(
     'CREATE TABLE aa_task_lists',
     strpos($schema_src, 'aa_task_lists') !== false
@@ -62,6 +62,7 @@ ac_assert(
         && strpos($schema_src, 'completion_fact_key varchar(100)') !== false
         && strpos($schema_src, 'due_at datetime') !== false
         && strpos($schema_src, 'completed_at datetime') !== false
+        && strpos($schema_src, 'archived_at datetime DEFAULT NULL') !== false
         && strpos($schema_src, 'KEY source_category (source_category)') !== false
         && strpos($schema_src, 'uniq_task_origin') !== false
 );
@@ -159,7 +160,7 @@ if ($wp_integration) {
         ac_assert("aa_task_lists has {$column}", !empty($exists));
     }
 
-    foreach (['source_category', 'origin_key', 'managed_by', 'default_bucket', 'completion_type', 'completion_fact_key'] as $column) {
+    foreach (['source_category', 'origin_key', 'managed_by', 'default_bucket', 'completion_type', 'completion_fact_key', 'archived_at'] as $column) {
         $exists = $wpdb->get_results($wpdb->prepare("SHOW COLUMNS FROM {$tasks_table} LIKE %s", $column));
         ac_assert("aa_tasks has {$column}", !empty($exists));
     }

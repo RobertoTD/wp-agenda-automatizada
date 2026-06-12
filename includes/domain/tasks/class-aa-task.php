@@ -46,6 +46,9 @@ final class AA_Task {
     /** @var string|null */
     private $completed_at;
 
+    /** @var string|null */
+    private $archived_at;
+
     /**
      * @param array<string,mixed> $data
      */
@@ -61,6 +64,7 @@ final class AA_Task {
         $this->due_at = self::nullable_string($data['due_at'] ?? null);
         $this->position = (int) ($data['position'] ?? 0);
         $this->completed_at = self::nullable_string($data['completed_at'] ?? null);
+        $this->archived_at = self::nullable_string($data['archived_at'] ?? null);
     }
 
     /**
@@ -86,6 +90,7 @@ final class AA_Task {
             'due_at' => $this->due_at,
             'position' => $this->position,
             'completed_at' => $this->completed_at,
+            'archived_at' => $this->archived_at,
         ];
     }
 
@@ -122,6 +127,17 @@ final class AA_Task {
 
     public function position(): int {
         return $this->position;
+    }
+
+    /**
+     * @return string|null Y-m-d H:i:s
+     */
+    public function archived_at(): ?string {
+        return $this->archived_at;
+    }
+
+    public function is_archived(): bool {
+        return $this->archived_at !== null && trim($this->archived_at) !== '';
     }
 
     public function is_pending(): bool {
