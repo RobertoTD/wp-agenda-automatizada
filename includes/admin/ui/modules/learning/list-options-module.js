@@ -11,6 +11,7 @@
     var isBound = false;
     var openListId = '';
     var coordinatingListToggle = false;
+    var coordinatingTaskToggle = false;
 
     function asString(value) {
         return value === null || value === undefined ? '' : String(value);
@@ -144,6 +145,12 @@
             && details.classList.contains('aa-executable-list-card');
     }
 
+    function isTaskItem(details) {
+        return details
+            && details.classList
+            && details.classList.contains('aa-executable-item');
+    }
+
     function closeAllTasksInList(listDetails) {
         if (!listDetails || typeof listDetails.querySelectorAll !== 'function') {
             return;
@@ -154,10 +161,26 @@
         });
     }
 
+    function closeOtherTasksInList(activeTaskDetails, listDetails) {
+        if (!listDetails
+            || !activeTaskDetails
+            || typeof listDetails.querySelectorAll !== 'function') {
+            return;
+        }
+
+        listDetails.querySelectorAll('details.aa-executable-item[open]').forEach(function (task) {
+            if (task !== activeTaskDetails) {
+                task.open = false;
+            }
+        });
+    }
+
     function openFirstTaskInList(listDetails) {
         if (!listDetails || typeof listDetails.querySelector !== 'function') {
             return;
         }
+
+        closeAllTasksInList(listDetails);
 
         var firstTask = listDetails.querySelector('details.aa-executable-item');
 
@@ -222,6 +245,38 @@
         }
     }
 
+    function handleTaskToggle(event) {
+        var taskDetails = event.target;
+
+        if (!isTaskItem(taskDetails)) {
+            return;
+        }
+
+        if (coordinatingListToggle || coordinatingTaskToggle) {
+            return;
+        }
+
+        if (!taskDetails.open) {
+            return;
+        }
+
+        var listDetails = taskDetails.closest
+            ? taskDetails.closest('details.aa-executable-list-card')
+            : null;
+
+        if (!listDetails) {
+            return;
+        }
+
+        coordinatingTaskToggle = true;
+
+        try {
+            closeOtherTasksInList(taskDetails, listDetails);
+        } finally {
+            coordinatingTaskToggle = false;
+        }
+    }
+
     function handleMenuItemClick(event) {
         var target = event.target;
         var menuItem = target && target.closest
@@ -246,6 +301,7 @@
         document.addEventListener('click', handleMenuItemClick);
         document.addEventListener('keydown', handleDocumentKeydown);
         document.addEventListener('toggle', handleListToggle, true);
+        document.addEventListener('toggle', handleTaskToggle, true);
     }
 
     function initListOptionsModule() {
@@ -260,9 +316,11 @@
         openMenu: openMenu,
         toggleMenu: toggleMenu,
         closeAllTasksInList: closeAllTasksInList,
+        closeOtherTasksInList: closeOtherTasksInList,
         openFirstTaskInList: openFirstTaskInList,
         closeOtherListCards: closeOtherListCards,
-        handleListToggle: handleListToggle
+        handleListToggle: handleListToggle,
+        handleTaskToggle: handleTaskToggle
     };
 
     if (typeof module !== 'undefined' && module.exports) {

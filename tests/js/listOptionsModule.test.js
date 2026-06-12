@@ -201,6 +201,13 @@ function makeElement(tag, options) {
                     return node;
                 }
 
+                if (selector === 'details.aa-executable-list-card'
+                    && node.tagName === 'details'
+                    && node.classList
+                    && node.classList.contains('aa-executable-list-card')) {
+                    return node;
+                }
+
                 node = node.parent;
             }
 
@@ -224,11 +231,13 @@ function buildTaskItem(taskId, open) {
 
 function buildListWithTasks(listId, taskIds, open) {
     var dom = buildListCardDom(listId);
+    var body = makeElement('div');
     var tasks = taskIds.map(function (taskId) {
-        return buildTaskItem(taskId, false);
-    });
-    var body = makeElement('div', {
-        children: tasks
+        var task = buildTaskItem(taskId, false);
+
+        body.appendChild(task);
+
+        return task;
     });
 
     dom.details.appendChild(body);
@@ -514,6 +523,23 @@ describe('list-options-module list expansion coordination', () => {
         assert.equal(list.tasks[1].open, false);
     });
 
+    it('abrir una lista deja solo la primera tarea abierta aunque otras estuvieran abiertas', () => {
+        var feed = buildFeedDom();
+        var list = buildListWithTasks('3b', ['t1', 't2', 't3'], false);
+
+        list.tasks[1].open = true;
+        list.tasks[2].open = true;
+        feed.moduleRoot.appendChild(list.details);
+        loadModule(feed);
+
+        list.details.open = true;
+        dispatchToggle(list.details, feed.document);
+
+        assert.equal(list.tasks[0].open, true);
+        assert.equal(list.tasks[1].open, false);
+        assert.equal(list.tasks[2].open, false);
+    });
+
     it('cerrar una lista cierra todas sus tareas', () => {
         var feed = buildFeedDom();
         var list = buildListWithTasks('4', ['t1', 't2'], true);
@@ -565,6 +591,98 @@ describe('list-options-module list expansion coordination', () => {
         assert.match(moduleSrc, /details\.aa-executable-list-card\[open\]/);
         assert.match(moduleSrc, /openFirstTaskInList/);
         assert.match(moduleSrc, /coordinatingListToggle/);
+        assert.match(moduleSrc, /coordinatingTaskToggle/);
+        assert.match(moduleSrc, /handleTaskToggle/);
+        assert.match(moduleSrc, /closeOtherTasksInList/);
         assert.doesNotMatch(rendererSrc, /coordinatingListToggle/);
+    });
+});
+
+describe('list-options-module MC-UX-B task accordion', () => {
+    it('abrir tarea 2 cierra tarea 1 dentro de la misma lista', () => {
+        var feed = buildFeedDom();
+        var list = buildListWithTasks('acc-1', ['t1', 't2'], true);
+
+        list.tasks[0].open = true;
+        feed.moduleRoot.appendChild(list.details);
+        loadModule(feed);
+
+        list.tasks[1].open = true;
+        dispatchToggle(list.tasks[1], feed.document);
+
+        assert.equal(list.tasks[0].open, false);
+        assert.equal(list.tasks[1].open, true);
+    });
+
+    it('abrir tarea 3 cierra tarea 1 y tarea 2 si estaban abiertas', () => {
+        var feed = buildFeedDom();
+        var list = buildListWithTasks('acc-2', ['t1', 't2', 't3'], true);
+
+        list.tasks[0].open = true;
+        list.tasks[1].open = true;
+        feed.moduleRoot.appendChild(list.details);
+        loadModule(feed);
+
+        list.tasks[2].open = true;
+        dispatchToggle(list.tasks[2], feed.document);
+
+        assert.equal(list.tasks[0].open, false);
+        assert.equal(list.tasks[1].open, false);
+        assert.equal(list.tasks[2].open, true);
+    });
+
+    it('abrir una tarea no afecta tareas de otra lista', () => {
+        var feed = buildFeedDom();
+        var listA = buildListWithTasks('acc-a', ['a1', 'a2'], true);
+        var listB = buildListWithTasks('acc-b', ['b1', 'b2'], true);
+
+        listA.tasks[0].open = true;
+        listB.tasks[1].open = true;
+        feed.moduleRoot.appendChild(listA.details);
+        feed.moduleRoot.appendChild(listB.details);
+        loadModule(feed);
+
+        listA.tasks[1].open = true;
+        dispatchToggle(listA.tasks[1], feed.document);
+
+        assert.equal(listA.tasks[0].open, false);
+        assert.equal(listA.tasks[1].open, true);
+        assert.equal(listB.tasks[1].open, true);
+    });
+
+    it('cerrar manualmente la única tarea abierta no abre otra automáticamente', () => {
+        var feed = buildFeedDom();
+        var list = buildListWithTasks('acc-3', ['t1', 't2'], true);
+
+        list.tasks[0].open = true;
+        feed.moduleRoot.appendChild(list.details);
+        loadModule(feed);
+
+        list.tasks[0].open = false;
+        dispatchToggle(list.tasks[0], feed.document);
+
+        assert.equal(list.tasks[0].open, false);
+        assert.equal(list.tasks[1].open, false);
+        assert.equal(list.details.open, true);
+    });
+
+    it('cierres programáticos usan guard anti-loop (coordinatingTaskToggle)', () => {
+        var feed = buildFeedDom();
+        var list = buildListWithTasks('acc-4', ['t1', 't2', 't3'], true);
+
+        list.tasks[0].open = true;
+        list.tasks[1].open = true;
+        feed.moduleRoot.appendChild(list.details);
+        loadModule(feed);
+
+        list.tasks[2].open = true;
+        dispatchToggle(list.tasks[2], feed.document);
+
+        var openTasks = list.tasks.filter(function (task) {
+            return task.open === true;
+        });
+
+        assert.equal(openTasks.length, 1);
+        assert.equal(list.tasks[2].open, true);
     });
 });
