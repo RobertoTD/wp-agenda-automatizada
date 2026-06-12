@@ -996,9 +996,101 @@
         var colorClass = modifier !== '' ? modifier : ' text-gray-500';
 
         return ''
-            + '<span class="aa-executable-list-source-label block text-xs truncate' + colorClass + '">'
+            + '<span class="aa-executable-list-source-label text-xs truncate min-w-0' + colorClass + '">'
             + escapeHtml(label)
             + '</span>';
+    }
+
+    /**
+     * @param {object} list
+     * @returns {boolean}
+     */
+    function listHasExpandableDetails(list) {
+        if (!list || typeof list !== 'object') {
+            return false;
+        }
+
+        var descriptionText = asString(list.description).trim();
+        var importance = Number(list.importance);
+
+        return descriptionText !== ''
+            || (!Number.isNaN(importance) && importance !== 0);
+    }
+
+    /**
+     * @param {string} listId
+     * @returns {string}
+     */
+    function renderListDetailsToggle(listId) {
+        return ''
+            + '<button type="button"'
+            + ' data-aa-list-details-toggle="1"'
+            + ' data-list-id="' + listId + '"'
+            + ' onclick="event.stopPropagation()"'
+            + ' aria-expanded="false"'
+            + ' aria-controls="aa-list-details-' + listId + '"'
+            + ' class="aa-executable-list-details-toggle shrink-0 text-xs text-gray-500 underline hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300/60 rounded">'
+            + 'Ver más'
+            + '</button>';
+    }
+
+    /**
+     * @param {object} list
+     * @param {string} listId
+     * @returns {string}
+     */
+    function renderListDetailsBlock(list, listId) {
+        var parts = '';
+        var descriptionText = asString(list.description).trim();
+        var importance = Number(list.importance);
+
+        if (descriptionText !== '') {
+            parts += ''
+                + '<p class="aa-executable-list-details-description text-sm text-gray-600">'
+                + escapeHtml(descriptionText)
+                + '</p>';
+        }
+
+        if (!Number.isNaN(importance) && importance !== 0) {
+            parts += ''
+                + '<p class="aa-executable-list-details-importance text-xs text-gray-500 mt-1">'
+                + 'Importancia: '
+                + escapeHtml(String(importance))
+                + '</p>';
+        }
+
+        if (parts === '') {
+            return '';
+        }
+
+        return ''
+            + '<div class="aa-executable-list-details mt-2"'
+            + ' id="aa-list-details-' + listId + '"'
+            + ' data-list-id="' + listId + '">'
+            + parts
+            + '</div>';
+    }
+
+    /**
+     * @param {object} list
+     * @returns {string}
+     */
+    function renderListHeaderMeta(list) {
+        var listId = escapeHtml(asString(list.id));
+        var sourceLabelHtml = renderSourceLabel(list);
+        var toggleHtml = listHasExpandableDetails(list)
+            ? renderListDetailsToggle(listId)
+            : '';
+        var metaContent = sourceLabelHtml + toggleHtml;
+
+        if (metaContent === '') {
+            return '';
+        }
+
+        return ''
+            + '<div class="aa-executable-list-header-meta flex items-center gap-2 mt-0.5 min-w-0">'
+            + metaContent
+            + '</div>';
     }
 
     /**
@@ -1139,9 +1231,7 @@
         var listId = escapeHtml(list.id);
         var source = escapeHtml(list.source || '');
         var title = escapeHtml(list.title || 'Lista sin título');
-        var description = list.description
-            ? '<p class="text-sm text-gray-600 mt-1">' + escapeHtml(list.description) + '</p>'
-            : '';
+        var listIdAttr = escapeHtml(asString(list.id));
         var capabilities = list.capabilities && typeof list.capabilities === 'object'
             ? list.capabilities
             : {};
@@ -1155,7 +1245,10 @@
             bodyHtml = '<p class="text-sm text-gray-500 aa-executable-list-empty-pending">No hay tareas pendientes en esta lista.</p>';
         }
 
-        var sourceLabelHtml = renderSourceLabel(list);
+        var headerMetaHtml = renderListHeaderMeta(list);
+        var detailsHtml = listHasExpandableDetails(list)
+            ? renderListDetailsBlock(list, listIdAttr)
+            : '';
         var optionsMenuHtml = renderListOptionsMenu(capabilities, list);
         var chevronHtml = ''
             + '<svg class="aa-chevron w-5 h-5 text-gray-400 transition-transform duration-200 flex-shrink-0"'
@@ -1177,8 +1270,8 @@
             + '<div class="flex items-start justify-between gap-3">'
             + '<div class="min-w-0 flex-1">'
             + '<h4 class="text-base font-semibold text-gray-900">' + title + '</h4>'
-            + sourceLabelHtml
-            + description
+            + headerMetaHtml
+            + detailsHtml
             + '</div>'
             + headerActionsHtml
             + '</div>'

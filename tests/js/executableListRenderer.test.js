@@ -1861,3 +1861,61 @@ describe('executableListRenderer MC-UX-C list card rounding', () => {
         assert.match(css, /rounded-b-xl/);
     });
 });
+
+describe('executableListRenderer MC-UX-D list details on demand', () => {
+    it('lista con descripción no renderiza p permanente en header', () => {
+        var html = renderer.renderList(baseList({
+            description: 'Objetivo de la lista',
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+
+        assert.doesNotMatch(html, /summary[\s\S]*<p class="text-sm text-gray-600 mt-1">/);
+        assert.match(html, /aa-executable-list-details-description/);
+        assert.match(html, />Objetivo de la lista</);
+        assert.match(html, /data-aa-list-details-toggle="1"/);
+        assert.match(html, />Ver más</);
+    });
+
+    it('lista con importance distinta de 0 renderiza Importancia en detalles', () => {
+        var html = renderer.renderList(baseList({
+            description: '',
+            importance: 3,
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+
+        assert.match(html, /aa-executable-list-details-importance/);
+        assert.match(html, />Importancia: 3</);
+        assert.match(html, /data-aa-list-details-toggle="1"/);
+        assert.doesNotMatch(html, /aa-executable-list-details-description/);
+    });
+
+    it('lista sin descripción ni importancia no renderiza Ver más ni bloque de detalles', () => {
+        var html = renderer.renderList(baseList({
+            description: '',
+            importance: 0,
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+
+        assert.doesNotMatch(html, /data-aa-list-details-toggle/);
+        assert.doesNotMatch(html, /aa-executable-list-details/);
+    });
+
+    it('descripción con HTML se escapa en bloque de detalles', () => {
+        var html = renderer.renderList(baseList({
+            description: '"><img onerror=1>',
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+
+        assert.match(html, /aa-executable-list-details-description[\s\S]*&quot;&gt;&lt;img onerror=1&gt;/);
+        assert.doesNotMatch(html, /onerror=1>/);
+    });
+
+    it('CSS oculta toggle y detalles en lista colapsada y hasta is-visible', () => {
+        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
+
+        assert.match(css, /details\.aa-executable-list-card:not\(\[open\]\) \.aa-executable-list-details/);
+        assert.match(css, /details\.aa-executable-list-card:not\(\[open\]\) \.aa-executable-list-details-toggle/);
+        assert.match(css, /details\.aa-executable-list-card\[open\] \.aa-executable-list-details:not\(\.is-visible\)/);
+        assert.match(css, /details\.aa-executable-list-card[\s\S]*overflow:\s*visible/);
+    });
+});

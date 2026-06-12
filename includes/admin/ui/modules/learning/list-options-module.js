@@ -107,8 +107,77 @@
         return !!target.closest('.aa-executable-list-options');
     }
 
+    function findListDetailsPanel(listId) {
+        if (!listId) {
+            return null;
+        }
+
+        return document.querySelector('.aa-executable-list-details[data-list-id="' + listId + '"]');
+    }
+
+    function findListDetailsToggle(listId) {
+        if (!listId) {
+            return null;
+        }
+
+        return document.querySelector('.aa-executable-list-details-toggle[data-list-id="' + listId + '"]');
+    }
+
+    function setListDetailsExpanded(listId, expanded) {
+        var panel = findListDetailsPanel(listId);
+        var toggle = findListDetailsToggle(listId);
+
+        if (panel) {
+            if (expanded) {
+                panel.classList.add('is-visible');
+            } else {
+                panel.classList.remove('is-visible');
+            }
+        }
+
+        if (toggle) {
+            toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            toggle.textContent = expanded ? 'Ver menos' : 'Ver más';
+        }
+    }
+
+    function resetListDetails(listDetails) {
+        if (!listDetails || typeof listDetails.querySelectorAll !== 'function') {
+            return;
+        }
+
+        listDetails.querySelectorAll('.aa-executable-list-details').forEach(function (panel) {
+            panel.classList.remove('is-visible');
+        });
+
+        listDetails.querySelectorAll('.aa-executable-list-details-toggle').forEach(function (toggle) {
+            toggle.setAttribute('aria-expanded', 'false');
+            toggle.textContent = 'Ver más';
+        });
+    }
+
     function handleDocumentClick(event) {
         var target = event.target;
+        var detailsToggle = target && target.closest
+            ? target.closest('[data-aa-list-details-toggle]')
+            : null;
+
+        if (detailsToggle && !detailsToggle.disabled) {
+            if (typeof event.preventDefault === 'function') {
+                event.preventDefault();
+            }
+
+            if (typeof event.stopPropagation === 'function') {
+                event.stopPropagation();
+            }
+
+            var detailsListId = asString(detailsToggle.getAttribute('data-list-id')).trim();
+            var isExpanded = detailsToggle.getAttribute('aria-expanded') === 'true';
+
+            setListDetailsExpanded(detailsListId, !isExpanded);
+            return;
+        }
+
         var trigger = target && target.closest
             ? target.closest('[data-aa-list-options-trigger]')
             : null;
@@ -224,6 +293,8 @@
         }
 
         if (details.open) {
+            resetListDetails(details);
+
             coordinatingListToggle = true;
 
             try {
@@ -239,6 +310,7 @@
         coordinatingListToggle = true;
 
         try {
+            resetListDetails(details);
             closeAllTasksInList(details);
         } finally {
             coordinatingListToggle = false;
@@ -320,7 +392,9 @@
         openFirstTaskInList: openFirstTaskInList,
         closeOtherListCards: closeOtherListCards,
         handleListToggle: handleListToggle,
-        handleTaskToggle: handleTaskToggle
+        handleTaskToggle: handleTaskToggle,
+        resetListDetails: resetListDetails,
+        setListDetailsExpanded: setListDetailsExpanded
     };
 
     if (typeof module !== 'undefined' && module.exports) {

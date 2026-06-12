@@ -89,6 +89,13 @@ function makeElement(tag, options) {
         parent: opts.parent || null,
         children: opts.children || [],
         listeners: {},
+        _textContent: opts.textContent || '',
+        get textContent() {
+            return this._textContent;
+        },
+        set textContent(value) {
+            this._textContent = value === null || value === undefined ? '' : String(value);
+        },
         setAttribute: function (name, value) {
             this.attributes[name] = String(value);
         },
@@ -128,6 +135,26 @@ function makeElement(tag, options) {
                 });
             }
 
+            if (selector.indexOf('.aa-executable-list-details[data-list-id="') === 0) {
+                var detailsPanelId = selector.match(/data-list-id="([^"]+)"/);
+
+                return this.findByPredicate(function (node) {
+                    return node.classList
+                        && node.classList.contains('aa-executable-list-details')
+                        && node.getAttribute('data-list-id') === (detailsPanelId ? detailsPanelId[1] : '');
+                });
+            }
+
+            if (selector.indexOf('.aa-executable-list-details-toggle[data-list-id="') === 0) {
+                var detailsToggleId = selector.match(/data-list-id="([^"]+)"/);
+
+                return this.findByPredicate(function (node) {
+                    return node.getAttribute
+                        && node.getAttribute('data-aa-list-details-toggle') === '1'
+                        && node.getAttribute('data-list-id') === (detailsToggleId ? detailsToggleId[1] : '');
+                });
+            }
+
             if (selector.indexOf('details.aa-executable') === 0) {
                 return queryDescendants(this, selector, true);
             }
@@ -147,6 +174,18 @@ function makeElement(tag, options) {
                 if (selector === '.aa-executable-list-options-trigger'
                     && node.getAttribute
                     && node.getAttribute('data-aa-list-options-trigger') === '1') {
+                    matches.push(node);
+                }
+
+                if (selector === '.aa-executable-list-details'
+                    && node.classList
+                    && node.classList.contains('aa-executable-list-details')) {
+                    matches.push(node);
+                }
+
+                if (selector === '.aa-executable-list-details-toggle'
+                    && node.getAttribute
+                    && node.getAttribute('data-aa-list-details-toggle') === '1') {
                     matches.push(node);
                 }
 
@@ -183,6 +222,12 @@ function makeElement(tag, options) {
                 if (selector === '[data-aa-list-options-trigger]'
                     && node.getAttribute
                     && node.getAttribute('data-aa-list-options-trigger') === '1') {
+                    return node;
+                }
+
+                if (selector === '[data-aa-list-details-toggle]'
+                    && node.getAttribute
+                    && node.getAttribute('data-aa-list-details-toggle') === '1') {
                     return node;
                 }
 
@@ -244,6 +289,36 @@ function buildListWithTasks(listId, taskIds, open) {
     dom.details.open = !!open;
     dom.tasks = tasks;
     dom.body = body;
+
+    return dom;
+}
+
+function buildListWithDetailsDom(listId, open) {
+    var dom = buildListCardDom(listId);
+    var panel = makeElement('div', {
+        attributes: {
+            'data-list-id': listId,
+            id: 'aa-list-details-' + listId
+        }
+    });
+
+    panel.classList.classes.push('aa-executable-list-details');
+
+    var toggle = makeElement('button', {
+        attributes: {
+            'data-aa-list-details-toggle': '1',
+            'data-list-id': listId,
+            'aria-expanded': 'false'
+        },
+        textContent: 'Ver más'
+    });
+
+    toggle.classList.classes.push('aa-executable-list-details-toggle');
+    dom.details.appendChild(toggle);
+    dom.details.appendChild(panel);
+    dom.details.open = !!open;
+    dom.detailsToggle = toggle;
+    dom.detailsPanel = panel;
 
     return dom;
 }
@@ -684,5 +759,52 @@ describe('list-options-module MC-UX-B task accordion', () => {
 
         assert.equal(openTasks.length, 1);
         assert.equal(list.tasks[2].open, true);
+    });
+});
+
+describe('list-options-module MC-UX-D list details toggle', () => {
+    it('click Ver más muestra detalles y cambia aria-expanded', () => {
+        var dom = buildListWithDetailsDom('uxd-1', true);
+
+        loadModule(dom);
+        dispatchClick(dom.detailsToggle, dom.document);
+
+        assert.equal(dom.detailsPanel.classList.contains('is-visible'), true);
+        assert.equal(dom.detailsToggle.getAttribute('aria-expanded'), 'true');
+        assert.equal(dom.detailsToggle.textContent, 'Ver menos');
+    });
+
+    it('click Ver menos oculta detalles y restaura aria-expanded', () => {
+        var dom = buildListWithDetailsDom('uxd-2', true);
+
+        loadModule(dom);
+        dispatchClick(dom.detailsToggle, dom.document);
+        dispatchClick(dom.detailsToggle, dom.document);
+
+        assert.equal(dom.detailsPanel.classList.contains('is-visible'), false);
+        assert.equal(dom.detailsToggle.getAttribute('aria-expanded'), 'false');
+        assert.equal(dom.detailsToggle.textContent, 'Ver más');
+    });
+
+    it('click en toggle no cambia details.open de la lista', () => {
+        var dom = buildListWithDetailsDom('uxd-3', true);
+
+        loadModule(dom);
+        dispatchClick(dom.detailsToggle, dom.document);
+
+        assert.equal(dom.details.open, true);
+    });
+
+    it('colapsar lista resetea detalles y texto Ver más', () => {
+        var dom = buildListWithDetailsDom('uxd-4', true);
+
+        loadModule(dom);
+        dispatchClick(dom.detailsToggle, dom.document);
+        dom.details.open = false;
+        dispatchToggle(dom.details, dom.document);
+
+        assert.equal(dom.detailsPanel.classList.contains('is-visible'), false);
+        assert.equal(dom.detailsToggle.getAttribute('aria-expanded'), 'false');
+        assert.equal(dom.detailsToggle.textContent, 'Ver más');
     });
 });

@@ -115,6 +115,25 @@
         @apply rounded-b-xl;
     }
 
+    /* Executable feed — detalles de lista bajo demanda (MC-UX-D) */
+    details.aa-executable-list-card:not([open]) .aa-executable-list-details,
+    details.aa-executable-list-card:not([open]) .aa-executable-list-details-toggle {
+        display: none;
+    }
+
+    details.aa-executable-list-card[open] .aa-executable-list-details:not(.is-visible) {
+        display: none;
+    }
+
+    .aa-executable-list-header-meta {
+        @apply flex items-center gap-2 min-w-0;
+    }
+
+    .aa-executable-list-details-toggle {
+        @apply shrink-0 text-xs text-gray-500 underline hover:text-gray-700;
+        @apply focus:outline-none focus:ring-2 focus:ring-gray-300/60 rounded;
+    }
+
     /* Executable feed — menú de opciones por tarea (MC-UX-A) */
     details.aa-executable-item:not([open]) .aa-executable-task-options {
         display: none;

@@ -40,7 +40,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                     href="<?php echo esc_url(admin_url('admin-post.php?action=aa_iframe_content&module=learning')); ?>"
                     class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-lg border border-violet-200 transition-colors"
                 >
-                    Ir a Listas/tareas
+                    Ir a Ejecutor
                 </a>
             </div>
         </div>
