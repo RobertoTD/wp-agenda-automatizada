@@ -125,6 +125,27 @@
         display: none;
     }
 
+    /* Executable feed — bloque Siguientes tareas (MC-UX-E) */
+    details.aa-executable-following-tasks > summary.aa-executable-following-tasks-summary::-webkit-details-marker {
+        display: none;
+    }
+
+    details.aa-executable-following-tasks > summary.aa-executable-following-tasks-summary::marker {
+        display: none;
+    }
+
+    details.aa-executable-following-tasks[open] .aa-following-label-collapsed {
+        display: none;
+    }
+
+    details.aa-executable-following-tasks:not([open]) .aa-following-label-expanded {
+        display: none;
+    }
+
+    details.aa-executable-following-tasks[open] > summary .aa-executable-following-tasks-chevron {
+        transform: rotate(180deg);
+    }
+
     .aa-executable-list-header-meta {
         @apply flex items-center gap-2 min-w-0;
     }

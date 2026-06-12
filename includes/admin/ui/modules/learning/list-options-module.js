@@ -220,6 +220,33 @@
             && details.classList.contains('aa-executable-item');
     }
 
+    function isFollowingTasksBlock(details) {
+        return details
+            && details.classList
+            && details.classList.contains('aa-executable-following-tasks');
+    }
+
+    function closeTasksInFollowingBlock(followingDetails) {
+        if (!followingDetails || typeof followingDetails.querySelectorAll !== 'function') {
+            return;
+        }
+
+        followingDetails.querySelectorAll('details.aa-executable-item').forEach(function (task) {
+            task.open = false;
+        });
+    }
+
+    function resetFollowingTasksBlocks(listDetails) {
+        if (!listDetails || typeof listDetails.querySelectorAll !== 'function') {
+            return;
+        }
+
+        listDetails.querySelectorAll('details.aa-executable-following-tasks').forEach(function (block) {
+            block.open = false;
+            closeTasksInFollowingBlock(block);
+        });
+    }
+
     function closeAllTasksInList(listDetails) {
         if (!listDetails || typeof listDetails.querySelectorAll !== 'function') {
             return;
@@ -294,6 +321,7 @@
 
         if (details.open) {
             resetListDetails(details);
+            resetFollowingTasksBlocks(details);
 
             coordinatingListToggle = true;
 
@@ -311,9 +339,26 @@
 
         try {
             resetListDetails(details);
+            resetFollowingTasksBlocks(details);
             closeAllTasksInList(details);
         } finally {
             coordinatingListToggle = false;
+        }
+    }
+
+    function handleFollowingTasksToggle(event) {
+        var block = event.target;
+
+        if (!isFollowingTasksBlock(block)) {
+            return;
+        }
+
+        if (coordinatingListToggle) {
+            return;
+        }
+
+        if (!block.open) {
+            closeTasksInFollowingBlock(block);
         }
     }
 
@@ -374,6 +419,7 @@
         document.addEventListener('keydown', handleDocumentKeydown);
         document.addEventListener('toggle', handleListToggle, true);
         document.addEventListener('toggle', handleTaskToggle, true);
+        document.addEventListener('toggle', handleFollowingTasksToggle, true);
     }
 
     function initListOptionsModule() {
@@ -393,7 +439,10 @@
         closeOtherListCards: closeOtherListCards,
         handleListToggle: handleListToggle,
         handleTaskToggle: handleTaskToggle,
+        handleFollowingTasksToggle: handleFollowingTasksToggle,
         resetListDetails: resetListDetails,
+        resetFollowingTasksBlocks: resetFollowingTasksBlocks,
+        closeTasksInFollowingBlock: closeTasksInFollowingBlock,
         setListDetailsExpanded: setListDetailsExpanded
     };
 

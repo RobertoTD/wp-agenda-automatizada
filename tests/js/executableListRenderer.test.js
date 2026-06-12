@@ -93,7 +93,7 @@ describe('AAExecutableListRenderer', () => {
         assert.doesNotMatch(html, /aa-executable-item/);
     });
 
-    it('renderiza bucket primary y secondary con labels', () => {
+    it('renderiza bucket secondary con label y primary sin label Principales', () => {
         var list = baseList({
             buckets: [
                 {
@@ -111,7 +111,7 @@ describe('AAExecutableListRenderer', () => {
 
         var html = renderer.renderFeed([list]);
 
-        assert.match(html, />Principales</);
+        assert.doesNotMatch(html, />Principales</);
         assert.match(html, />Secundarias</);
         assert.match(html, /data-bucket-key="primary"/);
         assert.match(html, /data-bucket-key="secondary"/);
@@ -398,7 +398,7 @@ describe('AAExecutableListRenderer', () => {
         assert.match(html, /<summary class="[^"]*cursor-pointer list-none/);
         assert.match(html, /aa-chevron/);
         assert.match(html, /aa-executable-list-body/);
-        assert.match(html, />Principales</);
+        assert.doesNotMatch(html, />Principales</);
         assert.match(html, /aa-executable-item/);
     });
 
@@ -1916,6 +1916,147 @@ describe('executableListRenderer MC-UX-D list details on demand', () => {
         assert.match(css, /details\.aa-executable-list-card:not\(\[open\]\) \.aa-executable-list-details/);
         assert.match(css, /details\.aa-executable-list-card:not\(\[open\]\) \.aa-executable-list-details-toggle/);
         assert.match(css, /details\.aa-executable-list-card\[open\] \.aa-executable-list-details:not\(\.is-visible\)/);
+        assert.match(css, /details\.aa-executable-list-card[\s\S]*overflow:\s*visible/);
+    });
+});
+
+describe('executableListRenderer MC-UX-E following tasks block', () => {
+    it('no renderiza label Principales pero sí Secundarias', () => {
+        var html = renderer.renderList(baseList({
+            buckets: [
+                {
+                    key: 'primary',
+                    label: 'Principales',
+                    items: [baseItem({ id: 'p1', title: 'Primary 1' })]
+                },
+                {
+                    key: 'secondary',
+                    label: 'Secundarias',
+                    items: [baseItem({ id: 's1', title: 'Secondary 1' })]
+                }
+            ]
+        }));
+
+        assert.doesNotMatch(html, />Principales</);
+        assert.match(html, />Secundarias</);
+    });
+
+    it('bucket default con 1 item no renderiza Siguientes tareas', () => {
+        var html = renderer.renderList(baseList({
+            source: 'user',
+            buckets: [{
+                key: 'default',
+                label: '',
+                items: [baseItem({ id: 't1', title: 'Solo una' })]
+            }]
+        }));
+
+        assert.doesNotMatch(html, /aa-executable-following-tasks/);
+        assert.doesNotMatch(html, />Siguientes tareas</);
+    });
+
+    it('bucket default con 3 items separa top y bloque Siguientes tareas (2)', () => {
+        var html = renderer.renderList(baseList({
+            source: 'user',
+            buckets: [{
+                key: 'default',
+                label: '',
+                items: [
+                    baseItem({ id: 't1', title: 'Top' }),
+                    baseItem({ id: 't2', title: 'Siguiente 2' }),
+                    baseItem({ id: 't3', title: 'Siguiente 3' })
+                ]
+            }]
+        }));
+
+        assert.match(html, /aa-executable-bucket-items-top[\s\S]*?data-item-id="t1"/);
+        assert.match(html, /aa-executable-following-tasks/);
+        assert.match(html, />Siguientes tareas \(2\)</);
+
+        var topUlMatch = html.match(/<ul class="aa-executable-bucket-items aa-executable-bucket-items-top[\s\S]*?<\/ul>/);
+        var followingUlMatch = html.match(/<ul class="aa-executable-bucket-items aa-executable-bucket-items-following[\s\S]*?<\/ul>/);
+
+        assert.ok(topUlMatch);
+        assert.ok(followingUlMatch);
+        assert.match(topUlMatch[0], /data-item-id="t1"/);
+        assert.doesNotMatch(topUlMatch[0], /data-item-id="t2"/);
+        assert.match(followingUlMatch[0], /data-item-id="t2"/);
+        assert.match(followingUlMatch[0], /data-item-id="t3"/);
+        assert.doesNotMatch(followingUlMatch[0], /data-item-id="t1"/);
+    });
+
+    it('primary con 2 items y secondary con 1 mantiene Secundarias fuera del bloque', () => {
+        var html = renderer.renderList(baseList({
+            buckets: [
+                {
+                    key: 'primary',
+                    label: 'Principales',
+                    items: [
+                        baseItem({ id: 'p1', title: 'Primary top' }),
+                        baseItem({ id: 'p2', title: 'Primary next' })
+                    ]
+                },
+                {
+                    key: 'secondary',
+                    label: 'Secundarias',
+                    items: [baseItem({ id: 's1', title: 'Secondary' })]
+                }
+            ]
+        }));
+
+        assert.match(html, />Siguientes tareas \(1\)</);
+        assert.match(html, />Secundarias</);
+        assert.match(html, /data-bucket-key="secondary"[\s\S]*data-item-id="s1"/);
+
+        var followingUlMatch = html.match(/<ul class="aa-executable-bucket-items aa-executable-bucket-items-following[\s\S]*?<\/ul>/);
+
+        assert.ok(followingUlMatch);
+        assert.match(followingUlMatch[0], /data-item-id="p2"/);
+        assert.doesNotMatch(followingUlMatch[0], /data-item-id="s1"/);
+    });
+
+    it('primary con 1 item no renderiza Siguientes tareas aunque haya secondary', () => {
+        var html = renderer.renderList(baseList({
+            buckets: [
+                {
+                    key: 'primary',
+                    label: 'Principales',
+                    items: [baseItem({ id: 'p1', title: 'Solo primary' })]
+                },
+                {
+                    key: 'secondary',
+                    label: 'Secundarias',
+                    items: [baseItem({ id: 's1', title: 'Secondary' })]
+                }
+            ]
+        }));
+
+        assert.doesNotMatch(html, /aa-executable-following-tasks/);
+        assert.match(html, />Secundarias</);
+    });
+
+    it('primary vacío no crea bloque Siguientes tareas', () => {
+        var html = renderer.renderList(baseList({
+            buckets: [
+                { key: 'primary', label: 'Principales', items: [] },
+                {
+                    key: 'secondary',
+                    label: 'Secundarias',
+                    items: [baseItem({ id: 's1', title: 'Secondary' })]
+                }
+            ]
+        }));
+
+        assert.doesNotMatch(html, /aa-executable-following-tasks/);
+        assert.match(html, />Secundarias</);
+    });
+
+    it('CSS alterna copy colapsado/expandido, rota chevron y mantiene overflow visible', () => {
+        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
+
+        assert.match(css, /details\.aa-executable-following-tasks\[open\] \.aa-following-label-collapsed/);
+        assert.match(css, /details\.aa-executable-following-tasks:not\(\[open\]\) \.aa-following-label-expanded/);
+        assert.match(css, /details\.aa-executable-following-tasks\[open\] > summary \.aa-executable-following-tasks-chevron/);
         assert.match(css, /details\.aa-executable-list-card[\s\S]*overflow:\s*visible/);
     });
 });

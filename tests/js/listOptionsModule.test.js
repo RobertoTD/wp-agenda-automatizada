@@ -33,6 +33,17 @@ function nodeMatchesSelector(node, selector) {
             && node.open === true;
     }
 
+    if (selector === 'details.aa-executable-following-tasks') {
+        return node.tagName === 'details'
+            && node.classList.contains('aa-executable-following-tasks');
+    }
+
+    if (selector === 'details.aa-executable-following-tasks[open]') {
+        return node.tagName === 'details'
+            && node.classList.contains('aa-executable-following-tasks')
+            && node.open === true;
+    }
+
     return false;
 }
 
@@ -272,6 +283,36 @@ function buildTaskItem(taskId, open) {
     task.open = !!open;
 
     return task;
+}
+
+function buildListWithFollowingTasks(listId, topTaskId, followingTaskIds, open) {
+    var dom = buildListCardDom(listId);
+    var body = makeElement('div');
+    var topTask = buildTaskItem(topTaskId, false);
+    var followingBlock = makeElement('details');
+    followingBlock.classList.classes.push('aa-executable-following-tasks');
+    followingBlock.open = false;
+
+    var followingBody = makeElement('div');
+    var followingTasks = followingTaskIds.map(function (taskId) {
+        var task = buildTaskItem(taskId, false);
+
+        followingBody.appendChild(task);
+
+        return task;
+    });
+
+    followingBlock.appendChild(followingBody);
+    body.appendChild(topTask);
+    body.appendChild(followingBlock);
+    dom.details.appendChild(body);
+    dom.details.open = !!open;
+    dom.topTask = topTask;
+    dom.followingBlock = followingBlock;
+    dom.followingTasks = followingTasks;
+    dom.body = body;
+
+    return dom;
 }
 
 function buildListWithTasks(listId, taskIds, open) {
@@ -806,5 +847,100 @@ describe('list-options-module MC-UX-D list details toggle', () => {
         assert.equal(dom.detailsPanel.classList.contains('is-visible'), false);
         assert.equal(dom.detailsToggle.getAttribute('aria-expanded'), 'false');
         assert.equal(dom.detailsToggle.textContent, 'Ver más');
+    });
+});
+
+describe('list-options-module MC-UX-E following tasks block', () => {
+    it('colapsar Siguientes tareas cierra tareas internas abiertas', () => {
+        var feed = buildFeedDom();
+        var list = buildListWithFollowingTasks('uxe-1', 'top', ['f1', 'f2'], true);
+
+        list.followingBlock.open = true;
+        list.followingTasks[0].open = true;
+        feed.moduleRoot.appendChild(list.details);
+        loadModule(feed);
+
+        list.followingBlock.open = false;
+        dispatchToggle(list.followingBlock, feed.document);
+
+        assert.equal(list.followingTasks[0].open, false);
+        assert.equal(list.topTask.open, false);
+    });
+
+    it('expandir Siguientes tareas no abre tareas automáticamente', () => {
+        var feed = buildFeedDom();
+        var list = buildListWithFollowingTasks('uxe-2', 'top', ['f1', 'f2'], true);
+
+        feed.moduleRoot.appendChild(list.details);
+        loadModule(feed);
+
+        list.followingBlock.open = true;
+        dispatchToggle(list.followingBlock, feed.document);
+
+        assert.equal(list.followingTasks[0].open, false);
+        assert.equal(list.followingTasks[1].open, false);
+    });
+
+    it('abrir lista resetea Siguientes tareas a cerrado', () => {
+        var feed = buildFeedDom();
+        var list = buildListWithFollowingTasks('uxe-3', 'top', ['f1'], false);
+
+        list.followingBlock.open = true;
+        feed.moduleRoot.appendChild(list.details);
+        loadModule(feed);
+
+        list.details.open = true;
+        dispatchToggle(list.details, feed.document);
+
+        assert.equal(list.followingBlock.open, false);
+        assert.equal(list.topTask.open, true);
+    });
+
+    it('cerrar lista resetea Siguientes tareas y cierra tareas internas', () => {
+        var feed = buildFeedDom();
+        var list = buildListWithFollowingTasks('uxe-4', 'top', ['f1'], true);
+
+        list.followingBlock.open = true;
+        list.followingTasks[0].open = true;
+        feed.moduleRoot.appendChild(list.details);
+        loadModule(feed);
+
+        list.details.open = false;
+        dispatchToggle(list.details, feed.document);
+
+        assert.equal(list.followingBlock.open, false);
+        assert.equal(list.followingTasks[0].open, false);
+        assert.equal(list.topTask.open, false);
+    });
+
+    it('toggle de Siguientes tareas no cambia open de la lista principal', () => {
+        var feed = buildFeedDom();
+        var list = buildListWithFollowingTasks('uxe-5', 'top', ['f1'], true);
+
+        feed.moduleRoot.appendChild(list.details);
+        loadModule(feed);
+
+        list.followingBlock.open = true;
+        dispatchToggle(list.followingBlock, feed.document);
+
+        assert.equal(list.details.open, true);
+    });
+
+    it('acordeón de tareas sigue funcionando con tareas dentro de Siguientes tareas', () => {
+        var feed = buildFeedDom();
+        var list = buildListWithFollowingTasks('uxe-6', 'top', ['f1', 'f2'], true);
+
+        list.topTask.open = true;
+        list.followingBlock.open = true;
+        feed.moduleRoot.appendChild(list.details);
+        loadModule(feed);
+
+        list.followingTasks[1].open = true;
+        dispatchToggle(list.followingTasks[1], feed.document);
+
+        assert.equal(list.topTask.open, false);
+        assert.equal(list.followingTasks[0].open, false);
+        assert.equal(list.followingTasks[1].open, true);
+        assert.equal(list.details.open, true);
     });
 });

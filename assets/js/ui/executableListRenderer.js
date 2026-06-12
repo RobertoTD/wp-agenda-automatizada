@@ -858,6 +858,48 @@
     }
 
     /**
+     * @param {Array} items
+     * @param {object} [options]
+     * @param {object} [bucketContext]
+     * @param {number} [startIndex]
+     * @returns {string}
+     */
+    function renderBucketItemsHtml(items, options, bucketContext, startIndex) {
+        var offset = typeof startIndex === 'number' ? startIndex : 0;
+
+        return items.map(function (item, itemIndex) {
+            return renderItem(item, options, bucketContext, offset + itemIndex);
+        }).join('');
+    }
+
+    /**
+     * @param {string} followingItemsHtml
+     * @param {number} followingCount
+     * @returns {string}
+     */
+    function renderFollowingTasksBlock(followingItemsHtml, followingCount) {
+        var count = Math.max(0, followingCount | 0);
+
+        return ''
+            + '<details class="aa-executable-following-tasks mt-3">'
+            + '<summary class="aa-executable-following-tasks-summary cursor-pointer list-none flex items-center justify-between gap-2 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg border border-transparent hover:border-gray-200 hover:bg-gray-50/80">'
+            + '<span class="aa-executable-following-tasks-label">'
+            + '<span class="aa-following-label-expanded">Siguientes tareas</span>'
+            + '<span class="aa-following-label-collapsed">Siguientes tareas (' + count + ')</span>'
+            + '</span>'
+            + '<span class="aa-executable-following-tasks-chevron aa-chevron inline-flex shrink-0 text-gray-400 transition-transform duration-200" aria-hidden="true">'
+            + '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
+            + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>'
+            + '</svg>'
+            + '</span>'
+            + '</summary>'
+            + '<ul class="aa-executable-bucket-items aa-executable-bucket-items-following space-y-3 mt-2">'
+            + followingItemsHtml
+            + '</ul>'
+            + '</details>';
+    }
+
+    /**
      * @param {object} bucket
      * @param {object} [options]
      * @param {object} [context]
@@ -876,32 +918,49 @@
         var key = asString(bucket.key).trim().toLowerCase();
         var label = asString(bucket.label).trim();
         var items = Array.isArray(bucket.items) ? bucket.items : [];
-        var itemsHtml = items.length > 0
-            ? items.map(function (item, itemIndex) {
-                return renderItem(item, options, bucketContext, itemIndex);
-            }).join('')
-            : '';
+        var shouldSplitFollowing = (key === 'primary' || key === 'default') && items.length > 1;
+        var itemsHtml = '';
+        var followingBlockHtml = '';
         var labelHtml = '';
 
-        if (label !== '' && (key === 'primary' || key === 'secondary')) {
+        if (label !== '' && key === 'secondary') {
             labelHtml = ''
                 + '<div class="aa-executable-bucket-label-wrap mb-3">'
                 + '<p class="text-xs font-semibold uppercase tracking-wide text-gray-500">' + escapeHtml(label) + '</p>'
                 + '</div>';
         }
 
-        if (itemsHtml === '' && labelHtml === '') {
+        if (shouldSplitFollowing) {
+            itemsHtml = renderBucketItemsHtml(items.slice(0, 1), options, bucketContext, 0);
+            followingBlockHtml = renderFollowingTasksBlock(
+                renderBucketItemsHtml(items.slice(1), options, bucketContext, 1),
+                items.length - 1
+            );
+        } else if (items.length > 0) {
+            itemsHtml = renderBucketItemsHtml(items, options, bucketContext, 0);
+        }
+
+        if (itemsHtml === '' && followingBlockHtml === '' && labelHtml === '') {
             return '';
         }
 
         var bucketClass = key === 'secondary' && labelHtml !== ''
             ? 'aa-executable-bucket mt-5'
             : 'aa-executable-bucket';
+        var bodyHtml = '';
+
+        if (shouldSplitFollowing) {
+            bodyHtml = ''
+                + '<ul class="aa-executable-bucket-items aa-executable-bucket-items-top space-y-3">' + itemsHtml + '</ul>'
+                + followingBlockHtml;
+        } else {
+            bodyHtml = '<ul class="aa-executable-bucket-items space-y-3">' + itemsHtml + '</ul>';
+        }
 
         return ''
             + '<div class="' + bucketClass + '" data-bucket-key="' + escapeHtml(key || 'default') + '">'
             + labelHtml
-            + '<ul class="aa-executable-bucket-items space-y-3">' + itemsHtml + '</ul>'
+            + bodyHtml
             + '</div>';
     }
 
