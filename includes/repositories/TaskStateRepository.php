@@ -437,6 +437,41 @@ final class TaskStateRepository {
 
     /**
      * @param list<int|string> $task_ids
+     * @return bool false solo si hubo error SQL.
+     */
+    public static function delete_by_task_ids(array $task_ids): bool {
+        $normalized_ids = [];
+
+        foreach ($task_ids as $task_id) {
+            $normalized = (int) $task_id;
+
+            if ($normalized > 0) {
+                $normalized_ids[$normalized] = $normalized;
+            }
+        }
+
+        if ($normalized_ids === []) {
+            return true;
+        }
+
+        global $wpdb;
+
+        $ids = array_values($normalized_ids);
+        $table = self::table_name();
+        $placeholders = implode(', ', array_fill(0, count($ids), '%d'));
+        $query = $wpdb->prepare("DELETE FROM {$table} WHERE task_id IN ({$placeholders})", ...$ids);
+        $result = $wpdb->query($query);
+
+        if ($result === false || $wpdb->last_error) {
+            error_log('[TaskStateRepository] delete_by_task_ids: ' . $wpdb->last_error);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * @param list<int|string> $task_ids
      * @param string           $now Y-m-d H:i:s
      * @return array<int,array<string,mixed>>
      */

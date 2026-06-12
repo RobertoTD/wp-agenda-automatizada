@@ -37,11 +37,25 @@ final class AA_Task_List_Governance_Policy {
     /**
      * @param array<string,mixed> $list
      */
+    public function can_delete_list(array $list): bool {
+        return $this->is_user_list($list);
+    }
+
+    /**
+     * @param array<string,mixed> $list
+     */
     private function is_user_managed_active_list(array $list): bool {
         if (!$this->is_active_list($list)) {
             return false;
         }
 
+        return $this->is_user_list($list);
+    }
+
+    /**
+     * @param array<string,mixed> $list
+     */
+    private function is_user_list(array $list): bool {
         return $this->resolve_source_category($list) === AA_Executable_Contract::SOURCE_CATEGORY_USER
             && $this->resolve_managed_by($list) === self::MANAGED_BY_USER;
     }

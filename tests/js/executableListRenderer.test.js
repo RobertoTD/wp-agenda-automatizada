@@ -1449,7 +1449,29 @@ describe('executableListRenderer MC13 expandable items', () => {
 });
 
 describe('executableListRenderer MC13L-B list options menu', () => {
-    it('lista user archivable renderiza menú y conserva chevron sin delete', () => {
+    it('lista user con can_delete renderiza Eliminar lista en menú', () => {
+        var html = renderer.renderList(baseList({
+            id: '12',
+            source: 'user',
+            capabilities: {
+                can_archive: true,
+                can_edit: true,
+                can_delete: true
+            },
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+
+        assert.match(html, /aa-executable-list-options-trigger/);
+        assert.match(html, />Editar lista</);
+        assert.match(html, />Archivar lista</);
+        assert.match(html, />Eliminar lista</);
+        assert.match(html, /data-tasks-action="delete-list"/);
+        assert.match(html, /data-list-id="12"/);
+        assert.match(html, /text-red-600/);
+        assert.match(html, /aa-chevron/);
+    });
+
+    it('lista user sin can_delete no muestra Eliminar lista', () => {
         var html = renderer.renderList(baseList({
             id: '12',
             source: 'user',
@@ -1460,10 +1482,8 @@ describe('executableListRenderer MC13L-B list options menu', () => {
         assert.match(html, /aa-executable-list-options-trigger/);
         assert.match(html, />Editar lista</);
         assert.match(html, />Archivar lista</);
-        assert.match(html, /data-aa-list-edit="1"/);
-        assert.match(html, /aa-chevron/);
-        assert.doesNotMatch(html, /Eliminar lista/);
-        assert.doesNotMatch(html, /class="[^"]*text-xs[^"]*"[^>]*>Archivar</);
+        assert.doesNotMatch(html, />Eliminar lista</);
+        assert.doesNotMatch(html, /data-tasks-action="delete-list"/);
     });
 
     it('lista agenda_app no renderiza menú de opciones', () => {

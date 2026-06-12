@@ -135,6 +135,18 @@ ac_assert(
     strpos($ajax_src, 'handle_delete_task') !== false
     && strpos($ajax_src, 'respond_use_case($result)') !== false
 );
+ac_assert('AJAX registers aa_delete_task_list', strpos($ajax_src, 'aa_delete_task_list') !== false);
+ac_assert('AJAX delete list uses DeleteTaskListUseCase', strpos($ajax_src, 'DeleteTaskListUseCase') !== false);
+ac_assert(
+    'AJAX delete list passes list_id to DeleteTaskListUseCase',
+    strpos($ajax_src, 'handle_delete_task_list') !== false
+    && strpos($ajax_src, "'list_id' => self::post_scalar('list_id')") !== false
+);
+ac_assert(
+    'AJAX delete list responds via respond_use_case',
+    strpos($ajax_src, 'handle_delete_task_list') !== false
+    && strpos($ajax_src, 'respond_use_case($result)') !== false
+);
 
 $dismiss_uc_src = file_get_contents($plugin_root . '/includes/application/tasks/RecordTaskDismissSignalUseCase.php');
 ac_assert('RecordTaskDismissSignalUseCase file readable', $dismiss_uc_src !== false);

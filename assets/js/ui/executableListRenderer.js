@@ -1008,7 +1008,8 @@
     function listHasOptionsMenu(capabilities) {
         return !!capabilities.can_archive
             || !!capabilities.can_edit
-            || !!capabilities.can_restore_archived_tasks;
+            || !!capabilities.can_restore_archived_tasks
+            || !!capabilities.can_delete;
     }
 
     /**
@@ -1058,6 +1059,17 @@
                 + ' onclick="event.stopPropagation()"'
                 + ' class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-50">'
                 + 'Archivar lista'
+                + '</button>';
+        }
+
+        if (capabilities.can_delete) {
+            items += ''
+                + '<button type="button" role="menuitem"'
+                + ' data-tasks-action="delete-list"'
+                + ' data-list-id="' + listId + '"'
+                + ' onclick="event.stopPropagation()"'
+                + ' class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-50">'
+                + 'Eliminar lista'
                 + '</button>';
         }
 

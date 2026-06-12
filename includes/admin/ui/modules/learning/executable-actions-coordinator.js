@@ -17,6 +17,7 @@
     var boundRoots = {};
 
     var ARCHIVE_LIST_CONFIRM_MESSAGE = '¿Archivar esta lista? Las tareas se conservarán.';
+    var DELETE_LIST_CONFIRM_MESSAGE = 'Eliminar esta lista implica eliminar definitivamente la lista y todas sus tareas contenidas. Esta acción no se puede deshacer. Si solo deseas sacarla provisionalmente de tu estrategia operativa actual, puedes archivarla.';
     var ARCHIVE_TASK_CONFIRM_MESSAGE = '¿Archivar esta tarea? Dejará de aparecer en tus listas activas hasta que la restaures.';
     var DELETE_TASK_CONFIRM_MESSAGE = '¿Deseas realmente eliminar esta tarea? Esta acción no se puede deshacer. Si solo deseas sacarla provisionalmente de tu estrategia actual, puedes archivarla.';
 
@@ -145,6 +146,24 @@
             }
 
             return Promise.resolve(service.archiveTaskList(listId));
+        }
+
+        /**
+         * @param {string} listId
+         * @returns {Promise<void|null>}
+         */
+        function runDeleteListAction(listId) {
+            if (!confirmFn(DELETE_LIST_CONFIRM_MESSAGE)) {
+                return Promise.resolve(null);
+            }
+
+            var service = resolveTasksService();
+
+            if (!service || typeof service.deleteTaskList !== 'function') {
+                return Promise.reject(new Error('TasksService no disponible.'));
+            }
+
+            return Promise.resolve(service.deleteTaskList(listId));
         }
 
         /**
@@ -447,6 +466,7 @@
                 && action !== 'defer'
                 && action !== 'dismiss'
                 && action !== 'archive-list'
+                && action !== 'delete-list'
                 && action !== 'archive-task'
                 && action !== 'delete-task'
             ) {
@@ -481,6 +501,12 @@
                 }
 
                 actionPromise = runArchiveListAction(listId);
+            } else if (action === 'delete-list') {
+                if (!listId) {
+                    return Promise.resolve(false);
+                }
+
+                actionPromise = runDeleteListAction(listId);
             } else if (action === 'archive-task') {
                 if (!taskId) {
                     return Promise.resolve(false);
@@ -566,6 +592,7 @@
                 || action === 'defer'
                 || action === 'dismiss'
                 || action === 'archive-list'
+                || action === 'delete-list'
                 || action === 'archive-task'
                 || action === 'delete-task';
         }
@@ -622,6 +649,7 @@
             runTaskDeferAction: runTaskDeferAction,
             runTaskDismissAction: runTaskDismissAction,
             runArchiveListAction: runArchiveListAction,
+            runDeleteListAction: runDeleteListAction,
             runArchiveTaskAction: runArchiveTaskAction,
             runDeleteTaskAction: runDeleteTaskAction,
             runLearningAction: runLearningAction,
@@ -712,6 +740,7 @@
         init: init,
         createCoordinator: createCoordinator,
         ARCHIVE_LIST_CONFIRM_MESSAGE: ARCHIVE_LIST_CONFIRM_MESSAGE,
+        DELETE_LIST_CONFIRM_MESSAGE: DELETE_LIST_CONFIRM_MESSAGE,
         ARCHIVE_TASK_CONFIRM_MESSAGE: ARCHIVE_TASK_CONFIRM_MESSAGE,
         DELETE_TASK_CONFIRM_MESSAGE: DELETE_TASK_CONFIRM_MESSAGE,
         TASK_ACTION_SELECTOR: TASK_ACTION_SELECTOR,

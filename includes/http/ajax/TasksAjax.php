@@ -21,6 +21,7 @@ require_once dirname(__DIR__, 2) . '/application/tasks/ArchiveTaskUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/tasks/RestoreTaskUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/tasks/ListArchivedTasksInListUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/tasks/DeleteTaskUseCase.php';
+require_once dirname(__DIR__, 2) . '/application/tasks/DeleteTaskListUseCase.php';
 
 final class TasksAjax {
 
@@ -43,6 +44,7 @@ final class TasksAjax {
         add_action('wp_ajax_aa_list_archived_tasks_in_list', [__CLASS__, 'handle_list_archived_tasks_in_list']);
         add_action('wp_ajax_aa_restore_task', [__CLASS__, 'handle_restore_task']);
         add_action('wp_ajax_aa_delete_task', [__CLASS__, 'handle_delete_task']);
+        add_action('wp_ajax_aa_delete_task_list', [__CLASS__, 'handle_delete_task_list']);
     }
 
     public static function handle_get_board(): void {
@@ -211,6 +213,16 @@ final class TasksAjax {
 
         $result = (new DeleteTaskUseCase())->execute([
             'task_id' => self::post_scalar('task_id'),
+        ]);
+
+        self::respond_use_case($result);
+    }
+
+    public static function handle_delete_task_list(): void {
+        self::authorize();
+
+        $result = (new DeleteTaskListUseCase())->execute([
+            'list_id' => self::post_scalar('list_id'),
         ]);
 
         self::respond_use_case($result);

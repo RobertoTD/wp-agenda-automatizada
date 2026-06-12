@@ -401,12 +401,14 @@ describe('list-options-module MC13L-B', () => {
         assert.match(indexSrc, /list-options-module\.js/);
     });
 
-    it('renderer expone menú ⋮ y archivar dentro del menú', () => {
+    it('renderer expone menú ⋮ con Editar, Archivar y Eliminar lista', () => {
         assert.match(rendererSrc, /data-aa-list-options-trigger/);
         assert.match(rendererSrc, /aa-executable-list-options-menu/);
         assert.match(rendererSrc, /Archivar lista/);
+        assert.match(rendererSrc, /Eliminar lista/);
         assert.match(rendererSrc, /Editar lista/);
         assert.match(rendererSrc, /data-aa-list-edit/);
+        assert.match(rendererSrc, /data-tasks-action="delete-list"/);
         assert.doesNotMatch(rendererSrc, /class="[^"]*text-xs[^"]*"[^>]*>Archivar</);
     });
 

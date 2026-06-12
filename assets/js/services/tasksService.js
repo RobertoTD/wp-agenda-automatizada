@@ -127,6 +127,16 @@
     }
 
     /**
+     * @param {number|string} listId
+     * @returns {Promise<Object>}
+     */
+    function deleteTaskList(listId) {
+        return postAction('aa_delete_task_list', {
+            list_id: listId
+        });
+    }
+
+    /**
      * @returns {Promise<{lists:Array}>}
      */
     function getArchivedTaskLists() {
@@ -293,6 +303,7 @@
         createTaskList: createTaskList,
         updateTaskList: updateTaskList,
         archiveTaskList: archiveTaskList,
+        deleteTaskList: deleteTaskList,
         getArchivedTaskLists: getArchivedTaskLists,
         restoreTaskList: restoreTaskList,
         createTask: createTask,

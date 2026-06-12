@@ -338,6 +338,30 @@ final class TaskRepository {
 
     /**
      * @param int $list_id
+     * @return int|false Filas borradas, o false si hubo error SQL.
+     */
+    public static function delete_by_list_id(int $list_id) {
+        $normalized_list_id = (int) $list_id;
+
+        if ($normalized_list_id < 1) {
+            return false;
+        }
+
+        global $wpdb;
+
+        $table = self::table_name();
+        $result = $wpdb->delete($table, ['list_id' => $normalized_list_id], ['%d']);
+
+        if ($result === false || $wpdb->last_error) {
+            error_log('[TaskRepository] delete_by_list_id: ' . $wpdb->last_error);
+            return false;
+        }
+
+        return (int) $result;
+    }
+
+    /**
+     * @param int $list_id
      * @return list<array<string,mixed>>
      */
     public static function list_archived_by_list_id($list_id) {

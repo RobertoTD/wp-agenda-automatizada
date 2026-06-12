@@ -61,6 +61,7 @@ final class LearningRecommendationsToExecutableMapper {
                 'can_archive' => false,
                 'can_edit' => false,
                 'can_restore_archived_tasks' => false,
+                'can_delete' => false,
             ],
             'buckets' => $buckets,
         ]);

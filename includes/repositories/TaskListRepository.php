@@ -259,6 +259,30 @@ final class TaskListRepository {
     }
 
     /**
+     * @param int $id
+     * @return bool false si id inválido, error SQL o la fila no se borró.
+     */
+    public static function delete($id): bool {
+        $list_id = (int) $id;
+
+        if ($list_id < 1) {
+            return false;
+        }
+
+        global $wpdb;
+
+        $table = self::table_name();
+        $result = $wpdb->delete($table, ['id' => $list_id], ['%d']);
+
+        if ($result === false || $wpdb->last_error) {
+            error_log('[TaskListRepository] delete: ' . $wpdb->last_error);
+            return false;
+        }
+
+        return (int) $result > 0;
+    }
+
+    /**
      * @param array<string,mixed> $data
      * @return array<string,mixed>
      */

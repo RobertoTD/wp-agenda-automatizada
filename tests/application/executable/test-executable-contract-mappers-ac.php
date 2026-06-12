@@ -72,6 +72,22 @@ ac_assert(
     ($contract_item['capabilities']['can_delete'] ?? false) === true
 );
 
+$contract_list = AA_Executable_Contract::normalize_list([
+    'id' => '10',
+    'source' => 'user',
+    'source_category' => 'user',
+    'title' => 'Lista contrato',
+    'status' => 'active',
+    'buckets' => [],
+    'capabilities' => [
+        'can_delete' => 1,
+    ],
+]);
+ac_assert(
+    'Contract normalizes can_delete on list capabilities',
+    ($contract_list['capabilities']['can_delete'] ?? false) === true
+);
+
 /**
  * @param list<array<string,mixed>> $lists
  * @param list<array<string,mixed>> $tasks
@@ -307,6 +323,7 @@ ac_assert(
     ($learning_list['capabilities']['can_edit'] ?? true) === false
     && ($learning_list['capabilities']['can_archive'] ?? true) === false
     && ($learning_list['capabilities']['can_restore_archived_tasks'] ?? true) === false
+    && ($learning_list['capabilities']['can_delete'] ?? true) === false
 );
 
 $learning_bucket_keys = array_map(static function (array $bucket): string {
@@ -590,6 +607,10 @@ ac_assert(
 ac_assert(
     'Task user list exposes can_restore_archived_tasks at list level',
     ($task_lists[0]['capabilities']['can_restore_archived_tasks'] ?? false) === true
+);
+ac_assert(
+    'Task user list exposes can_delete at list level',
+    ($task_lists[0]['capabilities']['can_delete'] ?? false) === true
 );
 
 ac_assert(
@@ -1004,6 +1025,11 @@ ac_assert(
     'Agenda app seeded list cannot restore archived tasks',
     is_array($agenda_list)
     && ($agenda_list['capabilities']['can_restore_archived_tasks'] ?? true) === false
+);
+ac_assert(
+    'Agenda app seeded list cannot delete',
+    is_array($agenda_list)
+    && ($agenda_list['capabilities']['can_delete'] ?? true) === false
 );
 ac_assert(
     'Agenda app seeded tasks map source metadata',

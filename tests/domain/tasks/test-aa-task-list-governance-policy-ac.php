@@ -153,6 +153,31 @@ ac_assert(
     $policy->can_restore_archived_tasks($agenda_user_managed) === false
 );
 
+ac_assert(
+    'active user list can_delete_list',
+    $policy->can_delete_list($user_active) === true
+);
+ac_assert(
+    'archived user list can_delete_list',
+    $policy->can_delete_list($user_archived) === true
+);
+ac_assert(
+    'agenda_app developer list cannot delete',
+    $policy->can_delete_list($agenda_app) === false
+);
+ac_assert(
+    'developer system list cannot delete',
+    $policy->can_delete_list($developer_system) === false
+);
+ac_assert(
+    'user source_category with managed_by developer cannot delete',
+    $policy->can_delete_list($user_developer_managed) === false
+);
+ac_assert(
+    'agenda_app source_category cannot delete even if managed_by user',
+    $policy->can_delete_list($agenda_user_managed) === false
+);
+
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 
 if ($failed !== []) {

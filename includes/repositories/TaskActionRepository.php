@@ -272,6 +272,41 @@ final class TaskActionRepository {
     }
 
     /**
+     * @param list<int|string> $task_ids
+     * @return int|false Filas borradas, o false si hubo error SQL.
+     */
+    public static function delete_by_task_ids(array $task_ids) {
+        $normalized_ids = [];
+
+        foreach ($task_ids as $task_id) {
+            $normalized = (int) $task_id;
+
+            if ($normalized > 0) {
+                $normalized_ids[$normalized] = $normalized;
+            }
+        }
+
+        if ($normalized_ids === []) {
+            return 0;
+        }
+
+        global $wpdb;
+
+        $ids = array_values($normalized_ids);
+        $table = self::table_name();
+        $placeholders = implode(', ', array_fill(0, count($ids), '%d'));
+        $query = $wpdb->prepare("DELETE FROM {$table} WHERE task_id IN ({$placeholders})", ...$ids);
+        $result = $wpdb->query($query);
+
+        if ($result === false || $wpdb->last_error) {
+            error_log('[TaskActionRepository] delete_by_task_ids: ' . $wpdb->last_error);
+            return false;
+        }
+
+        return (int) $result;
+    }
+
+    /**
      * @param int          $task_id
      * @param list<string> $active_action_keys
      * @return int Número de acciones deshabilitadas.
