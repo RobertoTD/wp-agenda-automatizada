@@ -339,12 +339,14 @@ describe('task-options-module MC3', () => {
         assert.ok(enqueueTaskEdit < enqueueCoordinator);
     });
 
-    it('renderer expone menú ⋮ de tarea con Editar y Archivar', () => {
+    it('renderer expone menú ⋮ de tarea con Editar, Archivar y Eliminar', () => {
         assert.match(rendererSrc, /data-aa-task-options-trigger/);
         assert.match(rendererSrc, /aa-executable-task-options-menu/);
         assert.match(rendererSrc, /Editar tarea/);
         assert.match(rendererSrc, /Archivar tarea/);
+        assert.match(rendererSrc, /Eliminar tarea/);
         assert.match(rendererSrc, /data-tasks-action="archive-task"/);
+        assert.match(rendererSrc, /data-tasks-action="delete-task"/);
         assert.doesNotMatch(rendererSrc, /aa-executable-item-summary-edit/);
     });
 

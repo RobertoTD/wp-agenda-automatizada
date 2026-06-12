@@ -57,6 +57,21 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
     echo '[FAIL] ' . $label . ($detail !== '' ? ' - ' . $detail : '') . "\n";
 }
 
+$contract_item = AA_Executable_Contract::normalize_item([
+    'id' => '1',
+    'source' => 'user',
+    'source_category' => 'user',
+    'title' => 'Contrato',
+    'status' => 'pending',
+    'capabilities' => [
+        'can_delete' => 1,
+    ],
+]);
+ac_assert(
+    'Contract normalizes can_delete on item capabilities',
+    ($contract_item['capabilities']['can_delete'] ?? false) === true
+);
+
 /**
  * @param list<array<string,mixed>> $lists
  * @param list<array<string,mixed>> $tasks
@@ -360,9 +375,11 @@ ac_assert(
     is_array($primary_item)
     && ($primary_item['capabilities']['can_archive'] ?? true) === false
     && ($primary_item['capabilities']['can_restore'] ?? true) === false
+    && ($primary_item['capabilities']['can_delete'] ?? true) === false
     && is_array($secondary_item)
     && ($secondary_item['capabilities']['can_archive'] ?? true) === false
     && ($secondary_item['capabilities']['can_restore'] ?? true) === false
+    && ($secondary_item['capabilities']['can_delete'] ?? true) === false
 );
 ac_assert(
     'Learning fallback items expose default_bucket from default_list',
@@ -523,6 +540,11 @@ ac_assert(
     is_array($pending_task)
     && ($pending_task['capabilities']['can_archive'] ?? false) === true
     && ($pending_task['capabilities']['can_restore'] ?? true) === false
+);
+ac_assert(
+    'User pending task exposes can_delete true',
+    is_array($pending_task)
+    && ($pending_task['capabilities']['can_delete'] ?? false) === true
 );
 ac_assert(
     'User pending task exposes default_bucket primary when unset',
@@ -995,9 +1017,11 @@ ac_assert(
     is_array($agenda_primary_item)
     && ($agenda_primary_item['capabilities']['can_archive'] ?? true) === false
     && ($agenda_primary_item['capabilities']['can_restore'] ?? true) === false
+    && ($agenda_primary_item['capabilities']['can_delete'] ?? true) === false
     && is_array($agenda_secondary_item)
     && ($agenda_secondary_item['capabilities']['can_archive'] ?? true) === false
     && ($agenda_secondary_item['capabilities']['can_restore'] ?? true) === false
+    && ($agenda_secondary_item['capabilities']['can_delete'] ?? true) === false
 );
 ac_assert(
     'Agenda app default_bucket controls projected bucket',

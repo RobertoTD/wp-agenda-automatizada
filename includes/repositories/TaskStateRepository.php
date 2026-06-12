@@ -412,6 +412,30 @@ final class TaskStateRepository {
     }
 
     /**
+     * @param int $task_id
+     * @return bool false solo si hubo error SQL.
+     */
+    public static function delete_by_task_id(int $task_id): bool {
+        $normalized_task_id = (int) $task_id;
+
+        if ($normalized_task_id < 1) {
+            return true;
+        }
+
+        global $wpdb;
+
+        $table = self::table_name();
+        $result = $wpdb->delete($table, ['task_id' => $normalized_task_id], ['%d']);
+
+        if ($result === false || $wpdb->last_error) {
+            error_log('[TaskStateRepository] delete_by_task_id: ' . $wpdb->last_error);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * @param list<int|string> $task_ids
      * @param string           $now Y-m-d H:i:s
      * @return array<int,array<string,mixed>>

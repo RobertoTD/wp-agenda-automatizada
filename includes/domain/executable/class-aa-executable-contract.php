@@ -459,6 +459,7 @@ final class AA_Executable_Contract {
             'can_edit' => !empty($capabilities['can_edit']),
             'can_archive' => !empty($capabilities['can_archive']),
             'can_restore' => !empty($capabilities['can_restore']),
+            'can_delete' => !empty($capabilities['can_delete']),
         ];
     }
 

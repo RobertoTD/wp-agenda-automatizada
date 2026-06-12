@@ -18,6 +18,7 @@
 
     var ARCHIVE_LIST_CONFIRM_MESSAGE = '¿Archivar esta lista? Las tareas se conservarán.';
     var ARCHIVE_TASK_CONFIRM_MESSAGE = '¿Archivar esta tarea? Dejará de aparecer en tus listas activas hasta que la restaures.';
+    var DELETE_TASK_CONFIRM_MESSAGE = '¿Deseas realmente eliminar esta tarea? Esta acción no se puede deshacer. Si solo deseas sacarla provisionalmente de tu estrategia actual, puedes archivarla.';
 
     var TASK_ACTION_SELECTOR = '[data-tasks-action]';
     var LEARNING_ACTION_SELECTOR = '[data-learning-action]';
@@ -162,6 +163,24 @@
             }
 
             return Promise.resolve(service.archiveTask(taskId));
+        }
+
+        /**
+         * @param {string} taskId
+         * @returns {Promise<void|null>}
+         */
+        function runDeleteTaskAction(taskId) {
+            if (!confirmFn(DELETE_TASK_CONFIRM_MESSAGE)) {
+                return Promise.resolve(null);
+            }
+
+            var service = resolveTasksService();
+
+            if (!service || typeof service.deleteTask !== 'function') {
+                return Promise.reject(new Error('TasksService no disponible.'));
+            }
+
+            return Promise.resolve(service.deleteTask(taskId));
         }
 
         /**
@@ -429,6 +448,7 @@
                 && action !== 'dismiss'
                 && action !== 'archive-list'
                 && action !== 'archive-task'
+                && action !== 'delete-task'
             ) {
                 return Promise.resolve(false);
             }
@@ -467,6 +487,12 @@
                 }
 
                 actionPromise = runArchiveTaskAction(taskId);
+            } else if (action === 'delete-task') {
+                if (!taskId) {
+                    return Promise.resolve(false);
+                }
+
+                actionPromise = runDeleteTaskAction(taskId);
             }
 
             if (!actionPromise) {
@@ -540,7 +566,8 @@
                 || action === 'defer'
                 || action === 'dismiss'
                 || action === 'archive-list'
-                || action === 'archive-task';
+                || action === 'archive-task'
+                || action === 'delete-task';
         }
 
         /**
@@ -596,6 +623,7 @@
             runTaskDismissAction: runTaskDismissAction,
             runArchiveListAction: runArchiveListAction,
             runArchiveTaskAction: runArchiveTaskAction,
+            runDeleteTaskAction: runDeleteTaskAction,
             runLearningAction: runLearningAction,
             findHandlerVisibleAction: findHandlerVisibleAction,
             setRootButtonsDisabled: setRootButtonsDisabled,
@@ -685,6 +713,7 @@
         createCoordinator: createCoordinator,
         ARCHIVE_LIST_CONFIRM_MESSAGE: ARCHIVE_LIST_CONFIRM_MESSAGE,
         ARCHIVE_TASK_CONFIRM_MESSAGE: ARCHIVE_TASK_CONFIRM_MESSAGE,
+        DELETE_TASK_CONFIRM_MESSAGE: DELETE_TASK_CONFIRM_MESSAGE,
         TASK_ACTION_SELECTOR: TASK_ACTION_SELECTOR,
         LEARNING_ACTION_SELECTOR: LEARNING_ACTION_SELECTOR,
         ACTIONABLE_BUTTON_SELECTOR: ACTIONABLE_BUTTON_SELECTOR,

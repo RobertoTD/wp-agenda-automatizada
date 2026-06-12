@@ -116,6 +116,10 @@ function createCoordinatorFactory(options) {
                     options.tasksCalls.push({ method: 'archiveTask', taskId: taskId });
                     return Promise.resolve({});
                 },
+                deleteTask: function (taskId) {
+                    options.tasksCalls.push({ method: 'deleteTask', taskId: taskId });
+                    return Promise.resolve({});
+                },
                 deferTask: function (taskId) {
                     options.tasksCalls.push({ method: 'deferTask', taskId: taskId });
                     return Promise.resolve({});
@@ -341,6 +345,56 @@ describe('ExecutableActionsCoordinator', () => {
         var button = createButton({
             'data-tasks-action': 'archive-task',
             'data-task-id': '42'
+        });
+        var root = createRoot(button);
+        var event = createEvent(button);
+
+        await coordinator.handleClick(event, {
+            root: root,
+            reload: function () {
+                reloadCalls += 1;
+                return Promise.resolve();
+            }
+        });
+
+        assert.equal(tasksCalls.length, 0);
+        assert.equal(reloadCalls, 0);
+    });
+
+    it('delete-task llama TasksService.deleteTask(taskId) si confirm es true', async () => {
+        var button = createButton({
+            'data-tasks-action': 'delete-task',
+            'data-task-id': '88'
+        });
+        var root = createRoot(button);
+        var event = createEvent(button);
+
+        await coordinator.handleClick(event, {
+            root: root,
+            reload: function () {
+                reloadCalls += 1;
+                return Promise.resolve();
+            }
+        });
+
+        assert.deepEqual(tasksCalls[0], {
+            method: 'deleteTask',
+            taskId: '88'
+        });
+        assert.equal(reloadCalls, 1);
+    });
+
+    it('delete-task no llama servicio si confirm es false', async () => {
+        coordinator = createCoordinatorFactory({
+            tasksCalls: tasksCalls,
+            learningCalls: learningCalls,
+            confirmResult: false
+        });
+        coordinator.resetPending();
+
+        var button = createButton({
+            'data-tasks-action': 'delete-task',
+            'data-task-id': '88'
         });
         var root = createRoot(button);
         var event = createEvent(button);

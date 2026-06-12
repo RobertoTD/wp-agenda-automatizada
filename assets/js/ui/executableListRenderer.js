@@ -649,7 +649,7 @@
      * @returns {boolean}
      */
     function itemHasOptionsMenu(capabilities) {
-        return !!capabilities.can_edit || !!capabilities.can_archive;
+        return !!capabilities.can_edit || !!capabilities.can_archive || !!capabilities.can_delete;
     }
 
     /**
@@ -690,6 +690,17 @@
                 + ' onclick="event.stopPropagation()"'
                 + ' class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">'
                 + 'Archivar tarea'
+                + '</button>';
+        }
+
+        if (capabilities.can_delete) {
+            items += ''
+                + '<button type="button" role="menuitem"'
+                + ' data-tasks-action="delete-task"'
+                + ' data-task-id="' + taskId + '"'
+                + ' onclick="event.stopPropagation()"'
+                + ' class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-50">'
+                + 'Eliminar tarea'
                 + '</button>';
         }
 

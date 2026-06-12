@@ -120,6 +120,44 @@ ac_assert(
     ]) === false
 );
 
+$user_delete_shape = [
+    'source_category' => 'user',
+    'managed_by' => 'user',
+];
+ac_assert(
+    'user task can_delete',
+    $policy->can_delete_task($user_delete_shape) === true
+);
+ac_assert(
+    'user done task can_delete',
+    $policy->can_delete_task(array_merge($user_delete_shape, ['status' => 'done'])) === true
+);
+ac_assert(
+    'user archived task can_delete',
+    $policy->can_delete_task(array_merge($user_delete_shape, ['archived_at' => '2026-06-10 10:00:00'])) === true
+);
+ac_assert(
+    'agenda_app task cannot delete',
+    $policy->can_delete_task([
+        'source_category' => 'agenda_app',
+        'managed_by' => 'developer',
+    ]) === false
+);
+ac_assert(
+    'developer user category cannot delete',
+    $policy->can_delete_task([
+        'source_category' => 'user',
+        'managed_by' => 'developer',
+    ]) === false
+);
+ac_assert(
+    'system managed task cannot delete',
+    $policy->can_delete_task([
+        'source_category' => 'user',
+        'managed_by' => 'system',
+    ]) === false
+);
+
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 
 if ($failed !== []) {

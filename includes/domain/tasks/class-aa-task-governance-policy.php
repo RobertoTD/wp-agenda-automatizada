@@ -47,6 +47,13 @@ final class AA_Task_Governance_Policy {
     /**
      * @param array<string,mixed> $task
      */
+    public function can_delete_task(array $task): bool {
+        return $this->is_user_task($task);
+    }
+
+    /**
+     * @param array<string,mixed> $task
+     */
     private function is_user_task(array $task): bool {
         return $this->resolve_source_category($task) === AA_Executable_Contract::SOURCE_CATEGORY_USER
             && $this->resolve_managed_by($task) === self::MANAGED_BY_USER;

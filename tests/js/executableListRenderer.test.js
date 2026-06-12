@@ -1319,7 +1319,8 @@ describe('executableListRenderer MC13 expandable items', () => {
             capabilities: {
                 can_complete: true,
                 can_edit: true,
-                can_archive: true
+                can_archive: true,
+                can_delete: true
             }
         }));
         var summary = extractSummary(html);
@@ -1330,16 +1331,49 @@ describe('executableListRenderer MC13 expandable items', () => {
         assert.match(summary, /aa-executable-task-options-menu/);
         assert.match(summary, />Editar tarea</);
         assert.match(summary, />Archivar tarea</);
+        assert.match(summary, />Eliminar tarea</);
         assert.match(summary, /data-aa-task-edit="1"/);
         assert.match(summary, /data-task-id="99"/);
         assert.match(summary, /data-task-default-bucket="secondary"/);
         assert.match(summary, /data-tasks-action="archive-task"/);
+        assert.match(summary, /data-tasks-action="delete-task"/);
+        assert.match(summary, /text-red-600/);
         assert.match(summary, /aria-label="Opciones de tarea"/);
         assert.doesNotMatch(summary, /aa-executable-item-summary-edit/);
         assert.doesNotMatch(html, /aa-executable-item-expanded-footer/);
     });
 
-    it('no muestra menú de tarea si can_edit y can_archive son false o ausentes', () => {
+    it('tarea user con can_delete renderiza Eliminar tarea en menú', () => {
+        var html = renderer.renderItem(baseItem({
+            id: '77',
+            source: 'user',
+            capabilities: {
+                can_delete: true
+            }
+        }));
+        var summary = extractSummary(html);
+
+        assert.match(summary, />Eliminar tarea</);
+        assert.match(summary, /data-tasks-action="delete-task"/);
+        assert.match(summary, /data-task-id="77"/);
+        assert.match(summary, /text-red-600/);
+    });
+
+    it('agenda_app no muestra Eliminar tarea aunque can_delete sea false explícito', () => {
+        var html = renderer.renderItem(baseItem({
+            source: 'agenda_app',
+            capabilities: {
+                can_edit: false,
+                can_archive: false,
+                can_delete: false
+            }
+        }));
+
+        assert.doesNotMatch(html, />Eliminar tarea</);
+        assert.doesNotMatch(html, /data-tasks-action="delete-task"/);
+    });
+
+    it('no muestra menú de tarea si can_edit, can_archive y can_delete son false o ausentes', () => {
         var withoutFlag = renderer.renderItem(baseItem({
             source: 'user',
             description: 'Solo lectura'
@@ -1349,7 +1383,8 @@ describe('executableListRenderer MC13 expandable items', () => {
             description: 'Solo lectura',
             capabilities: {
                 can_edit: false,
-                can_archive: false
+                can_archive: false,
+                can_delete: false
             }
         }));
         var agendaApp = renderer.renderItem(baseItem({
@@ -1368,17 +1403,22 @@ describe('executableListRenderer MC13 expandable items', () => {
         assert.doesNotMatch(explicitFalse, /data-aa-task-edit/);
     });
 
-    it('no muestra botón eliminar tarea en panel expandido', () => {
+    it('Eliminar tarea vive en menú summary y no en panel expandido', () => {
         var html = renderer.renderItem(baseItem({
             source: 'user',
             description: 'Editable',
             capabilities: {
-                can_edit: true
+                can_edit: true,
+                can_delete: true
             }
         }));
+        var summary = extractSummary(html);
+        var expanded = html.replace(summary, '');
 
-        assert.doesNotMatch(html, /data-aa-task-delete/);
-        assert.doesNotMatch(html, /Eliminar tarea/);
+        assert.match(summary, />Eliminar tarea</);
+        assert.match(summary, /data-tasks-action="delete-task"/);
+        assert.doesNotMatch(expanded, /data-tasks-action="delete-task"/);
+        assert.doesNotMatch(expanded, />Eliminar tarea</);
     });
 
     it('no muestra importancia en expandido cuando es 0', () => {

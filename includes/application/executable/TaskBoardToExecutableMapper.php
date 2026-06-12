@@ -407,6 +407,7 @@ final class TaskBoardToExecutableMapper {
                 'can_edit' => $governance->can_edit_task($task),
                 'can_archive' => $governance->can_archive_task($task),
                 'can_restore' => $governance->can_restore_task($task),
+                'can_delete' => $governance->can_delete_task($task),
             ],
             'primary_action' => $primary_action,
             'is_executive_candidate' => isset($executive_candidates[$task_id]),

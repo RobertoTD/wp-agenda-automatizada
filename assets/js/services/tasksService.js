@@ -278,6 +278,16 @@
         });
     }
 
+    /**
+     * @param {number|string} taskId
+     * @returns {Promise<Object>}
+     */
+    function deleteTask(taskId) {
+        return postAction('aa_delete_task', {
+            task_id: taskId
+        });
+    }
+
     window.TasksService = {
         getTaskBoard: getTaskBoard,
         createTaskList: createTaskList,
@@ -293,6 +303,7 @@
         returnIgnoredUserTasks: returnIgnoredUserTasks,
         archiveTask: archiveTask,
         listArchivedTasksInList: listArchivedTasksInList,
-        restoreTask: restoreTask
+        restoreTask: restoreTask,
+        deleteTask: deleteTask
     };
 })();

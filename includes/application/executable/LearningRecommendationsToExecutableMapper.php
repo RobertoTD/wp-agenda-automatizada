@@ -119,6 +119,7 @@ final class LearningRecommendationsToExecutableMapper {
                 'can_edit' => false,
                 'can_archive' => false,
                 'can_restore' => false,
+                'can_delete' => false,
             ],
             'primary_action' => self::map_primary_action($item['action'] ?? null),
             'is_executive_candidate' => false,
