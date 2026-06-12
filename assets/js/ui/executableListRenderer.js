@@ -995,7 +995,9 @@
      * @returns {boolean}
      */
     function listHasOptionsMenu(capabilities) {
-        return !!capabilities.can_archive || !!capabilities.can_edit;
+        return !!capabilities.can_archive
+            || !!capabilities.can_edit
+            || !!capabilities.can_restore_archived_tasks;
     }
 
     /**
@@ -1023,6 +1025,17 @@
                 + ' onclick="event.stopPropagation()"'
                 + ' class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">'
                 + 'Editar lista'
+                + '</button>';
+        }
+
+        if (capabilities.can_restore_archived_tasks) {
+            items += ''
+                + '<button type="button" role="menuitem"'
+                + ' data-aa-list-restore-archived-tasks="1"'
+                + ' data-list-id="' + listId + '"'
+                + ' onclick="event.stopPropagation()"'
+                + ' class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">'
+                + 'Desarchivar tareas'
                 + '</button>';
         }
 

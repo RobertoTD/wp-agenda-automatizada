@@ -1482,6 +1482,63 @@ describe('executableListRenderer MC13L-C list edit menu', () => {
     });
 });
 
+describe('executableListRenderer MC4b restore archived tasks menu', () => {
+    it('lista user con can_restore_archived_tasks muestra Desarchivar tareas', () => {
+        var html = renderer.renderList(baseList({
+            id: '88',
+            source: 'user',
+            capabilities: {
+                can_edit: true,
+                can_archive: true,
+                can_restore_archived_tasks: true
+            },
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+
+        assert.match(html, />Desarchivar tareas</);
+        assert.match(html, /data-aa-list-restore-archived-tasks="1"/);
+        assert.match(html, /data-list-id="88"/);
+        assert.match(html, />Editar lista</);
+        assert.match(html, />Archivar lista</);
+        assert.doesNotMatch(html, /Desarchivar todas/);
+        assert.doesNotMatch(html, /Eliminar lista/);
+    });
+
+    it('lista user sin can_restore_archived_tasks no muestra Desarchivar tareas', () => {
+        var html = renderer.renderList(baseList({
+            capabilities: { can_edit: true, can_archive: true, can_restore_archived_tasks: false },
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+
+        assert.doesNotMatch(html, />Desarchivar tareas</);
+        assert.doesNotMatch(html, /data-aa-list-restore-archived-tasks/);
+    });
+
+    it('lista agenda_app no muestra Desarchivar tareas', () => {
+        var html = renderer.renderList(baseList({
+            source: 'system',
+            source_category: 'agenda_app',
+            capabilities: { can_restore_archived_tasks: false, can_edit: false, can_archive: false },
+            buckets: [{ key: 'primary', label: 'Principales', items: [baseItem()] }]
+        }));
+
+        assert.doesNotMatch(html, />Desarchivar tareas</);
+        assert.doesNotMatch(html, /aa-executable-list-options/);
+    });
+
+    it('menú aparece solo con can_restore_archived_tasks', () => {
+        var html = renderer.renderList(baseList({
+            capabilities: { can_restore_archived_tasks: true },
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+
+        assert.match(html, /data-aa-list-options-trigger/);
+        assert.match(html, />Desarchivar tareas</);
+        assert.doesNotMatch(html, />Editar lista</);
+        assert.doesNotMatch(html, />Archivar lista</);
+    });
+});
+
 describe('executableListRenderer MC13 UX-A visual polish', () => {
     it('lista agenda_app usa header neutral sin from-amber-50', () => {
         var html = renderer.renderList(baseList({

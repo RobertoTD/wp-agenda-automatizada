@@ -21,6 +21,7 @@ $task_edit_js = plugin_dir_url(__FILE__) . 'task-edit-module.js';
 $task_options_js = plugin_dir_url(__FILE__) . 'task-options-module.js';
 $list_options_js = plugin_dir_url(__FILE__) . 'list-options-module.js';
 $list_edit_js = plugin_dir_url(__FILE__) . 'list-edit-module.js';
+$restore_archived_tasks_js = plugin_dir_url(__FILE__) . 'restore-archived-tasks-module.js';
 ?>
 
 <div id="aa-tasks-module-root" class="max-w-5xl mx-auto py-2">
@@ -155,6 +156,39 @@ $list_edit_js = plugin_dir_url(__FILE__) . 'list-edit-module.js';
                     <button type="button" data-aa-tasks-modal-close="aa-restore-archived-lists-modal"
                         class="px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Cancelar</button>
                     <button type="button" id="aa-restore-archived-lists-submit" disabled
+                        class="px-3 py-2 text-sm font-medium rounded-lg border border-blue-200 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">Desarchivar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: desarchivar tareas archivadas de una lista -->
+<div id="aa-restore-archived-tasks-modal" class="fixed inset-0 z-[300] hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-black/40" data-aa-tasks-modal-close="aa-restore-archived-tasks-modal"></div>
+    <div class="relative z-10 flex min-h-full items-center justify-center p-4">
+        <div class="w-full max-w-md bg-white rounded-xl shadow-lg border border-gray-200">
+            <div class="px-5 py-4 border-b border-gray-100">
+                <h4 class="text-lg font-semibold text-gray-900">Desarchivar tareas</h4>
+                <p class="text-sm text-gray-500 mt-1">Elige una tarea archivada de esta lista para volver a mostrarla.</p>
+            </div>
+            <div class="px-5 py-4 space-y-4">
+                <input type="hidden" id="aa-restore-archived-tasks-form-list-id" value="">
+                <p id="aa-restore-archived-tasks-loading" class="hidden text-sm text-gray-500">Cargando tareas archivadas…</p>
+                <p id="aa-restore-archived-tasks-empty" class="hidden text-sm text-gray-500">No hay tareas archivadas en esta lista.</p>
+                <div id="aa-restore-archived-tasks-select-wrap">
+                    <label for="aa-restore-archived-tasks-select" class="block text-sm font-medium text-gray-700 mb-1">Tarea archivada</label>
+                    <select id="aa-restore-archived-tasks-select"
+                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        disabled>
+                        <option value="">Selecciona una tarea</option>
+                    </select>
+                </div>
+                <p id="aa-restore-archived-tasks-error" class="hidden text-sm text-red-600"></p>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" data-aa-tasks-modal-close="aa-restore-archived-tasks-modal"
+                        class="px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Cancelar</button>
+                    <button type="button" id="aa-restore-archived-tasks-submit" disabled
                         class="px-3 py-2 text-sm font-medium rounded-lg border border-blue-200 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">Desarchivar</button>
                 </div>
             </div>
@@ -407,4 +441,5 @@ $list_edit_js = plugin_dir_url(__FILE__) . 'list-edit-module.js';
 <script src="<?php echo esc_url($executable_lists_module_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($lists_area_tools_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($list_options_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($restore_archived_tasks_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($list_edit_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
