@@ -52,7 +52,7 @@ final class LearningRecommendationsToExecutableMapper {
             'source_category' => AA_Executable_Contract::SOURCE_CATEGORY_AGENDA_APP,
             'source_label' => 'Agenda app',
             'origin_key' => self::LIST_ORIGIN_KEY,
-            'title' => 'Recomendaciones',
+            'title' => 'Activación de tu agenda',
             'description' => 'Sugerencias para configurar y usar tu agenda.',
             'importance' => 0,
             'position' => 0,

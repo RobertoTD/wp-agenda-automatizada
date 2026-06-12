@@ -277,7 +277,7 @@ $learning_list = LearningRecommendationsToExecutableMapper::map($learning_payloa
 ac_assert(
     'Learning maps to system source list',
     ($learning_list['source'] ?? '') === AA_Executable_Contract::SOURCE_SYSTEM
-    && ($learning_list['title'] ?? '') === 'Recomendaciones'
+    && ($learning_list['title'] ?? '') === 'Activación de tu agenda'
     && ($learning_list['origin_key'] ?? '') === LearningRecommendationsToExecutableMapper::LIST_ORIGIN_KEY
 );
 
@@ -794,7 +794,7 @@ ac_assert(
 $agenda_lists_data = [
     [
         'id' => 50,
-        'title' => 'Recomendaciones',
+        'title' => 'Activación de tu agenda',
         'description' => 'Sugerencias para configurar y usar tu agenda.',
         'owner_type' => 'developer',
         'source_category' => 'agenda_app',

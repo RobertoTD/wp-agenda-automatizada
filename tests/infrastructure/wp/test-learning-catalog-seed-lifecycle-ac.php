@@ -184,10 +184,15 @@ ac_assert('Lifecycle stores last_error option', strpos($lifecycle_src, 'OPTION_L
 
 $catalog_src = file_get_contents($root . '/includes/domain/learning/class-aa-learning-catalog.php');
 ac_assert('Catalog defines SEED_VERSION', strpos($catalog_src, 'SEED_VERSION') !== false);
+ac_assert('Catalog SEED_VERSION bumped for seeded title rename', AA_Learning_Catalog::SEED_VERSION === '2');
 ac_assert('Catalog defines active_definition_keys', strpos($catalog_src, 'active_definition_keys') !== false);
 
 $sync_src = file_get_contents($root . '/includes/application/tasks/SyncLearningCatalogToTasksUseCase.php');
 ac_assert('Sync use case upserts list archived-first', strpos($sync_src, "'status' => 'archived'") !== false);
+ac_assert('Sync use case seeds Activación de tu agenda title', strpos($sync_src, "'title' => 'Activación de tu agenda'") !== false);
+
+$learning_mapper_src = file_get_contents($root . '/includes/application/executable/LearningRecommendationsToExecutableMapper.php');
+ac_assert('Learning fallback mapper uses Activación de tu agenda title', strpos($learning_mapper_src, "'title' => 'Activación de tu agenda'") !== false);
 
 $feed_src = file_get_contents($root . '/includes/application/executable/GetExecutableListsFeedUseCase.php');
 ac_assert('Feed uses ready seeded helper', strpos($feed_src, 'payload_has_ready_seeded_agenda_app_list') !== false);

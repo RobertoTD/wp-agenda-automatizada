@@ -112,7 +112,7 @@ final class SyncLearningCatalogToTasksUseCase {
      */
     private function list_payload(): array {
         return [
-            'title' => 'Recomendaciones',
+            'title' => 'Activación de tu agenda',
             'description' => 'Sugerencias para configurar y usar tu agenda.',
             'owner_type' => 'developer',
             'source_category' => self::SOURCE_CATEGORY,

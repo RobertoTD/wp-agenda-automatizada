@@ -43,6 +43,8 @@ ac_assert('Use case has no automatic hook', strpos($use_case_src, 'add_action(')
 ac_assert('Use case upserts seeded list archived-first', strpos($use_case_src, "'status' => 'archived'") !== false);
 ac_assert('Use case does not touch Learning state repository', strpos($use_case_src, 'LearningRecommendationStateRepository') === false);
 ac_assert('Use case does not touch task state repository', strpos($use_case_src, 'TaskStateRepository') === false);
+ac_assert('Use case seeds Activación de tu agenda title', strpos($use_case_src, "'title' => 'Activación de tu agenda'") !== false);
+ac_assert('Use case keeps learning.recommendations origin_key', strpos($use_case_src, 'learning.recommendations') !== false);
 
 $runtime_files = [
     'includes/application/executable/GetExecutableListsFeedUseCase.php',
@@ -86,7 +88,7 @@ if ($wp_load !== '' && is_readable($wp_load)) {
     ac_assert('sync returns list_id', (int) ($first_result['list_id'] ?? 0) > 0);
 
     $list = SeededTaskRepository::find_list_by_origin('agenda_app', 'learning.recommendations');
-    ac_assert('sync creates learning.recommendations list', is_array($list) && ($list['title'] ?? '') === 'Recomendaciones');
+    ac_assert('sync creates learning.recommendations list', is_array($list) && ($list['title'] ?? '') === 'Activación de tu agenda');
     ac_assert('seeded list source_category agenda_app', ($list['source_category'] ?? '') === 'agenda_app');
     ac_assert('seeded list owner_type developer', ($list['owner_type'] ?? '') === 'developer');
     ac_assert('sync leaves seeded list archived until lifecycle activates', ($list['status'] ?? '') === 'archived');
@@ -152,6 +154,7 @@ if ($wp_load !== '' && is_readable($wp_load)) {
     $actions_before_second = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$actions_table} WHERE task_id IN (SELECT id FROM {$tasks_table} WHERE source_category = 'agenda_app')");
 
     $second_result = (new SyncLearningCatalogToTasksUseCase())->execute();
+    $list_after_second = SeededTaskRepository::find_list_by_origin('agenda_app', 'learning.recommendations');
     $complete_business_data_after = SeededTaskRepository::find_task_by_origin('agenda_app', 'complete_business_data');
     $tasks_after_second = (int) $wpdb->get_var(
         $wpdb->prepare(
@@ -163,6 +166,8 @@ if ($wp_load !== '' && is_readable($wp_load)) {
     $actions_after_second = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$actions_table} WHERE task_id IN (SELECT id FROM {$tasks_table} WHERE source_category = 'agenda_app')");
 
     ac_assert('second sync preserves task_id', (int) ($complete_business_data_after['id'] ?? 0) === $first_task_id);
+    ac_assert('second sync preserves single seeded list id', (int) ($list_after_second['id'] ?? 0) === (int) ($list['id'] ?? 0));
+    ac_assert('second sync keeps Activación de tu agenda title', ($list_after_second['title'] ?? '') === 'Activación de tu agenda');
     ac_assert('second sync does not duplicate tasks', $tasks_after_second === $tasks_before_second);
     ac_assert('second sync does not duplicate actions', $actions_after_second === $actions_before_second);
     ac_assert('second sync reports updates', (int) ($second_result['tasks_updated'] ?? 0) >= count($active_keys));

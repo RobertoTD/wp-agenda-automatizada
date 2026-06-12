@@ -59,7 +59,7 @@ function baseList(overrides) {
         source_category: 'agenda_app',
         source_label: 'Agenda app',
         origin_key: 'learning.recommendations',
-        title: 'Recomendaciones',
+        title: 'Activación de tu agenda',
         description: 'Sugerencias del sistema.',
         importance: 0,
         position: 0,
@@ -346,7 +346,7 @@ describe('AAExecutableListRenderer', () => {
             source: 'system',
             source_category: 'agenda_app',
             source_label: 'Agenda app',
-            title: 'Recomendaciones',
+            title: 'Activación de tu agenda',
             capabilities: { can_archive: false },
             buckets: [{ key: 'primary', label: 'Principales', items: [baseItem()] }]
         });

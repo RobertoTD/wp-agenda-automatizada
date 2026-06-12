@@ -32,7 +32,7 @@ function activeFeedFixture() {
             source_category: 'agenda_app',
             source_label: 'Agenda app',
             origin_key: 'learning.recommendations',
-            title: 'Recomendaciones',
+            title: 'Activación de tu agenda',
             description: 'Sugerencias para configurar y usar tu agenda.',
             importance: 0,
             position: 0,

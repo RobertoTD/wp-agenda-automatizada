@@ -18,7 +18,7 @@ final class AA_Learning_Catalog {
      * Versión del catálogo para seed/sync hacia DB común (MC13O-D3).
      * Bumpear cuando cambien definiciones activas del catálogo.
      */
-    public const SEED_VERSION = '1';
+    public const SEED_VERSION = '2';
 
     /**
      * @return list<string> Keys de definiciones activas del catálogo.

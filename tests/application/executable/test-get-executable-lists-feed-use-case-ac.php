@@ -443,7 +443,7 @@ ac_assert(
 $seeded_payload = feed_fixture_tasks_payload();
 $seeded_payload['lists'][] = [
     'id' => 50,
-    'title' => 'Recomendaciones',
+    'title' => 'Activación de tu agenda',
     'description' => 'Sugerencias para configurar y usar tu agenda.',
     'owner_type' => 'developer',
     'source_category' => 'agenda_app',
@@ -619,7 +619,7 @@ feed_reset_migration_gate_mocks();
 $incomplete_seeded_payload = feed_fixture_tasks_payload();
 $incomplete_seeded_payload['lists'][] = [
     'id' => 55,
-    'title' => 'Recomendaciones',
+    'title' => 'Activación de tu agenda',
     'description' => 'Sugerencias para configurar y usar tu agenda.',
     'owner_type' => 'developer',
     'source_category' => 'agenda_app',
@@ -824,7 +824,7 @@ feed_enable_skip_learning_legacy_gate();
 $empty_seeded_lists_data = [
     [
         'id' => 50,
-        'title' => 'Recomendaciones',
+        'title' => 'Activación de tu agenda',
         'description' => 'Sugerencias para configurar y usar tu agenda.',
         'owner_type' => 'developer',
         'source_category' => 'agenda_app',
