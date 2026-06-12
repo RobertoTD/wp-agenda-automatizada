@@ -22,7 +22,7 @@ final class ListArchivedTasksInListUseCase {
             return TaskUseCaseSupport::fail('list_not_found', 'Lista no encontrada.');
         }
 
-        if (!(new AA_Task_List_Governance_Policy())->can_edit_list($list)) {
+        if (!(new AA_Task_List_Governance_Policy())->can_restore_archived_tasks($list)) {
             return TaskUseCaseSupport::fail('list_not_accessible', 'No se pueden listar tareas archivadas de esta lista.');
         }
 

@@ -18,6 +18,8 @@ require_once dirname(__DIR__, 2) . '/application/tasks/RecordTaskDeferSignalUseC
 require_once dirname(__DIR__, 2) . '/application/tasks/RecordTaskDismissSignalUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/tasks/ReturnIgnoredUserTasksUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/tasks/ArchiveTaskUseCase.php';
+require_once dirname(__DIR__, 2) . '/application/tasks/RestoreTaskUseCase.php';
+require_once dirname(__DIR__, 2) . '/application/tasks/ListArchivedTasksInListUseCase.php';
 
 final class TasksAjax {
 
@@ -37,6 +39,8 @@ final class TasksAjax {
         add_action('wp_ajax_aa_dismiss_task', [__CLASS__, 'handle_dismiss_task']);
         add_action('wp_ajax_aa_return_ignored_user_tasks', [__CLASS__, 'handle_return_ignored_user_tasks']);
         add_action('wp_ajax_aa_archive_task', [__CLASS__, 'handle_archive_task']);
+        add_action('wp_ajax_aa_list_archived_tasks_in_list', [__CLASS__, 'handle_list_archived_tasks_in_list']);
+        add_action('wp_ajax_aa_restore_task', [__CLASS__, 'handle_restore_task']);
     }
 
     public static function handle_get_board(): void {
@@ -174,6 +178,26 @@ final class TasksAjax {
         self::authorize();
 
         $result = (new ArchiveTaskUseCase())->execute([
+            'task_id' => self::post_scalar('task_id'),
+        ]);
+
+        self::respond_use_case($result);
+    }
+
+    public static function handle_list_archived_tasks_in_list(): void {
+        self::authorize();
+
+        $result = (new ListArchivedTasksInListUseCase())->execute([
+            'list_id' => self::post_scalar('list_id'),
+        ]);
+
+        self::respond_use_case($result);
+    }
+
+    public static function handle_restore_task(): void {
+        self::authorize();
+
+        $result = (new RestoreTaskUseCase())->execute([
             'task_id' => self::post_scalar('task_id'),
         ]);
 

@@ -47,9 +47,14 @@ ac_assert(
     $policy->can_archive_list($user_active) === true
 );
 ac_assert(
+    'active user list can restore archived tasks',
+    $policy->can_restore_archived_tasks($user_active) === true
+);
+ac_assert(
     'missing metadata defaults to editable archivable user list',
     $policy->can_edit_list([]) === true
     && $policy->can_archive_list([]) === true
+    && $policy->can_restore_archived_tasks([]) === true
 );
 
 $user_archived = [
@@ -65,6 +70,10 @@ ac_assert(
 ac_assert(
     'archived user list is not archivable',
     $policy->can_archive_list($user_archived) === false
+);
+ac_assert(
+    'archived user list cannot restore archived tasks',
+    $policy->can_restore_archived_tasks($user_archived) === false
 );
 
 $agenda_app = [
@@ -82,6 +91,10 @@ ac_assert(
     'agenda_app developer list is not archivable',
     $policy->can_archive_list($agenda_app) === false
 );
+ac_assert(
+    'agenda_app developer list cannot restore archived tasks',
+    $policy->can_restore_archived_tasks($agenda_app) === false
+);
 
 $developer_system = [
     'status' => 'active',
@@ -96,6 +109,10 @@ ac_assert(
 ac_assert(
     'developer system list is not archivable',
     $policy->can_archive_list($developer_system) === false
+);
+ac_assert(
+    'developer system list cannot restore archived tasks',
+    $policy->can_restore_archived_tasks($developer_system) === false
 );
 
 $user_developer_managed = [
@@ -112,6 +129,10 @@ ac_assert(
     'user source_category with managed_by developer is not archivable',
     $policy->can_archive_list($user_developer_managed) === false
 );
+ac_assert(
+    'user source_category with managed_by developer cannot restore archived tasks',
+    $policy->can_restore_archived_tasks($user_developer_managed) === false
+);
 
 $agenda_user_managed = [
     'status' => 'active',
@@ -126,6 +147,10 @@ ac_assert(
 ac_assert(
     'agenda_app source_category is not archivable even if managed_by user',
     $policy->can_archive_list($agenda_user_managed) === false
+);
+ac_assert(
+    'agenda_app source_category cannot restore archived tasks even if managed_by user',
+    $policy->can_restore_archived_tasks($agenda_user_managed) === false
 );
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";

@@ -185,6 +185,62 @@ describe('TasksService MC13G-C1', () => {
         assert.equal(readFormField(posts[0].body, '_wpnonce'), 'test-nonce');
     });
 
+    it('listArchivedTasksInList postea aa_list_archived_tasks_in_list con list_id', async () => {
+        var posts = [];
+        var loaded = loadTasksService(function (url, options) {
+            posts.push({
+                url: url,
+                body: options && options.body ? options.body : null
+            });
+
+            return Promise.resolve({
+                ok: true,
+                json: function () {
+                    return Promise.resolve({
+                        success: true,
+                        data: { tasks: [{ id: 5, title: 'Archivada' }] }
+                    });
+                }
+            });
+        });
+
+        var result = await loaded.TasksService.listArchivedTasksInList(7);
+
+        assert.equal(posts.length, 1);
+        assert.equal(readFormField(posts[0].body, 'action'), 'aa_list_archived_tasks_in_list');
+        assert.equal(readFormField(posts[0].body, 'list_id'), '7');
+        assert.equal(result.tasks.length, 1);
+        assert.equal(result.tasks[0].id, 5);
+    });
+
+    it('listArchivedTasksInList normaliza respuesta sin tasks a array vacío', async () => {
+        var loaded = loadTasksService(function () {
+            return Promise.resolve({
+                ok: true,
+                json: function () {
+                    return Promise.resolve({ success: true, data: {} });
+                }
+            });
+        });
+
+        var result = await loaded.TasksService.listArchivedTasksInList(7);
+
+        assert.ok(Array.isArray(result.tasks));
+        assert.equal(result.tasks.length, 0);
+    });
+
+    it('restoreTask postea aa_restore_task con task_id', async () => {
+        var loaded = loadTasksService();
+        var posts = loaded.posts;
+
+        await loaded.TasksService.restoreTask(31);
+
+        assert.equal(posts.length, 1);
+        assert.equal(readFormField(posts[0].body, 'action'), 'aa_restore_task');
+        assert.equal(readFormField(posts[0].body, 'task_id'), '31');
+        assert.equal(readFormField(posts[0].body, '_wpnonce'), 'test-nonce');
+    });
+
     it('returnIgnoredUserTasks postea aa_return_ignored_user_tasks', async () => {
         var loaded = loadTasksService();
         var posts = loaded.posts;

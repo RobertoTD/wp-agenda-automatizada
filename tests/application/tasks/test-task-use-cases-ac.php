@@ -99,6 +99,30 @@ ac_assert(
     strpos($ajax_src, 'handle_archive_task') !== false
     && strpos($ajax_src, 'respond_use_case($result)') !== false
 );
+ac_assert('AJAX registers aa_list_archived_tasks_in_list', strpos($ajax_src, 'aa_list_archived_tasks_in_list') !== false);
+ac_assert('AJAX list archived tasks uses ListArchivedTasksInListUseCase', strpos($ajax_src, 'ListArchivedTasksInListUseCase') !== false);
+ac_assert(
+    'AJAX list archived tasks passes list_id to ListArchivedTasksInListUseCase',
+    strpos($ajax_src, 'handle_list_archived_tasks_in_list') !== false
+    && strpos($ajax_src, "'list_id' => self::post_scalar('list_id')") !== false
+);
+ac_assert(
+    'AJAX list archived tasks responds via respond_use_case',
+    strpos($ajax_src, 'handle_list_archived_tasks_in_list') !== false
+    && strpos($ajax_src, 'respond_use_case($result)') !== false
+);
+ac_assert('AJAX registers aa_restore_task', strpos($ajax_src, 'aa_restore_task') !== false);
+ac_assert('AJAX restore task uses RestoreTaskUseCase', strpos($ajax_src, 'RestoreTaskUseCase') !== false);
+ac_assert(
+    'AJAX restore task passes task_id to RestoreTaskUseCase',
+    strpos($ajax_src, 'handle_restore_task') !== false
+    && strpos($ajax_src, "'task_id' => self::post_scalar('task_id')") !== false
+);
+ac_assert(
+    'AJAX restore task responds via respond_use_case',
+    strpos($ajax_src, 'handle_restore_task') !== false
+    && strpos($ajax_src, 'respond_use_case($result)') !== false
+);
 
 $dismiss_uc_src = file_get_contents($plugin_root . '/includes/application/tasks/RecordTaskDismissSignalUseCase.php');
 ac_assert('RecordTaskDismissSignalUseCase file readable', $dismiss_uc_src !== false);
@@ -176,6 +200,7 @@ $archive_list_src = file_get_contents($plugin_root . '/includes/application/task
 ac_assert('Task list governance policy file readable', $list_governance_src !== false);
 ac_assert('Task list governance policy defines can_edit_list', strpos($list_governance_src, 'can_edit_list') !== false);
 ac_assert('Task list governance policy defines can_archive_list', strpos($list_governance_src, 'can_archive_list') !== false);
+ac_assert('Task list governance policy defines can_restore_archived_tasks', strpos($list_governance_src, 'can_restore_archived_tasks') !== false);
 ac_assert('UpdateTaskListUseCase uses list governance policy', strpos($update_list_src, 'AA_Task_List_Governance_Policy') !== false);
 ac_assert('UpdateTaskListUseCase rejects list_not_editable', strpos($update_list_src, 'list_not_editable') !== false);
 ac_assert('ArchiveTaskListUseCase uses list governance policy', strpos($archive_list_src, 'AA_Task_List_Governance_Policy') !== false);

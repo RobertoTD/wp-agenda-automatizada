@@ -254,6 +254,30 @@
         });
     }
 
+    /**
+     * @param {number|string} listId
+     * @returns {Promise<{tasks:Array}>}
+     */
+    function listArchivedTasksInList(listId) {
+        return postAction('aa_list_archived_tasks_in_list', {
+            list_id: listId
+        }).then(function (data) {
+            return {
+                tasks: Array.isArray(data.tasks) ? data.tasks : []
+            };
+        });
+    }
+
+    /**
+     * @param {number|string} taskId
+     * @returns {Promise<Object>}
+     */
+    function restoreTask(taskId) {
+        return postAction('aa_restore_task', {
+            task_id: taskId
+        });
+    }
+
     window.TasksService = {
         getTaskBoard: getTaskBoard,
         createTaskList: createTaskList,
@@ -267,6 +291,8 @@
         deferTask: deferTask,
         dismissTask: dismissTask,
         returnIgnoredUserTasks: returnIgnoredUserTasks,
-        archiveTask: archiveTask
+        archiveTask: archiveTask,
+        listArchivedTasksInList: listArchivedTasksInList,
+        restoreTask: restoreTask
     };
 })();

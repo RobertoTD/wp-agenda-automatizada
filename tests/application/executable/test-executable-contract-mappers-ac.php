@@ -129,6 +129,7 @@ ac_assert(
     && $empty_list['buckets'] === []
     && $empty_list['capabilities']['can_archive'] === false
     && ($empty_list['capabilities']['can_edit'] ?? true) === false
+    && ($empty_list['capabilities']['can_restore_archived_tasks'] ?? true) === false
 );
 
 ac_assert(
@@ -290,6 +291,7 @@ ac_assert(
     'Learning fallback list exposes can_edit and can_archive false',
     ($learning_list['capabilities']['can_edit'] ?? true) === false
     && ($learning_list['capabilities']['can_archive'] ?? true) === false
+    && ($learning_list['capabilities']['can_restore_archived_tasks'] ?? true) === false
 );
 
 $learning_bucket_keys = array_map(static function (array $bucket): string {
@@ -562,6 +564,10 @@ ac_assert(
 ac_assert(
     'Task user list exposes can_edit at list level',
     ($task_lists[0]['capabilities']['can_edit'] ?? false) === true
+);
+ac_assert(
+    'Task user list exposes can_restore_archived_tasks at list level',
+    ($task_lists[0]['capabilities']['can_restore_archived_tasks'] ?? false) === true
 );
 
 ac_assert(
@@ -973,6 +979,11 @@ ac_assert(
     && ($agenda_list['capabilities']['can_edit'] ?? true) === false
 );
 ac_assert(
+    'Agenda app seeded list cannot restore archived tasks',
+    is_array($agenda_list)
+    && ($agenda_list['capabilities']['can_restore_archived_tasks'] ?? true) === false
+);
+ac_assert(
     'Agenda app seeded tasks map source metadata',
     is_array($agenda_primary_item)
     && ($agenda_primary_item['source'] ?? '') === AA_Executable_Contract::SOURCE_SYSTEM
@@ -1181,6 +1192,22 @@ ac_assert(
 ac_assert(
     'can_edit false for archived user list',
     ($archive_rules_by_id['73']['capabilities']['can_edit'] ?? true) === false
+);
+ac_assert(
+    'can_restore_archived_tasks true only for active user managed_by=user',
+    ($archive_rules_by_id['70']['capabilities']['can_restore_archived_tasks'] ?? false) === true
+);
+ac_assert(
+    'can_restore_archived_tasks false for agenda_app developer list',
+    ($archive_rules_by_id['71']['capabilities']['can_restore_archived_tasks'] ?? true) === false
+);
+ac_assert(
+    'can_restore_archived_tasks false for generic developer system list',
+    ($archive_rules_by_id['72']['capabilities']['can_restore_archived_tasks'] ?? true) === false
+);
+ac_assert(
+    'can_restore_archived_tasks false for archived user list',
+    ($archive_rules_by_id['73']['capabilities']['can_restore_archived_tasks'] ?? true) === false
 );
 
 // ─── Resumen ─────────────────────────────────────────────────

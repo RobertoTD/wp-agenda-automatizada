@@ -53,6 +53,10 @@ ac_assert('ArchiveTaskUseCase calls TaskRepository::archive', strpos($archive_sr
 ac_assert('RestoreTaskUseCase uses governance', strpos($restore_src, 'AA_Task_Governance_Policy') !== false);
 ac_assert('RestoreTaskUseCase rejects task_not_restorable', strpos($restore_src, 'task_not_restorable') !== false);
 ac_assert('ListArchivedTasksInListUseCase uses list governance', strpos($list_src, 'AA_Task_List_Governance_Policy') !== false);
+ac_assert(
+    'ListArchivedTasksInListUseCase uses can_restore_archived_tasks',
+    strpos($list_src, 'can_restore_archived_tasks') !== false
+);
 ac_assert('ListArchivedTasksInListUseCase rejects list_not_accessible', strpos($list_src, 'list_not_accessible') !== false);
 ac_assert(
     'ListArchivedTasksInListUseCase uses list_archived_by_list_id',
@@ -71,6 +75,7 @@ if ($wp_load !== '' && is_readable($wp_load)) {
 
     require_once $plugin_root . '/includes/infrastructure/wp/Schema.php';
     require_once $plugin_root . '/includes/repositories/SeededTaskRepository.php';
+    require_once $plugin_root . '/includes/repositories/TaskRepository.php';
     require_once $plugin_root . '/includes/repositories/TaskStateRepository.php';
 
     AA_Schema::install();
@@ -197,6 +202,8 @@ if ($wp_load !== '' && is_readable($wp_load)) {
         'task_id' => $done_task_id,
         'status' => 'done',
     ]);
+    $done_row = TaskRepository::find_by_id($done_task_id);
+    $completed_at_before = $done_row['completed_at'] ?? null;
     $archived_done = (new ArchiveTaskUseCase())->execute([
         'task_id' => $done_task_id,
         'archived_at' => '2026-06-13 10:00:00',
@@ -206,9 +213,18 @@ if ($wp_load !== '' && is_readable($wp_load)) {
         'Archive done keeps status done',
         ($archived_done['data']['task']['status'] ?? '') === 'done'
     );
+    $restored_done = (new RestoreTaskUseCase())->execute(['task_id' => $done_task_id]);
     ac_assert(
         'Restore done archived task',
-        !empty((new RestoreTaskUseCase())->execute(['task_id' => $done_task_id])['success'])
+        !empty($restored_done['success'])
+    );
+    ac_assert(
+        'Restore done keeps status done',
+        ($restored_done['data']['task']['status'] ?? '') === 'done'
+    );
+    ac_assert(
+        'Restore done keeps completed_at',
+        ($restored_done['data']['task']['completed_at'] ?? null) === $completed_at_before
     );
 
     $missing = (new ArchiveTaskUseCase())->execute(['task_id' => 999999999]);
@@ -242,6 +258,13 @@ if ($wp_load !== '' && is_readable($wp_load)) {
     ac_assert(
         'Archive rejects agenda_app task',
         empty($blocked_agenda_archive['success']) && ($blocked_agenda_archive['error']['code'] ?? '') === 'task_not_archivable'
+    );
+
+    TaskRepository::archive($seeded_task_id, '2026-06-12 09:00:00');
+    $blocked_agenda_restore = (new RestoreTaskUseCase())->execute(['task_id' => $seeded_task_id]);
+    ac_assert(
+        'Restore rejects agenda_app task',
+        empty($blocked_agenda_restore['success']) && ($blocked_agenda_restore['error']['code'] ?? '') === 'task_not_restorable'
     );
 
     $blocked_list = (new ListArchivedTasksInListUseCase())->execute(['list_id' => $seeded_list_id]);

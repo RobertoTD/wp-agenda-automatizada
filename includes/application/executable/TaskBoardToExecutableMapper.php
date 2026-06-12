@@ -186,6 +186,7 @@ final class TaskBoardToExecutableMapper {
             'capabilities' => [
                 'can_archive' => $list_governance->can_archive_list($list),
                 'can_edit' => $list_governance->can_edit_list($list),
+                'can_restore_archived_tasks' => $list_governance->can_restore_archived_tasks($list),
             ],
             'buckets' => self::map_list_buckets($list_id, $tasks_by_id, $organization, $executive_candidates),
         ]);
