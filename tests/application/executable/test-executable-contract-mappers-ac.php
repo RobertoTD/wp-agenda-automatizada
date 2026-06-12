@@ -354,6 +354,15 @@ ac_assert(
     && ($secondary_item['capabilities']['can_edit'] ?? true) === false
 );
 ac_assert(
+    'Learning fallback items expose can_archive and can_restore false',
+    is_array($primary_item)
+    && ($primary_item['capabilities']['can_archive'] ?? true) === false
+    && ($primary_item['capabilities']['can_restore'] ?? true) === false
+    && is_array($secondary_item)
+    && ($secondary_item['capabilities']['can_archive'] ?? true) === false
+    && ($secondary_item['capabilities']['can_restore'] ?? true) === false
+);
+ac_assert(
     'Learning fallback items expose default_bucket from default_list',
     is_array($primary_item)
     && ($primary_item['default_bucket'] ?? '') === AA_Executable_Contract::BUCKET_PRIMARY
@@ -508,6 +517,12 @@ ac_assert(
     && ($pending_task['capabilities']['can_edit'] ?? false) === true
 );
 ac_assert(
+    'User pending task exposes can_archive true',
+    is_array($pending_task)
+    && ($pending_task['capabilities']['can_archive'] ?? false) === true
+    && ($pending_task['capabilities']['can_restore'] ?? true) === false
+);
+ac_assert(
     'User pending task exposes default_bucket primary when unset',
     is_array($pending_task)
     && ($pending_task['default_bucket'] ?? '') === AA_Executable_Contract::BUCKET_PRIMARY
@@ -647,6 +662,58 @@ ac_assert(
     'Task projected buckets keep executive_candidates independent',
     ($primary_bucket_items[0]['is_executive_candidate'] ?? true) === false
     && ($primary_bucket_items[1]['is_executive_candidate'] ?? false) === true
+);
+
+$archived_feed_payload = [
+    'lists' => [
+        [
+            'id' => 8,
+            'title' => 'Archivadas feed',
+            'status' => 'active',
+        ],
+    ],
+    'tasks' => [
+        [
+            'id' => 80,
+            'list_id' => 8,
+            'title' => 'Activa',
+            'status' => 'pending',
+        ],
+        [
+            'id' => 81,
+            'list_id' => 8,
+            'title' => 'Archivada',
+            'status' => 'pending',
+            'archived_at' => '2026-06-10 10:00:00',
+        ],
+    ],
+    'organization' => [
+        'list_order' => [8],
+        'task_order_by_list' => [
+            8 => [80, 81],
+        ],
+        'task_bucket_order_by_list' => [
+            8 => [
+                'primary' => [80],
+                'secondary' => [],
+            ],
+        ],
+        'executive_candidates' => [80],
+    ],
+];
+$archived_feed_lists = TaskBoardToExecutableMapper::map($archived_feed_payload);
+$archived_feed_items = $archived_feed_lists[0]['buckets'][0]['items'] ?? [];
+$archived_feed_ids = array_map(static function ($item) {
+    return is_array($item) ? (string) ($item['id'] ?? '') : '';
+}, is_array($archived_feed_items) ? $archived_feed_items : []);
+ac_assert(
+    'Projected feed excludes archived task from buckets',
+    $archived_feed_ids === ['80']
+);
+ac_assert(
+    'Projected feed excludes archived task from executive candidates',
+    is_array($archived_feed_items[0] ?? null)
+    && ($archived_feed_items[0]['is_executive_candidate'] ?? false) === true
 );
 
 $task_signal_payload = [
@@ -911,6 +978,15 @@ ac_assert(
     && ($agenda_primary_item['source'] ?? '') === AA_Executable_Contract::SOURCE_SYSTEM
     && ($agenda_primary_item['source_category'] ?? '') === AA_Executable_Contract::SOURCE_CATEGORY_AGENDA_APP
     && ($agenda_primary_item['origin_key'] ?? '') === 'complete_business_data'
+);
+ac_assert(
+    'Agenda app seeded tasks cannot archive or restore',
+    is_array($agenda_primary_item)
+    && ($agenda_primary_item['capabilities']['can_archive'] ?? true) === false
+    && ($agenda_primary_item['capabilities']['can_restore'] ?? true) === false
+    && is_array($agenda_secondary_item)
+    && ($agenda_secondary_item['capabilities']['can_archive'] ?? true) === false
+    && ($agenda_secondary_item['capabilities']['can_restore'] ?? true) === false
 );
 ac_assert(
     'Agenda app default_bucket controls projected bucket',

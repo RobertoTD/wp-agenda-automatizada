@@ -645,41 +645,101 @@
     }
 
     /**
+     * @param {object} capabilities
+     * @returns {boolean}
+     */
+    function itemHasOptionsMenu(capabilities) {
+        return !!capabilities.can_edit || !!capabilities.can_archive;
+    }
+
+    /**
      * @param {object} item
+     * @param {object} capabilities
      * @returns {string}
      */
-    function renderItemEditButton(item) {
-        var capabilities = item.capabilities && typeof item.capabilities === 'object'
-            ? item.capabilities
-            : {};
-
-        if (!capabilities.can_edit) {
-            return '';
-        }
-
+    function renderItemOptionsMenuItems(item, capabilities) {
+        var items = '';
+        var taskId = escapeHtml(asString(item.id));
         var defaultBucket = asString(item.default_bucket).trim().toLowerCase();
 
         if (defaultBucket !== 'secondary') {
             defaultBucket = 'primary';
         }
 
+        if (capabilities.can_edit) {
+            items += ''
+                + '<button type="button" role="menuitem"'
+                + ' data-aa-task-edit="1"'
+                + ' data-task-id="' + taskId + '"'
+                + ' data-task-title="' + escapeHtml(asString(item.title)) + '"'
+                + ' data-task-notes="' + escapeHtml(asString(item.description)) + '"'
+                + ' data-task-due-at="' + escapeHtml(asString(item.due_at)) + '"'
+                + ' data-task-importance="' + escapeHtml(String(item.importance !== undefined && item.importance !== null ? item.importance : 0)) + '"'
+                + ' data-task-default-bucket="' + escapeHtml(defaultBucket) + '"'
+                + ' onclick="event.stopPropagation()"'
+                + ' class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">'
+                + 'Editar tarea'
+                + '</button>';
+        }
+
+        if (capabilities.can_archive) {
+            items += ''
+                + '<button type="button" role="menuitem"'
+                + ' data-tasks-action="archive-task"'
+                + ' data-task-id="' + taskId + '"'
+                + ' onclick="event.stopPropagation()"'
+                + ' class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">'
+                + 'Archivar tarea'
+                + '</button>';
+        }
+
+        return items;
+    }
+
+    /**
+     * @param {object} item
+     * @returns {string}
+     */
+    function renderItemOptionsMenu(item) {
+        var capabilities = item.capabilities && typeof item.capabilities === 'object'
+            ? item.capabilities
+            : {};
+
+        if (!itemHasOptionsMenu(capabilities)) {
+            return '';
+        }
+
+        var menuItems = renderItemOptionsMenuItems(item, capabilities);
+
+        if (menuItems === '') {
+            return '';
+        }
+
+        var taskId = escapeHtml(asString(item.id));
+
         return ''
+            + '<div class="relative aa-executable-task-options shrink-0">'
             + '<button type="button"'
-            + ' data-aa-task-edit="1"'
-            + ' data-task-id="' + escapeHtml(asString(item.id)) + '"'
-            + ' data-task-title="' + escapeHtml(asString(item.title)) + '"'
-            + ' data-task-notes="' + escapeHtml(asString(item.description)) + '"'
-            + ' data-task-due-at="' + escapeHtml(asString(item.due_at)) + '"'
-            + ' data-task-importance="' + escapeHtml(String(item.importance !== undefined && item.importance !== null ? item.importance : 0)) + '"'
-            + ' data-task-default-bucket="' + escapeHtml(defaultBucket) + '"'
+            + ' data-aa-task-options-trigger="1"'
+            + ' data-task-id="' + taskId + '"'
             + ' onclick="event.stopPropagation()"'
-            + ' class="aa-executable-item-summary-edit inline-flex items-center justify-center w-8 h-8 rounded-lg border border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50"'
-            + ' aria-label="Editar tarea">'
-            + '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">'
-            + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"'
-            + ' d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>'
+            + ' title="Opciones de tarea"'
+            + ' aria-label="Opciones de tarea"'
+            + ' aria-haspopup="menu"'
+            + ' aria-expanded="false"'
+            + ' class="aa-executable-task-options-trigger inline-flex items-center justify-center w-8 h-8 text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300/60 transition-colors">'
+            + '<svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">'
+            + '<circle cx="5" cy="12" r="1.75"/>'
+            + '<circle cx="12" cy="12" r="1.75"/>'
+            + '<circle cx="19" cy="12" r="1.75"/>'
             + '</svg>'
-            + '</button>';
+            + '</button>'
+            + '<div class="hidden aa-executable-task-options-menu absolute right-0 top-full z-20 mt-2 min-w-[12rem] rounded-lg border border-gray-200 bg-white py-1 shadow-lg"'
+            + ' role="menu"'
+            + ' data-task-id="' + taskId + '">'
+            + menuItems
+            + '</div>'
+            + '</div>';
     }
 
     /**
@@ -702,7 +762,7 @@
     function renderItemSummaryActions(item) {
         return ''
             + '<div class="aa-executable-item-summary-actions flex items-center gap-1 shrink-0">'
-            + renderItemEditButton(item)
+            + renderItemOptionsMenu(item)
             + renderItemSummaryChevron()
             + '</div>';
     }

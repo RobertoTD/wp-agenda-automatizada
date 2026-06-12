@@ -16,7 +16,8 @@
     var isActionPending = false;
     var boundRoots = {};
 
-    var ARCHIVE_CONFIRM_MESSAGE = '¿Archivar esta lista? Las tareas se conservarán.';
+    var ARCHIVE_LIST_CONFIRM_MESSAGE = '¿Archivar esta lista? Las tareas se conservarán.';
+    var ARCHIVE_TASK_CONFIRM_MESSAGE = '¿Archivar esta tarea? Dejará de aparecer en tus listas activas hasta que la restaures.';
 
     var TASK_ACTION_SELECTOR = '[data-tasks-action]';
     var LEARNING_ACTION_SELECTOR = '[data-learning-action]';
@@ -132,7 +133,7 @@
          * @returns {Promise<void|null>}
          */
         function runArchiveListAction(listId) {
-            if (!confirmFn(ARCHIVE_CONFIRM_MESSAGE)) {
+            if (!confirmFn(ARCHIVE_LIST_CONFIRM_MESSAGE)) {
                 return Promise.resolve(null);
             }
 
@@ -143,6 +144,24 @@
             }
 
             return Promise.resolve(service.archiveTaskList(listId));
+        }
+
+        /**
+         * @param {string} taskId
+         * @returns {Promise<void|null>}
+         */
+        function runArchiveTaskAction(taskId) {
+            if (!confirmFn(ARCHIVE_TASK_CONFIRM_MESSAGE)) {
+                return Promise.resolve(null);
+            }
+
+            var service = resolveTasksService();
+
+            if (!service || typeof service.archiveTask !== 'function') {
+                return Promise.reject(new Error('TasksService no disponible.'));
+            }
+
+            return Promise.resolve(service.archiveTask(taskId));
         }
 
         /**
@@ -409,6 +428,7 @@
                 && action !== 'defer'
                 && action !== 'dismiss'
                 && action !== 'archive-list'
+                && action !== 'archive-task'
             ) {
                 return Promise.resolve(false);
             }
@@ -441,6 +461,12 @@
                 }
 
                 actionPromise = runArchiveListAction(listId);
+            } else if (action === 'archive-task') {
+                if (!taskId) {
+                    return Promise.resolve(false);
+                }
+
+                actionPromise = runArchiveTaskAction(taskId);
             }
 
             if (!actionPromise) {
@@ -513,7 +539,8 @@
                 || action === 'pending'
                 || action === 'defer'
                 || action === 'dismiss'
-                || action === 'archive-list';
+                || action === 'archive-list'
+                || action === 'archive-task';
         }
 
         /**
@@ -568,6 +595,7 @@
             runTaskDeferAction: runTaskDeferAction,
             runTaskDismissAction: runTaskDismissAction,
             runArchiveListAction: runArchiveListAction,
+            runArchiveTaskAction: runArchiveTaskAction,
             runLearningAction: runLearningAction,
             findHandlerVisibleAction: findHandlerVisibleAction,
             setRootButtonsDisabled: setRootButtonsDisabled,
@@ -655,7 +683,8 @@
     var api = {
         init: init,
         createCoordinator: createCoordinator,
-        ARCHIVE_CONFIRM_MESSAGE: ARCHIVE_CONFIRM_MESSAGE,
+        ARCHIVE_LIST_CONFIRM_MESSAGE: ARCHIVE_LIST_CONFIRM_MESSAGE,
+        ARCHIVE_TASK_CONFIRM_MESSAGE: ARCHIVE_TASK_CONFIRM_MESSAGE,
         TASK_ACTION_SELECTOR: TASK_ACTION_SELECTOR,
         LEARNING_ACTION_SELECTOR: LEARNING_ACTION_SELECTOR,
         ACTIONABLE_BUTTON_SELECTOR: ACTIONABLE_BUTTON_SELECTOR,

@@ -173,6 +173,18 @@ describe('TasksService MC13G-C1', () => {
         assert.equal(readFormField(posts[0].body, '_wpnonce'), 'test-nonce');
     });
 
+    it('archiveTask postea aa_archive_task con task_id', async () => {
+        var loaded = loadTasksService();
+        var posts = loaded.posts;
+
+        await loaded.TasksService.archiveTask(24);
+
+        assert.equal(posts.length, 1);
+        assert.equal(readFormField(posts[0].body, 'action'), 'aa_archive_task');
+        assert.equal(readFormField(posts[0].body, 'task_id'), '24');
+        assert.equal(readFormField(posts[0].body, '_wpnonce'), 'test-nonce');
+    });
+
     it('returnIgnoredUserTasks postea aa_return_ignored_user_tasks', async () => {
         var loaded = loadTasksService();
         var posts = loaded.posts;

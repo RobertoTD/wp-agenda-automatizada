@@ -1308,7 +1308,7 @@ describe('executableListRenderer MC13 expandable items', () => {
         assert.doesNotMatch(html, /aa-executable-item-expanded[\s\S]*aa-executable-item-chevron/);
     });
 
-    it('muestra chevron en summary y botón editar en summary solo si can_edit es true', () => {
+    it('tarea user con can_edit y can_archive renderiza menú ⋮ en summary', () => {
         var html = renderer.renderItem(baseItem({
             id: '99',
             source: 'user',
@@ -1318,22 +1318,28 @@ describe('executableListRenderer MC13 expandable items', () => {
             default_bucket: 'secondary',
             capabilities: {
                 can_complete: true,
-                can_edit: true
+                can_edit: true,
+                can_archive: true
             }
         }));
         var summary = extractSummary(html);
 
         assert.match(summary, /aa-executable-item-chevron/);
         assert.match(summary, /aa-executable-item-summary-actions/);
+        assert.match(summary, /data-aa-task-options-trigger/);
+        assert.match(summary, /aa-executable-task-options-menu/);
+        assert.match(summary, />Editar tarea</);
+        assert.match(summary, />Archivar tarea</);
         assert.match(summary, /data-aa-task-edit="1"/);
-        assert.match(summary, /aria-label="Editar tarea"/);
         assert.match(summary, /data-task-id="99"/);
         assert.match(summary, /data-task-default-bucket="secondary"/);
-        assert.match(summary, /aa-executable-item-summary-edit/);
+        assert.match(summary, /data-tasks-action="archive-task"/);
+        assert.match(summary, /aria-label="Opciones de tarea"/);
+        assert.doesNotMatch(summary, /aa-executable-item-summary-edit/);
         assert.doesNotMatch(html, /aa-executable-item-expanded-footer/);
     });
 
-    it('no muestra botón editar si can_edit es false o ausente', () => {
+    it('no muestra menú de tarea si can_edit y can_archive son false o ausentes', () => {
         var withoutFlag = renderer.renderItem(baseItem({
             source: 'user',
             description: 'Solo lectura'
@@ -1342,10 +1348,22 @@ describe('executableListRenderer MC13 expandable items', () => {
             source: 'user',
             description: 'Solo lectura',
             capabilities: {
-                can_edit: false
+                can_edit: false,
+                can_archive: false
+            }
+        }));
+        var agendaApp = renderer.renderItem(baseItem({
+            source: 'agenda_app',
+            description: 'Sistema',
+            capabilities: {
+                can_edit: false,
+                can_archive: false
             }
         }));
 
+        assert.doesNotMatch(withoutFlag, /data-aa-task-options-trigger/);
+        assert.doesNotMatch(explicitFalse, /data-aa-task-options-trigger/);
+        assert.doesNotMatch(agendaApp, /data-aa-task-options-trigger/);
         assert.doesNotMatch(withoutFlag, /data-aa-task-edit/);
         assert.doesNotMatch(explicitFalse, /data-aa-task-edit/);
     });

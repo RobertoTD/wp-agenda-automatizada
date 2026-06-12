@@ -83,7 +83,7 @@ final class AA_Task_Prioritization_Policy implements AA_Prioritization_Provider_
             $task_order_by_list[$list_id] = $ordered_ids;
 
             foreach ($list_tasks as $task) {
-                if ($task->is_pending()) {
+                if ($task->is_pending() && !$task->is_archived()) {
                     $executive_candidates[] = $task->id();
                 }
             }

@@ -443,7 +443,9 @@ final class AA_Executable_Contract {
      *     can_defer:bool,
      *     can_dismiss:bool,
      *     can_reactivate:bool,
-     *     can_edit:bool
+     *     can_edit:bool,
+     *     can_archive:bool,
+     *     can_restore:bool
      * }
      */
     private static function normalize_item_capabilities(array $capabilities): array {
@@ -454,6 +456,8 @@ final class AA_Executable_Contract {
             'can_dismiss' => !empty($capabilities['can_dismiss']),
             'can_reactivate' => !empty($capabilities['can_reactivate']),
             'can_edit' => !empty($capabilities['can_edit']),
+            'can_archive' => !empty($capabilities['can_archive']),
+            'can_restore' => !empty($capabilities['can_restore']),
         ];
     }
 

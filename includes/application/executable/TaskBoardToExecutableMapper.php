@@ -404,6 +404,8 @@ final class TaskBoardToExecutableMapper {
                 'can_dismiss' => $signal_capabilities['can_dismiss'],
                 'can_reactivate' => false,
                 'can_edit' => $governance->can_edit_task($task),
+                'can_archive' => $governance->can_archive_task($task),
+                'can_restore' => $governance->can_restore_task($task),
             ],
             'primary_action' => $primary_action,
             'is_executive_candidate' => isset($executive_candidates[$task_id]),

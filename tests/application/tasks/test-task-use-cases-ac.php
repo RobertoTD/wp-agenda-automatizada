@@ -87,6 +87,18 @@ ac_assert('AJAX defer uses RecordTaskDeferSignalUseCase', strpos($ajax_src, 'Rec
 ac_assert('AJAX dismiss uses RecordTaskDismissSignalUseCase', strpos($ajax_src, 'RecordTaskDismissSignalUseCase') !== false);
 ac_assert('AJAX registers aa_return_ignored_user_tasks', strpos($ajax_src, 'aa_return_ignored_user_tasks') !== false);
 ac_assert('AJAX return ignored uses ReturnIgnoredUserTasksUseCase', strpos($ajax_src, 'ReturnIgnoredUserTasksUseCase') !== false);
+ac_assert('AJAX registers aa_archive_task', strpos($ajax_src, 'aa_archive_task') !== false);
+ac_assert('AJAX archive task uses ArchiveTaskUseCase', strpos($ajax_src, 'ArchiveTaskUseCase') !== false);
+ac_assert(
+    'AJAX archive task passes task_id to ArchiveTaskUseCase',
+    strpos($ajax_src, "handle_archive_task") !== false
+    && strpos($ajax_src, "'task_id' => self::post_scalar('task_id')") !== false
+);
+ac_assert(
+    'AJAX archive task responds via respond_use_case',
+    strpos($ajax_src, 'handle_archive_task') !== false
+    && strpos($ajax_src, 'respond_use_case($result)') !== false
+);
 
 $dismiss_uc_src = file_get_contents($plugin_root . '/includes/application/tasks/RecordTaskDismissSignalUseCase.php');
 ac_assert('RecordTaskDismissSignalUseCase file readable', $dismiss_uc_src !== false);

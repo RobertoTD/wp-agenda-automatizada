@@ -404,6 +404,68 @@ ac_assert(
     ($order_result['task_bucket_order_by_list'][1]['primary'] ?? []) === [19, 18]
 );
 
+$archived_pending_result = active_view_project($base_list, [
+    ['id' => 40, 'list_id' => 1, 'title' => 'Archivada pending', 'status' => 'pending', 'archived_at' => '2026-06-10 10:00:00'],
+]);
+$archived_pending_eval = $archived_pending_result['task_evaluations_by_id'][40] ?? null;
+ac_assert(
+    'Pending archived task hidden from active buckets',
+    ($archived_pending_result['task_bucket_order_by_list'][1]['primary'] ?? []) === []
+    && ($archived_pending_result['task_bucket_order_by_list'][1]['secondary'] ?? []) === []
+);
+ac_assert(
+    'Pending archived task uses REASON_ARCHIVED',
+    is_array($archived_pending_eval)
+    && ($archived_pending_eval['projection']['projection_reason'] ?? '') === AA_Task_Active_View_Projection_Policy::REASON_ARCHIVED
+);
+
+$archived_done_result = active_view_project($base_list, [
+    ['id' => 41, 'list_id' => 1, 'title' => 'Archivada done', 'status' => 'done', 'archived_at' => '2026-06-10 10:00:00'],
+]);
+$archived_done_eval = $archived_done_result['task_evaluations_by_id'][41] ?? null;
+ac_assert(
+    'Done archived task uses REASON_ARCHIVED not not_pending',
+    is_array($archived_done_eval)
+    && ($archived_done_eval['projection']['projection_reason'] ?? '') === AA_Task_Active_View_Projection_Policy::REASON_ARCHIVED
+);
+
+$archived_dismiss_expired_result = active_view_project($base_list, [
+    ['id' => 42, 'list_id' => 1, 'title' => 'Archivada dismiss vencido', 'status' => 'pending', 'archived_at' => '2026-06-10 10:00:00'],
+], [
+    42 => [
+        'task_id' => 42,
+        'dismiss_until' => '2026-06-01 08:00:00',
+        'dismiss_count' => 1,
+        'last_dismissed_at' => '2026-05-30 08:00:00',
+        'defer_count' => 0,
+        'last_deferred_at' => null,
+        'defer_until' => null,
+    ],
+], '2026-06-04 12:00:00');
+ac_assert(
+    'Archived task stays hidden when dismiss expired',
+    ($archived_dismiss_expired_result['task_bucket_order_by_list'][1]['primary'] ?? []) === []
+    && (($archived_dismiss_expired_result['task_evaluations_by_id'][42]['projection']['projection_reason'] ?? '') === AA_Task_Active_View_Projection_Policy::REASON_ARCHIVED)
+);
+
+$restored_visible_result = active_view_project($base_list, [
+    ['id' => 43, 'list_id' => 1, 'title' => 'Restaurada visible', 'status' => 'pending'],
+], [
+    43 => [
+        'task_id' => 43,
+        'dismiss_until' => '2026-06-01 08:00:00',
+        'dismiss_count' => 1,
+        'last_dismissed_at' => '2026-05-30 08:00:00',
+        'defer_count' => 0,
+        'last_deferred_at' => null,
+        'defer_until' => null,
+    ],
+], '2026-06-04 12:00:00');
+ac_assert(
+    'Non-archived task with expired dismiss becomes visible again',
+    ($restored_visible_result['task_bucket_order_by_list'][1]['primary'] ?? []) === [43]
+);
+
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 
 if ($failed !== []) {

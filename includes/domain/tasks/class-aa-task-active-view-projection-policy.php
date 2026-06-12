@@ -36,6 +36,8 @@ final class AA_Task_Active_View_Projection_Policy {
 
     public const REASON_LIST_NOT_ACTIVE = 'list_not_active';
 
+    public const REASON_ARCHIVED = 'archived';
+
     /**
      * @param array<string,mixed> $input lists, tasks, list_order, task_order_by_list, task_evaluations_by_id, now
      * @return array{
@@ -130,6 +132,17 @@ final class AA_Task_Active_View_Projection_Policy {
                 false,
                 null,
                 self::REASON_LIST_NOT_ACTIVE,
+                $suggested_active_bucket,
+                false,
+                false
+            );
+        }
+
+        if ($task->is_archived()) {
+            return $this->projection_result(
+                false,
+                null,
+                self::REASON_ARCHIVED,
                 $suggested_active_bucket,
                 false,
                 false

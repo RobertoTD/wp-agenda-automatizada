@@ -330,14 +330,15 @@ describe('task-edit-module MC13C', () => {
         assert.match(serviceSrc, /payload\.default_bucket === 'secondary'/);
     });
 
-    it('renderer coloca botón editar en summary con stopPropagation', () => {
+    it('renderer coloca Editar tarea en menú ⋮ con data-aa-task-edit y stopPropagation', () => {
         const rendererSrc = fs.readFileSync(rendererPath, 'utf8');
 
-        assert.match(rendererSrc, /function renderItemEditButton/);
+        assert.match(rendererSrc, /function renderItemOptionsMenu/);
         assert.match(rendererSrc, /capabilities\.can_edit/);
-        assert.match(rendererSrc, /aria-label="Editar tarea"/);
+        assert.match(rendererSrc, /data-aa-task-edit="1"/);
+        assert.match(rendererSrc, /Editar tarea/);
         assert.match(rendererSrc, /onclick="event\.stopPropagation\(\)"/);
         assert.match(rendererSrc, /aa-executable-item-summary-actions/);
-        assert.match(rendererSrc, /aa-executable-item-summary-edit/);
+        assert.match(rendererSrc, /data-aa-task-options-trigger/);
     });
 });

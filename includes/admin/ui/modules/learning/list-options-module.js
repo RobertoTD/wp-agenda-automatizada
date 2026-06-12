@@ -52,6 +52,16 @@
         }
     }
 
+    function closeTaskMenus() {
+        document.querySelectorAll('.aa-executable-task-options-menu').forEach(function (menu) {
+            setVisible(menu, false);
+        });
+
+        document.querySelectorAll('.aa-executable-task-options-trigger').forEach(function (trigger) {
+            trigger.setAttribute('aria-expanded', 'false');
+        });
+    }
+
     function closeAllMenus() {
         document.querySelectorAll('.aa-executable-list-options-menu').forEach(function (menu) {
             setVisible(menu, false);
@@ -61,6 +71,7 @@
             trigger.setAttribute('aria-expanded', 'false');
         });
 
+        closeTaskMenus();
         openListId = '';
     }
 
@@ -71,6 +82,7 @@
             return;
         }
 
+        closeTaskMenus();
         closeAllMenus();
         setVisible(menu, true);
         setTriggerExpanded(listId, true);

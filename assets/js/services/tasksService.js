@@ -244,6 +244,16 @@
         return postAction('aa_return_ignored_user_tasks');
     }
 
+    /**
+     * @param {number|string} taskId
+     * @returns {Promise<Object>}
+     */
+    function archiveTask(taskId) {
+        return postAction('aa_archive_task', {
+            task_id: taskId
+        });
+    }
+
     window.TasksService = {
         getTaskBoard: getTaskBoard,
         createTaskList: createTaskList,
@@ -256,6 +266,7 @@
         changeTaskStatus: changeTaskStatus,
         deferTask: deferTask,
         dismissTask: dismissTask,
-        returnIgnoredUserTasks: returnIgnoredUserTasks
+        returnIgnoredUserTasks: returnIgnoredUserTasks,
+        archiveTask: archiveTask
     };
 })();

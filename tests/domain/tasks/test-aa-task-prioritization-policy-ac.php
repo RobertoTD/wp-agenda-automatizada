@@ -163,6 +163,15 @@ $done_result = tasks_prioritize($base_list, [
 ac_assert('Pending before done in task order', ($done_result['task_order_by_list'][1] ?? []) === [402, 401]);
 ac_assert('Done excluded from executive_candidates', $done_result['executive_candidates'] === [402]);
 
+$archived_pending_result = tasks_prioritize($base_list, [
+    ['id' => 410, 'list_id' => 1, 'title' => 'Archivada pending', 'status' => 'pending', 'archived_at' => '2026-06-10 10:00:00'],
+    ['id' => 411, 'list_id' => 1, 'title' => 'Activa pending', 'status' => 'pending'],
+]);
+ac_assert(
+    'Archived pending excluded from executive_candidates',
+    $archived_pending_result['executive_candidates'] === [411]
+);
+
 $position_result = tasks_prioritize($base_list, [
     ['id' => 501, 'list_id' => 1, 'title' => 'T2', 'position' => 20, 'status' => 'pending'],
     ['id' => 502, 'list_id' => 1, 'title' => 'T1', 'position' => 5, 'status' => 'pending'],
