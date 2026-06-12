@@ -60,6 +60,66 @@ ac_assert(
     ]) === false
 );
 
+$user_active = [
+    'source_category' => 'user',
+    'managed_by' => 'user',
+    'status' => 'pending',
+];
+ac_assert(
+    'user not archived can_archive',
+    $policy->can_archive_task($user_active) === true
+    && $policy->can_restore_task($user_active) === false
+);
+ac_assert(
+    'user archived can_restore not archive',
+    $policy->can_archive_task(array_merge($user_active, ['archived_at' => '2026-06-10 10:00:00'])) === false
+    && $policy->can_restore_task(array_merge($user_active, ['archived_at' => '2026-06-10 10:00:00'])) === true
+);
+ac_assert(
+    'user done not archived can_archive',
+    $policy->can_archive_task(array_merge($user_active, ['status' => 'done'])) === true
+);
+ac_assert(
+    'user done archived can_restore',
+    $policy->can_restore_task([
+        'source_category' => 'user',
+        'managed_by' => 'user',
+        'status' => 'done',
+        'archived_at' => '2026-06-10 10:00:00',
+    ]) === true
+);
+ac_assert(
+    'missing archived_at treated as not archived',
+    $policy->can_archive_task(['managed_by' => 'user']) === true
+    && $policy->can_restore_task(['managed_by' => 'user']) === false
+);
+ac_assert(
+    'agenda_app task cannot archive or restore',
+    $policy->can_archive_task([
+        'source_category' => 'agenda_app',
+        'managed_by' => 'developer',
+    ]) === false
+    && $policy->can_restore_task([
+        'source_category' => 'agenda_app',
+        'managed_by' => 'developer',
+        'archived_at' => '2026-06-10 10:00:00',
+    ]) === false
+);
+ac_assert(
+    'developer user category cannot archive',
+    $policy->can_archive_task([
+        'source_category' => 'user',
+        'managed_by' => 'developer',
+    ]) === false
+);
+ac_assert(
+    'system managed task cannot archive',
+    $policy->can_archive_task([
+        'source_category' => 'user',
+        'managed_by' => 'system',
+    ]) === false
+);
+
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 
 if ($failed !== []) {

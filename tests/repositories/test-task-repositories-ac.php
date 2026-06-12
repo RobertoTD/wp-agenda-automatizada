@@ -96,6 +96,18 @@ ac_assert('TaskRepository defines find_by_id', strpos($task_repo_src, 'function 
 ac_assert('TaskRepository defines list_by_list_id', strpos($task_repo_src, 'function list_by_list_id') !== false);
 ac_assert('TaskRepository defines update_status', strpos($task_repo_src, 'function update_status') !== false);
 ac_assert('TaskRepository defines mark_completed', strpos($task_repo_src, 'function mark_completed') !== false);
+ac_assert('TaskRepository defines archive', strpos($task_repo_src, 'function archive') !== false);
+ac_assert('TaskRepository defines restore', strpos($task_repo_src, 'function restore') !== false);
+ac_assert(
+    'TaskRepository defines list_archived_by_list_id',
+    strpos($task_repo_src, 'function list_archived_by_list_id') !== false
+);
+ac_assert('TaskRepository maps archived_at', strpos($task_repo_src, "'archived_at' =>") !== false);
+ac_assert(
+    'TaskRepository writable excludes archived_at',
+    strpos($task_repo_src, 'WRITABLE_COLUMNS') !== false
+    && strpos($task_repo_src, "'archived_at',") === false
+);
 ac_assert('TaskRepository maps common source fields', strpos($task_repo_src, "'source_category' =>") !== false && strpos($task_repo_src, "'managed_by' =>") !== false);
 ac_assert('TaskRepository maps default_bucket', strpos($task_repo_src, "'default_bucket' =>") !== false);
 ac_assert('TaskRepository writable includes default_bucket', strpos($task_repo_src, "'default_bucket',") !== false);
@@ -300,6 +312,7 @@ if ($wp_integration) {
     ac_assert('create task returns row', is_array($task) && ($task['title'] ?? '') === 'Tarea AC ' . $suffix);
     ac_assert('create task maps list_id', (int) ($task['list_id'] ?? 0) === $empty_list_id);
     ac_assert('create task default status pending', ($task['status'] ?? '') === 'pending');
+    ac_assert('create task default archived_at null', ($task['archived_at'] ?? 'x') === null);
     ac_assert(
         'create task maps common defaults',
         ($task['source_category'] ?? '') === 'user'
@@ -371,12 +384,137 @@ if ($wp_integration) {
     ac_assert('mark_completed status done', ($completed['status'] ?? '') === 'done');
     ac_assert('mark_completed sets completed_at', ($completed['completed_at'] ?? '') === '2026-06-04 18:30:00');
 
+    $secondary_task_id = (int) ($secondary_task['id'] ?? 0);
+    require_once $plugin_root . '/includes/repositories/TaskStateRepository.php';
+    $dismiss_before = TaskStateRepository::record_dismiss(
+        $secondary_task_id,
+        '2026-06-10 10:00:00',
+        '2026-06-20 10:00:00'
+    );
+    ac_assert('record_dismiss for archive test', is_array($dismiss_before));
+
+    $archive_timestamp = '2026-06-11 14:00:00';
+    $archived_done = TaskRepository::archive($task_id, $archive_timestamp);
+    ac_assert('archive sets archived_at', ($archived_done['archived_at'] ?? '') === $archive_timestamp);
+    ac_assert('archive keeps status', ($archived_done['status'] ?? '') === 'done');
+    ac_assert(
+        'archive keeps completed_at',
+        ($archived_done['completed_at'] ?? '') === '2026-06-04 18:30:00'
+    );
+    ac_assert(
+        'archive keeps default_bucket',
+        ($archived_done['default_bucket'] ?? '') === 'primary'
+    );
+
+    $archived_secondary = TaskRepository::archive($secondary_task_id, '2026-06-11 12:00:00');
+    ac_assert(
+        'archive secondary task sets archived_at',
+        ($archived_secondary['archived_at'] ?? '') === '2026-06-11 12:00:00'
+    );
+    $dismiss_after_archive = TaskStateRepository::find_by_task_id($secondary_task_id);
+    ac_assert(
+        'archive does not change dismiss_until',
+        ($dismiss_after_archive['dismiss_until'] ?? '') === ($dismiss_before['dismiss_until'] ?? '')
+    );
+
+    $archive_again = TaskRepository::archive($secondary_task_id, '2099-01-01 00:00:00');
+    ac_assert(
+        'archive idempotent preserves archived_at',
+        ($archive_again['archived_at'] ?? '') === '2026-06-11 12:00:00'
+    );
+
+    $archived_in_list = TaskRepository::list_archived_by_list_id($empty_list_id);
+    ac_assert('list_archived_by_list_id returns archived tasks', count($archived_in_list) === 2);
+    ac_assert(
+        'list_archived_by_list_id excludes active tasks from other lists',
+        count(array_filter(
+            $archived_in_list,
+            static function ($row) use ($secondary_task_id, $task_id) {
+                if (!is_array($row)) {
+                    return false;
+                }
+
+                $id = (int) ($row['id'] ?? 0);
+
+                return $id === $secondary_task_id || $id === $task_id;
+            }
+        )) === 2
+    );
+
+    $other_list = TaskListRepository::create([
+        'title' => 'Lista archivadas AC ' . $suffix,
+    ]);
+    $other_list_id = (int) ($other_list['id'] ?? 0);
+    $other_archived_task = TaskRepository::create([
+        'list_id' => $other_list_id,
+        'title' => 'Tarea otra lista archivada ' . $suffix,
+    ]);
+    $other_archived_task_id = (int) ($other_archived_task['id'] ?? 0);
+    TaskRepository::archive($other_archived_task_id, '2026-06-12 08:00:00');
+    ac_assert(
+        'list_archived_by_list_id does not return other list tasks',
+        count(array_filter(
+            TaskRepository::list_archived_by_list_id($empty_list_id),
+            static function ($row) use ($other_archived_task_id) {
+                return is_array($row) && (int) ($row['id'] ?? 0) === $other_archived_task_id;
+            }
+        )) === 0
+    );
+
+    $older_archived_task = TaskRepository::create([
+        'list_id' => $empty_list_id,
+        'title' => 'Tarea archivada antigua ' . $suffix,
+    ]);
+    $older_archived_task_id = (int) ($older_archived_task['id'] ?? 0);
+    TaskRepository::archive($older_archived_task_id, '2026-06-09 08:00:00');
+    $ordered_archived = TaskRepository::list_archived_by_list_id($empty_list_id);
+    $ordered_ids = array_map(
+        static function ($row) {
+            return is_array($row) ? (int) ($row['id'] ?? 0) : 0;
+        },
+        $ordered_archived
+    );
+    $newer_pos = array_search($secondary_task_id, $ordered_ids, true);
+    $older_pos = array_search($older_archived_task_id, $ordered_ids, true);
+    ac_assert(
+        'list_archived_by_list_id orders archived_at DESC id DESC',
+        $newer_pos !== false
+        && $older_pos !== false
+        && $newer_pos < $older_pos
+    );
+
+    $restored_done = TaskRepository::restore($task_id);
+    ac_assert('restore clears archived_at', ($restored_done['archived_at'] ?? 'x') === null);
+    ac_assert('restore keeps status', ($restored_done['status'] ?? '') === 'done');
+    ac_assert(
+        'restore keeps completed_at',
+        ($restored_done['completed_at'] ?? '') === '2026-06-04 18:30:00'
+    );
+    ac_assert(
+        'restore keeps default_bucket',
+        ($restored_done['default_bucket'] ?? '') === 'primary'
+    );
+    $dismiss_after_restore = TaskStateRepository::find_by_task_id($secondary_task_id);
+    ac_assert(
+        'restore does not change dismiss_until',
+        ($dismiss_after_restore['dismiss_until'] ?? '') === ($dismiss_before['dismiss_until'] ?? '')
+    );
+
+    $restore_active = TaskRepository::restore($task_id);
+    ac_assert(
+        'restore idempotent on active task',
+        ($restore_active['archived_at'] ?? 'x') === null
+        && ($restore_active['status'] ?? '') === 'done'
+    );
+
     $invalid_list_tasks = TaskRepository::list_by_list_id(0);
     ac_assert('list_by_list_id invalid id returns empty array', $invalid_list_tasks === []);
 
     $wpdb->delete($tasks_table, ['list_id' => $empty_list_id], ['%d']);
+    $wpdb->delete($tasks_table, ['list_id' => $other_list_id], ['%d']);
     $wpdb->delete($tasks_table, ['list_id' => $list_id], ['%d']);
     $wpdb->delete($lists_table, ['id' => $empty_list_id], ['%d']);
+    $wpdb->delete($lists_table, ['id' => $other_list_id], ['%d']);
     $wpdb->delete($lists_table, ['id' => $list_id], ['%d']);
     $wpdb->delete($lists_table, ['id' => $older_archived_id], ['%d']);
 } else {

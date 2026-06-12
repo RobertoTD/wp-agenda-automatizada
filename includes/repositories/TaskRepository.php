@@ -71,6 +71,7 @@ final class TaskRepository {
             'due_at' => $row->due_at,
             'position' => (int) $row->position,
             'completed_at' => $row->completed_at,
+            'archived_at' => $row->archived_at ?? null,
             'created_at' => $row->created_at,
             'updated_at' => $row->updated_at,
         ];
@@ -204,6 +205,139 @@ final class TaskRepository {
 
         if ($wpdb->last_error) {
             error_log('[TaskRepository] list_system_completion_candidates: ' . $wpdb->last_error);
+            return [];
+        }
+
+        $mapped = [];
+
+        foreach ($rows as $row) {
+            $item = self::map_row($row);
+
+            if ($item !== null) {
+                $mapped[] = $item;
+            }
+        }
+
+        return $mapped;
+    }
+
+    /**
+     * @param int         $id
+     * @param string|null $archived_at Y-m-d H:i:s; null usa current_time('mysql').
+     * @return array<string,mixed>|null
+     */
+    public static function archive($id, $archived_at = null) {
+        $task_id = (int) $id;
+
+        if ($task_id < 1) {
+            return null;
+        }
+
+        $existing = self::find_by_id($task_id);
+
+        if ($existing === null) {
+            return null;
+        }
+
+        if (self::is_archived_row($existing)) {
+            return $existing;
+        }
+
+        $timestamp = is_string($archived_at) && trim($archived_at) !== ''
+            ? trim($archived_at)
+            : current_time('mysql');
+
+        global $wpdb;
+
+        $table = self::table_name();
+        $result = $wpdb->update(
+            $table,
+            [
+                'archived_at' => $timestamp,
+                'updated_at' => current_time('mysql'),
+            ],
+            ['id' => $task_id],
+            ['%s', '%s'],
+            ['%d']
+        );
+
+        if ($result === false) {
+            error_log('[TaskRepository] archive: ' . $wpdb->last_error);
+            return null;
+        }
+
+        return self::find_by_id($task_id);
+    }
+
+    /**
+     * @param int $id
+     * @return array<string,mixed>|null
+     */
+    public static function restore($id) {
+        $task_id = (int) $id;
+
+        if ($task_id < 1) {
+            return null;
+        }
+
+        $existing = self::find_by_id($task_id);
+
+        if ($existing === null) {
+            return null;
+        }
+
+        if (!self::is_archived_row($existing)) {
+            return $existing;
+        }
+
+        global $wpdb;
+
+        $table = self::table_name();
+        $result = $wpdb->update(
+            $table,
+            [
+                'archived_at' => null,
+                'updated_at' => current_time('mysql'),
+            ],
+            ['id' => $task_id],
+            ['%s', '%s'],
+            ['%d']
+        );
+
+        if ($result === false) {
+            error_log('[TaskRepository] restore: ' . $wpdb->last_error);
+            return null;
+        }
+
+        return self::find_by_id($task_id);
+    }
+
+    /**
+     * @param int $list_id
+     * @return list<array<string,mixed>>
+     */
+    public static function list_archived_by_list_id($list_id) {
+        $normalized_list_id = (int) $list_id;
+
+        if ($normalized_list_id < 1) {
+            return [];
+        }
+
+        global $wpdb;
+
+        $table = self::table_name();
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT * FROM {$table}
+                 WHERE list_id = %d
+                   AND archived_at IS NOT NULL
+                 ORDER BY archived_at DESC, id DESC",
+                $normalized_list_id
+            )
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[TaskRepository] list_archived_by_list_id: ' . $wpdb->last_error);
             return [];
         }
 
@@ -355,6 +489,19 @@ final class TaskRepository {
             'updated_count' => $updated_count,
             'skipped_count' => max(0, $matched - $updated_count),
         ];
+    }
+
+    /**
+     * @param array<string,mixed> $row
+     */
+    private static function is_archived_row(array $row): bool {
+        $archived_at = $row['archived_at'] ?? null;
+
+        if ($archived_at === null || $archived_at === '') {
+            return false;
+        }
+
+        return trim((string) $archived_at) !== '';
     }
 
     /**
