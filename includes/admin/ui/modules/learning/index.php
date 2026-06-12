@@ -26,11 +26,6 @@ $restore_archived_tasks_js = plugin_dir_url(__FILE__) . 'restore-archived-tasks-
 
 <div id="aa-tasks-module-root" class="max-w-5xl mx-auto py-2">
 
-    <div class="mb-4">
-        <h2 class="text-xl font-bold text-gray-900">Listas / Tareas</h2>
-        <p class="text-sm text-gray-500 mt-0.5">Tareas organizadas inteligentemente para lograr tus ojetivos con eficacia.</p>
-    </div>
-
     <section id="aa-executive-proposal" class="bg-white rounded-xl shadow border border-gray-200 mb-4 overflow-hidden">
         <div class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
             <h3 class="text-lg font-semibold text-gray-900">Propuesta ejecutiva</h3>

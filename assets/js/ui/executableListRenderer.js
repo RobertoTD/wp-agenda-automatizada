@@ -1173,7 +1173,7 @@
             + '<details class="aa-executable-list-card aa-task-list-card group bg-white rounded-xl shadow border border-gray-200"'
             + ' data-list-id="' + listId + '"'
             + ' data-list-source="' + source + '">'
-            + '<summary class="px-4 py-4 border-b border-gray-100 bg-gradient-to-r ' + headerGradient + ' cursor-pointer list-none">'
+            + '<summary class="px-4 py-4 bg-gradient-to-r ' + headerGradient + ' cursor-pointer list-none">'
             + '<div class="flex items-start justify-between gap-3">'
             + '<div class="min-w-0 flex-1">'
             + '<h4 class="text-base font-semibold text-gray-900">' + title + '</h4>'

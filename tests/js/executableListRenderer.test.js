@@ -1827,3 +1827,37 @@ describe('executableListRenderer MC-UX-A visual polish', () => {
         assert.doesNotMatch(html, /aa-executable-list-card[\s\S]*overflow-hidden/);
     });
 });
+
+describe('executableListRenderer MC-UX-C list card rounding', () => {
+    it('summary de lista no incluye border-b fijo en el HTML', () => {
+        var html = renderer.renderList(baseList({
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+
+        assert.match(html, /<summary class="px-4 py-4 bg-gradient-to-r/);
+        assert.doesNotMatch(html, /summary class="[^"]*border-b border-gray-100/);
+    });
+
+    it('CSS redondea summary colapsado con rounded-xl', () => {
+        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
+
+        assert.match(css, /details\.aa-executable-list-card:not\(\[open\]\) > summary/);
+        assert.match(css, /rounded-xl/);
+    });
+
+    it('CSS redondea summary expandido con rounded-t-xl y border-b', () => {
+        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
+
+        assert.match(css, /details\.aa-executable-list-card\[open\] > summary/);
+        assert.match(css, /rounded-t-xl/);
+        assert.match(css, /border-b border-gray-100/);
+    });
+
+    it('CSS mantiene overflow visible y body expandido con rounded-b-xl', () => {
+        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
+
+        assert.match(css, /details\.aa-executable-list-card[\s\S]*overflow:\s*visible/);
+        assert.match(css, /details\.aa-executable-list-card\[open\] > \.aa-executable-list-body/);
+        assert.match(css, /rounded-b-xl/);
+    });
+});

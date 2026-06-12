@@ -96,7 +96,6 @@
 
     details.aa-executable-list-card > summary {
         position: relative;
-        @apply rounded-t-xl;
     }
 
     /* Executable feed — card lista: overflow visible para menús ⋮ (MC-UX-A) */
@@ -104,7 +103,15 @@
         overflow: visible;
     }
 
-    details.aa-executable-list-card > .aa-executable-list-body {
+    details.aa-executable-list-card:not([open]) > summary {
+        @apply rounded-xl;
+    }
+
+    details.aa-executable-list-card[open] > summary {
+        @apply rounded-t-xl border-b border-gray-100;
+    }
+
+    details.aa-executable-list-card[open] > .aa-executable-list-body {
         @apply rounded-b-xl;
     }
 

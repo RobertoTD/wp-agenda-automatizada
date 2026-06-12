@@ -83,6 +83,13 @@ ac_assert(
     is_string($index_php) && strpos($index_php, 'learningService.js') !== false
 );
 
+ac_assert(
+    'index.php has no module page header Listas / Tareas',
+    is_string($index_php)
+    && strpos($index_php, 'Listas / Tareas') === false
+    && strpos($index_php, 'Tareas organizadas inteligentemente') === false
+);
+
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 
 if ($failed !== []) {
