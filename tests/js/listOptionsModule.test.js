@@ -943,4 +943,23 @@ describe('list-options-module MC-UX-E following tasks block', () => {
         assert.equal(list.followingTasks[1].open, true);
         assert.equal(list.details.open, true);
     });
+
+    it('colapsar Siguientes tareas cierra tareas secundarias abiertas dentro del bloque', () => {
+        var feed = buildFeedDom();
+        var list = buildListWithFollowingTasks('uxe-7', 'top', ['f1'], true);
+        var secondaryTask = buildTaskItem('s1', true);
+        var secondaryWrap = makeElement('div');
+
+        secondaryWrap.appendChild(secondaryTask);
+        list.followingBlock.appendChild(secondaryWrap);
+        list.followingBlock.open = true;
+        feed.moduleRoot.appendChild(list.details);
+        loadModule(feed);
+
+        list.followingBlock.open = false;
+        dispatchToggle(list.followingBlock, feed.document);
+
+        assert.equal(list.followingTasks[0].open, false);
+        assert.equal(secondaryTask.open, false);
+    });
 });

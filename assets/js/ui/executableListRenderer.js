@@ -738,7 +738,7 @@
             + ' aria-label="Opciones de tarea"'
             + ' aria-haspopup="menu"'
             + ' aria-expanded="false"'
-            + ' class="aa-executable-task-options-trigger inline-flex items-center justify-center w-8 h-8 text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300/60 transition-colors">'
+            + ' class="aa-executable-task-options-trigger aa-options-trigger-flat">'
             + '<svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">'
             + '<circle cx="5" cy="12" r="1.75"/>'
             + '<circle cx="12" cy="12" r="1.75"/>'
@@ -873,16 +873,101 @@
     }
 
     /**
-     * @param {string} followingItemsHtml
+     * @param {string} label
+     * @returns {string}
+     */
+    function renderSecondaryBucketLabel(label) {
+        if (asString(label).trim() === '') {
+            return '';
+        }
+
+        return ''
+            + '<div class="aa-executable-bucket-label-wrap mb-3">'
+            + '<p class="text-xs font-semibold uppercase tracking-wide text-gray-500">' + escapeHtml(label) + '</p>'
+            + '</div>';
+    }
+
+    /**
+     * @param {string} key
+     * @param {string} innerHtml
+     * @param {string} [extraClass]
+     * @returns {string}
+     */
+    function renderBucketWrapper(key, innerHtml, extraClass) {
+        if (innerHtml === '') {
+            return '';
+        }
+
+        var bucketClass = 'aa-executable-bucket';
+
+        if (extraClass) {
+            bucketClass += ' ' + extraClass;
+        }
+
+        return ''
+            + '<div class="' + bucketClass + '" data-bucket-key="' + escapeHtml(key || 'default') + '">'
+            + innerHtml
+            + '</div>';
+    }
+
+    /**
+     * @param {Array} items
+     * @param {object} [options]
+     * @param {object} [bucketContext]
+     * @param {number} [startIndex]
+     * @param {string} ulClasses
+     * @returns {string}
+     */
+    function renderItemsUl(items, options, bucketContext, startIndex, ulClasses) {
+        if (!Array.isArray(items) || items.length === 0) {
+            return '';
+        }
+
+        var itemsHtml = renderBucketItemsHtml(items, options, bucketContext, startIndex);
+
+        if (itemsHtml === '') {
+            return '';
+        }
+
+        return '<ul class="' + ulClasses + '">' + itemsHtml + '</ul>';
+    }
+
+    /**
+     * @param {string} label
+     * @param {Array} items
+     * @param {object} [options]
+     * @param {object} [bucketContext]
+     * @param {number} [startIndex]
+     * @returns {string}
+     */
+    function renderSecondaryFollowingSection(label, items, options, bucketContext, startIndex) {
+        var labelHtml = renderSecondaryBucketLabel(label);
+        var itemsHtml = renderItemsUl(
+            items,
+            options,
+            bucketContext,
+            startIndex,
+            'aa-executable-bucket-items space-y-3'
+        );
+
+        if (labelHtml === '' && itemsHtml === '') {
+            return '';
+        }
+
+        return renderBucketWrapper('secondary', labelHtml + itemsHtml, 'mt-5');
+    }
+
+    /**
+     * @param {string} followingContentHtml
      * @param {number} followingCount
      * @returns {string}
      */
-    function renderFollowingTasksBlock(followingItemsHtml, followingCount) {
+    function renderFollowingTasksBlock(followingContentHtml, followingCount) {
         var count = Math.max(0, followingCount | 0);
 
         return ''
             + '<details class="aa-executable-following-tasks mt-3">'
-            + '<summary class="aa-executable-following-tasks-summary cursor-pointer list-none flex items-center justify-between gap-2 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg border border-transparent hover:border-gray-200 hover:bg-gray-50/80">'
+            + '<summary class="aa-executable-following-tasks-summary cursor-pointer list-none inline-flex items-center gap-1.5 py-1 text-xs text-gray-600 hover:text-gray-800">'
             + '<span class="aa-executable-following-tasks-label">'
             + '<span class="aa-following-label-expanded">Siguientes tareas</span>'
             + '<span class="aa-following-label-collapsed">Siguientes tareas (' + count + ')</span>'
@@ -893,10 +978,115 @@
             + '</svg>'
             + '</span>'
             + '</summary>'
-            + '<ul class="aa-executable-bucket-items aa-executable-bucket-items-following space-y-3 mt-2">'
-            + followingItemsHtml
-            + '</ul>'
+            + '<div class="aa-executable-following-tasks-content mt-2 space-y-3">'
+            + followingContentHtml
+            + '</div>'
             + '</details>';
+    }
+
+    /**
+     * @param {Array} buckets
+     * @param {object} [options]
+     * @param {object} listContext
+     * @returns {string}
+     */
+    function renderListBucketsBody(buckets, options, listContext) {
+        var followingSections = [];
+        var followingCount = 0;
+        var topHtml = '';
+        var hasTop = false;
+        var globalItemIndex = 0;
+
+        if (!Array.isArray(buckets)) {
+            return '';
+        }
+
+        buckets.forEach(function (bucket, bucketIndex) {
+            if (!bucket || typeof bucket !== 'object') {
+                return;
+            }
+
+            var bucketContext = extendContext(listContext, {
+                bucket: bucket,
+                bucketIndex: bucketIndex
+            });
+            var key = asString(bucket.key).trim().toLowerCase();
+            var label = asString(bucket.label).trim();
+            var items = Array.isArray(bucket.items) ? bucket.items : [];
+
+            if (items.length === 0) {
+                return;
+            }
+
+            if (!hasTop) {
+                hasTop = true;
+                var topItems = items.slice(0, 1);
+                var restItems = items.slice(1);
+
+                topHtml = renderBucketWrapper(
+                    key,
+                    renderItemsUl(
+                        topItems,
+                        options,
+                        bucketContext,
+                        globalItemIndex,
+                        'aa-executable-bucket-items aa-executable-bucket-items-top space-y-3'
+                    )
+                );
+                globalItemIndex += topItems.length;
+
+                if (restItems.length > 0) {
+                    if (key === 'secondary') {
+                        followingSections.push(renderSecondaryFollowingSection(
+                            label,
+                            restItems,
+                            options,
+                            bucketContext,
+                            globalItemIndex
+                        ));
+                    } else {
+                        followingSections.push(renderItemsUl(
+                            restItems,
+                            options,
+                            bucketContext,
+                            globalItemIndex,
+                            'aa-executable-bucket-items aa-executable-bucket-items-following space-y-3'
+                        ));
+                    }
+
+                    followingCount += restItems.length;
+                    globalItemIndex += restItems.length;
+                }
+            } else if (key === 'secondary') {
+                followingSections.push(renderSecondaryFollowingSection(
+                    label,
+                    items,
+                    options,
+                    bucketContext,
+                    globalItemIndex
+                ));
+                followingCount += items.length;
+                globalItemIndex += items.length;
+            } else {
+                followingSections.push(renderItemsUl(
+                    items,
+                    options,
+                    bucketContext,
+                    globalItemIndex,
+                    'aa-executable-bucket-items aa-executable-bucket-items-following space-y-3'
+                ));
+                followingCount += items.length;
+                globalItemIndex += items.length;
+            }
+        });
+
+        var bodyHtml = topHtml;
+
+        if (followingCount > 0) {
+            bodyHtml += renderFollowingTasksBlock(followingSections.join(''), followingCount);
+        }
+
+        return bodyHtml;
     }
 
     /**
@@ -918,50 +1108,22 @@
         var key = asString(bucket.key).trim().toLowerCase();
         var label = asString(bucket.label).trim();
         var items = Array.isArray(bucket.items) ? bucket.items : [];
-        var shouldSplitFollowing = (key === 'primary' || key === 'default') && items.length > 1;
-        var itemsHtml = '';
-        var followingBlockHtml = '';
-        var labelHtml = '';
+        var labelHtml = key === 'secondary' ? renderSecondaryBucketLabel(label) : '';
+        var itemsHtml = items.length > 0
+            ? renderBucketItemsHtml(items, options, bucketContext, 0)
+            : '';
 
-        if (label !== '' && key === 'secondary') {
-            labelHtml = ''
-                + '<div class="aa-executable-bucket-label-wrap mb-3">'
-                + '<p class="text-xs font-semibold uppercase tracking-wide text-gray-500">' + escapeHtml(label) + '</p>'
-                + '</div>';
-        }
-
-        if (shouldSplitFollowing) {
-            itemsHtml = renderBucketItemsHtml(items.slice(0, 1), options, bucketContext, 0);
-            followingBlockHtml = renderFollowingTasksBlock(
-                renderBucketItemsHtml(items.slice(1), options, bucketContext, 1),
-                items.length - 1
-            );
-        } else if (items.length > 0) {
-            itemsHtml = renderBucketItemsHtml(items, options, bucketContext, 0);
-        }
-
-        if (itemsHtml === '' && followingBlockHtml === '' && labelHtml === '') {
+        if (itemsHtml === '' && labelHtml === '') {
             return '';
         }
 
-        var bucketClass = key === 'secondary' && labelHtml !== ''
-            ? 'aa-executable-bucket mt-5'
-            : 'aa-executable-bucket';
-        var bodyHtml = '';
+        var extraClass = key === 'secondary' && labelHtml !== '' ? 'mt-5' : '';
 
-        if (shouldSplitFollowing) {
-            bodyHtml = ''
-                + '<ul class="aa-executable-bucket-items aa-executable-bucket-items-top space-y-3">' + itemsHtml + '</ul>'
-                + followingBlockHtml;
-        } else {
-            bodyHtml = '<ul class="aa-executable-bucket-items space-y-3">' + itemsHtml + '</ul>';
-        }
-
-        return ''
-            + '<div class="' + bucketClass + '" data-bucket-key="' + escapeHtml(key || 'default') + '">'
-            + labelHtml
-            + bodyHtml
-            + '</div>';
+        return renderBucketWrapper(
+            key,
+            labelHtml + '<ul class="aa-executable-bucket-items space-y-3">' + itemsHtml + '</ul>',
+            extraClass
+        );
     }
 
     /**
@@ -1255,7 +1417,7 @@
             + ' aria-label="Opciones de lista"'
             + ' aria-haspopup="menu"'
             + ' aria-expanded="false"'
-            + ' class="aa-executable-list-options-trigger inline-flex items-center justify-center w-8 h-8 text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300/60 transition-colors">'
+            + ' class="aa-executable-list-options-trigger aa-options-trigger-flat">'
             + '<svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">'
             + '<circle cx="5" cy="12" r="1.75"/>'
             + '<circle cx="12" cy="12" r="1.75"/>'
@@ -1295,10 +1457,7 @@
             ? list.capabilities
             : {};
         var buckets = Array.isArray(list.buckets) ? list.buckets : [];
-        var bucketsHtml = buckets.map(function (bucket, bucketIndex) {
-            return renderBucket(bucket, options, listContext, bucketIndex);
-        }).join('');
-        var bodyHtml = bucketsHtml;
+        var bodyHtml = renderListBucketsBody(buckets, options, listContext);
 
         if (bodyHtml === '' && asString(list.source).trim().toLowerCase() === 'user') {
             bodyHtml = '<p class="text-sm text-gray-500 aa-executable-list-empty-pending">No hay tareas pendientes en esta lista.</p>';

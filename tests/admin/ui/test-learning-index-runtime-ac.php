@@ -90,6 +90,33 @@ ac_assert(
     && strpos($index_php, 'Tareas organizadas inteligentemente') === false
 );
 
+ac_assert(
+    'index.php lists section header is Listas de tareas',
+    is_string($index_php) && strpos($index_php, '>Listas de tareas<') !== false
+);
+ac_assert(
+    'index.php does not render lists section subtitle',
+    is_string($index_php) && strpos($index_php, 'Todas las listas de tareas.') === false
+);
+ac_assert(
+    'index.php renders executive/lists divider',
+    is_string($index_php) && strpos($index_php, 'aa-executive-lists-divider') !== false
+);
+ac_assert(
+    'index.php keeps aa-executive-proposal and aa-lists-section ids',
+    is_string($index_php)
+    && strpos($index_php, 'id="aa-executive-proposal"') !== false
+    && strpos($index_php, 'id="aa-lists-section"') !== false
+);
+ac_assert(
+    'index.php lists section starts muted',
+    is_string($index_php) && strpos($index_php, 'id="aa-lists-section" class="pb-24 is-muted"') !== false
+);
+ac_assert(
+    'index.php enqueues executive-lists-focus-module.js',
+    is_string($index_php) && strpos($index_php, 'executive-lists-focus-module.js') !== false
+);
+
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 
 if ($failed !== []) {

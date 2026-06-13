@@ -69,6 +69,42 @@ function baseList(overrides) {
     }, overrides || {});
 }
 
+function extractTopUl(html) {
+    var match = html.match(/<ul class="aa-executable-bucket-items aa-executable-bucket-items-top[\s\S]*?<\/ul>/);
+
+    return match ? match[0] : '';
+}
+
+function extractFollowingContent(html) {
+    var openTag = '<div class="aa-executable-following-tasks-content';
+    var start = html.indexOf(openTag);
+
+    if (start === -1) {
+        return '';
+    }
+
+    var depth = 0;
+    var index = start;
+
+    while (index < html.length) {
+        if (html.slice(index, index + 4) === '<div') {
+            depth += 1;
+        }
+
+        if (html.slice(index, index + 6) === '</div>') {
+            depth -= 1;
+
+            if (depth === 0) {
+                return html.slice(start, index + 6);
+            }
+        }
+
+        index += 1;
+    }
+
+    return '';
+}
+
 describe('AAExecutableListRenderer', () => {
     it('exporta API usable en Node', () => {
         assert.equal(typeof renderer.renderFeed, 'function');
@@ -1921,7 +1957,7 @@ describe('executableListRenderer MC-UX-D list details on demand', () => {
 });
 
 describe('executableListRenderer MC-UX-E following tasks block', () => {
-    it('no renderiza label Principales pero sí Secundarias', () => {
+    it('no renderiza label Principales y Secundarias queda dentro del bloque cuando hay top primary', () => {
         var html = renderer.renderList(baseList({
             buckets: [
                 {
@@ -1939,6 +1975,9 @@ describe('executableListRenderer MC-UX-E following tasks block', () => {
 
         assert.doesNotMatch(html, />Principales</);
         assert.match(html, />Secundarias</);
+        assert.match(html, />Siguientes tareas \(1\)</);
+        assert.match(html, /aa-executable-following-tasks[\s\S]*>Secundarias</);
+        assert.doesNotMatch(extractTopUl(html), />Secundarias</);
     });
 
     it('bucket default con 1 item no renderiza Siguientes tareas', () => {
@@ -1973,19 +2012,19 @@ describe('executableListRenderer MC-UX-E following tasks block', () => {
         assert.match(html, /aa-executable-following-tasks/);
         assert.match(html, />Siguientes tareas \(2\)</);
 
-        var topUlMatch = html.match(/<ul class="aa-executable-bucket-items aa-executable-bucket-items-top[\s\S]*?<\/ul>/);
-        var followingUlMatch = html.match(/<ul class="aa-executable-bucket-items aa-executable-bucket-items-following[\s\S]*?<\/ul>/);
+        var topUlMatch = extractTopUl(html);
+        var followingContentMatch = extractFollowingContent(html);
 
         assert.ok(topUlMatch);
-        assert.ok(followingUlMatch);
-        assert.match(topUlMatch[0], /data-item-id="t1"/);
-        assert.doesNotMatch(topUlMatch[0], /data-item-id="t2"/);
-        assert.match(followingUlMatch[0], /data-item-id="t2"/);
-        assert.match(followingUlMatch[0], /data-item-id="t3"/);
-        assert.doesNotMatch(followingUlMatch[0], /data-item-id="t1"/);
+        assert.ok(followingContentMatch);
+        assert.match(topUlMatch, /data-item-id="t1"/);
+        assert.doesNotMatch(topUlMatch, /data-item-id="t2"/);
+        assert.match(followingContentMatch, /data-item-id="t2"/);
+        assert.match(followingContentMatch, /data-item-id="t3"/);
+        assert.doesNotMatch(followingContentMatch, /data-item-id="t1"/);
     });
 
-    it('primary con 2 items y secondary con 1 mantiene Secundarias fuera del bloque', () => {
+    it('primary con 2 items y secondary con 1 agrupa todo en Siguientes tareas (2)', () => {
         var html = renderer.renderList(baseList({
             buckets: [
                 {
@@ -2004,18 +2043,19 @@ describe('executableListRenderer MC-UX-E following tasks block', () => {
             ]
         }));
 
-        assert.match(html, />Siguientes tareas \(1\)</);
-        assert.match(html, />Secundarias</);
-        assert.match(html, /data-bucket-key="secondary"[\s\S]*data-item-id="s1"/);
+        assert.match(html, />Siguientes tareas \(2\)</);
+        assert.match(extractTopUl(html), /data-item-id="p1"/);
+        assert.doesNotMatch(extractTopUl(html), /data-item-id="p2"/);
 
-        var followingUlMatch = html.match(/<ul class="aa-executable-bucket-items aa-executable-bucket-items-following[\s\S]*?<\/ul>/);
+        var followingContentMatch = extractFollowingContent(html);
 
-        assert.ok(followingUlMatch);
-        assert.match(followingUlMatch[0], /data-item-id="p2"/);
-        assert.doesNotMatch(followingUlMatch[0], /data-item-id="s1"/);
+        assert.ok(followingContentMatch);
+        assert.match(followingContentMatch, /data-item-id="p2"/);
+        assert.match(followingContentMatch, />Secundarias</);
+        assert.match(followingContentMatch, /data-item-id="s1"/);
     });
 
-    it('primary con 1 item no renderiza Siguientes tareas aunque haya secondary', () => {
+    it('top primary con solo secundarias muestra Siguientes tareas con contador de secundarias', () => {
         var html = renderer.renderList(baseList({
             buckets: [
                 {
@@ -2026,16 +2066,26 @@ describe('executableListRenderer MC-UX-E following tasks block', () => {
                 {
                     key: 'secondary',
                     label: 'Secundarias',
-                    items: [baseItem({ id: 's1', title: 'Secondary' })]
+                    items: [
+                        baseItem({ id: 's1', title: 'Secondary 1' }),
+                        baseItem({ id: 's2', title: 'Secondary 2' })
+                    ]
                 }
             ]
         }));
 
-        assert.doesNotMatch(html, /aa-executable-following-tasks/);
-        assert.match(html, />Secundarias</);
+        assert.match(html, />Siguientes tareas \(2\)</);
+        assert.match(html, /aa-executable-following-tasks[\s\S]*>Secundarias</);
+        assert.doesNotMatch(extractTopUl(html), />Secundarias</);
+
+        var followingContentMatch = extractFollowingContent(html);
+
+        assert.ok(followingContentMatch);
+        assert.match(followingContentMatch, /data-item-id="s1"/);
+        assert.match(followingContentMatch, /data-item-id="s2"/);
     });
 
-    it('primary vacío no crea bloque Siguientes tareas', () => {
+    it('primary vacío con una secundaria no crea bloque Siguientes tareas', () => {
         var html = renderer.renderList(baseList({
             buckets: [
                 { key: 'primary', label: 'Principales', items: [] },
@@ -2048,7 +2098,57 @@ describe('executableListRenderer MC-UX-E following tasks block', () => {
         }));
 
         assert.doesNotMatch(html, /aa-executable-following-tasks/);
-        assert.match(html, />Secundarias</);
+        assert.doesNotMatch(html, />Secundarias</);
+        assert.match(html, /aa-executable-item-first" data-item-id="s1"/);
+    });
+
+    it('summary es compacto, chevron junto al texto y sin hover tipo botón', () => {
+        var html = renderer.renderList(baseList({
+            buckets: [{
+                key: 'default',
+                label: '',
+                items: [
+                    baseItem({ id: 't1', title: 'Top' }),
+                    baseItem({ id: 't2', title: 'Siguiente' })
+                ]
+            }]
+        }));
+
+        assert.match(html, /aa-executable-following-tasks-summary[^>]*text-xs/);
+        assert.match(html, /aa-executable-following-tasks-summary[^>]*inline-flex items-center gap-1\.5/);
+        assert.doesNotMatch(html, /aa-executable-following-tasks-summary[^>]*justify-between/);
+        assert.doesNotMatch(html, /aa-executable-following-tasks-summary[^>]*hover:border-gray-200/);
+        assert.doesNotMatch(html, /aa-executable-following-tasks-summary[^>]*hover:bg-gray-50/);
+        assert.match(
+            html,
+            /aa-executable-following-tasks-label[\s\S]*aa-executable-following-tasks-chevron/
+        );
+    });
+
+    it('triggers ⋮ de lista y tarea usan estilo plano por defecto', () => {
+        var html = renderer.renderList(baseList({
+            capabilities: { can_edit: true, can_archive: true },
+            buckets: [{
+                key: 'default',
+                label: '',
+                items: [baseItem({
+                    id: 't1',
+                    capabilities: { can_edit: true, can_delete: true }
+                })]
+            }]
+        }));
+
+        assert.match(html, /aa-executable-list-options-trigger aa-options-trigger-flat/);
+        assert.match(html, /aa-executable-task-options-trigger aa-options-trigger-flat/);
+        assert.doesNotMatch(html, /aa-options-trigger-flat[^>]*bg-white border border-gray-200/);
+    });
+
+    it('CSS define triggers ⋮ planos y estado activo por aria-expanded', () => {
+        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
+
+        assert.match(css, /\.aa-options-trigger-flat[\s\S]*border-transparent/);
+        assert.match(css, /\.aa-options-trigger-flat[\s\S]*hover:border-gray-200/);
+        assert.match(css, /\.aa-options-trigger-flat\[aria-expanded="true"\]/);
     });
 
     it('CSS alterna copy colapsado/expandido, rota chevron y mantiene overflow visible', () => {

@@ -22,11 +22,12 @@ $task_options_js = plugin_dir_url(__FILE__) . 'task-options-module.js';
 $list_options_js = plugin_dir_url(__FILE__) . 'list-options-module.js';
 $list_edit_js = plugin_dir_url(__FILE__) . 'list-edit-module.js';
 $restore_archived_tasks_js = plugin_dir_url(__FILE__) . 'restore-archived-tasks-module.js';
+$executive_lists_focus_js = plugin_dir_url(__FILE__) . 'executive-lists-focus-module.js';
 ?>
 
 <div id="aa-tasks-module-root" class="max-w-5xl mx-auto py-2">
 
-    <section id="aa-executive-proposal" class="bg-white rounded-xl shadow border border-gray-200 mb-4 overflow-hidden">
+    <section id="aa-executive-proposal" class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
         <div class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
             <h3 class="text-lg font-semibold text-gray-900">Propuesta ejecutiva</h3>
             <p class="text-sm text-gray-500 mt-0.5">Acciones recomendadas ahora.</p>
@@ -39,11 +40,14 @@ $restore_archived_tasks_js = plugin_dir_url(__FILE__) . 'restore-archived-tasks-
         </div>
     </section>
 
-    <section id="aa-lists-section" class="pb-24">
+    <div class="aa-executive-lists-divider my-4 px-4" aria-hidden="true">
+        <hr class="border-gray-200">
+    </div>
+
+    <section id="aa-lists-section" class="pb-24 is-muted">
         <div class="mb-3 flex items-start justify-between gap-3">
             <div class="min-w-0">
-                <h3 class="text-lg font-semibold text-gray-900">Listas</h3>
-                <p class="text-sm text-gray-500 mt-0.5">Todas las listas de tareas.</p>
+                <h3 class="text-lg font-semibold text-gray-900">Listas de tareas</h3>
             </div>
             <div id="aa-lists-area-tools" class="relative flex items-center gap-2 shrink-0">
                 <button type="button"
@@ -52,7 +56,7 @@ $restore_archived_tasks_js = plugin_dir_url(__FILE__) . 'restore-archived-tasks-
                     title="Opciones de listas"
                     aria-haspopup="true"
                     aria-expanded="false"
-                    class="inline-flex items-center justify-center w-8 h-8 text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300/60 transition-colors">
+                    class="aa-options-trigger-flat">
                     <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <circle cx="5" cy="12" r="1.75"/>
                         <circle cx="12" cy="12" r="1.75"/>
@@ -438,3 +442,4 @@ $restore_archived_tasks_js = plugin_dir_url(__FILE__) . 'restore-archived-tasks-
 <script src="<?php echo esc_url($list_options_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($restore_archived_tasks_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($list_edit_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($executive_lists_focus_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
