@@ -724,7 +724,15 @@
                 return;
             }
 
-            return reloadLegacyBoardBestEffort();
+            return reloadLegacyBoardBestEffort().then(function () {
+                var proposalApi = globalRoot.AAExecutiveProposal;
+
+                if (proposalApi && typeof proposalApi.reload === 'function') {
+                    return proposalApi.reload({ silent: true }).catch(function () {});
+                }
+
+                return undefined;
+            });
         });
     }
 

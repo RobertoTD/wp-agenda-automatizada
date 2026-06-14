@@ -117,6 +117,45 @@ ac_assert(
     is_string($index_php) && strpos($index_php, 'executive-lists-focus-module.js') !== false
 );
 
+ac_assert(
+    'index.php configures AA_EXECUTIVE_PROPOSAL_DATA',
+    is_string($index_php)
+    && strpos($index_php, 'AA_EXECUTIVE_PROPOSAL_DATA') !== false
+    && strpos($index_php, 'aa_get_executive_proposal') !== false
+    && strpos($index_php, 'aa_executive_proposal_nonce') !== false
+);
+ac_assert(
+    'index.php enqueues executiveProposalService.js',
+    is_string($index_php) && strpos($index_php, 'executiveProposalService.js') !== false
+);
+ac_assert(
+    'index.php enqueues executiveProposalRenderer.js',
+    is_string($index_php) && strpos($index_php, 'executiveProposalRenderer.js') !== false
+);
+ac_assert(
+    'index.php enqueues executive-proposal-module.js',
+    is_string($index_php) && strpos($index_php, 'executive-proposal-module.js') !== false
+);
+ac_assert(
+    'index.php keeps executive proposal containers',
+    is_string($index_php)
+    && strpos($index_php, 'id="aa-executive-proposal"') !== false
+    && strpos($index_php, 'id="aa-executive-list"') !== false
+    && strpos($index_php, 'id="aa-executive-empty"') !== false
+);
+
+$board_module_src = file_get_contents($plugin_root . '/includes/admin/ui/modules/learning/tasks-board-module.js');
+ac_assert('tasks-board-module readable', $board_module_src !== false);
+ac_assert(
+    'tasks-board-module no longer renders legacy executive proposal in renderBoardPayload',
+    is_string($board_module_src)
+    && strpos($board_module_src, 'renderExecutiveProposal(data)') === false
+);
+ac_assert(
+    'tasks-board-module refreshes executive proposal after board mutation',
+    is_string($board_module_src) && strpos($board_module_src, 'reloadExecutiveProposalBestEffort') !== false
+);
+
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 
 if ($failed !== []) {

@@ -174,6 +174,12 @@ TasksAjax::register();
 require_once __DIR__ . '/includes/http/ajax/ExecutableListsAjax.php';
 ExecutableListsAjax::register();
 
+// ================================
+// Endpoint AJAX: Propuesta ejecutiva read-only (capa http/ajax)
+// ================================
+require_once __DIR__ . '/includes/http/ajax/ExecutiveProposalAjax.php';
+ExecutiveProposalAjax::register();
+
 // ===============================
 // 🔹 Schema lifecycle: registra el activation hook con AA_Schema::install
 // ===============================

@@ -23,6 +23,9 @@ $list_options_js = plugin_dir_url(__FILE__) . 'list-options-module.js';
 $list_edit_js = plugin_dir_url(__FILE__) . 'list-edit-module.js';
 $restore_archived_tasks_js = plugin_dir_url(__FILE__) . 'restore-archived-tasks-module.js';
 $executive_lists_focus_js = plugin_dir_url(__FILE__) . 'executive-lists-focus-module.js';
+$executive_proposal_service_js = AA_PLUGIN_URL . 'assets/js/services/executiveProposalService.js';
+$executive_proposal_renderer_js = AA_PLUGIN_URL . 'assets/js/ui/executiveProposalRenderer.js';
+$executive_proposal_module_js = plugin_dir_url(__FILE__) . 'executive-proposal-module.js';
 ?>
 
 <div id="aa-tasks-module-root" class="max-w-5xl mx-auto py-2">
@@ -33,6 +36,9 @@ $executive_lists_focus_js = plugin_dir_url(__FILE__) . 'executive-lists-focus-mo
             <p class="text-sm text-gray-500 mt-0.5">Acciones recomendadas ahora.</p>
         </div>
         <div class="p-4">
+            <p id="aa-executive-proposal-loading" class="hidden text-sm text-gray-500">Cargando propuesta ejecutiva…</p>
+            <p id="aa-executive-proposal-error" class="hidden text-sm text-red-600"></p>
+            <div id="aa-executive-focus" class="hidden mb-3"></div>
             <p id="aa-executive-empty" class="hidden text-sm text-gray-500">
                 No hay acciones pendientes recomendadas. Crea tareas o revisa tus listas.
             </p>
@@ -426,12 +432,21 @@ $executive_lists_focus_js = plugin_dir_url(__FILE__) . 'executive-lists-focus-mo
         nonce: '<?php echo esc_js(wp_create_nonce('aa_executable_lists_nonce')); ?>',
         visibleFeed: 'unified'
     };
+
+    window.AA_EXECUTIVE_PROPOSAL_DATA = {
+        ajaxUrl: window.ajaxurl || '<?php echo admin_url('admin-ajax.php'); ?>',
+        action: 'aa_get_executive_proposal',
+        nonce: '<?php echo esc_js(wp_create_nonce('aa_executive_proposal_nonce')); ?>'
+    };
 </script>
 
 <script src="<?php echo esc_url($learning_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($learning_handlers_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($tasks_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($tasks_renderer_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($executive_proposal_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($executive_proposal_renderer_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($executive_proposal_module_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($tasks_board_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($executable_lists_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($executable_lists_renderer_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>

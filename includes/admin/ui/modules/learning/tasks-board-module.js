@@ -60,28 +60,16 @@
     }
 
     /**
-     * @param {{lists:Array,tasks:Array,organization:Object}} data
+     * @returns {Promise<void>}
      */
-    function renderExecutiveProposal(data) {
-        var emptyEl = document.getElementById('aa-executive-empty');
-        var listEl = document.getElementById('aa-executive-list');
-        var renderer = getRenderer();
+    function reloadExecutiveProposalBestEffort() {
+        var api = globalRoot.AAExecutiveProposal;
 
-        if (!emptyEl || !listEl) {
-            return;
+        if (api && typeof api.reload === 'function') {
+            return api.reload({ silent: true }).catch(function () {});
         }
 
-        if (!renderer || typeof renderer.renderExecutiveProposal !== 'function'
-            || typeof renderer.resolveExecutiveCandidates !== 'function') {
-            listEl.innerHTML = '';
-            setVisible(emptyEl, true);
-            return;
-        }
-
-        var candidates = renderer.resolveExecutiveCandidates(data || {});
-
-        setVisible(emptyEl, candidates.length === 0);
-        listEl.innerHTML = candidates.length > 0 ? renderer.renderExecutiveProposal(data) : '';
+        return Promise.resolve();
     }
 
     function hasUserLists() {
@@ -134,8 +122,6 @@
         var listsRoot = document.getElementById('aa-tasks-lists-root');
         var renderer = getRenderer();
 
-        renderExecutiveProposal(data);
-
         if (!listsRoot) {
             return;
         }
@@ -162,7 +148,9 @@
      */
     function reloadBoardAfterMutation(options) {
         return loadBoard(options || { silent: true }).then(function () {
-            return reloadExecutableUserFeedBestEffort();
+            return reloadExecutableUserFeedBestEffort().then(function () {
+                return reloadExecutiveProposalBestEffort();
+            });
         });
     }
 
@@ -576,7 +564,8 @@
 
     var moduleExports = {
         reloadExecutableUserFeedBestEffort: reloadExecutableUserFeedBestEffort,
-        reloadBoardAfterMutation: reloadBoardAfterMutation
+        reloadBoardAfterMutation: reloadBoardAfterMutation,
+        reloadExecutiveProposalBestEffort: reloadExecutiveProposalBestEffort
     };
 
     if (typeof module !== 'undefined' && module.exports) {
