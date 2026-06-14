@@ -35,12 +35,14 @@ if (!function_exists('current_time')) {
 
 require_once __DIR__ . '/../../../includes/domain/executive/class-aa-executive-contract.php';
 require_once __DIR__ . '/../../../includes/domain/executive/class-aa-executive-proposal-policy.php';
+require_once __DIR__ . '/../../../includes/domain/executive/class-aa-executive-sprint-policy.php';
 require_once __DIR__ . '/../../../includes/domain/executive/class-aa-executive-actions-policy.php';
 require_once __DIR__ . '/../../../includes/domain/executable/class-aa-executable-contract.php';
 require_once __DIR__ . '/../../../includes/domain/executable/class-aa-executable-visible-actions-policy.php';
 require_once __DIR__ . '/../../../includes/domain/tasks/class-aa-task.php';
 require_once __DIR__ . '/../../../includes/domain/tasks/class-aa-task-list.php';
 require_once __DIR__ . '/../../../includes/domain/tasks/class-aa-task-active-view-projection-policy.php';
+require_once __DIR__ . '/../../../includes/repositories/ExecutiveSprintStateRepository.php';
 require_once __DIR__ . '/../../../includes/application/executive/ExecutiveProposalMapper.php';
 require_once __DIR__ . '/../../../includes/application/executive/GetExecutiveProposalUseCase.php';
 require_once __DIR__ . '/../../../includes/application/executable/ExecutableNavigationUrlResolver.php';
@@ -315,6 +317,143 @@ ac_assert('Empty payload status', ($empty['status'] ?? '') === AA_Executive_Cont
 ac_assert('Empty payload has no focus list', ($empty['focus_list'] ?? null) === null);
 ac_assert('Empty payload has no tasks', ($empty['tasks'] ?? [1]) === []);
 ac_assert('Empty payload reports empty_reason', ($empty['meta']['empty_reason'] ?? '') === AA_Executive_Contract::EMPTY_REASON_NO_ELIGIBLE_TASKS);
+
+/**
+ * @param array<int,array<string,mixed>> $storage
+ * @return array{reader:callable,writer:callable,user_id_resolver:callable,now_ts_resolver:callable}
+ */
+function exec_sprint_test_deps(array &$storage, int $user_id = 7, ?int $now_ts = null): array {
+    $resolved_now_ts = $now_ts ?? (int) strtotime('2026-06-04 12:00:00');
+
+    return [
+        'reader' => static function (int $uid) use (&$storage): array {
+            return is_array($storage[$uid] ?? null) ? $storage[$uid] : [];
+        },
+        'writer' => static function (int $uid, array $state) use (&$storage): void {
+            if ($state === []) {
+                unset($storage[$uid]);
+
+                return;
+            }
+
+            $storage[$uid] = $state;
+        },
+        'user_id_resolver' => static function () use ($user_id): int {
+            return $user_id;
+        },
+        'now_ts_resolver' => static function () use ($resolved_now_ts): int {
+            return $resolved_now_ts;
+        },
+    ];
+}
+
+$now_ts = (int) strtotime('2026-06-04 12:00:00');
+$sprint_storage = [];
+$sprint_storage[7] = [
+    'version' => 1,
+    'active_focus_list_id' => 1,
+    'sprint_started_at' => $now_ts - 500,
+    'last_executive_action_at' => $now_ts - 500,
+    'sprint_expires_at' => $now_ts + 3600,
+];
+$sprint_deps = exec_sprint_test_deps($sprint_storage, 7, $now_ts);
+
+$sprint_active = (new GetExecutiveProposalUseCase(
+    static function (): array {
+        return exec_board_ready_fixture();
+    },
+    $sprint_deps['reader'],
+    $sprint_deps['writer'],
+    $sprint_deps['user_id_resolver'],
+    $sprint_deps['now_ts_resolver']
+))->execute();
+
+ac_assert(
+    'Sprint activo fuerza lista foco aunque otra tenga mayor prioridad',
+    (int) ($sprint_active['focus_list']['id'] ?? 0) === 1
+);
+ac_assert(
+    'Sprint activo expone focus_reason sprint_active',
+    ($sprint_active['meta']['focus_reason'] ?? '') === AA_Executive_Contract::FOCUS_REASON_SPRINT_ACTIVE
+);
+
+$expired_storage = [];
+$expired_storage[7] = [
+    'version' => 1,
+    'active_focus_list_id' => 1,
+    'sprint_started_at' => $now_ts - 5000,
+    'last_executive_action_at' => $now_ts - 5000,
+    'sprint_expires_at' => $now_ts - 10,
+];
+$expired_deps = exec_sprint_test_deps($expired_storage, 7, $now_ts);
+
+$sprint_expired = (new GetExecutiveProposalUseCase(
+    static function (): array {
+        return exec_board_ready_fixture();
+    },
+    $expired_deps['reader'],
+    $expired_deps['writer'],
+    $expired_deps['user_id_resolver'],
+    $expired_deps['now_ts_resolver']
+))->execute();
+
+ac_assert(
+    'Sprint vencido no fuerza lista foco',
+    (int) ($sprint_expired['focus_list']['id'] ?? 0) === 2
+);
+ac_assert('Sprint vencido limpia storage', !isset($expired_storage[7]));
+
+$exhausted_storage = [];
+$exhausted_storage[7] = [
+    'version' => 1,
+    'active_focus_list_id' => 2,
+    'sprint_started_at' => $now_ts - 800,
+    'last_executive_action_at' => $now_ts - 800,
+    'sprint_expires_at' => $now_ts + 2800,
+];
+$exhausted_deps = exec_sprint_test_deps($exhausted_storage, 7, $now_ts);
+$exhausted_expires = $exhausted_storage[7]['sprint_expires_at'];
+
+$exhausted_board = exec_board_ready_fixture();
+foreach ($exhausted_board['organization']['task_evaluations_by_id'] as $task_id => $evaluation) {
+    if (in_array((int) $task_id, [10, 11, 12, 13], true)) {
+        $exhausted_board['organization']['task_evaluations_by_id'][$task_id] = [
+            'visible_in_active' => false,
+            'projection' => [
+                'visible_in_active' => false,
+                'projected_bucket' => null,
+            ],
+            'capabilities' => [
+                'can_dismiss' => false,
+            ],
+        ];
+    }
+}
+
+$exhausted_proposal = (new GetExecutiveProposalUseCase(
+    static function () use ($exhausted_board): array {
+        return $exhausted_board;
+    },
+    $exhausted_deps['reader'],
+    $exhausted_deps['writer'],
+    $exhausted_deps['user_id_resolver'],
+    $exhausted_deps['now_ts_resolver']
+))->execute();
+
+ac_assert(
+    'Sprint activo con lista agotada avanza a otra lista elegible',
+    (int) ($exhausted_proposal['focus_list']['id'] ?? 0) === 1
+);
+ac_assert(
+    'Fallback actualiza active_focus_list_id sin renovar TTL',
+    (int) ($exhausted_storage[7]['active_focus_list_id'] ?? 0) === 1
+    && (int) ($exhausted_storage[7]['sprint_expires_at'] ?? 0) === $exhausted_expires
+    && (int) ($exhausted_storage[7]['last_executive_action_at'] ?? 0) === $now_ts - 800
+);
+ac_assert(
+    'Propuesta no queda empty si hay otra lista elegible',
+    ($exhausted_proposal['status'] ?? '') === AA_Executive_Contract::STATUS_READY
+);
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 

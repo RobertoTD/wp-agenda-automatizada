@@ -18,14 +18,18 @@ final class AA_Executive_Proposal_Policy {
 
     /**
      * @param array<string,mixed> $input lists, tasks, organization
+     * @param array<string,mixed> $context preferred_focus_list_id
      * @return array{
      *     status:string,
      *     focus_list_id:int|null,
      *     task_ids:list<int>,
-     *     eligible_count_in_focus_list:int
+     *     eligible_count_in_focus_list:int,
+     *     focus_reason:string|null,
+     *     preferred_focus_list_id:int|null,
+     *     preferred_focus_used:bool
      * }
      */
-    public function propose(array $input): array {
+    public function propose(array $input, array $context = []): array {
         $lists = $this->normalize_lists($input['lists'] ?? []);
         $tasks = $this->normalize_tasks($input['tasks'] ?? []);
         $organization = is_array($input['organization'] ?? null) ? $input['organization'] : [];
@@ -36,7 +40,30 @@ final class AA_Executive_Proposal_Policy {
         $tasks_by_id = $this->index_tasks_by_id($tasks);
         $eligible_by_list = $this->count_eligible_by_list($tasks, $evaluations_by_id);
 
-        $focus_list_id = $this->resolve_focus_list_id($list_order, $lists_by_id, $eligible_by_list);
+        $preferred_focus_list_id = isset($context['preferred_focus_list_id'])
+            ? (int) $context['preferred_focus_list_id']
+            : 0;
+        $sprint_active = !empty($context['sprint_active']);
+
+        $focus_list_id = null;
+        $preferred_focus_used = false;
+
+        if ($preferred_focus_list_id > 0) {
+            $preferred_list = $lists_by_id[$preferred_focus_list_id] ?? null;
+
+            if (
+                $preferred_list !== null
+                && $preferred_list->is_active()
+                && ($eligible_by_list[$preferred_focus_list_id] ?? 0) >= 1
+            ) {
+                $focus_list_id = $preferred_focus_list_id;
+                $preferred_focus_used = true;
+            }
+        }
+
+        if ($focus_list_id === null) {
+            $focus_list_id = $this->resolve_focus_list_id($list_order, $lists_by_id, $eligible_by_list);
+        }
 
         if ($focus_list_id === null) {
             return [
@@ -44,6 +71,9 @@ final class AA_Executive_Proposal_Policy {
                 'focus_list_id' => null,
                 'task_ids' => [],
                 'eligible_count_in_focus_list' => 0,
+                'focus_reason' => null,
+                'preferred_focus_list_id' => $preferred_focus_list_id > 0 ? $preferred_focus_list_id : null,
+                'preferred_focus_used' => false,
             ];
         }
 
@@ -63,11 +93,18 @@ final class AA_Executive_Proposal_Policy {
             $task_ids[] = $task->id();
         }
 
+        $focus_reason = ($sprint_active || $preferred_focus_used)
+            ? AA_Executive_Contract::FOCUS_REASON_SPRINT_ACTIVE
+            : AA_Executive_Contract::FOCUS_REASON_FIRST_LIST_WITH_ELIGIBLE;
+
         return [
             'status' => AA_Executive_Contract::STATUS_READY,
             'focus_list_id' => $focus_list_id,
             'task_ids' => $task_ids,
             'eligible_count_in_focus_list' => count($eligible_tasks),
+            'focus_reason' => $focus_reason,
+            'preferred_focus_list_id' => $preferred_focus_list_id > 0 ? $preferred_focus_list_id : null,
+            'preferred_focus_used' => $preferred_focus_used,
         ];
     }
 

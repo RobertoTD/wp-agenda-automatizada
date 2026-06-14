@@ -29,7 +29,10 @@ final class ExecutiveProposalMapper {
      *     status:string,
      *     focus_list_id:int|null,
      *     task_ids:list<int>,
-     *     eligible_count_in_focus_list:int
+     *     eligible_count_in_focus_list:int,
+     *     focus_reason?:string|null,
+     *     preferred_focus_list_id?:int|null,
+     *     preferred_focus_used?:bool
      * } $selection
      */
     public static function map(array $board, array $selection, string $now): array {
@@ -135,10 +138,25 @@ final class ExecutiveProposalMapper {
             'meta' => [
                 'version' => AA_Executive_Contract::META_VERSION,
                 'eligible_count_in_focus_list' => (int) ($selection['eligible_count_in_focus_list'] ?? count($mapped_tasks)),
-                'focus_reason' => AA_Executive_Contract::FOCUS_REASON_FIRST_LIST_WITH_ELIGIBLE,
+                'focus_reason' => self::resolve_focus_reason($selection),
                 'empty_reason' => null,
             ],
         ];
+    }
+
+    /**
+     * @param array<string,mixed> $selection
+     */
+    private static function resolve_focus_reason(array $selection): string {
+        $reason = isset($selection['focus_reason'])
+            ? strtolower(trim((string) $selection['focus_reason']))
+            : '';
+
+        if ($reason === AA_Executive_Contract::FOCUS_REASON_SPRINT_ACTIVE) {
+            return AA_Executive_Contract::FOCUS_REASON_SPRINT_ACTIVE;
+        }
+
+        return AA_Executive_Contract::FOCUS_REASON_FIRST_LIST_WITH_ELIGIBLE;
     }
 
     /**

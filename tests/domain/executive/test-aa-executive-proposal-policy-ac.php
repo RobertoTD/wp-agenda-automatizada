@@ -75,14 +75,15 @@ function exec_hidden_eval(string $reason = 'dismissed'): array {
  * @param list<array<string,mixed>> $lists
  * @param list<array<string,mixed>> $tasks
  * @param array<string,mixed>       $organization
+ * @param array<string,mixed>       $context
  * @return array<string,mixed>
  */
-function exec_propose(array $lists, array $tasks, array $organization): array {
+function exec_propose(array $lists, array $tasks, array $organization, array $context = []): array {
     return (new AA_Executive_Proposal_Policy())->propose([
         'lists' => $lists,
         'tasks' => $tasks,
         'organization' => $organization,
-    ]);
+    ], $context);
 }
 
 $policy = new AA_Executive_Proposal_Policy();
@@ -302,6 +303,104 @@ $empty = exec_propose(
 ac_assert('Empty when no eligible tasks', ($empty['status'] ?? '') === AA_Executive_Contract::STATUS_EMPTY);
 ac_assert('Empty clears focus list id', ($empty['focus_list_id'] ?? null) === null);
 ac_assert('Empty returns no task ids', ($empty['task_ids'] ?? [1]) === []);
+
+// ─── Sprint preferred focus (MC4) ─────────────────────────────
+
+$preferred_forces = exec_propose(
+    [
+        ['id' => 1, 'title' => 'Primera en orden', 'importance' => 50, 'status' => 'active'],
+        ['id' => 2, 'title' => 'Preferred', 'importance' => 5, 'status' => 'active'],
+    ],
+    [
+        ['id' => 101, 'list_id' => 1, 'title' => 'T1', 'status' => 'pending'],
+        ['id' => 201, 'list_id' => 2, 'title' => 'T2', 'status' => 'pending'],
+    ],
+    [
+        'list_order' => [1, 2],
+        'task_evaluations_by_id' => [
+            101 => exec_visible_eval(),
+            201 => exec_visible_eval(),
+        ],
+    ],
+    [
+        'preferred_focus_list_id' => 2,
+        'sprint_active' => true,
+    ]
+);
+ac_assert('Preferred valid list forces focus', ($preferred_forces['focus_list_id'] ?? null) === 2);
+ac_assert('Preferred used flag true', ($preferred_forces['preferred_focus_used'] ?? false) === true);
+ac_assert('Preferred sets sprint focus reason', ($preferred_forces['focus_reason'] ?? '') === AA_Executive_Contract::FOCUS_REASON_SPRINT_ACTIVE);
+
+$preferred_exhausted = exec_propose(
+    [
+        ['id' => 10, 'title' => 'Agotada', 'importance' => 100, 'status' => 'active'],
+        ['id' => 11, 'title' => 'Siguiente', 'importance' => 1, 'status' => 'active'],
+    ],
+    [
+        ['id' => 1001, 'list_id' => 10, 'title' => 'Hidden', 'status' => 'pending'],
+        ['id' => 1101, 'list_id' => 11, 'title' => 'Visible', 'status' => 'pending'],
+    ],
+    [
+        'list_order' => [10, 11],
+        'task_evaluations_by_id' => [
+            1001 => exec_hidden_eval(),
+            1101 => exec_visible_eval(),
+        ],
+    ],
+    [
+        'preferred_focus_list_id' => 10,
+        'sprint_active' => true,
+    ]
+);
+ac_assert('Preferred without eligibles falls back', ($preferred_exhausted['focus_list_id'] ?? null) === 11);
+ac_assert('Preferred exhausted not used', ($preferred_exhausted['preferred_focus_used'] ?? true) === false);
+ac_assert('Sprint active keeps sprint focus reason on fallback', ($preferred_exhausted['focus_reason'] ?? '') === AA_Executive_Contract::FOCUS_REASON_SPRINT_ACTIVE);
+
+$preferred_archived = exec_propose(
+    [
+        ['id' => 20, 'title' => 'Archivada', 'status' => 'archived', 'importance' => 100],
+        ['id' => 21, 'title' => 'Activa', 'status' => 'active', 'importance' => 1],
+    ],
+    [
+        ['id' => 2001, 'list_id' => 20, 'title' => 'En archivada', 'status' => 'pending'],
+        ['id' => 2101, 'list_id' => 21, 'title' => 'En activa', 'status' => 'pending'],
+    ],
+    [
+        'list_order' => [20, 21],
+        'task_evaluations_by_id' => [
+            2001 => exec_visible_eval(),
+            2101 => exec_visible_eval(),
+        ],
+    ],
+    [
+        'preferred_focus_list_id' => 20,
+        'sprint_active' => true,
+    ]
+);
+ac_assert('Preferred archived list falls back', ($preferred_archived['focus_list_id'] ?? null) === 21);
+
+$no_false_empty = exec_propose(
+    [
+        ['id' => 30, 'title' => 'Sin elegibles', 'status' => 'active'],
+        ['id' => 31, 'title' => 'Con elegibles', 'status' => 'active'],
+    ],
+    [
+        ['id' => 3001, 'list_id' => 30, 'title' => 'Dismissed', 'status' => 'pending'],
+        ['id' => 3101, 'list_id' => 31, 'title' => 'Visible', 'status' => 'pending'],
+    ],
+    [
+        'list_order' => [30, 31],
+        'task_evaluations_by_id' => [
+            3001 => exec_hidden_eval(),
+            3101 => exec_visible_eval(),
+        ],
+    ],
+    [
+        'preferred_focus_list_id' => 30,
+        'sprint_active' => true,
+    ]
+);
+ac_assert('No false empty when other lists have eligibles', ($no_false_empty['status'] ?? '') === AA_Executive_Contract::STATUS_READY);
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 

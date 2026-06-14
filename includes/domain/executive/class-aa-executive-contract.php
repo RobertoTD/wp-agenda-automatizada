@@ -25,6 +25,8 @@ final class AA_Executive_Contract {
 
     public const FOCUS_REASON_FIRST_LIST_WITH_ELIGIBLE = 'first_list_with_eligible_tasks';
 
+    public const FOCUS_REASON_SPRINT_ACTIVE = 'sprint_active';
+
     public const EMPTY_REASON_NO_ELIGIBLE_TASKS = 'no_eligible_tasks';
 
     public const META_VERSION = 1;
@@ -278,10 +280,23 @@ final class AA_Executive_Contract {
             'version' => self::META_VERSION,
             'eligible_count_in_focus_list' => max(0, (int) ($meta['eligible_count_in_focus_list'] ?? 0)),
             'focus_reason' => $status === self::STATUS_READY
-                ? self::FOCUS_REASON_FIRST_LIST_WITH_ELIGIBLE
+                ? self::normalize_focus_reason($meta['focus_reason'] ?? null)
                 : null,
             'empty_reason' => $empty_reason,
         ];
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private static function normalize_focus_reason($value): string {
+        $reason = is_string($value) ? strtolower(trim($value)) : '';
+
+        if ($reason === self::FOCUS_REASON_SPRINT_ACTIVE) {
+            return self::FOCUS_REASON_SPRINT_ACTIVE;
+        }
+
+        return self::FOCUS_REASON_FIRST_LIST_WITH_ELIGIBLE;
     }
 
     /**

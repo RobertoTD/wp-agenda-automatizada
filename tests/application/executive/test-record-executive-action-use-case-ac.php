@@ -35,12 +35,14 @@ if (!function_exists('current_time')) {
 
 require_once __DIR__ . '/../../../includes/domain/executive/class-aa-executive-contract.php';
 require_once __DIR__ . '/../../../includes/domain/executive/class-aa-executive-proposal-policy.php';
+require_once __DIR__ . '/../../../includes/domain/executive/class-aa-executive-sprint-policy.php';
 require_once __DIR__ . '/../../../includes/domain/executive/class-aa-executive-actions-policy.php';
 require_once __DIR__ . '/../../../includes/domain/executable/class-aa-executable-contract.php';
 require_once __DIR__ . '/../../../includes/domain/executable/class-aa-executable-visible-actions-policy.php';
 require_once __DIR__ . '/../../../includes/domain/tasks/class-aa-task.php';
 require_once __DIR__ . '/../../../includes/domain/tasks/class-aa-task-list.php';
 require_once __DIR__ . '/../../../includes/domain/tasks/class-aa-task-active-view-projection-policy.php';
+require_once __DIR__ . '/../../../includes/repositories/ExecutiveSprintStateRepository.php';
 require_once __DIR__ . '/../../../includes/application/executive/ExecutiveProposalMapper.php';
 require_once __DIR__ . '/../../../includes/application/executive/GetExecutiveProposalUseCase.php';
 require_once __DIR__ . '/../../../includes/application/executive/RecordExecutiveActionUseCase.php';
@@ -354,6 +356,283 @@ ac_assert(
     && ($handler_result['data']['client_action']['type'] ?? '') === 'handler'
     && ($handler_result['data']['client_action']['handler'] ?? '') === 'pwa.install'
     && ($handler_result['data']['client_action']['origin_key'] ?? '') === 'install_pwa'
+);
+
+/**
+ * @param array<int,array<string,mixed>> $storage
+ * @return array{reader:callable,writer:callable,user_id_resolver:callable,now_ts_resolver:callable}
+ */
+function exec_action_sprint_deps(array &$storage, int $user_id = 7, ?int $now_ts = null): array {
+    $resolved_now_ts = $now_ts ?? (int) strtotime('2026-06-04 12:00:00');
+
+    return [
+        'reader' => static function (int $uid) use (&$storage): array {
+            return is_array($storage[$uid] ?? null) ? $storage[$uid] : [];
+        },
+        'writer' => static function (int $uid, array $state) use (&$storage): void {
+            if ($state === []) {
+                unset($storage[$uid]);
+
+                return;
+            }
+
+            $storage[$uid] = $state;
+        },
+        'user_id_resolver' => static function () use ($user_id): int {
+            return $user_id;
+        },
+        'now_ts_resolver' => static function () use ($resolved_now_ts): int {
+            return $resolved_now_ts;
+        },
+    ];
+}
+
+/**
+ * @param array<string,mixed> $board
+ * @param array{reader:callable,writer:callable,user_id_resolver:callable,now_ts_resolver:callable} $deps
+ */
+function exec_action_sprint_uc(
+    array &$board,
+    array $deps,
+    ?callable $change_status_executor = null,
+    ?callable $dismiss_executor = null
+): RecordExecutiveActionUseCase {
+    return new RecordExecutiveActionUseCase(
+        static function () use (&$board, $deps): array {
+            return (new GetExecutiveProposalUseCase(
+                static function () use (&$board): array {
+                    return $board;
+                },
+                $deps['reader'],
+                $deps['writer'],
+                $deps['user_id_resolver'],
+                $deps['now_ts_resolver']
+            ))->execute();
+        },
+        $change_status_executor,
+        $dismiss_executor,
+        $deps['reader'],
+        $deps['writer'],
+        $deps['user_id_resolver'],
+        $deps['now_ts_resolver']
+    );
+}
+
+$action_now_ts = (int) strtotime('2026-06-04 12:00:00');
+$action_user_id = 7;
+
+// ─── MC4 sprint writes ───────────────────────────────────────
+
+$start_storage = [];
+$start_deps = exec_action_sprint_deps($start_storage, $action_user_id, $action_now_ts);
+$start_board = exec_action_user_complete_board();
+$start_uc = exec_action_sprint_uc(
+    $start_board,
+    $start_deps,
+    static function (array $input) use (&$start_board): array {
+        foreach ($start_board['tasks'] as $index => $task) {
+            if ((int) ($task['id'] ?? 0) === (int) ($input['task_id'] ?? 0)) {
+                $start_board['tasks'][$index]['status'] = 'done';
+                break;
+            }
+        }
+
+        return TaskUseCaseSupport::ok(['task' => ['id' => (int) ($input['task_id'] ?? 0), 'status' => 'done']]);
+    }
+);
+
+$start_result = $start_uc->execute(['task_id' => 20, 'action_key' => 'complete']);
+ac_assert('complete inicia sprint', isset($start_storage[$action_user_id]));
+ac_assert(
+    'complete inicia sprint con lista foco actual',
+    (int) ($start_storage[$action_user_id]['active_focus_list_id'] ?? 0) === 1
+);
+ac_assert(
+    'complete inicia sprint con expires_at',
+    (int) ($start_storage[$action_user_id]['sprint_expires_at'] ?? 0) === $action_now_ts + 3600
+);
+
+$renew_storage = [];
+$renew_storage[$action_user_id] = [
+    'version' => 1,
+    'active_focus_list_id' => 2,
+    'sprint_started_at' => $action_now_ts - 2000,
+    'last_executive_action_at' => $action_now_ts - 2000,
+    'sprint_expires_at' => $action_now_ts + 1000,
+];
+$renew_deps = exec_action_sprint_deps($renew_storage, $action_user_id, $action_now_ts);
+$renew_board = exec_action_ready_board();
+$renew_uc = exec_action_sprint_uc($renew_board, $renew_deps);
+
+$renew_result = $renew_uc->execute(['task_id' => 10, 'action_key' => 'navigate.settings']);
+ac_assert('navigate renueva sprint aunque no mute tarea', !empty($renew_result['success']));
+ac_assert(
+    'navigate actualiza last_executive_action_at',
+    (int) ($renew_storage[$action_user_id]['last_executive_action_at'] ?? 0) === $action_now_ts
+);
+ac_assert(
+    'navigate mantiene sprint_started_at',
+    (int) ($renew_storage[$action_user_id]['sprint_started_at'] ?? 0) === $action_now_ts - 2000
+);
+ac_assert(
+    'navigate extiende sprint_expires_at',
+    (int) ($renew_storage[$action_user_id]['sprint_expires_at'] ?? 0) === $action_now_ts + 3600
+);
+
+$expired_renew_storage = [];
+$expired_renew_storage[$action_user_id] = [
+    'version' => 1,
+    'active_focus_list_id' => 1,
+    'sprint_started_at' => $action_now_ts - 7200,
+    'last_executive_action_at' => $action_now_ts - 7200,
+    'sprint_expires_at' => $action_now_ts - 60,
+];
+$expired_renew_deps = exec_action_sprint_deps($expired_renew_storage, $action_user_id, $action_now_ts);
+$expired_renew_board = exec_action_user_complete_board();
+$expired_renew_uc = exec_action_sprint_uc(
+    $expired_renew_board,
+    $expired_renew_deps,
+    static function (array $input) use (&$expired_renew_board): array {
+        foreach ($expired_renew_board['tasks'] as $index => $task) {
+            if ((int) ($task['id'] ?? 0) === (int) ($input['task_id'] ?? 0)) {
+                $expired_renew_board['tasks'][$index]['status'] = 'done';
+                break;
+            }
+        }
+
+        return TaskUseCaseSupport::ok(['task' => ['id' => (int) ($input['task_id'] ?? 0), 'status' => 'done']]);
+    }
+);
+
+$expired_renew_result = $expired_renew_uc->execute(['task_id' => 20, 'action_key' => 'complete']);
+ac_assert('complete con sprint vencido renueva', !empty($expired_renew_result['success']));
+ac_assert(
+    'complete vencido reinicia expires_at',
+    (int) ($expired_renew_storage[$action_user_id]['sprint_expires_at'] ?? 0) === $action_now_ts + 3600
+);
+
+$active_dismiss_storage = [];
+$active_dismiss_storage[$action_user_id] = [
+    'version' => 1,
+    'active_focus_list_id' => 2,
+    'sprint_started_at' => $action_now_ts - 300,
+    'last_executive_action_at' => $action_now_ts - 300,
+    'sprint_expires_at' => $action_now_ts + 3300,
+];
+$active_dismiss_before = $active_dismiss_storage[$action_user_id];
+$active_dismiss_deps = exec_action_sprint_deps($active_dismiss_storage, $action_user_id, $action_now_ts);
+$active_dismiss_board = exec_action_ready_board();
+$active_dismiss_uc = exec_action_sprint_uc(
+    $active_dismiss_board,
+    $active_dismiss_deps,
+    null,
+    static function (array $input) use (&$active_dismiss_board): array {
+        $task_id = (int) ($input['task_id'] ?? 0);
+        $active_dismiss_board['organization']['task_evaluations_by_id'][$task_id] = [
+            'visible_in_active' => false,
+            'projection' => ['visible_in_active' => false, 'projected_bucket' => 'primary'],
+            'capabilities' => ['can_dismiss' => false],
+        ];
+
+        return TaskUseCaseSupport::ok(['task_state' => ['task_id' => $task_id]]);
+    }
+);
+
+$active_dismiss_result = $active_dismiss_uc->execute(['task_id' => 10, 'action_key' => 'dismiss']);
+ac_assert('dismiss sprint activo no renueva', !empty($active_dismiss_result['success']));
+ac_assert(
+    'dismiss sprint activo mantiene sprint meta',
+    $active_dismiss_storage[$action_user_id] === $active_dismiss_before
+);
+
+$expired_dismiss_storage = [];
+$expired_dismiss_storage[$action_user_id] = [
+    'version' => 1,
+    'active_focus_list_id' => 2,
+    'sprint_started_at' => $action_now_ts - 5000,
+    'last_executive_action_at' => $action_now_ts - 5000,
+    'sprint_expires_at' => $action_now_ts - 100,
+];
+$expired_dismiss_deps = exec_action_sprint_deps($expired_dismiss_storage, $action_user_id, $action_now_ts);
+$expired_dismiss_board = exec_action_ready_board();
+$expired_dismiss_uc = exec_action_sprint_uc(
+    $expired_dismiss_board,
+    $expired_dismiss_deps,
+    null,
+    static function (array $input) use (&$expired_dismiss_board): array {
+        $task_id = (int) ($input['task_id'] ?? 0);
+        $expired_dismiss_board['organization']['task_evaluations_by_id'][$task_id] = [
+            'visible_in_active' => false,
+            'projection' => ['visible_in_active' => false, 'projected_bucket' => 'primary'],
+            'capabilities' => ['can_dismiss' => false],
+        ];
+
+        return TaskUseCaseSupport::ok(['task_state' => ['task_id' => $task_id]]);
+    }
+);
+
+$expired_dismiss_result = $expired_dismiss_uc->execute(['task_id' => 10, 'action_key' => 'dismiss']);
+ac_assert('dismiss sprint vencido limpia estado', !empty($expired_dismiss_result['success']));
+ac_assert('dismiss sprint vencido no deja storage', !isset($expired_dismiss_storage[$action_user_id]));
+
+$shift_storage = [];
+$shift_storage[$action_user_id] = [
+    'version' => 1,
+    'active_focus_list_id' => 2,
+    'sprint_started_at' => $action_now_ts - 400,
+    'last_executive_action_at' => $action_now_ts - 400,
+    'sprint_expires_at' => $action_now_ts + 3200,
+];
+$shift_expires = $shift_storage[$action_user_id]['sprint_expires_at'];
+$shift_deps = exec_action_sprint_deps($shift_storage, $action_user_id, $action_now_ts);
+$shift_board = [
+    'lists' => [
+        ['id' => 2, 'title' => 'Agotandose', 'status' => 'active', 'source_category' => 'agenda_app'],
+        ['id' => 1, 'title' => 'Siguiente', 'status' => 'active', 'source_category' => 'user'],
+    ],
+    'tasks' => [
+        ['id' => 10, 'list_id' => 2, 'title' => 'Ultima en 2', 'status' => 'pending', 'importance' => 100],
+        ['id' => 20, 'list_id' => 1, 'title' => 'En lista 1', 'status' => 'pending', 'importance' => 50, 'completion_type' => 'manual'],
+    ],
+    'organization' => [
+        'list_order' => [2, 1],
+        'task_evaluations_by_id' => [
+            10 => exec_action_visible_eval('primary', true),
+            20 => exec_action_visible_eval('primary', true),
+        ],
+        'task_actions_by_id' => [],
+    ],
+];
+$shift_uc = exec_action_sprint_uc(
+    $shift_board,
+    $shift_deps,
+    null,
+    static function (array $input) use (&$shift_board): array {
+        $task_id = (int) ($input['task_id'] ?? 0);
+        $shift_board['organization']['task_evaluations_by_id'][$task_id] = [
+            'visible_in_active' => false,
+            'projection' => ['visible_in_active' => false, 'projected_bucket' => 'primary'],
+            'capabilities' => ['can_dismiss' => false],
+        ];
+
+        return TaskUseCaseSupport::ok(['task_state' => ['task_id' => $task_id]]);
+    }
+);
+
+$shift_result = $shift_uc->execute(['task_id' => 10, 'action_key' => 'dismiss']);
+ac_assert('dismiss agota lista y avanza sin extender TTL', !empty($shift_result['success']));
+ac_assert(
+    'dismiss agotado actualiza active_focus_list_id',
+    (int) ($shift_storage[$action_user_id]['active_focus_list_id'] ?? 0) === 1
+);
+ac_assert(
+    'dismiss agotado mantiene sprint_expires_at',
+    (int) ($shift_storage[$action_user_id]['sprint_expires_at'] ?? 0) === $shift_expires
+);
+ac_assert(
+    'dismiss agotado propone tarea de nueva lista',
+    (int) ($shift_result['data']['proposal']['focus_list']['id'] ?? 0) === 1
+    && (int) ($shift_result['data']['proposal']['tasks'][0]['task_id'] ?? 0) === 20
 );
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
