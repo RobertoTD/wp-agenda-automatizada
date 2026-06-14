@@ -345,7 +345,7 @@
                     return ''
                         + '<button type="button" data-tasks-action="dismiss" data-task-id="' + escapeHtml(intentTaskId) + '"'
                         + ' class="' + btnClass(false) + ' text-gray-600 bg-white hover:bg-gray-50 border-gray-300">'
-                        + escapeHtml(label || 'Ignorar')
+                        + escapeHtml(label || 'Ahora no')
                         + '</button>';
                 }
 
@@ -372,7 +372,7 @@
                     return ''
                         + '<button type="button" data-tasks-action="dismiss" data-task-id="' + escapeHtml(dismissTasksTaskId) + '"'
                         + ' class="' + btnClass(false) + ' text-gray-600 bg-white hover:bg-gray-50 border-gray-300">'
-                        + escapeHtml(label || 'Ignorar')
+                        + escapeHtml(label || 'Ahora no')
                         + '</button>';
                 }
 
@@ -384,7 +384,7 @@
                     + '<button type="button" data-learning-action="dismiss"'
                     + ' data-recommendation-key="' + escapeHtml(recommendationKey) + '"'
                     + ' class="' + btnClass(false) + ' text-gray-600 bg-white hover:bg-gray-50 border-gray-300">'
-                    + escapeHtml(label || 'Ignorar')
+                    + escapeHtml(label || 'Ahora no')
                     + '</button>';
             }
 
@@ -538,7 +538,7 @@
                 actions.push(
                     '<button type="button" data-tasks-action="dismiss" data-task-id="' + escapeHtml(fallbackDismissTasksTaskId) + '"'
                     + ' class="' + btnClass(false) + ' text-gray-600 bg-white hover:bg-gray-50 border-gray-300">'
-                    + 'Ignorar'
+                    + 'Ahora no'
                     + '</button>'
                 );
             } else if (recommendationKey !== '') {
@@ -546,7 +546,7 @@
                     '<button type="button" data-learning-action="dismiss"'
                     + ' data-recommendation-key="' + escapeHtml(recommendationKey) + '"'
                     + ' class="' + btnClass(false) + ' text-gray-600 bg-white hover:bg-gray-50 border-gray-300">'
-                    + 'Ignorar'
+                    + 'Ahora no'
                     + '</button>'
                 );
             }

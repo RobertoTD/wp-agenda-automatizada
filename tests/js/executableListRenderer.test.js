@@ -287,7 +287,7 @@ describe('AAExecutableListRenderer', () => {
 
         assert.match(html, /data-learning-action="dismiss"/);
         assert.match(html, /data-recommendation-key="install_pwa"/);
-        assert.match(html, />Ignorar</);
+        assert.match(html, />Ahora no</);
     });
 
     it('can_reactivate no genera botón Reactivar por defecto', () => {
@@ -319,7 +319,7 @@ describe('AAExecutableListRenderer', () => {
         assert.match(html, />Reactivar</);
     });
 
-    it('showReactivate no afecta Ignorar en fallback legacy', () => {
+    it('showReactivate no afecta Ahora no en fallback legacy', () => {
         var item = baseItem({
             origin_key: 'install_pwa',
             capabilities: {
@@ -331,10 +331,9 @@ describe('AAExecutableListRenderer', () => {
         var html = renderer.renderItem(item);
 
         assert.match(html, /data-learning-action="dismiss"/);
-        assert.match(html, />Ignorar</);
+        assert.match(html, />Ahora no</);
         assert.doesNotMatch(html, /data-learning-action="reactivate"/);
         assert.doesNotMatch(html, /data-learning-action="defer"/);
-        assert.doesNotMatch(html, />Ahora no</);
     });
 
     it('can_archive renderiza menú ⋮ con Archivar lista y sin botón suelto', () => {
@@ -490,7 +489,7 @@ describe('AAExecutableListRenderer', () => {
                                     key: 'dismiss',
                                     type: 'intent',
                                     category: 'intent',
-                                    label: 'Ignorar',
+                                    label: 'Ahora no',
                                     placement: 'secondary',
                                     url: null,
                                     handler: null
@@ -532,7 +531,7 @@ describe('AAExecutableListRenderer', () => {
         assert.match(learningHtml, /https:\/\/example\.test\/admin-post\.php\?module=assignments/);
         assert.doesNotMatch(userHtml, /data-tasks-action="defer"/);
         assert.doesNotMatch(learningHtml, /data-learning-action="defer"/);
-        assert.doesNotMatch(userHtml, />Ahora no</);
+        assert.match(userHtml, />Ahora no</);
         assert.doesNotMatch(learningHtml, />Ahora no</);
     });
 
@@ -1027,7 +1026,7 @@ describe('AAExecutableListRenderer visible_actions', () => {
                     key: 'dismiss',
                     type: 'intent',
                     category: 'intent',
-                    label: 'Ignorar',
+                    label: 'Ahora no',
                     placement: 'secondary',
                     url: null,
                     handler: null
@@ -1037,7 +1036,7 @@ describe('AAExecutableListRenderer visible_actions', () => {
 
         assert.match(html, /data-learning-action="dismiss"/);
         assert.match(html, /data-recommendation-key="install_pwa"/);
-        assert.match(html, />Ignorar</);
+        assert.match(html, />Ahora no</);
         assert.doesNotMatch(html, /data-tasks-action="dismiss"/);
     });
 
@@ -1052,7 +1051,7 @@ describe('AAExecutableListRenderer visible_actions', () => {
                     key: 'dismiss',
                     type: 'intent',
                     category: 'intent',
-                    label: 'Ignorar',
+                    label: 'Ahora no',
                     placement: 'secondary',
                     url: null,
                     handler: null
@@ -1062,7 +1061,7 @@ describe('AAExecutableListRenderer visible_actions', () => {
 
         assert.match(html, /data-tasks-action="dismiss"/);
         assert.match(html, /data-task-id="500"/);
-        assert.match(html, />Ignorar</);
+        assert.match(html, />Ahora no</);
         assert.doesNotMatch(html, /data-learning-action="dismiss"/);
         assert.doesNotMatch(html, /data-recommendation-key=/);
     });
@@ -1077,7 +1076,7 @@ describe('AAExecutableListRenderer visible_actions', () => {
                     key: 'dismiss',
                     type: 'intent',
                     category: 'intent',
-                    label: 'Ignorar',
+                    label: 'Ahora no',
                     placement: 'secondary',
                     url: null,
                     handler: null
@@ -1087,7 +1086,7 @@ describe('AAExecutableListRenderer visible_actions', () => {
 
         assert.match(html, /data-tasks-action="dismiss"/);
         assert.match(html, /data-task-id="43"/);
-        assert.match(html, />Ignorar</);
+        assert.match(html, />Ahora no</);
         assert.doesNotMatch(html, /data-learning-action="dismiss"/);
         assert.doesNotMatch(html, /data-recommendation-key=/);
     });
@@ -1182,7 +1181,7 @@ describe('AAExecutableListRenderer visible_actions', () => {
                     key: 'dismiss',
                     type: 'intent',
                     category: 'intent',
-                    label: 'Ignorar',
+                    label: 'Ahora no',
                     placement: 'secondary',
                     url: null,
                     handler: null
@@ -1326,7 +1325,7 @@ describe('executableListRenderer MC13 expandable items', () => {
                     key: 'dismiss',
                     type: 'intent',
                     category: 'intent',
-                    label: 'Ignorar',
+                    label: 'Ahora no',
                     placement: 'secondary'
                 })
             ]

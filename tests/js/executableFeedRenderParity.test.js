@@ -24,6 +24,17 @@ function visibleAction(overrides) {
  * Fixture post-H3B-3: el feed común enriquecido no incluye visible_actions.defer.
  * capabilities.can_defer puede quedar true en Learning como metadata legacy.
  */
+function feedSectionAfter(html, marker, untilMarker) {
+    var chunk = html.split(marker)[1] || '';
+    if (untilMarker) {
+        var end = chunk.indexOf(untilMarker);
+        if (end >= 0) {
+            chunk = chunk.slice(0, end);
+        }
+    }
+    return chunk;
+}
+
 function activeFeedFixture() {
     return [
         {
@@ -139,7 +150,7 @@ function activeFeedFixture() {
                                     key: 'dismiss',
                                     type: 'intent',
                                     category: 'intent',
-                                    label: 'Ignorar',
+                                    label: 'Ahora no',
                                     placement: 'secondary',
                                     url: null,
                                     handler: null
@@ -211,7 +222,7 @@ function activeFeedFixture() {
                                     key: 'dismiss',
                                     type: 'intent',
                                     category: 'intent',
-                                    label: 'Ignorar',
+                                    label: 'Ahora no',
                                     placement: 'secondary',
                                     url: null,
                                     handler: null
@@ -229,11 +240,12 @@ function activeFeedFixture() {
 describe('executable feed render parity', () => {
     it('renderiza Learning navigate sin defer en feed post-H3B-3', () => {
         var html = renderer.renderFeed(activeFeedFixture());
+        var configureServicesSection = feedSectionAfter(html, 'Configura tus servicios', 'aa-executable-following-tasks');
 
         assert.match(html, /https:\/\/example\.test\/admin-post\.php\?module=assignments/);
         assert.match(html, />Ir</);
         assert.doesNotMatch(html, /data-learning-action="defer"/);
-        assert.doesNotMatch(html, />Ahora no</);
+        assert.doesNotMatch(configureServicesSection, />Ahora no</);
     });
 
     it('renderiza Learning complete en canal Learning', () => {
@@ -259,15 +271,15 @@ describe('executable feed render parity', () => {
         assert.match(html, /data-task-id="10"/);
         assert.doesNotMatch(html, /data-tasks-action="defer"/);
         assert.doesNotMatch(html, /data-learning-action="defer"[^>]*data-task-id="10"/);
-        assert.doesNotMatch(html, />Ahora no</);
+        assert.match(html, />Ahora no</);
     });
 
-    it('feed común post-H3B-3 no incluye botón defer ni Ahora no', () => {
+    it('feed común post-H3B-3 no incluye botón defer', () => {
         var html = renderer.renderFeed(activeFeedFixture());
 
         assert.doesNotMatch(html, /data-tasks-action="defer"/);
         assert.doesNotMatch(html, /data-learning-action="defer"/);
-        assert.doesNotMatch(html, />Ahora no</);
+        assert.match(html, />Ahora no</);
     });
 
     it('active feed no muestra Reabrir ni Reactivar', () => {
@@ -282,12 +294,13 @@ describe('executable feed render parity', () => {
     it('no infiere defer desde capabilities.can_defer cuando hay visible_actions', () => {
         var html = renderer.renderFeed(activeFeedFixture());
 
-        var configureServicesSection = html.split('Configura tus servicios')[1] || '';
-        var installPwaSection = html.split('Instala la app')[1] || '';
+        var configureServicesSection = feedSectionAfter(html, 'Configura tus servicios', 'aa-executable-following-tasks');
+        var installPwaSection = feedSectionAfter(html, 'Instala la app', 'Clientes');
 
         assert.doesNotMatch(configureServicesSection, /data-learning-action="defer"/);
         assert.doesNotMatch(configureServicesSection, />Ahora no</);
         assert.match(installPwaSection, /data-learning-action="dismiss"/);
+        assert.match(installPwaSection, />Ahora no</);
         assert.doesNotMatch(installPwaSection, /data-learning-action="defer"/);
         assert.doesNotMatch(installPwaSection, /data-learning-action="reactivate"/);
     });

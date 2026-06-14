@@ -27,7 +27,7 @@ function basePayload(overrides) {
                 continuation: false,
                 executive_actions: [
                     { key: 'complete', type: 'status', label: 'Completar' },
-                    { key: 'dismiss', type: 'intent', label: 'Ignorar' },
+                    { key: 'dismiss', type: 'intent', label: 'Ahora no' },
                     { key: 'navigate.settings', type: 'navigate', label: 'Ir', url: 'https://example.test/settings' }
                 ]
             },

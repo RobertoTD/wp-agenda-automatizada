@@ -70,11 +70,11 @@ final class AA_Executable_Visible_Actions_Policy {
 
             if ($source === AA_Executable_Contract::SOURCE_USER) {
                 if (!empty($capabilities['can_dismiss'])) {
-                    $actions[] = self::intent_action('dismiss', 'Ignorar');
+                    $actions[] = self::intent_action('dismiss', 'Ahora no');
                 }
             } else {
                 if (!empty($capabilities['can_dismiss'])) {
-                    $actions[] = self::intent_action('dismiss', 'Ignorar');
+                    $actions[] = self::intent_action('dismiss', 'Ahora no');
                 }
             }
         }

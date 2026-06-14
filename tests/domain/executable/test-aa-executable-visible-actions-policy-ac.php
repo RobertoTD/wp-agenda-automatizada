@@ -224,7 +224,7 @@ ac_assert(
     is_array($learning_secondary_dismiss)
     && ($learning_secondary_dismiss['type'] ?? '') === AA_Executable_Visible_Actions_Policy::ACTION_TYPE_INTENT
     && ($learning_secondary_dismiss['category'] ?? '') === AA_Executable_Visible_Actions_Policy::CATEGORY_INTENT
-    && ($learning_secondary_dismiss['label'] ?? '') === 'Ignorar'
+    && ($learning_secondary_dismiss['label'] ?? '') === 'Ahora no'
 );
 
 ac_assert(
