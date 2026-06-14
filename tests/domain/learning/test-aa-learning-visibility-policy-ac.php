@@ -88,7 +88,7 @@ $r = learning_eval($catalog['configure_services']);
 ac_assert('AC1 visible with empty state', $r['visible'] === true);
 ac_assert('AC1 default_list is primary', $r['effective_list'] === AA_Learning_Visibility_Policy::LIST_PRIMARY);
 
-// AC2: Menor importance aparece antes en la misma lista.
+// AC2: Mayor importance aparece antes en la misma lista.
 $definitions = [
     'high' => [
         'key' => 'high',
@@ -105,7 +105,7 @@ $definitions = [
         'key' => 'low',
         'title' => 'Low',
         'description' => '',
-        'importance' => -5,
+        'importance' => 5,
         'default_list' => 1,
         'active' => true,
         'completion_type' => AA_Learning_Catalog::COMPLETION_MANUAL,
@@ -115,9 +115,9 @@ $definitions = [
 ];
 $grouped = $policy->evaluate_all($definitions, [], [], $now);
 ac_assert(
-    'AC2 lower importance sorts first',
-    ($grouped['list_1'][0]['key'] ?? '') === 'low'
-    && ($grouped['list_1'][1]['key'] ?? '') === 'high'
+    'AC2 higher importance sorts first',
+    ($grouped['list_1'][0]['key'] ?? '') === 'high'
+    && ($grouped['list_1'][1]['key'] ?? '') === 'low'
 );
 
 // AC3: is_completed manual oculta.
@@ -350,7 +350,7 @@ ac_assert('AC8 inactive not in visible output', count($grouped_inactive['all_vis
 $r_inactive = learning_eval($inactive);
 ac_assert('AC8 inactive evaluate visible false', $r_inactive['visible'] === false);
 
-// AC9: Importancia negativa ordena antes que positiva.
+// AC9: Mayor importance ordena antes que menor.
 $neg_defs = [
     'positive' => [
         'key' => 'positive',
@@ -377,8 +377,8 @@ $neg_defs = [
 ];
 $neg_grouped = $policy->evaluate_all($neg_defs, [], [], $now);
 ac_assert(
-    'AC9 negative importance first',
-    ($neg_grouped['list_1'][0]['key'] ?? '') === 'negative'
+    'AC9 higher importance first',
+    ($neg_grouped['list_1'][0]['key'] ?? '') === 'positive'
 );
 
 // Tie-break por key ASC.
@@ -432,6 +432,34 @@ $google_visible = array_filter(
     }
 );
 ac_assert('Google connected hides catalog item', count($google_visible) === 0);
+
+ac_assert('Catalog SEED_VERSION is 3', AA_Learning_Catalog::SEED_VERSION === '3');
+ac_assert(
+    'Catalog connect_google_calendar has highest importance',
+    (int) ($catalog['connect_google_calendar']['importance'] ?? 0) === 100
+);
+ac_assert(
+    'Catalog review_agenda has lowest importance',
+    (int) ($catalog['review_agenda']['importance'] ?? 0) === 1
+);
+
+$list_1_keys = array_map(
+    static function (array $item): string {
+        return (string) ($item['key'] ?? '');
+    },
+    $all_pending['list_1'] ?? []
+);
+ac_assert(
+    'Catalog list_1 preserves activation flow order under DESC',
+    $list_1_keys === [
+        'connect_google_calendar',
+        'complete_business_data',
+        'configure_services',
+        'configure_areas',
+        'configure_staff',
+        'create_first_client',
+    ]
+);
 
 echo "\nPassed {$passed}/{$total}\n";
 

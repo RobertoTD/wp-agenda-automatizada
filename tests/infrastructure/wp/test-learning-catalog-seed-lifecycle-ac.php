@@ -184,7 +184,7 @@ ac_assert('Lifecycle stores last_error option', strpos($lifecycle_src, 'OPTION_L
 
 $catalog_src = file_get_contents($root . '/includes/domain/learning/class-aa-learning-catalog.php');
 ac_assert('Catalog defines SEED_VERSION', strpos($catalog_src, 'SEED_VERSION') !== false);
-ac_assert('Catalog SEED_VERSION bumped for seeded title rename', AA_Learning_Catalog::SEED_VERSION === '2');
+ac_assert('Catalog SEED_VERSION bumped for importance normalization', AA_Learning_Catalog::SEED_VERSION === '3');
 ac_assert('Catalog defines active_definition_keys', strpos($catalog_src, 'active_definition_keys') !== false);
 
 $sync_src = file_get_contents($root . '/includes/application/tasks/SyncLearningCatalogToTasksUseCase.php');

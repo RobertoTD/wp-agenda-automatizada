@@ -117,13 +117,13 @@ ac_assert('Invalid lists/tasks normalize to empty output', $defensive === [
 $list_result = tasks_prioritize(
     [
         ['id' => 2, 'title' => 'B', 'importance' => 5, 'position' => 0, 'status' => 'active'],
-        ['id' => 1, 'title' => 'A', 'importance' => -3, 'position' => 0, 'status' => 'active'],
+        ['id' => 1, 'title' => 'A', 'importance' => 10, 'position' => 0, 'status' => 'active'],
         ['id' => 9, 'title' => 'Archivada', 'importance' => -99, 'status' => 'archived'],
     ],
     []
 );
 ac_assert('Archived list excluded from list_order', $list_result['list_order'] === [1, 2]);
-ac_assert('Higher list importance first (lower int)', $list_result['list_order'][0] === 1);
+ac_assert('Higher list importance first (int DESC)', $list_result['list_order'][0] === 1);
 
 $list_position = tasks_prioritize(
     [
@@ -152,9 +152,9 @@ ac_assert('Sooner due_at before later due_at', ($upcoming_result['task_order_by_
 
 $importance_result = tasks_prioritize($base_list, [
     ['id' => 301, 'list_id' => 1, 'title' => 'Baja', 'importance' => 10, 'status' => 'pending'],
-    ['id' => 302, 'list_id' => 1, 'title' => 'Alta', 'importance' => -5, 'status' => 'pending'],
+    ['id' => 302, 'list_id' => 1, 'title' => 'Alta', 'importance' => 90, 'status' => 'pending'],
 ]);
-ac_assert('Higher importance before lower (int ASC)', ($importance_result['task_order_by_list'][1] ?? []) === [302, 301]);
+ac_assert('Higher importance before lower (int DESC)', ($importance_result['task_order_by_list'][1] ?? []) === [302, 301]);
 
 $done_result = tasks_prioritize($base_list, [
     ['id' => 401, 'list_id' => 1, 'title' => 'Hecha', 'status' => 'done'],
@@ -193,7 +193,7 @@ ac_assert('Archived list excluded from task_order_by_list keys', !isset($archive
 
 $executive_result = tasks_prioritize(
     [
-        ['id' => 1, 'title' => 'Alta lista', 'importance' => -10, 'status' => 'active'],
+        ['id' => 1, 'title' => 'Alta lista', 'importance' => 90, 'status' => 'active'],
         ['id' => 2, 'title' => 'Baja lista', 'importance' => 10, 'status' => 'active'],
     ],
     [

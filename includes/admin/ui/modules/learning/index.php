@@ -222,7 +222,7 @@ $executive_lists_focus_js = plugin_dir_url(__FILE__) . 'executive-lists-focus-mo
                     <label for="aa-task-list-edit-form-importance" class="block text-sm font-medium text-gray-700 mb-1">Importancia (opcional)</label>
                     <input type="number" id="aa-task-list-edit-form-importance" name="importance" value="0"
                         class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <p class="text-xs text-gray-500 mt-1">Valores más bajos suelen aparecer primero.</p>
+                    <p class="text-xs text-gray-500 mt-1">Valores más altos aparecen primero.</p>
                 </div>
                 <p id="aa-task-list-edit-form-error" class="hidden text-sm text-red-600"></p>
                 <div class="flex justify-end gap-2 pt-2">
@@ -262,7 +262,7 @@ $executive_lists_focus_js = plugin_dir_url(__FILE__) . 'executive-lists-focus-mo
                     <label for="aa-task-list-form-importance" class="block text-sm font-medium text-gray-700 mb-1">Importancia (opcional)</label>
                     <input type="number" id="aa-task-list-form-importance" name="importance" value="0"
                         class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <p class="text-xs text-gray-500 mt-1">Valores más bajos suelen aparecer primero.</p>
+                    <p class="text-xs text-gray-500 mt-1">Valores más altos aparecen primero.</p>
                 </div>
                 <p id="aa-task-list-form-error" class="hidden text-sm text-red-600"></p>
                 <div class="flex justify-end gap-2 pt-2">
@@ -318,6 +318,7 @@ $executive_lists_focus_js = plugin_dir_url(__FILE__) . 'executive-lists-focus-mo
                             <label for="aa-task-form-importance" class="block text-sm font-medium text-gray-700 mb-1">Importancia (opcional)</label>
                             <input type="number" id="aa-task-form-importance" name="importance" value="0"
                                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                            <p class="text-xs text-gray-500 mt-1">Valores más altos aparecen primero.</p>
                         </div>
                         <div>
                             <label for="aa-task-form-default-bucket" class="block text-sm font-medium text-gray-700 mb-1">Clasificación</label>
@@ -378,6 +379,7 @@ $executive_lists_focus_js = plugin_dir_url(__FILE__) . 'executive-lists-focus-mo
                             <label for="aa-task-edit-form-importance" class="block text-sm font-medium text-gray-700 mb-1">Importancia (opcional)</label>
                             <input type="number" id="aa-task-edit-form-importance" name="importance" value="0"
                                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                            <p class="text-xs text-gray-500 mt-1">Valores más altos aparecen primero.</p>
                         </div>
                         <div>
                             <label for="aa-task-edit-form-default-bucket" class="block text-sm font-medium text-gray-700 mb-1">Clasificación</label>

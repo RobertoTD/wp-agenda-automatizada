@@ -193,7 +193,7 @@ final class AA_Task_Prioritization_Policy implements AA_Prioritization_Provider_
     }
 
     private function compare_lists(AA_Task_List $a, AA_Task_List $b): int {
-        $importance_cmp = $a->importance() <=> $b->importance();
+        $importance_cmp = $b->importance() <=> $a->importance();
 
         if ($importance_cmp !== 0) {
             return $importance_cmp;
@@ -243,7 +243,7 @@ final class AA_Task_Prioritization_Policy implements AA_Prioritization_Provider_
             }
         }
 
-        $importance_cmp = $a->importance() <=> $b->importance();
+        $importance_cmp = $b->importance() <=> $a->importance();
 
         if ($importance_cmp !== 0) {
             return $importance_cmp;

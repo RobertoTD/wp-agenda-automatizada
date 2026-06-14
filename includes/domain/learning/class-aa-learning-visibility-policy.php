@@ -124,7 +124,7 @@ final class AA_Learning_Visibility_Policy {
     }
 
     /**
-     * Ordena por effective_list, importance ASC, key ASC.
+     * Ordena por effective_list, importance DESC, key ASC.
      *
      * @param list<array<string,mixed>> $items
      * @return list<array<string,mixed>>
@@ -137,7 +137,7 @@ final class AA_Learning_Visibility_Policy {
                 return $list_cmp;
             }
 
-            $importance_cmp = ((int) ($a['importance'] ?? 0)) <=> ((int) ($b['importance'] ?? 0));
+            $importance_cmp = ((int) ($b['importance'] ?? 0)) <=> ((int) ($a['importance'] ?? 0));
 
             if ($importance_cmp !== 0) {
                 return $importance_cmp;

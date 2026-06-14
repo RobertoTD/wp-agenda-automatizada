@@ -410,7 +410,7 @@ if ($wp_integration) {
 
     $high_importance_list = (new CreateTaskListUseCase())->execute([
         'title' => 'Lista alta ' . $suffix,
-        'importance' => -20,
+        'importance' => 20,
     ]);
     $high_list_id = (int) ($high_importance_list['data']['list']['id'] ?? 0);
 

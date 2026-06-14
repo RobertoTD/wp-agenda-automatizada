@@ -18,7 +18,7 @@ final class AA_Learning_Catalog {
      * Versión del catálogo para seed/sync hacia DB común (MC13O-D3).
      * Bumpear cuando cambien definiciones activas del catálogo.
      */
-    public const SEED_VERSION = '2';
+    public const SEED_VERSION = '3';
 
     /**
      * @return list<string> Keys de definiciones activas del catálogo.
@@ -46,7 +46,7 @@ final class AA_Learning_Catalog {
                 'connect_google_calendar',
                 'Conecta Google Calendar',
                 'Sincroniza tus citas con Google Calendar para recibir recordatorios y reducir olvidos.',
-                -10,
+                100,
                 1,
                 self::COMPLETION_AUTO,
                 'google_connected',
@@ -65,7 +65,7 @@ final class AA_Learning_Catalog {
                 'complete_business_data',
                 'Completa los datos de tu negocio',
                 'Añade el nombre y la dirección de tu negocio para personalizar la experiencia.',
-                -5,
+                90,
                 1,
                 self::COMPLETION_AUTO,
                 'business_data_complete',
@@ -84,7 +84,7 @@ final class AA_Learning_Catalog {
                 'configure_services',
                 'Configura tus servicios',
                 'Define qué servicios ofreces antes de abrir horarios o agendar citas.',
-                0,
+                80,
                 1,
                 self::COMPLETION_AUTO,
                 'has_active_service',
@@ -98,7 +98,7 @@ final class AA_Learning_Catalog {
                 'configure_areas',
                 'Configura zonas de atención',
                 'Crea las áreas o consultorios donde se prestarán los servicios.',
-                10,
+                70,
                 1,
                 self::COMPLETION_AUTO,
                 'has_active_area',
@@ -112,7 +112,7 @@ final class AA_Learning_Catalog {
                 'configure_staff',
                 'Configura personal y servicios',
                 'Registra personal activo y asígnale al menos un servicio.',
-                20,
+                60,
                 1,
                 self::COMPLETION_AUTO,
                 'has_staff_with_service',
@@ -126,7 +126,7 @@ final class AA_Learning_Catalog {
                 'create_first_client',
                 'Crea tu primer cliente',
                 'Agrega al menos un cliente para poder agendar con datos de contacto.',
-                30,
+                50,
                 1,
                 self::COMPLETION_AUTO,
                 'has_registered_client',
@@ -145,7 +145,7 @@ final class AA_Learning_Catalog {
                 'install_pwa',
                 'Instala la app en tu dispositivo',
                 'Añade DEOIA Citas a la pantalla de inicio para abrir la agenda más rápido.',
-                100,
+                10,
                 2,
                 self::COMPLETION_MANUAL,
                 null,
@@ -168,7 +168,7 @@ final class AA_Learning_Catalog {
                 'learn_basic_flow',
                 'Aprende el flujo básico',
                 'Recorre resumen, agenda y asignaciones para familiarizarte con la app.',
-                110,
+                5,
                 2,
                 self::COMPLETION_MANUAL,
                 null,
@@ -186,7 +186,7 @@ final class AA_Learning_Catalog {
                 'review_agenda',
                 'Revisa tu agenda del día',
                 'Consulta las citas de hoy en el módulo Agenda cuando empieces a operar.',
-                120,
+                1,
                 2,
                 self::COMPLETION_MANUAL,
                 null,
