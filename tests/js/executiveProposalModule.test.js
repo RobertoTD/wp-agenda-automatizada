@@ -31,6 +31,25 @@ function makeClassList(initialClasses) {
     };
 }
 
+function makeButton(attrs) {
+    var attributes = Object.assign({
+        'data-executive-action': '1',
+        'data-executive-task-id': '1',
+        'data-executive-action-key': 'complete'
+    }, attrs || {});
+
+    return {
+        disabled: false,
+        classList: makeClassList([]),
+        getAttribute: function (name) {
+            return attributes[name] || null;
+        },
+        setAttribute: function (name, value) {
+            attributes[name] = value;
+        }
+    };
+}
+
 function makeElement(id, options) {
     var opts = options || {};
 
@@ -39,6 +58,13 @@ function makeElement(id, options) {
         innerHTML: opts.innerHTML || '',
         textContent: opts.textContent || '',
         classList: makeClassList(opts.classes || []),
+        contains: function () {
+            return true;
+        },
+        querySelectorAll: function () {
+            return opts.buttons || [];
+        },
+        addEventListener: function () {},
         setAttribute: function () {},
         getAttribute: function () {
             return null;
@@ -46,23 +72,39 @@ function makeElement(id, options) {
     };
 }
 
-describe('executive-proposal-module MC2', () => {
+describe('executive-proposal-module MC2/MC3', () => {
     let originalService;
     let originalRenderer;
     let originalProposalApi;
+    let originalBoard;
+    let originalFeed;
+    let originalHandlers;
+    let originalLocation;
     let serviceCalls;
+    let postCalls;
     let renderCalls;
+    let boardReloadOptions;
+    let feedReloadCalls;
+    let handlerRuns;
     let dom;
 
     beforeEach(() => {
         originalService = globalThis.AAExecutiveProposalService;
         originalRenderer = globalThis.AAExecutiveProposalRenderer;
         originalProposalApi = globalThis.AAExecutiveProposal;
+        originalBoard = globalThis.AATasksBoard;
+        originalFeed = globalThis.AAExecutableUserListsVisibleFeed;
+        originalHandlers = globalThis.LearningActionHandlers;
+        originalLocation = globalThis.location;
         serviceCalls = 0;
+        postCalls = 0;
         renderCalls = 0;
+        boardReloadOptions = null;
+        feedReloadCalls = 0;
+        handlerRuns = 0;
 
         dom = {
-            proposal: makeElement('aa-executive-proposal'),
+            proposal: makeElement('aa-executive-proposal', { buttons: [] }),
             loading: makeElement('aa-executive-proposal-loading', { classes: ['hidden'] }),
             error: makeElement('aa-executive-proposal-error', { classes: ['hidden'] }),
             focus: makeElement('aa-executive-focus', { classes: ['hidden'] }),
@@ -108,15 +150,57 @@ describe('executive-proposal-module MC2', () => {
                     focus_list: { id: 1, title: 'Foco', source_category: 'user' },
                     tasks: [{ slot: 'current', task_id: 1, title: 'Actual', is_overdue: false }]
                 });
+            },
+            postExecutiveAction: function (payload) {
+                postCalls += 1;
+                return Promise.resolve({
+                    action: { key: payload.actionKey, mutated: payload.actionKey === 'complete' },
+                    proposal: {
+                        status: 'ready',
+                        tasks: [{ slot: 'current', task_id: 2, title: 'Siguiente' }]
+                    },
+                    client_action: payload.actionKey === 'navigate.settings'
+                        ? { type: 'navigate', url: 'https://example.test/go' }
+                        : null
+                });
             }
         };
 
         globalThis.AAExecutiveProposalRenderer = {
             renderProposal: function (payload) {
                 renderCalls += 1;
-                dom.list.innerHTML = payload && payload.tasks ? 'rendered' : '';
+                dom.list.innerHTML = payload && payload.tasks ? 'rendered:' + payload.tasks[0].task_id : '';
             }
         };
+
+        globalThis.AATasksBoard = {
+            reload: function (options) {
+                boardReloadOptions = options || {};
+                return Promise.resolve();
+            }
+        };
+
+        globalThis.AAExecutableUserListsVisibleFeed = {
+            isEnabled: function () {
+                return true;
+            },
+            reloadFeedOnly: function () {
+                feedReloadCalls += 1;
+                return Promise.resolve();
+            }
+        };
+
+        globalThis.LearningActionHandlers = {
+            isAvailable: function () {
+                return true;
+            },
+            run: function () {
+                handlerRuns += 1;
+                return Promise.resolve();
+            }
+        };
+
+        globalThis.location = { href: '' };
     });
 
     afterEach(() => {
@@ -138,6 +222,30 @@ describe('executive-proposal-module MC2', () => {
             globalThis.AAExecutiveProposal = originalProposalApi;
         }
 
+        if (originalBoard === undefined) {
+            delete globalThis.AATasksBoard;
+        } else {
+            globalThis.AATasksBoard = originalBoard;
+        }
+
+        if (originalFeed === undefined) {
+            delete globalThis.AAExecutableUserListsVisibleFeed;
+        } else {
+            globalThis.AAExecutableUserListsVisibleFeed = originalFeed;
+        }
+
+        if (originalHandlers === undefined) {
+            delete globalThis.LearningActionHandlers;
+        } else {
+            globalThis.LearningActionHandlers = originalHandlers;
+        }
+
+        if (originalLocation === undefined) {
+            delete globalThis.location;
+        } else {
+            globalThis.location = originalLocation;
+        }
+
         delete globalThis.document;
     });
 
@@ -146,7 +254,35 @@ describe('executive-proposal-module MC2', () => {
 
         assert.equal(serviceCalls, 1);
         assert.equal(renderCalls, 1);
-        assert.equal(dom.list.innerHTML, 'rendered');
+        assert.equal(dom.list.innerHTML, 'rendered:1');
+    });
+
+    it('handleExecutiveActionClick complete llama POST y renderiza proposal inline', async () => {
+        var button = makeButton({ 'data-executive-action-key': 'complete' });
+
+        await hooks.handleExecutiveActionClick(button);
+
+        assert.equal(postCalls, 1);
+        assert.equal(renderCalls, 1);
+        assert.equal(dom.list.innerHTML, 'rendered:2');
+        assert.equal(boardReloadOptions && boardReloadOptions.skipExecutiveProposal, true);
+        assert.equal(feedReloadCalls, 1);
+    });
+
+    it('handleExecutiveActionClick dismiss llama POST', async () => {
+        globalThis.AAExecutiveProposalService.postExecutiveAction = function (payload) {
+            postCalls += 1;
+            return Promise.resolve({
+                action: { key: 'dismiss', mutated: true },
+                proposal: { status: 'ready', tasks: [{ slot: 'current', task_id: 3, title: 'Otra' }] },
+                client_action: null
+            });
+        };
+
+        await hooks.handleExecutiveActionClick(makeButton({ 'data-executive-action-key': 'dismiss' }));
+
+        assert.equal(postCalls, 1);
+        assert.equal(renderCalls, 1);
     });
 
     it('maneja error sin romper el módulo', async () => {
@@ -159,6 +295,35 @@ describe('executive-proposal-module MC2', () => {
         await assert.doesNotReject(async function () {
             await hooks.loadProposal({ silent: true });
         });
+    });
+
+    it('POST error muestra mensaje', async () => {
+        globalThis.AAExecutiveProposalService.postExecutiveAction = function () {
+            return Promise.reject(new Error('acción inválida'));
+        };
+
+        await hooks.handleExecutiveActionClick(makeButton());
+
+        assert.match(dom.error.textContent, /acción inválida/);
+    });
+
+    it('runClientAction navigate asigna location.href', async () => {
+        await hooks.runClientAction({ type: 'navigate', url: 'https://example.test/go' });
+
+        assert.equal(globalThis.location.href, 'https://example.test/go');
+    });
+
+    it('runClientAction handler usa LearningActionHandlers', async () => {
+        await hooks.runClientAction({
+            type: 'handler',
+            handler: 'pwa.install',
+            origin_key: 'install_pwa',
+            task_id: '10',
+            source: 'system',
+            label: 'Instalar'
+        });
+
+        assert.equal(handlerRuns, 1);
     });
 
     it('expone AAExecutiveProposal.reload', () => {
@@ -184,7 +349,7 @@ describe('executive-proposal-module MC2', () => {
         assert.equal(reloadSilent, true);
     });
 
-    it('reload({ silent: true }) no llama AATasksBoard.reload', async () => {
+    it('loadProposal no llama AATasksBoard.reload', async () => {
         let boardReloadCalls = 0;
         globalThis.AATasksBoard = {
             reload: function () {
@@ -196,6 +361,5 @@ describe('executive-proposal-module MC2', () => {
         await hooks.loadProposal({ silent: true });
 
         assert.equal(boardReloadCalls, 0);
-        delete globalThis.AATasksBoard;
     });
 });

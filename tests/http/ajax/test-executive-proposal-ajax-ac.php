@@ -36,7 +36,7 @@ ac_assert('AJAX checks manage_options capability', strpos($ajax_src, "current_us
 ac_assert('AJAX uses check_ajax_referer', strpos($ajax_src, 'check_ajax_referer') !== false);
 ac_assert('AJAX success uses wp_send_json_success', strpos($ajax_src, 'wp_send_json_success') !== false);
 ac_assert('AJAX error uses wp_send_json_error', strpos($ajax_src, 'wp_send_json_error') !== false);
-ac_assert('AJAX does not register POST executive action', strpos($ajax_src, 'aa_executive_action') === false);
+ac_assert('AJAX registers aa_executive_action POST handler', strpos($ajax_src, 'aa_executive_action') !== false);
 
 ac_assert('Plugin bootstrap registers ExecutiveProposalAjax', strpos($bootstrap_src, 'ExecutiveProposalAjax::register()') !== false);
 

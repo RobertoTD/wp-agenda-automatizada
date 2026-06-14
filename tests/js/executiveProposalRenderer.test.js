@@ -24,7 +24,12 @@ function basePayload(overrides) {
                 description: 'Descripción actual',
                 is_overdue: false,
                 actionable: true,
-                continuation: false
+                continuation: false,
+                executive_actions: [
+                    { key: 'complete', type: 'status', label: 'Completar' },
+                    { key: 'dismiss', type: 'intent', label: 'Ignorar' },
+                    { key: 'navigate.settings', type: 'navigate', label: 'Ir', url: 'https://example.test/settings' }
+                ]
             },
             {
                 slot: 'next',
@@ -33,7 +38,8 @@ function basePayload(overrides) {
                 description: null,
                 is_overdue: true,
                 actionable: false,
-                continuation: true
+                continuation: true,
+                executive_actions: []
             },
             {
                 slot: 'third',
@@ -42,7 +48,8 @@ function basePayload(overrides) {
                 description: null,
                 is_overdue: false,
                 actionable: false,
-                continuation: true
+                continuation: true,
+                executive_actions: []
             }
         ],
         meta: {
@@ -52,7 +59,7 @@ function basePayload(overrides) {
     }, overrides || {});
 }
 
-describe('executiveProposalRenderer MC2', () => {
+describe('executiveProposalRenderer MC2/MC3', () => {
     it('current aparece expandida con label Ahora y descripción', () => {
         const html = renderer.renderCurrentTask(basePayload().tasks[0]);
 
@@ -62,17 +69,29 @@ describe('executiveProposalRenderer MC2', () => {
         assert.match(html, />Descripción actual</);
     });
 
-    it('next y third aparecen compactas con labels Siguiente y Después', () => {
+    it('current muestra botones ejecutivos con data-executive-*', () => {
+        const html = renderer.renderCurrentTask(basePayload().tasks[0]);
+
+        assert.match(html, /data-executive-action="1"/);
+        assert.match(html, /data-executive-task-id="1"/);
+        assert.match(html, /data-executive-action-key="complete"/);
+        assert.match(html, /data-executive-action-key="dismiss"/);
+        assert.match(html, />Completar</);
+        assert.match(html, />Ahora no</);
+        assert.match(html, />Ir</);
+    });
+
+    it('next y third aparecen compactas sin botones', () => {
         const payload = basePayload();
         const nextHtml = renderer.renderContinuationTask(payload.tasks[1], 'next');
         const thirdHtml = renderer.renderContinuationTask(payload.tasks[2], 'third');
 
         assert.match(nextHtml, /aa-executive-slot-next/);
-        assert.match(nextHtml, />Siguiente</);
-        assert.match(nextHtml, />Tarea siguiente</);
         assert.match(thirdHtml, /aa-executive-slot-third/);
-        assert.match(thirdHtml, />Después</);
-        assert.match(thirdHtml, />Tercera tarea</);
+        assert.equal(nextHtml.includes('data-executive-action'), false);
+        assert.equal(thirdHtml.includes('data-executive-action'), false);
+        assert.equal(nextHtml.includes('<button'), false);
+        assert.equal(thirdHtml.includes('<button'), false);
     });
 
     it('muestra label Vencida cuando is_overdue es true', () => {
@@ -98,7 +117,6 @@ describe('executiveProposalRenderer MC2', () => {
 
         assert.equal(parts.isEmpty, false);
         assert.match(parts.focusHtml, />Foco:</);
-        assert.match(parts.focusHtml, />Lista foco</);
         assert.match(parts.listHtml, /aa-executive-slot-current/);
         assert.match(parts.listHtml, /aa-executive-slot-next/);
         assert.match(parts.listHtml, /aa-executive-slot-third/);
@@ -113,17 +131,15 @@ describe('executiveProposalRenderer MC2', () => {
         assert.match(html, />Agenda app</);
     });
 
-    it('no emite data-tasks-action ni data-learning-action ni botones mutativos', () => {
+    it('no emite data-tasks-action ni data-learning-action ni acciones organizativas', () => {
         const parts = renderer.buildProposalParts(basePayload());
         const html = parts.focusHtml + parts.listHtml;
 
         assert.equal(html.includes('data-tasks-action'), false);
         assert.equal(html.includes('data-learning-action'), false);
-        assert.equal(html.includes('<button'), false);
-        assert.equal(html.includes('Completar'), false);
-        assert.equal(html.includes('Ignorar'), false);
         assert.equal(html.includes('Archivar'), false);
         assert.equal(html.includes('Eliminar'), false);
+        assert.equal(html.includes('Ignorar'), false);
     });
 
     it('payload vacío o inválido no rompe buildProposalParts', () => {

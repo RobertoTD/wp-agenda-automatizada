@@ -114,6 +114,7 @@ function exec_board_ready_fixture(): array {
                 'due_at' => '2026-06-01 08:00:00',
                 'completion_type' => 'system',
                 'source_category' => 'agenda_app',
+                'origin_key' => 'connect_calendar',
             ],
             [
                 'id' => 11,
@@ -233,6 +234,8 @@ ac_assert(
     }, $current['executive_actions'] ?? []), true)
 );
 ac_assert('Current is_overdue flag is informational', is_array($current) && ($current['is_overdue'] ?? false) === true);
+ac_assert('Current exposes origin_key for handlers', is_array($current) && array_key_exists('origin_key', $current));
+ac_assert('Current exposes source for handlers', is_array($current) && ($current['source'] ?? '') === 'system');
 ac_assert('Next is_overdue defaults false without due_at', is_array($next) && ($next['is_overdue'] ?? true) === false);
 
 $due_order_board = [

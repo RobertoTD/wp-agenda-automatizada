@@ -930,6 +930,7 @@
 
     var visibleUserFeedApi = {
         reload: reloadExecutableVisibleFeed,
+        reloadFeedOnly: loadUnifiedFeed,
         isEnabled: isExecutableVisibleFeedEnabled,
         isSwapEnabled: isUserSwapEnabled,
         isUnifiedEnabled: isUnifiedFeedEnabled,
@@ -963,6 +964,7 @@
         enableInteractiveRoot: enableInteractiveRoot,
         enablePreviewRoot: enablePreviewRoot,
         loadExperimentalFeed: loadExperimentalFeed,
+        reloadFeedOnly: loadUnifiedFeed,
         loadUnifiedFeed: loadUnifiedFeed,
         renderPayload: renderPayload,
         renderUnifiedPayload: renderUnifiedPayload,

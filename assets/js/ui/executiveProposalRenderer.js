@@ -64,6 +64,90 @@
     }
 
     /**
+     * @param {object} action
+     * @param {number|string} taskId
+     * @returns {string}
+     */
+    function resolveActionLabel(action) {
+        var key = String(action.key || '').toLowerCase();
+        var label = String(action.label || '').trim();
+
+        if (key === 'dismiss') {
+            return 'Ahora no';
+        }
+
+        if (key === 'complete') {
+            return 'Completar';
+        }
+
+        return label !== '' ? label : 'Acción';
+    }
+
+    /**
+     * @param {object} action
+     * @returns {string}
+     */
+    function resolveActionButtonClass(action) {
+        var key = String(action.key || '').toLowerCase();
+        var type = String(action.type || '').toLowerCase();
+
+        if (key === 'complete') {
+            return 'text-green-700 hover:text-green-800 border-green-200 bg-green-50';
+        }
+
+        if (key === 'dismiss') {
+            return 'text-gray-600 hover:text-gray-800 border-gray-200 bg-white';
+        }
+
+        if (type === 'navigate' || type === 'handler') {
+            return 'text-blue-700 hover:text-blue-800 border-blue-200 bg-blue-50';
+        }
+
+        return 'text-gray-700 hover:text-gray-900 border-gray-200 bg-white';
+    }
+
+    /**
+     * @param {Array} actions
+     * @param {object} task
+     * @returns {string}
+     */
+    function renderExecutiveActions(actions, task) {
+        if (!Array.isArray(actions) || actions.length === 0) {
+            return '';
+        }
+
+        var taskId = escapeHtml(task.task_id || '');
+        var buttons = actions.map(function (action) {
+            if (!action || typeof action !== 'object') {
+                return '';
+            }
+
+            var actionKey = escapeHtml(action.key || '');
+            var label = escapeHtml(resolveActionLabel(action));
+            var buttonClass = resolveActionButtonClass(action);
+
+            if (actionKey === '' || taskId === '') {
+                return '';
+            }
+
+            return ''
+                + '<button type="button"'
+                + ' data-executive-action="1"'
+                + ' data-executive-task-id="' + taskId + '"'
+                + ' data-executive-action-key="' + actionKey + '"'
+                + ' class="inline-flex items-center rounded-lg border px-3 py-1.5 text-xs font-medium ' + buttonClass + '">'
+                + label
+                + '</button>';
+        }).join('');
+
+        if (buttons === '') {
+            return '';
+        }
+
+        return '<div class="aa-executive-actions mt-3 flex flex-wrap gap-2">' + buttons + '</div>';
+    }
+
+    /**
      * @param {object} task
      * @returns {string}
      */
@@ -73,6 +157,7 @@
             ? '<p class="text-sm text-gray-600 mt-2">' + escapeHtml(task.description) + '</p>'
             : '';
         var slotLabel = escapeHtml(SLOT_LABELS.current);
+        var actionsHtml = renderExecutiveActions(task.executive_actions, task);
 
         return ''
             + '<li class="aa-executive-slot aa-executive-slot-current rounded-lg border border-blue-200 bg-blue-50/60 p-4" data-executive-slot="current">'
@@ -82,6 +167,7 @@
             + '</div>'
             + '<p class="text-base font-semibold text-gray-900 mt-2">' + title + '</p>'
             + description
+            + actionsHtml
             + '</li>';
     }
 
@@ -209,7 +295,9 @@
         buildProposalParts: buildProposalParts,
         renderFocusContext: renderFocusContext,
         renderCurrentTask: renderCurrentTask,
-        renderContinuationTask: renderContinuationTask
+        renderContinuationTask: renderContinuationTask,
+        renderExecutiveActions: renderExecutiveActions,
+        resolveActionLabel: resolveActionLabel
     };
 
     globalRoot.AAExecutiveProposalRenderer = api;

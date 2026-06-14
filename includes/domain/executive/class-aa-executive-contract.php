@@ -130,7 +130,7 @@ final class AA_Executive_Contract {
         $actionable = !empty($task['actionable']);
         $continuation = !empty($task['continuation']);
 
-        return [
+        $normalized = [
             'slot' => $slot,
             'task_id' => $task_id,
             'title' => self::normalize_string($task['title'] ?? ''),
@@ -148,6 +148,13 @@ final class AA_Executive_Contract {
                 : null,
             'reason' => $actionable ? self::REASON_FOCUS_CURRENT : self::REASON_CONTINUITY,
         ];
+
+        if ($actionable) {
+            $normalized['origin_key'] = self::nullable_string($task['origin_key'] ?? null);
+            $normalized['source'] = self::normalize_executive_source($task['source'] ?? null);
+        }
+
+        return $normalized;
     }
 
     /**
@@ -299,6 +306,19 @@ final class AA_Executive_Contract {
         $normalized = trim($value);
 
         return $normalized !== '' ? $normalized : null;
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private static function normalize_executive_source($value): ?string {
+        $source = is_string($value) ? strtolower(trim($value)) : '';
+
+        if ($source === 'system' || $source === 'user') {
+            return $source;
+        }
+
+        return null;
     }
 
     /**

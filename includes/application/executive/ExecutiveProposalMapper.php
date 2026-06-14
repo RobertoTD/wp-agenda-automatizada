@@ -113,6 +113,8 @@ final class ExecutiveProposalMapper {
                 'reason' => $is_current
                     ? AA_Executive_Contract::REASON_FOCUS_CURRENT
                     : AA_Executive_Contract::REASON_CONTINUITY,
+                'origin_key' => $is_current ? self::nullable_origin_key($task) : null,
+                'source' => $is_current ? self::resolve_source($task, $focus_list) : null,
             ];
         }
 
@@ -350,6 +352,15 @@ final class ExecutiveProposalMapper {
         }
 
         return null;
+    }
+
+    /**
+     * @param array<string,mixed> $task
+     */
+    private static function nullable_origin_key(array $task): ?string {
+        $origin_key = isset($task['origin_key']) ? trim((string) $task['origin_key']) : '';
+
+        return $origin_key !== '' ? $origin_key : null;
     }
 
     /**

@@ -147,8 +147,14 @@
      * @returns {Promise<void>}
      */
     function reloadBoardAfterMutation(options) {
-        return loadBoard(options || { silent: true }).then(function () {
+        var opts = options || { silent: true };
+
+        return loadBoard(opts).then(function () {
             return reloadExecutableUserFeedBestEffort().then(function () {
+                if (opts.skipExecutiveProposal === true) {
+                    return undefined;
+                }
+
                 return reloadExecutiveProposalBestEffort();
             });
         });
@@ -180,6 +186,7 @@
     function loadBoard(options) {
         var opts = options || {};
         var silent = opts.silent === true;
+        var skipExecutiveProposal = opts.skipExecutiveProposal === true;
         var service = getService();
         var loadingEl = document.getElementById('aa-tasks-loading');
         var root = document.getElementById('aa-tasks-board-root');
