@@ -186,6 +186,8 @@ $ready = (new GetExecutiveProposalUseCase(static function (): array {
 
 ac_assert('Use case returns success', !empty($ready['success']));
 ac_assert('Use case status ready', ($ready['status'] ?? '') === AA_Executive_Contract::STATUS_READY);
+ac_assert('Meta includes sprint observability block', is_array($ready['meta']['sprint'] ?? null));
+ac_assert('Sprint meta inactive without stored sprint', ($ready['meta']['sprint']['sprint_active'] ?? true) === false);
 ac_assert('Focus list id matches highest-priority list with eligibles', (int) ($ready['focus_list']['id'] ?? 0) === 2);
 ac_assert('Focus list preserves source_category', ($ready['focus_list']['source_category'] ?? '') === 'agenda_app');
 ac_assert('Use case returns at most three tasks', count($ready['tasks'] ?? []) === 3);
@@ -376,6 +378,19 @@ ac_assert(
     'Sprint activo expone focus_reason sprint_active',
     ($sprint_active['meta']['focus_reason'] ?? '') === AA_Executive_Contract::FOCUS_REASON_SPRINT_ACTIVE
 );
+ac_assert('Sprint activo meta sprint_active true', ($sprint_active['meta']['sprint']['sprint_active'] ?? false) === true);
+ac_assert(
+    'Sprint activo meta active_focus_list_id',
+    (int) ($sprint_active['meta']['sprint']['active_focus_list_id'] ?? 0) === 1
+);
+ac_assert(
+    'Sprint activo meta seconds_remaining positive',
+    (int) ($sprint_active['meta']['sprint']['seconds_remaining'] ?? 0) > 0
+);
+ac_assert(
+    'Sprint activo meta current_focus_list_id',
+    (int) ($sprint_active['meta']['sprint']['current_focus_list_id'] ?? 0) === 1
+);
 
 $expired_storage = [];
 $expired_storage[7] = [
@@ -401,6 +416,7 @@ ac_assert(
     'Sprint vencido no fuerza lista foco',
     (int) ($sprint_expired['focus_list']['id'] ?? 0) === 2
 );
+ac_assert('Sprint vencido meta inactive_reason expired', ($sprint_expired['meta']['sprint']['inactive_reason'] ?? '') === 'expired');
 ac_assert('Sprint vencido limpia storage', !isset($expired_storage[7]));
 
 $exhausted_storage = [];

@@ -283,7 +283,85 @@ final class AA_Executive_Contract {
                 ? self::normalize_focus_reason($meta['focus_reason'] ?? null)
                 : null,
             'empty_reason' => $empty_reason,
+            'sprint' => self::normalize_sprint_meta($meta['sprint'] ?? null),
         ];
+    }
+
+    /**
+     * @param mixed $value
+     * @return array<string,mixed>
+     */
+    private static function normalize_sprint_meta($value): array {
+        if (!is_array($value)) {
+            return [
+                'sprint_active' => false,
+                'active_focus_list_id' => null,
+                'sprint_started_at' => null,
+                'last_executive_action_at' => null,
+                'sprint_expires_at' => null,
+                'seconds_remaining' => null,
+                'focus_reason' => null,
+                'current_focus_list_id' => null,
+                'inactive_reason' => 'no_active_sprint',
+            ];
+        }
+
+        $sprint_active = !empty($value['sprint_active']);
+        $inactive_reason = self::nullable_string($value['inactive_reason'] ?? null);
+
+        if (!$sprint_active && ($inactive_reason !== 'expired' && $inactive_reason !== 'no_active_sprint')) {
+            $inactive_reason = 'no_active_sprint';
+        }
+
+        if ($sprint_active) {
+            $inactive_reason = null;
+        }
+
+        $focus_reason = self::nullable_string($value['focus_reason'] ?? null);
+
+        if ($focus_reason !== null && $focus_reason !== self::FOCUS_REASON_SPRINT_ACTIVE) {
+            $focus_reason = self::FOCUS_REASON_FIRST_LIST_WITH_ELIGIBLE;
+        }
+
+        return [
+            'sprint_active' => $sprint_active,
+            'active_focus_list_id' => self::nullable_positive_int($value['active_focus_list_id'] ?? null),
+            'sprint_started_at' => self::nullable_non_negative_int($value['sprint_started_at'] ?? null),
+            'last_executive_action_at' => self::nullable_non_negative_int($value['last_executive_action_at'] ?? null),
+            'sprint_expires_at' => self::nullable_non_negative_int($value['sprint_expires_at'] ?? null),
+            'seconds_remaining' => $sprint_active
+                ? max(0, (int) ($value['seconds_remaining'] ?? 0))
+                : null,
+            'focus_reason' => $focus_reason,
+            'current_focus_list_id' => self::nullable_positive_int($value['current_focus_list_id'] ?? null),
+            'inactive_reason' => $inactive_reason,
+        ];
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private static function nullable_positive_int($value): ?int {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $normalized = (int) $value;
+
+        return $normalized > 0 ? $normalized : null;
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private static function nullable_non_negative_int($value): ?int {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $normalized = (int) $value;
+
+        return $normalized >= 0 ? $normalized : null;
     }
 
     /**

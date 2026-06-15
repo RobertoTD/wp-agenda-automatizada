@@ -9,6 +9,7 @@ defined('ABSPATH') or die('No direct access');
 
 require_once dirname(__DIR__, 2) . '/domain/executive/class-aa-executive-actions-policy.php';
 require_once dirname(__DIR__, 2) . '/domain/executive/class-aa-executive-contract.php';
+require_once dirname(__DIR__, 2) . '/domain/executive/class-aa-executive-sprint-policy.php';
 require_once dirname(__DIR__, 2) . '/domain/executable/class-aa-executable-contract.php';
 require_once dirname(__DIR__, 2) . '/domain/executable/class-aa-executable-visible-actions-policy.php';
 require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task.php';
@@ -157,6 +158,62 @@ final class ExecutiveProposalMapper {
         }
 
         return AA_Executive_Contract::FOCUS_REASON_FIRST_LIST_WITH_ELIGIBLE;
+    }
+
+    /**
+     * Meta de observabilidad MC4.1 — no afecta selección ni render.
+     *
+     * @param array<string,mixed> $sprint_state
+     * @param array<string,mixed> $selection
+     */
+    public static function build_sprint_meta(
+        array $sprint_state,
+        array $selection,
+        int $now_ts,
+        bool $was_expired_before_cleanup
+    ): array {
+        $sprint_active = AA_Executive_Sprint_Policy::is_active($sprint_state, $now_ts);
+        $sanitized = $sprint_active ? AA_Executive_Sprint_Policy::sanitize($sprint_state) : [];
+        $current_focus_list_id = null;
+
+        if (($selection['status'] ?? '') === AA_Executive_Contract::STATUS_READY) {
+            $focus_list_id = (int) ($selection['focus_list_id'] ?? 0);
+            $current_focus_list_id = $focus_list_id > 0 ? $focus_list_id : null;
+        }
+
+        $focus_reason = ($selection['status'] ?? '') === AA_Executive_Contract::STATUS_READY
+            ? self::resolve_focus_reason($selection)
+            : null;
+
+        $meta = [
+            'sprint_active' => $sprint_active,
+            'active_focus_list_id' => $sprint_active
+                ? (int) ($sanitized['active_focus_list_id'] ?? 0) ?: null
+                : null,
+            'sprint_started_at' => $sprint_active
+                ? (int) ($sanitized['sprint_started_at'] ?? 0) ?: null
+                : null,
+            'last_executive_action_at' => $sprint_active
+                ? (int) ($sanitized['last_executive_action_at'] ?? 0) ?: null
+                : null,
+            'sprint_expires_at' => $sprint_active
+                ? (int) ($sanitized['sprint_expires_at'] ?? 0) ?: null
+                : null,
+            'seconds_remaining' => $sprint_active
+                ? max(0, (int) ($sanitized['sprint_expires_at'] ?? 0) - $now_ts)
+                : null,
+            'focus_reason' => $focus_reason,
+            'current_focus_list_id' => $current_focus_list_id,
+            'inactive_reason' => null,
+        ];
+
+        if (!$sprint_active) {
+            $meta['inactive_reason'] = $was_expired_before_cleanup
+                ? 'expired'
+                : 'no_active_sprint';
+        }
+
+        return $meta;
     }
 
     /**

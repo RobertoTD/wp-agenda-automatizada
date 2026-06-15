@@ -61,8 +61,9 @@ final class GetExecutiveProposalUseCase {
         $user_id = $this->resolve_user_id();
         $now_ts = $this->resolve_now_ts();
         $sprint = $this->read_sprint($user_id);
+        $was_expired_before_cleanup = AA_Executive_Sprint_Policy::is_expired($sprint, $now_ts);
 
-        if (AA_Executive_Sprint_Policy::is_expired($sprint, $now_ts)) {
+        if ($was_expired_before_cleanup) {
             $this->write_sprint($user_id, AA_Executive_Sprint_Policy::empty_state());
             $sprint = AA_Executive_Sprint_Policy::empty_state();
         }
@@ -86,16 +87,22 @@ final class GetExecutiveProposalUseCase {
             $new_focus_list_id = (int) ($selection['focus_list_id'] ?? 0);
 
             if ($new_focus_list_id > 0 && $new_focus_list_id !== $preferred_focus_list_id) {
-                $updated = AA_Executive_Sprint_Policy::update_active_focus_without_renew(
+                $sprint = AA_Executive_Sprint_Policy::update_active_focus_without_renew(
                     $sprint,
                     $new_focus_list_id
                 );
-                $this->write_sprint($user_id, $updated);
+                $this->write_sprint($user_id, $sprint);
             }
         }
 
         $now = TaskUseCaseSupport::resolve_now();
         $payload = ExecutiveProposalMapper::map($board, $selection, $now);
+        $payload['meta']['sprint'] = ExecutiveProposalMapper::build_sprint_meta(
+            $sprint,
+            $selection,
+            $now_ts,
+            $was_expired_before_cleanup
+        );
 
         return AA_Executive_Contract::normalize_proposal($payload);
     }

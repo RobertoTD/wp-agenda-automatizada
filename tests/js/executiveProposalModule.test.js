@@ -363,3 +363,165 @@ describe('executive-proposal-module MC2/MC3', () => {
         assert.equal(boardReloadCalls, 0);
     });
 });
+
+describe('executive-proposal-module MC4.1 sprint debug', () => {
+    let originalService;
+    let originalRenderer;
+    let originalProposalApi;
+    let originalConsole;
+    let dom;
+    let consoleLines;
+
+    beforeEach(() => {
+        originalService = globalThis.AAExecutiveProposalService;
+        originalRenderer = globalThis.AAExecutiveProposalRenderer;
+        originalProposalApi = globalThis.AAExecutiveProposal;
+        originalConsole = globalThis.console;
+        consoleLines = [];
+
+        globalThis.console = {
+            log: function (line) {
+                consoleLines.push(String(line));
+            }
+        };
+
+        dom = {
+            root: makeElement('aa-executive-proposal'),
+            loading: makeElement('aa-executive-proposal-loading', { classes: ['hidden'] }),
+            error: makeElement('aa-executive-proposal-error', { classes: ['hidden'] })
+        };
+
+        globalThis.document = {
+            getElementById: function (id) {
+                if (id === 'aa-executive-proposal') {
+                    return dom.root;
+                }
+                if (id === 'aa-executive-proposal-loading') {
+                    return dom.loading;
+                }
+                if (id === 'aa-executive-proposal-error') {
+                    return dom.error;
+                }
+
+                return null;
+            },
+            readyState: 'complete',
+            addEventListener: function () {}
+        };
+
+        globalThis.AAExecutiveProposalRenderer = {
+            renderProposal: function () {}
+        };
+    });
+
+    afterEach(() => {
+        globalThis.AAExecutiveProposalService = originalService;
+        globalThis.AAExecutiveProposalRenderer = originalRenderer;
+        globalThis.AAExecutiveProposal = originalProposalApi;
+        globalThis.console = originalConsole;
+        hooks.stopDebugSprintWatch();
+    });
+
+    it('expone AAExecutiveProposal.debugSprint', () => {
+        assert.equal(typeof globalThis.AAExecutiveProposal.debugSprint, 'function');
+        assert.equal(typeof globalThis.AAExecutiveProposal.debugSprintWatch, 'function');
+        assert.equal(typeof globalThis.AAExecutiveProposal.stopDebugSprintWatch, 'function');
+    });
+
+    it('debugSprint usa reload silencioso e imprime sin sprint meta', async () => {
+        let reloadSilent = null;
+
+        globalThis.AAExecutiveProposalService = {
+            getExecutiveProposal: function () {
+                return Promise.resolve({
+                    status: 'ready',
+                    focus_list: { id: 2 },
+                    meta: {
+                        focus_reason: 'first_list_with_eligible_tasks',
+                        sprint: {
+                            sprint_active: false,
+                            inactive_reason: 'no_active_sprint',
+                            current_focus_list_id: 2,
+                            focus_reason: 'first_list_with_eligible_tasks'
+                        }
+                    }
+                });
+            }
+        };
+
+        await hooks.debugSprint();
+
+        assert.equal(reloadSilent, null);
+        assert.match(consoleLines.join('\n'), /\[DEOIA Executive Sprint\]/);
+        assert.match(consoleLines.join('\n'), /active: false/);
+        assert.match(consoleLines.join('\n'), /current_focus_list_id: 2/);
+        assert.equal(dom.loading.classList.contains('hidden'), true);
+    });
+
+    it('debugSprint imprime sprint activo con expires_in', async () => {
+        globalThis.AAExecutiveProposalService = {
+            getExecutiveProposal: function () {
+                return Promise.resolve({
+                    status: 'ready',
+                    focus_list: { id: 12 },
+                    meta: {
+                        focus_reason: 'sprint_active',
+                        sprint: {
+                            sprint_active: true,
+                            active_focus_list_id: 12,
+                            current_focus_list_id: 12,
+                            focus_reason: 'sprint_active',
+                            seconds_remaining: 2832,
+                            sprint_started_at: 1000,
+                            last_executive_action_at: 1200,
+                            sprint_expires_at: 4600
+                        }
+                    }
+                });
+            }
+        };
+
+        await hooks.debugSprint();
+
+        assert.match(consoleLines.join('\n'), /active: true/);
+        assert.match(consoleLines.join('\n'), /focus_list_id: 12/);
+        assert.match(consoleLines.join('\n'), /expires_in: 47m 12s/);
+    });
+
+    it('buildSprintDebugLines no rompe sin sprint meta', () => {
+        var lines = hooks.buildSprintDebugLines({ status: 'empty', meta: {} });
+
+        assert.match(lines.join('\n'), /active: false/);
+        assert.match(lines.join('\n'), /reason: no_active_sprint/);
+    });
+
+    it('debugSprintWatch se detiene cuando sprint queda inactivo', async () => {
+        var calls = 0;
+
+        globalThis.AAExecutiveProposalService = {
+            getExecutiveProposal: function () {
+                calls += 1;
+
+                return Promise.resolve({
+                    status: 'ready',
+                    meta: {
+                        sprint: {
+                            sprint_active: false,
+                            inactive_reason: 'no_active_sprint',
+                            current_focus_list_id: 1,
+                            focus_reason: 'first_list_with_eligible_tasks'
+                        }
+                    }
+                });
+            }
+        };
+
+        hooks.debugSprintWatch(20);
+
+        await new Promise(function (resolve) {
+            setTimeout(resolve, 50);
+        });
+
+        assert.equal(calls, 1);
+    });
+});

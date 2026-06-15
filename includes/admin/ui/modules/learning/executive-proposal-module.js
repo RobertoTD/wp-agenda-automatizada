@@ -10,6 +10,8 @@
     var isLoading = false;
     var isActionPending = false;
     var EXECUTIVE_ACTION_SELECTOR = '[data-executive-action]';
+    var lastProposalPayload = null;
+    var sprintWatchTimer = null;
 
     function setVisible(el, visible) {
         if (!el) {
@@ -215,7 +217,10 @@
 
         return service.getExecutiveProposal()
             .then(function (payload) {
+                lastProposalPayload = payload && typeof payload === 'object' ? payload : null;
                 renderer.renderProposal(payload);
+
+                return lastProposalPayload;
             })
             .catch(function (err) {
                 if (!silent) {
@@ -267,6 +272,7 @@
         })
             .then(function (response) {
                 if (response.proposal && typeof response.proposal === 'object') {
+                    lastProposalPayload = response.proposal;
                     renderer.renderProposal(response.proposal);
                 }
 
@@ -312,13 +318,136 @@
         });
     }
 
+    function formatSprintDuration(seconds) {
+        var total = Math.max(0, parseInt(seconds, 10) || 0);
+        var minutes = Math.floor(total / 60);
+        var remainingSeconds = total % 60;
+
+        return minutes + 'm ' + remainingSeconds + 's';
+    }
+
+    /**
+     * @param {object|null} payload
+     * @returns {string[]}
+     */
+    function buildSprintDebugLines(payload) {
+        var sprint = payload
+            && payload.meta
+            && payload.meta.sprint
+            && typeof payload.meta.sprint === 'object'
+            ? payload.meta.sprint
+            : null;
+        var lines = ['[DEOIA Executive Sprint]'];
+
+        if (!sprint) {
+            lines.push('active: false');
+            lines.push('reason: no_active_sprint');
+            lines.push('current_focus_list_id: null');
+            lines.push('focus_reason: null');
+
+            return lines;
+        }
+
+        if (sprint.sprint_active === true) {
+            lines.push('active: true');
+            lines.push('focus_list_id: ' + String(sprint.active_focus_list_id != null ? sprint.active_focus_list_id : 'null'));
+            lines.push('current_focus_list_id: ' + String(sprint.current_focus_list_id != null ? sprint.current_focus_list_id : 'null'));
+            lines.push('focus_reason: ' + String(sprint.focus_reason || 'null'));
+            lines.push('expires_in: ' + formatSprintDuration(sprint.seconds_remaining));
+            lines.push('sprint_started_at: ' + String(sprint.sprint_started_at != null ? sprint.sprint_started_at : 'null'));
+            lines.push('last_executive_action_at: ' + String(sprint.last_executive_action_at != null ? sprint.last_executive_action_at : 'null'));
+            lines.push('sprint_expires_at: ' + String(sprint.sprint_expires_at != null ? sprint.sprint_expires_at : 'null'));
+
+            return lines;
+        }
+
+        lines.push('active: false');
+        lines.push('reason: ' + String(sprint.inactive_reason || 'no_active_sprint'));
+        lines.push('current_focus_list_id: ' + String(sprint.current_focus_list_id != null ? sprint.current_focus_list_id : 'null'));
+        lines.push('focus_reason: ' + String(sprint.focus_reason || 'first_list_with_eligible_tasks'));
+
+        return lines;
+    }
+
+    /**
+     * @param {object|null} payload
+     */
+    function printSprintDebug(payload) {
+        var lines = buildSprintDebugLines(payload);
+        var logger = globalRoot.console && typeof globalRoot.console.log === 'function'
+            ? globalRoot.console.log.bind(globalRoot.console)
+            : function () {};
+
+        lines.forEach(function (line) {
+            logger(line);
+        });
+    }
+
+    /**
+     * @returns {Promise<object|null>}
+     */
+    function debugSprint() {
+        return loadProposal({ silent: true })
+            .then(function (payload) {
+                printSprintDebug(payload || lastProposalPayload);
+
+                return payload || lastProposalPayload;
+            })
+            .catch(function () {
+                printSprintDebug(lastProposalPayload);
+
+                return lastProposalPayload;
+            });
+    }
+
+    /**
+     * @param {number} [intervalMs]
+     * @returns {function():void}
+     */
+    function debugSprintWatch(intervalMs) {
+        var resolvedInterval = parseInt(intervalMs, 10);
+
+        if (!resolvedInterval || resolvedInterval < 1000) {
+            resolvedInterval = 15000;
+        }
+
+        stopDebugSprintWatch();
+
+        function tick() {
+            debugSprint().then(function (payload) {
+                var sprint = payload
+                    && payload.meta
+                    && payload.meta.sprint;
+
+                if (!sprint || sprint.sprint_active !== true) {
+                    stopDebugSprintWatch();
+                }
+            });
+        }
+
+        tick();
+        sprintWatchTimer = globalRoot.setInterval(tick, resolvedInterval);
+
+        return stopDebugSprintWatch;
+    }
+
+    function stopDebugSprintWatch() {
+        if (sprintWatchTimer !== null) {
+            globalRoot.clearInterval(sprintWatchTimer);
+            sprintWatchTimer = null;
+        }
+    }
+
     function initExecutiveProposalModule() {
         bindExecutiveDelegation();
         loadProposal();
     }
 
     globalRoot.AAExecutiveProposal = {
-        reload: loadProposal
+        reload: loadProposal,
+        debugSprint: debugSprint,
+        debugSprintWatch: debugSprintWatch,
+        stopDebugSprintWatch: stopDebugSprintWatch
     };
 
     var moduleExports = {
@@ -326,7 +455,14 @@
         reloadExecutiveProposalBestEffort: reloadExecutiveProposalBestEffort,
         handleExecutiveActionClick: handleExecutiveActionClick,
         runClientAction: runClientAction,
-        syncListsAfterExecutiveAction: syncListsAfterExecutiveAction
+        syncListsAfterExecutiveAction: syncListsAfterExecutiveAction,
+        debugSprint: debugSprint,
+        debugSprintWatch: debugSprintWatch,
+        stopDebugSprintWatch: stopDebugSprintWatch,
+        buildSprintDebugLines: buildSprintDebugLines,
+        getLastProposalPayload: function () {
+            return lastProposalPayload;
+        }
     };
 
     if (typeof module !== 'undefined' && module.exports) {

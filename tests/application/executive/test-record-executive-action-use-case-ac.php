@@ -451,6 +451,11 @@ ac_assert(
     'complete inicia sprint con expires_at',
     (int) ($start_storage[$action_user_id]['sprint_expires_at'] ?? 0) === $action_now_ts + 3600
 );
+ac_assert(
+    'complete propuesta incluye meta sprint activo',
+    is_array($start_result['data']['proposal']['meta']['sprint'] ?? null)
+    && ($start_result['data']['proposal']['meta']['sprint']['sprint_active'] ?? false) === true
+);
 
 $renew_storage = [];
 $renew_storage[$action_user_id] = [
