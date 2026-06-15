@@ -171,6 +171,11 @@ ac_assert(
     'change_focus resetea dismiss streak',
     (int) ($focus_storage[$user_id]['dismiss_streak_without_sprint'] ?? -1) === 0
 );
+ac_assert(
+    'change_focus con varias listas no devuelve lista actual',
+    (int) ($focus_storage[$user_id]['manual_focus_list_id'] ?? 0) === 1
+    && (int) ($focus_storage[$user_id]['manual_focus_list_id'] ?? 0) !== 2
+);
 
 $sprint_storage[$user_id] = [
     'version' => 1,
@@ -201,8 +206,8 @@ $sprint_change_uc = new ChangeExecutiveFocusUseCase(
 $sprint_change = $sprint_change_uc->execute(['focus_action' => 'change_focus']);
 ac_assert('change_focus con sprint activo success', !empty($sprint_change['success']));
 ac_assert(
-    'change_focus con sprint actualiza active_focus_list_id',
-    (int) ($sprint_storage[$user_id]['active_focus_list_id'] ?? 0) === 2
+    'change_focus con sprint actualiza active_focus_list_id a otra lista',
+    (int) ($sprint_storage[$user_id]['active_focus_list_id'] ?? 0) === 1
 );
 ac_assert(
     'change_focus con sprint no extiende TTL',
@@ -289,6 +294,48 @@ ac_assert(
 );
 
 ac_assert('change_focus no muta tareas', $task_mutations === 0);
+
+$single_list_board = [
+    'lists' => [
+        ['id' => 5, 'title' => 'Única', 'status' => 'active', 'source_category' => 'user'],
+    ],
+    'tasks' => [
+        ['id' => 50, 'list_id' => 5, 'title' => 'Sola', 'status' => 'pending', 'importance' => 10, 'completion_type' => 'manual'],
+    ],
+    'organization' => [
+        'list_order' => [5],
+        'task_evaluations_by_id' => [
+            50 => [
+                'visible_in_active' => true,
+                'projection' => ['visible_in_active' => true, 'projected_bucket' => 'primary'],
+                'capabilities' => ['can_dismiss' => true],
+            ],
+        ],
+        'task_actions_by_id' => [],
+    ],
+];
+$single_sprint_storage = [];
+$single_focus_storage = [];
+$single_sprint_deps = focus_deps($single_sprint_storage, $user_id, $now_ts);
+$single_focus_deps = focus_deps($single_focus_storage, $user_id, $now_ts);
+$single_change_uc = new ChangeExecutiveFocusUseCase(
+    static function () use ($single_list_board): array {
+        return $single_list_board;
+    },
+    $single_sprint_deps['reader'],
+    $single_sprint_deps['writer'],
+    $single_focus_deps['reader'],
+    $single_focus_deps['writer'],
+    $single_sprint_deps['user_id_resolver'],
+    $single_sprint_deps['now_ts_resolver']
+);
+
+$single_change = $single_change_uc->execute(['focus_action' => 'change_focus']);
+ac_assert('change_focus con una sola lista puede quedarse en la misma', !empty($single_change['success']));
+ac_assert(
+    'change_focus una lista mantiene manual_focus_list_id',
+    (int) ($single_focus_storage[$user_id]['manual_focus_list_id'] ?? 0) === 5
+);
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 

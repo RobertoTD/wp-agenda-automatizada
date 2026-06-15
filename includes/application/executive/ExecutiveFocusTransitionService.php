@@ -56,7 +56,11 @@ final class ExecutiveFocusTransitionService {
             ];
         }
 
-        $selected_id = AA_Executive_Focus_Selection_Policy::select_random_focus($eligible_ids, $randomizer);
+        $selected_id = AA_Executive_Focus_Selection_Policy::select_random_focus(
+            $eligible_ids,
+            $current_focus_list_id,
+            $randomizer
+        );
 
         if ($selected_id === null) {
             return [
@@ -198,7 +202,11 @@ final class ExecutiveFocusTransitionService {
             ];
         }
 
-        $selected_id = AA_Executive_Focus_Selection_Policy::select_random_focus($eligible_ids, $randomizer);
+        $selected_id = AA_Executive_Focus_Selection_Policy::select_random_focus(
+            $eligible_ids,
+            $current_focus_list_id,
+            $randomizer
+        );
 
         if ($selected_id === null) {
             return [

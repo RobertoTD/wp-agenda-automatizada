@@ -723,10 +723,70 @@ ac_assert(
     (int) ($streak_focus_storage[$action_user_id]['dismiss_streak_without_sprint'] ?? -1) === 0
 );
 ac_assert(
-    'tercer dismiss cambia foco aleatorio a lista 1',
+    'tercer dismiss con una sola lista elegible puede quedarse en la misma',
     (int) ($streak_focus_storage[$action_user_id]['manual_focus_list_id'] ?? 0) === 1
 );
 ac_assert('tercer dismiss no inicia sprint', !isset($streak_sprint_storage[$action_user_id]));
+
+$alt_streak_board = [
+    'lists' => [
+        ['id' => 2, 'title' => 'Lista A', 'status' => 'active', 'source_category' => 'agenda_app'],
+        ['id' => 1, 'title' => 'Lista B', 'status' => 'active', 'source_category' => 'user'],
+    ],
+    'tasks' => [
+        ['id' => 10, 'list_id' => 2, 'title' => 'A1', 'status' => 'pending', 'importance' => 100],
+        ['id' => 11, 'list_id' => 2, 'title' => 'A2', 'status' => 'pending', 'importance' => 90],
+        ['id' => 12, 'list_id' => 2, 'title' => 'A3', 'status' => 'pending', 'importance' => 80],
+        ['id' => 20, 'list_id' => 1, 'title' => 'B1', 'status' => 'pending', 'importance' => 50, 'completion_type' => 'manual'],
+    ],
+    'organization' => [
+        'list_order' => [2, 1],
+        'task_evaluations_by_id' => [
+            10 => exec_action_visible_eval('primary', true),
+            11 => exec_action_visible_eval('primary', true),
+            12 => exec_action_visible_eval('primary', true),
+            20 => exec_action_visible_eval('primary', true),
+        ],
+        'task_actions_by_id' => [],
+    ],
+];
+$alt_dismiss_executor = static function (array $input) use (&$alt_streak_board): array {
+    $task_id = (int) ($input['task_id'] ?? 0);
+    $alt_streak_board['organization']['task_evaluations_by_id'][$task_id] = [
+        'visible_in_active' => false,
+        'projection' => ['visible_in_active' => false, 'projected_bucket' => 'primary'],
+        'capabilities' => ['can_dismiss' => false],
+    ];
+
+    return TaskUseCaseSupport::ok(['task_state' => ['task_id' => $task_id]]);
+};
+$alt_streak_sprint_storage = [];
+$alt_streak_focus_storage = [];
+$alt_streak_deps = exec_action_sprint_deps($alt_streak_sprint_storage, $action_user_id, $action_now_ts);
+$alt_streak_focus_deps = exec_action_sprint_deps($alt_streak_focus_storage, $action_user_id, $action_now_ts);
+$alt_streak_uc = exec_action_sprint_uc(
+    $alt_streak_board,
+    $alt_streak_deps,
+    null,
+    $alt_dismiss_executor,
+    $alt_streak_focus_deps,
+    static function (): int {
+        return 0;
+    }
+);
+
+$alt_streak_uc->execute(['task_id' => 10, 'action_key' => 'dismiss']);
+$alt_streak_uc->execute(['task_id' => 11, 'action_key' => 'dismiss']);
+$alt_third = $alt_streak_uc->execute(['task_id' => 12, 'action_key' => 'dismiss']);
+ac_assert('tercer dismiss con alternativa success', !empty($alt_third['success']));
+ac_assert(
+    'tercer dismiss cambia a lista distinta si hay alternativa',
+    (int) ($alt_streak_focus_storage[$action_user_id]['manual_focus_list_id'] ?? 0) === 1
+);
+ac_assert(
+    'tercer dismiss alternativa no inicia sprint',
+    !isset($alt_streak_sprint_storage[$action_user_id])
+);
 
 $active_streak_storage = [];
 $active_streak_focus = [];
