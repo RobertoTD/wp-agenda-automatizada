@@ -1,20 +1,40 @@
 /**
- * Executive Lists Focus — atenuación contextual de #aa-lists-section (MC-UX-F).
+ * Executive Lists Focus — atenuación contextual propuesta/listas (MC-UX-F / MC6).
  */
 (function () {
     'use strict';
 
+    var globalRoot = typeof window !== 'undefined'
+        ? window
+        : (typeof globalThis !== 'undefined' ? globalThis : this);
     var ROOT_ID = 'aa-tasks-module-root';
     var PROPOSAL_ID = 'aa-executive-proposal';
     var LISTS_ID = 'aa-lists-section';
     var isBound = false;
+    var activeWorkZone = 'executive';
 
-    function setListsMuted(listsSection, muted) {
-        if (!listsSection || !listsSection.classList) {
+    function setMuted(element, muted) {
+        if (!element || !element.classList) {
             return;
         }
 
-        listsSection.classList.toggle('is-muted', !!muted);
+        element.classList.toggle('is-muted', !!muted);
+    }
+
+    function notifyWorkZone(zone) {
+        var nextZone = zone === 'organizing' ? 'organizing' : 'executive';
+
+        if (nextZone === activeWorkZone) {
+            return;
+        }
+
+        activeWorkZone = nextZone;
+
+        var api = globalRoot.AAExecutiveProposal;
+
+        if (api && typeof api.setWorkZone === 'function') {
+            api.setWorkZone(zone);
+        }
     }
 
     function activateFromTarget(root, proposal, listsSection, target) {
@@ -23,12 +43,17 @@
         }
 
         if (listsSection.contains(target)) {
-            setListsMuted(listsSection, false);
+            setMuted(listsSection, false);
+            setMuted(proposal, true);
+            notifyWorkZone('organizing');
+
             return;
         }
 
         if (proposal.contains(target)) {
-            setListsMuted(listsSection, true);
+            setMuted(listsSection, true);
+            setMuted(proposal, false);
+            notifyWorkZone('executive');
         }
     }
 
@@ -49,14 +74,17 @@
             return;
         }
 
+        var proposal = document.getElementById(PROPOSAL_ID);
         var listsSection = document.getElementById(LISTS_ID);
 
-        if (!listsSection) {
+        if (!proposal || !listsSection) {
             return;
         }
 
         isBound = true;
-        setListsMuted(listsSection, true);
+        activeWorkZone = 'executive';
+        setMuted(listsSection, true);
+        setMuted(proposal, false);
 
         var root = document.getElementById(ROOT_ID);
 
@@ -69,10 +97,13 @@
     }
 
     var moduleExports = {
-        setListsMuted: setListsMuted,
+        setMuted: setMuted,
         activateFromTarget: activateFromTarget,
         handleRootInteraction: handleRootInteraction,
-        bindExecutiveListsFocusModule: bindExecutiveListsFocusModule
+        bindExecutiveListsFocusModule: bindExecutiveListsFocusModule,
+        getActiveWorkZone: function () {
+            return activeWorkZone;
+        }
     };
 
     if (typeof module !== 'undefined' && module.exports) {

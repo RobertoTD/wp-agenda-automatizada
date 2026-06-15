@@ -1,5 +1,5 @@
 /**
- * Executive Proposal Renderer — render read-only top-3 (MC2).
+ * Executive Proposal Renderer — Propuesta ejecutiva top-3 (MC2/MC6).
  */
 (function () {
     'use strict';
@@ -8,11 +8,12 @@
         ? window
         : (typeof globalThis !== 'undefined' ? globalThis : this);
 
-    var SLOT_LABELS = {
-        current: 'Ahora',
-        next: 'Siguiente',
-        third: 'Después'
-    };
+    var STATUS_LABEL_EXECUTING = 'En ejecución';
+    var STATUS_LABEL_READY = 'Elige tu siguiente tarea';
+    var STATUS_LABEL_CHOOSING = 'Buscando tarea para ejecutar';
+    var STATUS_LABEL_ORGANIZING = 'Organizando tareas';
+
+    var CONTINUATION_TITLE_MAX = 42;
 
     /**
      * @param {string} value
@@ -28,26 +29,58 @@
     }
 
     /**
-     * @param {object|null|undefined} focusList
+     * @param {object|null|undefined} payload
+     * @param {string|null|undefined} uiMode organizing|choosing|null
+     * @returns {string}
+     */
+    function resolveStatusLabel(payload, uiMode) {
+        if (uiMode === 'organizing') {
+            return STATUS_LABEL_ORGANIZING;
+        }
+
+        if (uiMode === 'choosing') {
+            return STATUS_LABEL_CHOOSING;
+        }
+
+        var sprintActive = payload
+            && payload.meta
+            && payload.meta.sprint
+            && payload.meta.sprint.sprint_active === true;
+
+        if (sprintActive) {
+            return STATUS_LABEL_EXECUTING;
+        }
+
+        return STATUS_LABEL_READY;
+    }
+
+    /**
+     * @param {string} label
+     * @returns {string}
+     */
+    function renderStatusHtml(label) {
+        var safeLabel = escapeHtml(label);
+        var dot = label === STATUS_LABEL_EXECUTING
+            ? '<span class="aa-executive-status-dot shrink-0" aria-hidden="true"></span>'
+            : '';
+
+        return ''
+            + '<span class="aa-executive-status inline-flex items-center gap-2 text-sm text-gray-600" data-executive-status-label="' + safeLabel + '">'
+            + dot
+            + '<span class="aa-executive-status-text">' + safeLabel + '</span>'
+            + '</span>';
+    }
+
+    /**
      * @param {object|null|undefined} focusControls
      * @returns {string}
      */
-    function renderFocusControls(focusControls) {
+    function renderHeaderFocusControls(focusControls) {
         if (!focusControls || typeof focusControls !== 'object') {
             return '';
         }
 
         var buttons = [];
-
-        if (focusControls.can_change_focus === true) {
-            buttons.push(
-                '<button type="button"'
-                + ' data-executive-focus-action="change_focus"'
-                + ' class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:text-gray-900">'
-                + 'Cambiar foco'
-                + '</button>'
-            );
-        }
 
         if (focusControls.can_go_previous === true) {
             buttons.push(
@@ -59,38 +92,55 @@
             );
         }
 
-        if (buttons.length === 0) {
-            return '';
+        if (focusControls.can_change_focus === true) {
+            buttons.push(
+                '<button type="button"'
+                + ' data-executive-focus-action="change_focus"'
+                + ' class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:text-gray-900">'
+                + 'Cambiar foco'
+                + '</button>'
+            );
         }
 
-        return '<div class="aa-executive-focus-controls mt-2 flex flex-wrap gap-2">' + buttons.join('') + '</div>';
+        return buttons.join('');
     }
 
     /**
-     * @param {object|null|undefined} focusList
-     * @param {object|null|undefined} focusControls
-     * @returns {string}
+     * @param {object|null|undefined} payload
+     * @param {{uiMode?:string|null}} [options]
      */
-    function renderFocusContext(focusList, focusControls) {
-        if (!focusList || typeof focusList !== 'object') {
-            return '';
+    function updateExecutiveHeader(payload, options) {
+        var opts = options || {};
+        var statusEl = document.getElementById('aa-executive-status');
+        var actionsEl = document.getElementById('aa-executive-header-actions');
+        var focusControls = payload && payload.meta && typeof payload.meta === 'object'
+            ? payload.meta.focus_controls
+            : null;
+        var label = resolveStatusLabel(payload, opts.uiMode || null);
+
+        if (statusEl) {
+            statusEl.innerHTML = renderStatusHtml(label);
         }
 
-        var title = escapeHtml(focusList.title || 'Lista sin título');
-        var badge = String(focusList.source_category || '') === 'agenda_app'
-            ? '<span class="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">Agenda app</span>'
-            : '';
-        var controlsHtml = renderFocusControls(focusControls);
+        if (actionsEl) {
+            actionsEl.innerHTML = renderHeaderFocusControls(focusControls);
+        }
+    }
 
-        return ''
-            + '<div class="aa-executive-focus-context rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">'
-            + '<p class="text-sm text-gray-700 flex flex-wrap items-center gap-2">'
-            + '<span class="font-medium text-gray-900">Foco:</span>'
-            + '<span>' + title + '</span>'
-            + badge
-            + '</p>'
-            + controlsHtml
-            + '</div>';
+    /**
+     * @param {string} title
+     * @param {number} [maxLen]
+     * @returns {string}
+     */
+    function truncateTitle(title, maxLen) {
+        var safe = String(title || '').trim();
+        var limit = maxLen || CONTINUATION_TITLE_MAX;
+
+        if (safe.length <= limit) {
+            return safe;
+        }
+
+        return safe.slice(0, Math.max(0, limit - 1)) + '…';
     }
 
     /**
@@ -107,7 +157,6 @@
 
     /**
      * @param {object} action
-     * @param {number|string} taskId
      * @returns {string}
      */
     function resolveActionLabel(action) {
@@ -191,20 +240,21 @@
 
     /**
      * @param {object} task
+     * @param {string} focusListTitle
      * @returns {string}
      */
-    function renderCurrentTask(task) {
+    function renderCurrentTask(task, focusListTitle) {
         var title = escapeHtml(task.title || 'Tarea sin título');
         var description = task.description
             ? '<p class="text-sm text-gray-600 mt-2">' + escapeHtml(task.description) + '</p>'
             : '';
-        var slotLabel = escapeHtml(SLOT_LABELS.current);
+        var listLabel = escapeHtml(focusListTitle || 'Lista sin título');
         var actionsHtml = renderExecutiveActions(task.executive_actions, task);
 
         return ''
             + '<li class="aa-executive-slot aa-executive-slot-current rounded-lg border border-blue-200 bg-blue-50/60 p-4" data-executive-slot="current">'
-            + '<div class="flex flex-wrap items-center gap-2">'
-            + '<span class="text-xs font-semibold uppercase tracking-wide text-blue-700">' + slotLabel + '</span>'
+            + '<div class="flex flex-wrap items-center justify-between gap-2">'
+            + '<span class="min-w-0 truncate text-xs font-medium text-blue-700">Lista: ' + listLabel + '</span>'
             + renderOverdueBadge(task)
             + '</div>'
             + '<p class="text-base font-semibold text-gray-900 mt-2">' + title + '</p>'
@@ -214,46 +264,62 @@
     }
 
     /**
-     * @param {object} task
-     * @param {string} slot
+     * @param {object|null} nextTask
+     * @param {object|null} thirdTask
      * @returns {string}
      */
-    function renderContinuationTask(task, slot) {
-        var title = escapeHtml(task.title || 'Tarea sin título');
-        var slotLabel = escapeHtml(SLOT_LABELS[slot] || slot);
+    function renderContinuationSummary(nextTask, thirdTask) {
+        var parts = [];
+
+        if (nextTask && typeof nextTask === 'object') {
+            parts.push(
+                '<p class="min-w-0 flex-1 sm:max-w-[48%] truncate text-xs text-gray-500">'
+                + '<span class="font-medium text-gray-600">Siguiente:</span> '
+                + '<span class="text-gray-700">' + escapeHtml(truncateTitle(nextTask.title)) + '</span>'
+                + '</p>'
+            );
+        }
+
+        if (thirdTask && typeof thirdTask === 'object') {
+            parts.push(
+                '<p class="min-w-0 flex-1 sm:max-w-[48%] truncate text-xs text-gray-500">'
+                + '<span class="font-medium text-gray-600">Después:</span> '
+                + '<span class="text-gray-700">' + escapeHtml(truncateTitle(thirdTask.title)) + '</span>'
+                + '</p>'
+            );
+        }
+
+        if (parts.length === 0) {
+            return '';
+        }
 
         return ''
-            + '<li class="aa-executive-slot aa-executive-slot-' + escapeHtml(slot) + ' rounded-lg border border-gray-200 bg-white px-3 py-2" data-executive-slot="' + escapeHtml(slot) + '">'
-            + '<div class="flex flex-wrap items-center gap-2">'
-            + '<span class="text-xs font-medium text-gray-500">' + slotLabel + '</span>'
-            + renderOverdueBadge(task)
-            + '</div>'
-            + '<p class="text-sm font-medium text-gray-900 mt-1">' + title + '</p>'
-            + '</li>';
+            + '<div class="aa-executive-continuation mt-2 flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:gap-x-4">'
+            + parts.join('')
+            + '</div>';
     }
 
     /**
      * @param {object|null|undefined} payload
-     * @returns {{focusHtml:string,listHtml:string,isEmpty:boolean}}
+     * @returns {{listHtml:string,isEmpty:boolean,focusListTitle:string}}
      */
     function buildProposalParts(payload) {
         var data = payload && typeof payload === 'object' ? payload : {};
         var status = String(data.status || '');
         var tasks = Array.isArray(data.tasks) ? data.tasks : [];
         var isEmpty = status === 'empty' || tasks.length === 0;
+        var focusListTitle = data.focus_list && typeof data.focus_list === 'object'
+            ? String(data.focus_list.title || '')
+            : '';
 
         if (isEmpty) {
             return {
-                focusHtml: '',
                 listHtml: '',
-                isEmpty: true
+                isEmpty: true,
+                focusListTitle: focusListTitle
             };
         }
 
-        var focusHtml = renderFocusContext(
-            data.focus_list,
-            data.meta && typeof data.meta === 'object' ? data.meta.focus_controls : null
-        );
         var listHtml = '';
         var currentTask = null;
         var nextTask = null;
@@ -276,49 +342,40 @@
         });
 
         if (currentTask) {
-            listHtml += renderCurrentTask(currentTask);
-        }
-
-        if (nextTask) {
-            listHtml += renderContinuationTask(nextTask, 'next');
-        }
-
-        if (thirdTask) {
-            listHtml += renderContinuationTask(thirdTask, 'third');
+            listHtml += renderCurrentTask(currentTask, focusListTitle);
+            listHtml += renderContinuationSummary(nextTask, thirdTask);
         }
 
         if (listHtml === '') {
             return {
-                focusHtml: '',
                 listHtml: '',
-                isEmpty: true
+                isEmpty: true,
+                focusListTitle: focusListTitle
             };
         }
 
         return {
-            focusHtml: focusHtml,
             listHtml: listHtml,
-            isEmpty: false
+            isEmpty: false,
+            focusListTitle: focusListTitle
         };
     }
 
     /**
      * @param {object|null|undefined} payload
+     * @param {{uiMode?:string|null}} [options]
      */
-    function renderProposal(payload) {
-        var focusEl = document.getElementById('aa-executive-focus');
+    function renderProposal(payload, options) {
         var emptyEl = document.getElementById('aa-executive-empty');
         var listEl = document.getElementById('aa-executive-list');
+        var focusEl = document.getElementById('aa-executive-focus');
         var parts = buildProposalParts(payload);
 
+        updateExecutiveHeader(payload, options);
+
         if (focusEl) {
-            if (parts.isEmpty || parts.focusHtml === '') {
-                focusEl.innerHTML = '';
-                focusEl.classList.add('hidden');
-            } else {
-                focusEl.innerHTML = parts.focusHtml;
-                focusEl.classList.remove('hidden');
-            }
+            focusEl.innerHTML = '';
+            focusEl.classList.add('hidden');
         }
 
         if (listEl) {
@@ -335,15 +392,22 @@
     }
 
     var api = {
+        STATUS_LABEL_EXECUTING: STATUS_LABEL_EXECUTING,
+        STATUS_LABEL_READY: STATUS_LABEL_READY,
+        STATUS_LABEL_CHOOSING: STATUS_LABEL_CHOOSING,
+        STATUS_LABEL_ORGANIZING: STATUS_LABEL_ORGANIZING,
         escapeHtml: escapeHtml,
+        resolveStatusLabel: resolveStatusLabel,
+        renderStatusHtml: renderStatusHtml,
+        renderHeaderFocusControls: renderHeaderFocusControls,
+        updateExecutiveHeader: updateExecutiveHeader,
         renderProposal: renderProposal,
         buildProposalParts: buildProposalParts,
-        renderFocusContext: renderFocusContext,
-        renderFocusControls: renderFocusControls,
         renderCurrentTask: renderCurrentTask,
-        renderContinuationTask: renderContinuationTask,
+        renderContinuationSummary: renderContinuationSummary,
         renderExecutiveActions: renderExecutiveActions,
-        resolveActionLabel: resolveActionLabel
+        resolveActionLabel: resolveActionLabel,
+        truncateTitle: truncateTitle
     };
 
     globalRoot.AAExecutiveProposalRenderer = api;

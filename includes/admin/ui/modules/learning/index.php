@@ -31,14 +31,18 @@ $executive_proposal_module_js = plugin_dir_url(__FILE__) . 'executive-proposal-m
 <div id="aa-tasks-module-root" class="max-w-5xl mx-auto py-2">
 
     <section id="aa-executive-proposal" class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
-        <div class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
-            <h3 class="text-lg font-semibold text-gray-900">Propuesta ejecutiva</h3>
-            <p class="text-sm text-gray-500 mt-0.5">Acciones recomendadas ahora.</p>
+        <div class="aa-executive-header px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
+            <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <h3 class="text-lg font-semibold text-gray-900">Propuesta ejecutiva</h3>
+                    <p id="aa-executive-status" class="mt-1" aria-live="polite"></p>
+                </div>
+                <div id="aa-executive-header-actions" class="aa-executive-header-actions flex flex-wrap items-center justify-end gap-2 shrink-0"></div>
+            </div>
         </div>
         <div class="p-4">
             <p id="aa-executive-proposal-loading" class="hidden text-sm text-gray-500">Cargando propuesta ejecutiva…</p>
             <p id="aa-executive-proposal-error" class="hidden text-sm text-red-600"></p>
-            <div id="aa-executive-focus" class="hidden mb-3"></div>
             <p id="aa-executive-empty" class="hidden text-sm text-gray-500">
                 No hay acciones pendientes recomendadas. Crea tareas o revisa tus listas.
             </p>

@@ -167,9 +167,10 @@ describe('executive-proposal-module MC2/MC3', () => {
         };
 
         globalThis.AAExecutiveProposalRenderer = {
-            renderProposal: function (payload) {
+            renderProposal: function (payload, options) {
                 renderCalls += 1;
                 dom.list.innerHTML = payload && payload.tasks ? 'rendered:' + payload.tasks[0].task_id : '';
+                dom.lastRenderUiMode = options && options.uiMode ? options.uiMode : null;
             }
         };
 
@@ -536,5 +537,473 @@ describe('executive-proposal-module MC5', () => {
         assert.match(moduleSrc, /handleFocusActionClick/);
         assert.equal(moduleSrc.includes('data-tasks-action'), false);
         assert.equal(moduleSrc.includes('data-learning-action'), false);
+    });
+});
+
+describe('executive-proposal-module MC6', () => {
+    let originalService;
+    let originalRenderer;
+    let dom;
+    let renderCalls;
+    let postCalls;
+    let focusPostCalls;
+
+    beforeEach(() => {
+        originalService = globalThis.AAExecutiveProposalService;
+        originalRenderer = globalThis.AAExecutiveProposalRenderer;
+        renderCalls = 0;
+        postCalls = 0;
+        focusPostCalls = 0;
+
+        dom = {
+            proposal: makeElement('aa-executive-proposal', { buttons: [] }),
+            loading: makeElement('aa-executive-proposal-loading', { classes: ['hidden'] }),
+            error: makeElement('aa-executive-proposal-error', { classes: ['hidden'] }),
+            empty: makeElement('aa-executive-empty', { classes: ['hidden'] }),
+            list: makeElement('aa-executive-list'),
+            lastRenderUiMode: null
+        };
+
+        globalThis.document = {
+            getElementById: function (id) {
+                return dom[id.replace(/^aa-executive-/, 'aa-executive-')] || dom[id] || null;
+            }
+        };
+
+        globalThis.document.getElementById = function (id) {
+            if (id === 'aa-executive-proposal') {
+                return dom.proposal;
+            }
+
+            if (id === 'aa-executive-proposal-loading') {
+                return dom.loading;
+            }
+
+            if (id === 'aa-executive-proposal-error') {
+                return dom.error;
+            }
+
+            if (id === 'aa-executive-empty') {
+                return dom.empty;
+            }
+
+            if (id === 'aa-executive-list') {
+                return dom.list;
+            }
+
+            return null;
+        };
+
+        globalThis.AAExecutiveProposalRenderer = {
+            renderProposal: function (payload, options) {
+                renderCalls += 1;
+                dom.lastRenderUiMode = options && options.uiMode ? options.uiMode : null;
+            }
+        };
+
+        globalThis.AAExecutiveProposalService = {
+            getExecutiveProposal: function () {
+                return Promise.resolve({
+                    status: 'ready',
+                    focus_list: { id: 1, title: 'Foco' },
+                    tasks: [{ slot: 'current', task_id: 1, title: 'Actual' }],
+                    meta: { sprint: { sprint_active: false } }
+                });
+            },
+            postExecutiveAction: function (payload) {
+                postCalls += 1;
+
+                if (payload.actionKey === 'dismiss') {
+                    return Promise.resolve({
+                        action: { key: 'dismiss', mutated: true },
+                        proposal: {
+                            status: 'ready',
+                            tasks: [{ slot: 'current', task_id: 3, title: 'Otra' }],
+                            meta: { sprint: { sprint_active: false } }
+                        },
+                        client_action: null
+                    });
+                }
+
+                return Promise.resolve({
+                    action: { key: payload.actionKey, mutated: true },
+                    proposal: {
+                        status: 'ready',
+                        tasks: [{ slot: 'current', task_id: 2, title: 'Siguiente' }],
+                        meta: { sprint: { sprint_active: true } }
+                    },
+                    client_action: null
+                });
+            },
+            postFocusAction: function () {
+                focusPostCalls += 1;
+
+                return Promise.resolve({
+                    proposal: {
+                        status: 'ready',
+                        tasks: [{ slot: 'current', task_id: 4, title: 'Foco nuevo' }],
+                        meta: { sprint: { sprint_active: false } }
+                    }
+                });
+            }
+        };
+
+        hooks.flushPendingWorkZoneRender();
+        hooks.setWorkZone('organizing');
+        hooks.flushPendingWorkZoneRender();
+        hooks.setWorkZone('executive');
+        hooks.flushPendingWorkZoneRender();
+    });
+
+    afterEach(() => {
+        globalThis.AAExecutiveProposalService = originalService;
+        globalThis.AAExecutiveProposalRenderer = originalRenderer;
+        hooks.flushPendingWorkZoneRender();
+        hooks.setWorkZone('organizing');
+        hooks.flushPendingWorkZoneRender();
+        hooks.setWorkZone('executive');
+        hooks.flushPendingWorkZoneRender();
+    });
+
+    it('loadProposal sin sprint usa uiMode null', async () => {
+        await hooks.loadProposal({ silent: true });
+
+        assert.equal(dom.lastRenderUiMode, null);
+    });
+
+    it('dismiss sin sprint activa choosing', async () => {
+        await hooks.handleExecutiveActionClick(makeButton({ 'data-executive-action-key': 'dismiss' }));
+
+        assert.equal(dom.lastRenderUiMode, 'choosing');
+    });
+
+    it('complete con sprint activo limpia choosing', async () => {
+        hooks.setChoosingMode(true);
+
+        await hooks.handleExecutiveActionClick(makeButton({ 'data-executive-action-key': 'complete' }));
+
+        assert.equal(dom.lastRenderUiMode, null);
+    });
+
+    it('focus action sin sprint activa choosing', async () => {
+        var button = {
+            disabled: false,
+            classList: makeClassList([]),
+            getAttribute: function (name) {
+                return name === 'data-executive-focus-action' ? 'change_focus' : null;
+            }
+        };
+
+        await hooks.handleFocusActionClick(button);
+
+        assert.equal(focusPostCalls, 1);
+        assert.equal(dom.lastRenderUiMode, 'choosing');
+    });
+
+    it('setWorkZone organizing usa uiMode organizing sin endpoint extra', async () => {
+        await hooks.loadProposal({ silent: true });
+        var callsBefore = renderCalls;
+
+        hooks.setWorkZone('organizing');
+        hooks.flushPendingWorkZoneRender();
+
+        assert.equal(renderCalls, callsBefore + 1);
+        assert.equal(dom.lastRenderUiMode, 'organizing');
+        assert.equal(postCalls, 0);
+        assert.equal(focusPostCalls, 0);
+    });
+
+    it('setWorkZone executive restaura uiMode según sprint', async () => {
+        await hooks.loadProposal({ silent: true });
+        hooks.setWorkZone('organizing');
+        hooks.flushPendingWorkZoneRender();
+        hooks.setWorkZone('executive');
+        hooks.flushPendingWorkZoneRender();
+
+        assert.equal(dom.lastRenderUiMode, null);
+    });
+
+    it('setWorkZone executive repetido no re-renderiza', async () => {
+        await hooks.loadProposal({ silent: true });
+        var callsBefore = renderCalls;
+
+        hooks.setWorkZone('executive');
+
+        assert.equal(renderCalls, callsBefore);
+    });
+
+    it('expone AAExecutiveProposal.setWorkZone', () => {
+        assert.equal(typeof globalThis.AAExecutiveProposal.setWorkZone, 'function');
+    });
+});
+
+function makeClickableProposalButton(attrs) {
+    var button = makeButton(attrs);
+
+    button.closest = function (selector) {
+        if (selector === '[data-executive-action]' && button.getAttribute('data-executive-action')) {
+            return button;
+        }
+
+        if (selector === '[data-executive-focus-action]' && button.getAttribute('data-executive-focus-action')) {
+            return button;
+        }
+
+        return null;
+    };
+
+    return button;
+}
+
+function makeProposalRootWithButton(button) {
+    var proposal = {
+        id: 'aa-executive-proposal',
+        children: [button],
+        classList: makeClassList([]),
+        listeners: {},
+        contains: function (node) {
+            if (!node) {
+                return false;
+            }
+
+            if (node === this) {
+                return true;
+            }
+
+            return this.children.indexOf(node) !== -1;
+        },
+        querySelectorAll: function () {
+            return this.children.slice();
+        },
+        addEventListener: function (type, handler) {
+            this.listeners[type] = handler;
+        }
+    };
+
+    button.parent = proposal;
+
+    return proposal;
+}
+
+function dispatchProposalClick(proposal, button) {
+    var handler = proposal.listeners.click;
+
+    if (typeof handler !== 'function') {
+        return;
+    }
+
+    handler({
+        target: button,
+        preventDefault: function () {},
+        stopPropagation: function () {}
+    });
+}
+
+describe('executive-proposal-module MC6.1 capture re-render fix', () => {
+    let originalService;
+    let originalRenderer;
+    let originalRaf;
+    let originalCaf;
+    let rafQueue;
+    let postCalls;
+    let focusPostCalls;
+    let renderCalls;
+    let dom;
+
+    beforeEach(() => {
+        originalService = globalThis.AAExecutiveProposalService;
+        originalRenderer = globalThis.AAExecutiveProposalRenderer;
+        originalRaf = globalThis.requestAnimationFrame;
+        originalCaf = globalThis.cancelAnimationFrame;
+        rafQueue = [];
+        postCalls = 0;
+        focusPostCalls = 0;
+        renderCalls = 0;
+
+        globalThis.requestAnimationFrame = function (callback) {
+            rafQueue.push(callback);
+
+            return rafQueue.length;
+        };
+
+        globalThis.cancelAnimationFrame = function () {};
+
+        dom = {
+            loading: makeElement('aa-executive-proposal-loading', { classes: ['hidden'] }),
+            error: makeElement('aa-executive-proposal-error', { classes: ['hidden'] }),
+            empty: makeElement('aa-executive-empty', { classes: ['hidden'] }),
+            list: makeElement('aa-executive-list'),
+            lastRenderUiMode: null
+        };
+
+        globalThis.AAExecutiveProposalRenderer = {
+            renderProposal: function (payload, options) {
+                renderCalls += 1;
+                dom.lastRenderUiMode = options && options.uiMode ? options.uiMode : null;
+            }
+        };
+
+        globalThis.AAExecutiveProposalService = {
+            getExecutiveProposal: function () {
+                return Promise.resolve({
+                    status: 'ready',
+                    focus_list: { id: 1, title: 'Foco' },
+                    tasks: [{ slot: 'current', task_id: 1, title: 'Actual' }],
+                    meta: { sprint: { sprint_active: false } }
+                });
+            },
+            postExecutiveAction: function () {
+                postCalls += 1;
+
+                return Promise.resolve({
+                    action: { key: 'complete', mutated: true },
+                    proposal: {
+                        status: 'ready',
+                        tasks: [{ slot: 'current', task_id: 2, title: 'Siguiente' }],
+                        meta: { sprint: { sprint_active: true } }
+                    },
+                    client_action: null
+                });
+            },
+            postFocusAction: function () {
+                focusPostCalls += 1;
+
+                return Promise.resolve({
+                    proposal: {
+                        status: 'ready',
+                        tasks: [{ slot: 'current', task_id: 4, title: 'Foco nuevo' }],
+                        meta: { sprint: { sprint_active: false } }
+                    }
+                });
+            }
+        };
+
+        hooks.flushPendingWorkZoneRender();
+        rafQueue = [];
+    });
+
+    afterEach(() => {
+        hooks.flushPendingWorkZoneRender();
+        rafQueue = [];
+        globalThis.AAExecutiveProposalService = originalService;
+        globalThis.AAExecutiveProposalRenderer = originalRenderer;
+        globalThis.requestAnimationFrame = originalRaf;
+        globalThis.cancelAnimationFrame = originalCaf;
+    });
+
+    function flushRafQueue() {
+        var queue = rafQueue.slice();
+        rafQueue = [];
+        queue.forEach(function (callback) {
+            callback();
+        });
+    }
+
+    function bindProposalDom(proposal) {
+        dom.proposal = proposal;
+
+        globalThis.document = {
+            getElementById: function (id) {
+                if (id === 'aa-executive-proposal') {
+                    return dom.proposal;
+                }
+
+                if (id === 'aa-executive-proposal-loading') {
+                    return dom.loading;
+                }
+
+                if (id === 'aa-executive-proposal-error') {
+                    return dom.error;
+                }
+
+                if (id === 'aa-executive-empty') {
+                    return dom.empty;
+                }
+
+                if (id === 'aa-executive-list') {
+                    return dom.list;
+                }
+
+                return null;
+            }
+        };
+
+        hooks.bindExecutiveDelegation();
+    }
+
+    it('capture setWorkZone executive idempotente no invalida click delegado', async () => {
+        rafQueue = [];
+        renderCalls = 0;
+
+        var button = makeClickableProposalButton({ 'data-executive-action-key': 'complete' });
+        var proposal = makeProposalRootWithButton(button);
+
+        bindProposalDom(proposal);
+
+        globalThis.AAExecutiveProposal.setWorkZone('executive');
+        assert.equal(rafQueue.length, 0);
+
+        dispatchProposalClick(proposal, button);
+
+        await Promise.resolve();
+
+        assert.equal(postCalls, 1);
+        assert.equal(proposal.contains(button), true);
+    });
+
+    it('transición organizing → executive difiere render y conserva target para handler', async () => {
+        rafQueue = [];
+        renderCalls = 0;
+
+        var button = makeClickableProposalButton({ 'data-executive-action-key': 'complete' });
+        var proposal = makeProposalRootWithButton(button);
+
+        bindProposalDom(proposal);
+
+        hooks.setWorkZone('organizing');
+        assert.equal(rafQueue.length, 1);
+        flushRafQueue();
+        assert.equal(renderCalls, 1);
+
+        globalThis.AAExecutiveProposal.setWorkZone('executive');
+        assert.equal(rafQueue.length, 1);
+        assert.equal(proposal.contains(button), true);
+
+        dispatchProposalClick(proposal, button);
+
+        await Promise.resolve();
+
+        assert.equal(postCalls, 1);
+
+        flushRafQueue();
+        assert.equal(renderCalls, 3);
+    });
+
+    it('focus action en header sigue llamando postFocusAction tras capture', async () => {
+        var button = makeClickableProposalButton({
+            'data-executive-action': null,
+            'data-executive-task-id': null,
+            'data-executive-action-key': null,
+            'data-executive-focus-action': 'change_focus'
+        });
+        button.getAttribute = function (name) {
+            if (name === 'data-executive-focus-action') {
+                return 'change_focus';
+            }
+
+            return null;
+        };
+
+        var proposal = makeProposalRootWithButton(button);
+
+        bindProposalDom(proposal);
+
+        globalThis.AAExecutiveProposal.setWorkZone('executive');
+        dispatchProposalClick(proposal, button);
+
+        await Promise.resolve();
+
+        assert.equal(focusPostCalls, 1);
+        assert.equal(postCalls, 0);
     });
 });

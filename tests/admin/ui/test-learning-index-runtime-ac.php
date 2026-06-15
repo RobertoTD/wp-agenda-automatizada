@@ -143,6 +143,20 @@ ac_assert(
     && strpos($index_php, 'id="aa-executive-list"') !== false
     && strpos($index_php, 'id="aa-executive-empty"') !== false
 );
+ac_assert(
+    'index.php MC6 executive status header ids',
+    is_string($index_php)
+    && strpos($index_php, 'id="aa-executive-status"') !== false
+    && strpos($index_php, 'id="aa-executive-header-actions"') !== false
+);
+ac_assert(
+    'index.php MC6 removes static executive subtitle',
+    is_string($index_php) && strpos($index_php, 'Acciones recomendadas ahora') === false
+);
+ac_assert(
+    'index.php MC6 removes legacy executive focus container',
+    is_string($index_php) && strpos($index_php, 'id="aa-executive-focus"') === false
+);
 
 $board_module_src = file_get_contents($plugin_root . '/includes/admin/ui/modules/learning/tasks-board-module.js');
 ac_assert('tasks-board-module readable', $board_module_src !== false);

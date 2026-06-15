@@ -150,17 +150,23 @@
         @apply text-xs leading-snug text-gray-600 hover:text-gray-800;
     }
 
-    /* Ejecutor — separación propuesta ejecutiva / listas (MC-UX-F) */
+    /* Ejecutor — separación propuesta ejecutiva / listas (MC-UX-F / MC6) */
     .aa-executive-lists-divider hr {
         @apply border-gray-200;
     }
 
+    #aa-executive-proposal,
     #aa-lists-section {
         transition: opacity 0.18s ease-in-out;
     }
 
+    #aa-executive-proposal.is-muted,
     #aa-lists-section.is-muted {
         opacity: 0.50;
+    }
+
+    .aa-executive-status-dot {
+        @apply inline-block h-2 w-2 rounded-full bg-green-500;
     }
 
     /* Executable feed — triggers ⋮ planos por defecto (MC-UX-E polish) */

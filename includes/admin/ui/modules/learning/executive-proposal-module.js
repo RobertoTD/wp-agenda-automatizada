@@ -13,6 +13,112 @@
     var EXECUTIVE_FOCUS_ACTION_SELECTOR = '[data-executive-focus-action]';
     var lastProposalPayload = null;
     var sprintWatchTimer = null;
+    var workZone = 'executive';
+    var choosingMode = false;
+    var pendingWorkZoneRender = false;
+    var pendingWorkZoneRenderId = null;
+
+    function resolveUiMode() {
+        if (workZone === 'organizing') {
+            return 'organizing';
+        }
+
+        if (choosingMode) {
+            return 'choosing';
+        }
+
+        return null;
+    }
+
+    function renderProposalPayload(payload) {
+        var renderer = getRenderer();
+
+        if (!renderer || typeof renderer.renderProposal !== 'function') {
+            return;
+        }
+
+        renderer.renderProposal(payload, { uiMode: resolveUiMode() });
+    }
+
+    function scheduleWorkZoneRender() {
+        if (pendingWorkZoneRender) {
+            return;
+        }
+
+        pendingWorkZoneRender = true;
+        var schedule = typeof globalRoot.requestAnimationFrame === 'function'
+            ? globalRoot.requestAnimationFrame.bind(globalRoot)
+            : function (callback) {
+                return setTimeout(callback, 0);
+            };
+
+        pendingWorkZoneRenderId = schedule(function () {
+            pendingWorkZoneRender = false;
+            pendingWorkZoneRenderId = null;
+            renderProposalPayload(lastProposalPayload);
+        });
+    }
+
+    function flushPendingWorkZoneRender() {
+        if (!pendingWorkZoneRender || pendingWorkZoneRenderId == null) {
+            return;
+        }
+
+        var cancel = typeof globalRoot.cancelAnimationFrame === 'function'
+            ? globalRoot.cancelAnimationFrame.bind(globalRoot)
+            : clearTimeout;
+
+        cancel(pendingWorkZoneRenderId);
+        pendingWorkZoneRender = false;
+        pendingWorkZoneRenderId = null;
+        renderProposalPayload(lastProposalPayload);
+    }
+
+    function setChoosingMode(active) {
+        choosingMode = !!active;
+        renderProposalPayload(lastProposalPayload);
+    }
+
+    function setWorkZone(zone) {
+        var nextZone = zone === 'organizing' ? 'organizing' : 'executive';
+
+        if (nextZone === workZone) {
+            return;
+        }
+
+        workZone = nextZone;
+
+        if (workZone === 'executive') {
+            choosingMode = false;
+        }
+
+        scheduleWorkZoneRender();
+    }
+
+    function isSprintActive(payload) {
+        return !!(payload
+            && payload.meta
+            && payload.meta.sprint
+            && payload.meta.sprint.sprint_active === true);
+    }
+
+    function afterExecutiveActionSuccess(response) {
+        var proposal = response && response.proposal ? response.proposal : null;
+        var actionKey = response && response.action ? String(response.action.key || '') : '';
+
+        if (!proposal) {
+            return;
+        }
+
+        if (isSprintActive(proposal)) {
+            choosingMode = false;
+        } else if (actionKey === 'dismiss') {
+            choosingMode = true;
+        }
+
+        lastProposalPayload = proposal;
+        renderProposalPayload(proposal);
+    }
 
     function setVisible(el, visible) {
         if (!el) {
@@ -237,7 +343,7 @@
         return service.getExecutiveProposal()
             .then(function (payload) {
                 lastProposalPayload = payload && typeof payload === 'object' ? payload : null;
-                renderer.renderProposal(payload);
+                renderProposalPayload(lastProposalPayload);
 
                 return lastProposalPayload;
             })
@@ -290,10 +396,7 @@
             actionKey: actionKey
         })
             .then(function (response) {
-                if (response.proposal && typeof response.proposal === 'object') {
-                    lastProposalPayload = response.proposal;
-                    renderer.renderProposal(response.proposal);
-                }
+                afterExecutiveActionSuccess(response);
 
                 return runClientAction(response.client_action).then(function () {
                     if (!response.action || response.action.mutated !== true) {
@@ -349,7 +452,12 @@
             .then(function (response) {
                 if (response.proposal && typeof response.proposal === 'object') {
                     lastProposalPayload = response.proposal;
-                    renderer.renderProposal(response.proposal);
+
+                    if (!isSprintActive(response.proposal)) {
+                        choosingMode = true;
+                    }
+
+                    renderProposalPayload(response.proposal);
                 }
             })
             .catch(function (err) {
@@ -532,7 +640,7 @@
             .then(function (response) {
                 if (renderer && typeof renderer.renderProposal === 'function' && response.proposal) {
                     lastProposalPayload = response.proposal;
-                    renderer.renderProposal(response.proposal);
+                    renderProposalPayload(response.proposal);
                 }
 
                 return response.proposal || lastProposalPayload;
@@ -549,6 +657,8 @@
 
     globalRoot.AAExecutiveProposal = {
         reload: loadProposal,
+        setWorkZone: setWorkZone,
+        setChoosingMode: setChoosingMode,
         debugSprint: debugSprint,
         debugSprintWatch: debugSprintWatch,
         stopDebugSprintWatch: stopDebugSprintWatch,
@@ -562,6 +672,13 @@
         handleFocusActionClick: handleFocusActionClick,
         runClientAction: runClientAction,
         syncListsAfterExecutiveAction: syncListsAfterExecutiveAction,
+        setWorkZone: setWorkZone,
+        setChoosingMode: setChoosingMode,
+        resolveUiMode: resolveUiMode,
+        renderProposalPayload: renderProposalPayload,
+        afterExecutiveActionSuccess: afterExecutiveActionSuccess,
+        bindExecutiveDelegation: bindExecutiveDelegation,
+        flushPendingWorkZoneRender: flushPendingWorkZoneRender,
         debugSprint: debugSprint,
         debugSprintWatch: debugSprintWatch,
         stopDebugSprintWatch: stopDebugSprintWatch,
