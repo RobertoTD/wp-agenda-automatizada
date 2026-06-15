@@ -27,6 +27,8 @@ final class AA_Executive_Contract {
 
     public const FOCUS_REASON_SPRINT_ACTIVE = 'sprint_active';
 
+    public const FOCUS_REASON_MANUAL_FOCUS = 'manual_focus_active';
+
     public const EMPTY_REASON_NO_ELIGIBLE_TASKS = 'no_eligible_tasks';
 
     public const META_VERSION = 1;
@@ -284,6 +286,88 @@ final class AA_Executive_Contract {
                 : null,
             'empty_reason' => $empty_reason,
             'sprint' => self::normalize_sprint_meta($meta['sprint'] ?? null),
+            'focus_controls' => self::normalize_focus_controls($meta['focus_controls'] ?? null),
+            'focus_state' => self::normalize_focus_state($meta['focus_state'] ?? null),
+        ];
+    }
+
+    /**
+     * @param mixed $value
+     * @return array<string,mixed>
+     */
+    private static function normalize_focus_controls($value): array {
+        if (!is_array($value)) {
+            return [
+                'can_change_focus' => false,
+                'can_go_previous' => false,
+                'current_focus_list_id' => null,
+                'previous_focus_list_id' => null,
+                'eligible_focus_count' => 0,
+                'eligible_focus_list_ids' => [],
+            ];
+        }
+
+        return [
+            'can_change_focus' => !empty($value['can_change_focus']),
+            'can_go_previous' => !empty($value['can_go_previous']),
+            'current_focus_list_id' => self::nullable_positive_int($value['current_focus_list_id'] ?? null),
+            'previous_focus_list_id' => self::nullable_positive_int($value['previous_focus_list_id'] ?? null),
+            'eligible_focus_count' => max(0, (int) ($value['eligible_focus_count'] ?? 0)),
+            'eligible_focus_list_ids' => self::normalize_positive_int_list($value['eligible_focus_list_ids'] ?? []),
+        ];
+    }
+
+    /**
+     * @param mixed $value
+     * @return list<int>
+     */
+    private static function normalize_positive_int_list($value): array {
+        if (!is_array($value)) {
+            return [];
+        }
+
+        $ids = [];
+
+        foreach ($value as $raw_id) {
+            $id = (int) $raw_id;
+
+            if ($id > 0) {
+                $ids[] = $id;
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
+     * @param mixed $value
+     * @return array<string,mixed>
+     */
+    private static function normalize_focus_state($value): array {
+        if (!is_array($value)) {
+            return [
+                'manual_focus_active' => false,
+                'manual_focus_list_id' => null,
+                'dismiss_streak_without_sprint' => 0,
+                'manual_focus_expires_at' => null,
+            ];
+        }
+
+        $streak = (int) ($value['dismiss_streak_without_sprint'] ?? 0);
+
+        if ($streak < 0) {
+            $streak = 0;
+        }
+
+        if ($streak > 2) {
+            $streak = 2;
+        }
+
+        return [
+            'manual_focus_active' => !empty($value['manual_focus_active']),
+            'manual_focus_list_id' => self::nullable_positive_int($value['manual_focus_list_id'] ?? null),
+            'dismiss_streak_without_sprint' => $streak,
+            'manual_focus_expires_at' => self::nullable_non_negative_int($value['manual_focus_expires_at'] ?? null),
         ];
     }
 
@@ -372,6 +456,10 @@ final class AA_Executive_Contract {
 
         if ($reason === self::FOCUS_REASON_SPRINT_ACTIVE) {
             return self::FOCUS_REASON_SPRINT_ACTIVE;
+        }
+
+        if ($reason === self::FOCUS_REASON_MANUAL_FOCUS) {
+            return self::FOCUS_REASON_MANUAL_FOCUS;
         }
 
         return self::FOCUS_REASON_FIRST_LIST_WITH_ELIGIBLE;

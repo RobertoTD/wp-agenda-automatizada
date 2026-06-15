@@ -26,7 +26,9 @@ final class AA_Executive_Proposal_Policy {
      *     eligible_count_in_focus_list:int,
      *     focus_reason:string|null,
      *     preferred_focus_list_id:int|null,
-     *     preferred_focus_used:bool
+     *     preferred_focus_used:bool,
+     *     eligible_focus_list_ids:list<int>,
+     *     eligible_focus_count:int
      * }
      */
     public function propose(array $input, array $context = []): array {
@@ -39,11 +41,18 @@ final class AA_Executive_Proposal_Policy {
         $lists_by_id = $this->index_lists_by_id($lists);
         $tasks_by_id = $this->index_tasks_by_id($tasks);
         $eligible_by_list = $this->count_eligible_by_list($tasks, $evaluations_by_id);
+        $eligible_focus_list_ids = $this->resolve_eligible_focus_list_ids(
+            $list_order,
+            $lists_by_id,
+            $eligible_by_list
+        );
+        $eligible_focus_count = count($eligible_focus_list_ids);
 
         $preferred_focus_list_id = isset($context['preferred_focus_list_id'])
             ? (int) $context['preferred_focus_list_id']
             : 0;
         $sprint_active = !empty($context['sprint_active']);
+        $manual_focus_active = !empty($context['manual_focus_active']);
 
         $focus_list_id = null;
         $preferred_focus_used = false;
@@ -74,6 +83,8 @@ final class AA_Executive_Proposal_Policy {
                 'focus_reason' => null,
                 'preferred_focus_list_id' => $preferred_focus_list_id > 0 ? $preferred_focus_list_id : null,
                 'preferred_focus_used' => false,
+                'eligible_focus_list_ids' => $eligible_focus_list_ids,
+                'eligible_focus_count' => $eligible_focus_count,
             ];
         }
 
@@ -93,9 +104,11 @@ final class AA_Executive_Proposal_Policy {
             $task_ids[] = $task->id();
         }
 
-        $focus_reason = ($sprint_active || $preferred_focus_used)
-            ? AA_Executive_Contract::FOCUS_REASON_SPRINT_ACTIVE
-            : AA_Executive_Contract::FOCUS_REASON_FIRST_LIST_WITH_ELIGIBLE;
+        $focus_reason = $this->resolve_focus_reason(
+            $preferred_focus_used,
+            $sprint_active,
+            $manual_focus_active
+        );
 
         return [
             'status' => AA_Executive_Contract::STATUS_READY,
@@ -105,7 +118,75 @@ final class AA_Executive_Proposal_Policy {
             'focus_reason' => $focus_reason,
             'preferred_focus_list_id' => $preferred_focus_list_id > 0 ? $preferred_focus_list_id : null,
             'preferred_focus_used' => $preferred_focus_used,
+            'eligible_focus_list_ids' => $eligible_focus_list_ids,
+            'eligible_focus_count' => $eligible_focus_count,
         ];
+    }
+
+    /**
+     * @param array<string,mixed> $input
+     * @return list<int>
+     */
+    public function resolve_eligible_focus_list_ids_from_board(array $input): array {
+        $lists = $this->normalize_lists($input['lists'] ?? []);
+        $tasks = $this->normalize_tasks($input['tasks'] ?? []);
+        $organization = is_array($input['organization'] ?? null) ? $input['organization'] : [];
+        $evaluations_by_id = $this->normalize_evaluations_by_id($organization['task_evaluations_by_id'] ?? []);
+        $list_order = $this->normalize_id_list($organization['list_order'] ?? []);
+        $lists_by_id = $this->index_lists_by_id($lists);
+        $eligible_by_list = $this->count_eligible_by_list($tasks, $evaluations_by_id);
+
+        return $this->resolve_eligible_focus_list_ids($list_order, $lists_by_id, $eligible_by_list);
+    }
+
+    private function resolve_focus_reason(
+        bool $preferred_focus_used,
+        bool $sprint_active,
+        bool $manual_focus_active
+    ): string {
+        if (!$preferred_focus_used) {
+            return AA_Executive_Contract::FOCUS_REASON_FIRST_LIST_WITH_ELIGIBLE;
+        }
+
+        if ($sprint_active) {
+            return AA_Executive_Contract::FOCUS_REASON_SPRINT_ACTIVE;
+        }
+
+        if ($manual_focus_active) {
+            return AA_Executive_Contract::FOCUS_REASON_MANUAL_FOCUS;
+        }
+
+        return AA_Executive_Contract::FOCUS_REASON_FIRST_LIST_WITH_ELIGIBLE;
+    }
+
+    /**
+     * @param list<int>              $list_order
+     * @param array<int,AA_Task_List> $lists_by_id
+     * @param array<int,int>         $eligible_by_list
+     * @return list<int>
+     */
+    private function resolve_eligible_focus_list_ids(
+        array $list_order,
+        array $lists_by_id,
+        array $eligible_by_list
+    ): array {
+        $eligible_ids = [];
+
+        foreach ($list_order as $list_id) {
+            $list = $lists_by_id[$list_id] ?? null;
+
+            if ($list === null || !$list->is_active()) {
+                continue;
+            }
+
+            if (($eligible_by_list[$list_id] ?? 0) < 1) {
+                continue;
+            }
+
+            $eligible_ids[] = $list_id;
+        }
+
+        return $eligible_ids;
     }
 
     /**

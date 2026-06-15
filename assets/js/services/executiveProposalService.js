@@ -102,9 +102,30 @@
         });
     }
 
+    /**
+     * @param {string} focusAction
+     * @returns {Promise<{focus_action:Object, proposal:Object}>}
+     */
+    function postFocusAction(focusAction) {
+        var cfg = getConfig();
+        var focusActionPost = cfg && cfg.focusActionPost ? cfg.focusActionPost : 'aa_executive_focus_action';
+
+        return postForm(focusActionPost, {
+            focus_action: String(focusAction || '')
+        }).then(function (result) {
+            return {
+                focus_action: result.focus_action && typeof result.focus_action === 'object'
+                    ? result.focus_action
+                    : {},
+                proposal: result.proposal && typeof result.proposal === 'object' ? result.proposal : {}
+            };
+        });
+    }
+
     var api = {
         getExecutiveProposal: getExecutiveProposal,
-        postExecutiveAction: postExecutiveAction
+        postExecutiveAction: postExecutiveAction,
+        postFocusAction: postFocusAction
     };
 
     globalRoot.AAExecutiveProposalService = api;

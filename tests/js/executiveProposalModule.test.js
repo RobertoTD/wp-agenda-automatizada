@@ -525,3 +525,16 @@ describe('executive-proposal-module MC4.1 sprint debug', () => {
         assert.equal(calls, 1);
     });
 });
+
+describe('executive-proposal-module MC5', () => {
+    it('expone debugExpireSprint y delega focus clicks al servicio', () => {
+        const moduleSrc = fs.readFileSync(modulePath, 'utf8');
+
+        assert.match(moduleSrc, /debugExpireSprint/);
+        assert.match(moduleSrc, /postFocusAction/);
+        assert.match(moduleSrc, /data-executive-focus-action/);
+        assert.match(moduleSrc, /handleFocusActionClick/);
+        assert.equal(moduleSrc.includes('data-tasks-action'), false);
+        assert.equal(moduleSrc.includes('data-learning-action'), false);
+    });
+});

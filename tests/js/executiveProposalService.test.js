@@ -19,3 +19,14 @@ describe('executiveProposalService MC3', () => {
         assert.match(serviceSrc, /client_action/);
     });
 });
+
+describe('executiveProposalService MC5', () => {
+    it('expone postFocusAction con focusActionPost', () => {
+        const serviceSrc = fs.readFileSync(servicePath, 'utf8');
+
+        assert.match(serviceSrc, /postFocusAction/);
+        assert.match(serviceSrc, /focusActionPost/);
+        assert.match(serviceSrc, /aa_executive_focus_action/);
+        assert.match(serviceSrc, /focus_action/);
+    });
+});

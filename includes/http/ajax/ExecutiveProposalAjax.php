@@ -7,6 +7,7 @@ defined('ABSPATH') or die('No direct access');
 
 require_once dirname(__DIR__, 2) . '/application/executive/GetExecutiveProposalUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/executive/RecordExecutiveActionUseCase.php';
+require_once dirname(__DIR__, 2) . '/application/executive/ChangeExecutiveFocusUseCase.php';
 
 final class ExecutiveProposalAjax {
 
@@ -15,6 +16,7 @@ final class ExecutiveProposalAjax {
     public static function register(): void {
         add_action('wp_ajax_aa_get_executive_proposal', [__CLASS__, 'handle_get_proposal']);
         add_action('wp_ajax_aa_executive_action', [__CLASS__, 'handle_executive_action']);
+        add_action('wp_ajax_aa_executive_focus_action', [__CLASS__, 'handle_focus_action']);
     }
 
     public static function handle_get_proposal(): void {
@@ -60,6 +62,34 @@ final class ExecutiveProposalAjax {
         }
     }
 
+    public static function handle_focus_action(): void {
+        self::authorize();
+
+        try {
+            $result = (new ChangeExecutiveFocusUseCase())->execute([
+                'focus_action' => self::post_string('focus_action'),
+            ]);
+
+            if (empty($result['success'])) {
+                $error = is_array($result['error'] ?? null) ? $result['error'] : [];
+                $code = (string) ($error['code'] ?? 'executive_focus_unavailable');
+                $status = self::resolve_focus_error_status($code);
+
+                wp_send_json_error([
+                    'message' => (string) ($error['message'] ?? 'No se pudo ejecutar la acción de foco.'),
+                    'code' => $code,
+                ], $status);
+            }
+
+            wp_send_json_success($result['data'] ?? []);
+        } catch (\Throwable $exception) {
+            wp_send_json_error([
+                'message' => 'No se pudo ejecutar la acción de foco.',
+                'code' => 'executive_focus_unavailable',
+            ], 500);
+        }
+    }
+
     private static function authorize(): void {
         if (!current_user_can('manage_options')) {
             wp_send_json_error(['message' => 'Permisos insuficientes.'], 403);
@@ -75,6 +105,14 @@ final class ExecutiveProposalAjax {
 
         if ($code === 'action_failed') {
             return 422;
+        }
+
+        return 500;
+    }
+
+    private static function resolve_focus_error_status(string $code): int {
+        if (in_array($code, ['invalid_focus_action', 'previous_focus_unavailable', 'no_eligible_focus'], true)) {
+            return 400;
         }
 
         return 500;

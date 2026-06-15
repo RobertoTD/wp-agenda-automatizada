@@ -43,7 +43,9 @@ require_once __DIR__ . '/../../../includes/domain/tasks/class-aa-task.php';
 require_once __DIR__ . '/../../../includes/domain/tasks/class-aa-task-list.php';
 require_once __DIR__ . '/../../../includes/domain/tasks/class-aa-task-active-view-projection-policy.php';
 require_once __DIR__ . '/../../../includes/repositories/ExecutiveSprintStateRepository.php';
+require_once __DIR__ . '/../../../includes/repositories/ExecutiveFocusStateRepository.php';
 require_once __DIR__ . '/../../../includes/application/executive/ExecutiveProposalMapper.php';
+require_once __DIR__ . '/../../../includes/application/executive/ExecutiveFocusTransitionService.php';
 require_once __DIR__ . '/../../../includes/application/executive/GetExecutiveProposalUseCase.php';
 require_once __DIR__ . '/../../../includes/application/executive/RecordExecutiveActionUseCase.php';
 require_once __DIR__ . '/../../../includes/application/executable/ExecutableNavigationUrlResolver.php';
@@ -395,10 +397,15 @@ function exec_action_sprint_uc(
     array &$board,
     array $deps,
     ?callable $change_status_executor = null,
-    ?callable $dismiss_executor = null
+    ?callable $dismiss_executor = null,
+    ?array $focus_deps = null,
+    ?callable $randomizer = null
 ): RecordExecutiveActionUseCase {
+    $focus_reader = $focus_deps['reader'] ?? null;
+    $focus_writer = $focus_deps['writer'] ?? null;
+
     return new RecordExecutiveActionUseCase(
-        static function () use (&$board, $deps): array {
+        static function () use (&$board, $deps, $focus_reader, $focus_writer): array {
             return (new GetExecutiveProposalUseCase(
                 static function () use (&$board): array {
                     return $board;
@@ -406,7 +413,9 @@ function exec_action_sprint_uc(
                 $deps['reader'],
                 $deps['writer'],
                 $deps['user_id_resolver'],
-                $deps['now_ts_resolver']
+                $deps['now_ts_resolver'],
+                $focus_reader,
+                $focus_writer
             ))->execute();
         },
         $change_status_executor,
@@ -414,7 +423,13 @@ function exec_action_sprint_uc(
         $deps['reader'],
         $deps['writer'],
         $deps['user_id_resolver'],
-        $deps['now_ts_resolver']
+        $deps['now_ts_resolver'],
+        $focus_reader,
+        $focus_writer,
+        static function () use (&$board): array {
+            return $board;
+        },
+        $randomizer
     );
 }
 
@@ -638,6 +653,150 @@ ac_assert(
     'dismiss agotado propone tarea de nueva lista',
     (int) ($shift_result['data']['proposal']['focus_list']['id'] ?? 0) === 1
     && (int) ($shift_result['data']['proposal']['tasks'][0]['task_id'] ?? 0) === 20
+);
+
+// ─── MC5 dismiss streak fuera de sprint ─────────────────────
+
+$streak_board = [
+    'lists' => [
+        ['id' => 2, 'title' => 'Agotandose', 'status' => 'active', 'source_category' => 'agenda_app'],
+        ['id' => 1, 'title' => 'Siguiente', 'status' => 'active', 'source_category' => 'user'],
+    ],
+    'tasks' => [
+        ['id' => 10, 'list_id' => 2, 'title' => 'A', 'status' => 'pending', 'importance' => 100],
+        ['id' => 11, 'list_id' => 2, 'title' => 'B', 'status' => 'pending', 'importance' => 90],
+        ['id' => 20, 'list_id' => 1, 'title' => 'C', 'status' => 'pending', 'importance' => 50, 'completion_type' => 'manual'],
+    ],
+    'organization' => [
+        'list_order' => [2, 1],
+        'task_evaluations_by_id' => [
+            10 => exec_action_visible_eval('primary', true),
+            11 => exec_action_visible_eval('primary', true),
+            20 => exec_action_visible_eval('primary', true),
+        ],
+        'task_actions_by_id' => [],
+    ],
+];
+
+$dismiss_executor = static function (array $input) use (&$streak_board): array {
+    $task_id = (int) ($input['task_id'] ?? 0);
+    $streak_board['organization']['task_evaluations_by_id'][$task_id] = [
+        'visible_in_active' => false,
+        'projection' => ['visible_in_active' => false, 'projected_bucket' => 'primary'],
+        'capabilities' => ['can_dismiss' => false],
+    ];
+
+    return TaskUseCaseSupport::ok(['task_state' => ['task_id' => $task_id]]);
+};
+
+$streak_sprint_storage = [];
+$streak_focus_storage = [];
+$streak_deps = exec_action_sprint_deps($streak_sprint_storage, $action_user_id, $action_now_ts);
+$streak_focus_deps = exec_action_sprint_deps($streak_focus_storage, $action_user_id, $action_now_ts);
+$streak_uc = exec_action_sprint_uc(
+    $streak_board,
+    $streak_deps,
+    null,
+    $dismiss_executor,
+    $streak_focus_deps,
+    static function (): int {
+        return 1;
+    }
+);
+
+$streak_uc->execute(['task_id' => 10, 'action_key' => 'dismiss']);
+ac_assert(
+    'dismiss fuera de sprint incrementa streak a 1',
+    (int) ($streak_focus_storage[$action_user_id]['dismiss_streak_without_sprint'] ?? 0) === 1
+);
+
+$streak_uc->execute(['task_id' => 11, 'action_key' => 'dismiss']);
+ac_assert(
+    'segundo dismiss incrementa streak a 2',
+    (int) ($streak_focus_storage[$action_user_id]['dismiss_streak_without_sprint'] ?? 0) === 2
+);
+
+$third_dismiss = $streak_uc->execute(['task_id' => 20, 'action_key' => 'dismiss']);
+ac_assert('tercer dismiss success', !empty($third_dismiss['success']));
+ac_assert(
+    'tercer dismiss resetea streak',
+    (int) ($streak_focus_storage[$action_user_id]['dismiss_streak_without_sprint'] ?? -1) === 0
+);
+ac_assert(
+    'tercer dismiss cambia foco aleatorio a lista 1',
+    (int) ($streak_focus_storage[$action_user_id]['manual_focus_list_id'] ?? 0) === 1
+);
+ac_assert('tercer dismiss no inicia sprint', !isset($streak_sprint_storage[$action_user_id]));
+
+$active_streak_storage = [];
+$active_streak_focus = [];
+$active_streak_storage[$action_user_id] = [
+    'version' => 1,
+    'active_focus_list_id' => 2,
+    'sprint_started_at' => $action_now_ts - 200,
+    'last_executive_action_at' => $action_now_ts - 200,
+    'sprint_expires_at' => $action_now_ts + 3400,
+];
+$active_streak_board = exec_action_ready_board();
+$active_streak_deps = exec_action_sprint_deps($active_streak_storage, $action_user_id, $action_now_ts);
+$active_streak_focus_deps = exec_action_sprint_deps($active_streak_focus, $action_user_id, $action_now_ts);
+$active_streak_uc = exec_action_sprint_uc(
+    $active_streak_board,
+    $active_streak_deps,
+    null,
+    static function (array $input) use (&$active_streak_board): array {
+        $task_id = (int) ($input['task_id'] ?? 0);
+        $active_streak_board['organization']['task_evaluations_by_id'][$task_id] = [
+            'visible_in_active' => false,
+            'projection' => ['visible_in_active' => false, 'projected_bucket' => 'primary'],
+            'capabilities' => ['can_dismiss' => false],
+        ];
+
+        return TaskUseCaseSupport::ok(['task_state' => ['task_id' => $task_id]]);
+    },
+    $active_streak_focus_deps
+);
+
+$active_streak_uc->execute(['task_id' => 10, 'action_key' => 'dismiss']);
+ac_assert(
+    'dismiss dentro de sprint no incrementa streak',
+    !isset($active_streak_focus[$action_user_id])
+    || (int) ($active_streak_focus[$action_user_id]['dismiss_streak_without_sprint'] ?? 0) === 0
+);
+
+$reset_streak_storage = [];
+$reset_streak_focus = [];
+$reset_streak_focus[$action_user_id] = [
+    'version' => 1,
+    'manual_focus_list_id' => null,
+    'previous_focus_list_id' => null,
+    'dismiss_streak_without_sprint' => 2,
+    'manual_focus_expires_at' => null,
+];
+$reset_board = exec_action_user_complete_board();
+$reset_deps = exec_action_sprint_deps($reset_streak_storage, $action_user_id, $action_now_ts);
+$reset_focus_deps = exec_action_sprint_deps($reset_streak_focus, $action_user_id, $action_now_ts);
+$reset_uc = exec_action_sprint_uc(
+    $reset_board,
+    $reset_deps,
+    static function (array $input) use (&$reset_board): array {
+        foreach ($reset_board['tasks'] as $index => $task) {
+            if ((int) ($task['id'] ?? 0) === (int) ($input['task_id'] ?? 0)) {
+                $reset_board['tasks'][$index]['status'] = 'done';
+                break;
+            }
+        }
+
+        return TaskUseCaseSupport::ok(['task' => ['id' => (int) ($input['task_id'] ?? 0), 'status' => 'done']]);
+    },
+    null,
+    $reset_focus_deps
+);
+
+$reset_uc->execute(['task_id' => 20, 'action_key' => 'complete']);
+ac_assert(
+    'complete resetea dismiss streak',
+    (int) ($reset_streak_focus[$action_user_id]['dismiss_streak_without_sprint'] ?? -1) === 0
 );
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";

@@ -151,3 +151,36 @@ describe('executiveProposalRenderer MC2/MC3', () => {
         });
     });
 });
+
+describe('executiveProposalRenderer MC5', () => {
+    it('muestra Cambiar foco cuando can_change_focus', () => {
+        const html = renderer.renderFocusContext(
+            { title: 'Lista foco', source_category: 'user' },
+            { can_change_focus: true, can_go_previous: false }
+        );
+
+        assert.match(html, />Cambiar foco</);
+        assert.match(html, /data-executive-focus-action="change_focus"/);
+    });
+
+    it('muestra Anterior solo cuando can_go_previous', () => {
+        const hidden = renderer.renderFocusControls({ can_change_focus: true, can_go_previous: false });
+        const visible = renderer.renderFocusControls({ can_change_focus: true, can_go_previous: true });
+
+        assert.equal(hidden.includes('Anterior'), false);
+        assert.match(visible, />Anterior</);
+        assert.match(visible, /data-executive-focus-action="previous_focus"/);
+    });
+
+    it('controles de foco no usan data-executive-action ni data-tasks-action', () => {
+        const html = renderer.renderFocusContext(
+            { title: 'Lista foco', source_category: 'user' },
+            { can_change_focus: true, can_go_previous: true }
+        );
+
+        assert.equal(html.includes('data-executive-action'), false);
+        assert.equal(html.includes('data-tasks-action'), false);
+        assert.equal(html.includes('data-learning-action'), false);
+        assert.match(html, /data-executive-focus-action/);
+    });
+});

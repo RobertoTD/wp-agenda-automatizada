@@ -437,6 +437,7 @@ $executive_proposal_module_js = plugin_dir_url(__FILE__) . 'executive-proposal-m
         ajaxUrl: window.ajaxurl || '<?php echo admin_url('admin-ajax.php'); ?>',
         action: 'aa_get_executive_proposal',
         actionPost: 'aa_executive_action',
+        focusActionPost: 'aa_executive_focus_action',
         nonce: '<?php echo esc_js(wp_create_nonce('aa_executive_proposal_nonce')); ?>'
     };
 </script>

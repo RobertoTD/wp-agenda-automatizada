@@ -43,6 +43,7 @@ require_once __DIR__ . '/../../../includes/domain/tasks/class-aa-task.php';
 require_once __DIR__ . '/../../../includes/domain/tasks/class-aa-task-list.php';
 require_once __DIR__ . '/../../../includes/domain/tasks/class-aa-task-active-view-projection-policy.php';
 require_once __DIR__ . '/../../../includes/repositories/ExecutiveSprintStateRepository.php';
+require_once __DIR__ . '/../../../includes/repositories/ExecutiveFocusStateRepository.php';
 require_once __DIR__ . '/../../../includes/application/executive/ExecutiveProposalMapper.php';
 require_once __DIR__ . '/../../../includes/application/executive/GetExecutiveProposalUseCase.php';
 require_once __DIR__ . '/../../../includes/application/executable/ExecutableNavigationUrlResolver.php';
@@ -187,6 +188,9 @@ $ready = (new GetExecutiveProposalUseCase(static function (): array {
 ac_assert('Use case returns success', !empty($ready['success']));
 ac_assert('Use case status ready', ($ready['status'] ?? '') === AA_Executive_Contract::STATUS_READY);
 ac_assert('Meta includes sprint observability block', is_array($ready['meta']['sprint'] ?? null));
+ac_assert('Meta includes focus_controls', is_array($ready['meta']['focus_controls'] ?? null));
+ac_assert('Meta includes focus_state', is_array($ready['meta']['focus_state'] ?? null));
+ac_assert('focus_controls can_change_focus when hay elegibles', ($ready['meta']['focus_controls']['can_change_focus'] ?? false) === true);
 ac_assert('Sprint meta inactive without stored sprint', ($ready['meta']['sprint']['sprint_active'] ?? true) === false);
 ac_assert('Focus list id matches highest-priority list with eligibles', (int) ($ready['focus_list']['id'] ?? 0) === 2);
 ac_assert('Focus list preserves source_category', ($ready['focus_list']['source_category'] ?? '') === 'agenda_app');
@@ -469,6 +473,132 @@ ac_assert(
 ac_assert(
     'Propuesta no queda empty si hay otra lista elegible',
     ($exhausted_proposal['status'] ?? '') === AA_Executive_Contract::STATUS_READY
+);
+
+// ─── MC5 manual focus ───────────────────────────────────────
+
+$focus_now_ts = (int) strtotime('2026-06-04 12:00:00');
+$sprint_empty_storage = [];
+$manual_only_focus_storage = [];
+$manual_only_focus_storage[7] = [
+    'version' => 1,
+    'manual_focus_list_id' => 1,
+    'previous_focus_list_id' => 2,
+    'dismiss_streak_without_sprint' => 0,
+    'manual_focus_expires_at' => $focus_now_ts + 3600,
+];
+$sprint_empty_deps = exec_sprint_test_deps($sprint_empty_storage, 7, $focus_now_ts);
+$manual_only_focus_deps = exec_sprint_test_deps($manual_only_focus_storage, 7, $focus_now_ts);
+
+$manual_focus_proposal = (new GetExecutiveProposalUseCase(
+    static function (): array {
+        return exec_board_ready_fixture();
+    },
+    $sprint_empty_deps['reader'],
+    $sprint_empty_deps['writer'],
+    $sprint_empty_deps['user_id_resolver'],
+    $sprint_empty_deps['now_ts_resolver'],
+    $manual_only_focus_deps['reader'],
+    $manual_only_focus_deps['writer']
+))->execute();
+
+ac_assert(
+    'manual_focus_list_id vigente fuerza foco sin sprint',
+    (int) ($manual_focus_proposal['focus_list']['id'] ?? 0) === 1
+);
+ac_assert(
+    'manual focus expone focus_reason manual_focus_active',
+    ($manual_focus_proposal['meta']['focus_reason'] ?? '') === AA_Executive_Contract::FOCUS_REASON_MANUAL_FOCUS
+);
+
+$sprint_and_manual_storage = [];
+$sprint_and_manual_storage[7] = [
+    'version' => 1,
+    'active_focus_list_id' => 1,
+    'sprint_started_at' => $focus_now_ts - 100,
+    'last_executive_action_at' => $focus_now_ts - 100,
+    'sprint_expires_at' => $focus_now_ts + 3500,
+];
+$focus_manual_storage = [];
+$focus_manual_storage[7] = [
+    'version' => 1,
+    'manual_focus_list_id' => 2,
+    'previous_focus_list_id' => null,
+    'dismiss_streak_without_sprint' => 0,
+    'manual_focus_expires_at' => $focus_now_ts + 3600,
+];
+$sprint_priority_deps = exec_sprint_test_deps($sprint_and_manual_storage, 7, $focus_now_ts);
+$focus_priority_deps = exec_sprint_test_deps($focus_manual_storage, 7, $focus_now_ts);
+
+$sprint_priority = (new GetExecutiveProposalUseCase(
+    static function (): array {
+        return exec_board_ready_fixture();
+    },
+    $sprint_priority_deps['reader'],
+    $sprint_priority_deps['writer'],
+    $sprint_priority_deps['user_id_resolver'],
+    $sprint_priority_deps['now_ts_resolver'],
+    $focus_priority_deps['reader'],
+    $focus_priority_deps['writer']
+))->execute();
+
+ac_assert(
+    'sprint activo tiene prioridad sobre manual_focus',
+    (int) ($sprint_priority['focus_list']['id'] ?? 0) === 1
+);
+
+$expired_manual_storage = [];
+$expired_manual_storage[7] = [
+    'version' => 1,
+    'manual_focus_list_id' => 1,
+    'previous_focus_list_id' => null,
+    'dismiss_streak_without_sprint' => 0,
+    'manual_focus_expires_at' => $focus_now_ts - 10,
+];
+$expired_manual_deps = exec_sprint_test_deps($expired_manual_storage, 7, $focus_now_ts);
+
+$expired_manual = (new GetExecutiveProposalUseCase(
+    static function (): array {
+        return exec_board_ready_fixture();
+    },
+    $expired_manual_deps['reader'],
+    $expired_manual_deps['writer'],
+    $expired_manual_deps['user_id_resolver'],
+    $expired_manual_deps['now_ts_resolver'],
+    $expired_manual_deps['reader'],
+    $expired_manual_deps['writer']
+))->execute();
+
+ac_assert(
+    'manual focus vencido no fuerza foco',
+    (int) ($expired_manual['focus_list']['id'] ?? 0) === 2
+);
+
+$invalid_manual_storage = [];
+$invalid_manual_storage[7] = [
+    'version' => 1,
+    'manual_focus_list_id' => 99,
+    'previous_focus_list_id' => null,
+    'dismiss_streak_without_sprint' => 0,
+    'manual_focus_expires_at' => $focus_now_ts + 3600,
+];
+$invalid_manual_deps = exec_sprint_test_deps($invalid_manual_storage, 7, $focus_now_ts);
+
+$invalid_manual = (new GetExecutiveProposalUseCase(
+    static function (): array {
+        return exec_board_ready_fixture();
+    },
+    $invalid_manual_deps['reader'],
+    $invalid_manual_deps['writer'],
+    $invalid_manual_deps['user_id_resolver'],
+    $invalid_manual_deps['now_ts_resolver'],
+    $invalid_manual_deps['reader'],
+    $invalid_manual_deps['writer']
+))->execute();
+
+ac_assert(
+    'manual focus inválido no bloquea propuesta',
+    ($invalid_manual['status'] ?? '') === AA_Executive_Contract::STATUS_READY
 );
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";

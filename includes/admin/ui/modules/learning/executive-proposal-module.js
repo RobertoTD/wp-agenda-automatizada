@@ -10,6 +10,7 @@
     var isLoading = false;
     var isActionPending = false;
     var EXECUTIVE_ACTION_SELECTOR = '[data-executive-action]';
+    var EXECUTIVE_FOCUS_ACTION_SELECTOR = '[data-executive-focus-action]';
     var lastProposalPayload = null;
     var sprintWatchTimer = null;
 
@@ -84,6 +85,24 @@
         }
 
         root.querySelectorAll(EXECUTIVE_ACTION_SELECTOR).forEach(function (button) {
+            button.disabled = disabled;
+
+            if (disabled) {
+                button.classList.add('opacity-60', 'cursor-not-allowed');
+            } else {
+                button.classList.remove('opacity-60', 'cursor-not-allowed');
+            }
+        });
+    }
+
+    function setFocusButtonsDisabled(disabled) {
+        var root = document.getElementById('aa-executive-proposal');
+
+        if (!root) {
+            return;
+        }
+
+        root.querySelectorAll(EXECUTIVE_FOCUS_ACTION_SELECTOR).forEach(function (button) {
             button.disabled = disabled;
 
             if (disabled) {
@@ -293,6 +312,56 @@
             });
     }
 
+    /**
+     * @param {HTMLElement} button
+     * @returns {Promise<void>}
+     */
+    function handleFocusActionClick(button) {
+        var service = getService();
+        var renderer = getRenderer();
+        var focusAction = button.getAttribute('data-executive-focus-action') || '';
+
+        if (!service || typeof service.postFocusAction !== 'function') {
+            showProposalError('Servicio de foco ejecutivo no disponible.');
+            return Promise.resolve();
+        }
+
+        if (!renderer || typeof renderer.renderProposal !== 'function') {
+            showProposalError('Renderer de propuesta ejecutiva no disponible.');
+            return Promise.resolve();
+        }
+
+        if (focusAction === '') {
+            showProposalError('No se pudo identificar la acción de foco.');
+            return Promise.resolve();
+        }
+
+        if (isActionPending) {
+            return Promise.resolve();
+        }
+
+        isActionPending = true;
+        setExecutiveButtonsDisabled(true);
+        setFocusButtonsDisabled(true);
+        clearProposalError();
+
+        return service.postFocusAction(focusAction)
+            .then(function (response) {
+                if (response.proposal && typeof response.proposal === 'object') {
+                    lastProposalPayload = response.proposal;
+                    renderer.renderProposal(response.proposal);
+                }
+            })
+            .catch(function (err) {
+                showProposalError((err && err.message) ? err.message : 'No se pudo ejecutar la acción de foco.');
+            })
+            .finally(function () {
+                isActionPending = false;
+                setExecutiveButtonsDisabled(false);
+                setFocusButtonsDisabled(false);
+            });
+    }
+
     function bindExecutiveDelegation() {
         var root = document.getElementById('aa-executive-proposal');
 
@@ -302,6 +371,16 @@
 
         root.addEventListener('click', function (event) {
             if (!event || !event.target || typeof event.target.closest !== 'function') {
+                return;
+            }
+
+            var focusButton = event.target.closest(EXECUTIVE_FOCUS_ACTION_SELECTOR);
+
+            if (focusButton && !focusButton.disabled && root.contains(focusButton)) {
+                event.preventDefault();
+                event.stopPropagation();
+                handleFocusActionClick(focusButton);
+
                 return;
             }
 
@@ -438,6 +517,31 @@
         }
     }
 
+    /**
+     * @returns {Promise<object|null>}
+     */
+    function debugExpireSprint() {
+        var service = getService();
+        var renderer = getRenderer();
+
+        if (!service || typeof service.postFocusAction !== 'function') {
+            return Promise.resolve(null);
+        }
+
+        return service.postFocusAction('expire_sprint_debug')
+            .then(function (response) {
+                if (renderer && typeof renderer.renderProposal === 'function' && response.proposal) {
+                    lastProposalPayload = response.proposal;
+                    renderer.renderProposal(response.proposal);
+                }
+
+                return response.proposal || lastProposalPayload;
+            })
+            .catch(function () {
+                return lastProposalPayload;
+            });
+    }
+
     function initExecutiveProposalModule() {
         bindExecutiveDelegation();
         loadProposal();
@@ -447,18 +551,21 @@
         reload: loadProposal,
         debugSprint: debugSprint,
         debugSprintWatch: debugSprintWatch,
-        stopDebugSprintWatch: stopDebugSprintWatch
+        stopDebugSprintWatch: stopDebugSprintWatch,
+        debugExpireSprint: debugExpireSprint
     };
 
     var moduleExports = {
         loadProposal: loadProposal,
         reloadExecutiveProposalBestEffort: reloadExecutiveProposalBestEffort,
         handleExecutiveActionClick: handleExecutiveActionClick,
+        handleFocusActionClick: handleFocusActionClick,
         runClientAction: runClientAction,
         syncListsAfterExecutiveAction: syncListsAfterExecutiveAction,
         debugSprint: debugSprint,
         debugSprintWatch: debugSprintWatch,
         stopDebugSprintWatch: stopDebugSprintWatch,
+        debugExpireSprint: debugExpireSprint,
         buildSprintDebugLines: buildSprintDebugLines,
         getLastProposalPayload: function () {
             return lastProposalPayload;

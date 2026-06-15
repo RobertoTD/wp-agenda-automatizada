@@ -29,9 +29,49 @@
 
     /**
      * @param {object|null|undefined} focusList
+     * @param {object|null|undefined} focusControls
      * @returns {string}
      */
-    function renderFocusContext(focusList) {
+    function renderFocusControls(focusControls) {
+        if (!focusControls || typeof focusControls !== 'object') {
+            return '';
+        }
+
+        var buttons = [];
+
+        if (focusControls.can_change_focus === true) {
+            buttons.push(
+                '<button type="button"'
+                + ' data-executive-focus-action="change_focus"'
+                + ' class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:text-gray-900">'
+                + 'Cambiar foco'
+                + '</button>'
+            );
+        }
+
+        if (focusControls.can_go_previous === true) {
+            buttons.push(
+                '<button type="button"'
+                + ' data-executive-focus-action="previous_focus"'
+                + ' class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 hover:text-gray-800">'
+                + 'Anterior'
+                + '</button>'
+            );
+        }
+
+        if (buttons.length === 0) {
+            return '';
+        }
+
+        return '<div class="aa-executive-focus-controls mt-2 flex flex-wrap gap-2">' + buttons.join('') + '</div>';
+    }
+
+    /**
+     * @param {object|null|undefined} focusList
+     * @param {object|null|undefined} focusControls
+     * @returns {string}
+     */
+    function renderFocusContext(focusList, focusControls) {
         if (!focusList || typeof focusList !== 'object') {
             return '';
         }
@@ -40,6 +80,7 @@
         var badge = String(focusList.source_category || '') === 'agenda_app'
             ? '<span class="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">Agenda app</span>'
             : '';
+        var controlsHtml = renderFocusControls(focusControls);
 
         return ''
             + '<div class="aa-executive-focus-context rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">'
@@ -48,6 +89,7 @@
             + '<span>' + title + '</span>'
             + badge
             + '</p>'
+            + controlsHtml
             + '</div>';
     }
 
@@ -208,7 +250,10 @@
             };
         }
 
-        var focusHtml = renderFocusContext(data.focus_list);
+        var focusHtml = renderFocusContext(
+            data.focus_list,
+            data.meta && typeof data.meta === 'object' ? data.meta.focus_controls : null
+        );
         var listHtml = '';
         var currentTask = null;
         var nextTask = null;
@@ -294,6 +339,7 @@
         renderProposal: renderProposal,
         buildProposalParts: buildProposalParts,
         renderFocusContext: renderFocusContext,
+        renderFocusControls: renderFocusControls,
         renderCurrentTask: renderCurrentTask,
         renderContinuationTask: renderContinuationTask,
         renderExecutiveActions: renderExecutiveActions,

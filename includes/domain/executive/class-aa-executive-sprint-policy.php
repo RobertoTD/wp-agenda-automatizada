@@ -182,4 +182,22 @@ final class AA_Executive_Sprint_Policy {
     public static function release(array $state): array {
         return self::empty_state();
     }
+
+    /**
+     * Marca sprint vencido para debug (MC5) sin borrar estado.
+     *
+     * @param array<string,mixed> $state
+     * @return array<string,mixed>
+     */
+    public static function expire_for_debug(array $state, int $now_ts): array {
+        $sanitized = self::sanitize($state);
+
+        if ($sanitized === []) {
+            return self::empty_state();
+        }
+
+        $sanitized['sprint_expires_at'] = max(0, $now_ts - 1);
+
+        return $sanitized;
+    }
 }

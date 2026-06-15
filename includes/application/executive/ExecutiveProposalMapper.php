@@ -10,6 +10,7 @@ defined('ABSPATH') or die('No direct access');
 require_once dirname(__DIR__, 2) . '/domain/executive/class-aa-executive-actions-policy.php';
 require_once dirname(__DIR__, 2) . '/domain/executive/class-aa-executive-contract.php';
 require_once dirname(__DIR__, 2) . '/domain/executive/class-aa-executive-sprint-policy.php';
+require_once dirname(__DIR__, 2) . '/domain/executive/class-aa-executive-focus-state-policy.php';
 require_once dirname(__DIR__, 2) . '/domain/executable/class-aa-executable-contract.php';
 require_once dirname(__DIR__, 2) . '/domain/executable/class-aa-executable-visible-actions-policy.php';
 require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task.php';
@@ -157,7 +158,61 @@ final class ExecutiveProposalMapper {
             return AA_Executive_Contract::FOCUS_REASON_SPRINT_ACTIVE;
         }
 
+        if ($reason === AA_Executive_Contract::FOCUS_REASON_MANUAL_FOCUS) {
+            return AA_Executive_Contract::FOCUS_REASON_MANUAL_FOCUS;
+        }
+
         return AA_Executive_Contract::FOCUS_REASON_FIRST_LIST_WITH_ELIGIBLE;
+    }
+
+    /**
+     * @param array<string,mixed> $selection
+     * @param array<string,mixed> $focus_state
+     * @return array<string,mixed>
+     */
+    public static function build_focus_controls(array $selection, array $focus_state): array {
+        $sanitized_focus = AA_Executive_Focus_State_Policy::sanitize($focus_state);
+        $eligible_focus_count = max(0, (int) ($selection['eligible_focus_count'] ?? 0));
+        $eligible_focus_list_ids = is_array($selection['eligible_focus_list_ids'] ?? null)
+            ? $selection['eligible_focus_list_ids']
+            : [];
+        $current_focus_list_id = null;
+
+        if (($selection['status'] ?? '') === AA_Executive_Contract::STATUS_READY) {
+            $focus_list_id = (int) ($selection['focus_list_id'] ?? 0);
+            $current_focus_list_id = $focus_list_id > 0 ? $focus_list_id : null;
+        }
+
+        $previous_focus_list_id = (int) ($sanitized_focus['previous_focus_list_id'] ?? 0) ?: null;
+        $can_go_previous = $previous_focus_list_id !== null
+            && in_array($previous_focus_list_id, $eligible_focus_list_ids, true);
+
+        return [
+            'can_change_focus' => $eligible_focus_count >= 1,
+            'can_go_previous' => $can_go_previous,
+            'current_focus_list_id' => $current_focus_list_id,
+            'previous_focus_list_id' => $previous_focus_list_id,
+            'eligible_focus_count' => $eligible_focus_count,
+            'eligible_focus_list_ids' => array_values(array_map('intval', $eligible_focus_list_ids)),
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $focus_state
+     * @return array<string,mixed>
+     */
+    public static function build_focus_state(array $focus_state, int $now_ts): array {
+        $sanitized = AA_Executive_Focus_State_Policy::sanitize($focus_state);
+        $manual_focus_list_id = (int) ($sanitized['manual_focus_list_id'] ?? 0) ?: null;
+
+        return [
+            'manual_focus_active' => AA_Executive_Focus_State_Policy::is_manual_focus_active($focus_state, $now_ts),
+            'manual_focus_list_id' => $manual_focus_list_id,
+            'dismiss_streak_without_sprint' => (int) ($sanitized['dismiss_streak_without_sprint'] ?? 0),
+            'manual_focus_expires_at' => isset($sanitized['manual_focus_expires_at'])
+                ? (int) $sanitized['manual_focus_expires_at'] ?: null
+                : null,
+        ];
     }
 
     /**
