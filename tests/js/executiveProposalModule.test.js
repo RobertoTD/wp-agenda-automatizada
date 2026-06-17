@@ -327,6 +327,31 @@ describe('executive-proposal-module MC2/MC3', () => {
         assert.equal(handlerRuns, 1);
     });
 
+    it('runClientAction handler con reload:true sincroniza listas y propuesta', async () => {
+        globalThis.LearningActionHandlers = {
+            isAvailable: function () {
+                return true;
+            },
+            run: function () {
+                handlerRuns += 1;
+                return Promise.resolve({ reload: true });
+            }
+        };
+
+        await hooks.runClientAction({
+            type: 'handler',
+            handler: 'appointment.confirm',
+            origin_key: 'appointment_confirmation:42',
+            task_id: '10',
+            source: 'system',
+            label: 'Confirmar'
+        });
+
+        assert.equal(handlerRuns, 1);
+        assert.equal(boardReloadOptions && boardReloadOptions.skipExecutiveProposal, true);
+        assert.equal(feedReloadCalls, 1);
+    });
+
     it('expone AAExecutiveProposal.reload', () => {
         const moduleSrc = fs.readFileSync(modulePath, 'utf8');
 

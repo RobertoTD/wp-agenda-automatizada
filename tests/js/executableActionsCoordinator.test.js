@@ -1007,6 +1007,57 @@ describe('ExecutableActionsCoordinator', () => {
         assert.equal(reloadCalls, 1);
     });
 
+    it('primary-handler appointment.confirm ejecuta handler y reload una sola vez', async () => {
+        var appointmentItem = {
+            id: '15',
+            source: 'system',
+            origin_key: 'appointment_confirmation:42',
+            visible_actions: [{
+                type: 'handler',
+                handler: 'appointment.confirm',
+                label: 'Confirmar'
+            }]
+        };
+
+        coordinator = createCoordinatorFactory({
+            tasksCalls: tasksCalls,
+            learningCalls: learningCalls,
+            learningActionHandlers: {
+                isAvailable: function () {
+                    return true;
+                },
+                run: function (action, item) {
+                    handlerCalls.push({ action: action, item: item });
+                    return Promise.resolve({ reload: true });
+                }
+            }
+        });
+        coordinator.resetPending();
+
+        var button = createPrimaryHandlerButton({
+            'data-recommendation-key': 'appointment_confirmation:42',
+            'data-learning-handler': 'appointment.confirm'
+        });
+        var root = createRoot(button);
+        var event = createEvent(button);
+
+        await coordinator.handleClick(event, {
+            root: root,
+            findLearningItem: function (key) {
+                return key === 'appointment_confirmation:42' ? appointmentItem : null;
+            },
+            reload: function () {
+                reloadCalls += 1;
+                return Promise.resolve();
+            }
+        });
+
+        assert.equal(handlerCalls.length, 1);
+        assert.equal(handlerCalls[0].item, appointmentItem);
+        assert.equal(reloadCalls, 1);
+        assert.equal(learningCalls.length, 0);
+    });
+
     it('primary-handler reject llama showError', async () => {
         coordinator = createCoordinatorFactory({
             tasksCalls: tasksCalls,

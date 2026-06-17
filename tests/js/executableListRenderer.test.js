@@ -856,6 +856,32 @@ describe('AAExecutableListRenderer visible_actions', () => {
         assert.match(html, /data-learning-handler="pwa\.install"/);
     });
 
+    it('visible_action appointment.confirm genera botón Confirmar cuando el filtro lo permite', () => {
+        var html = renderer.renderItem(baseItem({
+            origin_key: 'appointment_confirmation:42',
+            visible_actions: [
+                visibleAction({
+                    key: 'appointment.confirm',
+                    type: 'handler',
+                    category: 'mechanical',
+                    label: 'Confirmar',
+                    placement: 'primary',
+                    url: null,
+                    handler: 'appointment.confirm'
+                })
+            ]
+        }), {}, {
+            shouldRenderPrimaryAction: function () {
+                return true;
+            }
+        });
+
+        assert.match(html, /data-learning-action="primary-handler"/);
+        assert.match(html, /data-recommendation-key="appointment_confirmation:42"/);
+        assert.match(html, /data-learning-handler="appointment\.confirm"/);
+        assert.match(html, />Confirmar</);
+    });
+
     it('visible_action status done genera complete en canal Tasks para user', () => {
         var html = renderer.renderItem(baseItem({
             id: '42',

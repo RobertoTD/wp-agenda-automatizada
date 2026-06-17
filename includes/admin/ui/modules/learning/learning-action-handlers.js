@@ -8,6 +8,10 @@
 (function () {
     'use strict';
 
+    var globalRoot = typeof window !== 'undefined'
+        ? window
+        : (typeof globalThis !== 'undefined' ? globalThis : this);
+
     var handlers = {};
     var availabilityListeners = [];
 
@@ -129,7 +133,7 @@
         };
     }
 
-    window.LearningActionHandlers = {
+    globalRoot.LearningActionHandlers = {
         register: register,
         get: get,
         isAvailable: isAvailable,
@@ -146,31 +150,33 @@
 
         function isStandalone() {
             try {
-                if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
+                if (globalRoot.matchMedia && globalRoot.matchMedia('(display-mode: standalone)').matches) {
                     return true;
                 }
             } catch (err) {
                 // matchMedia puede no existir en entornos muy antiguos; tratamos como no standalone.
             }
 
-            return window.navigator && window.navigator.standalone === true;
+            return globalRoot.navigator && globalRoot.navigator.standalone === true;
         }
 
         function canInstallNow() {
             return !!deferredPrompt && !installed && !isStandalone();
         }
 
-        window.addEventListener('beforeinstallprompt', function (event) {
-            event.preventDefault();
-            deferredPrompt = event;
-            notifyAvailabilityChanged();
-        });
+        if (typeof globalRoot.addEventListener === 'function') {
+            globalRoot.addEventListener('beforeinstallprompt', function (event) {
+                event.preventDefault();
+                deferredPrompt = event;
+                notifyAvailabilityChanged();
+            });
 
-        window.addEventListener('appinstalled', function () {
-            deferredPrompt = null;
-            installed = true;
-            notifyAvailabilityChanged();
-        });
+            globalRoot.addEventListener('appinstalled', function () {
+                deferredPrompt = null;
+                installed = true;
+                notifyAvailabilityChanged();
+            });
+        }
 
         register('pwa.install', {
             shouldHideRecommendation: function () {
@@ -217,5 +223,127 @@
                     });
             }
         });
+    })();
+
+    // ─── Handler real: appointment.confirm (MC5) ─────────────────
+    (function registerAppointmentConfirmHandler() {
+        var ORIGIN_KEY_PREFIX = 'appointment_confirmation:';
+
+        /**
+         * @param {object|null|undefined} item
+         * @returns {number|null}
+         */
+        function resolveReservationId(item) {
+            if (!item || typeof item !== 'object') {
+                return null;
+            }
+
+            var originKey = typeof item.origin_key === 'string' ? item.origin_key.trim() : '';
+
+            if (originKey.indexOf(ORIGIN_KEY_PREFIX) !== 0) {
+                return null;
+            }
+
+            var rawId = originKey.slice(ORIGIN_KEY_PREFIX.length);
+
+            if (rawId === '' || !/^\d+$/.test(rawId)) {
+                return null;
+            }
+
+            var parsed = parseInt(rawId, 10);
+
+            if (!Number.isFinite(parsed) || parsed < 1) {
+                return null;
+            }
+
+            return parsed;
+        }
+
+        function hasConfirmService() {
+            return !!(globalRoot.ConfirmService && typeof globalRoot.ConfirmService.confirmar === 'function');
+        }
+
+        function hasConfirmNonce() {
+            return !!(
+                globalRoot.aa_asistant_vars
+                && typeof globalRoot.aa_asistant_vars.nonce_confirmar === 'string'
+                && globalRoot.aa_asistant_vars.nonce_confirmar.trim() !== ''
+            );
+        }
+
+        /**
+         * Misma semántica de respuesta que AdminConfirmController.onConfirmar.
+         *
+         * @param {object} data Respuesta JSON de ConfirmService.confirmar (wp_send_json_*).
+         * @returns {{reload: true}}
+         */
+        function handleConfirmResponse(data) {
+            if (!data || data.success !== true) {
+                var message = 'No se pudo confirmar la cita.';
+
+                if (data && data.data && typeof data.data.message === 'string' && data.data.message.trim() !== '') {
+                    message = data.data.message;
+                }
+
+                throw new Error(message);
+            }
+
+            var confirmController = globalRoot.AdminConfirmController;
+
+            if (confirmController) {
+                if (typeof confirmController.showLocalActionSuccessNotification === 'function') {
+                    confirmController.showLocalActionSuccessNotification('appointment_confirmed_local');
+                }
+
+                if (
+                    typeof confirmController.isConfirmAutomationIncomplete === 'function'
+                    && confirmController.isConfirmAutomationIncomplete(data)
+                ) {
+                    if (typeof confirmController.showAutomationConnectionFailedNotification === 'function') {
+                        confirmController.showAutomationConnectionFailedNotification('confirm');
+                    }
+                } else if (typeof confirmController.showConfirmResultNotification === 'function') {
+                    confirmController.showConfirmResultNotification(data);
+                }
+            }
+
+            var documentRef = globalRoot.document;
+
+            if (documentRef && typeof documentRef.dispatchEvent === 'function') {
+                documentRef.dispatchEvent(new CustomEvent('aa-cita-action-completed'));
+            }
+
+            return { reload: true };
+        }
+
+        register('appointment.confirm', {
+            isAvailable: function (action, item) {
+                if (!action || action.handler !== 'appointment.confirm') {
+                    return false;
+                }
+
+                return resolveReservationId(item) !== null
+                    && hasConfirmService()
+                    && hasConfirmNonce();
+            },
+            run: function (action, item) {
+                var reservationId = resolveReservationId(item);
+
+                if (reservationId === null) {
+                    return Promise.reject(new Error('No se pudo resolver la cita a confirmar.'));
+                }
+
+                if (!hasConfirmService()) {
+                    return Promise.reject(new Error('Servicio de confirmación no disponible.'));
+                }
+
+                return globalRoot.ConfirmService.confirmar(reservationId)
+                    .then(function (data) {
+                        return handleConfirmResponse(data);
+                    });
+            }
+        });
+
+        globalRoot.LearningActionHandlers.resolveAppointmentConfirmationReservationId = resolveReservationId;
     })();
 })();

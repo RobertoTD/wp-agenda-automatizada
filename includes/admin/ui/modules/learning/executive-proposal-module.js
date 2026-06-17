@@ -294,9 +294,19 @@
                 key: originKey,
                 item: item,
                 showError: showProposalError
-            })).catch(function (err) {
-                showProposalError((err && err.message) ? err.message : 'No se pudo ejecutar la acción.');
-            });
+            }))
+                .then(function (result) {
+                    if (result && result.reload === true) {
+                        return syncListsAfterExecutiveAction().then(function () {
+                            return reloadExecutiveProposalBestEffort();
+                        });
+                    }
+
+                    return undefined;
+                })
+                .catch(function (err) {
+                    showProposalError((err && err.message) ? err.message : 'No se pudo ejecutar la acción.');
+                });
         }
 
         return Promise.resolve();

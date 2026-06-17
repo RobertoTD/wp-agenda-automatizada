@@ -289,6 +289,48 @@ describe('executable-lists-module hooks', () => {
         assert.equal(calls.available, 1);
     });
 
+    it('buildRenderOptions muestra appointment.confirm con origin_key válido', () => {
+        const handlersPath = path.join(__dirname, '../../includes/admin/ui/modules/learning/learning-action-handlers.js');
+
+        delete require.cache[handlersPath];
+        require(handlersPath);
+
+        globalThis.ConfirmService = {
+            confirmar: function () {
+                return Promise.resolve({ success: true });
+            }
+        };
+        globalThis.aa_asistant_vars = { nonce_confirmar: 'test-nonce' };
+
+        var options = hooks.buildRenderOptions();
+        var item = baseItem({
+            origin_key: 'appointment_confirmation:42',
+            primary_action: {
+                type: 'handler',
+                label: 'Confirmar',
+                handler: 'appointment.confirm'
+            },
+            visible_actions: [
+                {
+                    key: 'appointment.confirm',
+                    type: 'handler',
+                    category: 'mechanical',
+                    label: 'Confirmar',
+                    placement: 'primary',
+                    target_status: null,
+                    url: null,
+                    handler: 'appointment.confirm'
+                }
+            ]
+        });
+
+        assert.equal(options.shouldRenderItem(item, {}), true);
+        assert.equal(
+            options.shouldRenderPrimaryAction(item.visible_actions[0], item, {}),
+            true
+        );
+    });
+
     it('buildRenderOptions oculta item cuando visible_actions handler no debe mostrarse', () => {
         globalThis.LearningActionHandlers = {
             shouldShowRecommendation: function () {
