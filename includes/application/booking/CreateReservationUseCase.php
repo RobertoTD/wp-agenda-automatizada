@@ -30,6 +30,24 @@ defined('ABSPATH') or die('No direct access');
 
 final class CreateReservationUseCase {
 
+    /** @var callable|null */
+    private $confirmation_task_ensurer;
+
+    /** @var callable|null */
+    private $confirmation_task_executor;
+
+    /**
+     * @param callable|null $confirmation_task_ensurer  (int $reservation_id): void — solo tests
+     * @param callable|null $confirmation_task_executor (int $reservation_id): array — solo tests
+     */
+    public function __construct(
+        ?callable $confirmation_task_ensurer = null,
+        ?callable $confirmation_task_executor = null
+    ) {
+        $this->confirmation_task_ensurer = $confirmation_task_ensurer;
+        $this->confirmation_task_executor = $confirmation_task_executor;
+    }
+
     /**
      * Ejecuta el caso de uso.
      *
@@ -243,12 +261,53 @@ final class CreateReservationUseCase {
             error_log("ℹ️ Notificación ya existe para reserva $reserva_id, omitiendo inserción");
         }
 
+        $this->ensure_confirmation_task_after_create($reserva_id);
+
         return $this->success([
             'message'    => 'Reserva almacenada correctamente.',
             'id'         => $reserva_id,
             'cliente_id' => $cliente_id,
             'join_token' => $join_token,
         ]);
+    }
+
+    private function ensure_confirmation_task_after_create(int $reservation_id): void {
+        if ($this->confirmation_task_ensurer !== null) {
+            ($this->confirmation_task_ensurer)($reservation_id);
+            return;
+        }
+
+        if ($this->confirmation_task_executor !== null) {
+            $result = ($this->confirmation_task_executor)($reservation_id);
+        } else {
+            require_once dirname(__DIR__) . '/appointments/EnsureAppointmentConfirmationTaskUseCase.php';
+            $result = (new EnsureAppointmentConfirmationTaskUseCase())->execute([
+                'reservation_id' => $reservation_id,
+            ]);
+        }
+
+        if (!empty($result['success'])) {
+            return;
+        }
+
+        $code = (string) ($result['error']['code'] ?? 'unknown');
+
+        if ($code === 'reservation_not_confirmable') {
+            return;
+        }
+
+        if (in_array($code, [
+            'appointment_actions_list_not_ready',
+            'task_persistence_failed',
+            'action_persistence_failed',
+        ], true)) {
+            error_log(
+                '⚠️ [CreateReservation] Tarea de confirmación no asegurada para reserva '
+                . $reservation_id
+                . ': '
+                . $code
+            );
+        }
     }
 
     private function success(array $data): array {
