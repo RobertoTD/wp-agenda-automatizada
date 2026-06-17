@@ -40,6 +40,8 @@ ac_assert('Catalog SEED_VERSION is 1', AA_Appointment_Actions_Catalog::SEED_VERS
 ac_assert('Catalog SOURCE_CATEGORY agenda_app', AA_Appointment_Actions_Catalog::SOURCE_CATEGORY === 'agenda_app');
 ac_assert('Catalog LIST_ORIGIN_KEY appointment_actions', AA_Appointment_Actions_Catalog::LIST_ORIGIN_KEY === 'appointment_actions');
 ac_assert('Catalog LIST_TITLE Acciones de citas', AA_Appointment_Actions_Catalog::LIST_TITLE === 'Acciones de citas');
+ac_assert('Catalog TASK_ACTION_KEY appointment.confirm', AA_Appointment_Actions_Catalog::TASK_ACTION_KEY === 'appointment.confirm');
+ac_assert('Catalog task_origin_key helper', AA_Appointment_Actions_Catalog::task_origin_key(7) === 'appointment_confirmation:7');
 
 $definition = AA_Appointment_Actions_Catalog::list_definition();
 ac_assert('list_definition title', ($definition['title'] ?? '') === 'Acciones de citas');

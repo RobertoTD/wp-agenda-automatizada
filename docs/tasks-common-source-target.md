@@ -568,6 +568,30 @@ Visibilidad feed/tablero:
   `organization.task_bucket_order_by_list`.
 - Listas user vacías conservan comportamiento actual.
 
+## MC2: tarea idempotente `appointment_confirmation:{reservation_id}`
+
+Use case interno `EnsureAppointmentConfirmationTaskUseCase` garantiza una tarea
+developer por cita `pending` en la lista `appointment_actions`.
+
+Identidad:
+
+- Lista destino: `agenda_app` + `appointment_actions`.
+- Tarea: `agenda_app` + `appointment_confirmation:{reservation_id}`.
+- Acción primaria: `appointment.confirm` (`handler`, label `Confirmar`).
+
+Persistencia:
+
+- Tarea vía `SeededTaskRepository::upsert_seeded_task()` (no `CreateTaskUseCase`).
+- Acción vía `TaskActionRepository::upsert()`.
+- Relectura por `origin_key` si el upsert devuelve `null` (carrera).
+- `action_persistence_failed` conserva la tarea; un segundo ensure repara la acción.
+
+Copy:
+
+- Título/notas proyectados en dominio (`AA_Appointment_Confirmation_Task_Projector`).
+- Fecha/hora formateadas en `AA_Appointment_Reservation_Display_Formatter`.
+- Límite de notas aplicado en application (`TaskUseCaseSupport::TASK_NOTES_MAX_LENGTH`).
+
 ## MC13O-E1: evaluator y persistencia de system facts
 
 MC13O-E1 introduce el motor de evaluacion/persistencia de facts para tareas

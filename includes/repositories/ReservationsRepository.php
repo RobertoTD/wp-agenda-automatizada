@@ -55,4 +55,57 @@ class ReservationsRepository extends ReservationsModel {
 
         return (int) $count;
     }
+
+    /**
+     * @return array{
+     *     id:int,
+     *     estado:string,
+     *     fecha:string,
+     *     nombre:string,
+     *     telefono:string,
+     *     correo:string,
+     *     servicio:string,
+     *     duracion:int,
+     *     assignment_id:int|null
+     * }|null
+     */
+    public static function find_by_id(int $id): ?array {
+        if ($id < 1) {
+            return null;
+        }
+
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'aa_reservas';
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT id, estado, fecha, nombre, telefono, correo, servicio, duracion, assignment_id
+                 FROM {$table}
+                 WHERE id = %d
+                 LIMIT 1",
+                $id
+            )
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[ReservationsRepository] find_by_id: ' . $wpdb->last_error);
+            return null;
+        }
+
+        if ($row === null) {
+            return null;
+        }
+
+        return [
+            'id' => (int) $row->id,
+            'estado' => (string) $row->estado,
+            'fecha' => (string) $row->fecha,
+            'nombre' => (string) $row->nombre,
+            'telefono' => (string) $row->telefono,
+            'correo' => (string) ($row->correo ?? ''),
+            'servicio' => (string) $row->servicio,
+            'duracion' => (int) $row->duracion,
+            'assignment_id' => $row->assignment_id === null ? null : (int) $row->assignment_id,
+        ];
+    }
 }

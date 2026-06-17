@@ -15,6 +15,14 @@ final class AA_Appointment_Actions_Catalog {
 
     public const LIST_TITLE = 'Acciones de citas';
 
+    public const TASK_ORIGIN_KEY_PREFIX = 'appointment_confirmation:';
+
+    public const TASK_ACTION_KEY = 'appointment.confirm';
+
+    public const TASK_ACTION_HANDLER = 'appointment.confirm';
+
+    public const TASK_ACTION_LABEL = 'Confirmar';
+
     /**
      * Versión del seed hacia DB común (MC1).
      * Bumpear cuando cambie la definición canónica de la lista.
@@ -36,5 +44,9 @@ final class AA_Appointment_Actions_Catalog {
             'importance' => 0,
             'position' => 0,
         ];
+    }
+
+    public static function task_origin_key(int $reservation_id): string {
+        return self::TASK_ORIGIN_KEY_PREFIX . max(0, $reservation_id);
     }
 }
