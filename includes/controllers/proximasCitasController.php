@@ -146,6 +146,9 @@ function aa_cancel_reservation_internal($reserva_id) {
 
     error_log("✅ [proximasCitasController] Cita ID $reserva_id marcada como 'cancelled' en WordPress");
 
+    require_once plugin_dir_path(__FILE__) . '../application/appointments/DeleteAppointmentConfirmationTaskUseCase.php';
+    DeleteAppointmentConfirmationTaskUseCase::sync_after_local_cancellation_best_effort($reserva_id);
+
     $notifications_table = $wpdb->prefix . 'aa_notifications';
     $notification_id = $wpdb->get_var($wpdb->prepare(
         "SELECT id FROM $notifications_table 

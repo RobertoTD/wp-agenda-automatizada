@@ -239,6 +239,9 @@ function aa_rest_confirmar_reserva(WP_REST_Request $request) {
             
             if ($cancelado !== false) {
                 error_log("🚫 [Auto-Cancel REST] Cita ID {$conflicto->id} ({$conflicto->nombre}) cancelada automáticamente por ocupación de slot.");
+
+                require_once plugin_dir_path(__FILE__) . '../application/appointments/DeleteAppointmentConfirmationTaskUseCase.php';
+                DeleteAppointmentConfirmationTaskUseCase::sync_after_local_cancellation_best_effort((int) $conflicto->id);
                 
                 // 🔔 Marcar notificación como leída
                 $notifications_table = $wpdb->prefix . 'aa_notifications';

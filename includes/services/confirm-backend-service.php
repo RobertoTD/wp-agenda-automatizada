@@ -188,6 +188,9 @@ function confirm_backend_service_confirmar($reserva_id) {
             
             if ($cancelado !== false) {
                 error_log("🚫 [Auto-Cancel] Cita ID {$conflicto->id} ({$conflicto->nombre}) cancelada automáticamente por ocupación de slot.");
+
+                require_once plugin_dir_path(__FILE__) . '../application/appointments/DeleteAppointmentConfirmationTaskUseCase.php';
+                DeleteAppointmentConfirmationTaskUseCase::sync_after_local_cancellation_best_effort((int) $conflicto->id);
                 
                 // 🔔 Marcar notificación como leída
                 $notifications_table = $wpdb->prefix . 'aa_notifications';
