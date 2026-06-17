@@ -127,3 +127,94 @@ describe('tasks-board-module create task classification', () => {
         assert.match(serviceSrc, /fields\.default_bucket = payload\.default_bucket/);
     });
 });
+
+describe('tasks-board-module MC1 appointment_actions', () => {
+    it('expone helpers de filtrado para tests', () => {
+        assert.equal(typeof hooks.isUserManualTaskListDestination, 'function');
+        assert.equal(typeof hooks.filterUserManualTaskListDestinations, 'function');
+        assert.equal(typeof hooks.isAppointmentActionsList, 'function');
+        assert.equal(typeof hooks.filterListsForBoardRender, 'function');
+    });
+
+    it('isUserManualTaskListDestination solo acepta user/user', () => {
+        assert.equal(hooks.isUserManualTaskListDestination({
+            source_category: 'user',
+            managed_by: 'user'
+        }), true);
+        assert.equal(hooks.isUserManualTaskListDestination({
+            source_category: 'agenda_app',
+            managed_by: 'developer',
+            origin_key: 'appointment_actions'
+        }), false);
+    });
+
+    it('filterListsForBoardRender omite appointment_actions sin buckets activos', () => {
+        var payload = hooks.filterListsForBoardRender({
+            lists: [
+                {
+                    id: 88,
+                    source_category: 'agenda_app',
+                    origin_key: 'appointment_actions',
+                    title: 'Acciones de citas'
+                },
+                {
+                    id: 7,
+                    source_category: 'user',
+                    managed_by: 'user',
+                    title: 'Mi lista'
+                }
+            ],
+            tasks: [],
+            organization: {
+                task_bucket_order_by_list: {
+                    88: { primary: [], secondary: [] },
+                    7: { primary: [], secondary: [] }
+                }
+            }
+        });
+
+        assert.equal(payload.lists.length, 1);
+        assert.equal(payload.lists[0].id, 7);
+    });
+
+    it('filterListsForBoardRender incluye appointment_actions con tareas en buckets activos', () => {
+        var payload = hooks.filterListsForBoardRender({
+            lists: [
+                {
+                    id: 88,
+                    source_category: 'agenda_app',
+                    origin_key: 'appointment_actions',
+                    title: 'Acciones de citas'
+                }
+            ],
+            tasks: [{ id: 42, list_id: 88, status: 'pending' }],
+            organization: {
+                task_bucket_order_by_list: {
+                    88: { primary: [42], secondary: [] }
+                }
+            }
+        });
+
+        assert.equal(payload.lists.length, 1);
+        assert.equal(payload.lists[0].origin_key, 'appointment_actions');
+    });
+
+    it('filterUserManualTaskListDestinations excluye appointment_actions del selector', () => {
+        var selectable = hooks.filterUserManualTaskListDestinations([
+            {
+                id: 88,
+                source_category: 'agenda_app',
+                managed_by: 'developer',
+                origin_key: 'appointment_actions'
+            },
+            {
+                id: 7,
+                source_category: 'user',
+                managed_by: 'user'
+            }
+        ]);
+
+        assert.equal(selectable.length, 1);
+        assert.equal(selectable[0].id, 7);
+    });
+});

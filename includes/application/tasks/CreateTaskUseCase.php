@@ -5,6 +5,7 @@
 
 defined('ABSPATH') or die('No direct access');
 
+require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-list-governance-policy.php';
 require_once __DIR__ . '/TaskUseCaseSupport.php';
 
 final class CreateTaskUseCase {
@@ -19,6 +20,13 @@ final class CreateTaskUseCase {
 
         if ($list === null) {
             return TaskUseCaseSupport::fail('list_not_found', 'Lista no encontrada o no activa.');
+        }
+
+        if (!(new AA_Task_List_Governance_Policy())->can_accept_user_created_task($list)) {
+            return TaskUseCaseSupport::fail(
+                'list_not_manual_destination',
+                'Esta lista no admite tareas creadas manualmente.'
+            );
         }
 
         $title = TaskUseCaseSupport::normalize_required_title($input['title'] ?? null);

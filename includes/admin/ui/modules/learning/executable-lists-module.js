@@ -443,7 +443,31 @@
     }
 
     /**
+     * @param {object|null|undefined} list
+     * @returns {boolean}
+     */
+    function isAppointmentActionsList(list) {
+        if (!list || typeof list !== 'object') {
+            return false;
+        }
+
+        return asString(list.source_category).trim() === 'agenda_app'
+            && asString(list.origin_key).trim() === 'appointment_actions';
+    }
+
+    /**
+     * MC1: oculta appointment_actions sin tareas vigentes en el feed unificado.
+     *
+     * @param {object|null|undefined} list
+     * @returns {boolean}
+     */
+    function shouldHideEmptyAppointmentActionsList(list) {
+        return isAppointmentActionsList(list) && !listHasBucketItems(list);
+    }
+
+    /**
      * MC13H: omite listas system sin items; conserva user lists (empty intra-lista).
+     * MC1: omite appointment_actions vacía por regla explícita.
      *
      * @param {Array|null|undefined} lists
      * @returns {Array}
@@ -455,6 +479,10 @@
 
         return lists.filter(function (list) {
             if (!list || typeof list !== 'object') {
+                return false;
+            }
+
+            if (shouldHideEmptyAppointmentActionsList(list)) {
                 return false;
             }
 
@@ -970,6 +998,8 @@
         renderUnifiedPayload: renderUnifiedPayload,
         filterListsForUnifiedRender: filterListsForUnifiedRender,
         listHasBucketItems: listHasBucketItems,
+        isAppointmentActionsList: isAppointmentActionsList,
+        shouldHideEmptyAppointmentActionsList: shouldHideEmptyAppointmentActionsList,
         showUnifiedError: showUnifiedError,
         clearUnifiedError: clearUnifiedError,
         showUnifiedLoadError: showUnifiedLoadError,

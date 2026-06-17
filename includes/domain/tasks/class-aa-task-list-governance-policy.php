@@ -44,6 +44,13 @@ final class AA_Task_List_Governance_Policy {
     /**
      * @param array<string,mixed> $list
      */
+    public function can_accept_user_created_task(array $list): bool {
+        return $this->is_user_list($list);
+    }
+
+    /**
+     * @param array<string,mixed> $list
+     */
     private function is_user_managed_active_list(array $list): bool {
         if (!$this->is_active_list($list)) {
             return false;

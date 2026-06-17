@@ -534,6 +534,40 @@ Pendiente:
 - No se migro `aa_learning_recommendation_state`.
 - No hay system facts ni UI nueva en este ciclo.
 
+## MC1: lista seeded `appointment_actions` (Acciones de citas)
+
+Lista del sistema para tareas derivadas del lifecycle de citas. Catálogo
+independiente de Learning; no modifica `AA_Learning_Catalog` ni su lifecycle.
+
+Identidad estable:
+
+- `source_category = agenda_app`
+- `origin_key = appointment_actions`
+- `managed_by = developer`
+- `status = active` desde el seed (sin archived-first)
+
+Mecanismo:
+
+- `AA_Appointment_Actions_Catalog` (`SEED_VERSION`, `list_definition()`).
+- `SyncAppointmentActionsListUseCase` → `SeededTaskRepository::upsert_seeded_list()`.
+- `AA_Appointment_Actions_List_Seed_Lifecycle` en `admin_init` prioridad 20.
+- Option gate: `aa_appointment_actions_list_seed_version`.
+
+Gobernanza manual:
+
+- `AA_Task_List_Governance_Policy::can_accept_user_created_task()` bloquea
+  creación manual en listas no user-managed (`CreateTaskUseCase` →
+  `list_not_manual_destination`).
+- Editar, archivar y eliminar ya bloqueados por policies existentes.
+
+Visibilidad feed/tablero:
+
+- Feed unificado: `filterListsForUnifiedRender()` oculta `appointment_actions`
+  sin items en buckets (tareas vigentes proyectadas).
+- Tablero manual: `filterListsForBoardRender()` aplica la misma regla usando
+  `organization.task_bucket_order_by_list`.
+- Listas user vacías conservan comportamiento actual.
+
 ## MC13O-E1: evaluator y persistencia de system facts
 
 MC13O-E1 introduce el motor de evaluacion/persistencia de facts para tareas

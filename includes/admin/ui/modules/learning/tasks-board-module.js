@@ -73,9 +73,89 @@
     }
 
     function hasUserLists() {
-        return lastBoardPayload
-            && Array.isArray(lastBoardPayload.lists)
-            && lastBoardPayload.lists.length > 0;
+        if (!lastBoardPayload || !Array.isArray(lastBoardPayload.lists)) {
+            return false;
+        }
+
+        return filterUserManualTaskListDestinations(lastBoardPayload.lists).length > 0;
+    }
+
+    /**
+     * @param {object|null|undefined} list
+     * @returns {boolean}
+     */
+    function isUserManualTaskListDestination(list) {
+        if (!list || typeof list !== 'object') {
+            return false;
+        }
+
+        return String(list.source_category || '').trim().toLowerCase() === 'user'
+            && String(list.managed_by || 'user').trim().toLowerCase() === 'user';
+    }
+
+    /**
+     * @param {Array} lists
+     * @returns {Array}
+     */
+    function filterUserManualTaskListDestinations(lists) {
+        return (lists || []).filter(isUserManualTaskListDestination);
+    }
+
+    /**
+     * @param {object|null|undefined} list
+     * @returns {boolean}
+     */
+    function isAppointmentActionsList(list) {
+        if (!list || typeof list !== 'object') {
+            return false;
+        }
+
+        return String(list.source_category || '').trim() === 'agenda_app'
+            && String(list.origin_key || '').trim() === 'appointment_actions';
+    }
+
+    /**
+     * @param {object} list
+     * @param {Object} organization
+     * @returns {boolean}
+     */
+    function listHasActiveBucketTasks(list, organization) {
+        var listId = Number(list.id);
+        var buckets = organization
+            && organization.task_bucket_order_by_list
+            ? organization.task_bucket_order_by_list[listId]
+            : null;
+
+        if (!buckets || typeof buckets !== 'object') {
+            return false;
+        }
+
+        var primary = Array.isArray(buckets.primary) ? buckets.primary : [];
+        var secondary = Array.isArray(buckets.secondary) ? buckets.secondary : [];
+
+        return primary.length > 0 || secondary.length > 0;
+    }
+
+    /**
+     * @param {{lists:Array,tasks:Array,organization:Object}} data
+     * @returns {{lists:Array,tasks:Array,organization:Object}}
+     */
+    function filterListsForBoardRender(data) {
+        var payload = data || { lists: [], tasks: [], organization: {} };
+        var organization = payload.organization || {};
+        var lists = Array.isArray(payload.lists) ? payload.lists : [];
+
+        return {
+            lists: lists.filter(function (list) {
+                if (!isAppointmentActionsList(list)) {
+                    return true;
+                }
+
+                return listHasActiveBucketTasks(list, organization);
+            }),
+            tasks: payload.tasks || [],
+            organization: organization
+        };
     }
 
     function populateTaskListSelect() {
@@ -92,10 +172,11 @@
         var ordered = renderer && typeof renderer.resolveListOrder === 'function'
             ? renderer.resolveListOrder(lists, (lastBoardPayload && lastBoardPayload.organization) || {})
             : lists;
+        var selectableLists = filterUserManualTaskListDestinations(ordered);
 
         select.innerHTML = '';
 
-        if (ordered.length === 0) {
+        if (selectableLists.length === 0) {
             var emptyOption = document.createElement('option');
             emptyOption.value = '';
             emptyOption.textContent = 'No hay listas disponibles';
@@ -106,7 +187,7 @@
 
         select.disabled = false;
 
-        ordered.forEach(function (list) {
+        selectableLists.forEach(function (list) {
             var option = document.createElement('option');
             option.value = String(list.id);
             option.textContent = list.title || ('Lista #' + list.id);
@@ -127,7 +208,9 @@
         }
 
         var lists = data.lists || [];
-        var hasLists = lists.length > 0;
+        var boardPayload = filterListsForBoardRender(data);
+        var visibleLists = boardPayload.lists || [];
+        var hasLists = visibleLists.length > 0;
 
         setVisible(emptyEl, !hasLists);
         setVisible(listsRoot, hasLists);
@@ -138,7 +221,7 @@
             return;
         }
 
-        listsRoot.innerHTML = hasLists ? renderer.renderBoard(data) : '';
+        listsRoot.innerHTML = hasLists ? renderer.renderBoard(boardPayload) : '';
         populateTaskListSelect();
     }
 
@@ -572,7 +655,12 @@
     var moduleExports = {
         reloadExecutableUserFeedBestEffort: reloadExecutableUserFeedBestEffort,
         reloadBoardAfterMutation: reloadBoardAfterMutation,
-        reloadExecutiveProposalBestEffort: reloadExecutiveProposalBestEffort
+        reloadExecutiveProposalBestEffort: reloadExecutiveProposalBestEffort,
+        isUserManualTaskListDestination: isUserManualTaskListDestination,
+        filterUserManualTaskListDestinations: filterUserManualTaskListDestinations,
+        isAppointmentActionsList: isAppointmentActionsList,
+        listHasActiveBucketTasks: listHasActiveBucketTasks,
+        filterListsForBoardRender: filterListsForBoardRender
     };
 
     if (typeof module !== 'undefined' && module.exports) {

@@ -460,6 +460,45 @@ describe('executable-lists-module MC13H unified feed', () => {
         assert.equal(filtered.length, 0);
     });
 
+    it('filterListsForUnifiedRender omite appointment_actions vacía por regla explícita', () => {
+        var lists = [
+            {
+                id: '88',
+                source: 'system',
+                source_category: 'agenda_app',
+                origin_key: 'appointment_actions',
+                buckets: []
+            },
+            {
+                id: '7',
+                source: 'user',
+                buckets: []
+            }
+        ];
+
+        var filtered = hooks.filterListsForUnifiedRender(lists);
+
+        assert.equal(filtered.length, 1);
+        assert.equal(filtered[0].id, '7');
+    });
+
+    it('filterListsForUnifiedRender incluye appointment_actions con items vigentes', () => {
+        var lists = [
+            {
+                id: '88',
+                source: 'system',
+                source_category: 'agenda_app',
+                origin_key: 'appointment_actions',
+                buckets: [{ key: 'primary', items: [{ id: '42' }] }]
+            }
+        ];
+
+        var filtered = hooks.filterListsForUnifiedRender(lists);
+
+        assert.equal(filtered.length, 1);
+        assert.equal(filtered[0].origin_key, 'appointment_actions');
+    });
+
     it('renderUnifiedPayload conserva user list vacía con mensaje de pendientes', () => {
         var rendererPath = path.join(__dirname, '../../assets/js/ui/executableListRenderer.js');
         var renderer = require(rendererPath);
