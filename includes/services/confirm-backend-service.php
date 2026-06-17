@@ -161,7 +161,10 @@ function confirm_backend_service_confirmar($reserva_id) {
     }
     
     error_log("✅ [ConfirmService] Cita ID $reserva_id marcada como 'confirmed' en WordPress");
-    
+
+    require_once plugin_dir_path(__FILE__) . '../application/appointments/CompleteAppointmentConfirmationTaskUseCase.php';
+    CompleteAppointmentConfirmationTaskUseCase::sync_after_local_confirmation_best_effort($reserva_id);
+
     // =========================================================================
     // 🛡️ LÓGICA DE CANCELACIÓN EN CASCADA (con overlap + staff real)
     // =========================================================================

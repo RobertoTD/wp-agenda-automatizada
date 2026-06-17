@@ -206,7 +206,10 @@ function aa_rest_confirmar_reserva(WP_REST_Request $request) {
     }
 
     error_log("✅ Reserva ID $id actualizada: estado=confirmed" . (!empty($calendar_uid) ? ", calendar_uid=$calendar_uid" : ""));
-    
+
+    require_once plugin_dir_path(__FILE__) . '../application/appointments/CompleteAppointmentConfirmationTaskUseCase.php';
+    CompleteAppointmentConfirmationTaskUseCase::sync_after_local_confirmation_best_effort($id);
+
     // =========================================================================
     // 🛡️ LÓGICA DE CANCELACIÓN EN CASCADA (con overlap + assignment)
     // =========================================================================
