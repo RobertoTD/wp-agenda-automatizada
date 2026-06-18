@@ -145,8 +145,209 @@
     // ─── Handler real: pwa.install ───────────────────────────────
     // deferredPrompt vive solo en este closure, nunca expuesto en el objeto window.
     (function registerPwaInstallHandler() {
+        var INSTALL_ORIGIN_KEY = 'install_pwa';
         var deferredPrompt = null;
         var installed = false;
+        var pendingInstallTaskId = null;
+        var completionInFlight = null;
+        var standaloneReconciledForLoadCycle = false;
+
+        /**
+         * @param {unknown} value
+         * @returns {string}
+         */
+        function asString(value) {
+            return value === null || value === undefined ? '' : String(value);
+        }
+
+        /**
+         * @param {object|null|undefined} item
+         * @returns {boolean}
+         */
+        function isPendingInstallItem(item) {
+            if (!item || typeof item !== 'object') {
+                return false;
+            }
+
+            if (asString(item.origin_key).trim() !== INSTALL_ORIGIN_KEY) {
+                return false;
+            }
+
+            if (asString(item.status).trim().toLowerCase() === 'done') {
+                return false;
+            }
+
+            var state = item.state && typeof item.state === 'object' ? item.state : {};
+
+            return state.completed !== true;
+        }
+
+        /**
+         * @param {object|null|undefined} item
+         * @returns {string|null}
+         */
+        function resolveNumericAgendaAppTaskId(item) {
+            if (!isPendingInstallItem(item)) {
+                return null;
+            }
+
+            var taskId = asString(item.id).trim();
+
+            if (!/^\d+$/.test(taskId)) {
+                return null;
+            }
+
+            if (asString(item.source_category).trim().toLowerCase() !== 'agenda_app') {
+                return null;
+            }
+
+            return taskId;
+        }
+
+        /**
+         * @param {object|null|undefined} item
+         */
+        function capturePendingInstallTaskIdFromItem(item) {
+            var resolved = resolveNumericAgendaAppTaskId(item);
+
+            if (resolved !== null) {
+                pendingInstallTaskId = resolved;
+            }
+        }
+
+        /**
+         * @param {object|null|undefined} payload
+         * @returns {object|null}
+         */
+        function findPendingInstallItemInPayload(payload) {
+            if (!payload || typeof payload !== 'object') {
+                return null;
+            }
+
+            var lists = Array.isArray(payload.lists) ? payload.lists : [];
+            var preferred = null;
+            var fallback = null;
+            var listIndex = 0;
+            var bucketIndex = 0;
+            var itemIndex = 0;
+
+            for (listIndex = 0; listIndex < lists.length; listIndex += 1) {
+                var list = lists[listIndex];
+
+                if (!list || typeof list !== 'object') {
+                    continue;
+                }
+
+                var buckets = Array.isArray(list.buckets) ? list.buckets : [];
+
+                for (bucketIndex = 0; bucketIndex < buckets.length; bucketIndex += 1) {
+                    var bucket = buckets[bucketIndex];
+
+                    if (!bucket || typeof bucket !== 'object') {
+                        continue;
+                    }
+
+                    var items = Array.isArray(bucket.items) ? bucket.items : [];
+
+                    for (itemIndex = 0; itemIndex < items.length; itemIndex += 1) {
+                        var item = items[itemIndex];
+
+                        if (!isPendingInstallItem(item)) {
+                            continue;
+                        }
+
+                        if (asString(item.source).trim().toLowerCase() === 'system') {
+                            preferred = item;
+                        } else if (!fallback) {
+                            fallback = item;
+                        }
+                    }
+                }
+            }
+
+            return preferred || fallback;
+        }
+
+        function refreshPendingInstallTaskFromPayload(payload) {
+            var item = findPendingInstallItemInPayload(payload);
+            var resolved = resolveNumericAgendaAppTaskId(item);
+
+            pendingInstallTaskId = resolved !== null ? resolved : null;
+        }
+
+        function beginInstallTaskFeedLoadCycle() {
+            standaloneReconciledForLoadCycle = false;
+        }
+
+        /**
+         * @returns {Promise<void>}
+         */
+        function syncSurfacesAfterPwaInstallComplete() {
+            var feedApi = globalRoot.AAExecutableUserListsVisibleFeed;
+
+            if (feedApi && typeof feedApi.reload === 'function') {
+                return Promise.resolve(feedApi.reload());
+            }
+
+            return Promise.resolve();
+        }
+
+        /**
+         * @returns {Promise<void>}
+         */
+        function completePendingInstallTaskIfNeeded() {
+            if (pendingInstallTaskId === null || pendingInstallTaskId === '') {
+                return Promise.resolve();
+            }
+
+            if (completionInFlight) {
+                return completionInFlight;
+            }
+
+            var tasksService = globalRoot.TasksService;
+
+            if (!tasksService || typeof tasksService.changeTaskStatus !== 'function') {
+                return Promise.resolve();
+            }
+
+            var taskId = pendingInstallTaskId;
+
+            completionInFlight = Promise.resolve(tasksService.changeTaskStatus(taskId, 'done'))
+                .then(function () {
+                    pendingInstallTaskId = null;
+
+                    return syncSurfacesAfterPwaInstallComplete();
+                })
+                .catch(function () {
+                    // Conserva pendingInstallTaskId para permitir reintento manual o posterior.
+                })
+                .finally(function () {
+                    completionInFlight = null;
+                });
+
+            return completionInFlight;
+        }
+
+        /**
+         * @returns {Promise<void>}
+         */
+        function reconcileStandaloneInstallTaskIfNeeded() {
+            if (!isStandalone()) {
+                return Promise.resolve();
+            }
+
+            if (standaloneReconciledForLoadCycle) {
+                return Promise.resolve();
+            }
+
+            if (pendingInstallTaskId === null || pendingInstallTaskId === '') {
+                return Promise.resolve();
+            }
+
+            standaloneReconciledForLoadCycle = true;
+
+            return completePendingInstallTaskIfNeeded();
+        }
 
         function isStandalone() {
             try {
@@ -175,6 +376,7 @@
                 deferredPrompt = null;
                 installed = true;
                 notifyAvailabilityChanged();
+                completePendingInstallTaskIfNeeded();
             });
         }
 
@@ -185,7 +387,9 @@
             isAvailable: function () {
                 return canInstallNow();
             },
-            run: function () {
+            run: function (action, item, ctx) {
+                capturePendingInstallTaskIdFromItem(item || (ctx && ctx.item));
+
                 if (!canInstallNow()) {
                     return Promise.resolve({ completed: false, outcome: 'unavailable' });
                 }
@@ -214,7 +418,7 @@
 
                         var outcome = choice && choice.outcome ? choice.outcome : 'unknown';
 
-                        // 3C completará la recomendación; aquí solo reportamos el resultado.
+                        // El completado persistido lo resuelve appinstalled/standalone vía TasksService.
                         return { completed: false, outcome: outcome };
                     })
                     .catch(function (err) {
@@ -223,6 +427,10 @@
                     });
             }
         });
+
+        globalRoot.LearningActionHandlers.beginInstallTaskFeedLoadCycle = beginInstallTaskFeedLoadCycle;
+        globalRoot.LearningActionHandlers.refreshPendingInstallTaskFromPayload = refreshPendingInstallTaskFromPayload;
+        globalRoot.LearningActionHandlers.reconcileStandaloneInstallTaskIfNeeded = reconcileStandaloneInstallTaskIfNeeded;
     })();
 
     // ─── Handler real: appointment.confirm (MC5) ─────────────────

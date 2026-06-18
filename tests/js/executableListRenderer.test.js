@@ -931,6 +931,32 @@ describe('AAExecutableListRenderer visible_actions', () => {
         assert.doesNotMatch(html, /data-task-id="/);
     });
 
+    it('visible_action status done genera complete en canal Tasks para agenda_app numerico', () => {
+        var html = renderer.renderItem(baseItem({
+            id: '501',
+            source: 'system',
+            source_category: 'agenda_app',
+            origin_key: 'install_pwa',
+            visible_actions: [
+                visibleAction({
+                    key: 'complete',
+                    type: 'status',
+                    category: 'declarative',
+                    label: 'Completar',
+                    placement: 'secondary',
+                    target_status: 'done',
+                    url: null,
+                    handler: null
+                })
+            ]
+        }));
+
+        assert.match(html, /data-tasks-action="complete"/);
+        assert.match(html, /data-task-id="501"/);
+        assert.doesNotMatch(html, /data-learning-action="complete"/);
+        assert.doesNotMatch(html, /data-recommendation-key=/);
+    });
+
     it('visible_action status pending genera pending solo para user', () => {
         var html = renderer.renderItem(baseItem({
             id: '42',

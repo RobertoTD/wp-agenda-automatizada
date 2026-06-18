@@ -806,6 +806,11 @@
      */
     function loadUnifiedFeed() {
         var service = globalRoot.ExecutableListsService;
+        var registry = getLearningRegistry();
+
+        if (registry && typeof registry.beginInstallTaskFeedLoadCycle === 'function') {
+            registry.beginInstallTaskFeedLoadCycle();
+        }
 
         setUnifiedLoading(true);
 
@@ -821,6 +826,16 @@
                 clearUnifiedError();
                 lastUnifiedPayload = payload;
                 renderUnifiedPayload(payload);
+
+                if (registry && typeof registry.refreshPendingInstallTaskFromPayload === 'function') {
+                    registry.refreshPendingInstallTaskFromPayload(payload);
+                }
+
+                if (registry && typeof registry.reconcileStandaloneInstallTaskIfNeeded === 'function') {
+                    return registry.reconcileStandaloneInstallTaskIfNeeded();
+                }
+
+                return undefined;
             })
             .catch(function (err) {
                 setUnifiedLoading(false);

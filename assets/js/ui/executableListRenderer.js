@@ -279,6 +279,16 @@
             var targetStatus = asString(action.target_status).trim().toLowerCase();
 
             if (targetStatus === 'done') {
+                var completeTasksTaskId = resolveTasksChannelTaskId(item);
+
+                if (completeTasksTaskId !== '') {
+                    return ''
+                        + '<button type="button" data-tasks-action="complete" data-task-id="' + escapeHtml(completeTasksTaskId) + '"'
+                        + ' class="' + btnClass(false) + ' text-green-700 hover:text-green-800 border-green-200 bg-green-50">'
+                        + escapeHtml(label || 'Completar')
+                        + '</button>';
+                }
+
                 if (itemSource === 'system') {
                     if (recommendationKey === '') {
                         return '';
