@@ -54,7 +54,13 @@ $policy = new AA_Learning_Visibility_Policy();
 $catalog = AA_Learning_Catalog::definitions();
 $now = '2026-06-01 12:00:00';
 
-ac_assert('Catalog has 9 definitions', count($catalog) === 9);
+ac_assert('Catalog has 7 definitions', count($catalog) === 7);
+ac_assert(
+    'Catalog active_definition_keys has 7 entries',
+    count(AA_Learning_Catalog::active_definition_keys()) === 7
+);
+ac_assert('Catalog excludes learn_basic_flow', !isset($catalog['learn_basic_flow']));
+ac_assert('Catalog excludes review_agenda', !isset($catalog['review_agenda']));
 ac_assert('Catalog contains connect_google_calendar', isset($catalog['connect_google_calendar']));
 ac_assert(
     'Catalog auto entry has completion_fact',
@@ -439,8 +445,8 @@ ac_assert(
     (int) ($catalog['connect_google_calendar']['importance'] ?? 0) === 100
 );
 ac_assert(
-    'Catalog review_agenda has lowest importance',
-    (int) ($catalog['review_agenda']['importance'] ?? 0) === 1
+    'Catalog install_pwa has lowest importance',
+    (int) ($catalog['install_pwa']['importance'] ?? 0) === 10
 );
 
 $list_1_keys = array_map(

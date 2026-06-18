@@ -32,7 +32,12 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 
 // ─── Estáticos ───────────────────────────────────────────────
 
+if (!defined('ABSPATH')) {
+    define('ABSPATH', $plugin_root . '/');
+}
+
 $use_case_src = file_get_contents($use_case_file);
+require_once $catalog_file;
 ac_assert('Use case file readable', $use_case_src !== false);
 ac_assert('Use case defines SyncLearningCatalogToTasksUseCase', strpos($use_case_src, 'class SyncLearningCatalogToTasksUseCase') !== false);
 ac_assert('Use case reads AA_Learning_Catalog', strpos($use_case_src, 'AA_Learning_Catalog::definitions()') !== false);
@@ -45,6 +50,10 @@ ac_assert('Use case does not touch Learning state repository', strpos($use_case_
 ac_assert('Use case does not touch task state repository', strpos($use_case_src, 'TaskStateRepository') === false);
 ac_assert('Use case seeds Activación de tu agenda title', strpos($use_case_src, "'title' => 'Activación de tu agenda'") !== false);
 ac_assert('Use case keeps learning.recommendations origin_key', strpos($use_case_src, 'learning.recommendations') !== false);
+ac_assert('Catalog excludes learn_basic_flow', !isset(AA_Learning_Catalog::definitions()['learn_basic_flow']));
+ac_assert('Catalog excludes review_agenda', !isset(AA_Learning_Catalog::definitions()['review_agenda']));
+ac_assert('Catalog active_definition_keys has 7 entries', count(AA_Learning_Catalog::active_definition_keys()) === 7);
+ac_assert('Catalog SEED_VERSION remains 3', AA_Learning_Catalog::SEED_VERSION === '3');
 
 $runtime_files = [
     'includes/application/executable/GetExecutableListsFeedUseCase.php',
@@ -131,12 +140,15 @@ if ($wp_load !== '' && is_readable($wp_load)) {
     ac_assert('install_pwa has pwa.install action', is_array($install_action));
     ac_assert('install_pwa action is handler', ($install_action['type'] ?? '') === 'handler' && ($install_action['handler'] ?? '') === 'pwa.install');
 
-    $review_agenda = SeededTaskRepository::find_task_by_origin('agenda_app', 'review_agenda');
-    $review_action = is_array($review_agenda)
-        ? TaskActionRepository::find_by_task_and_key((int) $review_agenda['id'], 'navigate.calendar')
-        : null;
-    ac_assert('review_agenda has navigate calendar action', is_array($review_action));
-    ac_assert('review_agenda action target_module calendar', ($review_action['target_module'] ?? '') === 'calendar');
+    ac_assert(
+        'sync does not seed learn_basic_flow',
+        SeededTaskRepository::find_task_by_origin('agenda_app', 'learn_basic_flow') === null
+    );
+    ac_assert(
+        'sync does not seed review_agenda',
+        SeededTaskRepository::find_task_by_origin('agenda_app', 'review_agenda') === null
+    );
+    ac_assert('Catalog SEED_VERSION remains 3', AA_Learning_Catalog::SEED_VERSION === '3');
 
     $complete_action = is_array($complete_business_data)
         ? TaskActionRepository::find_by_task_and_key((int) $complete_business_data['id'], 'navigate.settings')

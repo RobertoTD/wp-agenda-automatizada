@@ -82,10 +82,10 @@ $tasks_by_key = [
         'status' => 'pending',
         'completed_at' => null,
     ],
-    'learn_basic_flow' => [
+    'create_first_client' => [
         'id' => 102,
-        'origin_key' => 'learn_basic_flow',
-        'completion_type' => 'manual',
+        'origin_key' => 'create_first_client',
+        'completion_type' => 'system',
         'status' => 'pending',
         'completed_at' => null,
     ],
@@ -102,8 +102,8 @@ $legacy_states = [
         'is_ignored' => 1,
         'ignored_at' => '2026-06-02 10:00:00',
     ],
-    'learn_basic_flow' => [
-        'recommendation_key' => 'learn_basic_flow',
+    'create_first_client' => [
+        'recommendation_key' => 'create_first_client',
         'is_dismissed' => 1,
         'dismissed_at' => '2026-06-03 11:00:00',
     ],
@@ -249,7 +249,7 @@ if ($wp_load !== '' && is_readable($wp_load)) {
 
     $manual_key = 'install_pwa';
     $ignored_key = 'configure_services';
-    $dismissed_key = 'learn_basic_flow';
+    $dismissed_key = 'create_first_client';
 
     LearningRecommendationStateRepository::reactivate($manual_key);
     LearningRecommendationStateRepository::reactivate($ignored_key);

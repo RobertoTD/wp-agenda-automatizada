@@ -164,42 +164,6 @@ final class AA_Learning_Catalog {
                     'label' => 'Instalar',
                 ]
             ),
-            self::item(
-                'learn_basic_flow',
-                'Aprende el flujo básico',
-                'Recorre resumen, agenda y asignaciones para familiarizarte con la app.',
-                5,
-                2,
-                self::COMPLETION_MANUAL,
-                null,
-                [
-                    'module' => 'dashboard',
-                    'setup_focus' => null,
-                    'fragment' => null,
-                ],
-                true,
-                [
-                    'dismiss_hours' => 72,
-                ]
-            ),
-            self::item(
-                'review_agenda',
-                'Revisa tu agenda del día',
-                'Consulta las citas de hoy en el módulo Agenda cuando empieces a operar.',
-                1,
-                2,
-                self::COMPLETION_MANUAL,
-                null,
-                [
-                    'module' => 'calendar',
-                    'setup_focus' => null,
-                    'fragment' => null,
-                ],
-                true,
-                [
-                    'dismiss_hours' => 24,
-                ]
-            ),
         ];
 
         $indexed = [];
