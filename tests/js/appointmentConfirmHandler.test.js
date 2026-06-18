@@ -300,13 +300,13 @@ describe('appointment.confirm handler (MC5)', () => {
     });
 
     describe('pwa.install regresión', () => {
-        it('sigue registrado sin cambios de contrato', () => {
+        it('sigue registrado sin regla especial de ocultamiento', () => {
             var handler = globalThis.LearningActionHandlers.get('pwa.install');
 
             assert.ok(handler);
             assert.equal(typeof handler.isAvailable, 'function');
             assert.equal(typeof handler.run, 'function');
-            assert.equal(typeof handler.shouldHideRecommendation, 'function');
+            assert.equal(handler.shouldHideRecommendation, undefined);
         });
     });
 });

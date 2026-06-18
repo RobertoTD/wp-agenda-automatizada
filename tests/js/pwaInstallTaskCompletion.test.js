@@ -267,7 +267,7 @@ describe('pwa.install task completion', () => {
         });
     });
 
-    it('shouldHideRecommendation sigue ocultando en standalone', () => {
+    it('shouldShowRecommendation muestra tarea pendiente en standalone sin ocultar', () => {
         globalThis.matchMedia = function (query) {
             return { matches: query === '(display-mode: standalone)' };
         };
@@ -275,12 +275,42 @@ describe('pwa.install task completion', () => {
         loadHandlers();
 
         var handler = globalThis.LearningActionHandlers.get('pwa.install');
+        var action = { type: 'handler', handler: 'pwa.install' };
+        var item = { origin_key: 'install_pwa', status: 'pending', state: { completed: false } };
 
-        assert.equal(handler.shouldHideRecommendation(), true);
+        assert.equal(handler.shouldHideRecommendation, undefined);
+        assert.equal(globalThis.LearningActionHandlers.shouldShowRecommendation(action, item), true);
+        assert.equal(globalThis.LearningActionHandlers.isAvailable(action, item), false);
+    });
+
+    it('isAvailable sigue dependiendo de canInstallNow sin ocultar la card', () => {
+        globalThis.dispatchEvent(createBeforeInstallPromptEvent('accepted'));
+
+        var handler = globalThis.LearningActionHandlers.get('pwa.install');
+        var action = { type: 'handler', handler: 'pwa.install' };
+        var item = { origin_key: 'install_pwa' };
+
+        assert.equal(globalThis.LearningActionHandlers.isAvailable(action, item), true);
+        assert.equal(globalThis.LearningActionHandlers.shouldShowRecommendation(action, item), true);
+    });
+
+    it('shouldShowRecommendation sigue delegando hide en handlers que lo implementen', () => {
+        globalThis.LearningActionHandlers.register('test.hide.handler', {
+            shouldHideRecommendation: function () {
+                return true;
+            },
+            isAvailable: function () {
+                return true;
+            },
+            run: function () {
+                return Promise.resolve({});
+            }
+        });
+
         assert.equal(
             globalThis.LearningActionHandlers.shouldShowRecommendation(
-                { type: 'handler', handler: 'pwa.install' },
-                { origin_key: 'install_pwa' }
+                { type: 'handler', handler: 'test.hide.handler' },
+                {}
             ),
             false
         );

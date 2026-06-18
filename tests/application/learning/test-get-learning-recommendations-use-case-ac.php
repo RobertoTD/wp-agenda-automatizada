@@ -240,11 +240,15 @@ ac_assert('pwa.install listens appinstalled', strpos($handlers_js, 'appinstalled
 ac_assert('pwa.install detects standalone display-mode', strpos($handlers_js, '(display-mode: standalone)') !== false);
 ac_assert('pwa.install checks navigator.standalone for iOS', strpos($handlers_js, 'navigator.standalone') !== false);
 ac_assert('pwa.install keeps deferredPrompt out of window', strpos($handlers_js, 'window.deferredPrompt') === false);
-ac_assert('pwa.install does not complete recommendation yet', strpos($handlers_js, 'completeRecommendation') === false && strpos($handlers_js, 'ctx.complete') === false);
-ac_assert('pwa.install defines shouldHideRecommendation for card visibility', strpos($handlers_js, 'shouldHideRecommendation: function') !== false);
-ac_assert('pwa.install hides card in standalone via shouldHideRecommendation', strpos($handlers_js, 'shouldHideRecommendation: function') !== false && strpos($handlers_js, 'isStandalone()') !== false);
-ac_assert('pwa.install hides card when installed via shouldHideRecommendation', strpos($handlers_js, 'shouldHideRecommendation: function') !== false && strpos($handlers_js, 'installed') !== false);
-ac_assert('pwa.install isAvailable only gates install button', strpos($handlers_js, 'canInstallNow()') !== false && strpos($handlers_js, 'shouldHideRecommendation: function') !== false);
+ac_assert('pwa.install does not use legacy completeRecommendation', strpos($handlers_js, 'completeRecommendation') === false && strpos($handlers_js, 'ctx.complete') === false);
+$pwa_register_pos = strpos($handlers_js, "register('pwa.install'");
+$pwa_register_end = $pwa_register_pos !== false ? strpos($handlers_js, '});', $pwa_register_pos) : false;
+$pwa_register_block = ($pwa_register_pos !== false && $pwa_register_end !== false)
+    ? substr($handlers_js, $pwa_register_pos, $pwa_register_end - $pwa_register_pos)
+    : '';
+ac_assert('pwa.install register block omits shouldHideRecommendation', strpos($pwa_register_block, 'shouldHideRecommendation') === false);
+ac_assert('pwa.install isAvailable only gates install button', strpos($pwa_register_block, 'canInstallNow()') !== false && strpos($pwa_register_block, 'isAvailable') !== false);
+ac_assert('pwa.install persists completion via TasksService', strpos($handlers_js, 'changeTaskStatus') !== false);
 ac_assert('learning-module filters recommendations before renderList', strpos($module_js, 'filterRecommendationsForRender') !== false && strpos($module_js, 'renderList(primaryList, list1)') !== false);
 ac_assert(
     'learning renderer uses shouldShowRecommendation for card filter not isAvailable',

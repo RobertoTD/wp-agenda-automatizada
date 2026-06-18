@@ -381,9 +381,6 @@
         }
 
         register('pwa.install', {
-            shouldHideRecommendation: function () {
-                return isStandalone() || installed;
-            },
             isAvailable: function () {
                 return canInstallNow();
             },
