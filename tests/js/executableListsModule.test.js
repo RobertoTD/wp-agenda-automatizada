@@ -1061,3 +1061,197 @@ describe('executable-lists-module MC13J-2C user modes retired', () => {
         assert.equal(typeof hooks.visibleUserFeedApi.renderUnifiedPayload, 'function');
     });
 });
+
+describe('executable-lists-module restore open list card', () => {
+    let originalListOptions;
+    let originalService;
+    let originalRenderer;
+    let originalDocument;
+    let originalVisibleFeed;
+
+    function makeUnifiedDocumentMock(root) {
+        return {
+            getElementById: function (id) {
+                if (id === 'aa-executable-lists-active-root') {
+                    return root;
+                }
+
+                if (id === 'aa-executable-lists-active-loading') {
+                    return {
+                        textContent: '',
+                        classList: {
+                            classes: [],
+                            add: function () {},
+                            remove: function () {}
+                        }
+                    };
+                }
+
+                if (id === 'aa-executable-lists-active-error') {
+                    return {
+                        textContent: '',
+                        classList: {
+                            classes: ['hidden'],
+                            add: function () {},
+                            remove: function () {}
+                        }
+                    };
+                }
+
+                return null;
+            }
+        };
+    }
+
+    beforeEach(() => {
+        originalListOptions = globalThis.AAListOptions;
+        originalService = globalThis.ExecutableListsService;
+        originalRenderer = globalThis.AAExecutableListRenderer;
+        originalDocument = globalThis.document;
+        originalVisibleFeed = globalThis.AA_EXECUTABLE_VISIBLE_FEED;
+
+        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'unified';
+        globalThis.ExecutableListsService = {
+            getFeed: function () {
+                return Promise.resolve({ lists: [] });
+            }
+        };
+        globalThis.AAExecutableListRenderer = {
+            renderFeed: function () {
+                return '<details class="aa-executable-list-card" data-list-id="7"></details>';
+            }
+        };
+    });
+
+    afterEach(() => {
+        if (originalListOptions === undefined) {
+            delete globalThis.AAListOptions;
+        } else {
+            globalThis.AAListOptions = originalListOptions;
+        }
+
+        if (originalService === undefined) {
+            delete globalThis.ExecutableListsService;
+        } else {
+            globalThis.ExecutableListsService = originalService;
+        }
+
+        if (originalRenderer === undefined) {
+            delete globalThis.AAExecutableListRenderer;
+        } else {
+            globalThis.AAExecutableListRenderer = originalRenderer;
+        }
+
+        if (originalDocument === undefined) {
+            delete globalThis.document;
+        } else {
+            globalThis.document = originalDocument;
+        }
+
+        if (originalVisibleFeed === undefined) {
+            delete globalThis.AA_EXECUTABLE_VISIBLE_FEED;
+        } else {
+            globalThis.AA_EXECUTABLE_VISIBLE_FEED = originalVisibleFeed;
+        }
+    });
+
+    it('reloadUnifiedFeedWithBoardSync captura antes de vaciar y restaura tras render', async () => {
+        var events = [];
+        var root = {
+            _inner: 'has-content',
+            get innerHTML() {
+                return this._inner;
+            },
+            set innerHTML(value) {
+                events.push({ type: 'innerHTML', value: value });
+                this._inner = value;
+            }
+        };
+
+        globalThis.AAListOptions = {
+            getListRestoreSnapshot: function (activeRoot) {
+                events.push({
+                    type: 'capture',
+                    innerHTML: activeRoot.innerHTML
+                });
+
+                return {
+                    restoreOpenListId: '7',
+                    restoreFollowingTasksOpen: true
+                };
+            },
+            restoreListAfterReload: function (listId, root, options) {
+                events.push({
+                    type: 'restore',
+                    listId: listId,
+                    followingTasksOpen: options && options.followingTasksOpen
+                });
+            }
+        };
+
+        globalThis.document = makeUnifiedDocumentMock(root);
+
+        await hooks.reloadUnifiedFeedWithBoardSync();
+
+        var captureEvent = events.find(function (entry) {
+            return entry.type === 'capture';
+        });
+        var clearEvent = events.find(function (entry) {
+            return entry.type === 'innerHTML' && entry.value === '';
+        });
+        var restoreEvent = events.find(function (entry) {
+            return entry.type === 'restore';
+        });
+
+        assert.ok(captureEvent);
+        assert.equal(captureEvent.innerHTML, 'has-content');
+        assert.ok(clearEvent);
+        assert.ok(restoreEvent);
+        assert.equal(restoreEvent.listId, '7');
+        assert.equal(restoreEvent.followingTasksOpen, true);
+        assert.ok(events.indexOf(captureEvent) < events.indexOf(clearEvent));
+        assert.ok(events.indexOf(clearEvent) < events.indexOf(restoreEvent));
+    });
+
+    it('loadUnifiedFeed sin opciones no intenta restaurar', async () => {
+        var restoreCalls = 0;
+
+        globalThis.AAListOptions = {
+            getListRestoreSnapshot: function () {
+                return {
+                    restoreOpenListId: '1',
+                    restoreFollowingTasksOpen: true
+                };
+            },
+            restoreListAfterReload: function () {
+                restoreCalls += 1;
+            }
+        };
+
+        globalThis.document = makeUnifiedDocumentMock({
+            innerHTML: ''
+        });
+
+        await hooks.loadUnifiedFeed();
+
+        assert.equal(restoreCalls, 0);
+    });
+
+    it('reloadFeedOnly no restaura listas', async () => {
+        var restoreCalls = 0;
+
+        globalThis.AAListOptions = {
+            restoreListAfterReload: function () {
+                restoreCalls += 1;
+            }
+        };
+
+        globalThis.document = makeUnifiedDocumentMock({
+            innerHTML: ''
+        });
+
+        await hooks.visibleUserFeedApi.reloadFeedOnly();
+
+        assert.equal(restoreCalls, 0);
+    });
+});

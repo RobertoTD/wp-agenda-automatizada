@@ -12,6 +12,7 @@
     var openListId = '';
     var coordinatingListToggle = false;
     var coordinatingTaskToggle = false;
+    var restoreSkipFollowingResetListId = '';
 
     function asString(value) {
         return value === null || value === undefined ? '' : String(value);
@@ -208,12 +209,6 @@
         closeAllMenus();
     }
 
-    function isListCard(details) {
-        return details
-            && details.classList
-            && details.classList.contains('aa-executable-list-card');
-    }
-
     function isTaskItem(details) {
         return details
             && details.classList
@@ -224,6 +219,181 @@
         return details
             && details.classList
             && details.classList.contains('aa-executable-following-tasks');
+    }
+
+    function isListCard(details) {
+        return details
+            && details.classList
+            && details.classList.contains('aa-executable-list-card');
+    }
+
+    /**
+     * @param {HTMLElement|null|undefined} root
+     * @param {string} listId
+     * @returns {HTMLDetailsElement|null}
+     */
+    function findListCardById(root, listId) {
+        var normalizedId = asString(listId).trim();
+
+        if (!root || normalizedId === '' || typeof root.querySelectorAll !== 'function') {
+            return null;
+        }
+
+        var cards = root.querySelectorAll('details.aa-executable-list-card');
+        var index = 0;
+
+        for (index = 0; index < cards.length; index += 1) {
+            var card = cards[index];
+
+            if (asString(card.getAttribute('data-list-id')).trim() === normalizedId) {
+                return card;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param {HTMLElement|null|undefined} root
+     * @returns {string}
+     */
+    function getOpenListCardId(root) {
+        if (!root || typeof root.querySelector !== 'function') {
+            return '';
+        }
+
+        var open = root.querySelector('details.aa-executable-list-card[open]');
+
+        if (!open) {
+            return '';
+        }
+
+        return asString(open.getAttribute('data-list-id')).trim();
+    }
+
+    /**
+     * @param {string} listId
+     * @param {HTMLElement|null|undefined} root
+     */
+    function reopenListCardById(listId, root) {
+        var details = findListCardById(root, listId);
+
+        if (!details || details.open) {
+            return;
+        }
+
+        details.open = true;
+    }
+
+    /**
+     * @param {HTMLElement|null|undefined} root
+     * @returns {{restoreOpenListId: string, restoreFollowingTasksOpen: boolean}|null}
+     */
+    function getListRestoreSnapshot(root) {
+        var listId = getOpenListCardId(root);
+
+        if (listId === '') {
+            return null;
+        }
+
+        var list = findListCardById(root, listId);
+        var followingOpen = !!(list
+            && typeof list.querySelector === 'function'
+            && list.querySelector('details.aa-executable-following-tasks[open]'));
+
+        return {
+            restoreOpenListId: listId,
+            restoreFollowingTasksOpen: followingOpen
+        };
+    }
+
+    /**
+     * @param {string} listId
+     * @param {HTMLElement|null|undefined} root
+     */
+    function reopenFollowingTasksInList(listId, root) {
+        var list = findListCardById(root, listId);
+
+        if (!list || typeof list.querySelector !== 'function') {
+            return;
+        }
+
+        var following = list.querySelector('details.aa-executable-following-tasks');
+
+        if (!following || following.open) {
+            return;
+        }
+
+        following.open = true;
+    }
+
+    /**
+     * @param {string} listId
+     * @param {HTMLElement|null|undefined} root
+     * @param {{followingTasksOpen?: boolean}} [options]
+     */
+    function restoreListAfterReload(listId, root, options) {
+        var normalizedListId = asString(listId).trim();
+        var opts = options || {};
+        var followingTasksOpen = opts.followingTasksOpen === true;
+
+        if (normalizedListId === '' || !root) {
+            return;
+        }
+
+        var list = findListCardById(root, normalizedListId);
+
+        if (!list) {
+            return;
+        }
+
+        if (followingTasksOpen) {
+            restoreSkipFollowingResetListId = normalizedListId;
+        } else {
+            restoreSkipFollowingResetListId = '';
+        }
+
+        if (!list.open) {
+            coordinatingListToggle = true;
+
+            try {
+                list.open = true;
+            } finally {
+                coordinatingListToggle = false;
+            }
+        }
+
+        closeAllMenus();
+        resetListDetails(list);
+
+        if (!followingTasksOpen) {
+            resetFollowingTasksBlocks(list);
+        }
+
+        coordinatingListToggle = true;
+
+        try {
+            closeOtherListCards(list);
+            openFirstTaskInList(list);
+        } finally {
+            coordinatingListToggle = false;
+        }
+
+        if (followingTasksOpen) {
+            var following = list.querySelector('details.aa-executable-following-tasks');
+
+            if (following && !following.open) {
+                following.open = true;
+            }
+
+            if (typeof globalRoot.setTimeout === 'function') {
+                globalRoot.setTimeout(function () {
+                    if (restoreSkipFollowingResetListId === normalizedListId) {
+                        restoreSkipFollowingResetListId = '';
+                    }
+                }, 0);
+            }
+        }
     }
 
     function closeTasksInFollowingBlock(followingDetails) {
@@ -320,6 +490,14 @@
         }
 
         if (details.open) {
+            var detailsListId = asString(details.getAttribute('data-list-id')).trim();
+
+            if (restoreSkipFollowingResetListId !== ''
+                && detailsListId === restoreSkipFollowingResetListId) {
+                restoreSkipFollowingResetListId = '';
+                return;
+            }
+
             resetListDetails(details);
             resetFollowingTasksBlocks(details);
 
@@ -431,6 +609,12 @@
         getOpenListId: function () {
             return openListId;
         },
+        getOpenListCardId: getOpenListCardId,
+        getListRestoreSnapshot: getListRestoreSnapshot,
+        reopenListCardById: reopenListCardById,
+        reopenFollowingTasksInList: reopenFollowingTasksInList,
+        restoreListAfterReload: restoreListAfterReload,
+        findListCardById: findListCardById,
         openMenu: openMenu,
         toggleMenu: toggleMenu,
         closeAllTasksInList: closeAllTasksInList,
@@ -449,6 +633,8 @@
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = moduleExports;
     }
+
+    globalRoot.AAListOptions = moduleExports;
 
     if (typeof document === 'undefined') {
         return;

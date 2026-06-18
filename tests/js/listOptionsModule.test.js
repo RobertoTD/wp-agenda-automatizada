@@ -23,6 +23,11 @@ function nodeMatchesSelector(node, selector) {
             && node.open === true;
     }
 
+    if (selector === 'details.aa-executable-list-card') {
+        return node.tagName === 'details'
+            && node.classList.contains('aa-executable-list-card');
+    }
+
     if (selector === 'details.aa-executable-item') {
         return node.tagName === 'details' && node.classList.contains('aa-executable-item');
     }
@@ -961,5 +966,188 @@ describe('list-options-module MC-UX-E following tasks block', () => {
 
         assert.equal(list.followingTasks[0].open, false);
         assert.equal(secondaryTask.open, false);
+    });
+});
+
+describe('list-options-module restore open list card', () => {
+    it('getOpenListCardId devuelve el ID de la lista abierta', () => {
+        var feed = buildFeedDom();
+        var list = buildListWithTasks('keep-1', ['t1'], true);
+
+        feed.moduleRoot.appendChild(list.details);
+        var api = loadModule(feed);
+
+        assert.equal(api.getOpenListCardId(feed.moduleRoot), 'keep-1');
+    });
+
+    it('getOpenListCardId devuelve vacío sin lista abierta', () => {
+        var feed = buildFeedDom();
+        var list = buildListWithTasks('keep-2', ['t1'], false);
+
+        feed.moduleRoot.appendChild(list.details);
+        var api = loadModule(feed);
+
+        assert.equal(api.getOpenListCardId(feed.moduleRoot), '');
+    });
+
+    it('reopenListCardById abre lista existente y primera tarea tras toggle', () => {
+        var feed = buildFeedDom();
+        var list = buildListWithTasks('keep-3', ['t1', 't2'], false);
+
+        feed.moduleRoot.appendChild(list.details);
+        var api = loadModule(feed);
+
+        api.reopenListCardById('keep-3', feed.moduleRoot);
+        dispatchToggle(list.details, feed.document);
+
+        assert.equal(list.details.open, true);
+        assert.equal(list.tasks[0].open, true);
+        assert.equal(list.tasks[1].open, false);
+    });
+
+    it('reopenListCardById no-op si la lista desapareció', () => {
+        var feed = buildFeedDom();
+        var api = loadModule(feed);
+
+        assert.doesNotThrow(function () {
+            api.reopenListCardById('missing', feed.moduleRoot);
+        });
+    });
+
+    it('reopenListCardById no-op sin listId ni root', () => {
+        var feed = buildFeedDom();
+        var api = loadModule(feed);
+
+        assert.doesNotThrow(function () {
+            api.reopenListCardById('', null);
+        });
+    });
+});
+
+describe('list-options-module restore following tasks block', () => {
+    it('getListRestoreSnapshot devuelve followingTasks abierto', () => {
+        var feed = buildFeedDom();
+        var list = buildListWithFollowingTasks('snap-1', 'top', ['f1'], true);
+
+        list.followingBlock.open = true;
+        feed.moduleRoot.appendChild(list.details);
+        var api = loadModule(feed);
+        var snapshot = api.getListRestoreSnapshot(feed.moduleRoot);
+
+        assert.equal(snapshot.restoreOpenListId, 'snap-1');
+        assert.equal(snapshot.restoreFollowingTasksOpen, true);
+    });
+
+    it('getListRestoreSnapshot devuelve followingTasks cerrado', () => {
+        var feed = buildFeedDom();
+        var list = buildListWithFollowingTasks('snap-2', 'top', ['f1'], true);
+
+        list.followingBlock.open = false;
+        feed.moduleRoot.appendChild(list.details);
+        var api = loadModule(feed);
+        var snapshot = api.getListRestoreSnapshot(feed.moduleRoot);
+
+        assert.equal(snapshot.restoreOpenListId, 'snap-2');
+        assert.equal(snapshot.restoreFollowingTasksOpen, false);
+    });
+
+    it('getListRestoreSnapshot devuelve null sin lista abierta', () => {
+        var feed = buildFeedDom();
+        var list = buildListWithFollowingTasks('snap-3', 'top', ['f1'], false);
+
+        feed.moduleRoot.appendChild(list.details);
+        var api = loadModule(feed);
+
+        assert.equal(api.getListRestoreSnapshot(feed.moduleRoot), null);
+    });
+
+    it('reopenFollowingTasksInList no-op sin listId ni root', () => {
+        var feed = buildFeedDom();
+        var api = loadModule(feed);
+
+        assert.doesNotThrow(function () {
+            api.reopenFollowingTasksInList('', null);
+        });
+    });
+});
+
+describe('list-options-module restoreListAfterReload', () => {
+    it('mantiene following abierto tras toggle tardío de lista', () => {
+        var feed = buildFeedDom();
+        var list = buildListWithFollowingTasks('fix-1', 'top', ['f1', 'f2'], false);
+
+        feed.moduleRoot.appendChild(list.details);
+        var api = loadModule(feed);
+
+        api.restoreListAfterReload('fix-1', feed.moduleRoot, { followingTasksOpen: true });
+        dispatchToggle(list.details, feed.document);
+
+        assert.equal(list.details.open, true);
+        assert.equal(list.followingBlock.open, true);
+    });
+
+    it('con followingTasksOpen false deja following cerrado tras toggle tardío', () => {
+        var feed = buildFeedDom();
+        var list = buildListWithFollowingTasks('fix-2', 'top', ['f1'], false);
+
+        feed.moduleRoot.appendChild(list.details);
+        var api = loadModule(feed);
+
+        api.restoreListAfterReload('fix-2', feed.moduleRoot, { followingTasksOpen: false });
+        dispatchToggle(list.details, feed.document);
+
+        assert.equal(list.details.open, true);
+        assert.equal(list.followingBlock.open, false);
+    });
+
+    it('no falla si la lista no tiene bloque following', () => {
+        var feed = buildFeedDom();
+        var list = buildListWithTasks('fix-3', ['t1'], false);
+
+        feed.moduleRoot.appendChild(list.details);
+        var api = loadModule(feed);
+
+        assert.doesNotThrow(function () {
+            api.restoreListAfterReload('fix-3', feed.moduleRoot, { followingTasksOpen: true });
+        });
+    });
+
+    it('cierra otra lista abierta y abre la primera tarea', () => {
+        var feed = buildFeedDom();
+        var listA = buildListWithFollowingTasks('fix-a', 'top', ['a1'], true);
+        var listB = buildListWithFollowingTasks('fix-b', 'top', ['b1', 'b2'], false);
+
+        feed.moduleRoot.appendChild(listA.details);
+        feed.moduleRoot.appendChild(listB.details);
+        var api = loadModule(feed);
+
+        api.restoreListAfterReload('fix-b', feed.moduleRoot, { followingTasksOpen: false });
+
+        assert.equal(listA.details.open, false);
+        assert.equal(listB.details.open, true);
+        assert.equal(listB.topTask.open, true);
+    });
+
+    it('con lista ya abierta restaura following si followingTasksOpen es true', () => {
+        var feed = buildFeedDom();
+        var list = buildListWithFollowingTasks('fix-open', 'top', ['f1'], true);
+
+        list.followingBlock.open = false;
+        feed.moduleRoot.appendChild(list.details);
+        var api = loadModule(feed);
+
+        api.restoreListAfterReload('fix-open', feed.moduleRoot, { followingTasksOpen: true });
+
+        assert.equal(list.details.open, true);
+        assert.equal(list.followingBlock.open, true);
+    });
+
+    it('no-op si la lista no existe', () => {
+        var feed = buildFeedDom();
+        var api = loadModule(feed);
+
+        assert.doesNotThrow(function () {
+            api.restoreListAfterReload('missing', feed.moduleRoot, { followingTasksOpen: true });
+        });
     });
 });

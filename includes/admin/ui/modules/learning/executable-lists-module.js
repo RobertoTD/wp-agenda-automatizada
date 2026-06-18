@@ -742,12 +742,31 @@
     }
 
     /**
+     * @returns {object|null}
+     */
+    function getListOptionsModule() {
+        return globalRoot.AAListOptions || null;
+    }
+
+    /**
      * MC13H: tras mutación en feed unified, refresca también executive/selector.
      *
      * @returns {Promise<void>}
      */
     function reloadUnifiedFeedWithBoardSync() {
-        return loadUnifiedFeed().then(function () {
+        var root = getUnifiedRoot();
+        var listOptions = getListOptionsModule();
+        var restoreSnapshot = listOptions && typeof listOptions.getListRestoreSnapshot === 'function'
+            ? listOptions.getListRestoreSnapshot(root)
+            : null;
+        var loadOptions = {};
+
+        if (restoreSnapshot && asString(restoreSnapshot.restoreOpenListId).trim() !== '') {
+            loadOptions.restoreOpenListId = asString(restoreSnapshot.restoreOpenListId).trim();
+            loadOptions.restoreFollowingTasksOpen = restoreSnapshot.restoreFollowingTasksOpen === true;
+        }
+
+        return loadUnifiedFeed(loadOptions).then(function () {
             if (!isUnifiedFeedEnabled()) {
                 return;
             }
@@ -802,9 +821,13 @@
     }
 
     /**
+     * @param {{restoreOpenListId?: string, restoreFollowingTasksOpen?: boolean}} [options]
      * @returns {Promise<void>}
      */
-    function loadUnifiedFeed() {
+    function loadUnifiedFeed(options) {
+        var feedOptions = options || {};
+        var restoreOpenListId = asString(feedOptions.restoreOpenListId).trim();
+        var restoreFollowingTasksOpen = feedOptions.restoreFollowingTasksOpen === true;
         var service = globalRoot.ExecutableListsService;
         var registry = getLearningRegistry();
 
@@ -826,6 +849,17 @@
                 clearUnifiedError();
                 lastUnifiedPayload = payload;
                 renderUnifiedPayload(payload);
+
+                if (restoreOpenListId !== '') {
+                    var listOptions = getListOptionsModule();
+                    var unifiedRoot = getUnifiedRoot();
+
+                    if (listOptions && typeof listOptions.restoreListAfterReload === 'function') {
+                        listOptions.restoreListAfterReload(restoreOpenListId, unifiedRoot, {
+                            followingTasksOpen: restoreFollowingTasksOpen
+                        });
+                    }
+                }
 
                 if (registry && typeof registry.refreshPendingInstallTaskFromPayload === 'function') {
                     registry.refreshPendingInstallTaskFromPayload(payload);
