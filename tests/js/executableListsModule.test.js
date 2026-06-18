@@ -1094,13 +1094,48 @@ describe('executable-lists-module restore open list card', () => {
                             classes: ['hidden'],
                             add: function () {},
                             remove: function () {}
-                        }
+                        },
+                        remove: function () {}
                     };
                 }
 
                 return null;
             }
         };
+    }
+
+    function makeTrackableRoot(initialInner, childElementCount) {
+        var events = [];
+        var busy = null;
+        var root = {
+            childElementCount: childElementCount,
+            _inner: initialInner,
+            get innerHTML() {
+                return this._inner;
+            },
+            set innerHTML(value) {
+                events.push({ type: 'innerHTML', value: value });
+                this._inner = value;
+            },
+            setAttribute: function (name, value) {
+                if (name === 'aria-busy') {
+                    events.push({ type: 'aria-busy', value: value });
+                    busy = value;
+                }
+            },
+            removeAttribute: function (name) {
+                if (name === 'aria-busy') {
+                    events.push({ type: 'aria-busy', value: null });
+                    busy = null;
+                }
+            },
+            getAriaBusy: function () {
+                return busy;
+            },
+            events: events
+        };
+
+        return root;
     }
 
     beforeEach(() => {
@@ -1155,18 +1190,9 @@ describe('executable-lists-module restore open list card', () => {
         }
     });
 
-    it('reloadUnifiedFeedWithBoardSync captura antes de vaciar y restaura tras render', async () => {
+    it('reloadUnifiedFeedWithBoardSync captura snapshot, no vacía en loading y restaura tras render', async () => {
         var events = [];
-        var root = {
-            _inner: 'has-content',
-            get innerHTML() {
-                return this._inner;
-            },
-            set innerHTML(value) {
-                events.push({ type: 'innerHTML', value: value });
-                this._inner = value;
-            }
-        };
+        var root = makeTrackableRoot('has-content', 1);
 
         globalThis.AAListOptions = {
             getListRestoreSnapshot: function (activeRoot) {
@@ -1196,8 +1222,11 @@ describe('executable-lists-module restore open list card', () => {
         var captureEvent = events.find(function (entry) {
             return entry.type === 'capture';
         });
-        var clearEvent = events.find(function (entry) {
+        var clearEvent = root.events.find(function (entry) {
             return entry.type === 'innerHTML' && entry.value === '';
+        });
+        var renderEvent = root.events.find(function (entry) {
+            return entry.type === 'innerHTML' && entry.value !== '';
         });
         var restoreEvent = events.find(function (entry) {
             return entry.type === 'restore';
@@ -1205,12 +1234,130 @@ describe('executable-lists-module restore open list card', () => {
 
         assert.ok(captureEvent);
         assert.equal(captureEvent.innerHTML, 'has-content');
-        assert.ok(clearEvent);
+        assert.equal(clearEvent, undefined);
+        assert.ok(renderEvent);
         assert.ok(restoreEvent);
         assert.equal(restoreEvent.listId, '7');
         assert.equal(restoreEvent.followingTasksOpen, true);
-        assert.ok(events.indexOf(captureEvent) < events.indexOf(clearEvent));
-        assert.ok(events.indexOf(clearEvent) < events.indexOf(restoreEvent));
+        assert.ok(events.indexOf(captureEvent) < events.indexOf(restoreEvent));
+    });
+
+    it('loadUnifiedFeed con root vacío vacía el root al iniciar loading', async () => {
+        var root = makeTrackableRoot('', 0);
+
+        globalThis.document = makeUnifiedDocumentMock(root);
+
+        await hooks.loadUnifiedFeed();
+
+        var clearEvent = root.events.find(function (entry) {
+            return entry.type === 'innerHTML' && entry.value === '';
+        });
+        var renderEvent = root.events.find(function (entry) {
+            return entry.type === 'innerHTML' && entry.value !== '';
+        });
+
+        assert.ok(clearEvent);
+        assert.ok(renderEvent);
+        assert.ok(root.events.indexOf(clearEvent) < root.events.indexOf(renderEvent));
+    });
+
+    it('loadUnifiedFeed con root pre-poblado no vacía hasta el render del payload', async () => {
+        var root = makeTrackableRoot('stale-content', 1);
+
+        globalThis.document = makeUnifiedDocumentMock(root);
+
+        await hooks.loadUnifiedFeed();
+
+        var clearEvent = root.events.find(function (entry) {
+            return entry.type === 'innerHTML' && entry.value === '';
+        });
+        var renderEvent = root.events.find(function (entry) {
+            return entry.type === 'innerHTML' && entry.value !== '';
+        });
+
+        assert.equal(clearEvent, undefined);
+        assert.ok(renderEvent);
+        assert.notEqual(renderEvent.value, 'stale-content');
+    });
+
+    it('loadUnifiedFeed en recarga con error conserva DOM, payload y retira aria-busy', async () => {
+        var root = makeTrackableRoot('stale-content', 1);
+        var loadCount = 0;
+
+        globalThis.ExecutableListsService = {
+            getFeed: function () {
+                loadCount += 1;
+
+                if (loadCount === 1) {
+                    return Promise.resolve({
+                        lists: [{
+                            source: 'system',
+                            buckets: [{
+                                items: [baseItem({ id: 'install_pwa', origin_key: 'install_pwa' })]
+                            }]
+                        }]
+                    });
+                }
+
+                return Promise.reject(new Error('feed unavailable'));
+            }
+        };
+
+        globalThis.document = makeUnifiedDocumentMock(root);
+
+        await hooks.loadUnifiedFeed();
+        assert.equal(loadCount, 1);
+
+        var innerAfterSuccess = root.innerHTML;
+
+        await hooks.loadUnifiedFeed();
+        assert.equal(loadCount, 2);
+
+        var clearAfterFirstRender = root.events.find(function (entry, index) {
+            return entry.type === 'innerHTML'
+                && entry.value === ''
+                && index > root.events.findIndex(function (e) {
+                    return e.type === 'innerHTML' && e.value !== '';
+                });
+        });
+        var busyRemoved = root.events.some(function (entry) {
+            return entry.type === 'aria-busy' && entry.value === null;
+        });
+
+        assert.equal(clearAfterFirstRender, undefined);
+        assert.equal(root.innerHTML, innerAfterSuccess);
+        assert.ok(busyRemoved);
+        assert.equal(root.getAriaBusy(), null);
+        assert.ok(hooks.findUnifiedLearningItem('install_pwa'));
+    });
+
+    it('loadUnifiedFeed devuelve la promesa in-flight si ya hay una carga activa', async () => {
+        var root = makeTrackableRoot('stale-content', 1);
+        var resolveFeed;
+        var getFeedCalls = 0;
+
+        globalThis.ExecutableListsService = {
+            getFeed: function () {
+                getFeedCalls += 1;
+
+                return new Promise(function (resolve) {
+                    resolveFeed = resolve;
+                });
+            }
+        };
+
+        globalThis.document = makeUnifiedDocumentMock(root);
+
+        var first = hooks.loadUnifiedFeed();
+        var second = hooks.loadUnifiedFeed();
+
+        assert.equal(getFeedCalls, 1);
+        assert.strictEqual(first, second);
+
+        resolveFeed({ lists: [] });
+
+        await first;
+        await second;
     });
 
     it('loadUnifiedFeed sin opciones no intenta restaurar', async () => {
@@ -1228,9 +1375,7 @@ describe('executable-lists-module restore open list card', () => {
             }
         };
 
-        globalThis.document = makeUnifiedDocumentMock({
-            innerHTML: ''
-        });
+        globalThis.document = makeUnifiedDocumentMock(makeTrackableRoot('', 0));
 
         await hooks.loadUnifiedFeed();
 
@@ -1246,9 +1391,7 @@ describe('executable-lists-module restore open list card', () => {
             }
         };
 
-        globalThis.document = makeUnifiedDocumentMock({
-            innerHTML: ''
-        });
+        globalThis.document = makeUnifiedDocumentMock(makeTrackableRoot('', 0));
 
         await hooks.visibleUserFeedApi.reloadFeedOnly();
 

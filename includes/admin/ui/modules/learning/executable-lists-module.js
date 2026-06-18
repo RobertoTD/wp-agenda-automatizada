@@ -15,6 +15,7 @@
         : (typeof globalThis !== 'undefined' ? globalThis : this);
     var lastPayload = null;
     var lastUnifiedPayload = null;
+    var currentUnifiedFeedLoadPromise = null;
     var isAvailabilityBound = false;
     var isInteractionGuardBound = false;
     var unifiedCoordinatorInitialized = false;
@@ -234,6 +235,14 @@
         return document.getElementById('aa-executable-lists-active-loading');
     }
 
+    /**
+     * @param {HTMLElement|null} root
+     * @returns {boolean}
+     */
+    function hasUnifiedFeedContent(root) {
+        return !!(root && root.childElementCount > 0);
+    }
+
     function setSectionVisible(section, visible) {
         if (!section) {
             return;
@@ -319,9 +328,12 @@
     }
 
     /**
-     * @param {string} message
+     * @param {boolean} visible
+     * @param {{preserveRoot?: boolean}} [options]
      */
-    function setUnifiedLoading(visible) {
+    function setUnifiedLoading(visible, options) {
+        var opts = options || {};
+        var preserveRoot = opts.preserveRoot === true;
         var loadingEl = getUnifiedLoadingEl();
         var root = getUnifiedRoot();
 
@@ -335,8 +347,24 @@
             }
         }
 
-        if (root && visible) {
-            root.innerHTML = '';
+        if (!root) {
+            return;
+        }
+
+        if (visible) {
+            if (!preserveRoot) {
+                root.innerHTML = '';
+            }
+
+            if (typeof root.setAttribute === 'function') {
+                root.setAttribute('aria-busy', 'true');
+            }
+
+            return;
+        }
+
+        if (typeof root.removeAttribute === 'function') {
+            root.removeAttribute('aria-busy');
         }
     }
 
@@ -367,11 +395,13 @@
 
     /**
      * @param {string} message
+     * @param {{preserveRoot?: boolean}} [options]
      */
-    function showUnifiedLoadError(message) {
+    function showUnifiedLoadError(message, options) {
+        var opts = options || {};
         var root = getUnifiedRoot();
 
-        if (root) {
+        if (root && !opts.preserveRoot) {
             root.innerHTML = '';
         }
 
@@ -825,25 +855,31 @@
      * @returns {Promise<void>}
      */
     function loadUnifiedFeed(options) {
+        if (currentUnifiedFeedLoadPromise) {
+            return currentUnifiedFeedLoadPromise;
+        }
+
         var feedOptions = options || {};
         var restoreOpenListId = asString(feedOptions.restoreOpenListId).trim();
         var restoreFollowingTasksOpen = feedOptions.restoreFollowingTasksOpen === true;
         var service = globalRoot.ExecutableListsService;
         var registry = getLearningRegistry();
+        var root = getUnifiedRoot();
+        var preserveRoot = hasUnifiedFeedContent(root);
 
         if (registry && typeof registry.beginInstallTaskFeedLoadCycle === 'function') {
             registry.beginInstallTaskFeedLoadCycle();
         }
 
-        setUnifiedLoading(true);
+        setUnifiedLoading(true, { preserveRoot: preserveRoot });
 
         if (!service || typeof service.getFeed !== 'function') {
             setUnifiedLoading(false);
-            showUnifiedLoadError('ExecutableListsService no disponible.');
+            showUnifiedLoadError('ExecutableListsService no disponible.', { preserveRoot: preserveRoot });
             return Promise.resolve();
         }
 
-        return service.getFeed()
+        currentUnifiedFeedLoadPromise = service.getFeed()
             .then(function (payload) {
                 setUnifiedLoading(false);
                 clearUnifiedError();
@@ -873,9 +909,21 @@
             })
             .catch(function (err) {
                 setUnifiedLoading(false);
-                lastUnifiedPayload = null;
-                showUnifiedLoadError((err && err.message) ? err.message : 'No se pudo cargar el feed executable.');
+
+                if (!preserveRoot) {
+                    lastUnifiedPayload = null;
+                }
+
+                showUnifiedLoadError(
+                    (err && err.message) ? err.message : 'No se pudo cargar el feed executable.',
+                    { preserveRoot: preserveRoot }
+                );
+            })
+            .finally(function () {
+                currentUnifiedFeedLoadPromise = null;
             });
+
+        return currentUnifiedFeedLoadPromise;
     }
 
     function bindAvailabilityRerender() {
@@ -1053,6 +1101,7 @@
         clearUnifiedError: clearUnifiedError,
         showUnifiedLoadError: showUnifiedLoadError,
         setUnifiedLoading: setUnifiedLoading,
+        hasUnifiedFeedContent: hasUnifiedFeedContent,
         UNIFIED_EMPTY_MESSAGE: UNIFIED_EMPTY_MESSAGE,
         UNIFIED_LOADING_MESSAGE: UNIFIED_LOADING_MESSAGE,
         showExperimentalError: showExperimentalError,
