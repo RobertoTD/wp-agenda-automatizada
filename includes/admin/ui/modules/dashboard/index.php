@@ -14,6 +14,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
 
 $plugin_url = plugin_dir_url(__FILE__);
 $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
+$executor_module_url = admin_url('admin-post.php?action=aa_iframe_content&module=learning');
 ?>
 
 <div id="aa-dashboard-root" class="max-w-5xl mx-auto py-2">
@@ -37,7 +38,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                     <h3 class="text-base font-semibold text-gray-900">Tarea actual</h3>
                 </div>
                 <a
-                    href="<?php echo esc_url(admin_url('admin-post.php?action=aa_iframe_content&module=learning')); ?>"
+                    href="<?php echo esc_url($executor_module_url); ?>"
                     class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-lg border border-violet-200 transition-colors"
                 >
                     Ir a Ejecutor
@@ -351,21 +352,23 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
         currency: '<?php echo esc_js(get_option('aa_currency', 'MXN')); ?>'
     };
 
-    window.AA_LEARNING_DATA = {
+    window.AA_EXECUTIVE_PROPOSAL_DATA = {
         ajaxUrl: window.ajaxurl || '<?php echo admin_url('admin-ajax.php'); ?>',
-        action: 'aa_get_learning_recommendations',
-        nonce: '<?php echo esc_js(wp_create_nonce('aa_get_learning_recommendations_nonce')); ?>'
+        action: 'aa_get_executive_proposal',
+        actionPost: 'aa_executive_action',
+        focusActionPost: 'aa_executive_focus_action',
+        nonce: '<?php echo esc_js(wp_create_nonce('aa_executive_proposal_nonce')); ?>'
     };
 </script>
 
 <!-- Dashboard Service (consumes aa_get_citas_por_dia, must load before module) -->
 <?php
-$learning_service_js = AA_PLUGIN_URL . 'assets/js/services/learningService.js';
-$learning_renderer_js = AA_PLUGIN_URL . 'assets/js/ui/learningRecommendationRenderer.js';
+$executive_proposal_service_js = AA_PLUGIN_URL . 'assets/js/services/executiveProposalService.js';
+$executive_proposal_renderer_js = AA_PLUGIN_URL . 'assets/js/ui/executiveProposalRenderer.js';
 $dashboard_service_js = AA_PLUGIN_URL . 'assets/js/services/dashboardService.js';
 $dashboard_module_js = $plugin_url . 'dashboard-module.js';
 ?>
-<script src="<?php echo esc_url($learning_service_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
-<script src="<?php echo esc_url($learning_renderer_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($executive_proposal_service_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($executive_proposal_renderer_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($dashboard_service_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($dashboard_module_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>

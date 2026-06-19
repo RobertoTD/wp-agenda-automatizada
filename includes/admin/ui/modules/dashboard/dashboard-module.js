@@ -654,12 +654,9 @@
         content: 'aa-dash-current-task-content'
     };
 
-    var DASHBOARD_TASK_RENDER_OPTIONS = {
-        showDefer: false,
-        showDismiss: false,
-        showHandlerPrimary: false,
-        wrapper: 'div'
-    };
+    var DASHBOARD_EXECUTIVE_ACTION_SELECTOR = '[data-executive-action]';
+    var currentTaskActionPending = false;
+    var currentTaskActionsBound = false;
 
     function setCurrentTaskVisible(state) {
         var loadingEl = document.getElementById(CURRENT_TASK_IDS.loading);
@@ -673,41 +670,145 @@
         if (contentEl) contentEl.classList.toggle('hidden', state !== 'content');
     }
 
+    function findCurrentExecutiveTask(payload) {
+        var tasks = payload && Array.isArray(payload.tasks) ? payload.tasks : [];
+        var currentTask = null;
+        var i;
+
+        for (i = 0; i < tasks.length; i++) {
+            if (tasks[i] && String(tasks[i].slot || '') === 'current') {
+                currentTask = tasks[i];
+                break;
+            }
+        }
+
+        return currentTask;
+    }
+
+    function setDashboardExecutiveButtonsDisabled(disabled) {
+        var root = document.getElementById('aa-dash-current-task');
+
+        if (!root) {
+            return;
+        }
+
+        root.querySelectorAll(DASHBOARD_EXECUTIVE_ACTION_SELECTOR).forEach(function (button) {
+            button.disabled = disabled;
+
+            if (disabled) {
+                button.classList.add('opacity-60', 'cursor-not-allowed');
+            } else {
+                button.classList.remove('opacity-60', 'cursor-not-allowed');
+            }
+        });
+    }
+
+    function handleDashboardExecutiveAction(button) {
+        var service = window.AAExecutiveProposalService;
+        var taskId = button.getAttribute('data-executive-task-id') || '';
+        var actionKey = button.getAttribute('data-executive-action-key') || '';
+
+        if (!service || typeof service.postExecutiveAction !== 'function') {
+            console.warn('[DashboardModule] AAExecutiveProposalService not available for executive action');
+            setCurrentTaskVisible('error');
+            return;
+        }
+
+        if (taskId === '' || actionKey === '') {
+            return;
+        }
+
+        if (currentTaskActionPending) {
+            return;
+        }
+
+        currentTaskActionPending = true;
+        setDashboardExecutiveButtonsDisabled(true);
+
+        service.postExecutiveAction({
+            taskId: taskId,
+            actionKey: actionKey
+        })
+            .then(function () {
+                loadCurrentTaskCard();
+            })
+            .catch(function (err) {
+                console.error('[DashboardModule] Error executing executive action:', err);
+                setCurrentTaskVisible('error');
+            })
+            .finally(function () {
+                currentTaskActionPending = false;
+                setDashboardExecutiveButtonsDisabled(false);
+            });
+    }
+
+    function bindCurrentTaskActions() {
+        var root = document.getElementById('aa-dash-current-task');
+
+        if (!root || currentTaskActionsBound) {
+            return;
+        }
+
+        currentTaskActionsBound = true;
+
+        root.addEventListener('click', function (event) {
+            if (!event || !event.target || typeof event.target.closest !== 'function') {
+                return;
+            }
+
+            var button = event.target.closest(DASHBOARD_EXECUTIVE_ACTION_SELECTOR);
+
+            if (!button || button.disabled || !root.contains(button)) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+            handleDashboardExecutiveAction(button);
+        });
+    }
+
     function loadCurrentTaskCard() {
         var contentEl = document.getElementById(CURRENT_TASK_IDS.content);
-        var renderer = window.AALearningRecommendationRenderer;
+        var service = window.AAExecutiveProposalService;
+        var renderer = window.AAExecutiveProposalRenderer;
 
         if (!document.getElementById(CURRENT_TASK_IDS.loading)) {
             return;
         }
 
-        if (!window.LearningService || typeof window.LearningService.getRecommendations !== 'function') {
-            console.warn('[DashboardModule] LearningService not available for current task');
+        if (!service || typeof service.getExecutiveProposal !== 'function') {
+            console.warn('[DashboardModule] AAExecutiveProposalService not available for current task');
             setCurrentTaskVisible('error');
             return;
         }
 
-        if (!renderer || typeof renderer.pickFirstVisibleRecommendation !== 'function'
-            || typeof renderer.renderRecommendationCard !== 'function') {
-            console.warn('[DashboardModule] AALearningRecommendationRenderer not available for current task');
+        if (!renderer || typeof renderer.buildProposalParts !== 'function'
+            || typeof renderer.renderCurrentTask !== 'function') {
+            console.warn('[DashboardModule] AAExecutiveProposalRenderer not available for current task');
             setCurrentTaskVisible('error');
             return;
         }
 
         setCurrentTaskVisible('loading');
 
-        window.LearningService.getRecommendations()
-            .then(function (data) {
-                var item = renderer.pickFirstVisibleRecommendation(data);
+        service.getExecutiveProposal()
+            .then(function (payload) {
+                var parts = renderer.buildProposalParts(payload);
+                var currentTask = findCurrentExecutiveTask(payload);
 
-                if (!item) {
+                if (parts.isEmpty || !currentTask) {
                     if (contentEl) contentEl.innerHTML = '';
                     setCurrentTaskVisible('empty');
                     return;
                 }
 
                 if (contentEl) {
-                    contentEl.innerHTML = renderer.renderRecommendationCard(item, DASHBOARD_TASK_RENDER_OPTIONS);
+                    contentEl.innerHTML = renderer.renderCurrentTask(
+                        currentTask,
+                        parts.focusListTitle,
+                        { wrapper: 'div' }
+                    );
                 }
 
                 setCurrentTaskVisible('content');
@@ -828,6 +929,7 @@
 
         bindDashboardCollapsibles();
 
+        bindCurrentTaskActions();
         loadCurrentTaskCard();
 
         loadTodayCard();

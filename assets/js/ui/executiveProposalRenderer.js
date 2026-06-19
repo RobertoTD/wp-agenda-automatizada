@@ -241,9 +241,12 @@
     /**
      * @param {object} task
      * @param {string} focusListTitle
+     * @param {{wrapper?:'li'|'div'}} [options]
      * @returns {string}
      */
-    function renderCurrentTask(task, focusListTitle) {
+    function renderCurrentTask(task, focusListTitle, options) {
+        var opts = options || {};
+        var wrapper = opts.wrapper === 'div' ? 'div' : 'li';
         var title = escapeHtml(task.title || 'Tarea sin título');
         var description = task.description
             ? '<p class="text-sm text-gray-600 mt-2">' + escapeHtml(task.description) + '</p>'
@@ -252,7 +255,7 @@
         var actionsHtml = renderExecutiveActions(task.executive_actions, task);
 
         return ''
-            + '<li class="aa-executive-slot aa-executive-slot-current rounded-lg border border-blue-200 bg-blue-50/60 p-4" data-executive-slot="current">'
+            + '<' + wrapper + ' class="aa-executive-slot aa-executive-slot-current rounded-lg border border-blue-200 bg-blue-50/60 p-4" data-executive-slot="current">'
             + '<div class="flex flex-wrap items-center justify-between gap-2">'
             + '<span class="min-w-0 truncate text-xs font-medium text-blue-700">Lista: ' + listLabel + '</span>'
             + renderOverdueBadge(task)
@@ -260,7 +263,7 @@
             + '<p class="text-base font-semibold text-gray-900 mt-2">' + title + '</p>'
             + description
             + actionsHtml
-            + '</li>';
+            + '</' + wrapper + '>';
     }
 
     /**

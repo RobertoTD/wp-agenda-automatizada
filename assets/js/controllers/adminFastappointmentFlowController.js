@@ -25,6 +25,56 @@
             .replace(/'/g, '&#39;');
     }
 
+    /**
+     * @param {Array} items
+     * @param {(item:*) => boolean} [isEligible]
+     * @returns {*|null}
+     */
+    function getSingleEligibleItem(items, isEligible) {
+        if (!Array.isArray(items) || !items.length) {
+            return null;
+        }
+
+        var predicate = typeof isEligible === 'function'
+            ? isEligible
+            : function() {
+                return true;
+            };
+        var eligible = items.filter(predicate);
+
+        return eligible.length === 1 ? eligible[0] : null;
+    }
+
+    /**
+     * @param {HTMLSelectElement|null} selectEl
+     * @param {string|number} value
+     * @returns {boolean}
+     */
+    function tryAutoSelectSelectValue(selectEl, value) {
+        var nextValue = value !== null && typeof value !== 'undefined' ? String(value) : '';
+
+        if (!selectEl || nextValue === '') {
+            return false;
+        }
+
+        if (selectEl.value && String(selectEl.value) !== '') {
+            return false;
+        }
+
+        var hasOption = Array.prototype.some.call(selectEl.options || [], function(option) {
+            return String(option.value) === nextValue;
+        });
+
+        if (!hasOption) {
+            return false;
+        }
+
+        selectEl.value = nextValue;
+        selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+
+        return true;
+    }
+
     function createController(opts) {
         const config = opts || {};
         const getState = typeof config.getState === 'function'
@@ -492,6 +542,11 @@
                 var eligibleServices = getEligibleServices(result);
                 populateServiceSelect(eligibleServices);
 
+                var singleService = getSingleEligibleItem(eligibleServices);
+                if (singleService && singleService.id) {
+                    tryAutoSelectSelectValue(serviceSelect, singleService.id);
+                }
+
                 const currentState = getState() || {};
                 const currentDate = currentState.selectedDate || null;
 
@@ -954,6 +1009,12 @@
                 );
             } else {
                 renderStaffAvailabilityMessage('');
+                var singleStaff = getSingleEligibleItem(allStaff, function(staff) {
+                    return staff.available === true;
+                });
+                if (singleStaff && singleStaff.id) {
+                    tryAutoSelectSelectValue(staffSelect, singleStaff.id);
+                }
             }
 
             return result;
@@ -1012,8 +1073,17 @@
                 return result;
             }
 
-            populateAreaSelect(result && Array.isArray(result.areas) ? result.areas : []);
+            var areas = result && Array.isArray(result.areas) ? result.areas : [];
+
+            populateAreaSelect(areas);
             renderAreaAvailabilityMessage('');
+
+            var singleArea = getSingleEligibleItem(areas, function(area) {
+                return !area.occupied;
+            });
+            if (singleArea && singleArea.id) {
+                tryAutoSelectSelectValue(areaSelect, singleArea.id);
+            }
 
             return result;
         }
@@ -1729,7 +1799,16 @@
         };
     }
 
-    window.AdminFastappointmentFlowController = {
-        init: createController
-    };
+    if (typeof window !== 'undefined') {
+        window.AdminFastappointmentFlowController = {
+            init: createController
+        };
+    }
+
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = {
+            getSingleEligibleItem: getSingleEligibleItem,
+            tryAutoSelectSelectValue: tryAutoSelectSelectValue
+        };
+    }
 })();
