@@ -53,13 +53,13 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
     </div>
 
     <!-- Citas (fila colapsable) -->
-    <div class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden mb-3 is-open" data-aa-dashboard-collapse>
+    <div class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden mb-3" data-aa-dashboard-collapse>
         <div
             class="aa-dash-collapse-toggle px-4 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer select-none"
             data-aa-dashboard-collapse-toggle
             role="button"
             tabindex="0"
-            aria-expanded="true"
+            aria-expanded="false"
             aria-controls="aa-dash-citas-body"
         >
             <div class="flex items-center justify-between gap-2">
@@ -84,7 +84,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                 </div>
             </div>
         </div>
-        <div id="aa-dash-citas-body" data-aa-dashboard-collapse-body>
+        <div id="aa-dash-citas-body" class="hidden" data-aa-dashboard-collapse-body>
             <div id="aa-dash-citas-cards" class="p-4 space-y-3">
 
             <!-- 1. Próxima cita (abierta por defecto) -->
@@ -298,13 +298,13 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
     </div>
 
     <!-- Alertas (fila colapsable) -->
-    <div class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden mb-3 is-open" data-aa-dashboard-collapse>
+    <div class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden mb-3" data-aa-dashboard-collapse>
         <div
             class="aa-dash-collapse-toggle px-4 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer select-none"
             data-aa-dashboard-collapse-toggle
             role="button"
             tabindex="0"
-            aria-expanded="true"
+            aria-expanded="false"
             aria-controls="aa-dash-alerts-body"
         >
             <div class="flex items-center justify-between gap-2">
@@ -321,7 +321,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                 </svg>
             </div>
         </div>
-        <div id="aa-dash-alerts-body" data-aa-dashboard-collapse-body>
+        <div id="aa-dash-alerts-body" class="hidden" data-aa-dashboard-collapse-body>
             <div id="aa-dash-alerts" class="p-4">
                 <div class="space-y-2">
                     <!-- Alerts rendered by JS -->
