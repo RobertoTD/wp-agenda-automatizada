@@ -19,6 +19,7 @@ require_once dirname(__DIR__, 2) . '/application/assignments/AutoAssignStaffServ
 add_action('wp_ajax_aa_get_staff', 'aa_get_staff');
 add_action('wp_ajax_aa_create_staff', 'aa_create_staff');
 add_action('wp_ajax_aa_toggle_staff', 'aa_toggle_staff');
+add_action('wp_ajax_aa_delete_staff_db', 'aa_delete_staff_db');
 add_action('wp_ajax_aa_get_staff_services', 'aa_get_staff_services');
 add_action('wp_ajax_aa_add_staff_service', 'aa_add_staff_service');
 add_action('wp_ajax_aa_remove_staff_service', 'aa_remove_staff_service');
@@ -167,6 +168,55 @@ function aa_toggle_staff() {
         error_log("❌ [staffService] Error al actualizar personal: " . $e->getMessage());
         wp_send_json_error([
             'message' => 'Error al actualizar el estado: ' . $e->getMessage()
+        ]);
+    }
+}
+
+/**
+ * Hide a staff member (set is_hidden = 1 and active = 0)
+ *
+ * AJAX handler for hiding a staff member instead of deleting it
+ */
+function aa_delete_staff_db() {
+    // Validar permisos
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'No tienes permisos para realizar esta acción']);
+        return;
+    }
+
+    // Leer y validar datos POST
+    if (!isset($_POST['id']) || empty($_POST['id'])) {
+        wp_send_json_error(['message' => 'El ID del personal es requerido']);
+        return;
+    }
+
+    $id = intval($_POST['id']);
+
+    // Validar ID
+    if ($id <= 0) {
+        wp_send_json_error(['message' => 'ID inválido']);
+        return;
+    }
+
+    try {
+        $result = AssignmentsModel::delete_staff($id);
+
+        if ($result === false) {
+            wp_send_json_error([
+                'message' => 'Error al ocultar el personal'
+            ]);
+            return;
+        }
+
+        wp_send_json_success([
+            'message' => 'Personal ocultado correctamente',
+            'hidden' => true,
+            'id' => $id
+        ]);
+    } catch (Exception $e) {
+        error_log("❌ [staffService] Error al ocultar personal: " . $e->getMessage());
+        wp_send_json_error([
+            'message' => 'Error al ocultar el personal: ' . $e->getMessage()
         ]);
     }
 }

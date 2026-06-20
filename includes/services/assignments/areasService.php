@@ -17,6 +17,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
 add_action('wp_ajax_aa_get_service_areas', 'aa_get_service_areas');
 add_action('wp_ajax_aa_create_service_area', 'aa_create_service_area');
 add_action('wp_ajax_aa_toggle_service_area', 'aa_toggle_service_area');
+add_action('wp_ajax_aa_delete_service_area_db', 'aa_delete_service_area_db');
 add_action('wp_ajax_aa_update_service_area_color', 'aa_update_service_area_color');
 add_action('wp_ajax_aa_update_service_area_description', 'aa_update_service_area_description');
 add_action('wp_ajax_aa_update_service_area_name', 'aa_update_service_area_name');
@@ -161,6 +162,55 @@ function aa_toggle_service_area() {
         error_log("❌ [areasService] Error al actualizar zona de atención: " . $e->getMessage());
         wp_send_json_error([
             'message' => 'Error al actualizar el estado: ' . $e->getMessage()
+        ]);
+    }
+}
+
+/**
+ * Hide a service area (set is_hidden = 1 and active = 0)
+ *
+ * AJAX handler for hiding a service area instead of deleting it
+ */
+function aa_delete_service_area_db() {
+    // Validar permisos
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'No tienes permisos para realizar esta acción']);
+        return;
+    }
+
+    // Leer y validar datos POST
+    if (!isset($_POST['id']) || empty($_POST['id'])) {
+        wp_send_json_error(['message' => 'El ID de la zona es requerido']);
+        return;
+    }
+
+    $id = intval($_POST['id']);
+
+    // Validar ID
+    if ($id <= 0) {
+        wp_send_json_error(['message' => 'ID inválido']);
+        return;
+    }
+
+    try {
+        $result = AssignmentsModel::delete_service_area($id);
+
+        if ($result === false) {
+            wp_send_json_error([
+                'message' => 'Error al ocultar la zona de atención'
+            ]);
+            return;
+        }
+
+        wp_send_json_success([
+            'message' => 'Zona de atención ocultada correctamente',
+            'hidden' => true,
+            'id' => $id
+        ]);
+    } catch (Exception $e) {
+        error_log("❌ [areasService] Error al ocultar zona de atención: " . $e->getMessage());
+        wp_send_json_error([
+            'message' => 'Error al ocultar la zona de atención: ' . $e->getMessage()
         ]);
     }
 }

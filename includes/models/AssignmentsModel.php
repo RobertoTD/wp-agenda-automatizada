@@ -24,10 +24,13 @@ class AssignmentsModel {
         global $wpdb;
         $table = $wpdb->prefix . 'aa_service_areas';
         
-        $where_clause = '';
+        $where_conditions = ["is_hidden = 0"];
+        
         if ($only_active) {
-            $where_clause = "WHERE active = 1";
+            $where_conditions[] = "active = 1";
         }
+        
+        $where_clause = "WHERE " . implode(" AND ", $where_conditions);
         
         $query = "SELECT id, name, description, color, active, created_at 
                   FROM $table 
@@ -275,6 +278,52 @@ class AssignmentsModel {
     }
 
     /**
+     * Ocultar una zona de atención (establece is_hidden = 1 y active = 0)
+     *
+     * En lugar de eliminar el registro, se marca como oculta e inactiva
+     * para mantener la integridad referencial con otras tablas.
+     *
+     * @param int $id ID de la zona de atención
+     * @return bool true en éxito, false en error
+     */
+    public static function delete_service_area($id) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_service_areas';
+
+        $id = intval($id);
+
+        if ($id <= 0) {
+            error_log("❌ [AssignmentsModel] ID inválido para ocultar zona de atención: $id");
+            return false;
+        }
+
+        $result = $wpdb->update(
+            $table,
+            [
+                'is_hidden' => 1,
+                'active' => 0
+            ],
+            ['id' => $id],
+            ['%d', '%d'],
+            ['%d']
+        );
+
+        if ($result === false) {
+            error_log("❌ [AssignmentsModel] Error al ocultar zona de atención ID $id: " . $wpdb->last_error);
+            return false;
+        }
+
+        if ($result === 0) {
+            error_log("⚠️ [AssignmentsModel] No se encontró zona de atención con ID $id para ocultar");
+            return false;
+        }
+
+        error_log("✅ [AssignmentsModel] Zona de atención ID $id ocultada correctamente (is_hidden = 1, active = 0)");
+
+        return true;
+    }
+
+    /**
      * Obtener personal (staff)
      * 
      * @param bool $only_active Si es true, solo retorna personal activo
@@ -284,10 +333,13 @@ class AssignmentsModel {
         global $wpdb;
         $table = $wpdb->prefix . 'aa_staff';
         
-        $where_clause = '';
+        $where_conditions = ["is_hidden = 0"];
+        
         if ($only_active) {
-            $where_clause = "WHERE active = 1";
+            $where_conditions[] = "active = 1";
         }
+        
+        $where_clause = "WHERE " . implode(" AND ", $where_conditions);
         
         $query = "SELECT id, name, active, created_at 
                   FROM $table 
@@ -794,6 +846,52 @@ class AssignmentsModel {
         
         error_log("✅ [AssignmentsModel] Personal ID $id actualizado (active = $active)");
         
+        return true;
+    }
+
+    /**
+     * Ocultar un miembro del personal (establece is_hidden = 1 y active = 0)
+     *
+     * En lugar de eliminar el registro, se marca como oculto e inactivo
+     * para mantener la integridad referencial con otras tablas.
+     *
+     * @param int $id ID del personal
+     * @return bool true en éxito, false en error
+     */
+    public static function delete_staff($id) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aa_staff';
+
+        $id = intval($id);
+
+        if ($id <= 0) {
+            error_log("❌ [AssignmentsModel] ID inválido para ocultar personal: $id");
+            return false;
+        }
+
+        $result = $wpdb->update(
+            $table,
+            [
+                'is_hidden' => 1,
+                'active' => 0
+            ],
+            ['id' => $id],
+            ['%d', '%d'],
+            ['%d']
+        );
+
+        if ($result === false) {
+            error_log("❌ [AssignmentsModel] Error al ocultar personal ID $id: " . $wpdb->last_error);
+            return false;
+        }
+
+        if ($result === 0) {
+            error_log("⚠️ [AssignmentsModel] No se encontró personal con ID $id para ocultar");
+            return false;
+        }
+
+        error_log("✅ [AssignmentsModel] Personal ID $id ocultado correctamente (is_hidden = 1, active = 0)");
+
         return true;
     }
 

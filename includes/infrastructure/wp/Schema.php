@@ -64,7 +64,7 @@ final class AA_Schema {
      * Independiente de la versión del plugin. Solo refleja el estado
      * de las tablas/columnas/índices.
      */
-    public const DB_VERSION = '9';
+    public const DB_VERSION = '10';
 
     /**
      * Registra el activation hook y el chequeo de migraciones.
@@ -186,11 +186,24 @@ final class AA_Schema {
             description text,
             color text DEFAULT NULL,
             active tinyint(1) DEFAULT 1,
+            is_hidden tinyint(1) NOT NULL DEFAULT 0,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY  (id)
         ) $charset;";
 
         dbDelta($service_areas_sql);
+
+        // Ensure is_hidden column exists for existing staff installs
+        $col = $wpdb->get_results($wpdb->prepare("SHOW COLUMNS FROM {$staff_table} LIKE %s", 'is_hidden'));
+        if (empty($col)) {
+            $wpdb->query("ALTER TABLE {$staff_table} ADD COLUMN is_hidden tinyint(1) NOT NULL DEFAULT 0");
+        }
+
+        // Ensure is_hidden column exists for existing service area installs
+        $col = $wpdb->get_results($wpdb->prepare("SHOW COLUMNS FROM {$service_areas_table} LIKE %s", 'is_hidden'));
+        if (empty($col)) {
+            $wpdb->query("ALTER TABLE {$service_areas_table} ADD COLUMN is_hidden tinyint(1) NOT NULL DEFAULT 0");
+        }
 
         // 🔹 Crear tabla de asignaciones (assignments)
         $assignments_table = $wpdb->prefix . 'aa_assignments';

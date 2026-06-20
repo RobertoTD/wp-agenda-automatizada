@@ -46,7 +46,7 @@ class AssignmentsRepository extends AssignmentsModel {
         global $wpdb;
 
         $table = $wpdb->prefix . 'aa_staff';
-        $count = $wpdb->get_var("SELECT COUNT(*) FROM {$table} WHERE active = 1");
+        $count = $wpdb->get_var("SELECT COUNT(*) FROM {$table} WHERE active = 1 AND is_hidden = 0");
 
         if ($wpdb->last_error) {
             error_log('[AssignmentsRepository] Error al contar staff activo: ' . $wpdb->last_error);
@@ -90,7 +90,7 @@ class AssignmentsRepository extends AssignmentsModel {
         global $wpdb;
 
         $table = $wpdb->prefix . 'aa_service_areas';
-        $count = $wpdb->get_var("SELECT COUNT(*) FROM {$table} WHERE active = 1");
+        $count = $wpdb->get_var("SELECT COUNT(*) FROM {$table} WHERE active = 1 AND is_hidden = 0");
 
         if ($wpdb->last_error) {
             error_log('[AssignmentsRepository] Error al contar zonas de atención activas: ' . $wpdb->last_error);
@@ -121,6 +121,7 @@ class AssignmentsRepository extends AssignmentsModel {
              INNER JOIN {$staff_services_table} ss ON ss.staff_id = st.id
              INNER JOIN {$services_table} svc ON svc.id = ss.service_id
              WHERE st.active = 1
+               AND st.is_hidden = 0
                AND svc.active = 1
                AND svc.is_hidden = 0"
         );
@@ -142,7 +143,7 @@ class AssignmentsRepository extends AssignmentsModel {
         global $wpdb;
 
         $table = $wpdb->prefix . 'aa_staff';
-        $ids = $wpdb->get_col("SELECT id FROM {$table} WHERE active = 1 ORDER BY id ASC");
+        $ids = $wpdb->get_col("SELECT id FROM {$table} WHERE active = 1 AND is_hidden = 0 ORDER BY id ASC");
 
         if ($wpdb->last_error) {
             error_log('[AssignmentsRepository] Error al listar staff activo: ' . $wpdb->last_error);
