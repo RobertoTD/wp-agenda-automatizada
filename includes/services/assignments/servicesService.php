@@ -11,6 +11,8 @@
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
 
+require_once dirname(__DIR__, 2) . '/application/assignments/AutoAssignStaffServicesUseCase.php';
+
 /**
  * Register AJAX endpoints for services
  */
@@ -86,9 +88,15 @@ function aa_create_service() {
             return;
         }
         
+        $auto_assign = (new AutoAssignStaffServicesUseCase())->execute([
+            'trigger' => 'service_created',
+            'service_id' => (int) $result['id'],
+        ]);
+
         wp_send_json_success([
             'message' => 'Servicio creado correctamente',
-            'service' => $result
+            'service' => $result,
+            'auto_assign' => $auto_assign,
         ]);
     } catch (Exception $e) {
         error_log("❌ [servicesService] Error al crear servicio: " . $e->getMessage());

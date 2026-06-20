@@ -313,6 +313,23 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                         </div>
                     </div>
 
+                    <div class="md:col-span-2">
+                        <div class="flex items-start gap-3 mb-4 p-3 bg-gray-50 rounded-lg">
+                            <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-0.5">
+                                <input type="checkbox" name="aa_auto_assign_staff_services" value="1"
+                                       id="aa-auto-assign-staff-services-checkbox"
+                                       <?php checked((int) get_option('aa_auto_assign_staff_services', 0), 1); ?>
+                                       class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-300 peer-checked:bg-emerald-500 rounded-full transition-colors"></div>
+                                <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-5"></div>
+                            </label>
+                            <div>
+                                <span class="text-sm text-gray-700 font-medium">Asignar todos los servicios a todo el personal automáticamente</span>
+                                <p class="text-xs text-gray-500 mt-1">Recomendado para empezar rápido. Puedes desactivarlo si quieres decidir manualmente qué servicios ofrece cada persona.</p>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="md:col-span-2" id="aa-address-row">
                         <label class="block text-sm font-medium text-gray-700 mb-2" for="aa-business-address">
                             Dirección física

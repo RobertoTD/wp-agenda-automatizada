@@ -132,4 +132,104 @@ class AssignmentsRepository extends AssignmentsModel {
 
         return (int) $count;
     }
+
+    /**
+     * IDs de personal activo (active = 1).
+     *
+     * @return array<int>
+     */
+    public static function list_active_staff_ids() {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'aa_staff';
+        $ids = $wpdb->get_col("SELECT id FROM {$table} WHERE active = 1 ORDER BY id ASC");
+
+        if ($wpdb->last_error) {
+            error_log('[AssignmentsRepository] Error al listar staff activo: ' . $wpdb->last_error);
+            return [];
+        }
+
+        if (!is_array($ids) || $ids === []) {
+            return [];
+        }
+
+        return array_map('intval', $ids);
+    }
+
+    /**
+     * IDs de servicios activos y no ocultos (mismo criterio que count_active_services).
+     *
+     * @return array<int>
+     */
+    public static function list_assignable_service_ids() {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'aa_services';
+        $ids = $wpdb->get_col(
+            "SELECT id FROM {$table} WHERE active = 1 AND is_hidden = 0 ORDER BY id ASC"
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[AssignmentsRepository] Error al listar servicios asignables: ' . $wpdb->last_error);
+            return [];
+        }
+
+        if (!is_array($ids) || $ids === []) {
+            return [];
+        }
+
+        return array_map('intval', $ids);
+    }
+
+    /**
+     * Indica si un servicio cumple el criterio de asignable (activo y no oculto).
+     *
+     * @param int $service_id
+     * @return bool
+     */
+    public static function is_assignable_service($service_id) {
+        $service_id = (int) $service_id;
+
+        if ($service_id <= 0) {
+            return false;
+        }
+
+        return in_array($service_id, self::list_assignable_service_ids(), true);
+    }
+
+    /**
+     * Garantiza un vínculo staff-servicio sin duplicar filas.
+     *
+     * @param int $staff_id
+     * @param int $service_id
+     * @return string 'created'|'skipped'|'failed'
+     */
+    public static function ensure_staff_service_link($staff_id, $service_id) {
+        $staff_id = (int) $staff_id;
+        $service_id = (int) $service_id;
+
+        if ($staff_id <= 0 || $service_id <= 0) {
+            return 'failed';
+        }
+
+        $existing = self::get_staff_service_ids($staff_id);
+
+        if (in_array($service_id, $existing, true)) {
+            return 'skipped';
+        }
+
+        $result = self::add_staff_service($staff_id, $service_id);
+
+        if ($result === true) {
+            return 'created';
+        }
+
+        $existing_after = self::get_staff_service_ids($staff_id);
+
+        if (in_array($service_id, $existing_after, true)) {
+            return 'skipped';
+        }
+
+        return 'failed';
+    }
 }

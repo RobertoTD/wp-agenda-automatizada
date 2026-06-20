@@ -77,6 +77,11 @@ add_action('admin_init', function() {
     register_setting('agenda_automatizada_settings', 'aa_business_address');
     register_setting('agenda_automatizada_settings', 'aa_is_virtual');
     register_setting('agenda_automatizada_settings', 'aa_whatsapp_number');
+    register_setting('agenda_automatizada_settings', 'aa_auto_assign_staff_services', [
+        'sanitize_callback' => static function ($value) {
+            return !empty($value) ? 1 : 0;
+        },
+    ]);
     // LEGACY_FIXED_SCHEDULE (aa_service_schedule, aa_staff_schedule): see aa_schedule above.
     register_setting('agenda_automatizada_settings', 'aa_service_schedule', ['sanitize_callback' => 'sanitize_text_field']);
     register_setting('agenda_automatizada_settings', 'aa_staff_schedule', ['sanitize_callback' => 'sanitize_text_field']);

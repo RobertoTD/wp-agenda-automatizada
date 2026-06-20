@@ -11,6 +11,8 @@
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
 
+require_once dirname(__DIR__, 2) . '/application/assignments/AutoAssignStaffServicesUseCase.php';
+
 /**
  * Register AJAX endpoints for staff
  */
@@ -92,9 +94,15 @@ function aa_create_staff() {
             return;
         }
         
+        $auto_assign = (new AutoAssignStaffServicesUseCase())->execute([
+            'trigger' => 'staff_created',
+            'staff_id' => (int) $result['id'],
+        ]);
+
         wp_send_json_success([
             'message' => 'Personal creado correctamente',
-            'staff' => $result
+            'staff' => $result,
+            'auto_assign' => $auto_assign,
         ]);
     } catch (Exception $e) {
         error_log("❌ [staffService] Error al crear personal: " . $e->getMessage());

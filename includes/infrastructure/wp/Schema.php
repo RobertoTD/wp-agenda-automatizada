@@ -64,7 +64,7 @@ final class AA_Schema {
      * Independiente de la versión del plugin. Solo refleja el estado
      * de las tablas/columnas/índices.
      */
-    public const DB_VERSION = '8';
+    public const DB_VERSION = '9';
 
     /**
      * Registra el activation hook y el chequeo de migraciones.
@@ -437,6 +437,12 @@ final class AA_Schema {
         // 🔹 Inicializar campo de personal con valor por defecto
         if (get_option('aa_staff_schedule') === false) {
             add_option('aa_staff_schedule', '');
+        }
+
+        // Auto-asignación staff-servicio: ON en instalación nueva, OFF en migraciones existentes.
+        if (get_option('aa_auto_assign_staff_services') === false) {
+            $is_fresh_install = get_option('aa_db_version', false) === false;
+            add_option('aa_auto_assign_staff_services', $is_fresh_install ? '1' : '0');
         }
 
         // 🔹 Flush rewrite rules for custom endpoints
