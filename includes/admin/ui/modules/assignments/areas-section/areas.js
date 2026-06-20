@@ -10,6 +10,9 @@
     // Store root element reference for reuse
     let areasRoot = null;
 
+    // Flag to track if hide handlers are already bound
+    let hideHandlersBound = false;
+
     /**
      * @param {'area'} source
      */
@@ -33,6 +36,9 @@
 
         // Load and render service areas
         loadServiceAreas(areasRoot);
+        
+        // Setup hide handlers (only once, using event delegation)
+        setupHideHandlers();
         
         // Setup create area button handler
         setupCreateAreaHandler();
@@ -155,6 +161,12 @@
             html += 'value="' + (area.color || '#3b82f6') + '" ';
             html += 'style="width: 100%; max-width: 200px;" />';
             html += '</div>';
+            html += '<div class="mt-4 pt-4 border-t border-gray-200 flex justify-end gap-2">';
+            html += '<button type="button" ';
+            html += 'class="aa-area-delete px-3 py-2 text-sm font-medium rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors" ';
+            html += 'data-area-id="' + areaId + '" ';
+            html += '>Ocultar</button>';
+            html += '</div>';
             html += '</div>';
             html += '</li>';
         });
@@ -177,6 +189,88 @@
         
         // Setup name field handlers
         setupNameHandlers();
+    }
+
+    /**
+     * Setup handlers for hide buttons (event delegation)
+     * Only registers once to avoid duplicate listeners
+     */
+    function setupHideHandlers() {
+        if (hideHandlersBound) {
+            return;
+        }
+
+        if (!areasRoot) {
+            console.warn('[Areas Section] Cannot setup hide handlers: areasRoot not found');
+            return;
+        }
+
+        areasRoot.addEventListener('click', function(event) {
+            const hideButton = event.target.closest('.aa-area-delete');
+            if (!hideButton) {
+                return;
+            }
+
+            event.preventDefault();
+            const areaId = parseInt(hideButton.getAttribute('data-area-id'));
+            if (areaId > 0) {
+                hideArea(areaId);
+            }
+        });
+
+        hideHandlersBound = true;
+    }
+
+    /**
+     * Hide a service area (soft hide via backend)
+     * @param {number} areaId - ID of the service area to hide
+     */
+    function hideArea(areaId) {
+        if (!confirm('¿Ocultar esta zona de atención?')) {
+            return;
+        }
+
+        const ajaxurl = (window.AA_ASSIGNMENTS_DATA && window.AA_ASSIGNMENTS_DATA.ajaxurl)
+            || window.ajaxurl
+            || '/wp-admin/admin-ajax.php';
+
+        const formData = new FormData();
+        formData.append('action', 'aa_delete_service_area_db');
+        formData.append('id', areaId);
+
+        const hideButton = document.querySelector('.aa-area-delete[data-area-id="' + areaId + '"]');
+        const originalButtonText = hideButton ? hideButton.textContent : '';
+        if (hideButton) {
+            hideButton.disabled = true;
+            hideButton.textContent = 'Ocultando...';
+        }
+
+        fetch(ajaxurl, {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(response) {
+            return response.json();
+        })
+        .then(function(data) {
+            if (data.success) {
+                console.log('[Areas Section] Zona ocultada correctamente');
+                if (areasRoot) {
+                    loadServiceAreas(areasRoot);
+                }
+            } else {
+                console.error('[Areas Section] Error al ocultar zona:', data);
+            }
+        })
+        .catch(function(error) {
+            console.error('[Areas Section] Error en petición AJAX:', error);
+        })
+        .finally(function() {
+            if (hideButton) {
+                hideButton.disabled = false;
+                hideButton.textContent = originalButtonText;
+            }
+        });
     }
 
     /**

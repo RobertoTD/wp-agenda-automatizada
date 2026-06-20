@@ -158,6 +158,12 @@
             html += '<option value="">Selecciona los servicios que ofrece</option>';
             html += '</select>';
             html += '<div class="aa-staff-services-selected mt-3" data-staff-id="' + staffId + '"></div>';
+            html += '<div class="mt-4 pt-4 border-t border-gray-200 flex justify-end gap-2">';
+            html += '<button type="button" ';
+            html += 'class="aa-staff-delete px-3 py-2 text-sm font-medium rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors" ';
+            html += 'data-staff-id="' + staffId + '" ';
+            html += '>Ocultar</button>';
+            html += '</div>';
             html += '</div>';
             html += '</li>';
         });
@@ -421,7 +427,7 @@
             }
         });
         
-        // Event delegation for remove button clicks
+        // Event delegation for remove and hide button clicks
         staffRoot.addEventListener('click', function(event) {
             const removeButton = event.target.closest('.aa-staff-service-remove');
             if (removeButton) {
@@ -431,10 +437,72 @@
                 if (staffId > 0 && serviceId > 0) {
                     removeStaffService(staffId, serviceId);
                 }
+                return;
+            }
+
+            const hideButton = event.target.closest('.aa-staff-delete');
+            if (hideButton) {
+                event.preventDefault();
+                const staffId = parseInt(hideButton.getAttribute('data-staff-id'));
+                if (staffId > 0) {
+                    hideStaff(staffId);
+                }
             }
         });
         
         servicesHandlersBound = true;
+    }
+
+    /**
+     * Hide a staff member (soft hide via backend)
+     * @param {number} staffId - ID of the staff member to hide
+     */
+    function hideStaff(staffId) {
+        if (!confirm('¿Ocultar este personal?')) {
+            return;
+        }
+
+        const ajaxurl = (window.AA_ASSIGNMENTS_DATA && window.AA_ASSIGNMENTS_DATA.ajaxurl)
+            || window.ajaxurl
+            || '/wp-admin/admin-ajax.php';
+
+        const formData = new FormData();
+        formData.append('action', 'aa_delete_staff_db');
+        formData.append('id', staffId);
+
+        const hideButton = document.querySelector('.aa-staff-delete[data-staff-id="' + staffId + '"]');
+        const originalButtonText = hideButton ? hideButton.textContent : '';
+        if (hideButton) {
+            hideButton.disabled = true;
+            hideButton.textContent = 'Ocultando...';
+        }
+
+        fetch(ajaxurl, {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(response) {
+            return response.json();
+        })
+        .then(function(data) {
+            if (data.success) {
+                console.log('[Staff Section] Personal ocultado correctamente');
+                if (staffRoot) {
+                    loadStaff(staffRoot);
+                }
+            } else {
+                console.error('[Staff Section] Error al ocultar personal:', data);
+            }
+        })
+        .catch(function(error) {
+            console.error('[Staff Section] Error en petición AJAX:', error);
+        })
+        .finally(function() {
+            if (hideButton) {
+                hideButton.disabled = false;
+                hideButton.textContent = originalButtonText;
+            }
+        });
     }
 
     /**
