@@ -17,12 +17,26 @@
     let attendanceVirtualHandlersBound = false;
 
     /**
-     * @param {'service'} source
+     * @param {'service' | 'staff_service_assignment'} source
      */
     function dispatchOnboardingSetupMutated(source) {
         document.dispatchEvent(new CustomEvent('aa:onboarding:setup-mutated', {
             detail: { source: source }
         }));
+    }
+
+    /**
+     * @param {object|null|undefined} response JSON from aa_create_service
+     * @returns {'service' | 'staff_service_assignment'}
+     */
+    function resolveCreateServiceOnboardingSource(response) {
+        var autoAssign = response && response.data && response.data.auto_assign;
+
+        if (autoAssign && autoAssign.created > 0) {
+            return 'staff_service_assignment';
+        }
+
+        return 'service';
     }
 
     /**
@@ -546,7 +560,7 @@
                 if (servicesRoot) {
                     loadServices(servicesRoot);
                 }
-                dispatchOnboardingSetupMutated('service');
+                dispatchOnboardingSetupMutated(resolveCreateServiceOnboardingSource(data));
             } else {
                 console.error('[Services Section] Error al crear servicio:', data);
             }

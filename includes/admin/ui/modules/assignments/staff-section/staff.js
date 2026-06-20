@@ -26,6 +26,20 @@
     }
 
     /**
+     * @param {object|null|undefined} response JSON from aa_create_staff
+     * @returns {'staff' | 'staff_service_assignment'}
+     */
+    function resolveCreateStaffOnboardingSource(response) {
+        var autoAssign = response && response.data && response.data.auto_assign;
+
+        if (autoAssign && autoAssign.created > 0) {
+            return 'staff_service_assignment';
+        }
+
+        return 'staff';
+    }
+
+    /**
      * Initialize the staff section
      */
     function initStaffSection() {
@@ -325,7 +339,7 @@
                 if (staffRoot) {
                     loadStaff(staffRoot);
                 }
-                dispatchOnboardingSetupMutated('staff');
+                dispatchOnboardingSetupMutated(resolveCreateStaffOnboardingSource(data));
             } else {
                 console.error('[Staff Section] Error al crear personal:', data);
             }

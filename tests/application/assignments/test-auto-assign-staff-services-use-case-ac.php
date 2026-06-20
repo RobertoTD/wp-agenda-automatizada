@@ -51,6 +51,15 @@ ac_assert('staffService returns auto_assign payload', strpos($staff_service_file
 ac_assert('servicesService wires AutoAssignStaffServicesUseCase', strpos($services_service_file, 'AutoAssignStaffServicesUseCase') !== false);
 ac_assert('servicesService returns auto_assign payload', strpos($services_service_file, "'auto_assign'") !== false);
 
+$staff_js = file_get_contents($plugin_root . '/includes/admin/ui/modules/assignments/staff-section/staff.js');
+$services_js = file_get_contents($plugin_root . '/includes/admin/ui/modules/assignments/services-section/servicesSection.js');
+ac_assert('staff.js resolves onboarding source from auto_assign.created', strpos($staff_js, 'resolveCreateStaffOnboardingSource') !== false);
+ac_assert('staff.js dispatches staff_service_assignment when auto_assign created', strpos($staff_js, "'staff_service_assignment'") !== false);
+ac_assert('staff.js uses resolveCreateStaffOnboardingSource on create', strpos($staff_js, 'resolveCreateStaffOnboardingSource(data)') !== false);
+ac_assert('servicesSection.js resolves onboarding source from auto_assign.created', strpos($services_js, 'resolveCreateServiceOnboardingSource') !== false);
+ac_assert('servicesSection.js dispatches staff_service_assignment when auto_assign created', strpos($services_js, "'staff_service_assignment'") !== false);
+ac_assert('servicesSection.js uses resolveCreateServiceOnboardingSource on create', strpos($services_js, 'resolveCreateServiceOnboardingSource(data)') !== false);
+
 $links = [];
 
 $disabled = (new AutoAssignStaffServicesUseCase(
