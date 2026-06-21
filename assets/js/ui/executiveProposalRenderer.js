@@ -272,34 +272,30 @@
      * @returns {string}
      */
     function renderContinuationSummary(nextTask, thirdTask) {
-        var parts = [];
+        var segments = [];
 
         if (nextTask && typeof nextTask === 'object') {
-            parts.push(
-                '<p class="min-w-0 flex-1 sm:max-w-[48%] truncate text-xs text-gray-500">'
-                + '<span class="font-medium text-gray-600">Siguiente:</span> '
-                + '<span class="text-gray-700">' + escapeHtml(truncateTitle(nextTask.title)) + '</span>'
-                + '</p>'
+            segments.push(
+                '<span class="font-medium text-gray-600">Siguiente:</span> '
+                + '<span class="text-gray-700">' + escapeHtml(nextTask.title) + '</span>'
             );
         }
 
         if (thirdTask && typeof thirdTask === 'object') {
-            parts.push(
-                '<p class="min-w-0 flex-1 sm:max-w-[48%] truncate text-xs text-gray-500">'
-                + '<span class="font-medium text-gray-600">Después:</span> '
-                + '<span class="text-gray-700">' + escapeHtml(truncateTitle(thirdTask.title)) + '</span>'
-                + '</p>'
+            segments.push(
+                '<span class="font-medium text-gray-600">Después:</span> '
+                + '<span class="text-gray-700">' + escapeHtml(thirdTask.title) + '</span>'
             );
         }
 
-        if (parts.length === 0) {
+        if (segments.length === 0) {
             return '';
         }
 
         return ''
-            + '<div class="aa-executive-continuation mt-2 flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:gap-x-4">'
-            + parts.join('')
-            + '</div>';
+            + '<p class="aa-executive-continuation mt-2 block w-full min-w-0 truncate text-xs text-gray-500">'
+            + segments.join(', ')
+            + '</p>';
     }
 
     /**

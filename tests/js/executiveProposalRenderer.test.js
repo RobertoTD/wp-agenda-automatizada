@@ -137,11 +137,25 @@ describe('executiveProposalRenderer MC6', () => {
         const payload = basePayload();
         const html = renderer.renderContinuationSummary(payload.tasks[1], payload.tasks[2]);
 
-        assert.match(html, /aa-executive-continuation/);
+        assert.match(html, /<p class="aa-executive-continuation/);
+        assert.equal((html.match(/<p /g) || []).length, 1);
         assert.match(html, />Siguiente:</);
         assert.match(html, />Después:</);
+        assert.match(html, /Siguiente:.*,.*Después:/);
+        assert.equal(html.includes('sm:flex-row'), false);
+        assert.equal(html.includes('sm:max-w-[48%]'), false);
         assert.equal(html.includes('aa-executive-slot-next'), false);
         assert.equal(html.includes('border border-gray-200'), false);
+    });
+
+    it('continuation summary solo nextTask sin coma sobrante', () => {
+        const payload = basePayload();
+        const html = renderer.renderContinuationSummary(payload.tasks[1], null);
+
+        assert.match(html, /<p class="aa-executive-continuation/);
+        assert.match(html, />Siguiente:</);
+        assert.equal(html.includes('Después:'), false);
+        assert.equal(html.includes(', '), false);
     });
 
     it('buildProposalParts no incluye bloque de foco separado', () => {
