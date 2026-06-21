@@ -234,7 +234,8 @@ function loadModule(dom, options) {
         window: {},
         console: console,
         document: dom.document,
-        module: { exports: {} }
+        module: { exports: {} },
+        windowListeners: {}
     };
 
     context.window = context;
@@ -248,6 +249,12 @@ function loadModule(dom, options) {
             top: typeof opts.proposalTop === 'number' ? opts.proposalTop : 0
         };
     };
+    context.addEventListener = function (type, handler) {
+        context.windowListeners[type] = handler;
+    };
+    context.requestAnimationFrame = typeof opts.requestAnimationFrame === 'function'
+        ? opts.requestAnimationFrame
+        : undefined;
     context.AAExecutiveProposal = {
         setWorkZone: function (zone) {
             workZoneCalls.push(zone);
@@ -262,7 +269,8 @@ function loadModule(dom, options) {
 
     return {
         exports: context.module.exports,
-        workZoneCalls: workZoneCalls
+        workZoneCalls: workZoneCalls,
+        context: context
     };
 }
 
@@ -482,8 +490,8 @@ describe('executive-lists-focus-module MC-UX-G MC3 wheel', () => {
         var dom = buildFocusDom();
         var loaded = loadModule(dom);
 
-        dispatchWheel(dom.root, 70);
-        dispatchWheel(dom.root, 70);
+        dispatchWheel(dom.root, 75);
+        dispatchWheel(dom.root, 75);
 
         assert.equal(loaded.exports.getActiveWorkZone(), 'organizing');
         assert.equal(dom.listsBody.classList.contains('is-collapsed'), false);
@@ -494,40 +502,102 @@ describe('executive-lists-focus-module MC-UX-G MC3 wheel', () => {
         var dom = buildFocusDom();
         var loaded = loadModule(dom);
 
-        dispatchWheel(dom.root, 40);
-        dispatchWheel(dom.root, 40);
+        dispatchWheel(dom.root, 65);
+        dispatchWheel(dom.root, 65);
 
         assert.equal(loaded.exports.getActiveWorkZone(), 'executive');
         assert.equal(loaded.workZoneCalls.length, 0);
     });
 
-    it('gesto wheel hacia arriba en organizing cerca del top activa executive', () => {
+    it('gesto wheel hacia arriba en organizing con top estricto y delta leve activa executive', () => {
         var dom = buildFocusDom();
-        var loaded = loadModule(dom, { pageYOffset: 20, proposalTop: 40 });
+        var loaded = loadModule(dom, { pageYOffset: 0, proposalTop: 0 });
 
         loaded.exports.applyWorkZone('organizing');
         loaded.workZoneCalls.length = 0;
 
-        dispatchWheel(dom.root, -70);
-        dispatchWheel(dom.root, -70);
+        dispatchWheel(dom.root, -5);
 
         assert.equal(loaded.exports.getActiveWorkZone(), 'executive');
         assert.equal(dom.listsBody.classList.contains('is-collapsed'), true);
         assert.deepEqual(loaded.workZoneCalls, ['executive']);
     });
 
-    it('gesto wheel hacia arriba en organizing lejos del top no contrae', () => {
+    it('gesto wheel leve hacia arriba en organizing lejos del top no contrae', () => {
         var dom = buildFocusDom();
         var loaded = loadModule(dom, { pageYOffset: 600, proposalTop: 400 });
 
         loaded.exports.applyWorkZone('organizing');
         loaded.workZoneCalls.length = 0;
 
-        dispatchWheel(dom.root, -70);
-        dispatchWheel(dom.root, -70);
+        dispatchWheel(dom.root, -5);
 
         assert.equal(loaded.exports.getActiveWorkZone(), 'organizing');
         assert.equal(loaded.workZoneCalls.length, 0);
+    });
+
+    it('gesto wheel hacia arriba en organizing con top acumulado activa executive', () => {
+        var dom = buildFocusDom();
+        var loaded = loadModule(dom, { pageYOffset: 8, proposalTop: 12 });
+
+        loaded.exports.applyWorkZone('organizing');
+        loaded.workZoneCalls.length = 0;
+
+        dispatchWheel(dom.root, -75);
+        dispatchWheel(dom.root, -75);
+
+        assert.equal(loaded.exports.getActiveWorkZone(), 'executive');
+        assert.equal(dom.listsBody.classList.contains('is-collapsed'), true);
+        assert.deepEqual(loaded.workZoneCalls, ['executive']);
+    });
+
+    it('gesto wheel hacia arriba en organizing lejos del top no contrae aunque acumule delta', () => {
+        var dom = buildFocusDom();
+        var loaded = loadModule(dom, { pageYOffset: 600, proposalTop: 400 });
+
+        loaded.exports.applyWorkZone('organizing');
+        loaded.workZoneCalls.length = 0;
+
+        dispatchWheel(dom.root, -75);
+        dispatchWheel(dom.root, -75);
+
+        assert.equal(loaded.exports.getActiveWorkZone(), 'organizing');
+        assert.equal(loaded.workZoneCalls.length, 0);
+    });
+
+    it('proposalTop negativo grande no permite volver a executive', () => {
+        var dom = buildFocusDom();
+        var loaded = loadModule(dom);
+        var api = loaded.exports;
+
+        assert.equal(api.canReturnToExecutiveFromWheel({ scrollY: 600, proposalTop: -500 }), false);
+        assert.equal(api.isStrictTopTouched({ scrollY: 600, proposalTop: -500 }), false);
+
+        var lightWheel = api.stepWheelGesture({
+            deltaY: -5,
+            now: 1000,
+            zone: 'organizing',
+            bucket: 0,
+            bucketUpdatedAt: 1000,
+            cooldownUntil: 0,
+            metrics: { scrollY: 600, proposalTop: -500 }
+        });
+
+        assert.equal(lightWheel.nextZone, null);
+        assert.equal(lightWheel.zone, 'organizing');
+
+        var result = api.stepWheelGesture({
+            deltaY: -150,
+            now: 1000,
+            zone: 'organizing',
+            bucket: 0,
+            bucketUpdatedAt: 1000,
+            cooldownUntil: 0,
+            metrics: { scrollY: 600, proposalTop: -500 }
+        });
+
+        assert.equal(result.nextZone, null);
+        assert.equal(result.zone, 'organizing');
     });
 
     it('cooldown evita flip-flop inmediato', () => {
@@ -537,40 +607,54 @@ describe('executive-lists-focus-module MC-UX-G MC3 wheel', () => {
         var now = 1000;
 
         var toExecutive = api.stepWheelGesture({
-            deltaY: -130,
+            deltaY: -150,
             now: now,
             zone: 'organizing',
             bucket: 0,
             bucketUpdatedAt: now,
             cooldownUntil: 0,
-            metrics: { scrollY: 0, proposalTop: 40 }
+            metrics: { scrollY: 0, proposalTop: 600 }
         });
 
         assert.equal(toExecutive.nextZone, 'executive');
         assert.equal(toExecutive.cooldownUntil, now + api.WHEEL_TRANSITION_COOLDOWN_MS);
 
         var blocked = api.stepWheelGesture({
-            deltaY: 130,
+            deltaY: 150,
             now: now + 50,
             zone: toExecutive.zone,
             bucket: toExecutive.bucket,
             bucketUpdatedAt: toExecutive.bucketUpdatedAt,
             cooldownUntil: toExecutive.cooldownUntil,
-            metrics: { scrollY: 0, proposalTop: 40 }
+            metrics: { scrollY: 0, proposalTop: 600 }
         });
 
         assert.equal(blocked.nextZone, null);
         assert.equal(blocked.zone, 'executive');
     });
 
-    it('canReturnToExecutiveFromWheel usa scrollY o proposalTop', () => {
+    it('canReturnToExecutiveFromWheel exige scroll en top o proposal alineado al viewport', () => {
         var dom = buildFocusDom();
         var loaded = loadModule(dom);
         var api = loaded.exports;
 
-        assert.equal(api.canReturnToExecutiveFromWheel({ scrollY: 80, proposalTop: 500 }), true);
-        assert.equal(api.canReturnToExecutiveFromWheel({ scrollY: 500, proposalTop: 120 }), true);
-        assert.equal(api.canReturnToExecutiveFromWheel({ scrollY: 500, proposalTop: 200 }), false);
+        assert.equal(api.canReturnToExecutiveFromWheel({ scrollY: 8, proposalTop: 500 }), true);
+        assert.equal(api.canReturnToExecutiveFromWheel({ scrollY: 500, proposalTop: 12 }), true);
+        assert.equal(api.canReturnToExecutiveFromWheel({ scrollY: 80, proposalTop: 500 }), false);
+        assert.equal(api.canReturnToExecutiveFromWheel({ scrollY: 500, proposalTop: 120 }), false);
+        assert.equal(api.canReturnToExecutiveFromWheel({ scrollY: 500, proposalTop: -500 }), false);
+    });
+
+    it('isStrictTopTouched solo acepta top real del viewport', () => {
+        var dom = buildFocusDom();
+        var loaded = loadModule(dom);
+        var api = loaded.exports;
+
+        assert.equal(api.isStrictTopTouched({ scrollY: 0, proposalTop: 500 }), true);
+        assert.equal(api.isStrictTopTouched({ scrollY: 2, proposalTop: 500 }), true);
+        assert.equal(api.isStrictTopTouched({ scrollY: 8, proposalTop: 500 }), false);
+        assert.equal(api.isStrictTopTouched({ scrollY: 500, proposalTop: 0 }), true);
+        assert.equal(api.isStrictTopTouched({ scrollY: 500, proposalTop: -500 }), false);
     });
 
     it('regresión click manual sigue funcionando tras bind wheel', () => {
@@ -582,5 +666,118 @@ describe('executive-lists-focus-module MC-UX-G MC3 wheel', () => {
 
         assert.equal(loaded.exports.getActiveWorkZone(), 'executive');
         assert.deepEqual(loaded.workZoneCalls, ['organizing', 'executive']);
+    });
+});
+
+describe('executive-lists-focus-module MC-UX-G scroll top arrival', () => {
+    it('llegada objetiva al top en organizing activa executive sin bucket wheel', () => {
+        var dom = buildFocusDom();
+        var loaded = loadModule(dom, { pageYOffset: 600, proposalTop: 400 });
+        var api = loaded.exports;
+
+        api.applyWorkZone('organizing');
+        loaded.workZoneCalls.length = 0;
+
+        assert.equal(api.getWasStrictTopTouched(), false);
+
+        assert.equal(api.applyStrictTopArrival({ scrollY: 600, proposalTop: 400 }), false);
+        assert.equal(api.applyStrictTopArrival({ scrollY: 1, proposalTop: 500 }), true);
+        assert.equal(api.getActiveWorkZone(), 'executive');
+        assert.deepEqual(loaded.workZoneCalls, ['executive']);
+    });
+
+    it('organizing lejos del top no cambia por evaluación de scroll', () => {
+        var dom = buildFocusDom();
+        var loaded = loadModule(dom, { pageYOffset: 600, proposalTop: 400 });
+        var api = loaded.exports;
+
+        api.applyWorkZone('organizing');
+        loaded.workZoneCalls.length = 0;
+
+        assert.equal(api.applyStrictTopArrival({ scrollY: 500, proposalTop: 300 }), false);
+        assert.equal(api.getActiveWorkZone(), 'organizing');
+        assert.equal(loaded.workZoneCalls.length, 0);
+    });
+
+    it('organizing cerca pero sin top estricto no cambia', () => {
+        var dom = buildFocusDom();
+        var loaded = loadModule(dom, { pageYOffset: 600, proposalTop: 400 });
+        var api = loaded.exports;
+
+        api.applyWorkZone('organizing');
+        loaded.workZoneCalls.length = 0;
+
+        assert.equal(api.applyStrictTopArrival({ scrollY: 8, proposalTop: 500 }), false);
+        assert.equal(api.getActiveWorkZone(), 'organizing');
+        assert.equal(api.canReturnToExecutiveFromWheel({ scrollY: 8, proposalTop: 500 }), true);
+    });
+
+    it('proposalTop negativo grande no activa retorno por scroll', () => {
+        var dom = buildFocusDom();
+        var loaded = loadModule(dom, { pageYOffset: 600, proposalTop: 400 });
+        var api = loaded.exports;
+
+        api.applyWorkZone('organizing');
+        loaded.workZoneCalls.length = 0;
+
+        assert.equal(api.applyStrictTopArrival({ scrollY: 600, proposalTop: -500 }), false);
+        assert.equal(api.applyStrictTopArrival({ scrollY: 600, proposalTop: -500 }), false);
+        assert.equal(api.getActiveWorkZone(), 'organizing');
+    });
+
+    it('llegada al top no depende del cooldown wheel', () => {
+        var dom = buildFocusDom();
+        var loaded = loadModule(dom, { pageYOffset: 600, proposalTop: 400 });
+        var api = loaded.exports;
+
+        api.applyWorkZone('organizing');
+        api.applyStrictTopArrival({ scrollY: 600, proposalTop: 400 });
+
+        var blockedWheel = api.stepWheelGesture({
+            deltaY: 150,
+            now: 1000,
+            zone: 'organizing',
+            bucket: 0,
+            bucketUpdatedAt: 1000,
+            cooldownUntil: 2000,
+            metrics: { scrollY: 600, proposalTop: 400 }
+        });
+
+        assert.equal(blockedWheel.nextZone, null);
+
+        assert.equal(api.applyStrictTopArrival({ scrollY: 0, proposalTop: 500 }), true);
+        assert.equal(api.getActiveWorkZone(), 'executive');
+    });
+
+    it('handleWindowScroll evalúa llegada al top vía requestAnimationFrame', () => {
+        var dom = buildFocusDom();
+        var rafQueue = [];
+        var loaded = loadModule(dom, {
+            pageYOffset: 600,
+            proposalTop: 400,
+            requestAnimationFrame: function (callback) {
+                rafQueue.push(callback);
+
+                return rafQueue.length;
+            }
+        });
+        var api = loaded.exports;
+
+        api.applyWorkZone('organizing');
+        loaded.workZoneCalls.length = 0;
+
+        dom.document.documentElement.scrollTop = 0;
+        loaded.context.window.pageYOffset = 0;
+        dom.proposal.getBoundingClientRect = function () {
+            return { top: 0 };
+        };
+
+        api.handleWindowScroll();
+        assert.equal(rafQueue.length, 1);
+
+        rafQueue[0]();
+
+        assert.equal(api.getActiveWorkZone(), 'executive');
+        assert.deepEqual(loaded.workZoneCalls, ['executive']);
     });
 });

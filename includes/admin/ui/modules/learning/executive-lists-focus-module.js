@@ -12,16 +12,22 @@
     var LISTS_ID = 'aa-lists-section';
     var LISTS_BODY_ID = 'aa-lists-body';
     var LISTS_HEADER_TOGGLE_ID = 'aa-lists-header-toggle';
-    var WHEEL_DELTA_THRESHOLD = 120;
+    var WHEEL_DELTA_THRESHOLD = 140;
     var WHEEL_BUCKET_RESET_MS = 400;
     var WHEEL_TRANSITION_COOLDOWN_MS = 350;
-    var EXECUTIVE_RETURN_SCROLL_Y_MAX = 80;
-    var EXECUTIVE_RETURN_PROPOSAL_TOP_MAX = 120;
+    var EXECUTIVE_RETURN_SCROLL_Y_MAX = 12;
+    var EXECUTIVE_RETURN_PROPOSAL_TOP_MIN = -12;
+    var EXECUTIVE_RETURN_PROPOSAL_TOP_MAX = 24;
+    var EXECUTIVE_STRICT_TOP_SCROLL_Y_MAX = 2;
+    var EXECUTIVE_STRICT_TOP_PROPOSAL_MIN = -2;
+    var EXECUTIVE_STRICT_TOP_PROPOSAL_MAX = 2;
     var isBound = false;
     var activeWorkZone = 'executive';
     var wheelDeltaBucket = 0;
     var wheelBucketUpdatedAt = 0;
     var wheelTransitionCooldownUntil = 0;
+    var wasStrictTopTouched = false;
+    var strictTopScrollScheduled = false;
 
     function setMuted(element, muted) {
         if (!element || !element.classList) {
@@ -83,6 +89,34 @@
     }
 
     /**
+     * @param {number} proposalTop
+     * @returns {boolean}
+     */
+    function isProposalAtViewportTop(proposalTop) {
+        return proposalTop >= EXECUTIVE_RETURN_PROPOSAL_TOP_MIN
+            && proposalTop <= EXECUTIVE_RETURN_PROPOSAL_TOP_MAX;
+    }
+
+    /**
+     * @param {{scrollY?:number, proposalTop?:number}|null|undefined} metrics
+     * @returns {boolean}
+     */
+    function isStrictTopTouched(metrics) {
+        var data = metrics || getWheelMetrics();
+        var scrollY = typeof data.scrollY === 'number' ? data.scrollY : 0;
+        var proposalTop = typeof data.proposalTop === 'number'
+            ? data.proposalTop
+            : Number.POSITIVE_INFINITY;
+
+        if (scrollY <= EXECUTIVE_STRICT_TOP_SCROLL_Y_MAX) {
+            return true;
+        }
+
+        return proposalTop >= EXECUTIVE_STRICT_TOP_PROPOSAL_MIN
+            && proposalTop <= EXECUTIVE_STRICT_TOP_PROPOSAL_MAX;
+    }
+
+    /**
      * @param {{scrollY?:number, proposalTop?:number}|null|undefined} metrics
      * @returns {boolean}
      */
@@ -94,7 +128,7 @@
             : Number.POSITIVE_INFINITY;
 
         return scrollY <= EXECUTIVE_RETURN_SCROLL_Y_MAX
-            || proposalTop <= EXECUTIVE_RETURN_PROPOSAL_TOP_MAX;
+            || isProposalAtViewportTop(proposalTop);
     }
 
     /**
@@ -149,6 +183,10 @@
 
         if (bucket >= WHEEL_DELTA_THRESHOLD && zone === 'executive') {
             nextZone = 'organizing';
+        } else if (zone === 'organizing'
+            && deltaY < 0
+            && isStrictTopTouched(metrics)) {
+            nextZone = 'executive';
         } else if (bucket <= -WHEEL_DELTA_THRESHOLD
             && zone === 'organizing'
             && canReturnToExecutiveFromWheel(metrics)) {
@@ -172,6 +210,54 @@
             cooldownUntil: cooldownUntil,
             nextZone: null
         };
+    }
+
+    /**
+     * @param {{scrollY?:number, proposalTop?:number}|null|undefined} metrics
+     * @returns {boolean}
+     */
+    function applyStrictTopArrival(metrics) {
+        var data = metrics || getWheelMetrics();
+        var isTop = isStrictTopTouched(data);
+
+        if (activeWorkZone !== 'organizing') {
+            wasStrictTopTouched = isTop;
+
+            return false;
+        }
+
+        var shouldApply = !wasStrictTopTouched && isTop;
+
+        wasStrictTopTouched = isTop;
+
+        if (shouldApply) {
+            applyWorkZone('executive');
+
+            return true;
+        }
+
+        return false;
+    }
+
+    function syncStrictTopArrivalFromScroll() {
+        strictTopScrollScheduled = false;
+        applyStrictTopArrival(getWheelMetrics());
+    }
+
+    function handleWindowScroll() {
+        if (strictTopScrollScheduled) {
+            return;
+        }
+
+        strictTopScrollScheduled = true;
+
+        var schedule = typeof globalRoot.requestAnimationFrame === 'function'
+            ? globalRoot.requestAnimationFrame.bind(globalRoot)
+            : function (callback) {
+                return setTimeout(callback, 0);
+            };
+
+        schedule(syncStrictTopArrivalFromScroll);
     }
 
     /**
@@ -209,6 +295,8 @@
         if (api && typeof api.setWorkZone === 'function') {
             api.setWorkZone(nextZone);
         }
+
+        wasStrictTopTouched = isStrictTopTouched(getWheelMetrics());
 
         return true;
     }
@@ -283,6 +371,7 @@
         wheelDeltaBucket = 0;
         wheelBucketUpdatedAt = 0;
         wheelTransitionCooldownUntil = 0;
+        strictTopScrollScheduled = false;
         applyWorkZone('executive');
 
         var root = document.getElementById(ROOT_ID);
@@ -290,6 +379,7 @@
         root.addEventListener('click', handleRootInteraction, true);
         root.addEventListener('focusin', handleRootInteraction, true);
         root.addEventListener('wheel', handleRootWheel, { passive: true });
+        globalRoot.addEventListener('scroll', handleWindowScroll, { passive: true });
     }
 
     function initExecutiveListsFocusModule() {
@@ -301,12 +391,24 @@
         WHEEL_BUCKET_RESET_MS: WHEEL_BUCKET_RESET_MS,
         WHEEL_TRANSITION_COOLDOWN_MS: WHEEL_TRANSITION_COOLDOWN_MS,
         EXECUTIVE_RETURN_SCROLL_Y_MAX: EXECUTIVE_RETURN_SCROLL_Y_MAX,
+        EXECUTIVE_RETURN_PROPOSAL_TOP_MIN: EXECUTIVE_RETURN_PROPOSAL_TOP_MIN,
         EXECUTIVE_RETURN_PROPOSAL_TOP_MAX: EXECUTIVE_RETURN_PROPOSAL_TOP_MAX,
+        EXECUTIVE_STRICT_TOP_SCROLL_Y_MAX: EXECUTIVE_STRICT_TOP_SCROLL_Y_MAX,
+        EXECUTIVE_STRICT_TOP_PROPOSAL_MIN: EXECUTIVE_STRICT_TOP_PROPOSAL_MIN,
+        EXECUTIVE_STRICT_TOP_PROPOSAL_MAX: EXECUTIVE_STRICT_TOP_PROPOSAL_MAX,
+        isProposalAtViewportTop: isProposalAtViewportTop,
+        isStrictTopTouched: isStrictTopTouched,
         setMuted: setMuted,
         setListsBodyCollapsed: setListsBodyCollapsed,
         getWheelMetrics: getWheelMetrics,
         canReturnToExecutiveFromWheel: canReturnToExecutiveFromWheel,
         stepWheelGesture: stepWheelGesture,
+        applyStrictTopArrival: applyStrictTopArrival,
+        syncStrictTopArrivalFromScroll: syncStrictTopArrivalFromScroll,
+        handleWindowScroll: handleWindowScroll,
+        getWasStrictTopTouched: function () {
+            return wasStrictTopTouched;
+        },
         applyWorkZone: applyWorkZone,
         activateFromTarget: activateFromTarget,
         handleRootInteraction: handleRootInteraction,
