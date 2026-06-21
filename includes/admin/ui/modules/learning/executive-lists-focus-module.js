@@ -15,9 +15,6 @@
     var WHEEL_DELTA_THRESHOLD = 140;
     var WHEEL_BUCKET_RESET_MS = 400;
     var WHEEL_TRANSITION_COOLDOWN_MS = 350;
-    var EXECUTIVE_RETURN_SCROLL_Y_MAX = 12;
-    var EXECUTIVE_RETURN_PROPOSAL_TOP_MIN = -12;
-    var EXECUTIVE_RETURN_PROPOSAL_TOP_MAX = 24;
     var EXECUTIVE_STRICT_TOP_SCROLL_Y_MAX = 2;
     var EXECUTIVE_STRICT_TOP_PROPOSAL_MIN = -2;
     var EXECUTIVE_STRICT_TOP_PROPOSAL_MAX = 2;
@@ -89,15 +86,6 @@
     }
 
     /**
-     * @param {number} proposalTop
-     * @returns {boolean}
-     */
-    function isProposalAtViewportTop(proposalTop) {
-        return proposalTop >= EXECUTIVE_RETURN_PROPOSAL_TOP_MIN
-            && proposalTop <= EXECUTIVE_RETURN_PROPOSAL_TOP_MAX;
-    }
-
-    /**
      * @param {{scrollY?:number, proposalTop?:number}|null|undefined} metrics
      * @returns {boolean}
      */
@@ -117,29 +105,13 @@
     }
 
     /**
-     * @param {{scrollY?:number, proposalTop?:number}|null|undefined} metrics
-     * @returns {boolean}
-     */
-    function canReturnToExecutiveFromWheel(metrics) {
-        var data = metrics || getWheelMetrics();
-        var scrollY = typeof data.scrollY === 'number' ? data.scrollY : 0;
-        var proposalTop = typeof data.proposalTop === 'number'
-            ? data.proposalTop
-            : Number.POSITIVE_INFINITY;
-
-        return scrollY <= EXECUTIVE_RETURN_SCROLL_Y_MAX
-            || isProposalAtViewportTop(proposalTop);
-    }
-
-    /**
      * @param {{
      *   deltaY:number,
      *   now:number,
      *   zone:'executive'|'organizing',
      *   bucket:number,
      *   bucketUpdatedAt:number,
-     *   cooldownUntil:number,
-     *   metrics?:{scrollY?:number, proposalTop?:number}
+     *   cooldownUntil:number
      * }} options
      * @returns {{
      *   zone:'executive'|'organizing',
@@ -160,7 +132,6 @@
         var cooldownUntil = typeof options.cooldownUntil === 'number'
             ? options.cooldownUntil
             : 0;
-        var metrics = options.metrics || {};
 
         if (now - bucketUpdatedAt > WHEEL_BUCKET_RESET_MS) {
             bucket = 0;
@@ -183,14 +154,6 @@
 
         if (bucket >= WHEEL_DELTA_THRESHOLD && zone === 'executive') {
             nextZone = 'organizing';
-        } else if (zone === 'organizing'
-            && deltaY < 0
-            && isStrictTopTouched(metrics)) {
-            nextZone = 'executive';
-        } else if (bucket <= -WHEEL_DELTA_THRESHOLD
-            && zone === 'organizing'
-            && canReturnToExecutiveFromWheel(metrics)) {
-            nextZone = 'executive';
         }
 
         if (nextZone && nextZone !== zone) {
@@ -341,8 +304,7 @@
             zone: activeWorkZone,
             bucket: wheelDeltaBucket,
             bucketUpdatedAt: wheelBucketUpdatedAt,
-            cooldownUntil: wheelTransitionCooldownUntil,
-            metrics: getWheelMetrics()
+            cooldownUntil: wheelTransitionCooldownUntil
         });
 
         wheelDeltaBucket = result.bucket;
@@ -390,18 +352,13 @@
         WHEEL_DELTA_THRESHOLD: WHEEL_DELTA_THRESHOLD,
         WHEEL_BUCKET_RESET_MS: WHEEL_BUCKET_RESET_MS,
         WHEEL_TRANSITION_COOLDOWN_MS: WHEEL_TRANSITION_COOLDOWN_MS,
-        EXECUTIVE_RETURN_SCROLL_Y_MAX: EXECUTIVE_RETURN_SCROLL_Y_MAX,
-        EXECUTIVE_RETURN_PROPOSAL_TOP_MIN: EXECUTIVE_RETURN_PROPOSAL_TOP_MIN,
-        EXECUTIVE_RETURN_PROPOSAL_TOP_MAX: EXECUTIVE_RETURN_PROPOSAL_TOP_MAX,
         EXECUTIVE_STRICT_TOP_SCROLL_Y_MAX: EXECUTIVE_STRICT_TOP_SCROLL_Y_MAX,
         EXECUTIVE_STRICT_TOP_PROPOSAL_MIN: EXECUTIVE_STRICT_TOP_PROPOSAL_MIN,
         EXECUTIVE_STRICT_TOP_PROPOSAL_MAX: EXECUTIVE_STRICT_TOP_PROPOSAL_MAX,
-        isProposalAtViewportTop: isProposalAtViewportTop,
         isStrictTopTouched: isStrictTopTouched,
         setMuted: setMuted,
         setListsBodyCollapsed: setListsBodyCollapsed,
         getWheelMetrics: getWheelMetrics,
-        canReturnToExecutiveFromWheel: canReturnToExecutiveFromWheel,
         stepWheelGesture: stepWheelGesture,
         applyStrictTopArrival: applyStrictTopArrival,
         syncStrictTopArrivalFromScroll: syncStrictTopArrivalFromScroll,
