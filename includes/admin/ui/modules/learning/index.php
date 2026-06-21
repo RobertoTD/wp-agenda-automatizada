@@ -28,7 +28,7 @@ $executive_proposal_renderer_js = AA_PLUGIN_URL . 'assets/js/ui/executiveProposa
 $executive_proposal_module_js = plugin_dir_url(__FILE__) . 'executive-proposal-module.js';
 ?>
 
-<div id="aa-tasks-module-root" class="max-w-5xl mx-auto py-2">
+<div id="aa-tasks-module-root" class="max-w-5xl mx-auto py-2" data-work-zone="executive">
 
     <section id="aa-executive-proposal" class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
         <div class="aa-executive-header px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
@@ -54,11 +54,18 @@ $executive_proposal_module_js = plugin_dir_url(__FILE__) . 'executive-proposal-m
         <hr class="border-gray-200">
     </div>
 
-    <section id="aa-lists-section" class="pb-24 is-muted">
-        <div class="mb-3 flex items-start justify-between gap-3">
-            <div class="min-w-0">
-                <h3 class="text-lg font-semibold text-gray-900">Listas de tareas</h3>
-            </div>
+    <section id="aa-lists-section" class="pb-24">
+        <header id="aa-lists-header" class="aa-lists-header mb-3 flex items-start justify-between gap-3">
+            <button type="button"
+                id="aa-lists-header-toggle"
+                class="aa-lists-header-toggle min-w-0 flex flex-1 items-center gap-2 text-left rounded-lg -ml-1 px-1 py-0.5 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300/60"
+                aria-expanded="false"
+                aria-controls="aa-lists-body">
+                <span class="aa-lists-header-label text-lg font-semibold text-gray-900">Organizador · Listas de tareas</span>
+                <svg class="aa-lists-header-chevron w-4 h-4 shrink-0 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
             <div id="aa-lists-area-tools" class="relative flex items-center gap-2 shrink-0">
                 <button type="button"
                     id="aa-lists-options-trigger"
@@ -94,8 +101,9 @@ $executive_proposal_module_js = plugin_dir_url(__FILE__) . 'executive-proposal-m
                     </button>
                 </div>
             </div>
-        </div>
+        </header>
 
+        <div id="aa-lists-body" class="aa-lists-body is-collapsed" aria-hidden="true" inert>
         <p id="aa-lists-area-tools-error" class="hidden text-sm text-red-600 mb-3"></p>
         <p id="aa-tasks-error" class="hidden text-sm text-red-600 mb-3"></p>
 
@@ -123,6 +131,7 @@ $executive_proposal_module_js = plugin_dir_url(__FILE__) . 'executive-proposal-m
             <p id="aa-executable-lists-error" class="hidden text-sm text-red-600 px-4 pt-3"></p>
             <div id="aa-executable-lists-root" inert class="pointer-events-none p-4 space-y-4"></div>
         </section>
+        </div>
     </section>
 
 </div>

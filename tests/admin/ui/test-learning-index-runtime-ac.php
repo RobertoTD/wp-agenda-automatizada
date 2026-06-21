@@ -91,8 +91,8 @@ ac_assert(
 );
 
 ac_assert(
-    'index.php lists section header is Listas de tareas',
-    is_string($index_php) && strpos($index_php, '>Listas de tareas<') !== false
+    'index.php lists section header is Organizador · Listas de tareas',
+    is_string($index_php) && strpos($index_php, 'Organizador · Listas de tareas') !== false
 );
 ac_assert(
     'index.php does not render lists section subtitle',
@@ -109,8 +109,17 @@ ac_assert(
     && strpos($index_php, 'id="aa-lists-section"') !== false
 );
 ac_assert(
-    'index.php lists section starts muted',
-    is_string($index_php) && strpos($index_php, 'id="aa-lists-section" class="pb-24 is-muted"') !== false
+    'index.php exposes persistent lists header and collapsible body',
+    is_string($index_php)
+    && strpos($index_php, 'id="aa-lists-header"') !== false
+    && strpos($index_php, 'id="aa-lists-body"') !== false
+    && strpos($index_php, 'Organizador · Listas de tareas') !== false
+);
+ac_assert(
+    'index.php lists section no longer starts fully muted',
+    is_string($index_php)
+    && strpos($index_php, 'id="aa-lists-section" class="pb-24"') !== false
+    && strpos($index_php, 'id="aa-lists-section" class="pb-24 is-muted"') === false
 );
 ac_assert(
     'index.php enqueues executive-lists-focus-module.js',

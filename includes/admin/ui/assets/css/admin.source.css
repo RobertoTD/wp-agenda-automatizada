@@ -150,19 +150,38 @@
         @apply text-xs leading-snug text-gray-600 hover:text-gray-800;
     }
 
-    /* Ejecutor — separación propuesta ejecutiva / listas (MC-UX-F / MC6) */
+    /* Ejecutor — separación propuesta ejecutiva / listas (MC-UX-F / MC6, MC-UX-G MC1) */
     .aa-executive-lists-divider hr {
         @apply border-gray-200;
     }
 
-    #aa-executive-proposal,
-    #aa-lists-section {
+    #aa-executive-proposal {
         transition: opacity 0.18s ease-in-out;
     }
 
-    #aa-executive-proposal.is-muted,
-    #aa-lists-section.is-muted {
+    #aa-executive-proposal.is-muted {
         opacity: 0.50;
+    }
+
+    .aa-lists-header-chevron {
+        transition: transform 0.18s ease-in-out;
+    }
+
+    [data-work-zone="organizing"] .aa-lists-header-chevron {
+        transform: rotate(180deg);
+    }
+
+    #aa-lists-body {
+        max-height: 4000px;
+        overflow: hidden;
+        opacity: 1;
+        transition: max-height 0.22s ease-in-out, opacity 0.18s ease-in-out;
+    }
+
+    #aa-lists-body.is-collapsed {
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
     }
 
     .aa-executive-status-dot {

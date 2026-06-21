@@ -54,15 +54,17 @@ function makeClassList(initialClasses) {
 
 function makeElement(tag, options) {
     var opts = options || {};
+    var attributes = Object.assign({}, opts.attributes || {});
 
-    return {
+    var element = {
         tagName: tag,
         id: opts.id || '',
         classList: opts.classList || makeClassList(opts.classes || []),
-        attributes: Object.assign({}, opts.attributes || {}),
+        attributes: attributes,
         parent: opts.parent || null,
         children: opts.children || [],
         listeners: {},
+        inert: false,
         contains: function (node) {
             if (!node) {
                 return false;
@@ -85,30 +87,65 @@ function makeElement(tag, options) {
 
             this.listeners[key] = this.listeners[key] || [];
             this.listeners[key].push(handler);
+        },
+        setAttribute: function (name, value) {
+            this.attributes[name] = String(value);
+        },
+        getAttribute: function (name) {
+            return Object.prototype.hasOwnProperty.call(this.attributes, name)
+                ? this.attributes[name]
+                : null;
+        },
+        removeAttribute: function (name) {
+            delete this.attributes[name];
         }
     };
+
+    Object.keys(attributes).forEach(function (name) {
+        element.setAttribute(name, attributes[name]);
+    });
+
+    return element;
 }
 
 function buildFocusDom() {
     var proposalButton = makeElement('button', { id: 'proposal-button' });
     var listsButton = makeElement('button', { id: 'lists-button' });
+    var headerToggle = makeElement('button', {
+        id: 'aa-lists-header-toggle',
+        attributes: { 'aria-expanded': 'false', 'aria-controls': 'aa-lists-body' }
+    });
+    var listsHeader = makeElement('header', {
+        id: 'aa-lists-header',
+        children: [headerToggle]
+    });
+    var listsBody = makeElement('div', {
+        id: 'aa-lists-body',
+        classes: ['aa-lists-body', 'is-collapsed'],
+        attributes: { 'aria-hidden': 'true', inert: '' },
+        children: [listsButton]
+    });
     var proposal = makeElement('section', {
         id: 'aa-executive-proposal',
         children: [proposalButton]
     });
     var listsSection = makeElement('section', {
         id: 'aa-lists-section',
-        classes: ['pb-24', 'is-muted'],
-        children: [listsButton]
+        classes: ['pb-24'],
+        children: [listsHeader, listsBody]
     });
     var root = makeElement('div', {
         id: 'aa-tasks-module-root',
+        attributes: { 'data-work-zone': 'executive' },
         children: [proposal, listsSection]
     });
     var outside = makeElement('button', { id: 'outside-button' });
 
     proposalButton.parent = proposal;
-    listsButton.parent = listsSection;
+    headerToggle.parent = listsHeader;
+    listsButton.parent = listsBody;
+    listsHeader.parent = listsSection;
+    listsBody.parent = listsSection;
     proposal.parent = root;
     listsSection.parent = root;
 
@@ -127,6 +164,14 @@ function buildFocusDom() {
                 return listsSection;
             }
 
+            if (id === 'aa-lists-body') {
+                return listsBody;
+            }
+
+            if (id === 'aa-lists-header-toggle') {
+                return headerToggle;
+            }
+
             return null;
         },
         addEventListener: function () {}
@@ -137,6 +182,9 @@ function buildFocusDom() {
         root: root,
         proposal: proposal,
         listsSection: listsSection,
+        listsHeader: listsHeader,
+        listsBody: listsBody,
+        headerToggle: headerToggle,
         proposalButton: proposalButton,
         listsButton: listsButton,
         outside: outside
@@ -193,47 +241,115 @@ function loadModule(dom, options) {
     };
 }
 
-describe('executive-lists-focus-module MC6', () => {
-    it('index.php expone header MC6 sin copy estático', () => {
-        assert.match(indexSrc, />Listas de tareas</);
+describe('executive-lists-focus-module MC6 / MC-UX-G MC1', () => {
+    it('index.php expone header persistente y body contraíble', () => {
+        assert.match(indexSrc, /Organizador · Listas de tareas/);
+        assert.match(indexSrc, /id="aa-lists-header"/);
+        assert.match(indexSrc, /id="aa-lists-body"/);
+        assert.match(indexSrc, /id="aa-lists-header-toggle"/);
+        assert.match(indexSrc, /id="aa-lists-section" class="pb-24"/);
+        assert.doesNotMatch(indexSrc, /id="aa-lists-section" class="pb-24 is-muted"/);
+        assert.match(indexSrc, /data-work-zone="executive"/);
         assert.doesNotMatch(indexSrc, />Todas las listas de tareas.</);
         assert.doesNotMatch(indexSrc, /Acciones recomendadas ahora/);
         assert.match(indexSrc, /id="aa-executive-status"/);
         assert.match(indexSrc, /id="aa-executive-header-actions"/);
         assert.match(indexSrc, /aa-executive-lists-divider/);
         assert.match(indexSrc, /id="aa-executive-proposal"/);
-        assert.match(indexSrc, /id="aa-lists-section" class="pb-24 is-muted"/);
         assert.match(indexSrc, /executive-lists-focus-module\.js/);
     });
 
-    it('CSS define transición simétrica y sin pointer-events none', () => {
+    it('CSS define mute del ejecutor y collapse del body sin pointer-events none', () => {
         var css = fs.readFileSync(adminSourceCssPath, 'utf8');
 
-        assert.match(css, /#aa-executive-proposal[\s\S]*#aa-lists-section[\s\S]*transition:\s*opacity 0\.18s ease-in-out/);
+        assert.match(css, /#aa-executive-proposal[\s\S]*transition:\s*opacity 0\.18s ease-in-out/);
         assert.match(css, /#aa-executive-proposal\.is-muted[\s\S]*opacity:\s*0\.50/);
-        assert.match(css, /#aa-lists-section\.is-muted[\s\S]*opacity:\s*0\.50/);
+        assert.match(css, /#aa-lists-body\.is-collapsed[\s\S]*max-height:\s*0/);
+        assert.match(css, /\[data-work-zone="organizing"\][\s\S]*\.aa-lists-header-chevron/);
         assert.match(css, /\.aa-executive-status-dot/);
+        assert.doesNotMatch(css, /#aa-lists-section\.is-muted/);
         assert.doesNotMatch(css, /#aa-lists-section[\s\S]*pointer-events:\s*none/);
         assert.doesNotMatch(css, /#aa-executive-proposal[\s\S]*pointer-events:\s*none/);
     });
 
-    it('estado inicial mantiene listas atenuadas y propuesta activa', () => {
+    it('estado inicial mantiene body colapsado y propuesta activa', () => {
         var dom = buildFocusDom();
 
         loadModule(dom);
 
-        assert.equal(dom.listsSection.classList.contains('is-muted'), true);
+        assert.equal(dom.root.getAttribute('data-work-zone'), 'executive');
+        assert.equal(dom.listsBody.classList.contains('is-collapsed'), true);
+        assert.equal(dom.listsBody.getAttribute('aria-hidden'), 'true');
+        assert.equal(dom.headerToggle.getAttribute('aria-expanded'), 'false');
         assert.equal(dom.proposal.classList.contains('is-muted'), false);
+        assert.equal(dom.listsSection.classList.contains('is-muted'), false);
     });
 
-    it('click en listas activa listas, atenúa propuesta y notifica organizing', () => {
+    it('applyWorkZone organizing despliega listas y opaca ejecutor', () => {
+        var dom = buildFocusDom();
+        var loaded = loadModule(dom);
+
+        var changed = loaded.exports.applyWorkZone('organizing');
+
+        assert.equal(changed, true);
+        assert.equal(dom.root.getAttribute('data-work-zone'), 'organizing');
+        assert.equal(dom.listsBody.classList.contains('is-collapsed'), false);
+        assert.equal(dom.listsBody.getAttribute('aria-hidden'), null);
+        assert.equal(dom.headerToggle.getAttribute('aria-expanded'), 'true');
+        assert.equal(dom.proposal.classList.contains('is-muted'), true);
+        assert.deepEqual(loaded.workZoneCalls, ['organizing']);
+    });
+
+    it('applyWorkZone executive colapsa listas y activa ejecutor', () => {
+        var dom = buildFocusDom();
+        var loaded = loadModule(dom);
+
+        loaded.exports.applyWorkZone('organizing');
+        loaded.workZoneCalls.length = 0;
+
+        var changed = loaded.exports.applyWorkZone('executive');
+
+        assert.equal(changed, true);
+        assert.equal(dom.root.getAttribute('data-work-zone'), 'executive');
+        assert.equal(dom.listsBody.classList.contains('is-collapsed'), true);
+        assert.equal(dom.listsBody.getAttribute('aria-hidden'), 'true');
+        assert.equal(dom.headerToggle.getAttribute('aria-expanded'), 'false');
+        assert.equal(dom.proposal.classList.contains('is-muted'), false);
+        assert.deepEqual(loaded.workZoneCalls, ['executive']);
+    });
+
+    it('applyWorkZone idempotente no llama setWorkZone de nuevo', () => {
+        var dom = buildFocusDom();
+        var loaded = loadModule(dom);
+
+        loaded.exports.applyWorkZone('executive');
+        loaded.workZoneCalls.length = 0;
+
+        var changed = loaded.exports.applyWorkZone('executive');
+
+        assert.equal(changed, false);
+        assert.deepEqual(loaded.workZoneCalls, []);
+    });
+
+    it('click en listas activa organizing, despliega body y opaca propuesta', () => {
         var dom = buildFocusDom();
         var loaded = loadModule(dom);
 
         dispatchInteraction(dom.listsButton, 'click', dom.root);
 
-        assert.equal(dom.listsSection.classList.contains('is-muted'), false);
+        assert.equal(dom.listsBody.classList.contains('is-collapsed'), false);
         assert.equal(dom.proposal.classList.contains('is-muted'), true);
+        assert.deepEqual(loaded.workZoneCalls, ['organizing']);
+    });
+
+    it('click en header toggle activa organizing', () => {
+        var dom = buildFocusDom();
+        var loaded = loadModule(dom);
+
+        dispatchInteraction(dom.headerToggle, 'click', dom.root);
+
+        assert.equal(dom.root.getAttribute('data-work-zone'), 'organizing');
+        assert.equal(dom.listsBody.classList.contains('is-collapsed'), false);
         assert.deepEqual(loaded.workZoneCalls, ['organizing']);
     });
 
@@ -246,14 +362,14 @@ describe('executive-lists-focus-module MC6', () => {
         assert.equal(dom.proposal.classList.contains('is-muted'), true);
     });
 
-    it('click en propuesta atenúa listas y restaura propuesta activa', () => {
+    it('click en propuesta colapsa listas y restaura propuesta activa', () => {
         var dom = buildFocusDom();
         var loaded = loadModule(dom);
 
         dispatchInteraction(dom.listsButton, 'click', dom.root);
         dispatchInteraction(dom.proposalButton, 'click', dom.root);
 
-        assert.equal(dom.listsSection.classList.contains('is-muted'), true);
+        assert.equal(dom.listsBody.classList.contains('is-collapsed'), true);
         assert.equal(dom.proposal.classList.contains('is-muted'), false);
         assert.deepEqual(loaded.workZoneCalls, ['organizing', 'executive']);
     });
@@ -293,14 +409,14 @@ describe('executive-lists-focus-module MC6', () => {
         assert.equal(loaded.exports.getActiveWorkZone(), 'organizing');
     });
 
-    it('focusin en propuesta atenúa listas', () => {
+    it('focusin en propuesta colapsa listas', () => {
         var dom = buildFocusDom();
+        var loaded = loadModule(dom);
 
-        loadModule(dom);
-        dom.listsSection.classList.remove('is-muted');
+        loaded.exports.applyWorkZone('organizing');
         dispatchInteraction(dom.proposalButton, 'focusin', dom.root);
 
-        assert.equal(dom.listsSection.classList.contains('is-muted'), true);
+        assert.equal(dom.listsBody.classList.contains('is-collapsed'), true);
         assert.equal(dom.proposal.classList.contains('is-muted'), false);
     });
 
@@ -308,7 +424,7 @@ describe('executive-lists-focus-module MC6', () => {
         var dom = buildFocusDom();
         var loaded = loadModule(dom);
 
-        dom.listsSection.classList.remove('is-muted');
+        loaded.exports.applyWorkZone('organizing');
 
         var event = {
             target: dom.outside,
@@ -320,8 +436,8 @@ describe('executive-lists-focus-module MC6', () => {
             handler(event);
         });
 
-        assert.equal(dom.listsSection.classList.contains('is-muted'), false);
-        assert.equal(loaded.workZoneCalls.length, 0);
+        assert.equal(dom.root.getAttribute('data-work-zone'), 'organizing');
+        assert.equal(loaded.workZoneCalls.length, 1);
     });
 
     it('setMuted alterna clase is-muted', () => {
