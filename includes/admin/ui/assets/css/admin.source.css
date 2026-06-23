@@ -163,12 +163,16 @@
         opacity: 0.50;
     }
 
-    .aa-lists-header-chevron {
-        transition: transform 0.18s ease-in-out;
+    #aa-lists-header-toggle {
+        transition: opacity 0.18s ease-in-out;
     }
 
-    [data-work-zone="organizing"] .aa-lists-header-chevron {
-        transform: rotate(180deg);
+    #aa-lists-header-toggle[aria-expanded="false"] {
+        opacity: 0.50;
+    }
+
+    #aa-lists-header-toggle[aria-expanded="true"] .aa-lists-header-chevron {
+        display: none;
     }
 
     #aa-lists-body {
@@ -672,4 +676,17 @@
 .aa-unread-bell {
     top: 7px;
     right: 5px;
+}
+
+/* Ejecutor — header actions apiladas en pantallas estrechas (MC6 polish) */
+@media (max-width: 639px) {
+    #aa-executive-header-actions.aa-executive-header-actions {
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.25rem;
+    }
+
+    #aa-executive-header-actions [data-executive-focus-action="change_focus"] {
+        order: -1;
+    }
 }

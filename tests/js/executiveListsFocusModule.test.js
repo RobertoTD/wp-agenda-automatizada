@@ -298,11 +298,14 @@ describe('executive-lists-focus-module MC6 / MC-UX-G MC1', () => {
         assert.match(css, /#aa-executive-proposal[\s\S]*transition:\s*opacity 0\.18s ease-in-out/);
         assert.match(css, /#aa-executive-proposal\.is-muted[\s\S]*opacity:\s*0\.50/);
         assert.match(css, /#aa-lists-body\.is-collapsed[\s\S]*max-height:\s*0/);
-        assert.match(css, /\[data-work-zone="organizing"\][\s\S]*\.aa-lists-header-chevron/);
+        assert.match(css, /#aa-lists-header-toggle\[aria-expanded="false"\][\s\S]*opacity:\s*0\.50/);
+        assert.match(css, /#aa-lists-header-toggle\[aria-expanded="true"\][\s\S]*\.aa-lists-header-chevron[\s\S]*display:\s*none/);
         assert.match(css, /\.aa-executive-status-dot/);
         assert.doesNotMatch(css, /#aa-lists-section\.is-muted/);
         assert.doesNotMatch(css, /#aa-lists-section[\s\S]*pointer-events:\s*none/);
         assert.doesNotMatch(css, /#aa-executive-proposal[\s\S]*pointer-events:\s*none/);
+        assert.match(css, /@media \(max-width: 639px\)[\s\S]*#aa-executive-header-actions\.aa-executive-header-actions[\s\S]*flex-direction:\s*column/);
+        assert.match(css, /\[data-executive-focus-action="change_focus"\][\s\S]*order:\s*-1/);
     });
 
     it('estado inicial mantiene body colapsado y propuesta activa', () => {
@@ -563,7 +566,54 @@ describe('executive-lists-focus-module MC-UX-G MC3 wheel', () => {
         assert.equal(loaded.workZoneCalls.length, 0);
     });
 
-    it('wheel hacia arriba en organizing no activa executive aunque acumule delta', () => {
+    it('stepWheelGesture organizing atTop con bucket negativo suficiente devuelve executive', () => {
+        var dom = buildFocusDom();
+        var api = loadModule(dom).exports;
+
+        var first = api.stepWheelGesture({
+            deltaY: -75,
+            now: 1000,
+            zone: 'organizing',
+            bucket: 0,
+            bucketUpdatedAt: 1000,
+            cooldownUntil: 0,
+            atTop: true
+        });
+
+        assert.equal(first.nextZone, null);
+        assert.equal(first.zone, 'organizing');
+
+        var second = api.stepWheelGesture({
+            deltaY: -75,
+            now: 1100,
+            zone: 'organizing',
+            bucket: first.bucket,
+            bucketUpdatedAt: first.bucketUpdatedAt,
+            cooldownUntil: first.cooldownUntil,
+            atTop: true
+        });
+
+        assert.equal(second.nextZone, 'executive');
+        assert.equal(second.zone, 'executive');
+    });
+
+    it('wheel hacia arriba acumulado en organizing en top estricto activa executive', () => {
+        var dom = buildFocusDom();
+        var loaded = loadModule(dom, { pageYOffset: 0, proposalTop: 0 });
+
+        loaded.exports.applyWorkZone('organizing');
+        loaded.workZoneCalls.length = 0;
+
+        dispatchWheel(dom.root, -75);
+        dispatchWheel(dom.root, -75);
+
+        assert.equal(loaded.exports.getActiveWorkZone(), 'executive');
+        assert.equal(dom.listsBody.classList.contains('is-collapsed'), true);
+        assert.equal(dom.proposal.classList.contains('is-muted'), false);
+        assert.deepEqual(loaded.workZoneCalls, ['executive']);
+    });
+
+    it('wheel hacia arriba en organizing sin atTop no activa executive aunque acumule delta', () => {
         var dom = buildFocusDom();
         var loaded = loadModule(dom);
         var api = loaded.exports;

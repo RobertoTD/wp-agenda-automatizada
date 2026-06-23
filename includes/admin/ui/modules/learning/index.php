@@ -58,7 +58,7 @@ $executive_proposal_module_js = plugin_dir_url(__FILE__) . 'executive-proposal-m
         <header id="aa-lists-header" class="aa-lists-header mb-3 flex items-start justify-between gap-3">
             <button type="button"
                 id="aa-lists-header-toggle"
-                class="aa-lists-header-toggle min-w-0 flex flex-1 items-center gap-2 text-left rounded-lg -ml-1 px-1 py-0.5 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300/60"
+                class="aa-lists-header-toggle min-w-0 flex flex-1 items-center gap-2 text-left rounded-lg -ml-1 px-1 py-0.5 focus:outline-none"
                 aria-expanded="false"
                 aria-controls="aa-lists-body">
                 <span class="aa-lists-header-label text-lg font-semibold text-gray-900">Organizador · Listas de tareas</span>

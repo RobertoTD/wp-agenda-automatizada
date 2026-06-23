@@ -111,7 +111,8 @@
      *   zone:'executive'|'organizing',
      *   bucket:number,
      *   bucketUpdatedAt:number,
-     *   cooldownUntil:number
+     *   cooldownUntil:number,
+     *   atTop?:boolean
      * }} options
      * @returns {{
      *   zone:'executive'|'organizing',
@@ -154,6 +155,13 @@
 
         if (bucket >= WHEEL_DELTA_THRESHOLD && zone === 'executive') {
             nextZone = 'organizing';
+        }
+
+        if (!nextZone
+            && bucket <= -WHEEL_DELTA_THRESHOLD
+            && zone === 'organizing'
+            && options.atTop === true) {
+            nextZone = 'executive';
         }
 
         if (nextZone && nextZone !== zone) {
@@ -304,7 +312,8 @@
             zone: activeWorkZone,
             bucket: wheelDeltaBucket,
             bucketUpdatedAt: wheelBucketUpdatedAt,
-            cooldownUntil: wheelTransitionCooldownUntil
+            cooldownUntil: wheelTransitionCooldownUntil,
+            atTop: isStrictTopTouched(getWheelMetrics())
         });
 
         wheelDeltaBucket = result.bucket;
