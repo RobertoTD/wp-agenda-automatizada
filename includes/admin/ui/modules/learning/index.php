@@ -22,6 +22,7 @@ $task_options_js = plugin_dir_url(__FILE__) . 'task-options-module.js';
 $list_options_js = plugin_dir_url(__FILE__) . 'list-options-module.js';
 $list_edit_js = plugin_dir_url(__FILE__) . 'list-edit-module.js';
 $restore_archived_tasks_js = plugin_dir_url(__FILE__) . 'restore-archived-tasks-module.js';
+$tasks_modal_ui_js = plugin_dir_url(__FILE__) . 'tasks-modal-ui.js';
 $executive_lists_focus_js = plugin_dir_url(__FILE__) . 'executive-lists-focus-module.js';
 $executive_proposal_service_js = AA_PLUGIN_URL . 'assets/js/services/executiveProposalService.js';
 $executive_proposal_renderer_js = AA_PLUGIN_URL . 'assets/js/ui/executiveProposalRenderer.js';
@@ -152,13 +153,13 @@ $executive_proposal_module_js = plugin_dir_url(__FILE__) . 'executive-proposal-m
 <!-- Modal: restaurar listas archivadas -->
 <div id="aa-restore-archived-lists-modal" class="fixed inset-0 z-[300] hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-black/40" data-aa-tasks-modal-close="aa-restore-archived-lists-modal"></div>
-    <div class="relative z-10 flex min-h-full items-center justify-center p-4">
-        <div class="w-full max-w-md bg-white rounded-xl shadow-lg border border-gray-200">
-            <div class="px-5 py-4 border-b border-gray-100">
+    <div class="aa-tasks-modal-frame">
+        <div class="aa-tasks-modal-panel">
+            <div class="px-5 py-4 border-b border-gray-100 shrink-0">
                 <h4 class="text-lg font-semibold text-gray-900">Desarchivar listas</h4>
                 <p class="text-sm text-gray-500 mt-1">Elige una lista archivada para volver a mostrarla en tus listas activas.</p>
             </div>
-            <div class="px-5 py-4 space-y-4">
+            <div class="aa-tasks-modal-scroll space-y-4">
                 <p id="aa-restore-archived-lists-loading" class="hidden text-sm text-gray-500">Cargando listas archivadas…</p>
                 <p id="aa-restore-archived-lists-empty" class="hidden text-sm text-gray-500">No hay listas archivadas para restaurar.</p>
                 <div id="aa-restore-archived-lists-select-wrap">
@@ -184,13 +185,13 @@ $executive_proposal_module_js = plugin_dir_url(__FILE__) . 'executive-proposal-m
 <!-- Modal: desarchivar tareas archivadas de una lista -->
 <div id="aa-restore-archived-tasks-modal" class="fixed inset-0 z-[300] hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-black/40" data-aa-tasks-modal-close="aa-restore-archived-tasks-modal"></div>
-    <div class="relative z-10 flex min-h-full items-center justify-center p-4">
-        <div class="w-full max-w-md bg-white rounded-xl shadow-lg border border-gray-200">
-            <div class="px-5 py-4 border-b border-gray-100">
+    <div class="aa-tasks-modal-frame">
+        <div class="aa-tasks-modal-panel">
+            <div class="px-5 py-4 border-b border-gray-100 shrink-0">
                 <h4 class="text-lg font-semibold text-gray-900">Desarchivar tareas</h4>
                 <p class="text-sm text-gray-500 mt-1">Elige una tarea archivada de esta lista para volver a mostrarla.</p>
             </div>
-            <div class="px-5 py-4 space-y-4">
+            <div class="aa-tasks-modal-scroll space-y-4">
                 <input type="hidden" id="aa-restore-archived-tasks-form-list-id" value="">
                 <p id="aa-restore-archived-tasks-loading" class="hidden text-sm text-gray-500">Cargando tareas archivadas…</p>
                 <p id="aa-restore-archived-tasks-empty" class="hidden text-sm text-gray-500">No hay tareas archivadas en esta lista.</p>
@@ -217,13 +218,13 @@ $executive_proposal_module_js = plugin_dir_url(__FILE__) . 'executive-proposal-m
 <!-- Modal: editar lista -->
 <div id="aa-task-list-edit-modal" class="fixed inset-0 z-[300] hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-black/40" data-aa-tasks-modal-close="aa-task-list-edit-modal"></div>
-    <div class="relative z-10 flex min-h-full items-center justify-center p-4">
-        <div class="w-full max-w-md bg-white rounded-xl shadow-lg border border-gray-200">
-            <div class="px-5 py-4 border-b border-gray-100">
+    <div class="aa-tasks-modal-frame">
+        <div class="aa-tasks-modal-panel">
+            <div class="px-5 py-4 border-b border-gray-100 shrink-0">
                 <h4 class="text-lg font-semibold text-gray-900">Editar lista</h4>
                 <p class="text-sm text-gray-500 mt-1">Actualiza el nombre, objetivo o importancia de tu lista.</p>
             </div>
-            <form id="aa-task-list-edit-form" class="px-5 py-4 space-y-4">
+            <form id="aa-task-list-edit-form" class="aa-tasks-modal-scroll space-y-4">
                 <input type="hidden" id="aa-task-list-edit-form-list-id" name="list_id" value="">
                 <div>
                     <label for="aa-task-list-edit-form-title" class="block text-sm font-medium text-gray-700 mb-1">Nombre de la lista</label>
@@ -258,13 +259,13 @@ $executive_proposal_module_js = plugin_dir_url(__FILE__) . 'executive-proposal-m
 <!-- Modal: nueva lista -->
 <div id="aa-task-list-modal" class="fixed inset-0 z-[300] hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-black/40" data-aa-tasks-modal-close="aa-task-list-modal"></div>
-    <div class="relative z-10 flex min-h-full items-center justify-center p-4">
-        <div class="w-full max-w-md bg-white rounded-xl shadow-lg border border-gray-200">
-            <div class="px-5 py-4 border-b border-gray-100">
+    <div class="aa-tasks-modal-frame">
+        <div class="aa-tasks-modal-panel">
+            <div class="px-5 py-4 border-b border-gray-100 shrink-0">
                 <h4 class="text-lg font-semibold text-gray-900">Nueva lista</h4>
                 <p class="text-sm text-gray-500 mt-1">Define un objetivo común para agrupar tareas.</p>
             </div>
-            <form id="aa-task-list-form" class="px-5 py-4 space-y-4">
+            <form id="aa-task-list-form" class="aa-tasks-modal-scroll space-y-4">
                 <div>
                     <label for="aa-task-list-form-title" class="block text-sm font-medium text-gray-700 mb-1">Nombre de la lista</label>
                     <input type="text" id="aa-task-list-form-title" name="title" required maxlength="255"
@@ -298,12 +299,12 @@ $executive_proposal_module_js = plugin_dir_url(__FILE__) . 'executive-proposal-m
 <!-- Modal: nueva tarea -->
 <div id="aa-task-modal" class="fixed inset-0 z-[300] hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-black/40" data-aa-tasks-modal-close="aa-task-modal"></div>
-    <div class="relative z-10 flex min-h-full items-center justify-center p-4">
-        <div class="w-full max-w-md bg-white rounded-xl shadow-lg border border-gray-200">
-            <div class="px-5 py-4 border-b border-gray-100">
+    <div class="aa-tasks-modal-frame">
+        <div class="aa-tasks-modal-panel">
+            <div class="px-5 py-4 border-b border-gray-100 shrink-0">
                 <h4 class="text-lg font-semibold text-gray-900">Nueva tarea</h4>
             </div>
-            <form id="aa-task-form" class="px-5 py-4 space-y-4">
+            <form id="aa-task-form" class="aa-tasks-modal-scroll space-y-4">
                 <div>
                     <label for="aa-task-form-list-id" class="block text-sm font-medium text-gray-700 mb-1">Lista</label>
                     <select id="aa-task-form-list-id" name="list_id" required
@@ -365,12 +366,12 @@ $executive_proposal_module_js = plugin_dir_url(__FILE__) . 'executive-proposal-m
 <!-- Modal: editar tarea -->
 <div id="aa-task-edit-modal" class="fixed inset-0 z-[300] hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-black/40" data-aa-tasks-modal-close="aa-task-edit-modal"></div>
-    <div class="relative z-10 flex min-h-full items-center justify-center p-4">
-        <div class="w-full max-w-md bg-white rounded-xl shadow-lg border border-gray-200">
-            <div class="px-5 py-4 border-b border-gray-100">
+    <div class="aa-tasks-modal-frame">
+        <div class="aa-tasks-modal-panel">
+            <div class="px-5 py-4 border-b border-gray-100 shrink-0">
                 <h4 class="text-lg font-semibold text-gray-900">Editar tarea</h4>
             </div>
-            <form id="aa-task-edit-form" class="px-5 py-4 space-y-4">
+            <form id="aa-task-edit-form" class="aa-tasks-modal-scroll space-y-4">
                 <input type="hidden" id="aa-task-edit-form-task-id" name="task_id" value="">
                 <div>
                     <label for="aa-task-edit-form-title" class="block text-sm font-medium text-gray-700 mb-1">Tarea</label>
@@ -462,6 +463,7 @@ $executive_proposal_module_js = plugin_dir_url(__FILE__) . 'executive-proposal-m
 <script src="<?php echo esc_url($executive_proposal_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($executive_proposal_renderer_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($executive_proposal_module_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($tasks_modal_ui_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($tasks_board_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($executable_lists_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($executable_lists_renderer_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>

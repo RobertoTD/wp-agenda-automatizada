@@ -309,6 +309,10 @@
 
         if (modal) {
             modal.classList.remove('hidden');
+
+            if (globalRoot.AATasksModalUi && typeof globalRoot.AATasksModalUi.onLearningModalOpened === 'function') {
+                globalRoot.AATasksModalUi.onLearningModalOpened();
+            }
         }
     }
 
@@ -317,6 +321,10 @@
 
         if (modal) {
             modal.classList.add('hidden');
+        }
+
+        if (globalRoot.AATasksModalUi && typeof globalRoot.AATasksModalUi.onLearningModalClosed === 'function') {
+            globalRoot.AATasksModalUi.onLearningModalClosed();
         }
 
         if (modalId === 'aa-task-modal') {

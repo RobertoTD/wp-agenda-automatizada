@@ -65,6 +65,10 @@
         if (modal) {
             modal.classList.remove('hidden');
             modal.setAttribute('aria-hidden', 'false');
+
+            if (globalRoot.AATasksModalUi && typeof globalRoot.AATasksModalUi.onLearningModalOpened === 'function') {
+                globalRoot.AATasksModalUi.onLearningModalOpened();
+            }
         }
     }
 
@@ -74,6 +78,10 @@
         if (modal) {
             modal.classList.add('hidden');
             modal.setAttribute('aria-hidden', 'true');
+        }
+
+        if (globalRoot.AATasksModalUi && typeof globalRoot.AATasksModalUi.onLearningModalClosed === 'function') {
+            globalRoot.AATasksModalUi.onLearningModalClosed();
         }
 
         if (modalId === MODAL_ID) {
