@@ -6,6 +6,8 @@ const path = require('node:path');
 const fs = require('node:fs');
 
 const modulePath = path.join(__dirname, '../../includes/admin/ui/modules/learning/executive-proposal-module.js');
+const runnerPath = path.join(__dirname, '../../assets/js/services/executiveClientActionRunner.js');
+require(runnerPath);
 const hooks = require(modulePath);
 
 function makeClassList(initialClasses) {
@@ -86,6 +88,7 @@ describe('executive-proposal-module MC2/MC3', () => {
     let originalBoard;
     let originalFeed;
     let originalHandlers;
+    let originalRunner;
     let originalLocation;
     let serviceCalls;
     let postCalls;
@@ -102,6 +105,7 @@ describe('executive-proposal-module MC2/MC3', () => {
         originalBoard = globalThis.AATasksBoard;
         originalFeed = globalThis.AAExecutableUserListsVisibleFeed;
         originalHandlers = globalThis.LearningActionHandlers;
+        originalRunner = globalThis.AAExecutiveClientActionRunner;
         originalLocation = globalThis.location;
         serviceCalls = 0;
         postCalls = 0;
@@ -246,6 +250,12 @@ describe('executive-proposal-module MC2/MC3', () => {
             delete globalThis.LearningActionHandlers;
         } else {
             globalThis.LearningActionHandlers = originalHandlers;
+        }
+
+        if (originalRunner === undefined) {
+            delete globalThis.AAExecutiveClientActionRunner;
+        } else {
+            globalThis.AAExecutiveClientActionRunner = originalRunner;
         }
 
         if (originalLocation === undefined) {

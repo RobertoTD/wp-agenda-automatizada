@@ -140,10 +140,6 @@
         return globalRoot.AAExecutiveProposalRenderer || null;
     }
 
-    function getHandlers() {
-        return globalRoot.LearningActionHandlers || null;
-    }
-
     /**
      * @returns {Promise<void>}
      */
@@ -270,79 +266,20 @@
      * @returns {Promise<void>}
      */
     function runClientAction(clientAction) {
-        if (!clientAction || typeof clientAction !== 'object') {
+        var runner = globalRoot.AAExecutiveClientActionRunner;
+
+        if (!runner || typeof runner.run !== 'function') {
             return Promise.resolve();
         }
 
-        var type = String(clientAction.type || '');
-
-        if (type === 'navigate') {
-            var url = String(clientAction.url || '').trim();
-
-            if (url !== '') {
-                globalRoot.location.href = url;
-            }
-
-            return Promise.resolve();
-        }
-
-        if (type === 'handler') {
-            var handlers = getHandlers();
-            var handlerName = String(clientAction.handler || '').trim();
-            var originKey = String(clientAction.origin_key || '').trim();
-            var taskId = String(clientAction.task_id || '').trim();
-            var source = String(clientAction.source || 'system').trim() || 'system';
-            var label = String(clientAction.label || '').trim();
-
-            if (!handlers || typeof handlers.run !== 'function' || handlerName === '') {
-                return Promise.resolve();
-            }
-
-            var item = {
-                id: taskId,
-                origin_key: originKey,
-                source: source,
-                primary_action: {
-                    type: 'handler',
-                    label: label,
-                    handler: handlerName
-                },
-                visible_actions: [{
-                    type: 'handler',
-                    label: label,
-                    handler: handlerName
-                }]
-            };
-            var action = {
-                type: 'handler',
-                label: label,
-                handler: handlerName
-            };
-
-            if (typeof handlers.isAvailable === 'function' && handlers.isAvailable(action, item) !== true) {
-                return Promise.resolve();
-            }
-
-            return Promise.resolve(handlers.run(action, item, {
-                key: originKey,
-                item: item,
-                showError: showProposalError
-            }))
-                .then(function (result) {
-                    if (result && result.reload === true) {
-                        return syncListsAfterExecutiveAction().then(function () {
-                            return reloadExecutiveProposalBestEffort();
-                        });
-                    }
-
-                    return undefined;
-                })
-                .catch(function (err) {
-                    showProposalError((err && err.message) ? err.message : 'No se pudo ejecutar la acción.');
+        return runner.run(clientAction, {
+            showError: showProposalError,
+            onReload: function () {
+                return syncListsAfterExecutiveAction().then(function () {
+                    return reloadExecutiveProposalBestEffort();
                 });
-        }
-
-        return Promise.resolve();
+            }
+        });
     }
 
     /**

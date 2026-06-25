@@ -25,6 +25,7 @@ $restore_archived_tasks_js = plugin_dir_url(__FILE__) . 'restore-archived-tasks-
 $tasks_modal_ui_js = plugin_dir_url(__FILE__) . 'tasks-modal-ui.js';
 $executive_lists_focus_js = plugin_dir_url(__FILE__) . 'executive-lists-focus-module.js';
 $executive_proposal_service_js = AA_PLUGIN_URL . 'assets/js/services/executiveProposalService.js';
+$executive_client_action_runner_js = AA_PLUGIN_URL . 'assets/js/services/executiveClientActionRunner.js';
 $executive_proposal_renderer_js = AA_PLUGIN_URL . 'assets/js/ui/executiveProposalRenderer.js';
 $executive_proposal_module_js = plugin_dir_url(__FILE__) . 'executive-proposal-module.js';
 ?>
@@ -462,6 +463,7 @@ $executive_proposal_module_js = plugin_dir_url(__FILE__) . 'executive-proposal-m
 <script src="<?php echo esc_url($tasks_renderer_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($executive_proposal_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($executive_proposal_renderer_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($executive_client_action_runner_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($executive_proposal_module_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($tasks_modal_ui_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($tasks_board_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>

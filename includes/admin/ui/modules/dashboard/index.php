@@ -363,12 +363,18 @@ $executor_module_url = admin_url('admin-post.php?action=aa_iframe_content&module
 
 <!-- Dashboard Service (consumes aa_get_citas_por_dia, must load before module) -->
 <?php
+$learning_handlers_js = plugin_dir_url(__DIR__ . '/../learning/index.php') . 'learning-action-handlers.js';
 $executive_proposal_service_js = AA_PLUGIN_URL . 'assets/js/services/executiveProposalService.js';
+$executive_client_action_runner_js = AA_PLUGIN_URL . 'assets/js/services/executiveClientActionRunner.js';
 $executive_proposal_renderer_js = AA_PLUGIN_URL . 'assets/js/ui/executiveProposalRenderer.js';
+$tasks_service_js = AA_PLUGIN_URL . 'assets/js/services/tasksService.js';
 $dashboard_service_js = AA_PLUGIN_URL . 'assets/js/services/dashboardService.js';
 $dashboard_module_js = $plugin_url . 'dashboard-module.js';
 ?>
 <script src="<?php echo esc_url($executive_proposal_service_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
-<script src="<?php echo esc_url($executive_proposal_renderer_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($dashboard_service_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($tasks_service_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($learning_handlers_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($executive_client_action_runner_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($executive_proposal_renderer_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($dashboard_module_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>

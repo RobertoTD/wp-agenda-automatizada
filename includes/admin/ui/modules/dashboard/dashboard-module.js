@@ -703,6 +703,55 @@
         });
     }
 
+    function renderCurrentTaskFromProposal(payload) {
+        var contentEl = document.getElementById(CURRENT_TASK_IDS.content);
+        var renderer = window.AAExecutiveProposalRenderer;
+
+        if (!renderer || typeof renderer.buildProposalParts !== 'function'
+            || typeof renderer.renderCurrentTask !== 'function'
+            || !payload || typeof payload !== 'object') {
+            return false;
+        }
+
+        var parts = renderer.buildProposalParts(payload);
+        var currentTask = findCurrentExecutiveTask(payload);
+
+        if (parts.isEmpty || !currentTask) {
+            if (contentEl) contentEl.innerHTML = '';
+            setCurrentTaskVisible('empty');
+            return true;
+        }
+
+        if (contentEl) {
+            contentEl.innerHTML = renderer.renderCurrentTask(
+                currentTask,
+                parts.focusListTitle,
+                { wrapper: 'div' }
+            );
+        }
+
+        setCurrentTaskVisible('content');
+        return true;
+    }
+
+    function runDashboardClientAction(clientAction) {
+        var runner = window.AAExecutiveClientActionRunner;
+
+        if (!runner || typeof runner.run !== 'function') {
+            return Promise.resolve();
+        }
+
+        return runner.run(clientAction, {
+            showError: function (message) {
+                console.error('[DashboardModule] Executive client action error:', message);
+                setCurrentTaskVisible('error');
+            },
+            onReload: function () {
+                return loadCurrentTaskCard();
+            }
+        });
+    }
+
     function handleDashboardExecutiveAction(button) {
         var service = window.AAExecutiveProposalService;
         var taskId = button.getAttribute('data-executive-task-id') || '';
@@ -711,26 +760,34 @@
         if (!service || typeof service.postExecutiveAction !== 'function') {
             console.warn('[DashboardModule] AAExecutiveProposalService not available for executive action');
             setCurrentTaskVisible('error');
-            return;
+            return Promise.resolve();
         }
 
         if (taskId === '' || actionKey === '') {
-            return;
+            return Promise.resolve();
         }
 
         if (currentTaskActionPending) {
-            return;
+            return Promise.resolve();
         }
 
         currentTaskActionPending = true;
         setDashboardExecutiveButtonsDisabled(true);
 
-        service.postExecutiveAction({
+        return service.postExecutiveAction({
             taskId: taskId,
             actionKey: actionKey
         })
-            .then(function () {
-                loadCurrentTaskCard();
+            .then(function (response) {
+                if (response && response.proposal && typeof response.proposal === 'object') {
+                    if (!renderCurrentTaskFromProposal(response.proposal)) {
+                        return loadCurrentTaskCard();
+                    }
+                } else {
+                    return loadCurrentTaskCard();
+                }
+
+                return runDashboardClientAction(response && response.client_action);
             })
             .catch(function (err) {
                 console.error('[DashboardModule] Error executing executive action:', err);
@@ -774,44 +831,30 @@
         var renderer = window.AAExecutiveProposalRenderer;
 
         if (!document.getElementById(CURRENT_TASK_IDS.loading)) {
-            return;
+            return Promise.resolve();
         }
 
         if (!service || typeof service.getExecutiveProposal !== 'function') {
             console.warn('[DashboardModule] AAExecutiveProposalService not available for current task');
             setCurrentTaskVisible('error');
-            return;
+            return Promise.resolve();
         }
 
         if (!renderer || typeof renderer.buildProposalParts !== 'function'
             || typeof renderer.renderCurrentTask !== 'function') {
             console.warn('[DashboardModule] AAExecutiveProposalRenderer not available for current task');
             setCurrentTaskVisible('error');
-            return;
+            return Promise.resolve();
         }
 
         setCurrentTaskVisible('loading');
 
-        service.getExecutiveProposal()
+        return service.getExecutiveProposal()
             .then(function (payload) {
-                var parts = renderer.buildProposalParts(payload);
-                var currentTask = findCurrentExecutiveTask(payload);
-
-                if (parts.isEmpty || !currentTask) {
+                if (!renderCurrentTaskFromProposal(payload)) {
                     if (contentEl) contentEl.innerHTML = '';
-                    setCurrentTaskVisible('empty');
-                    return;
+                    setCurrentTaskVisible('error');
                 }
-
-                if (contentEl) {
-                    contentEl.innerHTML = renderer.renderCurrentTask(
-                        currentTask,
-                        parts.focusListTitle,
-                        { wrapper: 'div' }
-                    );
-                }
-
-                setCurrentTaskVisible('content');
             })
             .catch(function (err) {
                 console.error('[DashboardModule] Error loading current task:', err);
@@ -946,6 +989,21 @@
         loadWeeklyCard();
 
         loadAlertsCard();
+    }
+
+    var moduleExports = {
+        handleDashboardExecutiveAction: handleDashboardExecutiveAction,
+        renderCurrentTaskFromProposal: renderCurrentTaskFromProposal,
+        runDashboardClientAction: runDashboardClientAction,
+        loadCurrentTaskCard: loadCurrentTaskCard
+    };
+
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = moduleExports;
+    }
+
+    if (typeof document === 'undefined') {
+        return;
     }
 
     document.addEventListener('DOMContentLoaded', function () {
