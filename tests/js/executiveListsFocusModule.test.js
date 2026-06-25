@@ -676,7 +676,7 @@ describe('executive-lists-focus-module MC-UX-G MC3 wheel', () => {
         assert.equal(blocked.zone, 'executive');
     });
 
-    it('isStrictTopTouched solo acepta top real del viewport', () => {
+    it('isStrictTopTouched solo acepta top real del documento', () => {
         var dom = buildFocusDom();
         var loaded = loadModule(dom);
         var api = loaded.exports;
@@ -684,8 +684,22 @@ describe('executive-lists-focus-module MC-UX-G MC3 wheel', () => {
         assert.equal(api.isStrictTopTouched({ scrollY: 0, proposalTop: 500 }), true);
         assert.equal(api.isStrictTopTouched({ scrollY: 2, proposalTop: 500 }), true);
         assert.equal(api.isStrictTopTouched({ scrollY: 8, proposalTop: 500 }), false);
-        assert.equal(api.isStrictTopTouched({ scrollY: 500, proposalTop: 0 }), true);
+        assert.equal(api.isStrictTopTouched({ scrollY: 500, proposalTop: 0 }), false);
         assert.equal(api.isStrictTopTouched({ scrollY: 500, proposalTop: -500 }), false);
+    });
+
+    it('wheel hacia arriba en organizing con proposalTop cero pero scrollY alto no activa executive', () => {
+        var dom = buildFocusDom();
+        var loaded = loadModule(dom, { pageYOffset: 200, proposalTop: 0 });
+
+        loaded.exports.applyWorkZone('organizing');
+        loaded.workZoneCalls.length = 0;
+
+        dispatchWheel(dom.root, -75);
+        dispatchWheel(dom.root, -75);
+
+        assert.equal(loaded.exports.getActiveWorkZone(), 'organizing');
+        assert.equal(loaded.workZoneCalls.length, 0);
     });
 
     it('regresión click manual sigue funcionando tras bind wheel', () => {
@@ -754,6 +768,35 @@ describe('executive-lists-focus-module MC-UX-G scroll top arrival', () => {
         assert.equal(api.applyStrictTopArrival({ scrollY: 600, proposalTop: -500 }), false);
         assert.equal(api.applyStrictTopArrival({ scrollY: 600, proposalTop: -500 }), false);
         assert.equal(api.getActiveWorkZone(), 'organizing');
+    });
+
+    it('organizing con proposalTop cerca de 0 pero scrollY alto permanece organizing', () => {
+        var dom = buildFocusDom();
+        var loaded = loadModule(dom, { pageYOffset: 80, proposalTop: 12 });
+        var api = loaded.exports;
+
+        api.applyWorkZone('organizing');
+        loaded.workZoneCalls.length = 0;
+
+        assert.equal(api.applyStrictTopArrival({ scrollY: 80, proposalTop: 12 }), false);
+        assert.equal(api.applyStrictTopArrival({ scrollY: 120, proposalTop: 0 }), false);
+        assert.equal(api.applyStrictTopArrival({ scrollY: 140, proposalTop: -2 }), false);
+        assert.equal(api.getActiveWorkZone(), 'organizing');
+        assert.equal(loaded.workZoneCalls.length, 0);
+    });
+
+    it('organizing con scrollY real en top cambia a executive', () => {
+        var dom = buildFocusDom();
+        var loaded = loadModule(dom, { pageYOffset: 120, proposalTop: -40 });
+        var api = loaded.exports;
+
+        api.applyWorkZone('organizing');
+        loaded.workZoneCalls.length = 0;
+
+        assert.equal(api.applyStrictTopArrival({ scrollY: 120, proposalTop: -40 }), false);
+        assert.equal(api.applyStrictTopArrival({ scrollY: 2, proposalTop: 80 }), true);
+        assert.equal(api.getActiveWorkZone(), 'executive');
+        assert.deepEqual(loaded.workZoneCalls, ['executive']);
     });
 
     it('llegada al top no depende del cooldown wheel', () => {

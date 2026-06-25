@@ -16,8 +16,6 @@
     var WHEEL_BUCKET_RESET_MS = 400;
     var WHEEL_TRANSITION_COOLDOWN_MS = 350;
     var EXECUTIVE_STRICT_TOP_SCROLL_Y_MAX = 2;
-    var EXECUTIVE_STRICT_TOP_PROPOSAL_MIN = -2;
-    var EXECUTIVE_STRICT_TOP_PROPOSAL_MAX = 2;
     var isBound = false;
     var activeWorkZone = 'executive';
     var wheelDeltaBucket = 0;
@@ -92,16 +90,8 @@
     function isStrictTopTouched(metrics) {
         var data = metrics || getWheelMetrics();
         var scrollY = typeof data.scrollY === 'number' ? data.scrollY : 0;
-        var proposalTop = typeof data.proposalTop === 'number'
-            ? data.proposalTop
-            : Number.POSITIVE_INFINITY;
 
-        if (scrollY <= EXECUTIVE_STRICT_TOP_SCROLL_Y_MAX) {
-            return true;
-        }
-
-        return proposalTop >= EXECUTIVE_STRICT_TOP_PROPOSAL_MIN
-            && proposalTop <= EXECUTIVE_STRICT_TOP_PROPOSAL_MAX;
+        return scrollY <= EXECUTIVE_STRICT_TOP_SCROLL_Y_MAX;
     }
 
     /**
@@ -362,8 +352,6 @@
         WHEEL_BUCKET_RESET_MS: WHEEL_BUCKET_RESET_MS,
         WHEEL_TRANSITION_COOLDOWN_MS: WHEEL_TRANSITION_COOLDOWN_MS,
         EXECUTIVE_STRICT_TOP_SCROLL_Y_MAX: EXECUTIVE_STRICT_TOP_SCROLL_Y_MAX,
-        EXECUTIVE_STRICT_TOP_PROPOSAL_MIN: EXECUTIVE_STRICT_TOP_PROPOSAL_MIN,
-        EXECUTIVE_STRICT_TOP_PROPOSAL_MAX: EXECUTIVE_STRICT_TOP_PROPOSAL_MAX,
         isStrictTopTouched: isStrictTopTouched,
         setMuted: setMuted,
         setListsBodyCollapsed: setListsBodyCollapsed,
