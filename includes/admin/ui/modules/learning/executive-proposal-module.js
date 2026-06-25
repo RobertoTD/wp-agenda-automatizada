@@ -219,6 +219,39 @@
         });
     }
 
+    /**
+     * @param {HTMLElement} button
+     * @param {boolean} pending
+     */
+    function setExecutiveButtonPending(button, pending) {
+        if (!button) {
+            return;
+        }
+
+        button.disabled = !!pending;
+
+        if (pending) {
+            button.classList.add('opacity-60', 'cursor-not-allowed');
+        } else {
+            button.classList.remove('opacity-60', 'cursor-not-allowed');
+        }
+    }
+
+    /**
+     * @param {HTMLElement} button
+     */
+    function clearExecutiveButtonPendingIfPresent(button) {
+        if (!button || typeof document === 'undefined' || typeof document.contains !== 'function') {
+            return;
+        }
+
+        if (!document.contains(button)) {
+            return;
+        }
+
+        setExecutiveButtonPending(button, false);
+    }
+
     function showProposalError(message) {
         var errorEl = document.getElementById('aa-executive-proposal-error');
         setVisible(errorEl, true);
@@ -454,8 +487,7 @@
         }
 
         isActionPending = true;
-        setExecutiveButtonsDisabled(true);
-        setFocusButtonsDisabled(true);
+        setExecutiveButtonPending(button, true);
         clearProposalError();
 
         return service.postFocusAction(focusAction)
@@ -475,8 +507,7 @@
             })
             .finally(function () {
                 isActionPending = false;
-                setExecutiveButtonsDisabled(false);
-                setFocusButtonsDisabled(false);
+                clearExecutiveButtonPendingIfPresent(button);
             });
     }
 

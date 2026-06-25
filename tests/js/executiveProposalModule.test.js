@@ -13,17 +13,24 @@ function makeClassList(initialClasses) {
 
     return {
         classes: classes,
-        add: function (cls) {
-            if (classes.indexOf(cls) === -1) {
-                classes.push(cls);
-            }
-            this.classes = classes;
-        },
-        remove: function (cls) {
-            classes = classes.filter(function (item) {
-                return item !== cls;
+        add: function () {
+            var self = this;
+
+            Array.prototype.forEach.call(arguments, function (cls) {
+                if (classes.indexOf(cls) === -1) {
+                    classes.push(cls);
+                }
             });
-            this.classes = classes;
+            self.classes = classes;
+        },
+        remove: function () {
+            var self = this;
+            var toRemove = Array.prototype.slice.call(arguments);
+
+            classes = classes.filter(function (item) {
+                return toRemove.indexOf(item) === -1;
+            });
+            self.classes = classes;
         },
         contains: function (cls) {
             return classes.indexOf(cls) !== -1;
@@ -759,6 +766,200 @@ describe('executive-proposal-module MC6', () => {
 
     it('expone AAExecutiveProposal.setWorkZone', () => {
         assert.equal(typeof globalThis.AAExecutiveProposal.setWorkZone, 'function');
+    });
+});
+
+describe('executive-proposal-module focus pending visual scope', () => {
+    let originalService;
+    let originalRenderer;
+    let resolveFocusAction;
+    let focusPostCalls;
+    let dom;
+
+    function makeFocusButton(focusAction) {
+        return makeButton({
+            'data-executive-action': null,
+            'data-executive-task-id': null,
+            'data-executive-action-key': null,
+            'data-executive-focus-action': focusAction
+        });
+    }
+
+    function makeProposalRootWithAllButtons(buttons) {
+        return {
+            id: 'aa-executive-proposal',
+            children: buttons,
+            classList: makeClassList([]),
+            contains: function (node) {
+                return buttons.indexOf(node) !== -1;
+            },
+            querySelectorAll: function (selector) {
+                return buttons.filter(function (button) {
+                    if (selector === '[data-executive-action]') {
+                        return button.getAttribute('data-executive-action') != null;
+                    }
+
+                    if (selector === '[data-executive-focus-action]') {
+                        return button.getAttribute('data-executive-focus-action') != null;
+                    }
+
+                    return false;
+                });
+            },
+            addEventListener: function () {}
+        };
+    }
+
+    function buttonHasPendingVisual(button) {
+        return button.disabled === true
+            && button.classList.contains('opacity-60')
+            && button.classList.contains('cursor-not-allowed');
+    }
+
+    beforeEach(() => {
+        originalService = globalThis.AAExecutiveProposalService;
+        originalRenderer = globalThis.AAExecutiveProposalRenderer;
+        focusPostCalls = 0;
+        resolveFocusAction = null;
+
+        dom = {
+            loading: makeElement('aa-executive-proposal-loading', { classes: ['hidden'] }),
+            error: makeElement('aa-executive-proposal-error', { classes: ['hidden'] }),
+            empty: makeElement('aa-executive-empty', { classes: ['hidden'] }),
+            list: makeElement('aa-executive-list')
+        };
+
+        globalThis.document = {
+            contains: function (node) {
+                return dom.proposal && dom.proposal.contains(node);
+            },
+            getElementById: function (id) {
+                if (id === 'aa-executive-proposal') {
+                    return dom.proposal;
+                }
+
+                if (id === 'aa-executive-proposal-loading') {
+                    return dom.loading;
+                }
+
+                if (id === 'aa-executive-proposal-error') {
+                    return dom.error;
+                }
+
+                if (id === 'aa-executive-empty') {
+                    return dom.empty;
+                }
+
+                if (id === 'aa-executive-list') {
+                    return dom.list;
+                }
+
+                return null;
+            }
+        };
+
+        globalThis.AAExecutiveProposalRenderer = {
+            renderProposal: function () {}
+        };
+
+        globalThis.AAExecutiveProposalService = {
+            getExecutiveProposal: function () {
+                return Promise.resolve({ status: 'ready', tasks: [], meta: {} });
+            },
+            postExecutiveAction: function () {
+                return Promise.resolve({ action: {}, proposal: {}, client_action: null });
+            },
+            postFocusAction: function () {
+                focusPostCalls += 1;
+
+                return new Promise(function (resolve) {
+                    resolveFocusAction = resolve;
+                });
+            }
+        };
+    });
+
+    afterEach(() => {
+        globalThis.AAExecutiveProposalService = originalService;
+        globalThis.AAExecutiveProposalRenderer = originalRenderer;
+    });
+
+    it('focus click aplica pending visual solo al botón clicado', async () => {
+        var clicked = makeFocusButton('change_focus');
+        var otherFocus = makeFocusButton('previous_focus');
+        var executiveButton = makeButton({ 'data-executive-action-key': 'dismiss' });
+
+        dom.proposal = makeProposalRootWithAllButtons([clicked, otherFocus, executiveButton]);
+
+        var pending = hooks.handleFocusActionClick(clicked);
+
+        assert.equal(focusPostCalls, 1);
+        assert.equal(buttonHasPendingVisual(clicked), true);
+        assert.equal(buttonHasPendingVisual(otherFocus), false);
+        assert.equal(buttonHasPendingVisual(executiveButton), false);
+
+        resolveFocusAction({
+            proposal: {
+                status: 'ready',
+                tasks: [{ slot: 'current', task_id: 9, title: 'Nueva' }],
+                meta: { sprint: { sprint_active: false } }
+            }
+        });
+
+        await pending;
+
+        assert.equal(buttonHasPendingVisual(clicked), false);
+        assert.equal(buttonHasPendingVisual(otherFocus), false);
+        assert.equal(buttonHasPendingVisual(executiveButton), false);
+    });
+
+    it('isActionPending bloquea segundo focus click concurrente', async () => {
+        var clicked = makeFocusButton('change_focus');
+        var otherFocus = makeFocusButton('previous_focus');
+
+        dom.proposal = makeProposalRootWithAllButtons([clicked, otherFocus]);
+
+        var first = hooks.handleFocusActionClick(clicked);
+
+        assert.equal(focusPostCalls, 1);
+
+        await hooks.handleFocusActionClick(otherFocus);
+
+        assert.equal(focusPostCalls, 1);
+
+        resolveFocusAction({
+            proposal: {
+                status: 'ready',
+                tasks: [{ slot: 'current', task_id: 10, title: 'Otra' }],
+                meta: { sprint: { sprint_active: false } }
+            }
+        });
+
+        await first;
+    });
+
+    it('finally no restaura pending sobre botón reemplazado por re-render', async () => {
+        var clicked = makeFocusButton('change_focus');
+
+        dom.proposal = makeProposalRootWithAllButtons([clicked]);
+
+        var pending = hooks.handleFocusActionClick(clicked);
+
+        assert.equal(buttonHasPendingVisual(clicked), true);
+
+        resolveFocusAction({
+            proposal: {
+                status: 'ready',
+                tasks: [{ slot: 'current', task_id: 11, title: 'Reemplazada' }],
+                meta: { sprint: { sprint_active: false } }
+            }
+        });
+
+        dom.proposal = makeProposalRootWithAllButtons([]);
+
+        await pending;
+
+        assert.equal(buttonHasPendingVisual(clicked), true);
     });
 });
 
