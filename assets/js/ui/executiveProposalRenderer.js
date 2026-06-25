@@ -86,7 +86,7 @@
             buttons.push(
                 '<button type="button"'
                 + ' data-executive-focus-action="previous_focus"'
-                + ' class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 hover:text-gray-800">'
+                + ' class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-800">'
                 + 'Anterior'
                 + '</button>'
             );
@@ -96,7 +96,7 @@
             buttons.push(
                 '<button type="button"'
                 + ' data-executive-focus-action="change_focus"'
-                + ' class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:text-gray-900">'
+                + ' class="inline-flex items-center rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-xs font-medium text-violet-700 hover:text-violet-800 hover:border-violet-300">'
                 + 'Cambiar foco'
                 + '</button>'
             );
