@@ -17,6 +17,24 @@ body.login.aa-deoia-app-login {
     --wp-components-color-accent-darker-20: #6d28d9;
     background: linear-gradient(160deg, #f0f0f1 0%, #ede9fe 45%, #f5f3ff 100%);
     min-height: 100vh;
+    box-sizing: border-box;
+}
+
+/* width 100% + padding must stay within viewport (mobile horizontal scroll fix) */
+body.login.aa-deoia-app-login #login,
+body.login.aa-deoia-app-login #loginform,
+body.login.aa-deoia-app-login #lostpasswordform,
+body.login.aa-deoia-app-login #resetpassform,
+body.login.aa-deoia-app-login #registerform,
+body.login.aa-deoia-app-login .aa-deoia-login-message,
+body.login.aa-deoia-app-login .login form .input,
+body.login.aa-deoia-app-login .login input[type="text"],
+body.login.aa-deoia-app-login .login input[type="password"],
+body.login.aa-deoia-app-login .login input[type="email"],
+body.login.aa-deoia-app-login #login #user_login,
+body.login.aa-deoia-app-login #login #user_pass,
+body.login.aa-deoia-app-login #loginform .password-input {
+    box-sizing: border-box;
 }
 
 body.login.aa-deoia-app-login #login {
