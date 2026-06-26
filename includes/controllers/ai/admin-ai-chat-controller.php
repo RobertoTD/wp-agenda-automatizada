@@ -41,12 +41,10 @@ final class AA_Admin_AI_Chat_Controller {
 
         $resolution = self::resolve_llm_client();
         if (empty($resolution['ok'])) {
-            $error_data = [
-                'message' => $resolution['error'] ?? 'El asistente de IA no está disponible.',
-            ];
-            if (!empty($resolution['code'])) {
-                $error_data['code'] = $resolution['code'];
-            }
+            $error_data = self::build_chat_ajax_error_data(
+                (string) ($resolution['code'] ?? 'ai_backend_not_configured'),
+                isset($resolution['error']) ? (string) $resolution['error'] : ''
+            );
             wp_send_json_error($error_data);
         }
 
@@ -62,15 +60,47 @@ final class AA_Admin_AI_Chat_Controller {
             wp_send_json_success($data);
         }
 
-        $error_data = ['message' => $result['error'] ?? 'Error desconocido.'];
-        if (!empty($result['code'])) {
-            $error_data['code'] = $result['code'];
-        }
+        $error_data = self::build_chat_ajax_error_data(
+            !empty($result['code']) ? (string) $result['code'] : 'ai_unavailable',
+            isset($result['error']) ? (string) $result['error'] : 'Error desconocido.'
+        );
+
         if (!empty($result['debug'])) {
             $error_data['debug'] = $result['debug'];
         }
 
         wp_send_json_error($error_data);
+    }
+
+    /**
+     * @param string $code
+     * @param string $provider_error Raw error for debug only; not exposed as user message.
+     * @return array<string, mixed>
+     */
+    private static function build_chat_ajax_error_data(string $code, string $provider_error = ''): array {
+        self::load_chat_error_ux();
+
+        $error_data = [
+            'message' => AA_AI_Chat_Error_Ux::user_message_for_code($code, $provider_error),
+            'code'    => $code,
+        ];
+
+        $actions = AA_AI_Chat_Error_Ux::actions_for_code($code);
+        if ($actions !== []) {
+            $error_data['actions'] = $actions;
+        }
+
+        return $error_data;
+    }
+
+    private static function load_chat_error_ux(): void {
+        static $loaded = false;
+        if ($loaded) {
+            return;
+        }
+
+        require_once dirname(__DIR__, 2) . '/application/ai/AI_Chat_Error_Ux.php';
+        $loaded = true;
     }
 
     /**

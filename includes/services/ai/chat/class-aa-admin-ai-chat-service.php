@@ -1754,7 +1754,9 @@ PROMPT;
             $context
         ));
 
-        return [
+        $actions = $this->chat_error_actions_for_code($code);
+
+        $response = [
             'ok'         => false,
             'reply_text' => null,
             'parsed'     => null,
@@ -1767,6 +1769,12 @@ PROMPT;
                 $context
             ),
         ];
+
+        if ($actions !== []) {
+            $response['actions'] = $actions;
+        }
+
+        return $response;
     }
 
     /**
@@ -1775,29 +1783,25 @@ PROMPT;
      * @return string
      */
     private function user_message_for_provider_code($code, $provider_error) {
-        $trimmed = trim($provider_error);
-        if ($trimmed !== '') {
-            return $trimmed;
-        }
+        unset($provider_error);
 
-        switch ($code) {
-            case 'quota_exceeded':
-                return 'Has alcanzado el límite de consultas de IA para este período.';
-            case 'backend_disabled':
-                return 'Tu plan actual no incluye consultas de IA en el servidor.';
-            case 'no_installation_id':
-                return 'La agenda no está vinculada a una instalación. Contacta a soporte.';
-            case 'ai_not_configured':
-                return 'El servicio de IA no está configurado en el servidor. Intenta más tarde.';
-            case 'quota_service_unavailable':
-                return 'El servicio de cuotas no está disponible. Intenta más tarde.';
-            case 'quota_denied':
-                return 'No es posible procesar la consulta de IA en este momento.';
-            case 'ai_backend_not_configured':
-                return 'El asistente de IA no está configurado en esta agenda. Contacta a soporte.';
-            default:
-                return $trimmed !== '' ? $trimmed : self::AI_UNAVAILABLE_USER_MESSAGE;
-        }
+        $this->require_chat_error_ux();
+
+        return AA_AI_Chat_Error_Ux::user_message_for_code((string) $code);
+    }
+
+    /**
+     * @param string $code
+     * @return array<int, array{label:string,url:string}>
+     */
+    private function chat_error_actions_for_code($code) {
+        $this->require_chat_error_ux();
+
+        return AA_AI_Chat_Error_Ux::actions_for_code((string) $code);
+    }
+
+    private function require_chat_error_ux(): void {
+        require_once dirname(__DIR__, 3) . '/application/ai/AI_Chat_Error_Ux.php';
     }
 
     /**

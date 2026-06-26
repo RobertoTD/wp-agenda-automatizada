@@ -56,35 +56,35 @@
      * Mensaje de usuario para errores AJAX del chat (conserva codes del gateway).
      *
      * @param {{ message?: string, code?: string }|null|undefined} data
-     * @returns {{ text: string, code: string|null }}
+     * @returns {{ text: string, code: string|null, actions: Array<{label:string,url:string}> }}
      */
     function mapChatAjaxErrorToUi(data) {
+        if (window.AIChatErrorUx && typeof window.AIChatErrorUx.mapChatAjaxErrorToUi === 'function') {
+            return window.AIChatErrorUx.mapChatAjaxErrorToUi(data);
+        }
+
         const code = data && data.code ? String(data.code) : null;
         const serverMsg = (data && data.message) ? String(data.message) : '';
 
-        if (code === 'quota_exceeded') {
-            return {
-                text: serverMsg || 'Has alcanzado el límite de consultas de IA para este período.',
-                code: code
-            };
-        }
-        if (code === 'backend_disabled') {
-            return {
-                text: serverMsg || 'Tu plan actual no incluye consultas de IA en el servidor.',
-                code: code
-            };
-        }
-        if (code === 'ai_backend_not_configured') {
-            return {
-                text: serverMsg || 'El asistente de IA no está configurado en esta agenda. Contacta a soporte.',
-                code: code
-            };
-        }
-
         return {
             text: serverMsg || 'No pude procesar la solicitud.',
-            code: code
+            code: code,
+            actions: []
         };
+    }
+
+    /**
+     * @param {string} text
+     * @param {string} blocker
+     * @returns {boolean}
+     */
+    function shouldShowFixBlockerDetail(text, blocker) {
+        if (window.AIChatErrorUx && typeof window.AIChatErrorUx.shouldShowFixBlockerDetail === 'function') {
+            return window.AIChatErrorUx.shouldShowFixBlockerDetail(text, blocker);
+        }
+        const main = String(text || '').trim();
+        const detail = String(blocker || '').trim();
+        return detail !== '' && detail !== main;
     }
 
     // ============================================================
@@ -635,22 +635,25 @@
                     }
                 } else {
                     const errUi = mapChatAjaxErrorToUi(res.data || null);
+                    const errPayload = {
+                        error_code: errUi.code || undefined
+                    };
+                    if (errUi.actions && errUi.actions.length > 0) {
+                        errPayload.actions = errUi.actions;
+                    }
                     pushMessage({
                         id: uid(),
                         role: 'assistant',
                         kind: 'fix_blocker',
                         text: errUi.text,
-                        payload: {
-                            blocker: errUi.text,
-                            error_code: errUi.code || undefined
-                        },
+                        payload: errPayload,
                         ts: Date.now()
                     });
                 }
             })
             .catch(function (err) {
                 state.isTyping = false;
-                pushMessage(buildNetworkErrorMessage(err, 'No pude conectar con el servidor.'));
+                pushMessage(buildNetworkErrorMessage(err, mapChatAjaxErrorToUi({ code: 'ai_unavailable' }).text));
             })
             .then(function () {
                 updateSendDisabled();
@@ -1599,7 +1602,8 @@
 
     function renderAssistantFixBlocker(msg) {
         const p = msg.payload || {};
-        const blocker = p.blocker ? escapeHtml(p.blocker) : '';
+        const blockerRaw = p.blocker ? String(p.blocker) : '';
+        const blocker = shouldShowFixBlockerDetail(msg.text, blockerRaw) ? escapeHtml(blockerRaw) : '';
         const actions = Array.isArray(p.actions) ? p.actions : [];
         const warningIcon = (
             '<svg class="w-4 h-4 shrink-0 mt-0.5 text-amber-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">' +

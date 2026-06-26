@@ -38,6 +38,12 @@ final class AA_AI_Setup_Action_Link_Builder {
             'focus'  => 'clients',
             'hash'   => '#aa-clients-grid',
         ],
+        'google_calendar_connect' => [
+            'label'  => 'Vincular cuenta',
+            'module' => 'settings',
+            'focus'  => 'google_calendar',
+            'hash'   => '#aa-google-calendar-root',
+        ],
     ];
 
     /**

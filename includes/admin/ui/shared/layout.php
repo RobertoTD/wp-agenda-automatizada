@@ -292,6 +292,7 @@ header('Content-Type: text/html; charset=utf-8');
 <script src="<?php echo aa_asset_url('includes/admin/ui/modals/fastappointment/fastappointment.js'); ?>" defer></script>
 
 <!-- Transversal Modal: AI Chat Assistant (panel + FAB, UI skeleton) -->
+<script src="<?php echo aa_asset_url('assets/js/services/aiChatErrorUx.js'); ?>" defer></script>
 <script src="<?php echo aa_asset_url('includes/admin/ui/modals/aichat/aichat.js'); ?>" defer></script>
 
 <!-- Transversal Modal: Appointments -->
