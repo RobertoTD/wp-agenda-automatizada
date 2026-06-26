@@ -118,6 +118,11 @@
         z-index: 0;
     }
 
+    /* Menú de tarea abierto hacia arriba: body por encima del header de lista */
+    details.aa-executable-list-card[open]:has(.aa-executable-task-options-menu.bottom-full:not(.hidden)) > .aa-executable-list-body {
+        z-index: 2;
+    }
+
     .aa-executable-list-options-menu {
         z-index: 30;
     }
