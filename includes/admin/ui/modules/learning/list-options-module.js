@@ -13,6 +13,7 @@
     var coordinatingListToggle = false;
     var coordinatingTaskToggle = false;
     var restoreSkipFollowingResetListId = '';
+    var MENU_VIEWPORT_MARGIN = 8;
 
     function asString(value) {
         return value === null || value === undefined ? '' : String(value);
@@ -56,16 +57,59 @@
 
     function closeTaskMenus() {
         document.querySelectorAll('.aa-executable-task-options-menu').forEach(function (menu) {
+            menu.classList.remove('bottom-full', 'mb-2');
+            menu.classList.add('top-full', 'mt-2');
             setVisible(menu, false);
         });
 
         document.querySelectorAll('.aa-executable-task-options-trigger').forEach(function (trigger) {
             trigger.setAttribute('aria-expanded', 'false');
         });
+
+        document.querySelectorAll('.aa-executable-list-card--floating-menu').forEach(function (card) {
+            card.classList.remove('aa-executable-list-card--floating-menu');
+        });
+    }
+
+    function resetListMenuPlacement(menu) {
+        if (!menu) {
+            return;
+        }
+
+        menu.classList.remove('bottom-full', 'mb-2');
+        menu.classList.add('top-full', 'mt-2');
+    }
+
+    function positionListMenu(menu) {
+        if (!menu) {
+            return;
+        }
+
+        resetListMenuPlacement(menu);
+
+        var listCard = menu.closest ? menu.closest('details.aa-executable-list-card') : null;
+
+        if (!listCard) {
+            return;
+        }
+
+        var menuRect = menu.getBoundingClientRect();
+        var cardRect = listCard.getBoundingClientRect();
+        var viewportBottom = window.innerHeight - MENU_VIEWPORT_MARGIN;
+        var overflowsCard = menuRect.bottom > cardRect.bottom + 0.5;
+        var overflowsViewport = menuRect.bottom > viewportBottom;
+
+        if (!overflowsCard && !overflowsViewport) {
+            return;
+        }
+
+        menu.classList.remove('top-full', 'mt-2');
+        menu.classList.add('bottom-full', 'mb-2');
     }
 
     function closeAllMenus() {
         document.querySelectorAll('.aa-executable-list-options-menu').forEach(function (menu) {
+            resetListMenuPlacement(menu);
             setVisible(menu, false);
         });
 
@@ -87,6 +131,7 @@
         closeTaskMenus();
         closeAllMenus();
         setVisible(menu, true);
+        positionListMenu(menu);
         setTriggerExpanded(listId, true);
         openListId = listId;
     }

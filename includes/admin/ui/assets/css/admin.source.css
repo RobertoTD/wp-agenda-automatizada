@@ -109,10 +109,17 @@
 
     details.aa-executable-list-card[open] > summary {
         @apply rounded-t-xl border-b border-gray-100;
+        z-index: 1;
     }
 
     details.aa-executable-list-card[open] > .aa-executable-list-body {
         @apply rounded-b-xl;
+        position: relative;
+        z-index: 0;
+    }
+
+    .aa-executable-list-options-menu {
+        z-index: 30;
     }
 
     /* Executable feed — detalles de lista bajo demanda (MC-UX-D) */
@@ -213,6 +220,10 @@
     }
 
     /* Executable feed — menú de opciones por tarea (MC-UX-A) */
+    details.aa-executable-item {
+        overflow: visible;
+    }
+
     details.aa-executable-item:not([open]) .aa-executable-task-options {
         display: none;
     }
@@ -223,8 +234,23 @@
         overflow: visible;
     }
 
+    details.aa-executable-item[open] > summary.aa-executable-item-summary {
+        position: relative;
+        z-index: 1;
+    }
+
+    details.aa-executable-item[open] > .aa-executable-item-expanded {
+        position: relative;
+        z-index: 0;
+    }
+
     .aa-executable-task-options-menu {
         z-index: 30;
+    }
+
+    details.aa-executable-list-card.aa-executable-list-card--floating-menu {
+        position: relative;
+        z-index: 2;
     }
 
     /* Executable feed — título truncado colapsado (MC-UX-A) */

@@ -10,6 +10,7 @@
 
     var isBound = false;
     var openTaskId = '';
+    var MENU_VIEWPORT_MARGIN = 8;
 
     function asString(value) {
         return value === null || value === undefined ? '' : String(value);
@@ -61,8 +62,70 @@
         }
     }
 
+    function resetTaskMenuPlacement(menu) {
+        if (!menu) {
+            return;
+        }
+
+        menu.classList.remove('bottom-full', 'mb-2');
+        menu.classList.add('top-full', 'mt-2');
+    }
+
+    function clearListCardMenuElevation() {
+        document.querySelectorAll('.aa-executable-list-card--floating-menu').forEach(function (card) {
+            card.classList.remove('aa-executable-list-card--floating-menu');
+        });
+    }
+
+    function setListCardMenuElevation(menu, elevated) {
+        var listCard = menu && menu.closest
+            ? menu.closest('details.aa-executable-list-card')
+            : null;
+
+        if (!listCard) {
+            return;
+        }
+
+        if (elevated) {
+            listCard.classList.add('aa-executable-list-card--floating-menu');
+        } else {
+            listCard.classList.remove('aa-executable-list-card--floating-menu');
+        }
+    }
+
+    function positionTaskMenu(menu) {
+        if (!menu) {
+            return;
+        }
+
+        resetTaskMenuPlacement(menu);
+
+        var listCard = menu.closest ? menu.closest('details.aa-executable-list-card') : null;
+        var taskItem = menu.closest ? menu.closest('details.aa-executable-item') : null;
+
+        if (!listCard) {
+            return;
+        }
+
+        var menuRect = menu.getBoundingClientRect();
+        var cardRect = listCard.getBoundingClientRect();
+        var taskRect = taskItem ? taskItem.getBoundingClientRect() : null;
+        var viewportBottom = window.innerHeight - MENU_VIEWPORT_MARGIN;
+        var overflowsListCard = menuRect.bottom > cardRect.bottom + 0.5;
+        var overflowsTask = taskRect && menuRect.bottom > taskRect.bottom + 0.5;
+        var overflowsViewport = menuRect.bottom > viewportBottom;
+
+        if (!overflowsListCard && !overflowsTask && !overflowsViewport) {
+            return;
+        }
+
+        menu.classList.remove('top-full', 'mt-2');
+        menu.classList.add('bottom-full', 'mb-2');
+    }
+
     function closeAllMenus() {
         document.querySelectorAll('.aa-executable-task-options-menu').forEach(function (menu) {
+            resetTaskMenuPlacement(menu);
             setVisible(menu, false);
         });
 
@@ -70,6 +133,7 @@
             trigger.setAttribute('aria-expanded', 'false');
         });
 
+        clearListCardMenuElevation();
         openTaskId = '';
     }
 
@@ -83,6 +147,8 @@
         closeListMenus();
         closeAllMenus();
         setVisible(menu, true);
+        positionTaskMenu(menu);
+        setListCardMenuElevation(menu, true);
         setTriggerExpanded(taskId, true);
         openTaskId = taskId;
     }
