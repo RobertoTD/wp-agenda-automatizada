@@ -336,6 +336,7 @@
         if (!visible) {
             setNotice(noticeEl, '', '');
             renderMessages(messagesEl, []);
+            renderAccountStatusActions(getEl('aa-account-notice-actions'), []);
         }
     }
 
@@ -417,6 +418,64 @@
         renderBillingAction(status);
     }
 
+    function mapAccountStatusErrorToUi(data) {
+        if (window.AccountStatusErrorUx && typeof window.AccountStatusErrorUx.mapAccountStatusErrorToUi === 'function') {
+            return window.AccountStatusErrorUx.mapAccountStatusErrorToUi(data);
+        }
+
+        var code = data && data.code ? String(data.code) : null;
+        var serverMsg = (data && data.message) ? String(data.message) : '';
+
+        return {
+            text: serverMsg || 'No pudimos consultar el estado de cuenta en este momento. Intenta más tarde.',
+            code: code,
+            actions: []
+        };
+    }
+
+    function renderAccountStatusActions(actionsEl, actions) {
+        if (!actionsEl) {
+            return;
+        }
+
+        while (actionsEl.firstChild) {
+            actionsEl.removeChild(actionsEl.firstChild);
+        }
+
+        if (!Array.isArray(actions) || actions.length === 0) {
+            setHidden(actionsEl, true);
+            return;
+        }
+
+        var linkCls =
+            'inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 transition-colors';
+
+        actions.forEach(function (action) {
+            if (!action || !action.url || !action.label) {
+                return;
+            }
+            var link = document.createElement('a');
+            link.href = action.url;
+            link.textContent = action.label;
+            link.className = linkCls;
+            actionsEl.appendChild(link);
+        });
+
+        setHidden(actionsEl, actionsEl.childNodes.length === 0);
+    }
+
+    function renderAccountStatusError(ui, options) {
+        options = options || {};
+        var messageEl = options.messageEl || getEl('aa-account-status-error-message');
+        var actionsEl = options.actionsEl || getEl('aa-account-status-error-actions');
+
+        if (messageEl) {
+            messageEl.textContent = ui && ui.text ? ui.text : '';
+        }
+
+        renderAccountStatusActions(actionsEl, ui && ui.actions ? ui.actions : []);
+    }
+
     function showLoading() {
         var loading = getEl('aa-account-status-loading');
         var content = getEl('aa-account-status-content');
@@ -449,7 +508,7 @@
         }
     }
 
-    function showError() {
+    function showError(ui) {
         var loading = getEl('aa-account-status-loading');
         var content = getEl('aa-account-status-content');
         var error = getEl('aa-account-status-error');
@@ -462,6 +521,10 @@
         }
         if (error) {
             error.classList.remove('hidden');
+        }
+
+        if (ui) {
+            renderAccountStatusError(ui);
         }
     }
 
@@ -496,15 +559,24 @@
                     console.warn('[AccountModule] Account status error:', data.data.code || '', data.data.message || '');
                     return {
                         accountStatus: null,
-                        publicSite: data.data.public_site || null
+                        publicSite: data.data.public_site || null,
+                        statusError: mapAccountStatusErrorToUi(data.data)
                     };
                 }
 
-                return null;
+                return {
+                    accountStatus: null,
+                    publicSite: null,
+                    statusError: mapAccountStatusErrorToUi({ code: 'account_backend_unreachable' })
+                };
             })
             .catch(function (err) {
                 console.error('[AccountModule] Fetch failed:', err);
-                return null;
+                return {
+                    accountStatus: null,
+                    publicSite: null,
+                    statusError: mapAccountStatusErrorToUi({ code: 'account_backend_unreachable' })
+                };
             });
     }
 
@@ -595,28 +667,31 @@
 
         fetchAccountStatus().then(function (payload) {
             if (!payload) {
-                showError();
+                showError(mapAccountStatusErrorToUi({ code: 'account_backend_unreachable' }));
                 return;
             }
 
             var hasBilling = !!(payload.accountStatus && typeof payload.accountStatus === 'object');
             var hasPublicSite = !!(payload.publicSite && payload.publicSite.show_section === true);
+            var errorUi = payload.statusError || mapAccountStatusErrorToUi({ code: 'account_backend_unreachable' });
 
             if (!hasBilling && !hasPublicSite) {
-                showError();
+                showError(errorUi);
                 return;
             }
 
             if (hasBilling) {
                 setBillingSummaryVisible(true);
+                renderAccountStatusActions(getEl('aa-account-notice-actions'), []);
                 renderAccountStatus(payload.accountStatus);
             } else {
                 setBillingSummaryVisible(false);
                 setNotice(
                     getEl('aa-account-notice'),
-                    'No pudimos consultar el estado de cuenta en este momento.',
+                    errorUi.text,
                     'border-gray-200 bg-gray-50 text-gray-700'
                 );
+                renderAccountStatusActions(getEl('aa-account-notice-actions'), errorUi.actions);
             }
 
             renderPublicSiteSection(payload.publicSite);

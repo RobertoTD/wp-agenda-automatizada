@@ -60,6 +60,7 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
                     </dl>
 
                     <div id="aa-account-notice" class="hidden rounded-lg border p-4 text-sm"></div>
+                    <div id="aa-account-notice-actions" class="hidden flex flex-col gap-2"></div>
 
                     <ul id="aa-account-messages" class="hidden list-disc list-inside space-y-1 text-sm text-gray-600"></ul>
 
@@ -108,7 +109,8 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
                 </div>
 
                 <div id="aa-account-status-error" class="hidden rounded-lg border border-gray-200 bg-gray-50 p-4">
-                    <p class="text-sm text-gray-600">No pudimos consultar el estado de cuenta en este momento.</p>
+                    <p id="aa-account-status-error-message" class="text-sm text-gray-600"></p>
+                    <div id="aa-account-status-error-actions" class="hidden mt-3 flex flex-col gap-2"></div>
                 </div>
 
             </div>
@@ -140,4 +142,10 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
         billingNonce: '<?php echo esc_js(wp_create_nonce('aa_create_billing_portal_session_nonce')); ?>'
     };
 </script>
+<?php
+$account_status_error_ux_js = function_exists('aa_asset_url')
+    ? aa_asset_url('assets/js/services/accountStatusErrorUx.js')
+    : esc_url(plugins_url('assets/js/services/accountStatusErrorUx.js', dirname(__DIR__, 5) . '/wp-agenda-automatizada.php'));
+?>
+<script src="<?php echo esc_url($account_status_error_ux_js); ?>" defer></script>
 <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'module.js?ver=' . rawurlencode($account_module_ver)); ?>" defer></script>

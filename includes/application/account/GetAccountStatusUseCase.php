@@ -45,7 +45,7 @@ final class GetAccountStatusUseCase {
      *     }
      * }|array{
      *     success: false,
-     *     error: array{code: string, message: string},
+     *     error: array{code: string, message: string, reason?: string},
      *     data: array{public_site: array<string,mixed>}
      * }
      */
@@ -56,8 +56,9 @@ final class GetAccountStatusUseCase {
         if ($client_secret === '') {
             return $this->failure(
                 'account_backend_not_configured',
-                'Falta el client secret del backend. Vuelve a vincular la agenda o contacta a soporte.',
-                $public_site
+                'missing_client_secret',
+                $public_site,
+                ['reason' => 'missing_client_secret']
             );
         }
 
@@ -67,7 +68,10 @@ final class GetAccountStatusUseCase {
             return $this->failure(
                 (string) ($backend['code'] ?? 'account_backend_error'),
                 (string) ($backend['error'] ?? 'No se pudo consultar el estado de cuenta.'),
-                $public_site
+                $public_site,
+                isset($backend['reason']) && is_string($backend['reason'])
+                    ? ['reason' => $backend['reason']]
+                    : []
             );
         }
 
@@ -202,19 +206,26 @@ final class GetAccountStatusUseCase {
 
     /**
      * @param array<string,mixed> $public_site
+     * @param array<string,mixed> $context
      * @return array{
      *     success: false,
-     *     error: array{code: string, message: string},
+     *     error: array{code: string, message: string, reason?: string},
      *     data: array{public_site: array<string,mixed>}
      * }
      */
-    private function failure(string $code, string $message, array $public_site): array {
+    private function failure(string $code, string $message, array $public_site, array $context = []): array {
+        $error = [
+            'code'    => $code,
+            'message' => $message,
+        ];
+
+        if (isset($context['reason']) && is_string($context['reason']) && $context['reason'] !== '') {
+            $error['reason'] = $context['reason'];
+        }
+
         return [
             'success' => false,
-            'error'   => [
-                'code'    => $code,
-                'message' => $message,
-            ],
+            'error'   => $error,
             'data'    => [
                 'public_site' => $public_site,
             ],

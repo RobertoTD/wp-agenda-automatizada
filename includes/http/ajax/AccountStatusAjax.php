@@ -29,12 +29,42 @@ final class AccountStatusAjax {
             wp_send_json_success($result['data']);
         }
 
-        $error = $result['error'] ?? [];
+        $error       = $result['error'] ?? [];
         $public_site = $result['data']['public_site'] ?? [];
-        wp_send_json_error([
-            'message'     => (string) ($error['message'] ?? 'No se pudo consultar el estado de cuenta.'),
-            'code'        => (string) ($error['code'] ?? 'account_backend_error'),
+        $code        = (string) ($error['code'] ?? 'account_backend_error');
+        $context     = [];
+
+        if (!empty($error['reason']) && is_string($error['reason'])) {
+            $context['reason'] = $error['reason'];
+        }
+
+        self::load_error_ux();
+
+        $payload = [
+            'message'     => AA_Account_Status_Error_Ux::user_message_for_code($code, $context),
+            'code'        => $code,
             'public_site' => is_array($public_site) ? $public_site : [],
-        ]);
+        ];
+
+        if ($context !== []) {
+            $payload['reason'] = $context['reason'];
+        }
+
+        $actions = AA_Account_Status_Error_Ux::actions_for_code($code, $context);
+        if ($actions !== []) {
+            $payload['actions'] = $actions;
+        }
+
+        wp_send_json_error($payload);
+    }
+
+    private static function load_error_ux(): void {
+        static $loaded = false;
+        if ($loaded) {
+            return;
+        }
+
+        require_once dirname(__DIR__, 2) . '/application/account/Account_Status_Error_Ux.php';
+        $loaded = true;
     }
 }

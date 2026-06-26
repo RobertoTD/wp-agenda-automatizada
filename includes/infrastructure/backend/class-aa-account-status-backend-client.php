@@ -24,7 +24,7 @@ class AA_Account_Status_Backend_Client {
     public function fetch(): array {
         if (!defined('AA_API_BASE_URL') || (string) AA_API_BASE_URL === '') {
             return $this->error(
-                'account_backend_not_configured',
+                'account_backend_error',
                 'AA_API_BASE_URL no está definida.',
                 0
             );
@@ -32,7 +32,7 @@ class AA_Account_Status_Backend_Client {
 
         if (!function_exists('aa_send_authenticated_request')) {
             return $this->error(
-                'account_backend_not_configured',
+                'account_backend_error',
                 'auth-helper no disponible (aa_send_authenticated_request).',
                 0
             );
@@ -57,6 +57,14 @@ class AA_Account_Status_Backend_Client {
             $message = 'Error al consultar el estado de cuenta.';
             if (is_array($decoded) && !empty($decoded['error']) && is_string($decoded['error'])) {
                 $message = (string) $decoded['error'];
+            }
+
+            if ($status_code === 404) {
+                return $this->error('account_client_not_found', $message, $status_code);
+            }
+
+            if ($status_code >= 500) {
+                return $this->error('account_backend_unreachable', $message, $status_code);
             }
 
             return $this->error('account_backend_error', $message, $status_code);
