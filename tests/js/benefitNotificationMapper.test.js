@@ -172,6 +172,143 @@ describe('BenefitNotificationMapper', () => {
     assert.equal(notifications[0].details.length, 2);
   });
 
+  const TECHNICAL_STRINGS = [
+    'backend',
+    'client secret',
+    'installation_id',
+    'no_installation_id',
+    'token',
+  ];
+
+  function assertNoTechnicalCopy(notification) {
+    const userFacing = {
+      title: notification.title,
+      message: notification.message,
+      details: notification.details,
+      fallback: notification.fallback,
+      actions: notification.actions,
+    };
+    const blob = JSON.stringify(userFacing).toLowerCase();
+    for (const term of TECHNICAL_STRINGS) {
+      assert.equal(blob.includes(term), false, 'unexpected technical term: ' + term);
+    }
+  }
+
+  it('confirm_admin sin notices devuelve success Cita confirmada', () => {
+    const notifications = mapper.mapBenefitResponseToNotifications({
+      response: { success: true, data: {} },
+      context: 'confirm_admin',
+      baseOutcome: { status: 'success', message: 'Cita confirmada.' },
+    });
+    assert.equal(notifications.length, 1);
+    assert.equal(notifications[0].severity, 'success');
+    assert.equal(notifications[0].title, 'Cita confirmada');
+    assert.equal(notifications[0].message, 'Cita confirmada.');
+  });
+
+  it('confirm_admin con no_installation_id devuelve warning Automatización no disponible', () => {
+    const response = {
+      success: true,
+      data: {
+        benefit_notices: [
+          {
+            resource: 'google_calendar_sync',
+            operation: 'create_event',
+            status: 'skipped',
+            code: 'google_calendar_no_installation_id',
+            reason: 'no_installation_id',
+          },
+          {
+            resource: 'email',
+            operation: 'send_confirmed_email',
+            status: 'skipped',
+            code: 'no_installation_id',
+            reason: 'no_installation_id',
+          },
+        ],
+      },
+    };
+    const notifications = mapper.mapBenefitResponseToNotifications({
+      response,
+      context: 'confirm_admin',
+    });
+    assert.equal(notifications.length, 1);
+    assert.equal(notifications[0].severity, 'warning');
+    assert.equal(notifications[0].title, 'Automatización no disponible');
+    assert.ok(notifications[0].message.includes('cuenta DEOIA activa'));
+    assert.equal(
+      notifications[0].fallback,
+      'Vincula tu cuenta para activar estos beneficios.'
+    );
+    assert.equal(notifications[0].actions.length, 1);
+    assert.equal(notifications[0].actions[0].label, 'Vincular cuenta');
+    assert.ok(notifications[0].actions[0].url.includes('setup_focus=google_calendar'));
+    assert.equal(notifications[0].details.length, 0);
+    assertNoTechnicalCopy(notifications[0]);
+  });
+
+  it('confirm_admin con backend_disabled devuelve warning Automatización no disponible', () => {
+    const response = {
+      success: true,
+      data: {
+        benefit_notices: [
+          {
+            resource: 'google_calendar_sync',
+            operation: 'create_event',
+            status: 'skipped',
+            code: 'google_calendar_backend_disabled',
+            reason: 'backend_disabled',
+          },
+          {
+            resource: 'email',
+            operation: 'send_confirmed_email',
+            status: 'skipped',
+            code: 'backend_disabled',
+            reason: 'backend_disabled',
+          },
+        ],
+      },
+    };
+    const notifications = mapper.mapBenefitResponseToNotifications({
+      response,
+      context: 'confirm_admin',
+    });
+    assert.equal(notifications.length, 1);
+    assert.equal(notifications[0].title, 'Automatización no disponible');
+    assertNoTechnicalCopy(notifications[0]);
+  });
+
+  it('confirm_admin cuota agotada no se re-mapea como falta de cuenta', () => {
+    const response = {
+      success: true,
+      data: {
+        benefit_notices: [
+          {
+            resource: 'google_calendar_sync',
+            operation: 'create_event',
+            status: 'skipped',
+            code: 'google_calendar_quota_exceeded',
+            reason: 'quota_exceeded',
+          },
+          {
+            resource: 'email',
+            operation: 'send_confirmed_email',
+            status: 'skipped',
+            code: 'email_quota_exceeded',
+            reason: 'quota_exceeded',
+          },
+        ],
+      },
+    };
+    const notifications = mapper.mapBenefitResponseToNotifications({
+      response,
+      context: 'confirm_admin',
+    });
+    assert.equal(notifications.length, 1);
+    assert.equal(notifications[0].title, 'Cita confirmada');
+    assert.notEqual(notifications[0].title, 'Automatización no disponible');
+  });
+
   it('send_confirmation_request blocked devuelve severity error', () => {
     const response = {
       success: false,

@@ -80,6 +80,31 @@
   font-style: italic;
 }
 
+.aa-benefit-toast-actions {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.aa-benefit-toast-action {
+  display: block;
+  text-align: center;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: #4f46e5;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.aa-benefit-toast-action:hover {
+  background: #4338ca;
+  color: #fff;
+}
+
 .aa-benefit-toast-close {
   position: absolute;
   top: 8px;

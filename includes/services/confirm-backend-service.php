@@ -99,6 +99,72 @@ function aa_transform_servicio_for_backend_full($servicio_raw) {
 }
 
 /**
+ * benefit_notices cuando la agenda no puede autenticarse con el backend (sin OAuth / client secret).
+ * Shape compatible con Node collectCrearReservaDirectaBenefitNotices + BenefitNotificationMapper.
+ *
+ * @return array<int, array<string, string>>
+ */
+function aa_confirm_backend_automation_unavailable_benefit_notices() {
+    return [
+        [
+            'resource' => 'google_calendar_sync',
+            'operation' => 'create_event',
+            'status' => 'skipped',
+            'code' => 'google_calendar_no_installation_id',
+            'reason' => 'no_installation_id',
+        ],
+        [
+            'resource' => 'email',
+            'operation' => 'send_confirmed_email',
+            'status' => 'skipped',
+            'code' => 'no_installation_id',
+            'reason' => 'no_installation_id',
+        ],
+    ];
+}
+
+/**
+ * WP_Error de preflight local (configuración), no fallo de red/Node.
+ *
+ * @param mixed $response
+ * @return bool
+ */
+function aa_confirm_backend_is_local_config_wp_error($response) {
+    if (!is_wp_error($response)) {
+        return false;
+    }
+
+    return (string) $response->get_error_code() === 'no_secret';
+}
+
+/**
+ * Resultado de confirmación local OK con automatización externa no disponible por falta de vinculación.
+ *
+ * @param WP_Error $response
+ * @return array<string, mixed>
+ */
+function aa_confirm_backend_build_local_config_failure_result($response) {
+    return [
+        'success' => true,
+        'message' => 'Cita confirmada en WordPress, pero no se pudo notificar al backend: ' . $response->get_error_message(),
+        'local_confirmed' => true,
+        'calendar_sync' => false,
+        'calendar_skipped' => true,
+        'benefit_notices' => aa_confirm_backend_automation_unavailable_benefit_notices(),
+        'email' => [
+            'sent' => false,
+            'skipped' => true,
+            'code' => 'no_installation_id',
+            'reason' => 'no_installation_id',
+        ],
+        'data' => [
+            'calendar_sync' => false,
+            'calendarSkipped' => true,
+        ],
+    ];
+}
+
+/**
  * Confirmar una cita enviando solicitud al backend
  * 
  * @param int $reserva_id ID de la reserva
@@ -342,6 +408,10 @@ function confirm_backend_service_confirmar($reserva_id) {
     
     if (is_wp_error($response)) {
         error_log("⚠️ [ConfirmService] Error al contactar backend: " . $response->get_error_message());
+        if (aa_confirm_backend_is_local_config_wp_error($response)) {
+            return aa_confirm_backend_build_local_config_failure_result($response);
+        }
+
         return [
             'success' => true,
             'message' => 'Cita confirmada en WordPress, pero no se pudo notificar al backend: ' . $response->get_error_message(),

@@ -325,7 +325,7 @@ window.AdminConfirmController = (function() {
         },
         appointment_confirmed_local: {
             title: 'Cita confirmada',
-            message: 'Cita confirmada localmente.'
+            message: 'Cita confirmada.'
         },
         appointment_cancelled_local: {
             title: 'Cita cancelada',

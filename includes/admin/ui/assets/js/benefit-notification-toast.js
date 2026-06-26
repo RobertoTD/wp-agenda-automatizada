@@ -136,7 +136,7 @@ window.AAAdmin = window.AAAdmin || {};
         }
 
         el.addEventListener('click', function (ev) {
-            if (ev.target.closest('.aa-benefit-toast-close')) {
+            if (ev.target.closest('.aa-benefit-toast-close') || ev.target.closest('.aa-benefit-toast-action')) {
                 return;
             }
             if (!canAutoDismiss) {
@@ -193,6 +193,21 @@ window.AAAdmin = window.AAAdmin || {};
 
         if (notification.fallback) {
             html += '<p class="aa-benefit-toast-fallback">' + escapeHtml(notification.fallback) + '</p>';
+        }
+
+        var actions = notification.actions;
+        if (Array.isArray(actions) && actions.length > 0) {
+            html += '<div class="aa-benefit-toast-actions">';
+            for (var j = 0; j < actions.length; j++) {
+                var action = actions[j];
+                if (!action || !action.url || !action.label) {
+                    continue;
+                }
+                html += '<a href="' + escapeHtml(action.url) + '" class="aa-benefit-toast-action">' +
+                    escapeHtml(action.label) +
+                    '</a>';
+            }
+            html += '</div>';
         }
 
         el.innerHTML = html;

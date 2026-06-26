@@ -25,6 +25,21 @@
     AI_CHAT: 'ai_chat',
   };
 
+  var REQUIRES_DEOIA_ACCOUNT_CODES = {
+    no_installation_id: true,
+    google_calendar_no_installation_id: true,
+    backend_disabled: true,
+    google_calendar_backend_disabled: true,
+  };
+
+  var AUTOMATION_UNAVAILABLE_TITLE = 'Automatización no disponible';
+  var AUTOMATION_UNAVAILABLE_MESSAGE =
+    'La cita se guardó en la agenda, pero Google Calendar y el correo al cliente requieren una cuenta DEOIA activa.';
+  var AUTOMATION_UNAVAILABLE_FALLBACK = 'Vincula tu cuenta para activar estos beneficios.';
+  var AUTOMATION_UNAVAILABLE_ACTION_LABEL = 'Vincular cuenta';
+  var GOOGLE_CALENDAR_SETUP_URL_FALLBACK =
+    'admin-post.php?action=aa_iframe_content&module=settings&setup_focus=google_calendar#aa-google-calendar-root';
+
   /**
    * @param {unknown} value
    * @returns {string}
@@ -320,6 +335,72 @@
       }
     }
     return normalized;
+  }
+
+  /**
+   * @param {string} code
+   * @returns {boolean}
+   */
+  function isRequiresDeoiaAccountCode(code) {
+    return Object.prototype.hasOwnProperty.call(REQUIRES_DEOIA_ACCOUNT_CODES, asLowerString(code));
+  }
+
+  /**
+   * @param {Record<string, unknown>[]} notices
+   * @returns {boolean}
+   */
+  function noticesAreAllRequiresDeoiaAccount(notices) {
+    if (!notices || notices.length === 0) {
+      return false;
+    }
+    for (var i = 0; i < notices.length; i++) {
+      if (!isRequiresDeoiaAccountCode(notices[i].code)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * @returns {string}
+   */
+  function buildGoogleCalendarSetupUrl() {
+    if (typeof window !== 'undefined' && window.location && window.location.href) {
+      try {
+        var url = new URL(window.location.href);
+        url.searchParams.set('action', 'aa_iframe_content');
+        url.searchParams.set('module', 'settings');
+        url.searchParams.set('setup_focus', 'google_calendar');
+        url.hash = '#aa-google-calendar-root';
+        return url.toString();
+      } catch (_err) {
+        // fall through to relative fallback
+      }
+    }
+    return GOOGLE_CALENDAR_SETUP_URL_FALLBACK;
+  }
+
+  /**
+   * @param {Record<string, unknown>[]} notices
+   * @returns {Record<string, unknown>}
+   */
+  function buildAutomationUnavailableNotification(notices) {
+    return {
+      severity: 'warning',
+      title: AUTOMATION_UNAVAILABLE_TITLE,
+      message: AUTOMATION_UNAVAILABLE_MESSAGE,
+      details: [],
+      fallback: AUTOMATION_UNAVAILABLE_FALLBACK,
+      durationMs: DURATION_MS.warning,
+      blocking: false,
+      actions: [
+        {
+          label: AUTOMATION_UNAVAILABLE_ACTION_LABEL,
+          url: buildGoogleCalendarSetupUrl(),
+        },
+      ],
+      notices: notices.slice(),
+    };
   }
 
   /**
@@ -653,6 +734,10 @@
         return [buildSuccessNotification(context, baseOutcome)];
       }
       return [];
+    }
+
+    if (context === CONTEXTS.CONFIRM_ADMIN && noticesAreAllRequiresDeoiaAccount(notices)) {
+      return [buildAutomationUnavailableNotification(notices)];
     }
 
     return [buildCompositeNotification(notices, context)];
