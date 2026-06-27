@@ -48,7 +48,13 @@ if (!function_exists('aa_get_current_datetime')) {
 }
 
 if (!function_exists('current_time')) {
-    function current_time($type, $gmt = 0) {
+    function current_time($type = 'mysql', $gmt = 0) {
+        unset($gmt);
+
+        if ($type === 'timestamp') {
+            return strtotime('2026-06-04 12:00:00');
+        }
+
         return '2026-06-04 12:00:00';
     }
 }
