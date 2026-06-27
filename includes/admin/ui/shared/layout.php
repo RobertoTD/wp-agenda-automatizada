@@ -96,6 +96,8 @@ header('Content-Type: text/html; charset=utf-8');
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Agenda Automatizada - Admin</title>
     <meta name="theme-color" content="#8b5cf6">
+    <meta name="application-name" content="DEOIA">
+    <meta name="apple-mobile-web-app-title" content="DEOIA">
     <?php if (class_exists('AA_Pwa_Routes')) : ?>
     <link rel="manifest" href="<?php echo esc_url(AA_Pwa_Routes::manifest_url()); ?>">
     <?php endif; ?>

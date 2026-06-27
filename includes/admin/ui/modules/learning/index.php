@@ -20,6 +20,7 @@ $lists_area_tools_js = plugin_dir_url(__FILE__) . 'lists-area-tools.js';
 $task_edit_js = plugin_dir_url(__FILE__) . 'task-edit-module.js';
 $task_options_js = plugin_dir_url(__FILE__) . 'task-options-module.js';
 $list_options_js = plugin_dir_url(__FILE__) . 'list-options-module.js';
+$executable_options_menu_placement_js = plugin_dir_url(__FILE__) . 'executable-options-menu-placement.js';
 $list_edit_js = plugin_dir_url(__FILE__) . 'list-edit-module.js';
 $restore_archived_tasks_js = plugin_dir_url(__FILE__) . 'restore-archived-tasks-module.js';
 $tasks_modal_ui_js = plugin_dir_url(__FILE__) . 'tasks-modal-ui.js';
@@ -470,6 +471,7 @@ $executive_proposal_module_js = plugin_dir_url(__FILE__) . 'executive-proposal-m
 <script src="<?php echo esc_url($executable_lists_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($executable_lists_renderer_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($executable_lists_shadow_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($executable_options_menu_placement_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($task_options_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($task_edit_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($executable_actions_coordinator_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>

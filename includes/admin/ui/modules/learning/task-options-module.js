@@ -9,9 +9,8 @@
         : (typeof globalThis !== 'undefined' ? globalThis : this);
 
     var isBound = false;
+    var isViewportDismissBound = false;
     var openTaskId = '';
-    var MENU_VIEWPORT_MARGIN = 8;
-    var MENU_PLACEMENT_GAP = 8;
 
     function asString(value) {
         return value === null || value === undefined ? '' : String(value);
@@ -29,10 +28,29 @@
         }
     }
 
+    function getMenuPlacement() {
+        return globalRoot.AAExecutableOptionsMenuPlacement || null;
+    }
+
+    function resetMenuPlacement(menu) {
+        var placement = getMenuPlacement();
+
+        if (placement && typeof placement.resetOptionsMenuPlacement === 'function') {
+            placement.resetOptionsMenuPlacement(menu);
+            return;
+        }
+
+        if (!menu) {
+            return;
+        }
+
+        menu.classList.remove('bottom-full', 'mb-2');
+        menu.classList.add('top-full', 'mt-2');
+    }
+
     function closeListMenus() {
         document.querySelectorAll('.aa-executable-list-options-menu').forEach(function (menu) {
-            menu.classList.remove('bottom-full', 'mb-2');
-            menu.classList.add('top-full', 'mt-2');
+            resetMenuPlacement(menu);
             setVisible(menu, false);
         });
 
@@ -69,15 +87,6 @@
         }
     }
 
-    function resetTaskMenuPlacement(menu) {
-        if (!menu) {
-            return;
-        }
-
-        menu.classList.remove('bottom-full', 'mb-2');
-        menu.classList.add('top-full', 'mt-2');
-    }
-
     function clearListCardMenuElevation() {
         document.querySelectorAll('.aa-executable-list-card--floating-menu').forEach(function (card) {
             card.classList.remove('aa-executable-list-card--floating-menu');
@@ -100,66 +109,24 @@
         }
     }
 
-    function getListsBodyClipTop() {
-        var listsBody = document.getElementById('aa-lists-body');
-
-        if (!listsBody || typeof listsBody.getBoundingClientRect !== 'function') {
-            return MENU_VIEWPORT_MARGIN;
-        }
-
-        return listsBody.getBoundingClientRect().top;
-    }
-
-    function getListsBodyClipBottom() {
-        var listsBody = document.getElementById('aa-lists-body');
-
-        if (!listsBody || typeof listsBody.getBoundingClientRect !== 'function') {
-            return window.innerHeight - MENU_VIEWPORT_MARGIN;
-        }
-
-        return listsBody.getBoundingClientRect().bottom;
-    }
-
-    function flipMenuUpIfClipped(menu, trigger) {
-        var menuRect = menu.getBoundingClientRect();
-        var clipBottom = getListsBodyClipBottom() - MENU_VIEWPORT_MARGIN;
-        var viewportBottom = window.innerHeight - MENU_VIEWPORT_MARGIN;
-        var overflowsListsBody = menuRect.bottom > clipBottom + 0.5;
-        var overflowsViewport = menuRect.bottom > viewportBottom;
-
-        if (!overflowsListsBody && !overflowsViewport) {
-            return;
-        }
-
-        var triggerRect = trigger.getBoundingClientRect();
-        var upwardTop = triggerRect.top - menuRect.height - MENU_PLACEMENT_GAP;
-        var safeTop = Math.max(MENU_VIEWPORT_MARGIN, getListsBodyClipTop());
-
-        if (upwardTop >= safeTop) {
-            menu.classList.remove('top-full', 'mt-2');
-            menu.classList.add('bottom-full', 'mb-2');
-        }
-    }
-
     function positionTaskMenu(menu, taskId) {
         if (!menu) {
             return;
         }
 
-        resetTaskMenuPlacement(menu);
-
         var trigger = findTriggerForTask(taskId);
+        var placement = getMenuPlacement();
 
-        if (!trigger) {
+        if (!trigger || !placement || typeof placement.positionOptionsMenu !== 'function') {
             return;
         }
 
-        flipMenuUpIfClipped(menu, trigger);
+        placement.positionOptionsMenu(menu, trigger);
     }
 
     function closeAllMenus() {
         document.querySelectorAll('.aa-executable-task-options-menu').forEach(function (menu) {
-            resetTaskMenuPlacement(menu);
+            resetMenuPlacement(menu);
             setVisible(menu, false);
         });
 
@@ -277,6 +244,22 @@
         closeAllMenus();
     }
 
+    function handleViewportChange() {
+        if (openTaskId !== '') {
+            closeAllMenus();
+        }
+    }
+
+    function bindViewportDismissHandlers() {
+        if (isViewportDismissBound) {
+            return;
+        }
+
+        isViewportDismissBound = true;
+        globalRoot.addEventListener('scroll', handleViewportChange, true);
+        globalRoot.addEventListener('resize', handleViewportChange);
+    }
+
     function bindTaskOptionsModule() {
         if (isBound || !document.getElementById('aa-tasks-module-root')) {
             return;
@@ -289,6 +272,7 @@
         document.addEventListener('keydown', handleDocumentKeydown);
         document.addEventListener('toggle', handleListToggle, true);
         document.addEventListener('toggle', handleTaskToggle, true);
+        bindViewportDismissHandlers();
     }
 
     function initTaskOptionsModule() {

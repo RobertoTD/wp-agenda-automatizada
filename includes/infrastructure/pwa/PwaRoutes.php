@@ -45,8 +45,8 @@ class AA_Pwa_Routes {
 
         $icons_base = AA_PLUGIN_URL . 'includes/admin/ui/pwa/icons/';
         $manifest   = [
-            'name'             => 'DEOIA Citas',
-            'short_name'       => 'Citas',
+            'name'             => 'DEOIA',
+            'short_name'       => 'DEOIA',
             'start_url'        => admin_url('admin-post.php?action=aa_iframe_content&module=dashboard'),
             'scope'            => admin_url('/'),
             'display'          => 'standalone',

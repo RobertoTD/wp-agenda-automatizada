@@ -7,9 +7,11 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 
 const modulePath = path.join(__dirname, '../../includes/admin/ui/modules/learning/list-options-module.js');
+const placementPath = path.join(__dirname, '../../includes/admin/ui/modules/learning/executable-options-menu-placement.js');
 const rendererPath = path.join(__dirname, '../../assets/js/ui/executableListRenderer.js');
 const indexPath = path.join(__dirname, '../../includes/admin/ui/modules/learning/index.php');
 const moduleSrc = fs.readFileSync(modulePath, 'utf8');
+const placementSrc = fs.readFileSync(placementPath, 'utf8');
 const rendererSrc = fs.readFileSync(rendererPath, 'utf8');
 
 function nodeMatchesSelector(node, selector) {
@@ -123,6 +125,17 @@ function makeElement(tag, options) {
         appendChild: function (child) {
             child.parent = this;
             this.children.push(child);
+        },
+        style: opts.style || {},
+        getBoundingClientRect: opts.getBoundingClientRect || function () {
+            return {
+                top: 0,
+                left: 0,
+                right: 100,
+                bottom: 50,
+                width: 100,
+                height: 50
+            };
         },
         addEventListener: function (type, handler, useCapture) {
             var key = type + (useCapture ? ':capture' : ':bubble');
@@ -508,27 +521,56 @@ function dispatchToggle(details, documentMock) {
     });
 }
 
-function loadModule(dom) {
+function loadModule(dom, bag) {
     var context = {
         window: {},
         console: console,
         document: dom.document,
-        module: { exports: {} }
+        module: { exports: {} },
+        innerWidth: 1024,
+        innerHeight: 800,
+        listeners: {},
+        addEventListener: function (type, handler, useCapture) {
+            var key = type + (useCapture ? ':capture' : ':bubble');
+            context.listeners[key] = context.listeners[key] || [];
+            context.listeners[key].push(handler);
+        }
     };
 
     context.window = context;
     context.globalThis = context;
 
+    vm.runInNewContext(placementSrc, context, { filename: placementPath });
     vm.runInNewContext(moduleSrc, context, { filename: modulePath });
+
+    if (bag) {
+        bag.context = context;
+    }
 
     return context.module.exports;
 }
 
-describe('list-options-module MC13L-B', () => {
-    it('index.php encola list-options-module.js', () => {
-        const indexSrc = fs.readFileSync(indexPath, 'utf8');
+function dispatchScroll(context) {
+    (context.listeners['scroll:capture'] || []).forEach(function (handler) {
+        handler({});
+    });
+}
 
-        assert.match(indexSrc, /list-options-module\.js/);
+function dispatchResize(context) {
+    (context.listeners['resize:bubble'] || []).forEach(function (handler) {
+        handler({});
+    });
+}
+
+describe('list-options-module MC13L-B', () => {
+    it('index.php encola placement helper antes de list-options-module.js', () => {
+        const indexSrc = fs.readFileSync(indexPath, 'utf8');
+        var enqueuePlacement = indexSrc.indexOf('esc_url($executable_options_menu_placement_js');
+        var enqueueListOptions = indexSrc.indexOf('esc_url($list_options_js');
+
+        assert.notEqual(enqueuePlacement, -1);
+        assert.notEqual(enqueueListOptions, -1);
+        assert.ok(enqueuePlacement < enqueueListOptions);
     });
 
     it('renderer expone menú ⋮ con Editar, Archivar y Eliminar lista', () => {
@@ -609,6 +651,101 @@ describe('list-options-module MC13L-B', () => {
         dispatchClick(dom.archiveItem, dom.document);
 
         assert.equal(dom.archiveItem.getAttribute('data-tasks-action'), 'archive-list');
+        assert.equal(dom.menu.classList.contains('hidden'), true);
+    });
+
+    it('abrir menú aplica position fixed vía helper compartido', () => {
+        var dom = buildListCardDom('14');
+        dom.menu.classList.classes.push('top-full', 'mt-2');
+        dom.menu.style = {};
+        dom.menu.getBoundingClientRect = function () {
+            return {
+                top: 0,
+                left: 0,
+                right: 192,
+                bottom: 154,
+                width: 192,
+                height: 154
+            };
+        };
+        dom.trigger.getBoundingClientRect = function () {
+            return {
+                top: 200,
+                left: 400,
+                right: 500,
+                bottom: 228,
+                width: 100,
+                height: 28
+            };
+        };
+
+        loadModule(dom);
+        dispatchClick(dom.trigger, dom.document);
+
+        assert.equal(dom.menu.style.position, 'fixed');
+        assert.equal(dom.menu.style.zIndex, '70');
+        assert.equal(dom.menu.classList.contains('hidden'), false);
+    });
+
+    it('cerrar menú resetea placement inline', () => {
+        var dom = buildListCardDom('15');
+        dom.menu.classList.classes.push('top-full', 'mt-2');
+        dom.menu.style = {};
+        dom.menu.getBoundingClientRect = function () {
+            return { top: 0, left: 0, right: 192, bottom: 154, width: 192, height: 154 };
+        };
+        dom.trigger.getBoundingClientRect = function () {
+            return { top: 200, left: 400, right: 500, bottom: 228, width: 100, height: 28 };
+        };
+
+        loadModule(dom);
+        dispatchClick(dom.trigger, dom.document);
+        dispatchClick(dom.trigger, dom.document);
+
+        assert.equal(dom.menu.style.position, '');
+        assert.equal(dom.menu.style.top, '');
+        assert.equal(dom.menu.style.left, '');
+        assert.ok(dom.menu.classList.contains('top-full'));
+        assert.ok(dom.menu.classList.contains('mt-2'));
+    });
+
+    it('scroll cierra menú abierto', () => {
+        var dom = buildListCardDom('16');
+        var bag = {};
+
+        dom.menu.style = {};
+        dom.menu.getBoundingClientRect = function () {
+            return { top: 0, left: 0, right: 192, bottom: 154, width: 192, height: 154 };
+        };
+        dom.trigger.getBoundingClientRect = function () {
+            return { top: 200, left: 400, right: 500, bottom: 228, width: 100, height: 28 };
+        };
+
+        loadModule(dom, bag);
+        dispatchClick(dom.trigger, dom.document);
+        assert.equal(dom.menu.classList.contains('hidden'), false);
+
+        dispatchScroll(bag.context);
+        assert.equal(dom.menu.classList.contains('hidden'), true);
+    });
+
+    it('resize cierra menú abierto', () => {
+        var dom = buildListCardDom('17');
+        var bag = {};
+
+        dom.menu.style = {};
+        dom.menu.getBoundingClientRect = function () {
+            return { top: 0, left: 0, right: 192, bottom: 154, width: 192, height: 154 };
+        };
+        dom.trigger.getBoundingClientRect = function () {
+            return { top: 200, left: 400, right: 500, bottom: 228, width: 100, height: 28 };
+        };
+
+        loadModule(dom, bag);
+        dispatchClick(dom.trigger, dom.document);
+        assert.equal(dom.menu.classList.contains('hidden'), false);
+
+        dispatchResize(bag.context);
         assert.equal(dom.menu.classList.contains('hidden'), true);
     });
 });
