@@ -97,7 +97,7 @@ final class EnsureAppointmentConfirmationTaskUseCase {
         $source_category = AA_Appointment_Actions_Catalog::SOURCE_CATEGORY;
         $origin_key = AA_Appointment_Confirmation_Task_Projector::task_origin_key($reservation_id);
         $existing_task = SeededTaskRepository::find_task_by_origin($source_category, $origin_key);
-        $task_payload = $this->build_task_payload($list_id, $display, $source_category, $origin_key);
+        $task_payload = $this->build_task_payload($list_id, $display, $source_category, $origin_key, $reservation);
         $task = $this->upsert_task($task_payload);
 
         if ($task === null) {
@@ -242,7 +242,8 @@ final class EnsureAppointmentConfirmationTaskUseCase {
         int $list_id,
         array $display,
         string $source_category,
-        string $origin_key
+        string $origin_key,
+        array $reservation
     ): array {
         $title = AA_Appointment_Confirmation_Task_Projector::truncate_text(
             AA_Appointment_Confirmation_Task_Projector::build_title($display['client_name'] ?? ''),
@@ -267,7 +268,7 @@ final class EnsureAppointmentConfirmationTaskUseCase {
             'default_bucket' => 'primary',
             'completion_type' => 'system',
             'completion_fact_key' => null,
-            'due_at' => null,
+            'due_at' => AA_Appointment_Confirmation_Task_Projector::resolve_due_at($reservation['fecha'] ?? null),
             'completed_at' => null,
         ];
     }

@@ -78,6 +78,18 @@ ac_assert(
     && (AA_Appointment_Confirmation_Task_Projector::action_definition()['handler'] ?? '') === 'appointment.confirm'
     && (AA_Appointment_Confirmation_Task_Projector::action_definition()['label'] ?? '') === 'Confirmar'
 );
+ac_assert(
+    'resolve_due_at normalizes valid reservation fecha',
+    AA_Appointment_Confirmation_Task_Projector::resolve_due_at('2026-06-21 11:00:00') === '2026-06-21 11:00:00'
+);
+ac_assert(
+    'resolve_due_at returns null for empty fecha',
+    AA_Appointment_Confirmation_Task_Projector::resolve_due_at('') === null
+);
+ac_assert(
+    'resolve_due_at returns null for invalid fecha',
+    AA_Appointment_Confirmation_Task_Projector::resolve_due_at('not-a-date') === null
+);
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 

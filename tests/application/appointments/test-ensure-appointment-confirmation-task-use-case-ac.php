@@ -15,6 +15,34 @@ if (!function_exists('plugin_dir_path')) {
     }
 }
 
+if (!function_exists('get_option')) {
+    function get_option($key, $default = false) {
+        if ($key === 'aa_timezone') {
+            return 'America/Mexico_City';
+        }
+
+        return $default;
+    }
+}
+
+if (!function_exists('wp_date')) {
+    function wp_date($format, $timestamp, $timezone = null) {
+        $datetime = new DateTime('@' . (int) $timestamp);
+
+        if ($timezone instanceof DateTimeZone) {
+            $datetime->setTimezone($timezone);
+        }
+
+        return $datetime->format($format);
+    }
+}
+
+if (!function_exists('wp_json_encode')) {
+    function wp_json_encode($data, $options = 0, $depth = 512) {
+        return json_encode($data, $options, $depth);
+    }
+}
+
 $plugin_root = dirname(__DIR__, 3);
 
 $total = 0;
@@ -148,6 +176,36 @@ ac_assert(
     empty($not_confirmable['success']) && ($not_confirmable['error']['code'] ?? '') === 'reservation_not_confirmable'
 );
 
+$ensure_instance = new EnsureAppointmentConfirmationTaskUseCase();
+$build_payload = new ReflectionMethod(EnsureAppointmentConfirmationTaskUseCase::class, 'build_task_payload');
+$build_payload->setAccessible(true);
+$build_action = new ReflectionMethod(EnsureAppointmentConfirmationTaskUseCase::class, 'build_action_payload');
+$build_action->setAccessible(true);
+
+$reservation_with_id = array_merge($sample_reservation, ['id' => 101]);
+$display = AA_Appointment_Reservation_Display_Formatter::format($reservation_with_id);
+$task_payload = $build_payload->invoke(
+    $ensure_instance,
+    501,
+    $display,
+    AA_Appointment_Actions_Catalog::SOURCE_CATEGORY,
+    AA_Appointment_Confirmation_Task_Projector::task_origin_key(101),
+    $reservation_with_id
+);
+ac_assert(
+    'Task payload due_at matches reservation fecha',
+    ($task_payload['due_at'] ?? '') === '2026-06-20 10:30:00'
+);
+$action_payload = $build_action->invoke($ensure_instance, 101);
+ac_assert(
+    'Ensure keeps appointment.confirm action key',
+    ($action_payload['action_key'] ?? '') === 'appointment.confirm'
+);
+ac_assert(
+    'Use case payload sets due_at via resolve_due_at',
+    strpos($use_case_src, 'resolve_due_at($reservation[\'fecha\']') !== false
+);
+
 $wp_root = getenv('AA_WP_ROOT') ?: '';
 $wp_load = $wp_root !== '' ? rtrim($wp_root, '/') . '/wp-load.php' : '';
 
@@ -229,12 +287,20 @@ if ($wp_load !== '' && is_readable($wp_load)) {
         'Action key appointment.confirm',
         ($first['data']['action']['action_key'] ?? '') === 'appointment.confirm'
     );
+    ac_assert(
+        'Task due_at matches reservation fecha on create',
+        ($first['data']['task']['due_at'] ?? '') === '2026-06-21 11:00:00'
+    );
 
     $second = (new EnsureAppointmentConfirmationTaskUseCase())->execute(['reservation_id' => $reservation_id]);
     ac_assert('Second ensure succeeds', !empty($second['success']));
     ac_assert(
         'Second ensure preserves task id',
         (int) ($second['data']['task']['id'] ?? 0) === $task_id
+    );
+    ac_assert(
+        'Second ensure preserves due_at',
+        ($second['data']['task']['due_at'] ?? '') === '2026-06-21 11:00:00'
     );
 
     $action_count = (int) $wpdb->get_var(

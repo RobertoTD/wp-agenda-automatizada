@@ -42,6 +42,30 @@ final class AA_Appointment_Confirmation_Task_Projector {
         return AA_Appointment_Actions_Catalog::task_origin_key($reservation_id);
     }
 
+    /**
+     * @param mixed $fecha Raw reservation start datetime (aa_reservas.fecha).
+     * @return string|null Y-m-d H:i:s or null when empty/invalid.
+     */
+    public static function resolve_due_at($fecha): ?string {
+        if (!is_string($fecha)) {
+            return null;
+        }
+
+        $raw = trim($fecha);
+
+        if ($raw === '') {
+            return null;
+        }
+
+        $parsed = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $raw);
+
+        if ($parsed === false) {
+            return null;
+        }
+
+        return $parsed->format('Y-m-d H:i:s');
+    }
+
     public static function build_title(string $client_name): string {
         $name = trim($client_name);
 
