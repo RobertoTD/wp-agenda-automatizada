@@ -31,20 +31,15 @@
         }
     }
 
-    function renderGreeting() {
-        var el = document.getElementById('aa-dashboard-greeting');
+    function renderDate() {
         var dateEl = document.getElementById('aa-dashboard-date');
-        if (!el) return;
+        if (!dateEl) return;
 
-        var hour = new Date().getHours();
-        var greeting = hour < 12 ? 'Buenos días' : hour < 18 ? 'Buenas tardes' : 'Buenas noches';
-        el.textContent = greeting;
-
-        if (dateEl) {
-            var now = new Date();
-            var options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-            dateEl.textContent = now.toLocaleDateString('es-MX', options);
-        }
+        var now = new Date();
+        var day = now.getDate();
+        var month = now.toLocaleDateString('es-MX', { month: 'short' }).replace(/\.$/, '');
+        month = month.charAt(0).toUpperCase() + month.slice(1);
+        dateEl.textContent = day + ' de ' + month;
     }
 
     // ─── Card: Hoy ────────────────────────────────────────────
@@ -979,7 +974,7 @@
             return;
         }
 
-        renderGreeting();
+        renderDate();
 
         bindDashboardCollapsibles();
 

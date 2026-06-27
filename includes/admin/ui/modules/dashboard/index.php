@@ -19,10 +19,9 @@ $executor_module_url = admin_url('admin-post.php?action=aa_iframe_content&module
 
 <div id="aa-dashboard-root" class="max-w-5xl mx-auto py-2">
 
-    <!-- Greeting -->
-    <div class="mb-4">
-        <h2 id="aa-dashboard-greeting" class="text-xl font-bold text-gray-900"></h2>
-        <p id="aa-dashboard-date" class="text-sm text-gray-500 mt-0.5"></p>
+    <!-- Date -->
+    <div class="mb-2 text-right">
+        <p id="aa-dashboard-date" class="text-xs text-gray-500 mx-5"></p>
     </div>
 
     <!-- Tarea actual -->
