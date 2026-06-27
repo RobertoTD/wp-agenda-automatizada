@@ -18,7 +18,7 @@ final class AA_Learning_Catalog {
      * Versión del catálogo para seed/sync hacia DB común (MC13O-D3).
      * Bumpear cuando cambien definiciones activas del catálogo.
      */
-    public const SEED_VERSION = '3';
+    public const SEED_VERSION = '4';
 
     /**
      * @return list<string> Keys de definiciones activas del catálogo.
@@ -64,15 +64,15 @@ final class AA_Learning_Catalog {
             self::item(
                 'complete_business_data',
                 'Completa los datos de tu negocio',
-                'Añade el nombre y la dirección de tu negocio para personalizar la experiencia.',
+                'Añade el nombre y la ubicación de tu negocio para personalizar la experiencia.',
                 90,
                 1,
                 self::COMPLETION_AUTO,
                 'business_data_complete',
                 [
                     'module' => 'settings',
-                    'setup_focus' => null,
-                    'fragment' => null,
+                    'setup_focus' => 'business_data',
+                    'fragment' => 'aa-business-data-root',
                 ],
                 true,
                 [

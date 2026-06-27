@@ -961,14 +961,14 @@ $agenda_organization['task_actions_by_id'] = [
         [
             'id' => 1,
             'task_id' => 500,
-            'action_key' => 'navigate.settings',
+            'action_key' => 'navigate.settings.business_data',
             'type' => 'navigate',
             'label' => 'Ir',
             'placement' => 'primary',
             'category' => 'mechanical',
             'target_module' => 'settings',
-            'target_setup_focus' => null,
-            'target_fragment' => null,
+            'target_setup_focus' => 'business_data',
+            'target_fragment' => 'aa-business-data-root',
             'handler' => null,
             'enabled' => 1,
             'position' => 0,
@@ -1060,9 +1060,11 @@ ac_assert(
 ac_assert(
     'Agenda app navigate action maps to primary_action URL',
     is_array($agenda_primary_item)
-    && ($agenda_primary_item['primary_action']['key'] ?? '') === 'navigate.settings'
+    && ($agenda_primary_item['primary_action']['key'] ?? '') === 'navigate.settings.business_data'
     && ($agenda_primary_item['primary_action']['type'] ?? '') === AA_Executable_Contract::ACTION_NAVIGATE
     && strpos((string) ($agenda_primary_item['primary_action']['url'] ?? ''), 'module=settings') !== false
+    && strpos((string) ($agenda_primary_item['primary_action']['url'] ?? ''), 'setup_focus=business_data') !== false
+    && strpos((string) ($agenda_primary_item['primary_action']['url'] ?? ''), '#aa-business-data-root') !== false
 );
 ac_assert(
     'Agenda app handler action maps to primary_action handler',
@@ -1079,7 +1081,7 @@ $enriched_agenda_primary = $enriched_agenda_lists[0]['buckets'][0]['items'][0] ?
 $enriched_agenda_secondary = $enriched_agenda_lists[0]['buckets'][1]['items'][0] ?? null;
 ac_assert(
     'Agenda app visible_actions preserve persisted action keys',
-    ($enriched_agenda_primary['visible_actions'][0]['key'] ?? '') === 'navigate.settings'
+    ($enriched_agenda_primary['visible_actions'][0]['key'] ?? '') === 'navigate.settings.business_data'
     && ($enriched_agenda_secondary['visible_actions'][0]['key'] ?? '') === 'pwa.install'
 );
 ac_assert(
@@ -1131,7 +1133,7 @@ $enriched_agenda_secondary_keys = is_array($enriched_agenda_secondary)
     : [];
 ac_assert(
     'Agenda app primary navigate item includes dismiss visible_action',
-    $enriched_agenda_primary_keys === ['navigate.settings', 'dismiss']
+    $enriched_agenda_primary_keys === ['navigate.settings.business_data', 'dismiss']
 );
 ac_assert(
     'Agenda app secondary default_bucket item includes install complete dismiss',

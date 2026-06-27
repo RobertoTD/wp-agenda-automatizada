@@ -13,6 +13,7 @@ require_once dirname(__DIR__, 2) . '/repositories/LearningRecommendationStateRep
 require_once dirname(__DIR__, 2) . '/repositories/AssignmentsRepository.php';
 require_once dirname(__DIR__, 2) . '/repositories/ClientsRepository.php';
 require_once dirname(__DIR__, 2) . '/services/SyncService.php';
+require_once dirname(__DIR__, 2) . '/infrastructure/tasks/TaskSystemCompletionFactResolver.php';
 
 final class LearningRecommendationEvaluator {
 
@@ -50,13 +51,9 @@ final class LearningRecommendationEvaluator {
      * @return array<string,bool>
      */
     public static function build_facts(): array {
-        $business_name = get_option('aa_business_name', '');
-        $business_address = get_option('aa_business_address', '');
-
         return [
             'google_connected' => SyncService::has_google_connection(),
-            'business_data_complete' => is_string($business_name) && trim($business_name) !== ''
-                && is_string($business_address) && trim($business_address) !== '',
+            'business_data_complete' => TaskSystemCompletionFactResolver::is_business_data_complete(),
             'has_active_service' => AssignmentsRepository::count_active_services() > 0,
             'has_active_area' => AssignmentsRepository::count_active_service_areas() > 0,
             'has_staff_with_service' => AssignmentsRepository::count_active_staff_with_active_services() > 0,

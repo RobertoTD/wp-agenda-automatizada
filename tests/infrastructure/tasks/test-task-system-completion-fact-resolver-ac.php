@@ -88,6 +88,7 @@ ac_assert('Resolver file readable', $resolver_src !== false);
 ac_assert('Resolver defines TaskSystemCompletionFactResolver', strpos($resolver_src, 'class TaskSystemCompletionFactResolver') !== false);
 ac_assert('Resolver exposes resolve_all', strpos($resolver_src, 'function resolve_all') !== false);
 ac_assert('Resolver does not touch LearningRecommendationStateRepository', strpos($resolver_src, 'LearningRecommendationStateRepository') === false);
+ac_assert('Resolver exposes is_business_data_complete', strpos($resolver_src, 'function is_business_data_complete') !== false);
 ac_assert('Resolver does not touch visibility policy', strpos($resolver_src, 'AA_Learning_Visibility_Policy') === false);
 
 $facts = TaskSystemCompletionFactResolver::resolve_all();
@@ -121,6 +122,39 @@ ac_assert('google_connected resolves true when connected', ($all_true['google_co
 ac_assert('business_data_complete resolves true with name and address', ($all_true['business_data_complete'] ?? false) === true);
 ac_assert('has_active_service resolves true with services', ($all_true['has_active_service'] ?? false) === true);
 ac_assert('has_registered_client resolves true with clients', ($all_true['has_registered_client'] ?? false) === true);
+
+$GLOBALS['aa_test_options'] = [
+    'aa_business_name' => 'Negocio Virtual',
+    'aa_business_address' => '',
+    'aa_is_virtual' => 1,
+];
+$name_and_virtual = TaskSystemCompletionFactResolver::resolve_all();
+ac_assert(
+    'business_data_complete resolves true with name and virtual',
+    ($name_and_virtual['business_data_complete'] ?? false) === true
+);
+
+$GLOBALS['aa_test_options'] = [
+    'aa_business_name' => 'Solo nombre',
+    'aa_business_address' => '',
+    'aa_is_virtual' => 0,
+];
+$name_only = TaskSystemCompletionFactResolver::resolve_all();
+ac_assert(
+    'business_data_complete resolves false with name only',
+    ($name_only['business_data_complete'] ?? true) === false
+);
+
+$GLOBALS['aa_test_options'] = [
+    'aa_business_name' => '',
+    'aa_business_address' => '',
+    'aa_is_virtual' => 1,
+];
+$virtual_without_name = TaskSystemCompletionFactResolver::resolve_all();
+ac_assert(
+    'business_data_complete resolves false with virtual without name',
+    ($virtual_without_name['business_data_complete'] ?? true) === false
+);
 
 $GLOBALS['aa_test_google_connected'] = false;
 $GLOBALS['aa_test_options'] = ['aa_business_name' => '', 'aa_business_address' => ''];

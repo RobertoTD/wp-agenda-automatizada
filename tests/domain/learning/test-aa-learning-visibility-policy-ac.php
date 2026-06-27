@@ -439,7 +439,7 @@ $google_visible = array_filter(
 );
 ac_assert('Google connected hides catalog item', count($google_visible) === 0);
 
-ac_assert('Catalog SEED_VERSION is 3', AA_Learning_Catalog::SEED_VERSION === '3');
+ac_assert('Catalog SEED_VERSION is 4', AA_Learning_Catalog::SEED_VERSION === '4');
 ac_assert(
     'Catalog connect_google_calendar has highest importance',
     (int) ($catalog['connect_google_calendar']['importance'] ?? 0) === 100

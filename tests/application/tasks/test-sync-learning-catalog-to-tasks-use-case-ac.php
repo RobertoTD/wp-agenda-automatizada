@@ -53,7 +53,7 @@ ac_assert('Use case keeps learning.recommendations origin_key', strpos($use_case
 ac_assert('Catalog excludes learn_basic_flow', !isset(AA_Learning_Catalog::definitions()['learn_basic_flow']));
 ac_assert('Catalog excludes review_agenda', !isset(AA_Learning_Catalog::definitions()['review_agenda']));
 ac_assert('Catalog active_definition_keys has 7 entries', count(AA_Learning_Catalog::active_definition_keys()) === 7);
-ac_assert('Catalog SEED_VERSION remains 3', AA_Learning_Catalog::SEED_VERSION === '3');
+ac_assert('Catalog SEED_VERSION remains 4', AA_Learning_Catalog::SEED_VERSION === '4');
 
 $runtime_files = [
     'includes/application/executable/GetExecutableListsFeedUseCase.php',
@@ -148,12 +148,20 @@ if ($wp_load !== '' && is_readable($wp_load)) {
         'sync does not seed review_agenda',
         SeededTaskRepository::find_task_by_origin('agenda_app', 'review_agenda') === null
     );
-    ac_assert('Catalog SEED_VERSION remains 3', AA_Learning_Catalog::SEED_VERSION === '3');
+    ac_assert('Catalog SEED_VERSION remains 4', AA_Learning_Catalog::SEED_VERSION === '4');
 
     $complete_action = is_array($complete_business_data)
-        ? TaskActionRepository::find_by_task_and_key((int) $complete_business_data['id'], 'navigate.settings')
+        ? TaskActionRepository::find_by_task_and_key((int) $complete_business_data['id'], 'navigate.settings.business_data')
         : null;
-    ac_assert('complete_business_data has navigate.settings action', is_array($complete_action));
+    ac_assert('complete_business_data has navigate.settings.business_data action', is_array($complete_action));
+    ac_assert(
+        'complete_business_data action has business_data setup_focus',
+        is_array($complete_action) && ($complete_action['target_setup_focus'] ?? '') === 'business_data'
+    );
+    ac_assert(
+        'complete_business_data action has business data fragment',
+        is_array($complete_action) && ($complete_action['target_fragment'] ?? '') === 'aa-business-data-root'
+    );
 
     $first_task_id = (int) ($complete_business_data['id'] ?? 0);
     $tasks_before_second = (int) $wpdb->get_var(

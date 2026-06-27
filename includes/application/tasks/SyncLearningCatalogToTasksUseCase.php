@@ -92,6 +92,8 @@ final class SyncLearningCatalogToTasksUseCase {
             $task_id = (int) $task['id'];
             $counts['task_ids'][$origin_key] = $task_id;
 
+            $active_action_keys = [];
+
             foreach ($this->action_payloads($definition) as $action_payload) {
                 $existing_action = TaskActionRepository::find_by_task_and_key($task_id, (string) $action_payload['action_key']);
                 $action = TaskActionRepository::upsert($task_id, $action_payload);
@@ -101,6 +103,11 @@ final class SyncLearningCatalogToTasksUseCase {
                 }
 
                 $counts[$existing_action === null ? 'actions_created' : 'actions_updated']++;
+                $active_action_keys[] = (string) $action_payload['action_key'];
+            }
+
+            if ($active_action_keys !== []) {
+                TaskActionRepository::disable_missing_for_task($task_id, $active_action_keys);
             }
         }
 

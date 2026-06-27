@@ -248,7 +248,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
         <!-- ═══════════════════════════════════════════════════════════════
              SECCIÓN: Datos del Negocio
         ═══════════════════════════════════════════════════════════════ -->
-        <details class="bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
+        <details id="aa-business-data-root" class="bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
             <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
                 <div class="flex items-center justify-between gap-3">
                     <div class="flex items-center gap-3">

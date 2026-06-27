@@ -452,13 +452,69 @@
         const params = new URLSearchParams(window.location.search);
         const focusKey = params.get('setup_focus');
 
-        if (focusKey !== 'google_calendar') {
+        if (focusKey === 'google_calendar') {
+            window.requestAnimationFrame(function() {
+                focusGoogleCalendarSetup();
+            });
             return;
         }
 
-        window.requestAnimationFrame(function() {
-            focusGoogleCalendarSetup();
+        if (focusKey === 'business_data') {
+            window.requestAnimationFrame(function() {
+                focusBusinessDataSetup();
+            });
+        }
+    }
+
+    /**
+     * Opens business data section, scrolls, highlights relevant fields and focuses name input.
+     */
+    function focusBusinessDataSetup() {
+        const root = document.getElementById('aa-business-data-root');
+
+        if (!root) {
+            return;
+        }
+
+        if (!root.open) {
+            root.open = true;
+        }
+
+        root.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
         });
+
+        applyTemporaryHighlight(root);
+
+        const fieldsToHighlight = [
+            document.getElementById('aa_business_name'),
+            document.getElementById('aa-business-address')
+        ];
+
+        const virtualCheckbox = document.getElementById('aa-is-virtual-checkbox');
+
+        if (virtualCheckbox) {
+            const virtualRow = virtualCheckbox.closest('.flex.items-center') || virtualCheckbox.parentElement;
+
+            if (virtualRow) {
+                fieldsToHighlight.push(virtualRow);
+            }
+        }
+
+        fieldsToHighlight.forEach(function(element) {
+            if (element) {
+                applyTemporaryHighlight(element);
+            }
+        });
+
+        const nameInput = document.getElementById('aa_business_name');
+
+        if (nameInput && typeof nameInput.focus === 'function') {
+            window.setTimeout(function() {
+                nameInput.focus({ preventScroll: true });
+            }, 350);
+        }
     }
 
     /**
