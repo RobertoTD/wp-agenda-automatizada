@@ -218,3 +218,21 @@ describe('tasks-board-module MC1 appointment_actions', () => {
         assert.equal(selectable[0].id, 7);
     });
 });
+
+describe('tasks-board-module MC5-lite due_at picker min', () => {
+    const indexPath = path.join(__dirname, '../../includes/admin/ui/modules/learning/index.php');
+
+    it('form create tiene novalidate para permitir due_at pasado manual', () => {
+        const fs = require('node:fs');
+        const indexSrc = fs.readFileSync(indexPath, 'utf8');
+        const moduleSrc = fs.readFileSync(modulePath, 'utf8');
+
+        assert.match(indexSrc, /id="aa-task-form"[^>]*novalidate/);
+        assert.match(moduleSrc, /function todayMinForDatetimeLocal/);
+        assert.match(moduleSrc, /T00:00/);
+        assert.match(moduleSrc, /applyTaskDueAtInputMin\('aa-task-form-due-at'\)/);
+        assert.match(moduleSrc, /modalId === 'aa-task-modal'/);
+        assert.match(moduleSrc, /if \(!listId\)/);
+        assert.match(moduleSrc, /if \(!title\)/);
+    });
+});

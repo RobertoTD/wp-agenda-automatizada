@@ -342,3 +342,25 @@ describe('task-edit-module MC13C', () => {
         assert.match(rendererSrc, /data-aa-task-options-trigger/);
     });
 });
+
+describe('task-edit-module MC5-lite due_at picker min', () => {
+    it('form edit tiene novalidate y el módulo fija min hoyT00:00 al abrir', () => {
+        const indexSrc = fs.readFileSync(indexPath, 'utf8');
+
+        assert.match(indexSrc, /id="aa-task-edit-form"[^>]*novalidate/);
+        assert.match(moduleSrc, /function todayMinForDatetimeLocal/);
+        assert.match(moduleSrc, /T00:00/);
+        assert.match(moduleSrc, /applyTaskDueAtInputMin\(dueInput\)/);
+        assert.match(moduleSrc, /if \(!title\)/);
+    });
+
+    it('openEditModalFromButton asigna min en due_at al abrir modal', () => {
+        var dom = buildEditDom();
+        var dueInput = dom.document.getElementById('aa-task-edit-form-due-at');
+
+        loadTaskEditModule(dom);
+        dispatchClick(dom.editButton);
+
+        assert.match(dueInput.min, /^\d{4}-\d{2}-\d{2}T00:00$/);
+    });
+});

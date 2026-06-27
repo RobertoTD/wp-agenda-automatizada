@@ -304,6 +304,29 @@
             });
     }
 
+    function padTwo(num) {
+        return num < 10 ? '0' + num : String(num);
+    }
+
+    function todayMinForDatetimeLocal() {
+        var now = new Date();
+
+        return now.getFullYear()
+            + '-'
+            + padTwo(now.getMonth() + 1)
+            + '-'
+            + padTwo(now.getDate())
+            + 'T00:00';
+    }
+
+    function applyTaskDueAtInputMin(inputId) {
+        var dueInput = document.getElementById(inputId);
+
+        if (dueInput) {
+            dueInput.min = todayMinForDatetimeLocal();
+        }
+    }
+
     function openModal(modalId) {
         var modal = document.getElementById(modalId);
 
@@ -313,6 +336,10 @@
             if (globalRoot.AATasksModalUi && typeof globalRoot.AATasksModalUi.onLearningModalOpened === 'function') {
                 globalRoot.AATasksModalUi.onLearningModalOpened();
             }
+        }
+
+        if (modalId === 'aa-task-modal') {
+            applyTaskDueAtInputMin('aa-task-form-due-at');
         }
     }
 

@@ -110,6 +110,27 @@
         return raw.replace(' ', 'T').slice(0, 16);
     }
 
+    function padTwo(num) {
+        return num < 10 ? '0' + num : String(num);
+    }
+
+    function todayMinForDatetimeLocal() {
+        var now = new Date();
+
+        return now.getFullYear()
+            + '-'
+            + padTwo(now.getMonth() + 1)
+            + '-'
+            + padTwo(now.getDate())
+            + 'T00:00';
+    }
+
+    function applyTaskDueAtInputMin(dueInput) {
+        if (dueInput) {
+            dueInput.min = todayMinForDatetimeLocal();
+        }
+    }
+
     function reloadAfterMutation() {
         var boardApi = globalRoot.AATasksBoard;
         var feedApi = globalRoot.AAExecutableUserListsVisibleFeed;
@@ -172,6 +193,7 @@
 
         if (dueInput) {
             dueInput.value = formatDueAtForInput(dueAt);
+            applyTaskDueAtInputMin(dueInput);
         }
 
         if (importanceInput) {

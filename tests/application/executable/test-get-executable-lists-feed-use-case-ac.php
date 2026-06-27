@@ -41,6 +41,18 @@ if (!function_exists('get_option')) {
     }
 }
 
+if (!function_exists('aa_get_current_datetime')) {
+    function aa_get_current_datetime() {
+        return '2026-06-04 12:00:00';
+    }
+}
+
+if (!function_exists('current_time')) {
+    function current_time($type, $gmt = 0) {
+        return '2026-06-04 12:00:00';
+    }
+}
+
 /**
  * @param array<string,mixed> $options
  */

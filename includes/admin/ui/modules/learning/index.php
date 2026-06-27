@@ -306,7 +306,7 @@ $executive_proposal_module_js = plugin_dir_url(__FILE__) . 'executive-proposal-m
             <div class="px-5 py-4 border-b border-gray-100 shrink-0">
                 <h4 class="text-lg font-semibold text-gray-900">Nueva tarea</h4>
             </div>
-            <form id="aa-task-form" class="aa-tasks-modal-scroll space-y-4">
+            <form id="aa-task-form" class="aa-tasks-modal-scroll space-y-4" novalidate>
                 <div>
                     <label for="aa-task-form-list-id" class="block text-sm font-medium text-gray-700 mb-1">Lista</label>
                     <select id="aa-task-form-list-id" name="list_id" required
@@ -373,7 +373,7 @@ $executive_proposal_module_js = plugin_dir_url(__FILE__) . 'executive-proposal-m
             <div class="px-5 py-4 border-b border-gray-100 shrink-0">
                 <h4 class="text-lg font-semibold text-gray-900">Editar tarea</h4>
             </div>
-            <form id="aa-task-edit-form" class="aa-tasks-modal-scroll space-y-4">
+            <form id="aa-task-edit-form" class="aa-tasks-modal-scroll space-y-4" novalidate>
                 <input type="hidden" id="aa-task-edit-form-task-id" name="task_id" value="">
                 <div>
                     <label for="aa-task-edit-form-title" class="block text-sm font-medium text-gray-700 mb-1">Tarea</label>
