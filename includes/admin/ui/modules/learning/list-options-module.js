@@ -14,6 +14,7 @@
     var coordinatingTaskToggle = false;
     var restoreSkipFollowingResetListId = '';
     var MENU_VIEWPORT_MARGIN = 8;
+    var MENU_PLACEMENT_GAP = 8;
 
     function asString(value) {
         return value === null || value === undefined ? '' : String(value);
@@ -71,6 +72,69 @@
         });
     }
 
+    function clearListCardMenuElevation() {
+        document.querySelectorAll('.aa-executable-list-card--floating-menu').forEach(function (card) {
+            card.classList.remove('aa-executable-list-card--floating-menu');
+        });
+    }
+
+    function setListCardMenuElevation(menu, elevated) {
+        var listCard = menu && menu.closest
+            ? menu.closest('details.aa-executable-list-card')
+            : null;
+
+        if (!listCard) {
+            return;
+        }
+
+        if (elevated) {
+            listCard.classList.add('aa-executable-list-card--floating-menu');
+        } else {
+            listCard.classList.remove('aa-executable-list-card--floating-menu');
+        }
+    }
+
+    function getListsBodyClipTop() {
+        var listsBody = document.getElementById('aa-lists-body');
+
+        if (!listsBody || typeof listsBody.getBoundingClientRect !== 'function') {
+            return MENU_VIEWPORT_MARGIN;
+        }
+
+        return listsBody.getBoundingClientRect().top;
+    }
+
+    function getListsBodyClipBottom() {
+        var listsBody = document.getElementById('aa-lists-body');
+
+        if (!listsBody || typeof listsBody.getBoundingClientRect !== 'function') {
+            return window.innerHeight - MENU_VIEWPORT_MARGIN;
+        }
+
+        return listsBody.getBoundingClientRect().bottom;
+    }
+
+    function flipMenuUpIfClipped(menu, trigger) {
+        var menuRect = menu.getBoundingClientRect();
+        var clipBottom = getListsBodyClipBottom() - MENU_VIEWPORT_MARGIN;
+        var viewportBottom = window.innerHeight - MENU_VIEWPORT_MARGIN;
+        var overflowsListsBody = menuRect.bottom > clipBottom + 0.5;
+        var overflowsViewport = menuRect.bottom > viewportBottom;
+
+        if (!overflowsListsBody && !overflowsViewport) {
+            return;
+        }
+
+        var triggerRect = trigger.getBoundingClientRect();
+        var upwardTop = triggerRect.top - menuRect.height - MENU_PLACEMENT_GAP;
+        var safeTop = Math.max(MENU_VIEWPORT_MARGIN, getListsBodyClipTop());
+
+        if (upwardTop >= safeTop) {
+            menu.classList.remove('top-full', 'mt-2');
+            menu.classList.add('bottom-full', 'mb-2');
+        }
+    }
+
     function resetListMenuPlacement(menu) {
         if (!menu) {
             return;
@@ -80,31 +144,20 @@
         menu.classList.add('top-full', 'mt-2');
     }
 
-    function positionListMenu(menu) {
+    function positionListMenu(menu, listId) {
         if (!menu) {
             return;
         }
 
         resetListMenuPlacement(menu);
 
-        var listCard = menu.closest ? menu.closest('details.aa-executable-list-card') : null;
+        var trigger = findTriggerForList(listId);
 
-        if (!listCard) {
+        if (!trigger) {
             return;
         }
 
-        var menuRect = menu.getBoundingClientRect();
-        var cardRect = listCard.getBoundingClientRect();
-        var viewportBottom = window.innerHeight - MENU_VIEWPORT_MARGIN;
-        var overflowsCard = menuRect.bottom > cardRect.bottom + 0.5;
-        var overflowsViewport = menuRect.bottom > viewportBottom;
-
-        if (!overflowsCard && !overflowsViewport) {
-            return;
-        }
-
-        menu.classList.remove('top-full', 'mt-2');
-        menu.classList.add('bottom-full', 'mb-2');
+        flipMenuUpIfClipped(menu, trigger);
     }
 
     function closeAllMenus() {
@@ -117,6 +170,7 @@
             trigger.setAttribute('aria-expanded', 'false');
         });
 
+        clearListCardMenuElevation();
         closeTaskMenus();
         openListId = '';
     }
@@ -131,7 +185,8 @@
         closeTaskMenus();
         closeAllMenus();
         setVisible(menu, true);
-        positionListMenu(menu);
+        positionListMenu(menu, listId);
+        setListCardMenuElevation(menu, true);
         setTriggerExpanded(listId, true);
         openListId = listId;
     }

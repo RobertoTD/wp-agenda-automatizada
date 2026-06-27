@@ -123,6 +123,11 @@
         z-index: 2;
     }
 
+    /* Menú de lista abierto hacia arriba (última lista del feed) */
+    details.aa-executable-list-card[open]:has(.aa-executable-list-options-menu.bottom-full:not(.hidden)) > summary {
+        z-index: 2;
+    }
+
     .aa-executable-list-options-menu {
         z-index: 30;
     }

@@ -11,6 +11,7 @@
     var isBound = false;
     var openTaskId = '';
     var MENU_VIEWPORT_MARGIN = 8;
+    var MENU_PLACEMENT_GAP = 8;
 
     function asString(value) {
         return value === null || value === undefined ? '' : String(value);
@@ -30,11 +31,17 @@
 
     function closeListMenus() {
         document.querySelectorAll('.aa-executable-list-options-menu').forEach(function (menu) {
+            menu.classList.remove('bottom-full', 'mb-2');
+            menu.classList.add('top-full', 'mt-2');
             setVisible(menu, false);
         });
 
         document.querySelectorAll('.aa-executable-list-options-trigger').forEach(function (trigger) {
             trigger.setAttribute('aria-expanded', 'false');
+        });
+
+        document.querySelectorAll('.aa-executable-list-card--floating-menu').forEach(function (card) {
+            card.classList.remove('aa-executable-list-card--floating-menu');
         });
     }
 
@@ -93,34 +100,61 @@
         }
     }
 
-    function positionTaskMenu(menu) {
+    function getListsBodyClipTop() {
+        var listsBody = document.getElementById('aa-lists-body');
+
+        if (!listsBody || typeof listsBody.getBoundingClientRect !== 'function') {
+            return MENU_VIEWPORT_MARGIN;
+        }
+
+        return listsBody.getBoundingClientRect().top;
+    }
+
+    function getListsBodyClipBottom() {
+        var listsBody = document.getElementById('aa-lists-body');
+
+        if (!listsBody || typeof listsBody.getBoundingClientRect !== 'function') {
+            return window.innerHeight - MENU_VIEWPORT_MARGIN;
+        }
+
+        return listsBody.getBoundingClientRect().bottom;
+    }
+
+    function flipMenuUpIfClipped(menu, trigger) {
+        var menuRect = menu.getBoundingClientRect();
+        var clipBottom = getListsBodyClipBottom() - MENU_VIEWPORT_MARGIN;
+        var viewportBottom = window.innerHeight - MENU_VIEWPORT_MARGIN;
+        var overflowsListsBody = menuRect.bottom > clipBottom + 0.5;
+        var overflowsViewport = menuRect.bottom > viewportBottom;
+
+        if (!overflowsListsBody && !overflowsViewport) {
+            return;
+        }
+
+        var triggerRect = trigger.getBoundingClientRect();
+        var upwardTop = triggerRect.top - menuRect.height - MENU_PLACEMENT_GAP;
+        var safeTop = Math.max(MENU_VIEWPORT_MARGIN, getListsBodyClipTop());
+
+        if (upwardTop >= safeTop) {
+            menu.classList.remove('top-full', 'mt-2');
+            menu.classList.add('bottom-full', 'mb-2');
+        }
+    }
+
+    function positionTaskMenu(menu, taskId) {
         if (!menu) {
             return;
         }
 
         resetTaskMenuPlacement(menu);
 
-        var listCard = menu.closest ? menu.closest('details.aa-executable-list-card') : null;
-        var taskItem = menu.closest ? menu.closest('details.aa-executable-item') : null;
+        var trigger = findTriggerForTask(taskId);
 
-        if (!listCard) {
+        if (!trigger) {
             return;
         }
 
-        var menuRect = menu.getBoundingClientRect();
-        var cardRect = listCard.getBoundingClientRect();
-        var taskRect = taskItem ? taskItem.getBoundingClientRect() : null;
-        var viewportBottom = window.innerHeight - MENU_VIEWPORT_MARGIN;
-        var overflowsListCard = menuRect.bottom > cardRect.bottom + 0.5;
-        var overflowsTask = taskRect && menuRect.bottom > taskRect.bottom + 0.5;
-        var overflowsViewport = menuRect.bottom > viewportBottom;
-
-        if (!overflowsListCard && !overflowsTask && !overflowsViewport) {
-            return;
-        }
-
-        menu.classList.remove('top-full', 'mt-2');
-        menu.classList.add('bottom-full', 'mb-2');
+        flipMenuUpIfClipped(menu, trigger);
     }
 
     function closeAllMenus() {
@@ -147,7 +181,7 @@
         closeListMenus();
         closeAllMenus();
         setVisible(menu, true);
-        positionTaskMenu(menu);
+        positionTaskMenu(menu, taskId);
         setListCardMenuElevation(menu, true);
         setTriggerExpanded(taskId, true);
         openTaskId = taskId;
