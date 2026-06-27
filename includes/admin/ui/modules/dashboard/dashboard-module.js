@@ -777,6 +777,12 @@
             return Promise.resolve();
         }
 
+        var completeToastContext = actionKey === 'complete'
+            && window.AATaskCompletedToast
+            && typeof window.AATaskCompletedToast.resolveFromButton === 'function'
+            ? window.AATaskCompletedToast.resolveFromButton(button)
+            : null;
+
         currentTaskActionPending = true;
         setDashboardExecutiveButtonsDisabled(true);
 
@@ -785,6 +791,14 @@
             actionKey: actionKey
         })
             .then(function (response) {
+                if (
+                    actionKey === 'complete'
+                    && window.AATaskCompletedToast
+                    && typeof window.AATaskCompletedToast.show === 'function'
+                ) {
+                    window.AATaskCompletedToast.show(completeToastContext);
+                }
+
                 if (response && response.proposal && typeof response.proposal === 'object') {
                     if (!renderCurrentTaskFromProposal(response.proposal)) {
                         return loadCurrentTaskCard();

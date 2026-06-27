@@ -88,6 +88,29 @@
 
         /**
          * @param {string} action
+         * @param {HTMLElement|null|undefined} button
+         * @param {object|null|undefined} ajaxResult
+         */
+        function showTaskCompletedToastIfApplicable(action, button, ajaxResult) {
+            if (action !== 'complete') {
+                return;
+            }
+
+            var toastHelper = globalRoot.AATaskCompletedToast;
+
+            if (!toastHelper || typeof toastHelper.show !== 'function') {
+                return;
+            }
+
+            var context = typeof toastHelper.resolveFromButton === 'function'
+                ? toastHelper.resolveFromButton(button)
+                : null;
+
+            toastHelper.show(context, ajaxResult);
+        }
+
+        /**
+         * @param {string} action
          * @param {string} taskId
          * @returns {Promise<void>}
          */
@@ -497,7 +520,16 @@
                     return Promise.resolve(false);
                 }
 
-                actionPromise = runTaskStatusAction(action, taskId);
+                if (action === 'complete') {
+                    var completeButton = button;
+
+                    actionPromise = runTaskStatusAction(action, taskId).then(function (result) {
+                        showTaskCompletedToastIfApplicable('complete', completeButton, result);
+                        return result;
+                    });
+                } else {
+                    actionPromise = runTaskStatusAction(action, taskId);
+                }
             } else if (action === 'defer') {
                 if (!taskId) {
                     return Promise.resolve(false);

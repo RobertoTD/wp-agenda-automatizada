@@ -367,6 +367,12 @@
             return Promise.resolve();
         }
 
+        var completeToastContext = actionKey === 'complete'
+            && globalRoot.AATaskCompletedToast
+            && typeof globalRoot.AATaskCompletedToast.resolveFromButton === 'function'
+            ? globalRoot.AATaskCompletedToast.resolveFromButton(button)
+            : null;
+
         isActionPending = true;
         setExecutiveButtonsDisabled(true);
         clearProposalError();
@@ -376,6 +382,14 @@
             actionKey: actionKey
         })
             .then(function (response) {
+                if (
+                    actionKey === 'complete'
+                    && globalRoot.AATaskCompletedToast
+                    && typeof globalRoot.AATaskCompletedToast.show === 'function'
+                ) {
+                    globalRoot.AATaskCompletedToast.show(completeToastContext);
+                }
+
                 afterExecutiveActionSuccess(response);
 
                 return runClientAction(response.client_action).then(function () {

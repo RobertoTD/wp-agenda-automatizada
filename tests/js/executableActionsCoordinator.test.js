@@ -1,7 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { describe, it, beforeEach } = require('node:test');
+const { describe, it, beforeEach, afterEach } = require('node:test');
 const path = require('node:path');
 
 const coordinatorPath = path.join(
@@ -196,6 +196,8 @@ describe('ExecutableActionsCoordinator', () => {
     let reloadCalls;
     let errorMessage;
     let confirmResult;
+    let toastShowCalls;
+    let originalTaskCompletedToast;
 
     beforeEach(() => {
         tasksCalls = [];
@@ -204,6 +206,17 @@ describe('ExecutableActionsCoordinator', () => {
         reloadCalls = 0;
         errorMessage = null;
         confirmResult = true;
+        toastShowCalls = [];
+        originalTaskCompletedToast = globalThis.AATaskCompletedToast;
+
+        globalThis.AATaskCompletedToast = {
+            resolveFromButton: function () {
+                return { taskTitle: 'Tarea prueba', listTitle: 'Lista prueba' };
+            },
+            show: function (context, ajaxResult) {
+                toastShowCalls.push({ context: context, ajaxResult: ajaxResult });
+            }
+        };
 
         coordinator = createCoordinatorFactory({
             tasksCalls: tasksCalls,
@@ -212,6 +225,10 @@ describe('ExecutableActionsCoordinator', () => {
         });
 
         coordinator.resetPending();
+    });
+
+    afterEach(() => {
+        globalThis.AATaskCompletedToast = originalTaskCompletedToast;
     });
 
     it('complete llama TasksService.changeTaskStatus(taskId, done)', async () => {
@@ -240,6 +257,7 @@ describe('ExecutableActionsCoordinator', () => {
             status: 'done'
         });
         assert.equal(reloadCalls, 1);
+        assert.equal(toastShowCalls.length, 1);
         assert.equal(event.stopped(), true);
         assert.equal(event.prevented(), true);
     });
@@ -265,6 +283,26 @@ describe('ExecutableActionsCoordinator', () => {
             taskId: '42',
             status: 'pending'
         });
+        assert.equal(toastShowCalls.length, 0);
+    });
+
+    it('dismiss no llama toast de tarea completada', async () => {
+        var button = createButton({
+            'data-tasks-action': 'dismiss',
+            'data-task-id': '42'
+        });
+        var root = createRoot(button);
+        var event = createEvent(button);
+
+        await coordinator.handleClick(event, {
+            root: root,
+            reload: function () {
+                reloadCalls += 1;
+                return Promise.resolve();
+            }
+        });
+
+        assert.equal(toastShowCalls.length, 0);
     });
 
     it('archive-list llama TasksService.archiveTaskList(listId) si confirm es true', async () => {

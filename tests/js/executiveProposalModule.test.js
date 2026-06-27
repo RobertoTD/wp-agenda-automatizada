@@ -96,6 +96,8 @@ describe('executive-proposal-module MC2/MC3', () => {
     let boardReloadOptions;
     let feedReloadCalls;
     let handlerRuns;
+    let toastShowCalls;
+    let originalTaskCompletedToast;
     let dom;
 
     beforeEach(() => {
@@ -113,6 +115,17 @@ describe('executive-proposal-module MC2/MC3', () => {
         boardReloadOptions = null;
         feedReloadCalls = 0;
         handlerRuns = 0;
+        toastShowCalls = 0;
+        originalTaskCompletedToast = globalThis.AATaskCompletedToast;
+
+        globalThis.AATaskCompletedToast = {
+            resolveFromButton: function () {
+                return { taskTitle: 'Actual', listTitle: 'Foco' };
+            },
+            show: function () {
+                toastShowCalls += 1;
+            }
+        };
 
         dom = {
             proposal: makeElement('aa-executive-proposal', { buttons: [] }),
@@ -264,6 +277,12 @@ describe('executive-proposal-module MC2/MC3', () => {
             globalThis.location = originalLocation;
         }
 
+        if (originalTaskCompletedToast === undefined) {
+            delete globalThis.AATaskCompletedToast;
+        } else {
+            globalThis.AATaskCompletedToast = originalTaskCompletedToast;
+        }
+
         delete globalThis.document;
     });
 
@@ -285,6 +304,7 @@ describe('executive-proposal-module MC2/MC3', () => {
         assert.equal(dom.list.innerHTML, 'rendered:2');
         assert.equal(boardReloadOptions && boardReloadOptions.skipExecutiveProposal, true);
         assert.equal(feedReloadCalls, 1);
+        assert.equal(toastShowCalls, 1);
     });
 
     it('handleExecutiveActionClick dismiss llama POST', async () => {
@@ -301,6 +321,7 @@ describe('executive-proposal-module MC2/MC3', () => {
 
         assert.equal(postCalls, 1);
         assert.equal(renderCalls, 1);
+        assert.equal(toastShowCalls, 0);
     });
 
     it('maneja error sin romper el módulo', async () => {

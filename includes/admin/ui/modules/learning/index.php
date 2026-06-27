@@ -10,6 +10,7 @@ $learning_handlers_js = plugin_dir_url(__FILE__) . 'learning-action-handlers.js'
 $learning_service_js = AA_PLUGIN_URL . 'assets/js/services/learningService.js';
 $tasks_service_js = AA_PLUGIN_URL . 'assets/js/services/tasksService.js';
 $tasks_renderer_js = AA_PLUGIN_URL . 'assets/js/ui/taskBoardRenderer.js';
+$task_completed_toast_js = AA_PLUGIN_URL . 'assets/js/ui/taskCompletedToast.js';
 $tasks_board_js = plugin_dir_url(__FILE__) . 'tasks-board-module.js';
 $executable_lists_service_js = AA_PLUGIN_URL . 'assets/js/services/executableListsService.js';
 $executable_lists_renderer_js = AA_PLUGIN_URL . 'assets/js/ui/executableListRenderer.js';
@@ -462,6 +463,7 @@ $executive_proposal_module_js = plugin_dir_url(__FILE__) . 'executive-proposal-m
 <script src="<?php echo esc_url($learning_handlers_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($tasks_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($tasks_renderer_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($task_completed_toast_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($executive_proposal_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($executive_proposal_renderer_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($executive_client_action_runner_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>

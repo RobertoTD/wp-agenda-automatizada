@@ -536,8 +536,9 @@
     /**
      * @param {string} action
      * @param {string} taskId
+     * @param {HTMLElement|null|undefined} [button]
      */
-    function runTaskStatusAction(action, taskId) {
+    function runTaskStatusAction(action, taskId, button) {
         if (isActionPending || !taskId) {
             return;
         }
@@ -550,11 +551,26 @@
             return;
         }
 
+        var completeToastContext = action === 'complete'
+            && button
+            && globalRoot.AATaskCompletedToast
+            && typeof globalRoot.AATaskCompletedToast.resolveFromButton === 'function'
+            ? globalRoot.AATaskCompletedToast.resolveFromButton(button)
+            : null;
+
         isActionPending = true;
         setBoardDisabled(true);
 
         service.changeTaskStatus(taskId, status)
-            .then(function () {
+            .then(function (result) {
+                if (
+                    action === 'complete'
+                    && globalRoot.AATaskCompletedToast
+                    && typeof globalRoot.AATaskCompletedToast.show === 'function'
+                ) {
+                    globalRoot.AATaskCompletedToast.show(completeToastContext, result);
+                }
+
                 return reloadBoardAfterMutation({ silent: true });
             })
             .catch(function (err) {
@@ -621,7 +637,7 @@
 
             if (action === 'complete' || action === 'pending') {
                 event.preventDefault();
-                runTaskStatusAction(action, button.getAttribute('data-task-id'));
+                runTaskStatusAction(action, button.getAttribute('data-task-id'), button);
                 return;
             }
 
