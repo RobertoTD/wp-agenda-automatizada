@@ -131,6 +131,20 @@
         }
 
         /**
+         * @param {string} taskId
+         * @returns {Promise<void>}
+         */
+        function runTaskMissedAction(taskId) {
+            var service = resolveTasksService();
+
+            if (!service || typeof service.markTaskMissed !== 'function') {
+                return Promise.reject(new Error('TasksService no disponible.'));
+            }
+
+            return Promise.resolve(service.markTaskMissed(taskId));
+        }
+
+        /**
          * @param {string} listId
          * @returns {Promise<void|null>}
          */
@@ -465,6 +479,7 @@
                 && action !== 'pending'
                 && action !== 'defer'
                 && action !== 'dismiss'
+                && action !== 'missed'
                 && action !== 'archive-list'
                 && action !== 'delete-list'
                 && action !== 'archive-task'
@@ -495,6 +510,12 @@
                 }
 
                 actionPromise = runTaskDismissAction(taskId);
+            } else if (action === 'missed') {
+                if (!taskId) {
+                    return Promise.resolve(false);
+                }
+
+                actionPromise = runTaskMissedAction(taskId);
             } else if (action === 'archive-list') {
                 if (!listId) {
                     return Promise.resolve(false);
@@ -591,6 +612,7 @@
                 || action === 'pending'
                 || action === 'defer'
                 || action === 'dismiss'
+                || action === 'missed'
                 || action === 'archive-list'
                 || action === 'delete-list'
                 || action === 'archive-task'

@@ -13,6 +13,8 @@ final class AA_Task {
 
     public const STATUS_DONE = 'done';
 
+    public const STATUS_MISSED = 'missed';
+
     /** @var int */
     private $id;
 
@@ -148,6 +150,10 @@ final class AA_Task {
         return $this->status === self::STATUS_DONE;
     }
 
+    public function is_missed(): bool {
+        return $this->status === self::STATUS_MISSED;
+    }
+
     /**
      * @param string $now Y-m-d H:i:s
      */
@@ -214,6 +220,10 @@ final class AA_Task {
 
         if ($status === self::STATUS_DONE) {
             return self::STATUS_DONE;
+        }
+
+        if ($status === self::STATUS_MISSED) {
+            return self::STATUS_MISSED;
         }
 
         return self::STATUS_PENDING;

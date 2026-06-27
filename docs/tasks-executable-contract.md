@@ -98,7 +98,7 @@ Las acciones del usuario registran **señales o decisiones interpretables**. No 
 
 **Tasks** — tablas `aa_tasks` / `aa_task_lists`:
 
-- Tarea: `status` (`pending` \| `done`), `completed_at` — declaración del usuario al marcar hecha/reabrir.
+- Tarea: `status` (`pending` \| `done` \| `missed`), `completed_at` — declaración del usuario al marcar hecha/reabrir. `missed` = resolución terminal negativa "No realizada" (MC4 vencidas): no cuenta como completada (`completed_at=NULL`), sale de listas activas/Propuesta ejecutiva/Dashboard; auditoría temporal en `updated_at` (sin columna `missed_at`).
 - Tarea: `due_at`, `importance`, `position`, `source`, `notes`, `list_id` — datos operables para policies de proyección; no son señales de defer/dismiss.
 - Lista: `status` (`active` \| `archived`) — declaración al archivar/restaurar; no hay `archived_at` (MC13I usa `updated_at` como proxy de fecha de archivado para ordenar listas archivadas).
 - **MC13I (implementado):** herramienta de área Listas (`#aa-lists-area-tools`, `lists-area-tools.js`) desarchiva listas user archivadas vía `ListArchivedTaskListsUseCase` + `RestoreTaskListUseCase` + `TasksAjax` (`aa_list_archived_task_lists`, `aa_restore_task_list`). Modal con select + botón explícito; no es acción de item/lista visible (`data-tasks-action`). Restore cambia `archived` → `active`; tareas y `aa_task_state` intactos; feed se refresca con `AAExecutableUserListsVisibleFeed.reload()`; policies sin cambios. **MC13N-2:** el acceso vive en menú de opciones (ítem «Desarchivar listas»).
@@ -130,6 +130,7 @@ Ninguna de estas tablas es un **action log**. Solo guardan el **último estado**
 | **Ignorar** (dismiss) — Tasks user | `aa_task_state`: `last_dismissed_at`, `dismiss_count`, `dismiss_until` | Ocultamiento temporal (H1/H2); MC13O-H3A: `can_dismiss` independiente de defer/bucket. |
 | **Completar** (manual) | Learning: `is_completed`; Tasks: `status=done` | Declaración del usuario; puede sacar el item del feed activo. Distinta de auto-completion por fact. |
 | **Reabrir** (Tasks) | `status=pending`, `completed_at=null` | Declaración inversa; no implica evento histórico de “des-completado verificado”. |
+| **No realizada** (Tasks) — solo vencidas | `status=missed`, `completed_at=null` vía `MarkTaskMissedUseCase` (AJAX `aa_mark_task_missed`) | Resolución terminal negativa: saca el item de listas activas/Propuesta ejecutiva/Dashboard. Visible action `status`/`missed` solo si `pending` + `is_overdue`. No reabre, no toca la cita, no `archived_at`. |
 | **Archivar lista** | `aa_task_lists.status=archived` | Declaración sobre la lista; tareas conservadas. Acción de **lista** visible (`archive-list`), no de item. |
 | **Restaurar lista archivada** | `aa_task_lists.status=active` | Inverso de archivar; herramienta de **área** Listas (MC13I), no botón en lista oculta. Tareas y señales conservadas; proyección active decide visibilidad. |
 

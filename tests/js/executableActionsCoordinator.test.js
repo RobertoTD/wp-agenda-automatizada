@@ -131,6 +131,10 @@ function createCoordinatorFactory(options) {
                 dismissTask: function (taskId) {
                     options.tasksCalls.push({ method: 'dismissTask', taskId: taskId });
                     return Promise.resolve({});
+                },
+                markTaskMissed: function (taskId) {
+                    options.tasksCalls.push({ method: 'markTaskMissed', taskId: taskId });
+                    return Promise.resolve({});
                 }
             };
         },
@@ -511,6 +515,32 @@ describe('ExecutableActionsCoordinator', () => {
         assert.deepEqual(tasksCalls[0], {
             method: 'dismissTask',
             taskId: '56'
+        });
+        assert.equal(learningCalls.length, 0);
+        assert.equal(reloadCalls, 1);
+        assert.equal(event.stopped(), true);
+        assert.equal(event.prevented(), true);
+    });
+
+    it('task missed llama TasksService.markTaskMissed(taskId) y dispara reload (MC4)', async () => {
+        var button = createButton({
+            'data-tasks-action': 'missed',
+            'data-task-id': '77'
+        });
+        var root = createRoot(button);
+        var event = createEvent(button);
+
+        await coordinator.handleClick(event, {
+            root: root,
+            reload: function () {
+                reloadCalls += 1;
+                return Promise.resolve();
+            }
+        });
+
+        assert.deepEqual(tasksCalls[0], {
+            method: 'markTaskMissed',
+            taskId: '77'
         });
         assert.equal(learningCalls.length, 0);
         assert.equal(reloadCalls, 1);

@@ -66,6 +66,15 @@ final class AA_Executable_Visible_Actions_Policy {
             );
         }
 
+        if (self::should_offer_missed_action($item)) {
+            $actions[] = self::status_action(
+                'missed',
+                'No realizada',
+                AA_Executable_Contract::ITEM_STATUS_MISSED,
+                self::CATEGORY_DECLARATIVE
+            );
+        }
+
         if ($view === self::VIEW_ACTIVE) {
             $source = self::normalize_source($context['source'] ?? '');
 
@@ -158,6 +167,21 @@ final class AA_Executable_Visible_Actions_Policy {
         }
 
         return null;
+    }
+
+    /**
+     * Acción terminal "No realizada": solo en tareas pendientes y vencidas.
+     *
+     * @param array<string,mixed> $item
+     */
+    private static function should_offer_missed_action(array $item): bool {
+        $status = isset($item['status']) ? strtolower(trim((string) $item['status'])) : '';
+
+        if ($status !== AA_Executable_Contract::ITEM_STATUS_PENDING) {
+            return false;
+        }
+
+        return !empty($item['is_overdue']);
     }
 
     /**

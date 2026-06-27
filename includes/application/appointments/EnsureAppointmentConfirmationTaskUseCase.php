@@ -97,6 +97,17 @@ final class EnsureAppointmentConfirmationTaskUseCase {
         $source_category = AA_Appointment_Actions_Catalog::SOURCE_CATEGORY;
         $origin_key = AA_Appointment_Confirmation_Task_Projector::task_origin_key($reservation_id);
         $existing_task = SeededTaskRepository::find_task_by_origin($source_category, $origin_key);
+
+        // MC4: una confirmación marcada como "No realizada" es terminal.
+        // No la reactivamos ni reescribimos aunque la cita siga pending.
+        if ($existing_task !== null && strtolower(trim((string) ($existing_task['status'] ?? ''))) === 'missed') {
+            return TaskUseCaseSupport::ok([
+                'task' => $existing_task,
+                'reservation_id' => $reservation_id,
+                'task_missed_preserved' => true,
+            ]);
+        }
+
         $task_payload = $this->build_task_payload($list_id, $display, $source_category, $origin_key, $reservation);
         $task = $this->upsert_task($task_payload);
 

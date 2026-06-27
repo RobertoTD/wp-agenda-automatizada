@@ -16,6 +16,7 @@ require_once dirname(__DIR__, 2) . '/application/tasks/UpdateTaskUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/tasks/ChangeTaskStatusUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/tasks/RecordTaskDeferSignalUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/tasks/RecordTaskDismissSignalUseCase.php';
+require_once dirname(__DIR__, 2) . '/application/tasks/MarkTaskMissedUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/tasks/ReturnIgnoredUserTasksUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/tasks/ArchiveTaskUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/tasks/RestoreTaskUseCase.php';
@@ -39,6 +40,7 @@ final class TasksAjax {
         add_action('wp_ajax_aa_change_task_status', [__CLASS__, 'handle_change_status']);
         add_action('wp_ajax_aa_defer_task', [__CLASS__, 'handle_defer_task']);
         add_action('wp_ajax_aa_dismiss_task', [__CLASS__, 'handle_dismiss_task']);
+        add_action('wp_ajax_aa_mark_task_missed', [__CLASS__, 'handle_mark_task_missed']);
         add_action('wp_ajax_aa_return_ignored_user_tasks', [__CLASS__, 'handle_return_ignored_user_tasks']);
         add_action('wp_ajax_aa_archive_task', [__CLASS__, 'handle_archive_task']);
         add_action('wp_ajax_aa_list_archived_tasks_in_list', [__CLASS__, 'handle_list_archived_tasks_in_list']);
@@ -164,6 +166,16 @@ final class TasksAjax {
         self::authorize();
 
         $result = (new RecordTaskDismissSignalUseCase())->execute([
+            'task_id' => self::post_scalar('task_id'),
+        ]);
+
+        self::respond_use_case($result);
+    }
+
+    public static function handle_mark_task_missed(): void {
+        self::authorize();
+
+        $result = (new MarkTaskMissedUseCase())->execute([
             'task_id' => self::post_scalar('task_id'),
         ]);
 

@@ -698,6 +698,10 @@ ac_assert(
     'Executive overdue appointment confirmation keeps dismiss',
     in_array('dismiss', $overdue_action_keys, true)
 );
+ac_assert(
+    'Executive overdue appointment confirmation exposes missed action (MC4)',
+    in_array('missed', $overdue_action_keys, true)
+);
 
 $future_confirmation = ExecutiveProposalMapper::map(
     exec_appointment_confirmation_board(false),
@@ -713,6 +717,29 @@ ac_assert(
     is_array($future_current)
     && ($future_current['is_overdue'] ?? true) === false
     && in_array(AA_Appointment_Actions_Catalog::TASK_ACTION_KEY, $future_action_keys, true)
+);
+ac_assert(
+    'Executive future appointment confirmation hides missed action (MC4)',
+    !in_array('missed', $future_action_keys, true)
+);
+
+$missed_board = exec_appointment_confirmation_board(true);
+foreach ($missed_board['tasks'] as $index => $task) {
+    if ((int) ($task['id'] ?? 0) === 501) {
+        $missed_board['tasks'][$index]['status'] = 'missed';
+    }
+}
+$missed_board['organization']['task_evaluations_by_id'][501] = [
+    'visible_in_active' => false,
+    'projection' => ['visible_in_active' => false, 'projected_bucket' => 'primary'],
+    'capabilities' => ['can_dismiss' => false],
+];
+$missed_proposal = (new GetExecutiveProposalUseCase(static function () use ($missed_board): array {
+    return $missed_board;
+}))->execute();
+ac_assert(
+    'Missed task does not enter executive proposal (MC4)',
+    is_array($missed_proposal['tasks'] ?? null) && ($missed_proposal['tasks'] === [])
 );
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";

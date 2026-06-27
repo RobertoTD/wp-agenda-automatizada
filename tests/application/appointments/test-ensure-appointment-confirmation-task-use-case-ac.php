@@ -76,6 +76,7 @@ ac_assert('Use case recovers task after upsert null', strpos($use_case_src, 'fin
 ac_assert('Use case rejects missing_reservation_id', strpos($use_case_src, 'missing_reservation_id') !== false);
 ac_assert('Use case rejects reservation_not_confirmable', strpos($use_case_src, 'reservation_not_confirmable') !== false);
 ac_assert('Use case rejects action_persistence_failed', strpos($use_case_src, 'action_persistence_failed') !== false);
+ac_assert('Use case guards missed confirmations (MC4)', strpos($use_case_src, "=== 'missed'") !== false && strpos($use_case_src, 'task_missed_preserved') !== false);
 ac_assert('Projector file has no TaskUseCaseSupport import', strpos(file_get_contents($plugin_root . '/includes/domain/appointments/class-aa-appointment-confirmation-task-projector.php'), 'TaskUseCaseSupport') === false);
 
 require_once $plugin_root . '/includes/domain/appointments/class-aa-appointment-actions-catalog.php';
@@ -376,6 +377,31 @@ if ($wp_load !== '' && is_readable($wp_load)) {
     ac_assert(
         'Completed task keeps completed_at',
         ($done_again['data']['task']['completed_at'] ?? '') !== ''
+    );
+
+    // MC4: confirmación marcada como "No realizada" no debe reactivarse.
+    $task_id_b = (int) ($ensure_b['data']['task']['id'] ?? 0);
+    TaskRepository::update_status($task_id_b, 'missed');
+    $title_before_missed = (string) ($ensure_b['data']['task']['title'] ?? '');
+    $wpdb->update(
+        $reservas_table,
+        ['nombre' => 'No Debe Reactivar ' . $suffix],
+        ['id' => $reservation_b],
+        ['%s'],
+        ['%d']
+    );
+    $missed_ensure = (new EnsureAppointmentConfirmationTaskUseCase())->execute(['reservation_id' => $reservation_b]);
+    ac_assert('Ensure on missed confirmation still succeeds', !empty($missed_ensure['success']));
+    ac_assert(
+        'Ensure preserves missed status (no reactivation)',
+        ($missed_ensure['data']['task']['status'] ?? '') === 'missed'
+        && ($missed_ensure['data']['task_missed_preserved'] ?? false) === true
+    );
+    $missed_row = TaskRepository::find_by_id($task_id_b);
+    ac_assert(
+        'Missed confirmation row stays missed and not rewritten to pending',
+        ($missed_row['status'] ?? '') === 'missed'
+        && (string) ($missed_row['title'] ?? '') === $title_before_missed
     );
 
     $wpdb->delete($actions_table, ['task_id' => $task_id], ['%d']);

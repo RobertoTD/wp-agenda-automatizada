@@ -32,6 +32,8 @@ final class AA_Task_Active_View_Projection_Policy {
 
     public const REASON_NOT_PENDING = 'not_pending';
 
+    public const REASON_MISSED = 'missed';
+
     public const REASON_SYSTEM_COMPLETED = 'system_completed';
 
     public const REASON_LIST_NOT_ACTIVE = 'list_not_active';
@@ -143,6 +145,17 @@ final class AA_Task_Active_View_Projection_Policy {
                 false,
                 null,
                 self::REASON_ARCHIVED,
+                $suggested_active_bucket,
+                false,
+                false
+            );
+        }
+
+        if ($task->is_missed()) {
+            return $this->projection_result(
+                false,
+                null,
+                self::REASON_MISSED,
                 $suggested_active_bucket,
                 false,
                 false

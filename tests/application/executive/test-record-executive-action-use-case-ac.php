@@ -279,6 +279,65 @@ ac_assert(
     && (int) ($dismiss_result['data']['proposal']['tasks'][0]['task_id'] ?? 0) === 11
 );
 
+// ─── MC4 acción ejecutiva "No realizada" ─────────────────────
+
+$board_missed = exec_action_user_complete_board();
+$board_missed['tasks'][0]['due_at'] = '2026-06-01 08:00:00';
+$missed_uc = new RecordExecutiveActionUseCase(
+    exec_action_proposal_reader($board_missed),
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    static function (array $input) use (&$board_missed): array {
+        $task_id = (int) ($input['task_id'] ?? 0);
+        foreach ($board_missed['tasks'] as $index => $task) {
+            if ((int) ($task['id'] ?? 0) === $task_id) {
+                $board_missed['tasks'][$index]['status'] = 'missed';
+                break;
+            }
+        }
+        $board_missed['organization']['task_evaluations_by_id'][$task_id] = [
+            'visible_in_active' => false,
+            'projection' => ['visible_in_active' => false, 'projected_bucket' => 'primary'],
+            'capabilities' => ['can_dismiss' => false],
+        ];
+
+        return TaskUseCaseSupport::ok(['task' => ['id' => $task_id, 'status' => 'missed']]);
+    }
+);
+
+$missed_result = $missed_uc->execute([
+    'task_id' => 20,
+    'action_key' => 'missed',
+]);
+
+ac_assert('executive missed success', !empty($missed_result['success']));
+ac_assert('executive missed marks mutated', ($missed_result['data']['action']['mutated'] ?? false) === true);
+ac_assert(
+    'executive missed advances current away from missed task',
+    (int) ($missed_result['data']['proposal']['tasks'][0]['task_id'] ?? 0) === 21
+);
+
+$board_missed_future = exec_action_user_complete_board();
+$missed_future = (new RecordExecutiveActionUseCase(
+    exec_action_proposal_reader($board_missed_future)
+))->execute([
+    'task_id' => 20,
+    'action_key' => 'missed',
+]);
+ac_assert(
+    'executive missed rejected for non-overdue task',
+    ($missed_future['error']['code'] ?? '') === 'action_not_allowed'
+);
+
 $board_not_current = exec_action_ready_board();
 $not_current = (new RecordExecutiveActionUseCase(
     exec_action_proposal_reader($board_not_current)

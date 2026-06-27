@@ -464,6 +464,22 @@ final class TaskRepository {
     }
 
     /**
+     * Marca una tarea como "No realizada" (resolución terminal negativa).
+     *
+     * No cuenta como completada: deja completed_at en NULL. No toca archived_at.
+     *
+     * @param int    $id
+     * @param string $now Y-m-d H:i:s
+     * @return array<string,mixed>|null
+     */
+    public static function mark_missed($id, $now) {
+        return self::update($id, [
+            'status' => 'missed',
+            'completed_at' => null,
+        ]);
+    }
+
+    /**
      * Backfill idempotente MC13O-H3B-2: defer histórico + default_bucket primary → secondary.
      *
      * Criterio: aa_task_state.defer_count > 0, last_deferred_at no vacío,

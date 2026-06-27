@@ -144,6 +144,44 @@ $empty_capabilities = AA_Executive_Actions_Policy::resolve([
 
 ac_assert('No executive actions when capabilities disallow them', $empty_capabilities === []);
 
+// ─── MC4: acción "No realizada" en tareas vencidas ───────────
+
+$overdue_item = [
+    'id' => '14',
+    'source' => AA_Executable_Contract::SOURCE_USER,
+    'status' => AA_Executable_Contract::ITEM_STATUS_PENDING,
+    'is_overdue' => true,
+    'capabilities' => [
+        'can_complete' => true,
+        'can_dismiss' => true,
+    ],
+];
+$overdue_actions = AA_Executive_Actions_Policy::resolve($overdue_item, [
+    'view' => AA_Executable_Visible_Actions_Policy::VIEW_ACTIVE,
+    'bucket_key' => AA_Executable_Contract::BUCKET_PRIMARY,
+    'source' => AA_Executable_Contract::SOURCE_USER,
+]);
+$overdue_keys = action_keys($overdue_actions);
+ac_assert('Overdue item allows missed executive action', in_array('missed', $overdue_keys, true));
+ac_assert('Overdue item keeps complete executive action', in_array('complete', $overdue_keys, true));
+
+$future_item = [
+    'id' => '15',
+    'source' => AA_Executable_Contract::SOURCE_USER,
+    'status' => AA_Executable_Contract::ITEM_STATUS_PENDING,
+    'is_overdue' => false,
+    'capabilities' => [
+        'can_complete' => true,
+        'can_dismiss' => true,
+    ],
+];
+$future_actions = AA_Executive_Actions_Policy::resolve($future_item, [
+    'view' => AA_Executable_Visible_Actions_Policy::VIEW_ACTIVE,
+    'bucket_key' => AA_Executable_Contract::BUCKET_PRIMARY,
+    'source' => AA_Executable_Contract::SOURCE_USER,
+]);
+ac_assert('Non-overdue item omits missed executive action', !in_array('missed', action_keys($future_actions), true));
+
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 
 if ($failed !== []) {

@@ -54,7 +54,7 @@ final class AA_Executive_Actions_Policy {
         }
 
         if ($category === AA_Executable_Visible_Actions_Policy::CATEGORY_DECLARATIVE) {
-            return $key === 'complete';
+            return $key === 'complete' || $key === 'missed';
         }
 
         if ($category === AA_Executable_Visible_Actions_Policy::CATEGORY_INTENT) {

@@ -189,6 +189,24 @@ describe('executiveProposalRenderer MC6', () => {
         assert.match(html, />Ahora no</);
     });
 
+    it('current vencida con missed en executive_actions pinta No realizada y conserva Vencida (MC4)', () => {
+        const task = Object.assign({}, basePayload().tasks[0], {
+            is_overdue: true,
+            executive_actions: [
+                { key: 'complete', type: 'status', label: 'Completar', to: 'done' },
+                { key: 'missed', type: 'status', label: 'No realizada', to: 'missed' },
+                { key: 'dismiss', type: 'intent', label: 'Ahora no' }
+            ]
+        });
+        const html = renderer.renderCurrentTask(task, 'Lista foco');
+
+        assert.match(html, />Vencida</);
+        assert.match(html, /data-executive-action-key="missed"/);
+        assert.match(html, />No realizada</);
+        assert.match(html, />Ahora no</);
+        assert.match(html, /data-executive-action-key="missed"[^>]*amber|amber[\s\S]*data-executive-action-key="missed"/);
+    });
+
     it('payload vacío no rompe buildProposalParts', () => {
         assert.doesNotThrow(function () {
             renderer.buildProposalParts(null);

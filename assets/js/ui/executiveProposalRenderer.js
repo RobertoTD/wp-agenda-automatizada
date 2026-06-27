@@ -171,6 +171,10 @@
             return 'Completar';
         }
 
+        if (key === 'missed') {
+            return 'No realizada';
+        }
+
         return label !== '' ? label : 'Acción';
     }
 
@@ -184,6 +188,10 @@
 
         if (key === 'complete') {
             return 'text-green-700 hover:text-green-800 border-green-200 bg-green-50';
+        }
+
+        if (key === 'missed') {
+            return 'text-amber-700 hover:text-amber-800 border-amber-200 bg-amber-50';
         }
 
         if (key === 'dismiss') {

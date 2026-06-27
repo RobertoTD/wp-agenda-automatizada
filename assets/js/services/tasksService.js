@@ -248,6 +248,16 @@
     }
 
     /**
+     * @param {number|string} taskId
+     * @returns {Promise<Object>}
+     */
+    function markTaskMissed(taskId) {
+        return postAction('aa_mark_task_missed', {
+            task_id: taskId
+        });
+    }
+
+    /**
      * @returns {Promise<{returned_count:number,task_ids:Array}>}
      */
     function returnIgnoredUserTasks() {
@@ -311,6 +321,7 @@
         changeTaskStatus: changeTaskStatus,
         deferTask: deferTask,
         dismissTask: dismissTask,
+        markTaskMissed: markTaskMissed,
         returnIgnoredUserTasks: returnIgnoredUserTasks,
         archiveTask: archiveTask,
         listArchivedTasksInList: listArchivedTasksInList,

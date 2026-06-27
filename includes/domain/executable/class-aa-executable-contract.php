@@ -42,6 +42,8 @@ final class AA_Executable_Contract {
 
     public const ITEM_STATUS_DONE = 'done';
 
+    public const ITEM_STATUS_MISSED = 'missed';
+
     public const ACTION_NAVIGATE = 'navigate';
 
     public const ACTION_HANDLER = 'handler';
@@ -375,6 +377,26 @@ final class AA_Executable_Contract {
     }
 
     /**
+     * Normaliza target_status de acciones visibles. Acepta missed además de
+     * done/pending para soportar la resolución terminal "No realizada" (MC4).
+     *
+     * @param mixed $value
+     */
+    private static function normalize_action_target_status($value): string {
+        $status = is_string($value) ? strtolower(trim($value)) : '';
+
+        if ($status === self::ITEM_STATUS_DONE) {
+            return self::ITEM_STATUS_DONE;
+        }
+
+        if ($status === self::ITEM_STATUS_MISSED) {
+            return self::ITEM_STATUS_MISSED;
+        }
+
+        return self::ITEM_STATUS_PENDING;
+    }
+
+    /**
      * @param mixed $value
      */
     private static function normalize_bucket_key($value): string {
@@ -625,7 +647,7 @@ final class AA_Executable_Contract {
         $raw_target = $action['target_status'] ?? null;
 
         if ($raw_target !== null && $raw_target !== '') {
-            $target_status = self::normalize_item_status((string) $raw_target);
+            $target_status = self::normalize_action_target_status((string) $raw_target);
         }
 
         $url = null;

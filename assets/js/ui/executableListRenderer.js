@@ -329,6 +329,20 @@
                     + '</button>';
             }
 
+            if (targetStatus === 'missed') {
+                var missedTasksTaskId = resolveTasksChannelTaskId(item);
+
+                if (missedTasksTaskId === '') {
+                    return '';
+                }
+
+                return ''
+                    + '<button type="button" data-tasks-action="missed" data-task-id="' + escapeHtml(missedTasksTaskId) + '"'
+                    + ' class="' + btnClass(false) + ' text-amber-700 hover:text-amber-800 border-amber-200 bg-amber-50">'
+                    + escapeHtml(label || 'No realizada')
+                    + '</button>';
+            }
+
             return '';
         }
 

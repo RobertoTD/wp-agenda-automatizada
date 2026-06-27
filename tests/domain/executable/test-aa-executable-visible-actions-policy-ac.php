@@ -418,9 +418,9 @@ ac_assert(
     executable_visible_action_find($appointment_overdue_actions, AA_Appointment_Actions_Catalog::TASK_ACTION_KEY) === null
 );
 ac_assert(
-    'Overdue appointment confirmation keeps dismiss',
+    'Overdue appointment confirmation keeps dismiss and adds missed (MC4)',
     executable_visible_action_find($appointment_overdue_actions, 'dismiss') !== null
-    && executable_visible_action_keys($appointment_overdue_actions) === ['dismiss']
+    && executable_visible_action_keys($appointment_overdue_actions) === ['missed', 'dismiss']
 );
 
 $overdue_user_task = executable_visible_action_item([
@@ -441,6 +441,79 @@ $overdue_user_task_actions = AA_Executable_Visible_Actions_Policy::resolve($over
 ac_assert(
     'Overdue user task keeps complete action',
     executable_visible_action_find($overdue_user_task_actions, 'complete') !== null
+);
+ac_assert(
+    'Overdue user task shows missed, keeps complete and dismiss (MC4)',
+    executable_visible_action_keys($overdue_user_task_actions) === ['complete', 'missed', 'dismiss']
+);
+$overdue_user_missed = executable_visible_action_find($overdue_user_task_actions, 'missed');
+ac_assert(
+    'Missed action is declarative status with No realizada label and missed target',
+    is_array($overdue_user_missed)
+    && ($overdue_user_missed['type'] ?? '') === AA_Executable_Contract::ACTION_STATUS
+    && ($overdue_user_missed['category'] ?? '') === AA_Executable_Visible_Actions_Policy::CATEGORY_DECLARATIVE
+    && ($overdue_user_missed['label'] ?? '') === 'No realizada'
+    && ($overdue_user_missed['target_status'] ?? '') === AA_Executable_Contract::ITEM_STATUS_MISSED
+);
+
+$future_user_task = executable_visible_action_item([
+    'id' => '78',
+    'source' => AA_Executable_Contract::SOURCE_USER,
+    'origin_key' => null,
+    'is_overdue' => false,
+    'capabilities' => [
+        'can_complete' => true,
+        'can_dismiss' => true,
+    ],
+]);
+$future_user_task_actions = AA_Executable_Visible_Actions_Policy::resolve($future_user_task, [
+    'view' => AA_Executable_Visible_Actions_Policy::VIEW_ACTIVE,
+    'bucket_key' => AA_Executable_Contract::BUCKET_DEFAULT,
+    'source' => AA_Executable_Contract::SOURCE_USER,
+]);
+ac_assert(
+    'Future task does not show missed',
+    executable_visible_action_find($future_user_task_actions, 'missed') === null
+);
+
+$done_user_task = executable_visible_action_item([
+    'id' => '79',
+    'source' => AA_Executable_Contract::SOURCE_USER,
+    'origin_key' => null,
+    'is_overdue' => true,
+    'status' => AA_Executable_Contract::ITEM_STATUS_DONE,
+    'capabilities' => [
+        'can_dismiss' => false,
+    ],
+]);
+$done_user_task_actions = AA_Executable_Visible_Actions_Policy::resolve($done_user_task, [
+    'view' => AA_Executable_Visible_Actions_Policy::VIEW_ACTIVE,
+    'bucket_key' => AA_Executable_Contract::BUCKET_DEFAULT,
+    'source' => AA_Executable_Contract::SOURCE_USER,
+]);
+ac_assert(
+    'Done task does not show missed even if is_overdue flag present',
+    executable_visible_action_find($done_user_task_actions, 'missed') === null
+);
+
+$missed_user_task = executable_visible_action_item([
+    'id' => '80',
+    'source' => AA_Executable_Contract::SOURCE_USER,
+    'origin_key' => null,
+    'is_overdue' => true,
+    'status' => AA_Executable_Contract::ITEM_STATUS_MISSED,
+    'capabilities' => [
+        'can_dismiss' => false,
+    ],
+]);
+$missed_user_task_actions = AA_Executable_Visible_Actions_Policy::resolve($missed_user_task, [
+    'view' => AA_Executable_Visible_Actions_Policy::VIEW_ACTIVE,
+    'bucket_key' => AA_Executable_Contract::BUCKET_DEFAULT,
+    'source' => AA_Executable_Contract::SOURCE_USER,
+]);
+ac_assert(
+    'Missed task does not show missed action again',
+    executable_visible_action_find($missed_user_task_actions, 'missed') === null
 );
 
 $overdue_system_handler = executable_visible_action_item([

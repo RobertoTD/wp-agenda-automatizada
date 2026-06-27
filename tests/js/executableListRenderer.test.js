@@ -934,6 +934,96 @@ describe('AAExecutableListRenderer visible_actions', () => {
         assert.doesNotMatch(html, /data-learning-action="complete"/);
     });
 
+    it('visible_action status missed genera botón No realizada y conserva Ahora no (MC4)', () => {
+        var html = renderer.renderItem(baseItem({
+            id: '42',
+            source: 'user',
+            origin_key: null,
+            is_overdue: true,
+            visible_actions: [
+                visibleAction({
+                    key: 'complete',
+                    type: 'status',
+                    category: 'declarative',
+                    label: 'Completar',
+                    placement: 'secondary',
+                    target_status: 'done',
+                    url: null,
+                    handler: null
+                }),
+                visibleAction({
+                    key: 'missed',
+                    type: 'status',
+                    category: 'declarative',
+                    label: 'No realizada',
+                    placement: 'secondary',
+                    target_status: 'missed',
+                    url: null,
+                    handler: null
+                }),
+                visibleAction({
+                    key: 'dismiss',
+                    type: 'intent',
+                    category: 'intent',
+                    label: 'Ahora no',
+                    placement: 'secondary',
+                    target_status: null,
+                    url: null,
+                    handler: null
+                })
+            ]
+        }));
+
+        assert.match(html, /data-tasks-action="missed"/);
+        assert.match(html, /data-task-id="42"/);
+        assert.match(html, />No realizada</);
+        assert.match(html, />Ahora no</);
+        assert.match(html, /data-tasks-action="complete"/);
+        assert.match(html, /data-tasks-action="missed"[^>]*text-amber-700/);
+    });
+
+    it('visible_action status missed en confirmación vencida convive sin Confirmar (MC4)', () => {
+        var html = renderer.renderItem(baseItem({
+            id: '501',
+            source: 'system',
+            source_category: 'agenda_app',
+            origin_key: 'appointment_confirmation:42',
+            is_overdue: true,
+            visible_actions: [
+                visibleAction({
+                    key: 'missed',
+                    type: 'status',
+                    category: 'declarative',
+                    label: 'No realizada',
+                    placement: 'secondary',
+                    target_status: 'missed',
+                    url: null,
+                    handler: null
+                }),
+                visibleAction({
+                    key: 'dismiss',
+                    type: 'intent',
+                    category: 'intent',
+                    label: 'Ahora no',
+                    placement: 'secondary',
+                    target_status: null,
+                    url: null,
+                    handler: null
+                })
+            ]
+        }), {}, {
+            shouldRenderPrimaryAction: function () {
+                return true;
+            }
+        });
+
+        assert.match(html, /data-tasks-action="missed"/);
+        assert.match(html, /data-task-id="501"/);
+        assert.match(html, />No realizada</);
+        assert.match(html, />Ahora no</);
+        assert.doesNotMatch(html, />Confirmar</);
+    });
+
     it('visible_action status done genera complete en canal Learning para system', () => {
         var html = renderer.renderItem(baseItem({
             id: 'install_pwa',

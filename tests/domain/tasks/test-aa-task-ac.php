@@ -75,9 +75,36 @@ ac_assert(
 );
 
 ac_assert(
-    'normalize_status still only pending or done',
+    'normalize_status maps unknown to pending and keeps done',
     AA_Task::from_array(['status' => 'archived'])->status() === 'pending'
     && AA_Task::from_array(['status' => 'done'])->status() === 'done'
+);
+
+// ─── MC4: status missed ──────────────────────────────────────
+
+ac_assert(
+    'normalize_status accepts missed as valid status',
+    AA_Task::from_array(['status' => 'missed'])->status() === AA_Task::STATUS_MISSED
+);
+ac_assert(
+    'normalize_status accepts MISSED case-insensitive',
+    AA_Task::from_array(['status' => 'MISSED'])->status() === AA_Task::STATUS_MISSED
+);
+
+$missed_task = AA_Task::from_array(['status' => 'missed', 'due_at' => '2026-06-01 08:00:00']);
+ac_assert(
+    'is_missed true and is_pending false for missed',
+    $missed_task->is_missed() === true
+    && $missed_task->is_pending() === false
+    && $missed_task->is_done() === false
+);
+ac_assert(
+    'missed task is not overdue (only pending tasks can be overdue)',
+    $missed_task->is_overdue('2026-06-10 12:00:00') === false
+);
+ac_assert(
+    'missed task does not carry completed_at',
+    AA_Task::from_array(['status' => 'missed'])->to_array()['completed_at'] === null
 );
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";

@@ -18,6 +18,7 @@ require_once __DIR__ . '/GetExecutiveProposalUseCase.php';
 require_once __DIR__ . '/../tasks/ChangeTaskStatusUseCase.php';
 require_once __DIR__ . '/../tasks/GetTaskBoardUseCase.php';
 require_once __DIR__ . '/../tasks/RecordTaskDismissSignalUseCase.php';
+require_once __DIR__ . '/../tasks/MarkTaskMissedUseCase.php';
 require_once __DIR__ . '/../tasks/TaskUseCaseSupport.php';
 
 final class RecordExecutiveActionUseCase {
@@ -30,6 +31,9 @@ final class RecordExecutiveActionUseCase {
 
     /** @var callable|null */
     private $dismiss_executor;
+
+    /** @var callable|null */
+    private $missed_executor;
 
     /** @var callable|null */
     private $sprint_reader;
@@ -70,6 +74,7 @@ final class RecordExecutiveActionUseCase {
      * @param callable|null $focus_writer Debe aceptar (user_id, state) y persistir.
      * @param callable|null $board_reader Debe devolver payload de GetTaskBoardUseCase.
      * @param callable|null $randomizer Randomizer inyectable para tests.
+     * @param callable|null $missed_executor Debe aceptar input y devolver resultado de MarkTaskMissedUseCase.
      */
     public function __construct(
         ?callable $proposal_reader = null,
@@ -83,7 +88,8 @@ final class RecordExecutiveActionUseCase {
         ?callable $focus_writer = null,
         ?callable $board_reader = null,
         ?callable $randomizer = null,
-        ?ExecutiveFocusTransitionService $focus_transition_service = null
+        ?ExecutiveFocusTransitionService $focus_transition_service = null,
+        ?callable $missed_executor = null
     ) {
         $this->proposal_reader = $proposal_reader;
         $this->change_status_executor = $change_status_executor;
@@ -97,6 +103,7 @@ final class RecordExecutiveActionUseCase {
         $this->board_reader = $board_reader;
         $this->randomizer = $randomizer;
         $this->focus_transition_service = $focus_transition_service;
+        $this->missed_executor = $missed_executor;
     }
 
     /**
@@ -457,6 +464,10 @@ final class RecordExecutiveActionUseCase {
             return $this->execute_complete($task_id);
         }
 
+        if ($type === AA_Executable_Contract::ACTION_STATUS && $key === 'missed') {
+            return $this->execute_missed($task_id);
+        }
+
         if ($type === AA_Executable_Contract::ACTION_INTENT && $key === 'dismiss') {
             return $this->execute_dismiss($task_id);
         }
@@ -540,6 +551,31 @@ final class RecordExecutiveActionUseCase {
                 'error' => is_array($result['error'] ?? null) ? $result['error'] : [
                     'code' => 'action_failed',
                     'message' => 'No se pudo completar la tarea.',
+                ],
+            ];
+        }
+
+        return [
+            'success' => true,
+            'mutated' => true,
+            'client_action' => null,
+        ];
+    }
+
+    /**
+     * @return array{success:bool,mutated?:bool,client_action?:null,error?:array{code:string,message:string}}
+     */
+    private function execute_missed(int $task_id): array {
+        $result = $this->missed_executor !== null
+            ? call_user_func($this->missed_executor, ['task_id' => $task_id])
+            : (new MarkTaskMissedUseCase())->execute(['task_id' => $task_id]);
+
+        if (empty($result['success'])) {
+            return [
+                'success' => false,
+                'error' => is_array($result['error'] ?? null) ? $result['error'] : [
+                    'code' => 'action_failed',
+                    'message' => 'No se pudo marcar la tarea como no realizada.',
                 ],
             ];
         }

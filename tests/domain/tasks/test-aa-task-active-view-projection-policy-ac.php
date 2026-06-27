@@ -299,6 +299,16 @@ ac_assert(
     && (($done_result['task_evaluations_by_id'][24]['projection']['projection_reason'] ?? '') === AA_Task_Active_View_Projection_Policy::REASON_NOT_PENDING)
 );
 
+$missed_result = active_view_project($base_list, [
+    ['id' => 25, 'list_id' => 1, 'title' => 'No realizada', 'status' => 'missed', 'due_at' => '2026-06-01 08:00:00'],
+]);
+ac_assert(
+    'Missed task stays outside active buckets with REASON_MISSED (MC4)',
+    ($missed_result['task_bucket_order_by_list'][1]['primary'] ?? []) === []
+    && ($missed_result['task_bucket_order_by_list'][1]['secondary'] ?? []) === []
+    && (($missed_result['task_evaluations_by_id'][25]['projection']['projection_reason'] ?? '') === AA_Task_Active_View_Projection_Policy::REASON_MISSED)
+);
+
 $system_completed_result = active_view_project($base_list, [
     ['id' => 22, 'list_id' => 1, 'title' => 'System completed', 'status' => 'pending'],
 ], [
