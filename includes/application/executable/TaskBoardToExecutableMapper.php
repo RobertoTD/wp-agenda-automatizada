@@ -12,6 +12,8 @@ defined('ABSPATH') or die('No direct access');
 require_once dirname(__DIR__, 2) . '/domain/executable/class-aa-executable-contract.php';
 require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-governance-policy.php';
 require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-list-governance-policy.php';
+require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task.php';
+require_once dirname(__DIR__, 2) . '/application/tasks/TaskUseCaseSupport.php';
 require_once __DIR__ . '/ExecutableNavigationUrlResolver.php';
 
 final class TaskBoardToExecutableMapper {
@@ -32,6 +34,7 @@ final class TaskBoardToExecutableMapper {
         $tasks_by_id = self::index_tasks_by_id($tasks);
         $list_order = self::resolve_list_order($lists, $organization);
         $executive_candidates = self::resolve_executive_candidate_ids($organization);
+        $now = TaskUseCaseSupport::resolve_now();
 
         $mapped = [];
 
@@ -42,7 +45,7 @@ final class TaskBoardToExecutableMapper {
                 continue;
             }
 
-            $mapped[] = self::map_list($list, $tasks_by_id, $organization, $executive_candidates);
+            $mapped[] = self::map_list($list, $tasks_by_id, $organization, $executive_candidates, $now);
         }
 
         return $mapped;
@@ -161,7 +164,8 @@ final class TaskBoardToExecutableMapper {
         array $list,
         array $tasks_by_id,
         array $organization,
-        array $executive_candidates
+        array $executive_candidates,
+        string $now
     ): array {
         $list_id = (int) ($list['id'] ?? 0);
         $list_status = (string) ($list['status'] ?? AA_Executable_Contract::LIST_STATUS_ACTIVE);
@@ -189,7 +193,7 @@ final class TaskBoardToExecutableMapper {
                 'can_restore_archived_tasks' => $list_governance->can_restore_archived_tasks($list),
                 'can_delete' => $list_governance->can_delete_list($list),
             ],
-            'buckets' => self::map_list_buckets($list_id, $tasks_by_id, $organization, $executive_candidates),
+            'buckets' => self::map_list_buckets($list_id, $tasks_by_id, $organization, $executive_candidates, $now),
         ]);
     }
 
@@ -203,13 +207,15 @@ final class TaskBoardToExecutableMapper {
         int $list_id,
         array $tasks_by_id,
         array $organization,
-        array $executive_candidates
+        array $executive_candidates,
+        string $now
     ): array {
         $projected_buckets = self::map_projected_task_buckets(
             $list_id,
             $tasks_by_id,
             $organization,
-            $executive_candidates
+            $executive_candidates,
+            $now
         );
 
         if ($projected_buckets !== null) {
@@ -220,7 +226,7 @@ final class TaskBoardToExecutableMapper {
             [
                 'key' => AA_Executable_Contract::BUCKET_DEFAULT,
                 'label' => '',
-                'items' => self::map_list_tasks($list_id, $tasks_by_id, $organization, $executive_candidates),
+                'items' => self::map_list_tasks($list_id, $tasks_by_id, $organization, $executive_candidates, $now),
             ],
         ];
     }
@@ -235,7 +241,8 @@ final class TaskBoardToExecutableMapper {
         int $list_id,
         array $tasks_by_id,
         array $organization,
-        array $executive_candidates
+        array $executive_candidates,
+        string $now
     ): ?array {
         $raw_buckets_by_list = $organization['task_bucket_order_by_list'] ?? null;
 
@@ -261,7 +268,8 @@ final class TaskBoardToExecutableMapper {
                 $raw_list_buckets[$bucket_key] ?? [],
                 $tasks_by_id,
                 $executive_candidates,
-                $organization
+                $organization,
+                $now
             );
 
             if ($items === []) {
@@ -288,7 +296,8 @@ final class TaskBoardToExecutableMapper {
         int $list_id,
         array $tasks_by_id,
         array $organization,
-        array $executive_candidates
+        array $executive_candidates,
+        string $now
     ): array {
         $ordered_ids = [];
         $raw_order = $organization['task_order_by_list'][$list_id] ?? null;
@@ -311,7 +320,7 @@ final class TaskBoardToExecutableMapper {
             }
         }
 
-        return self::map_tasks_by_order($ordered_ids, $tasks_by_id, $executive_candidates, $organization);
+        return self::map_tasks_by_order($ordered_ids, $tasks_by_id, $executive_candidates, $organization, $now);
     }
 
     /**
@@ -321,7 +330,13 @@ final class TaskBoardToExecutableMapper {
      * @param array<string,mixed>            $organization
      * @return list<array<string,mixed>>
      */
-    private static function map_tasks_by_order($raw_order, array $tasks_by_id, array $executive_candidates, array $organization): array {
+    private static function map_tasks_by_order(
+        $raw_order,
+        array $tasks_by_id,
+        array $executive_candidates,
+        array $organization,
+        string $now
+    ): array {
         if (!is_array($raw_order)) {
             return [];
         }
@@ -341,7 +356,7 @@ final class TaskBoardToExecutableMapper {
                 continue;
             }
 
-            $mapped[] = self::map_task($task, $executive_candidates, $organization);
+            $mapped[] = self::map_task($task, $executive_candidates, $organization, $now);
         }
 
         return $mapped;
@@ -362,7 +377,12 @@ final class TaskBoardToExecutableMapper {
      * @param array<string,mixed> $organization
      * @return array<string,mixed>
      */
-    private static function map_task(array $task, array $executive_candidates, array $organization): array {
+    private static function map_task(
+        array $task,
+        array $executive_candidates,
+        array $organization,
+        string $now
+    ): array {
         $task_id = (int) ($task['id'] ?? 0);
         $status = strtolower(trim((string) ($task['status'] ?? AA_Executable_Contract::ITEM_STATUS_PENDING)));
         $is_done = $status === AA_Executable_Contract::ITEM_STATUS_DONE;
@@ -376,6 +396,7 @@ final class TaskBoardToExecutableMapper {
         $source = self::resolve_source($task);
         $primary_action = self::resolve_primary_action($task, $organization, $is_pending, $is_done);
         $governance = new AA_Task_Governance_Policy();
+        $task_vo = AA_Task::from_array($task);
 
         return AA_Executable_Contract::normalize_item([
             'id' => (string) $task_id,
@@ -386,6 +407,7 @@ final class TaskBoardToExecutableMapper {
             'description' => isset($task['notes']) ? (string) $task['notes'] : null,
             'importance' => (int) ($task['importance'] ?? 0),
             'due_at' => isset($task['due_at']) && $task['due_at'] !== '' ? (string) $task['due_at'] : null,
+            'is_overdue' => $task_vo->is_overdue($now),
             'default_bucket' => isset($task['default_bucket']) && $task['default_bucket'] !== ''
                 ? (string) $task['default_bucket']
                 : AA_Executable_Contract::BUCKET_PRIMARY,

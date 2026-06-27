@@ -632,6 +632,22 @@
      * @param {object} item
      * @returns {string}
      */
+    function renderOverdueBadge(item) {
+        if (!item || item.is_overdue !== true) {
+            return '';
+        }
+
+        if (asString(item.status).toLowerCase() === 'done') {
+            return '';
+        }
+
+        return '<span class="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">Vencida</span>';
+    }
+
+    /**
+     * @param {object} item
+     * @returns {string}
+     */
     function renderItemExpandedMeta(item) {
         var metaHtml = '';
 
@@ -856,7 +872,10 @@
             + '<summary class="aa-executable-item-summary cursor-pointer list-none p-4">'
             + '<div class="flex items-start justify-between gap-2">'
             + '<div class="min-w-0 flex-1">'
+            + '<div class="flex flex-wrap items-center gap-2">'
             + '<p class="' + titleClass + '">' + title + '</p>'
+            + renderOverdueBadge(item)
+            + '</div>'
             + previewHtml
             + '</div>'
             + renderItemSummaryActions(item)

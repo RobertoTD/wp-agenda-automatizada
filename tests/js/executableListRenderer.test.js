@@ -35,7 +35,8 @@ function baseItem(overrides) {
         },
         primary_action: null,
         visible_actions: [],
-        is_executive_candidate: false
+        is_executive_candidate: false,
+        is_overdue: false
     }, overrides || {});
 }
 
@@ -1356,6 +1357,50 @@ describe('executableListRenderer MC13 expandable items', () => {
         assert.doesNotMatch(summary, /data-tasks-action="complete"/);
     });
 
+    it('summary muestra badge Vencida cuando is_overdue es true', () => {
+        var html = renderer.renderItem(baseItem({
+            id: '42',
+            source: 'user',
+            title: 'Tarea vencida',
+            is_overdue: true,
+            due_at: '2026-06-01 08:00:00'
+        }));
+        var summary = extractSummary(html);
+
+        assert.match(summary, />Vencida</);
+        assert.match(summary, /border-red-200/);
+        assert.match(summary, /text-red-700/);
+        assert.match(summary, />Tarea vencida</);
+    });
+
+    it('summary no muestra badge Vencida cuando is_overdue es false', () => {
+        var html = renderer.renderItem(baseItem({
+            id: '42',
+            source: 'user',
+            title: 'Tarea al día',
+            is_overdue: false,
+            due_at: '2026-06-20 08:00:00'
+        }));
+        var summary = extractSummary(html);
+
+        assert.doesNotMatch(summary, />Vencida</);
+        assert.doesNotMatch(summary, /border-red-200/);
+    });
+
+    it('summary no muestra badge Vencida en item done aunque is_overdue sea true', () => {
+        var html = renderer.renderItem(baseItem({
+            id: '42',
+            source: 'user',
+            title: 'Tarea completada',
+            status: 'done',
+            is_overdue: true,
+            due_at: '2026-06-01 08:00:00'
+        }));
+        var summary = extractSummary(html);
+
+        assert.doesNotMatch(summary, />Vencida</);
+    });
+
     it('contenido expandido incluye descripción completa, meta y acciones sin editar ni chevron', () => {
         var html = renderer.renderItem(baseItem({
             id: '42',
@@ -1387,6 +1432,7 @@ describe('executableListRenderer MC13 expandable items', () => {
         assert.match(html, />Detalles completos de la tarea</);
         assert.match(html, /Vence: 2026-06-20 08:37:00/);
         assert.match(html, /Importancia: 3/);
+        assert.doesNotMatch(html, /aa-executable-item-expanded[\s\S]*>Vencida</);
         assert.match(html, /aa-executable-item-actions/);
         assert.match(html, /onclick="event\.stopPropagation\(\)"/);
         assert.match(html, /data-tasks-action="complete"/);

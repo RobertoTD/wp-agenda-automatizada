@@ -29,6 +29,12 @@ if (!function_exists('add_query_arg')) {
     }
 }
 
+if (!function_exists('aa_get_current_datetime')) {
+    function aa_get_current_datetime() {
+        return '2026-06-15 12:00:00';
+    }
+}
+
 require_once __DIR__ . '/../../../includes/domain/executable/class-aa-executable-contract.php';
 require_once __DIR__ . '/../../../includes/application/executable/LearningRecommendationsToExecutableMapper.php';
 require_once __DIR__ . '/../../../includes/application/executable/TaskBoardToExecutableMapper.php';
@@ -70,6 +76,10 @@ $contract_item = AA_Executable_Contract::normalize_item([
 ac_assert(
     'Contract normalizes can_delete on item capabilities',
     ($contract_item['capabilities']['can_delete'] ?? false) === true
+);
+ac_assert(
+    'Contract item defaults is_overdue to false',
+    ($contract_item['is_overdue'] ?? true) === false
 );
 
 $contract_list = AA_Executable_Contract::normalize_list([
@@ -711,6 +721,63 @@ ac_assert(
     'Task projected buckets keep executive_candidates independent',
     ($primary_bucket_items[0]['is_executive_candidate'] ?? true) === false
     && ($primary_bucket_items[1]['is_executive_candidate'] ?? false) === true
+);
+ac_assert(
+    'Task mapper marks past due pending as is_overdue',
+    ($primary_bucket_items[0]['is_overdue'] ?? false) === true
+);
+ac_assert(
+    'Task mapper marks item without due_at as not overdue',
+    ($primary_bucket_items[1]['is_overdue'] ?? false) === false
+);
+
+$future_due_task_lists = TaskBoardToExecutableMapper::map([
+    'lists' => [
+        [
+            'id' => 4,
+            'title' => 'Futuras',
+            'status' => 'active',
+        ],
+    ],
+    'tasks' => [
+        [
+            'id' => 40,
+            'list_id' => 4,
+            'title' => 'Futura',
+            'status' => 'pending',
+            'due_at' => '2026-06-20 08:00:00',
+        ],
+    ],
+    'organization' => [
+        'list_order' => [4],
+        'task_order_by_list' => [
+            4 => [40],
+        ],
+        'task_bucket_order_by_list' => [
+            4 => [
+                'primary' => [40],
+                'secondary' => [],
+            ],
+        ],
+        'executive_candidates' => [],
+    ],
+]);
+$future_due_item = $future_due_task_lists[0]['buckets'][0]['items'][0] ?? null;
+ac_assert(
+    'Task mapper marks future due pending as not overdue',
+    is_array($future_due_item) && ($future_due_item['is_overdue'] ?? true) === false
+);
+
+$overdue_mapper_now = aa_get_current_datetime();
+ac_assert(
+    'Done task with past due_at is not overdue in domain',
+    AA_Task::from_array([
+        'id' => 32,
+        'list_id' => 3,
+        'title' => 'Done no active',
+        'status' => 'done',
+        'due_at' => '2026-06-01 10:00:00',
+    ])->is_overdue($overdue_mapper_now) === false
 );
 
 $archived_feed_payload = [
