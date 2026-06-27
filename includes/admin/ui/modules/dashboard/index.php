@@ -299,7 +299,7 @@ $executor_module_url = admin_url('admin-post.php?action=aa_iframe_content&module
     </div>
 
     <!-- Alertas (fila colapsable) -->
-    <div class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden mb-3" data-aa-dashboard-collapse>
+    <div id="aa-dash-alerts-section" class="hidden bg-white rounded-xl shadow border border-gray-200 overflow-hidden mb-3" data-aa-dashboard-collapse>
         <div
             class="aa-dash-collapse-toggle px-4 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer select-none"
             data-aa-dashboard-collapse-toggle

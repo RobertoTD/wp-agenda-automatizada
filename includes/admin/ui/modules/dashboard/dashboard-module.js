@@ -558,6 +558,26 @@
         '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>' +
         '</svg>';
 
+    function getAlertsSection() {
+        var section = document.getElementById('aa-dash-alerts-section');
+        if (section) {
+            return section;
+        }
+
+        var container = document.getElementById('aa-dash-alerts');
+        return container ? container.closest('[data-aa-dashboard-collapse]') : null;
+    }
+
+    function setAlertsSectionVisible(visible) {
+        var section = getAlertsSection();
+        if (!section) {
+            return;
+        }
+
+        section.classList.toggle('hidden', !visible);
+        notifyDashboardIframeResize();
+    }
+
     function getAlertsWrapper() {
         var container = document.getElementById('aa-dash-alerts');
         if (!container) return null;
@@ -569,18 +589,6 @@
         if (!wrapper) return;
         wrapper.innerHTML =
             '<p class="text-sm text-gray-400">Cargando alertas…</p>';
-    }
-
-    function setAlertsEmpty() {
-        var wrapper = getAlertsWrapper();
-        if (!wrapper) return;
-        wrapper.innerHTML =
-            '<div class="flex items-start gap-2.5 p-3 rounded-lg bg-green-50">' +
-            '<svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
-            '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>' +
-            '</svg>' +
-            '<span class="text-sm text-green-700">Sin alertas por ahora.</span>' +
-            '</div>';
     }
 
     function setAlertsError() {
@@ -598,10 +606,11 @@
         var hasFuture = data.pendingNext15Days > 0;
 
         if (!hasToday && !hasFuture) {
-            setAlertsEmpty();
+            setAlertsSectionVisible(false);
             return;
         }
 
+        setAlertsSectionVisible(true);
         wrapper.innerHTML = '';
 
         if (hasToday) {
@@ -633,6 +642,7 @@
             return;
         }
 
+        setAlertsSectionVisible(false);
         setAlertsLoading();
 
         window.DashboardService.getAlertsSummary()
@@ -641,6 +651,7 @@
             })
             .catch(function (err) {
                 console.error('[DashboardModule] Error loading alerts:', err);
+                setAlertsSectionVisible(true);
                 setAlertsError();
             });
     }
@@ -995,7 +1006,8 @@
         handleDashboardExecutiveAction: handleDashboardExecutiveAction,
         renderCurrentTaskFromProposal: renderCurrentTaskFromProposal,
         runDashboardClientAction: runDashboardClientAction,
-        loadCurrentTaskCard: loadCurrentTaskCard
+        loadCurrentTaskCard: loadCurrentTaskCard,
+        renderAlertsData: renderAlertsData
     };
 
     if (typeof module !== 'undefined' && module.exports) {

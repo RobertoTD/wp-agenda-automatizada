@@ -27,9 +27,11 @@ function makeClassList(initialClasses) {
             });
         },
         remove: function () {
-            var toRemove = Array.prototype.slice.call(arguments);
-            classes = classes.filter(function (item) {
-                return toRemove.indexOf(item) === -1;
+            Array.prototype.forEach.call(arguments, function (cls) {
+                var idx = classes.indexOf(cls);
+                if (idx !== -1) {
+                    classes.splice(idx, 1);
+                }
             });
         },
         toggle: function (cls, force) {
@@ -39,9 +41,10 @@ function makeClassList(initialClasses) {
             if (next && !has) {
                 classes.push(cls);
             } else if (!next && has) {
-                classes = classes.filter(function (item) {
-                    return item !== cls;
-                });
+                var idx = classes.indexOf(cls);
+                if (idx !== -1) {
+                    classes.splice(idx, 1);
+                }
             }
         }
     };
@@ -237,5 +240,113 @@ describe('dashboard-module executive actions', () => {
         assert.equal(getCalls, 0);
         assert.equal(runnerCalls, 1);
         assert.match(dom.content.innerHTML, /Siguiente/);
+    });
+});
+
+function makeAlertsTestDom() {
+    var alertsInner = {
+        innerHTML: '',
+        appendChild: function (node) {
+            if (node && node.innerHTML) {
+                this.innerHTML += node.innerHTML;
+            }
+        }
+    };
+
+    var alertsContainer = {
+        id: 'aa-dash-alerts',
+        querySelector: function (sel) {
+            return sel === '.space-y-2' ? alertsInner : null;
+        }
+    };
+
+    var section = makeElement('aa-dash-alerts-section', { classes: ['hidden'] });
+
+    return {
+        section: section,
+        alertsInner: alertsInner,
+        alertsContainer: alertsContainer
+    };
+}
+
+describe('dashboard-module alerts', () => {
+    let alertsDom;
+    let originalDocument;
+    let originalCreateElement;
+
+    beforeEach(() => {
+        alertsDom = makeAlertsTestDom();
+
+        originalDocument = globalThis.document;
+        originalCreateElement = globalThis.document && globalThis.document.createElement;
+
+        globalThis.document = {
+            getElementById: function (id) {
+                if (id === 'aa-dash-alerts-section') {
+                    return alertsDom.section;
+                }
+
+                if (id === 'aa-dash-alerts') {
+                    return alertsDom.alertsContainer;
+                }
+
+                return null;
+            },
+            createElement: function () {
+                return {
+                    className: '',
+                    innerHTML: ''
+                };
+            }
+        };
+
+        globalThis.window = globalThis;
+        globalThis.window.self = globalThis.window;
+        globalThis.window.top = globalThis.window;
+        globalThis.window.requestAnimationFrame = function (cb) {
+            cb();
+        };
+    });
+
+    afterEach(() => {
+        if (originalDocument === undefined) {
+            delete globalThis.document;
+        } else {
+            globalThis.document = originalDocument;
+        }
+
+        if (originalCreateElement === undefined && globalThis.document) {
+            delete globalThis.document.createElement;
+        }
+    });
+
+    it('cero alertas oculta la sección y no muestra mensaje vacío', () => {
+        hooks.renderAlertsData({
+            pendingTodayRemaining: 0,
+            pendingNext15Days: 0
+        });
+
+        assert.equal(alertsDom.section.classList.classes.indexOf('hidden'), 0);
+        assert.doesNotMatch(alertsDom.alertsInner.innerHTML, /Sin alertas por ahora/);
+    });
+
+    it('alerta hoy muestra la sección y renderiza contenido', () => {
+        hooks.renderAlertsData({
+            pendingTodayRemaining: 2,
+            pendingNext15Days: 0
+        });
+
+        assert.equal(alertsDom.section.classList.classes.indexOf('hidden'), -1);
+        assert.match(alertsDom.alertsInner.innerHTML, /2 citas sin confirmar para hoy/);
+    });
+
+    it('alerta próximos 15 días muestra la sección y renderiza contenido', () => {
+        hooks.renderAlertsData({
+            pendingTodayRemaining: 0,
+            pendingNext15Days: 1
+        });
+
+        assert.equal(alertsDom.section.classList.classes.indexOf('hidden'), -1);
+        assert.match(alertsDom.alertsInner.innerHTML, /1 cita sin confirmar en los próximos 15 días/);
     });
 });
