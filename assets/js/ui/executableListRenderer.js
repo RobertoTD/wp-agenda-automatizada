@@ -643,11 +643,58 @@
     }
 
     /**
+     * @param {unknown} value
+     * @returns {Date|null}
+     */
+    function parseDueAtToDate(value) {
+        var raw = value ? String(value).trim() : '';
+
+        if (!raw) {
+            return null;
+        }
+
+        var normalized = raw.indexOf('T') !== -1 ? raw : raw.replace(' ', 'T');
+
+        if (normalized.length === 16) {
+            normalized += ':00';
+        }
+
+        var dueDate = new Date(normalized);
+
+        if (Number.isNaN(dueDate.getTime())) {
+            return null;
+        }
+
+        return dueDate;
+    }
+
+    var DUE_SOON_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+    /**
+     * @param {unknown} dueAt
+     * @param {Date} [nowDate]
+     * @returns {boolean}
+     */
+    function isDueSoonFromDueAt(dueAt, nowDate) {
+        var dueDate = parseDueAtToDate(dueAt);
+
+        if (!dueDate) {
+            return false;
+        }
+
+        var now = nowDate instanceof Date ? nowDate : new Date();
+        var nowMs = now.getTime();
+        var dueMs = dueDate.getTime();
+
+        return dueMs > nowMs && dueMs <= (nowMs + DUE_SOON_WINDOW_MS);
+    }
+
+    /**
      * @param {object} item
      * @returns {string}
      */
-    function renderOverdueBadge(item) {
-        if (!item || item.is_overdue !== true) {
+    function renderDueStatusBadge(item) {
+        if (!item) {
             return '';
         }
 
@@ -655,7 +702,23 @@
             return '';
         }
 
-        return '<span class="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">Vencida</span>';
+        if (item.is_overdue === true) {
+            return '<span class="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">Vencida</span>';
+        }
+
+        if (isDueSoonFromDueAt(item.due_at)) {
+            return '<span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">Vence pronto</span>';
+        }
+
+        return '';
+    }
+
+    /**
+     * @param {object} item
+     * @returns {string}
+     */
+    function renderOverdueBadge(item) {
+        return renderDueStatusBadge(item);
     }
 
     /**
@@ -1569,7 +1632,9 @@
         renderItemActions: renderItemActions,
         resolveRecommendationKey: resolveRecommendationKey,
         resolveTasksChannelTaskId: resolveTasksChannelTaskId,
-        hasVisibleActions: hasVisibleActions
+        hasVisibleActions: hasVisibleActions,
+        parseDueAtToDate: parseDueAtToDate,
+        isDueSoonFromDueAt: isDueSoonFromDueAt
     };
 
     if (typeof window !== 'undefined') {

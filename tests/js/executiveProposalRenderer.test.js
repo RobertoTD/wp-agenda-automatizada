@@ -11,6 +11,21 @@ const indexSrc = fs.readFileSync(
     'utf8'
 );
 
+function formatDueAtFromDate(date) {
+    var y = date.getFullYear();
+    var m = String(date.getMonth() + 1).padStart(2, '0');
+    var d = String(date.getDate()).padStart(2, '0');
+    var h = String(date.getHours()).padStart(2, '0');
+    var min = String(date.getMinutes()).padStart(2, '0');
+    var s = String(date.getSeconds()).padStart(2, '0');
+
+    return y + '-' + m + '-' + d + ' ' + h + ':' + min + ':' + s;
+}
+
+function dueAtInHoursFromNow(hours) {
+    return formatDueAtFromDate(new Date(Date.now() + (hours * 3600000)));
+}
+
 function basePayload(overrides) {
     return Object.assign({
         success: true,
@@ -205,6 +220,40 @@ describe('executiveProposalRenderer MC6', () => {
         assert.match(html, />No realizada</);
         assert.match(html, />Ahora no</);
         assert.match(html, /data-executive-action-key="missed"[^>]*amber|amber[\s\S]*data-executive-action-key="missed"/);
+    });
+
+    it('current muestra Vence pronto cuando due_at vence dentro de 24h', () => {
+        const task = Object.assign({}, basePayload().tasks[0], {
+            is_overdue: false,
+            due_at: dueAtInHoursFromNow(8)
+        });
+        const html = renderer.renderCurrentTask(task, 'Lista foco');
+
+        assert.match(html, />Vence pronto</);
+        assert.match(html, /border-amber-200/);
+        assert.doesNotMatch(html, />Vencida</);
+    });
+
+    it('current prioriza Vencida sobre Vence pronto', () => {
+        const task = Object.assign({}, basePayload().tasks[0], {
+            is_overdue: true,
+            due_at: dueAtInHoursFromNow(4)
+        });
+        const html = renderer.renderCurrentTask(task, 'Lista foco');
+
+        assert.match(html, />Vencida</);
+        assert.doesNotMatch(html, />Vence pronto</);
+    });
+
+    it('current sin due_at no muestra Vence pronto', () => {
+        const task = Object.assign({}, basePayload().tasks[0], {
+            is_overdue: false,
+            due_at: null
+        });
+        const html = renderer.renderCurrentTask(task, 'Lista foco');
+
+        assert.doesNotMatch(html, />Vence pronto</);
+        assert.doesNotMatch(html, />Vencida</);
     });
 
     it('payload vacío no rompe buildProposalParts', () => {

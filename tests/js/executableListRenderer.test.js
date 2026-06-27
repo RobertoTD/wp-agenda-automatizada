@@ -9,6 +9,21 @@ const rendererPath = path.join(__dirname, '../../assets/js/ui/executableListRend
 const adminSourceCssPath = path.join(__dirname, '../../includes/admin/ui/assets/css/admin.source.css');
 const renderer = require(rendererPath);
 
+function formatDueAtFromDate(date) {
+    var y = date.getFullYear();
+    var m = String(date.getMonth() + 1).padStart(2, '0');
+    var d = String(date.getDate()).padStart(2, '0');
+    var h = String(date.getHours()).padStart(2, '0');
+    var min = String(date.getMinutes()).padStart(2, '0');
+    var s = String(date.getSeconds()).padStart(2, '0');
+
+    return y + '-' + m + '-' + d + ' ' + h + ':' + min + ':' + s;
+}
+
+function dueAtInHoursFromNow(hours) {
+    return formatDueAtFromDate(new Date(Date.now() + (hours * 3600000)));
+}
+
 function baseItem(overrides) {
     return Object.assign({
         id: 'item-1',
@@ -1516,6 +1531,64 @@ describe('executableListRenderer MC13 expandable items', () => {
         var summary = extractSummary(html);
 
         assert.doesNotMatch(summary, />Vencida</);
+    });
+
+    it('summary muestra badge Vence pronto cuando due_at vence dentro de 24h', () => {
+        var html = renderer.renderItem(baseItem({
+            id: '42',
+            source: 'user',
+            title: 'Tarea pronto',
+            is_overdue: false,
+            due_at: dueAtInHoursFromNow(12)
+        }));
+        var summary = extractSummary(html);
+
+        assert.match(summary, />Vence pronto</);
+        assert.match(summary, /border-amber-200/);
+        assert.match(summary, /text-amber-700/);
+        assert.doesNotMatch(summary, />Vencida</);
+    });
+
+    it('summary no muestra Vence pronto cuando due_at vence después de 24h', () => {
+        var html = renderer.renderItem(baseItem({
+            id: '42',
+            source: 'user',
+            title: 'Tarea lejana',
+            is_overdue: false,
+            due_at: dueAtInHoursFromNow(30)
+        }));
+        var summary = extractSummary(html);
+
+        assert.doesNotMatch(summary, />Vence pronto</);
+        assert.doesNotMatch(summary, />Vencida</);
+    });
+
+    it('summary no muestra badge de vencimiento sin due_at', () => {
+        var html = renderer.renderItem(baseItem({
+            id: '42',
+            source: 'user',
+            title: 'Sin vencimiento',
+            is_overdue: false,
+            due_at: null
+        }));
+        var summary = extractSummary(html);
+
+        assert.doesNotMatch(summary, />Vence pronto</);
+        assert.doesNotMatch(summary, />Vencida</);
+    });
+
+    it('summary prioriza Vencida sobre Vence pronto si is_overdue es true', () => {
+        var html = renderer.renderItem(baseItem({
+            id: '42',
+            source: 'user',
+            title: 'Tarea vencida pronto',
+            is_overdue: true,
+            due_at: dueAtInHoursFromNow(6)
+        }));
+        var summary = extractSummary(html);
+
+        assert.match(summary, />Vencida</);
+        assert.doesNotMatch(summary, />Vence pronto</);
     });
 
     it('contenido expandido incluye descripción completa, meta y acciones sin editar ni chevron', () => {
