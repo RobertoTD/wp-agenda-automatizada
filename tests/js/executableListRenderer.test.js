@@ -883,6 +883,33 @@ describe('AAExecutableListRenderer visible_actions', () => {
         assert.match(html, />Confirmar</);
     });
 
+    it('visible_actions sin appointment.confirm no genera botón Confirmar', () => {
+        var html = renderer.renderItem(baseItem({
+            origin_key: 'appointment_confirmation:42',
+            is_overdue: true,
+            visible_actions: [
+                visibleAction({
+                    key: 'dismiss',
+                    type: 'intent',
+                    category: 'intent',
+                    label: 'Ahora no',
+                    placement: 'secondary',
+                    target_status: null,
+                    url: null,
+                    handler: null
+                })
+            ]
+        }), {}, {
+            shouldRenderPrimaryAction: function () {
+                return true;
+            }
+        });
+
+        assert.doesNotMatch(html, /data-learning-handler="appointment\.confirm"/);
+        assert.doesNotMatch(html, />Confirmar</);
+        assert.match(html, />Ahora no</);
+    });
+
     it('visible_action status done genera complete en canal Tasks para user', () => {
         var html = renderer.renderItem(baseItem({
             id: '42',

@@ -175,6 +175,20 @@ describe('executiveProposalRenderer MC6', () => {
         assert.match(html, />Ahora no</);
     });
 
+    it('current vencida sin Confirmar en executive_actions no pinta botón Confirmar', () => {
+        const task = Object.assign({}, basePayload().tasks[0], {
+            is_overdue: true,
+            executive_actions: [
+                { key: 'dismiss', type: 'intent', label: 'Ahora no' }
+            ]
+        });
+        const html = renderer.renderCurrentTask(task, 'Lista foco');
+
+        assert.match(html, />Vencida</);
+        assert.doesNotMatch(html, />Confirmar</);
+        assert.match(html, />Ahora no</);
+    });
+
     it('payload vacío no rompe buildProposalParts', () => {
         assert.doesNotThrow(function () {
             renderer.buildProposalParts(null);

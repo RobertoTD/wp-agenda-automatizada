@@ -37,6 +37,7 @@ require_once __DIR__ . '/../../../includes/domain/executive/class-aa-executive-c
 require_once __DIR__ . '/../../../includes/domain/executive/class-aa-executive-proposal-policy.php';
 require_once __DIR__ . '/../../../includes/domain/executive/class-aa-executive-sprint-policy.php';
 require_once __DIR__ . '/../../../includes/domain/executive/class-aa-executive-actions-policy.php';
+require_once __DIR__ . '/../../../includes/domain/appointments/class-aa-appointment-actions-catalog.php';
 require_once __DIR__ . '/../../../includes/domain/executable/class-aa-executable-contract.php';
 require_once __DIR__ . '/../../../includes/domain/executable/class-aa-executable-visible-actions-policy.php';
 require_once __DIR__ . '/../../../includes/domain/tasks/class-aa-task.php';
@@ -599,6 +600,119 @@ $invalid_manual = (new GetExecutiveProposalUseCase(
 ac_assert(
     'manual focus inválido no bloquea propuesta',
     ($invalid_manual['status'] ?? '') === AA_Executive_Contract::STATUS_READY
+);
+
+$mapper_src = file_get_contents(__DIR__ . '/../../../includes/application/executive/ExecutiveProposalMapper.php');
+ac_assert(
+    'ExecutiveProposalMapper passes origin_key to policy item',
+    strpos($mapper_src, "'origin_key' => self::nullable_origin_key(\$task)") !== false
+);
+ac_assert(
+    'ExecutiveProposalMapper passes is_overdue to policy item',
+    strpos($mapper_src, "'is_overdue' => \$task_vo->is_overdue(\$now)") !== false
+);
+
+/**
+ * @return array<string,mixed>
+ */
+function exec_appointment_confirmation_board(bool $is_overdue): array {
+    $due_at = $is_overdue ? '2026-06-01 08:00:00' : '2026-06-10 12:00:00';
+
+    return [
+        'lists' => [
+            [
+                'id' => 5,
+                'title' => 'Acciones de citas',
+                'importance' => 10,
+                'status' => 'active',
+                'source_category' => 'agenda_app',
+                'origin_key' => 'appointment_actions',
+            ],
+        ],
+        'tasks' => [
+            [
+                'id' => 501,
+                'list_id' => 5,
+                'title' => 'Confirmar cita con Ana',
+                'status' => 'pending',
+                'importance' => 0,
+                'due_at' => $due_at,
+                'completion_type' => 'system',
+                'source_category' => 'agenda_app',
+                'origin_key' => AA_Appointment_Actions_Catalog::task_origin_key(123),
+                'source' => 'system',
+            ],
+        ],
+        'organization' => [
+            'task_evaluations_by_id' => [
+                501 => exec_board_visible_eval('primary', true),
+            ],
+            'task_actions_by_id' => [
+                501 => [
+                    [
+                        'id' => 9001,
+                        'action_key' => AA_Appointment_Actions_Catalog::TASK_ACTION_KEY,
+                        'type' => 'handler',
+                        'label' => AA_Appointment_Actions_Catalog::TASK_ACTION_LABEL,
+                        'enabled' => 1,
+                        'placement' => 'primary',
+                        'category' => 'mechanical',
+                        'handler' => AA_Appointment_Actions_Catalog::TASK_ACTION_HANDLER,
+                        'position' => 0,
+                    ],
+                ],
+            ],
+        ],
+    ];
+}
+
+/**
+ * @param list<int> $task_ids
+ * @return array<string,mixed>
+ */
+function exec_appointment_confirmation_selection(array $task_ids): array {
+    return [
+        'status' => AA_Executive_Contract::STATUS_READY,
+        'focus_list_id' => 5,
+        'task_ids' => $task_ids,
+        'eligible_count_in_focus_list' => count($task_ids),
+    ];
+}
+
+$overdue_confirmation = ExecutiveProposalMapper::map(
+    exec_appointment_confirmation_board(true),
+    exec_appointment_confirmation_selection([501]),
+    '2026-06-04 12:00:00'
+);
+$overdue_current = $overdue_confirmation['tasks'][0] ?? null;
+$overdue_action_keys = array_map(static function (array $action): string {
+    return (string) ($action['key'] ?? '');
+}, is_array($overdue_current['executive_actions'] ?? null) ? $overdue_current['executive_actions'] : []);
+ac_assert(
+    'Executive overdue appointment confirmation hides Confirmar',
+    is_array($overdue_current)
+    && ($overdue_current['is_overdue'] ?? false) === true
+    && !in_array(AA_Appointment_Actions_Catalog::TASK_ACTION_KEY, $overdue_action_keys, true)
+);
+ac_assert(
+    'Executive overdue appointment confirmation keeps dismiss',
+    in_array('dismiss', $overdue_action_keys, true)
+);
+
+$future_confirmation = ExecutiveProposalMapper::map(
+    exec_appointment_confirmation_board(false),
+    exec_appointment_confirmation_selection([501]),
+    '2026-06-04 12:00:00'
+);
+$future_current = $future_confirmation['tasks'][0] ?? null;
+$future_action_keys = array_map(static function (array $action): string {
+    return (string) ($action['key'] ?? '');
+}, is_array($future_current['executive_actions'] ?? null) ? $future_current['executive_actions'] : []);
+ac_assert(
+    'Executive future appointment confirmation keeps Confirmar',
+    is_array($future_current)
+    && ($future_current['is_overdue'] ?? true) === false
+    && in_array(AA_Appointment_Actions_Catalog::TASK_ACTION_KEY, $future_action_keys, true)
 );
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";

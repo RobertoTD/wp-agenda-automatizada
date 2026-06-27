@@ -8,6 +8,7 @@
 defined('ABSPATH') or die('No direct access');
 
 require_once __DIR__ . '/class-aa-executable-contract.php';
+require_once dirname(__DIR__) . '/appointments/class-aa-appointment-actions-catalog.php';
 
 final class AA_Executable_Visible_Actions_Policy {
 
@@ -52,7 +53,7 @@ final class AA_Executable_Visible_Actions_Policy {
         $actions = [];
 
         $mechanical_action = self::mechanical_action($item['primary_action'] ?? null);
-        if ($mechanical_action !== null) {
+        if ($mechanical_action !== null && !self::should_suppress_mechanical_action($item, $mechanical_action)) {
             $actions[] = $mechanical_action;
         }
 
@@ -157,6 +158,48 @@ final class AA_Executable_Visible_Actions_Policy {
         }
 
         return null;
+    }
+
+    /**
+     * @param array<string,mixed> $item
+     * @param array<string,mixed> $mechanical_action
+     */
+    private static function should_suppress_mechanical_action(array $item, array $mechanical_action): bool {
+        if (!self::is_overdue_appointment_confirmation($item)) {
+            return false;
+        }
+
+        return self::is_appointment_confirm_action($mechanical_action);
+    }
+
+    /**
+     * @param array<string,mixed> $item
+     */
+    private static function is_overdue_appointment_confirmation(array $item): bool {
+        if (empty($item['is_overdue'])) {
+            return false;
+        }
+
+        $origin_key = isset($item['origin_key']) && is_string($item['origin_key'])
+            ? trim($item['origin_key'])
+            : '';
+
+        if ($origin_key === '') {
+            return false;
+        }
+
+        return strpos($origin_key, AA_Appointment_Actions_Catalog::TASK_ORIGIN_KEY_PREFIX) === 0;
+    }
+
+    /**
+     * @param array<string,mixed> $action
+     */
+    private static function is_appointment_confirm_action(array $action): bool {
+        $handler = trim((string) ($action['handler'] ?? ''));
+        $key = trim((string) ($action['key'] ?? ''));
+
+        return $handler === AA_Appointment_Actions_Catalog::TASK_ACTION_HANDLER
+            || $key === AA_Appointment_Actions_Catalog::TASK_ACTION_KEY;
     }
 
     /**

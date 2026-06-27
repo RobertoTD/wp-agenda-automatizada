@@ -91,10 +91,12 @@ final class ExecutiveProposalMapper {
             if ($is_current) {
                 $item = self::build_executable_item(
                     $task,
+                    $task_vo,
                     $evaluation,
                     $primary_action,
                     $projected_bucket,
-                    $focus_list
+                    $focus_list,
+                    $now
                 );
                 $executive_actions = AA_Executive_Actions_Policy::resolve($item, [
                     'view' => AA_Executable_Visible_Actions_Policy::VIEW_ACTIVE,
@@ -298,10 +300,12 @@ final class ExecutiveProposalMapper {
      */
     private static function build_executable_item(
         array $task,
+        AA_Task $task_vo,
         array $evaluation,
         ?array $primary_action,
         string $projected_bucket,
-        array $focus_list
+        array $focus_list,
+        string $now
     ): array {
         $is_pending = strtolower(trim((string) ($task['status'] ?? 'pending'))) === 'pending';
         $capabilities = is_array($evaluation['capabilities'] ?? null) ? $evaluation['capabilities'] : [];
@@ -309,6 +313,9 @@ final class ExecutiveProposalMapper {
         return [
             'id' => (string) ((int) ($task['id'] ?? 0)),
             'source' => self::resolve_source($task, $focus_list),
+            'source_category' => self::resolve_source_category($task),
+            'origin_key' => self::nullable_origin_key($task),
+            'is_overdue' => $task_vo->is_overdue($now),
             'status' => $is_pending
                 ? AA_Executable_Contract::ITEM_STATUS_PENDING
                 : AA_Executable_Contract::ITEM_STATUS_DONE,

@@ -12,6 +12,7 @@ if (!defined('ABSPATH')) {
 }
 
 require_once __DIR__ . '/../../../includes/domain/executable/class-aa-executable-contract.php';
+require_once __DIR__ . '/../../../includes/domain/appointments/class-aa-appointment-actions-catalog.php';
 require_once __DIR__ . '/../../../includes/domain/executable/class-aa-executable-visible-actions-policy.php';
 
 $total = 0;
@@ -366,6 +367,105 @@ $user_no_capability_actions = AA_Executable_Visible_Actions_Policy::resolve($use
 ac_assert(
     'User source without defer capability emits no defer action',
     executable_visible_action_find($user_no_capability_actions, 'defer') === null
+);
+
+$appointment_confirm_primary = [
+    'type' => AA_Executable_Contract::ACTION_HANDLER,
+    'key' => AA_Appointment_Actions_Catalog::TASK_ACTION_KEY,
+    'label' => AA_Appointment_Actions_Catalog::TASK_ACTION_LABEL,
+    'handler' => AA_Appointment_Actions_Catalog::TASK_ACTION_HANDLER,
+];
+
+$appointment_future = executable_visible_action_item([
+    'id' => '501',
+    'source' => AA_Executable_Contract::SOURCE_SYSTEM,
+    'source_category' => AA_Executable_Contract::SOURCE_CATEGORY_AGENDA_APP,
+    'origin_key' => AA_Appointment_Actions_Catalog::task_origin_key(123),
+    'is_overdue' => false,
+    'primary_action' => $appointment_confirm_primary,
+    'capabilities' => [
+        'can_dismiss' => true,
+    ],
+]);
+$appointment_future_actions = AA_Executable_Visible_Actions_Policy::resolve($appointment_future, [
+    'view' => AA_Executable_Visible_Actions_Policy::VIEW_ACTIVE,
+    'bucket_key' => AA_Executable_Contract::BUCKET_PRIMARY,
+    'source' => AA_Executable_Contract::SOURCE_SYSTEM,
+]);
+ac_assert(
+    'Future appointment confirmation includes appointment.confirm',
+    executable_visible_action_find($appointment_future_actions, AA_Appointment_Actions_Catalog::TASK_ACTION_KEY) !== null
+);
+
+$appointment_overdue = executable_visible_action_item([
+    'id' => '502',
+    'source' => AA_Executable_Contract::SOURCE_SYSTEM,
+    'source_category' => AA_Executable_Contract::SOURCE_CATEGORY_AGENDA_APP,
+    'origin_key' => AA_Appointment_Actions_Catalog::task_origin_key(123),
+    'is_overdue' => true,
+    'primary_action' => $appointment_confirm_primary,
+    'capabilities' => [
+        'can_dismiss' => true,
+    ],
+]);
+$appointment_overdue_actions = AA_Executable_Visible_Actions_Policy::resolve($appointment_overdue, [
+    'view' => AA_Executable_Visible_Actions_Policy::VIEW_ACTIVE,
+    'bucket_key' => AA_Executable_Contract::BUCKET_PRIMARY,
+    'source' => AA_Executable_Contract::SOURCE_SYSTEM,
+]);
+ac_assert(
+    'Overdue appointment confirmation hides appointment.confirm',
+    executable_visible_action_find($appointment_overdue_actions, AA_Appointment_Actions_Catalog::TASK_ACTION_KEY) === null
+);
+ac_assert(
+    'Overdue appointment confirmation keeps dismiss',
+    executable_visible_action_find($appointment_overdue_actions, 'dismiss') !== null
+    && executable_visible_action_keys($appointment_overdue_actions) === ['dismiss']
+);
+
+$overdue_user_task = executable_visible_action_item([
+    'id' => '77',
+    'source' => AA_Executable_Contract::SOURCE_USER,
+    'origin_key' => null,
+    'is_overdue' => true,
+    'capabilities' => [
+        'can_complete' => true,
+        'can_dismiss' => true,
+    ],
+]);
+$overdue_user_task_actions = AA_Executable_Visible_Actions_Policy::resolve($overdue_user_task, [
+    'view' => AA_Executable_Visible_Actions_Policy::VIEW_ACTIVE,
+    'bucket_key' => AA_Executable_Contract::BUCKET_DEFAULT,
+    'source' => AA_Executable_Contract::SOURCE_USER,
+]);
+ac_assert(
+    'Overdue user task keeps complete action',
+    executable_visible_action_find($overdue_user_task_actions, 'complete') !== null
+);
+
+$overdue_system_handler = executable_visible_action_item([
+    'id' => 'install_pwa',
+    'source' => AA_Executable_Contract::SOURCE_SYSTEM,
+    'origin_key' => 'install_pwa',
+    'is_overdue' => true,
+    'primary_action' => [
+        'type' => AA_Executable_Contract::ACTION_HANDLER,
+        'label' => 'Instalar',
+        'handler' => 'pwa.install',
+    ],
+    'capabilities' => [
+        'can_complete' => true,
+        'can_dismiss' => true,
+    ],
+]);
+$overdue_system_handler_actions = AA_Executable_Visible_Actions_Policy::resolve($overdue_system_handler, [
+    'view' => AA_Executable_Visible_Actions_Policy::VIEW_ACTIVE,
+    'bucket_key' => AA_Executable_Contract::BUCKET_SECONDARY,
+    'source' => AA_Executable_Contract::SOURCE_SYSTEM,
+]);
+ac_assert(
+    'Overdue non-appointment system handler is not filtered',
+    executable_visible_action_find($overdue_system_handler_actions, 'pwa.install') !== null
 );
 
 // ─── Resumen ─────────────────────────────────────────────────
