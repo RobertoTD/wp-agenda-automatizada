@@ -28,6 +28,8 @@ final class GetAccountStatusUseCase {
         'payment_action_required',
         'messages',
         'benefit_quotas',
+        'upgrade_to_pro_available',
+        'upgrade_to_pro_reason',
     ];
 
     /**
@@ -122,8 +124,13 @@ final class GetAccountStatusUseCase {
                 continue;
             }
 
-            if ($key === 'is_cancel_scheduled' || $key === 'sync_pending' || $key === 'payment_action_required') {
+            if ($key === 'is_cancel_scheduled' || $key === 'sync_pending' || $key === 'payment_action_required' || $key === 'upgrade_to_pro_available') {
                 $out[$key] = (bool) $value;
+                continue;
+            }
+
+            if ($key === 'upgrade_to_pro_reason') {
+                $out[$key] = $this->normalizeUpgradeToProReason($value);
                 continue;
             }
 
@@ -162,6 +169,41 @@ final class GetAccountStatusUseCase {
         }
 
         return $messages;
+    }
+
+    /** @var list<string> */
+    private const UPGRADE_TO_PRO_REASONS = [
+        'payment_action_required',
+        'pro_active',
+        'sync_pending',
+        'missing_subscription',
+        'inactive',
+        'unsupported_state',
+    ];
+
+    /**
+     * @param mixed $value
+     * @return string|null
+     */
+    private function normalizeUpgradeToProReason($value): ?string {
+        if ($value === null) {
+            return null;
+        }
+
+        if (!is_scalar($value)) {
+            return null;
+        }
+
+        $trimmed = trim((string) $value);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        if (!in_array($trimmed, self::UPGRADE_TO_PRO_REASONS, true)) {
+            return null;
+        }
+
+        return $trimmed;
     }
 
     /** @var list<string> */

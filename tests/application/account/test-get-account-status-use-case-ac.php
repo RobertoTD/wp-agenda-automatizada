@@ -456,5 +456,87 @@ ac(
     wp_json_encode_safe($result['data']['account_status'] ?? [])
 );
 
+// --- upgrade_to_pro eligibility sanitization ---
+reset_options();
+$GLOBALS['aa_test_options']['aa_client_secret'] = 'test-secret';
+Mock_Account_Status_Backend_Client::$response = [
+    'ok' => true,
+    'account_status' => [
+        'plan_tier' => 'freemium',
+        'billing_state' => 'active',
+        'effective_access_tier' => 'freemium',
+        'upgrade_to_pro_available' => true,
+        'upgrade_to_pro_reason' => null,
+        'stripe_customer_id' => 'cus-should-strip',
+    ],
+];
+
+$result = (new GetAccountStatusUseCase(new Mock_Account_Status_Backend_Client()))->execute();
+$account_status = $result['data']['account_status'] ?? [];
+ac(
+    'upgrade_to_pro_available valid passes as boolean',
+    !empty($result['success'])
+        && ($account_status['upgrade_to_pro_available'] ?? null) === true,
+    wp_json_encode_safe($account_status)
+);
+ac(
+    'upgrade_to_pro_reason null passes through',
+    array_key_exists('upgrade_to_pro_reason', $account_status)
+        && $account_status['upgrade_to_pro_reason'] === null,
+    wp_json_encode_safe($account_status)
+);
+
+reset_options();
+$GLOBALS['aa_test_options']['aa_client_secret'] = 'test-secret';
+Mock_Account_Status_Backend_Client::$response = [
+    'ok' => true,
+    'account_status' => [
+        'plan_tier' => 'pro',
+        'billing_state' => 'active',
+        'effective_access_tier' => 'pro',
+        'upgrade_to_pro_available' => 0,
+        'upgrade_to_pro_reason' => 'pro_active',
+    ],
+];
+
+$result = (new GetAccountStatusUseCase(new Mock_Account_Status_Backend_Client()))->execute();
+$account_status = $result['data']['account_status'] ?? [];
+ac(
+    'upgrade_to_pro_available coerces falsy scalar to boolean false',
+    !empty($result['success'])
+        && ($account_status['upgrade_to_pro_available'] ?? true) === false
+        && ($account_status['upgrade_to_pro_reason'] ?? '') === 'pro_active',
+    wp_json_encode_safe($account_status)
+);
+
+reset_options();
+$GLOBALS['aa_test_options']['aa_client_secret'] = 'test-secret';
+Mock_Account_Status_Backend_Client::$response = [
+    'ok' => true,
+    'account_status' => [
+        'plan_tier' => 'freemium',
+        'upgrade_to_pro_available' => 'yes',
+        'upgrade_to_pro_reason' => ['invalid'],
+        'installation_id' => 'strip-me',
+    ],
+];
+
+$result = (new GetAccountStatusUseCase(new Mock_Account_Status_Backend_Client()))->execute();
+$account_status = $result['data']['account_status'] ?? [];
+$forbidden_upgrade = forbidden_keys_in_payload($account_status);
+ac(
+    'upgrade_to_pro odd types sanitize without breaking response',
+    !empty($result['success'])
+        && ($account_status['upgrade_to_pro_available'] ?? null) === true
+        && array_key_exists('upgrade_to_pro_reason', $account_status)
+        && $account_status['upgrade_to_pro_reason'] === null,
+    wp_json_encode_safe($account_status)
+);
+ac(
+    'upgrade_to_pro strips forbidden internal fields',
+    empty($forbidden_upgrade),
+    implode(', ', $forbidden_upgrade)
+);
+
 echo "\n{$passed}/{$total} passed\n";
 exit($passed === $total ? 0 : 1);
