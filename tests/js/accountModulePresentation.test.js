@@ -27,6 +27,21 @@ describe('account module presentation', () => {
         assert.equal(presentation.access, 'Freemium');
         assert.match(presentation.primaryNotice, /upgrade en tu suscripción/i);
         assert.equal(billing.mode, 'hidden');
+        assert.equal(account.shouldShowUpgradeCta(status), false);
+    });
+
+    it('Freemium activo con upgrade disponible muestra elegibilidad de CTA', () => {
+        const status = {
+            billing_state: 'active',
+            plan_tier: 'freemium',
+            effective_access_tier: 'freemium',
+            payment_action_required: false,
+            sync_pending: false,
+            is_cancel_scheduled: false,
+            upgrade_to_pro_available: true
+        };
+
+        assert.equal(account.shouldShowUpgradeCta(status), true);
     });
 
     it('Pro activo: Activa, Pro/Pro, billing Gestionar suscripción', () => {

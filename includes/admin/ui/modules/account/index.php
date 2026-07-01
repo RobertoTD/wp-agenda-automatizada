@@ -60,6 +60,7 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
                     </dl>
 
                     <div id="aa-account-notice" class="hidden rounded-lg border p-4 text-sm"></div>
+                    <div id="aa-account-upgrade-return-notice" class="hidden rounded-lg border p-4 text-sm"></div>
                     <div id="aa-account-notice-actions" class="hidden flex flex-col gap-2"></div>
 
                     <ul id="aa-account-messages" class="hidden list-disc list-inside space-y-1 text-sm text-gray-600"></ul>
@@ -68,6 +69,62 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
                         <h4 class="text-sm font-medium text-gray-900 mb-2">Beneficios del mes</h4>
                         <ul id="aa-account-benefit-quotas-list" class="space-y-2 text-sm text-gray-700"></ul>
                         <p id="aa-account-benefit-quotas-unavailable" class="hidden text-sm text-gray-500 mt-2"></p>
+                    </div>
+
+                    <div id="aa-account-upgrade-section" class="hidden pt-4 border-t border-gray-100 space-y-4">
+                        <div id="aa-account-upgrade-cta-wrap">
+                            <button
+                                type="button"
+                                id="aa-account-upgrade-button"
+                                class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 transition-colors"
+                            >
+                                Adquirir Pro
+                            </button>
+                        </div>
+
+                        <div id="aa-account-upgrade-card" class="hidden rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50 to-white p-5 shadow-sm">
+                            <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+                                <span class="text-lg font-semibold text-violet-900 tracking-wide">PRO</span>
+                                <span class="text-sm font-medium text-violet-800">$100 MXN / mes</span>
+                            </div>
+                            <p class="text-sm text-gray-700 mb-4">
+                                Más capacidad para automatizar tu agenda y crecer sin fricción.
+                            </p>
+                            <ul class="space-y-2 text-sm text-gray-700 mb-5" aria-label="Límites mensuales PRO">
+                                <li class="flex items-start gap-2">
+                                    <span class="text-violet-600 mt-0.5" aria-hidden="true">•</span>
+                                    <span>300 correos de confirmación y recordatorio al mes</span>
+                                </li>
+                                <li class="flex items-start gap-2">
+                                    <span class="text-violet-600 mt-0.5" aria-hidden="true">•</span>
+                                    <span>300 solicitudes IA al mes</span>
+                                </li>
+                                <li class="flex items-start gap-2">
+                                    <span class="text-violet-600 mt-0.5" aria-hidden="true">•</span>
+                                    <span>700 sincronizaciones con Google Calendar al mes</span>
+                                </li>
+                            </ul>
+                            <div class="flex flex-wrap gap-2">
+                                <button
+                                    type="button"
+                                    id="aa-account-upgrade-continue"
+                                    class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    Continuar con PRO
+                                </button>
+                                <button
+                                    type="button"
+                                    id="aa-account-upgrade-back"
+                                    class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
+                                >
+                                    Volver
+                                </button>
+                            </div>
+                            <p id="aa-account-upgrade-loading" class="hidden text-sm text-gray-600 mt-3">
+                                Abriendo checkout seguro…
+                            </p>
+                            <p id="aa-account-upgrade-error" class="hidden text-sm text-red-700 mt-3"></p>
+                        </div>
                     </div>
 
                     <div id="aa-account-billing-action" class="hidden pt-4 border-t border-gray-100">
@@ -145,10 +202,14 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
     window.AA_ACCOUNT_DATA = {
         ajaxUrl: window.ajaxurl || '<?php echo esc_js(admin_url('admin-ajax.php')); ?>',
         nonce: '<?php echo esc_js(wp_create_nonce('aa_get_account_status_nonce')); ?>',
-        billingNonce: '<?php echo esc_js(wp_create_nonce('aa_create_billing_portal_session_nonce')); ?>'
+        billingNonce: '<?php echo esc_js(wp_create_nonce('aa_create_billing_portal_session_nonce')); ?>',
+        upgradeCheckoutNonce: '<?php echo esc_js(wp_create_nonce('aa_create_upgrade_checkout_session_nonce')); ?>'
     };
 </script>
 <?php
+$account_upgrade_ux_js = function_exists('aa_asset_url')
+    ? aa_asset_url('assets/js/services/accountUpgradeUx.js')
+    : esc_url(plugins_url('assets/js/services/accountUpgradeUx.js', dirname(__DIR__, 5) . '/wp-agenda-automatizada.php'));
 $account_status_error_ux_js = function_exists('aa_asset_url')
     ? aa_asset_url('assets/js/services/accountStatusErrorUx.js')
     : esc_url(plugins_url('assets/js/services/accountStatusErrorUx.js', dirname(__DIR__, 5) . '/wp-agenda-automatizada.php'));
@@ -156,6 +217,7 @@ $account_benefit_quotas_ux_js = function_exists('aa_asset_url')
     ? aa_asset_url('assets/js/services/accountBenefitQuotasUx.js')
     : esc_url(plugins_url('assets/js/services/accountBenefitQuotasUx.js', dirname(__DIR__, 5) . '/wp-agenda-automatizada.php'));
 ?>
+<script src="<?php echo esc_url($account_upgrade_ux_js); ?>" defer></script>
 <script src="<?php echo esc_url($account_status_error_ux_js); ?>" defer></script>
 <script src="<?php echo esc_url($account_benefit_quotas_ux_js); ?>" defer></script>
 <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'module.js?ver=' . rawurlencode($account_module_ver)); ?>" defer></script>

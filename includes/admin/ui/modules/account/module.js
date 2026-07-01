@@ -22,6 +22,8 @@
     var FREEMIUM_UPGRADE_LEGEND =
         'Puedes aumentar tu cuota mensual haciendo upgrade en tu suscripción.';
 
+    var UPGRADE_CHECKOUT_ERROR_MESSAGE = 'No pudimos abrir el checkout de Pro. Intenta de nuevo.';
+
     var PRO_PAYMENT_FAILED_NOTICE =
         'El pago de tu suscripción no pudo realizarse. Actualiza tus datos con Gestionar suscripción para seguir disfrutando de tus beneficios Pro.';
 
@@ -36,6 +38,8 @@
     };
 
     var billingClickBound = false;
+    var upgradeClickBound = false;
+    var upgradeCardOpen = false;
 
     function getConfig() {
         return window.AA_ACCOUNT_DATA || {};
@@ -440,14 +444,17 @@
         var summaryEl = badgeEl ? badgeEl.closest('.flex.flex-wrap') : null;
         var planGridEl = getEl('aa-account-plan') ? getEl('aa-account-plan').closest('dl') : null;
         var billingActionEl = getEl('aa-account-billing-action');
+        var upgradeSectionEl = getEl('aa-account-upgrade-section');
         var noticeEl = getEl('aa-account-notice');
         var messagesEl = getEl('aa-account-messages');
 
         setHidden(summaryEl, !visible);
         setHidden(planGridEl, !visible);
         setHidden(billingActionEl, !visible);
+        setHidden(upgradeSectionEl, !visible);
 
         if (!visible) {
+            upgradeCardOpen = false;
             setNotice(noticeEl, '', '');
             renderMessages(messagesEl, []);
             renderAccountStatusActions(getEl('aa-account-notice-actions'), []);
@@ -507,7 +514,245 @@
         setNotice(noticeEl, presentation.primaryNotice, noticeClass);
         renderMessages(messagesEl, status.messages);
         renderBillingAction(status);
+        renderUpgradeSection(status);
         renderBenefitQuotas(status);
+    }
+
+    function resolveAccountUpgradeUx() {
+        if (typeof window === 'undefined') {
+            return null;
+        }
+        if (window.AccountUpgradeUx && typeof window.AccountUpgradeUx.shouldShowUpgradeCta === 'function') {
+            return window.AccountUpgradeUx;
+        }
+        return null;
+    }
+
+    /**
+     * @param {object} status
+     * @returns {boolean}
+     */
+    function shouldShowUpgradeCta(status) {
+        var ux = resolveAccountUpgradeUx();
+        if (ux) {
+            return ux.shouldShowUpgradeCta(status);
+        }
+        return !!(status && status.upgrade_to_pro_available === true);
+    }
+
+    /**
+     * @param {string} url
+     * @returns {boolean}
+     */
+    function isSafeStripeCheckoutUrl(url) {
+        var ux = resolveAccountUpgradeUx();
+        if (ux && typeof ux.isSafeStripeCheckoutUrl === 'function') {
+            return ux.isSafeStripeCheckoutUrl(url);
+        }
+
+        if (typeof url !== 'string' || url.trim() === '') {
+            return false;
+        }
+
+        try {
+            var parsed = new URL(url);
+            return parsed.protocol === 'https:' && parsed.hostname === 'checkout.stripe.com';
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function clearUpgradeError() {
+        var errorEl = getEl('aa-account-upgrade-error');
+        if (!errorEl) {
+            return;
+        }
+        errorEl.textContent = '';
+        setHidden(errorEl, true);
+    }
+
+    function showUpgradeError(message) {
+        var errorEl = getEl('aa-account-upgrade-error');
+        if (!errorEl) {
+            return;
+        }
+        errorEl.textContent = message;
+        setHidden(errorEl, false);
+    }
+
+    function setUpgradeLoading(isLoading) {
+        var continueEl = getEl('aa-account-upgrade-continue');
+        var loadingEl = getEl('aa-account-upgrade-loading');
+
+        setHidden(loadingEl, !isLoading);
+
+        if (continueEl) {
+            continueEl.disabled = isLoading;
+        }
+    }
+
+    /**
+     * @param {object} status
+     */
+    function renderUpgradeSection(status) {
+        var sectionEl = getEl('aa-account-upgrade-section');
+        var ctaWrapEl = getEl('aa-account-upgrade-cta-wrap');
+        var cardEl = getEl('aa-account-upgrade-card');
+        var showUpgrade = shouldShowUpgradeCta(status);
+        var ux = resolveAccountUpgradeUx();
+        var uiState = ux
+            ? ux.buildUpgradeUiState(showUpgrade, upgradeCardOpen)
+            : {
+                sectionVisible: showUpgrade,
+                ctaVisible: showUpgrade && !upgradeCardOpen,
+                cardVisible: showUpgrade && upgradeCardOpen
+            };
+
+        clearUpgradeError();
+        setHidden(getEl('aa-account-upgrade-loading'), true);
+
+        if (!sectionEl) {
+            return;
+        }
+
+        if (!uiState.sectionVisible) {
+            upgradeCardOpen = false;
+            setHidden(sectionEl, true);
+            setHidden(ctaWrapEl, true);
+            setHidden(cardEl, true);
+            return;
+        }
+
+        setHidden(sectionEl, false);
+        setHidden(ctaWrapEl, !uiState.ctaVisible);
+        setHidden(cardEl, !uiState.cardVisible);
+
+        if (!uiState.cardVisible) {
+            setUpgradeLoading(false);
+            var continueEl = getEl('aa-account-upgrade-continue');
+            if (continueEl) {
+                continueEl.disabled = false;
+            }
+        }
+    }
+
+    function showUpgradeReturnNotice() {
+        var ux = resolveAccountUpgradeUx();
+        var parsed = ux
+            ? ux.parseUpgradeReturnNotice(window.location.search)
+            : { notice: null, className: null };
+        var noticeEl = getEl('aa-account-upgrade-return-notice');
+
+        if (!noticeEl || !parsed.notice) {
+            if (noticeEl) {
+                noticeEl.textContent = '';
+                setHidden(noticeEl, true);
+            }
+            return;
+        }
+
+        noticeEl.textContent = parsed.notice;
+        noticeEl.className = 'rounded-lg border p-4 text-sm ' + (parsed.className || 'border-gray-200 bg-gray-50 text-gray-700');
+        setHidden(noticeEl, false);
+    }
+
+    function createUpgradeCheckoutSession() {
+        var config = getConfig();
+        var ajaxUrl = config.ajaxUrl || window.ajaxurl || '/wp-admin/admin-ajax.php';
+        var upgradeNonce = config.upgradeCheckoutNonce || '';
+
+        if (!upgradeNonce) {
+            return Promise.resolve({ ok: false, code: 'missing_nonce' });
+        }
+
+        return fetch(ajaxUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: new URLSearchParams({
+                action: 'aa_create_upgrade_checkout_session',
+                _wpnonce: upgradeNonce
+            })
+        })
+            .then(function (response) {
+                return response.json();
+            })
+            .then(function (data) {
+                if (data && data.success && data.data && typeof data.data.checkout_url === 'string') {
+                    return { ok: true, checkout_url: data.data.checkout_url };
+                }
+
+                var ux = resolveAccountUpgradeUx();
+                var message = ux
+                    ? ux.mapUpgradeCheckoutErrorToUi(data && data.data ? data.data : null)
+                    : UPGRADE_CHECKOUT_ERROR_MESSAGE;
+                var code = data && data.data && data.data.code ? String(data.data.code) : '';
+
+                return { ok: false, message: message, code: code };
+            })
+            .catch(function (err) {
+                console.error('[AccountModule] Upgrade checkout fetch failed:', err);
+                return { ok: false, message: UPGRADE_CHECKOUT_ERROR_MESSAGE };
+            });
+    }
+
+    function handleUpgradeButtonClick() {
+        upgradeCardOpen = true;
+        clearUpgradeError();
+        renderUpgradeSection({ upgrade_to_pro_available: true });
+    }
+
+    function handleUpgradeBackClick() {
+        upgradeCardOpen = false;
+        clearUpgradeError();
+        setUpgradeLoading(false);
+        renderUpgradeSection({ upgrade_to_pro_available: true });
+    }
+
+    function handleUpgradeContinueClick() {
+        var continueEl = getEl('aa-account-upgrade-continue');
+
+        if (!continueEl || continueEl.disabled) {
+            return;
+        }
+
+        clearUpgradeError();
+        setUpgradeLoading(true);
+
+        createUpgradeCheckoutSession().then(function (result) {
+            if (result.ok && isSafeStripeCheckoutUrl(result.checkout_url)) {
+                window.location.href = result.checkout_url;
+                return;
+            }
+
+            setUpgradeLoading(false);
+            continueEl.disabled = false;
+            showUpgradeError(result.message || UPGRADE_CHECKOUT_ERROR_MESSAGE);
+        });
+    }
+
+    function bindUpgradeClickHandlers() {
+        if (upgradeClickBound) {
+            return;
+        }
+
+        var acquireEl = getEl('aa-account-upgrade-button');
+        var backEl = getEl('aa-account-upgrade-back');
+        var continueEl = getEl('aa-account-upgrade-continue');
+
+        if (acquireEl) {
+            acquireEl.addEventListener('click', handleUpgradeButtonClick);
+        }
+        if (backEl) {
+            backEl.addEventListener('click', handleUpgradeBackClick);
+        }
+        if (continueEl) {
+            continueEl.addEventListener('click', handleUpgradeContinueClick);
+        }
+
+        upgradeClickBound = true;
     }
 
     function resolveBenefitQuotasUx() {
@@ -822,6 +1067,8 @@
         }
 
         bindBillingClickHandler();
+        bindUpgradeClickHandlers();
+        showUpgradeReturnNotice();
         showLoading();
 
         fetchAccountStatus().then(function (payload) {
@@ -868,6 +1115,9 @@
         isFreemiumActiveAccount: isFreemiumActiveAccount,
         buildAccountPresentation: buildAccountPresentation,
         renderBenefitQuotas: renderBenefitQuotas,
+        shouldShowUpgradeCta: shouldShowUpgradeCta,
+        isSafeStripeCheckoutUrl: isSafeStripeCheckoutUrl,
+        createUpgradeCheckoutSession: createUpgradeCheckoutSession,
         VIEW: VIEW
     };
 

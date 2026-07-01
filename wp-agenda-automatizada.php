@@ -152,6 +152,14 @@ require_once __DIR__ . '/includes/http/ajax/BillingPortalAjax.php';
 BillingPortalAjax::register();
 
 // ================================
+// 🔹 Endpoint AJAX: Upgrade checkout session (capa http/ajax)
+// ================================
+require_once __DIR__ . '/includes/infrastructure/backend/class-aa-upgrade-checkout-backend-client.php';
+require_once __DIR__ . '/includes/application/account/CreateUpgradeCheckoutSessionUseCase.php';
+require_once __DIR__ . '/includes/http/ajax/UpgradeCheckoutAjax.php';
+UpgradeCheckoutAjax::register();
+
+// ================================
 // Endpoint AJAX: Estado onboarding inicial (capa http/ajax)
 // ================================
 require_once __DIR__ . '/includes/http/ajax/OnboardingStatusAjax.php';
