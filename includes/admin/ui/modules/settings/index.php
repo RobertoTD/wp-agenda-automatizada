@@ -424,9 +424,15 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                             </div>
                         </div>
                     </div>
-                <?php else: ?>
+                <?php else:
+                    require_once dirname(__DIR__, 4) . '/domain/account/class-aa-google-calendar-oauth-gate-policy.php';
+                    $aa_google_oauth_url = SyncService::get_auth_url();
+                    $aa_requires_freemium_consent = AA_Google_Calendar_Oauth_Gate_Policy::requires_freemium_consent_before_oauth(
+                        trim((string) get_option('aa_client_secret', '')) !== ''
+                    );
+                ?>
                     <!-- Estado: No conectado -->
-                    <div class="text-center py-8">
+                    <div id="aa-google-calendar-not-connected" class="text-center py-8">
                         <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
                             <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
@@ -437,7 +443,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                             Conecta tu cuenta de Google Calendar para sincronizar tus citas automáticamente
                         </p>
                         <a id="aa-google-calendar-connect"
-                           href="<?php echo esc_url(SyncService::get_auth_url()); ?>" 
+                           href="<?php echo esc_url($aa_google_oauth_url); ?>"
                            target="_blank"
                            rel="noopener noreferrer"
                            class="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg transition-colors shadow-sm">
@@ -450,6 +456,41 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                             Conectar con Google
                         </a>
                     </div>
+
+                    <?php if ($aa_requires_freemium_consent) : ?>
+                    <div id="aa-google-calendar-freemium-consent" class="hidden max-w-md mx-auto py-4">
+                        <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm text-left">
+                            <div class="flex items-baseline justify-between gap-3 mb-2">
+                                <span class="text-base font-semibold text-gray-900">Freemium</span>
+                                <span class="text-sm font-medium text-gray-600">$0 / mes</span>
+                            </div>
+                            <p class="text-sm text-gray-700 mb-3">
+                                Para usar automatizaciones con servicios externos necesitas una suscripción DEOIA.
+                                Al continuar con Google se activará gratuitamente DEOIA Freemium.
+                            </p>
+                            <p class="text-sm text-gray-500 mb-4">
+                                Tu agenda profesional lista para usar, sin costo mensual.
+                            </p>
+                            <ul class="text-sm text-gray-600 space-y-1.5 mb-5 list-disc list-inside"
+                                aria-label="Límites mensuales Freemium">
+                                <li>30 correos de confirmación y recordatorio al mes</li>
+                                <li>30 solicitudes IA al mes</li>
+                                <li>70 sincronizaciones con Google Calendar al mes</li>
+                            </ul>
+                            <button type="button"
+                                    id="aa-google-calendar-freemium-cta"
+                                    class="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg transition-colors shadow-sm">
+                                <svg class="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                                </svg>
+                                Suscribirme a DEOIA Freemium y conectar Google
+                            </button>
+                        </div>
+                    </div>
+                    <?php endif; ?>
                 <?php endif; ?>
 
                 <div class="mt-4 border-t border-gray-100 pt-4 text-center">
@@ -491,6 +532,13 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
 
 <!-- Time picker logic handled in module.js -->
 
-<?php $settings_module_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0'; ?>
+<?php
+$settings_module_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
+$aa_settings_requires_freemium_consent = isset($aa_requires_freemium_consent) && $aa_requires_freemium_consent;
+?>
+<script>
+window.AA_SETTINGS_DATA = window.AA_SETTINGS_DATA || {};
+window.AA_SETTINGS_DATA.requiresFreemiumConsentBeforeGoogle = <?php echo $aa_settings_requires_freemium_consent ? 'true' : 'false'; ?>;
+</script>
 <!-- Module JS -->
 <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'module.js?ver=' . rawurlencode($settings_module_ver)); ?>"></script>

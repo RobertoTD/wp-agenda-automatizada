@@ -31,6 +31,8 @@
         initLegacyFixedScheduleUi();
 
         applySetupFocusFromUrl();
+
+        initGoogleCalendarFreemiumGate();
     });
 
     // ================================
@@ -515,6 +517,43 @@
                 nameInput.focus({ preventScroll: true });
             }, 350);
         }
+    }
+
+    /**
+     * Intercepts first-connect OAuth when DEOIA account is not linked yet (no client secret).
+     * Shows Freemium consent card; CTA reuses the original OAuth href from #aa-google-calendar-connect.
+     */
+    function initGoogleCalendarFreemiumGate() {
+        const config = window.AA_SETTINGS_DATA || {};
+
+        if (!config.requiresFreemiumConsentBeforeGoogle) {
+            return;
+        }
+
+        const connectButton = document.getElementById('aa-google-calendar-connect');
+        const notConnectedView = document.getElementById('aa-google-calendar-not-connected');
+        const freemiumView = document.getElementById('aa-google-calendar-freemium-consent');
+        const freemiumCta = document.getElementById('aa-google-calendar-freemium-cta');
+
+        if (!connectButton || !notConnectedView || !freemiumView || !freemiumCta) {
+            return;
+        }
+
+        const oauthHref = connectButton.getAttribute('href') || '';
+
+        connectButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            notConnectedView.classList.add('hidden');
+            freemiumView.classList.remove('hidden');
+        });
+
+        freemiumCta.addEventListener('click', function() {
+            if (!oauthHref) {
+                return;
+            }
+
+            window.open(oauthHref, '_blank', 'noopener,noreferrer');
+        });
     }
 
     /**
