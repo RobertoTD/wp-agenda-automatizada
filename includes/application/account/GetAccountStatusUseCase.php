@@ -27,6 +27,7 @@ final class GetAccountStatusUseCase {
         'sync_pending',
         'payment_action_required',
         'messages',
+        'benefit_quotas',
     ];
 
     /**
@@ -113,6 +114,14 @@ final class GetAccountStatusUseCase {
                 continue;
             }
 
+            if ($key === 'benefit_quotas') {
+                $normalized = $this->normalizeBenefitQuotas($value);
+                if ($normalized !== null) {
+                    $out[$key] = $normalized;
+                }
+                continue;
+            }
+
             if ($key === 'is_cancel_scheduled' || $key === 'sync_pending' || $key === 'payment_action_required') {
                 $out[$key] = (bool) $value;
                 continue;
@@ -153,6 +162,110 @@ final class GetAccountStatusUseCase {
         }
 
         return $messages;
+    }
+
+    /** @var list<string> */
+    private const BENEFIT_QUOTA_ITEM_KEYS = [
+        'deoia_email_sends',
+        'deoia_ai_chat_queries',
+        'deoia_google_calendar_syncs',
+    ];
+
+    /** @var list<string> */
+    private const BENEFIT_QUOTA_ITEM_ALLOWED_KEYS = [
+        'key',
+        'limit',
+        'consumed',
+        'remaining',
+        'can_consume',
+        'at_limit',
+        'exceeded',
+    ];
+
+    /**
+     * @param mixed $value
+     * @return array<string,mixed>|null
+     */
+    private function normalizeBenefitQuotas($value): ?array {
+        if (!is_array($value)) {
+            return null;
+        }
+
+        $period = isset($value['period_yyyymm']) ? trim((string) $value['period_yyyymm']) : '';
+        if ($period === '' || !preg_match('/^[0-9]{6}$/', $period)) {
+            return null;
+        }
+
+        $items = [];
+        if (isset($value['items']) && is_array($value['items'])) {
+            foreach ($value['items'] as $item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+
+                $key = isset($item['key']) ? trim((string) $item['key']) : '';
+                if ($key === '' || !in_array($key, self::BENEFIT_QUOTA_ITEM_KEYS, true)) {
+                    continue;
+                }
+
+                $normalized_item = ['key' => $key];
+                foreach (self::BENEFIT_QUOTA_ITEM_ALLOWED_KEYS as $field) {
+                    if ($field === 'key') {
+                        continue;
+                    }
+
+                    if (!array_key_exists($field, $item)) {
+                        continue;
+                    }
+
+                    $field_value = $item[$field];
+
+                    if (in_array($field, ['can_consume', 'at_limit', 'exceeded'], true)) {
+                        $normalized_item[$field] = (bool) $field_value;
+                        continue;
+                    }
+
+                    if ($field_value === null) {
+                        $normalized_item[$field] = null;
+                        continue;
+                    }
+
+                    if (is_numeric($field_value)) {
+                        $normalized_item[$field] = (int) $field_value;
+                    }
+                }
+
+                $items[] = $normalized_item;
+            }
+        }
+
+        $quota_read_error = null;
+        if (array_key_exists('quota_read_error', $value)) {
+            if ($value['quota_read_error'] === null) {
+                $quota_read_error = null;
+            } elseif (is_scalar($value['quota_read_error'])) {
+                $trimmed = trim((string) $value['quota_read_error']);
+                $quota_read_error = $trimmed === '' ? null : $trimmed;
+            }
+        }
+
+        $access_reason = null;
+        if (array_key_exists('access_reason', $value)) {
+            if ($value['access_reason'] === null) {
+                $access_reason = null;
+            } elseif (is_scalar($value['access_reason'])) {
+                $trimmed = trim((string) $value['access_reason']);
+                $access_reason = $trimmed === '' ? null : $trimmed;
+            }
+        }
+
+        return [
+            'period_yyyymm'             => $period,
+            'usage_counters_applicable' => !empty($value['usage_counters_applicable']),
+            'quota_read_error'          => $quota_read_error,
+            'access_reason'             => $access_reason,
+            'items'                     => $items,
+        ];
     }
 
     /**

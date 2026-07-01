@@ -64,6 +64,12 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
 
                     <ul id="aa-account-messages" class="hidden list-disc list-inside space-y-1 text-sm text-gray-600"></ul>
 
+                    <div id="aa-account-benefit-quotas" class="hidden pt-4 border-t border-gray-100">
+                        <h4 class="text-sm font-medium text-gray-900 mb-2">Beneficios del mes</h4>
+                        <ul id="aa-account-benefit-quotas-list" class="space-y-2 text-sm text-gray-700"></ul>
+                        <p id="aa-account-benefit-quotas-unavailable" class="hidden text-sm text-gray-500 mt-2"></p>
+                    </div>
+
                     <div id="aa-account-billing-action" class="hidden pt-4 border-t border-gray-100">
                         <p id="aa-account-billing-hint" class="hidden text-sm text-gray-600 mb-2"></p>
                         <button
@@ -146,6 +152,10 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
 $account_status_error_ux_js = function_exists('aa_asset_url')
     ? aa_asset_url('assets/js/services/accountStatusErrorUx.js')
     : esc_url(plugins_url('assets/js/services/accountStatusErrorUx.js', dirname(__DIR__, 5) . '/wp-agenda-automatizada.php'));
+$account_benefit_quotas_ux_js = function_exists('aa_asset_url')
+    ? aa_asset_url('assets/js/services/accountBenefitQuotasUx.js')
+    : esc_url(plugins_url('assets/js/services/accountBenefitQuotasUx.js', dirname(__DIR__, 5) . '/wp-agenda-automatizada.php'));
 ?>
 <script src="<?php echo esc_url($account_status_error_ux_js); ?>" defer></script>
+<script src="<?php echo esc_url($account_benefit_quotas_ux_js); ?>" defer></script>
 <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'module.js?ver=' . rawurlencode($account_module_ver)); ?>" defer></script>

@@ -362,5 +362,99 @@ ac(
     wp_json_encode_safe($result)
 );
 
+// --- benefit_quotas sanitization ---
+reset_options();
+$GLOBALS['aa_test_options']['aa_client_secret'] = 'test-secret';
+Mock_Account_Status_Backend_Client::$response = [
+    'ok' => true,
+    'account_status' => [
+        'plan_tier' => 'freemium',
+        'billing_state' => 'active',
+        'effective_access_tier' => 'freemium',
+        'benefit_quotas' => [
+            'period_yyyymm' => '202607',
+            'usage_counters_applicable' => true,
+            'quota_read_error' => null,
+            'access_reason' => null,
+            'installation_id' => 'inst-should-strip',
+            'agenda_client_id' => 'client-should-strip',
+            'items' => [
+                [
+                    'key' => 'deoia_email_sends',
+                    'limit' => 30,
+                    'consumed' => 5,
+                    'remaining' => 25,
+                    'can_consume' => true,
+                    'at_limit' => false,
+                    'exceeded' => false,
+                    'installation_id' => 'nested-should-strip',
+                ],
+                [
+                    'key' => 'unknown_quota_key',
+                    'limit' => 999,
+                    'remaining' => 999,
+                ],
+                [
+                    'key' => 'deoia_ai_chat_queries',
+                    'limit' => 30,
+                    'consumed' => 0,
+                    'remaining' => 30,
+                    'can_consume' => true,
+                    'at_limit' => false,
+                    'exceeded' => false,
+                ],
+            ],
+        ],
+    ],
+];
+
+$result = (new GetAccountStatusUseCase(new Mock_Account_Status_Backend_Client()))->execute();
+$benefit_quotas = $result['data']['account_status']['benefit_quotas'] ?? null;
+ac(
+    'benefit_quotas valid payload passes sanitized',
+    !empty($result['success'])
+        && is_array($benefit_quotas)
+        && ($benefit_quotas['period_yyyymm'] ?? '') === '202607'
+        && ($benefit_quotas['usage_counters_applicable'] ?? false) === true
+        && count($benefit_quotas['items'] ?? []) === 2,
+    wp_json_encode_safe($benefit_quotas)
+);
+ac(
+    'benefit_quotas filters unknown item keys',
+    ($benefit_quotas['items'][0]['key'] ?? '') === 'deoia_email_sends'
+        && ($benefit_quotas['items'][1]['key'] ?? '') === 'deoia_ai_chat_queries',
+    wp_json_encode_safe($benefit_quotas['items'] ?? [])
+);
+$forbidden_bq = forbidden_keys_in_payload($benefit_quotas ?? []);
+ac(
+    'benefit_quotas strips internal ids from payload',
+    empty($forbidden_bq),
+    implode(', ', $forbidden_bq)
+);
+
+// --- benefit_quotas malformed omitted ---
+reset_options();
+$GLOBALS['aa_test_options']['aa_client_secret'] = 'test-secret';
+Mock_Account_Status_Backend_Client::$response = [
+    'ok' => true,
+    'account_status' => [
+        'plan_tier' => 'pro',
+        'billing_state' => 'active',
+        'effective_access_tier' => 'pro',
+        'benefit_quotas' => [
+            'period_yyyymm' => 'invalid-period',
+            'items' => 'not-an-array',
+        ],
+    ],
+];
+
+$result = (new GetAccountStatusUseCase(new Mock_Account_Status_Backend_Client()))->execute();
+ac(
+    'malformed benefit_quotas does not break account-status',
+    !empty($result['success'])
+        && !array_key_exists('benefit_quotas', $result['data']['account_status'] ?? []),
+    wp_json_encode_safe($result['data']['account_status'] ?? [])
+);
+
 echo "\n{$passed}/{$total} passed\n";
 exit($passed === $total ? 0 : 1);

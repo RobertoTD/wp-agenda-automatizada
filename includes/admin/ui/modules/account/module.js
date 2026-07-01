@@ -451,6 +451,7 @@
             setNotice(noticeEl, '', '');
             renderMessages(messagesEl, []);
             renderAccountStatusActions(getEl('aa-account-notice-actions'), []);
+            renderBenefitQuotas({});
         }
     }
 
@@ -506,6 +507,74 @@
         setNotice(noticeEl, presentation.primaryNotice, noticeClass);
         renderMessages(messagesEl, status.messages);
         renderBillingAction(status);
+        renderBenefitQuotas(status);
+    }
+
+    function resolveBenefitQuotasUx() {
+        if (window.AccountBenefitQuotasUx && typeof window.AccountBenefitQuotasUx.buildBenefitQuotasRenderPlan === 'function') {
+            return window.AccountBenefitQuotasUx;
+        }
+        return null;
+    }
+
+    /**
+     * @param {object} status
+     */
+    function renderBenefitQuotas(status) {
+        var sectionEl = getEl('aa-account-benefit-quotas');
+        var listEl = getEl('aa-account-benefit-quotas-list');
+        var unavailableEl = getEl('aa-account-benefit-quotas-unavailable');
+        if (!sectionEl || !listEl || !unavailableEl) {
+            return;
+        }
+
+        var ux = resolveBenefitQuotasUx();
+        var plan = ux
+            ? ux.buildBenefitQuotasRenderPlan(status && status.benefit_quotas)
+            : { visible: false, unavailableMessage: null, items: [] };
+
+        while (listEl.firstChild) {
+            listEl.removeChild(listEl.firstChild);
+        }
+
+        if (!plan.visible) {
+            unavailableEl.textContent = '';
+            setHidden(unavailableEl, true);
+            setHidden(sectionEl, true);
+            return;
+        }
+
+        setHidden(sectionEl, false);
+
+        if (plan.unavailableMessage) {
+            unavailableEl.textContent = plan.unavailableMessage;
+            setHidden(unavailableEl, false);
+            setHidden(listEl, true);
+            return;
+        }
+
+        unavailableEl.textContent = '';
+        setHidden(unavailableEl, true);
+        setHidden(listEl, false);
+
+        plan.items.forEach(function (item) {
+            var li = document.createElement('li');
+            li.className = 'rounded-lg border border-gray-100 bg-gray-50 px-3 py-2';
+
+            var title = document.createElement('p');
+            title.className = 'font-medium text-gray-900';
+            title.textContent = item.title;
+            li.appendChild(title);
+
+            if (item.remainingLine) {
+                var remaining = document.createElement('p');
+                remaining.className = 'text-gray-600 mt-0.5';
+                remaining.textContent = item.remainingLine;
+                li.appendChild(remaining);
+            }
+
+            listEl.appendChild(li);
+        });
     }
 
     function mapAccountStatusErrorToUi(data) {
@@ -798,6 +867,7 @@
         resolveBillingAction: resolveBillingAction,
         isFreemiumActiveAccount: isFreemiumActiveAccount,
         buildAccountPresentation: buildAccountPresentation,
+        renderBenefitQuotas: renderBenefitQuotas,
         VIEW: VIEW
     };
 
