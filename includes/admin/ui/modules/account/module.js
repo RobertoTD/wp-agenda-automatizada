@@ -19,6 +19,12 @@
         SYNC_DISABLED: 'Gestionar suscripción'
     };
 
+    var FREEMIUM_UPGRADE_LEGEND =
+        'Puedes aumentar tu cuota mensual haciendo upgrade en tu suscripción.';
+
+    var PRO_PAYMENT_FAILED_NOTICE =
+        'El pago de tu suscripción no pudo realizarse. Actualiza tus datos con Gestionar suscripción para seguir disfrutando de tus beneficios Pro.';
+
     var VIEW = {
         SYNC_PENDING: 'sync_pending',
         PAYMENT_PENDING: 'payment_pending',
@@ -66,6 +72,20 @@
 
     /**
      * @param {object} status
+     * @returns {boolean}
+     */
+    function isFreemiumActiveAccount(status) {
+        if (!status || typeof status !== 'object') {
+            return false;
+        }
+
+        return status.billing_state === 'active'
+            && status.plan_tier === 'freemium'
+            && status.effective_access_tier === 'freemium';
+    }
+
+    /**
+     * @param {object} status
      * @returns {string}
      */
     function resolveViewState(status) {
@@ -82,7 +102,7 @@
         if (status.is_cancel_scheduled === true) {
             return VIEW.CANCEL_SCHEDULED;
         }
-        if (status.billing_state === 'active' && status.effective_access_tier === 'pro') {
+        if (status.billing_state === 'active') {
             return VIEW.ACTIVE;
         }
         if (status.billing_state === 'missing') {
@@ -110,14 +130,108 @@
                     hint: 'Estamos sincronizando tu suscripción.'
                 };
             case VIEW.PAYMENT_PENDING:
-                return { mode: 'visible', label: BILLING_LABELS.PAYMENT_PENDING };
+                return { mode: 'visible', label: BILLING_LABELS.ACTIVE };
             case VIEW.CANCEL_SCHEDULED:
                 return { mode: 'visible', label: BILLING_LABELS.CANCEL_SCHEDULED };
             case VIEW.ACTIVE:
+                if (isFreemiumActiveAccount(status)) {
+                    return { mode: 'hidden' };
+                }
                 return { mode: 'visible', label: BILLING_LABELS.ACTIVE };
             default:
                 return { mode: 'hidden' };
         }
+    }
+
+    /**
+     * Pure presentation mapping for account status (testable, no DOM).
+     *
+     * @param {object} status
+     * @returns {{
+     *   view: string,
+     *   badgeLabel: string,
+     *   plan: string,
+     *   access: string,
+     *   primaryNotice: string
+     * }}
+     */
+    function buildAccountPresentation(status) {
+        var view = resolveViewState(status);
+        var planTier = humanizeTier(status && status.plan_tier);
+        var accessTier = humanizeTier(status && status.effective_access_tier);
+        var primaryNotice = '';
+        var badgeLabel = 'Estado no disponible';
+        var plan = planTier;
+        var access = accessTier;
+
+        switch (view) {
+            case VIEW.SYNC_PENDING:
+                badgeLabel = 'Sincronizando';
+                plan = planTier;
+                access = accessTier;
+                primaryNotice = 'Estamos sincronizando tu suscripción. Intenta de nuevo en unos minutos.';
+                break;
+
+            case VIEW.PAYMENT_PENDING:
+                badgeLabel = 'Pago pendiente';
+                plan = planTier !== '—' ? planTier : 'Pro';
+                access = 'Freemium';
+                primaryNotice = PRO_PAYMENT_FAILED_NOTICE;
+                break;
+
+            case VIEW.CANCEL_SCHEDULED: {
+                badgeLabel = 'Activa';
+                plan = planTier !== '—' ? planTier : 'Pro';
+                access = 'Pro';
+                var cancelDate = formatDate(status.cancel_at);
+                if (cancelDate) {
+                    primaryNotice = 'Has solicitado cancelar tu suscripción. Tus beneficios Pro seguirán activos hasta el '
+                        + cancelDate
+                        + '. Después de esa fecha tu agenda volverá al plan Freemium y no se realizarán nuevos cobros.';
+                } else {
+                    primaryNotice = 'Has solicitado cancelar tu suscripción. Tus beneficios Pro seguirán activos hasta la fecha programada. Después de esa fecha tu agenda volverá al plan Freemium y no se realizarán nuevos cobros.';
+                }
+                break;
+            }
+
+            case VIEW.ACTIVE:
+                badgeLabel = 'Activa';
+                if (isFreemiumActiveAccount(status)) {
+                    plan = 'Freemium';
+                    access = 'Freemium';
+                    primaryNotice = FREEMIUM_UPGRADE_LEGEND;
+                } else {
+                    plan = planTier !== '—' ? planTier : 'Pro';
+                    access = accessTier !== '—' ? accessTier : 'Pro';
+                }
+                break;
+
+            case VIEW.MISSING:
+                badgeLabel = 'Sin suscripción';
+                plan = '—';
+                access = 'Freemium';
+                break;
+
+            case VIEW.INACTIVE:
+                badgeLabel = 'Inactiva';
+                plan = planTier !== '—' ? planTier : 'Pro';
+                access = accessTier !== '—' ? accessTier : 'Freemium';
+                break;
+
+            default:
+                badgeLabel = 'Estado no disponible';
+                plan = planTier;
+                access = accessTier;
+                break;
+        }
+
+        return {
+            view: view,
+            badgeLabel: badgeLabel,
+            plan: plan,
+            access: access,
+            primaryNotice: primaryNotice
+        };
     }
 
     /**
@@ -344,76 +458,52 @@
      * @param {object} status
      */
     function renderAccountStatus(status) {
-        var view = resolveViewState(status);
+        var presentation = buildAccountPresentation(status);
         var badgeEl = getEl('aa-account-status-badge');
         var planEl = getEl('aa-account-plan');
         var accessEl = getEl('aa-account-access');
         var noticeEl = getEl('aa-account-notice');
         var messagesEl = getEl('aa-account-messages');
-
-        var planTier = humanizeTier(status.plan_tier);
-        var accessTier = humanizeTier(status.effective_access_tier);
-        var primaryNotice = '';
         var noticeClass = 'border-amber-200 bg-amber-50 text-amber-800';
 
-        switch (view) {
+        switch (presentation.view) {
             case VIEW.SYNC_PENDING:
-                setBadge(badgeEl, 'Sincronizando', 'bg-gray-100 text-gray-700 border-gray-200');
-                planEl.textContent = planTier;
-                accessEl.textContent = accessTier;
-                primaryNotice = 'Estamos sincronizando tu suscripción. Intenta de nuevo en unos minutos.';
+                setBadge(badgeEl, presentation.badgeLabel, 'bg-gray-100 text-gray-700 border-gray-200');
                 noticeClass = 'border-gray-200 bg-gray-50 text-gray-700';
                 break;
 
             case VIEW.PAYMENT_PENDING:
-                setBadge(badgeEl, 'Pago pendiente', 'bg-amber-50 text-amber-800 border-amber-200');
-                planEl.textContent = planTier !== '—' ? planTier : 'Pro';
-                accessEl.textContent = 'Freemium';
-                primaryNotice = 'Tu último pago no pudo completarse. Actualiza tu método de pago para recuperar el acceso Pro.';
+                setBadge(badgeEl, presentation.badgeLabel, 'bg-amber-50 text-amber-800 border-amber-200');
                 break;
 
-            case VIEW.CANCEL_SCHEDULED: {
-                setBadge(badgeEl, 'Activa', 'bg-emerald-50 text-emerald-700 border-emerald-200');
-                planEl.textContent = planTier !== '—' ? planTier : 'Pro';
-                accessEl.textContent = 'Pro';
-                var cancelDate = formatDate(status.cancel_at);
-                if (cancelDate) {
-                    primaryNotice = 'Has solicitado cancelar tu suscripción. Tus beneficios Pro seguirán activos hasta el '
-                        + cancelDate
-                        + '. Después de esa fecha tu agenda volverá al plan Freemium y no se realizarán nuevos cobros.';
-                } else {
-                    primaryNotice = 'Has solicitado cancelar tu suscripción. Tus beneficios Pro seguirán activos hasta la fecha programada. Después de esa fecha tu agenda volverá al plan Freemium y no se realizarán nuevos cobros.';
-                }
+            case VIEW.CANCEL_SCHEDULED:
+                setBadge(badgeEl, presentation.badgeLabel, 'bg-emerald-50 text-emerald-700 border-emerald-200');
                 noticeClass = 'border-blue-200 bg-blue-50 text-blue-800';
                 break;
-            }
 
             case VIEW.ACTIVE:
-                setBadge(badgeEl, 'Activa', 'bg-emerald-50 text-emerald-700 border-emerald-200');
-                planEl.textContent = 'Pro';
-                accessEl.textContent = 'Pro';
+                setBadge(badgeEl, presentation.badgeLabel, 'bg-emerald-50 text-emerald-700 border-emerald-200');
+                if (isFreemiumActiveAccount(status)) {
+                    noticeClass = 'border-gray-200 bg-gray-50 text-gray-700';
+                }
                 break;
 
             case VIEW.MISSING:
-                setBadge(badgeEl, 'Sin suscripción', 'bg-gray-100 text-gray-600 border-gray-200');
-                planEl.textContent = '—';
-                accessEl.textContent = 'Freemium';
+                setBadge(badgeEl, presentation.badgeLabel, 'bg-gray-100 text-gray-600 border-gray-200');
                 break;
 
             case VIEW.INACTIVE:
-                setBadge(badgeEl, 'Inactiva', 'bg-gray-100 text-gray-700 border-gray-200');
-                planEl.textContent = planTier !== '—' ? planTier : 'Pro';
-                accessEl.textContent = accessTier !== '—' ? accessTier : 'Freemium';
+                setBadge(badgeEl, presentation.badgeLabel, 'bg-gray-100 text-gray-700 border-gray-200');
                 break;
 
             default:
-                setBadge(badgeEl, 'Estado no disponible', 'bg-gray-100 text-gray-600 border-gray-200');
-                planEl.textContent = planTier;
-                accessEl.textContent = accessTier;
+                setBadge(badgeEl, presentation.badgeLabel, 'bg-gray-100 text-gray-600 border-gray-200');
                 break;
         }
 
-        setNotice(noticeEl, primaryNotice, noticeClass);
+        planEl.textContent = presentation.plan;
+        accessEl.textContent = presentation.access;
+        setNotice(noticeEl, presentation.primaryNotice, noticeClass);
         renderMessages(messagesEl, status.messages);
         renderBillingAction(status);
     }
@@ -699,5 +789,19 @@
         });
     }
 
-    document.addEventListener('DOMContentLoaded', init);
+    if (typeof document !== 'undefined') {
+        document.addEventListener('DOMContentLoaded', init);
+    }
+
+    var presentationApi = {
+        resolveViewState: resolveViewState,
+        resolveBillingAction: resolveBillingAction,
+        isFreemiumActiveAccount: isFreemiumActiveAccount,
+        buildAccountPresentation: buildAccountPresentation,
+        VIEW: VIEW
+    };
+
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = presentationApi;
+    }
 })();
