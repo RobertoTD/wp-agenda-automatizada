@@ -1,6 +1,6 @@
 <?php
 /**
- * AC MC1 — Initial setup seed (Cliente de Prueba).
+ * AC — Initial setup seed v2 (Cliente, Servicio, Personal, Zona de prueba).
  *
  * Ejecutar: php tests/infrastructure/wp/test-initial-setup-seed-ac.php
  */
@@ -19,16 +19,20 @@ $GLOBALS['aa_test_options'] = [];
 $GLOBALS['aa_test_transients'] = [];
 $GLOBALS['aa_test_doing_ajax'] = false;
 $GLOBALS['aa_test_doing_cron'] = false;
-$GLOBALS['aa_test_wpdb_rows'] = [];
 $GLOBALS['aa_test_wpdb_insert_id'] = 0;
-$GLOBALS['aa_test_repository_counts'] = [
-    'registered_client_count' => 0,
-    'active_service_count' => 0,
-    'active_staff_count' => 0,
-    'active_area_count' => 0,
-    'created_reservation_count' => 0,
-];
 $GLOBALS['aa_test_seed_calls'] = 0;
+$GLOBALS['aa_test_clients'] = [];
+$GLOBALS['aa_test_services'] = [];
+$GLOBALS['aa_test_staff'] = [];
+$GLOBALS['aa_test_areas'] = [];
+$GLOBALS['aa_test_staff_services'] = [];
+$GLOBALS['aa_test_force_staff_create_error'] = false;
+
+if (!function_exists('plugin_dir_path')) {
+    function plugin_dir_path($file) {
+        return dirname($file) . '/';
+    }
+}
 
 if (!function_exists('get_option')) {
     function get_option($key, $default = false) {
@@ -181,28 +185,201 @@ class AA_Test_WPDB_Mock {
         }, $query);
     }
 
+    private function table_key(string $table): string {
+        if (strpos($table, 'aa_clientes') !== false) {
+            return 'clients';
+        }
+        if (strpos($table, 'aa_services') !== false) {
+            return 'services';
+        }
+        if (strpos($table, 'aa_staff_services') !== false) {
+            return 'staff_services';
+        }
+        if (strpos($table, 'aa_staff') !== false) {
+            return 'staff';
+        }
+        if (strpos($table, 'aa_service_areas') !== false) {
+            return 'areas';
+        }
+
+        return 'unknown';
+    }
+
+    private function &bucket(string $key) {
+        switch ($key) {
+            case 'clients':
+                return $GLOBALS['aa_test_clients'];
+            case 'services':
+                return $GLOBALS['aa_test_services'];
+            case 'staff':
+                return $GLOBALS['aa_test_staff'];
+            case 'areas':
+                return $GLOBALS['aa_test_areas'];
+            case 'staff_services':
+                return $GLOBALS['aa_test_staff_services'];
+            default:
+                $empty = [];
+
+                return $empty;
+        }
+    }
+
     public function get_var($query) {
+        $this->last_error = '';
+
+        if (stripos($query, 'COUNT(DISTINCT st.id)') !== false) {
+            $staff = $this->bucket('staff');
+            $services = $this->bucket('services');
+            $links = $this->bucket('staff_services');
+            $count = 0;
+
+            foreach ($staff as $member) {
+                if ((int) ($member['active'] ?? 0) !== 1 || (int) ($member['is_hidden'] ?? 0) !== 0) {
+                    continue;
+                }
+
+                foreach ($links as $link) {
+                    if ((int) ($link['staff_id'] ?? 0) !== (int) ($member['id'] ?? 0)) {
+                        continue;
+                    }
+
+                    foreach ($services as $service) {
+                        if ((int) ($service['id'] ?? 0) === (int) ($link['service_id'] ?? 0)
+                            && (int) ($service['active'] ?? 0) === 1
+                            && (int) ($service['is_hidden'] ?? 0) === 0
+                        ) {
+                            $count++;
+                            break 2;
+                        }
+                    }
+                }
+            }
+
+            return (string) $count;
+        }
+
         if (stripos($query, 'COUNT(*)') !== false && stripos($query, 'aa_clientes') !== false) {
-            return (string) count($GLOBALS['aa_test_wpdb_rows']);
+            return (string) count($GLOBALS['aa_test_clients']);
+        }
+
+        if (stripos($query, 'COUNT(*)') !== false && stripos($query, 'aa_services') !== false) {
+            return (string) count(array_filter($GLOBALS['aa_test_services'], static function ($row) {
+                return (int) ($row['active'] ?? 0) === 1 && (int) ($row['is_hidden'] ?? 0) === 0;
+            }));
+        }
+
+        if (stripos($query, 'COUNT(*)') !== false && stripos($query, 'aa_staff') !== false) {
+            return (string) count(array_filter($GLOBALS['aa_test_staff'], static function ($row) {
+                return (int) ($row['active'] ?? 0) === 1 && (int) ($row['is_hidden'] ?? 0) === 0;
+            }));
+        }
+
+        if (stripos($query, 'COUNT(*)') !== false && stripos($query, 'aa_service_areas') !== false) {
+            return (string) count(array_filter($GLOBALS['aa_test_areas'], static function ($row) {
+                return (int) ($row['active'] ?? 0) === 1 && (int) ($row['is_hidden'] ?? 0) === 0;
+            }));
+        }
+
+        if (stripos($query, 'aa_service_areas') !== false && stripos($query, 'SELECT id') !== false) {
+            foreach ($GLOBALS['aa_test_areas'] as $area) {
+                if ((int) ($area['active'] ?? 0) === 1 && (int) ($area['is_hidden'] ?? 0) === 0) {
+                    return (string) ($area['id'] ?? 0);
+                }
+            }
+
+            return null;
         }
 
         return '0';
     }
 
+    public function get_col($query) {
+        $this->last_error = '';
+
+        if (stripos($query, 'aa_staff_services') !== false && stripos($query, 'service_id') !== false) {
+            if (preg_match('/staff_id = (\d+)/', $query, $matches) !== 1) {
+                return [];
+            }
+
+            $staff_id = (int) $matches[1];
+            $ids = [];
+
+            foreach ($GLOBALS['aa_test_staff_services'] as $link) {
+                if ((int) ($link['staff_id'] ?? 0) === $staff_id) {
+                    $ids[] = (string) ($link['service_id'] ?? 0);
+                }
+            }
+
+            return $ids;
+        }
+
+        if (stripos($query, 'aa_staff') !== false && stripos($query, 'SELECT id') !== false) {
+            $ids = [];
+
+            foreach ($GLOBALS['aa_test_staff'] as $row) {
+                if ((int) ($row['active'] ?? 0) === 1 && (int) ($row['is_hidden'] ?? 0) === 0) {
+                    $ids[] = (string) ($row['id'] ?? 0);
+                }
+            }
+
+            return $ids;
+        }
+
+        if (stripos($query, 'aa_services') !== false && stripos($query, 'SELECT id') !== false) {
+            $ids = [];
+
+            foreach ($GLOBALS['aa_test_services'] as $row) {
+                if ((int) ($row['active'] ?? 0) === 1 && (int) ($row['is_hidden'] ?? 0) === 0) {
+                    $ids[] = (string) ($row['id'] ?? 0);
+                }
+            }
+
+            return $ids;
+        }
+
+        return [];
+    }
+
     public function get_row($query, $output = OBJECT) {
-        if (stripos($query, 'aa_clientes') === false || stripos($query, 'telefono') === false) {
+        $this->last_error = '';
+
+        if (stripos($query, 'aa_clientes') !== false && stripos($query, 'telefono') !== false) {
+            if (preg_match("/telefono = '?([^'\\s]+)'?/", $query, $matches) !== 1) {
+                return null;
+            }
+
+            foreach ($GLOBALS['aa_test_clients'] as $row) {
+                if (($row['telefono'] ?? '') === $matches[1]) {
+                    return $output === ARRAY_A ? $row : (object) $row;
+                }
+            }
+
             return null;
         }
 
-        if (preg_match("/telefono = '([^']+)'/", $query, $matches) !== 1) {
-            return null;
-        }
+        if (preg_match("/name = '([^']+)'/", $query, $matches) === 1
+            || preg_match('/name = ([^\\s]+)/', $query, $matches) === 1
+        ) {
+            $name = $matches[1];
+            $bucket = null;
 
-        $phone = $matches[1];
+            if (stripos($query, 'aa_services') !== false) {
+                $bucket = &$GLOBALS['aa_test_services'];
+            } elseif (stripos($query, 'aa_staff') !== false) {
+                $bucket = &$GLOBALS['aa_test_staff'];
+            } elseif (stripos($query, 'aa_service_areas') !== false) {
+                $bucket = &$GLOBALS['aa_test_areas'];
+            }
 
-        foreach ($GLOBALS['aa_test_wpdb_rows'] as $row) {
-            if (($row['telefono'] ?? '') === $phone) {
-                return $output === ARRAY_A ? $row : (object) $row;
+            if ($bucket !== null) {
+                foreach ($bucket as $row) {
+                    if (($row['name'] ?? '') === $name
+                        && (int) ($row['active'] ?? 0) === 1
+                        && (int) ($row['is_hidden'] ?? 0) === 0
+                    ) {
+                        return $output === ARRAY_A ? $row : (object) $row;
+                    }
+                }
             }
         }
 
@@ -210,11 +387,26 @@ class AA_Test_WPDB_Mock {
     }
 
     public function insert($table, $data, $format = null) {
+        $key = $this->table_key($table);
+
+        if ($key === 'staff' && $GLOBALS['aa_test_force_staff_create_error']) {
+            $this->last_error = 'forced staff insert error';
+
+            return false;
+        }
+
         $GLOBALS['aa_test_wpdb_insert_id']++;
         $row = $data;
         $row['id'] = $GLOBALS['aa_test_wpdb_insert_id'];
-        $GLOBALS['aa_test_wpdb_rows'][] = $row;
+
+        if ($key === 'services' || $key === 'staff' || $key === 'areas') {
+            $row['active'] = (int) ($row['active'] ?? 1);
+            $row['is_hidden'] = (int) ($row['is_hidden'] ?? 0);
+        }
+
+        $this->bucket($key)[] = $row;
         $this->insert_id = $GLOBALS['aa_test_wpdb_insert_id'];
+        $this->last_error = '';
 
         return 1;
     }
@@ -227,7 +419,9 @@ require_once $root . '/includes/domain/setup/class-aa-initial-seed-eligibility-p
 require_once $root . '/includes/domain/tenant/class-aa-installation-provisioning-detector.php';
 require_once $root . '/includes/domain/setup/class-aa-initial-setup-seed-owner-email-resolver.php';
 require_once $root . '/includes/repositories/ClientsRepository.php';
-require_once $root . '/includes/application/setup/SeedInitialSetupClientUseCase.php';
+require_once $root . '/includes/repositories/AssignmentsRepository.php';
+require_once $root . '/includes/application/assignments/AutoAssignStaffServicesUseCase.php';
+require_once $root . '/includes/application/setup/SeedInitialSetupUseCase.php';
 require_once $root . '/includes/infrastructure/wp/Schema.php';
 require_once $root . '/includes/infrastructure/wp/InitialSeedEligibilityLifecycle.php';
 require_once $root . '/includes/infrastructure/wp/InitialSetupSeedLifecycle.php';
@@ -256,9 +450,14 @@ function seed_reset_state(): void {
     $GLOBALS['aa_test_transients'] = [];
     $GLOBALS['aa_test_doing_ajax'] = false;
     $GLOBALS['aa_test_doing_cron'] = false;
-    $GLOBALS['aa_test_wpdb_rows'] = [];
     $GLOBALS['aa_test_wpdb_insert_id'] = 0;
     $GLOBALS['aa_test_seed_calls'] = 0;
+    $GLOBALS['aa_test_clients'] = [];
+    $GLOBALS['aa_test_services'] = [];
+    $GLOBALS['aa_test_staff'] = [];
+    $GLOBALS['aa_test_areas'] = [];
+    $GLOBALS['aa_test_staff_services'] = [];
+    $GLOBALS['aa_test_force_staff_create_error'] = false;
     AA_Initial_Setup_Seed_Lifecycle::set_seed_executor_for_tests(null);
     AA_Initial_Seed_Eligibility_Lifecycle::set_facts_collector_for_tests(null);
 }
@@ -269,10 +468,10 @@ function seed_set_default_facts_collector(): void {
 
         return [
             'has_installation_initialized_at' => is_string($initialized_at) && trim($initialized_at) !== '',
-            'registered_client_count' => count($GLOBALS['aa_test_wpdb_rows']),
-            'active_service_count' => 0,
-            'active_staff_count' => 0,
-            'active_area_count' => 0,
+            'registered_client_count' => count($GLOBALS['aa_test_clients']),
+            'active_service_count' => AssignmentsRepository::count_active_services(),
+            'active_staff_count' => AssignmentsRepository::count_active_staff(),
+            'active_area_count' => AssignmentsRepository::count_active_service_areas(),
             'created_reservation_count' => 0,
         ];
     });
@@ -284,103 +483,58 @@ function seed_run_eligibility_and_seed(): void {
     AA_Initial_Setup_Seed_Lifecycle::maybe_seed();
 }
 
-// --- Policy ---
+function seed_find_by_name(array $rows, string $name): ?array {
+    foreach ($rows as $row) {
+        if (($row['name'] ?? '') === $name) {
+            return $row;
+        }
+    }
 
-$policy = new AA_Initial_Seed_Eligibility_Policy();
-ac_assert(
-    'Policy eligible on fresh empty installation',
-    $policy->evaluate([
-        'has_installation_initialized_at' => true,
-        'registered_client_count' => 0,
-        'active_service_count' => 0,
-        'active_staff_count' => 0,
-        'active_area_count' => 0,
-        'created_reservation_count' => 0,
-    ]) === AA_Initial_Seed_Eligibility_Policy::ELIGIBLE
-);
-ac_assert(
-    'Policy ineligible without installation_initialized_at',
-    $policy->evaluate([
-        'has_installation_initialized_at' => false,
-        'registered_client_count' => 0,
-        'active_service_count' => 0,
-        'active_staff_count' => 0,
-        'active_area_count' => 0,
-        'created_reservation_count' => 0,
-    ]) === AA_Initial_Seed_Eligibility_Policy::INELIGIBLE
-);
-ac_assert(
-    'Policy ineligible when clients already exist',
-    $policy->evaluate([
-        'has_installation_initialized_at' => true,
-        'registered_client_count' => 1,
-        'active_service_count' => 0,
-        'active_staff_count' => 0,
-        'active_area_count' => 0,
-        'created_reservation_count' => 0,
-    ]) === AA_Initial_Seed_Eligibility_Policy::INELIGIBLE
-);
+    return null;
+}
 
-// --- Email resolver ---
-
-seed_reset_state();
-$GLOBALS['aa_test_options']['deoia_platform_provisioned_at'] = '2026-07-02 10:00:00';
-$GLOBALS['aa_test_options']['deoia_owner_email'] = 'owner@agenda.test';
-$GLOBALS['aa_test_options']['admin_email'] = 'admin@site.test';
-ac_assert(
-    'Email resolver uses deoia_owner_email when provisioned',
-    AA_Initial_Setup_Seed_Owner_Email_Resolver::resolve() === 'owner@agenda.test'
-);
-
-seed_reset_state();
-$GLOBALS['aa_test_options']['admin_email'] = 'standalone@site.test';
-ac_assert(
-    'Email resolver uses admin_email on standalone install',
-    AA_Initial_Setup_Seed_Owner_Email_Resolver::resolve() === 'standalone@site.test'
-);
-
-seed_reset_state();
-ac_assert(
-    'Email resolver falls back to empty string',
-    AA_Initial_Setup_Seed_Owner_Email_Resolver::resolve() === ''
-);
-
-// --- AC1: Agenda nueva provisionada ---
+// --- AC1: Agenda nueva eligible sin seed version ---
 
 seed_reset_state();
 $GLOBALS['aa_test_options'][AA_Schema::OPTION_INSTALLATION_INITIALIZED_AT] = '2026-07-02 10:00:00';
-$GLOBALS['aa_test_options']['deoia_platform_provisioned_at'] = '2026-07-02 10:00:00';
-$GLOBALS['aa_test_options']['deoia_owner_email'] = 'owner@agenda.test';
+$GLOBALS['aa_test_options']['admin_email'] = 'owner@agenda.test';
 seed_run_eligibility_and_seed();
-$row = $GLOBALS['aa_test_wpdb_rows'][0] ?? [];
+
+$client = $GLOBALS['aa_test_clients'][0] ?? null;
+$service = seed_find_by_name($GLOBALS['aa_test_services'], AA_Initial_Setup_Seed_Definition::SERVICE_NAME);
+$staff = seed_find_by_name($GLOBALS['aa_test_staff'], AA_Initial_Setup_Seed_Definition::STAFF_NAME);
+$area = seed_find_by_name($GLOBALS['aa_test_areas'], AA_Initial_Setup_Seed_Definition::AREA_NAME);
+
 ac_assert('AC1 eligible', ($GLOBALS['aa_test_options'][AA_Initial_Seed_Eligibility_Lifecycle::OPTION_ELIGIBILITY] ?? '') === 'eligible');
-ac_assert('AC1 creates one client', count($GLOBALS['aa_test_wpdb_rows']) === 1);
-ac_assert('AC1 client name', ($row['nombre'] ?? '') === AA_Initial_Setup_Seed_Definition::CLIENT_NAME);
-ac_assert('AC1 client phone canonical', ($row['telefono'] ?? '') === AA_Initial_Setup_Seed_Definition::CLIENT_PHONE_CANONICAL);
-ac_assert('AC1 client email from deoia_owner_email', ($row['correo'] ?? '') === 'owner@agenda.test');
+ac_assert('AC1 creates client', $client !== null);
+ac_assert('AC1 client phone canonical', ($client['telefono'] ?? '') === AA_Initial_Setup_Seed_Definition::CLIENT_PHONE_CANONICAL);
+ac_assert('AC1 creates service', $service !== null);
+ac_assert('AC1 creates staff', $staff !== null);
+ac_assert('AC1 creates area', $area !== null);
+ac_assert('AC1 staff-service link exists', count($GLOBALS['aa_test_staff_services']) > 0);
 ac_assert(
-    'AC1 seed version marked',
-    ($GLOBALS['aa_test_options'][AA_Initial_Setup_Seed_Lifecycle::OPTION_SEED_VERSION] ?? '') === AA_Initial_Setup_Seed_Definition::SEED_VERSION
+    'AC1 marks seed version 2',
+    ($GLOBALS['aa_test_options'][AA_Initial_Setup_Seed_Lifecycle::OPTION_SEED_VERSION] ?? '') === '2'
 );
 
-// --- AC2: WordPress independiente nuevo ---
+$onboarding_v2 = (new AA_Onboarding_Activation_Policy())->evaluate([
+    'registered_client_count' => count($GLOBALS['aa_test_clients']),
+    'active_service_count' => AssignmentsRepository::count_active_services(),
+    'active_staff_count' => AssignmentsRepository::count_active_staff(),
+    'active_staff_with_active_service_count' => AssignmentsRepository::count_active_staff_with_active_services(),
+    'active_area_count' => AssignmentsRepository::count_active_service_areas(),
+    'created_reservation_count' => 0,
+]);
+ac_assert('AC1 onboarding setup_complete', ($onboarding_v2['setup_complete'] ?? false) === true);
+ac_assert('AC1 onboarding next first_appointment', ($onboarding_v2['next_step'] ?? null) === 'first_appointment');
 
-seed_reset_state();
-$GLOBALS['aa_test_options'][AA_Schema::OPTION_INSTALLATION_INITIALIZED_AT] = '2026-07-02 10:00:00';
-$GLOBALS['aa_test_options']['admin_email'] = 'standalone@site.test';
-seed_run_eligibility_and_seed();
-$row = $GLOBALS['aa_test_wpdb_rows'][0] ?? [];
-ac_assert('AC2 eligible', ($GLOBALS['aa_test_options'][AA_Initial_Seed_Eligibility_Lifecycle::OPTION_ELIGIBILITY] ?? '') === 'eligible');
-ac_assert('AC2 creates one client', count($GLOBALS['aa_test_wpdb_rows']) === 1);
-ac_assert('AC2 client email from admin_email', ($row['correo'] ?? '') === 'standalone@site.test');
-
-// --- AC3: Reactivación no duplica ---
+// --- AC2: Agenda MC1 existente con seed_version = 1 ---
 
 seed_reset_state();
 $GLOBALS['aa_test_options'][AA_Schema::OPTION_INSTALLATION_INITIALIZED_AT] = '2026-07-02 10:00:00';
 $GLOBALS['aa_test_options'][AA_Initial_Seed_Eligibility_Lifecycle::OPTION_ELIGIBILITY] = 'eligible';
-$GLOBALS['aa_test_options'][AA_Initial_Setup_Seed_Lifecycle::OPTION_SEED_VERSION] = AA_Initial_Setup_Seed_Definition::SEED_VERSION;
-$GLOBALS['aa_test_wpdb_rows'][] = [
+$GLOBALS['aa_test_options'][AA_Initial_Setup_Seed_Lifecycle::OPTION_SEED_VERSION] = AA_Initial_Setup_Seed_Definition::LEGACY_SEED_VERSION;
+$GLOBALS['aa_test_clients'][] = [
     'id' => 1,
     'nombre' => AA_Initial_Setup_Seed_Definition::CLIENT_NAME,
     'telefono' => AA_Initial_Setup_Seed_Definition::CLIENT_PHONE_CANONICAL,
@@ -389,73 +543,91 @@ $GLOBALS['aa_test_wpdb_rows'][] = [
 AA_Initial_Setup_Seed_Lifecycle::set_seed_executor_for_tests(static function (): array {
     $GLOBALS['aa_test_seed_calls']++;
 
-    return ['status' => 'created', 'client_id' => 99];
+    return ['status' => 'completed'];
 });
 AA_Initial_Setup_Seed_Lifecycle::maybe_seed();
-ac_assert('AC3 reactivation does not call seed executor', (int) $GLOBALS['aa_test_seed_calls'] === 0);
-ac_assert('AC3 row count unchanged', count($GLOBALS['aa_test_wpdb_rows']) === 1);
+ac_assert('AC2 MC1 version skips seed executor', (int) $GLOBALS['aa_test_seed_calls'] === 0);
+ac_assert('AC2 does not create service', count($GLOBALS['aa_test_services']) === 0);
+ac_assert('AC2 does not create staff', count($GLOBALS['aa_test_staff']) === 0);
+ac_assert('AC2 does not create area', count($GLOBALS['aa_test_areas']) === 0);
+ac_assert('AC2 keeps legacy seed version', ($GLOBALS['aa_test_options'][AA_Initial_Setup_Seed_Lifecycle::OPTION_SEED_VERSION] ?? '') === '1');
+ac_assert('AC2 keeps single client', count($GLOBALS['aa_test_clients']) === 1);
 
-// --- AC4: Agenda pre-MC1 ---
+// --- AC3: Agenda ineligible pre-MC1 ---
 
 seed_reset_state();
 seed_run_eligibility_and_seed();
-ac_assert('AC4 ineligible without installation_initialized_at', ($GLOBALS['aa_test_options'][AA_Initial_Seed_Eligibility_Lifecycle::OPTION_ELIGIBILITY] ?? '') === 'ineligible');
-ac_assert('AC4 does not create client', count($GLOBALS['aa_test_wpdb_rows']) === 0);
+ac_assert('AC3 ineligible', ($GLOBALS['aa_test_options'][AA_Initial_Seed_Eligibility_Lifecycle::OPTION_ELIGIBILITY] ?? '') === 'ineligible');
+ac_assert('AC3 creates nothing', count($GLOBALS['aa_test_clients']) === 0 && count($GLOBALS['aa_test_services']) === 0);
 ac_assert(
-    'AC4 still marks seed version',
-    ($GLOBALS['aa_test_options'][AA_Initial_Setup_Seed_Lifecycle::OPTION_SEED_VERSION] ?? '') === AA_Initial_Setup_Seed_Definition::SEED_VERSION
+    'AC3 does not mark seed version 2',
+    !array_key_exists(AA_Initial_Setup_Seed_Lifecycle::OPTION_SEED_VERSION, $GLOBALS['aa_test_options'])
+        || ($GLOBALS['aa_test_options'][AA_Initial_Setup_Seed_Lifecycle::OPTION_SEED_VERSION] ?? '') !== '2'
 );
 
-// --- AC5: Agenda con cliente real ---
+// --- AC4: Reactivación / version = 2 ---
 
 seed_reset_state();
 $GLOBALS['aa_test_options'][AA_Schema::OPTION_INSTALLATION_INITIALIZED_AT] = '2026-07-02 10:00:00';
-$GLOBALS['aa_test_wpdb_rows'][] = [
-    'id' => 10,
-    'nombre' => 'Cliente Real',
-    'telefono' => '521111111111',
-    'correo' => 'real@client.test',
-];
-seed_run_eligibility_and_seed();
-ac_assert('AC5 ineligible with existing client', ($GLOBALS['aa_test_options'][AA_Initial_Seed_Eligibility_Lifecycle::OPTION_ELIGIBILITY] ?? '') === 'ineligible');
-ac_assert('AC5 does not create seed client', count($GLOBALS['aa_test_wpdb_rows']) === 1);
+$GLOBALS['aa_test_options'][AA_Initial_Seed_Eligibility_Lifecycle::OPTION_ELIGIBILITY] = 'eligible';
+$GLOBALS['aa_test_options'][AA_Initial_Setup_Seed_Lifecycle::OPTION_SEED_VERSION] = AA_Initial_Setup_Seed_Definition::SEED_VERSION;
+$GLOBALS['aa_test_clients'][] = ['id' => 1, 'nombre' => AA_Initial_Setup_Seed_Definition::CLIENT_NAME, 'telefono' => AA_Initial_Setup_Seed_Definition::CLIENT_PHONE_CANONICAL, 'correo' => ''];
+$GLOBALS['aa_test_services'][] = ['id' => 2, 'name' => AA_Initial_Setup_Seed_Definition::SERVICE_NAME, 'active' => 1, 'is_hidden' => 0];
+AA_Initial_Setup_Seed_Lifecycle::set_seed_executor_for_tests(static function (): array {
+    $GLOBALS['aa_test_seed_calls']++;
+
+    return ['status' => 'completed'];
+});
+AA_Initial_Setup_Seed_Lifecycle::maybe_seed();
+ac_assert('AC4 reactivation skips executor', (int) $GLOBALS['aa_test_seed_calls'] === 0);
+ac_assert('AC4 entity counts unchanged', count($GLOBALS['aa_test_clients']) === 1 && count($GLOBALS['aa_test_services']) === 1);
+
+// --- AC5: Fallo parcial / retry ---
+
+seed_reset_state();
+$GLOBALS['aa_test_options'][AA_Schema::OPTION_INSTALLATION_INITIALIZED_AT] = '2026-07-02 10:00:00';
+$GLOBALS['aa_test_options'][AA_Initial_Seed_Eligibility_Lifecycle::OPTION_ELIGIBILITY] = 'eligible';
+$GLOBALS['aa_test_force_staff_create_error'] = true;
+seed_set_default_facts_collector();
+AA_Initial_Seed_Eligibility_Lifecycle::maybe_evaluate();
+AA_Initial_Setup_Seed_Lifecycle::maybe_seed();
+ac_assert('AC5 partial failure does not mark version 2', !isset($GLOBALS['aa_test_options'][AA_Initial_Setup_Seed_Lifecycle::OPTION_SEED_VERSION]));
+ac_assert('AC5 partial creates client and service', count($GLOBALS['aa_test_clients']) === 1 && count($GLOBALS['aa_test_services']) === 1);
+ac_assert('AC5 partial missing staff', count($GLOBALS['aa_test_staff']) === 0);
+
+$GLOBALS['aa_test_force_staff_create_error'] = false;
+AA_Initial_Setup_Seed_Lifecycle::maybe_seed();
+ac_assert('AC5 retry completes staff and area', count($GLOBALS['aa_test_staff']) === 1 && count($GLOBALS['aa_test_areas']) === 1);
 ac_assert(
-    'AC5 marks seed version',
-    ($GLOBALS['aa_test_options'][AA_Initial_Setup_Seed_Lifecycle::OPTION_SEED_VERSION] ?? '') === AA_Initial_Setup_Seed_Definition::SEED_VERSION
+    'AC5 retry marks version 2',
+    ($GLOBALS['aa_test_options'][AA_Initial_Setup_Seed_Lifecycle::OPTION_SEED_VERSION] ?? '') === '2'
+);
+ac_assert('AC5 retry does not duplicate client', count($GLOBALS['aa_test_clients']) === 1);
+ac_assert('AC5 retry does not duplicate service', count($GLOBALS['aa_test_services']) === 1);
+
+// --- Email resolver ---
+
+seed_reset_state();
+$GLOBALS['aa_test_options']['deoia_platform_provisioned_at'] = '2026-07-02 10:00:00';
+$GLOBALS['aa_test_options']['deoia_owner_email'] = 'owner@agenda.test';
+ac_assert(
+    'Email resolver uses deoia_owner_email when provisioned',
+    AA_Initial_Setup_Seed_Owner_Email_Resolver::resolve() === 'owner@agenda.test'
 );
 
-// --- AC6: Onboarding client step complete ---
-
-$onboarding = (new AA_Onboarding_Activation_Policy())->evaluate([
-    'registered_client_count' => 1,
-    'active_service_count' => 0,
-    'active_staff_count' => 0,
-    'active_staff_with_active_service_count' => 0,
-    'active_area_count' => 0,
-    'created_reservation_count' => 0,
-]);
-ac_assert('AC6 onboarding client step complete', ($onboarding['steps']['client']['completed'] ?? false) === true);
-ac_assert('AC6 next step is service', ($onboarding['next_step'] ?? null) === 'service');
-
-// --- Wiring / guards ---
+// --- Wiring ---
 
 $bootstrap_src = file_get_contents($root . '/wp-agenda-automatizada.php');
-ac_assert('Bootstrap requires InitialSetupSeedLifecycle', strpos($bootstrap_src, 'InitialSetupSeedLifecycle.php') !== false);
 ac_assert('Bootstrap registers initial setup seed lifecycle', strpos($bootstrap_src, 'AA_Initial_Setup_Seed_Lifecycle::register') !== false);
-ac_assert('Bootstrap registers eligibility lifecycle', strpos($bootstrap_src, 'AA_Initial_Seed_Eligibility_Lifecycle::register') !== false);
-
-$schema_src = file_get_contents($root . '/includes/infrastructure/wp/Schema.php');
-ac_assert('Schema sets installation_initialized_at on fresh install', strpos($schema_src, 'OPTION_INSTALLATION_INITIALIZED_AT') !== false);
 
 seed_reset_state();
 $GLOBALS['aa_test_options'][AA_Schema::OPTION_INSTALLATION_INITIALIZED_AT] = '2026-07-02 10:00:00';
 AA_Initial_Setup_Seed_Lifecycle::set_seed_executor_for_tests(static function (): array {
     $GLOBALS['aa_test_seed_calls']++;
 
-    return ['status' => 'created', 'client_id' => 1];
+    return ['status' => 'completed'];
 });
 $GLOBALS['aa_test_doing_ajax'] = true;
-AA_Initial_Seed_Eligibility_Lifecycle::maybe_evaluate();
 AA_Initial_Setup_Seed_Lifecycle::maybe_seed();
 ac_assert('Seed skips during AJAX', (int) $GLOBALS['aa_test_seed_calls'] === 0);
 

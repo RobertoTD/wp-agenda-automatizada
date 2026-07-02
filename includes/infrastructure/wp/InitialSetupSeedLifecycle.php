@@ -1,14 +1,13 @@
 <?php
 /**
- * Initial Setup Seed Lifecycle — seed de Cliente de Prueba en agendas nuevas elegibles.
+ * Initial Setup Seed Lifecycle — seed completo v2 en agendas nuevas elegibles.
  */
 
 defined('ABSPATH') or die('No direct access');
 
 require_once dirname(__DIR__, 2) . '/domain/setup/class-aa-initial-setup-seed-definition.php';
 require_once dirname(__DIR__, 2) . '/domain/setup/class-aa-initial-seed-eligibility-policy.php';
-require_once dirname(__DIR__, 2) . '/application/setup/SeedInitialSetupClientUseCase.php';
-require_once dirname(__DIR__, 2) . '/repositories/ClientsRepository.php';
+require_once dirname(__DIR__, 2) . '/application/setup/SeedInitialSetupUseCase.php';
 require_once __DIR__ . '/InitialSeedEligibilityLifecycle.php';
 
 final class AA_Initial_Setup_Seed_Lifecycle {
@@ -36,7 +35,7 @@ final class AA_Initial_Setup_Seed_Lifecycle {
     /**
      * @internal Acceptance tests only.
      *
-     * @param callable|null $executor Debe devolver el payload de SeedInitialSetupClientUseCase::execute().
+     * @param callable|null $executor Debe devolver el payload de SeedInitialSetupUseCase::execute().
      */
     public static function set_seed_executor_for_tests(?callable $executor): void {
         self::$seed_executor_override = $executor;
@@ -59,33 +58,19 @@ final class AA_Initial_Setup_Seed_Lifecycle {
             $eligibility = (string) get_option(AA_Initial_Seed_Eligibility_Lifecycle::OPTION_ELIGIBILITY, '');
 
             if ($eligibility !== AA_Initial_Seed_Eligibility_Policy::ELIGIBLE) {
-                self::mark_seed_complete('skipped_ineligible');
-
-                return;
-            }
-
-            if (ClientsRepository::count_registered_clients() > 0) {
-                self::mark_seed_complete('skipped_existing_clients');
-
-                return;
-            }
-
-            if (ClientsRepository::find_by_telefono(AA_Initial_Setup_Seed_Definition::CLIENT_PHONE_CANONICAL) !== null) {
-                self::mark_seed_complete('skipped_existing_seed_phone');
-
                 return;
             }
 
             $result = self::run_seed();
 
-            if (($result['status'] ?? '') === 'created' || ($result['status'] ?? '') === 'already_exists') {
+            if (($result['status'] ?? '') === 'completed') {
                 delete_option(self::OPTION_LAST_ERROR);
-                self::mark_seed_complete((string) ($result['status'] ?? 'completed'));
+                self::mark_seed_complete('completed');
 
                 return;
             }
 
-            $message = (string) ($result['message'] ?? 'Initial setup client seed failed.');
+            $message = (string) ($result['message'] ?? 'Initial setup seed failed.');
             error_log('[AA_Initial_Setup_Seed_Lifecycle] ' . $message);
             update_option(self::OPTION_LAST_ERROR, $message);
         } catch (\Throwable $exception) {
@@ -106,7 +91,7 @@ final class AA_Initial_Setup_Seed_Lifecycle {
             return is_array($result) ? $result : [];
         }
 
-        return (new SeedInitialSetupClientUseCase())->execute();
+        return (new SeedInitialSetupUseCase())->execute();
     }
 
     private static function should_skip_seed(): bool {
@@ -120,6 +105,10 @@ final class AA_Initial_Setup_Seed_Lifecycle {
 
         $stored_seed_version = (string) get_option(self::OPTION_SEED_VERSION, '0');
 
+        if ($stored_seed_version === AA_Initial_Setup_Seed_Definition::LEGACY_SEED_VERSION) {
+            return true;
+        }
+
         return version_compare($stored_seed_version, AA_Initial_Setup_Seed_Definition::SEED_VERSION, '>=');
     }
 
@@ -128,7 +117,7 @@ final class AA_Initial_Setup_Seed_Lifecycle {
         update_option(self::OPTION_COMPLETED_AT, current_time('mysql'));
         delete_option(self::OPTION_LAST_ERROR);
 
-        if ($reason !== 'completed' && $reason !== 'created' && $reason !== 'already_exists') {
+        if ($reason !== 'completed') {
             error_log('[AA_Initial_Setup_Seed_Lifecycle] Seed marked complete: ' . $reason);
         }
     }

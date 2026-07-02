@@ -101,6 +101,124 @@ class AssignmentsRepository extends AssignmentsModel {
     }
 
     /**
+     * Busca un servicio activo y no oculto por nombre exacto.
+     *
+     * @param string $name
+     * @return array{id:int,name:string}|null
+     */
+    public static function find_active_service_by_name(string $name): ?array {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'aa_services';
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT id, name FROM {$table} WHERE name = %s AND active = 1 AND is_hidden = 0 LIMIT 1",
+                $name
+            ),
+            ARRAY_A
+        );
+
+        if ($wpdb->last_error || !is_array($row) || empty($row['id'])) {
+            return null;
+        }
+
+        return [
+            'id' => (int) $row['id'],
+            'name' => (string) ($row['name'] ?? ''),
+        ];
+    }
+
+    /**
+     * Busca personal activo y no oculto por nombre exacto.
+     *
+     * @param string $name
+     * @return array{id:int,name:string}|null
+     */
+    public static function find_active_staff_by_name(string $name): ?array {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'aa_staff';
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT id, name FROM {$table} WHERE name = %s AND active = 1 AND is_hidden = 0 LIMIT 1",
+                $name
+            ),
+            ARRAY_A
+        );
+
+        if ($wpdb->last_error || !is_array($row) || empty($row['id'])) {
+            return null;
+        }
+
+        return [
+            'id' => (int) $row['id'],
+            'name' => (string) ($row['name'] ?? ''),
+        ];
+    }
+
+    /**
+     * Busca una zona de atención activa y no oculta por nombre exacto.
+     *
+     * @param string $name
+     * @return array{id:int,name:string}|null
+     */
+    public static function find_active_service_area_by_name(string $name): ?array {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'aa_service_areas';
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT id, name FROM {$table} WHERE name = %s AND active = 1 AND is_hidden = 0 LIMIT 1",
+                $name
+            ),
+            ARRAY_A
+        );
+
+        if ($wpdb->last_error || !is_array($row) || empty($row['id'])) {
+            return null;
+        }
+
+        return [
+            'id' => (int) $row['id'],
+            'name' => (string) ($row['name'] ?? ''),
+        ];
+    }
+
+    /**
+     * @return int
+     */
+    public static function find_first_active_service_id(): int {
+        $ids = self::list_assignable_service_ids();
+
+        return $ids[0] ?? 0;
+    }
+
+    /**
+     * @return int
+     */
+    public static function find_first_active_staff_id(): int {
+        $ids = self::list_active_staff_ids();
+
+        return $ids[0] ?? 0;
+    }
+
+    /**
+     * @return int
+     */
+    public static function find_first_active_service_area_id(): int {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'aa_service_areas';
+        $id = $wpdb->get_var("SELECT id FROM {$table} WHERE active = 1 AND is_hidden = 0 ORDER BY id ASC LIMIT 1");
+
+        if ($wpdb->last_error || $id === null) {
+            return 0;
+        }
+
+        return (int) $id;
+    }
+
+    /**
      * Cuenta profesionales activos con al menos un servicio activo asignado.
      *
      * Query pura para prerequisitos de reserva; la decisión de negocio
