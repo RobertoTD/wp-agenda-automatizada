@@ -34,4 +34,84 @@ final class ClientsRepository {
 
         return (int) $count;
     }
+
+    /**
+     * Busca un cliente registrado por teléfono canónico.
+     *
+     * @param string $telefono Teléfono en formato canónico.
+     * @return array{id:int,nombre:string,telefono:string,correo:string}|null
+     */
+    public static function find_by_telefono(string $telefono): ?array {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'aa_clientes';
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT id, nombre, telefono, correo FROM {$table} WHERE telefono = %s LIMIT 1",
+                $telefono
+            ),
+            ARRAY_A
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[ClientsRepository] Error al buscar cliente por teléfono: ' . $wpdb->last_error);
+
+            return null;
+        }
+
+        if (!is_array($row) || empty($row['id'])) {
+            return null;
+        }
+
+        return [
+            'id' => (int) $row['id'],
+            'nombre' => (string) ($row['nombre'] ?? ''),
+            'telefono' => (string) ($row['telefono'] ?? ''),
+            'correo' => (string) ($row['correo'] ?? ''),
+        ];
+    }
+
+    /**
+     * Inserta un cliente registrado.
+     *
+     * @param array{nombre:string,telefono:string,correo?:string} $data
+     * @return int|\WP_Error
+     */
+    public static function insert_registered_client(array $data) {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'aa_clientes';
+        $nombre = sanitize_text_field((string) ($data['nombre'] ?? ''));
+        $telefono = sanitize_text_field((string) ($data['telefono'] ?? ''));
+        $correo = sanitize_email((string) ($data['correo'] ?? ''));
+
+        if ($nombre === '' || $telefono === '') {
+            return new WP_Error('invalid_client_data', 'Nombre y teléfono son obligatorios.');
+        }
+
+        $result = $wpdb->insert(
+            $table,
+            [
+                'nombre' => $nombre,
+                'telefono' => $telefono,
+                'correo' => $correo,
+                'created_at' => current_time('mysql'),
+            ],
+            ['%s', '%s', '%s', '%s']
+        );
+
+        if ($result === false) {
+            error_log('[ClientsRepository] Error al insertar cliente: ' . $wpdb->last_error);
+
+            return new WP_Error('db_error', 'Error al insertar cliente: ' . $wpdb->last_error);
+        }
+
+        $client_id = (int) $wpdb->insert_id;
+
+        if ($client_id < 1) {
+            return new WP_Error('db_error', 'No se pudo obtener el ID del cliente insertado.');
+        }
+
+        return $client_id;
+    }
 }

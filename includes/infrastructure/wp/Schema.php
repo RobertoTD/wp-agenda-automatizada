@@ -66,6 +66,8 @@ final class AA_Schema {
      */
     public const DB_VERSION = '10';
 
+    public const OPTION_INSTALLATION_INITIALIZED_AT = 'aa_installation_initialized_at';
+
     /**
      * Registra el activation hook y el chequeo de migraciones.
      *
@@ -456,6 +458,15 @@ final class AA_Schema {
         if (get_option('aa_auto_assign_staff_services') === false) {
             $is_fresh_install = get_option('aa_db_version', false) === false;
             add_option('aa_auto_assign_staff_services', $is_fresh_install ? '1' : '0');
+        }
+
+        // Marca instalaciones realmente nuevas (antes de bump de aa_db_version).
+        if (get_option(self::OPTION_INSTALLATION_INITIALIZED_AT, false) === false) {
+            $is_fresh_install = get_option('aa_db_version', false) === false;
+
+            if ($is_fresh_install) {
+                add_option(self::OPTION_INSTALLATION_INITIALIZED_AT, current_time('mysql'));
+            }
         }
 
         // 🔹 Flush rewrite rules for custom endpoints
