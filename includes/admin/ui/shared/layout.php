@@ -199,6 +199,14 @@ header('Content-Type: text/html; charset=utf-8');
         nonce: '<?php echo esc_js(wp_create_nonce('aa_get_onboarding_status_nonce')); ?>'
     };
 
+    // Onboarding tutor durable UX state (MC2B; consumo futuro vía AJAX dedicado)
+    window.AA_ONBOARDING_TUTOR_DATA = {
+        ajaxUrl: window.ajaxurl || '<?php echo esc_js(admin_url('admin-ajax.php')); ?>',
+        getAction: 'aa_get_onboarding_tutor_state',
+        updateAction: 'aa_update_onboarding_tutor_state',
+        nonce: '<?php echo esc_js(wp_create_nonce('aa_onboarding_tutor_state_nonce')); ?>'
+    };
+
     // Contexto admin site-scoped (single-site y Multisite por sitio; MC2A)
     window.AA_ADMIN_CONTEXT = {
         currentModule: <?php echo wp_json_encode($active_module); ?>,

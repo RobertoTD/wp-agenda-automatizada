@@ -168,6 +168,12 @@ require_once __DIR__ . '/includes/http/ajax/OnboardingStatusAjax.php';
 OnboardingStatusAjax::register();
 
 // ================================
+// Endpoint AJAX: Estado durable UX del Onboarding Tutor (capa http/ajax)
+// ================================
+require_once __DIR__ . '/includes/http/ajax/OnboardingTutorStateAjax.php';
+OnboardingTutorStateAjax::register();
+
+// ================================
 // Endpoint AJAX: Recomendaciones Guías/Aprendizaje (capa http/ajax)
 // ================================
 require_once __DIR__ . '/includes/http/ajax/LearningRecommendationsAjax.php';
