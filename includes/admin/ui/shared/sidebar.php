@@ -80,8 +80,9 @@ $brand_logo_url = aa_asset_url('includes/admin/ui/assets/img/deoia-citas-logo.sv
             
             <!-- Agenda (module=calendar) -->
             <li>
-                <a 
-                    href="<?php echo esc_url(admin_url('admin-post.php?action=aa_iframe_content&module=calendar')); ?>" 
+                <a
+                    href="<?php echo esc_url(admin_url('admin-post.php?action=aa_iframe_content&module=calendar')); ?>"
+                    data-aa-nav-module="calendar"
                     class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors <?php echo ($active_module === 'calendar') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'; ?>"
                 >
                     <span class="flex items-center justify-center w-6 h-6 <?php echo ($active_module === 'calendar') ? 'text-blue-600' : 'text-gray-500'; ?>">

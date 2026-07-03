@@ -198,6 +198,13 @@ header('Content-Type: text/html; charset=utf-8');
         action: 'aa_get_onboarding_status',
         nonce: '<?php echo esc_js(wp_create_nonce('aa_get_onboarding_status_nonce')); ?>'
     };
+
+    // Contexto admin site-scoped (single-site y Multisite por sitio; MC2A)
+    window.AA_ADMIN_CONTEXT = {
+        currentModule: <?php echo wp_json_encode($active_module); ?>,
+        blogId: <?php echo (int) get_current_blog_id(); ?>,
+        installationSlug: <?php echo wp_json_encode($aa_installation_slug); ?>
+    };
 </script>
 
 <!-- ============================================
