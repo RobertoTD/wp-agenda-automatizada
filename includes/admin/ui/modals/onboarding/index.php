@@ -11,11 +11,12 @@ defined('ABSPATH') or die('No direct access');
 <template id="aa-onboarding-welcome-body-template">
     <div class="aa-onboarding-welcome space-y-3" data-aa-onboarding-welcome="1">
         <p class="text-sm text-gray-700 leading-relaxed">
-            Para usar tu agenda necesitas configurar 4 cosas básicas: cliente, servicio, personal y zona de atención.
-            Después podrás crear tu primera cita.
+            Te damos la bienvenida. En los siguientes pasos te guiaremos para crear una cita de prueba con datos
+            ficticios y conocer el flujo de tu agenda sin afectar clientes reales.
         </p>
         <p class="text-sm text-gray-600 leading-relaxed">
-            El menú está en la esquina superior izquierda.
+            Para citas reales después podrás configurar tus servicios, agregar clientes y, si lo deseas, organizar
+            personal y zonas de atención desde las secciones correspondientes.
         </p>
     </div>
 </template>

@@ -2,11 +2,19 @@
  * Onboarding Activation Guide — checklist modal (MC5A render, MC5B CTAs, MC5D3 Google recommended).
  *
  * Renders backend status from OnboardingStatusService; no business rules in JS.
+ * MC1: visible checklist shows only the test-appointment step; setup steps stay internal.
  */
 (function () {
     'use strict';
 
-    var STEP_KEYS = ['client', 'service', 'staff', 'area', 'first_appointment'];
+    var ALL_STEP_KEYS = ['client', 'service', 'staff', 'area', 'first_appointment'];
+
+    /** Steps shown in the onboarding checklist UI (presentation only). */
+    var VISIBLE_STEP_KEYS = ['first_appointment'];
+
+    var DISPLAY_LABELS = {
+        first_appointment: 'Crear cita de prueba'
+    };
 
     var BODY_TEMPLATE_ID = 'aa-onboarding-activation-guide-body-template';
     var FOOTER_TEMPLATE_ID = 'aa-onboarding-activation-guide-footer-template';
@@ -15,7 +23,7 @@
         client: 'Agrega un cliente real o de prueba para comenzar.',
         service: 'Crea el servicio que vas a ofrecer, por ejemplo: Consulta general.',
         area: 'Crea una zona o área donde se atenderán las citas.',
-        first_appointment: 'Crea una cita rápida para confirmar que la agenda ya funciona.'
+        first_appointment: 'Usa datos ficticios de prueba para agendar una cita y ver cómo aparece en tu agenda.'
     };
 
     var CTA_LABELS = {
@@ -25,7 +33,7 @@
         staff_missing_staff_service_assignment: 'Asignar servicio al personal',
         staff_fallback: 'Configurar personal',
         area: 'Crear zona de atención',
-        first_appointment: 'Crear cita rápida'
+        first_appointment: 'Crear cita de prueba'
     };
 
     /** Same contract as AA_AI_Setup_Action_Link_Builder + module setup_focus handlers. */
@@ -164,12 +172,65 @@
     }
 
     /**
+     * @param {object|null|undefined} status
+     * @returns {boolean}
+     */
+    function isFirstAppointmentPending(status) {
+        if (!status || status.activation_complete) {
+            return false;
+        }
+
+        var firstStep = status.steps && status.steps.first_appointment;
+
+        return !(firstStep && firstStep.completed);
+    }
+
+    /**
+     * @param {string} stepKey
+     * @param {object} status
+     * @returns {boolean}
+     */
+    function isActionableStep(stepKey, status) {
+        if (!status || typeof status !== 'object') {
+            return false;
+        }
+
+        if (stepKey === 'first_appointment') {
+            return isFirstAppointmentPending(status);
+        }
+
+        return status.next_step === stepKey;
+    }
+
+    /**
+     * Step key used to highlight the active card and bind the CTA in the visible checklist.
+     *
+     * @param {object|null|undefined} status
+     * @returns {string|null}
+     */
+    function getPresentationNextStep(status) {
+        if (isFirstAppointmentPending(status)) {
+            return 'first_appointment';
+        }
+
+        return null;
+    }
+
+    /**
      * @param {string} stepKey
      * @param {object|null|undefined} step
-     * @param {object} status
+     * @returns {string}
      */
+    function getDisplayLabel(stepKey, step) {
+        if (DISPLAY_LABELS[stepKey]) {
+            return DISPLAY_LABELS[stepKey];
+        }
+
+        return (step && step.label) ? step.label : stepKey;
+    }
+
     function handleCtaClick(stepKey, step, status) {
-        if (status.next_step !== stepKey) {
+        if (!isActionableStep(stepKey, status)) {
             return;
         }
 
@@ -179,10 +240,6 @@
         }
 
         if (target.type === 'fast_appointment') {
-            if (!status.setup_complete) {
-                return;
-            }
-
             closeGuideModal();
 
             if (window.FastAppointmentModal && typeof window.FastAppointmentModal.open === 'function') {
@@ -269,15 +326,23 @@
      * @param {boolean} isNext
      * @returns {string}
      */
-    function renderStepCard(stepKey, step, isNext) {
-        var label = step.label || stepKey;
+    function renderStepCard(stepKey, step, isNext, status) {
+        var label = getDisplayLabel(stepKey, step);
         var completed = !!step.completed;
         var statusText = completed ? 'Completado' : 'Pendiente';
         var statusClass = completed ? 'text-emerald-700' : 'text-amber-700';
+        var showCta = isNext && isActionableStep(stepKey, status);
 
         if (isNext) {
             var instruction = instructionForStep(stepKey, step);
             var ctaLabel = ctaLabelForStep(stepKey, step);
+            var ctaHtml = showCta
+                ? '  <div class="mt-3">'
+                    + '    <button type="button" class="' + CTA_ENABLED_CLASS + '" data-aa-onboarding-step-key="' + escapeHtml(stepKey) + '">'
+                    + escapeHtml(ctaLabel)
+                    + '    </button>'
+                    + '  </div>'
+                : '';
 
             return ''
                 + '<div class="rounded-xl border border-indigo-200 bg-indigo-50/80 p-4" data-aa-onboarding-step="' + escapeHtml(stepKey) + '">'
@@ -286,11 +351,7 @@
                 + '    <span class="text-xs font-medium ' + statusClass + '">' + escapeHtml(statusText) + '</span>'
                 + '  </div>'
                 + '  <p class="mt-2 text-sm text-gray-700 leading-relaxed">' + escapeHtml(instruction) + '</p>'
-                + '  <div class="mt-3">'
-                + '    <button type="button" class="' + CTA_ENABLED_CLASS + '" data-aa-onboarding-step-key="' + escapeHtml(stepKey) + '">'
-                + escapeHtml(ctaLabel)
-                + '    </button>'
-                + '  </div>'
+                + ctaHtml
                 + '</div>';
         }
 
@@ -402,15 +463,20 @@
     function buildSummaryHtml(status) {
         if (status.activation_complete) {
             return '<p class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">'
-                + 'Configuración completada. Tu agenda ya está lista para usarse.'
+                + 'Cita de prueba creada. Ya puedes explorar tu agenda y consultar tus citas.'
                 + '</p>';
         }
 
-        var parts = ['<p class="text-sm text-gray-600">Completa estos pasos para activar tu agenda.</p>'];
-
-        if (status.setup_complete) {
-            parts.push('<p class="mt-1 text-xs text-gray-500">Configuración básica lista. Falta crear la primera cita.</p>');
-        }
+        var parts = [
+            '<p class="text-sm text-gray-700 leading-relaxed">'
+            + 'Crea una cita de prueba con datos ficticios para conocer el flujo de tu agenda '
+            + 'sin afectar clientes reales.'
+            + '</p>',
+            '<p class="mt-2 text-sm text-gray-600 leading-relaxed">'
+            + 'Para citas reales después deberás configurar tus servicios, agregar clientes reales y, '
+            + 'si lo deseas, organizar personal y zonas de atención desde las secciones correspondientes.'
+            + '</p>'
+        ];
 
         return parts.join('');
     }
@@ -441,13 +507,13 @@
         summaryEl.innerHTML = buildSummaryHtml(status);
 
         var steps = status.steps || {};
-        var nextStep = status.next_step;
+        var presentationNextStep = getPresentationNextStep(status);
         var stepsHtml = '';
 
-        STEP_KEYS.forEach(function (stepKey) {
+        VISIBLE_STEP_KEYS.forEach(function (stepKey) {
             var step = steps[stepKey] || { label: stepKey, completed: false };
-            var isNext = nextStep === stepKey;
-            stepsHtml += renderStepCard(stepKey, step, isNext);
+            var isNext = presentationNextStep === stepKey;
+            stepsHtml += renderStepCard(stepKey, step, isNext, status);
         });
 
         stepsEl.innerHTML = stepsHtml;
@@ -464,7 +530,7 @@
      */
     function bindCtaButtons(status) {
         var root = document.querySelector('[data-aa-onboarding-activation-guide="1"]');
-        var nextStep = status.next_step;
+        var nextStep = getPresentationNextStep(status);
 
         if (!root || !nextStep) {
             return;
@@ -489,7 +555,7 @@
      * @returns {{title: string, body: string, footer: string}}
      */
     function render(status) {
-        var title = status.activation_complete ? 'Activación completada' : 'Guía de activación';
+        var title = status.activation_complete ? 'Listo para explorar' : 'Crea tu cita de prueba';
 
         return {
             title: title,
@@ -568,14 +634,28 @@
         return open();
     }
 
-    window.OnboardingActivationGuide = {
-        open: open,
-        render: render,
-        refresh: refresh,
-        openWithStatus: openWithStatus,
-        navigateToModule: navigateToModule,
-        getLastStatus: function () {
-            return lastStatus;
-        }
-    };
+    if (typeof window !== 'undefined') {
+        window.OnboardingActivationGuide = {
+            open: open,
+            render: render,
+            refresh: refresh,
+            openWithStatus: openWithStatus,
+            navigateToModule: navigateToModule,
+            getLastStatus: function () {
+                return lastStatus;
+            }
+        };
+    }
+
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = {
+            VISIBLE_STEP_KEYS: VISIBLE_STEP_KEYS,
+            ALL_STEP_KEYS: ALL_STEP_KEYS,
+            getPresentationNextStep: getPresentationNextStep,
+            getDisplayLabel: getDisplayLabel,
+            isActionableStep: isActionableStep,
+            isFirstAppointmentPending: isFirstAppointmentPending,
+            buildSummaryHtml: buildSummaryHtml
+        };
+    }
 })();

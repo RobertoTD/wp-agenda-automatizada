@@ -1,7 +1,8 @@
 /**
- * Onboarding Activation Coordinator — MC5C1 auto-open, MC5C2 fast appointment guard, MC5C3B re-open on setup progress.
+ * Onboarding Activation Coordinator — MC5C1 auto-open, MC5C3B re-open on setup progress.
  *
  * Coordinates welcome modal vs activation guide. Does not render or change business rules.
+ * MC1: fast appointment open is never intercepted; prerequisites are handled by the modal flow.
  */
 (function () {
     'use strict';
@@ -14,8 +15,6 @@
     var WELCOME_CLOSE_DELAY_MS = 350;
     var WELCOME_SEEN_POLL_MS = 100;
     var WELCOME_SEEN_POLL_MAX_MS = 5000;
-    var FAST_APPOINTMENT_GUARD_RETRY_MS = 50;
-    var FAST_APPOINTMENT_GUARD_MAX_ATTEMPTS = 40;
     var SETUP_MUTATION_DEBOUNCE_MS = 300;
     var GUIDE_REOPEN_AFTER_MODAL_CLOSE_MS = 350;
 
@@ -458,80 +457,6 @@
             });
     }
 
-    function callOriginalFastAppointmentOpen(originalOpen, args) {
-        return originalOpen.apply(window.FastAppointmentModal, args);
-    }
-
-    /**
-     * MC5C2: redirect fast appointment to activation guide when setup is incomplete.
-     *
-     * @returns {boolean} true when guard installed
-     */
-    function installFastAppointmentGuard() {
-        var modal = window.FastAppointmentModal;
-
-        if (!modal || typeof modal.open !== 'function') {
-            return false;
-        }
-
-        if (modal.open.__aaOnboardingGuarded === true) {
-            return true;
-        }
-
-        var originalOpen = modal.open;
-
-        modal.open = function guardedFastAppointmentOpen() {
-            var callArgs = arguments;
-
-            if (!window.OnboardingStatusService || typeof window.OnboardingStatusService.fetchStatus !== 'function') {
-                return callOriginalFastAppointmentOpen(originalOpen, callArgs);
-            }
-
-            return fetchOnboardingStatus()
-                .then(function (status) {
-                    lastStatus = status;
-
-                    if (status && status.setup_complete === false) {
-                        if (window.OnboardingActivationGuide && typeof window.OnboardingActivationGuide.open === 'function') {
-                            return window.OnboardingActivationGuide.open().then(function (openedStatus) {
-                                if (openedStatus && typeof openedStatus === 'object') {
-                                    lastStatus = openedStatus;
-                                }
-                                return openedStatus;
-                            });
-                        }
-
-                        console.warn('[OnboardingActivationCoordinator] OnboardingActivationGuide.open no disponible; abriendo cita rápida');
-                        return callOriginalFastAppointmentOpen(originalOpen, callArgs);
-                    }
-
-                    return callOriginalFastAppointmentOpen(originalOpen, callArgs);
-                })
-                .catch(function (err) {
-                    console.warn('[OnboardingActivationCoordinator] fast appointment guard fetch failed, allowing fast appointment:', err);
-                    return callOriginalFastAppointmentOpen(originalOpen, callArgs);
-                });
-        };
-
-        modal.open.__aaOnboardingGuarded = true;
-        return true;
-    }
-
-    function tryInstallFastAppointmentGuard(attemptsLeft) {
-        if (installFastAppointmentGuard()) {
-            return;
-        }
-
-        if (attemptsLeft <= 0) {
-            console.warn('[OnboardingActivationCoordinator] FastAppointmentModal.open no disponible; guard no instalado');
-            return;
-        }
-
-        window.setTimeout(function () {
-            tryInstallFastAppointmentGuard(attemptsLeft - 1);
-        }, FAST_APPOINTMENT_GUARD_RETRY_MS);
-    }
-
     function initInitialAutoOpen() {
         if (hasSeenAutoGuideInSession()) {
             return;
@@ -549,30 +474,38 @@
 
     function init() {
         installSetupMutationListeners();
-        tryInstallFastAppointmentGuard(FAST_APPOINTMENT_GUARD_MAX_ATTEMPTS);
 
         primeLastStatus().finally(function () {
             initInitialAutoOpen();
         });
     }
 
-    window.OnboardingActivationCoordinator = {
-        tryAutoOpen: tryAutoOpen,
-        installFastAppointmentGuard: installFastAppointmentGuard,
-        getLastStatus: function () {
-            return lastStatus;
-        },
-        hasSeenAutoGuideInSession: hasSeenAutoGuideInSession,
-        resetAutoGuideSessionSeen: function () {
-            try {
-                sessionStorage.removeItem(SESSION_AUTO_SEEN_KEY);
-            } catch (err) {
-                console.warn('[OnboardingActivationCoordinator] sessionStorage remove failed:', err);
+    if (typeof window !== 'undefined') {
+        window.OnboardingActivationCoordinator = {
+            tryAutoOpen: tryAutoOpen,
+            getLastStatus: function () {
+                return lastStatus;
+            },
+            hasSeenAutoGuideInSession: hasSeenAutoGuideInSession,
+            resetAutoGuideSessionSeen: function () {
+                try {
+                    sessionStorage.removeItem(SESSION_AUTO_SEEN_KEY);
+                } catch (err) {
+                    console.warn('[OnboardingActivationCoordinator] sessionStorage remove failed:', err);
+                }
             }
-        }
-    };
+        };
 
-    document.addEventListener('DOMContentLoaded', function () {
-        init();
-    });
+        document.addEventListener('DOMContentLoaded', function () {
+            init();
+        });
+    }
+
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = {
+            isFastAppointmentOpenIntercepted: function () {
+                return false;
+            }
+        };
+    }
 })();
