@@ -4,9 +4,9 @@ const assert = require('node:assert/strict');
 const { describe, it, beforeEach, afterEach } = require('node:test');
 const path = require('node:path');
 
-const tutorPath = path.join(
+const tutorialPath = path.join(
     __dirname,
-    '../../includes/admin/ui/modals/onboarding/onboardingTutor.js'
+    '../../includes/admin/ui/tutorials/tutorial.js'
 );
 
 function makeClassList(element) {
@@ -179,9 +179,9 @@ function installDom(selectorMap) {
     return { body: body, selectorMap: map, docListeners: docListeners };
 }
 
-function loadTutor() {
-    delete require.cache[tutorPath];
-    return require(tutorPath);
+function loadTutorial() {
+    delete require.cache[tutorialPath];
+    return require(tutorialPath);
 }
 
 function baseConfig(overrides) {
@@ -195,7 +195,7 @@ function baseConfig(overrides) {
     }, overrides || {});
 }
 
-describe('OnboardingTutor MC2C', () => {
+describe('AATutorial MC3B', () => {
     let originalWindow;
     let originalDocument;
     let originalStorage;
@@ -211,14 +211,14 @@ describe('OnboardingTutor MC2C', () => {
     });
 
     afterEach(() => {
-        if (globalThis.OnboardingTutor) {
-            globalThis.OnboardingTutor.destroy();
+        if (globalThis.AATutorial) {
+            globalThis.AATutorial.destroy();
         }
 
-        delete globalThis.OnboardingTutor;
-        delete globalThis.AAOnboardingTutorActions;
-        delete globalThis.AAOnboardingTutorSession;
-        delete require.cache[tutorPath];
+        delete globalThis.AATutorial;
+        delete globalThis.AATutorialActions;
+        delete globalThis.AATutorialSession;
+        delete require.cache[tutorialPath];
 
         globalThis.window = originalWindow;
         globalThis.document = originalDocument;
@@ -228,21 +228,21 @@ describe('OnboardingTutor MC2C', () => {
     });
 
     it('session key usa blogId + flowId y rechaza blogId ausente', () => {
-        var api = loadTutor();
+        var api = loadTutorial();
 
         assert.equal(
-            api.AAOnboardingTutorSession.buildKey('44', 'test_flow'),
-            'aa_onboarding_tutor_session_v1:44:test_flow'
+            api.AATutorialSession.buildKey('44', 'test_flow'),
+            'aa_tutorial_session_v1:44:test_flow'
         );
-        assert.equal(api.AAOnboardingTutorSession.buildKey('', 'test_flow'), null);
+        assert.equal(api.AATutorialSession.buildKey('', 'test_flow'), null);
     });
 
     it('session sanitize rechaza JSON corrupto y step invalido', () => {
-        var api = loadTutor();
+        var api = loadTutorial();
 
-        assert.equal(api.AAOnboardingTutorSession.sanitize('{bad-json', 'flow', ['one']), null);
+        assert.equal(api.AATutorialSession.sanitize('{bad-json', 'flow', ['one']), null);
         assert.equal(
-            api.AAOnboardingTutorSession.sanitize({
+            api.AATutorialSession.sanitize({
                 version: 1,
                 flowId: 'flow',
                 currentStepId: 'missing',
@@ -255,8 +255,8 @@ describe('OnboardingTutor MC2C', () => {
 
     it('start retoma currentStepId desde sessionStorage valido', () => {
         installDom();
-        var api = loadTutor();
-        var key = api.AAOnboardingTutorSession.buildKey('44', 'test_flow');
+        var api = loadTutorial();
+        var key = api.AATutorialSession.buildKey('44', 'test_flow');
 
         globalThis.sessionStorage.setItem(key, JSON.stringify({
             version: 1,
@@ -266,17 +266,17 @@ describe('OnboardingTutor MC2C', () => {
             updatedAt: 1
         }));
 
-        assert.equal(api.OnboardingTutor.start(baseConfig()), true);
-        assert.equal(api.OnboardingTutor.getState().currentStepId, 'two');
+        assert.equal(api.AATutorial.start(baseConfig()), true);
+        assert.equal(api.AATutorial.getState().currentStepId, 'two');
     });
 
     it('button avanza y persiste el siguiente paso', () => {
         var dom = installDom();
-        var api = loadTutor();
+        var api = loadTutorial();
 
-        api.OnboardingTutor.start(baseConfig());
+        api.AATutorial.start(baseConfig());
 
-        var button = findByClass(dom.body, 'aa-onboarding-tutor-button');
+        var button = findByClass(dom.body, 'aa-tutorial-button');
         assert.ok(button);
 
         button.dispatchEvent({
@@ -284,10 +284,10 @@ describe('OnboardingTutor MC2C', () => {
             preventDefault: function () {}
         });
 
-        assert.equal(api.OnboardingTutor.getState().currentStepId, 'two');
+        assert.equal(api.AATutorial.getState().currentStepId, 'two');
 
         var stored = JSON.parse(globalThis.sessionStorage.getItem(
-            api.AAOnboardingTutorSession.buildKey('44', 'test_flow')
+            api.AATutorialSession.buildKey('44', 'test_flow')
         ));
         assert.equal(stored.currentStepId, 'two');
     });
@@ -299,9 +299,9 @@ describe('OnboardingTutor MC2C', () => {
         var stopCalls = 0;
 
         installDom({ '#create': target });
-        api = loadTutor();
+        api = loadTutorial();
 
-        api.OnboardingTutor.start(baseConfig({
+        api.AATutorial.start(baseConfig({
             steps: [
                 { id: 'one', title: 'One', target: '#create', advance: { mode: 'target_click' } },
                 { id: 'two', title: 'Two', advance: { mode: 'button' } }
@@ -314,21 +314,21 @@ describe('OnboardingTutor MC2C', () => {
             stopPropagation: function () { stopCalls++; }
         });
 
-        assert.equal(api.OnboardingTutor.getState().currentStepId, 'two');
+        assert.equal(api.AATutorial.getState().currentStepId, 'two');
         assert.equal(preventCalls, 0);
         assert.equal(stopCalls, 0);
 
         var stored = JSON.parse(globalThis.sessionStorage.getItem(
-            api.AAOnboardingTutorSession.buildKey('44', 'test_flow')
+            api.AATutorialSession.buildKey('44', 'test_flow')
         ));
         assert.equal(stored.currentStepId, 'two');
     });
 
     it('dismiss consume un solo click y evita doble avance', () => {
         var dom = installDom();
-        var api = loadTutor();
+        var api = loadTutorial();
 
-        api.OnboardingTutor.start(baseConfig({
+        api.AATutorial.start(baseConfig({
             steps: [
                 { id: 'one', title: 'One', advance: { mode: 'dismiss' } },
                 { id: 'two', title: 'Two', advance: { mode: 'button' } },
@@ -336,7 +336,7 @@ describe('OnboardingTutor MC2C', () => {
             ]
         }));
 
-        var backdrop = findByClass(dom.body, 'aa-onboarding-tutor-backdrop');
+        var backdrop = findByClass(dom.body, 'aa-tutorial-backdrop');
         var preventCalls = 0;
         var stopCalls = 0;
 
@@ -347,16 +347,16 @@ describe('OnboardingTutor MC2C', () => {
         });
         backdrop.dispatchEvent({ type: 'touchend' });
 
-        assert.equal(api.OnboardingTutor.getState().currentStepId, 'two');
+        assert.equal(api.AATutorial.getState().currentStepId, 'two');
         assert.equal(preventCalls, 1);
         assert.equal(stopCalls, 1);
     });
 
     it('event avanza y limpia listener al avanzar', () => {
         var dom = installDom();
-        var api = loadTutor();
+        var api = loadTutorial();
 
-        api.OnboardingTutor.start(baseConfig({
+        api.AATutorial.start(baseConfig({
             steps: [
                 {
                     id: 'one',
@@ -369,18 +369,18 @@ describe('OnboardingTutor MC2C', () => {
 
         assert.equal((dom.docListeners['aa:test'] || []).length, 1);
         globalThis.document.dispatchEvent({ type: 'aa:test', detail: { source: 'ignored' } });
-        assert.equal(api.OnboardingTutor.getState().currentStepId, 'one');
+        assert.equal(api.AATutorial.getState().currentStepId, 'one');
 
         globalThis.document.dispatchEvent({ type: 'aa:test', detail: { source: 'ok' } });
-        assert.equal(api.OnboardingTutor.getState().currentStepId, 'two');
+        assert.equal(api.AATutorial.getState().currentStepId, 'two');
         assert.equal((dom.docListeners['aa:test'] || []).length, 0);
     });
 
     it('target inexistente pausa como paused_missing_target y conserva session', async () => {
         installDom();
-        var api = loadTutor();
+        var api = loadTutorial();
 
-        api.OnboardingTutor.start(baseConfig({
+        api.AATutorial.start(baseConfig({
             steps: [{
                 id: 'one',
                 title: 'One',
@@ -392,10 +392,10 @@ describe('OnboardingTutor MC2C', () => {
 
         await new Promise(function (resolve) { setTimeout(resolve, 5); });
 
-        assert.equal(api.OnboardingTutor.getState().status, 'paused_missing_target');
+        assert.equal(api.AATutorial.getState().status, 'paused_missing_target');
 
         var stored = JSON.parse(globalThis.sessionStorage.getItem(
-            api.AAOnboardingTutorSession.buildKey('44', 'test_flow')
+            api.AATutorialSession.buildKey('44', 'test_flow')
         ));
         assert.equal(stored.currentStepId, 'one');
         assert.equal(stored.status, 'paused_missing_target');
@@ -404,34 +404,34 @@ describe('OnboardingTutor MC2C', () => {
     it('blogId ausente no persiste bajo key compartida', () => {
         installDom();
         delete globalThis.AA_ADMIN_CONTEXT;
-        var api = loadTutor();
+        var api = loadTutorial();
 
-        api.OnboardingTutor.start(baseConfig());
+        api.AATutorial.start(baseConfig());
 
         assert.deepEqual(globalThis.sessionStorage.dump(), {});
-        assert.equal(api.OnboardingTutor.getState().currentStepId, 'one');
+        assert.equal(api.AATutorial.getState().currentStepId, 'one');
     });
 
     it('complete limpia DOM y sessionStorage; destroy no completa ni borra session', () => {
         var dom = installDom();
-        var api = loadTutor();
+        var api = loadTutorial();
         var completedEvents = 0;
 
-        globalThis.document.addEventListener('aa:onboarding:tutor:completed', function () {
+        globalThis.document.addEventListener('aa:tutorial:completed', function () {
             completedEvents++;
         });
 
-        api.OnboardingTutor.start(baseConfig());
-        var key = api.AAOnboardingTutorSession.buildKey('44', 'test_flow');
+        api.AATutorial.start(baseConfig());
+        var key = api.AATutorialSession.buildKey('44', 'test_flow');
         assert.ok(globalThis.sessionStorage.getItem(key));
 
-        api.OnboardingTutor.destroy();
+        api.AATutorial.destroy();
         assert.equal(dom.body.children.length, 0);
         assert.ok(globalThis.sessionStorage.getItem(key));
         assert.equal(completedEvents, 0);
 
-        api.OnboardingTutor.start(baseConfig());
-        api.OnboardingTutor.complete();
+        api.AATutorial.start(baseConfig());
+        api.AATutorial.complete();
         assert.equal(dom.body.children.length, 0);
         assert.equal(globalThis.sessionStorage.getItem(key), null);
         assert.equal(completedEvents, 1);
@@ -439,15 +439,15 @@ describe('OnboardingTutor MC2C', () => {
 
     it('action registry ejecuta acciones por nombre', () => {
         installDom();
-        var api = loadTutor();
+        var api = loadTutorial();
         var calls = 0;
 
-        api.AAOnboardingTutorActions.register('test_action', function (ctx) {
+        api.AATutorialActions.register('test_action', function (ctx) {
             calls++;
             assert.equal(ctx.step.id, 'one');
         });
 
-        api.OnboardingTutor.start(baseConfig({
+        api.AATutorial.start(baseConfig({
             steps: [
                 { id: 'one', title: 'One', beforeAction: 'test_action', advance: { mode: 'button' } }
             ]

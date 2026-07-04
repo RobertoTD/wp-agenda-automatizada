@@ -1,5 +1,5 @@
 /**
- * Onboarding Tutor — reusable contextual coach mark engine (MC2C).
+ * Tutorial engine — reusable contextual coach mark engine (MC3B).
  *
  * Isolated engine only: it does not register real onboarding steps, call AJAX,
  * navigate, open modals, or integrate with the activation coordinator.
@@ -8,8 +8,8 @@
     'use strict';
 
     var SESSION_VERSION = 1;
-    var SESSION_KEY_PREFIX = 'aa_onboarding_tutor_session_v1';
-    var ROOT_ID = 'aa-onboarding-tutor-root';
+    var SESSION_KEY_PREFIX = 'aa_tutorial_session_v1';
+    var ROOT_ID = 'aa-tutorial-root';
     var DEFAULT_TARGET_TIMEOUT_MS = 3000;
     var DEFAULT_TARGET_INTERVAL_MS = 100;
     var DEFAULT_MARGIN = 12;
@@ -44,7 +44,7 @@
     function warn(message) {
         var root = getGlobalRoot();
         if (root.console && typeof root.console.warn === 'function') {
-            root.console.warn('[OnboardingTutor] ' + message);
+            root.console.warn('[AATutorial] ' + message);
         }
     }
 
@@ -379,7 +379,7 @@
         resolveBlogId: resolveBlogId
     };
 
-    function dispatchTutorEvent(type, detail) {
+    function dispatchTutorialEvent(type, detail) {
         var root = getGlobalRoot();
         if (!root.document || typeof root.document.dispatchEvent !== 'function' || typeof root.CustomEvent !== 'function') {
             return;
@@ -492,7 +492,7 @@
         return Math.max(min, Math.min(value, max));
     }
 
-    function resolveTutorPlacement(input) {
+    function resolveTutorialPlacement(input) {
         var placement = normalizePlacement(input.placement);
         var card = input.cardRect || { width: 320, height: 160 };
         var viewport = input.viewport || { width: 0, height: 0 };
@@ -549,7 +549,7 @@
         var cardRect = typeof card.getBoundingClientRect === 'function'
             ? card.getBoundingClientRect()
             : { width: 320, height: 160 };
-        var placement = resolveTutorPlacement({
+        var placement = resolveTutorialPlacement({
             placement: step.placement,
             targetRect: targetRect,
             cardRect: {
@@ -563,7 +563,7 @@
         card.style.left = placement.left + 'px';
 
         if (root) {
-            root.setAttribute('data-aa-onboarding-tutor-step', step.id);
+            root.setAttribute('data-aa-tutorial-step', step.id);
         }
     }
 
@@ -586,7 +586,7 @@
 
     function actionContext(step) {
         return {
-            tutor: Tutor,
+            tutorial: Tutor,
             config: runtime.config,
             step: step || runtime.currentStep,
             state: Tutor.getState()
@@ -599,20 +599,20 @@
             return null;
         }
 
-        var root = createElement('div', 'aa-onboarding-tutor-root');
-        var backdrop = createElement('div', 'aa-onboarding-tutor-backdrop');
-        var highlight = createElement('div', 'aa-onboarding-tutor-highlight');
-        var card = createElement('div', 'aa-onboarding-tutor-card');
-        var title = createElement('h3', 'aa-onboarding-tutor-title');
-        var text = createElement('p', 'aa-onboarding-tutor-text');
-        var actions = createElement('div', 'aa-onboarding-tutor-actions');
+        var root = createElement('div', 'aa-tutorial-root');
+        var backdrop = createElement('div', 'aa-tutorial-backdrop');
+        var highlight = createElement('div', 'aa-tutorial-highlight');
+        var card = createElement('div', 'aa-tutorial-card');
+        var title = createElement('h3', 'aa-tutorial-title');
+        var text = createElement('p', 'aa-tutorial-text');
+        var actions = createElement('div', 'aa-tutorial-actions');
 
         if (!root || !backdrop || !highlight || !card || !title || !text || !actions) {
             return null;
         }
 
         root.id = ROOT_ID;
-        root.setAttribute('data-aa-onboarding-tutor', '1');
+        root.setAttribute('data-aa-tutorial', '1');
         setText(title, step.title);
         setText(text, step.text);
 
@@ -622,7 +622,7 @@
         }
 
         if (step.advance.mode === 'button') {
-            var button = createElement('button', 'aa-onboarding-tutor-button');
+            var button = createElement('button', 'aa-tutorial-button');
             if (button) {
                 button.type = 'button';
                 setText(button, step.advance.label);
@@ -784,13 +784,13 @@
                         return;
                     }
                     runtime.root = createRoot(step, target);
-                    dispatchTutorEvent('aa:onboarding:tutor:step-shown', { stepId: step.id });
+                    dispatchTutorialEvent('aa:tutorial:step-shown', { stepId: step.id });
                 });
                 return true;
             }
 
             runtime.root = createRoot(step, null);
-            dispatchTutorEvent('aa:onboarding:tutor:step-shown', { stepId: step.id });
+            dispatchTutorialEvent('aa:tutorial:step-shown', { stepId: step.id });
             return true;
         },
 
@@ -826,7 +826,7 @@
 
             cleanupCurrentStep();
             runtime.status = status;
-            dispatchTutorEvent('aa:onboarding:tutor:paused', {
+            dispatchTutorialEvent('aa:tutorial:paused', {
                 reason: reason || 'paused',
                 status: status,
                 stepId: runtime.currentStepId
@@ -859,7 +859,7 @@
             runtime.status = 'completed';
             runtime.currentStepId = null;
             runtime.config = null;
-            dispatchTutorEvent('aa:onboarding:tutor:completed', {});
+            dispatchTutorialEvent('aa:tutorial:completed', {});
             return true;
         },
 
@@ -884,11 +884,11 @@
     };
 
     var api = {
-        OnboardingTutor: Tutor,
-        AAOnboardingTutorActions: ActionRegistry,
-        AAOnboardingTutorSession: SessionAdapter,
+        AATutorial: Tutor,
+        AATutorialActions: ActionRegistry,
+        AATutorialSession: SessionAdapter,
         normalizeConfig: normalizeConfig,
-        resolveTutorPlacement: resolveTutorPlacement,
+        resolveTutorialPlacement: resolveTutorialPlacement,
         getNextStepId: getNextStepId,
         constants: {
             SESSION_VERSION: SESSION_VERSION,
@@ -899,9 +899,9 @@
 
     var root = getGlobalRoot();
     if (typeof window !== 'undefined') {
-        window.OnboardingTutor = Tutor;
-        window.AAOnboardingTutorActions = ActionRegistry;
-        window.AAOnboardingTutorSession = SessionAdapter;
+        window.AATutorial = Tutor;
+        window.AATutorialActions = ActionRegistry;
+        window.AATutorialSession = SessionAdapter;
     }
 
     if (typeof module !== 'undefined' && module.exports) {

@@ -277,8 +277,8 @@ header('Content-Type: text/html; charset=utf-8');
 <!-- Onboarding activation guide (MC5A manual open; requiere OnboardingStatusService) -->
 <script src="<?php echo aa_asset_url('includes/admin/ui/modals/onboarding/onboardingActivationGuide.js'); ?>" defer></script>
 
-<!-- Onboarding tutor engine (MC2C aislado; sin integración de flujo todavía) -->
-<script src="<?php echo aa_asset_url('includes/admin/ui/modals/onboarding/onboardingTutor.js'); ?>" defer></script>
+<!-- Tutorial engine (MC3B aislado; sin integración de flujo todavía) -->
+<script src="<?php echo aa_asset_url('includes/admin/ui/tutorials/tutorial.js'); ?>" defer></script>
 
 <!-- Onboarding activation guide auto-open coordinator (MC5C1; requiere OnboardingStatusService + OnboardingActivationGuide) -->
 <script src="<?php echo aa_asset_url('includes/admin/ui/modals/onboarding/onboardingActivationCoordinator.js'); ?>" defer></script>
