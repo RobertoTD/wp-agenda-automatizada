@@ -21,6 +21,8 @@
     var lifecycleListenersRegistered = false;
     var initPromise = null;
     var activeTutorialId = null;
+    var tutorialCompletionInFlight = false;
+    var tutorialCompletionDone = false;
 
     function normalizeString(value) {
         return typeof value === 'string' ? value.trim() : '';
@@ -136,6 +138,16 @@
         }
     }
 
+    function showTutorialCompletionCard() {
+        if (!window.TutorialCompletionCard
+            || typeof window.TutorialCompletionCard.show !== 'function') {
+            warn('TutorialCompletionCard no disponible.');
+            return;
+        }
+
+        window.TutorialCompletionCard.show();
+    }
+
     function isTutorialOnOpenFastAppointmentStep() {
         if (!window.AATutorial || typeof window.AATutorial.getState !== 'function') {
             return false;
@@ -162,6 +174,82 @@
         }
     }
 
+    function isActiveFastAppointmentTutorialContext() {
+        if (!window.TutorialFastAppointmentContext
+            || typeof window.TutorialFastAppointmentContext.isActive !== 'function'
+            || !window.TutorialFastAppointmentContext.isActive()) {
+            return false;
+        }
+
+        if (typeof window.TutorialFastAppointmentContext.get !== 'function') {
+            return false;
+        }
+
+        var ctx = window.TutorialFastAppointmentContext.get();
+
+        if (!ctx) {
+            return false;
+        }
+
+        return ctx.tutorialId === FAST_APPOINTMENT_TUTORIAL_CONTEXT.tutorialId
+            && ctx.stepId === FAST_APPOINTMENT_TUTORIAL_CONTEXT.stepId
+            && ctx.source === FAST_APPOINTMENT_TUTORIAL_CONTEXT.source;
+    }
+
+    function onReservationCreatedForTutorial(event) {
+        if (tutorialCompletionDone || tutorialCompletionInFlight) {
+            return;
+        }
+
+        var detail = event && event.detail ? event.detail : {};
+
+        if (detail.source !== 'fastappointment') {
+            return;
+        }
+
+        if (!isActiveFastAppointmentTutorialContext()) {
+            return;
+        }
+
+        tutorialCompletionInFlight = true;
+
+        if (!window.TutorialStateService || typeof window.TutorialStateService.fetchState !== 'function') {
+            warn('TutorialStateService no disponible para completar tutorial.');
+            tutorialCompletionInFlight = false;
+            return;
+        }
+
+        window.TutorialStateService.fetchState()
+            .then(function (state) {
+                var record = getTutorialRecord(state, DEFAULT_TUTORIAL_ID);
+                var status = resolveStatus(record);
+                var durableStep = resolveDurableStepId(record);
+
+                if (status === 'completed') {
+                    tutorialCompletionDone = true;
+                    clearFastAppointmentTutorialContext();
+                    return;
+                }
+
+                if (status !== 'in_progress' || durableStep !== CREATE_TEST_APPOINTMENT_STEP_ID) {
+                    return;
+                }
+
+                return transitionPersist(DEFAULT_TUTORIAL_ID, 'completed', null)
+                    .then(function () {
+                        tutorialCompletionDone = true;
+                        clearFastAppointmentTutorialContext();
+                        showTutorialCompletionCard();
+                    });
+            })
+            .catch(function (err) {
+                warn('No se pudo completar tutorial tras reserva: ' + (err && err.message ? err.message : String(err)));
+            })
+            .finally(function () {
+                tutorialCompletionInFlight = false;
+            });
+    }
+
     function registerLifecycleListeners() {
         if (lifecycleListenersRegistered) {
             return;
@@ -173,6 +261,7 @@
 
         document.addEventListener('aa:tutorial:step-shown', onTutorialStepShown);
         document.addEventListener('aa:fastappointment:modal-closed', onFastAppointmentModalClosed);
+        document.addEventListener('aa:reservation:created', onReservationCreatedForTutorial);
         lifecycleListenersRegistered = true;
     }
 

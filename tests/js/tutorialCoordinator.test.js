@@ -64,6 +64,9 @@ function loadCoordinator(options) {
     var transitionCalls = [];
     var fetchCalls = 0;
     var pauseCalls = 0;
+    var completionCardShowCalls = 0;
+    var completionCardDismissCalls = 0;
+    var contextClearedBeforeShow = null;
 
     var tutorialRuntime = {
         status: 'idle',
@@ -164,6 +167,15 @@ function loadCoordinator(options) {
             return Promise.resolve(opts.stateAfterTransition || { version: 1, tutorials: {} });
         }
     };
+    context.window.TutorialCompletionCard = {
+        show: function (options) {
+            completionCardShowCalls++;
+            contextClearedBeforeShow = !context.window.TutorialFastAppointmentContext.isActive();
+        },
+        dismiss: function () {
+            completionCardDismissCalls++;
+        }
+    };
 
     vm.runInNewContext(definitionsSrc, context, { filename: definitionsPath });
     vm.runInNewContext(contextSrc, context, { filename: contextPath });
@@ -185,7 +197,10 @@ function loadCoordinator(options) {
             get startCalls() { return startCalls; },
             get transitionCalls() { return transitionCalls; },
             get fetchCalls() { return fetchCalls; },
-            get pauseCalls() { return pauseCalls; }
+            get pauseCalls() { return pauseCalls; },
+            get completionCardShowCalls() { return completionCardShowCalls; },
+            get completionCardDismissCalls() { return completionCardDismissCalls; },
+            get contextClearedBeforeShow() { return contextClearedBeforeShow; }
         },
         sessionStorage: context.window.sessionStorage
     };
@@ -619,6 +634,294 @@ describe('TutorialCoordinator MC3D', () => {
     });
 });
 
+describe('TutorialCoordinator C1b reservation completion', () => {
+    var IN_PROGRESS_CREATE_TEST_STATE = {
+        version: 1,
+        tutorials: {
+            create_test_appointment_v1: {
+                status: 'in_progress',
+                current_step_id: 'create_test_appointment'
+            }
+        }
+    };
+
+    function emitFastAppointmentReservationCreated(env, id) {
+        env.dispatchDocumentEvent('aa:reservation:created', {
+            source: 'fastappointment',
+            id: id || 42
+        });
+    }
+
+    it('evento válido + durable correcto completa tutorial una vez', async () => {
+        var env = loadCoordinator({
+            state: IN_PROGRESS_CREATE_TEST_STATE
+        });
+
+        env.TutorialCoordinator.registerActions();
+        env.TutorialFastAppointmentContext.activate(FAST_APPOINTMENT_CONTEXT);
+
+        emitFastAppointmentReservationCreated(env, 77);
+        await flushMicrotasks();
+
+        assert.equal(env.metrics.fetchCalls, 1);
+        assert.equal(env.metrics.transitionCalls.length, 1);
+        assert.equal(env.metrics.transitionCalls[0].tutorialId, 'create_test_appointment_v1');
+        assert.equal(env.metrics.transitionCalls[0].status, 'completed');
+        assert.equal(env.metrics.transitionCalls[0].currentStepId, null);
+        assert.equal(env.TutorialFastAppointmentContext.isActive(), false);
+        assert.equal(env.metrics.completionCardShowCalls, 1);
+        assert.equal(env.metrics.contextClearedBeforeShow, true);
+    });
+
+    it('source distinto de fastappointment no completa', async () => {
+        var env = loadCoordinator({
+            state: IN_PROGRESS_CREATE_TEST_STATE
+        });
+
+        env.TutorialCoordinator.registerActions();
+        env.TutorialFastAppointmentContext.activate(FAST_APPOINTMENT_CONTEXT);
+
+        env.dispatchDocumentEvent('aa:reservation:created', { id: 42 });
+        await flushMicrotasks();
+
+        assert.equal(env.metrics.fetchCalls, 0);
+        assert.equal(env.metrics.transitionCalls.length, 0);
+        assert.equal(env.TutorialFastAppointmentContext.isActive(), true);
+    });
+
+    it('contexto tutorial inactivo no completa', async () => {
+        var env = loadCoordinator({
+            state: IN_PROGRESS_CREATE_TEST_STATE
+        });
+
+        env.TutorialCoordinator.registerActions();
+
+        emitFastAppointmentReservationCreated(env);
+        await flushMicrotasks();
+
+        assert.equal(env.metrics.fetchCalls, 0);
+        assert.equal(env.metrics.transitionCalls.length, 0);
+    });
+
+    it('dos eventos rápidos producen una sola operación async', async () => {
+        var resolveFetch;
+        var env = loadCoordinator({
+            fetchState: function () {
+                return new Promise(function (resolve) {
+                    resolveFetch = resolve;
+                });
+            }
+        });
+
+        env.TutorialCoordinator.registerActions();
+        env.TutorialFastAppointmentContext.activate(FAST_APPOINTMENT_CONTEXT);
+
+        emitFastAppointmentReservationCreated(env);
+        emitFastAppointmentReservationCreated(env);
+
+        assert.equal(env.metrics.fetchCalls, 1);
+
+        resolveFetch(IN_PROGRESS_CREATE_TEST_STATE);
+        await flushMicrotasks();
+
+        assert.equal(env.metrics.transitionCalls.length, 1);
+    });
+
+    it('transition fallida deja done false y permite reintento', async () => {
+        var transitionAttempts = 0;
+        var recordedTransitions = [];
+        var env = loadCoordinator({
+            state: IN_PROGRESS_CREATE_TEST_STATE,
+            transitionImpl: function (input) {
+                transitionAttempts++;
+                recordedTransitions.push(input);
+
+                if (transitionAttempts === 1) {
+                    return Promise.reject(new Error('network'));
+                }
+
+                return Promise.resolve({
+                    version: 1,
+                    tutorials: {
+                        create_test_appointment_v1: {
+                            status: 'completed',
+                            current_step_id: null
+                        }
+                    }
+                });
+            }
+        });
+
+        env.TutorialCoordinator.registerActions();
+        env.TutorialFastAppointmentContext.activate(FAST_APPOINTMENT_CONTEXT);
+
+        emitFastAppointmentReservationCreated(env);
+        await flushMicrotasks();
+
+        assert.equal(transitionAttempts, 1);
+        assert.equal(env.TutorialFastAppointmentContext.isActive(), true);
+
+        emitFastAppointmentReservationCreated(env);
+        await flushMicrotasks();
+
+        assert.equal(transitionAttempts, 2);
+        assert.equal(recordedTransitions.length, 2);
+        assert.equal(recordedTransitions[1].tutorialId, 'create_test_appointment_v1');
+        assert.equal(recordedTransitions[1].status, 'completed');
+        assert.equal(recordedTransitions[1].currentStepId, null);
+        assert.equal(env.TutorialFastAppointmentContext.isActive(), false);
+    });
+
+    it('durable completed no transition y limpia contexto', async () => {
+        var env = loadCoordinator({
+            state: {
+                version: 1,
+                tutorials: {
+                    create_test_appointment_v1: {
+                        status: 'completed',
+                        current_step_id: null
+                    }
+                }
+            }
+        });
+
+        env.TutorialCoordinator.registerActions();
+        env.TutorialFastAppointmentContext.activate(FAST_APPOINTMENT_CONTEXT);
+
+        emitFastAppointmentReservationCreated(env);
+        await flushMicrotasks();
+
+        assert.equal(env.metrics.transitionCalls.length, 0);
+        assert.equal(env.TutorialFastAppointmentContext.isActive(), false);
+
+        emitFastAppointmentReservationCreated(env);
+        await flushMicrotasks();
+
+        assert.equal(env.metrics.fetchCalls, 1);
+    });
+
+    it('durable step distinto no completa', async () => {
+        var env = loadCoordinator({
+            state: {
+                version: 1,
+                tutorials: {
+                    create_test_appointment_v1: {
+                        status: 'in_progress',
+                        current_step_id: 'calendar_overview'
+                    }
+                }
+            }
+        });
+
+        env.TutorialCoordinator.registerActions();
+        env.TutorialFastAppointmentContext.activate(FAST_APPOINTMENT_CONTEXT);
+
+        emitFastAppointmentReservationCreated(env);
+        await flushMicrotasks();
+
+        assert.equal(env.metrics.transitionCalls.length, 0);
+        assert.equal(env.TutorialFastAppointmentContext.isActive(), true);
+    });
+
+    it('status paused no completa', async () => {
+        var env = loadCoordinator({
+            state: {
+                version: 1,
+                tutorials: {
+                    create_test_appointment_v1: {
+                        status: 'paused',
+                        current_step_id: 'create_test_appointment'
+                    }
+                }
+            }
+        });
+
+        env.TutorialCoordinator.registerActions();
+        env.TutorialFastAppointmentContext.activate(FAST_APPOINTMENT_CONTEXT);
+
+        emitFastAppointmentReservationCreated(env);
+        await flushMicrotasks();
+
+        assert.equal(env.metrics.transitionCalls.length, 0);
+        assert.equal(env.TutorialFastAppointmentContext.isActive(), true);
+    });
+
+    it('segundo evento tras completion no vuelve a transicionar', async () => {
+        var env = loadCoordinator({
+            state: IN_PROGRESS_CREATE_TEST_STATE
+        });
+
+        env.TutorialCoordinator.registerActions();
+        env.TutorialFastAppointmentContext.activate(FAST_APPOINTMENT_CONTEXT);
+
+        emitFastAppointmentReservationCreated(env);
+        await flushMicrotasks();
+
+        emitFastAppointmentReservationCreated(env);
+        await flushMicrotasks();
+
+        assert.equal(env.metrics.fetchCalls, 1);
+        assert.equal(env.metrics.transitionCalls.length, 1);
+    });
+
+    it('transition fallida no muestra tarjeta final', async () => {
+        var env = loadCoordinator({
+            state: IN_PROGRESS_CREATE_TEST_STATE,
+            transitionImpl: function () {
+                return Promise.reject(new Error('network'));
+            }
+        });
+
+        env.TutorialCoordinator.registerActions();
+        env.TutorialFastAppointmentContext.activate(FAST_APPOINTMENT_CONTEXT);
+
+        emitFastAppointmentReservationCreated(env);
+        await flushMicrotasks();
+
+        assert.equal(env.metrics.completionCardShowCalls, 0);
+    });
+
+    it('durable ya completed no muestra tarjeta final', async () => {
+        var env = loadCoordinator({
+            state: {
+                version: 1,
+                tutorials: {
+                    create_test_appointment_v1: {
+                        status: 'completed',
+                        current_step_id: null
+                    }
+                }
+            }
+        });
+
+        env.TutorialCoordinator.registerActions();
+        env.TutorialFastAppointmentContext.activate(FAST_APPOINTMENT_CONTEXT);
+
+        emitFastAppointmentReservationCreated(env);
+        await flushMicrotasks();
+
+        assert.equal(env.metrics.transitionCalls.length, 0);
+        assert.equal(env.metrics.completionCardShowCalls, 0);
+    });
+
+    it('segundo evento tras completion no muestra segunda tarjeta', async () => {
+        var env = loadCoordinator({
+            state: IN_PROGRESS_CREATE_TEST_STATE
+        });
+
+        env.TutorialCoordinator.registerActions();
+        env.TutorialFastAppointmentContext.activate(FAST_APPOINTMENT_CONTEXT);
+
+        emitFastAppointmentReservationCreated(env);
+        await flushMicrotasks();
+
+        emitFastAppointmentReservationCreated(env);
+        await flushMicrotasks();
+
+        assert.equal(env.metrics.completionCardShowCalls, 1);
+    });
+});
+
 describe('TutorialCoordinator wiring guardrails', () => {
     it('coordinator source no auto-inicia en DOMContentLoaded', () => {
         assert.equal(coordinatorSrc.includes('DOMContentLoaded'), false);
@@ -635,13 +938,15 @@ describe('TutorialCoordinator wiring guardrails', () => {
         var stateServicePos = layoutSrc.indexOf('tutorialStateService.js');
         var contextPos = layoutSrc.indexOf('tutorialFastAppointmentContext.js');
         var definitionsPos = layoutSrc.indexOf('tutorialDefinitions.js');
+        var completionCardPos = layoutSrc.indexOf('tutorialCompletionCard.js');
         var coordinatorPos = layoutSrc.indexOf('tutorialCoordinator.js');
         var welcomePos = layoutSrc.indexOf('onboardingWelcome.js');
         var activationPos = layoutSrc.indexOf('onboardingActivationCoordinator.js');
 
         assert.ok(stateServicePos !== -1);
         assert.ok(contextPos > stateServicePos);
-        assert.ok(definitionsPos > contextPos);
+        assert.ok(completionCardPos !== -1);
+        assert.ok(definitionsPos > completionCardPos);
         assert.ok(coordinatorPos > definitionsPos);
         assert.ok(welcomePos !== -1);
         assert.ok(activationPos !== -1);
