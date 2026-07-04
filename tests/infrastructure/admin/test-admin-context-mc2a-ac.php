@@ -57,6 +57,11 @@ ac_assert(
     preg_match('/data-aa-nav-module="calendar"[\s\S]*module=calendar/', $sidebar_src) === 1
     || preg_match('/module=calendar[\s\S]*data-aa-nav-module="calendar"/', $sidebar_src) === 1
 );
+ac_assert(
+    'layout carga onboardingTutor antes del coordinator',
+    strpos($layout_src, 'includes/admin/ui/modals/onboarding/onboardingTutor.js') !== false
+    && strpos($layout_src, 'onboardingTutor.js') < strpos($layout_src, 'onboardingActivationCoordinator.js')
+);
 
 echo "\n{$passed}/{$total} passed.\n";
 

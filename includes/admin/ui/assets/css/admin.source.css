@@ -589,6 +589,62 @@
     }
 
     /* ═══════════════════════════════════════════════════════════════
+       ONBOARDING TUTOR - Contextual coach marks (MC2C)
+    ═══════════════════════════════════════════════════════════════ */
+
+    .aa-onboarding-tutor-root {
+        position: fixed;
+        inset: 0;
+        z-index: 9000;
+        pointer-events: none;
+    }
+
+    .aa-onboarding-tutor-root.is-interactive {
+        pointer-events: auto;
+    }
+
+    .aa-onboarding-tutor-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(17, 24, 39, 0.42);
+    }
+
+    .aa-onboarding-tutor-root.is-target-click .aa-onboarding-tutor-backdrop {
+        pointer-events: none;
+    }
+
+    .aa-onboarding-tutor-highlight {
+        position: fixed;
+        border: 2px solid rgb(124, 58, 237);
+        border-radius: 0.75rem;
+        box-shadow: 0 0 0 9999px rgba(17, 24, 39, 0.42), 0 0 0 4px rgba(124, 58, 237, 0.22);
+        pointer-events: none;
+    }
+
+    .aa-onboarding-tutor-card {
+        position: fixed;
+        width: min(22rem, calc(100vw - 1.5rem));
+        @apply rounded-xl border border-gray-200 bg-white p-4 shadow-xl;
+        pointer-events: auto;
+    }
+
+    .aa-onboarding-tutor-title {
+        @apply text-sm font-semibold text-gray-900;
+    }
+
+    .aa-onboarding-tutor-text {
+        @apply mt-2 text-sm leading-relaxed text-gray-600;
+    }
+
+    .aa-onboarding-tutor-actions {
+        @apply mt-4 flex justify-end gap-2;
+    }
+
+    .aa-onboarding-tutor-button {
+        @apply inline-flex items-center rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
        APPOINTMENTS STYLES
     ═══════════════════════════════════════════════════════════════ */
     
