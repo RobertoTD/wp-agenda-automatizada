@@ -10,13 +10,24 @@ const definitionsPath = path.join(
     __dirname,
     '../../includes/admin/ui/tutorials/tutorialDefinitions.js'
 );
+const contextPath = path.join(
+    __dirname,
+    '../../includes/admin/ui/tutorials/tutorialFastAppointmentContext.js'
+);
 const coordinatorPath = path.join(
     __dirname,
     '../../includes/admin/ui/tutorials/tutorialCoordinator.js'
 );
 
 const definitionsSrc = fs.readFileSync(definitionsPath, 'utf8');
+const contextSrc = fs.readFileSync(contextPath, 'utf8');
 const coordinatorSrc = fs.readFileSync(coordinatorPath, 'utf8');
+
+const FAST_APPOINTMENT_CONTEXT = {
+    tutorialId: 'create_test_appointment_v1',
+    stepId: 'create_test_appointment',
+    source: 'tutorial'
+};
 
 function flushMicrotasks() {
     return new Promise(function (resolve) {
@@ -71,11 +82,37 @@ function loadCoordinator(options) {
         pause: function () {
             pauseCalls++;
             this.status = 'paused';
+        },
+        getState: function () {
+            return {
+                flowId: 'create_test_appointment_v1',
+                currentStepId: this.currentStepId,
+                status: this.status,
+                hasRoot: false
+            };
         }
     };
 
+    var documentEvents = {};
+
     var context = {
         window: {},
+        document: {
+            addEventListener: function (type, handler) {
+                if (!documentEvents[type]) {
+                    documentEvents[type] = [];
+                }
+                documentEvents[type].push(handler);
+            },
+            removeEventListener: function () {},
+            dispatchEvent: function (event) {
+                var handlers = documentEvents[event.type] || [];
+                handlers.forEach(function (handler) {
+                    handler(event);
+                });
+                return true;
+            }
+        },
         console: {
             warn: function () {},
             error: function () {}
@@ -129,13 +166,18 @@ function loadCoordinator(options) {
     };
 
     vm.runInNewContext(definitionsSrc, context, { filename: definitionsPath });
+    vm.runInNewContext(contextSrc, context, { filename: contextPath });
     vm.runInNewContext(coordinatorSrc, context, { filename: coordinatorPath });
 
     return {
         TutorialCoordinator: context.window.TutorialCoordinator,
         TutorialDefinitions: context.window.TutorialDefinitions,
+        TutorialFastAppointmentContext: context.window.TutorialFastAppointmentContext,
         AATutorial: tutorialRuntime,
         actionHandlers: actionHandlers,
+        dispatchDocumentEvent: function (type, detail) {
+            context.document.dispatchEvent({ type: type, detail: detail || {} });
+        },
         metrics: {
             get actionRegisterCalls() { return actionRegisterCalls; },
             get clearCalls() { return clearCalls; },
@@ -385,7 +427,7 @@ describe('TutorialCoordinator MC3D', () => {
         assert.equal(env.metrics.destroyCalls, 0);
     });
 
-    it('in_progress/create_test_appointment no inicia hasta microciclo B', async () => {
+    it('in_progress/create_test_appointment activa contexto sin iniciar motor', async () => {
         var env = loadCoordinator({
             state: {
                 version: 1,
@@ -401,6 +443,92 @@ describe('TutorialCoordinator MC3D', () => {
         var started = await env.TutorialCoordinator.init();
         assert.equal(started, false);
         assert.equal(env.metrics.startCalls.length, 0);
+        assert.equal(env.TutorialFastAppointmentContext.isActive(), true);
+        assert.deepEqual(Object.assign({}, env.TutorialFastAppointmentContext.get()), FAST_APPOINTMENT_CONTEXT);
+    });
+
+    it('step-shown open_fastappointment activa contexto antes del click', () => {
+        var env = loadCoordinator();
+        env.TutorialCoordinator.registerActions();
+
+        assert.equal(env.TutorialFastAppointmentContext.isActive(), false);
+
+        env.dispatchDocumentEvent('aa:tutorial:step-shown', { stepId: 'open_fastappointment' });
+
+        assert.equal(env.TutorialFastAppointmentContext.isActive(), true);
+        assert.deepEqual(Object.assign({}, env.TutorialFastAppointmentContext.get()), FAST_APPOINTMENT_CONTEXT);
+    });
+
+    it('persist create_test_appointment mantiene contexto activo tras destroy', async () => {
+        var env = loadCoordinator();
+        env.TutorialCoordinator.registerActions();
+        env.TutorialFastAppointmentContext.activate(FAST_APPOINTMENT_CONTEXT);
+
+        var result = await env.actionHandlers.aa_tutorial_persist_create_test_appointment({
+            tutorial: env.AATutorial
+        });
+
+        assert.equal(result, false);
+        assert.equal(env.metrics.destroyCalls, 1);
+        assert.equal(env.TutorialFastAppointmentContext.isActive(), true);
+    });
+
+    it('fallo al persistir create_test_appointment mantiene contexto activo', async () => {
+        var env = loadCoordinator({
+            transitionImpl: function () {
+                return Promise.reject(new Error('network'));
+            }
+        });
+        env.TutorialCoordinator.registerActions();
+        env.TutorialFastAppointmentContext.activate(FAST_APPOINTMENT_CONTEXT);
+
+        await assert.rejects(
+            function () {
+                return env.actionHandlers.aa_tutorial_persist_create_test_appointment({
+                    tutorial: env.AATutorial
+                });
+            },
+            /network/
+        );
+
+        assert.equal(env.metrics.destroyCalls, 0);
+        assert.equal(env.TutorialFastAppointmentContext.isActive(), true);
+    });
+
+    it('modal-closed reactiva contexto solo si motor sigue en open_fastappointment', () => {
+        var env = loadCoordinator();
+        env.TutorialCoordinator.registerActions();
+
+        env.AATutorial.status = 'active';
+        env.AATutorial.currentStepId = 'open_fastappointment';
+
+        env.dispatchDocumentEvent('aa:fastappointment:modal-closed');
+
+        assert.equal(env.TutorialFastAppointmentContext.isActive(), true);
+        assert.deepEqual(Object.assign({}, env.TutorialFastAppointmentContext.get()), FAST_APPOINTMENT_CONTEXT);
+    });
+
+    it('modal-closed no reactiva contexto si motor ya no está en open_fastappointment', () => {
+        var env = loadCoordinator();
+        env.TutorialCoordinator.registerActions();
+
+        env.AATutorial.status = 'idle';
+        env.AATutorial.currentStepId = null;
+
+        env.dispatchDocumentEvent('aa:fastappointment:modal-closed');
+
+        assert.equal(env.TutorialFastAppointmentContext.isActive(), false);
+    });
+
+    it('init de sesión tutorial nueva limpia contexto previo', async () => {
+        var env = loadCoordinator({
+            state: { version: 1, tutorials: {} }
+        });
+
+        env.TutorialFastAppointmentContext.activate(FAST_APPOINTMENT_CONTEXT);
+        await env.TutorialCoordinator.init();
+
+        assert.equal(env.TutorialFastAppointmentContext.isActive(), false);
     });
 
     it('registerActions es idempotente', () => {
@@ -505,13 +633,15 @@ describe('TutorialCoordinator wiring guardrails', () => {
         );
 
         var stateServicePos = layoutSrc.indexOf('tutorialStateService.js');
+        var contextPos = layoutSrc.indexOf('tutorialFastAppointmentContext.js');
         var definitionsPos = layoutSrc.indexOf('tutorialDefinitions.js');
         var coordinatorPos = layoutSrc.indexOf('tutorialCoordinator.js');
         var welcomePos = layoutSrc.indexOf('onboardingWelcome.js');
         var activationPos = layoutSrc.indexOf('onboardingActivationCoordinator.js');
 
         assert.ok(stateServicePos !== -1);
-        assert.ok(definitionsPos > stateServicePos);
+        assert.ok(contextPos > stateServicePos);
+        assert.ok(definitionsPos > contextPos);
         assert.ok(coordinatorPos > definitionsPos);
         assert.ok(welcomePos !== -1);
         assert.ok(activationPos !== -1);

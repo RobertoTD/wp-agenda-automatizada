@@ -9,8 +9,16 @@
     var DEFAULT_TUTORIAL_ID = 'create_test_appointment_v1';
     var CALENDAR_OVERVIEW_STEP_ID = 'calendar_overview';
     var CREATE_TEST_APPOINTMENT_STEP_ID = 'create_test_appointment';
+    var OPEN_FASTAPPOINTMENT_STEP_ID = 'open_fastappointment';
+
+    var FAST_APPOINTMENT_TUTORIAL_CONTEXT = {
+        tutorialId: DEFAULT_TUTORIAL_ID,
+        stepId: CREATE_TEST_APPOINTMENT_STEP_ID,
+        source: 'tutorial'
+    };
 
     var actionsRegistered = false;
+    var lifecycleListenersRegistered = false;
     var initPromise = null;
     var activeTutorialId = null;
 
@@ -111,6 +119,63 @@
         return null;
     }
 
+    function activateFastAppointmentTutorialContext() {
+        if (!window.TutorialFastAppointmentContext
+            || typeof window.TutorialFastAppointmentContext.activate !== 'function') {
+            warn('TutorialFastAppointmentContext no disponible.');
+            return false;
+        }
+
+        return window.TutorialFastAppointmentContext.activate(FAST_APPOINTMENT_TUTORIAL_CONTEXT);
+    }
+
+    function clearFastAppointmentTutorialContext() {
+        if (window.TutorialFastAppointmentContext
+            && typeof window.TutorialFastAppointmentContext.clear === 'function') {
+            window.TutorialFastAppointmentContext.clear();
+        }
+    }
+
+    function isTutorialOnOpenFastAppointmentStep() {
+        if (!window.AATutorial || typeof window.AATutorial.getState !== 'function') {
+            return false;
+        }
+
+        var state = window.AATutorial.getState();
+        return !!(state
+            && state.status === 'active'
+            && state.currentStepId === OPEN_FASTAPPOINTMENT_STEP_ID);
+    }
+
+    function onTutorialStepShown(event) {
+        var detail = event && event.detail;
+        var stepId = detail ? normalizeString(detail.stepId) : '';
+
+        if (stepId === OPEN_FASTAPPOINTMENT_STEP_ID) {
+            activateFastAppointmentTutorialContext();
+        }
+    }
+
+    function onFastAppointmentModalClosed() {
+        if (isTutorialOnOpenFastAppointmentStep()) {
+            activateFastAppointmentTutorialContext();
+        }
+    }
+
+    function registerLifecycleListeners() {
+        if (lifecycleListenersRegistered) {
+            return;
+        }
+
+        if (typeof document === 'undefined' || !document || typeof document.addEventListener !== 'function') {
+            return;
+        }
+
+        document.addEventListener('aa:tutorial:step-shown', onTutorialStepShown);
+        document.addEventListener('aa:fastappointment:modal-closed', onFastAppointmentModalClosed);
+        lifecycleListenersRegistered = true;
+    }
+
     /**
      * Microciclo A: resume automático solo para paused/calendar_overview.
      *
@@ -180,6 +245,7 @@
 
     function registerActions() {
         if (actionsRegistered) {
+            registerLifecycleListeners();
             return;
         }
 
@@ -212,6 +278,7 @@
         safeRegister(names.persistCreateTestAppointment, makePersistCreateTestAppointmentAction(tutorialId));
 
         actionsRegistered = true;
+        registerLifecycleListeners();
     }
 
     function destroyRuntime() {
@@ -219,6 +286,7 @@
             window.AATutorial.destroy();
         }
 
+        clearFastAppointmentTutorialContext();
         activeTutorialId = null;
     }
 
@@ -256,9 +324,16 @@
                         return ensureCalendarOverviewResume(id, record)
                             .then(function (activeRecord) {
                                 var status = resolveStatus(activeRecord);
+                                var durableStep = resolveDurableStepId(activeRecord);
                                 var initialStepId = resolveInitialStepId(definition, activeRecord);
 
                                 if (status === 'completed') {
+                                    return false;
+                                }
+
+                                if (status === 'in_progress'
+                                    && durableStep === CREATE_TEST_APPOINTMENT_STEP_ID) {
+                                    activateFastAppointmentTutorialContext();
                                     return false;
                                 }
 

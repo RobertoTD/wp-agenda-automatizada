@@ -18,6 +18,7 @@
      * @param {string} opts.selectId - ID of the client select element
      * @param {string} opts.inlineContainerId - ID of the inline container for client creation
      * @param {string} opts.createButtonId - ID of the "Create client" button
+     * @param {(meta: {clients: Array, total: number, query: string}) => void} [opts.onClientsLoaded]
      * @returns {Object} Controller instance with destroy() method
      */
     function createController(opts) {
@@ -25,8 +26,9 @@
             searchInputId = 'aa-cliente-search',
             selectId = 'cita-cliente',
             inlineContainerId = 'aa-reservation-client-inline',
-            createButtonId = 'aa-btn-crear-cliente-reservation'
-        } = opts;
+            createButtonId = 'aa-btn-crear-cliente-reservation',
+            onClientsLoaded = null
+        } = opts || {};
 
         // Get DOM elements
         const searchInput = document.getElementById(searchInputId);
@@ -42,6 +44,18 @@
         // Internal state
         let previousSelectedValue = null;
         let searchTimeoutId = null;
+
+        function emitClientsLoaded(clients, total, query) {
+            if (typeof onClientsLoaded !== 'function') {
+                return;
+            }
+
+            onClientsLoaded({
+                clients: Array.isArray(clients) ? clients : [],
+                total: typeof total === 'number' ? total : 0,
+                query: typeof query === 'string' ? query : (query || '')
+            });
+        }
 
         /**
          * Repopulate select with client results
@@ -153,12 +167,13 @@
          */
         function searchClients(query, preserveSelection, selectClientId, selectClientPhone) {
             const ajaxurl = window.ajaxurl || '/wp-admin/admin-ajax.php';
+            const normalizedQuery = query || '';
             
             // Prepare form data
             const formData = new FormData();
             formData.append('action', 'aa_search_clientes');
             formData.append('_wpnonce', (typeof wpaa_vars !== 'undefined' && wpaa_vars.nonce_search_clientes) ? wpaa_vars.nonce_search_clientes : '');
-            formData.append('query', query || '');
+            formData.append('query', normalizedQuery);
             formData.append('limit', '15');
             formData.append('offset', '0');
 
@@ -177,16 +192,24 @@
                 clienteSelect.disabled = false;
 
                 if (result.success && result.data && result.data.clients) {
-                    repopulateSelect(result.data.clients, preserveSelection, selectClientId, selectClientPhone);
+                    const loadedClients = result.data.clients;
+                    const loadedTotal = typeof result.data.total === 'number'
+                        ? result.data.total
+                        : loadedClients.length;
+
+                    repopulateSelect(loadedClients, preserveSelection, selectClientId, selectClientPhone);
+                    emitClientsLoaded(loadedClients, loadedTotal, normalizedQuery);
                 } else {
                     console.warn('[ReservationClientController] Error en búsqueda de clientes:', result);
                     repopulateSelect([], preserveSelection, selectClientId, selectClientPhone);
+                    emitClientsLoaded([], 0, normalizedQuery);
                 }
             })
             .catch(function(error) {
                 console.error('[ReservationClientController] Error al buscar clientes:', error);
                 clienteSelect.disabled = false;
                 repopulateSelect([], preserveSelection, selectClientId, selectClientPhone);
+                emitClientsLoaded([], 0, normalizedQuery);
             });
         }
 

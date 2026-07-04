@@ -10,7 +10,8 @@
 (function() {
     'use strict';
 
-    function createController() {
+    function createController(opts) {
+        const initOpts = opts || {};
         const state = {
             selectedClientId: null,
             selectedClient: null,
@@ -31,6 +32,7 @@
             flowController = window.AdminFastappointmentFlowController.init({
                 getState: getState,
                 setState: setState,
+                tutorialContext: initOpts.tutorialContext || null,
                 selectors: {
                     stepClientSelector: '#aa-fastappointment-step-client',
                     searchInputId: 'aa-fastappointment-client-search',

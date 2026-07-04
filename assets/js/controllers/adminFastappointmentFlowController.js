@@ -75,6 +75,54 @@
         return true;
     }
 
+    /**
+     * @param {object|null|undefined} ctx
+     * @returns {boolean}
+     */
+    function isCreateTestAppointmentTutorialContext(ctx) {
+        if (!ctx || typeof ctx !== 'object') {
+            return false;
+        }
+
+        return ctx.tutorialId === 'create_test_appointment_v1'
+            && ctx.stepId === 'create_test_appointment'
+            && ctx.source === 'tutorial';
+    }
+
+    /**
+     * @param {object|null|undefined} tutorialContext
+     * @param {{clients?: Array, total?: number, query?: string}|null|undefined} searchMeta
+     * @returns {string|null}
+     */
+    function resolveTutorialClientAutoSelectId(tutorialContext, searchMeta) {
+        if (!isCreateTestAppointmentTutorialContext(tutorialContext)) {
+            return null;
+        }
+
+        if (!searchMeta || typeof searchMeta !== 'object') {
+            return null;
+        }
+
+        var query = typeof searchMeta.query === 'string' ? searchMeta.query : '';
+        if (query !== '') {
+            return null;
+        }
+
+        var total = searchMeta.total;
+        var clients = searchMeta.clients;
+
+        if (total !== 1 || !Array.isArray(clients) || clients.length !== 1) {
+            return null;
+        }
+
+        var client = clients[0];
+        if (!client || client.id === null || typeof client.id === 'undefined') {
+            return null;
+        }
+
+        return String(client.id);
+    }
+
     function createController(opts) {
         const config = opts || {};
         const getState = typeof config.getState === 'function'
@@ -84,6 +132,13 @@
             ? config.setState
             : null;
         const selectors = config.selectors || {};
+        const tutorialContextSnapshot = isCreateTestAppointmentTutorialContext(config.tutorialContext)
+            ? {
+                tutorialId: config.tutorialContext.tutorialId,
+                stepId: config.tutorialContext.stepId,
+                source: config.tutorialContext.source
+            }
+            : null;
 
         const stepClientSelector = selectors.stepClientSelector || '#aa-fastappointment-step-client';
         const searchInputId = selectors.searchInputId || 'aa-fastappointment-client-search';
@@ -144,6 +199,8 @@
         let timeAvailabilityRequestId = 0;
         let staffAvailabilityRequestId = 0;
         let areaAvailabilityRequestId = 0;
+        let lastClientSearchMeta = null;
+        let tutorialClientAutoSelectDone = false;
 
         function updateState(patch) {
             const currentState = getState() || {};
@@ -596,6 +653,30 @@
             clientSelect.addEventListener('change', handleClientChange);
         }
 
+        function maybeAutoSelectTutorialClient() {
+            if (tutorialClientAutoSelectDone || clientSelectedByUser) {
+                return;
+            }
+
+            var searchInput = document.getElementById(searchInputId);
+            if (searchInput && searchInput.value.trim() !== '') {
+                return;
+            }
+
+            var clientId = resolveTutorialClientAutoSelectId(
+                tutorialContextSnapshot,
+                lastClientSearchMeta
+            );
+
+            if (!clientId) {
+                return;
+            }
+
+            if (tryAutoSelectSelectValue(clientSelect, clientId)) {
+                tutorialClientAutoSelectDone = true;
+            }
+        }
+
         function observeClientSelectUpdates() {
             clientSelectObserver = new MutationObserver(function() {
                 var firstOption = clientSelect.options[0];
@@ -611,6 +692,7 @@
                     clientSelectObserver.observe(clientSelect, { childList: true });
                 }
                 syncSelectedClient();
+                maybeAutoSelectTutorialClient();
             });
 
             clientSelectObserver.observe(clientSelect, {
@@ -628,7 +710,10 @@
                 searchInputId: searchInputId,
                 selectId: clientSelectId,
                 inlineContainerId: inlineContainerId,
-                createButtonId: createButtonId
+                createButtonId: createButtonId,
+                onClientsLoaded: function(meta) {
+                    lastClientSearchMeta = meta;
+                }
             });
         }
 
@@ -1808,7 +1893,9 @@
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = {
             getSingleEligibleItem: getSingleEligibleItem,
-            tryAutoSelectSelectValue: tryAutoSelectSelectValue
+            tryAutoSelectSelectValue: tryAutoSelectSelectValue,
+            isCreateTestAppointmentTutorialContext: isCreateTestAppointmentTutorialContext,
+            resolveTutorialClientAutoSelectId: resolveTutorialClientAutoSelectId
         };
     }
 })();

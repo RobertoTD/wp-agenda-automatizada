@@ -23,6 +23,8 @@
         controller: null,
         initTimeoutId: null,
         modalObserver: null,
+        modalWasOpen: false,
+        _tutorialContext: null,
 
         getTemplateHtml: function(templateId) {
             const template = document.getElementById(templateId);
@@ -36,6 +38,15 @@
             const container = document.createElement('div');
             container.appendChild(clone);
             return container.innerHTML;
+        },
+
+        clearTutorialContextSnapshot: function() {
+            this._tutorialContext = null;
+
+            if (window.TutorialFastAppointmentContext
+                && typeof window.TutorialFastAppointmentContext.clear === 'function') {
+                window.TutorialFastAppointmentContext.clear();
+            }
         },
 
         destroyController: function() {
@@ -71,7 +82,15 @@
                 const form = document.getElementById('aa-fastappointment-form');
                 const modalClosed = modalRoot.classList.contains('hidden');
 
-                if (!form || modalClosed) {
+                if (modalClosed && this.modalWasOpen) {
+                    this.modalWasOpen = false;
+                    this.clearTutorialContextSnapshot();
+                    this.destroyController();
+                    document.dispatchEvent(new CustomEvent('aa:fastappointment:modal-closed'));
+                    return;
+                }
+
+                if (!form) {
                     this.destroyController();
                 }
             });
@@ -101,7 +120,9 @@
                     return;
                 }
 
-                this.controller = window.AdminFastappointmentController.init();
+                this.controller = window.AdminFastappointmentController.init({
+                    tutorialContext: this._tutorialContext
+                });
                 this.observeModalLifecycle();
             }, 0);
         },
@@ -112,10 +133,20 @@
                 return;
             }
 
+            let tutorialContext = null;
+
+            if (window.TutorialFastAppointmentContext
+                && window.TutorialFastAppointmentContext.isActive()) {
+                tutorialContext = window.TutorialFastAppointmentContext.get();
+            }
+
+            this._tutorialContext = tutorialContext;
+
             const body = this.getTemplateHtml(this.config.templateId);
             const footer = this.getTemplateHtml(this.config.footerTemplateId);
 
             if (!body) {
+                this._tutorialContext = null;
                 return;
             }
 
@@ -125,6 +156,7 @@
                 footer: footer
             });
 
+            this.modalWasOpen = true;
             this.initController();
         },
 
