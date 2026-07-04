@@ -1,17 +1,17 @@
 <?php
 /**
- * Onboarding Tutor State Repository — persistencia site-scoped vía Options API.
+ * Tutorial State Repository — persistencia site-scoped vía Options API.
  *
  * En single-site usa wp_options; en Multisite usa la tabla de opciones del sitio actual.
  */
 
 defined('ABSPATH') or die('No direct access');
 
-require_once dirname(__DIR__) . '/domain/onboarding/class-aa-onboarding-tutor-state-policy.php';
+require_once dirname(__DIR__) . '/domain/tutorials/class-aa-tutorial-state-policy.php';
 
-final class OnboardingTutorStateRepository {
+final class TutorialStateRepository {
 
-    public const OPTION_KEY = 'aa_onboarding_tutor_state_v1';
+    public const OPTION_KEY = 'aa_tutorial_state_v1';
 
     /** @var callable|null Override for acceptance tests only. */
     private static $storage_override = null;
@@ -32,17 +32,17 @@ final class OnboardingTutorStateRepository {
         $raw = self::read_raw();
 
         if ($raw === false) {
-            return AA_Onboarding_Tutor_State_Policy::empty_state();
+            return AA_Tutorial_State_Policy::empty_state();
         }
 
-        return AA_Onboarding_Tutor_State_Policy::sanitize($raw);
+        return AA_Tutorial_State_Policy::sanitize($raw);
     }
 
     /**
      * @param array<string,mixed> $state
      */
     public static function save(array $state): bool {
-        $sanitized = AA_Onboarding_Tutor_State_Policy::sanitize($state);
+        $sanitized = AA_Tutorial_State_Policy::sanitize($state);
 
         return self::write_raw($sanitized);
     }
@@ -92,9 +92,9 @@ final class OnboardingTutorStateRepository {
             return false;
         }
 
-        $sanitized = AA_Onboarding_Tutor_State_Policy::sanitize($stored);
+        $sanitized = AA_Tutorial_State_Policy::sanitize($stored);
 
-        return $sanitized === AA_Onboarding_Tutor_State_Policy::sanitize($state);
+        return $sanitized === AA_Tutorial_State_Policy::sanitize($state);
     }
 
     /**
