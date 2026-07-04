@@ -85,6 +85,21 @@ ac_assert(
     $populatedJson !== false && strpos($populatedJson, '"create_test_appointment_v1"') !== false,
     $populatedJson === false ? 'json_encode failed' : $populatedJson
 );
+ac_assert('Layout loads tutorialDefinitions.js', strpos($layout_src, 'tutorialDefinitions.js') !== false);
+ac_assert('Layout loads tutorialCoordinator.js', strpos($layout_src, 'tutorialCoordinator.js') !== false);
+ac_assert(
+    'tutorialDefinitions loads after tutorialStateService',
+    strpos($layout_src, 'tutorialStateService.js') < strpos($layout_src, 'tutorialDefinitions.js')
+);
+ac_assert(
+    'tutorialCoordinator loads after tutorialDefinitions',
+    strpos($layout_src, 'tutorialDefinitions.js') < strpos($layout_src, 'tutorialCoordinator.js')
+);
+ac_assert('Layout still loads onboardingWelcome.js', strpos($layout_src, 'onboardingWelcome.js') !== false);
+ac_assert(
+    'Layout still loads onboardingActivationCoordinator.js',
+    strpos($layout_src, 'onboardingActivationCoordinator.js') !== false
+);
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 

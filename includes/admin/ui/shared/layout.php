@@ -283,6 +283,10 @@ header('Content-Type: text/html; charset=utf-8');
 <!-- Tutorial durable state client (MC3C; consumo futuro vía TutorialCoordinator) -->
 <script src="<?php echo aa_asset_url('includes/admin/ui/tutorials/tutorialStateService.js'); ?>" defer></script>
 
+<!-- Tutorial definitions + coordinator (MC3D; manual init, no auto-start) -->
+<script src="<?php echo aa_asset_url('includes/admin/ui/tutorials/tutorialDefinitions.js'); ?>" defer></script>
+<script src="<?php echo aa_asset_url('includes/admin/ui/tutorials/tutorialCoordinator.js'); ?>" defer></script>
+
 <!-- Onboarding activation guide auto-open coordinator (MC5C1; requiere OnboardingStatusService + OnboardingActivationGuide) -->
 <script src="<?php echo aa_asset_url('includes/admin/ui/modals/onboarding/onboardingActivationCoordinator.js'); ?>" defer></script>
 
