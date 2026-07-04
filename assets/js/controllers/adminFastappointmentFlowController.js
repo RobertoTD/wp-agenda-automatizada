@@ -123,6 +123,134 @@
         return String(client.id);
     }
 
+    function pad2(value) {
+        return String(value).padStart(2, '0');
+    }
+
+    function todayYmdLocal() {
+        var date = new Date();
+
+        return date.getFullYear() + '-' + pad2(date.getMonth() + 1) + '-' + pad2(date.getDate());
+    }
+
+    /**
+     * @param {string} ymd
+     * @param {number} offset
+     * @returns {string}
+     */
+    function addDaysYmd(ymd, offset) {
+        var parts = String(ymd || '').split('-');
+        var date = new Date(
+            parseInt(parts[0], 10),
+            parseInt(parts[1], 10) - 1,
+            parseInt(parts[2], 10)
+        );
+
+        date.setDate(date.getDate() + offset);
+
+        return date.getFullYear() + '-' + pad2(date.getMonth() + 1) + '-' + pad2(date.getDate());
+    }
+
+    /**
+     * @param {*} value
+     * @returns {number}
+     */
+    function normalizeFutureWindowDays(value) {
+        var parsed = parseInt(value, 10);
+
+        if (!Number.isFinite(parsed) || parsed <= 0) {
+            return 15;
+        }
+
+        return Math.floor(parsed);
+    }
+
+    /**
+     * @param {object} params
+     * @returns {boolean}
+     */
+    function canStartTutorialDatePrefill(params) {
+        var input = params || {};
+
+        if (!isCreateTestAppointmentTutorialContext(input.tutorialContext)) {
+            return false;
+        }
+
+        if (input.tutorialDatePrefillDone || input.tutorialDatePrefillInFlight) {
+            return false;
+        }
+
+        var state = input.state || {};
+
+        if (!state.isClientStepReady || !state.selectedServiceId || !state.canStartFastAppointment) {
+            return false;
+        }
+
+        if (state.selectedDate) {
+            return false;
+        }
+
+        if (!input.hasDatePicker && !input.hasDateInput) {
+            return false;
+        }
+
+        if (input.dateInputValue) {
+            return false;
+        }
+
+        if (!input.hasAvailabilityService) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * @param {object} options
+     * @returns {Promise<string|null>}
+     */
+    async function findFirstDateWithDaySlots(options) {
+        var opts = options || {};
+        var startYmd = opts.startYmd;
+        var maxDays = normalizeFutureWindowDays(opts.maxDays);
+        var getAvailabilityByDate = opts.getAvailabilityByDate;
+        var usableStaff = Array.isArray(opts.usableStaff) ? opts.usableStaff : [];
+        var shouldAbort = typeof opts.shouldAbort === 'function'
+            ? opts.shouldAbort
+            : function() { return false; };
+
+        if (!startYmd || typeof getAvailabilityByDate !== 'function' || maxDays <= 0) {
+            return null;
+        }
+
+        for (var offset = 0; offset < maxDays; offset++) {
+            if (shouldAbort()) {
+                return null;
+            }
+
+            var dateStr = addDaysYmd(startYmd, offset);
+            var result;
+
+            try {
+                result = await getAvailabilityByDate(dateStr, { usableStaff: usableStaff });
+            } catch (error) {
+                continue;
+            }
+
+            if (shouldAbort()) {
+                return null;
+            }
+
+            var slots = result && Array.isArray(result.slots) ? result.slots : [];
+
+            if (slots.length >= 1) {
+                return dateStr;
+            }
+        }
+
+        return null;
+    }
+
     function createController(opts) {
         const config = opts || {};
         const getState = typeof config.getState === 'function'
@@ -201,6 +329,8 @@
         let areaAvailabilityRequestId = 0;
         let lastClientSearchMeta = null;
         let tutorialClientAutoSelectDone = false;
+        let tutorialDatePrefillDone = false;
+        let tutorialDatePrefillInFlight = false;
 
         function updateState(patch) {
             const currentState = getState() || {};
@@ -611,9 +741,117 @@
                     console.log('[FastAppointmentFlow] Prerrequisitos listos, re-trigger disponibilidad para:', currentDate);
                     loadTimeAvailabilityForDate(currentDate);
                 }
+
+                scheduleTutorialDatePrefillOnce();
             }
 
             return result;
+        }
+
+        function hasManualDateSelection() {
+            var state = getState() || {};
+
+            if (state.selectedDate) {
+                return true;
+            }
+
+            var dateInput = document.getElementById(dateInputId);
+
+            return !!(dateInput && dateInput.value);
+        }
+
+        function applyCanonicalDateSelection(dateStr) {
+            if (!dateStr || hasManualDateSelection()) {
+                return false;
+            }
+
+            if (datePicker && typeof datePicker.setDate === 'function') {
+                datePicker.setDate(dateStr, true);
+                return true;
+            }
+
+            var dateInput = document.getElementById(dateInputId);
+
+            if (!dateInput) {
+                return false;
+            }
+
+            dateInput.value = dateStr;
+            dateInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+            return true;
+        }
+
+        async function runTutorialDatePrefill() {
+            try {
+                if (isDestroyed || hasManualDateSelection()) {
+                    return;
+                }
+
+                var state = getState() || {};
+                var prerequisites = state.fastAppointmentPrerequisites || {};
+                var usableStaff = Array.isArray(prerequisites.usableStaff)
+                    ? prerequisites.usableStaff
+                    : [];
+                var maxDays = normalizeFutureWindowDays(
+                    typeof window !== 'undefined' ? window.aa_future_window : 15
+                );
+                var dateStr = await findFirstDateWithDaySlots({
+                    startYmd: todayYmdLocal(),
+                    maxDays: maxDays,
+                    usableStaff: usableStaff,
+                    getAvailabilityByDate: function(currentDate, context) {
+                        return window.FastAppointmentTimeAvailabilityService.getAvailabilityByDate(
+                            currentDate,
+                            context
+                        );
+                    },
+                    shouldAbort: function() {
+                        return isDestroyed || hasManualDateSelection();
+                    }
+                });
+
+                if (!dateStr || isDestroyed || hasManualDateSelection()) {
+                    return;
+                }
+
+                applyCanonicalDateSelection(dateStr);
+            } catch (error) {
+                console.warn('[AdminFastappointmentFlowController] Tutorial date prefill omitido:', error);
+            }
+        }
+
+        function scheduleTutorialDatePrefillOnce() {
+            if (tutorialDatePrefillDone || tutorialDatePrefillInFlight) {
+                return;
+            }
+
+            var dateInput = document.getElementById(dateInputId);
+            var canStart = canStartTutorialDatePrefill({
+                tutorialContext: tutorialContextSnapshot,
+                tutorialDatePrefillDone: tutorialDatePrefillDone,
+                tutorialDatePrefillInFlight: tutorialDatePrefillInFlight,
+                state: getState() || {},
+                hasDatePicker: !!datePicker,
+                hasDateInput: !!dateInput,
+                dateInputValue: dateInput ? dateInput.value : '',
+                hasAvailabilityService: !!(
+                    window.FastAppointmentTimeAvailabilityService
+                    && typeof window.FastAppointmentTimeAvailabilityService.getAvailabilityByDate === 'function'
+                )
+            });
+
+            if (!canStart) {
+                return;
+            }
+
+            tutorialDatePrefillInFlight = true;
+
+            runTutorialDatePrefill()
+                .finally(function() {
+                    tutorialDatePrefillInFlight = false;
+                    tutorialDatePrefillDone = true;
+                });
         }
 
         function getSelectedClientData() {
@@ -674,6 +912,7 @@
 
             if (tryAutoSelectSelectValue(clientSelect, clientId)) {
                 tutorialClientAutoSelectDone = true;
+                scheduleTutorialDatePrefillOnce();
             }
         }
 
@@ -1895,7 +2134,11 @@
             getSingleEligibleItem: getSingleEligibleItem,
             tryAutoSelectSelectValue: tryAutoSelectSelectValue,
             isCreateTestAppointmentTutorialContext: isCreateTestAppointmentTutorialContext,
-            resolveTutorialClientAutoSelectId: resolveTutorialClientAutoSelectId
+            resolveTutorialClientAutoSelectId: resolveTutorialClientAutoSelectId,
+            addDaysYmd: addDaysYmd,
+            normalizeFutureWindowDays: normalizeFutureWindowDays,
+            canStartTutorialDatePrefill: canStartTutorialDatePrefill,
+            findFirstDateWithDaySlots: findFirstDateWithDaySlots
         };
     }
 })();
