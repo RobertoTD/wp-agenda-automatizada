@@ -1,5 +1,5 @@
 /**
- * Tutorial Definitions — declarative step configs for AATutorial (MC3D).
+ * Tutorial Definitions — declarative step configs for AATutorial (MC3D+).
  *
  * No orchestration, no AJAX, no auto-start. Consumed by TutorialCoordinator.
  */
@@ -16,20 +16,22 @@
                 'intro',
                 'open_sidebar',
                 'open_calendar',
-                'calendar_overview'
+                'calendar_overview',
+                'open_fastappointment'
             ],
             durableStepIds: [
                 'open_sidebar',
                 'open_calendar',
-                'calendar_overview'
+                'calendar_overview',
+                'create_test_appointment'
             ],
             initialStepId: 'intro',
-            terminalImplementedStepId: 'calendar_overview',
+            terminalImplementedStepId: 'open_fastappointment',
             actions: {
                 accept: 'aa_tutorial_accept_create_test_appointment',
                 persistOpenCalendar: 'aa_tutorial_persist_open_calendar',
                 persistCalendarOverview: 'aa_tutorial_persist_calendar_overview',
-                pauseAtMc3dBoundary: 'aa_tutorial_pause_mc3d_boundary'
+                persistCreateTestAppointment: 'aa_tutorial_persist_create_test_appointment'
             },
             steps: [
                 {
@@ -78,12 +80,29 @@
                 {
                     id: 'calendar_overview',
                     title: 'Esta es tu Agenda',
-                    text: 'Aquí verás tus citas y, en el siguiente ciclo, crearemos una cita de prueba.',
+                    text: 'Aquí verás tus citas. A continuación crearemos una cita de prueba.',
                     placement: 'center',
-                    beforeAdvanceAction: 'aa_tutorial_pause_mc3d_boundary',
                     advance: {
                         mode: 'button',
-                        label: 'Continuar después'
+                        label: 'Continuar'
+                    },
+                    nextStepId: 'open_fastappointment'
+                },
+                {
+                    id: 'open_fastappointment',
+                    title: 'Crea tu cita de prueba',
+                    text: 'Pulsa “+ Crear cita” para abrir el formulario rápido.',
+                    target: '#aa-btn-open-fastappointment-modal',
+                    placement: 'left',
+                    waitFor: {
+                        selector: '#aa-btn-open-fastappointment-modal',
+                        timeoutMs: 3000,
+                        intervalMs: 100
+                    },
+                    beforeAdvanceAction: 'aa_tutorial_persist_create_test_appointment',
+                    advance: {
+                        mode: 'target_click',
+                        navigation: 'none'
                     }
                 }
             ]
@@ -101,9 +120,12 @@
                 title: step.title,
                 text: step.text,
                 placement: step.placement,
-                beforeAdvanceAction: step.beforeAdvanceAction,
                 advance: Object.assign({}, step.advance)
             };
+
+            if (step.beforeAdvanceAction) {
+                clone.beforeAdvanceAction = step.beforeAdvanceAction;
+            }
 
             if (step.target) {
                 clone.target = step.target;

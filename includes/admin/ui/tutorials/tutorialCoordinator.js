@@ -1,5 +1,5 @@
 /**
- * Tutorial Coordinator — orchestrates durable tutorial state + AATutorial (MC3D).
+ * Tutorial Coordinator — orchestrates durable tutorial state + AATutorial (MC3D+).
  *
  * Backend FSM is authoritative. No auto-start; manual init via TutorialCoordinator.init().
  */
@@ -7,6 +7,8 @@
     'use strict';
 
     var DEFAULT_TUTORIAL_ID = 'create_test_appointment_v1';
+    var CALENDAR_OVERVIEW_STEP_ID = 'calendar_overview';
+    var CREATE_TEST_APPOINTMENT_STEP_ID = 'create_test_appointment';
 
     var actionsRegistered = false;
     var initPromise = null;
@@ -93,16 +95,46 @@
         if (status === 'in_progress' || status === 'paused') {
             var durableStep = resolveDurableStepId(record);
 
+            if (durableStep === CREATE_TEST_APPOINTMENT_STEP_ID) {
+                return null;
+            }
+
             if (durableStep && definition.implementedStepIds.indexOf(durableStep) !== -1) {
                 return durableStep;
             }
 
-            warn('Paso durable no implementado en MC3D: ' + (durableStep || '(vacío)'));
+            warn('Paso durable no implementado: ' + (durableStep || '(vacío)'));
             return null;
         }
 
         warn('Estado durable desconocido: ' + status);
         return null;
+    }
+
+    /**
+     * Microciclo A: resume automático solo para paused/calendar_overview.
+     *
+     * @param {string} tutorialId
+     * @param {object|null} record
+     * @returns {Promise<object|null>}
+     */
+    function ensureCalendarOverviewResume(tutorialId, record) {
+        if (!record) {
+            return Promise.resolve(record);
+        }
+
+        if (resolveStatus(record) !== 'paused') {
+            return Promise.resolve(record);
+        }
+
+        if (resolveDurableStepId(record) !== CALENDAR_OVERVIEW_STEP_ID) {
+            return Promise.resolve(record);
+        }
+
+        return transitionPersist(tutorialId, 'in_progress', CALENDAR_OVERVIEW_STEP_ID)
+            .then(function (nextState) {
+                return getTutorialRecord(nextState, tutorialId) || record;
+            });
     }
 
     function clearTransientSession(flowId) {
@@ -133,12 +165,12 @@
         };
     }
 
-    function makePauseBoundaryAction(tutorialId) {
+    function makePersistCreateTestAppointmentAction(tutorialId) {
         return function (ctx) {
-            return transitionPersist(tutorialId, 'paused', 'calendar_overview')
+            return transitionPersist(tutorialId, 'in_progress', CREATE_TEST_APPOINTMENT_STEP_ID)
                 .then(function () {
-                    if (ctx && ctx.tutorial && typeof ctx.tutorial.pause === 'function') {
-                        ctx.tutorial.pause('mc3d_boundary', { status: 'paused' });
+                    if (ctx && ctx.tutorial && typeof ctx.tutorial.destroy === 'function') {
+                        ctx.tutorial.destroy();
                     }
 
                     return false;
@@ -177,7 +209,7 @@
         safeRegister(names.accept, makeAcceptAction(tutorialId));
         safeRegister(names.persistOpenCalendar, makePersistStepAction(tutorialId, 'open_calendar'));
         safeRegister(names.persistCalendarOverview, makePersistStepAction(tutorialId, 'calendar_overview'));
-        safeRegister(names.pauseAtMc3dBoundary, makePauseBoundaryAction(tutorialId));
+        safeRegister(names.persistCreateTestAppointment, makePersistCreateTestAppointmentAction(tutorialId));
 
         actionsRegistered = true;
     }
@@ -220,35 +252,39 @@
                 return window.TutorialStateService.fetchState()
                     .then(function (state) {
                         var record = getTutorialRecord(state, id);
-                        var status = resolveStatus(record);
-                        var initialStepId = resolveInitialStepId(definition, record);
 
-                        if (status === 'completed') {
-                            return false;
-                        }
+                        return ensureCalendarOverviewResume(id, record)
+                            .then(function (activeRecord) {
+                                var status = resolveStatus(activeRecord);
+                                var initialStepId = resolveInitialStepId(definition, activeRecord);
 
-                        if (!initialStepId) {
-                            return false;
-                        }
+                                if (status === 'completed') {
+                                    return false;
+                                }
 
-                        destroyRuntime();
-                        clearTransientSession(definition.flowId);
+                                if (!initialStepId) {
+                                    return false;
+                                }
 
-                        var config = window.TutorialDefinitions.getConfig(id, {
-                            initialStepId: initialStepId
-                        });
+                                destroyRuntime();
+                                clearTransientSession(definition.flowId);
 
-                        if (!config) {
-                            return false;
-                        }
+                                var config = window.TutorialDefinitions.getConfig(id, {
+                                    initialStepId: initialStepId
+                                });
 
-                        var started = window.AATutorial.start(config);
+                                if (!config) {
+                                    return false;
+                                }
 
-                        if (started) {
-                            activeTutorialId = id;
-                        }
+                                var started = window.AATutorial.start(config);
 
-                        return !!started;
+                                if (started) {
+                                    activeTutorialId = id;
+                                }
+
+                                return !!started;
+                            });
                     })
                     .catch(function (err) {
                         errorLog('No se pudo iniciar tutorial.', err);

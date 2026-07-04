@@ -223,7 +223,36 @@ describe('TutorialCoordinator MC3D', () => {
         assert.equal(env.metrics.startCalls[0].initialStepId, 'calendar_overview');
     });
 
-    it('reanuda paused en current_step_id', async () => {
+    it('paused/calendar_overview hace resume antes de iniciar', async () => {
+        var env = loadCoordinator({
+            state: {
+                version: 1,
+                tutorials: {
+                    create_test_appointment_v1: {
+                        status: 'paused',
+                        current_step_id: 'calendar_overview'
+                    }
+                }
+            },
+            stateAfterTransition: {
+                version: 1,
+                tutorials: {
+                    create_test_appointment_v1: {
+                        status: 'in_progress',
+                        current_step_id: 'calendar_overview'
+                    }
+                }
+            }
+        });
+
+        await env.TutorialCoordinator.init();
+        assert.equal(env.metrics.transitionCalls.length, 1);
+        assert.equal(env.metrics.transitionCalls[0].status, 'in_progress');
+        assert.equal(env.metrics.transitionCalls[0].currentStepId, 'calendar_overview');
+        assert.equal(env.metrics.startCalls[0].initialStepId, 'calendar_overview');
+    });
+
+    it('paused distinto de calendar_overview no auto-resume', async () => {
         var env = loadCoordinator({
             state: {
                 version: 1,
@@ -237,7 +266,26 @@ describe('TutorialCoordinator MC3D', () => {
         });
 
         await env.TutorialCoordinator.init();
+        assert.equal(env.metrics.transitionCalls.length, 0);
         assert.equal(env.metrics.startCalls[0].initialStepId, 'open_sidebar');
+    });
+
+    it('in_progress/calendar_overview no llama resume', async () => {
+        var env = loadCoordinator({
+            state: {
+                version: 1,
+                tutorials: {
+                    create_test_appointment_v1: {
+                        status: 'in_progress',
+                        current_step_id: 'calendar_overview'
+                    }
+                }
+            }
+        });
+
+        await env.TutorialCoordinator.init();
+        assert.equal(env.metrics.transitionCalls.length, 0);
+        assert.equal(env.metrics.startCalls[0].initialStepId, 'calendar_overview');
     });
 
     it('completed no inicia', async () => {
@@ -302,18 +350,57 @@ describe('TutorialCoordinator MC3D', () => {
         assert.equal(env.metrics.startCalls[0].initialStepId, 'calendar_overview');
     });
 
-    it('calendar_overview pausa durablemente y bloquea completion', async () => {
+    it('persist create_test_appointment destruye motor y bloquea completion', async () => {
         var env = loadCoordinator();
         env.TutorialCoordinator.registerActions();
 
-        var result = await env.actionHandlers.aa_tutorial_pause_mc3d_boundary({
+        var result = await env.actionHandlers.aa_tutorial_persist_create_test_appointment({
             tutorial: env.AATutorial
         });
 
         assert.equal(result, false);
-        assert.equal(env.metrics.pauseCalls, 1);
-        assert.equal(env.metrics.transitionCalls[0].status, 'paused');
-        assert.equal(env.metrics.transitionCalls[0].currentStepId, 'calendar_overview');
+        assert.equal(env.metrics.destroyCalls, 1);
+        assert.equal(env.metrics.pauseCalls, 0);
+        assert.equal(env.metrics.transitionCalls[0].status, 'in_progress');
+        assert.equal(env.metrics.transitionCalls[0].currentStepId, 'create_test_appointment');
+    });
+
+    it('fallo al persistir create_test_appointment no destruye motor', async () => {
+        var env = loadCoordinator({
+            transitionImpl: function () {
+                return Promise.reject(new Error('network'));
+            }
+        });
+        env.TutorialCoordinator.registerActions();
+
+        await assert.rejects(
+            function () {
+                return env.actionHandlers.aa_tutorial_persist_create_test_appointment({
+                    tutorial: env.AATutorial
+                });
+            },
+            /network/
+        );
+
+        assert.equal(env.metrics.destroyCalls, 0);
+    });
+
+    it('in_progress/create_test_appointment no inicia hasta microciclo B', async () => {
+        var env = loadCoordinator({
+            state: {
+                version: 1,
+                tutorials: {
+                    create_test_appointment_v1: {
+                        status: 'in_progress',
+                        current_step_id: 'create_test_appointment'
+                    }
+                }
+            }
+        });
+
+        var started = await env.TutorialCoordinator.init();
+        assert.equal(started, false);
+        assert.equal(env.metrics.startCalls.length, 0);
     });
 
     it('registerActions es idempotente', () => {
@@ -385,14 +472,14 @@ describe('TutorialCoordinator MC3D', () => {
         assert.equal(env.metrics.startCalls[0].initialStepId, 'calendar_overview');
     });
 
-    it('paso durable no implementado no inicia', async () => {
+    it('paso durable desconocido no inicia', async () => {
         var env = loadCoordinator({
             state: {
                 version: 1,
                 tutorials: {
                     create_test_appointment_v1: {
                         status: 'in_progress',
-                        current_step_id: 'create_test_appointment'
+                        current_step_id: 'unknown_future_step'
                     }
                 }
             }

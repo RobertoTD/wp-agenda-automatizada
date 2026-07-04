@@ -42,7 +42,7 @@ describe('TutorialDefinitions MC3D', () => {
         assert.ok(config);
         assert.equal(config.flowId, 'create_test_appointment_v1');
         assert.equal(config.initialStepId, 'intro');
-        assert.equal(config.steps.length, 4);
+        assert.equal(config.steps.length, 5);
     });
 
     it('getConfig respeta initialStepId override', () => {
@@ -53,7 +53,7 @@ describe('TutorialDefinitions MC3D', () => {
         assert.equal(config.initialStepId, 'calendar_overview');
     });
 
-    it('steps implementados en orden MC3D', () => {
+    it('steps implementados en orden MC3D+A', () => {
         var config = api.getConfig('create_test_appointment_v1');
         var ids = config.steps.map(function (step) { return step.id; });
 
@@ -61,7 +61,8 @@ describe('TutorialDefinitions MC3D', () => {
             'intro',
             'open_sidebar',
             'open_calendar',
-            'calendar_overview'
+            'calendar_overview',
+            'open_fastappointment'
         ]);
     });
 
@@ -86,14 +87,29 @@ describe('TutorialDefinitions MC3D', () => {
         assert.ok(step.waitFor);
     });
 
-    it('calendar_overview pausa en frontera MC3D sin nextStepId', () => {
+    it('calendar_overview avanza visualmente a open_fastappointment', () => {
         var config = api.getConfig('create_test_appointment_v1');
         var step = config.steps.find(function (s) { return s.id === 'calendar_overview'; });
 
-        assert.equal(step.beforeAdvanceAction, 'aa_tutorial_pause_mc3d_boundary');
-        assert.equal(step.nextStepId, undefined);
+        assert.equal(step.beforeAdvanceAction, undefined);
+        assert.equal(step.nextStepId, 'open_fastappointment');
         assert.equal(step.advance.mode, 'button');
-        assert.equal(step.advance.label, 'Continuar después');
+        assert.equal(step.advance.label, 'Continuar');
+    });
+
+    it('open_fastappointment es visual con target_click navigation none', () => {
+        var def = api.get('create_test_appointment_v1');
+        var config = api.getConfig('create_test_appointment_v1');
+        var step = config.steps.find(function (s) { return s.id === 'open_fastappointment'; });
+
+        assert.equal(step.target, '#aa-btn-open-fastappointment-modal');
+        assert.equal(step.advance.mode, 'target_click');
+        assert.equal(step.advance.navigation, 'none');
+        assert.equal(step.beforeAdvanceAction, 'aa_tutorial_persist_create_test_appointment');
+        assert.ok(step.waitFor);
+        assert.equal(step.nextStepId, undefined);
+        assert.equal(def.durableStepIds.indexOf('open_fastappointment'), -1);
+        assert.notEqual(def.durableStepIds.indexOf('create_test_appointment'), -1);
     });
 
     it('getConfig clona steps sin mutar la definición base', () => {
