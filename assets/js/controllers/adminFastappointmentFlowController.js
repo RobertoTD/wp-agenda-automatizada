@@ -2013,6 +2013,15 @@
 
                     console.log('[FastAppointment] Reservacion creada correctamente ID:', datos.id_reserva || '(sin ID)');
 
+                    if (datos.id_reserva) {
+                        document.dispatchEvent(new CustomEvent('aa:reservation:created', {
+                            detail: {
+                                source: 'fastappointment',
+                                id: datos.id_reserva
+                            }
+                        }));
+                    }
+
                     if (window.AdminCalendarController && typeof window.AdminCalendarController.recargar === 'function') {
                         window.AdminCalendarController.recargar();
                     }
