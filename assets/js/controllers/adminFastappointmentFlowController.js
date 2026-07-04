@@ -76,6 +76,44 @@
     }
 
     /**
+     * @param {HTMLInputElement|null|undefined} checkboxEl
+     * @returns {boolean}
+     */
+    function tryAutoCheckConfirmCheckbox(checkboxEl) {
+        if (!checkboxEl) {
+            return false;
+        }
+
+        if (checkboxEl.checked) {
+            return false;
+        }
+
+        checkboxEl.checked = true;
+        checkboxEl.dispatchEvent(new Event('change', { bubbles: true }));
+
+        return true;
+    }
+
+    /**
+     * @param {object|null|undefined} state
+     * @returns {boolean}
+     */
+    function isFormReadyFromState(state) {
+        var input = state || {};
+
+        return !!(
+            input.selectedClientId &&
+            input.selectedServiceId &&
+            input.selectedDate &&
+            input.selectedTime &&
+            input.selectedStaffId &&
+            input.isSelectedStaffAvailable &&
+            input.selectedAreaId &&
+            input.isSelectedAreaAvailable
+        );
+    }
+
+    /**
      * @param {object|null|undefined} ctx
      * @returns {boolean}
      */
@@ -251,6 +289,102 @@
         return null;
     }
 
+    /**
+     * @param {Array<{value?: string}>} slots
+     * @returns {string|null}
+     */
+    function resolveTutorialTimeAutoSelectValue(slots) {
+        if (!Array.isArray(slots) || !slots.length) {
+            return null;
+        }
+
+        if (slots.length === 1) {
+            var singleSlot = slots[0];
+
+            if (!singleSlot || singleSlot.value === null || typeof singleSlot.value === 'undefined') {
+                return null;
+            }
+
+            return String(singleSlot.value);
+        }
+
+        var secondSlot = slots[1];
+
+        if (!secondSlot || secondSlot.value === null || typeof secondSlot.value === 'undefined') {
+            return null;
+        }
+
+        return String(secondSlot.value);
+    }
+
+    /**
+     * @param {object} params
+     * @returns {boolean}
+     */
+    function canStartTutorialTimePrefill(params) {
+        var input = params || {};
+
+        if (!isCreateTestAppointmentTutorialContext(input.tutorialContext)) {
+            return false;
+        }
+
+        if (input.tutorialTimePrefillDone) {
+            return false;
+        }
+
+        var state = input.state || {};
+
+        if (!state.selectedDate) {
+            return false;
+        }
+
+        if (state.selectedTime) {
+            return false;
+        }
+
+        if (input.timeSelectValue) {
+            return false;
+        }
+
+        if (!input.hasTimeSelect) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * @param {object} params
+     * @returns {boolean}
+     */
+    function canStartTutorialConfirmPrefill(params) {
+        var input = params || {};
+
+        if (!isCreateTestAppointmentTutorialContext(input.tutorialContext)) {
+            return false;
+        }
+
+        if (input.tutorialConfirmPrefillDone) {
+            return false;
+        }
+
+        if (!input.hasConfirmCheckbox) {
+            return false;
+        }
+
+        if (input.confirmChecked) {
+            return false;
+        }
+
+        var state = input.state || {};
+
+        if (!state.selectedAreaId || !state.isSelectedAreaAvailable) {
+            return false;
+        }
+
+        return isFormReadyFromState(state);
+    }
+
     function createController(opts) {
         const config = opts || {};
         const getState = typeof config.getState === 'function'
@@ -331,6 +465,8 @@
         let tutorialClientAutoSelectDone = false;
         let tutorialDatePrefillDone = false;
         let tutorialDatePrefillInFlight = false;
+        let tutorialTimePrefillDone = false;
+        let tutorialConfirmPrefillDone = false;
 
         function updateState(patch) {
             const currentState = getState() || {};
@@ -854,6 +990,86 @@
                 });
         }
 
+        function hasManualTimeSelection() {
+            var state = getState() || {};
+
+            if (state.selectedTime) {
+                return true;
+            }
+
+            return !!(timeSelect && timeSelect.value);
+        }
+
+        function scheduleTutorialTimePrefillOnce(availabilityResult) {
+            if (tutorialTimePrefillDone) {
+                return;
+            }
+
+            if (!isCreateTestAppointmentTutorialContext(tutorialContextSnapshot)) {
+                return;
+            }
+
+            if (hasManualTimeSelection()) {
+                tutorialTimePrefillDone = true;
+                return;
+            }
+
+            if (!canStartTutorialTimePrefill({
+                tutorialContext: tutorialContextSnapshot,
+                tutorialTimePrefillDone: tutorialTimePrefillDone,
+                state: getState() || {},
+                hasTimeSelect: !!timeSelect,
+                timeSelectValue: timeSelect ? timeSelect.value : ''
+            })) {
+                return;
+            }
+
+            tutorialTimePrefillDone = true;
+
+            var result = availabilityResult || {};
+            var slots = Array.isArray(result.slots) ? result.slots : [];
+            var slotValue = resolveTutorialTimeAutoSelectValue(slots);
+
+            if (!slotValue || !timeSelect) {
+                return;
+            }
+
+            if (hasManualTimeSelection()) {
+                return;
+            }
+
+            tryAutoSelectSelectValue(timeSelect, slotValue);
+        }
+
+        function scheduleTutorialConfirmPrefillOnce() {
+            if (tutorialConfirmPrefillDone) {
+                return;
+            }
+
+            if (!isCreateTestAppointmentTutorialContext(tutorialContextSnapshot)) {
+                return;
+            }
+
+            if (confirmCheckbox && confirmCheckbox.checked) {
+                tutorialConfirmPrefillDone = true;
+                return;
+            }
+
+            if (!canStartTutorialConfirmPrefill({
+                tutorialContext: tutorialContextSnapshot,
+                tutorialConfirmPrefillDone: tutorialConfirmPrefillDone,
+                state: getState() || {},
+                hasConfirmCheckbox: !!confirmCheckbox,
+                confirmChecked: !!(confirmCheckbox && confirmCheckbox.checked)
+            })) {
+                return;
+            }
+
+            tutorialConfirmPrefillDone = true;
+
+            tryAutoCheckConfirmCheckbox(confirmCheckbox);
+        }
+
         function getSelectedClientData() {
             const option = clientSelect.options[clientSelect.selectedIndex];
 
@@ -1263,6 +1479,7 @@
                 result && result.slots ? result.slots.map(function(s) { return s.value; }) : []);
 
             renderTimeOptions(result);
+            scheduleTutorialTimePrefillOnce(result);
 
             return result;
         }
@@ -1539,6 +1756,9 @@
 
                 if (!selectedAreaId || isAvailable) {
                     renderAreaAvailabilityMessage('');
+                    if (selectedAreaId && isAvailable) {
+                        scheduleTutorialConfirmPrefillOnce();
+                    }
                     return;
                 }
 
@@ -2133,12 +2353,17 @@
         module.exports = {
             getSingleEligibleItem: getSingleEligibleItem,
             tryAutoSelectSelectValue: tryAutoSelectSelectValue,
+            tryAutoCheckConfirmCheckbox: tryAutoCheckConfirmCheckbox,
+            isFormReadyFromState: isFormReadyFromState,
             isCreateTestAppointmentTutorialContext: isCreateTestAppointmentTutorialContext,
             resolveTutorialClientAutoSelectId: resolveTutorialClientAutoSelectId,
             addDaysYmd: addDaysYmd,
             normalizeFutureWindowDays: normalizeFutureWindowDays,
             canStartTutorialDatePrefill: canStartTutorialDatePrefill,
-            findFirstDateWithDaySlots: findFirstDateWithDaySlots
+            findFirstDateWithDaySlots: findFirstDateWithDaySlots,
+            resolveTutorialTimeAutoSelectValue: resolveTutorialTimeAutoSelectValue,
+            canStartTutorialTimePrefill: canStartTutorialTimePrefill,
+            canStartTutorialConfirmPrefill: canStartTutorialConfirmPrefill
         };
     }
 })();
