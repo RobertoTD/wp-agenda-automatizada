@@ -26,7 +26,8 @@
         cleanupCallbacks: [],
         status: 'idle',
         activeRunToken: 0,
-        pendingTargetTimer: null
+        pendingTargetTimer: null,
+        advanceInFlight: false
     };
 
     function getGlobalRoot() {
@@ -73,11 +74,17 @@
             mode = 'button';
         }
 
+        var navigation = normalizeString(advance.navigation);
+        if (navigation !== 'follow_target') {
+            navigation = 'none';
+        }
+
         return {
             mode: mode,
             label: normalizeString(advance.label) || 'Continuar',
             eventName: normalizeString(advance.eventName),
-            eventDetail: isPlainObject(advance.eventDetail) ? advance.eventDetail : null
+            eventDetail: isPlainObject(advance.eventDetail) ? advance.eventDetail : null,
+            navigation: navigation
         };
     }
 
@@ -99,6 +106,7 @@
             placement: normalizePlacement(step.placement || (step.target ? 'bottom' : 'center')),
             advance: normalizeAdvance(step),
             beforeAction: normalizeString(step.beforeAction) || null,
+            beforeAdvanceAction: normalizeString(step.beforeAdvanceAction) || null,
             afterAction: normalizeString(step.afterAction) || null,
             nextStepId: normalizeString(step.nextStepId) || null,
             waitFor: isPlainObject(step.waitFor) ? step.waitFor : null
@@ -584,13 +592,101 @@
         return writeSession(blogId, runtime.config.flowId, payload);
     }
 
-    function actionContext(step) {
-        return {
+    function actionContext(step, extras) {
+        var ctx = {
             tutorial: Tutor,
             config: runtime.config,
             step: step || runtime.currentStep,
             state: Tutor.getState()
         };
+
+        if (isPlainObject(extras)) {
+            Object.keys(extras).forEach(function (key) {
+                ctx[key] = extras[key];
+            });
+        }
+
+        return ctx;
+    }
+
+    /**
+     * @param {object} step
+     * @param {object} ctx
+     * @returns {Promise<void>}
+     */
+    function runAdvanceGate(step, ctx) {
+        var actionName = step.beforeAdvanceAction || step.afterAction;
+
+        if (!actionName) {
+            return Promise.resolve();
+        }
+
+        return Promise.resolve(ActionRegistry.run(actionName, ctx)).then(function (result) {
+            if (result === false) {
+                var blocked = new Error('Advance blocked by action.');
+                blocked.code = 'advance_blocked';
+                throw blocked;
+            }
+        });
+    }
+
+    /**
+     * @param {object} step
+     * @param {object} ctx
+     * @returns {boolean}
+     */
+    function finishAdvance(step, ctx) {
+        if (ctx && ctx.trigger === 'target_click' && step.advance.navigation === 'follow_target') {
+            var target = ctx.target;
+            var href = target && typeof target.href === 'string' ? target.href : '';
+
+            if (!href && target && typeof target.getAttribute === 'function') {
+                href = normalizeString(target.getAttribute('href'));
+            }
+
+            if (href) {
+                getGlobalRoot().location.assign(href);
+                return true;
+            }
+        }
+
+        return Tutor.continueAdvance();
+    }
+
+    /**
+     * @param {object} [ctx]
+     * @returns {Promise<boolean>}
+     */
+    function tryAdvance(ctx) {
+        if (runtime.advanceInFlight) {
+            return Promise.resolve(false);
+        }
+
+        if (!runtime.config || !runtime.currentStep) {
+            return Promise.resolve(false);
+        }
+
+        var step = runtime.currentStep;
+        var advanceCtx = actionContext(step, isPlainObject(ctx) ? ctx : {});
+
+        runtime.advanceInFlight = true;
+
+        return runAdvanceGate(step, advanceCtx)
+            .then(function () {
+                return finishAdvance(step, advanceCtx);
+            })
+            .catch(function (err) {
+                warn('Advance bloqueado: ' + (err && err.message ? err.message : 'unknown'));
+                dispatchTutorialEvent('aa:tutorial:advance-blocked', {
+                    stepId: step.id,
+                    reason: err && err.message ? err.message : 'advance_blocked',
+                    code: err && err.code ? err.code : 'advance_blocked'
+                });
+                return false;
+            })
+            .finally(function () {
+                runtime.advanceInFlight = false;
+            });
     }
 
     function createRoot(step, target) {
@@ -632,7 +728,11 @@
                     if (event && typeof event.preventDefault === 'function') {
                         event.preventDefault();
                     }
-                    Tutor.next();
+                    tryAdvance(actionContext(step, {
+                        trigger: 'button',
+                        event: event,
+                        target: button
+                    }));
                 });
             }
         }
@@ -646,16 +746,34 @@
                 if (event && typeof event.stopPropagation === 'function') {
                     event.stopPropagation();
                 }
-                Tutor.next();
+                tryAdvance(actionContext(step, {
+                    trigger: 'dismiss',
+                    event: event,
+                    target: backdrop
+                }));
             });
         }
 
         if (step.advance.mode === 'target_click') {
             root.className += ' is-target-click';
             if (target) {
-                addEvent(target, 'click', function () {
-                    // Synchronous transition: persist the next step before the browser follows links.
-                    Tutor.next();
+                addEvent(target, 'click', function (event) {
+                    var advanceCtx = actionContext(step, {
+                        trigger: 'target_click',
+                        event: event,
+                        target: target
+                    });
+
+                    if (step.advance.navigation === 'follow_target') {
+                        if (event && typeof event.preventDefault === 'function') {
+                            event.preventDefault();
+                        }
+                        if (event && typeof event.stopPropagation === 'function') {
+                            event.stopPropagation();
+                        }
+                    }
+
+                    tryAdvance(advanceCtx);
                 });
             }
         }
@@ -663,7 +781,11 @@
         if (step.advance.mode === 'event' && step.advance.eventName) {
             addEvent(doc, step.advance.eventName, function (event) {
                 if (eventMatches(step.advance.eventDetail, event && event.detail)) {
-                    Tutor.next();
+                    tryAdvance(actionContext(step, {
+                        trigger: 'event',
+                        event: event,
+                        target: null
+                    }));
                 }
             });
         }
@@ -794,23 +916,28 @@
             return true;
         },
 
-        next: function () {
+        continueAdvance: function () {
             if (!runtime.config || !runtime.currentStep) {
                 return false;
             }
 
             var step = runtime.currentStep;
-            if (step.afterAction) {
-                ActionRegistry.run(step.afterAction, actionContext(step));
-            }
-
             var nextStepId = getNextStepId(runtime.config, step);
+
             if (!nextStepId) {
                 this.complete();
                 return true;
             }
 
             return this.show(nextStepId);
+        },
+
+        next: function (ctx) {
+            return tryAdvance(isPlainObject(ctx) ? ctx : {});
+        },
+
+        tryAdvance: function (ctx) {
+            return tryAdvance(isPlainObject(ctx) ? ctx : {});
         },
 
         pause: function (reason, options) {

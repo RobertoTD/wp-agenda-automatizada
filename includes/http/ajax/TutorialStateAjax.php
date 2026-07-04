@@ -21,7 +21,7 @@ final class TutorialStateAjax {
         self::authorize();
 
         $result = (new GetTutorialStateUseCase())->execute();
-        wp_send_json_success($result);
+        wp_send_json_success(self::state_for_json($result));
     }
 
     public static function handle_update(): void {
@@ -64,11 +64,20 @@ final class TutorialStateAjax {
     }
 
     /**
-     * @param array{success:bool,data?:array<string,mixed>,error?:array{code:string,message:string}} $result
+     * @param array<string,mixed> $state
+     * @return array<string,mixed>
      */
+    private static function state_for_json(array $state): array {
+        if (!isset($state['tutorials']) || $state['tutorials'] === []) {
+            $state['tutorials'] = new \stdClass();
+        }
+
+        return $state;
+    }
+
     private static function respond_use_case(array $result): void {
         if (!empty($result['success'])) {
-            wp_send_json_success($result['data'] ?? []);
+            wp_send_json_success(self::state_for_json($result['data'] ?? []));
         }
 
         $error = $result['error'] ?? [];

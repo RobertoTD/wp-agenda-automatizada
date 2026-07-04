@@ -55,6 +55,37 @@ ac_assert('TutorialStateAjax::register is callable', method_exists('TutorialStat
 ac_assert('TutorialStateAjax::handle_get is callable', method_exists('TutorialStateAjax', 'handle_get'));
 ac_assert('TutorialStateAjax::handle_update is callable', method_exists('TutorialStateAjax', 'handle_update'));
 
+$reflection = new ReflectionClass('TutorialStateAjax');
+$stateForJson = $reflection->getMethod('state_for_json');
+$stateForJson->setAccessible(true);
+
+$emptyState = $stateForJson->invoke(null, [
+    'version' => 1,
+    'tutorials' => [],
+]);
+$emptyJson = json_encode($emptyState);
+ac_assert(
+    'state_for_json serializa tutorials vacio como objeto JSON',
+    $emptyJson !== false && strpos($emptyJson, '"tutorials":{}') !== false,
+    $emptyJson === false ? 'json_encode failed' : $emptyJson
+);
+
+$populatedState = $stateForJson->invoke(null, [
+    'version' => 1,
+    'tutorials' => [
+        'create_test_appointment_v1' => [
+            'status' => 'in_progress',
+            'currentStepId' => 'open_sidebar',
+        ],
+    ],
+]);
+$populatedJson = json_encode($populatedState);
+ac_assert(
+    'state_for_json conserva tutorials poblado como objeto',
+    $populatedJson !== false && strpos($populatedJson, '"create_test_appointment_v1"') !== false,
+    $populatedJson === false ? 'json_encode failed' : $populatedJson
+);
+
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 
 if ($failed !== []) {

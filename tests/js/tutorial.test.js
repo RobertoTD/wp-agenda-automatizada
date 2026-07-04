@@ -184,6 +184,12 @@ function loadTutorial() {
     return require(tutorialPath);
 }
 
+function flushMicrotasks() {
+    return new Promise(function (resolve) {
+        setImmediate(resolve);
+    });
+}
+
 function baseConfig(overrides) {
     return Object.assign({
         flowId: 'test_flow',
@@ -270,7 +276,7 @@ describe('AATutorial MC3B', () => {
         assert.equal(api.AATutorial.getState().currentStepId, 'two');
     });
 
-    it('button avanza y persiste el siguiente paso', () => {
+    it('button avanza y persiste el siguiente paso', async () => {
         var dom = installDom();
         var api = loadTutorial();
 
@@ -284,6 +290,8 @@ describe('AATutorial MC3B', () => {
             preventDefault: function () {}
         });
 
+        await flushMicrotasks();
+
         assert.equal(api.AATutorial.getState().currentStepId, 'two');
 
         var stored = JSON.parse(globalThis.sessionStorage.getItem(
@@ -292,7 +300,7 @@ describe('AATutorial MC3B', () => {
         assert.equal(stored.currentStepId, 'two');
     });
 
-    it('target_click transiciona sincronicamente sin cancelar el click real', () => {
+    it('target_click con navigation none no cancela el click real', async () => {
         var target = makeElement('a');
         var api;
         var preventCalls = 0;
@@ -314,6 +322,8 @@ describe('AATutorial MC3B', () => {
             stopPropagation: function () { stopCalls++; }
         });
 
+        await flushMicrotasks();
+
         assert.equal(api.AATutorial.getState().currentStepId, 'two');
         assert.equal(preventCalls, 0);
         assert.equal(stopCalls, 0);
@@ -324,7 +334,7 @@ describe('AATutorial MC3B', () => {
         assert.equal(stored.currentStepId, 'two');
     });
 
-    it('dismiss consume un solo click y evita doble avance', () => {
+    it('dismiss consume un solo click y evita doble avance', async () => {
         var dom = installDom();
         var api = loadTutorial();
 
@@ -347,12 +357,14 @@ describe('AATutorial MC3B', () => {
         });
         backdrop.dispatchEvent({ type: 'touchend' });
 
+        await flushMicrotasks();
+
         assert.equal(api.AATutorial.getState().currentStepId, 'two');
         assert.equal(preventCalls, 1);
         assert.equal(stopCalls, 1);
     });
 
-    it('event avanza y limpia listener al avanzar', () => {
+    it('event avanza y limpia listener al avanzar', async () => {
         var dom = installDom();
         var api = loadTutorial();
 
@@ -372,6 +384,8 @@ describe('AATutorial MC3B', () => {
         assert.equal(api.AATutorial.getState().currentStepId, 'one');
 
         globalThis.document.dispatchEvent({ type: 'aa:test', detail: { source: 'ok' } });
+        await flushMicrotasks();
+
         assert.equal(api.AATutorial.getState().currentStepId, 'two');
         assert.equal((dom.docListeners['aa:test'] || []).length, 0);
     });
@@ -454,5 +468,384 @@ describe('AATutorial MC3B', () => {
         }));
 
         assert.equal(calls, 1);
+    });
+});
+
+describe('AATutorial MC3D0 async advance gate', () => {
+    let originalWindow;
+    let originalDocument;
+    let originalStorage;
+    let originalContext;
+    let originalCustomEvent;
+    let originalLocation;
+
+    beforeEach(() => {
+        originalWindow = globalThis.window;
+        originalDocument = globalThis.document;
+        originalStorage = globalThis.sessionStorage;
+        originalContext = globalThis.AA_ADMIN_CONTEXT;
+        originalCustomEvent = globalThis.CustomEvent;
+        originalLocation = globalThis.location;
+    });
+
+    afterEach(() => {
+        if (globalThis.AATutorial) {
+            globalThis.AATutorial.destroy();
+        }
+
+        delete globalThis.AATutorial;
+        delete globalThis.AATutorialActions;
+        delete globalThis.AATutorialSession;
+        delete require.cache[tutorialPath];
+
+        globalThis.window = originalWindow;
+        globalThis.document = originalDocument;
+        globalThis.sessionStorage = originalStorage;
+        globalThis.AA_ADMIN_CONTEXT = originalContext;
+        globalThis.CustomEvent = originalCustomEvent;
+        globalThis.location = originalLocation;
+    });
+
+    it('beforeAdvanceAction async permite avanzar tras resolver', async () => {
+        installDom();
+        var api = loadTutorial();
+        var gateCtx = null;
+
+        api.AATutorialActions.register('persist_gate', function (ctx) {
+            gateCtx = ctx;
+            return new Promise(function (resolve) {
+                setTimeout(function () { resolve(true); }, 5);
+            });
+        });
+
+        api.AATutorial.start(baseConfig({
+            steps: [
+                {
+                    id: 'one',
+                    title: 'One',
+                    beforeAdvanceAction: 'persist_gate',
+                    advance: { mode: 'button' }
+                },
+                { id: 'two', title: 'Two', advance: { mode: 'button' } }
+            ]
+        }));
+
+        var button = findByClass(globalThis.document.body, 'aa-tutorial-button');
+        button.dispatchEvent({ type: 'click', preventDefault: function () {} });
+
+        assert.equal(api.AATutorial.getState().currentStepId, 'one');
+        await new Promise(function (resolve) { setTimeout(resolve, 10); });
+
+        assert.equal(api.AATutorial.getState().currentStepId, 'two');
+        assert.equal(gateCtx.trigger, 'button');
+        assert.equal(gateCtx.step.id, 'one');
+        assert.ok(gateCtx.tutorial);
+        assert.ok(gateCtx.state);
+    });
+
+    it('beforeAdvanceAction false mantiene el step y emite advance-blocked', async () => {
+        installDom();
+        var api = loadTutorial();
+        var blockedEvents = 0;
+
+        globalThis.document.addEventListener('aa:tutorial:advance-blocked', function () {
+            blockedEvents++;
+        });
+
+        api.AATutorialActions.register('block_gate', function () {
+            return false;
+        });
+
+        api.AATutorial.start(baseConfig({
+            steps: [
+                {
+                    id: 'one',
+                    title: 'One',
+                    beforeAdvanceAction: 'block_gate',
+                    advance: { mode: 'button' }
+                },
+                { id: 'two', title: 'Two', advance: { mode: 'button' } }
+            ]
+        }));
+
+        var button = findByClass(globalThis.document.body, 'aa-tutorial-button');
+        button.dispatchEvent({ type: 'click', preventDefault: function () {} });
+        await flushMicrotasks();
+
+        assert.equal(api.AATutorial.getState().currentStepId, 'one');
+        assert.equal(blockedEvents, 1);
+
+        button.dispatchEvent({ type: 'click', preventDefault: function () {} });
+        await flushMicrotasks();
+        assert.equal(blockedEvents, 2);
+    });
+
+    it('beforeAdvanceAction reject mantiene el step reintentable', async () => {
+        installDom();
+        var api = loadTutorial();
+
+        api.AATutorialActions.register('reject_gate', function () {
+            return Promise.reject(new Error('network'));
+        });
+
+        api.AATutorial.start(baseConfig({
+            steps: [
+                {
+                    id: 'one',
+                    title: 'One',
+                    beforeAdvanceAction: 'reject_gate',
+                    advance: { mode: 'button' }
+                },
+                { id: 'two', title: 'Two', advance: { mode: 'button' } }
+            ]
+        }));
+
+        var button = findByClass(globalThis.document.body, 'aa-tutorial-button');
+        button.dispatchEvent({ type: 'click', preventDefault: function () {} });
+        await flushMicrotasks();
+        assert.equal(api.AATutorial.getState().currentStepId, 'one');
+
+        api.AATutorialActions.register('reject_gate', function () {
+            return Promise.resolve();
+        });
+
+        button.dispatchEvent({ type: 'click', preventDefault: function () {} });
+        await flushMicrotasks();
+        assert.equal(api.AATutorial.getState().currentStepId, 'two');
+    });
+
+    it('advanceInFlight bloquea doble click concurrente', async () => {
+        installDom();
+        var api = loadTutorial();
+        var resolveGate;
+        var gateCalls = 0;
+
+        api.AATutorialActions.register('slow_gate', function () {
+            gateCalls++;
+            return new Promise(function (resolve) {
+                resolveGate = resolve;
+            });
+        });
+
+        api.AATutorial.start(baseConfig({
+            steps: [
+                {
+                    id: 'one',
+                    title: 'One',
+                    beforeAdvanceAction: 'slow_gate',
+                    advance: { mode: 'button' }
+                },
+                { id: 'two', title: 'Two', advance: { mode: 'button' } }
+            ]
+        }));
+
+        var button = findByClass(globalThis.document.body, 'aa-tutorial-button');
+        var first = api.AATutorial.next();
+        var second = api.AATutorial.next();
+
+        await flushMicrotasks();
+        assert.equal(gateCalls, 1);
+        assert.equal(api.AATutorial.getState().currentStepId, 'one');
+
+        resolveGate(true);
+        await first;
+        await second;
+        await flushMicrotasks();
+
+        assert.equal(api.AATutorial.getState().currentStepId, 'two');
+        assert.equal(gateCalls, 1);
+    });
+
+    it('next() usa tryAdvance y no una ruta independiente', async () => {
+        installDom();
+        var api = loadTutorial();
+        var gateCalls = 0;
+
+        api.AATutorialActions.register('count_gate', function () {
+            gateCalls++;
+            return Promise.resolve();
+        });
+
+        api.AATutorial.start(baseConfig({
+            steps: [
+                {
+                    id: 'one',
+                    title: 'One',
+                    beforeAdvanceAction: 'count_gate',
+                    advance: { mode: 'button' }
+                },
+                { id: 'two', title: 'Two', advance: { mode: 'button' } }
+            ]
+        }));
+
+        await api.AATutorial.next();
+        assert.equal(gateCalls, 1);
+        assert.equal(api.AATutorial.getState().currentStepId, 'two');
+    });
+
+    it('afterAction legacy actua como alias de beforeAdvanceAction', async () => {
+        installDom();
+        var api = loadTutorial();
+        var gateCalls = 0;
+
+        api.AATutorialActions.register('legacy_gate', function () {
+            gateCalls++;
+            return false;
+        });
+
+        api.AATutorial.start(baseConfig({
+            steps: [
+                {
+                    id: 'one',
+                    title: 'One',
+                    afterAction: 'legacy_gate',
+                    advance: { mode: 'button' }
+                },
+                { id: 'two', title: 'Two', advance: { mode: 'button' } }
+            ]
+        }));
+
+        await api.AATutorial.next();
+        assert.equal(gateCalls, 1);
+        assert.equal(api.AATutorial.getState().currentStepId, 'one');
+    });
+
+    it('target_click follow_target previene navegacion hasta gate exitoso', async () => {
+        var target = makeElement('a');
+        target.setAttribute('href', '/calendar');
+        target.href = '/calendar';
+
+        installDom({ '#nav-calendar': target });
+        var api = loadTutorial();
+        var assigned = null;
+        var preventCalls = 0;
+        var resolveGate;
+
+        globalThis.location = { assign: function (href) { assigned = href; } };
+
+        api.AATutorialActions.register('nav_gate', function () {
+            return new Promise(function (resolve) {
+                resolveGate = resolve;
+            });
+        });
+
+        api.AATutorial.start(baseConfig({
+            steps: [
+                {
+                    id: 'one',
+                    title: 'One',
+                    target: '#nav-calendar',
+                    beforeAdvanceAction: 'nav_gate',
+                    advance: { mode: 'target_click', navigation: 'follow_target' }
+                },
+                { id: 'two', title: 'Two', advance: { mode: 'button' } }
+            ]
+        }));
+
+        target.dispatchEvent({
+            type: 'click',
+            preventDefault: function () { preventCalls++; },
+            stopPropagation: function () {}
+        });
+
+        await flushMicrotasks();
+        assert.equal(preventCalls, 1);
+        assert.equal(assigned, null);
+        assert.equal(api.AATutorial.getState().currentStepId, 'one');
+
+        resolveGate(true);
+        await flushMicrotasks();
+        assert.equal(assigned, '/calendar');
+    });
+
+    it('target_click follow_target no navega si el gate falla', async () => {
+        var target = makeElement('a');
+        target.setAttribute('href', '/calendar');
+        target.href = '/calendar';
+
+        installDom({ '#nav-calendar': target });
+        var api = loadTutorial();
+        var assigned = null;
+
+        globalThis.location = { assign: function (href) { assigned = href; } };
+
+        api.AATutorialActions.register('fail_gate', function () {
+            return false;
+        });
+
+        api.AATutorial.start(baseConfig({
+            steps: [
+                {
+                    id: 'one',
+                    title: 'One',
+                    target: '#nav-calendar',
+                    beforeAdvanceAction: 'fail_gate',
+                    advance: { mode: 'target_click', navigation: 'follow_target' }
+                },
+                { id: 'two', title: 'Two', advance: { mode: 'button' } }
+            ]
+        }));
+
+        target.dispatchEvent({
+            type: 'click',
+            preventDefault: function () {},
+            stopPropagation: function () {}
+        });
+
+        await flushMicrotasks();
+        assert.equal(assigned, null);
+        assert.equal(api.AATutorial.getState().currentStepId, 'one');
+    });
+
+    it('target_click navigation none ejecuta gate sin bloquear click del producto', async () => {
+        var target = makeElement('button');
+        var productCalls = 0;
+
+        installDom({ '#sidebar-btn': target });
+        var api = loadTutorial();
+        var gateCalls = 0;
+        var preventCalls = 0;
+        var resolveGate;
+
+        target.addEventListener('click', function () {
+            productCalls++;
+        });
+
+        api.AATutorialActions.register('sidebar_gate', function (ctx) {
+            gateCalls++;
+            assert.equal(ctx.trigger, 'target_click');
+            assert.equal(ctx.target, target);
+            return new Promise(function (resolve) {
+                resolveGate = resolve;
+            });
+        });
+
+        api.AATutorial.start(baseConfig({
+            steps: [
+                {
+                    id: 'one',
+                    title: 'One',
+                    target: '#sidebar-btn',
+                    beforeAdvanceAction: 'sidebar_gate',
+                    advance: { mode: 'target_click', navigation: 'none' }
+                },
+                { id: 'two', title: 'Two', advance: { mode: 'button' } }
+            ]
+        }));
+
+        target.dispatchEvent({
+            type: 'click',
+            preventDefault: function () { preventCalls++; },
+            stopPropagation: function () {}
+        });
+
+        assert.equal(productCalls, 1);
+        assert.equal(preventCalls, 0);
+        assert.equal(gateCalls, 1);
+        assert.equal(api.AATutorial.getState().currentStepId, 'one');
+
+        resolveGate(true);
+        await flushMicrotasks();
+        assert.equal(api.AATutorial.getState().currentStepId, 'two');
     });
 });
