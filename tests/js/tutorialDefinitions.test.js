@@ -42,7 +42,7 @@ describe('TutorialDefinitions MC3D', () => {
         assert.ok(config);
         assert.equal(config.flowId, 'create_test_appointment_v1');
         assert.equal(config.initialStepId, 'intro');
-        assert.equal(config.steps.length, 5);
+        assert.equal(config.steps.length, 4);
     });
 
     it('getConfig respeta initialStepId override', () => {
@@ -61,8 +61,7 @@ describe('TutorialDefinitions MC3D', () => {
             'intro',
             'open_sidebar',
             'open_calendar',
-            'calendar_overview',
-            'open_fastappointment'
+            'calendar_overview'
         ]);
     });
 
@@ -87,28 +86,21 @@ describe('TutorialDefinitions MC3D', () => {
         assert.ok(step.waitFor);
     });
 
-    it('calendar_overview avanza visualmente a open_fastappointment', () => {
+    it('calendar_overview es step terminal con coach mark en FAB', () => {
+        var def = api.get('create_test_appointment_v1');
         var config = api.getConfig('create_test_appointment_v1');
         var step = config.steps.find(function (s) { return s.id === 'calendar_overview'; });
 
-        assert.equal(step.beforeAdvanceAction, undefined);
-        assert.equal(step.nextStepId, 'open_fastappointment');
-        assert.equal(step.advance.mode, 'button');
-        assert.equal(step.advance.label, 'Continuar');
-    });
-
-    it('open_fastappointment es visual con target_click navigation none', () => {
-        var def = api.get('create_test_appointment_v1');
-        var config = api.getConfig('create_test_appointment_v1');
-        var step = config.steps.find(function (s) { return s.id === 'open_fastappointment'; });
-
+        assert.equal(step.title, 'Esta es tu Agenda');
         assert.equal(step.target, '#aa-btn-open-fastappointment-modal');
+        assert.equal(step.placement, 'left');
         assert.equal(step.advance.mode, 'target_click');
         assert.equal(step.advance.navigation, 'none');
         assert.equal(step.beforeAdvanceAction, 'aa_tutorial_persist_create_test_appointment');
         assert.ok(step.waitFor);
         assert.equal(step.nextStepId, undefined);
-        assert.equal(def.durableStepIds.indexOf('open_fastappointment'), -1);
+        assert.equal(def.terminalImplementedStepId, 'calendar_overview');
+        assert.equal(def.implementedStepIds.indexOf('open_fastappointment'), -1);
         assert.notEqual(def.durableStepIds.indexOf('create_test_appointment'), -1);
     });
 

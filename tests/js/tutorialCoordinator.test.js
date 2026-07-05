@@ -462,13 +462,13 @@ describe('TutorialCoordinator MC3D', () => {
         assert.deepEqual(Object.assign({}, env.TutorialFastAppointmentContext.get()), FAST_APPOINTMENT_CONTEXT);
     });
 
-    it('step-shown open_fastappointment activa contexto antes del click', () => {
+    it('step-shown calendar_overview activa contexto antes del click', () => {
         var env = loadCoordinator();
         env.TutorialCoordinator.registerActions();
 
         assert.equal(env.TutorialFastAppointmentContext.isActive(), false);
 
-        env.dispatchDocumentEvent('aa:tutorial:step-shown', { stepId: 'open_fastappointment' });
+        env.dispatchDocumentEvent('aa:tutorial:step-shown', { stepId: 'calendar_overview' });
 
         assert.equal(env.TutorialFastAppointmentContext.isActive(), true);
         assert.deepEqual(Object.assign({}, env.TutorialFastAppointmentContext.get()), FAST_APPOINTMENT_CONTEXT);
@@ -510,12 +510,12 @@ describe('TutorialCoordinator MC3D', () => {
         assert.equal(env.TutorialFastAppointmentContext.isActive(), true);
     });
 
-    it('modal-closed reactiva contexto solo si motor sigue en open_fastappointment', () => {
+    it('modal-closed reactiva contexto solo si motor sigue en calendar_overview', () => {
         var env = loadCoordinator();
         env.TutorialCoordinator.registerActions();
 
         env.AATutorial.status = 'active';
-        env.AATutorial.currentStepId = 'open_fastappointment';
+        env.AATutorial.currentStepId = 'calendar_overview';
 
         env.dispatchDocumentEvent('aa:fastappointment:modal-closed');
 
@@ -523,7 +523,7 @@ describe('TutorialCoordinator MC3D', () => {
         assert.deepEqual(Object.assign({}, env.TutorialFastAppointmentContext.get()), FAST_APPOINTMENT_CONTEXT);
     });
 
-    it('modal-closed no reactiva contexto si motor ya no está en open_fastappointment', () => {
+    it('modal-closed no reactiva contexto si motor ya no está en calendar_overview', () => {
         var env = loadCoordinator();
         env.TutorialCoordinator.registerActions();
 

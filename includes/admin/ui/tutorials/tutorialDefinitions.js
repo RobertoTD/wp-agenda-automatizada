@@ -16,8 +16,7 @@
                 'intro',
                 'open_sidebar',
                 'open_calendar',
-                'calendar_overview',
-                'open_fastappointment'
+                'calendar_overview'
             ],
             durableStepIds: [
                 'open_sidebar',
@@ -26,7 +25,7 @@
                 'create_test_appointment'
             ],
             initialStepId: 'intro',
-            terminalImplementedStepId: 'open_fastappointment',
+            terminalImplementedStepId: 'calendar_overview',
             actions: {
                 accept: 'aa_tutorial_accept_create_test_appointment',
                 persistOpenCalendar: 'aa_tutorial_persist_open_calendar',
@@ -80,18 +79,7 @@
                 {
                     id: 'calendar_overview',
                     title: 'Esta es tu Agenda',
-                    text: 'Aquí verás tus citas. A continuación crearemos una cita de prueba.',
-                    placement: 'center',
-                    advance: {
-                        mode: 'button',
-                        label: 'Continuar'
-                    },
-                    nextStepId: 'open_fastappointment'
-                },
-                {
-                    id: 'open_fastappointment',
-                    title: 'Crea tu cita de prueba',
-                    text: 'Pulsa “+ Crear cita” para abrir el formulario rápido.',
+                    text: 'Aquí verás tus citas en el calendario. Pulsa «+ Crear cita» para agregar nuevas; ahora crea una de prueba.',
                     target: '#aa-btn-open-fastappointment-modal',
                     placement: 'left',
                     waitFor: {

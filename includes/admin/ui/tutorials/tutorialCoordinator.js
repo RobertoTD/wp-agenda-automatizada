@@ -9,8 +9,6 @@
     var DEFAULT_TUTORIAL_ID = 'create_test_appointment_v1';
     var CALENDAR_OVERVIEW_STEP_ID = 'calendar_overview';
     var CREATE_TEST_APPOINTMENT_STEP_ID = 'create_test_appointment';
-    var OPEN_FASTAPPOINTMENT_STEP_ID = 'open_fastappointment';
-
     var FAST_APPOINTMENT_TUTORIAL_CONTEXT = {
         tutorialId: DEFAULT_TUTORIAL_ID,
         stepId: CREATE_TEST_APPOINTMENT_STEP_ID,
@@ -148,7 +146,7 @@
         window.TutorialCompletionCard.show();
     }
 
-    function isTutorialOnOpenFastAppointmentStep() {
+    function isTutorialOnCalendarOverviewStep() {
         if (!window.AATutorial || typeof window.AATutorial.getState !== 'function') {
             return false;
         }
@@ -156,20 +154,20 @@
         var state = window.AATutorial.getState();
         return !!(state
             && state.status === 'active'
-            && state.currentStepId === OPEN_FASTAPPOINTMENT_STEP_ID);
+            && state.currentStepId === CALENDAR_OVERVIEW_STEP_ID);
     }
 
     function onTutorialStepShown(event) {
         var detail = event && event.detail;
         var stepId = detail ? normalizeString(detail.stepId) : '';
 
-        if (stepId === OPEN_FASTAPPOINTMENT_STEP_ID) {
+        if (stepId === CALENDAR_OVERVIEW_STEP_ID) {
             activateFastAppointmentTutorialContext();
         }
     }
 
     function onFastAppointmentModalClosed() {
-        if (isTutorialOnOpenFastAppointmentStep()) {
+        if (isTutorialOnCalendarOverviewStep()) {
             activateFastAppointmentTutorialContext();
         }
     }
