@@ -194,6 +194,49 @@ final class AA_Tutorial_State_Policy {
     }
 
     /**
+     * Reconcilia el tutorial cuando ya existe al menos una cita creada.
+     *
+     * Regla pura: $exists debe estar confirmado por capa de aplicación.
+     *
+     * @param array<string,mixed> $state
+     * @param string              $tutorial_id
+     * @param bool                $exists
+     * @return array{changed:bool,state:array<string,mixed>}
+     */
+    public static function reconcile_for_reservation_existence(
+        array $state,
+        string $tutorial_id,
+        bool $exists
+    ): array {
+        $tutorial_id = sanitize_key($tutorial_id);
+
+        if ($tutorial_id === '' || !in_array($tutorial_id, self::ALLOWED_TUTORIAL_IDS, true)) {
+            return [
+                'changed' => false,
+                'state' => self::sanitize($state),
+            ];
+        }
+
+        $sanitized = self::sanitize($state);
+        $before = self::get_effective_tutorial($sanitized, $tutorial_id);
+        $before_status = (string) ($before['status'] ?? self::STATUS_AVAILABLE);
+
+        if (!$exists || $before_status === self::STATUS_COMPLETED) {
+            return [
+                'changed' => false,
+                'state' => $sanitized,
+            ];
+        }
+
+        $sanitized['tutorials'][$tutorial_id] = self::build_reconciled_completed_tutorial($before);
+
+        return [
+            'changed' => true,
+            'state' => $sanitized,
+        ];
+    }
+
+    /**
      * @param string $tutorial_id
      * @param string|null $current_step_id
      * @return string|null
@@ -312,6 +355,28 @@ final class AA_Tutorial_State_Policy {
         }
 
         return $result;
+    }
+
+    /**
+     * @param array<string,mixed> $before
+     * @return array<string,mixed>
+     */
+    private static function build_reconciled_completed_tutorial(array $before): array {
+        $before_status = (string) ($before['status'] ?? self::STATUS_AVAILABLE);
+
+        if ($before_status === self::STATUS_AVAILABLE) {
+            $next = self::virtual_available_tutorial();
+            $next['status'] = self::STATUS_COMPLETED;
+            $next['current_step_id'] = null;
+
+            return $next;
+        }
+
+        $next = $before;
+        $next['status'] = self::STATUS_COMPLETED;
+        $next['current_step_id'] = null;
+
+        return $next;
     }
 
     /**

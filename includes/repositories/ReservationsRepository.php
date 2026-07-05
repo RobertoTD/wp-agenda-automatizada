@@ -34,6 +34,50 @@ if (!defined('ABSPATH')) exit;
 require_once plugin_dir_path(__FILE__) . '../models/ReservationsModel.php';
 
 class ReservationsRepository extends ReservationsModel {
+    /** @var callable|null Override for acceptance tests only. */
+    private static $probe_has_created_reservations_override = null;
+
+    /**
+     * @internal Acceptance tests only.
+     *
+     * @param callable|null $override Debe devolver array{ok:bool,exists:bool}.
+     */
+    public static function set_probe_has_created_reservations_override_for_tests(?callable $override): void {
+        self::$probe_has_created_reservations_override = $override;
+    }
+
+    /**
+     * Comprueba si existe al menos una fila en aa_reservas.
+     *
+     * @return array{ok:bool,exists:bool}
+     */
+    public static function probe_has_created_reservations(): array {
+        if (self::$probe_has_created_reservations_override !== null) {
+            $result = call_user_func(self::$probe_has_created_reservations_override);
+
+            return is_array($result) ? $result : ['ok' => false, 'exists' => false];
+        }
+
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'aa_reservas';
+        $row = $wpdb->get_var("SELECT 1 FROM {$table} LIMIT 1");
+
+        if ($wpdb->last_error) {
+            error_log('[ReservationsRepository] Error al comprobar existencia de reservas: ' . $wpdb->last_error);
+
+            return [
+                'ok' => false,
+                'exists' => false,
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'exists' => $row !== null,
+        ];
+    }
+
     /**
      * Cuenta cualquier reserva/cita creada.
      *

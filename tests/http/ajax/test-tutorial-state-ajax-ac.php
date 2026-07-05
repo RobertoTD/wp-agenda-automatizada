@@ -32,7 +32,9 @@ $repo_src = file_get_contents($plugin_root . '/includes/repositories/TutorialSta
 
 ac_assert('AJAX registers get endpoint', strpos($ajax_src, 'aa_get_tutorial_state') !== false);
 ac_assert('AJAX registers update endpoint', strpos($ajax_src, 'aa_update_tutorial_state') !== false);
+ac_assert('AJAX registers reconcile endpoint', strpos($ajax_src, 'aa_reconcile_tutorial_state') !== false);
 ac_assert('AJAX uses GetTutorialStateUseCase', strpos($ajax_src, 'GetTutorialStateUseCase') !== false);
+ac_assert('AJAX uses ReconcileTutorialStateUseCase', strpos($ajax_src, 'ReconcileTutorialStateUseCase') !== false);
 ac_assert('AJAX uses TransitionTutorialStateUseCase', strpos($ajax_src, 'TransitionTutorialStateUseCase') !== false);
 ac_assert('AJAX uses dedicated nonce', strpos($ajax_src, 'aa_tutorial_state_nonce') !== false);
 ac_assert('AJAX checks manage_options capability', strpos($ajax_src, "current_user_can('manage_options')") !== false);
@@ -40,6 +42,7 @@ ac_assert('AJAX uses check_ajax_referer', strpos($ajax_src, 'check_ajax_referer'
 ac_assert('AJAX accepts tutorial_id/status/current_step_id', strpos($ajax_src, 'tutorial_id') !== false && strpos($ajax_src, 'current_step_id') !== false);
 ac_assert('Plugin bootstrap registers TutorialStateAjax', strpos($bootstrap_src, 'TutorialStateAjax::register()') !== false);
 ac_assert('Layout exposes AA_TUTORIAL_DATA', strpos($layout_src, 'window.AA_TUTORIAL_DATA') !== false);
+ac_assert('Layout exposes reconcileAction', strpos($layout_src, "reconcileAction: 'aa_reconcile_tutorial_state'") !== false);
 ac_assert('Repository uses get_option path', strpos($repo_src, 'get_option') !== false);
 ac_assert('Repository does not use get_site_option', strpos($repo_src, 'get_site_option') === false);
 ac_assert('Old onboarding tutor AJAX not registered', strpos($bootstrap_src, 'OnboardingTutorStateAjax::register()') === false);
@@ -49,11 +52,32 @@ if (!defined('ABSPATH')) {
     define('ABSPATH', $plugin_root . '/');
 }
 
+if (!function_exists('plugin_dir_path')) {
+    function plugin_dir_path($file) {
+        return dirname($file) . '/';
+    }
+}
+
 require_once $plugin_root . '/includes/http/ajax/TutorialStateAjax.php';
 
 ac_assert('TutorialStateAjax::register is callable', method_exists('TutorialStateAjax', 'register'));
 ac_assert('TutorialStateAjax::handle_get is callable', method_exists('TutorialStateAjax', 'handle_get'));
 ac_assert('TutorialStateAjax::handle_update is callable', method_exists('TutorialStateAjax', 'handle_update'));
+ac_assert('TutorialStateAjax::handle_reconcile is callable', method_exists('TutorialStateAjax', 'handle_reconcile'));
+$handle_get_body = substr(
+    $ajax_src,
+    (int) strpos($ajax_src, 'function handle_get'),
+    (int) strpos($ajax_src, 'function handle_update') - (int) strpos($ajax_src, 'function handle_get')
+);
+$handle_reconcile_body = substr(
+    $ajax_src,
+    (int) strpos($ajax_src, 'function handle_reconcile'),
+    (int) strpos($ajax_src, 'private static function authorize') - (int) strpos($ajax_src, 'function handle_reconcile')
+);
+ac_assert('GET handler does not use ReconcileTutorialStateUseCase', strpos($handle_get_body, 'ReconcileTutorialStateUseCase') === false);
+ac_assert('reconcile handler does not read tutorial_id from request', strpos($handle_reconcile_body, "\$_POST['tutorial_id']") === false);
+ac_assert('reconcile probe error uses 503', strpos($ajax_src, 'reservation_existence_check_failed') !== false && strpos($ajax_src, '503') !== false);
+ac_assert('reconcile non-probe error uses 500', strpos($ajax_src, 'respond_reconcile_error') !== false && strpos($ajax_src, ': 500') !== false);
 
 $reflection = new ReflectionClass('TutorialStateAjax');
 $stateForJson = $reflection->getMethod('state_for_json');

@@ -204,6 +204,7 @@ header('Content-Type: text/html; charset=utf-8');
         ajaxUrl: window.ajaxurl || '<?php echo esc_js(admin_url('admin-ajax.php')); ?>',
         getAction: 'aa_get_tutorial_state',
         updateAction: 'aa_update_tutorial_state',
+        reconcileAction: 'aa_reconcile_tutorial_state',
         nonce: '<?php echo esc_js(wp_create_nonce('aa_tutorial_state_nonce')); ?>'
     };
 

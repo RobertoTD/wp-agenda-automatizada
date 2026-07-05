@@ -14,7 +14,7 @@
     }
 
     /**
-     * @param {'get'|'update'} mode
+     * @param {'get'|'update'|'reconcile'} mode
      * @returns {object}
      */
     function assertConfig(mode) {
@@ -30,6 +30,10 @@
 
         if (mode === 'update' && !config.updateAction) {
             throw createError('AA_TUTORIAL_DATA.updateAction no configurado', 'missing_config');
+        }
+
+        if (mode === 'reconcile' && !config.reconcileAction) {
+            throw createError('AA_TUTORIAL_DATA.reconcileAction no configurado', 'missing_config');
         }
 
         return config;
@@ -156,22 +160,26 @@
     }
 
     /**
-     * @param {object} fields
+     * @param {object} config
+     * @param {string} action
+     * @param {object} [fields]
      * @returns {FormData}
      */
-    function buildFormData(config, fields) {
+    function buildFormData(config, action, fields) {
         var formData = new FormData();
 
-        formData.append('action', config.updateAction);
+        formData.append('action', action);
         formData.append('_wpnonce', config.nonce);
 
-        TRANSITION_FIELDS.forEach(function (field) {
-            if (!Object.prototype.hasOwnProperty.call(fields, field)) {
-                return;
-            }
+        if (fields && typeof fields === 'object') {
+            TRANSITION_FIELDS.forEach(function (field) {
+                if (!Object.prototype.hasOwnProperty.call(fields, field)) {
+                    return;
+                }
 
-            formData.append(field, String(fields[field]));
-        });
+                formData.append(field, String(fields[field]));
+            });
+        }
 
         return formData;
     }
@@ -194,7 +202,7 @@
         return fetch(config.ajaxUrl, {
             method: 'POST',
             credentials: 'same-origin',
-            body: buildFormData(config, fields)
+            body: buildFormData(config, config.updateAction, fields)
         })
             .then(parseWpJsonResponse)
             .catch(function (err) {
@@ -206,8 +214,36 @@
             });
     }
 
+    /**
+     * @returns {Promise<{version:number,tutorials:Object,reconciled:boolean}>}
+     */
+    function reconcileState() {
+        var config;
+
+        try {
+            config = assertConfig('reconcile');
+        } catch (err) {
+            return Promise.reject(err);
+        }
+
+        return fetch(config.ajaxUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: buildFormData(config, config.reconcileAction)
+        })
+            .then(parseWpJsonResponse)
+            .catch(function (err) {
+                if (err instanceof Error) {
+                    console.error('[TutorialStateService] reconcileState failed:', err);
+                }
+
+                return Promise.reject(err);
+            });
+    }
+
     window.TutorialStateService = {
         fetchState: fetchState,
-        transition: transition
+        transition: transition,
+        reconcileState: reconcileState
     };
 })();

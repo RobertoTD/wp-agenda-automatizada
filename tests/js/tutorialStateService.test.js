@@ -59,6 +59,7 @@ function loadService(fetchImpl, tutorialData) {
             ajaxUrl: 'https://example.test/wp-admin/admin-ajax.php',
             getAction: 'aa_get_tutorial_state',
             updateAction: 'aa_update_tutorial_state',
+            reconcileAction: 'aa_reconcile_tutorial_state',
             nonce: 'test-nonce'
         };
     } else {
@@ -359,6 +360,80 @@ describe('TutorialStateService MC3C', () => {
                 return err.code === 'invalid_step_transition'
                     && err.message === 'Solo se permite avanzar al siguiente paso lineal.'
                     && err.httpStatus === 400;
+            }
+        );
+    });
+
+    it('reconcileState usa POST con reconcileAction y nonce', async () => {
+        var requests = [];
+        var loaded = loadService(function (url, options) {
+            requests.push({ url: url, options: options || {} });
+
+            return Promise.resolve({
+                ok: true,
+                status: 200,
+                json: function () {
+                    return Promise.resolve({
+                        success: true,
+                        data: {
+                            version: 1,
+                            tutorials: {},
+                            reconciled: false
+                        }
+                    });
+                }
+            });
+        });
+
+        var result = await loaded.TutorialStateService.reconcileState();
+
+        assert.equal(requests.length, 1);
+        assert.equal(requests[0].options.method, 'POST');
+        assert.equal(requests[0].options.credentials, 'same-origin');
+        assert.equal(readFormField(requests[0].options.body, 'action'), 'aa_reconcile_tutorial_state');
+        assert.equal(readFormField(requests[0].options.body, '_wpnonce'), 'test-nonce');
+        assert.deepEqual(formKeys(requests[0].options.body).sort(), ['_wpnonce', 'action'].sort());
+        assert.equal(result.reconciled, false);
+    });
+
+    it('reconcileState propaga error 503 del probe', async () => {
+        var loaded = loadService(function () {
+            return Promise.resolve({
+                ok: false,
+                status: 503,
+                json: function () {
+                    return Promise.resolve({
+                        success: false,
+                        data: {
+                            message: 'No se pudo comprobar si existen citas.',
+                            code: 'reservation_existence_check_failed'
+                        }
+                    });
+                }
+            });
+        });
+
+        await assert.rejects(
+            loaded.TutorialStateService.reconcileState(),
+            function (err) {
+                return err.code === 'reservation_existence_check_failed'
+                    && err.httpStatus === 503;
+            }
+        );
+    });
+
+    it('reconcileState rechaza si falta reconcileAction', async () => {
+        var loaded = loadService(undefined, {
+            ajaxUrl: 'https://example.test/wp-admin/admin-ajax.php',
+            getAction: 'aa_get_tutorial_state',
+            updateAction: 'aa_update_tutorial_state',
+            nonce: 'test-nonce'
+        });
+
+        await assert.rejects(
+            loaded.TutorialStateService.reconcileState(),
+            function (err) {
+                return err.code === 'missing_config';
             }
         );
     });
