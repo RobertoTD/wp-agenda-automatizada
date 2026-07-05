@@ -18,10 +18,15 @@ const coordinatorPath = path.join(
     __dirname,
     '../../includes/admin/ui/tutorials/tutorialCoordinator.js'
 );
+const tutorialPath = path.join(
+    __dirname,
+    '../../includes/admin/ui/tutorials/tutorial.js'
+);
 
 const definitionsSrc = fs.readFileSync(definitionsPath, 'utf8');
 const contextSrc = fs.readFileSync(contextPath, 'utf8');
 const coordinatorSrc = fs.readFileSync(coordinatorPath, 'utf8');
+const tutorialSrc = fs.readFileSync(tutorialPath, 'utf8');
 
 const FAST_APPOINTMENT_CONTEXT = {
     tutorialId: 'create_test_appointment_v1',
@@ -123,7 +128,15 @@ function loadCoordinator(options) {
     };
 
     context.window = context;
-    context.window.AA_ADMIN_CONTEXT = { blogId: opts.blogId || 44 };
+    context.window.AA_ADMIN_CONTEXT = {
+        blogId: opts.blogId || 44,
+        currentModule: opts.currentModule
+    };
+    if (opts.sidebarOpen === true) {
+        context.window.AAAdmin = { Sidebar: { isOpen: true } };
+    } else if (opts.sidebarOpen === false) {
+        context.window.AAAdmin = { Sidebar: { isOpen: false } };
+    }
     context.window.sessionStorage = opts.sessionStorage || makeSessionStorage();
     context.window.AATutorialSession = {
         resolveBlogId: function () {
@@ -265,6 +278,7 @@ describe('TutorialCoordinator MC3D', () => {
 
     it('reanuda desde in_progress/current_step_id calendar_overview', async () => {
         var env = loadCoordinator({
+            currentModule: 'calendar',
             state: {
                 version: 1,
                 tutorials: {
@@ -282,6 +296,7 @@ describe('TutorialCoordinator MC3D', () => {
 
     it('paused/calendar_overview hace resume antes de iniciar', async () => {
         var env = loadCoordinator({
+            currentModule: 'calendar',
             state: {
                 version: 1,
                 tutorials: {
@@ -309,8 +324,9 @@ describe('TutorialCoordinator MC3D', () => {
         assert.equal(env.metrics.startCalls[0].initialStepId, 'calendar_overview');
     });
 
-    it('paused distinto de calendar_overview no auto-resume', async () => {
+    it('paused/open_sidebar hace resume durable antes de iniciar', async () => {
         var env = loadCoordinator({
+            currentModule: 'calendar',
             state: {
                 version: 1,
                 tutorials: {
@@ -319,16 +335,28 @@ describe('TutorialCoordinator MC3D', () => {
                         current_step_id: 'open_sidebar'
                     }
                 }
+            },
+            stateAfterTransition: {
+                version: 1,
+                tutorials: {
+                    create_test_appointment_v1: {
+                        status: 'in_progress',
+                        current_step_id: 'open_sidebar'
+                    }
+                }
             }
         });
 
         await env.TutorialCoordinator.init();
-        assert.equal(env.metrics.transitionCalls.length, 0);
+        assert.equal(env.metrics.transitionCalls.length, 1);
+        assert.equal(env.metrics.transitionCalls[0].status, 'in_progress');
+        assert.equal(env.metrics.transitionCalls[0].currentStepId, 'open_sidebar');
         assert.equal(env.metrics.startCalls[0].initialStepId, 'open_sidebar');
     });
 
     it('in_progress/calendar_overview no llama resume', async () => {
         var env = loadCoordinator({
+            currentModule: 'calendar',
             state: {
                 version: 1,
                 tutorials: {
@@ -389,6 +417,7 @@ describe('TutorialCoordinator MC3D', () => {
 
         var env = loadCoordinator({
             sessionStorage: sessionStorage,
+            currentModule: 'calendar',
             state: {
                 version: 1,
                 tutorials: {
@@ -442,8 +471,9 @@ describe('TutorialCoordinator MC3D', () => {
         assert.equal(env.metrics.destroyCalls, 0);
     });
 
-    it('in_progress/create_test_appointment activa contexto sin iniciar motor', async () => {
+    it('in_progress/create_test_appointment en calendar inicia resume FAB', async () => {
         var env = loadCoordinator({
+            currentModule: 'calendar',
             state: {
                 version: 1,
                 tutorials: {
@@ -456,10 +486,40 @@ describe('TutorialCoordinator MC3D', () => {
         });
 
         var started = await env.TutorialCoordinator.init();
-        assert.equal(started, false);
-        assert.equal(env.metrics.startCalls.length, 0);
+        assert.equal(started, true);
+        assert.equal(env.metrics.startCalls.length, 1);
+        assert.equal(env.metrics.startCalls[0].initialStepId, 'resume_create_test_appointment_fab');
+        assert.equal(env.metrics.transitionCalls.length, 0);
+    });
+
+    it('step-shown resume_create_test_appointment_fab activa contexto antes del click', () => {
+        var env = loadCoordinator();
+        env.TutorialCoordinator.registerActions();
+
+        assert.equal(env.TutorialFastAppointmentContext.isActive(), false);
+
+        env.dispatchDocumentEvent('aa:tutorial:step-shown', {
+            stepId: 'resume_create_test_appointment_fab'
+        });
+
         assert.equal(env.TutorialFastAppointmentContext.isActive(), true);
         assert.deepEqual(Object.assign({}, env.TutorialFastAppointmentContext.get()), FAST_APPOINTMENT_CONTEXT);
+    });
+
+    it('dismiss visual-only destruye motor sin transition ni clear context', async () => {
+        var env = loadCoordinator();
+        env.TutorialCoordinator.registerActions();
+        env.TutorialFastAppointmentContext.activate(FAST_APPOINTMENT_CONTEXT);
+
+        var result = await env.actionHandlers.aa_tutorial_dismiss_visual_only({
+            tutorial: env.AATutorial
+        });
+
+        assert.equal(result, false);
+        assert.equal(env.metrics.destroyCalls, 1);
+        assert.equal(env.metrics.transitionCalls.length, 0);
+        assert.equal(env.metrics.pauseCalls, 0);
+        assert.equal(env.TutorialFastAppointmentContext.isActive(), true);
     });
 
     it('step-shown calendar_overview activa contexto antes del click', () => {
@@ -599,6 +659,7 @@ describe('TutorialCoordinator MC3D', () => {
 
     it('no usa currentStepId camelCase del backend', async () => {
         var env = loadCoordinator({
+            currentModule: 'calendar',
             state: {
                 version: 1,
                 tutorials: {
@@ -631,6 +692,459 @@ describe('TutorialCoordinator MC3D', () => {
         var started = await env.TutorialCoordinator.init();
         assert.equal(started, false);
         assert.equal(env.metrics.startCalls.length, 0);
+    });
+});
+
+describe('TutorialCoordinator E3a resume infrastructure', () => {
+    function makeRecord(status, durableStep) {
+        return {
+            status: status,
+            current_step_id: durableStep
+        };
+    }
+
+    function resolvePlan(record, overrides) {
+        var env = loadCoordinator();
+        var opts = overrides || {};
+
+        return env.TutorialCoordinator.resolveResumePlan({
+            record: record,
+            currentModule: opts.currentModule,
+            sidebarOpen: opts.sidebarOpen
+        });
+    }
+
+    it('matriz calendar_overview + calendar → calendar_overview', () => {
+        var result = resolvePlan(makeRecord('in_progress', 'calendar_overview'), {
+            currentModule: 'calendar'
+        });
+
+        assert.equal(result.visualStepId, 'calendar_overview');
+    });
+
+    it('matriz calendar_overview + fuera calendar + sidebar abierto → resume_navigate_calendar', () => {
+        var result = resolvePlan(makeRecord('in_progress', 'calendar_overview'), {
+            currentModule: 'dashboard',
+            sidebarOpen: true
+        });
+
+        assert.equal(result.visualStepId, 'resume_navigate_calendar');
+    });
+
+    it('matriz calendar_overview + fuera calendar + sidebar cerrado → resume_open_sidebar', () => {
+        var result = resolvePlan(makeRecord('in_progress', 'calendar_overview'), {
+            currentModule: 'dashboard',
+            sidebarOpen: false
+        });
+
+        assert.equal(result.visualStepId, 'resume_open_sidebar');
+    });
+
+    it('matriz create_test_appointment + calendar → resume_create_test_appointment_fab', () => {
+        var result = resolvePlan(makeRecord('in_progress', 'create_test_appointment'), {
+            currentModule: 'calendar'
+        });
+
+        assert.equal(result.visualStepId, 'resume_create_test_appointment_fab');
+    });
+
+    it('matriz create_test_appointment + fuera calendar + sidebar abierto → resume_navigate_calendar', () => {
+        var result = resolvePlan(makeRecord('in_progress', 'create_test_appointment'), {
+            currentModule: 'settings',
+            sidebarOpen: true
+        });
+
+        assert.equal(result.visualStepId, 'resume_navigate_calendar');
+    });
+
+    it('matriz create_test_appointment + fuera calendar + sidebar cerrado → resume_open_sidebar', () => {
+        var result = resolvePlan(makeRecord('paused', 'create_test_appointment'), {
+            currentModule: 'learning',
+            sidebarOpen: false
+        });
+
+        assert.equal(result.visualStepId, 'resume_open_sidebar');
+    });
+
+    it('init off-calendar calendar_overview usa resume_navigate_calendar con sidebar abierto', async () => {
+        var env = loadCoordinator({
+            currentModule: 'dashboard',
+            sidebarOpen: true,
+            state: {
+                version: 1,
+                tutorials: {
+                    create_test_appointment_v1: {
+                        status: 'in_progress',
+                        current_step_id: 'calendar_overview'
+                    }
+                }
+            }
+        });
+
+        await env.TutorialCoordinator.init();
+        assert.equal(env.metrics.transitionCalls.length, 0);
+        assert.equal(env.metrics.startCalls[0].initialStepId, 'resume_navigate_calendar');
+    });
+
+    it('init off-calendar calendar_overview usa resume_open_sidebar con sidebar cerrado', async () => {
+        var env = loadCoordinator({
+            currentModule: 'dashboard',
+            sidebarOpen: false,
+            state: {
+                version: 1,
+                tutorials: {
+                    create_test_appointment_v1: {
+                        status: 'in_progress',
+                        current_step_id: 'calendar_overview'
+                    }
+                }
+            }
+        });
+
+        await env.TutorialCoordinator.init();
+        assert.equal(env.metrics.startCalls[0].initialStepId, 'resume_open_sidebar');
+    });
+
+    it('paused/create_test_appointment + calendar hace una transition y resume FAB', async () => {
+        var env = loadCoordinator({
+            currentModule: 'calendar',
+            state: {
+                version: 1,
+                tutorials: {
+                    create_test_appointment_v1: {
+                        status: 'paused',
+                        current_step_id: 'create_test_appointment'
+                    }
+                }
+            },
+            stateAfterTransition: {
+                version: 1,
+                tutorials: {
+                    create_test_appointment_v1: {
+                        status: 'in_progress',
+                        current_step_id: 'create_test_appointment'
+                    }
+                }
+            }
+        });
+
+        await env.TutorialCoordinator.init();
+        assert.equal(env.metrics.transitionCalls.length, 1);
+        assert.equal(env.metrics.transitionCalls[0].status, 'in_progress');
+        assert.equal(env.metrics.transitionCalls[0].currentStepId, 'create_test_appointment');
+        assert.equal(env.metrics.startCalls[0].initialStepId, 'resume_create_test_appointment_fab');
+    });
+
+    it('paused/calendar_overview + fuera calendar hace una transition y resume navegación', async () => {
+        var env = loadCoordinator({
+            currentModule: 'dashboard',
+            sidebarOpen: true,
+            state: {
+                version: 1,
+                tutorials: {
+                    create_test_appointment_v1: {
+                        status: 'paused',
+                        current_step_id: 'calendar_overview'
+                    }
+                }
+            },
+            stateAfterTransition: {
+                version: 1,
+                tutorials: {
+                    create_test_appointment_v1: {
+                        status: 'in_progress',
+                        current_step_id: 'calendar_overview'
+                    }
+                }
+            }
+        });
+
+        await env.TutorialCoordinator.init();
+        assert.equal(env.metrics.transitionCalls.length, 1);
+        assert.equal(env.metrics.startCalls[0].initialStepId, 'resume_navigate_calendar');
+    });
+
+    it('isSidebarOpen usa AAAdmin.Sidebar.isOpen', () => {
+        var env = loadCoordinator({ sidebarOpen: true });
+        assert.equal(env.TutorialCoordinator.isSidebarOpen(), true);
+    });
+
+    it('ensure sidebar interactable pausa si sidebar cerrado', () => {
+        var env = loadCoordinator({ sidebarOpen: false });
+        env.TutorialCoordinator.registerActions();
+
+        env.actionHandlers.aa_tutorial_ensure_sidebar_interactable({
+            tutorial: env.AATutorial
+        });
+
+        assert.equal(env.metrics.pauseCalls, 1);
+    });
+});
+
+describe('TutorialCoordinator E3a motor integration', () => {
+    function makeMotorElement(tagName, rect) {
+        var listeners = {};
+        var element = {
+            tagName: tagName.toUpperCase(),
+            id: '',
+            className: '',
+            href: '',
+            textContent: '',
+            style: {},
+            attributes: {},
+            children: [],
+            parentNode: null,
+            appendChild: function (child) {
+                child.parentNode = element;
+                element.children.push(child);
+                return child;
+            },
+            setAttribute: function (name, value) {
+                element.attributes[name] = String(value);
+            },
+            getAttribute: function (name) {
+                return Object.prototype.hasOwnProperty.call(element.attributes, name)
+                    ? element.attributes[name]
+                    : null;
+            },
+            addEventListener: function (type, handler) {
+                listeners[type] = listeners[type] || [];
+                listeners[type].push(handler);
+            },
+            dispatchEvent: function (event) {
+                (listeners[event.type] || []).slice().forEach(function (handler) {
+                    handler(event);
+                });
+                return true;
+            },
+            getBoundingClientRect: function () {
+                return rect || { top: 10, left: 10, right: 90, bottom: 50, width: 80, height: 40 };
+            },
+            classList: {
+                contains: function () { return false; },
+                add: function () {},
+                remove: function () {}
+            },
+            __listeners: listeners
+        };
+
+        return element;
+    }
+
+    function loadMotorEnv() {
+        var bodyChildren = [];
+        var body = {
+            children: bodyChildren,
+            appendChild: function (child) {
+                bodyChildren.push(child);
+                return child;
+            },
+            classList: {
+                contains: function () { return false; },
+                add: function () {},
+                remove: function () {}
+            }
+        };
+
+        var sidebarOpened = false;
+        var assignedHref = null;
+        var completedEvents = 0;
+        var productFabOpens = 0;
+        var documentEvents = {};
+
+        var sidebarBtn = makeMotorElement('button');
+        sidebarBtn.id = 'aa-btn-sidebar';
+
+        var calendarLink = makeMotorElement('a');
+        calendarLink.setAttribute('data-aa-nav-module', 'calendar');
+        calendarLink.href = '/admin?module=calendar';
+
+        var fabBtn = makeMotorElement('button');
+        fabBtn.id = 'aa-btn-open-fastappointment-modal';
+
+        var sidebar = makeMotorElement('aside');
+        sidebar.id = 'aa-sidebar';
+
+        var context = {
+            window: {},
+            document: {
+                body: body,
+                documentElement: { clientWidth: 1024, clientHeight: 768 },
+                addEventListener: function (type, handler) {
+                    documentEvents[type] = documentEvents[type] || [];
+                    documentEvents[type].push(handler);
+                },
+                removeEventListener: function () {},
+                querySelector: function (selector) {
+                    if (selector === '#aa-btn-sidebar') {
+                        return sidebarBtn;
+                    }
+                    if (selector === '[data-aa-nav-module="calendar"]') {
+                        return calendarLink;
+                    }
+                    if (selector === '#aa-btn-open-fastappointment-modal') {
+                        return fabBtn;
+                    }
+                    if (selector === '#aa-sidebar') {
+                        return sidebar;
+                    }
+                    return null;
+                },
+                getElementById: function (id) {
+                    if (id === 'aa-sidebar') {
+                        return sidebar;
+                    }
+                    return null;
+                },
+                createElement: function (tag) {
+                    return makeMotorElement(tag);
+                },
+                dispatchEvent: function (event) {
+                    if (event.type === 'aa:tutorial:completed') {
+                        completedEvents++;
+                    }
+
+                    (documentEvents[event.type] || []).forEach(function (handler) {
+                        handler(event);
+                    });
+                    return true;
+                }
+            },
+            CustomEvent: function (type, init) {
+                this.type = type;
+                this.detail = init && init.detail ? init.detail : {};
+            },
+            console: { warn: function () {}, error: function () {} },
+            setTimeout: function (fn) { fn(); return 0; },
+            clearTimeout: function () {},
+            Event: function (type) { this.type = type; }
+        };
+
+        context.window = context;
+        context.window.AA_ADMIN_CONTEXT = { blogId: 44, currentModule: 'calendar' };
+        context.window.AAAdmin = {
+            Sidebar: {
+                isOpen: false,
+                open: function () {
+                    sidebarOpened = true;
+                    this.isOpen = true;
+                }
+            }
+        };
+        context.window.location = {
+            assign: function (href) {
+                assignedHref = href;
+            }
+        };
+        context.window.sessionStorage = makeSessionStorage();
+
+        sidebarBtn.addEventListener('click', function (event) {
+            if (event && typeof event.preventDefault === 'function') {
+                event.preventDefault();
+            }
+            context.window.AAAdmin.Sidebar.open();
+        });
+
+        fabBtn.addEventListener('click', function () {
+            productFabOpens++;
+        });
+
+        vm.runInNewContext(tutorialSrc, context, { filename: tutorialPath });
+        vm.runInNewContext(definitionsSrc, context, { filename: definitionsPath });
+        vm.runInNewContext(contextSrc, context, { filename: contextPath });
+        vm.runInNewContext(coordinatorSrc, context, { filename: coordinatorPath });
+
+        context.window.TutorialCoordinator.registerActions();
+
+        return {
+            api: context.window,
+            sidebarBtn: sidebarBtn,
+            calendarLink: calendarLink,
+            fabBtn: fabBtn,
+            metrics: {
+                get sidebarOpened() { return sidebarOpened; },
+                get assignedHref() { return assignedHref; },
+                get completedEvents() { return completedEvents; },
+                get productFabOpens() { return productFabOpens; }
+            }
+        };
+    }
+
+    it('resume_open_sidebar click real avanza a resume_navigate_calendar sin transition', async () => {
+        var env = loadMotorEnv();
+        var config = env.api.TutorialDefinitions.getConfig('create_test_appointment_v1', {
+            initialStepId: 'resume_open_sidebar'
+        });
+
+        env.api.AATutorial.start(config);
+        assert.equal(env.api.AATutorial.getState().currentStepId, 'resume_open_sidebar');
+
+        env.sidebarBtn.dispatchEvent({
+            type: 'click',
+            preventDefault: function () {},
+            stopPropagation: function () {}
+        });
+
+        await flushMicrotasks();
+        assert.equal(env.metrics.sidebarOpened, true);
+        assert.equal(env.api.AATutorial.getState().currentStepId, 'resume_navigate_calendar');
+        assert.equal(env.metrics.completedEvents, 0);
+    });
+
+    it('resume_navigate_calendar click navega sin complete ni transition', async () => {
+        var env = loadMotorEnv();
+        env.api.AAAdmin.Sidebar.isOpen = true;
+
+        var config = env.api.TutorialDefinitions.getConfig('create_test_appointment_v1', {
+            initialStepId: 'resume_navigate_calendar'
+        });
+
+        env.api.AATutorial.start(config);
+
+        env.calendarLink.dispatchEvent({
+            type: 'click',
+            preventDefault: function () {},
+            stopPropagation: function () {}
+        });
+
+        await flushMicrotasks();
+        assert.equal(env.metrics.assignedHref, '/admin?module=calendar');
+        assert.equal(env.metrics.completedEvents, 0);
+    });
+
+    it('resume FAB click abre producto, destruye visual y no complete', async () => {
+        var env = loadMotorEnv();
+        var destroyCalls = 0;
+        var originalDestroy = env.api.AATutorial.destroy.bind(env.api.AATutorial);
+
+        env.api.AATutorial.destroy = function () {
+            destroyCalls++;
+            return originalDestroy();
+        };
+
+        env.api.TutorialFastAppointmentContext.activate(FAST_APPOINTMENT_CONTEXT);
+
+        var config = env.api.TutorialDefinitions.getConfig('create_test_appointment_v1', {
+            initialStepId: 'resume_create_test_appointment_fab'
+        });
+
+        env.api.AATutorial.start(config);
+        assert.equal(env.api.TutorialFastAppointmentContext.isActive(), true);
+
+        var destroyCallsBeforeClick = destroyCalls;
+
+        env.fabBtn.dispatchEvent({
+            type: 'click',
+            preventDefault: function () {},
+            stopPropagation: function () {}
+        });
+
+        await flushMicrotasks();
+        assert.equal(env.metrics.productFabOpens, 1);
+        assert.equal(destroyCalls - destroyCallsBeforeClick, 1);
+        assert.equal(env.api.AATutorial.getState().status, 'idle');
+        assert.equal(env.metrics.completedEvents, 0);
+        assert.equal(env.api.TutorialFastAppointmentContext.isActive(), true);
     });
 });
 

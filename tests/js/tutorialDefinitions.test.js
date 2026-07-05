@@ -42,7 +42,7 @@ describe('TutorialDefinitions MC3D', () => {
         assert.ok(config);
         assert.equal(config.flowId, 'create_test_appointment_v1');
         assert.equal(config.initialStepId, 'intro');
-        assert.equal(config.steps.length, 4);
+        assert.equal(config.steps.length, 7);
     });
 
     it('getConfig respeta initialStepId override', () => {
@@ -61,7 +61,10 @@ describe('TutorialDefinitions MC3D', () => {
             'intro',
             'open_sidebar',
             'open_calendar',
-            'calendar_overview'
+            'calendar_overview',
+            'resume_open_sidebar',
+            'resume_navigate_calendar',
+            'resume_create_test_appointment_fab'
         ]);
     });
 
@@ -84,6 +87,56 @@ describe('TutorialDefinitions MC3D', () => {
         assert.equal(step.advance.navigation, 'follow_target');
         assert.equal(step.beforeAdvanceAction, 'aa_tutorial_persist_calendar_overview');
         assert.ok(step.waitFor);
+    });
+
+    it('resume steps son visual-only y no están en durableStepIds', () => {
+        var def = api.get('create_test_appointment_v1');
+        var config = api.getConfig('create_test_appointment_v1');
+        var resumeIds = [
+            'resume_open_sidebar',
+            'resume_navigate_calendar',
+            'resume_create_test_appointment_fab'
+        ];
+
+        resumeIds.forEach(function (id) {
+            assert.equal(def.durableStepIds.indexOf(id), -1, id);
+            assert.equal(def.implementedStepIds.indexOf(id), -1, id);
+            assert.ok(config.steps.find(function (step) { return step.id === id; }), id);
+        });
+    });
+
+    it('resume_open_sidebar encadena resume_navigate_calendar sin gate durable', () => {
+        var config = api.getConfig('create_test_appointment_v1');
+        var step = config.steps.find(function (s) { return s.id === 'resume_open_sidebar'; });
+
+        assert.equal(step.target, '#aa-btn-sidebar');
+        assert.equal(step.advance.mode, 'target_click');
+        assert.equal(step.advance.navigation, 'none');
+        assert.equal(step.nextStepId, 'resume_navigate_calendar');
+        assert.equal(step.beforeAdvanceAction, undefined);
+    });
+
+    it('resume_navigate_calendar usa follow_target sin gate durable', () => {
+        var config = api.getConfig('create_test_appointment_v1');
+        var step = config.steps.find(function (s) { return s.id === 'resume_navigate_calendar'; });
+
+        assert.equal(step.target, '[data-aa-nav-module="calendar"]');
+        assert.equal(step.advance.mode, 'target_click');
+        assert.equal(step.advance.navigation, 'follow_target');
+        assert.equal(step.beforeAdvanceAction, undefined);
+        assert.equal(step.beforeAction, 'aa_tutorial_ensure_sidebar_interactable');
+        assert.ok(step.waitFor);
+    });
+
+    it('resume_create_test_appointment_fab usa dismiss visual-only', () => {
+        var def = api.get('create_test_appointment_v1');
+        var config = api.getConfig('create_test_appointment_v1');
+        var step = config.steps.find(function (s) { return s.id === 'resume_create_test_appointment_fab'; });
+
+        assert.equal(step.target, '#aa-btn-open-fastappointment-modal');
+        assert.equal(step.beforeAdvanceAction, def.actions.dismissVisualOnly);
+        assert.equal(step.advance.navigation, 'none');
+        assert.equal(step.nextStepId, undefined);
     });
 
     it('calendar_overview es step terminal con coach mark en FAB', () => {

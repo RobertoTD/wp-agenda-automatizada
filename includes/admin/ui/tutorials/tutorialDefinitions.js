@@ -30,7 +30,9 @@
                 accept: 'aa_tutorial_accept_create_test_appointment',
                 persistOpenCalendar: 'aa_tutorial_persist_open_calendar',
                 persistCalendarOverview: 'aa_tutorial_persist_calendar_overview',
-                persistCreateTestAppointment: 'aa_tutorial_persist_create_test_appointment'
+                persistCreateTestAppointment: 'aa_tutorial_persist_create_test_appointment',
+                dismissVisualOnly: 'aa_tutorial_dismiss_visual_only',
+                ensureSidebarInteractable: 'aa_tutorial_ensure_sidebar_interactable'
             },
             steps: [
                 {
@@ -92,6 +94,52 @@
                         mode: 'target_click',
                         navigation: 'none'
                     }
+                },
+                {
+                    id: 'resume_open_sidebar',
+                    title: 'Abre el menú',
+                    text: 'Haz clic en el botón de menú para ver la Agenda.',
+                    target: '#aa-btn-sidebar',
+                    placement: 'bottom',
+                    advance: {
+                        mode: 'target_click',
+                        navigation: 'none'
+                    },
+                    nextStepId: 'resume_navigate_calendar'
+                },
+                {
+                    id: 'resume_navigate_calendar',
+                    title: 'Entra a la Agenda',
+                    text: 'Selecciona Agenda en el menú.',
+                    target: '[data-aa-nav-module="calendar"]',
+                    placement: 'right',
+                    beforeAction: 'aa_tutorial_ensure_sidebar_interactable',
+                    waitFor: {
+                        selector: '[data-aa-nav-module="calendar"]',
+                        timeoutMs: 3000,
+                        intervalMs: 100
+                    },
+                    advance: {
+                        mode: 'target_click',
+                        navigation: 'follow_target'
+                    }
+                },
+                {
+                    id: 'resume_create_test_appointment_fab',
+                    title: 'Crea tu cita de prueba',
+                    text: 'Pulsa «+ Crear cita» para continuar con tu cita de prueba.',
+                    target: '#aa-btn-open-fastappointment-modal',
+                    placement: 'left',
+                    waitFor: {
+                        selector: '#aa-btn-open-fastappointment-modal',
+                        timeoutMs: 3000,
+                        intervalMs: 100
+                    },
+                    beforeAdvanceAction: 'aa_tutorial_dismiss_visual_only',
+                    advance: {
+                        mode: 'target_click',
+                        navigation: 'none'
+                    }
                 }
             ]
         }
@@ -125,6 +173,10 @@
 
             if (step.waitFor) {
                 clone.waitFor = Object.assign({}, step.waitFor);
+            }
+
+            if (step.beforeAction) {
+                clone.beforeAction = step.beforeAction;
             }
 
             return clone;

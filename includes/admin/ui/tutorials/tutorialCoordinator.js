@@ -9,6 +9,9 @@
     var DEFAULT_TUTORIAL_ID = 'create_test_appointment_v1';
     var CALENDAR_OVERVIEW_STEP_ID = 'calendar_overview';
     var CREATE_TEST_APPOINTMENT_STEP_ID = 'create_test_appointment';
+    var RESUME_OPEN_SIDEBAR_STEP_ID = 'resume_open_sidebar';
+    var RESUME_NAVIGATE_CALENDAR_STEP_ID = 'resume_navigate_calendar';
+    var RESUME_CREATE_TEST_APPOINTMENT_FAB_STEP_ID = 'resume_create_test_appointment_fab';
     var FAST_APPOINTMENT_TUTORIAL_CONTEXT = {
         tutorialId: DEFAULT_TUTORIAL_ID,
         stepId: CREATE_TEST_APPOINTMENT_STEP_ID,
@@ -103,10 +106,6 @@
         if (status === 'in_progress' || status === 'paused') {
             var durableStep = resolveDurableStepId(record);
 
-            if (durableStep === CREATE_TEST_APPOINTMENT_STEP_ID) {
-                return null;
-            }
-
             if (durableStep && definition.implementedStepIds.indexOf(durableStep) !== -1) {
                 return durableStep;
             }
@@ -117,6 +116,110 @@
 
         warn('Estado durable desconocido: ' + status);
         return null;
+    }
+
+    function getCurrentModule() {
+        var ctx = window.AA_ADMIN_CONTEXT;
+
+        if (!ctx || ctx.currentModule === null || ctx.currentModule === undefined) {
+            return '';
+        }
+
+        return normalizeString(String(ctx.currentModule));
+    }
+
+    /**
+     * Canonical sidebar-open signal for resume planning (not DOM presence alone).
+     *
+     * @returns {boolean}
+     */
+    function isSidebarOpen() {
+        if (window.AAAdmin && window.AAAdmin.Sidebar && window.AAAdmin.Sidebar.isOpen === true) {
+            return true;
+        }
+
+        if (typeof document === 'undefined' || !document || typeof document.getElementById !== 'function') {
+            return false;
+        }
+
+        var trigger = document.getElementById('aa-btn-sidebar');
+
+        if (trigger && trigger.getAttribute('aria-expanded') === 'true') {
+            return true;
+        }
+
+        var sidebar = document.getElementById('aa-sidebar');
+
+        return !!(sidebar
+            && sidebar.classList.contains('translate-x-0')
+            && !sidebar.classList.contains('-translate-x-full'));
+    }
+
+    /**
+     * @param {{record: object|null, currentModule?: string, sidebarOpen?: boolean}} input
+     * @returns {{visualStepId: string|null}}
+     */
+    function resolveResumePlan(input) {
+        var record = input && input.record ? input.record : null;
+        var status = resolveStatus(record);
+        var durable = resolveDurableStepId(record);
+        var currentModule = input && input.currentModule != null
+            ? normalizeString(String(input.currentModule))
+            : getCurrentModule();
+        var onCalendar = currentModule === 'calendar';
+        var sidebarOpen = !!(input && input.sidebarOpen);
+
+        if (status !== 'in_progress' && status !== 'paused') {
+            return { visualStepId: null };
+        }
+
+        if (onCalendar) {
+            if (durable === CREATE_TEST_APPOINTMENT_STEP_ID) {
+                return { visualStepId: RESUME_CREATE_TEST_APPOINTMENT_FAB_STEP_ID };
+            }
+
+            if (durable === CALENDAR_OVERVIEW_STEP_ID) {
+                return { visualStepId: CALENDAR_OVERVIEW_STEP_ID };
+            }
+
+            return { visualStepId: null };
+        }
+
+        if (durable === CALENDAR_OVERVIEW_STEP_ID || durable === CREATE_TEST_APPOINTMENT_STEP_ID) {
+            return {
+                visualStepId: sidebarOpen
+                    ? RESUME_NAVIGATE_CALENDAR_STEP_ID
+                    : RESUME_OPEN_SIDEBAR_STEP_ID
+            };
+        }
+
+        return { visualStepId: null };
+    }
+
+    function scheduleResumeNavigateCalendarReposition() {
+        if (typeof document === 'undefined' || !document || typeof document.getElementById !== 'function') {
+            return;
+        }
+
+        var sidebar = document.getElementById('aa-sidebar');
+
+        if (!sidebar || typeof sidebar.addEventListener !== 'function') {
+            return;
+        }
+
+        function onTransitionEnd(event) {
+            if (event.target !== sidebar || event.propertyName !== 'transform') {
+                return;
+            }
+
+            sidebar.removeEventListener('transitionend', onTransitionEnd);
+
+            if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+                window.dispatchEvent(new Event('resize'));
+            }
+        }
+
+        sidebar.addEventListener('transitionend', onTransitionEnd);
     }
 
     function activateFastAppointmentTutorialContext() {
@@ -161,8 +264,13 @@
         var detail = event && event.detail;
         var stepId = detail ? normalizeString(detail.stepId) : '';
 
-        if (stepId === CALENDAR_OVERVIEW_STEP_ID) {
+        if (stepId === CALENDAR_OVERVIEW_STEP_ID
+            || stepId === RESUME_CREATE_TEST_APPOINTMENT_FAB_STEP_ID) {
             activateFastAppointmentTutorialContext();
+        }
+
+        if (stepId === RESUME_NAVIGATE_CALENDAR_STEP_ID) {
+            scheduleResumeNavigateCalendarReposition();
         }
     }
 
@@ -264,13 +372,13 @@
     }
 
     /**
-     * Microciclo A: resume automático solo para paused/calendar_overview.
+     * Resume durable paused tutorials to in_progress before visual planning.
      *
      * @param {string} tutorialId
      * @param {object|null} record
      * @returns {Promise<object|null>}
      */
-    function ensureCalendarOverviewResume(tutorialId, record) {
+    function ensurePausedBootstrapResume(tutorialId, record) {
         if (!record) {
             return Promise.resolve(record);
         }
@@ -279,11 +387,13 @@
             return Promise.resolve(record);
         }
 
-        if (resolveDurableStepId(record) !== CALENDAR_OVERVIEW_STEP_ID) {
+        var durableStep = resolveDurableStepId(record);
+
+        if (!durableStep) {
             return Promise.resolve(record);
         }
 
-        return transitionPersist(tutorialId, 'in_progress', CALENDAR_OVERVIEW_STEP_ID)
+        return transitionPersist(tutorialId, 'in_progress', durableStep)
             .then(function (nextState) {
                 return getTutorialRecord(nextState, tutorialId) || record;
             });
@@ -314,6 +424,28 @@
     function makePersistStepAction(tutorialId, stepId) {
         return function () {
             return transitionPersist(tutorialId, 'in_progress', stepId);
+        };
+    }
+
+    function makeDismissVisualOnlyAction() {
+        return function (ctx) {
+            if (ctx && ctx.tutorial && typeof ctx.tutorial.destroy === 'function') {
+                ctx.tutorial.destroy();
+            }
+
+            return false;
+        };
+    }
+
+    function makeEnsureSidebarInteractableAction() {
+        return function (ctx) {
+            if (isSidebarOpen()) {
+                return;
+            }
+
+            if (ctx && ctx.tutorial && typeof ctx.tutorial.pause === 'function') {
+                ctx.tutorial.pause('sidebar_not_interactable', { status: 'paused_missing_target' });
+            }
         };
     }
 
@@ -363,6 +495,8 @@
         safeRegister(names.persistOpenCalendar, makePersistStepAction(tutorialId, 'open_calendar'));
         safeRegister(names.persistCalendarOverview, makePersistStepAction(tutorialId, 'calendar_overview'));
         safeRegister(names.persistCreateTestAppointment, makePersistCreateTestAppointmentAction(tutorialId));
+        safeRegister(names.dismissVisualOnly, makeDismissVisualOnlyAction());
+        safeRegister(names.ensureSidebarInteractable, makeEnsureSidebarInteractableAction());
 
         actionsRegistered = true;
         registerLifecycleListeners();
@@ -408,21 +542,21 @@
                     .then(function (state) {
                         var record = getTutorialRecord(state, id);
 
-                        return ensureCalendarOverviewResume(id, record)
+                        return ensurePausedBootstrapResume(id, record)
                             .then(function (activeRecord) {
                                 var status = resolveStatus(activeRecord);
-                                var durableStep = resolveDurableStepId(activeRecord);
-                                var initialStepId = resolveInitialStepId(definition, activeRecord);
 
                                 if (status === 'completed') {
                                     return false;
                                 }
 
-                                if (status === 'in_progress'
-                                    && durableStep === CREATE_TEST_APPOINTMENT_STEP_ID) {
-                                    activateFastAppointmentTutorialContext();
-                                    return false;
-                                }
+                                var plan = resolveResumePlan({
+                                    record: activeRecord,
+                                    currentModule: getCurrentModule(),
+                                    sidebarOpen: isSidebarOpen()
+                                });
+                                var initialStepId = plan.visualStepId
+                                    || resolveInitialStepId(definition, activeRecord);
 
                                 if (!initialStepId) {
                                     return false;
@@ -471,6 +605,9 @@
     window.TutorialCoordinator = {
         init: init,
         start: start,
-        registerActions: registerActions
+        registerActions: registerActions,
+        resolveResumePlan: resolveResumePlan,
+        isSidebarOpen: isSidebarOpen,
+        getCurrentModule: getCurrentModule
     };
 })();
