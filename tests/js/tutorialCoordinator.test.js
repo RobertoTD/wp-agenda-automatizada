@@ -1513,6 +1513,27 @@ describe('TutorialCoordinator E3b bootstrap', () => {
         assert.equal(env.metrics.startCalls.length, 0);
     });
 
+    it('skipped tras reconcile no inicia', async () => {
+        var env = loadCoordinator({
+            reconcileStateResult: {
+                version: 1,
+                tutorials: {
+                    create_test_appointment_v1: {
+                        status: 'skipped',
+                        current_step_id: null,
+                        skipped_at: '2026-07-04 08:00:00'
+                    }
+                }
+            }
+        });
+
+        var started = await env.TutorialCoordinator.bootstrapTutorial();
+        assert.equal(started, false);
+        assert.equal(env.metrics.reconcileCalls, 1);
+        assert.equal(env.metrics.fetchCalls, 0);
+        assert.equal(env.metrics.startCalls.length, 0);
+    });
+
     it('available tras reconcile inicia tutorial', async () => {
         var env = loadCoordinator({
             reconcileStateResult: {

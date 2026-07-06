@@ -17,6 +17,7 @@ final class AA_Tutorial_State_Policy {
     public const STATUS_IN_PROGRESS = 'in_progress';
     public const STATUS_PAUSED = 'paused';
     public const STATUS_COMPLETED = 'completed';
+    public const STATUS_SKIPPED = 'skipped';
 
     /** @var list<string> */
     public const ALLOWED_TUTORIAL_IDS = [
@@ -29,6 +30,7 @@ final class AA_Tutorial_State_Policy {
         self::STATUS_IN_PROGRESS,
         self::STATUS_PAUSED,
         self::STATUS_COMPLETED,
+        self::STATUS_SKIPPED,
     ];
 
     /** @var list<string> */
@@ -38,6 +40,7 @@ final class AA_Tutorial_State_Policy {
         'accepted_at',
         'started_at',
         'paused_at',
+        'skipped_at',
         'completed_at',
         'updated_at',
     ];
@@ -161,6 +164,7 @@ final class AA_Tutorial_State_Policy {
                 $tutorial_id,
                 $input['current_step_id'],
                 $requested_status === self::STATUS_COMPLETED
+                    || $requested_status === self::STATUS_SKIPPED
             );
 
             if ($requested_step === false) {
@@ -221,7 +225,9 @@ final class AA_Tutorial_State_Policy {
         $before = self::get_effective_tutorial($sanitized, $tutorial_id);
         $before_status = (string) ($before['status'] ?? self::STATUS_AVAILABLE);
 
-        if (!$exists || $before_status === self::STATUS_COMPLETED) {
+        if (!$exists
+            || $before_status === self::STATUS_COMPLETED
+            || $before_status === self::STATUS_SKIPPED) {
             return [
                 'changed' => false,
                 'state' => $sanitized,
@@ -291,6 +297,7 @@ final class AA_Tutorial_State_Policy {
             'accepted_at' => null,
             'started_at' => null,
             'paused_at' => null,
+            'skipped_at' => null,
             'completed_at' => null,
             'updated_at' => null,
         ];
@@ -325,6 +332,7 @@ final class AA_Tutorial_State_Policy {
                     $tutorial_id,
                     $tutorial_state[$key],
                     $status === self::STATUS_COMPLETED
+                        || $status === self::STATUS_SKIPPED
                 );
 
                 if ($step_id === false) {
@@ -344,7 +352,7 @@ final class AA_Tutorial_State_Policy {
             $result[$key] = $datetime;
         }
 
-        if ($status === self::STATUS_COMPLETED) {
+        if ($status === self::STATUS_COMPLETED || $status === self::STATUS_SKIPPED) {
             $result['current_step_id'] = null;
         }
 
@@ -389,7 +397,7 @@ final class AA_Tutorial_State_Policy {
         $next = $before;
         $next['status'] = $status;
 
-        if ($status === self::STATUS_COMPLETED) {
+        if ($status === self::STATUS_COMPLETED || $status === self::STATUS_SKIPPED) {
             $next['current_step_id'] = null;
         } else {
             $next['current_step_id'] = $next_step_id;
@@ -412,9 +420,25 @@ final class AA_Tutorial_State_Policy {
             return self::error('invalid_transition', 'El tutorial ya está completado.');
         }
 
+        if ($before_status === self::STATUS_SKIPPED) {
+            return self::error('invalid_transition', 'El tutorial ya fue omitido.');
+        }
+
         if ($before_status === self::STATUS_AVAILABLE) {
+            if ($requested_status === self::STATUS_SKIPPED) {
+                if ($requested_step !== null && $requested_step !== '') {
+                    return self::error('invalid_step_transition', 'Al omitir el paso actual debe ser null.');
+                }
+
+                return [
+                    'ok' => true,
+                    'transition_kind' => 'skip',
+                    'next_step_id' => '',
+                ];
+            }
+
             if ($requested_status !== self::STATUS_IN_PROGRESS) {
-                return self::error('invalid_transition', 'Un tutorial available solo puede pasar a in_progress.');
+                return self::error('invalid_transition', 'Un tutorial available solo puede pasar a in_progress o skipped.');
             }
 
             $first_step = self::get_first_step($tutorial_id);

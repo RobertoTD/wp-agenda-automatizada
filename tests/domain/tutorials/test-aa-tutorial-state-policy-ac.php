@@ -174,6 +174,72 @@ ac_assert('sanitize drops corrupt tutorial', !isset($corrupt['tutorials'][$tutor
 $wrong_version = AA_Tutorial_State_Policy::sanitize(['version' => 2, 'tutorials' => []]);
 ac_assert('sanitize wrong version -> empty', ($wrong_version['tutorials'] ?? null) === []);
 
+$skipped = AA_Tutorial_State_Policy::apply_transition($empty, $tutorial_id, [
+    'status' => 'skipped',
+    'current_step_id' => null,
+]);
+ac_assert('skip available -> skipped ok', ($skipped['ok'] ?? false) === true);
+ac_assert('skip transition kind', ($skipped['transition_kind'] ?? '') === 'skip');
+$skipped_tutorial = $skipped['state']['tutorials'][$tutorial_id] ?? [];
+ac_assert('skip sets status skipped', ($skipped_tutorial['status'] ?? '') === 'skipped');
+ac_assert('skip clears current_step_id', array_key_exists('current_step_id', $skipped_tutorial) && $skipped_tutorial['current_step_id'] === null);
+ac_assert('skip accepted_at null', array_key_exists('accepted_at', $skipped_tutorial) && $skipped_tutorial['accepted_at'] === null);
+ac_assert('skip started_at null', array_key_exists('started_at', $skipped_tutorial) && $skipped_tutorial['started_at'] === null);
+ac_assert('skip completed_at null', array_key_exists('completed_at', $skipped_tutorial) && $skipped_tutorial['completed_at'] === null);
+
+$sanitized_skipped = AA_Tutorial_State_Policy::sanitize([
+    'version' => 1,
+    'tutorials' => [
+        $tutorial_id => [
+            'status' => 'skipped',
+            'current_step_id' => null,
+            'accepted_at' => null,
+            'started_at' => null,
+            'paused_at' => null,
+            'skipped_at' => '2026-07-04 08:00:00',
+            'completed_at' => null,
+            'updated_at' => '2026-07-04 08:00:00',
+        ],
+    ],
+]);
+$sanitized_skipped_tutorial = $sanitized_skipped['tutorials'][$tutorial_id] ?? [];
+ac_assert('sanitize preserves skipped', ($sanitized_skipped_tutorial['status'] ?? '') === 'skipped');
+ac_assert('sanitize preserves skipped_at', ($sanitized_skipped_tutorial['skipped_at'] ?? '') === '2026-07-04 08:00:00');
+
+$effective_skipped = AA_Tutorial_State_Policy::get_effective_tutorial($sanitized_skipped, $tutorial_id);
+ac_assert('effective skipped status', ($effective_skipped['status'] ?? '') === 'skipped');
+
+$skip_from_in_progress = AA_Tutorial_State_Policy::apply_transition($state, $tutorial_id, [
+    'status' => 'skipped',
+    'current_step_id' => null,
+]);
+ac_assert('reject in_progress -> skipped', ($skip_from_in_progress['ok'] ?? true) === false);
+
+$skip_from_paused = AA_Tutorial_State_Policy::apply_transition($paused_state, $tutorial_id, [
+    'status' => 'skipped',
+    'current_step_id' => null,
+]);
+ac_assert('reject paused -> skipped', ($skip_from_paused['ok'] ?? true) === false);
+
+$skip_from_completed = AA_Tutorial_State_Policy::apply_transition($completed_state, $tutorial_id, [
+    'status' => 'skipped',
+    'current_step_id' => null,
+]);
+ac_assert('reject completed -> skipped', ($skip_from_completed['ok'] ?? true) === false);
+
+$skipped_state = $skipped['state'] ?? AA_Tutorial_State_Policy::empty_state();
+$skip_again = AA_Tutorial_State_Policy::apply_transition($skipped_state, $tutorial_id, [
+    'status' => 'in_progress',
+    'current_step_id' => 'open_sidebar',
+]);
+ac_assert('reject skipped -> in_progress', ($skip_again['ok'] ?? true) === false);
+
+$skip_terminal = AA_Tutorial_State_Policy::apply_transition($skipped_state, $tutorial_id, [
+    'status' => 'skipped',
+    'current_step_id' => null,
+]);
+ac_assert('reject skipped -> skipped', ($skip_terminal['ok'] ?? true) === false);
+
 echo "\nPassed {$passed}/{$total}\n";
 
 if ($failed !== []) {

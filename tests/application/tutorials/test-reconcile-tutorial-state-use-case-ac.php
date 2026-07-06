@@ -104,6 +104,41 @@ ac_assert('completed reconciled false', ($completed_result['data']['reconciled']
 ac_assert('completed skips probe', $probe_log === []);
 ac_assert('completed no write', $write_log === []);
 
+$skipped_state = [
+    'version' => 1,
+    'tutorials' => [
+        $tutorial_id => [
+            'status' => 'skipped',
+            'current_step_id' => null,
+            'accepted_at' => null,
+            'started_at' => null,
+            'paused_at' => null,
+            'skipped_at' => '2026-07-04 08:00:00',
+            'completed_at' => null,
+            'updated_at' => '2026-07-04 08:00:00',
+        ],
+    ],
+];
+$storage[1] = $skipped_state;
+$write_log = [];
+$probe_log = [];
+
+$skipped_use_case = new ReconcileTutorialStateUseCase(
+    static function () use ($now) {
+        return $now;
+    },
+    static function () use (&$probe_log) {
+        $probe_log[] = 'probe';
+        return ['ok' => true, 'exists' => true];
+    }
+);
+
+$skipped_result = $skipped_use_case->execute();
+ac_assert('skipped early return success', ($skipped_result['success'] ?? false) === true);
+ac_assert('skipped reconciled false', ($skipped_result['data']['reconciled'] ?? true) === false);
+ac_assert('skipped skips probe', $probe_log === []);
+ac_assert('skipped no write', $write_log === []);
+
 $storage[1] = ['version' => 1, 'tutorials' => []];
 $write_log = [];
 $probe_log = [];

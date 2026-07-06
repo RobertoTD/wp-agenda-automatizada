@@ -111,6 +111,52 @@ $unknown = $transition->execute([
 ]);
 ac_assert('reject unknown tutorial', ($unknown['success'] ?? true) === false);
 
+$storage = [];
+$skip_transition = new TransitionTutorialStateUseCase(static function () {
+    return '2026-07-04 09:15:00';
+});
+
+$skip_result = $skip_transition->execute([
+    'tutorial_id' => $tutorial_id,
+    'status' => 'skipped',
+    'current_step_id' => null,
+]);
+ac_assert('skip success', ($skip_result['success'] ?? false) === true);
+$skipped = $skip_result['data']['tutorials'][$tutorial_id] ?? [];
+ac_assert('skip sets skipped_at server-side', ($skipped['skipped_at'] ?? '') === '2026-07-04 09:15:00');
+ac_assert('skip sets updated_at server-side', ($skipped['updated_at'] ?? '') === '2026-07-04 09:15:00');
+ac_assert('skip status skipped', ($skipped['status'] ?? '') === 'skipped');
+ac_assert('skip current_step_id null', array_key_exists('current_step_id', $skipped) && $skipped['current_step_id'] === null);
+ac_assert('skip accepted_at null', array_key_exists('accepted_at', $skipped) && $skipped['accepted_at'] === null);
+ac_assert('skip started_at null', array_key_exists('started_at', $skipped) && $skipped['started_at'] === null);
+ac_assert('skip completed_at null', array_key_exists('completed_at', $skipped) && $skipped['completed_at'] === null);
+
+$reread = $get->execute();
+$reread_tutorial = $reread['tutorials'][$tutorial_id] ?? [];
+ac_assert('skip round-trip status', ($reread_tutorial['status'] ?? '') === 'skipped');
+ac_assert('skip round-trip skipped_at', ($reread_tutorial['skipped_at'] ?? '') === '2026-07-04 09:15:00');
+
+$storage[1] = [
+    'version' => 1,
+    'tutorials' => [
+        $tutorial_id => [
+            'status' => 'in_progress',
+            'current_step_id' => 'open_sidebar',
+            'accepted_at' => '2026-07-01 10:00:00',
+            'started_at' => '2026-07-01 10:00:00',
+            'paused_at' => null,
+            'completed_at' => null,
+            'updated_at' => '2026-07-01 10:00:00',
+        ],
+    ],
+];
+$reject_skip_in_progress = $skip_transition->execute([
+    'tutorial_id' => $tutorial_id,
+    'status' => 'skipped',
+    'current_step_id' => null,
+]);
+ac_assert('reject in_progress -> skipped', ($reject_skip_in_progress['success'] ?? true) === false);
+
 echo "\nPassed {$passed}/{$total}\n";
 
 if ($failed !== []) {

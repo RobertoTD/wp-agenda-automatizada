@@ -36,7 +36,8 @@ final class ReconcileTutorialStateUseCase {
         $state = TutorialStateRepository::find();
         $effective = AA_Tutorial_State_Policy::get_effective_tutorial($state, $tutorial_id);
 
-        if (($effective['status'] ?? '') === AA_Tutorial_State_Policy::STATUS_COMPLETED) {
+        if (($effective['status'] ?? '') === AA_Tutorial_State_Policy::STATUS_COMPLETED
+            || ($effective['status'] ?? '') === AA_Tutorial_State_Policy::STATUS_SKIPPED) {
             return $this->success($state, false);
         }
 

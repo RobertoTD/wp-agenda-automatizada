@@ -125,6 +125,91 @@ ac_assert(
     strpos($layout_src, 'onboardingActivationCoordinator.js') !== false
 );
 
+if (!function_exists('sanitize_key')) {
+    function sanitize_key($key) {
+        return preg_replace('/[^a-z0-9_\-]/', '', strtolower((string) $key));
+    }
+}
+
+require_once $plugin_root . '/includes/domain/tutorials/class-aa-tutorial-state-policy.php';
+require_once $plugin_root . '/includes/repositories/TutorialStateRepository.php';
+require_once $plugin_root . '/includes/application/tutorials/TransitionTutorialStateUseCase.php';
+
+/** @var array<int,mixed> */
+$http_storage = [];
+
+TutorialStateRepository::set_storage_override_for_tests(
+    static function (string $operation, int $blog_id, $payload = null) use (&$http_storage) {
+        if ($operation === 'read') {
+            return $http_storage[$blog_id] ?? false;
+        }
+
+        if ($operation === 'write') {
+            $http_storage[$blog_id] = $payload;
+
+            return true;
+        }
+
+        return false;
+    }
+);
+
+$http_transition = new TransitionTutorialStateUseCase(static function () {
+    return '2026-07-04 10:30:00';
+});
+
+$http_skip = $http_transition->execute([
+    'tutorial_id' => 'create_test_appointment_v1',
+    'status' => 'skipped',
+    'current_step_id' => null,
+]);
+ac_assert('POST flow available -> skipped success', ($http_skip['success'] ?? false) === true);
+$http_skipped = $http_skip['data']['tutorials']['create_test_appointment_v1'] ?? [];
+ac_assert('POST flow serializes skipped_at', ($http_skipped['skipped_at'] ?? '') === '2026-07-04 10:30:00');
+
+$http_storage[1] = [
+    'version' => 1,
+    'tutorials' => [
+        'create_test_appointment_v1' => [
+            'status' => 'in_progress',
+            'current_step_id' => 'open_sidebar',
+            'accepted_at' => '2026-07-01 10:00:00',
+            'started_at' => '2026-07-01 10:00:00',
+            'paused_at' => null,
+            'completed_at' => null,
+            'updated_at' => '2026-07-01 10:00:00',
+        ],
+    ],
+];
+$http_reject = $http_transition->execute([
+    'tutorial_id' => 'create_test_appointment_v1',
+    'status' => 'skipped',
+    'current_step_id' => null,
+]);
+ac_assert('POST flow rejects in_progress -> skipped', ($http_reject['success'] ?? true) === false);
+
+$skippedJsonState = $stateForJson->invoke(null, [
+    'version' => 1,
+    'tutorials' => [
+        'create_test_appointment_v1' => [
+            'status' => 'skipped',
+            'current_step_id' => null,
+            'accepted_at' => null,
+            'started_at' => null,
+            'paused_at' => null,
+            'skipped_at' => '2026-07-04 10:30:00',
+            'completed_at' => null,
+            'updated_at' => '2026-07-04 10:30:00',
+        ],
+    ],
+]);
+$skippedJson = json_encode($skippedJsonState);
+ac_assert(
+    'state_for_json serializes skipped_at',
+    $skippedJson !== false && strpos($skippedJson, '"skipped_at":"2026-07-04 10:30:00"') !== false,
+    $skippedJson === false ? 'json_encode failed' : $skippedJson
+);
+
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 
 if ($failed !== []) {

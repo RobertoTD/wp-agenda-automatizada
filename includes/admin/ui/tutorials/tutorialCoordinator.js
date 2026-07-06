@@ -97,7 +97,7 @@
     function resolveInitialStepId(definition, record) {
         var status = resolveStatus(record);
 
-        if (status === 'completed') {
+        if (status === 'completed' || status === 'skipped') {
             return null;
         }
 
@@ -552,7 +552,7 @@
                     .then(function (state) {
                         var status = resolveTutorialStatusFromState(state, DEFAULT_TUTORIAL_ID);
 
-                        if (status === 'completed') {
+                        if (status === 'completed' || status === 'skipped') {
                             return false;
                         }
 

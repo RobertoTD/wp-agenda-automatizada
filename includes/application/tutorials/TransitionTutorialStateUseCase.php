@@ -98,6 +98,11 @@ final class TransitionTutorialStateUseCase {
             $tutorial['current_step_id'] = null;
         }
 
+        if ($transition_kind === 'skip') {
+            $tutorial['skipped_at'] = $now;
+            $tutorial['current_step_id'] = null;
+        }
+
         return $tutorial;
     }
 

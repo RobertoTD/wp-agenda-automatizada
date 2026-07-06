@@ -107,6 +107,31 @@ $completed_again = AA_Tutorial_State_Policy::reconcile_for_reservation_existence
 );
 ac_assert('exists true + completed no change', ($completed_again['changed'] ?? true) === false);
 
+$skipped_state = [
+    'version' => 1,
+    'tutorials' => [
+        $tutorial_id => [
+            'status' => 'skipped',
+            'current_step_id' => null,
+            'accepted_at' => null,
+            'started_at' => null,
+            'paused_at' => null,
+            'skipped_at' => '2026-07-04 08:00:00',
+            'completed_at' => null,
+            'updated_at' => '2026-07-04 08:00:00',
+        ],
+    ],
+];
+
+$skipped_again = AA_Tutorial_State_Policy::reconcile_for_reservation_existence(
+    $skipped_state,
+    $tutorial_id,
+    true
+);
+ac_assert('exists true + skipped no change', ($skipped_again['changed'] ?? true) === false);
+$skipped_tutorial = $skipped_again['state']['tutorials'][$tutorial_id] ?? [];
+ac_assert('skipped status preserved', ($skipped_tutorial['status'] ?? '') === 'skipped');
+
 $absent_reconciled = AA_Tutorial_State_Policy::reconcile_for_reservation_existence($empty, $tutorial_id, true);
 $absent_tutorial = $absent_reconciled['state']['tutorials'][$tutorial_id] ?? [];
 ac_assert('exists true + absent reconciles', ($absent_reconciled['changed'] ?? false) === true);
