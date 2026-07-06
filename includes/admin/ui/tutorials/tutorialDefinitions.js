@@ -28,6 +28,7 @@
             terminalImplementedStepId: 'calendar_overview',
             actions: {
                 accept: 'aa_tutorial_accept_create_test_appointment',
+                skip: 'aa_tutorial_skip_create_test_appointment',
                 persistOpenCalendar: 'aa_tutorial_persist_open_calendar',
                 persistCalendarOverview: 'aa_tutorial_persist_calendar_overview',
                 persistCreateTestAppointment: 'aa_tutorial_persist_create_test_appointment',
@@ -44,6 +45,10 @@
                     advance: {
                         mode: 'button',
                         label: 'Comenzar tutorial'
+                    },
+                    secondaryAction: {
+                        label: 'Omitir tutorial',
+                        action: 'aa_tutorial_skip_create_test_appointment'
                     },
                     nextStepId: 'open_sidebar'
                 },
@@ -177,6 +182,10 @@
 
             if (step.beforeAction) {
                 clone.beforeAction = step.beforeAction;
+            }
+
+            if (step.secondaryAction) {
+                clone.secondaryAction = Object.assign({}, step.secondaryAction);
             }
 
             return clone;

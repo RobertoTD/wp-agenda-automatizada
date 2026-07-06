@@ -423,6 +423,25 @@
         };
     }
 
+    function finalizeSkippedTutorial(flowId, ctx) {
+        clearTransientSession(flowId);
+        clearFastAppointmentTutorialContext();
+        activeTutorialId = null;
+
+        if (ctx && ctx.tutorial && typeof ctx.tutorial.destroy === 'function') {
+            ctx.tutorial.destroy();
+        }
+    }
+
+    function makeSkipAction(tutorialId, flowId) {
+        return function (ctx) {
+            return transitionPersist(tutorialId, 'skipped', null)
+                .then(function () {
+                    finalizeSkippedTutorial(flowId, ctx);
+                });
+        };
+    }
+
     function makePersistStepAction(tutorialId, stepId) {
         return function () {
             return transitionPersist(tutorialId, 'in_progress', stepId);
@@ -494,6 +513,7 @@
         }
 
         safeRegister(names.accept, makeAcceptAction(tutorialId));
+        safeRegister(names.skip, makeSkipAction(tutorialId, definition.flowId));
         safeRegister(names.persistOpenCalendar, makePersistStepAction(tutorialId, 'open_calendar'));
         safeRegister(names.persistCalendarOverview, makePersistStepAction(tutorialId, 'calendar_overview'));
         safeRegister(names.persistCreateTestAppointment, makePersistCreateTestAppointmentAction(tutorialId));

@@ -512,6 +512,141 @@ describe('AATutorial MC3B', () => {
         var root = dom.body.children[0];
         assert.equal(findByClass(root, 'aa-tutorial-global-close'), null);
     });
+
+    it('secondaryAction renderiza boton con label correcto', () => {
+        var dom = installDom();
+        var api = loadTutorial();
+
+        api.AATutorial.start(baseConfig({
+            steps: [{
+                id: 'one',
+                title: 'One',
+                advance: { mode: 'button', label: 'Comenzar tutorial' },
+                secondaryAction: {
+                    label: 'Omitir tutorial',
+                    action: 'noop'
+                }
+            }]
+        }));
+
+        var root = dom.body.children[0];
+        var secondary = findByClass(root, 'aa-tutorial-button-secondary');
+        assert.ok(secondary);
+        assert.equal(secondary.textContent, 'Omitir tutorial');
+        assert.ok(findByClass(root, 'aa-tutorial-actions--dual'));
+    });
+
+    it('sin secondaryAction no muestra boton secundario', () => {
+        var dom = installDom();
+        var api = loadTutorial();
+
+        api.AATutorial.start(baseConfig());
+
+        var root = dom.body.children[0];
+        assert.equal(findByClass(root, 'aa-tutorial-button-secondary'), null);
+    });
+
+    it('click secundario ejecuta action sin complete', async () => {
+        var dom = installDom();
+        var api = loadTutorial();
+        var secondaryCalls = 0;
+        var completedEvents = 0;
+
+        globalThis.document.addEventListener('aa:tutorial:completed', function () {
+            completedEvents++;
+        });
+
+        api.AATutorialActions.register('test_secondary', function (ctx) {
+            secondaryCalls++;
+            ctx.tutorial.destroy();
+        });
+
+        api.AATutorial.start(baseConfig({
+            steps: [{
+                id: 'one',
+                title: 'One',
+                advance: { mode: 'button', label: 'Comenzar tutorial' },
+                secondaryAction: {
+                    label: 'Omitir tutorial',
+                    action: 'test_secondary'
+                }
+            }]
+        }));
+
+        var secondary = findByClass(dom.body.children[0], 'aa-tutorial-button-secondary');
+        secondary.dispatchEvent({
+            type: 'click',
+            preventDefault: function () {}
+        });
+
+        await flushMicrotasks();
+
+        assert.equal(secondaryCalls, 1);
+        assert.equal(completedEvents, 0);
+        assert.equal(dom.body.children.length, 0);
+    });
+
+    it('advanceInFlight bloquea acciones concurrentes y X global', async () => {
+        var dom = installDom();
+        var api = loadTutorial();
+        var closeCalls = 0;
+        var resolveSecondary;
+
+        api.AATutorialActions.register('slow_secondary', function () {
+            return new Promise(function (resolve) {
+                resolveSecondary = resolve;
+            });
+        });
+
+        api.AATutorialActions.register('slow_primary', function () {
+            return new Promise(function () {});
+        });
+
+        api.AATutorial.start(baseConfig({
+            onGlobalClose: function () {
+                closeCalls++;
+            },
+            steps: [{
+                id: 'one',
+                title: 'One',
+                beforeAdvanceAction: 'slow_primary',
+                advance: { mode: 'button', label: 'Comenzar tutorial' },
+                secondaryAction: {
+                    label: 'Omitir tutorial',
+                    action: 'slow_secondary'
+                }
+            }]
+        }));
+
+        var root = dom.body.children[0];
+        var primary = findByClass(root, 'aa-tutorial-button');
+        var secondary = findByClass(root, 'aa-tutorial-button-secondary');
+        var closeBtn = findByClass(root, 'aa-tutorial-global-close');
+
+        secondary.dispatchEvent({ type: 'click', preventDefault: function () {} });
+        await flushMicrotasks();
+
+        primary.dispatchEvent({ type: 'click', preventDefault: function () {} });
+        closeBtn.dispatchEvent({
+            type: 'click',
+            preventDefault: function () {},
+            stopPropagation: function () {}
+        });
+        await flushMicrotasks();
+
+        assert.equal(closeCalls, 0);
+
+        resolveSecondary();
+        await flushMicrotasks();
+
+        closeBtn.dispatchEvent({
+            type: 'click',
+            preventDefault: function () {},
+            stopPropagation: function () {}
+        });
+
+        assert.equal(closeCalls, 1);
+    });
 });
 
 describe('AATutorial MC3D0 async advance gate', () => {

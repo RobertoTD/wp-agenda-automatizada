@@ -1820,6 +1820,73 @@ describe('TutorialCoordinator global close', () => {
     });
 });
 
+describe('TutorialCoordinator intro skip', () => {
+    it('skip llama transition con status skipped y currentStepId null', async () => {
+        var env = loadCoordinator();
+        env.TutorialCoordinator.registerActions();
+
+        await env.actionHandlers.aa_tutorial_skip_create_test_appointment({
+            tutorial: env.AATutorial
+        });
+
+        assert.equal(env.metrics.transitionCalls.length, 1);
+        assert.equal(env.metrics.transitionCalls[0].tutorialId, 'create_test_appointment_v1');
+        assert.equal(env.metrics.transitionCalls[0].status, 'skipped');
+        assert.equal(env.metrics.transitionCalls[0].currentStepId, null);
+    });
+
+    it('skip exito limpia session context y destruye sin suppression', async () => {
+        var storage = makeSessionStorage();
+        var env = loadCoordinator({
+            sessionStorage: storage,
+            state: { version: 1, tutorials: {} }
+        });
+
+        env.TutorialCoordinator.registerActions();
+        env.TutorialFastAppointmentContext.activate(FAST_APPOINTMENT_CONTEXT);
+
+        await env.actionHandlers.aa_tutorial_skip_create_test_appointment({
+            tutorial: env.AATutorial
+        });
+
+        assert.equal(env.metrics.destroyCalls >= 1, true);
+        assert.equal(env.metrics.clearCalls >= 1, true);
+        assert.equal(env.TutorialFastAppointmentContext.isActive(), false);
+        assert.equal(
+            env.TutorialSessionSuppression.isSuppressed('44', 'create_test_appointment_v1'),
+            false
+        );
+    });
+
+    it('skip error no destruye runtime', async () => {
+        var env = loadCoordinator({
+            transitionImpl: function () {
+                return Promise.reject(new Error('network'));
+            }
+        });
+
+        env.TutorialCoordinator.registerActions();
+        var destroyBefore = env.metrics.destroyCalls;
+
+        await assert.rejects(function () {
+            return env.actionHandlers.aa_tutorial_skip_create_test_appointment({
+                tutorial: env.AATutorial
+            });
+        }, /network/);
+
+        assert.equal(env.metrics.destroyCalls, destroyBefore);
+    });
+
+    it('intro definition incluye secondaryAction omitir', () => {
+        var env = loadCoordinator();
+        var intro = env.TutorialDefinitions.get('create_test_appointment_v1')
+            .steps.find(function (step) { return step.id === 'intro'; });
+
+        assert.equal(intro.secondaryAction.label, 'Omitir tutorial');
+        assert.equal(intro.secondaryAction.action, 'aa_tutorial_skip_create_test_appointment');
+    });
+});
+
 describe('TutorialCoordinator wiring guardrails', () => {
     it('coordinator registra auto-bootstrap en DOMContentLoaded', () => {
         assert.equal(coordinatorSrc.includes('DOMContentLoaded'), true);

@@ -88,6 +88,24 @@
         };
     }
 
+    function normalizeSecondaryAction(raw) {
+        if (!isPlainObject(raw)) {
+            return null;
+        }
+
+        var label = normalizeString(raw.label);
+        var action = normalizeString(raw.action);
+
+        if (!label || !action) {
+            return null;
+        }
+
+        return {
+            label: label,
+            action: action
+        };
+    }
+
     function normalizeStep(step) {
         if (!isPlainObject(step)) {
             return null;
@@ -109,7 +127,8 @@
             beforeAdvanceAction: normalizeString(step.beforeAdvanceAction) || null,
             afterAction: normalizeString(step.afterAction) || null,
             nextStepId: normalizeString(step.nextStepId) || null,
-            waitFor: isPlainObject(step.waitFor) ? step.waitFor : null
+            waitFor: isPlainObject(step.waitFor) ? step.waitFor : null,
+            secondaryAction: normalizeSecondaryAction(step.secondaryAction)
         };
     }
 
@@ -690,7 +709,47 @@
             });
     }
 
+    /**
+     * @param {object} step
+     * @param {object} [triggerCtx]
+     * @returns {Promise<boolean>}
+     */
+    function trySecondaryAction(step, triggerCtx) {
+        if (runtime.advanceInFlight) {
+            return Promise.resolve(false);
+        }
+
+        if (!step || !step.secondaryAction || !step.secondaryAction.action) {
+            return Promise.resolve(false);
+        }
+
+        runtime.advanceInFlight = true;
+
+        var ctx = actionContext(step, isPlainObject(triggerCtx) ? triggerCtx : {});
+
+        return Promise.resolve(ActionRegistry.run(step.secondaryAction.action, ctx))
+            .then(function () {
+                return true;
+            })
+            .catch(function (err) {
+                warn('Secondary action failed: ' + (err && err.message ? err.message : String(err)));
+                dispatchTutorialEvent('aa:tutorial:secondary-action-failed', {
+                    stepId: step.id,
+                    reason: err && err.message ? err.message : 'secondary_action_failed',
+                    code: err && err.code ? err.code : 'secondary_action_failed'
+                });
+                return false;
+            })
+            .finally(function () {
+                runtime.advanceInFlight = false;
+            });
+    }
+
     function handleGlobalClose() {
+        if (runtime.advanceInFlight) {
+            return;
+        }
+
         var config = runtime.config;
 
         if (!config || typeof config.onGlobalClose !== 'function') {
@@ -737,12 +796,17 @@
         }
 
         if (step.advance.mode === 'button') {
+            var hasSecondary = !!(step.secondaryAction && step.secondaryAction.label);
+
+            if (hasSecondary) {
+                actions.className += ' aa-tutorial-actions--dual';
+            }
+
             var button = createElement('button', 'aa-tutorial-button');
             if (button) {
                 button.type = 'button';
                 setText(button, step.advance.label);
                 actions.appendChild(button);
-                card.appendChild(actions);
                 addEvent(button, 'click', function (event) {
                     if (event && typeof event.preventDefault === 'function') {
                         event.preventDefault();
@@ -754,6 +818,27 @@
                     }));
                 });
             }
+
+            if (step.secondaryAction && step.secondaryAction.label) {
+                var secondaryButton = createElement('button', 'aa-tutorial-button-secondary');
+                if (secondaryButton) {
+                    secondaryButton.type = 'button';
+                    setText(secondaryButton, step.secondaryAction.label);
+                    actions.appendChild(secondaryButton);
+                    addEvent(secondaryButton, 'click', function (event) {
+                        if (event && typeof event.preventDefault === 'function') {
+                            event.preventDefault();
+                        }
+                        trySecondaryAction(step, {
+                            trigger: 'secondary_button',
+                            event: event,
+                            target: secondaryButton
+                        });
+                    });
+                }
+            }
+
+            card.appendChild(actions);
         }
 
         if (step.advance.mode === 'dismiss') {

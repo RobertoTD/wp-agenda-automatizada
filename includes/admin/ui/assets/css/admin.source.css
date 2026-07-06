@@ -640,8 +640,16 @@
         @apply mt-4 flex justify-end gap-2;
     }
 
+    .aa-tutorial-actions--dual {
+        @apply flex-col items-stretch;
+    }
+
     .aa-tutorial-button {
-        @apply inline-flex items-center rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700;
+        @apply inline-flex items-center justify-center rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700;
+    }
+
+    .aa-tutorial-button-secondary {
+        @apply inline-flex items-center justify-center rounded-lg border border-transparent bg-transparent px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900;
     }
 
     .aa-tutorial-global-close {
