@@ -1919,4 +1919,22 @@ describe('TutorialCoordinator wiring guardrails', () => {
         assert.ok(welcomePos !== -1);
         assert.ok(activationPos !== -1);
     });
+
+    it('definitions usan solo placement vertical conocido por step', () => {
+        var env = loadCoordinator();
+        var definition = env.TutorialDefinitions.get('create_test_appointment_v1');
+        var placements = {};
+
+        definition.steps.forEach(function (step) {
+            placements[step.id] = step.placement;
+        });
+
+        assert.equal(placements.intro, 'center');
+        assert.equal(placements.open_sidebar, 'bottom');
+        assert.equal(placements.resume_open_sidebar, 'bottom');
+        assert.equal(placements.open_calendar, 'bottom');
+        assert.equal(placements.resume_navigate_calendar, 'bottom');
+        assert.equal(placements.calendar_overview, 'top');
+        assert.equal(placements.resume_create_test_appointment_fab, 'top');
+    });
 });

@@ -70,7 +70,7 @@
                     title: 'Entra a la Agenda',
                     text: 'Selecciona Agenda en el menú.',
                     target: '[data-aa-nav-module="calendar"]',
-                    placement: 'right',
+                    placement: 'bottom',
                     waitFor: {
                         selector: '[data-aa-nav-module="calendar"]',
                         timeoutMs: 3000,
@@ -88,7 +88,7 @@
                     title: 'Esta es tu Agenda',
                     text: 'Aquí verás tus citas en el calendario. Pulsa «+ Crear cita» para agregar nuevas; ahora crea una de prueba.',
                     target: '#aa-btn-open-fastappointment-modal',
-                    placement: 'left',
+                    placement: 'top',
                     waitFor: {
                         selector: '#aa-btn-open-fastappointment-modal',
                         timeoutMs: 3000,
@@ -117,7 +117,7 @@
                     title: 'Entra a la Agenda',
                     text: 'Selecciona Agenda en el menú.',
                     target: '[data-aa-nav-module="calendar"]',
-                    placement: 'right',
+                    placement: 'bottom',
                     beforeAction: 'aa_tutorial_ensure_sidebar_interactable',
                     waitFor: {
                         selector: '[data-aa-nav-module="calendar"]',
@@ -134,7 +134,7 @@
                     title: 'Crea tu cita de prueba',
                     text: 'Pulsa «+ Crear cita» para continuar con tu cita de prueba.',
                     target: '#aa-btn-open-fastappointment-modal',
-                    placement: 'left',
+                    placement: 'top',
                     waitFor: {
                         selector: '#aa-btn-open-fastappointment-modal',
                         timeoutMs: 3000,

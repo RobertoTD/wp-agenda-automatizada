@@ -208,13 +208,6 @@ defined('ABSPATH') or die('No direct access');
 <template id="aa-fastappointment-modal-footer-template">
     <div class="flex justify-end gap-3">
         <button
-            type="button"
-            id="aa-fastappointment-cancel"
-            class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            data-aa-modal-close>
-            Cancelar
-        </button>
-        <button
             type="submit"
             id="aa-fastappointment-submit"
             form="aa-fastappointment-form"
