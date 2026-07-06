@@ -53,6 +53,27 @@ ac_assert(
     && strpos($layout_src, 'wp_json_encode($aa_installation_slug)') !== false
 );
 ac_assert(
+    'AA_ADMIN_CONTEXT incluye authSessionId opaco',
+    strpos($layout_src, 'authSessionId:') !== false
+    && strpos($layout_src, 'wp_json_encode($aa_auth_session_id)') !== false
+);
+ac_assert(
+    'authSessionId deriva de wp_get_session_token con hash_hmac',
+    strpos($layout_src, 'wp_get_session_token') !== false
+    && strpos($layout_src, 'hash_hmac') !== false
+    && strpos($layout_src, "wp_salt('auth')") !== false
+);
+ac_assert(
+    'layout no expone wp_get_session_token en JS',
+    strpos($layout_src, 'wp_get_session_token') < strpos($layout_src, 'window.AA_ADMIN_CONTEXT')
+    || strpos(substr($layout_src, (int) strpos($layout_src, 'window.AA_ADMIN_CONTEXT')), 'wp_get_session_token') === false
+);
+ac_assert(
+    'layout carga tutorialSessionSuppression antes del coordinator',
+    strpos($layout_src, 'tutorialSessionSuppression.js') !== false
+    && strpos($layout_src, 'tutorialSessionSuppression.js') < strpos($layout_src, 'tutorialCoordinator.js')
+);
+ac_assert(
     'sidebar Agenda tiene data-aa-nav-module calendar',
     preg_match('/data-aa-nav-module="calendar"[\s\S]*module=calendar/', $sidebar_src) === 1
     || preg_match('/module=calendar[\s\S]*data-aa-nav-module="calendar"/', $sidebar_src) === 1

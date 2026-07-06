@@ -205,7 +205,8 @@
         return {
             flowId: definition.flowId,
             initialStepId: initialStepId,
-            steps: cloneSteps(definition.steps)
+            steps: cloneSteps(definition.steps),
+            onGlobalClose: typeof opts.onGlobalClose === 'function' ? opts.onGlobalClose : null
         };
     }
 

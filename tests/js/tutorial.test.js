@@ -469,6 +469,49 @@ describe('AATutorial MC3B', () => {
 
         assert.equal(calls, 1);
     });
+
+    it('global close aparece con onGlobalClose y no completa', () => {
+        var dom = installDom();
+        var api = loadTutorial();
+        var closeCalls = 0;
+        var completedEvents = 0;
+
+        globalThis.document.addEventListener('aa:tutorial:completed', function () {
+            completedEvents++;
+        });
+
+        api.AATutorial.start(baseConfig({
+            onGlobalClose: function (ctx) {
+                closeCalls++;
+                ctx.tutorial.destroy();
+            }
+        }));
+
+        var root = dom.body.children[0];
+        var closeBtn = findByClass(root, 'aa-tutorial-global-close');
+        assert.ok(closeBtn);
+        assert.equal(closeBtn.getAttribute('aria-label'), 'Cerrar tutorial');
+
+        closeBtn.dispatchEvent({
+            type: 'click',
+            preventDefault: function () {},
+            stopPropagation: function () {}
+        });
+
+        assert.equal(closeCalls, 1);
+        assert.equal(completedEvents, 0);
+        assert.equal(dom.body.children.length, 0);
+    });
+
+    it('sin onGlobalClose no muestra boton global', () => {
+        var dom = installDom();
+        var api = loadTutorial();
+
+        api.AATutorial.start(baseConfig());
+
+        var root = dom.body.children[0];
+        assert.equal(findByClass(root, 'aa-tutorial-global-close'), null);
+    });
 });
 
 describe('AATutorial MC3D0 async advance gate', () => {

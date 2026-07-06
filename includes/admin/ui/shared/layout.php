@@ -23,6 +23,14 @@ $aa_installation_slug = class_exists('AA_Installation_Display_Slug')
     ? AA_Installation_Display_Slug::resolve()
     : null;
 
+$aa_auth_session_id = '';
+if (function_exists('wp_get_session_token')) {
+    $aa_session_token = wp_get_session_token();
+    if (is_string($aa_session_token) && $aa_session_token !== '') {
+        $aa_auth_session_id = hash_hmac('sha256', $aa_session_token, wp_salt('auth'));
+    }
+}
+
 // ============================================
 // 🔹 PREPARE DATA FOR JS (antes del HTML)
 // ============================================
@@ -212,7 +220,8 @@ header('Content-Type: text/html; charset=utf-8');
     window.AA_ADMIN_CONTEXT = {
         currentModule: <?php echo wp_json_encode($active_module); ?>,
         blogId: <?php echo (int) get_current_blog_id(); ?>,
-        installationSlug: <?php echo wp_json_encode($aa_installation_slug); ?>
+        installationSlug: <?php echo wp_json_encode($aa_installation_slug); ?>,
+        authSessionId: <?php echo wp_json_encode($aa_auth_session_id); ?>
     };
 </script>
 
@@ -286,6 +295,9 @@ header('Content-Type: text/html; charset=utf-8');
 
 <!-- Tutorial durable state client (MC3C; consumo futuro vía TutorialCoordinator) -->
 <script src="<?php echo aa_asset_url('includes/admin/ui/tutorials/tutorialStateService.js'); ?>" defer></script>
+
+<!-- Tutorial session suppression (ephemeral; scoped to authenticated WP session) -->
+<script src="<?php echo aa_asset_url('includes/admin/ui/tutorials/tutorialSessionSuppression.js'); ?>" defer></script>
 
 <!-- Tutorial Fast Appointment ephemeral context (B1; in-memory only) -->
 <script src="<?php echo aa_asset_url('includes/admin/ui/tutorials/tutorialFastAppointmentContext.js'); ?>" defer></script>

@@ -146,7 +146,8 @@
             flowId: flowId,
             initialStepId: initialStepId,
             steps: steps,
-            stepById: stepById
+            stepById: stepById,
+            onGlobalClose: typeof config.onGlobalClose === 'function' ? config.onGlobalClose : null
         };
     }
 
@@ -689,6 +690,24 @@
             });
     }
 
+    function handleGlobalClose() {
+        var config = runtime.config;
+
+        if (!config || typeof config.onGlobalClose !== 'function') {
+            return;
+        }
+
+        try {
+            config.onGlobalClose({
+                flowId: config.flowId,
+                stepId: runtime.currentStepId,
+                tutorial: Tutor
+            });
+        } catch (err) {
+            warn('onGlobalClose failed: ' + (err && err.message ? err.message : String(err)));
+        }
+    }
+
     function createRoot(step, target) {
         var doc = ensureDocument();
         if (!doc || !doc.body) {
@@ -793,6 +812,26 @@
         root.appendChild(backdrop);
         root.appendChild(highlight);
         root.appendChild(card);
+
+        if (runtime.config && typeof runtime.config.onGlobalClose === 'function') {
+            var closeButton = createElement('button', 'aa-tutorial-global-close');
+            if (closeButton) {
+                closeButton.type = 'button';
+                closeButton.setAttribute('aria-label', 'Cerrar tutorial');
+                setText(closeButton, '\u00d7');
+                addEvent(closeButton, 'click', function (event) {
+                    if (event && typeof event.preventDefault === 'function') {
+                        event.preventDefault();
+                    }
+                    if (event && typeof event.stopPropagation === 'function') {
+                        event.stopPropagation();
+                    }
+                    handleGlobalClose();
+                });
+                root.appendChild(closeButton);
+            }
+        }
+
         doc.body.appendChild(root);
 
         positionElements(root, card, highlight, target, step);

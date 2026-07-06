@@ -644,6 +644,32 @@
         @apply inline-flex items-center rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700;
     }
 
+    .aa-tutorial-global-close {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        z-index: 9001;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.5rem;
+        height: 2.5rem;
+        border: 1px solid rgb(229, 231, 235);
+        border-radius: 9999px;
+        background: rgb(255, 255, 255);
+        color: rgb(55, 65, 81);
+        font-size: 1.5rem;
+        line-height: 1;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+        pointer-events: auto;
+        cursor: pointer;
+    }
+
+    .aa-tutorial-global-close:hover {
+        background: rgb(249, 250, 251);
+        color: rgb(17, 24, 39);
+    }
+
     /* ═══════════════════════════════════════════════════════════════
        APPOINTMENTS STYLES
     ═══════════════════════════════════════════════════════════════ */

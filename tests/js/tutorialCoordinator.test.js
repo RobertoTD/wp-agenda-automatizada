@@ -18,6 +18,10 @@ const coordinatorPath = path.join(
     __dirname,
     '../../includes/admin/ui/tutorials/tutorialCoordinator.js'
 );
+const suppressionPath = path.join(
+    __dirname,
+    '../../includes/admin/ui/tutorials/tutorialSessionSuppression.js'
+);
 const tutorialPath = path.join(
     __dirname,
     '../../includes/admin/ui/tutorials/tutorial.js'
@@ -26,6 +30,7 @@ const tutorialPath = path.join(
 const definitionsSrc = fs.readFileSync(definitionsPath, 'utf8');
 const contextSrc = fs.readFileSync(contextPath, 'utf8');
 const coordinatorSrc = fs.readFileSync(coordinatorPath, 'utf8');
+const suppressionSrc = fs.readFileSync(suppressionPath, 'utf8');
 const tutorialSrc = fs.readFileSync(tutorialPath, 'utf8');
 
 const FAST_APPOINTMENT_CONTEXT = {
@@ -134,7 +139,8 @@ function loadCoordinator(options) {
     context.window = context;
     context.window.AA_ADMIN_CONTEXT = {
         blogId: opts.blogId || 44,
-        currentModule: opts.currentModule
+        currentModule: opts.currentModule,
+        authSessionId: opts.authSessionId || 'test-auth-session-a'
     };
     if (opts.sidebarOpen === true) {
         context.window.AAAdmin = { Sidebar: { isOpen: true } };
@@ -207,6 +213,7 @@ function loadCoordinator(options) {
         }
     };
 
+    vm.runInNewContext(suppressionSrc, context, { filename: suppressionPath });
     vm.runInNewContext(definitionsSrc, context, { filename: definitionsPath });
     vm.runInNewContext(contextSrc, context, { filename: contextPath });
     vm.runInNewContext(coordinatorSrc, context, { filename: coordinatorPath });
@@ -215,6 +222,7 @@ function loadCoordinator(options) {
         TutorialCoordinator: context.window.TutorialCoordinator,
         TutorialDefinitions: context.window.TutorialDefinitions,
         TutorialFastAppointmentContext: context.window.TutorialFastAppointmentContext,
+        TutorialSessionSuppression: context.window.TutorialSessionSuppression,
         AATutorial: tutorialRuntime,
         actionHandlers: actionHandlers,
         dispatchDocumentEvent: function (type, detail) {
@@ -237,7 +245,8 @@ function loadCoordinator(options) {
             get completionCardDismissCalls() { return completionCardDismissCalls; },
             get contextClearedBeforeShow() { return contextClearedBeforeShow; }
         },
-        sessionStorage: context.window.sessionStorage
+        sessionStorage: context.window.sessionStorage,
+        AA_ADMIN_CONTEXT: context.window.AA_ADMIN_CONTEXT
     };
 }
 
@@ -1693,13 +1702,130 @@ describe('TutorialCoordinator E3b bootstrap', () => {
         assert.equal(env.metrics.reconcileCalls, 0);
         assert.equal(env.metrics.fetchCalls, 1);
     });
+
+    it('suppressed no reconcile ni init', async () => {
+        var storage = makeSessionStorage();
+        var env = loadCoordinator({
+            sessionStorage: storage,
+            authSessionId: 'sess-suppressed'
+        });
+
+        env.TutorialSessionSuppression.suppress('44', 'create_test_appointment_v1');
+
+        var started = await env.TutorialCoordinator.bootstrapTutorial();
+        assert.equal(started, false);
+        assert.equal(env.metrics.reconcileCalls, 0);
+        assert.equal(env.metrics.fetchCalls, 0);
+        assert.equal(env.metrics.startCalls.length, 0);
+    });
+
+    it('nueva authSessionId vuelve al flujo normal', async () => {
+        var storage = makeSessionStorage();
+        var blockedEnv = loadCoordinator({
+            sessionStorage: storage,
+            authSessionId: 'sess-old'
+        });
+
+        blockedEnv.TutorialSessionSuppression.suppress('44', 'create_test_appointment_v1');
+
+        var blocked = await blockedEnv.TutorialCoordinator.bootstrapTutorial();
+        assert.equal(blocked, false);
+        assert.equal(blockedEnv.metrics.reconcileCalls, 0);
+
+        var freshEnv = loadCoordinator({
+            sessionStorage: storage,
+            authSessionId: 'sess-new',
+            reconcileStateResult: { version: 1, tutorials: {} }
+        });
+
+        var started = await freshEnv.TutorialCoordinator.bootstrapTutorial();
+        assert.equal(started, true);
+        assert.equal(freshEnv.metrics.reconcileCalls, 1);
+        assert.equal(freshEnv.metrics.startCalls.length, 1);
+    });
+});
+
+describe('TutorialCoordinator global close', () => {
+    it('dismissTutorialForSession registra suppression y destruye runtime', async () => {
+        var env = loadCoordinator({
+            state: { version: 1, tutorials: {} }
+        });
+
+        await env.TutorialCoordinator.init();
+        var transitionsBefore = env.metrics.transitionCalls.length;
+
+        env.TutorialCoordinator.dismissTutorialForSession('create_test_appointment_v1');
+
+        assert.equal(env.TutorialSessionSuppression.isSuppressed('44', 'create_test_appointment_v1'), true);
+        assert.equal(env.metrics.destroyCalls >= 1, true);
+        assert.equal(env.metrics.transitionCalls.length, transitionsBefore);
+    });
+
+    it('dismiss en calendar_overview limpia TutorialFastAppointmentContext', async () => {
+        var env = loadCoordinator({
+            currentModule: 'calendar',
+            state: {
+                version: 1,
+                tutorials: {
+                    create_test_appointment_v1: {
+                        status: 'in_progress',
+                        current_step_id: 'calendar_overview'
+                    }
+                }
+            }
+        });
+
+        env.TutorialFastAppointmentContext.activate(FAST_APPOINTMENT_CONTEXT);
+        await env.TutorialCoordinator.init();
+        env.dispatchDocumentEvent('aa:tutorial:step-shown', { stepId: 'calendar_overview' });
+
+        assert.equal(env.TutorialFastAppointmentContext.isActive(), true);
+
+        env.TutorialCoordinator.dismissTutorialForSession('create_test_appointment_v1');
+
+        assert.equal(env.TutorialFastAppointmentContext.isActive(), false);
+    });
+
+    it('dismiss en resume FAB limpia TutorialFastAppointmentContext', async () => {
+        var env = loadCoordinator({
+            currentModule: 'calendar',
+            state: {
+                version: 1,
+                tutorials: {
+                    create_test_appointment_v1: {
+                        status: 'in_progress',
+                        current_step_id: 'create_test_appointment'
+                    }
+                }
+            }
+        });
+
+        env.TutorialFastAppointmentContext.activate(FAST_APPOINTMENT_CONTEXT);
+        await env.TutorialCoordinator.init();
+        env.dispatchDocumentEvent('aa:tutorial:step-shown', { stepId: 'resume_create_test_appointment_fab' });
+
+        env.TutorialCoordinator.dismissTutorialForSession('create_test_appointment_v1');
+
+        assert.equal(env.TutorialFastAppointmentContext.isActive(), false);
+    });
+
+    it('init pasa onGlobalClose al motor', async () => {
+        var env = loadCoordinator({
+            state: { version: 1, tutorials: {} }
+        });
+
+        await env.TutorialCoordinator.init();
+
+        assert.equal(typeof env.metrics.startCalls[0].onGlobalClose, 'function');
+    });
 });
 
 describe('TutorialCoordinator wiring guardrails', () => {
     it('coordinator registra auto-bootstrap en DOMContentLoaded', () => {
         assert.equal(coordinatorSrc.includes('DOMContentLoaded'), true);
         assert.equal(coordinatorSrc.includes('bootstrapTutorial'), true);
-        assert.equal(coordinatorSrc.includes('reconcileState'), true);
+        assert.equal(coordinatorSrc.includes('isTutorialSuppressedForSession'), true);
+        assert.equal(coordinatorSrc.includes('dismissTutorialForSession'), true);
     });
 
     it('layout carga definitions/coordinator y mantiene onboarding legacy', () => {
@@ -1709,6 +1835,7 @@ describe('TutorialCoordinator wiring guardrails', () => {
         );
 
         var stateServicePos = layoutSrc.indexOf('tutorialStateService.js');
+        var suppressionPos = layoutSrc.indexOf('tutorialSessionSuppression.js');
         var contextPos = layoutSrc.indexOf('tutorialFastAppointmentContext.js');
         var definitionsPos = layoutSrc.indexOf('tutorialDefinitions.js');
         var completionCardPos = layoutSrc.indexOf('tutorialCompletionCard.js');
@@ -1717,7 +1844,8 @@ describe('TutorialCoordinator wiring guardrails', () => {
         var activationPos = layoutSrc.indexOf('onboardingActivationCoordinator.js');
 
         assert.ok(stateServicePos !== -1);
-        assert.ok(contextPos > stateServicePos);
+        assert.ok(suppressionPos > stateServicePos);
+        assert.ok(contextPos > suppressionPos);
         assert.ok(completionCardPos !== -1);
         assert.ok(definitionsPos > completionCardPos);
         assert.ok(coordinatorPos > definitionsPos);

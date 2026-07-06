@@ -504,6 +504,41 @@
         registerLifecycleListeners();
     }
 
+    function isTutorialSuppressedForSession(flowId) {
+        if (!window.TutorialSessionSuppression
+            || typeof window.TutorialSessionSuppression.isSuppressed !== 'function') {
+            return false;
+        }
+
+        return window.TutorialSessionSuppression.isSuppressed(
+            getBlogId(),
+            normalizeString(flowId) || DEFAULT_TUTORIAL_ID
+        );
+    }
+
+    function dismissTutorialForSession(flowId) {
+        var fid = normalizeString(flowId) || DEFAULT_TUTORIAL_ID;
+        var blogId = getBlogId();
+
+        if (window.TutorialSessionSuppression
+            && typeof window.TutorialSessionSuppression.suppress === 'function') {
+            window.TutorialSessionSuppression.suppress(blogId, fid);
+        }
+
+        if (window.AATutorial && typeof window.AATutorial.destroy === 'function') {
+            window.AATutorial.destroy();
+        }
+
+        clearFastAppointmentTutorialContext();
+        activeTutorialId = null;
+    }
+
+    function makeOnGlobalCloseHandler(flowId) {
+        return function () {
+            dismissTutorialForSession(flowId);
+        };
+    }
+
     function destroyRuntime() {
         if (window.AATutorial && typeof window.AATutorial.destroy === 'function') {
             window.AATutorial.destroy();
@@ -542,6 +577,10 @@
 
         bootstrapPromise = Promise.resolve()
             .then(function () {
+                if (isTutorialSuppressedForSession(DEFAULT_TUTORIAL_ID)) {
+                    return false;
+                }
+
                 if (!window.TutorialStateService
                     || typeof window.TutorialStateService.reconcileState !== 'function') {
                     warn('TutorialStateService.reconcileState no disponible.');
@@ -600,6 +639,10 @@
 
         initPromise = Promise.resolve()
             .then(function () {
+                if (isTutorialSuppressedForSession(id)) {
+                    return false;
+                }
+
                 registerActions();
 
                 if (!window.TutorialDefinitions || !window.TutorialStateService || !window.AATutorial) {
@@ -621,7 +664,7 @@
                             .then(function (activeRecord) {
                                 var status = resolveStatus(activeRecord);
 
-                                if (status === 'completed') {
+                                if (status === 'completed' || status === 'skipped') {
                                     return false;
                                 }
 
@@ -641,7 +684,8 @@
                                 clearTransientSession(definition.flowId);
 
                                 var config = window.TutorialDefinitions.getConfig(id, {
-                                    initialStepId: initialStepId
+                                    initialStepId: initialStepId,
+                                    onGlobalClose: makeOnGlobalCloseHandler(definition.flowId)
                                 });
 
                                 if (!config) {
@@ -684,7 +728,9 @@
         registerActions: registerActions,
         resolveResumePlan: resolveResumePlan,
         isSidebarOpen: isSidebarOpen,
-        getCurrentModule: getCurrentModule
+        getCurrentModule: getCurrentModule,
+        dismissTutorialForSession: dismissTutorialForSession,
+        isTutorialSuppressedForSession: isTutorialSuppressedForSession
     };
 
     registerAutoBootstrap();
