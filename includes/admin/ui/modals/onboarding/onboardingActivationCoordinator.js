@@ -472,7 +472,14 @@
         watchWelcomeModalClose();
     }
 
+    /** E3b: legacy competitive auto-open disabled; manual tryAutoOpen() remains available. */
+    var LEGACY_AUTO_OPEN_ENABLED = false;
+
     function init() {
+        if (!LEGACY_AUTO_OPEN_ENABLED) {
+            return;
+        }
+
         installSetupMutationListeners();
 
         primeLastStatus().finally(function () {

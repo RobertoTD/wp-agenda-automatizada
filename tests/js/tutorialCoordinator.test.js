@@ -68,6 +68,8 @@ function loadCoordinator(options) {
     var startCalls = [];
     var transitionCalls = [];
     var fetchCalls = 0;
+    var reconcileCalls = 0;
+    var warnMessages = [];
     var pauseCalls = 0;
     var completionCardShowCalls = 0;
     var completionCardDismissCalls = 0;
@@ -122,7 +124,9 @@ function loadCoordinator(options) {
             }
         },
         console: {
-            warn: function () {},
+            warn: function (message) {
+                warnMessages.push(String(message));
+            },
             error: function () {}
         }
     };
@@ -172,6 +176,19 @@ function loadCoordinator(options) {
             }
             return Promise.resolve(opts.state || { version: 1, tutorials: {} });
         },
+        reconcileState: function () {
+            reconcileCalls++;
+            if (typeof opts.reconcileState === 'function') {
+                return opts.reconcileState();
+            }
+            if (opts.reconcileStateImpl) {
+                return opts.reconcileStateImpl();
+            }
+            if (opts.reconcileStateReject) {
+                return Promise.reject(opts.reconcileStateReject);
+            }
+            return Promise.resolve(opts.reconcileStateResult || opts.state || { version: 1, tutorials: {} });
+        },
         transition: opts.transition || function (input) {
             transitionCalls.push(input);
             if (opts.transitionImpl) {
@@ -203,6 +220,9 @@ function loadCoordinator(options) {
         dispatchDocumentEvent: function (type, detail) {
             context.document.dispatchEvent({ type: type, detail: detail || {} });
         },
+        dispatchDomContentLoaded: function () {
+            context.document.dispatchEvent({ type: 'DOMContentLoaded' });
+        },
         metrics: {
             get actionRegisterCalls() { return actionRegisterCalls; },
             get clearCalls() { return clearCalls; },
@@ -210,6 +230,8 @@ function loadCoordinator(options) {
             get startCalls() { return startCalls; },
             get transitionCalls() { return transitionCalls; },
             get fetchCalls() { return fetchCalls; },
+            get reconcileCalls() { return reconcileCalls; },
+            get warnMessages() { return warnMessages.slice(); },
             get pauseCalls() { return pauseCalls; },
             get completionCardShowCalls() { return completionCardShowCalls; },
             get completionCardDismissCalls() { return completionCardDismissCalls; },
@@ -1436,11 +1458,227 @@ describe('TutorialCoordinator C1b reservation completion', () => {
     });
 });
 
+describe('TutorialCoordinator E3b bootstrap', () => {
+    it('bootstrap llama reconcile antes de init', async () => {
+        var callOrder = [];
+        var env = loadCoordinator({
+            currentModule: 'calendar',
+            reconcileStateImpl: function () {
+                callOrder.push('reconcile');
+                return Promise.resolve({
+                    version: 1,
+                    tutorials: {
+                        create_test_appointment_v1: {
+                            status: 'available'
+                        }
+                    }
+                });
+            },
+            fetchState: function () {
+                callOrder.push('fetch');
+                return Promise.resolve({
+                    version: 1,
+                    tutorials: {
+                        create_test_appointment_v1: {
+                            status: 'available'
+                        }
+                    }
+                });
+            }
+        });
+
+        await env.TutorialCoordinator.bootstrapTutorial();
+        assert.deepEqual(callOrder, ['reconcile', 'fetch']);
+        assert.equal(env.metrics.reconcileCalls, 1);
+        assert.equal(env.metrics.startCalls.length, 1);
+    });
+
+    it('completed tras reconcile no inicia', async () => {
+        var env = loadCoordinator({
+            reconcileStateResult: {
+                version: 1,
+                tutorials: {
+                    create_test_appointment_v1: {
+                        status: 'completed',
+                        current_step_id: null
+                    }
+                }
+            }
+        });
+
+        var started = await env.TutorialCoordinator.bootstrapTutorial();
+        assert.equal(started, false);
+        assert.equal(env.metrics.reconcileCalls, 1);
+        assert.equal(env.metrics.fetchCalls, 0);
+        assert.equal(env.metrics.startCalls.length, 0);
+    });
+
+    it('available tras reconcile inicia tutorial', async () => {
+        var env = loadCoordinator({
+            reconcileStateResult: {
+                version: 1,
+                tutorials: {}
+            }
+        });
+
+        var started = await env.TutorialCoordinator.bootstrapTutorial();
+        assert.equal(started, true);
+        assert.equal(env.metrics.startCalls[0].initialStepId, 'intro');
+    });
+
+    it('in_progress tras reconcile inicia tutorial', async () => {
+        var env = loadCoordinator({
+            currentModule: 'calendar',
+            reconcileStateResult: {
+                version: 1,
+                tutorials: {
+                    create_test_appointment_v1: {
+                        status: 'in_progress',
+                        current_step_id: 'calendar_overview'
+                    }
+                }
+            },
+            state: {
+                version: 1,
+                tutorials: {
+                    create_test_appointment_v1: {
+                        status: 'in_progress',
+                        current_step_id: 'calendar_overview'
+                    }
+                }
+            }
+        });
+
+        await env.TutorialCoordinator.bootstrapTutorial();
+        assert.equal(env.metrics.startCalls[0].initialStepId, 'calendar_overview');
+    });
+
+    it('paused tras reconcile inicia tutorial', async () => {
+        var env = loadCoordinator({
+            currentModule: 'calendar',
+            reconcileStateResult: {
+                version: 1,
+                tutorials: {
+                    create_test_appointment_v1: {
+                        status: 'paused',
+                        current_step_id: 'calendar_overview'
+                    }
+                }
+            },
+            state: {
+                version: 1,
+                tutorials: {
+                    create_test_appointment_v1: {
+                        status: 'paused',
+                        current_step_id: 'calendar_overview'
+                    }
+                }
+            },
+            stateAfterTransition: {
+                version: 1,
+                tutorials: {
+                    create_test_appointment_v1: {
+                        status: 'in_progress',
+                        current_step_id: 'calendar_overview'
+                    }
+                }
+            }
+        });
+
+        await env.TutorialCoordinator.bootstrapTutorial();
+        assert.equal(env.metrics.reconcileCalls, 1);
+        assert.equal(env.metrics.startCalls[0].initialStepId, 'calendar_overview');
+    });
+
+    it('error reconcile no inicia ni hace fallback a fetchState', async () => {
+        var env = loadCoordinator({
+            reconcileStateReject: new Error('probe down')
+        });
+
+        var started = await env.TutorialCoordinator.bootstrapTutorial();
+        assert.equal(started, false);
+        assert.equal(env.metrics.reconcileCalls, 1);
+        assert.equal(env.metrics.fetchCalls, 0);
+        assert.equal(env.metrics.startCalls.length, 0);
+        assert.ok(env.metrics.warnMessages.some(function (msg) {
+            return msg.indexOf('reconcile falló') !== -1;
+        }));
+    });
+
+    it('segunda llamada bootstrap no repite reconcile', async () => {
+        var env = loadCoordinator({
+            reconcileStateResult: {
+                version: 1,
+                tutorials: {}
+            }
+        });
+
+        await env.TutorialCoordinator.bootstrapTutorial();
+        await env.TutorialCoordinator.bootstrapTutorial();
+        assert.equal(env.metrics.reconcileCalls, 1);
+    });
+
+    it('llamadas concurrentes bootstrap comparten una sola cadena', async () => {
+        var resolveReconcile;
+        var env = loadCoordinator({
+            reconcileStateImpl: function () {
+                return new Promise(function (resolve) {
+                    resolveReconcile = resolve;
+                });
+            },
+            state: {
+                version: 1,
+                tutorials: {}
+            }
+        });
+
+        var first = env.TutorialCoordinator.bootstrapTutorial();
+        var second = env.TutorialCoordinator.bootstrapTutorial();
+
+        await flushMicrotasks();
+        assert.strictEqual(first, second);
+        assert.equal(env.metrics.reconcileCalls, 1);
+
+        resolveReconcile({ version: 1, tutorials: {} });
+        await first;
+        await second;
+    });
+
+    it('DOMContentLoaded dispara bootstrap una sola vez', async () => {
+        var env = loadCoordinator({
+            reconcileStateResult: {
+                version: 1,
+                tutorials: {}
+            }
+        });
+
+        env.dispatchDomContentLoaded();
+        env.dispatchDomContentLoaded();
+        await flushMicrotasks();
+
+        assert.equal(env.metrics.reconcileCalls, 1);
+    });
+
+    it('init manual sigue disponible sin bootstrap', async () => {
+        var env = loadCoordinator({
+            state: {
+                version: 1,
+                tutorials: {}
+            }
+        });
+
+        var started = await env.TutorialCoordinator.init();
+        assert.equal(started, true);
+        assert.equal(env.metrics.reconcileCalls, 0);
+        assert.equal(env.metrics.fetchCalls, 1);
+    });
+});
+
 describe('TutorialCoordinator wiring guardrails', () => {
-    it('coordinator source no auto-inicia en DOMContentLoaded', () => {
-        assert.equal(coordinatorSrc.includes('DOMContentLoaded'), false);
-        assert.equal(coordinatorSrc.includes("addEventListener('DOMContentLoaded'"), false);
-        assert.equal(coordinatorSrc.includes('fetchState'), true);
+    it('coordinator registra auto-bootstrap en DOMContentLoaded', () => {
+        assert.equal(coordinatorSrc.includes('DOMContentLoaded'), true);
+        assert.equal(coordinatorSrc.includes('bootstrapTutorial'), true);
+        assert.equal(coordinatorSrc.includes('reconcileState'), true);
     });
 
     it('layout carga definitions/coordinator y mantiene onboarding legacy', () => {

@@ -171,7 +171,8 @@
         init: init
     };
 
-    document.addEventListener('DOMContentLoaded', function () {
-        OnboardingWelcomeModal.init();
-    });
+    // E3b: competitive auto-open disabled; OnboardingWelcomeModal.open() remains for manual use.
+    // document.addEventListener('DOMContentLoaded', function () {
+    //     OnboardingWelcomeModal.init();
+    // });
 })();

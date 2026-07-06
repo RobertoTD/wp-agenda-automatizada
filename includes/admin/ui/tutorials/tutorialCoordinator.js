@@ -1,7 +1,7 @@
 /**
  * Tutorial Coordinator — orchestrates durable tutorial state + AATutorial (MC3D+).
  *
- * Backend FSM is authoritative. No auto-start; manual init via TutorialCoordinator.init().
+ * Auto-bootstrap on DOMContentLoaded (reconcile → init). Manual init via TutorialCoordinator.init().
  */
 (function () {
     'use strict';
@@ -21,6 +21,8 @@
     var actionsRegistered = false;
     var lifecycleListenersRegistered = false;
     var initPromise = null;
+    var bootstrapStarted = false;
+    var bootstrapPromise = null;
     var activeTutorialId = null;
     var tutorialCompletionInFlight = false;
     var tutorialCompletionDone = false;
@@ -511,6 +513,79 @@
         activeTutorialId = null;
     }
 
+    function resolveTutorialStatusFromState(state, tutorialId) {
+        var id = normalizeString(tutorialId) || DEFAULT_TUTORIAL_ID;
+        return resolveStatus(getTutorialRecord(state, id));
+    }
+
+    function isTutorialEligibleStatus(status) {
+        return status === 'available'
+            || status === 'in_progress'
+            || status === 'paused';
+    }
+
+    /**
+     * reconcile → decidir → init (una sola cadena por carga de página).
+     *
+     * @returns {Promise<boolean>}
+     */
+    function bootstrapTutorial() {
+        if (bootstrapPromise) {
+            return bootstrapPromise;
+        }
+
+        if (bootstrapStarted) {
+            return Promise.resolve(false);
+        }
+
+        bootstrapStarted = true;
+
+        bootstrapPromise = Promise.resolve()
+            .then(function () {
+                if (!window.TutorialStateService
+                    || typeof window.TutorialStateService.reconcileState !== 'function') {
+                    warn('TutorialStateService.reconcileState no disponible.');
+                    return false;
+                }
+
+                return window.TutorialStateService.reconcileState()
+                    .then(function (state) {
+                        var status = resolveTutorialStatusFromState(state, DEFAULT_TUTORIAL_ID);
+
+                        if (status === 'completed') {
+                            return false;
+                        }
+
+                        if (isTutorialEligibleStatus(status)) {
+                            return init();
+                        }
+
+                        return false;
+                    });
+            })
+            .catch(function (err) {
+                warn('Bootstrap tutorial omitido: reconcile falló ('
+                    + (err && err.message ? err.message : String(err))
+                    + ').');
+                return false;
+            })
+            .finally(function () {
+                bootstrapPromise = null;
+            });
+
+        return bootstrapPromise;
+    }
+
+    function registerAutoBootstrap() {
+        if (typeof document === 'undefined' || !document || typeof document.addEventListener !== 'function') {
+            return;
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            bootstrapTutorial();
+        });
+    }
+
     /**
      * @param {string} tutorialId
      * @param {object} [options]
@@ -605,9 +680,12 @@
     window.TutorialCoordinator = {
         init: init,
         start: start,
+        bootstrapTutorial: bootstrapTutorial,
         registerActions: registerActions,
         resolveResumePlan: resolveResumePlan,
         isSidebarOpen: isSidebarOpen,
         getCurrentModule: getCurrentModule
     };
+
+    registerAutoBootstrap();
 })();
