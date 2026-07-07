@@ -145,8 +145,8 @@ final class AA_Learning_Catalog {
                 'install_pwa',
                 'Instala la app en tu dispositivo',
                 'Añade DEOIA Citas a la pantalla de inicio para abrir la agenda más rápido.',
-                10,
-                2,
+                110,
+                1,
                 self::COMPLETION_MANUAL,
                 null,
                 [

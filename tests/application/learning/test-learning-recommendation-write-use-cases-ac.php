@@ -103,12 +103,17 @@ if ($wp_load !== '' && is_readable($wp_load)) {
 
     AA_Schema::install();
 
-    $list2_key = 'install_pwa';
     $list1_key = 'configure_services';
+    $list2_key = 'connect_google_calendar';
+    $manual_key = 'install_pwa';
     $auto_key = 'configure_services';
 
-    LearningRecommendationStateRepository::reactivate($list2_key);
     LearningRecommendationStateRepository::reactivate($list1_key);
+    LearningRecommendationStateRepository::reactivate($list2_key);
+    LearningRecommendationStateRepository::reactivate($manual_key);
+    LearningRecommendationStateRepository::upsert($list2_key, [
+        'last_suggested_at' => '2026-05-01 10:00:00',
+    ]);
 
     $defer_result = (new IgnoreLearningRecommendationUseCase())->execute($list1_key);
     ac_assert('Defer list 1 success', !empty($defer_result['success']));
@@ -126,6 +131,9 @@ if ($wp_load !== '' && is_readable($wp_load)) {
     );
 
     LearningRecommendationStateRepository::reactivate($list2_key);
+    LearningRecommendationStateRepository::upsert($list2_key, [
+        'last_suggested_at' => '2026-05-01 10:00:00',
+    ]);
 
     $dismiss_result = (new DismissLearningRecommendationUseCase())->execute($list2_key);
     ac_assert('Dismiss list 2 success', !empty($dismiss_result['success']));
@@ -134,7 +142,7 @@ if ($wp_load !== '' && is_readable($wp_load)) {
     ac_assert('Dismiss sets is_dismissed', ($dismissed_row['is_dismissed'] ?? 0) === 1);
     ac_assert('Dismiss sets dismissed_at', !empty($dismissed_row['dismissed_at']));
 
-    $dismiss_list1 = (new DismissLearningRecommendationUseCase())->execute($list1_key);
+    $dismiss_list1 = (new DismissLearningRecommendationUseCase())->execute($manual_key);
     ac_assert(
         'Dismiss list 1 fails controlled',
         empty($dismiss_list1['success'])
@@ -204,19 +212,20 @@ if ($wp_load !== '' && is_readable($wp_load)) {
         && ($complete_auto['error']['code'] ?? '') === 'not_manual_recommendation'
     );
 
+    LearningRecommendationStateRepository::reactivate($manual_key);
     LearningRecommendationStateRepository::reactivate($list2_key);
     (new DismissLearningRecommendationUseCase())->execute($list2_key);
 
-    $complete_manual = (new CompleteLearningRecommendationUseCase())->execute($list2_key);
+    $complete_manual = (new CompleteLearningRecommendationUseCase())->execute($manual_key);
     ac_assert('Complete manual success', !empty($complete_manual['success']));
 
-    $completed_row = LearningRecommendationStateRepository::find_by_key($list2_key);
+    $completed_row = LearningRecommendationStateRepository::find_by_key($manual_key);
     ac_assert('Complete manual sets is_completed', ($completed_row['is_completed'] ?? 0) === 1);
 
-    $reactivate_result = (new ReactivateLearningRecommendationUseCase())->execute($list2_key);
+    $reactivate_result = (new ReactivateLearningRecommendationUseCase())->execute($manual_key);
     ac_assert('Reactivate success', !empty($reactivate_result['success']));
 
-    $reactivated_row = LearningRecommendationStateRepository::find_by_key($list2_key);
+    $reactivated_row = LearningRecommendationStateRepository::find_by_key($manual_key);
     ac_assert(
         'Reactivate clears ignored/completed/dismissed',
         ($reactivated_row['is_ignored'] ?? 1) === 0
@@ -242,6 +251,7 @@ if ($wp_load !== '' && is_readable($wp_load)) {
 
     LearningRecommendationStateRepository::reactivate($list1_key);
     LearningRecommendationStateRepository::reactivate($list2_key);
+    LearningRecommendationStateRepository::reactivate($manual_key);
     LearningRecommendationStateRepository::reactivate($seal_key);
 } else {
     echo "\n[SKIP] Integración WP: define AA_WP_ROOT para probar escritura y ensure_suggested_at.\n";

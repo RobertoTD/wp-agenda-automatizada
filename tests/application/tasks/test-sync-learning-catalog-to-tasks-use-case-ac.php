@@ -131,7 +131,8 @@ if ($wp_load !== '' && is_readable($wp_load)) {
 
     $install_pwa = SeededTaskRepository::find_task_by_origin('agenda_app', 'install_pwa');
     ac_assert('install_pwa task exists', is_array($install_pwa));
-    ac_assert('install_pwa default_bucket secondary', ($install_pwa['default_bucket'] ?? '') === 'secondary');
+    ac_assert('install_pwa default_bucket primary', ($install_pwa['default_bucket'] ?? '') === 'primary');
+    ac_assert('install_pwa importance 110', (int) ($install_pwa['importance'] ?? 0) === 110);
     ac_assert('install_pwa completion_type manual', ($install_pwa['completion_type'] ?? '') === 'manual');
 
     $install_action = is_array($install_pwa)

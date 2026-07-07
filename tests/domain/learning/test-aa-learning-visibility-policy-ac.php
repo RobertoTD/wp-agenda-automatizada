@@ -204,7 +204,7 @@ ac_assert('AC5g expired dismissed manually completed stays hidden', $r_expired_m
 
 $r_deferred_visible = learning_eval($catalog['install_pwa'], ['is_ignored' => 1]);
 ac_assert(
-    'AC5h ignored native list 2 stays visible',
+    'AC5h ignored primary moves to list 2 and stays visible',
     $r_deferred_visible['visible'] === true
     && $r_deferred_visible['effective_list'] === AA_Learning_Visibility_Policy::LIST_SECONDARY
 );
@@ -441,12 +441,16 @@ ac_assert('Google connected hides catalog item', count($google_visible) === 0);
 
 ac_assert('Catalog SEED_VERSION is 4', AA_Learning_Catalog::SEED_VERSION === '4');
 ac_assert(
-    'Catalog connect_google_calendar has highest importance',
+    'Catalog install_pwa has highest importance',
+    (int) ($catalog['install_pwa']['importance'] ?? 0) === 110
+);
+ac_assert(
+    'Catalog connect_google_calendar is second highest importance',
     (int) ($catalog['connect_google_calendar']['importance'] ?? 0) === 100
 );
 ac_assert(
-    'Catalog install_pwa has lowest importance',
-    (int) ($catalog['install_pwa']['importance'] ?? 0) === 10
+    'Catalog install_pwa default_list is primary',
+    (int) ($catalog['install_pwa']['default_list'] ?? 0) === AA_Learning_Visibility_Policy::LIST_PRIMARY
 );
 
 $list_1_keys = array_map(
@@ -458,6 +462,7 @@ $list_1_keys = array_map(
 ac_assert(
     'Catalog list_1 preserves activation flow order under DESC',
     $list_1_keys === [
+        'install_pwa',
         'connect_google_calendar',
         'complete_business_data',
         'configure_services',
