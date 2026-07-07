@@ -105,7 +105,10 @@ defined('ABSPATH') or die('No direct access');
                     </svg>
                 </span>
                 <div class="min-w-0">
-                    <h2 id="aa-ai-chat-title" class="text-sm font-semibold text-slate-900 truncate">Asistente IA</h2>
+                    <h2 id="aa-ai-chat-title" class="flex items-center gap-1.5 min-w-0 text-sm font-semibold text-slate-900">
+                        <span class="truncate">Asistente IA</span>
+                        <span class="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium leading-none text-indigo-700 bg-indigo-50 border border-indigo-100" aria-hidden="true">Beta</span>
+                    </h2>
                     <p class="text-xs text-slate-500 truncate">Pídeme agendar una cita</p>
                 </div>
             </div>
