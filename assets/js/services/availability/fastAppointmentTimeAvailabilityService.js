@@ -94,6 +94,8 @@
     // Slot generation
     // ──────────────────────────────────────────────
 
+    var GRID_STEP_MINUTES = 30;
+
     function buildBaseSlots(slotDuration) {
         var slots = [];
 
@@ -661,13 +663,13 @@
     // If at least one staff is free, the slot stays.
     // ──────────────────────────────────────────────
 
-    function evaluateSlots(slots, slotDuration, usableStaff, staffBusy) {
+    function evaluateSlots(slots, appointmentDurationMinutes, usableStaff, staffBusy) {
         var removedSlots = [];
         var availableSlots = [];
 
         slots.forEach(function(slot) {
             var slotStart = timeToMinutes(slot.value);
-            var slotEnd = slotStart + slotDuration;
+            var slotEnd = slotStart + appointmentDurationMinutes;
 
             var busyCount = usableStaff.filter(function(staff) {
                 var ranges = Array.isArray(staffBusy[staff.id]) ? staffBusy[staff.id] : [];
@@ -705,14 +707,16 @@
     async function getAvailabilityByDate(date, context) {
         var evaluatedDate = date || null;
         var ctx = context || {};
-        var slotDuration = 30;
+        var appointmentDurationMinutes = parseInt(ctx.slotDuration, 10)
+            || parseInt(typeof window !== 'undefined' ? window.aa_slot_duration : undefined, 10)
+            || 60;
         var now = new Date();
         var todayStr = formatDate(now);
         var isToday = evaluatedDate === todayStr;
         var nowMinutes = (now.getHours() * 60) + now.getMinutes();
         var nowTime = pad2(now.getHours()) + ':' + pad2(now.getMinutes());
         var usableStaff = normalizeUsableStaff(ctx.usableStaff);
-        var baseSlots = buildBaseSlots(slotDuration);
+        var baseSlots = buildBaseSlots(GRID_STEP_MINUTES);
         var trimmedSlots = isToday
             ? baseSlots.filter(function(slot) {
                 return timeToMinutes(slot.value) >= nowMinutes;
@@ -721,6 +725,8 @@
 
         console.log('[FastAppt] getAvailabilityByDate', evaluatedDate,
             '| isToday:', isToday,
+            '| gridStep:', GRID_STEP_MINUTES,
+            '| appointmentDuration:', appointmentDurationMinutes,
             '| baseSlots:', baseSlots.length,
             '| afterTrim:', trimmedSlots.length,
             '| usableStaff:', usableStaff.length);
@@ -732,7 +738,12 @@
         };
 
         occupancySnapshot = await buildOccupancySnapshot(evaluatedDate, usableStaff);
-        slotAnalysis = evaluateSlots(trimmedSlots, slotDuration, usableStaff, occupancySnapshot.staffBusy);
+        slotAnalysis = evaluateSlots(
+            trimmedSlots,
+            appointmentDurationMinutes,
+            usableStaff,
+            occupancySnapshot.staffBusy
+        );
 
         console.log('[FastAppt] Result — slots:', slotAnalysis.availableSlots.length,
             '| removed:', slotAnalysis.removedSlots.length,
@@ -741,7 +752,9 @@
         return {
             implemented: true,
             date: evaluatedDate,
-            slotDuration: slotDuration,
+            gridStepMinutes: GRID_STEP_MINUTES,
+            appointmentDurationMinutes: appointmentDurationMinutes,
+            slotDuration: appointmentDurationMinutes,
             isToday: isToday,
             nowTime: nowTime,
             slots: slotAnalysis.availableSlots,
@@ -1107,11 +1120,22 @@
         };
     }
 
-    window.FastAppointmentTimeAvailabilityService = {
-        getAvailabilityByDate: getAvailabilityByDate,
-        getAvailableStaffBySelection: getAvailableStaffBySelection,
-        getAllStaffWithAvailability: getAllStaffWithAvailability,
-        getAreaAvailabilityBySelection: getAreaAvailabilityBySelection,
-        findCompatibleAssignment: findCompatibleAssignment
-    };
+    if (typeof window !== 'undefined') {
+        window.FastAppointmentTimeAvailabilityService = {
+            getAvailabilityByDate: getAvailabilityByDate,
+            getAvailableStaffBySelection: getAvailableStaffBySelection,
+            getAllStaffWithAvailability: getAllStaffWithAvailability,
+            getAreaAvailabilityBySelection: getAreaAvailabilityBySelection,
+            findCompatibleAssignment: findCompatibleAssignment
+        };
+    }
+
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = {
+            GRID_STEP_MINUTES: GRID_STEP_MINUTES,
+            buildBaseSlots: buildBaseSlots,
+            evaluateSlots: evaluateSlots,
+            timeToMinutes: timeToMinutes
+        };
+    }
 })();

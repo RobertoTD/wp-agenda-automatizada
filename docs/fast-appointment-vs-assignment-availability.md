@@ -76,6 +76,13 @@ This is a technical bridge, not a business rule.
    A slot is removed only when ALL usable staff are busy.
    If at least one staff member is free, the slot stays.
 
+6. **Grid vs appointment duration (Fast Appointment):**
+   Base slot generation always uses a fixed **30-minute grid**
+   (`GRID_STEP_MINUTES`). Occupancy filtering uses the **appointment
+   duration** passed via `context.slotDuration` (resolved once in
+   `adminFastappointmentFlowController.getEffectiveAppointmentDurationMinutes`
+   and reused on submit). Do not use appointment duration as the grid step.
+
 ---
 
 ## Quick decision guide

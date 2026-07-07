@@ -244,6 +244,24 @@
     }
 
     /**
+     * Única fuente de verdad para la duración efectiva de Cita rápida.
+     * Cascada: duración del servicio → aa_slot_duration → 60.
+     *
+     * @param {{selectedServiceId?:*, fastAppointmentPrerequisites?:{activeServices?:Array}}} state
+     * @returns {number}
+     */
+    function getEffectiveAppointmentDurationMinutes(state) {
+        var safeState = state || {};
+        var prerequisites = safeState.fastAppointmentPrerequisites || {};
+        var selectedServiceData = (prerequisites.activeServices || []).find(function(s) {
+            return String(s.id) === String(safeState.selectedServiceId);
+        });
+
+        return (selectedServiceData && parseInt(selectedServiceData.duration_minutes, 10))
+            || parseInt(typeof window !== 'undefined' ? window.aa_slot_duration : undefined, 10) || 60;
+    }
+
+    /**
      * @param {object} options
      * @returns {Promise<string|null>}
      */
@@ -1458,11 +1476,13 @@
                 : [];
 
             console.log('[FastAppointmentFlow] loadTimeAvailabilityForDate requestId=' + myRequestId +
-                ' date=' + dateStr + ' usableStaff.length=' + usableStaff.length);
+                ' date=' + dateStr + ' usableStaff.length=' + usableStaff.length +
+                ' appointmentDuration=' + getEffectiveAppointmentDurationMinutes(state));
 
             const result = await window.FastAppointmentTimeAvailabilityService.getAvailabilityByDate(dateStr, {
                 prerequisites: prerequisites,
-                usableStaff: usableStaff
+                usableStaff: usableStaff,
+                slotDuration: getEffectiveAppointmentDurationMinutes(state)
             });
 
             if (isDestroyed) {
@@ -1911,12 +1931,7 @@
 
                 console.log('[FastAppointment] Submit payload', payload);
 
-                var prerequisites = state.fastAppointmentPrerequisites || {};
-                var selectedServiceData = (prerequisites.activeServices || []).find(function(s) {
-                    return String(s.id) === String(payload.service_id);
-                });
-                var slotDuration = (selectedServiceData && parseInt(selectedServiceData.duration_minutes, 10))
-                    || parseInt(window.aa_slot_duration, 10) || 60;
+                var slotDuration = getEffectiveAppointmentDurationMinutes(state);
 
                 try {
                     var result = await window.FastAppointmentTimeAvailabilityService
@@ -2372,7 +2387,8 @@
             findFirstDateWithDaySlots: findFirstDateWithDaySlots,
             resolveTutorialTimeAutoSelectValue: resolveTutorialTimeAutoSelectValue,
             canStartTutorialTimePrefill: canStartTutorialTimePrefill,
-            canStartTutorialConfirmPrefill: canStartTutorialConfirmPrefill
+            canStartTutorialConfirmPrefill: canStartTutorialConfirmPrefill,
+            getEffectiveAppointmentDurationMinutes: getEffectiveAppointmentDurationMinutes
         };
     }
 })();
