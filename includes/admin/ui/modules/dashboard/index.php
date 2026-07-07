@@ -370,11 +370,13 @@ $task_completed_toast_js = AA_PLUGIN_URL . 'assets/js/ui/taskCompletedToast.js';
 $tasks_service_js = AA_PLUGIN_URL . 'assets/js/services/tasksService.js';
 $dashboard_service_js = AA_PLUGIN_URL . 'assets/js/services/dashboardService.js';
 $dashboard_module_js = $plugin_url . 'dashboard-module.js';
+$pwa_install_first_opportunity_js = $plugin_url . 'pwa-install-first-opportunity.js';
 ?>
 <script src="<?php echo esc_url($executive_proposal_service_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($dashboard_service_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($tasks_service_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($learning_handlers_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($pwa_install_first_opportunity_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($executive_client_action_runner_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($executive_proposal_renderer_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($task_completed_toast_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>

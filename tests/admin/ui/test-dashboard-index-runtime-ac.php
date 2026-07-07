@@ -45,6 +45,13 @@ ac_assert(
     && strpos($index_php, "plugin_dir_url(__DIR__ . '/../learning/')") === false
 );
 
+ac_assert(
+    'dashboard enqueues pwa-install-first-opportunity after learning-action-handlers',
+    is_string($index_php)
+    && strpos($index_php, 'pwa-install-first-opportunity.js') !== false
+    && strpos($index_php, 'learning-action-handlers.js') < strpos($index_php, 'pwa-install-first-opportunity.js')
+);
+
 echo "\n{$passed}/{$total} passed\n";
 
 if ($failed !== []) {
