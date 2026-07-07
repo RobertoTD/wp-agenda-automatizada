@@ -52,6 +52,13 @@ ac_assert(
     && strpos($index_php, 'learning-action-handlers.js') < strpos($index_php, 'pwa-install-first-opportunity.js')
 );
 
+ac_assert(
+    'dashboard enqueues pwa-notifications-first-opportunity after pwa-install-first-opportunity',
+    is_string($index_php)
+    && strpos($index_php, 'pwa-notifications-first-opportunity.js') !== false
+    && strpos($index_php, 'pwa-install-first-opportunity.js') < strpos($index_php, 'pwa-notifications-first-opportunity.js')
+);
+
 echo "\n{$passed}/{$total} passed\n";
 
 if ($failed !== []) {
