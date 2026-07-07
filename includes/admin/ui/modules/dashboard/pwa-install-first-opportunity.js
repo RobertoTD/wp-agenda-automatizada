@@ -11,9 +11,11 @@
     var AUTOMATIC_SURFACE_ROOT_ID = 'aa-pwa-install-first-opportunity-root';
 
     var AUTOMATIC_TITLE = 'Instala DEOIA Citas';
-    var AUTOMATIC_BODY = 'Ten tu agenda disponible fácilmente desde tu dispositivo.';
+    var AUTOMATIC_BODY = ''
+        + 'Ten tu agenda disponible fácilmente desde tu dispositivo. Pulsa Continuar y después '
+        + 'confirma la instalación en la ventana que aparecerá.';
     var DISMISS_LABEL = 'Ahora no';
-    var INSTALL_LABEL = 'Instalar ahora';
+    var INSTALL_LABEL = 'Continuar';
 
     var MANUAL_ALERT_MESSAGE = ''
         + 'Recomendamos instalar DEOIA Citas en tu dispositivo para acceder fácilmente a tu agenda.\n\n'

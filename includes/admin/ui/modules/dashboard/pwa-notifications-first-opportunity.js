@@ -12,10 +12,10 @@
 
     var SURFACE_TITLE = 'Activa las notificaciones de DEOIA';
     var SURFACE_BODY = ''
-        + 'Permite las notificaciones en este dispositivo para que DEOIA pueda avisarte '
-        + 'de próximas citas, recordatorios y eventos de tu negocio, incluso cuando la app esté cerrada.';
+        + 'Recibe avisos importantes aunque la app esté cerrada. Pulsa Continuar y después '
+        + 'acepta la solicitud de notificaciones que aparecerá en tu dispositivo.';
     var DISMISS_LABEL = 'Ahora no';
-    var ENABLE_LABEL = 'Activar notificaciones';
+    var ENABLE_LABEL = 'Continuar';
 
     var initialized = false;
     var surfaceVisible = false;
