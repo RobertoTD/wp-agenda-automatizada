@@ -358,6 +358,13 @@ $executor_module_url = admin_url('admin-post.php?action=aa_iframe_content&module
         focusActionPost: 'aa_executive_focus_action',
         nonce: '<?php echo esc_js(wp_create_nonce('aa_executive_proposal_nonce')); ?>'
     };
+
+    window.AA_PUSH_CONFIG = {
+        ajaxUrl: window.ajaxurl || '<?php echo admin_url('admin-ajax.php'); ?>',
+        registerAction: '<?php echo esc_js(PushSubscriptionAjax::ACTION_REGISTER); ?>',
+        configAction: '<?php echo esc_js(PushSubscriptionAjax::ACTION_CONFIG); ?>',
+        nonce: '<?php echo esc_js(wp_create_nonce(PushSubscriptionAjax::NONCE_ACTION)); ?>'
+    };
 </script>
 
 <!-- Dashboard Service (consumes aa_get_citas_por_dia, must load before module) -->

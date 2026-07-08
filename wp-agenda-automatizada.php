@@ -154,6 +154,13 @@ require_once __DIR__ . '/includes/http/ajax/BillingPortalAjax.php';
 BillingPortalAjax::register();
 
 // ================================
+// 🔹 Endpoint AJAX: Web Push subscription bridge (capa http/ajax)
+// ================================
+require_once __DIR__ . '/includes/infrastructure/backend/class-aa-push-backend-client.php';
+require_once __DIR__ . '/includes/http/ajax/PushSubscriptionAjax.php';
+PushSubscriptionAjax::register();
+
+// ================================
 // 🔹 Endpoint AJAX: Upgrade checkout session (capa http/ajax)
 // ================================
 require_once __DIR__ . '/includes/infrastructure/backend/class-aa-upgrade-checkout-backend-client.php';
