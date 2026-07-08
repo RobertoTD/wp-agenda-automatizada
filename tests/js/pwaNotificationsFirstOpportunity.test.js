@@ -192,6 +192,7 @@ describe('PwaNotificationsFirstOpportunity', () => {
     var originalNotification;
     var testDocument;
     var requestPermissionCalls;
+    var activationCalls;
 
     function setStandalone(isStandalone) {
         globalThis.matchMedia = function (query) {
@@ -229,11 +230,18 @@ describe('PwaNotificationsFirstOpportunity', () => {
         originalNotification = globalThis.Notification;
 
         requestPermissionCalls = 0;
+        activationCalls = 0;
         testDocument = createTestDocument();
 
         globalThis.localStorage = createStorage();
         globalThis.AA_ADMIN_CONTEXT = { blogId: 42 };
         globalThis.document = testDocument;
+        globalThis.PwaPushActivationService = {
+            activateFromGrantedPermission: function () {
+                activationCalls += 1;
+                return Promise.resolve({ completed: true, status: 'sent' });
+            }
+        };
 
         setStandalone(false);
         setNotificationApi({ permission: 'default' });
@@ -280,6 +288,7 @@ describe('PwaNotificationsFirstOpportunity', () => {
 
         delete globalThis.localStorage;
         delete globalThis.PwaNotificationsFirstOpportunity;
+        delete globalThis.PwaPushActivationService;
         delete require.cache[firstOpportunityPath];
     });
 
@@ -391,9 +400,10 @@ describe('PwaNotificationsFirstOpportunity', () => {
 
         assert.equal(requestPermissionCalls, 1);
         assert.equal(globalThis.PwaNotificationsFirstOpportunity.hasConsumedFirstOpportunity('42'), true);
+        assert.equal(activationCalls, 1);
     });
 
-    it('resultado denied consume', async () => {
+    it('resultado denied consume sin delegar activacion push', async () => {
         setupEligibleEnvironment();
         globalThis.Notification.requestPermission = function () {
             requestPermissionCalls += 1;
@@ -407,9 +417,10 @@ describe('PwaNotificationsFirstOpportunity', () => {
 
         assert.equal(requestPermissionCalls, 1);
         assert.equal(globalThis.PwaNotificationsFirstOpportunity.hasConsumedFirstOpportunity('42'), true);
+        assert.equal(activationCalls, 0);
     });
 
-    it('resultado default tras prompt consume', async () => {
+    it('resultado default tras prompt consume sin delegar activacion push', async () => {
         setupEligibleEnvironment();
         globalThis.Notification.requestPermission = function () {
             requestPermissionCalls += 1;
@@ -423,6 +434,7 @@ describe('PwaNotificationsFirstOpportunity', () => {
 
         assert.equal(requestPermissionCalls, 1);
         assert.equal(globalThis.PwaNotificationsFirstOpportunity.hasConsumedFirstOpportunity('42'), true);
+        assert.equal(activationCalls, 0);
     });
 
     it('error tecnico no consume', async () => {
@@ -523,6 +535,7 @@ describe('PwaNotificationsFirstOpportunity init en standalone elegible', () => {
 
         delete globalThis.localStorage;
         delete globalThis.PwaNotificationsFirstOpportunity;
+        delete globalThis.PwaPushActivationService;
         delete require.cache[firstOpportunityPath];
     });
 

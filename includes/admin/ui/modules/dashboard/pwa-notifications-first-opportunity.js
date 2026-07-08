@@ -205,6 +205,20 @@
         if (permission === 'granted' || permission === 'denied' || permission === 'default') {
             markConsumedFirstOpportunity();
         }
+
+        if (permission === 'granted') {
+            var root = getGlobalRoot();
+
+            if (
+                root.PwaPushActivationService
+                && typeof root.PwaPushActivationService.activateFromGrantedPermission === 'function'
+            ) {
+                root.PwaPushActivationService.activateFromGrantedPermission()
+                    .catch(function (err) {
+                        warn('push activation failed:', err);
+                    });
+            }
+        }
     }
 
     function onDismissClick(event) {

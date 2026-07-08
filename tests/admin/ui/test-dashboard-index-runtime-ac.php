@@ -53,6 +53,13 @@ ac_assert(
 );
 
 ac_assert(
+    'dashboard enqueues pwaPushActivationService before pwa-notifications-first-opportunity',
+    is_string($index_php)
+    && strpos($index_php, 'pwaPushActivationService.js') !== false
+    && strpos($index_php, 'pwaPushActivationService.js') < strpos($index_php, 'pwa-notifications-first-opportunity.js')
+);
+
+ac_assert(
     'dashboard enqueues pwa-notifications-first-opportunity after pwa-install-first-opportunity',
     is_string($index_php)
     && strpos($index_php, 'pwa-notifications-first-opportunity.js') !== false
