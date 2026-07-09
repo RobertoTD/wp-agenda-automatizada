@@ -47,13 +47,16 @@ $confirm_controller_src = file_get_contents($plugin_root . '/includes/controller
 
 ac_assert('Use case file readable', is_readable($use_case_file));
 ac_assert(
-    'confirm_backend_service wires MC4 after local confirmed update',
-    strpos($confirm_service_src, 'CompleteAppointmentConfirmationTaskUseCase::sync_after_local_confirmation_best_effort($reserva_id)') !== false
-    && strpos($confirm_service_src, "estado' => 'confirmed'") !== false
+    'confirm_backend_service delegates confirmation to ConfirmReservationUseCase',
+    strpos($confirm_service_src, 'ConfirmReservationUseCase') !== false
+    && strpos($confirm_service_src, "\$wpdb->update(\$table, ['estado' => 'confirmed']") === false
+    && strpos($confirm_service_src, 'CompleteAppointmentConfirmationTaskUseCase::sync_after_local_confirmation_best_effort($reserva_id)') === false
 );
 ac_assert(
-    'aa_rest_confirmar_reserva wires MC4 after local confirmed update',
-    strpos($confirm_controller_src, 'CompleteAppointmentConfirmationTaskUseCase::sync_after_local_confirmation_best_effort($id)') !== false
+    'aa_rest_confirmar_reserva delegates confirmation to ConfirmReservationUseCase',
+    strpos($confirm_controller_src, 'ConfirmReservationUseCase') !== false
+    && strpos($confirm_controller_src, "\$update_data = ['estado' => 'confirmed']") === false
+    && strpos($confirm_controller_src, 'CompleteAppointmentConfirmationTaskUseCase::sync_after_local_confirmation_best_effort($id)') === false
 );
 
 require_once $plugin_root . '/includes/domain/appointments/class-aa-appointment-actions-catalog.php';

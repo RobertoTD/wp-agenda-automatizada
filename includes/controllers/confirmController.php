@@ -171,44 +171,38 @@ function aa_rest_confirmar_reserva(WP_REST_Request $request) {
         return new WP_REST_Response(['error' => 'Reserva no encontrada'], 404);
     }
 
-    // 🔹 Preparar datos a actualizar
-    $update_data = ['estado' => 'confirmed'];
-    $update_format = ['%s'];
-    
-    // 🔹 Si viene calendar_uid, también lo guardamos
+    // 🔹 Metadata opcional (sanitizada en el caller; persistida en la operación canónica)
     $calendar_uid = sanitize_text_field($request['calendar_uid']);
     if (!empty($calendar_uid)) {
-        $update_data['calendar_uid'] = $calendar_uid;
-        $update_format[] = '%s';
         error_log("✅ calendar_uid recibido para reserva ID $id: $calendar_uid");
     }
 
-    // 🔹 Si viene virtual_link (Meet u otro), guardarlo en la reserva
     $virtual_link = isset($request['virtual_link']) ? esc_url_raw($request['virtual_link']) : '';
     if (!empty($virtual_link)) {
-        $update_data['virtual_link'] = $virtual_link;
-        $update_format[] = '%s';
         error_log("✅ virtual_link recibido para reserva ID $id: $virtual_link");
     }
 
-    // 🔹 Actualizar registro
-    $updated = $wpdb->update(
-        $table,
-        $update_data,
-        ['id' => $id],
-        $update_format,
-        ['%d']
-    );
-    
-    if ($updated === false) {
+    $optional_columns = [];
+    if (!empty($calendar_uid)) {
+        $optional_columns['calendar_uid'] = $calendar_uid;
+    }
+    if (!empty($virtual_link)) {
+        $optional_columns['virtual_link'] = $virtual_link;
+    }
+
+    // 🔹 Actualizar registro (operación canónica: estado + metadata opcional en un solo UPDATE)
+    require_once plugin_dir_path(__FILE__) . '../application/appointments/ConfirmReservationUseCase.php';
+    $confirm_result = (new ConfirmReservationUseCase())->execute([
+        'reservation_id' => $id,
+        'columns' => $optional_columns,
+    ]);
+
+    if (empty($confirm_result['success'])) {
         error_log("❌ Error al actualizar reserva ID $id: " . $wpdb->last_error);
         return new WP_REST_Response(['error' => 'Error al actualizar'], 500);
     }
 
     error_log("✅ Reserva ID $id actualizada: estado=confirmed" . (!empty($calendar_uid) ? ", calendar_uid=$calendar_uid" : ""));
-
-    require_once plugin_dir_path(__FILE__) . '../application/appointments/CompleteAppointmentConfirmationTaskUseCase.php';
-    CompleteAppointmentConfirmationTaskUseCase::sync_after_local_confirmation_best_effort($id);
 
     // =========================================================================
     // 🛡️ LÓGICA DE CANCELACIÓN EN CASCADA (con overlap + assignment)
