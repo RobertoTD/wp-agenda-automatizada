@@ -70,6 +70,15 @@ class Webhooks_Controller extends WP_REST_Controller {
             ),
         ));
 
+        register_rest_route($this->namespace, '/' . $this->rest_base . '/upcoming-confirmed-push/validate', array(
+            array(
+                'methods'             => WP_REST_Server::CREATABLE,
+                'callback'            => array($this, 'handle_upcoming_confirmed_push_validate'),
+                'permission_callback' => array($this, 'permission_webhook_token'),
+                'args'                => $this->get_upcoming_confirmed_push_validate_params(),
+            ),
+        ));
+
         // 🔹 Branding endpoint — devuelve logo y nombre del negocio al backend Node
         register_rest_route($this->namespace, '/branding', array(
             array(
@@ -211,6 +220,48 @@ class Webhooks_Controller extends WP_REST_Controller {
     }
 
     /**
+     * Parámetros para validar citas Push próximas confirmadas.
+     *
+     * @return array
+     */
+    protected function get_upcoming_confirmed_push_validate_params() {
+        return array(
+            'appointments' => array(
+                'required'          => true,
+                'type'              => 'array',
+                'description'       => 'Citas a validar para Push próximas confirmadas (max 50).',
+                'sanitize_callback' => function ($value) {
+                    if (!is_array($value)) {
+                        return array();
+                    }
+
+                    $out = array();
+                    foreach ($value as $item) {
+                        if (!is_array($item)) {
+                            continue;
+                        }
+
+                        $id = absint($item['appointment_id'] ?? 0);
+                        if ($id < 1) {
+                            continue;
+                        }
+
+                        $out[] = array(
+                            'appointment_id' => $id,
+                            'expected_start' => sanitize_text_field((string) ($item['expected_start'] ?? '')),
+                        );
+                    }
+
+                    return array_slice($out, 0, 50);
+                },
+                'validate_callback' => function ($value) {
+                    return is_array($value) && !empty($value);
+                },
+            ),
+        );
+    }
+
+    /**
      * POST /wp-json/aa/v1/webhooks/reminders-bulk
      *
      * Recibe { appointment_ids: [461,462,...] } del worker Node.
@@ -233,6 +284,33 @@ class Webhooks_Controller extends WP_REST_Controller {
         require_once plugin_dir_path(__FILE__) . '../services/RemindersService.php';
 
         $result = RemindersService::build_bulk_payload($ids);
+
+        return new WP_REST_Response($result, 200);
+    }
+
+    /**
+     * POST /wp-json/aa/v1/webhooks/upcoming-confirmed-push/validate
+     *
+     * Valida el estado actual de citas para Push próximas confirmadas.
+     * No exige email ni reutiliza reminders-bulk.
+     *
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response|WP_Error
+     */
+    public function handle_upcoming_confirmed_push_validate($request) {
+        $appointments = (array) $request->get_param('appointments');
+
+        if (empty($appointments)) {
+            return new WP_Error(
+                'invalid_params',
+                'appointments vacío después de sanitización.',
+                array('status' => 400)
+            );
+        }
+
+        require_once plugin_dir_path(__FILE__) . '../application/appointments/ValidateUpcomingConfirmedPushAppointmentsUseCase.php';
+
+        $result = (new ValidateUpcomingConfirmedPushAppointmentsUseCase())->execute($appointments);
 
         return new WP_REST_Response($result, 200);
     }
