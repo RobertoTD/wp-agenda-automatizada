@@ -137,5 +137,8 @@ final class ConfirmReservationUseCase {
 
         require_once dirname(__DIR__) . '/appointments/CompleteAppointmentConfirmationTaskUseCase.php';
         CompleteAppointmentConfirmationTaskUseCase::sync_after_local_confirmation_best_effort($reservation_id);
+
+        require_once dirname(__DIR__) . '/appointments/SyncUpcomingConfirmedPushJobUseCase.php';
+        SyncUpcomingConfirmedPushJobUseCase::sync_after_local_confirmation_best_effort($reservation_id);
     }
 }

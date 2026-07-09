@@ -15,6 +15,10 @@ class AA_Push_Backend_Client {
         'invalid_subscription',
         'no_installation_id',
         'endpoint_conflict',
+        'invalid_appointment_id',
+        'invalid_enabled',
+        'invalid_appointment_start',
+        'invalid_minutes',
     ];
 
     /**
@@ -72,6 +76,38 @@ class AA_Push_Backend_Client {
     }
 
     /**
+     * @param array<string,mixed> $payload
+     * @return array{
+     *     ok: true,
+     *     sync: string
+     * }|array{
+     *     ok: false,
+     *     code: string,
+     *     error: string,
+     *     http_status: int
+     * }
+     */
+    public function syncUpcomingConfirmedJob(array $payload): array {
+        if (!defined('AA_API_BASE_URL') || (string) AA_API_BASE_URL === '') {
+            return $this->unavailable('AA_API_BASE_URL no está definida.');
+        }
+
+        if (!function_exists('aa_send_authenticated_request')) {
+            return $this->unavailable('auth-helper no disponible (aa_send_authenticated_request).');
+        }
+
+        $client_secret = (string) get_option('aa_client_secret', '');
+        if ($client_secret === '') {
+            return $this->unavailable('Falta el client secret del backend.');
+        }
+
+        $endpoint_url = rtrim((string) AA_API_BASE_URL, '/') . '/push/upcoming-confirmed-jobs/sync';
+        $response     = aa_send_authenticated_request($endpoint_url, 'POST', $payload);
+
+        return $this->parseSyncUpcomingConfirmedJobResponse($response);
+    }
+
+    /**
      * @return array{
      *     ok: true,
      *     vapid_public_key: string
@@ -100,6 +136,52 @@ class AA_Push_Backend_Client {
         $response     = aa_send_authenticated_request($endpoint_url, 'GET');
 
         return $this->parseVapidPublicKeyResponse($response);
+    }
+
+    /**
+     * @param array|\WP_Error $response
+     * @return array{ok: true, sync: string}|array{ok: false, code: string, error: string, http_status: int}
+     */
+    private function parseSyncUpcomingConfirmedJobResponse($response): array {
+        if (is_wp_error($response)) {
+            return $this->unavailable($response->get_error_message());
+        }
+
+        $status_code = (int) wp_remote_retrieve_response_code($response);
+        $decoded     = $this->decodeJsonBody($response);
+
+        if ($status_code < 200 || $status_code >= 300) {
+            if (is_array($decoded) && !empty($decoded['error']) && is_string($decoded['error'])) {
+                $backend_error = trim((string) $decoded['error']);
+                if (in_array($backend_error, self::KNOWN_FUNCTIONAL_ERRORS, true)) {
+                    return [
+                        'ok'          => false,
+                        'code'        => $backend_error,
+                        'error'       => '',
+                        'http_status' => $status_code > 0 ? $status_code : 503,
+                    ];
+                }
+            }
+
+            return $this->unavailable('', $status_code > 0 ? $status_code : 503);
+        }
+
+        if (!is_array($decoded) || empty($decoded['ok'])) {
+            return $this->unavailable('', $status_code > 0 ? $status_code : 503);
+        }
+
+        $sync = isset($decoded['sync']) && is_string($decoded['sync'])
+            ? trim($decoded['sync'])
+            : '';
+
+        if ($sync === '') {
+            return $this->unavailable('', $status_code > 0 ? $status_code : 503);
+        }
+
+        return [
+            'ok'   => true,
+            'sync' => $sync,
+        ];
     }
 
     /**

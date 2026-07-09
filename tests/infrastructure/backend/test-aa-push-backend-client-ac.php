@@ -147,6 +147,68 @@ reset_http();
 $GLOBALS['aa_test_http_response'] = [
     'response' => ['code' => 200],
     'body'     => json_encode([
+        'ok'   => true,
+        'sync' => 'scheduled',
+    ]),
+];
+$result = $client->syncUpcomingConfirmedJob([
+    'appointment_id'    => 123,
+    'enabled'           => true,
+    'appointment_start' => '2026-07-09T15:00:00-06:00',
+    'minutes'           => 15,
+]);
+ac_assert('syncUpcomingConfirmedJob maps backend success', ($result['ok'] ?? false) === true);
+ac_assert('syncUpcomingConfirmedJob returns sync field', ($result['sync'] ?? '') === 'scheduled');
+ac_assert(
+    'syncUpcomingConfirmedJob POST targets /push/upcoming-confirmed-jobs/sync',
+    strpos((string) $GLOBALS['aa_test_http_calls'][0]['endpoint'], '/push/upcoming-confirmed-jobs/sync') !== false
+);
+ac_assert('syncUpcomingConfirmedJob uses POST', ($GLOBALS['aa_test_http_calls'][0]['method'] ?? '') === 'POST');
+
+reset_http();
+$GLOBALS['aa_test_http_response'] = [
+    'response' => ['code' => 200],
+    'body'     => json_encode([
+        'ok'   => true,
+        'sync' => 'disabled',
+    ]),
+];
+$result = $client->syncUpcomingConfirmedJob([
+    'appointment_id' => 123,
+    'enabled'        => false,
+]);
+ac_assert('syncUpcomingConfirmedJob disabled contract accepted', ($result['sync'] ?? '') === 'disabled');
+ac_assert(
+    'syncUpcomingConfirmedJob disabled sends reduced body',
+    ($GLOBALS['aa_test_http_calls'][0]['data']['enabled'] ?? null) === false
+    && !array_key_exists('appointment_start', $GLOBALS['aa_test_http_calls'][0]['data'])
+);
+
+reset_http();
+$GLOBALS['aa_test_http_response'] = [
+    'response' => ['code' => 400],
+    'body'     => json_encode(['ok' => false, 'error' => 'invalid_minutes']),
+];
+$result = $client->syncUpcomingConfirmedJob([
+    'appointment_id'    => 123,
+    'enabled'           => true,
+    'appointment_start' => '2026-07-09T15:00:00-06:00',
+    'minutes'           => 99,
+]);
+ac_assert('syncUpcomingConfirmedJob preserves invalid_minutes', ($result['code'] ?? '') === 'invalid_minutes');
+
+reset_http();
+$GLOBALS['aa_test_http_response'] = new WP_Error('http_request_failed', 'timeout');
+$result = $client->syncUpcomingConfirmedJob([
+    'appointment_id' => 123,
+    'enabled'        => false,
+]);
+ac_assert('syncUpcomingConfirmedJob transport failure normalizes', ($result['code'] ?? '') === 'push_backend_unavailable');
+
+reset_http();
+$GLOBALS['aa_test_http_response'] = [
+    'response' => ['code' => 200],
+    'body'     => json_encode([
         'ok'               => true,
         'vapid_public_key' => 'public-key-only',
     ]),

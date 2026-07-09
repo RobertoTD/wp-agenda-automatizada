@@ -15,6 +15,18 @@ if (!function_exists('plugin_dir_path')) {
     }
 }
 
+if (!function_exists('get_option')) {
+    function get_option($key, $default = false) {
+        $options = [
+            'aa_timezone' => 'America/Mexico_City',
+        ];
+        if (array_key_exists($key, $options)) {
+            return $options[$key];
+        }
+        return $default;
+    }
+}
+
 $plugin_root = dirname(__DIR__, 3);
 
 $total = 0;
@@ -43,6 +55,7 @@ ac_assert('Use case file readable', is_readable($use_case_file));
 
 require_once $plugin_root . '/includes/application/tasks/TaskUseCaseSupport.php';
 require_once $use_case_file;
+require_once $plugin_root . '/includes/application/appointments/SyncUpcomingConfirmedPushJobUseCase.php';
 
 // ─── AC1: persiste estado confirmed ───────────────────────────────
 
@@ -186,6 +199,58 @@ ac_assert(
     'AC7: aa_rest_confirmar_reserva no longer calls CompleteAppointment directly',
     strpos($confirm_controller_src, 'CompleteAppointmentConfirmationTaskUseCase::sync_after_local_confirmation_best_effort($id)') === false
 );
+
+// ─── AC8: MC3 — ruta productiva incluye sync Push best-effort ───────
+
+$confirm_uc_src = file_get_contents($use_case_file);
+
+ac_assert(
+    'AC8: ConfirmReservationUseCase invokes SyncUpcomingConfirmedPushJobUseCase',
+    strpos($confirm_uc_src, 'SyncUpcomingConfirmedPushJobUseCase::sync_after_local_confirmation_best_effort') !== false
+);
+ac_assert(
+    'AC8: SyncUpcomingConfirmed runs after CompleteAppointment',
+    strpos($confirm_uc_src, 'CompleteAppointmentConfirmationTaskUseCase::sync_after_local_confirmation_best_effort($reservation_id);') !== false
+    && strpos($confirm_uc_src, 'SyncUpcomingConfirmedPushJobUseCase::sync_after_local_confirmation_best_effort($reservation_id);') !== false
+    && strpos($confirm_uc_src, 'CompleteAppointmentConfirmationTaskUseCase::sync_after_local_confirmation_best_effort($reservation_id);')
+        < strpos($confirm_uc_src, 'SyncUpcomingConfirmedPushJobUseCase::sync_after_local_confirmation_best_effort($reservation_id);')
+);
+
+// ─── AC9: fallo Push no altera éxito de confirmación ───────────────
+
+$push_fail_uc = new ConfirmReservationUseCase(
+    static function (int $reservation_id, array $data, array $formats): int {
+        return 1;
+    },
+    static function (int $reservation_id): void {
+        $sync = new SyncUpcomingConfirmedPushJobUseCase(
+            static function (array $payload): array {
+                return [
+                    'ok' => false,
+                    'code' => 'push_backend_unavailable',
+                    'error' => 'timeout',
+                    'http_status' => 503,
+                ];
+            },
+            static function (int $id): array {
+                return ['id' => $id, 'fecha' => '2026-07-09 15:00:00'];
+            },
+            static function (): bool {
+                return true;
+            },
+            static function (): int {
+                return 15;
+            }
+        );
+
+        $sync->execute(['reservation_id' => $reservation_id]);
+    }
+);
+
+$push_fail_result = $push_fail_uc->execute(['reservation_id' => 501]);
+
+ac_assert('AC9: confirmation success despite Push sync failure', !empty($push_fail_result['success']));
+ac_assert('AC9: rows_affected still returned', ($push_fail_result['data']['rows_affected'] ?? null) === 1);
 
 // ─── Summary ───────────────────────────────────────────────────────
 
