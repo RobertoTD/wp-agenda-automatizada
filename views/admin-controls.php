@@ -82,6 +82,24 @@ add_action('admin_init', function() {
             return !empty($value) ? 1 : 0;
         },
     ]);
+    register_setting('agenda_automatizada_settings', 'aa_push_upcoming_confirmed_enabled', [
+        'sanitize_callback' => static function ($value) {
+            return !empty($value) ? 1 : 0;
+        },
+    ]);
+    register_setting('agenda_automatizada_settings', 'aa_push_upcoming_confirmed_minutes', [
+        'sanitize_callback' => static function ($value): int {
+            $allowed = [
+                0 => 0, '0' => 0,
+                5 => 5, '5' => 5,
+                15 => 15, '15' => 15,
+                30 => 30, '30' => 30,
+                60 => 60, '60' => 60,
+            ];
+
+            return $allowed[$value] ?? 15;
+        },
+    ]);
     // LEGACY_FIXED_SCHEDULE (aa_service_schedule, aa_staff_schedule): see aa_schedule above.
     register_setting('agenda_automatizada_settings', 'aa_service_schedule', ['sanitize_callback' => 'sanitize_text_field']);
     register_setting('agenda_automatizada_settings', 'aa_staff_schedule', ['sanitize_callback' => 'sanitize_text_field']);

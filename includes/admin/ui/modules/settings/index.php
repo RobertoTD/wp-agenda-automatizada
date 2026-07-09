@@ -515,6 +515,63 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
         </details>
 
         <!-- ═══════════════════════════════════════════════════════════════
+             SECCIÓN: Notificaciones
+        ═══════════════════════════════════════════════════════════════ -->
+        <details id="aa-notifications-root" class="bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
+            <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
+                <div class="flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-600">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                            </svg>
+                        </span>
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Notificaciones</h3>
+                            <p class="text-sm text-gray-500 mt-0.5">Avisos push para citas confirmadas</p>
+                        </div>
+                    </div>
+                    <svg class="aa-chevron w-5 h-5 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </div>
+            </summary>
+
+            <div class="p-6 space-y-5 transition-all duration-200">
+                <div class="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                    <input type="hidden" name="aa_push_upcoming_confirmed_enabled" value="0">
+                    <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-0.5">
+                        <input type="checkbox"
+                               name="aa_push_upcoming_confirmed_enabled"
+                               value="1"
+                               id="aa-push-upcoming-confirmed-enabled"
+                               <?php checked((int) get_option('aa_push_upcoming_confirmed_enabled', 1), 1); ?>
+                               class="sr-only peer">
+                        <div class="w-11 h-6 bg-gray-300 peer-checked:bg-emerald-500 rounded-full transition-colors"></div>
+                        <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-5"></div>
+                    </label>
+                    <span class="text-sm text-gray-700">Notificar citas confirmadas próximas</span>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2" for="aa_push_upcoming_confirmed_minutes">
+                        Avisar con anticipación
+                    </label>
+                    <?php $push_upcoming_confirmed_minutes = (int) get_option('aa_push_upcoming_confirmed_minutes', 15); ?>
+                    <select name="aa_push_upcoming_confirmed_minutes"
+                            id="aa_push_upcoming_confirmed_minutes"
+                            class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white transition-shadow">
+                        <option value="0" <?php selected($push_upcoming_confirmed_minutes, 0); ?>>0 minutos</option>
+                        <option value="5" <?php selected($push_upcoming_confirmed_minutes, 5); ?>>5 minutos</option>
+                        <option value="15" <?php selected($push_upcoming_confirmed_minutes, 15); ?>>15 minutos</option>
+                        <option value="30" <?php selected($push_upcoming_confirmed_minutes, 30); ?>>30 minutos</option>
+                        <option value="60" <?php selected($push_upcoming_confirmed_minutes, 60); ?>>60 minutos</option>
+                    </select>
+                </div>
+            </div>
+        </details>
+
+        <!-- ═══════════════════════════════════════════════════════════════
              BOTÓN GUARDAR
         ═══════════════════════════════════════════════════════════════ -->
         <div class="-mx-4 lg:w-screen lg:relative lg:left-1/2 lg:-translate-x-1/2 lg:mx-0 px-4 lg:px-[calc((100vw-80rem)/2+1rem)] py-4 mt-6 flex justify-end">
