@@ -28,6 +28,7 @@ final class TaskRepository {
         'default_bucket',
         'importance',
         'due_at',
+        'execution_available_at',
         'position',
         'completed_at',
     ];
@@ -69,6 +70,7 @@ final class TaskRepository {
             'completion_fact_key' => isset($row->completion_fact_key) && $row->completion_fact_key !== null ? (string) $row->completion_fact_key : null,
             'importance' => (int) $row->importance,
             'due_at' => $row->due_at,
+            'execution_available_at' => $row->execution_available_at ?? null,
             'position' => (int) $row->position,
             'completed_at' => $row->completed_at,
             'archived_at' => $row->archived_at ?? null,
@@ -96,6 +98,7 @@ final class TaskRepository {
                 'source' => 'user',
                 'importance' => 0,
                 'due_at' => null,
+                'execution_available_at' => null,
                 'position' => 0,
                 'completed_at' => null,
                 'created_at' => $now,
@@ -596,7 +599,7 @@ final class TaskRepository {
             return (int) $value;
         }
 
-        if (in_array($column, ['notes', 'due_at', 'completed_at'], true)) {
+        if (in_array($column, ['notes', 'due_at', 'execution_available_at', 'completed_at'], true)) {
             if ($value === null || $value === '') {
                 return null;
             }
@@ -628,7 +631,7 @@ final class TaskRepository {
                 continue;
             }
 
-            if (in_array($column, ['notes', 'due_at', 'completed_at'], true) && $row[$column] === null) {
+            if (in_array($column, ['notes', 'due_at', 'execution_available_at', 'completed_at'], true) && $row[$column] === null) {
                 $formats[] = '%s';
                 continue;
             }

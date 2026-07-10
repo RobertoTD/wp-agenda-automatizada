@@ -42,6 +42,9 @@ final class AA_Task {
     /** @var string|null */
     private $due_at;
 
+    /** @var string|null */
+    private $execution_available_at;
+
     /** @var int */
     private $position;
 
@@ -64,6 +67,7 @@ final class AA_Task {
         $this->default_bucket = self::normalize_default_bucket($data['default_bucket'] ?? 'primary');
         $this->importance = (int) ($data['importance'] ?? 0);
         $this->due_at = self::nullable_string($data['due_at'] ?? null);
+        $this->execution_available_at = self::nullable_string($data['execution_available_at'] ?? null);
         $this->position = (int) ($data['position'] ?? 0);
         $this->completed_at = self::nullable_string($data['completed_at'] ?? null);
         $this->archived_at = self::nullable_string($data['archived_at'] ?? null);
@@ -90,6 +94,7 @@ final class AA_Task {
             'default_bucket' => $this->default_bucket,
             'importance' => $this->importance,
             'due_at' => $this->due_at,
+            'execution_available_at' => $this->execution_available_at,
             'position' => $this->position,
             'completed_at' => $this->completed_at,
             'archived_at' => $this->archived_at,
@@ -125,6 +130,13 @@ final class AA_Task {
      */
     public function due_at(): ?string {
         return $this->due_at;
+    }
+
+    /**
+     * @return string|null Y-m-d H:i:s
+     */
+    public function execution_available_at(): ?string {
+        return $this->execution_available_at;
     }
 
     public function position(): int {

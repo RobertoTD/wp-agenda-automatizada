@@ -35,7 +35,7 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 
 $schema_src = file_get_contents($schema_file);
 ac_assert('Schema file readable', $schema_src !== false);
-ac_assert('DB_VERSION is 10', strpos($schema_src, "DB_VERSION = '10'") !== false);
+ac_assert('DB_VERSION is 11', strpos($schema_src, "DB_VERSION = '11'") !== false);
 ac_assert(
     'CREATE TABLE aa_task_lists',
     strpos($schema_src, 'aa_task_lists') !== false
@@ -61,6 +61,7 @@ ac_assert(
         && strpos($schema_src, 'completion_type varchar(20)') !== false
         && strpos($schema_src, 'completion_fact_key varchar(100)') !== false
         && strpos($schema_src, 'due_at datetime') !== false
+        && strpos($schema_src, 'execution_available_at datetime DEFAULT NULL') !== false
         && strpos($schema_src, 'completed_at datetime') !== false
         && strpos($schema_src, 'archived_at datetime DEFAULT NULL') !== false
         && strpos($schema_src, 'KEY source_category (source_category)') !== false
@@ -103,6 +104,11 @@ ac_assert(
     strpos($task_repo_src, 'function list_archived_by_list_id') !== false
 );
 ac_assert('TaskRepository maps archived_at', strpos($task_repo_src, "'archived_at' =>") !== false);
+ac_assert('TaskRepository maps execution_available_at', strpos($task_repo_src, "'execution_available_at' =>") !== false);
+ac_assert(
+    'TaskRepository writable includes execution_available_at',
+    strpos($task_repo_src, "'execution_available_at',") !== false
+);
 ac_assert(
     'TaskRepository writable excludes archived_at',
     strpos($task_repo_src, 'WRITABLE_COLUMNS') !== false
@@ -172,7 +178,7 @@ if ($wp_integration) {
         ac_assert("aa_task_lists has {$column}", !empty($exists));
     }
 
-    foreach (['source_category', 'origin_key', 'managed_by', 'default_bucket', 'completion_type', 'completion_fact_key', 'archived_at'] as $column) {
+    foreach (['source_category', 'origin_key', 'managed_by', 'default_bucket', 'completion_type', 'completion_fact_key', 'archived_at', 'execution_available_at'] as $column) {
         $exists = $wpdb->get_results($wpdb->prepare("SHOW COLUMNS FROM {$tasks_table} LIKE %s", $column));
         ac_assert("aa_tasks has {$column}", !empty($exists));
     }
@@ -313,6 +319,7 @@ if ($wp_integration) {
     ac_assert('create task maps list_id', (int) ($task['list_id'] ?? 0) === $empty_list_id);
     ac_assert('create task default status pending', ($task['status'] ?? '') === 'pending');
     ac_assert('create task default archived_at null', ($task['archived_at'] ?? 'x') === null);
+    ac_assert('create task default execution_available_at null', ($task['execution_available_at'] ?? 'x') === null);
     ac_assert(
         'create task maps common defaults',
         ($task['source_category'] ?? '') === 'user'
@@ -372,6 +379,29 @@ if ($wp_integration) {
 
     $found_task = TaskRepository::find_by_id($task_id);
     ac_assert('find_by_id task matches create', is_array($found_task) && ($found_task['id'] ?? 0) === $task_id);
+
+    $execution_at = '2026-06-20 14:30:00';
+    $execution_updated = TaskRepository::update($task_id, [
+        'execution_available_at' => $execution_at,
+    ]);
+    ac_assert(
+        'update task persists execution_available_at',
+        is_array($execution_updated) && ($execution_updated['execution_available_at'] ?? '') === $execution_at
+    );
+
+    $execution_reloaded = TaskRepository::find_by_id($task_id);
+    ac_assert(
+        'find_by_id returns execution_available_at',
+        is_array($execution_reloaded) && ($execution_reloaded['execution_available_at'] ?? '') === $execution_at
+    );
+
+    $execution_cleared = TaskRepository::update($task_id, [
+        'execution_available_at' => '',
+    ]);
+    ac_assert(
+        'update task clears execution_available_at with empty string',
+        is_array($execution_cleared) && ($execution_cleared['execution_available_at'] ?? 'x') === null
+    );
 
     $tasks_in_list = TaskRepository::list_by_list_id($empty_list_id);
     ac_assert('list_by_list_id returns one task', count($tasks_in_list) === 1);

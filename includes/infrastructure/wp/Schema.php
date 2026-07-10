@@ -64,7 +64,7 @@ final class AA_Schema {
      * Independiente de la versión del plugin. Solo refleja el estado
      * de las tablas/columnas/índices.
      */
-    public const DB_VERSION = '10';
+    public const DB_VERSION = '11';
 
     public const OPTION_INSTALLATION_INITIALIZED_AT = 'aa_installation_initialized_at';
 
@@ -359,6 +359,7 @@ final class AA_Schema {
             completion_fact_key varchar(100) DEFAULT NULL,
             importance int NOT NULL DEFAULT 0,
             due_at datetime DEFAULT NULL,
+            execution_available_at datetime DEFAULT NULL,
             position int NOT NULL DEFAULT 0,
             completed_at datetime DEFAULT NULL,
             archived_at datetime DEFAULT NULL,
@@ -378,6 +379,11 @@ final class AA_Schema {
         $archived_at_col = $wpdb->get_results($wpdb->prepare("SHOW COLUMNS FROM {$tasks_table} LIKE %s", 'archived_at'));
         if (empty($archived_at_col)) {
             $wpdb->query("ALTER TABLE {$tasks_table} ADD COLUMN archived_at datetime DEFAULT NULL");
+        }
+
+        $execution_available_at_col = $wpdb->get_results($wpdb->prepare("SHOW COLUMNS FROM {$tasks_table} LIKE %s", 'execution_available_at'));
+        if (empty($execution_available_at_col)) {
+            $wpdb->query("ALTER TABLE {$tasks_table} ADD COLUMN execution_available_at datetime DEFAULT NULL AFTER due_at");
         }
 
         // 🔹 Señales operativas por tarea (Listas/Tareas — MC13G-A + MC13O-B1 system completion)

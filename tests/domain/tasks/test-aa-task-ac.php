@@ -30,6 +30,7 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 }
 
 $archived_at = '2026-06-10 14:30:00';
+$execution_available_at = '2026-06-20 08:30:00';
 
 ac_assert(
     'from_array preserves archived_at',
@@ -105,6 +106,36 @@ ac_assert(
 ac_assert(
     'missed task does not carry completed_at',
     AA_Task::from_array(['status' => 'missed'])->to_array()['completed_at'] === null
+);
+
+ac_assert(
+    'from_array preserves execution_available_at',
+    AA_Task::from_array(['execution_available_at' => $execution_available_at])->execution_available_at() === $execution_available_at
+);
+ac_assert(
+    'to_array includes execution_available_at',
+    (AA_Task::from_array(['execution_available_at' => $execution_available_at])->to_array()['execution_available_at'] ?? null) === $execution_available_at
+);
+ac_assert(
+    'default execution_available_at is null',
+    AA_Task::from_array([])->execution_available_at() === null
+);
+ac_assert(
+    'execution_available_at empty string normalizes to null',
+    AA_Task::from_array(['execution_available_at' => ''])->execution_available_at() === null
+);
+ac_assert(
+    'due_at semantics unchanged when execution_available_at present',
+    AA_Task::from_array([
+        'status' => 'pending',
+        'due_at' => '2026-06-01 08:00:00',
+        'execution_available_at' => $execution_available_at,
+    ])->is_overdue('2026-06-10 12:00:00') === true
+    && AA_Task::from_array([
+        'status' => 'pending',
+        'due_at' => '2026-06-01 08:00:00',
+        'execution_available_at' => $execution_available_at,
+    ])->execution_available_at() === $execution_available_at
 );
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
