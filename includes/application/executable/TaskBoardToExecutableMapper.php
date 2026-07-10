@@ -407,6 +407,9 @@ final class TaskBoardToExecutableMapper {
             'description' => isset($task['notes']) ? (string) $task['notes'] : null,
             'importance' => (int) ($task['importance'] ?? 0),
             'due_at' => isset($task['due_at']) && $task['due_at'] !== '' ? (string) $task['due_at'] : null,
+            'execution_available_at' => isset($task['execution_available_at']) && $task['execution_available_at'] !== ''
+                ? (string) $task['execution_available_at']
+                : null,
             'is_overdue' => $task_vo->is_overdue($now),
             'default_bucket' => isset($task['default_bucket']) && $task['default_bucket'] !== ''
                 ? (string) $task['default_bucket']

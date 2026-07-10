@@ -1631,6 +1631,40 @@ describe('executableListRenderer MC13 expandable items', () => {
         assert.doesNotMatch(html, /aa-executable-item-expanded[\s\S]*aa-executable-item-chevron/);
     });
 
+    it('contenido expandido muestra Realizar a partir de diferenciado de Vence', () => {
+        var html = renderer.renderItem(baseItem({
+            id: '42',
+            source: 'user',
+            execution_available_at: '2026-06-18 14:30:00',
+            due_at: '2026-06-20 08:37:00'
+        }));
+
+        assert.match(html, /text-slate-600[\s\S]*Realizar a partir de: 2026-06-18 14:30:00/);
+        assert.match(html, /text-gray-500[\s\S]*Vence: 2026-06-20 08:37:00/);
+
+        var realizarPos = html.indexOf('Realizar a partir de:');
+        var vencePos = html.indexOf('Vence:');
+
+        assert.notEqual(realizarPos, -1);
+        assert.ok(realizarPos < vencePos);
+    });
+
+    it('menú editar incluye data-task-execution-available-at para prefill', () => {
+        var html = renderer.renderItem(baseItem({
+            id: '99',
+            source: 'user',
+            execution_available_at: '2026-06-18 14:30:00',
+            due_at: '2026-06-20 08:37:00',
+            capabilities: {
+                can_edit: true
+            }
+        }));
+        var summary = extractSummary(html);
+
+        assert.match(summary, /data-task-execution-available-at="2026-06-18 14:30:00"/);
+        assert.match(summary, /data-task-due-at="2026-06-20 08:37:00"/);
+    });
+
     it('tarea user con can_edit y can_archive renderiza menú ⋮ en summary', () => {
         var html = renderer.renderItem(baseItem({
             id: '99',

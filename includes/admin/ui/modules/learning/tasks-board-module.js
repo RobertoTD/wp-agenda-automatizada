@@ -340,6 +340,7 @@
 
         if (modalId === 'aa-task-modal') {
             applyTaskDueAtInputMin('aa-task-form-due-at');
+            applyTaskDueAtInputMin('aa-task-form-execution-available-at');
         }
     }
 
@@ -481,6 +482,7 @@
         var titleInput = document.getElementById('aa-task-form-title');
         var notesInput = document.getElementById('aa-task-form-notes');
         var dueInput = document.getElementById('aa-task-form-due-at');
+        var executionAvailableInput = document.getElementById('aa-task-form-execution-available-at');
         var importanceInput = document.getElementById('aa-task-form-importance');
         var bucketSelect = document.getElementById('aa-task-form-default-bucket');
         var listId = listSelect ? String(listSelect.value || '').trim() : '';
@@ -510,6 +512,7 @@
             title: title,
             notes: notesInput ? notesInput.value : '',
             due_at: normalizeDueAtInput(dueInput ? dueInput.value : ''),
+            execution_available_at: normalizeDueAtInput(executionAvailableInput ? executionAvailableInput.value : ''),
             importance: importanceInput && importanceInput.value !== '' ? importanceInput.value : 0
         };
         var defaultBucket = bucketSelect ? String(bucketSelect.value || 'primary').trim() : 'primary';

@@ -231,8 +231,35 @@ describe('tasks-board-module MC5-lite due_at picker min', () => {
         assert.match(moduleSrc, /function todayMinForDatetimeLocal/);
         assert.match(moduleSrc, /T00:00/);
         assert.match(moduleSrc, /applyTaskDueAtInputMin\('aa-task-form-due-at'\)/);
+        assert.match(moduleSrc, /applyTaskDueAtInputMin\('aa-task-form-execution-available-at'\)/);
         assert.match(moduleSrc, /modalId === 'aa-task-modal'/);
         assert.match(moduleSrc, /if \(!listId\)/);
         assert.match(moduleSrc, /if \(!title\)/);
+    });
+});
+
+describe('tasks-board-module execution_available_at UI', () => {
+    const indexPath = path.join(__dirname, '../../includes/admin/ui/modules/learning/index.php');
+    const fs = require('node:fs');
+
+    it('modal create incluye Realizar a partir de antes de Vencimiento', () => {
+        const indexSrc = fs.readFileSync(indexPath, 'utf8');
+        const executionPos = indexSrc.indexOf('aa-task-form-execution-available-at');
+        const duePos = indexSrc.indexOf('aa-task-form-due-at');
+
+        assert.notEqual(executionPos, -1);
+        assert.ok(executionPos < duePos);
+        assert.match(indexSrc, />Realizar a partir de \(opcional\)</);
+        assert.match(indexSrc, /La tarea se volverá pertinente para realizarse desde este momento\./);
+        assert.match(indexSrc, /id="aa-task-form-execution-available-at"/);
+        assert.match(indexSrc, /aa-task-form-execution-available-at[\s\S]*?type="datetime-local"/);
+    });
+
+    it('submitTaskForm propaga execution_available_at al crear', () => {
+        const moduleSrc = fs.readFileSync(modulePath, 'utf8');
+
+        assert.match(moduleSrc, /aa-task-form-execution-available-at/);
+        assert.match(moduleSrc, /execution_available_at: normalizeDueAtInput\(executionAvailableInput/);
+        assert.match(moduleSrc, /service\.createTask\(createPayload\)/);
     });
 });

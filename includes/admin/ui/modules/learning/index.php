@@ -333,6 +333,12 @@ $executive_proposal_module_js = plugin_dir_url(__FILE__) . 'executive-proposal-m
                     </summary>
                     <div class="space-y-4 border-t border-gray-200 px-3 py-3">
                         <div>
+                            <label for="aa-task-form-execution-available-at" class="block text-sm font-medium text-gray-700 mb-1">Realizar a partir de (opcional)</label>
+                            <input type="datetime-local" id="aa-task-form-execution-available-at" name="execution_available_at"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                            <p class="text-xs text-gray-500 mt-1">La tarea se volverá pertinente para realizarse desde este momento.</p>
+                        </div>
+                        <div>
                             <label for="aa-task-form-due-at" class="block text-sm font-medium text-gray-700 mb-1">Vencimiento (opcional)</label>
                             <input type="datetime-local" id="aa-task-form-due-at" name="due_at"
                                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
@@ -393,6 +399,12 @@ $executive_proposal_module_js = plugin_dir_url(__FILE__) . 'executive-proposal-m
                         Opciones
                     </summary>
                     <div class="space-y-4 border-t border-gray-200 px-3 py-3">
+                        <div>
+                            <label for="aa-task-edit-form-execution-available-at" class="block text-sm font-medium text-gray-700 mb-1">Realizar a partir de (opcional)</label>
+                            <input type="datetime-local" id="aa-task-edit-form-execution-available-at" name="execution_available_at"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                            <p class="text-xs text-gray-500 mt-1">La tarea se volverá pertinente para realizarse desde este momento.</p>
+                        </div>
                         <div>
                             <label for="aa-task-edit-form-due-at" class="block text-sm font-medium text-gray-700 mb-1">Vencimiento (opcional)</label>
                             <input type="datetime-local" id="aa-task-edit-form-due-at" name="due_at"

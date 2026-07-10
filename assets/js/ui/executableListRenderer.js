@@ -728,6 +728,13 @@
     function renderItemExpandedMeta(item) {
         var metaHtml = '';
 
+        if (item.execution_available_at) {
+            metaHtml += ''
+                + '<p class="text-xs text-slate-600 mt-2">Realizar a partir de: '
+                + escapeHtml(item.execution_available_at)
+                + '</p>';
+        }
+
         if (item.due_at) {
             metaHtml += ''
                 + '<p class="text-xs text-gray-500 mt-2">Vence: '
@@ -777,6 +784,7 @@
                 + ' data-task-title="' + escapeHtml(asString(item.title)) + '"'
                 + ' data-task-notes="' + escapeHtml(asString(item.description)) + '"'
                 + ' data-task-due-at="' + escapeHtml(asString(item.due_at)) + '"'
+                + ' data-task-execution-available-at="' + escapeHtml(asString(item.execution_available_at)) + '"'
                 + ' data-task-importance="' + escapeHtml(String(item.importance !== undefined && item.importance !== null ? item.importance : 0)) + '"'
                 + ' data-task-default-bucket="' + escapeHtml(defaultBucket) + '"'
                 + ' onclick="event.stopPropagation()"'

@@ -190,6 +190,7 @@ function buildEditDom() {
     var titleInput = makeElement('input', { id: 'aa-task-edit-form-title' });
     var notesInput = makeElement('textarea', { id: 'aa-task-edit-form-notes' });
     var dueInput = makeElement('input', { id: 'aa-task-edit-form-due-at' });
+    var executionAvailableInput = makeElement('input', { id: 'aa-task-edit-form-execution-available-at' });
     var importanceInput = makeElement('input', { id: 'aa-task-edit-form-importance' });
     var bucketSelect = makeElement('select', { id: 'aa-task-edit-form-default-bucket' });
     var optionsDetails = makeElement('details', { id: 'aa-task-edit-form-options', open: true });
@@ -215,6 +216,7 @@ function buildEditDom() {
             'data-task-title': 'terea nueva',
             'data-task-notes': 'notas de prueba',
             'data-task-due-at': '2026-06-20 08:37:00',
+            'data-task-execution-available-at': '2026-06-18 14:30:00',
             'data-task-importance': '7',
             'data-task-default-bucket': 'primary'
         },
@@ -238,6 +240,7 @@ function buildEditDom() {
         'aa-task-edit-form-title': titleInput,
         'aa-task-edit-form-notes': notesInput,
         'aa-task-edit-form-due-at': dueInput,
+        'aa-task-edit-form-execution-available-at': executionAvailableInput,
         'aa-task-edit-form-importance': importanceInput,
         'aa-task-edit-form-default-bucket': bucketSelect,
         'aa-task-edit-form-options': optionsDetails,
@@ -261,7 +264,10 @@ function buildEditDom() {
         editButton: editButton,
         iconPath: iconPath,
         modal: modal,
-        titleInput: titleInput
+        titleInput: titleInput,
+        dueInput: dueInput,
+        executionAvailableInput: executionAvailableInput,
+        form: form
     };
 }
 
@@ -340,6 +346,98 @@ describe('task-edit-module MC13C', () => {
         assert.match(rendererSrc, /onclick="event\.stopPropagation\(\)"/);
         assert.match(rendererSrc, /aa-executable-item-summary-actions/);
         assert.match(rendererSrc, /data-aa-task-options-trigger/);
+    });
+});
+
+describe('task-edit-module execution_available_at UI', () => {
+    it('modal edit incluye Realizar a partir de antes de Vencimiento', () => {
+        const indexSrc = fs.readFileSync(indexPath, 'utf8');
+        const executionPos = indexSrc.indexOf('aa-task-edit-form-execution-available-at');
+        const duePos = indexSrc.indexOf('aa-task-edit-form-due-at');
+
+        assert.notEqual(executionPos, -1);
+        assert.ok(executionPos < duePos);
+        assert.match(indexSrc, />Realizar a partir de \(opcional\)</);
+        assert.match(indexSrc, /La tarea se volverá pertinente para realizarse desde este momento\./);
+    });
+
+    it('openEditModalFromButton precarga execution_available_at en datetime-local', () => {
+        var dom = buildEditDom();
+
+        loadTaskEditModule(dom);
+        dispatchClick(dom.editButton);
+
+        assert.equal(dom.executionAvailableInput.value, '2026-06-18T14:30');
+    });
+
+    it('submit envía execution_available_at al actualizar', async () => {
+        var dom = buildEditDom();
+        var capturedPayload = null;
+        var ctx = loadTaskEditModule(dom);
+
+        ctx.TasksService = {
+            updateTask: function (payload) {
+                capturedPayload = payload;
+                return Promise.resolve();
+            }
+        };
+        ctx.AATasksBoard = {
+            reload: function () {
+                return Promise.resolve();
+            }
+        };
+
+        dispatchClick(dom.editButton);
+
+        dom.executionAvailableInput.value = '2026-07-01T09:15';
+        dom.titleInput.value = 'terea nueva';
+
+        var form = dom.document.getElementById('aa-task-edit-form');
+        var handlers = form.listeners.bubble.submit;
+
+        assert.ok(handlers && handlers.length);
+        await handlers[0]({ preventDefault: function () {} });
+
+        assert.ok(capturedPayload);
+        assert.equal(capturedPayload.execution_available_at, '2026-07-01 09:15:00');
+    });
+
+    it('submit permite limpiar execution_available_at con cadena vacía', async () => {
+        var dom = buildEditDom();
+        var capturedPayload = null;
+        var ctx = loadTaskEditModule(dom);
+
+        ctx.TasksService = {
+            updateTask: function (payload) {
+                capturedPayload = payload;
+                return Promise.resolve();
+            }
+        };
+        ctx.AATasksBoard = {
+            reload: function () {
+                return Promise.resolve();
+            }
+        };
+
+        dispatchClick(dom.editButton);
+
+        dom.executionAvailableInput.value = '';
+        dom.titleInput.value = 'terea nueva';
+
+        var form = dom.document.getElementById('aa-task-edit-form');
+        var handlers = form.listeners.bubble.submit;
+
+        assert.ok(handlers && handlers.length);
+        await handlers[0]({ preventDefault: function () {} });
+
+        assert.ok(capturedPayload);
+        assert.equal(capturedPayload.execution_available_at, '');
+    });
+
+    it('renderer expone data-task-execution-available-at en menú editar', () => {
+        const rendererSrc = fs.readFileSync(rendererPath, 'utf8');
+
+        assert.match(rendererSrc, /data-task-execution-available-at/);
     });
 });
 

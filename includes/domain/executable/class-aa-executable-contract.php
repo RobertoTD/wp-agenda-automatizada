@@ -165,6 +165,7 @@ final class AA_Executable_Contract {
             'description' => self::nullable_string($item['description'] ?? null),
             'importance' => (int) ($item['importance'] ?? 0),
             'due_at' => self::nullable_string($item['due_at'] ?? null),
+            'execution_available_at' => self::nullable_string($item['execution_available_at'] ?? null),
             'is_overdue' => !empty($item['is_overdue']),
             'default_bucket' => self::normalize_item_default_bucket($item['default_bucket'] ?? null),
             'status' => $status,

@@ -177,6 +177,28 @@
     }
 
     /**
+     * @param {object} task
+     * @returns {string}
+     */
+    function renderTaskTemporalMeta(task) {
+        var html = '';
+
+        if (task.execution_available_at) {
+            html += '<span class="text-xs text-slate-600 ml-2">Realizar a partir de: '
+                + escapeHtml(task.execution_available_at)
+                + '</span>';
+        }
+
+        if (task.due_at) {
+            html += '<span class="text-xs text-gray-500 ml-2">Vence: '
+                + escapeHtml(task.due_at)
+                + '</span>';
+        }
+
+        return html;
+    }
+
+    /**
      * @param {{task:object,list:object}} candidate
      * @returns {string}
      */
@@ -184,9 +206,7 @@
         var task = candidate.task;
         var list = candidate.list;
         var taskId = escapeHtml(task.id);
-        var dueHtml = task.due_at
-            ? '<span class="text-xs text-gray-500"> · Vence: ' + escapeHtml(task.due_at) + '</span>'
-            : '';
+        var temporalMetaHtml = renderTaskTemporalMeta(task);
 
         return ''
             + '<li class="aa-executive-candidate rounded-lg border border-blue-100 bg-blue-50/50 p-4" data-task-id="' + taskId + '">'
@@ -195,7 +215,7 @@
             + '<p class="text-sm font-semibold text-gray-900">' + escapeHtml(task.title || 'Tarea sin título') + '</p>'
             + '<p class="text-xs text-gray-600 mt-1">'
             + 'Lista: ' + escapeHtml(list.title || 'Lista sin título')
-            + dueHtml
+            + temporalMetaHtml
             + ' · Pendiente'
             + '</p>'
             + '</div>'
@@ -218,9 +238,7 @@
         var titleClass = isDone
             ? 'text-sm text-gray-400 line-through'
             : 'text-sm font-medium text-gray-900';
-        var dueHtml = task.due_at
-            ? '<span class="text-xs text-gray-500 ml-2">Vence: ' + escapeHtml(task.due_at) + '</span>'
-            : '';
+        var temporalMetaHtml = renderTaskTemporalMeta(task);
         var notesHtml = task.notes
             ? '<p class="text-xs text-gray-500 mt-1">' + escapeHtml(task.notes) + '</p>'
             : '';
@@ -235,7 +253,7 @@
             + '<div class="min-w-0 flex-1">'
             + '<div class="flex flex-wrap items-center gap-1">'
             + '<span class="' + titleClass + '">' + title + '</span>'
-            + dueHtml
+            + temporalMetaHtml
             + '</div>'
             + notesHtml
             + '</div>'

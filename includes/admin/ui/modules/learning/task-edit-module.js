@@ -165,6 +165,7 @@
         var title = button.getAttribute('data-task-title') || '';
         var notes = button.getAttribute('data-task-notes') || '';
         var dueAt = button.getAttribute('data-task-due-at') || '';
+        var executionAvailableAt = button.getAttribute('data-task-execution-available-at') || '';
         var importance = button.getAttribute('data-task-importance') || '0';
         var defaultBucket = button.getAttribute('data-task-default-bucket') || 'primary';
 
@@ -176,6 +177,7 @@
         var titleInput = document.getElementById('aa-task-edit-form-title');
         var notesInput = document.getElementById('aa-task-edit-form-notes');
         var dueInput = document.getElementById('aa-task-edit-form-due-at');
+        var executionAvailableInput = document.getElementById('aa-task-edit-form-execution-available-at');
         var importanceInput = document.getElementById('aa-task-edit-form-importance');
         var bucketSelect = document.getElementById('aa-task-edit-form-default-bucket');
 
@@ -194,6 +196,11 @@
         if (dueInput) {
             dueInput.value = formatDueAtForInput(dueAt);
             applyTaskDueAtInputMin(dueInput);
+        }
+
+        if (executionAvailableInput) {
+            executionAvailableInput.value = formatDueAtForInput(executionAvailableAt);
+            applyTaskDueAtInputMin(executionAvailableInput);
         }
 
         if (importanceInput) {
@@ -221,6 +228,7 @@
         var titleInput = document.getElementById('aa-task-edit-form-title');
         var notesInput = document.getElementById('aa-task-edit-form-notes');
         var dueInput = document.getElementById('aa-task-edit-form-due-at');
+        var executionAvailableInput = document.getElementById('aa-task-edit-form-execution-available-at');
         var importanceInput = document.getElementById('aa-task-edit-form-importance');
         var bucketSelect = document.getElementById('aa-task-edit-form-default-bucket');
         var taskId = taskIdInput ? String(taskIdInput.value || '').trim() : '';
@@ -261,6 +269,9 @@
             title: title,
             notes: notes,
             due_at: normalizeDueAtInput(dueInput ? dueInput.value : ''),
+            execution_available_at: normalizeDueAtInput(
+                executionAvailableInput ? executionAvailableInput.value : ''
+            ),
             importance: importanceInput && importanceInput.value !== '' ? importanceInput.value : 0,
             default_bucket: defaultBucket
         })
