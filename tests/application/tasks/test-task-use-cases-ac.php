@@ -71,11 +71,20 @@ ac_assert('AJAX list archived uses ListArchivedTaskListsUseCase', strpos($ajax_s
 ac_assert('AJAX restore uses RestoreTaskListUseCase', strpos($ajax_src, 'RestoreTaskListUseCase') !== false);
 ac_assert('AJAX registers aa_create_task', strpos($ajax_src, 'aa_create_task') !== false);
 ac_assert(
+    'AJAX create task passes execution_available_at to CreateTaskUseCase',
+    strpos($ajax_src, "'execution_available_at' => self::post_string('execution_available_at')") !== false
+);
+ac_assert(
     'AJAX create task passes default_bucket to CreateTaskUseCase',
     strpos($ajax_src, "'default_bucket'") !== false
     && strpos($ajax_src, "array_key_exists('default_bucket', \$_POST)") !== false
 );
 ac_assert('AJAX registers aa_update_task', strpos($ajax_src, 'aa_update_task') !== false);
+ac_assert(
+    'AJAX update task collect_post_fields includes execution_available_at',
+    strpos($ajax_src, "'execution_available_at'") !== false
+    && strpos($ajax_src, "collect_post_fields(['task_id', 'title', 'notes', 'importance', 'due_at', 'execution_available_at', 'position']") !== false
+);
 ac_assert(
     'AJAX update task passes default_bucket to UpdateTaskUseCase',
     strpos($ajax_src, "array_key_exists('default_bucket', \$_POST)") !== false
@@ -208,11 +217,25 @@ ac_assert(
 $create_task_src = file_get_contents($plugin_root . '/includes/application/tasks/CreateTaskUseCase.php');
 ac_assert('CreateTaskUseCase accepts optional default_bucket', strpos($create_task_src, 'default_bucket') !== false);
 ac_assert('CreateTaskUseCase validates notes_too_long', strpos($create_task_src, 'notes_too_long') !== false);
+ac_assert(
+    'CreateTaskUseCase persists execution_available_at',
+    strpos($create_task_src, 'normalize_execution_available_at') !== false
+);
 
 $update_task_src = file_get_contents($plugin_root . '/includes/application/tasks/UpdateTaskUseCase.php');
 ac_assert('UpdateTaskUseCase uses governance policy', strpos($update_task_src, 'AA_Task_Governance_Policy') !== false);
 ac_assert('UpdateTaskUseCase rejects task_not_editable', strpos($update_task_src, 'task_not_editable') !== false);
 ac_assert('UpdateTaskUseCase supports default_bucket', strpos($update_task_src, 'default_bucket') !== false);
+ac_assert(
+    'UpdateTaskUseCase updates execution_available_at only when key present',
+    strpos($update_task_src, "array_key_exists('execution_available_at', \$input)") !== false
+);
+
+$support_src = file_get_contents($plugin_root . '/includes/application/tasks/TaskUseCaseSupport.php');
+ac_assert(
+    'TaskUseCaseSupport defines normalize_execution_available_at',
+    strpos($support_src, 'normalize_execution_available_at') !== false
+);
 
 $governance_src = file_get_contents($plugin_root . '/includes/domain/tasks/class-aa-task-governance-policy.php');
 ac_assert('Task governance policy file readable', $governance_src !== false);
@@ -232,6 +255,15 @@ ac_assert('ArchiveTaskListUseCase rejects list_not_archivable', strpos($archive_
 
 $tasks_service_src = file_get_contents($plugin_root . '/assets/js/services/tasksService.js');
 ac_assert('TasksService createTask propagates default_bucket', strpos($tasks_service_src, 'default_bucket') !== false);
+ac_assert(
+    'TasksService createTask propagates execution_available_at',
+    strpos($tasks_service_src, 'execution_available_at: payload.execution_available_at ||') !== false
+);
+ac_assert(
+    'TasksService updateTask propagates execution_available_at when provided',
+    strpos($tasks_service_src, 'payload.execution_available_at !== undefined') !== false
+    && strpos($tasks_service_src, "fields.execution_available_at = payload.execution_available_at") !== false
+);
 
 $learning_ui_src = file_get_contents($plugin_root . '/includes/admin/ui/modules/learning/index.php');
 ac_assert('Task modal includes Opciones collapsible section', strpos($learning_ui_src, 'aa-task-form-options') !== false);
@@ -323,6 +355,78 @@ if ($wp_integration) {
     ac_assert(
         'Create task without default_bucket defaults to primary',
         ($created_task['data']['task']['default_bucket'] ?? '') === 'primary'
+    );
+
+    $execution_at = '2026-06-20 10:00:00';
+    $execution_create = (new CreateTaskUseCase())->execute([
+        'list_id' => $list_id,
+        'title' => 'Tarea execution UC ' . $suffix,
+        'execution_available_at' => $execution_at,
+    ]);
+    ac_assert('Create task with execution_available_at success', !empty($execution_create['success']));
+    $execution_task_id = (int) ($execution_create['data']['task']['id'] ?? 0);
+    ac_assert('Create task with execution_available_at returns id', $execution_task_id > 0);
+    ac_assert(
+        'Create task persists execution_available_at',
+        ($execution_create['data']['task']['execution_available_at'] ?? '') === $execution_at
+    );
+    ac_assert(
+        'Create task without execution_available_at defaults to null',
+        ($created_task['data']['task']['execution_available_at'] ?? 'x') === null
+    );
+
+    $execution_update = (new UpdateTaskUseCase())->execute([
+        'task_id' => $execution_task_id,
+        'execution_available_at' => '2026-06-25 12:00:00',
+    ]);
+    ac_assert('Update task execution_available_at success', !empty($execution_update['success']));
+    ac_assert(
+        'Update task persists new execution_available_at',
+        ($execution_update['data']['task']['execution_available_at'] ?? '') === '2026-06-25 12:00:00'
+    );
+
+    $execution_clear = (new UpdateTaskUseCase())->execute([
+        'task_id' => $execution_task_id,
+        'execution_available_at' => '',
+    ]);
+    ac_assert('Clear execution_available_at success', !empty($execution_clear['success']));
+    ac_assert(
+        'Update task clears execution_available_at to null',
+        ($execution_clear['data']['task']['execution_available_at'] ?? 'x') === null
+    );
+
+    TaskRepository::update($execution_task_id, [
+        'execution_available_at' => $execution_at,
+    ]);
+
+    $title_only_update = (new UpdateTaskUseCase())->execute([
+        'task_id' => $execution_task_id,
+        'title' => 'Tarea execution UC actualizada ' . $suffix,
+    ]);
+    ac_assert('Update task title only success', !empty($title_only_update['success']));
+    ac_assert(
+        'Update task without execution_available_at preserves existing value',
+        ($title_only_update['data']['task']['execution_available_at'] ?? '') === $execution_at
+    );
+
+    $board_after_execution = (new GetTaskBoardUseCase())->execute();
+    $board_execution_task = null;
+
+    foreach ($board_after_execution['tasks'] ?? [] as $board_task) {
+        if (!is_array($board_task)) {
+            continue;
+        }
+
+        if ((int) ($board_task['id'] ?? 0) === $execution_task_id) {
+            $board_execution_task = $board_task;
+            break;
+        }
+    }
+
+    ac_assert(
+        'GetTaskBoard returns execution_available_at on task read',
+        is_array($board_execution_task)
+        && ($board_execution_task['execution_available_at'] ?? '') === $execution_at
     );
 
     $secondary_task_result = (new CreateTaskUseCase())->execute([

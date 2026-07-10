@@ -158,7 +158,7 @@
     }
 
     /**
-     * @param {{list_id:number|string,title:string,notes?:string,due_at?:string,importance?:number,default_bucket?:'primary'|'secondary'}} payload
+     * @param {{list_id:number|string,title:string,notes?:string,due_at?:string,execution_available_at?:string,importance?:number,default_bucket?:'primary'|'secondary'}} payload
      * @returns {Promise<Object>}
      */
     function createTask(payload) {
@@ -167,6 +167,7 @@
             title: payload.title,
             notes: payload.notes || '',
             due_at: payload.due_at || '',
+            execution_available_at: payload.execution_available_at || '',
             importance: payload.importance !== undefined && payload.importance !== null
                 ? payload.importance
                 : 0
@@ -180,7 +181,7 @@
     }
 
     /**
-     * @param {{task_id:number|string,title?:string,notes?:string,due_at?:string,importance?:number,position?:number,default_bucket?:'primary'|'secondary'}} payload
+     * @param {{task_id:number|string,title?:string,notes?:string,due_at?:string,execution_available_at?:string,importance?:number,position?:number,default_bucket?:'primary'|'secondary'}} payload
      * @returns {Promise<Object>}
      */
     function updateTask(payload) {
@@ -198,6 +199,10 @@
 
         if (payload.due_at !== undefined && payload.due_at !== null) {
             fields.due_at = payload.due_at;
+        }
+
+        if (payload.execution_available_at !== undefined && payload.execution_available_at !== null) {
+            fields.execution_available_at = payload.execution_available_at;
         }
 
         if (payload.importance !== undefined && payload.importance !== null) {

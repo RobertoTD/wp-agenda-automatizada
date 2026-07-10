@@ -276,4 +276,70 @@ describe('TasksService MC13G-C1', () => {
         assert.equal(readFormField(posts[0].body, '_wpnonce'), 'test-nonce');
         assert.equal(readFormField(posts[0].body, 'task_id'), null);
     });
+
+    it('createTask postea execution_available_at cuando se proporciona', async () => {
+        var loaded = loadTasksService();
+        var posts = loaded.posts;
+
+        await loaded.TasksService.createTask({
+            list_id: 3,
+            title: 'Tarea programada',
+            execution_available_at: '2026-06-20 10:00:00'
+        });
+
+        assert.equal(posts.length, 1);
+        assert.equal(readFormField(posts[0].body, 'action'), 'aa_create_task');
+        assert.equal(readFormField(posts[0].body, 'execution_available_at'), '2026-06-20 10:00:00');
+    });
+
+    it('createTask envía execution_available_at vacío cuando se omite', async () => {
+        var loaded = loadTasksService();
+        var posts = loaded.posts;
+
+        await loaded.TasksService.createTask({
+            list_id: 3,
+            title: 'Tarea sin condición'
+        });
+
+        assert.equal(readFormField(posts[0].body, 'execution_available_at'), '');
+    });
+
+    it('updateTask postea execution_available_at cuando se proporciona', async () => {
+        var loaded = loadTasksService();
+        var posts = loaded.posts;
+
+        await loaded.TasksService.updateTask({
+            task_id: 42,
+            execution_available_at: '2026-06-25 12:00:00'
+        });
+
+        assert.equal(posts.length, 1);
+        assert.equal(readFormField(posts[0].body, 'action'), 'aa_update_task');
+        assert.equal(readFormField(posts[0].body, 'task_id'), '42');
+        assert.equal(readFormField(posts[0].body, 'execution_available_at'), '2026-06-25 12:00:00');
+    });
+
+    it('updateTask permite limpiar execution_available_at con cadena vacía', async () => {
+        var loaded = loadTasksService();
+        var posts = loaded.posts;
+
+        await loaded.TasksService.updateTask({
+            task_id: 42,
+            execution_available_at: ''
+        });
+
+        assert.equal(readFormField(posts[0].body, 'execution_available_at'), '');
+    });
+
+    it('updateTask omite execution_available_at cuando no se envía', async () => {
+        var loaded = loadTasksService();
+        var posts = loaded.posts;
+
+        await loaded.TasksService.updateTask({
+            task_id: 42,
+            title: 'Solo título'
+        });
+
+        assert.equal(readFormField(posts[0].body, 'execution_available_at'), null);
+    });
 });

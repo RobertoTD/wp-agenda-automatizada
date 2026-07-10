@@ -57,6 +57,12 @@ final class UpdateTaskUseCase {
             $payload['due_at'] = TaskUseCaseSupport::normalize_due_at($input['due_at']);
         }
 
+        if (array_key_exists('execution_available_at', $input)) {
+            $payload['execution_available_at'] = TaskUseCaseSupport::normalize_execution_available_at(
+                $input['execution_available_at']
+            );
+        }
+
         if (array_key_exists('position', $input)) {
             $payload['position'] = TaskUseCaseSupport::normalize_position($input['position']);
         }

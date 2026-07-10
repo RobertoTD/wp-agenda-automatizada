@@ -121,6 +121,13 @@ final class TaskUseCaseSupport {
     /**
      * @param mixed $value
      */
+    public static function normalize_execution_available_at($value): ?string {
+        return self::normalize_optional_string($value);
+    }
+
+    /**
+     * @param mixed $value
+     */
     public static function normalize_position($value): int {
         if ($value === null || $value === '') {
             return 0;

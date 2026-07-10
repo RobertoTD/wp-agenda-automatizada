@@ -115,6 +115,7 @@ final class TasksAjax {
             'notes' => self::post_string('notes'),
             'importance' => self::post_scalar('importance'),
             'due_at' => self::post_string('due_at'),
+            'execution_available_at' => self::post_string('execution_available_at'),
             'position' => self::post_scalar('position'),
         ];
 
@@ -130,7 +131,7 @@ final class TasksAjax {
     public static function handle_update_task(): void {
         self::authorize();
 
-        $input = self::collect_post_fields(['task_id', 'title', 'notes', 'importance', 'due_at', 'position']);
+        $input = self::collect_post_fields(['task_id', 'title', 'notes', 'importance', 'due_at', 'execution_available_at', 'position']);
 
         if (array_key_exists('default_bucket', $_POST)) {
             $input['default_bucket'] = self::post_string('default_bucket');

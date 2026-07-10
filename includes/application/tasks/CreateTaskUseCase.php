@@ -49,6 +49,9 @@ final class CreateTaskUseCase {
             'source' => 'user',
             'importance' => TaskUseCaseSupport::normalize_importance($input['importance'] ?? 0),
             'due_at' => TaskUseCaseSupport::normalize_due_at($input['due_at'] ?? null),
+            'execution_available_at' => TaskUseCaseSupport::normalize_execution_available_at(
+                $input['execution_available_at'] ?? null
+            ),
             'position' => TaskUseCaseSupport::normalize_position($input['position'] ?? 0),
             'status' => 'pending',
         ];
