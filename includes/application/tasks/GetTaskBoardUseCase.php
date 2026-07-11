@@ -54,13 +54,19 @@ final class GetTaskBoardUseCase {
             'task_state_by_id' => $task_state_by_id,
             'now' => $now,
         ]);
+        $task_evaluations_by_id = $this->enrich_with_execution_timing(
+            $tasks,
+            $signal_evaluations_by_id,
+            $execution_timing_policy,
+            $now
+        );
 
         $active_projection = (new AA_Task_Active_View_Projection_Policy())->project([
             'lists' => $lists,
             'tasks' => $tasks,
             'list_order' => $base_organization['list_order'],
             'task_order_by_list' => $base_organization['task_order_by_list'],
-            'task_evaluations_by_id' => $signal_evaluations_by_id,
+            'task_evaluations_by_id' => $task_evaluations_by_id,
             'now' => $now,
         ]);
 
@@ -123,6 +129,40 @@ final class GetTaskBoardUseCase {
         }
 
         return $ids;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $tasks
+     * @param array<int,array<string,mixed>> $signal_evaluations_by_id
+     * @return array<int,array<string,mixed>>
+     */
+    private function enrich_with_execution_timing(
+        array $tasks,
+        array $signal_evaluations_by_id,
+        AA_Task_Execution_Timing_Policy $execution_timing_policy,
+        string $now
+    ): array {
+        $evaluations_by_id = $signal_evaluations_by_id;
+
+        foreach ($tasks as $task_data) {
+            if (!is_array($task_data)) {
+                continue;
+            }
+
+            $task = AA_Task::from_array($task_data);
+            $task_id = $task->id();
+
+            if ($task_id < 1) {
+                continue;
+            }
+
+            $evaluations_by_id[$task_id] = array_merge(
+                $evaluations_by_id[$task_id] ?? [],
+                $execution_timing_policy->evaluate($task, $now)
+            );
+        }
+
+        return $evaluations_by_id;
     }
 
     private function evaluate_system_completion_facts(): void {

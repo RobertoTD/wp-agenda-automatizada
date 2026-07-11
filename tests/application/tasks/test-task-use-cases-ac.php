@@ -209,6 +209,132 @@ ac_assert(
     && strpos($get_board_src, 'EvaluateTaskSystemCompletionFactsUseCase failed') !== false
 );
 
+// ─── Evaluación temporal expuesta por el board ───────────────
+
+$timing_now = '2026-07-11 12:00:00';
+$timing_tasks = [
+    [
+        'id' => 7001,
+        'list_id' => 700,
+        'title' => 'Sin condición',
+        'status' => 'pending',
+        'importance' => 50,
+        'default_bucket' => 'primary',
+    ],
+    [
+        'id' => 7002,
+        'list_id' => 700,
+        'title' => 'Condición futura',
+        'status' => 'pending',
+        'importance' => 20,
+        'execution_available_at' => '2026-07-11 12:00:01',
+        'default_bucket' => 'secondary',
+    ],
+    [
+        'id' => 7003,
+        'list_id' => 700,
+        'title' => 'Condición cumplida',
+        'status' => 'pending',
+        'importance' => -90,
+        'execution_available_at' => '2026-07-11 08:00:00',
+        'due_at' => '2026-07-11 16:00:00',
+        'default_bucket' => 'primary',
+    ],
+    [
+        'id' => 7004,
+        'list_id' => 700,
+        'title' => 'Vencida',
+        'status' => 'pending',
+        'importance' => 5,
+        'due_at' => $timing_now,
+        'default_bucket' => 'primary',
+    ],
+];
+$timing_signal_evaluations = (new AA_Task_Signal_Policy())->evaluate_all([
+    'tasks' => $timing_tasks,
+    'task_state_by_id' => [
+        7003 => [
+            'defer_count' => 2,
+            'last_deferred_at' => '2026-07-10 09:00:00',
+        ],
+    ],
+    'now' => $timing_now,
+]);
+$timing_policy = new AA_Task_Execution_Timing_Policy(new DateTimeZone('America/Mexico_City'));
+$enrich_method = new ReflectionMethod(GetTaskBoardUseCase::class, 'enrich_with_execution_timing');
+$enrich_method->setAccessible(true);
+$enriched_timing_evaluations = $enrich_method->invoke(
+    new GetTaskBoardUseCase(),
+    $timing_tasks,
+    $timing_signal_evaluations,
+    $timing_policy,
+    $timing_now
+);
+
+ac_assert(
+    'GetTaskBoard temporal evaluation exposes layers 2, 1, 3 and 4',
+    ($enriched_timing_evaluations[7001]['temporal_layer'] ?? null) === 2
+    && ($enriched_timing_evaluations[7002]['temporal_layer'] ?? null) === 1
+    && ($enriched_timing_evaluations[7003]['temporal_layer'] ?? null) === 3
+    && ($enriched_timing_evaluations[7004]['temporal_layer'] ?? null) === 4
+);
+ac_assert(
+    'GetTaskBoard temporal flags match each layer',
+    ($enriched_timing_evaluations[7001]['has_temporal_condition'] ?? null) === false
+    && ($enriched_timing_evaluations[7002]['is_temporal_condition_pending'] ?? null) === true
+    && ($enriched_timing_evaluations[7003]['is_temporal_condition_met'] ?? null) === true
+    && ($enriched_timing_evaluations[7004]['temporal_layer'] ?? null) === 4
+);
+
+$expected_layer_3_timing = $timing_policy->evaluate(
+    AA_Task::from_array($timing_tasks[2]),
+    $timing_now
+);
+ac_assert(
+    'Exposed priority_score exactly matches shared timing policy',
+    ($enriched_timing_evaluations[7003]['priority_score'] ?? null)
+        === $expected_layer_3_timing['priority_score']
+);
+ac_assert(
+    'Existing signal evaluation remains intact after timing enrichment',
+    ($enriched_timing_evaluations[7003]['signals'] ?? null)
+        === ($timing_signal_evaluations[7003]['signals'] ?? null)
+    && ($enriched_timing_evaluations[7003]['state'] ?? null)
+        === ($timing_signal_evaluations[7003]['state'] ?? null)
+    && ($enriched_timing_evaluations[7003]['capabilities'] ?? null)
+        === ($timing_signal_evaluations[7003]['capabilities'] ?? null)
+);
+ac_assert(
+    'Board wiring reuses one timing policy and the same now',
+    substr_count($get_board_src, 'new AA_Task_Execution_Timing_Policy') === 1
+    && strpos($get_board_src, 'AA_Task_Prioritization_Policy($execution_timing_policy)') !== false
+    && strpos($get_board_src, '$execution_timing_policy,' . "\n" . '            $now') !== false
+);
+
+$timing_projection = (new AA_Task_Active_View_Projection_Policy())->project([
+    'lists' => [[
+        'id' => 700,
+        'title' => 'Lista temporal',
+        'status' => 'active',
+    ]],
+    'tasks' => $timing_tasks,
+    'list_order' => [700],
+    'task_order_by_list' => [700 => [7004, 7003, 7001, 7002]],
+    'task_evaluations_by_id' => $enriched_timing_evaluations,
+    'now' => $timing_now,
+]);
+ac_assert(
+    'Active projection preserves primary and secondary buckets and order',
+    ($timing_projection['task_bucket_order_by_list'][700]['primary'] ?? []) === [7004, 7003, 7001]
+    && ($timing_projection['task_bucket_order_by_list'][700]['secondary'] ?? []) === [7002]
+);
+ac_assert(
+    'Active projection preserves exposed timing evaluation keys',
+    ($timing_projection['task_evaluations_by_id'][7003]['temporal_layer'] ?? null) === 3
+    && ($timing_projection['task_evaluations_by_id'][7003]['priority_score'] ?? null)
+        === $expected_layer_3_timing['priority_score']
+);
+
 $change_status_src = file_get_contents($plugin_root . '/includes/application/tasks/ChangeTaskStatusUseCase.php');
 ac_assert('ChangeTaskStatusUseCase uses mark_completed', strpos($change_status_src, 'mark_completed') !== false);
 
