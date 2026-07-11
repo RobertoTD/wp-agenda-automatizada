@@ -14,7 +14,10 @@ if (!defined('ABSPATH')) {
 require_once __DIR__ . '/../../../includes/domain/tasks/class-aa-task.php';
 require_once __DIR__ . '/../../../includes/domain/tasks/class-aa-task-list.php';
 require_once __DIR__ . '/../../../includes/domain/tasks/interface-aa-prioritization-provider.php';
+require_once __DIR__ . '/../../../includes/domain/tasks/class-aa-task-execution-timing-policy.php';
 require_once __DIR__ . '/../../../includes/domain/tasks/class-aa-task-prioritization-policy.php';
+require_once __DIR__ . '/../../../includes/domain/tasks/class-aa-task-signal-policy.php';
+require_once __DIR__ . '/../../../includes/domain/tasks/class-aa-task-active-view-projection-policy.php';
 
 $total = 0;
 $passed = 0;
@@ -40,15 +43,43 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
  * @return array<string,mixed>
  */
 function tasks_prioritize(array $lists, array $tasks, string $now = '2026-06-04 12:00:00'): array {
-    return (new AA_Task_Prioritization_Policy())->prioritize([
+    $execution_timing_policy = new AA_Task_Execution_Timing_Policy(new DateTimeZone('America/Mexico_City'));
+
+    return (new AA_Task_Prioritization_Policy($execution_timing_policy))->prioritize([
         'lists' => $lists,
         'tasks' => $tasks,
         'now' => $now,
     ]);
 }
 
+/**
+ * @param list<array<string,mixed>> $lists
+ * @param list<array<string,mixed>> $tasks
+ * @return array<int,array{primary:list<int>,secondary:list<int>}>
+ */
+function tasks_prioritize_buckets(array $lists, array $tasks, string $now = '2026-06-04 12:00:00'): array {
+    $base = tasks_prioritize($lists, $tasks, $now);
+    $signal_evaluations = (new AA_Task_Signal_Policy())->evaluate_all([
+        'tasks' => $tasks,
+        'task_state_by_id' => [],
+        'now' => $now,
+    ]);
+    $projection = (new AA_Task_Active_View_Projection_Policy())->project([
+        'lists' => $lists,
+        'tasks' => $tasks,
+        'list_order' => $base['list_order'],
+        'task_order_by_list' => $base['task_order_by_list'],
+        'task_evaluations_by_id' => $signal_evaluations,
+        'now' => $now,
+    ]);
+
+    return $projection['task_bucket_order_by_list'];
+}
+
 $now = '2026-06-04 12:00:00';
-$policy = new AA_Task_Prioritization_Policy();
+$policy = new AA_Task_Prioritization_Policy(
+    new AA_Task_Execution_Timing_Policy(new DateTimeZone('America/Mexico_City'))
+);
 
 ac_assert(
     'Policy implements prioritization port',
@@ -144,11 +175,11 @@ $overdue_result = tasks_prioritize($base_list, [
 ]);
 ac_assert('Overdue task before non-overdue', ($overdue_result['task_order_by_list'][1] ?? []) === [102, 101]);
 
-$upcoming_result = tasks_prioritize($base_list, [
-    ['id' => 201, 'list_id' => 1, 'title' => 'Lejana', 'due_at' => '2026-06-30 10:00:00', 'status' => 'pending'],
-    ['id' => 202, 'list_id' => 1, 'title' => 'Próxima', 'due_at' => '2026-06-05 10:00:00', 'status' => 'pending'],
+$overdue_due_order = tasks_prioritize($base_list, [
+    ['id' => 201, 'list_id' => 1, 'title' => 'Vencida tarde', 'due_at' => '2026-06-03 10:00:00', 'importance' => 0, 'status' => 'pending'],
+    ['id' => 202, 'list_id' => 1, 'title' => 'Vencida temprano', 'due_at' => '2026-06-01 10:00:00', 'importance' => 0, 'status' => 'pending'],
 ]);
-ac_assert('Sooner due_at before later due_at', ($upcoming_result['task_order_by_list'][1] ?? []) === [202, 201]);
+ac_assert('Layer 4 tie-breaks by due_at ASC', ($overdue_due_order['task_order_by_list'][1] ?? []) === [202, 201]);
 
 $importance_result = tasks_prioritize($base_list, [
     ['id' => 301, 'list_id' => 1, 'title' => 'Baja', 'importance' => 10, 'status' => 'pending'],
@@ -213,6 +244,147 @@ ac_assert(
 $empty_list_tasks = tasks_prioritize($base_list, []);
 ac_assert('Empty task list per list returns empty order', ($empty_list_tasks['task_order_by_list'][1] ?? []) === []);
 ac_assert('Empty tasks yield empty executive candidates', $empty_list_tasks['executive_candidates'] === []);
+
+// ─── Capas temporales (MC timing integration) ────────────────
+
+$layer_precedence = tasks_prioritize($base_list, [
+    ['id' => 1, 'list_id' => 1, 'title' => 'Capa 1', 'importance' => 100, 'execution_available_at' => '2026-06-10 10:00:00', 'status' => 'pending'],
+    ['id' => 2, 'list_id' => 1, 'title' => 'Capa 2', 'importance' => 1, 'status' => 'pending'],
+    ['id' => 3, 'list_id' => 1, 'title' => 'Capa 3', 'importance' => 1, 'execution_available_at' => '2026-06-01 08:00:00', 'due_at' => '2026-06-10 10:00:00', 'status' => 'pending'],
+    ['id' => 4, 'list_id' => 1, 'title' => 'Capa 4', 'importance' => 1, 'due_at' => '2026-06-01 10:00:00', 'status' => 'pending'],
+]);
+ac_assert(
+    'Temporal layer precedence is 4 > 3 > 2 > 1',
+    ($layer_precedence['task_order_by_list'][1] ?? []) === [4, 3, 2, 1]
+);
+
+$layer4_over_layer3_score = tasks_prioritize($base_list, [
+    ['id' => 301, 'list_id' => 1, 'title' => 'Capa 3 score alto', 'importance' => 100, 'execution_available_at' => '2026-06-01 08:00:00', 'due_at' => '2026-06-05 12:00:00', 'status' => 'pending'],
+    ['id' => 401, 'list_id' => 1, 'title' => 'Capa 4 baja', 'importance' => 5, 'due_at' => '2026-06-01 10:00:00', 'status' => 'pending'],
+]);
+ac_assert(
+    'Low importance layer 4 beats high score layer 3',
+    ($layer4_over_layer3_score['task_order_by_list'][1] ?? []) === [401, 301]
+);
+
+$layer3_over_layer2 = tasks_prioritize($base_list, [
+    ['id' => 501, 'list_id' => 1, 'title' => 'Capa 2 alta', 'importance' => 100, 'status' => 'pending'],
+    ['id' => 502, 'list_id' => 1, 'title' => 'Capa 3 baja', 'importance' => 1, 'execution_available_at' => '2026-06-01 08:00:00', 'status' => 'pending'],
+]);
+ac_assert(
+    'Layer 3 beats layer 2 despite lower importance',
+    ($layer3_over_layer2['task_order_by_list'][1] ?? []) === [502, 501]
+);
+
+$layer2_over_layer1 = tasks_prioritize($base_list, [
+    ['id' => 601, 'list_id' => 1, 'title' => 'Capa 1 alta', 'importance' => 100, 'execution_available_at' => '2026-06-10 10:00:00', 'status' => 'pending'],
+    ['id' => 602, 'list_id' => 1, 'title' => 'Capa 2 baja', 'importance' => 1, 'status' => 'pending'],
+]);
+ac_assert(
+    'Layer 2 beats layer 1 despite lower importance',
+    ($layer2_over_layer1['task_order_by_list'][1] ?? []) === [602, 601]
+);
+
+$layer3_score_order = tasks_prioritize($base_list, [
+    [
+        'id' => 701,
+        'list_id' => 1,
+        'title' => 'Capa 3 score bajo',
+        'importance' => 50,
+        'execution_available_at' => '2026-06-01 08:00:00',
+        'due_at' => '2026-06-10 10:00:00',
+        'status' => 'pending',
+    ],
+    [
+        'id' => 702,
+        'list_id' => 1,
+        'title' => 'Capa 3 score alto',
+        'importance' => 50,
+        'execution_available_at' => '2026-06-01 08:00:00',
+        'due_at' => '2026-06-04 20:00:00',
+        'status' => 'pending',
+    ],
+]);
+ac_assert(
+    'Layer 3 orders by priority_score DESC',
+    ($layer3_score_order['task_order_by_list'][1] ?? []) === [702, 701]
+);
+
+$layer3_negative_importance = tasks_prioritize($base_list, [
+    [
+        'id' => 801,
+        'list_id' => 1,
+        'title' => 'Negativa sin urgencia',
+        'importance' => -90,
+        'execution_available_at' => '2026-06-04 12:00:00',
+        'due_at' => '2026-06-05 12:00:00',
+        'status' => 'pending',
+    ],
+    [
+        'id' => 802,
+        'list_id' => 1,
+        'title' => 'Negativa con urgencia',
+        'importance' => -90,
+        'execution_available_at' => '2026-06-01 08:00:00',
+        'due_at' => '2026-06-05 12:00:00',
+        'status' => 'pending',
+    ],
+]);
+ac_assert(
+    'Layer 3 negative importance orders by higher priority_score',
+    ($layer3_negative_importance['task_order_by_list'][1] ?? []) === [802, 801]
+);
+
+$layer1_importance_order = tasks_prioritize($base_list, [
+    ['id' => 901, 'list_id' => 1, 'title' => 'Capa 1 baja', 'importance' => 10, 'execution_available_at' => '2026-06-10 10:00:00', 'status' => 'pending'],
+    ['id' => 902, 'list_id' => 1, 'title' => 'Capa 1 alta', 'importance' => 90, 'execution_available_at' => '2026-06-10 12:00:00', 'status' => 'pending'],
+]);
+ac_assert(
+    'Layer 1 orders by importance DESC',
+    ($layer1_importance_order['task_order_by_list'][1] ?? []) === [902, 901]
+);
+
+$layer2_importance_order = tasks_prioritize($base_list, [
+    ['id' => 911, 'list_id' => 1, 'title' => 'Capa 2 baja', 'importance' => 10, 'status' => 'pending'],
+    ['id' => 912, 'list_id' => 1, 'title' => 'Capa 2 alta', 'importance' => 90, 'status' => 'pending'],
+]);
+ac_assert(
+    'Layer 2 orders by importance DESC',
+    ($layer2_importance_order['task_order_by_list'][1] ?? []) === [912, 911]
+);
+
+$layer4_importance_order = tasks_prioritize($base_list, [
+    ['id' => 921, 'list_id' => 1, 'title' => 'Capa 4 baja', 'importance' => 10, 'due_at' => '2026-06-01 10:00:00', 'status' => 'pending'],
+    ['id' => 922, 'list_id' => 1, 'title' => 'Capa 4 alta', 'importance' => 90, 'due_at' => '2026-06-02 10:00:00', 'status' => 'pending'],
+]);
+ac_assert(
+    'Layer 4 orders by importance DESC before due_at',
+    ($layer4_importance_order['task_order_by_list'][1] ?? []) === [922, 921]
+);
+
+$future_due_regression = tasks_prioritize($base_list, [
+    ['id' => 1001, 'list_id' => 1, 'title' => 'Solo due futuro', 'importance' => 10, 'due_at' => '2026-06-10 10:00:00', 'status' => 'pending'],
+    ['id' => 1002, 'list_id' => 1, 'title' => 'Sin due alta', 'importance' => 90, 'status' => 'pending'],
+]);
+ac_assert(
+    'Future due_at alone no longer dominates higher importance task',
+    ($future_due_regression['task_order_by_list'][1] ?? []) === [1002, 1001]
+);
+
+$bucket_order = tasks_prioritize_buckets($base_list, [
+    ['id' => 1201, 'list_id' => 1, 'title' => 'Primary capa 4', 'importance' => 1, 'due_at' => '2026-06-01 10:00:00', 'default_bucket' => 'primary', 'status' => 'pending'],
+    ['id' => 1202, 'list_id' => 1, 'title' => 'Primary capa 2', 'importance' => 90, 'default_bucket' => 'primary', 'status' => 'pending'],
+    ['id' => 1203, 'list_id' => 1, 'title' => 'Secondary capa 3', 'importance' => 1, 'execution_available_at' => '2026-06-01 08:00:00', 'default_bucket' => 'secondary', 'status' => 'pending'],
+    ['id' => 1204, 'list_id' => 1, 'title' => 'Secondary capa 1', 'importance' => 90, 'execution_available_at' => '2026-06-10 10:00:00', 'default_bucket' => 'secondary', 'status' => 'pending'],
+]);
+ac_assert(
+    'Primary bucket preserves temporal order independently',
+    ($bucket_order[1]['primary'] ?? []) === [1201, 1202]
+);
+ac_assert(
+    'Secondary bucket preserves temporal order independently',
+    ($bucket_order[1]['secondary'] ?? []) === [1203, 1204]
+);
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 

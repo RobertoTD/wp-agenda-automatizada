@@ -9,16 +9,21 @@
 defined('ABSPATH') or die('No direct access');
 
 require_once __DIR__ . '/class-aa-task.php';
+require_once __DIR__ . '/class-aa-task-execution-timing-policy.php';
 require_once __DIR__ . '/class-aa-task-list.php';
 require_once __DIR__ . '/interface-aa-prioritization-provider.php';
 
 final class AA_Task_Prioritization_Policy implements AA_Prioritization_Provider_Interface {
 
-    private const DUE_BUCKET_OVERDUE = 0;
+    /** @var AA_Task_Execution_Timing_Policy */
+    private $execution_timing_policy;
 
-    private const DUE_BUCKET_UPCOMING = 1;
+    /** @var array<int,array<string,mixed>> */
+    private $timing_evaluations_by_task_id = [];
 
-    private const DUE_BUCKET_NONE = 2;
+    public function __construct(AA_Task_Execution_Timing_Policy $execution_timing_policy) {
+        $this->execution_timing_policy = $execution_timing_policy;
+    }
 
     /**
      * @param array<string,mixed> $snapshot
@@ -29,6 +34,7 @@ final class AA_Task_Prioritization_Policy implements AA_Prioritization_Provider_
      * }
      */
     public function prioritize(array $snapshot): array {
+        $this->timing_evaluations_by_task_id = [];
         $now = $this->resolve_now($snapshot);
         $lists = $this->normalize_lists($snapshot['lists'] ?? []);
         $tasks = $this->normalize_tasks($snapshot['tasks'] ?? []);
@@ -226,30 +232,85 @@ final class AA_Task_Prioritization_Policy implements AA_Prioritization_Provider_
             return $this->compare_stable_tail($a, $b);
         }
 
-        $bucket_cmp = $this->due_bucket($a, $now) <=> $this->due_bucket($b, $now);
+        $a_timing = $this->resolve_timing_evaluation($a, $now);
+        $b_timing = $this->resolve_timing_evaluation($b, $now);
+        $layer_cmp = ((int) $b_timing['temporal_layer']) <=> ((int) $a_timing['temporal_layer']);
 
-        if ($bucket_cmp !== 0) {
-            return $bucket_cmp;
+        if ($layer_cmp !== 0) {
+            return $layer_cmp;
         }
 
-        $a_due = $a->due_at();
-        $b_due = $b->due_at();
+        return $this->compare_within_temporal_layer($a, $b, $a_timing, $b_timing);
+    }
 
-        if ($a_due !== null && $b_due !== null) {
-            $due_cmp = strcmp($a_due, $b_due);
+    /**
+     * @param array<string,mixed> $a_timing
+     * @param array<string,mixed> $b_timing
+     */
+    private function compare_within_temporal_layer(
+        AA_Task $a,
+        AA_Task $b,
+        array $a_timing,
+        array $b_timing
+    ): int {
+        $layer = (int) ($a_timing['temporal_layer'] ?? 2);
+
+        if ($layer === 4) {
+            $importance_cmp = $b->importance() <=> $a->importance();
+
+            if ($importance_cmp !== 0) {
+                return $importance_cmp;
+            }
+
+            $due_cmp = $this->compare_due_at_asc($a->due_at(), $b->due_at());
 
             if ($due_cmp !== 0) {
                 return $due_cmp;
             }
-        }
+        } elseif ($layer === 3) {
+            $score_cmp = ((float) $b_timing['priority_score']) <=> ((float) $a_timing['priority_score']);
 
-        $importance_cmp = $b->importance() <=> $a->importance();
+            if ($score_cmp !== 0) {
+                return $score_cmp;
+            }
+        } else {
+            $importance_cmp = $b->importance() <=> $a->importance();
 
-        if ($importance_cmp !== 0) {
-            return $importance_cmp;
+            if ($importance_cmp !== 0) {
+                return $importance_cmp;
+            }
         }
 
         return $this->compare_stable_tail($a, $b);
+    }
+
+    /**
+     * @param string|null $a_due
+     * @param string|null $b_due
+     */
+    private function compare_due_at_asc($a_due, $b_due): int {
+        if ($a_due !== null && $b_due !== null) {
+            return strcmp($a_due, $b_due);
+        }
+
+        if ($a_due === null && $b_due === null) {
+            return 0;
+        }
+
+        return $a_due === null ? 1 : -1;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function resolve_timing_evaluation(AA_Task $task, string $now): array {
+        $task_id = $task->id();
+
+        if (!isset($this->timing_evaluations_by_task_id[$task_id])) {
+            $this->timing_evaluations_by_task_id[$task_id] = $this->execution_timing_policy->evaluate($task, $now);
+        }
+
+        return $this->timing_evaluations_by_task_id[$task_id];
     }
 
     private function compare_stable_tail(AA_Task $a, AA_Task $b): int {
@@ -268,18 +329,4 @@ final class AA_Task_Prioritization_Policy implements AA_Prioritization_Provider_
         return strcmp($a->title(), $b->title());
     }
 
-    /**
-     * @param string $now Y-m-d H:i:s
-     */
-    private function due_bucket(AA_Task $task, string $now): int {
-        if ($task->is_overdue($now)) {
-            return self::DUE_BUCKET_OVERDUE;
-        }
-
-        if ($task->has_upcoming_due($now)) {
-            return self::DUE_BUCKET_UPCOMING;
-        }
-
-        return self::DUE_BUCKET_NONE;
-    }
 }

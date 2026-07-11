@@ -88,6 +88,7 @@ require_once $plugin_root . '/includes/repositories/LearningRecommendationStateR
 require_once $plugin_root . '/includes/application/executable/GetExecutableListsFeedUseCase.php';
 require_once $plugin_root . '/includes/application/executable/LearningRecommendationsToExecutableMapper.php';
 require_once $plugin_root . '/includes/domain/executable/class-aa-executable-contract.php';
+require_once $plugin_root . '/includes/domain/tasks/class-aa-task-execution-timing-policy.php';
 require_once $plugin_root . '/includes/domain/tasks/class-aa-task-prioritization-policy.php';
 require_once $plugin_root . '/includes/domain/tasks/class-aa-task-signal-policy.php';
 require_once $plugin_root . '/includes/domain/tasks/class-aa-task-active-view-projection-policy.php';
@@ -154,7 +155,8 @@ function feed_build_task_organization(
     array $task_state_by_id = [],
     string $now = '2026-06-04 12:00:00'
 ): array {
-    $base = (new AA_Task_Prioritization_Policy())->prioritize([
+    $execution_timing_policy = new AA_Task_Execution_Timing_Policy(new DateTimeZone('America/Mexico_City'));
+    $base = (new AA_Task_Prioritization_Policy($execution_timing_policy))->prioritize([
         'lists' => $lists,
         'tasks' => $tasks,
         'now' => $now,
@@ -388,7 +390,7 @@ $first_user_item_ids = array_map(static function (array $item): string {
 }, $first_user_items);
 ac_assert(
     'Happy path excludes done user tasks from active buckets',
-    $first_user_item_ids === ['10', '12']
+    $first_user_item_ids === ['12', '10']
     && (int) ($happy['meta']['sources']['tasks']['item_count'] ?? -1) === 3
 );
 

@@ -185,6 +185,12 @@ ac_assert(
 
 $get_board_src = file_get_contents($plugin_root . '/includes/application/tasks/GetTaskBoardUseCase.php');
 ac_assert('GetTaskBoardUseCase uses prioritization policy', strpos($get_board_src, 'AA_Task_Prioritization_Policy') !== false);
+ac_assert(
+    'GetTaskBoardUseCase wires execution timing policy with injected timezone',
+    strpos($get_board_src, 'AA_Task_Execution_Timing_Policy') !== false
+    && strpos($get_board_src, "get_option('aa_timezone'") !== false
+    && strpos($get_board_src, 'new AA_Task_Prioritization_Policy($execution_timing_policy)') !== false
+);
 ac_assert('GetTaskBoardUseCase uses signal policy', strpos($get_board_src, 'AA_Task_Signal_Policy') !== false);
 ac_assert('GetTaskBoardUseCase uses active view projection policy', strpos($get_board_src, 'AA_Task_Active_View_Projection_Policy') !== false);
 ac_assert('GetTaskBoardUseCase loads task_state_by_id', strpos($get_board_src, 'task_state_by_id') !== false);

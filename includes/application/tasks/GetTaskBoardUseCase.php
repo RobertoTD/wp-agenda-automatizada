@@ -6,6 +6,7 @@
 defined('ABSPATH') or die('No direct access');
 
 require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-active-view-projection-policy.php';
+require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-execution-timing-policy.php';
 require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-prioritization-policy.php';
 require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-signal-policy.php';
 require_once dirname(__DIR__, 2) . '/repositories/TaskActionRepository.php';
@@ -39,8 +40,10 @@ final class GetTaskBoardUseCase {
         $now = TaskUseCaseSupport::resolve_now();
         $task_state_by_id = TaskStateRepository::find_by_task_ids($task_ids);
         $task_actions_by_id = TaskActionRepository::list_by_task_ids($task_ids);
+        $timezone = new DateTimeZone((string) get_option('aa_timezone', 'America/Mexico_City'));
+        $execution_timing_policy = new AA_Task_Execution_Timing_Policy($timezone);
 
-        $base_organization = (new AA_Task_Prioritization_Policy())->prioritize([
+        $base_organization = (new AA_Task_Prioritization_Policy($execution_timing_policy))->prioritize([
             'lists' => $lists,
             'tasks' => $tasks,
             'now' => $now,
