@@ -10,6 +10,16 @@ require_once __DIR__ . '/TaskUseCaseSupport.php';
 
 final class UpdateTaskUseCase {
 
+    /** @var callable|null */
+    private $post_update_sync;
+
+    /**
+     * @param callable|null $post_update_sync (array $task): void
+     */
+    public function __construct(?callable $post_update_sync = null) {
+        $this->post_update_sync = $post_update_sync;
+    }
+
     /**
      * @param array<string,mixed> $input
      * @return array{success:bool,data?:array<string,mixed>,error?:array{code:string,message:string}}
@@ -83,6 +93,23 @@ final class UpdateTaskUseCase {
             return TaskUseCaseSupport::fail('persistence_failed', 'No se pudo actualizar la tarea.');
         }
 
+        if (array_key_exists('execution_available_at', $input)) {
+            $this->run_post_update_sync($row);
+        }
+
         return TaskUseCaseSupport::ok(['task' => $row]);
+    }
+
+    /**
+     * @param array<string,mixed> $task
+     */
+    private function run_post_update_sync(array $task): void {
+        if ($this->post_update_sync !== null) {
+            ($this->post_update_sync)($task);
+            return;
+        }
+
+        require_once __DIR__ . '/SyncTaskExecutionAvailablePushJobUseCase.php';
+        SyncTaskExecutionAvailablePushJobUseCase::sync_after_task_persisted_best_effort($task);
     }
 }

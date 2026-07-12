@@ -209,6 +209,67 @@ reset_http();
 $GLOBALS['aa_test_http_response'] = [
     'response' => ['code' => 200],
     'body'     => json_encode([
+        'ok'   => true,
+        'sync' => 'scheduled',
+    ]),
+];
+$result = $client->syncTaskExecutionAvailableJob([
+    'task_id'                => 123,
+    'execution_available_at' => '2026-07-09T15:00:00-06:00',
+]);
+ac_assert('syncTaskExecutionAvailableJob maps backend success', ($result['ok'] ?? false) === true);
+ac_assert('syncTaskExecutionAvailableJob returns sync field', ($result['sync'] ?? '') === 'scheduled');
+ac_assert(
+    'syncTaskExecutionAvailableJob POST targets /push/task-execution-available-jobs/sync',
+    strpos((string) $GLOBALS['aa_test_http_calls'][0]['endpoint'], '/push/task-execution-available-jobs/sync') !== false
+);
+ac_assert('syncTaskExecutionAvailableJob uses POST', ($GLOBALS['aa_test_http_calls'][0]['method'] ?? '') === 'POST');
+
+reset_http();
+$GLOBALS['aa_test_http_response'] = [
+    'response' => ['code' => 200],
+    'body'     => json_encode([
+        'ok'   => true,
+        'sync' => 'disabled',
+    ]),
+];
+$result = $client->syncTaskExecutionAvailableJob([
+    'task_id'                => 123,
+    'execution_available_at' => null,
+]);
+ac_assert('syncTaskExecutionAvailableJob disabled contract accepted', ($result['sync'] ?? '') === 'disabled');
+ac_assert(
+    'syncTaskExecutionAvailableJob clear sends null execution_available_at',
+    array_key_exists('execution_available_at', $GLOBALS['aa_test_http_calls'][0]['data'])
+    && $GLOBALS['aa_test_http_calls'][0]['data']['execution_available_at'] === null
+);
+
+reset_http();
+$GLOBALS['aa_test_http_response'] = [
+    'response' => ['code' => 400],
+    'body'     => json_encode(['ok' => false, 'error' => 'invalid_execution_available_at']),
+];
+$result = $client->syncTaskExecutionAvailableJob([
+    'task_id'                => 123,
+    'execution_available_at' => 'bad-date',
+]);
+ac_assert(
+    'syncTaskExecutionAvailableJob preserves invalid_execution_available_at',
+    ($result['code'] ?? '') === 'invalid_execution_available_at'
+);
+
+reset_http();
+$GLOBALS['aa_test_http_response'] = new WP_Error('http_request_failed', 'timeout');
+$result = $client->syncTaskExecutionAvailableJob([
+    'task_id'                => 123,
+    'execution_available_at' => null,
+]);
+ac_assert('syncTaskExecutionAvailableJob transport failure normalizes', ($result['code'] ?? '') === 'push_backend_unavailable');
+
+reset_http();
+$GLOBALS['aa_test_http_response'] = [
+    'response' => ['code' => 200],
+    'body'     => json_encode([
         'ok'               => true,
         'vapid_public_key' => 'public-key-only',
     ]),

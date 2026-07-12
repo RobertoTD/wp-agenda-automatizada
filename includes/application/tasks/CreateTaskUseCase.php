@@ -10,6 +10,16 @@ require_once __DIR__ . '/TaskUseCaseSupport.php';
 
 final class CreateTaskUseCase {
 
+    /** @var callable|null */
+    private $post_create_sync;
+
+    /**
+     * @param callable|null $post_create_sync (array $task): void
+     */
+    public function __construct(?callable $post_create_sync = null) {
+        $this->post_create_sync = $post_create_sync;
+    }
+
     /**
      * @param array<string,mixed> $input
      * @return array{success:bool,data?:array<string,mixed>,error?:array{code:string,message:string}}
@@ -68,6 +78,29 @@ final class CreateTaskUseCase {
             return TaskUseCaseSupport::fail('persistence_failed', 'No se pudo crear la tarea.');
         }
 
+        $this->run_post_create_sync($row);
+
         return TaskUseCaseSupport::ok(['task' => $row]);
+    }
+
+    /**
+     * @param array<string,mixed> $task
+     */
+    private function run_post_create_sync(array $task): void {
+        $execution_at = isset($task['execution_available_at'])
+            ? trim((string) $task['execution_available_at'])
+            : '';
+
+        if ($execution_at === '') {
+            return;
+        }
+
+        if ($this->post_create_sync !== null) {
+            ($this->post_create_sync)($task);
+            return;
+        }
+
+        require_once __DIR__ . '/SyncTaskExecutionAvailablePushJobUseCase.php';
+        SyncTaskExecutionAvailablePushJobUseCase::sync_after_task_persisted_best_effort($task);
     }
 }
