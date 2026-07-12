@@ -79,6 +79,15 @@ class Webhooks_Controller extends WP_REST_Controller {
             ),
         ));
 
+        register_rest_route($this->namespace, '/' . $this->rest_base . '/tasks/execution-available-push/validate', array(
+            array(
+                'methods'             => WP_REST_Server::CREATABLE,
+                'callback'            => array($this, 'handle_task_execution_available_push_validate'),
+                'permission_callback' => array($this, 'permission_webhook_token'),
+                'args'                => $this->get_task_execution_available_push_validate_params(),
+            ),
+        ));
+
         // 🔹 Branding endpoint — devuelve logo y nombre del negocio al backend Node
         register_rest_route($this->namespace, '/branding', array(
             array(
@@ -262,6 +271,50 @@ class Webhooks_Controller extends WP_REST_Controller {
     }
 
     /**
+     * Parámetros para validar tareas Push execution_available.
+     *
+     * @return array
+     */
+    protected function get_task_execution_available_push_validate_params() {
+        return array(
+            'tasks' => array(
+                'required'          => true,
+                'type'              => 'array',
+                'description'       => 'Tareas a validar para Push execution_available (max 50).',
+                'sanitize_callback' => function ($value) {
+                    if (!is_array($value)) {
+                        return array();
+                    }
+
+                    $out = array();
+                    foreach ($value as $item) {
+                        if (!is_array($item)) {
+                            continue;
+                        }
+
+                        $id = absint($item['task_id'] ?? 0);
+                        if ($id < 1) {
+                            continue;
+                        }
+
+                        $out[] = array(
+                            'task_id' => $id,
+                            'expected_execution_available_at' => sanitize_text_field(
+                                (string) ($item['expected_execution_available_at'] ?? '')
+                            ),
+                        );
+                    }
+
+                    return array_slice($out, 0, 50);
+                },
+                'validate_callback' => function ($value) {
+                    return is_array($value) && !empty($value);
+                },
+            ),
+        );
+    }
+
+    /**
      * POST /wp-json/aa/v1/webhooks/reminders-bulk
      *
      * Recibe { appointment_ids: [461,462,...] } del worker Node.
@@ -311,6 +364,32 @@ class Webhooks_Controller extends WP_REST_Controller {
         require_once plugin_dir_path(__FILE__) . '../application/appointments/ValidateUpcomingConfirmedPushAppointmentsUseCase.php';
 
         $result = (new ValidateUpcomingConfirmedPushAppointmentsUseCase())->execute($appointments);
+
+        return new WP_REST_Response($result, 200);
+    }
+
+    /**
+     * POST /wp-json/aa/v1/webhooks/tasks/execution-available-push/validate
+     *
+     * Valida el estado actual de tareas para Push execution_available.
+     *
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response|WP_Error
+     */
+    public function handle_task_execution_available_push_validate($request) {
+        $tasks = (array) $request->get_param('tasks');
+
+        if (empty($tasks)) {
+            return new WP_Error(
+                'invalid_params',
+                'tasks vacío después de sanitización.',
+                array('status' => 400)
+            );
+        }
+
+        require_once plugin_dir_path(__FILE__) . '../application/tasks/ValidateTaskExecutionAvailablePushUseCase.php';
+
+        $result = (new ValidateTaskExecutionAvailablePushUseCase())->execute($tasks);
 
         return new WP_REST_Response($result, 200);
     }

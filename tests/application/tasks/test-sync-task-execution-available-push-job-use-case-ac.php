@@ -299,12 +299,12 @@ ac_assert('8. post_update_sync only after successful row', $update_persistence_f
 
 // ─── confirmación fuera de alcance ────────────────────────────────
 
-$index_src = @file_get_contents($plugin_root . '/wp-agenda-automatizada.php') ?: '';
+$controller_src = @file_get_contents($plugin_root . '/includes/controllers/WebhooksController.php') ?: '';
 $worker_refs = glob($plugin_root . '/includes/**/*task*execution*push*worker*') ?: [];
 ac_assert('no worker file for task execution push', $worker_refs === []);
 ac_assert(
-    'no validate endpoint wired yet',
-    strpos($index_src, 'execution-available-push/validate') === false
+    'validate endpoint wired in WebhooksController',
+    strpos($controller_src, 'execution-available-push/validate') !== false
 );
 
 echo "\n";
