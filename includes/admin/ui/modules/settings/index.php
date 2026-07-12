@@ -528,7 +528,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                         </span>
                         <div>
                             <h3 class="text-lg font-semibold text-gray-900">Notificaciones</h3>
-                            <p class="text-sm text-gray-500 mt-0.5">Avisos push para citas confirmadas</p>
+                            <p class="text-sm text-gray-500 mt-0.5">Avisos push para citas y tareas</p>
                         </div>
                     </div>
                     <svg class="aa-chevron w-5 h-5 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -551,6 +551,21 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                         <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-5"></div>
                     </label>
                     <span class="text-sm text-gray-700">Notificar citas confirmadas próximas</span>
+                </div>
+
+                <div class="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                    <input type="hidden" name="aa_push_task_execution_available_enabled" value="0">
+                    <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-0.5">
+                        <input type="checkbox"
+                               name="aa_push_task_execution_available_enabled"
+                               value="1"
+                               id="aa-push-task-execution-available-enabled"
+                               <?php checked((int) get_option('aa_push_task_execution_available_enabled', 1), 1); ?>
+                               class="sr-only peer">
+                        <div class="w-11 h-6 bg-gray-300 peer-checked:bg-emerald-500 rounded-full transition-colors"></div>
+                        <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-5"></div>
+                    </label>
+                    <span class="text-sm text-gray-700">Notificar cuando sea momento de realizar una tarea</span>
                 </div>
 
                 <div>
