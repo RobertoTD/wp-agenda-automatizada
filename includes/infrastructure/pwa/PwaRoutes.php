@@ -83,7 +83,35 @@ class AA_Pwa_Routes {
         header('Content-Type: application/javascript; charset=utf-8');
         header('Service-Worker-Allowed: ' . self::scope_path());
 
+        $api_base = self::resolve_push_api_base_for_sw();
+        echo 'self.__AA_PUSH_API_BASE__ = ' . wp_json_encode($api_base, JSON_UNESCAPED_SLASHES) . ";\n";
         readfile($sw_path);
         exit;
+    }
+
+    /**
+     * Absolute API origin/base for SW → oauth-backend calls (not a secret).
+     * Empty string when missing or invalid — SW uses conservative fallback.
+     */
+    private static function resolve_push_api_base_for_sw(): string {
+        if (!defined('AA_API_BASE_URL') || !is_string(AA_API_BASE_URL)) {
+            return '';
+        }
+
+        $raw = trim(AA_API_BASE_URL);
+        if ($raw === '') {
+            return '';
+        }
+
+        $sanitized = esc_url_raw($raw);
+        if (!is_string($sanitized) || $sanitized === '') {
+            return '';
+        }
+
+        if (!preg_match('#^https?://#i', $sanitized)) {
+            return '';
+        }
+
+        return untrailingslashit($sanitized);
     }
 }

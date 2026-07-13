@@ -244,6 +244,10 @@ describe('PwaPushActivationService', () => {
         delete globalThis.AA_ADMIN_CONTEXT;
         delete globalThis.AA_PUSH_CONFIG;
         delete globalThis.Notification;
+        delete globalThis.document;
+        if (Object.getOwnPropertyDescriptor(globalThis, 'addEventListener')) {
+            delete globalThis.addEventListener;
+        }
         if (originalNavigator === undefined) {
             delete globalThis.navigator;
         } else {
@@ -591,5 +595,105 @@ describe('PwaPushActivationService', () => {
         );
 
         assert.equal(loaded.test.hasPending('42'), true);
+    });
+
+    it('postCleanupTaskPushNotifications uses controller when present', () => {
+        var postMessageCalls = [];
+        var controller = {
+            postMessage: function (payload) {
+                postMessageCalls.push(payload);
+            }
+        };
+
+        loaded = loadService({
+            serviceWorker: {
+                serviceWorker: {
+                    controller: controller,
+                    ready: Promise.resolve({ active: null })
+                }
+            }
+        });
+
+        loaded.test.postCleanupTaskPushNotifications();
+
+        assert.equal(postMessageCalls.length, 1);
+        assert.deepEqual(postMessageCalls[0], { type: 'aa_cleanup_task_push_notifications' });
+    });
+
+    it('postCleanupTaskPushNotifications falls back to ready.active', async () => {
+        var postMessageCalls = [];
+        var active = {
+            postMessage: function (payload) {
+                postMessageCalls.push(payload);
+            }
+        };
+
+        loaded = loadService({
+            serviceWorker: {
+                serviceWorker: {
+                    controller: null,
+                    ready: Promise.resolve({ active: active })
+                }
+            }
+        });
+
+        loaded.test.postCleanupTaskPushNotifications();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        assert.equal(postMessageCalls.length, 1);
+        assert.deepEqual(postMessageCalls[0], { type: 'aa_cleanup_task_push_notifications' });
+    });
+
+    it('installTaskPushCleanupListeners does not duplicate listeners', () => {
+        var visibilityHandlers = 0;
+        var pageshowHandlers = 0;
+        var postMessageCalls = [];
+
+        globalThis.document = {
+            visibilityState: 'visible',
+            addEventListener: function (type) {
+                if (type === 'visibilitychange') {
+                    visibilityHandlers += 1;
+                }
+            }
+        };
+
+        Object.defineProperty(globalThis, 'addEventListener', {
+            configurable: true,
+            writable: true,
+            value: function (type) {
+                if (type === 'pageshow') {
+                    pageshowHandlers += 1;
+                }
+            }
+        });
+
+        loaded = loadService({
+            serviceWorker: {
+                serviceWorker: {
+                    controller: {
+                        postMessage: function (payload) {
+                            postMessageCalls.push(payload);
+                        }
+                    },
+                    ready: Promise.resolve({ active: null })
+                }
+            }
+        });
+
+        assert.equal(loaded.test.areTaskPushCleanupListenersInstalled(), true);
+        assert.equal(visibilityHandlers, 1);
+        assert.equal(pageshowHandlers, 1);
+        assert.equal(postMessageCalls.length, 1);
+
+        loaded.test.installTaskPushCleanupListeners();
+        loaded.test.installTaskPushCleanupListeners();
+
+        assert.equal(visibilityHandlers, 1);
+        assert.equal(pageshowHandlers, 1);
+
+        delete globalThis.document;
+        delete globalThis.addEventListener;
     });
 });

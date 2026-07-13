@@ -57,6 +57,25 @@ ac_assert(
     'layout exposes apple-mobile-web-app-title meta',
     strpos($layout_src, '<meta name="apple-mobile-web-app-title" content="DEOIA">') !== false
 );
+ac_assert(
+    'service worker injects __AA_PUSH_API_BASE__ via wp_json_encode',
+    strpos($pwa_routes_src, 'self.__AA_PUSH_API_BASE__') !== false
+    && strpos($pwa_routes_src, 'wp_json_encode($api_base') !== false
+);
+ac_assert(
+    'service worker resolves push API base from AA_API_BASE_URL',
+    strpos($pwa_routes_src, 'resolve_push_api_base_for_sw') !== false
+    && strpos($pwa_routes_src, 'AA_API_BASE_URL') !== false
+);
+ac_assert(
+    'service worker encodes API base with wp_json_encode before echo',
+    preg_match(
+        '/echo\s+[\'"]self\.__AA_PUSH_API_BASE__\s*=\s*[\'"]\s*\.\s*wp_json_encode\(\$api_base/',
+        $pwa_routes_src
+    ) === 1
+    && strpos($pwa_routes_src, 'echo \'self.__AA_PUSH_API_BASE__ = \' . AA_API_BASE_URL') === false
+    && strpos($pwa_routes_src, 'echo "self.__AA_PUSH_API_BASE__ = " . AA_API_BASE_URL') === false
+);
 
 echo "\n{$passed}/{$total} passed.\n";
 

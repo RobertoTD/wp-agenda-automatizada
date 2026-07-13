@@ -1,6 +1,8 @@
 /**
- * DEOIA Citas admin PWA — network-only service worker (installability only).
+ * DEOIA admin PWA — network-only service worker (installability + push).
  * Does not cache admin-post, admin-ajax, or any dynamic responses.
+ *
+ * self.__AA_PUSH_API_BASE__ is injected by AA_Pwa_Routes::serve_service_worker.
  */
 self.addEventListener('install', function () {
     self.skipWaiting();
@@ -9,7 +11,8 @@ self.addEventListener('install', function () {
 self.addEventListener('activate', function (event) {
     event.waitUntil(Promise.all([
         self.clients.claim(),
-        cleanupExpiredAppointmentNotifications()
+        cleanupExpiredAppointmentNotifications(),
+        cleanupTaskPushNotificationsBestEffort(null)
     ]));
 });
 
@@ -21,6 +24,11 @@ var FALLBACK_TITLE = 'DEOIA';
 var FALLBACK_BODY = 'Tienes una nueva notificación.';
 var FALLBACK_TAG = 'deoia-web-push';
 var APPOINTMENT_PUSH_TYPE = 'upcoming_confirmed_appointment';
+var TASK_PUSH_TYPE = 'task_execution_available';
+var TASK_PUSH_VALIDATE_TIMEOUT_MS = 3000;
+var TASK_PUSH_VALIDATE_MAX = 50;
+var TASK_PUSH_INCOMING_REQUEST_ID = 'incoming';
+var TASK_PUSH_CLEANUP_MESSAGE_TYPE = 'aa_cleanup_task_push_notifications';
 
 function getDashboardUrl() {
     return new URL(
@@ -107,6 +115,45 @@ function isExpiredAppointmentData(data) {
     return Date.now() >= expiresMs;
 }
 
+function normalizeTaskId(value) {
+    if (typeof value === 'number' && Number.isInteger(value) && value >= 1) {
+        return value;
+    }
+
+    return null;
+}
+
+function normalizeExpectedExecutionAvailableAt(value) {
+    if (typeof value !== 'string') {
+        return null;
+    }
+
+    var trimmed = value.trim();
+    if (trimmed === '') {
+        return null;
+    }
+
+    var ms = Date.parse(trimmed);
+    if (Number.isNaN(ms)) {
+        return null;
+    }
+
+    return trimmed;
+}
+
+function isTaskExecutionAvailableData(data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        return false;
+    }
+
+    if (data.type !== TASK_PUSH_TYPE) {
+        return false;
+    }
+
+    return normalizeTaskId(data.taskId) !== null
+        && normalizeExpectedExecutionAvailableAt(data.expectedExecutionAvailableAt) !== null;
+}
+
 function buildNotificationData(data) {
     var notificationData = {
         url: resolveSafeUrl(data.url)
@@ -118,6 +165,14 @@ function buildNotificationData(data) {
         if (typeof data.expiresAt === 'string' && data.expiresAt.trim() !== '') {
             notificationData.expiresAt = data.expiresAt.trim();
         }
+    }
+
+    if (isTaskExecutionAvailableData(data)) {
+        notificationData.type = TASK_PUSH_TYPE;
+        notificationData.taskId = normalizeTaskId(data.taskId);
+        notificationData.expectedExecutionAvailableAt = normalizeExpectedExecutionAvailableAt(
+            data.expectedExecutionAvailableAt
+        );
     }
 
     return notificationData;
@@ -151,6 +206,321 @@ function cleanupExpiredAppointmentNotifications() {
         }
     }).catch(function () {
         // best effort
+    });
+}
+
+function resolvePushApiBase() {
+    var raw = typeof self.__AA_PUSH_API_BASE__ === 'string'
+        ? self.__AA_PUSH_API_BASE__.trim()
+        : '';
+
+    if (raw === '') {
+        return null;
+    }
+
+    try {
+        var parsed = new URL(raw);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            return null;
+        }
+
+        return parsed.origin + parsed.pathname.replace(/\/+$/, '');
+    } catch (err) {
+        return null;
+    }
+}
+
+function getPushSubscriptionJson() {
+    if (!self.registration
+        || !self.registration.pushManager
+        || typeof self.registration.pushManager.getSubscription !== 'function') {
+        return Promise.resolve(null);
+    }
+
+    return self.registration.pushManager.getSubscription()
+        .then(function (subscription) {
+            if (!subscription || typeof subscription.toJSON !== 'function') {
+                return null;
+            }
+
+            var json = subscription.toJSON();
+            if (!json || typeof json !== 'object' || Array.isArray(json)) {
+                return null;
+            }
+
+            var endpoint = typeof json.endpoint === 'string' ? json.endpoint.trim() : '';
+            var keys = json.keys && typeof json.keys === 'object' ? json.keys : null;
+            var p256dh = keys && typeof keys.p256dh === 'string' ? keys.p256dh.trim() : '';
+            var auth = keys && typeof keys.auth === 'string' ? keys.auth.trim() : '';
+
+            if (!endpoint || !p256dh || !auth) {
+                return null;
+            }
+
+            return {
+                endpoint: endpoint,
+                keys: {
+                    p256dh: p256dh,
+                    auth: auth
+                }
+            };
+        })
+        .catch(function () {
+            return null;
+        });
+}
+
+function collectExistingTaskWorkItems(notifications) {
+    var items = [];
+    var i;
+    var notification;
+    var notifData;
+    var taskId;
+    var expectedAt;
+
+    for (i = 0; i < notifications.length; i += 1) {
+        notification = notifications[i];
+        notifData = notification && notification.data;
+
+        if (!isTaskExecutionAvailableData(notifData)) {
+            continue;
+        }
+
+        taskId = normalizeTaskId(notifData.taskId);
+        expectedAt = normalizeExpectedExecutionAvailableAt(notifData.expectedExecutionAvailableAt);
+
+        items.push({
+            requestId: 'n-' + String(i),
+            taskId: taskId,
+            expectedExecutionAvailableAt: expectedAt,
+            notification: notification
+        });
+    }
+
+    return items;
+}
+
+function selectTaskValidateBatch(existingItems, incomingItem) {
+    var maxExisting = incomingItem ? (TASK_PUSH_VALIDATE_MAX - 1) : TASK_PUSH_VALIDATE_MAX;
+    var selectedExisting = existingItems.slice(0, Math.max(0, maxExisting));
+    var tasks = [];
+    var i;
+
+    for (i = 0; i < selectedExisting.length; i += 1) {
+        tasks.push({
+            requestId: selectedExisting[i].requestId,
+            taskId: selectedExisting[i].taskId,
+            expectedExecutionAvailableAt: selectedExisting[i].expectedExecutionAvailableAt
+        });
+    }
+
+    if (incomingItem) {
+        tasks.push({
+            requestId: incomingItem.requestId,
+            taskId: incomingItem.taskId,
+            expectedExecutionAvailableAt: incomingItem.expectedExecutionAvailableAt
+        });
+    }
+
+    return {
+        selectedExisting: selectedExisting,
+        tasks: tasks
+    };
+}
+
+function mapValidateResultsByRequestId(payload) {
+    var map = {};
+    var i;
+    var entry;
+
+    if (!payload || payload.ok !== true || !Array.isArray(payload.results)) {
+        return null;
+    }
+
+    for (i = 0; i < payload.results.length; i += 1) {
+        entry = payload.results[i];
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+            continue;
+        }
+
+        if (typeof entry.requestId !== 'string' || entry.requestId === '') {
+            continue;
+        }
+
+        if (typeof entry.status !== 'string') {
+            continue;
+        }
+
+        map[entry.requestId] = entry.status.trim();
+    }
+
+    return map;
+}
+
+function validateTaskNotificationsWithBackend(tasks) {
+    var apiBase = resolvePushApiBase();
+
+    if (!apiBase || !tasks || tasks.length < 1) {
+        return Promise.resolve({ ok: false });
+    }
+
+    return getPushSubscriptionJson().then(function (subscription) {
+        if (!subscription) {
+            return { ok: false };
+        }
+
+        var controller = typeof AbortController === 'function' ? new AbortController() : null;
+        var timer = null;
+        var url = apiBase + '/push/task-execution-available-notifications/validate';
+        var fetchOpts = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                subscription: subscription,
+                tasks: tasks
+            })
+        };
+
+        if (controller) {
+            fetchOpts.signal = controller.signal;
+            timer = setTimeout(function () {
+                try {
+                    controller.abort();
+                } catch (err) {
+                    // ignore
+                }
+            }, TASK_PUSH_VALIDATE_TIMEOUT_MS);
+        }
+
+        return fetch(url, fetchOpts)
+            .then(function (response) {
+                if (!response || typeof response.status !== 'number') {
+                    return { ok: false };
+                }
+
+                if (response.status < 200 || response.status >= 300) {
+                    return { ok: false };
+                }
+
+                return response.json().then(function (body) {
+                    var byId = mapValidateResultsByRequestId(body);
+                    if (!byId) {
+                        return { ok: false };
+                    }
+
+                    return { ok: true, byRequestId: byId };
+                }).catch(function () {
+                    return { ok: false };
+                });
+            })
+            .catch(function () {
+                return { ok: false };
+            })
+            .finally(function () {
+                if (timer !== null) {
+                    clearTimeout(timer);
+                }
+            });
+    });
+}
+
+function closeWorkItemNotification(item) {
+    try {
+        if (item && item.notification && typeof item.notification.close === 'function') {
+            item.notification.close();
+        }
+    } catch (err) {
+        // best effort
+    }
+}
+
+function applyTaskValidateResults(selectedExisting, byRequestId) {
+    var i;
+    var item;
+    var status;
+
+    if (!byRequestId) {
+        return;
+    }
+
+    for (i = 0; i < selectedExisting.length; i += 1) {
+        item = selectedExisting[i];
+        status = byRequestId[item.requestId];
+
+        if (status === 'stale' || status === 'ineligible') {
+            closeWorkItemNotification(item);
+        }
+    }
+}
+
+function shouldShowIncomingTask(byRequestId, requestId) {
+    if (!byRequestId) {
+        return true;
+    }
+
+    var status = byRequestId[requestId];
+
+    if (status === 'stale' || status === 'ineligible') {
+        return false;
+    }
+
+    // eligible, unknown, missing → show (conservative)
+    return true;
+}
+
+/**
+ * @param {{ requestId: string, taskId: number, expectedExecutionAvailableAt: string }|null} incomingItem
+ * @returns {Promise<{ ok: boolean, byRequestId: Object|null, showedDecision: boolean }>}
+ */
+function runTaskNotificationValidation(incomingItem) {
+    if (!self.registration || typeof self.registration.getNotifications !== 'function') {
+        return Promise.resolve({ ok: false, byRequestId: null, showedDecision: true });
+    }
+
+    return self.registration.getNotifications()
+        .then(function (notifications) {
+            var existingItems = collectExistingTaskWorkItems(notifications || []);
+            var batch = selectTaskValidateBatch(existingItems, incomingItem);
+
+            if (batch.tasks.length < 1) {
+                return { ok: true, byRequestId: {}, showedDecision: true };
+            }
+
+            return validateTaskNotificationsWithBackend(batch.tasks).then(function (result) {
+                if (!result || result.ok !== true) {
+                    return { ok: false, byRequestId: null, showedDecision: true };
+                }
+
+                applyTaskValidateResults(batch.selectedExisting, result.byRequestId);
+
+                return {
+                    ok: true,
+                    byRequestId: result.byRequestId,
+                    showedDecision: shouldShowIncomingTask(
+                        result.byRequestId,
+                        incomingItem ? incomingItem.requestId : null
+                    )
+                };
+            });
+        })
+        .catch(function () {
+            return { ok: false, byRequestId: null, showedDecision: true };
+        });
+}
+
+function cleanupTaskPushNotificationsBestEffort(incomingItem) {
+    return runTaskNotificationValidation(incomingItem).catch(function () {
+        return { ok: false, byRequestId: null, showedDecision: true };
+    });
+}
+
+function showPushNotification(title, body, tag, data) {
+    return self.registration.showNotification(title, {
+        body: body,
+        tag: tag,
+        data: buildNotificationData(data)
     });
 }
 
@@ -191,13 +561,53 @@ self.addEventListener('push', function (event) {
                 return undefined;
             }
 
-            return self.registration.showNotification(title, {
-                body: body,
-                tag: tag,
-                data: buildNotificationData(data)
+            if (isTaskExecutionAvailableData(data)) {
+                var incomingItem = {
+                    requestId: TASK_PUSH_INCOMING_REQUEST_ID,
+                    taskId: normalizeTaskId(data.taskId),
+                    expectedExecutionAvailableAt: normalizeExpectedExecutionAvailableAt(
+                        data.expectedExecutionAvailableAt
+                    )
+                };
+
+                return runTaskNotificationValidation(incomingItem).then(function (result) {
+                    if (result && result.showedDecision === false) {
+                        return undefined;
+                    }
+
+                    return showPushNotification(title, body, tag, data);
+                }).catch(function () {
+                    return showPushNotification(title, body, tag, data);
+                });
+            }
+
+            // Appointment / generic: show immediately; task tray cleanup is independent best-effort.
+            var showPromise = showPushNotification(title, body, tag, data);
+            var taskCleanupPromise = cleanupTaskPushNotificationsBestEffort(null);
+
+            return Promise.all([showPromise, taskCleanupPromise]).then(function () {
+                return undefined;
             });
         })
     );
+});
+
+self.addEventListener('message', function (event) {
+    var message = event && event.data;
+
+    if (!message || typeof message !== 'object' || Array.isArray(message)) {
+        return;
+    }
+
+    if (message.type !== TASK_PUSH_CLEANUP_MESSAGE_TYPE) {
+        return;
+    }
+
+    var cleanupPromise = cleanupTaskPushNotificationsBestEffort(null);
+
+    if (event && typeof event.waitUntil === 'function') {
+        event.waitUntil(cleanupPromise);
+    }
 });
 
 self.addEventListener('notificationclick', function (event) {

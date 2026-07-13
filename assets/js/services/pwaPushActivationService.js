@@ -12,6 +12,7 @@
 
     var activationInFlight = null;
     var automaticRecoveryAttemptedThisLoad = false;
+    var taskPushCleanupListenersInstalled = false;
 
     function getGlobalRoot() {
         if (typeof window !== 'undefined') {
@@ -554,13 +555,83 @@
             });
     }
 
+    function postCleanupTaskPushNotifications() {
+        var root = getGlobalRoot();
+        var sw = root.navigator && root.navigator.serviceWorker;
+
+        if (!sw) {
+            return;
+        }
+
+        function send(worker) {
+            if (worker && typeof worker.postMessage === 'function') {
+                worker.postMessage({ type: 'aa_cleanup_task_push_notifications' });
+            }
+        }
+
+        if (sw.controller) {
+            send(sw.controller);
+            return;
+        }
+
+        if (!sw.ready || typeof sw.ready.then !== 'function') {
+            return;
+        }
+
+        sw.ready
+            .then(function (registration) {
+                send((registration && registration.active) || sw.controller);
+            })
+            .catch(function () {
+                // best effort
+            });
+    }
+
+    function onTaskPushCleanupVisibilityOrShow() {
+        var root = getGlobalRoot();
+        var doc = root.document;
+
+        if (doc && doc.visibilityState === 'hidden') {
+            return;
+        }
+
+        postCleanupTaskPushNotifications();
+    }
+
+    function installTaskPushCleanupListeners() {
+        if (taskPushCleanupListenersInstalled) {
+            return;
+        }
+
+        var root = getGlobalRoot();
+        var doc = root.document;
+
+        if (!doc || typeof doc.addEventListener !== 'function') {
+            return;
+        }
+
+        taskPushCleanupListenersInstalled = true;
+
+        doc.addEventListener('visibilitychange', onTaskPushCleanupVisibilityOrShow);
+
+        if (typeof root.addEventListener === 'function') {
+            root.addEventListener('pageshow', onTaskPushCleanupVisibilityOrShow);
+        }
+
+        if (doc.visibilityState !== 'hidden') {
+            postCleanupTaskPushNotifications();
+        }
+    }
+
     var api = {
         activateFromGrantedPermission: activateFromGrantedPermission,
         reconcileExistingSubscription: reconcileExistingSubscription,
-        maybeAttemptAutomaticRecovery: maybeAttemptAutomaticRecovery
+        maybeAttemptAutomaticRecovery: maybeAttemptAutomaticRecovery,
+        postCleanupTaskPushNotifications: postCleanupTaskPushNotifications
     };
 
     getGlobalRoot().PwaPushActivationService = api;
+    installTaskPushCleanupListeners();
 
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = api;
@@ -573,9 +644,12 @@
             markPending: markPending,
             clearPending: clearPending,
             buildPendingKey: buildPendingKey,
+            postCleanupTaskPushNotifications: postCleanupTaskPushNotifications,
+            installTaskPushCleanupListeners: installTaskPushCleanupListeners,
             resetState: function () {
                 activationInFlight = null;
                 automaticRecoveryAttemptedThisLoad = false;
+                taskPushCleanupListenersInstalled = false;
             },
             setAutomaticRecoveryAttempted: function (value) {
                 automaticRecoveryAttemptedThisLoad = !!value;
@@ -585,6 +659,9 @@
             },
             getActivationInFlightPromise: function () {
                 return activationInFlight;
+            },
+            areTaskPushCleanupListenersInstalled: function () {
+                return taskPushCleanupListenersInstalled;
             }
         };
     }
