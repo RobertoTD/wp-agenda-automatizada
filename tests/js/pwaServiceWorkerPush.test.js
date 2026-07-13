@@ -11,6 +11,8 @@ const swPath = path.join(__dirname, '../../includes/admin/ui/pwa/sw.js');
 const SCOPE = 'https://tenant.example.com/wp-admin/';
 const DASHBOARD_URL = 'https://tenant.example.com/wp-admin/admin-post.php?action=aa_iframe_content&module=dashboard';
 
+const APPOINTMENT_PUSH_TYPE = 'upcoming_confirmed_appointment';
+
 function loadServiceWorker(options) {
     options = options || {};
 
@@ -18,6 +20,8 @@ function loadServiceWorker(options) {
     var showNotificationCalls = [];
     var matchAllClients = options.clients || [];
     var openWindowCalls = [];
+    var claimCalls = 0;
+    var activeNotifications = options.notifications || [];
     var claimPromise = Promise.resolve();
 
     var registration = {
@@ -25,6 +29,13 @@ function loadServiceWorker(options) {
         showNotification: function (title, opts) {
             showNotificationCalls.push({ title: title, opts: opts });
             return Promise.resolve();
+        },
+        getNotifications: function () {
+            if (typeof options.getNotifications === 'function') {
+                return options.getNotifications();
+            }
+
+            return Promise.resolve(activeNotifications);
         }
     };
 
@@ -39,6 +50,7 @@ function loadServiceWorker(options) {
                 return Promise.resolve(null);
             },
             claim: function () {
+                claimCalls += 1;
                 return claimPromise;
             }
         },
@@ -54,7 +66,8 @@ function loadServiceWorker(options) {
         fetch: function () {
             return Promise.resolve({});
         },
-        URL: URL
+        URL: URL,
+        Date: options.Date || Date
     };
 
     vm.createContext(context);
@@ -70,6 +83,12 @@ function loadServiceWorker(options) {
         },
         get openWindowCalls() {
             return openWindowCalls;
+        },
+        get claimCalls() {
+            return claimCalls;
+        },
+        set notifications(list) {
+            activeNotifications = list;
         }
     };
 }
@@ -114,6 +133,37 @@ async function runPush(sw, payload) {
     sw.handlers.push(event);
     await event._waitUntilPromise;
     return sw.showNotificationCalls[sw.showNotificationCalls.length - 1];
+}
+
+async function runActivate(sw) {
+    var event = {
+        waitUntil: function (promise) {
+            event._waitUntilPromise = promise;
+            return promise;
+        }
+    };
+
+    sw.handlers.activate(event);
+    await event._waitUntilPromise;
+    return event;
+}
+
+function createMockNotification(data, options) {
+    options = options || {};
+    var closed = false;
+
+    return {
+        data: data,
+        close: function () {
+            if (options.closeThrows) {
+                throw new Error('close failed');
+            }
+            closed = true;
+        },
+        wasClosed: function () {
+            return closed;
+        }
+    };
 }
 
 function createNotificationClickEvent(notification, clientsList) {
@@ -287,5 +337,137 @@ describe('PWA service worker push handlers', () => {
         });
 
         assert.equal(call.opts.data.url, DASHBOARD_URL);
+    });
+
+    it('shows valid upcoming appointment push with type and expiresAt in notification data', async () => {
+        var call = await runPush(sw, {
+            title: 'Cita en 15 minutos',
+            body: 'Cliente · Servicio',
+            tag: 'upcoming-confirmed-appointment-123',
+            data: {
+                type: APPOINTMENT_PUSH_TYPE,
+                expiresAt: '2099-01-01T00:00:00.000Z',
+                url: DASHBOARD_URL
+            }
+        });
+
+        assert.equal(call.opts.tag, 'upcoming-confirmed-appointment-123');
+        assert.equal(call.opts.data.type, APPOINTMENT_PUSH_TYPE);
+        assert.equal(call.opts.data.expiresAt, '2099-01-01T00:00:00.000Z');
+        assert.equal(call.opts.data.url, DASHBOARD_URL);
+    });
+
+    it('does not show expired upcoming appointment push', async () => {
+        var fixedDate = class extends Date {
+            constructor() {
+                super('2026-07-09T22:30:00.000Z');
+            }
+
+            static now() {
+                return new Date('2026-07-09T22:30:00.000Z').getTime();
+            }
+        };
+
+        sw = loadServiceWorker({ Date: fixedDate });
+
+        var call = await runPush(sw, {
+            title: 'Cita ahora',
+            body: 'Cliente · Servicio',
+            tag: 'upcoming-confirmed-appointment-123',
+            data: {
+                type: APPOINTMENT_PUSH_TYPE,
+                expiresAt: '2026-07-09T22:00:00.000Z',
+                url: DASHBOARD_URL
+            }
+        });
+
+        assert.equal(call, undefined);
+        assert.equal(sw.showNotificationCalls.length, 0);
+    });
+
+    it('keeps generic and task pushes unchanged without type', async () => {
+        var call = await runPush(sw, {
+            title: 'Es momento de realizar esta tarea',
+            body: 'Tarea · Lista',
+            tag: 'task-execution-available-42',
+            data: {
+                url: DASHBOARD_URL
+            }
+        });
+
+        assert.equal(call.opts.tag, 'task-execution-available-42');
+        assert.equal(call.opts.data.url, DASHBOARD_URL);
+        assert.equal('type' in call.opts.data, false);
+        assert.equal('expiresAt' in call.opts.data, false);
+    });
+
+    it('cleanup closes only expired appointment notifications', async () => {
+        var expiredAppointment = createMockNotification({
+            type: APPOINTMENT_PUSH_TYPE,
+            expiresAt: '2020-01-01T00:00:00.000Z',
+            url: DASHBOARD_URL
+        });
+        var validAppointment = createMockNotification({
+            type: APPOINTMENT_PUSH_TYPE,
+            expiresAt: '2099-01-01T00:00:00.000Z',
+            url: DASHBOARD_URL
+        });
+        var taskNotification = createMockNotification({
+            url: DASHBOARD_URL
+        });
+
+        sw = loadServiceWorker({
+            notifications: [expiredAppointment, validAppointment, taskNotification]
+        });
+
+        await runPush(sw, {
+            title: 'Cita en 5 minutos',
+            body: 'Cliente · Servicio',
+            tag: 'upcoming-confirmed-appointment-999',
+            data: {
+                type: APPOINTMENT_PUSH_TYPE,
+                expiresAt: '2099-01-01T00:00:00.000Z',
+                url: DASHBOARD_URL
+            }
+        });
+
+        assert.equal(expiredAppointment.wasClosed(), true);
+        assert.equal(validAppointment.wasClosed(), false);
+        assert.equal(taskNotification.wasClosed(), false);
+        assert.equal(sw.showNotificationCalls.length, 1);
+    });
+
+    it('cleanup failure does not block a valid new appointment notification', async () => {
+        sw = loadServiceWorker({
+            getNotifications: function () {
+                return Promise.reject(new Error('getNotifications failed'));
+            }
+        });
+
+        var call = await runPush(sw, {
+            title: 'Cita en 5 minutos',
+            body: 'Cliente · Servicio',
+            tag: 'upcoming-confirmed-appointment-999',
+            data: {
+                type: APPOINTMENT_PUSH_TYPE,
+                expiresAt: '2099-01-01T00:00:00.000Z',
+                url: DASHBOARD_URL
+            }
+        });
+
+        assert.equal(call.opts.tag, 'upcoming-confirmed-appointment-999');
+        assert.equal(sw.showNotificationCalls.length, 1);
+    });
+
+    it('activate still claims clients when cleanup fails', async () => {
+        sw = loadServiceWorker({
+            getNotifications: function () {
+                return Promise.reject(new Error('getNotifications failed'));
+            }
+        });
+
+        await runActivate(sw);
+
+        assert.equal(sw.claimCalls, 1);
     });
 });

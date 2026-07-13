@@ -7,7 +7,10 @@ self.addEventListener('install', function () {
 });
 
 self.addEventListener('activate', function (event) {
-    event.waitUntil(self.clients.claim());
+    event.waitUntil(Promise.all([
+        self.clients.claim(),
+        cleanupExpiredAppointmentNotifications()
+    ]));
 });
 
 self.addEventListener('fetch', function (event) {
@@ -17,6 +20,7 @@ self.addEventListener('fetch', function (event) {
 var FALLBACK_TITLE = 'DEOIA';
 var FALLBACK_BODY = 'Tienes una nueva notificación.';
 var FALLBACK_TAG = 'deoia-web-push';
+var APPOINTMENT_PUSH_TYPE = 'upcoming_confirmed_appointment';
 
 function getDashboardUrl() {
     return new URL(
@@ -68,6 +72,88 @@ function parsePushPayload(event) {
     }
 }
 
+function parseExpiresAtMs(expiresAt) {
+    if (typeof expiresAt !== 'string' || expiresAt.trim() === '') {
+        return null;
+    }
+
+    var ms = Date.parse(expiresAt);
+
+    if (Number.isNaN(ms)) {
+        return null;
+    }
+
+    return ms;
+}
+
+function isAppointmentNotificationData(data) {
+    return data
+        && typeof data === 'object'
+        && !Array.isArray(data)
+        && data.type === APPOINTMENT_PUSH_TYPE;
+}
+
+function isExpiredAppointmentData(data) {
+    if (!isAppointmentNotificationData(data)) {
+        return false;
+    }
+
+    var expiresMs = parseExpiresAtMs(data.expiresAt);
+
+    if (expiresMs === null) {
+        return false;
+    }
+
+    return Date.now() >= expiresMs;
+}
+
+function buildNotificationData(data) {
+    var notificationData = {
+        url: resolveSafeUrl(data.url)
+    };
+
+    if (isAppointmentNotificationData(data)) {
+        notificationData.type = data.type;
+
+        if (typeof data.expiresAt === 'string' && data.expiresAt.trim() !== '') {
+            notificationData.expiresAt = data.expiresAt.trim();
+        }
+    }
+
+    return notificationData;
+}
+
+function cleanupExpiredAppointmentNotifications() {
+    if (!self.registration || typeof self.registration.getNotifications !== 'function') {
+        return Promise.resolve();
+    }
+
+    return self.registration.getNotifications().then(function (notifications) {
+        var i;
+        var notification;
+        var notifData;
+
+        for (i = 0; i < notifications.length; i += 1) {
+            notification = notifications[i];
+            notifData = notification && notification.data;
+
+            if (!isExpiredAppointmentData(notifData)) {
+                continue;
+            }
+
+            try {
+                if (typeof notification.close === 'function') {
+                    notification.close();
+                }
+            } catch (err) {
+                // best effort
+            }
+        }
+    }).catch(function () {
+        // best effort
+    });
+}
+
 function isDeoiaWindow(client) {
     try {
         var clientUrl = new URL(client.url);
@@ -99,13 +185,19 @@ self.addEventListener('push', function (event) {
         ? payload.tag.trim()
         : FALLBACK_TAG;
 
-    event.waitUntil(self.registration.showNotification(title, {
-        body: body,
-        tag: tag,
-        data: {
-            url: resolveSafeUrl(data.url)
-        }
-    }));
+    event.waitUntil(
+        cleanupExpiredAppointmentNotifications().then(function () {
+            if (isExpiredAppointmentData(data)) {
+                return undefined;
+            }
+
+            return self.registration.showNotification(title, {
+                body: body,
+                tag: tag,
+                data: buildNotificationData(data)
+            });
+        })
+    );
 });
 
 self.addEventListener('notificationclick', function (event) {
