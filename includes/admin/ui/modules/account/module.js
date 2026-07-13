@@ -933,45 +933,17 @@
     }
 
     function fetchAccountStatus() {
-        var config = getConfig();
-        var ajaxUrl = config.ajaxUrl || window.ajaxurl || '/wp-admin/admin-ajax.php';
-        var nonce = config.nonce || '';
+        var service = window.AccountStatusService;
 
-        if (!nonce) {
-            console.warn('[AccountModule] Missing nonce for aa_get_account_status');
+        if (!service || typeof service.fetchStatus !== 'function') {
             return Promise.resolve(null);
         }
 
-        var url = ajaxUrl
-            + '?action=aa_get_account_status'
-            + '&_wpnonce='
-            + encodeURIComponent(nonce);
-
-        return fetch(url)
-            .then(function (response) {
-                return response.json();
-            })
+        return service.fetchStatus()
             .then(function (data) {
-                if (data && data.success && data.data) {
-                    return {
-                        accountStatus: data.data.account_status || null,
-                        publicSite: data.data.public_site || null
-                    };
-                }
-
-                if (data && !data.success && data.data) {
-                    console.warn('[AccountModule] Account status error:', data.data.code || '', data.data.message || '');
-                    return {
-                        accountStatus: null,
-                        publicSite: data.data.public_site || null,
-                        statusError: mapAccountStatusErrorToUi(data.data)
-                    };
-                }
-
                 return {
-                    accountStatus: null,
-                    publicSite: null,
-                    statusError: mapAccountStatusErrorToUi({ code: 'account_backend_unreachable' })
+                    accountStatus: data.account_status || null,
+                    publicSite: data.public_site || null
                 };
             })
             .catch(function (err) {

@@ -399,6 +399,36 @@
     }
 
     /**
+     * Lee la suscripción local sin crear una nueva.
+     *
+     * @returns {Promise<PushSubscription|null>}
+     */
+    function getExistingPushSubscription() {
+        var root = getGlobalRoot();
+
+        if (!root.navigator || !root.navigator.serviceWorker || !root.navigator.serviceWorker.ready) {
+            return Promise.resolve(null);
+        }
+
+        return root.navigator.serviceWorker.ready
+            .then(function (registration) {
+                var pushManager = registration && registration.pushManager;
+
+                if (!pushManager || typeof pushManager.getSubscription !== 'function') {
+                    return null;
+                }
+
+                return pushManager.getSubscription();
+            })
+            .then(function (subscription) {
+                return subscription || null;
+            })
+            .catch(function () {
+                return null;
+            });
+    }
+
+    /**
      * @returns {Promise<{completed:boolean,status:string}>}
      */
     function runActivation() {
@@ -446,32 +476,88 @@
         return activationInFlight;
     }
 
+    /**
+     * Re-registra una suscripción local existente. Nunca llama subscribe().
+     *
+     * @returns {Promise<{registrationSucceeded:boolean,completed:boolean,status:string}>}
+     */
+    function reconcileExistingSubscription() {
+        if (getNotificationPermission() !== 'granted') {
+            return Promise.resolve({
+                registrationSucceeded: false,
+                completed: false,
+                status: 'permission_not_granted'
+            });
+        }
+
+        if (activationInFlight) {
+            return activationInFlight;
+        }
+
+        activationInFlight = getExistingPushSubscription()
+            .then(function (subscription) {
+                if (!subscription) {
+                    return {
+                        registrationSucceeded: false,
+                        completed: false,
+                        status: 'subscription_missing'
+                    };
+                }
+
+                markPending();
+
+                return registerPushSubscription(serializePushSubscription(subscription))
+                    .then(function (data) {
+                        var outcome = interpretRegistrationResult(data);
+
+                        if (outcome.registrationSucceeded) {
+                            clearPending();
+                        }
+
+                        return outcome;
+                    });
+            })
+            .finally(function () {
+                activationInFlight = null;
+            });
+
+        return activationInFlight;
+    }
+
     function maybeAttemptAutomaticRecovery() {
         if (automaticRecoveryAttemptedThisLoad) {
-            return;
+            return Promise.resolve(null);
         }
 
         automaticRecoveryAttemptedThisLoad = true;
 
         if (!hasNotificationApi()) {
-            return;
+            return Promise.resolve(null);
         }
 
         if (getNotificationPermission() !== 'granted') {
-            return;
+            return Promise.resolve(null);
         }
 
         if (!hasPending()) {
-            return;
+            return Promise.resolve(null);
         }
 
-        activateFromGrantedPermission().catch(function (err) {
-            warn('automatic recovery failed:', err);
-        });
+        return activateFromGrantedPermission()
+            .catch(function (err) {
+                warn('automatic recovery failed:', err);
+                return {
+                    registrationSucceeded: false,
+                    completed: false,
+                    status: 'recovery_failed'
+                };
+            });
     }
 
     var api = {
-        activateFromGrantedPermission: activateFromGrantedPermission
+        activateFromGrantedPermission: activateFromGrantedPermission,
+        reconcileExistingSubscription: reconcileExistingSubscription,
+        maybeAttemptAutomaticRecovery: maybeAttemptAutomaticRecovery
     };
 
     getGlobalRoot().PwaPushActivationService = api;
@@ -482,6 +568,7 @@
             urlBase64ToUint8Array: urlBase64ToUint8Array,
             serializePushSubscription: serializePushSubscription,
             interpretRegistrationResult: interpretRegistrationResult,
+            getExistingPushSubscription: getExistingPushSubscription,
             hasPending: hasPending,
             markPending: markPending,
             clearPending: clearPending,
@@ -501,6 +588,4 @@
             }
         };
     }
-
-    maybeAttemptAutomaticRecovery();
 })();

@@ -64,16 +64,22 @@
     }
 
     /**
+     * @param {{app_subscription_active?:boolean,push_ready?:boolean}} [context]
      * @returns {Promise<{lists:Array,meta:Object}>}
      */
-    function getFeed() {
+    function getFeed(context) {
         var cfg = getConfig();
 
         if (!cfg) {
             return Promise.reject(new Error('AA_EXECUTABLE_LISTS_DATA no configurado'));
         }
 
-        return postAction(cfg.action).then(function (data) {
+        var projection = context || {};
+
+        return postAction(cfg.action, {
+            app_subscription_active: projection.app_subscription_active === true ? '1' : '0',
+            push_ready: projection.push_ready === true ? '1' : '0'
+        }).then(function (data) {
             return {
                 lists: Array.isArray(data.lists) ? data.lists : [],
                 meta: data.meta && typeof data.meta === 'object' ? data.meta : {}

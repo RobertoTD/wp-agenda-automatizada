@@ -323,10 +323,12 @@ ac_assert(
     && strpos($use_case_src, 'OPTION_MIGRATION_VERSION') !== false
 );
 ac_assert(
-    'Use case filters unlinked push activation before feed projection',
-    strpos($use_case_src, 'filter_unlinked_push_activation_from_lists') !== false
-    && strpos($use_case_src, 'aa_client_secret') !== false
+    'Use case filters push activation before feed projection',
+    strpos($use_case_src, 'filter_push_activation_from_lists') !== false
+    && strpos($use_case_src, 'app_subscription_active') !== false
+    && strpos($use_case_src, 'push_ready') !== false
     && strpos($use_case_src, 'AA_Push_Activation_Visibility_Policy') !== false
+    && strpos($use_case_src, 'aa_client_secret') === false
 );
 
 feed_reset_migration_gate_mocks();
@@ -1081,14 +1083,14 @@ ac_assert(
 );
 ac_assert('Both sources fail returns empty lists', ($both_error['lists'] ?? null) === []);
 
-// ─── Unlinked agenda: hide valid enable_push from feed projection ─
+// ─── Push activation feed projection (app_subscription_active + push_ready) ─
 
 /**
  * @return array{lists:list<array<string,mixed>>,tasks:list<array<string,mixed>>,organization:array<string,mixed>}
  */
-function feed_fixture_unlinked_push_payload(): array {
-    $push_device_key = 'a1b2c3d4e5f6789012345678abcdef01';
-    $push_origin_key = 'enable_push:' . $push_device_key . ':fedcba9876543210';
+function feed_fixture_push_projection_payload(): array {
+    $push_origin_key = 'enable_push';
+    $legacy_push_origin_key = 'enable_push:a1b2c3d4e5f6789012345678abcdef01:fedcba9876543210';
     $lists = [
         [
             'id' => 50,
@@ -1144,12 +1146,28 @@ function feed_fixture_unlinked_push_payload(): array {
             'status' => 'pending',
             'source' => 'system',
             'source_category' => 'agenda_app',
-            'origin_key' => 'enable_push:bad:bad',
+            'origin_key' => 'enable_push_legacy',
             'managed_by' => 'developer',
             'default_bucket' => 'primary',
             'completion_type' => 'system',
             'completion_fact_key' => null,
             'importance' => 80,
+            'due_at' => null,
+        ],
+        [
+            'id' => 779,
+            'list_id' => 50,
+            'title' => 'Push legacy por dispositivo',
+            'notes' => 'Debe ocultarse siempre',
+            'status' => 'pending',
+            'source' => 'system',
+            'source_category' => 'agenda_app',
+            'origin_key' => $legacy_push_origin_key,
+            'managed_by' => 'developer',
+            'default_bucket' => 'primary',
+            'completion_type' => 'system',
+            'completion_fact_key' => null,
+            'importance' => 85,
             'due_at' => null,
         ],
     ];
@@ -1159,98 +1177,124 @@ function feed_fixture_unlinked_push_payload(): array {
         'tasks' => $tasks,
         'organization' => feed_build_task_organization($lists, $tasks),
         'push_origin_key' => $push_origin_key,
+        'legacy_push_origin_key' => $legacy_push_origin_key,
     ];
 }
 
+/**
+ * @param array<string,mixed> $feed
+ * @return list<string>
+ */
+function feed_collect_activation_origin_keys(array $feed): array {
+    $lists = is_array($feed['lists'] ?? null) ? $feed['lists'] : [];
+    $agenda_list = feed_find_recommendations_lists($lists)[0] ?? [];
+    $origin_keys = [];
+
+    foreach (($agenda_list['buckets'] ?? []) as $bucket) {
+        if (!is_array($bucket)) {
+            continue;
+        }
+        foreach (($bucket['items'] ?? []) as $item) {
+            if (is_array($item)) {
+                $origin_keys[] = (string) ($item['origin_key'] ?? '');
+            }
+        }
+    }
+
+    return $origin_keys;
+}
+
 feed_enable_skip_learning_legacy_gate();
-feed_set_test_options(['aa_client_secret' => '']);
 
-$unlinked_push_payload = feed_fixture_unlinked_push_payload();
-$unlinked_push_origin_key = (string) ($unlinked_push_payload['push_origin_key'] ?? '');
-unset($unlinked_push_payload['push_origin_key']);
+$push_projection_payload = feed_fixture_push_projection_payload();
+$push_origin_key = (string) ($push_projection_payload['push_origin_key'] ?? '');
+$legacy_push_origin_key = (string) ($push_projection_payload['legacy_push_origin_key'] ?? '');
+unset($push_projection_payload['push_origin_key'], $push_projection_payload['legacy_push_origin_key']);
 
-$unlinked_push_feed = (new GetExecutableListsFeedUseCase(
+$inactive_feed = (new GetExecutableListsFeedUseCase(
     static function (): array {
         return feed_fixture_learning_payload();
     },
-    static function () use ($unlinked_push_payload): array {
-        return $unlinked_push_payload;
+    static function () use ($push_projection_payload): array {
+        return $push_projection_payload;
     }
-))->execute();
+))->execute([
+    'app_subscription_active' => false,
+    'push_ready' => false,
+]);
 
-$unlinked_push_lists = is_array($unlinked_push_feed['lists'] ?? null) ? $unlinked_push_feed['lists'] : [];
-$unlinked_agenda_list = feed_find_recommendations_lists($unlinked_push_lists)[0] ?? [];
-$unlinked_agenda_origin_keys = [];
-foreach (($unlinked_agenda_list['buckets'] ?? []) as $bucket) {
-    if (!is_array($bucket)) {
-        continue;
-    }
-    foreach (($bucket['items'] ?? []) as $item) {
-        if (is_array($item)) {
-            $unlinked_agenda_origin_keys[] = (string) ($item['origin_key'] ?? '');
-        }
-    }
-}
+$inactive_origin_keys = feed_collect_activation_origin_keys($inactive_feed);
 
 ac_assert(
-    'Unlinked agenda hides valid enable_push from feed lists',
-    !in_array($unlinked_push_origin_key, $unlinked_agenda_origin_keys, true)
+    'Inactive subscription hides global enable_push from feed lists',
+    !in_array($push_origin_key, $inactive_origin_keys, true)
 );
 ac_assert(
-    'Unlinked agenda keeps other Activación tasks visible',
-    in_array('pwa.install', $unlinked_agenda_origin_keys, true)
+    'Inactive subscription keeps non-push activation tasks visible',
+    in_array('pwa.install', $inactive_origin_keys, true)
 );
 ac_assert(
-    'Unlinked agenda keeps malformed enable_push visible',
-    in_array('enable_push:bad:bad', $unlinked_agenda_origin_keys, true)
+    'Inactive subscription does not hide unrelated origin keys',
+    in_array('enable_push_legacy', $inactive_origin_keys, true)
 );
 ac_assert(
-    'Unlinked agenda keeps Activación list in feed',
-    ($unlinked_agenda_list['id'] ?? '') === '50'
-    && ($unlinked_agenda_list['origin_key'] ?? '') === LearningRecommendationsToExecutableMapper::LIST_ORIGIN_KEY
+    'Inactive subscription always hides legacy enable_push:*',
+    !in_array($legacy_push_origin_key, $inactive_origin_keys, true)
 );
 ac_assert(
-    'Unlinked agenda feed meta item_count excludes hidden push',
-    (int) ($unlinked_push_feed['meta']['sources']['tasks']['item_count'] ?? 0) === 2
-);
-ac_assert(
-    'Unlinked agenda source tasks payload unchanged',
-    ($unlinked_push_payload['tasks'][0]['status'] ?? '') === 'pending'
-    && ($unlinked_push_payload['tasks'][0]['origin_key'] ?? '') === $unlinked_push_origin_key
+    'Inactive subscription feed meta item_count excludes hidden push rows',
+    (int) ($inactive_feed['meta']['sources']['tasks']['item_count'] ?? 0) === 2
 );
 
-feed_set_test_options(['aa_client_secret' => 'linked-secret']);
-
-$linked_push_feed = (new GetExecutableListsFeedUseCase(
+$active_not_ready_feed = (new GetExecutableListsFeedUseCase(
     static function (): array {
         return feed_fixture_learning_payload();
     },
-    static function () use ($unlinked_push_payload): array {
-        return $unlinked_push_payload;
+    static function () use ($push_projection_payload): array {
+        return $push_projection_payload;
     }
-))->execute();
+))->execute([
+    'app_subscription_active' => true,
+    'push_ready' => false,
+]);
 
-$linked_push_lists = is_array($linked_push_feed['lists'] ?? null) ? $linked_push_feed['lists'] : [];
-$linked_agenda_list = feed_find_recommendations_lists($linked_push_lists)[0] ?? [];
-$linked_agenda_origin_keys = [];
-foreach (($linked_agenda_list['buckets'] ?? []) as $bucket) {
-    if (!is_array($bucket)) {
-        continue;
-    }
-    foreach (($bucket['items'] ?? []) as $item) {
-        if (is_array($item)) {
-            $linked_agenda_origin_keys[] = (string) ($item['origin_key'] ?? '');
-        }
-    }
-}
+$active_not_ready_origin_keys = feed_collect_activation_origin_keys($active_not_ready_feed);
 
 ac_assert(
-    'Linked agenda keeps valid enable_push visible in feed',
-    in_array($unlinked_push_origin_key, $linked_agenda_origin_keys, true)
+    'Active subscription and push_ready false keeps enable_push visible',
+    in_array($push_origin_key, $active_not_ready_origin_keys, true)
 );
 ac_assert(
-    'Linked agenda feed meta item_count includes push task',
-    (int) ($linked_push_feed['meta']['sources']['tasks']['item_count'] ?? 0) === 3
+    'Active subscription and push_ready false feed meta includes push task',
+    (int) ($active_not_ready_feed['meta']['sources']['tasks']['item_count'] ?? 0) === 3
+);
+
+$active_ready_feed = (new GetExecutableListsFeedUseCase(
+    static function (): array {
+        return feed_fixture_learning_payload();
+    },
+    static function () use ($push_projection_payload): array {
+        return $push_projection_payload;
+    }
+))->execute([
+    'app_subscription_active' => true,
+    'push_ready' => true,
+]);
+
+$active_ready_origin_keys = feed_collect_activation_origin_keys($active_ready_feed);
+
+ac_assert(
+    'Active subscription and push_ready true hides enable_push',
+    !in_array($push_origin_key, $active_ready_origin_keys, true)
+);
+ac_assert(
+    'Active subscription and push_ready true feed meta excludes push task',
+    (int) ($active_ready_feed['meta']['sources']['tasks']['item_count'] ?? 0) === 2
+);
+ac_assert(
+    'Source tasks payload status unchanged after projection',
+    ($push_projection_payload['tasks'][0]['status'] ?? '') === 'pending'
+    && ($push_projection_payload['tasks'][0]['origin_key'] ?? '') === $push_origin_key
 );
 
 feed_reset_migration_gate_mocks();

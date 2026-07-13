@@ -18,7 +18,10 @@ final class ExecutableListsAjax {
     public static function handle_get_feed(): void {
         self::authorize();
 
-        $result = (new GetExecutableListsFeedUseCase())->execute();
+        $result = (new GetExecutableListsFeedUseCase())->execute([
+            'app_subscription_active' => self::post_bool('app_subscription_active'),
+            'push_ready' => self::post_bool('push_ready'),
+        ]);
 
         if (empty($result['success'])) {
             $error = $result['error'] ?? [];
@@ -41,5 +44,16 @@ final class ExecutableListsAjax {
         }
 
         check_ajax_referer(self::NONCE_ACTION, '_wpnonce');
+    }
+
+    private static function post_bool(string $key): bool {
+        if (!isset($_POST[$key])) {
+            return false;
+        }
+
+        return filter_var(
+            wp_unslash($_POST[$key]),
+            FILTER_VALIDATE_BOOLEAN
+        );
     }
 }

@@ -1,297 +1,174 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { describe, it, beforeEach, afterEach } = require('node:test');
+const { describe, it, afterEach } = require('node:test');
 const path = require('node:path');
 
-const deviceKeyPath = path.join(__dirname, '../../assets/js/services/pushDeviceKeyService.js');
-const reconcilePath = path.join(__dirname, '../../assets/js/services/pushActivationReconcileService.js');
+const servicePath = path.join(__dirname, '../../assets/js/services/pushActivationReconcileService.js');
 
-function createStorage() {
-    var store = {};
-
-    return {
-        getItem: function (key) {
-            return Object.prototype.hasOwnProperty.call(store, key) ? store[key] : null;
-        },
-        setItem: function (key, value) {
-            store[key] = String(value);
-        },
-        removeItem: function (key) {
-            delete store[key];
-        }
-    };
-}
-
-function loadReconcileService(options) {
+function loadService(options) {
     options = options || {};
+    var ensureCalls = 0;
+    var pushCalls = 0;
+    var accountCalls = 0;
 
-    globalThis.AA_ADMIN_CONTEXT = { blogId: 7 };
-    globalThis.localStorage = createStorage();
-    Object.defineProperty(globalThis, 'crypto', {
+    globalThis.Notification = options.notification === false
+        ? undefined
+        : { permission: options.permission || 'default' };
+    Object.defineProperty(globalThis, 'navigator', {
         configurable: true,
         writable: true,
-        value: {
-            getRandomValues: function (bytes) {
-                for (var i = 0; i < bytes.length; i += 1) {
-                    bytes[i] = 0xaa;
-                }
-
-                return bytes;
-            }
-        }
+        value: options.navigator === false ? undefined : { serviceWorker: {} }
     });
+    globalThis.ServiceWorkerRegistration = function ServiceWorkerRegistration() {};
+    globalThis.ServiceWorkerRegistration.prototype.pushManager = {};
 
-    if (options.notification === false) {
-        delete globalThis.Notification;
-    } else {
-        globalThis.Notification = options.notification || {
-            permission: options.permission || 'default',
-            requestPermission: options.requestPermission || function () {
-                return Promise.resolve('granted');
+    globalThis.AccountStatusService = {
+        fetchStatus: function () {
+            accountCalls += 1;
+            if (options.accountError) {
+                return Promise.reject(new Error('account down'));
             }
-        };
-    }
-
-    if (options.navigator === false) {
-        Object.defineProperty(globalThis, 'navigator', {
-            configurable: true,
-            writable: true,
-            value: undefined
-        });
-    } else {
-        Object.defineProperty(globalThis, 'navigator', {
-            configurable: true,
-            writable: true,
-            value: options.navigator || { serviceWorker: {} }
-        });
-    }
-
-    if (options.pushManager === false) {
-        delete globalThis.PushManager;
-        delete globalThis.ServiceWorkerRegistration;
-    } else {
-        globalThis.ServiceWorkerRegistration = function ServiceWorkerRegistration() {};
-        globalThis.ServiceWorkerRegistration.prototype.pushManager = {};
-    }
-
-    globalThis.TasksService = {
-        reconcilePushActivationTask: options.reconcilePushActivationTask || function (deviceKey, readiness) {
             return Promise.resolve({
-                device_key: deviceKey,
-                readiness: readiness
+                account_status: {
+                    billing_state: options.billingState || 'active',
+                    effective_access_tier: options.effectiveTier || 'freemium'
+                }
             });
+        },
+        isAppSubscriptionActive: function (payload) {
+            return payload.account_status.billing_state === 'active';
         }
     };
 
     globalThis.PwaPushActivationService = {
-        activateFromGrantedPermission: options.activateFromGrantedPermission || function () {
-            return Promise.resolve({ registrationSucceeded: true, completed: true, status: 'registered' });
+        maybeAttemptAutomaticRecovery: function () {
+            pushCalls += 1;
+            return Promise.resolve(options.recoveryOutcome || null);
+        },
+        reconcileExistingSubscription: function () {
+            pushCalls += 1;
+            if (options.registrationError) {
+                return Promise.reject(new Error('push down'));
+            }
+            return Promise.resolve({
+                registrationSucceeded: options.registrationSucceeded === true
+            });
         }
     };
 
-    delete require.cache[deviceKeyPath];
-    delete require.cache[reconcilePath];
-    require(deviceKeyPath);
+    globalThis.TasksService = {
+        ensurePushActivationTask: function () {
+            ensureCalls += 1;
+            return Promise.resolve({ created: ensureCalls === 1 });
+        }
+    };
 
-    return require(reconcilePath);
+    delete require.cache[servicePath];
+    var service = require(servicePath);
+
+    return {
+        service: service,
+        get ensureCalls() {
+            return ensureCalls;
+        },
+        get pushCalls() {
+            return pushCalls;
+        },
+        get accountCalls() {
+            return accountCalls;
+        }
+    };
 }
 
 describe('PushActivationReconcileService', () => {
     afterEach(() => {
         delete globalThis.PushActivationReconcileService;
-        delete globalThis.PushDeviceKeyService;
-        delete globalThis.TasksService;
+        delete globalThis.AccountStatusService;
         delete globalThis.PwaPushActivationService;
+        delete globalThis.TasksService;
         delete globalThis.Notification;
         delete globalThis.navigator;
-        delete globalThis.PushManager;
         delete globalThis.ServiceWorkerRegistration;
-        delete globalThis.localStorage;
-        delete globalThis.crypto;
-        delete globalThis.AA_ADMIN_CONTEXT;
-        delete require.cache[deviceKeyPath];
-        delete require.cache[reconcilePath];
+        delete require.cache[servicePath];
     });
 
-    it('unsupported no reconcilia', async () => {
-        var reconcileCalls = 0;
-        var service = loadReconcileService({
-            notification: false,
-            reconcilePushActivationTask: function () {
-                reconcileCalls += 1;
-                return Promise.resolve({});
-            }
+    it('suscripción inactiva oculta y no toca Push ni ensure', async () => {
+        var loaded = loadService({ billingState: 'missing', permission: 'granted' });
+        var context = await loaded.service.initializeFeedContext();
+
+        assert.deepEqual(context, {
+            app_subscription_active: false,
+            push_ready: false
         });
-
-        await service.reconcileOnFeedInit();
-
-        assert.equal(reconcileCalls, 0);
+        assert.equal(loaded.pushCalls, 0);
+        assert.equal(loaded.ensureCalls, 0);
     });
 
-    it('permission default reconcilia unprepared sin prompt', async () => {
-        var requestCalls = 0;
-        var captured = null;
-        var service = loadReconcileService({
-            permission: 'default',
-            requestPermission: function () {
-                requestCalls += 1;
-                return Promise.resolve('granted');
-            },
-            reconcilePushActivationTask: function (deviceKey, readiness) {
-                captured = { deviceKey: deviceKey, readiness: readiness };
-                return Promise.resolve({});
-            }
-        });
+    it('fallo account-status cierra en false sin pipeline Push', async () => {
+        var loaded = loadService({ accountError: true, permission: 'granted' });
+        var context = await loaded.service.initializeFeedContext();
 
-        await service.reconcileOnFeedInit();
-
-        assert.equal(requestCalls, 0);
-        assert.equal(captured.readiness, 'unprepared');
-        assert.match(captured.deviceKey, /^[a-f0-9]{32}$/);
+        assert.equal(context.app_subscription_active, false);
+        assert.equal(context.push_ready, false);
+        assert.equal(loaded.pushCalls, 0);
     });
 
-    it('permission denied reconcilia unprepared', async () => {
-        var captured = null;
-        var service = loadReconcileService({
-            permission: 'denied',
-            reconcilePushActivationTask: function (deviceKey, readiness) {
-                captured = { deviceKey: deviceKey, readiness: readiness };
-                return Promise.resolve({});
-            }
-        });
+    it('permission default y denied producen push_ready false y ensure', async () => {
+        for (const permission of ['default', 'denied']) {
+            var loaded = loadService({ permission: permission });
+            var context = await loaded.service.initializeFeedContext();
 
-        await service.reconcileOnFeedInit();
-
-        assert.equal(captured.readiness, 'unprepared');
+            assert.equal(context.app_subscription_active, true);
+            assert.equal(context.push_ready, false);
+            assert.equal(loaded.pushCalls, 0);
+            assert.equal(loaded.ensureCalls, 1);
+            loaded.service.__test.resetState();
+        }
     });
 
-    it('granted + registro exitoso reconcilia prepared', async () => {
-        var captured = null;
-        var service = loadReconcileService({
+    it('granted con registro existente confirmado produce push_ready true', async () => {
+        var loaded = loadService({
             permission: 'granted',
-            activateFromGrantedPermission: function () {
-                return Promise.resolve({ registrationSucceeded: true, completed: true, status: 'registered' });
-            },
-            reconcilePushActivationTask: function (deviceKey, readiness) {
-                captured = { deviceKey: deviceKey, readiness: readiness };
-                return Promise.resolve({});
-            }
+            registrationSucceeded: true
         });
+        var context = await loaded.service.initializeFeedContext();
 
-        await service.reconcileOnFeedInit();
-
-        assert.equal(captured.readiness, 'prepared');
+        assert.equal(context.push_ready, true);
+        assert.equal(loaded.ensureCalls, 0);
     });
 
-    it('granted + fallo de registro reconcilia unprepared', async () => {
-        var captured = null;
-        var service = loadReconcileService({
+    it('backend Push caído produce false y asegura tarea', async () => {
+        var loaded = loadService({
             permission: 'granted',
-            activateFromGrantedPermission: function () {
-                return Promise.resolve({ registrationSucceeded: false, completed: false, status: 'failed' });
-            },
-            reconcilePushActivationTask: function (deviceKey, readiness) {
-                captured = { deviceKey: deviceKey, readiness: readiness };
-                return Promise.resolve({});
-            }
+            registrationError: true
         });
+        var context = await loaded.service.initializeFeedContext();
 
-        await service.reconcileOnFeedInit();
-
-        assert.equal(captured.readiness, 'unprepared');
+        assert.equal(context.push_ready, false);
+        assert.equal(loaded.ensureCalls, 1);
     });
 
-    it('data.ok true con first_test fallido sigue siendo prepared', async () => {
-        var captured = null;
-        var service = loadReconcileService({
-            permission: 'granted',
-            activateFromGrantedPermission: function () {
-                return Promise.resolve({
-                    registrationSucceeded: true,
-                    completed: true,
-                    status: 'failed'
-                });
-            },
-            reconcilePushActivationTask: function (deviceKey, readiness) {
-                captured = { deviceKey: deviceKey, readiness: readiness };
-                return Promise.resolve({});
-            }
-        });
+    it('memoriza una sola inicialización por carga', async () => {
+        var loaded = loadService({ permission: 'default' });
+        var first = loaded.service.initializeFeedContext();
+        var second = loaded.service.initializeFeedContext();
 
-        await service.reconcileOnFeedInit();
-
-        assert.equal(captured.readiness, 'prepared');
-    });
-
-    it('inicializacion unica reutiliza la misma promesa', async () => {
-        var reconcileCalls = 0;
-        var service = loadReconcileService({
-            permission: 'default',
-            reconcilePushActivationTask: function () {
-                reconcileCalls += 1;
-                return Promise.resolve({});
-            }
-        });
-
-        var first = service.reconcileOnFeedInit();
-        var second = service.reconcileOnFeedInit();
-
-        assert.equal(first, second);
+        assert.strictEqual(first, second);
         await first;
-        assert.equal(reconcileCalls, 1);
+        assert.equal(loaded.accountCalls, 1);
+        assert.equal(loaded.ensureCalls, 1);
     });
 
-    it('fallo de reconciliacion no rechaza la promesa', async () => {
-        var service = loadReconcileService({
-            permission: 'default',
-            reconcilePushActivationTask: function () {
-                return Promise.reject(new Error('network down'));
-            }
+    it('click exitoso actualiza el contexto local', async () => {
+        var loaded = loadService({ permission: 'default' });
+        await loaded.service.initializeFeedContext();
+
+        loaded.service.markPushReady(true);
+
+        assert.deepEqual(loaded.service.getFeedContext(), {
+            app_subscription_active: true,
+            push_ready: true
         });
-
-        await assert.doesNotReject(async () => {
-            await service.reconcileOnFeedInit();
-        });
-    });
-
-    it('sin localStorage ni crypto no reconcilia', async () => {
-        var reconcileCalls = 0;
-        var service = loadReconcileService({
-            permission: 'default',
-            reconcilePushActivationTask: function () {
-                reconcileCalls += 1;
-                return Promise.resolve({});
-            }
-        });
-
-        delete globalThis.localStorage;
-
-        await service.reconcileOnFeedInit();
-
-        assert.equal(reconcileCalls, 0);
-    });
-});
-
-describe('PushActivationReconcileService reconcileProducedFeedChanges', () => {
-    const reconcileServicePath = path.join(__dirname, '../../assets/js/services/pushActivationReconcileService.js');
-
-    it('created=true indica cambios de feed', () => {
-        var api = require(reconcileServicePath);
-
-        assert.equal(api.reconcileProducedFeedChanges({ created: true, completed_task_ids: [] }), true);
-    });
-
-    it('completed_task_ids no vacío indica cambios de feed', () => {
-        var api = require(reconcileServicePath);
-
-        assert.equal(api.reconcileProducedFeedChanges({ created: false, completed_task_ids: [12] }), true);
-    });
-
-    it('resultado sin cambios no indica recarga', () => {
-        var api = require(reconcileServicePath);
-
-        assert.equal(api.reconcileProducedFeedChanges({ created: false, completed_task_ids: [] }), false);
-        assert.equal(api.reconcileProducedFeedChanges(null), false);
     });
 });

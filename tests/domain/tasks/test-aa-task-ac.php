@@ -140,7 +140,7 @@ ac_assert(
 
 ac_assert(
     'from_array preserves optional origin_key',
-    AA_Task::from_array(['origin_key' => 'enable_push:abc'])->origin_key() === 'enable_push:abc'
+    AA_Task::from_array(['origin_key' => 'enable_push'])->origin_key() === 'enable_push'
 );
 ac_assert(
     'origin_key defaults to null when omitted',

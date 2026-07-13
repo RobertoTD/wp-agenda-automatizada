@@ -41,18 +41,23 @@ final class GetExecutableListsFeedUseCase {
      *     error?:array{code:string,message:string}
      * }
      */
-    public function execute(): array {
+    public function execute(array $context = []): array {
         $system_list = null;
         $user_lists = [];
         $learning_source = $this->build_source_error_meta('No se pudo cargar recomendaciones.');
         $tasks_source = $this->build_source_error_meta('No se pudo cargar listas de usuario.');
         $task_payload = [];
-        $agenda_linked = trim((string) get_option('aa_client_secret', '')) !== '';
+        $app_subscription_active = !empty($context['app_subscription_active']);
+        $push_ready = !empty($context['push_ready']);
 
         try {
             $task_payload = $this->read_tasks();
             $user_lists = TaskBoardToExecutableMapper::map($task_payload);
-            $user_lists = $this->filter_unlinked_push_activation_from_lists($user_lists, $agenda_linked);
+            $user_lists = $this->filter_push_activation_from_lists(
+                $user_lists,
+                $app_subscription_active,
+                $push_ready
+            );
             $tasks_source = $this->build_tasks_source_meta($user_lists);
         } catch (\Throwable $exception) {
             $tasks_source = $this->build_source_error_meta($exception->getMessage());
@@ -68,7 +73,11 @@ final class GetExecutableListsFeedUseCase {
                 $learning_payload = $this->read_learning();
                 $system_list = LearningRecommendationsToExecutableMapper::map($learning_payload);
                 if (is_array($system_list)) {
-                    $system_list = $this->filter_unlinked_push_activation_from_list($system_list, $agenda_linked);
+                    $system_list = $this->filter_push_activation_from_list(
+                        $system_list,
+                        $app_subscription_active,
+                        $push_ready
+                    );
                 }
                 $learning_source = $this->build_learning_source_meta($system_list);
             } catch (\Throwable $exception) {
@@ -400,11 +409,11 @@ final class GetExecutableListsFeedUseCase {
      * @param list<array<string,mixed>> $lists
      * @return list<array<string,mixed>>
      */
-    private function filter_unlinked_push_activation_from_lists(array $lists, bool $agenda_linked): array {
-        if ($agenda_linked) {
-            return $lists;
-        }
-
+    private function filter_push_activation_from_lists(
+        array $lists,
+        bool $app_subscription_active,
+        bool $push_ready
+    ): array {
         $filtered = [];
 
         foreach ($lists as $list) {
@@ -412,7 +421,11 @@ final class GetExecutableListsFeedUseCase {
                 continue;
             }
 
-            $filtered[] = $this->filter_unlinked_push_activation_from_list($list, false);
+            $filtered[] = $this->filter_push_activation_from_list(
+                $list,
+                $app_subscription_active,
+                $push_ready
+            );
         }
 
         return $filtered;
@@ -422,11 +435,11 @@ final class GetExecutableListsFeedUseCase {
      * @param array<string,mixed> $list
      * @return array<string,mixed>
      */
-    private function filter_unlinked_push_activation_from_list(array $list, bool $agenda_linked): array {
-        if ($agenda_linked) {
-            return $list;
-        }
-
+    private function filter_push_activation_from_list(
+        array $list,
+        bool $app_subscription_active,
+        bool $push_ready
+    ): array {
         $buckets = is_array($list['buckets'] ?? null) ? $list['buckets'] : [];
         $filtered_buckets = [];
 
@@ -447,7 +460,11 @@ final class GetExecutableListsFeedUseCase {
                     ? trim((string) $item['origin_key'])
                     : '';
 
-                if (AA_Push_Activation_Visibility_Policy::should_hide_when_agenda_unlinked($origin_key)) {
+                if (AA_Push_Activation_Visibility_Policy::should_hide_for_context(
+                    $origin_key,
+                    $app_subscription_active,
+                    $push_ready
+                )) {
                     continue;
                 }
 

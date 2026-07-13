@@ -276,13 +276,11 @@ final class AA_Executive_Proposal_Policy {
      * @param array<string,mixed>            $context
      */
     public function is_eligible_task(AA_Task $task, array $evaluations_by_id, array $context = []): bool {
-        $agenda_linked = array_key_exists('agenda_linked', $context)
-            ? (bool) $context['agenda_linked']
-            : true;
-
         if (
-            !$agenda_linked
-            && AA_Push_Activation_Visibility_Policy::should_hide_when_agenda_unlinked(
+            AA_Push_Activation_Visibility_Policy::is_push_activation_task(
+                (string) ($task->origin_key() ?? '')
+            )
+            || AA_Push_Activation_Visibility_Policy::is_legacy_push_activation_task(
                 (string) ($task->origin_key() ?? '')
             )
         ) {

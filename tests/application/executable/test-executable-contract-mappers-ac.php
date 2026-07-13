@@ -1163,8 +1163,7 @@ ac_assert(
     && ($agenda_secondary_item['capabilities']['can_complete'] ?? false) === true
 );
 
-$push_device_key = 'a1b2c3d4e5f6789012345678abcdef01';
-$push_origin_key = 'enable_push:' . $push_device_key . ':fedcba9876543210';
+$push_origin_key = 'enable_push';
 $push_tasks_data = [
     [
         'id' => 777,

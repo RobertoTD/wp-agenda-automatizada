@@ -558,16 +558,6 @@
             + '(ícono de candado o información en la barra de direcciones) y permite las notificaciones '
             + 'para activar esta tarea.';
 
-        function getDeviceKey() {
-            var deviceKeyService = globalRoot.PushDeviceKeyService;
-
-            if (!deviceKeyService || typeof deviceKeyService.getOrCreateDeviceKey !== 'function') {
-                return null;
-            }
-
-            return deviceKeyService.getOrCreateDeviceKey();
-        }
-
         function getNotificationPermission() {
             if (!globalRoot.Notification) {
                 return '';
@@ -598,23 +588,15 @@
             return Promise.resolve(activationService.activateFromGrantedPermission());
         }
 
-        function reconcilePrepared(deviceKey) {
-            var tasksService = globalRoot.TasksService;
+        function markPushReady() {
+            var contextService = globalRoot.PushActivationReconcileService;
 
-            if (!tasksService || typeof tasksService.reconcilePushActivationTask !== 'function') {
-                return Promise.reject(new Error('Servicio de tareas no disponible.'));
+            if (contextService && typeof contextService.markPushReady === 'function') {
+                contextService.markPushReady(true);
             }
-
-            return Promise.resolve(tasksService.reconcilePushActivationTask(deviceKey, 'prepared'));
         }
 
-        function activateRegisterAndReconcilePrepared() {
-            var deviceKey = getDeviceKey();
-
-            if (!deviceKey) {
-                return Promise.reject(new Error('No se pudo identificar este dispositivo para activar notificaciones.'));
-            }
-
+        function activateRegisterAndMarkReady() {
             return activateAndRegister()
                 .then(function (outcome) {
                     if (!outcome || outcome.registrationSucceeded !== true) {
@@ -623,9 +605,7 @@
                         throw new Error('No se pudo registrar las notificaciones push (' + status + ').');
                     }
 
-                    return reconcilePrepared(deviceKey);
-                })
-                .then(function () {
+                    markPushReady();
                     return { reload: true };
                 });
         }
@@ -662,12 +642,12 @@
                                 return { reload: false };
                             }
 
-                            return activateRegisterAndReconcilePrepared();
+                            return activateRegisterAndMarkReady();
                         });
                 }
 
                 if (permission === 'granted') {
-                    return activateRegisterAndReconcilePrepared();
+                    return activateRegisterAndMarkReady();
                 }
 
                 return Promise.reject(new Error('Notificaciones no disponibles en este navegador.'));

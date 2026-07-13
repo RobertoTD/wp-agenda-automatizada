@@ -314,15 +314,12 @@
     }
 
     /**
-     * @param {string} deviceKey
-     * @param {'prepared'|'unprepared'} readiness
+     * Asegura la recomendación global enable_push y su acción.
+     *
      * @returns {Promise<Object>}
      */
-    function reconcilePushActivationTask(deviceKey, readiness) {
-        return postAction('aa_reconcile_push_activation_task', {
-            device_key: deviceKey,
-            readiness: readiness
-        });
+    function ensurePushActivationTask() {
+        return postAction('aa_reconcile_push_activation_task');
     }
 
     window.TasksService = {
@@ -344,6 +341,6 @@
         listArchivedTasksInList: listArchivedTasksInList,
         restoreTask: restoreTask,
         deleteTask: deleteTask,
-        reconcilePushActivationTask: reconcilePushActivationTask
+        ensurePushActivationTask: ensurePushActivationTask
     };
 })();

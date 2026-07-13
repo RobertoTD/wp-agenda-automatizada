@@ -1,28 +1,11 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { describe, it, beforeEach, afterEach } = require('node:test');
+const { describe, it, afterEach } = require('node:test');
 const path = require('node:path');
 
 const handlersPath = path.join(__dirname, '../../includes/admin/ui/modules/learning/learning-action-handlers.js');
-const deviceKeyPath = path.join(__dirname, '../../assets/js/services/pushDeviceKeyService.js');
 const reconcilePath = path.join(__dirname, '../../assets/js/services/pushActivationReconcileService.js');
-
-function createStorage() {
-    var store = {};
-
-    return {
-        getItem: function (key) {
-            return Object.prototype.hasOwnProperty.call(store, key) ? store[key] : null;
-        },
-        setItem: function (key, value) {
-            store[key] = String(value);
-        },
-        removeItem: function (key) {
-            delete store[key];
-        }
-    };
-}
 
 function pushAction() {
     return {
@@ -34,22 +17,6 @@ function pushAction() {
 
 function loadHandlers(options) {
     options = options || {};
-
-    globalThis.AA_ADMIN_CONTEXT = { blogId: 9 };
-    globalThis.localStorage = createStorage();
-    Object.defineProperty(globalThis, 'crypto', {
-        configurable: true,
-        writable: true,
-        value: {
-            getRandomValues: function (bytes) {
-                for (var i = 0; i < bytes.length; i += 1) {
-                    bytes[i] = 0x11;
-                }
-
-                return bytes;
-            }
-        }
-    });
 
     globalThis.Notification = {
         permission: options.permission || 'default',
@@ -72,18 +39,18 @@ function loadHandlers(options) {
         }
     };
 
-    globalThis.TasksService = {
-        reconcilePushActivationTask: options.reconcilePushActivationTask || function () {
-            return Promise.resolve({ ok: true });
+    globalThis.PushActivationReconcileService = {
+        isPushSupported: function () {
+            return true;
+        },
+        markPushReady: options.markPushReady || function () {
+            return { app_subscription_active: true, push_ready: true };
         }
     };
 
-    delete require.cache[deviceKeyPath];
     delete require.cache[reconcilePath];
     delete require.cache[handlersPath];
 
-    require(deviceKeyPath);
-    require(reconcilePath);
     require(handlersPath);
 
     return globalThis.LearningActionHandlers;
@@ -93,79 +60,69 @@ describe('push.activate handler (MC2)', () => {
     afterEach(() => {
         delete globalThis.LearningActionHandlers;
         delete globalThis.PushActivationReconcileService;
-        delete globalThis.PushDeviceKeyService;
         delete globalThis.PwaPushActivationService;
         delete globalThis.TasksService;
         delete globalThis.Notification;
         delete globalThis.navigator;
         delete globalThis.ServiceWorkerRegistration;
-        delete globalThis.localStorage;
-        delete globalThis.crypto;
-        delete globalThis.AA_ADMIN_CONTEXT;
         delete require.cache[handlersPath];
-        delete require.cache[deviceKeyPath];
         delete require.cache[reconcilePath];
     });
 
-    it('default pide permiso en click y reconcilia prepared tras registro', async () => {
+    it('default pide permiso y marca push_ready tras registro', async () => {
         var requestCalls = 0;
-        var reconcileCalls = 0;
+        var readyCalls = 0;
         var handlers = loadHandlers({
             permission: 'default',
             requestPermission: function () {
                 requestCalls += 1;
                 return Promise.resolve('granted');
             },
-            reconcilePushActivationTask: function (deviceKey, readiness) {
-                reconcileCalls += 1;
-                assert.equal(readiness, 'prepared');
-                assert.match(deviceKey, /^[a-f0-9]{32}$/);
-                return Promise.resolve({});
+            markPushReady: function (value) {
+                readyCalls += 1;
+                assert.equal(value, true);
             }
         });
 
         var result = await handlers.run(pushAction(), {});
 
         assert.equal(requestCalls, 1);
-        assert.equal(reconcileCalls, 1);
+        assert.equal(readyCalls, 1);
         assert.equal(result.reload, true);
     });
 
-    it('granted activa directamente y reconcilia prepared', async () => {
+    it('granted activa directamente y marca push_ready', async () => {
         var requestCalls = 0;
-        var reconcileCalls = 0;
+        var readyCalls = 0;
         var handlers = loadHandlers({
             permission: 'granted',
             requestPermission: function () {
                 requestCalls += 1;
                 return Promise.resolve('granted');
             },
-            reconcilePushActivationTask: function (deviceKey, readiness) {
-                reconcileCalls += 1;
-                assert.equal(readiness, 'prepared');
-                return Promise.resolve({});
+            markPushReady: function () {
+                readyCalls += 1;
             }
         });
 
         var result = await handlers.run(pushAction(), {});
 
         assert.equal(requestCalls, 0);
-        assert.equal(reconcileCalls, 1);
+        assert.equal(readyCalls, 1);
         assert.equal(result.reload, true);
     });
 
     it('denied no solicita permiso y muestra instrucciones', async () => {
         var requestCalls = 0;
-        var reconcileCalls = 0;
+        var readyCalls = 0;
         var handlers = loadHandlers({
             permission: 'denied',
             requestPermission: function () {
                 requestCalls += 1;
                 return Promise.resolve('granted');
             },
-            reconcilePushActivationTask: function () {
-                reconcileCalls += 1;
-                return Promise.resolve({});
+            markPushReady: function () {
+                readyCalls += 1;
             }
         });
 
@@ -175,19 +132,18 @@ describe('push.activate handler (MC2)', () => {
         );
 
         assert.equal(requestCalls, 0);
-        assert.equal(reconcileCalls, 0);
+        assert.equal(readyCalls, 0);
     });
 
     it('fallo de registro no completa la tarea', async () => {
-        var reconcileCalls = 0;
+        var readyCalls = 0;
         var handlers = loadHandlers({
             permission: 'granted',
             activateFromGrantedPermission: function () {
                 return Promise.resolve({ registrationSucceeded: false, completed: false, status: 'failed' });
             },
-            reconcilePushActivationTask: function () {
-                reconcileCalls += 1;
-                return Promise.resolve({});
+            markPushReady: function () {
+                readyCalls += 1;
             }
         });
 
@@ -196,10 +152,10 @@ describe('push.activate handler (MC2)', () => {
             /No se pudo registrar las notificaciones push/
         );
 
-        assert.equal(reconcileCalls, 0);
+        assert.equal(readyCalls, 0);
     });
 
-    it('completado solo despues de registro backend exitoso', async () => {
+    it('ready solo se establece después del registro backend exitoso', async () => {
         var order = [];
         var handlers = loadHandlers({
             permission: 'granted',
@@ -207,14 +163,13 @@ describe('push.activate handler (MC2)', () => {
                 order.push('activate');
                 return Promise.resolve({ registrationSucceeded: true, completed: true, status: 'registered' });
             },
-            reconcilePushActivationTask: function () {
-                order.push('reconcile');
-                return Promise.resolve({});
+            markPushReady: function () {
+                order.push('ready');
             }
         });
 
         await handlers.run(pushAction(), {});
 
-        assert.deepEqual(order, ['activate', 'reconcile']);
+        assert.deepEqual(order, ['activate', 'ready']);
     });
 });

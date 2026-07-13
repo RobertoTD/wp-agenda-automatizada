@@ -16,10 +16,14 @@
     var lastPayload = null;
     var lastUnifiedPayload = null;
     var currentUnifiedFeedLoadPromise = null;
+    var unifiedFeedRequestGeneration = 0;
+    var feedProjectionContext = {
+        app_subscription_active: false,
+        push_ready: false
+    };
     var isAvailabilityBound = false;
     var isInteractionGuardBound = false;
     var unifiedCoordinatorInitialized = false;
-    var pushInitReconcileFeedReloadDone = false;
 
     var SESSION_STORAGE_DEBUG_KEY = 'AA_EXECUTABLE_LISTS_DEBUG';
     var SESSION_STORAGE_ACTIONS_DEBUG_KEY = 'AA_EXECUTABLE_LISTS_ACTIONS_DEBUG';
@@ -779,6 +783,28 @@
         return globalRoot.AAListOptions || null;
     }
 
+    function setFeedProjectionContext(context) {
+        var next = context && typeof context === 'object' ? context : {};
+
+        feedProjectionContext = {
+            app_subscription_active: next.app_subscription_active === true,
+            push_ready: next.push_ready === true
+        };
+    }
+
+    function getFeedProjectionContext() {
+        var contextService = globalRoot.PushActivationReconcileService;
+
+        if (contextService && typeof contextService.getFeedContext === 'function') {
+            setFeedProjectionContext(contextService.getFeedContext());
+        }
+
+        return {
+            app_subscription_active: feedProjectionContext.app_subscription_active,
+            push_ready: feedProjectionContext.push_ready
+        };
+    }
+
     /**
      * MC13H: tras mutación en feed unified, refresca también executive/selector.
      *
@@ -790,7 +816,9 @@
         var restoreSnapshot = listOptions && typeof listOptions.getListRestoreSnapshot === 'function'
             ? listOptions.getListRestoreSnapshot(root)
             : null;
-        var loadOptions = {};
+        var loadOptions = {
+            forceFresh: true
+        };
 
         if (restoreSnapshot && asString(restoreSnapshot.restoreOpenListId).trim() !== '') {
             loadOptions.restoreOpenListId = asString(restoreSnapshot.restoreOpenListId).trim();
@@ -852,21 +880,27 @@
     }
 
     /**
-     * @param {{restoreOpenListId?: string, restoreFollowingTasksOpen?: boolean}} [options]
+     * @param {{restoreOpenListId?: string, restoreFollowingTasksOpen?: boolean,forceFresh?:boolean}} [options]
      * @returns {Promise<void>}
      */
     function loadUnifiedFeed(options) {
-        if (currentUnifiedFeedLoadPromise) {
+        var feedOptions = options || {};
+        var forceFresh = feedOptions.forceFresh === true;
+
+        if (currentUnifiedFeedLoadPromise && !forceFresh) {
             return currentUnifiedFeedLoadPromise;
         }
 
-        var feedOptions = options || {};
         var restoreOpenListId = asString(feedOptions.restoreOpenListId).trim();
         var restoreFollowingTasksOpen = feedOptions.restoreFollowingTasksOpen === true;
         var service = globalRoot.ExecutableListsService;
         var registry = getLearningRegistry();
         var root = getUnifiedRoot();
         var preserveRoot = hasUnifiedFeedContent(root);
+        var requestGeneration = unifiedFeedRequestGeneration + 1;
+        var requestPromise;
+
+        unifiedFeedRequestGeneration = requestGeneration;
 
         if (registry && typeof registry.beginInstallTaskFeedLoadCycle === 'function') {
             registry.beginInstallTaskFeedLoadCycle();
@@ -880,8 +914,12 @@
             return Promise.resolve();
         }
 
-        currentUnifiedFeedLoadPromise = service.getFeed()
+        requestPromise = service.getFeed(getFeedProjectionContext())
             .then(function (payload) {
+                if (requestGeneration !== unifiedFeedRequestGeneration) {
+                    return undefined;
+                }
+
                 setUnifiedLoading(false);
                 clearUnifiedError();
                 lastUnifiedPayload = payload;
@@ -909,6 +947,10 @@
                 return undefined;
             })
             .catch(function (err) {
+                if (requestGeneration !== unifiedFeedRequestGeneration) {
+                    return;
+                }
+
                 setUnifiedLoading(false);
 
                 if (!preserveRoot) {
@@ -921,8 +963,12 @@
                 );
             })
             .finally(function () {
-                currentUnifiedFeedLoadPromise = null;
+                if (currentUnifiedFeedLoadPromise === requestPromise) {
+                    currentUnifiedFeedLoadPromise = null;
+                }
             });
+
+        currentUnifiedFeedLoadPromise = requestPromise;
 
         return currentUnifiedFeedLoadPromise;
     }
@@ -998,32 +1044,22 @@
         unifiedCoordinatorInitialized = true;
     }
 
-    function triggerPushActivationReconcile() {
-        var reconcileService = globalRoot.PushActivationReconcileService;
+    function initializePushActivationFeed() {
+        var contextService = globalRoot.PushActivationReconcileService;
 
-        if (!reconcileService || typeof reconcileService.reconcileOnFeedInit !== 'function') {
-            return;
+        if (!contextService || typeof contextService.initializeFeedContext !== 'function') {
+            setFeedProjectionContext(null);
+            return loadUnifiedFeed();
         }
 
-        reconcileService.reconcileOnFeedInit()
-            .then(function (result) {
-                if (pushInitReconcileFeedReloadDone) {
-                    return;
-                }
-
-                if (
-                    typeof reconcileService.reconcileProducedFeedChanges !== 'function'
-                    || !reconcileService.reconcileProducedFeedChanges(result)
-                ) {
-                    return;
-                }
-
-                pushInitReconcileFeedReloadDone = true;
-
+        return Promise.resolve(contextService.initializeFeedContext())
+            .then(function (context) {
+                setFeedProjectionContext(context);
                 return loadUnifiedFeed();
             })
             .catch(function () {
-                // Best-effort: sin recarga ante error.
+                setFeedProjectionContext(null);
+                return loadUnifiedFeed();
             });
     }
 
@@ -1044,8 +1080,7 @@
         enableInteractiveRoot(root);
         bindAvailabilityRerender();
         initUnifiedCoordinator(root);
-        triggerPushActivationReconcile();
-        loadUnifiedFeed();
+        initializePushActivationFeed();
     }
 
     function initExperimentalModule() {
@@ -1143,18 +1178,22 @@
         findLearningItemInPayload: findLearningItemInPayload,
         resolveExecutableItemKey: resolveExecutableItemKey,
         initUnifiedCoordinator: initUnifiedCoordinator,
-        triggerPushActivationReconcile: triggerPushActivationReconcile,
+        initializePushActivationFeed: initializePushActivationFeed,
+        getFeedProjectionContext: getFeedProjectionContext,
+        setFeedProjectionContext: setFeedProjectionContext,
         visibleUserFeedApi: visibleUserFeedApi
     };
 
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = moduleExports;
         module.exports.__test = {
-            resetPushInitReconcileFeedReloadState: function () {
-                pushInitReconcileFeedReloadDone = false;
+            resetFeedState: function () {
+                currentUnifiedFeedLoadPromise = null;
+                unifiedFeedRequestGeneration = 0;
+                setFeedProjectionContext(null);
             },
-            isPushInitReconcileFeedReloadDone: function () {
-                return pushInitReconcileFeedReloadDone;
+            getRequestGeneration: function () {
+                return unifiedFeedRequestGeneration;
             }
         };
     }

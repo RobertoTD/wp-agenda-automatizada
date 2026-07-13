@@ -1,10 +1,14 @@
 /**
- * Push Activation Reconcile Service — readiness + aa_reconcile_push_activation_task.
+ * Push Activation Context Service — suscripción DEOIA + readiness del navegador.
  */
 (function () {
     'use strict';
 
-    var initReconcilePromise = null;
+    var initContextPromise = null;
+    var currentContext = {
+        app_subscription_active: false,
+        push_ready: false
+    };
 
     function getGlobalRoot() {
         if (typeof window !== 'undefined') {
@@ -18,16 +22,16 @@
         return {};
     }
 
-    function getDeviceKeyService() {
-        return getGlobalRoot().PushDeviceKeyService || null;
-    }
-
     function getTasksService() {
         return getGlobalRoot().TasksService || null;
     }
 
     function getPushActivationService() {
         return getGlobalRoot().PwaPushActivationService || null;
+    }
+
+    function getAccountStatusService() {
+        return getGlobalRoot().AccountStatusService || null;
     }
 
     function hasPushManagerApi(root) {
@@ -68,67 +72,87 @@
     }
 
     /**
-     * @returns {Promise<'prepared'|'unprepared'>}
+     * Comprobación pasiva: nunca crea una PushSubscription.
+     *
+     * @returns {Promise<boolean>}
      */
-    function resolveReadiness() {
+    function resolvePushReady() {
         var permission = getNotificationPermission();
 
         if (permission === 'default' || permission === 'denied' || permission === '') {
-            return Promise.resolve('unprepared');
+            return Promise.resolve(false);
         }
 
         if (permission !== 'granted') {
-            return Promise.resolve('unprepared');
+            return Promise.resolve(false);
         }
 
         var activationService = getPushActivationService();
 
-        if (!activationService || typeof activationService.activateFromGrantedPermission !== 'function') {
-            return Promise.resolve('unprepared');
+        if (
+            !activationService
+            || typeof activationService.reconcileExistingSubscription !== 'function'
+        ) {
+            return Promise.resolve(false);
         }
 
-        return Promise.resolve(activationService.activateFromGrantedPermission())
-            .then(function (outcome) {
-                if (outcome && outcome.registrationSucceeded === true) {
-                    return 'prepared';
+        var recovery = typeof activationService.maybeAttemptAutomaticRecovery === 'function'
+            ? Promise.resolve(activationService.maybeAttemptAutomaticRecovery())
+            : Promise.resolve(null);
+
+        return recovery
+            .then(function (recoveryOutcome) {
+                if (
+                    recoveryOutcome
+                    && typeof recoveryOutcome.registrationSucceeded === 'boolean'
+                ) {
+                    return recoveryOutcome.registrationSucceeded === true;
                 }
 
-                return 'unprepared';
+                return activationService.reconcileExistingSubscription()
+                    .then(function (outcome) {
+                        return !!(outcome && outcome.registrationSucceeded === true);
+                    });
             })
             .catch(function () {
-                return 'unprepared';
+                return false;
             });
     }
 
     /**
-     * @param {object|null|undefined} result
-     * @returns {boolean}
+     * @returns {Promise<boolean>}
      */
-    function reconcileProducedFeedChanges(result) {
-        if (!result || typeof result !== 'object') {
-            return false;
+    function resolveAppSubscriptionActive() {
+        var accountService = getAccountStatusService();
+
+        if (
+            !accountService
+            || typeof accountService.fetchStatus !== 'function'
+            || typeof accountService.isAppSubscriptionActive !== 'function'
+        ) {
+            return Promise.resolve(false);
         }
 
-        if (result.created === true) {
-            return true;
-        }
-
-        return Array.isArray(result.completed_task_ids) && result.completed_task_ids.length > 0;
+        return Promise.resolve(accountService.fetchStatus())
+            .then(function (payload) {
+                return accountService.isAppSubscriptionActive(payload) === true;
+            })
+            .catch(function () {
+                return false;
+            });
     }
 
     /**
-     * @param {string} deviceKey
-     * @param {'prepared'|'unprepared'} readiness
      * @returns {Promise<object|null>}
      */
-    function reconcilePushActivation(deviceKey, readiness) {
+    function ensurePushActivationTask() {
         var tasksService = getTasksService();
 
-        if (!tasksService || typeof tasksService.reconcilePushActivationTask !== 'function') {
+        if (!tasksService || typeof tasksService.ensurePushActivationTask !== 'function') {
             return Promise.resolve(null);
         }
 
-        return Promise.resolve(tasksService.reconcilePushActivationTask(deviceKey, readiness))
+        return Promise.resolve(tasksService.ensurePushActivationTask())
             .then(function (data) {
                 return data && typeof data === 'object' ? data : null;
             })
@@ -140,50 +164,93 @@
     /**
      * @returns {Promise<object|null>}
      */
-    function runFeedInitReconcile() {
-        if (!isPushSupported()) {
-            return Promise.resolve(null);
-        }
+    function resolveInitialContext() {
+        return resolveAppSubscriptionActive()
+            .then(function (appSubscriptionActive) {
+                if (!appSubscriptionActive) {
+                    currentContext = {
+                        app_subscription_active: false,
+                        push_ready: false
+                    };
+                    return currentContext;
+                }
 
-        var deviceKeyService = getDeviceKeyService();
+                if (!isPushSupported()) {
+                    return false;
+                }
 
-        if (!deviceKeyService || typeof deviceKeyService.getOrCreateDeviceKey !== 'function') {
-            return Promise.resolve(null);
-        }
+                return resolvePushReady();
+            })
+            .then(function (pushReadyOrContext) {
+                if (pushReadyOrContext && typeof pushReadyOrContext === 'object') {
+                    return pushReadyOrContext;
+                }
 
-        var deviceKey = deviceKeyService.getOrCreateDeviceKey();
+                var pushReady = pushReadyOrContext === true;
+                currentContext = {
+                    app_subscription_active: true,
+                    push_ready: pushReady
+                };
 
-        if (!deviceKey) {
-            return Promise.resolve(null);
-        }
+                if (pushReady) {
+                    return currentContext;
+                }
 
-        return resolveReadiness()
-            .then(function (readiness) {
-                return reconcilePushActivation(deviceKey, readiness);
+                return ensurePushActivationTask()
+                    .catch(function () {
+                        return null;
+                    })
+                    .then(function () {
+                        return currentContext;
+                    });
             });
     }
 
     /**
-     * Una sola evaluación por carga del módulo.
-     *
-     * @returns {Promise<object|null>}
+     * Una sola consulta de Cuenta y evaluación Push por carga.
+     * @returns {Promise<{app_subscription_active:boolean,push_ready:boolean}>}
      */
-    function reconcileOnFeedInit() {
-        if (initReconcilePromise) {
-            return initReconcilePromise;
+    function initializeFeedContext() {
+        if (initContextPromise) {
+            return initContextPromise;
         }
 
-        initReconcilePromise = runFeedInitReconcile();
+        initContextPromise = resolveInitialContext()
+            .catch(function () {
+                currentContext = {
+                    app_subscription_active: false,
+                    push_ready: false
+                };
+                return currentContext;
+            });
 
-        return initReconcilePromise;
+        return initContextPromise;
+    }
+
+    function markPushReady(value) {
+        currentContext = {
+            app_subscription_active: currentContext.app_subscription_active === true,
+            push_ready: currentContext.app_subscription_active === true && value === true
+        };
+
+        return getFeedContext();
+    }
+
+    function getFeedContext() {
+        return {
+            app_subscription_active: currentContext.app_subscription_active === true,
+            push_ready: currentContext.push_ready === true
+        };
     }
 
     var api = {
         isPushSupported: isPushSupported,
-        resolveReadiness: resolveReadiness,
-        reconcileProducedFeedChanges: reconcileProducedFeedChanges,
-        reconcilePushActivation: reconcilePushActivation,
-        reconcileOnFeedInit: reconcileOnFeedInit
+        resolveAppSubscriptionActive: resolveAppSubscriptionActive,
+        resolvePushReady: resolvePushReady,
+        ensurePushActivationTask: ensurePushActivationTask,
+        initializeFeedContext: initializeFeedContext,
+        markPushReady: markPushReady,
+        getFeedContext: getFeedContext
     };
 
     getGlobalRoot().PushActivationReconcileService = api;
@@ -192,14 +259,17 @@
         module.exports = api;
         module.exports.__test = {
             resetState: function () {
-                initReconcilePromise = null;
+                initContextPromise = null;
+                currentContext = {
+                    app_subscription_active: false,
+                    push_ready: false
+                };
             },
-            getInitReconcilePromise: function () {
-                return initReconcilePromise;
+            getInitContextPromise: function () {
+                return initContextPromise;
             },
             hasPushManagerApi: hasPushManagerApi,
-            getNotificationPermission: getNotificationPermission,
-            reconcileProducedFeedChanges: reconcileProducedFeedChanges
+            getNotificationPermission: getNotificationPermission
         };
     }
 })();

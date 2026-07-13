@@ -31,7 +31,6 @@ $executive_client_action_runner_js = AA_PLUGIN_URL . 'assets/js/services/executi
 $executive_proposal_renderer_js = AA_PLUGIN_URL . 'assets/js/ui/executiveProposalRenderer.js';
 $executive_proposal_module_js = plugin_dir_url(__FILE__) . 'executive-proposal-module.js';
 $pwa_push_activation_service_js = AA_PLUGIN_URL . 'assets/js/services/pwaPushActivationService.js';
-$push_device_key_service_js = AA_PLUGIN_URL . 'assets/js/services/pushDeviceKeyService.js';
 $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/pushActivationReconcileService.js';
 ?>
 
@@ -483,7 +482,6 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
 
 <script src="<?php echo esc_url($learning_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($tasks_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
-<script src="<?php echo esc_url($push_device_key_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($pwa_push_activation_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($push_activation_reconcile_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($learning_handlers_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>

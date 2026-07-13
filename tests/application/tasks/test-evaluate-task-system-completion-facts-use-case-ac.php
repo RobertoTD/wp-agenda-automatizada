@@ -98,7 +98,7 @@ $result = (new EvaluateTaskSystemCompletionFactsUseCase(
                 'title' => 'Activa las notificaciones en este dispositivo',
                 'status' => 'pending',
                 'source_category' => 'agenda_app',
-                'origin_key' => 'enable_push:a1b2c3d4e5f6789012345678abcdef01:fedcba9876543210',
+                'origin_key' => 'enable_push',
                 'completion_type' => 'system',
                 'completion_fact_key' => null,
             ],

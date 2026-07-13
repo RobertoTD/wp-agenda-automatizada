@@ -304,6 +304,36 @@ describe('PwaPushActivationService', () => {
         assert.equal(loaded.subscribeCalls, 1);
     });
 
+    it('comprobación pasiva sin subscription no llama subscribe ni VAPID', async () => {
+        loaded = loadService({
+            permission: 'granted',
+            existingSubscription: null
+        });
+
+        var result = await loaded.service.reconcileExistingSubscription();
+
+        assert.equal(result.registrationSucceeded, false);
+        assert.equal(result.status, 'subscription_missing');
+        assert.equal(loaded.subscribeCalls, 0);
+        assert.equal(loaded.fetchCalls.length, 0);
+    });
+
+    it('comprobación pasiva registra una subscription existente sin VAPID', async () => {
+        loaded = loadService({
+            permission: 'granted',
+            existingSubscription: createSubscription()
+        });
+
+        var result = await loaded.service.reconcileExistingSubscription();
+        var actions = loaded.fetchCalls.map(function (call) {
+            return readFormField(call.options.body, 'action');
+        });
+
+        assert.equal(result.registrationSucceeded, true);
+        assert.equal(loaded.subscribeCalls, 0);
+        assert.deepEqual(actions, ['aa_register_push_subscription']);
+    });
+
     it('registra endpoint p256dh auth exactos', async () => {
         loaded = loadService({ permission: 'granted' });
 
@@ -478,16 +508,17 @@ describe('PwaPushActivationService', () => {
         assert.equal(loaded.test.hasPending('42'), true);
     });
 
-    it('recuperacion granted + pending reintenta una sola vez por carga', async () => {
+    it('recuperacion pending solo se ejecuta al invocarla y una vez por carga', async () => {
         loaded = loadService({
             permission: 'granted',
             pendingBeforeLoad: true,
             existingSubscription: createSubscription()
         });
 
-        await new Promise(function (resolve) {
-            setImmediate(resolve);
-        });
+        assert.equal(loaded.fetchCalls.length, 0);
+
+        await loaded.service.maybeAttemptAutomaticRecovery();
+        await loaded.service.maybeAttemptAutomaticRecovery();
 
         var configCalls = loaded.fetchCalls.filter(function (call) {
             return readFormField(call.options.body, 'action') === 'aa_get_push_config';
@@ -539,7 +570,7 @@ describe('PwaPushActivationService', () => {
         assert.equal(loaded.test.isActivationInFlight(), false);
     });
 
-    it('recuperacion automatica no produce unhandled rejection', async () => {
+    it('recuperacion pending controlada no produce unhandled rejection', async () => {
         loaded = loadService({
             permission: 'granted',
             pendingBeforeLoad: true,
@@ -555,9 +586,9 @@ describe('PwaPushActivationService', () => {
             }
         });
 
-        await new Promise(function (resolve) {
-            setImmediate(resolve);
-        });
+        await assert.doesNotReject(
+            loaded.service.maybeAttemptAutomaticRecovery()
+        );
 
         assert.equal(loaded.test.hasPending('42'), true);
     });

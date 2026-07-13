@@ -1,19 +1,20 @@
 <?php
 /**
- * Reconcile Push Activation Task Use Case — ocurrencias enable_push:* por dispositivo.
+ * Ensure Push Activation Task Use Case — asegura agenda_app / enable_push pending.
  */
 
 defined('ABSPATH') or die('No direct access');
 
 require_once __DIR__ . '/TaskUseCaseSupport.php';
 require_once __DIR__ . '/ChangeTaskStatusUseCase.php';
-require_once dirname(__DIR__, 2) . '/repositories/PushActivationTaskRepository.php';
 require_once dirname(__DIR__, 2) . '/repositories/SeededTaskRepository.php';
 require_once dirname(__DIR__, 2) . '/repositories/TaskActionRepository.php';
 
 final class ReconcilePushActivationTaskUseCase {
 
-    private const SOURCE_CATEGORY = 'agenda_app';
+    public const SOURCE_CATEGORY = 'agenda_app';
+
+    public const TASK_ORIGIN_KEY = 'enable_push';
 
     private const LIST_ORIGIN_KEY = 'learning.recommendations';
 
@@ -29,65 +30,46 @@ final class ReconcilePushActivationTaskUseCase {
     private $list_resolver;
 
     /** @var callable|null */
-    private $lock_runner;
-
-    /** @var callable|null */
-    private $occurrences_lister;
+    private $task_finder;
 
     /** @var callable|null */
     private $task_creator;
 
     /** @var callable|null */
-    private $status_changer;
+    private $pending_ensurer;
 
     /** @var callable|null */
     private $action_ensurer;
 
     /**
-     * @param callable|null $list_resolver       () => ?array
-     * @param callable|null $lock_runner         (string $lock_name, callable $callback) => mixed
-     * @param callable|null $occurrences_lister  (string $source_category, string $device_key) => list<array>
-     * @param callable|null $task_creator        (int $list_id, string $origin_key) => ?array
-     * @param callable|null $status_changer      (int $task_id) => array use-case result
-     * @param callable|null $action_ensurer      (int $task_id) => ?array
+     * @param callable|null $list_resolver  () => ?array
+     * @param callable|null $task_finder    (string $source_category, string $origin_key) => ?array
+     * @param callable|null $task_creator   (int $list_id) => ?array
+     * @param callable|null $pending_ensurer (int $task_id) => array use-case result
+     * @param callable|null $action_ensurer (int $task_id) => ?array
      */
     public function __construct(
         ?callable $list_resolver = null,
-        ?callable $lock_runner = null,
-        ?callable $occurrences_lister = null,
+        ?callable $task_finder = null,
         ?callable $task_creator = null,
-        ?callable $status_changer = null,
+        ?callable $pending_ensurer = null,
         ?callable $action_ensurer = null
     ) {
         $this->list_resolver = $list_resolver;
-        $this->lock_runner = $lock_runner;
-        $this->occurrences_lister = $occurrences_lister;
+        $this->task_finder = $task_finder;
         $this->task_creator = $task_creator;
-        $this->status_changer = $status_changer;
+        $this->pending_ensurer = $pending_ensurer;
         $this->action_ensurer = $action_ensurer;
     }
 
     /**
-     * @param array<string,mixed> $input
      * @return array{
      *     success:bool,
      *     data?:array<string,mixed>,
      *     error?:array{code:string,message:string,retryable?:bool}
      * }
      */
-    public function execute(array $input): array {
-        $device_key = self::normalize_device_key($input['device_key'] ?? null);
-
-        if ($device_key === null) {
-            return self::fail('invalid_device_key', 'La clave del dispositivo no es válida.');
-        }
-
-        $readiness = self::normalize_readiness($input['readiness'] ?? null);
-
-        if ($readiness === null) {
-            return self::fail('invalid_readiness', 'El estado de preparación no es válido.');
-        }
-
+    public function execute(): array {
         $list = $this->resolve_active_list();
 
         if ($list === null) {
@@ -108,31 +90,10 @@ final class ReconcilePushActivationTaskUseCase {
             );
         }
 
-        $lock_name = PushActivationTaskRepository::build_lock_name(
-            (string) get_current_blog_id(),
-            $device_key
-        );
+        $result = $this->ensure_global_task($list_id);
 
-        $locked = $this->run_with_lock($lock_name, function () use ($readiness, $device_key, $list_id): array {
-            $non_done = $this->list_non_done_occurrences(self::SOURCE_CATEGORY, $device_key);
-
-            if ($readiness === 'prepared') {
-                return $this->reconcile_prepared($non_done);
-            }
-
-            return $this->reconcile_unprepared($non_done, $list_id, $device_key);
-        });
-
-        if (!empty($locked['lock_unavailable'])) {
-            return self::fail(
-                'push_task_lock_unavailable',
-                'No se pudo adquirir el bloqueo de reconciliación.',
-                true
-            );
-        }
-
-        if (!empty($locked['error'])) {
-            $error = $locked['error'];
+        if (!empty($result['error'])) {
+            $error = $result['error'];
 
             return self::fail(
                 (string) ($error['code'] ?? 'unknown_error'),
@@ -140,57 +101,16 @@ final class ReconcilePushActivationTaskUseCase {
             );
         }
 
-        return TaskUseCaseSupport::ok($locked['data'] ?? []);
+        return TaskUseCaseSupport::ok($result);
     }
 
     /**
-     * @param list<array<string,mixed>> $non_done
-     * @return array{data?:array<string,mixed>,error?:array{code:string,message:string,retryable?:bool}}
+     * @return array<string,mixed>
      */
-    private function reconcile_prepared(array $non_done): array {
-        $completed_task_ids = [];
+    private function ensure_global_task(int $list_id): array {
+        $existing = $this->find_global_task();
 
-        foreach ($non_done as $task) {
-            $task_id = (int) ($task['id'] ?? 0);
-
-            if ($task_id < 1) {
-                continue;
-            }
-
-            $result = $this->complete_task($task_id);
-
-            if (empty($result['success'])) {
-                $error = $result['error'] ?? [];
-
-                return [
-                    'error' => [
-                        'code' => (string) ($error['code'] ?? 'task_completion_failed'),
-                        'message' => (string) ($error['message'] ?? 'No se pudo completar la tarea de activación push.'),
-                    ],
-                ];
-            }
-
-            $completed_task_ids[] = $task_id;
-        }
-
-        return [
-            'data' => [
-                'readiness' => 'prepared',
-                'task' => null,
-                'created' => false,
-                'completed_task_ids' => $completed_task_ids,
-                'retryable' => false,
-            ],
-        ];
-    }
-
-    /**
-     * @param list<array<string,mixed>> $non_done
-     * @return array{data?:array<string,mixed>,error?:array{code:string,message:string,retryable?:bool}}
-     */
-    private function reconcile_unprepared(array $non_done, int $list_id, string $device_key): array {
-        if ($non_done !== []) {
-            $existing = $non_done[0];
+        if ($existing !== null) {
             $task_id = (int) ($existing['id'] ?? 0);
 
             if ($task_id < 1) {
@@ -202,9 +122,25 @@ final class ReconcilePushActivationTaskUseCase {
                 ];
             }
 
-            $action = $this->ensure_push_action($task_id);
+            if (strtolower(trim((string) ($existing['status'] ?? ''))) !== 'pending') {
+                $pending_result = $this->ensure_pending($task_id);
 
-            if ($action === null) {
+                if (empty($pending_result['success'])) {
+                    return [
+                        'error' => [
+                            'code' => 'task_persistence_failed',
+                            'message' => 'No se pudo mantener pendiente la tarea de activación push.',
+                        ],
+                    ];
+                }
+
+                $refreshed = $this->find_global_task();
+                if (is_array($refreshed)) {
+                    $existing = $refreshed;
+                }
+            }
+
+            if ($this->ensure_push_action($task_id) === null) {
                 return [
                     'error' => [
                         'code' => 'action_persistence_failed',
@@ -213,25 +149,16 @@ final class ReconcilePushActivationTaskUseCase {
                 ];
             }
 
-            return [
-                'data' => [
-                    'readiness' => 'unprepared',
-                    'task' => $existing,
-                    'created' => false,
-                    'completed_task_ids' => [],
-                    'retryable' => false,
-                ],
-            ];
+            return $this->build_result($existing, false);
         }
 
-        $task = $this->create_occurrence($list_id, $device_key);
+        $created = $this->create_global_task($list_id);
 
-        if ($task === null) {
-            $recovered = $this->list_non_done_occurrences(self::SOURCE_CATEGORY, $device_key);
+        if ($created === null) {
+            $recovered = $this->find_global_task();
 
-            if ($recovered !== []) {
-                $existing = $recovered[0];
-                $task_id = (int) ($existing['id'] ?? 0);
+            if ($recovered !== null) {
+                $task_id = (int) ($recovered['id'] ?? 0);
 
                 if ($task_id < 1) {
                     return [
@@ -242,9 +169,7 @@ final class ReconcilePushActivationTaskUseCase {
                     ];
                 }
 
-                $action = $this->ensure_push_action($task_id);
-
-                if ($action === null) {
+                if ($this->ensure_push_action($task_id) === null) {
                     return [
                         'error' => [
                             'code' => 'action_persistence_failed',
@@ -253,15 +178,7 @@ final class ReconcilePushActivationTaskUseCase {
                     ];
                 }
 
-                return [
-                    'data' => [
-                        'readiness' => 'unprepared',
-                        'task' => $existing,
-                        'created' => false,
-                        'completed_task_ids' => [],
-                        'retryable' => false,
-                    ],
-                ];
+                return $this->build_result($recovered, false);
             }
 
             return [
@@ -272,30 +189,15 @@ final class ReconcilePushActivationTaskUseCase {
             ];
         }
 
-        return [
-            'data' => [
-                'readiness' => 'unprepared',
-                'task' => $task,
-                'created' => true,
-                'completed_task_ids' => [],
-                'retryable' => false,
-            ],
-        ];
+        return $this->build_result($created, true);
     }
 
     /**
      * @return array<string,mixed>|null
      */
-    private function create_occurrence(int $list_id, string $device_key): ?array {
+    private function create_global_task(int $list_id): ?array {
         if ($this->task_creator !== null) {
-            $occurrence_id = PushActivationTaskRepository::generate_occurrence_id();
-            $origin_key = PushActivationTaskRepository::build_origin_key($device_key, $occurrence_id);
-
-            if ($origin_key === null) {
-                return null;
-            }
-
-            $task = call_user_func($this->task_creator, $list_id, $origin_key);
+            $task = call_user_func($this->task_creator, $list_id);
 
             if (!is_array($task)) {
                 return null;
@@ -310,14 +212,7 @@ final class ReconcilePushActivationTaskUseCase {
             return $task;
         }
 
-        $occurrence_id = PushActivationTaskRepository::generate_occurrence_id();
-        $origin_key = PushActivationTaskRepository::build_origin_key($device_key, $occurrence_id);
-
-        if ($origin_key === null) {
-            return null;
-        }
-
-        $task = SeededTaskRepository::upsert_seeded_task($this->build_task_payload($list_id, $origin_key));
+        $task = SeededTaskRepository::upsert_seeded_task($this->build_task_payload($list_id));
 
         if ($task === null) {
             return null;
@@ -333,13 +228,13 @@ final class ReconcilePushActivationTaskUseCase {
             return null;
         }
 
-        return SeededTaskRepository::find_task_by_origin(self::SOURCE_CATEGORY, $origin_key);
+        return $this->find_global_task();
     }
 
     /**
      * @return array<string,mixed>
      */
-    private function build_task_payload(int $list_id, string $origin_key): array {
+    private function build_task_payload(int $list_id): array {
         return [
             'list_id' => $list_id,
             'title' => self::TASK_TITLE,
@@ -347,7 +242,7 @@ final class ReconcilePushActivationTaskUseCase {
             'status' => 'pending',
             'source' => 'system',
             'source_category' => self::SOURCE_CATEGORY,
-            'origin_key' => $origin_key,
+            'origin_key' => self::TASK_ORIGIN_KEY,
             'managed_by' => 'developer',
             'importance' => 110,
             'default_bucket' => 'primary',
@@ -356,6 +251,19 @@ final class ReconcilePushActivationTaskUseCase {
             'due_at' => null,
             'completed_at' => null,
         ];
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function find_global_task(): ?array {
+        if ($this->task_finder !== null) {
+            $task = call_user_func($this->task_finder, self::SOURCE_CATEGORY, self::TASK_ORIGIN_KEY);
+
+            return is_array($task) ? $task : null;
+        }
+
+        return SeededTaskRepository::find_task_by_origin(self::SOURCE_CATEGORY, self::TASK_ORIGIN_KEY);
     }
 
     /**
@@ -383,30 +291,20 @@ final class ReconcilePushActivationTaskUseCase {
     /**
      * @return array{success:bool,data?:array<string,mixed>,error?:array{code:string,message:string}}
      */
-    private function complete_task(int $task_id): array {
-        if ($this->status_changer !== null) {
-            $result = call_user_func($this->status_changer, $task_id);
+    private function ensure_pending(int $task_id): array {
+        if ($this->pending_ensurer !== null) {
+            $result = call_user_func($this->pending_ensurer, $task_id);
 
-            return is_array($result) ? $result : TaskUseCaseSupport::fail('task_completion_failed', 'No se pudo completar la tarea.');
+            return is_array($result) ? $result : TaskUseCaseSupport::fail(
+                'task_persistence_failed',
+                'No se pudo mantener pendiente la tarea.'
+            );
         }
 
         return (new ChangeTaskStatusUseCase())->execute([
             'task_id' => $task_id,
-            'status' => 'done',
+            'status' => 'pending',
         ]);
-    }
-
-    /**
-     * @return list<array<string,mixed>>
-     */
-    private function list_non_done_occurrences(string $source_category, string $device_key): array {
-        if ($this->occurrences_lister !== null) {
-            $rows = call_user_func($this->occurrences_lister, $source_category, $device_key);
-
-            return is_array($rows) ? array_values($rows) : [];
-        }
-
-        return PushActivationTaskRepository::list_non_done_occurrences($source_category, $device_key);
     }
 
     /**
@@ -441,57 +339,14 @@ final class ReconcilePushActivationTaskUseCase {
     }
 
     /**
-     * @param callable():array{data?:array<string,mixed>,error?:array{code:string,message:string,retryable?:bool},lock_unavailable?:bool} $callback
-     * @return array{data?:array<string,mixed>,error?:array{code:string,message:string,retryable?:bool},lock_unavailable?:bool}
+     * @return array<string,mixed>
      */
-    private function run_with_lock(string $lock_name, callable $callback): array {
-        if ($this->lock_runner !== null) {
-            $result = call_user_func($this->lock_runner, $lock_name, $callback);
-
-            return is_array($result) ? $result : ['lock_unavailable' => true];
-        }
-
-        if (!PushActivationTaskRepository::try_acquire_lock($lock_name)) {
-            return ['lock_unavailable' => true];
-        }
-
-        try {
-            $result = $callback();
-
-            return is_array($result) ? $result : [];
-        } finally {
-            PushActivationTaskRepository::release_lock($lock_name);
-        }
-    }
-
-    /**
-     * @param mixed $value
-     */
-    private static function normalize_device_key($value): ?string {
-        if (!is_string($value)) {
-            return null;
-        }
-
-        $device_key = strtolower(trim($value));
-
-        return PushActivationTaskRepository::is_valid_device_key($device_key) ? $device_key : null;
-    }
-
-    /**
-     * @param mixed $value
-     */
-    private static function normalize_readiness($value): ?string {
-        if (!is_string($value)) {
-            return null;
-        }
-
-        $readiness = strtolower(trim($value));
-
-        if ($readiness === 'prepared' || $readiness === 'unprepared') {
-            return $readiness;
-        }
-
-        return null;
+    private function build_result(?array $task, bool $created): array {
+        return [
+            'task' => $task,
+            'created' => $created,
+            'retryable' => false,
+        ];
     }
 
     /**

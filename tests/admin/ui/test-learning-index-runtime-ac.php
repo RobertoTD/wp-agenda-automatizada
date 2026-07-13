@@ -161,12 +161,12 @@ ac_assert(
     && strpos($index_php, 'PushSubscriptionAjax::NONCE_ACTION') !== false
 );
 ac_assert(
-    'index.php enqueues push device key service',
-    is_string($index_php) && strpos($index_php, 'pushDeviceKeyService.js') !== false
-);
-ac_assert(
     'index.php enqueues push activation reconcile service',
     is_string($index_php) && strpos($index_php, 'pushActivationReconcileService.js') !== false
+);
+ac_assert(
+    'index.php does not enqueue push device key service',
+    is_string($index_php) && strpos($index_php, 'pushDeviceKeyService.js') === false
 );
 ac_assert(
     'index.php enqueues pwaPushActivationService after AA_PUSH_CONFIG',

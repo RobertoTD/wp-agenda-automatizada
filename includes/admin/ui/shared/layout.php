@@ -207,6 +207,13 @@ header('Content-Type: text/html; charset=utf-8');
         nonce: '<?php echo esc_js(wp_create_nonce('aa_get_onboarding_status_nonce')); ?>'
     };
 
+    // Estado comercial compartido (Cuenta + gates UI; una promesa por carga).
+    window.AA_ACCOUNT_STATUS_DATA = {
+        ajaxUrl: window.ajaxurl || '<?php echo esc_js(admin_url('admin-ajax.php')); ?>',
+        action: 'aa_get_account_status',
+        nonce: '<?php echo esc_js(wp_create_nonce('aa_get_account_status_nonce')); ?>'
+    };
+
     // Tutorial durable state (MC3A; consumo futuro vía TutorialStateService)
     window.AA_TUTORIAL_DATA = {
         ajaxUrl: window.ajaxurl || '<?php echo esc_js(admin_url('admin-ajax.php')); ?>',
@@ -283,6 +290,9 @@ header('Content-Type: text/html; charset=utf-8');
 
 <!-- Onboarding status (read-only; MC3 transport only) -->
 <script src="<?php echo aa_asset_url('assets/js/services/onboardingStatusService.js'); ?>" defer></script>
+
+<!-- Account status (read-only; promesa compartida por carga) -->
+<script src="<?php echo aa_asset_url('assets/js/services/accountStatusService.js'); ?>" defer></script>
 
 <!-- Onboarding activation guide (MC5A manual open; requiere OnboardingStatusService) -->
 <script src="<?php echo aa_asset_url('includes/admin/ui/modals/onboarding/onboardingActivationGuide.js'); ?>" defer></script>

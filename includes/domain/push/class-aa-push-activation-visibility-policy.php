@@ -1,26 +1,37 @@
 <?php
 /**
- * Push Activation Visibility Policy — proyección de tareas enable_push:*.
+ * Push Activation Visibility Policy — proyección de la tarea global enable_push.
  *
- * Dominio puro: sin WordPress, SQL ni entitlement.
+ * Dominio puro: sin WordPress ni SQL.
  */
 
 defined('ABSPATH') or die('No direct access');
 
 final class AA_Push_Activation_Visibility_Policy {
 
-    private const ORIGIN_KEY_PATTERN = '/^enable_push:[a-f0-9]{32}:[a-f0-9]{16}$/';
+    public const TASK_ORIGIN_KEY = 'enable_push';
 
-    public static function is_valid_enable_push_origin_key(string $origin_key): bool {
-        return (bool) preg_match(self::ORIGIN_KEY_PATTERN, trim($origin_key));
+    public static function is_push_activation_task(string $origin_key): bool {
+        return trim($origin_key) === self::TASK_ORIGIN_KEY;
     }
 
-    /**
-     * True when a valid enable_push task must be hidden because the agenda is unlinked.
-     *
-     * Callers pass the unlinked fact; this policy only validates origin_key format.
-     */
-    public static function should_hide_when_agenda_unlinked(string $origin_key): bool {
-        return self::is_valid_enable_push_origin_key($origin_key);
+    public static function is_legacy_push_activation_task(string $origin_key): bool {
+        return strpos(trim($origin_key), self::TASK_ORIGIN_KEY . ':') === 0;
+    }
+
+    public static function should_hide_for_context(
+        string $origin_key,
+        bool $app_subscription_active,
+        bool $push_ready
+    ): bool {
+        if (self::is_legacy_push_activation_task($origin_key)) {
+            return true;
+        }
+
+        if (!self::is_push_activation_task($origin_key)) {
+            return false;
+        }
+
+        return !$app_subscription_active || $push_ready;
     }
 }

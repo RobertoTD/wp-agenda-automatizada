@@ -402,12 +402,12 @@ $no_false_empty = exec_propose(
 );
 ac_assert('No false empty when other lists have eligibles', ($no_false_empty['status'] ?? '') === AA_Executive_Contract::STATUS_READY);
 
-// ─── Unlinked agenda: hide valid enable_push from executive eligibility ─
+// ─── Push activation always excluded from executive eligibility ─
 
-$push_device_key = 'a1b2c3d4e5f6789012345678abcdef01';
-$push_origin_key = 'enable_push:' . $push_device_key . ':fedcba9876543210';
+$push_origin_key = 'enable_push';
+$legacy_push_origin_key = 'enable_push:a1b2c3d4e5f6789012345678abcdef01:fedcba9876543210';
 
-$unlinked_push_exec = exec_propose(
+$push_exec = exec_propose(
     [
         ['id' => 50, 'title' => 'Activación de tu agenda', 'status' => 'active', 'importance' => 100],
     ],
@@ -431,10 +431,18 @@ $unlinked_push_exec = exec_propose(
         [
             'id' => 778,
             'list_id' => 50,
-            'title' => 'Push malformada',
+            'title' => 'Otra tarea Activación',
             'status' => 'pending',
             'importance' => 80,
-            'origin_key' => 'enable_push:bad:bad',
+            'origin_key' => 'pwa.install',
+        ],
+        [
+            'id' => 779,
+            'list_id' => 50,
+            'title' => 'Push legacy',
+            'status' => 'pending',
+            'importance' => 85,
+            'origin_key' => $legacy_push_origin_key,
         ],
     ],
     [
@@ -443,27 +451,26 @@ $unlinked_push_exec = exec_propose(
             777 => exec_visible_eval(),
             500 => exec_visible_eval(),
             778 => exec_visible_eval(),
+            779 => exec_visible_eval(),
         ],
     ],
-    [
-        'agenda_linked' => false,
-    ]
+    []
 );
 
 ac_assert(
-    'Unlinked agenda excludes valid enable_push from top-3',
-    ($unlinked_push_exec['task_ids'] ?? []) === [500, 778]
+    'Executive proposal excludes global enable_push from top-3',
+    ($push_exec['task_ids'] ?? []) === [500, 778]
 );
 ac_assert(
-    'Unlinked agenda eligible_count excludes hidden push',
-    (int) ($unlinked_push_exec['eligible_count_in_focus_list'] ?? 0) === 2
+    'Executive proposal eligible_count excludes hidden push tasks',
+    (int) ($push_exec['eligible_count_in_focus_list'] ?? 0) === 2
 );
 ac_assert(
-    'Unlinked agenda keeps Activación list as focus',
-    (int) ($unlinked_push_exec['focus_list_id'] ?? 0) === 50
+    'Executive proposal keeps Activación list as focus',
+    (int) ($push_exec['focus_list_id'] ?? 0) === 50
 );
 ac_assert(
-    'Unlinked agenda is_eligible rejects valid enable_push',
+    'Executive is_eligible rejects global enable_push',
     !$policy->is_eligible_task(
         AA_Task::from_array([
             'id' => 777,
@@ -472,64 +479,34 @@ ac_assert(
             'origin_key' => $push_origin_key,
         ]),
         [777 => exec_visible_eval()],
-        ['agenda_linked' => false]
+        []
     )
 );
 ac_assert(
-    'Unlinked agenda keeps malformed enable_push eligible',
+    'Executive is_eligible rejects legacy enable_push:*',
+    !$policy->is_eligible_task(
+        AA_Task::from_array([
+            'id' => 779,
+            'list_id' => 50,
+            'status' => 'pending',
+            'origin_key' => $legacy_push_origin_key,
+        ]),
+        [779 => exec_visible_eval()],
+        []
+    )
+);
+ac_assert(
+    'Executive keeps other Activación tasks eligible',
     $policy->is_eligible_task(
         AA_Task::from_array([
             'id' => 778,
             'list_id' => 50,
             'status' => 'pending',
-            'origin_key' => 'enable_push:bad:bad',
+            'origin_key' => 'pwa.install',
         ]),
         [778 => exec_visible_eval()],
-        ['agenda_linked' => false]
+        []
     )
-);
-
-$linked_push_exec = exec_propose(
-    [
-        ['id' => 50, 'title' => 'Activación de tu agenda', 'status' => 'active', 'importance' => 100],
-    ],
-    [
-        [
-            'id' => 777,
-            'list_id' => 50,
-            'title' => 'Activa notificaciones',
-            'status' => 'pending',
-            'importance' => 110,
-            'origin_key' => $push_origin_key,
-        ],
-        [
-            'id' => 500,
-            'list_id' => 50,
-            'title' => 'Instala la app',
-            'status' => 'pending',
-            'importance' => 90,
-            'origin_key' => 'pwa.install',
-        ],
-    ],
-    [
-        'list_order' => [50],
-        'task_evaluations_by_id' => [
-            777 => exec_visible_eval(),
-            500 => exec_visible_eval(),
-        ],
-    ],
-    [
-        'agenda_linked' => true,
-    ]
-);
-
-ac_assert(
-    'Linked agenda keeps valid enable_push in top-3 by importance',
-    ($linked_push_exec['task_ids'] ?? []) === [777, 500]
-);
-ac_assert(
-    'Linked agenda eligible_count includes push task',
-    (int) ($linked_push_exec['eligible_count_in_focus_list'] ?? 0) === 2
 );
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";

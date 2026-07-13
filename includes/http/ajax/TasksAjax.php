@@ -158,10 +158,8 @@ final class TasksAjax {
     public static function handle_reconcile_push_activation_task(): void {
         self::authorize();
 
-        $result = (new ReconcilePushActivationTaskUseCase())->execute([
-            'device_key' => self::post_string('device_key'),
-            'readiness' => self::post_string('readiness'),
-        ]);
+        // Contrato ensure-only: crea/repara la tarea global pending y su acción.
+        $result = (new ReconcilePushActivationTaskUseCase())->execute();
 
         if (!empty($result['success'])) {
             wp_send_json_success($result['data'] ?? []);
@@ -172,9 +170,7 @@ final class TasksAjax {
         $retryable = !empty($error['retryable']);
         $status = 400;
 
-        if ($retryable && $code === 'push_task_lock_unavailable') {
-            $status = 409;
-        } elseif (in_array($code, ['task_persistence_failed', 'task_completion_failed', 'action_persistence_failed'], true)) {
+        if (in_array($code, ['task_persistence_failed', 'action_persistence_failed'], true)) {
             $status = 500;
         }
 

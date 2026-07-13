@@ -1029,10 +1029,11 @@ describe('executable-lists-module MC13J unified default', () => {
         assert.match(moduleSrc, /function resolveEffectiveFeedMode\(\)/);
         assert.match(moduleSrc, /initUnifiedFeedModule\(\)/);
         assert.match(moduleSrc, /initExperimentalModule\(\)/);
-        assert.match(moduleSrc, /triggerPushActivationReconcile\(\)/);
-        assert.match(moduleSrc, /triggerPushActivationReconcile\(\);\s*\n\s*loadUnifiedFeed\(\)/);
-        assert.match(moduleSrc, /reconcileProducedFeedChanges/);
-        assert.match(moduleSrc, /pushInitReconcileFeedReloadDone/);
+        assert.match(moduleSrc, /initializePushActivationFeed\(\)/);
+        assert.match(moduleSrc, /initializeFeedContext\(\)/);
+        assert.doesNotMatch(moduleSrc, /triggerPushActivationReconcile\(\)/);
+        assert.doesNotMatch(moduleSrc, /reconcileProducedFeedChanges/);
+        assert.doesNotMatch(moduleSrc, /pushInitReconcileFeedReloadDone/);
         assert.doesNotMatch(moduleSrc, /initVisibleUserFeedModule/);
         assert.doesNotMatch(moduleSrc, /aa-executable-user-lists-visible/);
     });
@@ -1043,7 +1044,8 @@ describe('executable-lists-module MC13J unified default', () => {
         const handlersSrc = fs.readFileSync(handlersPath, 'utf8');
 
         assert.match(handlersSrc, /register\('push\.activate'/);
-        assert.match(handlersSrc, /reconcilePushActivationTask\(deviceKey, 'prepared'\)/);
+        assert.match(handlersSrc, /activateRegisterAndMarkReady\(\)/);
+        assert.doesNotMatch(handlersSrc, /reconcilePushActivationTask\('prepared'\)/);
     });
 });
 
@@ -1412,9 +1414,7 @@ describe('executable-lists-module restore open list card', () => {
     });
 });
 
-describe('executable-lists-module push init reconcile feed sync', () => {
-    const reconcileServicePath = path.join(__dirname, '../../assets/js/services/pushActivationReconcileService.js');
-
+describe('executable-lists-module push activation feed bootstrap', () => {
     let originalPushReconcileService;
     let originalService;
     let originalRenderer;
@@ -1471,38 +1471,6 @@ describe('executable-lists-module push init reconcile feed sync', () => {
         };
     }
 
-    function loadReconcileApi() {
-        delete require.cache[reconcileServicePath];
-        return require(reconcileServicePath);
-    }
-
-    function setupReconcileMock(result, options) {
-        options = options || {};
-        var reconcileApi = loadReconcileApi();
-        var reconcileCalls = 0;
-
-        reconcileApi.__test.resetState();
-
-        globalThis.PushActivationReconcileService = {
-            reconcileOnFeedInit: function () {
-                reconcileCalls += 1;
-
-                if (options.reject) {
-                    return Promise.reject(new Error('reconcile failed'));
-                }
-
-                return Promise.resolve(result);
-            },
-            reconcileProducedFeedChanges: reconcileApi.reconcileProducedFeedChanges
-        };
-
-        return {
-            get reconcileCalls() {
-                return reconcileCalls;
-            }
-        };
-    }
-
     beforeEach(() => {
         originalPushReconcileService = globalThis.PushActivationReconcileService;
         originalService = globalThis.ExecutableListsService;
@@ -1511,7 +1479,7 @@ describe('executable-lists-module push init reconcile feed sync', () => {
         originalVisibleFeed = globalThis.AA_EXECUTABLE_VISIBLE_FEED;
 
         globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'unified';
-        hooks.__test.resetPushInitReconcileFeedReloadState();
+        hooks.__test.resetFeedState();
     });
 
     afterEach(() => {
@@ -1545,14 +1513,43 @@ describe('executable-lists-module push init reconcile feed sync', () => {
             globalThis.AA_EXECUTABLE_VISIBLE_FEED = originalVisibleFeed;
         }
 
-        hooks.__test.resetPushInitReconcileFeedReloadState();
-        delete require.cache[reconcileServicePath];
+        hooks.__test.resetFeedState();
     });
 
-    it('created=true dispara una actualizacion adicional del feed', async () => {
-        var feedLoads = 0;
+    it('initializePushActivationFeed resuelve contexto antes del feed', async () => {
+        var events = [];
 
-        setupReconcileMock({ created: true, completed_task_ids: [] });
+        globalThis.PushActivationReconcileService = {
+            initializeFeedContext: function () {
+                events.push('context');
+                return Promise.resolve({
+                    app_subscription_active: true,
+                    push_ready: false
+                });
+            }
+        };
+        globalThis.ExecutableListsService = {
+            getFeed: function (projection) {
+                events.push('feed');
+                assert.equal(projection.app_subscription_active, true);
+                assert.equal(projection.push_ready, false);
+                return Promise.resolve({ lists: [] });
+            }
+        };
+        globalThis.AAExecutableListRenderer = {
+            renderFeed: function () {
+                return '<details class="aa-executable-list-card"></details>';
+            }
+        };
+        globalThis.document = makeUnifiedDocumentMock(makeTrackableRoot('', 0));
+
+        await hooks.initializePushActivationFeed();
+
+        assert.deepEqual(events, ['context', 'feed']);
+    });
+
+    it('forceFresh dispara una segunda peticion real del feed', async () => {
+        var feedLoads = 0;
 
         globalThis.ExecutableListsService = {
             getFeed: function () {
@@ -1567,109 +1564,52 @@ describe('executable-lists-module push init reconcile feed sync', () => {
         };
         globalThis.document = makeUnifiedDocumentMock(makeTrackableRoot('', 0));
 
-        hooks.triggerPushActivationReconcile();
-        await new Promise(function (resolve) {
-            setTimeout(resolve, 0);
-        });
+        await hooks.loadUnifiedFeed();
+        await hooks.loadUnifiedFeed({ forceFresh: true });
 
-        assert.equal(feedLoads, 1);
-        assert.equal(hooks.__test.isPushInitReconcileFeedReloadDone(), true);
+        assert.equal(feedLoads, 2);
     });
 
-    it('completed_task_ids no vacio dispara una actualizacion adicional del feed', async () => {
-        var feedLoads = 0;
-
-        setupReconcileMock({ created: false, completed_task_ids: [88] });
+    it('respuesta vieja no sobrescribe una carga mas nueva', async () => {
+        var resolveSlow;
+        var resolveFast;
+        var rendered = [];
 
         globalThis.ExecutableListsService = {
             getFeed: function () {
-                feedLoads += 1;
-                return Promise.resolve({ lists: [] });
+                if (!resolveSlow) {
+                    return new Promise(function (resolve) {
+                        resolveSlow = resolve;
+                    });
+                }
+
+                return new Promise(function (resolve) {
+                    resolveFast = resolve;
+                });
             }
         };
         globalThis.AAExecutableListRenderer = {
-            renderFeed: function () {
+            renderFeed: function (lists) {
+                rendered.push(lists && lists[0] && lists[0].label);
                 return '<details class="aa-executable-list-card"></details>';
             }
         };
-        globalThis.document = makeUnifiedDocumentMock(makeTrackableRoot('', 0));
+        globalThis.document = makeUnifiedDocumentMock(makeTrackableRoot('stale', 1));
 
-        hooks.triggerPushActivationReconcile();
-        await new Promise(function (resolve) {
-            setTimeout(resolve, 0);
+        var first = hooks.loadUnifiedFeed();
+        var second = hooks.loadUnifiedFeed({ forceFresh: true });
+
+        resolveFast({
+            lists: [{ label: 'fresh' }]
         });
+        await second;
 
-        assert.equal(feedLoads, 1);
-    });
-
-    it('resultado sin cambios no recarga el feed', async () => {
-        var feedLoads = 0;
-
-        setupReconcileMock({ created: false, completed_task_ids: [] });
-
-        globalThis.ExecutableListsService = {
-            getFeed: function () {
-                feedLoads += 1;
-                return Promise.resolve({ lists: [] });
-            }
-        };
-        globalThis.document = makeUnifiedDocumentMock(makeTrackableRoot('', 0));
-
-        hooks.triggerPushActivationReconcile();
-        await new Promise(function (resolve) {
-            setTimeout(resolve, 0);
+        resolveSlow({
+            lists: [{ label: 'stale' }]
         });
+        await first;
 
-        assert.equal(feedLoads, 0);
-        assert.equal(hooks.__test.isPushInitReconcileFeedReloadDone(), false);
-    });
-
-    it('error de reconciliacion no recarga el feed', async () => {
-        var feedLoads = 0;
-
-        setupReconcileMock(null, { reject: true });
-
-        globalThis.ExecutableListsService = {
-            getFeed: function () {
-                feedLoads += 1;
-                return Promise.resolve({ lists: [] });
-            }
-        };
-        globalThis.document = makeUnifiedDocumentMock(makeTrackableRoot('', 0));
-
-        hooks.triggerPushActivationReconcile();
-        await new Promise(function (resolve) {
-            setTimeout(resolve, 0);
-        });
-
-        assert.equal(feedLoads, 0);
-    });
-
-    it('no produce bucle ni segunda recarga tras cambios', async () => {
-        var feedLoads = 0;
-        var metrics = setupReconcileMock({ created: true, completed_task_ids: [] });
-
-        globalThis.ExecutableListsService = {
-            getFeed: function () {
-                feedLoads += 1;
-                return Promise.resolve({ lists: [] });
-            }
-        };
-        globalThis.AAExecutableListRenderer = {
-            renderFeed: function () {
-                return '<details class="aa-executable-list-card"></details>';
-            }
-        };
-        globalThis.document = makeUnifiedDocumentMock(makeTrackableRoot('', 0));
-
-        hooks.triggerPushActivationReconcile();
-        hooks.triggerPushActivationReconcile();
-
-        await new Promise(function (resolve) {
-            setTimeout(resolve, 0);
-        });
-
-        assert.equal(metrics.reconcileCalls, 2);
-        assert.equal(feedLoads, 1);
+        assert.deepEqual(rendered, ['fresh']);
+        assert.equal(hooks.__test.getRequestGeneration(), 2);
     });
 });

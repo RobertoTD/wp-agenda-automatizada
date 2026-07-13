@@ -109,7 +109,6 @@ final class GetExecutiveProposalUseCase {
             'preferred_focus_list_id' => $preferred_focus_list_id,
             'sprint_active' => $sprint_active,
             'manual_focus_active' => $manual_focus_active,
-            'agenda_linked' => trim((string) get_option('aa_client_secret', '')) !== '',
         ]);
 
         if (
