@@ -90,6 +90,13 @@ ac_assert(
     strpos($ajax_src, "array_key_exists('default_bucket', \$_POST)") !== false
 );
 ac_assert('AJAX registers aa_change_task_status', strpos($ajax_src, 'aa_change_task_status') !== false);
+ac_assert('AJAX registers aa_reconcile_push_activation_task', strpos($ajax_src, 'aa_reconcile_push_activation_task') !== false);
+ac_assert('AJAX reconcile push uses ReconcilePushActivationTaskUseCase', strpos($ajax_src, 'ReconcilePushActivationTaskUseCase') !== false);
+ac_assert(
+    'AJAX reconcile push passes only device_key and readiness',
+    strpos($ajax_src, "'device_key' => self::post_string('device_key')") !== false
+    && strpos($ajax_src, "'readiness' => self::post_string('readiness')") !== false
+);
 ac_assert('AJAX registers aa_defer_task', strpos($ajax_src, 'aa_defer_task') !== false);
 ac_assert('AJAX registers aa_dismiss_task', strpos($ajax_src, 'aa_dismiss_task') !== false);
 ac_assert('AJAX defer uses RecordTaskDeferSignalUseCase', strpos($ajax_src, 'RecordTaskDeferSignalUseCase') !== false);
@@ -424,6 +431,12 @@ ac_assert('Edit module reloads board and feed after success', strpos($task_edit_
     && strpos($task_edit_src, 'AAExecutableUserListsVisibleFeed') !== false);
 ac_assert('TasksService updateTask sends primary and secondary default_bucket', strpos($tasks_service_src, "payload.default_bucket === 'primary'") !== false
     && strpos($tasks_service_src, "payload.default_bucket === 'secondary'") !== false);
+ac_assert(
+    'TasksService reconcilePushActivationTask posts aa_reconcile_push_activation_task',
+    strpos($tasks_service_src, 'aa_reconcile_push_activation_task') !== false
+    && strpos($tasks_service_src, 'device_key: deviceKey') !== false
+    && strpos($tasks_service_src, 'readiness: readiness') !== false
+);
 ac_assert('Renderer exposes edit button with can_edit guard', strpos(file_get_contents($plugin_root . '/assets/js/ui/executableListRenderer.js'), 'data-aa-task-edit') !== false
     && strpos(file_get_contents($plugin_root . '/assets/js/ui/executableListRenderer.js'), 'capabilities.can_edit') !== false);
 

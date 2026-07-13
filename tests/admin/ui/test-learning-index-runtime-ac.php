@@ -153,6 +153,49 @@ ac_assert(
     && strpos($index_php, 'id="aa-executive-empty"') !== false
 );
 ac_assert(
+    'index.php exposes AA_PUSH_CONFIG for Agenda App only',
+    is_string($index_php)
+    && strpos($index_php, 'window.AA_PUSH_CONFIG') !== false
+    && strpos($index_php, 'PushSubscriptionAjax::ACTION_REGISTER') !== false
+    && strpos($index_php, 'PushSubscriptionAjax::ACTION_CONFIG') !== false
+    && strpos($index_php, 'PushSubscriptionAjax::NONCE_ACTION') !== false
+);
+ac_assert(
+    'index.php enqueues push device key service',
+    is_string($index_php) && strpos($index_php, 'pushDeviceKeyService.js') !== false
+);
+ac_assert(
+    'index.php enqueues push activation reconcile service',
+    is_string($index_php) && strpos($index_php, 'pushActivationReconcileService.js') !== false
+);
+ac_assert(
+    'index.php enqueues pwaPushActivationService after AA_PUSH_CONFIG',
+    is_string($index_php)
+    && strpos($index_php, 'pwaPushActivationService.js') !== false
+);
+$handlers_script_enqueue = is_string($index_php)
+    ? strpos($index_php, 'esc_url($learning_handlers_js')
+    : false;
+$reconcile_script_enqueue = is_string($index_php)
+    ? strpos($index_php, 'esc_url($push_activation_reconcile_service_js')
+    : false;
+$pwa_script_enqueue = is_string($index_php)
+    ? strpos($index_php, 'esc_url($pwa_push_activation_service_js')
+    : false;
+$config_pos = is_string($index_php) ? strpos($index_php, 'window.AA_PUSH_CONFIG') : false;
+ac_assert(
+    'index.php loads AA_PUSH_CONFIG before pwaPushActivationService script',
+    $config_pos !== false
+    && $pwa_script_enqueue !== false
+    && $config_pos < $pwa_script_enqueue
+);
+ac_assert(
+    'index.php loads push services before learning-action-handlers scripts',
+    $reconcile_script_enqueue !== false
+    && $handlers_script_enqueue !== false
+    && $reconcile_script_enqueue < $handlers_script_enqueue
+);
+ac_assert(
     'index.php MC6 executive status header ids',
     is_string($index_php)
     && strpos($index_php, 'id="aa-executive-status"') !== false

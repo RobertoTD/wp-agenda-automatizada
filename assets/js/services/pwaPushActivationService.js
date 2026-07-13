@@ -347,19 +347,20 @@
 
     /**
      * @param {object} data
-     * @returns {{completed:boolean,status:string}}
+     * @returns {{registrationSucceeded:boolean,completed:boolean,status:string}}
      */
     function interpretRegistrationResult(data) {
+        var registrationSucceeded = !!(data && data.ok === true);
         var firstTest = data && data.first_test && typeof data.first_test === 'object'
             ? data.first_test
             : {};
-        var status = typeof firstTest.status === 'string' ? firstTest.status : '';
+        var firstTestStatus = typeof firstTest.status === 'string' ? firstTest.status : '';
 
-        if (status === 'sent' || status === 'already_sent' || status === 'sent_unconfirmed') {
-            return { completed: true, status: status };
-        }
-
-        return { completed: false, status: status || 'unknown' };
+        return {
+            registrationSucceeded: registrationSucceeded,
+            completed: registrationSucceeded,
+            status: firstTestStatus || (registrationSucceeded ? 'registered' : 'unknown')
+        };
     }
 
     /**
@@ -415,7 +416,7 @@
             .then(function (data) {
                 var outcome = interpretRegistrationResult(data);
 
-                if (outcome.completed) {
+                if (outcome.registrationSucceeded) {
                     clearPending();
                 }
 

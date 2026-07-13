@@ -92,6 +92,16 @@ $result = (new EvaluateTaskSystemCompletionFactsUseCase(
                 'completion_type' => 'system',
                 'completion_fact_key' => 'unknown_fact',
             ],
+            [
+                'id' => 13,
+                'list_id' => 50,
+                'title' => 'Activa las notificaciones en este dispositivo',
+                'status' => 'pending',
+                'source_category' => 'agenda_app',
+                'origin_key' => 'enable_push:a1b2c3d4e5f6789012345678abcdef01:fedcba9876543210',
+                'completion_type' => 'system',
+                'completion_fact_key' => null,
+            ],
         ];
     },
     static function (): array {
@@ -134,6 +144,7 @@ ac_assert('Use case evaluates known system candidate', (int) ($result['data']['e
 ac_assert('Use case counts completed facts', (int) ($result['data']['completed'] ?? 0) === 1);
 ac_assert('Use case counts newly completed', (int) ($result['data']['newly_completed'] ?? 0) === 1);
 ac_assert('Use case counts unknown fact as error', (int) ($result['data']['errors'] ?? 0) === 1);
+ac_assert('Use case skips system task with null completion_fact_key', (int) ($result['data']['skipped'] ?? 0) === 2);
 ac_assert(
     'Use case records completed_by_system for system task',
     ($recorded[0]['task_id'] ?? 0) === 10

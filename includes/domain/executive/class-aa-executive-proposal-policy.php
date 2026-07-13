@@ -11,6 +11,7 @@ require_once __DIR__ . '/class-aa-executive-contract.php';
 require_once dirname(__DIR__) . '/tasks/class-aa-task.php';
 require_once dirname(__DIR__) . '/tasks/class-aa-task-list.php';
 require_once dirname(__DIR__) . '/tasks/class-aa-task-active-view-projection-policy.php';
+require_once dirname(__DIR__) . '/push/class-aa-push-activation-visibility-policy.php';
 
 final class AA_Executive_Proposal_Policy {
 
@@ -40,7 +41,7 @@ final class AA_Executive_Proposal_Policy {
 
         $lists_by_id = $this->index_lists_by_id($lists);
         $tasks_by_id = $this->index_tasks_by_id($tasks);
-        $eligible_by_list = $this->count_eligible_by_list($tasks, $evaluations_by_id);
+        $eligible_by_list = $this->count_eligible_by_list($tasks, $evaluations_by_id, $context);
         $eligible_focus_list_ids = $this->resolve_eligible_focus_list_ids(
             $list_order,
             $lists_by_id,
@@ -91,7 +92,8 @@ final class AA_Executive_Proposal_Policy {
         $eligible_tasks = $this->collect_eligible_tasks_for_list(
             $focus_list_id,
             $tasks,
-            $evaluations_by_id
+            $evaluations_by_id,
+            $context
         );
 
         usort($eligible_tasks, function (AA_Task $a, AA_Task $b) use ($evaluations_by_id): int {
@@ -217,11 +219,11 @@ final class AA_Executive_Proposal_Policy {
      * @param array<int,array<string,mixed>>  $evaluations_by_id
      * @return array<int,int>
      */
-    private function count_eligible_by_list(array $tasks, array $evaluations_by_id): array {
+    private function count_eligible_by_list(array $tasks, array $evaluations_by_id, array $context = []): array {
         $counts = [];
 
         foreach ($tasks as $task) {
-            if (!$this->is_eligible_task($task, $evaluations_by_id)) {
+            if (!$this->is_eligible_task($task, $evaluations_by_id, $context)) {
                 continue;
             }
 
@@ -246,7 +248,12 @@ final class AA_Executive_Proposal_Policy {
      * @param array<int,array<string,mixed>>  $evaluations_by_id
      * @return list<AA_Task>
      */
-    private function collect_eligible_tasks_for_list(int $list_id, array $tasks, array $evaluations_by_id): array {
+    private function collect_eligible_tasks_for_list(
+        int $list_id,
+        array $tasks,
+        array $evaluations_by_id,
+        array $context = []
+    ): array {
         $eligible = [];
 
         foreach ($tasks as $task) {
@@ -254,7 +261,7 @@ final class AA_Executive_Proposal_Policy {
                 continue;
             }
 
-            if (!$this->is_eligible_task($task, $evaluations_by_id)) {
+            if (!$this->is_eligible_task($task, $evaluations_by_id, $context)) {
                 continue;
             }
 
@@ -266,8 +273,22 @@ final class AA_Executive_Proposal_Policy {
 
     /**
      * @param array<int,array<string,mixed>> $evaluations_by_id
+     * @param array<string,mixed>            $context
      */
-    public function is_eligible_task(AA_Task $task, array $evaluations_by_id): bool {
+    public function is_eligible_task(AA_Task $task, array $evaluations_by_id, array $context = []): bool {
+        $agenda_linked = array_key_exists('agenda_linked', $context)
+            ? (bool) $context['agenda_linked']
+            : true;
+
+        if (
+            !$agenda_linked
+            && AA_Push_Activation_Visibility_Policy::should_hide_when_agenda_unlinked(
+                (string) ($task->origin_key() ?? '')
+            )
+        ) {
+            return false;
+        }
+
         if (!$task->is_pending() || $task->is_archived()) {
             return false;
         }

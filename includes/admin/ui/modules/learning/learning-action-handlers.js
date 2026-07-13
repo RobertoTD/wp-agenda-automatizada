@@ -551,4 +551,127 @@
 
         globalRoot.LearningActionHandlers.resolveAppointmentConfirmationReservationId = resolveReservationId;
     })();
+
+    // ─── Handler real: push.activate (MC2) ───────────────────────
+    (function registerPushActivateHandler() {
+        var DENIED_INSTRUCTIONS = 'Las notificaciones están bloqueadas. Abre los permisos del sitio en tu navegador '
+            + '(ícono de candado o información en la barra de direcciones) y permite las notificaciones '
+            + 'para activar esta tarea.';
+
+        function getDeviceKey() {
+            var deviceKeyService = globalRoot.PushDeviceKeyService;
+
+            if (!deviceKeyService || typeof deviceKeyService.getOrCreateDeviceKey !== 'function') {
+                return null;
+            }
+
+            return deviceKeyService.getOrCreateDeviceKey();
+        }
+
+        function getNotificationPermission() {
+            if (!globalRoot.Notification) {
+                return '';
+            }
+
+            try {
+                return String(globalRoot.Notification.permission || '');
+            } catch (err) {
+                return '';
+            }
+        }
+
+        function requestNotificationPermission() {
+            if (!globalRoot.Notification || typeof globalRoot.Notification.requestPermission !== 'function') {
+                return Promise.resolve('denied');
+            }
+
+            return Promise.resolve(globalRoot.Notification.requestPermission());
+        }
+
+        function activateAndRegister() {
+            var activationService = globalRoot.PwaPushActivationService;
+
+            if (!activationService || typeof activationService.activateFromGrantedPermission !== 'function') {
+                return Promise.reject(new Error('Servicio de activación push no disponible.'));
+            }
+
+            return Promise.resolve(activationService.activateFromGrantedPermission());
+        }
+
+        function reconcilePrepared(deviceKey) {
+            var tasksService = globalRoot.TasksService;
+
+            if (!tasksService || typeof tasksService.reconcilePushActivationTask !== 'function') {
+                return Promise.reject(new Error('Servicio de tareas no disponible.'));
+            }
+
+            return Promise.resolve(tasksService.reconcilePushActivationTask(deviceKey, 'prepared'));
+        }
+
+        function activateRegisterAndReconcilePrepared() {
+            var deviceKey = getDeviceKey();
+
+            if (!deviceKey) {
+                return Promise.reject(new Error('No se pudo identificar este dispositivo para activar notificaciones.'));
+            }
+
+            return activateAndRegister()
+                .then(function (outcome) {
+                    if (!outcome || outcome.registrationSucceeded !== true) {
+                        var status = outcome && outcome.status ? outcome.status : 'unknown';
+
+                        throw new Error('No se pudo registrar las notificaciones push (' + status + ').');
+                    }
+
+                    return reconcilePrepared(deviceKey);
+                })
+                .then(function () {
+                    return { reload: true };
+                });
+        }
+
+        register('push.activate', {
+            isAvailable: function () {
+                var reconcileService = globalRoot.PushActivationReconcileService;
+
+                if (
+                    reconcileService
+                    && typeof reconcileService.isPushSupported === 'function'
+                    && !reconcileService.isPushSupported()
+                ) {
+                    return false;
+                }
+
+                return !!globalRoot.Notification;
+            },
+            run: function () {
+                var permission = getNotificationPermission();
+
+                if (permission === 'denied') {
+                    return Promise.reject(new Error(DENIED_INSTRUCTIONS));
+                }
+
+                if (permission === 'default') {
+                    return requestNotificationPermission()
+                        .then(function (result) {
+                            if (result !== 'granted') {
+                                if (result === 'denied') {
+                                    return Promise.reject(new Error(DENIED_INSTRUCTIONS));
+                                }
+
+                                return { reload: false };
+                            }
+
+                            return activateRegisterAndReconcilePrepared();
+                        });
+                }
+
+                if (permission === 'granted') {
+                    return activateRegisterAndReconcilePrepared();
+                }
+
+                return Promise.reject(new Error('Notificaciones no disponibles en este navegador.'));
+            }
+        });
+    })();
 })();

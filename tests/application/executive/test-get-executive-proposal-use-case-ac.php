@@ -9,6 +9,20 @@ if (!defined('ABSPATH')) {
     define('ABSPATH', __DIR__);
 }
 
+$GLOBALS['aa_exec_test_options'] = [
+    'aa_client_secret' => 'test-secret',
+];
+
+if (!function_exists('get_option')) {
+    function get_option($key, $default = false) {
+        if (array_key_exists($key, $GLOBALS['aa_exec_test_options'])) {
+            return $GLOBALS['aa_exec_test_options'][$key];
+        }
+
+        return $default;
+    }
+}
+
 if (!function_exists('sanitize_key')) {
     function sanitize_key($key) {
         return strtolower(preg_replace('/[^a-zA-Z0-9_\-]/', '', (string) $key));

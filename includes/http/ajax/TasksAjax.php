@@ -23,6 +23,7 @@ require_once dirname(__DIR__, 2) . '/application/tasks/RestoreTaskUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/tasks/ListArchivedTasksInListUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/tasks/DeleteTaskUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/tasks/DeleteTaskListUseCase.php';
+require_once dirname(__DIR__, 2) . '/application/tasks/ReconcilePushActivationTaskUseCase.php';
 
 final class TasksAjax {
 
@@ -47,6 +48,7 @@ final class TasksAjax {
         add_action('wp_ajax_aa_restore_task', [__CLASS__, 'handle_restore_task']);
         add_action('wp_ajax_aa_delete_task', [__CLASS__, 'handle_delete_task']);
         add_action('wp_ajax_aa_delete_task_list', [__CLASS__, 'handle_delete_task_list']);
+        add_action('wp_ajax_aa_reconcile_push_activation_task', [__CLASS__, 'handle_reconcile_push_activation_task']);
     }
 
     public static function handle_get_board(): void {
@@ -151,6 +153,36 @@ final class TasksAjax {
         ]);
 
         self::respond_use_case($result);
+    }
+
+    public static function handle_reconcile_push_activation_task(): void {
+        self::authorize();
+
+        $result = (new ReconcilePushActivationTaskUseCase())->execute([
+            'device_key' => self::post_string('device_key'),
+            'readiness' => self::post_string('readiness'),
+        ]);
+
+        if (!empty($result['success'])) {
+            wp_send_json_success($result['data'] ?? []);
+        }
+
+        $error = $result['error'] ?? [];
+        $code = (string) ($error['code'] ?? 'unknown_error');
+        $retryable = !empty($error['retryable']);
+        $status = 400;
+
+        if ($retryable && $code === 'push_task_lock_unavailable') {
+            $status = 409;
+        } elseif (in_array($code, ['task_persistence_failed', 'task_completion_failed', 'action_persistence_failed'], true)) {
+            $status = 500;
+        }
+
+        wp_send_json_error([
+            'message' => (string) ($error['message'] ?? 'No se pudo completar la acción.'),
+            'code' => $code,
+            'retryable' => $retryable,
+        ], $status);
     }
 
     public static function handle_defer_task(): void {

@@ -54,6 +54,9 @@ final class AA_Task {
     /** @var string|null */
     private $archived_at;
 
+    /** @var string|null */
+    private $origin_key;
+
     /**
      * @param array<string,mixed> $data
      */
@@ -71,6 +74,7 @@ final class AA_Task {
         $this->position = (int) ($data['position'] ?? 0);
         $this->completed_at = self::nullable_string($data['completed_at'] ?? null);
         $this->archived_at = self::nullable_string($data['archived_at'] ?? null);
+        $this->origin_key = self::nullable_trimmed_string($data['origin_key'] ?? null);
     }
 
     /**
@@ -166,6 +170,10 @@ final class AA_Task {
         return $this->status === self::STATUS_MISSED;
     }
 
+    public function origin_key(): ?string {
+        return $this->origin_key;
+    }
+
     /**
      * @param string $now Y-m-d H:i:s
      */
@@ -211,6 +219,19 @@ final class AA_Task {
         }
 
         return is_string($value) ? $value : null;
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private static function nullable_trimmed_string($value): ?string {
+        if ($value === null || !is_string($value)) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+
+        return $trimmed === '' ? null : $trimmed;
     }
 
     /**

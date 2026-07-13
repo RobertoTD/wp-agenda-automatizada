@@ -1029,8 +1029,21 @@ describe('executable-lists-module MC13J unified default', () => {
         assert.match(moduleSrc, /function resolveEffectiveFeedMode\(\)/);
         assert.match(moduleSrc, /initUnifiedFeedModule\(\)/);
         assert.match(moduleSrc, /initExperimentalModule\(\)/);
+        assert.match(moduleSrc, /triggerPushActivationReconcile\(\)/);
+        assert.match(moduleSrc, /triggerPushActivationReconcile\(\);\s*\n\s*loadUnifiedFeed\(\)/);
+        assert.match(moduleSrc, /reconcileProducedFeedChanges/);
+        assert.match(moduleSrc, /pushInitReconcileFeedReloadDone/);
         assert.doesNotMatch(moduleSrc, /initVisibleUserFeedModule/);
         assert.doesNotMatch(moduleSrc, /aa-executable-user-lists-visible/);
+    });
+
+    it('learning-action-handlers registra push.activate', () => {
+        const fs = require('node:fs');
+        const handlersPath = path.join(__dirname, '../../includes/admin/ui/modules/learning/learning-action-handlers.js');
+        const handlersSrc = fs.readFileSync(handlersPath, 'utf8');
+
+        assert.match(handlersSrc, /register\('push\.activate'/);
+        assert.match(handlersSrc, /reconcilePushActivationTask\(deviceKey, 'prepared'\)/);
     });
 });
 
@@ -1396,5 +1409,267 @@ describe('executable-lists-module restore open list card', () => {
         await hooks.visibleUserFeedApi.reloadFeedOnly();
 
         assert.equal(restoreCalls, 0);
+    });
+});
+
+describe('executable-lists-module push init reconcile feed sync', () => {
+    const reconcileServicePath = path.join(__dirname, '../../assets/js/services/pushActivationReconcileService.js');
+
+    let originalPushReconcileService;
+    let originalService;
+    let originalRenderer;
+    let originalDocument;
+    let originalVisibleFeed;
+
+    function makeUnifiedDocumentMock(root) {
+        return {
+            getElementById: function (id) {
+                if (id === 'aa-executable-lists-active-root') {
+                    return root;
+                }
+
+                if (id === 'aa-executable-lists-active-loading') {
+                    return {
+                        textContent: '',
+                        classList: {
+                            classes: [],
+                            add: function () {},
+                            remove: function () {}
+                        }
+                    };
+                }
+
+                if (id === 'aa-executable-lists-active-error') {
+                    return {
+                        textContent: '',
+                        classList: {
+                            classes: ['hidden'],
+                            add: function () {},
+                            remove: function () {}
+                        },
+                        remove: function () {}
+                    };
+                }
+
+                return null;
+            }
+        };
+    }
+
+    function makeTrackableRoot(initialInner, childElementCount) {
+        return {
+            childElementCount: childElementCount,
+            _inner: initialInner,
+            get innerHTML() {
+                return this._inner;
+            },
+            set innerHTML(value) {
+                this._inner = value;
+            },
+            setAttribute: function () {},
+            removeAttribute: function () {}
+        };
+    }
+
+    function loadReconcileApi() {
+        delete require.cache[reconcileServicePath];
+        return require(reconcileServicePath);
+    }
+
+    function setupReconcileMock(result, options) {
+        options = options || {};
+        var reconcileApi = loadReconcileApi();
+        var reconcileCalls = 0;
+
+        reconcileApi.__test.resetState();
+
+        globalThis.PushActivationReconcileService = {
+            reconcileOnFeedInit: function () {
+                reconcileCalls += 1;
+
+                if (options.reject) {
+                    return Promise.reject(new Error('reconcile failed'));
+                }
+
+                return Promise.resolve(result);
+            },
+            reconcileProducedFeedChanges: reconcileApi.reconcileProducedFeedChanges
+        };
+
+        return {
+            get reconcileCalls() {
+                return reconcileCalls;
+            }
+        };
+    }
+
+    beforeEach(() => {
+        originalPushReconcileService = globalThis.PushActivationReconcileService;
+        originalService = globalThis.ExecutableListsService;
+        originalRenderer = globalThis.AAExecutableListRenderer;
+        originalDocument = globalThis.document;
+        originalVisibleFeed = globalThis.AA_EXECUTABLE_VISIBLE_FEED;
+
+        globalThis.AA_EXECUTABLE_VISIBLE_FEED = 'unified';
+        hooks.__test.resetPushInitReconcileFeedReloadState();
+    });
+
+    afterEach(() => {
+        if (originalPushReconcileService === undefined) {
+            delete globalThis.PushActivationReconcileService;
+        } else {
+            globalThis.PushActivationReconcileService = originalPushReconcileService;
+        }
+
+        if (originalService === undefined) {
+            delete globalThis.ExecutableListsService;
+        } else {
+            globalThis.ExecutableListsService = originalService;
+        }
+
+        if (originalRenderer === undefined) {
+            delete globalThis.AAExecutableListRenderer;
+        } else {
+            globalThis.AAExecutableListRenderer = originalRenderer;
+        }
+
+        if (originalDocument === undefined) {
+            delete globalThis.document;
+        } else {
+            globalThis.document = originalDocument;
+        }
+
+        if (originalVisibleFeed === undefined) {
+            delete globalThis.AA_EXECUTABLE_VISIBLE_FEED;
+        } else {
+            globalThis.AA_EXECUTABLE_VISIBLE_FEED = originalVisibleFeed;
+        }
+
+        hooks.__test.resetPushInitReconcileFeedReloadState();
+        delete require.cache[reconcileServicePath];
+    });
+
+    it('created=true dispara una actualizacion adicional del feed', async () => {
+        var feedLoads = 0;
+
+        setupReconcileMock({ created: true, completed_task_ids: [] });
+
+        globalThis.ExecutableListsService = {
+            getFeed: function () {
+                feedLoads += 1;
+                return Promise.resolve({ lists: [] });
+            }
+        };
+        globalThis.AAExecutableListRenderer = {
+            renderFeed: function () {
+                return '<details class="aa-executable-list-card"></details>';
+            }
+        };
+        globalThis.document = makeUnifiedDocumentMock(makeTrackableRoot('', 0));
+
+        hooks.triggerPushActivationReconcile();
+        await new Promise(function (resolve) {
+            setTimeout(resolve, 0);
+        });
+
+        assert.equal(feedLoads, 1);
+        assert.equal(hooks.__test.isPushInitReconcileFeedReloadDone(), true);
+    });
+
+    it('completed_task_ids no vacio dispara una actualizacion adicional del feed', async () => {
+        var feedLoads = 0;
+
+        setupReconcileMock({ created: false, completed_task_ids: [88] });
+
+        globalThis.ExecutableListsService = {
+            getFeed: function () {
+                feedLoads += 1;
+                return Promise.resolve({ lists: [] });
+            }
+        };
+        globalThis.AAExecutableListRenderer = {
+            renderFeed: function () {
+                return '<details class="aa-executable-list-card"></details>';
+            }
+        };
+        globalThis.document = makeUnifiedDocumentMock(makeTrackableRoot('', 0));
+
+        hooks.triggerPushActivationReconcile();
+        await new Promise(function (resolve) {
+            setTimeout(resolve, 0);
+        });
+
+        assert.equal(feedLoads, 1);
+    });
+
+    it('resultado sin cambios no recarga el feed', async () => {
+        var feedLoads = 0;
+
+        setupReconcileMock({ created: false, completed_task_ids: [] });
+
+        globalThis.ExecutableListsService = {
+            getFeed: function () {
+                feedLoads += 1;
+                return Promise.resolve({ lists: [] });
+            }
+        };
+        globalThis.document = makeUnifiedDocumentMock(makeTrackableRoot('', 0));
+
+        hooks.triggerPushActivationReconcile();
+        await new Promise(function (resolve) {
+            setTimeout(resolve, 0);
+        });
+
+        assert.equal(feedLoads, 0);
+        assert.equal(hooks.__test.isPushInitReconcileFeedReloadDone(), false);
+    });
+
+    it('error de reconciliacion no recarga el feed', async () => {
+        var feedLoads = 0;
+
+        setupReconcileMock(null, { reject: true });
+
+        globalThis.ExecutableListsService = {
+            getFeed: function () {
+                feedLoads += 1;
+                return Promise.resolve({ lists: [] });
+            }
+        };
+        globalThis.document = makeUnifiedDocumentMock(makeTrackableRoot('', 0));
+
+        hooks.triggerPushActivationReconcile();
+        await new Promise(function (resolve) {
+            setTimeout(resolve, 0);
+        });
+
+        assert.equal(feedLoads, 0);
+    });
+
+    it('no produce bucle ni segunda recarga tras cambios', async () => {
+        var feedLoads = 0;
+        var metrics = setupReconcileMock({ created: true, completed_task_ids: [] });
+
+        globalThis.ExecutableListsService = {
+            getFeed: function () {
+                feedLoads += 1;
+                return Promise.resolve({ lists: [] });
+            }
+        };
+        globalThis.AAExecutableListRenderer = {
+            renderFeed: function () {
+                return '<details class="aa-executable-list-card"></details>';
+            }
+        };
+        globalThis.document = makeUnifiedDocumentMock(makeTrackableRoot('', 0));
+
+        hooks.triggerPushActivationReconcile();
+        hooks.triggerPushActivationReconcile();
+
+        await new Promise(function (resolve) {
+            setTimeout(resolve, 0);
+        });
+
+        assert.equal(metrics.reconcileCalls, 2);
+        assert.equal(feedLoads, 1);
     });
 });

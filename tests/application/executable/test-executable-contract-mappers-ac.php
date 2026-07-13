@@ -1162,6 +1162,90 @@ ac_assert(
     is_array($agenda_secondary_item)
     && ($agenda_secondary_item['capabilities']['can_complete'] ?? false) === true
 );
+
+$push_device_key = 'a1b2c3d4e5f6789012345678abcdef01';
+$push_origin_key = 'enable_push:' . $push_device_key . ':fedcba9876543210';
+$push_tasks_data = [
+    [
+        'id' => 777,
+        'list_id' => 50,
+        'title' => 'Activa las notificaciones en este dispositivo',
+        'notes' => 'Permite que DEOIA te avise en este dispositivo cuando una cita confirmada esté próxima, cuando una tarea llegue a su momento de realización y ante otros avisos importantes.',
+        'status' => 'pending',
+        'source' => 'system',
+        'source_category' => 'agenda_app',
+        'origin_key' => $push_origin_key,
+        'managed_by' => 'developer',
+        'default_bucket' => 'primary',
+        'completion_type' => 'system',
+        'completion_fact_key' => null,
+        'importance' => 110,
+        'due_at' => null,
+    ],
+];
+$push_organization = mapper_build_task_organization($agenda_lists_data, $push_tasks_data);
+$push_organization['task_actions_by_id'] = [
+    777 => [
+        [
+            'id' => 9,
+            'task_id' => 777,
+            'action_key' => 'push.activate',
+            'type' => 'handler',
+            'label' => 'Activar notificaciones',
+            'placement' => 'primary',
+            'category' => 'mechanical',
+            'handler' => 'push.activate',
+            'enabled' => 1,
+            'position' => 0,
+        ],
+    ],
+];
+$push_lists = TaskBoardToExecutableMapper::map([
+    'lists' => $agenda_lists_data,
+    'tasks' => $push_tasks_data,
+    'organization' => $push_organization,
+]);
+$push_item = null;
+foreach (($push_lists[0]['buckets'] ?? []) as $bucket) {
+    foreach (($bucket['items'] ?? []) as $item) {
+        if (($item['origin_key'] ?? '') === $push_origin_key) {
+            $push_item = $item;
+            break 2;
+        }
+    }
+}
+$enriched_push_lists = ExecutableVisibleActionsEnricher::enrich_lists($push_lists, [
+    'view' => AA_Executable_Visible_Actions_Policy::VIEW_ACTIVE,
+]);
+$enriched_push_item = null;
+foreach (($enriched_push_lists[0]['buckets'] ?? []) as $bucket) {
+    foreach (($bucket['items'] ?? []) as $item) {
+        if (($item['origin_key'] ?? '') === $push_origin_key) {
+            $enriched_push_item = $item;
+            break 2;
+        }
+    }
+}
+ac_assert('Push activation task maps with enable_push origin', is_array($push_item));
+ac_assert(
+    'Push activation system/null disables manual complete and reopen',
+    is_array($push_item)
+    && ($push_item['capabilities']['can_complete'] ?? true) === false
+    && ($push_item['capabilities']['can_reopen'] ?? true) === false
+);
+ac_assert(
+    'Push activation visible_actions expose handler and hide generic complete',
+    is_array($enriched_push_item)
+    && in_array('push.activate', array_map(static function (array $action): string {
+        return (string) ($action['handler'] ?? '');
+    }, $enriched_push_item['visible_actions'] ?? []), true)
+    && !in_array('complete', array_map(static function (array $action): string {
+        return (string) ($action['key'] ?? '');
+    }, $enriched_push_item['visible_actions'] ?? []), true)
+    && !in_array('reopen', array_map(static function (array $action): string {
+        return (string) ($action['key'] ?? '');
+    }, $enriched_push_item['visible_actions'] ?? []), true)
+);
 ac_assert(
     'Agenda app developer tasks expose can_edit false',
     is_array($agenda_primary_item)

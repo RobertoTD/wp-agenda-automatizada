@@ -10,6 +10,7 @@ defined('ABSPATH') or die('No direct access');
 require_once __DIR__ . '/ExecutableVisibleActionsEnricher.php';
 require_once __DIR__ . '/LearningRecommendationsToExecutableMapper.php';
 require_once __DIR__ . '/TaskBoardToExecutableMapper.php';
+require_once dirname(__DIR__, 2) . '/domain/push/class-aa-push-activation-visibility-policy.php';
 
 final class GetExecutableListsFeedUseCase {
 
@@ -46,10 +47,12 @@ final class GetExecutableListsFeedUseCase {
         $learning_source = $this->build_source_error_meta('No se pudo cargar recomendaciones.');
         $tasks_source = $this->build_source_error_meta('No se pudo cargar listas de usuario.');
         $task_payload = [];
+        $agenda_linked = trim((string) get_option('aa_client_secret', '')) !== '';
 
         try {
             $task_payload = $this->read_tasks();
             $user_lists = TaskBoardToExecutableMapper::map($task_payload);
+            $user_lists = $this->filter_unlinked_push_activation_from_lists($user_lists, $agenda_linked);
             $tasks_source = $this->build_tasks_source_meta($user_lists);
         } catch (\Throwable $exception) {
             $tasks_source = $this->build_source_error_meta($exception->getMessage());
@@ -64,6 +67,9 @@ final class GetExecutableListsFeedUseCase {
             try {
                 $learning_payload = $this->read_learning();
                 $system_list = LearningRecommendationsToExecutableMapper::map($learning_payload);
+                if (is_array($system_list)) {
+                    $system_list = $this->filter_unlinked_push_activation_from_list($system_list, $agenda_linked);
+                }
                 $learning_source = $this->build_learning_source_meta($system_list);
             } catch (\Throwable $exception) {
                 $learning_source = $this->build_source_error_meta($exception->getMessage());
@@ -388,6 +394,77 @@ final class GetExecutableListsFeedUseCase {
             'item_count' => 0,
             'message' => $message,
         ];
+    }
+
+    /**
+     * @param list<array<string,mixed>> $lists
+     * @return list<array<string,mixed>>
+     */
+    private function filter_unlinked_push_activation_from_lists(array $lists, bool $agenda_linked): array {
+        if ($agenda_linked) {
+            return $lists;
+        }
+
+        $filtered = [];
+
+        foreach ($lists as $list) {
+            if (!is_array($list)) {
+                continue;
+            }
+
+            $filtered[] = $this->filter_unlinked_push_activation_from_list($list, false);
+        }
+
+        return $filtered;
+    }
+
+    /**
+     * @param array<string,mixed> $list
+     * @return array<string,mixed>
+     */
+    private function filter_unlinked_push_activation_from_list(array $list, bool $agenda_linked): array {
+        if ($agenda_linked) {
+            return $list;
+        }
+
+        $buckets = is_array($list['buckets'] ?? null) ? $list['buckets'] : [];
+        $filtered_buckets = [];
+
+        foreach ($buckets as $bucket) {
+            if (!is_array($bucket)) {
+                continue;
+            }
+
+            $items = is_array($bucket['items'] ?? null) ? $bucket['items'] : [];
+            $kept_items = [];
+
+            foreach ($items as $item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+
+                $origin_key = is_string($item['origin_key'] ?? null)
+                    ? trim((string) $item['origin_key'])
+                    : '';
+
+                if (AA_Push_Activation_Visibility_Policy::should_hide_when_agenda_unlinked($origin_key)) {
+                    continue;
+                }
+
+                $kept_items[] = $item;
+            }
+
+            if ($kept_items === []) {
+                continue;
+            }
+
+            $bucket['items'] = $kept_items;
+            $filtered_buckets[] = $bucket;
+        }
+
+        $list['buckets'] = $filtered_buckets;
+
+        return $list;
     }
 
     /**

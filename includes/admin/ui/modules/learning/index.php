@@ -30,6 +30,9 @@ $executive_proposal_service_js = AA_PLUGIN_URL . 'assets/js/services/executivePr
 $executive_client_action_runner_js = AA_PLUGIN_URL . 'assets/js/services/executiveClientActionRunner.js';
 $executive_proposal_renderer_js = AA_PLUGIN_URL . 'assets/js/ui/executiveProposalRenderer.js';
 $executive_proposal_module_js = plugin_dir_url(__FILE__) . 'executive-proposal-module.js';
+$pwa_push_activation_service_js = AA_PLUGIN_URL . 'assets/js/services/pwaPushActivationService.js';
+$push_device_key_service_js = AA_PLUGIN_URL . 'assets/js/services/pushDeviceKeyService.js';
+$push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/pushActivationReconcileService.js';
 ?>
 
 <div id="aa-tasks-module-root" class="max-w-5xl mx-auto py-2" data-work-zone="executive">
@@ -469,11 +472,21 @@ $executive_proposal_module_js = plugin_dir_url(__FILE__) . 'executive-proposal-m
         focusActionPost: 'aa_executive_focus_action',
         nonce: '<?php echo esc_js(wp_create_nonce('aa_executive_proposal_nonce')); ?>'
     };
+
+    window.AA_PUSH_CONFIG = {
+        ajaxUrl: window.ajaxurl || '<?php echo admin_url('admin-ajax.php'); ?>',
+        registerAction: '<?php echo esc_js(PushSubscriptionAjax::ACTION_REGISTER); ?>',
+        configAction: '<?php echo esc_js(PushSubscriptionAjax::ACTION_CONFIG); ?>',
+        nonce: '<?php echo esc_js(wp_create_nonce(PushSubscriptionAjax::NONCE_ACTION)); ?>'
+    };
 </script>
 
 <script src="<?php echo esc_url($learning_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
-<script src="<?php echo esc_url($learning_handlers_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($tasks_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($push_device_key_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($pwa_push_activation_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($push_activation_reconcile_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($learning_handlers_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($tasks_renderer_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($task_completed_toast_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($executive_proposal_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>

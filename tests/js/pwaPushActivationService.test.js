@@ -380,7 +380,7 @@ describe('PwaPushActivationService', () => {
         assert.equal(loaded.test.hasPending('42'), false);
     });
 
-    it('failed conserva pending', async () => {
+    it('failed first_test con ok true sigue siendo exito y limpia pending', async () => {
         loaded = loadService({
             permission: 'granted',
             registerResponse: {
@@ -402,9 +402,10 @@ describe('PwaPushActivationService', () => {
 
         var result = await loaded.service.activateFromGrantedPermission();
 
-        assert.equal(result.completed, false);
+        assert.equal(result.registrationSucceeded, true);
+        assert.equal(result.completed, true);
         assert.equal(result.status, 'failed');
-        assert.equal(loaded.test.hasPending('42'), true);
+        assert.equal(loaded.test.hasPending('42'), false);
     });
 
     it('fallo de config conserva pending', async () => {

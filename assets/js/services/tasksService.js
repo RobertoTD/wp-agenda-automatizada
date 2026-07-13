@@ -313,6 +313,18 @@
         });
     }
 
+    /**
+     * @param {string} deviceKey
+     * @param {'prepared'|'unprepared'} readiness
+     * @returns {Promise<Object>}
+     */
+    function reconcilePushActivationTask(deviceKey, readiness) {
+        return postAction('aa_reconcile_push_activation_task', {
+            device_key: deviceKey,
+            readiness: readiness
+        });
+    }
+
     window.TasksService = {
         getTaskBoard: getTaskBoard,
         createTaskList: createTaskList,
@@ -331,6 +343,7 @@
         archiveTask: archiveTask,
         listArchivedTasksInList: listArchivedTasksInList,
         restoreTask: restoreTask,
-        deleteTask: deleteTask
+        deleteTask: deleteTask,
+        reconcilePushActivationTask: reconcilePushActivationTask
     };
 })();

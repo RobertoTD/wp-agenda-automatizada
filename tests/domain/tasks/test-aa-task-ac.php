@@ -138,6 +138,19 @@ ac_assert(
     ])->execution_available_at() === $execution_available_at
 );
 
+ac_assert(
+    'from_array preserves optional origin_key',
+    AA_Task::from_array(['origin_key' => 'enable_push:abc'])->origin_key() === 'enable_push:abc'
+);
+ac_assert(
+    'origin_key defaults to null when omitted',
+    AA_Task::from_array([])->origin_key() === null
+);
+ac_assert(
+    'blank origin_key normalizes to null',
+    AA_Task::from_array(['origin_key' => '   '])->origin_key() === null
+);
+
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 
 if ($failed !== []) {

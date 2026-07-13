@@ -19,6 +19,7 @@
     var isAvailabilityBound = false;
     var isInteractionGuardBound = false;
     var unifiedCoordinatorInitialized = false;
+    var pushInitReconcileFeedReloadDone = false;
 
     var SESSION_STORAGE_DEBUG_KEY = 'AA_EXECUTABLE_LISTS_DEBUG';
     var SESSION_STORAGE_ACTIONS_DEBUG_KEY = 'AA_EXECUTABLE_LISTS_ACTIONS_DEBUG';
@@ -997,6 +998,35 @@
         unifiedCoordinatorInitialized = true;
     }
 
+    function triggerPushActivationReconcile() {
+        var reconcileService = globalRoot.PushActivationReconcileService;
+
+        if (!reconcileService || typeof reconcileService.reconcileOnFeedInit !== 'function') {
+            return;
+        }
+
+        reconcileService.reconcileOnFeedInit()
+            .then(function (result) {
+                if (pushInitReconcileFeedReloadDone) {
+                    return;
+                }
+
+                if (
+                    typeof reconcileService.reconcileProducedFeedChanges !== 'function'
+                    || !reconcileService.reconcileProducedFeedChanges(result)
+                ) {
+                    return;
+                }
+
+                pushInitReconcileFeedReloadDone = true;
+
+                return loadUnifiedFeed();
+            })
+            .catch(function () {
+                // Best-effort: sin recarga ante error.
+            });
+    }
+
     function initUnifiedFeedModule() {
         if (!isUnifiedFeedEnabled()) {
             setUnifiedSectionVisible(false);
@@ -1014,6 +1044,7 @@
         enableInteractiveRoot(root);
         bindAvailabilityRerender();
         initUnifiedCoordinator(root);
+        triggerPushActivationReconcile();
         loadUnifiedFeed();
     }
 
@@ -1112,11 +1143,20 @@
         findLearningItemInPayload: findLearningItemInPayload,
         resolveExecutableItemKey: resolveExecutableItemKey,
         initUnifiedCoordinator: initUnifiedCoordinator,
+        triggerPushActivationReconcile: triggerPushActivationReconcile,
         visibleUserFeedApi: visibleUserFeedApi
     };
 
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = moduleExports;
+        module.exports.__test = {
+            resetPushInitReconcileFeedReloadState: function () {
+                pushInitReconcileFeedReloadDone = false;
+            },
+            isPushInitReconcileFeedReloadDone: function () {
+                return pushInitReconcileFeedReloadDone;
+            }
+        };
     }
 
     if (typeof document === 'undefined') {
