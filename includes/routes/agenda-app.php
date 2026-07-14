@@ -55,7 +55,7 @@ function aa_handle_agenda_app_redirect() {
     }
     
     // User is logged in and has permissions, redirect to app UI
-    $app_url = admin_url('admin-post.php?action=aa_iframe_content&module=dashboard');
+    $app_url = admin_url('admin-post.php?action=aa_iframe_content&module=calendar');
     wp_redirect($app_url);
     exit;
 }

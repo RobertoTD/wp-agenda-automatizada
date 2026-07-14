@@ -47,7 +47,7 @@ class AA_Pwa_Routes {
         $manifest   = [
             'name'             => 'DEOIA',
             'short_name'       => 'DEOIA',
-            'start_url'        => admin_url('admin-post.php?action=aa_iframe_content&module=dashboard'),
+            'start_url'        => admin_url('admin-post.php?action=aa_iframe_content&module=calendar'),
             'scope'            => admin_url('/'),
             'display'          => 'standalone',
             'theme_color'      => '#8b5cf6',

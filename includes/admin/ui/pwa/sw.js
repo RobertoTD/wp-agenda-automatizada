@@ -30,15 +30,15 @@ var TASK_PUSH_VALIDATE_MAX = 50;
 var TASK_PUSH_INCOMING_REQUEST_ID = 'incoming';
 var TASK_PUSH_CLEANUP_MESSAGE_TYPE = 'aa_cleanup_task_push_notifications';
 
-function getDashboardUrl() {
+function getDefaultModuleUrl() {
     return new URL(
-        'admin-post.php?action=aa_iframe_content&module=dashboard',
+        'admin-post.php?action=aa_iframe_content&module=calendar',
         self.registration.scope
     ).href;
 }
 
 function resolveSafeUrl(rawUrl) {
-    var fallbackUrl = getDashboardUrl();
+    var fallbackUrl = getDefaultModuleUrl();
 
     if (typeof rawUrl !== 'string' || rawUrl.trim() === '') {
         return fallbackUrl;

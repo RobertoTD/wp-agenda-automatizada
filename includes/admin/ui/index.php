@@ -31,12 +31,12 @@ $allowed_modules = [
 // Resolve requested module
 $requested_module = isset($_GET['module'])
     ? sanitize_key($_GET['module'])
-    : 'dashboard';
+    : 'calendar';
 
 // Fallback to default module
 $active_module = in_array($requested_module, $allowed_modules, true)
     ? $requested_module
-    : 'dashboard';
+    : 'calendar';
 
 // Resolve module path
 $module_path = __DIR__ . '/modules/' . $active_module . '/index.php';

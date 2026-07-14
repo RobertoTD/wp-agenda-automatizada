@@ -227,7 +227,7 @@ PLUGIN ROOT
 
 - **routes/**  
   Páginas especiales vía rewrite rules.  
-  - `agenda-app.php`: registro de la ruta `/agenda-app`, query var y `template_redirect` (entrada típica al iframe admin → módulo `dashboard`).  
+  - `agenda-app.php`: registro de la ruta `/agenda-app`, query var y `template_redirect` (entrada típica al iframe admin → módulo `calendar`).  
   - `citas-virtuales.php`: portal de unión a citas virtuales por token.
 
 ## Admin UI (includes/admin/ui/)
@@ -301,7 +301,7 @@ PLUGIN ROOT
   Pantalla de historial de citas.
 
 - **includes/routes/agenda-app.php**  
-  Ruta `/agenda-app`: rewrite rule, query var `aa_agenda_app`, `template_redirect` (login o redirect al iframe del admin, típicamente módulo dashboard).
+  Ruta `/agenda-app`: rewrite rule, query var `aa_agenda_app`, `template_redirect` (login o redirect al iframe del admin, típicamente módulo calendar).
 
 ## Domain Logic Ownership
 

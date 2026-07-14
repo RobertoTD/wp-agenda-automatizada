@@ -9,7 +9,7 @@ const { describe, it, beforeEach } = require('node:test');
 
 const swPath = path.join(__dirname, '../../includes/admin/ui/pwa/sw.js');
 const SCOPE = 'https://tenant.example.com/wp-admin/';
-const DASHBOARD_URL = 'https://tenant.example.com/wp-admin/admin-post.php?action=aa_iframe_content&module=dashboard';
+const DEFAULT_MODULE_URL = 'https://tenant.example.com/wp-admin/admin-post.php?action=aa_iframe_content&module=calendar';
 const API_BASE = 'https://api.deoia.com';
 const VALIDATE_URL = API_BASE + '/push/task-execution-available-notifications/validate';
 
@@ -279,7 +279,7 @@ function taskPayload(overrides) {
             type: TASK_PUSH_TYPE,
             taskId: overrides.taskId === undefined ? 12 : overrides.taskId,
             expectedExecutionAvailableAt: overrides.expectedExecutionAvailableAt || EXPECTED_NEW,
-            url: overrides.url || DASHBOARD_URL
+            url: overrides.url || DEFAULT_MODULE_URL
         }
     };
 }
@@ -325,7 +325,7 @@ describe('PWA service worker push handlers', () => {
         assert.equal(call.title, 'DEOIA');
         assert.equal(call.opts.body, 'Tienes una nueva notificación.');
         assert.equal(call.opts.tag, 'deoia-web-push');
-        assert.equal(call.opts.data.url, DASHBOARD_URL);
+        assert.equal(call.opts.data.url, DEFAULT_MODULE_URL);
     });
 
     it('invalid JSON uses generic fallback notification without throwing', async () => {
@@ -334,21 +334,21 @@ describe('PWA service worker push handlers', () => {
         assert.equal(call.title, 'DEOIA');
         assert.equal(call.opts.body, 'Tienes una nueva notificación.');
         assert.equal(call.opts.tag, 'deoia-web-push');
-        assert.equal(call.opts.data.url, DASHBOARD_URL);
+        assert.equal(call.opts.data.url, DEFAULT_MODULE_URL);
     });
 
     it('primitive payload uses generic fallback notification', async () => {
         var call = await runPush(sw, 'hello');
 
         assert.equal(call.title, 'DEOIA');
-        assert.equal(call.opts.data.url, DASHBOARD_URL);
+        assert.equal(call.opts.data.url, DEFAULT_MODULE_URL);
     });
 
     it('array payload uses generic fallback notification', async () => {
         var call = await runPush(sw, ['ignored']);
 
         assert.equal(call.title, 'DEOIA');
-        assert.equal(call.opts.data.url, DASHBOARD_URL);
+        assert.equal(call.opts.data.url, DEFAULT_MODULE_URL);
     });
 
     it('notificationclick closes notification and focuses existing DEOIA window', async () => {
@@ -381,17 +381,17 @@ describe('PWA service worker push handlers', () => {
             sw,
             {
                 data: {
-                    url: 'https://tenant.example.com/wp-admin/admin-post.php?action=aa_iframe_content&module=dashboard'
+                    url: 'https://tenant.example.com/wp-admin/admin-post.php?action=aa_iframe_content&module=calendar'
                 }
             },
             []
         );
 
         assert.equal(sw.openWindowCalls.length, 1);
-        assert.equal(sw.openWindowCalls[0], DASHBOARD_URL);
+        assert.equal(sw.openWindowCalls[0], DEFAULT_MODULE_URL);
     });
 
-    it('notificationclick uses dashboard fallback for external or invalid URLs', async () => {
+    it('notificationclick uses default module fallback for external or invalid URLs', async () => {
         await runNotificationClick(
             sw,
             {
@@ -403,7 +403,7 @@ describe('PWA service worker push handlers', () => {
         );
 
         assert.equal(sw.openWindowCalls.length, 1);
-        assert.equal(sw.openWindowCalls[0], DASHBOARD_URL);
+        assert.equal(sw.openWindowCalls[0], DEFAULT_MODULE_URL);
 
         sw.openWindowCalls.length = 0;
 
@@ -418,10 +418,10 @@ describe('PWA service worker push handlers', () => {
         );
 
         assert.equal(sw.openWindowCalls.length, 1);
-        assert.equal(sw.openWindowCalls[0], DASHBOARD_URL);
+        assert.equal(sw.openWindowCalls[0], DEFAULT_MODULE_URL);
     });
 
-    it('push resolves external data.url to dashboard fallback in notification data', async () => {
+    it('push resolves external data.url to default module fallback in notification data', async () => {
         var call = await runPush(sw, {
             title: 'Test',
             body: 'Body',
@@ -431,7 +431,7 @@ describe('PWA service worker push handlers', () => {
             }
         });
 
-        assert.equal(call.opts.data.url, DASHBOARD_URL);
+        assert.equal(call.opts.data.url, DEFAULT_MODULE_URL);
     });
 
     it('shows valid upcoming appointment push with type and expiresAt in notification data', async () => {
@@ -442,14 +442,14 @@ describe('PWA service worker push handlers', () => {
             data: {
                 type: APPOINTMENT_PUSH_TYPE,
                 expiresAt: '2099-01-01T00:00:00.000Z',
-                url: DASHBOARD_URL
+                url: DEFAULT_MODULE_URL
             }
         });
 
         assert.equal(call.opts.tag, 'upcoming-confirmed-appointment-123');
         assert.equal(call.opts.data.type, APPOINTMENT_PUSH_TYPE);
         assert.equal(call.opts.data.expiresAt, '2099-01-01T00:00:00.000Z');
-        assert.equal(call.opts.data.url, DASHBOARD_URL);
+        assert.equal(call.opts.data.url, DEFAULT_MODULE_URL);
     });
 
     it('does not show expired upcoming appointment push', async () => {
@@ -472,7 +472,7 @@ describe('PWA service worker push handlers', () => {
             data: {
                 type: APPOINTMENT_PUSH_TYPE,
                 expiresAt: '2026-07-09T22:00:00.000Z',
-                url: DASHBOARD_URL
+                url: DEFAULT_MODULE_URL
             }
         });
 
@@ -486,12 +486,12 @@ describe('PWA service worker push handlers', () => {
             body: 'Tarea · Lista',
             tag: 'task-execution-available-42',
             data: {
-                url: DASHBOARD_URL
+                url: DEFAULT_MODULE_URL
             }
         });
 
         assert.equal(call.opts.tag, 'task-execution-available-42');
-        assert.equal(call.opts.data.url, DASHBOARD_URL);
+        assert.equal(call.opts.data.url, DEFAULT_MODULE_URL);
         assert.equal('type' in call.opts.data, false);
         assert.equal('expiresAt' in call.opts.data, false);
     });
@@ -500,15 +500,15 @@ describe('PWA service worker push handlers', () => {
         var expiredAppointment = createMockNotification({
             type: APPOINTMENT_PUSH_TYPE,
             expiresAt: '2020-01-01T00:00:00.000Z',
-            url: DASHBOARD_URL
+            url: DEFAULT_MODULE_URL
         });
         var validAppointment = createMockNotification({
             type: APPOINTMENT_PUSH_TYPE,
             expiresAt: '2099-01-01T00:00:00.000Z',
-            url: DASHBOARD_URL
+            url: DEFAULT_MODULE_URL
         });
         var taskNotification = createMockNotification({
-            url: DASHBOARD_URL
+            url: DEFAULT_MODULE_URL
         });
 
         sw = loadServiceWorker({
@@ -522,7 +522,7 @@ describe('PWA service worker push handlers', () => {
             data: {
                 type: APPOINTMENT_PUSH_TYPE,
                 expiresAt: '2099-01-01T00:00:00.000Z',
-                url: DASHBOARD_URL
+                url: DEFAULT_MODULE_URL
             }
         });
 
@@ -546,7 +546,7 @@ describe('PWA service worker push handlers', () => {
             data: {
                 type: APPOINTMENT_PUSH_TYPE,
                 expiresAt: '2099-01-01T00:00:00.000Z',
-                url: DASHBOARD_URL
+                url: DEFAULT_MODULE_URL
             }
         });
 
@@ -664,7 +664,7 @@ describe('PWA service worker task push validation', () => {
             type: TASK_PUSH_TYPE,
             taskId: 12,
             expectedExecutionAvailableAt: EXPECTED_OLD,
-            url: DASHBOARD_URL
+            url: DEFAULT_MODULE_URL
         });
 
         var sw = loadServiceWorker({
@@ -696,7 +696,7 @@ describe('PWA service worker task push validation', () => {
                 type: TASK_PUSH_TYPE,
                 taskId: 100 + i,
                 expectedExecutionAvailableAt: EXPECTED_OLD,
-                url: DASHBOARD_URL
+                url: DEFAULT_MODULE_URL
             }));
         }
 
@@ -732,7 +732,7 @@ describe('PWA service worker task push validation', () => {
     });
 
     it('ignores legacy notifications without task identity', async () => {
-        var legacy = createMockNotification({ url: DASHBOARD_URL });
+        var legacy = createMockNotification({ url: DEFAULT_MODULE_URL });
         var capturedBody = null;
         var sw = loadServiceWorker({
             notifications: [legacy],
@@ -764,7 +764,7 @@ describe('PWA service worker task push validation', () => {
                     type: TASK_PUSH_TYPE,
                     taskId: 1,
                     expectedExecutionAvailableAt: EXPECTED_OLD,
-                    url: DASHBOARD_URL
+                    url: DEFAULT_MODULE_URL
                 })
             ],
             onShow: function () {
@@ -800,7 +800,7 @@ describe('PWA service worker task push validation', () => {
             data: {
                 type: APPOINTMENT_PUSH_TYPE,
                 expiresAt: '2099-01-01T00:00:00.000Z',
-                url: DASHBOARD_URL
+                url: DEFAULT_MODULE_URL
             }
         });
 
@@ -830,7 +830,7 @@ describe('PWA service worker task push validation', () => {
                     type: TASK_PUSH_TYPE,
                     taskId: 9,
                     expectedExecutionAvailableAt: EXPECTED_OLD,
-                    url: DASHBOARD_URL
+                    url: DEFAULT_MODULE_URL
                 })
             ]
         });
@@ -842,7 +842,7 @@ describe('PWA service worker task push validation', () => {
             data: {
                 type: APPOINTMENT_PUSH_TYPE,
                 expiresAt: '2099-01-01T00:00:00.000Z',
-                url: DASHBOARD_URL
+                url: DEFAULT_MODULE_URL
             }
         });
 
@@ -855,7 +855,7 @@ describe('PWA service worker task push validation', () => {
             type: TASK_PUSH_TYPE,
             taskId: 12,
             expectedExecutionAvailableAt: EXPECTED_OLD,
-            url: DASHBOARD_URL
+            url: DEFAULT_MODULE_URL
         });
         var capturedBody = null;
         var sw = loadServiceWorker({
