@@ -196,6 +196,7 @@ defined('ABSPATH') or die('No direct access');
                         id="aa-fastappointment-confirm"
                         name="estado_confirmacion"
                         value="confirmed"
+                        checked
                         class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
                     <span>Confirmar cita al agendar</span>
                 </label>
