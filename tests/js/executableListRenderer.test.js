@@ -2481,3 +2481,169 @@ describe('executableListRenderer MC-UX-E following tasks block', () => {
         assert.match(css, /details\.aa-executable-list-card[\s\S]*overflow:\s*visible/);
     });
 });
+
+describe('executableListRenderer add-task button and chevron placement', () => {
+    function extractSummary(html) {
+        var match = html.match(/<summary[^>]*>[\s\S]*?<\/summary>/);
+
+        return match ? match[0] : '';
+    }
+
+    it('isUserManualList identifica listas manuales de usuario', () => {
+        assert.equal(renderer.isUserManualList({
+            source_category: 'user',
+            managed_by: 'user'
+        }), true);
+
+        assert.equal(renderer.isUserManualList({
+            source_category: 'user'
+        }), true);
+
+        assert.equal(renderer.isUserManualList({
+            source_category: 'agenda_app',
+            managed_by: 'developer'
+        }), false);
+
+        assert.equal(renderer.isUserManualList({
+            source_category: 'user',
+            managed_by: 'developer'
+        }), false);
+
+        assert.equal(renderer.isUserManualList(null), false);
+    });
+
+    it('lista user manual renderiza botón + tarea con data-aa-list-add-task', () => {
+        var html = renderer.renderList(baseList({
+            id: '7',
+            source: 'user',
+            source_category: 'user',
+            managed_by: 'user',
+            capabilities: { can_archive: true },
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+
+        assert.match(html, /data-aa-list-add-task="1"/);
+        assert.match(html, /aa-executable-list-add-task/);
+        assert.match(html, />\+ tarea</);
+        assert.match(html, /data-aa-list-add-task="1"[^>]*data-list-id="7"/);
+    });
+
+    it('lista sistema no renderiza botón + tarea', () => {
+        var html = renderer.renderList(baseList({
+            source: 'system',
+            source_category: 'agenda_app',
+            managed_by: 'developer',
+            capabilities: { can_archive: false },
+            buckets: [{ key: 'primary', label: 'Principales', items: [baseItem()] }]
+        }));
+
+        assert.doesNotMatch(html, /data-aa-list-add-task/);
+        assert.doesNotMatch(html, /aa-executable-list-add-task/);
+        assert.doesNotMatch(html, />\+ tarea</);
+    });
+
+    it('lista user managed_by developer no renderiza + tarea', () => {
+        var html = renderer.renderList(baseList({
+            source: 'user',
+            source_category: 'user',
+            managed_by: 'developer',
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+
+        assert.doesNotMatch(html, /data-aa-list-add-task/);
+    });
+
+    it('chevron aparece en bloque izquierdo junto al título', () => {
+        var html = renderer.renderList(baseList({
+            source: 'user',
+            source_category: 'user',
+            title: 'Mi lista',
+            capabilities: { can_archive: true },
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+        var summary = extractSummary(html);
+
+        assert.match(
+            summary,
+            /min-w-0 flex-1[\s\S]*<h4[^>]*>Mi lista<\/h4>[\s\S]*aa-chevron/
+        );
+    });
+
+    it('chevron no está en el bloque derecho de acciones', () => {
+        var html = renderer.renderList(baseList({
+            source: 'user',
+            source_category: 'user',
+            capabilities: { can_archive: true },
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+
+        assert.doesNotMatch(html, /aa-executable-list-options[\s\S]*aa-chevron[\s\S]*<\/div>\s*<\/div>\s*<\/summary>/);
+    });
+
+    it('título y chevron comparten fila flex', () => {
+        var html = renderer.renderList(baseList({
+            source: 'user',
+            source_category: 'user',
+            title: 'Título de prueba',
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+
+        assert.match(
+            html,
+            /<div class="flex items-center gap-1\.5 min-w-0">[\s\S]*?<h4[^>]*>[\s\S]*?<\/h4>[\s\S]*?aa-chevron[\s\S]*?<\/div>/
+        );
+    });
+
+    it('+ tarea y opciones de lista no se renderizan simultáneamente en el mismo contenedor', () => {
+        var html = renderer.renderList(baseList({
+            id: '7',
+            source: 'user',
+            source_category: 'user',
+            managed_by: 'user',
+            capabilities: { can_archive: true, can_edit: true },
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+
+        assert.match(html, /aa-executable-list-add-task/);
+        assert.match(html, /aa-executable-list-options/);
+    });
+
+    it('CSS oculta + tarea con lista abierta', () => {
+        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
+
+        assert.match(css, /details\.aa-executable-list-card\[open\] \.aa-executable-list-add-task/);
+        assert.match(css, /display:\s*none/);
+    });
+
+    it('CSS existente oculta opciones con lista cerrada', () => {
+        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
+
+        assert.match(css, /details\.aa-executable-list-card:not\(\[open\]\) \.aa-executable-list-options/);
+    });
+
+    it('rotación de chevron CSS sigue funcionando con chevron en bloque izquierdo', () => {
+        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
+
+        assert.match(css, /details\.aa-executable-list-card\[open\] > summary \.aa-chevron/);
+    });
+
+    it('metadata permanece debajo del título', () => {
+        var html = renderer.renderList(baseList({
+            source: 'user',
+            source_category: 'user',
+            source_label: 'Mis listas',
+            title: 'Mi lista',
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+
+        var titlePos = html.indexOf('>Mi lista</h4>');
+        var chevronPos = html.indexOf('aa-chevron');
+        var metaPos = html.indexOf('aa-executable-list-header-meta');
+
+        assert.notEqual(titlePos, -1);
+        assert.notEqual(chevronPos, -1);
+        assert.notEqual(metaPos, -1);
+        assert.ok(titlePos < chevronPos);
+        assert.ok(chevronPos < metaPos);
+    });
+});

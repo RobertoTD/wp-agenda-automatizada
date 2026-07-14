@@ -226,6 +226,30 @@
 
     function handleDocumentClick(event) {
         var target = event.target;
+        var addTaskBtn = target && target.closest
+            ? target.closest('[data-aa-list-add-task]')
+            : null;
+
+        if (addTaskBtn && !addTaskBtn.disabled) {
+            if (typeof event.preventDefault === 'function') {
+                event.preventDefault();
+            }
+
+            if (typeof event.stopPropagation === 'function') {
+                event.stopPropagation();
+            }
+
+            var addTaskListId = asString(addTaskBtn.getAttribute('data-list-id')).trim();
+
+            if (addTaskListId
+                && globalRoot.AATasksBoard
+                && typeof globalRoot.AATasksBoard.openNewTaskForList === 'function') {
+                globalRoot.AATasksBoard.openNewTaskForList(addTaskListId);
+            }
+
+            return;
+        }
+
         var detailsToggle = target && target.closest
             ? target.closest('[data-aa-list-details-toggle]')
             : null;

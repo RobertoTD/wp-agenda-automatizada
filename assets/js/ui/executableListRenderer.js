@@ -1548,6 +1548,38 @@
 
     /**
      * @param {object} list
+     * @returns {boolean}
+     */
+    function isUserManualList(list) {
+        if (!list || typeof list !== 'object') {
+            return false;
+        }
+
+        return asString(list.source_category).trim().toLowerCase() === 'user'
+            && asString(list.managed_by || 'user').trim().toLowerCase() === 'user';
+    }
+
+    /**
+     * @param {object} list
+     * @param {string} listId
+     * @returns {string}
+     */
+    function renderListAddTaskButton(list, listId) {
+        if (!isUserManualList(list)) {
+            return '';
+        }
+
+        return ''
+            + '<button type="button"'
+            + ' data-aa-list-add-task="1"'
+            + ' data-list-id="' + listId + '"'
+            + ' class="aa-executable-list-add-task inline-flex items-center px-2.5 py-1 text-xs font-medium text-violet-700 hover:text-violet-800 rounded-lg border border-violet-200 bg-violet-50 hover:bg-violet-100 transition-colors shrink-0">'
+            + '+ tarea'
+            + '</button>';
+    }
+
+    /**
+     * @param {object} list
      * @param {object} [options]
      * @param {number} [listIndex]
      * @returns {string}
@@ -1582,15 +1614,16 @@
             ? renderListDetailsBlock(list, listIdAttr)
             : '';
         var optionsMenuHtml = renderListOptionsMenu(capabilities, list);
+        var addTaskHtml = renderListAddTaskButton(list, listId);
         var chevronHtml = ''
-            + '<svg class="aa-chevron w-5 h-5 text-gray-400 transition-transform duration-200 flex-shrink-0"'
+            + '<svg class="aa-chevron w-5 h-5 text-gray-400 transition-transform duration-200 shrink-0"'
             + ' fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">'
             + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>'
             + '</svg>';
         var headerActionsHtml = ''
             + '<div class="flex items-center gap-1 shrink-0">'
+            + addTaskHtml
             + optionsMenuHtml
-            + chevronHtml
             + '</div>';
         var headerGradient = 'from-gray-50 to-white';
 
@@ -1601,7 +1634,10 @@
             + '<summary class="px-4 py-4 bg-gradient-to-r ' + headerGradient + ' cursor-pointer list-none">'
             + '<div class="flex items-start justify-between gap-3">'
             + '<div class="min-w-0 flex-1">'
-            + '<h4 class="text-base font-semibold text-gray-900">' + title + '</h4>'
+            + '<div class="flex items-center gap-1.5 min-w-0">'
+            + '<h4 class="text-base font-semibold text-gray-900 min-w-0">' + title + '</h4>'
+            + chevronHtml
+            + '</div>'
             + headerMetaHtml
             + detailsHtml
             + '</div>'
@@ -1642,7 +1678,8 @@
         resolveTasksChannelTaskId: resolveTasksChannelTaskId,
         hasVisibleActions: hasVisibleActions,
         parseDueAtToDate: parseDueAtToDate,
-        isDueSoonFromDueAt: isDueSoonFromDueAt
+        isDueSoonFromDueAt: isDueSoonFromDueAt,
+        isUserManualList: isUserManualList
     };
 
     if (typeof window !== 'undefined') {

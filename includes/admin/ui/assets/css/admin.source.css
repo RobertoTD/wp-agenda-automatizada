@@ -94,6 +94,11 @@
         display: none;
     }
 
+    /* Executable feed — botón + tarea oculto con lista abierta */
+    details.aa-executable-list-card[open] .aa-executable-list-add-task {
+        display: none;
+    }
+
     details.aa-executable-list-card > summary {
         position: relative;
     }

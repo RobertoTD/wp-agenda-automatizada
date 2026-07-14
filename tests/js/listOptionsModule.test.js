@@ -248,6 +248,12 @@ function makeElement(tag, options) {
             var node = this;
 
             while (node) {
+                if (selector === '[data-aa-list-add-task]'
+                    && node.getAttribute
+                    && node.getAttribute('data-aa-list-add-task') === '1') {
+                    return node;
+                }
+
                 if (selector === '[data-aa-list-options-trigger]'
                     && node.getAttribute
                     && node.getAttribute('data-aa-list-options-trigger') === '1') {
@@ -1285,6 +1291,121 @@ describe('list-options-module restoreListAfterReload', () => {
 
         assert.doesNotThrow(function () {
             api.restoreListAfterReload('missing', feed.moduleRoot, { followingTasksOpen: true });
+        });
+    });
+});
+
+describe('listOptionsModule add-task click delegation', () => {
+    function buildAddTaskDom(listId) {
+        var addBtn = makeElement('button', {
+            attributes: {
+                'data-aa-list-add-task': '1',
+                'data-list-id': listId
+            }
+        });
+
+        var details = makeElement('details', {
+            attributes: {
+                'data-list-id': listId
+            },
+            children: [addBtn]
+        });
+        details.classList.classes.push('aa-executable-list-card');
+        details.open = false;
+
+        var moduleRoot = makeElement('div', {
+            attributes: { id: 'aa-tasks-module-root' },
+            children: [details]
+        });
+
+        var documentMock = {
+            readyState: 'complete',
+            addEventListener: function (type, handler, useCapture) {
+                var key = type + (useCapture ? ':capture' : ':bubble');
+                documentMock.listeners[key] = documentMock.listeners[key] || [];
+                documentMock.listeners[key].push(handler);
+            },
+            listeners: {},
+            getElementById: function (id) {
+                return id === 'aa-tasks-module-root' ? moduleRoot : null;
+            },
+            querySelector: function (selector) {
+                return moduleRoot.querySelector(selector);
+            },
+            querySelectorAll: function (selector) {
+                return moduleRoot.querySelectorAll(selector);
+            }
+        };
+
+        return {
+            document: documentMock,
+            moduleRoot: moduleRoot,
+            details: details,
+            addBtn: addBtn
+        };
+    }
+
+    it('click en + tarea llama preventDefault y stopPropagation', () => {
+        var dom = buildAddTaskDom('42');
+        var bag = {};
+        loadModule(dom, bag);
+
+        var prevented = false;
+        var stopped = false;
+        var event = {
+            target: dom.addBtn,
+            preventDefault: function () { prevented = true; },
+            stopPropagation: function () { stopped = true; }
+        };
+
+        (dom.document.listeners['click:capture'] || []).forEach(function (handler) {
+            handler(event);
+        });
+
+        assert.equal(prevented, true);
+        assert.equal(stopped, true);
+    });
+
+    it('click en + tarea invoca AATasksBoard.openNewTaskForList con listId', () => {
+        var dom = buildAddTaskDom('77');
+        var bag = {};
+        loadModule(dom, bag);
+
+        var calledWith = null;
+        bag.context.window.AATasksBoard = {
+            openNewTaskForList: function (id) {
+                calledWith = id;
+            }
+        };
+
+        dispatchClick(dom.addBtn, dom.document);
+
+        assert.equal(calledWith, '77');
+    });
+
+    it('click en + tarea no alterna el details', () => {
+        var dom = buildAddTaskDom('88');
+        var bag = {};
+        loadModule(dom, bag);
+        dom.details.open = false;
+
+        bag.context.window.AATasksBoard = {
+            openNewTaskForList: function () {}
+        };
+
+        dispatchClick(dom.addBtn, dom.document);
+
+        assert.equal(dom.details.open, false);
+    });
+
+    it('sin AATasksBoard no lanza error', () => {
+        var dom = buildAddTaskDom('99');
+        var bag = {};
+        loadModule(dom, bag);
+        bag.context.window.AATasksBoard = undefined;
+
+        assert.doesNotThrow(function () {
+            dispatchClick(dom.addBtn, dom.document);
         });
     });
 });

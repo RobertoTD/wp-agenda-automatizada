@@ -700,10 +700,32 @@
         loadBoard();
     }
 
+    /**
+     * @param {string|number} listId
+     */
+    function openNewTaskForList(listId) {
+        if (!hasUserLists()) {
+            showBoardError('Crea una lista primero para poder agregar tareas.');
+            return;
+        }
+
+        clearBoardError();
+        resetTaskForm();
+
+        var select = document.getElementById('aa-task-form-list-id');
+
+        if (select && listId) {
+            select.value = String(listId);
+        }
+
+        openModal('aa-task-modal');
+    }
+
     globalRoot.AATasksBoard = {
         reload: function (options) {
             return loadBoard(options || { silent: true });
-        }
+        },
+        openNewTaskForList: openNewTaskForList
     };
 
     var moduleExports = {
