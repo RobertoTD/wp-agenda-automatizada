@@ -435,7 +435,7 @@
     if (resource === 'google_calendar_sync' && operation === 'delete_event' && status === 'skipped') {
       detail = 'No se eliminó el evento en Google Calendar.';
       if (code === 'google_calendar_quota_exceeded' || notice.reason === 'quota_exceeded') {
-        detail = detail + ' Límite de sincronizaciones alcanzado.';
+        detail = detail + ' Límite de sincronizaciones Calendar y notificaciones push alcanzado.';
       }
       fallback = 'Puedes eliminarlo manualmente desde Google Calendar.';
       return { detail: detail, fallback: fallback };
@@ -444,7 +444,7 @@
     if (resource === 'google_calendar_sync' && operation === 'create_event' && status === 'skipped') {
       detail = 'No se creó el evento en Google Calendar.';
       if (code === 'google_calendar_quota_exceeded' || notice.reason === 'quota_exceeded') {
-        detail = detail + ' Límite de sincronizaciones alcanzado.';
+        detail = detail + ' Límite de sincronizaciones Calendar y notificaciones push alcanzado.';
       }
       return { detail: detail, fallback: null };
     }

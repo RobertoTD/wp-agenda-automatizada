@@ -475,7 +475,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                                 aria-label="Límites mensuales Freemium">
                                 <li>30 correos de confirmación y recordatorio al mes</li>
                                 <li>30 solicitudes IA al mes</li>
-                                <li>70 sincronizaciones con Google Calendar al mes</li>
+                                <li>70 sincronizaciones Calendar y notificaciones push al mes</li>
                             </ul>
                             <button type="button"
                                     id="aa-google-calendar-freemium-cta"

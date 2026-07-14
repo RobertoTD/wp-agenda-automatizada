@@ -432,6 +432,162 @@ ac(
     implode(', ', $forbidden_bq)
 );
 
+// --- benefit_quotas shared_pools normalization ---
+reset_options();
+$GLOBALS['aa_test_options']['aa_client_secret'] = 'test-secret';
+Mock_Account_Status_Backend_Client::$response = [
+    'ok' => true,
+    'account_status' => [
+        'plan_tier' => 'freemium',
+        'billing_state' => 'active',
+        'effective_access_tier' => 'freemium',
+        'benefit_quotas' => [
+            'period_yyyymm' => '202607',
+            'usage_counters_applicable' => true,
+            'quota_read_error' => null,
+            'shared_pool_read_error' => null,
+            'access_reason' => null,
+            'items' => [
+                [
+                    'key' => 'deoia_email_sends',
+                    'limit' => 30,
+                    'consumed' => 1,
+                    'remaining' => 29,
+                    'can_consume' => true,
+                    'at_limit' => false,
+                    'exceeded' => false,
+                ],
+                [
+                    'key' => 'deoia_ai_chat_queries',
+                    'limit' => 30,
+                    'consumed' => 2,
+                    'remaining' => 28,
+                    'can_consume' => true,
+                    'at_limit' => false,
+                    'exceeded' => false,
+                ],
+                [
+                    'key' => 'deoia_google_calendar_syncs',
+                    'limit' => 70,
+                    'consumed' => 2,
+                    'remaining' => 68,
+                    'can_consume' => true,
+                    'at_limit' => false,
+                    'exceeded' => false,
+                ],
+                [
+                    'key' => 'deoia_push_notifications',
+                    'limit' => 70,
+                    'consumed' => 1,
+                    'remaining' => 69,
+                    'can_consume' => true,
+                    'at_limit' => false,
+                    'exceeded' => false,
+                ],
+            ],
+            'shared_pools' => [
+                'calendar_and_push' => [
+                    'limit' => 70,
+                    'consumed' => 3,
+                    'reserved' => 1,
+                    'allocated' => 4,
+                    'remaining' => 66,
+                    'can_consume' => true,
+                    'at_limit' => false,
+                    'exceeded' => false,
+                    'member_keys' => [
+                        'deoia_google_calendar_syncs',
+                        'deoia_push_notifications',
+                    ],
+                    'breakdown' => [
+                        'calendar' => 2,
+                        'push' => 1,
+                    ],
+                    'unknown_field' => 'strip-me',
+                    'installation_id' => 'should-strip',
+                ],
+                'other_pool' => [
+                    'limit' => 10,
+                    'remaining' => 5,
+                ],
+            ],
+        ],
+    ],
+];
+
+$result = (new GetAccountStatusUseCase(new Mock_Account_Status_Backend_Client()))->execute();
+$benefit_quotas = $result['data']['account_status']['benefit_quotas'] ?? null;
+$pool = $benefit_quotas['shared_pools']['calendar_and_push'] ?? null;
+ac(
+    'benefit_quotas keeps and normalizes shared_pools.calendar_and_push',
+    is_array($pool)
+        && ($pool['remaining'] ?? null) === 66
+        && ($pool['reserved'] ?? null) === 1
+        && ($pool['breakdown']['calendar'] ?? null) === 2
+        && ($pool['breakdown']['push'] ?? null) === 1
+        && !array_key_exists('unknown_field', $pool)
+        && !array_key_exists('installation_id', $pool)
+        && !array_key_exists('other_pool', $benefit_quotas['shared_pools'] ?? []),
+    wp_json_encode_safe($benefit_quotas)
+);
+$item_keys = array_map(static function ($item) {
+    return is_array($item) ? (string) ($item['key'] ?? '') : '';
+}, $benefit_quotas['items'] ?? []);
+ac(
+    'benefit_quotas does not whitelist push as independent item',
+    count($item_keys) === 3
+        && in_array('deoia_google_calendar_syncs', $item_keys, true)
+        && !in_array('deoia_push_notifications', $item_keys, true),
+    wp_json_encode_safe($item_keys)
+);
+
+// Incomplete pool discarded
+reset_options();
+$GLOBALS['aa_test_options']['aa_client_secret'] = 'test-secret';
+Mock_Account_Status_Backend_Client::$response = [
+    'ok' => true,
+    'account_status' => [
+        'plan_tier' => 'freemium',
+        'billing_state' => 'active',
+        'effective_access_tier' => 'freemium',
+        'benefit_quotas' => [
+            'period_yyyymm' => '202607',
+            'usage_counters_applicable' => true,
+            'shared_pool_read_error' => 'reservations_unavailable',
+            'items' => [
+                [
+                    'key' => 'deoia_google_calendar_syncs',
+                    'limit' => 70,
+                    'consumed' => 2,
+                    'remaining' => 68,
+                    'can_consume' => true,
+                    'at_limit' => false,
+                    'exceeded' => false,
+                ],
+            ],
+            'shared_pools' => [
+                'calendar_and_push' => [
+                    'limit' => 70,
+                    'remaining' => 66,
+                    // missing required fields
+                ],
+            ],
+        ],
+    ],
+];
+
+$result = (new GetAccountStatusUseCase(new Mock_Account_Status_Backend_Client()))->execute();
+$benefit_quotas = $result['data']['account_status']['benefit_quotas'] ?? null;
+ac(
+    'incomplete shared_pools discards pool and keeps shared_pool_read_error + items',
+    is_array($benefit_quotas)
+        && ($benefit_quotas['shared_pool_read_error'] ?? null) === 'reservations_unavailable'
+        && ($benefit_quotas['shared_pools'] ?? null) === []
+        && count($benefit_quotas['items'] ?? []) === 1
+        && ($benefit_quotas['items'][0]['key'] ?? '') === 'deoia_google_calendar_syncs',
+    wp_json_encode_safe($benefit_quotas)
+);
+
 // --- benefit_quotas malformed omitted ---
 reset_options();
 $GLOBALS['aa_test_options']['aa_client_secret'] = 'test-secret';

@@ -101,7 +101,7 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
                                 </li>
                                 <li class="flex items-start gap-2">
                                     <span class="text-violet-600 mt-0.5" aria-hidden="true">•</span>
-                                    <span>700 sincronizaciones con Google Calendar al mes</span>
+                                    <span>700 sincronizaciones Calendar y notificaciones push al mes</span>
                                 </li>
                             </ul>
                             <div class="flex flex-wrap gap-2">

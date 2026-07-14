@@ -180,7 +180,7 @@ AAAdmin.toast.show({
   severity: "warning",
   title: "Cita confirmada",
   message: "No se creó el evento en Google Calendar.",
-  details: ["Límite de sincronizaciones alcanzado."],
+  details: ["Límite de sincronizaciones Calendar y notificaciones push alcanzado."],
   fallback: "Puedes revisar Calendar manualmente.",
   durationMs: 5000,
   blocking: false,

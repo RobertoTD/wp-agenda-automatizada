@@ -818,6 +818,13 @@
                 li.appendChild(remaining);
             }
 
+            if (item.detailLine) {
+                var detail = document.createElement('p');
+                detail.className = 'text-gray-500 mt-0.5 text-sm';
+                detail.textContent = item.detailLine;
+                li.appendChild(detail);
+            }
+
             listEl.appendChild(li);
         });
     }

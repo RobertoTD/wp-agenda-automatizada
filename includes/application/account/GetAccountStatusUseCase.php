@@ -224,6 +224,135 @@ final class GetAccountStatusUseCase {
         'exceeded',
     ];
 
+    private const SHARED_POOL_CALENDAR_AND_PUSH = 'calendar_and_push';
+
+    /** @var list<string> */
+    private const SHARED_POOL_ALLOWED_KEYS = [
+        'limit',
+        'consumed',
+        'reserved',
+        'allocated',
+        'remaining',
+        'can_consume',
+        'at_limit',
+        'exceeded',
+        'member_keys',
+        'breakdown',
+    ];
+
+    /**
+     * @param mixed $value
+     * @return int|null|false false when not a finite int (or null)
+     */
+    private function normalizeOptionalInt($value) {
+        if ($value === null) {
+            return null;
+        }
+        if (!is_numeric($value)) {
+            return false;
+        }
+        return (int) $value;
+    }
+
+    /**
+     * Strict normalization of shared_pools.calendar_and_push.
+     * Incomplete/invalid pool is omitted (legacy Calendar fallback in UX).
+     *
+     * @param mixed $value
+     * @return array<string,array<string,mixed>>
+     */
+    private function normalizeSharedPools($value): array {
+        if (!is_array($value)) {
+            return [];
+        }
+
+        if (!isset($value[self::SHARED_POOL_CALENDAR_AND_PUSH]) || !is_array($value[self::SHARED_POOL_CALENDAR_AND_PUSH])) {
+            return [];
+        }
+
+        $raw = $value[self::SHARED_POOL_CALENDAR_AND_PUSH];
+        foreach (self::SHARED_POOL_ALLOWED_KEYS as $required) {
+            if (!array_key_exists($required, $raw)) {
+                return [];
+            }
+        }
+
+        $limit = $this->normalizeOptionalInt($raw['limit']);
+        $consumed = $this->normalizeOptionalInt($raw['consumed']);
+        $reserved = $this->normalizeOptionalInt($raw['reserved']);
+        $allocated = $this->normalizeOptionalInt($raw['allocated']);
+        $remaining = $this->normalizeOptionalInt($raw['remaining']);
+
+        if ($limit === false || $consumed === false || $reserved === false || $allocated === false || $remaining === false) {
+            return [];
+        }
+
+        if (!is_array($raw['breakdown'])) {
+            return [];
+        }
+        if (!array_key_exists('calendar', $raw['breakdown']) || !array_key_exists('push', $raw['breakdown'])) {
+            return [];
+        }
+
+        $calendar = $this->normalizeOptionalInt($raw['breakdown']['calendar']);
+        $push = $this->normalizeOptionalInt($raw['breakdown']['push']);
+        if ($calendar === false || $push === false || $calendar === null || $push === null) {
+            return [];
+        }
+
+        if (!is_array($raw['member_keys'])) {
+            return [];
+        }
+        $member_keys = [];
+        foreach ($raw['member_keys'] as $member_key) {
+            if (!is_scalar($member_key)) {
+                continue;
+            }
+            $trimmed = trim((string) $member_key);
+            if ($trimmed !== '') {
+                $member_keys[] = $trimmed;
+            }
+        }
+        if (count($member_keys) === 0) {
+            return [];
+        }
+
+        $normalized = [
+            'limit'       => $limit,
+            'consumed'    => $consumed,
+            'reserved'    => $reserved,
+            'allocated'   => $allocated,
+            'remaining'   => $remaining,
+            'can_consume' => (bool) $raw['can_consume'],
+            'at_limit'    => (bool) $raw['at_limit'],
+            'exceeded'    => (bool) $raw['exceeded'],
+            'member_keys' => $member_keys,
+            'breakdown'   => [
+                'calendar' => $calendar,
+                'push'     => $push,
+            ],
+        ];
+
+        return [
+            self::SHARED_POOL_CALENDAR_AND_PUSH => $normalized,
+        ];
+    }
+
+    /**
+     * @param mixed $value
+     * @return string|null
+     */
+    private function normalizeOptionalErrorString($value): ?string {
+        if ($value === null) {
+            return null;
+        }
+        if (!is_scalar($value)) {
+            return null;
+        }
+        $trimmed = trim((string) $value);
+        return $trimmed === '' ? null : $trimmed;
+    }
+
     /**
      * @param mixed $value
      * @return array<string,mixed>|null
@@ -281,32 +410,22 @@ final class GetAccountStatusUseCase {
             }
         }
 
-        $quota_read_error = null;
-        if (array_key_exists('quota_read_error', $value)) {
-            if ($value['quota_read_error'] === null) {
-                $quota_read_error = null;
-            } elseif (is_scalar($value['quota_read_error'])) {
-                $trimmed = trim((string) $value['quota_read_error']);
-                $quota_read_error = $trimmed === '' ? null : $trimmed;
-            }
-        }
-
-        $access_reason = null;
-        if (array_key_exists('access_reason', $value)) {
-            if ($value['access_reason'] === null) {
-                $access_reason = null;
-            } elseif (is_scalar($value['access_reason'])) {
-                $trimmed = trim((string) $value['access_reason']);
-                $access_reason = $trimmed === '' ? null : $trimmed;
-            }
-        }
-
         return [
             'period_yyyymm'             => $period,
             'usage_counters_applicable' => !empty($value['usage_counters_applicable']),
-            'quota_read_error'          => $quota_read_error,
-            'access_reason'             => $access_reason,
+            'quota_read_error'          => $this->normalizeOptionalErrorString(
+                array_key_exists('quota_read_error', $value) ? $value['quota_read_error'] : null
+            ),
+            'shared_pool_read_error'    => $this->normalizeOptionalErrorString(
+                array_key_exists('shared_pool_read_error', $value) ? $value['shared_pool_read_error'] : null
+            ),
+            'access_reason'             => $this->normalizeOptionalErrorString(
+                array_key_exists('access_reason', $value) ? $value['access_reason'] : null
+            ),
             'items'                     => $items,
+            'shared_pools'              => $this->normalizeSharedPools(
+                array_key_exists('shared_pools', $value) ? $value['shared_pools'] : []
+            ),
         ];
     }
 
