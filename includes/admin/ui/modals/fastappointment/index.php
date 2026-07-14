@@ -31,29 +31,29 @@ defined('ABSPATH') or die('No direct access');
                     </div>
                 </button>
                 <div data-aa-fastappointment-step-body class="aa-fastappointment-step-body space-y-2 border-t border-gray-200 p-3">
-                    <p data-aa-fastappointment-step-description class="text-xs text-gray-500">Busca o crea el cliente antes de continuar.</p>
-                    <div class="flex items-center gap-2">
-                        <input
-                            type="text"
-                            id="aa-fastappointment-client-search"
-                            class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
-                            placeholder="Buscar cliente..."
-                            autocomplete="off">
-                        <span class="text-gray-500 text-sm">o</span>
-                        <button
-                            type="button"
-                            id="aa-fastappointment-client-create"
-                            class="px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap">
-                            + cliente
-                        </button>
-                    </div>
-                    <div id="aa-fastappointment-client-inline" class="hidden"></div>
+                    <p data-aa-fastappointment-step-description class="text-xs text-gray-500">Selecciona o crea un cliente.</p>
                     <select
                         id="aa-fastappointment-client"
                         name="cliente_id"
                         class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white">
                         <option value="">-- Selecciona un cliente --</option>
                     </select>
+                    <div class="flex items-center gap-2">
+                        <input
+                            type="text"
+                            id="aa-fastappointment-client-search"
+                            class="min-w-0 flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                            placeholder="Buscar cliente..."
+                            autocomplete="off">
+                        <span class="text-gray-500 text-sm">o</span>
+                        <button
+                            type="button"
+                            id="aa-fastappointment-client-create"
+                            class="inline-flex items-center rounded-lg border px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-800 border-gray-200 bg-white transition-colors whitespace-nowrap">
+                            + cliente
+                        </button>
+                    </div>
+                    <div id="aa-fastappointment-client-inline" class="hidden"></div>
                 </div>
             </div>
 

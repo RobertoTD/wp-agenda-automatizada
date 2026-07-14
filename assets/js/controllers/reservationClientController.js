@@ -45,6 +45,26 @@
         let previousSelectedValue = null;
         let searchTimeoutId = null;
 
+        function getPlaceholderText(clients, query) {
+            if (!query) return '-- Selecciona un cliente --';
+            var count = Array.isArray(clients) ? clients.length : 0;
+            if (count === 0) return 'Sin clientes encontrados';
+            if (count === 1) return '1 resultado \u2014 selecci\u00f3nalo';
+            return count + ' resultados \u2014 selecciona uno';
+        }
+
+        function setPlaceholderOption(text) {
+            var first = clienteSelect.options[0];
+            if (first && first.value === '') {
+                first.textContent = text;
+            } else {
+                var opt = document.createElement('option');
+                opt.value = '';
+                opt.textContent = text;
+                clienteSelect.insertBefore(opt, clienteSelect.firstChild);
+            }
+        }
+
         function emitClientsLoaded(clients, total, query) {
             if (typeof onClientsLoaded !== 'function') {
                 return;
@@ -63,8 +83,9 @@
          * @param {boolean} preserveSelection - Whether to preserve current selection if still valid
          * @param {string|number} [selectClientId] - Optional client ID to select after repopulating
          * @param {string} [selectClientPhone] - Optional client phone to select after repopulating (exact match)
+         * @param {string} [query] - The search query used (for placeholder text)
          */
-        function repopulateSelect(clients, preserveSelection, selectClientId, selectClientPhone) {
+        function repopulateSelect(clients, preserveSelection, selectClientId, selectClientPhone, query) {
             // Store current selection
             if (preserveSelection) {
                 previousSelectedValue = clienteSelect.value;
@@ -73,7 +94,10 @@
             // Clear all options
             clienteSelect.innerHTML = '';
 
-            // Add client options
+            // Insert placeholder first so options[0] is always value=""
+            setPlaceholderOption(getPlaceholderText(clients, query || ''));
+
+            // Add client options after placeholder
             if (clients && clients.length > 0) {
                 clients.forEach(function(cliente) {
                     const option = document.createElement('option');
@@ -144,17 +168,8 @@
                         console.log('[ReservationClientController] Cliente seleccionado ya no está en resultados, seleccionando primero');
                     }
                 } else {
-                    // Select first result automatically
                     clienteSelect.selectedIndex = 0;
                 }
-            } else {
-                // No results
-                const noResultsOption = document.createElement('option');
-                noResultsOption.value = '';
-                noResultsOption.textContent = 'Sin coincidencias';
-                noResultsOption.disabled = true;
-                clienteSelect.appendChild(noResultsOption);
-                clienteSelect.selectedIndex = 0;
             }
         }
 
@@ -177,8 +192,9 @@
             formData.append('limit', '15');
             formData.append('offset', '0');
 
-            // Show loading state (disable select but keep current options visible)
+            // Show loading state
             clienteSelect.disabled = true;
+            setPlaceholderOption('Buscando clientes\u2026');
 
             // Make AJAX call
             fetch(ajaxurl, {
@@ -197,18 +213,18 @@
                         ? result.data.total
                         : loadedClients.length;
 
-                    repopulateSelect(loadedClients, preserveSelection, selectClientId, selectClientPhone);
+                    repopulateSelect(loadedClients, preserveSelection, selectClientId, selectClientPhone, normalizedQuery);
                     emitClientsLoaded(loadedClients, loadedTotal, normalizedQuery);
                 } else {
                     console.warn('[ReservationClientController] Error en búsqueda de clientes:', result);
-                    repopulateSelect([], preserveSelection, selectClientId, selectClientPhone);
+                    repopulateSelect([], preserveSelection, selectClientId, selectClientPhone, normalizedQuery);
                     emitClientsLoaded([], 0, normalizedQuery);
                 }
             })
             .catch(function(error) {
                 console.error('[ReservationClientController] Error al buscar clientes:', error);
                 clienteSelect.disabled = false;
-                repopulateSelect([], preserveSelection, selectClientId, selectClientPhone);
+                repopulateSelect([], preserveSelection, selectClientId, selectClientPhone, normalizedQuery);
                 emitClientsLoaded([], 0, normalizedQuery);
             });
         }

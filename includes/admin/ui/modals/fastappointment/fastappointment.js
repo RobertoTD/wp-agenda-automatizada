@@ -124,6 +124,21 @@
                     tutorialContext: this._tutorialContext
                 });
                 this.observeModalLifecycle();
+
+                var clientSelect = document.getElementById('aa-fastappointment-client');
+                if (clientSelect) {
+                    if (!clientSelect.disabled) {
+                        clientSelect.focus();
+                    } else if (typeof MutationObserver === 'function') {
+                        var focusObserver = new MutationObserver(function() {
+                            if (!clientSelect.disabled) {
+                                focusObserver.disconnect();
+                                clientSelect.focus();
+                            }
+                        });
+                        focusObserver.observe(clientSelect, { attributes: true, attributeFilter: ['disabled'] });
+                    }
+                }
             }, 0);
         },
 
