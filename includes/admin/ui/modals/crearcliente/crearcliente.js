@@ -121,27 +121,28 @@
         const telefonoGroup = document.createElement('div');
         telefonoGroup.className = 'aa-form-group';
 
+        const telefonoLabel = document.createElement('label');
+        telefonoLabel.setAttribute('for', 'modal-cliente-telefono');
+        telefonoLabel.textContent = 'Teléfono *';
+        telefonoGroup.appendChild(telefonoLabel);
+
         const telefonoRow = document.createElement('div');
-        telefonoRow.style.cssText = 'display:flex;gap:8px;align-items:flex-start;';
+        telefonoRow.style.cssText = 'display:flex;gap:8px;align-items:center;min-width:0;';
 
         const countrySelect = document.createElement('select');
         countrySelect.id = 'modal-cliente-country';
         countrySelect.name = 'country';
-        countrySelect.style.cssText = 'flex:0 0 auto;min-width:140px;';
+        countrySelect.style.cssText = 'flex:0 0 112px;min-width:0;';
         countrySelect.innerHTML = '<option value="52">México (+52)</option><option value="1">USA (+1)</option><option value="34">España (+34)</option>';
 
         const phoneWrapper = document.createElement('div');
-        phoneWrapper.style.flex = '1';
-        const telefonoLabel = document.createElement('label');
-        telefonoLabel.setAttribute('for', 'modal-cliente-telefono');
-        telefonoLabel.textContent = 'Teléfono *';
+        phoneWrapper.style.cssText = 'flex:1 1 0%;min-width:0;';
         const telefonoInput = document.createElement('input');
         telefonoInput.type = 'tel';
         telefonoInput.id = 'modal-cliente-telefono';
         telefonoInput.name = 'telefono';
         telefonoInput.required = true;
         telefonoInput.placeholder = 'Ej: 5512345678';
-        phoneWrapper.appendChild(telefonoLabel);
         phoneWrapper.appendChild(telefonoInput);
 
         telefonoRow.appendChild(countrySelect);
@@ -515,21 +516,23 @@
         const telefonoGroup = document.createElement('div');
         telefonoGroup.className = 'aa-form-group';
 
+        const telefonoLabel = document.createElement('label');
+        telefonoLabel.setAttribute('for', 'modal-editar-cliente-telefono');
+        telefonoLabel.textContent = 'Teléfono *';
+        telefonoGroup.appendChild(telefonoLabel);
+
         const telefonoRow = document.createElement('div');
-        telefonoRow.style.cssText = 'display:flex;gap:8px;align-items:flex-start;';
+        telefonoRow.style.cssText = 'display:flex;gap:8px;align-items:center;min-width:0;';
 
         const countrySelect = document.createElement('select');
         countrySelect.id = 'modal-cliente-country-edit';
         countrySelect.name = 'country';
-        countrySelect.style.cssText = 'flex:0 0 auto;min-width:140px;';
+        countrySelect.style.cssText = 'flex:0 0 112px;min-width:0;';
         countrySelect.innerHTML = '<option value="52">México (+52)</option><option value="1">USA (+1)</option><option value="34">España (+34)</option>';
         countrySelect.value = parsed.country;
 
         const phoneWrapper = document.createElement('div');
-        phoneWrapper.style.flex = '1';
-        const telefonoLabel = document.createElement('label');
-        telefonoLabel.setAttribute('for', 'modal-editar-cliente-telefono');
-        telefonoLabel.textContent = 'Teléfono *';
+        phoneWrapper.style.cssText = 'flex:1 1 0%;min-width:0;';
         const telefonoInput = document.createElement('input');
         telefonoInput.type = 'tel';
         telefonoInput.id = 'modal-editar-cliente-telefono';
@@ -537,7 +540,6 @@
         telefonoInput.required = true;
         telefonoInput.value = parsed.nationalDigits;
         telefonoInput.placeholder = (COUNTRY_CONFIG[parsed.country] || COUNTRY_CONFIG['52']).placeholder;
-        phoneWrapper.appendChild(telefonoLabel);
         phoneWrapper.appendChild(telefonoInput);
 
         telefonoRow.appendChild(countrySelect);
