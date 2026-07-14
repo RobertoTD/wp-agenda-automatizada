@@ -241,6 +241,8 @@
 
             var addTaskListId = asString(addTaskBtn.getAttribute('data-list-id')).trim();
 
+            closeAllMenus();
+
             if (addTaskListId
                 && globalRoot.AATasksBoard
                 && typeof globalRoot.AATasksBoard.openNewTaskForList === 'function') {

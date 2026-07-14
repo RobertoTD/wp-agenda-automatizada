@@ -2647,3 +2647,98 @@ describe('executableListRenderer add-task button and chevron placement', () => {
         assert.ok(chevronPos < metaPos);
     });
 });
+
+describe('executableListRenderer add-task menu item', () => {
+    function extractMenu(html) {
+        var match = html.match(/<div[^>]*aa-executable-list-options-menu[^>]*>[\s\S]*?<\/div>/);
+
+        return match ? match[0] : '';
+    }
+
+    function extractMenuItems(html) {
+        var menu = extractMenu(html);
+        var items = [];
+        var re = /<button[^>]*role="menuitem"[^>]*>([\s\S]*?)<\/button>/g;
+        var m;
+
+        while ((m = re.exec(menu)) !== null) {
+            items.push(m[1].trim());
+        }
+
+        return items;
+    }
+
+    it('lista manual del usuario muestra + tarea como primer menuitem', () => {
+        var html = renderer.renderList(baseList({
+            id: '12',
+            source: 'user',
+            source_category: 'user',
+            managed_by: 'user',
+            capabilities: { can_edit: true, can_archive: true, can_delete: true, can_restore_archived_tasks: true },
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+        var items = extractMenuItems(html);
+
+        assert.equal(items[0], '+ tarea');
+        assert.equal(items[1], 'Editar lista');
+        assert.equal(items[2], 'Desarchivar tareas');
+        assert.equal(items[3], 'Archivar lista');
+        assert.equal(items[4], 'Eliminar lista');
+    });
+
+    it('menuitem + tarea usa data-aa-list-add-task y data-list-id', () => {
+        var html = renderer.renderList(baseList({
+            id: '55',
+            source: 'user',
+            source_category: 'user',
+            managed_by: 'user',
+            capabilities: { can_edit: true },
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+        var menu = extractMenu(html);
+
+        assert.match(menu, /role="menuitem"[\s\S]*?data-aa-list-add-task="1"/);
+        assert.match(menu, /data-list-id="55"/);
+    });
+
+    it('lista sistema no incluye + tarea en menú', () => {
+        var html = renderer.renderList(baseList({
+            source: 'system',
+            source_category: 'agenda_app',
+            managed_by: 'developer',
+            capabilities: { can_archive: true },
+            buckets: [{ key: 'primary', label: 'Principales', items: [baseItem()] }]
+        }));
+        var items = extractMenuItems(html);
+
+        assert.ok(!items.includes('+ tarea'));
+    });
+
+    it('lista user managed_by developer no incluye + tarea en menú', () => {
+        var html = renderer.renderList(baseList({
+            source: 'user',
+            source_category: 'user',
+            managed_by: 'developer',
+            capabilities: { can_edit: true },
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+        var items = extractMenuItems(html);
+
+        assert.ok(!items.includes('+ tarea'));
+    });
+
+    it('lista manual sin capabilities igual renderiza menú con + tarea', () => {
+        var html = renderer.renderList(baseList({
+            id: '33',
+            source: 'user',
+            source_category: 'user',
+            managed_by: 'user',
+            capabilities: {},
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }));
+        var items = extractMenuItems(html);
+
+        assert.equal(items.length, 1);
+        assert.equal(items[0], '+ tarea');
+    });
+});

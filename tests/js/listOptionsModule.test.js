@@ -1408,4 +1408,30 @@ describe('listOptionsModule add-task click delegation', () => {
             dispatchClick(dom.addBtn, dom.document);
         });
     });
+
+    it('click en + tarea cierra el menú de opciones abierto', () => {
+        var dom = buildListCardDom('mc-close');
+        var bag = {};
+        loadModule(dom, bag);
+
+        bag.context.window.AATasksBoard = {
+            openNewTaskForList: function () {}
+        };
+
+        dispatchClick(dom.trigger, dom.document);
+        assert.equal(dom.menu.classList.contains('hidden'), false, 'menú abierto tras click en trigger');
+
+        var addBtn = makeElement('button', {
+            attributes: {
+                'data-aa-list-add-task': '1',
+                'data-list-id': 'mc-close'
+            }
+        });
+        dom.menu.appendChild(addBtn);
+        addBtn.parent = dom.menu;
+
+        dispatchClick(addBtn, dom.document);
+
+        assert.equal(dom.menu.classList.contains('hidden'), true, 'menú cerrado tras click en + tarea');
+    });
 });

@@ -1430,13 +1430,15 @@
 
     /**
      * @param {object} capabilities
+     * @param {object} [list]
      * @returns {boolean}
      */
-    function listHasOptionsMenu(capabilities) {
+    function listHasOptionsMenu(capabilities, list) {
         return !!capabilities.can_archive
             || !!capabilities.can_edit
             || !!capabilities.can_restore_archived_tasks
-            || !!capabilities.can_delete;
+            || !!capabilities.can_delete
+            || isUserManualList(list);
     }
 
     /**
@@ -1452,6 +1454,17 @@
         var listImportance = escapeHtml(asString(
             list.importance !== undefined && list.importance !== null ? list.importance : 0
         ));
+
+        if (isUserManualList(list)) {
+            items += ''
+                + '<button type="button" role="menuitem"'
+                + ' data-aa-list-add-task="1"'
+                + ' data-list-id="' + listId + '"'
+                + ' onclick="event.stopPropagation()"'
+                + ' class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">'
+                + '+ Tarea'
+                + '</button>';
+        }
 
         if (capabilities.can_edit) {
             items += ''
@@ -1509,7 +1522,7 @@
      * @returns {string}
      */
     function renderListOptionsMenu(capabilities, list) {
-        if (!listHasOptionsMenu(capabilities)) {
+        if (!listHasOptionsMenu(capabilities, list)) {
             return '';
         }
 
@@ -1573,8 +1586,8 @@
             + '<button type="button"'
             + ' data-aa-list-add-task="1"'
             + ' data-list-id="' + listId + '"'
-            + ' class="aa-executable-list-add-task inline-flex items-center px-2.5 py-1 text-xs font-medium text-violet-700 hover:text-violet-800 rounded-lg border border-violet-200 bg-violet-50 hover:bg-violet-100 transition-colors shrink-0">'
-            + '+ tarea'
+            + ' class="aa-executable-list-add-task inline-flex items-center px-2.5 py-1 text-xs font-medium text-gray-500 hover:text-gray-700 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors shrink-0">'
+            + '+ Tarea'
             + '</button>';
     }
 
