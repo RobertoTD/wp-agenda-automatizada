@@ -14,7 +14,6 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
 
 $plugin_url = plugin_dir_url(__FILE__);
 $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
-$executor_module_url = admin_url('admin-post.php?action=aa_iframe_content&module=learning');
 ?>
 
 <div id="aa-dashboard-root" class="max-w-5xl mx-auto py-2">
@@ -22,34 +21,6 @@ $executor_module_url = admin_url('admin-post.php?action=aa_iframe_content&module
     <!-- Date -->
     <div class="mb-2 text-right">
         <p id="aa-dashboard-date" class="text-xs text-gray-500 mx-5"></p>
-    </div>
-
-    <!-- Tarea actual -->
-    <div class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden mb-3">
-        <div class="px-4 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
-            <div class="flex items-center justify-between gap-2 flex-wrap">
-                <div class="flex items-center gap-2.5">
-                    <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-violet-100 text-violet-600">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
-                        </svg>
-                    </span>
-                    <h3 class="text-base font-semibold text-gray-900">Tarea actual</h3>
-                </div>
-                <a
-                    href="<?php echo esc_url($executor_module_url); ?>"
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-lg border border-violet-200 transition-colors"
-                >
-                    Ir a Ejecutor
-                </a>
-            </div>
-        </div>
-        <div id="aa-dash-current-task" class="p-4">
-            <p id="aa-dash-current-task-loading" class="text-sm text-gray-500">Cargando tarea…</p>
-            <p id="aa-dash-current-task-empty" class="hidden text-sm text-gray-500">Sin tareas pendientes por ahora.</p>
-            <p id="aa-dash-current-task-error" class="hidden text-sm text-red-600">Error al cargar la tarea.</p>
-            <div id="aa-dash-current-task-content" class="hidden"></div>
-        </div>
     </div>
 
     <!-- Citas (fila colapsable) -->
@@ -351,14 +322,6 @@ $executor_module_url = admin_url('admin-post.php?action=aa_iframe_content&module
         currency: '<?php echo esc_js(get_option('aa_currency', 'MXN')); ?>'
     };
 
-    window.AA_EXECUTIVE_PROPOSAL_DATA = {
-        ajaxUrl: window.ajaxurl || '<?php echo admin_url('admin-ajax.php'); ?>',
-        action: 'aa_get_executive_proposal',
-        actionPost: 'aa_executive_action',
-        focusActionPost: 'aa_executive_focus_action',
-        nonce: '<?php echo esc_js(wp_create_nonce('aa_executive_proposal_nonce')); ?>'
-    };
-
     window.AA_PUSH_CONFIG = {
         ajaxUrl: window.ajaxurl || '<?php echo admin_url('admin-ajax.php'); ?>',
         registerAction: '<?php echo esc_js(PushSubscriptionAjax::ACTION_REGISTER); ?>',
@@ -369,22 +332,12 @@ $executor_module_url = admin_url('admin-post.php?action=aa_iframe_content&module
 
 <!-- Dashboard Service (consumes aa_get_citas_por_dia, must load before module) -->
 <?php
-$executive_proposal_service_js = AA_PLUGIN_URL . 'assets/js/services/executiveProposalService.js';
-$executive_client_action_runner_js = AA_PLUGIN_URL . 'assets/js/services/executiveClientActionRunner.js';
-$executive_proposal_renderer_js = AA_PLUGIN_URL . 'assets/js/ui/executiveProposalRenderer.js';
-$task_completed_toast_js = AA_PLUGIN_URL . 'assets/js/ui/taskCompletedToast.js';
-$tasks_service_js = AA_PLUGIN_URL . 'assets/js/services/tasksService.js';
 $dashboard_service_js = AA_PLUGIN_URL . 'assets/js/services/dashboardService.js';
 $dashboard_module_js = $plugin_url . 'dashboard-module.js';
 $pwa_push_activation_service_js = AA_PLUGIN_URL . 'assets/js/services/pwaPushActivationService.js';
 $pwa_notifications_first_opportunity_js = $plugin_url . 'pwa-notifications-first-opportunity.js';
 ?>
-<script src="<?php echo esc_url($executive_proposal_service_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($dashboard_service_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
-<script src="<?php echo esc_url($tasks_service_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($pwa_push_activation_service_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($pwa_notifications_first_opportunity_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
-<script src="<?php echo esc_url($executive_client_action_runner_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
-<script src="<?php echo esc_url($executive_proposal_renderer_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
-<script src="<?php echo esc_url($task_completed_toast_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($dashboard_module_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>

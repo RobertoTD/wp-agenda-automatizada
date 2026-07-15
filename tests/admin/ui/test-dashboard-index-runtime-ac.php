@@ -57,6 +57,54 @@ ac_assert(
     && strpos($index_php, 'pwa-notifications-first-opportunity.js') !== false
 );
 
+ac_assert(
+    'dashboard does NOT enqueue executiveProposalService.js',
+    is_string($index_php)
+    && strpos($index_php, 'executiveProposalService.js') === false
+);
+
+ac_assert(
+    'dashboard does NOT enqueue executiveClientActionRunner.js',
+    is_string($index_php)
+    && strpos($index_php, 'executiveClientActionRunner.js') === false
+);
+
+ac_assert(
+    'dashboard does NOT enqueue executiveProposalRenderer.js',
+    is_string($index_php)
+    && strpos($index_php, 'executiveProposalRenderer.js') === false
+);
+
+ac_assert(
+    'dashboard does NOT enqueue taskCompletedToast.js',
+    is_string($index_php)
+    && strpos($index_php, 'taskCompletedToast.js') === false
+);
+
+ac_assert(
+    'dashboard does NOT enqueue tasksService.js',
+    is_string($index_php)
+    && strpos($index_php, 'tasksService.js') === false
+);
+
+ac_assert(
+    'dashboard does NOT emit AA_EXECUTIVE_PROPOSAL_DATA',
+    is_string($index_php)
+    && strpos($index_php, 'AA_EXECUTIVE_PROPOSAL_DATA') === false
+);
+
+ac_assert(
+    'dashboard does NOT contain aa-dash-current-task',
+    is_string($index_php)
+    && strpos($index_php, 'aa-dash-current-task') === false
+);
+
+ac_assert(
+    'dashboard does NOT contain Tarea actual heading',
+    is_string($index_php)
+    && strpos($index_php, 'Tarea actual') === false
+);
+
 echo "\n{$passed}/{$total} passed\n";
 
 if ($failed !== []) {
