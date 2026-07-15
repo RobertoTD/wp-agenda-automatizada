@@ -248,17 +248,65 @@ ac_assert(
     is_string($index_php) && preg_match('/id="aa-tasks-module-root"[^>]*pb-24/', $index_php) === 1
 );
 ac_assert(
-    'Cycle B: no executive toggle or body created',
-    is_string($index_php)
-    && strpos($index_php, 'id="aa-executive-header-toggle"') === false
-    && strpos($index_php, 'id="aa-executive-body"') === false
-);
-ac_assert(
     'Cycle B: executive proposal preserves key nodes',
     is_string($index_php)
     && strpos($index_php, 'id="aa-executive-status"') !== false
     && strpos($index_php, 'id="aa-executive-header-actions"') !== false
     && strpos($index_php, 'id="aa-executive-list"') !== false
+);
+
+// --- Cycle C assertions ---
+ac_assert(
+    'Cycle C: aa-executive-section-header exists',
+    is_string($index_php) && strpos($index_php, 'id="aa-executive-section-header"') !== false
+);
+ac_assert(
+    'Cycle C: aa-executive-header-toggle exists',
+    is_string($index_php) && strpos($index_php, 'id="aa-executive-header-toggle"') !== false
+);
+ac_assert(
+    'Cycle C: toggle text is Propuesta de ejecución',
+    is_string($index_php) && strpos($index_php, 'Propuesta de ejecución') !== false
+);
+ac_assert(
+    'Cycle C: executive toggle has aria-expanded=false',
+    is_string($index_php) && preg_match('/id="aa-executive-header-toggle"[^>]*aria-expanded="false"/', $index_php) === 1
+);
+ac_assert(
+    'Cycle C: executive toggle controls aa-executive-body',
+    is_string($index_php) && preg_match('/id="aa-executive-header-toggle"[^>]*aria-controls="aa-executive-body"/', $index_php) === 1
+);
+ac_assert(
+    'Cycle C: aa-executive-body exists',
+    is_string($index_php) && strpos($index_php, 'id="aa-executive-body"') !== false
+);
+ac_assert(
+    'Cycle C: aa-executive-body starts with is-collapsed',
+    is_string($index_php) && preg_match('/id="aa-executive-body"[^>]*is-collapsed/', $index_php) === 1
+);
+ac_assert(
+    'Cycle C: aa-executive-body starts with aria-hidden=true',
+    is_string($index_php) && preg_match('/id="aa-executive-body"[^>]*aria-hidden="true"/', $index_php) === 1
+);
+ac_assert(
+    'Cycle C: aa-executive-body starts with inert',
+    is_string($index_php) && preg_match('/id="aa-executive-body"[^>]*\binert\b/', $index_php) === 1
+);
+ac_assert(
+    'Cycle C: no duplicate visible executive title h3',
+    is_string($index_php) && preg_match('/<h3[^>]*>Propuesta ejecutiva<\/h3>/', $index_php) === 0
+);
+ac_assert(
+    'Cycle C: organizer still expanded initially',
+    is_string($index_php) && preg_match('/id="aa-lists-header-toggle"[^>]*aria-expanded="true"/', $index_php) === 1
+);
+ac_assert(
+    'Cycle C: no divider exists',
+    is_string($index_php) && strpos($index_php, 'aa-executive-lists-divider') === false
+);
+ac_assert(
+    'Cycle C: pb-24 still on root',
+    is_string($index_php) && preg_match('/id="aa-tasks-module-root"[^>]*pb-24/', $index_php) === 1
 );
 
 $board_module_src = file_get_contents($plugin_root . '/includes/admin/ui/modules/learning/tasks-board-module.js');

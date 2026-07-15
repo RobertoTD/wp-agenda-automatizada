@@ -61,6 +61,7 @@ function makeElement(tag, options) {
         id: opts.id || '',
         classList: opts.classList || makeClassList(opts.classes || []),
         attributes: attributes,
+        dataset: {},
         listeners: {},
         inert: false,
         addEventListener: function (type, handler) {
@@ -89,45 +90,118 @@ function makeElement(tag, options) {
 
 function buildDom(options) {
     var opts = options || {};
-    var bodyClasses = opts.bodyCollapsed !== false
+
+    var listsCollapsed = opts.listsCollapsed === true;
+    var execCollapsed = opts.execCollapsed !== false;
+
+    var listsBodyClasses = listsCollapsed
         ? ['aa-lists-body', 'is-collapsed']
         : ['aa-lists-body'];
-    var bodyAttrs = opts.bodyCollapsed !== false
+    var listsBodyAttrs = listsCollapsed
         ? { 'aria-hidden': 'true', inert: '' }
         : { 'aria-hidden': 'false' };
-    var toggleAttrs = {
-        'aria-expanded': opts.bodyCollapsed !== false ? 'false' : 'true',
+    var listsToggleAttrs = {
+        'aria-expanded': listsCollapsed ? 'false' : 'true',
         'aria-controls': 'aa-lists-body'
     };
 
-    var toggle = makeElement('button', {
+    var execBodyClasses = execCollapsed
+        ? ['aa-executive-body', 'is-collapsed']
+        : ['aa-executive-body'];
+    var execBodyAttrs = execCollapsed
+        ? { 'aria-hidden': 'true', inert: '' }
+        : { 'aria-hidden': 'false' };
+    var execToggleAttrs = {
+        'aria-expanded': execCollapsed ? 'false' : 'true',
+        'aria-controls': 'aa-executive-body'
+    };
+
+    var listsToggle = makeElement('button', {
         id: 'aa-lists-header-toggle',
-        attributes: toggleAttrs
+        attributes: listsToggleAttrs
     });
-    var body = makeElement('div', {
+    var listsBody = makeElement('div', {
         id: 'aa-lists-body',
-        classes: bodyClasses,
-        attributes: bodyAttrs
+        classes: listsBodyClasses,
+        attributes: listsBodyAttrs
     });
+    var execToggle = makeElement('button', {
+        id: 'aa-executive-header-toggle',
+        attributes: execToggleAttrs
+    });
+    var execBody = makeElement('div', {
+        id: 'aa-executive-body',
+        classes: execBodyClasses,
+        attributes: execBodyAttrs
+    });
+
+    var elements = {
+        'aa-lists-header-toggle': listsToggle,
+        'aa-lists-body': listsBody,
+        'aa-executive-header-toggle': execToggle,
+        'aa-executive-body': execBody
+    };
 
     var documentMock = {
         readyState: 'complete',
         getElementById: function (id) {
-            if (id === 'aa-lists-header-toggle') {
-                return toggle;
-            }
-            if (id === 'aa-lists-body') {
-                return body;
-            }
-            return null;
+            return elements[id] || null;
         },
         addEventListener: function () {}
     };
 
     return {
         document: documentMock,
-        toggle: toggle,
-        body: body
+        listsToggle: listsToggle,
+        listsBody: listsBody,
+        execToggle: execToggle,
+        execBody: execBody
+    };
+}
+
+function buildPartialDom(options) {
+    var opts = options || {};
+    var elements = {};
+
+    if (opts.includeLists) {
+        var listsToggle = makeElement('button', {
+            id: 'aa-lists-header-toggle',
+            attributes: { 'aria-expanded': 'true', 'aria-controls': 'aa-lists-body' }
+        });
+        var listsBody = makeElement('div', {
+            id: 'aa-lists-body',
+            classes: ['aa-lists-body'],
+            attributes: { 'aria-hidden': 'false' }
+        });
+        elements['aa-lists-header-toggle'] = listsToggle;
+        elements['aa-lists-body'] = listsBody;
+    }
+
+    if (opts.includeExec) {
+        var execToggle = makeElement('button', {
+            id: 'aa-executive-header-toggle',
+            attributes: { 'aria-expanded': 'false', 'aria-controls': 'aa-executive-body' }
+        });
+        var execBody = makeElement('div', {
+            id: 'aa-executive-body',
+            classes: ['aa-executive-body', 'is-collapsed'],
+            attributes: { 'aria-hidden': 'true', inert: '' }
+        });
+        elements['aa-executive-header-toggle'] = execToggle;
+        elements['aa-executive-body'] = execBody;
+    }
+
+    var documentMock = {
+        readyState: 'complete',
+        getElementById: function (id) {
+            return elements[id] || null;
+        },
+        addEventListener: function () {}
+    };
+
+    return {
+        document: documentMock,
+        elements: elements
     };
 }
 
@@ -141,7 +215,6 @@ function loadModule(dom) {
 
     context.window = context;
     context.globalThis = context;
-    context.AAExecutiveProposal = undefined;
 
     vm.runInNewContext(moduleSrc, context, { filename: modulePath });
 
@@ -157,12 +230,12 @@ function clickToggle(toggle) {
     });
 }
 
-describe('executive-lists-focus-module — toggle explícito del organizador', () => {
+describe('executive-lists-focus-module — toggles de secciones', () => {
     it('index.php no contiene data-work-zone', () => {
         assert.doesNotMatch(indexSrc, /data-work-zone/);
     });
 
-    it('index.php conserva header persistente y body contraíble', () => {
+    it('index.php conserva header persistente y body contraíble del organizador', () => {
         assert.match(indexSrc, /Organizador · Listas de tareas/);
         assert.match(indexSrc, /id="aa-lists-header"/);
         assert.match(indexSrc, /id="aa-lists-body"/);
@@ -178,233 +251,233 @@ describe('executive-lists-focus-module — toggle explícito del organizador', (
         assert.doesNotMatch(css, /#aa-lists-header-toggle\[aria-expanded="false"\]\s*\{[^}]*opacity/);
     });
 
-    it('conserva el estado inicial definido por el HTML (colapsado)', () => {
-        var dom = buildDom({ bodyCollapsed: true });
+    // --- Organizer initial state ---
+    it('organizador inicia expandido', () => {
+        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
         loadModule(dom);
 
-        assert.equal(dom.body.classList.contains('is-collapsed'), true);
-        assert.equal(dom.body.getAttribute('aria-hidden'), 'true');
-        assert.equal(dom.toggle.getAttribute('aria-expanded'), 'false');
+        assert.equal(dom.listsBody.classList.contains('is-collapsed'), false);
+        assert.equal(dom.listsToggle.getAttribute('aria-expanded'), 'true');
     });
 
-    it('conserva el estado inicial expandido si el HTML lo define así', () => {
-        var dom = buildDom({ bodyCollapsed: false });
+    // --- Executive initial state ---
+    it('ejecutor inicia colapsado', () => {
+        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
         loadModule(dom);
 
-        assert.equal(dom.body.classList.contains('is-collapsed'), false);
-        assert.equal(dom.body.getAttribute('aria-hidden'), 'false');
-        assert.equal(dom.toggle.getAttribute('aria-expanded'), 'true');
+        assert.equal(dom.execBody.classList.contains('is-collapsed'), true);
+        assert.equal(dom.execToggle.getAttribute('aria-expanded'), 'false');
     });
 
-    it('Cycle B: index.php define aa-lists-section antes de aa-executive-proposal', () => {
-        var listsPos = indexSrc.indexOf('id="aa-lists-section"');
-        var execPos = indexSrc.indexOf('id="aa-executive-proposal"');
-
-        assert.ok(listsPos !== -1, 'aa-lists-section debe existir');
-        assert.ok(execPos !== -1, 'aa-executive-proposal debe existir');
-        assert.ok(listsPos < execPos, 'aa-lists-section debe aparecer antes');
-    });
-
-    it('Cycle B: toggle inicia con aria-expanded=true en index.php', () => {
-        assert.match(indexSrc, /id="aa-lists-header-toggle"[^>]*aria-expanded="true"/);
-    });
-
-    it('Cycle B: aa-lists-body inicia sin is-collapsed en index.php', () => {
-        assert.match(indexSrc, /id="aa-lists-body"\s+class="aa-lists-body"/);
-    });
-
-    it('Cycle B: aa-lists-body inicia con aria-hidden=false en index.php', () => {
-        assert.match(indexSrc, /id="aa-lists-body"[^>]*aria-hidden="false"/);
-    });
-
-    it('Cycle B: aa-lists-body inicia sin inert en index.php', () => {
-        assert.doesNotMatch(indexSrc, /id="aa-lists-body"[^>]*\binert\b/);
-    });
-
-    it('Cycle B: no existe divisor .aa-executive-lists-divider en index.php', () => {
-        assert.doesNotMatch(indexSrc, /aa-executive-lists-divider/);
-    });
-
-    it('Cycle B: aa-lists-section no tiene pb-24', () => {
-        assert.doesNotMatch(indexSrc, /id="aa-lists-section"[^>]*pb-24/);
-    });
-
-    it('Cycle B: aa-tasks-module-root tiene pb-24', () => {
-        assert.match(indexSrc, /id="aa-tasks-module-root"[^>]*pb-24/);
-    });
-
-    it('Cycle B: no existe toggle ni body colapsable del ejecutor', () => {
-        assert.doesNotMatch(indexSrc, /id="aa-executive-header-toggle"/);
-        assert.doesNotMatch(indexSrc, /id="aa-executive-body"/);
-    });
-
-    it('Cycle B: propuesta ejecutiva conserva nodos clave', () => {
-        assert.match(indexSrc, /id="aa-executive-status"/);
-        assert.match(indexSrc, /id="aa-executive-header-actions"/);
-        assert.match(indexSrc, /id="aa-executive-list"/);
-    });
-
-    it('Cycle B: toggle puede colapsar desde estado inicial abierto', () => {
-        var dom = buildDom({ bodyCollapsed: false });
+    it('ejecutor tiene aria-hidden=true inicial', () => {
+        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
         loadModule(dom);
 
-        clickToggle(dom.toggle);
-
-        assert.equal(dom.body.classList.contains('is-collapsed'), true);
-        assert.equal(dom.body.getAttribute('aria-hidden'), 'true');
-        assert.equal(dom.toggle.getAttribute('aria-expanded'), 'false');
-        assert.equal(dom.body.inert, true);
+        assert.equal(dom.execBody.getAttribute('aria-hidden'), 'true');
     });
 
-    it('Cycle B: segundo clic reabre desde estado colapsado', () => {
-        var dom = buildDom({ bodyCollapsed: false });
+    it('ejecutor tiene inert inicial', () => {
+        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
         loadModule(dom);
 
-        clickToggle(dom.toggle);
-        clickToggle(dom.toggle);
-
-        assert.equal(dom.body.classList.contains('is-collapsed'), false);
-        assert.equal(dom.toggle.getAttribute('aria-expanded'), 'true');
-        assert.equal(dom.body.inert, false);
+        assert.equal(dom.execBody.getAttribute('inert'), '');
     });
 
-    it('Cycle B: chevron no fue modificado', () => {
-        assert.match(indexSrc, /aa-lists-header-chevron/);
-        assert.match(indexSrc, /M19 9l-7 7-7-7/);
-    });
-
-    it('clic en toggle expande el cuerpo si está colapsado', () => {
-        var dom = buildDom({ bodyCollapsed: true });
+    // --- Executive toggle behavior ---
+    it('clic en toggle ejecutivo expande solo el ejecutor', () => {
+        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
         loadModule(dom);
 
-        clickToggle(dom.toggle);
+        clickToggle(dom.execToggle);
 
-        assert.equal(dom.body.classList.contains('is-collapsed'), false);
-        assert.equal(dom.body.getAttribute('aria-hidden'), null);
-        assert.equal(dom.toggle.getAttribute('aria-expanded'), 'true');
-        assert.equal(dom.body.inert, false);
+        assert.equal(dom.execBody.classList.contains('is-collapsed'), false);
+        assert.equal(dom.execToggle.getAttribute('aria-expanded'), 'true');
+        assert.equal(dom.execBody.inert, false);
+        // organizador no fue afectado
+        assert.equal(dom.listsBody.classList.contains('is-collapsed'), false);
+        assert.equal(dom.listsToggle.getAttribute('aria-expanded'), 'true');
     });
 
-    it('segundo clic vuelve a colapsar el cuerpo', () => {
-        var dom = buildDom({ bodyCollapsed: true });
+    it('segundo clic en toggle ejecutivo vuelve a colapsarlo', () => {
+        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
         loadModule(dom);
 
-        clickToggle(dom.toggle);
-        clickToggle(dom.toggle);
+        clickToggle(dom.execToggle);
+        clickToggle(dom.execToggle);
 
-        assert.equal(dom.body.classList.contains('is-collapsed'), true);
-        assert.equal(dom.body.getAttribute('aria-hidden'), 'true');
-        assert.equal(dom.toggle.getAttribute('aria-expanded'), 'false');
-        assert.equal(dom.body.inert, true);
+        assert.equal(dom.execBody.classList.contains('is-collapsed'), true);
+        assert.equal(dom.execToggle.getAttribute('aria-expanded'), 'false');
+        assert.equal(dom.execBody.getAttribute('aria-hidden'), 'true');
+        assert.equal(dom.execBody.inert, true);
     });
 
-    it('aria-expanded, aria-hidden, inert e is-collapsed permanecen sincronizados', () => {
-        var dom = buildDom({ bodyCollapsed: true });
+    // --- Organizer toggle behavior ---
+    it('clic en toggle del organizador afecta solo al organizador', () => {
+        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
         loadModule(dom);
 
-        clickToggle(dom.toggle);
-        assert.equal(dom.toggle.getAttribute('aria-expanded'), 'true');
-        assert.equal(dom.body.getAttribute('aria-hidden'), null);
-        assert.equal(dom.body.inert, false);
-        assert.equal(dom.body.classList.contains('is-collapsed'), false);
+        clickToggle(dom.listsToggle);
 
-        clickToggle(dom.toggle);
-        assert.equal(dom.toggle.getAttribute('aria-expanded'), 'false');
-        assert.equal(dom.body.getAttribute('aria-hidden'), 'true');
-        assert.equal(dom.body.inert, true);
-        assert.equal(dom.body.classList.contains('is-collapsed'), true);
+        assert.equal(dom.listsBody.classList.contains('is-collapsed'), true);
+        assert.equal(dom.listsToggle.getAttribute('aria-expanded'), 'false');
+        // ejecutor no fue afectado
+        assert.equal(dom.execBody.classList.contains('is-collapsed'), true);
+        assert.equal(dom.execToggle.getAttribute('aria-expanded'), 'false');
     });
 
-    it('clic dentro de la sección fuera del botón no cambia el estado', () => {
-        var dom = buildDom({ bodyCollapsed: true });
+    // --- Independence ---
+    it('abrir el ejecutor no cierra el organizador', () => {
+        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
         loadModule(dom);
 
-        assert.equal(dom.body.classList.contains('is-collapsed'), true);
+        clickToggle(dom.execToggle);
+
+        assert.equal(dom.listsBody.classList.contains('is-collapsed'), false);
+        assert.equal(dom.listsToggle.getAttribute('aria-expanded'), 'true');
     });
 
-    it('focusin dentro de una sección no cambia el estado', () => {
-        var dom = buildDom({ bodyCollapsed: true });
+    it('cerrar el organizador no abre el ejecutor', () => {
+        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
         loadModule(dom);
 
-        assert.equal(dom.body.listeners['focusin'], undefined);
-        assert.equal(dom.toggle.listeners['focusin'], undefined);
-        assert.equal(dom.body.classList.contains('is-collapsed'), true);
+        clickToggle(dom.listsToggle);
+
+        assert.equal(dom.execBody.classList.contains('is-collapsed'), true);
+        assert.equal(dom.execToggle.getAttribute('aria-expanded'), 'false');
     });
 
-    it('disparar wheel no cambia el estado', () => {
-        var dom = buildDom({ bodyCollapsed: true });
+    it('ambas secciones pueden quedar abiertas', () => {
+        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
         loadModule(dom);
 
-        assert.equal(dom.body.listeners['wheel'], undefined);
-        assert.equal(dom.toggle.listeners['wheel'], undefined);
-        assert.equal(dom.body.classList.contains('is-collapsed'), true);
+        clickToggle(dom.execToggle);
+
+        assert.equal(dom.listsBody.classList.contains('is-collapsed'), false);
+        assert.equal(dom.execBody.classList.contains('is-collapsed'), false);
     });
 
-    it('disparar scroll en window no cambia el estado', () => {
-        var dom = buildDom({ bodyCollapsed: true });
+    it('ambas secciones pueden quedar cerradas', () => {
+        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
+        loadModule(dom);
+
+        clickToggle(dom.listsToggle);
+
+        assert.equal(dom.listsBody.classList.contains('is-collapsed'), true);
+        assert.equal(dom.execBody.classList.contains('is-collapsed'), true);
+    });
+
+    // --- Accessibility sync ---
+    it('atributos accesibles permanecen sincronizados tras ciclos', () => {
+        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
+        loadModule(dom);
+
+        clickToggle(dom.execToggle);
+        assert.equal(dom.execToggle.getAttribute('aria-expanded'), 'true');
+        assert.equal(dom.execBody.inert, false);
+
+        clickToggle(dom.execToggle);
+        assert.equal(dom.execToggle.getAttribute('aria-expanded'), 'false');
+        assert.equal(dom.execBody.getAttribute('aria-hidden'), 'true');
+        assert.equal(dom.execBody.inert, true);
+
+        clickToggle(dom.listsToggle);
+        assert.equal(dom.listsToggle.getAttribute('aria-expanded'), 'false');
+        assert.equal(dom.listsBody.getAttribute('aria-hidden'), 'true');
+        assert.equal(dom.listsBody.inert, true);
+
+        clickToggle(dom.listsToggle);
+        assert.equal(dom.listsToggle.getAttribute('aria-expanded'), 'true');
+        assert.equal(dom.listsBody.inert, false);
+    });
+
+    // --- Idempotent binding ---
+    it('inicializar dos veces no duplica listeners', () => {
+        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
         var loaded = loadModule(dom);
 
-        assert.equal(loaded.context.listeners, undefined);
-        assert.equal(dom.body.classList.contains('is-collapsed'), true);
-    });
-
-    it('la inicialización repetida no duplica listeners', () => {
-        var dom = buildDom({ bodyCollapsed: true });
-        var loaded = loadModule(dom);
-
-        var listenersBefore = (dom.toggle.listeners['click'] || []).length;
+        var listsBefore = (dom.listsToggle.listeners['click'] || []).length;
+        var execBefore = (dom.execToggle.listeners['click'] || []).length;
 
         loaded.exports.bind();
         loaded.exports.bind();
 
-        var listenersAfter = (dom.toggle.listeners['click'] || []).length;
-
-        assert.equal(listenersAfter, listenersBefore);
+        assert.equal((dom.listsToggle.listeners['click'] || []).length, listsBefore);
+        assert.equal((dom.execToggle.listeners['click'] || []).length, execBefore);
     });
 
+    // --- Partial DOM resilience ---
+    it('ausencia del toggle ejecutivo no rompe el toggle del organizador', () => {
+        var partial = buildPartialDom({ includeLists: true, includeExec: false });
+        var loaded = loadModule(partial);
+
+        var listsToggle = partial.elements['aa-lists-header-toggle'];
+        var listsBody = partial.elements['aa-lists-body'];
+
+        clickToggle(listsToggle);
+        assert.equal(listsBody.classList.contains('is-collapsed'), true);
+
+        clickToggle(listsToggle);
+        assert.equal(listsBody.classList.contains('is-collapsed'), false);
+    });
+
+    it('ausencia del toggle del organizador no rompe el toggle ejecutivo', () => {
+        var partial = buildPartialDom({ includeLists: false, includeExec: true });
+        var loaded = loadModule(partial);
+
+        var execToggle = partial.elements['aa-executive-header-toggle'];
+        var execBody = partial.elements['aa-executive-body'];
+
+        clickToggle(execToggle);
+        assert.equal(execBody.classList.contains('is-collapsed'), false);
+        assert.equal(execToggle.getAttribute('aria-expanded'), 'true');
+
+        clickToggle(execToggle);
+        assert.equal(execBody.classList.contains('is-collapsed'), true);
+    });
+
+    // --- Internal clicks don't trigger toggle ---
+    it('clic en botones internos del ejecutor no cambia el estado', () => {
+        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
+        loadModule(dom);
+
+        // Only the toggle has listeners, so internal button clicks won't propagate
+        assert.equal(dom.execBody.listeners['click'], undefined);
+        assert.equal(dom.execBody.classList.contains('is-collapsed'), true);
+    });
+
+    // --- No scroll/wheel/focusin ---
+    it('scroll, wheel y focusin siguen sin cambiar estados', () => {
+        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
+        loadModule(dom);
+
+        assert.equal(dom.listsBody.listeners['wheel'], undefined);
+        assert.equal(dom.listsBody.listeners['focusin'], undefined);
+        assert.equal(dom.execBody.listeners['wheel'], undefined);
+        assert.equal(dom.execBody.listeners['focusin'], undefined);
+    });
+
+    // --- No opacity / is-muted ---
     it('no se aplica is-muted a ninguna sección', () => {
-        var dom = buildDom({ bodyCollapsed: true });
+        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
         loadModule(dom);
 
-        clickToggle(dom.toggle);
+        clickToggle(dom.execToggle);
 
-        assert.equal(dom.body.classList.contains('is-muted'), false);
+        assert.equal(dom.execBody.classList.contains('is-muted'), false);
+        assert.equal(dom.listsBody.classList.contains('is-muted'), false);
         assert.doesNotMatch(moduleSrc, /is-muted/);
     });
 
-    it('no se llama a AAExecutiveProposal.setWorkZone', () => {
-        assert.doesNotMatch(moduleSrc, /setWorkZone/);
-        assert.doesNotMatch(moduleSrc, /AAExecutiveProposal/);
+    // --- No data-work-zone ---
+    it('no se usa data-work-zone', () => {
+        assert.doesNotMatch(moduleSrc, /data-work-zone/);
+        assert.doesNotMatch(moduleSrc, /workZone/);
     });
 
-    it('la ausencia de nodos no produce una excepción fatal', () => {
-        var emptyDoc = {
-            readyState: 'complete',
-            getElementById: function () { return null; },
-            addEventListener: function () {}
-        };
-
-        var context = {
-            window: {},
-            console: console,
-            document: emptyDoc,
-            module: { exports: {} }
-        };
-        context.window = context;
-        context.globalThis = context;
-
-        assert.doesNotThrow(function () {
-            vm.runInNewContext(moduleSrc, context, { filename: modulePath });
-        });
-
-        assert.doesNotThrow(function () {
-            context.module.exports.handleToggleClick();
-        });
-    });
-
+    // --- Module does not register window listeners ---
     it('módulo no registra listeners en window', () => {
         var windowListeners = {};
-        var dom = buildDom({ bodyCollapsed: true });
+        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
 
         var context = {
             window: {},
@@ -423,5 +496,101 @@ describe('executive-lists-focus-module — toggle explícito del organizador', (
         assert.equal(windowListeners['scroll'], undefined);
         assert.equal(windowListeners['wheel'], undefined);
         assert.equal(windowListeners['resize'], undefined);
+    });
+
+    // --- Absence of all nodes doesn't crash ---
+    it('la ausencia de todos los nodos no produce una excepción fatal', () => {
+        var emptyDoc = {
+            readyState: 'complete',
+            getElementById: function () { return null; },
+            addEventListener: function () {}
+        };
+
+        var context = {
+            window: {},
+            console: console,
+            document: emptyDoc,
+            module: { exports: {} }
+        };
+        context.window = context;
+        context.globalThis = context;
+
+        assert.doesNotThrow(function () {
+            vm.runInNewContext(moduleSrc, context, { filename: modulePath });
+        });
+    });
+
+    // --- Index.php structure checks (Cycle B + C) ---
+    it('Cycle B: index.php define aa-lists-section antes de aa-executive-proposal', () => {
+        var listsPos = indexSrc.indexOf('id="aa-lists-section"');
+        var execPos = indexSrc.indexOf('id="aa-executive-proposal"');
+
+        assert.ok(listsPos !== -1, 'aa-lists-section debe existir');
+        assert.ok(execPos !== -1, 'aa-executive-proposal debe existir');
+        assert.ok(listsPos < execPos, 'aa-lists-section debe aparecer antes');
+    });
+
+    it('Cycle B: toggle del organizador inicia con aria-expanded=true', () => {
+        assert.match(indexSrc, /id="aa-lists-header-toggle"[^>]*aria-expanded="true"/);
+    });
+
+    it('Cycle B: aa-lists-body inicia sin is-collapsed', () => {
+        assert.match(indexSrc, /id="aa-lists-body"\s+class="aa-lists-body"/);
+    });
+
+    it('Cycle B: no existe divisor .aa-executive-lists-divider', () => {
+        assert.doesNotMatch(indexSrc, /aa-executive-lists-divider/);
+    });
+
+    it('Cycle B: aa-tasks-module-root tiene pb-24', () => {
+        assert.match(indexSrc, /id="aa-tasks-module-root"[^>]*pb-24/);
+    });
+
+    // --- Cycle C structure checks ---
+    it('Cycle C: existe #aa-executive-section-header', () => {
+        assert.match(indexSrc, /id="aa-executive-section-header"/);
+    });
+
+    it('Cycle C: existe #aa-executive-header-toggle con aria-expanded=false', () => {
+        assert.match(indexSrc, /id="aa-executive-header-toggle"[^>]*aria-expanded="false"/);
+    });
+
+    it('Cycle C: toggle ejecutivo controla aa-executive-body', () => {
+        assert.match(indexSrc, /id="aa-executive-header-toggle"[^>]*aria-controls="aa-executive-body"/);
+    });
+
+    it('Cycle C: texto del toggle es Propuesta de ejecución', () => {
+        assert.match(indexSrc, /Propuesta de ejecución/);
+    });
+
+    it('Cycle C: existe #aa-executive-body con is-collapsed', () => {
+        assert.match(indexSrc, /id="aa-executive-body"[^>]*class="aa-executive-body is-collapsed"/);
+    });
+
+    it('Cycle C: #aa-executive-body tiene aria-hidden=true', () => {
+        assert.match(indexSrc, /id="aa-executive-body"[^>]*aria-hidden="true"/);
+    });
+
+    it('Cycle C: #aa-executive-body tiene inert', () => {
+        assert.match(indexSrc, /id="aa-executive-body"[^>]*\binert\b/);
+    });
+
+    it('Cycle C: no hay título ejecutivo visible duplicado', () => {
+        assert.doesNotMatch(indexSrc, /<h3[^>]*>Propuesta ejecutiva<\/h3>/);
+    });
+
+    it('Cycle C: propuesta ejecutiva conserva nodos clave', () => {
+        assert.match(indexSrc, /id="aa-executive-status"/);
+        assert.match(indexSrc, /id="aa-executive-header-actions"/);
+        assert.match(indexSrc, /id="aa-executive-list"/);
+    });
+
+    it('Cycle C: chevron del organizador no fue modificado', () => {
+        assert.match(indexSrc, /aa-lists-header-chevron/);
+        assert.match(indexSrc, /M19 9l-7 7-7-7/);
+    });
+
+    it('Cycle C: existe chevron del ejecutor', () => {
+        assert.match(indexSrc, /aa-executive-header-chevron/);
     });
 });

@@ -116,23 +116,39 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
         </div>
     </section>
 
-    <section id="aa-executive-proposal" class="mt-6 bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
-        <div class="aa-executive-header px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
-            <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                    <h3 class="text-lg font-semibold text-gray-900">Propuesta ejecutiva</h3>
-                    <p id="aa-executive-status" class="mt-1" aria-live="polite"></p>
+    <section id="aa-executive-proposal" class="mt-6">
+        <header id="aa-executive-section-header" class="aa-executive-section-header mb-3 flex items-start justify-between gap-3">
+            <button type="button"
+                id="aa-executive-header-toggle"
+                class="aa-executive-header-toggle min-w-0 flex flex-1 items-center gap-2 text-left rounded-lg -ml-1 px-1 py-0.5 focus:outline-none"
+                aria-expanded="false"
+                aria-controls="aa-executive-body">
+                <span class="aa-executive-header-label text-lg font-semibold text-gray-900">Propuesta de ejecución</span>
+                <svg class="aa-executive-header-chevron w-4 h-4 shrink-0 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+        </header>
+
+        <div id="aa-executive-body" class="aa-executive-body is-collapsed" aria-hidden="true" inert>
+            <div class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
+                <div class="aa-executive-header px-4 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <p id="aa-executive-status" class="text-sm" aria-live="polite"></p>
+                        </div>
+                        <div id="aa-executive-header-actions" class="aa-executive-header-actions flex flex-wrap items-center justify-end gap-2 shrink-0"></div>
+                    </div>
                 </div>
-                <div id="aa-executive-header-actions" class="aa-executive-header-actions flex flex-wrap items-center justify-end gap-2 shrink-0"></div>
+                <div class="p-4">
+                    <p id="aa-executive-proposal-loading" class="hidden text-sm text-gray-500">Cargando propuesta ejecutiva…</p>
+                    <p id="aa-executive-proposal-error" class="hidden text-sm text-red-600"></p>
+                    <p id="aa-executive-empty" class="hidden text-sm text-gray-500">
+                        No hay acciones pendientes recomendadas. Crea tareas o revisa tus listas.
+                    </p>
+                    <ul id="aa-executive-list" class="space-y-3"></ul>
+                </div>
             </div>
-        </div>
-        <div class="p-4">
-            <p id="aa-executive-proposal-loading" class="hidden text-sm text-gray-500">Cargando propuesta ejecutiva…</p>
-            <p id="aa-executive-proposal-error" class="hidden text-sm text-red-600"></p>
-            <p id="aa-executive-empty" class="hidden text-sm text-gray-500">
-                No hay acciones pendientes recomendadas. Crea tareas o revisa tus listas.
-            </p>
-            <ul id="aa-executive-list" class="space-y-3"></ul>
         </div>
     </section>
 

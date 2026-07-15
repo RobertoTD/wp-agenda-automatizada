@@ -1,15 +1,17 @@
 /**
- * Executive Lists Focus — toggle explícito del organizador (Ciclo A simplificación).
+ * Executive Lists Focus — toggles explícitos de secciones (Ciclo C generalización).
  *
- * Responsabilidad única: clic en #aa-lists-header-toggle controla
- * la expansión/colapso de #aa-lists-body.
+ * Registra pares toggle/body independientes:
+ *   #aa-lists-header-toggle     → #aa-lists-body
+ *   #aa-executive-header-toggle → #aa-executive-body
  */
 (function () {
     'use strict';
 
-    var LISTS_BODY_ID = 'aa-lists-body';
-    var LISTS_HEADER_TOGGLE_ID = 'aa-lists-header-toggle';
-    var isBound = false;
+    var PAIRS = [
+        { toggleId: 'aa-lists-header-toggle', bodyId: 'aa-lists-body' },
+        { toggleId: 'aa-executive-header-toggle', bodyId: 'aa-executive-body' }
+    ];
 
     function setBodyCollapsed(body, collapsed) {
         if (!body || !body.classList) {
@@ -39,35 +41,46 @@
         }
     }
 
-    function handleToggleClick() {
-        var body = document.getElementById(LISTS_BODY_ID);
-        var toggle = document.getElementById(LISTS_HEADER_TOGGLE_ID);
+    function makeToggleHandler(toggleId, bodyId) {
+        return function handleToggleClick() {
+            var body = document.getElementById(bodyId);
+            var toggle = document.getElementById(toggleId);
 
-        if (!body || !toggle) {
-            return;
-        }
+            if (!body || !toggle) {
+                return;
+            }
 
-        var isCurrentlyCollapsed = body.classList.contains('is-collapsed');
-        var nextCollapsed = !isCurrentlyCollapsed;
+            var isCurrentlyCollapsed = body.classList.contains('is-collapsed');
+            var nextCollapsed = !isCurrentlyCollapsed;
 
-        setBodyCollapsed(body, nextCollapsed);
-        toggle.setAttribute('aria-expanded', nextCollapsed ? 'false' : 'true');
+            setBodyCollapsed(body, nextCollapsed);
+            toggle.setAttribute('aria-expanded', nextCollapsed ? 'false' : 'true');
+        };
     }
 
-    function bind() {
-        if (isBound) {
-            return;
-        }
-
-        var toggle = document.getElementById(LISTS_HEADER_TOGGLE_ID);
-        var body = document.getElementById(LISTS_BODY_ID);
+    function bindSectionToggle(toggleId, bodyId) {
+        var toggle = document.getElementById(toggleId);
+        var body = document.getElementById(bodyId);
 
         if (!toggle || !body) {
             return;
         }
 
-        isBound = true;
-        toggle.addEventListener('click', handleToggleClick);
+        if (toggle.dataset && toggle.dataset.aaBound === '1') {
+            return;
+        }
+
+        if (toggle.dataset) {
+            toggle.dataset.aaBound = '1';
+        }
+
+        toggle.addEventListener('click', makeToggleHandler(toggleId, bodyId));
+    }
+
+    function bind() {
+        for (var i = 0; i < PAIRS.length; i++) {
+            bindSectionToggle(PAIRS[i].toggleId, PAIRS[i].bodyId);
+        }
     }
 
     function init() {
@@ -76,8 +89,9 @@
 
     var moduleExports = {
         setBodyCollapsed: setBodyCollapsed,
-        handleToggleClick: handleToggleClick,
-        bind: bind
+        bindSectionToggle: bindSectionToggle,
+        bind: bind,
+        PAIRS: PAIRS
     };
 
     if (typeof module !== 'undefined' && module.exports) {

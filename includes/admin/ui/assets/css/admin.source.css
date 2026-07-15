@@ -172,14 +172,16 @@
         @apply text-xs leading-snug text-gray-600 hover:text-gray-800;
     }
 
-    #aa-lists-body {
+    #aa-lists-body,
+    #aa-executive-body {
         max-height: 4000px;
         overflow: hidden;
         opacity: 1;
         transition: max-height 0.22s ease-in-out, opacity 0.18s ease-in-out;
     }
 
-    #aa-lists-body.is-collapsed {
+    #aa-lists-body.is-collapsed,
+    #aa-executive-body.is-collapsed {
         max-height: 0;
         opacity: 0;
         overflow: hidden;
