@@ -172,11 +172,6 @@
         @apply text-xs leading-snug text-gray-600 hover:text-gray-800;
     }
 
-    /* Ejecutor — separación propuesta ejecutiva / listas */
-    .aa-executive-lists-divider hr {
-        @apply border-gray-200;
-    }
-
     #aa-lists-body {
         max-height: 4000px;
         overflow: hidden;

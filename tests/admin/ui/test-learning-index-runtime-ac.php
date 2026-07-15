@@ -99,8 +99,8 @@ ac_assert(
     is_string($index_php) && strpos($index_php, 'Todas las listas de tareas.') === false
 );
 ac_assert(
-    'index.php renders executive/lists divider',
-    is_string($index_php) && strpos($index_php, 'aa-executive-lists-divider') !== false
+    'index.php no longer renders executive/lists divider (Cycle B)',
+    is_string($index_php) && strpos($index_php, 'aa-executive-lists-divider') === false
 );
 ac_assert(
     'index.php keeps aa-executive-proposal and aa-lists-section ids',
@@ -118,7 +118,7 @@ ac_assert(
 ac_assert(
     'index.php lists section no longer starts fully muted',
     is_string($index_php)
-    && strpos($index_php, 'id="aa-lists-section" class="pb-24"') !== false
+    && strpos($index_php, 'id="aa-lists-section"') !== false
     && strpos($index_php, 'id="aa-lists-section" class="pb-24 is-muted"') === false
 );
 ac_assert(
@@ -208,6 +208,57 @@ ac_assert(
 ac_assert(
     'index.php MC6 removes legacy executive focus container',
     is_string($index_php) && strpos($index_php, 'id="aa-executive-focus"') === false
+);
+
+// --- Cycle B assertions ---
+$lists_pos = is_string($index_php) ? strpos($index_php, 'id="aa-lists-section"') : false;
+$exec_pos = is_string($index_php) ? strpos($index_php, 'id="aa-executive-proposal"') : false;
+ac_assert(
+    'Cycle B: aa-lists-section appears before aa-executive-proposal',
+    $lists_pos !== false && $exec_pos !== false && $lists_pos < $exec_pos
+);
+ac_assert(
+    'Cycle B: aa-lists-header-toggle starts with aria-expanded=true',
+    is_string($index_php) && preg_match('/id="aa-lists-header-toggle"[^>]*aria-expanded="true"/', $index_php) === 1
+);
+ac_assert(
+    'Cycle B: aa-lists-body starts without is-collapsed',
+    is_string($index_php)
+    && preg_match('/id="aa-lists-body"\s+class="aa-lists-body"/', $index_php) === 1
+);
+ac_assert(
+    'Cycle B: aa-lists-body starts with aria-hidden=false',
+    is_string($index_php) && preg_match('/id="aa-lists-body"[^>]*aria-hidden="false"/', $index_php) === 1
+);
+ac_assert(
+    'Cycle B: aa-lists-body starts without inert',
+    is_string($index_php)
+    && preg_match('/id="aa-lists-body"[^>]*\binert\b/', $index_php) === 0
+);
+ac_assert(
+    'Cycle B: divider removed from markup',
+    is_string($index_php) && strpos($index_php, 'aa-executive-lists-divider') === false
+);
+ac_assert(
+    'Cycle B: aa-lists-section no longer has pb-24',
+    is_string($index_php) && strpos($index_php, 'id="aa-lists-section" class="pb-24"') === false
+);
+ac_assert(
+    'Cycle B: aa-tasks-module-root has pb-24',
+    is_string($index_php) && preg_match('/id="aa-tasks-module-root"[^>]*pb-24/', $index_php) === 1
+);
+ac_assert(
+    'Cycle B: no executive toggle or body created',
+    is_string($index_php)
+    && strpos($index_php, 'id="aa-executive-header-toggle"') === false
+    && strpos($index_php, 'id="aa-executive-body"') === false
+);
+ac_assert(
+    'Cycle B: executive proposal preserves key nodes',
+    is_string($index_php)
+    && strpos($index_php, 'id="aa-executive-status"') !== false
+    && strpos($index_php, 'id="aa-executive-header-actions"') !== false
+    && strpos($index_php, 'id="aa-executive-list"') !== false
 );
 
 $board_module_src = file_get_contents($plugin_root . '/includes/admin/ui/modules/learning/tasks-board-module.js');

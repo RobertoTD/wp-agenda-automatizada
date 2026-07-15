@@ -94,7 +94,7 @@ function buildDom(options) {
         : ['aa-lists-body'];
     var bodyAttrs = opts.bodyCollapsed !== false
         ? { 'aria-hidden': 'true', inert: '' }
-        : {};
+        : { 'aria-hidden': 'false' };
     var toggleAttrs = {
         'aria-expanded': opts.bodyCollapsed !== false ? 'false' : 'true',
         'aria-controls': 'aa-lists-body'
@@ -192,8 +192,85 @@ describe('executive-lists-focus-module — toggle explícito del organizador', (
         loadModule(dom);
 
         assert.equal(dom.body.classList.contains('is-collapsed'), false);
-        assert.equal(dom.body.getAttribute('aria-hidden'), null);
+        assert.equal(dom.body.getAttribute('aria-hidden'), 'false');
         assert.equal(dom.toggle.getAttribute('aria-expanded'), 'true');
+    });
+
+    it('Cycle B: index.php define aa-lists-section antes de aa-executive-proposal', () => {
+        var listsPos = indexSrc.indexOf('id="aa-lists-section"');
+        var execPos = indexSrc.indexOf('id="aa-executive-proposal"');
+
+        assert.ok(listsPos !== -1, 'aa-lists-section debe existir');
+        assert.ok(execPos !== -1, 'aa-executive-proposal debe existir');
+        assert.ok(listsPos < execPos, 'aa-lists-section debe aparecer antes');
+    });
+
+    it('Cycle B: toggle inicia con aria-expanded=true en index.php', () => {
+        assert.match(indexSrc, /id="aa-lists-header-toggle"[^>]*aria-expanded="true"/);
+    });
+
+    it('Cycle B: aa-lists-body inicia sin is-collapsed en index.php', () => {
+        assert.match(indexSrc, /id="aa-lists-body"\s+class="aa-lists-body"/);
+    });
+
+    it('Cycle B: aa-lists-body inicia con aria-hidden=false en index.php', () => {
+        assert.match(indexSrc, /id="aa-lists-body"[^>]*aria-hidden="false"/);
+    });
+
+    it('Cycle B: aa-lists-body inicia sin inert en index.php', () => {
+        assert.doesNotMatch(indexSrc, /id="aa-lists-body"[^>]*\binert\b/);
+    });
+
+    it('Cycle B: no existe divisor .aa-executive-lists-divider en index.php', () => {
+        assert.doesNotMatch(indexSrc, /aa-executive-lists-divider/);
+    });
+
+    it('Cycle B: aa-lists-section no tiene pb-24', () => {
+        assert.doesNotMatch(indexSrc, /id="aa-lists-section"[^>]*pb-24/);
+    });
+
+    it('Cycle B: aa-tasks-module-root tiene pb-24', () => {
+        assert.match(indexSrc, /id="aa-tasks-module-root"[^>]*pb-24/);
+    });
+
+    it('Cycle B: no existe toggle ni body colapsable del ejecutor', () => {
+        assert.doesNotMatch(indexSrc, /id="aa-executive-header-toggle"/);
+        assert.doesNotMatch(indexSrc, /id="aa-executive-body"/);
+    });
+
+    it('Cycle B: propuesta ejecutiva conserva nodos clave', () => {
+        assert.match(indexSrc, /id="aa-executive-status"/);
+        assert.match(indexSrc, /id="aa-executive-header-actions"/);
+        assert.match(indexSrc, /id="aa-executive-list"/);
+    });
+
+    it('Cycle B: toggle puede colapsar desde estado inicial abierto', () => {
+        var dom = buildDom({ bodyCollapsed: false });
+        loadModule(dom);
+
+        clickToggle(dom.toggle);
+
+        assert.equal(dom.body.classList.contains('is-collapsed'), true);
+        assert.equal(dom.body.getAttribute('aria-hidden'), 'true');
+        assert.equal(dom.toggle.getAttribute('aria-expanded'), 'false');
+        assert.equal(dom.body.inert, true);
+    });
+
+    it('Cycle B: segundo clic reabre desde estado colapsado', () => {
+        var dom = buildDom({ bodyCollapsed: false });
+        loadModule(dom);
+
+        clickToggle(dom.toggle);
+        clickToggle(dom.toggle);
+
+        assert.equal(dom.body.classList.contains('is-collapsed'), false);
+        assert.equal(dom.toggle.getAttribute('aria-expanded'), 'true');
+        assert.equal(dom.body.inert, false);
+    });
+
+    it('Cycle B: chevron no fue modificado', () => {
+        assert.match(indexSrc, /aa-lists-header-chevron/);
+        assert.match(indexSrc, /M19 9l-7 7-7-7/);
     });
 
     it('clic en toggle expande el cuerpo si está colapsado', () => {

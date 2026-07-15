@@ -34,38 +34,14 @@ $pwa_push_activation_service_js = AA_PLUGIN_URL . 'assets/js/services/pwaPushAct
 $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/pushActivationReconcileService.js';
 ?>
 
-<div id="aa-tasks-module-root" class="max-w-5xl mx-auto py-2">
+<div id="aa-tasks-module-root" class="max-w-5xl mx-auto py-2 pb-24">
 
-    <section id="aa-executive-proposal" class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
-        <div class="aa-executive-header px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
-            <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                    <h3 class="text-lg font-semibold text-gray-900">Propuesta ejecutiva</h3>
-                    <p id="aa-executive-status" class="mt-1" aria-live="polite"></p>
-                </div>
-                <div id="aa-executive-header-actions" class="aa-executive-header-actions flex flex-wrap items-center justify-end gap-2 shrink-0"></div>
-            </div>
-        </div>
-        <div class="p-4">
-            <p id="aa-executive-proposal-loading" class="hidden text-sm text-gray-500">Cargando propuesta ejecutiva…</p>
-            <p id="aa-executive-proposal-error" class="hidden text-sm text-red-600"></p>
-            <p id="aa-executive-empty" class="hidden text-sm text-gray-500">
-                No hay acciones pendientes recomendadas. Crea tareas o revisa tus listas.
-            </p>
-            <ul id="aa-executive-list" class="space-y-3"></ul>
-        </div>
-    </section>
-
-    <div class="aa-executive-lists-divider my-4 px-4" aria-hidden="true">
-        <hr class="border-gray-200">
-    </div>
-
-    <section id="aa-lists-section" class="pb-24">
+    <section id="aa-lists-section">
         <header id="aa-lists-header" class="aa-lists-header mb-3 flex items-start justify-between gap-3">
             <button type="button"
                 id="aa-lists-header-toggle"
                 class="aa-lists-header-toggle min-w-0 flex flex-1 items-center gap-2 text-left rounded-lg -ml-1 px-1 py-0.5 focus:outline-none"
-                aria-expanded="false"
+                aria-expanded="true"
                 aria-controls="aa-lists-body">
                 <span class="aa-lists-header-label text-lg font-semibold text-gray-900">Organizador · Listas de tareas</span>
                 <svg class="aa-lists-header-chevron w-4 h-4 shrink-0 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -109,7 +85,7 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
             </div>
         </header>
 
-        <div id="aa-lists-body" class="aa-lists-body is-collapsed" aria-hidden="true" inert>
+        <div id="aa-lists-body" class="aa-lists-body" aria-hidden="false">
         <p id="aa-lists-area-tools-error" class="hidden text-sm text-red-600 mb-3"></p>
         <p id="aa-tasks-error" class="hidden text-sm text-red-600 mb-3"></p>
 
@@ -137,6 +113,26 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
             <p id="aa-executable-lists-error" class="hidden text-sm text-red-600 px-4 pt-3"></p>
             <div id="aa-executable-lists-root" inert class="pointer-events-none p-4 space-y-4"></div>
         </section>
+        </div>
+    </section>
+
+    <section id="aa-executive-proposal" class="mt-6 bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
+        <div class="aa-executive-header px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
+            <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <h3 class="text-lg font-semibold text-gray-900">Propuesta ejecutiva</h3>
+                    <p id="aa-executive-status" class="mt-1" aria-live="polite"></p>
+                </div>
+                <div id="aa-executive-header-actions" class="aa-executive-header-actions flex flex-wrap items-center justify-end gap-2 shrink-0"></div>
+            </div>
+        </div>
+        <div class="p-4">
+            <p id="aa-executive-proposal-loading" class="hidden text-sm text-gray-500">Cargando propuesta ejecutiva…</p>
+            <p id="aa-executive-proposal-error" class="hidden text-sm text-red-600"></p>
+            <p id="aa-executive-empty" class="hidden text-sm text-gray-500">
+                No hay acciones pendientes recomendadas. Crea tareas o revisa tus listas.
+            </p>
+            <ul id="aa-executive-list" class="space-y-3"></ul>
         </div>
     </section>
 
