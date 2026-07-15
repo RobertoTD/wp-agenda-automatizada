@@ -6,7 +6,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
-const modulePath = path.join(__dirname, '../../includes/admin/ui/modules/learning/executive-lists-focus-module.js');
+const modulePath = path.join(__dirname, '../../includes/admin/ui/modules/learning/section-toggles-module.js');
 const indexPath = path.join(__dirname, '../../includes/admin/ui/modules/learning/index.php');
 const adminSourceCssPath = path.join(__dirname, '../../includes/admin/ui/assets/css/admin.source.css');
 const moduleSrc = fs.readFileSync(modulePath, 'utf8');
@@ -230,7 +230,7 @@ function clickToggle(toggle) {
     });
 }
 
-describe('executive-lists-focus-module — toggles de secciones', () => {
+describe('section-toggles-module — toggles de secciones', () => {
     it('index.php no contiene data-work-zone', () => {
         assert.doesNotMatch(indexSrc, /data-work-zone/);
     });
@@ -592,5 +592,87 @@ describe('executive-lists-focus-module — toggles de secciones', () => {
 
     it('Cycle C: existe chevron del ejecutor', () => {
         assert.match(indexSrc, /aa-executive-header-chevron/);
+    });
+
+    // --- Cycle D: chevron rotation & cleanup ---
+    it('Cycle D: chevron del organizador tiene transition-transform', () => {
+        assert.match(indexSrc, /aa-lists-header-chevron[^"]*transition-transform/);
+    });
+
+    it('Cycle D: chevron del ejecutor tiene transition-transform', () => {
+        assert.match(indexSrc, /aa-executive-header-chevron[^"]*transition-transform/);
+    });
+
+    it('Cycle D: ambos chevrons usan el mismo path SVG', () => {
+        var matches = indexSrc.match(/M19 9l-7 7-7-7/g);
+        assert.ok(matches && matches.length >= 2, 'Al menos dos chevrons con el mismo path');
+    });
+
+    it('Cycle D: CSS tiene regla de rotación para aria-expanded=true en organizador', () => {
+        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
+        assert.match(css, /#aa-lists-header-toggle\[aria-expanded="true"\]\s*\.aa-lists-header-chevron/);
+    });
+
+    it('Cycle D: CSS tiene regla de rotación para aria-expanded=true en ejecutor', () => {
+        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
+        assert.match(css, /#aa-executive-header-toggle\[aria-expanded="true"\]\s*\.aa-executive-header-chevron/);
+    });
+
+    it('Cycle D: regla de rotación usa rotate(180deg)', () => {
+        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
+        var ruleMatch = css.match(/#aa-lists-header-toggle\[aria-expanded="true"\][\s\S]*?\{([^}]*)\}/);
+        assert.ok(ruleMatch, 'Regla encontrada');
+        assert.match(ruleMatch[1], /rotate\(180deg\)/);
+    });
+
+    it('Cycle D: no existe regla que oculte chevrons con display:none', () => {
+        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
+        assert.doesNotMatch(css, /aa-lists-header-chevron[^}]*display:\s*none/);
+        assert.doesNotMatch(css, /aa-executive-header-chevron[^}]*display:\s*none/);
+    });
+
+    it('Cycle D: no existe regla que cambie opacidad de chevrons', () => {
+        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
+        assert.doesNotMatch(css, /aa-lists-header-chevron[^}]*opacity/);
+        assert.doesNotMatch(css, /aa-executive-header-chevron[^}]*opacity/);
+    });
+
+    it('Cycle D: rotación no depende de JavaScript adicional', () => {
+        var src = fs.readFileSync(modulePath, 'utf8');
+        assert.doesNotMatch(src, /rotate/);
+        assert.doesNotMatch(src, /transform/);
+        assert.doesNotMatch(src, /chevron/);
+    });
+
+    it('Cycle D: abrir una sección no modifica el chevron de la otra (test vía attrs)', () => {
+        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
+        loadModule(dom);
+
+        clickToggle(dom.execToggle);
+        assert.equal(dom.listsToggle.getAttribute('aria-expanded'), 'true');
+        assert.equal(dom.execToggle.getAttribute('aria-expanded'), 'true');
+
+        clickToggle(dom.listsToggle);
+        assert.equal(dom.listsToggle.getAttribute('aria-expanded'), 'false');
+        assert.equal(dom.execToggle.getAttribute('aria-expanded'), 'true');
+    });
+
+    it('Cycle D: módulo fue renombrado a section-toggles-module.js', () => {
+        assert.match(indexSrc, /section-toggles-module\.js/);
+        assert.doesNotMatch(indexSrc, /executive-lists-focus-module\.js/);
+    });
+
+    it('Cycle D: el toggle sigue sincronizando atributos accesibles tras rotación', () => {
+        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
+        loadModule(dom);
+
+        clickToggle(dom.listsToggle);
+        assert.equal(dom.listsToggle.getAttribute('aria-expanded'), 'false');
+        assert.equal(dom.listsBody.getAttribute('aria-hidden'), 'true');
+        assert.equal(dom.listsBody.inert, true);
+
+        clickToggle(dom.listsToggle);
+        assert.equal(dom.listsToggle.getAttribute('aria-expanded'), 'true');
+        assert.equal(dom.listsBody.inert, false);
     });
 });

@@ -25,7 +25,7 @@ $executable_options_menu_placement_js = plugin_dir_url(__FILE__) . 'executable-o
 $list_edit_js = plugin_dir_url(__FILE__) . 'list-edit-module.js';
 $restore_archived_tasks_js = plugin_dir_url(__FILE__) . 'restore-archived-tasks-module.js';
 $tasks_modal_ui_js = plugin_dir_url(__FILE__) . 'tasks-modal-ui.js';
-$executive_lists_focus_js = plugin_dir_url(__FILE__) . 'executive-lists-focus-module.js';
+$section_toggles_js = plugin_dir_url(__FILE__) . 'section-toggles-module.js';
 $executive_proposal_service_js = AA_PLUGIN_URL . 'assets/js/services/executiveProposalService.js';
 $executive_client_action_runner_js = AA_PLUGIN_URL . 'assets/js/services/executiveClientActionRunner.js';
 $executive_proposal_renderer_js = AA_PLUGIN_URL . 'assets/js/ui/executiveProposalRenderer.js';
@@ -44,7 +44,7 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
                 aria-expanded="true"
                 aria-controls="aa-lists-body">
                 <span class="aa-lists-header-label text-lg font-semibold text-gray-900">Organizador · Listas de tareas</span>
-                <svg class="aa-lists-header-chevron w-4 h-4 shrink-0 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <svg class="aa-lists-header-chevron w-4 h-4 shrink-0 text-gray-500 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                 </svg>
             </button>
@@ -124,7 +124,7 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
                 aria-expanded="false"
                 aria-controls="aa-executive-body">
                 <span class="aa-executive-header-label text-lg font-semibold text-gray-900">Propuesta de ejecución</span>
-                <svg class="aa-executive-header-chevron w-4 h-4 shrink-0 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <svg class="aa-executive-header-chevron w-4 h-4 shrink-0 text-gray-500 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                 </svg>
             </button>
@@ -517,4 +517,4 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
 <script src="<?php echo esc_url($list_options_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($restore_archived_tasks_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($list_edit_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
-<script src="<?php echo esc_url($executive_lists_focus_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($section_toggles_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>

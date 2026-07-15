@@ -122,8 +122,12 @@ ac_assert(
     && strpos($index_php, 'id="aa-lists-section" class="pb-24 is-muted"') === false
 );
 ac_assert(
-    'index.php enqueues executive-lists-focus-module.js',
-    is_string($index_php) && strpos($index_php, 'executive-lists-focus-module.js') !== false
+    'index.php enqueues section-toggles-module.js',
+    is_string($index_php) && strpos($index_php, 'section-toggles-module.js') !== false
+);
+ac_assert(
+    'index.php no longer references executive-lists-focus-module.js',
+    is_string($index_php) && strpos($index_php, 'executive-lists-focus-module.js') === false
 );
 
 ac_assert(
@@ -307,6 +311,37 @@ ac_assert(
 ac_assert(
     'Cycle C: pb-24 still on root',
     is_string($index_php) && preg_match('/id="aa-tasks-module-root"[^>]*pb-24/', $index_php) === 1
+);
+
+// --- Cycle D assertions ---
+$admin_css_src = file_get_contents($plugin_root . '/includes/admin/ui/assets/css/admin.source.css');
+ac_assert(
+    'Cycle D: chevron del organizador tiene transition-transform en markup',
+    is_string($index_php) && preg_match('/aa-lists-header-chevron[^"]*transition-transform/', $index_php) === 1
+);
+ac_assert(
+    'Cycle D: chevron del ejecutor tiene transition-transform en markup',
+    is_string($index_php) && preg_match('/aa-executive-header-chevron[^"]*transition-transform/', $index_php) === 1
+);
+ac_assert(
+    'Cycle D: CSS tiene regla de rotación para organizador',
+    is_string($admin_css_src) && strpos($admin_css_src, '#aa-lists-header-toggle[aria-expanded="true"] .aa-lists-header-chevron') !== false
+);
+ac_assert(
+    'Cycle D: CSS tiene regla de rotación para ejecutor',
+    is_string($admin_css_src) && strpos($admin_css_src, '#aa-executive-header-toggle[aria-expanded="true"] .aa-executive-header-chevron') !== false
+);
+ac_assert(
+    'Cycle D: regla de rotación usa rotate(180deg)',
+    is_string($admin_css_src) && preg_match('/aa-lists-header-chevron[^}]*rotate\(180deg\)/', $admin_css_src) === 1
+);
+ac_assert(
+    'Cycle D: script enqueued es section-toggles-module.js',
+    is_string($index_php) && strpos($index_php, 'section-toggles-module.js') !== false
+);
+ac_assert(
+    'Cycle D: no queda referencia a executive-lists-focus-module.js en index.php',
+    is_string($index_php) && strpos($index_php, 'executive-lists-focus-module.js') === false
 );
 
 $board_module_src = file_get_contents($plugin_root . '/includes/admin/ui/modules/learning/tasks-board-module.js');

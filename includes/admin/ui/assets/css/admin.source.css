@@ -29,6 +29,12 @@
         transform: rotate(180deg);
     }
 
+    /* Section toggles — rotate chevron when aria-expanded */
+    #aa-lists-header-toggle[aria-expanded="true"] .aa-lists-header-chevron,
+    #aa-executive-header-toggle[aria-expanded="true"] .aa-executive-header-chevron {
+        transform: rotate(180deg);
+    }
+
     /* Dashboard Citas: icono de sección apagado colapsado, color al expandir */
     [data-aa-dashboard-collapse] > [data-aa-dashboard-collapse-toggle] .aa-dash-section-icon {
         @apply bg-gray-100 text-gray-500 transition-colors duration-200;
