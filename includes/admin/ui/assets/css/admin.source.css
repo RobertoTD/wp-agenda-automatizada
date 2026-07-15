@@ -824,6 +824,14 @@
     right: 5px;
 }
 
+/* Date navigator — ensanchar campo en móvil para que quepa la fecha + chevron nativo de Android */
+@media (max-width: 639px) {
+    .aa-date-input,
+    .flatpickr-mobile {
+        width: 8.5rem;
+    }
+}
+
 /* Ejecutor — header actions apiladas en pantallas estrechas (MC6 polish) */
 @media (max-width: 639px) {
     #aa-executive-header-actions.aa-executive-header-actions {
