@@ -49,7 +49,7 @@
                 {
                     id: 'calendar_overview',
                     title: 'Esta es tu Agenda',
-                    text: 'Aquí verás tus citas en el calendario. Pulsa «+ Crear cita» para agregar nuevas; ahora crea una de prueba.',
+                    text: 'Aquí está tu Agenda. Pulsa «+ Crear cita» para crear una cita de prueba.',
                     target: '#aa-btn-open-fastappointment-modal',
                     placement: 'top',
                     waitFor: {

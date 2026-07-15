@@ -414,6 +414,11 @@ ac_assert(
     && preg_match('/aa-executive-header-label[^"]*shrink-0/', $index_php) === 1
 );
 
+ac_assert(
+    'index.php enqueues learning-action-handlers.js',
+    is_string($index_php) && strpos($index_php, 'learning-action-handlers.js') !== false
+);
+
 $board_module_src = file_get_contents($plugin_root . '/includes/admin/ui/modules/learning/tasks-board-module.js');
 ac_assert('tasks-board-module readable', $board_module_src !== false);
 ac_assert(

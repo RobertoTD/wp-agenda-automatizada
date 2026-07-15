@@ -1,6 +1,6 @@
 <?php
 /**
- * AC — Dashboard runtime enqueue (learning-action-handlers path).
+ * AC — Dashboard runtime enqueue (PWA install moved to Calendar).
  *
  * Ejecutar: php tests/admin/ui/test-dashboard-index-runtime-ac.php
  */
@@ -33,23 +33,15 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 ac_assert('dashboard index.php readable', $index_php !== false);
 
 ac_assert(
-    'dashboard enqueues learning-action-handlers via learning/index.php anchor',
+    'dashboard does NOT enqueue learning-action-handlers.js',
     is_string($index_php)
-    && strpos($index_php, "plugin_dir_url(__DIR__ . '/../learning/index.php')") !== false
-    && strpos($index_php, "'learning-action-handlers.js'") !== false
+    && strpos($index_php, 'learning-action-handlers.js') === false
 );
 
 ac_assert(
-    'dashboard does not use broken learning/ directory-only plugin_dir_url',
+    'dashboard does NOT enqueue pwa-install-first-opportunity.js',
     is_string($index_php)
-    && strpos($index_php, "plugin_dir_url(__DIR__ . '/../learning/')") === false
-);
-
-ac_assert(
-    'dashboard enqueues pwa-install-first-opportunity after learning-action-handlers',
-    is_string($index_php)
-    && strpos($index_php, 'pwa-install-first-opportunity.js') !== false
-    && strpos($index_php, 'learning-action-handlers.js') < strpos($index_php, 'pwa-install-first-opportunity.js')
+    && strpos($index_php, 'pwa-install-first-opportunity.js') === false
 );
 
 ac_assert(
@@ -60,10 +52,9 @@ ac_assert(
 );
 
 ac_assert(
-    'dashboard enqueues pwa-notifications-first-opportunity after pwa-install-first-opportunity',
+    'dashboard still enqueues pwa-notifications-first-opportunity.js',
     is_string($index_php)
     && strpos($index_php, 'pwa-notifications-first-opportunity.js') !== false
-    && strpos($index_php, 'pwa-install-first-opportunity.js') < strpos($index_php, 'pwa-notifications-first-opportunity.js')
 );
 
 echo "\n{$passed}/{$total} passed\n";

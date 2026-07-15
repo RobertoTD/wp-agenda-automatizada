@@ -156,6 +156,14 @@ $module_js_url = $plugin_url . 'calendar-module.js?ver=' . rawurlencode($calenda
     están cargados globalmente desde layout.php 
 -->
 
+<!-- PWA install first opportunity (handler + auto-trigger; orden crítico) -->
+<?php
+$learning_handlers_js = plugin_dir_url(__DIR__ . '/../learning/index.php') . 'learning-action-handlers.js';
+$pwa_install_first_opportunity_js = plugin_dir_url(__DIR__ . '/../dashboard/index.php') . 'pwa-install-first-opportunity.js';
+?>
+<script src="<?php echo esc_url($learning_handlers_js . '?ver=' . rawurlencode($calendar_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($pwa_install_first_opportunity_js . '?ver=' . rawurlencode($calendar_ver)); ?>" defer></script>
+
 <!-- Archivos de sección del calendario (específicos del módulo) -->
 <script src="<?php echo esc_url($plugin_url . 'calendar-section/calendar-appointment-card.js?ver=' . rawurlencode($calendar_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($plugin_url . 'calendar-section/calendar-overlap.js?ver=' . rawurlencode($calendar_ver)); ?>" defer></script>
