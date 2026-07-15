@@ -675,4 +675,39 @@ describe('section-toggles-module — toggles de secciones', () => {
         assert.equal(dom.listsToggle.getAttribute('aria-expanded'), 'true');
         assert.equal(dom.listsBody.inert, false);
     });
+
+    // --- Cycle E: isolation from data ---
+    it('Cycle E: módulo de toggles no conoce datos de propuesta ni summary', () => {
+        assert.doesNotMatch(moduleSrc, /summary/i);
+        assert.doesNotMatch(moduleSrc, /proposal/i);
+        assert.doesNotMatch(moduleSrc, /updateHeaderSummary/);
+        assert.doesNotMatch(moduleSrc, /syncHeaderSummary/);
+        assert.doesNotMatch(moduleSrc, /resolveCurrentTask/);
+        assert.doesNotMatch(moduleSrc, /textContent/);
+    });
+
+    it('Cycle E: CSS oculta summary cuando aria-expanded=true', () => {
+        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
+        assert.match(css, /#aa-executive-header-toggle\[aria-expanded="true"\]\s*\.aa-executive-header-summary/);
+        assert.match(css, /display:\s*none/);
+    });
+
+    it('Cycle E: existe #aa-executive-header-summary en index.php', () => {
+        assert.match(indexSrc, /id="aa-executive-header-summary"/);
+    });
+
+    it('Cycle E: summary está entre label y chevron', () => {
+        var labelPos = indexSrc.indexOf('aa-executive-header-label');
+        var summaryPos = indexSrc.indexOf('aa-executive-header-summary');
+        var chevronPos = indexSrc.indexOf('aa-executive-header-chevron');
+        assert.ok(labelPos < summaryPos);
+        assert.ok(summaryPos < chevronPos);
+    });
+
+    it('Cycle E: summary no tiene aria-hidden ni aria-live', () => {
+        var match = indexSrc.match(/id="aa-executive-header-summary"[^>]*/);
+        assert.ok(match);
+        assert.doesNotMatch(match[0], /aria-hidden/);
+        assert.doesNotMatch(match[0], /aria-live/);
+    });
 });

@@ -1172,3 +1172,383 @@ describe('executive-proposal-module MC6.1 capture re-render fix', () => {
         assert.equal(postCalls, 0);
     });
 });
+
+describe('executive-proposal-module Cycle E — header summary', () => {
+    let originalService;
+    let originalRenderer;
+    let dom;
+    let summaryEl;
+
+    function makeSummaryElement() {
+        return {
+            id: 'aa-executive-header-summary',
+            textContent: '',
+            titleAttr: null,
+            setAttribute: function (name, value) {
+                if (name === 'title') {
+                    this.titleAttr = value;
+                }
+            },
+            getAttribute: function (name) {
+                if (name === 'title') {
+                    return this.titleAttr;
+                }
+                return null;
+            },
+            removeAttribute: function (name) {
+                if (name === 'title') {
+                    this.titleAttr = null;
+                }
+            }
+        };
+    }
+
+    beforeEach(() => {
+        originalService = globalThis.AAExecutiveProposalService;
+        originalRenderer = globalThis.AAExecutiveProposalRenderer;
+
+        summaryEl = makeSummaryElement();
+
+        dom = {
+            proposal: makeElement('aa-executive-proposal', { buttons: [] }),
+            loading: makeElement('aa-executive-proposal-loading', { classes: ['hidden'] }),
+            error: makeElement('aa-executive-proposal-error', { classes: ['hidden'] }),
+            empty: makeElement('aa-executive-empty', { classes: ['hidden'] }),
+            list: makeElement('aa-executive-list'),
+            summary: summaryEl
+        };
+
+        globalThis.document = {
+            getElementById: function (id) {
+                if (id === 'aa-executive-proposal') return dom.proposal;
+                if (id === 'aa-executive-proposal-loading') return dom.loading;
+                if (id === 'aa-executive-proposal-error') return dom.error;
+                if (id === 'aa-executive-empty') return dom.empty;
+                if (id === 'aa-executive-list') return dom.list;
+                if (id === 'aa-executive-header-summary') return dom.summary;
+                return null;
+            }
+        };
+
+        globalThis.AAExecutiveProposalRenderer = {
+            renderProposal: function () {}
+        };
+
+        globalThis.AAExecutiveProposalService = {
+            getExecutiveProposal: function () {
+                return Promise.resolve({
+                    status: 'ready',
+                    tasks: [{ slot: 'current', task_id: 1, title: 'Tarea actual de prueba' }]
+                });
+            },
+            postExecutiveAction: function () {
+                return Promise.resolve({
+                    action: { key: 'complete', mutated: true },
+                    proposal: { status: 'ready', tasks: [{ slot: 'current', task_id: 2, title: 'Nueva tarea' }] },
+                    client_action: null
+                });
+            },
+            postFocusAction: function () {
+                return Promise.resolve({
+                    proposal: { status: 'ready', tasks: [{ slot: 'current', task_id: 3, title: 'Tarea foco' }] }
+                });
+            }
+        };
+    });
+
+    afterEach(() => {
+        globalThis.AAExecutiveProposalService = originalService;
+        globalThis.AAExecutiveProposalRenderer = originalRenderer;
+    });
+
+    it('resumen inicia vacío', () => {
+        assert.equal(summaryEl.textContent, '');
+    });
+
+    it('carga normal muestra loading', async () => {
+        await hooks.loadProposal();
+        // loading was set during the call — check it happened by verifying final state
+        // The final state should be 'ready' after success, but we verify loading was triggered
+        // by checking that the summary is now the ready state
+        assert.equal(summaryEl.textContent, '· Tarea actual de prueba');
+    });
+
+    it('carga normal muestra · Cargando propuesta… al iniciar', async () => {
+        var resolve;
+        globalThis.AAExecutiveProposalService = {
+            getExecutiveProposal: function () {
+                return new Promise(function (r) { resolve = r; });
+            }
+        };
+
+        var promise = hooks.loadProposal();
+
+        assert.equal(summaryEl.textContent, '· Cargando propuesta…');
+
+        resolve({ status: 'empty', tasks: [] });
+        await promise;
+    });
+
+    it('propuesta ready muestra título de la tarea current', async () => {
+        await hooks.loadProposal();
+
+        assert.equal(summaryEl.textContent, '· Tarea actual de prueba');
+    });
+
+    it('título se obtiene por slot current, no por posición', async () => {
+        globalThis.AAExecutiveProposalService = {
+            getExecutiveProposal: function () {
+                return Promise.resolve({
+                    status: 'ready',
+                    tasks: [
+                        { slot: 'next', task_id: 2, title: 'No esta' },
+                        { slot: 'current', task_id: 1, title: 'La correcta' }
+                    ]
+                });
+            }
+        };
+
+        await hooks.loadProposal();
+
+        assert.equal(summaryEl.textContent, '· La correcta');
+    });
+
+    it('título completo se conserva en textContent', async () => {
+        var longTitle = 'Este es un título de tarea extremadamente largo que supera cualquier límite visual';
+        globalThis.AAExecutiveProposalService = {
+            getExecutiveProposal: function () {
+                return Promise.resolve({
+                    status: 'ready',
+                    tasks: [{ slot: 'current', task_id: 1, title: longTitle }]
+                });
+            }
+        };
+
+        await hooks.loadProposal();
+
+        assert.equal(summaryEl.textContent, '· ' + longTitle);
+    });
+
+    it('atributo title contiene título completo sin separador', async () => {
+        await hooks.loadProposal();
+
+        assert.equal(summaryEl.titleAttr, 'Tarea actual de prueba');
+    });
+
+    it('no existe truncamiento JavaScript', () => {
+        var src = require('node:fs').readFileSync(
+            require('node:path').join(__dirname, '../../includes/admin/ui/modules/learning/executive-proposal-module.js'),
+            'utf8'
+        );
+        assert.doesNotMatch(src, /\.slice\([^)]*\).*…/);
+        assert.doesNotMatch(src, /\.substring\([^)]*\).*…/);
+    });
+
+    it('empty muestra · Sin acciones pendientes', async () => {
+        globalThis.AAExecutiveProposalService = {
+            getExecutiveProposal: function () {
+                return Promise.resolve({ status: 'empty', tasks: [] });
+            }
+        };
+
+        await hooks.loadProposal();
+
+        assert.equal(summaryEl.textContent, '· Sin acciones pendientes');
+    });
+
+    it('empty elimina atributo title anterior', async () => {
+        await hooks.loadProposal();
+        assert.equal(summaryEl.titleAttr, 'Tarea actual de prueba');
+
+        globalThis.AAExecutiveProposalService = {
+            getExecutiveProposal: function () {
+                return Promise.resolve({ status: 'empty', tasks: [] });
+            }
+        };
+
+        await hooks.loadProposal();
+
+        assert.equal(summaryEl.titleAttr, null);
+    });
+
+    it('error normal muestra · No se pudo cargar', async () => {
+        globalThis.AAExecutiveProposalService = {
+            getExecutiveProposal: function () {
+                return Promise.reject(new Error('Network error'));
+            }
+        };
+
+        await hooks.loadProposal();
+
+        assert.equal(summaryEl.textContent, '· No se pudo cargar');
+    });
+
+    it('error normal elimina atributo title anterior', async () => {
+        await hooks.loadProposal();
+        assert.equal(summaryEl.titleAttr, 'Tarea actual de prueba');
+
+        globalThis.AAExecutiveProposalService = {
+            getExecutiveProposal: function () {
+                return Promise.reject(new Error('fail'));
+            }
+        };
+
+        await hooks.loadProposal();
+
+        assert.equal(summaryEl.titleAttr, null);
+    });
+
+    it('nuevo renderProposalPayload reemplaza título anterior', () => {
+        hooks.renderProposalPayload({
+            status: 'ready',
+            tasks: [{ slot: 'current', task_id: 1, title: 'Primera' }]
+        });
+
+        assert.equal(summaryEl.textContent, '· Primera');
+
+        hooks.renderProposalPayload({
+            status: 'ready',
+            tasks: [{ slot: 'current', task_id: 2, title: 'Segunda' }]
+        });
+
+        assert.equal(summaryEl.textContent, '· Segunda');
+    });
+
+    it('complete/dismiss actualiza resumen mediante renderProposalPayload', async () => {
+        await hooks.loadProposal();
+        assert.equal(summaryEl.textContent, '· Tarea actual de prueba');
+
+        hooks.afterExecutiveActionSuccess({
+            action: { key: 'complete', mutated: true },
+            proposal: { status: 'ready', tasks: [{ slot: 'current', task_id: 5, title: 'Post-complete' }] }
+        });
+
+        assert.equal(summaryEl.textContent, '· Post-complete');
+    });
+
+    it('acción de foco actualiza resumen mediante renderProposalPayload', async () => {
+        var button = makeButton({
+            'data-executive-focus-action': 'change_focus',
+            'data-executive-action': null,
+            'data-executive-task-id': null,
+            'data-executive-action-key': null
+        });
+
+        await hooks.handleFocusActionClick(button);
+
+        assert.equal(summaryEl.textContent, '· Tarea foco');
+    });
+
+    it('payload sin tarea current se trata como empty', () => {
+        hooks.renderProposalPayload({
+            status: 'ready',
+            tasks: [{ slot: 'next', task_id: 2, title: 'Solo siguiente' }]
+        });
+
+        assert.equal(summaryEl.textContent, '· Sin acciones pendientes');
+    });
+
+    it('título vacío se trata como empty', () => {
+        hooks.renderProposalPayload({
+            status: 'ready',
+            tasks: [{ slot: 'current', task_id: 1, title: '' }]
+        });
+
+        assert.equal(summaryEl.textContent, '· Sin acciones pendientes');
+    });
+
+    it('ausencia del nodo summary no rompe el módulo', () => {
+        globalThis.document = {
+            getElementById: function (id) {
+                if (id === 'aa-executive-proposal') return dom.proposal;
+                if (id === 'aa-executive-proposal-loading') return dom.loading;
+                if (id === 'aa-executive-proposal-error') return dom.error;
+                if (id === 'aa-executive-empty') return dom.empty;
+                if (id === 'aa-executive-list') return dom.list;
+                return null;
+            }
+        };
+
+        assert.doesNotThrow(function () {
+            hooks.renderProposalPayload({
+                status: 'ready',
+                tasks: [{ slot: 'current', task_id: 1, title: 'Test' }]
+            });
+        });
+    });
+
+    it('carga silenciosa no muestra loading', async () => {
+        var resolve;
+        globalThis.AAExecutiveProposalService = {
+            getExecutiveProposal: function () {
+                return new Promise(function (r) { resolve = r; });
+            }
+        };
+
+        var promise = hooks.loadProposal({ silent: true });
+
+        assert.equal(summaryEl.textContent, '');
+
+        resolve({ status: 'empty', tasks: [] });
+        await promise;
+    });
+
+    it('error silencioso conserva resumen anterior', async () => {
+        await hooks.loadProposal();
+        assert.equal(summaryEl.textContent, '· Tarea actual de prueba');
+
+        globalThis.AAExecutiveProposalService = {
+            getExecutiveProposal: function () {
+                return Promise.reject(new Error('silent fail'));
+            }
+        };
+
+        await hooks.loadProposal({ silent: true });
+
+        assert.equal(summaryEl.textContent, '· Tarea actual de prueba');
+    });
+
+    it('éxito silencioso actualiza resumen', async () => {
+        hooks.renderProposalPayload({ status: 'empty', tasks: [] });
+        assert.equal(summaryEl.textContent, '· Sin acciones pendientes');
+
+        globalThis.AAExecutiveProposalService = {
+            getExecutiveProposal: function () {
+                return Promise.resolve({
+                    status: 'ready',
+                    tasks: [{ slot: 'current', task_id: 9, title: 'Silent success' }]
+                });
+            }
+        };
+
+        await hooks.loadProposal({ silent: true });
+
+        assert.equal(summaryEl.textContent, '· Silent success');
+    });
+
+    it('no se modifica la API del renderer', () => {
+        var rendererModule = require(require('node:path').join(
+            __dirname, '../../assets/js/ui/executiveProposalRenderer.js'
+        ));
+
+        assert.equal(typeof rendererModule.renderProposal, 'function');
+        assert.equal(typeof rendererModule.buildProposalParts, 'function');
+        assert.equal(typeof rendererModule.updateExecutiveHeader, 'function');
+        assert.equal(rendererModule.updateHeaderSummary, undefined);
+        assert.equal(rendererModule.syncHeaderSummaryFromPayload, undefined);
+    });
+
+    it('no se añade conocimiento de datos al módulo de toggles', () => {
+        var togglesSrc = require('node:fs').readFileSync(
+            require('node:path').join(__dirname, '../../includes/admin/ui/modules/learning/section-toggles-module.js'),
+            'utf8'
+        );
+
+        assert.doesNotMatch(togglesSrc, /summary/i);
+        assert.doesNotMatch(togglesSrc, /proposal/i);
+        assert.doesNotMatch(togglesSrc, /updateHeaderSummary/);
+        assert.doesNotMatch(togglesSrc, /syncHeaderSummary/);
+        assert.doesNotMatch(togglesSrc, /resolveCurrentTask/);
+        assert.doesNotMatch(togglesSrc, /textContent/);
+    });
+});

@@ -14,6 +14,63 @@
     var lastProposalPayload = null;
     var sprintWatchTimer = null;
     var choosingMode = false;
+    var SUMMARY_ID = 'aa-executive-header-summary';
+    var SUMMARY_PREFIX = '\u00b7 ';
+
+    function resolveCurrentTaskTitle(payload) {
+        if (!payload || !Array.isArray(payload.tasks)) {
+            return null;
+        }
+
+        for (var i = 0; i < payload.tasks.length; i++) {
+            var task = payload.tasks[i];
+
+            if (task && task.slot === 'current') {
+                var title = task.title;
+
+                return (typeof title === 'string' && title.trim() !== '') ? title : null;
+            }
+        }
+
+        return null;
+    }
+
+    function updateHeaderSummary(state, fullTitle) {
+        var el = document.getElementById(SUMMARY_ID);
+
+        if (!el) {
+            return;
+        }
+
+        var text = '';
+
+        if (state === 'loading') {
+            text = SUMMARY_PREFIX + 'Cargando propuesta\u2026';
+        } else if (state === 'ready' && fullTitle) {
+            text = SUMMARY_PREFIX + fullTitle;
+        } else if (state === 'empty') {
+            text = SUMMARY_PREFIX + 'Sin acciones pendientes';
+        } else if (state === 'error') {
+            text = SUMMARY_PREFIX + 'No se pudo cargar';
+        }
+
+        el.textContent = text;
+
+        if (state === 'ready' && fullTitle) {
+            el.setAttribute('title', fullTitle);
+        } else {
+            el.removeAttribute('title');
+        }
+    }
+
+    function syncHeaderSummaryFromPayload(payload) {
+        var title = resolveCurrentTaskTitle(payload);
+        var isEmpty = !payload
+            || payload.status === 'empty'
+            || !title;
+
+        updateHeaderSummary(isEmpty ? 'empty' : 'ready', title);
+    }
 
     function resolveUiMode() {
         if (choosingMode) {
@@ -31,6 +88,7 @@
         }
 
         renderer.renderProposal(payload, { uiMode: resolveUiMode() });
+        syncHeaderSummaryFromPayload(payload);
     }
 
     function setChoosingMode(active) {
@@ -259,6 +317,7 @@
 
         if (!silent) {
             setVisible(loadingEl, true);
+            updateHeaderSummary('loading', null);
         }
 
         clearProposalError();
@@ -273,6 +332,7 @@
             .catch(function (err) {
                 if (!silent) {
                     showProposalError((err && err.message) ? err.message : 'No se pudo cargar la propuesta ejecutiva.');
+                    updateHeaderSummary('error', null);
                 }
             })
             .finally(function () {
@@ -616,6 +676,9 @@
         stopDebugSprintWatch: stopDebugSprintWatch,
         debugExpireSprint: debugExpireSprint,
         buildSprintDebugLines: buildSprintDebugLines,
+        resolveCurrentTaskTitle: resolveCurrentTaskTitle,
+        updateHeaderSummary: updateHeaderSummary,
+        syncHeaderSummaryFromPayload: syncHeaderSummaryFromPayload,
         getLastProposalPayload: function () {
             return lastProposalPayload;
         }

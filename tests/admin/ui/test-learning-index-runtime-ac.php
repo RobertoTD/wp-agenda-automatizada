@@ -344,6 +344,76 @@ ac_assert(
     is_string($index_php) && strpos($index_php, 'executive-lists-focus-module.js') === false
 );
 
+// --- Cycle E assertions ---
+ac_assert(
+    'Cycle E: aa-executive-header-summary exists once',
+    is_string($index_php)
+    && substr_count($index_php, 'id="aa-executive-header-summary"') === 1
+);
+ac_assert(
+    'Cycle E: summary is inside aa-executive-header-toggle',
+    is_string($index_php)
+    && ($summary_pos = strpos($index_php, 'id="aa-executive-header-summary"')) !== false
+    && ($toggle_start = strpos($index_php, 'id="aa-executive-header-toggle"')) !== false
+    && ($toggle_end = strpos($index_php, '</button>', $toggle_start)) !== false
+    && $summary_pos > $toggle_start
+    && $summary_pos < $toggle_end
+);
+ac_assert(
+    'Cycle E: summary is between label and chevron',
+    is_string($index_php)
+    && ($label_pos = strpos($index_php, 'aa-executive-header-label')) !== false
+    && ($summ_pos = strpos($index_php, 'aa-executive-header-summary')) !== false
+    && ($chev_pos = strpos($index_php, 'aa-executive-header-chevron')) !== false
+    && $label_pos < $summ_pos
+    && $summ_pos < $chev_pos
+);
+ac_assert(
+    'Cycle E: summary has min-w-0 and truncate',
+    is_string($index_php)
+    && preg_match('/id="aa-executive-header-summary"[^>]*min-w-0/', $index_php) === 1
+    && preg_match('/id="aa-executive-header-summary"[^>]*truncate/', $index_php) === 1
+);
+ac_assert(
+    'Cycle E: summary does not have aria-hidden',
+    is_string($index_php)
+    && preg_match('/id="aa-executive-header-summary"[^>]*aria-hidden/', $index_php) === 0
+);
+ac_assert(
+    'Cycle E: summary does not have aria-live',
+    is_string($index_php)
+    && preg_match('/id="aa-executive-header-summary"[^>]*aria-live/', $index_php) === 0
+);
+ac_assert(
+    'Cycle E: summary starts empty',
+    is_string($index_php)
+    && preg_match('/id="aa-executive-header-summary"[^>]*><\/span>/', $index_php) === 1
+);
+ac_assert(
+    'Cycle E: no second button inside toggle',
+    is_string($index_php)
+    && ($toggle_s = strpos($index_php, 'id="aa-executive-header-toggle"')) !== false
+    && ($toggle_e = strpos($index_php, '</button>', $toggle_s)) !== false
+    && substr_count(substr($index_php, $toggle_s, $toggle_e - $toggle_s), '<button') === 0
+);
+ac_assert(
+    'Cycle E: CSS hides summary when expanded',
+    is_string($admin_css_src)
+    && strpos($admin_css_src, '#aa-executive-header-toggle[aria-expanded="true"] .aa-executive-header-summary') !== false
+);
+ac_assert(
+    'Cycle E: renderer IDs still present',
+    is_string($index_php)
+    && strpos($index_php, 'id="aa-executive-status"') !== false
+    && strpos($index_php, 'id="aa-executive-list"') !== false
+    && strpos($index_php, 'id="aa-executive-empty"') !== false
+);
+ac_assert(
+    'Cycle E: label has shrink-0',
+    is_string($index_php)
+    && preg_match('/aa-executive-header-label[^"]*shrink-0/', $index_php) === 1
+);
+
 $board_module_src = file_get_contents($plugin_root . '/includes/admin/ui/modules/learning/tasks-board-module.js');
 ac_assert('tasks-board-module readable', $board_module_src !== false);
 ac_assert(

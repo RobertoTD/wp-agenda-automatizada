@@ -35,6 +35,11 @@
         transform: rotate(180deg);
     }
 
+    /* Hide executive summary when section is expanded */
+    #aa-executive-header-toggle[aria-expanded="true"] .aa-executive-header-summary {
+        display: none;
+    }
+
     /* Dashboard Citas: icono de sección apagado colapsado, color al expandir */
     [data-aa-dashboard-collapse] > [data-aa-dashboard-collapse-toggle] .aa-dash-section-icon {
         @apply bg-gray-100 text-gray-500 transition-colors duration-200;
