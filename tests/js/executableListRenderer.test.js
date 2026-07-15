@@ -2524,7 +2524,7 @@ describe('executableListRenderer add-task button and chevron placement', () => {
 
         assert.match(html, /data-aa-list-add-task="1"/);
         assert.match(html, /aa-executable-list-add-task/);
-        assert.match(html, />\+ tarea</);
+        assert.match(html, />\+ Tarea</);
         assert.match(html, /data-aa-list-add-task="1"[^>]*data-list-id="7"/);
     });
 
@@ -2679,7 +2679,7 @@ describe('executableListRenderer add-task menu item', () => {
         }));
         var items = extractMenuItems(html);
 
-        assert.equal(items[0], '+ tarea');
+        assert.equal(items[0], '+ Tarea');
         assert.equal(items[1], 'Editar lista');
         assert.equal(items[2], 'Desarchivar tareas');
         assert.equal(items[3], 'Archivar lista');
@@ -2739,6 +2739,6 @@ describe('executableListRenderer add-task menu item', () => {
         var items = extractMenuItems(html);
 
         assert.equal(items.length, 1);
-        assert.equal(items[0], '+ tarea');
+        assert.equal(items[0], '+ Tarea');
     });
 });
