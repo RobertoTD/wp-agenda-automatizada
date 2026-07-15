@@ -13,16 +13,9 @@
     var EXECUTIVE_FOCUS_ACTION_SELECTOR = '[data-executive-focus-action]';
     var lastProposalPayload = null;
     var sprintWatchTimer = null;
-    var workZone = 'executive';
     var choosingMode = false;
-    var pendingWorkZoneRender = false;
-    var pendingWorkZoneRenderId = null;
 
     function resolveUiMode() {
-        if (workZone === 'organizing') {
-            return 'organizing';
-        }
-
         if (choosingMode) {
             return 'choosing';
         }
@@ -40,59 +33,9 @@
         renderer.renderProposal(payload, { uiMode: resolveUiMode() });
     }
 
-    function scheduleWorkZoneRender() {
-        if (pendingWorkZoneRender) {
-            return;
-        }
-
-        pendingWorkZoneRender = true;
-        var schedule = typeof globalRoot.requestAnimationFrame === 'function'
-            ? globalRoot.requestAnimationFrame.bind(globalRoot)
-            : function (callback) {
-                return setTimeout(callback, 0);
-            };
-
-        pendingWorkZoneRenderId = schedule(function () {
-            pendingWorkZoneRender = false;
-            pendingWorkZoneRenderId = null;
-            renderProposalPayload(lastProposalPayload);
-        });
-    }
-
-    function flushPendingWorkZoneRender() {
-        if (!pendingWorkZoneRender || pendingWorkZoneRenderId == null) {
-            return;
-        }
-
-        var cancel = typeof globalRoot.cancelAnimationFrame === 'function'
-            ? globalRoot.cancelAnimationFrame.bind(globalRoot)
-            : clearTimeout;
-
-        cancel(pendingWorkZoneRenderId);
-        pendingWorkZoneRender = false;
-        pendingWorkZoneRenderId = null;
-        renderProposalPayload(lastProposalPayload);
-    }
-
     function setChoosingMode(active) {
         choosingMode = !!active;
         renderProposalPayload(lastProposalPayload);
-    }
-
-    function setWorkZone(zone) {
-        var nextZone = zone === 'organizing' ? 'organizing' : 'executive';
-
-        if (nextZone === workZone) {
-            return;
-        }
-
-        workZone = nextZone;
-
-        if (workZone === 'executive') {
-            choosingMode = false;
-        }
-
-        scheduleWorkZoneRender();
     }
 
     function isSprintActive(payload) {
@@ -649,7 +592,6 @@
 
     globalRoot.AAExecutiveProposal = {
         reload: loadProposal,
-        setWorkZone: setWorkZone,
         setChoosingMode: setChoosingMode,
         debugSprint: debugSprint,
         debugSprintWatch: debugSprintWatch,
@@ -664,13 +606,11 @@
         handleFocusActionClick: handleFocusActionClick,
         runClientAction: runClientAction,
         syncListsAfterExecutiveAction: syncListsAfterExecutiveAction,
-        setWorkZone: setWorkZone,
         setChoosingMode: setChoosingMode,
         resolveUiMode: resolveUiMode,
         renderProposalPayload: renderProposalPayload,
         afterExecutiveActionSuccess: afterExecutiveActionSuccess,
         bindExecutiveDelegation: bindExecutiveDelegation,
-        flushPendingWorkZoneRender: flushPendingWorkZoneRender,
         debugSprint: debugSprint,
         debugSprintWatch: debugSprintWatch,
         stopDebugSprintWatch: stopDebugSprintWatch,

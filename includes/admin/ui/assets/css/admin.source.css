@@ -172,29 +172,9 @@
         @apply text-xs leading-snug text-gray-600 hover:text-gray-800;
     }
 
-    /* Ejecutor — separación propuesta ejecutiva / listas (MC-UX-F / MC6, MC-UX-G MC1) */
+    /* Ejecutor — separación propuesta ejecutiva / listas */
     .aa-executive-lists-divider hr {
         @apply border-gray-200;
-    }
-
-    #aa-executive-proposal {
-        transition: opacity 0.18s ease-in-out;
-    }
-
-    #aa-executive-proposal.is-muted {
-        opacity: 0.50;
-    }
-
-    #aa-lists-header-toggle {
-        transition: opacity 0.18s ease-in-out;
-    }
-
-    #aa-lists-header-toggle[aria-expanded="false"] {
-        opacity: 0.50;
-    }
-
-    #aa-lists-header-toggle[aria-expanded="true"] .aa-lists-header-chevron {
-        display: none;
     }
 
     #aa-lists-body {

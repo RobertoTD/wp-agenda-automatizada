@@ -34,7 +34,7 @@ $pwa_push_activation_service_js = AA_PLUGIN_URL . 'assets/js/services/pwaPushAct
 $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/pushActivationReconcileService.js';
 ?>
 
-<div id="aa-tasks-module-root" class="max-w-5xl mx-auto py-2" data-work-zone="executive">
+<div id="aa-tasks-module-root" class="max-w-5xl mx-auto py-2">
 
     <section id="aa-executive-proposal" class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
         <div class="aa-executive-header px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">

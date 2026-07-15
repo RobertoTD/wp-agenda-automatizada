@@ -711,21 +711,13 @@ describe('executive-proposal-module MC6', () => {
             }
         };
 
-        hooks.flushPendingWorkZoneRender();
-        hooks.setWorkZone('organizing');
-        hooks.flushPendingWorkZoneRender();
-        hooks.setWorkZone('executive');
-        hooks.flushPendingWorkZoneRender();
+        hooks.setChoosingMode(false);
     });
 
     afterEach(() => {
         globalThis.AAExecutiveProposalService = originalService;
         globalThis.AAExecutiveProposalRenderer = originalRenderer;
-        hooks.flushPendingWorkZoneRender();
-        hooks.setWorkZone('organizing');
-        hooks.flushPendingWorkZoneRender();
-        hooks.setWorkZone('executive');
-        hooks.flushPendingWorkZoneRender();
+        hooks.setChoosingMode(false);
     });
 
     it('loadProposal sin sprint usa uiMode null', async () => {
@@ -763,40 +755,8 @@ describe('executive-proposal-module MC6', () => {
         assert.equal(dom.lastRenderUiMode, 'choosing');
     });
 
-    it('setWorkZone organizing usa uiMode organizing sin endpoint extra', async () => {
-        await hooks.loadProposal({ silent: true });
-        var callsBefore = renderCalls;
-
-        hooks.setWorkZone('organizing');
-        hooks.flushPendingWorkZoneRender();
-
-        assert.equal(renderCalls, callsBefore + 1);
-        assert.equal(dom.lastRenderUiMode, 'organizing');
-        assert.equal(postCalls, 0);
-        assert.equal(focusPostCalls, 0);
-    });
-
-    it('setWorkZone executive restaura uiMode según sprint', async () => {
-        await hooks.loadProposal({ silent: true });
-        hooks.setWorkZone('organizing');
-        hooks.flushPendingWorkZoneRender();
-        hooks.setWorkZone('executive');
-        hooks.flushPendingWorkZoneRender();
-
-        assert.equal(dom.lastRenderUiMode, null);
-    });
-
-    it('setWorkZone executive repetido no re-renderiza', async () => {
-        await hooks.loadProposal({ silent: true });
-        var callsBefore = renderCalls;
-
-        hooks.setWorkZone('executive');
-
-        assert.equal(renderCalls, callsBefore);
-    });
-
-    it('expone AAExecutiveProposal.setWorkZone', () => {
-        assert.equal(typeof globalThis.AAExecutiveProposal.setWorkZone, 'function');
+    it('AAExecutiveProposal no expone setWorkZone', () => {
+        assert.equal(globalThis.AAExecutiveProposal.setWorkZone, undefined);
     });
 });
 
@@ -1135,12 +1095,10 @@ describe('executive-proposal-module MC6.1 capture re-render fix', () => {
             }
         };
 
-        hooks.flushPendingWorkZoneRender();
         rafQueue = [];
     });
 
     afterEach(() => {
-        hooks.flushPendingWorkZoneRender();
         rafQueue = [];
         globalThis.AAExecutiveProposalService = originalService;
         globalThis.AAExecutiveProposalRenderer = originalRenderer;
@@ -1188,55 +1146,7 @@ describe('executive-proposal-module MC6.1 capture re-render fix', () => {
         hooks.bindExecutiveDelegation();
     }
 
-    it('capture setWorkZone executive idempotente no invalida click delegado', async () => {
-        rafQueue = [];
-        renderCalls = 0;
-
-        var button = makeClickableProposalButton({ 'data-executive-action-key': 'complete' });
-        var proposal = makeProposalRootWithButton(button);
-
-        bindProposalDom(proposal);
-
-        globalThis.AAExecutiveProposal.setWorkZone('executive');
-        assert.equal(rafQueue.length, 0);
-
-        dispatchProposalClick(proposal, button);
-
-        await Promise.resolve();
-
-        assert.equal(postCalls, 1);
-        assert.equal(proposal.contains(button), true);
-    });
-
-    it('transición organizing → executive difiere render y conserva target para handler', async () => {
-        rafQueue = [];
-        renderCalls = 0;
-
-        var button = makeClickableProposalButton({ 'data-executive-action-key': 'complete' });
-        var proposal = makeProposalRootWithButton(button);
-
-        bindProposalDom(proposal);
-
-        hooks.setWorkZone('organizing');
-        assert.equal(rafQueue.length, 1);
-        flushRafQueue();
-        assert.equal(renderCalls, 1);
-
-        globalThis.AAExecutiveProposal.setWorkZone('executive');
-        assert.equal(rafQueue.length, 1);
-        assert.equal(proposal.contains(button), true);
-
-        dispatchProposalClick(proposal, button);
-
-        await Promise.resolve();
-
-        assert.equal(postCalls, 1);
-
-        flushRafQueue();
-        assert.equal(renderCalls, 3);
-    });
-
-    it('focus action en header sigue llamando postFocusAction tras capture', async () => {
+    it('focus action en header sigue llamando postFocusAction', async () => {
         var button = makeClickableProposalButton({
             'data-executive-action': null,
             'data-executive-task-id': null,
@@ -1254,8 +1164,6 @@ describe('executive-proposal-module MC6.1 capture re-render fix', () => {
         var proposal = makeProposalRootWithButton(button);
 
         bindProposalDom(proposal);
-
-        globalThis.AAExecutiveProposal.setWorkZone('executive');
         dispatchProposalClick(proposal, button);
 
         await Promise.resolve();
