@@ -419,7 +419,7 @@
 
     function makeAcceptAction(tutorialId) {
         return function () {
-            return transitionPersist(tutorialId, 'in_progress', 'open_sidebar');
+            return transitionPersist(tutorialId, 'in_progress', 'calendar_overview');
         };
     }
 
@@ -514,8 +514,6 @@
 
         safeRegister(names.accept, makeAcceptAction(tutorialId));
         safeRegister(names.skip, makeSkipAction(tutorialId, definition.flowId));
-        safeRegister(names.persistOpenCalendar, makePersistStepAction(tutorialId, 'open_calendar'));
-        safeRegister(names.persistCalendarOverview, makePersistStepAction(tutorialId, 'calendar_overview'));
         safeRegister(names.persistCreateTestAppointment, makePersistCreateTestAppointmentAction(tutorialId));
         safeRegister(names.dismissVisualOnly, makeDismissVisualOnlyAction());
         safeRegister(names.ensureSidebarInteractable, makeEnsureSidebarInteractableAction());

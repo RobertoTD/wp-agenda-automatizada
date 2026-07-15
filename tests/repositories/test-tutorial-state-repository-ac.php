@@ -62,7 +62,7 @@ $state = [
     'tutorials' => [
         $tutorial_id => [
             'status' => 'in_progress',
-            'current_step_id' => 'open_sidebar',
+            'current_step_id' => 'calendar_overview',
             'accepted_at' => '2026-07-03 12:00:00',
             'started_at' => '2026-07-03 12:00:00',
             'paused_at' => null,
@@ -76,7 +76,7 @@ ac_assert('save site 1', TutorialStateRepository::save($state));
 $loaded_site_1 = TutorialStateRepository::find();
 ac_assert(
     'roundtrip site 1 current_step_id',
-    ($loaded_site_1['tutorials'][$tutorial_id]['current_step_id'] ?? '') === 'open_sidebar'
+    ($loaded_site_1['tutorials'][$tutorial_id]['current_step_id'] ?? '') === 'calendar_overview'
 );
 
 $GLOBALS['aa_test_current_blog_id'] = 2;
@@ -108,7 +108,7 @@ $GLOBALS['aa_test_current_blog_id'] = 1;
 $site_1_again = TutorialStateRepository::find();
 ac_assert(
     'site 1 isolated from site 2',
-    ($site_1_again['tutorials'][$tutorial_id]['current_step_id'] ?? '') === 'open_sidebar'
+    ($site_1_again['tutorials'][$tutorial_id]['current_step_id'] ?? '') === 'calendar_overview'
 );
 
 $GLOBALS['aa_test_current_blog_id'] = 2;

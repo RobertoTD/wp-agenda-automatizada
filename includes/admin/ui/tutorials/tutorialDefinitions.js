@@ -14,13 +14,9 @@
             flowId: TUTORIAL_ID,
             implementedStepIds: [
                 'intro',
-                'open_sidebar',
-                'open_calendar',
                 'calendar_overview'
             ],
             durableStepIds: [
-                'open_sidebar',
-                'open_calendar',
                 'calendar_overview',
                 'create_test_appointment'
             ],
@@ -29,8 +25,6 @@
             actions: {
                 accept: 'aa_tutorial_accept_create_test_appointment',
                 skip: 'aa_tutorial_skip_create_test_appointment',
-                persistOpenCalendar: 'aa_tutorial_persist_open_calendar',
-                persistCalendarOverview: 'aa_tutorial_persist_calendar_overview',
                 persistCreateTestAppointment: 'aa_tutorial_persist_create_test_appointment',
                 dismissVisualOnly: 'aa_tutorial_dismiss_visual_only',
                 ensureSidebarInteractable: 'aa_tutorial_ensure_sidebar_interactable'
@@ -49,37 +43,6 @@
                     secondaryAction: {
                         label: 'Omitir tutorial',
                         action: 'aa_tutorial_skip_create_test_appointment'
-                    },
-                    nextStepId: 'open_sidebar'
-                },
-                {
-                    id: 'open_sidebar',
-                    title: 'Abre el menú',
-                    text: 'Haz clic en el botón de menú para ir a la Agenda.',
-                    target: '#aa-btn-sidebar',
-                    placement: 'bottom',
-                    beforeAdvanceAction: 'aa_tutorial_persist_open_calendar',
-                    advance: {
-                        mode: 'target_click',
-                        navigation: 'none'
-                    },
-                    nextStepId: 'open_calendar'
-                },
-                {
-                    id: 'open_calendar',
-                    title: 'Entra a la Agenda',
-                    text: 'Selecciona Agenda en el menú.',
-                    target: '[data-aa-nav-module="calendar"]',
-                    placement: 'bottom',
-                    waitFor: {
-                        selector: '[data-aa-nav-module="calendar"]',
-                        timeoutMs: 3000,
-                        intervalMs: 100
-                    },
-                    beforeAdvanceAction: 'aa_tutorial_persist_calendar_overview',
-                    advance: {
-                        mode: 'target_click',
-                        navigation: 'follow_target'
                     },
                     nextStepId: 'calendar_overview'
                 },

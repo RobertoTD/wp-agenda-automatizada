@@ -70,7 +70,7 @@ $transition = new TransitionTutorialStateUseCase(static function () {
 $result = $transition->execute([
     'tutorial_id' => $tutorial_id,
     'status' => 'in_progress',
-    'current_step_id' => 'open_sidebar',
+    'current_step_id' => 'calendar_overview',
 ]);
 
 ac_assert('accept success', ($result['success'] ?? false) === true);
@@ -79,21 +79,14 @@ ac_assert('accept sets accepted_at server-side', ($tutorial['accepted_at'] ?? ''
 ac_assert('accept sets started_at server-side', ($tutorial['started_at'] ?? '') === '2026-07-03 12:05:00');
 ac_assert('accept sets updated_at server-side', ($tutorial['updated_at'] ?? '') === '2026-07-03 12:05:00');
 
-$rejected = $transition->execute([
-    'tutorial_id' => $tutorial_id,
-    'status' => 'in_progress',
-    'current_step_id' => 'calendar_overview',
-]);
-ac_assert('reject non-linear transition', ($rejected['success'] ?? true) === false);
-
 $advance = $transition->execute([
     'tutorial_id' => $tutorial_id,
     'status' => 'in_progress',
-    'current_step_id' => 'open_calendar',
+    'current_step_id' => 'create_test_appointment',
 ]);
 ac_assert('advance success', ($advance['success'] ?? false) === true);
 $advanced = $advance['data']['tutorials'][$tutorial_id] ?? [];
-ac_assert('advance sets current_step_id', ($advanced['current_step_id'] ?? '') === 'open_calendar');
+ac_assert('advance sets current_step_id', ($advanced['current_step_id'] ?? '') === 'create_test_appointment');
 
 $pause = $transition->execute([
     'tutorial_id' => $tutorial_id,
@@ -101,13 +94,13 @@ $pause = $transition->execute([
 ]);
 ac_assert('pause success', ($pause['success'] ?? false) === true);
 $paused = $pause['data']['tutorials'][$tutorial_id] ?? [];
-ac_assert('pause retains current_step_id', ($paused['current_step_id'] ?? '') === 'open_calendar');
+ac_assert('pause retains current_step_id', ($paused['current_step_id'] ?? '') === 'create_test_appointment');
 ac_assert('pause sets paused_at server-side', ($paused['paused_at'] ?? '') === '2026-07-03 12:05:00');
 
 $unknown = $transition->execute([
     'tutorial_id' => 'unknown_tutorial',
     'status' => 'in_progress',
-    'current_step_id' => 'open_sidebar',
+    'current_step_id' => 'calendar_overview',
 ]);
 ac_assert('reject unknown tutorial', ($unknown['success'] ?? true) === false);
 
@@ -141,7 +134,7 @@ $storage[1] = [
     'tutorials' => [
         $tutorial_id => [
             'status' => 'in_progress',
-            'current_step_id' => 'open_sidebar',
+            'current_step_id' => 'calendar_overview',
             'accepted_at' => '2026-07-01 10:00:00',
             'started_at' => '2026-07-01 10:00:00',
             'paused_at' => null,

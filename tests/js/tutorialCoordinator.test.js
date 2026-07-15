@@ -263,7 +263,7 @@ describe('TutorialCoordinator MC3D', () => {
         assert.equal(env.metrics.clearCalls, 1);
     });
 
-    it('accept persiste open_sidebar antes de avanzar', async () => {
+    it('accept persiste calendar_overview como primer paso durable', async () => {
         var env = loadCoordinator();
         env.TutorialCoordinator.registerActions();
 
@@ -272,7 +272,7 @@ describe('TutorialCoordinator MC3D', () => {
         assert.equal(env.metrics.transitionCalls.length, 1);
         assert.equal(env.metrics.transitionCalls[0].tutorialId, 'create_test_appointment_v1');
         assert.equal(env.metrics.transitionCalls[0].status, 'in_progress');
-        assert.equal(env.metrics.transitionCalls[0].currentStepId, 'open_sidebar');
+        assert.equal(env.metrics.transitionCalls[0].currentStepId, 'calendar_overview');
     });
 
     it('fallo al aceptar no avanza via motor', async () => {
@@ -289,22 +289,6 @@ describe('TutorialCoordinator MC3D', () => {
             },
             /network/
         );
-    });
-
-    it('open_sidebar persiste open_calendar', async () => {
-        var env = loadCoordinator();
-        env.TutorialCoordinator.registerActions();
-
-        await env.actionHandlers.aa_tutorial_persist_open_calendar({});
-        assert.equal(env.metrics.transitionCalls[0].currentStepId, 'open_calendar');
-    });
-
-    it('open_calendar persiste calendar_overview', async () => {
-        var env = loadCoordinator();
-        env.TutorialCoordinator.registerActions();
-
-        await env.actionHandlers.aa_tutorial_persist_calendar_overview({});
-        assert.equal(env.metrics.transitionCalls[0].currentStepId, 'calendar_overview');
     });
 
     it('reanuda desde in_progress/current_step_id calendar_overview', async () => {
@@ -353,36 +337,6 @@ describe('TutorialCoordinator MC3D', () => {
         assert.equal(env.metrics.transitionCalls[0].status, 'in_progress');
         assert.equal(env.metrics.transitionCalls[0].currentStepId, 'calendar_overview');
         assert.equal(env.metrics.startCalls[0].initialStepId, 'calendar_overview');
-    });
-
-    it('paused/open_sidebar hace resume durable antes de iniciar', async () => {
-        var env = loadCoordinator({
-            currentModule: 'calendar',
-            state: {
-                version: 1,
-                tutorials: {
-                    create_test_appointment_v1: {
-                        status: 'paused',
-                        current_step_id: 'open_sidebar'
-                    }
-                }
-            },
-            stateAfterTransition: {
-                version: 1,
-                tutorials: {
-                    create_test_appointment_v1: {
-                        status: 'in_progress',
-                        current_step_id: 'open_sidebar'
-                    }
-                }
-            }
-        });
-
-        await env.TutorialCoordinator.init();
-        assert.equal(env.metrics.transitionCalls.length, 1);
-        assert.equal(env.metrics.transitionCalls[0].status, 'in_progress');
-        assert.equal(env.metrics.transitionCalls[0].currentStepId, 'open_sidebar');
-        assert.equal(env.metrics.startCalls[0].initialStepId, 'open_sidebar');
     });
 
     it('in_progress/calendar_overview no llama resume', async () => {
@@ -441,7 +395,7 @@ describe('TutorialCoordinator MC3D', () => {
         sessionStorage.setItem(key, JSON.stringify({
             version: 1,
             flowId: 'create_test_appointment_v1',
-            currentStepId: 'open_calendar',
+            currentStepId: 'resume_open_sidebar',
             status: 'active',
             updatedAt: 1
         }));
@@ -1930,9 +1884,7 @@ describe('TutorialCoordinator wiring guardrails', () => {
         });
 
         assert.equal(placements.intro, 'center');
-        assert.equal(placements.open_sidebar, 'bottom');
         assert.equal(placements.resume_open_sidebar, 'bottom');
-        assert.equal(placements.open_calendar, 'bottom');
         assert.equal(placements.resume_navigate_calendar, 'bottom');
         assert.equal(placements.calendar_overview, 'top');
         assert.equal(placements.resume_create_test_appointment_fab, 'top');

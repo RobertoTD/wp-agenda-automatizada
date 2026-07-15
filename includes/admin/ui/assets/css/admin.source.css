@@ -604,6 +604,7 @@
 
     .aa-tutorial-root.is-target-click .aa-tutorial-backdrop {
         pointer-events: none;
+        background: transparent;
     }
 
     .aa-tutorial-highlight {

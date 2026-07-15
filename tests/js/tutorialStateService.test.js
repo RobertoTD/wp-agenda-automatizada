@@ -161,7 +161,7 @@ describe('TutorialStateService MC3C', () => {
                             tutorials: {
                                 create_test_appointment_v1: {
                                     status: 'in_progress',
-                                    current_step_id: 'open_sidebar'
+                                    current_step_id: 'calendar_overview'
                                 }
                             }
                         }
@@ -173,7 +173,7 @@ describe('TutorialStateService MC3C', () => {
         var result = await loaded.TutorialStateService.transition({
             tutorialId: 'create_test_appointment_v1',
             status: 'in_progress',
-            currentStepId: 'open_sidebar'
+            currentStepId: 'calendar_overview'
         });
 
         assert.equal(requests.length, 1);
@@ -185,8 +185,8 @@ describe('TutorialStateService MC3C', () => {
         assert.equal(readFormField(body, '_wpnonce'), 'test-nonce');
         assert.equal(readFormField(body, 'tutorial_id'), 'create_test_appointment_v1');
         assert.equal(readFormField(body, 'status'), 'in_progress');
-        assert.equal(readFormField(body, 'current_step_id'), 'open_sidebar');
-        assert.equal(result.tutorials.create_test_appointment_v1.current_step_id, 'open_sidebar');
+        assert.equal(readFormField(body, 'current_step_id'), 'calendar_overview');
+        assert.equal(result.tutorials.create_test_appointment_v1.current_step_id, 'calendar_overview');
     });
 
     it('transition omite current_step_id cuando no se envía', async () => {
@@ -252,7 +252,7 @@ describe('TutorialStateService MC3C', () => {
         await loaded.TutorialStateService.transition({
             tutorialId: 'create_test_appointment_v1',
             status: 'in_progress',
-            currentStepId: 'open_sidebar',
+            currentStepId: 'calendar_overview',
             accepted_at: '2026-07-04 10:00:00',
             updated_at: '2026-07-04 10:05:00'
         });

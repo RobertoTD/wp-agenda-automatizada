@@ -42,7 +42,7 @@ describe('TutorialDefinitions MC3D', () => {
         assert.ok(config);
         assert.equal(config.flowId, 'create_test_appointment_v1');
         assert.equal(config.initialStepId, 'intro');
-        assert.equal(config.steps.length, 7);
+        assert.equal(config.steps.length, 5);
     });
 
     it('getConfig respeta initialStepId override', () => {
@@ -53,14 +53,12 @@ describe('TutorialDefinitions MC3D', () => {
         assert.equal(config.initialStepId, 'calendar_overview');
     });
 
-    it('steps implementados en orden MC3D+A', () => {
+    it('steps en orden tras simplificación de flujo inicial', () => {
         var config = api.getConfig('create_test_appointment_v1');
         var ids = config.steps.map(function (step) { return step.id; });
 
         assert.deepEqual([].concat(ids), [
             'intro',
-            'open_sidebar',
-            'open_calendar',
             'calendar_overview',
             'resume_open_sidebar',
             'resume_navigate_calendar',
@@ -68,25 +66,11 @@ describe('TutorialDefinitions MC3D', () => {
         ]);
     });
 
-    it('open_sidebar usa target_click con navigation none', () => {
+    it('intro avanza directamente a calendar_overview', () => {
         var config = api.getConfig('create_test_appointment_v1');
-        var step = config.steps.find(function (s) { return s.id === 'open_sidebar'; });
+        var step = config.steps.find(function (s) { return s.id === 'intro'; });
 
-        assert.equal(step.target, '#aa-btn-sidebar');
-        assert.equal(step.advance.mode, 'target_click');
-        assert.equal(step.advance.navigation, 'none');
-        assert.equal(step.beforeAdvanceAction, 'aa_tutorial_persist_open_calendar');
-    });
-
-    it('open_calendar usa target_click con navigation follow_target', () => {
-        var config = api.getConfig('create_test_appointment_v1');
-        var step = config.steps.find(function (s) { return s.id === 'open_calendar'; });
-
-        assert.equal(step.target, '[data-aa-nav-module="calendar"]');
-        assert.equal(step.advance.mode, 'target_click');
-        assert.equal(step.advance.navigation, 'follow_target');
-        assert.equal(step.beforeAdvanceAction, 'aa_tutorial_persist_calendar_overview');
-        assert.ok(step.waitFor);
+        assert.equal(step.nextStepId, 'calendar_overview');
     });
 
     it('resume steps son visual-only y no están en durableStepIds', () => {
@@ -146,7 +130,7 @@ describe('TutorialDefinitions MC3D', () => {
 
         assert.equal(step.title, 'Esta es tu Agenda');
         assert.equal(step.target, '#aa-btn-open-fastappointment-modal');
-        assert.equal(step.placement, 'left');
+        assert.equal(step.placement, 'top');
         assert.equal(step.advance.mode, 'target_click');
         assert.equal(step.advance.navigation, 'none');
         assert.equal(step.beforeAdvanceAction, 'aa_tutorial_persist_create_test_appointment');

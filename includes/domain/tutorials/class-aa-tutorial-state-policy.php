@@ -48,8 +48,6 @@ final class AA_Tutorial_State_Policy {
     /** @var array<string,list<string>> */
     public const STEP_ORDER_BY_TUTORIAL = [
         self::TUTORIAL_CREATE_TEST_APPOINTMENT => [
-            'open_sidebar',
-            'open_calendar',
             'calendar_overview',
             'create_test_appointment',
         ],
