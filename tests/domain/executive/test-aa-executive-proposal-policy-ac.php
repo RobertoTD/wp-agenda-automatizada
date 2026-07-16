@@ -354,7 +354,7 @@ $preferred_exhausted = exec_propose(
 );
 ac_assert('Preferred without eligibles falls back', ($preferred_exhausted['focus_list_id'] ?? null) === 11);
 ac_assert('Preferred exhausted not used', ($preferred_exhausted['preferred_focus_used'] ?? true) === false);
-ac_assert('Sprint active keeps sprint focus reason on fallback', ($preferred_exhausted['focus_reason'] ?? '') === AA_Executive_Contract::FOCUS_REASON_SPRINT_ACTIVE);
+ac_assert('Sprint active keeps sprint focus reason on fallback', ($preferred_exhausted['focus_reason'] ?? '') === AA_Executive_Contract::FOCUS_REASON_FIRST_LIST_WITH_ELIGIBLE);
 
 $preferred_archived = exec_propose(
     [
