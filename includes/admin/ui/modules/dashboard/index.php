@@ -321,23 +321,12 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
         ?>',
         currency: '<?php echo esc_js(get_option('aa_currency', 'MXN')); ?>'
     };
-
-    window.AA_PUSH_CONFIG = {
-        ajaxUrl: window.ajaxurl || '<?php echo admin_url('admin-ajax.php'); ?>',
-        registerAction: '<?php echo esc_js(PushSubscriptionAjax::ACTION_REGISTER); ?>',
-        configAction: '<?php echo esc_js(PushSubscriptionAjax::ACTION_CONFIG); ?>',
-        nonce: '<?php echo esc_js(wp_create_nonce(PushSubscriptionAjax::NONCE_ACTION)); ?>'
-    };
 </script>
 
 <!-- Dashboard Service (consumes aa_get_citas_por_dia, must load before module) -->
 <?php
 $dashboard_service_js = AA_PLUGIN_URL . 'assets/js/services/dashboardService.js';
 $dashboard_module_js = $plugin_url . 'dashboard-module.js';
-$pwa_push_activation_service_js = AA_PLUGIN_URL . 'assets/js/services/pwaPushActivationService.js';
-$pwa_notifications_first_opportunity_js = $plugin_url . 'pwa-notifications-first-opportunity.js';
 ?>
 <script src="<?php echo esc_url($dashboard_service_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
-<script src="<?php echo esc_url($pwa_push_activation_service_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
-<script src="<?php echo esc_url($pwa_notifications_first_opportunity_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($dashboard_module_js . '?ver=' . rawurlencode($dashboard_ver)); ?>" defer></script>

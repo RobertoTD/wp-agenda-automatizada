@@ -1,6 +1,6 @@
 <?php
 /**
- * AC — Dashboard runtime enqueue (PWA install moved to Calendar).
+ * AC — Dashboard runtime enqueue (PWA install + notifications moved to Calendar).
  *
  * Ejecutar: php tests/admin/ui/test-dashboard-index-runtime-ac.php
  */
@@ -45,16 +45,21 @@ ac_assert(
 );
 
 ac_assert(
-    'dashboard enqueues pwaPushActivationService before pwa-notifications-first-opportunity',
+    'dashboard does NOT enqueue pwa-notifications-first-opportunity.js',
     is_string($index_php)
-    && strpos($index_php, 'pwaPushActivationService.js') !== false
-    && strpos($index_php, 'pwaPushActivationService.js') < strpos($index_php, 'pwa-notifications-first-opportunity.js')
+    && strpos($index_php, 'pwa-notifications-first-opportunity.js') === false
 );
 
 ac_assert(
-    'dashboard still enqueues pwa-notifications-first-opportunity.js',
+    'dashboard does NOT expose AA_PUSH_CONFIG',
     is_string($index_php)
-    && strpos($index_php, 'pwa-notifications-first-opportunity.js') !== false
+    && strpos($index_php, 'AA_PUSH_CONFIG') === false
+);
+
+ac_assert(
+    'dashboard does NOT enqueue pwaPushActivationService.js',
+    is_string($index_php)
+    && strpos($index_php, 'pwaPushActivationService.js') === false
 );
 
 ac_assert(

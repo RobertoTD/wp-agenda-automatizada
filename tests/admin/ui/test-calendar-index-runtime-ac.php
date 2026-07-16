@@ -1,6 +1,6 @@
 <?php
 /**
- * AC — Calendar runtime enqueue (PWA install first opportunity).
+ * AC — Calendar runtime enqueue (PWA install + notifications first opportunity).
  *
  * Ejecutar: php tests/admin/ui/test-calendar-index-runtime-ac.php
  */
@@ -72,6 +72,69 @@ ac_assert(
     'calendar resolves pwa-install-first-opportunity via dashboard/index.php anchor',
     is_string($index_php)
     && strpos($index_php, "plugin_dir_url(__DIR__ . '/../dashboard/index.php')") !== false
+);
+
+ac_assert(
+    'calendar exposes window.AA_PUSH_CONFIG',
+    is_string($index_php)
+    && strpos($index_php, 'window.AA_PUSH_CONFIG') !== false
+);
+
+ac_assert(
+    'calendar AA_PUSH_CONFIG uses PushSubscriptionAjax constants',
+    is_string($index_php)
+    && strpos($index_php, 'PushSubscriptionAjax::ACTION_REGISTER') !== false
+    && strpos($index_php, 'PushSubscriptionAjax::ACTION_CONFIG') !== false
+    && strpos($index_php, 'PushSubscriptionAjax::NONCE_ACTION') !== false
+);
+
+ac_assert(
+    'calendar enqueues pwaPushActivationService.js',
+    is_string($index_php)
+    && strpos($index_php, 'pwaPushActivationService.js') !== false
+);
+
+ac_assert(
+    'calendar enqueues pwa-notifications-first-opportunity.js',
+    is_string($index_php)
+    && strpos($index_php, 'pwa-notifications-first-opportunity.js') !== false
+);
+
+ac_assert(
+    'calendar loads AA_PUSH_CONFIG before pwaPushActivationService',
+    is_string($index_php)
+    && strpos($index_php, 'window.AA_PUSH_CONFIG') !== false
+    && strpos($index_php, 'pwaPushActivationService.js') !== false
+    && strpos($index_php, 'window.AA_PUSH_CONFIG') < strpos($index_php, 'pwaPushActivationService.js')
+);
+
+ac_assert(
+    'calendar loads pwaPushActivationService before pwa-notifications-first-opportunity',
+    is_string($index_php)
+    && strpos($index_php, 'pwaPushActivationService.js') !== false
+    && strpos($index_php, 'pwa-notifications-first-opportunity.js') !== false
+    && strpos($index_php, 'pwaPushActivationService.js') < strpos($index_php, 'pwa-notifications-first-opportunity.js')
+);
+
+ac_assert(
+    'calendar pwaPushActivationService.js uses defer',
+    is_string($index_php)
+    && (bool) preg_match('/\$pwa_push_activation_service_js.*defer/m', $index_php)
+);
+
+ac_assert(
+    'calendar pwa-notifications-first-opportunity.js uses defer',
+    is_string($index_php)
+    && (bool) preg_match('/\$pwa_notifications_first_opportunity_js.*defer/m', $index_php)
+);
+
+ac_assert(
+    'calendar resolves pwa-notifications-first-opportunity via dashboard/index.php anchor',
+    is_string($index_php)
+    && (bool) preg_match(
+        "/pwa_notifications_first_opportunity_js\s*=\s*plugin_dir_url\(__DIR__\s*\.\s*'\/\.\.\/dashboard\/index\.php'\)/",
+        $index_php
+    )
 );
 
 echo "\n{$passed}/{$total} passed\n";

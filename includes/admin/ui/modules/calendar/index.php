@@ -149,6 +149,13 @@ $module_js_url = $plugin_url . 'calendar-module.js?ver=' . rawurlencode($calenda
     nonce: '<?php echo esc_js(wp_create_nonce('aa_admin_ai_chat_nonce')); ?>',
     confirm_nonce: '<?php echo esc_js(wp_create_nonce('aa_ai_confirm_booking_nonce')); ?>'
   };
+
+  window.AA_PUSH_CONFIG = {
+    ajaxUrl: window.ajaxurl || '<?php echo admin_url('admin-ajax.php'); ?>',
+    registerAction: '<?php echo esc_js(PushSubscriptionAjax::ACTION_REGISTER); ?>',
+    configAction: '<?php echo esc_js(PushSubscriptionAjax::ACTION_CONFIG); ?>',
+    nonce: '<?php echo esc_js(wp_create_nonce(PushSubscriptionAjax::NONCE_ACTION)); ?>'
+  };
 </script>
 
 <!-- 
@@ -156,13 +163,17 @@ $module_js_url = $plugin_url . 'calendar-module.js?ver=' . rawurlencode($calenda
     están cargados globalmente desde layout.php 
 -->
 
-<!-- PWA install first opportunity (handler + auto-trigger; orden crítico) -->
+<!-- PWA install + notifications first opportunity (orden crítico) -->
 <?php
 $learning_handlers_js = plugin_dir_url(__DIR__ . '/../learning/index.php') . 'learning-action-handlers.js';
 $pwa_install_first_opportunity_js = plugin_dir_url(__DIR__ . '/../dashboard/index.php') . 'pwa-install-first-opportunity.js';
+$pwa_push_activation_service_js = AA_PLUGIN_URL . 'assets/js/services/pwaPushActivationService.js';
+$pwa_notifications_first_opportunity_js = plugin_dir_url(__DIR__ . '/../dashboard/index.php') . 'pwa-notifications-first-opportunity.js';
 ?>
 <script src="<?php echo esc_url($learning_handlers_js . '?ver=' . rawurlencode($calendar_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($pwa_install_first_opportunity_js . '?ver=' . rawurlencode($calendar_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($pwa_push_activation_service_js . '?ver=' . rawurlencode($calendar_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($pwa_notifications_first_opportunity_js . '?ver=' . rawurlencode($calendar_ver)); ?>" defer></script>
 
 <!-- Archivos de sección del calendario (específicos del módulo) -->
 <script src="<?php echo esc_url($plugin_url . 'calendar-section/calendar-appointment-card.js?ver=' . rawurlencode($calendar_ver)); ?>" defer></script>
