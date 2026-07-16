@@ -1349,9 +1349,6 @@
             if (areaSelect && areaSelect.options.length > 0) {
                 areaSelect.selectedIndex = 0;
             }
-            if (confirmCheckbox) {
-                confirmCheckbox.checked = false;
-            }
 
             updateState({
                 selectedDate: null,
@@ -1396,9 +1393,6 @@
             if (areaSelect && areaSelect.options.length > 0) {
                 areaSelect.selectedIndex = 0;
             }
-            if (confirmCheckbox) {
-                confirmCheckbox.checked = false;
-            }
 
             updateState({
                 selectedStaffId: null,
@@ -1418,9 +1412,6 @@
 
             if (areaSelect && areaSelect.options.length > 0) {
                 areaSelect.selectedIndex = 0;
-            }
-            if (confirmCheckbox) {
-                confirmCheckbox.checked = false;
             }
 
             updateState({
@@ -2165,9 +2156,6 @@
             }
             if (areaSelect && areaSelect.options.length > 0) {
                 areaSelect.selectedIndex = 0;
-            }
-            if (confirmCheckbox) {
-                confirmCheckbox.checked = false;
             }
 
             updateState({
