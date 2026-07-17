@@ -710,6 +710,10 @@
             return '<span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">Vence pronto</span>';
         }
 
+        if (item.is_pertinent === true) {
+            return '<span class="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">Pertinente</span>';
+        }
+
         return '';
     }
 

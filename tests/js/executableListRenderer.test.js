@@ -1592,6 +1592,127 @@ describe('executableListRenderer MC13 expandable items', () => {
         assert.doesNotMatch(summary, />Vence pronto</);
     });
 
+    it('summary muestra badge Pertinente cuando is_pertinent es true y no hay due-soon', () => {
+        var html = renderer.renderItem(baseItem({
+            id: '42',
+            source: 'user',
+            title: 'Tarea pertinente',
+            is_pertinent: true,
+            is_overdue: false,
+            due_at: dueAtInHoursFromNow(30)
+        }));
+        var summary = extractSummary(html);
+
+        assert.match(summary, />Pertinente</);
+        assert.match(summary, /border-emerald-200/);
+        assert.match(summary, /bg-emerald-50/);
+        assert.match(summary, /text-emerald-700/);
+        assert.doesNotMatch(summary, />Vence pronto</);
+        assert.doesNotMatch(summary, />Vencida</);
+        assert.match(summary, /flex flex-wrap items-center gap-2/);
+        assert.match(summary, />Tarea pertinente</);
+        assert.match(summary, /aa-executable-item-chevron/);
+        assert.match(summary, /aa-executable-item-summary-actions/);
+        assert.doesNotMatch(html, /aa-executable-item-expanded[\s\S]*>Pertinente</);
+    });
+
+    it('summary muestra Pertinente sin due_at cuando is_pertinent es true', () => {
+        var html = renderer.renderItem(baseItem({
+            id: '42',
+            source: 'user',
+            title: 'Pertinente indefinida',
+            is_pertinent: true,
+            is_overdue: false,
+            due_at: null
+        }));
+        var summary = extractSummary(html);
+
+        assert.match(summary, />Pertinente</);
+        assert.doesNotMatch(summary, />Vence pronto</);
+        assert.doesNotMatch(summary, />Vencida</);
+    });
+
+    it('summary prioriza Vence pronto sobre Pertinente si ambos aplican', () => {
+        var html = renderer.renderItem(baseItem({
+            id: '42',
+            source: 'user',
+            title: 'Pertinente pronto',
+            is_pertinent: true,
+            is_overdue: false,
+            due_at: dueAtInHoursFromNow(12)
+        }));
+        var summary = extractSummary(html);
+
+        assert.match(summary, />Vence pronto</);
+        assert.doesNotMatch(summary, />Pertinente</);
+        assert.doesNotMatch(summary, />Vencida</);
+    });
+
+    it('summary conserva Vence pronto con is_pertinent false y due_at dentro de 24h', () => {
+        var html = renderer.renderItem(baseItem({
+            id: '42',
+            source: 'user',
+            title: 'Pronto no pertinente',
+            is_pertinent: false,
+            is_overdue: false,
+            due_at: dueAtInHoursFromNow(12)
+        }));
+        var summary = extractSummary(html);
+
+        assert.match(summary, />Vence pronto</);
+        assert.doesNotMatch(summary, />Pertinente</);
+        assert.doesNotMatch(summary, />Vencida</);
+    });
+
+    it('summary no muestra pill temporal cuando no es pertinente ni due-soon', () => {
+        var html = renderer.renderItem(baseItem({
+            id: '42',
+            source: 'user',
+            title: 'Sin pill',
+            is_pertinent: false,
+            is_overdue: false,
+            due_at: dueAtInHoursFromNow(30)
+        }));
+        var summary = extractSummary(html);
+
+        assert.doesNotMatch(summary, />Pertinente</);
+        assert.doesNotMatch(summary, />Vence pronto</);
+        assert.doesNotMatch(summary, />Vencida</);
+    });
+
+    it('summary prioriza Vencida sobre Pertinente y Vence pronto en payload inconsistente', () => {
+        var html = renderer.renderItem(baseItem({
+            id: '42',
+            source: 'user',
+            title: 'Inconsistente',
+            is_overdue: true,
+            is_pertinent: true,
+            due_at: dueAtInHoursFromNow(6)
+        }));
+        var summary = extractSummary(html);
+
+        assert.match(summary, />Vencida</);
+        assert.doesNotMatch(summary, />Vence pronto</);
+        assert.doesNotMatch(summary, />Pertinente</);
+    });
+
+    it('summary no muestra Pertinente en item done aunque is_pertinent sea true', () => {
+        var html = renderer.renderItem(baseItem({
+            id: '42',
+            source: 'user',
+            title: 'Done pertinente',
+            status: 'done',
+            is_pertinent: true,
+            is_overdue: false,
+            due_at: dueAtInHoursFromNow(30)
+        }));
+        var summary = extractSummary(html);
+
+        assert.doesNotMatch(summary, />Pertinente</);
+        assert.doesNotMatch(summary, />Vence pronto</);
+        assert.doesNotMatch(summary, />Vencida</);
+    });
+
     it('contenido expandido incluye descripción completa, meta y acciones sin editar ni chevron', () => {
         var html = renderer.renderItem(baseItem({
             id: '42',
