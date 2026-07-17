@@ -31,6 +31,12 @@
         transform: rotate(90deg);
     }
 
+    /* Settings + Assignments — headers de sección: base derecha; abierto → abajo (90deg).
+       No alcanza chevrons internos de filas ni Dashboard. */
+    details.aa-module-section-card[open] > summary .aa-module-section-chevron {
+        transform: rotate(90deg);
+    }
+
     /* Dashboard — conservar rotación existente (fuera de ciclo 2A Learning) */
     [data-aa-dashboard-collapse].is-open > [data-aa-dashboard-collapse-toggle] .aa-chevron {
         transform: rotate(180deg);

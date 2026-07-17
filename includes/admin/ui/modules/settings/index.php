@@ -39,7 +39,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
         <!-- ═══════════════════════════════════════════════════════════════
              SECCIÓN: Horarios y Disponibilidad (legacy; soporte vía AA_SHOW_LEGACY_FIXED_SCHEDULE_UI)
         ═══════════════════════════════════════════════════════════════ -->
-        <details class="bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
+        <details class="aa-module-section-card bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
             <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
                 <div class="flex items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
@@ -53,8 +53,8 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                             <p class="text-sm text-gray-500 mt-0.5">Define los días y horarios de atención (semanal)</p>
                         </div>
                     </div>
-                    <svg class="aa-chevron w-5 h-5 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    <svg class="aa-module-section-chevron w-5 h-5 shrink-0 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                     </svg>
                 </div>
             </summary>
@@ -162,7 +162,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
         <!-- ═══════════════════════════════════════════════════════════════
              SECCIÓN: Parámetros Generales
         ═══════════════════════════════════════════════════════════════ -->
-        <details class="bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
+        <details class="aa-module-section-card bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
                 <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
                     <div class="flex items-center justify-between gap-3">
                         <div class="flex items-center gap-3">
@@ -176,8 +176,8 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                                 <p class="text-sm text-gray-500 mt-0.5">Duración y ventana de citas</p>
                             </div>
                         </div>
-                        <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        <svg class="aa-module-section-chevron w-5 h-5 shrink-0 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                         </svg>
                     </div>
                 </summary>
@@ -248,7 +248,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
         <!-- ═══════════════════════════════════════════════════════════════
              SECCIÓN: Datos del Negocio
         ═══════════════════════════════════════════════════════════════ -->
-        <details id="aa-business-data-root" class="bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
+        <details id="aa-business-data-root" class="aa-module-section-card bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
             <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
                 <div class="flex items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
@@ -262,8 +262,8 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                             <p class="text-sm text-gray-500 mt-0.5">Información para confirmaciones y recordatorios</p>
                         </div>
                     </div>
-                    <svg class="aa-chevron w-5 h-5 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    <svg class="aa-module-section-chevron w-5 h-5 shrink-0 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                     </svg>
                 </div>
             </summary>
@@ -347,7 +347,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
         <!-- ═══════════════════════════════════════════════════════════════
              SECCIÓN: Google Calendar
         ═══════════════════════════════════════════════════════════════ -->
-        <details id="aa-google-calendar-root" class="bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
+        <details id="aa-google-calendar-root" class="aa-module-section-card bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
             <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
                 <div class="flex items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
@@ -361,8 +361,8 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                             <p class="text-sm text-gray-500 mt-0.5">Sincronizar con tu calendario de Google</p>
                         </div>
                     </div>
-                    <svg class="aa-chevron w-5 h-5 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    <svg class="aa-module-section-chevron w-5 h-5 shrink-0 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                     </svg>
                 </div>
             </summary>
@@ -517,7 +517,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
         <!-- ═══════════════════════════════════════════════════════════════
              SECCIÓN: Notificaciones
         ═══════════════════════════════════════════════════════════════ -->
-        <details id="aa-notifications-root" class="bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
+        <details id="aa-notifications-root" class="aa-module-section-card bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
             <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
                 <div class="flex items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
@@ -531,8 +531,8 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                             <p class="text-sm text-gray-500 mt-0.5">Avisos push para citas y tareas</p>
                         </div>
                     </div>
-                    <svg class="aa-chevron w-5 h-5 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    <svg class="aa-module-section-chevron w-5 h-5 shrink-0 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                     </svg>
                 </div>
             </summary>
