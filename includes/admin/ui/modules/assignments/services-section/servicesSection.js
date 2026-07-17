@@ -132,8 +132,8 @@
             html += '<span class="text-sm font-medium text-gray-900">' + escapeHtml(service.name) + '</span>';
             // Toggle details button (chevron)
             html += '<button type="button" class="aa-service-toggle-details inline-flex items-center justify-center w-6 h-6 text-gray-500 hover:text-gray-700 transition-colors" data-service-id="' + serviceId + '" title="Ver detalles">';
-            html += '<svg class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
-            html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>';
+            html += '<svg class="w-4 h-4 shrink-0 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
+            html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>';
             html += '</svg>';
             html += '</button>';
             // Toggle switch

@@ -92,7 +92,7 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
             <section id="aa-executable-lists-active" class="space-y-4">
                 <p id="aa-executable-lists-active-error" class="hidden text-sm text-red-600"></p>
                 <p id="aa-executable-lists-active-loading" class="text-sm text-gray-500">Cargando listas…</p>
-                <div id="aa-executable-lists-active-root" class="space-y-2"></div>
+                <div id="aa-executable-lists-active-root" class="space-y-2 pb-1"></div>
             </section>
 
             <div id="aa-tasks-board-root" class="hidden">

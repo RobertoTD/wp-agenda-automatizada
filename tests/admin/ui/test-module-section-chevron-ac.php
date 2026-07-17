@@ -202,26 +202,26 @@ ac_assert(
 );
 
 ac_assert(
-    'Internal area toggle keeps aa-area-toggle-details + w-4 h-4 + down path',
+    'Internal area toggle keeps aa-area-toggle-details + w-4 h-4 + right path',
     strpos($areas_js, 'aa-area-toggle-details') !== false
-    && strpos($areas_js, 'class="w-4 h-4 transition-transform"') !== false
-    && strpos($areas_js, 'd="M19 9l-7 7-7-7"') !== false
+    && strpos($areas_js, 'class="w-4 h-4 shrink-0 transition-transform duration-200"') !== false
+    && strpos($areas_js, 'd="M9 5l7 7-7 7"') !== false
     && strpos($areas_js, "chevron.classList.add('rotate-90')") !== false
 );
 
 ac_assert(
-    'Internal staff toggle keeps aa-staff-toggle-services + w-4 h-4 + down path',
+    'Internal staff toggle keeps aa-staff-toggle-services + w-4 h-4 + right path',
     strpos($staff_js, 'aa-staff-toggle-services') !== false
-    && strpos($staff_js, 'class="w-4 h-4 transition-transform"') !== false
-    && strpos($staff_js, 'd="M19 9l-7 7-7-7"') !== false
+    && strpos($staff_js, 'class="w-4 h-4 shrink-0 transition-transform duration-200"') !== false
+    && strpos($staff_js, 'd="M9 5l7 7-7 7"') !== false
     && strpos($staff_js, "chevron.classList.add('rotate-90')") !== false
 );
 
 ac_assert(
-    'Internal service toggle keeps aa-service-toggle-details + w-4 h-4 + down path',
+    'Internal service toggle keeps aa-service-toggle-details + w-4 h-4 + right path',
     strpos($services_js, 'aa-service-toggle-details') !== false
-    && strpos($services_js, 'class="w-4 h-4 transition-transform"') !== false
-    && strpos($services_js, 'd="M19 9l-7 7-7-7"') !== false
+    && strpos($services_js, 'class="w-4 h-4 shrink-0 transition-transform duration-200"') !== false
+    && strpos($services_js, 'd="M9 5l7 7-7 7"') !== false
     && strpos($services_js, "chevron.classList.add('rotate-90')") !== false
 );
 

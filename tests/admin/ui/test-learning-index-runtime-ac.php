@@ -332,8 +332,54 @@ ac_assert(
     is_string($index_php) && preg_match('/id="aa-tasks-module-root"[^>]*pb-24/', $index_php) === 1
 );
 
+// --- Last-card shadow room under #aa-lists-body overflow:hidden ---
+ac_assert(
+    'active-root keeps id and space-y-2 pb-1 for last-card shadow room',
+    is_string($index_php)
+    && preg_match(
+        '/id="aa-executable-lists-active-root"\s+class="space-y-2 pb-1"/',
+        $index_php
+    ) === 1
+);
+
 // --- Cycle D assertions ---
 $admin_css_src = file_get_contents($plugin_root . '/includes/admin/ui/assets/css/admin.source.css');
+$section_toggles_src = file_get_contents(
+    $plugin_root . '/includes/admin/ui/modules/learning/section-toggles-module.js'
+);
+ac_assert(
+    'lists-body expanded keeps overflow:hidden for collapse animation',
+    is_string($admin_css_src)
+    && preg_match(
+        '/#aa-lists-body\s*,\s*#aa-executive-body\s*\{[^}]*overflow:\s*hidden/',
+        $admin_css_src
+    ) === 1
+);
+ac_assert(
+    'lists-body.is-collapsed keeps overflow:hidden',
+    is_string($admin_css_src)
+    && preg_match(
+        '/#aa-lists-body\.is-collapsed\s*,\s*#aa-executive-body\.is-collapsed\s*\{[^}]*overflow:\s*hidden/',
+        $admin_css_src
+    ) === 1
+);
+ac_assert(
+    'lists-body source does not use overflow:visible to fix shadow clip',
+    is_string($admin_css_src)
+    && preg_match('/#aa-lists-body[^{]*\{[^}]*overflow:\s*visible/', $admin_css_src) === 0
+);
+ac_assert(
+    'section-toggles-module has no overflow:visible or transitionend for shadow clip',
+    is_string($section_toggles_src)
+    && strpos($section_toggles_src, 'overflow') === false
+    && strpos($section_toggles_src, 'transitionend') === false
+);
+$admin_css_built = file_get_contents($plugin_root . '/includes/admin/ui/assets/css/admin.css');
+ac_assert(
+    'admin.css build includes .pb-1 utility',
+    is_string($admin_css_built)
+    && preg_match('/\.pb-1\{[^}]*padding-bottom:\s*\.25rem/', $admin_css_built) === 1
+);
 ac_assert(
     'Cycle D: chevron del organizador tiene transition-transform en markup',
     is_string($index_php) && preg_match('/aa-lists-header-chevron[^"]*transition-transform/', $index_php) === 1
