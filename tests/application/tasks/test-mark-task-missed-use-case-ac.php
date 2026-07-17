@@ -36,7 +36,9 @@ ac_assert('MarkTaskMissedUseCase file readable', $uc_src !== false);
 ac_assert('Use case defines class', strpos($uc_src, 'class MarkTaskMissedUseCase') !== false);
 ac_assert('Use case checks pending', strpos($uc_src, 'task_not_pending') !== false);
 ac_assert('Use case checks overdue', strpos($uc_src, 'task_not_overdue') !== false);
-ac_assert('Use case uses is_overdue', strpos($uc_src, 'is_overdue($now)') !== false);
+ac_assert('Use case uses timing policy', strpos($uc_src, 'AA_Task_Execution_Timing_Policy') !== false);
+ac_assert('Use case checks temporal_layer 4', strpos($uc_src, 'temporal_layer') !== false);
+ac_assert('Use case does not use legacy AA_Task::is_overdue', strpos($uc_src, '->is_overdue(') === false);
 ac_assert('Use case calls mark_missed', strpos($uc_src, 'mark_missed') !== false);
 
 $repo_src = file_get_contents($repo_file);

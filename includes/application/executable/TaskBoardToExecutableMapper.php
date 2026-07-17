@@ -10,9 +10,9 @@
 defined('ABSPATH') or die('No direct access');
 
 require_once dirname(__DIR__, 2) . '/domain/executable/class-aa-executable-contract.php';
+require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-execution-timing-policy.php';
 require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-governance-policy.php';
 require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-list-governance-policy.php';
-require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task.php';
 require_once dirname(__DIR__, 2) . '/application/tasks/TaskUseCaseSupport.php';
 require_once __DIR__ . '/ExecutableNavigationUrlResolver.php';
 
@@ -396,7 +396,7 @@ final class TaskBoardToExecutableMapper {
         $source = self::resolve_source($task);
         $primary_action = self::resolve_primary_action($task, $organization, $is_pending, $is_done);
         $governance = new AA_Task_Governance_Policy();
-        $task_vo = AA_Task::from_array($task);
+        $timing_flags = AA_Task_Execution_Timing_Policy::project_executable_flags($evaluation);
 
         return AA_Executable_Contract::normalize_item([
             'id' => (string) $task_id,
@@ -410,7 +410,8 @@ final class TaskBoardToExecutableMapper {
             'execution_available_at' => isset($task['execution_available_at']) && $task['execution_available_at'] !== ''
                 ? (string) $task['execution_available_at']
                 : null,
-            'is_overdue' => $task_vo->is_overdue($now),
+            'is_pertinent' => $timing_flags['is_pertinent'],
+            'is_overdue' => $timing_flags['is_overdue'],
             'default_bucket' => isset($task['default_bucket']) && $task['default_bucket'] !== ''
                 ? (string) $task['default_bucket']
                 : AA_Executable_Contract::BUCKET_PRIMARY,

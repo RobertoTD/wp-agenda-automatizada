@@ -9,6 +9,8 @@
 
 defined('ABSPATH') or die('No direct access');
 
+require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task.php';
+require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-execution-timing-policy.php';
 require_once dirname(__DIR__, 2) . '/repositories/TaskRepository.php';
 require_once dirname(__DIR__, 2) . '/repositories/TaskListRepository.php';
 require_once __DIR__ . '/TaskUseCaseSupport.php';
@@ -145,7 +147,10 @@ final class ValidateTaskExecutionAvailablePushUseCase {
             return $this->result(self::STATUS_INELIGIBLE);
         }
 
-        if ($this->is_overdue_task($task, $now)) {
+        if ($this->resolve_timing_policy()->is_overdue(
+            AA_Task::from_array($task),
+            $now->format('Y-m-d H:i:s')
+        )) {
             return $this->result(self::STATUS_INELIGIBLE);
         }
 
@@ -283,19 +288,16 @@ final class ValidateTaskExecutionAvailablePushUseCase {
         return $archived_at !== null && trim((string) $archived_at) !== '';
     }
 
-    /**
-     * @param array<string,mixed> $task
-     */
-    private function is_overdue_task(array $task, DateTimeImmutable $now): bool {
-        $due_at = $this->parse_site_datetime(
-            isset($task['due_at']) && $task['due_at'] !== null ? (string) $task['due_at'] : null
-        );
+    private function resolve_timing_policy(): AA_Task_Execution_Timing_Policy {
+        $timezone_name = trim($this->read_timezone());
 
-        if ($due_at === null) {
-            return false;
+        try {
+            $timezone = new DateTimeZone($timezone_name !== '' ? $timezone_name : 'America/Mexico_City');
+        } catch (Exception $e) {
+            $timezone = new DateTimeZone('America/Mexico_City');
         }
 
-        return $due_at->getTimestamp() <= $now->getTimestamp();
+        return new AA_Task_Execution_Timing_Policy($timezone);
     }
 
     private function format_due_at_iso($value): ?string {

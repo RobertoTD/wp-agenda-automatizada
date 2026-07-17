@@ -361,8 +361,65 @@ $public_methods = array_map(
 );
 sort($public_methods);
 execution_timing_assert(
-    'Production policy exposes no test-only public helpers',
-    $public_methods === ['__construct', 'evaluate']
+    'Production policy exposes evaluate, flag projection and overdue predicate',
+    $public_methods === ['__construct', 'evaluate', 'is_overdue', 'project_executable_flags']
+);
+
+$projected_layer_3 = AA_Task_Execution_Timing_Policy::project_executable_flags(['temporal_layer' => 3]);
+execution_timing_assert(
+    'project_executable_flags layer 3 is pertinent only',
+    $projected_layer_3 === ['is_pertinent' => true, 'is_overdue' => false]
+);
+$projected_layer_4 = AA_Task_Execution_Timing_Policy::project_executable_flags(['temporal_layer' => 4]);
+execution_timing_assert(
+    'project_executable_flags layer 4 is overdue only',
+    $projected_layer_4 === ['is_pertinent' => false, 'is_overdue' => true]
+);
+$projected_missing = AA_Task_Execution_Timing_Policy::project_executable_flags(null);
+execution_timing_assert(
+    'project_executable_flags without evaluation is both false',
+    $projected_missing === ['is_pertinent' => false, 'is_overdue' => false]
+);
+
+$overdue_predicate_now = '2026-06-01 12:00:00';
+execution_timing_assert(
+    'is_overdue predicate matches layer 4 for past due',
+    $policy->is_overdue(AA_Task::from_array([
+        'status' => 'pending',
+        'due_at' => '2026-06-01 08:00:00',
+    ]), $overdue_predicate_now) === true
+    && $policy->evaluate(AA_Task::from_array([
+        'status' => 'pending',
+        'due_at' => '2026-06-01 08:00:00',
+    ]), $overdue_predicate_now)['temporal_layer'] === 4
+);
+execution_timing_assert(
+    'is_overdue predicate true when due_at equals now',
+    $policy->is_overdue(AA_Task::from_array([
+        'status' => 'pending',
+        'due_at' => $overdue_predicate_now,
+    ]), $overdue_predicate_now) === true
+);
+execution_timing_assert(
+    'is_overdue predicate false when due_at is future',
+    $policy->is_overdue(AA_Task::from_array([
+        'status' => 'pending',
+        'due_at' => '2026-06-01 16:00:00',
+    ]), $overdue_predicate_now) === false
+);
+execution_timing_assert(
+    'is_overdue predicate false without due_at',
+    $policy->is_overdue(AA_Task::from_array([
+        'status' => 'pending',
+        'due_at' => null,
+    ]), $overdue_predicate_now) === false
+);
+execution_timing_assert(
+    'is_overdue predicate false for invalid due_at',
+    $policy->is_overdue(AA_Task::from_array([
+        'status' => 'pending',
+        'due_at' => 'not-a-date',
+    ]), $overdue_predicate_now) === false
 );
 
 date_default_timezone_set($original_timezone);

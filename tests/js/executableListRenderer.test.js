@@ -51,6 +51,7 @@ function baseItem(overrides) {
         primary_action: null,
         visible_actions: [],
         is_executive_candidate: false,
+        is_pertinent: false,
         is_overdue: false
     }, overrides || {});
 }
@@ -2740,5 +2741,271 @@ describe('executableListRenderer add-task menu item', () => {
 
         assert.equal(items.length, 1);
         assert.equal(items[0], '+ Tarea');
+    });
+});
+
+describe('executableListRenderer list temporal summary + renderable collection', () => {
+    function countRenderedItemCards(html) {
+        return (html.match(/details class="aa-executable-item/g) || []).length;
+    }
+
+    it('shouldRenderItem oculto no cuenta ni aparece; promueve el siguiente a principal', () => {
+        var list = baseList({
+            source: 'user',
+            source_category: 'user',
+            source_label: 'Mis listas',
+            buckets: [{
+                key: 'default',
+                label: '',
+                items: [
+                    baseItem({ id: 'hidden', title: 'Oculta' }),
+                    baseItem({ id: 'visible', title: 'Visible', is_pertinent: true })
+                ]
+            }]
+        });
+        var html = renderer.renderList(list, {
+            shouldRenderItem: function (item) {
+                return item.id !== 'hidden';
+            }
+        });
+
+        assert.doesNotMatch(html, /data-item-id="hidden"/);
+        assert.match(html, /data-item-id="visible"/);
+        assert.match(html, /aa-executable-bucket-items-top[\s\S]*data-item-id="visible"/);
+        assert.doesNotMatch(html, />Siguientes tareas/);
+        assert.match(html, /1 tarea/);
+        assert.match(html, /1 pertinente/);
+        assert.equal(countRenderedItemCards(html), 1);
+    });
+
+    it('IDs duplicados entre buckets: primera aparición renderizable gana', () => {
+        var list = baseList({
+            source: 'user',
+            source_category: 'user',
+            source_label: 'Mis listas',
+            buckets: [
+                {
+                    key: 'primary',
+                    label: 'Principales',
+                    items: [baseItem({ id: 'dup', title: 'Primera', is_overdue: true })]
+                },
+                {
+                    key: 'secondary',
+                    label: 'Secundarias',
+                    items: [baseItem({ id: 'dup', title: 'Duplicada', is_pertinent: true })]
+                }
+            ]
+        });
+        var html = renderer.renderList(list, {});
+
+        assert.equal(countRenderedItemCards(html), 1);
+        assert.match(html, /1 tarea/);
+        assert.match(html, /1 vencida/);
+        assert.doesNotMatch(html, /pertinente/);
+        assert.match(html, />Primera</);
+        assert.doesNotMatch(html, />Duplicada</);
+    });
+
+    it('total del header iguala cards renderizadas e incluye Siguientes tareas', () => {
+        var list = baseList({
+            source: 'user',
+            source_category: 'user',
+            source_label: 'Mis listas',
+            buckets: [{
+                key: 'default',
+                label: '',
+                items: [
+                    baseItem({ id: 'a', title: 'A', is_pertinent: true }),
+                    baseItem({ id: 'b', title: 'B' }),
+                    baseItem({ id: 'c', title: 'C', is_overdue: true })
+                ]
+            }]
+        });
+        var html = renderer.renderList(list, {});
+
+        assert.equal(countRenderedItemCards(html), 3);
+        assert.match(html, /3 tareas/);
+        assert.match(html, /1 pertinente/);
+        assert.match(html, /1 vencida/);
+        assert.match(html, />Siguientes tareas \(2\)</);
+        assert.match(html, /Mis listas/);
+    });
+
+    it('singular, plural, ceros omitidos y vacío', () => {
+        var emptyHtml = renderer.renderList(baseList({
+            source: 'user',
+            source_category: 'user',
+            source_label: 'Mis listas',
+            buckets: [{ key: 'default', label: '', items: [] }]
+        }), {});
+        assert.match(emptyHtml, /Mis listas/);
+        assert.match(emptyHtml, /Sin tareas/);
+        assert.doesNotMatch(emptyHtml, /pertinente/);
+        assert.doesNotMatch(emptyHtml, /vencida/);
+
+        var oneHtml = renderer.renderList(baseList({
+            source: 'user',
+            source_category: 'user',
+            source_label: 'Mis listas',
+            buckets: [{
+                key: 'default',
+                label: '',
+                items: [baseItem({ id: 'one', is_pertinent: true })]
+            }]
+        }), {});
+        assert.match(oneHtml, /1 tarea/);
+        assert.match(oneHtml, /1 pertinente/);
+        assert.doesNotMatch(oneHtml, /vencida/);
+
+        var twoPertinentHtml = renderer.renderList(baseList({
+            source: 'user',
+            source_category: 'user',
+            source_label: 'Mis listas',
+            buckets: [{
+                key: 'default',
+                label: '',
+                items: [
+                    baseItem({ id: 'p1', is_pertinent: true }),
+                    baseItem({ id: 'p2', is_pertinent: true })
+                ]
+            }]
+        }), {});
+        assert.match(twoPertinentHtml, /2 tareas/);
+        assert.match(twoPertinentHtml, /2 pertinentes/);
+
+        var overdueOnlyHtml = renderer.renderList(baseList({
+            source: 'user',
+            source_category: 'user',
+            source_label: 'Mis listas',
+            buckets: [{
+                key: 'default',
+                label: '',
+                items: [
+                    baseItem({ id: 'o1', is_overdue: true }),
+                    baseItem({ id: 'o2', is_overdue: true }),
+                    baseItem({ id: 'n1' }),
+                    baseItem({ id: 'n2' })
+                ]
+            }]
+        }), {});
+        assert.match(overdueOnlyHtml, /4 tareas/);
+        assert.match(overdueOnlyHtml, /2 vencidas/);
+        assert.doesNotMatch(overdueOnlyHtml, /pertinente/);
+    });
+
+    it('chevron de lista usa clase scoped más pequeña y tenue; otros chevrons intactos', () => {
+        var listHtml = renderer.renderList(baseList({
+            buckets: [{
+                key: 'default',
+                label: '',
+                items: [
+                    baseItem({ id: 't1', description: 'Preview' }),
+                    baseItem({ id: 't2' })
+                ]
+            }]
+        }));
+        var itemHtml = renderer.renderItem(baseItem({
+            description: 'Detalle',
+            capabilities: { can_edit: true }
+        }));
+
+        assert.match(
+            listHtml,
+            /aa-executable-list-chevron aa-chevron w-4 h-4 text-gray-400 opacity-70/
+        );
+        assert.match(listHtml, /d="M19 9l-7 7-7-7"/);
+        assert.match(listHtml, /aa-executable-following-tasks-chevron aa-chevron/);
+        assert.doesNotMatch(listHtml, /aa-executable-following-tasks-chevron[^>]*(?:w-5 h-5|opacity-70)/);
+        assert.match(itemHtml, /aa-executable-item-chevron aa-chevron/);
+        assert.doesNotMatch(itemHtml, /aa-executable-list-chevron/);
+    });
+
+    it('prepareRenderableListCollection dedupe after filter and counts flags', () => {
+        var collection = renderer.prepareRenderableListCollection([
+            {
+                key: 'primary',
+                label: 'Principales',
+                items: [
+                    baseItem({ id: 'skip', is_pertinent: true }),
+                    baseItem({ id: 'keep', is_overdue: true }),
+                    baseItem({ id: '', title: 'Sin id' })
+                ]
+            },
+            {
+                key: 'secondary',
+                label: 'Secundarias',
+                items: [baseItem({ id: 'keep', is_pertinent: true })]
+            }
+        ], {
+            shouldRenderItem: function (item) {
+                return item.id !== 'skip';
+            }
+        }, {});
+
+        assert.equal(collection.total, 1);
+        assert.equal(collection.overdueCount, 1);
+        assert.equal(collection.pertinentCount, 0);
+        assert.equal(collection.items[0].item.id, 'keep');
+    });
+
+    it('métricas viven en wrapper único; source label y controles quedan fuera', () => {
+        var html = renderer.renderList(baseList({
+            source: 'user',
+            source_category: 'user',
+            source_label: 'Mis listas',
+            description: 'Detalle de lista',
+            importance: 2,
+            capabilities: { can_edit: true },
+            buckets: [{
+                key: 'default',
+                label: '',
+                items: [
+                    baseItem({ id: 'a', is_pertinent: true }),
+                    baseItem({ id: 'b', is_overdue: true })
+                ]
+            }]
+        }), {});
+
+        assert.match(html, /aa-executable-list-summary/);
+        assert.match(
+            html,
+            /aa-executable-list-summary[\s\S]*aa-executable-list-summary-total[\s\S]*aa-executable-list-summary-pertinent[\s\S]*aa-executable-list-summary-overdue/
+        );
+        assert.match(
+            html,
+            /aa-executable-list-summary[\s\S]*aa-executable-list-summary-sep[\s\S]*2 tareas/
+        );
+
+        var summaryStart = html.indexOf('aa-executable-list-summary');
+        var summaryClose = html.indexOf('</span>', html.indexOf('aa-executable-list-summary-overdue', summaryStart));
+        var summaryBlock = html.slice(summaryStart, summaryClose + 7);
+        assert.match(summaryBlock, /2 tareas/);
+        assert.match(summaryBlock, /1 pertinente/);
+        assert.match(summaryBlock, /1 vencida/);
+        assert.doesNotMatch(summaryBlock, /Mis listas/);
+        assert.doesNotMatch(summaryBlock, /Ver más/);
+        assert.doesNotMatch(summaryBlock, /\+ Tarea/);
+        assert.match(html, /aa-executable-list-source-label/);
+        assert.match(html, /data-aa-list-details-toggle/);
+        assert.match(html, /aa-executable-list-add-task/);
+        assert.match(html, /aa-executable-list-options-trigger/);
+    });
+
+    it('CSS oculta .aa-executable-list-summary solo con lista abierta', () => {
+        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
+
+        assert.match(
+            css,
+            /details\.aa-executable-list-card\[open\] > summary \.aa-executable-list-summary/
+        );
+        assert.match(css, /display:\s*none/);
+        assert.doesNotMatch(
+            css,
+            /details\.aa-executable-item\[open\][^{]*\.aa-executable-list-summary/
+        );
+        assert.doesNotMatch(
+            css,
+            /aa-executable-following-tasks\[open\][^{]*\.aa-executable-list-summary/
+        );
     });
 });

@@ -92,12 +92,15 @@ Los workers cargan todas las suscripciones de la instalación (`installation_id`
 
 ## Flujo en Agenda App
 
-Orden obligatorio al cargar:
+Al cargar el feed unified:
 
-1. Resolver `app_subscription_active`.
-2. Si es `false`: no comprobar Push; feed con ambos flags en `false`.
-3. Si es `true`: evaluar pasivamente `push_ready`; si `false`, llamar ensure.
-4. Primera carga del feed con los valores resueltos (secuencial, sin paralelizar ensure y feed).
+1. Primera carga del feed **inmediata** con proyección conservadora `{app_subscription_active:false, push_ready:false}` (fallback existente; `enable_push` oculto).
+2. En paralelo: resolver `app_subscription_active` vía `aa_get_account_status`.
+3. Si es `false`: no comprobar Push; no hay segunda carga del feed.
+4. Si es `true`: evaluar pasivamente `push_ready`; si `false`, llamar ensure.
+5. Solo si el contexto definitivo requiere **mostrar** `enable_push` (`active=true` y `push_ready=false`), una segunda carga silenciosa del feed con `forceFresh` tras concluir la inicial.
+
+Un fallo de account-status o reconciliación Push no bloquea ni pisa el feed local ya cargado.
 
 Tras click exitoso en `push.activate`: marcar `push_ready=true` y recargar el feed con `forceFresh` (nueva petición real; respuestas obsoletas no sobrescriben cargas más nuevas).
 

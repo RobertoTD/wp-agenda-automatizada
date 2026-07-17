@@ -908,7 +908,7 @@
             itemIndex: typeof itemIndex === 'number' ? itemIndex : undefined
         });
 
-        if (!callbackAllows(opts.shouldRenderItem, [item, itemContext])) {
+        if (!opts.assumeRenderable && !callbackAllows(opts.shouldRenderItem, [item, itemContext])) {
             return '';
         }
 
@@ -984,6 +984,108 @@
         return items.map(function (item, itemIndex) {
             return renderItem(item, options, bucketContext, offset + itemIndex);
         }).join('');
+    }
+
+    /**
+     * @param {object} item
+     * @returns {string}
+     */
+    function normalizeStableItemId(item) {
+        if (!item || typeof item !== 'object') {
+            return '';
+        }
+
+        return asString(item.id).trim();
+    }
+
+    /**
+     * Filtra, deduplica y indexa los items efectivamente renderizables de una lista.
+     * shouldRenderItem se ejecuta exactamente una vez por aparición candidata.
+     *
+     * @param {Array} buckets
+     * @param {object} [options]
+     * @param {object} [listContext]
+     * @returns {{
+     *   items: Array<{item: object, bucket: object, bucketIndex: number, sourceItemIndex: number}>,
+     *   total: number,
+     *   pertinentCount: number,
+     *   overdueCount: number
+     * }}
+     */
+    function prepareRenderableListCollection(buckets, options, listContext) {
+        var opts = normalizeOptions(options);
+        var seenIds = Object.create(null);
+        var collection = [];
+        var pertinentCount = 0;
+        var overdueCount = 0;
+
+        if (!Array.isArray(buckets)) {
+            return {
+                items: [],
+                total: 0,
+                pertinentCount: 0,
+                overdueCount: 0
+            };
+        }
+
+        buckets.forEach(function (bucket, bucketIndex) {
+            if (!bucket || typeof bucket !== 'object') {
+                return;
+            }
+
+            var items = Array.isArray(bucket.items) ? bucket.items : [];
+
+            items.forEach(function (item, itemIndex) {
+                if (!item || typeof item !== 'object') {
+                    return;
+                }
+
+                var stableId = normalizeStableItemId(item);
+
+                if (stableId === '') {
+                    return;
+                }
+
+                var bucketContext = extendContext(listContext, {
+                    bucket: bucket,
+                    bucketIndex: bucketIndex
+                });
+                var itemContext = extendContext(bucketContext, {
+                    item: item,
+                    source: item.source || (listContext && listContext.source) || '',
+                    itemIndex: itemIndex
+                });
+
+                if (!callbackAllows(opts.shouldRenderItem, [item, itemContext])) {
+                    return;
+                }
+
+                if (seenIds[stableId]) {
+                    return;
+                }
+
+                seenIds[stableId] = true;
+                collection.push({
+                    item: item,
+                    bucket: bucket,
+                    bucketIndex: bucketIndex,
+                    sourceItemIndex: itemIndex
+                });
+
+                if (item.is_overdue === true) {
+                    overdueCount += 1;
+                } else if (item.is_pertinent === true) {
+                    pertinentCount += 1;
+                }
+            });
+        });
+
+        return {
+            items: collection,
+            total: collection.length,
+            pertinentCount: pertinentCount,
+            overdueCount: overdueCount
+        };
     }
 
     /**
@@ -1099,108 +1201,167 @@
     }
 
     /**
+     * @param {object} [options]
+     * @returns {object}
+     */
+    function optionsAssumingRenderable(options) {
+        var base = normalizeOptions(options);
+        var next = {};
+
+        Object.keys(base).forEach(function (key) {
+            next[key] = base[key];
+        });
+        next.assumeRenderable = true;
+
+        return next;
+    }
+
+    /**
+     * @param {Array<{item: object, bucket: object, bucketIndex: number}>} entries
+     * @param {object} [options]
+     * @param {object} listContext
+     * @param {number} startIndex
+     * @returns {string}
+     */
+    function renderFollowingEntriesHtml(entries, options, listContext, startIndex) {
+        if (!Array.isArray(entries) || entries.length === 0) {
+            return '';
+        }
+
+        var sections = [];
+        var group = [];
+        var groupBucket = null;
+        var groupStartIndex = typeof startIndex === 'number' ? startIndex : 0;
+        var trustedOptions = optionsAssumingRenderable(options);
+
+        function flushGroup() {
+            if (!groupBucket || group.length === 0) {
+                return;
+            }
+
+            var key = asString(groupBucket.key).trim().toLowerCase();
+            var label = asString(groupBucket.label).trim();
+            var bucketContext = extendContext(listContext, {
+                bucket: groupBucket,
+                bucketIndex: groupBucket.__bucketIndex
+            });
+            var items = group.map(function (entry) {
+                return entry.item;
+            });
+
+            if (key === 'secondary') {
+                sections.push(renderSecondaryFollowingSection(
+                    label,
+                    items,
+                    trustedOptions,
+                    bucketContext,
+                    groupStartIndex
+                ));
+            } else {
+                sections.push(renderItemsUl(
+                    items,
+                    trustedOptions,
+                    bucketContext,
+                    groupStartIndex,
+                    'aa-executable-bucket-items aa-executable-bucket-items-following space-y-3'
+                ));
+            }
+
+            groupStartIndex += group.length;
+            group = [];
+            groupBucket = null;
+        }
+
+        entries.forEach(function (entry) {
+            var bucket = entry && entry.bucket && typeof entry.bucket === 'object'
+                ? entry.bucket
+                : { key: 'default', label: '' };
+            var bucketIdentity = String(entry.bucketIndex) + ':' + asString(bucket.key).trim().toLowerCase();
+            var currentIdentity = groupBucket
+                ? String(groupBucket.__bucketIndex) + ':' + asString(groupBucket.key).trim().toLowerCase()
+                : '';
+
+            if (groupBucket && bucketIdentity !== currentIdentity) {
+                flushGroup();
+            }
+
+            if (!groupBucket) {
+                groupBucket = {
+                    key: bucket.key,
+                    label: bucket.label,
+                    __bucketIndex: entry.bucketIndex
+                };
+            }
+
+            group.push(entry);
+        });
+
+        flushGroup();
+
+        return sections.join('');
+    }
+
+    /**
+     * @param {{items: Array}} collection
+     * @param {object} [options]
+     * @param {object} listContext
+     * @returns {string}
+     */
+    function renderListBucketsBodyFromCollection(collection, options, listContext) {
+        var entries = collection && Array.isArray(collection.items) ? collection.items : [];
+
+        if (entries.length === 0) {
+            return '';
+        }
+
+        var trustedOptions = optionsAssumingRenderable(options);
+        var topEntry = entries[0];
+        var followingEntries = entries.slice(1);
+        var topBucket = topEntry.bucket && typeof topEntry.bucket === 'object'
+            ? topEntry.bucket
+            : { key: 'default', label: '' };
+        var topKey = asString(topBucket.key).trim().toLowerCase();
+        var topBucketContext = extendContext(listContext, {
+            bucket: topBucket,
+            bucketIndex: topEntry.bucketIndex
+        });
+        var topHtml = renderBucketWrapper(
+            topKey,
+            renderItemsUl(
+                [topEntry.item],
+                trustedOptions,
+                topBucketContext,
+                0,
+                'aa-executable-bucket-items aa-executable-bucket-items-top space-y-3'
+            )
+        );
+        var followingHtml = renderFollowingEntriesHtml(
+            followingEntries,
+            trustedOptions,
+            listContext,
+            1
+        );
+        var bodyHtml = topHtml;
+
+        if (followingEntries.length > 0 && followingHtml !== '') {
+            bodyHtml += renderFollowingTasksBlock(followingHtml, followingEntries.length);
+        }
+
+        return bodyHtml;
+    }
+
+    /**
      * @param {Array} buckets
      * @param {object} [options]
      * @param {object} listContext
      * @returns {string}
      */
     function renderListBucketsBody(buckets, options, listContext) {
-        var followingSections = [];
-        var followingCount = 0;
-        var topHtml = '';
-        var hasTop = false;
-        var globalItemIndex = 0;
-
-        if (!Array.isArray(buckets)) {
-            return '';
-        }
-
-        buckets.forEach(function (bucket, bucketIndex) {
-            if (!bucket || typeof bucket !== 'object') {
-                return;
-            }
-
-            var bucketContext = extendContext(listContext, {
-                bucket: bucket,
-                bucketIndex: bucketIndex
-            });
-            var key = asString(bucket.key).trim().toLowerCase();
-            var label = asString(bucket.label).trim();
-            var items = Array.isArray(bucket.items) ? bucket.items : [];
-
-            if (items.length === 0) {
-                return;
-            }
-
-            if (!hasTop) {
-                hasTop = true;
-                var topItems = items.slice(0, 1);
-                var restItems = items.slice(1);
-
-                topHtml = renderBucketWrapper(
-                    key,
-                    renderItemsUl(
-                        topItems,
-                        options,
-                        bucketContext,
-                        globalItemIndex,
-                        'aa-executable-bucket-items aa-executable-bucket-items-top space-y-3'
-                    )
-                );
-                globalItemIndex += topItems.length;
-
-                if (restItems.length > 0) {
-                    if (key === 'secondary') {
-                        followingSections.push(renderSecondaryFollowingSection(
-                            label,
-                            restItems,
-                            options,
-                            bucketContext,
-                            globalItemIndex
-                        ));
-                    } else {
-                        followingSections.push(renderItemsUl(
-                            restItems,
-                            options,
-                            bucketContext,
-                            globalItemIndex,
-                            'aa-executable-bucket-items aa-executable-bucket-items-following space-y-3'
-                        ));
-                    }
-
-                    followingCount += restItems.length;
-                    globalItemIndex += restItems.length;
-                }
-            } else if (key === 'secondary') {
-                followingSections.push(renderSecondaryFollowingSection(
-                    label,
-                    items,
-                    options,
-                    bucketContext,
-                    globalItemIndex
-                ));
-                followingCount += items.length;
-                globalItemIndex += items.length;
-            } else {
-                followingSections.push(renderItemsUl(
-                    items,
-                    options,
-                    bucketContext,
-                    globalItemIndex,
-                    'aa-executable-bucket-items aa-executable-bucket-items-following space-y-3'
-                ));
-                followingCount += items.length;
-                globalItemIndex += items.length;
-            }
-        });
-
-        var bodyHtml = topHtml;
-
-        if (followingCount > 0) {
-            bodyHtml += renderFollowingTasksBlock(followingSections.join(''), followingCount);
-        }
-
-        return bodyHtml;
+        return renderListBucketsBodyFromCollection(
+            prepareRenderableListCollection(buckets, options, listContext),
+            options,
+            listContext
+        );
     }
 
     /**
@@ -1407,23 +1568,147 @@
     }
 
     /**
-     * @param {object} list
+     * @param {number} total
      * @returns {string}
      */
-    function renderListHeaderMeta(list) {
+    function formatListTotalLabel(total) {
+        var count = Math.max(0, total | 0);
+
+        if (count === 0) {
+            return 'Sin tareas';
+        }
+
+        if (count === 1) {
+            return '1 tarea';
+        }
+
+        return String(count) + ' tareas';
+    }
+
+    /**
+     * @param {number} count
+     * @returns {string}
+     */
+    function formatListPertinentLabel(count) {
+        var value = Math.max(0, count | 0);
+
+        if (value <= 0) {
+            return '';
+        }
+
+        if (value === 1) {
+            return '1 pertinente';
+        }
+
+        return String(value) + ' pertinentes';
+    }
+
+    /**
+     * @param {number} count
+     * @returns {string}
+     */
+    function formatListOverdueLabel(count) {
+        var value = Math.max(0, count | 0);
+
+        if (value <= 0) {
+            return '';
+        }
+
+        if (value === 1) {
+            return '1 vencida';
+        }
+
+        return String(value) + ' vencidas';
+    }
+
+    /**
+     * @param {string} text
+     * @param {string} className
+     * @returns {string}
+     */
+    function renderListSummaryPart(text, className) {
+        if (asString(text).trim() === '') {
+            return '';
+        }
+
+        return ''
+            + '<span class="' + className + '">'
+            + escapeHtml(text)
+            + '</span>';
+    }
+
+    /**
+     * @param {{total?: number, pertinentCount?: number, overdueCount?: number}} collection
+     * @param {{leadingSeparator?: boolean}} [options]
+     * @returns {string}
+     */
+    function renderListTemporalSummary(collection, options) {
+        var safe = collection && typeof collection === 'object'
+            ? collection
+            : { total: 0, pertinentCount: 0, overdueCount: 0 };
+        var opts = options && typeof options === 'object' ? options : {};
+        var parts = [];
+        var totalPart = renderListSummaryPart(
+            formatListTotalLabel(safe.total || 0),
+            'aa-executable-list-summary-total text-xs text-gray-500 shrink-0'
+        );
+        var pertinentPart = renderListSummaryPart(
+            formatListPertinentLabel(safe.pertinentCount || 0),
+            'aa-executable-list-summary-pertinent text-xs text-emerald-700/80 shrink-0'
+        );
+        var overduePart = renderListSummaryPart(
+            formatListOverdueLabel(safe.overdueCount || 0),
+            'aa-executable-list-summary-overdue text-xs text-red-600/80 shrink-0'
+        );
+        var separator = '<span class="aa-executable-list-summary-sep text-xs text-gray-400 shrink-0" aria-hidden="true"> · </span>';
+
+        if (totalPart !== '') {
+            parts.push(totalPart);
+        }
+
+        if (pertinentPart !== '') {
+            parts.push(pertinentPart);
+        }
+
+        if (overduePart !== '') {
+            parts.push(overduePart);
+        }
+
+        if (parts.length === 0) {
+            return '';
+        }
+
+        var leading = opts.leadingSeparator ? separator : '';
+
+        return ''
+            + '<span class="aa-executable-list-summary inline-flex flex-wrap items-center">'
+            + leading
+            + parts.join(separator)
+            + '</span>';
+    }
+
+    /**
+     * @param {object} list
+     * @param {{total?: number, pertinentCount?: number, overdueCount?: number}} [collection]
+     * @returns {string}
+     */
+    function renderListHeaderMeta(list, collection) {
         var listId = escapeHtml(asString(list.id));
         var sourceLabelHtml = renderSourceLabel(list);
+        var summaryHtml = renderListTemporalSummary(collection, {
+            leadingSeparator: sourceLabelHtml !== ''
+        });
         var toggleHtml = listHasExpandableDetails(list)
             ? renderListDetailsToggle(listId)
             : '';
-        var metaContent = sourceLabelHtml + toggleHtml;
+        var metaContent = sourceLabelHtml + summaryHtml + toggleHtml;
 
         if (metaContent === '') {
             return '';
         }
 
         return ''
-            + '<div class="aa-executable-list-header-meta flex items-center gap-2 mt-0.5 min-w-0">'
+            + '<div class="aa-executable-list-header-meta flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 min-w-0">'
             + metaContent
             + '</div>';
     }
@@ -1616,20 +1901,21 @@
             ? list.capabilities
             : {};
         var buckets = Array.isArray(list.buckets) ? list.buckets : [];
-        var bodyHtml = renderListBucketsBody(buckets, options, listContext);
+        var renderableCollection = prepareRenderableListCollection(buckets, options, listContext);
+        var bodyHtml = renderListBucketsBodyFromCollection(renderableCollection, options, listContext);
 
         if (bodyHtml === '' && asString(list.source).trim().toLowerCase() === 'user') {
             bodyHtml = '<p class="text-sm text-gray-500 aa-executable-list-empty-pending">No hay tareas pendientes en esta lista.</p>';
         }
 
-        var headerMetaHtml = renderListHeaderMeta(list);
+        var headerMetaHtml = renderListHeaderMeta(list, renderableCollection);
         var detailsHtml = listHasExpandableDetails(list)
             ? renderListDetailsBlock(list, listIdAttr)
             : '';
         var optionsMenuHtml = renderListOptionsMenu(capabilities, list);
         var addTaskHtml = renderListAddTaskButton(list, listId);
         var chevronHtml = ''
-            + '<svg class="aa-chevron w-5 h-5 text-gray-400 transition-transform duration-200 shrink-0"'
+            + '<svg class="aa-executable-list-chevron aa-chevron w-4 h-4 text-gray-400 opacity-70 transition-transform duration-200 shrink-0"'
             + ' fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">'
             + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>'
             + '</svg>';
@@ -1682,6 +1968,7 @@
         resolveSourceLabelModifier: resolveSourceLabelModifier,
         renderSourceLabel: renderSourceLabel,
         defaultSourceLabel: defaultSourceLabel,
+        prepareRenderableListCollection: prepareRenderableListCollection,
         renderFeed: renderFeed,
         renderList: renderList,
         renderBucket: renderBucket,

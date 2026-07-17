@@ -74,6 +74,25 @@ ac_assert(
     is_string($index_php) && strpos($index_php, 'executable-lists-module.js') !== false
 );
 ac_assert(
+    'index.php does not enqueue executable-lists-shadow-module.js (MC13J-2E)',
+    is_string($index_php) && strpos($index_php, 'executable-lists-shadow-module.js') === false
+);
+ac_assert(
+    'index.php shows unified feed section without hidden',
+    is_string($index_php)
+    && preg_match('/id="aa-executable-lists-active"\s+class="space-y-4"/', $index_php) === 1
+);
+ac_assert(
+    'index.php shows unified loading without hidden',
+    is_string($index_php)
+    && preg_match('/id="aa-executable-lists-active-loading"\s+class="text-sm text-gray-500"/', $index_php) === 1
+);
+ac_assert(
+    'index.php hides legacy board root by default',
+    is_string($index_php)
+    && preg_match('/id="aa-tasks-board-root"\s+class="hidden"/', $index_php) === 1
+);
+ac_assert(
     'index.php enqueues executable-actions-coordinator.js',
     is_string($index_php) && strpos($index_php, 'executable-actions-coordinator.js') !== false
 );

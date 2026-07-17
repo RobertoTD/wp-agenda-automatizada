@@ -138,6 +138,38 @@ ac_assert(
     ])->execution_available_at() === $execution_available_at
 );
 
+$boundary_now = '2026-06-10 12:00:00';
+ac_assert(
+    'AA_Task::is_overdue uses <= frontier at due_at == now',
+    AA_Task::from_array([
+        'status' => 'pending',
+        'due_at' => $boundary_now,
+    ])->is_overdue($boundary_now) === true
+);
+ac_assert(
+    'AA_Task::is_overdue false when due_at is future',
+    AA_Task::from_array([
+        'status' => 'pending',
+        'due_at' => '2026-06-10 12:00:01',
+    ])->is_overdue($boundary_now) === false
+);
+ac_assert(
+    'AA_Task::has_upcoming_due uses > frontier (equal now is not upcoming)',
+    AA_Task::from_array([
+        'status' => 'pending',
+        'due_at' => $boundary_now,
+    ])->has_upcoming_due($boundary_now) === false
+    && AA_Task::from_array([
+        'status' => 'pending',
+        'due_at' => '2026-06-10 12:00:01',
+    ])->has_upcoming_due($boundary_now) === true
+);
+ac_assert(
+    'AA_Task::is_overdue false without due and for invalid due',
+    AA_Task::from_array(['status' => 'pending', 'due_at' => null])->is_overdue($boundary_now) === false
+    && AA_Task::from_array(['status' => 'pending', 'due_at' => 'bad'])->is_overdue($boundary_now) === false
+);
+
 ac_assert(
     'from_array preserves optional origin_key',
     AA_Task::from_array(['origin_key' => 'enable_push'])->origin_key() === 'enable_push'

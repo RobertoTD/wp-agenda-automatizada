@@ -14,7 +14,6 @@ $task_completed_toast_js = AA_PLUGIN_URL . 'assets/js/ui/taskCompletedToast.js';
 $tasks_board_js = plugin_dir_url(__FILE__) . 'tasks-board-module.js';
 $executable_lists_service_js = AA_PLUGIN_URL . 'assets/js/services/executableListsService.js';
 $executable_lists_renderer_js = AA_PLUGIN_URL . 'assets/js/ui/executableListRenderer.js';
-$executable_lists_shadow_js = plugin_dir_url(__FILE__) . 'executable-lists-shadow-module.js';
 $executable_lists_module_js = plugin_dir_url(__FILE__) . 'executable-lists-module.js';
 $executable_actions_coordinator_js = plugin_dir_url(__FILE__) . 'executable-actions-coordinator.js';
 $lists_area_tools_js = plugin_dir_url(__FILE__) . 'lists-area-tools.js';
@@ -90,13 +89,13 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
         <p id="aa-tasks-error" class="hidden text-sm text-red-600 mb-3"></p>
 
         <div id="aa-lists-feed" class="space-y-4">
-            <section id="aa-executable-lists-active" class="hidden space-y-4">
+            <section id="aa-executable-lists-active" class="space-y-4">
                 <p id="aa-executable-lists-active-error" class="hidden text-sm text-red-600"></p>
-                <p id="aa-executable-lists-active-loading" class="hidden text-sm text-gray-500">Cargando listas…</p>
+                <p id="aa-executable-lists-active-loading" class="text-sm text-gray-500">Cargando listas…</p>
                 <div id="aa-executable-lists-active-root" class="space-y-2"></div>
             </section>
 
-            <div id="aa-tasks-board-root">
+            <div id="aa-tasks-board-root" class="hidden">
                 <p id="aa-tasks-loading" class="text-sm text-gray-500">Cargando listas y tareas…</p>
                 <p id="aa-tasks-empty" class="hidden text-sm text-gray-500 bg-white rounded-xl border border-dashed border-gray-200 px-4 py-3">
                     Aún no tienes listas propias. Usa el botón flotante para crear una.
@@ -508,7 +507,6 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
 <script src="<?php echo esc_url($tasks_board_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($executable_lists_service_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($executable_lists_renderer_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
-<script src="<?php echo esc_url($executable_lists_shadow_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($executable_options_menu_placement_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($task_options_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($task_edit_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>

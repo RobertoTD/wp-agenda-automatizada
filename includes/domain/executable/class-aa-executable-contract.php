@@ -155,6 +155,9 @@ final class AA_Executable_Contract {
     public static function normalize_item(array $item): array {
         $source = self::normalize_source($item['source'] ?? self::SOURCE_USER);
         $status = self::normalize_item_status($item['status'] ?? self::ITEM_STATUS_PENDING);
+        $is_overdue = !empty($item['is_overdue']);
+        // Precedencia canónica: overdue excluye pertinent ante payload inconsistente.
+        $is_pertinent = !$is_overdue && !empty($item['is_pertinent']);
 
         return [
             'id' => self::normalize_scalar_id($item['id'] ?? ''),
@@ -166,7 +169,8 @@ final class AA_Executable_Contract {
             'importance' => (int) ($item['importance'] ?? 0),
             'due_at' => self::nullable_string($item['due_at'] ?? null),
             'execution_available_at' => self::nullable_string($item['execution_available_at'] ?? null),
-            'is_overdue' => !empty($item['is_overdue']),
+            'is_pertinent' => $is_pertinent,
+            'is_overdue' => $is_overdue,
             'default_bucket' => self::normalize_item_default_bucket($item['default_bucket'] ?? null),
             'status' => $status,
             'state' => self::normalize_item_state($item['state'] ?? []),
@@ -218,6 +222,7 @@ final class AA_Executable_Contract {
             'description',
             'importance',
             'due_at',
+            'is_pertinent',
             'is_overdue',
             'default_bucket',
             'status',

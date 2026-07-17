@@ -81,6 +81,33 @@ ac_assert(
     'Contract item defaults is_overdue to false',
     ($contract_item['is_overdue'] ?? true) === false
 );
+ac_assert(
+    'Contract item defaults is_pertinent to false',
+    ($contract_item['is_pertinent'] ?? true) === false
+);
+ac_assert(
+    'Contract item requires is_pertinent key',
+    in_array('is_pertinent', AA_Executable_Contract::required_item_keys(), true)
+);
+
+$inconsistent_timing = AA_Executable_Contract::normalize_item([
+    'id' => '2',
+    'source' => 'user',
+    'title' => 'Inconsistente',
+    'status' => 'pending',
+    'is_pertinent' => true,
+    'is_overdue' => true,
+]);
+ac_assert(
+    'Contract forces pertinent false when overdue true',
+    ($inconsistent_timing['is_overdue'] ?? false) === true
+    && ($inconsistent_timing['is_pertinent'] ?? true) === false
+);
+ac_assert(
+    'Contract timing flags are booleans',
+    is_bool($inconsistent_timing['is_pertinent'] ?? null)
+    && is_bool($inconsistent_timing['is_overdue'] ?? null)
+);
 
 $contract_list = AA_Executable_Contract::normalize_list([
     'id' => '10',
@@ -681,6 +708,11 @@ $task_bucket_payload = [
             ],
         ],
         'executive_candidates' => [31],
+        'task_evaluations_by_id' => [
+            30 => ['temporal_layer' => 4],
+            31 => ['temporal_layer' => 2],
+            32 => ['temporal_layer' => 4],
+        ],
     ],
 ];
 
@@ -725,10 +757,12 @@ ac_assert(
 ac_assert(
     'Task mapper marks past due pending as is_overdue',
     ($primary_bucket_items[0]['is_overdue'] ?? false) === true
+    && ($primary_bucket_items[0]['is_pertinent'] ?? true) === false
 );
 ac_assert(
     'Task mapper marks item without due_at as not overdue',
     ($primary_bucket_items[1]['is_overdue'] ?? false) === false
+    && ($primary_bucket_items[1]['is_pertinent'] ?? true) === false
 );
 
 $future_due_task_lists = TaskBoardToExecutableMapper::map([
@@ -760,12 +794,89 @@ $future_due_task_lists = TaskBoardToExecutableMapper::map([
             ],
         ],
         'executive_candidates' => [],
+        'task_evaluations_by_id' => [
+            40 => ['temporal_layer' => 1],
+        ],
     ],
 ]);
 $future_due_item = $future_due_task_lists[0]['buckets'][0]['items'][0] ?? null;
 ac_assert(
     'Task mapper marks future due pending as not overdue',
-    is_array($future_due_item) && ($future_due_item['is_overdue'] ?? true) === false
+    is_array($future_due_item)
+    && ($future_due_item['is_overdue'] ?? true) === false
+    && ($future_due_item['is_pertinent'] ?? true) === false
+);
+
+$pertinent_task_lists = TaskBoardToExecutableMapper::map([
+    'lists' => [
+        [
+            'id' => 41,
+            'title' => 'Pertinentes',
+            'status' => 'active',
+        ],
+    ],
+    'tasks' => [
+        [
+            'id' => 410,
+            'list_id' => 41,
+            'title' => 'Pertinente sin vencimiento',
+            'status' => 'pending',
+            'execution_available_at' => '2026-06-01 08:00:00',
+            'due_at' => null,
+        ],
+        [
+            'id' => 411,
+            'list_id' => 41,
+            'title' => 'Due igual a now',
+            'status' => 'pending',
+            'due_at' => '2026-06-15 12:00:00',
+        ],
+        [
+            'id' => 412,
+            'list_id' => 41,
+            'title' => 'Sin evaluación',
+            'status' => 'pending',
+            'due_at' => '2026-06-01 08:00:00',
+        ],
+    ],
+    'organization' => [
+        'list_order' => [41],
+        'task_order_by_list' => [
+            41 => [410, 411, 412],
+        ],
+        'task_bucket_order_by_list' => [
+            41 => [
+                'primary' => [410, 411, 412],
+                'secondary' => [],
+            ],
+        ],
+        'executive_candidates' => [],
+        'task_evaluations_by_id' => [
+            410 => ['temporal_layer' => 3],
+            411 => ['temporal_layer' => 4],
+        ],
+    ],
+]);
+$pertinent_items = $pertinent_task_lists[0]['buckets'][0]['items'] ?? [];
+ac_assert(
+    'Task mapper projects layer 3 as pertinent not overdue',
+    ($pertinent_items[0]['is_pertinent'] ?? false) === true
+    && ($pertinent_items[0]['is_overdue'] ?? true) === false
+);
+ac_assert(
+    'Task mapper projects due_at == now layer 4 as overdue not pertinent',
+    ($pertinent_items[1]['is_overdue'] ?? false) === true
+    && ($pertinent_items[1]['is_pertinent'] ?? true) === false
+);
+ac_assert(
+    'Task mapper without temporal evaluation keeps both flags false',
+    ($pertinent_items[2]['is_pertinent'] ?? true) === false
+    && ($pertinent_items[2]['is_overdue'] ?? true) === false
+);
+ac_assert(
+    'Task mapper does not expose temporal_layer on executable item',
+    !array_key_exists('temporal_layer', $pertinent_items[0] ?? [])
+    && !array_key_exists('temporal_layer', $pertinent_items[1] ?? [])
 );
 
 $overdue_mapper_now = aa_get_current_datetime();

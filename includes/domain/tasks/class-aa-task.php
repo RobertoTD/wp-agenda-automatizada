@@ -175,7 +175,15 @@ final class AA_Task {
     }
 
     /**
+     * Helper legacy/deprecado de compatibilidad.
+     *
+     * Fuente canónica de producto: AA_Task_Execution_Timing_Policy::is_overdue()
+     * / evaluate() (capa 4, due_at <= now, con aa_timezone).
+     * Este VO no instancia la policy (no tiene timezone de sitio); solo alinea
+     * la frontera a <= para no contradecir la semántica canónica.
+     *
      * @param string $now Y-m-d H:i:s
+     * @deprecated Use AA_Task_Execution_Timing_Policy::is_overdue().
      */
     public function is_overdue(string $now): bool {
         if (!$this->is_pending() || $this->due_at === null || trim($this->due_at) === '') {
@@ -189,10 +197,13 @@ final class AA_Task {
             return false;
         }
 
-        return $due_ts < $now_ts;
+        return $due_ts <= $now_ts;
     }
 
     /**
+     * Complemento temporal legacy de is_overdue(): due estrictamente posterior a now.
+     * due_at == now ya no es futura (es vencida en la frontera canónica).
+     *
      * @param string $now Y-m-d H:i:s
      */
     public function has_upcoming_due(string $now): bool {
@@ -207,7 +218,7 @@ final class AA_Task {
             return false;
         }
 
-        return $due_ts >= $now_ts;
+        return $due_ts > $now_ts;
     }
 
     /**

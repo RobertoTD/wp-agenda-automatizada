@@ -10,6 +10,7 @@ defined('ABSPATH') or die('No direct access');
 
 require_once __DIR__ . '/TaskUseCaseSupport.php';
 require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task.php';
+require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-execution-timing-policy.php';
 
 final class MarkTaskMissedUseCase {
 
@@ -37,8 +38,18 @@ final class MarkTaskMissedUseCase {
         }
 
         $now = TaskUseCaseSupport::resolve_now();
+        $timezone_name = (string) get_option('aa_timezone', 'America/Mexico_City');
 
-        if (!AA_Task::from_array($task)->is_overdue($now)) {
+        try {
+            $timezone = new DateTimeZone($timezone_name !== '' ? $timezone_name : 'America/Mexico_City');
+        } catch (Exception $e) {
+            $timezone = new DateTimeZone('America/Mexico_City');
+        }
+
+        $timing = (new AA_Task_Execution_Timing_Policy($timezone))
+            ->evaluate(AA_Task::from_array($task), $now);
+
+        if ((int) ($timing['temporal_layer'] ?? 0) !== 4) {
             return TaskUseCaseSupport::fail('task_not_overdue', 'Solo se pueden marcar como no realizadas las tareas vencidas.');
         }
 

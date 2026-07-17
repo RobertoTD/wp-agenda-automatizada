@@ -21,6 +21,41 @@ final class AA_Task_Execution_Timing_Policy {
     }
 
     /**
+     * Proyecta flags del contrato executable desde una evaluación de timing.
+     * No altera evaluate(); solo lee temporal_layer.
+     *
+     * @param array<string,mixed>|null $evaluation
+     * @return array{is_pertinent:bool,is_overdue:bool}
+     */
+    public static function project_executable_flags(?array $evaluation): array {
+        if (!is_array($evaluation) || !array_key_exists('temporal_layer', $evaluation)) {
+            return [
+                'is_pertinent' => false,
+                'is_overdue' => false,
+            ];
+        }
+
+        $layer = (int) $evaluation['temporal_layer'];
+
+        return [
+            'is_pertinent' => $layer === 3,
+            'is_overdue' => $layer === 4,
+        ];
+    }
+
+    /**
+     * Predicado de conveniencia: true exactamente cuando evaluate() produce capa 4.
+     * No reparsea ni reimplementa reglas; delega en evaluate().
+     *
+     * @param string $now Y-m-d H:i:s
+     */
+    public function is_overdue(AA_Task $task, string $now): bool {
+        $evaluation = $this->evaluate($task, $now);
+
+        return (int) ($evaluation['temporal_layer'] ?? 0) === 4;
+    }
+
+    /**
      * @return array{
      *     has_temporal_condition:bool,
      *     is_temporal_condition_pending:bool,

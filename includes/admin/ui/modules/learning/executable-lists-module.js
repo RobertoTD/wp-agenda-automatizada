@@ -880,12 +880,26 @@
     }
 
     /**
-     * @param {{restoreOpenListId?: string, restoreFollowingTasksOpen?: boolean,forceFresh?:boolean}} [options]
+     * Espeja AA_Push_Activation_Visibility_Policy para enable_push:
+     * visible solo con app_subscription_active=true y push_ready=false.
+     *
+     * @param {{app_subscription_active?:boolean,push_ready?:boolean}|null|undefined} projection
+     * @returns {boolean}
+     */
+    function isEnablePushVisibleForProjection(projection) {
+        var ctx = projection && typeof projection === 'object' ? projection : {};
+
+        return ctx.app_subscription_active === true && ctx.push_ready !== true;
+    }
+
+    /**
+     * @param {{restoreOpenListId?: string, restoreFollowingTasksOpen?: boolean,forceFresh?:boolean,silent?:boolean}} [options]
      * @returns {Promise<void>}
      */
     function loadUnifiedFeed(options) {
         var feedOptions = options || {};
         var forceFresh = feedOptions.forceFresh === true;
+        var silent = feedOptions.silent === true;
 
         if (currentUnifiedFeedLoadPromise && !forceFresh) {
             return currentUnifiedFeedLoadPromise;
@@ -896,7 +910,7 @@
         var service = globalRoot.ExecutableListsService;
         var registry = getLearningRegistry();
         var root = getUnifiedRoot();
-        var preserveRoot = hasUnifiedFeedContent(root);
+        var preserveRoot = silent || hasUnifiedFeedContent(root);
         var requestGeneration = unifiedFeedRequestGeneration + 1;
         var requestPromise;
 
@@ -906,7 +920,13 @@
             registry.beginInstallTaskFeedLoadCycle();
         }
 
-        setUnifiedLoading(true, { preserveRoot: preserveRoot });
+        if (silent) {
+            if (root && typeof root.setAttribute === 'function') {
+                root.setAttribute('aria-busy', 'true');
+            }
+        } else {
+            setUnifiedLoading(true, { preserveRoot: preserveRoot });
+        }
 
         if (!service || typeof service.getFeed !== 'function') {
             setUnifiedLoading(false);
@@ -955,6 +975,10 @@
 
                 if (!preserveRoot) {
                     lastUnifiedPayload = null;
+                }
+
+                if (silent && preserveRoot) {
+                    return;
                 }
 
                 showUnifiedLoadError(
@@ -1044,23 +1068,54 @@
         unifiedCoordinatorInitialized = true;
     }
 
-    function initializePushActivationFeed() {
-        var contextService = globalRoot.PushActivationReconcileService;
-
-        if (!contextService || typeof contextService.initializeFeedContext !== 'function') {
-            setFeedProjectionContext(null);
-            return loadUnifiedFeed();
-        }
-
+    /**
+     * @param {object|null|undefined} contextService
+     * @returns {Promise<{app_subscription_active:boolean,push_ready:boolean}>}
+     */
+    function resolveFeedContextBestEffort(contextService) {
         return Promise.resolve(contextService.initializeFeedContext())
             .then(function (context) {
                 setFeedProjectionContext(context);
-                return loadUnifiedFeed();
+                return getFeedProjectionContext();
             })
             .catch(function () {
                 setFeedProjectionContext(null);
-                return loadUnifiedFeed();
+                return getFeedProjectionContext();
             });
+    }
+
+    /**
+     * Carga local inmediata con proyección conservadora; contexto Push en paralelo.
+     * Segunda carga solo si el contexto definitivo requiere mostrar enable_push.
+     *
+     * @returns {Promise<void>}
+     */
+    function initializePushActivationFeed() {
+        var contextService = globalRoot.PushActivationReconcileService;
+
+        setFeedProjectionContext(null);
+        var initialFeedPromise = loadUnifiedFeed();
+
+        if (!contextService || typeof contextService.initializeFeedContext !== 'function') {
+            return initialFeedPromise;
+        }
+
+        var contextPromise = resolveFeedContextBestEffort(contextService);
+
+        return Promise.all([
+            initialFeedPromise.catch(function () {
+                return null;
+            }),
+            contextPromise
+        ]).then(function (results) {
+            var finalProjection = results[1];
+
+            if (!isEnablePushVisibleForProjection(finalProjection)) {
+                return undefined;
+            }
+
+            return loadUnifiedFeed({ forceFresh: true, silent: true });
+        });
     }
 
     function initUnifiedFeedModule() {
@@ -1179,6 +1234,8 @@
         resolveExecutableItemKey: resolveExecutableItemKey,
         initUnifiedCoordinator: initUnifiedCoordinator,
         initializePushActivationFeed: initializePushActivationFeed,
+        resolveFeedContextBestEffort: resolveFeedContextBestEffort,
+        isEnablePushVisibleForProjection: isEnablePushVisibleForProjection,
         getFeedProjectionContext: getFeedProjectionContext,
         setFeedProjectionContext: setFeedProjectionContext,
         visibleUserFeedApi: visibleUserFeedApi

@@ -15,6 +15,7 @@ require_once dirname(__DIR__, 2) . '/domain/executable/class-aa-executable-contr
 require_once dirname(__DIR__, 2) . '/domain/executable/class-aa-executable-visible-actions-policy.php';
 require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task.php';
 require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-active-view-projection-policy.php';
+require_once dirname(__DIR__, 2) . '/domain/tasks/class-aa-task-execution-timing-policy.php';
 require_once __DIR__ . '/../executable/ExecutableNavigationUrlResolver.php';
 
 final class ExecutiveProposalMapper {
@@ -82,6 +83,7 @@ final class ExecutiveProposalMapper {
             $evaluation = is_array($evaluations_by_id[$task_id] ?? null)
                 ? $evaluations_by_id[$task_id]
                 : [];
+            $timing_flags = AA_Task_Execution_Timing_Policy::project_executable_flags($evaluation);
             $projected_bucket = self::resolve_projected_bucket($evaluation, $task_vo);
             $primary_action = $is_current
                 ? self::resolve_primary_action($task, $organization)
@@ -91,12 +93,11 @@ final class ExecutiveProposalMapper {
             if ($is_current) {
                 $item = self::build_executable_item(
                     $task,
-                    $task_vo,
                     $evaluation,
                     $primary_action,
                     $projected_bucket,
                     $focus_list,
-                    $now
+                    $timing_flags
                 );
                 $executive_actions = AA_Executive_Actions_Policy::resolve($item, [
                     'view' => AA_Executable_Visible_Actions_Policy::VIEW_ACTIVE,
@@ -112,7 +113,7 @@ final class ExecutiveProposalMapper {
                 'description' => isset($task['notes']) ? (string) $task['notes'] : null,
                 'default_bucket' => $projected_bucket,
                 'due_at' => isset($task['due_at']) && $task['due_at'] !== '' ? (string) $task['due_at'] : null,
-                'is_overdue' => $task_vo->is_overdue($now),
+                'is_overdue' => $timing_flags['is_overdue'],
                 'actionable' => $is_current,
                 'continuation' => !$is_current,
                 'executive_actions' => $executive_actions,
@@ -298,14 +299,16 @@ final class ExecutiveProposalMapper {
      * @param array<string,mixed> $focus_list
      * @return array<string,mixed>
      */
+    /**
+     * @param array{is_pertinent:bool,is_overdue:bool} $timing_flags
+     */
     private static function build_executable_item(
         array $task,
-        AA_Task $task_vo,
         array $evaluation,
         ?array $primary_action,
         string $projected_bucket,
         array $focus_list,
-        string $now
+        array $timing_flags
     ): array {
         $is_pending = strtolower(trim((string) ($task['status'] ?? 'pending'))) === 'pending';
         $capabilities = is_array($evaluation['capabilities'] ?? null) ? $evaluation['capabilities'] : [];
@@ -315,7 +318,8 @@ final class ExecutiveProposalMapper {
             'source' => self::resolve_source($task, $focus_list),
             'source_category' => self::resolve_source_category($task),
             'origin_key' => self::nullable_origin_key($task),
-            'is_overdue' => $task_vo->is_overdue($now),
+            'is_pertinent' => !empty($timing_flags['is_pertinent']),
+            'is_overdue' => !empty($timing_flags['is_overdue']),
             'status' => $is_pending
                 ? AA_Executable_Contract::ITEM_STATUS_PENDING
                 : AA_Executable_Contract::ITEM_STATUS_DONE,

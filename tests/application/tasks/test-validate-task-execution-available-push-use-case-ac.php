@@ -409,6 +409,16 @@ ac_assert(
     && strpos($use_case_src, 'priority_score') === false
     && strpos($use_case_src, 'Executive') === false
 );
+ac_assert(
+    'use case reuses timing policy overdue predicate',
+    strpos($use_case_src, 'AA_Task_Execution_Timing_Policy') !== false
+    && strpos($use_case_src, '->is_overdue(') !== false
+);
+ac_assert(
+    'use case no longer keeps private overdue comparison helper',
+    strpos($use_case_src, 'function is_overdue_task') === false
+    && strpos($use_case_src, 'getTimestamp() <= $now->getTimestamp()') === false
+);
 
 $eligible_json = json_encode($eligible_101);
 ac_assert('9. eligible payload excludes notes and importance', strpos($eligible_json, 'notes') === false && strpos($eligible_json, 'importance') === false);

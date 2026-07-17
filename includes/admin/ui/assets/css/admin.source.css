@@ -110,6 +110,11 @@
         display: none;
     }
 
+    /* Executable feed — métricas temporales ocultas con lista abierta */
+    details.aa-executable-list-card[open] > summary .aa-executable-list-summary {
+        display: none;
+    }
+
     details.aa-executable-list-card > summary {
         position: relative;
     }

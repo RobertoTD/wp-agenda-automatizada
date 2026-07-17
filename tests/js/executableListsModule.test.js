@@ -1421,7 +1421,31 @@ describe('executable-lists-module push activation feed bootstrap', () => {
     let originalDocument;
     let originalVisibleFeed;
 
-    function makeUnifiedDocumentMock(root) {
+    function makeLoadingEl(initialHidden) {
+        return {
+            textContent: 'Cargando listas…',
+            classList: {
+                classes: initialHidden ? ['hidden'] : [],
+                add: function (name) {
+                    if (this.classes.indexOf(name) === -1) {
+                        this.classes.push(name);
+                    }
+                },
+                remove: function (name) {
+                    this.classes = this.classes.filter(function (item) {
+                        return item !== name;
+                    });
+                },
+                contains: function (name) {
+                    return this.classes.indexOf(name) !== -1;
+                }
+            }
+        };
+    }
+
+    function makeUnifiedDocumentMock(root, loadingEl) {
+        var loading = loadingEl || makeLoadingEl(false);
+
         return {
             getElementById: function (id) {
                 if (id === 'aa-executable-lists-active-root') {
@@ -1429,14 +1453,7 @@ describe('executable-lists-module push activation feed bootstrap', () => {
                 }
 
                 if (id === 'aa-executable-lists-active-loading') {
-                    return {
-                        textContent: '',
-                        classList: {
-                            classes: [],
-                            add: function () {},
-                            remove: function () {}
-                        }
-                    };
+                    return loading;
                 }
 
                 if (id === 'aa-executable-lists-active-error') {
@@ -1444,10 +1461,17 @@ describe('executable-lists-module push activation feed bootstrap', () => {
                         textContent: '',
                         classList: {
                             classes: ['hidden'],
-                            add: function () {},
-                            remove: function () {}
-                        },
-                        remove: function () {}
+                            add: function (name) {
+                                if (this.classes.indexOf(name) === -1) {
+                                    this.classes.push(name);
+                                }
+                            },
+                            remove: function (name) {
+                                this.classes = this.classes.filter(function (item) {
+                                    return item !== name;
+                                });
+                            }
+                        }
                     };
                 }
 
@@ -1460,14 +1484,35 @@ describe('executable-lists-module push activation feed bootstrap', () => {
         return {
             childElementCount: childElementCount,
             _inner: initialInner,
+            _attrs: {},
             get innerHTML() {
                 return this._inner;
             },
             set innerHTML(value) {
                 this._inner = value;
+                this.childElementCount = value ? 1 : 0;
             },
-            setAttribute: function () {},
-            removeAttribute: function () {}
+            setAttribute: function (name, value) {
+                this._attrs[name] = value;
+            },
+            removeAttribute: function (name) {
+                delete this._attrs[name];
+            }
+        };
+    }
+
+    function deferred() {
+        var resolveFn;
+        var rejectFn;
+        var promise = new Promise(function (resolve, reject) {
+            resolveFn = resolve;
+            rejectFn = reject;
+        });
+
+        return {
+            promise: promise,
+            resolve: resolveFn,
+            reject: rejectFn
         };
     }
 
@@ -1516,24 +1561,51 @@ describe('executable-lists-module push activation feed bootstrap', () => {
         hooks.__test.resetFeedState();
     });
 
-    it('initializePushActivationFeed resuelve contexto antes del feed', async () => {
+    it('isEnablePushVisibleForProjection mirrors PHP policy', () => {
+        assert.equal(hooks.isEnablePushVisibleForProjection({
+            app_subscription_active: false,
+            push_ready: false
+        }), false);
+        assert.equal(hooks.isEnablePushVisibleForProjection({
+            app_subscription_active: false,
+            push_ready: true
+        }), false);
+        assert.equal(hooks.isEnablePushVisibleForProjection({
+            app_subscription_active: true,
+            push_ready: true
+        }), false);
+        assert.equal(hooks.isEnablePushVisibleForProjection({
+            app_subscription_active: true,
+            push_ready: false
+        }), true);
+    });
+
+    it('feed local comienza antes de resolver initializeFeedContext', async () => {
         var events = [];
+        var contextGate = deferred();
+        var feedGate = deferred();
 
         globalThis.PushActivationReconcileService = {
             initializeFeedContext: function () {
-                events.push('context');
-                return Promise.resolve({
-                    app_subscription_active: true,
-                    push_ready: false
+                events.push('context-start');
+                return contextGate.promise.then(function (context) {
+                    events.push('context');
+                    return context;
                 });
+            },
+            getFeedContext: function () {
+                return {
+                    app_subscription_active: false,
+                    push_ready: false
+                };
             }
         };
         globalThis.ExecutableListsService = {
             getFeed: function (projection) {
                 events.push('feed');
-                assert.equal(projection.app_subscription_active, true);
+                assert.equal(projection.app_subscription_active, false);
                 assert.equal(projection.push_ready, false);
-                return Promise.resolve({ lists: [] });
+                return feedGate.promise;
             }
         };
         globalThis.AAExecutableListRenderer = {
@@ -1543,9 +1615,446 @@ describe('executable-lists-module push activation feed bootstrap', () => {
         };
         globalThis.document = makeUnifiedDocumentMock(makeTrackableRoot('', 0));
 
+        var bootstrap = hooks.initializePushActivationFeed();
+
+        assert.ok(events.indexOf('feed') !== -1);
+        assert.ok(events.indexOf('context') === -1);
+
+        feedGate.resolve({ lists: [] });
+        contextGate.resolve({
+            app_subscription_active: false,
+            push_ready: false
+        });
+        await bootstrap;
+
+        assert.equal(events[0], 'feed');
+    });
+
+    it('contexto mas lento y misma visibilidad: una solicitud', async () => {
+        var feedLoads = 0;
+        var contextGate = deferred();
+        var feedGate = deferred();
+
+        globalThis.PushActivationReconcileService = {
+            initializeFeedContext: function () {
+                return contextGate.promise;
+            },
+            getFeedContext: function () {
+                return {
+                    app_subscription_active: false,
+                    push_ready: false
+                };
+            }
+        };
+        globalThis.ExecutableListsService = {
+            getFeed: function () {
+                feedLoads += 1;
+                return feedGate.promise;
+            }
+        };
+        globalThis.AAExecutableListRenderer = {
+            renderFeed: function () {
+                return '<details></details>';
+            }
+        };
+        globalThis.document = makeUnifiedDocumentMock(makeTrackableRoot('', 0));
+
+        var bootstrap = hooks.initializePushActivationFeed();
+        feedGate.resolve({ lists: [] });
+        contextGate.resolve({
+            app_subscription_active: false,
+            push_ready: false
+        });
+        await bootstrap;
+
+        assert.equal(feedLoads, 1);
+    });
+
+    it('contexto mas rapido y visibilidad distinta: segunda espera a la inicial', async () => {
+        var projections = [];
+        var feedGate = deferred();
+        var secondStarted = false;
+        var resolvedContext = null;
+
+        globalThis.PushActivationReconcileService = {
+            initializeFeedContext: function () {
+                return Promise.resolve({
+                    app_subscription_active: true,
+                    push_ready: false
+                }).then(function (context) {
+                    resolvedContext = context;
+                    return context;
+                });
+            },
+            getFeedContext: function () {
+                return resolvedContext || {
+                    app_subscription_active: false,
+                    push_ready: false
+                };
+            }
+        };
+        globalThis.ExecutableListsService = {
+            getFeed: function (projection) {
+                projections.push({
+                    app_subscription_active: projection.app_subscription_active === true,
+                    push_ready: projection.push_ready === true
+                });
+
+                if (projections.length === 1) {
+                    return feedGate.promise;
+                }
+
+                secondStarted = true;
+                return Promise.resolve({ lists: [{ id: '2' }] });
+            }
+        };
+        globalThis.AAExecutableListRenderer = {
+            renderFeed: function () {
+                return '<details></details>';
+            }
+        };
+        globalThis.document = makeUnifiedDocumentMock(makeTrackableRoot('', 0));
+
+        var bootstrap = hooks.initializePushActivationFeed();
+
+        await Promise.resolve();
+        assert.equal(projections.length, 1);
+        assert.equal(secondStarted, false);
+
+        feedGate.resolve({ lists: [{ id: '1' }] });
+        await bootstrap;
+
+        assert.equal(projections.length, 2);
+        assert.deepEqual(projections[0], {
+            app_subscription_active: false,
+            push_ready: false
+        });
+        assert.deepEqual(projections[1], {
+            app_subscription_active: true,
+            push_ready: false
+        });
+        assert.equal(secondStarted, true);
+    });
+
+    it('contexto mas lento y visibilidad distinta: exactamente dos solicitudes', async () => {
+        var projections = [];
+        var contextGate = deferred();
+        var feedGate = deferred();
+        var resolvedContext = null;
+
+        globalThis.PushActivationReconcileService = {
+            initializeFeedContext: function () {
+                return contextGate.promise.then(function (context) {
+                    resolvedContext = context;
+                    return context;
+                });
+            },
+            getFeedContext: function () {
+                return resolvedContext || {
+                    app_subscription_active: false,
+                    push_ready: false
+                };
+            }
+        };
+        globalThis.ExecutableListsService = {
+            getFeed: function (projection) {
+                projections.push({
+                    app_subscription_active: projection.app_subscription_active === true,
+                    push_ready: projection.push_ready === true
+                });
+
+                if (projections.length === 1) {
+                    return feedGate.promise;
+                }
+
+                return Promise.resolve({ lists: [{ id: 'push' }] });
+            }
+        };
+        globalThis.AAExecutableListRenderer = {
+            renderFeed: function () {
+                return '<details></details>';
+            }
+        };
+        globalThis.document = makeUnifiedDocumentMock(makeTrackableRoot('', 0));
+
+        var bootstrap = hooks.initializePushActivationFeed();
+        feedGate.resolve({ lists: [] });
+        contextGate.resolve({
+            app_subscription_active: true,
+            push_ready: false
+        });
+        await bootstrap;
+
+        assert.equal(projections.length, 2);
+        assert.deepEqual(projections[1], {
+            app_subscription_active: true,
+            push_ready: false
+        });
+    });
+
+    it('{false,false} -> {true,true}: una sola solicitud porque enable_push permanece oculto', async () => {
+        var feedLoads = 0;
+        var contextGate = deferred();
+        var feedGate = deferred();
+        var resolvedContext = null;
+
+        globalThis.PushActivationReconcileService = {
+            initializeFeedContext: function () {
+                return contextGate.promise.then(function (context) {
+                    resolvedContext = context;
+                    return context;
+                });
+            },
+            getFeedContext: function () {
+                return resolvedContext || {
+                    app_subscription_active: false,
+                    push_ready: false
+                };
+            }
+        };
+        globalThis.ExecutableListsService = {
+            getFeed: function () {
+                feedLoads += 1;
+                return feedGate.promise;
+            }
+        };
+        globalThis.AAExecutableListRenderer = {
+            renderFeed: function () {
+                return '<details></details>';
+            }
+        };
+        globalThis.document = makeUnifiedDocumentMock(makeTrackableRoot('', 0));
+
+        var bootstrap = hooks.initializePushActivationFeed();
+        feedGate.resolve({ lists: [] });
+        contextGate.resolve({
+            app_subscription_active: true,
+            push_ready: true
+        });
+        await bootstrap;
+
+        assert.equal(feedLoads, 1);
+    });
+
+    it('{false,false} -> {true,false}: exactamente dos solicitudes con contexto definitivo', async () => {
+        var projections = [];
+        var resolvedContext = null;
+
+        globalThis.PushActivationReconcileService = {
+            initializeFeedContext: function () {
+                return Promise.resolve({
+                    app_subscription_active: true,
+                    push_ready: false
+                }).then(function (context) {
+                    resolvedContext = context;
+                    return context;
+                });
+            },
+            getFeedContext: function () {
+                return resolvedContext || {
+                    app_subscription_active: false,
+                    push_ready: false
+                };
+            }
+        };
+        globalThis.ExecutableListsService = {
+            getFeed: function (projection) {
+                projections.push({
+                    app_subscription_active: projection.app_subscription_active === true,
+                    push_ready: projection.push_ready === true
+                });
+                return Promise.resolve({ lists: [] });
+            }
+        };
+        globalThis.AAExecutableListRenderer = {
+            renderFeed: function () {
+                return '<details></details>';
+            }
+        };
+        globalThis.document = makeUnifiedDocumentMock(makeTrackableRoot('', 0));
+
         await hooks.initializePushActivationFeed();
 
-        assert.deepEqual(events, ['context', 'feed']);
+        assert.equal(projections.length, 2);
+        assert.deepEqual(projections[0], {
+            app_subscription_active: false,
+            push_ready: false
+        });
+        assert.deepEqual(projections[1], {
+            app_subscription_active: true,
+            push_ready: false
+        });
+    });
+
+    it('rechazo del contexto: una solicitud, listas conservadas y sin error visual', async () => {
+        var feedLoads = 0;
+        var root = makeTrackableRoot('local-lists', 1);
+        var loadingEl = makeLoadingEl(false);
+        var errorEl = {
+            textContent: '',
+            classList: {
+                classes: ['hidden'],
+                add: function (name) {
+                    if (this.classes.indexOf(name) === -1) {
+                        this.classes.push(name);
+                    }
+                },
+                remove: function (name) {
+                    this.classes = this.classes.filter(function (item) {
+                        return item !== name;
+                    });
+                }
+            }
+        };
+
+        globalThis.PushActivationReconcileService = {
+            initializeFeedContext: function () {
+                return Promise.reject(new Error('account down'));
+            },
+            getFeedContext: function () {
+                return {
+                    app_subscription_active: false,
+                    push_ready: false
+                };
+            }
+        };
+        globalThis.ExecutableListsService = {
+            getFeed: function () {
+                feedLoads += 1;
+                return Promise.resolve({ lists: [{ id: '1' }] });
+            }
+        };
+        globalThis.AAExecutableListRenderer = {
+            renderFeed: function () {
+                return '<details class="kept"></details>';
+            }
+        };
+        globalThis.document = {
+            getElementById: function (id) {
+                if (id === 'aa-executable-lists-active-root') {
+                    return root;
+                }
+                if (id === 'aa-executable-lists-active-loading') {
+                    return loadingEl;
+                }
+                if (id === 'aa-executable-lists-active-error') {
+                    return errorEl;
+                }
+                return null;
+            }
+        };
+
+        await hooks.initializePushActivationFeed();
+
+        assert.equal(feedLoads, 1);
+        assert.equal(errorEl.textContent, '');
+        assert.ok(errorEl.classList.classes.indexOf('hidden') !== -1);
+        assert.match(root.innerHTML, /kept|details/);
+    });
+
+    it('servicio de contexto ausente: una solicitud', async () => {
+        var feedLoads = 0;
+
+        delete globalThis.PushActivationReconcileService;
+        globalThis.ExecutableListsService = {
+            getFeed: function (projection) {
+                feedLoads += 1;
+                assert.equal(projection.app_subscription_active, false);
+                assert.equal(projection.push_ready, false);
+                return Promise.resolve({ lists: [] });
+            }
+        };
+        globalThis.AAExecutableListRenderer = {
+            renderFeed: function () {
+                return '<details></details>';
+            }
+        };
+        globalThis.document = makeUnifiedDocumentMock(makeTrackableRoot('', 0));
+
+        await hooks.initializePushActivationFeed();
+
+        assert.equal(feedLoads, 1);
+    });
+
+    it('actualizacion condicional silenciosa: root preservado y loader no reaparece', async () => {
+        var loadingEl = makeLoadingEl(false);
+        var root = makeTrackableRoot('first-paint', 1);
+        var clearedDuringSecond = false;
+        var loaderShownDuringSecond = false;
+        var feedCount = 0;
+        var feedGate = deferred();
+        var resolvedContext = null;
+
+        Object.defineProperty(root, 'innerHTML', {
+            configurable: true,
+            get: function () {
+                return this._inner;
+            },
+            set: function (value) {
+                if (feedCount >= 1 && value === '') {
+                    clearedDuringSecond = true;
+                }
+                this._inner = value;
+                this.childElementCount = value ? 1 : 0;
+            }
+        });
+
+        var originalAdd = loadingEl.classList.add.bind(loadingEl.classList);
+        loadingEl.classList.remove('hidden');
+        loadingEl.classList.add = function (name) {
+            originalAdd(name);
+        };
+        loadingEl.classList.remove = function (name) {
+            var before = this.classes.slice();
+            this.classes = this.classes.filter(function (item) {
+                return item !== name;
+            });
+            if (name === 'hidden' && feedCount >= 1 && before.indexOf('hidden') !== -1) {
+                loaderShownDuringSecond = true;
+            }
+        };
+
+        globalThis.PushActivationReconcileService = {
+            initializeFeedContext: function () {
+                return Promise.resolve({
+                    app_subscription_active: true,
+                    push_ready: false
+                }).then(function (context) {
+                    resolvedContext = context;
+                    return context;
+                });
+            },
+            getFeedContext: function () {
+                return resolvedContext || {
+                    app_subscription_active: false,
+                    push_ready: false
+                };
+            }
+        };
+        globalThis.ExecutableListsService = {
+            getFeed: function () {
+                feedCount += 1;
+                if (feedCount === 1) {
+                    return feedGate.promise;
+                }
+                return Promise.resolve({ lists: [{ id: 'with-push' }] });
+            }
+        };
+        globalThis.AAExecutableListRenderer = {
+            renderFeed: function () {
+                return '<details class="aa-executable-list-card"></details>';
+            }
+        };
+        globalThis.document = makeUnifiedDocumentMock(root, loadingEl);
+
+        var bootstrap = hooks.initializePushActivationFeed();
+        feedGate.resolve({ lists: [{ id: 'local' }] });
+        await bootstrap;
+
+        assert.equal(feedCount, 2);
+        assert.equal(clearedDuringSecond, false);
+        assert.equal(loaderShownDuringSecond, false);
+        assert.ok(loadingEl.classList.contains('hidden'));
     });
 
     it('forceFresh dispara una segunda peticion real del feed', async () => {
@@ -1611,5 +2120,16 @@ describe('executable-lists-module push activation feed bootstrap', () => {
 
         assert.deepEqual(rendered, ['fresh']);
         assert.equal(hooks.__test.getRequestGeneration(), 2);
+    });
+
+    it('index.php muestra loader unified sin hidden y no encola shadow', () => {
+        const fs = require('node:fs');
+        const indexPath = path.join(__dirname, '../../includes/admin/ui/modules/learning/index.php');
+        const indexSrc = fs.readFileSync(indexPath, 'utf8');
+
+        assert.match(indexSrc, /id="aa-executable-lists-active"\s+class="space-y-4"/);
+        assert.match(indexSrc, /id="aa-executable-lists-active-loading"\s+class="text-sm text-gray-500"/);
+        assert.match(indexSrc, /id="aa-tasks-board-root"\s+class="hidden"/);
+        assert.doesNotMatch(indexSrc, /executable-lists-shadow-module\.js/);
     });
 });

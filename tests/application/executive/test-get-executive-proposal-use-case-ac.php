@@ -85,8 +85,12 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 /**
  * @return array<string,mixed>
  */
-function exec_board_visible_eval(string $bucket = 'primary', bool $can_dismiss = true): array {
-    return [
+function exec_board_visible_eval(
+    string $bucket = 'primary',
+    bool $can_dismiss = true,
+    ?int $temporal_layer = null
+): array {
+    $evaluation = [
         'visible_in_active' => true,
         'projection' => [
             'visible_in_active' => true,
@@ -98,6 +102,12 @@ function exec_board_visible_eval(string $bucket = 'primary', bool $can_dismiss =
             'can_reactivate' => false,
         ],
     ];
+
+    if ($temporal_layer !== null) {
+        $evaluation['temporal_layer'] = $temporal_layer;
+    }
+
+    return $evaluation;
 }
 
 /**
@@ -170,11 +180,11 @@ function exec_board_ready_fixture(): array {
         'organization' => [
             'list_order' => [2, 1],
             'task_evaluations_by_id' => [
-                10 => exec_board_visible_eval('primary', true),
-                11 => exec_board_visible_eval('primary', true),
-                12 => exec_board_visible_eval('primary', false),
-                13 => exec_board_visible_eval('primary', false),
-                20 => exec_board_visible_eval('primary', true),
+                10 => exec_board_visible_eval('primary', true, 4),
+                11 => exec_board_visible_eval('primary', true, 2),
+                12 => exec_board_visible_eval('primary', false, 2),
+                13 => exec_board_visible_eval('primary', false, 2),
+                20 => exec_board_visible_eval('primary', true, 2),
             ],
             'task_actions_by_id' => [
                 10 => [
@@ -286,8 +296,8 @@ $due_order_board = [
     'organization' => [
         'list_order' => [3],
         'task_evaluations_by_id' => [
-            30 => exec_board_visible_eval(),
-            31 => exec_board_visible_eval(),
+            30 => exec_board_visible_eval('primary', true, 4),
+            31 => exec_board_visible_eval('primary', true, 2),
         ],
         'task_actions_by_id' => [],
     ],
@@ -622,8 +632,9 @@ ac_assert(
     strpos($mapper_src, "'origin_key' => self::nullable_origin_key(\$task)") !== false
 );
 ac_assert(
-    'ExecutiveProposalMapper passes is_overdue to policy item',
-    strpos($mapper_src, "'is_overdue' => \$task_vo->is_overdue(\$now)") !== false
+    'ExecutiveProposalMapper projects is_overdue from timing evaluation',
+    strpos($mapper_src, 'project_executable_flags') !== false
+    && strpos($mapper_src, "'is_overdue' => \$timing_flags['is_overdue']") !== false
 );
 
 /**
@@ -631,6 +642,7 @@ ac_assert(
  */
 function exec_appointment_confirmation_board(bool $is_overdue): array {
     $due_at = $is_overdue ? '2026-06-01 08:00:00' : '2026-06-10 12:00:00';
+    $temporal_layer = $is_overdue ? 4 : 2;
 
     return [
         'lists' => [
@@ -659,7 +671,7 @@ function exec_appointment_confirmation_board(bool $is_overdue): array {
         ],
         'organization' => [
             'task_evaluations_by_id' => [
-                501 => exec_board_visible_eval('primary', true),
+                501 => exec_board_visible_eval('primary', true, $temporal_layer),
             ],
             'task_actions_by_id' => [
                 501 => [
@@ -735,6 +747,25 @@ ac_assert(
 ac_assert(
     'Executive future appointment confirmation hides missed action (MC4)',
     !in_array('missed', $future_action_keys, true)
+);
+
+$due_equals_now_board = exec_appointment_confirmation_board(true);
+$due_equals_now_board['tasks'][0]['due_at'] = '2026-06-04 12:00:00';
+$due_equals_now_board['organization']['task_evaluations_by_id'][501] = exec_board_visible_eval('primary', true, 4);
+$due_equals_now = ExecutiveProposalMapper::map(
+    $due_equals_now_board,
+    exec_appointment_confirmation_selection([501]),
+    '2026-06-04 12:00:00'
+);
+$due_equals_now_current = $due_equals_now['tasks'][0] ?? null;
+$due_equals_now_keys = array_map(static function (array $action): string {
+    return (string) ($action['key'] ?? '');
+}, is_array($due_equals_now_current['executive_actions'] ?? null) ? $due_equals_now_current['executive_actions'] : []);
+ac_assert(
+    'Executive due_at == now is overdue via timing layer 4',
+    is_array($due_equals_now_current)
+    && ($due_equals_now_current['is_overdue'] ?? false) === true
+    && in_array('missed', $due_equals_now_keys, true)
 );
 
 $missed_board = exec_appointment_confirmation_board(true);

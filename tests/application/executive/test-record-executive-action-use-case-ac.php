@@ -72,8 +72,12 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 /**
  * @return array<string,mixed>
  */
-function exec_action_visible_eval(string $bucket = 'primary', bool $can_dismiss = true): array {
-    return [
+function exec_action_visible_eval(
+    string $bucket = 'primary',
+    bool $can_dismiss = true,
+    ?int $temporal_layer = null
+): array {
+    $evaluation = [
         'visible_in_active' => true,
         'projection' => [
             'visible_in_active' => true,
@@ -85,6 +89,12 @@ function exec_action_visible_eval(string $bucket = 'primary', bool $can_dismiss 
             'can_reactivate' => false,
         ],
     ];
+
+    if ($temporal_layer !== null) {
+        $evaluation['temporal_layer'] = $temporal_layer;
+    }
+
+    return $evaluation;
 }
 
 /**
@@ -283,6 +293,7 @@ ac_assert(
 
 $board_missed = exec_action_user_complete_board();
 $board_missed['tasks'][0]['due_at'] = '2026-06-01 08:00:00';
+$board_missed['organization']['task_evaluations_by_id'][20] = exec_action_visible_eval('primary', true, 4);
 $missed_uc = new RecordExecutiveActionUseCase(
     exec_action_proposal_reader($board_missed),
     null,

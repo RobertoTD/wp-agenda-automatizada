@@ -130,7 +130,7 @@ Ninguna de estas tablas es un **action log**. Solo guardan el **último estado**
 | **Ignorar** (dismiss) — Tasks user | `aa_task_state`: `last_dismissed_at`, `dismiss_count`, `dismiss_until` | Ocultamiento temporal (H1/H2); MC13O-H3A: `can_dismiss` independiente de defer/bucket. |
 | **Completar** (manual) | Learning: `is_completed`; Tasks: `status=done` | Declaración del usuario; puede sacar el item del feed activo. Distinta de auto-completion por fact. |
 | **Reabrir** (Tasks) | `status=pending`, `completed_at=null` | Declaración inversa; no implica evento histórico de “des-completado verificado”. |
-| **No realizada** (Tasks) — solo vencidas | `status=missed`, `completed_at=null` vía `MarkTaskMissedUseCase` (AJAX `aa_mark_task_missed`) | Resolución terminal negativa: saca el item de listas activas/Propuesta ejecutiva/Dashboard. Visible action `status`/`missed` solo si `pending` + `is_overdue`. No reabre, no toca la cita, no `archived_at`. |
+| **No realizada** (Tasks) — solo vencidas | `status=missed`, `completed_at=null` vía `MarkTaskMissedUseCase` (AJAX `aa_mark_task_missed`) | Resolución terminal negativa: saca el item de listas activas/Propuesta ejecutiva/Dashboard. Visible action `status`/`missed` solo si `pending` + `is_overdue` (capa 4 de `AA_Task_Execution_Timing_Policy`, `due_at <= now`). No reabre, no toca la cita, no `archived_at`. |
 | **Archivar lista** | `aa_task_lists.status=archived` | Declaración sobre la lista; tareas conservadas. Acción de **lista** visible (`archive-list`), no de item. |
 | **Restaurar lista archivada** | `aa_task_lists.status=active` | Inverso de archivar; herramienta de **área** Listas (MC13I), no botón en lista oculta. Tareas y señales conservadas; proyección active decide visibilidad. |
 
@@ -405,6 +405,9 @@ MC13O-0 no cambia persistencia, policies ni motor común; solo unifica copy visi
     'description' => string|null,
     'importance' => int,
     'due_at' => string|null,       // Y-m-d H:i:s
+    'execution_available_at' => string|null, // Y-m-d H:i:s; "Realizar a partir de"
+    'is_pertinent' => bool,        // temporal_layer === 3 (inicio alcanzado y no vencida); never both with is_overdue
+    'is_overdue' => bool,          // temporal_layer === 4 (due_at <= now); canónica vía AA_Task_Execution_Timing_Policy
     'status' => 'pending'|'done',   // proyección: done = declaración usuario (Tasks) o completion (Learning); no implica verificación objetiva
     'state' => [                    // snapshot interpretado por la fuente; no es action log
         'completed' => bool,        // true si la fuente considera el item completado (manual o auto)
@@ -811,7 +814,7 @@ Resolución de modo en `learning-module.js`: misma prioridad MC13J (`window` →
 
 **Recomendaciones visuales:** única fuente en Listas = `aa_get_executable_lists_feed` → feed unified.
 
-**No incluido MC13J-2B:** skip render board (`#aa-tasks-lists-root` → MC13J-2D); shadow feed duplicado (→ MC13J-2E); borrar archivos `learning-module.js` del repo.
+**No incluido MC13J-2B:** skip render board (`#aa-tasks-lists-root` → MC13J-2D); borrar archivos `learning-module.js` del repo.
 
 ## MC13J-2C — retiro modos user/user-swap y DOM user-only
 
@@ -837,9 +840,14 @@ Resolución de modo en `learning-module.js`: misma prioridad MC13J (`window` →
 
 - Renombrar `AAExecutableUserListsVisibleFeed` (cosmético)
 - Skip render `#aa-tasks-lists-root` en unified (MC13J-2D)
-- Shadow feed duplicado DEBUG/producción (MC13J-2E)
 
-**No incluido MC13J-2C:** tocar `tasks-board-module.js`; shadow module; backend.
+## MC13J-2E — retiro shadow feed en Listas
+
+**Producción:** `executable-lists-shadow-module.js` ya no se encola en `index.php` Listas. No tenía consumidores funcionales (`AA_EXECUTABLE_LISTS_SHADOW` solo se escribía). El archivo permanece en el repo por si se necesita debug manual; no forma parte del runtime.
+
+**Efecto:** una solicitud menos de `aa_get_executable_lists_feed` en la carga inicial.
+
+**No incluido MC13J-2C:** tocar `tasks-board-module.js`; backend.
 
 ## MC13M — metadata de procedencia + indicador visual sutil
 
