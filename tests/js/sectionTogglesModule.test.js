@@ -585,9 +585,10 @@ describe('section-toggles-module — toggles de secciones', () => {
         assert.match(indexSrc, /id="aa-executive-list"/);
     });
 
-    it('Cycle C: chevron del organizador no fue modificado', () => {
+    it('Cycle C: chevron del organizador no fue modificado en tamaño/tono', () => {
         assert.match(indexSrc, /aa-lists-header-chevron/);
-        assert.match(indexSrc, /M19 9l-7 7-7-7/);
+        assert.match(indexSrc, /aa-lists-header-chevron[^"]*w-4 h-4/);
+        assert.match(indexSrc, /aa-lists-header-chevron[^"]*text-gray-500/);
     });
 
     it('Cycle C: existe chevron del ejecutor', () => {
@@ -603,9 +604,11 @@ describe('section-toggles-module — toggles de secciones', () => {
         assert.match(indexSrc, /aa-executive-header-chevron[^"]*transition-transform/);
     });
 
-    it('Cycle D: ambos chevrons usan el mismo path SVG', () => {
-        var matches = indexSrc.match(/M19 9l-7 7-7-7/g);
-        assert.ok(matches && matches.length >= 2, 'Al menos dos chevrons con el mismo path');
+    it('Cycle 2A: ambos headers usan chevron derecho como base', () => {
+        var matches = indexSrc.match(/M9 5l7 7-7 7/g);
+        assert.ok(matches && matches.length >= 2, 'Al menos dos chevrons con path hacia la derecha');
+        assert.doesNotMatch(indexSrc, /aa-lists-header-chevron[\s\S]{0,200}M19 9l-7 7-7-7/);
+        assert.doesNotMatch(indexSrc, /aa-executive-header-chevron[\s\S]{0,200}M19 9l-7 7-7-7/);
     });
 
     it('Cycle D: CSS tiene regla de rotación para aria-expanded=true en organizador', () => {
@@ -618,11 +621,19 @@ describe('section-toggles-module — toggles de secciones', () => {
         assert.match(css, /#aa-executive-header-toggle\[aria-expanded="true"\]\s*\.aa-executive-header-chevron/);
     });
 
-    it('Cycle D: regla de rotación usa rotate(180deg)', () => {
+    it('Cycle 2A: headers usan rotate(90deg) al expandir', () => {
         var css = fs.readFileSync(adminSourceCssPath, 'utf8');
         var ruleMatch = css.match(/#aa-lists-header-toggle\[aria-expanded="true"\][\s\S]*?\{([^}]*)\}/);
         assert.ok(ruleMatch, 'Regla encontrada');
-        assert.match(ruleMatch[1], /rotate\(180deg\)/);
+        assert.match(ruleMatch[1], /rotate\(90deg\)/);
+        assert.doesNotMatch(ruleMatch[1], /rotate\(180deg\)/);
+    });
+
+    it('Cycle 2A: aria-expanded inicial de headers intacto', () => {
+        assert.match(indexSrc, /id="aa-lists-header-toggle"[\s\S]*?aria-expanded="true"/);
+        assert.match(indexSrc, /id="aa-executive-header-toggle"[\s\S]*?aria-expanded="false"/);
+        assert.match(indexSrc, /id="aa-lists-header-toggle"[\s\S]*?aria-controls="aa-lists-body"/);
+        assert.match(indexSrc, /id="aa-executive-header-toggle"[\s\S]*?aria-controls="aa-executive-body"/);
     });
 
     it('Cycle D: no existe regla que oculte chevrons con display:none', () => {

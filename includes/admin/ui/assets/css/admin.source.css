@@ -21,17 +21,18 @@
     details summary::marker {
         display: none;
     }
-    /* Rotate chevron when open — hijo directo de summary; evita rotar chevrons anidados */
-    details.aa-executable-list-card[open] > summary .aa-chevron,
+    /* Learning disclosures — SVG base apunta a la derecha; abierto → abajo (90deg).
+       Selectores por superficie; no rotar chevrons anidados ni Dashboard. */
+    details.aa-executable-list-card[open] > summary .aa-executable-list-chevron,
     details.aa-executable-item[open] > summary .aa-executable-item-chevron,
-    details[open] > summary .aa-chevron:not(.aa-executable-item-chevron),
-    [data-aa-dashboard-collapse].is-open > [data-aa-dashboard-collapse-toggle] .aa-chevron {
-        transform: rotate(180deg);
-    }
-
-    /* Section toggles — rotate chevron when aria-expanded */
+    details.aa-executable-following-tasks[open] > summary .aa-executable-following-tasks-chevron,
     #aa-lists-header-toggle[aria-expanded="true"] .aa-lists-header-chevron,
     #aa-executive-header-toggle[aria-expanded="true"] .aa-executive-header-chevron {
+        transform: rotate(90deg);
+    }
+
+    /* Dashboard — conservar rotación existente (fuera de ciclo 2A Learning) */
+    [data-aa-dashboard-collapse].is-open > [data-aa-dashboard-collapse-toggle] .aa-chevron {
         transform: rotate(180deg);
     }
 
@@ -178,10 +179,6 @@
 
     details.aa-executable-following-tasks:not([open]) .aa-following-label-expanded {
         display: none;
-    }
-
-    details.aa-executable-following-tasks[open] > summary .aa-executable-following-tasks-chevron {
-        transform: rotate(180deg);
     }
 
     .aa-executable-following-tasks-summary {

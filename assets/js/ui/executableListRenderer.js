@@ -872,7 +872,7 @@
             + '<span class="aa-executable-item-chevron aa-chevron inline-flex shrink-0 text-gray-400 transition-transform duration-200"'
             + ' aria-hidden="true">'
             + '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
-            + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>'
+            + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>'
             + '</svg>'
             + '</span>';
     }
@@ -1190,7 +1190,7 @@
             + '</span>'
             + '<span class="aa-executable-following-tasks-chevron aa-chevron inline-flex shrink-0 text-gray-400 transition-transform duration-200" aria-hidden="true">'
             + '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
-            + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>'
+            + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>'
             + '</svg>'
             + '</span>'
             + '</summary>'
@@ -1917,7 +1917,7 @@
         var chevronHtml = ''
             + '<svg class="aa-executable-list-chevron aa-chevron w-4 h-4 text-gray-400 opacity-70 transition-transform duration-200 shrink-0"'
             + ' fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">'
-            + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>'
+            + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>'
             + '</svg>';
         var headerActionsHtml = ''
             + '<div class="flex items-center gap-1 shrink-0">'

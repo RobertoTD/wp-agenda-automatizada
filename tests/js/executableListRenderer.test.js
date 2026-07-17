@@ -2086,13 +2086,25 @@ describe('executableListRenderer MC13 UX-A visual polish', () => {
 });
 
 describe('executableListRenderer chevron rotation CSS', () => {
-    it('usa selectores acotados por lista y tarea sin regla genérica anidada', () => {
+    it('usa selectores acotados por superficie Learning con rotate(90deg)', () => {
         var css = fs.readFileSync(adminSourceCssPath, 'utf8');
 
-        assert.match(css, /details\.aa-executable-list-card\[open\] > summary \.aa-chevron/);
+        assert.match(css, /details\.aa-executable-list-card\[open\] > summary \.aa-executable-list-chevron/);
         assert.match(css, /details\.aa-executable-item\[open\] > summary \.aa-executable-item-chevron/);
+        assert.match(css, /details\.aa-executable-following-tasks\[open\] > summary \.aa-executable-following-tasks-chevron/);
         assert.doesNotMatch(css, /details\[open\] summary \.aa-chevron/);
-        assert.match(css, /details\[open\] > summary \.aa-chevron:not\(\.aa-executable-item-chevron\)/);
+        assert.doesNotMatch(css, /details\[open\] > summary \.aa-chevron:not\(/);
+
+        var learningRule = css.match(
+            /details\.aa-executable-list-card\[open\] > summary \.aa-executable-list-chevron[\s\S]*?\{([^}]*)\}/
+        );
+        assert.ok(learningRule, 'Regla Learning encontrada');
+        assert.match(learningRule[1], /rotate\(90deg\)/);
+
+        assert.match(
+            css,
+            /\[data-aa-dashboard-collapse\]\.is-open > \[data-aa-dashboard-collapse-toggle\] \.aa-chevron[\s\S]*?rotate\(180deg\)/
+        );
     });
 
     it('renderer expone clases de chevron compatibles con rotación acotada', () => {
@@ -2111,9 +2123,32 @@ describe('executableListRenderer chevron rotation CSS', () => {
         }));
 
         assert.match(listHtml, /aa-executable-list-card/);
-        assert.match(listHtml, /aa-chevron/);
+        assert.match(listHtml, /aa-executable-list-chevron aa-chevron/);
         assert.match(itemHtml, /aa-executable-item-chevron/);
         assert.match(itemHtml, /aa-executable-item-chevron aa-chevron/);
+        assert.match(listHtml, /d="M9 5l7 7-7 7"/);
+        assert.match(itemHtml, /d="M9 5l7 7-7 7"/);
+    });
+
+    it('disclosures anidados son independientes en selectores CSS', () => {
+        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
+
+        assert.match(css, /details\.aa-executable-list-card\[open\] > summary \.aa-executable-list-chevron/);
+        assert.match(css, /details\.aa-executable-item\[open\] > summary \.aa-executable-item-chevron/);
+        assert.match(css, /details\.aa-executable-following-tasks\[open\] > summary \.aa-executable-following-tasks-chevron/);
+        // Un selector individual no debe rotar chevrons anidados al abrir la lista.
+        assert.doesNotMatch(
+            css,
+            /details\.aa-executable-list-card\[open\][^{,]*\.aa-executable-item-chevron/
+        );
+        assert.doesNotMatch(
+            css,
+            /details\.aa-executable-list-card\[open\][^{,]*\.aa-executable-following-tasks-chevron/
+        );
+        assert.doesNotMatch(
+            css,
+            /details\.aa-executable-item\[open\][^{,]*\.aa-executable-list-chevron/
+        );
     });
 });
 
@@ -2473,12 +2508,13 @@ describe('executableListRenderer MC-UX-E following tasks block', () => {
         assert.match(css, /\.aa-options-trigger-flat\[aria-expanded="true"\]/);
     });
 
-    it('CSS alterna copy colapsado/expandido, rota chevron y mantiene overflow visible', () => {
+    it('CSS alterna copy colapsado/expandido, rota chevron 90deg y mantiene overflow visible', () => {
         var css = fs.readFileSync(adminSourceCssPath, 'utf8');
 
         assert.match(css, /details\.aa-executable-following-tasks\[open\] \.aa-following-label-collapsed/);
         assert.match(css, /details\.aa-executable-following-tasks:not\(\[open\]\) \.aa-following-label-expanded/);
         assert.match(css, /details\.aa-executable-following-tasks\[open\] > summary \.aa-executable-following-tasks-chevron/);
+        assert.match(css, /rotate\(90deg\)/);
         assert.match(css, /details\.aa-executable-list-card[\s\S]*overflow:\s*visible/);
     });
 });
@@ -2625,7 +2661,7 @@ describe('executableListRenderer add-task button and chevron placement', () => {
     it('rotación de chevron CSS sigue funcionando con chevron en bloque izquierdo', () => {
         var css = fs.readFileSync(adminSourceCssPath, 'utf8');
 
-        assert.match(css, /details\.aa-executable-list-card\[open\] > summary \.aa-chevron/);
+        assert.match(css, /details\.aa-executable-list-card\[open\] > summary \.aa-executable-list-chevron/);
     });
 
     it('metadata permanece debajo del título', () => {
@@ -2913,11 +2949,51 @@ describe('executableListRenderer list temporal summary + renderable collection',
             listHtml,
             /aa-executable-list-chevron aa-chevron w-4 h-4 text-gray-400 opacity-70/
         );
-        assert.match(listHtml, /d="M19 9l-7 7-7-7"/);
+        assert.match(listHtml, /d="M9 5l7 7-7 7"/);
         assert.match(listHtml, /aa-executable-following-tasks-chevron aa-chevron/);
         assert.doesNotMatch(listHtml, /aa-executable-following-tasks-chevron[^>]*(?:w-5 h-5|opacity-70)/);
         assert.match(itemHtml, /aa-executable-item-chevron aa-chevron/);
         assert.doesNotMatch(itemHtml, /aa-executable-list-chevron/);
+        assert.match(itemHtml, /d="M9 5l7 7-7 7"/);
+    });
+
+    it('lista abierta con tarea/siguientes cerrados: selectores no cruzan rotación', () => {
+        var html = renderer.renderList(baseList({
+            source: 'user',
+            source_category: 'user',
+            source_label: 'Mis listas',
+            buckets: [{
+                key: 'default',
+                label: '',
+                items: [
+                    baseItem({ id: 'a', title: 'Principal' }),
+                    baseItem({ id: 'b', title: 'Siguiente' })
+                ]
+            }]
+        }), {});
+        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
+
+        assert.match(html, /aa-executable-list-card/);
+        assert.match(html, /aa-executable-item-chevron/);
+        assert.match(html, /aa-executable-following-tasks-chevron/);
+        assert.match(html, /aa-executable-list-summary/);
+        assert.match(
+            css,
+            /details\.aa-executable-list-card\[open\] > summary \.aa-executable-list-summary/
+        );
+        assert.match(
+            css,
+            /details\.aa-executable-list-card\[open\] > summary \.aa-executable-list-chevron/
+        );
+        assert.match(
+            css,
+            /details\.aa-executable-item\[open\] > summary \.aa-executable-item-chevron/
+        );
+        assert.match(
+            css,
+            /details\.aa-executable-following-tasks\[open\] > summary \.aa-executable-following-tasks-chevron/
+        );
+        assert.doesNotMatch(html, /M19 9l-7 7-7-7/);
     });
 
     it('prepareRenderableListCollection dedupe after filter and counts flags', () => {

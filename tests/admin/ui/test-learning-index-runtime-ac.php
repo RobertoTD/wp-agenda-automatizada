@@ -351,8 +351,14 @@ ac_assert(
     is_string($admin_css_src) && strpos($admin_css_src, '#aa-executive-header-toggle[aria-expanded="true"] .aa-executive-header-chevron') !== false
 );
 ac_assert(
-    'Cycle D: regla de rotación usa rotate(180deg)',
-    is_string($admin_css_src) && preg_match('/aa-lists-header-chevron[^}]*rotate\(180deg\)/', $admin_css_src) === 1
+    'Cycle 2A: regla de rotación Learning usa rotate(90deg)',
+    is_string($admin_css_src) && preg_match('/aa-lists-header-chevron[^}]*rotate\(90deg\)/', $admin_css_src) === 1
+);
+ac_assert(
+    'Cycle 2A: headers Learning usan chevron derecho base',
+    is_string($index_php)
+    && substr_count($index_php, 'M9 5l7 7-7 7') >= 2
+    && strpos($index_php, 'aa-lists-header-chevron') !== false
 );
 ac_assert(
     'Cycle D: script enqueued es section-toggles-module.js',
