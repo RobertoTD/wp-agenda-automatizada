@@ -37,9 +37,10 @@
         transform: rotate(90deg);
     }
 
-    /* Dashboard — conservar rotación existente (fuera de ciclo 2A Learning) */
-    [data-aa-dashboard-collapse].is-open > [data-aa-dashboard-collapse-toggle] .aa-chevron {
-        transform: rotate(180deg);
+    /* Dashboard collapses — SVG base apunta a la derecha; abierto → abajo (90deg).
+       Combinador hijo: abrir exterior no rota chevrons de interiors. */
+    [data-aa-dashboard-collapse].is-open > [data-aa-dashboard-collapse-toggle] .aa-dashboard-collapse-chevron {
+        transform: rotate(90deg);
     }
 
     /* Hide executive summary when section is expanded */

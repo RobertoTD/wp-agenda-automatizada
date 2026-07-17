@@ -2103,7 +2103,7 @@ describe('executableListRenderer chevron rotation CSS', () => {
 
         assert.match(
             css,
-            /\[data-aa-dashboard-collapse\]\.is-open > \[data-aa-dashboard-collapse-toggle\] \.aa-chevron[\s\S]*?rotate\(180deg\)/
+            /\[data-aa-dashboard-collapse\]\.is-open > \[data-aa-dashboard-collapse-toggle\] \.aa-dashboard-collapse-chevron[\s\S]*?rotate\(90deg\)/
         );
     });
 

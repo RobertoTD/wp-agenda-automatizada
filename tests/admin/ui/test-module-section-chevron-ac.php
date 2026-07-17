@@ -260,9 +260,9 @@ ac_assert(
     strpos($css_src, 'details.aa-executable-following-tasks[open] > summary .aa-executable-following-tasks-chevron') !== false
 );
 ac_assert(
-    'Dashboard .is-open .aa-chevron rotate(180deg) intact',
+    'Dashboard .is-open .aa-dashboard-collapse-chevron rotate(90deg) intact',
     preg_match(
-        '/\[data-aa-dashboard-collapse\]\.is-open\s*>\s*\[data-aa-dashboard-collapse-toggle\]\s*\.aa-chevron[\s\S]*?rotate\(180deg\)/',
+        '/\[data-aa-dashboard-collapse\]\.is-open\s*>\s*\[data-aa-dashboard-collapse-toggle\]\s*\.aa-dashboard-collapse-chevron[\s\S]*?rotate\(90deg\)/',
         $css_src
     ) === 1
 );
