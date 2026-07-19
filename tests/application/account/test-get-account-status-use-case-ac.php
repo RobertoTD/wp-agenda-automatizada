@@ -694,5 +694,138 @@ ac(
     implode(', ', $forbidden_upgrade)
 );
 
+// --- training_access_allowed sanitization ---
+reset_options();
+$GLOBALS['aa_test_options']['aa_client_secret'] = 'test-secret';
+Mock_Account_Status_Backend_Client::$response = [
+    'ok' => true,
+    'account_status' => [
+        'plan_tier' => 'freemium',
+        'billing_state' => 'active',
+        'effective_access_tier' => 'freemium',
+        'training_access_allowed' => true,
+        'installation_id' => 'inst-should-strip',
+        'trainingAccessAllowed' => true,
+        'backendDeoia' => true,
+    ],
+];
+
+$result = (new GetAccountStatusUseCase(new Mock_Account_Status_Backend_Client()))->execute();
+$account_status = $result['data']['account_status'] ?? [];
+$forbidden_training = forbidden_keys_in_payload($account_status);
+ac(
+    'training_access_allowed true passes as boolean',
+    !empty($result['success'])
+        && ($account_status['training_access_allowed'] ?? null) === true,
+    wp_json_encode_safe($account_status)
+);
+ac(
+    'training_access_allowed strips forbidden internal fields',
+    empty($forbidden_training)
+        && !array_key_exists('trainingAccessAllowed', $account_status)
+        && !array_key_exists('backendDeoia', $account_status)
+        && !array_key_exists('installation_id', $account_status),
+    wp_json_encode_safe($account_status)
+);
+
+reset_options();
+$GLOBALS['aa_test_options']['aa_client_secret'] = 'test-secret';
+Mock_Account_Status_Backend_Client::$response = [
+    'ok' => true,
+    'account_status' => [
+        'plan_tier' => null,
+        'billing_state' => 'missing',
+        'effective_access_tier' => 'freemium',
+        'training_access_allowed' => false,
+    ],
+];
+
+$result = (new GetAccountStatusUseCase(new Mock_Account_Status_Backend_Client()))->execute();
+$account_status = $result['data']['account_status'] ?? [];
+ac(
+    'training_access_allowed false passes as boolean',
+    !empty($result['success'])
+        && array_key_exists('training_access_allowed', $account_status)
+        && ($account_status['training_access_allowed'] ?? true) === false,
+    wp_json_encode_safe($account_status)
+);
+
+reset_options();
+$GLOBALS['aa_test_options']['aa_client_secret'] = 'test-secret';
+Mock_Account_Status_Backend_Client::$response = [
+    'ok' => true,
+    'account_status' => [
+        'plan_tier' => 'pro',
+        'effective_access_tier' => 'pro',
+        'training_access_allowed' => 0,
+    ],
+];
+
+$result = (new GetAccountStatusUseCase(new Mock_Account_Status_Backend_Client()))->execute();
+$account_status = $result['data']['account_status'] ?? [];
+ac(
+    'training_access_allowed coerces falsy scalar to boolean false',
+    !empty($result['success'])
+        && ($account_status['training_access_allowed'] ?? true) === false,
+    wp_json_encode_safe($account_status)
+);
+
+reset_options();
+$GLOBALS['aa_test_options']['aa_client_secret'] = 'test-secret';
+Mock_Account_Status_Backend_Client::$response = [
+    'ok' => true,
+    'account_status' => [
+        'plan_tier' => 'freemium',
+        'effective_access_tier' => 'freemium',
+        'billing_state' => 'active',
+    ],
+];
+
+$result = (new GetAccountStatusUseCase(new Mock_Account_Status_Backend_Client()))->execute();
+$account_status = $result['data']['account_status'] ?? [];
+ac(
+    'training_access_allowed absent is not invented',
+    !empty($result['success'])
+        && !array_key_exists('training_access_allowed', $account_status),
+    wp_json_encode_safe($account_status)
+);
+
+reset_options();
+unset($GLOBALS['aa_test_options']['aa_client_secret']);
+Mock_Account_Status_Backend_Client::$response = [
+    'ok' => true,
+    'account_status' => [
+        'training_access_allowed' => true,
+    ],
+];
+
+$result = (new GetAccountStatusUseCase(new Mock_Account_Status_Backend_Client()))->execute();
+ac(
+    'not_configured does not invent training_access_allowed',
+    empty($result['success'])
+        && ($result['error']['code'] ?? '') === 'account_backend_not_configured'
+        && !isset($result['data']['account_status'])
+        && !array_key_exists('training_access_allowed', $result['error'] ?? []),
+    wp_json_encode_safe($result)
+);
+
+reset_options();
+$GLOBALS['aa_test_options']['aa_client_secret'] = 'test-secret';
+Mock_Account_Status_Backend_Client::$response = [
+    'ok' => false,
+    'code' => 'account_backend_unreachable',
+    'error' => 'timeout',
+    'http_status' => 0,
+];
+
+$result = (new GetAccountStatusUseCase(new Mock_Account_Status_Backend_Client()))->execute();
+ac(
+    'unreachable does not invent training_access_allowed',
+    empty($result['success'])
+        && ($result['error']['code'] ?? '') === 'account_backend_unreachable'
+        && !isset($result['data']['account_status']),
+    wp_json_encode_safe($result)
+);
+
 echo "\n{$passed}/{$total} passed\n";
 exit($passed === $total ? 0 : 1);

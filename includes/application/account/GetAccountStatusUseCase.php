@@ -30,6 +30,7 @@ final class GetAccountStatusUseCase {
         'benefit_quotas',
         'upgrade_to_pro_available',
         'upgrade_to_pro_reason',
+        'training_access_allowed',
     ];
 
     /**
@@ -124,7 +125,7 @@ final class GetAccountStatusUseCase {
                 continue;
             }
 
-            if ($key === 'is_cancel_scheduled' || $key === 'sync_pending' || $key === 'payment_action_required' || $key === 'upgrade_to_pro_available') {
+            if ($key === 'is_cancel_scheduled' || $key === 'sync_pending' || $key === 'payment_action_required' || $key === 'upgrade_to_pro_available' || $key === 'training_access_allowed') {
                 $out[$key] = (bool) $value;
                 continue;
             }
