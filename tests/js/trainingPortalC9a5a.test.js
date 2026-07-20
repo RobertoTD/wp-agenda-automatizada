@@ -173,7 +173,7 @@ describe('TrainingPortalUx C9A5a helpers', () => {
         assert.equal(completed.showCompletedBadge, true);
     });
 
-    it('mapLessonCompletionFooter completed vs pendiente vs sin flow', () => {
+    it('mapLessonCompletionFooter completed vs CTA vs sin flow', () => {
         assert.deepEqual(
             ux.mapLessonCompletionFooter({
                 lessonMeta: { progress: { completed: true } },
@@ -184,9 +184,9 @@ describe('TrainingPortalUx C9A5a helpers', () => {
         assert.deepEqual(
             ux.mapLessonCompletionFooter({
                 lessonMeta: { progress: { completed: false } },
-                completion_flow: { trigger_label: 'Completar' }
+                completion_flow: { trigger_label: 'Completar lección' }
             }),
-            { mode: 'none', label: null }
+            { mode: 'cta', label: 'Completar lección' }
         );
         assert.deepEqual(
             ux.mapLessonCompletionFooter({
@@ -535,7 +535,7 @@ describe('Training module C9A5a catalog + opened', () => {
         assert.equal(opened, 0);
     });
 
-    it('15-17. footer completed estático; pendiente y sin flow sin CTA', async () => {
+    it('15-17. footer completed estático; pendiente muestra CTA; sin flow vacío', async () => {
         const { mod, els } = loadModule({
             getCourse: function () {
                 return Promise.resolve({
@@ -595,14 +595,17 @@ describe('Training module C9A5a catalog + opened', () => {
             els['aa-training-lesson-completion'].children[0].textContent,
             'Lección completada'
         );
-        assert.doesNotMatch(
-            els['aa-training-lesson-completion'].children[0].tagName || 'P',
-            /BUTTON/i
-        );
 
         await mod.openLesson('pending');
-        assert.equal(els['aa-training-lesson-completion'].classList.contains('hidden'), true);
-        assert.equal(els['aa-training-lesson-completion'].children.length, 0);
+        assert.equal(els['aa-training-lesson-completion'].classList.contains('hidden'), false);
+        assert.equal(
+            els['aa-training-lesson-completion'].children[0].textContent,
+            'Completar lección'
+        );
+        assert.equal(
+            els['aa-training-lesson-completion'].children[0].getAttribute('data-aa-training-completion-cta'),
+            '1'
+        );
 
         mod._setCachedManifestForTests({
             course: { title: 'C' },
@@ -625,6 +628,12 @@ describe('Training module C9A5a catalog + opened', () => {
         };
         await mod.openLesson('nofloat');
         assert.equal(els['aa-training-lesson-completion'].classList.contains('hidden'), true);
+    });
+
+    it('no usa markCompleted ni overlay paralelo en el módulo', () => {
+        assert.doesNotMatch(moduleSrc, /markCompleted/);
+        assert.doesNotMatch(moduleSrc, /aa-modal-overlay/);
+        assert.match(moduleSrc, /TrainingCompletionModal/);
     });
 
     it('locked no abre getLesson ni markOpened', async () => {
@@ -663,11 +672,5 @@ describe('Training module C9A5a catalog + opened', () => {
         await mod.openLesson('siguiente');
         assert.equal(lessons, 0);
         assert.equal(opened, 0);
-    });
-
-    it('no usa markCompleted ni AAAdmin.modal en C9A5a', () => {
-        assert.doesNotMatch(moduleSrc, /markCompleted/);
-        assert.doesNotMatch(moduleSrc, /AAAdmin\.modal/);
-        assert.doesNotMatch(moduleSrc, /Completar lección/);
     });
 });

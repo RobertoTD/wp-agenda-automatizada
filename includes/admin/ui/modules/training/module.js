@@ -17,6 +17,8 @@
     var openedMarkedForRequestId = 0;
     var cachedManifest = null;
     var activeLessonKey = null;
+    var activeLessonPayload = null;
+    var activeLessonMeta = null;
     var handlersBound = false;
 
     function getEl(id) {
@@ -274,23 +276,72 @@
             return;
         }
 
+        var flow = lessonPayload && lessonPayload.completion_flow
+            ? lessonPayload.completion_flow
+            : null;
         var footer = ux.mapLessonCompletionFooter({
             lessonMeta: lessonMeta,
-            completion_flow: lessonPayload && lessonPayload.completion_flow
-                ? lessonPayload.completion_flow
-                : null
+            completion_flow: flow
         });
 
-        if (footer.mode !== 'completed' || !footer.label) {
+        if (footer.mode === 'completed' && footer.label) {
+            var status = document.createElement('p');
+            status.className =
+                'rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800';
+            status.textContent = footer.label;
+            host.appendChild(status);
+            host.classList.remove('hidden');
             return;
         }
 
-        var status = document.createElement('p');
-        status.className =
-            'rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800';
-        status.textContent = footer.label;
-        host.appendChild(status);
-        host.classList.remove('hidden');
+        if (footer.mode === 'cta' && footer.label && flow) {
+            var cta = document.createElement('button');
+            cta.type = 'button';
+            cta.className = PRIMARY_BTN + ' w-full sm:w-auto';
+            cta.textContent = footer.label;
+            cta.setAttribute('data-aa-training-completion-cta', '1');
+            cta.addEventListener('click', function () {
+                openCompletionFlow(cta);
+            });
+            host.appendChild(cta);
+            host.classList.remove('hidden');
+        }
+    }
+
+    function resolveCompletionModal() {
+        if (root.TrainingCompletionModal && typeof root.TrainingCompletionModal.open === 'function') {
+            return root.TrainingCompletionModal;
+        }
+        return null;
+    }
+
+    /**
+     * @param {HTMLElement|null} triggerEl
+     */
+    function openCompletionFlow(triggerEl) {
+        var modal = resolveCompletionModal();
+        if (!modal || !activeLessonKey || !activeLessonPayload || !activeLessonPayload.completion_flow) {
+            return;
+        }
+
+        var cfg = getConfig();
+        modal.open({
+            lessonKey: activeLessonKey,
+            completionFlow: activeLessonPayload.completion_flow,
+            accountModuleUrl: typeof cfg.accountModuleUrl === 'string' ? cfg.accountModuleUrl : '',
+            returnFocusEl: triggerEl || null,
+            onCompleted: function () {
+                afterLessonCompleted();
+            }
+        });
+    }
+
+    function afterLessonCompleted() {
+        activeLessonKey = null;
+        activeLessonPayload = null;
+        activeLessonMeta = null;
+        lessonRequestId += 1;
+        loadCourse();
     }
 
     /**
@@ -353,6 +404,9 @@
         });
 
         renderCompletionFooter(lessonMeta || null, lessonPayload);
+
+        activeLessonPayload = lessonPayload || null;
+        activeLessonMeta = lessonMeta || null;
 
         showSurface('lesson');
         showLessonInner('content');
@@ -494,6 +548,8 @@
     function backToCatalog() {
         lessonRequestId += 1;
         activeLessonKey = null;
+        activeLessonPayload = null;
+        activeLessonMeta = null;
 
         if (cachedManifest) {
             renderCatalog(cachedManifest);

@@ -207,13 +207,13 @@
     }
 
     /**
-     * Reader footer for C9A5a (static only; no actionable CTA).
+     * Reader footer: static completed, or CTA to open completion modal (C9A5b).
      *
      * @param {{
      *   lessonMeta?: object|null,
      *   completion_flow?: object|null
      * }} input
-     * @returns {{ mode: 'completed'|'none', label: string|null }}
+     * @returns {{ mode: 'completed'|'cta'|'none', label: string|null }}
      */
     function mapLessonCompletionFooter(input) {
         var meta = input && input.lessonMeta ? input.lessonMeta : null;
@@ -224,10 +224,71 @@
             };
         }
 
-        // Pending completion_flow: reserved for C9A5b — no non-functional CTA.
+        var flow = input && input.completion_flow && typeof input.completion_flow === 'object'
+            ? input.completion_flow
+            : null;
+        var trigger = flow && typeof flow.trigger_label === 'string' ? flow.trigger_label.trim() : '';
+        if (flow && trigger) {
+            return {
+                mode: 'cta',
+                label: trigger
+            };
+        }
+
         return {
             mode: 'none',
             label: null
+        };
+    }
+
+    /**
+     * @param {object|null|undefined} err
+     * @returns {{ text: string, retry: boolean, showAccountLink: boolean }}
+     */
+    function mapCompletionError(err) {
+        var code = err && typeof err.code === 'string' ? err.code : '';
+
+        if (code === 'training_content_lesson_locked') {
+            return {
+                text: 'Esta lección aún no está disponible. Completa la anterior.',
+                retry: false,
+                showAccountLink: false
+            };
+        }
+
+        if (code === 'training_content_lesson_unavailable') {
+            return {
+                text: 'Esta lección estará disponible pronto.',
+                retry: false,
+                showAccountLink: false
+            };
+        }
+
+        if (code === 'training_content_completion_flow_missing') {
+            return {
+                text: 'No pudimos iniciar la finalización.',
+                retry: false,
+                showAccountLink: false
+            };
+        }
+
+        if (
+            code === 'training_enrollment_not_active'
+            || code === 'training_not_eligible'
+            || code === 'training_enrollment_not_found'
+            || code === 'training_forbidden'
+        ) {
+            return {
+                text: 'Tu acceso al curso ya no está disponible.',
+                retry: false,
+                showAccountLink: true
+            };
+        }
+
+        return {
+            text: 'No pudimos completar la lección.',
+            retry: true,
+            showAccountLink: false
         };
     }
 
@@ -270,6 +331,7 @@
         isTrainingLessonOpened: isTrainingLessonOpened,
         mapCatalogLessonPresentation: mapCatalogLessonPresentation,
         mapLessonCompletionFooter: mapLessonCompletionFooter,
+        mapCompletionError: mapCompletionError,
         findLessonInManifest: findLessonInManifest,
         shouldSkipMarkOpened: shouldSkipMarkOpened
     };

@@ -360,6 +360,9 @@ header('Content-Type: text/html; charset=utf-8');
 <!-- Transversal Modal: Client Create/Edit -->
 <script src="<?php echo aa_asset_url('includes/admin/ui/modals/crearcliente/crearcliente.js'); ?>" defer></script>
 
+<!-- Transversal Modal: Training lesson completion -->
+<script src="<?php echo aa_asset_url('includes/admin/ui/modals/training-completion/trainingCompletionModal.js'); ?>" defer></script>
+
     <div id="aa-admin-app" class="w-full flex flex-col min-h-screen">
         <?php require_once __DIR__ . '/header.php'; ?>
         
@@ -392,6 +395,7 @@ header('Content-Type: text/html; charset=utf-8');
     <?php require_once dirname(__DIR__) . '/modals/appointments/index.php'; ?>
     <?php require_once dirname(__DIR__) . '/modals/assignment/index.php'; ?>
     <?php require_once dirname(__DIR__) . '/modals/crearcliente/index.php'; ?>
+    <?php require_once dirname(__DIR__) . '/modals/training-completion/index.php'; ?>
     <?php require_once dirname(__DIR__) . '/modals/onboarding/index.php'; ?>
 
     <!-- Inicializar controladores globales -->
