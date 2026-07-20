@@ -1,9 +1,8 @@
 <?php
 /**
- * Training Module — portal shell (C8A2).
+ * Training Module — catalog + lesson reader (C8A3).
  *
- * Catalog and lesson reader arrive in C8A3. Entry is via Cuenta → Abrir curso.
- * Not listed in the sidebar yet.
+ * Entry via Cuenta → Abrir curso. Not listed in the sidebar.
  */
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
@@ -49,18 +48,49 @@ $aa_training_nonce       = wp_create_nonce(
                     role="status"
                     aria-live="polite"
                 >
-                    <p class="text-sm text-gray-600">Preparando tu curso…</p>
+                    <p id="aa-training-shell-loading-message" class="text-sm text-gray-600">Cargando el curso…</p>
                 </div>
 
                 <div id="aa-training-shell-error" class="hidden rounded-lg border border-gray-200 bg-gray-50 p-4" role="alert">
                     <p id="aa-training-shell-error-message" class="text-sm text-gray-600"></p>
+                    <div id="aa-training-shell-error-actions" class="mt-3 flex flex-wrap gap-2"></div>
                 </div>
 
-                <!-- Reserved for C8A3 catalog -->
-                <div id="aa-training-catalog-root" class="hidden" data-aa-training-slot="catalog" aria-hidden="true"></div>
+                <div id="aa-training-catalog-root" class="hidden space-y-4" data-aa-training-slot="catalog" aria-hidden="true">
+                    <div>
+                        <h4 id="aa-training-catalog-title" class="text-base font-semibold text-gray-900"></h4>
+                        <p id="aa-training-catalog-description" class="text-sm text-gray-600 mt-1"></p>
+                    </div>
+                    <ul id="aa-training-catalog-lessons" class="space-y-3" aria-label="Lecciones del curso"></ul>
+                </div>
 
-                <!-- Reserved for C8A3 lesson reader -->
-                <div id="aa-training-lesson-root" class="hidden" data-aa-training-slot="lesson" aria-hidden="true"></div>
+                <div id="aa-training-lesson-root" class="hidden space-y-4" data-aa-training-slot="lesson" aria-hidden="true">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button
+                            type="button"
+                            id="aa-training-lesson-back"
+                            class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                        >
+                            Volver al curso
+                        </button>
+                    </div>
+                    <div
+                        id="aa-training-lesson-loading"
+                        class="hidden rounded-lg border border-gray-200 bg-gray-50 p-4"
+                        role="status"
+                        aria-live="polite"
+                    >
+                        <p class="text-sm text-gray-600">Cargando la lección…</p>
+                    </div>
+                    <div id="aa-training-lesson-error" class="hidden rounded-lg border border-gray-200 bg-gray-50 p-4" role="alert">
+                        <p id="aa-training-lesson-error-message" class="text-sm text-gray-600"></p>
+                        <div id="aa-training-lesson-error-actions" class="mt-3 flex flex-wrap gap-2"></div>
+                    </div>
+                    <div id="aa-training-lesson-content" class="hidden space-y-4">
+                        <h4 id="aa-training-lesson-title" class="text-base font-semibold text-gray-900"></h4>
+                        <div id="aa-training-lesson-blocks" class="space-y-4 text-sm text-gray-800"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -85,13 +115,18 @@ $aa_training_nonce       = wp_create_nonce(
             getLesson: '<?php echo esc_js(class_exists('TrainingAjax') ? TrainingAjax::ACTION_GET_LESSON : 'aa_get_training_lesson'); ?>'
         },
         courseKey: 'fundamentos-deoia',
-        trainingModuleUrl: <?php echo wp_json_encode($aa_training_module_url); ?>
+        trainingModuleUrl: <?php echo wp_json_encode($aa_training_module_url); ?>,
+        accountModuleUrl: <?php echo wp_json_encode($aa_training_account_url); ?>
     };
 </script>
 <?php
 $training_service_js = function_exists('aa_asset_url')
     ? aa_asset_url('assets/js/services/trainingService.js')
     : esc_url(plugins_url('assets/js/services/trainingService.js', dirname(__DIR__, 5) . '/wp-agenda-automatizada.php'));
+$training_portal_ux_js = function_exists('aa_asset_url')
+    ? aa_asset_url('assets/js/services/trainingPortalUx.js')
+    : esc_url(plugins_url('assets/js/services/trainingPortalUx.js', dirname(__DIR__, 5) . '/wp-agenda-automatizada.php'));
 ?>
 <script src="<?php echo esc_url($training_service_js); ?>" defer></script>
+<script src="<?php echo esc_url($training_portal_ux_js); ?>" defer></script>
 <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'module.js?ver=' . rawurlencode($training_module_ver)); ?>" defer></script>

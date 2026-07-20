@@ -6,6 +6,7 @@
 defined('ABSPATH') or die('No direct access');
 
 require_once __DIR__ . '/AA_Training_Use_Case_Support.php';
+require_once __DIR__ . '/AA_Training_Lesson_Html_Sanitizer.php';
 
 class TrainingContentUseCase {
     use AA_Training_Use_Case_Support;
@@ -44,6 +45,13 @@ class TrainingContentUseCase {
             return $this->failure('training_content_lesson_key_invalid', '');
         }
 
-        return $this->map_backend_result($client->get_lesson($lesson_key));
+        $mapped = $this->map_backend_result($client->get_lesson($lesson_key));
+        if (empty($mapped['success']) || !isset($mapped['data']) || !is_array($mapped['data'])) {
+            return $mapped;
+        }
+
+        $mapped['data'] = AA_Training_Lesson_Html_Sanitizer::sanitize_lesson_data($mapped['data']);
+
+        return $mapped;
     }
 }

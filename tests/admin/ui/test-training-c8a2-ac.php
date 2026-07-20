@@ -70,10 +70,11 @@ ac_assert(
     strpos($sidebar, 'module=training') === false
 );
 ac_assert(
-    '24. shell no llama getCourse ni getLesson',
-    strpos($training_js, 'getCourse') === false
-    && strpos($training_js, 'getLesson') === false
-    && strpos($training_js, 'TrainingService') === false
+    '24. shell Training encola servicio y portal (C8A3 carga contenido)',
+    strpos($training, 'trainingService.js') !== false
+    && strpos($training, 'trainingPortalUx.js') !== false
+    && strpos($training_js, 'getCourse') !== false
+    && strpos($training_js, 'getLesson') !== false
 );
 ac_assert(
     '25. config Cuenta sin secretos ni HMAC ni URL backend',
@@ -140,11 +141,11 @@ ac_assert(
     && strpos($account_js, "actionId === 'open'") !== false
 );
 ac_assert(
-    'slots catálogo/lección reservados sin contenido',
+    'slots catálogo/lección con estructura C8A3',
     strpos($training, 'aa-training-catalog-root') !== false
     && strpos($training, 'aa-training-lesson-root') !== false
-    && strpos($training, 'SHELL_ONLY') === false // constant is in JS
-    && strpos($training_js, 'SHELL_ONLY') !== false
+    && strpos($training, 'aa-training-catalog-lessons') !== false
+    && strpos($training_js, 'backToCatalog') !== false
 );
 
 // ─── Navigation URL encoding (Abrir curso / Volver a Cuenta) ───────────────

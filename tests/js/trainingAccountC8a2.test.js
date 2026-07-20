@@ -188,13 +188,15 @@ describe('Account module Training wiring', () => {
 });
 
 describe('Training module shell', () => {
-    it('24. no llama getCourse ni getLesson', () => {
-        assert.equal(trainingModule.SHELL_ONLY, true);
-        assert.doesNotMatch(trainingModuleSrc, /getCourse|getLesson/);
+    it('24. portal C8A3 usa getCourse/getLesson', () => {
+        assert.match(trainingModuleSrc, /getCourse/);
+        assert.match(trainingModuleSrc, /getLesson/);
+        assert.match(trainingModuleSrc, /backToCatalog/);
     });
 
-    it('slots catálogo/lección no se activan en C8A2', () => {
-        assert.doesNotMatch(trainingModuleSrc, /aa-training-catalog-root|aa-training-lesson-root/);
+    it('slots catálogo/lección se gestionan en module.js', () => {
+        assert.match(trainingModuleSrc, /aa-training-catalog-root/);
+        assert.match(trainingModuleSrc, /aa-training-lesson-root/);
     });
 });
 
