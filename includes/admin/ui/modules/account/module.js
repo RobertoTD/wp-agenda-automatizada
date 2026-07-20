@@ -1084,8 +1084,425 @@
         });
     }
 
+    // ─── Training card (C8A2) — independent of account status ───────────────
+
+    var trainingStatusRequestId = 0;
+    var trainingConsentRequestId = 0;
+    var trainingMutationBusy = false;
+    var trainingCardBound = false;
+
+    function resolveTrainingUx() {
+        if (window.TrainingAccountUx && typeof window.TrainingAccountUx.buildEnrollmentPresentation === 'function') {
+            return window.TrainingAccountUx;
+        }
+        return null;
+    }
+
+    function resolveTrainingService() {
+        if (window.TrainingService && typeof window.TrainingService.getStatus === 'function') {
+            return window.TrainingService;
+        }
+        return null;
+    }
+
+    function getTrainingConfig() {
+        return window.AA_TRAINING_DATA || {};
+    }
+
+    function setTrainingPanel(mode) {
+        var loadingEl = getEl('aa-training-card-loading');
+        var contentEl = getEl('aa-training-card-content');
+        var errorEl = getEl('aa-training-card-error');
+
+        if (loadingEl) {
+            loadingEl.classList.toggle('hidden', mode !== 'loading');
+        }
+        if (contentEl) {
+            contentEl.classList.toggle('hidden', mode !== 'content');
+        }
+        if (errorEl) {
+            errorEl.classList.toggle('hidden', mode !== 'error');
+        }
+    }
+
+    function clearTrainingActionHosts() {
+        var actionsEl = getEl('aa-training-card-actions');
+        var errorActionsEl = getEl('aa-training-card-error-actions');
+        var consentActionsEl = getEl('aa-training-consent-actions');
+        if (actionsEl) {
+            actionsEl.innerHTML = '';
+        }
+        if (errorActionsEl) {
+            errorActionsEl.innerHTML = '';
+        }
+        if (consentActionsEl) {
+            consentActionsEl.innerHTML = '';
+        }
+    }
+
+    /**
+     * @param {HTMLElement|null} host
+     * @param {{id: string, label: string, kind?: string}|null} action
+     * @param {string} className
+     * @param {boolean} [disabled]
+     */
+    function appendTrainingAction(host, action, className, disabled) {
+        if (!host || !action) {
+            return;
+        }
+
+        var cfg = getTrainingConfig();
+        var el;
+
+        if (action.kind === 'link' && action.id === 'open') {
+            el = document.createElement('a');
+            el.href = typeof cfg.trainingModuleUrl === 'string' ? cfg.trainingModuleUrl : '#';
+            el.className = className;
+            el.textContent = action.label;
+            el.setAttribute('data-aa-training-action', action.id);
+        } else {
+            el = document.createElement('button');
+            el.type = 'button';
+            el.className = className;
+            el.textContent = action.label;
+            el.setAttribute('data-aa-training-action', action.id);
+            if (disabled) {
+                el.disabled = true;
+            }
+        }
+
+        host.appendChild(el);
+    }
+
+    var PRIMARY_BTN =
+        'inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors';
+    var SECONDARY_BTN =
+        'inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors';
+
+    /**
+     * @param {object} presentation from TrainingAccountUx.buildEnrollmentPresentation
+     * @param {boolean} [controlsDisabled]
+     */
+    function renderTrainingEnrollment(presentation, controlsDisabled) {
+        var copyEl = getEl('aa-training-card-copy');
+        var actionsEl = getEl('aa-training-card-actions');
+        var errorMsgEl = getEl('aa-training-card-error-message');
+        var errorActionsEl = getEl('aa-training-card-error-actions');
+        var consentSection = getEl('aa-training-consent-section');
+
+        clearTrainingActionHosts();
+
+        if (presentation.accessState === 'error') {
+            if (errorMsgEl) {
+                errorMsgEl.textContent = presentation.copy;
+            }
+            appendTrainingAction(errorActionsEl, presentation.primaryAction, PRIMARY_BTN, !!controlsDisabled);
+            setTrainingPanel('error');
+            if (consentSection) {
+                consentSection.classList.add('hidden');
+            }
+            return;
+        }
+
+        if (copyEl) {
+            copyEl.textContent = presentation.copy;
+        }
+        appendTrainingAction(actionsEl, presentation.primaryAction, PRIMARY_BTN, !!controlsDisabled);
+        appendTrainingAction(actionsEl, presentation.secondaryAction, SECONDARY_BTN, !!controlsDisabled);
+
+        if (consentSection) {
+            consentSection.classList.toggle('hidden', !presentation.showConsent);
+        }
+
+        setTrainingPanel('content');
+    }
+
+    /**
+     * @param {object} consentPresentation
+     * @param {boolean} [controlsDisabled]
+     */
+    function renderTrainingConsent(consentPresentation, controlsDisabled) {
+        var section = getEl('aa-training-consent-section');
+        if (!section || section.classList.contains('hidden')) {
+            return;
+        }
+
+        var introEl = getEl('aa-training-consent-intro');
+        var statusEl = getEl('aa-training-consent-status');
+        var actionsEl = getEl('aa-training-consent-actions');
+
+        if (introEl) {
+            introEl.textContent = consentPresentation.intro;
+        }
+        if (statusEl) {
+            statusEl.textContent = consentPresentation.statusCopy || '';
+            statusEl.classList.toggle('hidden', !consentPresentation.statusCopy);
+        }
+        if (actionsEl) {
+            actionsEl.innerHTML = '';
+            appendTrainingAction(actionsEl, consentPresentation.primaryAction, PRIMARY_BTN, !!controlsDisabled);
+            appendTrainingAction(actionsEl, consentPresentation.secondaryAction, SECONDARY_BTN, !!controlsDisabled);
+        }
+    }
+
+    function hideTrainingConsent() {
+        var section = getEl('aa-training-consent-section');
+        if (section) {
+            section.classList.add('hidden');
+        }
+    }
+
+    function setTrainingControlsDisabled(disabled) {
+        var root = getEl('aa-training-card-root');
+        if (!root) {
+            return;
+        }
+        var buttons = root.querySelectorAll('button[data-aa-training-action]');
+        for (var i = 0; i < buttons.length; i++) {
+            buttons[i].disabled = !!disabled;
+        }
+    }
+
+    function loadTrainingConsent(options) {
+        options = options || {};
+        var ux = resolveTrainingUx();
+        var service = resolveTrainingService();
+        if (!ux || !service) {
+            return Promise.resolve();
+        }
+
+        var requestId = ++trainingConsentRequestId;
+        renderTrainingConsent(ux.buildConsentPresentation(ux.CONSENT.LOADING), true);
+
+        return service.getConsentStatus()
+            .then(function (result) {
+                if (requestId !== trainingConsentRequestId) {
+                    return;
+                }
+                var consent = result && result.data && result.data.consent
+                    ? result.data.consent
+                    : null;
+                var uiState = ux.resolveConsentUiState(consent);
+                renderTrainingConsent(ux.buildConsentPresentation(uiState), !!options.controlsDisabled);
+            })
+            .catch(function () {
+                if (requestId !== trainingConsentRequestId) {
+                    return;
+                }
+                renderTrainingConsent(ux.buildConsentPresentation(ux.CONSENT.ERROR), false);
+            });
+    }
+
+    function loadTrainingStatus(options) {
+        options = options || {};
+        var ux = resolveTrainingUx();
+        var service = resolveTrainingService();
+        var root = getEl('aa-training-card-root');
+
+        if (!root) {
+            return Promise.resolve();
+        }
+
+        if (!ux || !service) {
+            if (ux) {
+                renderTrainingEnrollment(ux.buildEnrollmentPresentation(ux.ACCESS.ERROR), false);
+            }
+            return Promise.resolve();
+        }
+
+        var requestId = ++trainingStatusRequestId;
+        if (!options.silent) {
+            setTrainingPanel('loading');
+            hideTrainingConsent();
+        }
+
+        return service.getStatus()
+            .then(function (result) {
+                if (requestId !== trainingStatusRequestId) {
+                    return;
+                }
+                var accessState = ux.resolveAccessState(result && result.data ? result.data : null);
+                var presentation = ux.buildEnrollmentPresentation(accessState);
+                renderTrainingEnrollment(presentation, !!trainingMutationBusy);
+                if (presentation.showConsent) {
+                    return loadTrainingConsent({ controlsDisabled: !!trainingMutationBusy });
+                }
+                hideTrainingConsent();
+            })
+            .catch(function () {
+                if (requestId !== trainingStatusRequestId) {
+                    return;
+                }
+                renderTrainingEnrollment(ux.buildEnrollmentPresentation(ux.ACCESS.ERROR), false);
+                hideTrainingConsent();
+            });
+    }
+
+    function runTrainingEnrollmentMutation(serviceMethod) {
+        var service = resolveTrainingService();
+        var ux = resolveTrainingUx();
+        if (!service || !ux || trainingMutationBusy) {
+            return Promise.resolve();
+        }
+
+        trainingMutationBusy = true;
+        setTrainingControlsDisabled(true);
+
+        var mutationPromise;
+        if (serviceMethod === 'enroll') {
+            mutationPromise = service.enroll();
+        } else if (serviceMethod === 'unsubscribe') {
+            mutationPromise = service.unsubscribe();
+        } else {
+            trainingMutationBusy = false;
+            setTrainingControlsDisabled(false);
+            return Promise.resolve();
+        }
+
+        return mutationPromise
+            .catch(function () {
+                // Always refresh from server; do not assume local state.
+            })
+            .then(function () {
+                return loadTrainingStatus({ silent: true });
+            })
+            .then(function () {
+                trainingMutationBusy = false;
+                setTrainingControlsDisabled(false);
+            })
+            .catch(function () {
+                trainingMutationBusy = false;
+                setTrainingControlsDisabled(false);
+            });
+    }
+
+    function runTrainingConsentMutation(serviceMethod) {
+        var service = resolveTrainingService();
+        var ux = resolveTrainingUx();
+        if (!service || !ux || trainingMutationBusy) {
+            return Promise.resolve();
+        }
+
+        trainingMutationBusy = true;
+        setTrainingControlsDisabled(true);
+
+        var mutationPromise;
+        if (serviceMethod === 'accept') {
+            mutationPromise = service.acceptConsent();
+        } else if (serviceMethod === 'revoke') {
+            mutationPromise = service.revokeConsent();
+        } else {
+            trainingMutationBusy = false;
+            setTrainingControlsDisabled(false);
+            return Promise.resolve();
+        }
+
+        return mutationPromise
+            .catch(function () {
+                // Keep enrollment UI; refresh consent only.
+            })
+            .then(function () {
+                return loadTrainingConsent({ controlsDisabled: false });
+            })
+            .then(function () {
+                trainingMutationBusy = false;
+                setTrainingControlsDisabled(false);
+            })
+            .catch(function () {
+                trainingMutationBusy = false;
+                setTrainingControlsDisabled(false);
+            });
+    }
+
+    function handleTrainingCardClick(event) {
+        var target = event.target;
+        if (!target || !target.closest) {
+            return;
+        }
+        var actionEl = target.closest('[data-aa-training-action]');
+        if (!actionEl) {
+            return;
+        }
+
+        var actionId = actionEl.getAttribute('data-aa-training-action');
+        var ux = resolveTrainingUx();
+        if (!ux || !actionId) {
+            return;
+        }
+
+        if (actionId === 'open') {
+            return;
+        }
+
+        event.preventDefault();
+
+        if (actionEl.disabled || trainingMutationBusy) {
+            return;
+        }
+
+        var mapped = ux.mapActionToService(actionId);
+
+        if (mapped === 'retry') {
+            loadTrainingStatus();
+            return;
+        }
+        if (mapped === 'consent_retry') {
+            loadTrainingConsent();
+            return;
+        }
+        if (mapped === 'enroll') {
+            runTrainingEnrollmentMutation('enroll');
+            return;
+        }
+        if (mapped === 'unsubscribe') {
+            var confirmFn = typeof window.confirm === 'function' ? window.confirm.bind(window) : null;
+            var message = ux.UNSUBSCRIBE_CONFIRM_MESSAGE;
+            if (confirmFn && !confirmFn(message)) {
+                return;
+            }
+            runTrainingEnrollmentMutation('unsubscribe');
+            return;
+        }
+        if (mapped === 'accept') {
+            runTrainingConsentMutation('accept');
+            return;
+        }
+        if (mapped === 'revoke') {
+            runTrainingConsentMutation('revoke');
+        }
+    }
+
+    function bindTrainingCardHandlers() {
+        if (trainingCardBound) {
+            return;
+        }
+        var root = getEl('aa-training-card-root');
+        if (!root) {
+            return;
+        }
+        root.addEventListener('click', handleTrainingCardClick);
+        trainingCardBound = true;
+    }
+
+    function initTrainingCard() {
+        var root = getEl('aa-training-card-root');
+        if (!root) {
+            return;
+        }
+
+        try {
+            bindTrainingCardHandlers();
+            loadTrainingStatus();
+        } catch (err) {
+            console.error('[AccountModule] Training card failed to init:', err);
+        }
+    }
+
     if (typeof document !== 'undefined') {
-        document.addEventListener('DOMContentLoaded', init);
+        document.addEventListener('DOMContentLoaded', function () {
+            init();
+            initTrainingCard();
+        });
     }
 
     var presentationApi = {
@@ -1097,6 +1514,11 @@
         shouldShowUpgradeCta: shouldShowUpgradeCta,
         isSafeStripeCheckoutUrl: isSafeStripeCheckoutUrl,
         createUpgradeCheckoutSession: createUpgradeCheckoutSession,
+        initTrainingCard: initTrainingCard,
+        loadTrainingStatus: loadTrainingStatus,
+        runTrainingEnrollmentMutation: runTrainingEnrollmentMutation,
+        runTrainingConsentMutation: runTrainingConsentMutation,
+        handleTrainingCardClick: handleTrainingCardClick,
         VIEW: VIEW
     };
 

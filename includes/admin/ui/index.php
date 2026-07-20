@@ -26,6 +26,7 @@ $allowed_modules = [
     'clients',
     'assignments',
     'learning',
+    'training',
 ];
 
 // Resolve requested module
