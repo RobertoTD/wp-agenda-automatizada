@@ -89,6 +89,12 @@ $aa_training_nonce       = wp_create_nonce(
                     <div id="aa-training-lesson-content" class="hidden space-y-4">
                         <h4 id="aa-training-lesson-title" class="text-base font-semibold text-gray-900"></h4>
                         <div id="aa-training-lesson-blocks" class="space-y-4 text-sm text-gray-800"></div>
+                        <div
+                            id="aa-training-lesson-completion"
+                            class="hidden"
+                            data-aa-training-completion-slot
+                            aria-live="polite"
+                        ></div>
                     </div>
                 </div>
             </div>

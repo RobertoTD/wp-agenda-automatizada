@@ -1,7 +1,8 @@
 /**
- * Training Module — catalog + lesson reader (C8A3).
+ * Training Module — catalog + lesson reader (C8A3 / C9A5a).
  *
- * Uses TrainingService.getCourse / getLesson only. HTML arrives pre-sanitized by PHP.
+ * Uses TrainingService.getCourse / getLesson / markOpened.
+ * HTML arrives pre-sanitized by PHP. Opening gated by access_state.
  */
 (function (root) {
     'use strict';
@@ -13,6 +14,7 @@
 
     var courseRequestId = 0;
     var lessonRequestId = 0;
+    var openedMarkedForRequestId = 0;
     var cachedManifest = null;
     var activeLessonKey = null;
     var handlersBound = false;
@@ -89,8 +91,13 @@
     }
 
     function clearHost(el) {
-        if (el) {
-            el.innerHTML = '';
+        if (!el) {
+            return;
+        }
+        el.innerHTML = '';
+        // Test mocks use a plain array for children; real DOM HTMLCollection updates with innerHTML.
+        if (Array.isArray(el.children)) {
+            el.children.splice(0, el.children.length);
         }
     }
 
@@ -125,7 +132,7 @@
     }
 
     /**
-     * @param {object} err
+     * @param {object|null|undefined} err
      * @param {string} lessonKey
      */
     function showLessonError(err, lessonKey) {
@@ -141,21 +148,20 @@
             msgEl.textContent = mapped.text;
         }
         clearHost(actionsEl);
-
-        if (mapped.showAccountLink) {
-            var link = document.createElement('a');
-            link.className = PRIMARY_BTN;
-            link.href = typeof cfg.accountModuleUrl === 'string' ? cfg.accountModuleUrl : '#';
-            link.textContent = 'Ir a Cuenta';
-            if (actionsEl) {
-                actionsEl.appendChild(link);
-            }
-        } else if (mapped.retry) {
+        if (mapped.retry) {
             appendRetryButton(actionsEl, function () {
                 openLesson(lessonKey);
             });
         }
-
+        if (mapped.showAccountLink && cfg.accountModuleUrl) {
+            var link = document.createElement('a');
+            link.href = String(cfg.accountModuleUrl);
+            link.className = SECONDARY_BTN;
+            link.textContent = 'Ir a Cuenta';
+            if (actionsEl) {
+                actionsEl.appendChild(link);
+            }
+        }
         showSurface('lesson');
         showLessonInner('error');
     }
@@ -188,6 +194,14 @@
                 return;
             }
 
+            var presentation = ux && typeof ux.mapCatalogLessonPresentation === 'function'
+                ? ux.mapCatalogLessonPresentation(lesson)
+                : {
+                    showOpen: false,
+                    showCompletedBadge: false,
+                    statusLabel: null
+                };
+
             var li = document.createElement('li');
             li.className = 'rounded-lg border border-gray-200 bg-white p-4';
 
@@ -195,27 +209,42 @@
             row.className = 'flex flex-wrap items-center justify-between gap-3';
 
             var meta = document.createElement('div');
-            meta.className = 'min-w-0';
+            meta.className = 'min-w-0 space-y-1';
 
             var lessonTitle = document.createElement('p');
             lessonTitle.className = 'text-sm font-medium text-gray-900';
             lessonTitle.textContent = typeof lesson.title === 'string' ? lesson.title : '';
-
             meta.appendChild(lessonTitle);
+
+            if (presentation.showCompletedBadge) {
+                var badge = document.createElement('span');
+                badge.className =
+                    'inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700';
+                badge.textContent = 'Completada';
+                meta.appendChild(badge);
+            }
+
             row.appendChild(meta);
 
-            if (lesson.availability === 'available') {
+            var actions = document.createElement('div');
+            actions.className = 'flex flex-wrap items-center gap-2 shrink-0';
+
+            if (presentation.showOpen) {
                 var openBtn = document.createElement('button');
                 openBtn.type = 'button';
                 openBtn.className = PRIMARY_BTN;
                 openBtn.textContent = 'Abrir';
                 openBtn.setAttribute('data-aa-training-open-lesson', String(lesson.key || ''));
-                row.appendChild(openBtn);
-            } else if (lesson.availability === 'upcoming') {
-                var badge = document.createElement('span');
-                badge.className = 'text-sm text-gray-500';
-                badge.textContent = 'Próximamente';
-                row.appendChild(badge);
+                actions.appendChild(openBtn);
+            } else if (presentation.statusLabel) {
+                var status = document.createElement('span');
+                status.className = 'text-sm text-gray-500';
+                status.textContent = presentation.statusLabel;
+                actions.appendChild(status);
+            }
+
+            if (actions.children.length > 0) {
+                row.appendChild(actions);
             }
 
             li.appendChild(row);
@@ -228,9 +257,47 @@
     }
 
     /**
-     * @param {object} lessonPayload
+     * @param {object|null|undefined} lessonMeta
+     * @param {object|null|undefined} lessonPayload
      */
-    function renderLesson(lessonPayload) {
+    function renderCompletionFooter(lessonMeta, lessonPayload) {
+        var host = getEl('aa-training-lesson-completion');
+        if (!host) {
+            return;
+        }
+
+        clearHost(host);
+        host.classList.add('hidden');
+
+        var ux = resolveUx();
+        if (!ux || typeof ux.mapLessonCompletionFooter !== 'function') {
+            return;
+        }
+
+        var footer = ux.mapLessonCompletionFooter({
+            lessonMeta: lessonMeta,
+            completion_flow: lessonPayload && lessonPayload.completion_flow
+                ? lessonPayload.completion_flow
+                : null
+        });
+
+        if (footer.mode !== 'completed' || !footer.label) {
+            return;
+        }
+
+        var status = document.createElement('p');
+        status.className =
+            'rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800';
+        status.textContent = footer.label;
+        host.appendChild(status);
+        host.classList.remove('hidden');
+    }
+
+    /**
+     * @param {object} lessonPayload
+     * @param {object|null|undefined} [lessonMeta]
+     */
+    function renderLesson(lessonPayload, lessonMeta) {
         var lesson = lessonPayload && lessonPayload.lesson ? lessonPayload.lesson : {};
         var blocks = lessonPayload && Array.isArray(lessonPayload.blocks) ? lessonPayload.blocks : [];
         var ux = resolveUx();
@@ -285,8 +352,58 @@
             }
         });
 
+        renderCompletionFooter(lessonMeta || null, lessonPayload);
+
         showSurface('lesson');
         showLessonInner('content');
+    }
+
+    /**
+     * Fire-and-forget markOpened after a successful render. Never flips the UI on failure.
+     *
+     * @param {string} lessonKey
+     * @param {number} requestId
+     * @param {object|null} lessonMeta
+     */
+    function registerOpenedAfterRender(lessonKey, requestId, lessonMeta) {
+        var ux = resolveUx();
+        var service = resolveService();
+
+        if (requestId !== lessonRequestId || activeLessonKey !== lessonKey) {
+            return;
+        }
+
+        if (!ux || typeof ux.canOpenTrainingLesson !== 'function' || !ux.canOpenTrainingLesson(lessonMeta)) {
+            return;
+        }
+
+        if (typeof ux.shouldSkipMarkOpened === 'function' && ux.shouldSkipMarkOpened(lessonMeta)) {
+            return;
+        }
+
+        if (openedMarkedForRequestId === requestId) {
+            return;
+        }
+
+        if (!service || typeof service.markOpened !== 'function') {
+            return;
+        }
+
+        openedMarkedForRequestId = requestId;
+
+        Promise.resolve()
+            .then(function () {
+                return service.markOpened(lessonKey);
+            })
+            .then(function () {
+                // Success is a no-op for the reader; catalog refresh is C9A5b+.
+            })
+            .catch(function () {
+                // Keep content visible; allow a future open to retry.
+                if (openedMarkedForRequestId === requestId) {
+                    openedMarkedForRequestId = 0;
+                }
+            });
     }
 
     function loadCourse() {
@@ -331,8 +448,17 @@
     function openLesson(lessonKey) {
         var key = typeof lessonKey === 'string' ? lessonKey : '';
         var service = resolveService();
+        var ux = resolveUx();
 
         if (!key || !service) {
+            return Promise.resolve();
+        }
+
+        var lessonMeta = ux && typeof ux.findLessonInManifest === 'function'
+            ? ux.findLessonInManifest(cachedManifest, key)
+            : null;
+
+        if (ux && typeof ux.canOpenTrainingLesson === 'function' && !ux.canOpenTrainingLesson(lessonMeta)) {
             return Promise.resolve();
         }
 
@@ -351,7 +477,8 @@
                     showLessonError({ code: 'training_invalid_response' }, key);
                     return;
                 }
-                renderLesson(data);
+                renderLesson(data, lessonMeta);
+                registerOpenedAfterRender(key, requestId, lessonMeta);
             })
             .catch(function (err) {
                 if (requestId !== lessonRequestId) {
@@ -439,7 +566,11 @@
             cachedManifest = value;
         },
         _getRequestIdsForTests: function () {
-            return { courseRequestId: courseRequestId, lessonRequestId: lessonRequestId };
+            return {
+                courseRequestId: courseRequestId,
+                lessonRequestId: lessonRequestId,
+                openedMarkedForRequestId: openedMarkedForRequestId
+            };
         }
     };
 

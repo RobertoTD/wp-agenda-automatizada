@@ -95,7 +95,8 @@ function loadModule(serviceImpl) {
         'aa-training-lesson-error-actions': el('aa-training-lesson-error-actions'),
         'aa-training-lesson-content': el('aa-training-lesson-content'),
         'aa-training-lesson-title': el('aa-training-lesson-title'),
-        'aa-training-lesson-blocks': el('aa-training-lesson-blocks')
+        'aa-training-lesson-blocks': el('aa-training-lesson-blocks'),
+        'aa-training-lesson-completion': el('aa-training-lesson-completion')
     };
 
     // Ensure each has independent classList
@@ -192,14 +193,17 @@ describe('Training module C8A3 portal', () => {
                     data: {
                         course: { key: 'fundamentos-deoia', title: 'Curso T', description: 'Desc' },
                         lessons: [
-                            { key: 'planeacion', title: 'Planeación', position: 2, availability: 'upcoming' },
-                            { key: 'bienvenida', title: 'Bienvenida', position: 1, availability: 'available' }
+                            { key: 'planeacion', title: 'Planeación', position: 2, availability: 'upcoming', access_state: 'upcoming', progress: { opened: false, completed: false } },
+                            { key: 'bienvenida', title: 'Bienvenida', position: 1, availability: 'available', access_state: 'available', progress: { opened: false, completed: false } }
                         ]
                     }
                 });
             },
             getLesson: function () {
                 calls.push('getLesson');
+                return Promise.resolve({ success: true, data: {} });
+            },
+            markOpened: function () {
                 return Promise.resolve({ success: true, data: {} });
             }
         });
@@ -212,11 +216,11 @@ describe('Training module C8A3 portal', () => {
         const firstRow = els['aa-training-catalog-lessons'].children[0].children[0];
         const firstTitle = firstRow.children[0].children[0];
         assert.equal(firstTitle.textContent, 'Bienvenida');
-        const openBtn = firstRow.children[1];
+        const openBtn = firstRow.children[1].children[0];
         assert.equal(openBtn.textContent, 'Abrir');
         assert.equal(openBtn.getAttribute('data-aa-training-open-lesson'), 'bienvenida');
         const secondRow = els['aa-training-catalog-lessons'].children[1].children[0];
-        assert.equal(secondRow.children[1].textContent, 'Próximamente');
+        assert.equal(secondRow.children[1].children[0].textContent, 'Próximamente');
     });
 
     it('upcoming no solicita lección; available abre getLesson', async () => {
@@ -228,8 +232,8 @@ describe('Training module C8A3 portal', () => {
                     data: {
                         course: { title: 'C', description: 'D' },
                         lessons: [
-                            { key: 'bienvenida', title: 'Bienvenida', position: 1, availability: 'available' },
-                            { key: 'planeacion', title: 'Planeación', position: 2, availability: 'upcoming' }
+                            { key: 'bienvenida', title: 'Bienvenida', position: 1, availability: 'available', access_state: 'available', progress: { opened: false, completed: false } },
+                            { key: 'planeacion', title: 'Planeación', position: 2, availability: 'upcoming', access_state: 'upcoming', progress: { opened: false, completed: false } }
                         ]
                     }
                 });
@@ -247,6 +251,9 @@ describe('Training module C8A3 portal', () => {
                         ]
                     }
                 });
+            },
+            markOpened: function () {
+                return Promise.resolve({ success: true, data: {} });
             }
         });
 
@@ -254,12 +261,29 @@ describe('Training module C8A3 portal', () => {
         assert.deepEqual(lessonCalls, []);
         await mod.openLesson('bienvenida');
         assert.deepEqual(lessonCalls, ['bienvenida']);
+        await mod.openLesson('planeacion');
+        assert.deepEqual(lessonCalls, ['bienvenida']);
     });
 
     it('render rich_text usa innerHTML; exercise usa textContent; ignora desconocidos', async () => {
         const { mod, els } = loadModule({
             getCourse: function () {
-                return Promise.resolve({ success: true, data: { course: {}, lessons: [] } });
+                return Promise.resolve({
+                    success: true,
+                    data: {
+                        course: {},
+                        lessons: [
+                            {
+                                key: 'bienvenida',
+                                title: 'B',
+                                position: 1,
+                                availability: 'available',
+                                access_state: 'available',
+                                progress: { opened: false, completed: false }
+                            }
+                        ]
+                    }
+                });
             },
             getLesson: function () {
                 return Promise.resolve({
@@ -273,9 +297,13 @@ describe('Training module C8A3 portal', () => {
                         ]
                     }
                 });
+            },
+            markOpened: function () {
+                return Promise.resolve({ success: true, data: {} });
             }
         });
 
+        await mod.loadCourse();
         await mod.openLesson('bienvenida');
         assert.equal(els['aa-training-lesson-title'].textContent, 'L1');
         const blocks = els['aa-training-lesson-blocks'].children;
@@ -294,7 +322,16 @@ describe('Training module C8A3 portal', () => {
                     success: true,
                     data: {
                         course: { title: 'C', description: 'D' },
-                        lessons: [{ key: 'bienvenida', title: 'B', position: 1, availability: 'available' }]
+                        lessons: [
+                            {
+                                key: 'bienvenida',
+                                title: 'B',
+                                position: 1,
+                                availability: 'available',
+                                access_state: 'available',
+                                progress: { opened: false, completed: false }
+                            }
+                        ]
                     }
                 });
             },
@@ -303,6 +340,9 @@ describe('Training module C8A3 portal', () => {
                     success: true,
                     data: { lesson: { title: 'L' }, blocks: [] }
                 });
+            },
+            markOpened: function () {
+                return Promise.resolve({ success: true, data: {} });
             }
         });
 

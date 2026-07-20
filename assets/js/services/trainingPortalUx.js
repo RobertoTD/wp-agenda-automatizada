@@ -1,5 +1,5 @@
 /**
- * Training portal UX helpers — catalog / lesson presentation (C8A3).
+ * Training portal UX helpers — catalog / lesson presentation (C8A3 / C9A5a).
  * Pure functions; no DOM, no fetch.
  */
 (function (root) {
@@ -110,11 +110,168 @@
         return block.type === 'rich_text' || block.type === 'exercise';
     }
 
+    /**
+     * @param {unknown} value
+     * @returns {'available'|'locked'|'upcoming'|null}
+     */
+    function normalizeLessonAccessState(value) {
+        if (value === 'available' || value === 'locked' || value === 'upcoming') {
+            return value;
+        }
+        return null;
+    }
+
+    /**
+     * Opening is gated solely by access_state === available.
+     *
+     * @param {object|null|undefined} lesson
+     * @returns {boolean}
+     */
+    function canOpenTrainingLesson(lesson) {
+        return normalizeLessonAccessState(lesson && lesson.access_state) === 'available';
+    }
+
+    /**
+     * @param {object|null|undefined} lesson
+     * @returns {boolean}
+     */
+    function isTrainingLessonCompleted(lesson) {
+        var progress = lesson && lesson.progress && typeof lesson.progress === 'object'
+            ? lesson.progress
+            : null;
+        return !!(progress && progress.completed === true);
+    }
+
+    /**
+     * @param {object|null|undefined} lesson
+     * @returns {boolean}
+     */
+    function isTrainingLessonOpened(lesson) {
+        var progress = lesson && lesson.progress && typeof lesson.progress === 'object'
+            ? lesson.progress
+            : null;
+        if (progress && progress.opened === true) {
+            return true;
+        }
+        return isTrainingLessonCompleted(lesson);
+    }
+
+    /**
+     * Catalog row presentation. Does not inspect unlock prerequisites.
+     *
+     * @param {object|null|undefined} lesson
+     * @returns {{
+     *   access_state: 'available'|'locked'|'upcoming'|null,
+     *   showOpen: boolean,
+     *   showCompletedBadge: boolean,
+     *   statusLabel: string|null
+     * }}
+     */
+    function mapCatalogLessonPresentation(lesson) {
+        var accessState = normalizeLessonAccessState(lesson && lesson.access_state);
+        var completed = isTrainingLessonCompleted(lesson);
+
+        if (accessState === 'available') {
+            return {
+                access_state: 'available',
+                showOpen: true,
+                showCompletedBadge: completed,
+                statusLabel: null
+            };
+        }
+
+        if (accessState === 'locked') {
+            return {
+                access_state: 'locked',
+                showOpen: false,
+                showCompletedBadge: false,
+                statusLabel: 'Completa la lección anterior'
+            };
+        }
+
+        if (accessState === 'upcoming') {
+            return {
+                access_state: 'upcoming',
+                showOpen: false,
+                showCompletedBadge: false,
+                statusLabel: 'Próximamente'
+            };
+        }
+
+        return {
+            access_state: null,
+            showOpen: false,
+            showCompletedBadge: false,
+            statusLabel: null
+        };
+    }
+
+    /**
+     * Reader footer for C9A5a (static only; no actionable CTA).
+     *
+     * @param {{
+     *   lessonMeta?: object|null,
+     *   completion_flow?: object|null
+     * }} input
+     * @returns {{ mode: 'completed'|'none', label: string|null }}
+     */
+    function mapLessonCompletionFooter(input) {
+        var meta = input && input.lessonMeta ? input.lessonMeta : null;
+        if (isTrainingLessonCompleted(meta)) {
+            return {
+                mode: 'completed',
+                label: 'Lección completada'
+            };
+        }
+
+        // Pending completion_flow: reserved for C9A5b — no non-functional CTA.
+        return {
+            mode: 'none',
+            label: null
+        };
+    }
+
+    /**
+     * @param {object|null|undefined} manifest
+     * @param {string} lessonKey
+     * @returns {object|null}
+     */
+    function findLessonInManifest(manifest, lessonKey) {
+        if (!manifest || !Array.isArray(manifest.lessons) || typeof lessonKey !== 'string' || !lessonKey) {
+            return null;
+        }
+        for (var i = 0; i < manifest.lessons.length; i += 1) {
+            var entry = manifest.lessons[i];
+            if (entry && entry.key === lessonKey) {
+                return entry;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Whether markOpened may be skipped because progress already reflects open/complete.
+     *
+     * @param {object|null|undefined} lessonMeta
+     * @returns {boolean}
+     */
+    function shouldSkipMarkOpened(lessonMeta) {
+        return isTrainingLessonOpened(lessonMeta);
+    }
+
     var api = {
         sortLessonsByPosition: sortLessonsByPosition,
         mapCatalogError: mapCatalogError,
         mapLessonError: mapLessonError,
-        isRenderableBlock: isRenderableBlock
+        isRenderableBlock: isRenderableBlock,
+        normalizeLessonAccessState: normalizeLessonAccessState,
+        canOpenTrainingLesson: canOpenTrainingLesson,
+        isTrainingLessonCompleted: isTrainingLessonCompleted,
+        isTrainingLessonOpened: isTrainingLessonOpened,
+        mapCatalogLessonPresentation: mapCatalogLessonPresentation,
+        mapLessonCompletionFooter: mapLessonCompletionFooter,
+        findLessonInManifest: findLessonInManifest,
+        shouldSkipMarkOpened: shouldSkipMarkOpened
     };
 
     root.TrainingPortalUx = api;
