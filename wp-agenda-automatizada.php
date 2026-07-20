@@ -146,6 +146,16 @@ require_once __DIR__ . '/includes/http/ajax/AccountStatusAjax.php';
 AccountStatusAjax::register();
 
 // ================================
+// 🔹 Endpoint AJAX: Training (capa http/ajax; C8A1b)
+// ================================
+require_once __DIR__ . '/includes/infrastructure/backend/class-aa-training-backend-client.php';
+require_once __DIR__ . '/includes/application/training/TrainingEnrollmentUseCase.php';
+require_once __DIR__ . '/includes/application/training/TrainingConsentUseCase.php';
+require_once __DIR__ . '/includes/application/training/TrainingContentUseCase.php';
+require_once __DIR__ . '/includes/http/ajax/TrainingAjax.php';
+TrainingAjax::register();
+
+// ================================
 // 🔹 Endpoint AJAX: Billing Portal session (capa http/ajax)
 // ================================
 require_once __DIR__ . '/includes/infrastructure/backend/class-aa-billing-portal-backend-client.php';

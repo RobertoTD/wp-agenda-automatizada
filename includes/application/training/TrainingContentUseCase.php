@@ -7,7 +7,7 @@ defined('ABSPATH') or die('No direct access');
 
 require_once __DIR__ . '/AA_Training_Use_Case_Support.php';
 
-final class TrainingContentUseCase {
+class TrainingContentUseCase {
     use AA_Training_Use_Case_Support;
 
     /**
