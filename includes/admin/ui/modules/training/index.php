@@ -112,7 +112,9 @@ $aa_training_nonce       = wp_create_nonce(
             acceptConsent: '<?php echo esc_js(class_exists('TrainingAjax') ? TrainingAjax::ACTION_ACCEPT_CONSENT : 'aa_accept_training_consent'); ?>',
             revokeConsent: '<?php echo esc_js(class_exists('TrainingAjax') ? TrainingAjax::ACTION_REVOKE_CONSENT : 'aa_revoke_training_consent'); ?>',
             getCourse: '<?php echo esc_js(class_exists('TrainingAjax') ? TrainingAjax::ACTION_GET_COURSE : 'aa_get_training_course'); ?>',
-            getLesson: '<?php echo esc_js(class_exists('TrainingAjax') ? TrainingAjax::ACTION_GET_LESSON : 'aa_get_training_lesson'); ?>'
+            getLesson: '<?php echo esc_js(class_exists('TrainingAjax') ? TrainingAjax::ACTION_GET_LESSON : 'aa_get_training_lesson'); ?>',
+            markOpened: '<?php echo esc_js(class_exists('TrainingAjax') ? TrainingAjax::ACTION_MARK_LESSON_OPENED : 'aa_mark_training_lesson_opened'); ?>',
+            markCompleted: '<?php echo esc_js(class_exists('TrainingAjax') ? TrainingAjax::ACTION_MARK_LESSON_COMPLETED : 'aa_mark_training_lesson_completed'); ?>'
         },
         courseKey: 'fundamentos-deoia',
         trainingModuleUrl: <?php echo wp_json_encode($aa_training_module_url); ?>,

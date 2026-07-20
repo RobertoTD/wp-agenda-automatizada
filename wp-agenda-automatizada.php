@@ -152,6 +152,7 @@ require_once __DIR__ . '/includes/infrastructure/backend/class-aa-training-backe
 require_once __DIR__ . '/includes/application/training/TrainingEnrollmentUseCase.php';
 require_once __DIR__ . '/includes/application/training/TrainingConsentUseCase.php';
 require_once __DIR__ . '/includes/application/training/TrainingContentUseCase.php';
+require_once __DIR__ . '/includes/application/training/TrainingProgressUseCase.php';
 require_once __DIR__ . '/includes/http/ajax/TrainingAjax.php';
 TrainingAjax::register();
 

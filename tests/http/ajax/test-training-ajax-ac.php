@@ -37,6 +37,8 @@ $expected_actions = [
     'aa_revoke_training_consent',
     'aa_get_training_course',
     'aa_get_training_lesson',
+    'aa_mark_training_lesson_opened',
+    'aa_mark_training_lesson_completed',
 ];
 
 ac_assert('TrainingAjax file readable', $ajax_src !== false);
@@ -55,7 +57,17 @@ ac_assert('bootstrap registers TrainingAjax', strpos($bootstrap_src, 'TrainingAj
 ac_assert('bootstrap loads TrainingEnrollmentUseCase', strpos($bootstrap_src, 'TrainingEnrollmentUseCase.php') !== false);
 ac_assert('bootstrap loads TrainingConsentUseCase', strpos($bootstrap_src, 'TrainingConsentUseCase.php') !== false);
 ac_assert('bootstrap loads TrainingContentUseCase', strpos($bootstrap_src, 'TrainingContentUseCase.php') !== false);
+ac_assert('bootstrap loads TrainingProgressUseCase', strpos($bootstrap_src, 'TrainingProgressUseCase.php') !== false);
 ac_assert('bootstrap loads AA_Training_Backend_Client', strpos($bootstrap_src, 'class-aa-training-backend-client.php') !== false);
+
+$training_index = (string) file_get_contents($plugin_root . '/includes/admin/ui/modules/training/index.php');
+$account_index  = (string) file_get_contents($plugin_root . '/includes/admin/ui/modules/account/index.php');
+ac_assert('Training bootstrap exposes markOpened', strpos($training_index, 'markOpened') !== false);
+ac_assert('Training bootstrap exposes markCompleted', strpos($training_index, 'markCompleted') !== false);
+ac_assert(
+    'Cuenta AA_TRAINING_DATA unchanged for progress actions',
+    strpos($account_index, 'markOpened') === false && strpos($account_index, 'markCompleted') === false
+);
 
 if (!defined('ABSPATH')) {
     define('ABSPATH', $plugin_root . '/');
@@ -133,6 +145,7 @@ require_once $plugin_root . '/includes/infrastructure/backend/class-aa-training-
 require_once $plugin_root . '/includes/application/training/TrainingEnrollmentUseCase.php';
 require_once $plugin_root . '/includes/application/training/TrainingConsentUseCase.php';
 require_once $plugin_root . '/includes/application/training/TrainingContentUseCase.php';
+require_once $plugin_root . '/includes/application/training/TrainingProgressUseCase.php';
 require_once $plugin_root . '/includes/http/ajax/TrainingAjax.php';
 
 final class Mock_Training_Enrollment_Use_Case extends TrainingEnrollmentUseCase {
@@ -209,6 +222,45 @@ final class Mock_Training_Content_Use_Case extends TrainingContentUseCase {
     }
 }
 
+final class Mock_Training_Progress_Use_Case extends TrainingProgressUseCase {
+    /** @var array<string,mixed> */
+    public static $opened_response = [
+        'success' => true,
+        'data'    => [
+            'lesson_key' => 'bienvenida',
+            'progress'   => ['opened' => true, 'completed' => false],
+        ],
+    ];
+    /** @var array<string,mixed> */
+    public static $completed_response = [
+        'success' => true,
+        'data'    => [
+            'lesson_key' => 'bienvenida',
+            'progress'   => ['opened' => true, 'completed' => true],
+        ],
+    ];
+    /** @var string|null */
+    public static $last_lesson_key = null;
+    /** @var list<string> */
+    public static $calls = [];
+    /** @var list<array<string,mixed>> */
+    public static $received_post_snapshots = [];
+
+    public function mark_opened($lesson_key): array {
+        self::$calls[] = 'mark_opened';
+        self::$last_lesson_key = is_string($lesson_key) ? $lesson_key : null;
+        self::$received_post_snapshots[] = $_POST;
+        return self::$opened_response;
+    }
+
+    public function mark_completed($lesson_key): array {
+        self::$calls[] = 'mark_completed';
+        self::$last_lesson_key = is_string($lesson_key) ? $lesson_key : null;
+        self::$received_post_snapshots[] = $_POST;
+        return self::$completed_response;
+    }
+}
+
 final class Testable_TrainingAjax extends TrainingAjax {
     protected static function resolveEnrollmentUseCase(): TrainingEnrollmentUseCase {
         return new Mock_Training_Enrollment_Use_Case();
@@ -220,6 +272,10 @@ final class Testable_TrainingAjax extends TrainingAjax {
 
     protected static function resolveContentUseCase(): TrainingContentUseCase {
         return new Mock_Training_Content_Use_Case();
+    }
+
+    protected static function resolveProgressUseCase(): TrainingProgressUseCase {
+        return new Mock_Training_Progress_Use_Case();
     }
 }
 
@@ -242,6 +298,9 @@ function reset_mocks(): void {
     Mock_Training_Consent_Use_Case::$calls = [];
     Mock_Training_Content_Use_Case::$calls = [];
     Mock_Training_Content_Use_Case::$last_lesson_key = null;
+    Mock_Training_Progress_Use_Case::$calls = [];
+    Mock_Training_Progress_Use_Case::$last_lesson_key = null;
+    Mock_Training_Progress_Use_Case::$received_post_snapshots = [];
     Mock_Training_Enrollment_Use_Case::$status_response = ['success' => true, 'data' => ['access_state' => 'active', 'course_key' => 'fundamentos-deoia']];
     Mock_Training_Enrollment_Use_Case::$enroll_response = ['success' => true, 'data' => ['access_state' => 'active']];
     $GLOBALS['aa_test_can_manage_options'] = true;
@@ -321,6 +380,52 @@ $GLOBALS['aa_test_nonce_valid'] = false;
 $json = run_ajax([Testable_TrainingAjax::class, 'handle_get_status']);
 ac_assert('invalid nonce blocks', $GLOBALS['aa_test_die_message'] === 'bad nonce');
 ac_assert('invalid nonce skips use case', Mock_Training_Enrollment_Use_Case::$calls === []);
+
+reset_mocks();
+$_POST = [
+    'lessonKey'      => 'bienvenida',
+    'enrollmentId'   => 'spoof-enrollment',
+    'installationId' => 'spoof-install',
+    'option_key'     => 'solo-recordar',
+    'score'          => '99',
+];
+$json = run_ajax([Testable_TrainingAjax::class, 'handle_mark_lesson_opened']);
+ac_assert('C9A4 opened calls progress UC', Mock_Training_Progress_Use_Case::$calls === ['mark_opened']);
+ac_assert('C9A4 opened passes lessonKey only', Mock_Training_Progress_Use_Case::$last_lesson_key === 'bienvenida');
+ac_assert('C9A4 opened success envelope', ($json['success'] ?? false) === true);
+ac_assert('C9A4 opened progress payload', ($json['data']['progress']['opened'] ?? null) === true);
+
+reset_mocks();
+$_POST = [
+    'lessonKey'    => 'bienvenida',
+    'enrollmentId' => 'spoof',
+    'answers'      => '[{"option_key":"x"}]',
+];
+$json = run_ajax([Testable_TrainingAjax::class, 'handle_mark_lesson_completed']);
+ac_assert('C9A4 completed calls progress UC', Mock_Training_Progress_Use_Case::$calls === ['mark_completed']);
+ac_assert('C9A4 completed lessonKey only', Mock_Training_Progress_Use_Case::$last_lesson_key === 'bienvenida');
+ac_assert('C9A4 completed success', ($json['success'] ?? false) === true);
+
+reset_mocks();
+$GLOBALS['aa_test_can_manage_options'] = false;
+$_POST['lessonKey'] = 'bienvenida';
+$json = run_ajax([Testable_TrainingAjax::class, 'handle_mark_lesson_opened']);
+ac_assert('C9A4 opened requires manage_options', ($json['success'] ?? true) === false);
+ac_assert('C9A4 opened capability skips UC', Mock_Training_Progress_Use_Case::$calls === []);
+
+reset_mocks();
+$GLOBALS['aa_test_nonce_valid'] = false;
+$_POST['lessonKey'] = 'bienvenida';
+$json = run_ajax([Testable_TrainingAjax::class, 'handle_mark_lesson_completed']);
+ac_assert('C9A4 completed requires nonce', $GLOBALS['aa_test_die_message'] === 'bad nonce');
+ac_assert('C9A4 completed nonce skips UC', Mock_Training_Progress_Use_Case::$calls === []);
+
+reset_mocks();
+run_ajax([Testable_TrainingAjax::class, 'handle_get_course']);
+ac_assert('C9A4 regression get_course intact', Mock_Training_Content_Use_Case::$calls === ['get_course']);
+$_POST['lessonKey'] = 'bienvenida';
+run_ajax([Testable_TrainingAjax::class, 'handle_get_lesson']);
+ac_assert('C9A4 regression get_lesson intact', Mock_Training_Content_Use_Case::$calls === ['get_course', 'get_lesson']);
 
 echo "\nPassed {$passed}/{$total}\n";
 if ($failed !== []) {

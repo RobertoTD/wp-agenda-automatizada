@@ -93,6 +93,7 @@ require_once $plugin_root . '/includes/infrastructure/backend/class-aa-training-
 require_once $plugin_root . '/includes/application/training/TrainingEnrollmentUseCase.php';
 require_once $plugin_root . '/includes/application/training/TrainingConsentUseCase.php';
 require_once $plugin_root . '/includes/application/training/TrainingContentUseCase.php';
+require_once $plugin_root . '/includes/application/training/TrainingProgressUseCase.php';
 
 function reset_http(): void {
     $GLOBALS['aa_test_http_calls']    = [];
@@ -403,6 +404,106 @@ ac_assert('content use case has blocks', isset($uc_result['data']['blocks']));
 $encoded = json_encode($uc_result);
 ac_assert('12. no secret in use case result', strpos($encoded, 'secret-value-xyz') === false);
 ac_assert('12. no HMAC wording in result', stripos($encoded, 'signature') === false);
+
+// ─── C9A4 progress client + use case ───────────────────────────────
+reset_http();
+$GLOBALS['aa_test_http_response'] = json_response(200, [
+    'ok'         => true,
+    'lesson_key' => 'bienvenida',
+    'progress'   => ['opened' => true, 'completed' => false],
+]);
+$result = $client->mark_lesson_opened('bienvenida');
+ac_assert('C9A4 opened uses POST', ($GLOBALS['aa_test_http_calls'][0]['method'] ?? '') === 'POST');
+ac_assert(
+    'C9A4 opened URL',
+    ($GLOBALS['aa_test_http_calls'][0]['endpoint'] ?? '') ===
+        'http://localhost:3000/training/courses/fundamentos-deoia/lessons/bienvenida/opened'
+);
+ac_assert('C9A4 opened body empty array', ($GLOBALS['aa_test_http_calls'][0]['data'] ?? null) === []);
+$opened_body = json_encode($GLOBALS['aa_test_http_calls'][0]['data'] ?? null);
+ac_assert(
+    'C9A4 opened body has no identity fields',
+    strpos($opened_body, 'enrollment') === false
+        && strpos($opened_body, 'installation') === false
+        && strpos($opened_body, 'option_key') === false
+);
+
+reset_http();
+$GLOBALS['aa_test_http_response'] = json_response(200, [
+    'ok'         => true,
+    'lesson_key' => 'bienvenida',
+    'progress'   => ['opened' => true, 'completed' => true],
+]);
+$result = $client->mark_lesson_completed('bienvenida');
+ac_assert('C9A4 completed uses POST', ($GLOBALS['aa_test_http_calls'][0]['method'] ?? '') === 'POST');
+ac_assert(
+    'C9A4 completed URL',
+    ($GLOBALS['aa_test_http_calls'][0]['endpoint'] ?? '') ===
+        'http://localhost:3000/training/courses/fundamentos-deoia/lessons/bienvenida/completed'
+);
+ac_assert('C9A4 completed body empty array', ($GLOBALS['aa_test_http_calls'][0]['data'] ?? null) === []);
+
+reset_http();
+$result = $client->mark_lesson_opened('../etc/passwd');
+ac_assert('C9A4 invalid key rejected before transport', ($result['code'] ?? '') === 'training_content_lesson_key_invalid');
+ac_assert('C9A4 invalid key skips HTTP', count($GLOBALS['aa_test_http_calls']) === 0);
+
+reset_http();
+$GLOBALS['aa_test_http_response'] = json_response(409, [
+    'ok'    => false,
+    'error' => 'training_content_lesson_locked',
+]);
+$result = $client->mark_lesson_opened('bienvenida');
+ac_assert('C9A4 preserves training_content_lesson_locked', ($result['code'] ?? '') === 'training_content_lesson_locked');
+
+reset_http();
+$GLOBALS['aa_test_http_response'] = json_response(409, [
+    'ok'    => false,
+    'error' => 'training_content_completion_flow_missing',
+]);
+$result = $client->mark_lesson_completed('bienvenida');
+ac_assert(
+    'C9A4 preserves training_content_completion_flow_missing',
+    ($result['code'] ?? '') === 'training_content_completion_flow_missing'
+);
+
+reset_http();
+$GLOBALS['aa_test_http_response'] = json_response(200, [
+    'ok'         => true,
+    'lesson_key' => 'bienvenida',
+    'progress'   => [
+        'opened'       => 1,
+        'completed'    => 0,
+        'opened_at'    => '2026-07-01T00:00:00.000Z',
+        'completed_at' => null,
+    ],
+]);
+$progress_uc = new TrainingProgressUseCase($client);
+$uc_result   = $progress_uc->mark_opened('bienvenida');
+ac_assert('C9A4 progress UC opened success', ($uc_result['success'] ?? false) === true);
+ac_assert('C9A4 progress UC opened lesson_key', ($uc_result['data']['lesson_key'] ?? '') === 'bienvenida');
+ac_assert('C9A4 progress UC normalizes opened bool', ($uc_result['data']['progress']['opened'] ?? null) === true);
+ac_assert('C9A4 progress UC normalizes completed bool', ($uc_result['data']['progress']['completed'] ?? null) === false);
+ac_assert(
+    'C9A4 progress UC strips timestamps',
+    !isset($uc_result['data']['progress']['opened_at'])
+        && !isset($uc_result['data']['progress']['completed_at'])
+);
+
+reset_http();
+$GLOBALS['aa_test_http_response'] = json_response(200, [
+    'ok'         => true,
+    'lesson_key' => 'bienvenida',
+    'progress'   => ['opened' => true, 'completed' => true],
+]);
+$uc_result = $progress_uc->mark_completed('bienvenida');
+ac_assert('C9A4 progress UC completed success', ($uc_result['success'] ?? false) === true);
+ac_assert('C9A4 progress UC completed true', ($uc_result['data']['progress']['completed'] ?? null) === true);
+
+reset_http();
+$uc_result = $progress_uc->mark_opened('BAD_KEY');
+ac_assert('C9A4 progress UC rejects invalid key', ($uc_result['error']['code'] ?? '') === 'training_content_lesson_key_invalid');
+ac_assert('C9A4 progress UC invalid key skips HTTP', count($GLOBALS['aa_test_http_calls']) === 0);
 
 echo "\nPassed {$passed}/{$total}\n";
 if ($failed !== []) {

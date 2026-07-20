@@ -11,6 +11,7 @@ require_once dirname(__DIR__, 2) . '/infrastructure/backend/class-aa-training-ba
 require_once dirname(__DIR__, 2) . '/application/training/TrainingEnrollmentUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/training/TrainingConsentUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/training/TrainingContentUseCase.php';
+require_once dirname(__DIR__, 2) . '/application/training/TrainingProgressUseCase.php';
 
 class TrainingAjax {
 
@@ -24,6 +25,8 @@ class TrainingAjax {
     public const ACTION_REVOKE_CONSENT      = 'aa_revoke_training_consent';
     public const ACTION_GET_COURSE          = 'aa_get_training_course';
     public const ACTION_GET_LESSON          = 'aa_get_training_lesson';
+    public const ACTION_MARK_LESSON_OPENED  = 'aa_mark_training_lesson_opened';
+    public const ACTION_MARK_LESSON_COMPLETED = 'aa_mark_training_lesson_completed';
 
     public static function register(): void {
         add_action('wp_ajax_' . self::ACTION_GET_STATUS, [__CLASS__, 'handle_get_status']);
@@ -34,6 +37,8 @@ class TrainingAjax {
         add_action('wp_ajax_' . self::ACTION_REVOKE_CONSENT, [__CLASS__, 'handle_revoke_consent']);
         add_action('wp_ajax_' . self::ACTION_GET_COURSE, [__CLASS__, 'handle_get_course']);
         add_action('wp_ajax_' . self::ACTION_GET_LESSON, [__CLASS__, 'handle_get_lesson']);
+        add_action('wp_ajax_' . self::ACTION_MARK_LESSON_OPENED, [__CLASS__, 'handle_mark_lesson_opened']);
+        add_action('wp_ajax_' . self::ACTION_MARK_LESSON_COMPLETED, [__CLASS__, 'handle_mark_lesson_completed']);
     }
 
     public static function handle_get_status(): void {
@@ -79,6 +84,25 @@ class TrainingAjax {
             : '';
 
         self::respond(static::resolveContentUseCase()->get_lesson($lesson_key));
+    }
+
+    public static function handle_mark_lesson_opened(): void {
+        self::authorize();
+        self::respond(static::resolveProgressUseCase()->mark_opened(self::read_lesson_key()));
+    }
+
+    public static function handle_mark_lesson_completed(): void {
+        self::authorize();
+        self::respond(static::resolveProgressUseCase()->mark_completed(self::read_lesson_key()));
+    }
+
+    /**
+     * Reads only lessonKey from the AJAX request. Ignores identity and quiz fields.
+     */
+    private static function read_lesson_key(): string {
+        return isset($_POST['lessonKey'])
+            ? sanitize_text_field(wp_unslash((string) $_POST['lessonKey']))
+            : '';
     }
 
     private static function authorize(): void {
@@ -127,5 +151,9 @@ class TrainingAjax {
 
     protected static function resolveContentUseCase(): TrainingContentUseCase {
         return new TrainingContentUseCase();
+    }
+
+    protected static function resolveProgressUseCase(): TrainingProgressUseCase {
+        return new TrainingProgressUseCase();
     }
 }

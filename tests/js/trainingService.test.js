@@ -20,7 +20,9 @@ function loadService(fetchImpl, config) {
             acceptConsent: 'aa_accept_training_consent',
             revokeConsent: 'aa_revoke_training_consent',
             getCourse: 'aa_get_training_course',
-            getLesson: 'aa_get_training_lesson'
+            getLesson: 'aa_get_training_lesson',
+            markOpened: 'aa_mark_training_lesson_opened',
+            markCompleted: 'aa_mark_training_lesson_completed'
         }
     };
     globalThis.fetch = fetchImpl;
@@ -66,7 +68,7 @@ describe('TrainingService', () => {
         assert.doesNotMatch(serviceSrc, /X-Signature|X-Client-Id/);
     });
 
-    it('ocho métodos usan la acción correcta y el nonce configurado', async () => {
+    it('métodos usan la acción correcta y el nonce configurado', async () => {
         var capture = captureFetch();
         var service = loadService(capture.fetchImpl);
         var methods = [
@@ -83,15 +85,18 @@ describe('TrainingService', () => {
             await service[methods[i][0]]();
         }
         await service.getLesson('bienvenida');
+        await service.markOpened('bienvenida');
+        await service.markCompleted('bienvenida');
 
-        assert.equal(capture.calls.length, 8);
+        assert.equal(capture.calls.length, 10);
         methods.forEach(function (pair, index) {
             assert.equal(capture.calls[index].fields.action, pair[1]);
             assert.equal(capture.calls[index].fields._wpnonce, 'training-nonce');
             assert.equal(capture.calls[index].url, 'https://agenda.test/wp-admin/admin-ajax.php');
         });
         assert.equal(capture.calls[7].fields.action, 'aa_get_training_lesson');
-        assert.equal(capture.calls[7].fields._wpnonce, 'training-nonce');
+        assert.equal(capture.calls[8].fields.action, 'aa_mark_training_lesson_opened');
+        assert.equal(capture.calls[9].fields.action, 'aa_mark_training_lesson_completed');
     });
 
     it('getLesson envía solo lessonKey (sin courseKey ni IDs)', async () => {
@@ -102,6 +107,47 @@ describe('TrainingService', () => {
         assert.equal(Object.prototype.hasOwnProperty.call(capture.calls[0].fields, 'courseKey'), false);
         assert.equal(Object.prototype.hasOwnProperty.call(capture.calls[0].fields, 'enrollmentId'), false);
         assert.equal(Object.prototype.hasOwnProperty.call(capture.calls[0].fields, 'installationId'), false);
+    });
+
+    it('markOpened y markCompleted envían solo lessonKey', async () => {
+        var capture = captureFetch();
+        var service = loadService(capture.fetchImpl);
+        await service.markOpened('bienvenida');
+        await service.markCompleted('bienvenida');
+
+        assert.equal(capture.calls[0].fields.action, 'aa_mark_training_lesson_opened');
+        assert.equal(capture.calls[0].fields.lessonKey, 'bienvenida');
+        assert.equal(Object.prototype.hasOwnProperty.call(capture.calls[0].fields, 'enrollmentId'), false);
+        assert.equal(Object.prototype.hasOwnProperty.call(capture.calls[0].fields, 'option_key'), false);
+        assert.equal(Object.prototype.hasOwnProperty.call(capture.calls[0].fields, 'score'), false);
+
+        assert.equal(capture.calls[1].fields.action, 'aa_mark_training_lesson_completed');
+        assert.equal(capture.calls[1].fields.lessonKey, 'bienvenida');
+        assert.equal(Object.prototype.hasOwnProperty.call(capture.calls[1].fields, 'installationId'), false);
+        assert.equal(Object.prototype.hasOwnProperty.call(capture.calls[1].fields, 'answers'), false);
+    });
+
+    it('markOpened conserva err.code y err.kind en fallos', async () => {
+        var service = loadService(function () {
+            return Promise.resolve({
+                ok: true,
+                json: function () {
+                    return Promise.resolve({
+                        success: false,
+                        data: {
+                            code: 'training_content_lesson_locked',
+                            message: ''
+                        }
+                    });
+                }
+            });
+        });
+
+        await assert.rejects(service.markOpened('bienvenida'), (err) => {
+            assert.equal(err.code, 'training_content_lesson_locked');
+            assert.equal(err.kind, 'training');
+            return true;
+        });
     });
 
     it('success se normaliza a { success: true, data }', async () => {

@@ -11,7 +11,8 @@
  *   actions: {
  *     getStatus, enroll, unsubscribe,
  *     getConsentStatus, acceptConsent, revokeConsent,
- *     getCourse, getLesson
+ *     getCourse, getLesson,
+ *     markOpened, markCompleted
  *   }
  * }
  */
@@ -26,7 +27,9 @@
         acceptConsent: 'aa_accept_training_consent',
         revokeConsent: 'aa_revoke_training_consent',
         getCourse: 'aa_get_training_course',
-        getLesson: 'aa_get_training_lesson'
+        getLesson: 'aa_get_training_lesson',
+        markOpened: 'aa_mark_training_lesson_opened',
+        markCompleted: 'aa_mark_training_lesson_completed'
     };
 
     /**
@@ -211,6 +214,22 @@
         return postAction('getLesson', { lessonKey: lessonKey }, options);
     }
 
+    /**
+     * @param {string} lessonKey
+     * @param {{ signal?: AbortSignal, config?: object }} [options]
+     */
+    function markOpened(lessonKey, options) {
+        return postAction('markOpened', { lessonKey: lessonKey }, options);
+    }
+
+    /**
+     * @param {string} lessonKey
+     * @param {{ signal?: AbortSignal, config?: object }} [options]
+     */
+    function markCompleted(lessonKey, options) {
+        return postAction('markCompleted', { lessonKey: lessonKey }, options);
+    }
+
     var api = {
         getStatus: getStatus,
         enroll: enroll,
@@ -220,6 +239,8 @@
         revokeConsent: revokeConsent,
         getCourse: getCourse,
         getLesson: getLesson,
+        markOpened: markOpened,
+        markCompleted: markCompleted,
         DEFAULT_ACTIONS: DEFAULT_ACTIONS
     };
 

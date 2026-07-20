@@ -125,6 +125,44 @@ class AA_Training_Backend_Client {
     }
 
     /**
+     * @param string $lesson_key
+     * @return array{ok: true, result: array<string,mixed>}|array{ok: false, code: string, error: string, http_status: int}
+     */
+    public function mark_lesson_opened($lesson_key): array {
+        $key = is_string($lesson_key) ? $lesson_key : '';
+        if (!$this->is_valid_lesson_key($key)) {
+            return $this->failure('training_content_lesson_key_invalid', '', 400);
+        }
+
+        return $this->requestJson(
+            'POST',
+            '/training/courses/' . rawurlencode(self::COURSE_KEY)
+                . '/lessons/' . rawurlencode($key) . '/opened',
+            [],
+            ['lesson_key', 'progress']
+        );
+    }
+
+    /**
+     * @param string $lesson_key
+     * @return array{ok: true, result: array<string,mixed>}|array{ok: false, code: string, error: string, http_status: int}
+     */
+    public function mark_lesson_completed($lesson_key): array {
+        $key = is_string($lesson_key) ? $lesson_key : '';
+        if (!$this->is_valid_lesson_key($key)) {
+            return $this->failure('training_content_lesson_key_invalid', '', 400);
+        }
+
+        return $this->requestJson(
+            'POST',
+            '/training/courses/' . rawurlencode(self::COURSE_KEY)
+                . '/lessons/' . rawurlencode($key) . '/completed',
+            [],
+            ['lesson_key', 'progress']
+        );
+    }
+
+    /**
      * @param string $value
      */
     public function is_valid_lesson_key($value): bool {
