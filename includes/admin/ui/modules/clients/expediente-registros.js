@@ -1,7 +1,7 @@
 /**
- * Expediente registros — chronology list + create modal (MC2).
+ * Expediente registros — chronology list + create/edit modal (MC2/MC3).
  *
- * Loaded only on view=expediente. Create/edit share one form builder; MC2 wires create only.
+ * Loaded only on view=expediente. Create and edit share one modal form.
  */
 
 (function () {
@@ -15,6 +15,9 @@
         records: [],
         loading: false
     };
+
+    // Solo para abortar el watcher de cierre del modal (foco / limpieza).
+    var modalCloseAbort = null;
 
     function getConfig() {
         return window.AA_CLIENTS_DATA || {};
@@ -81,6 +84,105 @@
         renderStatusMessage(message || 'No se pudieron cargar los registros.', 'text-sm text-red-600');
     }
 
+    function findRecordById(recordId) {
+        var id = parseInt(recordId, 10);
+        if (!(id > 0)) {
+            return null;
+        }
+        for (var i = 0; i < state.records.length; i++) {
+            if (parseInt(state.records[i].id, 10) === id) {
+                return state.records[i];
+            }
+        }
+        return null;
+    }
+
+    function focusEditButtonById(recordId) {
+        var id = parseInt(recordId, 10);
+        if (!(id > 0) || !state.recordsRoot) {
+            return;
+        }
+        var btn = state.recordsRoot.querySelector(
+            '.aa-expediente-btn-editar[data-registro-id="' + id + '"]'
+        );
+        if (btn && typeof btn.focus === 'function') {
+            try {
+                btn.focus({ preventScroll: true });
+            } catch (e) {
+                btn.focus();
+            }
+        }
+    }
+
+    function focusElement(el) {
+        if (!el || typeof el.focus !== 'function') {
+            return;
+        }
+        if (typeof document !== 'undefined' && document.contains && !document.contains(el)) {
+            return;
+        }
+        try {
+            el.focus({ preventScroll: true });
+        } catch (e) {
+            el.focus();
+        }
+    }
+
+    /**
+     * Observa el cierre del modal (Cancelar / X / Escape / overlay) sin listeners documentales extra.
+     * @param {function():void} onClosed
+     * @returns {function(Object=):void} abort
+     */
+    function watchModalClose(onClosed) {
+        var root = typeof document !== 'undefined'
+            ? document.getElementById('aa-modal-root')
+            : null;
+        if (!root || typeof MutationObserver === 'undefined') {
+            return function abort() {};
+        }
+
+        var done = false;
+        var observer = new MutationObserver(function () {
+            if (done) {
+                return;
+            }
+            if (root.classList && root.classList.contains('hidden')) {
+                done = true;
+                observer.disconnect();
+                onClosed();
+            }
+        });
+        observer.observe(root, { attributes: true, attributeFilter: ['class'] });
+
+        return function abort(options) {
+            if (done) {
+                return;
+            }
+            done = true;
+            observer.disconnect();
+            if (options && options.runCallback) {
+                onClosed();
+            }
+        };
+    }
+
+    function disarmModalCloseWatcher(options) {
+        if (!modalCloseAbort) {
+            return;
+        }
+        var abort = modalCloseAbort;
+        modalCloseAbort = null;
+        abort(options || {});
+    }
+
+    function armModalCloseFocus(focusReturnEl) {
+        disarmModalCloseWatcher();
+        modalCloseAbort = watchModalClose(function () {
+            modalCloseAbort = null;
+            focusElement(focusReturnEl);
+        });
+    }
+
     /**
      * @param {object} record
      * @param {{open?: boolean}} [options]
@@ -138,6 +240,17 @@
         var actions = document.createElement('div');
         actions.className = 'aa-expediente-registro-actions';
 
+        var editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'aa-expediente-btn-editar';
+        editBtn.setAttribute('data-registro-id', String(record.id));
+        editBtn.textContent = 'Editar';
+        editBtn.addEventListener('click', function (event) {
+            event.preventDefault();
+            openEditForm(record.id, editBtn);
+        });
+        actions.appendChild(editBtn);
+
         panel.appendChild(body);
         panel.appendChild(actions);
 
@@ -168,7 +281,7 @@
         newBtn.textContent = 'Nuevo registro';
         newBtn.addEventListener('click', function (event) {
             event.preventDefault();
-            openCreateForm();
+            openCreateForm(newBtn);
         });
         toolbar.appendChild(newBtn);
         state.recordsRoot.appendChild(toolbar);
@@ -204,6 +317,29 @@
     function prependRecord(record) {
         state.records = sortRecordsDesc([record].concat(state.records));
         renderRecordsList({ expandId: record && record.id });
+    }
+
+    /**
+     * Reemplaza por id sin duplicar ni reordenar por updated_at.
+     * @param {object} record
+     */
+    function replaceRecord(record) {
+        if (!record || !(parseInt(record.id, 10) > 0)) {
+            return;
+        }
+        var id = parseInt(record.id, 10);
+        var replaced = false;
+        state.records = state.records.map(function (existing) {
+            if (parseInt(existing.id, 10) === id) {
+                replaced = true;
+                return record;
+            }
+            return existing;
+        });
+        if (!replaced) {
+            return;
+        }
+        renderRecordsList({ expandId: id });
     }
 
     function postForm(action, fields) {
@@ -255,13 +391,21 @@
     }
 
     /**
-     * Shared create/edit form builder. MC2 only wires mode=create.
+     * Shared create/edit form. Mode and record_id live in this opening's closure.
      *
-     * @param {{mode:string, record?:object}} options
+     * @param {{mode:string, record?:object, recordId?:number, focusReturnEl?:HTMLElement}} options
      */
     function openRegistroForm(options) {
-        var mode = (options && options.mode) || 'create';
-        var record = (options && options.record) || null;
+        options = options || {};
+        var mode = options.mode || 'create';
+        var record = options.record || null;
+        var recordId = options.recordId != null
+            ? parseInt(options.recordId, 10)
+            : (record && record.id != null ? parseInt(record.id, 10) : 0);
+        if (!(recordId > 0)) {
+            recordId = 0;
+        }
+        var focusReturnEl = options.focusReturnEl || null;
 
         if (!window.AAAdmin || typeof window.AAAdmin.openModal !== 'function') {
             console.error('[ExpedienteRegistros] AAAdmin.openModal no disponible');
@@ -282,6 +426,7 @@
         titleInput.className = 'aa-expediente-registro-input';
         titleInput.maxLength = 200;
         titleInput.required = true;
+        titleInput.value = '';
         if (mode === 'edit' && record) {
             titleInput.value = record.title || '';
         }
@@ -296,6 +441,7 @@
         bodyInput.className = 'aa-expediente-registro-textarea';
         bodyInput.rows = 6;
         bodyInput.required = true;
+        bodyInput.value = '';
         if (mode === 'edit' && record) {
             bodyInput.value = record.body || '';
         }
@@ -333,6 +479,8 @@
             footer: footer
         });
 
+        armModalCloseFocus(focusReturnEl);
+
         window.setTimeout(function () {
             titleInput.focus();
         }, 50);
@@ -340,6 +488,11 @@
         function showFormError(message) {
             errorEl.textContent = message;
             errorEl.classList.remove('hidden');
+        }
+
+        function reenableSave() {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Guardar';
         }
 
         saveBtn.addEventListener('click', function (event) {
@@ -360,51 +513,86 @@
                 return;
             }
 
-            if (mode !== 'create') {
-                // MC3 will wire edit here.
-                showFormError('La edición aún no está disponible.');
-                return;
-            }
-
             var data = getConfig();
-            var action = (data.actions && data.actions.createRegistro) || 'aa_create_expediente_registro';
+            var action;
+            var fields = {
+                client_id: String(state.clientId),
+                title: title,
+                body: body
+            };
+
+            if (mode === 'edit') {
+                if (!(recordId > 0)) {
+                    showFormError('Registro no válido.');
+                    return;
+                }
+                action = (data.actions && data.actions.updateRegistro) || 'aa_update_expediente_registro';
+                fields.record_id = String(recordId);
+            } else {
+                action = (data.actions && data.actions.createRegistro) || 'aa_create_expediente_registro';
+            }
 
             saveBtn.disabled = true;
             saveBtn.textContent = 'Guardando...';
 
-            postForm(action, {
-                client_id: String(state.clientId),
-                title: title,
-                body: body
-            })
+            postForm(action, fields)
                 .then(function (payload) {
                     var result = payload.result;
                     if (result && result.success && result.data && result.data.record) {
+                        var saved = result.data.record;
+                        // Evitar que el watcher de cierre enfoque el botón viejo / desconectado.
+                        disarmModalCloseWatcher();
                         if (typeof window.AAAdmin.closeModal === 'function') {
                             window.AAAdmin.closeModal();
                         }
-                        prependRecord(result.data.record);
+                        if (mode === 'edit') {
+                            replaceRecord(saved);
+                            focusEditButtonById(saved.id);
+                        } else {
+                            prependRecord(saved);
+                        }
                         return;
                     }
-                    var message = 'No se pudo guardar el registro.';
+                    var message = mode === 'edit'
+                        ? 'No se pudo actualizar el registro.'
+                        : 'No se pudo guardar el registro.';
                     if (result && result.data && result.data.message) {
                         message = String(result.data.message);
                     }
                     showFormError(message);
-                    saveBtn.disabled = false;
-                    saveBtn.textContent = 'Guardar';
+                    reenableSave();
                 })
                 .catch(function (err) {
-                    console.error('[ExpedienteRegistros] create failed:', err);
-                    showFormError('No se pudo guardar el registro.');
-                    saveBtn.disabled = false;
-                    saveBtn.textContent = 'Guardar';
+                    console.error('[ExpedienteRegistros] save failed:', err);
+                    showFormError(
+                        mode === 'edit'
+                            ? 'No se pudo actualizar el registro.'
+                            : 'No se pudo guardar el registro.'
+                    );
+                    reenableSave();
                 });
         });
     }
 
-    function openCreateForm() {
-        openRegistroForm({ mode: 'create' });
+    function openCreateForm(focusReturnEl) {
+        openRegistroForm({
+            mode: 'create',
+            focusReturnEl: focusReturnEl || null
+        });
+    }
+
+    function openEditForm(recordId, focusReturnEl) {
+        var record = findRecordById(recordId);
+        if (!record) {
+            console.error('[ExpedienteRegistros] registro no encontrado en estado');
+            return;
+        }
+        openRegistroForm({
+            mode: 'edit',
+            record: record,
+            recordId: parseInt(record.id, 10),
+            focusReturnEl: focusReturnEl || null
+        });
     }
 
     /**
@@ -439,6 +627,8 @@
             sortRecordsDesc: sortRecordsDesc,
             renderRecordsList: renderRecordsList,
             prependRecord: prependRecord,
+            replaceRecord: replaceRecord,
+            findRecordById: findRecordById,
             getState: function () { return state; },
             setState: function (partial) {
                 Object.keys(partial || {}).forEach(function (key) {

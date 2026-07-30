@@ -2,7 +2,7 @@
 /**
  * Expediente Registros Repository — SQL puro para registros de expediente.
  *
- * MC2: insert + list by client. Sin update/delete.
+ * MC2: insert + list. MC3: find by id+client + update title/body.
  *
  * @package WP_Agenda_Automatizada
  * @subpackage Repositories
@@ -93,6 +93,83 @@ final class ExpedienteRegistrosRepository {
         }
 
         return $out;
+    }
+
+    /**
+     * Busca un registro que pertenece al cliente en el blog actual.
+     *
+     * @return array{id:int,client_id:int,title:string,body:string,recorded_at:string,created_at:string,updated_at:?string}|null
+     */
+    public static function find_by_id_for_client(int $record_id, int $client_id): ?array {
+        if ($record_id < 1 || $client_id < 1) {
+            return null;
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT id, client_id, title, body, recorded_at, created_at, updated_at
+                 FROM {$table}
+                 WHERE id = %d AND client_id = %d
+                 LIMIT 1",
+                $record_id,
+                $client_id
+            ),
+            ARRAY_A
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[ExpedienteRegistrosRepository] find error: ' . $wpdb->last_error);
+            return null;
+        }
+
+        return self::map_row(is_array($row) ? $row : null);
+    }
+
+    /**
+     * Actualiza solo title, body y updated_at. WHERE exige id + client_id.
+     *
+     * @return true|\WP_Error true incluso si $wpdb->update() === 0 (sin cambios de valor)
+     */
+    public static function update_title_body(
+        int $record_id,
+        int $client_id,
+        string $title,
+        string $body,
+        string $updated_at
+    ) {
+        if ($record_id < 1 || $client_id < 1 || $title === '' || $body === '' || $updated_at === '') {
+            return new WP_Error('invalid_registro_data', 'Datos de registro incompletos.');
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+
+        $result = $wpdb->update(
+            $table,
+            [
+                'title' => $title,
+                'body' => $body,
+                'updated_at' => $updated_at,
+            ],
+            [
+                'id' => $record_id,
+                'client_id' => $client_id,
+            ],
+            ['%s', '%s', '%s'],
+            ['%d', '%d']
+        );
+
+        if ($result === false) {
+            error_log('[ExpedienteRegistrosRepository] update error: ' . $wpdb->last_error);
+
+            return new WP_Error('db_error', 'Error al actualizar el registro.');
+        }
+
+        // 0 = ninguna columna cambió de valor; no es fallo SQL.
+        return true;
     }
 
     /**

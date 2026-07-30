@@ -20,6 +20,7 @@ function createEl(tag) {
         type: '',
         textContent: '',
         open: false,
+        disabled: false,
         children: [],
         attributes: Object.create(null),
         style: {},
@@ -48,7 +49,14 @@ function createEl(tag) {
             child.parentNode = null;
             return child;
         },
-        addEventListener: function () {},
+        addEventListener: function (type, handler) {
+            this._listeners = this._listeners || {};
+            this._listeners[type] = this._listeners[type] || [];
+            this._listeners[type].push(handler);
+        },
+        focus: function () {
+            this._focused = true;
+        },
         querySelector: function (selector) {
             return findMatch(this, selector);
         },
@@ -66,6 +74,38 @@ function classMatches(el, className) {
         return false;
     }
     return String(el.className).split(/\s+/).indexOf(className) !== -1;
+}
+
+function matchesSelector(el, selector) {
+    if (!el || el.nodeType === 3) {
+        return false;
+    }
+    if (selector === 'time' && el.tagName === 'TIME') {
+        return true;
+    }
+    if (selector === 'details' && el.tagName === 'DETAILS') {
+        return true;
+    }
+    if (selector === 'button' && el.tagName === 'BUTTON') {
+        return true;
+    }
+
+    // Compound: .class[attr="value"] or .class
+    const compound = selector.match(/^(\.[a-zA-Z0-9_-]+)(?:\[([a-zA-Z0-9_-]+)="([^"]*)"\])?$/);
+    if (compound) {
+        if (!classMatches(el, compound[1].slice(1))) {
+            return false;
+        }
+        if (compound[2]) {
+            return el.getAttribute(compound[2]) === compound[3];
+        }
+        return true;
+    }
+
+    if (selector.charAt(0) === '.' && classMatches(el, selector.slice(1))) {
+        return true;
+    }
+    return false;
 }
 
 function findMatch(root, selector) {
@@ -86,11 +126,7 @@ function collectMatches(node, selector, out) {
             if (child.nodeType === 3) {
                 return;
             }
-            if (selector.charAt(0) === '.' && classMatches(child, selector.slice(1))) {
-                out.push(child);
-            } else if (selector === 'time' && child.tagName === 'TIME') {
-                out.push(child);
-            } else if (selector === 'details' && child.tagName === 'DETAILS') {
+            if (matchesSelector(child, selector)) {
                 out.push(child);
             }
             visit(child);
@@ -105,7 +141,9 @@ function loadModule() {
         createElement: createEl,
         createTextNode: function (text) {
             return { nodeType: 3, textContent: String(text), children: [] };
-        }
+        },
+        getElementById: function () { return null; },
+        contains: function () { return true; }
     };
 
     sandboxWindow.window = sandboxWindow;
@@ -115,7 +153,8 @@ function loadModule() {
         window: sandboxWindow,
         document: document,
         console: console,
-        setTimeout: setTimeout
+        setTimeout: setTimeout,
+        MutationObserver: undefined
     };
 
     vm.runInNewContext(moduleSrc, context, { filename: modulePath });
@@ -126,7 +165,7 @@ function loadModule() {
     };
 }
 
-describe('expediente-registros cards (MC2b)', () => {
+describe('expediente-registros cards (MC2b/MC3)', () => {
     let api;
     let document;
 
@@ -144,7 +183,7 @@ describe('expediente-registros cards (MC2b)', () => {
         assert.equal(api.__test__.formatRecordedAt('2026-07-30 15:04:05'), '30/07/2026 15:04');
     });
 
-    it('createRecordDetails usa DOM/textContent con título, folio y time[datetime]', () => {
+    it('createRecordDetails usa DOM/textContent con título, folio, time y Editar', () => {
         const details = api.__test__.createRecordDetails({
             id: 12,
             title: 'Consulta',
@@ -162,6 +201,7 @@ describe('expediente-registros cards (MC2b)', () => {
         const timeEl = details.querySelector('time');
         const body = details.querySelector('.aa-expediente-registro-body');
         const actions = details.querySelector('.aa-expediente-registro-actions');
+        const editBtn = details.querySelector('.aa-expediente-btn-editar');
 
         assert.equal(title.textContent, 'Consulta');
         assert.equal(folio.textContent, 'Folio #12');
@@ -170,7 +210,11 @@ describe('expediente-registros cards (MC2b)', () => {
         assert.equal(timeEl.textContent, '30/07/2026 09:30');
         assert.equal(body.textContent, 'Línea 1\nLínea 2');
         assert.ok(actions);
-        assert.equal(actions.children.length, 0);
+        assert.equal(actions.children.length, 1);
+        assert.ok(editBtn);
+        assert.equal(editBtn.textContent, 'Editar');
+        assert.equal(editBtn.getAttribute('data-registro-id'), '12');
+        assert.equal(editBtn.type, 'button');
         assert.equal(details.open, false);
     });
 
@@ -222,6 +266,44 @@ describe('expediente-registros cards (MC2b)', () => {
         assert.equal(title.textContent, 'Nuevo');
     });
 
+    it('replaceRecord actualiza por id sin duplicar ni reordenar por updated_at', () => {
+        const root = createEl('div');
+        api.__test__.setState({
+            clientId: 1,
+            recordsRoot: root,
+            records: [
+                { id: 2, title: 'B', body: 'b', recorded_at: '2026-07-30 12:00:00', updated_at: null },
+                { id: 1, title: 'A', body: 'a', recorded_at: '2026-07-29 10:00:00', updated_at: null }
+            ]
+        });
+
+        api.__test__.replaceRecord({
+            id: 1,
+            title: 'A editado',
+            body: 'a2',
+            recorded_at: '2026-07-29 10:00:00',
+            updated_at: '2026-07-30 20:00:00'
+        });
+
+        const state = api.__test__.getState();
+        assert.equal(state.records.length, 2);
+        assert.equal(state.records[0].id, 2);
+        assert.equal(state.records[1].id, 1);
+        assert.equal(state.records[1].title, 'A editado');
+        assert.equal(state.records[1].body, 'a2');
+
+        const cards = root.querySelectorAll('details');
+        assert.equal(cards.length, 2);
+        assert.equal(cards[0].getAttribute('data-registro-id'), '2');
+        assert.equal(cards[0].open, false);
+        assert.equal(cards[1].getAttribute('data-registro-id'), '1');
+        assert.equal(cards[1].open, true);
+        assert.equal(cards[1].querySelector('.aa-expediente-registro-title').textContent, 'A editado');
+        assert.equal(cards[1].querySelector('.aa-expediente-registro-body').textContent, 'a2');
+        // Header sigue mostrando recorded_at, no updated_at
+        assert.equal(cards[1].querySelector('time').textContent, '29/07/2026 10:00');
+    });
+
     it('estado vacío conserva mensaje y toolbar', () => {
         const root = createEl('div');
         api.__test__.setState({
@@ -246,8 +328,12 @@ describe('expediente-registros cards (MC2b)', () => {
         assert.match(moduleSrc, /Folio #/);
         assert.match(moduleSrc, /createElement\('time'\)/);
         assert.match(moduleSrc, /aa-expediente-registro-actions/);
+        assert.match(moduleSrc, /aa-expediente-btn-editar/);
+        assert.match(moduleSrc, /function replaceRecord/);
+        assert.match(moduleSrc, /updateRegistro/);
         assert.match(moduleSrc, /titleSpan\.textContent/);
         assert.match(moduleSrc, /body\.textContent/);
         assert.doesNotMatch(moduleSrc, /titleSpan\.innerHTML|folioSpan\.innerHTML|body\.innerHTML\s*=/);
+        assert.doesNotMatch(moduleSrc, /Editado el/);
     });
 });

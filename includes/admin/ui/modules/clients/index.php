@@ -94,7 +94,8 @@ $aa_clients_is_expediente = ($aa_clients_view === 'expediente');
             getCliente: <?php echo wp_json_encode(class_exists('ClientsAjax') ? ClientsAjax::ACTION_GET_CLIENTE : 'aa_get_cliente'); ?>
             <?php if ($aa_clients_is_expediente) : ?>,
             listRegistros: <?php echo wp_json_encode(class_exists('ExpedienteRegistrosAjax') ? ExpedienteRegistrosAjax::ACTION_LIST : 'aa_list_expediente_registros'); ?>,
-            createRegistro: <?php echo wp_json_encode(class_exists('ExpedienteRegistrosAjax') ? ExpedienteRegistrosAjax::ACTION_CREATE : 'aa_create_expediente_registro'); ?>
+            createRegistro: <?php echo wp_json_encode(class_exists('ExpedienteRegistrosAjax') ? ExpedienteRegistrosAjax::ACTION_CREATE : 'aa_create_expediente_registro'); ?>,
+            updateRegistro: <?php echo wp_json_encode(class_exists('ExpedienteRegistrosAjax') ? ExpedienteRegistrosAjax::ACTION_UPDATE : 'aa_update_expediente_registro'); ?>
             <?php endif; ?>
         }
     };
