@@ -6,7 +6,8 @@
  *  - DDL de las tablas propias del plugin (aa_reservas, aa_notifications,
  *    aa_staff, aa_service_areas, aa_assignments, aa_services,
  *    aa_staff_services, aa_assignment_services,
- *    aa_learning_recommendation_state, aa_task_lists, aa_tasks, aa_task_state).
+ *    aa_learning_recommendation_state, aa_task_lists, aa_tasks, aa_task_state,
+ *    aa_task_actions, aa_expediente_registros).
  *  - Migraciones inline de columnas para instalaciones existentes
  *    (public_calendar, duration_minutes, calendar_uid).
  *  - Inicialización de options con valor por defecto (aa_estado_gsync,
@@ -64,7 +65,7 @@ final class AA_Schema {
      * Independiente de la versión del plugin. Solo refleja el estado
      * de las tablas/columnas/índices.
      */
-    public const DB_VERSION = '11';
+    public const DB_VERSION = '12';
 
     public const OPTION_INSTALLATION_INITIALIZED_AT = 'aa_installation_initialized_at';
 
@@ -437,6 +438,22 @@ final class AA_Schema {
         ) $charset;";
 
         dbDelta($task_actions_sql);
+
+        // 🔹 Registros de expediente por cliente (MC2 — sin tabla padre aa_expedientes)
+        $expediente_registros_table = $wpdb->prefix . 'aa_expediente_registros';
+        $expediente_registros_sql = "CREATE TABLE $expediente_registros_table (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            client_id bigint(20) unsigned NOT NULL,
+            title varchar(200) NOT NULL,
+            body text NOT NULL,
+            recorded_at datetime NOT NULL,
+            created_at datetime NOT NULL,
+            updated_at datetime DEFAULT NULL,
+            PRIMARY KEY  (id),
+            KEY client_recorded (client_id, recorded_at, id)
+        ) $charset;";
+
+        dbDelta($expediente_registros_sql);
 
         // NOTA: FOREIGN KEY constraints no se incluyen aquí porque dbDelta() puede tener problemas
         // con ellos. Si se necesitan, deben agregarse manualmente después de la creación:

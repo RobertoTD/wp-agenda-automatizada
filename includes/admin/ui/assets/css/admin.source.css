@@ -460,6 +460,56 @@
         @apply text-sm;
     }
 
+    .aa-expediente-registros-toolbar {
+        @apply flex flex-wrap items-center gap-2 mb-3;
+    }
+
+    .aa-expediente-nuevo-registro-btn {
+        @apply px-3 py-1.5 text-sm font-medium;
+        @apply bg-blue-600 hover:bg-blue-700 text-white;
+        @apply rounded-md transition-colors cursor-pointer;
+    }
+
+    .aa-expediente-registros-list {
+        @apply space-y-2;
+    }
+
+    .aa-expediente-registro {
+        @apply border border-gray-200 rounded-lg bg-white;
+    }
+
+    .aa-expediente-registro-summary {
+        @apply px-3 py-2 cursor-pointer list-none;
+        @apply text-sm text-gray-800;
+        @apply flex flex-wrap items-baseline gap-x-1;
+    }
+
+    .aa-expediente-registro-summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .aa-expediente-registro-date {
+        @apply text-gray-500 font-medium whitespace-nowrap;
+    }
+
+    .aa-expediente-registro-title {
+        @apply font-semibold text-gray-900;
+    }
+
+    .aa-expediente-registro-body {
+        @apply px-3 pb-3 text-sm text-gray-700 whitespace-pre-wrap border-t border-gray-100 pt-2;
+    }
+
+    .aa-expediente-registro-input,
+    .aa-expediente-registro-textarea {
+        @apply w-full px-3 py-2 text-sm border border-gray-300 rounded-lg;
+        @apply focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none;
+    }
+
+    .aa-expediente-registro-textarea {
+        @apply min-h-[8rem] resize-y;
+    }
+
     /* ═══════════════════════════════════════════════════════════════
        MODAL SYSTEM - Basic functional styles
     ═══════════════════════════════════════════════════════════════ */

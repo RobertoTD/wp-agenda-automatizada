@@ -92,8 +92,17 @@ $aa_clients_is_expediente = ($aa_clients_view === 'expediente');
         ajaxUrl: window.ajaxurl || <?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,
         actions: {
             getCliente: <?php echo wp_json_encode(class_exists('ClientsAjax') ? ClientsAjax::ACTION_GET_CLIENTE : 'aa_get_cliente'); ?>
+            <?php if ($aa_clients_is_expediente) : ?>,
+            listRegistros: <?php echo wp_json_encode(class_exists('ExpedienteRegistrosAjax') ? ExpedienteRegistrosAjax::ACTION_LIST : 'aa_list_expediente_registros'); ?>,
+            createRegistro: <?php echo wp_json_encode(class_exists('ExpedienteRegistrosAjax') ? ExpedienteRegistrosAjax::ACTION_CREATE : 'aa_create_expediente_registro'); ?>
+            <?php endif; ?>
         }
     };
+    <?php if ($aa_clients_is_expediente) : ?>
+    window.AA_CLIENTS_NONCES = Object.assign(window.AA_CLIENTS_NONCES || {}, {
+        expediente_registros: <?php echo wp_json_encode(wp_create_nonce(class_exists('ExpedienteRegistrosAjax') ? ExpedienteRegistrosAjax::NONCE_ACTION : 'aa_expediente_registros_nonce')); ?>
+    });
+    <?php endif; ?>
 </script>
 
 <?php
@@ -101,3 +110,8 @@ $clients_module_js = plugin_dir_url(__FILE__) . 'clients-module.js';
 $clients_module_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
 ?>
 <script src="<?php echo esc_url($clients_module_js . '?ver=' . rawurlencode($clients_module_ver)); ?>" defer></script>
+<?php if ($aa_clients_is_expediente) :
+    $expediente_registros_js = plugin_dir_url(__FILE__) . 'expediente-registros.js';
+    ?>
+<script src="<?php echo esc_url($expediente_registros_js . '?ver=' . rawurlencode($clients_module_ver)); ?>" defer></script>
+<?php endif; ?>

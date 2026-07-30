@@ -583,17 +583,38 @@
         records.id = 'aa-expediente-registros';
         records.className = 'aa-expediente-registros mt-4 pt-4 border-t border-gray-100';
 
-        var empty = document.createElement('p');
-        empty.className = 'text-sm text-gray-500';
-        empty.textContent = 'Aún no hay registros en este expediente';
-        records.appendChild(empty);
-
         wrap.appendChild(eyebrow);
         wrap.appendChild(name);
         wrap.appendChild(meta);
         wrap.appendChild(records);
 
         renderExpedienteShell(root, wrap);
+
+        mountExpedienteRegistros(cliente.id, records);
+    }
+
+    function mountExpedienteRegistros(clientId, recordsRoot) {
+        function tryMount(attemptsLeft) {
+            if (window.AAAdmin && window.AAAdmin.ExpedienteRegistros && typeof window.AAAdmin.ExpedienteRegistros.init === 'function') {
+                window.AAAdmin.ExpedienteRegistros.init({
+                    clientId: clientId,
+                    recordsRoot: recordsRoot
+                });
+                return;
+            }
+            if (attemptsLeft <= 0) {
+                var fallback = document.createElement('p');
+                fallback.className = 'text-sm text-gray-500';
+                fallback.textContent = 'Aún no hay registros en este expediente';
+                recordsRoot.appendChild(fallback);
+                console.error('[Clients] ExpedienteRegistros no disponible');
+                return;
+            }
+            window.setTimeout(function () {
+                tryMount(attemptsLeft - 1);
+            }, 30);
+        }
+        tryMount(40);
     }
 
     function fetchClienteById(clientId) {
