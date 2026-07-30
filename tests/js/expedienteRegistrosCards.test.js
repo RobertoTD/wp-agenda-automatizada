@@ -1,0 +1,253 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const { describe, it, beforeEach } = require('node:test');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+
+const modulePath = path.join(
+    __dirname,
+    '../../includes/admin/ui/modules/clients/expediente-registros.js'
+);
+const moduleSrc = fs.readFileSync(modulePath, 'utf8');
+
+function createEl(tag) {
+    const el = {
+        tagName: String(tag).toUpperCase(),
+        className: '',
+        id: '',
+        type: '',
+        textContent: '',
+        open: false,
+        children: [],
+        attributes: Object.create(null),
+        style: {},
+        parentNode: null,
+        classList: {
+            _set: new Set(),
+            add: function (c) { this._set.add(c); },
+            remove: function (c) { this._set.delete(c); },
+            contains: function (c) { return this._set.has(c); }
+        },
+        setAttribute: function (name, value) {
+            this.attributes[name] = String(value);
+        },
+        getAttribute: function (name) {
+            return Object.prototype.hasOwnProperty.call(this.attributes, name)
+                ? this.attributes[name]
+                : null;
+        },
+        appendChild: function (child) {
+            child.parentNode = this;
+            this.children.push(child);
+            return child;
+        },
+        removeChild: function (child) {
+            this.children = this.children.filter(function (c) { return c !== child; });
+            child.parentNode = null;
+            return child;
+        },
+        addEventListener: function () {},
+        querySelector: function (selector) {
+            return findMatch(this, selector);
+        },
+        querySelectorAll: function (selector) {
+            const out = [];
+            collectMatches(this, selector, out);
+            return out;
+        }
+    };
+    return el;
+}
+
+function classMatches(el, className) {
+    if (!el || !el.className) {
+        return false;
+    }
+    return String(el.className).split(/\s+/).indexOf(className) !== -1;
+}
+
+function findMatch(root, selector) {
+    const out = [];
+    collectMatches(root, selector, out);
+    return out[0] || null;
+}
+
+function collectMatches(node, selector, out) {
+    if (!node) {
+        return;
+    }
+    function visit(el) {
+        if (!el || !el.children) {
+            return;
+        }
+        el.children.forEach(function (child) {
+            if (child.nodeType === 3) {
+                return;
+            }
+            if (selector.charAt(0) === '.' && classMatches(child, selector.slice(1))) {
+                out.push(child);
+            } else if (selector === 'time' && child.tagName === 'TIME') {
+                out.push(child);
+            } else if (selector === 'details' && child.tagName === 'DETAILS') {
+                out.push(child);
+            }
+            visit(child);
+        });
+    }
+    visit(node);
+}
+
+function loadModule() {
+    const sandboxWindow = { AAAdmin: {}, AA_CLIENTS_DATA: {}, AA_CLIENTS_NONCES: {} };
+    const document = {
+        createElement: createEl,
+        createTextNode: function (text) {
+            return { nodeType: 3, textContent: String(text), children: [] };
+        }
+    };
+
+    sandboxWindow.window = sandboxWindow;
+    sandboxWindow.document = document;
+
+    const context = {
+        window: sandboxWindow,
+        document: document,
+        console: console,
+        setTimeout: setTimeout
+    };
+
+    vm.runInNewContext(moduleSrc, context, { filename: modulePath });
+
+    return {
+        api: sandboxWindow.AAAdmin.ExpedienteRegistros,
+        document: document
+    };
+}
+
+describe('expediente-registros cards (MC2b)', () => {
+    let api;
+    let document;
+
+    beforeEach(() => {
+        const loaded = loadModule();
+        api = loaded.api;
+        document = loaded.document;
+    });
+
+    it('expone hooks de prueba y helpers de fecha', () => {
+        assert.ok(api);
+        assert.ok(api.__test__);
+        assert.equal(api.__test__.toDatetimeAttr('2026-07-30 15:04:05'), '2026-07-30T15:04:05');
+        assert.equal(api.__test__.toDatetimeAttr('2026-07-30 15:04'), '2026-07-30T15:04:00');
+        assert.equal(api.__test__.formatRecordedAt('2026-07-30 15:04:05'), '30/07/2026 15:04');
+    });
+
+    it('createRecordDetails usa DOM/textContent con título, folio y time[datetime]', () => {
+        const details = api.__test__.createRecordDetails({
+            id: 12,
+            title: 'Consulta',
+            body: 'Línea 1\nLínea 2',
+            recorded_at: '2026-07-30 09:30:00'
+        });
+
+        assert.equal(details.tagName, 'DETAILS');
+        assert.equal(details.className, 'aa-expediente-registro');
+        assert.equal(details.getAttribute('data-registro-id'), '12');
+        assert.equal(details.open, false);
+
+        const title = details.querySelector('.aa-expediente-registro-title');
+        const folio = details.querySelector('.aa-expediente-registro-folio');
+        const timeEl = details.querySelector('time');
+        const body = details.querySelector('.aa-expediente-registro-body');
+        const actions = details.querySelector('.aa-expediente-registro-actions');
+
+        assert.equal(title.textContent, 'Consulta');
+        assert.equal(folio.textContent, 'Folio #12');
+        assert.equal(timeEl.tagName, 'TIME');
+        assert.equal(timeEl.getAttribute('datetime'), '2026-07-30T09:30:00');
+        assert.equal(timeEl.textContent, '30/07/2026 09:30');
+        assert.equal(body.textContent, 'Línea 1\nLínea 2');
+        assert.ok(actions);
+        assert.equal(actions.children.length, 0);
+        assert.equal(details.open, false);
+    });
+
+    it('carga/lista sin expandId deja todos colapsados', () => {
+        const root = createEl('div');
+        api.__test__.setState({
+            clientId: 1,
+            recordsRoot: root,
+            records: [
+                { id: 2, title: 'B', body: 'b', recorded_at: '2026-07-30 12:00:00' },
+                { id: 1, title: 'A', body: 'a', recorded_at: '2026-07-29 12:00:00' }
+            ]
+        });
+
+        api.__test__.renderRecordsList();
+
+        const cards = root.querySelectorAll('details');
+        assert.equal(cards.length, 2);
+        assert.equal(cards[0].open, false);
+        assert.equal(cards[1].open, false);
+        assert.equal(cards[0].getAttribute('data-registro-id'), '2');
+    });
+
+    it('prependRecord inserta primero y abre solo el nuevo (expandId)', () => {
+        const root = createEl('div');
+        api.__test__.setState({
+            clientId: 1,
+            recordsRoot: root,
+            records: [
+                { id: 1, title: 'Viejo', body: 'v', recorded_at: '2026-07-29 10:00:00' }
+            ]
+        });
+
+        api.__test__.prependRecord({
+            id: 9,
+            title: 'Nuevo',
+            body: 'n',
+            recorded_at: '2026-07-30 18:00:00'
+        });
+
+        const cards = root.querySelectorAll('details');
+        assert.equal(cards.length, 2);
+        assert.equal(cards[0].getAttribute('data-registro-id'), '9');
+        assert.equal(cards[0].open, true);
+        assert.equal(cards[1].getAttribute('data-registro-id'), '1');
+        assert.equal(cards[1].open, false);
+
+        const title = cards[0].querySelector('.aa-expediente-registro-title');
+        assert.equal(title.textContent, 'Nuevo');
+    });
+
+    it('estado vacío conserva mensaje y toolbar', () => {
+        const root = createEl('div');
+        api.__test__.setState({
+            clientId: 1,
+            recordsRoot: root,
+            records: []
+        });
+        api.__test__.renderRecordsList();
+
+        assert.ok(root.querySelector('.aa-expediente-registros-toolbar'));
+        const empty = root.querySelector('.aa-expediente-registros-empty');
+        assert.ok(empty);
+        assert.match(empty.textContent, /Aún no hay registros/);
+        assert.equal(root.querySelectorAll('details').length, 0);
+    });
+
+    it('fuente no usa data-aa-card ni innerHTML para datos de registro', () => {
+        assert.equal(moduleSrc.includes('data-aa-card'), false);
+        assert.equal(moduleSrc.includes('aa-card-overlay'), false);
+        assert.equal(moduleSrc.includes('aa-appointment-'), false);
+        assert.match(moduleSrc, /expandId/);
+        assert.match(moduleSrc, /Folio #/);
+        assert.match(moduleSrc, /createElement\('time'\)/);
+        assert.match(moduleSrc, /aa-expediente-registro-actions/);
+        assert.match(moduleSrc, /titleSpan\.textContent/);
+        assert.match(moduleSrc, /body\.textContent/);
+        assert.doesNotMatch(moduleSrc, /titleSpan\.innerHTML|folioSpan\.innerHTML|body\.innerHTML\s*=/);
+    });
+});

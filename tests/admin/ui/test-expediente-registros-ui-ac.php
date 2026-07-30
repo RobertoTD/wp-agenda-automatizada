@@ -41,13 +41,20 @@ ac_assert('Nuevo registro', strpos($js, 'Nuevo registro') !== false);
 ac_assert('openRegistroForm create/edit ready', strpos($js, "mode === 'edit'") !== false && strpos($js, "mode: 'create'") !== false);
 ac_assert('usa details', strpos($js, "createElement('details')") !== false);
 ac_assert('textContent no innerHTML para datos', strpos($js, 'titleSpan.textContent') !== false && strpos($js, 'body.textContent') !== false);
-ac_assert('prependRecord sin relist', strpos($js, 'function prependRecord') !== false);
+ac_assert('prependRecord con expandId', strpos($js, 'function prependRecord') !== false && strpos($js, 'expandId') !== false);
+ac_assert('folio Folio #', strpos($js, "'Folio #'") !== false || strpos($js, '"Folio #"') !== false);
+ac_assert('crea time con datetime', strpos($js, "createElement('time')") !== false && strpos($js, 'datetime') !== false);
+ac_assert('slot acciones vacío', strpos($js, 'aa-expediente-registro-actions') !== false);
+ac_assert('sin data-aa-card', strpos($js, 'data-aa-card') === false);
+ac_assert('sin aa-card-overlay / appointment', strpos($js, 'aa-card-overlay') === false && strpos($js, 'aa-appointment-') === false);
 ac_assert('loadRecords al init', strpos($js, 'loadRecords()') !== false);
 ac_assert('openModal compartido', strpos($js, 'AAAdmin.openModal') !== false);
 ac_assert('clients-module solo monta', strpos($module, 'mountExpedienteRegistros') !== false);
 ac_assert('clients-module no define listRegistros fetch propio', strpos($module, 'aa_list_expediente_registros') === false);
 ac_assert('index script condicional vista expediente', preg_match('/if \(\$aa_clients_is_expediente\).*expediente-registros\.js/s', $index) === 1);
 ac_assert('CSS toolbar/nuevo/details', strpos($css, 'aa-expediente-nuevo-registro-btn') !== false && strpos($css, 'aa-expediente-registro') !== false);
+ac_assert('CSS folio y actions:empty', strpos($css, 'aa-expediente-registro-folio') !== false && strpos($css, 'aa-expediente-registro-actions:empty') !== false);
+ac_assert('CSS chevron details[open]', strpos($css, '.aa-expediente-registro-summary::after') !== false && strpos($css, '.aa-expediente-registro[open]') !== false);
 ac_assert('main.js sin cambios expediente registros', strpos($main, 'ExpedienteRegistros') === false && strpos($main, 'aa_list_expediente') === false);
 
 // Runtime: lista no carga script ni actions de registros

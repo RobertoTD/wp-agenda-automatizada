@@ -42,6 +42,23 @@
         return m[3] + '/' + m[2] + '/' + m[1] + ' ' + m[4] + ':' + m[5];
     }
 
+    /**
+     * MySQL datetime → HTML time[datetime] without inventing timezone.
+     * @param {string} value
+     * @returns {string}
+     */
+    function toDatetimeAttr(value) {
+        if (!value || typeof value !== 'string') {
+            return '';
+        }
+        var m = value.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/);
+        if (!m) {
+            return '';
+        }
+        var seconds = m[6] || '00';
+        return m[1] + '-' + m[2] + '-' + m[3] + 'T' + m[4] + ':' + m[5] + ':' + seconds;
+    }
+
     function clearNode(node) {
         while (node && node.firstChild) {
             node.removeChild(node.firstChild);
@@ -64,37 +81,82 @@
         renderStatusMessage(message || 'No se pudieron cargar los registros.', 'text-sm text-red-600');
     }
 
-    function createRecordDetails(record) {
+    /**
+     * @param {object} record
+     * @param {{open?: boolean}} [options]
+     * @returns {HTMLDetailsElement}
+     */
+    function createRecordDetails(record, options) {
+        options = options || {};
+
         var details = document.createElement('details');
         details.className = 'aa-expediente-registro';
         details.setAttribute('data-registro-id', String(record.id));
+        if (options.open) {
+            details.open = true;
+        }
 
         var summary = document.createElement('summary');
         summary.className = 'aa-expediente-registro-summary';
 
-        var dateSpan = document.createElement('span');
-        dateSpan.className = 'aa-expediente-registro-date';
-        dateSpan.textContent = formatRecordedAt(record.recorded_at);
+        var summaryMain = document.createElement('div');
+        summaryMain.className = 'aa-expediente-registro-summary-main';
 
         var titleSpan = document.createElement('span');
         titleSpan.className = 'aa-expediente-registro-title';
         titleSpan.textContent = record.title || 'Sin título';
 
-        summary.appendChild(dateSpan);
-        summary.appendChild(document.createTextNode(' · '));
-        summary.appendChild(titleSpan);
+        var meta = document.createElement('div');
+        meta.className = 'aa-expediente-registro-meta';
+
+        var folioSpan = document.createElement('span');
+        folioSpan.className = 'aa-expediente-registro-folio';
+        folioSpan.textContent = 'Folio #' + String(record.id);
+
+        var timeEl = document.createElement('time');
+        timeEl.className = 'aa-expediente-registro-date';
+        var datetimeAttr = toDatetimeAttr(record.recorded_at);
+        if (datetimeAttr) {
+            timeEl.setAttribute('datetime', datetimeAttr);
+        }
+        timeEl.textContent = formatRecordedAt(record.recorded_at);
+
+        meta.appendChild(folioSpan);
+        meta.appendChild(timeEl);
+
+        summaryMain.appendChild(titleSpan);
+        summaryMain.appendChild(meta);
+        summary.appendChild(summaryMain);
+
+        var panel = document.createElement('div');
+        panel.className = 'aa-expediente-registro-panel';
 
         var body = document.createElement('div');
         body.className = 'aa-expediente-registro-body';
         body.textContent = record.body || '';
 
+        var actions = document.createElement('div');
+        actions.className = 'aa-expediente-registro-actions';
+
+        panel.appendChild(body);
+        panel.appendChild(actions);
+
         details.appendChild(summary);
-        details.appendChild(body);
+        details.appendChild(panel);
 
         return details;
     }
 
-    function renderRecordsList() {
+    /**
+     * @param {{expandId?: number|string}} [options]
+     */
+    function renderRecordsList(options) {
+        options = options || {};
+        var expandId = options.expandId != null ? parseInt(options.expandId, 10) : 0;
+        if (!(expandId > 0)) {
+            expandId = 0;
+        }
+
         clearNode(state.recordsRoot);
 
         var toolbar = document.createElement('div');
@@ -122,7 +184,8 @@
         var list = document.createElement('div');
         list.className = 'aa-expediente-registros-list';
         state.records.forEach(function (record) {
-            list.appendChild(createRecordDetails(record));
+            var shouldOpen = expandId > 0 && parseInt(record.id, 10) === expandId;
+            list.appendChild(createRecordDetails(record, { open: shouldOpen }));
         });
         state.recordsRoot.appendChild(list);
     }
@@ -140,7 +203,7 @@
 
     function prependRecord(record) {
         state.records = sortRecordsDesc([record].concat(state.records));
-        renderRecordsList();
+        renderRecordsList({ expandId: record && record.id });
     }
 
     function postForm(action, fields) {
@@ -366,8 +429,22 @@
         loadRecords();
     }
 
-    AAAdmin.ExpedienteRegistros = {
+    window.AAAdmin.ExpedienteRegistros = {
         init: init,
-        openRegistroForm: openRegistroForm
+        openRegistroForm: openRegistroForm,
+        __test__: {
+            createRecordDetails: createRecordDetails,
+            toDatetimeAttr: toDatetimeAttr,
+            formatRecordedAt: formatRecordedAt,
+            sortRecordsDesc: sortRecordsDesc,
+            renderRecordsList: renderRecordsList,
+            prependRecord: prependRecord,
+            getState: function () { return state; },
+            setState: function (partial) {
+                Object.keys(partial || {}).forEach(function (key) {
+                    state[key] = partial[key];
+                });
+            }
+        }
     };
 })();
