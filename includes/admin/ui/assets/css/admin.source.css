@@ -429,17 +429,35 @@
         @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent;
     }
 
-    /* Edit button inside client cards */
-    .aa-btn-editar-cliente {
-        @apply mt-3 px-3 py-1.5 text-sm;
+    /* Action buttons inside client cards */
+    .aa-client-card-actions {
+        @apply mt-3 flex flex-wrap items-center gap-2;
+    }
+
+    .aa-btn-editar-cliente,
+    .aa-btn-expediente-cliente {
+        @apply px-3 py-1.5 text-sm;
         @apply inline-flex items-center gap-1.5;
         @apply text-blue-600 hover:text-blue-700 hover:bg-blue-50;
         @apply border border-blue-200 rounded-md;
         @apply transition-colors cursor-pointer;
     }
 
-    .aa-btn-editar-cliente svg {
+    .aa-btn-editar-cliente svg,
+    .aa-btn-expediente-cliente svg {
         @apply w-4 h-4;
+    }
+
+    /* Expediente individual shell */
+    .aa-expediente-back-btn {
+        @apply inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium;
+        @apply text-gray-700 hover:text-gray-900 hover:bg-gray-100;
+        @apply border border-gray-200 rounded-md;
+        @apply transition-colors cursor-pointer;
+    }
+
+    .aa-expediente-body {
+        @apply text-sm;
     }
 
     /* ═══════════════════════════════════════════════════════════════

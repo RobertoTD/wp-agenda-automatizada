@@ -1,17 +1,65 @@
 /**
  * Clients Module - Module-specific JavaScript
+ *
+ * Modes:
+ * - list: search / paginate / create / edit (existing behaviour)
+ * - expediente: load one client by id and show empty expediente shell
  */
 
 (function() {
     'use strict';
 
-    // Estado del módulo
+    // Estado del módulo (solo lista)
     let currentQuery = '';
     let currentOffset = 0;
     let currentLimit = 10;
     let hasNext = false;
     let hasPrev = false;
     let searchTimeout = null;
+
+    var EXPEDIENTE_FOLDER_SVG = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>';
+
+    function getClientsData() {
+        return window.AA_CLIENTS_DATA || {};
+    }
+
+    function getClientsNonces() {
+        return window.AA_CLIENTS_NONCES || {};
+    }
+
+    function isExpedienteView() {
+        var data = getClientsData();
+        return data.view === 'expediente' && parseInt(data.clientId, 10) > 0;
+    }
+
+    function buildExpedienteUrl(clientId) {
+        var data = getClientsData();
+        var base = data.moduleBaseUrl || data.listUrl || '';
+        if (!base) {
+            return '';
+        }
+        try {
+            var url = new URL(base, window.location.href);
+            url.searchParams.set('view', 'expediente');
+            url.searchParams.set('client_id', String(clientId));
+            return url.toString();
+        } catch (err) {
+            console.error('[Clients] buildExpedienteUrl failed:', err);
+            return '';
+        }
+    }
+
+    function getListUrl() {
+        var data = getClientsData();
+        return data.listUrl || data.moduleBaseUrl || '';
+    }
+
+    function navigateToList() {
+        var listUrl = getListUrl();
+        if (listUrl) {
+            window.location.href = listUrl;
+        }
+    }
 
     /**
      * Renderizar una tarjeta de cliente
@@ -73,14 +121,16 @@
         totalCitas.textContent = 'Total de citas: ' + (cliente.total_citas || 0);
         body.appendChild(totalCitas);
 
-        // Botón de editar
+        // Acciones: Editar + Expediente
+        const actions = document.createElement('div');
+        actions.className = 'aa-client-card-actions';
+
         const editButton = document.createElement('button');
         editButton.type = 'button';
         editButton.className = 'aa-btn-editar-cliente';
         editButton.title = 'Editar cliente';
         editButton.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg> Editar';
-        
-        // Event listener para abrir modal de edición usando API global
+
         editButton.addEventListener('click', function(event) {
             event.preventDefault();
             event.stopPropagation();
@@ -90,8 +140,35 @@
                 console.error('AAAdmin.ClientCreateModal no está disponible');
             }
         });
-        
-        body.appendChild(editButton);
+
+        const expedienteButton = document.createElement('button');
+        expedienteButton.type = 'button';
+        expedienteButton.className = 'aa-btn-expediente-cliente';
+        expedienteButton.title = 'Abrir expediente';
+        expedienteButton.innerHTML = EXPEDIENTE_FOLDER_SVG + ' Expediente';
+        if (cliente.id) {
+            expedienteButton.setAttribute('data-client-id', String(cliente.id));
+        }
+
+        expedienteButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            var clientId = parseInt(cliente.id, 10);
+            if (!(clientId > 0)) {
+                console.error('[Clients] Expediente: client id inválido');
+                return;
+            }
+            var target = buildExpedienteUrl(clientId);
+            if (!target) {
+                console.error('[Clients] Expediente: no se pudo construir la URL');
+                return;
+            }
+            window.location.href = target;
+        });
+
+        actions.appendChild(editButton);
+        actions.appendChild(expedienteButton);
+        body.appendChild(actions);
 
         // Ensamblar estructura: overlay > body > contenido
         overlay.appendChild(body);
@@ -421,24 +498,199 @@
         });
     }
 
+    function createBackButton() {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'aa-expediente-back-btn';
+        btn.textContent = 'Volver a Expedientes';
+        btn.addEventListener('click', function(event) {
+            event.preventDefault();
+            navigateToList();
+        });
+        return btn;
+    }
+
+    function renderExpedienteShell(root, contentNode) {
+        root.innerHTML = '';
+        var panel = document.createElement('div');
+        panel.className = 'aa-expediente-panel bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden';
+
+        var header = document.createElement('div');
+        header.className = 'px-4 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white';
+        header.appendChild(createBackButton());
+        panel.appendChild(header);
+
+        var body = document.createElement('div');
+        body.className = 'p-4 aa-expediente-body';
+        body.appendChild(contentNode);
+        panel.appendChild(body);
+
+        root.appendChild(panel);
+    }
+
+    function renderExpedienteLoading(root) {
+        var p = document.createElement('p');
+        p.className = 'text-sm text-gray-500';
+        p.textContent = 'Cargando expediente...';
+        renderExpedienteShell(root, p);
+    }
+
+    function renderExpedienteError(root, message) {
+        var wrap = document.createElement('div');
+        wrap.className = 'aa-expediente-error space-y-3';
+
+        var title = document.createElement('h3');
+        title.className = 'text-lg font-semibold text-gray-900';
+        title.textContent = 'No se pudo abrir el expediente';
+
+        var msg = document.createElement('p');
+        msg.className = 'text-sm text-gray-600';
+        msg.textContent = message || 'Cliente no encontrado.';
+
+        wrap.appendChild(title);
+        wrap.appendChild(msg);
+        renderExpedienteShell(root, wrap);
+    }
+
+    function renderExpedienteContent(root, cliente) {
+        var wrap = document.createElement('div');
+        wrap.className = 'aa-expediente-content space-y-4';
+
+        var eyebrow = document.createElement('p');
+        eyebrow.className = 'text-xs font-medium uppercase tracking-wide text-gray-500';
+        eyebrow.textContent = 'Expediente';
+
+        var name = document.createElement('h2');
+        name.className = 'text-xl font-semibold text-gray-900';
+        name.textContent = cliente.nombre || 'Sin nombre';
+
+        var meta = document.createElement('div');
+        meta.className = 'aa-expediente-meta space-y-1 text-sm text-gray-600';
+
+        if (cliente.telefono) {
+            var tel = document.createElement('p');
+            tel.textContent = 'Teléfono: ' + cliente.telefono;
+            meta.appendChild(tel);
+        }
+
+        if (cliente.correo) {
+            var mail = document.createElement('p');
+            mail.textContent = 'Correo: ' + cliente.correo;
+            meta.appendChild(mail);
+        }
+
+        var records = document.createElement('div');
+        records.id = 'aa-expediente-registros';
+        records.className = 'aa-expediente-registros mt-4 pt-4 border-t border-gray-100';
+
+        var empty = document.createElement('p');
+        empty.className = 'text-sm text-gray-500';
+        empty.textContent = 'Aún no hay registros en este expediente';
+        records.appendChild(empty);
+
+        wrap.appendChild(eyebrow);
+        wrap.appendChild(name);
+        wrap.appendChild(meta);
+        wrap.appendChild(records);
+
+        renderExpedienteShell(root, wrap);
+    }
+
+    function fetchClienteById(clientId) {
+        var data = getClientsData();
+        var nonces = getClientsNonces();
+        var ajaxurl = data.ajaxUrl || window.ajaxurl || '/wp-admin/admin-ajax.php';
+        var action = (data.actions && data.actions.getCliente) || 'aa_get_cliente';
+
+        var formData = new FormData();
+        formData.append('action', action);
+        formData.append('_wpnonce', nonces.get_cliente || '');
+        formData.append('client_id', String(clientId));
+
+        return fetch(ajaxurl, {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'
+        }).then(function(response) {
+            return response.json().then(function(result) {
+                return { httpStatus: response.status, result: result };
+            });
+        });
+    }
+
+    function initExpedienteView() {
+        var root = document.getElementById('aa-expediente-root');
+        var listRoot = document.getElementById('aa-clients-list-root');
+        if (!root) {
+            console.error('[Clients] #aa-expediente-root no encontrado');
+            return;
+        }
+
+        if (listRoot) {
+            listRoot.classList.add('hidden');
+        }
+        root.classList.remove('hidden');
+
+        var data = getClientsData();
+        var clientId = parseInt(data.clientId, 10);
+        if (!(clientId > 0)) {
+            renderExpedienteError(root, 'Identificador de cliente no válido.');
+            return;
+        }
+
+        renderExpedienteLoading(root);
+
+        fetchClienteById(clientId)
+            .then(function(payload) {
+                var result = payload.result;
+                if (result && result.success && result.data) {
+                    renderExpedienteContent(root, result.data);
+                    return;
+                }
+
+                var message = 'Cliente no encontrado.';
+                if (result && result.data && result.data.message) {
+                    message = String(result.data.message);
+                }
+                renderExpedienteError(root, message);
+            })
+            .catch(function(error) {
+                console.error('[Clients] Error al cargar expediente:', error);
+                renderExpedienteError(root, 'No se pudo cargar el expediente. Inténtalo de nuevo.');
+            });
+    }
+
+    function initListView() {
+        var root = document.getElementById('aa-expediente-root');
+        var listRoot = document.getElementById('aa-clients-list-root');
+        if (listRoot) {
+            listRoot.classList.remove('hidden');
+        }
+        if (root) {
+            root.classList.add('hidden');
+            root.innerHTML = '';
+        }
+
+        renderActionBar();
+        applySetupFocusFromUrl();
+        searchClients();
+
+        document.addEventListener('aa:client:saved', function() {
+            currentOffset = 0;
+            searchClients();
+        });
+    }
+
     /**
      * Inicializar módulo
      */
     function init() {
-        // Renderizar barra de acciones
-        renderActionBar();
+        if (isExpedienteView()) {
+            initExpedienteView();
+            return;
+        }
 
-        applySetupFocusFromUrl();
-
-        // Siempre cargar datos via AJAX (ordenados por total_citas DESC)
-        searchClients();
-
-        // Escuchar evento de cliente guardado para recargar lista
-        document.addEventListener('aa:client:saved', function(event) {
-            // Recargar lista de clientes cuando se guarda un cliente
-            currentOffset = 0;
-            searchClients();
-        });
+        initListView();
     }
 
     // Escuchar DOMContentLoaded
@@ -448,4 +700,3 @@
     });
 
 })();
-

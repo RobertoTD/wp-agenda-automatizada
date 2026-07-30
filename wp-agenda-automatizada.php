@@ -132,6 +132,12 @@ add_action('rest_api_init', function() {
 });
 
 // ================================
+// 🔹 Endpoint AJAX: Clientes / Expedientes lectura (capa http/ajax)
+// ================================
+require_once __DIR__ . '/includes/http/ajax/ClientsAjax.php';
+ClientsAjax::register();
+
+// ================================
 // 🔹 Endpoint AJAX: Guardar cita (capa http/ajax)
 // ================================
 require_once __DIR__ . '/includes/http/ajax/ReservationsAjax.php';

@@ -36,6 +36,49 @@ final class ClientsRepository {
     }
 
     /**
+     * Busca un cliente por ID en la tabla del blog actual ($wpdb->prefix).
+     *
+     * No acepta blog_id externo: el aislamiento es el prefijo de tabla del sitio.
+     * Un ID de otro sitio no existe en esta tabla → null (igual que inexistente).
+     *
+     * @param int $client_id
+     * @return array{id:int,nombre:string,telefono:string,correo:string}|null
+     */
+    public static function find_by_id(int $client_id): ?array {
+        if ($client_id < 1) {
+            return null;
+        }
+
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'aa_clientes';
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT id, nombre, telefono, correo FROM {$table} WHERE id = %d LIMIT 1",
+                $client_id
+            ),
+            ARRAY_A
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[ClientsRepository] Error al buscar cliente por id: ' . $wpdb->last_error);
+
+            return null;
+        }
+
+        if (!is_array($row) || empty($row['id'])) {
+            return null;
+        }
+
+        return [
+            'id' => (int) $row['id'],
+            'nombre' => (string) ($row['nombre'] ?? ''),
+            'telefono' => (string) ($row['telefono'] ?? ''),
+            'correo' => (string) ($row['correo'] ?? ''),
+        ];
+    }
+
+    /**
      * Busca un cliente registrado por teléfono canónico.
      *
      * @param string $telefono Teléfono en formato canónico.
