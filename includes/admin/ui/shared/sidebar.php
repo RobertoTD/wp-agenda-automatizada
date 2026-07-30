@@ -79,6 +79,21 @@ $brand_logo_url = aa_asset_url('includes/admin/ui/assets/img/deoia-citas-logo.sv
                 </a>
             </li>
 
+            <!-- Expedientes (reutiliza module=clients) -->
+            <li>
+                <a
+                    href="<?php echo esc_url(admin_url('admin-post.php?action=aa_iframe_content&module=clients')); ?>"
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors <?php echo ($active_module === 'clients') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'; ?>"
+                >
+                    <span class="flex items-center justify-center w-6 h-6 <?php echo ($active_module === 'clients') ? 'text-blue-600' : 'text-gray-500'; ?>">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                        </svg>
+                    </span>
+                    <span class="text-sm font-medium">Expedientes</span>
+                </a>
+            </li>
+
             <!-- Ejecutor -->
             <li>
                 <a 
