@@ -1,6 +1,6 @@
 <?php
 /**
- * Expediente Adjuntos AJAX — attach (MC4b) + sign-read de miniatura (MC4c).
+ * Expediente Adjuntos AJAX — attach (MC4b) + sign-read dirigido (MC4c/MC5b).
  *
  * Capability/nonce alineados con ExpedienteRegistrosAjax. Contrato público
  * de adjunto: ExpedienteAdjuntoPublicDto (sin storage_path ni internos).
@@ -78,12 +78,12 @@ final class ExpedienteAdjuntosAjax {
 
         $client_id = isset($_POST['client_id']) ? absint($_POST['client_id']) : 0;
         $record_id = isset($_POST['record_id']) ? absint($_POST['record_id']) : 0;
-        // MC5a: lectura dirigida opcional; el fallback sin attachment_id se
-        // conserva solo para compatibilidad con MC4c (retiro en MC5b).
+        // MC5b: lectura siempre dirigida; attachment_id es obligatorio
+        // (el fallback MC4c sin attachment_id quedó retirado).
         $attachment_id = isset($_POST['attachment_id']) ? absint($_POST['attachment_id']) : 0;
 
-        if ($client_id < 1 || $record_id < 1) {
-            wp_send_json_error(['message' => 'Cliente o registro no válido.', 'code' => 'invalid_context'], 400);
+        if ($client_id < 1 || $record_id < 1 || $attachment_id < 1) {
+            wp_send_json_error(['message' => 'Cliente, registro o imagen no válidos.', 'code' => 'invalid_context'], 400);
         }
 
         $use_case = new GetExpedienteAdjuntoReadUrlUseCase();
@@ -112,7 +112,6 @@ final class ExpedienteAdjuntosAjax {
                 return 403;
             case 'client_not_found':
             case 'record_not_found':
-            case 'no_attachment':
             case 'attachment_not_found':
             case 'object_missing':
                 return 404;

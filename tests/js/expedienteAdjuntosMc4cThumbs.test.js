@@ -230,7 +230,12 @@ describe('expediente adjuntos MC4c — miniaturas', () => {
         assert.equal(applied, true);
         assert.deepEqual(ctx.api.getState().records[0].adjunto, DTO_A);
         assert.ok(findFirst(root, '.aa-expediente-adjunto-thumb'));
-        assert.equal(ctx.fetchCalls.length, 0, 'sin recarga de registros ni firmas eager');
+        // MC5b: la tarjeta queda expandida y su imagen principal visible se
+        // firma (fallback sin IO); jamás se recarga el listado.
+        assert.equal(ctx.fetchCalls.length, 1, 'solo la firma del main visible');
+        const fields = Object.fromEntries(ctx.fetchCalls[0].opts.body.entries);
+        assert.equal(fields.action, 'aa_sign_expediente_adjunto_read');
+        assert.equal(fields.attachment_id, '5');
     });
 
     it('attach nuevo reemplaza DTO y poda la clave anterior', () => {
@@ -269,7 +274,7 @@ describe('expediente adjuntos MC4c — miniaturas', () => {
         assert.match(moduleSrc, /returnedRecordId === requestedRecordId && isValidAdjuntoDto\(responseData\.adjunto\)/);
     });
 
-    it('sign-read con otro adjunto.id descarta URL, reconcilia y re-renderiza', async () => {
+    it('sign-read con otro adjunto.id descarta URL sin cachear ni mutar estado (MC5b)', async () => {
         const ctx = makeSandbox();
         const root = mount(ctx, [baseRecord({ adjunto: DTO_A })]);
         ctx.api.renderRecordsList();
@@ -280,14 +285,16 @@ describe('expediente adjuntos MC4c — miniaturas', () => {
         ctx.api.requestThumbFor(box, 1);
         await new Promise((resolve) => setImmediate(resolve));
 
+        // Con lectura dirigida obligatoria una respuesta discordante es
+        // inválida: no se cachea, no se aplica y adjuntos[] no se toca.
         const thumbs = ctx.api.getThumbs();
         Object.keys(thumbs.thumbnailCache).forEach((key) => {
             assert.notEqual(thumbs.thumbnailCache[key].url, discardedUrl, 'URL discordante jamás cacheada');
         });
-        assert.deepEqual(ctx.api.getState().records[0].adjunto, DTO_B, 'DTO reconciliado');
-        const newBox = findFirst(root, '.aa-expediente-adjunto-thumb');
-        assert.equal(newBox.getAttribute('data-adjunto-id'), '9', 're-render con identidad nueva');
-        assert.equal(findFirst(newBox, 'img'), null, 'nodo nuevo espera su propia firma');
+        assert.deepEqual(ctx.api.getState().records[0].adjunto, DTO_A, 'estado intacto');
+        assert.equal(box.getAttribute('data-adjunto-id'), '5', 'identidad del nodo intacta');
+        assert.equal(findFirst(box, 'img'), null, 'URL discordante no aplicada');
+        assert.ok(box.classList.contains('aa-expediente-adjunto-thumb-error'), 'error discreto');
     });
 
     it('respuesta tardía tras destroy no modifica DOM ni caché', async () => {
@@ -360,7 +367,8 @@ describe('expediente adjuntos MC4c — miniaturas', () => {
         ctx.setFetch(() => new Promise((resolve) => { resolveSign = resolve; }));
 
         ctx.api.renderRecordsList();
-        assert.equal(observed.length, 1, 'thumb box observado');
+        // MC5b: summary + imagen principal de la galería (misma identidad).
+        assert.equal(observed.length, 2, 'summary y main observados');
         assert.equal(ctx.fetchCalls.length, 0);
 
         ioCallback([{ isIntersecting: true, target: observed[0] }]);

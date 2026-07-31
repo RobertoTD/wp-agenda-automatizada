@@ -56,6 +56,9 @@ ac_assert('attach ya no expone attachment crudo', strpos($ajax_src, "'attachment
 ac_assert('sign-read usa GetExpedienteAdjuntoReadUrlUseCase', strpos($ajax_src, 'GetExpedienteAdjuntoReadUrlUseCase') !== false);
 ac_assert('sign-read acepta attachment_id saneado (MC5a)',
     strpos($ajax_src, "absint(\$_POST['attachment_id'])") !== false);
+ac_assert('sign-read exige attachment_id (MC5b, fallback retirado)',
+    strpos($ajax_src, '$client_id < 1 || $record_id < 1 || $attachment_id < 1') !== false);
+ac_assert('no_attachment retirado con el fallback', strpos($ajax_src, 'no_attachment') === false);
 ac_assert('sign-read nunca acepta storage_path ni metadatos', strpos($ajax_src, "\$_POST['storage_path']") === false
     && strpos($ajax_src, "\$_POST['adjunto_id']") === false
     && strpos($ajax_src, "\$_POST['mime_type']") === false);

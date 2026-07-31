@@ -1,9 +1,11 @@
 /**
- * Expediente registros — chronology list + create/edit modal (MC2/MC3/MC4b/MC4c).
+ * Expediente registros — chronology list + create/edit modal (MC2/MC3/MC4b/MC4c/MC5b).
  *
  * Loaded only on view=expediente. Create and edit share one modal form.
  * Adjunto opcional: texto primero (create/update), luego aa_attach_expediente_registro.
  * MC4c: miniatura privada lazy por tarjeta vía sign-read; caché solo en memoria.
+ * MC5b: minigalería por registro (panel expandido) + visor sobre AAAdmin.modal.
+ * La selección de imagen es estado exclusivamente de UI; adjuntos[] manda.
  */
 
 (function () {
@@ -28,15 +30,17 @@
     };
 
     /**
-     * Controlador de miniaturas (MC4c). Todo vive solo en memoria.
+     * Controlador de miniaturas (MC4c/MC5b). Todo vive solo en memoria.
      * Claves de cache/requests: "<client_id>:<record_id>:<adjunto.id>".
+     * selectedByRecord (MC5b): recordId → attachment_id seleccionado (solo UI).
      */
     var thumbs = {
         viewEpoch: 0,
         observer: null,
         thumbnailCache: {},
         thumbnailRequests: {},
-        resignedIdentities: {}
+        resignedIdentities: {},
+        selectedByRecord: {}
     };
 
     // Solo para abortar el watcher de cierre del modal (foco / limpieza).
@@ -329,7 +333,9 @@
      */
     function pruneThumbState() {
         var valid = {};
+        var validRecordIds = {};
         state.records.forEach(function (record) {
+            validRecordIds[parseInt(record.id, 10)] = true;
             getRecordAdjuntos(record).forEach(function (dto) {
                 if (isValidAdjuntoDto(dto)) {
                     valid[thumbKey(record.id, dto.id)] = true;
@@ -354,6 +360,15 @@
         Object.keys(thumbs.resignedIdentities).forEach(function (key) {
             if (!valid[key]) {
                 delete thumbs.resignedIdentities[key];
+            }
+        });
+
+        // MC5b: la selección de registros inexistentes se descarta; la
+        // selección inválida dentro de un registro vigente se corrige en
+        // resolveSelectedAdjuntoId al renderizar.
+        Object.keys(thumbs.selectedByRecord).forEach(function (recordId) {
+            if (!validRecordIds[recordId]) {
+                delete thumbs.selectedByRecord[recordId];
             }
         });
     }
@@ -491,7 +506,8 @@
         if (!img) {
             img = document.createElement('img');
             img.className = 'aa-expediente-adjunto-thumb-img';
-            img.alt = 'Imagen adjunta';
+            // Dentro de un botón el nombre accesible lo aporta el botón.
+            img.alt = box.tagName === 'BUTTON' ? '' : 'Imagen adjunta';
             img.setAttribute('referrerpolicy', 'no-referrer');
             img.setAttribute('decoding', 'async');
             img.setAttribute('draggable', 'false');
@@ -507,31 +523,71 @@
     }
 
     /**
-     * Solicita (o reutiliza) la firma para la miniatura de una tarjeta.
-     * Identidad capturada: viewEpoch + clientId + recordId + adjuntoId.
+     * ¿La identidad solicitada sigue existiendo en la colección del registro?
      */
-    function requestThumbFor(box, recordId) {
-        if (!box) {
-            return;
-        }
-        var adjuntoId = parseInt(box.getAttribute('data-adjunto-id') || '0', 10);
-        var rid = parseInt(recordId, 10);
-        if (!(adjuntoId > 0) || !(rid > 0)) {
-            return;
-        }
+    function recordHasAdjuntoId(record, adjuntoId) {
+        var id = parseInt(adjuntoId, 10);
+        return getRecordAdjuntos(record).some(function (dto) {
+            return parseInt(dto.id, 10) === id;
+        });
+    }
 
+    /**
+     * Entrega la URL a un suscriptor. Un suscriptor-box solo la recibe si
+     * sigue conectado y su data-adjunto-id no cambió (una respuesta de una
+     * selección anterior jamás se aplica al nodo tras cambiar de identidad).
+     */
+    function deliverSignedUrl(sub, url, key, rid, adjuntoId) {
+        if (sub.box) {
+            if (isNodeConnected(sub.box)
+                && parseInt(sub.box.getAttribute('data-adjunto-id') || '0', 10) === adjuntoId) {
+                applyThumbUrl(sub.box, url, key, rid);
+            }
+            return;
+        }
+        if (typeof sub.onUrl === 'function') {
+            sub.onUrl(url);
+        }
+    }
+
+    function deliverSignError(sub, adjuntoId) {
+        if (sub.box) {
+            if (isNodeConnected(sub.box)
+                && parseInt(sub.box.getAttribute('data-adjunto-id') || '0', 10) === adjuntoId) {
+                showThumbErrorState(sub.box);
+            }
+            return;
+        }
+        if (typeof sub.onError === 'function') {
+            sub.onError();
+        }
+    }
+
+    /**
+     * Single-flight con suscriptores (MC5b): una sola firma en vuelo por
+     * identidad; cada nodo/callback interesado se suma como suscriptor y la
+     * URL se aplica a todos los vigentes al resolver. Identidad capturada:
+     * viewEpoch + clientId + recordId + adjuntoId.
+     *
+     * @param {number} rid
+     * @param {number} adjuntoId
+     * @param {{box?:HTMLElement, onUrl?:function(string):void, onError?:function():void}} subscriber
+     */
+    function requestSignedUrl(rid, adjuntoId, subscriber) {
         var key = thumbKey(rid, adjuntoId);
 
         var cached = thumbs.thumbnailCache[key];
         if (cached && typeof cached.deadlineMs === 'number' && cached.deadlineMs > Date.now()) {
-            applyThumbUrl(box, cached.url, key, rid);
+            deliverSignedUrl(subscriber, cached.url, key, rid, adjuntoId);
             return;
         }
         if (cached) {
             delete thumbs.thumbnailCache[key];
         }
 
-        if (thumbs.thumbnailRequests[key]) {
+        var pending = thumbs.thumbnailRequests[key];
+        if (pending) {
+            pending.subscribers.push(subscriber);
             return;
         }
 
@@ -544,7 +600,8 @@
             signal = controller.signal;
         }
 
-        thumbs.thumbnailRequests[key] = { controller: controller };
+        var subscribers = [subscriber];
+        thumbs.thumbnailRequests[key] = { controller: controller, subscribers: subscribers };
 
         postSignRead(rid, adjuntoId, signal)
             .then(function (payload) {
@@ -562,26 +619,20 @@
 
                 var result = payload.result;
                 var data = result && result.success ? result.data : null;
-                if (!data || typeof data.url !== 'string' || data.url === '' || !isValidAdjuntoDto(data.adjunto)) {
-                    if (isNodeConnected(box)) {
-                        showThumbErrorState(box);
-                    }
-                    return;
-                }
+                // MC5b: sign-read es siempre dirigido; una respuesta con otro
+                // adjunto.id es inválida y jamás se cachea ni se aplica.
+                var validPayload = !!(
+                    data
+                    && typeof data.url === 'string'
+                    && data.url !== ''
+                    && isValidAdjuntoDto(data.adjunto)
+                    && parseInt(data.adjunto.id, 10) === adjuntoId
+                );
 
-                var returnedAdjuntoId = parseInt(data.adjunto.id, 10);
-
-                if (returnedAdjuntoId !== adjuntoId) {
-                    // Identidad discordante: nunca asociar la URL al nodo/clave
-                    // anterior ni cachearla bajo ninguna clave. Reconciliar con
-                    // el DTO autoritativo; el nodo nuevo pedirá otra firma.
-                    invalidateThumbForRecord(rid);
-                    applyAdjuntoToRecord(rid, data.adjunto);
-                    return;
-                }
-
-                if (!hasValidAdjunto(record) || parseInt(record.adjunto.id, 10) !== adjuntoId) {
-                    // El estado cambió mientras la firma volaba: descartar.
+                if (!validPayload || !recordHasAdjuntoId(record, adjuntoId)) {
+                    subscribers.forEach(function (sub) {
+                        deliverSignError(sub, adjuntoId);
+                    });
                     return;
                 }
 
@@ -598,9 +649,9 @@
                     deadlineMs: Date.now() + windowSeconds * 1000
                 };
 
-                if (isNodeConnected(box) && parseInt(box.getAttribute('data-adjunto-id') || '0', 10) === adjuntoId) {
-                    applyThumbUrl(box, data.url, key, rid);
-                }
+                subscribers.forEach(function (sub) {
+                    deliverSignedUrl(sub, data.url, key, rid, adjuntoId);
+                });
             })
             .catch(function (err) {
                 delete thumbs.thumbnailRequests[key];
@@ -610,16 +661,36 @@
                 if (epoch !== thumbs.viewEpoch || clientId !== state.clientId) {
                     return;
                 }
-                if (isNodeConnected(box)) {
-                    showThumbErrorState(box);
-                }
+                subscribers.forEach(function (sub) {
+                    deliverSignError(sub, adjuntoId);
+                });
             });
     }
 
     /**
-     * Observa los thumb boxes recién renderizados. Cache fresco se aplica de
-     * inmediato sin firma nueva; el resto espera intersección (o toggle como
-     * fallback sin IntersectionObserver).
+     * Solicita (o reutiliza) la firma para un nodo de imagen (miniatura de
+     * summary, imagen principal o mini de la galería).
+     */
+    function requestThumbFor(box, recordId) {
+        if (!box) {
+            return;
+        }
+        var adjuntoId = parseInt(box.getAttribute('data-adjunto-id') || '0', 10);
+        var rid = parseInt(recordId, 10);
+        if (!(adjuntoId > 0) || !(rid > 0)) {
+            return;
+        }
+        requestSignedUrl(rid, adjuntoId, { box: box });
+    }
+
+    /**
+     * Observa los thumb boxes recién renderizados (summary + galería). Cache
+     * fresco se aplica de inmediato sin firma nueva; el resto espera
+     * intersección (o toggle como fallback sin IntersectionObserver).
+     *
+     * Fallback sin IntersectionObserver (MC5b): al abrir la tarjeta se firma
+     * solo lo visible sin scroll — summary, imagen principal y las primeras
+     * tres minis. Nunca la colección completa.
      */
     function setupThumbObserver(boxes) {
         if (!boxes.length) {
@@ -643,15 +714,26 @@
         }
 
         if (typeof IntersectionObserver === 'undefined') {
-            // Fallback: pedir firma al abrir la tarjeta.
             pendingBoxes.forEach(function (entry) {
-                if (entry.details && typeof entry.details.addEventListener === 'function') {
-                    entry.details.addEventListener('toggle', function () {
-                        if (entry.details.open) {
-                            requestThumbFor(entry.box, entry.recordId);
-                        }
-                    });
+                if (!entry.details || typeof entry.details.addEventListener !== 'function') {
+                    return;
                 }
+                if (entry.kind === 'mini' && entry.miniIndex >= 3) {
+                    return;
+                }
+                var requestNow = function () {
+                    requestThumbFor(entry.box, entry.recordId);
+                };
+                // Galería renderizada ya expandida (attach/expandId): visible,
+                // firmar de inmediato. La summary conserva su regla de toggle.
+                if (entry.kind !== 'summary' && entry.details.open) {
+                    requestNow();
+                }
+                entry.details.addEventListener('toggle', function () {
+                    if (entry.details.open) {
+                        requestNow();
+                    }
+                });
             });
             return;
         }
@@ -714,6 +796,9 @@
             return false;
         }
 
+        // MC5b: la imagen recién adjuntada pasa a ser la seleccionada.
+        thumbs.selectedByRecord[id] = parseInt(adjunto.id, 10);
+
         invalidateThumbForRecord(id);
         renderRecordsList({ expandId: id });
         return true;
@@ -721,15 +806,19 @@
 
     /**
      * Libera todos los recursos de la vista: época, observer, firmas en vuelo,
-     * caché, referencias e identidad del cliente.
+     * caché, selección, referencias e identidad del cliente. Cierra el visor
+     * solo si el modal compartido contiene el marcador de esta instancia.
      */
     function destroy() {
+        closeOwnViewerModal();
+
         thumbs.viewEpoch += 1;
         disconnectThumbObserver();
         abortAllThumbRequests();
         thumbs.thumbnailCache = {};
         thumbs.thumbnailRequests = {};
         thumbs.resignedIdentities = {};
+        thumbs.selectedByRecord = {};
 
         state.records = [];
         state.recordsRoot = null;
@@ -738,6 +827,327 @@
     }
 
     // ── Fin miniaturas MC4c ─────────────────────────────────────────
+
+    // ── Minigalería y visor MC5b ────────────────────────────────────
+
+    /**
+     * Selección vigente de un registro (solo UI). Si la selección guardada ya
+     * no existe en adjuntos[], vuelve determinísticamente a adjuntos[0] y
+     * corrige el mapa.
+     */
+    function resolveSelectedAdjuntoId(record) {
+        var adjuntos = getRecordAdjuntos(record);
+        if (!adjuntos.length) {
+            return 0;
+        }
+        var rid = parseInt(record.id, 10);
+        var selected = parseInt(thumbs.selectedByRecord[rid] || 0, 10);
+        if (selected > 0 && recordHasAdjuntoId(record, selected)) {
+            return selected;
+        }
+        var fallback = parseInt(adjuntos[0].id, 10);
+        thumbs.selectedByRecord[rid] = fallback;
+        return fallback;
+    }
+
+    /**
+     * Limpia un nodo de imagen (main/mini) para reutilizarlo con otra
+     * identidad sin heredar img, estados de error ni title.
+     */
+    function resetThumbBox(box) {
+        box.classList.remove('aa-expediente-adjunto-thumb-error');
+        box.classList.remove('aa-expediente-adjunto-thumb-loaded');
+        box.removeAttribute('title');
+        var img = box.querySelector('img');
+        if (img) {
+            img.onload = null;
+            img.onerror = null;
+            img.removeAttribute('src');
+            if (img.parentNode === box) {
+                box.removeChild(img);
+            }
+        }
+    }
+
+    function galleryCounterText(adjuntos, selectedId) {
+        for (var i = 0; i < adjuntos.length; i++) {
+            if (parseInt(adjuntos[i].id, 10) === selectedId) {
+                return String(i + 1) + ' de ' + String(adjuntos.length);
+            }
+        }
+        return '1 de ' + String(adjuntos.length);
+    }
+
+    /**
+     * Cambia la imagen seleccionada de una galería sin re-renderizar la lista
+     * ni tocar el orden de adjuntos[]. La respuesta en vuelo de la selección
+     * anterior no se aplicará al main porque su data-adjunto-id cambió.
+     */
+    function selectGalleryAdjunto(gallery, recordId, adjuntoId) {
+        var rid = parseInt(recordId, 10);
+        var id = parseInt(adjuntoId, 10);
+        var record = findRecordById(rid);
+        if (!record || !recordHasAdjuntoId(record, id)) {
+            return;
+        }
+
+        thumbs.selectedByRecord[rid] = id;
+        var adjuntos = getRecordAdjuntos(record);
+
+        gallery.querySelectorAll('.aa-expediente-galeria-mini').forEach(function (mini) {
+            var isSelected = parseInt(mini.getAttribute('data-adjunto-id') || '0', 10) === id;
+            mini.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+            if (isSelected) {
+                mini.classList.add('aa-expediente-galeria-mini-selected');
+            } else {
+                mini.classList.remove('aa-expediente-galeria-mini-selected');
+            }
+        });
+
+        var counter = gallery.querySelector('.aa-expediente-galeria-counter');
+        if (counter) {
+            counter.textContent = galleryCounterText(adjuntos, id);
+        }
+
+        var main = gallery.querySelector('.aa-expediente-galeria-main');
+        if (main) {
+            resetThumbBox(main);
+            main.setAttribute('data-adjunto-id', String(id));
+            requestThumbFor(main, rid);
+        }
+    }
+
+    /**
+     * Construye la minigalería del panel expandido: imagen principal (abre el
+     * visor) y, con varias imágenes, tira horizontal de minis + contador.
+     * Registra cada nodo de imagen en entriesOut para la carga progresiva.
+     */
+    function buildRecordGallery(record, entriesOut, details) {
+        var adjuntos = getRecordAdjuntos(record);
+        if (!adjuntos.length) {
+            return null;
+        }
+
+        var rid = parseInt(record.id, 10);
+        var selectedId = resolveSelectedAdjuntoId(record);
+
+        var gallery = document.createElement('div');
+        gallery.className = 'aa-expediente-galeria';
+        gallery.setAttribute('data-galeria-record-id', String(rid));
+
+        var mainBtn = document.createElement('button');
+        mainBtn.type = 'button';
+        mainBtn.className = 'aa-expediente-galeria-main';
+        mainBtn.setAttribute('data-adjunto-id', String(selectedId));
+        mainBtn.setAttribute('aria-label', 'Ver imagen ampliada');
+        mainBtn.addEventListener('click', function (event) {
+            event.preventDefault();
+            openAdjuntoViewer(rid, mainBtn);
+        });
+        gallery.appendChild(mainBtn);
+
+        entriesOut.push({
+            box: mainBtn,
+            details: details,
+            recordId: rid,
+            adjuntoId: selectedId,
+            kind: 'main'
+        });
+
+        if (adjuntos.length > 1) {
+            var strip = document.createElement('div');
+            strip.className = 'aa-expediente-galeria-strip';
+            strip.setAttribute('role', 'group');
+            strip.setAttribute('aria-label', 'Imágenes del registro');
+
+            adjuntos.forEach(function (dto, index) {
+                var adjuntoId = parseInt(dto.id, 10);
+                var mini = document.createElement('button');
+                mini.type = 'button';
+                mini.className = 'aa-expediente-galeria-mini';
+                mini.setAttribute('data-adjunto-id', String(adjuntoId));
+                mini.setAttribute('aria-label', 'Ver imagen ' + String(index + 1) + ' de ' + String(adjuntos.length));
+                mini.setAttribute('aria-pressed', adjuntoId === selectedId ? 'true' : 'false');
+                if (adjuntoId === selectedId) {
+                    mini.classList.add('aa-expediente-galeria-mini-selected');
+                }
+                mini.addEventListener('click', function (event) {
+                    event.preventDefault();
+                    selectGalleryAdjunto(gallery, rid, adjuntoId);
+                });
+                strip.appendChild(mini);
+
+                entriesOut.push({
+                    box: mini,
+                    details: details,
+                    recordId: rid,
+                    adjuntoId: adjuntoId,
+                    kind: 'mini',
+                    miniIndex: index
+                });
+            });
+            gallery.appendChild(strip);
+
+            var counter = document.createElement('p');
+            counter.className = 'aa-expediente-galeria-counter';
+            counter.textContent = galleryCounterText(adjuntos, selectedId);
+            gallery.appendChild(counter);
+        }
+
+        return gallery;
+    }
+
+    function getModalRootNode() {
+        return typeof document !== 'undefined'
+            ? document.getElementById('aa-modal-root')
+            : null;
+    }
+
+    /**
+     * Marcador del visor de esta instancia dentro del modal compartido, o
+     * null si el modal está vacío o lo ocupa otro contenido.
+     */
+    function findOwnViewerMarker() {
+        var root = getModalRootNode();
+        if (!root) {
+            return null;
+        }
+        var marker = root.querySelector('.aa-expediente-adjunto-viewer');
+        if (!marker) {
+            return null;
+        }
+        if (marker.getAttribute('data-aa-viewer-epoch') !== String(thumbs.viewEpoch)) {
+            return null;
+        }
+        return marker;
+    }
+
+    /**
+     * Cierra el modal compartido únicamente si contiene el visor de esta
+     * instancia. Jamás cierra ni reemplaza un modal ajeno.
+     */
+    function closeOwnViewerModal() {
+        if (!findOwnViewerMarker()) {
+            return;
+        }
+        if (window.AAAdmin && typeof window.AAAdmin.closeModal === 'function') {
+            window.AAAdmin.closeModal();
+        }
+    }
+
+    /**
+     * Visor MC5b sobre AAAdmin.modal: abre sincrónicamente con estado de
+     * carga y resuelve la URL firmada después (caché fresco o firma nueva).
+     * Cierre por X/Escape/overlay: mecanismos nativos del modal compartido.
+     */
+    function openAdjuntoViewer(recordId, focusReturnEl) {
+        var rid = parseInt(recordId, 10);
+        var record = findRecordById(rid);
+        if (!record) {
+            return;
+        }
+        var adjuntoId = resolveSelectedAdjuntoId(record);
+        if (!(adjuntoId > 0)) {
+            return;
+        }
+        if (!window.AAAdmin || typeof window.AAAdmin.openModal !== 'function') {
+            console.error('[ExpedienteRegistros] AAAdmin.openModal no disponible');
+            return;
+        }
+
+        var epoch = thumbs.viewEpoch;
+        var clientId = state.clientId;
+        var key = thumbKey(rid, adjuntoId);
+
+        var viewerBody = document.createElement('div');
+        viewerBody.className = 'aa-expediente-adjunto-viewer';
+        viewerBody.setAttribute('data-aa-viewer-epoch', String(epoch));
+        viewerBody.setAttribute('data-adjunto-id', String(adjuntoId));
+
+        function showViewerStatus(text, isError) {
+            clearNode(viewerBody);
+            var status = document.createElement('p');
+            status.className = isError
+                ? 'aa-expediente-adjunto-viewer-error'
+                : 'aa-expediente-adjunto-viewer-status';
+            if (isError) {
+                status.setAttribute('role', 'alert');
+            }
+            status.textContent = text;
+            viewerBody.appendChild(status);
+        }
+
+        /**
+         * El resultado asíncrono solo se aplica si la vista, el cliente y el
+         * registro siguen vigentes y este visor concreto sigue montado en el
+         * modal root (otro modal pudo sustituirlo; no se reabre).
+         */
+        function isViewerCurrent() {
+            if (epoch !== thumbs.viewEpoch || clientId !== state.clientId) {
+                return false;
+            }
+            if (!findRecordById(rid)) {
+                return false;
+            }
+            return findOwnViewerMarker() === viewerBody;
+        }
+
+        function showViewerImage(url) {
+            clearNode(viewerBody);
+            var img = document.createElement('img');
+            img.className = 'aa-expediente-adjunto-viewer-img';
+            img.alt = record.title || 'Imagen adjunta';
+            img.setAttribute('referrerpolicy', 'no-referrer');
+            img.setAttribute('decoding', 'async');
+            img.onerror = function () {
+                // URL expirada o inválida en pantalla: como máximo una
+                // refirma automática por identidad, luego error discreto.
+                delete thumbs.thumbnailCache[key];
+                if (!isViewerCurrent()) {
+                    return;
+                }
+                if (!thumbs.resignedIdentities[key]) {
+                    thumbs.resignedIdentities[key] = true;
+                    showViewerStatus('Cargando imagen...', false);
+                    requestSignedUrl(rid, adjuntoId, viewerSubscriber);
+                    return;
+                }
+                showViewerStatus(THUMB_ERROR_MESSAGE, true);
+            };
+            img.src = url;
+            viewerBody.appendChild(img);
+        }
+
+        var viewerSubscriber = {
+            onUrl: function (url) {
+                if (!isViewerCurrent()) {
+                    return;
+                }
+                showViewerImage(url);
+            },
+            onError: function () {
+                if (!isViewerCurrent()) {
+                    return;
+                }
+                showViewerStatus(THUMB_ERROR_MESSAGE, true);
+            }
+        };
+
+        showViewerStatus('Cargando imagen...', false);
+
+        window.AAAdmin.openModal({
+            title: record.title || 'Imagen adjunta',
+            body: viewerBody
+        });
+
+        // Foco de vuelta al botón principal al cerrar (si sigue conectado).
+        armModalCloseFocus(focusReturnEl);
+
+        // Caché fresco (ventana de seguridad ya descontada) o firma nueva.
+        requestSignedUrl(rid, adjuntoId, viewerSubscriber);
+    }
+
+    // ── Fin minigalería y visor MC5b ────────────────────────────────
 
     /**
      * @param {object} record
@@ -816,19 +1226,32 @@
         });
         actions.appendChild(editBtn);
 
+        var thumbEntries = [];
+        if (thumbBox) {
+            thumbEntries.push({
+                box: thumbBox,
+                details: details,
+                recordId: parseInt(record.id, 10),
+                adjuntoId: parseInt(record.adjunto.id, 10),
+                kind: 'summary'
+            });
+        }
+
         panel.appendChild(body);
+
+        // MC5b: minigalería entre body y actions; sin imágenes no hay galería.
+        var gallery = buildRecordGallery(record, thumbEntries, details);
+        if (gallery) {
+            panel.appendChild(gallery);
+        }
+
         panel.appendChild(actions);
 
         details.appendChild(summary);
         details.appendChild(panel);
 
-        if (thumbBox) {
-            details._aaThumbEntry = {
-                box: thumbBox,
-                details: details,
-                recordId: parseInt(record.id, 10),
-                adjuntoId: parseInt(record.adjunto.id, 10)
-            };
+        if (thumbEntries.length) {
+            details._aaThumbEntries = thumbEntries;
         }
 
         return details;
@@ -877,8 +1300,10 @@
         state.records.forEach(function (record) {
             var shouldOpen = expandId > 0 && parseInt(record.id, 10) === expandId;
             var details = createRecordDetails(record, { open: shouldOpen });
-            if (details._aaThumbEntry) {
-                thumbEntries.push(details._aaThumbEntry);
+            if (details._aaThumbEntries) {
+                details._aaThumbEntries.forEach(function (entry) {
+                    thumbEntries.push(entry);
+                });
             }
             list.appendChild(details);
         });
@@ -1839,7 +2264,11 @@
             getRecordAdjuntos: getRecordAdjuntos,
             loadRecords: loadRecords,
             requestThumbFor: requestThumbFor,
+            requestSignedUrl: requestSignedUrl,
             handleThumbImgError: handleThumbImgError,
+            resolveSelectedAdjuntoId: resolveSelectedAdjuntoId,
+            selectGalleryAdjunto: selectGalleryAdjunto,
+            openAdjuntoViewer: openAdjuntoViewer,
             pruneThumbState: pruneThumbState,
             invalidateThumbForRecord: invalidateThumbForRecord,
             thumbKey: thumbKey,

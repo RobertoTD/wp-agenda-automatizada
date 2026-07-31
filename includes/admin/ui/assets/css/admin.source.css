@@ -620,6 +620,74 @@
         @apply text-gray-400 text-lg font-semibold;
     }
 
+    /* MC5b: minigalería por registro (panel expandido) */
+    .aa-expediente-galeria {
+        @apply mt-3 space-y-2 max-w-md;
+    }
+
+    .aa-expediente-galeria-main {
+        @apply block w-full rounded-md border border-gray-200 bg-gray-100;
+        @apply overflow-hidden relative p-0 cursor-zoom-in;
+        aspect-ratio: 4 / 3;
+        max-height: 20rem;
+    }
+
+    .aa-expediente-galeria-main:focus-visible {
+        @apply outline-none ring-2 ring-blue-500/60 ring-offset-1;
+    }
+
+    .aa-expediente-galeria-main .aa-expediente-adjunto-thumb-img {
+        object-fit: contain;
+    }
+
+    .aa-expediente-galeria-strip {
+        @apply flex gap-2 overflow-x-auto pb-1;
+        scroll-snap-type: x proximity;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* ~3 minis visibles: base relativa al ancho de la tira (gap-2 × 2 = 1rem),
+       con mínimo táctil de 44px. */
+    .aa-expediente-galeria-mini {
+        @apply h-20 shrink-0 grow-0 rounded-md border border-gray-200 bg-gray-100;
+        @apply overflow-hidden relative p-0 cursor-pointer;
+        flex-basis: calc((100% - 1rem) / 3);
+        min-width: 2.75rem;
+        min-height: 2.75rem;
+        scroll-snap-align: start;
+    }
+
+    .aa-expediente-galeria-mini:focus-visible {
+        @apply outline-none ring-2 ring-blue-500/60 ring-offset-1;
+    }
+
+    .aa-expediente-galeria-mini-selected {
+        @apply ring-2 ring-blue-500 border-blue-500;
+    }
+
+    .aa-expediente-galeria-counter {
+        @apply text-xs text-gray-500;
+    }
+
+    /* MC5b: visor de imagen dentro del modal compartido (#aa-modal-root) */
+    .aa-expediente-adjunto-viewer {
+        @apply flex items-center justify-center min-h-[12rem];
+    }
+
+    .aa-expediente-adjunto-viewer-img {
+        @apply max-w-full rounded;
+        max-height: min(70vh, 40rem);
+        object-fit: contain;
+    }
+
+    .aa-expediente-adjunto-viewer-status {
+        @apply text-sm text-gray-500;
+    }
+
+    .aa-expediente-adjunto-viewer-error {
+        @apply text-sm text-red-600;
+    }
+
     /* ═══════════════════════════════════════════════════════════════
        MODAL SYSTEM - Basic functional styles
     ═══════════════════════════════════════════════════════════════ */
