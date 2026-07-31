@@ -144,11 +144,15 @@ require_once __DIR__ . '/includes/http/ajax/ExpedienteRegistrosAjax.php';
 ExpedienteRegistrosAjax::register();
 
 // ================================
-// 🔹 Expediente adjuntos (MC4a2 — metadatos + cliente HMAC + PUT Storage; sin UI)
+// 🔹 Expediente adjuntos (MC4a2 metadatos/HMAC/PUT + MC4b attach AJAX)
 // ================================
 require_once __DIR__ . '/includes/repositories/ExpedienteAdjuntosRepository.php';
 require_once __DIR__ . '/includes/infrastructure/backend/class-aa-expediente-attachment-signed-uploader.php';
 require_once __DIR__ . '/includes/infrastructure/backend/class-aa-expediente-attachments-backend-client.php';
+require_once __DIR__ . '/includes/domain/expediente/ExpedienteAdjuntoJpegValidator.php';
+require_once __DIR__ . '/includes/application/expediente/UploadExpedienteRegistroAdjuntoUseCase.php';
+require_once __DIR__ . '/includes/http/ajax/ExpedienteAdjuntosAjax.php';
+ExpedienteAdjuntosAjax::register();
 
 // ================================
 // 🔹 Endpoint AJAX: Guardar cita (capa http/ajax)

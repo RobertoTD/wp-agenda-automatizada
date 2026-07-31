@@ -1,13 +1,20 @@
 /**
- * Expediente registros — chronology list + create/edit modal (MC2/MC3).
+ * Expediente registros — chronology list + create/edit modal (MC2/MC3/MC4b).
  *
  * Loaded only on view=expediente. Create and edit share one modal form.
+ * Adjunto opcional: texto primero (create/update), luego aa_attach_expediente_registro.
  */
 
 (function () {
     'use strict';
 
     window.AAAdmin = window.AAAdmin || {};
+
+    var MAX_IMAGE_EDGE = 2048;
+    var MAX_IMAGE_BYTES = 1048576;
+    var HEIC_UNSUPPORTED_MESSAGE =
+        'Este formato no se puede procesar aquí. Guarda o exporta la foto como JPG e inténtalo de nuevo.';
+    var PARTIAL_ATTACH_MESSAGE = 'Registro guardado. No se pudo subir la imagen.';
 
     var state = {
         clientId: 0,
@@ -361,6 +368,270 @@
         });
     }
 
+    /**
+     * Multipart attach: solo contexto mínimo + upload_operation_id + file.
+     * @param {string} action
+     * @param {{client_id:string, record_id:string, upload_operation_id:string}} fields
+     * @param {Blob} fileBlob
+     * @param {string} fileName
+     */
+    function postAttach(action, fields, fileBlob, fileName) {
+        var formData = new FormData();
+        formData.append('action', action);
+        formData.append('_wpnonce', getNonce());
+        formData.append('client_id', fields.client_id);
+        formData.append('record_id', fields.record_id);
+        formData.append('upload_operation_id', fields.upload_operation_id);
+        formData.append('file', fileBlob, fileName || 'adjunto.jpg');
+
+        return fetch(getAjaxUrl(), {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'
+        }).then(function (response) {
+            return response.json().then(function (result) {
+                return { httpStatus: response.status, result: result };
+            });
+        });
+    }
+
+    function generateUploadOperationId() {
+        if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+            return crypto.randomUUID();
+        }
+        // Fallback UUID v4
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+            var r = (Math.random() * 16) | 0;
+            var v = c === 'x' ? r : (r & 0x3) | 0x8;
+            return v.toString(16);
+        });
+    }
+
+    function revokePreviewUrl(url) {
+        if (!url) {
+            return;
+        }
+        try {
+            if (typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
+                URL.revokeObjectURL(url);
+            }
+        } catch (e) {
+            // ignore
+        }
+    }
+
+    function clearPendingImage(pending) {
+        if (!pending) {
+            return null;
+        }
+        revokePreviewUrl(pending.previewUrl);
+        pending.previewUrl = '';
+        pending.blob = null;
+        pending.operationId = '';
+        return null;
+    }
+
+    function isLikelyHeic(file) {
+        if (!file) {
+            return false;
+        }
+        var type = String(file.type || '').toLowerCase();
+        if (type === 'image/heic' || type === 'image/heif') {
+            return true;
+        }
+        var name = String(file.name || '').toLowerCase();
+        return /\.(heic|heif)$/.test(name);
+    }
+
+    function loadImageElement(src) {
+        return new Promise(function (resolve, reject) {
+            var img = new Image();
+            img.onload = function () {
+                resolve(img);
+            };
+            img.onerror = function () {
+                reject(new Error('decode_failed'));
+            };
+            img.src = src;
+        });
+    }
+
+    function canvasToJpegBlob(canvas, quality) {
+        return new Promise(function (resolve, reject) {
+            if (!canvas || typeof canvas.toBlob !== 'function') {
+                reject(new Error('canvas_unavailable'));
+                return;
+            }
+            canvas.toBlob(function (blob) {
+                if (!blob) {
+                    reject(new Error('toblob_failed'));
+                    return;
+                }
+                resolve(blob);
+            }, 'image/jpeg', quality);
+        });
+    }
+
+    function disposeCanvas(canvas) {
+        if (!canvas) {
+            return;
+        }
+        try {
+            canvas.width = 0;
+            canvas.height = 0;
+        } catch (e) {
+            // ignore
+        }
+    }
+
+    /**
+     * Normaliza a JPEG ≤2048 px y ≤1_048_576 bytes. Nunca devuelve el original.
+     * Genera upload_operation_id solo tras preparar OK.
+     *
+     * @param {File|Blob} file
+     * @returns {Promise<{ok:true, pending:object}|{ok:false, message:string}>}
+     */
+    function prepareExpedienteImage(file) {
+        if (!file) {
+            return Promise.resolve({
+                ok: false,
+                message: 'Selecciona una imagen válida.'
+            });
+        }
+
+        var objectUrl = '';
+        var canvas = null;
+
+        function fail(message) {
+            revokePreviewUrl(objectUrl);
+            disposeCanvas(canvas);
+            return { ok: false, message: message };
+        }
+
+        var decodePromise;
+        if (typeof createImageBitmap === 'function') {
+            decodePromise = createImageBitmap(file).then(function (bitmap) {
+                return { width: bitmap.width, height: bitmap.height, source: bitmap, kind: 'bitmap' };
+            });
+        } else {
+            objectUrl = URL.createObjectURL(file);
+            decodePromise = loadImageElement(objectUrl).then(function (img) {
+                return { width: img.naturalWidth || img.width, height: img.naturalHeight || img.height, source: img, kind: 'img' };
+            });
+        }
+
+        return decodePromise
+            .catch(function () {
+                if (isLikelyHeic(file)) {
+                    throw new Error('heic_unsupported');
+                }
+                throw new Error('decode_failed');
+            })
+            .then(function (decoded) {
+                var srcW = decoded.width;
+                var srcH = decoded.height;
+                if (!(srcW > 0) || !(srcH > 0)) {
+                    throw new Error('invalid_dimensions');
+                }
+
+                var scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(srcW, srcH));
+                var targetW = Math.max(1, Math.round(srcW * scale));
+                var targetH = Math.max(1, Math.round(srcH * scale));
+
+                canvas = document.createElement('canvas');
+                var ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    throw new Error('canvas_unavailable');
+                }
+
+                var qualities = [0.85, 0.75, 0.65, 0.55, 0.45];
+                var maxPasses = 8;
+                var pass = 0;
+                var lastBlob = null;
+
+                function tryEncode() {
+                    if (pass >= maxPasses) {
+                        return Promise.reject(new Error('too_large'));
+                    }
+                    pass += 1;
+                    canvas.width = targetW;
+                    canvas.height = targetH;
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, targetW, targetH);
+                    ctx.drawImage(decoded.source, 0, 0, targetW, targetH);
+
+                    var qIndex = 0;
+
+                    function tryQuality() {
+                        if (qIndex >= qualities.length) {
+                            // Reducir dimensiones y reiniciar calidades (terminación acotada).
+                            if (targetW <= 320 && targetH <= 320) {
+                                return Promise.reject(new Error('too_large'));
+                            }
+                            targetW = Math.max(1, Math.round(targetW * 0.75));
+                            targetH = Math.max(1, Math.round(targetH * 0.75));
+                            return tryEncode();
+                        }
+                        var quality = qualities[qIndex];
+                        qIndex += 1;
+                        return canvasToJpegBlob(canvas, quality).then(function (blob) {
+                            lastBlob = blob;
+                            if (blob.size <= MAX_IMAGE_BYTES) {
+                                return blob;
+                            }
+                            return tryQuality();
+                        });
+                    }
+
+                    return tryQuality();
+                }
+
+                return tryEncode().then(function (blob) {
+                    if (!blob || blob.type !== 'image/jpeg' || blob.size < 1 || blob.size > MAX_IMAGE_BYTES) {
+                        throw new Error('too_large');
+                    }
+
+                    if (decoded.kind === 'bitmap' && typeof decoded.source.close === 'function') {
+                        try {
+                            decoded.source.close();
+                        } catch (e) {
+                            // ignore
+                        }
+                    }
+
+                    disposeCanvas(canvas);
+                    canvas = null;
+                    revokePreviewUrl(objectUrl);
+                    objectUrl = '';
+
+                    var previewUrl = URL.createObjectURL(blob);
+                    var operationId = generateUploadOperationId();
+
+                    return {
+                        ok: true,
+                        pending: {
+                            operationId: operationId,
+                            blob: blob,
+                            previewUrl: previewUrl,
+                            width: targetW,
+                            height: targetH,
+                            byteSize: blob.size
+                        }
+                    };
+                });
+            })
+            .catch(function (err) {
+                var code = err && err.message ? String(err.message) : 'decode_failed';
+                if (code === 'heic_unsupported') {
+                    return fail(HEIC_UNSUPPORTED_MESSAGE);
+                }
+                if (code === 'too_large') {
+                    return fail('La imagen es demasiado grande. Prueba con otra foto más liviana.');
+                }
+                return fail('No se pudo procesar la imagen. Prueba con JPG o PNG.');
+            });
+    }
+
     function loadRecords() {
         var data = getConfig();
         var action = (data.actions && data.actions.listRegistros) || 'aa_list_expediente_registros';
@@ -407,6 +678,12 @@
         }
         var focusReturnEl = options.focusReturnEl || null;
 
+        /** @type {{operationId:string, blob:Blob, previewUrl:string, width:number, height:number, byteSize:number}|null} */
+        var pendingImage = null;
+        /** @type {'idle'|'saving_record'|'uploading_attachment'|'partial_attachment_failed'} */
+        var flowState = 'idle';
+        var cleanedUp = false;
+
         if (!window.AAAdmin || typeof window.AAAdmin.openModal !== 'function') {
             console.error('[ExpedienteRegistros] AAAdmin.openModal no disponible');
             return;
@@ -446,15 +723,60 @@
             bodyInput.value = record.body || '';
         }
 
+        var adjuntoBlock = document.createElement('div');
+        adjuntoBlock.className = 'aa-expediente-adjunto-block';
+
+        var adjuntoLabel = document.createElement('label');
+        adjuntoLabel.className = 'aa-expediente-adjunto-label';
+        adjuntoLabel.setAttribute('for', 'aa-expediente-registro-adjunto');
+        adjuntoLabel.textContent = 'Adjuntar imagen (opcional)';
+
+        var fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.id = 'aa-expediente-registro-adjunto';
+        fileInput.className = 'aa-expediente-adjunto-input';
+        fileInput.accept = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
+        // Sin capture / cámara.
+
+        var previewWrap = document.createElement('div');
+        previewWrap.className = 'aa-expediente-adjunto-preview-wrap hidden';
+
+        var previewImg = document.createElement('img');
+        previewImg.className = 'aa-expediente-adjunto-preview';
+        previewImg.alt = 'Vista previa de la imagen adjunta';
+
+        var previewMeta = document.createElement('p');
+        previewMeta.className = 'aa-expediente-adjunto-meta';
+
+        var removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'aa-expediente-adjunto-remove';
+        removeBtn.textContent = 'Quitar imagen';
+
+        previewWrap.appendChild(previewImg);
+        previewWrap.appendChild(previewMeta);
+        previewWrap.appendChild(removeBtn);
+
+        adjuntoBlock.appendChild(adjuntoLabel);
+        adjuntoBlock.appendChild(fileInput);
+        adjuntoBlock.appendChild(previewWrap);
+
         var errorEl = document.createElement('p');
         errorEl.className = 'aa-expediente-registro-form-error text-sm text-red-600 hidden';
         errorEl.setAttribute('role', 'alert');
+
+        var retryBtn = document.createElement('button');
+        retryBtn.type = 'button';
+        retryBtn.className = 'aa-expediente-btn-reintentar-imagen hidden';
+        retryBtn.textContent = 'Reintentar imagen';
 
         bodyWrap.appendChild(titleLabel);
         bodyWrap.appendChild(titleInput);
         bodyWrap.appendChild(bodyLabel);
         bodyWrap.appendChild(bodyInput);
+        bodyWrap.appendChild(adjuntoBlock);
         bodyWrap.appendChild(errorEl);
+        bodyWrap.appendChild(retryBtn);
 
         var footer = document.createElement('div');
         footer.className = 'flex flex-wrap gap-2 justify-end';
@@ -479,7 +801,23 @@
             footer: footer
         });
 
-        armModalCloseFocus(focusReturnEl);
+        function cleanupPendingOnClose() {
+            if (cleanedUp) {
+                return;
+            }
+            cleanedUp = true;
+            pendingImage = clearPendingImage(pendingImage);
+            fileInput.value = '';
+            previewWrap.classList.add('hidden');
+            previewImg.removeAttribute('src');
+        }
+
+        disarmModalCloseWatcher();
+        modalCloseAbort = watchModalClose(function () {
+            modalCloseAbort = null;
+            cleanupPendingOnClose();
+            focusElement(focusReturnEl);
+        });
 
         window.setTimeout(function () {
             titleInput.focus();
@@ -490,14 +828,224 @@
             errorEl.classList.remove('hidden');
         }
 
+        function hideRetry() {
+            retryBtn.classList.add('hidden');
+            retryBtn.disabled = false;
+            retryBtn.textContent = 'Reintentar imagen';
+        }
+
+        function showPartialAttachFailure() {
+            flowState = 'partial_attachment_failed';
+            showFormError(PARTIAL_ATTACH_MESSAGE);
+            retryBtn.classList.remove('hidden');
+            reenableSave();
+        }
+
         function reenableSave() {
             saveBtn.disabled = false;
             saveBtn.textContent = 'Guardar';
         }
 
+        function setModalTitle(text) {
+            var titleNode = typeof document !== 'undefined'
+                ? document.querySelector('#aa-modal-root .aa-modal-title')
+                : null;
+            if (titleNode) {
+                titleNode.textContent = text;
+            }
+        }
+
+        function renderPendingPreview() {
+            if (!pendingImage) {
+                previewWrap.classList.add('hidden');
+                previewImg.removeAttribute('src');
+                previewMeta.textContent = '';
+                return;
+            }
+            previewImg.src = pendingImage.previewUrl;
+            previewMeta.textContent =
+                Math.round(pendingImage.byteSize / 1024) + ' KB · JPEG';
+            previewWrap.classList.remove('hidden');
+        }
+
+        function removePendingImage() {
+            pendingImage = clearPendingImage(pendingImage);
+            fileInput.value = '';
+            renderPendingPreview();
+            if (flowState === 'partial_attachment_failed') {
+                flowState = 'idle';
+                errorEl.classList.add('hidden');
+                hideRetry();
+            }
+        }
+
+        removeBtn.addEventListener('click', function (event) {
+            event.preventDefault();
+            if (flowState === 'saving_record' || flowState === 'uploading_attachment') {
+                return;
+            }
+            removePendingImage();
+        });
+
+        fileInput.addEventListener('change', function () {
+            if (flowState === 'saving_record' || flowState === 'uploading_attachment') {
+                fileInput.value = '';
+                return;
+            }
+
+            errorEl.classList.add('hidden');
+            hideRetry();
+            if (flowState === 'partial_attachment_failed') {
+                flowState = 'idle';
+            }
+
+            var files = fileInput.files;
+            var file = files && files.length ? files[0] : null;
+            // Una sola imagen; ignorar selección múltiple implícita.
+            pendingImage = clearPendingImage(pendingImage);
+            renderPendingPreview();
+
+            if (!file) {
+                return;
+            }
+
+            saveBtn.disabled = true;
+            fileInput.disabled = true;
+
+            prepareExpedienteImage(file)
+                .then(function (result) {
+                    fileInput.disabled = false;
+                    saveBtn.disabled = false;
+                    if (!result || !result.ok) {
+                        fileInput.value = '';
+                        showFormError(
+                            (result && result.message) || 'No se pudo procesar la imagen.'
+                        );
+                        return;
+                    }
+                    pendingImage = result.pending;
+                    renderPendingPreview();
+                })
+                .catch(function (err) {
+                    fileInput.disabled = false;
+                    saveBtn.disabled = false;
+                    fileInput.value = '';
+                    console.error('[ExpedienteRegistros] prepare image failed:', err);
+                    showFormError('No se pudo procesar la imagen.');
+                });
+        });
+
+        function persistRecordInList(saved) {
+            if (mode === 'edit') {
+                replaceRecord(saved);
+            } else {
+                prependRecord(saved);
+            }
+        }
+
+        function promoteCreateToEdit(saved) {
+            mode = 'edit';
+            recordId = parseInt(saved.id, 10);
+            record = saved;
+            setModalTitle('Editar registro');
+        }
+
+        function closeAfterFullSuccess(saved) {
+            disarmModalCloseWatcher();
+            cleanupPendingOnClose();
+            if (typeof window.AAAdmin.closeModal === 'function') {
+                window.AAAdmin.closeModal();
+            }
+            if (mode === 'edit') {
+                focusEditButtonById(saved && saved.id);
+            }
+        }
+
+        function attachPendingImage(savedRecord) {
+            if (!pendingImage || !pendingImage.blob || !pendingImage.operationId) {
+                return Promise.resolve({ ok: true, skipped: true });
+            }
+
+            var data = getConfig();
+            var action = (data.actions && data.actions.attachRegistro) || 'aa_attach_expediente_registro';
+            var operationId = pendingImage.operationId;
+
+            flowState = 'uploading_attachment';
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Subiendo imagen...';
+            retryBtn.disabled = true;
+
+            return postAttach(
+                action,
+                {
+                    client_id: String(state.clientId),
+                    record_id: String(recordId || (savedRecord && savedRecord.id) || ''),
+                    upload_operation_id: operationId
+                },
+                pendingImage.blob,
+                'adjunto.jpg'
+            ).then(function (payload) {
+                var result = payload.result;
+                if (result && result.success) {
+                    return { ok: true };
+                }
+                var message = PARTIAL_ATTACH_MESSAGE;
+                if (result && result.data && result.data.message) {
+                    // Mensaje genérico de parcial; detalle de attach no sustituye el copy aprobado.
+                    message = PARTIAL_ATTACH_MESSAGE;
+                }
+                return { ok: false, message: message };
+            });
+        }
+
+        function runAttachRetry() {
+            if (flowState === 'saving_record' || flowState === 'uploading_attachment') {
+                return;
+            }
+            if (!pendingImage || !(recordId > 0)) {
+                showFormError(PARTIAL_ATTACH_MESSAGE);
+                return;
+            }
+
+            errorEl.classList.add('hidden');
+            retryBtn.disabled = true;
+            retryBtn.textContent = 'Reintentando...';
+
+            attachPendingImage({ id: recordId })
+                .then(function (attachResult) {
+                    if (attachResult && attachResult.ok) {
+                        flowState = 'idle';
+                        hideRetry();
+                        closeAfterFullSuccess({ id: recordId });
+                        return;
+                    }
+                    showPartialAttachFailure();
+                })
+                .catch(function (err) {
+                    console.error('[ExpedienteRegistros] attach retry failed:', err);
+                    showPartialAttachFailure();
+                });
+        }
+
+        retryBtn.addEventListener('click', function (event) {
+            event.preventDefault();
+            runAttachRetry();
+        });
+
         saveBtn.addEventListener('click', function (event) {
             event.preventDefault();
+            if (flowState === 'saving_record' || flowState === 'uploading_attachment') {
+                return;
+            }
+
+            // Tras fallo parcial, Guardar reintenta solo la imagen (nunca create de nuevo).
+            if (flowState === 'partial_attachment_failed') {
+                runAttachRetry();
+                return;
+            }
+
             errorEl.classList.add('hidden');
+            hideRetry();
 
             var title = String(titleInput.value || '').trim();
             var body = String(bodyInput.value || '').trim();
@@ -532,38 +1080,59 @@
                 action = (data.actions && data.actions.createRegistro) || 'aa_create_expediente_registro';
             }
 
+            flowState = 'saving_record';
             saveBtn.disabled = true;
             saveBtn.textContent = 'Guardando...';
+            fileInput.disabled = true;
 
             postForm(action, fields)
                 .then(function (payload) {
                     var result = payload.result;
-                    if (result && result.success && result.data && result.data.record) {
-                        var saved = result.data.record;
-                        // Evitar que el watcher de cierre enfoque el botón viejo / desconectado.
-                        disarmModalCloseWatcher();
-                        if (typeof window.AAAdmin.closeModal === 'function') {
-                            window.AAAdmin.closeModal();
+                    if (!(result && result.success && result.data && result.data.record)) {
+                        var message = mode === 'edit'
+                            ? 'No se pudo actualizar el registro.'
+                            : 'No se pudo guardar el registro.';
+                        if (result && result.data && result.data.message) {
+                            message = String(result.data.message);
                         }
-                        if (mode === 'edit') {
-                            replaceRecord(saved);
-                            focusEditButtonById(saved.id);
-                        } else {
-                            prependRecord(saved);
+                        flowState = 'idle';
+                        fileInput.disabled = false;
+                        showFormError(message);
+                        reenableSave();
+                        return null;
+                    }
+
+                    var saved = result.data.record;
+                    // Actualizar lista de inmediato (también ante fallo posterior de imagen).
+                    persistRecordInList(saved);
+
+                    if (mode === 'create') {
+                        promoteCreateToEdit(saved);
+                    } else {
+                        recordId = parseInt(saved.id, 10);
+                        record = saved;
+                    }
+
+                    if (!pendingImage) {
+                        flowState = 'idle';
+                        closeAfterFullSuccess(saved);
+                        return null;
+                    }
+
+                    return attachPendingImage(saved).then(function (attachResult) {
+                        fileInput.disabled = false;
+                        if (attachResult && attachResult.ok) {
+                            flowState = 'idle';
+                            closeAfterFullSuccess(saved);
+                            return;
                         }
-                        return;
-                    }
-                    var message = mode === 'edit'
-                        ? 'No se pudo actualizar el registro.'
-                        : 'No se pudo guardar el registro.';
-                    if (result && result.data && result.data.message) {
-                        message = String(result.data.message);
-                    }
-                    showFormError(message);
-                    reenableSave();
+                        showPartialAttachFailure();
+                    });
                 })
                 .catch(function (err) {
                     console.error('[ExpedienteRegistros] save failed:', err);
+                    flowState = 'idle';
+                    fileInput.disabled = false;
                     showFormError(
                         mode === 'edit'
                             ? 'No se pudo actualizar el registro.'
@@ -629,6 +1198,14 @@
             prependRecord: prependRecord,
             replaceRecord: replaceRecord,
             findRecordById: findRecordById,
+            prepareExpedienteImage: prepareExpedienteImage,
+            generateUploadOperationId: generateUploadOperationId,
+            clearPendingImage: clearPendingImage,
+            postAttach: postAttach,
+            MAX_IMAGE_BYTES: MAX_IMAGE_BYTES,
+            MAX_IMAGE_EDGE: MAX_IMAGE_EDGE,
+            HEIC_UNSUPPORTED_MESSAGE: HEIC_UNSUPPORTED_MESSAGE,
+            PARTIAL_ATTACH_MESSAGE: PARTIAL_ATTACH_MESSAGE,
             getState: function () { return state; },
             setState: function (partial) {
                 Object.keys(partial || {}).forEach(function (key) {

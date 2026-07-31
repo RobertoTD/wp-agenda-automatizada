@@ -562,6 +562,44 @@
         @apply min-h-[8rem] resize-y;
     }
 
+    .aa-expediente-adjunto-block {
+        @apply space-y-2 pt-1;
+    }
+
+    .aa-expediente-adjunto-label {
+        @apply block text-sm font-medium text-gray-700;
+    }
+
+    .aa-expediente-adjunto-input {
+        @apply block w-full text-sm text-gray-600;
+    }
+
+    .aa-expediente-adjunto-preview-wrap {
+        @apply flex items-start gap-3;
+    }
+
+    .aa-expediente-adjunto-preview {
+        @apply w-20 h-20 object-cover rounded border border-gray-200;
+    }
+
+    .aa-expediente-adjunto-meta {
+        @apply text-xs text-gray-500;
+    }
+
+    .aa-expediente-adjunto-remove {
+        @apply px-2 py-1 text-sm text-gray-600 hover:text-red-600;
+        @apply border border-gray-200 rounded-md;
+        @apply transition-colors cursor-pointer;
+    }
+
+    .aa-expediente-btn-reintentar-imagen {
+        @apply px-3 py-1.5 text-sm;
+        @apply inline-flex items-center;
+        @apply text-amber-800 hover:text-amber-900 hover:bg-amber-50;
+        @apply border border-amber-200 rounded-md;
+        @apply transition-colors cursor-pointer;
+    }
+
     /* ═══════════════════════════════════════════════════════════════
        MODAL SYSTEM - Basic functional styles
     ═══════════════════════════════════════════════════════════════ */
