@@ -7,7 +7,7 @@
  *    aa_staff, aa_service_areas, aa_assignments, aa_services,
  *    aa_staff_services, aa_assignment_services,
  *    aa_learning_recommendation_state, aa_task_lists, aa_tasks, aa_task_state,
- *    aa_task_actions, aa_expediente_registros).
+ *    aa_task_actions, aa_expediente_registros, aa_expediente_adjuntos).
  *  - Migraciones inline de columnas para instalaciones existentes
  *    (public_calendar, duration_minutes, calendar_uid).
  *  - Inicialización de options con valor por defecto (aa_estado_gsync,
@@ -65,7 +65,7 @@ final class AA_Schema {
      * Independiente de la versión del plugin. Solo refleja el estado
      * de las tablas/columnas/índices.
      */
-    public const DB_VERSION = '12';
+    public const DB_VERSION = '13';
 
     public const OPTION_INSTALLATION_INITIALIZED_AT = 'aa_installation_initialized_at';
 
@@ -454,6 +454,37 @@ final class AA_Schema {
         ) $charset;";
 
         dbDelta($expediente_registros_sql);
+
+        // 🔹 Adjuntos finalizados de registros de expediente (MC4a2 — metadatos locales; binario en Supabase)
+        $expediente_adjuntos_table = $wpdb->prefix . 'aa_expediente_adjuntos';
+        $expediente_adjuntos_sql = "CREATE TABLE $expediente_adjuntos_table (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            record_id bigint(20) unsigned NOT NULL,
+            client_id bigint(20) unsigned NOT NULL,
+            upload_operation_id char(36) NOT NULL,
+            storage_path varchar(191) NOT NULL,
+            mime_type varchar(64) NOT NULL,
+            byte_size int unsigned NOT NULL,
+            width int unsigned NOT NULL,
+            height int unsigned NOT NULL,
+            created_at datetime NOT NULL,
+            PRIMARY KEY  (id),
+            KEY record_id_id (record_id, id),
+            KEY client_record (client_id, record_id)
+        ) $charset;";
+
+        dbDelta($expediente_adjuntos_sql);
+
+        self::ensure_index(
+            $expediente_adjuntos_table,
+            'uq_aa_exp_adj_operation',
+            'ALTER TABLE ' . $expediente_adjuntos_table . ' ADD UNIQUE KEY uq_aa_exp_adj_operation (upload_operation_id)'
+        );
+        self::ensure_index(
+            $expediente_adjuntos_table,
+            'uq_aa_exp_adj_storage_path',
+            'ALTER TABLE ' . $expediente_adjuntos_table . ' ADD UNIQUE KEY uq_aa_exp_adj_storage_path (storage_path)'
+        );
 
         // NOTA: FOREIGN KEY constraints no se incluyen aquí porque dbDelta() puede tener problemas
         // con ellos. Si se necesitan, deben agregarse manualmente después de la creación:

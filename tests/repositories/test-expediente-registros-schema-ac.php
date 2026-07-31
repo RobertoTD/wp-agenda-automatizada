@@ -28,7 +28,7 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 
 $schema_src = file_get_contents($schema_file);
 ac_assert('Schema readable', is_string($schema_src) && $schema_src !== '');
-ac_assert('DB_VERSION is 12', strpos($schema_src, "DB_VERSION = '12'") !== false);
+ac_assert('DB_VERSION is 13', strpos($schema_src, "DB_VERSION = '13'") !== false);
 ac_assert('CREATE TABLE aa_expediente_registros', strpos($schema_src, 'aa_expediente_registros') !== false);
 ac_assert(
     'no CREATE TABLE aa_expedientes padre',
@@ -90,7 +90,7 @@ if ($wp_load !== '' && is_readable($wp_load)) {
     ac_assert('índice client_recorded existe', is_array($idx) && count($idx) >= 1);
 
     $version = get_option('aa_db_version', '0');
-    ac_assert('aa_db_version es 12 tras install', (string) $version === '12', (string) $version);
+    ac_assert('aa_db_version es 13 tras install', (string) $version === '13', (string) $version);
     ac_assert('upgrade path: versión previa no bloquea', true, 'before=' . $before);
 } else {
     echo "\n(skip WP integration — set AA_WP_ROOT para install/upgrade real)\n";
