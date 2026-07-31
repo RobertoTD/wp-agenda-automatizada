@@ -44,7 +44,12 @@ ac_assert('textContent no innerHTML para datos', strpos($js, 'titleSpan.textCont
 ac_assert('prependRecord con expandId', strpos($js, 'function prependRecord') !== false && strpos($js, 'expandId') !== false);
 ac_assert('folio Folio #', strpos($js, "'Folio #'") !== false || strpos($js, '"Folio #"') !== false);
 ac_assert('crea time con datetime', strpos($js, "createElement('time')") !== false && strpos($js, 'datetime') !== false);
-ac_assert('slot acciones con Editar', strpos($js, 'aa-expediente-registro-actions') !== false && strpos($js, 'aa-expediente-btn-editar') !== false);
+ac_assert('slot acciones con Editar y Eliminar', strpos($js, 'aa-expediente-registro-actions') !== false
+    && strpos($js, 'aa-expediente-btn-editar') !== false
+    && strpos($js, 'aa-expediente-btn-eliminar') !== false
+    && strpos($js, "textContent = 'Eliminar'") !== false);
+ac_assert('confirmAndDeleteRegistro + modal.isOpen', strpos($js, 'confirmAndDeleteRegistro') !== false
+    && strpos($js, 'modal.isOpen') !== false);
 ac_assert('replaceRecord sin reordenar updated_at', strpos($js, 'function replaceRecord') !== false && strpos($js, 'updateRegistro') !== false);
 ac_assert('sin data-aa-card', strpos($js, 'data-aa-card') === false);
 ac_assert('sin aa-card-overlay / appointment', strpos($js, 'aa-card-overlay') === false && strpos($js, 'aa-appointment-') === false);
@@ -56,6 +61,7 @@ ac_assert('index script condicional vista expediente', preg_match('/if \(\$aa_cl
 ac_assert('CSS toolbar/nuevo/details', strpos($css, 'aa-expediente-nuevo-registro-btn') !== false && strpos($css, 'aa-expediente-registro') !== false);
 ac_assert('CSS folio y actions:empty', strpos($css, 'aa-expediente-registro-folio') !== false && strpos($css, 'aa-expediente-registro-actions:empty') !== false);
 ac_assert('CSS botón editar', strpos($css, 'aa-expediente-btn-editar') !== false);
+ac_assert('CSS botón eliminar (MC5c2)', strpos($css, 'aa-expediente-btn-eliminar') !== false);
 ac_assert('CSS chevron details[open]', strpos($css, '.aa-expediente-registro-summary::after') !== false && strpos($css, '.aa-expediente-registro[open]') !== false);
 ac_assert('main.js sin cambios expediente registros', strpos($main, 'ExpedienteRegistros') === false && strpos($main, 'aa_list_expediente') === false);
 
@@ -113,7 +119,15 @@ if (!class_exists('ExpedienteRegistrosAjax')) {
         public const ACTION_LIST = 'aa_list_expediente_registros';
         public const ACTION_CREATE = 'aa_create_expediente_registro';
         public const ACTION_UPDATE = 'aa_update_expediente_registro';
+        public const ACTION_DELETE = 'aa_delete_expediente_registro';
         public const NONCE_ACTION = 'aa_expediente_registros_nonce';
+    }
+}
+if (!class_exists('ExpedienteAdjuntosAjax')) {
+    class ExpedienteAdjuntosAjax {
+        public const ACTION_ATTACH = 'aa_attach_expediente_registro';
+        public const ACTION_SIGN_READ = 'aa_sign_expediente_adjunto_read';
+        public const ACTION_DELETE = 'aa_delete_expediente_adjunto';
     }
 }
 
@@ -132,6 +146,8 @@ ac_assert('vista expediente carga js', strpos($exp_html, 'expediente-registros.j
 ac_assert('vista expediente emite listRegistros', strpos($exp_html, 'listRegistros') !== false);
 ac_assert('vista expediente emite createRegistro', strpos($exp_html, 'createRegistro') !== false);
 ac_assert('vista expediente emite updateRegistro', strpos($exp_html, 'updateRegistro') !== false);
+ac_assert('vista expediente emite deleteRegistro', strpos($exp_html, 'deleteRegistro') !== false
+    && strpos($exp_html, 'aa_delete_expediente_registro') !== false);
 ac_assert('vista expediente emite nonce registros', strpos($exp_html, 'expediente_registros') !== false);
 
 echo "\n";

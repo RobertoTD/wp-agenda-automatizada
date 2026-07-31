@@ -66,7 +66,11 @@ ac_assert('insert_finalized', strpos($src, 'function insert_finalized') !== fals
 ac_assert('find_by_upload_operation_id', strpos($src, 'function find_by_upload_operation_id') !== false);
 ac_assert('find_by_storage_path', strpos($src, 'function find_by_storage_path') !== false);
 ac_assert('list_by_record_for_client', strpos($src, 'function list_by_record_for_client') !== false);
-ac_assert('sin delete', !preg_match('/function delete\b/', $src));
+ac_assert('sin delete genérico', !preg_match('/function delete\b/', $src));
+ac_assert('delete_by_record_for_client (MC5c2)', strpos($src, 'function delete_by_record_for_client') !== false);
+ac_assert('delete_by_id_for_client (MC5c1)', strpos($src, 'function delete_by_id_for_client') !== false);
+ac_assert('delete_by_record idempotente via COUNT', strpos($src, 'delete_by_record_for_client') !== false
+    && strpos($src, 'SELECT COUNT(*)') !== false);
 ac_assert('tabla aa_expediente_adjuntos', strpos($src, 'aa_expediente_adjuntos') !== false);
 ac_assert('find_latest_by_record_ids', strpos($src, 'function find_latest_by_record_ids') !== false);
 ac_assert('bulk usa MAX(id) GROUP BY', strpos($src, 'MAX(id)') !== false && strpos($src, 'GROUP BY record_id') !== false);

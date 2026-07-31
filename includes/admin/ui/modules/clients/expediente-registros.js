@@ -19,6 +19,12 @@
         'Este formato no se puede procesar aquí. Guarda o exporta la foto como JPG e inténtalo de nuevo.';
     var PARTIAL_ATTACH_MESSAGE = 'Registro guardado. No se pudo subir la imagen.';
     var THUMB_ERROR_MESSAGE = 'No se pudo cargar la imagen.';
+    var DELETE_IMAGE_CONFIRM =
+        '¿Eliminar esta imagen? Esta acción no se puede deshacer. El registro se conservará.';
+    var DELETE_IMAGE_ERROR_MESSAGE = 'No se pudo eliminar la imagen.';
+    var DELETE_RECORD_CONFIRM_EMPTY =
+        '¿Eliminar este registro? Esta acción no se puede deshacer.';
+    var DELETE_RECORD_ERROR_MESSAGE = 'No se pudo eliminar el registro.';
     // Margen antes de la expiración real (600s backend) para no usar URLs al límite.
     var THUMB_TTL_SAFETY_SECONDS = 60;
 
@@ -40,7 +46,9 @@
         thumbnailCache: {},
         thumbnailRequests: {},
         resignedIdentities: {},
-        selectedByRecord: {}
+        selectedByRecord: {},
+        deletingKeys: {},
+        deletingRecords: {}
     };
 
     // Solo para abortar el watcher de cierre del modal (foco / limpieza).
@@ -819,6 +827,8 @@
         thumbs.thumbnailRequests = {};
         thumbs.resignedIdentities = {};
         thumbs.selectedByRecord = {};
+        thumbs.deletingKeys = {};
+        thumbs.deletingRecords = {};
 
         state.records = [];
         state.recordsRoot = null;
@@ -915,6 +925,11 @@
             main.setAttribute('data-adjunto-id', String(id));
             requestThumbFor(main, rid);
         }
+
+        var deleteBtn = gallery.querySelector('.aa-expediente-galeria-delete');
+        if (deleteBtn) {
+            deleteBtn.setAttribute('data-adjunto-id', String(id));
+        }
     }
 
     /**
@@ -935,6 +950,10 @@
         gallery.className = 'aa-expediente-galeria';
         gallery.setAttribute('data-galeria-record-id', String(rid));
 
+        // Envoltura relativa: principal y papelera como hermanos (sin botones anidados).
+        var mainWrap = document.createElement('div');
+        mainWrap.className = 'aa-expediente-galeria-main-wrap';
+
         var mainBtn = document.createElement('button');
         mainBtn.type = 'button';
         mainBtn.className = 'aa-expediente-galeria-main';
@@ -944,7 +963,26 @@
             event.preventDefault();
             openAdjuntoViewer(rid, mainBtn);
         });
-        gallery.appendChild(mainBtn);
+
+        var deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'aa-expediente-galeria-delete';
+        deleteBtn.setAttribute('aria-label', 'Eliminar imagen');
+        deleteBtn.setAttribute('title', 'Eliminar imagen');
+        deleteBtn.setAttribute('data-adjunto-id', String(selectedId));
+        deleteBtn.innerHTML =
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">' +
+            '<path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v9h-2V9zm4 0h2v9h-2V9zM7 9h2v9H7V9zm-1 12h12V8H6v13z"/>' +
+            '</svg>';
+        deleteBtn.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            confirmAndDeleteAdjunto(rid, deleteBtn);
+        });
+
+        mainWrap.appendChild(mainBtn);
+        mainWrap.appendChild(deleteBtn);
+        gallery.appendChild(mainWrap);
 
         entriesOut.push({
             box: mainBtn,
@@ -995,6 +1033,314 @@
         }
 
         return gallery;
+    }
+
+    /**
+     * Tras borrar el adjunto en posición i: restantes[i] ?? restantes[i-1] ?? null.
+     *
+     * @param {Array<{id:number}>} before
+     * @param {number} deletedId
+     * @param {Array<{id:number}>} remaining
+     * @returns {number} attachment id o 0 si no quedan
+     */
+    function pickSelectionAfterDelete(before, deletedId, remaining) {
+        var list = Array.isArray(before) ? before : [];
+        var rest = Array.isArray(remaining) ? remaining : [];
+        var deleted = parseInt(deletedId, 10);
+        var index = -1;
+        for (var i = 0; i < list.length; i++) {
+            if (parseInt(list[i].id, 10) === deleted) {
+                index = i;
+                break;
+            }
+        }
+        if (!rest.length) {
+            return 0;
+        }
+        if (index >= 0 && rest[index]) {
+            return parseInt(rest[index].id, 10);
+        }
+        if (index > 0 && rest[index - 1]) {
+            return parseInt(rest[index - 1].id, 10);
+        }
+        if (index >= rest.length && rest[rest.length - 1]) {
+            return parseInt(rest[rest.length - 1].id, 10);
+        }
+        return parseInt(rest[0].id, 10) || 0;
+    }
+
+    /**
+     * Confirmación + delete de la imagen seleccionada (MC5c1).
+     * Ids congelados al pulsar; cancelar no llama al endpoint.
+     */
+    function confirmAndDeleteAdjunto(recordId, deleteBtn) {
+        var rid = parseInt(recordId, 10);
+        var attachmentId = deleteBtn
+            ? parseInt(deleteBtn.getAttribute('data-adjunto-id') || '0', 10)
+            : 0;
+        if (!(rid > 0) || !(attachmentId > 0)) {
+            return;
+        }
+
+        var key = thumbKey(rid, attachmentId);
+        if (thumbs.deletingKeys[key]) {
+            return;
+        }
+
+        var confirmFn = typeof window !== 'undefined' && typeof window.confirm === 'function'
+            ? window.confirm.bind(window)
+            : null;
+        if (!confirmFn || !confirmFn(DELETE_IMAGE_CONFIRM)) {
+            return;
+        }
+
+        // Identidad inmutable capturada al confirmar.
+        var epoch = thumbs.viewEpoch;
+        var clientId = state.clientId;
+        var frozenRecordId = rid;
+        var frozenAttachmentId = attachmentId;
+
+        thumbs.deletingKeys[key] = true;
+        if (deleteBtn) {
+            deleteBtn.disabled = true;
+        }
+
+        var gallery = deleteBtn && deleteBtn.closest
+            ? deleteBtn.closest('.aa-expediente-galeria')
+            : null;
+        if (gallery) {
+            var prevErr = gallery.querySelector('.aa-expediente-galeria-error');
+            if (prevErr && prevErr.parentNode) {
+                prevErr.parentNode.removeChild(prevErr);
+            }
+        }
+
+        var beforeAdjuntos = [];
+        var recordBefore = findRecordById(frozenRecordId);
+        if (recordBefore) {
+            beforeAdjuntos = getRecordAdjuntos(recordBefore).slice();
+        }
+
+        var data = getConfig();
+        var action = (data.actions && data.actions.deleteAdjunto) || 'aa_delete_expediente_adjunto';
+
+        postForm(action, {
+            client_id: String(clientId),
+            record_id: String(frozenRecordId),
+            attachment_id: String(frozenAttachmentId)
+        })
+            .then(function (payload) {
+                delete thumbs.deletingKeys[key];
+
+                if (epoch !== thumbs.viewEpoch || clientId !== state.clientId) {
+                    return;
+                }
+
+                var result = payload.result;
+                if (!(result && result.success && result.data)) {
+                    if (deleteBtn && isNodeConnected(deleteBtn)) {
+                        deleteBtn.disabled = false;
+                    }
+                    showGalleryDeleteError(gallery, DELETE_IMAGE_ERROR_MESSAGE);
+                    return;
+                }
+
+                var responseData = result.data;
+                var returnedRecordId = parseInt(responseData.record_id, 10);
+                var returnedDeletedId = parseInt(responseData.deleted_attachment_id, 10);
+                if (
+                    returnedRecordId !== frozenRecordId
+                    || returnedDeletedId !== frozenAttachmentId
+                    || !Array.isArray(responseData.adjuntos)
+                ) {
+                    if (deleteBtn && isNodeConnected(deleteBtn)) {
+                        deleteBtn.disabled = false;
+                    }
+                    showGalleryDeleteError(gallery, DELETE_IMAGE_ERROR_MESSAGE);
+                    return;
+                }
+
+                if (!findRecordById(frozenRecordId)) {
+                    return;
+                }
+
+                var remaining = normalizeAdjuntosList(responseData.adjuntos);
+                var nextId = pickSelectionAfterDelete(
+                    beforeAdjuntos,
+                    frozenAttachmentId,
+                    remaining
+                );
+                if (nextId > 0) {
+                    thumbs.selectedByRecord[frozenRecordId] = nextId;
+                } else {
+                    delete thumbs.selectedByRecord[frozenRecordId];
+                }
+
+                replaceRecord({
+                    id: frozenRecordId,
+                    adjuntos: remaining,
+                    adjunto: remaining.length ? remaining[0] : null
+                });
+            })
+            .catch(function (err) {
+                delete thumbs.deletingKeys[key];
+                if (epoch !== thumbs.viewEpoch || clientId !== state.clientId) {
+                    return;
+                }
+                console.error('[ExpedienteRegistros] delete adjunto failed:', err);
+                if (deleteBtn && isNodeConnected(deleteBtn)) {
+                    deleteBtn.disabled = false;
+                }
+                showGalleryDeleteError(gallery, DELETE_IMAGE_ERROR_MESSAGE);
+            });
+    }
+
+    function showGalleryDeleteError(gallery, message) {
+        if (!gallery || !isNodeConnected(gallery)) {
+            return;
+        }
+        var err = gallery.querySelector('.aa-expediente-galeria-error');
+        if (!err) {
+            err = document.createElement('p');
+            err.className = 'aa-expediente-galeria-error';
+            err.setAttribute('role', 'alert');
+            gallery.appendChild(err);
+        }
+        err.textContent = message || DELETE_IMAGE_ERROR_MESSAGE;
+    }
+
+    function deleteRecordConfirmMessage(record) {
+        var n = getRecordAdjuntos(record).length;
+        if (n < 1) {
+            return DELETE_RECORD_CONFIRM_EMPTY;
+        }
+        return '¿Eliminar este registro? También se eliminarán sus '
+            + String(n)
+            + ' imágenes. Esta acción no se puede deshacer.';
+    }
+
+    /**
+     * Retira un registro del estado y re-renderiza (MC5c2).
+     */
+    function removeRecordFromState(recordId) {
+        var rid = parseInt(recordId, 10);
+        if (!(rid > 0)) {
+            return;
+        }
+        invalidateThumbForRecord(rid);
+        delete thumbs.selectedByRecord[rid];
+        delete thumbs.deletingRecords[rid];
+        state.records = state.records.filter(function (record) {
+            return parseInt(record.id, 10) !== rid;
+        });
+        pruneThumbState();
+        renderRecordsList();
+    }
+
+    /**
+     * Confirmación + delete del registro completo (MC5c2).
+     */
+    function confirmAndDeleteRegistro(recordId, deleteBtn) {
+        if (window.AAAdmin && window.AAAdmin.modal && typeof window.AAAdmin.modal.isOpen === 'function'
+            && window.AAAdmin.modal.isOpen()) {
+            return;
+        }
+
+        var rid = parseInt(recordId, 10);
+        if (!(rid > 0)) {
+            return;
+        }
+        if (thumbs.deletingRecords[rid]) {
+            return;
+        }
+
+        var record = findRecordById(rid);
+        if (!record) {
+            return;
+        }
+
+        var confirmFn = typeof window !== 'undefined' && typeof window.confirm === 'function'
+            ? window.confirm.bind(window)
+            : null;
+        if (!confirmFn || !confirmFn(deleteRecordConfirmMessage(record))) {
+            return;
+        }
+
+        var epoch = thumbs.viewEpoch;
+        var clientId = state.clientId;
+        var frozenRecordId = rid;
+
+        thumbs.deletingRecords[frozenRecordId] = true;
+        if (deleteBtn) {
+            deleteBtn.disabled = true;
+        }
+
+        var details = deleteBtn && deleteBtn.closest
+            ? deleteBtn.closest('.aa-expediente-registro')
+            : null;
+        if (details) {
+            var prevErr = details.querySelector('.aa-expediente-registro-delete-error');
+            if (prevErr && prevErr.parentNode) {
+                prevErr.parentNode.removeChild(prevErr);
+            }
+        }
+
+        var data = getConfig();
+        var action = (data.actions && data.actions.deleteRegistro) || 'aa_delete_expediente_registro';
+
+        postForm(action, {
+            client_id: String(clientId),
+            record_id: String(frozenRecordId)
+        })
+            .then(function (payload) {
+                delete thumbs.deletingRecords[frozenRecordId];
+
+                if (epoch !== thumbs.viewEpoch || clientId !== state.clientId) {
+                    return;
+                }
+
+                var result = payload.result;
+                if (!(result && result.success && result.data && result.data.deleted === true
+                    && parseInt(result.data.record_id, 10) === frozenRecordId)) {
+                    if (deleteBtn && isNodeConnected(deleteBtn)) {
+                        deleteBtn.disabled = false;
+                    }
+                    showRegistroDeleteError(details, DELETE_RECORD_ERROR_MESSAGE);
+                    return;
+                }
+
+                removeRecordFromState(frozenRecordId);
+            })
+            .catch(function (err) {
+                delete thumbs.deletingRecords[frozenRecordId];
+                if (epoch !== thumbs.viewEpoch || clientId !== state.clientId) {
+                    return;
+                }
+                console.error('[ExpedienteRegistros] delete registro failed:', err);
+                if (deleteBtn && isNodeConnected(deleteBtn)) {
+                    deleteBtn.disabled = false;
+                }
+                showRegistroDeleteError(details, DELETE_RECORD_ERROR_MESSAGE);
+            });
+    }
+
+    function showRegistroDeleteError(details, message) {
+        if (!details || !isNodeConnected(details)) {
+            return;
+        }
+        var actions = details.querySelector('.aa-expediente-registro-actions');
+        var err = details.querySelector('.aa-expediente-registro-delete-error');
+        if (!err) {
+            err = document.createElement('p');
+            err.className = 'aa-expediente-registro-delete-error';
+            err.setAttribute('role', 'alert');
+            if (actions && actions.parentNode) {
+                actions.parentNode.insertBefore(err, actions.nextSibling);
+            } else {
+                details.appendChild(err);
+            }
+        }
+        err.textContent = message || DELETE_RECORD_ERROR_MESSAGE;
     }
 
     function getModalRootNode() {
@@ -1225,6 +1571,17 @@
             openEditForm(record.id, editBtn);
         });
         actions.appendChild(editBtn);
+
+        var deleteRecordBtn = document.createElement('button');
+        deleteRecordBtn.type = 'button';
+        deleteRecordBtn.className = 'aa-expediente-btn-eliminar';
+        deleteRecordBtn.setAttribute('data-registro-id', String(record.id));
+        deleteRecordBtn.textContent = 'Eliminar';
+        deleteRecordBtn.addEventListener('click', function (event) {
+            event.preventDefault();
+            confirmAndDeleteRegistro(record.id, deleteRecordBtn);
+        });
+        actions.appendChild(deleteRecordBtn);
 
         var thumbEntries = [];
         if (thumbBox) {
@@ -2269,6 +2626,13 @@
             resolveSelectedAdjuntoId: resolveSelectedAdjuntoId,
             selectGalleryAdjunto: selectGalleryAdjunto,
             openAdjuntoViewer: openAdjuntoViewer,
+            pickSelectionAfterDelete: pickSelectionAfterDelete,
+            confirmAndDeleteAdjunto: confirmAndDeleteAdjunto,
+            confirmAndDeleteRegistro: confirmAndDeleteRegistro,
+            deleteRecordConfirmMessage: deleteRecordConfirmMessage,
+            removeRecordFromState: removeRecordFromState,
+            DELETE_IMAGE_CONFIRM: DELETE_IMAGE_CONFIRM,
+            DELETE_RECORD_CONFIRM_EMPTY: DELETE_RECORD_CONFIRM_EMPTY,
             pruneThumbState: pruneThumbState,
             invalidateThumbForRecord: invalidateThumbForRecord,
             thumbKey: thumbKey,

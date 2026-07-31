@@ -225,4 +225,33 @@ final class ExpedienteRegistrosRepository {
             'updated_at' => null,
         ];
     }
+
+    /**
+     * MC5c2: elimina un registro scoped a cliente. true solo si se borró
+     * exactamente una fila (SQL error → false).
+     */
+    public static function delete_by_id_for_client(int $record_id, int $client_id): bool {
+        if ($record_id < 1 || $client_id < 1) {
+            return false;
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+
+        $deleted = $wpdb->delete(
+            $table,
+            [
+                'id' => $record_id,
+                'client_id' => $client_id,
+            ],
+            ['%d', '%d']
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[ExpedienteRegistrosRepository] delete_by_id_for_client error');
+            return false;
+        }
+
+        return (int) $deleted === 1;
+    }
 }

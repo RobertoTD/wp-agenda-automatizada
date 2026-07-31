@@ -62,7 +62,12 @@ ac_assert('ORDER BY recorded_at DESC, id DESC', strpos($src, 'ORDER BY recorded_
 ac_assert('usa $wpdb->prefix', strpos($src, "aa_expediente_registros") !== false);
 ac_assert('WHERE id + client_id en find', strpos($src, 'WHERE id = %d AND client_id = %d') !== false);
 ac_assert('update solo title/body/updated_at', preg_match("/\\\$wpdb->update\([\s\S]*?'title'[\s\S]*?'body'[\s\S]*?'updated_at'/", $src) === 1);
-ac_assert('sin delete', !preg_match('/function delete\b/', $src));
+ac_assert('sin delete genérico', !preg_match('/function delete\b/', $src));
+ac_assert('delete_by_id_for_client (MC5c2)', strpos($src, 'function delete_by_id_for_client') !== false);
+ac_assert('delete scoped id + client_id', preg_match(
+    "/function delete_by_id_for_client[\s\S]*?'id'[\s\S]*?'client_id'/",
+    $src
+) === 1);
 
 global $wpdb;
 $wpdb = new class {

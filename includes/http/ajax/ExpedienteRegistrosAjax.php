@@ -1,6 +1,6 @@
 <?php
 /**
- * Expediente Registros AJAX — list + create + update for expediente chronology.
+ * Expediente Registros AJAX — list + create + update + delete (MC5c2).
  *
  * Capability: manage_options (aligned with clients / expedientes UI gate).
  */
@@ -11,12 +11,14 @@ require_once dirname(__DIR__, 2) . '/repositories/ClientsRepository.php';
 require_once dirname(__DIR__, 2) . '/repositories/ExpedienteRegistrosRepository.php';
 require_once dirname(__DIR__, 2) . '/repositories/ExpedienteAdjuntosRepository.php';
 require_once dirname(__DIR__, 2) . '/domain/expediente/ExpedienteAdjuntoPublicDto.php';
+require_once dirname(__DIR__, 2) . '/application/expediente/DeleteExpedienteRegistroUseCase.php';
 
 final class ExpedienteRegistrosAjax {
 
     public const ACTION_LIST = 'aa_list_expediente_registros';
     public const ACTION_CREATE = 'aa_create_expediente_registro';
     public const ACTION_UPDATE = 'aa_update_expediente_registro';
+    public const ACTION_DELETE = 'aa_delete_expediente_registro';
     public const NONCE_ACTION = 'aa_expediente_registros_nonce';
 
     public const TITLE_MAX = 200;
@@ -26,6 +28,7 @@ final class ExpedienteRegistrosAjax {
         add_action('wp_ajax_' . self::ACTION_LIST, [__CLASS__, 'handle_list']);
         add_action('wp_ajax_' . self::ACTION_CREATE, [__CLASS__, 'handle_create']);
         add_action('wp_ajax_' . self::ACTION_UPDATE, [__CLASS__, 'handle_update']);
+        add_action('wp_ajax_' . self::ACTION_DELETE, [__CLASS__, 'handle_delete']);
     }
 
     public static function handle_list(): void {
@@ -158,6 +161,57 @@ final class ExpedienteRegistrosAjax {
         wp_send_json_success([
             'record' => $record,
         ]);
+    }
+
+    public static function handle_delete(): void {
+        if (!self::authorize()) {
+            return;
+        }
+
+        $client_id = self::read_client_id();
+        $record_id = isset($_POST['record_id']) ? absint($_POST['record_id']) : 0;
+
+        if ($client_id < 1 || $record_id < 1) {
+            wp_send_json_error(['message' => 'Cliente o registro no válido.', 'code' => 'invalid_context'], 400);
+        }
+
+        $use_case = new DeleteExpedienteRegistroUseCase();
+        $result = $use_case->execute([
+            'client_id' => $client_id,
+            'record_id' => $record_id,
+        ]);
+
+        if (empty($result['ok'])) {
+            $code = (string) ($result['code'] ?? 'delete_failed');
+            $message = (string) ($result['message'] ?? 'No se pudo eliminar el registro.');
+            wp_send_json_error(['message' => $message, 'code' => $code], self::http_status_for_delete_code($code));
+        }
+
+        wp_send_json_success([
+            'deleted' => true,
+            'record_id' => (int) $result['record_id'],
+        ]);
+    }
+
+    private static function http_status_for_delete_code(string $code): int {
+        switch ($code) {
+            case 'forbidden':
+                return 403;
+            case 'client_not_found':
+            case 'record_not_found':
+                return 404;
+            case 'adjunto_inconsistent':
+            case 'path_forbidden':
+                return 409;
+            case 'storage_delete_partial':
+            case 'delete_failed':
+            case 'expediente_attachments_unreachable':
+                return 502;
+            case 'local_delete_failed':
+                return 500;
+            default:
+                return 400;
+        }
     }
 
     /**

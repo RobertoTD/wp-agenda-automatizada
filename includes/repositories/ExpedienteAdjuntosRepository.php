@@ -2,7 +2,8 @@
 /**
  * Expediente Adjuntos Repository — SQL puro para metadatos de adjuntos finalizados.
  *
- * MC4a2: insert idempotente + list/find. Sin delete. Binario vive en Supabase Storage.
+ * MC4a2: insert idempotente + list/find. MC5c1: delete scoped.
+ * Binario vive en Supabase Storage.
  *
  * @package WP_Agenda_Automatizada
  * @subpackage Repositories
@@ -605,5 +606,77 @@ final class ExpedienteAdjuntosRepository {
         $candidate['id'] = $id;
 
         return $candidate;
+    }
+
+    /**
+     * MC5c1: elimina una fila scoped a cliente. Devuelve true solo si se
+     * borró exactamente una fila.
+     */
+    public static function delete_by_id_for_client(int $attachment_id, int $client_id): bool {
+        if ($attachment_id < 1 || $client_id < 1) {
+            return false;
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+
+        $deleted = $wpdb->delete(
+            $table,
+            [
+                'id' => $attachment_id,
+                'client_id' => $client_id,
+            ],
+            ['%d', '%d']
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[ExpedienteAdjuntosRepository] delete_by_id_for_client error');
+            return false;
+        }
+
+        return (int) $deleted === 1;
+    }
+
+    /**
+     * MC5c2: elimina todas las filas de adjuntos de un registro scoped a
+     * cliente. Éxito idempotente: true si no quedan filas (incluso si ya
+     * estaban vacías). false solo ante error SQL o filas residuales.
+     */
+    public static function delete_by_record_for_client(int $record_id, int $client_id): bool {
+        if ($record_id < 1 || $client_id < 1) {
+            return false;
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+
+        $result = $wpdb->delete(
+            $table,
+            [
+                'record_id' => $record_id,
+                'client_id' => $client_id,
+            ],
+            ['%d', '%d']
+        );
+
+        if ($result === false || $wpdb->last_error) {
+            error_log('[ExpedienteAdjuntosRepository] delete_by_record_for_client error');
+            return false;
+        }
+
+        $remaining = (int) $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$table} WHERE record_id = %d AND client_id = %d",
+                $record_id,
+                $client_id
+            )
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[ExpedienteAdjuntosRepository] delete_by_record_for_client count error');
+            return false;
+        }
+
+        return $remaining === 0;
     }
 }

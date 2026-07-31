@@ -50,7 +50,19 @@ ac_assert('index emite attachRegistro', strpos($index, 'attachRegistro') !== fal
 
 // ── MC4c: contratos públicos con DTO seguro + sign-read ──
 ac_assert('ACTION_SIGN_READ', strpos($ajax_src, 'aa_sign_expediente_adjunto_read') !== false);
+ac_assert('ACTION_DELETE (MC5c1)', strpos($ajax_src, 'aa_delete_expediente_adjunto') !== false);
 ac_assert('handle_sign_read', strpos($ajax_src, 'function handle_sign_read') !== false);
+ac_assert('handle_delete', strpos($ajax_src, 'function handle_delete') !== false);
+ac_assert('delete usa DeleteExpedienteAdjuntoUseCase', strpos($ajax_src, 'DeleteExpedienteAdjuntoUseCase') !== false);
+ac_assert('delete lee attachment_id no storage_path', strpos($ajax_src, "absint(\$_POST['attachment_id'])") !== false
+    && strpos($ajax_src, "\$_POST['storage_path']") === false);
+ac_assert('delete responde adjuntos + deleted_attachment_id', strpos($ajax_src, "'deleted_attachment_id'") !== false
+    && strpos($ajax_src, "'adjuntos' => \$result['adjuntos']") !== false);
+ac_assert('storage_delete_failed / local_delete_failed mapeados',
+    strpos($ajax_src, 'storage_delete_failed') !== false
+    && strpos($ajax_src, 'local_delete_failed') !== false);
+ac_assert('index emite deleteAdjunto', strpos($index, 'deleteAdjunto') !== false);
+ac_assert('js usa deleteAdjunto', strpos($js, 'deleteAdjunto') !== false);
 ac_assert('attach responde DTO público', strpos($ajax_src, "'adjunto' => ExpedienteAdjuntoPublicDto::from(") !== false);
 ac_assert('attach ya no expone attachment crudo', strpos($ajax_src, "'attachment' => \$result") === false);
 ac_assert('sign-read usa GetExpedienteAdjuntoReadUrlUseCase', strpos($ajax_src, 'GetExpedienteAdjuntoReadUrlUseCase') !== false);
@@ -92,8 +104,10 @@ require_once $plugin_root . '/includes/http/ajax/ExpedienteAdjuntosAjax.php';
 ac_assert('class exists', class_exists('ExpedienteAdjuntosAjax'));
 ac_assert('ACTION constant', ExpedienteAdjuntosAjax::ACTION_ATTACH === 'aa_attach_expediente_registro');
 ac_assert('SIGN_READ constant', ExpedienteAdjuntosAjax::ACTION_SIGN_READ === 'aa_sign_expediente_adjunto_read');
+ac_assert('DELETE constant', ExpedienteAdjuntosAjax::ACTION_DELETE === 'aa_delete_expediente_adjunto');
 ac_assert('handle_attach callable', method_exists('ExpedienteAdjuntosAjax', 'handle_attach'));
 ac_assert('handle_sign_read callable', method_exists('ExpedienteAdjuntosAjax', 'handle_sign_read'));
+ac_assert('handle_delete callable', method_exists('ExpedienteAdjuntosAjax', 'handle_delete'));
 
 echo "\n";
 if (count($failed) === 0) {

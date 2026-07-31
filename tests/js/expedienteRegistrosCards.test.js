@@ -210,11 +210,16 @@ describe('expediente-registros cards (MC2b/MC3)', () => {
         assert.equal(timeEl.textContent, '30/07/2026 09:30');
         assert.equal(body.textContent, 'Línea 1\nLínea 2');
         assert.ok(actions);
-        assert.equal(actions.children.length, 1);
+        assert.equal(actions.children.length, 2);
         assert.ok(editBtn);
         assert.equal(editBtn.textContent, 'Editar');
         assert.equal(editBtn.getAttribute('data-registro-id'), '12');
         assert.equal(editBtn.type, 'button');
+        const deleteBtn = details.querySelector('.aa-expediente-btn-eliminar');
+        assert.ok(deleteBtn);
+        assert.equal(deleteBtn.textContent, 'Eliminar');
+        assert.equal(deleteBtn.getAttribute('data-registro-id'), '12');
+        assert.equal(deleteBtn.type, 'button');
         assert.equal(details.open, false);
     });
 

@@ -1,6 +1,6 @@
 <?php
 /**
- * Expediente Adjuntos AJAX — attach (MC4b) + sign-read dirigido (MC4c/MC5b).
+ * Expediente Adjuntos AJAX — attach (MC4b) + sign-read (MC4c/MC5b) + delete (MC5c1).
  *
  * Capability/nonce alineados con ExpedienteRegistrosAjax. Contrato público
  * de adjunto: ExpedienteAdjuntoPublicDto (sin storage_path ni internos).
@@ -11,16 +11,19 @@ defined('ABSPATH') or die('No direct access');
 require_once dirname(__DIR__, 2) . '/http/ajax/ExpedienteRegistrosAjax.php';
 require_once dirname(__DIR__, 2) . '/application/expediente/UploadExpedienteRegistroAdjuntoUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/expediente/GetExpedienteAdjuntoReadUrlUseCase.php';
+require_once dirname(__DIR__, 2) . '/application/expediente/DeleteExpedienteAdjuntoUseCase.php';
 require_once dirname(__DIR__, 2) . '/domain/expediente/ExpedienteAdjuntoPublicDto.php';
 
 final class ExpedienteAdjuntosAjax {
 
     public const ACTION_ATTACH = 'aa_attach_expediente_registro';
     public const ACTION_SIGN_READ = 'aa_sign_expediente_adjunto_read';
+    public const ACTION_DELETE = 'aa_delete_expediente_adjunto';
 
     public static function register(): void {
         add_action('wp_ajax_' . self::ACTION_ATTACH, [__CLASS__, 'handle_attach']);
         add_action('wp_ajax_' . self::ACTION_SIGN_READ, [__CLASS__, 'handle_sign_read']);
+        add_action('wp_ajax_' . self::ACTION_DELETE, [__CLASS__, 'handle_delete']);
     }
 
     public static function handle_attach(): void {
@@ -106,6 +109,42 @@ final class ExpedienteAdjuntosAjax {
         ]);
     }
 
+    public static function handle_delete(): void {
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => 'Permisos insuficientes.', 'code' => 'forbidden'], 403);
+        }
+
+        check_ajax_referer(ExpedienteRegistrosAjax::NONCE_ACTION, '_wpnonce');
+
+        $client_id = isset($_POST['client_id']) ? absint($_POST['client_id']) : 0;
+        $record_id = isset($_POST['record_id']) ? absint($_POST['record_id']) : 0;
+        $attachment_id = isset($_POST['attachment_id']) ? absint($_POST['attachment_id']) : 0;
+
+        if ($client_id < 1 || $record_id < 1 || $attachment_id < 1) {
+            wp_send_json_error(['message' => 'Cliente, registro o imagen no válidos.', 'code' => 'invalid_context'], 400);
+        }
+
+        $use_case = new DeleteExpedienteAdjuntoUseCase();
+        $result = $use_case->execute([
+            'client_id' => $client_id,
+            'record_id' => $record_id,
+            'attachment_id' => $attachment_id,
+        ]);
+
+        if (empty($result['ok'])) {
+            $code = (string) ($result['code'] ?? 'delete_failed');
+            $message = (string) ($result['message'] ?? 'No se pudo eliminar la imagen.');
+            wp_send_json_error(['message' => $message, 'code' => $code], self::http_status_for_code($code));
+        }
+
+        wp_send_json_success([
+            'record_id' => $result['record_id'],
+            'deleted_attachment_id' => $result['deleted_attachment_id'],
+            'adjuntos' => $result['adjuntos'],
+            'adjunto' => $result['adjunto'],
+        ]);
+    }
+
     private static function http_status_for_code(string $code): int {
         switch ($code) {
             case 'forbidden':
@@ -130,7 +169,11 @@ final class ExpedienteAdjuntosAjax {
             case 'sign_failed':
             case 'sign_read_invalid':
             case 'signed_url_invalid':
+            case 'delete_failed':
+            case 'storage_delete_failed':
                 return 502;
+            case 'local_delete_failed':
+                return 500;
             default:
                 return 400;
         }

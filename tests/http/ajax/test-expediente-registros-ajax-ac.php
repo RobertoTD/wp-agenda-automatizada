@@ -33,7 +33,11 @@ ac_assert('ajax file exists', is_string($ajax_src) && $ajax_src !== '');
 ac_assert('ACTION_LIST', strpos($ajax_src, 'aa_list_expediente_registros') !== false);
 ac_assert('ACTION_CREATE', strpos($ajax_src, 'aa_create_expediente_registro') !== false);
 ac_assert('ACTION_UPDATE', strpos($ajax_src, 'aa_update_expediente_registro') !== false);
+ac_assert('ACTION_DELETE (MC5c2)', strpos($ajax_src, 'aa_delete_expediente_registro') !== false);
 ac_assert('handle_update', strpos($ajax_src, 'function handle_update') !== false);
+ac_assert('handle_delete (MC5c2)', strpos($ajax_src, 'function handle_delete') !== false);
+ac_assert('delete no lee storage_path', strpos($ajax_src, "\$_POST['storage_path']") === false
+    && strpos($ajax_src, "\$_REQUEST['storage_path']") === false);
 ac_assert('NONCE compartido', strpos($ajax_src, 'aa_expediente_registros_nonce') !== false);
 ac_assert('manage_options', strpos($ajax_src, "current_user_can('manage_options')") !== false);
 ac_assert('valida cliente find_by_id', substr_count($ajax_src, 'ClientsRepository::find_by_id') >= 3);
@@ -58,7 +62,15 @@ ac_assert('sin consultas dentro del foreach del listado',
     !preg_match('/foreach \(\$records[^}]*ExpedienteAdjuntosRepository::/s', $ajax_src));
 ac_assert('index emite listRegistros solo expediente', strpos($index, 'listRegistros') !== false && strpos($index, 'aa_clients_is_expediente') !== false);
 ac_assert('index emite updateRegistro', strpos($index, 'updateRegistro') !== false);
+ac_assert('index emite deleteRegistro', strpos($index, 'deleteRegistro') !== false);
 ac_assert('index carga js solo expediente', strpos($index, 'expediente-registros.js') !== false);
+ac_assert('delete usa DeleteExpedienteRegistroUseCase', strpos($ajax_src, 'DeleteExpedienteRegistroUseCase') !== false);
+ac_assert('delete responde deleted + record_id', strpos($ajax_src, "'deleted' => true") !== false
+    && strpos($ajax_src, "'record_id' => (int) \$result['record_id']") !== false);
+ac_assert('delete mapea local_delete_failed / storage_delete_partial',
+    strpos($ajax_src, 'local_delete_failed') !== false
+    && strpos($ajax_src, 'storage_delete_partial') !== false);
+ac_assert('delete mapea record_not_found → 404', preg_match("/case 'record_not_found':/", $ajax_src) === 1);
 
 if (!defined('ABSPATH')) {
     define('ABSPATH', $plugin_root . '/');
@@ -71,9 +83,11 @@ ac_assert('register callable', method_exists('ExpedienteRegistrosAjax', 'registe
 ac_assert('handle_list callable', method_exists('ExpedienteRegistrosAjax', 'handle_list'));
 ac_assert('handle_create callable', method_exists('ExpedienteRegistrosAjax', 'handle_create'));
 ac_assert('handle_update callable', method_exists('ExpedienteRegistrosAjax', 'handle_update'));
+ac_assert('handle_delete callable', method_exists('ExpedienteRegistrosAjax', 'handle_delete'));
 ac_assert('constants', ExpedienteRegistrosAjax::ACTION_LIST === 'aa_list_expediente_registros'
     && ExpedienteRegistrosAjax::ACTION_CREATE === 'aa_create_expediente_registro'
     && ExpedienteRegistrosAjax::ACTION_UPDATE === 'aa_update_expediente_registro'
+    && ExpedienteRegistrosAjax::ACTION_DELETE === 'aa_delete_expediente_registro'
     && ExpedienteRegistrosAjax::NONCE_ACTION === 'aa_expediente_registros_nonce');
 
 echo "\n";

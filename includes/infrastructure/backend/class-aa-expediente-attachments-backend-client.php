@@ -1,8 +1,8 @@
 <?php
 /**
- * Backend client — Expediente attachment Storage ops (HMAC JSON) (MC4a2).
+ * Backend client — Expediente attachment Storage ops (HMAC JSON) (MC4a2/MC5c1).
  *
- * authorize-upload / finalize / sign-read. No registra signed_url, token ni upload_intent.
+ * authorize-upload / finalize / sign-read / delete. No registra signed_url, token ni upload_intent.
  * El campo separado `token` de authorize se descarta; `signed_url` solo se entrega
  * al caller PHP interno (transporte PUT), nunca a UI.
  */
@@ -23,6 +23,7 @@ class AA_Expediente_Attachments_Backend_Client {
         'object_missing',
         'object_mismatch',
         'sign_failed',
+        'delete_failed',
     ];
 
     /**
@@ -91,6 +92,25 @@ class AA_Expediente_Attachments_Backend_Client {
         ]);
 
         return $this->parseSignReadResponse($response);
+    }
+
+    /**
+     * MC5c1: elimina un objeto privado. Éxito solo con status deleted|already_absent.
+     *
+     * @return array{ok:true,result:array{status:string}}|array{ok:false,code:string,error:string,http_status:int}
+     */
+    public function delete_object(string $storage_path): array {
+        $preflight = $this->preflight();
+        if ($preflight !== null) {
+            return $preflight;
+        }
+
+        $endpoint = rtrim((string) AA_API_BASE_URL, '/') . '/expediente/attachments/delete';
+        $response = aa_send_authenticated_request($endpoint, 'POST', [
+            'storage_path' => $storage_path,
+        ]);
+
+        return $this->parseDeleteResponse($response);
     }
 
     /**
@@ -166,6 +186,29 @@ class AA_Expediente_Attachments_Backend_Client {
      */
     private function parseSignReadResponse($response): array {
         return $this->parseJsonOk($response, ['url', 'expires_in']);
+    }
+
+    /**
+     * @param array|\WP_Error $response
+     * @return array{ok:true,result:array{status:string}}|array{ok:false,code:string,error:string,http_status:int}
+     */
+    private function parseDeleteResponse($response): array {
+        $parsed = $this->parseJsonOk($response, ['status']);
+        if ($parsed['ok'] !== true) {
+            return $parsed;
+        }
+
+        /** @var array<string,mixed> $result */
+        $result = $parsed['result'];
+        $status = (string) ($result['status'] ?? '');
+        if ($status !== 'deleted' && $status !== 'already_absent') {
+            return $this->failure('expediente_attachments_invalid_response', '', 0);
+        }
+
+        return [
+            'ok' => true,
+            'result' => ['status' => $status],
+        ];
     }
 
     /**
