@@ -49,7 +49,13 @@ final class GetExpedienteAdjuntoReadUrlUseCase {
     }
 
     /**
-     * @param array{client_id:int,record_id:int} $input
+     * MC5a: con `attachment_id` la búsqueda es scoped por attachment + record +
+     * client; un id inexistente o ajeno produce el mismo error público
+     * (`attachment_not_found`) sin llegar a la firma del backend. Sin
+     * `attachment_id` se conserva el fallback MC4c (último adjunto); su retiro
+     * queda para MC5b.
+     *
+     * @param array{client_id:int,record_id:int,attachment_id?:int} $input
      * @return array{
      *   ok:true,
      *   url:string,
@@ -60,6 +66,7 @@ final class GetExpedienteAdjuntoReadUrlUseCase {
     public function execute(array $input): array {
         $client_id = (int) ($input['client_id'] ?? 0);
         $record_id = (int) ($input['record_id'] ?? 0);
+        $attachment_id = (int) ($input['attachment_id'] ?? 0);
 
         if ($client_id < 1 || $record_id < 1) {
             return $this->fail('invalid_context', 'Cliente o registro no válido.');
@@ -73,11 +80,18 @@ final class GetExpedienteAdjuntoReadUrlUseCase {
             return $this->fail('record_not_found', 'Registro no encontrado.');
         }
 
-        $latest = ExpedienteAdjuntosRepository::find_latest_by_record_ids([$record_id], $client_id);
-        $adjunto = $latest[$record_id] ?? null;
+        if ($attachment_id > 0) {
+            $adjunto = ExpedienteAdjuntosRepository::find_by_id_for_client($attachment_id, $client_id);
+            if ($adjunto === null || (int) ($adjunto['record_id'] ?? 0) !== $record_id) {
+                return $this->fail('attachment_not_found', 'Imagen no encontrada.');
+            }
+        } else {
+            $latest = ExpedienteAdjuntosRepository::find_latest_by_record_ids([$record_id], $client_id);
+            $adjunto = $latest[$record_id] ?? null;
 
-        if ($adjunto === null) {
-            return $this->fail('no_attachment', 'El registro no tiene imagen adjunta.');
+            if ($adjunto === null) {
+                return $this->fail('no_attachment', 'El registro no tiene imagen adjunta.');
+            }
         }
 
         $storage_path = (string) ($adjunto['storage_path'] ?? '');

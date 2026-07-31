@@ -44,16 +44,26 @@ final class ExpedienteRegistrosAjax {
 
         $records = ExpedienteRegistrosRepository::list_by_client_id($client_id);
 
-        // MC4c: último adjunto por registro en una sola consulta bulk (sin N+1).
+        // MC5a: todos los adjuntos por registro en una sola consulta bulk (sin N+1).
+        // `adjuntos` (id DESC) es la fuente de verdad; `adjunto` es alias
+        // temporal de adjuntos[0] para compatibilidad con MC4c.
         $record_ids = array_map(static function (array $record): int {
             return (int) $record['id'];
         }, $records);
 
-        $latest_by_record = ExpedienteAdjuntosRepository::find_latest_by_record_ids($record_ids, $client_id);
+        $adjuntos_by_record = ExpedienteAdjuntosRepository::list_by_record_ids($record_ids, $client_id);
 
         foreach ($records as $index => $record) {
-            $adjunto = $latest_by_record[(int) $record['id']] ?? null;
-            $records[$index]['adjunto'] = ExpedienteAdjuntoPublicDto::from($adjunto);
+            $rows = $adjuntos_by_record[(int) $record['id']] ?? [];
+            $dtos = [];
+            foreach ($rows as $row) {
+                $dto = ExpedienteAdjuntoPublicDto::from($row);
+                if ($dto !== null) {
+                    $dtos[] = $dto;
+                }
+            }
+            $records[$index]['adjuntos'] = $dtos;
+            $records[$index]['adjunto'] = $dtos[0] ?? null;
         }
 
         wp_send_json_success([

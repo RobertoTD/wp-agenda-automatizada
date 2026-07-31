@@ -362,6 +362,83 @@ final class ExpedienteAdjuntosRepository {
     }
 
     /**
+     * Todos los adjuntos de un conjunto de registros, agrupados por record_id
+     * y ordenados id DESC dentro de cada grupo (MC5a).
+     *
+     * Una sola consulta bulk (sin N+1). Los registros sin adjuntos simplemente
+     * no aparecen en el mapa: el caller trata la ausencia como lista vacía.
+     *
+     * @param list<int> $record_ids
+     * @return array<int, list<array{
+     *   id:int,
+     *   record_id:int,
+     *   client_id:int,
+     *   upload_operation_id:string,
+     *   storage_path:string,
+     *   mime_type:string,
+     *   byte_size:int,
+     *   width:int,
+     *   height:int,
+     *   created_at:string
+     * }>> Mapa record_id => adjuntos ordenados id DESC.
+     */
+    public static function list_by_record_ids(array $record_ids, int $client_id): array {
+        if ($client_id < 1) {
+            return [];
+        }
+
+        $ids = [];
+        foreach ($record_ids as $rid) {
+            $rid = (int) $rid;
+            if ($rid > 0) {
+                $ids[$rid] = $rid;
+            }
+        }
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $ids = array_values($ids);
+
+        global $wpdb;
+        $table = self::table_name();
+
+        $placeholders = implode(',', array_fill(0, count($ids), '%d'));
+
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT id, record_id, client_id, upload_operation_id, storage_path,
+                        mime_type, byte_size, width, height, created_at
+                 FROM {$table}
+                 WHERE client_id = %d AND record_id IN ({$placeholders})
+                 ORDER BY record_id ASC, id DESC",
+                array_merge([$client_id], $ids)
+            ),
+            ARRAY_A
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[ExpedienteAdjuntosRepository] list_by_record_ids error');
+            return [];
+        }
+
+        if (!is_array($rows)) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($rows as $row) {
+            $mapped = self::map_row(is_array($row) ? $row : null);
+            if ($mapped !== null) {
+                $out[(int) $mapped['record_id']][] = $mapped;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * Inserta un adjunto finalizado. Idempotente si operation_id y storage_path
      * apuntan a la misma fila con metadatos canónicos idénticos.
      *

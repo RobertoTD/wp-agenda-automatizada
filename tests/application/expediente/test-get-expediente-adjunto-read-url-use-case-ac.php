@@ -62,11 +62,21 @@ final class ExpedienteRegistrosRepository {
 
 final class ExpedienteAdjuntosRepository {
     public static $latest = [];
+    public static $by_id = [];
     public static $calls = [];
 
     public static function find_latest_by_record_ids(array $record_ids, int $client_id): array {
         self::$calls[] = ['record_ids' => $record_ids, 'client_id' => $client_id];
         return self::$latest;
+    }
+
+    public static function find_by_id_for_client(int $attachment_id, int $client_id): ?array {
+        self::$calls[] = ['attachment_id' => $attachment_id, 'client_id' => $client_id];
+        $row = self::$by_id[$attachment_id] ?? null;
+        if (is_array($row) && (int) $row['client_id'] === $client_id) {
+            return $row;
+        }
+        return null;
     }
 }
 
@@ -173,6 +183,41 @@ $backend5->response = ['ok' => true, 'result' => [
 $uc5 = new GetExpedienteAdjuntoReadUrlUseCase($backend5);
 $res8 = $uc5->execute(['client_id' => 7, 'record_id' => 11]);
 ac_assert('URL de upload → signed_url_invalid', empty($res8['ok']) && ($res8['code'] ?? '') === 'signed_url_invalid');
+
+// ── MC5a: lectura dirigida por attachment_id ──
+ExpedienteAdjuntosRepository::$by_id = [42 => $adjunto_row];
+ExpedienteAdjuntosRepository::$latest = [];
+
+$backend6 = new FakeSignReadBackend();
+$backend6->response = ['ok' => true, 'result' => ['url' => $good_url, 'expires_in' => 600]];
+$uc6 = new GetExpedienteAdjuntoReadUrlUseCase($backend6);
+
+$res9 = $uc6->execute(['client_id' => 7, 'record_id' => 11, 'attachment_id' => 42]);
+ac_assert('dirigido válido ok', !empty($res9['ok']), json_encode($res9));
+ac_assert('dirigido devuelve el DTO solicitado', ($res9['adjunto']['id'] ?? 0) === 42);
+ac_assert('dirigido firma con storage_path local', $backend6->calls === [$STORAGE_PATH]);
+
+// id inexistente
+$res10 = $uc6->execute(['client_id' => 7, 'record_id' => 11, 'attachment_id' => 999]);
+ac_assert('dirigido inexistente → attachment_not_found', empty($res10['ok']) && ($res10['code'] ?? '') === 'attachment_not_found');
+
+// adjunto de otro registro (mismo cliente)
+ExpedienteAdjuntosRepository::$by_id[43] = array_merge($adjunto_row, ['id' => 43, 'record_id' => 99]);
+$res11 = $uc6->execute(['client_id' => 7, 'record_id' => 11, 'attachment_id' => 43]);
+ac_assert('dirigido de otro registro → attachment_not_found', empty($res11['ok']) && ($res11['code'] ?? '') === 'attachment_not_found');
+
+// adjunto de otro cliente (find_by_id_for_client scoped devuelve null)
+ExpedienteAdjuntosRepository::$by_id[44] = array_merge($adjunto_row, ['id' => 44, 'client_id' => 8]);
+$res12 = $uc6->execute(['client_id' => 7, 'record_id' => 11, 'attachment_id' => 44]);
+ac_assert('dirigido de otro cliente → mismo error público', empty($res12['ok']) && ($res12['code'] ?? '') === 'attachment_not_found');
+
+// ningún rechazo dirigido llegó a la firma del backend
+ac_assert('rechazos dirigidos sin sign-read', count($backend6->calls) === 1);
+
+// fallback sin attachment_id sigue eligiendo el último (puente MC4c)
+ExpedienteAdjuntosRepository::$latest = [11 => $adjunto_row];
+$res13 = $uc6->execute(['client_id' => 7, 'record_id' => 11]);
+ac_assert('fallback sin attachment_id intacto', !empty($res13['ok']) && ($res13['adjunto']['id'] ?? 0) === 42);
 
 echo "\n";
 if (count($failed) === 0) {

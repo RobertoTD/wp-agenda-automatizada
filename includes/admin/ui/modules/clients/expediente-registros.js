@@ -213,6 +213,79 @@
     }
 
     /**
+     * Normaliza una colección de adjuntos (MC5a): filtra DTOs inválidos,
+     * deduplica por id y ordena id DESC. `adjuntos[]` es la fuente de verdad.
+     */
+    function normalizeAdjuntosList(list) {
+        if (!Array.isArray(list)) {
+            return [];
+        }
+        var seen = {};
+        var out = [];
+        list.forEach(function (dto) {
+            if (!isValidAdjuntoDto(dto)) {
+                return;
+            }
+            var id = parseInt(dto.id, 10);
+            if (seen[id]) {
+                return;
+            }
+            seen[id] = true;
+            out.push(dto);
+        });
+        out.sort(function (a, b) {
+            return parseInt(b.id, 10) - parseInt(a.id, 10);
+        });
+        return out;
+    }
+
+    /**
+     * Colección vigente de un registro en estado. Puente MC4c: un registro
+     * sin clave `adjuntos` pero con alias `adjunto` válido se trata como
+     * colección de un elemento.
+     */
+    function getRecordAdjuntos(record) {
+        if (!record) {
+            return [];
+        }
+        if (Array.isArray(record.adjuntos)) {
+            return record.adjuntos;
+        }
+        if (record.adjunto && isValidAdjuntoDto(record.adjunto)) {
+            return [record.adjunto];
+        }
+        return [];
+    }
+
+    /**
+     * Fija en el registro la colección normalizada y deriva el alias
+     * `adjunto` = adjuntos[0] | null. Muta y devuelve el mismo objeto.
+     */
+    function setRecordAdjuntos(record, list) {
+        record.adjuntos = normalizeAdjuntosList(list);
+        record.adjunto = record.adjuntos.length ? record.adjuntos[0] : null;
+        return record;
+    }
+
+    /**
+     * Normaliza un registro recibido del servidor. Prioridad: clave
+     * `adjuntos` (autoritativa, incluso []) > clave `adjunto` (puente MC4c,
+     * singleton) > colección vacía.
+     */
+    function normalizeIncomingRecord(record) {
+        if (!record) {
+            return record;
+        }
+        if (Object.prototype.hasOwnProperty.call(record, 'adjuntos')) {
+            return setRecordAdjuntos(record, record.adjuntos);
+        }
+        if (Object.prototype.hasOwnProperty.call(record, 'adjunto')) {
+            return setRecordAdjuntos(record, record.adjunto ? [record.adjunto] : []);
+        }
+        return setRecordAdjuntos(record, []);
+    }
+
+    /**
      * DTO público de adjunto: { id, width, height, byte_size, created_at }.
      */
     function isValidAdjuntoDto(adjunto) {
@@ -251,14 +324,17 @@
 
     /**
      * Poda cache/requests/resigned contra las identidades vigentes de state.records.
-     * Conserva solo URLs ya cargadas y todavía dentro de su ventana.
+     * MC5a: válidas todas las identidades de `adjuntos[]`, aunque el render
+     * solo muestre adjuntos[0]. Conserva solo URLs cargadas y vigentes.
      */
     function pruneThumbState() {
         var valid = {};
         state.records.forEach(function (record) {
-            if (hasValidAdjunto(record)) {
-                valid[thumbKey(record.id, record.adjunto.id)] = true;
-            }
+            getRecordAdjuntos(record).forEach(function (dto) {
+                if (isValidAdjuntoDto(dto)) {
+                    valid[thumbKey(record.id, dto.id)] = true;
+                }
+            });
         });
 
         Object.keys(thumbs.thumbnailCache).forEach(function (key) {
@@ -326,9 +402,10 @@
     }
 
     /**
-     * POST sign-read con señal de aborto. Solo client_id + record_id.
+     * POST sign-read con señal de aborto. MC5a: siempre lectura dirigida con
+     * attachment_id; el fallback sin attachment_id vive solo en PHP.
      */
-    function postSignRead(recordId, signal) {
+    function postSignRead(recordId, attachmentId, signal) {
         var data = getConfig();
         var action = (data.actions && data.actions.signAdjuntoRead) || 'aa_sign_expediente_adjunto_read';
 
@@ -337,6 +414,7 @@
         formData.append('_wpnonce', getNonce());
         formData.append('client_id', String(state.clientId));
         formData.append('record_id', String(recordId));
+        formData.append('attachment_id', String(attachmentId));
 
         var options = {
             method: 'POST',
@@ -468,7 +546,7 @@
 
         thumbs.thumbnailRequests[key] = { controller: controller };
 
-        postSignRead(rid, signal)
+        postSignRead(rid, adjuntoId, signal)
             .then(function (payload) {
                 delete thumbs.thumbnailRequests[key];
 
@@ -603,12 +681,14 @@
     }
 
     /**
-     * Actualiza únicamente record.adjunto del registro indicado, invalida las
-     * entradas de caché de ese cliente+registro y re-renderiza expandido.
+     * Integra un DTO en la colección del registro (MC5a): lo agrega o
+     * sustituye por id dentro de `adjuntos[]`, deduplica, ordena id DESC y
+     * deriva el alias `adjunto`. Invalida la caché de ese cliente+registro y
+     * re-renderiza expandido.
      */
     function applyAdjuntoToRecord(recordId, adjunto) {
         var id = parseInt(recordId, 10);
-        if (!(id > 0)) {
+        if (!(id > 0) || !isValidAdjuntoDto(adjunto)) {
             return false;
         }
 
@@ -622,8 +702,12 @@
             Object.keys(existing).forEach(function (k) {
                 merged[k] = existing[k];
             });
-            merged.adjunto = isValidAdjuntoDto(adjunto) ? adjunto : null;
-            return merged;
+            var adjuntoId = parseInt(adjunto.id, 10);
+            var next = getRecordAdjuntos(existing).filter(function (dto) {
+                return parseInt(dto.id, 10) !== adjuntoId;
+            });
+            next.push(adjunto);
+            return setRecordAdjuntos(merged, next);
         });
 
         if (!found) {
@@ -815,9 +899,9 @@
     }
 
     function prependRecord(record) {
-        // Create sin clave adjunto → normalizar a null (aún no puede tenerlo).
-        if (record && !Object.prototype.hasOwnProperty.call(record, 'adjunto')) {
-            record.adjunto = null;
+        // Create recién guardado: normalizar colección (sin claves → []).
+        if (record) {
+            normalizeIncomingRecord(record);
         }
         state.records = sortRecordsDesc([record].concat(state.records));
         renderRecordsList({ expandId: record && record.id });
@@ -825,9 +909,11 @@
 
     /**
      * Combina el registro existente con los campos recibidos, sin sustituirlo
-     * íntegramente. Clave `adjunto` presente (incluso null) = autoritativa;
-     * ausente = conservar exactamente existing.adjunto. Mantiene posición
-     * cronológica y tarjeta abierta.
+     * íntegramente. Prioridad de la colección (MC5a): clave `adjuntos`
+     * presente (incluso []) = autoritativa; sin ella, clave `adjunto`
+     * (incluso null) = autoritativa como singleton (puente MC4c); sin ambas
+     * = conservar la colección existente. El alias `adjunto` siempre se
+     * deriva de adjuntos[0]. Mantiene posición cronológica y tarjeta abierta.
      *
      * @param {object} record
      */
@@ -850,10 +936,13 @@
             Object.keys(record).forEach(function (key) {
                 merged[key] = record[key];
             });
-            if (!Object.prototype.hasOwnProperty.call(record, 'adjunto')) {
-                merged.adjunto = Object.prototype.hasOwnProperty.call(existing, 'adjunto')
-                    ? existing.adjunto
-                    : null;
+
+            if (Object.prototype.hasOwnProperty.call(record, 'adjuntos')) {
+                setRecordAdjuntos(merged, record.adjuntos);
+            } else if (Object.prototype.hasOwnProperty.call(record, 'adjunto')) {
+                setRecordAdjuntos(merged, record.adjunto ? [record.adjunto] : []);
+            } else {
+                setRecordAdjuntos(merged, getRecordAdjuntos(existing));
             }
             return merged;
         });
@@ -1150,15 +1239,27 @@
         var data = getConfig();
         var action = (data.actions && data.actions.listRegistros) || 'aa_list_expediente_registros';
 
+        // MC5a: una respuesta posterior a destroy(), cambio de cliente o
+        // re-init no debe sobrescribir el estado vigente.
+        var epoch = thumbs.viewEpoch;
+        var clientId = state.clientId;
+
+        function isStale() {
+            return epoch !== thumbs.viewEpoch || clientId !== state.clientId;
+        }
+
         state.loading = true;
         renderStatusMessage('Cargando registros...', 'text-sm text-gray-500');
 
-        return postForm(action, { client_id: String(state.clientId) })
+        return postForm(action, { client_id: String(clientId) })
             .then(function (payload) {
+                if (isStale()) {
+                    return;
+                }
                 state.loading = false;
                 var result = payload.result;
                 if (result && result.success && result.data && Array.isArray(result.data.records)) {
-                    state.records = sortRecordsDesc(result.data.records);
+                    state.records = sortRecordsDesc(result.data.records.map(normalizeIncomingRecord));
                     renderRecordsList();
                     return;
                 }
@@ -1169,6 +1270,9 @@
                 renderError(message);
             })
             .catch(function (err) {
+                if (isStale()) {
+                    return;
+                }
                 state.loading = false;
                 console.error('[ExpedienteRegistros] list failed:', err);
                 renderError('No se pudieron cargar los registros.');
@@ -1730,6 +1834,10 @@
             clearPendingImage: clearPendingImage,
             postAttach: postAttach,
             applyAdjuntoToRecord: applyAdjuntoToRecord,
+            normalizeAdjuntosList: normalizeAdjuntosList,
+            normalizeIncomingRecord: normalizeIncomingRecord,
+            getRecordAdjuntos: getRecordAdjuntos,
+            loadRecords: loadRecords,
             requestThumbFor: requestThumbFor,
             handleThumbImgError: handleThumbImgError,
             pruneThumbState: pruneThumbState,

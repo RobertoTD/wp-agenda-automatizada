@@ -70,6 +70,8 @@ ac_assert('sin delete', !preg_match('/function delete\b/', $src));
 ac_assert('tabla aa_expediente_adjuntos', strpos($src, 'aa_expediente_adjuntos') !== false);
 ac_assert('find_latest_by_record_ids', strpos($src, 'function find_latest_by_record_ids') !== false);
 ac_assert('bulk usa MAX(id) GROUP BY', strpos($src, 'MAX(id)') !== false && strpos($src, 'GROUP BY record_id') !== false);
+ac_assert('list_by_record_ids (MC5a)', strpos($src, 'function list_by_record_ids') !== false);
+ac_assert('list bulk ordena id DESC por registro', strpos($src, 'ORDER BY record_id ASC, id DESC') !== false);
 
 global $wpdb;
 $wpdb = new class {
@@ -217,6 +219,30 @@ ac_assert('bulk ids vacíos → [] sin query',
     ExpedienteAdjuntosRepository::find_latest_by_record_ids([], 3) === [] && $wpdb->get_results_calls === 0);
 ac_assert('bulk client inválido → []',
     ExpedienteAdjuntosRepository::find_latest_by_record_ids([10], 0) === [] && $wpdb->get_results_calls === 0);
+
+// ── MC5a: list_by_record_ids (todos los adjuntos, bulk, agrupados) ──
+$wpdb->list_rows = [
+    array_merge($base, ['id' => 90, 'record_id' => 10]),
+    array_merge($base, ['id' => 51, 'record_id' => 10]),
+    array_merge($base, ['id' => 77, 'record_id' => 20]),
+];
+$wpdb->get_results_calls = 0;
+
+$grouped = ExpedienteAdjuntosRepository::list_by_record_ids([10, 20, 20, 30, 0, -1], 3);
+ac_assert('list bulk una sola consulta', $wpdb->get_results_calls === 1, 'calls=' . $wpdb->get_results_calls);
+ac_assert('list bulk agrupa por record_id', isset($grouped[10]) && isset($grouped[20]) && count($grouped) === 2);
+ac_assert('list bulk record 10 con 2 filas id DESC',
+    count($grouped[10]) === 2 && (int) $grouped[10][0]['id'] === 90 && (int) $grouped[10][1]['id'] === 51);
+ac_assert('list bulk registro sin filas ausente del mapa', !isset($grouped[30]));
+$list_sql = is_array($wpdb->last_results_query) ? (string) $wpdb->last_results_query['sql'] : '';
+ac_assert('list bulk SQL con IN y ORDER BY record_id ASC, id DESC',
+    strpos($list_sql, 'IN (') !== false && strpos($list_sql, 'ORDER BY record_id ASC, id DESC') !== false);
+
+$wpdb->get_results_calls = 0;
+ac_assert('list bulk ids vacíos → [] sin query',
+    ExpedienteAdjuntosRepository::list_by_record_ids([], 3) === [] && $wpdb->get_results_calls === 0);
+ac_assert('list bulk client inválido → []',
+    ExpedienteAdjuntosRepository::list_by_record_ids([10], 0) === [] && $wpdb->get_results_calls === 0);
 
 echo "\n";
 if (count($failed) === 0) {

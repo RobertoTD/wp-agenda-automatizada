@@ -54,9 +54,12 @@ ac_assert('handle_sign_read', strpos($ajax_src, 'function handle_sign_read') !==
 ac_assert('attach responde DTO público', strpos($ajax_src, "'adjunto' => ExpedienteAdjuntoPublicDto::from(") !== false);
 ac_assert('attach ya no expone attachment crudo', strpos($ajax_src, "'attachment' => \$result") === false);
 ac_assert('sign-read usa GetExpedienteAdjuntoReadUrlUseCase', strpos($ajax_src, 'GetExpedienteAdjuntoReadUrlUseCase') !== false);
-ac_assert('sign-read solo client_id + record_id', strpos($ajax_src, "\$_POST['attachment_id']") === false
-    && strpos($ajax_src, "\$_POST['storage_path']") === false
-    && strpos($ajax_src, "\$_POST['adjunto_id']") === false);
+ac_assert('sign-read acepta attachment_id saneado (MC5a)',
+    strpos($ajax_src, "absint(\$_POST['attachment_id'])") !== false);
+ac_assert('sign-read nunca acepta storage_path ni metadatos', strpos($ajax_src, "\$_POST['storage_path']") === false
+    && strpos($ajax_src, "\$_POST['adjunto_id']") === false
+    && strpos($ajax_src, "\$_POST['mime_type']") === false);
+ac_assert('attachment_not_found → 404', preg_match("/case 'attachment_not_found':/", $ajax_src) === 1);
 ac_assert('index emite signAdjuntoRead', strpos($index, 'signAdjuntoRead') !== false);
 ac_assert('js usa signAdjuntoRead', strpos($js, 'signAdjuntoRead') !== false);
 

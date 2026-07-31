@@ -78,6 +78,9 @@ final class ExpedienteAdjuntosAjax {
 
         $client_id = isset($_POST['client_id']) ? absint($_POST['client_id']) : 0;
         $record_id = isset($_POST['record_id']) ? absint($_POST['record_id']) : 0;
+        // MC5a: lectura dirigida opcional; el fallback sin attachment_id se
+        // conserva solo para compatibilidad con MC4c (retiro en MC5b).
+        $attachment_id = isset($_POST['attachment_id']) ? absint($_POST['attachment_id']) : 0;
 
         if ($client_id < 1 || $record_id < 1) {
             wp_send_json_error(['message' => 'Cliente o registro no válido.', 'code' => 'invalid_context'], 400);
@@ -87,6 +90,7 @@ final class ExpedienteAdjuntosAjax {
         $result = $use_case->execute([
             'client_id' => $client_id,
             'record_id' => $record_id,
+            'attachment_id' => $attachment_id,
         ]);
 
         if (empty($result['ok'])) {
@@ -109,6 +113,7 @@ final class ExpedienteAdjuntosAjax {
             case 'client_not_found':
             case 'record_not_found':
             case 'no_attachment':
+            case 'attachment_not_found':
             case 'object_missing':
                 return 404;
             case 'installation_missing':
