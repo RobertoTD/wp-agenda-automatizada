@@ -281,6 +281,87 @@ final class ExpedienteAdjuntosRepository {
     }
 
     /**
+     * Último adjunto (MAX(id)) por registro para un conjunto de record IDs.
+     *
+     * Una sola consulta bulk (sin N+1): subquery GROUP BY record_id + self-join.
+     * Regla del adjunto principal: id AUTO_INCREMENT es monótono y total;
+     * created_at tiene resolución de segundos y puede empatar.
+     *
+     * @param list<int> $record_ids
+     * @return array<int, array{
+     *   id:int,
+     *   record_id:int,
+     *   client_id:int,
+     *   upload_operation_id:string,
+     *   storage_path:string,
+     *   mime_type:string,
+     *   byte_size:int,
+     *   width:int,
+     *   height:int,
+     *   created_at:string
+     * }> Mapa record_id => adjunto.
+     */
+    public static function find_latest_by_record_ids(array $record_ids, int $client_id): array {
+        if ($client_id < 1) {
+            return [];
+        }
+
+        $ids = [];
+        foreach ($record_ids as $rid) {
+            $rid = (int) $rid;
+            if ($rid > 0) {
+                $ids[$rid] = $rid;
+            }
+        }
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $ids = array_values($ids);
+
+        global $wpdb;
+        $table = self::table_name();
+
+        $placeholders = implode(',', array_fill(0, count($ids), '%d'));
+
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT a.id, a.record_id, a.client_id, a.upload_operation_id, a.storage_path,
+                        a.mime_type, a.byte_size, a.width, a.height, a.created_at
+                 FROM {$table} a
+                 INNER JOIN (
+                     SELECT record_id, MAX(id) AS max_id
+                     FROM {$table}
+                     WHERE client_id = %d AND record_id IN ({$placeholders})
+                     GROUP BY record_id
+                 ) latest ON latest.max_id = a.id",
+                array_merge([$client_id], $ids)
+            ),
+            ARRAY_A
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[ExpedienteAdjuntosRepository] find_latest_by_record_ids error');
+            return [];
+        }
+
+        if (!is_array($rows)) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($rows as $row) {
+            $mapped = self::map_row(is_array($row) ? $row : null);
+            if ($mapped !== null) {
+                $out[(int) $mapped['record_id']] = $mapped;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * Inserta un adjunto finalizado. Idempotente si operation_id y storage_path
      * apuntan a la misma fila con metadatos canónicos idénticos.
      *

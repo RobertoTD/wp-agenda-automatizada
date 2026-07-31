@@ -600,6 +600,26 @@
         @apply transition-colors cursor-pointer;
     }
 
+    /* MC4c: miniatura privada por tarjeta (espacio reservado, sin saltos) */
+    .aa-expediente-adjunto-thumb {
+        @apply w-14 h-14 shrink-0 rounded-md border border-gray-200 bg-gray-100;
+        @apply overflow-hidden relative;
+    }
+
+    .aa-expediente-adjunto-thumb-img {
+        @apply w-full h-full object-cover;
+    }
+
+    .aa-expediente-adjunto-thumb-error {
+        @apply bg-gray-50 border-dashed border-gray-300;
+    }
+
+    .aa-expediente-adjunto-thumb-error::after {
+        content: '!';
+        @apply absolute inset-0 flex items-center justify-center;
+        @apply text-gray-400 text-lg font-semibold;
+    }
+
     /* ═══════════════════════════════════════════════════════════════
        MODAL SYSTEM - Basic functional styles
     ═══════════════════════════════════════════════════════════════ */

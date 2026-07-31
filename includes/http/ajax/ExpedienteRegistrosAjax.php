@@ -9,6 +9,8 @@ defined('ABSPATH') or die('No direct access');
 
 require_once dirname(__DIR__, 2) . '/repositories/ClientsRepository.php';
 require_once dirname(__DIR__, 2) . '/repositories/ExpedienteRegistrosRepository.php';
+require_once dirname(__DIR__, 2) . '/repositories/ExpedienteAdjuntosRepository.php';
+require_once dirname(__DIR__, 2) . '/domain/expediente/ExpedienteAdjuntoPublicDto.php';
 
 final class ExpedienteRegistrosAjax {
 
@@ -41,6 +43,18 @@ final class ExpedienteRegistrosAjax {
         }
 
         $records = ExpedienteRegistrosRepository::list_by_client_id($client_id);
+
+        // MC4c: último adjunto por registro en una sola consulta bulk (sin N+1).
+        $record_ids = array_map(static function (array $record): int {
+            return (int) $record['id'];
+        }, $records);
+
+        $latest_by_record = ExpedienteAdjuntosRepository::find_latest_by_record_ids($record_ids, $client_id);
+
+        foreach ($records as $index => $record) {
+            $adjunto = $latest_by_record[(int) $record['id']] ?? null;
+            $records[$index]['adjunto'] = ExpedienteAdjuntoPublicDto::from($adjunto);
+        }
 
         wp_send_json_success([
             'records' => $records,

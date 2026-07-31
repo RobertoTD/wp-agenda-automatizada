@@ -144,13 +144,16 @@ require_once __DIR__ . '/includes/http/ajax/ExpedienteRegistrosAjax.php';
 ExpedienteRegistrosAjax::register();
 
 // ================================
-// 🔹 Expediente adjuntos (MC4a2 metadatos/HMAC/PUT + MC4b attach AJAX)
+// 🔹 Expediente adjuntos (MC4a2 metadatos/HMAC/PUT + MC4b attach + MC4c sign-read)
 // ================================
 require_once __DIR__ . '/includes/repositories/ExpedienteAdjuntosRepository.php';
 require_once __DIR__ . '/includes/infrastructure/backend/class-aa-expediente-attachment-signed-uploader.php';
 require_once __DIR__ . '/includes/infrastructure/backend/class-aa-expediente-attachments-backend-client.php';
+require_once __DIR__ . '/includes/infrastructure/backend/class-aa-expediente-attachment-read-url-validator.php';
 require_once __DIR__ . '/includes/domain/expediente/ExpedienteAdjuntoJpegValidator.php';
+require_once __DIR__ . '/includes/domain/expediente/ExpedienteAdjuntoPublicDto.php';
 require_once __DIR__ . '/includes/application/expediente/UploadExpedienteRegistroAdjuntoUseCase.php';
+require_once __DIR__ . '/includes/application/expediente/GetExpedienteAdjuntoReadUrlUseCase.php';
 require_once __DIR__ . '/includes/http/ajax/ExpedienteAdjuntosAjax.php';
 ExpedienteAdjuntosAjax::register();
 

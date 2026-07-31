@@ -68,6 +68,8 @@ ac_assert('find_by_storage_path', strpos($src, 'function find_by_storage_path') 
 ac_assert('list_by_record_for_client', strpos($src, 'function list_by_record_for_client') !== false);
 ac_assert('sin delete', !preg_match('/function delete\b/', $src));
 ac_assert('tabla aa_expediente_adjuntos', strpos($src, 'aa_expediente_adjuntos') !== false);
+ac_assert('find_latest_by_record_ids', strpos($src, 'function find_latest_by_record_ids') !== false);
+ac_assert('bulk usa MAX(id) GROUP BY', strpos($src, 'MAX(id)') !== false && strpos($src, 'GROUP BY record_id') !== false);
 
 global $wpdb;
 $wpdb = new class {
@@ -80,6 +82,8 @@ $wpdb = new class {
     public $inserted = null;
     public $insert_ok = true;
     public $list_rows = [];
+    public $get_results_calls = 0;
+    public $last_results_query = null;
 
     public function prepare($query, ...$args) {
         return ['sql' => $query, 'args' => $args];
@@ -112,6 +116,8 @@ $wpdb = new class {
     }
 
     public function get_results($query, $output = OBJECT) {
+        $this->get_results_calls++;
+        $this->last_results_query = $query;
         if ($output === ARRAY_A) {
             return $this->list_rows;
         }
@@ -189,6 +195,28 @@ ac_assert('find cross-client → null', ExpedienteAdjuntosRepository::find_by_id
 
 $invalid = ExpedienteAdjuntosRepository::insert_finalized(array_merge($base, ['mime_type' => 'image/png']));
 ac_assert('mime inválido → WP_Error', is_wp_error($invalid));
+
+// ── MC4c: find_latest_by_record_ids (bulk, sin N+1) ──
+$wpdb->list_rows = [
+    array_merge($base, ['id' => 51, 'record_id' => 10]),
+    array_merge($base, ['id' => 77, 'record_id' => 20]),
+];
+$wpdb->get_results_calls = 0;
+
+$latest = ExpedienteAdjuntosRepository::find_latest_by_record_ids([10, 20, 20, 0, -5, '10'], 3);
+ac_assert('bulk una sola consulta', $wpdb->get_results_calls === 1, 'calls=' . $wpdb->get_results_calls);
+ac_assert('bulk mapa por record_id', isset($latest[10]) && isset($latest[20]) && count($latest) === 2);
+ac_assert('bulk fila último id', (int) $latest[20]['id'] === 77);
+$bulk_sql = is_array($wpdb->last_results_query) ? (string) $wpdb->last_results_query['sql'] : '';
+ac_assert('bulk SQL MAX(id) + GROUP BY + IN', strpos($bulk_sql, 'MAX(id)') !== false
+    && strpos($bulk_sql, 'GROUP BY record_id') !== false
+    && strpos($bulk_sql, 'IN (') !== false);
+
+$wpdb->get_results_calls = 0;
+ac_assert('bulk ids vacíos → [] sin query',
+    ExpedienteAdjuntosRepository::find_latest_by_record_ids([], 3) === [] && $wpdb->get_results_calls === 0);
+ac_assert('bulk client inválido → []',
+    ExpedienteAdjuntosRepository::find_latest_by_record_ids([10], 0) === [] && $wpdb->get_results_calls === 0);
 
 echo "\n";
 if (count($failed) === 0) {

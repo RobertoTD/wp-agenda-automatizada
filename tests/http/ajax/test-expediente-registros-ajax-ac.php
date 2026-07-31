@@ -48,6 +48,10 @@ ac_assert('acepta record_id', strpos($ajax_src, "\$_REQUEST['record_id']") !== f
 ac_assert('no lee recorded_at del POST', !preg_match('/\$_POST\[[\'"]recorded_at[\'"]\]/', $ajax_src));
 ac_assert('no lee blog_id del request', strpos($ajax_src, "\$_REQUEST['blog_id']") === false && strpos($ajax_src, "\$_POST['blog_id']") === false && strpos($ajax_src, '$_GET[\'blog_id\']') === false);
 ac_assert('bootstrap register', strpos($bootstrap, 'ExpedienteRegistrosAjax::register()') !== false);
+// MC4c: listado enriquecido con DTO público, bulk sin N+1
+ac_assert('list usa find_latest_by_record_ids (bulk)', strpos($ajax_src, 'find_latest_by_record_ids') !== false);
+ac_assert('list serializa DTO público', strpos($ajax_src, 'ExpedienteAdjuntoPublicDto::from') !== false);
+ac_assert('list no llama list_by_record_for_client (N+1)', strpos($ajax_src, 'list_by_record_for_client') === false);
 ac_assert('index emite listRegistros solo expediente', strpos($index, 'listRegistros') !== false && strpos($index, 'aa_clients_is_expediente') !== false);
 ac_assert('index emite updateRegistro', strpos($index, 'updateRegistro') !== false);
 ac_assert('index carga js solo expediente', strpos($index, 'expediente-registros.js') !== false);

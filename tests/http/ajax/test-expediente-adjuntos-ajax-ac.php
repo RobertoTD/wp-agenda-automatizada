@@ -47,6 +47,29 @@ ac_assert('create/update intactos', strpos($registros_src, 'aa_create_expediente
     && strpos($registros_src, 'aa_attach_expediente_registro') === false);
 ac_assert('bootstrap register', strpos($bootstrap, 'ExpedienteAdjuntosAjax::register()') !== false);
 ac_assert('index emite attachRegistro', strpos($index, 'attachRegistro') !== false);
+
+// ── MC4c: contratos públicos con DTO seguro + sign-read ──
+ac_assert('ACTION_SIGN_READ', strpos($ajax_src, 'aa_sign_expediente_adjunto_read') !== false);
+ac_assert('handle_sign_read', strpos($ajax_src, 'function handle_sign_read') !== false);
+ac_assert('attach responde DTO público', strpos($ajax_src, "'adjunto' => ExpedienteAdjuntoPublicDto::from(") !== false);
+ac_assert('attach ya no expone attachment crudo', strpos($ajax_src, "'attachment' => \$result") === false);
+ac_assert('sign-read usa GetExpedienteAdjuntoReadUrlUseCase', strpos($ajax_src, 'GetExpedienteAdjuntoReadUrlUseCase') !== false);
+ac_assert('sign-read solo client_id + record_id', strpos($ajax_src, "\$_POST['attachment_id']") === false
+    && strpos($ajax_src, "\$_POST['storage_path']") === false
+    && strpos($ajax_src, "\$_POST['adjunto_id']") === false);
+ac_assert('index emite signAdjuntoRead', strpos($index, 'signAdjuntoRead') !== false);
+ac_assert('js usa signAdjuntoRead', strpos($js, 'signAdjuntoRead') !== false);
+
+$dto_src = file_get_contents($plugin_root . '/includes/domain/expediente/ExpedienteAdjuntoPublicDto.php');
+ac_assert('DTO expone exactamente 5 claves', substr_count($dto_src, "'id' =>") === 1
+    && strpos($dto_src, "'width' =>") !== false
+    && strpos($dto_src, "'height' =>") !== false
+    && strpos($dto_src, "'byte_size' =>") !== false
+    && strpos($dto_src, "'created_at' =>") !== false
+    && strpos($dto_src, "'storage_path'") === false
+    && strpos($dto_src, "'upload_operation_id'") === false
+    && strpos($dto_src, "'mime_type'") === false
+    && strpos($dto_src, "'installation_id'") === false);
 ac_assert('js usa attachRegistro', strpos($js, 'attachRegistro') !== false);
 ac_assert('js partial message', strpos($js, 'Registro guardado. No se pudo subir la imagen.') !== false);
 ac_assert('js Reintentar imagen', strpos($js, 'Reintentar imagen') !== false);
@@ -62,7 +85,9 @@ if (!defined('ABSPATH')) {
 require_once $plugin_root . '/includes/http/ajax/ExpedienteAdjuntosAjax.php';
 ac_assert('class exists', class_exists('ExpedienteAdjuntosAjax'));
 ac_assert('ACTION constant', ExpedienteAdjuntosAjax::ACTION_ATTACH === 'aa_attach_expediente_registro');
+ac_assert('SIGN_READ constant', ExpedienteAdjuntosAjax::ACTION_SIGN_READ === 'aa_sign_expediente_adjunto_read');
 ac_assert('handle_attach callable', method_exists('ExpedienteAdjuntosAjax', 'handle_attach'));
+ac_assert('handle_sign_read callable', method_exists('ExpedienteAdjuntosAjax', 'handle_sign_read'));
 
 echo "\n";
 if (count($failed) === 0) {

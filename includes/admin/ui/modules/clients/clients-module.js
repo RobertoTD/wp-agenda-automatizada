@@ -511,6 +511,13 @@
     }
 
     function renderExpedienteShell(root, contentNode) {
+        // MC4c: liberar observer/firmas/caché del montaje anterior antes de
+        // sustituir el shell (loading, error o cliente nuevo).
+        if (window.AAAdmin
+            && window.AAAdmin.ExpedienteRegistros
+            && typeof window.AAAdmin.ExpedienteRegistros.destroy === 'function') {
+            window.AAAdmin.ExpedienteRegistros.destroy();
+        }
         root.innerHTML = '';
         var panel = document.createElement('div');
         panel.className = 'aa-expediente-panel bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden';

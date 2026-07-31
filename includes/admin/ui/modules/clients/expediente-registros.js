@@ -1,8 +1,9 @@
 /**
- * Expediente registros — chronology list + create/edit modal (MC2/MC3/MC4b).
+ * Expediente registros — chronology list + create/edit modal (MC2/MC3/MC4b/MC4c).
  *
  * Loaded only on view=expediente. Create and edit share one modal form.
  * Adjunto opcional: texto primero (create/update), luego aa_attach_expediente_registro.
+ * MC4c: miniatura privada lazy por tarjeta vía sign-read; caché solo en memoria.
  */
 
 (function () {
@@ -15,12 +16,27 @@
     var HEIC_UNSUPPORTED_MESSAGE =
         'Este formato no se puede procesar aquí. Guarda o exporta la foto como JPG e inténtalo de nuevo.';
     var PARTIAL_ATTACH_MESSAGE = 'Registro guardado. No se pudo subir la imagen.';
+    var THUMB_ERROR_MESSAGE = 'No se pudo cargar la imagen.';
+    // Margen antes de la expiración real (600s backend) para no usar URLs al límite.
+    var THUMB_TTL_SAFETY_SECONDS = 60;
 
     var state = {
         clientId: 0,
         recordsRoot: null,
         records: [],
         loading: false
+    };
+
+    /**
+     * Controlador de miniaturas (MC4c). Todo vive solo en memoria.
+     * Claves de cache/requests: "<client_id>:<record_id>:<adjunto.id>".
+     */
+    var thumbs = {
+        viewEpoch: 0,
+        observer: null,
+        thumbnailCache: {},
+        thumbnailRequests: {},
+        resignedIdentities: {}
     };
 
     // Solo para abortar el watcher de cierre del modal (foco / limpieza).
@@ -190,6 +206,455 @@
         });
     }
 
+    // ── Miniaturas MC4c ─────────────────────────────────────────────
+
+    function hasValidAdjunto(record) {
+        return !!(record && record.adjunto && parseInt(record.adjunto.id, 10) > 0);
+    }
+
+    /**
+     * DTO público de adjunto: { id, width, height, byte_size, created_at }.
+     */
+    function isValidAdjuntoDto(adjunto) {
+        return !!(
+            adjunto
+            && parseInt(adjunto.id, 10) > 0
+            && parseInt(adjunto.width, 10) > 0
+            && parseInt(adjunto.height, 10) > 0
+            && parseInt(adjunto.byte_size, 10) > 0
+            && typeof adjunto.created_at === 'string'
+        );
+    }
+
+    function thumbKey(recordId, adjuntoId) {
+        return String(state.clientId) + ':' + String(recordId) + ':' + String(adjuntoId);
+    }
+
+    function abortThumbRequest(key) {
+        var pending = thumbs.thumbnailRequests[key];
+        if (!pending) {
+            return;
+        }
+        delete thumbs.thumbnailRequests[key];
+        if (pending.controller && typeof pending.controller.abort === 'function') {
+            try {
+                pending.controller.abort();
+            } catch (e) {
+                // ignore
+            }
+        }
+    }
+
+    function abortAllThumbRequests() {
+        Object.keys(thumbs.thumbnailRequests).forEach(abortThumbRequest);
+    }
+
+    /**
+     * Poda cache/requests/resigned contra las identidades vigentes de state.records.
+     * Conserva solo URLs ya cargadas y todavía dentro de su ventana.
+     */
+    function pruneThumbState() {
+        var valid = {};
+        state.records.forEach(function (record) {
+            if (hasValidAdjunto(record)) {
+                valid[thumbKey(record.id, record.adjunto.id)] = true;
+            }
+        });
+
+        Object.keys(thumbs.thumbnailCache).forEach(function (key) {
+            var entry = thumbs.thumbnailCache[key];
+            var fresh = entry && typeof entry.deadlineMs === 'number' && entry.deadlineMs > Date.now();
+            if (!valid[key] || !fresh) {
+                delete thumbs.thumbnailCache[key];
+            }
+        });
+
+        Object.keys(thumbs.thumbnailRequests).forEach(function (key) {
+            if (!valid[key]) {
+                abortThumbRequest(key);
+            }
+        });
+
+        Object.keys(thumbs.resignedIdentities).forEach(function (key) {
+            if (!valid[key]) {
+                delete thumbs.resignedIdentities[key];
+            }
+        });
+    }
+
+    /**
+     * Invalida toda entrada (cache/requests/resigned) de un registro del cliente actual.
+     */
+    function invalidateThumbForRecord(recordId) {
+        var prefix = String(state.clientId) + ':' + String(recordId) + ':';
+        Object.keys(thumbs.thumbnailCache).forEach(function (key) {
+            if (key.indexOf(prefix) === 0) {
+                delete thumbs.thumbnailCache[key];
+            }
+        });
+        Object.keys(thumbs.thumbnailRequests).forEach(function (key) {
+            if (key.indexOf(prefix) === 0) {
+                abortThumbRequest(key);
+            }
+        });
+        Object.keys(thumbs.resignedIdentities).forEach(function (key) {
+            if (key.indexOf(prefix) === 0) {
+                delete thumbs.resignedIdentities[key];
+            }
+        });
+    }
+
+    function disconnectThumbObserver() {
+        if (thumbs.observer && typeof thumbs.observer.disconnect === 'function') {
+            try {
+                thumbs.observer.disconnect();
+            } catch (e) {
+                // ignore
+            }
+        }
+        thumbs.observer = null;
+    }
+
+    /**
+     * Antes de cada re-render del mismo cliente: observer fuera, firmas en
+     * vuelo abortadas, cache podado a identidades vigentes.
+     */
+    function prepareThumbsForRender() {
+        disconnectThumbObserver();
+        abortAllThumbRequests();
+        pruneThumbState();
+    }
+
+    /**
+     * POST sign-read con señal de aborto. Solo client_id + record_id.
+     */
+    function postSignRead(recordId, signal) {
+        var data = getConfig();
+        var action = (data.actions && data.actions.signAdjuntoRead) || 'aa_sign_expediente_adjunto_read';
+
+        var formData = new FormData();
+        formData.append('action', action);
+        formData.append('_wpnonce', getNonce());
+        formData.append('client_id', String(state.clientId));
+        formData.append('record_id', String(recordId));
+
+        var options = {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'
+        };
+        if (signal) {
+            options.signal = signal;
+        }
+
+        return fetch(getAjaxUrl(), options).then(function (response) {
+            return response.json().then(function (result) {
+                return { httpStatus: response.status, result: result };
+            });
+        });
+    }
+
+    function isNodeConnected(node) {
+        if (!node) {
+            return false;
+        }
+        if (typeof node.isConnected === 'boolean') {
+            return node.isConnected;
+        }
+        if (typeof document !== 'undefined' && document.contains) {
+            return document.contains(node);
+        }
+        return true;
+    }
+
+    function showThumbErrorState(box) {
+        if (!box) {
+            return;
+        }
+        box.classList.add('aa-expediente-adjunto-thumb-error');
+        box.classList.remove('aa-expediente-adjunto-thumb-loaded');
+        var img = box.querySelector('img');
+        if (img && img.parentNode === box) {
+            box.removeChild(img);
+        }
+        box.setAttribute('title', THUMB_ERROR_MESSAGE);
+    }
+
+    function handleThumbImgError(box, key, recordId) {
+        delete thumbs.thumbnailCache[key];
+        var img = box ? box.querySelector('img') : null;
+        if (img) {
+            img.onerror = null;
+            img.onload = null;
+            img.removeAttribute('src');
+            if (img.parentNode === box) {
+                box.removeChild(img);
+            }
+        }
+
+        // Como máximo una refirma automática por identidad durante la vista.
+        if (!thumbs.resignedIdentities[key]) {
+            thumbs.resignedIdentities[key] = true;
+            requestThumbFor(box, recordId);
+            return;
+        }
+
+        showThumbErrorState(box);
+    }
+
+    function applyThumbUrl(box, url, key, recordId) {
+        if (!box) {
+            return;
+        }
+        box.classList.remove('aa-expediente-adjunto-thumb-error');
+        box.removeAttribute('title');
+
+        var img = box.querySelector('img');
+        if (!img) {
+            img = document.createElement('img');
+            img.className = 'aa-expediente-adjunto-thumb-img';
+            img.alt = 'Imagen adjunta';
+            img.setAttribute('referrerpolicy', 'no-referrer');
+            img.setAttribute('decoding', 'async');
+            img.setAttribute('draggable', 'false');
+            box.appendChild(img);
+        }
+        img.onload = function () {
+            box.classList.add('aa-expediente-adjunto-thumb-loaded');
+        };
+        img.onerror = function () {
+            handleThumbImgError(box, key, recordId);
+        };
+        img.src = url;
+    }
+
+    /**
+     * Solicita (o reutiliza) la firma para la miniatura de una tarjeta.
+     * Identidad capturada: viewEpoch + clientId + recordId + adjuntoId.
+     */
+    function requestThumbFor(box, recordId) {
+        if (!box) {
+            return;
+        }
+        var adjuntoId = parseInt(box.getAttribute('data-adjunto-id') || '0', 10);
+        var rid = parseInt(recordId, 10);
+        if (!(adjuntoId > 0) || !(rid > 0)) {
+            return;
+        }
+
+        var key = thumbKey(rid, adjuntoId);
+
+        var cached = thumbs.thumbnailCache[key];
+        if (cached && typeof cached.deadlineMs === 'number' && cached.deadlineMs > Date.now()) {
+            applyThumbUrl(box, cached.url, key, rid);
+            return;
+        }
+        if (cached) {
+            delete thumbs.thumbnailCache[key];
+        }
+
+        if (thumbs.thumbnailRequests[key]) {
+            return;
+        }
+
+        var epoch = thumbs.viewEpoch;
+        var clientId = state.clientId;
+        var controller = null;
+        var signal = null;
+        if (typeof AbortController !== 'undefined') {
+            controller = new AbortController();
+            signal = controller.signal;
+        }
+
+        thumbs.thumbnailRequests[key] = { controller: controller };
+
+        postSignRead(rid, signal)
+            .then(function (payload) {
+                delete thumbs.thumbnailRequests[key];
+
+                // Vista/cliente inactivos: descartar sin tocar DOM ni caché.
+                if (epoch !== thumbs.viewEpoch || clientId !== state.clientId) {
+                    return;
+                }
+
+                var record = findRecordById(rid);
+                if (!record) {
+                    return;
+                }
+
+                var result = payload.result;
+                var data = result && result.success ? result.data : null;
+                if (!data || typeof data.url !== 'string' || data.url === '' || !isValidAdjuntoDto(data.adjunto)) {
+                    if (isNodeConnected(box)) {
+                        showThumbErrorState(box);
+                    }
+                    return;
+                }
+
+                var returnedAdjuntoId = parseInt(data.adjunto.id, 10);
+
+                if (returnedAdjuntoId !== adjuntoId) {
+                    // Identidad discordante: nunca asociar la URL al nodo/clave
+                    // anterior ni cachearla bajo ninguna clave. Reconciliar con
+                    // el DTO autoritativo; el nodo nuevo pedirá otra firma.
+                    invalidateThumbForRecord(rid);
+                    applyAdjuntoToRecord(rid, data.adjunto);
+                    return;
+                }
+
+                if (!hasValidAdjunto(record) || parseInt(record.adjunto.id, 10) !== adjuntoId) {
+                    // El estado cambió mientras la firma volaba: descartar.
+                    return;
+                }
+
+                var expiresIn = parseInt(data.expires_in, 10);
+                var windowSeconds = expiresIn > THUMB_TTL_SAFETY_SECONDS
+                    ? expiresIn - THUMB_TTL_SAFETY_SECONDS
+                    : expiresIn;
+                if (!(windowSeconds > 0)) {
+                    windowSeconds = 1;
+                }
+
+                thumbs.thumbnailCache[key] = {
+                    url: data.url,
+                    deadlineMs: Date.now() + windowSeconds * 1000
+                };
+
+                if (isNodeConnected(box) && parseInt(box.getAttribute('data-adjunto-id') || '0', 10) === adjuntoId) {
+                    applyThumbUrl(box, data.url, key, rid);
+                }
+            })
+            .catch(function (err) {
+                delete thumbs.thumbnailRequests[key];
+                if (err && err.name === 'AbortError') {
+                    return;
+                }
+                if (epoch !== thumbs.viewEpoch || clientId !== state.clientId) {
+                    return;
+                }
+                if (isNodeConnected(box)) {
+                    showThumbErrorState(box);
+                }
+            });
+    }
+
+    /**
+     * Observa los thumb boxes recién renderizados. Cache fresco se aplica de
+     * inmediato sin firma nueva; el resto espera intersección (o toggle como
+     * fallback sin IntersectionObserver).
+     */
+    function setupThumbObserver(boxes) {
+        if (!boxes.length) {
+            return;
+        }
+
+        var pendingBoxes = [];
+
+        boxes.forEach(function (entry) {
+            var key = thumbKey(entry.recordId, entry.adjuntoId);
+            var cached = thumbs.thumbnailCache[key];
+            if (cached && typeof cached.deadlineMs === 'number' && cached.deadlineMs > Date.now()) {
+                applyThumbUrl(entry.box, cached.url, key, entry.recordId);
+                return;
+            }
+            pendingBoxes.push(entry);
+        });
+
+        if (!pendingBoxes.length) {
+            return;
+        }
+
+        if (typeof IntersectionObserver === 'undefined') {
+            // Fallback: pedir firma al abrir la tarjeta.
+            pendingBoxes.forEach(function (entry) {
+                if (entry.details && typeof entry.details.addEventListener === 'function') {
+                    entry.details.addEventListener('toggle', function () {
+                        if (entry.details.open) {
+                            requestThumbFor(entry.box, entry.recordId);
+                        }
+                    });
+                }
+            });
+            return;
+        }
+
+        var byBox = [];
+        thumbs.observer = new IntersectionObserver(function (entries) {
+            entries.forEach(function (ioEntry) {
+                if (!ioEntry.isIntersecting) {
+                    return;
+                }
+                for (var i = 0; i < byBox.length; i++) {
+                    if (byBox[i].box === ioEntry.target) {
+                        if (thumbs.observer) {
+                            thumbs.observer.unobserve(ioEntry.target);
+                        }
+                        requestThumbFor(byBox[i].box, byBox[i].recordId);
+                        return;
+                    }
+                }
+            });
+        }, { rootMargin: '200px 0px' });
+
+        pendingBoxes.forEach(function (entry) {
+            byBox.push(entry);
+            thumbs.observer.observe(entry.box);
+        });
+    }
+
+    /**
+     * Actualiza únicamente record.adjunto del registro indicado, invalida las
+     * entradas de caché de ese cliente+registro y re-renderiza expandido.
+     */
+    function applyAdjuntoToRecord(recordId, adjunto) {
+        var id = parseInt(recordId, 10);
+        if (!(id > 0)) {
+            return false;
+        }
+
+        var found = false;
+        state.records = state.records.map(function (existing) {
+            if (parseInt(existing.id, 10) !== id) {
+                return existing;
+            }
+            found = true;
+            var merged = {};
+            Object.keys(existing).forEach(function (k) {
+                merged[k] = existing[k];
+            });
+            merged.adjunto = isValidAdjuntoDto(adjunto) ? adjunto : null;
+            return merged;
+        });
+
+        if (!found) {
+            return false;
+        }
+
+        invalidateThumbForRecord(id);
+        renderRecordsList({ expandId: id });
+        return true;
+    }
+
+    /**
+     * Libera todos los recursos de la vista: época, observer, firmas en vuelo,
+     * caché, referencias e identidad del cliente.
+     */
+    function destroy() {
+        thumbs.viewEpoch += 1;
+        disconnectThumbObserver();
+        abortAllThumbRequests();
+        thumbs.thumbnailCache = {};
+        thumbs.thumbnailRequests = {};
+        thumbs.resignedIdentities = {};
+
+        state.records = [];
+        state.recordsRoot = null;
+        state.clientId = 0;
+        state.loading = false;
+    }
+
+    // ── Fin miniaturas MC4c ─────────────────────────────────────────
+
     /**
      * @param {object} record
      * @param {{open?: boolean}} [options]
@@ -207,6 +672,15 @@
 
         var summary = document.createElement('summary');
         summary.className = 'aa-expediente-registro-summary';
+
+        var thumbBox = null;
+        if (hasValidAdjunto(record)) {
+            thumbBox = document.createElement('div');
+            thumbBox.className = 'aa-expediente-adjunto-thumb';
+            thumbBox.setAttribute('data-thumb-record-id', String(record.id));
+            thumbBox.setAttribute('data-adjunto-id', String(record.adjunto.id));
+            summary.appendChild(thumbBox);
+        }
 
         var summaryMain = document.createElement('div');
         summaryMain.className = 'aa-expediente-registro-summary-main';
@@ -264,6 +738,15 @@
         details.appendChild(summary);
         details.appendChild(panel);
 
+        if (thumbBox) {
+            details._aaThumbEntry = {
+                box: thumbBox,
+                details: details,
+                recordId: parseInt(record.id, 10),
+                adjuntoId: parseInt(record.adjunto.id, 10)
+            };
+        }
+
         return details;
     }
 
@@ -276,6 +759,9 @@
         if (!(expandId > 0)) {
             expandId = 0;
         }
+
+        // MC4c: observer fuera, firmas en vuelo abortadas, caché podado.
+        prepareThumbsForRender();
 
         clearNode(state.recordsRoot);
 
@@ -303,11 +789,18 @@
 
         var list = document.createElement('div');
         list.className = 'aa-expediente-registros-list';
+        var thumbEntries = [];
         state.records.forEach(function (record) {
             var shouldOpen = expandId > 0 && parseInt(record.id, 10) === expandId;
-            list.appendChild(createRecordDetails(record, { open: shouldOpen }));
+            var details = createRecordDetails(record, { open: shouldOpen });
+            if (details._aaThumbEntry) {
+                thumbEntries.push(details._aaThumbEntry);
+            }
+            list.appendChild(details);
         });
         state.recordsRoot.appendChild(list);
+
+        setupThumbObserver(thumbEntries);
     }
 
     function sortRecordsDesc(records) {
@@ -322,12 +815,20 @@
     }
 
     function prependRecord(record) {
+        // Create sin clave adjunto → normalizar a null (aún no puede tenerlo).
+        if (record && !Object.prototype.hasOwnProperty.call(record, 'adjunto')) {
+            record.adjunto = null;
+        }
         state.records = sortRecordsDesc([record].concat(state.records));
         renderRecordsList({ expandId: record && record.id });
     }
 
     /**
-     * Reemplaza por id sin duplicar ni reordenar por updated_at.
+     * Combina el registro existente con los campos recibidos, sin sustituirlo
+     * íntegramente. Clave `adjunto` presente (incluso null) = autoritativa;
+     * ausente = conservar exactamente existing.adjunto. Mantiene posición
+     * cronológica y tarjeta abierta.
+     *
      * @param {object} record
      */
     function replaceRecord(record) {
@@ -337,11 +838,24 @@
         var id = parseInt(record.id, 10);
         var replaced = false;
         state.records = state.records.map(function (existing) {
-            if (parseInt(existing.id, 10) === id) {
-                replaced = true;
-                return record;
+            if (parseInt(existing.id, 10) !== id) {
+                return existing;
             }
-            return existing;
+            replaced = true;
+
+            var merged = {};
+            Object.keys(existing).forEach(function (key) {
+                merged[key] = existing[key];
+            });
+            Object.keys(record).forEach(function (key) {
+                merged[key] = record[key];
+            });
+            if (!Object.prototype.hasOwnProperty.call(record, 'adjunto')) {
+                merged.adjunto = Object.prototype.hasOwnProperty.call(existing, 'adjunto')
+                    ? existing.adjunto
+                    : null;
+            }
+            return merged;
         });
         if (!replaced) {
             return;
@@ -969,6 +1483,7 @@
             var data = getConfig();
             var action = (data.actions && data.actions.attachRegistro) || 'aa_attach_expediente_registro';
             var operationId = pendingImage.operationId;
+            var requestedRecordId = parseInt(recordId || (savedRecord && savedRecord.id) || 0, 10);
 
             flowState = 'uploading_attachment';
             saveBtn.disabled = true;
@@ -979,7 +1494,7 @@
                 action,
                 {
                     client_id: String(state.clientId),
-                    record_id: String(recordId || (savedRecord && savedRecord.id) || ''),
+                    record_id: String(requestedRecordId || ''),
                     upload_operation_id: operationId
                 },
                 pendingImage.blob,
@@ -987,14 +1502,16 @@
             ).then(function (payload) {
                 var result = payload.result;
                 if (result && result.success) {
-                    return { ok: true };
+                    // MC4c: validar identidad y DTO público antes de aplicarlo.
+                    var responseData = result.data || {};
+                    var returnedRecordId = parseInt(responseData.record_id, 10);
+                    if (returnedRecordId === requestedRecordId && isValidAdjuntoDto(responseData.adjunto)) {
+                        return { ok: true, recordId: returnedRecordId, adjunto: responseData.adjunto };
+                    }
+                    // Respuesta malformada: tratar como parcial (reintento idempotente).
+                    return { ok: false, message: PARTIAL_ATTACH_MESSAGE };
                 }
-                var message = PARTIAL_ATTACH_MESSAGE;
-                if (result && result.data && result.data.message) {
-                    // Mensaje genérico de parcial; detalle de attach no sustituye el copy aprobado.
-                    message = PARTIAL_ATTACH_MESSAGE;
-                }
-                return { ok: false, message: message };
+                return { ok: false, message: PARTIAL_ATTACH_MESSAGE };
             });
         }
 
@@ -1014,6 +1531,9 @@
             attachPendingImage({ id: recordId })
                 .then(function (attachResult) {
                     if (attachResult && attachResult.ok) {
+                        if (!attachResult.skipped) {
+                            applyAdjuntoToRecord(attachResult.recordId, attachResult.adjunto);
+                        }
                         flowState = 'idle';
                         hideRetry();
                         closeAfterFullSuccess({ id: recordId });
@@ -1122,6 +1642,9 @@
                     return attachPendingImage(saved).then(function (attachResult) {
                         fileInput.disabled = false;
                         if (attachResult && attachResult.ok) {
+                            if (!attachResult.skipped) {
+                                applyAdjuntoToRecord(attachResult.recordId, attachResult.adjunto);
+                            }
                             flowState = 'idle';
                             closeAfterFullSuccess(saved);
                             return;
@@ -1168,6 +1691,9 @@
      * @param {{clientId:number, recordsRoot:HTMLElement}} options
      */
     function init(options) {
+        // Libera recursos de cualquier montaje previo antes de re-montar.
+        destroy();
+
         if (!options || !options.recordsRoot) {
             console.error('[ExpedienteRegistros] init requiere recordsRoot');
             return;
@@ -1188,6 +1714,7 @@
 
     window.AAAdmin.ExpedienteRegistros = {
         init: init,
+        destroy: destroy,
         openRegistroForm: openRegistroForm,
         __test__: {
             createRecordDetails: createRecordDetails,
@@ -1202,10 +1729,20 @@
             generateUploadOperationId: generateUploadOperationId,
             clearPendingImage: clearPendingImage,
             postAttach: postAttach,
+            applyAdjuntoToRecord: applyAdjuntoToRecord,
+            requestThumbFor: requestThumbFor,
+            handleThumbImgError: handleThumbImgError,
+            pruneThumbState: pruneThumbState,
+            invalidateThumbForRecord: invalidateThumbForRecord,
+            thumbKey: thumbKey,
+            isValidAdjuntoDto: isValidAdjuntoDto,
+            destroy: destroy,
+            getThumbs: function () { return thumbs; },
             MAX_IMAGE_BYTES: MAX_IMAGE_BYTES,
             MAX_IMAGE_EDGE: MAX_IMAGE_EDGE,
             HEIC_UNSUPPORTED_MESSAGE: HEIC_UNSUPPORTED_MESSAGE,
             PARTIAL_ATTACH_MESSAGE: PARTIAL_ATTACH_MESSAGE,
+            THUMB_ERROR_MESSAGE: THUMB_ERROR_MESSAGE,
             getState: function () { return state; },
             setState: function (partial) {
                 Object.keys(partial || {}).forEach(function (key) {
