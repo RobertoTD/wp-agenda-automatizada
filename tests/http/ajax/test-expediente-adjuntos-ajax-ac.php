@@ -61,6 +61,34 @@ ac_assert('delete responde adjuntos + deleted_attachment_id', strpos($ajax_src, 
 ac_assert('storage_delete_failed / local_delete_failed mapeados',
     strpos($ajax_src, 'storage_delete_failed') !== false
     && strpos($ajax_src, 'local_delete_failed') !== false);
+
+// ── MC5d2: consumo de almacenamiento (solo lectura) ──
+ac_assert('ACTION_STORAGE_USAGE (MC5d2)', strpos($ajax_src, 'aa_get_expediente_storage_usage') !== false);
+ac_assert('handle_storage_usage', strpos($ajax_src, 'function handle_storage_usage') !== false);
+ac_assert('usage usa GetExpedienteStorageUsageUseCase', strpos($ajax_src, 'GetExpedienteStorageUsageUseCase') !== false);
+$usage_handler = '';
+if (preg_match('/function handle_storage_usage\(\): void \{.*?\n    \}/s', $ajax_src, $uh)) {
+    $usage_handler = $uh[0];
+}
+ac_assert('usage exige manage_options', $usage_handler !== ''
+    && strpos($usage_handler, "current_user_can('manage_options')") !== false);
+ac_assert('usage exige nonce compartido', $usage_handler !== ''
+    && strpos($usage_handler, 'check_ajax_referer(ExpedienteRegistrosAjax::NONCE_ACTION') !== false);
+ac_assert('usage no acepta scope del navegador', $usage_handler !== ''
+    && strpos($usage_handler, '$_POST') === false
+    && strpos($usage_handler, '$_REQUEST') === false
+    && strpos($usage_handler, '$_GET') === false
+    && strpos($usage_handler, 'installation_id') === false
+    && strpos($usage_handler, 'client_id') === false);
+ac_assert('usage contrato limitado a used_bytes', $usage_handler !== ''
+    && strpos($usage_handler, "'used_bytes'") !== false
+    && strpos($usage_handler, 'storage_path') === false
+    && strpos($usage_handler, 'bucket') === false
+    && strpos($usage_handler, 'adjuntos') === false
+    && strpos($usage_handler, 'limit_bytes') === false
+    && strpos($usage_handler, 'available_bytes') === false);
+ac_assert('usage responde solo la clave used_bytes',
+    preg_match('/wp_send_json_success\(\[\s*\'used_bytes\' => \(int\) \$result\[\'used_bytes\'\],\s*\]\);/s', $ajax_src) === 1);
 ac_assert('index emite deleteAdjunto', strpos($index, 'deleteAdjunto') !== false);
 ac_assert('js usa deleteAdjunto', strpos($js, 'deleteAdjunto') !== false);
 ac_assert('attach responde DTO público', strpos($ajax_src, "'adjunto' => ExpedienteAdjuntoPublicDto::from(") !== false);
@@ -105,9 +133,11 @@ ac_assert('class exists', class_exists('ExpedienteAdjuntosAjax'));
 ac_assert('ACTION constant', ExpedienteAdjuntosAjax::ACTION_ATTACH === 'aa_attach_expediente_registro');
 ac_assert('SIGN_READ constant', ExpedienteAdjuntosAjax::ACTION_SIGN_READ === 'aa_sign_expediente_adjunto_read');
 ac_assert('DELETE constant', ExpedienteAdjuntosAjax::ACTION_DELETE === 'aa_delete_expediente_adjunto');
+ac_assert('STORAGE_USAGE constant', ExpedienteAdjuntosAjax::ACTION_STORAGE_USAGE === 'aa_get_expediente_storage_usage');
 ac_assert('handle_attach callable', method_exists('ExpedienteAdjuntosAjax', 'handle_attach'));
 ac_assert('handle_sign_read callable', method_exists('ExpedienteAdjuntosAjax', 'handle_sign_read'));
 ac_assert('handle_delete callable', method_exists('ExpedienteAdjuntosAjax', 'handle_delete'));
+ac_assert('handle_storage_usage callable', method_exists('ExpedienteAdjuntosAjax', 'handle_storage_usage'));
 
 echo "\n";
 if (count($failed) === 0) {

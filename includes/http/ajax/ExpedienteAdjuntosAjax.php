@@ -12,6 +12,7 @@ require_once dirname(__DIR__, 2) . '/http/ajax/ExpedienteRegistrosAjax.php';
 require_once dirname(__DIR__, 2) . '/application/expediente/UploadExpedienteRegistroAdjuntoUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/expediente/GetExpedienteAdjuntoReadUrlUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/expediente/DeleteExpedienteAdjuntoUseCase.php';
+require_once dirname(__DIR__, 2) . '/application/expediente/GetExpedienteStorageUsageUseCase.php';
 require_once dirname(__DIR__, 2) . '/domain/expediente/ExpedienteAdjuntoPublicDto.php';
 
 final class ExpedienteAdjuntosAjax {
@@ -19,11 +20,13 @@ final class ExpedienteAdjuntosAjax {
     public const ACTION_ATTACH = 'aa_attach_expediente_registro';
     public const ACTION_SIGN_READ = 'aa_sign_expediente_adjunto_read';
     public const ACTION_DELETE = 'aa_delete_expediente_adjunto';
+    public const ACTION_STORAGE_USAGE = 'aa_get_expediente_storage_usage';
 
     public static function register(): void {
         add_action('wp_ajax_' . self::ACTION_ATTACH, [__CLASS__, 'handle_attach']);
         add_action('wp_ajax_' . self::ACTION_SIGN_READ, [__CLASS__, 'handle_sign_read']);
         add_action('wp_ajax_' . self::ACTION_DELETE, [__CLASS__, 'handle_delete']);
+        add_action('wp_ajax_' . self::ACTION_STORAGE_USAGE, [__CLASS__, 'handle_storage_usage']);
     }
 
     public static function handle_attach(): void {
@@ -142,6 +145,28 @@ final class ExpedienteAdjuntosAjax {
             'deleted_attachment_id' => $result['deleted_attachment_id'],
             'adjuntos' => $result['adjuntos'],
             'adjunto' => $result['adjunto'],
+        ]);
+    }
+
+    /**
+     * MC5d2: consumo de almacenamiento de la instalación actual. Solo
+     * lectura; el alcance es el blog actual — no acepta installation_id,
+     * client_id ni ningún otro scope del navegador. Contrato público
+     * cerrado: { used_bytes } (bytes contabilizados por metadata local
+     * finalizada, no auditoría física de Storage).
+     */
+    public static function handle_storage_usage(): void {
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => 'Permisos insuficientes.', 'code' => 'forbidden'], 403);
+        }
+
+        check_ajax_referer(ExpedienteRegistrosAjax::NONCE_ACTION, '_wpnonce');
+
+        $use_case = new GetExpedienteStorageUsageUseCase();
+        $result = $use_case->execute();
+
+        wp_send_json_success([
+            'used_bytes' => (int) $result['used_bytes'],
         ]);
     }
 

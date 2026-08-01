@@ -679,4 +679,27 @@ final class ExpedienteAdjuntosRepository {
 
         return $remaining === 0;
     }
+
+    /**
+     * MC5d2: bytes contabilizados de todos los adjuntos finalizados de la
+     * instalación actual (la tabla del prefijo del blog es el alcance; no se
+     * acepta scope externo). Es metadata local finalizada, no una auditoría
+     * física de Storage: una fila conservada por fallo parcial reintentable
+     * (MC5c1/MC5c2) sigue contando hasta que el reintento la elimina.
+     */
+    public static function sum_byte_size_total(): int {
+        global $wpdb;
+        $table = self::table_name();
+
+        $sum = $wpdb->get_var("SELECT COALESCE(SUM(byte_size), 0) FROM {$table}");
+
+        if ($wpdb->last_error) {
+            error_log('[ExpedienteAdjuntosRepository] sum_byte_size_total error');
+            return 0;
+        }
+
+        $sum = (int) $sum;
+
+        return $sum > 0 ? $sum : 0;
+    }
 }

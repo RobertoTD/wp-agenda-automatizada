@@ -76,6 +76,8 @@ ac_assert('find_latest_by_record_ids', strpos($src, 'function find_latest_by_rec
 ac_assert('bulk usa MAX(id) GROUP BY', strpos($src, 'MAX(id)') !== false && strpos($src, 'GROUP BY record_id') !== false);
 ac_assert('list_by_record_ids (MC5a)', strpos($src, 'function list_by_record_ids') !== false);
 ac_assert('list bulk ordena id DESC por registro', strpos($src, 'ORDER BY record_id ASC, id DESC') !== false);
+ac_assert('sum_byte_size_total (MC5d2)', strpos($src, 'function sum_byte_size_total') !== false);
+ac_assert('sum usa COALESCE(SUM(byte_size), 0)', strpos($src, 'COALESCE(SUM(byte_size), 0)') !== false);
 
 global $wpdb;
 $wpdb = new class {
@@ -119,6 +121,17 @@ $wpdb = new class {
             return $row;
         }
         return $row ? (object) $row : null;
+    }
+
+    public $sum_value = '0';
+    public $last_var_query = null;
+
+    public function get_var($query) {
+        $this->last_var_query = is_array($query) ? (string) ($query['sql'] ?? '') : (string) $query;
+        if (strpos($this->last_var_query, 'SUM(byte_size)') !== false) {
+            return $this->sum_value;
+        }
+        return '0';
     }
 
     public function get_results($query, $output = OBJECT) {
@@ -247,6 +260,23 @@ ac_assert('list bulk ids vacíos → [] sin query',
     ExpedienteAdjuntosRepository::list_by_record_ids([], 3) === [] && $wpdb->get_results_calls === 0);
 ac_assert('list bulk client inválido → []',
     ExpedienteAdjuntosRepository::list_by_record_ids([10], 0) === [] && $wpdb->get_results_calls === 0);
+
+// ── MC5d2: sum_byte_size_total (bytes contabilizados por metadata local) ──
+$wpdb->sum_value = '0';
+$sum0 = ExpedienteAdjuntosRepository::sum_byte_size_total();
+ac_assert('sum sin adjuntos → 0 entero', $sum0 === 0);
+
+$wpdb->sum_value = '874289';
+$sum1 = ExpedienteAdjuntosRepository::sum_byte_size_total();
+ac_assert('sum varios adjuntos → entero correcto', $sum1 === 874289);
+ac_assert('sum sobre tabla del prefijo del blog actual',
+    strpos((string) $wpdb->last_var_query, 'wp_5_aa_expediente_adjuntos') !== false,
+    'sql=' . (string) $wpdb->last_var_query);
+ac_assert('sum SQL sin WHERE (alcance = instalación/blog completo)',
+    strpos((string) $wpdb->last_var_query, 'WHERE') === false);
+
+$wpdb->sum_value = '-10';
+ac_assert('sum nunca negativo', ExpedienteAdjuntosRepository::sum_byte_size_total() === 0);
 
 echo "\n";
 if (count($failed) === 0) {
