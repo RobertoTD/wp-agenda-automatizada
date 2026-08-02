@@ -173,6 +173,7 @@ final class ExpedienteAdjuntosAjax {
     private static function http_status_for_code(string $code): int {
         switch ($code) {
             case 'forbidden':
+            case 'storage_not_included':
                 return 403;
             case 'client_not_found':
             case 'record_not_found':
@@ -187,6 +188,7 @@ final class ExpedienteAdjuntosAjax {
             case 'path_mismatch':
             case 'path_forbidden':
             case 'adjunto_inconsistent':
+            case 'storage_quota_exceeded':
                 return 409;
             case 'storage_origin_not_configured':
             case 'expediente_attachments_unreachable':
@@ -198,6 +200,7 @@ final class ExpedienteAdjuntosAjax {
             case 'storage_delete_failed':
                 return 502;
             case 'local_delete_failed':
+            case 'storage_usage_unavailable':
                 return 500;
             default:
                 return 400;

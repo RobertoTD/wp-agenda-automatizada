@@ -278,6 +278,15 @@ ac_assert('sum SQL sin WHERE (alcance = instalación/blog completo)',
 $wpdb->sum_value = '-10';
 ac_assert('sum nunca negativo', ExpedienteAdjuntosRepository::sum_byte_size_total() === 0);
 
+$wpdb->last_error = 'simulated db error';
+$wpdb->sum_value = '999';
+ac_assert('sum con last_error → null', ExpedienteAdjuntosRepository::sum_byte_size_total() === null);
+$wpdb->last_error = '';
+
+$wpdb->sum_value = null;
+ac_assert('sum con get_var null → null', ExpedienteAdjuntosRepository::sum_byte_size_total() === null);
+$wpdb->sum_value = '0';
+
 echo "\n";
 if (count($failed) === 0) {
     echo "Passed {$passed}/{$total}\n";

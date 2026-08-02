@@ -102,6 +102,12 @@ final class ExpedienteAdjuntosRepository {
     public static $inserts = [];
     public static $return_row = null;
     public static $error = null;
+    /** @var int|null */
+    public static $sum_bytes = 0;
+
+    public static function sum_byte_size_total(): ?int {
+        return self::$sum_bytes;
+    }
 
     public static function insert_finalized(array $data) {
         self::$inserts[] = $data;
@@ -125,6 +131,7 @@ final class ExpedienteAdjuntosRepository {
 
 final class FakeAttachmentsBackend {
     public $calls = [];
+    public $authorize_inputs = [];
     public $authorize_status = 'pending_upload';
     public $authorize_fail = null;
     public $finalize_fail = null;
@@ -139,6 +146,7 @@ final class FakeAttachmentsBackend {
 
     public function authorize_upload(array $input): array {
         $this->calls[] = 'authorize';
+        $this->authorize_inputs[] = $input;
         if ($this->authorize_fail !== null) {
             return $this->authorize_fail;
         }
@@ -238,6 +246,7 @@ $op = '22222222-2222-4222-8222-222222222222';
 
 // Happy path pending_upload
 ExpedienteAdjuntosRepository::$inserts = [];
+ExpedienteAdjuntosRepository::$sum_bytes = 0;
 $path = aa_uc_jpeg();
 $backend = new FakeAttachmentsBackend();
 $uploader = new FakeSignedUploader();
@@ -247,7 +256,39 @@ $res = aa_run_uc($backend, $uploader, $path, $op);
 ac_assert('happy path ok', !empty($res['ok']), json_encode($res));
 ac_assert('orden authorize→put→finalize', $backend->calls === ['authorize', 'finalize'] && $uploader->calls === ['put']);
 ac_assert('insert una vez', count(ExpedienteAdjuntosRepository::$inserts) === 1);
+ac_assert('envía used_bytes en authorize', ($backend->authorize_inputs[0]['used_bytes'] ?? null) === 0);
 ac_assert('tmp limpiado', !is_file($path));
+
+// sum null → fallo cerrado local sin authorize
+ExpedienteAdjuntosRepository::$inserts = [];
+ExpedienteAdjuntosRepository::$sum_bytes = null;
+$path = aa_uc_jpeg();
+$backend = new FakeAttachmentsBackend();
+$uploader = new FakeSignedUploader();
+$backend->op = $op;
+$backend->path = 'installations/' . $backend->installation_id . '/clients/7/records/11/' . $op . '.jpg';
+$res = aa_run_uc($backend, $uploader, $path, $op);
+ac_assert('sum null → storage_usage_unavailable', empty($res['ok']) && ($res['code'] ?? '') === 'storage_usage_unavailable');
+ac_assert('sum null no llama authorize', $backend->calls === []);
+ac_assert('sum null no inserta', count(ExpedienteAdjuntosRepository::$inserts) === 0);
+ExpedienteAdjuntosRepository::$sum_bytes = 0;
+
+// storage_quota_exceeded se propaga sin insert
+ExpedienteAdjuntosRepository::$inserts = [];
+$path = aa_uc_jpeg();
+$backend = new FakeAttachmentsBackend();
+$uploader = new FakeSignedUploader();
+$backend->authorize_fail = ['ok' => false, 'code' => 'storage_quota_exceeded'];
+$backend->op = $op;
+$backend->path = 'installations/' . $backend->installation_id . '/clients/7/records/11/' . $op . '.jpg';
+$res = aa_run_uc($backend, $uploader, $path, $op);
+ac_assert(
+    'storage_quota_exceeded se propaga',
+    empty($res['ok'])
+    && ($res['code'] ?? '') === 'storage_quota_exceeded'
+    && count(ExpedienteAdjuntosRepository::$inserts) === 0
+);
+ac_assert('quota no hace PUT', $uploader->calls === []);
 
 // already_uploaded: sin PUT
 ExpedienteAdjuntosRepository::$inserts = [];

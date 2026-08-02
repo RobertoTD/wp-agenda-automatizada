@@ -24,6 +24,8 @@ class AA_Expediente_Attachments_Backend_Client {
         'object_mismatch',
         'sign_failed',
         'delete_failed',
+        'storage_not_included',
+        'storage_quota_exceeded',
     ];
 
     /**
@@ -34,7 +36,8 @@ class AA_Expediente_Attachments_Backend_Client {
      *   mime_type:string,
      *   byte_size:int,
      *   width:int,
-     *   height:int
+     *   height:int,
+     *   used_bytes:int
      * } $input
      * @return array{ok:true,result:array<string,mixed>}|array{ok:false,code:string,error:string,http_status:int}
      */
@@ -52,6 +55,7 @@ class AA_Expediente_Attachments_Backend_Client {
             'byte_size' => (int) ($input['byte_size'] ?? 0),
             'width' => (int) ($input['width'] ?? 0),
             'height' => (int) ($input['height'] ?? 0),
+            'used_bytes' => (int) ($input['used_bytes'] ?? 0),
         ];
 
         $endpoint = rtrim((string) AA_API_BASE_URL, '/') . '/expediente/attachments/authorize-upload';

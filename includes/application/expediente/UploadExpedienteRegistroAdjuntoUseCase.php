@@ -104,6 +104,16 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
             $width = (int) $validated['width'];
             $height = (int) $validated['height'];
 
+            // Cuota: sumar uso local antes de authorize. Fallo de cálculo →
+            // cerrado local (nunca fingir used_bytes = 0 hacia el backend).
+            $used_bytes = ExpedienteAdjuntosRepository::sum_byte_size_total();
+            if ($used_bytes === null) {
+                return $this->fail(
+                    'storage_usage_unavailable',
+                    'No se pudo verificar el espacio disponible.'
+                );
+            }
+
             $authorize = $this->backend->authorize_upload([
                 'upload_operation_id' => $operation_id,
                 'wp_client_id' => $client_id,
@@ -112,12 +122,14 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
                 'byte_size' => $byte_size,
                 'width' => $width,
                 'height' => $height,
+                'used_bytes' => $used_bytes,
             ]);
 
             if (empty($authorize['ok'])) {
+                $auth_code = (string) ($authorize['code'] ?? 'authorize_failed');
                 return $this->fail(
-                    (string) ($authorize['code'] ?? 'authorize_failed'),
-                    'No se pudo autorizar la subida de la imagen.'
+                    $auth_code,
+                    $this->authorize_failure_message($auth_code)
                 );
             }
 
@@ -299,6 +311,17 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
         }
         if (is_file($tmp)) {
             @unlink($tmp);
+        }
+    }
+
+    private function authorize_failure_message(string $code): string {
+        switch ($code) {
+            case 'storage_not_included':
+                return 'Tu plan actual no incluye almacenamiento de imágenes en el servidor.';
+            case 'storage_quota_exceeded':
+                return 'No queda espacio de almacenamiento. Elimina alguna imagen para liberar espacio.';
+            default:
+                return 'No se pudo autorizar la subida de la imagen.';
         }
     }
 

@@ -686,8 +686,14 @@ final class ExpedienteAdjuntosRepository {
      * acepta scope externo). Es metadata local finalizada, no una auditoría
      * física de Storage: una fila conservada por fallo parcial reintentable
      * (MC5c1/MC5c2) sigue contando hasta que el reintento la elimina.
+     *
+     * Distinción para enforcement de cuota:
+     * - consulta correcta sin filas → 0
+     * - consulta fallida / resultado nulo → null (el caller debe fallar cerrado)
+     *
+     * @return int|null
      */
-    public static function sum_byte_size_total(): int {
+    public static function sum_byte_size_total(): ?int {
         global $wpdb;
         $table = self::table_name();
 
@@ -695,7 +701,12 @@ final class ExpedienteAdjuntosRepository {
 
         if ($wpdb->last_error) {
             error_log('[ExpedienteAdjuntosRepository] sum_byte_size_total error');
-            return 0;
+            return null;
+        }
+
+        if ($sum === null) {
+            error_log('[ExpedienteAdjuntosRepository] sum_byte_size_total null result');
+            return null;
         }
 
         $sum = (int) $sum;

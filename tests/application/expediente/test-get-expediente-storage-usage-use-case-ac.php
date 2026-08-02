@@ -39,8 +39,13 @@ if (!defined('ABSPATH')) {
 final class ExpedienteAdjuntosRepository {
     /** @var list<array{byte_size:int}> */
     public static $rows = [];
+    /** @var bool */
+    public static $force_null = false;
 
-    public static function sum_byte_size_total(): int {
+    public static function sum_byte_size_total(): ?int {
+        if (self::$force_null) {
+            return null;
+        }
         $sum = 0;
         foreach (self::$rows as $row) {
             $sum += (int) $row['byte_size'];
@@ -100,6 +105,12 @@ ExpedienteAdjuntosRepository::$rows = [
 $res5 = $uc->execute();
 ac_assert('eliminación de la fila reduce la suma', ($res5['used_bytes'] ?? -1) === 300000);
 
+// Fallo de cálculo (null) → contrato informativo histórico used_bytes = 0.
+ExpedienteAdjuntosRepository::$force_null = true;
+$res6 = $uc->execute();
+ac_assert('sum null → used_bytes 0 informativo', !empty($res6['ok']) && ($res6['used_bytes'] ?? -1) === 0);
+ExpedienteAdjuntosRepository::$force_null = false;
+
 // ── Estructural: sin cuota/enforcement y sin scope del navegador ──
 $src = file_get_contents($plugin_root . '/includes/application/expediente/GetExpedienteStorageUsageUseCase.php');
 ac_assert('use case sin input externo', strpos($src, '$_POST') === false
@@ -118,7 +129,7 @@ ac_assert('solo lectura: no escribe ni borra', strpos($src, 'insert') === false
 $repo_src = file_get_contents($plugin_root . '/includes/repositories/ExpedienteAdjuntosRepository.php');
 ac_assert('repo usa COALESCE(SUM(byte_size), 0)', strpos($repo_src, 'COALESCE(SUM(byte_size), 0)') !== false);
 ac_assert('repo suma sin scope externo (tabla del prefijo)', preg_match(
-    '/function sum_byte_size_total\(\): int \{(?:(?!function ).)*?\}/s',
+    '/function sum_byte_size_total\(\): \?int \{(?:(?!function ).)*?\}/s',
     $repo_src,
     $m
 ) === 1 && strpos($m[0], 'WHERE') === false && strpos($m[0], 'table_name()') !== false);

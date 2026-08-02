@@ -122,6 +122,7 @@ $auth = $client->authorize_upload([
     'byte_size' => 10,
     'width' => 1,
     'height' => 1,
+    'used_bytes' => 1234,
 ]);
 
 ac_assert('authorize OK', $auth['ok'] === true);
@@ -132,6 +133,10 @@ ac_assert(
     'payload snake_case',
     ($GLOBALS['aa_test_http_calls'][0]['data']['wp_client_id'] ?? null) === 1
     && ($GLOBALS['aa_test_http_calls'][0]['data']['upload_operation_id'] ?? '') !== ''
+);
+ac_assert(
+    'payload incluye used_bytes',
+    ($GLOBALS['aa_test_http_calls'][0]['data']['used_bytes'] ?? null) === 1234
 );
 
 reset_http();
@@ -173,6 +178,60 @@ $mm = $client->authorize_upload([
     'height' => 1,
 ]);
 ac_assert('mapea object_mismatch', $mm['ok'] === false && $mm['code'] === 'object_mismatch');
+
+reset_http();
+$GLOBALS['aa_test_http_response'] = [
+    'response' => ['code' => 403],
+    'body' => json_encode(['ok' => false, 'error' => 'storage_not_included']),
+];
+$ni = $client->authorize_upload([
+    'upload_operation_id' => '550e8400-e29b-41d4-a716-446655440000',
+    'wp_client_id' => 1,
+    'wp_record_id' => 2,
+    'mime_type' => 'image/jpeg',
+    'byte_size' => 10,
+    'width' => 1,
+    'height' => 1,
+    'used_bytes' => 0,
+]);
+ac_assert('mapea storage_not_included', $ni['ok'] === false && $ni['code'] === 'storage_not_included');
+
+reset_http();
+$GLOBALS['aa_test_http_response'] = [
+    'response' => ['code' => 409],
+    'body' => json_encode(['ok' => false, 'error' => 'storage_quota_exceeded']),
+];
+$qe = $client->authorize_upload([
+    'upload_operation_id' => '550e8400-e29b-41d4-a716-446655440000',
+    'wp_client_id' => 1,
+    'wp_record_id' => 2,
+    'mime_type' => 'image/jpeg',
+    'byte_size' => 10,
+    'width' => 1,
+    'height' => 1,
+    'used_bytes' => 0,
+]);
+ac_assert('mapea storage_quota_exceeded', $qe['ok'] === false && $qe['code'] === 'storage_quota_exceeded');
+
+reset_http();
+$GLOBALS['aa_test_http_response'] = [
+    'response' => ['code' => 400],
+    'body' => json_encode(['ok' => false, 'error' => 'invalid_usage_report']),
+];
+$iu = $client->authorize_upload([
+    'upload_operation_id' => '550e8400-e29b-41d4-a716-446655440000',
+    'wp_client_id' => 1,
+    'wp_record_id' => 2,
+    'mime_type' => 'image/jpeg',
+    'byte_size' => 10,
+    'width' => 1,
+    'height' => 1,
+    'used_bytes' => -1,
+]);
+ac_assert(
+    'invalid_usage_report colapsa (no KNOWN)',
+    $iu['ok'] === false && $iu['code'] === 'expediente_attachments_backend_error'
+);
 
 reset_http();
 $GLOBALS['aa_test_http_response'] = [

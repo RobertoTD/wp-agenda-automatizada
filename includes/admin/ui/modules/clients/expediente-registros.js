@@ -18,7 +18,21 @@
     var HEIC_UNSUPPORTED_MESSAGE =
         'Este formato no se puede procesar aquí. Guarda o exporta la foto como JPG e inténtalo de nuevo.';
     var PARTIAL_ATTACH_MESSAGE = 'Registro guardado. No se pudo subir la imagen.';
+    var STORAGE_NOT_INCLUDED_MESSAGE =
+        'Tu plan actual no incluye almacenamiento de imágenes en el servidor.';
+    var STORAGE_QUOTA_EXCEEDED_MESSAGE =
+        'No queda espacio de almacenamiento. Elimina alguna imagen para liberar espacio.';
     var THUMB_ERROR_MESSAGE = 'No se pudo cargar la imagen.';
+
+    function messageForAttachFailure(code) {
+        if (code === 'storage_not_included') {
+            return STORAGE_NOT_INCLUDED_MESSAGE;
+        }
+        if (code === 'storage_quota_exceeded') {
+            return STORAGE_QUOTA_EXCEEDED_MESSAGE;
+        }
+        return PARTIAL_ATTACH_MESSAGE;
+    }
     var DELETE_IMAGE_CONFIRM =
         '¿Eliminar esta imagen? Esta acción no se puede deshacer. El registro se conservará.';
     var DELETE_IMAGE_ERROR_MESSAGE = 'No se pudo eliminar la imagen.';
@@ -2234,10 +2248,16 @@
             retryBtn.textContent = 'Reintentar imagen';
         }
 
-        function showPartialAttachFailure() {
+        function showPartialAttachFailure(attachResult) {
             flowState = 'partial_attachment_failed';
-            showFormError(PARTIAL_ATTACH_MESSAGE);
-            retryBtn.classList.remove('hidden');
+            var code = attachResult && attachResult.code ? String(attachResult.code) : '';
+            showFormError(messageForAttachFailure(code));
+            // Reintento solo cuando puede ayudar (fallo transitorio). Cuota / plan no.
+            if (code === 'storage_not_included' || code === 'storage_quota_exceeded') {
+                hideRetry();
+            } else {
+                retryBtn.classList.remove('hidden');
+            }
             reenableSave();
         }
 
@@ -2395,9 +2415,15 @@
                         return { ok: true, recordId: returnedRecordId, adjunto: responseData.adjunto };
                     }
                     // Respuesta malformada: tratar como parcial (reintento idempotente).
-                    return { ok: false, message: PARTIAL_ATTACH_MESSAGE };
+                    return { ok: false, message: PARTIAL_ATTACH_MESSAGE, code: '' };
                 }
-                return { ok: false, message: PARTIAL_ATTACH_MESSAGE };
+                var errData = (result && result.data) || {};
+                var errCode = errData.code ? String(errData.code) : '';
+                return {
+                    ok: false,
+                    message: messageForAttachFailure(errCode),
+                    code: errCode
+                };
             });
         }
 
@@ -2425,11 +2451,11 @@
                         closeAfterFullSuccess({ id: recordId });
                         return;
                     }
-                    showPartialAttachFailure();
+                    showPartialAttachFailure(attachResult);
                 })
                 .catch(function (err) {
                     console.error('[ExpedienteRegistros] attach retry failed:', err);
-                    showPartialAttachFailure();
+                    showPartialAttachFailure(null);
                 });
         }
 
@@ -2535,7 +2561,7 @@
                             closeAfterFullSuccess(saved);
                             return;
                         }
-                        showPartialAttachFailure();
+                        showPartialAttachFailure(attachResult);
                     });
                 })
                 .catch(function (err) {
@@ -2643,6 +2669,9 @@
             MAX_IMAGE_EDGE: MAX_IMAGE_EDGE,
             HEIC_UNSUPPORTED_MESSAGE: HEIC_UNSUPPORTED_MESSAGE,
             PARTIAL_ATTACH_MESSAGE: PARTIAL_ATTACH_MESSAGE,
+            STORAGE_NOT_INCLUDED_MESSAGE: STORAGE_NOT_INCLUDED_MESSAGE,
+            STORAGE_QUOTA_EXCEEDED_MESSAGE: STORAGE_QUOTA_EXCEEDED_MESSAGE,
+            messageForAttachFailure: messageForAttachFailure,
             THUMB_ERROR_MESSAGE: THUMB_ERROR_MESSAGE,
             getState: function () { return state; },
             setState: function (partial) {

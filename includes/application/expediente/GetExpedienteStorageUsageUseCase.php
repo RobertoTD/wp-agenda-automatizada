@@ -6,6 +6,9 @@
  * finalizados de la instalación actual (tabla del prefijo del blog).
  * Solo lectura; sin límites, cuotas ni enforcement. El alcance lo
  * determina autoritativamente el blog actual: no acepta ningún input.
+ *
+ * Si la suma local no puede calcularse, conserva el contrato informativo
+ * histórico devolviendo used_bytes = 0 (este endpoint no aplica cuota).
  */
 
 defined('ABSPATH') or die('No direct access');
@@ -22,7 +25,7 @@ final class GetExpedienteStorageUsageUseCase {
     public function execute(): array {
         $used_bytes = ExpedienteAdjuntosRepository::sum_byte_size_total();
 
-        if ($used_bytes < 0) {
+        if ($used_bytes === null || $used_bytes < 0) {
             $used_bytes = 0;
         }
 
