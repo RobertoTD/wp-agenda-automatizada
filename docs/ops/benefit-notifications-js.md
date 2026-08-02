@@ -805,6 +805,34 @@ Sin mencionar Calendar, OAuth, cuota ni “correo enviado”.
 
 Legacy autoConfirm, pending/`sendConfirmation`, confirmar/cancelar desde calendario, PHP, Node, mapper, toast renderer, servicios compartidos.
 
+## Consumidor: Expedientes (registros + imagen)
+
+Expedientes **no** usa `BenefitNotificationMapper` (no produce `benefit_notices[]`).
+Usa el **mismo renderer** `AAAdmin.toast` con un mapper propio puro en:
+
+`includes/admin/ui/modules/clients/expediente-registros.js`
+
+| Pieza | Rol |
+|-------|-----|
+| `resolveAccount(status)` | Clasifica `account_status` → `{ commercialState, upgradeAvailable }` |
+| `buildSaveNotification(input)` | Resultado operativo + estado comercial → modelo de toast |
+| `primeAccountStatus()` | Obtiene `AccountStatusService.fetchStatus()` en paralelo al guardado; nunca rechaza |
+| `emitToast(notification)` | Traduce `actions[].target` → `{ label, url }` y llama `AAAdmin.toast.show` una vez |
+
+Principios:
+
+1. Un solo toast por operación terminal (éxito, éxito parcial comercial o rechazo comercial).
+2. Fallos técnicos reintentables: error **inline** en el modal, sin toast y sin cerrar.
+3. Acciones del mapper usan `target` simbólico (`account_billing`, `account_upgrade`, `settings_freemium`); la orquestación construye la URL hacia el módulo canónico.
+4. Si `account-status` falla o es desconocido: copy operativo fiel, **sin CTA** y sin inventar `past_due`/Freemium/Pro.
+5. Pro `past_due` con imagen guardada: toast `success` + `fallback` de aviso + CTA «Actualizar pago».
+
+Pruebas:
+
+```bash
+node --test tests/js/expedienteSaveToast.test.js tests/js/expedienteStorageQuotaUi.test.js
+```
+
 ## Tests
 
 ```bash

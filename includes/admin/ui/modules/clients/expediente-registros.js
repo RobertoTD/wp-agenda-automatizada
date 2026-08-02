@@ -18,20 +18,374 @@
     var HEIC_UNSUPPORTED_MESSAGE =
         'Este formato no se puede procesar aquí. Guarda o exporta la foto como JPG e inténtalo de nuevo.';
     var PARTIAL_ATTACH_MESSAGE = 'Registro guardado. No se pudo subir la imagen.';
-    var STORAGE_NOT_INCLUDED_MESSAGE =
-        'Tu plan actual no incluye almacenamiento de imágenes en el servidor.';
-    var STORAGE_QUOTA_EXCEEDED_MESSAGE =
-        'No queda espacio de almacenamiento. Elimina alguna imagen para liberar espacio.';
     var THUMB_ERROR_MESSAGE = 'No se pudo cargar la imagen.';
 
+    var UNKNOWN_ACCOUNT = Object.freeze({
+        commercialState: 'unknown',
+        upgradeAvailable: false
+    });
+
+    var PAST_DUE_SUCCESS_FALLBACK =
+        'Tus beneficios Pro están suspendidos por un pago pendiente. Actualiza tu pago para recuperarlos.';
+    var IMAGE_SAVED_MESSAGE = 'Imagen añadida.';
+    var STORAGE_NOT_INCLUDED_TOAST_MESSAGE =
+        'La imagen no se guardó: tu plan no incluye almacenamiento de imágenes.';
+    var STORAGE_QUOTA_FREEMIUM_MESSAGE =
+        'La imagen no se guardó porque agotaste el almacenamiento de tu plan Freemium.';
+    var STORAGE_QUOTA_PAST_DUE_MESSAGE =
+        'La imagen no se guardó porque tus beneficios Pro están suspendidos y se aplica el límite Freemium.';
+    var STORAGE_QUOTA_PRO_MESSAGE =
+        'La imagen no se guardó porque alcanzaste el límite de almacenamiento de tu plan. Elimina imágenes que ya no necesites.';
+    var STORAGE_QUOTA_GENERIC_MESSAGE =
+        'La imagen no se guardó porque alcanzaste el límite de almacenamiento de tu plan.';
+
+    var TOAST_DURATION_MS = {
+        success: 3500,
+        warning: 5000
+    };
+
+    var ACCOUNT_BILLING_URL_FALLBACK =
+        'admin-post.php?action=aa_iframe_content&module=account#aa-account-billing-button';
+    var ACCOUNT_UPGRADE_URL_FALLBACK =
+        'admin-post.php?action=aa_iframe_content&module=account#aa-account-upgrade-section';
+    var SETTINGS_FREEMIUM_URL_FALLBACK =
+        'admin-post.php?action=aa_iframe_content&module=settings&setup_focus=google_calendar#aa-google-calendar-root';
+
+    /** Promesa de estado comercial iniciada por Expedientes (nunca rechaza). */
+    var accountPromise = null;
+
+    /**
+     * Clasifica el payload de account_status ya obtenido.
+     * Puro: sin fetch ni lectura global.
+     *
+     * @param {object|null|undefined} status
+     * @returns {{ commercialState: string, upgradeAvailable: boolean }}
+     */
+    function resolveAccount(status) {
+        if (!status || typeof status !== 'object') {
+            return UNKNOWN_ACCOUNT;
+        }
+
+        var upgradeAvailable = status.upgrade_to_pro_available === true;
+
+        if (status.sync_pending === true) {
+            return { commercialState: 'unknown', upgradeAvailable: upgradeAvailable };
+        }
+
+        if (status.payment_action_required === true) {
+            if (status.plan_tier === 'pro' && status.effective_access_tier === 'freemium') {
+                return { commercialState: 'pro_past_due', upgradeAvailable: upgradeAvailable };
+            }
+            return { commercialState: 'unknown', upgradeAvailable: upgradeAvailable };
+        }
+
+        if (status.effective_access_tier === 'pro') {
+            return { commercialState: 'pro_active', upgradeAvailable: upgradeAvailable };
+        }
+        if (status.effective_access_tier === 'free') {
+            return { commercialState: 'free', upgradeAvailable: upgradeAvailable };
+        }
+        if (status.plan_tier === 'freemium' && status.effective_access_tier === 'freemium') {
+            return { commercialState: 'freemium', upgradeAvailable: upgradeAvailable };
+        }
+
+        return { commercialState: 'unknown', upgradeAvailable: upgradeAvailable };
+    }
+
+    /**
+     * Inicia (o reutiliza) la obtención memorizada de account-status.
+     * Nunca rechaza: degrada a UNKNOWN_ACCOUNT.
+     *
+     * @returns {Promise<{ commercialState: string, upgradeAvailable: boolean }>}
+     */
+    function primeAccountStatus() {
+        if (accountPromise) {
+            return accountPromise;
+        }
+
+        var svc = typeof window !== 'undefined' ? window.AccountStatusService : null;
+        if (!svc || typeof svc.fetchStatus !== 'function') {
+            accountPromise = Promise.resolve(UNKNOWN_ACCOUNT);
+            return accountPromise;
+        }
+
+        accountPromise = svc.fetchStatus()
+            .then(function (payload) {
+                return resolveAccount(payload && payload.account_status);
+            })
+            .catch(function () {
+                return UNKNOWN_ACCOUNT;
+            });
+
+        return accountPromise;
+    }
+
+    /**
+     * @param {string} recordOutcome
+     * @returns {string}
+     */
+    function recordToastTitle(recordOutcome) {
+        return recordOutcome === 'updated' ? 'Registro actualizado' : 'Registro guardado';
+    }
+
+    /**
+     * @param {{ commercialState?: string, upgradeAvailable?: boolean }|null|undefined} account
+     * @returns {{ commercialState: string, upgradeAvailable: boolean }}
+     */
+    function normalizeAccountInput(account) {
+        if (!account || typeof account !== 'object') {
+            return UNKNOWN_ACCOUNT;
+        }
+        var state = account.commercialState;
+        if (
+            state !== 'free' &&
+            state !== 'freemium' &&
+            state !== 'pro_active' &&
+            state !== 'pro_past_due' &&
+            state !== 'unknown'
+        ) {
+            return UNKNOWN_ACCOUNT;
+        }
+        return {
+            commercialState: state,
+            upgradeAvailable: account.upgradeAvailable === true
+        };
+    }
+
+    /**
+     * Mapper puro: resultado operativo + estado comercial → modelo de toast.
+     * Acciones usan `target` simbólico (la orquestación resuelve URL).
+     *
+     * @param {{
+     *   recordOutcome: 'created'|'updated',
+     *   imageOutcome: 'none'|'saved'|'failed',
+     *   failureCode: string,
+     *   account: { commercialState: string, upgradeAvailable: boolean }|null
+     * }} input
+     * @returns {object}
+     */
+    function buildSaveNotification(input) {
+        var opts = input || {};
+        var recordOutcome = opts.recordOutcome === 'updated' ? 'updated' : 'created';
+        var imageOutcome = opts.imageOutcome === 'saved' || opts.imageOutcome === 'failed'
+            ? opts.imageOutcome
+            : 'none';
+        var failureCode = opts.failureCode == null ? '' : String(opts.failureCode);
+        var account = normalizeAccountInput(opts.account);
+        var title = recordToastTitle(recordOutcome);
+
+        if (imageOutcome === 'none') {
+            return {
+                severity: 'success',
+                title: title,
+                message: '',
+                details: [],
+                fallback: null,
+                durationMs: TOAST_DURATION_MS.success,
+                blocking: false,
+                actions: [],
+                notices: []
+            };
+        }
+
+        if (imageOutcome === 'saved') {
+            var savedNotification = {
+                severity: 'success',
+                title: title,
+                message: IMAGE_SAVED_MESSAGE,
+                details: [],
+                fallback: null,
+                durationMs: TOAST_DURATION_MS.success,
+                blocking: false,
+                actions: [],
+                notices: []
+            };
+            if (account.commercialState === 'pro_past_due') {
+                savedNotification.fallback = PAST_DUE_SUCCESS_FALLBACK;
+                savedNotification.actions = [
+                    { label: 'Actualizar pago', target: 'account_billing' }
+                ];
+            }
+            return savedNotification;
+        }
+
+        // imageOutcome === 'failed'
+        if (failureCode === 'storage_not_included') {
+            var notIncluded = {
+                severity: 'warning',
+                title: title,
+                message: STORAGE_NOT_INCLUDED_TOAST_MESSAGE,
+                details: [],
+                fallback: null,
+                durationMs: TOAST_DURATION_MS.warning,
+                blocking: false,
+                actions: [],
+                notices: []
+            };
+            if (account.commercialState === 'free') {
+                notIncluded.actions = [
+                    { label: 'Suscribirme', target: 'settings_freemium' }
+                ];
+            }
+            return notIncluded;
+        }
+
+        if (failureCode === 'storage_quota_exceeded') {
+            var quotaNotification = {
+                severity: 'warning',
+                title: title,
+                message: STORAGE_QUOTA_GENERIC_MESSAGE,
+                details: [],
+                fallback: null,
+                durationMs: TOAST_DURATION_MS.warning,
+                blocking: false,
+                actions: [],
+                notices: []
+            };
+
+            if (account.commercialState === 'freemium') {
+                quotaNotification.message = STORAGE_QUOTA_FREEMIUM_MESSAGE;
+                if (account.upgradeAvailable) {
+                    quotaNotification.actions = [
+                        { label: 'Adquirir Pro', target: 'account_upgrade' }
+                    ];
+                }
+            } else if (account.commercialState === 'pro_past_due') {
+                quotaNotification.message = STORAGE_QUOTA_PAST_DUE_MESSAGE;
+                quotaNotification.actions = [
+                    { label: 'Actualizar pago', target: 'account_billing' }
+                ];
+            } else if (account.commercialState === 'pro_active') {
+                quotaNotification.message = STORAGE_QUOTA_PRO_MESSAGE;
+            }
+
+            return quotaNotification;
+        }
+
+        // Código técnico o desconocido: la orquestación no debería llegar aquí.
+        return {
+            severity: 'warning',
+            title: title,
+            message: PARTIAL_ATTACH_MESSAGE,
+            details: [],
+            fallback: null,
+            durationMs: TOAST_DURATION_MS.warning,
+            blocking: false,
+            actions: [],
+            notices: []
+        };
+    }
+
+    /**
+     * Mensaje inline para fallos técnicos reintentables (modal abierto).
+     * Los rechazos comerciales ya no usan este camino.
+     *
+     * @param {string} code
+     * @returns {string}
+     */
     function messageForAttachFailure(code) {
-        if (code === 'storage_not_included') {
-            return STORAGE_NOT_INCLUDED_MESSAGE;
-        }
-        if (code === 'storage_quota_exceeded') {
-            return STORAGE_QUOTA_EXCEEDED_MESSAGE;
-        }
+        void code;
         return PARTIAL_ATTACH_MESSAGE;
+    }
+
+    /**
+     * @param {string} moduleName
+     * @param {string} hash
+     * @param {Object<string, string>} [extraParams]
+     * @param {string} fallback
+     * @returns {string}
+     */
+    function buildAdminModuleUrl(moduleName, hash, extraParams, fallback) {
+        if (typeof window !== 'undefined' && window.location && window.location.href) {
+            try {
+                var url = new URL(window.location.href);
+                url.searchParams.set('action', 'aa_iframe_content');
+                url.searchParams.set('module', moduleName);
+                if (extraParams && typeof extraParams === 'object') {
+                    Object.keys(extraParams).forEach(function (key) {
+                        url.searchParams.set(key, extraParams[key]);
+                    });
+                }
+                url.hash = hash || '';
+                return url.toString();
+            } catch (_err) {
+                // fall through
+            }
+        }
+        return fallback;
+    }
+
+    /**
+     * @param {string} target
+     * @returns {string}
+     */
+    function urlForToastTarget(target) {
+        if (target === 'account_billing') {
+            return buildAdminModuleUrl(
+                'account',
+                '#aa-account-billing-button',
+                null,
+                ACCOUNT_BILLING_URL_FALLBACK
+            );
+        }
+        if (target === 'account_upgrade') {
+            return buildAdminModuleUrl(
+                'account',
+                '#aa-account-upgrade-section',
+                null,
+                ACCOUNT_UPGRADE_URL_FALLBACK
+            );
+        }
+        if (target === 'settings_freemium') {
+            return buildAdminModuleUrl(
+                'settings',
+                '#aa-google-calendar-root',
+                { setup_focus: 'google_calendar' },
+                SETTINGS_FREEMIUM_URL_FALLBACK
+            );
+        }
+        return '';
+    }
+
+    /**
+     * Traduce targets simbólicos a URLs y muestra un único toast.
+     *
+     * @param {object} notification
+     */
+    function emitToast(notification) {
+        var toastApi = window.AAAdmin && window.AAAdmin.toast;
+        if (!toastApi || typeof toastApi.show !== 'function' || !notification) {
+            return;
+        }
+
+        var actions = [];
+        var rawActions = Array.isArray(notification.actions) ? notification.actions : [];
+        for (var i = 0; i < rawActions.length; i++) {
+            var action = rawActions[i];
+            if (!action || !action.label || !action.target) {
+                continue;
+            }
+            var url = urlForToastTarget(String(action.target));
+            if (!url) {
+                continue;
+            }
+            actions.push({ label: String(action.label), url: url });
+        }
+
+        toastApi.show(
+            {
+                severity: notification.severity,
+                title: notification.title,
+                message: notification.message || '',
+                details: Array.isArray(notification.details) ? notification.details : [],
+                fallback: notification.fallback || null,
+                durationMs: notification.durationMs,
+                blocking: false,
+                actions: actions,
+                notices: []
+            },
+            { autoDismiss: actions.length === 0 }
+        );
     }
     var DELETE_IMAGE_CONFIRM =
         '¿Eliminar esta imagen? Esta acción no se puede deshacer. El registro se conservará.';
@@ -2237,6 +2591,9 @@
             titleInput.focus();
         }, 50);
 
+        // Capturado antes de promoteCreateToEdit (create no debe reportarse como updated).
+        var savedRecordOutcome = null;
+
         function showFormError(message) {
             errorEl.textContent = message;
             errorEl.classList.remove('hidden');
@@ -2248,16 +2605,41 @@
             retryBtn.textContent = 'Reintentar imagen';
         }
 
+        /**
+         * Camino terminal con toast: espera account si hace falta, cierra modal, emite un toast.
+         *
+         * @param {'created'|'updated'} recordOutcome
+         * @param {'none'|'saved'|'failed'} imageOutcome
+         * @param {string} failureCode
+         */
+        function finishWithToast(recordOutcome, imageOutcome, failureCode) {
+            var ready = imageOutcome === 'none'
+                ? Promise.resolve(UNKNOWN_ACCOUNT)
+                : primeAccountStatus();
+
+            ready.then(function (account) {
+                var notification = buildSaveNotification({
+                    recordOutcome: recordOutcome,
+                    imageOutcome: imageOutcome,
+                    failureCode: failureCode || '',
+                    account: account
+                });
+                flowState = 'idle';
+                closeAfterFullSuccess({ id: recordId });
+                emitToast(notification);
+            });
+        }
+
         function showPartialAttachFailure(attachResult) {
-            flowState = 'partial_attachment_failed';
             var code = attachResult && attachResult.code ? String(attachResult.code) : '';
-            showFormError(messageForAttachFailure(code));
-            // Reintento solo cuando puede ayudar (fallo transitorio). Cuota / plan no.
+            // Rechazo comercial: toast + cierre (reintento no puede resolverlo).
             if (code === 'storage_not_included' || code === 'storage_quota_exceeded') {
-                hideRetry();
-            } else {
-                retryBtn.classList.remove('hidden');
+                finishWithToast(savedRecordOutcome || 'created', 'failed', code);
+                return;
             }
+            flowState = 'partial_attachment_failed';
+            showFormError(messageForAttachFailure(code));
+            retryBtn.classList.remove('hidden');
             reenableSave();
         }
 
@@ -2436,6 +2818,9 @@
                 return;
             }
 
+            // Anticipar account-status en paralelo al reintento (idempotente).
+            primeAccountStatus();
+
             errorEl.classList.add('hidden');
             retryBtn.disabled = true;
             retryBtn.textContent = 'Reintentando...';
@@ -2446,9 +2831,8 @@
                         if (!attachResult.skipped) {
                             applyAdjuntoToRecord(attachResult.recordId, attachResult.adjunto);
                         }
-                        flowState = 'idle';
                         hideRetry();
-                        closeAfterFullSuccess({ id: recordId });
+                        finishWithToast(savedRecordOutcome || 'updated', 'saved', '');
                         return;
                     }
                     showPartialAttachFailure(attachResult);
@@ -2512,6 +2896,11 @@
                 action = (data.actions && data.actions.createRegistro) || 'aa_create_expediente_registro';
             }
 
+            // Anticipar account-status en paralelo al guardado (no bloquea el flujo).
+            if (pendingImage) {
+                primeAccountStatus();
+            }
+
             flowState = 'saving_record';
             saveBtn.disabled = true;
             saveBtn.textContent = 'Guardando...';
@@ -2535,6 +2924,10 @@
                     }
 
                     var saved = result.data.record;
+                    // Capturar outcome antes de promover create → edit.
+                    var recordOutcome = mode === 'edit' ? 'updated' : 'created';
+                    savedRecordOutcome = recordOutcome;
+
                     // Actualizar lista de inmediato (también ante fallo posterior de imagen).
                     persistRecordInList(saved);
 
@@ -2546,8 +2939,7 @@
                     }
 
                     if (!pendingImage) {
-                        flowState = 'idle';
-                        closeAfterFullSuccess(saved);
+                        finishWithToast(recordOutcome, 'none', '');
                         return null;
                     }
 
@@ -2557,8 +2949,7 @@
                             if (!attachResult.skipped) {
                                 applyAdjuntoToRecord(attachResult.recordId, attachResult.adjunto);
                             }
-                            flowState = 'idle';
-                            closeAfterFullSuccess(saved);
+                            finishWithToast(recordOutcome, 'saved', '');
                             return;
                         }
                         showPartialAttachFailure(attachResult);
@@ -2669,9 +3060,21 @@
             MAX_IMAGE_EDGE: MAX_IMAGE_EDGE,
             HEIC_UNSUPPORTED_MESSAGE: HEIC_UNSUPPORTED_MESSAGE,
             PARTIAL_ATTACH_MESSAGE: PARTIAL_ATTACH_MESSAGE,
-            STORAGE_NOT_INCLUDED_MESSAGE: STORAGE_NOT_INCLUDED_MESSAGE,
-            STORAGE_QUOTA_EXCEEDED_MESSAGE: STORAGE_QUOTA_EXCEEDED_MESSAGE,
+            UNKNOWN_ACCOUNT: UNKNOWN_ACCOUNT,
+            PAST_DUE_SUCCESS_FALLBACK: PAST_DUE_SUCCESS_FALLBACK,
+            IMAGE_SAVED_MESSAGE: IMAGE_SAVED_MESSAGE,
+            STORAGE_NOT_INCLUDED_TOAST_MESSAGE: STORAGE_NOT_INCLUDED_TOAST_MESSAGE,
+            STORAGE_QUOTA_FREEMIUM_MESSAGE: STORAGE_QUOTA_FREEMIUM_MESSAGE,
+            STORAGE_QUOTA_PAST_DUE_MESSAGE: STORAGE_QUOTA_PAST_DUE_MESSAGE,
+            STORAGE_QUOTA_PRO_MESSAGE: STORAGE_QUOTA_PRO_MESSAGE,
+            STORAGE_QUOTA_GENERIC_MESSAGE: STORAGE_QUOTA_GENERIC_MESSAGE,
+            resolveAccount: resolveAccount,
+            buildSaveNotification: buildSaveNotification,
             messageForAttachFailure: messageForAttachFailure,
+            urlForToastTarget: urlForToastTarget,
+            primeAccountStatus: primeAccountStatus,
+            emitToast: emitToast,
+            resetAccountPromise: function () { accountPromise = null; },
             THUMB_ERROR_MESSAGE: THUMB_ERROR_MESSAGE,
             getState: function () { return state; },
             setState: function (partial) {

@@ -51,35 +51,47 @@ function loadModule() {
 }
 
 describe('expediente storage quota UI', () => {
-    it('source declares commercial storage messages and suppresses retry', () => {
+    it('source handles commercial storage codes via toast close path', () => {
         assert.match(moduleSrc, /storage_not_included/);
         assert.match(moduleSrc, /storage_quota_exceeded/);
+        assert.match(moduleSrc, /function buildSaveNotification/);
+        assert.match(moduleSrc, /finishWithToast\(savedRecordOutcome/);
         assert.match(
             moduleSrc,
-            /Tu plan actual no incluye almacenamiento de imágenes en el servidor\./
+            /La imagen no se guardó: tu plan no incluye almacenamiento de imágenes\./
         );
         assert.match(
             moduleSrc,
-            /No queda espacio de almacenamiento\. Elimina alguna imagen para liberar espacio\./
+            /La imagen no se guardó porque agotaste el almacenamiento de tu plan Freemium\./
         );
-        assert.match(moduleSrc, /function messageForAttachFailure/);
-        assert.match(moduleSrc, /hideRetry\(\)/);
     });
 
-    it('messageForAttachFailure maps commercial codes; others stay generic', () => {
+    it('messageForAttachFailure stays generic for technical retry path', () => {
         const mod = loadModule();
-        assert.equal(
-            mod.messageForAttachFailure('storage_not_included'),
-            mod.STORAGE_NOT_INCLUDED_MESSAGE
-        );
-        assert.equal(
-            mod.messageForAttachFailure('storage_quota_exceeded'),
-            mod.STORAGE_QUOTA_EXCEEDED_MESSAGE
-        );
         assert.equal(
             mod.messageForAttachFailure('authorize_failed'),
             mod.PARTIAL_ATTACH_MESSAGE
         );
         assert.equal(mod.messageForAttachFailure(''), mod.PARTIAL_ATTACH_MESSAGE);
+    });
+
+    it('buildSaveNotification maps commercial denials without retry CTA inventado', () => {
+        const mod = loadModule();
+        const free = mod.buildSaveNotification({
+            recordOutcome: 'created',
+            imageOutcome: 'failed',
+            failureCode: 'storage_not_included',
+            account: { commercialState: 'free', upgradeAvailable: false }
+        });
+        assert.equal(free.severity, 'warning');
+        assert.equal(free.actions[0].target, 'settings_freemium');
+
+        const quotaUnknown = mod.buildSaveNotification({
+            recordOutcome: 'created',
+            imageOutcome: 'failed',
+            failureCode: 'storage_quota_exceeded',
+            account: null
+        });
+        assert.equal(quotaUnknown.actions.length, 0);
     });
 });
