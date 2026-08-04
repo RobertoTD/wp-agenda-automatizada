@@ -49,12 +49,11 @@ function aa_handle_agenda_app_redirect() {
         exit;
     }
     
-    // Check permissions (for now, only manage_options)
-    if (!current_user_can('manage_options')) {
-        wp_die('Acceso denegado', 'Error', ['response' => 403]);
-    }
+    // Capability for the operational shell is enforced in the UI router after the
+    // legal gate. Non-admins may still be redirected so they can see the
+    // informative blocking screen when acceptance is pending.
     
-    // User is logged in and has permissions, redirect to app UI
+    // User is logged in; redirect to app UI (gate / manage_options checked there)
     $app_url = admin_url('admin-post.php?action=aa_iframe_content&module=calendar');
     wp_redirect($app_url);
     exit;

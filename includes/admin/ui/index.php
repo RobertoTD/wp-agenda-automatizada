@@ -4,15 +4,27 @@
  *
  * Responsibilities:
  * - Validate access
+ * - Resolve legal gate before the operational shell
  * - Resolve active UI module
- * - Delegate rendering to shared layout
+ * - Delegate rendering to shared layout or blocking legal-gate screen
  *
- * This file contains NO HTML and NO business logic.
+ * This file contains NO HTML and NO business logic beyond the gate branch.
  */
 
 defined('ABSPATH') or die('No direct access');
 
-// Permission check
+require_once dirname(__DIR__, 2) . '/application/legal/GetLegalGateStatusUseCase.php';
+
+$legal_gate_view = (new GetLegalGateStatusUseCase())->execute();
+$aa_legal_status = !empty($legal_gate_view['success'])
+    ? (string) ($legal_gate_view['data']['status'] ?? '')
+    : 'error';
+
+if ($aa_legal_status !== 'ready') {
+    require __DIR__ . '/legal-gate/index.php';
+}
+
+// Operational shell requires manage_options (gate above may already have exited).
 if (!current_user_can('manage_options')) {
     wp_die('Acceso denegado', 'Error', ['response' => 403]);
 }

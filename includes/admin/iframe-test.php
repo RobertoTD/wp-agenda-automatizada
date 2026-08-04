@@ -71,10 +71,9 @@ function aa_handle_iframe_content() {
         exit;
     }
     
-    // Permission check
-    if (!current_user_can('manage_options')) {
-        wp_die('Acceso denegado', 'Error', ['response' => 403]);
-    }
+    // Capability for the operational shell is enforced in ui/index.php after the
+    // legal gate. Logged-in users without manage_options may still see the
+    // informative blocking gate when terms are pending.
     
     // Delegate to UI entry point (module parameter is handled inside ui/index.php)
     $ui_path = plugin_dir_path(__FILE__) . 'ui/index.php';
