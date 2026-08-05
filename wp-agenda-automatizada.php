@@ -177,6 +177,7 @@ AccountStatusAjax::register();
 require_once __DIR__ . '/includes/infrastructure/backend/class-aa-legal-gate-backend-client.php';
 require_once __DIR__ . '/includes/application/legal/GetLegalGateStatusUseCase.php';
 require_once __DIR__ . '/includes/application/legal/AcceptAgendaTermsUseCase.php';
+require_once __DIR__ . '/includes/application/legal/AcceptAgendaPrivacyAndTermsUseCase.php';
 require_once __DIR__ . '/includes/http/ajax/LegalGateAjax.php';
 LegalGateAjax::register();
 

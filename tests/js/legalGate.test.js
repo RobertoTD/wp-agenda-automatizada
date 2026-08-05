@@ -41,14 +41,17 @@ function flush() {
 function loadGate(options) {
     options = options || {};
     const withAccept = options.withAccept !== false;
-    const consent = makeEl({ checked: !!options.checked });
+    const isDual = !!options.dual;
+    const termsConsent = makeEl({ checked: !!options.checked });
+    const privacyConsent = makeEl({ checked: !!options.privacyChecked });
     const acceptBtn = makeEl({ disabled: true, textContent: 'Aceptar y continuar' });
     const retryBtn = makeEl({ disabled: false, textContent: 'Reintentar' });
     const errorEl = makeEl({});
 
     const byId = {
         'aa-legal-gate-root': makeEl({}),
-        'aa-legal-gate-consent': withAccept ? consent : null,
+        'aa-legal-gate-consent': withAccept ? termsConsent : null,
+        'aa-legal-gate-privacy-consent': withAccept && isDual ? privacyConsent : null,
         'aa-legal-gate-accept': withAccept ? acceptBtn : null,
         'aa-legal-gate-retry': withAccept ? null : retryBtn,
         'aa-legal-gate-error': errorEl
@@ -62,10 +65,13 @@ function loadGate(options) {
             ajaxUrl: 'https://agenda.test/wp-admin/admin-ajax.php',
             statusAction: 'aa_get_legal_gate_status',
             acceptAction: 'aa_accept_agenda_terms',
+            acceptDualAction: 'aa_accept_agenda_privacy_and_terms',
             nonce: 'nonce-test',
             termsVersion: options.termsVersion || '2026-08-03.1',
-            canAccept: withAccept && options.canAccept !== false,
-            initialStatus: options.status || 'needs_terms'
+            privacyVersion: options.privacyVersion || '2026-08-04.1',
+            canAccept: withAccept && !isDual && options.canAccept !== false,
+            canAcceptDual: withAccept && isDual,
+            initialStatus: options.status || (isDual ? 'needs_privacy_and_terms' : 'needs_terms')
         },
         location: {
             reload() { reloadCount += 1; }
@@ -92,7 +98,8 @@ function loadGate(options) {
     eval(jsSrc);
 
     return {
-        consent,
+        consent: termsConsent,
+        privacyConsent,
         acceptBtn,
         retryBtn,
         errorEl,
@@ -116,6 +123,23 @@ describe('legal-gate UI', () => {
         assert.equal(ui.acceptBtn.disabled, false);
         ui.consent.checked = false;
         ui.consent.change();
+        assert.equal(ui.acceptBtn.disabled, true);
+    });
+
+    it('dual requires both checkboxes before enabling accept', () => {
+        const ui = loadGate({ dual: true, checked: false, privacyChecked: false });
+        assert.equal(ui.acceptBtn.disabled, true);
+
+        ui.privacyConsent.checked = true;
+        ui.privacyConsent.change();
+        assert.equal(ui.acceptBtn.disabled, true);
+
+        ui.consent.checked = true;
+        ui.consent.change();
+        assert.equal(ui.acceptBtn.disabled, false);
+
+        ui.privacyConsent.checked = false;
+        ui.privacyConsent.change();
         assert.equal(ui.acceptBtn.disabled, true);
     });
 
@@ -155,6 +179,45 @@ describe('legal-gate UI', () => {
         assert.equal(ui.reloadCount, 1);
     });
 
+    it('dual posts both versions without wp_user_id and reloads on success', async () => {
+        let resolveFetch;
+        const ui = loadGate({
+            dual: true,
+            checked: true,
+            privacyChecked: true,
+            fetchImpl() {
+                return new Promise((resolve) => {
+                    resolveFetch = resolve;
+                });
+            }
+        });
+        ui.privacyConsent.checked = true;
+        ui.consent.checked = true;
+        ui.privacyConsent.change();
+        ui.consent.change();
+        ui.acceptBtn.click();
+        ui.acceptBtn.click();
+
+        assert.equal(ui.fetches.length, 1);
+        const body = ui.fetches[0].init.body;
+        assert.match(body, /action=aa_accept_agenda_privacy_and_terms/);
+        assert.match(body, /privacy_consent=1/);
+        assert.match(body, /terms_consent=1/);
+        assert.match(body, /privacy_document_version=2026-08-04\.1/);
+        assert.match(body, /terms_document_version=2026-08-03\.1/);
+        assert.doesNotMatch(body, /wp_user_id/);
+        assert.equal(ui.acceptBtn.disabled, true);
+
+        resolveFetch({
+            ok: true,
+            json() {
+                return Promise.resolve({ success: true, data: { already_accepted: true } });
+            }
+        });
+        await flush();
+        assert.equal(ui.reloadCount, 1);
+    });
+
     it('keeps gate on accept error and re-enables submit', async () => {
         const ui = loadGate({
             checked: true,
@@ -183,6 +246,75 @@ describe('legal-gate UI', () => {
         assert.equal(ui.acceptBtn.textContent, 'Aceptar y continuar');
     });
 
+    it('dual outdated privacy shows message and reloads', async () => {
+        const ui = loadGate({
+            dual: true,
+            checked: true,
+            privacyChecked: true,
+            fetchImpl() {
+                return Promise.resolve({
+                    ok: false,
+                    json() {
+                        return Promise.resolve({
+                            success: false,
+                            data: {
+                                message: 'outdated',
+                                code: 'privacy_notice_version_outdated'
+                            }
+                        });
+                    }
+                });
+            }
+        });
+
+        ui.privacyConsent.checked = true;
+        ui.consent.checked = true;
+        ui.privacyConsent.change();
+        ui.consent.change();
+        ui.acceptBtn.click();
+        await flush();
+
+        assert.match(ui.errorEl.textContent, /documentos legales se actualizaron/i);
+        assert.equal(ui.acceptBtn.disabled, false);
+
+        await new Promise((resolve) => setTimeout(resolve, 1300));
+        assert.equal(ui.reloadCount, 1);
+    });
+
+    it('dual partial acceptance stays blocked and schedules reload', async () => {
+        const ui = loadGate({
+            dual: true,
+            checked: true,
+            privacyChecked: true,
+            fetchImpl() {
+                return Promise.resolve({
+                    ok: false,
+                    json() {
+                        return Promise.resolve({
+                            success: false,
+                            data: {
+                                message: 'partial',
+                                code: 'partial_acceptance_exists'
+                            }
+                        });
+                    }
+                });
+            }
+        });
+
+        ui.privacyConsent.checked = true;
+        ui.consent.checked = true;
+        ui.privacyConsent.change();
+        ui.consent.change();
+        ui.acceptBtn.click();
+        await flush();
+
+        assert.equal(ui.errorEl.classList.contains('is-visible'), true);
+        assert.match(ui.errorEl.textContent, /estado legal cambió/i);
+        await new Promise((resolve) => setTimeout(resolve, 1300));
+        assert.equal(ui.reloadCount, 1);
+    });
+
     it('retry re-queries status and reloads on ready', async () => {
         const ui = loadGate({
             withAccept: false,
@@ -204,6 +336,6 @@ describe('legal-gate UI', () => {
     });
 
     it('source omits internal ids and auth secrets', () => {
-        assert.doesNotMatch(jsSrc, /\baccount_id\b|\binstallation_id\b|\bsubscription_request_id\b|\bclient_secret\b|\bhmac\b/i);
+        assert.doesNotMatch(jsSrc, /\baccount_id\b|\binstallation_id\b|\bsubscription_request_id\b|\bclient_secret\b|\bhmac\b|\bwp_user_id\b/i);
     });
 });

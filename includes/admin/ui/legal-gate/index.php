@@ -1,7 +1,7 @@
 <?php
 /**
- * Blocking legal gate screen — replaces the admin shell until terms are accepted
- * or an informative blocking state is resolved.
+ * Blocking legal gate screen — replaces the admin shell until legal acceptances
+ * are recorded or an informative blocking state is resolved.
  *
  * Expected in scope: $legal_gate_view (array from GetLegalGateStatusUseCase result).
  */
@@ -9,6 +9,7 @@
 defined('ABSPATH') or die('No direct access');
 
 require_once dirname(__DIR__, 3) . '/domain/legal/class-aa-agenda-terms-consent.php';
+require_once dirname(__DIR__, 3) . '/domain/legal/class-aa-agenda-privacy-consent.php';
 
 if (!isset($legal_gate_view) || !is_array($legal_gate_view)) {
     wp_die('Estado legal no disponible', 'Error', ['response' => 500]);
@@ -25,21 +26,36 @@ $error   = isset($legal_gate_view['error']) && is_array($legal_gate_view['error'
 $status = $success
     ? (string) ($data['status'] ?? '')
     : 'error';
-$can_accept = !empty($data['can_accept_terms']);
+$can_accept_terms = !empty($data['can_accept_terms']);
+$can_accept_dual  = !empty($data['can_accept_privacy_and_terms']);
+
 $terms_doc  = isset($data['terms_document']) && is_array($data['terms_document'])
     ? $data['terms_document']
     : null;
-$terms_version = is_array($terms_doc) ? (string) ($terms_doc['version'] ?? '') : '';
-$terms_url     = AA_Agenda_Terms_Consent::HUMAN_URL;
+$privacy_doc = isset($data['privacy_document']) && is_array($data['privacy_document'])
+    ? $data['privacy_document']
+    : null;
+
+$terms_version   = is_array($terms_doc) ? (string) ($terms_doc['version'] ?? '') : '';
+$terms_url       = is_array($terms_doc) && !empty($terms_doc['human_url'])
+    ? (string) $terms_doc['human_url']
+    : AA_Agenda_Terms_Consent::HUMAN_URL;
+$privacy_version = is_array($privacy_doc) ? (string) ($privacy_doc['version'] ?? '') : '';
+$privacy_url     = is_array($privacy_doc) ? (string) ($privacy_doc['human_url'] ?? '') : '';
 
 $title = 'Acceso pendiente';
 $lead  = 'No pudimos verificar el estado legal de esta instalación.';
-$show_accept = false;
+$show_terms_accept = false;
+$show_dual_accept  = false;
 
 if ($status === 'needs_terms') {
     $title = 'Acepta los Términos y Condiciones';
     $lead  = 'Para continuar usando DEOIA en esta instalación debes aceptar los Términos y Condiciones vigentes, incluido el Anexo de Encargo de Tratamiento.';
-    $show_accept = $can_accept;
+    $show_terms_accept = $can_accept_terms;
+} elseif ($status === 'needs_privacy_and_terms') {
+    $title = 'Acepta la Privacidad y los Términos';
+    $lead  = 'Para continuar usando DEOIA en esta instalación debes aceptar el Aviso de Privacidad y los Términos y Condiciones vigentes, incluido el Anexo de Encargo de Tratamiento.';
+    $show_dual_accept = $can_accept_dual;
 } elseif ($status === 'privacy_required') {
     $title = 'Falta la aceptación de privacidad';
     $lead  = 'No encontramos evidencia de aceptación de la Política de Privacidad vinculada a esta instalación. No es posible completar el acceso desde aquí. Contacta a soporte o reintenta más tarde.';
@@ -162,8 +178,9 @@ header('Content-Type: text/html; charset=utf-8');
 <body class="aa-legal-gate-body">
     <main class="aa-legal-gate" id="aa-legal-gate-root" role="main" aria-live="polite"
         data-status="<?php echo esc_attr($status); ?>"
-        data-can-accept="<?php echo $show_accept ? '1' : '0'; ?>"
+        data-can-accept="<?php echo ($show_terms_accept || $show_dual_accept) ? '1' : '0'; ?>"
         data-terms-version="<?php echo esc_attr($terms_version); ?>"
+        data-privacy-version="<?php echo esc_attr($privacy_version); ?>"
     >
         <h1><?php echo esc_html($title); ?></h1>
         <p><?php echo esc_html($lead); ?></p>
@@ -179,7 +196,32 @@ header('Content-Type: text/html; charset=utf-8');
             </p>
         <?php endif; ?>
 
-        <?php if ($show_accept) : ?>
+        <?php if ($status === 'needs_privacy_and_terms') : ?>
+            <?php if ($privacy_url !== '') : ?>
+                <p>
+                    <a href="<?php echo esc_url($privacy_url); ?>" target="_blank" rel="noopener noreferrer" id="aa-legal-gate-privacy-link">
+                        Consulta el Aviso de Privacidad Integral
+                    </a>
+                    <?php if ($privacy_version !== '') : ?>
+                        <span> (versión <?php echo esc_html($privacy_version); ?>)</span>
+                    <?php endif; ?>
+                </p>
+            <?php endif; ?>
+            <p>
+                <a href="<?php echo esc_url($terms_url); ?>" target="_blank" rel="noopener noreferrer" id="aa-legal-gate-terms-link">
+                    Leer los Términos y Condiciones
+                </a>
+                <?php if ($terms_version !== '') : ?>
+                    <span> (versión <?php echo esc_html($terms_version); ?>)</span>
+                <?php endif; ?>
+            </p>
+        <?php endif; ?>
+
+        <?php if ($show_dual_accept) : ?>
+            <div class="aa-legal-gate__consent">
+                <input type="checkbox" id="aa-legal-gate-privacy-consent" name="privacy_consent" value="1">
+                <label for="aa-legal-gate-privacy-consent"><?php echo esc_html(AA_Agenda_Privacy_Consent::TEXT); ?></label>
+            </div>
             <div class="aa-legal-gate__consent">
                 <input type="checkbox" id="aa-legal-gate-consent" name="terms_consent" value="1">
                 <label for="aa-legal-gate-consent"><?php echo esc_html(AA_Agenda_Terms_Consent::TEXT); ?></label>
@@ -189,9 +231,19 @@ header('Content-Type: text/html; charset=utf-8');
                     Aceptar y continuar
                 </button>
             </div>
-        <?php elseif ($status === 'needs_terms') : ?>
+        <?php elseif ($show_terms_accept) : ?>
+            <div class="aa-legal-gate__consent">
+                <input type="checkbox" id="aa-legal-gate-consent" name="terms_consent" value="1">
+                <label for="aa-legal-gate-consent"><?php echo esc_html(AA_Agenda_Terms_Consent::TEXT); ?></label>
+            </div>
+            <div class="aa-legal-gate__actions">
+                <button type="button" class="aa-legal-gate__btn aa-legal-gate__btn--primary" id="aa-legal-gate-accept" disabled>
+                    Aceptar y continuar
+                </button>
+            </div>
+        <?php elseif ($status === 'needs_terms' || $status === 'needs_privacy_and_terms') : ?>
             <p class="aa-legal-gate__note">
-                Un administrador de la instalación debe aceptar los Términos para habilitar el acceso.
+                Un administrador de la instalación debe aceptar los documentos legales para habilitar el acceso.
             </p>
             <div class="aa-legal-gate__actions">
                 <button type="button" class="aa-legal-gate__btn aa-legal-gate__btn--secondary" id="aa-legal-gate-retry">
@@ -214,9 +266,12 @@ header('Content-Type: text/html; charset=utf-8');
         ajaxUrl: <?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,
         statusAction: 'aa_get_legal_gate_status',
         acceptAction: 'aa_accept_agenda_terms',
+        acceptDualAction: 'aa_accept_agenda_privacy_and_terms',
         nonce: <?php echo wp_json_encode(wp_create_nonce('aa_legal_gate_nonce')); ?>,
         termsVersion: <?php echo wp_json_encode($terms_version); ?>,
-        canAccept: <?php echo $show_accept ? 'true' : 'false'; ?>,
+        privacyVersion: <?php echo wp_json_encode($privacy_version); ?>,
+        canAccept: <?php echo $show_terms_accept ? 'true' : 'false'; ?>,
+        canAcceptDual: <?php echo $show_dual_accept ? 'true' : 'false'; ?>,
         initialStatus: <?php echo wp_json_encode($status); ?>
     };
     </script>

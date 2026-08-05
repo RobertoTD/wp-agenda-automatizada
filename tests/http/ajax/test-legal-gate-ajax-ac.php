@@ -29,6 +29,7 @@ $client_src = (string) file_get_contents($plugin_root . '/includes/infrastructur
 
 ac_assert('registers aa_get_legal_gate_status', strpos($ajax_src, 'aa_get_legal_gate_status') !== false);
 ac_assert('registers aa_accept_agenda_terms', strpos($ajax_src, 'aa_accept_agenda_terms') !== false);
+ac_assert('registers aa_accept_agenda_privacy_and_terms', strpos($ajax_src, 'aa_accept_agenda_privacy_and_terms') !== false);
 ac_assert('uses aa_legal_gate_nonce', strpos($ajax_src, 'aa_legal_gate_nonce') !== false);
 ac_assert('accept checks manage_options', strpos($ajax_src, "current_user_can('manage_options')") !== false);
 ac_assert('uses check_ajax_referer', strpos($ajax_src, 'check_ajax_referer') !== false);
@@ -39,12 +40,16 @@ ac_assert('does not read subscription_request_id from request', strpos($ajax_src
 ac_assert('does not trust wp_user_id from POST', strpos($ajax_src, "\$_POST['wp_user_id']") === false);
 ac_assert('status forces refresh', strpos($ajax_src, 'execute(true)') !== false);
 ac_assert('bootstrap registers LegalGateAjax', strpos($bootstrap_src, 'LegalGateAjax::register()') !== false);
+ac_assert('bootstrap loads AcceptAgendaPrivacyAndTermsUseCase', strpos($bootstrap_src, 'AcceptAgendaPrivacyAndTermsUseCase.php') !== false);
 ac_assert('client hits legal-gate-status', strpos($client_src, '/oauth/legal-gate-status') !== false);
 ac_assert('client hits legal-acceptances/terms', strpos($client_src, '/oauth/legal-acceptances/terms') !== false);
+ac_assert('client hits privacy-and-terms', strpos($client_src, '/oauth/legal-acceptances/privacy-and-terms') !== false);
 ac_assert('client uses aa_send_authenticated_request', strpos($client_src, 'aa_send_authenticated_request') !== false);
 ac_assert(
-    'handler reads only consent + version',
-    strpos($ajax_src, "\$_POST['terms_consent']") !== false
+    'handler reads dual consent + versions',
+    strpos($ajax_src, "\$_POST['privacy_consent']") !== false
+    && strpos($ajax_src, "\$_POST['privacy_document_version']") !== false
+    && strpos($ajax_src, "\$_POST['terms_consent']") !== false
     && strpos($ajax_src, "\$_POST['terms_document_version']") !== false
 );
 
@@ -165,6 +170,47 @@ if (!function_exists('aa_send_authenticated_request')) {
                 ]),
             ];
         }
+        if ($mode === 'accept_dual_ok') {
+            return [
+                'response' => ['code' => 200],
+                'body'     => json_encode([
+                    'ok'                       => true,
+                    'already_accepted'         => false,
+                    'privacy_document_version' => '2026-08-04.1',
+                    'terms_document_version'   => '2026-08-03.1',
+                    'source'                   => 'agenda_legal_gate',
+                ]),
+            ];
+        }
+        if ($mode === 'accept_dual_outdated') {
+            return [
+                'response' => ['code' => 409],
+                'body'     => json_encode([
+                    'error'           => 'privacy_notice_version_outdated',
+                    'current_version' => '2026-08-05.1',
+                    'shown_version'   => '2026-08-04.1',
+                ]),
+            ];
+        }
+        if ($mode === 'status_dual') {
+            return [
+                'response' => ['code' => 200],
+                'body'     => json_encode([
+                    'ok'               => true,
+                    'status'           => 'needs_privacy_and_terms',
+                    'privacy_accepted' => false,
+                    'terms_accepted'   => false,
+                    'privacy_document' => [
+                        'version'   => '2026-08-04.1',
+                        'human_url' => 'https://deoia.com/politica-de-privacidad/',
+                    ],
+                    'terms_document'   => [
+                        'version'   => '2026-08-03.1',
+                        'human_url' => 'https://deoia.com/terminos/',
+                    ],
+                ]),
+            ];
+        }
 
         return [
             'response' => ['code' => 200],
@@ -187,8 +233,10 @@ if (!defined('AA_API_BASE_URL')) {
 
 require_once $plugin_root . '/includes/infrastructure/backend/class-aa-legal-gate-backend-client.php';
 require_once $plugin_root . '/includes/domain/legal/class-aa-agenda-terms-consent.php';
+require_once $plugin_root . '/includes/domain/legal/class-aa-agenda-privacy-consent.php';
 require_once $plugin_root . '/includes/application/legal/GetLegalGateStatusUseCase.php';
 require_once $plugin_root . '/includes/application/legal/AcceptAgendaTermsUseCase.php';
+require_once $plugin_root . '/includes/application/legal/AcceptAgendaPrivacyAndTermsUseCase.php';
 require_once $plugin_root . '/includes/http/ajax/LegalGateAjax.php';
 
 function run_handler(callable $fn): array {
@@ -212,9 +260,27 @@ ac_assert('status HMAC called once', count($GLOBALS['aa_test_hmac_calls']) === 1
 ac_assert('status response has no account_id', strpos((string) json_encode($out), '"account_id"') === false);
 ac_assert('status response has no client_secret', strpos((string) json_encode($out), 'client_secret') === false);
 
+$GLOBALS['aa_test_hmac_calls'] = [];
+$GLOBALS['aa_test_hmac_mode'] = 'status_dual';
+$out = run_handler([LegalGateAjax::class, 'handleStatus']);
+ac_assert(
+    'status returns needs_privacy_and_terms',
+    !empty($out['success']) && ($out['data']['status'] ?? '') === 'needs_privacy_and_terms'
+);
+ac_assert('status dual can_accept_privacy_and_terms', !empty($out['data']['can_accept_privacy_and_terms']));
+ac_assert('status dual does not set can_accept_terms', empty($out['data']['can_accept_terms']));
+ac_assert(
+    'status dual parses both documents',
+    ($out['data']['privacy_document']['version'] ?? '') === '2026-08-04.1'
+    && ($out['data']['terms_document']['version'] ?? '') === '2026-08-03.1'
+);
+
 $GLOBALS['aa_test_can_manage_options'] = false;
 $out = run_handler([LegalGateAjax::class, 'handleAccept']);
 ac_assert('accept without cap is 403', empty($out['success']) && (int) ($out['status'] ?? 0) === 403);
+
+$out = run_handler([LegalGateAjax::class, 'handleAcceptPrivacyAndTerms']);
+ac_assert('dual accept without cap is 403', empty($out['success']) && (int) ($out['status'] ?? 0) === 403);
 
 $GLOBALS['aa_test_can_manage_options'] = true;
 $GLOBALS['aa_test_nonce_valid'] = false;
@@ -249,6 +315,47 @@ ac_assert('accept body omits account_id', !array_key_exists('account_id', is_arr
 ac_assert('accept body omits installation_id', !array_key_exists('installation_id', is_array($sent) ? $sent : []));
 ac_assert('accept body omits subscription_request_id', !array_key_exists('subscription_request_id', is_array($sent) ? $sent : []));
 ac_assert('accept clears ready cache', get_transient('aa_legal_gate_ready_5') === false);
+
+$GLOBALS['aa_test_hmac_calls'] = [];
+$GLOBALS['aa_test_hmac_mode'] = 'accept_dual_ok';
+$GLOBALS['aa_test_transients'] = ['aa_legal_gate_ready_5' => '1'];
+$_POST = [
+    'privacy_consent'          => '1',
+    'privacy_document_version' => '2026-08-04.1',
+    'terms_consent'            => '1',
+    'terms_document_version'   => '2026-08-03.1',
+    'wp_user_id'               => '999',
+    'account_id'               => 'acc_x',
+];
+$out = run_handler([LegalGateAjax::class, 'handleAcceptPrivacyAndTerms']);
+ac_assert('dual accept succeeds', !empty($out['success']));
+ac_assert('dual HMAC called once', count($GLOBALS['aa_test_hmac_calls']) === 1);
+$dual_call = $GLOBALS['aa_test_hmac_calls'][0] ?? [];
+ac_assert(
+    'dual hits privacy-and-terms endpoint',
+    strpos((string) ($dual_call['endpoint'] ?? ''), '/oauth/legal-acceptances/privacy-and-terms') !== false
+);
+$dual_sent = $dual_call['body'] ?? [];
+ac_assert('dual sends PHP wp_user_id=5', (int) ($dual_sent['wp_user_id'] ?? 0) === 5);
+ac_assert('dual sends privacy version', ($dual_sent['privacy_document_version'] ?? '') === '2026-08-04.1');
+ac_assert('dual sends terms version', ($dual_sent['terms_document_version'] ?? '') === '2026-08-03.1');
+ac_assert('dual body omits account_id', !array_key_exists('account_id', is_array($dual_sent) ? $dual_sent : []));
+ac_assert('dual clears ready cache', get_transient('aa_legal_gate_ready_5') === false);
+
+$GLOBALS['aa_test_hmac_calls'] = [];
+$GLOBALS['aa_test_hmac_mode'] = 'accept_dual_outdated';
+$_POST = [
+    'privacy_consent'          => '1',
+    'privacy_document_version' => '2026-08-04.1',
+    'terms_consent'            => '1',
+    'terms_document_version'   => '2026-08-03.1',
+];
+$out = run_handler([LegalGateAjax::class, 'handleAcceptPrivacyAndTerms']);
+ac_assert('dual outdated is 409', empty($out['success']) && (int) ($out['status'] ?? 0) === 409);
+ac_assert(
+    'dual outdated code preserved',
+    ($out['data']['code'] ?? '') === 'privacy_notice_version_outdated'
+);
 
 echo "\n{$passed}/{$total} passed\n";
 exit($failed ? 1 : 0);

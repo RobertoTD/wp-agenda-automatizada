@@ -58,6 +58,7 @@ if (!defined('AA_API_BASE_URL')) {
 
 require_once $plugin_root . '/includes/infrastructure/backend/class-aa-legal-gate-backend-client.php';
 require_once $plugin_root . '/includes/domain/legal/class-aa-agenda-terms-consent.php';
+require_once $plugin_root . '/includes/domain/legal/class-aa-agenda-privacy-consent.php';
 require_once $plugin_root . '/includes/application/legal/GetLegalGateStatusUseCase.php';
 
 final class Mock_Legal_Gate_Backend_Client extends AA_Legal_Gate_Backend_Client {
@@ -146,9 +147,65 @@ $uc = new GetLegalGateStatusUseCase(new Mock_Legal_Gate_Backend_Client());
 $r = $uc->execute();
 ac_assert('needs_terms succeeds', !empty($r['success']) && ($r['data']['status'] ?? '') === 'needs_terms');
 ac_assert('needs_terms can_accept for admin', !empty($r['data']['can_accept_terms']));
+ac_assert('needs_terms dual flag off', empty($r['data']['can_accept_privacy_and_terms']));
 ac_assert('needs_terms exposes version', ($r['data']['terms_document']['version'] ?? '') === '2026-08-03.1');
 ac_assert('needs_terms not cached as ready', get_transient('aa_legal_gate_ready_7') === false);
 ac_assert('needs_terms no secret ids', forbidden_in($r) === []);
+
+reset_gate_state();
+Mock_Legal_Gate_Backend_Client::$status = [
+    'ok' => true,
+    'status' => 'needs_privacy_and_terms',
+    'privacy_accepted' => false,
+    'terms_accepted' => false,
+    'privacy_document' => [
+        'version' => '2026-08-04.1',
+        'human_url' => 'https://deoia.com/politica-de-privacidad/',
+    ],
+    'terms_document' => [
+        'version' => '2026-08-03.1',
+        'human_url' => 'https://cdn.example/terms-v1.html',
+    ],
+];
+$r = (new GetLegalGateStatusUseCase(new Mock_Legal_Gate_Backend_Client()))->execute();
+ac_assert(
+    'needs_privacy_and_terms succeeds',
+    !empty($r['success']) && ($r['data']['status'] ?? '') === 'needs_privacy_and_terms'
+);
+ac_assert('dual can_accept_privacy_and_terms for admin', !empty($r['data']['can_accept_privacy_and_terms']));
+ac_assert('dual does not set can_accept_terms', empty($r['data']['can_accept_terms']));
+ac_assert(
+    'dual parses privacy document',
+    ($r['data']['privacy_document']['version'] ?? '') === '2026-08-04.1'
+    && ($r['data']['privacy_document']['human_url'] ?? '') === 'https://deoia.com/politica-de-privacidad/'
+);
+ac_assert(
+    'dual keeps status terms human_url without local swap',
+    ($r['data']['terms_document']['human_url'] ?? '') === 'https://cdn.example/terms-v1.html'
+);
+ac_assert('dual not cached as ready', get_transient('aa_legal_gate_ready_7') === false);
+ac_assert('dual no secret ids', forbidden_in($r) === []);
+
+reset_gate_state();
+Mock_Legal_Gate_Backend_Client::$status = [
+    'ok' => true,
+    'status' => 'needs_privacy_and_terms',
+    'privacy_accepted' => false,
+    'terms_accepted' => false,
+    'privacy_document' => [
+        'version' => '2026-08-04.1',
+        'human_url' => '',
+    ],
+    'terms_document' => [
+        'version' => '2026-08-03.1',
+        'human_url' => 'https://deoia.com/terminos/',
+    ],
+];
+$r = (new GetLegalGateStatusUseCase(new Mock_Legal_Gate_Backend_Client()))->execute();
+ac_assert(
+    'dual incomplete privacy meta fails closed',
+    empty($r['success']) && ($r['error']['code'] ?? '') === 'legal_gate_backend_invalid_response'
+);
 
 reset_gate_state();
 $GLOBALS['aa_test_can_manage_options'] = false;
@@ -163,7 +220,26 @@ Mock_Legal_Gate_Backend_Client::$status = [
     ],
 ];
 $r = (new GetLegalGateStatusUseCase(new Mock_Legal_Gate_Backend_Client()))->execute();
-ac_assert('non-admin cannot accept', empty($r['data']['can_accept_terms']));
+ac_assert('non-admin cannot accept terms', empty($r['data']['can_accept_terms']));
+
+reset_gate_state();
+$GLOBALS['aa_test_can_manage_options'] = false;
+Mock_Legal_Gate_Backend_Client::$status = [
+    'ok' => true,
+    'status' => 'needs_privacy_and_terms',
+    'privacy_accepted' => false,
+    'terms_accepted' => false,
+    'privacy_document' => [
+        'version' => '2026-08-04.1',
+        'human_url' => 'https://deoia.com/politica-de-privacidad/',
+    ],
+    'terms_document' => [
+        'version' => '2026-08-03.1',
+        'human_url' => 'https://deoia.com/terminos/',
+    ],
+];
+$r = (new GetLegalGateStatusUseCase(new Mock_Legal_Gate_Backend_Client()))->execute();
+ac_assert('non-admin cannot accept dual', empty($r['data']['can_accept_privacy_and_terms']));
 
 foreach (['privacy_required', 'provisioning_request_missing'] as $status) {
     reset_gate_state();
@@ -173,10 +249,12 @@ foreach (['privacy_required', 'provisioning_request_missing'] as $status) {
         'privacy_accepted' => $status !== 'privacy_required',
         'terms_accepted' => false,
         'terms_document' => null,
+        'privacy_document' => null,
     ];
     $r = (new GetLegalGateStatusUseCase(new Mock_Legal_Gate_Backend_Client()))->execute();
     ac_assert("{$status} succeeds", !empty($r['success']) && ($r['data']['status'] ?? '') === $status);
-    ac_assert("{$status} cannot accept", empty($r['data']['can_accept_terms']));
+    ac_assert("{$status} cannot accept terms", empty($r['data']['can_accept_terms']));
+    ac_assert("{$status} cannot accept dual", empty($r['data']['can_accept_privacy_and_terms']));
 }
 
 reset_gate_state();

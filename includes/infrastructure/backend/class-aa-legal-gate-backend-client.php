@@ -1,6 +1,6 @@
 <?php
 /**
- * Backend client — legal gate status + terms acceptance (HMAC).
+ * Backend client — legal gate status + terms / dual privacy+terms acceptance (HMAC).
  *
  * Does not expose secrets or internal IDs (subscription_request, installation, account).
  */
@@ -15,6 +15,7 @@ class AA_Legal_Gate_Backend_Client {
      *     status: string,
      *     privacy_accepted: bool,
      *     terms_accepted: bool,
+     *     privacy_document: array{version: string, human_url: string}|null,
      *     terms_document: array{version: string, human_url: string}|null
      * }|array{
      *     ok: false,
@@ -87,30 +88,13 @@ class AA_Legal_Gate_Backend_Client {
             );
         }
 
-        $terms_document = null;
-        if (isset($decoded['terms_document']) && is_array($decoded['terms_document'])) {
-            $version = isset($decoded['terms_document']['version'])
-                && is_string($decoded['terms_document']['version'])
-                ? trim($decoded['terms_document']['version'])
-                : '';
-            $human_url = isset($decoded['terms_document']['human_url'])
-                && is_string($decoded['terms_document']['human_url'])
-                ? trim($decoded['terms_document']['human_url'])
-                : '';
-            if ($version !== '' && $human_url !== '') {
-                $terms_document = [
-                    'version'   => $version,
-                    'human_url' => $human_url,
-                ];
-            }
-        }
-
         return [
-            'ok'                => true,
-            'status'            => $status,
-            'privacy_accepted'  => !empty($decoded['privacy_accepted']),
-            'terms_accepted'    => !empty($decoded['terms_accepted']),
-            'terms_document'    => $terms_document,
+            'ok'               => true,
+            'status'           => $status,
+            'privacy_accepted' => !empty($decoded['privacy_accepted']),
+            'terms_accepted'   => !empty($decoded['terms_accepted']),
+            'privacy_document' => $this->parseDocumentMeta($decoded['privacy_document'] ?? null),
+            'terms_document'   => $this->parseDocumentMeta($decoded['terms_document'] ?? null),
         ];
     }
 
@@ -150,6 +134,89 @@ class AA_Legal_Gate_Backend_Client {
             'wp_user_id'             => (int) $payload['wp_user_id'],
         ]);
 
+        return $this->mapAcceptResponse($response, 'No se pudo registrar la aceptación de Términos.');
+    }
+
+    /**
+     * @param array{
+     *     privacy_consent: bool,
+     *     privacy_document_version: string,
+     *     terms_consent: bool,
+     *     terms_document_version: string,
+     *     wp_user_id: int
+     * } $payload
+     * @return array{
+     *     ok: true,
+     *     already_accepted: bool,
+     *     privacy_document_version: string,
+     *     terms_document_version: string,
+     *     source: string
+     * }|array{
+     *     ok: false,
+     *     code: string,
+     *     error: string,
+     *     http_status: int,
+     *     current_version?: string|null,
+     *     shown_version?: string|null
+     * }
+     */
+    public function acceptPrivacyAndTerms(array $payload): array {
+        if (!defined('AA_API_BASE_URL') || (string) AA_API_BASE_URL === '') {
+            return $this->error('legal_gate_backend_error', 'AA_API_BASE_URL no está definida.', 0);
+        }
+
+        if (!function_exists('aa_send_authenticated_request')) {
+            return $this->error(
+                'legal_gate_backend_error',
+                'auth-helper no disponible (aa_send_authenticated_request).',
+                0
+            );
+        }
+
+        $endpoint = rtrim((string) AA_API_BASE_URL, '/') . '/oauth/legal-acceptances/privacy-and-terms';
+        $response = aa_send_authenticated_request($endpoint, 'POST', [
+            'privacy_consent'          => true,
+            'privacy_document_version' => (string) $payload['privacy_document_version'],
+            'terms_consent'            => true,
+            'terms_document_version'   => (string) $payload['terms_document_version'],
+            'wp_user_id'               => (int) $payload['wp_user_id'],
+        ]);
+
+        return $this->mapDualAcceptResponse(
+            $response,
+            'No se pudo registrar la aceptación de privacidad y términos.'
+        );
+    }
+
+    /**
+     * @param mixed $raw
+     * @return array{version: string, human_url: string}|null
+     */
+    private function parseDocumentMeta($raw): ?array {
+        if (!is_array($raw)) {
+            return null;
+        }
+        $version = isset($raw['version']) && is_string($raw['version'])
+            ? trim($raw['version'])
+            : '';
+        $human_url = isset($raw['human_url']) && is_string($raw['human_url'])
+            ? trim($raw['human_url'])
+            : '';
+        if ($version === '' || $human_url === '') {
+            return null;
+        }
+
+        return [
+            'version'   => $version,
+            'human_url' => $human_url,
+        ];
+    }
+
+    /**
+     * @param array|WP_Error $response
+     * @return array<string, mixed>
+     */
+    private function mapAcceptResponse($response, string $default_message): array {
         if (is_wp_error($response)) {
             return $this->error(
                 'legal_gate_backend_unreachable',
@@ -162,32 +229,7 @@ class AA_Legal_Gate_Backend_Client {
         $decoded     = json_decode((string) wp_remote_retrieve_body($response), true);
 
         if ($status_code < 200 || $status_code >= 300) {
-            $code = 'legal_gate_backend_error';
-            $message = 'No se pudo registrar la aceptación de Términos.';
-            $extras = [];
-
-            if (is_array($decoded) && !empty($decoded['error']) && is_string($decoded['error'])) {
-                $code = (string) $decoded['error'];
-                $message = $code;
-            }
-            if (is_array($decoded) && array_key_exists('current_version', $decoded)) {
-                $extras['current_version'] = is_string($decoded['current_version'])
-                    ? $decoded['current_version']
-                    : null;
-            }
-            if (is_array($decoded) && array_key_exists('shown_version', $decoded)) {
-                $extras['shown_version'] = is_string($decoded['shown_version'])
-                    ? $decoded['shown_version']
-                    : null;
-            }
-
-            if ($status_code === 404) {
-                $code = 'legal_gate_client_not_found';
-            } elseif ($status_code >= 500 && $code === 'legal_gate_backend_error') {
-                $code = 'legal_gate_backend_unreachable';
-            }
-
-            return array_merge($this->error($code, $message, $status_code), $extras);
+            return $this->mapHttpError($decoded, $status_code, $default_message);
         }
 
         if (json_last_error() !== JSON_ERROR_NONE || !is_array($decoded) || empty($decoded['ok'])) {
@@ -208,6 +250,84 @@ class AA_Legal_Gate_Backend_Client {
                 ? $decoded['source']
                 : '',
         ];
+    }
+
+    /**
+     * @param array|WP_Error $response
+     * @return array<string, mixed>
+     */
+    private function mapDualAcceptResponse($response, string $default_message): array {
+        if (is_wp_error($response)) {
+            return $this->error(
+                'legal_gate_backend_unreachable',
+                $response->get_error_message(),
+                0
+            );
+        }
+
+        $status_code = (int) wp_remote_retrieve_response_code($response);
+        $decoded     = json_decode((string) wp_remote_retrieve_body($response), true);
+
+        if ($status_code < 200 || $status_code >= 300) {
+            return $this->mapHttpError($decoded, $status_code, $default_message);
+        }
+
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($decoded) || empty($decoded['ok'])) {
+            return $this->error(
+                'legal_gate_backend_invalid_response',
+                'Respuesta del backend no es válida.',
+                $status_code
+            );
+        }
+
+        return [
+            'ok'                       => true,
+            'already_accepted'         => !empty($decoded['already_accepted']),
+            'privacy_document_version' => isset($decoded['privacy_document_version'])
+                && is_string($decoded['privacy_document_version'])
+                ? $decoded['privacy_document_version']
+                : '',
+            'terms_document_version'   => isset($decoded['terms_document_version'])
+                && is_string($decoded['terms_document_version'])
+                ? $decoded['terms_document_version']
+                : '',
+            'source'                   => isset($decoded['source']) && is_string($decoded['source'])
+                ? $decoded['source']
+                : '',
+        ];
+    }
+
+    /**
+     * @param mixed $decoded
+     * @return array{ok: false, code: string, error: string, http_status: int, current_version?: string|null, shown_version?: string|null}
+     */
+    private function mapHttpError($decoded, int $status_code, string $default_message): array {
+        $code = 'legal_gate_backend_error';
+        $message = $default_message;
+        $extras = [];
+
+        if (is_array($decoded) && !empty($decoded['error']) && is_string($decoded['error'])) {
+            $code = (string) $decoded['error'];
+            $message = $code;
+        }
+        if (is_array($decoded) && array_key_exists('current_version', $decoded)) {
+            $extras['current_version'] = is_string($decoded['current_version'])
+                ? $decoded['current_version']
+                : null;
+        }
+        if (is_array($decoded) && array_key_exists('shown_version', $decoded)) {
+            $extras['shown_version'] = is_string($decoded['shown_version'])
+                ? $decoded['shown_version']
+                : null;
+        }
+
+        if ($status_code === 404) {
+            $code = 'legal_gate_client_not_found';
+        } elseif ($status_code >= 500 && $code === 'legal_gate_backend_error') {
+            $code = 'legal_gate_backend_unreachable';
+        }
+
+        return array_merge($this->error($code, $message, $status_code), $extras);
     }
 
     /**
