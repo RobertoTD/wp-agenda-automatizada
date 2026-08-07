@@ -45,7 +45,7 @@ ui (JS)      →  http (vía AJAX)
 ### Contextos actuales relevantes
 
 - `booking`: creacion/resolucion de citas y disponibilidad asociada.
-- `legal`: gate bloqueante en el arranque del shell (`GetLegalGateStatusUseCase` / `AcceptAgendaTermsUseCase` / `AcceptAgendaPrivacyAndTermsUseCase` + HMAC vía `AA_Legal_Gate_Backend_Client`); UI en `includes/admin/ui/legal-gate/` sin sidebar/módulos; flujo moderno provisionado `needs_terms` (solo Términos) y cohorte installation-anchored `needs_privacy_and_terms` (privacidad + términos atómicos); no reaceptación por versión.
+- `legal`: acceso de shell vía `ResolveShellAccessUseCase` (free por defecto; `legal_gate`/`full` solo con `subscription_active === true` del backend HMAC); gate bloqueante reutiliza `GetLegalGateStatusUseCase` / `AcceptAgendaTermsUseCase` / `AcceptAgendaPrivacyAndTermsUseCase` + `AA_Legal_Gate_Backend_Client`; UI en `includes/admin/ui/legal-gate/` sin sidebar/módulos; flujo moderno provisionado `needs_terms` (solo Términos) y cohorte installation-anchored `needs_privacy_and_terms` (privacidad + términos atómicos); no reaceptación por versión; el transient `ready` residual no autoriza acceso.
 - `onboarding`: estado de activacion inicial hacia la primera cita.
 - `learning`: recomendaciones de producto; el catalogo declara intencion (`action`) y Application normaliza el payload ejecutable.
 - `executable`: contrato comun de proyeccion (`AA_Executable_Contract`) para listas/items ejecutables; mappers en `application/executable/` traducen salidas de fuentes (learning, tasks) sin fusionar persistencia. Ver `docs/tasks-executable-contract.md`.

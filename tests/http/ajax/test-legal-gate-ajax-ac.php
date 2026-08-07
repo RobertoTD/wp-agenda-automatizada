@@ -38,7 +38,7 @@ ac_assert('does not read account_id from request', strpos($ajax_src, 'account_id
 ac_assert('does not read installation_id from request', strpos($ajax_src, 'installation_id') === false);
 ac_assert('does not read subscription_request_id from request', strpos($ajax_src, 'subscription_request_id') === false);
 ac_assert('does not trust wp_user_id from POST', strpos($ajax_src, "\$_POST['wp_user_id']") === false);
-ac_assert('status forces refresh', strpos($ajax_src, 'execute(true)') !== false);
+ac_assert('status uses ResolveShellAccessUseCase', strpos($ajax_src, 'ResolveShellAccessUseCase') !== false);
 ac_assert('bootstrap registers LegalGateAjax', strpos($bootstrap_src, 'LegalGateAjax::register()') !== false);
 ac_assert('bootstrap loads AcceptAgendaPrivacyAndTermsUseCase', strpos($bootstrap_src, 'AcceptAgendaPrivacyAndTermsUseCase.php') !== false);
 ac_assert('client hits legal-gate-status', strpos($client_src, '/oauth/legal-gate-status') !== false);
@@ -196,15 +196,16 @@ if (!function_exists('aa_send_authenticated_request')) {
             return [
                 'response' => ['code' => 200],
                 'body'     => json_encode([
-                    'ok'               => true,
-                    'status'           => 'needs_privacy_and_terms',
-                    'privacy_accepted' => false,
-                    'terms_accepted'   => false,
-                    'privacy_document' => [
+                    'ok'                   => true,
+                    'status'               => 'needs_privacy_and_terms',
+                    'subscription_active'  => true,
+                    'privacy_accepted'     => false,
+                    'terms_accepted'       => false,
+                    'privacy_document'     => [
                         'version'   => '2026-08-04.1',
                         'human_url' => 'https://deoia.com/politica-de-privacidad/',
                     ],
-                    'terms_document'   => [
+                    'terms_document'       => [
                         'version'   => '2026-08-03.1',
                         'human_url' => 'https://deoia.com/terminos/',
                     ],
@@ -215,11 +216,12 @@ if (!function_exists('aa_send_authenticated_request')) {
         return [
             'response' => ['code' => 200],
             'body'     => json_encode([
-                'ok'               => true,
-                'status'           => 'needs_terms',
-                'privacy_accepted' => true,
-                'terms_accepted'   => false,
-                'terms_document'   => [
+                'ok'                   => true,
+                'status'               => 'needs_terms',
+                'subscription_active'  => true,
+                'privacy_accepted'     => true,
+                'terms_accepted'       => false,
+                'terms_document'       => [
                     'version'   => '2026-08-03.1',
                     'human_url' => 'https://deoia.com/terminos/',
                 ],
@@ -234,7 +236,9 @@ if (!defined('AA_API_BASE_URL')) {
 require_once $plugin_root . '/includes/infrastructure/backend/class-aa-legal-gate-backend-client.php';
 require_once $plugin_root . '/includes/domain/legal/class-aa-agenda-terms-consent.php';
 require_once $plugin_root . '/includes/domain/legal/class-aa-agenda-privacy-consent.php';
+require_once $plugin_root . '/includes/domain/legal/class-aa-shell-access.php';
 require_once $plugin_root . '/includes/application/legal/GetLegalGateStatusUseCase.php';
+require_once $plugin_root . '/includes/application/legal/ResolveShellAccessUseCase.php';
 require_once $plugin_root . '/includes/application/legal/AcceptAgendaTermsUseCase.php';
 require_once $plugin_root . '/includes/application/legal/AcceptAgendaPrivacyAndTermsUseCase.php';
 require_once $plugin_root . '/includes/http/ajax/LegalGateAjax.php';
@@ -256,6 +260,7 @@ $GLOBALS['aa_test_hmac_mode'] = 'status_needs_terms';
 $_POST = [];
 $out = run_handler([LegalGateAjax::class, 'handleStatus']);
 ac_assert('status returns needs_terms', !empty($out['success']) && ($out['data']['status'] ?? '') === 'needs_terms');
+ac_assert('status access is legal_gate', ($out['data']['access'] ?? '') === 'legal_gate');
 ac_assert('status HMAC called once', count($GLOBALS['aa_test_hmac_calls']) === 1);
 ac_assert('status response has no account_id', strpos((string) json_encode($out), '"account_id"') === false);
 ac_assert('status response has no client_secret', strpos((string) json_encode($out), 'client_secret') === false);

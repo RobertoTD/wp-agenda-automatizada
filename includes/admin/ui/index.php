@@ -4,27 +4,36 @@
  *
  * Responsibilities:
  * - Validate access
- * - Resolve legal gate before the operational shell
+ * - Resolve shell access (free / legal gate / full) before the operational shell
  * - Resolve active UI module
  * - Delegate rendering to shared layout or blocking legal-gate screen
  *
- * This file contains NO HTML and NO business logic beyond the gate branch.
+ * This file contains NO HTML and NO business logic beyond the access branch.
  */
 
 defined('ABSPATH') or die('No direct access');
 
-require_once dirname(__DIR__, 2) . '/application/legal/GetLegalGateStatusUseCase.php';
+require_once dirname(__DIR__, 2) . '/application/legal/ResolveShellAccessUseCase.php';
+require_once dirname(__DIR__, 2) . '/domain/legal/class-aa-shell-access.php';
 
-$legal_gate_view = (new GetLegalGateStatusUseCase())->execute();
-$aa_legal_status = !empty($legal_gate_view['success'])
-    ? (string) ($legal_gate_view['data']['status'] ?? '')
-    : 'error';
+$shell_access = (new ResolveShellAccessUseCase())->execute();
 
-if ($aa_legal_status !== 'ready') {
+if (($shell_access['access'] ?? '') === AA_Shell_Access::ACCESS_LEGAL_GATE) {
+    $legal_gate_view = isset($shell_access['legal']) && is_array($shell_access['legal'])
+        ? $shell_access['legal']
+        : [
+            'success' => false,
+            'error'   => [
+                'code'    => 'legal_gate_backend_error',
+                'message' => 'Estado legal no disponible.',
+            ],
+            'data'    => [],
+        ];
     require __DIR__ . '/legal-gate/index.php';
 }
 
 // Operational shell requires manage_options (gate above may already have exited).
+// free and full both open the current full shell in this microcycle.
 if (!current_user_can('manage_options')) {
     wp_die('Acceso denegado', 'Error', ['response' => 403]);
 }

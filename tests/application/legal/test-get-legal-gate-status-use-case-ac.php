@@ -106,11 +106,8 @@ function forbidden_in(array $payload): array {
     ];
     $found = [];
     foreach ($keys as $key) {
-        if (stripos($json, '"' . $key . '"') !== false || stripos($json, $key) !== false) {
-            // Allow false positives on message text carefully — require JSON key quotes.
-            if (stripos($json, '"' . $key . '"') !== false) {
-                $found[] = $key;
-            }
+        if (stripos($json, '"' . $key . '"') !== false) {
+            $found[] = $key;
         }
     }
     return $found;
@@ -120,6 +117,7 @@ reset_gate_state();
 Mock_Legal_Gate_Backend_Client::$status = [
     'ok' => true,
     'status' => 'ready',
+    'subscription_active' => true,
     'privacy_accepted' => true,
     'terms_accepted' => true,
     'terms_document' => null,
@@ -128,14 +126,15 @@ $uc = new GetLegalGateStatusUseCase(new Mock_Legal_Gate_Backend_Client());
 $r1 = $uc->execute();
 $r2 = $uc->execute();
 ac_assert('ready succeeds', !empty($r1['success']) && ($r1['data']['status'] ?? '') === 'ready');
-ac_assert('ready caches second call', Mock_Legal_Gate_Backend_Client::$fetch_calls === 1);
-ac_assert('cached ready still ready', !empty($r2['success']) && ($r2['data']['status'] ?? '') === 'ready');
+ac_assert('ready always re-queries backend', Mock_Legal_Gate_Backend_Client::$fetch_calls === 2);
+ac_assert('ready exposes subscription_active', ($r1['data']['subscription_active'] ?? null) === true);
 ac_assert('ready payload has no secrets/ids', forbidden_in($r1) === []);
 
 reset_gate_state();
 Mock_Legal_Gate_Backend_Client::$status = [
     'ok' => true,
     'status' => 'needs_terms',
+    'subscription_active' => true,
     'privacy_accepted' => true,
     'terms_accepted' => false,
     'terms_document' => [
@@ -149,13 +148,14 @@ ac_assert('needs_terms succeeds', !empty($r['success']) && ($r['data']['status']
 ac_assert('needs_terms can_accept for admin', !empty($r['data']['can_accept_terms']));
 ac_assert('needs_terms dual flag off', empty($r['data']['can_accept_privacy_and_terms']));
 ac_assert('needs_terms exposes version', ($r['data']['terms_document']['version'] ?? '') === '2026-08-03.1');
-ac_assert('needs_terms not cached as ready', get_transient('aa_legal_gate_ready_7') === false);
+ac_assert('needs_terms does not write ready transient', get_transient('aa_legal_gate_ready_7') === false);
 ac_assert('needs_terms no secret ids', forbidden_in($r) === []);
 
 reset_gate_state();
 Mock_Legal_Gate_Backend_Client::$status = [
     'ok' => true,
     'status' => 'needs_privacy_and_terms',
+    'subscription_active' => true,
     'privacy_accepted' => false,
     'terms_accepted' => false,
     'privacy_document' => [
@@ -183,13 +183,14 @@ ac_assert(
     'dual keeps status terms human_url without local swap',
     ($r['data']['terms_document']['human_url'] ?? '') === 'https://cdn.example/terms-v1.html'
 );
-ac_assert('dual not cached as ready', get_transient('aa_legal_gate_ready_7') === false);
+ac_assert('dual does not write ready transient', get_transient('aa_legal_gate_ready_7') === false);
 ac_assert('dual no secret ids', forbidden_in($r) === []);
 
 reset_gate_state();
 Mock_Legal_Gate_Backend_Client::$status = [
     'ok' => true,
     'status' => 'needs_privacy_and_terms',
+    'subscription_active' => true,
     'privacy_accepted' => false,
     'terms_accepted' => false,
     'privacy_document' => [
@@ -203,7 +204,7 @@ Mock_Legal_Gate_Backend_Client::$status = [
 ];
 $r = (new GetLegalGateStatusUseCase(new Mock_Legal_Gate_Backend_Client()))->execute();
 ac_assert(
-    'dual incomplete privacy meta fails closed',
+    'dual incomplete privacy meta fails',
     empty($r['success']) && ($r['error']['code'] ?? '') === 'legal_gate_backend_invalid_response'
 );
 
@@ -212,6 +213,7 @@ $GLOBALS['aa_test_can_manage_options'] = false;
 Mock_Legal_Gate_Backend_Client::$status = [
     'ok' => true,
     'status' => 'needs_terms',
+    'subscription_active' => true,
     'privacy_accepted' => true,
     'terms_accepted' => false,
     'terms_document' => [
@@ -227,6 +229,7 @@ $GLOBALS['aa_test_can_manage_options'] = false;
 Mock_Legal_Gate_Backend_Client::$status = [
     'ok' => true,
     'status' => 'needs_privacy_and_terms',
+    'subscription_active' => true,
     'privacy_accepted' => false,
     'terms_accepted' => false,
     'privacy_document' => [
@@ -246,6 +249,7 @@ foreach (['privacy_required', 'provisioning_request_missing'] as $status) {
     Mock_Legal_Gate_Backend_Client::$status = [
         'ok' => true,
         'status' => $status,
+        'subscription_active' => true,
         'privacy_accepted' => $status !== 'privacy_required',
         'terms_accepted' => false,
         'terms_document' => null,
@@ -265,24 +269,26 @@ Mock_Legal_Gate_Backend_Client::$status = [
     'http_status' => 0,
 ];
 $r = (new GetLegalGateStatusUseCase(new Mock_Legal_Gate_Backend_Client()))->execute();
-ac_assert('backend error fails closed', empty($r['success']) && ($r['error']['code'] ?? '') === 'legal_gate_backend_unreachable');
+ac_assert('backend error surfaces', empty($r['success']) && ($r['error']['code'] ?? '') === 'legal_gate_backend_unreachable');
 
 reset_gate_state();
 Mock_Legal_Gate_Backend_Client::$status = [
     'ok' => true,
     'status' => 'weird_future_status',
+    'subscription_active' => true,
     'privacy_accepted' => true,
     'terms_accepted' => false,
     'terms_document' => null,
 ];
 $r = (new GetLegalGateStatusUseCase(new Mock_Legal_Gate_Backend_Client()))->execute();
-ac_assert('unknown status fails closed', empty($r['success']) && ($r['error']['code'] ?? '') === 'legal_gate_unknown_status');
+ac_assert('unknown status fails', empty($r['success']) && ($r['error']['code'] ?? '') === 'legal_gate_unknown_status');
 
 reset_gate_state();
 set_transient('aa_legal_gate_ready_7', '1');
 Mock_Legal_Gate_Backend_Client::$status = [
     'ok' => true,
     'status' => 'needs_terms',
+    'subscription_active' => true,
     'privacy_accepted' => true,
     'terms_accepted' => false,
     'terms_document' => [
@@ -291,11 +297,20 @@ Mock_Legal_Gate_Backend_Client::$status = [
     ],
 ];
 $uc = new GetLegalGateStatusUseCase(new Mock_Legal_Gate_Backend_Client());
-$cached = $uc->execute(false);
+$with_stale = $uc->execute(false);
 $forced = $uc->execute(true);
-ac_assert('force refresh bypasses ready cache', ($cached['data']['status'] ?? '') === 'ready');
-ac_assert('force refresh sees needs_terms', ($forced['data']['status'] ?? '') === 'needs_terms');
-ac_assert('force refresh called backend once', Mock_Legal_Gate_Backend_Client::$fetch_calls === 1);
+ac_assert('stale ready transient ignored', ($with_stale['data']['status'] ?? '') === 'needs_terms');
+ac_assert('force refresh flag still queries', ($forced['data']['status'] ?? '') === 'needs_terms');
+ac_assert('backend called twice despite transient', Mock_Legal_Gate_Backend_Client::$fetch_calls === 2);
+
+reset_gate_state();
+$GLOBALS['aa_test_options'] = ['aa_client_secret' => '   '];
+$r = (new GetLegalGateStatusUseCase(new Mock_Legal_Gate_Backend_Client()))->execute();
+ac_assert(
+    'trimmed empty secret not configured',
+    empty($r['success']) && ($r['error']['code'] ?? '') === 'legal_gate_backend_not_configured'
+);
+ac_assert('trimmed empty secret skips fetch', Mock_Legal_Gate_Backend_Client::$fetch_calls === 0);
 
 echo "\n{$passed}/{$total} passed\n";
 exit($failed ? 1 : 0);

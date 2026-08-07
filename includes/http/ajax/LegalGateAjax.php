@@ -5,9 +5,10 @@
 
 defined('ABSPATH') or die('No direct access');
 
-require_once dirname(__DIR__, 2) . '/application/legal/GetLegalGateStatusUseCase.php';
+require_once dirname(__DIR__, 2) . '/application/legal/ResolveShellAccessUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/legal/AcceptAgendaTermsUseCase.php';
 require_once dirname(__DIR__, 2) . '/application/legal/AcceptAgendaPrivacyAndTermsUseCase.php';
+require_once dirname(__DIR__, 2) . '/domain/legal/class-aa-shell-access.php';
 
 final class LegalGateAjax {
 
@@ -24,19 +25,36 @@ final class LegalGateAjax {
 
         check_ajax_referer('aa_legal_gate_nonce', '_wpnonce');
 
-        // Retry always bypasses the ready-session cache.
-        $result = (new GetLegalGateStatusUseCase())->execute(true);
-        if (!empty($result['success'])) {
-            wp_send_json_success($result['data']);
+        $result = (new ResolveShellAccessUseCase())->execute();
+        $access = (string) ($result['access'] ?? '');
+        $reason = (string) ($result['reason'] ?? '');
+        $legal  = isset($result['legal']) && is_array($result['legal']) ? $result['legal'] : [];
+
+        $payload = [
+            'access' => $access,
+            'reason' => $reason,
+        ];
+
+        if (
+            $access === AA_Shell_Access::ACCESS_FREE
+            || $access === AA_Shell_Access::ACCESS_FULL
+            || $access === AA_Shell_Access::ACCESS_LEGAL_GATE
+        ) {
+            if (!empty($legal['success']) && isset($legal['data']) && is_array($legal['data'])) {
+                $payload = array_merge($payload, $legal['data']);
+            }
+            wp_send_json_success($payload);
         }
 
-        $error = $result['error'] ?? [];
+        $error = isset($legal['error']) && is_array($legal['error']) ? $legal['error'] : [];
         wp_send_json_error(
             [
-                'message'                      => (string) ($error['message'] ?? 'No se pudo consultar el estado legal.'),
+                'message'                      => (string) ($error['message'] ?? 'No se pudo consultar el estado de acceso.'),
                 'code'                         => (string) ($error['code'] ?? 'legal_gate_backend_error'),
-                'can_accept_terms'             => !empty($result['data']['can_accept_terms']),
-                'can_accept_privacy_and_terms' => !empty($result['data']['can_accept_privacy_and_terms']),
+                'access'                       => $access !== '' ? $access : AA_Shell_Access::ACCESS_FREE,
+                'reason'                       => $reason !== '' ? $reason : AA_Shell_Access::REASON_UNKNOWN,
+                'can_accept_terms'             => !empty($legal['data']['can_accept_terms']),
+                'can_accept_privacy_and_terms' => !empty($legal['data']['can_accept_privacy_and_terms']),
             ],
             500
         );

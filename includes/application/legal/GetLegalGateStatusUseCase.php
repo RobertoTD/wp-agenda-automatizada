@@ -3,8 +3,9 @@
  * Get Legal Gate Status Use Case
  *
  * Read-only fetch of legal gate status from the Node backend (HMAC).
- * Caches a successful `ready` result briefly per user so module navigation
- * does not re-hit the backend. Blocking/error states are never cached.
+ * Always queries the backend when credentials exist — the ready transient
+ * is never used as authority or to skip the consultation.
+ * Residual clear_ready_cache_* helpers remain for accept flows.
  */
 
 defined('ABSPATH') or die('No direct access');
@@ -24,8 +25,6 @@ final class GetLegalGateStatusUseCase {
         'provisioning_request_missing',
     ];
 
-    private const READY_CACHE_TTL = 43200; // 12 hours
-
     /** @var AA_Legal_Gate_Backend_Client|null */
     private $client;
 
@@ -34,10 +33,13 @@ final class GetLegalGateStatusUseCase {
     }
 
     /**
+     * @param bool $force_refresh Ignored — retained for call-site compatibility;
+     *                            ready cache is no longer consulted.
      * @return array{
      *     success: true,
      *     data: array{
      *         status: string,
+     *         subscription_active: bool|null,
      *         privacy_accepted: bool,
      *         terms_accepted: bool,
      *         privacy_document: array{version: string, human_url: string}|null,
@@ -52,25 +54,10 @@ final class GetLegalGateStatusUseCase {
      * }
      */
     public function execute(bool $force_refresh = false): array {
+        unset($force_refresh);
         $can_manage = current_user_can('manage_options');
-        $cache_key  = self::ready_cache_key();
 
-        if (!$force_refresh && $cache_key !== '' && get_transient($cache_key) === '1') {
-            return [
-                'success' => true,
-                'data'    => [
-                    'status'                       => 'ready',
-                    'privacy_accepted'             => true,
-                    'terms_accepted'               => true,
-                    'privacy_document'             => null,
-                    'terms_document'               => null,
-                    'can_accept_terms'             => false,
-                    'can_accept_privacy_and_terms' => false,
-                ],
-            ];
-        }
-
-        $client_secret = (string) get_option('aa_client_secret', '');
+        $client_secret = trim((string) get_option('aa_client_secret', ''));
         if ($client_secret === '') {
             return [
                 'success' => false,
@@ -160,14 +147,18 @@ final class GetLegalGateStatusUseCase {
             }
         }
 
-        if ($status === 'ready' && $cache_key !== '') {
-            set_transient($cache_key, '1', self::READY_CACHE_TTL);
+        $subscription_active = null;
+        if (array_key_exists('subscription_active', $backend)) {
+            $subscription_active = is_bool($backend['subscription_active'])
+                ? $backend['subscription_active']
+                : null;
         }
 
         return [
             'success' => true,
             'data'    => [
                 'status'                       => $status,
+                'subscription_active'          => $subscription_active,
                 'privacy_accepted'             => !empty($backend['privacy_accepted']),
                 'terms_accepted'               => !empty($backend['terms_accepted']),
                 'privacy_document'             => $privacy_document,
@@ -178,6 +169,10 @@ final class GetLegalGateStatusUseCase {
         ];
     }
 
+    /**
+     * Residual cleanup of legacy ready transients after accept flows.
+     * Does not grant access; the resolver never reads this key.
+     */
     public static function clear_ready_cache_for_current_user(): void {
         $key = self::ready_cache_key();
         if ($key !== '') {

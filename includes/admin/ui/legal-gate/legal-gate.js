@@ -226,9 +226,12 @@
 
         postForm(cfg.statusAction, {}).then(function (result) {
             var json = result.json;
-            if (result.httpOk && json && json.success === true && json.data && json.data.status === 'ready') {
-                reloadApp();
-                return;
+            if (result.httpOk && json && json.success === true && json.data) {
+                var access = json.data.access ? String(json.data.access) : '';
+                if (access === 'free' || access === 'full' || json.data.status === 'ready') {
+                    reloadApp();
+                    return;
+                }
             }
             reloadApp();
         }).catch(function () {

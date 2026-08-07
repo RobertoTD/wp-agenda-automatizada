@@ -13,6 +13,7 @@ class AA_Legal_Gate_Backend_Client {
      * @return array{
      *     ok: true,
      *     status: string,
+     *     subscription_active: bool|null,
      *     privacy_accepted: bool,
      *     terms_accepted: bool,
      *     privacy_document: array{version: string, human_url: string}|null,
@@ -62,6 +63,9 @@ class AA_Legal_Gate_Backend_Client {
             if ($status_code === 404) {
                 return $this->error('legal_gate_client_not_found', $message, $status_code);
             }
+            if ($status_code === 401 || $status_code === 403) {
+                return $this->error('legal_gate_credentials_invalid', $message, $status_code);
+            }
             if ($status_code >= 500) {
                 return $this->error('legal_gate_backend_unreachable', $message, $status_code);
             }
@@ -88,13 +92,21 @@ class AA_Legal_Gate_Backend_Client {
             );
         }
 
+        $subscription_active = null;
+        if (array_key_exists('subscription_active', $decoded)) {
+            $subscription_active = is_bool($decoded['subscription_active'])
+                ? $decoded['subscription_active']
+                : null;
+        }
+
         return [
-            'ok'               => true,
-            'status'           => $status,
-            'privacy_accepted' => !empty($decoded['privacy_accepted']),
-            'terms_accepted'   => !empty($decoded['terms_accepted']),
-            'privacy_document' => $this->parseDocumentMeta($decoded['privacy_document'] ?? null),
-            'terms_document'   => $this->parseDocumentMeta($decoded['terms_document'] ?? null),
+            'ok'                   => true,
+            'status'               => $status,
+            'subscription_active'  => $subscription_active,
+            'privacy_accepted'     => !empty($decoded['privacy_accepted']),
+            'terms_accepted'       => !empty($decoded['terms_accepted']),
+            'privacy_document'     => $this->parseDocumentMeta($decoded['privacy_document'] ?? null),
+            'terms_document'       => $this->parseDocumentMeta($decoded['terms_document'] ?? null),
         ];
     }
 
