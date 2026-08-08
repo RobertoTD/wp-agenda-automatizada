@@ -512,7 +512,7 @@
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'aa-expediente-back-btn';
-        btn.textContent = 'Volver a Expedientes';
+        btn.textContent = 'Volver a Clientes';
         btn.addEventListener('click', function(event) {
             event.preventDefault();
             navigateToList();

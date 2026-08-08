@@ -67,7 +67,7 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
 
                     <div id="aa-account-benefit-quotas" class="hidden pt-4 border-t border-gray-100">
                         <h4 class="text-sm font-medium text-gray-900 mb-2">Beneficios del mes</h4>
-                        <ul id="aa-account-benefit-quotas-list" class="space-y-2 text-sm text-gray-700"></ul>
+                        <ul id="aa-account-benefit-quotas-list" class="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 space-y-2 text-sm text-gray-700"></ul>
                         <p id="aa-account-benefit-quotas-unavailable" class="hidden text-sm text-gray-500 mt-2"></p>
                     </div>
 
@@ -192,54 +192,9 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
         </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════════════════════════
-         SECCIÓN: Capacitación DEOIA
-    ═══════════════════════════════════════════════════════════════ -->
-    <div class="bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden">
-        <div class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white rounded-t-xl">
-            <div class="flex items-center gap-3">
-                <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-600">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
-                    </svg>
-                </span>
-                <div>
-                    <h3 class="text-lg font-semibold text-gray-900">Capacitación DEOIA</h3>
-                    <p class="text-sm text-gray-500 mt-0.5">Curso práctico del Método DEOIA para tu agenda.</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="p-4 transition-all duration-200">
-            <div id="aa-training-card-root" class="space-y-4">
-                <div
-                    id="aa-training-card-loading"
-                    class="rounded-lg border border-gray-200 bg-gray-50 p-4"
-                    role="status"
-                    aria-live="polite"
-                >
-                    <p class="text-sm text-gray-600">Consultando tu capacitación…</p>
-                </div>
-
-                <div id="aa-training-card-content" class="hidden space-y-4">
-                    <p id="aa-training-card-copy" class="text-sm text-gray-700"></p>
-                    <div id="aa-training-card-actions" class="flex flex-wrap gap-2"></div>
-
-                    <div id="aa-training-consent-section" class="hidden pt-4 border-t border-gray-100 space-y-3">
-                        <h4 class="text-sm font-medium text-gray-900">Correo del curso</h4>
-                        <p id="aa-training-consent-intro" class="text-sm text-gray-700"></p>
-                        <p id="aa-training-consent-status" class="text-sm text-gray-600"></p>
-                        <div id="aa-training-consent-actions" class="flex flex-wrap gap-2"></div>
-                    </div>
-                </div>
-
-                <div id="aa-training-card-error" class="hidden rounded-lg border border-gray-200 bg-gray-50 p-4" role="alert">
-                    <p id="aa-training-card-error-message" class="text-sm text-gray-600"></p>
-                    <div id="aa-training-card-error-actions" class="mt-3 flex flex-wrap gap-2"></div>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php /* Tarjeta "Capacitación DEOIA" ocultada a propósito: no se renderiza aquí.
+             El curso sigue activo y accesible por su propia URL/módulo (training).
+             initTrainingCard() hace no-op al no existir #aa-training-card-root. */ ?>
 
 </div>
 

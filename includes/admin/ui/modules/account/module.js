@@ -20,7 +20,7 @@
     };
 
     var FREEMIUM_UPGRADE_LEGEND =
-        'Puedes aumentar tu cuota mensual haciendo upgrade en tu suscripción.';
+        'Puedes aumentar tu cuota mensual con Pro.';
 
     var UPGRADE_CHECKOUT_ERROR_MESSAGE = 'No pudimos abrir el checkout de Pro. Intenta de nuevo.';
 
@@ -804,7 +804,6 @@
 
         plan.items.forEach(function (item) {
             var li = document.createElement('li');
-            li.className = 'rounded-lg border border-gray-100 bg-gray-50 px-3 py-2';
 
             var title = document.createElement('p');
             title.className = 'font-medium text-gray-900';
