@@ -16,6 +16,40 @@
         + 'confirma la instalación en la ventana que aparecerá.';
     var DISMISS_LABEL = 'Ahora no';
     var INSTALL_LABEL = 'Continuar';
+    var CLOSE_LABEL = 'Cerrar solicitud de instalación';
+
+    // Logo DEOIA Citas reutilizado inline (mismo path que assets/img/deoia-citas-logo.svg).
+    var LOGO_SVG = ''
+        + '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 261.33334 261.33301" '
+        + 'width="38" height="38" aria-hidden="true" focusable="false">'
+        + '<path fill="#8b5cf6" d="M43.2754 238.56813c-6.67841-1.50448-14.20397-7.55082-17.16525-13.79124'
+        + '-3.51017-7.39715-3.93082-166.376054-.45429-171.694076C32.2034 43.067099 40.1448 38.735125 '
+        + '51.95814 38.735125h8.04282l.008 7.666667c.0166 17.139723 5.80599 25.000001 18.41342 25.000001 '
+        + '13.07937 0 18.91246-7.417597 18.91246-24.049877v-8.66258l33.66663.356228 33.66666.356228.3946 '
+        + '10.621138c.59722 16.074673 8.67682 24.017319 21.90671 21.535376 9.71368-1.822299 14.03992-8.752066 '
+        + '14.66466-23.489847l.36737-8.666667 6.66667-.431741c11.57258-.749456 20.2725 3.803455 27.03493 '
+        + '14.148127 3.45557 5.286074 3.01328 164.302552-.47745 171.658712-3.13346 6.60326-10.52935 12.25492'
+        + '-18.1859 13.89694-8.1186 1.74114-165.99202 1.6451-173.76382-.10573Zm174.79952-17.78576c3.28608'
+        + '-3.28607 3.28608-3.28607 2.9394-64.99999l-.34668-61.71392h-90.00001-90l-.34668 61.71392c-.34668 '
+        + '61.71392-.34668 61.71392 2.93939 64.99999 5.18726 5.18726 169.62732 5.18726 174.81458 0ZM97.00097 '
+        + '181.28305C76.12958 159.83071 76.77275 161.28567 84.49524 152.993c7.5025-8.05643 6.96527-8.18982 '
+        + '20.44119 5.07546 14.25071 14.02796 10.02322 16.33501 49.49871-27.01279 14.30579-15.70908 13.57673'
+        + '-15.4461 21.89916-7.89924 7.35081 6.66579 3.166 15.87243-13.74779 30.24536-.43149.36667-6.96534 '
+        + '7.56667-14.51969 15.99999-33.0617 36.90861-27.88754 35.70476-51.06585 11.88127ZM72.84744 '
+        + '61.305019c-9.02379-7.098116-4.10332-46.569894 5.8053-46.569894 7.78879 0 14.42046 35.675811 '
+        + '8.32781 44.800395-3.16797 4.744474-9.36471 5.52032-14.13311 1.769499Zm103.15353.09677c-7.9501'
+        + '-7.950085-2.27388-46.666664 6.84177-46.666664 8.20737 0 14.18537 25.101148 9.97407 41.880333'
+        + '-1.87851 7.484601-11.4058 10.196376-16.81584 4.786334Z"/></svg>';
+
+    // Indicador de descarga/instalación (SVG inline, estilo stroke coherente con el header).
+    var INSTALL_ARROW_SVG = ''
+        + '<span style="position:absolute;right:-2px;bottom:-2px;display:inline-flex;align-items:center;'
+        + 'justify-content:center;width:24px;height:24px;border-radius:9999px;background:#7c3aed;'
+        + 'color:#ffffff;border:2px solid #ffffff;box-sizing:border-box;">'
+        + '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" '
+        + 'stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">'
+        + '<path stroke-linecap="round" stroke-linejoin="round" d="M12 3v10m0 0l-4-4m4 4l4-4M5 21h14"/>'
+        + '</svg></span>';
 
     var MANUAL_ALERT_MESSAGE = ''
         + 'Recomendamos instalar DEOIA Citas en tu dispositivo para acceder fácilmente a tu agenda.\n\n'
@@ -315,6 +349,37 @@
             boxSizing: 'border-box'
         });
 
+        var graphic = doc.createElement('div');
+        graphic.className = 'aa-pwa-install-first-opportunity-graphic';
+        graphic.setAttribute('aria-hidden', 'true');
+        applySurfaceStyles(graphic, {
+            display: 'flex',
+            justifyContent: 'center',
+            margin: '0 0 16px 0'
+        });
+
+        var logoBadge = doc.createElement('div');
+        logoBadge.className = 'aa-pwa-install-first-opportunity-logo';
+        applySurfaceStyles(logoBadge, {
+            position: 'relative',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '64px',
+            height: '64px',
+            borderRadius: '9999px',
+            backgroundColor: '#f5f3ff',
+            boxSizing: 'border-box'
+        });
+
+        try {
+            logoBadge.innerHTML = LOGO_SVG + INSTALL_ARROW_SVG;
+        } catch (err) {
+            // Fake/limited DOM (p. ej. pruebas): el bloque es decorativo, se puede omitir.
+        }
+
+        graphic.appendChild(logoBadge);
+
         var title = doc.createElement('h2');
         title.setAttribute('id', 'aa-pwa-install-first-opportunity-title');
         title.className = 'aa-pwa-install-first-opportunity-title';
@@ -376,13 +441,43 @@
         });
         installButton.addEventListener('click', onInstallAutomaticClick);
 
+        var closeButton = doc.createElement('button');
+        closeButton.type = 'button';
+        closeButton.className = 'aa-pwa-install-first-opportunity-close';
+        closeButton.setAttribute('aria-label', CLOSE_LABEL);
+        closeButton.textContent = '\u00d7';
+        applySurfaceStyles(closeButton, {
+            position: 'fixed',
+            top: '1rem',
+            right: '1rem',
+            zIndex: '2',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '2.5rem',
+            height: '2.5rem',
+            padding: '0',
+            border: '1px solid rgb(229, 231, 235)',
+            borderRadius: '9999px',
+            backgroundColor: '#ffffff',
+            color: 'rgb(55, 65, 81)',
+            fontSize: '1.5rem',
+            lineHeight: '1',
+            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)',
+            cursor: 'pointer',
+            boxSizing: 'border-box'
+        });
+        closeButton.addEventListener('click', onDismissAutomaticInstall);
+
         actions.appendChild(dismissButton);
         actions.appendChild(installButton);
+        card.appendChild(graphic);
         card.appendChild(title);
         card.appendChild(body);
         card.appendChild(actions);
         root.appendChild(backdrop);
         root.appendChild(card);
+        root.appendChild(closeButton);
         doc.body.appendChild(root);
         automaticSurfaceVisible = true;
 

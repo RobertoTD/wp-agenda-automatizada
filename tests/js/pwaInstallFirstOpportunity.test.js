@@ -210,6 +210,24 @@ function getDismissButton(doc) {
     return root ? root.querySelector('.aa-pwa-install-first-opportunity-dismiss') : null;
 }
 
+function getCloseButton(doc) {
+    var root = doc.getElementById('aa-pwa-install-first-opportunity-root');
+
+    if (!root) {
+        return null;
+    }
+
+    var i;
+
+    for (i = 0; i < root.children.length; i += 1) {
+        if (root.children[i].className === 'aa-pwa-install-first-opportunity-close') {
+            return root.children[i];
+        }
+    }
+
+    return null;
+}
+
 describe('PwaInstallFirstOpportunity', () => {
     var originalMatchMedia;
     var originalNavigator;
@@ -324,6 +342,20 @@ describe('PwaInstallFirstOpportunity', () => {
         assert.ok(dismissButton);
 
         dismissButton.click();
+
+        assert.equal(runCalls.length, 0);
+        assert.equal(globalThis.PwaInstallFirstOpportunity.hasConsumedFirstOpportunity('42'), true);
+        assert.equal(globalThis.PwaInstallFirstOpportunity.isAutomaticSurfaceVisible(), false);
+    });
+
+    it('× global produce el mismo efecto que Ahora no', () => {
+        isAvailableState = true;
+        globalThis.PwaInstallFirstOpportunity.renderAutomaticInstallSurface();
+
+        var closeButton = getCloseButton(testDocument);
+        assert.ok(closeButton);
+
+        closeButton.click();
 
         assert.equal(runCalls.length, 0);
         assert.equal(globalThis.PwaInstallFirstOpportunity.hasConsumedFirstOpportunity('42'), true);
