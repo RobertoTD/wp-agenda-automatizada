@@ -70,10 +70,12 @@ $usage_handler = '';
 if (preg_match('/function handle_storage_usage\(\): void \{.*?\n    \}/s', $ajax_src, $uh)) {
     $usage_handler = $uh[0];
 }
-ac_assert('usage exige manage_options', $usage_handler !== ''
-    && strpos($usage_handler, "current_user_can('manage_options')") !== false);
-ac_assert('usage exige nonce compartido', $usage_handler !== ''
-    && strpos($usage_handler, 'check_ajax_referer(ExpedienteRegistrosAjax::NONCE_ACTION') !== false);
+ac_assert('usage exige authorize()', $usage_handler !== ''
+    && strpos($usage_handler, 'self::authorize()') !== false);
+ac_assert('adjuntos authorize incluye manage_options + shell full',
+    strpos($ajax_src, 'function authorize') !== false
+    && strpos($ajax_src, "current_user_can('manage_options')") !== false
+    && strpos($ajax_src, 'require_expediente_shell_access') !== false);
 ac_assert('usage no acepta scope del navegador', $usage_handler !== ''
     && strpos($usage_handler, '$_POST') === false
     && strpos($usage_handler, '$_REQUEST') === false

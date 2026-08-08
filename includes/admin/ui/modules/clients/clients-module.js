@@ -150,9 +150,19 @@
             expedienteButton.setAttribute('data-client-id', String(cliente.id));
         }
 
+        var expedienteAllowed = getClientsData().expedienteAccessAllowed === true;
+        if (!expedienteAllowed) {
+            expedienteButton.disabled = true;
+            expedienteButton.setAttribute('aria-disabled', 'true');
+            expedienteButton.title = 'Expediente no disponible';
+        }
+
         expedienteButton.addEventListener('click', function(event) {
             event.preventDefault();
             event.stopPropagation();
+            if (getClientsData().expedienteAccessAllowed !== true) {
+                return;
+            }
             var clientId = parseInt(cliente.id, 10);
             if (!(clientId > 0)) {
                 console.error('[Clients] Expediente: client id inválido');
@@ -720,6 +730,30 @@
 
         initListView();
     }
+
+    /**
+     * Habilitar la UX de Expedientes. El servidor sigue siendo la autoridad
+     * (URL/AJAX fail-closed); esto solo refleja una confirmación `full` viva.
+     */
+    function enableExpedienteButtons() {
+        var data = getClientsData();
+        data.expedienteAccessAllowed = true;
+        var buttons = document.querySelectorAll('.aa-btn-expediente-cliente');
+        for (var i = 0; i < buttons.length; i++) {
+            var btn = buttons[i];
+            btn.disabled = false;
+            btn.removeAttribute('aria-disabled');
+            btn.title = 'Abrir expediente';
+        }
+    }
+
+    // Reaccionar a la proyección asíncrona de acceso al shell: solo `full`
+    // habilita los botones existentes; los creados después leen el flag ya vivo.
+    document.addEventListener('aa:shell-access-resolved', function(ev) {
+        if (ev && ev.detail && ev.detail.access === 'full') {
+            enableExpedienteButtons();
+        }
+    });
 
     // Escuchar DOMContentLoaded
     document.addEventListener('DOMContentLoaded', function() {

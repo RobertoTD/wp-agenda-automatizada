@@ -33,6 +33,11 @@ if ($aa_clients_view === 'expediente' && $aa_clients_client_id > 0) {
 }
 
 $aa_clients_is_expediente = ($aa_clients_view === 'expediente');
+
+// UX flag only — never authority. Always starts false (fail-closed). The async
+// shell-access projection flips it to true only on a live `full` confirmation;
+// the server URL/AJAX gates enforce the real rule.
+$aa_expediente_access_allowed = false;
 ?>
 
 <div class="max-w-5xl mx-auto py-2">
@@ -89,6 +94,7 @@ $aa_clients_is_expediente = ($aa_clients_view === 'expediente');
         listUrl: <?php echo wp_json_encode($aa_clients_list_url); ?>,
         expedienteUrl: <?php echo wp_json_encode($aa_clients_expediente_url); ?>,
         moduleBaseUrl: <?php echo wp_json_encode($aa_clients_list_url); ?>,
+        expedienteAccessAllowed: <?php echo $aa_expediente_access_allowed ? 'true' : 'false'; ?>,
         ajaxUrl: window.ajaxurl || <?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,
         actions: {
             getCliente: <?php echo wp_json_encode(class_exists('ClientsAjax') ? ClientsAjax::ACTION_GET_CLIENTE : 'aa_get_cliente'); ?>

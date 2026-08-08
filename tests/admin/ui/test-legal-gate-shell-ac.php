@@ -40,6 +40,15 @@ ac_assert(
     strpos($router, "legal-gate/index.php") < strpos($router, 'shared/layout.php')
 );
 ac_assert('router does not unlock only on ready string', strpos($router, "\$aa_legal_status !== 'ready'") === false);
+ac_assert(
+    'router expediente URL gate before layout',
+    strpos($router, "\$view_raw === 'expediente'") !== false
+    && strpos($router, "\$view_raw === 'expediente'") < strpos($router, 'shared/layout.php')
+);
+ac_assert(
+    'router expediente gate uses ACCESS_FULL',
+    strpos($router, 'AA_Shell_Access::ACCESS_FULL') !== false
+);
 
 ac_assert('ajax status uses ResolveShellAccessUseCase', strpos($ajax, 'ResolveShellAccessUseCase') !== false);
 ac_assert('ajax exposes access in payload', strpos($ajax, "'access'") !== false || strpos($ajax, '"access"') !== false);

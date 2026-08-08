@@ -262,6 +262,30 @@ final class ExpedienteRegistrosAjax {
 
         check_ajax_referer(self::NONCE_ACTION, '_wpnonce');
 
+        if (!self::require_expediente_shell_access()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Fail-closed SaaS gate for Expedientes: shell access must be full.
+     * Shared with ExpedienteAdjuntosAjax. Does not change shell fail-open.
+     */
+    public static function require_expediente_shell_access(): bool {
+        require_once dirname(__DIR__, 2) . '/application/legal/ResolveShellAccessUseCase.php';
+        require_once dirname(__DIR__, 2) . '/domain/legal/class-aa-shell-access.php';
+
+        $shell = (new ResolveShellAccessUseCase())->execute();
+        if (($shell['access'] ?? '') !== AA_Shell_Access::ACCESS_FULL) {
+            wp_send_json_error([
+                'message' => 'Acceso denegado.',
+                'code'    => 'expediente_access_denied',
+            ], 403);
+            return false;
+        }
+
         return true;
     }
 

@@ -230,6 +230,20 @@ header('Content-Type: text/html; charset=utf-8');
         installationSlug: <?php echo wp_json_encode($aa_installation_slug); ?>,
         authSessionId: <?php echo wp_json_encode($aa_auth_session_id); ?>
     };
+
+    // Shell legal-gate access — proyección asíncrona SOLO de UX (nunca autoridad).
+    // El resolver corre fuera del camino bloqueante: la navegación general responde
+    // HTML sin esperar al backend legal. `full` habilita Expedientes; `legal_gate`
+    // dispara navegación dirigida al marcador; el resto mantiene Expedientes bloqueado.
+    window.AA_SHELL_ACCESS_DATA = {
+        ajaxUrl: window.ajaxurl || '<?php echo esc_js(admin_url('admin-ajax.php')); ?>',
+        statusAction: 'aa_get_legal_gate_status',
+        nonce: '<?php echo esc_js(wp_create_nonce('aa_legal_gate_nonce')); ?>',
+        gateParam: 'aa_gate',
+        blogId: <?php echo (int) get_current_blog_id(); ?>,
+        authSessionId: <?php echo wp_json_encode($aa_auth_session_id); ?>,
+        ttlMs: 60000
+    };
 </script>
 
 <!-- ============================================
@@ -293,6 +307,9 @@ header('Content-Type: text/html; charset=utf-8');
 
 <!-- Account status (read-only; promesa compartida por carga) -->
 <script src="<?php echo aa_asset_url('assets/js/services/accountStatusService.js'); ?>" defer></script>
+
+<!-- Shell legal-gate access projection (UX-only; async fail-open, promesa compartida) -->
+<script src="<?php echo aa_asset_url('assets/js/services/shellAccessProjection.js'); ?>" defer></script>
 
 <!-- Onboarding activation guide (MC5A manual open; requiere OnboardingStatusService) -->
 <script src="<?php echo aa_asset_url('includes/admin/ui/modals/onboarding/onboardingActivationGuide.js'); ?>" defer></script>

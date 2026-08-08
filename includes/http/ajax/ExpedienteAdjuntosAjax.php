@@ -30,11 +30,9 @@ final class ExpedienteAdjuntosAjax {
     }
 
     public static function handle_attach(): void {
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error(['message' => 'Permisos insuficientes.', 'code' => 'forbidden'], 403);
+        if (!self::authorize()) {
+            return;
         }
-
-        check_ajax_referer(ExpedienteRegistrosAjax::NONCE_ACTION, '_wpnonce');
 
         $client_id = isset($_POST['client_id']) ? absint($_POST['client_id']) : 0;
         $record_id = isset($_POST['record_id']) ? absint($_POST['record_id']) : 0;
@@ -76,11 +74,9 @@ final class ExpedienteAdjuntosAjax {
     }
 
     public static function handle_sign_read(): void {
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error(['message' => 'Permisos insuficientes.', 'code' => 'forbidden'], 403);
+        if (!self::authorize()) {
+            return;
         }
-
-        check_ajax_referer(ExpedienteRegistrosAjax::NONCE_ACTION, '_wpnonce');
 
         $client_id = isset($_POST['client_id']) ? absint($_POST['client_id']) : 0;
         $record_id = isset($_POST['record_id']) ? absint($_POST['record_id']) : 0;
@@ -113,11 +109,9 @@ final class ExpedienteAdjuntosAjax {
     }
 
     public static function handle_delete(): void {
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error(['message' => 'Permisos insuficientes.', 'code' => 'forbidden'], 403);
+        if (!self::authorize()) {
+            return;
         }
-
-        check_ajax_referer(ExpedienteRegistrosAjax::NONCE_ACTION, '_wpnonce');
 
         $client_id = isset($_POST['client_id']) ? absint($_POST['client_id']) : 0;
         $record_id = isset($_POST['record_id']) ? absint($_POST['record_id']) : 0;
@@ -156,11 +150,9 @@ final class ExpedienteAdjuntosAjax {
      * finalizada, no auditoría física de Storage).
      */
     public static function handle_storage_usage(): void {
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error(['message' => 'Permisos insuficientes.', 'code' => 'forbidden'], 403);
+        if (!self::authorize()) {
+            return;
         }
-
-        check_ajax_referer(ExpedienteRegistrosAjax::NONCE_ACTION, '_wpnonce');
 
         $use_case = new GetExpedienteStorageUsageUseCase();
         $result = $use_case->execute();
@@ -168,6 +160,17 @@ final class ExpedienteAdjuntosAjax {
         wp_send_json_success([
             'used_bytes' => (int) $result['used_bytes'],
         ]);
+    }
+
+    private static function authorize(): bool {
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => 'Permisos insuficientes.', 'code' => 'forbidden'], 403);
+            return false;
+        }
+
+        check_ajax_referer(ExpedienteRegistrosAjax::NONCE_ACTION, '_wpnonce');
+
+        return ExpedienteRegistrosAjax::require_expediente_shell_access();
     }
 
     private static function http_status_for_code(string $code): int {

@@ -40,6 +40,7 @@ ac_assert('delete no lee storage_path', strpos($ajax_src, "\$_POST['storage_path
     && strpos($ajax_src, "\$_REQUEST['storage_path']") === false);
 ac_assert('NONCE compartido', strpos($ajax_src, 'aa_expediente_registros_nonce') !== false);
 ac_assert('manage_options', strpos($ajax_src, "current_user_can('manage_options')") !== false);
+ac_assert('shell full gate require_expediente_shell_access', strpos($ajax_src, 'require_expediente_shell_access') !== false);
 ac_assert('valida cliente find_by_id', substr_count($ajax_src, 'ClientsRepository::find_by_id') >= 3);
 ac_assert('check_ajax_referer', strpos($ajax_src, 'check_ajax_referer') !== false);
 ac_assert('TITLE_MAX 200', strpos($ajax_src, 'TITLE_MAX = 200') !== false);

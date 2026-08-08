@@ -60,6 +60,8 @@ ac_assert('index tiene aa-clients-list-root', strpos($index, 'aa-clients-list-ro
 ac_assert('index tiene aa-expediente-root', strpos($index, 'aa-expediente-root') !== false);
 ac_assert('index no acepta blog_id de GET', strpos($index, 'blog_id') === false);
 ac_assert('nonce get_cliente en AA_CLIENTS_NONCES', strpos($index, 'get_cliente') !== false);
+ac_assert('index emite expedienteAccessAllowed', strpos($index, 'expedienteAccessAllowed') !== false);
+ac_assert('JS guarda expedienteAccessAllowed en click', strpos($js, 'expedienteAccessAllowed') !== false);
 
 // --- JS ramificación ---
 ac_assert('JS ramifica isExpedienteView', strpos($js, 'isExpedienteView') !== false);
@@ -206,6 +208,27 @@ ac_assert(
     'runtime lista por defecto',
     strpos($rendered_list, 'view: "list"') !== false
 );
+ac_assert(
+    'runtime expedienteAccessAllowed false sin shell_access (fail-closed UX)',
+    strpos($rendered_list, 'expedienteAccessAllowed: false') !== false
+);
+
+// Aunque exista $shell_access full en scope, el flag PHP arranca SIEMPRE false:
+// solo la proyección asíncrona (JS) lo habilita ante una respuesta `full` viva.
+$shell_access = ['access' => 'full', 'reason' => 'documents_accepted', 'legal' => []];
+if (!class_exists('AA_Shell_Access', false)) {
+    require_once $plugin_root . '/includes/domain/legal/class-aa-shell-access.php';
+}
+$_GET = [];
+ob_start();
+include $plugin_root . '/includes/admin/ui/modules/clients/index.php';
+$rendered_full = ob_get_clean();
+ac_assert(
+    'runtime expedienteAccessAllowed siempre false en PHP (JS habilita, nunca autoridad)',
+    strpos($rendered_full, 'expedienteAccessAllowed: false') !== false
+    && strpos($rendered_full, 'expedienteAccessAllowed: true') === false
+);
+unset($shell_access);
 
 // Repository runtime con $wpdb mock
 if (!defined('ARRAY_A')) {
