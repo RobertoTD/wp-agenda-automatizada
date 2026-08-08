@@ -43,11 +43,11 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
                 <legend class="text-sm font-medium text-gray-700 mb-2">Por tiempo</legend>
                 <div class="flex flex-wrap gap-3">
                     <label class="inline-flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
-                        <input type="checkbox" data-filter="time:future" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                        <input type="checkbox" data-filter="time:future" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
                         <span>Futuras</span>
                     </label>
                     <label class="inline-flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
-                        <input type="checkbox" data-filter="time:past" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                        <input type="checkbox" data-filter="time:past" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
                         <span>Pasadas</span>
                     </label>
                 </div>
@@ -58,15 +58,15 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
                 <legend class="text-sm font-medium text-gray-700 mb-2">Por estado</legend>
                 <div class="flex flex-wrap gap-3">
                     <label class="inline-flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
-                        <input type="checkbox" data-filter="status:cancelled" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                        <input type="checkbox" data-filter="status:cancelled" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
                         <span>Canceladas</span>
                     </label>
                     <label class="inline-flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
-                        <input type="checkbox" data-filter="status:pending" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                        <input type="checkbox" data-filter="status:pending" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
                         <span>Por confirmar</span>
                     </label>
                     <label class="inline-flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
-                        <input type="checkbox" data-filter="status:confirmed" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                        <input type="checkbox" data-filter="status:confirmed" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
                         <span>Confirmadas</span>
                     </label>
                 </div>
@@ -77,11 +77,11 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
                 <legend class="text-sm font-medium text-gray-700 mb-2">Por notificación</legend>
                 <div class="flex flex-wrap gap-3">
                     <label class="inline-flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
-                        <input type="checkbox" data-filter="notification:unread" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                        <input type="checkbox" data-filter="notification:unread" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
                         <span>Nuevas</span>
                     </label>
                     <label class="inline-flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
-                        <input type="checkbox" data-filter="notification:read" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                        <input type="checkbox" data-filter="notification:read" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
                         <span>Vistas</span>
                     </label>
                 </div>

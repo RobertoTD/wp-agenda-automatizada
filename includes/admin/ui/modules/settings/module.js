@@ -200,7 +200,7 @@
         input.step = '1800'; // 30 minutes in seconds
         const normalizedM = normalizeMinutes(minute);
         input.value = formatTime(hour, normalizedM) || '00:00';
-        input.className = 'aa-timepicker-mobile w-[7rem] px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow';
+        input.className = 'aa-timepicker-mobile w-[7rem] px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow';
         wrapper.appendChild(input);
         return wrapper;
     }
@@ -214,7 +214,7 @@
 
         // Hour selector
         const hourSelect = document.createElement('select');
-        hourSelect.className = 'aa-time-hour w-16 px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow bg-white';
+        hourSelect.className = 'aa-time-hour w-16 px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-white';
         
         for (let h = 0; h < 24; h++) {
             const option = document.createElement('option');
@@ -226,7 +226,7 @@
 
         // Minute selector (only 00 and 30)
         const minuteSelect = document.createElement('select');
-        minuteSelect.className = 'aa-time-minute w-16 px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow bg-white';
+        minuteSelect.className = 'aa-time-minute w-16 px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-white';
         
         validMinutes.forEach(m => {
             const option = document.createElement('option');

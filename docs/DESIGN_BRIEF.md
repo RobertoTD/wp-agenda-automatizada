@@ -31,6 +31,21 @@ Consultar antes de crear o refactorizar componentes UI.
 --aa-gray-900: #111827   /* Texto muy oscuro */
 ```
 
+#### Primary / Marca (Acento principal — Índigo)
+El color primario de la app es un **índigo desaturado y oscuro** (no el azul brillante).
+Se usa en acciones primarias (botones sólidos), estados interactivos (toggles, checkboxes),
+focus rings, y el resaltado de navegación activa.
+```
+--aa-indigo-50:  #eef2ff   /* Fondos/hover muy suaves, nav activa */
+--aa-indigo-100: #e0e7ff   /* Chips/íconos de marca */
+--aa-indigo-200: #c7d2fe   /* Bordes sutiles de botón ghost de marca */
+--aa-indigo-300: #a5b4fc   /* Estado disabled de botón primario */
+--aa-indigo-500: #6366f1   /* Focus ring, badges pequeños */
+--aa-indigo-600: #4f46e5   /* Fondo botón primario / acento base */
+--aa-indigo-700: #4338ca   /* Hover botón primario */
+--aa-indigo-800: #3730a3   /* Active/pressed botón primario */
+```
+
 #### Estados (Solo como acentos)
 ```
 /* Confirmed/Success - Verde */
@@ -51,11 +66,12 @@ Consultar antes de crear o refactorizar componentes UI.
 --aa-red-500: #ef4444
 --aa-red-600: #dc2626
 
-/* Info - Azul */
+/* Info - Azul (SOLO estado informativo; NUNCA como acento primario) */
 --aa-blue-50:  #eff6ff
 --aa-blue-100: #dbeafe
 --aa-blue-500: #3b82f6
 --aa-blue-600: #2563eb
+--aa-blue-700: #1d4ed8
 ```
 
 ### 2.2 Espaciado (Scale)
@@ -179,9 +195,9 @@ Consultar antes de crear o refactorizar componentes UI.
 
 ### 3.3 Botones
 
-#### Primary (Acciones principales)
+#### Primary (Acciones principales) — Índigo
 ```css
-background: #3b82f6;
+background: #4f46e5;   /* indigo-600 */
 color: white;
 border: none;
 padding: 8px 14px;
@@ -191,10 +207,13 @@ font-weight: 500;
 transition: 150ms ease;
 
 /* Hover */
-background: #2563eb;
+background: #4338ca;   /* indigo-700 */
 
 /* Active */
-background: #1d4ed8;
+background: #3730a3;   /* indigo-800 */
+
+/* Disabled */
+background: #a5b4fc;   /* indigo-300 */
 ```
 
 #### Secondary (Acciones secundarias)
@@ -354,7 +373,7 @@ Los botones ghost o terciarios son acciones de **baja prominencia** pero **alta 
 #### Jerarquía de botones
 
 ```
-Primary (Azul sólido)     → Acción principal de la vista
+Primary (Índigo sólido)   → Acción principal de la vista
 Secondary (Borde gris)    → Acciones alternativas importantes
 Success/Danger            → Confirmar/Cancelar con semántica
 Tertiary/Ghost            → Acciones disponibles pero discretas
@@ -370,8 +389,8 @@ Tertiary/Ghost            → Acciones disponibles pero discretas
 - Links: Underline o cambio de opacidad
 
 ### 4.2 Focus States
-- Outline: `2px solid #3b82f6` con offset de 2px
-- O usar ring: `box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3)`
+- Outline: `2px solid #4f46e5` (indigo-600) con offset de 2px
+- O usar ring: `box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.3)` (indigo-600 @ 30%)
 
 ### 4.3 Transiciones
 - Todas las propiedades visuales: 150-200ms
@@ -466,5 +485,5 @@ Antes de mergear cambios UI, verificar:
 
 ---
 
-*Última actualización: Enero 2026*
+*Última actualización: Agosto 2026 — color primario/marca migrado de azul (#3b82f6) a índigo (#4f46e5); el azul queda reservado solo para el estado "info".*
 *Mantener sincronizado con cambios de sistema de diseño*

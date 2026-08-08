@@ -157,7 +157,7 @@
                 html += 'checked ';
             }
             html += '/>';
-            html += '<div class="w-9 h-5 bg-gray-300 peer-checked:bg-blue-500 rounded-full transition-colors duration-200"></div>';
+            html += '<div class="w-9 h-5 bg-gray-300 peer-checked:bg-indigo-600 rounded-full transition-colors duration-200"></div>';
             html += '<div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 peer-checked:translate-x-4"></div>';
             html += '</label>';
             html += '</div>';

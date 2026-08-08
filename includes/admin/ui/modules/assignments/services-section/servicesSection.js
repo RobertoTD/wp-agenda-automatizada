@@ -147,7 +147,7 @@
                 html += 'checked ';
             }
             html += '/>';
-            html += '<div class="w-9 h-5 bg-gray-300 peer-checked:bg-blue-500 rounded-full transition-colors duration-200"></div>';
+            html += '<div class="w-9 h-5 bg-gray-300 peer-checked:bg-indigo-600 rounded-full transition-colors duration-200"></div>';
             html += '<div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 peer-checked:translate-x-4"></div>';
             html += '</label>';
             html += '</div>';
@@ -595,7 +595,7 @@
         html += '<label class="text-xs text-gray-500 block mb-1">Código</label>';
         html += '<input type="text" ';
         html += 'id="aa-service-code-' + serviceId + '" ';
-        html += 'class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" ';
+        html += 'class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" ';
         html += 'data-service-id="' + serviceId + '" ';
         html += 'data-field="code" ';
         html += 'value="' + escapeHtml(service.code || '') + '" ';
@@ -609,7 +609,7 @@
         html += 'step="0.01" ';
         html += 'inputmode="decimal" ';
         html += 'id="aa-service-price-' + serviceId + '" ';
-        html += 'class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" ';
+        html += 'class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" ';
         html += 'data-service-id="' + serviceId + '" ';
         html += 'data-field="price" ';
         html += 'value="' + (service.price !== null && service.price !== undefined ? escapeHtml(service.price) : '') + '" ';
@@ -623,7 +623,7 @@
         html += '<div class="mt-4 pt-4 border-t border-gray-200">';
         html += '<label class="flex items-center gap-2 cursor-pointer">';
         html += '<input type="checkbox" id="aa-service-public-calendar-' + serviceId + '" ';
-        html += 'class="aa-service-public-calendar rounded border-gray-300 text-blue-600 focus:ring-blue-500" ';
+        html += 'class="aa-service-public-calendar rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" ';
         html += 'data-service-id="' + serviceId + '" ';
         if (publicCalendarChecked) { html += 'checked '; }
         html += '/>';
@@ -636,7 +636,7 @@
         html += '<label class="text-xs text-gray-500 block mb-1">Descripción</label>';
         html += '<textarea rows="3" ';
         html += 'id="aa-service-description-' + serviceId + '" ';
-        html += 'class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y" ';
+        html += 'class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-y" ';
         html += 'data-service-id="' + serviceId + '" ';
         html += 'data-field="description" ';
         html += '>';
@@ -649,7 +649,7 @@
         html += '<label class="text-xs text-gray-500 block mb-1">Indicaciones para cita</label>';
         html += '<textarea rows="3" ';
         html += 'id="aa-service-indicaciones-cita-' + serviceId + '" ';
-        html += 'class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y" ';
+        html += 'class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-y" ';
         html += 'data-service-id="' + serviceId + '" ';
         html += 'data-field="indicaciones_cita" ';
         html += 'placeholder="Estas indicaciones se mostrarán en los correos de confirmación al cliente." ';
@@ -666,7 +666,7 @@
         html += '<div class="mt-4 pt-4 border-t border-gray-200">';
         html += '<label class="text-xs text-gray-500 block mb-1">Duración</label>';
         html += '<select id="aa-service-duration-minutes-' + serviceId + '" ';
-        html += 'class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" ';
+        html += 'class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" ';
         html += 'data-service-id="' + serviceId + '">';
         html += '<option value=""' + (durationMinutesVal === '' ? ' selected' : '') + '>Usar configuración general</option>';
         html += '<option value="30"' + (durationMinutesVal === '30' ? ' selected' : '') + '>30 min</option>';
@@ -683,7 +683,7 @@
         html += '<div class="mt-4 pt-4 border-t border-gray-200">';
         html += '<label class="text-xs text-gray-500 block mb-1">Tipo</label>';
         html += '<select id="aa-service-attendance-type-' + serviceId + '" ';
-        html += 'class="aa-service-attendance-type w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" ';
+        html += 'class="aa-service-attendance-type w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" ';
         html += 'data-service-id="' + serviceId + '">';
         html += '<option value="physical"' + (attendanceTypeVal === 'physical' ? ' selected' : '') + '>Físico</option>';
         html += '<option value="virtual"' + (attendanceTypeVal === 'virtual' ? ' selected' : '') + '>Virtual</option>';
@@ -698,7 +698,7 @@
         html += '<div id="aa-service-virtual-container-' + serviceId + '" class="aa-service-virtual-container mt-4 pt-4 border-t border-gray-200' + virtualContainerVisible + '" data-service-id="' + serviceId + '">';
         html += '<label class="text-xs text-gray-500 block mb-1">Canal</label>';
         html += '<select id="aa-service-virtual-channel-' + serviceId + '" ';
-        html += 'class="aa-service-virtual-channel w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" ';
+        html += 'class="aa-service-virtual-channel w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" ';
         html += 'data-service-id="' + serviceId + '">';
         html += '<option value="whatsapp"' + (virtualChannelVal === 'whatsapp' ? ' selected' : '') + '>WhatsApp</option>';
         html += '<option value="google_meet"' + (virtualChannelVal === 'google_meet' ? ' selected' : '') + '>Google Meet</option>';
@@ -713,7 +713,7 @@
         // Action buttons (Guardar y Eliminar)
         html += '<div class="mt-4 pt-4 border-t border-gray-200 flex justify-end gap-2">';
         html += '<button type="button" ';
-        html += 'class="aa-service-save px-3 py-2 text-sm font-medium rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors" ';
+        html += 'class="aa-service-save px-3 py-2 text-sm font-medium rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors" ';
         html += 'data-service-id="' + serviceId + '" ';
         html += '>Guardar</button>';
         html += '<button type="button" ';

@@ -19,7 +19,7 @@ $brand_logo_url = aa_asset_url('includes/admin/ui/assets/img/deoia-citas-logo.sv
                 <button 
                     id="aa-btn-sidebar" 
                     type="button"
-                    class="inline-flex items-center justify-center w-9 h-9 text-gray-600 bg-white border border-gray-200 shadow-sm rounded-lg hover:bg-gray-50 hover:shadow hover:border-gray-300 active:bg-gray-100 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:ring-offset-1"
+                    class="inline-flex items-center justify-center w-9 h-9 text-gray-600 bg-white border border-gray-200 shadow-sm rounded-lg hover:bg-gray-50 hover:shadow hover:border-gray-300 active:bg-gray-100 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:ring-offset-1"
                     aria-label="Abrir menú"
                     aria-expanded="false"
                     aria-controls="aa-sidebar"
@@ -48,7 +48,7 @@ $brand_logo_url = aa_asset_url('includes/admin/ui/assets/img/deoia-citas-logo.sv
                     <button 
                         id="aa-btn-notifications" 
                         type="button"
-                        class="inline-flex items-center justify-center w-9 h-9 text-gray-600 bg-white border border-gray-200 shadow-sm rounded-lg hover:bg-gray-50 hover:shadow hover:border-gray-300 active:bg-gray-100 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:ring-offset-1"
+                        class="inline-flex items-center justify-center w-9 h-9 text-gray-600 bg-white border border-gray-200 shadow-sm rounded-lg hover:bg-gray-50 hover:shadow hover:border-gray-300 active:bg-gray-100 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:ring-offset-1"
                         aria-label="Notificaciones"
                     >
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
@@ -58,7 +58,7 @@ $brand_logo_url = aa_asset_url('includes/admin/ui/assets/img/deoia-citas-logo.sv
                     <!-- Badge -->
                     <span 
                         id="aa-notifications-badge" 
-                        class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] text-[10px] font-semibold text-white bg-blue-500 rounded-full ring-2 ring-white"
+                        class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] text-[10px] font-semibold text-white bg-indigo-500 rounded-full ring-2 ring-white"
                     >0</span>
                     
                     <!-- Notifications Popover -->

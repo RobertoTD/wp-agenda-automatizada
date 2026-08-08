@@ -127,7 +127,7 @@
                 html += 'checked ';
             }
             html += '/>';
-            html += '<div class="w-9 h-5 bg-gray-300 peer-checked:bg-blue-500 rounded-full transition-colors duration-200"></div>';
+            html += '<div class="w-9 h-5 bg-gray-300 peer-checked:bg-indigo-600 rounded-full transition-colors duration-200"></div>';
             html += '<div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 peer-checked:translate-x-4"></div>';
             html += '</label>';
             html += '</div>';
@@ -138,7 +138,7 @@
             html += '<div class="mb-3">';
             html += '<label class="block text-xs font-medium text-gray-700 mb-1">Nombre</label>';
             html += '<input type="text" ';
-            html += 'class="aa-area-name-input w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow" ';
+            html += 'class="aa-area-name-input w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow" ';
             html += 'data-area-id="' + areaId + '" ';
             html += 'value="' + escapeHtml(area.name || '') + '" ';
             html += 'placeholder="Nombre de la zona..." />';
@@ -147,7 +147,7 @@
             html += '<div class="mb-3">';
             html += '<label class="block text-xs font-medium text-gray-700 mb-1">Descripción</label>';
             html += '<textarea ';
-            html += 'class="aa-area-description-input w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow resize-none" ';
+            html += 'class="aa-area-description-input w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow resize-none" ';
             html += 'data-area-id="' + areaId + '" ';
             html += 'rows="3" ';
             html += 'placeholder="Agregar descripción...">' + escapeHtml(area.description || '') + '</textarea>';

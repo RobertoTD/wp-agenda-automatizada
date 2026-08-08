@@ -124,7 +124,7 @@
             html += '<li class="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">';
             // Main content row
             html += '<div class="flex items-center gap-2 p-3">';
-            html += '<span class="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex-shrink-0">';
+            html += '<span class="flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex-shrink-0">';
             html += '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
             html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>';
             html += '</svg>';
@@ -147,14 +147,14 @@
                 html += 'checked ';
             }
             html += '/>';
-            html += '<div class="w-9 h-5 bg-gray-300 peer-checked:bg-blue-500 rounded-full transition-colors duration-200"></div>';
+            html += '<div class="w-9 h-5 bg-gray-300 peer-checked:bg-indigo-600 rounded-full transition-colors duration-200"></div>';
             html += '<div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 peer-checked:translate-x-4"></div>';
             html += '</label>';
             html += '</div>';
             html += '</div>';
             // Collapsable services panel
             html += '<div class="aa-staff-services-panel hidden border-t border-gray-200 p-3" data-staff-id="' + staffId + '">';
-            html += '<select class="aa-staff-services-select w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" data-staff-id="' + staffId + '">';
+            html += '<select class="aa-staff-services-select w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" data-staff-id="' + staffId + '">';
             html += '<option value="">Selecciona los servicios que ofrece</option>';
             html += '</select>';
             html += '<div class="aa-staff-services-selected mt-3" data-staff-id="' + staffId + '"></div>';

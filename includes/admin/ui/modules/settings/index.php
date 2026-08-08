@@ -87,7 +87,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                         $enabled   = !empty($schedule[$key]['enabled']);
                         $intervals = $schedule[$key]['intervals'] ?? [];
                     ?>
-                    <div class="aa-day-block group rounded-lg border border-gray-200 bg-gray-50/50 hover:border-blue-200 hover:bg-blue-50/30 transition-all duration-200 overflow-hidden <?php echo $enabled ? 'border-blue-200 bg-blue-50/40' : ''; ?>">
+                    <div class="aa-day-block group rounded-lg border border-gray-200 bg-gray-50/50 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all duration-200 overflow-hidden <?php echo $enabled ? 'border-indigo-200 bg-indigo-50/40' : ''; ?>">
                         <div class="px-4 py-3 flex items-center justify-between">
                             <label class="flex items-center gap-3 cursor-pointer flex-1">
                                 <div class="relative">
@@ -96,7 +96,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                                            value="1" 
                                            <?php checked($enabled, true); ?> 
                                            class="peer sr-only">
-                                    <div class="w-9 h-5 bg-gray-300 peer-checked:bg-blue-500 rounded-full transition-colors duration-200"></div>
+                                    <div class="w-9 h-5 bg-gray-300 peer-checked:bg-indigo-600 rounded-full transition-colors duration-200"></div>
                                     <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 peer-checked:translate-x-4"></div>
                                 </div>
                                 <span class="aa-day-name font-medium text-gray-700 select-none"><?php echo esc_html($label); ?></span>
@@ -122,7 +122,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                                                    name="aa_schedule[<?php echo esc_attr($key); ?>][intervals][<?php echo $i; ?>][start]" 
                                                    value="<?php echo esc_attr($interval['start']); ?>" 
                                                    step="1800"
-                                                   class="aa-timepicker-mobile w-[7rem] px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow">
+                                                   class="aa-timepicker-mobile w-[7rem] px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
                                         </div>
                                         <span class="text-gray-400 font-light">-</span>
                                         <div class="aa-time-input-wrapper flex items-center gap-1">
@@ -130,7 +130,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                                                    name="aa_schedule[<?php echo esc_attr($key); ?>][intervals][<?php echo $i; ?>][end]" 
                                                    value="<?php echo esc_attr($interval['end']); ?>" 
                                                    step="1800"
-                                                   class="aa-timepicker-mobile w-[7rem] px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow">
+                                                   class="aa-timepicker-mobile w-[7rem] px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
                                         </div>
                                         <button type="button" 
                                                 class="remove-interval ml-auto text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
@@ -145,7 +145,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                             </div>
                             
                             <button type="button" 
-                                    class="add-interval mt-3 inline-flex items-center gap-2 px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors">
+                                    class="add-interval mt-3 inline-flex items-center gap-2 px-3 py-1.5 text-sm text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
                                 </svg>
@@ -591,7 +591,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
         ═══════════════════════════════════════════════════════════════ -->
         <div class="-mx-4 lg:w-screen lg:relative lg:left-1/2 lg:-translate-x-1/2 lg:mx-0 px-4 lg:px-[calc((100vw-80rem)/2+1rem)] py-4 mt-6 flex justify-end">
             <button type="submit" 
-                    class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 active:bg-blue-700 rounded-md shadow-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:ring-offset-1">
+                    class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 rounded-md shadow-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:ring-offset-1">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
                 </svg>

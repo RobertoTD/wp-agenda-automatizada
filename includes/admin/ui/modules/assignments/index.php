@@ -93,7 +93,7 @@ $module_js_url = $plugin_url . 'assignments-module.js?ver=' . rawurlencode($ver)
                 <input type="text" 
                        id="aa-area-name-input" 
                        placeholder="Ej: Consultorio 3" 
-                       class="flex-1 px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow placeholder:text-gray-400">
+                       class="flex-1 px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder:text-gray-400">
                 <button type="button" 
                         id="aa-add-area" 
                         class="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg border border-gray-300 transition-colors shadow-sm">
@@ -135,7 +135,7 @@ $module_js_url = $plugin_url . 'assignments-module.js?ver=' . rawurlencode($ver)
                 <input type="text" 
                        id="aa-staff-name-input" 
                        placeholder="Ej: Juan Pérez" 
-                       class="flex-1 px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow placeholder:text-gray-400">
+                       class="flex-1 px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder:text-gray-400">
                 <button type="button" 
                         id="aa-add-staff" 
                         class="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg border border-gray-300 transition-colors shadow-sm">
@@ -177,7 +177,7 @@ $module_js_url = $plugin_url . 'assignments-module.js?ver=' . rawurlencode($ver)
                 <input type="text" 
                        id="aa-service-name-input" 
                        placeholder="Ej: Consulta médica" 
-                       class="flex-1 px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow placeholder:text-gray-400">
+                       class="flex-1 px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow placeholder:text-gray-400">
                 <button type="button" 
                         id="aa-add-service" 
                         class="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg border border-gray-300 transition-colors shadow-sm">
