@@ -467,7 +467,7 @@
 
         try {
             closeOtherListCards(list);
-            openFirstTaskInList(list);
+            closeAllTasksInList(list);
         } finally {
             coordinatingListToggle = false;
         }
@@ -597,8 +597,7 @@
             coordinatingListToggle = true;
 
             try {
-                closeOtherListCards(details);
-                openFirstTaskInList(details);
+                closeAllTasksInList(details);
             } finally {
                 coordinatingListToggle = false;
             }
@@ -646,22 +645,6 @@
 
         if (!taskDetails.open) {
             return;
-        }
-
-        var listDetails = taskDetails.closest
-            ? taskDetails.closest('details.aa-executable-list-card')
-            : null;
-
-        if (!listDetails) {
-            return;
-        }
-
-        coordinatingTaskToggle = true;
-
-        try {
-            closeOtherTasksInList(taskDetails, listDetails);
-        } finally {
-            coordinatingTaskToggle = false;
         }
     }
 

@@ -123,21 +123,15 @@
             
             html += '<li class="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">';
             // Main content row
-            html += '<div class="flex items-center gap-2 p-3">';
+            html += '<div class="aa-service-header-toggle flex items-center gap-2 p-3 cursor-pointer" data-service-id="' + serviceId + '">';
             html += '<span class="flex items-center justify-center w-8 h-8 rounded-lg bg-purple-100 text-purple-600 flex-shrink-0">';
             html += '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
             html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>';
             html += '</svg>';
             html += '</span>';
             html += '<span class="text-sm font-medium text-gray-900">' + escapeHtml(service.name) + '</span>';
-            // Toggle details button (chevron)
-            html += '<button type="button" class="aa-service-toggle-details inline-flex items-center justify-center w-6 h-6 text-gray-500 hover:text-gray-700 transition-colors" data-service-id="' + serviceId + '" title="Ver detalles">';
-            html += '<svg class="w-4 h-4 shrink-0 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
-            html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>';
-            html += '</svg>';
-            html += '</button>';
-            // Toggle switch
-            html += '<div class="ml-auto relative">';
+            // Toggle switch (visible solo cuando la fila está expandida)
+            html += '<div class="aa-service-active-toggle ml-auto relative hidden">';
             html += '<label class="flex items-center cursor-pointer">';
             html += '<input type="checkbox" ';
             html += 'class="toggle-service-active peer sr-only" ';
@@ -235,26 +229,29 @@
     }
 
     /**
-     * Setup handlers for details panel toggle (chevron button)
+     * Setup handlers for details panel toggle (whole header clickable, except the active switch)
      */
     function setupDetailsPanelHandlers() {
-        const toggleButtons = document.querySelectorAll('.aa-service-toggle-details');
+        const headers = document.querySelectorAll('.aa-service-header-toggle');
         
-        toggleButtons.forEach(function(button) {
-            button.addEventListener('click', function() {
-                const serviceId = this.getAttribute('data-service-id');
-                const panel = document.querySelector('.aa-service-details-panel[data-service-id="' + serviceId + '"]');
-                const chevron = this.querySelector('svg');
+        headers.forEach(function(header) {
+            header.addEventListener('click', function(e) {
+                // No togglear al interactuar con el switch de activo
+                if (e.target.closest('.aa-service-active-toggle')) {
+                    return;
+                }
+                
+                const row = this.closest('li');
+                const panel = row ? row.querySelector('.aa-service-details-panel') : null;
+                const activeToggle = row ? row.querySelector('.aa-service-active-toggle') : null;
                 
                 if (panel) {
                     // Toggle panel visibility
                     panel.classList.toggle('hidden');
                     
-                    // Rotate chevron
-                    if (panel.classList.contains('hidden')) {
-                        chevron.classList.remove('rotate-90');
-                    } else {
-                        chevron.classList.add('rotate-90');
+                    // Mostrar el switch de activo solo cuando la fila está expandida
+                    if (activeToggle) {
+                        activeToggle.classList.toggle('hidden', panel.classList.contains('hidden'));
                     }
                 }
             });

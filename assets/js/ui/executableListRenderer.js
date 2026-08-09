@@ -889,7 +889,6 @@
         return ''
             + '<div class="aa-executable-item-summary-actions flex items-center gap-1 shrink-0">'
             + renderItemOptionsMenu(item)
-            + renderItemSummaryChevron()
             + '</div>';
     }
 
@@ -1167,7 +1166,7 @@
             options,
             bucketContext,
             startIndex,
-            'aa-executable-bucket-items space-y-3'
+            'aa-executable-bucket-items space-y-2'
         );
 
         if (labelHtml === '' && itemsHtml === '') {
@@ -1183,25 +1182,12 @@
      * @returns {string}
      */
     function renderFollowingTasksBlock(followingContentHtml, followingCount) {
-        var count = Math.max(0, followingCount | 0);
-
         return ''
-            + '<details class="aa-executable-following-tasks mt-3">'
-            + '<summary class="aa-executable-following-tasks-summary cursor-pointer list-none inline-flex items-center gap-1.5 py-1 text-xs text-gray-600 hover:text-gray-800">'
-            + '<span class="aa-executable-following-tasks-label">'
-            + '<span class="aa-following-label-expanded">Siguientes tareas</span>'
-            + '<span class="aa-following-label-collapsed">Siguientes tareas (' + count + ')</span>'
-            + '</span>'
-            + '<span class="aa-executable-following-tasks-chevron aa-chevron inline-flex shrink-0 text-gray-400 transition-transform duration-200" aria-hidden="true">'
-            + '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
-            + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>'
-            + '</svg>'
-            + '</span>'
-            + '</summary>'
-            + '<div class="aa-executable-following-tasks-content mt-2 space-y-3">'
+            + '<div class="aa-executable-following-tasks mt-2">'
+            + '<div class="aa-executable-following-tasks-content space-y-2">'
             + followingContentHtml
             + '</div>'
-            + '</details>';
+            + '</div>';
     }
 
     /**
@@ -1267,7 +1253,7 @@
                     trustedOptions,
                     bucketContext,
                     groupStartIndex,
-                    'aa-executable-bucket-items aa-executable-bucket-items-following space-y-3'
+                    'aa-executable-bucket-items aa-executable-bucket-items-following space-y-2'
                 ));
             }
 
@@ -1336,7 +1322,7 @@
                 trustedOptions,
                 topBucketContext,
                 0,
-                'aa-executable-bucket-items aa-executable-bucket-items-top space-y-3'
+                'aa-executable-bucket-items aa-executable-bucket-items-top space-y-2'
             )
         );
         var followingHtml = renderFollowingEntriesHtml(
@@ -1400,7 +1386,7 @@
 
         return renderBucketWrapper(
             key,
-            labelHtml + '<ul class="aa-executable-bucket-items space-y-3">' + itemsHtml + '</ul>',
+            labelHtml + '<ul class="aa-executable-bucket-items space-y-2">' + itemsHtml + '</ul>',
             extraClass
         );
     }
@@ -1543,6 +1529,14 @@
         var parts = '';
         var descriptionText = asString(list.description).trim();
         var importance = Number(list.importance);
+        var sourceLabelHtml = renderSourceLabel(list);
+
+        if (sourceLabelHtml !== '') {
+            parts += ''
+                + '<p class="aa-executable-list-details-source mb-1">'
+                + sourceLabelHtml
+                + '</p>';
+        }
 
         if (descriptionText !== '') {
             parts += ''
@@ -1698,14 +1692,10 @@
      */
     function renderListHeaderMeta(list, collection) {
         var listId = escapeHtml(asString(list.id));
-        var sourceLabelHtml = renderSourceLabel(list);
-        var summaryHtml = renderListTemporalSummary(collection, {
-            leadingSeparator: sourceLabelHtml !== ''
-        });
         var toggleHtml = listHasExpandableDetails(list)
             ? renderListDetailsToggle(listId)
             : '';
-        var metaContent = sourceLabelHtml + summaryHtml + toggleHtml;
+        var metaContent = toggleHtml;
 
         if (metaContent === '') {
             return '';
@@ -1918,11 +1908,6 @@
             : '';
         var optionsMenuHtml = renderListOptionsMenu(capabilities, list);
         var addTaskHtml = renderListAddTaskButton(list, listId);
-        var chevronHtml = ''
-            + '<svg class="aa-executable-list-chevron aa-chevron w-4 h-4 text-gray-400 opacity-70 transition-transform duration-200 shrink-0"'
-            + ' fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">'
-            + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>'
-            + '</svg>';
         var headerActionsHtml = ''
             + '<div class="flex items-center gap-1 shrink-0">'
             + addTaskHtml
@@ -1939,7 +1924,6 @@
             + '<div class="min-w-0 flex-1">'
             + '<div class="flex items-center gap-1.5 min-w-0">'
             + '<h4 class="text-base font-semibold text-gray-900 min-w-0">' + title + '</h4>'
-            + chevronHtml
             + '</div>'
             + headerMetaHtml
             + detailsHtml

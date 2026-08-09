@@ -116,7 +116,7 @@
             details.open = true;
         }
 
-        waitForSelector(root, '.aa-staff-toggle-services', STAFF_SERVICES_WAIT_MS, function(toggleBtn) {
+        waitForSelector(root, '.aa-staff-header-toggle', STAFF_SERVICES_WAIT_MS, function(toggleBtn) {
             const staffId = toggleBtn.getAttribute('data-staff-id');
 
             if (!staffId) {

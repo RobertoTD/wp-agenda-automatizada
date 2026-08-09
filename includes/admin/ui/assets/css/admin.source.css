@@ -25,10 +25,14 @@
        Selectores por superficie; no rotar chevrons anidados ni Dashboard. */
     details.aa-executable-list-card[open] > summary .aa-executable-list-chevron,
     details.aa-executable-item[open] > summary .aa-executable-item-chevron,
-    details.aa-executable-following-tasks[open] > summary .aa-executable-following-tasks-chevron,
+    details.aa-executable-following-tasks[open] > summary .aa-executable-following-tasks-chevron {
+        transform: rotate(90deg);
+    }
+
+    /* Headers de Listas y Ejecutivo: ocultar el chevron cuando la sección está desplegada; conservarlo colapsado */
     #aa-lists-header-toggle[aria-expanded="true"] .aa-lists-header-chevron,
     #aa-executive-header-toggle[aria-expanded="true"] .aa-executive-header-chevron {
-        transform: rotate(90deg);
+        display: none;
     }
 
     /* Settings + Assignments — headers de sección: base derecha; abierto → abajo (90deg).
@@ -48,24 +52,9 @@
         display: none;
     }
 
-    /* Dashboard Citas: icono de sección apagado colapsado, color al expandir */
+    /* Dashboard Citas: icono de sección siempre en gris, sin fondo */
     [data-aa-dashboard-collapse] > [data-aa-dashboard-collapse-toggle] .aa-dash-section-icon {
-        @apply bg-gray-100 text-gray-500 transition-colors duration-200;
-    }
-    [data-aa-dashboard-collapse].is-open > [data-aa-dashboard-collapse-toggle] .aa-dash-section-icon--indigo {
-        @apply bg-indigo-100 text-indigo-600;
-    }
-    [data-aa-dashboard-collapse].is-open > [data-aa-dashboard-collapse-toggle] .aa-dash-section-icon--blue {
-        @apply bg-blue-100 text-blue-600;
-    }
-    [data-aa-dashboard-collapse].is-open > [data-aa-dashboard-collapse-toggle] .aa-dash-section-icon--emerald {
-        @apply bg-emerald-100 text-emerald-600;
-    }
-    [data-aa-dashboard-collapse].is-open > [data-aa-dashboard-collapse-toggle] .aa-dash-section-icon--purple {
-        @apply bg-purple-100 text-purple-600;
-    }
-    [data-aa-dashboard-collapse].is-open > [data-aa-dashboard-collapse-toggle] .aa-dash-section-icon--amber {
-        @apply bg-amber-100 text-amber-600;
+        @apply text-gray-500;
     }
     /* Smooth transition for content */
     details > div {
@@ -265,13 +254,17 @@
         z-index: 2;
     }
 
-    /* Executable feed — título truncado colapsado (MC-UX-A) */
+    /* Executable feed — título truncado colapsado (MC-UX-A).
+       El título ocupa todo el ancho disponible para que el degradado quede en el
+       borde real del contenedor; así solo se difumina cuando el texto llega al límite. */
     details.aa-executable-item:not([open]) .aa-executable-item-title {
         overflow: hidden;
         display: -webkit-box;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 1;
         line-clamp: 1;
+        flex: 1 1 auto;
+        min-width: 0;
         -webkit-mask-image: linear-gradient(to right, #000 72%, transparent 100%);
         mask-image: linear-gradient(to right, #000 72%, transparent 100%);
     }
@@ -290,8 +283,8 @@
         display: none;
     }
 
-    /* Executable feed — primera tarea expandida (MC13 UX-A) */
-    details.aa-executable-item.aa-executable-item-first[open] {
+    /* Executable feed — tarea expandida: fondo azul tenue (header + body); colapsada conserva su gris */
+    details.aa-executable-item[open] {
         @apply border-blue-100 bg-blue-50/50;
     }
 
@@ -330,17 +323,6 @@
 
     [data-aa-card].is-open [data-aa-card-toggle] {
         @apply rounded-t-lg;
-    }
-
-    /* Chevron indicator for card toggle */
-    [data-aa-card-toggle]::after {
-        content: '';
-        @apply w-2 h-2 border-r-2 border-b-2 border-gray-400;
-        @apply transform rotate-45 transition-transform duration-200;
-    }
-
-    [data-aa-card].is-open [data-aa-card-toggle]::after {
-        @apply -rotate-[135deg];
     }
 
     /* Overlay - hidden by default, positioned absolutely */

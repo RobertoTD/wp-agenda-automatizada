@@ -123,21 +123,15 @@
             
             html += '<li class="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">';
             // Main content row
-            html += '<div class="flex items-center gap-2 p-3">';
+            html += '<div class="aa-staff-header-toggle flex items-center gap-2 p-3 cursor-pointer" data-staff-id="' + staffId + '">';
             html += '<span class="flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex-shrink-0">';
             html += '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
             html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>';
             html += '</svg>';
             html += '</span>';
             html += '<span class="text-sm font-medium text-gray-900">' + escapeHtml(staff.name) + '</span>';
-            // Toggle services button (chevron)
-            html += '<button type="button" class="aa-staff-toggle-services inline-flex items-center justify-center w-6 h-6 text-gray-500 hover:text-gray-700 transition-colors" data-staff-id="' + staffId + '" title="Ver servicios">';
-            html += '<svg class="w-4 h-4 shrink-0 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
-            html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>';
-            html += '</svg>';
-            html += '</button>';
-            // Toggle switch
-            html += '<div class="ml-auto relative">';
+            // Toggle switch (visible solo cuando la fila está expandida)
+            html += '<div class="aa-staff-active-toggle ml-auto relative hidden">';
             html += '<label class="flex items-center cursor-pointer">';
             html += '<input type="checkbox" ';
             html += 'class="toggle-staff-active peer sr-only" ';
@@ -199,26 +193,29 @@
     }
 
     /**
-     * Setup handlers for services panel toggle (chevron button)
+     * Setup handlers for services panel toggle (whole header clickable, except the active switch)
      */
     function setupServicesPanelHandlers() {
-        const toggleButtons = document.querySelectorAll('.aa-staff-toggle-services');
+        const headers = document.querySelectorAll('.aa-staff-header-toggle');
         
-        toggleButtons.forEach(function(button) {
-            button.addEventListener('click', function() {
-                const staffId = this.getAttribute('data-staff-id');
-                const panel = document.querySelector('.aa-staff-services-panel[data-staff-id="' + staffId + '"]');
-                const chevron = this.querySelector('svg');
+        headers.forEach(function(header) {
+            header.addEventListener('click', function(e) {
+                // No togglear al interactuar con el switch de activo
+                if (e.target.closest('.aa-staff-active-toggle')) {
+                    return;
+                }
+                
+                const row = this.closest('li');
+                const panel = row ? row.querySelector('.aa-staff-services-panel') : null;
+                const activeToggle = row ? row.querySelector('.aa-staff-active-toggle') : null;
                 
                 if (panel) {
                     // Toggle panel visibility
                     panel.classList.toggle('hidden');
                     
-                    // Rotate chevron
-                    if (panel.classList.contains('hidden')) {
-                        chevron.classList.remove('rotate-90');
-                    } else {
-                        chevron.classList.add('rotate-90');
+                    // Mostrar el switch de activo solo cuando la fila está expandida
+                    if (activeToggle) {
+                        activeToggle.classList.toggle('hidden', panel.classList.contains('hidden'));
                     }
                 }
             });

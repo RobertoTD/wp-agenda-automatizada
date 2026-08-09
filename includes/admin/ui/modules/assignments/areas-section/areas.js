@@ -103,21 +103,15 @@
             
             html += '<li class="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">';
             // Main content row (header)
-            html += '<div class="flex items-center gap-2 p-3">';
+            html += '<div class="aa-area-header-toggle flex items-center gap-2 p-3 cursor-pointer" data-area-id="' + areaId + '">';
             // Color indicator circle
             const areaColor = area.color || '#3b82f6';
             html += '<span class="aa-area-color-bg flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0" style="background-color: ' + areaColor + '20;">';
             html += '<span class="aa-area-color-indicator w-4 h-4 rounded-full border-2 border-white shadow-sm" style="background-color: ' + areaColor + ';"></span>';
             html += '</span>';
             html += '<span class="text-sm font-medium text-gray-900">' + escapeHtml(area.name) + '</span>';
-            // Toggle details button (chevron)
-            html += '<button type="button" class="aa-area-toggle-details inline-flex items-center justify-center w-6 h-6 text-gray-500 hover:text-gray-700 transition-colors" data-area-id="' + areaId + '" title="Ver detalles">';
-            html += '<svg class="w-4 h-4 shrink-0 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
-            html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>';
-            html += '</svg>';
-            html += '</button>';
-            // Toggle switch
-            html += '<div class="ml-auto relative">';
+            // Toggle switch (visible solo cuando la fila está expandida)
+            html += '<div class="aa-area-active-toggle ml-auto relative hidden">';
             html += '<label class="flex items-center cursor-pointer">';
             html += '<input type="checkbox" ';
             html += 'class="toggle-area-active peer sr-only" ';
@@ -287,28 +281,33 @@
     }
 
     /**
-     * Setup handlers for details panel toggle (chevron button)
+     * Setup handlers for details panel toggle (whole header clickable, except the active switch)
      */
     function setupDetailsPanelHandlers() {
-        const toggleButtons = document.querySelectorAll('.aa-area-toggle-details');
+        const headers = document.querySelectorAll('.aa-area-header-toggle');
         
-        toggleButtons.forEach(function(button) {
-            button.addEventListener('click', function() {
-                const areaId = this.getAttribute('data-area-id');
-                const panel = document.querySelector('.aa-area-details-panel[data-area-id="' + areaId + '"]');
-                const chevron = this.querySelector('svg');
+        headers.forEach(function(header) {
+            header.addEventListener('click', function(e) {
+                // No togglear al interactuar con el switch de activo
+                if (e.target.closest('.aa-area-active-toggle')) {
+                    return;
+                }
+                
+                const row = this.closest('li');
+                const panel = row ? row.querySelector('.aa-area-details-panel') : null;
+                const activeToggle = row ? row.querySelector('.aa-area-active-toggle') : null;
                 
                 if (panel) {
                     // Toggle panel visibility
                     const isOpening = panel.classList.contains('hidden');
                     panel.classList.toggle('hidden');
                     
-                    // Rotate chevron
-                    if (panel.classList.contains('hidden')) {
-                        chevron.classList.remove('rotate-90');
-                    } else {
-                        chevron.classList.add('rotate-90');
-                        
+                    // Mostrar el switch de activo solo cuando la fila está expandida
+                    if (activeToggle) {
+                        activeToggle.classList.toggle('hidden', panel.classList.contains('hidden'));
+                    }
+                    
+                    if (!panel.classList.contains('hidden')) {
                         // Initialize color picker if panel is being opened and picker not yet initialized
                         if (isOpening) {
                             // Pequeño delay para asegurar que el DOM esté listo

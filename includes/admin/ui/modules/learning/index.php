@@ -42,8 +42,8 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
                 class="aa-lists-header-toggle min-w-0 flex flex-1 items-center gap-2 text-left rounded-lg -ml-1 px-1 py-0.5 focus:outline-none"
                 aria-expanded="true"
                 aria-controls="aa-lists-body">
-                <span class="aa-lists-header-label text-lg font-semibold text-gray-900">Organizador · Listas de tareas</span>
-                <svg class="aa-lists-header-chevron w-4 h-4 shrink-0 text-gray-500 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <span class="aa-lists-header-label text-lg font-semibold text-gray-900">Listas de tareas</span>
+                <svg class="aa-lists-header-chevron w-3.5 h-3.5 shrink-0 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                 </svg>
             </button>
@@ -124,7 +124,7 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
                 aria-controls="aa-executive-body">
                 <span class="aa-executive-header-label text-lg font-semibold text-gray-900 shrink-0">Propuesta de ejecución</span>
                 <span id="aa-executive-header-summary" class="aa-executive-header-summary min-w-0 truncate text-sm text-gray-500"></span>
-                <svg class="aa-executive-header-chevron w-4 h-4 shrink-0 text-gray-500 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <svg class="aa-executive-header-chevron w-3.5 h-3.5 shrink-0 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                 </svg>
             </button>

@@ -78,9 +78,6 @@ $module_js_url = $plugin_url . 'assignments-module.js?ver=' . rawurlencode($ver)
                         <p class="text-sm text-gray-500 mt-0.5">Define áreas, consultorios o zonas donde se prestan servicios.</p>
                     </div>
                 </div>
-                <svg class="aa-module-section-chevron w-5 h-5 shrink-0 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                </svg>
             </div>
         </summary>
         
@@ -117,12 +114,9 @@ $module_js_url = $plugin_url . 'assignments-module.js?ver=' . rawurlencode($ver)
                     </span>
                     <div>
                         <h3 class="text-lg font-semibold text-gray-900">Personal</h3>
-                        <p class="text-sm text-gray-500 mt-0.5">Personal que atiende las reservas de los clientes. Y sus capacidades (servicios que puede atender).</p>
+                        <p class="text-sm text-gray-500 mt-0.5">Personal que atiende las citas.</p>
                     </div>
                 </div>
-                <svg class="aa-module-section-chevron w-5 h-5 shrink-0 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                </svg>
             </div>
         </summary>
         
@@ -162,9 +156,6 @@ $module_js_url = $plugin_url . 'assignments-module.js?ver=' . rawurlencode($ver)
                         <p class="text-sm text-gray-500 mt-0.5">Servicios que los clientes pueden reservar.</p>
                     </div>
                 </div>
-                <svg class="aa-module-section-chevron w-5 h-5 shrink-0 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                </svg>
             </div>
         </summary>
         

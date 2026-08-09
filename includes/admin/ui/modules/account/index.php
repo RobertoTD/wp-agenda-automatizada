@@ -59,19 +59,21 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
                         </div>
                     </dl>
 
-                    <div id="aa-account-notice" class="hidden rounded-lg border p-4 text-sm"></div>
                     <div id="aa-account-upgrade-return-notice" class="hidden rounded-lg border p-4 text-sm"></div>
-                    <div id="aa-account-notice-actions" class="hidden flex flex-col gap-2"></div>
 
                     <ul id="aa-account-messages" class="hidden list-disc list-inside space-y-1 text-sm text-gray-600"></ul>
 
-                    <div id="aa-account-benefit-quotas" class="hidden pt-4 border-t border-gray-100">
-                        <h4 class="text-sm font-medium text-gray-900 mb-2">Beneficios del mes</h4>
-                        <ul id="aa-account-benefit-quotas-list" class="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 space-y-2 text-sm text-gray-700"></ul>
-                        <p id="aa-account-benefit-quotas-unavailable" class="hidden text-sm text-gray-500 mt-2"></p>
-                    </div>
+                    <div id="aa-account-benefit-group" class="pt-4 border-t border-gray-100 space-y-3">
+                        <div id="aa-account-benefit-quotas" class="hidden">
+                            <h4 class="text-sm font-medium text-gray-900 mb-2">Beneficios del mes</h4>
+                            <ul id="aa-account-benefit-quotas-list" class="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 space-y-2 text-sm text-gray-700"></ul>
+                            <p id="aa-account-benefit-quotas-unavailable" class="hidden text-sm text-gray-500 mt-2"></p>
+                        </div>
 
-                    <div id="aa-account-upgrade-section" class="hidden pt-4 border-t border-gray-100 space-y-4">
+                        <div id="aa-account-notice" class="hidden rounded-lg border p-4 text-sm"></div>
+                        <div id="aa-account-notice-actions" class="hidden flex flex-col gap-2"></div>
+
+                    <div id="aa-account-upgrade-section" class="hidden space-y-4">
                         <div id="aa-account-upgrade-cta-wrap">
                             <button
                                 type="button"
@@ -124,6 +126,7 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
                                 Abriendo checkout seguro…
                             </p>
                             <p id="aa-account-upgrade-error" class="hidden text-sm text-red-700 mt-3"></p>
+                        </div>
                         </div>
                     </div>
 

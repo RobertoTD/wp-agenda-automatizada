@@ -34,7 +34,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
             aria-controls="aa-dash-citas-body"
         >
             <div class="flex items-center justify-between gap-2">
-                <div class="flex items-center gap-2.5 min-w-0">
+                <div class="flex items-center gap-1.5 min-w-0">
                     <span class="aa-dash-section-icon aa-dash-section-icon--blue flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
@@ -49,9 +49,6 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                     >
                         Ir a agenda
                     </a>
-                    <svg class="aa-dashboard-collapse-chevron w-5 h-5 text-gray-400 transition-transform duration-200 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                    </svg>
                 </div>
             </div>
         </div>
@@ -69,7 +66,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                     aria-controls="aa-dash-collapse-next-body"
                 >
                     <div class="flex items-center justify-between gap-2">
-                        <div class="flex items-center gap-2.5 min-w-0">
+                        <div class="flex items-center gap-1.5 min-w-0">
                             <span class="aa-dash-section-icon aa-dash-section-icon--indigo flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -77,9 +74,6 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                             </span>
                             <h3 class="text-base font-semibold text-gray-900">Próxima cita</h3>
                         </div>
-                        <svg class="aa-dashboard-collapse-chevron w-5 h-5 text-gray-400 transition-transform duration-200 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                        </svg>
                     </div>
                 </div>
                 <div id="aa-dash-collapse-next-body" data-aa-dashboard-collapse-body>
@@ -115,7 +109,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                     aria-controls="aa-dash-collapse-today-body"
                 >
                     <div class="flex items-center justify-between gap-2">
-                        <div class="flex items-center gap-2.5 min-w-0">
+                        <div class="flex items-center gap-1.5 min-w-0">
                             <span class="aa-dash-section-icon aa-dash-section-icon--blue flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
@@ -123,9 +117,6 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                             </span>
                             <h3 class="text-base font-semibold text-gray-900">Citas de hoy</h3>
                         </div>
-                        <svg class="aa-dashboard-collapse-chevron w-5 h-5 text-gray-400 transition-transform duration-200 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                        </svg>
                     </div>
                 </div>
                 <div id="aa-dash-collapse-today-body" class="hidden" data-aa-dashboard-collapse-body>
@@ -163,7 +154,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                     aria-controls="aa-dash-collapse-revenue-body"
                 >
                     <div class="flex items-center justify-between gap-2">
-                        <div class="flex items-center gap-2.5 min-w-0">
+                        <div class="flex items-center gap-1.5 min-w-0">
                             <span class="aa-dash-section-icon aa-dash-section-icon--emerald flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -171,9 +162,6 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                             </span>
                             <h3 class="text-base font-semibold text-gray-900">Ingresos</h3>
                         </div>
-                        <svg class="aa-dashboard-collapse-chevron w-5 h-5 text-gray-400 transition-transform duration-200 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                        </svg>
                     </div>
                 </div>
                 <div id="aa-dash-collapse-revenue-body" class="hidden" data-aa-dashboard-collapse-body>
@@ -211,7 +199,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                     aria-controls="aa-dash-collapse-week-body"
                 >
                     <div class="flex items-center justify-between gap-2">
-                        <div class="flex items-center gap-2.5 min-w-0">
+                        <div class="flex items-center gap-1.5 min-w-0">
                             <span class="aa-dash-section-icon aa-dash-section-icon--purple flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
@@ -219,9 +207,6 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                             </span>
                             <h3 class="text-base font-semibold text-gray-900">Resumen semanal</h3>
                         </div>
-                        <svg class="aa-dashboard-collapse-chevron w-5 h-5 text-gray-400 transition-transform duration-200 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                        </svg>
                     </div>
                 </div>
                 <div id="aa-dash-collapse-week-body" class="hidden" data-aa-dashboard-collapse-body>
@@ -279,7 +264,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
             aria-controls="aa-dash-alerts-body"
         >
             <div class="flex items-center justify-between gap-2">
-                <div class="flex items-center gap-2.5 min-w-0">
+                <div class="flex items-center gap-1.5 min-w-0">
                     <span class="aa-dash-section-icon aa-dash-section-icon--amber flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.832c-.77-.833-2.194-.833-2.964 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/>
@@ -287,9 +272,6 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                     </span>
                     <h3 class="text-base font-semibold text-gray-900">Alertas</h3>
                 </div>
-                <svg class="aa-dashboard-collapse-chevron w-5 h-5 text-gray-400 transition-transform duration-200 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                </svg>
             </div>
         </div>
         <div id="aa-dash-alerts-body" class="hidden" data-aa-dashboard-collapse-body>

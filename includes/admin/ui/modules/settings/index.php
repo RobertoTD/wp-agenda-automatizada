@@ -53,9 +53,6 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                             <p class="text-sm text-gray-500 mt-0.5">Define los días y horarios de atención (semanal)</p>
                         </div>
                     </div>
-                    <svg class="aa-module-section-chevron w-5 h-5 shrink-0 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                    </svg>
                 </div>
             </summary>
             
@@ -176,9 +173,6 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                                 <p class="text-sm text-gray-500 mt-0.5">Duración y ventana de citas</p>
                             </div>
                         </div>
-                        <svg class="aa-module-section-chevron w-5 h-5 shrink-0 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                        </svg>
                     </div>
                 </summary>
                 
@@ -262,9 +256,6 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                             <p class="text-sm text-gray-500 mt-0.5">Información para confirmaciones y recordatorios</p>
                         </div>
                     </div>
-                    <svg class="aa-module-section-chevron w-5 h-5 shrink-0 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                    </svg>
                 </div>
             </summary>
             
@@ -361,9 +352,6 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                             <p class="text-sm text-gray-500 mt-0.5">Sincronizar con tu calendario de Google</p>
                         </div>
                     </div>
-                    <svg class="aa-module-section-chevron w-5 h-5 shrink-0 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                    </svg>
                 </div>
             </summary>
             
@@ -531,9 +519,6 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                             <p class="text-sm text-gray-500 mt-0.5">Avisos push para citas y tareas</p>
                         </div>
                     </div>
-                    <svg class="aa-module-section-chevron w-5 h-5 shrink-0 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                    </svg>
                 </div>
             </summary>
 
