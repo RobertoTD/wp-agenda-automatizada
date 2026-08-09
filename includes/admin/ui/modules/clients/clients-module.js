@@ -18,6 +18,7 @@
     let searchTimeout = null;
 
     var EXPEDIENTE_FOLDER_SVG = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>';
+    var CLIENT_PERSON_SVG = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>';
 
     function getClientsData() {
         return window.AA_CLIENTS_DATA || {};
@@ -58,11 +59,26 @@
         card.className = 'aa-appointment-card';
         card.setAttribute('data-aa-card', '');
 
-        // Header con nombre del cliente
+        // Header con icono + nombre del cliente
         const header = document.createElement('div');
         header.className = 'aa-appointment-header';
         header.setAttribute('data-aa-card-toggle', '');
-        header.textContent = cliente.nombre || 'Sin nombre';
+
+        const titleRow = document.createElement('div');
+        titleRow.className = 'flex items-center min-w-0';
+
+        const iconWrap = document.createElement('span');
+        iconWrap.className = 'flex items-center justify-center w-8 h-8 text-gray-600 shrink-0';
+        iconWrap.setAttribute('aria-hidden', 'true');
+        iconWrap.innerHTML = CLIENT_PERSON_SVG;
+
+        const name = document.createElement('span');
+        name.className = 'min-w-0 truncate';
+        name.textContent = cliente.nombre || 'Sin nombre';
+
+        titleRow.appendChild(iconWrap);
+        titleRow.appendChild(name);
+        header.appendChild(titleRow);
 
         // Overlay wrapper
         const overlay = document.createElement('div');
@@ -512,15 +528,15 @@
         header.className = 'px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white rounded-t-xl';
 
         var headerInner = document.createElement('div');
-        headerInner.className = 'flex items-center gap-3';
+        headerInner.className = 'flex items-center';
 
         var iconWrap = document.createElement('span');
-        iconWrap.className = 'flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-600';
+        iconWrap.className = 'flex items-center justify-center w-8 h-8 text-gray-600';
         iconWrap.innerHTML = EXPEDIENTE_FOLDER_SVG;
 
         var titleWrap = document.createElement('div');
         var title = document.createElement('h3');
-        title.className = 'text-lg font-semibold text-gray-900';
+        title.className = 'text-lg font-semibold text-gray-600';
         title.textContent = 'Expediente';
         titleWrap.appendChild(title);
 
@@ -549,7 +565,7 @@
         wrap.className = 'aa-expediente-error space-y-3';
 
         var title = document.createElement('h3');
-        title.className = 'text-lg font-semibold text-gray-900';
+        title.className = 'text-lg font-semibold text-gray-600';
         title.textContent = 'No se pudo abrir el expediente';
 
         var msg = document.createElement('p');
@@ -569,7 +585,7 @@
         titleRow.className = 'aa-expediente-title-row flex items-center justify-between gap-3';
 
         var name = document.createElement('h2');
-        name.className = 'text-xl font-semibold text-gray-900 min-w-0';
+        name.className = 'text-xl font-semibold text-gray-600 min-w-0';
         name.textContent = cliente.nombre || 'Sin nombre';
 
         var actions = document.createElement('div');

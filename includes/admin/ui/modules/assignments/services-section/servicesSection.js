@@ -129,7 +129,7 @@
             html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>';
             html += '</svg>';
             html += '</span>';
-            html += '<span class="text-sm font-medium text-gray-900">' + escapeHtml(service.name) + '</span>';
+            html += '<span class="text-sm font-semibold text-gray-600">' + escapeHtml(service.name) + '</span>';
             // Toggle switch (visible solo cuando la fila está expandida)
             html += '<div class="aa-service-active-toggle ml-auto relative hidden">';
             html += '<label class="flex items-center cursor-pointer">';
@@ -624,7 +624,7 @@
         html += 'data-service-id="' + serviceId + '" ';
         if (publicCalendarChecked) { html += 'checked '; }
         html += '/>';
-        html += '<span class="text-sm text-gray-700">Mostrar en calendario público</span>';
+        html += '<span class="text-sm text-gray-600">Mostrar en calendario público</span>';
         html += '</label>';
         html += '</div>';
         
@@ -663,7 +663,7 @@
         html += '<div class="mt-4 pt-4 border-t border-gray-200">';
         html += '<label class="text-xs text-gray-500 block mb-1">Duración</label>';
         html += '<select id="aa-service-duration-minutes-' + serviceId + '" ';
-        html += 'class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" ';
+        html += 'class="aa-form-select w-full px-3 py-2 text-sm border border-gray-300 rounded-lg" ';
         html += 'data-service-id="' + serviceId + '">';
         html += '<option value=""' + (durationMinutesVal === '' ? ' selected' : '') + '>Usar configuración general</option>';
         html += '<option value="30"' + (durationMinutesVal === '30' ? ' selected' : '') + '>30 min</option>';
@@ -680,7 +680,7 @@
         html += '<div class="mt-4 pt-4 border-t border-gray-200">';
         html += '<label class="text-xs text-gray-500 block mb-1">Tipo</label>';
         html += '<select id="aa-service-attendance-type-' + serviceId + '" ';
-        html += 'class="aa-service-attendance-type w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" ';
+        html += 'class="aa-form-select aa-service-attendance-type w-full px-3 py-2 text-sm border border-gray-300 rounded-lg" ';
         html += 'data-service-id="' + serviceId + '">';
         html += '<option value="physical"' + (attendanceTypeVal === 'physical' ? ' selected' : '') + '>Físico</option>';
         html += '<option value="virtual"' + (attendanceTypeVal === 'virtual' ? ' selected' : '') + '>Virtual</option>';
@@ -695,7 +695,7 @@
         html += '<div id="aa-service-virtual-container-' + serviceId + '" class="aa-service-virtual-container mt-4 pt-4 border-t border-gray-200' + virtualContainerVisible + '" data-service-id="' + serviceId + '">';
         html += '<label class="text-xs text-gray-500 block mb-1">Canal</label>';
         html += '<select id="aa-service-virtual-channel-' + serviceId + '" ';
-        html += 'class="aa-service-virtual-channel w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" ';
+        html += 'class="aa-form-select aa-service-virtual-channel w-full px-3 py-2 text-sm border border-gray-300 rounded-lg" ';
         html += 'data-service-id="' + serviceId + '">';
         html += '<option value="whatsapp"' + (virtualChannelVal === 'whatsapp' ? ' selected' : '') + '>WhatsApp</option>';
         html += '<option value="google_meet"' + (virtualChannelVal === 'google_meet' ? ' selected' : '') + '>Google Meet</option>';

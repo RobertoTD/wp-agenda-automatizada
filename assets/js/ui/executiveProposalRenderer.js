@@ -331,7 +331,7 @@
             + '<span class="min-w-0 truncate text-xs font-medium text-blue-700">Lista: ' + listLabel + '</span>'
             + renderOverdueBadge(task)
             + '</div>'
-            + '<p class="text-base font-semibold text-gray-900 mt-2">' + title + '</p>'
+            + '<p class="text-base font-semibold text-gray-600 mt-2">' + title + '</p>'
             + description
             + actionsHtml
             + '</' + wrapper + '>';

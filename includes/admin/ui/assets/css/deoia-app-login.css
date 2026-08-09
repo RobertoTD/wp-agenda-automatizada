@@ -18,6 +18,16 @@ body.login.aa-deoia-app-login {
     background: linear-gradient(160deg, #f0f0f1 0%, #ede9fe 45%, #f5f3ff 100%);
     min-height: 100vh;
     box-sizing: border-box;
+    font-weight: 500;
+}
+
+/* WP login core often pins controls to 400; inherit the app default 500 */
+body.login.aa-deoia-app-login input,
+body.login.aa-deoia-app-login select,
+body.login.aa-deoia-app-login textarea,
+body.login.aa-deoia-app-login button,
+body.login.aa-deoia-app-login .button {
+    font-weight: 500;
 }
 
 /* width 100% + padding must stay within viewport (mobile horizontal scroll fix) */

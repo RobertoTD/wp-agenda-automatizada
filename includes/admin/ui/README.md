@@ -44,4 +44,5 @@ ui/
 - All data operations happen via AJAX to WordPress endpoints
 - Use Tailwind CSS classes for styling
 - Keep modules isolated and independent
+- **Design tokens / typography:** see [`docs/DESIGN_BRIEF.md`](../../../docs/DESIGN_BRIEF.md) — UI text weight floor is **500** (`font-medium`); do not ship `font-normal` / 400 for product copy
 

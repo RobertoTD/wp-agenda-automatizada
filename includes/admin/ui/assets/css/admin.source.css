@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Default UI text weight 500 — sharper small copy; font-semibold/bold still override */
+body {
+    font-weight: 500;
+}
+
 @layer components {
     /* Notifications badge - centered text */
     #aa-notifications-badge {
@@ -310,8 +315,7 @@
     /* Card header - clickable toggle */
     [data-aa-card-toggle] {
         @apply px-4 py-3 cursor-pointer select-none;
-        @apply text-gray-900 font-medium;
-        @apply hover:bg-gray-50 transition-colors;
+        @apply text-gray-600 font-medium bg-gray-50;
         @apply flex items-center justify-between;
     }
 
@@ -338,7 +342,7 @@
 
     /* Card body inside overlay */
     .aa-card-body {
-        @apply px-4 py-3 text-sm text-gray-600;
+        @apply px-4 py-3 text-sm font-medium text-gray-600;
     }
 
     .aa-card-body > div {
@@ -394,8 +398,9 @@
     }
 
     .aa-clients-new-button {
-        @apply px-4 py-2 text-sm font-medium;
-        @apply bg-indigo-600 hover:bg-indigo-700 text-white;
+        @apply inline-flex items-center px-4 py-2 text-sm font-medium;
+        @apply text-gray-500 hover:text-gray-700;
+        @apply border border-gray-200 bg-white hover:bg-gray-50;
         @apply rounded-lg transition-colors;
     }
 
@@ -737,7 +742,7 @@
     }
 
     .aa-modal-title {
-        @apply text-lg font-semibold text-gray-900 m-0;
+        @apply text-lg font-semibold text-gray-600 m-0;
     }
 
     .aa-modal-close {
@@ -793,6 +798,24 @@
     .aa-form-group input {
         @apply w-full px-3 py-2 border border-gray-300 rounded-md text-sm;
         @apply focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none;
+    }
+
+    /* Shared gray focus ring (replaces browser orange / colored focus) */
+    .aa-form-field {
+        @apply outline-none;
+        @apply focus:ring-2 focus:ring-gray-300 focus:border-gray-400;
+    }
+
+    /* Native selects: gray-600 text + matching chevron (appearance-none + SVG) */
+    .aa-form-select {
+        @apply aa-form-field text-gray-600;
+        appearance: none;
+        -webkit-appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%234b5563'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+        background-size: 1rem 1rem;
+        padding-right: 2.5rem;
     }
 
     .aa-modal-actions {
@@ -1005,7 +1028,7 @@
     /* Date input - center of the navigator */
     .aa-date-input {
         @apply w-28 h-8 px-2;
-        @apply text-sm font-medium text-gray-700 text-center;
+        @apply text-sm font-medium text-gray-600 text-center;
         @apply bg-transparent border-0;
         @apply cursor-pointer;
         @apply focus:outline-none focus:bg-white;

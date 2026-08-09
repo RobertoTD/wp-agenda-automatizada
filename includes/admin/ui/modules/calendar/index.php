@@ -35,8 +35,8 @@ $module_js_url = $plugin_url . 'calendar-module.js?ver=' . rawurlencode($calenda
         <div class="flex items-center justify-between gap-3">
 
             <!-- Izquierda: icono + texto -->
-            <div class="flex items-center gap-3">
-                <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-600">
+            <div class="flex items-center">
+                <span class="flex items-center justify-center w-8 h-8 text-gray-600">
                     <!-- Icono calendario -->
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -45,7 +45,7 @@ $module_js_url = $plugin_url . 'calendar-module.js?ver=' . rawurlencode($calenda
                 </span>
 
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900">
+                    <h3 class="text-lg font-semibold text-gray-600">
                         Agenda
                     </h3>
                 </div>

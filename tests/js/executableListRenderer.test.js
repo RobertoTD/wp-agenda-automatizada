@@ -143,6 +143,11 @@ describe('AAExecutableListRenderer', () => {
         var html = renderer.renderList(emptyList);
 
         assert.match(html, /aa-executable-list-card/);
+        assert.match(html, /aa-executable-list-icon/);
+        assert.match(
+            html,
+            /aa-executable-list-icon[\s\S]*?<h4 class="text-base font-semibold text-gray-600 min-w-0">/
+        );
         assert.doesNotMatch(html, /aa-executable-item/);
     });
 
@@ -2306,7 +2311,7 @@ describe('executableListRenderer MC-UX-A visual polish', () => {
     it('renderer agrega clase aa-executable-item-title al título', () => {
         var html = renderer.renderItem(baseItem({ title: 'Título largo de prueba' }));
 
-        assert.match(html, /class="aa-executable-item-title text-sm font-semibold text-gray-900"/);
+        assert.match(html, /class="aa-executable-item-title text-sm font-semibold text-gray-600"/);
     });
 
     it('CSS trunca título colapsado y lo muestra completo expandido', () => {

@@ -896,6 +896,7 @@ Regla: `is_dismiss_hiding = has_dismiss && (dismiss_until === null || now < dism
 
 | Item | Acción |
 |------|--------|
+| Lista | Abre modal simple de creación (`AATasksBoard.openNewList` → `#aa-task-list-modal`), mismo flujo que FAB `#aa-tasks-new-list` |
 | Desarchivar listas | Abre modal existente (MC13I renombrado) |
 | Regresar tareas ignoradas | `window.confirm` nativo + `TasksService.returnIgnoredUserTasks()` |
 

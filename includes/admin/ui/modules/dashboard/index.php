@@ -34,13 +34,13 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
             aria-controls="aa-dash-citas-body"
         >
             <div class="flex items-center justify-between gap-2">
-                <div class="flex items-center gap-1.5 min-w-0">
+                <div class="flex items-center min-w-0">
                     <span class="aa-dash-section-icon aa-dash-section-icon--blue flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                         </svg>
                     </span>
-                    <h3 class="text-base font-semibold text-gray-900">Citas</h3>
+                    <h3 class="text-base font-semibold text-gray-600">Citas</h3>
                 </div>
             </div>
         </div>
@@ -58,13 +58,13 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                     aria-controls="aa-dash-collapse-next-body"
                 >
                     <div class="flex items-center justify-between gap-2">
-                        <div class="flex items-center gap-1.5 min-w-0">
+                        <div class="flex items-center min-w-0">
                             <span class="aa-dash-section-icon aa-dash-section-icon--indigo flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                 </svg>
                             </span>
-                            <h3 class="text-base font-semibold text-gray-900">Próxima cita</h3>
+                            <h3 class="text-base font-semibold text-gray-600">Próxima cita</h3>
                         </div>
                     </div>
                 </div>
@@ -77,7 +77,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                                 </svg>
                             </div>
                             <div class="flex-1 min-w-0">
-                                <p id="aa-dash-next-client" class="text-sm font-semibold text-gray-900 truncate">--</p>
+                                <p id="aa-dash-next-client" class="text-sm font-semibold text-gray-600 truncate">--</p>
                                 <p id="aa-dash-next-service" class="text-sm text-gray-500 truncate">--</p>
                                 <div class="flex items-center gap-1.5 mt-1.5">
                                     <span id="aa-dash-next-time-badge" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
@@ -101,13 +101,13 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                     aria-controls="aa-dash-collapse-today-body"
                 >
                     <div class="flex items-center justify-between gap-2">
-                        <div class="flex items-center gap-1.5 min-w-0">
+                        <div class="flex items-center min-w-0">
                             <span class="aa-dash-section-icon aa-dash-section-icon--blue flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                                 </svg>
                             </span>
-                            <h3 class="text-base font-semibold text-gray-900">Citas de hoy</h3>
+                            <h3 class="text-base font-semibold text-gray-600">Citas de hoy</h3>
                         </div>
                     </div>
                 </div>
@@ -146,13 +146,13 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                     aria-controls="aa-dash-collapse-revenue-body"
                 >
                     <div class="flex items-center justify-between gap-2">
-                        <div class="flex items-center gap-1.5 min-w-0">
+                        <div class="flex items-center min-w-0">
                             <span class="aa-dash-section-icon aa-dash-section-icon--emerald flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                 </svg>
                             </span>
-                            <h3 class="text-base font-semibold text-gray-900">Ingresos</h3>
+                            <h3 class="text-base font-semibold text-gray-600">Ingresos</h3>
                         </div>
                     </div>
                 </div>
@@ -161,7 +161,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                         <div class="flex items-center gap-2 flex-wrap mb-4 pb-3 border-b border-gray-100">
                             <select
                                 id="aa-dash-revenue-mode"
-                                class="text-sm font-semibold text-gray-900 bg-transparent border-none focus:ring-0 focus:outline-none cursor-pointer pr-6 appearance-none"
+                                class="text-sm font-semibold text-gray-600 bg-transparent border-none focus:ring-0 focus:outline-none cursor-pointer pr-6 appearance-none"
                                 style="background-image: url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 fill=%27none%27 viewBox=%270 0 20 20%27%3E%3Cpath stroke=%27%236b7280%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27 stroke-width=%271.5%27 d=%27m6 8 4 4 4-4%27/%3E%3C/svg%3E'); background-position: right 0 center; background-repeat: no-repeat; background-size: 1.25em;"
                             >
                                 <option value="day">Ingresos del día</option>
@@ -169,8 +169,8 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                                 <option value="month">Ingresos del mes</option>
                             </select>
                             <div id="aa-dash-revenue-control">
-                                <input type="text" id="aa-dash-revenue-date" class="text-xs border border-gray-200 rounded-lg px-2.5 py-1 w-28 text-center text-gray-700 cursor-pointer focus:ring-1 focus:ring-emerald-300 focus:border-emerald-300" readonly>
-                                <select id="aa-dash-revenue-select" class="text-xs border border-gray-200 rounded-lg px-2.5 py-1 text-gray-700 focus:ring-1 focus:ring-emerald-300 focus:border-emerald-300 hidden"></select>
+                                <input type="text" id="aa-dash-revenue-date" class="text-xs border border-gray-200 rounded-lg px-2.5 py-1 w-28 text-center text-gray-600 cursor-pointer focus:ring-1 focus:ring-gray-300 focus:border-gray-400" readonly>
+                                <select id="aa-dash-revenue-select" class="text-xs border border-gray-200 rounded-lg px-2.5 py-1 text-gray-600 focus:ring-1 focus:ring-gray-300 focus:border-gray-400 hidden"></select>
                             </div>
                         </div>
                         <h3 id="aa-dash-revenue-title" class="text-xs font-medium text-gray-500 mb-1">Ingresos del día</h3>
@@ -191,13 +191,13 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                     aria-controls="aa-dash-collapse-week-body"
                 >
                     <div class="flex items-center justify-between gap-2">
-                        <div class="flex items-center gap-1.5 min-w-0">
+                        <div class="flex items-center min-w-0">
                             <span class="aa-dash-section-icon aa-dash-section-icon--purple flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
                                 </svg>
                             </span>
-                            <h3 class="text-base font-semibold text-gray-900">Resumen semanal</h3>
+                            <h3 class="text-base font-semibold text-gray-600">Resumen semanal</h3>
                         </div>
                     </div>
                 </div>
@@ -206,7 +206,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                         <div class="flex items-center gap-2 flex-wrap mb-4 pb-3 border-b border-gray-100">
                             <select
                                 id="aa-dash-week-metric"
-                                class="text-sm font-semibold text-gray-900 bg-transparent border-none focus:ring-0 focus:outline-none cursor-pointer pr-6 appearance-none"
+                                class="text-sm font-semibold text-gray-600 bg-transparent border-none focus:ring-0 focus:outline-none cursor-pointer pr-6 appearance-none"
                                 style="background-image: url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 fill=%27none%27 viewBox=%270 0 20 20%27%3E%3Cpath stroke=%27%236b7280%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27 stroke-width=%271.5%27 d=%27m6 8 4 4 4-4%27/%3E%3C/svg%3E'); background-position: right 0 center; background-repeat: no-repeat; background-size: 1.25em;"
                             >
                                 <option value="effective">Citas efectivas</option>
@@ -224,14 +224,14 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                         <div class="space-y-3">
                             <div class="flex items-center justify-between">
                                 <span id="aa-dash-week-current-label" class="text-sm text-gray-600">Últimos 7 días</span>
-                                <span id="aa-dash-week-current" class="text-sm font-semibold text-gray-900">-- citas</span>
+                                <span id="aa-dash-week-current" class="text-sm font-semibold text-gray-600">-- citas</span>
                             </div>
                             <div class="w-full bg-gray-100 rounded-full h-2">
                                 <div id="aa-dash-week-bar" class="bg-purple-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
                             </div>
                             <div class="flex items-center justify-between">
                                 <span id="aa-dash-week-previous-label" class="text-sm text-gray-600">7 días previos</span>
-                                <span id="aa-dash-week-previous" class="text-sm font-semibold text-gray-900">-- citas</span>
+                                <span id="aa-dash-week-previous" class="text-sm font-semibold text-gray-600">-- citas</span>
                             </div>
                             <div id="aa-dash-week-comparison" class="flex items-center gap-1.5">
                                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">--</span>
@@ -256,13 +256,13 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
             aria-controls="aa-dash-alerts-body"
         >
             <div class="flex items-center justify-between gap-2">
-                <div class="flex items-center gap-1.5 min-w-0">
+                <div class="flex items-center min-w-0">
                     <span class="aa-dash-section-icon aa-dash-section-icon--amber flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.832c-.77-.833-2.194-.833-2.964 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/>
                         </svg>
                     </span>
-                    <h3 class="text-base font-semibold text-gray-900">Alertas</h3>
+                    <h3 class="text-base font-semibold text-gray-600">Alertas</h3>
                 </div>
             </div>
         </div>

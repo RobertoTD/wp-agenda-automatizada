@@ -90,6 +90,7 @@ header('Content-Type: text/html; charset=utf-8');
             justify-content: center;
             background-color: rgb(240, 240, 241);
             font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+            font-weight: 500;
         }
         .aa-legal-gate {
             width: min(36rem, calc(100% - 2rem));

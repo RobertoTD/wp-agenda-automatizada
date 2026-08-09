@@ -922,7 +922,7 @@
         var isDone = asString(item.status).toLowerCase() === 'done';
         var titleClass = isDone
             ? 'aa-executable-item-title text-sm text-gray-400 line-through'
-            : 'aa-executable-item-title text-sm font-semibold text-gray-900';
+            : 'aa-executable-item-title text-sm font-semibold text-gray-600';
         var actionsHtml = renderItemActions(item, opts, itemContext);
         var previewHtml = descriptionText !== ''
             ? renderItemDescriptionPreview(descriptionText)
@@ -1902,7 +1902,12 @@
             + '<div class="flex items-start justify-between gap-3">'
             + '<div class="min-w-0 flex-1">'
             + '<div class="flex items-center gap-1.5 min-w-0">'
-            + '<h4 class="text-base font-semibold text-gray-900 min-w-0">' + title + '</h4>'
+            + '<span class="aa-executable-list-icon flex items-center justify-center w-8 h-8 text-gray-600 shrink-0" aria-hidden="true">'
+            + '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
+            + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h.01M8 6h12M4 12h.01M8 12h12M4 18h.01M8 18h12"/>'
+            + '</svg>'
+            + '</span>'
+            + '<h4 class="text-base font-semibold text-gray-600 min-w-0">' + title + '</h4>'
             + '</div>'
             + headerMetaHtml
             + detailsHtml

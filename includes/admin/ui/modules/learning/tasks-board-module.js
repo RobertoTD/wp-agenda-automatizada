@@ -659,9 +659,7 @@
 
         if (newListBtn) {
             newListBtn.addEventListener('click', function () {
-                clearBoardError();
-                resetListForm();
-                openModal('aa-task-list-modal');
+                openNewList();
             });
         }
 
@@ -701,6 +699,15 @@
     }
 
     /**
+     * Abre el modal simple de creación de lista (mismo flujo que #aa-tasks-new-list).
+     */
+    function openNewList() {
+        clearBoardError();
+        resetListForm();
+        openModal('aa-task-list-modal');
+    }
+
+    /**
      * @param {string|number} listId
      */
     function openNewTaskForList(listId) {
@@ -725,6 +732,7 @@
         reload: function (options) {
             return loadBoard(options || { silent: true });
         },
+        openNewList: openNewList,
         openNewTaskForList: openNewTaskForList
     };
 

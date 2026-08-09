@@ -109,7 +109,7 @@
             html += '<span class="aa-area-color-bg flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0">';
             html += '<span class="aa-area-color-indicator w-4 h-4 rounded-full border-2 border-white shadow-sm" style="background-color: ' + areaColor + ';"></span>';
             html += '</span>';
-            html += '<span class="text-sm font-medium text-gray-900">' + escapeHtml(area.name) + '</span>';
+            html += '<span class="text-sm font-semibold text-gray-600">' + escapeHtml(area.name) + '</span>';
             // Toggle switch (visible solo cuando la fila está expandida)
             html += '<div class="aa-area-active-toggle ml-auto relative hidden">';
             html += '<label class="flex items-center cursor-pointer">';

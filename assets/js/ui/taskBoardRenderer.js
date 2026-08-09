@@ -281,7 +281,7 @@
             + '<div class="px-4 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">'
             + '<div class="flex items-start justify-between gap-3">'
             + '<div class="min-w-0">'
-            + '<h4 class="text-base font-semibold text-gray-900">' + title + '</h4>'
+            + '<h4 class="text-base font-semibold text-gray-600">' + title + '</h4>'
             + description
             + '</div>'
             + '<button type="button" data-tasks-action="archive-list" data-list-id="' + listId + '"'

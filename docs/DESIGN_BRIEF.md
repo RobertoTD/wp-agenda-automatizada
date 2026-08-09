@@ -116,16 +116,38 @@ verde de éxito u otros acentos para el track activo de un switch.
 --aa-text-md:   14px
 --aa-text-lg:   16px
 
-/* Font weights */
---aa-font-normal:   400
---aa-font-medium:   500
---aa-font-semibold: 600
+/* Font weights — piso de la app = 500 (nunca 400 en copy de UI) */
+--aa-font-normal:   500   /* Peso base / mínimo (Tailwind: font-medium). El 400 queda prohibido en texto de producto */
+--aa-font-medium:   500   /* Alias del piso; usar font-medium en clases */
+--aa-font-semibold: 600   /* Títulos de sección / énfasis (font-semibold) */
+--aa-font-bold:     700   /* Raro; solo jerarquía muy alta */
 
 /* Line heights */
 --aa-leading-tight:  1.2
 --aa-leading-normal: 1.4
 --aa-leading-relaxed: 1.5
 ```
+
+**Regla — peso mínimo 500**
+
+Todo el texto de la app (admin iframe + superficies DEOIA alineadas) parte de **`font-weight: 500`** como mínimo. El peso browser/Tailwind por defecto (**400** / `font-normal`) se considera demasiado fino a tamaños pequeños y no debe usarse en copy de producto.
+
+| Nivel | Tailwind | Peso | Uso |
+|---|---|---|---|
+| Base / cuerpo | `font-medium` (o herencia de `body`) | **500** | Labels, body de cards, inputs, botones, meta, descripciones |
+| Título de sección / módulo | `font-semibold` | **600** | Headers de cards de módulo, listas, dashboard |
+| Más pesado | `font-bold` / `font-extrabold` | 700+ | Solo si ya existe en headings editoriales |
+
+**Implementación actual (referencia / ejemplo canónico)**
+
+- Admin: `body { font-weight: 500; }` en `includes/admin/ui/assets/css/admin.source.css` (hereda a controles con preflight).
+- Cuerpo de cards: `.aa-card-body` → `@apply … font-medium …`.
+- Login app / legal-gate / toasts: mismo piso 500 donde hay tipografía propia.
+- Tema público (`deoia-theme`): `body { font-weight: 500; }` + controles vía `body :where(input, select, textarea, button)`.
+
+**Migración / deuda**
+
+Si aparece texto aún en **400** (`font-normal` o sin peso con herencia rota), **pasarlo a 500** (`font-medium` o herencia de `body`). No introducir 400 en UI nueva. Los títulos de sección usan **600** + color de título (p. ej. `text-gray-600` en headers de módulo); no bajar el peso de esos títulos a 400/500 “para suavizar”: suavizar con **color** (`text-gray-*`), no con peso por debajo del piso.
 
 ### 2.6 Transiciones
 ```
@@ -507,6 +529,7 @@ Antes de mergear cambios UI, verificar:
 - [ ] Headers de columna con contenedor visual
 - [ ] Botones con mismo alto/radio/estilo
 - [ ] Toggles/checkboxes ON en indigo-600 (no emerald/green)
+- [ ] Peso de texto ≥ 500 (`font-medium` o herencia de `body`; sin `font-normal` / 400 en copy)
 - [ ] Transiciones de 150-200ms
 - [ ] Z-index respetando la escala
 - [ ] Sombras usando la escala definida
@@ -514,5 +537,5 @@ Antes de mergear cambios UI, verificar:
 
 ---
 
-*Última actualización: Agosto 2026 — color primario/marca migrado de azul (#3b82f6) a índigo (#4f46e5); el azul queda reservado solo para el estado "info". Track ON de toggles/checkboxes adoptado como indigo-600 (Settings alineado con Asignaciones).*
+*Última actualización: Agosto 2026 — tipografía: piso de peso **500** (ex-400 → medium); títulos de sección en **600** + color; color primario/marca índigo (#4f46e5); track ON de toggles indigo-600.*
 *Mantener sincronizado con cambios de sistema de diseño*

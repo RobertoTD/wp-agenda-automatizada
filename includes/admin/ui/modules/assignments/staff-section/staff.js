@@ -129,7 +129,7 @@
             html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>';
             html += '</svg>';
             html += '</span>';
-            html += '<span class="text-sm font-medium text-gray-900">' + escapeHtml(staff.name) + '</span>';
+            html += '<span class="text-sm font-semibold text-gray-600">' + escapeHtml(staff.name) + '</span>';
             // Toggle switch (visible solo cuando la fila está expandida)
             html += '<div class="aa-staff-active-toggle ml-auto relative hidden">';
             html += '<label class="flex items-center cursor-pointer">';
@@ -148,7 +148,7 @@
             html += '</div>';
             // Collapsable services panel
             html += '<div class="aa-staff-services-panel hidden border-t border-gray-200 p-3" data-staff-id="' + staffId + '">';
-            html += '<select class="aa-staff-services-select w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" data-staff-id="' + staffId + '">';
+            html += '<select class="aa-form-select aa-staff-services-select w-full px-3 py-2 text-sm border border-gray-300 rounded-lg" data-staff-id="' + staffId + '">';
             html += '<option value="">Selecciona los servicios que ofrece</option>';
             html += '</select>';
             html += '<div class="aa-staff-services-selected mt-3" data-staff-id="' + staffId + '"></div>';
@@ -601,7 +601,7 @@
             selectedServices.forEach(function(service) {
                 const serviceId = parseInt(service.id);
                 html += '<li class="flex items-center justify-between p-2 bg-gray-50 rounded-lg border border-gray-200">';
-                html += '<span class="text-sm text-gray-900">' + escapeHtml(service.name) + '</span>';
+                html += '<span class="text-sm text-gray-600">' + escapeHtml(service.name) + '</span>';
                 html += '<button type="button" ';
                 html += 'class="aa-staff-service-remove inline-flex items-center justify-center w-6 h-6 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors" ';
                 html += 'data-staff-id="' + staffId + '" ';

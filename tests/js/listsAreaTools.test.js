@@ -115,6 +115,10 @@ function makeButtonEl(options) {
             return el;
         }
 
+        if (selector === '[data-lists-tool="create-list"]' && opts.isCreateListItem) {
+            return el;
+        }
+
         if (selector === '#aa-lists-options-menu' && opts.insideMenu) {
             return { id: 'aa-lists-options-menu' };
         }
@@ -135,8 +139,10 @@ describe('lists-area-tools MC13I', () => {
         assert.match(indexSrc, /id="aa-lists-options-trigger"/);
         assert.match(indexSrc, /title="Opciones de listas"/);
         assert.match(indexSrc, /id="aa-lists-options-menu"/);
+        assert.match(indexSrc, /data-lists-tool="create-list"/);
         assert.match(indexSrc, /data-lists-tool="restore-archived"/);
         assert.match(indexSrc, /data-lists-tool="return-ignored-tasks"/);
+        assert.match(indexSrc, />Lista</);
         assert.match(indexSrc, />Desarchivar listas</);
         assert.match(indexSrc, />Regresar tareas ignoradas</);
         assert.match(indexSrc, /id="aa-restore-archived-lists-modal"/);
@@ -570,6 +576,42 @@ describe('lists-area-tools MC13N-2', () => {
         clickHandlers[0]({ target: outside });
 
         assert.equal(menu.classList.classes.includes('hidden'), true);
+    });
+
+    it('item Lista cierra menú y abre modal de creación vía AATasksBoard', () => {
+        var menuItem = makeButtonEl({ isCreateListItem: true });
+        var menu = makeEl('aa-lists-options-menu');
+        var trigger = makeButtonEl({ id: 'aa-lists-options-trigger' });
+        var openNewListCalls = 0;
+
+        trigger.setAttribute = function () {};
+
+        var dom = {
+            getElementById: function (id) {
+                return id === 'aa-lists-options-menu' ? menu : null;
+            },
+            querySelector: function (selector) {
+                return selector === '#aa-lists-options-trigger' ? trigger : null;
+            },
+            querySelectorAll: function () {
+                return [];
+            }
+        };
+
+        var api = loadListsAreaTools({ document: createDocumentMock(dom) }, {
+            AATasksBoard: {
+                openNewList: function () {
+                    openNewListCalls += 1;
+                }
+            }
+        });
+
+        api.openOptionsMenu();
+        api.handleCreateListToolClick({ preventDefault: function () {}, target: menuItem });
+
+        assert.equal(openNewListCalls, 1);
+        assert.equal(menu.classList.classes.includes('hidden'), true);
+        assert.equal(api.CREATE_LIST_TOOL_SELECTOR, '[data-lists-tool="create-list"]');
     });
 
     it('item Desarchivar listas abre modal existente', async () => {

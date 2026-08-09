@@ -347,7 +347,7 @@
         session.phase = 'feedback';
 
         var title = document.createElement('h3');
-        title.className = 'text-base font-semibold text-gray-900';
+        title.className = 'text-base font-semibold text-gray-600';
         title.textContent = typeof feedback.title === 'string' ? feedback.title : '';
         body.appendChild(title);
 
@@ -387,7 +387,7 @@
         }
 
         var title = document.createElement('h3');
-        title.className = 'text-base font-semibold text-gray-900';
+        title.className = 'text-base font-semibold text-gray-600';
         title.textContent = typeof conclusion.title === 'string' ? conclusion.title : '';
         body.appendChild(title);
 

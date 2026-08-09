@@ -16,6 +16,7 @@
     var OPTIONS_MENU_ID = 'aa-lists-options-menu';
     var RESTORE_TOOL_SELECTOR = '[data-lists-tool="restore-archived"]';
     var RETURN_IGNORED_TOOL_SELECTOR = '[data-lists-tool="return-ignored-tasks"]';
+    var CREATE_LIST_TOOL_SELECTOR = '[data-lists-tool="create-list"]';
     var OPTIONS_MENU_TRIGGER_SELECTOR = '[data-lists-tool="options-menu"]';
     var RETURN_IGNORED_CONFIRM_MESSAGE = 'Todas las tareas ignoradas de tus listas activas regresarán a sus listas. ¿Quieres continuar?';
 
@@ -400,6 +401,18 @@
             });
     }
 
+    function handleCreateListToolClick(event) {
+        if (event && typeof event.preventDefault === 'function') {
+            event.preventDefault();
+        }
+
+        closeOptionsMenu();
+
+        if (globalRoot.AATasksBoard && typeof globalRoot.AATasksBoard.openNewList === 'function') {
+            globalRoot.AATasksBoard.openNewList();
+        }
+    }
+
     function handleRestoreToolClick(event) {
         if (event && typeof event.preventDefault === 'function') {
             event.preventDefault();
@@ -454,6 +467,9 @@
 
     function handleDocumentClick(event) {
         var target = event.target;
+        var createListButton = target && target.closest
+            ? target.closest(CREATE_LIST_TOOL_SELECTOR)
+            : null;
         var restoreButton = target && target.closest
             ? target.closest(RESTORE_TOOL_SELECTOR)
             : null;
@@ -476,6 +492,11 @@
             }
 
             toggleOptionsMenu();
+            return;
+        }
+
+        if (createListButton && !createListButton.disabled) {
+            handleCreateListToolClick(event);
             return;
         }
 
@@ -566,6 +587,7 @@
         OPTIONS_MENU_ID: OPTIONS_MENU_ID,
         RESTORE_TOOL_SELECTOR: RESTORE_TOOL_SELECTOR,
         RETURN_IGNORED_TOOL_SELECTOR: RETURN_IGNORED_TOOL_SELECTOR,
+        CREATE_LIST_TOOL_SELECTOR: CREATE_LIST_TOOL_SELECTOR,
         RETURN_IGNORED_CONFIRM_MESSAGE: RETURN_IGNORED_CONFIRM_MESSAGE,
         openModal: openModal,
         closeModal: closeModal,
@@ -576,6 +598,7 @@
         populateSelect: populateSelect,
         loadArchivedListsIntoModal: loadArchivedListsIntoModal,
         handleRestoreSubmit: handleRestoreSubmit,
+        handleCreateListToolClick: handleCreateListToolClick,
         handleRestoreToolClick: handleRestoreToolClick,
         handleReturnIgnoredTasksClick: handleReturnIgnoredTasksClick,
         refreshListsAreaFeeds: refreshListsAreaFeeds,

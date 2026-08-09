@@ -42,14 +42,14 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
         <details class="aa-module-section-card bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
             <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
                 <div class="flex items-center justify-between gap-3">
-                    <div class="flex items-center gap-3">
-                        <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-600">
+                    <div class="flex items-center">
+                        <span class="flex items-center justify-center w-8 h-8 text-gray-600">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                             </svg>
                         </span>
                         <div>
-                            <h3 class="text-lg font-semibold text-gray-900">Horarios y Disponibilidad Fija</h3>
+                            <h3 class="text-lg font-semibold text-gray-600">Horarios y Disponibilidad Fija</h3>
                             <p class="text-sm text-gray-500 mt-0.5">Define los días y horarios de atención (semanal)</p>
                         </div>
                     </div>
@@ -64,7 +64,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                     <input type="text" name="aa_service_schedule" id="aa_service_schedule"
                            value="<?php echo esc_attr(get_option('aa_service_schedule', '')); ?>" 
                            placeholder="Ej: Informes rápidos"
-                           class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow placeholder:text-gray-400">
+                           class="aa-form-field w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg transition-shadow placeholder:text-gray-400">
                     <p class="text-xs text-gray-500 mt-1.5">Este servicio usará el horario fijo.</p>
                 </div>
                 
@@ -75,7 +75,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                     <input type="text" name="aa_staff_schedule" id="aa_staff_schedule"
                            value="<?php echo esc_attr(get_option('aa_staff_schedule', '')); ?>" 
                            placeholder="Ej: Juan Pérez"
-                           class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow placeholder:text-gray-400">
+                           class="aa-form-field w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg transition-shadow placeholder:text-gray-400">
                     <p class="text-xs text-gray-500 mt-1.5">Persona que atiende en el siguiente horario fijo.</p>
                 </div>
                 
@@ -119,7 +119,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                                                    name="aa_schedule[<?php echo esc_attr($key); ?>][intervals][<?php echo $i; ?>][start]" 
                                                    value="<?php echo esc_attr($interval['start']); ?>" 
                                                    step="1800"
-                                                   class="aa-timepicker-mobile w-[7rem] px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+                                                   class="aa-form-field aa-timepicker-mobile w-[7rem] px-2 py-2 text-sm border border-gray-300 rounded-lg transition-shadow">
                                         </div>
                                         <span class="text-gray-400 font-light">-</span>
                                         <div class="aa-time-input-wrapper flex items-center gap-1">
@@ -127,7 +127,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                                                    name="aa_schedule[<?php echo esc_attr($key); ?>][intervals][<?php echo $i; ?>][end]" 
                                                    value="<?php echo esc_attr($interval['end']); ?>" 
                                                    step="1800"
-                                                   class="aa-timepicker-mobile w-[7rem] px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+                                                   class="aa-form-field aa-timepicker-mobile w-[7rem] px-2 py-2 text-sm border border-gray-300 rounded-lg transition-shadow">
                                         </div>
                                         <button type="button" 
                                                 class="remove-interval ml-auto text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
@@ -162,14 +162,14 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
         <details class="aa-module-section-card bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
                 <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
                     <div class="flex items-center justify-between gap-3">
-                        <div class="flex items-center gap-3">
-                            <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-600">
+                        <div class="flex items-center">
+                            <span class="flex items-center justify-center w-8 h-8 text-gray-600">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                 </svg>
                             </span>
                             <div>
-                                <h3 class="text-lg font-semibold text-gray-900">Parámetros</h3>
+                                <h3 class="text-lg font-semibold text-gray-600">Parámetros</h3>
                             </div>
                         </div>
                     </div>
@@ -177,11 +177,11 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                 
                 <div class="p-6 space-y-5 transition-all duration-200">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2" for="aa_slot_duration">
+                        <label class="block text-sm font-semibold text-gray-600 mb-2" for="aa_slot_duration">
                             Duración de cita default
                         </label>
                         <select name="aa_slot_duration" id="aa_slot_duration" 
-                                class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white transition-shadow">
+                                class="aa-form-select w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg bg-white transition-shadow">
                             <option value="30" <?php selected(get_option('aa_slot_duration', 30), 30); ?>>30 minutos</option>
                             <option value="60" <?php selected(get_option('aa_slot_duration', 30), 60); ?>>60 minutos</option>
                             <option value="90" <?php selected(get_option('aa_slot_duration', 30), 90); ?>>90 minutos</option>
@@ -189,11 +189,11 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2" for="aa_future_window">
+                        <label class="block text-sm font-semibold text-gray-600 mb-2" for="aa_future_window">
                             Ventana de disponibilidad
                         </label>
                         <select name="aa_future_window" id="aa_future_window" 
-                                class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white transition-shadow">
+                                class="aa-form-select w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg bg-white transition-shadow">
                             <option value="15" <?php selected(get_option('aa_future_window', 15), 15); ?>>15 días</option>
                             <option value="30" <?php selected(get_option('aa_future_window', 15), 30); ?>>30 días</option>
                             <option value="45" <?php selected(get_option('aa_future_window', 15), 45); ?>>45 días</option>
@@ -203,11 +203,11 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2" for="aa_timezone">
+                        <label class="block text-sm font-semibold text-gray-600 mb-2" for="aa_timezone">
                             Zona horaria
                         </label>
                         <select name="aa_timezone" id="aa_timezone" 
-                                class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white transition-shadow">
+                                class="aa-form-select w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg bg-white transition-shadow">
                             <?php
                             $saved_tz = get_option('aa_timezone', 'America/Mexico_City');
                             $timezones = [
@@ -244,14 +244,14 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
         <details id="aa-business-data-root" class="aa-module-section-card bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
             <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
                 <div class="flex items-center justify-between gap-3">
-                    <div class="flex items-center gap-3">
-                        <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-600">
+                    <div class="flex items-center">
+                        <span class="flex items-center justify-center w-8 h-8 text-gray-600">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
                             </svg>
                         </span>
                         <div>
-                            <h3 class="text-lg font-semibold text-gray-900">Datos del Negocio</h3>
+                            <h3 class="text-lg font-semibold text-gray-600">Datos del Negocio</h3>
                         </div>
                     </div>
                 </div>
@@ -260,17 +260,17 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
             <div class="p-3 transition-all duration-200">
                 <div class="grid md:grid-cols-2 gap-6">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2" for="aa_business_name">
+                        <label class="block text-sm font-semibold text-gray-600 mb-2" for="aa_business_name">
                             Nombre del negocio
                         </label>
                         <input type="text" name="aa_business_name" id="aa_business_name"
                                value="<?php echo esc_attr(get_option('aa_business_name', '')); ?>" 
                                placeholder="Ej: Salón de Belleza María"
-                               class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow placeholder:text-gray-400">
+                               class="aa-form-field w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg transition-shadow placeholder:text-gray-400">
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2" for="aa_whatsapp_number">
+                        <label class="block text-sm font-semibold text-gray-600 mb-2" for="aa_whatsapp_number">
                             WhatsApp del negocio
                         </label>
                         <div class="relative">
@@ -283,7 +283,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                                    value="<?php echo esc_attr(get_option('aa_whatsapp_number', '')); ?>" 
                                    placeholder="521234567890"
                                    pattern="[0-9]{10,15}"
-                                   class="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow placeholder:text-gray-400">
+                                   class="aa-form-field w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 rounded-lg transition-shadow placeholder:text-gray-400">
                         </div>
                         <p class="text-xs text-gray-500 mt-1.5">Código de país + número, sin espacios</p>
                     </div>
@@ -298,7 +298,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                                 <div class="w-11 h-6 bg-gray-300 peer-checked:bg-indigo-600 rounded-full transition-colors"></div>
                                 <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-5"></div>
                             </label>
-                            <span class="text-sm text-gray-700">Las citas son virtuales (sin dirección física)</span>
+                            <span class="text-sm text-gray-600">Las citas son virtuales (sin dirección física)</span>
                         </div>
                     </div>
 
@@ -313,21 +313,21 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                                 <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-5"></div>
                             </label>
                             <div>
-                                <span class="text-sm text-gray-700 font-medium">Asignar todos los servicios a todo el personal automáticamente</span>
+                                <span class="text-sm text-gray-600 font-medium">Asignar todos los servicios a todo el personal automáticamente</span>
                                 <p class="text-xs text-gray-500 mt-1">Recomendado para empezar rápido. Puedes desactivarlo si quieres decidir manualmente qué servicios ofrece cada persona.</p>
                             </div>
                         </div>
                     </div>
 
                     <div class="md:col-span-2" id="aa-address-row">
-                        <label class="block text-sm font-medium text-gray-700 mb-2" for="aa-business-address">
+                        <label class="block text-sm font-semibold text-gray-600 mb-2" for="aa-business-address">
                             Dirección física
                         </label>
                         <textarea name="aa_business_address" 
                                   id="aa-business-address" 
                                   rows="2" 
                                   placeholder="Ej: Av. Reforma 123, Col. Centro, CDMX"
-                                  class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow placeholder:text-gray-400 resize-none"><?php echo esc_textarea(get_option('aa_business_address', '')); ?></textarea>
+                                  class="aa-form-field w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg transition-shadow placeholder:text-gray-400 resize-none"><?php echo esc_textarea(get_option('aa_business_address', '')); ?></textarea>
                     </div>
                 </div>
             </div>
@@ -339,14 +339,14 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
         <details id="aa-google-calendar-root" class="aa-module-section-card bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
             <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
                 <div class="flex items-center justify-between gap-3">
-                    <div class="flex items-center gap-3">
-                        <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-600">
+                    <div class="flex items-center">
+                        <span class="flex items-center justify-center w-8 h-8 text-gray-600">
                             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11zM9 11H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm-8 4H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/>
                             </svg>
                         </span>
                         <div>
-                            <h3 class="text-lg font-semibold text-gray-900">Google Calendar</h3>
+                            <h3 class="text-lg font-semibold text-gray-600">Google Calendar</h3>
                         </div>
                     </div>
                 </div>
@@ -446,7 +446,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                     <div id="aa-google-calendar-freemium-consent" class="hidden max-w-md mx-auto py-4">
                         <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm text-left">
                             <div class="flex items-baseline justify-between gap-3 mb-2">
-                                <span class="text-base font-semibold text-gray-900">Freemium</span>
+                                <span class="text-base font-semibold text-gray-600">Freemium</span>
                                 <span class="text-sm font-medium text-gray-600">$0 / mes</span>
                             </div>
                             <p class="text-sm text-gray-700 mb-3">
@@ -505,14 +505,14 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
         <details id="aa-notifications-root" class="aa-module-section-card bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
             <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
                 <div class="flex items-center justify-between gap-3">
-                    <div class="flex items-center gap-3">
-                        <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-600">
+                    <div class="flex items-center">
+                        <span class="flex items-center justify-center w-8 h-8 text-gray-600">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
                             </svg>
                         </span>
                         <div>
-                            <h3 class="text-lg font-semibold text-gray-900">Notificaciones</h3>
+                            <h3 class="text-lg font-semibold text-gray-600">Notificaciones</h3>
                         </div>
                     </div>
                 </div>
@@ -531,7 +531,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                         <div class="w-11 h-6 bg-gray-300 peer-checked:bg-indigo-600 rounded-full transition-colors"></div>
                         <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-5"></div>
                     </label>
-                    <span class="text-sm text-gray-700">Notificar citas confirmadas próximas</span>
+                    <span class="text-sm text-gray-600">Notificar citas confirmadas próximas</span>
                 </div>
 
                 <div class="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
@@ -546,17 +546,17 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                         <div class="w-11 h-6 bg-gray-300 peer-checked:bg-indigo-600 rounded-full transition-colors"></div>
                         <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-5"></div>
                     </label>
-                    <span class="text-sm text-gray-700">Notificar cuando sea momento de realizar una tarea</span>
+                    <span class="text-sm text-gray-600">Notificar cuando sea momento de realizar una tarea</span>
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2" for="aa_push_upcoming_confirmed_minutes">
+                    <label class="block text-sm font-semibold text-gray-600 mb-2" for="aa_push_upcoming_confirmed_minutes">
                         Avisar con anticipación
                     </label>
                     <?php $push_upcoming_confirmed_minutes = (int) get_option('aa_push_upcoming_confirmed_minutes', 15); ?>
                     <select name="aa_push_upcoming_confirmed_minutes"
                             id="aa_push_upcoming_confirmed_minutes"
-                            class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white transition-shadow">
+                            class="aa-form-select w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg bg-white transition-shadow">
                         <option value="0" <?php selected($push_upcoming_confirmed_minutes, 0); ?>>0 minutos</option>
                         <option value="5" <?php selected($push_upcoming_confirmed_minutes, 5); ?>>5 minutos</option>
                         <option value="15" <?php selected($push_upcoming_confirmed_minutes, 15); ?>>15 minutos</option>

@@ -43,7 +43,7 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
                 class="aa-lists-header-toggle min-w-0 flex flex-1 items-center gap-2 text-left rounded-lg -ml-1 px-1 py-0.5 focus:outline-none"
                 aria-expanded="true"
                 aria-controls="aa-lists-body">
-                <span class="aa-lists-header-label text-lg font-semibold text-gray-900">Listas de tareas</span>
+                <span class="aa-lists-header-label text-lg font-semibold text-gray-600">Listas de tareas</span>
                 <svg class="aa-lists-header-chevron w-3.5 h-3.5 shrink-0 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                 </svg>
@@ -65,6 +65,14 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
                 <div id="aa-lists-options-menu"
                     class="hidden absolute right-0 top-full z-20 mt-2 min-w-[12rem] rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
                     role="menu">
+                    <button type="button" role="menuitem"
+                        data-lists-tool="create-list"
+                        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
+                        <svg class="w-4 h-4 shrink-0 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        <span>Lista</span>
+                    </button>
                     <button type="button" role="menuitem"
                         data-lists-tool="restore-archived"
                         class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
@@ -173,7 +181,7 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
     <div class="aa-tasks-modal-frame">
         <div class="aa-tasks-modal-panel">
             <div class="px-5 py-4 border-b border-gray-100 shrink-0">
-                <h4 class="text-lg font-semibold text-gray-900">Desarchivar listas</h4>
+                <h4 class="text-lg font-semibold text-gray-600">Desarchivar listas</h4>
                 <p class="text-sm text-gray-500 mt-1">Elige una lista archivada para volver a mostrarla en tus listas activas.</p>
             </div>
             <div class="aa-tasks-modal-scroll space-y-4">
@@ -205,7 +213,7 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
     <div class="aa-tasks-modal-frame">
         <div class="aa-tasks-modal-panel">
             <div class="px-5 py-4 border-b border-gray-100 shrink-0">
-                <h4 class="text-lg font-semibold text-gray-900">Desarchivar tareas</h4>
+                <h4 class="text-lg font-semibold text-gray-600">Desarchivar tareas</h4>
                 <p class="text-sm text-gray-500 mt-1">Elige una tarea archivada de esta lista para volver a mostrarla.</p>
             </div>
             <div class="aa-tasks-modal-scroll space-y-4">
@@ -238,7 +246,7 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
     <div class="aa-tasks-modal-frame">
         <div class="aa-tasks-modal-panel">
             <div class="px-5 py-4 border-b border-gray-100 shrink-0">
-                <h4 class="text-lg font-semibold text-gray-900">Editar lista</h4>
+                <h4 class="text-lg font-semibold text-gray-600">Editar lista</h4>
                 <p class="text-sm text-gray-500 mt-1">Actualiza el nombre, objetivo o importancia de tu lista.</p>
             </div>
             <form id="aa-task-list-edit-form" class="aa-tasks-modal-scroll space-y-4">
@@ -279,7 +287,7 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
     <div class="aa-tasks-modal-frame">
         <div class="aa-tasks-modal-panel">
             <div class="px-5 py-4 border-b border-gray-100 shrink-0">
-                <h4 class="text-lg font-semibold text-gray-900">Nueva lista</h4>
+                <h4 class="text-lg font-semibold text-gray-600">Nueva lista</h4>
                 <p class="text-sm text-gray-500 mt-1">Define un objetivo común para agrupar tareas.</p>
             </div>
             <form id="aa-task-list-form" class="aa-tasks-modal-scroll space-y-4">
@@ -319,7 +327,7 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
     <div class="aa-tasks-modal-frame">
         <div class="aa-tasks-modal-panel">
             <div class="px-5 py-4 border-b border-gray-100 shrink-0">
-                <h4 class="text-lg font-semibold text-gray-900">Nueva tarea</h4>
+                <h4 class="text-lg font-semibold text-gray-600">Nueva tarea</h4>
             </div>
             <form id="aa-task-form" class="aa-tasks-modal-scroll space-y-4" novalidate>
                 <div>
@@ -392,7 +400,7 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
     <div class="aa-tasks-modal-frame">
         <div class="aa-tasks-modal-panel">
             <div class="px-5 py-4 border-b border-gray-100 shrink-0">
-                <h4 class="text-lg font-semibold text-gray-900">Editar tarea</h4>
+                <h4 class="text-lg font-semibold text-gray-600">Editar tarea</h4>
             </div>
             <form id="aa-task-edit-form" class="aa-tasks-modal-scroll space-y-4" novalidate>
                 <input type="hidden" id="aa-task-edit-form-task-id" name="task_id" value="">

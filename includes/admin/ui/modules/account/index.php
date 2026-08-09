@@ -20,14 +20,14 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
     ═══════════════════════════════════════════════════════════════ -->
     <details id="aa-account-section" class="aa-module-section-card bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
         <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
-            <div class="flex items-center gap-3">
-                <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-600">
+            <div class="flex items-center">
+                <span class="flex items-center justify-center w-8 h-8 text-gray-600">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
                     </svg>
                 </span>
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900">Cuenta</h3>
+                    <h3 class="text-lg font-semibold text-gray-600">Cuenta</h3>
                 </div>
             </div>
         </summary>
@@ -153,12 +153,12 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
             </div>
 
             <div id="aa-account-session-section" class="pt-4 mt-4 border-t border-gray-100">
-                <h4 class="text-sm font-medium text-gray-900 mb-2">Sesión</h4>
+                <h4 class="text-sm font-medium text-gray-600 mb-2">Sesión</h4>
                 <a
                     href="<?php echo esc_url($aa_logout_url); ?>"
                     target="_top"
                     rel="noopener noreferrer"
-                    class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                    class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
                 >
                     Cerrar sesión
                 </a>
@@ -171,14 +171,14 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
     ═══════════════════════════════════════════════════════════════ -->
     <details id="aa-account-public-site-section" class="hidden aa-module-section-card bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
         <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
-            <div class="flex items-center gap-3">
-                <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-600">
+            <div class="flex items-center">
+                <span class="flex items-center justify-center w-8 h-8 text-gray-600">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
                     </svg>
                 </span>
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900">Sitio web público</h3>
+                    <h3 class="text-lg font-semibold text-gray-600">Sitio web público</h3>
                 </div>
             </div>
         </summary>
