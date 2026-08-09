@@ -18,8 +18,8 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
     <!-- ═══════════════════════════════════════════════════════════════
          SECCIÓN: Cuenta
     ═══════════════════════════════════════════════════════════════ -->
-    <div class="bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden">
-        <div class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white rounded-t-xl">
+    <details id="aa-account-section" class="aa-module-section-card bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
+        <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
             <div class="flex items-center gap-3">
                 <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-600">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -30,7 +30,7 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
                     <h3 class="text-lg font-semibold text-gray-900">Cuenta</h3>
                 </div>
             </div>
-        </div>
+        </summary>
 
         <div class="p-4 transition-all duration-200">
             <div id="aa-account-status-root" class="space-y-4">
@@ -164,7 +164,7 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
                 </a>
             </div>
         </div>
-    </div>
+    </details>
 
     <!-- ═══════════════════════════════════════════════════════════════
          SECCIÓN: Sitio web público

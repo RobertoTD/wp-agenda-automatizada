@@ -309,16 +309,19 @@ describe('expediente-registros cards (MC2b/MC3)', () => {
         assert.equal(cards[1].querySelector('time').textContent, '29/07/2026 10:00');
     });
 
-    it('estado vacío conserva mensaje y toolbar', () => {
+    it('estado vacío conserva mensaje y botón Nuevo registro', () => {
         const root = createEl('div');
+        const actions = createEl('div');
         api.__test__.setState({
             clientId: 1,
             recordsRoot: root,
+            actionsRoot: actions,
             records: []
         });
         api.__test__.renderRecordsList();
 
-        assert.ok(root.querySelector('.aa-expediente-registros-toolbar'));
+        assert.ok(actions.querySelector('.aa-expediente-nuevo-registro-btn'));
+        assert.equal(root.querySelector('.aa-expediente-registros-toolbar'), null);
         const empty = root.querySelector('.aa-expediente-registros-empty');
         assert.ok(empty);
         assert.match(empty.textContent, /Aún no hay registros/);

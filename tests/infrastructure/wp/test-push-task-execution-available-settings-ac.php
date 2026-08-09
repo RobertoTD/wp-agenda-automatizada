@@ -81,8 +81,8 @@ ac_assert(
 // ─── UI wiring ─────────────────────────────────────────────────────
 
 ac_assert(
-    'notifications subtitle mentions citas y tareas',
-    strpos($settings_ui_src, 'Avisos push para citas y tareas') !== false
+    'does not render notifications summary subtitle',
+    strpos($settings_ui_src, 'Avisos push para citas y tareas') === false
 );
 ac_assert(
     'does not render old citas-only subtitle',

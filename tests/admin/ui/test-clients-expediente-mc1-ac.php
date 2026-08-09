@@ -71,7 +71,8 @@ ac_assert('JS no inicia lista en expediente', preg_match('/function init\(\)\s*\
 ac_assert('JS botón Expediente presente', strpos($js, 'aa-btn-expediente-cliente') !== false);
 ac_assert('JS conserva Editar', strpos($js, 'aa-btn-editar-cliente') !== false && strpos($js, 'openEdit') !== false);
 ac_assert('JS stopPropagation en Expediente', substr_count($js, 'stopPropagation') >= 2);
-ac_assert('JS Volver a Clientes', strpos($js, 'Volver a Clientes') !== false);
+ac_assert('JS header Expediente con icono carpeta', strpos($js, "title.textContent = 'Expediente'") !== false && strpos($js, 'EXPEDIENTE_FOLDER_SVG') !== false);
+ac_assert('JS sin Volver a Clientes', strpos($js, 'Volver a Clientes') === false);
 ac_assert('JS empty state registros', strpos($js, 'Aún no hay registros en este expediente') !== false);
 ac_assert('JS buildExpedienteUrl usa moduleBaseUrl', strpos($js, 'moduleBaseUrl') !== false && strpos($js, "set('view', 'expediente')") !== false);
 ac_assert('JS fetch aa_get_cliente / getCliente', strpos($js, 'getCliente') !== false || strpos($js, 'aa_get_cliente') !== false);

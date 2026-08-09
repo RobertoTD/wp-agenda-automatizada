@@ -429,19 +429,16 @@
     }
 
     /* Expediente individual shell */
-    .aa-expediente-back-btn {
-        @apply inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium;
-        @apply text-gray-700 hover:text-gray-900 hover:bg-gray-100;
-        @apply border border-gray-200 rounded-md;
-        @apply transition-colors cursor-pointer;
-    }
-
     .aa-expediente-body {
         @apply text-sm;
     }
 
-    .aa-expediente-registros-toolbar {
-        @apply flex flex-wrap items-center gap-2 mb-3;
+    .aa-expediente-title-row {
+        @apply flex items-center justify-between gap-3;
+    }
+
+    .aa-expediente-actions {
+        @apply shrink-0;
     }
 
     .aa-expediente-nuevo-registro-btn {
@@ -455,7 +452,7 @@
     }
 
     .aa-expediente-registro {
-        @apply relative bg-white border border-gray-200 rounded-lg mb-2;
+        @apply relative bg-white border border-gray-200 rounded-lg mb-2 overflow-hidden;
     }
 
     .aa-expediente-registro-summary {
@@ -491,17 +488,6 @@
 
     .aa-expediente-registro-date {
         @apply text-gray-500 whitespace-nowrap;
-    }
-
-    /* Chevron aligned with client card language (not data-aa-card controller) */
-    .aa-expediente-registro-summary::after {
-        content: '';
-        @apply w-2 h-2 border-r-2 border-b-2 border-gray-400 shrink-0 mt-1.5;
-        @apply transform rotate-45 transition-transform duration-200;
-    }
-
-    .aa-expediente-registro[open] > .aa-expediente-registro-summary::after {
-        @apply -rotate-[135deg] mt-2;
     }
 
     .aa-expediente-registro[open] > .aa-expediente-registro-summary {

@@ -170,7 +170,6 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                             </span>
                             <div>
                                 <h3 class="text-lg font-semibold text-gray-900">Parámetros</h3>
-                                <p class="text-sm text-gray-500 mt-0.5">Duración y ventana de citas</p>
                             </div>
                         </div>
                     </div>
@@ -253,7 +252,6 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                         </span>
                         <div>
                             <h3 class="text-lg font-semibold text-gray-900">Datos del Negocio</h3>
-                            <p class="text-sm text-gray-500 mt-0.5">Información para confirmaciones y recordatorios</p>
                         </div>
                     </div>
                 </div>
@@ -349,7 +347,6 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                         </span>
                         <div>
                             <h3 class="text-lg font-semibold text-gray-900">Google Calendar</h3>
-                            <p class="text-sm text-gray-500 mt-0.5">Sincronizar con tu calendario de Google</p>
                         </div>
                     </div>
                 </div>
@@ -516,7 +513,6 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                         </span>
                         <div>
                             <h3 class="text-lg font-semibold text-gray-900">Notificaciones</h3>
-                            <p class="text-sm text-gray-500 mt-0.5">Avisos push para citas y tareas</p>
                         </div>
                     </div>
                 </div>

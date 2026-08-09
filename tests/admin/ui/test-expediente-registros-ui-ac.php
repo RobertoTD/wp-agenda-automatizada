@@ -58,11 +58,12 @@ ac_assert('openModal compartido', strpos($js, 'AAAdmin.openModal') !== false);
 ac_assert('clients-module solo monta', strpos($module, 'mountExpedienteRegistros') !== false);
 ac_assert('clients-module no define listRegistros fetch propio', strpos($module, 'aa_list_expediente_registros') === false);
 ac_assert('index script condicional vista expediente', preg_match('/if \(\$aa_clients_is_expediente\).*expediente-registros\.js/s', $index) === 1);
-ac_assert('CSS toolbar/nuevo/details', strpos($css, 'aa-expediente-nuevo-registro-btn') !== false && strpos($css, 'aa-expediente-registro') !== false);
+ac_assert('CSS nuevo registro / details', strpos($css, 'aa-expediente-nuevo-registro-btn') !== false && strpos($css, 'aa-expediente-registro') !== false);
 ac_assert('CSS folio y actions:empty', strpos($css, 'aa-expediente-registro-folio') !== false && strpos($css, 'aa-expediente-registro-actions:empty') !== false);
 ac_assert('CSS botón editar', strpos($css, 'aa-expediente-btn-editar') !== false);
 ac_assert('CSS botón eliminar (MC5c2)', strpos($css, 'aa-expediente-btn-eliminar') !== false);
-ac_assert('CSS chevron details[open]', strpos($css, '.aa-expediente-registro-summary::after') !== false && strpos($css, '.aa-expediente-registro[open]') !== false);
+ac_assert('CSS summary sin chevron ::after', strpos($css, '.aa-expediente-registro-summary::after') === false);
+ac_assert('CSS open summary border', strpos($css, '.aa-expediente-registro[open]') !== false);
 ac_assert('main.js sin cambios expediente registros', strpos($main, 'ExpedienteRegistros') === false && strpos($main, 'aa_list_expediente') === false);
 
 // Runtime: lista no carga script ni actions de registros

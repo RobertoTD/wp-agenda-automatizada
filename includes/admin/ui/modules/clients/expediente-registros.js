@@ -399,6 +399,7 @@
     var state = {
         clientId: 0,
         recordsRoot: null,
+        actionsRoot: null,
         records: [],
         loading: false
     };
@@ -1200,6 +1201,7 @@
 
         state.records = [];
         state.recordsRoot = null;
+        state.actionsRoot = null;
         state.clientId = 0;
         state.loading = false;
     }
@@ -1996,9 +1998,9 @@
         prepareThumbsForRender();
 
         clearNode(state.recordsRoot);
-
-        var toolbar = document.createElement('div');
-        toolbar.className = 'aa-expediente-registros-toolbar';
+        if (state.actionsRoot) {
+            clearNode(state.actionsRoot);
+        }
 
         var newBtn = document.createElement('button');
         newBtn.type = 'button';
@@ -2008,8 +2010,11 @@
             event.preventDefault();
             openCreateForm(newBtn);
         });
-        toolbar.appendChild(newBtn);
-        state.recordsRoot.appendChild(toolbar);
+        if (state.actionsRoot) {
+            state.actionsRoot.appendChild(newBtn);
+        } else {
+            state.recordsRoot.appendChild(newBtn);
+        }
 
         if (!state.records.length) {
             var empty = document.createElement('p');
@@ -2991,7 +2996,7 @@
     }
 
     /**
-     * @param {{clientId:number, recordsRoot:HTMLElement}} options
+     * @param {{clientId:number, recordsRoot:HTMLElement, actionsRoot?:HTMLElement|null}} options
      */
     function init(options) {
         // Libera recursos de cualquier montaje previo antes de re-montar.
@@ -3010,6 +3015,7 @@
 
         state.clientId = clientId;
         state.recordsRoot = options.recordsRoot;
+        state.actionsRoot = options.actionsRoot || null;
         state.records = [];
 
         loadRecords();

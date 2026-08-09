@@ -49,18 +49,6 @@
         }
     }
 
-    function getListUrl() {
-        var data = getClientsData();
-        return data.listUrl || data.moduleBaseUrl || '';
-    }
-
-    function navigateToList() {
-        var listUrl = getListUrl();
-        if (listUrl) {
-            window.location.href = listUrl;
-        }
-    }
-
     /**
      * Renderizar una tarjeta de cliente
      */
@@ -508,18 +496,6 @@
         });
     }
 
-    function createBackButton() {
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'aa-expediente-back-btn';
-        btn.textContent = 'Volver a Clientes';
-        btn.addEventListener('click', function(event) {
-            event.preventDefault();
-            navigateToList();
-        });
-        return btn;
-    }
-
     function renderExpedienteShell(root, contentNode) {
         // MC4c: liberar observer/firmas/caché del montaje anterior antes de
         // sustituir el shell (loading, error o cliente nuevo).
@@ -533,8 +509,24 @@
         panel.className = 'aa-expediente-panel bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden';
 
         var header = document.createElement('div');
-        header.className = 'px-4 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white';
-        header.appendChild(createBackButton());
+        header.className = 'px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white rounded-t-xl';
+
+        var headerInner = document.createElement('div');
+        headerInner.className = 'flex items-center gap-3';
+
+        var iconWrap = document.createElement('span');
+        iconWrap.className = 'flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-600';
+        iconWrap.innerHTML = EXPEDIENTE_FOLDER_SVG;
+
+        var titleWrap = document.createElement('div');
+        var title = document.createElement('h3');
+        title.className = 'text-lg font-semibold text-gray-900';
+        title.textContent = 'Expediente';
+        titleWrap.appendChild(title);
+
+        headerInner.appendChild(iconWrap);
+        headerInner.appendChild(titleWrap);
+        header.appendChild(headerInner);
         panel.appendChild(header);
 
         var body = document.createElement('div');
@@ -573,49 +565,39 @@
         var wrap = document.createElement('div');
         wrap.className = 'aa-expediente-content space-y-4';
 
-        var eyebrow = document.createElement('p');
-        eyebrow.className = 'text-xs font-medium uppercase tracking-wide text-gray-500';
-        eyebrow.textContent = 'Expediente';
+        var titleRow = document.createElement('div');
+        titleRow.className = 'aa-expediente-title-row flex items-center justify-between gap-3';
 
         var name = document.createElement('h2');
-        name.className = 'text-xl font-semibold text-gray-900';
+        name.className = 'text-xl font-semibold text-gray-900 min-w-0';
         name.textContent = cliente.nombre || 'Sin nombre';
 
-        var meta = document.createElement('div');
-        meta.className = 'aa-expediente-meta space-y-1 text-sm text-gray-600';
+        var actions = document.createElement('div');
+        actions.id = 'aa-expediente-actions';
+        actions.className = 'aa-expediente-actions shrink-0';
 
-        if (cliente.telefono) {
-            var tel = document.createElement('p');
-            tel.textContent = 'Teléfono: ' + cliente.telefono;
-            meta.appendChild(tel);
-        }
-
-        if (cliente.correo) {
-            var mail = document.createElement('p');
-            mail.textContent = 'Correo: ' + cliente.correo;
-            meta.appendChild(mail);
-        }
+        titleRow.appendChild(name);
+        titleRow.appendChild(actions);
 
         var records = document.createElement('div');
         records.id = 'aa-expediente-registros';
-        records.className = 'aa-expediente-registros mt-4 pt-4 border-t border-gray-100';
+        records.className = 'aa-expediente-registros mt-4 pt-4';
 
-        wrap.appendChild(eyebrow);
-        wrap.appendChild(name);
-        wrap.appendChild(meta);
+        wrap.appendChild(titleRow);
         wrap.appendChild(records);
 
         renderExpedienteShell(root, wrap);
 
-        mountExpedienteRegistros(cliente.id, records);
+        mountExpedienteRegistros(cliente.id, records, actions);
     }
 
-    function mountExpedienteRegistros(clientId, recordsRoot) {
+    function mountExpedienteRegistros(clientId, recordsRoot, actionsRoot) {
         function tryMount(attemptsLeft) {
             if (window.AAAdmin && window.AAAdmin.ExpedienteRegistros && typeof window.AAAdmin.ExpedienteRegistros.init === 'function') {
                 window.AAAdmin.ExpedienteRegistros.init({
                     clientId: clientId,
-                    recordsRoot: recordsRoot
+                    recordsRoot: recordsRoot,
+                    actionsRoot: actionsRoot || null
                 });
                 return;
             }
