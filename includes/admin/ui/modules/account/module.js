@@ -364,7 +364,7 @@
             return;
         }
         el.textContent = text;
-        el.className = 'rounded-lg border p-4 text-sm ' + className;
+        el.className = 'text-sm ' + className;
     }
 
     function renderMessages(listEl, messages) {
@@ -440,16 +440,13 @@
     }
 
     function setBillingSummaryVisible(visible) {
-        var badgeEl = getEl('aa-account-status-badge');
-        var summaryEl = badgeEl ? badgeEl.closest('.flex.flex-wrap') : null;
-        var planGridEl = getEl('aa-account-plan') ? getEl('aa-account-plan').closest('dl') : null;
+        var summaryEl = getEl('aa-account-billing-summary');
         var billingActionEl = getEl('aa-account-billing-action');
         var upgradeSectionEl = getEl('aa-account-upgrade-section');
         var noticeEl = getEl('aa-account-notice');
         var messagesEl = getEl('aa-account-messages');
 
         setHidden(summaryEl, !visible);
-        setHidden(planGridEl, !visible);
         setHidden(billingActionEl, !visible);
         setHidden(upgradeSectionEl, !visible);
 
@@ -472,12 +469,12 @@
         var accessEl = getEl('aa-account-access');
         var noticeEl = getEl('aa-account-notice');
         var messagesEl = getEl('aa-account-messages');
-        var noticeClass = 'border-amber-200 bg-amber-50 text-amber-800';
+        var noticeClass = 'rounded-lg border p-4 border-amber-200 bg-amber-50 text-amber-800';
 
         switch (presentation.view) {
             case VIEW.SYNC_PENDING:
                 setBadge(badgeEl, presentation.badgeLabel, 'bg-gray-100 text-gray-700 border-gray-200');
-                noticeClass = 'border-gray-200 bg-gray-50 text-gray-700';
+                noticeClass = 'rounded-lg border p-4 border-gray-200 bg-gray-50 text-gray-700';
                 break;
 
             case VIEW.PAYMENT_PENDING:
@@ -486,13 +483,13 @@
 
             case VIEW.CANCEL_SCHEDULED:
                 setBadge(badgeEl, presentation.badgeLabel, 'bg-emerald-50 text-emerald-700 border-emerald-200');
-                noticeClass = 'border-blue-200 bg-blue-50 text-blue-800';
+                noticeClass = 'rounded-lg border p-4 border-blue-200 bg-blue-50 text-blue-800';
                 break;
 
             case VIEW.ACTIVE:
                 setBadge(badgeEl, presentation.badgeLabel, 'bg-emerald-50 text-emerald-700 border-emerald-200');
                 if (isFreemiumActiveAccount(status)) {
-                    noticeClass = 'border-gray-200 bg-gray-50 text-gray-700';
+                    noticeClass = 'text-gray-600';
                 }
                 break;
 
@@ -1073,7 +1070,7 @@
                 setNotice(
                     getEl('aa-account-notice'),
                     errorUi.text,
-                    'border-gray-200 bg-gray-50 text-gray-700'
+                    'rounded-lg border p-4 border-gray-200 bg-gray-50 text-gray-700'
                 );
                 renderAccountStatusActions(getEl('aa-account-notice-actions'), errorUi.actions);
             }

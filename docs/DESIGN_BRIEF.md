@@ -33,15 +33,19 @@ Consultar antes de crear o refactorizar componentes UI.
 
 #### Primary / Marca (Acento principal — Índigo)
 El color primario de la app es un **índigo desaturado y oscuro** (no el azul brillante).
-Se usa en acciones primarias (botones sólidos), estados interactivos (toggles, checkboxes),
+Se usa en acciones primarias (botones sólidos), estados interactivos (toggles / switches / checkboxes),
 focus rings, y el resaltado de navegación activa.
+
+**Regla adoptada — toggles y checkboxes:** el estado *checked* / *on* usa siempre
+`--aa-indigo-600` (`bg-indigo-600` / `peer-checked:bg-indigo-600`). No usar emerald,
+verde de éxito u otros acentos para el track activo de un switch.
 ```
 --aa-indigo-50:  #eef2ff   /* Fondos/hover muy suaves, nav activa */
 --aa-indigo-100: #e0e7ff   /* Chips/íconos de marca */
 --aa-indigo-200: #c7d2fe   /* Bordes sutiles de botón ghost de marca */
 --aa-indigo-300: #a5b4fc   /* Estado disabled de botón primario */
 --aa-indigo-500: #6366f1   /* Focus ring, badges pequeños */
---aa-indigo-600: #4f46e5   /* Fondo botón primario / acento base */
+--aa-indigo-600: #4f46e5   /* Fondo botón primario / track ON de toggle-checkbox / acento base */
 --aa-indigo-700: #4338ca   /* Hover botón primario */
 --aa-indigo-800: #3730a3   /* Active/pressed botón primario */
 ```
@@ -275,7 +279,29 @@ line-height: 1.4;
 .badge-info      { background: #dbeafe; color: #1e40af; }
 ```
 
-### 3.5 Headers de Columnas (Timeline)
+### 3.5 Toggles / Switches / Checkboxes
+
+Controles binarios on/off (switch de fila en Asignaciones, notificaciones en Settings, etc.).
+
+**Color adoptado (checked / ON):** índigo primario — `indigo-600` (`#4f46e5`).
+Referencia canónica en UI: switches de Personal / Áreas / Servicios (`peer-checked:bg-indigo-600`).
+
+```
+/* Track */
+OFF: bg-gray-300
+ON:  peer-checked:bg-indigo-600   /* ← color adoptado; no emerald ni green */
+
+/* Thumb (peer pattern) */
+bg-white + translate cuando checked
+```
+
+Clases Tailwind de referencia:
+`bg-gray-300 peer-checked:bg-indigo-600 rounded-full transition-colors`
+
+Todo toggle/checkbox nuevo debe heredar este tono. El verde (`emerald` / `green`) queda
+reservado a badges y botones de éxito, no al track activo del switch.
+
+### 3.6 Headers de Columnas (Timeline)
 
 ```css
 /* Container */
@@ -290,7 +316,7 @@ white-space: nowrap;
 overflow: hidden;
 ```
 
-### 3.6 Toolbar / Control Bar
+### 3.7 Toolbar / Control Bar
 
 Las toolbars son filas de controles que permiten al usuario operar sobre el contenido de una vista (navegar, filtrar, crear, etc.). Su diseño debe reducir el "UI clutter" y comunicar jerarquía clara.
 
@@ -328,7 +354,7 @@ Las toolbars son filas de controles que permiten al usuario operar sobre el cont
 ✅ Jerarquía clara: contexto → acciones secundarias → acción principal.
 ✅ Un solo radio consistente para elementos de la misma familia.
 
-### 3.7 Tertiary / Ghost Buttons (Icon Buttons)
+### 3.8 Tertiary / Ghost Buttons (Icon Buttons)
 
 Los botones ghost o terciarios son acciones de **baja prominencia** pero **alta disponibilidad**. Típicamente usados para icon buttons frecuentes en dashboards.
 
@@ -436,6 +462,7 @@ z-index: 300  - Card en overlay global
 - Headers de área sin contenedor visual
 - Botones con estilos diferentes (radios, alturas)
 - Transiciones duras sin ease
+- Toggles/checkboxes con track ON en emerald/green (usar indigo-600)
 
 ✅ **SÍ hacer:**
 - Barra lateral delgada (3px) para indicar estado
@@ -445,6 +472,7 @@ z-index: 300  - Card en overlay global
 - Headers con fondo y borde inferior
 - Botones uniformes en mismo contexto
 - Transiciones suaves de 150-200ms
+- Switches checked con `peer-checked:bg-indigo-600`
 
 ---
 
@@ -478,6 +506,7 @@ Antes de mergear cambios UI, verificar:
 - [ ] Colores de área muy tenues (alpha < 0.1)
 - [ ] Headers de columna con contenedor visual
 - [ ] Botones con mismo alto/radio/estilo
+- [ ] Toggles/checkboxes ON en indigo-600 (no emerald/green)
 - [ ] Transiciones de 150-200ms
 - [ ] Z-index respetando la escala
 - [ ] Sombras usando la escala definida
@@ -485,5 +514,5 @@ Antes de mergear cambios UI, verificar:
 
 ---
 
-*Última actualización: Agosto 2026 — color primario/marca migrado de azul (#3b82f6) a índigo (#4f46e5); el azul queda reservado solo para el estado "info".*
+*Última actualización: Agosto 2026 — color primario/marca migrado de azul (#3b82f6) a índigo (#4f46e5); el azul queda reservado solo para el estado "info". Track ON de toggles/checkboxes adoptado como indigo-600 (Settings alineado con Asignaciones).*
 *Mantener sincronizado con cambios de sistema de diseño*

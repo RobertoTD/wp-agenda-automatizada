@@ -64,7 +64,7 @@ $module_js_url = $plugin_url . 'assignments-module.js?ver=' . rawurlencode($ver)
          SECCIÓN: Zonas de atención
     ═══════════════════════════════════════════════════════════════ -->
     <details class="aa-module-section-card bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
-        <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
+        <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none" title="Áreas donde se realizan las citas.">
             <div class="flex items-center justify-between gap-3">
                 <div class="flex items-center gap-3">
                     <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-green-100 text-green-600">
@@ -75,7 +75,6 @@ $module_js_url = $plugin_url . 'assignments-module.js?ver=' . rawurlencode($ver)
                     </span>
                     <div>
                         <h3 class="text-lg font-semibold text-gray-900">Zonas de atención</h3>
-                        <p class="text-sm text-gray-500 mt-0.5">Define áreas, consultorios o zonas donde se prestan servicios.</p>
                     </div>
                 </div>
             </div>
@@ -104,7 +103,7 @@ $module_js_url = $plugin_url . 'assignments-module.js?ver=' . rawurlencode($ver)
          SECCIÓN: Personal
     ═══════════════════════════════════════════════════════════════ -->
     <details class="aa-module-section-card bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
-        <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
+        <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none" title="Personal que atiende las citas.">
             <div class="flex items-center justify-between gap-3">
                 <div class="flex items-center gap-3">
                     <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-600">
@@ -114,7 +113,6 @@ $module_js_url = $plugin_url . 'assignments-module.js?ver=' . rawurlencode($ver)
                     </span>
                     <div>
                         <h3 class="text-lg font-semibold text-gray-900">Personal</h3>
-                        <p class="text-sm text-gray-500 mt-0.5">Personal que atiende las citas.</p>
                     </div>
                 </div>
             </div>
@@ -143,7 +141,7 @@ $module_js_url = $plugin_url . 'assignments-module.js?ver=' . rawurlencode($ver)
          SECCIÓN: Servicios
     ═══════════════════════════════════════════════════════════════ -->
     <details class="aa-module-section-card bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
-        <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
+        <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none" title="Servicios que los clientes pueden reservar.">
             <div class="flex items-center justify-between gap-3">
                 <div class="flex items-center gap-3">
                     <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-purple-100 text-purple-600">
@@ -153,7 +151,6 @@ $module_js_url = $plugin_url . 'assignments-module.js?ver=' . rawurlencode($ver)
                     </span>
                     <div>
                         <h3 class="text-lg font-semibold text-gray-900">Servicios</h3>
-                        <p class="text-sm text-gray-500 mt-0.5">Servicios que los clientes pueden reservar.</p>
                     </div>
                 </div>
             </div>

@@ -28,7 +28,6 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
                 </span>
                 <div>
                     <h3 class="text-lg font-semibold text-gray-900">Cuenta</h3>
-                    <p class="text-sm text-gray-500 mt-0.5">Gestiona el acceso, suscripción y datos principales de esta agenda.</p>
                 </div>
             </div>
         </div>
@@ -41,23 +40,25 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
                 </div>
 
                 <div id="aa-account-status-content" class="hidden space-y-4">
-                    <div class="flex flex-wrap items-center gap-2">
-                        <span
-                            id="aa-account-status-badge"
-                            class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border"
-                        ></span>
+                    <div id="aa-account-billing-summary" class="grid grid-cols-3 gap-3 items-start">
+                        <div class="min-w-0">
+                            <div class="text-sm text-gray-500">Estado</div>
+                            <div class="mt-0.5 flex flex-wrap items-center gap-2">
+                                <span
+                                    id="aa-account-status-badge"
+                                    class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border"
+                                ></span>
+                            </div>
+                        </div>
+                        <div class="min-w-0">
+                            <div class="text-sm text-gray-500">Plan</div>
+                            <div id="aa-account-plan" class="text-sm font-medium text-gray-900 mt-0.5">—</div>
+                        </div>
+                        <div class="min-w-0">
+                            <div class="text-sm text-gray-500">Acceso actual</div>
+                            <div id="aa-account-access" class="text-sm font-medium text-gray-900 mt-0.5">—</div>
+                        </div>
                     </div>
-
-                    <dl class="grid gap-3 sm:grid-cols-2">
-                        <div>
-                            <dt class="text-sm text-gray-500">Plan</dt>
-                            <dd id="aa-account-plan" class="text-sm font-medium text-gray-900 mt-0.5">—</dd>
-                        </div>
-                        <div>
-                            <dt class="text-sm text-gray-500">Acceso actual</dt>
-                            <dd id="aa-account-access" class="text-sm font-medium text-gray-900 mt-0.5">—</dd>
-                        </div>
-                    </dl>
 
                     <div id="aa-account-upgrade-return-notice" class="hidden rounded-lg border p-4 text-sm"></div>
 
@@ -70,7 +71,7 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
                             <p id="aa-account-benefit-quotas-unavailable" class="hidden text-sm text-gray-500 mt-2"></p>
                         </div>
 
-                        <div id="aa-account-notice" class="hidden rounded-lg border p-4 text-sm"></div>
+                        <div id="aa-account-notice" class="hidden text-sm"></div>
                         <div id="aa-account-notice-actions" class="hidden flex flex-col gap-2"></div>
 
                     <div id="aa-account-upgrade-section" class="hidden space-y-4">
@@ -142,36 +143,6 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
                         </p>
                         <p id="aa-account-billing-error" class="hidden text-sm text-red-700 mt-2"></p>
                     </div>
-
-                    <div id="aa-account-public-site-section" class="hidden pt-4 border-t border-gray-100">
-                        <h4 class="text-sm font-medium text-gray-900 mb-2">Sitio web público</h4>
-                        <p class="text-sm text-gray-600">
-                            <span class="text-gray-500">Estado:</span>
-                            <span id="aa-account-public-site-status" class="font-medium text-gray-900"></span>
-                        </p>
-                        <div id="aa-account-public-site-action" class="hidden mt-3">
-                            <button
-                                type="button"
-                                id="aa-account-public-site-activate-button"
-                                disabled
-                                class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-violet-600 text-white opacity-60 cursor-not-allowed"
-                            >
-                                Activar sitio web
-                            </button>
-                            <p id="aa-account-public-site-help" class="text-sm text-gray-500 mt-2">
-                                Disponible cuando el sitio web esté configurado.
-                            </p>
-                        </div>
-                        <a
-                            id="aa-account-public-site-preview-link"
-                            href="#"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="hidden inline-flex items-center mt-3 text-sm font-medium text-violet-700 hover:text-violet-800"
-                        >
-                            Ver sitio web público
-                        </a>
-                    </div>
                 </div>
 
                 <div id="aa-account-status-error" class="hidden rounded-lg border border-gray-200 bg-gray-50 p-4">
@@ -194,6 +165,53 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
             </div>
         </div>
     </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         SECCIÓN: Sitio web público
+    ═══════════════════════════════════════════════════════════════ -->
+    <details id="aa-account-public-site-section" class="hidden aa-module-section-card bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
+        <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
+            <div class="flex items-center gap-3">
+                <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-600">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
+                    </svg>
+                </span>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">Sitio web público</h3>
+                </div>
+            </div>
+        </summary>
+
+        <div class="p-4 transition-all duration-200 space-y-3">
+            <p class="text-sm text-gray-600">
+                <span class="text-gray-500">Estado:</span>
+                <span id="aa-account-public-site-status" class="font-medium text-gray-900"></span>
+            </p>
+            <div id="aa-account-public-site-action" class="hidden">
+                <button
+                    type="button"
+                    id="aa-account-public-site-activate-button"
+                    disabled
+                    class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-violet-600 text-white opacity-60 cursor-not-allowed"
+                >
+                    Activar sitio web
+                </button>
+                <p id="aa-account-public-site-help" class="text-sm text-gray-500 mt-2">
+                    Disponible cuando el sitio web esté configurado.
+                </p>
+            </div>
+            <a
+                id="aa-account-public-site-preview-link"
+                href="#"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="hidden inline-flex items-center text-sm font-medium text-violet-700 hover:text-violet-800"
+            >
+                Ver sitio web público
+            </a>
+        </div>
+    </details>
 
     <?php /* Tarjeta "Capacitación DEOIA" ocultada a propósito: no se renderiza aquí.
              El curso sigue activo y accesible por su propia URL/módulo (training).

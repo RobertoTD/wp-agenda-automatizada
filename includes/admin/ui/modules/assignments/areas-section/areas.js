@@ -103,10 +103,10 @@
             
             html += '<li class="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">';
             // Main content row (header)
-            html += '<div class="aa-area-header-toggle flex items-center gap-2 p-3 cursor-pointer" data-area-id="' + areaId + '">';
+            html += '<div class="aa-area-header-toggle flex items-center gap-1.5 p-3 cursor-pointer" data-area-id="' + areaId + '">';
             // Color indicator circle
             const areaColor = area.color || '#3b82f6';
-            html += '<span class="aa-area-color-bg flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0" style="background-color: ' + areaColor + '20;">';
+            html += '<span class="aa-area-color-bg flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0">';
             html += '<span class="aa-area-color-indicator w-4 h-4 rounded-full border-2 border-white shadow-sm" style="background-color: ' + areaColor + ';"></span>';
             html += '</span>';
             html += '<span class="text-sm font-medium text-gray-900">' + escapeHtml(area.name) + '</span>';
@@ -390,10 +390,6 @@
                     const colorIndicator = card.querySelector('.aa-area-color-indicator');
                     if (colorIndicator) {
                         colorIndicator.style.backgroundColor = newColor;
-                        const parentBg = card.querySelector('.aa-area-color-bg');
-                        if (parentBg) {
-                            parentBg.style.backgroundColor = newColor + '20';
-                        }
                     }
                 }
                 
@@ -409,10 +405,6 @@
                     const colorIndicator = card.querySelector('.aa-area-color-indicator');
                     if (colorIndicator) {
                         colorIndicator.style.backgroundColor = defaultColor;
-                        const parentBg = card.querySelector('.aa-area-color-bg');
-                        if (parentBg) {
-                            parentBg.style.backgroundColor = defaultColor + '20';
-                        }
                     }
                 }
                 

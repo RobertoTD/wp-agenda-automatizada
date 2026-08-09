@@ -42,27 +42,19 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                     </span>
                     <h3 class="text-base font-semibold text-gray-900">Citas</h3>
                 </div>
-                <div class="flex items-center gap-2 flex-shrink-0">
-                    <a
-                        href="<?php echo esc_url(admin_url('admin-post.php?action=aa_iframe_content&module=calendar')); ?>"
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors"
-                    >
-                        Ir a agenda
-                    </a>
-                </div>
             </div>
         </div>
         <div id="aa-dash-citas-body" class="hidden" data-aa-dashboard-collapse-body>
             <div id="aa-dash-citas-cards" class="p-4 space-y-3">
 
-            <!-- 1. Próxima cita (abierta por defecto) -->
-            <div class="aa-dash-collapse rounded-xl border border-gray-200 overflow-hidden is-open" data-aa-dashboard-collapse>
+            <!-- 1. Próxima cita -->
+            <div class="aa-dash-collapse rounded-xl border border-gray-200 overflow-hidden" data-aa-dashboard-collapse>
                 <div
                     class="aa-dash-collapse-toggle px-4 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer select-none"
                     data-aa-dashboard-collapse-toggle
                     role="button"
                     tabindex="0"
-                    aria-expanded="true"
+                    aria-expanded="false"
                     aria-controls="aa-dash-collapse-next-body"
                 >
                     <div class="flex items-center justify-between gap-2">
@@ -76,7 +68,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                         </div>
                     </div>
                 </div>
-                <div id="aa-dash-collapse-next-body" data-aa-dashboard-collapse-body>
+                <div id="aa-dash-collapse-next-body" class="hidden" data-aa-dashboard-collapse-body>
                     <div id="aa-dash-next-appointment" class="p-4">
                         <div class="flex items-start gap-3">
                             <div class="flex items-center justify-center w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex-shrink-0">

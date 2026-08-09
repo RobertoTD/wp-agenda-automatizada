@@ -123,8 +123,8 @@
             
             html += '<li class="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">';
             // Main content row
-            html += '<div class="aa-service-header-toggle flex items-center gap-2 p-3 cursor-pointer" data-service-id="' + serviceId + '">';
-            html += '<span class="flex items-center justify-center w-8 h-8 rounded-lg bg-purple-100 text-purple-600 flex-shrink-0">';
+            html += '<div class="aa-service-header-toggle flex items-center gap-1.5 p-3 cursor-pointer" data-service-id="' + serviceId + '">';
+            html += '<span class="flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 flex-shrink-0">';
             html += '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
             html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>';
             html += '</svg>';

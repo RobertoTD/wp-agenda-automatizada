@@ -544,7 +544,6 @@
             const areaLeftPercent = contentLeftPercent + (areaIndex * areaWidthPercent);
 
             const baseColor = firstAssignment.service_area_color || null;
-            const borderColor = hexToRgba(baseColor, 0.3);
             const textColor = hexToDarker(baseColor);
 
             const areaBorder = document.createElement('div');
@@ -558,14 +557,12 @@
                 left: areaLeftPercent + '%',
                 width: areaWidthPercent + '%',
                 height: '15px',
-                backgroundColor: TOKENS.gray50,
                 borderRadius: '0',
                 boxSizing: 'border-box',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                zIndex: '10',
-                borderBottom: `2px solid ${borderColor}`
+                zIndex: '10'
             });
 
             const areaNameText = document.createElement('span');

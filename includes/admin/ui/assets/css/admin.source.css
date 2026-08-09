@@ -102,11 +102,6 @@
         display: none;
     }
 
-    /* Executable feed — botón + tarea oculto con lista abierta */
-    details.aa-executable-list-card[open] .aa-executable-list-add-task {
-        display: none;
-    }
-
     /* Executable feed — métricas temporales ocultas con lista abierta */
     details.aa-executable-list-card[open] > summary .aa-executable-list-summary {
         display: none;
@@ -114,6 +109,9 @@
 
     details.aa-executable-list-card > summary {
         position: relative;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
     }
 
     /* Executable feed — card lista: overflow visible para menús ⋮ (MC-UX-A) */

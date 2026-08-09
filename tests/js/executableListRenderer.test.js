@@ -2670,7 +2670,7 @@ describe('executableListRenderer add-task button and chevron placement', () => {
         assert.equal(renderer.isUserManualList(null), false);
     });
 
-    it('lista user manual renderiza botón + tarea con data-aa-list-add-task', () => {
+    it('lista user manual no renderiza botón + tarea en header; sí en menú de opciones', () => {
         var html = renderer.renderList(baseList({
             id: '7',
             source: 'user',
@@ -2680,9 +2680,9 @@ describe('executableListRenderer add-task button and chevron placement', () => {
             buckets: [{ key: 'default', label: '', items: [] }]
         }));
 
-        assert.match(html, /data-aa-list-add-task="1"/);
-        assert.match(html, /aa-executable-list-add-task/);
-        assert.match(html, />\+ Tarea</);
+        assert.doesNotMatch(html, /aa-executable-list-add-task/);
+        assert.doesNotMatch(html, /class="[^"]*aa-executable-list-add-task/);
+        assert.match(html, /role="menuitem"[\s\S]*?data-aa-list-add-task="1"/);
         assert.match(html, /data-aa-list-add-task="1"[^>]*data-list-id="7"/);
     });
 
@@ -2752,7 +2752,7 @@ describe('executableListRenderer add-task button and chevron placement', () => {
         );
     });
 
-    it('+ tarea y opciones de lista no se renderizan simultáneamente en el mismo contenedor', () => {
+    it('header de lista manual no incluye botón + tarea junto a opciones', () => {
         var html = renderer.renderList(baseList({
             id: '7',
             source: 'user',
@@ -2762,15 +2762,14 @@ describe('executableListRenderer add-task button and chevron placement', () => {
             buckets: [{ key: 'default', label: '', items: [] }]
         }));
 
-        assert.match(html, /aa-executable-list-add-task/);
+        assert.doesNotMatch(html, /aa-executable-list-add-task/);
         assert.match(html, /aa-executable-list-options/);
     });
 
-    it('CSS oculta + tarea con lista abierta', () => {
+    it('CSS no define regla de ocultar botón header + tarea', () => {
         var css = fs.readFileSync(adminSourceCssPath, 'utf8');
 
-        assert.match(css, /details\.aa-executable-list-card\[open\] \.aa-executable-list-add-task/);
-        assert.match(css, /display:\s*none/);
+        assert.doesNotMatch(css, /details\.aa-executable-list-card\[open\] \.aa-executable-list-add-task/);
     });
 
     it('CSS existente oculta opciones con lista cerrada', () => {
@@ -3184,7 +3183,6 @@ describe('executableListRenderer list temporal summary + renderable collection',
         assert.doesNotMatch(summaryBlock, /\+ Tarea/);
         assert.match(html, /aa-executable-list-source-label/);
         assert.match(html, /data-aa-list-details-toggle/);
-        assert.match(html, /aa-executable-list-add-task/);
         assert.match(html, /aa-executable-list-options-trigger/);
     });
 

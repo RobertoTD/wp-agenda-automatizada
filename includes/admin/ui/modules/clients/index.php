@@ -54,7 +54,6 @@ $aa_expediente_access_allowed = false;
                     </span>
                     <div>
                         <h3 class="text-lg font-semibold text-gray-900">Clientes</h3>
-                        <p class="text-sm text-gray-500 mt-0.5">Crea, busca o edita clientes</p>
                     </div>
                 </div>
             </div>

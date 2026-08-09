@@ -727,12 +727,6 @@ details.aa-executable-list-card:not([open]) .aa-executable-list-options {
   display: none;
 }
 
-/* Executable feed — botón + tarea oculto con lista abierta */
-
-details.aa-executable-list-card[open] .aa-executable-list-add-task {
-  display: none;
-}
-
 /* Executable feed — métricas temporales ocultas con lista abierta */
 
 details.aa-executable-list-card[open] > summary .aa-executable-list-summary {
@@ -741,6 +735,10 @@ details.aa-executable-list-card[open] > summary .aa-executable-list-summary {
 
 details.aa-executable-list-card > summary {
   position: relative;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+       user-select: none;
 }
 
 /* Executable feed — card lista: overflow visible para menús ⋮ (MC-UX-A) */
@@ -2538,21 +2536,6 @@ body.aa-modal-open {
 
 /* Toolbar container - flexible row with spacing */
 
-.aa-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-left: 0.25rem;
-  margin-right: 0.25rem;
-  margin-top: 0.75rem;
-  margin-bottom: 0.75rem;
-  padding-left: 0.75rem;
-  padding-right: 0.75rem;
-  padding-top: 0.5rem;
-  padding-bottom: 0.5rem;
-}
-
 /* ═══════════════════════════════════════════════════════════════
        DATE NAVIGATOR - Unified segmented control for date navigation
     ═══════════════════════════════════════════════════════════════ */
@@ -3186,11 +3169,6 @@ body.aa-modal-open {
   transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
 }
 
-.rotate-90 {
-  --tw-rotate: 90deg;
-  transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
-}
-
 .transform {
   transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
 }
@@ -3241,6 +3219,10 @@ body.aa-modal-open {
 
 .grid-cols-2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.grid-cols-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .flex-col {
@@ -4860,11 +4842,6 @@ body.aa-modal-open {
   transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
 }
 
-.peer:checked ~ .peer-checked\:bg-emerald-500 {
-  --tw-bg-opacity: 1;
-  background-color: rgb(16 185 129 / var(--tw-bg-opacity, 1));
-}
-
 .peer:checked ~ .peer-checked\:bg-indigo-600 {
   --tw-bg-opacity: 1;
   background-color: rgb(79 70 229 / var(--tw-bg-opacity, 1));
@@ -4877,10 +4854,6 @@ body.aa-modal-open {
 
   .sm\:w-auto {
     width: auto;
-  }
-
-  .sm\:grid-cols-2 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .sm\:flex-row {

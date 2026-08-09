@@ -1853,25 +1853,6 @@
 
     /**
      * @param {object} list
-     * @param {string} listId
-     * @returns {string}
-     */
-    function renderListAddTaskButton(list, listId) {
-        if (!isUserManualList(list)) {
-            return '';
-        }
-
-        return ''
-            + '<button type="button"'
-            + ' data-aa-list-add-task="1"'
-            + ' data-list-id="' + listId + '"'
-            + ' class="aa-executable-list-add-task inline-flex items-center px-2.5 py-1 text-xs font-medium text-gray-500 hover:text-gray-700 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors shrink-0">'
-            + '+ Tarea'
-            + '</button>';
-    }
-
-    /**
-     * @param {object} list
      * @param {object} [options]
      * @param {number} [listIndex]
      * @returns {string}
@@ -1907,10 +1888,8 @@
             ? renderListDetailsBlock(list, listIdAttr)
             : '';
         var optionsMenuHtml = renderListOptionsMenu(capabilities, list);
-        var addTaskHtml = renderListAddTaskButton(list, listId);
         var headerActionsHtml = ''
             + '<div class="flex items-center gap-1 shrink-0">'
-            + addTaskHtml
             + optionsMenuHtml
             + '</div>';
         var headerGradient = 'from-gray-50 to-white';

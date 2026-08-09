@@ -54,7 +54,7 @@
             gridTemplateColumns: 'auto 1fr',
             gridAutoRows: ROW_HEIGHT + 'px',
             borderRadius: '0',
-            borderTop: `15px solid ${TOKENS.gray100}`, // Header bar
+            borderTop: '0',
             paddingTop: '2px',
             backgroundColor: '#ffffff'
         });

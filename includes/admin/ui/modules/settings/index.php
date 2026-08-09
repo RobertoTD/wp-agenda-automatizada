@@ -297,7 +297,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                                        id="aa-is-virtual-checkbox"
                                        <?php checked(get_option('aa_is_virtual', 0), 1); ?>
                                        class="sr-only peer">
-                                <div class="w-11 h-6 bg-gray-300 peer-checked:bg-emerald-500 rounded-full transition-colors"></div>
+                                <div class="w-11 h-6 bg-gray-300 peer-checked:bg-indigo-600 rounded-full transition-colors"></div>
                                 <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-5"></div>
                             </label>
                             <span class="text-sm text-gray-700">Las citas son virtuales (sin dirección física)</span>
@@ -311,7 +311,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                                        id="aa-auto-assign-staff-services-checkbox"
                                        <?php checked((int) get_option('aa_auto_assign_staff_services', 0), 1); ?>
                                        class="sr-only peer">
-                                <div class="w-11 h-6 bg-gray-300 peer-checked:bg-emerald-500 rounded-full transition-colors"></div>
+                                <div class="w-11 h-6 bg-gray-300 peer-checked:bg-indigo-600 rounded-full transition-colors"></div>
                                 <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-5"></div>
                             </label>
                             <div>
@@ -532,7 +532,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                                id="aa-push-upcoming-confirmed-enabled"
                                <?php checked((int) get_option('aa_push_upcoming_confirmed_enabled', 1), 1); ?>
                                class="sr-only peer">
-                        <div class="w-11 h-6 bg-gray-300 peer-checked:bg-emerald-500 rounded-full transition-colors"></div>
+                        <div class="w-11 h-6 bg-gray-300 peer-checked:bg-indigo-600 rounded-full transition-colors"></div>
                         <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-5"></div>
                     </label>
                     <span class="text-sm text-gray-700">Notificar citas confirmadas próximas</span>
@@ -547,7 +547,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
                                id="aa-push-task-execution-available-enabled"
                                <?php checked((int) get_option('aa_push_task_execution_available_enabled', 1), 1); ?>
                                class="sr-only peer">
-                        <div class="w-11 h-6 bg-gray-300 peer-checked:bg-emerald-500 rounded-full transition-colors"></div>
+                        <div class="w-11 h-6 bg-gray-300 peer-checked:bg-indigo-600 rounded-full transition-colors"></div>
                         <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-5"></div>
                     </label>
                     <span class="text-sm text-gray-700">Notificar cuando sea momento de realizar una tarea</span>
