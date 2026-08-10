@@ -47,7 +47,7 @@
 
     function setBoardDisabled(disabled) {
         document.querySelectorAll(
-            '#aa-tasks-module-root [data-tasks-action], #aa-tasks-new-list, #aa-tasks-new-task'
+            '#aa-tasks-module-root [data-tasks-action], #aa-tasks-new-task'
         ).forEach(function (button) {
             button.disabled = disabled;
 
@@ -652,16 +652,9 @@
     }
 
     function bindModals() {
-        var newListBtn = document.getElementById('aa-tasks-new-list');
         var newTaskBtn = document.getElementById('aa-tasks-new-task');
         var listForm = document.getElementById('aa-task-list-form');
         var taskForm = document.getElementById('aa-task-form');
-
-        if (newListBtn) {
-            newListBtn.addEventListener('click', function () {
-                openNewList();
-            });
-        }
 
         if (newTaskBtn) {
             newTaskBtn.addEventListener('click', function () {
@@ -699,7 +692,7 @@
     }
 
     /**
-     * Abre el modal simple de creación de lista (mismo flujo que #aa-tasks-new-list).
+     * Abre el modal simple de creación de lista (mismo flujo que el menú de opciones).
      */
     function openNewList() {
         clearBoardError();

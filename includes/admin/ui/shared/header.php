@@ -6,14 +6,12 @@
  */
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
-
-$brand_logo_url = aa_asset_url('includes/admin/ui/assets/img/deoia-citas-logo.svg');
 ?>
 <header class="bg-transparent">
     <div class="px-4 py-2.5">
         <!-- Header Row -->
         <div class="flex items-center justify-between gap-3">
-            <!-- Left: Sidebar trigger (island) + Branding + page title -->
+            <!-- Left: Sidebar trigger + page title -->
             <div class="flex items-center gap-3 min-w-0 flex-1">
                 <!-- Sidebar Trigger: isla circular -->
                 <button 
@@ -28,17 +26,6 @@ $brand_logo_url = aa_asset_url('includes/admin/ui/assets/img/deoia-citas-logo.sv
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>
                     </svg>
                 </button>
-                
-                <!-- Branding -->
-                <span class="hidden sm:flex items-center shrink-0" style="gap: 0.375rem;">
-                    <img
-                        src="<?php echo $brand_logo_url; ?>"
-                        alt="DEOIA Citas"
-                        class="shrink-0"
-                        style="width: 1.5rem; height: 1.5rem; padding-left: 2px; padding-right: 2px;"
-                    >
-                    <span class="text-sm font-semibold text-gray-800 tracking-tight" style="position: relative; top: 1px;">DEOIA Citas</span>
-                </span>
 
                 <!-- Dynamic page title (synced from contextual view or active sidebar label) -->
                 <span

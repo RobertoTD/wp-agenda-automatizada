@@ -34,27 +34,8 @@ $module_js_url = $plugin_url . 'calendar-module.js?ver=' . rawurlencode($calenda
     <div class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
         <div class="flex items-center justify-between gap-3">
 
-            <!-- Izquierda: icono + texto -->
-            <div class="flex items-center">
-                <span class="flex items-center justify-center w-8 h-8 text-gray-600">
-                    <!-- Icono calendario -->
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                    </svg>
-                </span>
-
-                <div>
-                    <h3 class="text-lg font-semibold text-gray-600">
-                        Agenda
-                    </h3>
-                </div>
-            </div>
-
-            <!-- Derecha: navegación de fecha + acciones -->
+            <!-- Izquierda: navegación de fecha -->
             <div id="aa-date-selector" class="flex items-center gap-3">
-
-                <!-- ═══ Navegación de fecha ═══ -->
                 <div class="aa-date-navigator">
                     <!-- Botón anterior -->
                     <button id="aa-date-prev" type="button" class="aa-date-nav-btn aa-date-nav-prev" aria-label="Día anterior">
@@ -73,16 +54,15 @@ $module_js_url = $plugin_url . 'calendar-module.js?ver=' . rawurlencode($calenda
                         </svg>
                     </button>
                 </div>
+            </div>
 
-                <!-- ═══ Acciones ═══ -->
-                <div class="aa-toolbar-actions">
-                    <!-- Botón de búsqueda (ghost/terciario) -->
-                    <button id="aa-btn-search" type="button" class="aa-btn-ghost" aria-label="Buscar">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                        </svg>
-                    </button>
-                </div>
+            <!-- Derecha: acciones -->
+            <div class="aa-toolbar-actions">
+                <button id="aa-btn-search" type="button" class="aa-btn-ghost" aria-label="Buscar">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                </button>
             </div>
 
         </div>
