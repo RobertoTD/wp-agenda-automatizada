@@ -20,7 +20,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
             
             <!-- Fecha -->
             <div>
-                <label for="aa-assignment-date" class="block text-sm font-medium text-gray-700 mb-1">
+                <label for="aa-assignment-date" class="block text-sm font-medium text-gray-600 mb-1">
                     Fecha <span class="text-red-500">*</span>
                 </label>
                 <input type="text" 
@@ -35,7 +35,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
             <!-- Hora inicio y fin -->
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label for="aa-assignment-start" class="block text-sm font-medium text-gray-700 mb-1">
+                    <label for="aa-assignment-start" class="block text-sm font-medium text-gray-600 mb-1">
                         Hora inicio <span class="text-red-500">*</span>
                     </label>
                     <input type="time" 
@@ -45,7 +45,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                 </div>
                 <div>
-                    <label for="aa-assignment-end" class="block text-sm font-medium text-gray-700 mb-1">
+                    <label for="aa-assignment-end" class="block text-sm font-medium text-gray-600 mb-1">
                         Hora fin <span class="text-red-500">*</span>
                     </label>
                     <input type="time" 
@@ -58,7 +58,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
 
             <!-- Personal -->
             <div>
-                <label for="aa-assignment-staff" class="block text-sm font-medium text-gray-700 mb-1">
+                <label for="aa-assignment-staff" class="block text-sm font-medium text-gray-600 mb-1">
                     Personal <span class="text-red-500">*</span>
                 </label>
                 <select id="aa-assignment-staff" 
@@ -71,7 +71,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
 
             <!-- Zona de atención -->
             <div>
-                <label for="aa-assignment-area" class="block text-sm font-medium text-gray-700 mb-1">
+                <label for="aa-assignment-area" class="block text-sm font-medium text-gray-600 mb-1">
                     Zona de atención <span class="text-red-500">*</span>
                 </label>
                 <select id="aa-assignment-area" 
@@ -84,7 +84,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
 
             <!-- Servicio -->
             <div>
-                <label for="aa-assignment-service" class="block text-sm font-medium text-gray-700 mb-1">
+                <label for="aa-assignment-service" class="block text-sm font-medium text-gray-600 mb-1">
                     Servicios
                 </label>
                 <select id="aa-assignment-service" 
@@ -93,7 +93,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
                 </select>
                 <!-- Lista de servicios seleccionados -->
                 <div class="mt-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <label class="block text-sm font-medium text-gray-600 mb-2">
                         Servicios seleccionados
                     </label>
                     <div id="aa-assignment-services-selected"></div>
@@ -102,7 +102,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
 
             <!-- Capacidad -->
             <div>
-                <label for="aa-assignment-capacity" class="block text-sm font-medium text-gray-700 mb-1">
+                <label for="aa-assignment-capacity" class="block text-sm font-medium text-gray-600 mb-1">
                     Capacidad
                 </label>
                 <input type="number" 
@@ -129,7 +129,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
     <div class="flex justify-end gap-3">
         <button type="button" 
                 id="aa-assignment-cancel"
-                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                class="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 data-aa-modal-close>
             Cancelar
         </button>

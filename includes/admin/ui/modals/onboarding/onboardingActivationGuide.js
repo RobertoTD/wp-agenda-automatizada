@@ -347,10 +347,10 @@
             return ''
                 + '<div class="rounded-xl border border-indigo-200 bg-indigo-50/80 p-4" data-aa-onboarding-step="' + escapeHtml(stepKey) + '">'
                 + '  <div class="flex items-start justify-between gap-2">'
-                + '    <h4 class="text-sm font-semibold text-gray-900">' + escapeHtml(label) + '</h4>'
+                + '    <h4 class="text-sm font-semibold text-gray-600">' + escapeHtml(label) + '</h4>'
                 + '    <span class="text-xs font-medium ' + statusClass + '">' + escapeHtml(statusText) + '</span>'
                 + '  </div>'
-                + '  <p class="mt-2 text-sm text-gray-700 leading-relaxed">' + escapeHtml(instruction) + '</p>'
+                + '  <p class="mt-2 text-sm text-gray-600 leading-relaxed">' + escapeHtml(instruction) + '</p>'
                 + ctaHtml
                 + '</div>';
         }
@@ -360,7 +360,7 @@
         return ''
             + '<div class="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm" data-aa-onboarding-step="' + escapeHtml(stepKey) + '">'
             + leading
-            + '<span class="flex-1 font-medium text-gray-800">' + escapeHtml(label) + '</span>'
+            + '<span class="flex-1 font-medium text-gray-600">' + escapeHtml(label) + '</span>'
             + '<span class="text-xs ' + statusClass + '">' + escapeHtml(statusText) + '</span>'
             + '</div>';
     }
@@ -400,8 +400,8 @@
                 + '    <span class="text-xs font-medium uppercase tracking-wide text-amber-800">Recomendado</span>'
                 + '    <span class="text-xs font-semibold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full">Requiere reconexión</span>'
                 + '  </div>'
-                + '  <h4 class="mt-2 text-sm font-semibold text-gray-900">' + escapeHtml(GOOGLE_RECOMMENDED_TITLE) + '</h4>'
-                + '  <p class="mt-2 text-sm text-gray-700 leading-relaxed">' + escapeHtml(GOOGLE_RECOMMENDED_BODY) + '</p>'
+                + '  <h4 class="mt-2 text-sm font-semibold text-gray-600">' + escapeHtml(GOOGLE_RECOMMENDED_TITLE) + '</h4>'
+                + '  <p class="mt-2 text-sm text-gray-600 leading-relaxed">' + escapeHtml(GOOGLE_RECOMMENDED_BODY) + '</p>'
                 + '  <div class="mt-3">'
                 + '    <button type="button" class="' + CTA_ENABLED_CLASS + ' bg-amber-600 hover:bg-amber-700 aa-onboarding-google-calendar-cta">'
                 + 'Reconectar Google Calendar'
@@ -414,8 +414,8 @@
             return ''
                 + '<div class="rounded-xl border border-sky-200 bg-sky-50/70 p-4" data-aa-onboarding-google-recommended="1">'
                 + '  <p class="text-xs font-medium uppercase tracking-wide text-sky-800">Recomendado</p>'
-                + '  <h4 class="mt-2 text-sm font-semibold text-gray-900">' + escapeHtml(GOOGLE_RECOMMENDED_TITLE) + '</h4>'
-                + '  <p class="mt-2 text-sm text-gray-700 leading-relaxed">' + escapeHtml(GOOGLE_RECOMMENDED_BODY) + '</p>'
+                + '  <h4 class="mt-2 text-sm font-semibold text-gray-600">' + escapeHtml(GOOGLE_RECOMMENDED_TITLE) + '</h4>'
+                + '  <p class="mt-2 text-sm text-gray-600 leading-relaxed">' + escapeHtml(GOOGLE_RECOMMENDED_BODY) + '</p>'
                 + '  <div class="mt-3">'
                 + '    <button type="button" class="' + CTA_ENABLED_CLASS + ' aa-onboarding-google-calendar-cta">'
                 + 'Configurar Google Calendar'
@@ -468,7 +468,7 @@
         }
 
         var parts = [
-            '<p class="text-sm text-gray-700 leading-relaxed">'
+            '<p class="text-sm text-gray-600 leading-relaxed">'
             + 'Crea una cita de prueba con datos ficticios para conocer el flujo de tu agenda '
             + 'sin afectar clientes reales.'
             + '</p>',

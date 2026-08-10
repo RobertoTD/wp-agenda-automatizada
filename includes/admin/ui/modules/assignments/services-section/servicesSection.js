@@ -714,9 +714,9 @@
         html += 'data-service-id="' + serviceId + '" ';
         html += '>Guardar</button>';
         html += '<button type="button" ';
-        html += 'class="aa-service-delete px-3 py-2 text-sm font-medium rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors" ';
+        html += 'class="aa-service-delete px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 transition-colors" ';
         html += 'data-service-id="' + serviceId + '" ';
-        html += '>Ocultar</button>';
+        html += '>Eliminar</button>';
         html += '</div>';
         
         html += '</div>'; // End details content

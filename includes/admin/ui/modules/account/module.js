@@ -803,7 +803,7 @@
             var li = document.createElement('li');
 
             var title = document.createElement('p');
-            title.className = 'font-medium text-gray-900';
+            title.className = 'font-medium text-gray-600';
             title.textContent = item.title;
             li.appendChild(title);
 

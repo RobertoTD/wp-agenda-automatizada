@@ -1,6 +1,7 @@
 /**
  * List Card Long-Press Module — abre el modal de nueva tarea (con la lista
- * preseleccionada) al mantener pulsado el summary de una tarjeta de lista.
+ * preseleccionada) al mantener pulsado el summary de una tarjeta de lista
+ * de usuario (Mis listas). Las listas de sistema (Agenda app) no reaccionan.
  *
  * El click rápido conserva su comportamiento nativo (toggle expandir/colapsar).
  * Solo un click sostenido (>= LONG_PRESS_MS) sin desplazamiento dispara la acción.
@@ -60,6 +61,30 @@
         return summary;
     }
 
+    /**
+     * Misma elegibilidad que el menú "+ Tarea" / select del modal de crear tarea.
+     *
+     * @param {HTMLElement|null} summary
+     * @returns {HTMLElement|null}
+     */
+    function resolveAddTaskButton(summary) {
+        var details = summary && summary.parentElement;
+
+        if (!details || typeof details.querySelector !== 'function') {
+            return null;
+        }
+
+        return details.querySelector('[data-aa-list-add-task="1"]');
+    }
+
+    /**
+     * @param {HTMLElement|null} summary
+     * @returns {boolean}
+     */
+    function isUserManualListCard(summary) {
+        return !!resolveAddTaskButton(summary);
+    }
+
     function clearPress() {
         if (pressTimer !== null) {
             globalRoot.clearTimeout(pressTimer);
@@ -107,7 +132,7 @@
 
         var summary = resolveListCardSummary(event.target);
 
-        if (!summary) {
+        if (!summary || !isUserManualListCard(summary)) {
             return;
         }
 
@@ -197,6 +222,8 @@
         LONG_PRESS_MS: LONG_PRESS_MS,
         MOVE_TOLERANCE_PX: MOVE_TOLERANCE_PX,
         resolveListCardSummary: resolveListCardSummary,
+        resolveAddTaskButton: resolveAddTaskButton,
+        isUserManualListCard: isUserManualListCard,
         isInteractiveTarget: isInteractiveTarget
     };
 

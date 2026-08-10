@@ -10,7 +10,7 @@ defined('ABSPATH') or die('No direct access');
 
 <template id="aa-onboarding-welcome-body-template">
     <div class="aa-onboarding-welcome space-y-3" data-aa-onboarding-welcome="1">
-        <p class="text-sm text-gray-700 leading-relaxed">
+        <p class="text-sm text-gray-600 leading-relaxed">
             Te damos la bienvenida. En los siguientes pasos te guiaremos para crear una cita de prueba con datos
             ficticios y conocer el flujo de tu agenda sin afectar clientes reales.
         </p>
@@ -45,7 +45,7 @@ defined('ABSPATH') or die('No direct access');
         <button
             type="button"
             id="aa-onboarding-activation-guide-close"
-            class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            class="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
             Cerrar
         </button>
     </div>

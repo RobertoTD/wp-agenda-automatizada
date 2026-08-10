@@ -27,7 +27,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
         
         <!-- Filter Toggle Button -->
         <div class="aa-appointments-filter-toggle mb-3">
-            <button type="button" class="aa-btn-toggle-filters inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg border border-gray-200 transition-colors">
+            <button type="button" class="aa-btn-toggle-filters inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-600 hover:bg-gray-50 rounded-lg border border-gray-200 transition-colors">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
                 </svg>
@@ -40,7 +40,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
             
             <!-- Time filter -->
             <fieldset class="mb-3" data-filter-group="time">
-                <legend class="text-sm font-medium text-gray-700 mb-2">Por tiempo</legend>
+                <legend class="text-sm font-medium text-gray-600 mb-2">Por tiempo</legend>
                 <div class="flex flex-wrap gap-3">
                     <label class="inline-flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
                         <input type="checkbox" data-filter="time:future" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
@@ -55,7 +55,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
             
             <!-- Status filter -->
             <fieldset class="mb-3" data-filter-group="status">
-                <legend class="text-sm font-medium text-gray-700 mb-2">Por estado</legend>
+                <legend class="text-sm font-medium text-gray-600 mb-2">Por estado</legend>
                 <div class="flex flex-wrap gap-3">
                     <label class="inline-flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
                         <input type="checkbox" data-filter="status:cancelled" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
@@ -74,7 +74,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
             
             <!-- Notification filter -->
             <fieldset data-filter-group="notification">
-                <legend class="text-sm font-medium text-gray-700 mb-2">Por notificación</legend>
+                <legend class="text-sm font-medium text-gray-600 mb-2">Por notificación</legend>
                 <div class="flex flex-wrap gap-3">
                     <label class="inline-flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
                         <input type="checkbox" data-filter="notification:unread" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">

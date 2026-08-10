@@ -132,6 +132,7 @@
         const countrySelect = document.createElement('select');
         countrySelect.id = 'modal-cliente-country';
         countrySelect.name = 'country';
+        countrySelect.className = 'aa-form-country-select';
         countrySelect.style.cssText = 'flex:0 0 112px;min-width:0;';
         countrySelect.innerHTML = '<option value="52">México (+52)</option><option value="1">USA (+1)</option><option value="34">España (+34)</option>';
 
@@ -527,6 +528,7 @@
         const countrySelect = document.createElement('select');
         countrySelect.id = 'modal-cliente-country-edit';
         countrySelect.name = 'country';
+        countrySelect.className = 'aa-form-country-select';
         countrySelect.style.cssText = 'flex:0 0 112px;min-width:0;';
         countrySelect.innerHTML = '<option value="52">México (+52)</option><option value="1">USA (+1)</option><option value="34">España (+34)</option>';
         countrySelect.value = parsed.country;

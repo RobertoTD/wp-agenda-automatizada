@@ -120,6 +120,10 @@ $clients_module_js = plugin_dir_url(__FILE__) . 'clients-module.js';
 $clients_module_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
 ?>
 <script src="<?php echo esc_url($clients_module_js . '?ver=' . rawurlencode($clients_module_ver)); ?>" defer></script>
+<?php
+$client_card_longpress_js = plugin_dir_url(__FILE__) . 'client-card-longpress-module.js';
+?>
+<script src="<?php echo esc_url($client_card_longpress_js . '?ver=' . rawurlencode($clients_module_ver)); ?>" defer></script>
 <?php if ($aa_clients_is_expediente) :
     $expediente_registros_js = plugin_dir_url(__FILE__) . 'expediente-registros.js';
     ?>

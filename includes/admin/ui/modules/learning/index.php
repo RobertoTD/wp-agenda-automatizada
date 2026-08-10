@@ -58,7 +58,7 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
                     role="menu">
                     <button type="button" role="menuitem"
                         data-lists-tool="create-list"
-                        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
+                        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-600 hover:bg-gray-50">
                         <svg class="w-4 h-4 shrink-0 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                         </svg>
@@ -66,7 +66,7 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
                     </button>
                     <button type="button" role="menuitem"
                         data-lists-tool="restore-archived"
-                        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
+                        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-600 hover:bg-gray-50">
                         <svg class="w-4 h-4 shrink-0 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v6h6M20 20v-6h-6M5 19a9 9 0 0014-7.5M19 5a9 9 0 00-14 7.5"/>
                         </svg>
@@ -74,7 +74,7 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
                     </button>
                     <button type="button" role="menuitem"
                         data-lists-tool="return-ignored-tasks"
-                        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
+                        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-600 hover:bg-gray-50">
                         <svg class="w-4 h-4 shrink-0 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14L4 9m0 0l5-5M4 9h12a4 4 0 014 4v1"/>
                         </svg>
@@ -179,9 +179,9 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
                 <p id="aa-restore-archived-lists-loading" class="hidden text-sm text-gray-500">Cargando listas archivadas…</p>
                 <p id="aa-restore-archived-lists-empty" class="hidden text-sm text-gray-500">No hay listas archivadas para restaurar.</p>
                 <div id="aa-restore-archived-lists-select-wrap">
-                    <label for="aa-restore-archived-lists-select" class="block text-sm font-medium text-gray-700 mb-1">Lista archivada</label>
+                    <label for="aa-restore-archived-lists-select" class="block text-sm font-medium text-gray-600 mb-1">Lista archivada</label>
                     <select id="aa-restore-archived-lists-select"
-                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         disabled>
                         <option value="">Selecciona una lista</option>
                     </select>
@@ -189,7 +189,7 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
                 <p id="aa-restore-archived-lists-error" class="hidden text-sm text-red-600"></p>
                 <div class="flex justify-end gap-2 pt-2">
                     <button type="button" data-aa-tasks-modal-close="aa-restore-archived-lists-modal"
-                        class="px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Cancelar</button>
+                        class="px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50">Cancelar</button>
                     <button type="button" id="aa-restore-archived-lists-submit" disabled
                         class="px-3 py-2 text-sm font-medium rounded-lg border border-indigo-200 bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed">Desarchivar</button>
                 </div>
@@ -212,9 +212,9 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
                 <p id="aa-restore-archived-tasks-loading" class="hidden text-sm text-gray-500">Cargando tareas archivadas…</p>
                 <p id="aa-restore-archived-tasks-empty" class="hidden text-sm text-gray-500">No hay tareas archivadas en esta lista.</p>
                 <div id="aa-restore-archived-tasks-select-wrap">
-                    <label for="aa-restore-archived-tasks-select" class="block text-sm font-medium text-gray-700 mb-1">Tarea archivada</label>
+                    <label for="aa-restore-archived-tasks-select" class="block text-sm font-medium text-gray-600 mb-1">Tarea archivada</label>
                     <select id="aa-restore-archived-tasks-select"
-                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         disabled>
                         <option value="">Selecciona una tarea</option>
                     </select>
@@ -222,7 +222,7 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
                 <p id="aa-restore-archived-tasks-error" class="hidden text-sm text-red-600"></p>
                 <div class="flex justify-end gap-2 pt-2">
                     <button type="button" data-aa-tasks-modal-close="aa-restore-archived-tasks-modal"
-                        class="px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Cancelar</button>
+                        class="px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50">Cancelar</button>
                     <button type="button" id="aa-restore-archived-tasks-submit" disabled
                         class="px-3 py-2 text-sm font-medium rounded-lg border border-indigo-200 bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed">Desarchivar</button>
                 </div>
@@ -243,27 +243,27 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
             <form id="aa-task-list-edit-form" class="aa-tasks-modal-scroll space-y-4">
                 <input type="hidden" id="aa-task-list-edit-form-list-id" name="list_id" value="">
                 <div>
-                    <label for="aa-task-list-edit-form-title" class="block text-sm font-medium text-gray-700 mb-1">Nombre de la lista</label>
+                    <label for="aa-task-list-edit-form-title" class="block text-sm font-medium text-gray-600 mb-1">Nombre de la lista</label>
                     <input type="text" id="aa-task-list-edit-form-title" name="title" required maxlength="255"
-                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         placeholder="Ej. Pendientes de clientes">
                 </div>
                 <div>
-                    <label for="aa-task-list-edit-form-description" class="block text-sm font-medium text-gray-700 mb-1">Objetivo común de estas tareas</label>
+                    <label for="aa-task-list-edit-form-description" class="block text-sm font-medium text-gray-600 mb-1">Objetivo común de estas tareas</label>
                     <textarea id="aa-task-list-edit-form-description" name="description" rows="3"
-                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         placeholder="Ej. Resolver pendientes de clientes con servicios vigentes"></textarea>
                 </div>
                 <div>
-                    <label for="aa-task-list-edit-form-importance" class="block text-sm font-medium text-gray-700 mb-1">Importancia (opcional)</label>
+                    <label for="aa-task-list-edit-form-importance" class="block text-sm font-medium text-gray-600 mb-1">Importancia (opcional)</label>
                     <input type="number" id="aa-task-list-edit-form-importance" name="importance" value="0"
-                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     <p class="text-xs text-gray-500 mt-1">Valores más altos aparecen primero.</p>
                 </div>
                 <p id="aa-task-list-edit-form-error" class="hidden text-sm text-red-600"></p>
                 <div class="flex justify-end gap-2 pt-2">
                     <button type="button" data-aa-tasks-modal-close="aa-task-list-edit-modal"
-                        class="px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Cancelar</button>
+                        class="px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50">Cancelar</button>
                     <button type="submit"
                         class="px-3 py-2 text-sm font-medium rounded-lg border border-indigo-200 bg-indigo-600 text-white hover:bg-indigo-700">Guardar cambios</button>
                 </div>
@@ -283,27 +283,27 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
             </div>
             <form id="aa-task-list-form" class="aa-tasks-modal-scroll space-y-4">
                 <div>
-                    <label for="aa-task-list-form-title" class="block text-sm font-medium text-gray-700 mb-1">Nombre de la lista</label>
+                    <label for="aa-task-list-form-title" class="block text-sm font-medium text-gray-600 mb-1">Nombre de la lista</label>
                     <input type="text" id="aa-task-list-form-title" name="title" required maxlength="255"
-                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         placeholder="Ej. Pendientes de clientes">
                 </div>
                 <div>
-                    <label for="aa-task-list-form-description" class="block text-sm font-medium text-gray-700 mb-1">Objetivo común de estas tareas</label>
+                    <label for="aa-task-list-form-description" class="block text-sm font-medium text-gray-600 mb-1">Objetivo común de estas tareas</label>
                     <textarea id="aa-task-list-form-description" name="description" rows="3"
-                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         placeholder="Ej. Resolver pendientes de clientes con servicios vigentes"></textarea>
                 </div>
                 <div>
-                    <label for="aa-task-list-form-importance" class="block text-sm font-medium text-gray-700 mb-1">Importancia (opcional)</label>
+                    <label for="aa-task-list-form-importance" class="block text-sm font-medium text-gray-600 mb-1">Importancia (opcional)</label>
                     <input type="number" id="aa-task-list-form-importance" name="importance" value="0"
-                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     <p class="text-xs text-gray-500 mt-1">Valores más altos aparecen primero.</p>
                 </div>
                 <p id="aa-task-list-form-error" class="hidden text-sm text-red-600"></p>
                 <div class="flex justify-end gap-2 pt-2">
                     <button type="button" data-aa-tasks-modal-close="aa-task-list-modal"
-                        class="px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Cancelar</button>
+                        class="px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50">Cancelar</button>
                     <button type="submit"
                         class="px-3 py-2 text-sm font-medium rounded-lg border border-indigo-200 bg-indigo-600 text-white hover:bg-indigo-700">Crear lista</button>
                 </div>
@@ -322,50 +322,50 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
             </div>
             <form id="aa-task-form" class="aa-tasks-modal-scroll space-y-4" novalidate>
                 <div>
-                    <label for="aa-task-form-list-id" class="block text-sm font-medium text-gray-700 mb-1">Lista</label>
+                    <label for="aa-task-form-list-id" class="block text-sm font-medium text-gray-600 mb-1">Lista</label>
                     <select id="aa-task-form-list-id" name="list_id" required
-                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                         <option value="">No hay listas disponibles</option>
                     </select>
                 </div>
                 <div>
-                    <label for="aa-task-form-title" class="block text-sm font-medium text-gray-700 mb-1">Tarea</label>
+                    <label for="aa-task-form-title" class="block text-sm font-medium text-gray-600 mb-1">Tarea</label>
                     <input type="text" id="aa-task-form-title" name="title" required maxlength="255"
-                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         placeholder="Qué necesitas hacer">
                 </div>
                 <div>
-                    <label for="aa-task-form-notes" class="block text-sm font-medium text-gray-700 mb-1">Detalles</label>
+                    <label for="aa-task-form-notes" class="block text-sm font-medium text-gray-600 mb-1">Detalles</label>
                     <textarea id="aa-task-form-notes" name="notes" rows="3"
-                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         placeholder="Notas opcionales"></textarea>
                 </div>
                 <details id="aa-task-form-options" class="rounded-lg border border-gray-200 bg-gray-50/50">
-                    <summary class="cursor-pointer select-none px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg">
+                    <summary class="cursor-pointer select-none px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg">
                         Opciones
                     </summary>
                     <div class="space-y-4 border-t border-gray-200 px-3 py-3">
                         <div>
-                            <label for="aa-task-form-execution-available-at" class="block text-sm font-medium text-gray-700 mb-1">Realizar a partir de (opcional)</label>
+                            <label for="aa-task-form-execution-available-at" class="block text-sm font-medium text-gray-600 mb-1">Realizar a partir de (opcional)</label>
                             <input type="datetime-local" id="aa-task-form-execution-available-at" name="execution_available_at"
-                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
                             <p class="text-xs text-gray-500 mt-1">La tarea se volverá pertinente para realizarse desde este momento.</p>
                         </div>
                         <div>
-                            <label for="aa-task-form-due-at" class="block text-sm font-medium text-gray-700 mb-1">Vencimiento (opcional)</label>
+                            <label for="aa-task-form-due-at" class="block text-sm font-medium text-gray-600 mb-1">Vencimiento (opcional)</label>
                             <input type="datetime-local" id="aa-task-form-due-at" name="due_at"
-                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
                         </div>
                         <div>
-                            <label for="aa-task-form-importance" class="block text-sm font-medium text-gray-700 mb-1">Importancia (opcional)</label>
+                            <label for="aa-task-form-importance" class="block text-sm font-medium text-gray-600 mb-1">Importancia (opcional)</label>
                             <input type="number" id="aa-task-form-importance" name="importance" value="0"
-                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
                             <p class="text-xs text-gray-500 mt-1">Valores más altos aparecen primero.</p>
                         </div>
                         <div>
-                            <label for="aa-task-form-default-bucket" class="block text-sm font-medium text-gray-700 mb-1">Clasificación</label>
+                            <label for="aa-task-form-default-bucket" class="block text-sm font-medium text-gray-600 mb-1">Clasificación</label>
                             <select id="aa-task-form-default-bucket" name="default_bucket"
-                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
                                 <option value="primary" selected>Principal</option>
                                 <option value="secondary">Secundaria</option>
                             </select>
@@ -376,7 +376,7 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
                 <p id="aa-task-form-error" class="hidden text-sm text-red-600"></p>
                 <div class="flex justify-end gap-2 pt-2">
                     <button type="button" data-aa-tasks-modal-close="aa-task-modal"
-                        class="px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Cancelar</button>
+                        class="px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50">Cancelar</button>
                     <button type="submit"
                         class="px-3 py-2 text-sm font-medium rounded-lg border border-indigo-200 bg-indigo-600 text-white hover:bg-indigo-700">Crear tarea</button>
                 </div>
@@ -396,43 +396,43 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
             <form id="aa-task-edit-form" class="aa-tasks-modal-scroll space-y-4" novalidate>
                 <input type="hidden" id="aa-task-edit-form-task-id" name="task_id" value="">
                 <div>
-                    <label for="aa-task-edit-form-title" class="block text-sm font-medium text-gray-700 mb-1">Tarea</label>
+                    <label for="aa-task-edit-form-title" class="block text-sm font-medium text-gray-600 mb-1">Tarea</label>
                     <input type="text" id="aa-task-edit-form-title" name="title" required maxlength="255"
-                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         placeholder="Qué necesitas hacer">
                 </div>
                 <div>
-                    <label for="aa-task-edit-form-notes" class="block text-sm font-medium text-gray-700 mb-1">Detalles o contexto</label>
+                    <label for="aa-task-edit-form-notes" class="block text-sm font-medium text-gray-600 mb-1">Detalles o contexto</label>
                     <textarea id="aa-task-edit-form-notes" name="notes" rows="3" maxlength="800"
-                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         placeholder="Notas opcionales"></textarea>
                 </div>
                 <details id="aa-task-edit-form-options" class="rounded-lg border border-gray-200 bg-gray-50/50">
-                    <summary class="cursor-pointer select-none px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg">
+                    <summary class="cursor-pointer select-none px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg">
                         Opciones
                     </summary>
                     <div class="space-y-4 border-t border-gray-200 px-3 py-3">
                         <div>
-                            <label for="aa-task-edit-form-execution-available-at" class="block text-sm font-medium text-gray-700 mb-1">Realizar a partir de (opcional)</label>
+                            <label for="aa-task-edit-form-execution-available-at" class="block text-sm font-medium text-gray-600 mb-1">Realizar a partir de (opcional)</label>
                             <input type="datetime-local" id="aa-task-edit-form-execution-available-at" name="execution_available_at"
-                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
                             <p class="text-xs text-gray-500 mt-1">La tarea se volverá pertinente para realizarse desde este momento.</p>
                         </div>
                         <div>
-                            <label for="aa-task-edit-form-due-at" class="block text-sm font-medium text-gray-700 mb-1">Vencimiento (opcional)</label>
+                            <label for="aa-task-edit-form-due-at" class="block text-sm font-medium text-gray-600 mb-1">Vencimiento (opcional)</label>
                             <input type="datetime-local" id="aa-task-edit-form-due-at" name="due_at"
-                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
                         </div>
                         <div>
-                            <label for="aa-task-edit-form-importance" class="block text-sm font-medium text-gray-700 mb-1">Importancia (opcional)</label>
+                            <label for="aa-task-edit-form-importance" class="block text-sm font-medium text-gray-600 mb-1">Importancia (opcional)</label>
                             <input type="number" id="aa-task-edit-form-importance" name="importance" value="0"
-                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
                             <p class="text-xs text-gray-500 mt-1">Valores más altos aparecen primero.</p>
                         </div>
                         <div>
-                            <label for="aa-task-edit-form-default-bucket" class="block text-sm font-medium text-gray-700 mb-1">Clasificación</label>
+                            <label for="aa-task-edit-form-default-bucket" class="block text-sm font-medium text-gray-600 mb-1">Clasificación</label>
                             <select id="aa-task-edit-form-default-bucket" name="default_bucket"
-                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
                                 <option value="primary" selected>Principal</option>
                                 <option value="secondary">Secundaria</option>
                             </select>
@@ -443,7 +443,7 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
                 <p id="aa-task-edit-form-error" class="hidden text-sm text-red-600"></p>
                 <div class="flex justify-end gap-2 pt-2">
                     <button type="button" data-aa-tasks-modal-close="aa-task-edit-modal"
-                        class="px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Cancelar</button>
+                        class="px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50">Cancelar</button>
                     <button type="submit"
                         class="px-3 py-2 text-sm font-medium rounded-lg border border-indigo-200 bg-indigo-600 text-white hover:bg-indigo-700">Guardar cambios</button>
                 </div>

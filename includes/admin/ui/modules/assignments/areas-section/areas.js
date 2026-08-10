@@ -130,25 +130,25 @@
             html += '<div class="aa-area-details-panel hidden border-t border-gray-200 p-3" data-area-id="' + areaId + '">';
             // Name field (editable)
             html += '<div class="mb-3">';
-            html += '<label class="block text-xs font-medium text-gray-700 mb-1">Nombre</label>';
+            html += '<label class="block text-xs font-medium text-gray-600 mb-1">Nombre</label>';
             html += '<input type="text" ';
-            html += 'class="aa-area-name-input w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow" ';
+            html += 'class="aa-area-name-input w-full px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow" ';
             html += 'data-area-id="' + areaId + '" ';
             html += 'value="' + escapeHtml(area.name || '') + '" ';
             html += 'placeholder="Nombre de la zona..." />';
             html += '</div>';
             // Description field (editable)
             html += '<div class="mb-3">';
-            html += '<label class="block text-xs font-medium text-gray-700 mb-1">Descripción</label>';
+            html += '<label class="block text-xs font-medium text-gray-600 mb-1">Descripción</label>';
             html += '<textarea ';
-            html += 'class="aa-area-description-input w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow resize-none" ';
+            html += 'class="aa-area-description-input w-full px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow resize-none" ';
             html += 'data-area-id="' + areaId + '" ';
             html += 'rows="3" ';
             html += 'placeholder="Agregar descripción...">' + escapeHtml(area.description || '') + '</textarea>';
             html += '</div>';
             // Color picker field
             html += '<div class="mb-2">';
-            html += '<label class="block text-xs font-medium text-gray-700 mb-1">Color</label>';
+            html += '<label class="block text-xs font-medium text-gray-600 mb-1">Color</label>';
             html += '<input type="text" ';
             html += 'class="aa-area-color-picker" ';
             html += 'data-area-id="' + areaId + '" ';
@@ -157,9 +157,9 @@
             html += '</div>';
             html += '<div class="mt-4 pt-4 border-t border-gray-200 flex justify-end gap-2">';
             html += '<button type="button" ';
-            html += 'class="aa-area-delete px-3 py-2 text-sm font-medium rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors" ';
+            html += 'class="aa-area-delete px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 transition-colors" ';
             html += 'data-area-id="' + areaId + '" ';
-            html += '>Ocultar</button>';
+            html += '>Eliminar</button>';
             html += '</div>';
             html += '</div>';
             html += '</li>';

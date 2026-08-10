@@ -154,9 +154,9 @@
             html += '<div class="aa-staff-services-selected mt-3" data-staff-id="' + staffId + '"></div>';
             html += '<div class="mt-4 pt-4 border-t border-gray-200 flex justify-end gap-2">';
             html += '<button type="button" ';
-            html += 'class="aa-staff-delete px-3 py-2 text-sm font-medium rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors" ';
+            html += 'class="aa-staff-delete px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 transition-colors" ';
             html += 'data-staff-id="' + staffId + '" ';
-            html += '>Ocultar</button>';
+            html += '>Eliminar</button>';
             html += '</div>';
             html += '</div>';
             html += '</li>';

@@ -19,7 +19,7 @@ defined('ABSPATH') or die('No direct access');
             <div id="aa-fastappointment-step-client" data-aa-fastappointment-step="client" class="aa-fastappointment-step rounded-xl border border-indigo-100 bg-indigo-50">
                 <button type="button" data-aa-fastappointment-step-header class="aa-fastappointment-step-header flex w-full items-center justify-between gap-2 px-4 py-2 text-left">
                     <div class="min-w-0">
-                        <h4 class="text-sm font-semibold text-gray-900">Cliente</h4>
+                        <h4 class="text-sm font-semibold text-gray-600">Cliente</h4>
                     </div>
                     <div class="flex items-center gap-2 pl-2">
                         <span data-aa-fastappointment-step-summary class="hidden max-w-[12rem] truncate text-sm text-gray-500"></span>
@@ -49,7 +49,7 @@ defined('ABSPATH') or die('No direct access');
                         <button
                             type="button"
                             id="aa-fastappointment-client-create"
-                            class="inline-flex items-center rounded-lg border px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-800 border-gray-200 bg-white transition-colors whitespace-nowrap">
+                            class="inline-flex items-center rounded-lg border px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-600 border-gray-200 bg-white transition-colors whitespace-nowrap">
                             + cliente
                         </button>
                     </div>
@@ -60,7 +60,7 @@ defined('ABSPATH') or die('No direct access');
             <div id="aa-fastappointment-step-service" data-aa-fastappointment-step="service" class="aa-fastappointment-step rounded-xl border border-gray-200 bg-white">
                 <button type="button" data-aa-fastappointment-step-header class="aa-fastappointment-step-header flex w-full items-center justify-between gap-2 px-4 py-2 text-left">
                     <div class="min-w-0">
-                        <h4 class="text-sm font-semibold text-gray-900">Servicio</h4>
+                        <h4 class="text-sm font-semibold text-gray-600">Servicio</h4>
                     </div>
                     <div class="flex items-center gap-2 pl-2">
                         <span data-aa-fastappointment-step-summary class="hidden max-w-[12rem] truncate text-sm text-gray-500"></span>
@@ -85,7 +85,7 @@ defined('ABSPATH') or die('No direct access');
             <div id="aa-fastappointment-step-date" data-aa-fastappointment-step="date" class="aa-fastappointment-step rounded-xl border border-gray-200 bg-white">
                 <button type="button" data-aa-fastappointment-step-header class="aa-fastappointment-step-header flex w-full items-center justify-between gap-2 px-4 py-2 text-left">
                     <div class="min-w-0">
-                        <h4 class="text-sm font-semibold text-gray-900">Fecha</h4>
+                        <h4 class="text-sm font-semibold text-gray-600">Fecha</h4>
                     </div>
                     <div class="flex items-center gap-2 pl-2">
                         <span data-aa-fastappointment-step-summary class="hidden max-w-[12rem] truncate text-sm text-gray-500"></span>
@@ -111,7 +111,7 @@ defined('ABSPATH') or die('No direct access');
             <div id="aa-fastappointment-step-time" data-aa-fastappointment-step="time" class="aa-fastappointment-step rounded-xl border border-gray-200 bg-white">
                 <button type="button" data-aa-fastappointment-step-header class="aa-fastappointment-step-header flex w-full items-center justify-between gap-2 px-4 py-2 text-left">
                     <div class="min-w-0">
-                        <h4 class="text-sm font-semibold text-gray-900">Hora</h4>
+                        <h4 class="text-sm font-semibold text-gray-600">Hora</h4>
                     </div>
                     <div class="flex items-center gap-2 pl-2">
                         <span data-aa-fastappointment-step-summary class="hidden max-w-[12rem] truncate text-sm text-gray-500"></span>
@@ -136,7 +136,7 @@ defined('ABSPATH') or die('No direct access');
             <div id="aa-fastappointment-step-staff" data-aa-fastappointment-step="staff" class="aa-fastappointment-step rounded-xl border border-gray-200 bg-white">
                 <button type="button" data-aa-fastappointment-step-header class="aa-fastappointment-step-header flex w-full items-center justify-between gap-2 px-4 py-2 text-left">
                     <div class="min-w-0">
-                        <h4 class="text-sm font-semibold text-gray-900">Personal</h4>
+                        <h4 class="text-sm font-semibold text-gray-600">Personal</h4>
                     </div>
                     <div class="flex items-center gap-2 pl-2">
                         <span data-aa-fastappointment-step-summary class="hidden max-w-[12rem] truncate text-sm text-gray-500"></span>
@@ -164,7 +164,7 @@ defined('ABSPATH') or die('No direct access');
             <div id="aa-fastappointment-step-area" data-aa-fastappointment-step="area" class="aa-fastappointment-step rounded-xl border border-gray-200 bg-white">
                 <button type="button" data-aa-fastappointment-step-header class="aa-fastappointment-step-header flex w-full items-center justify-between gap-2 px-4 py-2 text-left">
                     <div class="min-w-0">
-                        <h4 class="text-sm font-semibold text-gray-900">Zona de atencion</h4>
+                        <h4 class="text-sm font-semibold text-gray-600">Zona de atencion</h4>
                     </div>
                     <div class="flex items-center gap-2 pl-2">
                         <span data-aa-fastappointment-step-summary class="hidden max-w-[12rem] truncate text-sm text-gray-500"></span>
@@ -190,7 +190,7 @@ defined('ABSPATH') or die('No direct access');
             </div>
 
             <div class="rounded-xl border border-gray-200 bg-white px-3 py-2">
-                <label for="aa-fastappointment-confirm" class="flex min-h-[2.25rem] items-center gap-2 cursor-pointer text-sm text-gray-700 py-0.5">
+                <label for="aa-fastappointment-confirm" class="flex min-h-[2.25rem] items-center gap-2 cursor-pointer text-sm text-gray-600 py-0.5">
                     <input
                         type="checkbox"
                         id="aa-fastappointment-confirm"

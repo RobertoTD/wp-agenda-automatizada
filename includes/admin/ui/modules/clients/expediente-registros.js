@@ -2466,7 +2466,7 @@
         bodyWrap.className = 'aa-expediente-registro-form space-y-3';
 
         var titleLabel = document.createElement('label');
-        titleLabel.className = 'block text-sm font-medium text-gray-700';
+        titleLabel.className = 'block text-sm font-medium text-gray-600';
         titleLabel.setAttribute('for', 'aa-expediente-registro-title');
         titleLabel.textContent = 'Título';
 
@@ -2482,7 +2482,7 @@
         }
 
         var bodyLabel = document.createElement('label');
-        bodyLabel.className = 'block text-sm font-medium text-gray-700';
+        bodyLabel.className = 'block text-sm font-medium text-gray-600';
         bodyLabel.setAttribute('for', 'aa-expediente-registro-body');
         bodyLabel.textContent = 'Texto';
 

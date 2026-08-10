@@ -1,7 +1,6 @@
 /**
- * Task Item Long-Press Module — abre el modal de editar tarea al mantener
- * pulsado el summary de un ítem ejecutable en una lista de usuario (Mis listas).
- * Ítems de listas de sistema (Agenda app) no reaccionan.
+ * Client Card Long-Press Module — abre el modal de editar cliente al mantener
+ * pulsado el header de una tarjeta en #aa-clients-grid.
  *
  * El click rápido conserva su comportamiento nativo (toggle expandir/colapsar).
  * Solo un click sostenido (>= LONG_PRESS_MS) sin desplazamiento dispara la acción.
@@ -26,9 +25,7 @@
 
     function isInteractiveTarget(target) {
         return !!(target && typeof target.closest === 'function' && target.closest(
-            'button, a, input, select, textarea, label, [role="menuitem"],'
-            + ' [data-aa-task-options-trigger], [data-aa-task-edit],'
-            + ' [data-tasks-action]'
+            'button, a, input, select, textarea, label, [role="menuitem"]'
         ));
     }
 
@@ -36,59 +33,40 @@
      * @param {EventTarget|null} target
      * @returns {HTMLElement|null}
      */
-    function resolveTaskItemSummary(target) {
+    function resolveClientCardHeader(target) {
         if (!target || typeof target.closest !== 'function') {
             return null;
         }
 
-        var summary = target.closest('summary.aa-executable-item-summary');
+        var header = target.closest('.aa-appointment-header');
 
-        if (!summary) {
+        if (!header) {
             return null;
         }
 
-        var details = summary.parentElement;
+        var card = header.closest('.aa-appointment-card');
 
-        if (!details
-            || !details.classList
-            || !details.classList.contains('aa-executable-item')) {
+        if (!card || !card.closest('#aa-clients-grid')) {
             return null;
         }
 
-        return summary;
+        return header;
     }
 
     /**
-     * @param {HTMLElement} summary
+     * @param {HTMLElement} header
      * @returns {HTMLElement|null}
      */
-    function resolveEditButton(summary) {
-        var details = summary && summary.parentElement;
-
-        if (!details || typeof details.querySelector !== 'function') {
-            return null;
-        }
-
-        var editButton = details.querySelector('[data-aa-task-edit="1"]');
-
-        if (!editButton) {
-            return null;
-        }
-
-        // Tareas de listas de sistema (Agenda app) no son editables vía long-press.
-        var listCard = typeof details.closest === 'function'
-            ? details.closest('.aa-executable-list-card')
+    function resolveEditButton(header) {
+        var card = header && typeof header.closest === 'function'
+            ? header.closest('.aa-appointment-card')
             : null;
 
-        if (!listCard || typeof listCard.querySelector !== 'function') {
+        if (!card || typeof card.querySelector !== 'function') {
             return null;
         }
 
-        if (!listCard.querySelector('[data-aa-list-add-task="1"]')) {
-            return null;
-        }
-
-        return editButton;
+        return card.querySelector('.aa-btn-editar-cliente');
     }
 
     function clearPress() {
@@ -121,12 +99,6 @@
             return;
         }
 
-        if (globalRoot.AATaskEdit
-            && typeof globalRoot.AATaskEdit.openEditModalFromButton === 'function') {
-            globalRoot.AATaskEdit.openEditModalFromButton(editButton);
-            return;
-        }
-
         if (typeof editButton.click === 'function') {
             editButton.click();
         }
@@ -144,13 +116,13 @@
             return;
         }
 
-        var summary = resolveTaskItemSummary(event.target);
+        var header = resolveClientCardHeader(event.target);
 
-        if (!summary) {
+        if (!header) {
             return;
         }
 
-        var editButton = resolveEditButton(summary);
+        var editButton = resolveEditButton(header);
 
         if (!editButton || editButton.disabled) {
             return;
@@ -206,7 +178,7 @@
             return;
         }
 
-        if (!resolveTaskItemSummary(event.target)) {
+        if (!resolveClientCardHeader(event.target)) {
             return;
         }
 
@@ -218,7 +190,7 @@
     var isBound = false;
 
     function bindLongPressModule() {
-        if (isBound || !document.getElementById('aa-tasks-module-root')) {
+        if (isBound || !document.getElementById('aa-clients-grid')) {
             return;
         }
 
@@ -239,7 +211,7 @@
     var moduleExports = {
         LONG_PRESS_MS: LONG_PRESS_MS,
         MOVE_TOLERANCE_PX: MOVE_TOLERANCE_PX,
-        resolveTaskItemSummary: resolveTaskItemSummary,
+        resolveClientCardHeader: resolveClientCardHeader,
         resolveEditButton: resolveEditButton,
         isInteractiveTarget: isInteractiveTarget
     };

@@ -81,11 +81,8 @@ $module_js_url = $plugin_url . 'assignments-module.js?ver=' . rawurlencode($ver)
         </summary>
         
         <div class="p-6 transition-all duration-200">
-            <!-- Root container for areas section JS -->
-            <div id="aa-areas-root"></div>
-            
             <!-- Form to add new service area -->
-            <div class="flex gap-2 mt-4">
+            <div class="flex gap-2 mb-4">
                 <input type="text" 
                        id="aa-area-name-input" 
                        placeholder="Ej: Consultorio 3" 
@@ -93,9 +90,12 @@ $module_js_url = $plugin_url . 'assignments-module.js?ver=' . rawurlencode($ver)
                 <button type="button" 
                         id="aa-add-area" 
                         class="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg border border-gray-300 transition-colors shadow-sm">
-                    Agregar
+                    Nuevo
                 </button>
             </div>
+
+            <!-- Root container for areas section JS -->
+            <div id="aa-areas-root"></div>
         </div>
     </details>
 
@@ -119,11 +119,8 @@ $module_js_url = $plugin_url . 'assignments-module.js?ver=' . rawurlencode($ver)
         </summary>
         
         <div class="p-6 transition-all duration-200">
-            <!-- Root container for staff section JS -->
-            <div id="aa-staff-root"></div>
-            
             <!-- Form to add new staff -->
-            <div class="flex gap-2 mt-4">
+            <div class="flex gap-2 mb-4">
                 <input type="text" 
                        id="aa-staff-name-input" 
                        placeholder="Ej: Juan Pérez" 
@@ -131,9 +128,12 @@ $module_js_url = $plugin_url . 'assignments-module.js?ver=' . rawurlencode($ver)
                 <button type="button" 
                         id="aa-add-staff" 
                         class="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg border border-gray-300 transition-colors shadow-sm">
-                    Agregar
+                    Nuevo
                 </button>
             </div>
+
+            <!-- Root container for staff section JS -->
+            <div id="aa-staff-root"></div>
         </div>
     </details>
 
@@ -157,11 +157,8 @@ $module_js_url = $plugin_url . 'assignments-module.js?ver=' . rawurlencode($ver)
         </summary>
         
         <div class="p-6 transition-all duration-200">
-            <!-- Root container for services section JS -->
-            <div id="aa-services-root"></div>
-            
             <!-- Form to add new service -->
-            <div class="flex gap-2 mt-4">
+            <div class="flex gap-2 mb-4">
                 <input type="text" 
                        id="aa-service-name-input" 
                        placeholder="Ej: Consulta médica" 
@@ -169,9 +166,12 @@ $module_js_url = $plugin_url . 'assignments-module.js?ver=' . rawurlencode($ver)
                 <button type="button" 
                         id="aa-add-service" 
                         class="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg border border-gray-300 transition-colors shadow-sm">
-                    Agregar
+                    Nuevo
                 </button>
             </div>
+
+            <!-- Root container for services section JS -->
+            <div id="aa-services-root"></div>
         </div>
     </details>
 

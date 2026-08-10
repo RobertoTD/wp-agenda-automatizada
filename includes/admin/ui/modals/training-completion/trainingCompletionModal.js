@@ -13,7 +13,7 @@
     var PRIMARY_BTN =
         'inline-flex items-center justify-center w-full sm:w-auto px-4 py-2.5 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors';
     var SECONDARY_BTN =
-        'inline-flex items-center justify-center w-full sm:w-auto px-4 py-2.5 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors';
+        'inline-flex items-center justify-center w-full sm:w-auto px-4 py-2.5 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors';
 
     /** @type {null|{
      *   lessonKey: string,
@@ -262,7 +262,7 @@
 
         var prompt = document.createElement('p');
         prompt.id = 'aa-training-completion-prompt';
-        prompt.className = 'text-sm font-medium text-gray-900';
+        prompt.className = 'text-sm font-medium text-gray-600';
         prompt.textContent = typeof question.prompt === 'string' ? question.prompt : '';
         body.appendChild(prompt);
 
@@ -284,7 +284,7 @@
 
             var label = document.createElement('label');
             label.className =
-                'flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-3 text-sm text-gray-800 cursor-pointer hover:border-violet-300';
+                'flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-3 text-sm text-gray-600 cursor-pointer hover:border-violet-300';
             label.setAttribute('for', id);
 
             var input = document.createElement('input');
@@ -352,7 +352,7 @@
         body.appendChild(title);
 
         var text = document.createElement('p');
-        text.className = 'text-sm text-gray-700 whitespace-pre-wrap';
+        text.className = 'text-sm text-gray-600 whitespace-pre-wrap';
         text.textContent = typeof feedback.text === 'string' ? feedback.text : '';
         body.appendChild(text);
 
@@ -392,7 +392,7 @@
         body.appendChild(title);
 
         var text = document.createElement('p');
-        text.className = 'text-sm text-gray-700 whitespace-pre-wrap';
+        text.className = 'text-sm text-gray-600 whitespace-pre-wrap';
         text.textContent = typeof conclusion.text === 'string' ? conclusion.text : '';
         body.appendChild(text);
 

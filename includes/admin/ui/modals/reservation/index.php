@@ -42,7 +42,7 @@ $duraciones = [30, 60, 90];
             
             <!-- Campo: Cliente -->
             <div>
-                <label for="cita-cliente" class="block text-sm font-medium text-gray-700 mb-1">
+                <label for="cita-cliente" class="block text-sm font-medium text-gray-600 mb-1">
                     Cliente <span class="text-red-500">*</span>
                 </label>
                 <div class="flex items-center gap-2 mb-2">
@@ -82,7 +82,7 @@ $duraciones = [30, 60, 90];
             
             <!-- Campo: Servicio/Motivo -->
             <div>
-                <label for="cita-servicio" class="block text-sm font-medium text-gray-700 mb-1">
+                <label for="cita-servicio" class="block text-sm font-medium text-gray-600 mb-1">
                     Motivo de la cita <span class="text-red-500">*</span>
                 </label>
                 <span id="aa-service-virtual-badge" class="hidden ml-2 text-xs font-medium text-indigo-600">Servicio virtual</span>
@@ -124,7 +124,7 @@ $duraciones = [30, 60, 90];
             
             <!-- Enlace de videollamada (solo para servicio virtual con custom_link) -->
             <div id="aa-virtual-link-field-wrap" class="hidden">
-                <label for="cita-virtual-link" class="block text-sm font-medium text-gray-700 mb-1">Enlace de videollamada</label>
+                <label for="cita-virtual-link" class="block text-sm font-medium text-gray-600 mb-1">Enlace de videollamada</label>
                 <input type="url" id="cita-virtual-link" name="virtual_link"
                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
                        placeholder="https://...">
@@ -132,7 +132,7 @@ $duraciones = [30, 60, 90];
             
             <!-- Campo: Duración -->
             <div>
-                <label for="cita-duracion" class="block text-sm font-medium text-gray-700 mb-1">
+                <label for="cita-duracion" class="block text-sm font-medium text-gray-600 mb-1">
                     Duración <span class="text-red-500">*</span>
                 </label>
                 <select id="cita-duracion" name="duracion" required
@@ -150,7 +150,7 @@ $duraciones = [30, 60, 90];
             
             <!-- Campo: Fecha y Hora -->
             <div>
-                <label for="cita-fecha" class="block text-sm font-medium text-gray-700 mb-1">
+                <label for="cita-fecha" class="block text-sm font-medium text-gray-600 mb-1">
                     Fecha y hora <span class="text-red-500">*</span>
                 </label>
                 <input 
@@ -166,7 +166,7 @@ $duraciones = [30, 60, 90];
             
             <!-- Campo: Personal disponible -->
             <div>
-                <label for="aa-reservation-staff" class="block text-sm font-medium text-gray-700 mb-1">
+                <label for="aa-reservation-staff" class="block text-sm font-medium text-gray-600 mb-1">
                     Personal disponible
                 </label>
                 <select id="aa-reservation-staff" name="staff_id" disabled
@@ -177,7 +177,7 @@ $duraciones = [30, 60, 90];
 
             <!-- Campo: Zona de atención (solo visible con múltiples assignments compatibles) -->
             <div id="aa-reservation-area-wrap" class="hidden">
-                <label for="aa-reservation-area" class="block text-sm font-medium text-gray-700 mb-1">
+                <label for="aa-reservation-area" class="block text-sm font-medium text-gray-600 mb-1">
                     Zona de atención <span class="text-red-500">*</span>
                 </label>
                 <select id="aa-reservation-area" name="service_area_id"
@@ -190,7 +190,7 @@ $duraciones = [30, 60, 90];
             <div>
                 <div class="flex items-center gap-3">
                     <div id="slot-container-admin" class="flex-1"></div>
-                    <label for="aa-reservation-auto-confirm" class="flex items-center gap-2 cursor-pointer whitespace-nowrap text-sm text-gray-700">
+                    <label for="aa-reservation-auto-confirm" class="flex items-center gap-2 cursor-pointer whitespace-nowrap text-sm text-gray-600">
                         <input 
                             type="checkbox" 
                             id="aa-reservation-auto-confirm" 
@@ -212,7 +212,7 @@ $duraciones = [30, 60, 90];
     <div class="flex justify-end gap-3">
         <button type="button" 
                 id="btn-cancelar-cita-form"
-                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                class="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 data-aa-modal-close>
             Cancelar
         </button>

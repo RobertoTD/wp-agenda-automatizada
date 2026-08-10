@@ -551,7 +551,7 @@ body {
     }
 
     .aa-expediente-adjunto-label {
-        @apply block text-sm font-medium text-gray-700;
+        @apply block text-sm font-medium text-gray-600;
     }
 
     .aa-expediente-adjunto-input {
@@ -789,12 +789,25 @@ body {
     }
 
     .aa-form-group label {
-        @apply block text-sm font-medium text-gray-700 mb-1;
+        @apply block text-sm font-medium text-gray-600 mb-1;
     }
 
     .aa-form-group input {
-        @apply w-full px-3 py-2 border border-gray-300 rounded-md text-sm;
+        @apply w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-600;
         @apply focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none;
+    }
+
+    /* Country code select next to phone (create/edit client modals) */
+    .aa-form-country-select {
+        @apply bg-white text-sm font-medium text-gray-600 rounded-md px-2 py-2 border-0;
+        @apply focus:ring-2 focus:ring-indigo-500 outline-none;
+        appearance: none;
+        -webkit-appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%234b5563'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.4rem center;
+        background-size: 0.875rem 0.875rem;
+        padding-right: 1.5rem;
     }
 
     /* Shared gray focus ring (replaces browser orange / colored focus) */
@@ -805,7 +818,7 @@ body {
 
     /* Native selects: gray-600 text + matching chevron (appearance-none + SVG) */
     .aa-form-select {
-        @apply aa-form-field text-gray-600;
+        @apply aa-form-field font-medium text-gray-600;
         appearance: none;
         -webkit-appearance: none;
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%234b5563'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
@@ -820,11 +833,11 @@ body {
     }
 
     .aa-btn-cancelar {
-        @apply px-4 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-md transition-colors;
+        @apply px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-700 rounded-md transition-colors;
     }
 
     .aa-btn-guardar {
-        @apply px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors;
+        @apply px-4 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors;
     }
 
     .aa-btn-guardar:disabled {

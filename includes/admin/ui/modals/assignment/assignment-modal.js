@@ -498,7 +498,7 @@
         selectedServices.forEach(function(service) {
             html += '<li class="flex items-center justify-between p-2 bg-gray-50 rounded-lg border border-gray-200">';
             html += '<input type="hidden" name="service_ids[]" value="' + escapeHtml(service.id) + '">';
-            html += '<span class="text-sm text-gray-900">' + escapeHtml(service.name) + '</span>';
+            html += '<span class="text-sm text-gray-600">' + escapeHtml(service.name) + '</span>';
             html += '<button type="button" ';
             html += 'class="aa-assignment-service-remove inline-flex items-center justify-center w-6 h-6 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors" ';
             html += 'data-service-id="' + service.id + '" ';

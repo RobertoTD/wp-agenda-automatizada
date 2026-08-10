@@ -88,17 +88,38 @@ describe('task-item-longpress-module', () => {
         assert.equal(exports.resolveTaskItemSummary(listTarget), null);
     });
 
-    it('resolveEditButton busca data-aa-task-edit dentro del details', () => {
+    it('resolveEditButton busca data-aa-task-edit solo en listas de usuario', () => {
         var exports = loadModule();
         var editButton = { id: 'edit-btn' };
-        var details = {
+        var userListCard = {
             querySelector: function (sel) {
-                return sel === '[data-aa-task-edit="1"]' ? editButton : null;
+                return sel === '[data-aa-list-add-task="1"]' ? {} : null;
             }
         };
-        var summary = { parentElement: details };
+        var systemListCard = {
+            querySelector: function () {
+                return null;
+            }
+        };
+        var userDetails = {
+            querySelector: function (sel) {
+                return sel === '[data-aa-task-edit="1"]' ? editButton : null;
+            },
+            closest: function (sel) {
+                return sel === '.aa-executable-list-card' ? userListCard : null;
+            }
+        };
+        var systemDetails = {
+            querySelector: function (sel) {
+                return sel === '[data-aa-task-edit="1"]' ? editButton : null;
+            },
+            closest: function (sel) {
+                return sel === '.aa-executable-list-card' ? systemListCard : null;
+            }
+        };
 
-        assert.equal(exports.resolveEditButton(summary), editButton);
+        assert.equal(exports.resolveEditButton({ parentElement: userDetails }), editButton);
+        assert.equal(exports.resolveEditButton({ parentElement: systemDetails }), null);
         assert.equal(exports.resolveEditButton({ parentElement: null }), null);
     });
 

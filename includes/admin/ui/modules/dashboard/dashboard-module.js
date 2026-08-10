@@ -409,7 +409,7 @@
         for (var i = 0; i < buttons.length; i++) {
             var btn = buttons[i];
             if (btn.getAttribute('data-period') === activePeriod) {
-                btn.className = 'px-2.5 py-1 text-xs font-medium transition-colors bg-purple-100 text-purple-700';
+                btn.className = 'px-2.5 py-1 text-xs font-medium transition-colors bg-gray-200 text-gray-700';
             } else {
                 btn.className = 'px-2.5 py-1 text-xs font-medium transition-colors bg-white text-gray-500 hover:bg-gray-50';
             }
@@ -446,22 +446,17 @@
 
             if (data.previousCount === 0 && data.currentCount > 0) {
                 compEl.innerHTML =
-                    '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Nuevo ' + prevLabel + '</span>';
+                    '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">Nuevo ' + prevLabel + '</span>';
                 return;
             }
 
             var isUp = data.trend === 'up';
             var isDown = data.trend === 'down';
-            var badgeClass = isUp
-                ? 'bg-green-100 text-green-700'
-                : isDown
-                    ? 'bg-red-100 text-red-700'
-                    : 'bg-gray-100 text-gray-600';
             var arrow = isUp ? '↑' : isDown ? '↓' : '=';
 
             compEl.innerHTML =
-                '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ' +
-                badgeClass + '">' + arrow + ' ' + Math.abs(data.pctChange) + '% ' + prevLabel + '</span>';
+                '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">' +
+                arrow + ' ' + Math.abs(data.pctChange) + '% ' + prevLabel + '</span>';
         }
     }
 
@@ -484,7 +479,7 @@
 
         if (currentEl)  currentEl.textContent  = '!';
         if (previousEl) previousEl.textContent = '!';
-        if (compEl)     compEl.innerHTML = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">Error al cargar</span>';
+        if (compEl)     compEl.innerHTML = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">Error al cargar</span>';
     }
 
     function getActiveMetricType() {
@@ -495,7 +490,7 @@
     function getActivePeriodPreset() {
         var group = document.getElementById(WEEKLY_IDS.periodGroup);
         if (!group) return WEEKLY_DEFAULTS.periodPreset;
-        var active = group.querySelector('button.bg-purple-100');
+        var active = group.querySelector('button.bg-gray-200');
         return active ? active.getAttribute('data-period') : WEEKLY_DEFAULTS.periodPreset;
     }
 

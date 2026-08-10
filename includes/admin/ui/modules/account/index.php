@@ -52,11 +52,11 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
                         </div>
                         <div class="min-w-0">
                             <div class="text-sm text-gray-500">Plan</div>
-                            <div id="aa-account-plan" class="text-sm font-medium text-gray-900 mt-0.5">—</div>
+                            <div id="aa-account-plan" class="text-sm font-medium text-gray-600 mt-0.5">—</div>
                         </div>
                         <div class="min-w-0">
                             <div class="text-sm text-gray-500">Acceso actual</div>
-                            <div id="aa-account-access" class="text-sm font-medium text-gray-900 mt-0.5">—</div>
+                            <div id="aa-account-access" class="text-sm font-medium text-gray-600 mt-0.5">—</div>
                         </div>
                     </div>
 
@@ -66,8 +66,8 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
 
                     <div id="aa-account-benefit-group" class="pt-4 border-t border-gray-100 space-y-3">
                         <div id="aa-account-benefit-quotas" class="hidden">
-                            <h4 class="text-sm font-medium text-gray-900 mb-2">Beneficios del mes</h4>
-                            <ul id="aa-account-benefit-quotas-list" class="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 space-y-2 text-sm text-gray-700"></ul>
+                            <h4 class="text-sm font-medium text-gray-600 mb-2">Beneficios del mes</h4>
+                            <ul id="aa-account-benefit-quotas-list" class="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 space-y-2 text-sm text-gray-600"></ul>
                             <p id="aa-account-benefit-quotas-unavailable" class="hidden text-sm text-gray-500 mt-2"></p>
                         </div>
 
@@ -158,7 +158,7 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
                     href="<?php echo esc_url($aa_logout_url); ?>"
                     target="_top"
                     rel="noopener noreferrer"
-                    class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                    class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-700 transition-colors"
                 >
                     Cerrar sesión
                 </a>
@@ -186,7 +186,7 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
         <div class="p-4 transition-all duration-200 space-y-3">
             <p class="text-sm text-gray-600">
                 <span class="text-gray-500">Estado:</span>
-                <span id="aa-account-public-site-status" class="font-medium text-gray-900"></span>
+                <span id="aa-account-public-site-status" class="font-medium text-gray-600"></span>
             </p>
             <div id="aa-account-public-site-action" class="hidden">
                 <button

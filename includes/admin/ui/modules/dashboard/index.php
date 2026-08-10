@@ -26,7 +26,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
     <!-- Citas (fila colapsable) -->
     <div class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden mb-3" data-aa-dashboard-collapse>
         <div
-            class="aa-dash-collapse-toggle px-4 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer select-none"
+            class="aa-dash-collapse-toggle px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer select-none"
             data-aa-dashboard-collapse-toggle
             role="button"
             tabindex="0"
@@ -40,17 +40,17 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                         </svg>
                     </span>
-                    <h3 class="text-base !font-semibold text-gray-600">Citas</h3>
+                    <h3 class="text-lg font-semibold text-gray-600">Citas</h3>
                 </div>
             </div>
         </div>
         <div id="aa-dash-citas-body" class="hidden" data-aa-dashboard-collapse-body>
-            <div id="aa-dash-citas-cards" class="p-4 space-y-3">
+            <div id="aa-dash-citas-cards" class="p-4 space-y-2">
 
             <!-- 1. Próxima cita -->
             <div class="aa-dash-collapse rounded-xl border border-gray-200 overflow-hidden" data-aa-dashboard-collapse>
                 <div
-                    class="aa-dash-collapse-toggle px-4 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer select-none"
+                    class="aa-dash-collapse-toggle p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer select-none"
                     data-aa-dashboard-collapse-toggle
                     role="button"
                     tabindex="0"
@@ -64,14 +64,14 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                 </svg>
                             </span>
-                            <h4 class="text-base font-semibold text-gray-600">Próxima cita</h4>
+                            <h4 class="text-sm font-semibold text-gray-600">Próxima cita</h4>
                         </div>
                     </div>
                 </div>
                 <div id="aa-dash-collapse-next-body" class="hidden" data-aa-dashboard-collapse-body>
                     <div id="aa-dash-next-appointment" class="p-4">
                         <div class="flex items-start gap-3">
-                            <div class="flex items-center justify-center w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex-shrink-0">
+                            <div class="flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 text-gray-600 flex-shrink-0">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
                                 </svg>
@@ -80,7 +80,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                                 <p id="aa-dash-next-client" class="text-sm font-semibold text-gray-600 truncate">--</p>
                                 <p id="aa-dash-next-service" class="text-sm text-gray-500 truncate">--</p>
                                 <div class="flex items-center gap-1.5 mt-1.5">
-                                    <span id="aa-dash-next-time-badge" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
+                                    <span id="aa-dash-next-time-badge" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
                                         --
                                     </span>
                                 </div>
@@ -93,7 +93,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
             <!-- 2. Citas de hoy (cerrada por defecto) -->
             <div class="aa-dash-collapse rounded-xl border border-gray-200 overflow-hidden" data-aa-dashboard-collapse>
                 <div
-                    class="aa-dash-collapse-toggle px-4 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer select-none"
+                    class="aa-dash-collapse-toggle p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer select-none"
                     data-aa-dashboard-collapse-toggle
                     role="button"
                     tabindex="0"
@@ -107,28 +107,28 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                                 </svg>
                             </span>
-                            <h4 class="text-base font-semibold text-gray-600">Citas de hoy</h4>
+                            <h4 class="text-sm font-semibold text-gray-600">Citas de hoy</h4>
                         </div>
                     </div>
                 </div>
                 <div id="aa-dash-collapse-today-body" class="hidden" data-aa-dashboard-collapse-body>
                     <div class="p-2">
                         <div class="grid grid-cols-2 gap-1.5">
-                            <div class="text-center p-1.5 bg-blue-50 rounded-lg">
-                                <p id="aa-dash-total" class="text-lg font-bold text-blue-700">--</p>
-                                <p class="text-xs text-blue-600 mt-0.5">Citas hoy</p>
+                            <div class="text-center p-1.5 bg-gray-50 rounded-lg">
+                                <p id="aa-dash-total" class="text-lg font-bold text-gray-700">--</p>
+                                <p class="text-xs text-gray-600 mt-0.5">Citas hoy</p>
                             </div>
-                            <div class="text-center p-1.5 bg-green-50 rounded-lg">
-                                <p id="aa-dash-confirmed" class="text-lg font-bold text-green-700">--</p>
-                                <p class="text-xs text-green-600 mt-0.5">Confirmadas</p>
+                            <div class="text-center p-1.5 bg-gray-50 rounded-lg">
+                                <p id="aa-dash-confirmed" class="text-lg font-bold text-gray-700">--</p>
+                                <p class="text-xs text-gray-600 mt-0.5">Confirmadas</p>
                             </div>
-                            <div class="text-center p-1.5 bg-yellow-50 rounded-lg">
-                                <p id="aa-dash-pending" class="text-lg font-bold text-yellow-700">--</p>
-                                <p class="text-xs text-yellow-600 mt-0.5">Pendientes</p>
+                            <div class="text-center p-1.5 bg-gray-50 rounded-lg">
+                                <p id="aa-dash-pending" class="text-lg font-bold text-gray-700">--</p>
+                                <p class="text-xs text-gray-600 mt-0.5">Pendientes</p>
                             </div>
-                            <div class="text-center p-1.5 bg-red-50 rounded-lg">
-                                <p id="aa-dash-cancelled" class="text-lg font-bold text-red-700">--</p>
-                                <p class="text-xs text-red-600 mt-0.5">Canceladas</p>
+                            <div class="text-center p-1.5 bg-gray-50 rounded-lg">
+                                <p id="aa-dash-cancelled" class="text-lg font-bold text-gray-700">--</p>
+                                <p class="text-xs text-gray-600 mt-0.5">Canceladas</p>
                             </div>
                         </div>
                     </div>
@@ -138,7 +138,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
             <!-- 3. Ingresos (cerrada por defecto) -->
             <div class="aa-dash-collapse rounded-xl border border-gray-200 overflow-hidden" data-aa-dashboard-collapse>
                 <div
-                    class="aa-dash-collapse-toggle px-4 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer select-none"
+                    class="aa-dash-collapse-toggle p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer select-none"
                     data-aa-dashboard-collapse-toggle
                     role="button"
                     tabindex="0"
@@ -152,7 +152,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                 </svg>
                             </span>
-                            <h4 class="text-base font-semibold text-gray-600">Ingresos</h4>
+                            <h4 class="text-sm font-semibold text-gray-600">Ingresos</h4>
                         </div>
                     </div>
                 </div>
@@ -174,7 +174,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                             </div>
                         </div>
                         <h3 id="aa-dash-revenue-title" class="text-xs font-medium text-gray-500 mb-1">Ingresos del día</h3>
-                        <p id="aa-dash-revenue" class="text-3xl font-bold text-emerald-700 transition-opacity duration-150">--</p>
+                        <p id="aa-dash-revenue" class="text-3xl font-bold text-gray-700 transition-opacity duration-150">--</p>
                         <p id="aa-dash-revenue-detail" class="text-xs text-gray-500 mt-1 transition-opacity duration-150">--</p>
                     </div>
                 </div>
@@ -183,7 +183,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
             <!-- 4. Resumen semanal (cerrada por defecto) -->
             <div class="aa-dash-collapse rounded-xl border border-gray-200 overflow-hidden" data-aa-dashboard-collapse>
                 <div
-                    class="aa-dash-collapse-toggle px-4 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer select-none"
+                    class="aa-dash-collapse-toggle p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer select-none"
                     data-aa-dashboard-collapse-toggle
                     role="button"
                     tabindex="0"
@@ -197,7 +197,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
                                 </svg>
                             </span>
-                            <h4 class="text-base font-semibold text-gray-600">Resumen semanal</h4>
+                            <h4 class="text-sm font-semibold text-gray-600">Resumen semanal</h4>
                         </div>
                     </div>
                 </div>
@@ -217,7 +217,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                                 <option value="no_show">No asistieron</option>
                             </select>
                             <div id="aa-dash-week-period" class="inline-flex rounded-lg border border-gray-200 overflow-hidden">
-                                <button type="button" data-period="7d" class="px-2.5 py-1 text-xs font-medium transition-colors bg-purple-100 text-purple-700">7 días</button>
+                                <button type="button" data-period="7d" class="px-2.5 py-1 text-xs font-medium transition-colors bg-gray-200 text-gray-700">7 días</button>
                                 <button type="button" data-period="30d" class="px-2.5 py-1 text-xs font-medium transition-colors bg-white text-gray-500 hover:bg-gray-50">30 días</button>
                             </div>
                         </div>
@@ -227,7 +227,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                                 <span id="aa-dash-week-current" class="text-sm font-semibold text-gray-600">-- citas</span>
                             </div>
                             <div class="w-full bg-gray-100 rounded-full h-2">
-                                <div id="aa-dash-week-bar" class="bg-purple-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                                <div id="aa-dash-week-bar" class="bg-gray-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
                             </div>
                             <div class="flex items-center justify-between">
                                 <span id="aa-dash-week-previous-label" class="text-sm text-gray-600">7 días previos</span>
@@ -248,7 +248,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
     <!-- Alertas (fila colapsable) -->
     <div id="aa-dash-alerts-section" class="hidden bg-white rounded-xl shadow border border-gray-200 overflow-hidden mb-3" data-aa-dashboard-collapse>
         <div
-            class="aa-dash-collapse-toggle px-4 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer select-none"
+            class="aa-dash-collapse-toggle px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer select-none"
             data-aa-dashboard-collapse-toggle
             role="button"
             tabindex="0"
@@ -262,7 +262,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.832c-.77-.833-2.194-.833-2.964 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/>
                         </svg>
                     </span>
-                    <h3 class="text-base font-semibold text-gray-600">Alertas</h3>
+                    <h3 class="text-lg font-semibold text-gray-600">Alertas</h3>
                 </div>
             </div>
         </div>
