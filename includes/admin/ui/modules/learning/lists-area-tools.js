@@ -1,5 +1,5 @@
 /**
- * Lists Area Tools — herramientas globales del header #aa-lists-section (MC13I / MC13N-2).
+ * Lists Area Tools — herramientas globales del área Listas en el header shell (MC13I / MC13N-2).
  *
  * Menú de opciones del área + desarchivar listas + regresar tareas ignoradas.
  * No usa executable-actions-coordinator.

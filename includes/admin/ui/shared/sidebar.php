@@ -44,7 +44,7 @@ $brand_logo_url = aa_asset_url('includes/admin/ui/assets/img/deoia-citas-logo.sv
             <div class="flex min-w-0 flex-col leading-none">
                 <span class="text-sm font-semibold text-gray-900">DEOIA Citas</span>
                 <?php if (!empty($aa_installation_slug)) : ?>
-                    <span class="text-xs text-gray-500 truncate">Agenda: <?php echo esc_html($aa_installation_slug); ?></span>
+                    <span class="text-xs text-gray-500 truncate"><?php echo esc_html($aa_installation_slug); ?></span>
                 <?php endif; ?>
             </div>
         </div>
@@ -69,6 +69,7 @@ $brand_logo_url = aa_asset_url('includes/admin/ui/assets/img/deoia-citas-logo.sv
                     href="<?php echo esc_url(admin_url('admin-post.php?action=aa_iframe_content&module=calendar')); ?>"
                     data-aa-nav-module="calendar"
                     class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors <?php echo ($active_module === 'calendar') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-100'; ?>"
+                    <?php echo ($active_module === 'calendar') ? 'aria-current="page"' : ''; ?>
                 >
                     <span class="flex items-center justify-center w-6 h-6 <?php echo ($active_module === 'calendar') ? 'text-indigo-600' : 'text-gray-500'; ?>">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -84,6 +85,7 @@ $brand_logo_url = aa_asset_url('includes/admin/ui/assets/img/deoia-citas-logo.sv
                 <a
                     href="<?php echo esc_url(admin_url('admin-post.php?action=aa_iframe_content&module=clients')); ?>"
                     class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors <?php echo ($active_module === 'clients') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-100'; ?>"
+                    <?php echo ($active_module === 'clients') ? 'aria-current="page"' : ''; ?>
                 >
                     <span class="flex items-center justify-center w-6 h-6 <?php echo ($active_module === 'clients') ? 'text-indigo-600' : 'text-gray-500'; ?>">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -99,6 +101,7 @@ $brand_logo_url = aa_asset_url('includes/admin/ui/assets/img/deoia-citas-logo.sv
                 <a 
                     href="<?php echo esc_url(admin_url('admin-post.php?action=aa_iframe_content&module=learning')); ?>" 
                     class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors <?php echo ($active_module === 'learning') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-100'; ?>"
+                    <?php echo ($active_module === 'learning') ? 'aria-current="page"' : ''; ?>
                 >
                     <span class="flex items-center justify-center w-6 h-6 <?php echo ($active_module === 'learning') ? 'text-indigo-600' : 'text-gray-500'; ?>">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -114,6 +117,7 @@ $brand_logo_url = aa_asset_url('includes/admin/ui/assets/img/deoia-citas-logo.sv
                 <a 
                     href="<?php echo esc_url(admin_url('admin-post.php?action=aa_iframe_content&module=dashboard')); ?>" 
                     class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors <?php echo ($active_module === 'dashboard') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-100'; ?>"
+                    <?php echo ($active_module === 'dashboard') ? 'aria-current="page"' : ''; ?>
                 >
                     <span class="flex items-center justify-center w-6 h-6 <?php echo ($active_module === 'dashboard') ? 'text-indigo-600' : 'text-gray-500'; ?>">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -134,6 +138,7 @@ $brand_logo_url = aa_asset_url('includes/admin/ui/assets/img/deoia-citas-logo.sv
                 <a 
                     href="<?php echo esc_url(admin_url('admin-post.php?action=aa_iframe_content&module=assignments')); ?>" 
                     class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors <?php echo ($active_module === 'assignments') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-100'; ?>"
+                    <?php echo ($active_module === 'assignments') ? 'aria-current="page"' : ''; ?>
                 >
                     <span class="flex items-center justify-center w-6 h-6 <?php echo ($active_module === 'assignments') ? 'text-indigo-600' : 'text-gray-500'; ?>">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -154,6 +159,7 @@ $brand_logo_url = aa_asset_url('includes/admin/ui/assets/img/deoia-citas-logo.sv
                 <a 
                     href="<?php echo esc_url(admin_url('admin-post.php?action=aa_iframe_content&module=settings')); ?>" 
                     class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors <?php echo ($active_module === 'settings') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-100'; ?>"
+                    <?php echo ($active_module === 'settings') ? 'aria-current="page"' : ''; ?>
                 >
                     <span class="flex items-center justify-center w-6 h-6 <?php echo ($active_module === 'settings') ? 'text-indigo-600' : 'text-gray-500'; ?>">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -170,6 +176,7 @@ $brand_logo_url = aa_asset_url('includes/admin/ui/assets/img/deoia-citas-logo.sv
                 <a 
                     href="<?php echo esc_url(admin_url('admin-post.php?action=aa_iframe_content&module=account')); ?>" 
                     class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors <?php echo ($active_module === 'account') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-100'; ?>"
+                    <?php echo ($active_module === 'account') ? 'aria-current="page"' : ''; ?>
                 >
                     <span class="flex items-center justify-center w-6 h-6 <?php echo ($active_module === 'account') ? 'text-indigo-600' : 'text-gray-500'; ?>">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

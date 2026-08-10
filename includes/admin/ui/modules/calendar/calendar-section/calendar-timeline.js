@@ -69,7 +69,7 @@
                 textAlign: 'center',
                 color: TOKENS.gray500
             });
-            mensaje.textContent = 'No hay horarios ni asignaciones para este día';
+            mensaje.textContent = 'Sin citas';
             grid.appendChild(mensaje);
             return null;
         }

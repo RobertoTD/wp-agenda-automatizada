@@ -2002,20 +2002,6 @@
             clearNode(state.actionsRoot);
         }
 
-        var newBtn = document.createElement('button');
-        newBtn.type = 'button';
-        newBtn.className = 'aa-expediente-nuevo-registro-btn';
-        newBtn.textContent = 'Nuevo registro';
-        newBtn.addEventListener('click', function (event) {
-            event.preventDefault();
-            openCreateForm(newBtn);
-        });
-        if (state.actionsRoot) {
-            state.actionsRoot.appendChild(newBtn);
-        } else {
-            state.recordsRoot.appendChild(newBtn);
-        }
-
         if (!state.records.length) {
             var empty = document.createElement('p');
             empty.className = 'text-sm text-gray-500 aa-expediente-registros-empty';
@@ -3025,6 +3011,7 @@
         init: init,
         destroy: destroy,
         openRegistroForm: openRegistroForm,
+        openCreate: openCreateForm,
         __test__: {
             createRecordDetails: createRecordDetails,
             toDatetimeAttr: toDatetimeAttr,

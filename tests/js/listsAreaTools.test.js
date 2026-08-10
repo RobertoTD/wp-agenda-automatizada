@@ -13,6 +13,8 @@ const toolsPath = path.join(
 const toolsSrc = fs.readFileSync(toolsPath, 'utf8');
 const indexPath = path.join(__dirname, '../../includes/admin/ui/modules/learning/index.php');
 const indexSrc = fs.readFileSync(indexPath, 'utf8');
+const headerPath = path.join(__dirname, '../../includes/admin/ui/shared/header.php');
+const headerSrc = fs.readFileSync(headerPath, 'utf8');
 
 function makeEl(id, options) {
     var opts = options || {};
@@ -134,17 +136,20 @@ function makeButtonEl(options) {
 }
 
 describe('lists-area-tools MC13I', () => {
-    it('index.php incluye menú de opciones y modal de desarchivar', () => {
-        assert.match(indexSrc, /id="aa-lists-area-tools"/);
-        assert.match(indexSrc, /id="aa-lists-options-trigger"/);
-        assert.match(indexSrc, /title="Opciones de listas"/);
-        assert.match(indexSrc, /id="aa-lists-options-menu"/);
-        assert.match(indexSrc, /data-lists-tool="create-list"/);
-        assert.match(indexSrc, /data-lists-tool="restore-archived"/);
-        assert.match(indexSrc, /data-lists-tool="return-ignored-tasks"/);
-        assert.match(indexSrc, />Lista</);
-        assert.match(indexSrc, />Desarchivar listas</);
-        assert.match(indexSrc, />Regresar tareas ignoradas</);
+    it('shell header incluye menú de opciones; index conserva modal de desarchivar', () => {
+        assert.match(headerSrc, /id="aa-lists-area-tools"/);
+        assert.match(headerSrc, /id="aa-lists-options-trigger"/);
+        assert.match(headerSrc, /title="Opciones de listas"/);
+        assert.match(headerSrc, /id="aa-lists-options-menu"/);
+        assert.match(headerSrc, /data-lists-tool="create-list"/);
+        assert.match(headerSrc, /data-lists-tool="restore-archived"/);
+        assert.match(headerSrc, /data-lists-tool="return-ignored-tasks"/);
+        assert.match(headerSrc, />Nueva lista</);
+        assert.match(headerSrc, />Desarchivar listas</);
+        assert.match(headerSrc, />Regresar tareas ignoradas</);
+        assert.match(headerSrc, /\$active_module === 'learning'/);
+        assert.doesNotMatch(indexSrc, /id="aa-lists-area-tools"/);
+        assert.doesNotMatch(indexSrc, /id="aa-lists-header"/);
         assert.match(indexSrc, /id="aa-restore-archived-lists-modal"/);
         assert.match(indexSrc, />Desarchivar listas</);
         assert.match(indexSrc, /lists-area-tools\.js/);

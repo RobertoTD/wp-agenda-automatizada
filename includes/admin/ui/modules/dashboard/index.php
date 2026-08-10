@@ -18,11 +18,6 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
 
 <div id="aa-dashboard-root" class="max-w-5xl mx-auto py-2">
 
-    <!-- Date -->
-    <div class="mb-2 text-right">
-        <p id="aa-dashboard-date" class="text-xs text-gray-500 mx-5"></p>
-    </div>
-
     <!-- Citas (fila colapsable) -->
     <div class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden mb-3" data-aa-dashboard-collapse>
         <div

@@ -146,7 +146,7 @@ describe('AAExecutableListRenderer', () => {
         assert.match(html, /aa-executable-list-icon/);
         assert.match(
             html,
-            /aa-executable-list-icon[\s\S]*?<h4 class="text-lg font-semibold text-gray-600 min-w-0">/
+            /aa-executable-list-icon[\s\S]*?<h3 class="text-lg font-semibold text-gray-600 min-w-0">/
         );
         assert.doesNotMatch(html, /aa-executable-item/);
     });
@@ -588,7 +588,7 @@ describe('AAExecutableListRenderer', () => {
 
         assert.match(
             html,
-            /min-w-0 flex-1[\s\S]*<h4[^>]*>[\s\S]*aa-executable-list-source-label[\s\S]*Mis listas/
+            /min-w-0 flex-1[\s\S]*<h3[^>]*>[\s\S]*aa-executable-list-source-label[\s\S]*Mis listas/
         );
         assert.match(html, /data-tasks-action="archive-list"/);
         assert.match(html, /aa-chevron/);
@@ -2364,7 +2364,7 @@ describe('executableListRenderer MC-UX-C list card rounding', () => {
             buckets: [{ key: 'default', label: '', items: [] }]
         }));
 
-        assert.match(html, /<summary class="px-4 py-4 bg-gradient-to-r/);
+        assert.match(html, /<summary class="px-4 py-5 bg-gradient-to-r/);
         assert.doesNotMatch(html, /summary class="[^"]*border-b border-gray-100/);
     });
 
@@ -2739,7 +2739,7 @@ describe('executableListRenderer add-task button and chevron placement', () => {
 
         assert.match(
             summary,
-            /min-w-0 flex-1[\s\S]*<h4[^>]*>Mi lista<\/h4>[\s\S]*aa-chevron/
+            /min-w-0 flex-1[\s\S]*<h3[^>]*>Mi lista<\/h3>[\s\S]*aa-chevron/
         );
     });
 
@@ -2764,7 +2764,7 @@ describe('executableListRenderer add-task button and chevron placement', () => {
 
         assert.match(
             html,
-            /<div class="flex items-center gap-1\.5 min-w-0">[\s\S]*?<h4[^>]*>[\s\S]*?<\/h4>[\s\S]*?aa-chevron[\s\S]*?<\/div>/
+            /<div class="flex items-center gap-1\.5 min-w-0">[\s\S]*?<h3[^>]*>[\s\S]*?<\/h3>[\s\S]*?aa-chevron[\s\S]*?<\/div>/
         );
     });
 

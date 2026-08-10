@@ -14,6 +14,8 @@ if (!defined('ABSPATH')) {
 $plugin_root = dirname(__DIR__, 3);
 $layout_src = file_get_contents($plugin_root . '/includes/admin/ui/shared/layout.php');
 $sidebar_src = file_get_contents($plugin_root . '/includes/admin/ui/shared/sidebar.php');
+$header_src = file_get_contents($plugin_root . '/includes/admin/ui/shared/header.php');
+$sidebar_js_src = file_get_contents($plugin_root . '/includes/admin/ui/assets/js/sidebar.js');
 
 $total = 0;
 $passed = 0;
@@ -77,6 +79,27 @@ ac_assert(
     'sidebar Agenda tiene data-aa-nav-module calendar',
     preg_match('/data-aa-nav-module="calendar"[\s\S]*module=calendar/', $sidebar_src) === 1
     || preg_match('/module=calendar[\s\S]*data-aa-nav-module="calendar"/', $sidebar_src) === 1
+);
+ac_assert(
+    'sidebar marca el activo con aria-current=page',
+    strpos($sidebar_src, 'aria-current="page"') !== false
+    && substr_count($sidebar_src, 'aria-current="page"') >= 7
+    && preg_match(
+        '/\$active_module === \'calendar\'\) \? \'aria-current="page"/',
+        $sidebar_src
+    ) === 1
+);
+ac_assert(
+    'header expone nodo aa-page-title truncable',
+    strpos($header_src, 'id="aa-page-title"') !== false
+    && strpos($header_src, 'truncate') !== false
+);
+ac_assert(
+    'sidebar.js sincroniza título con data-aa-page-title antes que aria-current',
+    strpos($sidebar_js_src, 'syncHeaderPageTitle') !== false
+    && strpos($sidebar_js_src, 'data-aa-page-title') !== false
+    && strpos($sidebar_js_src, 'aria-current="page"') !== false
+    && strpos($sidebar_js_src, 'data-aa-page-title') < strpos($sidebar_js_src, 'aria-current="page"')
 );
 ac_assert(
     'layout carga tutorial.js antes del coordinator',

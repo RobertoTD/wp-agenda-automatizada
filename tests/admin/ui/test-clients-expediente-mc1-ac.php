@@ -58,6 +58,14 @@ ac_assert('index normaliza view=expediente', strpos($index, "'expediente'") !== 
 ac_assert('index normaliza client_id con absint', strpos($index, 'absint') !== false);
 ac_assert('index tiene aa-clients-list-root', strpos($index, 'aa-clients-list-root') !== false);
 ac_assert('index tiene aa-expediente-root', strpos($index, 'aa-expediente-root') !== false);
+ac_assert(
+    'index emite data-aa-page-title Expediente solo en vista expediente',
+    preg_match(
+        '/\$aa_clients_is_expediente[\s\S]*?data-aa-page-title="Expediente"/',
+        $index
+    ) === 1
+    && substr_count($index, 'data-aa-page-title="Expediente"') === 1
+);
 ac_assert('index no acepta blog_id de GET', strpos($index, 'blog_id') === false);
 ac_assert('nonce get_cliente en AA_CLIENTS_NONCES', strpos($index, 'get_cliente') !== false);
 ac_assert('index emite expedienteAccessAllowed', strpos($index, 'expedienteAccessAllowed') !== false);

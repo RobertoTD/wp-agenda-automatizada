@@ -38,6 +38,13 @@ $main = file_get_contents($plugin_root . '/includes/admin/ui/assets/js/main.js')
 ac_assert('expediente-registros.js existe', is_string($js) && $js !== '');
 ac_assert('AAAdmin.ExpedienteRegistros.init', strpos($js, 'AAAdmin.ExpedienteRegistros') !== false && strpos($js, 'init:') !== false);
 ac_assert('Nuevo registro', strpos($js, 'Nuevo registro') !== false);
+ac_assert('openCreate público', strpos($js, 'openCreate: openCreateForm') !== false);
+ac_assert('clients-module menú Nuevo registro en header', strpos($module, 'aa-expediente-options-trigger') !== false
+    && strpos($module, 'data-expediente-tool="create-registro"') !== false
+    && strpos($module, 'Nuevo registro') !== false
+    && strpos($module, 'openCreate') !== false);
+ac_assert('clients-module sin botón aa-expediente-nuevo-registro-btn', strpos($module, 'aa-expediente-nuevo-registro-btn') === false);
+ac_assert('registros sin botón aa-expediente-nuevo-registro-btn', strpos($js, 'aa-expediente-nuevo-registro-btn') === false);
 ac_assert('openRegistroForm create/edit ready', strpos($js, "mode === 'edit'") !== false && strpos($js, "mode: 'create'") !== false);
 ac_assert('usa details', strpos($js, "createElement('details')") !== false);
 ac_assert('textContent no innerHTML para datos', strpos($js, 'titleSpan.textContent') !== false && strpos($js, 'body.textContent') !== false);
@@ -58,7 +65,8 @@ ac_assert('openModal compartido', strpos($js, 'AAAdmin.openModal') !== false);
 ac_assert('clients-module solo monta', strpos($module, 'mountExpedienteRegistros') !== false);
 ac_assert('clients-module no define listRegistros fetch propio', strpos($module, 'aa_list_expediente_registros') === false);
 ac_assert('index script condicional vista expediente', preg_match('/if \(\$aa_clients_is_expediente\).*expediente-registros\.js/s', $index) === 1);
-ac_assert('CSS nuevo registro / details', strpos($css, 'aa-expediente-nuevo-registro-btn') !== false && strpos($css, 'aa-expediente-registro') !== false);
+ac_assert('CSS details registro', strpos($css, 'aa-expediente-registro') !== false);
+ac_assert('CSS sin botón legacy nuevo registro', strpos($css, 'aa-expediente-nuevo-registro-btn') === false);
 ac_assert('CSS folio y actions:empty', strpos($css, 'aa-expediente-registro-folio') !== false && strpos($css, 'aa-expediente-registro-actions:empty') !== false);
 ac_assert('CSS botón editar', strpos($css, 'aa-expediente-btn-editar') !== false);
 ac_assert('CSS botón eliminar (MC5c2)', strpos($css, 'aa-expediente-btn-eliminar') !== false);

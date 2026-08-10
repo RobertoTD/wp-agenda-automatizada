@@ -6,6 +6,7 @@
  * - Close on overlay click
  * - Close on ESC key
  * - Aria-expanded state management
+ * - Header page title sync (contextual view or active nav label)
  */
 
 (function() {
@@ -13,6 +14,42 @@
 
     // Ensure AAAdmin namespace exists
     window.AAAdmin = window.AAAdmin || {};
+
+    /**
+     * Resolve header title once per document load.
+     * Priority: data-aa-page-title → aria-current nav label → hide.
+     */
+    function syncHeaderPageTitle() {
+        var titleEl = document.getElementById('aa-page-title');
+        if (!titleEl) {
+            return;
+        }
+
+        var text = '';
+
+        var contextual = document.querySelector('[data-aa-page-title]');
+        if (contextual) {
+            text = String(contextual.getAttribute('data-aa-page-title') || '').trim();
+        }
+
+        if (!text) {
+            var activeLink = document.querySelector('#aa-sidebar nav a[aria-current="page"]');
+            if (activeLink) {
+                var labelSpan = activeLink.querySelector('span.text-sm');
+                text = String(
+                    (labelSpan && labelSpan.textContent) || activeLink.textContent || ''
+                ).trim();
+            }
+        }
+
+        if (text) {
+            titleEl.textContent = text;
+            titleEl.removeAttribute('hidden');
+        } else {
+            titleEl.textContent = '';
+            titleEl.setAttribute('hidden', '');
+        }
+    }
 
     /**
      * Sidebar controller
@@ -38,6 +75,8 @@
             this.els.overlay = document.getElementById('aa-sidebar-overlay');
             this.els.trigger = document.getElementById('aa-btn-sidebar');
             this.els.closeBtn = document.getElementById('aa-sidebar-close');
+
+            syncHeaderPageTitle();
 
             // Abort if essential elements are missing
             if (!this.els.sidebar || !this.els.overlay) {

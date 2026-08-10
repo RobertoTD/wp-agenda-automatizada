@@ -16,6 +16,13 @@
     let hasNext = false;
     let hasPrev = false;
     let searchTimeout = null;
+    let clientsOptionsMenuOpen = false;
+    let clientsOptionsMenuBound = false;
+    let expedienteOptionsMenuOpen = false;
+    let expedienteOptionsMenuBound = false;
+    /** Total de clientes sin filtro de búsqueda; decide visibilidad del buscador. */
+    let unfilteredClientTotal = 0;
+    const MIN_CLIENTS_FOR_SEARCH = 3;
 
     var EXPEDIENTE_FOLDER_SVG = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>';
     var CLIENT_PERSON_SVG = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>';
@@ -51,6 +58,22 @@
     }
 
     /**
+     * Fila de detalle: etiqueta + valor (valor atenuado).
+     */
+    function createClientDetailRow(label, value) {
+        const row = document.createElement('div');
+        const title = document.createElement('span');
+        title.className = 'font-semibold';
+        title.textContent = label + ' ';
+        const content = document.createElement('span');
+        content.className = 'text-gray-500';
+        content.textContent = value;
+        row.appendChild(title);
+        row.appendChild(content);
+        return row;
+    }
+
+    /**
      * Renderizar una tarjeta de cliente
      */
     function createClientCard(cliente) {
@@ -73,7 +96,7 @@
         iconWrap.innerHTML = CLIENT_PERSON_SVG;
 
         const name = document.createElement('span');
-        name.className = 'min-w-0 truncate';
+        name.className = 'min-w-0 truncate text-lg font-semibold text-gray-600';
         name.textContent = cliente.nombre || 'Sin nombre';
 
         titleRow.appendChild(iconWrap);
@@ -110,20 +133,9 @@
         }
         body.appendChild(telefono);
 
-        // Correo
-        const correo = document.createElement('div');
-        correo.textContent = 'Correo: ' + (cliente.correo || 'N/A');
-        body.appendChild(correo);
-
-        // Fecha de registro
-        const fechaRegistro = document.createElement('div');
-        fechaRegistro.textContent = 'Fecha de registro: ' + (cliente.created_at || 'N/A');
-        body.appendChild(fechaRegistro);
-
-        // Total de citas
-        const totalCitas = document.createElement('div');
-        totalCitas.textContent = 'Total de citas: ' + (cliente.total_citas || 0);
-        body.appendChild(totalCitas);
+        body.appendChild(createClientDetailRow('Correo:', cliente.correo || 'N/A'));
+        body.appendChild(createClientDetailRow('Fecha de registro:', cliente.created_at || 'N/A'));
+        body.appendChild(createClientDetailRow('Total de citas:', String(cliente.total_citas || 0)));
 
         // Acciones: Editar + Expediente
         const actions = document.createElement('div');
@@ -242,22 +254,17 @@
         actionBar.id = 'aa-clients-action-bar';
         actionBar.className = 'aa-clients-action-bar';
 
-        // Input de búsqueda
+        // Input de búsqueda (oculto hasta tener >= 3 clientes)
         const searchInput = document.createElement('input');
         searchInput.type = 'text';
         searchInput.id = 'aa-clients-search';
         searchInput.placeholder = 'Buscar por nombre, correo o teléfono';
-        searchInput.className = 'aa-clients-search-input';
+        searchInput.className = 'aa-clients-search-input hidden';
 
-        // Botón "+ Nuevo"
-        const newButton = document.createElement('button');
-        newButton.id = 'aa-clients-new';
-        newButton.textContent = '+ Nuevo';
-        newButton.className = 'aa-clients-new-button';
-
-        // Contenedor de paginación
+        // Contenedor de paginación (oculto hasta saber si hay más de una página)
         const paginationContainer = document.createElement('div');
         paginationContainer.className = 'aa-clients-pagination';
+        paginationContainer.style.display = 'none';
 
         // Botón anterior
         const prevButton = document.createElement('button');
@@ -279,14 +286,213 @@
 
         // Ensamblar barra de acciones
         actionBar.appendChild(searchInput);
-        actionBar.appendChild(newButton);
         actionBar.appendChild(paginationContainer);
+        actionBar.classList.add('hidden');
 
         // Insertar antes del grid
         parent.insertBefore(actionBar, container);
 
         // Event listeners
         setupEventListeners();
+    }
+
+    function getClientsOptionsTrigger() {
+        return document.getElementById('aa-clients-options-trigger');
+    }
+
+    function getClientsOptionsMenu() {
+        return document.getElementById('aa-clients-options-menu');
+    }
+
+    function closeClientsOptionsMenu() {
+        const trigger = getClientsOptionsTrigger();
+        const menu = getClientsOptionsMenu();
+
+        if (menu) {
+            menu.classList.add('hidden');
+        }
+        if (trigger) {
+            trigger.setAttribute('aria-expanded', 'false');
+        }
+        clientsOptionsMenuOpen = false;
+    }
+
+    function openClientsOptionsMenu() {
+        const trigger = getClientsOptionsTrigger();
+        const menu = getClientsOptionsMenu();
+
+        if (!menu || !trigger) {
+            return;
+        }
+
+        menu.classList.remove('hidden');
+        trigger.setAttribute('aria-expanded', 'true');
+        clientsOptionsMenuOpen = true;
+    }
+
+    function toggleClientsOptionsMenu() {
+        if (clientsOptionsMenuOpen) {
+            closeClientsOptionsMenu();
+        } else {
+            openClientsOptionsMenu();
+        }
+    }
+
+    function openCreateClientModal() {
+        if (window.AAAdmin && window.AAAdmin.ClientCreateModal) {
+            window.AAAdmin.ClientCreateModal.openCreate();
+            return;
+        }
+        console.error('AAAdmin.ClientCreateModal no está disponible');
+    }
+
+    function handleClientsOptionsDocumentClick(event) {
+        const target = event && event.target;
+        const trigger = target && target.closest
+            ? target.closest('#aa-clients-options-trigger')
+            : null;
+        const createItem = target && target.closest
+            ? target.closest('[data-clients-tool="create-client"]')
+            : null;
+        const insideTools = target && target.closest
+            ? target.closest('#aa-clients-area-tools')
+            : null;
+
+        if (trigger) {
+            event.preventDefault();
+            toggleClientsOptionsMenu();
+            return;
+        }
+
+        if (createItem) {
+            event.preventDefault();
+            closeClientsOptionsMenu();
+            openCreateClientModal();
+            return;
+        }
+
+        if (clientsOptionsMenuOpen && !insideTools) {
+            closeClientsOptionsMenu();
+        }
+    }
+
+    function handleClientsOptionsDocumentKeydown(event) {
+        if (!event || event.key !== 'Escape' || !clientsOptionsMenuOpen) {
+            return;
+        }
+        closeClientsOptionsMenu();
+    }
+
+    function bindClientsOptionsMenu() {
+        if (clientsOptionsMenuBound || !getClientsOptionsTrigger()) {
+            return;
+        }
+
+        clientsOptionsMenuBound = true;
+        document.addEventListener('click', handleClientsOptionsDocumentClick);
+        document.addEventListener('keydown', handleClientsOptionsDocumentKeydown);
+    }
+
+    function getExpedienteOptionsTrigger() {
+        return document.getElementById('aa-expediente-options-trigger');
+    }
+
+    function getExpedienteOptionsMenu() {
+        return document.getElementById('aa-expediente-options-menu');
+    }
+
+    function closeExpedienteOptionsMenu() {
+        var trigger = getExpedienteOptionsTrigger();
+        var menu = getExpedienteOptionsMenu();
+
+        if (menu) {
+            menu.classList.add('hidden');
+        }
+        if (trigger) {
+            trigger.setAttribute('aria-expanded', 'false');
+        }
+        expedienteOptionsMenuOpen = false;
+    }
+
+    function openExpedienteOptionsMenu() {
+        var trigger = getExpedienteOptionsTrigger();
+        var menu = getExpedienteOptionsMenu();
+
+        if (!menu || !trigger) {
+            return;
+        }
+
+        menu.classList.remove('hidden');
+        trigger.setAttribute('aria-expanded', 'true');
+        expedienteOptionsMenuOpen = true;
+    }
+
+    function toggleExpedienteOptionsMenu() {
+        if (expedienteOptionsMenuOpen) {
+            closeExpedienteOptionsMenu();
+        } else {
+            openExpedienteOptionsMenu();
+        }
+    }
+
+    function openCreateRegistroModal(focusReturnEl) {
+        if (window.AAAdmin
+            && window.AAAdmin.ExpedienteRegistros
+            && typeof window.AAAdmin.ExpedienteRegistros.openCreate === 'function') {
+            window.AAAdmin.ExpedienteRegistros.openCreate(focusReturnEl || null);
+            return;
+        }
+        console.error('[Clients] ExpedienteRegistros.openCreate no disponible');
+    }
+
+    function handleExpedienteOptionsDocumentClick(event) {
+        var target = event && event.target;
+        var trigger = target && target.closest
+            ? target.closest('#aa-expediente-options-trigger')
+            : null;
+        var createItem = target && target.closest
+            ? target.closest('[data-expediente-tool="create-registro"]')
+            : null;
+        var insideTools = target && target.closest
+            ? target.closest('#aa-expediente-area-tools')
+            : null;
+
+        if (trigger) {
+            event.preventDefault();
+            toggleExpedienteOptionsMenu();
+            return;
+        }
+
+        if (createItem) {
+            event.preventDefault();
+            closeExpedienteOptionsMenu();
+            openCreateRegistroModal(getExpedienteOptionsTrigger());
+            return;
+        }
+
+        if (expedienteOptionsMenuOpen && !insideTools) {
+            closeExpedienteOptionsMenu();
+        }
+    }
+
+    function handleExpedienteOptionsDocumentKeydown(event) {
+        if (!event || event.key !== 'Escape' || !expedienteOptionsMenuOpen) {
+            return;
+        }
+        closeExpedienteOptionsMenu();
+    }
+
+    function bindExpedienteOptionsMenu() {
+        if (expedienteOptionsMenuBound) {
+            return;
+        }
+        if (!document.getElementById('aa-expediente-root')) {
+            return;
+        }
+
+        expedienteOptionsMenuBound = true;
+        document.addEventListener('click', handleExpedienteOptionsDocumentClick);
+        document.addEventListener('keydown', handleExpedienteOptionsDocumentKeydown);
     }
 
     /**
@@ -296,19 +502,8 @@
         const searchInput = document.getElementById('aa-clients-search');
         const prevButton = document.getElementById('aa-clients-prev');
         const nextButton = document.getElementById('aa-clients-next');
-        const newButton = document.getElementById('aa-clients-new');
 
-        // Botón "+ Nuevo" abre modal usando API global
-        if (newButton) {
-            newButton.addEventListener('click', function(event) {
-                event.preventDefault();
-                if (window.AAAdmin && window.AAAdmin.ClientCreateModal) {
-                    window.AAAdmin.ClientCreateModal.openCreate();
-                } else {
-                    console.error('AAAdmin.ClientCreateModal no está disponible');
-                }
-            });
-        }
+        bindClientsOptionsMenu();
 
         // Búsqueda con debounce
         if (searchInput) {
@@ -385,6 +580,55 @@
                 }
             }
         }
+
+        syncClientsActionBarVisibility();
+    }
+
+    /**
+     * Muestra el buscador solo cuando hay al menos 3 clientes (inventario sin filtro).
+     */
+    function updateSearchVisibility() {
+        const searchInput = document.getElementById('aa-clients-search');
+        if (!searchInput) {
+            return;
+        }
+
+        if (unfilteredClientTotal >= MIN_CLIENTS_FOR_SEARCH) {
+            searchInput.classList.remove('hidden');
+        } else {
+            searchInput.classList.add('hidden');
+            if (currentQuery !== '') {
+                currentQuery = '';
+                searchInput.value = '';
+            }
+        }
+
+        syncClientsActionBarVisibility();
+    }
+
+    /**
+     * Oculta la action bar (y su mb-4) si búsqueda y paginación no aportan UI.
+     */
+    function syncClientsActionBarVisibility() {
+        const actionBar = document.getElementById('aa-clients-action-bar');
+        if (!actionBar) {
+            return;
+        }
+
+        const searchInput = document.getElementById('aa-clients-search');
+        const paginationContainer = document.querySelector('.aa-clients-pagination');
+        const searchVisible = !!(searchInput && !searchInput.classList.contains('hidden'));
+        const paginationVisible = !!(
+            paginationContainer
+            && paginationContainer.style.display !== 'none'
+        );
+
+        if (searchVisible || paginationVisible) {
+            actionBar.classList.remove('hidden');
+            return;
+        }
+
+        actionBar.classList.add('hidden');
     }
 
     /**
@@ -407,23 +651,22 @@
      * Guides the user to the client creation action without opening the modal.
      */
     function focusClientCreateButton() {
-        const actionBar = document.getElementById('aa-clients-action-bar');
-        const newButton = document.getElementById('aa-clients-new');
+        const trigger = getClientsOptionsTrigger();
 
-        if (!newButton) {
+        if (!trigger) {
             return;
         }
 
-        (actionBar || newButton).scrollIntoView({
+        trigger.scrollIntoView({
             behavior: 'smooth',
             block: 'center'
         });
 
-        applyTemporaryHighlight(newButton);
+        applyTemporaryHighlight(trigger);
 
-        if (typeof newButton.focus === 'function') {
+        if (typeof trigger.focus === 'function') {
             window.setTimeout(function() {
-                newButton.focus({ preventScroll: true });
+                trigger.focus({ preventScroll: true });
             }, 350);
         }
     }
@@ -497,6 +740,12 @@
 
                 // Actualizar botones de paginación y visibilidad
                 updatePaginationButtons(data.total, data.limit);
+
+                // Inventario real solo con query vacía (el total filtrado no cuenta)
+                if (currentQuery === '') {
+                    unfilteredClientTotal = parseInt(data.total, 10) || 0;
+                }
+                updateSearchVisibility();
             } else {
                 console.error('Error en búsqueda de clientes:', result);
                 if (container) {
@@ -512,7 +761,7 @@
         });
     }
 
-    function renderExpedienteShell(root, contentNode) {
+    function renderExpedienteShell(root, contentNode, headerTitle) {
         // MC4c: liberar observer/firmas/caché del montaje anterior antes de
         // sustituir el shell (loading, error o cliente nuevo).
         if (window.AAAdmin
@@ -525,23 +774,58 @@
         panel.className = 'aa-expediente-panel bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden';
 
         var header = document.createElement('div');
+        header.id = 'aa-expediente-section-header';
         header.className = 'px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white rounded-t-xl';
 
         var headerInner = document.createElement('div');
-        headerInner.className = 'flex items-center';
+        headerInner.className = 'flex items-center justify-between gap-3';
+
+        var titleBlock = document.createElement('div');
+        titleBlock.className = 'flex items-center min-w-0';
 
         var iconWrap = document.createElement('span');
-        iconWrap.className = 'flex items-center justify-center w-8 h-8 text-gray-600';
+        iconWrap.className = 'flex items-center justify-center w-8 h-8 text-gray-600 shrink-0';
         iconWrap.innerHTML = EXPEDIENTE_FOLDER_SVG;
 
         var titleWrap = document.createElement('div');
+        titleWrap.className = 'min-w-0';
         var title = document.createElement('h3');
-        title.className = 'text-lg font-semibold text-gray-600';
-        title.textContent = 'Expediente';
+        title.className = 'text-lg font-semibold text-gray-600 truncate';
+        title.textContent = headerTitle || 'Expediente';
         titleWrap.appendChild(title);
 
-        headerInner.appendChild(iconWrap);
-        headerInner.appendChild(titleWrap);
+        titleBlock.appendChild(iconWrap);
+        titleBlock.appendChild(titleWrap);
+
+        var tools = document.createElement('div');
+        tools.id = 'aa-expediente-area-tools';
+        tools.className = 'relative shrink-0';
+        tools.innerHTML = ''
+            + '<button type="button"'
+            + ' id="aa-expediente-options-trigger"'
+            + ' title="Opciones de expediente"'
+            + ' aria-label="Opciones de expediente"'
+            + ' aria-haspopup="menu"'
+            + ' aria-expanded="false"'
+            + ' class="aa-options-trigger-flat">'
+            + '<svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">'
+            + '<circle cx="5" cy="12" r="1.75"/>'
+            + '<circle cx="12" cy="12" r="1.75"/>'
+            + '<circle cx="19" cy="12" r="1.75"/>'
+            + '</svg>'
+            + '</button>'
+            + '<div id="aa-expediente-options-menu"'
+            + ' class="hidden absolute right-0 top-full z-20 mt-2 min-w-[12rem] rounded-lg border border-gray-200 bg-white py-1 shadow-lg"'
+            + ' role="menu">'
+            + '<button type="button" role="menuitem"'
+            + ' data-expediente-tool="create-registro"'
+            + ' class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-600 hover:bg-gray-50">'
+            + '<span>Nuevo registro</span>'
+            + '</button>'
+            + '</div>';
+
+        headerInner.appendChild(titleBlock);
+        headerInner.appendChild(tools);
         header.appendChild(headerInner);
         panel.appendChild(header);
 
@@ -551,13 +835,14 @@
         panel.appendChild(body);
 
         root.appendChild(panel);
+        bindExpedienteOptionsMenu();
     }
 
     function renderExpedienteLoading(root) {
         var p = document.createElement('p');
         p.className = 'text-sm text-gray-500';
         p.textContent = 'Cargando expediente...';
-        renderExpedienteShell(root, p);
+        renderExpedienteShell(root, p, 'Expediente');
     }
 
     function renderExpedienteError(root, message) {
@@ -574,37 +859,22 @@
 
         wrap.appendChild(title);
         wrap.appendChild(msg);
-        renderExpedienteShell(root, wrap);
+        renderExpedienteShell(root, wrap, 'Expediente');
     }
 
     function renderExpedienteContent(root, cliente) {
         var wrap = document.createElement('div');
         wrap.className = 'aa-expediente-content space-y-4';
 
-        var titleRow = document.createElement('div');
-        titleRow.className = 'aa-expediente-title-row flex items-center justify-between gap-3';
-
-        var name = document.createElement('h2');
-        name.className = 'text-xl font-semibold text-gray-600 min-w-0';
-        name.textContent = cliente.nombre || 'Sin nombre';
-
-        var actions = document.createElement('div');
-        actions.id = 'aa-expediente-actions';
-        actions.className = 'aa-expediente-actions shrink-0';
-
-        titleRow.appendChild(name);
-        titleRow.appendChild(actions);
-
         var records = document.createElement('div');
         records.id = 'aa-expediente-registros';
-        records.className = 'aa-expediente-registros mt-4 pt-4';
+        records.className = 'aa-expediente-registros';
 
-        wrap.appendChild(titleRow);
         wrap.appendChild(records);
 
-        renderExpedienteShell(root, wrap);
+        renderExpedienteShell(root, wrap, cliente.nombre || 'Sin nombre');
 
-        mountExpedienteRegistros(cliente.id, records, actions);
+        mountExpedienteRegistros(cliente.id, records, null);
     }
 
     function mountExpedienteRegistros(clientId, recordsRoot, actionsRoot) {
@@ -708,6 +978,7 @@
         }
 
         renderActionBar();
+        bindClientsOptionsMenu();
         applySetupFocusFromUrl();
         searchClients();
 

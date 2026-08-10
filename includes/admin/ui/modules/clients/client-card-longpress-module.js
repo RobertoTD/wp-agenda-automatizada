@@ -1,8 +1,9 @@
 /**
- * Client Card Long-Press Module — abre el modal de editar cliente al mantener
- * pulsado el header de una tarjeta en #aa-clients-grid.
+ * Client Long-Press Module —
+ * - Título de página (#aa-page-title) en vista lista: abre modal de nuevo cliente.
+ * - Header de tarjeta en #aa-clients-grid: abre modal de editar cliente.
  *
- * El click rápido conserva su comportamiento nativo (toggle expandir/colapsar).
+ * El click rápido conserva su comportamiento nativo.
  * Solo un click sostenido (>= LONG_PRESS_MS) sin desplazamiento dispara la acción.
  * Compatible con mouse y touch vía Pointer Events.
  */
@@ -15,18 +16,49 @@
 
     var LONG_PRESS_MS = 500;
     var MOVE_TOLERANCE_PX = 10;
+    var ACTION_CREATE = 'create';
+    var ACTION_EDIT = 'edit';
 
     var pressTimer = null;
     var pressActive = false;
     var longPressFired = false;
     var startX = 0;
     var startY = 0;
+    var activeAction = '';
     var activeEditButton = null;
 
     function isInteractiveTarget(target) {
         return !!(target && typeof target.closest === 'function' && target.closest(
-            'button, a, input, select, textarea, label, [role="menuitem"]'
+            'button, a, input, select, textarea, label, [role="menuitem"], #aa-clients-area-tools'
         ));
+    }
+
+    /**
+     * Superficie de create: #aa-page-title mientras la lista de clientes está visible.
+     *
+     * @param {EventTarget|null} target
+     * @returns {HTMLElement|null}
+     */
+    function resolveClientsSectionHeader(target) {
+        if (!target || typeof target.closest !== 'function') {
+            return null;
+        }
+
+        var pageTitle = target.closest('#aa-page-title');
+
+        if (!pageTitle) {
+            return null;
+        }
+
+        var listRoot = typeof document !== 'undefined' && document.getElementById
+            ? document.getElementById('aa-clients-list-root')
+            : null;
+
+        if (!listRoot || (listRoot.classList && listRoot.classList.contains('hidden'))) {
+            return null;
+        }
+
+        return pageTitle;
     }
 
     /**
@@ -76,7 +108,19 @@
         }
 
         pressActive = false;
+        activeAction = '';
         activeEditButton = null;
+    }
+
+    function openCreateClientModal() {
+        if (globalRoot.AAAdmin
+            && globalRoot.AAAdmin.ClientCreateModal
+            && typeof globalRoot.AAAdmin.ClientCreateModal.openCreate === 'function') {
+            globalRoot.AAAdmin.ClientCreateModal.openCreate();
+            return;
+        }
+
+        console.error('[ClientsLongPress] AAAdmin.ClientCreateModal.openCreate no disponible');
     }
 
     function triggerLongPress() {
@@ -84,7 +128,9 @@
         pressActive = false;
         longPressFired = true;
 
+        var action = activeAction;
         var editButton = activeEditButton;
+        activeAction = '';
         activeEditButton = null;
 
         if (globalRoot.navigator && typeof globalRoot.navigator.vibrate === 'function') {
@@ -95,7 +141,12 @@
             }
         }
 
-        if (!editButton || editButton.disabled) {
+        if (action === ACTION_CREATE) {
+            openCreateClientModal();
+            return;
+        }
+
+        if (action !== ACTION_EDIT || !editButton || editButton.disabled) {
             return;
         }
 
@@ -116,6 +167,17 @@
             return;
         }
 
+        var sectionHeader = resolveClientsSectionHeader(event.target);
+
+        if (sectionHeader) {
+            pressActive = true;
+            activeAction = ACTION_CREATE;
+            startX = event.clientX;
+            startY = event.clientY;
+            pressTimer = globalRoot.setTimeout(triggerLongPress, LONG_PRESS_MS);
+            return;
+        }
+
         var header = resolveClientCardHeader(event.target);
 
         if (!header) {
@@ -129,6 +191,7 @@
         }
 
         pressActive = true;
+        activeAction = ACTION_EDIT;
         activeEditButton = editButton;
         startX = event.clientX;
         startY = event.clientY;
@@ -178,7 +241,7 @@
             return;
         }
 
-        if (!resolveClientCardHeader(event.target)) {
+        if (!resolveClientsSectionHeader(event.target) && !resolveClientCardHeader(event.target)) {
             return;
         }
 
@@ -190,7 +253,7 @@
     var isBound = false;
 
     function bindLongPressModule() {
-        if (isBound || !document.getElementById('aa-clients-grid')) {
+        if (isBound || !document.getElementById('aa-clients-list-root')) {
             return;
         }
 
@@ -211,6 +274,7 @@
     var moduleExports = {
         LONG_PRESS_MS: LONG_PRESS_MS,
         MOVE_TOLERANCE_PX: MOVE_TOLERANCE_PX,
+        resolveClientsSectionHeader: resolveClientsSectionHeader,
         resolveClientCardHeader: resolveClientCardHeader,
         resolveEditButton: resolveEditButton,
         isInteractiveTarget: isInteractiveTarget

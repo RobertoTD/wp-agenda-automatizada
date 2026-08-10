@@ -80,7 +80,8 @@ ac_assert(
 ac_assert(
     'index.php shows unified feed section without hidden',
     is_string($index_php)
-    && preg_match('/id="aa-executable-lists-active"\s+class="space-y-4"/', $index_php) === 1
+    && preg_match('/id="aa-executable-lists-active"(?:\s|>)/', $index_php) === 1
+    && strpos($index_php, 'id="aa-executable-lists-active" class="space-y-4"') === false
 );
 ac_assert(
     'index.php shows unified loading without hidden',
@@ -130,13 +131,21 @@ ac_assert(
     && strpos($index_php, 'id="aa-lists-section"') !== false
 );
 ac_assert(
-    'index.php exposes lists header tools and always-visible body',
+    'index.php exposes lists body without legacy lists header',
     is_string($index_php)
-    && strpos($index_php, 'id="aa-lists-header"') !== false
+    && strpos($index_php, 'id="aa-lists-header"') === false
     && strpos($index_php, 'id="aa-lists-body"') !== false
-    && strpos($index_php, 'id="aa-lists-area-tools"') !== false
+    && strpos($index_php, 'id="aa-lists-area-tools"') === false
     && strpos($index_php, 'id="aa-lists-header-toggle"') === false
     && strpos($index_php, 'aa-lists-header-chevron') === false
+);
+$header_php = @file_get_contents($plugin_root . '/includes/admin/ui/shared/header.php');
+ac_assert(
+    'shell header hosts lists area tools for learning module',
+    is_string($header_php)
+    && strpos($header_php, 'id="aa-lists-area-tools"') !== false
+    && strpos($header_php, 'id="aa-lists-options-trigger"') !== false
+    && strpos($header_php, "\$active_module === 'learning'") !== false
 );
 ac_assert(
     'index.php lists section no longer starts fully muted',

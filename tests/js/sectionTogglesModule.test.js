@@ -209,10 +209,10 @@ describe('section-toggles-module — toggles de secciones', () => {
         assert.doesNotMatch(indexSrc, /data-work-zone/);
     });
 
-    it('index.php conserva header de herramientas y body siempre visible', () => {
-        assert.match(indexSrc, /id="aa-lists-header"/);
+    it('index.php conserva body de listas siempre visible; tools viven en shell header', () => {
+        assert.doesNotMatch(indexSrc, /id="aa-lists-header"/);
         assert.match(indexSrc, /id="aa-lists-body"/);
-        assert.match(indexSrc, /id="aa-lists-area-tools"/);
+        assert.doesNotMatch(indexSrc, /id="aa-lists-area-tools"/);
         assert.doesNotMatch(indexSrc, /id="aa-lists-header-toggle"/);
         assert.doesNotMatch(indexSrc, /aa-lists-header-chevron/);
         assert.doesNotMatch(indexSrc, /Listas de tareas/);

@@ -321,7 +321,7 @@ body {
     }
 
     [data-aa-card].is-open [data-aa-card-toggle] {
-        @apply rounded-t-lg;
+        @apply rounded-t-lg border-b border-gray-100;
     }
 
     /* Overlay - hidden by default, positioned absolutely */
@@ -329,7 +329,7 @@ body {
         @apply hidden absolute top-full z-50;
         left: -1px;
         right: -1px;
-        @apply bg-white border border-gray-200 border-t-0 rounded-b-lg shadow-lg;
+        @apply bg-gray-50 border border-gray-200 border-t-0 rounded-b-lg shadow-lg;
     }
 
     /* Show overlay when card is open */
@@ -377,8 +377,34 @@ body {
         overflow: visible !important;
     }
 
+    /* Clientes — headers al tono de executable list summaries */
+    #aa-clients-grid [data-aa-card] {
+        @apply rounded-xl shadow;
+    }
+
+    #aa-clients-grid [data-aa-card].is-open {
+        @apply rounded-t-xl rounded-b-none;
+    }
+
+    #aa-clients-grid [data-aa-card-toggle] {
+        @apply px-4 py-5 font-semibold bg-gradient-to-r from-gray-50 to-white;
+        background-color: transparent;
+    }
+
+    #aa-clients-grid [data-aa-card]:not(.is-open) [data-aa-card-toggle] {
+        @apply rounded-xl;
+    }
+
+    #aa-clients-grid [data-aa-card].is-open [data-aa-card-toggle] {
+        @apply rounded-t-xl border-b border-gray-100;
+    }
+
+    #aa-clients-grid [data-aa-card].is-open .aa-card-overlay {
+        @apply rounded-b-xl;
+    }
+
     /* Add padding-bottom to clients container when one of the last 3 cards is open to prevent overlay from being cut off */
-    #aa-module-root .p-3:has(#aa-clients-grid > [data-aa-card].is-open:nth-last-child(-n+3)) {
+    #aa-module-root #aa-clients-list-root:has(#aa-clients-grid > [data-aa-card].is-open:nth-last-child(-n+3)) {
         padding-bottom: 200px;
         transition: padding-bottom 0.2s ease;
     }
@@ -392,13 +418,6 @@ body {
         @apply flex-1 min-w-[200px] px-3 py-2 text-sm;
         @apply border border-gray-300 rounded-lg;
         @apply focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none;
-    }
-
-    .aa-clients-new-button {
-        @apply inline-flex items-center px-4 py-2 text-sm font-medium;
-        @apply text-gray-500 hover:text-gray-700;
-        @apply border border-gray-200 bg-white hover:bg-gray-50;
-        @apply rounded-lg transition-colors;
     }
 
     .aa-clients-pagination {
@@ -420,7 +439,7 @@ body {
     .aa-btn-expediente-cliente {
         @apply px-3 py-1.5 text-sm;
         @apply inline-flex items-center gap-1.5;
-        @apply text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50;
+        @apply bg-white text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50;
         @apply border border-indigo-200 rounded-md;
         @apply transition-colors cursor-pointer;
     }
@@ -439,16 +458,6 @@ body {
         @apply flex items-center justify-between gap-3;
     }
 
-    .aa-expediente-actions {
-        @apply shrink-0;
-    }
-
-    .aa-expediente-nuevo-registro-btn {
-        @apply px-3 py-1.5 text-sm font-medium;
-        @apply bg-indigo-600 hover:bg-indigo-700 text-white;
-        @apply rounded-md transition-colors cursor-pointer;
-    }
-
     .aa-expediente-registros-list {
         @apply space-y-2;
     }
@@ -459,7 +468,7 @@ body {
 
     .aa-expediente-registro-summary {
         @apply px-4 py-3 cursor-pointer select-none list-none;
-        @apply text-gray-900;
+        @apply text-gray-900 bg-gray-50;
         @apply hover:bg-gray-50 transition-colors;
         @apply flex items-start justify-between gap-3;
     }
@@ -489,7 +498,7 @@ body {
     }
 
     .aa-expediente-registro-date {
-        @apply text-gray-500 whitespace-nowrap;
+        @apply font-medium text-gray-500 whitespace-nowrap;
     }
 
     .aa-expediente-registro[open] > .aa-expediente-registro-summary {
@@ -497,7 +506,7 @@ body {
     }
 
     .aa-expediente-registro-panel {
-        @apply px-4 py-3;
+        @apply px-4 py-3 bg-gray-50;
     }
 
     .aa-expediente-registro-body {
@@ -515,7 +524,7 @@ body {
     .aa-expediente-btn-editar {
         @apply px-3 py-1.5 text-sm;
         @apply inline-flex items-center gap-1.5;
-        @apply text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50;
+        @apply bg-white text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50;
         @apply border border-indigo-200 rounded-md;
         @apply transition-colors cursor-pointer;
     }
@@ -523,7 +532,7 @@ body {
     .aa-expediente-btn-eliminar {
         @apply px-3 py-1.5 text-sm;
         @apply inline-flex items-center gap-1.5;
-        @apply text-red-700 hover:text-red-800 hover:bg-red-50;
+        @apply bg-white text-red-700 hover:text-red-800 hover:bg-red-50;
         @apply border border-red-200 rounded-md;
         @apply transition-colors cursor-pointer;
     }

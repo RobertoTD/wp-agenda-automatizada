@@ -1915,7 +1915,7 @@
             + '<details class="aa-executable-list-card aa-task-list-card group bg-white rounded-xl shadow border border-gray-200"'
             + ' data-list-id="' + listId + '"'
             + ' data-list-source="' + source + '">'
-            + '<summary class="px-4 py-4 bg-gradient-to-r ' + headerGradient + ' cursor-pointer list-none">'
+            + '<summary class="px-4 py-5 bg-gradient-to-r ' + headerGradient + ' cursor-pointer list-none">'
             + '<div class="flex items-start justify-between gap-3">'
             + '<div class="min-w-0 flex-1">'
             + '<div class="flex items-center gap-1.5 min-w-0">'
@@ -1924,7 +1924,7 @@
             + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h.01M8 6h12M4 12h.01M8 12h12M4 18h.01M8 18h12"/>'
             + '</svg>'
             + '</span>'
-            + '<h4 class="text-lg font-semibold text-gray-600 min-w-0">' + title + '</h4>'
+            + '<h3 class="text-lg font-semibold text-gray-600 min-w-0">' + title + '</h3>'
             + '</div>'
             + headerMetaHtml
             + detailsHtml

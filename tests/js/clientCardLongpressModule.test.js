@@ -14,14 +14,25 @@ const indexPath = path.join(
     __dirname,
     '../../includes/admin/ui/modules/clients/index.php'
 );
+const headerPath = path.join(
+    __dirname,
+    '../../includes/admin/ui/shared/header.php'
+);
 const moduleSrc = fs.readFileSync(modulePath, 'utf8');
 const indexSrc = fs.readFileSync(indexPath, 'utf8');
+const headerSrc = fs.readFileSync(headerPath, 'utf8');
 
-function loadModule() {
+function loadModule(documentStub) {
     var context = {
         window: {},
         console: console,
-        document: undefined,
+        document: documentStub
+            ? Object.assign({
+                readyState: 'complete',
+                addEventListener: function () {},
+                getElementById: function () { return null; }
+            }, documentStub)
+            : undefined,
         module: { exports: {} },
         setTimeout: setTimeout,
         clearTimeout: clearTimeout
@@ -51,8 +62,89 @@ describe('client-card-longpress-module', () => {
         assert.equal(exports.LONG_PRESS_MS, 500);
         assert.equal(exports.MOVE_TOLERANCE_PX, 10);
         assert.equal(typeof exports.resolveClientCardHeader, 'function');
+        assert.equal(typeof exports.resolveClientsSectionHeader, 'function');
         assert.equal(typeof exports.resolveEditButton, 'function');
         assert.equal(typeof exports.isInteractiveTarget, 'function');
+    });
+
+    it('tools de clientes viven en header; index ya no tiene section header', () => {
+        assert.match(headerSrc, /id="aa-clients-area-tools"/);
+        assert.match(headerSrc, /id="aa-clients-options-trigger"/);
+        assert.doesNotMatch(indexSrc, /id="aa-clients-section-header"/);
+        assert.doesNotMatch(indexSrc, /id="aa-clients-area-tools"/);
+    });
+
+    it('resolveClientsSectionHeader acepta #aa-page-title si la lista está visible', () => {
+        var pageTitle = { id: 'aa-page-title' };
+        var listRoot = {
+            id: 'aa-clients-list-root',
+            classList: {
+                contains: function (cls) {
+                    return cls === 'hidden' ? false : false;
+                }
+            }
+        };
+
+        var exports = loadModule({
+            getElementById: function (id) {
+                return id === 'aa-clients-list-root' ? listRoot : null;
+            }
+        });
+
+        pageTitle.closest = function (sel) {
+            return sel === '#aa-page-title' ? pageTitle : null;
+        };
+
+        var target = {
+            closest: function (sel) {
+                return pageTitle.closest(sel);
+            }
+        };
+
+        var outside = {
+            closest: function () {
+                return null;
+            }
+        };
+
+        assert.equal(exports.resolveClientsSectionHeader(target), pageTitle);
+        assert.equal(exports.resolveClientsSectionHeader(outside), null);
+    });
+
+    it('resolveClientsSectionHeader rechaza #aa-page-title si la lista está oculta', () => {
+        var pageTitle = { id: 'aa-page-title' };
+        var listRoot = {
+            id: 'aa-clients-list-root',
+            classList: {
+                contains: function (cls) {
+                    return cls === 'hidden';
+                }
+            }
+        };
+
+        var exports = loadModule({
+            getElementById: function (id) {
+                return id === 'aa-clients-list-root' ? listRoot : null;
+            }
+        });
+
+        pageTitle.closest = function (sel) {
+            return sel === '#aa-page-title' ? pageTitle : null;
+        };
+
+        var target = {
+            closest: function (sel) {
+                return pageTitle.closest(sel);
+            }
+        };
+
+        assert.equal(exports.resolveClientsSectionHeader(target), null);
+    });
+
+    it('module abre create modal en long-press del título de página', () => {
+        assert.match(moduleSrc, /ACTION_CREATE/);
+        assert.match(moduleSrc, /ClientCreateModal\.openCreate/);
+        assert.match(moduleSrc, /aa-page-title/);
     });
 
     it('resolveClientCardHeader solo acepta headers dentro de #aa-clients-grid', () => {
@@ -145,6 +237,6 @@ describe('client-card-longpress-module', () => {
         assert.match(moduleSrc, /\.aa-btn-editar-cliente/);
         assert.match(moduleSrc, /editButton\.click/);
         assert.match(moduleSrc, /#aa-clients-grid/);
-        assert.doesNotMatch(moduleSrc, /openCreate/);
+        assert.match(moduleSrc, /ACTION_EDIT/);
     });
 });

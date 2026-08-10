@@ -2127,7 +2127,8 @@ describe('executable-lists-module push activation feed bootstrap', () => {
         const indexPath = path.join(__dirname, '../../includes/admin/ui/modules/learning/index.php');
         const indexSrc = fs.readFileSync(indexPath, 'utf8');
 
-        assert.match(indexSrc, /id="aa-executable-lists-active"\s+class="space-y-4"/);
+        assert.match(indexSrc, /id="aa-executable-lists-active"/);
+        assert.doesNotMatch(indexSrc, /id="aa-executable-lists-active"\s+class="space-y-4"/);
         assert.match(indexSrc, /id="aa-executable-lists-active-loading"\s+class="text-sm text-gray-500"/);
         assert.match(indexSrc, /id="aa-tasks-board-root"\s+class="hidden"/);
         assert.doesNotMatch(indexSrc, /executable-lists-shadow-module\.js/);

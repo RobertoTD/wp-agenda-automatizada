@@ -31,17 +31,6 @@
         }
     }
 
-    function renderDate() {
-        var dateEl = document.getElementById('aa-dashboard-date');
-        if (!dateEl) return;
-
-        var now = new Date();
-        var day = now.getDate();
-        var month = now.toLocaleDateString('es-MX', { month: 'short' }).replace(/\.$/, '');
-        month = month.charAt(0).toUpperCase() + month.slice(1);
-        dateEl.textContent = day + ' de ' + month;
-    }
-
     // ─── Card: Hoy ────────────────────────────────────────────
 
     function setTodayValues(values) {
@@ -750,8 +739,6 @@
             console.warn('[DashboardModule] AA_DASHBOARD_DATA not available');
             return;
         }
-
-        renderDate();
 
         bindDashboardCollapsibles();
 

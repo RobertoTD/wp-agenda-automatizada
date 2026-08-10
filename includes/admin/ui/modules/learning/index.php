@@ -38,58 +38,12 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
 <div id="aa-tasks-module-root" class="max-w-5xl mx-auto py-2 pb-24">
 
     <section id="aa-lists-section">
-        <header id="aa-lists-header" class="aa-lists-header mb-3 flex items-start justify-end gap-3">
-            <div id="aa-lists-area-tools" class="relative flex items-center gap-2 shrink-0">
-                <button type="button"
-                    id="aa-lists-options-trigger"
-                    data-lists-tool="options-menu"
-                    title="Opciones de listas"
-                    aria-haspopup="true"
-                    aria-expanded="false"
-                    class="aa-options-trigger-flat">
-                    <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <circle cx="5" cy="12" r="1.75"/>
-                        <circle cx="12" cy="12" r="1.75"/>
-                        <circle cx="19" cy="12" r="1.75"/>
-                    </svg>
-                </button>
-                <div id="aa-lists-options-menu"
-                    class="hidden absolute right-0 top-full z-20 mt-2 min-w-[12rem] rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
-                    role="menu">
-                    <button type="button" role="menuitem"
-                        data-lists-tool="create-list"
-                        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-600 hover:bg-gray-50">
-                        <svg class="w-4 h-4 shrink-0 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                        </svg>
-                        <span>Lista</span>
-                    </button>
-                    <button type="button" role="menuitem"
-                        data-lists-tool="restore-archived"
-                        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-600 hover:bg-gray-50">
-                        <svg class="w-4 h-4 shrink-0 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v6h6M20 20v-6h-6M5 19a9 9 0 0014-7.5M19 5a9 9 0 00-14 7.5"/>
-                        </svg>
-                        <span>Desarchivar listas</span>
-                    </button>
-                    <button type="button" role="menuitem"
-                        data-lists-tool="return-ignored-tasks"
-                        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-600 hover:bg-gray-50">
-                        <svg class="w-4 h-4 shrink-0 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14L4 9m0 0l5-5M4 9h12a4 4 0 014 4v1"/>
-                        </svg>
-                        <span>Regresar tareas ignoradas</span>
-                    </button>
-                </div>
-            </div>
-        </header>
-
         <div id="aa-lists-body" class="aa-lists-body">
         <p id="aa-lists-area-tools-error" class="hidden text-sm text-red-600 mb-3"></p>
         <p id="aa-tasks-error" class="hidden text-sm text-red-600 mb-3"></p>
 
         <div id="aa-lists-feed" class="space-y-4">
-            <section id="aa-executable-lists-active" class="space-y-4">
+            <section id="aa-executable-lists-active">
                 <p id="aa-executable-lists-active-error" class="hidden text-sm text-red-600"></p>
                 <p id="aa-executable-lists-active-loading" class="text-sm text-gray-500">Cargando listas…</p>
                 <div id="aa-executable-lists-active-root" class="space-y-2 pb-1"></div>
@@ -119,7 +73,7 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
         <header id="aa-executive-section-header" class="aa-executive-section-header mb-3 flex items-start justify-between gap-3">
             <button type="button"
                 id="aa-executive-header-toggle"
-                class="aa-executive-header-toggle ml-auto inline-flex items-center justify-center w-8 h-8 shrink-0 rounded-lg text-gray-600 hover:bg-gray-100 focus:outline-none"
+                class="aa-executive-header-toggle ml-auto inline-flex items-center justify-center w-8 h-8 shrink-0 rounded-lg text-gray-400 hover:bg-gray-100 focus:outline-none"
                 aria-expanded="false"
                 aria-controls="aa-executive-body"
                 aria-label="Ejecutar">
