@@ -146,7 +146,7 @@ describe('AAExecutableListRenderer', () => {
         assert.match(html, /aa-executable-list-icon/);
         assert.match(
             html,
-            /aa-executable-list-icon[\s\S]*?<h4 class="text-base font-semibold text-gray-600 min-w-0">/
+            /aa-executable-list-icon[\s\S]*?<h4 class="text-lg font-semibold text-gray-600 min-w-0">/
         );
         assert.doesNotMatch(html, /aa-executable-item/);
     });
@@ -2311,7 +2311,18 @@ describe('executableListRenderer MC-UX-A visual polish', () => {
     it('renderer agrega clase aa-executable-item-title al título', () => {
         var html = renderer.renderItem(baseItem({ title: 'Título largo de prueba' }));
 
-        assert.match(html, /class="aa-executable-item-title text-sm font-semibold text-gray-600"/);
+        assert.match(html, /class="aa-executable-item-title text-base font-semibold text-gray-600"/);
+    });
+
+    it('renderer agrega icono SVG a la izquierda del título de cada tarea', () => {
+        var html = renderer.renderItem(baseItem({ title: 'Título con icono' }));
+
+        assert.match(html, /aa-executable-item-icon/);
+        assert.match(
+            html,
+            /aa-executable-item-icon[\s\S]*?<p class="aa-executable-item-title text-base font-semibold text-gray-600">/
+        );
+        assert.match(html, /M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z/);
     });
 
     it('CSS trunca título colapsado y lo muestra completo expandido', () => {

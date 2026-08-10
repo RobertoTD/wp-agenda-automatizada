@@ -91,19 +91,7 @@ function makeElement(tag, options) {
 function buildDom(options) {
     var opts = options || {};
 
-    var listsCollapsed = opts.listsCollapsed === true;
     var execCollapsed = opts.execCollapsed !== false;
-
-    var listsBodyClasses = listsCollapsed
-        ? ['aa-lists-body', 'is-collapsed']
-        : ['aa-lists-body'];
-    var listsBodyAttrs = listsCollapsed
-        ? { 'aria-hidden': 'true', inert: '' }
-        : { 'aria-hidden': 'false' };
-    var listsToggleAttrs = {
-        'aria-expanded': listsCollapsed ? 'false' : 'true',
-        'aria-controls': 'aa-lists-body'
-    };
 
     var execBodyClasses = execCollapsed
         ? ['aa-executive-body', 'is-collapsed']
@@ -116,14 +104,9 @@ function buildDom(options) {
         'aria-controls': 'aa-executive-body'
     };
 
-    var listsToggle = makeElement('button', {
-        id: 'aa-lists-header-toggle',
-        attributes: listsToggleAttrs
-    });
     var listsBody = makeElement('div', {
         id: 'aa-lists-body',
-        classes: listsBodyClasses,
-        attributes: listsBodyAttrs
+        classes: ['aa-lists-body']
     });
     var execToggle = makeElement('button', {
         id: 'aa-executive-header-toggle',
@@ -136,7 +119,6 @@ function buildDom(options) {
     });
 
     var elements = {
-        'aa-lists-header-toggle': listsToggle,
         'aa-lists-body': listsBody,
         'aa-executive-header-toggle': execToggle,
         'aa-executive-body': execBody
@@ -152,7 +134,6 @@ function buildDom(options) {
 
     return {
         document: documentMock,
-        listsToggle: listsToggle,
         listsBody: listsBody,
         execToggle: execToggle,
         execBody: execBody
@@ -163,18 +144,11 @@ function buildPartialDom(options) {
     var opts = options || {};
     var elements = {};
 
-    if (opts.includeLists) {
-        var listsToggle = makeElement('button', {
-            id: 'aa-lists-header-toggle',
-            attributes: { 'aria-expanded': 'true', 'aria-controls': 'aa-lists-body' }
-        });
-        var listsBody = makeElement('div', {
+    if (opts.includeListsBody) {
+        elements['aa-lists-body'] = makeElement('div', {
             id: 'aa-lists-body',
-            classes: ['aa-lists-body'],
-            attributes: { 'aria-hidden': 'false' }
+            classes: ['aa-lists-body']
         });
-        elements['aa-lists-header-toggle'] = listsToggle;
-        elements['aa-lists-body'] = listsBody;
     }
 
     if (opts.includeExec) {
@@ -235,11 +209,13 @@ describe('section-toggles-module — toggles de secciones', () => {
         assert.doesNotMatch(indexSrc, /data-work-zone/);
     });
 
-    it('index.php conserva header persistente y body contraíble del organizador', () => {
-        assert.match(indexSrc, /Organizador · Listas de tareas/);
+    it('index.php conserva header de herramientas y body siempre visible', () => {
         assert.match(indexSrc, /id="aa-lists-header"/);
         assert.match(indexSrc, /id="aa-lists-body"/);
-        assert.match(indexSrc, /id="aa-lists-header-toggle"/);
+        assert.match(indexSrc, /id="aa-lists-area-tools"/);
+        assert.doesNotMatch(indexSrc, /id="aa-lists-header-toggle"/);
+        assert.doesNotMatch(indexSrc, /aa-lists-header-chevron/);
+        assert.doesNotMatch(indexSrc, /Listas de tareas/);
     });
 
     it('CSS no contiene reglas de opacidad del ejecutor ni is-muted', () => {
@@ -247,22 +223,22 @@ describe('section-toggles-module — toggles de secciones', () => {
 
         assert.doesNotMatch(css, /#aa-executive-proposal\.is-muted/);
         assert.doesNotMatch(css, /#aa-executive-proposal\s*\{[^}]*transition:\s*opacity/);
-        assert.doesNotMatch(css, /#aa-lists-header-toggle\s*\{[^}]*transition:\s*opacity/);
-        assert.doesNotMatch(css, /#aa-lists-header-toggle\[aria-expanded="false"\]\s*\{[^}]*opacity/);
+        assert.doesNotMatch(css, /#aa-lists-header-toggle/);
     });
 
-    // --- Organizer initial state ---
-    it('organizador inicia expandido', () => {
-        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
+    // --- Organizer always visible ---
+    it('organizador no tiene toggle y el body permanece expandido', () => {
+        var dom = buildDom({ execCollapsed: true });
         loadModule(dom);
 
         assert.equal(dom.listsBody.classList.contains('is-collapsed'), false);
-        assert.equal(dom.listsToggle.getAttribute('aria-expanded'), 'true');
+        assert.equal(dom.document.getElementById('aa-lists-header-toggle'), null);
+        assert.equal(moduleSrc.includes('aa-lists-header-toggle'), false);
     });
 
     // --- Executive initial state ---
     it('ejecutor inicia colapsado', () => {
-        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
+        var dom = buildDom({ execCollapsed: true });
         loadModule(dom);
 
         assert.equal(dom.execBody.classList.contains('is-collapsed'), true);
@@ -270,14 +246,14 @@ describe('section-toggles-module — toggles de secciones', () => {
     });
 
     it('ejecutor tiene aria-hidden=true inicial', () => {
-        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
+        var dom = buildDom({ execCollapsed: true });
         loadModule(dom);
 
         assert.equal(dom.execBody.getAttribute('aria-hidden'), 'true');
     });
 
     it('ejecutor tiene inert inicial', () => {
-        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
+        var dom = buildDom({ execCollapsed: true });
         loadModule(dom);
 
         assert.equal(dom.execBody.getAttribute('inert'), '');
@@ -285,7 +261,7 @@ describe('section-toggles-module — toggles de secciones', () => {
 
     // --- Executive toggle behavior ---
     it('clic en toggle ejecutivo expande solo el ejecutor', () => {
-        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
+        var dom = buildDom({ execCollapsed: true });
         loadModule(dom);
 
         clickToggle(dom.execToggle);
@@ -293,13 +269,11 @@ describe('section-toggles-module — toggles de secciones', () => {
         assert.equal(dom.execBody.classList.contains('is-collapsed'), false);
         assert.equal(dom.execToggle.getAttribute('aria-expanded'), 'true');
         assert.equal(dom.execBody.inert, false);
-        // organizador no fue afectado
         assert.equal(dom.listsBody.classList.contains('is-collapsed'), false);
-        assert.equal(dom.listsToggle.getAttribute('aria-expanded'), 'true');
     });
 
     it('segundo clic en toggle ejecutivo vuelve a colapsarlo', () => {
-        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
+        var dom = buildDom({ execCollapsed: true });
         loadModule(dom);
 
         clickToggle(dom.execToggle);
@@ -311,64 +285,27 @@ describe('section-toggles-module — toggles de secciones', () => {
         assert.equal(dom.execBody.inert, true);
     });
 
-    // --- Organizer toggle behavior ---
-    it('clic en toggle del organizador afecta solo al organizador', () => {
-        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
-        loadModule(dom);
-
-        clickToggle(dom.listsToggle);
-
-        assert.equal(dom.listsBody.classList.contains('is-collapsed'), true);
-        assert.equal(dom.listsToggle.getAttribute('aria-expanded'), 'false');
-        // ejecutor no fue afectado
-        assert.equal(dom.execBody.classList.contains('is-collapsed'), true);
-        assert.equal(dom.execToggle.getAttribute('aria-expanded'), 'false');
-    });
-
     // --- Independence ---
-    it('abrir el ejecutor no cierra el organizador', () => {
-        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
+    it('abrir el ejecutor no colapsa las listas', () => {
+        var dom = buildDom({ execCollapsed: true });
         loadModule(dom);
 
         clickToggle(dom.execToggle);
 
         assert.equal(dom.listsBody.classList.contains('is-collapsed'), false);
-        assert.equal(dom.listsToggle.getAttribute('aria-expanded'), 'true');
     });
 
-    it('cerrar el organizador no abre el ejecutor', () => {
-        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
-        loadModule(dom);
+    it('módulo solo registra el par ejecutivo', () => {
+        var loaded = loadModule(buildDom({ execCollapsed: true }));
 
-        clickToggle(dom.listsToggle);
-
-        assert.equal(dom.execBody.classList.contains('is-collapsed'), true);
-        assert.equal(dom.execToggle.getAttribute('aria-expanded'), 'false');
-    });
-
-    it('ambas secciones pueden quedar abiertas', () => {
-        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
-        loadModule(dom);
-
-        clickToggle(dom.execToggle);
-
-        assert.equal(dom.listsBody.classList.contains('is-collapsed'), false);
-        assert.equal(dom.execBody.classList.contains('is-collapsed'), false);
-    });
-
-    it('ambas secciones pueden quedar cerradas', () => {
-        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
-        loadModule(dom);
-
-        clickToggle(dom.listsToggle);
-
-        assert.equal(dom.listsBody.classList.contains('is-collapsed'), true);
-        assert.equal(dom.execBody.classList.contains('is-collapsed'), true);
+        assert.equal(loaded.exports.PAIRS.length, 1);
+        assert.equal(loaded.exports.PAIRS[0].toggleId, 'aa-executive-header-toggle');
+        assert.equal(loaded.exports.PAIRS[0].bodyId, 'aa-executive-body');
     });
 
     // --- Accessibility sync ---
     it('atributos accesibles permanecen sincronizados tras ciclos', () => {
-        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
+        var dom = buildDom({ execCollapsed: true });
         loadModule(dom);
 
         clickToggle(dom.execToggle);
@@ -379,50 +316,40 @@ describe('section-toggles-module — toggles de secciones', () => {
         assert.equal(dom.execToggle.getAttribute('aria-expanded'), 'false');
         assert.equal(dom.execBody.getAttribute('aria-hidden'), 'true');
         assert.equal(dom.execBody.inert, true);
-
-        clickToggle(dom.listsToggle);
-        assert.equal(dom.listsToggle.getAttribute('aria-expanded'), 'false');
-        assert.equal(dom.listsBody.getAttribute('aria-hidden'), 'true');
-        assert.equal(dom.listsBody.inert, true);
-
-        clickToggle(dom.listsToggle);
-        assert.equal(dom.listsToggle.getAttribute('aria-expanded'), 'true');
-        assert.equal(dom.listsBody.inert, false);
     });
 
     // --- Idempotent binding ---
     it('inicializar dos veces no duplica listeners', () => {
-        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
+        var dom = buildDom({ execCollapsed: true });
         var loaded = loadModule(dom);
 
-        var listsBefore = (dom.listsToggle.listeners['click'] || []).length;
         var execBefore = (dom.execToggle.listeners['click'] || []).length;
 
         loaded.exports.bind();
         loaded.exports.bind();
 
-        assert.equal((dom.listsToggle.listeners['click'] || []).length, listsBefore);
         assert.equal((dom.execToggle.listeners['click'] || []).length, execBefore);
     });
 
     // --- Partial DOM resilience ---
-    it('ausencia del toggle ejecutivo no rompe el toggle del organizador', () => {
-        var partial = buildPartialDom({ includeLists: true, includeExec: false });
-        var loaded = loadModule(partial);
+    it('ausencia del body de listas no rompe el toggle ejecutivo', () => {
+        var partial = buildPartialDom({ includeListsBody: false, includeExec: true });
+        loadModule(partial);
 
-        var listsToggle = partial.elements['aa-lists-header-toggle'];
-        var listsBody = partial.elements['aa-lists-body'];
+        var execToggle = partial.elements['aa-executive-header-toggle'];
+        var execBody = partial.elements['aa-executive-body'];
 
-        clickToggle(listsToggle);
-        assert.equal(listsBody.classList.contains('is-collapsed'), true);
+        clickToggle(execToggle);
+        assert.equal(execBody.classList.contains('is-collapsed'), false);
+        assert.equal(execToggle.getAttribute('aria-expanded'), 'true');
 
-        clickToggle(listsToggle);
-        assert.equal(listsBody.classList.contains('is-collapsed'), false);
+        clickToggle(execToggle);
+        assert.equal(execBody.classList.contains('is-collapsed'), true);
     });
 
     it('ausencia del toggle del organizador no rompe el toggle ejecutivo', () => {
-        var partial = buildPartialDom({ includeLists: false, includeExec: true });
-        var loaded = loadModule(partial);
+        var partial = buildPartialDom({ includeListsBody: true, includeExec: true });
+        loadModule(partial);
 
         var execToggle = partial.elements['aa-executive-header-toggle'];
         var execBody = partial.elements['aa-executive-body'];
@@ -437,17 +364,16 @@ describe('section-toggles-module — toggles de secciones', () => {
 
     // --- Internal clicks don't trigger toggle ---
     it('clic en botones internos del ejecutor no cambia el estado', () => {
-        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
+        var dom = buildDom({ execCollapsed: true });
         loadModule(dom);
 
-        // Only the toggle has listeners, so internal button clicks won't propagate
         assert.equal(dom.execBody.listeners['click'], undefined);
         assert.equal(dom.execBody.classList.contains('is-collapsed'), true);
     });
 
     // --- No scroll/wheel/focusin ---
     it('scroll, wheel y focusin siguen sin cambiar estados', () => {
-        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
+        var dom = buildDom({ execCollapsed: true });
         loadModule(dom);
 
         assert.equal(dom.listsBody.listeners['wheel'], undefined);
@@ -458,7 +384,7 @@ describe('section-toggles-module — toggles de secciones', () => {
 
     // --- No opacity / is-muted ---
     it('no se aplica is-muted a ninguna sección', () => {
-        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
+        var dom = buildDom({ execCollapsed: true });
         loadModule(dom);
 
         clickToggle(dom.execToggle);
@@ -477,7 +403,7 @@ describe('section-toggles-module — toggles de secciones', () => {
     // --- Module does not register window listeners ---
     it('módulo no registra listeners en window', () => {
         var windowListeners = {};
-        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
+        var dom = buildDom({ execCollapsed: true });
 
         var context = {
             window: {},
@@ -530,12 +456,14 @@ describe('section-toggles-module — toggles de secciones', () => {
         assert.ok(listsPos < execPos, 'aa-lists-section debe aparecer antes');
     });
 
-    it('Cycle B: toggle del organizador inicia con aria-expanded=true', () => {
-        assert.match(indexSrc, /id="aa-lists-header-toggle"[^>]*aria-expanded="true"/);
+    it('Cycle B: no existe toggle del organizador', () => {
+        assert.doesNotMatch(indexSrc, /id="aa-lists-header-toggle"/);
     });
 
-    it('Cycle B: aa-lists-body inicia sin is-collapsed', () => {
+    it('Cycle B: aa-lists-body inicia sin is-collapsed ni aria-hidden', () => {
         assert.match(indexSrc, /id="aa-lists-body"\s+class="aa-lists-body"/);
+        assert.doesNotMatch(indexSrc, /id="aa-lists-body"[^>]*aria-hidden/);
+        assert.doesNotMatch(indexSrc, /id="aa-lists-body"[^>]*\binert\b/);
     });
 
     it('Cycle B: no existe divisor .aa-executive-lists-divider', () => {
@@ -559,8 +487,8 @@ describe('section-toggles-module — toggles de secciones', () => {
         assert.match(indexSrc, /id="aa-executive-header-toggle"[^>]*aria-controls="aa-executive-body"/);
     });
 
-    it('Cycle C: texto del toggle es Propuesta de ejecución', () => {
-        assert.match(indexSrc, /Propuesta de ejecución/);
+    it('Cycle C: texto del toggle es aria-label Ejecutar', () => {
+        assert.match(indexSrc, /id="aa-executive-header-toggle"[^>]*aria-label="Ejecutar"/);
     });
 
     it('Cycle C: existe #aa-executive-body con is-collapsed', () => {
@@ -585,67 +513,26 @@ describe('section-toggles-module — toggles de secciones', () => {
         assert.match(indexSrc, /id="aa-executive-list"/);
     });
 
-    it('Cycle C: chevron del organizador no fue modificado en tamaño/tono', () => {
-        assert.match(indexSrc, /aa-lists-header-chevron/);
-        assert.match(indexSrc, /aa-lists-header-chevron[^"]*w-4 h-4/);
-        assert.match(indexSrc, /aa-lists-header-chevron[^"]*text-gray-500/);
+    it('Cycle C: no queda chevron del organizador', () => {
+        assert.doesNotMatch(indexSrc, /aa-lists-header-chevron/);
     });
 
-    it('Cycle C: existe chevron del ejecutor', () => {
-        assert.match(indexSrc, /aa-executive-header-chevron/);
+    it('Cycle C: toggle ejecutivo usa icono play sin chevron de sección', () => {
+        assert.doesNotMatch(indexSrc, /aa-executive-header-chevron/);
+        assert.match(indexSrc, /id="aa-executive-header-toggle"[\s\S]*?M8 5v14l11-7z/);
     });
 
     // --- Cycle D: chevron rotation & cleanup ---
-    it('Cycle D: chevron del organizador tiene transition-transform', () => {
-        assert.match(indexSrc, /aa-lists-header-chevron[^"]*transition-transform/);
-    });
-
-    it('Cycle D: chevron del ejecutor tiene transition-transform', () => {
-        assert.match(indexSrc, /aa-executive-header-chevron[^"]*transition-transform/);
-    });
-
-    it('Cycle 2A: ambos headers usan chevron derecho como base', () => {
-        var matches = indexSrc.match(/M9 5l7 7-7 7/g);
-        assert.ok(matches && matches.length >= 2, 'Al menos dos chevrons con path hacia la derecha');
-        assert.doesNotMatch(indexSrc, /aa-lists-header-chevron[\s\S]{0,200}M19 9l-7 7-7-7/);
-        assert.doesNotMatch(indexSrc, /aa-executive-header-chevron[\s\S]{0,200}M19 9l-7 7-7-7/);
-    });
-
-    it('Cycle D: CSS tiene regla de rotación para aria-expanded=true en organizador', () => {
+    it('Cycle D: CSS no referencia chevrons de header de listas', () => {
         var css = fs.readFileSync(adminSourceCssPath, 'utf8');
-        assert.match(css, /#aa-lists-header-toggle\[aria-expanded="true"\]\s*\.aa-lists-header-chevron/);
+        assert.doesNotMatch(css, /#aa-lists-header-toggle/);
+        assert.doesNotMatch(css, /aa-lists-header-chevron/);
     });
 
-    it('Cycle D: CSS tiene regla de rotación para aria-expanded=true en ejecutor', () => {
-        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
-        assert.match(css, /#aa-executive-header-toggle\[aria-expanded="true"\]\s*\.aa-executive-header-chevron/);
-    });
-
-    it('Cycle 2A: headers usan rotate(90deg) al expandir', () => {
-        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
-        var ruleMatch = css.match(/#aa-lists-header-toggle\[aria-expanded="true"\][\s\S]*?\{([^}]*)\}/);
-        assert.ok(ruleMatch, 'Regla encontrada');
-        assert.match(ruleMatch[1], /rotate\(90deg\)/);
-        assert.doesNotMatch(ruleMatch[1], /rotate\(180deg\)/);
-    });
-
-    it('Cycle 2A: aria-expanded inicial de headers intacto', () => {
-        assert.match(indexSrc, /id="aa-lists-header-toggle"[\s\S]*?aria-expanded="true"/);
+    it('Cycle 2A: aria-expanded inicial de header ejecutivo intacto', () => {
         assert.match(indexSrc, /id="aa-executive-header-toggle"[\s\S]*?aria-expanded="false"/);
-        assert.match(indexSrc, /id="aa-lists-header-toggle"[\s\S]*?aria-controls="aa-lists-body"/);
         assert.match(indexSrc, /id="aa-executive-header-toggle"[\s\S]*?aria-controls="aa-executive-body"/);
-    });
-
-    it('Cycle D: no existe regla que oculte chevrons con display:none', () => {
-        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
-        assert.doesNotMatch(css, /aa-lists-header-chevron[^}]*display:\s*none/);
-        assert.doesNotMatch(css, /aa-executive-header-chevron[^}]*display:\s*none/);
-    });
-
-    it('Cycle D: no existe regla que cambie opacidad de chevrons', () => {
-        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
-        assert.doesNotMatch(css, /aa-lists-header-chevron[^}]*opacity/);
-        assert.doesNotMatch(css, /aa-executive-header-chevron[^}]*opacity/);
+        assert.doesNotMatch(indexSrc, /id="aa-lists-header-toggle"/);
     });
 
     it('Cycle D: rotación no depende de JavaScript adicional', () => {
@@ -655,17 +542,13 @@ describe('section-toggles-module — toggles de secciones', () => {
         assert.doesNotMatch(src, /chevron/);
     });
 
-    it('Cycle D: abrir una sección no modifica el chevron de la otra (test vía attrs)', () => {
-        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
+    it('Cycle D: abrir ejecutor no introduce toggle de listas', () => {
+        var dom = buildDom({ execCollapsed: true });
         loadModule(dom);
 
         clickToggle(dom.execToggle);
-        assert.equal(dom.listsToggle.getAttribute('aria-expanded'), 'true');
         assert.equal(dom.execToggle.getAttribute('aria-expanded'), 'true');
-
-        clickToggle(dom.listsToggle);
-        assert.equal(dom.listsToggle.getAttribute('aria-expanded'), 'false');
-        assert.equal(dom.execToggle.getAttribute('aria-expanded'), 'true');
+        assert.equal(dom.document.getElementById('aa-lists-header-toggle'), null);
     });
 
     it('Cycle D: módulo fue renombrado a section-toggles-module.js', () => {
@@ -673,18 +556,18 @@ describe('section-toggles-module — toggles de secciones', () => {
         assert.doesNotMatch(indexSrc, /executive-lists-focus-module\.js/);
     });
 
-    it('Cycle D: el toggle sigue sincronizando atributos accesibles tras rotación', () => {
-        var dom = buildDom({ listsCollapsed: false, execCollapsed: true });
+    it('Cycle D: el toggle ejecutivo sigue sincronizando atributos accesibles', () => {
+        var dom = buildDom({ execCollapsed: true });
         loadModule(dom);
 
-        clickToggle(dom.listsToggle);
-        assert.equal(dom.listsToggle.getAttribute('aria-expanded'), 'false');
-        assert.equal(dom.listsBody.getAttribute('aria-hidden'), 'true');
-        assert.equal(dom.listsBody.inert, true);
+        clickToggle(dom.execToggle);
+        assert.equal(dom.execToggle.getAttribute('aria-expanded'), 'true');
+        assert.equal(dom.execBody.inert, false);
 
-        clickToggle(dom.listsToggle);
-        assert.equal(dom.listsToggle.getAttribute('aria-expanded'), 'true');
-        assert.equal(dom.listsBody.inert, false);
+        clickToggle(dom.execToggle);
+        assert.equal(dom.execToggle.getAttribute('aria-expanded'), 'false');
+        assert.equal(dom.execBody.getAttribute('aria-hidden'), 'true');
+        assert.equal(dom.execBody.inert, true);
     });
 
     // --- Cycle E: isolation from data ---
@@ -697,28 +580,8 @@ describe('section-toggles-module — toggles de secciones', () => {
         assert.doesNotMatch(moduleSrc, /textContent/);
     });
 
-    it('Cycle E: CSS oculta summary cuando aria-expanded=true', () => {
-        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
-        assert.match(css, /#aa-executive-header-toggle\[aria-expanded="true"\]\s*\.aa-executive-header-summary/);
-        assert.match(css, /display:\s*none/);
-    });
-
-    it('Cycle E: existe #aa-executive-header-summary en index.php', () => {
-        assert.match(indexSrc, /id="aa-executive-header-summary"/);
-    });
-
-    it('Cycle E: summary está entre label y chevron', () => {
-        var labelPos = indexSrc.indexOf('aa-executive-header-label');
-        var summaryPos = indexSrc.indexOf('aa-executive-header-summary');
-        var chevronPos = indexSrc.indexOf('aa-executive-header-chevron');
-        assert.ok(labelPos < summaryPos);
-        assert.ok(summaryPos < chevronPos);
-    });
-
-    it('Cycle E: summary no tiene aria-hidden ni aria-live', () => {
-        var match = indexSrc.match(/id="aa-executive-header-summary"[^>]*/);
-        assert.ok(match);
-        assert.doesNotMatch(match[0], /aria-hidden/);
-        assert.doesNotMatch(match[0], /aria-live/);
+    it('Cycle E: header ejecutivo compacto sin summary/label', () => {
+        assert.doesNotMatch(indexSrc, /id="aa-executive-header-summary"/);
+        assert.doesNotMatch(indexSrc, /aa-executive-header-label/);
     });
 });

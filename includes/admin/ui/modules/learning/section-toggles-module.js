@@ -2,14 +2,14 @@
  * Executive Lists Focus — toggles explícitos de secciones (Ciclo C generalización).
  *
  * Registra pares toggle/body independientes:
- *   #aa-lists-header-toggle     → #aa-lists-body
  *   #aa-executive-header-toggle → #aa-executive-body
+ *
+ * Las listas (#aa-lists-body) quedan siempre visibles; sin toggle de sección.
  */
 (function () {
     'use strict';
 
     var PAIRS = [
-        { toggleId: 'aa-lists-header-toggle', bodyId: 'aa-lists-body' },
         { toggleId: 'aa-executive-header-toggle', bodyId: 'aa-executive-body' }
     ];
 

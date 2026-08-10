@@ -34,8 +34,7 @@ body {
         transform: rotate(90deg);
     }
 
-    /* Headers de Listas y Ejecutivo: ocultar el chevron cuando la sección está desplegada; conservarlo colapsado */
-    #aa-lists-header-toggle[aria-expanded="true"] .aa-lists-header-chevron,
+    /* Header Ejecutivo: ocultar el chevron cuando la sección está desplegada; conservarlo colapsado */
     #aa-executive-header-toggle[aria-expanded="true"] .aa-executive-header-chevron {
         display: none;
     }
@@ -184,7 +183,6 @@ body {
         @apply text-xs leading-snug text-gray-600 hover:text-gray-800;
     }
 
-    #aa-lists-body,
     #aa-executive-body {
         max-height: 4000px;
         overflow: hidden;
@@ -192,7 +190,6 @@ body {
         transition: max-height 0.22s ease-in-out, opacity 0.18s ease-in-out;
     }
 
-    #aa-lists-body.is-collapsed,
     #aa-executive-body.is-collapsed {
         max-height: 0;
         opacity: 0;

@@ -339,6 +339,16 @@
         bindModalClose();
     }
 
+    var moduleExports = {
+        openEditModalFromButton: openEditModalFromButton
+    };
+
+    globalRoot.AATaskEdit = moduleExports;
+
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = moduleExports;
+    }
+
     if (typeof document === 'undefined') {
         return;
     }

@@ -110,8 +110,10 @@ ac_assert(
 );
 
 ac_assert(
-    'index.php lists section header is Organizador · Listas de tareas',
-    is_string($index_php) && strpos($index_php, 'Organizador · Listas de tareas') !== false
+    'index.php lists section has no organizer title label',
+    is_string($index_php)
+    && strpos($index_php, 'Organizador · Listas de tareas') === false
+    && strpos($index_php, 'Listas de tareas') === false
 );
 ac_assert(
     'index.php does not render lists section subtitle',
@@ -128,11 +130,13 @@ ac_assert(
     && strpos($index_php, 'id="aa-lists-section"') !== false
 );
 ac_assert(
-    'index.php exposes persistent lists header and collapsible body',
+    'index.php exposes lists header tools and always-visible body',
     is_string($index_php)
     && strpos($index_php, 'id="aa-lists-header"') !== false
     && strpos($index_php, 'id="aa-lists-body"') !== false
-    && strpos($index_php, 'Organizador · Listas de tareas') !== false
+    && strpos($index_php, 'id="aa-lists-area-tools"') !== false
+    && strpos($index_php, 'id="aa-lists-header-toggle"') === false
+    && strpos($index_php, 'aa-lists-header-chevron') === false
 );
 ac_assert(
     'index.php lists section no longer starts fully muted',
@@ -241,8 +245,8 @@ ac_assert(
     $lists_pos !== false && $exec_pos !== false && $lists_pos < $exec_pos
 );
 ac_assert(
-    'Cycle B: aa-lists-header-toggle starts with aria-expanded=true',
-    is_string($index_php) && preg_match('/id="aa-lists-header-toggle"[^>]*aria-expanded="true"/', $index_php) === 1
+    'Cycle B: aa-lists-header-toggle removed (lists always visible)',
+    is_string($index_php) && strpos($index_php, 'id="aa-lists-header-toggle"') === false
 );
 ac_assert(
     'Cycle B: aa-lists-body starts without is-collapsed',
@@ -250,8 +254,8 @@ ac_assert(
     && preg_match('/id="aa-lists-body"\s+class="aa-lists-body"/', $index_php) === 1
 );
 ac_assert(
-    'Cycle B: aa-lists-body starts with aria-hidden=false',
-    is_string($index_php) && preg_match('/id="aa-lists-body"[^>]*aria-hidden="false"/', $index_php) === 1
+    'Cycle B: aa-lists-body has no aria-hidden (always visible)',
+    is_string($index_php) && preg_match('/id="aa-lists-body"[^>]*aria-hidden/', $index_php) === 0
 );
 ac_assert(
     'Cycle B: aa-lists-body starts without inert',
@@ -288,8 +292,8 @@ ac_assert(
     is_string($index_php) && strpos($index_php, 'id="aa-executive-header-toggle"') !== false
 );
 ac_assert(
-    'Cycle C: toggle text is Propuesta de ejecución',
-    is_string($index_php) && strpos($index_php, 'Propuesta de ejecución') !== false
+    'Cycle C: toggle text/aria-label is Ejecutar',
+    is_string($index_php) && preg_match('/id="aa-executive-header-toggle"[^>]*aria-label="Ejecutar"/', $index_php) === 1
 );
 ac_assert(
     'Cycle C: executive toggle has aria-expanded=false',
@@ -320,8 +324,10 @@ ac_assert(
     is_string($index_php) && preg_match('/<h3[^>]*>Propuesta ejecutiva<\/h3>/', $index_php) === 0
 );
 ac_assert(
-    'Cycle C: organizer still expanded initially',
-    is_string($index_php) && preg_match('/id="aa-lists-header-toggle"[^>]*aria-expanded="true"/', $index_php) === 1
+    'Cycle C: organizer has no section toggle (always expanded)',
+    is_string($index_php)
+    && strpos($index_php, 'id="aa-lists-header-toggle"') === false
+    && strpos($index_php, 'aa-lists-header-chevron') === false
 );
 ac_assert(
     'Cycle C: no divider exists',
@@ -348,25 +354,26 @@ $section_toggles_src = file_get_contents(
     $plugin_root . '/includes/admin/ui/modules/learning/section-toggles-module.js'
 );
 ac_assert(
-    'lists-body expanded keeps overflow:hidden for collapse animation',
+    'executive-body expanded keeps overflow:hidden for collapse animation',
     is_string($admin_css_src)
     && preg_match(
-        '/#aa-lists-body\s*,\s*#aa-executive-body\s*\{[^}]*overflow:\s*hidden/',
+        '/#aa-executive-body\s*\{[^}]*overflow:\s*hidden/',
         $admin_css_src
     ) === 1
 );
 ac_assert(
-    'lists-body.is-collapsed keeps overflow:hidden',
+    'executive-body.is-collapsed keeps overflow:hidden',
     is_string($admin_css_src)
     && preg_match(
-        '/#aa-lists-body\.is-collapsed\s*,\s*#aa-executive-body\.is-collapsed\s*\{[^}]*overflow:\s*hidden/',
+        '/#aa-executive-body\.is-collapsed\s*\{[^}]*overflow:\s*hidden/',
         $admin_css_src
     ) === 1
 );
 ac_assert(
-    'lists-body source does not use overflow:visible to fix shadow clip',
+    'lists-body is not coupled to executive collapse overflow rules',
     is_string($admin_css_src)
-    && preg_match('/#aa-lists-body[^{]*\{[^}]*overflow:\s*visible/', $admin_css_src) === 0
+    && preg_match('/#aa-lists-body\s*,\s*#aa-executive-body/', $admin_css_src) === 0
+    && preg_match('/#aa-lists-body\.is-collapsed/', $admin_css_src) === 0
 );
 ac_assert(
     'section-toggles-module has no overflow:visible or transitionend for shadow clip',
@@ -381,30 +388,15 @@ ac_assert(
     && preg_match('/\.pb-1\{[^}]*padding-bottom:\s*\.25rem/', $admin_css_built) === 1
 );
 ac_assert(
-    'Cycle D: chevron del organizador tiene transition-transform en markup',
-    is_string($index_php) && preg_match('/aa-lists-header-chevron[^"]*transition-transform/', $index_php) === 1
-);
-ac_assert(
-    'Cycle D: chevron del ejecutor tiene transition-transform en markup',
-    is_string($index_php) && preg_match('/aa-executive-header-chevron[^"]*transition-transform/', $index_php) === 1
-);
-ac_assert(
-    'Cycle D: CSS tiene regla de rotación para organizador',
-    is_string($admin_css_src) && strpos($admin_css_src, '#aa-lists-header-toggle[aria-expanded="true"] .aa-lists-header-chevron') !== false
-);
-ac_assert(
-    'Cycle D: CSS tiene regla de rotación para ejecutor',
-    is_string($admin_css_src) && strpos($admin_css_src, '#aa-executive-header-toggle[aria-expanded="true"] .aa-executive-header-chevron') !== false
-);
-ac_assert(
-    'Cycle 2A: regla de rotación Learning usa rotate(90deg)',
-    is_string($admin_css_src) && preg_match('/aa-lists-header-chevron[^}]*rotate\(90deg\)/', $admin_css_src) === 1
-);
-ac_assert(
-    'Cycle 2A: headers Learning usan chevron derecho base',
+    'Cycle D: toggle ejecutivo usa icono play (sin chevron de sección)',
     is_string($index_php)
-    && substr_count($index_php, 'M9 5l7 7-7 7') >= 2
-    && strpos($index_php, 'aa-lists-header-chevron') !== false
+    && strpos($index_php, 'aa-executive-header-chevron') === false
+    && preg_match('/id="aa-executive-header-toggle"[\s\S]*?M8 5v14l11-7z/', $index_php) === 1
+);
+ac_assert(
+    'Cycle D: CSS no tiene regla de chevron del organizador',
+    is_string($admin_css_src) && strpos($admin_css_src, '#aa-lists-header-toggle') === false
+    && strpos($admin_css_src, 'aa-lists-header-chevron') === false
 );
 ac_assert(
     'Cycle D: script enqueued es section-toggles-module.js',
@@ -417,48 +409,12 @@ ac_assert(
 
 // --- Cycle E assertions ---
 ac_assert(
-    'Cycle E: aa-executive-header-summary exists once',
-    is_string($index_php)
-    && substr_count($index_php, 'id="aa-executive-header-summary"') === 1
+    'Cycle E: aa-executive-header-summary removed from compact play toggle',
+    is_string($index_php) && strpos($index_php, 'id="aa-executive-header-summary"') === false
 );
 ac_assert(
-    'Cycle E: summary is inside aa-executive-header-toggle',
-    is_string($index_php)
-    && ($summary_pos = strpos($index_php, 'id="aa-executive-header-summary"')) !== false
-    && ($toggle_start = strpos($index_php, 'id="aa-executive-header-toggle"')) !== false
-    && ($toggle_end = strpos($index_php, '</button>', $toggle_start)) !== false
-    && $summary_pos > $toggle_start
-    && $summary_pos < $toggle_end
-);
-ac_assert(
-    'Cycle E: summary is between label and chevron',
-    is_string($index_php)
-    && ($label_pos = strpos($index_php, 'aa-executive-header-label')) !== false
-    && ($summ_pos = strpos($index_php, 'aa-executive-header-summary')) !== false
-    && ($chev_pos = strpos($index_php, 'aa-executive-header-chevron')) !== false
-    && $label_pos < $summ_pos
-    && $summ_pos < $chev_pos
-);
-ac_assert(
-    'Cycle E: summary has min-w-0 and truncate',
-    is_string($index_php)
-    && preg_match('/id="aa-executive-header-summary"[^>]*min-w-0/', $index_php) === 1
-    && preg_match('/id="aa-executive-header-summary"[^>]*truncate/', $index_php) === 1
-);
-ac_assert(
-    'Cycle E: summary does not have aria-hidden',
-    is_string($index_php)
-    && preg_match('/id="aa-executive-header-summary"[^>]*aria-hidden/', $index_php) === 0
-);
-ac_assert(
-    'Cycle E: summary does not have aria-live',
-    is_string($index_php)
-    && preg_match('/id="aa-executive-header-summary"[^>]*aria-live/', $index_php) === 0
-);
-ac_assert(
-    'Cycle E: summary starts empty',
-    is_string($index_php)
-    && preg_match('/id="aa-executive-header-summary"[^>]*><\/span>/', $index_php) === 1
+    'Cycle E: aa-executive-header-label removed from compact play toggle',
+    is_string($index_php) && strpos($index_php, 'aa-executive-header-label') === false
 );
 ac_assert(
     'Cycle E: no second button inside toggle',
@@ -468,21 +424,11 @@ ac_assert(
     && substr_count(substr($index_php, $toggle_s, $toggle_e - $toggle_s), '<button') === 0
 );
 ac_assert(
-    'Cycle E: CSS hides summary when expanded',
-    is_string($admin_css_src)
-    && strpos($admin_css_src, '#aa-executive-header-toggle[aria-expanded="true"] .aa-executive-header-summary') !== false
-);
-ac_assert(
     'Cycle E: renderer IDs still present',
     is_string($index_php)
     && strpos($index_php, 'id="aa-executive-status"') !== false
     && strpos($index_php, 'id="aa-executive-list"') !== false
     && strpos($index_php, 'id="aa-executive-empty"') !== false
-);
-ac_assert(
-    'Cycle E: label has shrink-0',
-    is_string($index_php)
-    && preg_match('/aa-executive-header-label[^"]*shrink-0/', $index_php) === 1
 );
 
 ac_assert(

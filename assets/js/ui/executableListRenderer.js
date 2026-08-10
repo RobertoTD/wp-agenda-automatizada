@@ -626,7 +626,7 @@
      */
     function renderItemDescriptionPreview(description) {
         return ''
-            + '<p class="aa-executable-item-desc-preview text-sm text-gray-600 mt-1">'
+            + '<p class="aa-executable-item-desc-preview text-sm text-gray-500 mt-1">'
             + escapeHtml(description)
             + '</p>';
     }
@@ -637,7 +637,7 @@
      */
     function renderItemDescriptionFull(description) {
         return ''
-            + '<div class="aa-executable-item-desc-full text-sm text-gray-600">'
+            + '<div class="aa-executable-item-desc-full text-sm text-gray-500">'
             + escapeHtml(description)
             + '</div>';
     }
@@ -882,6 +882,20 @@
     }
 
     /**
+     * Icono representativo de tarea (mismo patrón que clientes / cabecera de lista).
+     *
+     * @returns {string}
+     */
+    function renderItemTitleIcon() {
+        return ''
+            + '<span class="aa-executable-item-icon flex items-center justify-center w-8 h-8 text-gray-600 shrink-0" aria-hidden="true">'
+            + '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
+            + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>'
+            + '</svg>'
+            + '</span>';
+    }
+
+    /**
      * @param {object} item
      * @returns {string}
      */
@@ -921,8 +935,8 @@
         var descriptionText = asString(item.description).trim();
         var isDone = asString(item.status).toLowerCase() === 'done';
         var titleClass = isDone
-            ? 'aa-executable-item-title text-sm text-gray-400 line-through'
-            : 'aa-executable-item-title text-sm font-semibold text-gray-600';
+            ? 'aa-executable-item-title text-base text-gray-400 line-through'
+            : 'aa-executable-item-title text-base font-semibold text-gray-600';
         var actionsHtml = renderItemActions(item, opts, itemContext);
         var previewHtml = descriptionText !== ''
             ? renderItemDescriptionPreview(descriptionText)
@@ -961,7 +975,10 @@
             + '<div class="flex items-start justify-between gap-2">'
             + '<div class="min-w-0 flex-1">'
             + '<div class="flex flex-wrap items-center gap-2">'
+            + '<div class="flex items-center min-w-0 flex-1">'
+            + renderItemTitleIcon()
             + '<p class="' + titleClass + '">' + title + '</p>'
+            + '</div>'
             + renderOverdueBadge(item)
             + '</div>'
             + previewHtml
@@ -1907,7 +1924,7 @@
             + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h.01M8 6h12M4 12h.01M8 12h12M4 18h.01M8 18h12"/>'
             + '</svg>'
             + '</span>'
-            + '<h4 class="text-base font-semibold text-gray-600 min-w-0">' + title + '</h4>'
+            + '<h4 class="text-lg font-semibold text-gray-600 min-w-0">' + title + '</h4>'
             + '</div>'
             + headerMetaHtml
             + detailsHtml

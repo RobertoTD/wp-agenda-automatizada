@@ -292,6 +292,7 @@ describe('task-edit-module MC13C', () => {
     it('módulo JS delega clic en data-aa-task-edit en capture y envía updateTask', () => {
         assert.match(moduleSrc, /data-aa-task-edit/);
         assert.match(moduleSrc, /openEditModalFromButton/);
+        assert.match(moduleSrc, /AATaskEdit/);
         assert.match(moduleSrc, /service\.updateTask\(/);
         assert.match(moduleSrc, /default_bucket/);
         assert.match(moduleSrc, /showFormError/);

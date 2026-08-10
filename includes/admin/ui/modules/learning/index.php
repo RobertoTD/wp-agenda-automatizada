@@ -21,6 +21,7 @@ $task_edit_js = plugin_dir_url(__FILE__) . 'task-edit-module.js';
 $task_options_js = plugin_dir_url(__FILE__) . 'task-options-module.js';
 $list_options_js = plugin_dir_url(__FILE__) . 'list-options-module.js';
 $list_card_longpress_js = plugin_dir_url(__FILE__) . 'list-card-longpress-module.js';
+$task_item_longpress_js = plugin_dir_url(__FILE__) . 'task-item-longpress-module.js';
 $executable_options_menu_placement_js = plugin_dir_url(__FILE__) . 'executable-options-menu-placement.js';
 $list_edit_js = plugin_dir_url(__FILE__) . 'list-edit-module.js';
 $restore_archived_tasks_js = plugin_dir_url(__FILE__) . 'restore-archived-tasks-module.js';
@@ -37,17 +38,7 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
 <div id="aa-tasks-module-root" class="max-w-5xl mx-auto py-2 pb-24">
 
     <section id="aa-lists-section">
-        <header id="aa-lists-header" class="aa-lists-header mb-3 flex items-start justify-between gap-3">
-            <button type="button"
-                id="aa-lists-header-toggle"
-                class="aa-lists-header-toggle min-w-0 flex flex-1 items-center gap-2 text-left rounded-lg -ml-1 px-1 py-0.5 focus:outline-none"
-                aria-expanded="true"
-                aria-controls="aa-lists-body">
-                <span class="aa-lists-header-label text-lg font-semibold text-gray-600">Listas de tareas</span>
-                <svg class="aa-lists-header-chevron w-3.5 h-3.5 shrink-0 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                </svg>
-            </button>
+        <header id="aa-lists-header" class="aa-lists-header mb-3 flex items-start justify-end gap-3">
             <div id="aa-lists-area-tools" class="relative flex items-center gap-2 shrink-0">
                 <button type="button"
                     id="aa-lists-options-trigger"
@@ -93,7 +84,7 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
             </div>
         </header>
 
-        <div id="aa-lists-body" class="aa-lists-body" aria-hidden="false">
+        <div id="aa-lists-body" class="aa-lists-body">
         <p id="aa-lists-area-tools-error" class="hidden text-sm text-red-600 mb-3"></p>
         <p id="aa-tasks-error" class="hidden text-sm text-red-600 mb-3"></p>
 
@@ -344,7 +335,7 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
                         placeholder="Qué necesitas hacer">
                 </div>
                 <div>
-                    <label for="aa-task-form-notes" class="block text-sm font-medium text-gray-700 mb-1">Detalles o contexto</label>
+                    <label for="aa-task-form-notes" class="block text-sm font-medium text-gray-700 mb-1">Detalles</label>
                     <textarea id="aa-task-form-notes" name="notes" rows="3"
                         class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         placeholder="Notas opcionales"></textarea>
@@ -523,6 +514,7 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
 <script src="<?php echo esc_url($lists_area_tools_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($list_options_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($list_card_longpress_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($task_item_longpress_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($restore_archived_tasks_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($list_edit_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($section_toggles_js . '?ver=' . rawurlencode($learning_ver)); ?>" defer></script>
