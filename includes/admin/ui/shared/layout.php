@@ -377,6 +377,15 @@ header('Content-Type: text/html; charset=utf-8');
 <!-- Transversal Modal: Client Create/Edit -->
 <script src="<?php echo aa_asset_url('includes/admin/ui/modals/crearcliente/crearcliente.js'); ?>" defer></script>
 
+<!-- Transversal Modal: Service Create -->
+<script src="<?php echo aa_asset_url('includes/admin/ui/modals/crearservicio/crearservicio.js'); ?>" defer></script>
+
+<!-- Transversal Modal: Area / Zona Create -->
+<script src="<?php echo aa_asset_url('includes/admin/ui/modals/crearzona/crearzona.js'); ?>" defer></script>
+
+<!-- Transversal Modal: Staff / Personal Create -->
+<script src="<?php echo aa_asset_url('includes/admin/ui/modals/crearstaff/crearstaff.js'); ?>" defer></script>
+
 <!-- Transversal Modal: Training lesson completion -->
 <script src="<?php echo aa_asset_url('includes/admin/ui/modals/training-completion/trainingCompletionModal.js'); ?>" defer></script>
 
@@ -412,6 +421,9 @@ header('Content-Type: text/html; charset=utf-8');
     <?php require_once dirname(__DIR__) . '/modals/appointments/index.php'; ?>
     <?php require_once dirname(__DIR__) . '/modals/assignment/index.php'; ?>
     <?php require_once dirname(__DIR__) . '/modals/crearcliente/index.php'; ?>
+    <?php require_once dirname(__DIR__) . '/modals/crearservicio/index.php'; ?>
+    <?php require_once dirname(__DIR__) . '/modals/crearzona/index.php'; ?>
+    <?php require_once dirname(__DIR__) . '/modals/crearstaff/index.php'; ?>
     <?php require_once dirname(__DIR__) . '/modals/training-completion/index.php'; ?>
     <?php require_once dirname(__DIR__) . '/modals/onboarding/index.php'; ?>
 

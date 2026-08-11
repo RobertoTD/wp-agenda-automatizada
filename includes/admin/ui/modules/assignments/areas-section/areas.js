@@ -655,7 +655,19 @@
     }
 
     /**
-     * Setup handler for create area button
+     * Open the transversal Area create modal (Zona de Atención).
+     */
+    function openAreaCreateModal() {
+        if (window.AAAdmin && window.AAAdmin.AreaCreateModal
+            && typeof window.AAAdmin.AreaCreateModal.openCreate === 'function') {
+            window.AAAdmin.AreaCreateModal.openCreate();
+            return;
+        }
+        console.error('[Areas Section] AAAdmin.AreaCreateModal.openCreate no disponible');
+    }
+
+    /**
+     * Setup handler for create area button — opens AreaCreateModal
      */
     function setupCreateAreaHandler() {
         const addButton = document.getElementById('aa-add-area');
@@ -668,14 +680,14 @@
         
         // Handle button click
         addButton.addEventListener('click', function() {
-            createServiceArea(nameInput);
+            openAreaCreateModal();
         });
         
         // Handle Enter key in input
         nameInput.addEventListener('keypress', function(event) {
             if (event.key === 'Enter') {
                 event.preventDefault();
-                createServiceArea(nameInput);
+                openAreaCreateModal();
             }
         });
     }

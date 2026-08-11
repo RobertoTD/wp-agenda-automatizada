@@ -45,6 +45,20 @@ body {
         transform: rotate(90deg);
     }
 
+    /* Assignments — menú ⋮ solo con sección desplegada (misma dinámica que listas). */
+    details.aa-module-section-card:not([open]) .aa-module-section-options {
+        display: none;
+    }
+
+    details.aa-module-section-card.aa-module-section-card--floating-menu {
+        position: relative;
+        z-index: 2;
+    }
+
+    .aa-module-section-options-menu {
+        z-index: 30;
+    }
+
     /* Dashboard collapses — SVG base apunta a la derecha; abierto → abajo (90deg).
        Combinador hijo: abrir exterior no rota chevrons de interiors. */
     [data-aa-dashboard-collapse].is-open > [data-aa-dashboard-collapse-toggle] .aa-dashboard-collapse-chevron {
@@ -1119,7 +1133,35 @@ body {
 /* ═══════════════════════════════════════════════════════════════
    OVERRIDES - Rules that need to win over Tailwind utilities
    (placed after @layer so they come last in the cascade)
-═══════════════════════════════════════════════════════════════ *//* Unread bell position in modal appointment cards */
+═══════════════════════════════════════════════════════════════ */
+
+/*
+ * WP color picker: color-picker.css asume .wp-core-ui .button (buttons.css).
+ * Esta UI no carga buttons.css ni tiene wp-core-ui; Tailwind preflight deja
+ * -webkit-appearance:button → el swatch se ve cortado a la derecha.
+ * Fuera de @layer para que Tailwind no manglee el selector .button.
+ */
+#aa-areas-root .wp-picker-container .wp-color-result.button {
+    display: inline-block;
+    box-sizing: border-box;
+    -webkit-appearance: none;
+    appearance: none;
+    border: 1px solid #c3c4c7;
+    border-radius: 3px;
+    padding: 0 0 0 30px;
+    min-height: 30px;
+    line-height: 2.54545455;
+    white-space: nowrap;
+    cursor: pointer;
+    vertical-align: top;
+    text-decoration: none;
+}
+
+#aa-areas-root .wp-color-result-text {
+    padding: 0 8px;
+}
+
+/* Unread bell position in modal appointment cards */
 .aa-unread-bell {
     top: 7px;
     right: 5px;

@@ -271,7 +271,19 @@
     }
 
     /**
-     * Setup handler for create staff button
+     * Open the transversal Staff create modal (Personal).
+     */
+    function openStaffCreateModal() {
+        if (window.AAAdmin && window.AAAdmin.StaffCreateModal
+            && typeof window.AAAdmin.StaffCreateModal.openCreate === 'function') {
+            window.AAAdmin.StaffCreateModal.openCreate();
+            return;
+        }
+        console.error('[Staff Section] AAAdmin.StaffCreateModal.openCreate no disponible');
+    }
+
+    /**
+     * Setup handler for create staff button — opens StaffCreateModal
      */
     function setupCreateStaffHandler() {
         const addButton = document.getElementById('aa-add-staff');
@@ -284,14 +296,14 @@
         
         // Handle button click
         addButton.addEventListener('click', function() {
-            createStaff(nameInput);
+            openStaffCreateModal();
         });
         
         // Handle Enter key in input
         nameInput.addEventListener('keypress', function(event) {
             if (event.key === 'Enter') {
                 event.preventDefault();
-                createStaff(nameInput);
+                openStaffCreateModal();
             }
         });
     }

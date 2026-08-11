@@ -486,7 +486,19 @@
     }
 
     /**
-     * Setup handler for create service button
+     * Open the transversal Service create modal.
+     */
+    function openServiceCreateModal() {
+        if (window.AAAdmin && window.AAAdmin.ServiceCreateModal
+            && typeof window.AAAdmin.ServiceCreateModal.openCreate === 'function') {
+            window.AAAdmin.ServiceCreateModal.openCreate();
+            return;
+        }
+        console.error('[Services Section] AAAdmin.ServiceCreateModal.openCreate no disponible');
+    }
+
+    /**
+     * Setup handler for create service button — opens ServiceCreateModal
      */
     function setupCreateServiceHandler() {
         const addButton = document.getElementById('aa-add-service');
@@ -499,14 +511,14 @@
         
         // Handle button click
         addButton.addEventListener('click', function() {
-            createService(nameInput);
+            openServiceCreateModal();
         });
         
         // Handle Enter key in input
         nameInput.addEventListener('keypress', function(event) {
             if (event.key === 'Enter') {
                 event.preventDefault();
-                createService(nameInput);
+                openServiceCreateModal();
             }
         });
     }

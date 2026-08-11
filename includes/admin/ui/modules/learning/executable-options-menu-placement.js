@@ -94,7 +94,8 @@
         menu.classList.remove('top-full', 'bottom-full', 'mt-2', 'mb-2');
         menu.style.position = 'fixed';
         menu.style.zIndex = String(zIndex);
-        menu.style.right = '';
+        // Anula Tailwind right-0: con fixed + left + right:0 el menú se estira al viewport.
+        menu.style.right = 'auto';
         menu.style.bottom = '';
 
         var triggerRect = trigger.getBoundingClientRect();

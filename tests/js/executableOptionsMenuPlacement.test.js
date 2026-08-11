@@ -233,6 +233,7 @@ describe('executable-options-menu-placement', () => {
 
         assert.equal(menu.style.position, 'fixed');
         assert.equal(menu.style.zIndex, '70');
+        assert.equal(menu.style.right, 'auto');
         assert.equal(menu.style.top, '236px');
         assert.equal(menu.style.left, '308px');
     });
