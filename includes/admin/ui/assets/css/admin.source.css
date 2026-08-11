@@ -297,6 +297,16 @@ body {
         display: none;
     }
 
+    /* Clientes — ocultar FAB asistente IA (mismo patrón que tareas) */
+    #aa-clients-fab-stack #aa-btn-open-aichat {
+        display: none;
+    }
+
+    /* Expediente — ocultar FAB asistente IA (mismo patrón que clientes) */
+    #aa-expediente-fab-stack #aa-btn-open-aichat {
+        display: none;
+    }
+
     /* Executable feed — tarea expandida: fondo azul tenue (header + body); colapsada conserva su gris */
     details.aa-executable-item[open] {
         @apply border-blue-100 bg-blue-50/50;
@@ -414,7 +424,7 @@ body {
     }
 
     #aa-clients-grid [data-aa-card].is-open .aa-card-overlay {
-        @apply rounded-b-xl;
+        @apply rounded-b-xl bg-white;
     }
 
     /* Add padding-bottom to clients container when one of the last 3 cards is open to prevent overlay from being cut off */
@@ -453,7 +463,7 @@ body {
     .aa-btn-expediente-cliente {
         @apply px-3 py-1.5 text-sm;
         @apply inline-flex items-center gap-1.5;
-        @apply bg-white text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50;
+        @apply bg-gray-100 text-indigo-600 hover:text-indigo-700 hover:bg-gray-200;
         @apply border border-indigo-200 rounded-md;
         @apply transition-colors cursor-pointer;
     }

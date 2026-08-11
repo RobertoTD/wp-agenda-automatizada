@@ -2286,6 +2286,20 @@ describe('executableListRenderer MC-UX-A visual polish', () => {
         assert.match(css, /display:\s*none/);
     });
 
+    it('CSS oculta #aa-btn-open-aichat dentro de #aa-clients-fab-stack', () => {
+        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
+
+        assert.match(css, /#aa-clients-fab-stack #aa-btn-open-aichat/);
+        assert.match(css, /display:\s*none/);
+    });
+
+    it('CSS oculta #aa-btn-open-aichat dentro de #aa-expediente-fab-stack', () => {
+        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
+
+        assert.match(css, /#aa-expediente-fab-stack #aa-btn-open-aichat/);
+        assert.match(css, /display:\s*none/);
+    });
+
     it('Archivar lista usa text-gray-700 y Eliminar lista sigue en text-red-600', () => {
         var html = renderer.renderList(baseList({
             source: 'user',
