@@ -112,18 +112,27 @@
     };
 
     /**
+     * Bind a control that opens the appointments search modal.
+     * @param {HTMLElement|null} el
+     */
+    function bindSearchTrigger(el) {
+        if (!el || el.dataset.aaSearchBound === '1') {
+            return;
+        }
+
+        el.dataset.aaSearchBound = '1';
+        el.addEventListener('click', function(event) {
+            event.preventDefault();
+            AppointmentsModal.open();
+        });
+    }
+
+    /**
      * Initialize event listeners
      */
     function init() {
-        // Botón de búsqueda en el calendario
-        const btnSearch = document.getElementById('aa-btn-search');
-        
-        if (btnSearch) {
-            btnSearch.addEventListener('click', function(event) {
-                event.preventDefault();
-                AppointmentsModal.open();
-            });
-        }
+        bindSearchTrigger(document.getElementById('aa-btn-search'));
+        bindSearchTrigger(document.querySelector('[data-calendar-tool="search-appointments"]'));
     }
 
     // Initialize on DOM ready

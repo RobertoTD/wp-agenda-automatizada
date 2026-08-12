@@ -32,14 +32,12 @@ $module_js_url = $plugin_url . 'calendar-module.js?ver=' . rawurlencode($calenda
          🔹 HEADER
          ========================= -->
     <div class="px-4 py-5 border-b border-gray-100 bg-white">
-        <div class="flex items-center justify-between gap-3">
-
-            <!-- Izquierda: navegación de fecha -->
-            <div id="aa-date-selector" class="flex items-center gap-3">
+        <div class="flex items-center justify-center w-full">
+            <div id="aa-date-selector" class="flex items-center justify-center">
                 <div class="aa-date-navigator">
                     <!-- Botón anterior -->
                     <button id="aa-date-prev" type="button" class="aa-date-nav-btn aa-date-nav-prev" aria-label="Día anterior">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                         </svg>
                     </button>
@@ -49,20 +47,11 @@ $module_js_url = $plugin_url . 'calendar-module.js?ver=' . rawurlencode($calenda
 
                     <!-- Botón siguiente -->
                     <button id="aa-date-next" type="button" class="aa-date-nav-btn aa-date-nav-next" aria-label="Día siguiente">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                         </svg>
                     </button>
                 </div>
-            </div>
-
-            <!-- Derecha: acciones -->
-            <div class="aa-toolbar-actions">
-                <button id="aa-btn-search" type="button" class="aa-btn-ghost" aria-label="Buscar">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                    </svg>
-                </button>
             </div>
 
         </div>

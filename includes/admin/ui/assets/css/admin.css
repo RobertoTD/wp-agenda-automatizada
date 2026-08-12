@@ -1155,6 +1155,31 @@ details.aa-executable-item[open] {
   background-color: rgba(37, 211, 102, 0.1);
 }
 
+/* Calendar appointment card — contact rows (override global WhatsApp link styles) */
+
+.aa-appointment-body .aa-appointment-contact-row {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  --tw-text-opacity: 1;
+  color: rgb(75 85 99 / var(--tw-text-opacity, 1));
+}
+
+.aa-appointment-body .aa-appointment-contact-row .aa-appointment-contact-link {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  --tw-text-opacity: 1;
+  color: rgb(75 85 99 / var(--tw-text-opacity, 1));
+  padding: 0;
+  border-radius: 4px;
+  transition: background-color 150ms ease;
+}
+
+.aa-appointment-body .aa-appointment-contact-row .aa-appointment-contact-link:hover {
+  background-color: rgb(243 244 246);
+}
+
 /* Add padding to appointments list when cards are open to prevent overlay from touching modal border */
 
 .aa-appointments-list:has([data-aa-card].is-open) {
@@ -2590,13 +2615,14 @@ body.aa-modal-open {
 .aa-date-navigator {
   display: inline-flex;
   align-items: center;
-  border-radius: 0.5rem;
+  border-radius: 0.75rem;
   border-width: 1px;
   --tw-border-opacity: 1;
   border-color: rgb(229 231 235 / var(--tw-border-opacity, 1));
   --tw-bg-opacity: 1;
   background-color: rgb(249 250 251 / var(--tw-bg-opacity, 1));
   overflow: hidden;
+  min-height: 2.75rem;
 }
 
 /* Navigation buttons (prev/next) - part of the capsule */
@@ -2605,8 +2631,8 @@ body.aa-modal-open {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 2rem;
-  width: 2rem;
+  height: 2.75rem;
+  width: 2.75rem;
   --tw-text-opacity: 1;
   color: rgb(107 114 128 / var(--tw-text-opacity, 1));
   border-width: 0px;
@@ -2651,14 +2677,14 @@ body.aa-modal-open {
 /* Date input - center of the navigator */
 
 .aa-date-input {
-  height: 2rem;
-  width: 7rem;
-  padding-left: 0.5rem;
-  padding-right: 0.5rem;
+  height: 2.75rem;
+  width: 9rem;
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
   text-align: center;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-  font-weight: 500;
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 600;
   --tw-text-opacity: 1;
   color: rgb(75 85 99 / var(--tw-text-opacity, 1));
   border-width: 0px;
@@ -2687,57 +2713,9 @@ body.aa-modal-open {
        TOOLBAR ACTIONS - Right-side action buttons
     ═══════════════════════════════════════════════════════════════ */
 
-.aa-toolbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-}
-
 /* ═══════════════════════════════════════════════════════════════
        GHOST/TERTIARY BUTTONS - Low prominence, high availability
     ═══════════════════════════════════════════════════════════════ */
-
-.aa-btn-ghost {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 2rem;
-  width: 2rem;
-  --tw-text-opacity: 1;
-  color: rgb(156 163 175 / var(--tw-text-opacity, 1));
-  border-radius: 0.375rem;
-  border-width: 0px;
-  background-color: transparent;
-  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 150ms;
-  cursor: pointer;
-}
-
-.aa-btn-ghost:hover {
-  --tw-bg-opacity: 1;
-  background-color: rgb(243 244 246 / var(--tw-bg-opacity, 1));
-  --tw-text-opacity: 1;
-  color: rgb(75 85 99 / var(--tw-text-opacity, 1));
-}
-
-.aa-btn-ghost:focus {
-  outline: 2px solid transparent;
-  outline-offset: 2px;
-  --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
-  --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);
-  box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
-  --tw-ring-opacity: 1;
-  --tw-ring-color: rgb(99 102 241 / var(--tw-ring-opacity, 1));
-  --tw-ring-offset-width: 1px;
-}
-
-.aa-btn-ghost:active {
-  --tw-bg-opacity: 1;
-  background-color: rgb(229 231 235 / var(--tw-bg-opacity, 1));
-  --tw-text-opacity: 1;
-  color: rgb(55 65 81 / var(--tw-text-opacity, 1));
-}
 
 /* ═══════════════════════════════════════════════════════════════
        CREATE BUTTON - Moderate presence, not screaming
@@ -4493,7 +4471,7 @@ body {
 @media (max-width: 639px) {
   .aa-date-input,
     .flatpickr-mobile {
-    width: 8.5rem;
+    width: 10rem;
   }
 }
 

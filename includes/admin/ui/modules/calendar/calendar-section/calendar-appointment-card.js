@@ -236,7 +236,7 @@
             borderTop: `1px solid ${TOKENS.gray100}`,
         });
         
-        // ----- Sección: Estado (Badge) -----
+        // ----- Sección: Meta (hora + duración) -----
         const estadoSection = document.createElement('div');
         Object.assign(estadoSection.style, {
             marginBottom: TOKENS.space4,
@@ -244,23 +244,6 @@
             alignItems: 'center',
             gap: TOKENS.space3
         });
-        
-        const badge = crearBadge(config.badgeLabel, config.badgeBg, config.badgeText);
-        estadoSection.appendChild(badge);
-        
-        // Duración junto al badge
-        if (cita.duracion) {
-            const duracionBadge = document.createElement('span');
-            Object.assign(duracionBadge.style, {
-                fontSize: TOKENS.textXs,
-                color: TOKENS.gray500,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px'
-            });
-            duracionBadge.innerHTML = `<span style="font-size: 10px;">⏱</span> ${cita.duracion} min`;
-            estadoSection.appendChild(duracionBadge);
-        }
 
         if (cita.fecha) {
             const horaStr = window.DateUtils?.hm
@@ -268,19 +251,22 @@
                 : (cita.fecha.match(/\d{2}:\d{2}/) || [])[0] || '';
             if (horaStr) {
                 const horaBadge = document.createElement('span');
-                Object.assign(horaBadge.style, {
-                    fontSize: TOKENS.textXs,
-                    color: TOKENS.gray500,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                });
+                horaBadge.className = 'aa-appointment-meta text-xs font-medium text-gray-600 inline-flex items-center gap-1';
                 horaBadge.textContent = horaStr + ' hrs';
                 estadoSection.appendChild(horaBadge);
             }
         }
-        
-        body.appendChild(estadoSection);
+
+        if (cita.duracion) {
+            const duracionBadge = document.createElement('span');
+            duracionBadge.className = 'aa-appointment-meta text-xs font-medium text-gray-600 inline-flex items-center gap-1';
+            duracionBadge.innerHTML = `<span style="font-size: 10px;">⏱</span> ${cita.duracion} min`;
+            estadoSection.appendChild(duracionBadge);
+        }
+
+        if (estadoSection.childNodes.length > 0) {
+            body.appendChild(estadoSection);
+        }
         
         // ----- Sección: Enlace cita virtual (arriba del WhatsApp; no en pendiente, join aún no creado) -----
         if (cita.attendance_type === 'virtual' && cita.join_url && cita.estado !== 'pending') {
@@ -328,10 +314,10 @@
             const phoneRow = crearContactRow('whatsapp', cita.telefono, cita);
             contactSection.appendChild(phoneRow);
         }
-        
-        if (cita.correo) {
-            const emailRow = crearContactRow('email', cita.correo, cita);
-            contactSection.appendChild(emailRow);
+
+        if (cita.service_area_name) {
+            const areaRow = crearContactRow('area', cita.service_area_name, cita);
+            contactSection.appendChild(areaRow);
         }
         
         body.appendChild(contactSection);
@@ -447,36 +433,12 @@
     }
 
     /**
-     * Crear un badge/pill de estado
-     */
-    function crearBadge(texto, bgColor, textColor) {
-        const badge = document.createElement('span');
-        Object.assign(badge.style, {
-            display: 'inline-flex',
-            alignItems: 'center',
-            padding: `2px ${TOKENS.space3}`,
-            borderRadius: TOKENS.radiusSm,
-            fontSize: TOKENS.textXs,
-            fontWeight: '500',
-            lineHeight: '1.4',
-            backgroundColor: 'transparent',
-            color: textColor
-        });
-        badge.textContent = texto;
-        return badge;
-    }
-
-    /**
      * Crear fila de contacto (WhatsApp o Email)
      */
     function crearContactRow(type, value, cita) {
         const row = document.createElement('div');
-        Object.assign(row.style, {
-            display: 'flex',
-            alignItems: 'center',
-            gap: TOKENS.space2
-        });
-        
+        row.className = 'aa-appointment-contact-row flex items-center gap-1.5 text-sm font-medium text-gray-600';
+
         if (type === 'whatsapp') {
             // Logo WhatsApp original, tono dark vía currentColor (sin verde)
             const svgPhone = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
@@ -484,7 +446,7 @@
             </svg>`;
 
             const phoneLink = document.createElement('span');
-            phoneLink.className = 'aa-whatsapp-link';
+            phoneLink.className = 'aa-whatsapp-link aa-appointment-contact-link inline-flex items-center gap-1.5 min-w-0 cursor-pointer';
             phoneLink.innerHTML = svgPhone;
             const phoneText = document.createElement('span');
             phoneText.className = 'aa-wa-phone-text truncate';
@@ -499,72 +461,38 @@
             phoneLink.dataset.name = cita.nombre || '';
             phoneLink.dataset.attendanceType = cita.attendance_type || '';
             phoneLink.dataset.joinUrl = cita.join_url || '';
-
-            Object.assign(phoneLink.style, {
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: TOKENS.space2,
-                cursor: 'pointer',
-                color: TOKENS.gray600,
-                fontWeight: '500',
-                fontSize: TOKENS.textSm,
-                minWidth: '0',
-                // Anula padding del CSS global (.aa-whatsapp-link) para alinear con servicio/email
-                padding: '0',
-                borderRadius: TOKENS.radiusSm,
-                transition: `background-color ${TOKENS.transitionFast}`
-            });
             phoneLink.title = 'Enviar WhatsApp';
 
-            phoneLink.addEventListener('mouseenter', () => {
-                phoneLink.style.backgroundColor = TOKENS.gray100;
-            });
-            phoneLink.addEventListener('mouseleave', () => {
-                phoneLink.style.backgroundColor = 'transparent';
-            });
-
             row.appendChild(phoneLink);
-        } else if (type === 'email') {
-            const svgEmail = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-                <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-            </svg>`;
-            const emailSpan = document.createElement('span');
-            Object.assign(emailSpan.style, {
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: TOKENS.space2,
-                color: TOKENS.gray600,
-                fontSize: TOKENS.textSm,
-                minWidth: '0'
-            });
-            emailSpan.innerHTML = svgEmail;
-            const label = document.createElement('span');
-            label.className = 'truncate';
-            label.textContent = value;
-            emailSpan.appendChild(label);
-            row.appendChild(emailSpan);
         } else if (type === 'service') {
             // Mismo icono del nav "Servicios" (sidebar), tamaño alineado a filas de contacto
             const svgService = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
                 <path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
             </svg>`;
             const serviceSpan = document.createElement('span');
-            Object.assign(serviceSpan.style, {
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: TOKENS.space2,
-                color: TOKENS.gray600,
-                fontSize: TOKENS.textSm,
-                minWidth: '0'
-            });
+            serviceSpan.className = 'inline-flex items-center gap-1.5 min-w-0';
             serviceSpan.innerHTML = svgService;
             const label = document.createElement('span');
             label.className = 'truncate';
             label.textContent = value;
             serviceSpan.appendChild(label);
             row.appendChild(serviceSpan);
+        } else if (type === 'area') {
+            // Mismo icono de "Zonas de atención" (módulo Asignaciones)
+            const svgArea = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                <path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                <path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>`;
+            const areaSpan = document.createElement('span');
+            areaSpan.className = 'inline-flex items-center gap-1.5 min-w-0';
+            areaSpan.innerHTML = svgArea;
+            const label = document.createElement('span');
+            label.className = 'truncate';
+            label.textContent = value;
+            areaSpan.appendChild(label);
+            row.appendChild(areaSpan);
         }
-        
+
         return row;
     }
 

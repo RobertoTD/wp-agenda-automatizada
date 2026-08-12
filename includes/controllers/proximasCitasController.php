@@ -33,6 +33,7 @@ function aa_ajax_get_citas_por_dia() {
     $table_assignments = $wpdb->prefix . 'aa_assignments';
     $table_assignment_services = $wpdb->prefix . 'aa_assignment_services';
     $table_services = $wpdb->prefix . 'aa_services';
+    $table_service_areas = $wpdb->prefix . 'aa_service_areas';
     
     // 🔹 Obtener fecha (opcional)
     $fecha = isset($_POST['fecha']) ? sanitize_text_field($_POST['fecha']) : '';
@@ -54,6 +55,7 @@ function aa_ajax_get_citas_por_dia() {
     
     // 🔹 Consulta: nombre del servicio desde aa_services por el ID reservado (r.servicio);
     // si r.servicio es numérico = service_id; si no, fallback a r.servicio (legacy/fixed).
+    // Zona vía assignment → aa_service_areas (mismo origen que el borde de área del timeline).
     $query = "SELECT 
                 r.id,
                 COALESCE(s.name, r.servicio) as servicio,
@@ -69,10 +71,12 @@ function aa_ajax_get_citas_por_dia() {
                 c.nombre,
                 c.telefono,
                 c.correo,
+                sa.name AS service_area_name,
                 DATE_ADD(r.fecha, INTERVAL IFNULL(r.duracion, 60) MINUTE) as fecha_fin
               FROM $table_reservas r
               LEFT JOIN $table_clientes c ON r.id_cliente = c.id
               LEFT JOIN $table_assignments a ON r.assignment_id = a.id
+              LEFT JOIN $table_service_areas sa ON sa.id = a.service_area_id
               LEFT JOIN $table_services s ON s.id = CAST(r.servicio AS UNSIGNED)
               WHERE r.fecha BETWEEN %s AND %s 
               ORDER BY r.fecha ASC";

@@ -11,6 +11,8 @@
     let eventListenersConfigured = false;
     let gridClickHandler = null;
     let assignmentEventBound = false;
+    let calendarOptionsMenuOpen = false;
+    let calendarOptionsMenuBound = false;
 
     /**
      * Horario fijo legacy: vacío o no-objeto significa "sin fixed activo", no dependencia faltante.
@@ -87,6 +89,93 @@
         }
         
         setTimeout(() => waitForDependencies(callback, maxAttempts - 1), 100);
+    }
+
+    function getCalendarOptionsTrigger() {
+        return document.getElementById('aa-calendar-options-trigger');
+    }
+
+    function getCalendarOptionsMenu() {
+        return document.getElementById('aa-calendar-options-menu');
+    }
+
+    function closeCalendarOptionsMenu() {
+        const trigger = getCalendarOptionsTrigger();
+        const menu = getCalendarOptionsMenu();
+
+        if (menu) {
+            menu.classList.add('hidden');
+        }
+        if (trigger) {
+            trigger.setAttribute('aria-expanded', 'false');
+        }
+        calendarOptionsMenuOpen = false;
+    }
+
+    function openCalendarOptionsMenu() {
+        const trigger = getCalendarOptionsTrigger();
+        const menu = getCalendarOptionsMenu();
+
+        if (!menu || !trigger) {
+            return;
+        }
+
+        menu.classList.remove('hidden');
+        trigger.setAttribute('aria-expanded', 'true');
+        calendarOptionsMenuOpen = true;
+    }
+
+    function toggleCalendarOptionsMenu() {
+        if (calendarOptionsMenuOpen) {
+            closeCalendarOptionsMenu();
+        } else {
+            openCalendarOptionsMenu();
+        }
+    }
+
+    function handleCalendarOptionsDocumentClick(event) {
+        const target = event && event.target;
+        const trigger = target && target.closest
+            ? target.closest('#aa-calendar-options-trigger')
+            : null;
+        const searchItem = target && target.closest
+            ? target.closest('[data-calendar-tool="search-appointments"]')
+            : null;
+        const insideTools = target && target.closest
+            ? target.closest('#aa-calendar-area-tools')
+            : null;
+
+        if (trigger) {
+            event.preventDefault();
+            toggleCalendarOptionsMenu();
+            return;
+        }
+
+        if (searchItem) {
+            closeCalendarOptionsMenu();
+            return;
+        }
+
+        if (calendarOptionsMenuOpen && !insideTools) {
+            closeCalendarOptionsMenu();
+        }
+    }
+
+    function handleCalendarOptionsDocumentKeydown(event) {
+        if (!event || event.key !== 'Escape' || !calendarOptionsMenuOpen) {
+            return;
+        }
+        closeCalendarOptionsMenu();
+    }
+
+    function bindCalendarOptionsMenu() {
+        if (calendarOptionsMenuBound || !getCalendarOptionsTrigger()) {
+            return;
+        }
+
+        calendarOptionsMenuBound = true;
+        document.addEventListener('click', handleCalendarOptionsDocumentClick);
+        document.addEventListener('keydown', handleCalendarOptionsDocumentKeydown);
     }
 
     /**
@@ -254,6 +343,8 @@
 
     function initCalendar() {
         ensureCalendarDataNormalized();
+
+        bindCalendarOptionsMenu();
 
         // Inicializar selector de fecha
         initDatePicker();

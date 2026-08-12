@@ -118,6 +118,43 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
                     </div>
                 </div>
                 <?php endif; ?>
+
+                <?php if (isset($active_module) && $active_module === 'calendar') : ?>
+                <div id="aa-calendar-area-tools" class="relative flex items-center gap-2 shrink-0">
+                    <button
+                        type="button"
+                        id="aa-calendar-options-trigger"
+                        title="Opciones de agenda"
+                        aria-label="Opciones de agenda"
+                        aria-haspopup="menu"
+                        aria-expanded="false"
+                        class="aa-options-trigger-flat"
+                    >
+                        <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="5" cy="12" r="1.75"/>
+                            <circle cx="12" cy="12" r="1.75"/>
+                            <circle cx="19" cy="12" r="1.75"/>
+                        </svg>
+                    </button>
+                    <div
+                        id="aa-calendar-options-menu"
+                        class="hidden absolute left-0 top-full z-50 mt-2 min-w-[12rem] rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+                        role="menu"
+                    >
+                        <button
+                            type="button"
+                            role="menuitem"
+                            data-calendar-tool="search-appointments"
+                            class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-600 hover:bg-gray-50"
+                        >
+                            <svg class="w-4 h-4 shrink-0 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
+                            <span>Buscar citas</span>
+                        </button>
+                    </div>
+                </div>
+                <?php endif; ?>
             </div>
             
             <!-- Right: Notifications (island) -->

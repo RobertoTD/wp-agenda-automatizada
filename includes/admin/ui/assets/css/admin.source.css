@@ -390,6 +390,22 @@ body {
         background-color: rgba(37, 211, 102, 0.1);
     }
 
+    /* Calendar appointment card — contact rows (override global WhatsApp link styles) */
+    .aa-appointment-body .aa-appointment-contact-row {
+        @apply text-sm font-medium text-gray-600;
+    }
+
+    .aa-appointment-body .aa-appointment-contact-row .aa-appointment-contact-link {
+        @apply text-sm font-medium text-gray-600;
+        padding: 0;
+        border-radius: 4px;
+        transition: background-color 150ms ease;
+    }
+
+    .aa-appointment-body .aa-appointment-contact-row .aa-appointment-contact-link:hover {
+        background-color: rgb(243 244 246);
+    }
+
     /* Add padding to appointments list when cards are open to prevent overlay from touching modal border */
     .aa-appointments-list:has([data-aa-card].is-open) {
         padding-bottom: 20px;
@@ -1032,14 +1048,15 @@ body {
     /* Container: acts as a single visual unit */
     .aa-date-navigator {
         @apply inline-flex items-center;
-        @apply bg-gray-50 border border-gray-200 rounded-lg;
+        @apply bg-gray-50 border border-gray-200 rounded-xl;
         @apply overflow-hidden;
+        @apply min-h-[2.75rem];
     }
 
     /* Navigation buttons (prev/next) - part of the capsule */
     .aa-date-nav-btn {
         @apply flex items-center justify-center;
-        @apply w-8 h-8;
+        @apply w-11 h-11;
         @apply text-gray-500;
         @apply bg-transparent border-0;
         @apply transition-colors duration-150;
@@ -1069,8 +1086,8 @@ body {
 
     /* Date input - center of the navigator */
     .aa-date-input {
-        @apply w-28 h-8 px-2;
-        @apply text-sm font-medium text-gray-600 text-center;
+        @apply w-36 h-11 px-3;
+        @apply text-base font-semibold text-gray-600 text-center;
         @apply bg-transparent border-0;
         @apply cursor-pointer;
         @apply focus:outline-none focus:bg-white;
@@ -1180,7 +1197,7 @@ body {
 @media (max-width: 639px) {
     .aa-date-input,
     .flatpickr-mobile {
-        width: 8.5rem;
+        width: 10rem;
     }
 }
 

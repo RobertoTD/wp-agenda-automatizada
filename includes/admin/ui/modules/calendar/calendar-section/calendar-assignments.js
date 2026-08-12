@@ -49,18 +49,6 @@
     }
 
     /**
-     * Get darker version of hex color for text
-     */
-    function hexToDarker(hex) {
-        if (!hex) return TOKENS.gray600;
-        hex = hex.replace('#', '');
-        const r = Math.max(0, parseInt(hex.substring(0, 2), 16) - 60);
-        const g = Math.max(0, parseInt(hex.substring(2, 4), 16) - 60);
-        const b = Math.max(0, parseInt(hex.substring(4, 6), 16) - 60);
-        return 'rgb(' + r + ', ' + g + ', ' + b + ')';
-    }
-
-    /**
      * Remove existing assignment overlays from the grid
      */
     function clearOverlays() {
@@ -75,9 +63,6 @@
 
         const cardsHosts = grid.querySelectorAll('.aa-overlay-cards-host');
         cardsHosts.forEach(function(host) { host.remove(); });
-
-        const areaBorders = grid.querySelectorAll('.aa-assignment-area-border');
-        areaBorders.forEach(function(border) { border.remove(); });
 
         const scheduleBorders = grid.querySelectorAll('.aa-schedule-area-border');
         scheduleBorders.forEach(function(border) { border.remove(); });
@@ -140,7 +125,7 @@
             });
         }
 
-        renderAreaTopBorders(assignments, areaIndexMap, totalColumns, grid, hasSchedule, scheduleColumnIndex);
+        renderAreaTopBorders(totalColumns, grid, hasSchedule, scheduleColumnIndex);
     }
 
     /**
@@ -386,9 +371,9 @@
     }
 
     /**
-     * Render top borders for each unique service area name
+     * Render top border label for fixed schedule column (if present)
      */
-    function renderAreaTopBorders(assignments, areaIndexMap, totalColumns, grid, hasSchedule, scheduleColumnIndex) {
+    function renderAreaTopBorders(totalColumns, grid, hasSchedule, scheduleColumnIndex) {
         const gridRect = grid.getBoundingClientRect();
         const gridWidth = gridRect.width;
         
@@ -463,68 +448,6 @@
             scheduleBorder.appendChild(scheduleLabelSpan);
             grid.appendChild(scheduleBorder);
         }
-
-        // Assignment area borders
-        if (!assignments || assignments.length === 0) return;
-
-        const assignmentsByAreaName = {};
-        assignments.forEach(function(assignment) {
-            const areaName = assignment.service_area_name || 'Sin área';
-            if (!assignmentsByAreaName[areaName]) {
-                assignmentsByAreaName[areaName] = [];
-            }
-            assignmentsByAreaName[areaName].push(assignment);
-        });
-
-        Object.keys(assignmentsByAreaName).forEach(function(areaName) {
-            const areaAssignments = assignmentsByAreaName[areaName];
-            if (areaAssignments.length === 0) return;
-
-            const firstAssignment = areaAssignments[0];
-            const areaId = firstAssignment.service_area_id;
-            const areaIndex = areaIndexMap[areaId] !== undefined ? areaIndexMap[areaId] : 0;
-            
-            const areaWidthPercent = contentWidthPercent / totalColumns;
-            const areaLeftPercent = contentLeftPercent + (areaIndex * areaWidthPercent);
-
-            const baseColor = firstAssignment.service_area_color || null;
-            const textColor = hexToDarker(baseColor);
-
-            const areaBorder = document.createElement('div');
-            areaBorder.className = 'aa-assignment-area-border';
-            areaBorder.setAttribute('data-area-name', areaName);
-            areaBorder.setAttribute('data-area-id', areaId || '');
-
-            Object.assign(areaBorder.style, {
-                position: 'absolute',
-                top: '-15px',
-                left: areaLeftPercent + '%',
-                width: areaWidthPercent + '%',
-                height: '15px',
-                borderRadius: '0',
-                boxSizing: 'border-box',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: '10'
-            });
-
-            const areaNameText = document.createElement('span');
-            areaNameText.textContent = areaName;
-            Object.assign(areaNameText.style, {
-                color: textColor,
-                fontSize: TOKENS.textXs,
-                fontWeight: '600',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                padding: '0 6px',
-                lineHeight: '1.2'
-            });
-
-            areaBorder.appendChild(areaNameText);
-            grid.appendChild(areaBorder);
-        });
     }
 
     /**
