@@ -19,7 +19,7 @@ $aa_logout_url      = wp_logout_url(home_url('/agenda-app/'));
          SECCIÓN: Cuenta
     ═══════════════════════════════════════════════════════════════ -->
     <details id="aa-account-section" class="aa-module-section-card bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
-        <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
+        <summary class="px-4 py-5 border-b border-gray-100 bg-white cursor-pointer list-none">
             <div class="flex items-center">
                 <span class="flex items-center justify-center w-8 h-8 text-gray-600">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

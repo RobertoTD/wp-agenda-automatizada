@@ -1909,13 +1909,11 @@
             + '<div class="flex items-center gap-1 shrink-0">'
             + optionsMenuHtml
             + '</div>';
-        var headerGradient = 'from-gray-50 to-white';
-
         return ''
             + '<details class="aa-executable-list-card aa-task-list-card group bg-white rounded-xl shadow border border-gray-200"'
             + ' data-list-id="' + listId + '"'
             + ' data-list-source="' + source + '">'
-            + '<summary class="px-4 py-5 bg-gradient-to-r ' + headerGradient + ' cursor-pointer list-none">'
+            + '<summary class="px-4 py-5 bg-white cursor-pointer list-none">'
             + '<div class="flex items-start justify-between gap-3">'
             + '<div class="min-w-0 flex-1">'
             + '<div class="flex items-center gap-1.5 min-w-0">'

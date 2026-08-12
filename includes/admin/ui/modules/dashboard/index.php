@@ -21,7 +21,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
     <!-- Citas (fila colapsable) -->
     <div class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden mb-3" data-aa-dashboard-collapse>
         <div
-            class="aa-dash-collapse-toggle px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer select-none"
+            class="aa-dash-collapse-toggle px-4 py-5 border-b border-gray-100 bg-white cursor-pointer select-none"
             data-aa-dashboard-collapse-toggle
             role="button"
             tabindex="0"
@@ -45,7 +45,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
             <!-- 1. Próxima cita -->
             <div class="aa-dash-collapse rounded-xl border border-gray-200 overflow-hidden" data-aa-dashboard-collapse>
                 <div
-                    class="aa-dash-collapse-toggle p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer select-none"
+                    class="aa-dash-collapse-toggle p-4 border-b border-gray-100 bg-white cursor-pointer select-none"
                     data-aa-dashboard-collapse-toggle
                     role="button"
                     tabindex="0"
@@ -88,7 +88,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
             <!-- 2. Citas de hoy (cerrada por defecto) -->
             <div class="aa-dash-collapse rounded-xl border border-gray-200 overflow-hidden" data-aa-dashboard-collapse>
                 <div
-                    class="aa-dash-collapse-toggle p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer select-none"
+                    class="aa-dash-collapse-toggle p-4 border-b border-gray-100 bg-white cursor-pointer select-none"
                     data-aa-dashboard-collapse-toggle
                     role="button"
                     tabindex="0"
@@ -133,7 +133,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
             <!-- 3. Ingresos (cerrada por defecto) -->
             <div class="aa-dash-collapse rounded-xl border border-gray-200 overflow-hidden" data-aa-dashboard-collapse>
                 <div
-                    class="aa-dash-collapse-toggle p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer select-none"
+                    class="aa-dash-collapse-toggle p-4 border-b border-gray-100 bg-white cursor-pointer select-none"
                     data-aa-dashboard-collapse-toggle
                     role="button"
                     tabindex="0"
@@ -178,7 +178,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
             <!-- 4. Resumen semanal (cerrada por defecto) -->
             <div class="aa-dash-collapse rounded-xl border border-gray-200 overflow-hidden" data-aa-dashboard-collapse>
                 <div
-                    class="aa-dash-collapse-toggle p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer select-none"
+                    class="aa-dash-collapse-toggle p-4 border-b border-gray-100 bg-white cursor-pointer select-none"
                     data-aa-dashboard-collapse-toggle
                     role="button"
                     tabindex="0"
@@ -243,7 +243,7 @@ $dashboard_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
     <!-- Alertas (fila colapsable) -->
     <div id="aa-dash-alerts-section" class="hidden bg-white rounded-xl shadow border border-gray-200 overflow-hidden mb-3" data-aa-dashboard-collapse>
         <div
-            class="aa-dash-collapse-toggle px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer select-none"
+            class="aa-dash-collapse-toggle px-4 py-5 border-b border-gray-100 bg-white cursor-pointer select-none"
             data-aa-dashboard-collapse-toggle
             role="button"
             tabindex="0"

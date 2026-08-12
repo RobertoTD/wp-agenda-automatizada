@@ -31,7 +31,7 @@ $module_js_url = $plugin_url . 'calendar-module.js?ver=' . rawurlencode($calenda
     <!-- =========================
          🔹 HEADER
          ========================= -->
-    <div class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+    <div class="px-4 py-5 border-b border-gray-100 bg-white">
         <div class="flex items-center justify-between gap-3">
 
             <!-- Izquierda: navegación de fecha -->

@@ -23,7 +23,7 @@ $module_js_url = $plugin_url . 'assignments-module.js?ver=' . rawurlencode($ver)
          SECCIÓN: Asignaciones
     ═══════════════════════════════════════════════════════════════ -->
     <details id="aa-assignments-section" class="hidden bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group">
-        <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none">
+        <summary class="px-4 py-5 border-b border-gray-100 bg-white cursor-pointer list-none">
             <div class="flex items-center justify-between gap-3">
                 <div class="flex items-center">
                     <span class="flex items-center justify-center w-8 h-8 text-gray-600">
@@ -64,7 +64,7 @@ $module_js_url = $plugin_url . 'assignments-module.js?ver=' . rawurlencode($ver)
          SECCIÓN: Zonas de atención
     ═══════════════════════════════════════════════════════════════ -->
     <details class="aa-module-section-card bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group" data-aa-section="areas">
-        <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none" title="Áreas donde se realizan las citas.">
+        <summary class="px-4 py-5 border-b border-gray-100 bg-white cursor-pointer list-none" title="Áreas donde se realizan las citas.">
             <div class="flex items-center justify-between gap-3">
                 <div class="flex items-center min-w-0">
                     <span class="flex items-center justify-center w-8 h-8 text-gray-600 shrink-0">
@@ -120,7 +120,7 @@ $module_js_url = $plugin_url . 'assignments-module.js?ver=' . rawurlencode($ver)
          SECCIÓN: Personal
     ═══════════════════════════════════════════════════════════════ -->
     <details class="aa-module-section-card bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group" data-aa-section="staff">
-        <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none" title="Personal que atiende las citas.">
+        <summary class="px-4 py-5 border-b border-gray-100 bg-white cursor-pointer list-none" title="Personal que atiende las citas.">
             <div class="flex items-center justify-between gap-3">
                 <div class="flex items-center min-w-0">
                     <span class="flex items-center justify-center w-8 h-8 text-gray-600 shrink-0">
@@ -175,7 +175,7 @@ $module_js_url = $plugin_url . 'assignments-module.js?ver=' . rawurlencode($ver)
          SECCIÓN: Servicios
     ═══════════════════════════════════════════════════════════════ -->
     <details class="aa-module-section-card bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group" data-aa-section="services">
-        <summary class="px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-pointer list-none" title="Servicios que los clientes pueden reservar.">
+        <summary class="px-4 py-5 border-b border-gray-100 bg-white cursor-pointer list-none" title="Servicios que los clientes pueden reservar.">
             <div class="flex items-center justify-between gap-3">
                 <div class="flex items-center min-w-0">
                     <span class="flex items-center justify-center w-8 h-8 text-gray-600 shrink-0">

@@ -537,8 +537,7 @@
         
         // =============================================
         // CONTROL STYLING - Diseño premium
-        // Colocado como hijo del host (no de la card) y z-index > ceja (45)
-        // para que sea clickeable por encima de la ceja sin cambiar z de ceja/cards
+        // Hijo del host (no de la card) para seguir clickeable sobre las cards
         // =============================================
         const control = document.createElement('div');
         control.className = 'aa-slot-stack-control';
@@ -676,6 +675,8 @@
                     header.style.borderBottomLeftRadius = '0';
                     header.style.borderBottomRightRadius = '0';
                     header.style.borderTopLeftRadius = TOKENS.radiusMd;
+                    header.style.paddingTop = '12px';
+                    header.style.paddingBottom = '12px';
                 }
             }
         } else {
@@ -687,13 +688,6 @@
         }
 
         host.appendChild(card);
-
-        if (!isExpanded) {
-            const header = card.querySelector('.aa-appointment-header');
-            if (header) {
-                aplicarClearanceCejaEnHeader(header, card, true);
-            }
-        }
     }
     
     /**
@@ -713,25 +707,6 @@
     }
 
     /**
-     * Evita superposición ceja/header en citas de 30 min colapsadas.
-     */
-    function aplicarClearanceCejaEnHeader(header, card, collapsed) {
-        const isSlot30 = parseInt(card.dataset.citaBloquesOcupados, 10) === 1;
-        if (collapsed && isSlot30) {
-            const host = card.closest('.aa-overlay-cards-host');
-            const label = host?.querySelector('.aa-assignment-staff-label, .aa-schedule-label');
-            const clearance = label?.offsetHeight ?? 18;
-            header.style.paddingTop = clearance + 'px';
-            header.style.alignItems = 'flex-end';
-            header.style.paddingBottom = '2px';
-        } else {
-            header.style.paddingTop = '';
-            header.style.alignItems = 'center';
-            header.style.paddingBottom = '';
-        }
-    }
-    
-    /**
      * Colapsar una card
      */
     function colapsarCard(cardToCollapse) {
@@ -749,6 +724,9 @@
         header.style.borderBottomLeftRadius = '0';
         header.style.borderBottomRightRadius = TOKENS.radiusMd;
         header.style.borderTopLeftRadius = '0';
+        header.style.paddingTop = '';
+        header.style.paddingBottom = '';
+        header.style.alignItems = 'center';
         cardToCollapse.style.overflow = 'hidden';
         cardToCollapse.dataset.expanded = 'false';
         cardToCollapse.style.boxShadow = TOKENS.shadowXs;
@@ -768,8 +746,6 @@
         if (cardToCollapse.classList.contains('aa-expanded-in-overlay')) {
             colapsarDeOverlay(cardToCollapse);
         }
-
-        aplicarClearanceCejaEnHeader(header, cardToCollapse, true);
         
         setTimeout(() => {
             crearControlesCicladoStack();
@@ -905,7 +881,10 @@
                         restaurarHostOverflow(cardHost);
                     }
 
-                    aplicarClearanceCejaEnHeader(currentHeader, card, true);
+                    // Restaurar padding base del header (sin clearance de ceja)
+                    currentHeader.style.paddingTop = '';
+                    currentHeader.style.paddingBottom = '';
+                    currentHeader.style.alignItems = 'center';
                     currentBody.style.cursor = '';
                 } else {
                     // === EXPANDIDA ===
@@ -933,7 +912,10 @@
                         hostsConExpandidas.add(cardHost);
                     }
 
-                    aplicarClearanceCejaEnHeader(currentHeader, card, false);
+                    // Aire vertical solo en expandida; crece hacia el body (top/left intactos)
+                    currentHeader.style.paddingTop = '12px';
+                    currentHeader.style.paddingBottom = '12px';
+                    currentHeader.style.alignItems = 'center';
                     currentBody.style.cursor = 'pointer';
                 }
             }

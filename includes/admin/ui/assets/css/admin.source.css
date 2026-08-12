@@ -411,8 +411,7 @@ body {
     }
 
     #aa-clients-grid [data-aa-card-toggle] {
-        @apply px-4 py-5 font-semibold bg-gradient-to-r from-gray-50 to-white;
-        background-color: transparent;
+        @apply px-4 py-5 font-semibold bg-white;
     }
 
     #aa-clients-grid [data-aa-card]:not(.is-open) [data-aa-card-toggle] {

@@ -2092,8 +2092,9 @@ describe('executableListRenderer MC13 UX-A visual polish', () => {
             buckets: [{ key: 'primary', label: 'Principales', items: [baseItem()] }]
         }));
 
-        assert.match(html, /from-gray-50 to-white/);
+        assert.match(html, /bg-white/);
         assert.doesNotMatch(html, /from-amber-50/);
+        assert.doesNotMatch(html, /from-gray-50/);
     });
 
     it('lista user usa el mismo header neutral', () => {
@@ -2103,8 +2104,9 @@ describe('executableListRenderer MC13 UX-A visual polish', () => {
             buckets: [{ key: 'default', label: '', items: [] }]
         }));
 
-        assert.match(html, /from-gray-50 to-white/);
+        assert.match(html, /bg-white/);
         assert.doesNotMatch(html, /from-amber-50/);
+        assert.doesNotMatch(html, /from-gray-50/);
     });
 
     it('label user usa modificador verde y agenda_app azul', () => {

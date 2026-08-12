@@ -318,9 +318,6 @@
         // Colores muy sutiles para el overlay
         const baseColor = assignment.service_area_color || null;
         const bgColor = hexToRgba(baseColor, 0.04); // Muy sutil
-        const headerBgColor = hexToRgba(baseColor, 0.12);
-        const borderColor = hexToRgba(baseColor, 0.3);
-        const textColor = hexToDarker(baseColor);
 
         // ===== OVERLAY (Visual background - muy sutil) =====
         const overlay = document.createElement('div');
@@ -382,59 +379,6 @@
         });
 
         grid.appendChild(host);
-
-        // ===== LABEL (Header estilo dashboard) =====
-        if (assignment.staff_name) {
-            const staffLabel = document.createElement('div');
-            staffLabel.className = 'aa-assignment-staff-label';
-            
-            const servicesStr = (assignment.service_names && assignment.service_names.length > 0) 
-                ? assignment.service_names.join(', ') 
-                : '';
-            
-            staffLabel.textContent = assignment.staff_name;
-            
-            staffLabel.setAttribute('data-aa-popover', '1');
-            staffLabel.setAttribute('data-aa-popover-staff', assignment.staff_name || '');
-            staffLabel.setAttribute('data-aa-popover-services', servicesStr);
-            staffLabel.setAttribute('data-aa-popover-assignment-id', assignment.id || '');
-            
-            Object.assign(staffLabel.style, {
-                position: 'absolute',
-                top: '0',
-                left: '0',
-                right: '0',
-                color: textColor,
-                fontSize: TOKENS.textXs,
-                fontWeight: '600',
-                padding: '1px 8px',
-                borderTopLeftRadius: TOKENS.radiusMd,
-                borderTopRightRadius: TOKENS.radiusMd,
-                backgroundColor: headerBgColor,
-                boxSizing: 'border-box',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                lineHeight: '1.3',
-                zIndex: '45',
-                cursor: 'pointer',
-                pointerEvents: 'auto',
-                transition: `background-color ${TOKENS.transitionFast}`
-            });
-            
-            // Hover effect
-            const originalBg = headerBgColor;
-            const hoverBg = hexToRgba(baseColor, 0.18);
-            
-            staffLabel.addEventListener('mouseenter', function() {
-                staffLabel.style.backgroundColor = hoverBg;
-            });
-            staffLabel.addEventListener('mouseleave', function() {
-                staffLabel.style.backgroundColor = originalBg;
-            });
-            
-            host.appendChild(staffLabel);
-        }
 
         if (assignment.id) {
             hostsMap[assignment.id] = host;
