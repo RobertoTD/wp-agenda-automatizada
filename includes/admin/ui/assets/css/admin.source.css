@@ -458,6 +458,26 @@ body {
         @apply rounded-b-xl bg-white;
     }
 
+    /* Clientes — WhatsApp como texto de fila (no botón): mismo tipo que Correo/Fecha/Citas */
+    #aa-clients-grid .aa-appointment-body .aa-whatsapp-link {
+        @apply text-sm font-semibold text-gray-600;
+        padding: 0;
+    }
+
+    #aa-clients-grid .aa-appointment-body .aa-whatsapp-link .aa-wa-phone-text {
+        @apply text-sm font-semibold;
+        color: #25D366;
+    }
+
+    #aa-clients-grid .aa-appointment-body .aa-whatsapp-link:hover {
+        background-color: transparent;
+        @apply text-gray-800;
+    }
+
+    #aa-clients-grid .aa-appointment-body .aa-whatsapp-link:hover .aa-wa-phone-text {
+        color: #1ebe57;
+    }
+
     /* Add padding-bottom to clients container when one of the last 3 cards is open to prevent overlay from being cut off */
     #aa-module-root #aa-clients-list-root:has(#aa-clients-grid > [data-aa-card].is-open:nth-last-child(-n+3)) {
         padding-bottom: 200px;

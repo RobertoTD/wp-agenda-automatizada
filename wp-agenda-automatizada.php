@@ -257,6 +257,12 @@ ExecutiveProposalAjax::register();
 require_once __DIR__ . '/includes/http/ajax/ServiceAreasAjax.php';
 ServiceAreasAjax::register();
 
+// ================================
+// Endpoint AJAX: Personal (capa http/ajax)
+// ================================
+require_once __DIR__ . '/includes/http/ajax/StaffAjax.php';
+StaffAjax::register();
+
 // ===============================
 // 🔹 Schema lifecycle: registra el activation hook con AA_Schema::install
 // ===============================

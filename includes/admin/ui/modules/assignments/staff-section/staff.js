@@ -16,6 +16,9 @@
     // Flag to track if services handlers are already bound
     let servicesHandlersBound = false;
 
+    // Flag to track if aa:staff:saved listener is already bound
+    let staffSavedListenerBound = false;
+
     /**
      * @param {'staff' | 'staff_service_assignment'} source
      */
@@ -56,12 +59,38 @@
         
         // Setup services handlers (only once, using event delegation)
         setupServicesHandlers();
+
+        // Refresh list after create/edit modal save (do not treat refresh failure as save failure)
+        setupStaffSavedListener();
         
         // Load and render staff
         loadStaff(staffRoot);
         
         // Setup create staff button handler
         setupCreateStaffHandler();
+    }
+
+    /**
+     * Recarga canónica tras aa:staff:saved (create o edit).
+     */
+    function setupStaffSavedListener() {
+        if (staffSavedListenerBound) {
+            return;
+        }
+
+        document.addEventListener('aa:staff:saved', function() {
+            if (!staffRoot) {
+                return;
+            }
+
+            try {
+                loadStaff(staffRoot);
+            } catch (error) {
+                console.error('[Staff Section] Error al refrescar personal tras guardar:', error);
+            }
+        });
+
+        staffSavedListenerBound = true;
     }
 
     /**

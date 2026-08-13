@@ -199,6 +199,11 @@ header('Content-Type: text/html; charset=utf-8');
     window.AA_AREAS_NONCES = {
         update_service_area: '<?php echo esc_js(wp_create_nonce('aa_update_service_area')); ?>'
     };
+
+    // Nonces para personal (modal transversal crear/editar personal)
+    window.AA_STAFF_NONCES = {
+        update_staff: '<?php echo esc_js(wp_create_nonce('aa_update_staff')); ?>'
+    };
     
     // Datos para WhatsApp Admin
     window.AA_ADMIN_DATA = {

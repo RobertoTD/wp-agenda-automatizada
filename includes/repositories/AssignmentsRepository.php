@@ -297,6 +297,135 @@ class AssignmentsRepository extends AssignmentsModel {
     }
 
     /**
+     * Busca un integrante de personal no oculto por ID.
+     *
+     * @param int $id
+     * @return array{id:int,name:string,active:int,created_at:string}|null
+     */
+    public static function find_staff_by_id($id) {
+        global $wpdb;
+
+        $id = (int) $id;
+        if ($id <= 0) {
+            return null;
+        }
+
+        $table = $wpdb->prefix . 'aa_staff';
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT id, name, active, created_at
+                 FROM {$table}
+                 WHERE id = %d AND is_hidden = 0
+                 LIMIT 1",
+                $id
+            ),
+            ARRAY_A
+        );
+
+        if ($wpdb->last_error || !is_array($row) || empty($row['id'])) {
+            return null;
+        }
+
+        return [
+            'id' => (int) $row['id'],
+            'name' => (string) ($row['name'] ?? ''),
+            'active' => (int) ($row['active'] ?? 0),
+            'created_at' => (string) ($row['created_at'] ?? ''),
+        ];
+    }
+
+    /**
+     * Actualiza el nombre y sincroniza servicios del personal en una transacción.
+     * `$wpdb->update() === 0` no es error (nombre sin cambios).
+     *
+     * @param int $id
+     * @param string $name
+     * @param array<int> $to_add
+     * @param array<int> $to_remove
+     * @return bool
+     */
+    public static function update_staff_name_and_services($id, $name, array $to_add, array $to_remove) {
+        global $wpdb;
+
+        $id = (int) $id;
+        if ($id <= 0) {
+            return false;
+        }
+
+        $staff_table = $wpdb->prefix . 'aa_staff';
+        $pivot_table = $wpdb->prefix . 'aa_staff_services';
+
+        $wpdb->query('START TRANSACTION');
+
+        $updated = $wpdb->update(
+            $staff_table,
+            ['name' => $name],
+            [
+                'id' => $id,
+                'is_hidden' => 0,
+            ],
+            ['%s'],
+            ['%d', '%d']
+        );
+
+        if ($updated === false) {
+            $wpdb->query('ROLLBACK');
+            error_log('[AssignmentsRepository] Error al actualizar nombre de personal ID ' . $id . ': ' . $wpdb->last_error);
+            return false;
+        }
+
+        foreach ($to_add as $service_id) {
+            $service_id = (int) $service_id;
+            if ($service_id <= 0) {
+                $wpdb->query('ROLLBACK');
+                return false;
+            }
+
+            $inserted = $wpdb->insert(
+                $pivot_table,
+                [
+                    'staff_id' => $id,
+                    'service_id' => $service_id,
+                ],
+                ['%d', '%d']
+            );
+
+            if ($inserted === false) {
+                $wpdb->query('ROLLBACK');
+                error_log('[AssignmentsRepository] Error al asignar servicio ' . $service_id . ' a personal ID ' . $id . ': ' . $wpdb->last_error);
+                return false;
+            }
+        }
+
+        foreach ($to_remove as $service_id) {
+            $service_id = (int) $service_id;
+            if ($service_id <= 0) {
+                $wpdb->query('ROLLBACK');
+                return false;
+            }
+
+            $deleted = $wpdb->delete(
+                $pivot_table,
+                [
+                    'staff_id' => $id,
+                    'service_id' => $service_id,
+                ],
+                ['%d', '%d']
+            );
+
+            if ($deleted === false) {
+                $wpdb->query('ROLLBACK');
+                error_log('[AssignmentsRepository] Error al quitar servicio ' . $service_id . ' de personal ID ' . $id . ': ' . $wpdb->last_error);
+                return false;
+            }
+        }
+
+        $wpdb->query('COMMIT');
+
+        return true;
+    }
+
+    /**
      * Cuenta profesionales activos con al menos un servicio activo asignado.
      *
      * Query pura para prerequisitos de reserva; la decisión de negocio
