@@ -675,6 +675,18 @@ details.aa-module-section-card.aa-module-section-card--floating-menu {
   z-index: 30;
 }
 
+/* Assignments — menú ⋮ de item solo con la card expandida */
+
+.aa-area-header-toggle:has(+ .aa-area-details-panel.hidden) .aa-assignment-item-options,
+    .aa-staff-header-toggle:has(+ .aa-staff-services-panel.hidden) .aa-assignment-item-options,
+    .aa-service-header-toggle:has(+ .aa-service-details-panel.hidden) .aa-assignment-item-options {
+  display: none;
+}
+
+.aa-assignment-item-options-menu {
+  z-index: 30;
+}
+
 /* Dashboard collapses — SVG base apunta a la derecha; abierto → abajo (90deg).
        Combinador hijo: abrir exterior no rota chevrons de interiors. */
 
@@ -1097,6 +1109,12 @@ details.aa-executable-item[open] {
 }
 
 /* Overlay - hidden by default, positioned absolutely */
+
+.aa-area-header-toggle:has(+ .aa-area-details-panel.aa-card-overlay) .aa-assignment-item-options,
+    .aa-staff-header-toggle:has(+ .aa-staff-services-panel.aa-card-overlay) .aa-assignment-item-options,
+    .aa-service-header-toggle:has(+ .aa-service-details-panel.aa-card-overlay) .aa-assignment-item-options {
+  display: none;
+}
 
 .aa-modal-root.aa-card-overlay {
   display: none;
@@ -2156,6 +2174,12 @@ details.aa-executable-item[open] {
   padding-right: 1rem;
   padding-top: 0.75rem;
   padding-bottom: 0.75rem;
+}
+
+.aa-area-header-toggle:has(+ .aa-area-details-panel.aa-modal-footer:empty) .aa-assignment-item-options,
+    .aa-staff-header-toggle:has(+ .aa-staff-services-panel.aa-modal-footer:empty) .aa-assignment-item-options,
+    .aa-service-header-toggle:has(+ .aa-service-details-panel.aa-modal-footer:empty) .aa-assignment-item-options {
+  display: none;
 }
 
 .aa-modal-root.aa-modal-footer:empty {
@@ -4408,11 +4432,6 @@ body.aa-modal-open {
 .ring-white {
   --tw-ring-opacity: 1;
   --tw-ring-color: rgb(255 255 255 / var(--tw-ring-opacity, 1));
-}
-
-.blur {
-  --tw-blur: blur(8px);
-  filter: var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow);
 }
 
 .filter {

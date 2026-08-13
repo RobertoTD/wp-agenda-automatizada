@@ -76,10 +76,13 @@ describe('AreaCreateModal edit', () => {
         assert.match(layoutSrc, /modals\/crearzona\/crearzona\.js/);
         assert.doesNotMatch(areasSrc, /AreaCreateModal\.openEdit/);
         assert.doesNotMatch(assignmentsIndexSrc, /openEdit/);
-        assert.doesNotMatch(assignmentsIndexSrc, /Editar zona/);
-        assert.match(areasSrc, /aa-area-name-input/);
-        assert.match(areasSrc, /aa-area-description-input/);
-        assert.match(areasSrc, /aa-area-color-picker/);
+        assert.match(areasSrc, /renderAssignmentItemOptions\('area'/);
+        assert.match(assignmentsIndexSrc, /item-options-module\.js/);
+        assert.doesNotMatch(areasSrc, /class="aa-area-name-input/);
+        assert.doesNotMatch(areasSrc, /aa-area-description-input/);
+        assert.doesNotMatch(areasSrc, /aa-area-color-picker/);
+        assert.match(areasSrc, /aa-area-details-panel/);
+        assert.match(areasSrc, /aa-area-delete/);
     });
 
     it('areas.js recarga con loadServiceAreas al escuchar aa:area:saved', () => {

@@ -242,9 +242,10 @@ $module_js_url = $plugin_url . 'assignments-module.js?ver=' . rawurlencode($ver)
     };
 </script>
 
-<!-- Options menu placement (shared) + section options -->
+<!-- Options menu placement (shared) + section/item options -->
 <script src="<?php echo esc_url(AA_PLUGIN_URL . 'includes/admin/ui/modules/learning/executable-options-menu-placement.js?ver=' . rawurlencode($ver)); ?>" defer></script>
 <script src="<?php echo esc_url($plugin_url . 'section-options-module.js?ver=' . rawurlencode($ver)); ?>" defer></script>
+<script src="<?php echo esc_url($plugin_url . 'item-options-module.js?ver=' . rawurlencode($ver)); ?>" defer></script>
 
 <!-- Módulo JS -->
 <script src="<?php echo esc_url($module_js_url); ?>" defer></script>

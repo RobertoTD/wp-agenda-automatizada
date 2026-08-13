@@ -65,6 +65,17 @@ body {
         z-index: 30;
     }
 
+    /* Assignments — menú ⋮ de item solo con la card expandida */
+    .aa-area-header-toggle:has(+ .aa-area-details-panel.hidden) .aa-assignment-item-options,
+    .aa-staff-header-toggle:has(+ .aa-staff-services-panel.hidden) .aa-assignment-item-options,
+    .aa-service-header-toggle:has(+ .aa-service-details-panel.hidden) .aa-assignment-item-options {
+        display: none;
+    }
+
+    .aa-assignment-item-options-menu {
+        z-index: 30;
+    }
+
     /* Dashboard collapses — SVG base apunta a la derecha; abierto → abajo (90deg).
        Combinador hijo: abrir exterior no rota chevrons de interiors. */
     [data-aa-dashboard-collapse].is-open > [data-aa-dashboard-collapse-toggle] .aa-dashboard-collapse-chevron {

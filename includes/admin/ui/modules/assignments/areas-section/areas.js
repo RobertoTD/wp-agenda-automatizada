@@ -138,10 +138,20 @@
             html += '<span class="aa-area-color-bg flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0">';
             html += '<span class="aa-area-color-indicator w-4 h-4 rounded-full border-2 border-white shadow-sm" style="background-color: ' + areaColor + ';"></span>';
             html += '</span>';
-            html += '<span class="text-sm font-semibold text-gray-600">' + escapeHtml(area.name) + '</span>';
-            // Toggle switch (visible solo cuando la fila está expandida)
-            html += '<div class="aa-area-active-toggle ml-auto relative hidden">';
-            html += '<label class="flex items-center cursor-pointer">';
+            html += '<span class="text-sm font-semibold text-gray-600 min-w-0 flex-1">' + escapeHtml(area.name) + '</span>';
+            html += (window.AAAdmin && typeof window.AAAdmin.renderAssignmentItemOptions === 'function')
+                ? window.AAAdmin.renderAssignmentItemOptions('area', areaId)
+                : '';
+            html += '</div>';
+            // Collapsable details panel
+            html += '<div class="aa-area-details-panel hidden p-3" data-area-id="' + areaId + '">';
+            html += '<div class="flex items-center justify-between gap-2">';
+            html += '<button type="button" ';
+            html += 'class="aa-area-delete px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 transition-colors" ';
+            html += 'data-area-id="' + areaId + '" ';
+            html += '>Eliminar</button>';
+            html += '<label class="aa-area-active-toggle flex items-center gap-2 cursor-pointer">';
+            html += '<div class="relative">';
             html += '<input type="checkbox" ';
             html += 'class="toggle-area-active peer sr-only" ';
             html += 'data-id="' + areaId + '" ';
@@ -152,43 +162,9 @@
             html += '/>';
             html += '<div class="w-9 h-5 bg-gray-300 peer-checked:bg-indigo-600 rounded-full transition-colors duration-200"></div>';
             html += '<div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 peer-checked:translate-x-4"></div>';
+            html += '</div>';
+            html += '<span class="aa-area-active-label text-sm text-gray-600">' + (isActive ? 'Desactivar' : 'Activar') + '</span>';
             html += '</label>';
-            html += '</div>';
-            html += '</div>';
-            // Collapsable details panel
-            html += '<div class="aa-area-details-panel hidden border-t border-gray-200 p-3" data-area-id="' + areaId + '">';
-            // Name field (editable)
-            html += '<div class="mb-3">';
-            html += '<label class="block text-xs font-medium text-gray-600 mb-1">Nombre</label>';
-            html += '<input type="text" ';
-            html += 'class="aa-area-name-input w-full px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow" ';
-            html += 'data-area-id="' + areaId + '" ';
-            html += 'value="' + escapeHtml(area.name || '') + '" ';
-            html += 'placeholder="Nombre de la zona..." />';
-            html += '</div>';
-            // Description field (editable)
-            html += '<div class="mb-3">';
-            html += '<label class="block text-xs font-medium text-gray-600 mb-1">Descripción</label>';
-            html += '<textarea ';
-            html += 'class="aa-area-description-input w-full px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow resize-none" ';
-            html += 'data-area-id="' + areaId + '" ';
-            html += 'rows="3" ';
-            html += 'placeholder="Agregar descripción...">' + escapeHtml(area.description || '') + '</textarea>';
-            html += '</div>';
-            // Color picker field
-            html += '<div class="mb-2">';
-            html += '<label class="block text-xs font-medium text-gray-600 mb-1">Color</label>';
-            html += '<input type="text" ';
-            html += 'class="aa-area-color-picker" ';
-            html += 'data-area-id="' + areaId + '" ';
-            html += 'value="' + (area.color || '#3b82f6') + '" ';
-            html += 'style="width: 100%; max-width: 200px;" />';
-            html += '</div>';
-            html += '<div class="mt-4 pt-4 border-t border-gray-200 flex justify-end gap-2">';
-            html += '<button type="button" ';
-            html += 'class="aa-area-delete px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 transition-colors" ';
-            html += 'data-area-id="' + areaId + '" ';
-            html += '>Eliminar</button>';
             html += '</div>';
             html += '</div>';
             html += '</li>';
@@ -203,15 +179,6 @@
         
         // Setup details panel toggle handlers
         setupDetailsPanelHandlers();
-        
-        // Initialize color pickers after rendering
-        initializeColorPickers();
-        
-        // Setup description field handlers
-        setupDescriptionHandlers();
-        
-        // Setup name field handlers
-        setupNameHandlers();
     }
 
     /**
@@ -310,331 +277,35 @@
     }
 
     /**
-     * Setup handlers for details panel toggle (whole header clickable, except the active switch)
+     * Setup handlers for details panel toggle (whole header clickable)
      */
     function setupDetailsPanelHandlers() {
         const headers = document.querySelectorAll('.aa-area-header-toggle');
         
         headers.forEach(function(header) {
-            header.addEventListener('click', function(e) {
-                // No togglear al interactuar con el switch de activo
-                if (e.target.closest('.aa-area-active-toggle')) {
-                    return;
-                }
-                
+            header.addEventListener('click', function() {
                 const row = this.closest('li');
                 const panel = row ? row.querySelector('.aa-area-details-panel') : null;
-                const activeToggle = row ? row.querySelector('.aa-area-active-toggle') : null;
                 
                 if (panel) {
-                    // Toggle panel visibility
-                    const isOpening = panel.classList.contains('hidden');
                     panel.classList.toggle('hidden');
-                    
-                    // Mostrar el switch de activo solo cuando la fila está expandida
-                    if (activeToggle) {
-                        activeToggle.classList.toggle('hidden', panel.classList.contains('hidden'));
-                    }
-                    
-                    if (!panel.classList.contains('hidden')) {
-                        // Initialize color picker if panel is being opened and picker not yet initialized
-                        if (isOpening) {
-                            // Pequeño delay para asegurar que el DOM esté listo
-                            setTimeout(function() {
-                                const colorPicker = panel.querySelector('.aa-area-color-picker');
-                                if (colorPicker && !jQuery(colorPicker).hasClass('wp-color-picker')) {
-                                    initializeSingleColorPicker(colorPicker);
-                                }
-                                
-                                // Setup name handler para este panel
-                                const nameInput = panel.querySelector('.aa-area-name-input');
-                                if (nameInput) {
-                                    nameInput.setAttribute('data-original-value', nameInput.value);
-                                    nameInput.addEventListener('blur', function() {
-                                        const areaId = this.getAttribute('data-area-id');
-                                        const newName = this.value.trim();
-                                        const originalValue = this.getAttribute('data-original-value');
-                                        
-                                        if (!newName) {
-                                            this.value = originalValue;
-                                            return;
-                                        }
-                                        
-                                        if (newName !== originalValue) {
-                                            updateServiceAreaName(areaId, newName);
-                                            this.setAttribute('data-original-value', newName);
-                                            updateNameInCard(areaId, newName);
-                                        }
-                                    });
-                                    nameInput.addEventListener('keypress', function(event) {
-                                        if (event.key === 'Enter') {
-                                            event.preventDefault();
-                                            this.blur();
-                                        }
-                                    });
-                                }
-                                
-                                // Setup description handler para este panel
-                                const descriptionInput = panel.querySelector('.aa-area-description-input');
-                                if (descriptionInput) {
-                                    descriptionInput.setAttribute('data-original-value', descriptionInput.value);
-                                    descriptionInput.addEventListener('blur', function() {
-                                        const areaId = this.getAttribute('data-area-id');
-                                        const newDescription = this.value.trim();
-                                        const originalValue = this.getAttribute('data-original-value');
-                                        
-                                        if (newDescription !== originalValue) {
-                                            updateServiceAreaDescription(areaId, newDescription);
-                                            this.setAttribute('data-original-value', newDescription);
-                                        }
-                                    });
-                                }
-                            }, 50);
-                        }
-                    }
                 }
             });
         });
     }
-    
+
     /**
-     * Initialize a single color picker
-     * @param {HTMLElement} picker - The color picker input element
+     * @param {HTMLInputElement} toggle
      */
-    function initializeSingleColorPicker(picker) {
-        if (typeof jQuery === 'undefined' || typeof jQuery.fn.wpColorPicker === 'undefined') {
-            console.warn('[Areas Section] wp-color-picker no disponible');
+    function syncAreaActiveLabel(toggle) {
+        const wrapper = toggle.closest('.aa-area-active-toggle');
+        const label = wrapper ? wrapper.querySelector('.aa-area-active-label') : null;
+        if (!label) {
             return;
         }
-        
-        jQuery(picker).wpColorPicker({
-            defaultColor: '#3b82f6',
-            change: function(event, ui) {
-                const areaId = picker.getAttribute('data-area-id');
-                const newColor = ui.color.toString();
-                
-                // Actualizar indicador visual en la card
-                const card = picker.closest('li');
-                if (card) {
-                    const colorIndicator = card.querySelector('.aa-area-color-indicator');
-                    if (colorIndicator) {
-                        colorIndicator.style.backgroundColor = newColor;
-                    }
-                }
-                
-                // Guardar color en BD vía AJAX
-                updateServiceAreaColor(areaId, newColor);
-            },
-            clear: function() {
-                const areaId = picker.getAttribute('data-area-id');
-                const defaultColor = '#3b82f6';
-                
-                const card = picker.closest('li');
-                if (card) {
-                    const colorIndicator = card.querySelector('.aa-area-color-indicator');
-                    if (colorIndicator) {
-                        colorIndicator.style.backgroundColor = defaultColor;
-                    }
-                }
-                
-                // Guardar color por defecto en BD vía AJAX
-                updateServiceAreaColor(areaId, defaultColor);
-            }
-        });
+        label.textContent = toggle.checked ? 'Desactivar' : 'Activar';
     }
     
-    /**
-     * Setup handlers for name input fields
-     */
-    function setupNameHandlers() {
-        const nameInputs = document.querySelectorAll('.aa-area-name-input');
-        
-        nameInputs.forEach(function(input) {
-            // Guardar valor original para comparar
-            input.setAttribute('data-original-value', input.value);
-            
-            // Evento blur: guardar cuando se sale del campo
-            input.addEventListener('blur', function() {
-                const areaId = this.getAttribute('data-area-id');
-                const newName = this.value.trim();
-                const originalValue = this.getAttribute('data-original-value');
-                
-                // Validar que no esté vacío
-                if (!newName) {
-                    // Restaurar valor original si está vacío
-                    this.value = originalValue;
-                    console.warn('[Areas Section] El nombre no puede estar vacío');
-                    return;
-                }
-                
-                // Solo actualizar si cambió
-                if (newName !== originalValue) {
-                    updateServiceAreaName(areaId, newName);
-                    // Actualizar valor original
-                    this.setAttribute('data-original-value', newName);
-                    // Actualizar nombre en la card header
-                    updateNameInCard(areaId, newName);
-                }
-            });
-            
-            // También guardar con Enter
-            input.addEventListener('keypress', function(event) {
-                if (event.key === 'Enter') {
-                    event.preventDefault();
-                    this.blur();
-                }
-            });
-        });
-    }
-    
-    /**
-     * Update name in card header
-     * @param {number} areaId - ID of the service area
-     * @param {string} newName - New name
-     */
-    function updateNameInCard(areaId, newName) {
-        // Buscar el panel primero
-        const panel = document.querySelector('.aa-area-details-panel[data-area-id="' + areaId + '"]');
-        if (panel) {
-            // Buscar el card padre (li)
-            const card = panel.closest('li');
-            if (card) {
-                const nameSpan = card.querySelector('.aa-area-name');
-                if (nameSpan) {
-                    nameSpan.textContent = newName;
-                }
-            }
-        }
-    }
-    
-    /**
-     * Update service area name via AJAX
-     * @param {number} areaId - ID of the service area
-     * @param {string} name - Name text
-     */
-    function updateServiceAreaName(areaId, name) {
-        const ajaxurl = (window.AA_ASSIGNMENTS_DATA && window.AA_ASSIGNMENTS_DATA.ajaxurl) 
-            || window.ajaxurl 
-            || '/wp-admin/admin-ajax.php';
-
-        const formData = new FormData();
-        formData.append('action', 'aa_update_service_area_name');
-        formData.append('id', areaId);
-        formData.append('name', name);
-
-        fetch(ajaxurl, {
-            method: 'POST',
-            body: formData
-        })
-        .then(function(response) {
-            return response.json();
-        })
-        .then(function(data) {
-            if (data.success) {
-                console.log('[Areas Section] Nombre guardado correctamente para zona ' + areaId);
-            } else {
-                console.error('[Areas Section] Error al guardar nombre:', data.message);
-            }
-        })
-        .catch(function(error) {
-            console.error('[Areas Section] Error en petición AJAX para guardar nombre:', error);
-        });
-    }
-
-    /**
-     * Setup handlers for description textarea fields
-     */
-    function setupDescriptionHandlers() {
-        const descriptionInputs = document.querySelectorAll('.aa-area-description-input');
-        
-        descriptionInputs.forEach(function(input) {
-            // Guardar valor original para comparar
-            input.setAttribute('data-original-value', input.value);
-            
-            // Evento blur: guardar cuando se sale del campo
-            input.addEventListener('blur', function() {
-                const areaId = this.getAttribute('data-area-id');
-                const newDescription = this.value.trim();
-                const originalValue = this.getAttribute('data-original-value');
-                
-                // Solo actualizar si cambió
-                if (newDescription !== originalValue) {
-                    updateServiceAreaDescription(areaId, newDescription);
-                    // Actualizar valor original
-                    this.setAttribute('data-original-value', newDescription);
-                }
-            });
-        });
-    }
-    
-    /**
-     * Update service area description via AJAX
-     * @param {number} areaId - ID of the service area
-     * @param {string} description - Description text
-     */
-    function updateServiceAreaDescription(areaId, description) {
-        const ajaxurl = (window.AA_ASSIGNMENTS_DATA && window.AA_ASSIGNMENTS_DATA.ajaxurl) 
-            || window.ajaxurl 
-            || '/wp-admin/admin-ajax.php';
-
-        const formData = new FormData();
-        formData.append('action', 'aa_update_service_area_description');
-        formData.append('id', areaId);
-        formData.append('description', description);
-
-        fetch(ajaxurl, {
-            method: 'POST',
-            body: formData
-        })
-        .then(function(response) {
-            return response.json();
-        })
-        .then(function(data) {
-            if (data.success) {
-                console.log('[Areas Section] Descripción guardada correctamente para zona ' + areaId);
-            } else {
-                console.error('[Areas Section] Error al guardar descripción:', data.message);
-            }
-        })
-        .catch(function(error) {
-            console.error('[Areas Section] Error en petición AJAX para guardar descripción:', error);
-        });
-    }
-
-    /**
-     * Update service area color via AJAX
-     * @param {number} areaId - ID of the service area
-     * @param {string} color - Color in hexadecimal format (e.g., #16225b)
-     */
-    function updateServiceAreaColor(areaId, color) {
-        const ajaxurl = (window.AA_ASSIGNMENTS_DATA && window.AA_ASSIGNMENTS_DATA.ajaxurl) 
-            || window.ajaxurl 
-            || '/wp-admin/admin-ajax.php';
-
-        const formData = new FormData();
-        formData.append('action', 'aa_update_service_area_color');
-        formData.append('id', areaId);
-        formData.append('color', color);
-
-        fetch(ajaxurl, {
-            method: 'POST',
-            body: formData
-        })
-        .then(function(response) {
-            return response.json();
-        })
-        .then(function(data) {
-            if (data.success) {
-                console.log('[Areas Section] Color guardado correctamente para zona ' + areaId + ': ' + color);
-            } else {
-                console.error('[Areas Section] Error al guardar color:', data.message);
-            }
-        })
-        .catch(function(error) {
-            console.error('[Areas Section] Error en petición AJAX para guardar color:', error);
-        });
-    }
-
     /**
      * Handle toggle change event
      * @param {HTMLElement} toggle - The toggle checkbox element
@@ -643,6 +314,7 @@
         const areaId = parseInt(toggle.getAttribute('data-id'));
         const previousActive = parseInt(toggle.getAttribute('data-active'));
         const newActive = toggle.checked ? 1 : 0;
+        syncAreaActiveLabel(toggle);
         
         // Get ajaxurl from global data
         const ajaxurl = (window.AA_ASSIGNMENTS_DATA && window.AA_ASSIGNMENTS_DATA.ajaxurl) 
@@ -673,12 +345,14 @@
             } else {
                 // Revert toggle state on error
                 toggle.checked = previousActive === 1;
+                syncAreaActiveLabel(toggle);
                 console.error('[Areas Section] Error al actualizar zona:', data);
             }
         })
         .catch(function(error) {
             // Revert toggle state on error
             toggle.checked = previousActive === 1;
+            syncAreaActiveLabel(toggle);
             console.error('[Areas Section] Error en petición AJAX:', error);
         });
     }
@@ -780,27 +454,6 @@
             if (addButton) {
                 addButton.disabled = false;
                 addButton.textContent = originalButtonText;
-            }
-        });
-    }
-
-    /**
-     * Initialize WordPress color pickers
-     */
-    function initializeColorPickers() {
-        // Wait for wp-color-picker to be available
-        if (typeof jQuery === 'undefined' || typeof jQuery.fn.wpColorPicker === 'undefined') {
-            console.warn('[Areas Section] wp-color-picker no disponible, reintentando...');
-            setTimeout(initializeColorPickers, 100);
-            return;
-        }
-        
-        const colorPickers = document.querySelectorAll('.aa-area-color-picker');
-        
-        colorPickers.forEach(function(picker) {
-            // Only initialize if not already initialized
-            if (!jQuery(picker).hasClass('wp-color-picker')) {
-                initializeSingleColorPicker(picker);
             }
         });
     }

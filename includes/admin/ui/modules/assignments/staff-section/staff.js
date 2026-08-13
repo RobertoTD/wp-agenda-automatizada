@@ -10,11 +10,8 @@
     // Store root element reference for reuse
     let staffRoot = null;
     
-    // Cache for all available services (loaded once)
-    let servicesCache = [];
-    
-    // Flag to track if services handlers are already bound
-    let servicesHandlersBound = false;
+    // Flag to track if delete handlers are already bound
+    let deleteHandlersBound = false;
 
     // Flag to track if aa:staff:saved listener is already bound
     let staffSavedListenerBound = false;
@@ -54,11 +51,8 @@
             return;
         }
 
-        // Load services catalog once
-        loadServicesCatalog();
-        
-        // Setup services handlers (only once, using event delegation)
-        setupServicesHandlers();
+        // Setup delete handlers (only once, using event delegation)
+        setupDeleteHandlers();
 
         // Refresh list after create/edit modal save (do not treat refresh failure as save failure)
         setupStaffSavedListener();
@@ -158,10 +152,21 @@
             html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>';
             html += '</svg>';
             html += '</span>';
-            html += '<span class="text-sm font-semibold text-gray-600">' + escapeHtml(staff.name) + '</span>';
-            // Toggle switch (visible solo cuando la fila está expandida)
-            html += '<div class="aa-staff-active-toggle ml-auto relative hidden">';
-            html += '<label class="flex items-center cursor-pointer">';
+            html += '<span class="text-sm font-semibold text-gray-600 min-w-0 flex-1">' + escapeHtml(staff.name) + '</span>';
+            html += (window.AAAdmin && typeof window.AAAdmin.renderAssignmentItemOptions === 'function')
+                ? window.AAAdmin.renderAssignmentItemOptions('staff', staffId)
+                : '';
+            html += '</div>';
+            // Collapsable services panel
+            html += '<div class="aa-staff-services-panel hidden p-3" data-staff-id="' + staffId + '">';
+            html += '<div class="aa-staff-services-readonly hidden mb-4" data-staff-id="' + staffId + '"></div>';
+            html += '<div class="flex items-center justify-between gap-2">';
+            html += '<button type="button" ';
+            html += 'class="aa-staff-delete px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 transition-colors" ';
+            html += 'data-staff-id="' + staffId + '" ';
+            html += '>Eliminar</button>';
+            html += '<label class="aa-staff-active-toggle flex items-center gap-2 cursor-pointer">';
+            html += '<div class="relative">';
             html += '<input type="checkbox" ';
             html += 'class="toggle-staff-active peer sr-only" ';
             html += 'data-id="' + staffId + '" ';
@@ -172,20 +177,9 @@
             html += '/>';
             html += '<div class="w-9 h-5 bg-gray-300 peer-checked:bg-indigo-600 rounded-full transition-colors duration-200"></div>';
             html += '<div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 peer-checked:translate-x-4"></div>';
+            html += '</div>';
+            html += '<span class="aa-staff-active-label text-sm text-gray-600">' + (isActive ? 'Desactivar' : 'Activar') + '</span>';
             html += '</label>';
-            html += '</div>';
-            html += '</div>';
-            // Collapsable services panel
-            html += '<div class="aa-staff-services-panel hidden border-t border-gray-200 p-3" data-staff-id="' + staffId + '">';
-            html += '<select class="aa-form-select aa-staff-services-select w-full px-3 py-2 text-sm border border-gray-300 rounded-lg" data-staff-id="' + staffId + '">';
-            html += '<option value="">Selecciona los servicios que ofrece</option>';
-            html += '</select>';
-            html += '<div class="aa-staff-services-selected mt-3" data-staff-id="' + staffId + '"></div>';
-            html += '<div class="mt-4 pt-4 border-t border-gray-200 flex justify-end gap-2">';
-            html += '<button type="button" ';
-            html += 'class="aa-staff-delete px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 transition-colors" ';
-            html += 'data-staff-id="' + staffId + '" ';
-            html += '>Eliminar</button>';
             html += '</div>';
             html += '</div>';
             html += '</li>';
@@ -201,11 +195,7 @@
         // Setup services panel toggle handlers
         setupServicesPanelHandlers();
         
-        // Populate services if catalog is already loaded
-        // Otherwise, it will be populated when catalog loads in loadServicesCatalog()
-        if (servicesCache.length > 0) {
-            populateStaffServices();
-        }
+        populateStaffServices();
     }
 
     /**
@@ -222,33 +212,33 @@
     }
 
     /**
-     * Setup handlers for services panel toggle (whole header clickable, except the active switch)
+     * Setup handlers for services panel toggle (whole header clickable)
      */
     function setupServicesPanelHandlers() {
         const headers = document.querySelectorAll('.aa-staff-header-toggle');
         
         headers.forEach(function(header) {
-            header.addEventListener('click', function(e) {
-                // No togglear al interactuar con el switch de activo
-                if (e.target.closest('.aa-staff-active-toggle')) {
-                    return;
-                }
-                
+            header.addEventListener('click', function() {
                 const row = this.closest('li');
                 const panel = row ? row.querySelector('.aa-staff-services-panel') : null;
-                const activeToggle = row ? row.querySelector('.aa-staff-active-toggle') : null;
                 
                 if (panel) {
-                    // Toggle panel visibility
                     panel.classList.toggle('hidden');
-                    
-                    // Mostrar el switch de activo solo cuando la fila está expandida
-                    if (activeToggle) {
-                        activeToggle.classList.toggle('hidden', panel.classList.contains('hidden'));
-                    }
                 }
             });
         });
+    }
+
+    /**
+     * @param {HTMLInputElement} toggle
+     */
+    function syncStaffActiveLabel(toggle) {
+        const wrapper = toggle.closest('.aa-staff-active-toggle');
+        const label = wrapper ? wrapper.querySelector('.aa-staff-active-label') : null;
+        if (!label) {
+            return;
+        }
+        label.textContent = toggle.checked ? 'Desactivar' : 'Activar';
     }
 
     /**
@@ -259,6 +249,7 @@
         const staffId = parseInt(toggle.getAttribute('data-id'));
         const previousActive = parseInt(toggle.getAttribute('data-active'));
         const newActive = toggle.checked ? 1 : 0;
+        syncStaffActiveLabel(toggle);
         
         // Get ajaxurl from global data
         const ajaxurl = (window.AA_ASSIGNMENTS_DATA && window.AA_ASSIGNMENTS_DATA.ajaxurl) 
@@ -289,12 +280,14 @@
             } else {
                 // Revert toggle state on error
                 toggle.checked = previousActive === 1;
+                syncStaffActiveLabel(toggle);
                 console.error('[Staff Section] Error al actualizar personal:', data);
             }
         })
         .catch(function(error) {
             // Revert toggle state on error
             toggle.checked = previousActive === 1;
+            syncStaffActiveLabel(toggle);
             console.error('[Staff Section] Error en petición AJAX:', error);
         });
     }
@@ -401,94 +394,33 @@
     }
 
     /**
-     * Load services catalog from database (once)
-     */
-    function loadServicesCatalog() {
-        // Get ajaxurl from global data
-        const ajaxurl = (window.AA_ASSIGNMENTS_DATA && window.AA_ASSIGNMENTS_DATA.ajaxurl) 
-            || window.ajaxurl 
-            || '/wp-admin/admin-ajax.php';
-
-        // Prepare FormData for AJAX request
-        const formData = new FormData();
-        formData.append('action', 'aa_get_services_db');
-
-        // Make AJAX request
-        fetch(ajaxurl, {
-            method: 'POST',
-            body: formData
-        })
-        .then(function(response) {
-            return response.json();
-        })
-        .then(function(data) {
-            if (data.success && data.data && data.data.services) {
-                servicesCache = data.data.services;
-                console.log('[Staff Section] Servicios cargados:', servicesCache.length);
-                // After loading catalog, populate services for all staff
-                populateStaffServices();
-            } else {
-                console.error('[Staff Section] Error al cargar servicios:', data);
-                servicesCache = [];
-            }
-        })
-        .catch(function(error) {
-            console.error('[Staff Section] Error en petición AJAX para servicios:', error);
-            servicesCache = [];
-        });
-    }
-
-    /**
-     * Setup handlers for services select and remove buttons (event delegation)
+     * Setup handlers for hide buttons (event delegation)
      * Only registers once to avoid duplicate listeners
      */
-    function setupServicesHandlers() {
-        // Prevent duplicate registration
-        if (servicesHandlersBound) {
+    function setupDeleteHandlers() {
+        if (deleteHandlersBound) {
             return;
         }
-        
+
         if (!staffRoot) {
-            console.warn('[Staff Section] Cannot setup services handlers: staffRoot not found');
+            console.warn('[Staff Section] Cannot setup delete handlers: staffRoot not found');
             return;
         }
-        
-        // Event delegation for select change
-        staffRoot.addEventListener('change', function(event) {
-            if (event.target.classList.contains('aa-staff-services-select')) {
-                const staffId = parseInt(event.target.getAttribute('data-staff-id'));
-                const serviceId = parseInt(event.target.value);
-                
-                if (staffId > 0 && serviceId > 0) {
-                    addStaffService(staffId, serviceId);
-                }
-            }
-        });
-        
-        // Event delegation for remove and hide button clicks
+
         staffRoot.addEventListener('click', function(event) {
-            const removeButton = event.target.closest('.aa-staff-service-remove');
-            if (removeButton) {
-                const staffId = parseInt(removeButton.getAttribute('data-staff-id'));
-                const serviceId = parseInt(removeButton.getAttribute('data-service-id'));
-                
-                if (staffId > 0 && serviceId > 0) {
-                    removeStaffService(staffId, serviceId);
-                }
+            const hideButton = event.target.closest('.aa-staff-delete');
+            if (!hideButton) {
                 return;
             }
 
-            const hideButton = event.target.closest('.aa-staff-delete');
-            if (hideButton) {
-                event.preventDefault();
-                const staffId = parseInt(hideButton.getAttribute('data-staff-id'));
-                if (staffId > 0) {
-                    hideStaff(staffId);
-                }
+            event.preventDefault();
+            const staffId = parseInt(hideButton.getAttribute('data-staff-id'));
+            if (staffId > 0) {
+                hideStaff(staffId);
             }
         });
-        
-        servicesHandlersBound = true;
+
+        deleteHandlersBound = true;
     }
 
     /**
@@ -544,24 +476,18 @@
     }
 
     /**
-     * Populate services select and selected list for each staff member
+     * Load assigned services for each staff card (read-only).
      */
     function populateStaffServices() {
-        if (!staffRoot || servicesCache.length === 0) {
+        if (!staffRoot) {
             return;
         }
-        
-        const staffItems = staffRoot.querySelectorAll('li');
-        
-        staffItems.forEach(function(item) {
-            const staffIdAttr = item.querySelector('.aa-staff-services-select');
-            if (!staffIdAttr) return;
-            
-            const staffId = parseInt(staffIdAttr.getAttribute('data-staff-id'));
-            if (!staffId || staffId <= 0) return;
-            
-            // Load selected services for this staff
-            loadStaffServices(staffId);
+
+        staffRoot.querySelectorAll('.aa-staff-services-panel[data-staff-id]').forEach(function(panel) {
+            const staffId = parseInt(panel.getAttribute('data-staff-id'), 10);
+            if (staffId > 0) {
+                loadStaffServices(staffId);
+            }
         });
     }
 
@@ -603,138 +529,32 @@
     }
 
     /**
-     * Update UI for staff services (select and selected list)
-     * @param {number} staffId - ID of the staff member
-     * @param {Array} selectedServices - Array of selected services [{id, name}, ...]
+     * Update read-only assigned services line.
+     * @param {number} staffId
+     * @param {Array} selectedServices
      */
     function updateStaffServicesUI(staffId, selectedServices) {
-        const select = document.querySelector('.aa-staff-services-select[data-staff-id="' + staffId + '"]');
-        const selectedDiv = document.querySelector('.aa-staff-services-selected[data-staff-id="' + staffId + '"]');
-        
-        if (!select || !selectedDiv) {
+        const readonly = document.querySelector('.aa-staff-services-readonly[data-staff-id="' + staffId + '"]');
+        if (!readonly) {
             return;
         }
-        
-        // Get IDs of selected services
-        const selectedIds = selectedServices.map(function(s) {
-            return parseInt(s.id);
-        });
-        
-        // Clear and populate select with unselected services
-        select.innerHTML = '<option value="">Selecciona los servicios que ofrece</option>';
-        
-        servicesCache.forEach(function(service) {
-            const serviceId = parseInt(service.id);
-            if (selectedIds.indexOf(serviceId) === -1) {
-                const option = document.createElement('option');
-                option.value = serviceId;
-                option.textContent = escapeHtml(service.name);
-                select.appendChild(option);
-            }
-        });
-        
-        // Render selected services list
-        if (selectedServices.length === 0) {
-            selectedDiv.innerHTML = '<p class="text-xs text-gray-500">No hay servicios asignados.</p>';
-        } else {
-            let html = '<ul class="space-y-2">';
-            
-            selectedServices.forEach(function(service) {
-                const serviceId = parseInt(service.id);
-                html += '<li class="flex items-center justify-between p-2 bg-gray-50 rounded-lg border border-gray-200">';
-                html += '<span class="text-sm text-gray-600">' + escapeHtml(service.name) + '</span>';
-                html += '<button type="button" ';
-                html += 'class="aa-staff-service-remove inline-flex items-center justify-center w-6 h-6 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors" ';
-                html += 'data-staff-id="' + staffId + '" ';
-                html += 'data-service-id="' + serviceId + '" ';
-                html += 'title="Eliminar servicio">';
-                html += '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
-                html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>';
-                html += '</svg>';
-                html += '</button>';
-                html += '</li>';
-            });
-            
-            html += '</ul>';
-            selectedDiv.innerHTML = html;
+
+        const names = (selectedServices || []).map(function(service) {
+            return String(service && service.name ? service.name : '').trim();
+        }).filter(Boolean);
+
+        if (names.length === 0) {
+            readonly.innerHTML = '';
+            readonly.classList.add('hidden');
+            return;
         }
-    }
 
-    /**
-     * Add a service to a staff member
-     * @param {number} staffId - ID of the staff member
-     * @param {number} serviceId - ID of the service to add
-     */
-    function addStaffService(staffId, serviceId) {
-        // Get ajaxurl from global data
-        const ajaxurl = (window.AA_ASSIGNMENTS_DATA && window.AA_ASSIGNMENTS_DATA.ajaxurl) 
-            || window.ajaxurl 
-            || '/wp-admin/admin-ajax.php';
-
-        // Prepare FormData for AJAX request
-        const formData = new FormData();
-        formData.append('action', 'aa_add_staff_service');
-        formData.append('staff_id', staffId);
-        formData.append('service_id', serviceId);
-
-        // Make AJAX request
-        fetch(ajaxurl, {
-            method: 'POST',
-            body: formData
-        })
-        .then(function(response) {
-            return response.json();
-        })
-        .then(function(data) {
-            if (data.success) {
-                // Reload services for this staff to update UI
-                loadStaffServices(staffId);
-                dispatchOnboardingSetupMutated('staff_service_assignment');
-            } else {
-                console.error('[Staff Section] Error al agregar servicio:', data);
-            }
-        })
-        .catch(function(error) {
-            console.error('[Staff Section] Error en petición AJAX:', error);
-        });
-    }
-
-    /**
-     * Remove a service from a staff member
-     * @param {number} staffId - ID of the staff member
-     * @param {number} serviceId - ID of the service to remove
-     */
-    function removeStaffService(staffId, serviceId) {
-        // Get ajaxurl from global data
-        const ajaxurl = (window.AA_ASSIGNMENTS_DATA && window.AA_ASSIGNMENTS_DATA.ajaxurl) 
-            || window.ajaxurl 
-            || '/wp-admin/admin-ajax.php';
-
-        // Prepare FormData for AJAX request
-        const formData = new FormData();
-        formData.append('action', 'aa_remove_staff_service');
-        formData.append('staff_id', staffId);
-        formData.append('service_id', serviceId);
-
-        // Make AJAX request
-        fetch(ajaxurl, {
-            method: 'POST',
-            body: formData
-        })
-        .then(function(response) {
-            return response.json();
-        })
-        .then(function(data) {
-            if (data.success) {
-                // Reload services for this staff to update UI
-                loadStaffServices(staffId);
-            } else {
-                console.error('[Staff Section] Error al eliminar servicio:', data);
-            }
-        })
-        .catch(function(error) {
-            console.error('[Staff Section] Error en petición AJAX:', error);
-        });
+        readonly.innerHTML = ''
+            + '<div class="flex items-baseline gap-2 text-sm font-semibold text-gray-600">'
+            + '<span>Servicios que ofrece:</span>'
+            + '<span class="aa-staff-services-value">' + escapeHtml(names.join(', ')) + '</span>'
+            + '</div>';
+        readonly.classList.remove('hidden');
     }
 
     /**

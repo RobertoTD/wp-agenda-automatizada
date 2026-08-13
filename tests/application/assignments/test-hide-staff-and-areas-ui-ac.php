@@ -46,7 +46,7 @@ ac_assert(
     'Staff hide button inside services panel flow',
     strpos($staff_src, 'aa-staff-services-panel') !== false
     && strpos($staff_src, 'aa-staff-delete') !== false
-    && strpos($staff_src, 'aa-staff-services-selected') !== false
+    && strpos($staff_src, 'aa-staff-services-readonly') !== false
 );
 
 ac_assert(
@@ -55,8 +55,8 @@ ac_assert(
     && strpos($areas_src, '>Ocultar</button>') !== false
 );
 ac_assert(
-    'Areas hide button after color picker block',
-    preg_match('/aa-area-color-picker[\s\S]*?aa-area-delete/', $areas_src) === 1
+    'Areas hide button inside details panel',
+    preg_match('/aa-area-details-panel[\s\S]*?aa-area-delete/', $areas_src) === 1
 );
 
 ac_assert(

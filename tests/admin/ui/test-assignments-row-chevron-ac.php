@@ -92,7 +92,7 @@ function aa_assert_row_chevron(
 
     ac_assert(
         $label . ' panel still uses hidden class',
-        strpos($src, $panel_class . ' hidden border-t border-gray-200 p-3') !== false
+        strpos($src, $panel_class . ' hidden p-3') !== false
     );
 
     ac_assert(

@@ -61,7 +61,7 @@ describe('StaffCreateModal edit', () => {
         assert.match(modalSrc, /added_count/);
         assert.match(modalSrc, /addedCount > 0/);
         assert.match(modalSrc, /dispatchOnboardingSetupMutated\('staff_service_assignment'\)/);
-        assert.match(staffSrc, /dispatchOnboardingSetupMutated\('staff_service_assignment'\)/);
+        assert.match(staffSrc, /resolveCreateStaffOnboardingSource/);
         assert.doesNotMatch(
             modalSrc.slice(modalSrc.indexOf('function saveEditedStaff')),
             /dispatchOnboardingSetupMutated\('staff'\)/
@@ -83,11 +83,15 @@ describe('StaffCreateModal edit', () => {
         assert.match(layoutSrc, /modals\/crearstaff\/crearstaff\.js/);
         assert.doesNotMatch(staffSrc, /StaffCreateModal\.openEdit/);
         assert.doesNotMatch(assignmentsIndexSrc, /openEdit/);
-        assert.doesNotMatch(assignmentsIndexSrc, /Editar personal/);
-        assert.match(staffSrc, /aa-staff-services-select/);
-        assert.match(staffSrc, /aa-staff-services-selected/);
-        assert.match(staffSrc, /aa_add_staff_service/);
-        assert.match(staffSrc, /aa_remove_staff_service/);
+        assert.match(staffSrc, /renderAssignmentItemOptions\('staff'/);
+        assert.match(assignmentsIndexSrc, /item-options-module\.js/);
+        assert.doesNotMatch(staffSrc, /aa-staff-services-select/);
+        assert.doesNotMatch(staffSrc, /aa-staff-services-selected/);
+        assert.doesNotMatch(staffSrc, /aa_add_staff_service/);
+        assert.doesNotMatch(staffSrc, /aa_remove_staff_service/);
+        assert.match(staffSrc, /aa-staff-services-readonly/);
+        assert.match(staffSrc, /aa_get_staff_services/);
+        assert.match(staffSrc, /Servicios que ofrece:/);
     });
 
     it('staff.js recarga con loadStaff al escuchar aa:staff:saved', () => {
