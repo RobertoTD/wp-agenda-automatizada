@@ -194,6 +194,11 @@ header('Content-Type: text/html; charset=utf-8');
         crear_cliente: '<?php echo esc_js(wp_create_nonce('aa_crear_cliente')); ?>',
         editar_cliente: '<?php echo esc_js(wp_create_nonce('aa_editar_cliente')); ?>'
     };
+
+    // Nonces para zonas de atención (modal transversal crear/editar zona)
+    window.AA_AREAS_NONCES = {
+        update_service_area: '<?php echo esc_js(wp_create_nonce('aa_update_service_area')); ?>'
+    };
     
     // Datos para WhatsApp Admin
     window.AA_ADMIN_DATA = {

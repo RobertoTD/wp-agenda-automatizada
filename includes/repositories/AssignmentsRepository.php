@@ -219,6 +219,84 @@ class AssignmentsRepository extends AssignmentsModel {
     }
 
     /**
+     * Busca una zona de atención no oculta por ID.
+     *
+     * @param int $id
+     * @return array{id:int,name:string,description:string,color:?string,active:int,created_at:string}|null
+     */
+    public static function find_service_area_by_id($id) {
+        global $wpdb;
+
+        $id = (int) $id;
+        if ($id <= 0) {
+            return null;
+        }
+
+        $table = $wpdb->prefix . 'aa_service_areas';
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT id, name, description, color, active, created_at
+                 FROM {$table}
+                 WHERE id = %d AND is_hidden = 0
+                 LIMIT 1",
+                $id
+            ),
+            ARRAY_A
+        );
+
+        if ($wpdb->last_error || !is_array($row) || empty($row['id'])) {
+            return null;
+        }
+
+        $color = isset($row['color']) ? trim((string) $row['color']) : '';
+
+        return [
+            'id' => (int) $row['id'],
+            'name' => (string) ($row['name'] ?? ''),
+            'description' => (string) ($row['description'] ?? ''),
+            'color' => $color !== '' ? $color : null,
+            'active' => (int) ($row['active'] ?? 0),
+            'created_at' => (string) ($row['created_at'] ?? ''),
+        ];
+    }
+
+    /**
+     * Actualiza únicamente name y color de una zona de atención.
+     *
+     * @param int $id
+     * @param string $name
+     * @param string $color
+     * @return bool
+     */
+    public static function update_service_area_name_and_color($id, $name, $color) {
+        global $wpdb;
+
+        $id = (int) $id;
+        if ($id <= 0) {
+            return false;
+        }
+
+        $table = $wpdb->prefix . 'aa_service_areas';
+        $result = $wpdb->update(
+            $table,
+            [
+                'name' => $name,
+                'color' => $color,
+            ],
+            ['id' => $id],
+            ['%s', '%s'],
+            ['%d']
+        );
+
+        if ($result === false) {
+            error_log('[AssignmentsRepository] Error al actualizar zona ID ' . $id . ': ' . $wpdb->last_error);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Cuenta profesionales activos con al menos un servicio activo asignado.
      *
      * Query pura para prerequisitos de reserva; la decisión de negocio

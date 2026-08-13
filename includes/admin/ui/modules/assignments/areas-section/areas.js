@@ -13,6 +13,9 @@
     // Flag to track if hide handlers are already bound
     let hideHandlersBound = false;
 
+    // Flag to track if aa:area:saved listener is already bound
+    let areaSavedListenerBound = false;
+
     /**
      * @param {'area'} source
      */
@@ -39,9 +42,35 @@
         
         // Setup hide handlers (only once, using event delegation)
         setupHideHandlers();
+
+        // Refresh list after create/edit modal save (do not treat refresh failure as save failure)
+        setupAreaSavedListener();
         
         // Setup create area button handler
         setupCreateAreaHandler();
+    }
+
+    /**
+     * Recarga canónica tras aa:area:saved (create o edit).
+     */
+    function setupAreaSavedListener() {
+        if (areaSavedListenerBound) {
+            return;
+        }
+
+        document.addEventListener('aa:area:saved', function() {
+            if (!areasRoot) {
+                return;
+            }
+
+            try {
+                loadServiceAreas(areasRoot);
+            } catch (error) {
+                console.error('[Areas Section] Error al refrescar zonas tras guardar:', error);
+            }
+        });
+
+        areaSavedListenerBound = true;
     }
 
     /**

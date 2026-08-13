@@ -251,6 +251,12 @@ ExecutableListsAjax::register();
 require_once __DIR__ . '/includes/http/ajax/ExecutiveProposalAjax.php';
 ExecutiveProposalAjax::register();
 
+// ================================
+// Endpoint AJAX: Zonas de atención (capa http/ajax)
+// ================================
+require_once __DIR__ . '/includes/http/ajax/ServiceAreasAjax.php';
+ServiceAreasAjax::register();
+
 // ===============================
 // 🔹 Schema lifecycle: registra el activation hook con AA_Schema::install
 // ===============================

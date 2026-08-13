@@ -451,7 +451,7 @@ body {
     }
 
     #aa-clients-grid [data-aa-card].is-open [data-aa-card-toggle] {
-        @apply rounded-t-xl border-b border-gray-100;
+        @apply rounded-t-xl border-b-0;
     }
 
     #aa-clients-grid [data-aa-card].is-open .aa-card-overlay {
@@ -1191,7 +1191,8 @@ body {
  * -webkit-appearance:button → el swatch se ve cortado a la derecha.
  * Fuera de @layer para que Tailwind no manglee el selector .button.
  */
-#aa-areas-root .wp-picker-container .wp-color-result.button {
+#aa-areas-root .wp-picker-container .wp-color-result.button,
+#aa-modal-root .wp-picker-container .wp-color-result.button {
     display: inline-block;
     box-sizing: border-box;
     -webkit-appearance: none;
@@ -1207,8 +1208,18 @@ body {
     text-decoration: none;
 }
 
-#aa-areas-root .wp-color-result-text {
+#aa-areas-root .wp-color-result-text,
+#aa-modal-root .wp-color-result-text {
     padding: 0 8px;
+}
+
+#aa-modal-root .aa-modal:has(.aa-modal-zona-color-picker),
+#aa-modal-root .aa-modal:has(.wp-picker-container) {
+    overflow: visible;
+}
+
+#aa-modal-root .iris-picker {
+    z-index: 10000;
 }
 
 /* Unread bell position in modal appointment cards */
