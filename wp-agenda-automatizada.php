@@ -263,6 +263,12 @@ ServiceAreasAjax::register();
 require_once __DIR__ . '/includes/http/ajax/StaffAjax.php';
 StaffAjax::register();
 
+// ================================
+// Endpoint AJAX: Servicios (capa http/ajax)
+// ================================
+require_once __DIR__ . '/includes/http/ajax/ServiceAjax.php';
+ServiceAjax::register();
+
 // ===============================
 // 🔹 Schema lifecycle: registra el activation hook con AA_Schema::install
 // ===============================

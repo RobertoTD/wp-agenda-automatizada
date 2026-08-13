@@ -2382,12 +2382,13 @@ describe('executableListRenderer MC-UX-C list card rounding', () => {
         assert.match(css, /rounded-xl/);
     });
 
-    it('CSS redondea summary expandido con rounded-t-xl y border-b', () => {
+    it('CSS redondea summary expandido con rounded-t-xl sin border-b', () => {
         var css = fs.readFileSync(adminSourceCssPath, 'utf8');
+        var openSummary = css.match(/details\.aa-executable-list-card\[open\] > summary\s*\{[^}]+\}/);
 
-        assert.match(css, /details\.aa-executable-list-card\[open\] > summary/);
-        assert.match(css, /rounded-t-xl/);
-        assert.match(css, /border-b border-gray-100/);
+        assert.ok(openSummary, 'regla summary expandido presente');
+        assert.match(openSummary[0], /rounded-t-xl/);
+        assert.doesNotMatch(openSummary[0], /border-b border-gray-100/);
     });
 
     it('CSS mantiene overflow visible y body expandido con rounded-b-xl', () => {

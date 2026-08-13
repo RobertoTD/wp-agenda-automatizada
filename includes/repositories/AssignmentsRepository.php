@@ -426,6 +426,133 @@ class AssignmentsRepository extends AssignmentsModel {
     }
 
     /**
+     * Busca un servicio no oculto por ID (sin description/active/is_hidden/created_at).
+     *
+     * @param int $id
+     * @return array{
+     *     id:int,
+     *     name:string,
+     *     code:string,
+     *     price:?string,
+     *     public_calendar:int,
+     *     indicaciones_cita:?string,
+     *     duration_minutes:?int,
+     *     attendance_type:?string,
+     *     virtual_channel:?string
+     * }|null
+     */
+    public static function find_service_by_id($id) {
+        global $wpdb;
+
+        $id = (int) $id;
+        if ($id <= 0) {
+            return null;
+        }
+
+        $table = $wpdb->prefix . 'aa_services';
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT id, name, code, price, public_calendar, indicaciones_cita,
+                        duration_minutes, attendance_type, virtual_channel
+                 FROM {$table}
+                 WHERE id = %d AND is_hidden = 0
+                 LIMIT 1",
+                $id
+            ),
+            ARRAY_A
+        );
+
+        if ($wpdb->last_error || !is_array($row) || empty($row['id'])) {
+            return null;
+        }
+
+        $price = $row['price'] ?? null;
+        $indicaciones = $row['indicaciones_cita'] ?? null;
+        $duration = $row['duration_minutes'] ?? null;
+        $attendance = isset($row['attendance_type']) ? trim((string) $row['attendance_type']) : '';
+        $channel = isset($row['virtual_channel']) ? trim((string) $row['virtual_channel']) : '';
+
+        return [
+            'id' => (int) $row['id'],
+            'name' => (string) ($row['name'] ?? ''),
+            'code' => (string) ($row['code'] ?? ''),
+            'price' => ($price === null || $price === '') ? null : (string) $price,
+            'public_calendar' => ((int) ($row['public_calendar'] ?? 0) === 1) ? 1 : 0,
+            'indicaciones_cita' => ($indicaciones === null || $indicaciones === '') ? null : (string) $indicaciones,
+            'duration_minutes' => ($duration === null || $duration === '') ? null : (int) $duration,
+            'attendance_type' => $attendance === '' ? null : $attendance,
+            'virtual_channel' => $channel === '' ? null : $channel,
+        ];
+    }
+
+    /**
+     * Actualiza los campos editables del modal de servicio.
+     * `$wpdb->update() === 0` no es error.
+     *
+     * @param int $id
+     * @param array{
+     *     name:string,
+     *     code:string,
+     *     price:?string,
+     *     public_calendar:int,
+     *     indicaciones_cita:?string,
+     *     duration_minutes:?int,
+     *     attendance_type:?string,
+     *     virtual_channel:?string
+     * } $fields
+     * @return bool
+     */
+    public static function update_service_fields($id, array $fields) {
+        global $wpdb;
+
+        $id = (int) $id;
+        if ($id <= 0) {
+            return false;
+        }
+
+        $table = $wpdb->prefix . 'aa_services';
+        $data = [
+            'name' => (string) ($fields['name'] ?? ''),
+            'code' => (string) ($fields['code'] ?? ''),
+            'price' => array_key_exists('price', $fields) ? $fields['price'] : null,
+            'public_calendar' => ((int) ($fields['public_calendar'] ?? 0) === 1) ? 1 : 0,
+            'indicaciones_cita' => array_key_exists('indicaciones_cita', $fields) ? $fields['indicaciones_cita'] : null,
+            'duration_minutes' => array_key_exists('duration_minutes', $fields) ? $fields['duration_minutes'] : null,
+            'attendance_type' => array_key_exists('attendance_type', $fields) ? $fields['attendance_type'] : null,
+            'virtual_channel' => array_key_exists('virtual_channel', $fields) ? $fields['virtual_channel'] : null,
+        ];
+
+        $format = [
+            '%s',
+            '%s',
+            $data['price'] === null ? null : '%s',
+            '%d',
+            $data['indicaciones_cita'] === null ? null : '%s',
+            $data['duration_minutes'] === null ? null : '%d',
+            $data['attendance_type'] === null ? null : '%s',
+            $data['virtual_channel'] === null ? null : '%s',
+        ];
+
+        $result = $wpdb->update(
+            $table,
+            $data,
+            [
+                'id' => $id,
+                'is_hidden' => 0,
+            ],
+            $format,
+            ['%d', '%d']
+        );
+
+        if ($result === false) {
+            error_log('[AssignmentsRepository] Error al actualizar servicio ID ' . $id . ': ' . $wpdb->last_error);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Cuenta profesionales activos con al menos un servicio activo asignado.
      *
      * Query pura para prerequisitos de reserva; la decisión de negocio

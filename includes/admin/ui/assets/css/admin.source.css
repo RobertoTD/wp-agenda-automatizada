@@ -45,6 +45,12 @@ body {
         transform: rotate(90deg);
     }
 
+    /* Module section cards — sin línea entre header y body cuando está abierto.
+       !important: el summary trae border-b de utilidad Tailwind (capa utilities). */
+    details.aa-module-section-card[open] > summary {
+        border-bottom-width: 0 !important;
+    }
+
     /* Assignments — menú ⋮ solo con sección desplegada (misma dinámica que listas). */
     details.aa-module-section-card:not([open]) .aa-module-section-options {
         display: none;
@@ -63,6 +69,12 @@ body {
        Combinador hijo: abrir exterior no rota chevrons de interiors. */
     [data-aa-dashboard-collapse].is-open > [data-aa-dashboard-collapse-toggle] .aa-dashboard-collapse-chevron {
         transform: rotate(90deg);
+    }
+
+    /* Dashboard collapses — sin línea entre header y body cuando está abierto.
+       !important: el toggle trae border-b de utilidad Tailwind (capa utilities). */
+    [data-aa-dashboard-collapse].is-open > [data-aa-dashboard-collapse-toggle] {
+        border-bottom-width: 0 !important;
     }
 
     /* Hide executive summary when section is expanded */
@@ -142,7 +154,7 @@ body {
     }
 
     details.aa-executable-list-card[open] > summary {
-        @apply rounded-t-xl border-b border-gray-100;
+        @apply rounded-t-xl border-b-0;
         z-index: 1;
     }
 

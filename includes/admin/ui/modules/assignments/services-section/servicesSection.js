@@ -16,6 +16,9 @@
     // Flag to track if attendance/virtual change handlers are already bound
     let attendanceVirtualHandlersBound = false;
 
+    // Flag to track if aa:service:saved listener is already bound
+    let serviceSavedListenerBound = false;
+
     /**
      * @param {'service' | 'staff_service_assignment'} source
      */
@@ -56,12 +59,38 @@
         
         // Setup attendance/virtual change handlers (only once)
         setupAttendanceVirtualHandlers();
+
+        // Refresh list after create/edit modal save (do not treat refresh failure as save failure)
+        setupServiceSavedListener();
         
         // Load and render services
         loadServices(servicesRoot);
         
         // Setup create service button handler
         setupCreateServiceHandler();
+    }
+
+    /**
+     * Recarga canónica tras aa:service:saved (create o edit).
+     */
+    function setupServiceSavedListener() {
+        if (serviceSavedListenerBound) {
+            return;
+        }
+
+        document.addEventListener('aa:service:saved', function() {
+            if (!servicesRoot) {
+                return;
+            }
+
+            try {
+                loadServices(servicesRoot);
+            } catch (error) {
+                console.error('[Services Section] Error al refrescar servicios tras guardar:', error);
+            }
+        });
+
+        serviceSavedListenerBound = true;
     }
 
     /**
