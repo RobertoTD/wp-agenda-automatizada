@@ -187,8 +187,8 @@
         });
         
         // Título: solo cliente (el servicio va en el body)
-        const titleText = document.createElement('h4');
-        titleText.className = 'text-sm font-semibold text-gray-600 truncate min-w-0 flex-1 m-0';
+        const titleText = document.createElement('h3');
+        titleText.className = 'text-base font-semibold text-gray-600 truncate min-w-0 flex-1 m-0';
         titleText.textContent = cita.nombre || 'Sin nombre';
         
         header.appendChild(titleText);
@@ -239,32 +239,29 @@
         // ----- Sección: Meta (hora + duración) -----
         const estadoSection = document.createElement('div');
         Object.assign(estadoSection.style, {
-            marginBottom: TOKENS.space4,
+            marginBottom: '7px',
             display: 'flex',
             alignItems: 'center',
             gap: TOKENS.space3
         });
 
-        if (cita.fecha) {
-            const horaStr = window.DateUtils?.hm
+        const horaStr = cita.fecha
+            ? (window.DateUtils?.hm
                 ? window.DateUtils.hm(new Date(cita.fecha))
-                : (cita.fecha.match(/\d{2}:\d{2}/) || [])[0] || '';
-            if (horaStr) {
-                const horaBadge = document.createElement('span');
-                horaBadge.className = 'aa-appointment-meta text-xs font-medium text-gray-600 inline-flex items-center gap-1';
-                horaBadge.textContent = horaStr + ' hrs';
-                estadoSection.appendChild(horaBadge);
-            }
-        }
+                : (cita.fecha.match(/\d{2}:\d{2}/) || [])[0] || '')
+            : '';
+        const metaParts = [];
+        if (horaStr) metaParts.push(horaStr + ' hrs');
+        if (cita.duracion) metaParts.push(cita.duracion + ' min');
 
-        if (cita.duracion) {
-            const duracionBadge = document.createElement('span');
-            duracionBadge.className = 'aa-appointment-meta text-xs font-medium text-gray-600 inline-flex items-center gap-1';
-            duracionBadge.innerHTML = `<span style="font-size: 10px;">⏱</span> ${cita.duracion} min`;
-            estadoSection.appendChild(duracionBadge);
-        }
-
-        if (estadoSection.childNodes.length > 0) {
+        if (metaParts.length > 0) {
+            const metaBadge = document.createElement('span');
+            metaBadge.className = 'aa-appointment-meta text-sm font-medium text-gray-600 inline-flex items-center gap-1.5';
+            metaBadge.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`;
+            const metaLabel = document.createElement('span');
+            metaLabel.textContent = metaParts.join(' - ');
+            metaBadge.appendChild(metaLabel);
+            estadoSection.appendChild(metaBadge);
             body.appendChild(estadoSection);
         }
         
@@ -328,14 +325,6 @@
         // ----- Sección: Acciones (Botones) -----
         const botones = renderizarBotonesYCitas(cita, esProxima);
         if (botones) {
-            // Separator line before buttons
-            const separator = document.createElement('div');
-            Object.assign(separator.style, {
-                height: '1px',
-                backgroundColor: TOKENS.gray100,
-                margin: `${TOKENS.space4} 0`
-            });
-            body.appendChild(separator);
             body.appendChild(botones);
         }
         
@@ -396,10 +385,10 @@
             padding: `2px ${TOKENS.space2}`,
             borderRadius: TOKENS.radiusSm,
             fontSize: '10px',
-            fontWeight: '500',
+            fontWeight: '600',
             lineHeight: '1',
             backgroundColor: 'transparent',
-            color: config.badgeText,
+            color: TOKENS.gray500,
             flexShrink: '0',
             opacity: '0.9',
             whiteSpace: 'nowrap'
@@ -544,6 +533,7 @@
 
     /**
      * Crear un botón con estilo consistente
+     * Outline estilo tareas (Completar): fondo blanco, borde y texto tintados
      * @param {string} texto - Texto del botón
      * @param {string} accion - Acción (confirmar, cancelar, asistio, no-asistio)
      * @param {string} variant - Variante: 'success', 'danger', 'secondary'
@@ -551,53 +541,56 @@
      */
     function crearBoton(texto, accion, variant, citaId) {
         const boton = document.createElement('button');
+        boton.type = 'button';
         boton.textContent = texto;
         boton.setAttribute('data-action', accion);
         boton.setAttribute('data-id', citaId);
         
-        // Estilos base consistentes
+        // Base alineada a botones de tareas: px-3 py-1.5 text-xs rounded-lg border
         const baseStyles = {
-            padding: `${TOKENS.space3} ${TOKENS.space4}`,
-            border: 'none',
-            borderRadius: TOKENS.radiusMd,
+            padding: `${TOKENS.space2} ${TOKENS.space4}`,
+            borderRadius: '8px',
             cursor: 'pointer',
             fontSize: TOKENS.textSm,
             fontWeight: '500',
             lineHeight: '1',
-            transition: `all ${TOKENS.transitionFast}`,
+            transition: `color ${TOKENS.transitionFast}, background-color ${TOKENS.transitionFast}, border-color ${TOKENS.transitionFast}`,
             display: 'inline-flex',
             alignItems: 'center',
-            justifyContent: 'center'
+            justifyContent: 'center',
+            backgroundColor: '#ffffff'
         };
         
-        // Variantes
+        // Completar: text-green-700 border-green-200 bg-white hover:text-green-800
+        // Danger: misma estructura, rojo un poco desaturado
+        const green700 = '#15803d';
+        const green800 = '#166534';
+        const green200 = '#bbf7d0';
+        const redMuted = '#a35d5d';
+        const redMutedHover = '#8f4e4e';
+        const redMutedBorder = '#e0c4c4';
+        
         let variantStyles = {};
         let hoverStyles = {};
         
         switch (variant) {
             case 'success':
                 variantStyles = {
-                    backgroundColor: TOKENS.green500,
-                    color: '#ffffff',
-                    border: 'none'
+                    color: green700,
+                    border: `1px solid ${green200}`
                 };
-                hoverStyles = { backgroundColor: TOKENS.green600 };
+                hoverStyles = { color: green800 };
                 break;
             case 'danger':
                 variantStyles = {
-                    backgroundColor: '#ffffff',
-                    color: TOKENS.red600,
-                    border: `1px solid ${TOKENS.red100}`
+                    color: redMuted,
+                    border: `1px solid ${redMutedBorder}`
                 };
-                hoverStyles = { 
-                    backgroundColor: TOKENS.red100,
-                    borderColor: TOKENS.red500
-                };
+                hoverStyles = { color: redMutedHover };
                 break;
             case 'secondary':
             default:
                 variantStyles = {
-                    backgroundColor: '#ffffff',
                     color: TOKENS.gray700,
                     border: `1px solid ${TOKENS.gray300}`
                 };
@@ -609,20 +602,13 @@
         
         Object.assign(boton.style, baseStyles, variantStyles);
         
-        // Hover/active effects
-        const originalStyles = { ...variantStyles };
+        const originalStyles = { ...baseStyles, ...variantStyles };
         
         boton.addEventListener('mouseenter', () => {
             Object.assign(boton.style, hoverStyles);
         });
         boton.addEventListener('mouseleave', () => {
             Object.assign(boton.style, originalStyles);
-        });
-        boton.addEventListener('mousedown', () => {
-            boton.style.transform = 'scale(0.98)';
-        });
-        boton.addEventListener('mouseup', () => {
-            boton.style.transform = 'scale(1)';
         });
         
         return boton;

@@ -1,11 +1,12 @@
 <?php
 /**
- * AI Chat Assistant - Panel + FAB markup (skeleton, no wiring)
+ * AI Chat Assistant - Panel markup (skeleton, no wiring)
  *
  * Step 5.a: UI-only shell. Rendered via <template> tags so the DOM
  * stays inert until aichat.js mounts it. No backend contact, no nonces,
  * no fetch. sendMessage() is stubbed by mockSend() in aichat.js; 5.b
  * replaces that single seam with a real AJAX call.
+ * Entry point: calendar header tool `[data-calendar-tool="open-aichat"]`.
  *
  * @package AgendaAutomatizada
  * @since 2.x
@@ -72,21 +73,6 @@ defined('ABSPATH') or die('No direct access');
     max-height: 96px;
 }
 </style>
-
-<template id="aa-ai-chat-fab-template">
-    <button
-        type="button"
-        id="aa-btn-open-aichat"
-        class="inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 rounded-full shadow-lg shadow-indigo-600/25 hover:shadow-xl hover:shadow-indigo-600/30 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-indigo-500/30"
-        aria-label="Abrir asistente IA"
-        aria-haspopup="dialog"
-        aria-expanded="false">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.847.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z"/>
-        </svg>
-        <span>Asistente IA</span>
-    </button>
-</template>
 
 <template id="aa-ai-chat-panel-template">
     <div

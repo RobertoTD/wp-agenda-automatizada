@@ -292,24 +292,32 @@ body {
         mask-image: none;
     }
 
-    /* Listas/Tareas — ocultar FAB asistente IA (MC-UX-A) */
-    #aa-tasks-fab-stack #aa-btn-open-aichat {
-        display: none;
-    }
-
-    /* Clientes — ocultar FAB asistente IA (mismo patrón que tareas) */
-    #aa-clients-fab-stack #aa-btn-open-aichat {
-        display: none;
-    }
-
-    /* Expediente — ocultar FAB asistente IA (mismo patrón que clientes) */
-    #aa-expediente-fab-stack #aa-btn-open-aichat {
-        display: none;
-    }
-
     /* Executable feed — tarea expandida: fondo azul tenue (header + body); colapsada conserva su gris */
     details.aa-executable-item[open] {
         @apply border-blue-100 bg-blue-50/50;
+    }
+
+    /* Calendar appointment — expandida: mismo tono azul tenue que tareas, sólido (sin ver el timeline); colapsada conserva gris del header */
+    .aa-appointment-card[data-expanded="true"],
+    .aa-appointment-card.aa-expanded-in-overlay {
+        background-color: rgb(239 246 255) !important;
+    }
+
+    .aa-appointment-card[data-expanded="true"] > .aa-appointment-header,
+    .aa-appointment-card.aa-expanded-in-overlay > .aa-appointment-header,
+    .aa-appointment-card[data-expanded="true"] > .aa-appointment-body,
+    .aa-appointment-card.aa-expanded-in-overlay > .aa-appointment-body {
+        background-color: transparent !important;
+    }
+
+    .aa-appointment-card[data-expanded="true"] > .aa-appointment-header,
+    .aa-appointment-card.aa-expanded-in-overlay > .aa-appointment-header {
+        border-bottom: none !important;
+    }
+
+    .aa-appointment-card[data-expanded="true"] > .aa-appointment-body,
+    .aa-appointment-card.aa-expanded-in-overlay > .aa-appointment-body {
+        border-top: none !important;
     }
 
     .aa-executable-list-source-label--user {
@@ -399,7 +407,15 @@ body {
         @apply text-sm font-medium text-gray-600;
         padding: 0;
         border-radius: 4px;
-        transition: background-color 150ms ease;
+        transition: background-color 150ms ease, color 150ms ease;
+    }
+
+    .aa-appointment-body .aa-appointment-contact-row .aa-wa-phone-text {
+        @apply text-green-700;
+    }
+
+    .aa-appointment-body .aa-appointment-contact-row .aa-appointment-contact-link:hover .aa-wa-phone-text {
+        @apply text-green-800;
     }
 
     .aa-appointment-body .aa-appointment-contact-row .aa-appointment-contact-link:hover {
@@ -540,8 +556,16 @@ body {
         @apply font-medium text-gray-500 whitespace-nowrap;
     }
 
+    .aa-expediente-registro[open] {
+        @apply bg-blue-50;
+    }
+
     .aa-expediente-registro[open] > .aa-expediente-registro-summary {
-        @apply rounded-t-lg border-b border-gray-100;
+        @apply rounded-t-lg border-b border-gray-100 bg-transparent hover:bg-transparent;
+    }
+
+    .aa-expediente-registro[open] > .aa-expediente-registro-panel {
+        @apply bg-transparent;
     }
 
     .aa-expediente-registro-panel {

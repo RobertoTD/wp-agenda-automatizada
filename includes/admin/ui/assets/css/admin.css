@@ -984,30 +984,36 @@ details.aa-executable-item[open] .aa-executable-item-title {
   mask-image: none;
 }
 
-/* Listas/Tareas — ocultar FAB asistente IA (MC-UX-A) */
-
-#aa-tasks-fab-stack #aa-btn-open-aichat {
-  display: none;
-}
-
-/* Clientes — ocultar FAB asistente IA (mismo patrón que tareas) */
-
-#aa-clients-fab-stack #aa-btn-open-aichat {
-  display: none;
-}
-
-/* Expediente — ocultar FAB asistente IA (mismo patrón que clientes) */
-
-#aa-expediente-fab-stack #aa-btn-open-aichat {
-  display: none;
-}
-
 /* Executable feed — tarea expandida: fondo azul tenue (header + body); colapsada conserva su gris */
 
 details.aa-executable-item[open] {
   --tw-border-opacity: 1;
   border-color: rgb(219 234 254 / var(--tw-border-opacity, 1));
   background-color: rgb(239 246 255 / 0.5);
+}
+
+/* Calendar appointment — expandida: mismo tono azul tenue que tareas, sólido (sin ver el timeline); colapsada conserva gris del header */
+
+.aa-appointment-card[data-expanded="true"],
+    .aa-appointment-card.aa-expanded-in-overlay {
+  background-color: rgb(239 246 255) !important;
+}
+
+.aa-appointment-card[data-expanded="true"] > .aa-appointment-header,
+    .aa-appointment-card.aa-expanded-in-overlay > .aa-appointment-header,
+    .aa-appointment-card[data-expanded="true"] > .aa-appointment-body,
+    .aa-appointment-card.aa-expanded-in-overlay > .aa-appointment-body {
+  background-color: transparent !important;
+}
+
+.aa-appointment-card[data-expanded="true"] > .aa-appointment-header,
+    .aa-appointment-card.aa-expanded-in-overlay > .aa-appointment-header {
+  border-bottom: none !important;
+}
+
+.aa-appointment-card[data-expanded="true"] > .aa-appointment-body,
+    .aa-appointment-card.aa-expanded-in-overlay > .aa-appointment-body {
+  border-top: none !important;
 }
 
 .aa-executable-list-source-label--user {
@@ -1173,7 +1179,17 @@ details.aa-executable-item[open] {
   color: rgb(75 85 99 / var(--tw-text-opacity, 1));
   padding: 0;
   border-radius: 4px;
-  transition: background-color 150ms ease;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.aa-appointment-body .aa-appointment-contact-row .aa-wa-phone-text {
+  --tw-text-opacity: 1;
+  color: rgb(21 128 61 / var(--tw-text-opacity, 1));
+}
+
+.aa-appointment-body .aa-appointment-contact-row .aa-appointment-contact-link:hover .aa-wa-phone-text {
+  --tw-text-opacity: 1;
+  color: rgb(22 101 52 / var(--tw-text-opacity, 1));
 }
 
 .aa-appointment-body .aa-appointment-contact-row .aa-appointment-contact-link:hover {
@@ -1478,12 +1494,26 @@ details.aa-executable-item[open] {
   color: rgb(107 114 128 / var(--tw-text-opacity, 1));
 }
 
+.aa-expediente-registro[open] {
+  --tw-bg-opacity: 1;
+  background-color: rgb(239 246 255 / var(--tw-bg-opacity, 1));
+}
+
 .aa-expediente-registro[open] > .aa-expediente-registro-summary {
   border-top-left-radius: 0.5rem;
   border-top-right-radius: 0.5rem;
   border-bottom-width: 1px;
   --tw-border-opacity: 1;
   border-color: rgb(243 244 246 / var(--tw-border-opacity, 1));
+  background-color: transparent;
+}
+
+.aa-expediente-registro[open] > .aa-expediente-registro-summary:hover {
+  background-color: transparent;
+}
+
+.aa-expediente-registro[open] > .aa-expediente-registro-panel {
+  background-color: transparent;
 }
 
 .aa-expediente-registro-panel {
@@ -4317,11 +4347,6 @@ body.aa-modal-open {
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
 }
 
-.shadow-indigo-600\/25 {
-  --tw-shadow-color: rgb(79 70 229 / 0.25);
-  --tw-shadow: var(--tw-shadow-colored);
-}
-
 .shadow-slate-900\/20 {
   --tw-shadow-color: rgb(15 23 42 / 0.2);
   --tw-shadow: var(--tw-shadow-colored);
@@ -4679,11 +4704,6 @@ body {
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
 }
 
-.hover\:shadow-indigo-600\/30:hover {
-  --tw-shadow-color: rgb(79 70 229 / 0.3);
-  --tw-shadow: var(--tw-shadow-colored);
-}
-
 .hover\:shadow-violet-600\/35:hover {
   --tw-shadow-color: rgb(124 58 237 / 0.35);
   --tw-shadow: var(--tw-shadow-colored);
@@ -4750,10 +4770,6 @@ body {
 .focus\:ring-indigo-500:focus {
   --tw-ring-opacity: 1;
   --tw-ring-color: rgb(99 102 241 / var(--tw-ring-opacity, 1));
-}
-
-.focus\:ring-indigo-500\/30:focus {
-  --tw-ring-color: rgb(99 102 241 / 0.3);
 }
 
 .focus\:ring-indigo-500\/40:focus {

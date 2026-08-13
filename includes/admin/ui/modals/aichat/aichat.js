@@ -1,10 +1,9 @@
 /**
  * AI Chat Assistant — Panel UI (Step 6.b: multi-turn + sessionStorage)
  *
- * Self-mounts on calendar admin by locating the shared FAB stack
- * (`.fixed.bottom-6.right-6.z-50.flex.flex-col.items-end.gap-3`).
- * If the container is absent (non-calendar admin), mounting aborts
- * silently and leaves no DOM trace.
+ * Self-mounts on calendar admin when the header tool
+ * `[data-calendar-tool="open-aichat"]` is present. If absent
+ * (non-calendar admin), mounting aborts silently and leaves no DOM trace.
  *
  * Backend wiring:
  *   - `sendMessage(text)` POSTs to `aa_admin_ai_chat` with
@@ -116,7 +115,7 @@
     // DOM refs (populated on mount)
     // ============================================================
     const dom = {
-        fab: null,
+        openTrigger: null,
         panel: null,
         closeBtn: null,
         resetBtn: null,
@@ -156,23 +155,12 @@
     // Mounting
     // ============================================================
     function mount() {
-        const stack = document.querySelector(
-            '.fixed.bottom-6.right-6.z-50.flex.flex-col.items-end.gap-3'
-        );
-        if (!stack) {
+        const openTrigger = document.querySelector('[data-calendar-tool="open-aichat"]');
+        if (!openTrigger) {
             // Not on calendar → bail silently, leave no trace.
             return;
         }
-
-        // Append FAB as the last child (below the primary "Crear cita" FAB).
-        const fabHtml = cloneTemplateHtml('aa-ai-chat-fab-template');
-        if (!fabHtml) return;
-        const fabWrap = document.createElement('div');
-        fabWrap.innerHTML = fabHtml.trim();
-        const fabNode = fabWrap.firstElementChild;
-        if (!fabNode) return;
-        stack.appendChild(fabNode);
-        dom.fab = fabNode;
+        dom.openTrigger = openTrigger;
 
         // Inject the panel into <body>.
         const panelHtml = cloneTemplateHtml('aa-ai-chat-panel-template');
@@ -200,7 +188,11 @@
     // Event binding
     // ============================================================
     function bindEvents() {
-        dom.fab.addEventListener('click', togglePanel);
+        if (dom.openTrigger) {
+            dom.openTrigger.addEventListener('click', function () {
+                openPanel();
+            });
+        }
         dom.closeBtn.addEventListener('click', closePanel);
         if (dom.resetBtn) {
             dom.resetBtn.addEventListener('click', function () {
@@ -352,11 +344,6 @@
     // ============================================================
     // Open / close
     // ============================================================
-    function togglePanel() {
-        if (state.isOpen) closePanel();
-        else openPanel();
-    }
-
     function openPanel() {
         if (state.isOpen) return;
         state.isOpen = true;
@@ -366,7 +353,9 @@
         dom.panel.classList.add('flex');
         dom.panel.classList.remove('aa-ai-chat-panel-leave');
         dom.panel.classList.add('aa-ai-chat-panel-enter');
-        dom.fab.setAttribute('aria-expanded', 'true');
+        if (dom.openTrigger) {
+            dom.openTrigger.setAttribute('aria-expanded', 'true');
+        }
 
         scheduleInitialWelcomeIfNeeded();
 
@@ -440,7 +429,9 @@
     function closePanel() {
         if (!state.isOpen) return;
         state.isOpen = false;
-        dom.fab.setAttribute('aria-expanded', 'false');
+        if (dom.openTrigger) {
+            dom.openTrigger.setAttribute('aria-expanded', 'false');
+        }
 
         dom.panel.classList.remove('aa-ai-chat-panel-enter');
         dom.panel.classList.add('aa-ai-chat-panel-leave');
@@ -454,8 +445,13 @@
             panel.classList.remove('aa-ai-chat-panel-leave');
         }, 150);
 
-        // Return focus to the FAB so keyboard users don't get lost.
-        if (dom.fab) dom.fab.focus();
+        // Return focus to the calendar options trigger when available.
+        const optionsTrigger = document.getElementById('aa-calendar-options-trigger');
+        if (optionsTrigger) {
+            optionsTrigger.focus();
+        } else if (dom.openTrigger) {
+            dom.openTrigger.focus();
+        }
     }
 
     // ============================================================

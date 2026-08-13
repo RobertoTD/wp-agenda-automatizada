@@ -2281,25 +2281,16 @@ describe('executableListRenderer chevron rotation CSS', () => {
 });
 
 describe('executableListRenderer MC-UX-A visual polish', () => {
-    it('CSS oculta #aa-btn-open-aichat dentro de #aa-tasks-fab-stack', () => {
-        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
+    it('Asistente IA ya no se monta como FAB (entrada vía menú de agenda)', () => {
+        var aichatIndexPath = path.join(__dirname, '../../includes/admin/ui/modals/aichat/index.php');
+        var aichatJsPath = path.join(__dirname, '../../includes/admin/ui/modals/aichat/aichat.js');
+        var aichatIndex = fs.readFileSync(aichatIndexPath, 'utf8');
+        var aichatJs = fs.readFileSync(aichatJsPath, 'utf8');
 
-        assert.match(css, /#aa-tasks-fab-stack #aa-btn-open-aichat/);
-        assert.match(css, /display:\s*none/);
-    });
-
-    it('CSS oculta #aa-btn-open-aichat dentro de #aa-clients-fab-stack', () => {
-        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
-
-        assert.match(css, /#aa-clients-fab-stack #aa-btn-open-aichat/);
-        assert.match(css, /display:\s*none/);
-    });
-
-    it('CSS oculta #aa-btn-open-aichat dentro de #aa-expediente-fab-stack', () => {
-        var css = fs.readFileSync(adminSourceCssPath, 'utf8');
-
-        assert.match(css, /#aa-expediente-fab-stack #aa-btn-open-aichat/);
-        assert.match(css, /display:\s*none/);
+        assert.doesNotMatch(aichatIndex, /id="aa-btn-open-aichat"/);
+        assert.doesNotMatch(aichatIndex, /aa-ai-chat-fab-template/);
+        assert.match(aichatJs, /data-calendar-tool="open-aichat"/);
+        assert.doesNotMatch(aichatJs, /aa-ai-chat-fab-template/);
     });
 
     it('Archivar lista usa text-gray-700 y Eliminar lista sigue en text-red-600', () => {

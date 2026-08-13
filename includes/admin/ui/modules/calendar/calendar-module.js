@@ -141,6 +141,9 @@
         const searchItem = target && target.closest
             ? target.closest('[data-calendar-tool="search-appointments"]')
             : null;
+        const aiChatItem = target && target.closest
+            ? target.closest('[data-calendar-tool="open-aichat"]')
+            : null;
         const insideTools = target && target.closest
             ? target.closest('#aa-calendar-area-tools')
             : null;
@@ -151,7 +154,7 @@
             return;
         }
 
-        if (searchItem) {
+        if (searchItem || aiChatItem) {
             closeCalendarOptionsMenu();
             return;
         }

@@ -252,7 +252,7 @@
 
             return ''
                 + '<a href="' + escapeHtml(url) + '"'
-                + ' class="' + btnClass(false) + ' text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200">'
+                + ' class="' + btnClass(false) + ' text-blue-700 bg-white hover:bg-gray-50 border-blue-200">'
                 + escapeHtml(label || 'Ir')
                 + '</a>';
         }
@@ -268,7 +268,7 @@
                 + '<button type="button" data-learning-action="primary-handler"'
                 + ' data-recommendation-key="' + escapeHtml(recommendationKey) + '"'
                 + ' data-learning-handler="' + escapeHtml(handler) + '"'
-                + ' class="' + btnClass(false) + ' text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200">'
+                + ' class="' + btnClass(false) + ' text-blue-700 bg-white hover:bg-gray-50 border-blue-200">'
                 + escapeHtml(label)
                 + '</button>';
         }
@@ -284,7 +284,7 @@
                 if (completeTasksTaskId !== '') {
                     return ''
                         + '<button type="button" data-tasks-action="complete" data-task-id="' + escapeHtml(completeTasksTaskId) + '"'
-                        + ' class="' + btnClass(false) + ' text-green-700 hover:text-green-800 border-green-200 bg-green-50">'
+                        + ' class="' + btnClass(false) + ' text-green-700 hover:text-green-800 border-green-200 bg-white">'
                         + escapeHtml(label || 'Completar')
                         + '</button>';
                 }
@@ -297,7 +297,7 @@
                     return ''
                         + '<button type="button" data-learning-action="complete"'
                         + ' data-recommendation-key="' + escapeHtml(recommendationKey) + '"'
-                        + ' class="' + btnClass(false) + ' text-green-700 hover:text-green-800 border-green-200 bg-green-50">'
+                        + ' class="' + btnClass(false) + ' text-green-700 hover:text-green-800 border-green-200 bg-white">'
                         + escapeHtml(label || 'Completar')
                         + '</button>';
                 }
@@ -309,7 +309,7 @@
 
                     return ''
                         + '<button type="button" data-tasks-action="complete" data-task-id="' + escapeHtml(taskId) + '"'
-                        + ' class="' + btnClass(false) + ' text-green-700 hover:text-green-800 border-green-200 bg-green-50">'
+                        + ' class="' + btnClass(false) + ' text-green-700 hover:text-green-800 border-green-200 bg-white">'
                         + escapeHtml(label || 'Completar')
                         + '</button>';
                 }
@@ -472,7 +472,7 @@
 
             return ''
                 + '<a href="' + escapeHtml(url) + '"'
-                + ' class="' + btnClass(false) + ' text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200">'
+                + ' class="' + btnClass(false) + ' text-blue-700 bg-white hover:bg-gray-50 border-blue-200">'
                 + escapeHtml(navigateLabel)
                 + '</a>';
         }
@@ -490,7 +490,7 @@
                 + '<button type="button" data-learning-action="primary-handler"'
                 + ' data-recommendation-key="' + escapeHtml(recommendationKey) + '"'
                 + ' data-learning-handler="' + escapeHtml(handler) + '"'
-                + ' class="' + btnClass(false) + ' text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200">'
+                + ' class="' + btnClass(false) + ' text-blue-700 bg-white hover:bg-gray-50 border-blue-200">'
                 + escapeHtml(handlerLabel)
                 + '</button>';
         }
@@ -509,7 +509,7 @@
 
                 return ''
                     + '<button type="button" data-tasks-action="complete" data-task-id="' + escapeHtml(taskId) + '"'
-                    + ' class="' + btnClass(false) + ' text-green-700 hover:text-green-800 border-green-200 bg-green-50">'
+                    + ' class="' + btnClass(false) + ' text-green-700 hover:text-green-800 border-green-200 bg-white">'
                     + escapeHtml(statusLabel)
                     + '</button>';
             }
