@@ -138,8 +138,14 @@ $put = $uploader->put_jpeg($ok_url, str_repeat('a', 100), $storage_path);
 ac_assert('PUT OK', $put['ok'] === true);
 ac_assert('PUT method', ($GLOBALS['aa_test_safe_remote_calls'][0]['args']['method'] ?? '') === 'PUT');
 ac_assert('PUT content-type', ($GLOBALS['aa_test_safe_remote_calls'][0]['args']['headers']['Content-Type'] ?? '') === 'image/jpeg');
+ac_assert('PUT Cache-Control', ($GLOBALS['aa_test_safe_remote_calls'][0]['args']['headers']['Cache-Control'] ?? '') === 'max-age=600');
 ac_assert('PUT x-upsert false', ($GLOBALS['aa_test_safe_remote_calls'][0]['args']['headers']['x-upsert'] ?? '') === 'false');
-ac_assert('PUT sin Cache-Control', !isset($GLOBALS['aa_test_safe_remote_calls'][0]['args']['headers']['Cache-Control']));
+$put_headers = $GLOBALS['aa_test_safe_remote_calls'][0]['args']['headers'] ?? [];
+ac_assert(
+    'PUT solo tres encabezados',
+    is_array($put_headers)
+    && array_keys($put_headers) === ['Content-Type', 'Cache-Control', 'x-upsert']
+);
 ac_assert('PUT redirection 0', (int) ($GLOBALS['aa_test_safe_remote_calls'][0]['args']['redirection'] ?? -1) === 0);
 ac_assert('PUT reject_unsafe_urls', ($GLOBALS['aa_test_safe_remote_calls'][0]['args']['reject_unsafe_urls'] ?? false) === true);
 ac_assert('PUT sslverify', ($GLOBALS['aa_test_safe_remote_calls'][0]['args']['sslverify'] ?? false) === true);

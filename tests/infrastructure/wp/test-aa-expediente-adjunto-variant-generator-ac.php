@@ -400,8 +400,18 @@ ac_assert('rotate fallido fail-closed', empty($rot['ok']) && ($rot['code'] ?? ''
 
 $src_plugin = file_get_contents($plugin_root . '/wp-agenda-automatizada.php');
 ac_assert(
-    'generador no está en el bootstrap',
-    is_string($src_plugin) && strpos($src_plugin, 'class-aa-expediente-adjunto-variant-generator.php') === false
+    'bootstrap carga ExpedienteAdjuntoVariants',
+    is_string($src_plugin) && strpos($src_plugin, 'includes/domain/expediente/ExpedienteAdjuntoVariants.php') !== false
+);
+$pos_variants = is_string($src_plugin)
+    ? strpos($src_plugin, 'includes/domain/expediente/ExpedienteAdjuntoVariants.php')
+    : false;
+$pos_generator = is_string($src_plugin)
+    ? strpos($src_plugin, 'includes/infrastructure/wp/class-aa-expediente-adjunto-variant-generator.php')
+    : false;
+ac_assert(
+    'bootstrap carga el generador después de las specs',
+    $pos_variants !== false && $pos_generator !== false && $pos_variants < $pos_generator
 );
 
 echo "\n";

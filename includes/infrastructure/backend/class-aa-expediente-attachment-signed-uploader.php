@@ -39,6 +39,7 @@ final class AA_Expediente_Attachment_Signed_Uploader {
             'sslverify' => true,
             'headers' => [
                 'Content-Type' => 'image/jpeg',
+                'Cache-Control' => 'max-age=600',
                 'x-upsert' => 'false',
             ],
             'body' => $binary,

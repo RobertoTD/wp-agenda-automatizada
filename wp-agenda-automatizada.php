@@ -152,6 +152,8 @@ require_once __DIR__ . '/includes/infrastructure/backend/class-aa-expediente-att
 require_once __DIR__ . '/includes/infrastructure/backend/class-aa-expediente-attachment-read-url-validator.php';
 require_once __DIR__ . '/includes/domain/expediente/ExpedienteAdjuntoJpegValidator.php';
 require_once __DIR__ . '/includes/domain/expediente/ExpedienteAdjuntoPublicDto.php';
+require_once __DIR__ . '/includes/domain/expediente/ExpedienteAdjuntoVariants.php';
+require_once __DIR__ . '/includes/infrastructure/wp/class-aa-expediente-adjunto-variant-generator.php';
 require_once __DIR__ . '/includes/application/expediente/UploadExpedienteRegistroAdjuntoUseCase.php';
 require_once __DIR__ . '/includes/application/expediente/GetExpedienteAdjuntoReadUrlUseCase.php';
 require_once __DIR__ . '/includes/http/ajax/ExpedienteAdjuntosAjax.php';
