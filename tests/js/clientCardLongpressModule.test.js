@@ -63,7 +63,7 @@ describe('client-card-longpress-module', () => {
         assert.equal(exports.MOVE_TOLERANCE_PX, 10);
         assert.equal(typeof exports.resolveClientCardHeader, 'function');
         assert.equal(typeof exports.resolveClientsSectionHeader, 'function');
-        assert.equal(typeof exports.resolveEditButton, 'function');
+        assert.equal(typeof exports.resolveExpedienteButton, 'function');
         assert.equal(typeof exports.isInteractiveTarget, 'function');
     });
 
@@ -199,12 +199,12 @@ describe('client-card-longpress-module', () => {
         assert.equal(exports.resolveClientCardHeader(otherTarget), null);
     });
 
-    it('resolveEditButton busca .aa-btn-editar-cliente dentro de la card', () => {
+    it('resolveExpedienteButton busca .aa-btn-expediente-cliente dentro de la card', () => {
         var exports = loadModule();
-        var editButton = { id: 'edit-btn' };
+        var expedienteButton = { id: 'expediente-btn' };
         var card = {
             querySelector: function (sel) {
-                return sel === '.aa-btn-editar-cliente' ? editButton : null;
+                return sel === '.aa-btn-expediente-cliente' ? expedienteButton : null;
             }
         };
         var header = {
@@ -213,8 +213,8 @@ describe('client-card-longpress-module', () => {
             }
         };
 
-        assert.equal(exports.resolveEditButton(header), editButton);
-        assert.equal(exports.resolveEditButton({
+        assert.equal(exports.resolveExpedienteButton(header), expedienteButton);
+        assert.equal(exports.resolveExpedienteButton({
             closest: function () { return null; }
         }), null);
     });
@@ -233,10 +233,12 @@ describe('client-card-longpress-module', () => {
         }), false);
     });
 
-    it('longpress dispara click en .aa-btn-editar-cliente (modal editar)', () => {
-        assert.match(moduleSrc, /\.aa-btn-editar-cliente/);
-        assert.match(moduleSrc, /editButton\.click/);
+    it('longpress dispara click en .aa-btn-expediente-cliente (expediente del cliente)', () => {
+        assert.match(moduleSrc, /\.aa-btn-expediente-cliente/);
+        assert.match(moduleSrc, /expedienteButton\.click/);
         assert.match(moduleSrc, /#aa-clients-grid/);
-        assert.match(moduleSrc, /ACTION_EDIT/);
+        assert.match(moduleSrc, /ACTION_EXPEDIENTE/);
+        assert.doesNotMatch(moduleSrc, /aa-btn-editar-cliente/);
+        assert.doesNotMatch(moduleSrc, /ACTION_EDIT/);
     });
 });

@@ -2455,6 +2455,7 @@ describe('executableListRenderer MC-UX-D list details on demand', () => {
         assert.match(css, /details\.aa-executable-list-card:not\(\[open\]\) \.aa-executable-list-details-toggle/);
         assert.match(css, /details\.aa-executable-list-card\[open\] \.aa-executable-list-details:not\(\.is-visible\)/);
         assert.match(css, /details\.aa-executable-list-card[\s\S]*overflow:\s*visible/);
+        assert.match(css, /\.aa-executable-list-header-meta,\s*\.aa-executable-list-details\s*\{[^}]*margin-left:\s*calc\(1rem \+ 1px\)/);
     });
 });
 

@@ -41,6 +41,7 @@ function ac_read(string $relative): string {
 
 $index = ac_read('includes/admin/ui/modules/clients/index.php');
 $js = ac_read('includes/admin/ui/modules/clients/clients-module.js');
+$longpress = ac_read('includes/admin/ui/modules/clients/client-card-longpress-module.js');
 $ajax = ac_read('includes/http/ajax/ClientsAjax.php');
 $repo = ac_read('includes/repositories/ClientsRepository.php');
 $bootstrap = ac_read('wp-agenda-automatizada.php');
@@ -77,6 +78,12 @@ ac_assert('JS initExpedienteView existe', strpos($js, 'function initExpedienteVi
 ac_assert('JS initListView existe', strpos($js, 'function initListView') !== false);
 ac_assert('JS no inicia lista en expediente', preg_match('/function init\(\)\s*\{[\s\S]*isExpedienteView\(\)[\s\S]*initExpedienteView[\s\S]*return;[\s\S]*initListView/', $js) === 1);
 ac_assert('JS botón Expediente presente', strpos($js, 'aa-btn-expediente-cliente') !== false);
+ac_assert(
+    'longpress del header de tarjeta abre expediente, no editar',
+    strpos($longpress, 'aa-btn-expediente-cliente') !== false
+    && strpos($longpress, 'ACTION_EXPEDIENTE') !== false
+    && strpos($longpress, 'aa-btn-editar-cliente') === false
+);
 ac_assert('JS conserva Editar', strpos($js, 'aa-btn-editar-cliente') !== false && strpos($js, 'openEdit') !== false);
 ac_assert('JS stopPropagation en Expediente', substr_count($js, 'stopPropagation') >= 2);
 ac_assert('JS header Expediente con icono carpeta', strpos($js, "title.textContent = 'Expediente'") !== false && strpos($js, 'EXPEDIENTE_FOLDER_SVG') !== false);
@@ -109,6 +116,9 @@ ac_assert('sidebar Expedientes sigue en module=clients', strpos($sidebar, 'modul
 ac_assert('main.js no modificado para expediente', strpos($main_js, 'expediente') === false && strpos($main_js, 'Expediente') === false);
 ac_assert('CSS grupo aa-client-card-actions', strpos($css, 'aa-client-card-actions') !== false);
 ac_assert('CSS botón expediente', strpos($css, 'aa-btn-expediente-cliente') !== false);
+ac_assert('JS Ver más en tarjeta de cliente', strpos($js, 'aa-client-card-details-toggle') !== false && strpos($js, 'Ver más') !== false);
+ac_assert('JS oculta fecha y citas en panel de detalles', strpos($js, 'aa-client-card-details') !== false && strpos($js, 'createClientDetailsPanel') !== false);
+ac_assert('CSS oculta detalles de cliente hasta is-visible', strpos($css, '.aa-client-card-details:not(.is-visible)') !== false);
 
 // --- Runtime: normalización PHP sin WP pleno ---
 if (!function_exists('sanitize_key')) {

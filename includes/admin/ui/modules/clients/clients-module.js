@@ -79,8 +79,9 @@
      */
     function createClientEmailRow(value) {
         const row = document.createElement('div');
+        row.className = 'aa-client-card-contact';
         const wrap = document.createElement('span');
-        wrap.className = 'inline-flex items-center gap-1.5 min-w-0 text-gray-600';
+        wrap.className = 'inline-flex items-center gap-1.5 min-w-0 text-gray-500';
         wrap.title = 'Correo';
         wrap.innerHTML = CLIENT_MAIL_SVG;
         const content = document.createElement('span');
@@ -89,6 +90,54 @@
         wrap.appendChild(content);
         row.appendChild(wrap);
         return row;
+    }
+
+    let clientCardDetailsSeq = 0;
+
+    function nextClientDetailsPanelId(cliente) {
+        var id = parseInt(cliente && cliente.id, 10);
+        if (id > 0) {
+            return 'aa-client-details-' + id;
+        }
+        clientCardDetailsSeq += 1;
+        return 'aa-client-details-tmp-' + clientCardDetailsSeq;
+    }
+
+    function setClientCardDetailsExpanded(toggle, panel, expanded) {
+        if (panel) {
+            if (expanded) {
+                panel.classList.add('is-visible');
+            } else {
+                panel.classList.remove('is-visible');
+            }
+        }
+        if (toggle) {
+            toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            toggle.textContent = expanded ? 'Ver menos' : 'Ver más';
+        }
+    }
+
+    function createClientDetailsToggle(panelId) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'aa-client-card-details-toggle shrink-0 text-xs font-semibold text-gray-500 underline hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300/60 rounded';
+        button.setAttribute('data-aa-client-details-toggle', '1');
+        button.setAttribute('aria-expanded', 'false');
+        button.setAttribute('aria-controls', panelId);
+        button.textContent = 'Ver más';
+        return button;
+    }
+
+    function createClientDetailsPanel(cliente, panelId) {
+        const panel = document.createElement('div');
+        panel.className = 'aa-client-card-details';
+        panel.id = panelId;
+        if (cliente && cliente.id) {
+            panel.setAttribute('data-client-id', String(cliente.id));
+        }
+        panel.appendChild(createClientDetailRow('Fecha de registro:', cliente.created_at || 'N/A'));
+        panel.appendChild(createClientDetailRow('Total de citas:', String(cliente.total_citas || 0)));
+        return panel;
     }
 
     /**
@@ -134,6 +183,7 @@
 
         // Teléfono / WhatsApp
         const telefono = document.createElement('div');
+        telefono.className = 'aa-client-card-contact';
         if (cliente.telefono) {
             const waLink = document.createElement('span');
             waLink.className = 'aa-whatsapp-link';
@@ -152,8 +202,21 @@
         body.appendChild(telefono);
 
         body.appendChild(createClientEmailRow(cliente.correo || 'N/A'));
-        body.appendChild(createClientDetailRow('Fecha de registro:', cliente.created_at || 'N/A'));
-        body.appendChild(createClientDetailRow('Total de citas:', String(cliente.total_citas || 0)));
+
+        const detailsPanelId = nextClientDetailsPanelId(cliente);
+        const detailsToggle = createClientDetailsToggle(detailsPanelId);
+        const detailsPanel = createClientDetailsPanel(cliente, detailsPanelId);
+        const detailsToggleWrap = document.createElement('div');
+        detailsToggleWrap.className = 'aa-client-card-details-meta';
+        detailsToggleWrap.appendChild(detailsToggle);
+        detailsToggle.addEventListener('click', function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            var expanded = detailsToggle.getAttribute('aria-expanded') === 'true';
+            setClientCardDetailsExpanded(detailsToggle, detailsPanel, !expanded);
+        });
+        body.appendChild(detailsToggleWrap);
+        body.appendChild(detailsPanel);
 
         // Acciones: Editar + Expediente
         const actions = document.createElement('div');

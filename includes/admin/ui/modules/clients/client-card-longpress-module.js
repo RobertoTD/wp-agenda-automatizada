@@ -1,7 +1,7 @@
 /**
  * Client Long-Press Module —
  * - Título de página (#aa-page-title) en vista lista: abre modal de nuevo cliente.
- * - Header de tarjeta en #aa-clients-grid: abre modal de editar cliente.
+ * - Header de tarjeta en #aa-clients-grid: abre el expediente del cliente.
  *
  * El click rápido conserva su comportamiento nativo.
  * Solo un click sostenido (>= LONG_PRESS_MS) sin desplazamiento dispara la acción.
@@ -17,7 +17,7 @@
     var LONG_PRESS_MS = 500;
     var MOVE_TOLERANCE_PX = 10;
     var ACTION_CREATE = 'create';
-    var ACTION_EDIT = 'edit';
+    var ACTION_EXPEDIENTE = 'expediente';
 
     var pressTimer = null;
     var pressActive = false;
@@ -25,7 +25,7 @@
     var startX = 0;
     var startY = 0;
     var activeAction = '';
-    var activeEditButton = null;
+    var activeExpedienteButton = null;
 
     function isInteractiveTarget(target) {
         return !!(target && typeof target.closest === 'function' && target.closest(
@@ -89,7 +89,7 @@
      * @param {HTMLElement} header
      * @returns {HTMLElement|null}
      */
-    function resolveEditButton(header) {
+    function resolveExpedienteButton(header) {
         var card = header && typeof header.closest === 'function'
             ? header.closest('.aa-appointment-card')
             : null;
@@ -98,7 +98,7 @@
             return null;
         }
 
-        return card.querySelector('.aa-btn-editar-cliente');
+        return card.querySelector('.aa-btn-expediente-cliente');
     }
 
     function clearPress() {
@@ -109,7 +109,7 @@
 
         pressActive = false;
         activeAction = '';
-        activeEditButton = null;
+        activeExpedienteButton = null;
     }
 
     function openCreateClientModal() {
@@ -129,9 +129,9 @@
         longPressFired = true;
 
         var action = activeAction;
-        var editButton = activeEditButton;
+        var expedienteButton = activeExpedienteButton;
         activeAction = '';
-        activeEditButton = null;
+        activeExpedienteButton = null;
 
         if (globalRoot.navigator && typeof globalRoot.navigator.vibrate === 'function') {
             try {
@@ -146,12 +146,12 @@
             return;
         }
 
-        if (action !== ACTION_EDIT || !editButton || editButton.disabled) {
+        if (action !== ACTION_EXPEDIENTE || !expedienteButton || expedienteButton.disabled) {
             return;
         }
 
-        if (typeof editButton.click === 'function') {
-            editButton.click();
+        if (typeof expedienteButton.click === 'function') {
+            expedienteButton.click();
         }
     }
 
@@ -184,15 +184,15 @@
             return;
         }
 
-        var editButton = resolveEditButton(header);
+        var expedienteButton = resolveExpedienteButton(header);
 
-        if (!editButton || editButton.disabled) {
+        if (!expedienteButton || expedienteButton.disabled) {
             return;
         }
 
         pressActive = true;
-        activeAction = ACTION_EDIT;
-        activeEditButton = editButton;
+        activeAction = ACTION_EXPEDIENTE;
+        activeExpedienteButton = expedienteButton;
         startX = event.clientX;
         startY = event.clientY;
 
@@ -276,7 +276,7 @@
         MOVE_TOLERANCE_PX: MOVE_TOLERANCE_PX,
         resolveClientsSectionHeader: resolveClientsSectionHeader,
         resolveClientCardHeader: resolveClientCardHeader,
-        resolveEditButton: resolveEditButton,
+        resolveExpedienteButton: resolveExpedienteButton,
         isInteractiveTarget: isInteractiveTarget
     };
 
