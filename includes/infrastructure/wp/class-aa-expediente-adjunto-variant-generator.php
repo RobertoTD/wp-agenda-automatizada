@@ -94,7 +94,7 @@ final class AA_Expediente_Adjunto_Variant_Generator {
      *
      * @param array<string,array{path?:string}> $variants
      */
-    public static function delete_generated(array $variants): void {
+    public function delete_generated(array $variants): void {
         foreach ($variants as $file) {
             if (!is_array($file)) {
                 continue;

@@ -105,6 +105,13 @@ ac_assert('sign-read nunca acepta storage_path ni metadatos', strpos($ajax_src, 
     && strpos($ajax_src, "\$_POST['adjunto_id']") === false
     && strpos($ajax_src, "\$_POST['mime_type']") === false);
 ac_assert('attachment_not_found → 404', preg_match("/case 'attachment_not_found':/", $ajax_src) === 1);
+ac_assert(
+    'variant_generation_failed → 500',
+    preg_match(
+        "/case 'local_delete_failed':\\s*case 'storage_usage_unavailable':\\s*case 'variant_generation_failed':\\s*return 500;/",
+        $ajax_src
+    ) === 1
+);
 ac_assert('index emite signAdjuntoRead', strpos($index, 'signAdjuntoRead') !== false);
 ac_assert('js usa signAdjuntoRead', strpos($js, 'signAdjuntoRead') !== false);
 

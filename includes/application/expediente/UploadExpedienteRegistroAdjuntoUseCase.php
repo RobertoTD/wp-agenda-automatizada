@@ -2,8 +2,8 @@
 /**
  * Upload Expediente Registro Adjunto Use Case (MC4b).
  *
- * Orquesta: validación JPEG → authorize → PUT (si pending) → finalize → insert_finalized.
- * Nunca inserta metadatos antes de finalize exitoso.
+ * Orquesta: validación JPEG → cuota local → transfer v1 → insert_finalized.
+ * Nunca inserta metadatos antes de un finalize coincidente.
  */
 
 defined('ABSPATH') or die('No direct access');
@@ -20,6 +20,12 @@ if (!class_exists('ClientsRepository')) {
 if (!class_exists('ExpedienteAdjuntoJpegValidator')) {
     require_once dirname(__DIR__, 2) . '/domain/expediente/ExpedienteAdjuntoJpegValidator.php';
 }
+if (!class_exists('ExpedienteAdjuntoUploadTransfer')) {
+    require_once __DIR__ . '/ExpedienteAdjuntoUploadTransfer.php';
+}
+if (!class_exists('AA_Expediente_Adjunto_Variant_Generator')) {
+    require_once dirname(__DIR__, 2) . '/infrastructure/wp/class-aa-expediente-adjunto-variant-generator.php';
+}
 if (!class_exists('AA_Expediente_Attachments_Backend_Client')) {
     require_once dirname(__DIR__, 2) . '/infrastructure/backend/class-aa-expediente-attachments-backend-client.php';
 }
@@ -35,24 +41,22 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
     private $validator;
 
     /** @var object */
-    private $backend;
-
-    /** @var object */
-    private $uploader;
+    private $transfer;
 
     /**
      * @param ExpedienteAdjuntoJpegValidator|null $validator
-     * @param object|null $backend AA_Expediente_Attachments_Backend_Client o doble de prueba
-     * @param object|null $uploader AA_Expediente_Attachment_Signed_Uploader o doble de prueba
+     * @param object|null $transfer ExpedienteAdjuntoUploadTransfer o doble de prueba
      */
     public function __construct(
         ?ExpedienteAdjuntoJpegValidator $validator = null,
-        $backend = null,
-        $uploader = null
+        $transfer = null
     ) {
         $this->validator = $validator ?: new ExpedienteAdjuntoJpegValidator();
-        $this->backend = $backend ?: new AA_Expediente_Attachments_Backend_Client();
-        $this->uploader = $uploader ?: new AA_Expediente_Attachment_Signed_Uploader();
+        $this->transfer = $transfer ?: new ExpedienteAdjuntoUploadTransfer(
+            new AA_Expediente_Adjunto_Variant_Generator(),
+            new AA_Expediente_Attachments_Backend_Client(),
+            new AA_Expediente_Attachment_Signed_Uploader()
+        );
     }
 
     /**
@@ -104,8 +108,6 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
             $width = (int) $validated['width'];
             $height = (int) $validated['height'];
 
-            // Cuota: sumar uso local antes de authorize. Fallo de cálculo →
-            // cerrado local (nunca fingir used_bytes = 0 hacia el backend).
             $used_bytes = ExpedienteAdjuntosRepository::sum_byte_size_total();
             if ($used_bytes === null) {
                 return $this->fail(
@@ -114,76 +116,29 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
                 );
             }
 
-            $authorize = $this->backend->authorize_upload([
-                'upload_operation_id' => $operation_id,
-                'wp_client_id' => $client_id,
-                'wp_record_id' => $record_id,
+            $transferred = $this->transfer->transfer([
+                'source_path' => $tmp_to_clean,
                 'mime_type' => $mime,
                 'byte_size' => $byte_size,
                 'width' => $width,
                 'height' => $height,
+                'upload_operation_id' => $operation_id,
+                'wp_client_id' => $client_id,
+                'wp_record_id' => $record_id,
                 'used_bytes' => $used_bytes,
             ]);
 
-            if (empty($authorize['ok'])) {
-                $auth_code = (string) ($authorize['code'] ?? 'authorize_failed');
-                return $this->fail(
-                    $auth_code,
-                    $this->authorize_failure_message($auth_code)
-                );
+            if (empty($transferred['ok'])) {
+                $code = (string) ($transferred['code'] ?? 'transfer_failed');
+                return $this->fail($code, $this->transfer_failure_message($code, $transferred));
             }
 
-            /** @var array<string,mixed> $auth_result */
-            $auth_result = $authorize['result'];
-            $storage_path = (string) ($auth_result['storage_path'] ?? '');
-            $upload_intent = (string) ($auth_result['upload_intent'] ?? '');
-            $status = (string) ($auth_result['status'] ?? '');
-
-            if ($storage_path === '' || $upload_intent === '') {
-                return $this->fail('authorize_invalid', 'Respuesta de autorización incompleta.');
-            }
-
-            if (!$this->storage_path_matches_context($storage_path, $client_id, $record_id, $operation_id)) {
-                return $this->fail('path_mismatch', 'La ruta de almacenamiento no coincide con el contexto.');
-            }
-
-            if ($status === 'pending_upload') {
-                $signed_url = (string) ($auth_result['signed_url'] ?? '');
-                if ($signed_url === '') {
-                    return $this->fail('authorize_invalid', 'Falta la URL de subida firmada.');
-                }
-
-                $binary = @file_get_contents($tmp_to_clean);
-                if ($binary === false || strlen($binary) !== $byte_size) {
-                    return $this->fail('read_failed', 'No se pudo leer el archivo temporal.');
-                }
-
-                $put = $this->uploader->put_jpeg($signed_url, $binary, $storage_path);
-                // Liberar referencia local al secreto lo antes posible.
-                unset($signed_url, $binary, $auth_result['signed_url']);
-
-                if (empty($put['ok'])) {
-                    return $this->fail(
-                        (string) ($put['code'] ?? 'upload_failed'),
-                        'No se pudo subir la imagen.'
-                    );
-                }
-            } elseif ($status !== 'already_uploaded') {
-                return $this->fail('authorize_invalid', 'Estado de autorización no reconocido.');
-            }
-
-            $finalize = $this->backend->finalize($upload_intent);
-            unset($upload_intent);
-
-            if (empty($finalize['ok'])) {
-                return $this->fail(
-                    (string) ($finalize['code'] ?? 'finalize_failed'),
-                    'No se pudo confirmar la subida de la imagen.'
-                );
-            }
-
+            $storage_path = (string) ($transferred['storage_path'] ?? '');
             /** @var array<string,mixed> $fin */
-            $fin = $finalize['result'];
+            $fin = isset($transferred['finalize']) && is_array($transferred['finalize'])
+                ? $transferred['finalize']
+                : [];
+
             if (!$this->finalize_matches_expectation($fin, [
                 'client_id' => $client_id,
                 'record_id' => $record_id,
@@ -314,14 +269,18 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
         }
     }
 
-    private function authorize_failure_message(string $code): string {
+    /**
+     * @param array<string,mixed> $transferred
+     */
+    private function transfer_failure_message(string $code, array $transferred): string {
         switch ($code) {
             case 'storage_not_included':
                 return 'Tu plan actual no incluye almacenamiento de imágenes en el servidor.';
             case 'storage_quota_exceeded':
                 return 'No queda espacio de almacenamiento. Elimina alguna imagen para liberar espacio.';
             default:
-                return 'No se pudo autorizar la subida de la imagen.';
+                $message = (string) ($transferred['message'] ?? '');
+                return $message !== '' ? $message : 'No se pudo subir la imagen.';
         }
     }
 

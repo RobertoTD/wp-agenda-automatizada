@@ -273,7 +273,7 @@ foreach (['summary' => $summary, 'gallery' => $gallery, 'display' => $display] a
 }
 
 ac_assert('fuente grande intacta tras éxito', is_file($large) && md5_file($large) === $large_hash && filesize($large) === $large_size);
-AA_Expediente_Adjunto_Variant_Generator::delete_generated($result_large['variants'] ?? []);
+$generator->delete_generated($result_large['variants'] ?? []);
 @unlink($large);
 
 // 2) Fuente pequeña: display no upscale.
@@ -299,7 +299,7 @@ ac_assert(
     && $small_display['byte_size'] <= ExpedienteAdjuntoVariants::DISPLAY_MAX_BYTES
 );
 ac_assert('fuente pequeña intacta tras éxito', is_file($small) && md5_file($small) === $small_hash);
-AA_Expediente_Adjunto_Variant_Generator::delete_generated($result_small['variants'] ?? []);
+$generator->delete_generated($result_small['variants'] ?? []);
 @unlink($small);
 
 // 4) Fallos cerrados + sin temporales residuales.

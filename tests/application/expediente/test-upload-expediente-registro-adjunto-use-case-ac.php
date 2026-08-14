@@ -1,6 +1,6 @@
 <?php
 /**
- * AC — UploadExpedienteRegistroAdjuntoUseCase (MC4b).
+ * AC — UploadExpedienteRegistroAdjuntoUseCase (MC4b / 5B2).
  *
  * Ejecutar: php tests/application/expediente/test-upload-expediente-registro-adjunto-use-case-ac.php
  */
@@ -61,17 +61,30 @@ if (!function_exists('current_time')) {
 
 $src = file_get_contents($plugin_root . '/includes/application/expediente/UploadExpedienteRegistroAdjuntoUseCase.php');
 ac_assert('use case file exists', is_string($src) && $src !== '');
-ac_assert('orden validate antes de authorize', strpos($src, 'validator->validate') !== false
-    && strpos($src, 'validator->validate') < strpos($src, 'authorize_upload'));
-ac_assert('PUT solo pending_upload', strpos($src, "pending_upload") !== false);
-ac_assert('finalize antes de insert', preg_match('/\$finalize\s*=\s*\$this->backend->finalize\(/', $src)
-    && strpos($src, "\$finalize = \$this->backend->finalize(") < strpos($src, 'ExpedienteAdjuntosRepository::insert_finalized'));
-ac_assert('finalize_matches_expectation', strpos($src, 'finalize_matches_expectation') !== false);
+ac_assert(
+    'orden validate → used_bytes → transfer → finalize_matches → insert',
+    strpos($src, 'validator->validate') !== false
+    && strpos($src, 'sum_byte_size_total') !== false
+    && strpos($src, 'transfer->transfer') !== false
+    && strpos($src, 'finalize_matches_expectation') !== false
+    && strpos($src, 'ExpedienteAdjuntosRepository::insert_finalized') !== false
+    && strpos($src, 'validator->validate') < strpos($src, 'sum_byte_size_total')
+    && strpos($src, 'sum_byte_size_total') < strpos($src, 'transfer->transfer')
+    && strpos($src, 'transfer->transfer') < strpos($src, 'finalize_matches_expectation')
+    && strpos($src, 'finalize_matches_expectation') < strpos($src, 'ExpedienteAdjuntosRepository::insert_finalized')
+);
 ac_assert('verifica installation_id', strpos($src, 'installation_id') !== false);
 ac_assert('verifica client/record en path', strpos($src, 'storage_path_matches_context') !== false);
 ac_assert('cleanup finally', strpos($src, 'cleanup_tmp') !== false && strpos($src, 'finally') !== false);
 ac_assert('sin transacción SQL alrededor HTTP', !preg_match('/START TRANSACTION|BEGIN\b/', $src));
-ac_assert('no loguea signed_url', !preg_match('/error_log\([^)]*signed_url/', $src));
+ac_assert('usa ExpedienteAdjuntoUploadTransfer', strpos($src, 'ExpedienteAdjuntoUploadTransfer') !== false);
+ac_assert('sin authorize_upload', strpos($src, 'authorize_upload') === false);
+ac_assert('sin put_jpeg', strpos($src, 'put_jpeg') === false);
+ac_assert('sin file_get_contents', strpos($src, 'file_get_contents') === false);
+ac_assert('sin signed_url', strpos($src, 'signed_url') === false);
+ac_assert('sin pending_upload', strpos($src, 'pending_upload') === false);
+ac_assert('sin FakeAttachmentsBackend', strpos($src, 'FakeAttachmentsBackend') === false);
+ac_assert('sin propiedades backend/uploader', strpos($src, '$this->backend') === false && strpos($src, '$this->uploader') === false);
 
 final class ClientsRepository {
     public static $client = ['id' => 7, 'nombre' => 'A', 'telefono' => '', 'correo' => ''];
@@ -129,72 +142,30 @@ final class ExpedienteAdjuntosRepository {
     }
 }
 
-final class FakeAttachmentsBackend {
+final class FakeAdjuntoUploadTransfer {
     public $calls = [];
-    public $authorize_inputs = [];
-    public $authorize_status = 'pending_upload';
-    public $authorize_fail = null;
-    public $finalize_fail = null;
-    public $finalize_override = null;
+    public $inputs = [];
+    public $fail = null;
+    public $storage_path = '';
+    public $finalize = [];
     public $installation_id = '11111111-1111-4111-8111-111111111111';
     public $op = '22222222-2222-4222-8222-222222222222';
-    public $path = '';
 
     public function __construct() {
-        $this->path = 'installations/' . $this->installation_id . '/clients/7/records/11/' . $this->op . '.jpg';
+        $this->storage_path = 'installations/' . $this->installation_id . '/clients/7/records/11/' . $this->op . '.jpg';
     }
 
-    public function authorize_upload(array $input): array {
-        $this->calls[] = 'authorize';
-        $this->authorize_inputs[] = $input;
-        if ($this->authorize_fail !== null) {
-            return $this->authorize_fail;
-        }
-        $result = [
-            'status' => $this->authorize_status,
-            'upload_operation_id' => $this->op,
-            'storage_path' => $this->path,
-            'upload_intent' => 'intent.jwt.fake',
-        ];
-        if ($this->authorize_status === 'pending_upload') {
-            $result['signed_url'] = 'https://example.supabase.co/storage/v1/object/upload/sign/expediente-adjuntos/' . $this->path . '?token=secret';
-        }
-        return ['ok' => true, 'result' => $result];
-    }
-
-    public function finalize(string $upload_intent): array {
-        $this->calls[] = 'finalize';
-        if ($this->finalize_fail !== null) {
-            return $this->finalize_fail;
-        }
-        if ($this->finalize_override !== null) {
-            return ['ok' => true, 'result' => $this->finalize_override];
-        }
-        return [
-            'ok' => true,
-            'result' => [
-                'storage_path' => $this->path,
-                'upload_operation_id' => $this->op,
-                'installation_id' => $this->installation_id,
-                'mime_type' => 'image/jpeg',
-                'byte_size' => 0, // filled by test runner
-                'width' => 0,
-                'height' => 0,
-            ],
-        ];
-    }
-}
-
-final class FakeSignedUploader {
-    public $calls = [];
-    public $fail = null;
-
-    public function put_jpeg(string $signed_url, string $binary, string $expected_storage_path): array {
-        $this->calls[] = 'put';
+    public function transfer(array $input): array {
+        $this->calls[] = 'transfer';
+        $this->inputs[] = $input;
         if ($this->fail !== null) {
             return $this->fail;
         }
-        return ['ok' => true];
+        return [
+            'ok' => true,
+            'storage_path' => $this->storage_path,
+            'finalize' => $this->finalize,
+        ];
     }
 }
 
@@ -211,13 +182,13 @@ function aa_uc_jpeg(int $w = 40, int $h = 30): string {
     return $path;
 }
 
-function aa_run_uc(FakeAttachmentsBackend $backend, FakeSignedUploader $uploader, string $path, string $op): array {
+function aa_run_uc(FakeAdjuntoUploadTransfer $transfer, string $path, string $op): array {
     $size = (int) filesize($path);
     $info = getimagesize($path);
-    $backend->finalize_override = [
-        'storage_path' => $backend->path,
+    $transfer->finalize = [
+        'storage_path' => $transfer->storage_path,
         'upload_operation_id' => $op,
-        'installation_id' => $backend->installation_id,
+        'installation_id' => $transfer->installation_id,
         'mime_type' => 'image/jpeg',
         'byte_size' => $size,
         'width' => (int) $info[0],
@@ -227,7 +198,7 @@ function aa_run_uc(FakeAttachmentsBackend $backend, FakeSignedUploader $uploader
     $validator = new ExpedienteAdjuntoJpegValidator(static function ($tmp) use ($path) {
         return $tmp === $path;
     });
-    $uc = new UploadExpedienteRegistroAdjuntoUseCase($validator, $backend, $uploader);
+    $uc = new UploadExpedienteRegistroAdjuntoUseCase($validator, $transfer);
     return $uc->execute([
         'client_id' => 7,
         'record_id' => 11,
@@ -244,90 +215,136 @@ function aa_run_uc(FakeAttachmentsBackend $backend, FakeSignedUploader $uploader
 
 $op = '22222222-2222-4222-8222-222222222222';
 
-// Happy path pending_upload
+ExpedienteAdjuntosRepository::$inserts = [];
+ExpedienteAdjuntosRepository::$sum_bytes = 0;
+ExpedienteAdjuntosRepository::$error = null;
+$path = aa_uc_jpeg();
+$size = (int) filesize($path);
+$info = getimagesize($path);
+$transfer = new FakeAdjuntoUploadTransfer();
+$transfer->op = $op;
+$transfer->storage_path = 'installations/' . $transfer->installation_id . '/clients/7/records/11/' . $op . '.jpg';
+$res = aa_run_uc($transfer, $path, $op);
+ac_assert('happy path ok', !empty($res['ok']), json_encode($res));
+ac_assert('llama transfer una vez', $transfer->calls === ['transfer']);
+ac_assert('insert una vez', count(ExpedienteAdjuntosRepository::$inserts) === 1);
+ac_assert(
+    'input exacto al transfer',
+    ($transfer->inputs[0] ?? null) === [
+        'source_path' => $path,
+        'mime_type' => 'image/jpeg',
+        'byte_size' => $size,
+        'width' => (int) $info[0],
+        'height' => (int) $info[1],
+        'upload_operation_id' => $op,
+        'wp_client_id' => 7,
+        'wp_record_id' => 11,
+        'used_bytes' => 0,
+    ]
+);
+ac_assert(
+    'DTO público idéntico',
+    ($res['attachment'] ?? null) === [
+        'id' => 99,
+        'record_id' => 11,
+        'client_id' => 7,
+        'upload_operation_id' => $op,
+        'storage_path' => $transfer->storage_path,
+        'mime_type' => 'image/jpeg',
+        'byte_size' => $size,
+        'width' => (int) $info[0],
+        'height' => (int) $info[1],
+        'created_at' => '2026-07-30 19:00:00',
+    ]
+);
+ac_assert('tmp original limpiado', !is_file($path));
+
 ExpedienteAdjuntosRepository::$inserts = [];
 ExpedienteAdjuntosRepository::$sum_bytes = 0;
 $path = aa_uc_jpeg();
-$backend = new FakeAttachmentsBackend();
-$uploader = new FakeSignedUploader();
-$backend->op = $op;
-$backend->path = 'installations/' . $backend->installation_id . '/clients/7/records/11/' . $op . '.jpg';
-$res = aa_run_uc($backend, $uploader, $path, $op);
-ac_assert('happy path ok', !empty($res['ok']), json_encode($res));
-ac_assert('orden authorize→put→finalize', $backend->calls === ['authorize', 'finalize'] && $uploader->calls === ['put']);
-ac_assert('insert una vez', count(ExpedienteAdjuntosRepository::$inserts) === 1);
-ac_assert('envía used_bytes en authorize', ($backend->authorize_inputs[0]['used_bytes'] ?? null) === 0);
-ac_assert('tmp limpiado', !is_file($path));
+$transfer = new FakeAdjuntoUploadTransfer();
+$validator = new ExpedienteAdjuntoJpegValidator(static function () {
+    return false;
+});
+$uc = new UploadExpedienteRegistroAdjuntoUseCase($validator, $transfer);
+$res = $uc->execute([
+    'client_id' => 7,
+    'record_id' => 11,
+    'upload_operation_id' => $op,
+    'file' => [
+        'error' => UPLOAD_ERR_OK,
+        'tmp_name' => $path,
+        'name' => 'a.jpg',
+        'type' => 'image/jpeg',
+        'size' => filesize($path),
+    ],
+]);
+ac_assert('validación fallida cero transfer', $transfer->calls === [] && empty($res['ok']));
+ac_assert('validación fallida cero insert', count(ExpedienteAdjuntosRepository::$inserts) === 0);
+@unlink($path);
 
-// sum null → fallo cerrado local sin authorize
 ExpedienteAdjuntosRepository::$inserts = [];
 ExpedienteAdjuntosRepository::$sum_bytes = null;
 $path = aa_uc_jpeg();
-$backend = new FakeAttachmentsBackend();
-$uploader = new FakeSignedUploader();
-$backend->op = $op;
-$backend->path = 'installations/' . $backend->installation_id . '/clients/7/records/11/' . $op . '.jpg';
-$res = aa_run_uc($backend, $uploader, $path, $op);
+$transfer = new FakeAdjuntoUploadTransfer();
+$transfer->op = $op;
+$transfer->storage_path = 'installations/' . $transfer->installation_id . '/clients/7/records/11/' . $op . '.jpg';
+$res = aa_run_uc($transfer, $path, $op);
 ac_assert('sum null → storage_usage_unavailable', empty($res['ok']) && ($res['code'] ?? '') === 'storage_usage_unavailable');
-ac_assert('sum null no llama authorize', $backend->calls === []);
+ac_assert('usage report no disponible cero transfer', $transfer->calls === []);
 ac_assert('sum null no inserta', count(ExpedienteAdjuntosRepository::$inserts) === 0);
 ExpedienteAdjuntosRepository::$sum_bytes = 0;
 
-// storage_quota_exceeded se propaga sin insert
 ExpedienteAdjuntosRepository::$inserts = [];
 $path = aa_uc_jpeg();
-$backend = new FakeAttachmentsBackend();
-$uploader = new FakeSignedUploader();
-$backend->authorize_fail = ['ok' => false, 'code' => 'storage_quota_exceeded'];
-$backend->op = $op;
-$backend->path = 'installations/' . $backend->installation_id . '/clients/7/records/11/' . $op . '.jpg';
-$res = aa_run_uc($backend, $uploader, $path, $op);
+$transfer = new FakeAdjuntoUploadTransfer();
+$transfer->fail = [
+    'ok' => false,
+    'code' => 'storage_quota_exceeded',
+    'message' => 'backend copy must not leak',
+];
+$transfer->op = $op;
+$transfer->storage_path = 'installations/' . $transfer->installation_id . '/clients/7/records/11/' . $op . '.jpg';
+$res = aa_run_uc($transfer, $path, $op);
 ac_assert(
-    'storage_quota_exceeded se propaga',
+    'storage_quota_exceeded comercial sin insert',
     empty($res['ok'])
     && ($res['code'] ?? '') === 'storage_quota_exceeded'
+    && ($res['message'] ?? '') === 'No queda espacio de almacenamiento. Elimina alguna imagen para liberar espacio.'
     && count(ExpedienteAdjuntosRepository::$inserts) === 0
 );
-ac_assert('quota no hace PUT', $uploader->calls === []);
+ac_assert('fallo transfer no inserta', $transfer->calls === ['transfer']);
 
-// already_uploaded: sin PUT
 ExpedienteAdjuntosRepository::$inserts = [];
 $path = aa_uc_jpeg();
-$backend = new FakeAttachmentsBackend();
-$uploader = new FakeSignedUploader();
-$backend->op = $op;
-$backend->authorize_status = 'already_uploaded';
-$backend->path = 'installations/' . $backend->installation_id . '/clients/7/records/11/' . $op . '.jpg';
-$res = aa_run_uc($backend, $uploader, $path, $op);
-ac_assert('already_uploaded ok', !empty($res['ok']));
-ac_assert('sin PUT en retry', $uploader->calls === [] && $backend->calls === ['authorize', 'finalize']);
-@unlink($path);
+$transfer = new FakeAdjuntoUploadTransfer();
+$transfer->fail = [
+    'ok' => false,
+    'code' => 'variant_generation_failed',
+    'message' => 'No se pudieron generar las variantes.',
+];
+$transfer->op = $op;
+$transfer->storage_path = 'installations/' . $transfer->installation_id . '/clients/7/records/11/' . $op . '.jpg';
+$res = aa_run_uc($transfer, $path, $op);
+ac_assert(
+    'mensaje seguro del transfer',
+    empty($res['ok'])
+    && ($res['code'] ?? '') === 'variant_generation_failed'
+    && ($res['message'] ?? '') === 'No se pudieron generar las variantes.'
+    && count(ExpedienteAdjuntosRepository::$inserts) === 0
+);
 
-// PUT fail → sin insert
-ExpedienteAdjuntosRepository::$inserts = [];
-$path = aa_uc_jpeg();
-$backend = new FakeAttachmentsBackend();
-$uploader = new FakeSignedUploader();
-$uploader->fail = ['ok' => false, 'code' => 'upload_failed'];
-$backend->op = $op;
-$backend->path = 'installations/' . $backend->installation_id . '/clients/7/records/11/' . $op . '.jpg';
-$res = aa_run_uc($backend, $uploader, $path, $op);
-ac_assert('PUT fail no inserta', empty($res['ok']) && count(ExpedienteAdjuntosRepository::$inserts) === 0);
-ac_assert('no finalize tras PUT fail', $backend->calls === ['authorize']);
-
-// finalize mismatch → sin insert
 ExpedienteAdjuntosRepository::$inserts = [];
 $path = aa_uc_jpeg();
 $size = (int) filesize($path);
 $info = getimagesize($path);
-$backend = new FakeAttachmentsBackend();
-$uploader = new FakeSignedUploader();
-$backend->op = $op;
-$backend->path = 'installations/' . $backend->installation_id . '/clients/7/records/11/' . $op . '.jpg';
-$backend->finalize_override = [
-    'storage_path' => $backend->path,
+$transfer = new FakeAdjuntoUploadTransfer();
+$transfer->op = $op;
+$transfer->storage_path = 'installations/' . $transfer->installation_id . '/clients/7/records/11/' . $op . '.jpg';
+$transfer->finalize = [
+    'storage_path' => $transfer->storage_path,
     'upload_operation_id' => $op,
-    'installation_id' => $backend->installation_id,
+    'installation_id' => $transfer->installation_id,
     'mime_type' => 'image/jpeg',
     'byte_size' => $size + 1,
     'width' => (int) $info[0],
@@ -336,7 +353,7 @@ $backend->finalize_override = [
 $validator = new ExpedienteAdjuntoJpegValidator(static function ($tmp) use ($path) {
     return $tmp === $path;
 });
-$uc = new UploadExpedienteRegistroAdjuntoUseCase($validator, $backend, $uploader);
+$uc = new UploadExpedienteRegistroAdjuntoUseCase($validator, $transfer);
 $res = $uc->execute([
     'client_id' => 7,
     'record_id' => 11,
@@ -349,17 +366,33 @@ $res = $uc->execute([
         'size' => $size,
     ],
 ]);
-ac_assert('finalize mismatch no inserta', empty($res['ok']) && ($res['code'] ?? '') === 'finalize_mismatch'
-    && count(ExpedienteAdjuntosRepository::$inserts) === 0);
+ac_assert(
+    'finalize mismatch no inserta',
+    empty($res['ok'])
+    && ($res['code'] ?? '') === 'finalize_mismatch'
+    && count(ExpedienteAdjuntosRepository::$inserts) === 0
+    && $transfer->calls === ['transfer']
+);
 
-// ownership fail
+ExpedienteAdjuntosRepository::$inserts = [];
+ExpedienteAdjuntosRepository::$error = new WP_Error('persist_failed', 'db');
 $path = aa_uc_jpeg();
-$backend = new FakeAttachmentsBackend();
-$uploader = new FakeSignedUploader();
+$transfer = new FakeAdjuntoUploadTransfer();
+$transfer->op = $op;
+$transfer->storage_path = 'installations/' . $transfer->installation_id . '/clients/7/records/11/' . $op . '.jpg';
+$res = aa_run_uc($transfer, $path, $op);
+ac_assert(
+    'fallo del repositorio',
+    empty($res['ok']) && ($res['code'] ?? '') === 'persist_failed'
+);
+ExpedienteAdjuntosRepository::$error = null;
+
+$path = aa_uc_jpeg();
+$transfer = new FakeAdjuntoUploadTransfer();
 $validator = new ExpedienteAdjuntoJpegValidator(static function () {
     return true;
 });
-$uc = new UploadExpedienteRegistroAdjuntoUseCase($validator, $backend, $uploader);
+$uc = new UploadExpedienteRegistroAdjuntoUseCase($validator, $transfer);
 $res = $uc->execute([
     'client_id' => 7,
     'record_id' => 999,
@@ -372,8 +405,10 @@ $res = $uc->execute([
         'size' => filesize($path),
     ],
 ]);
-ac_assert('record_id ajeno falla antes de authorize', empty($res['ok']) && ($res['code'] ?? '') === 'record_not_found'
-    && $backend->calls === []);
+ac_assert(
+    'record_id ajeno falla antes de transfer',
+    empty($res['ok']) && ($res['code'] ?? '') === 'record_not_found' && $transfer->calls === []
+);
 @unlink($path);
 
 echo "\n";

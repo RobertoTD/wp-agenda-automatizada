@@ -204,6 +204,7 @@ final class ExpedienteAdjuntosAjax {
                 return 502;
             case 'local_delete_failed':
             case 'storage_usage_unavailable':
+            case 'variant_generation_failed':
                 return 500;
             default:
                 return 400;

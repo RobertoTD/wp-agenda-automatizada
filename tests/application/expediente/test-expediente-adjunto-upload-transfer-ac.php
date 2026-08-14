@@ -60,8 +60,8 @@ ac_assert(
     is_string($src) && strpos($src, 'AA_Expediente_Adjunto_Variant_Generator::delete_generated') === false
 );
 ac_assert('usa puerto delete_generated', is_string($src) && strpos($src, 'generator->delete_generated') !== false);
-ac_assert('bootstrap no menciona Transfer', is_string($bootstrap) && strpos($bootstrap, 'ExpedienteAdjuntoUploadTransfer') === false);
-ac_assert('use case no menciona Transfer', is_string($use_case_src) && strpos($use_case_src, 'ExpedienteAdjuntoUploadTransfer') === false);
+ac_assert('bootstrap carga Transfer', is_string($bootstrap) && strpos($bootstrap, 'ExpedienteAdjuntoUploadTransfer') !== false);
+ac_assert('use case menciona Transfer', is_string($use_case_src) && strpos($use_case_src, 'ExpedienteAdjuntoUploadTransfer') !== false);
 ac_assert('AJAX no menciona Transfer', is_string($ajax_src) && strpos($ajax_src, 'ExpedienteAdjuntoUploadTransfer') === false);
 
 final class FakeTransferGenerator {
