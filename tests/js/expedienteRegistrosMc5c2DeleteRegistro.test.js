@@ -265,17 +265,19 @@ describe('expediente MC5c2 — eliminación de registro completo', () => {
         );
     });
 
-    it('botón Eliminar junto a Editar en acciones', () => {
+    it('botón Eliminar junto a Editar en el menú de opciones', () => {
         const ctx = makeSandbox();
         const root = mount(ctx, [baseRecord({ adjuntos: [DTO_A] })]);
         ctx.api.renderRecordsList();
-        const actions = findFirst(root, '.aa-expediente-registro-actions');
-        assert.ok(actions);
-        const buttons = actions.children.filter((c) => c.tagName === 'BUTTON');
+        const menu = findFirst(root, '.aa-expediente-registro-options-menu');
+        assert.ok(menu);
+        const buttons = menu.children.filter((c) => c.tagName === 'BUTTON');
         assert.equal(buttons.length, 2);
         assert.equal(buttons[0].textContent, 'Editar');
         assert.equal(buttons[1].textContent, 'Eliminar');
         assert.ok(buttons[1].className.includes('aa-expediente-btn-eliminar'));
+        assert.equal(buttons[0].getAttribute('role'), 'menuitem');
+        assert.equal(buttons[1].getAttribute('role'), 'menuitem');
     });
 
     it('modal abierto bloquea confirmación y Ajax', () => {

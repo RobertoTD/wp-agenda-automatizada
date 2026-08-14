@@ -280,7 +280,7 @@ describe('expediente MC5b — minigalería y visor', () => {
         assert.ok(findFirst(ctx.modalRoot, '.aa-expediente-adjunto-viewer'));
     });
 
-    it('N imágenes: galería entre body y actions, selección inicial adjuntos[0], contador y aria', () => {
+    it('N imágenes: galería debajo del cuerpo, selección inicial adjuntos[0], contador y aria', () => {
         const ctx = makeSandbox();
         const root = mount(ctx, [baseRecord({ adjuntos: [DTO_C, DTO_B, DTO_A] })]);
         ctx.api.renderRecordsList();
@@ -289,9 +289,8 @@ describe('expediente MC5b — minigalería y visor', () => {
         const classesInOrder = panel.children.map((c) => String(c.className).split(/\s+/)[0]);
         assert.deepEqual(classesInOrder, [
             'aa-expediente-registro-body',
-            'aa-expediente-galeria',
-            'aa-expediente-registro-actions'
-        ], 'galería entre body y actions');
+            'aa-expediente-galeria'
+        ], 'galería debajo del cuerpo; acciones en el menú del header');
 
         const gallery = findFirst(panel, '.aa-expediente-galeria');
         const main = findFirst(gallery, '.aa-expediente-galeria-main');

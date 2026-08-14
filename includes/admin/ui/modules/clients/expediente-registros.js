@@ -404,6 +404,9 @@
         loading: false
     };
 
+    var registroOptionsUiBound = false;
+    var openRegistroOptionsId = '';
+
     /**
      * Controlador de miniaturas (MC4c/MC5b). Todo vive solo en memoria.
      * Claves de cache/requests: "<client_id>:<record_id>:<adjunto.id>".
@@ -1187,6 +1190,7 @@
      * solo si el modal compartido contiene el marcador de esta instancia.
      */
     function destroy() {
+        unbindRegistroOptionsUi();
         closeOwnViewerModal();
 
         thumbs.viewEpoch += 1;
@@ -1698,14 +1702,14 @@
         if (!details || !isNodeConnected(details)) {
             return;
         }
-        var actions = details.querySelector('.aa-expediente-registro-actions');
+        var panel = details.querySelector('.aa-expediente-registro-panel');
         var err = details.querySelector('.aa-expediente-registro-delete-error');
         if (!err) {
             err = document.createElement('p');
             err.className = 'aa-expediente-registro-delete-error';
             err.setAttribute('role', 'alert');
-            if (actions && actions.parentNode) {
-                actions.parentNode.insertBefore(err, actions.nextSibling);
+            if (panel) {
+                panel.appendChild(err);
             } else {
                 details.appendChild(err);
             }
@@ -1865,6 +1869,214 @@
 
     // ── Fin minigalería y visor MC5b ────────────────────────────────
 
+    function getRegistroOptionsPlacement() {
+        return typeof window !== 'undefined' ? window.AAExecutableOptionsMenuPlacement : null;
+    }
+
+    function resetRegistroOptionsPlacement(menu) {
+        var placement = getRegistroOptionsPlacement();
+        if (placement && typeof placement.resetOptionsMenuPlacement === 'function') {
+            placement.resetOptionsMenuPlacement(menu);
+            return;
+        }
+        if (!menu || !menu.style) {
+            return;
+        }
+        menu.style.position = '';
+        menu.style.top = '';
+        menu.style.left = '';
+        menu.style.right = '';
+        menu.style.zIndex = '';
+    }
+
+    function setRegistroOptionsVisible(menu, visible) {
+        if (!menu || !menu.classList) {
+            return;
+        }
+        if (visible) {
+            menu.classList.remove('hidden');
+        } else {
+            menu.classList.add('hidden');
+        }
+    }
+
+    function queryRegistroOptions(selector) {
+        var root = state.recordsRoot;
+        if (root && typeof root.querySelectorAll === 'function') {
+            return root.querySelectorAll(selector);
+        }
+        if (typeof document !== 'undefined' && typeof document.querySelectorAll === 'function') {
+            return document.querySelectorAll(selector);
+        }
+        return [];
+    }
+
+    function closeAllRegistroOptionsMenus() {
+        queryRegistroOptions('.aa-expediente-registro-options-menu').forEach(function (menu) {
+            resetRegistroOptionsPlacement(menu);
+            setRegistroOptionsVisible(menu, false);
+        });
+        queryRegistroOptions('.aa-expediente-registro-options-trigger').forEach(function (trigger) {
+            trigger.setAttribute('aria-expanded', 'false');
+        });
+        openRegistroOptionsId = '';
+    }
+
+    function positionRegistroOptionsMenu(menu, trigger) {
+        var placement = getRegistroOptionsPlacement();
+        if (!menu || !trigger || !placement || typeof placement.positionOptionsMenu !== 'function') {
+            return;
+        }
+        placement.positionOptionsMenu(menu, trigger);
+    }
+
+    function openRegistroOptionsMenu(recordId, trigger, menu) {
+        if (!menu) {
+            return;
+        }
+        closeAllRegistroOptionsMenus();
+        setRegistroOptionsVisible(menu, true);
+        positionRegistroOptionsMenu(menu, trigger);
+        if (trigger) {
+            trigger.setAttribute('aria-expanded', 'true');
+        }
+        openRegistroOptionsId = String(recordId);
+    }
+
+    function toggleRegistroOptionsMenu(recordId, trigger, menu) {
+        if (openRegistroOptionsId === String(recordId)) {
+            closeAllRegistroOptionsMenus();
+            return;
+        }
+        openRegistroOptionsMenu(recordId, trigger, menu);
+    }
+
+    function isInsideRegistroOptions(target) {
+        return !!(target && target.closest && target.closest('.aa-expediente-registro-options'));
+    }
+
+    function handleRegistroOptionsDocumentClick(event) {
+        var target = event && event.target;
+        if (openRegistroOptionsId !== '' && !isInsideRegistroOptions(target)) {
+            closeAllRegistroOptionsMenus();
+        }
+    }
+
+    function handleRegistroOptionsKeydown(event) {
+        if (!event || event.key !== 'Escape' || openRegistroOptionsId === '') {
+            return;
+        }
+        closeAllRegistroOptionsMenus();
+    }
+
+    function handleRegistroOptionsToggle(event) {
+        var details = event && event.target;
+        if (!details || !details.classList || !details.classList.contains('aa-expediente-registro')) {
+            return;
+        }
+        closeAllRegistroOptionsMenus();
+    }
+
+    function handleRegistroOptionsViewportChange() {
+        if (openRegistroOptionsId !== '') {
+            closeAllRegistroOptionsMenus();
+        }
+    }
+
+    function bindRegistroOptionsUi() {
+        if (registroOptionsUiBound || typeof document === 'undefined' || !document.addEventListener) {
+            return;
+        }
+        registroOptionsUiBound = true;
+        document.addEventListener('click', handleRegistroOptionsDocumentClick);
+        document.addEventListener('keydown', handleRegistroOptionsKeydown);
+        document.addEventListener('toggle', handleRegistroOptionsToggle, true);
+        if (typeof window !== 'undefined' && window.addEventListener) {
+            window.addEventListener('scroll', handleRegistroOptionsViewportChange, true);
+            window.addEventListener('resize', handleRegistroOptionsViewportChange);
+        }
+    }
+
+    function unbindRegistroOptionsUi() {
+        if (!registroOptionsUiBound || typeof document === 'undefined' || !document.removeEventListener) {
+            return;
+        }
+        document.removeEventListener('click', handleRegistroOptionsDocumentClick);
+        document.removeEventListener('keydown', handleRegistroOptionsKeydown);
+        document.removeEventListener('toggle', handleRegistroOptionsToggle, true);
+        if (typeof window !== 'undefined' && window.removeEventListener) {
+            window.removeEventListener('scroll', handleRegistroOptionsViewportChange, true);
+            window.removeEventListener('resize', handleRegistroOptionsViewportChange);
+        }
+        registroOptionsUiBound = false;
+        closeAllRegistroOptionsMenus();
+    }
+
+    function createRegistroOptions(record) {
+        var recordId = String(record.id);
+        var wrap = document.createElement('div');
+        wrap.className = 'relative aa-expediente-registro-options shrink-0';
+
+        var trigger = document.createElement('button');
+        trigger.type = 'button';
+        trigger.className = 'aa-expediente-registro-options-trigger aa-options-trigger-flat';
+        trigger.setAttribute('data-aa-registro-options-trigger', '1');
+        trigger.setAttribute('data-registro-id', recordId);
+        trigger.setAttribute('title', 'Opciones de registro');
+        trigger.setAttribute('aria-label', 'Opciones de registro');
+        trigger.setAttribute('aria-haspopup', 'menu');
+        trigger.setAttribute('aria-expanded', 'false');
+        trigger.innerHTML = ''
+            + '<svg class="w-6 h-6 shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">'
+            + '<circle cx="5" cy="12" r="1.75"/>'
+            + '<circle cx="12" cy="12" r="1.75"/>'
+            + '<circle cx="19" cy="12" r="1.75"/>'
+            + '</svg>';
+
+        var menu = document.createElement('div');
+        menu.className = 'hidden aa-expediente-registro-options-menu absolute right-0 top-full z-20 mt-2 min-w-[12rem] rounded-lg border border-gray-200 bg-white py-1 shadow-lg';
+        menu.setAttribute('role', 'menu');
+        menu.setAttribute('data-registro-id', recordId);
+
+        var editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'aa-expediente-btn-editar flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50';
+        editBtn.setAttribute('role', 'menuitem');
+        editBtn.setAttribute('data-registro-id', recordId);
+        editBtn.textContent = 'Editar';
+        editBtn.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            closeAllRegistroOptionsMenus();
+            openEditForm(record.id, editBtn);
+        });
+
+        var deleteRecordBtn = document.createElement('button');
+        deleteRecordBtn.type = 'button';
+        deleteRecordBtn.className = 'aa-expediente-btn-eliminar flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-50';
+        deleteRecordBtn.setAttribute('role', 'menuitem');
+        deleteRecordBtn.setAttribute('data-registro-id', recordId);
+        deleteRecordBtn.textContent = 'Eliminar';
+        deleteRecordBtn.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            closeAllRegistroOptionsMenus();
+            confirmAndDeleteRegistro(record.id, deleteRecordBtn);
+        });
+
+        trigger.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            toggleRegistroOptionsMenu(recordId, trigger, menu);
+        });
+
+        menu.appendChild(editBtn);
+        menu.appendChild(deleteRecordBtn);
+        wrap.appendChild(trigger);
+        wrap.appendChild(menu);
+        return wrap;
+    }
+
     /**
      * @param {object} record
      * @param {{open?: boolean}} [options]
@@ -1920,6 +2132,7 @@
         summaryMain.appendChild(titleSpan);
         summaryMain.appendChild(meta);
         summary.appendChild(summaryMain);
+        summary.appendChild(createRegistroOptions(record));
 
         var panel = document.createElement('div');
         panel.className = 'aa-expediente-registro-panel';
@@ -1927,31 +2140,6 @@
         var body = document.createElement('div');
         body.className = 'aa-expediente-registro-body';
         body.textContent = record.body || '';
-
-        var actions = document.createElement('div');
-        actions.className = 'aa-expediente-registro-actions';
-
-        var editBtn = document.createElement('button');
-        editBtn.type = 'button';
-        editBtn.className = 'aa-expediente-btn-editar';
-        editBtn.setAttribute('data-registro-id', String(record.id));
-        editBtn.textContent = 'Editar';
-        editBtn.addEventListener('click', function (event) {
-            event.preventDefault();
-            openEditForm(record.id, editBtn);
-        });
-        actions.appendChild(editBtn);
-
-        var deleteRecordBtn = document.createElement('button');
-        deleteRecordBtn.type = 'button';
-        deleteRecordBtn.className = 'aa-expediente-btn-eliminar';
-        deleteRecordBtn.setAttribute('data-registro-id', String(record.id));
-        deleteRecordBtn.textContent = 'Eliminar';
-        deleteRecordBtn.addEventListener('click', function (event) {
-            event.preventDefault();
-            confirmAndDeleteRegistro(record.id, deleteRecordBtn);
-        });
-        actions.appendChild(deleteRecordBtn);
 
         var thumbEntries = [];
         if (thumbBox) {
@@ -1966,13 +2154,10 @@
 
         panel.appendChild(body);
 
-        // MC5b: minigalería entre body y actions; sin imágenes no hay galería.
         var gallery = buildRecordGallery(record, thumbEntries, details);
         if (gallery) {
             panel.appendChild(gallery);
         }
-
-        panel.appendChild(actions);
 
         details.appendChild(summary);
         details.appendChild(panel);
@@ -3004,6 +3189,7 @@
         state.actionsRoot = options.actionsRoot || null;
         state.records = [];
 
+        bindRegistroOptionsUi();
         loadRecords();
     }
 

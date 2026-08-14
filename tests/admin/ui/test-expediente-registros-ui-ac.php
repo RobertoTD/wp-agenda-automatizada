@@ -51,7 +51,7 @@ ac_assert('textContent no innerHTML para datos', strpos($js, 'titleSpan.textCont
 ac_assert('prependRecord con expandId', strpos($js, 'function prependRecord') !== false && strpos($js, 'expandId') !== false);
 ac_assert('folio Folio #', strpos($js, "'Folio #'") !== false || strpos($js, '"Folio #"') !== false);
 ac_assert('crea time con datetime', strpos($js, "createElement('time')") !== false && strpos($js, 'datetime') !== false);
-ac_assert('slot acciones con Editar y Eliminar', strpos($js, 'aa-expediente-registro-actions') !== false
+ac_assert('menú opciones con Editar y Eliminar', strpos($js, 'aa-expediente-registro-options-menu') !== false
     && strpos($js, 'aa-expediente-btn-editar') !== false
     && strpos($js, 'aa-expediente-btn-eliminar') !== false
     && strpos($js, "textContent = 'Eliminar'") !== false);
@@ -67,8 +67,8 @@ ac_assert('clients-module no define listRegistros fetch propio', strpos($module,
 ac_assert('index script condicional vista expediente', preg_match('/if \(\$aa_clients_is_expediente\).*expediente-registros\.js/s', $index) === 1);
 ac_assert('CSS details registro', strpos($css, 'aa-expediente-registro') !== false);
 ac_assert('CSS sin botón legacy nuevo registro', strpos($css, 'aa-expediente-nuevo-registro-btn') === false);
-ac_assert('CSS folio y actions:empty', strpos($css, 'aa-expediente-registro-folio') !== false && strpos($css, 'aa-expediente-registro-actions:empty') !== false);
-ac_assert('CSS botón editar', strpos($css, 'aa-expediente-btn-editar') !== false);
+ac_assert('CSS folio y menú solo expandido', strpos($css, 'aa-expediente-registro-folio') !== false
+    && strpos($css, 'details.aa-expediente-registro:not([open]) .aa-expediente-registro-options') !== false);
 ac_assert('CSS botón eliminar (MC5c2)', strpos($css, 'aa-expediente-btn-eliminar') !== false);
 ac_assert('CSS summary sin chevron ::after', strpos($css, '.aa-expediente-registro-summary::after') === false);
 ac_assert('CSS open summary border', strpos($css, '.aa-expediente-registro[open]') !== false);
@@ -117,6 +117,9 @@ if (!function_exists('plugin_dir_url')) {
 if (!defined('AA_PLUGIN_VERSION')) {
     define('AA_PLUGIN_VERSION', 'test');
 }
+if (!defined('AA_PLUGIN_URL')) {
+    define('AA_PLUGIN_URL', 'https://example.test/plugins/wp-agenda-automatizada/');
+}
 if (!class_exists('ClientsAjax')) {
     class ClientsAjax {
         public const ACTION_GET_CLIENTE = 'aa_get_cliente';
@@ -152,6 +155,7 @@ ob_start();
 include $plugin_root . '/includes/admin/ui/modules/clients/index.php';
 $exp_html = ob_get_clean();
 ac_assert('vista expediente carga js', strpos($exp_html, 'expediente-registros.js') !== false);
+ac_assert('vista expediente carga placement de menú', strpos($exp_html, 'executable-options-menu-placement.js') !== false);
 ac_assert('vista expediente emite listRegistros', strpos($exp_html, 'listRegistros') !== false);
 ac_assert('vista expediente emite createRegistro', strpos($exp_html, 'createRegistro') !== false);
 ac_assert('vista expediente emite updateRegistro', strpos($exp_html, 'updateRegistro') !== false);

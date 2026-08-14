@@ -71,7 +71,7 @@
             + ' aria-haspopup="menu"'
             + ' aria-expanded="false"'
             + ' class="aa-assignment-item-options-trigger aa-options-trigger-flat">'
-            + '<svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">'
+            + '<svg class="w-6 h-6 shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">'
             + '<circle cx="5" cy="12" r="1.75"/>'
             + '<circle cx="12" cy="12" r="1.75"/>'
             + '<circle cx="19" cy="12" r="1.75"/>'

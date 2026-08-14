@@ -175,6 +175,9 @@ if (!function_exists('plugin_dir_url')) {
 if (!defined('AA_PLUGIN_VERSION')) {
     define('AA_PLUGIN_VERSION', 'test');
 }
+if (!defined('AA_PLUGIN_URL')) {
+    define('AA_PLUGIN_URL', 'https://example.test/wp-content/plugins/wp-agenda-automatizada/');
+}
 if (!class_exists('ClientsAjax')) {
     class ClientsAjax {
         public const ACTION_GET_CLIENTE = 'aa_get_cliente';

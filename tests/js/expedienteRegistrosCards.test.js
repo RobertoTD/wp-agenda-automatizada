@@ -200,8 +200,11 @@ describe('expediente-registros cards (MC2b/MC3)', () => {
         const folio = details.querySelector('.aa-expediente-registro-folio');
         const timeEl = details.querySelector('time');
         const body = details.querySelector('.aa-expediente-registro-body');
-        const actions = details.querySelector('.aa-expediente-registro-actions');
+        const options = details.querySelector('.aa-expediente-registro-options');
+        const trigger = details.querySelector('.aa-expediente-registro-options-trigger');
+        const menu = details.querySelector('.aa-expediente-registro-options-menu');
         const editBtn = details.querySelector('.aa-expediente-btn-editar');
+        const summary = details.querySelector('.aa-expediente-registro-summary');
 
         assert.equal(title.textContent, 'Consulta');
         assert.equal(folio.textContent, 'Folio #12');
@@ -209,17 +212,25 @@ describe('expediente-registros cards (MC2b/MC3)', () => {
         assert.equal(timeEl.getAttribute('datetime'), '2026-07-30T09:30:00');
         assert.equal(timeEl.textContent, '30/07/2026 09:30');
         assert.equal(body.textContent, 'Línea 1\nLínea 2');
-        assert.ok(actions);
-        assert.equal(actions.children.length, 2);
+        assert.ok(options);
+        assert.equal(options.parentNode, summary);
+        assert.ok(trigger);
+        assert.equal(trigger.getAttribute('aria-label'), 'Opciones de registro');
+        assert.equal(trigger.getAttribute('aria-haspopup'), 'menu');
+        assert.ok(menu);
+        assert.equal(menu.getAttribute('role'), 'menu');
         assert.ok(editBtn);
         assert.equal(editBtn.textContent, 'Editar');
+        assert.equal(editBtn.getAttribute('role'), 'menuitem');
         assert.equal(editBtn.getAttribute('data-registro-id'), '12');
         assert.equal(editBtn.type, 'button');
         const deleteBtn = details.querySelector('.aa-expediente-btn-eliminar');
         assert.ok(deleteBtn);
         assert.equal(deleteBtn.textContent, 'Eliminar');
+        assert.equal(deleteBtn.getAttribute('role'), 'menuitem');
         assert.equal(deleteBtn.getAttribute('data-registro-id'), '12');
         assert.equal(deleteBtn.type, 'button');
+        assert.equal(details.querySelector('.aa-expediente-registro-actions'), null);
         assert.equal(details.open, false);
     });
 
@@ -336,7 +347,7 @@ describe('expediente-registros cards (MC2b/MC3)', () => {
         assert.match(moduleSrc, /expandId/);
         assert.match(moduleSrc, /Folio #/);
         assert.match(moduleSrc, /createElement\('time'\)/);
-        assert.match(moduleSrc, /aa-expediente-registro-actions/);
+        assert.match(moduleSrc, /aa-expediente-registro-options-menu/);
         assert.match(moduleSrc, /aa-expediente-btn-editar/);
         assert.match(moduleSrc, /function replaceRecord/);
         assert.match(moduleSrc, /updateRegistro/);
@@ -344,5 +355,13 @@ describe('expediente-registros cards (MC2b/MC3)', () => {
         assert.match(moduleSrc, /body\.textContent/);
         assert.doesNotMatch(moduleSrc, /titleSpan\.innerHTML|folioSpan\.innerHTML|body\.innerHTML\s*=/);
         assert.doesNotMatch(moduleSrc, /Editado el/);
+    });
+
+    it('CSS oculta el menú de opciones cuando el registro está colapsado', () => {
+        const css = fs.readFileSync(
+            path.join(__dirname, '../../includes/admin/ui/assets/css/admin.source.css'),
+            'utf8'
+        );
+        assert.match(css, /details\.aa-expediente-registro:not\(\[open\]\) \.aa-expediente-registro-options/);
     });
 });

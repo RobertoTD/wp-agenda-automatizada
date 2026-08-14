@@ -135,7 +135,9 @@ $client_card_longpress_js = plugin_dir_url(__FILE__) . 'client-card-longpress-mo
 ?>
 <script src="<?php echo esc_url($client_card_longpress_js . '?ver=' . rawurlencode($clients_module_ver)); ?>" defer></script>
 <?php if ($aa_clients_is_expediente) :
+    $executable_options_menu_placement_js = AA_PLUGIN_URL . 'includes/admin/ui/modules/learning/executable-options-menu-placement.js';
     $expediente_registros_js = plugin_dir_url(__FILE__) . 'expediente-registros.js';
     ?>
+<script src="<?php echo esc_url($executable_options_menu_placement_js . '?ver=' . rawurlencode($clients_module_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($expediente_registros_js . '?ver=' . rawurlencode($clients_module_ver)); ?>" defer></script>
 <?php endif; ?>
