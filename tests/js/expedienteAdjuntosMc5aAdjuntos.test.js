@@ -282,7 +282,7 @@ describe('expediente adjuntos MC5a — adjuntos[] y lectura dirigida', () => {
                 data: {
                     url: 'https://proj.supabase.co/storage/v1/object/sign/expediente-adjuntos/x.jpg?token=t',
                     expires_in: 600,
-                    adjunto: DTO_B
+                    variant: 'summary'
                 }
             })
         }));
@@ -295,6 +295,7 @@ describe('expediente adjuntos MC5a — adjuntos[] y lectura dirigida', () => {
         assert.equal(asMap.attachment_id, '9');
         assert.equal(asMap.record_id, '1');
         assert.equal(asMap.client_id, '7');
+        assert.equal(asMap.variant, 'summary');
     });
 
     it('respuesta tardía de loadRecords tras destroy/cambio de cliente no sobrescribe', async () => {
@@ -332,9 +333,9 @@ describe('expediente adjuntos MC5a — adjuntos[] y lectura dirigida', () => {
         const ctx = makeSandbox();
         mount(ctx, [baseRecord({ adjuntos: [DTO_B, DTO_A], adjunto: DTO_B })]);
         const thumbs = ctx.api.getThumbs();
-        const keyPrimero = ctx.api.thumbKey(1, 9);
-        const keySegundo = ctx.api.thumbKey(1, 5);
-        const keyAjena = ctx.api.thumbKey(1, 777);
+        const keyPrimero = ctx.api.thumbKey(1, 9, 'summary');
+        const keySegundo = ctx.api.thumbKey(1, 5, 'gallery');
+        const keyAjena = ctx.api.thumbKey(1, 777, 'summary');
         thumbs.thumbnailCache[keyPrimero] = { url: 'https://x/9', deadlineMs: Date.now() + 60000 };
         thumbs.thumbnailCache[keySegundo] = { url: 'https://x/5', deadlineMs: Date.now() + 60000 };
         thumbs.thumbnailCache[keyAjena] = { url: 'https://x/777', deadlineMs: Date.now() + 60000 };

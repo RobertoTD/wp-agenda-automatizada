@@ -80,9 +80,8 @@ final class ExpedienteAdjuntosAjax {
 
         $client_id = isset($_POST['client_id']) ? absint($_POST['client_id']) : 0;
         $record_id = isset($_POST['record_id']) ? absint($_POST['record_id']) : 0;
-        // MC5b: lectura siempre dirigida; attachment_id es obligatorio
-        // (el fallback MC4c sin attachment_id quedó retirado).
         $attachment_id = isset($_POST['attachment_id']) ? absint($_POST['attachment_id']) : 0;
+        $variant = array_key_exists('variant', $_POST) ? wp_unslash($_POST['variant']) : null;
 
         if ($client_id < 1 || $record_id < 1 || $attachment_id < 1) {
             wp_send_json_error(['message' => 'Cliente, registro o imagen no válidos.', 'code' => 'invalid_context'], 400);
@@ -93,6 +92,7 @@ final class ExpedienteAdjuntosAjax {
             'client_id' => $client_id,
             'record_id' => $record_id,
             'attachment_id' => $attachment_id,
+            'variant' => $variant,
         ]);
 
         if (empty($result['ok'])) {
@@ -104,7 +104,7 @@ final class ExpedienteAdjuntosAjax {
         wp_send_json_success([
             'url' => $result['url'],
             'expires_in' => $result['expires_in'],
-            'adjunto' => $result['adjunto'],
+            'variant' => $result['variant'],
         ]);
     }
 
@@ -206,6 +206,8 @@ final class ExpedienteAdjuntosAjax {
             case 'storage_usage_unavailable':
             case 'variant_generation_failed':
                 return 500;
+            case 'variant_invalid':
+                return 400;
             default:
                 return 400;
         }

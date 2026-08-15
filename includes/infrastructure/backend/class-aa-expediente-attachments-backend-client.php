@@ -112,9 +112,14 @@ class AA_Expediente_Attachments_Backend_Client {
     }
 
     /**
-     * @return array{ok:true,result:array{url:string,expires_in:int}}|array{ok:false,code:string,error:string,http_status:int}
+     * @param mixed $variant
+     * @return array{ok:true,result:array{url:string,expires_in:int,variant:string}}|array{ok:false,code:string,error:string,http_status:int}
      */
-    public function sign_read(string $storage_path): array {
+    public function sign_read(string $storage_path, $variant): array {
+        if (!is_string($variant) || !ExpedienteAdjuntoVariants::is_allowed_variant($variant)) {
+            return $this->failure('variant_invalid', '', 0);
+        }
+
         $preflight = $this->preflight();
         if ($preflight !== null) {
             return $preflight;
@@ -123,9 +128,10 @@ class AA_Expediente_Attachments_Backend_Client {
         $endpoint = rtrim((string) AA_API_BASE_URL, '/') . '/expediente/attachments/sign-read';
         $response = aa_send_authenticated_request($endpoint, 'POST', [
             'storage_path' => $storage_path,
+            'variant' => $variant,
         ]);
 
-        return $this->parseSignReadResponse($response);
+        return $this->parseSignReadResponse($response, $variant);
     }
 
     /**
@@ -237,10 +243,37 @@ class AA_Expediente_Attachments_Backend_Client {
 
     /**
      * @param array|\WP_Error $response
-     * @return array{ok:true,result:array<string,mixed>}|array{ok:false,code:string,error:string,http_status:int}
+     * @return array{ok:true,result:array{url:string,expires_in:int,variant:string}}|array{ok:false,code:string,error:string,http_status:int}
      */
-    private function parseSignReadResponse($response): array {
-        return $this->parseJsonOk($response, ['url', 'expires_in']);
+    private function parseSignReadResponse($response, string $variant): array {
+        $parsed = $this->parseJsonOk($response, ['url', 'expires_in', 'variant']);
+        if ($parsed['ok'] !== true) {
+            return $parsed;
+        }
+
+        /** @var array<string,mixed> $result */
+        $result = $parsed['result'];
+        $url = $result['url'] ?? null;
+        $expires_in = $result['expires_in'] ?? null;
+        $got_variant = $result['variant'] ?? null;
+
+        if (
+            !is_string($url) || $url === ''
+            || !is_int($expires_in) || $expires_in < 1
+            || !is_string($got_variant)
+            || $got_variant !== $variant
+        ) {
+            return $this->failure('expediente_attachments_invalid_response', '', 0);
+        }
+
+        return [
+            'ok' => true,
+            'result' => [
+                'url' => $url,
+                'expires_in' => $expires_in,
+                'variant' => $got_variant,
+            ],
+        ];
     }
 
     /**

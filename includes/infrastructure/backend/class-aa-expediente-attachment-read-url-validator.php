@@ -12,6 +12,10 @@
 
 defined('ABSPATH') or die('No direct access');
 
+if (!class_exists('ExpedienteAdjuntoVariants')) {
+    require_once dirname(__DIR__, 2) . '/domain/expediente/ExpedienteAdjuntoVariants.php';
+}
+
 final class AA_Expediente_Attachment_Read_Url_Validator {
 
     public const BUCKET = 'expediente-adjuntos';
@@ -21,7 +25,16 @@ final class AA_Expediente_Attachment_Read_Url_Validator {
     /**
      * @return array{ok:true,url:string}|array{ok:false,code:string}
      */
-    public function validate(string $signed_url, string $storage_path): array {
+    public function validate(string $signed_url, string $canonical_original_path, string $variant): array {
+        if (!ExpedienteAdjuntoVariants::is_allowed_variant($variant)) {
+            return $this->fail('signed_url_path_invalid');
+        }
+
+        $expected_path = ExpedienteAdjuntoVariants::derive_path($canonical_original_path, $variant);
+        if ($expected_path === null) {
+            return $this->fail('storage_path_invalid');
+        }
+
         if (!defined('AA_EXPEDIENTE_STORAGE_ORIGIN') || (string) AA_EXPEDIENTE_STORAGE_ORIGIN === '') {
             return $this->fail('storage_origin_not_configured');
         }
@@ -60,7 +73,7 @@ final class AA_Expediente_Attachment_Read_Url_Validator {
             return $this->fail('signed_url_host_mismatch');
         }
 
-        $path_check = $this->validate_read_path((string) $parts['path'], $storage_path);
+        $path_check = $this->validate_read_path((string) $parts['path'], $expected_path);
         if ($path_check !== null) {
             return $path_check;
         }

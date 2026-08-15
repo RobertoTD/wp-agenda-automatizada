@@ -409,7 +409,7 @@
 
     /**
      * Controlador de miniaturas (MC4c/MC5b). Todo vive solo en memoria.
-     * Claves de cache/requests: "<client_id>:<record_id>:<adjunto.id>".
+     * Claves de cache/requests: "<client_id>:<record_id>:<adjunto.id>:<variant>".
      * selectedByRecord (MC5b): recordId → attachment_id seleccionado (solo UI).
      */
     var thumbs = {
@@ -683,7 +683,26 @@
         );
     }
 
-    function thumbKey(recordId, adjuntoId) {
+    var READ_VARIANTS = ['summary', 'gallery', 'display'];
+
+    function variantForKind(kind) {
+        if (kind === 'summary') {
+            return 'summary';
+        }
+        if (kind === 'mini') {
+            return 'gallery';
+        }
+        if (kind === 'main' || kind === 'viewer') {
+            return 'display';
+        }
+        return '';
+    }
+
+    function thumbKey(recordId, adjuntoId, variant) {
+        return String(state.clientId) + ':' + String(recordId) + ':' + String(adjuntoId) + ':' + String(variant);
+    }
+
+    function attachmentLockKey(recordId, adjuntoId) {
         return String(state.clientId) + ':' + String(recordId) + ':' + String(adjuntoId);
     }
 
@@ -718,7 +737,9 @@
             validRecordIds[parseInt(record.id, 10)] = true;
             getRecordAdjuntos(record).forEach(function (dto) {
                 if (isValidAdjuntoDto(dto)) {
-                    valid[thumbKey(record.id, dto.id)] = true;
+                    READ_VARIANTS.forEach(function (variant) {
+                        valid[thumbKey(record.id, dto.id, variant)] = true;
+                    });
                 }
             });
         });
@@ -800,7 +821,7 @@
      * POST sign-read con señal de aborto. MC5a: siempre lectura dirigida con
      * attachment_id; el fallback sin attachment_id vive solo en PHP.
      */
-    function postSignRead(recordId, attachmentId, signal) {
+    function postSignRead(recordId, attachmentId, variant, signal) {
         var data = getConfig();
         var action = (data.actions && data.actions.signAdjuntoRead) || 'aa_sign_expediente_adjunto_read';
 
@@ -810,6 +831,7 @@
         formData.append('client_id', String(state.clientId));
         formData.append('record_id', String(recordId));
         formData.append('attachment_id', String(attachmentId));
+        formData.append('variant', variant);
 
         var options = {
             method: 'POST',
@@ -951,10 +973,16 @@
      *
      * @param {number} rid
      * @param {number} adjuntoId
+     * @param {string} variant
      * @param {{box?:HTMLElement, onUrl?:function(string):void, onError?:function():void}} subscriber
      */
-    function requestSignedUrl(rid, adjuntoId, subscriber) {
-        var key = thumbKey(rid, adjuntoId);
+    function requestSignedUrl(rid, adjuntoId, variant, subscriber) {
+        if (READ_VARIANTS.indexOf(variant) === -1) {
+            deliverSignError(subscriber, adjuntoId);
+            return;
+        }
+
+        var key = thumbKey(rid, adjuntoId, variant);
 
         var cached = thumbs.thumbnailCache[key];
         if (cached && typeof cached.deadlineMs === 'number' && cached.deadlineMs > Date.now()) {
@@ -983,7 +1011,7 @@
         var subscribers = [subscriber];
         thumbs.thumbnailRequests[key] = { controller: controller, subscribers: subscribers };
 
-        postSignRead(rid, adjuntoId, signal)
+        postSignRead(rid, adjuntoId, variant, signal)
             .then(function (payload) {
                 delete thumbs.thumbnailRequests[key];
 
@@ -999,14 +1027,11 @@
 
                 var result = payload.result;
                 var data = result && result.success ? result.data : null;
-                // MC5b: sign-read es siempre dirigido; una respuesta con otro
-                // adjunto.id es inválida y jamás se cachea ni se aplica.
                 var validPayload = !!(
                     data
                     && typeof data.url === 'string'
                     && data.url !== ''
-                    && isValidAdjuntoDto(data.adjunto)
-                    && parseInt(data.adjunto.id, 10) === adjuntoId
+                    && data.variant === variant
                 );
 
                 if (!validPayload || !recordHasAdjuntoId(record, adjuntoId)) {
@@ -1056,11 +1081,12 @@
             return;
         }
         var adjuntoId = parseInt(box.getAttribute('data-adjunto-id') || '0', 10);
+        var variant = box.getAttribute('data-variant') || '';
         var rid = parseInt(recordId, 10);
-        if (!(adjuntoId > 0) || !(rid > 0)) {
+        if (!(adjuntoId > 0) || !(rid > 0) || READ_VARIANTS.indexOf(variant) === -1) {
             return;
         }
-        requestSignedUrl(rid, adjuntoId, { box: box });
+        requestSignedUrl(rid, adjuntoId, variant, { box: box });
     }
 
     /**
@@ -1080,7 +1106,8 @@
         var pendingBoxes = [];
 
         boxes.forEach(function (entry) {
-            var key = thumbKey(entry.recordId, entry.adjuntoId);
+            var variant = variantForKind(entry.kind);
+            var key = thumbKey(entry.recordId, entry.adjuntoId, variant);
             var cached = thumbs.thumbnailCache[key];
             if (cached && typeof cached.deadlineMs === 'number' && cached.deadlineMs > Date.now()) {
                 applyThumbUrl(entry.box, cached.url, key, entry.recordId);
@@ -1297,6 +1324,7 @@
         if (main) {
             resetThumbBox(main);
             main.setAttribute('data-adjunto-id', String(id));
+            main.setAttribute('data-variant', 'display');
             requestThumbFor(main, rid);
         }
 
@@ -1332,6 +1360,7 @@
         mainBtn.type = 'button';
         mainBtn.className = 'aa-expediente-galeria-main';
         mainBtn.setAttribute('data-adjunto-id', String(selectedId));
+        mainBtn.setAttribute('data-variant', 'display');
         mainBtn.setAttribute('aria-label', 'Ver imagen ampliada');
         mainBtn.addEventListener('click', function (event) {
             event.preventDefault();
@@ -1378,6 +1407,7 @@
                 mini.type = 'button';
                 mini.className = 'aa-expediente-galeria-mini';
                 mini.setAttribute('data-adjunto-id', String(adjuntoId));
+                mini.setAttribute('data-variant', 'gallery');
                 mini.setAttribute('aria-label', 'Ver imagen ' + String(index + 1) + ' de ' + String(adjuntos.length));
                 mini.setAttribute('aria-pressed', adjuntoId === selectedId ? 'true' : 'false');
                 if (adjuntoId === selectedId) {
@@ -1456,7 +1486,7 @@
             return;
         }
 
-        var key = thumbKey(rid, attachmentId);
+        var key = attachmentLockKey(rid, attachmentId);
         if (thumbs.deletingKeys[key]) {
             return;
         }
@@ -1777,7 +1807,7 @@
 
         var epoch = thumbs.viewEpoch;
         var clientId = state.clientId;
-        var key = thumbKey(rid, adjuntoId);
+        var key = thumbKey(rid, adjuntoId, 'display');
 
         var viewerBody = document.createElement('div');
         viewerBody.className = 'aa-expediente-adjunto-viewer';
@@ -1829,7 +1859,7 @@
                 if (!thumbs.resignedIdentities[key]) {
                     thumbs.resignedIdentities[key] = true;
                     showViewerStatus('Cargando imagen...', false);
-                    requestSignedUrl(rid, adjuntoId, viewerSubscriber);
+                    requestSignedUrl(rid, adjuntoId, 'display', viewerSubscriber);
                     return;
                 }
                 showViewerStatus(THUMB_ERROR_MESSAGE, true);
@@ -1864,7 +1894,7 @@
         armModalCloseFocus(focusReturnEl);
 
         // Caché fresco (ventana de seguridad ya descontada) o firma nueva.
-        requestSignedUrl(rid, adjuntoId, viewerSubscriber);
+        requestSignedUrl(rid, adjuntoId, 'display', viewerSubscriber);
     }
 
     // ── Fin minigalería y visor MC5b ────────────────────────────────
@@ -2101,6 +2131,7 @@
             thumbBox.className = 'aa-expediente-adjunto-thumb';
             thumbBox.setAttribute('data-thumb-record-id', String(record.id));
             thumbBox.setAttribute('data-adjunto-id', String(record.adjunto.id));
+            thumbBox.setAttribute('data-variant', 'summary');
             summary.appendChild(thumbBox);
         }
 
@@ -3232,6 +3263,8 @@
             pruneThumbState: pruneThumbState,
             invalidateThumbForRecord: invalidateThumbForRecord,
             thumbKey: thumbKey,
+            variantForKind: variantForKind,
+            READ_VARIANTS: READ_VARIANTS,
             isValidAdjuntoDto: isValidAdjuntoDto,
             destroy: destroy,
             getThumbs: function () { return thumbs; },

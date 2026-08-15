@@ -499,6 +499,58 @@ ac_assert('finalize OK', $fin['ok'] === true);
 ac_assert('finalize endpoint', strpos($GLOBALS['aa_test_http_calls'][0]['endpoint'], '/expediente/attachments/finalize') !== false);
 ac_assert('finalize body upload_intent', ($GLOBALS['aa_test_http_calls'][0]['data']['upload_intent'] ?? '') === 'intent-value');
 
+$sign_path = 'installations/11111111-2222-4333-8444-555555555555/clients/1/records/2/550e8400-e29b-41d4-a716-446655440000.jpg';
+$sign_ref = new ReflectionMethod('AA_Expediente_Attachments_Backend_Client', 'sign_read');
+ac_assert('sign_read exige dos parámetros', $sign_ref->getNumberOfParameters() === 2);
+ac_assert('sign_read sin default de variante', !$sign_ref->getParameters()[1]->isOptional());
+
+foreach (['summary', 'gallery', 'display'] as $variant) {
+    reset_http();
+    $GLOBALS['aa_test_http_response'] = [
+        'response' => ['code' => 200],
+        'body' => json_encode([
+            'ok' => true,
+            'url' => 'https://signed-read/' . $variant,
+            'expires_in' => 600,
+            'variant' => $variant,
+        ]),
+    ];
+    $read = $client->sign_read($sign_path, $variant);
+    ac_assert('sign_read ' . $variant . ' OK', $read['ok'] === true && ($read['result']['variant'] ?? '') === $variant);
+    ac_assert(
+        'sign_read ' . $variant . ' payload exacto',
+        ($GLOBALS['aa_test_http_calls'][0]['data'] ?? null) === [
+            'storage_path' => $sign_path,
+            'variant' => $variant,
+        ]
+    );
+}
+
+$invalid_variants = [null, '', ' original', 'original', 'thumb', 'SUMMARY', 1, true, ['summary']];
+foreach ($invalid_variants as $i => $bad) {
+    reset_http();
+    $GLOBALS['aa_test_http_response'] = [
+        'response' => ['code' => 200],
+        'body' => json_encode(['ok' => true, 'url' => 'https://x', 'expires_in' => 600, 'variant' => 'summary']),
+    ];
+    $got = $client->sign_read($sign_path, $bad);
+    ac_assert(
+        'sign_read inválido #' . $i . ' sin HTTP',
+        $got['ok'] === false && $got['code'] === 'variant_invalid' && $GLOBALS['aa_test_http_calls'] === []
+    );
+}
+
+reset_http();
+$GLOBALS['aa_test_http_response'] = [
+    'response' => ['code' => 200],
+    'body' => json_encode(['ok' => true, 'url' => 'https://signed-read', 'expires_in' => 600]),
+];
+$missing_var = $client->sign_read($sign_path, 'summary');
+ac_assert(
+    'sign_read sin variant en respuesta',
+    $missing_var['ok'] === false && $missing_var['code'] === 'expediente_attachments_invalid_response'
+);
+
 reset_http();
 $GLOBALS['aa_test_http_response'] = [
     'response' => ['code' => 200],
@@ -506,10 +558,50 @@ $GLOBALS['aa_test_http_response'] = [
         'ok' => true,
         'url' => 'https://signed-read',
         'expires_in' => 600,
+        'variant' => 'gallery',
     ]),
 ];
-$read = $client->sign_read('path.jpg');
-ac_assert('sign_read OK', $read['ok'] === true && (int) $read['result']['expires_in'] === 600);
+$mismatch = $client->sign_read($sign_path, 'summary');
+ac_assert(
+    'sign_read variant distinta',
+    $mismatch['ok'] === false && $mismatch['code'] === 'expediente_attachments_invalid_response'
+);
+
+reset_http();
+$GLOBALS['aa_test_http_response'] = [
+    'response' => ['code' => 200],
+    'body' => json_encode(['ok' => true, 'url' => '', 'expires_in' => 600, 'variant' => 'summary']),
+];
+$empty_url = $client->sign_read($sign_path, 'summary');
+ac_assert(
+    'sign_read URL vacía',
+    $empty_url['ok'] === false && $empty_url['code'] === 'expediente_attachments_invalid_response'
+);
+
+reset_http();
+$GLOBALS['aa_test_http_response'] = [
+    'response' => ['code' => 200],
+    'body' => json_encode(['ok' => true, 'url' => 'https://signed-read', 'expires_in' => 0, 'variant' => 'summary']),
+];
+$bad_exp = $client->sign_read($sign_path, 'summary');
+ac_assert(
+    'sign_read expiración inválida',
+    $bad_exp['ok'] === false && $bad_exp['code'] === 'expediente_attachments_invalid_response'
+);
+
+reset_http();
+$GLOBALS['aa_test_http_response'] = [
+    'response' => ['code' => 400],
+    'body' => json_encode(['ok' => false, 'error' => 'variant_invalid']),
+];
+$vi = $client->sign_read($sign_path, 'summary');
+ac_assert('variant_invalid reconocido en sign_read', $vi['ok'] === false && $vi['code'] === 'variant_invalid');
+
+$encoded_sign_err = wp_json_encode([$missing_var, $mismatch, $empty_url, $bad_exp, $vi]);
+ac_assert(
+    'sign_read errores sin secretos',
+    strpos($encoded_sign_err, 'https://') === false && strpos($encoded_sign_err, 'token') === false
+);
 
 echo "\n";
 if (count($failed) === 0) {

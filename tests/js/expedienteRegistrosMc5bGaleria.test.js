@@ -128,12 +128,12 @@ function signUrlFor(id) {
     return 'https://proj.supabase.co/storage/v1/object/sign/expediente-adjuntos/a' + id + '.jpg?token=t' + id;
 }
 
-function signOkResponse(dto, url) {
+function signOkResponse(dto, url, variant) {
     return {
         status: 200,
         json: async () => ({
             success: true,
-            data: { url: url || signUrlFor(dto.id), expires_in: 600, adjunto: dto }
+            data: { url: url || signUrlFor(dto.id), expires_in: 600, variant: variant || 'display' }
         })
     };
 }
@@ -240,7 +240,8 @@ function fieldsOf(fetchCall) {
 function deferSignFetch(ctx) {
     const pending = {};
     ctx.setFetch((url, opts) => new Promise((resolve) => {
-        pending[Object.fromEntries(opts.body.entries).attachment_id] = resolve;
+        const fields = Object.fromEntries(opts.body.entries);
+        pending[String(fields.attachment_id) + ':' + String(fields.variant)] = resolve;
     }));
     return pending;
 }
@@ -295,6 +296,7 @@ describe('expediente MC5b — minigalería y visor', () => {
         const gallery = findFirst(panel, '.aa-expediente-galeria');
         const main = findFirst(gallery, '.aa-expediente-galeria-main');
         assert.equal(main.getAttribute('data-adjunto-id'), '12', 'selección inicial adjuntos[0]');
+        assert.equal(main.getAttribute('data-variant'), 'display');
 
         const strip = findFirst(gallery, '.aa-expediente-galeria-strip');
         assert.ok(strip, 'tira presente');
@@ -306,6 +308,7 @@ describe('expediente MC5b — minigalería y visor', () => {
         collect(strip, '.aa-expediente-galeria-mini', minis);
         assert.equal(minis.length, 3);
         assert.deepEqual(minis.map((m) => m.getAttribute('data-adjunto-id')), ['12', '9', '5'], 'orden id DESC intacto');
+        assert.deepEqual(minis.map((m) => m.getAttribute('data-variant')), ['gallery', 'gallery', 'gallery']);
         assert.deepEqual(minis.map((m) => m.getAttribute('aria-pressed')), ['true', 'false', 'false']);
         assert.equal(minis[1].getAttribute('aria-label'), 'Ver imagen 2 de 3');
         assert.ok(minis[0].classList.contains('aa-expediente-galeria-mini-selected'));
@@ -359,9 +362,16 @@ describe('expediente MC5b — minigalería y visor', () => {
 
         ctx.api.renderRecordsList({ expandId: 1 });
 
-        const requested = ctx.fetchCalls.map((c) => fieldsOf(c).attachment_id).sort();
-        // main(20) comparte identidad con mini[0] → deduplicado.
-        assert.deepEqual(requested, ['12', '20', '9'], 'main + minis 0-2; jamás la colección completa');
+        const requested = ctx.fetchCalls.map((c) => fieldsOf(c));
+        assert.equal(requested.length, 4, 'main display + 3 minis gallery; sin dedup entre variantes');
+        assert.ok(requested.some((f) => f.attachment_id === '20' && f.variant === 'display'));
+        assert.ok(requested.some((f) => f.attachment_id === '20' && f.variant === 'gallery'));
+        assert.ok(requested.every((f) => f.variant === 'display' || f.variant === 'gallery'));
+        assert.ok(!requested.some((f) => f.variant === 'original' || !f.variant));
+        assert.deepEqual(
+            requested.map((f) => f.attachment_id).sort(),
+            ['12', '20', '20', '9']
+        );
     });
 
     it('una petición por identidad aplicada a todos los suscriptores vigentes', async () => {
@@ -374,10 +384,14 @@ describe('expediente MC5b — minigalería y visor', () => {
         details.open = true;
         details.dispatch('toggle');
 
-        // summary(9) + main(9) + mini(9) → 1 sola firma; mini(5) → otra.
-        assert.equal(ctx.fetchCalls.length, 2);
-        pending['9'](signOkResponse(DTO_B));
-        pending['5'](signOkResponse(DTO_A));
+        // summary + display + gallery de 9, gallery de 5.
+        assert.equal(ctx.fetchCalls.length, 4);
+        const variants = ctx.fetchCalls.map((c) => fieldsOf(c).variant).sort();
+        assert.deepEqual(variants, ['display', 'gallery', 'gallery', 'summary']);
+        pending['9:summary'](signOkResponse(DTO_B, signUrlFor(9) + '-s', 'summary'));
+        pending['9:display'](signOkResponse(DTO_B, signUrlFor(9) + '-d', 'display'));
+        pending['9:gallery'](signOkResponse(DTO_B, signUrlFor(9) + '-g', 'gallery'));
+        pending['5:gallery'](signOkResponse(DTO_A, signUrlFor(5), 'gallery'));
         await settle();
 
         const summaryBox = findFirst(root, '.aa-expediente-adjunto-thumb');
@@ -385,9 +399,9 @@ describe('expediente MC5b — minigalería y visor', () => {
         const minis = [];
         collect(root, '.aa-expediente-galeria-mini', minis);
 
-        assert.equal(findFirst(summaryBox, 'img').src, signUrlFor(9));
-        assert.equal(findFirst(main, 'img').src, signUrlFor(9));
-        assert.equal(findFirst(minis[0], 'img').src, signUrlFor(9));
+        assert.equal(findFirst(summaryBox, 'img').src, signUrlFor(9) + '-s');
+        assert.equal(findFirst(main, 'img').src, signUrlFor(9) + '-d');
+        assert.equal(findFirst(minis[0], 'img').src, signUrlFor(9) + '-g');
         assert.equal(findFirst(minis[1], 'img').src, signUrlFor(5));
         assert.equal(findFirst(main, 'img').alt, '', 'img decorativa dentro de botón');
     });
@@ -407,12 +421,13 @@ describe('expediente MC5b — minigalería y visor', () => {
         minis[1].dispatch('click');
         assert.equal(main.getAttribute('data-adjunto-id'), '5');
 
-        pending['9'](signOkResponse(DTO_B));
+        pending['9:display'](signOkResponse(DTO_B, signUrlFor(9) + '-old-main', 'display'));
+        pending['9:gallery'](signOkResponse(DTO_B, signUrlFor(9), 'gallery'));
         await settle();
         assert.equal(findFirst(main, 'img'), null, 'URL de la selección anterior no aplicada al main');
         assert.equal(findFirst(minis[0], 'img').src, signUrlFor(9), 'la mini de 9 sí la recibe');
 
-        pending['5'](signOkResponse(DTO_A));
+        pending['5:display'](signOkResponse(DTO_A, signUrlFor(5), 'display'));
         await settle();
         assert.equal(findFirst(main, 'img').src, signUrlFor(5), 'main recibe su propia identidad');
     });
@@ -489,12 +504,13 @@ describe('expediente MC5b — minigalería y visor', () => {
             'estado de carga síncrono antes de resolver la firma'
         );
 
-        pending['9'](signOkResponse(DTO_B));
+        pending['9:display'](signOkResponse(DTO_B, signUrlFor(9), 'display'));
         await settle();
 
         const img = findFirst(viewer, '.aa-expediente-adjunto-viewer-img');
         assert.ok(img, 'imagen ampliada montada');
         assert.equal(img.src, signUrlFor(9));
+        assert.equal(fieldsOf(ctx.fetchCalls[0]).variant, 'display');
         assert.equal(img.alt, 'Mi registro');
         assert.equal(img.attributes.referrerpolicy, 'no-referrer');
     });
@@ -504,18 +520,18 @@ describe('expediente MC5b — minigalería y visor', () => {
         const root = mount(ctx, [baseRecord({ adjuntos: [DTO_B] })]);
         ctx.api.renderRecordsList();
         const thumbs = ctx.api.getThumbs();
-        thumbs.thumbnailCache[ctx.api.thumbKey(1, 9)] = { url: signUrlFor(9), deadlineMs: Date.now() + 60000 };
+        thumbs.thumbnailCache[ctx.api.thumbKey(1, 9, 'display')] = { url: signUrlFor(9), deadlineMs: Date.now() + 60000 };
 
         findFirst(root, '.aa-expediente-galeria-main').dispatch('click');
         assert.equal(ctx.fetchCalls.length, 0, 'caché fresco: sin firma nueva');
         assert.equal(findFirst(ctx.modalRoot, '.aa-expediente-adjunto-viewer-img').src, signUrlFor(9));
 
         ctx.sandbox.window.AAAdmin.closeModal();
-        thumbs.thumbnailCache[ctx.api.thumbKey(1, 9)] = { url: signUrlFor(9), deadlineMs: Date.now() - 1000 };
+        thumbs.thumbnailCache[ctx.api.thumbKey(1, 9, 'display')] = { url: signUrlFor(9), deadlineMs: Date.now() - 1000 };
         const pending = deferSignFetch(ctx);
         findFirst(root, '.aa-expediente-galeria-main').dispatch('click');
         assert.equal(ctx.fetchCalls.length, 1, 'caché vencido: firma nueva antes de mostrar');
-        pending['9'](signOkResponse(DTO_B));
+        pending['9:display'](signOkResponse(DTO_B, signUrlFor(9), 'display'));
         await settle();
         assert.ok(findFirst(ctx.modalRoot, '.aa-expediente-adjunto-viewer-img'));
     });
@@ -559,7 +575,7 @@ describe('expediente MC5b — minigalería y visor', () => {
         otherBody.className = 'otro-modal-cualquiera';
         ctx.sandbox.window.AAAdmin.openModal({ title: 'Otro', body: otherBody });
 
-        pending['9'](signOkResponse(DTO_B));
+        pending['9:display'](signOkResponse(DTO_B, signUrlFor(9), 'display'));
         await settle();
 
         assert.equal(ctx.modalCalls.open.length, 2, 'el visor no se reabre');
@@ -613,8 +629,9 @@ describe('expediente MC5b — minigalería y visor', () => {
         ioCallback([{ isIntersecting: true, target: lastMini }]);
         assert.equal(ctx.fetchCalls.length, 1, 'solo la mini que intersectó');
         assert.equal(fieldsOf(ctx.fetchCalls[0]).attachment_id, '5');
+        assert.equal(fieldsOf(ctx.fetchCalls[0]).variant, 'gallery');
 
-        pending['5'](signOkResponse(DTO_A));
+        pending['5:gallery'](signOkResponse(DTO_A, signUrlFor(5), 'gallery'));
         await settle();
         assert.equal(findFirst(lastMini, 'img').src, signUrlFor(5));
     });

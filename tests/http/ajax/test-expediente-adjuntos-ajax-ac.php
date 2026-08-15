@@ -104,6 +104,19 @@ ac_assert('no_attachment retirado con el fallback', strpos($ajax_src, 'no_attach
 ac_assert('sign-read nunca acepta storage_path ni metadatos', strpos($ajax_src, "\$_POST['storage_path']") === false
     && strpos($ajax_src, "\$_POST['adjunto_id']") === false
     && strpos($ajax_src, "\$_POST['mime_type']") === false);
+ac_assert('sign-read lee variant con wp_unslash', strpos($ajax_src, "wp_unslash(\$_POST['variant'])") !== false);
+ac_assert('sign-read no sanitiza variant', !preg_match("/sanitize_text_field\\([^\\n]*variant/", $ajax_src));
+$sign_handler = '';
+if (preg_match('/function handle_sign_read\(\): void \{.*?\n    \}/s', $ajax_src, $sm)) {
+    $sign_handler = $sm[0];
+}
+ac_assert(
+    'sign-read éxito sin adjunto DTO',
+    $sign_handler !== ''
+    && strpos($sign_handler, "'variant' => \$result['variant']") !== false
+    && strpos($sign_handler, "'adjunto'") === false
+);
+ac_assert("variant_invalid → 400", preg_match("/case 'variant_invalid':\\s*return 400;/", $ajax_src) === 1);
 ac_assert('attachment_not_found → 404', preg_match("/case 'attachment_not_found':/", $ajax_src) === 1);
 ac_assert(
     'variant_generation_failed → 500',

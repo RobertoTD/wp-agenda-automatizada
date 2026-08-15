@@ -176,7 +176,7 @@ function mount(ctx, records) {
     return root;
 }
 
-function signOkResponse(dto, url) {
+function signOkResponse(dto, url, variant) {
     return {
         status: 200,
         json: async () => ({
@@ -184,7 +184,7 @@ function signOkResponse(dto, url) {
             data: {
                 url: url || 'https://proj.supabase.co/storage/v1/object/sign/expediente-adjuntos/x.jpg?token=t',
                 expires_in: 600,
-                adjunto: dto
+                variant: variant || 'summary'
             }
         })
     };
@@ -236,18 +236,23 @@ describe('expediente adjuntos MC4c — miniaturas', () => {
         const fields = Object.fromEntries(ctx.fetchCalls[0].opts.body.entries);
         assert.equal(fields.action, 'aa_sign_expediente_adjunto_read');
         assert.equal(fields.attachment_id, '5');
+        assert.equal(fields.variant, 'display', 'main expandido solicita display');
     });
 
     it('attach nuevo reemplaza DTO y poda la clave anterior', () => {
         const ctx = makeSandbox();
         mount(ctx, [baseRecord({ adjunto: DTO_A })]);
         const thumbs = ctx.api.getThumbs();
-        thumbs.thumbnailCache[ctx.api.thumbKey(1, 5)] = { url: 'https://x/5', deadlineMs: Date.now() + 60000 };
+        thumbs.thumbnailCache[ctx.api.thumbKey(1, 5, 'summary')] = { url: 'https://x/5', deadlineMs: Date.now() + 60000 };
+        thumbs.thumbnailCache[ctx.api.thumbKey(1, 5, 'gallery')] = { url: 'https://x/5g', deadlineMs: Date.now() + 60000 };
+        thumbs.thumbnailCache[ctx.api.thumbKey(1, 5, 'display')] = { url: 'https://x/5d', deadlineMs: Date.now() + 60000 };
 
         ctx.api.applyAdjuntoToRecord(1, DTO_B);
 
         assert.deepEqual(ctx.api.getState().records[0].adjunto, DTO_B);
-        assert.equal(thumbs.thumbnailCache[ctx.api.thumbKey(1, 5)], undefined, 'clave anterior podada');
+        assert.equal(thumbs.thumbnailCache[ctx.api.thumbKey(1, 5, 'summary')], undefined, 'summary anterior podada');
+        assert.equal(thumbs.thumbnailCache[ctx.api.thumbKey(1, 5, 'gallery')], undefined, 'gallery anterior podada');
+        assert.equal(thumbs.thumbnailCache[ctx.api.thumbKey(1, 5, 'display')], undefined, 'display anterior podada');
         assert.equal(ctx.api.getState().records.length, 1);
     });
 
@@ -274,14 +279,14 @@ describe('expediente adjuntos MC4c — miniaturas', () => {
         assert.match(moduleSrc, /returnedRecordId === requestedRecordId && isValidAdjuntoDto\(responseData\.adjunto\)/);
     });
 
-    it('sign-read con otro adjunto.id descarta URL sin cachear ni mutar estado (MC5b)', async () => {
+    it('sign-read con variante diferente descarta URL sin cachear ni mutar estado', async () => {
         const ctx = makeSandbox();
         const root = mount(ctx, [baseRecord({ adjunto: DTO_A })]);
         ctx.api.renderRecordsList();
         const box = findFirst(root, '.aa-expediente-adjunto-thumb');
         const discardedUrl = 'https://proj.supabase.co/storage/v1/object/sign/expediente-adjuntos/newer.jpg?token=zz';
 
-        ctx.setFetch(() => Promise.resolve(signOkResponse(DTO_B, discardedUrl)));
+        ctx.setFetch(() => Promise.resolve(signOkResponse(DTO_A, discardedUrl, 'display')));
         ctx.api.requestThumbFor(box, 1);
         await new Promise((resolve) => setImmediate(resolve));
 
@@ -322,9 +327,9 @@ describe('expediente adjuntos MC4c — miniaturas', () => {
         const ctx = makeSandbox();
         mount(ctx, [baseRecord({ adjunto: DTO_A })]);
         const thumbs = ctx.api.getThumbs();
-        const validKey = ctx.api.thumbKey(1, 5);
-        const staleKey = ctx.api.thumbKey(99, 12);
-        const expiredKey = ctx.api.thumbKey(1, 5) + 'expired-probe';
+        const validKey = ctx.api.thumbKey(1, 5, 'summary');
+        const staleKey = ctx.api.thumbKey(99, 12, 'summary');
+        const expiredKey = ctx.api.thumbKey(1, 5, 'summary') + 'expired-probe';
         thumbs.thumbnailCache[validKey] = { url: 'https://x/valid', deadlineMs: Date.now() + 60000 };
         thumbs.thumbnailCache[staleKey] = { url: 'https://x/stale', deadlineMs: Date.now() + 60000 };
         thumbs.thumbnailCache[expiredKey] = { url: 'https://x/expired', deadlineMs: Date.now() - 1000 };
@@ -349,7 +354,11 @@ describe('expediente adjuntos MC4c — miniaturas', () => {
         ctx.setFetch(() => Promise.resolve(signOkResponse(DTO_A)));
         withThumb.open = true;
         (withThumb._listeners.toggle || []).forEach((fn) => fn());
-        assert.equal(ctx.fetchCalls.length, 1, 'firma solo para la tarjeta con adjunto');
+        assert.equal(ctx.fetchCalls.length, 2, 'summary + display de la tarjeta con adjunto');
+        assert.deepEqual(
+            ctx.fetchCalls.map((c) => Object.fromEntries(c.opts.body.entries).variant).sort(),
+            ['display', 'summary']
+        );
     });
 
     it('lazy: IntersectionObserver firma al intersectar con una sola solicitud concurrente', async () => {
@@ -383,6 +392,7 @@ describe('expediente adjuntos MC4c — miniaturas', () => {
         const img = findFirst(root, 'img');
         assert.ok(img && img.src, 'miniatura renderizada');
         assert.equal(img.attributes.referrerpolicy, 'no-referrer');
+        assert.equal(Object.fromEntries(ctx.fetchCalls[0].opts.body.entries).variant, 'summary');
     });
 
     it('error de img provoca como máximo una refirma y luego error discreto', async () => {
@@ -448,5 +458,80 @@ describe('expediente adjuntos MC4c — miniaturas', () => {
             'utf8'
         );
         assert.match(clientsModuleSrc, /ExpedienteRegistros\.destroy === 'function'/);
+    });
+
+    it('header solicita summary y clave de caché incluye variante', async () => {
+        const ctx = makeSandbox();
+        const root = mount(ctx, [baseRecord({ adjunto: DTO_A })]);
+        ctx.api.renderRecordsList();
+        const box = findFirst(root, '.aa-expediente-adjunto-thumb');
+        assert.equal(box.getAttribute('data-variant'), 'summary');
+
+        ctx.setFetch(() => Promise.resolve(signOkResponse(DTO_A, 'https://signed/summary', 'summary')));
+        ctx.api.requestThumbFor(box, 1);
+        await new Promise((resolve) => setImmediate(resolve));
+
+        const fields = Object.fromEntries(ctx.fetchCalls[0].opts.body.entries);
+        assert.equal(fields.variant, 'summary');
+        assert.equal(fields.attachment_id, '5');
+        assert.ok(!Object.prototype.hasOwnProperty.call(fields, 'original'));
+        const key = ctx.api.thumbKey(1, 5, 'summary');
+        assert.equal(key, '7:1:5:summary');
+        assert.equal(ctx.api.getThumbs().thumbnailCache[key].url, 'https://signed/summary');
+        assert.equal(ctx.api.getThumbs().thumbnailCache[ctx.api.thumbKey(1, 5, 'display')], undefined);
+    });
+
+    it('summary y display no comparten single-flight ni reintento', async () => {
+        const ctx = makeSandbox();
+        const root = mount(ctx, [baseRecord({ adjunto: DTO_A })]);
+        ctx.api.renderRecordsList();
+        const summary = findFirst(root, '.aa-expediente-adjunto-thumb');
+        const main = findFirst(root, '.aa-expediente-galeria-main');
+        assert.equal(main.getAttribute('data-variant'), 'display');
+
+        const resolvers = [];
+        ctx.setFetch(() => new Promise((resolve) => { resolvers.push(resolve); }));
+        ctx.api.requestThumbFor(summary, 1);
+        ctx.api.requestThumbFor(main, 1);
+        assert.equal(ctx.fetchCalls.length, 2, 'variantes distintas no deduplican');
+        assert.deepEqual(
+            ctx.fetchCalls.map((c) => Object.fromEntries(c.opts.body.entries).variant).sort(),
+            ['display', 'summary']
+        );
+
+        resolvers[0](signOkResponse(DTO_A, 'https://s', 'summary'));
+        resolvers[1](signOkResponse(DTO_A, 'https://d', 'display'));
+        await new Promise((resolve) => setImmediate(resolve));
+
+        assert.equal(findFirst(summary, 'img').src, 'https://s');
+        assert.equal(findFirst(main, 'img').src, 'https://d');
+
+        findFirst(summary, 'img').onerror();
+        await new Promise((resolve) => setImmediate(resolve));
+        assert.equal(ctx.fetchCalls.length, 3);
+        assert.equal(Object.fromEntries(ctx.fetchCalls[2].opts.body.entries).variant, 'summary');
+    });
+
+    it('TTL descuenta 60 segundos de margen', async () => {
+        const ctx = makeSandbox();
+        const root = mount(ctx, [baseRecord({ adjunto: DTO_A })]);
+        ctx.api.renderRecordsList();
+        const box = findFirst(root, '.aa-expediente-adjunto-thumb');
+        const now = Date.now();
+        ctx.setFetch(() => Promise.resolve(signOkResponse(DTO_A)));
+        ctx.api.requestThumbFor(box, 1);
+        await new Promise((resolve) => setImmediate(resolve));
+        const cached = ctx.api.getThumbs().thumbnailCache[ctx.api.thumbKey(1, 5, 'summary')];
+        const windowMs = cached.deadlineMs - now;
+        assert.ok(windowMs <= 540000 + 50, 'margen de 60s aplicado');
+        assert.ok(windowMs >= 530000, 'no usa 600s crudos');
+    });
+
+    it('ningún POST de sign-read omite variant ni pide original (fuente)', () => {
+        assert.match(moduleSrc, /formData\.append\('variant', variant\)/);
+        assert.doesNotMatch(moduleSrc, /formData\.append\('variant', 'original'\)/);
+        assert.match(moduleSrc, /thumbKey\(recordId, adjuntoId, variant\)/);
+        assert.doesNotMatch(moduleSrc, /isValidAdjuntoDto\(data\.adjunto\)/);
+        assert.match(moduleSrc, /data\.variant === variant/);
     });
 });
