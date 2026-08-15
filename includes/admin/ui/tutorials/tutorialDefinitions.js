@@ -48,7 +48,7 @@
                 },
                 {
                     id: 'calendar_overview',
-                    title: 'Pulsa "+ Crear cita" para crear una cita de prueba',
+                    title: 'Pulsa "Agendar cita" para crear una cita de prueba',
                     text: '',
                     target: '#aa-btn-open-fastappointment-modal',
                     placement: 'top',
@@ -95,7 +95,7 @@
                 {
                     id: 'resume_create_test_appointment_fab',
                     title: 'Crea tu cita de prueba',
-                    text: 'Pulsa «+ Crear cita» para continuar con tu cita de prueba.',
+                    text: 'Pulsa «Agendar cita» para continuar con tu cita de prueba.',
                     target: '#aa-btn-open-fastappointment-modal',
                     placement: 'top',
                     waitFor: {

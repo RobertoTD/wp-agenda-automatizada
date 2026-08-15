@@ -2314,8 +2314,8 @@ body.aa-modal-open {
   flex-shrink: 0;
   padding-left: 0px;
   padding-right: 0px;
-  font-size: 1rem;
-  line-height: 1.5rem;
+  font-size: 1.125rem;
+  line-height: 1.75rem;
 }
 
 .aa-form-capsule {
@@ -2422,8 +2422,8 @@ body.aa-modal-open {
   padding-right: 0px;
   padding-top: 0.5rem;
   padding-bottom: 0.5rem;
-  font-size: 1rem;
-  line-height: 1.5rem;
+  font-size: 1.125rem;
+  line-height: 1.75rem;
   font-weight: 600;
   --tw-text-opacity: 1;
   color: rgb(75 85 99 / var(--tw-text-opacity, 1));

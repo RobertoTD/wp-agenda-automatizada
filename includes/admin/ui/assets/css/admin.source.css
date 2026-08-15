@@ -955,7 +955,7 @@ body {
     }
 
     .aa-form-group-inline .aa-form-country-select {
-        @apply shrink-0 w-auto text-base px-0;
+        @apply shrink-0 w-auto text-lg px-0;
     }
 
     .aa-form-capsule {
@@ -991,7 +991,7 @@ body {
 
     /* Country code select next to phone (create/edit client modals) */
     .aa-form-country-select {
-        @apply bg-white text-base font-semibold text-gray-600 rounded-md px-0 py-2 border-0;
+        @apply bg-white text-lg font-semibold text-gray-600 rounded-md px-0 py-2 border-0;
         @apply focus:ring-0 outline-none;
         appearance: none;
         -webkit-appearance: none;

@@ -66,7 +66,7 @@ $aa_expediente_access_allowed = false;
         aria-label="Nuevo cliente"
         data-clients-tool="create-client"
     >
-        <span>+ Nuevo cliente</span>
+        <span>Nuevo cliente</span>
     </button>
 </div>
 <?php else : ?>
@@ -75,10 +75,10 @@ $aa_expediente_access_allowed = false;
         type="button"
         id="aa-expediente-new-registro"
         class="inline-flex items-center gap-2 px-4 py-3 text-base font-bold text-white bg-violet-600 hover:bg-violet-700 active:bg-violet-800 rounded-full shadow-lg shadow-violet-600/30 hover:shadow-xl hover:shadow-violet-600/35 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-violet-500/40"
-        aria-label="Registro de expediente"
+        aria-label="Nuevo registro en expediente"
         data-expediente-tool="create-registro"
     >
-        <span>+ Registro de expediente</span>
+        <span>Nuevo registro en expediente</span>
     </button>
 </div>
 <?php endif; ?>

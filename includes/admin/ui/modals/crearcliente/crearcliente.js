@@ -82,6 +82,29 @@
     }
 
     /**
+     * Toggle nativo (mismo patrón que #aa-task-form-options): triángulo del summary + copy.
+     * @param {HTMLElement} fieldEl
+     * @param {boolean} [open]
+     * @returns {HTMLDetailsElement}
+     */
+    function wrapInOptionalDetails(fieldEl, open) {
+        var details = document.createElement('details');
+        details.id = 'aa-cliente-form-opcionales';
+        details.className = 'mb-4 bg-white';
+        if (open) {
+            details.open = true;
+        }
+
+        var summary = document.createElement('summary');
+        summary.className = 'cursor-pointer select-none py-2.5 text-base font-medium text-gray-500 bg-white';
+        summary.textContent = 'Opcionales';
+
+        details.appendChild(summary);
+        details.appendChild(fieldEl);
+        return details;
+    }
+
+    /**
      * @param {{ countrySelectId: string, phoneInputId: string, country?: string, nationalDigits?: string }} opts
      * @returns {HTMLElement}
      */
@@ -222,7 +245,7 @@
         // Ensamblar formulario
         form.appendChild(nombreGroup);
         form.appendChild(telefonoGroup);
-        form.appendChild(correoGroup);
+        form.appendChild(wrapInOptionalDetails(correoGroup, false));
         form.appendChild(statusMsg);
 
         return form;
@@ -557,7 +580,7 @@
         // Ensamblar formulario
         form.appendChild(nombreGroup);
         form.appendChild(telefonoGroup);
-        form.appendChild(correoGroup);
+        form.appendChild(wrapInOptionalDetails(correoGroup, !!(cliente.correo && String(cliente.correo).trim())));
         form.appendChild(statusMsg);
 
         return form;

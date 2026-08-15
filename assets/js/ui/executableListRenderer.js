@@ -627,7 +627,7 @@
      */
     function renderItemDescriptionPreview(description) {
         return ''
-            + '<p class="aa-executable-item-desc-preview text-sm text-gray-500 mt-1">'
+            + '<p class="aa-executable-item-desc-preview text-base text-gray-500 mt-1">'
             + escapeHtml(description)
             + '</p>';
     }
@@ -638,7 +638,7 @@
      */
     function renderItemDescriptionFull(description) {
         return ''
-            + '<div class="aa-executable-item-desc-full text-sm text-gray-500">'
+            + '<div class="aa-executable-item-desc-full text-base text-gray-500">'
             + escapeHtml(description)
             + '</div>';
     }

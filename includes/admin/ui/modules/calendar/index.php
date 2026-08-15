@@ -146,8 +146,8 @@ $pwa_notifications_first_opportunity_js = plugin_dir_url(__DIR__ . '/../dashboar
     <button
         id="aa-btn-open-fastappointment-modal"
         type="button"
-        class="inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold text-white bg-violet-600 hover:bg-violet-700 active:bg-violet-800 rounded-full shadow-lg shadow-violet-600/30 hover:shadow-xl hover:shadow-violet-600/35 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-violet-500/40"
-        aria-label="Crear cita">
-        <span>+ Crear cita</span>
+        class="inline-flex items-center gap-2 px-4 py-3 text-base font-semibold text-white bg-violet-600 hover:bg-violet-700 active:bg-violet-800 rounded-full shadow-lg shadow-violet-600/30 hover:shadow-xl hover:shadow-violet-600/35 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-violet-500/40"
+        aria-label="Agendar cita">
+        <span>Agendar cita</span>
     </button>
 </div>

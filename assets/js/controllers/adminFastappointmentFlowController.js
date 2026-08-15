@@ -28,11 +28,11 @@
     /**
      * @param {Array} items
      * @param {(item:*) => boolean} [isEligible]
-     * @returns {*|null}
+     * @returns {Array}
      */
-    function getSingleEligibleItem(items, isEligible) {
-        if (!Array.isArray(items) || !items.length) {
-            return null;
+    function getEligibleItems(items, isEligible) {
+        if (!Array.isArray(items)) {
+            return [];
         }
 
         var predicate = typeof isEligible === 'function'
@@ -40,9 +40,71 @@
             : function() {
                 return true;
             };
-        var eligible = items.filter(predicate);
+
+        return items.filter(predicate);
+    }
+
+    /**
+     * @param {Array} items
+     * @param {(item:*) => boolean} [isEligible]
+     * @returns {*|null}
+     */
+    function getSingleEligibleItem(items, isEligible) {
+        var eligible = getEligibleItems(items, isEligible);
 
         return eligible.length === 1 ? eligible[0] : null;
+    }
+
+    /**
+     * @param {Array} items
+     * @param {(item:*) => boolean} [isEligible]
+     * @returns {{eligibleCount: number, eligibleId: *|null}}
+     */
+    function recordAutoResolution(items, isEligible) {
+        var eligible = getEligibleItems(items, isEligible);
+        var single = eligible.length === 1 ? eligible[0] : null;
+        var eligibleId = null;
+
+        if (single && single.id !== null && typeof single.id !== 'undefined' && String(single.id) !== '') {
+            eligibleId = single.id;
+        }
+
+        return {
+            eligibleCount: eligible.length,
+            eligibleId: eligibleId
+        };
+    }
+
+    /**
+     * @param {{eligibleCount?:*, eligibleId?:*, selectedId?:*}} [params]
+     * @returns {boolean}
+     */
+    function shouldCollapseAutoResolvedStep(params) {
+        var input = params || {};
+        var eligibleCount = Number(input.eligibleCount);
+        var eligibleId = input.eligibleId;
+        var selectedId = input.selectedId;
+
+        if (eligibleCount !== 1) {
+            return false;
+        }
+
+        if (eligibleId === null || typeof eligibleId === 'undefined' || String(eligibleId) === '') {
+            return false;
+        }
+
+        if (selectedId === null || typeof selectedId === 'undefined' || String(selectedId) === '') {
+            return false;
+        }
+
+        return String(eligibleId) === String(selectedId);
+    }
+
+    function createEmptyAutoResolution() {
+        return {
+            eligibleCount: 0,
+            eligibleId: null
+        };
     }
 
     /**
@@ -485,6 +547,9 @@
         let tutorialDatePrefillInFlight = false;
         let tutorialTimePrefillDone = false;
         let tutorialConfirmPrefillDone = false;
+        let serviceAutoResolution = createEmptyAutoResolution();
+        let staffAutoResolution = createEmptyAutoResolution();
+        let areaAutoResolution = createEmptyAutoResolution();
 
         function updateState(patch) {
             const currentState = getState() || {};
@@ -641,6 +706,63 @@
             };
         }
 
+        function getAutoResolutionForStep(stepId) {
+            if (stepId === 'service') {
+                return serviceAutoResolution;
+            }
+
+            if (stepId === 'staff') {
+                return staffAutoResolution;
+            }
+
+            if (stepId === 'area') {
+                return areaAutoResolution;
+            }
+
+            return createEmptyAutoResolution();
+        }
+
+        function getSelectedIdForAutoResolvedStep(stepId, state) {
+            var currentState = state || {};
+
+            if (stepId === 'service') {
+                return currentState.selectedServiceId;
+            }
+
+            if (stepId === 'staff') {
+                return currentState.selectedStaffId;
+            }
+
+            if (stepId === 'area') {
+                return currentState.selectedAreaId;
+            }
+
+            return null;
+        }
+
+        function applyAutoResolvedStepVisibility(stepId, stepElement) {
+            if (!stepElement || (stepId !== 'service' && stepId !== 'staff' && stepId !== 'area')) {
+                return false;
+            }
+
+            var resolution = getAutoResolutionForStep(stepId);
+            var collapsed = shouldCollapseAutoResolvedStep({
+                eligibleCount: resolution.eligibleCount,
+                eligibleId: resolution.eligibleId,
+                selectedId: getSelectedIdForAutoResolvedStep(stepId, getState() || {})
+            });
+
+            if (stepElement.classList && typeof stepElement.classList.toggle === 'function') {
+                stepElement.classList.toggle('hidden', collapsed);
+            }
+
+            if (typeof stepElement.setAttribute === 'function') {
+                stepElement.setAttribute('aria-hidden', collapsed ? 'true' : 'false');
+            }
+
+            return collapsed;
+        }
+
         function renderVisualSteps() {
             const visual = getVisualStepStateMap();
             const summaryMap = getCompletedStepSummaryMap();
@@ -655,6 +777,12 @@
 
                 if (!stepElement) {
                     return;
+                }
+
+                const collapsed = applyAutoResolvedStepVisibility(stepId, stepElement);
+
+                if (collapsed && expandedCompletedStepId === stepId) {
+                    expandedCompletedStepId = null;
                 }
 
                 const header = stepElement.querySelector('[data-aa-fastappointment-step-header]');
@@ -864,6 +992,8 @@
                 };
 
                 applyPrerequisitesResult(missingServiceResult);
+                serviceAutoResolution = createEmptyAutoResolution();
+                renderVisualSteps();
                 return missingServiceResult;
             }
 
@@ -879,13 +1009,22 @@
 
             applyPrerequisitesResult(result);
 
+            if (!(result && result.canStart)) {
+                serviceAutoResolution = createEmptyAutoResolution();
+                renderVisualSteps();
+            }
+
             if (result && result.canStart) {
                 var eligibleServices = getEligibleServices(result);
                 populateServiceSelect(eligibleServices);
+                serviceAutoResolution = recordAutoResolution(eligibleServices);
 
                 var singleService = getSingleEligibleItem(eligibleServices);
-                if (singleService && singleService.id) {
-                    tryAutoSelectSelectValue(serviceSelect, singleService.id);
+                var serviceAutoSelected = !!(singleService && singleService.id
+                    && tryAutoSelectSelectValue(serviceSelect, singleService.id));
+
+                if (!serviceAutoSelected) {
+                    renderVisualSteps();
                 }
 
                 const currentState = getState() || {};
@@ -1338,6 +1477,8 @@
         }
 
         function resetStepsAfterService() {
+            staffAutoResolution = createEmptyAutoResolution();
+            areaAutoResolution = createEmptyAutoResolution();
             invalidateStaffAvailabilityRequests();
             invalidateAreaAvailabilityRequests();
 
@@ -1385,6 +1526,8 @@
         }
 
         function resetStepsAfterTime() {
+            staffAutoResolution = createEmptyAutoResolution();
+            areaAutoResolution = createEmptyAutoResolution();
             invalidateStaffAvailabilityRequests();
             invalidateAreaAvailabilityRequests();
 
@@ -1409,6 +1552,7 @@
         }
 
         function resetStepsAfterStaff() {
+            areaAutoResolution = createEmptyAutoResolution();
             invalidateAreaAvailabilityRequests();
 
             if (areaSelect && areaSelect.options.length > 0) {
@@ -1502,8 +1646,10 @@
             }
 
             if (!dateStr || !timeStr || !serviceId) {
+                staffAutoResolution = createEmptyAutoResolution();
                 populateStaffSelect([]);
                 renderStaffAvailabilityMessage('');
+                renderVisualSteps();
                 return null;
             }
 
@@ -1549,24 +1695,31 @@
 
             var allStaff = result && Array.isArray(result.staff) ? result.staff : [];
             var hasAvailable = allStaff.some(function(s) { return s.available; });
+            var isStaffEligible = function(staff) {
+                return staff.available === true;
+            };
 
             populateStaffSelect(allStaff);
+            staffAutoResolution = recordAutoResolution(allStaff, isStaffEligible);
 
             if (!allStaff.length) {
                 renderStaffAvailabilityMessage(
                     'No hay personal registrado. Agrega personal en Asignaciones > Personal.'
                 );
+                renderVisualSteps();
             } else if (!hasAvailable) {
                 renderStaffAvailabilityMessage(
                     'Todo el personal esta ocupado u no tiene este servicio asignado a las ' + timeStr + '.'
                 );
+                renderVisualSteps();
             } else {
                 renderStaffAvailabilityMessage('');
-                var singleStaff = getSingleEligibleItem(allStaff, function(staff) {
-                    return staff.available === true;
-                });
-                if (singleStaff && singleStaff.id) {
-                    tryAutoSelectSelectValue(staffSelect, singleStaff.id);
+                var singleStaff = getSingleEligibleItem(allStaff, isStaffEligible);
+                var staffAutoSelected = !!(singleStaff && singleStaff.id
+                    && tryAutoSelectSelectValue(staffSelect, singleStaff.id));
+
+                if (!staffAutoSelected) {
+                    renderVisualSteps();
                 }
             }
 
@@ -1579,8 +1732,10 @@
             }
 
             if (!dateStr || !timeStr || !staffId) {
+                areaAutoResolution = createEmptyAutoResolution();
                 populateAreaSelect([]);
                 renderAreaAvailabilityMessage('');
+                renderVisualSteps();
                 return null;
             }
 
@@ -1627,15 +1782,20 @@
             }
 
             var areas = result && Array.isArray(result.areas) ? result.areas : [];
+            var isAreaEligible = function(area) {
+                return !area.occupied;
+            };
 
             populateAreaSelect(areas);
             renderAreaAvailabilityMessage('');
+            areaAutoResolution = recordAutoResolution(areas, isAreaEligible);
 
-            var singleArea = getSingleEligibleItem(areas, function(area) {
-                return !area.occupied;
-            });
-            if (singleArea && singleArea.id) {
-                tryAutoSelectSelectValue(areaSelect, singleArea.id);
+            var singleArea = getSingleEligibleItem(areas, isAreaEligible);
+            var areaAutoSelected = !!(singleArea && singleArea.id
+                && tryAutoSelectSelectValue(areaSelect, singleArea.id));
+
+            if (!areaAutoSelected) {
+                renderVisualSteps();
             }
 
             return result;
@@ -2146,6 +2306,8 @@
         }
 
         function resetStepsAfterDate() {
+            staffAutoResolution = createEmptyAutoResolution();
+            areaAutoResolution = createEmptyAutoResolution();
             invalidateStaffAvailabilityRequests();
             invalidateAreaAvailabilityRequests();
 
@@ -2365,6 +2527,8 @@
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = {
             getSingleEligibleItem: getSingleEligibleItem,
+            recordAutoResolution: recordAutoResolution,
+            shouldCollapseAutoResolvedStep: shouldCollapseAutoResolvedStep,
             tryAutoSelectSelectValue: tryAutoSelectSelectValue,
             tryAutoCheckConfirmCheckbox: tryAutoCheckConfirmCheckbox,
             isFormReadyFromState: isFormReadyFromState,

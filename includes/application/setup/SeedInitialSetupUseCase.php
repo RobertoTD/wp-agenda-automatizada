@@ -7,6 +7,7 @@ defined('ABSPATH') or die('No direct access');
 
 require_once dirname(__DIR__, 2) . '/domain/setup/class-aa-initial-setup-seed-definition.php';
 require_once dirname(__DIR__, 2) . '/domain/setup/class-aa-initial-setup-seed-owner-email-resolver.php';
+require_once dirname(__DIR__, 2) . '/domain/setup/class-aa-initial-setup-seed-owner-name-resolver.php';
 require_once dirname(__DIR__, 2) . '/repositories/ClientsRepository.php';
 require_once dirname(__DIR__, 2) . '/repositories/AssignmentsRepository.php';
 require_once dirname(__DIR__, 2) . '/models/AssignmentsModel.php';
@@ -163,7 +164,7 @@ final class SeedInitialSetupUseCase {
      * @return array<string,mixed>
      */
     private function resolve_staff_step(): array {
-        $seed_name = AA_Initial_Setup_Seed_Definition::STAFF_NAME;
+        $seed_name = AA_Initial_Setup_Seed_Owner_Name_Resolver::resolve();
         $existing = AssignmentsRepository::find_active_staff_by_name($seed_name);
 
         if ($existing !== null) {

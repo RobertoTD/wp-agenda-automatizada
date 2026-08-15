@@ -67,3 +67,90 @@ describe('adminFastappointmentFlowController auto-select helpers', () => {
         assert.deepEqual(events, ['change']);
     });
 });
+
+describe('adminFastappointmentFlowController auto-resolved step collapse helpers', () => {
+    it('recordAutoResolution usa las mismas opciones elegibles que getSingleEligibleItem', () => {
+        var staff = [
+            { id: 1, available: false },
+            { id: 7, available: true }
+        ];
+        var isEligible = function(item) { return item.available === true; };
+
+        assert.deepEqual(autoSelect.recordAutoResolution(staff, isEligible), {
+            eligibleCount: 1,
+            eligibleId: 7
+        });
+        assert.equal(autoSelect.getSingleEligibleItem(staff, isEligible).id, 7);
+
+        assert.deepEqual(
+            autoSelect.recordAutoResolution(
+                [{ id: 1, available: true }, { id: 2, available: true }],
+                isEligible
+            ),
+            { eligibleCount: 2, eligibleId: null }
+        );
+        assert.deepEqual(
+            autoSelect.recordAutoResolution([], isEligible),
+            { eligibleCount: 0, eligibleId: null }
+        );
+        assert.deepEqual(
+            autoSelect.recordAutoResolution([{ available: true }], isEligible),
+            { eligibleCount: 1, eligibleId: null }
+        );
+    });
+
+    it('shouldCollapseAutoResolvedStep no colapsa con 0 o más de 1 elegibles', () => {
+        assert.equal(autoSelect.shouldCollapseAutoResolvedStep({
+            eligibleCount: 0,
+            eligibleId: null,
+            selectedId: '1'
+        }), false);
+        assert.equal(autoSelect.shouldCollapseAutoResolvedStep({
+            eligibleCount: 2,
+            eligibleId: null,
+            selectedId: '1'
+        }), false);
+    });
+
+    it('shouldCollapseAutoResolvedStep no colapsa con una opción si falta el id seleccionado', () => {
+        assert.equal(autoSelect.shouldCollapseAutoResolvedStep({
+            eligibleCount: 1,
+            eligibleId: '9',
+            selectedId: null
+        }), false);
+        assert.equal(autoSelect.shouldCollapseAutoResolvedStep({
+            eligibleCount: 1,
+            eligibleId: '9',
+            selectedId: ''
+        }), false);
+    });
+
+    it('shouldCollapseAutoResolvedStep no colapsa si el id guardado no es el único elegible', () => {
+        assert.equal(autoSelect.shouldCollapseAutoResolvedStep({
+            eligibleCount: 1,
+            eligibleId: '9',
+            selectedId: '8'
+        }), false);
+    });
+
+    it('shouldCollapseAutoResolvedStep colapsa solo con una opción y el mismo id', () => {
+        assert.equal(autoSelect.shouldCollapseAutoResolvedStep({
+            eligibleCount: 1,
+            eligibleId: 9,
+            selectedId: '9'
+        }), true);
+    });
+
+    it('isFormReadyFromState no depende de la visibilidad de los pasos', () => {
+        assert.equal(autoSelect.isFormReadyFromState({
+            selectedClientId: '1',
+            selectedServiceId: '2',
+            selectedDate: '2026-08-15',
+            selectedTime: '10:00',
+            selectedStaffId: '3',
+            isSelectedStaffAvailable: true,
+            selectedAreaId: '4',
+            isSelectedAreaAvailable: true
+        }), true);
+    });
+});

@@ -418,6 +418,7 @@ require_once $root . '/includes/domain/setup/class-aa-initial-setup-seed-definit
 require_once $root . '/includes/domain/setup/class-aa-initial-seed-eligibility-policy.php';
 require_once $root . '/includes/domain/tenant/class-aa-installation-provisioning-detector.php';
 require_once $root . '/includes/domain/setup/class-aa-initial-setup-seed-owner-email-resolver.php';
+require_once $root . '/includes/domain/setup/class-aa-initial-setup-seed-owner-name-resolver.php';
 require_once $root . '/includes/repositories/ClientsRepository.php';
 require_once $root . '/includes/repositories/AssignmentsRepository.php';
 require_once $root . '/includes/application/assignments/AutoAssignStaffServicesUseCase.php';
@@ -578,6 +579,9 @@ $GLOBALS['aa_test_options'][AA_Initial_Seed_Eligibility_Lifecycle::OPTION_ELIGIB
 $GLOBALS['aa_test_options'][AA_Initial_Setup_Seed_Lifecycle::OPTION_SEED_VERSION] = AA_Initial_Setup_Seed_Definition::SEED_VERSION;
 $GLOBALS['aa_test_clients'][] = ['id' => 1, 'nombre' => AA_Initial_Setup_Seed_Definition::CLIENT_NAME, 'telefono' => AA_Initial_Setup_Seed_Definition::CLIENT_PHONE_CANONICAL, 'correo' => ''];
 $GLOBALS['aa_test_services'][] = ['id' => 2, 'name' => AA_Initial_Setup_Seed_Definition::SERVICE_NAME, 'active' => 1, 'is_hidden' => 0];
+$GLOBALS['aa_test_staff'][] = ['id' => 3, 'name' => AA_Initial_Setup_Seed_Definition::STAFF_NAME, 'active' => 1, 'is_hidden' => 0];
+$GLOBALS['aa_test_options']['deoia_platform_provisioned_at'] = '2026-07-02 10:00:00';
+$GLOBALS['aa_test_options']['deoia_owner_name'] = 'Roberto';
 AA_Initial_Setup_Seed_Lifecycle::set_seed_executor_for_tests(static function (): array {
     $GLOBALS['aa_test_seed_calls']++;
 
@@ -585,7 +589,11 @@ AA_Initial_Setup_Seed_Lifecycle::set_seed_executor_for_tests(static function ():
 });
 AA_Initial_Setup_Seed_Lifecycle::maybe_seed();
 ac_assert('AC4 reactivation skips executor', (int) $GLOBALS['aa_test_seed_calls'] === 0);
-ac_assert('AC4 entity counts unchanged', count($GLOBALS['aa_test_clients']) === 1 && count($GLOBALS['aa_test_services']) === 1);
+ac_assert('AC4 entity counts unchanged', count($GLOBALS['aa_test_clients']) === 1 && count($GLOBALS['aa_test_services']) === 1 && count($GLOBALS['aa_test_staff']) === 1);
+ac_assert(
+    'AC4 does not rename staff',
+    ($GLOBALS['aa_test_staff'][0]['name'] ?? '') === 'Personal de prueba'
+);
 
 // --- AC5: Fallo parcial / retry ---
 
@@ -618,6 +626,58 @@ $GLOBALS['aa_test_options']['deoia_owner_email'] = 'owner@agenda.test';
 ac_assert(
     'Email resolver uses deoia_owner_email when provisioned',
     AA_Initial_Setup_Seed_Owner_Email_Resolver::resolve() === 'owner@agenda.test'
+);
+
+// --- Owner name resolver / staff seed ---
+
+seed_reset_state();
+$GLOBALS['aa_test_options'][AA_Schema::OPTION_INSTALLATION_INITIALIZED_AT] = '2026-07-02 10:00:00';
+$GLOBALS['aa_test_options']['deoia_platform_provisioned_at'] = '2026-07-02 10:00:00';
+$GLOBALS['aa_test_options']['deoia_owner_name'] = 'Roberto';
+$GLOBALS['aa_test_options']['deoia_owner_email'] = 'owner@agenda.test';
+seed_run_eligibility_and_seed();
+$provisioned_client = $GLOBALS['aa_test_clients'][0] ?? null;
+$provisioned_service = seed_find_by_name($GLOBALS['aa_test_services'], 'Consulta general');
+$provisioned_staff = seed_find_by_name($GLOBALS['aa_test_staff'], 'Roberto');
+$provisioned_area = seed_find_by_name($GLOBALS['aa_test_areas'], 'Zona general');
+ac_assert('Provisioned owner name seeds staff Roberto', $provisioned_staff !== null);
+ac_assert('Provisioned seed keeps client name', ($provisioned_client['nombre'] ?? '') === 'Cliente de Prueba');
+ac_assert('Provisioned seed keeps service title', $provisioned_service !== null);
+ac_assert('Provisioned seed keeps area title', $provisioned_area !== null);
+ac_assert(
+    'Provisioned seed does not create fallback staff',
+    seed_find_by_name($GLOBALS['aa_test_staff'], 'Personal de prueba') === null
+);
+
+seed_reset_state();
+ac_assert(
+    'Name resolver fallback when not provisioned',
+    AA_Initial_Setup_Seed_Owner_Name_Resolver::resolve() === 'Personal de prueba'
+);
+
+seed_reset_state();
+$GLOBALS['aa_test_options']['deoia_platform_provisioned_at'] = '2026-07-02 10:00:00';
+ac_assert(
+    'Name resolver fallback when option missing',
+    AA_Initial_Setup_Seed_Owner_Name_Resolver::resolve() === 'Personal de prueba'
+);
+
+$GLOBALS['aa_test_options']['deoia_owner_name'] = '';
+ac_assert(
+    'Name resolver fallback when option empty',
+    AA_Initial_Setup_Seed_Owner_Name_Resolver::resolve() === 'Personal de prueba'
+);
+
+$GLOBALS['aa_test_options']['deoia_owner_name'] = '   ';
+ac_assert(
+    'Name resolver fallback when option whitespace',
+    AA_Initial_Setup_Seed_Owner_Name_Resolver::resolve() === 'Personal de prueba'
+);
+
+$GLOBALS['aa_test_options']['deoia_owner_name'] = ['Roberto'];
+ac_assert(
+    'Name resolver fallback when option is not a string',
+    AA_Initial_Setup_Seed_Owner_Name_Resolver::resolve() === 'Personal de prueba'
 );
 
 // --- Wiring ---

@@ -109,9 +109,9 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
 
 <div id="aa-tasks-fab-stack" class="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
     <button type="button" id="aa-tasks-new-task"
-        class="inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold text-white bg-violet-600 hover:bg-violet-700 active:bg-violet-800 rounded-full shadow-lg shadow-violet-600/30 hover:shadow-xl hover:shadow-violet-600/35 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-violet-500/40"
+        class="inline-flex items-center gap-2 px-4 py-3 text-base font-semibold text-white bg-violet-600 hover:bg-violet-700 active:bg-violet-800 rounded-full shadow-lg shadow-violet-600/30 hover:shadow-xl hover:shadow-violet-600/35 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-violet-500/40"
         aria-label="Nueva tarea">
-        <span>+ Nueva tarea</span>
+        <span>Nueva tarea</span>
     </button>
 </div>
 

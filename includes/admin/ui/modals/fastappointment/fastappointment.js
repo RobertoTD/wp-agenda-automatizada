@@ -16,7 +16,7 @@
     const FastAppointmentModal = {
         config: {
             buttonId: 'aa-btn-open-fastappointment-modal',
-            title: 'Cita rapida',
+            title: 'Agendar cita',
             templateId: 'aa-fastappointment-modal-template',
             footerTemplateId: 'aa-fastappointment-modal-footer-template'
         },
