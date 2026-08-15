@@ -953,7 +953,7 @@
 
         wrap.appendChild(records);
 
-        renderExpedienteShell(root, wrap, cliente.nombre || 'Sin nombre');
+        renderExpedienteShell(root, wrap, 'Expediente de ' + (cliente.nombre || 'Sin nombre'));
 
         mountExpedienteRegistros(cliente.id, records, null);
     }

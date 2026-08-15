@@ -1157,7 +1157,7 @@
                     clientSelectObserver.disconnect();
                     var placeholder = document.createElement('option');
                     placeholder.value = '';
-                    placeholder.textContent = '-- Selecciona un cliente --';
+                    placeholder.textContent = 'Selecciona un cliente';
                     clientSelect.insertBefore(placeholder, clientSelect.firstChild);
                     if (!clientSelectedByUser) {
                         clientSelect.selectedIndex = 0;
@@ -1184,6 +1184,7 @@
                 selectId: clientSelectId,
                 inlineContainerId: inlineContainerId,
                 createButtonId: createButtonId,
+                emptyPlaceholder: 'Selecciona un cliente',
                 onClientsLoaded: function(meta) {
                     lastClientSearchMeta = meta;
                 }
@@ -1228,7 +1229,7 @@
                 return;
             }
 
-            var html = '<option value="">-- Selecciona un servicio --</option>';
+            var html = '<option value="">Selecciona un servicio</option>';
             (eligibleServices || []).forEach(function(s) {
                 var durationAttr = s.duration_minutes
                     ? ' data-duration-minutes="' + escapeHtml(String(s.duration_minutes)) + '"'
@@ -1249,7 +1250,7 @@
             var available = list.filter(function(s) { return s.available; });
             var unavailable = list.filter(function(s) { return !s.available; });
 
-            var html = '<option value="">-- Selecciona personal --</option>';
+            var html = '<option value="">Personal que atenderá la cita</option>';
 
             available.forEach(function(staff) {
                 html += '<option value="' + escapeHtml(String(staff.id)) + '"'
@@ -1292,7 +1293,7 @@
             var available = list.filter(function(a) { return !a.occupied; });
             var unavailable = list.filter(function(a) { return a.occupied; });
 
-            var html = '<option value="">-- Selecciona una zona --</option>';
+            var html = '<option value="">Zona donde se realizará la cita</option>';
 
             available.forEach(function(area) {
                 html += '<option value="' + escapeHtml(String(area.id)) + '"'
@@ -1364,7 +1365,7 @@
             setTimeStepBlockedState(!state.canStartFastAppointment);
 
             if (timeSelect) {
-                timeSelect.innerHTML = '<option value="">-- Selecciona una hora --</option>';
+                timeSelect.innerHTML = '<option value="">Horario de la cita</option>';
             }
             populateStaffSelect([]);
             renderStaffAvailabilityMessage('');
@@ -1431,7 +1432,7 @@
             const result = availabilityResult || {};
             const slots = Array.isArray(result.slots) ? result.slots : [];
             const state = getState() || {};
-            let html = '<option value="">-- Selecciona una hora --</option>';
+            let html = '<option value="">Horario de la cita</option>';
 
             slots.forEach(function(slot) {
                 html += '<option value="' + escapeHtml(slot.value) + '">' + escapeHtml(slot.label) + '</option>';
@@ -2170,7 +2171,7 @@
             setTimeStepBlockedState(!state.canStartFastAppointment);
 
             if (timeSelect) {
-                timeSelect.innerHTML = '<option value="">-- Selecciona una hora --</option>';
+                timeSelect.innerHTML = '<option value="">Horario de la cita</option>';
             }
             populateStaffSelect([]);
             populateAreaSelect([]);

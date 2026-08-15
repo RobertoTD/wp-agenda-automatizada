@@ -46,7 +46,6 @@ ac_assert(
     'Staff hide button inside services panel flow',
     strpos($staff_src, 'aa-staff-services-panel') !== false
     && strpos($staff_src, 'aa-staff-delete') !== false
-    && strpos($staff_src, 'aa-staff-services-readonly') !== false
 );
 
 ac_assert(

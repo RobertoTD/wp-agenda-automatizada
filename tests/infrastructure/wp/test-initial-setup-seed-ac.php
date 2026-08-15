@@ -508,13 +508,18 @@ $area = seed_find_by_name($GLOBALS['aa_test_areas'], AA_Initial_Setup_Seed_Defin
 ac_assert('AC1 eligible', ($GLOBALS['aa_test_options'][AA_Initial_Seed_Eligibility_Lifecycle::OPTION_ELIGIBILITY] ?? '') === 'eligible');
 ac_assert('AC1 creates client', $client !== null);
 ac_assert('AC1 client phone canonical', ($client['telefono'] ?? '') === AA_Initial_Setup_Seed_Definition::CLIENT_PHONE_CANONICAL);
+ac_assert('AC1 client name unchanged', ($client['nombre'] ?? '') === 'Cliente de Prueba');
 ac_assert('AC1 creates service', $service !== null);
+ac_assert('AC1 service title Consulta general', ($service['name'] ?? '') === 'Consulta general');
 ac_assert('AC1 creates staff', $staff !== null);
+ac_assert('AC1 staff name Personal de prueba', ($staff['name'] ?? '') === 'Personal de prueba');
 ac_assert('AC1 creates area', $area !== null);
+ac_assert('AC1 area title Zona general', ($area['name'] ?? '') === 'Zona general');
 ac_assert('AC1 staff-service link exists', count($GLOBALS['aa_test_staff_services']) > 0);
 ac_assert(
     'AC1 marks seed version 2',
     ($GLOBALS['aa_test_options'][AA_Initial_Setup_Seed_Lifecycle::OPTION_SEED_VERSION] ?? '') === '2'
+    && AA_Initial_Setup_Seed_Definition::SEED_VERSION === '2'
 );
 
 $onboarding_v2 = (new AA_Onboarding_Activation_Policy())->evaluate([

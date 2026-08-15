@@ -1754,6 +1754,10 @@ describe('executableListRenderer MC13 expandable items', () => {
         assert.match(html, /onclick="event\.stopPropagation\(\)"/);
         assert.match(html, /data-tasks-action="complete"/);
         assert.match(html, /data-tasks-action="dismiss"/);
+        assert.match(html, /text-sm font-medium rounded-md/);
+        assert.match(html, /border-indigo-200/);
+        assert.doesNotMatch(html, /border-green-200/);
+        assert.doesNotMatch(html, /border-gray-300/);
         assert.doesNotMatch(html, /aa-executable-item-expanded-footer/);
         assert.doesNotMatch(html, /aa-executable-item-expanded[\s\S]*aa-executable-item-chevron/);
     });

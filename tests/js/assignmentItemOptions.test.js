@@ -46,9 +46,9 @@ describe('Assignment item options', () => {
         assert.doesNotMatch(moduleSrc, /Eliminar/);
         assert.doesNotMatch(moduleSrc, /data-aa-item-action="archive"/);
         assert.doesNotMatch(moduleSrc, /data-aa-item-action="delete"/);
-        assert.doesNotMatch(areasSrc, /AreaCreateModal\.openEdit/);
-        assert.doesNotMatch(staffSrc, /StaffCreateModal\.openEdit/);
-        assert.doesNotMatch(servicesSrc, /ServiceCreateModal\.openEdit/);
+        assert.match(areasSrc, /AreaCreateModal\.openEdit\(areaId\)/);
+        assert.match(staffSrc, /StaffCreateModal\.openEdit\(staffId\)/);
+        assert.match(servicesSrc, /ServiceCreateModal\.openEdit\(serviceId\)/);
     });
 
     it('CSS oculta el menú ⋮ cuando la card está colapsada', () => {
@@ -63,6 +63,26 @@ describe('Assignment item options', () => {
         assert.match(
             cssSrc,
             /\.aa-service-header-toggle:has\(\+ \.aa-service-details-panel\.hidden\) \.aa-assignment-item-options/
+        );
+    });
+
+    it('CSS pinta de azul solo el item expandido, no el header de sección', () => {
+        assert.match(
+            cssSrc,
+            /li:has\(> \.aa-area-details-panel:not\(\.hidden\)\)/
+        );
+        assert.match(
+            cssSrc,
+            /li:has\(> \.aa-staff-services-panel:not\(\.hidden\)\)/
+        );
+        assert.match(
+            cssSrc,
+            /li:has\(> \.aa-service-details-panel:not\(\.hidden\)\)/
+        );
+        assert.match(cssSrc, /background-color:\s*rgb\(239 246 255\) !important;/);
+        assert.doesNotMatch(
+            cssSrc,
+            /details\.aa-module-section-card\[open\]\s*>\s*summary\s*\{[^}]*239 246 255/
         );
     });
 

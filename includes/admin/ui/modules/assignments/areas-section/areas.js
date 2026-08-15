@@ -138,7 +138,7 @@
             html += '<span class="aa-area-color-bg flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0">';
             html += '<span class="aa-area-color-indicator w-4 h-4 rounded-full border-2 border-white shadow-sm" style="background-color: ' + areaColor + ';"></span>';
             html += '</span>';
-            html += '<span class="text-sm font-semibold text-gray-600 min-w-0 flex-1">' + escapeHtml(area.name) + '</span>';
+            html += '<span class="text-base font-semibold text-gray-600 min-w-0 flex-1">' + escapeHtml(area.name) + '</span>';
             html += (window.AAAdmin && typeof window.AAAdmin.renderAssignmentItemOptions === 'function')
                 ? window.AAAdmin.renderAssignmentItemOptions('area', areaId)
                 : '';
@@ -146,10 +146,16 @@
             // Collapsable details panel
             html += '<div class="aa-area-details-panel hidden p-3" data-area-id="' + areaId + '">';
             html += '<div class="flex items-center justify-between gap-2">';
+            html += '<div class="flex items-center gap-2">';
             html += '<button type="button" ';
             html += 'class="aa-area-delete px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 transition-colors" ';
             html += 'data-area-id="' + areaId + '" ';
             html += '>Eliminar</button>';
+            html += '<button type="button" ';
+            html += 'class="aa-area-edit px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 transition-colors" ';
+            html += 'data-area-id="' + areaId + '" ';
+            html += '>Editar</button>';
+            html += '</div>';
             html += '<label class="aa-area-active-toggle flex items-center gap-2 cursor-pointer">';
             html += '<div class="relative">';
             html += '<input type="checkbox" ';
@@ -196,6 +202,16 @@
         }
 
         areasRoot.addEventListener('click', function(event) {
+            const editButton = event.target.closest('.aa-area-edit');
+            if (editButton) {
+                event.preventDefault();
+                const editAreaId = parseInt(editButton.getAttribute('data-area-id'));
+                if (editAreaId > 0) {
+                    openAreaEditModal(editAreaId);
+                }
+                return;
+            }
+
             const hideButton = event.target.closest('.aa-area-delete');
             if (!hideButton) {
                 return;
@@ -367,6 +383,19 @@
             return;
         }
         console.error('[Areas Section] AAAdmin.AreaCreateModal.openCreate no disponible');
+    }
+
+    /**
+     * Open the transversal Area edit modal (Zona de Atención).
+     * @param {number} areaId
+     */
+    function openAreaEditModal(areaId) {
+        if (window.AAAdmin && window.AAAdmin.AreaCreateModal
+            && typeof window.AAAdmin.AreaCreateModal.openEdit === 'function') {
+            window.AAAdmin.AreaCreateModal.openEdit(areaId);
+            return;
+        }
+        console.error('[Areas Section] AAAdmin.AreaCreateModal.openEdit no disponible');
     }
 
     /**

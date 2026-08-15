@@ -86,7 +86,11 @@ ac_assert(
 );
 ac_assert('JS conserva Editar', strpos($js, 'aa-btn-editar-cliente') !== false && strpos($js, 'openEdit') !== false);
 ac_assert('JS stopPropagation en Expediente', substr_count($js, 'stopPropagation') >= 2);
-ac_assert('JS header Expediente con icono carpeta', strpos($js, "title.textContent = 'Expediente'") !== false && strpos($js, 'EXPEDIENTE_FOLDER_SVG') !== false);
+ac_assert('JS header Expediente con icono carpeta', strpos($js, "title.textContent = headerTitle || 'Expediente'") !== false && strpos($js, 'EXPEDIENTE_FOLDER_SVG') !== false);
+ac_assert(
+    'JS header de cliente prefixa Expediente de',
+    strpos($js, "'Expediente de ' + (cliente.nombre || 'Sin nombre')") !== false
+);
 ac_assert('JS sin Volver a Clientes', strpos($js, 'Volver a Clientes') === false);
 ac_assert('JS empty state registros', strpos($js, 'Aún no hay registros en este expediente') !== false);
 ac_assert('JS buildExpedienteUrl usa moduleBaseUrl', strpos($js, 'moduleBaseUrl') !== false && strpos($js, "set('view', 'expediente')") !== false);

@@ -77,11 +77,13 @@ describe('StaffCreateModal edit', () => {
         assert.match(modalSrc, /Promise\.all\(/);
     });
 
-    it('conserva openCreate y no añade botones visibles de edición', () => {
+    it('conserva openCreate y abre edición desde el botón visible Editar', () => {
         assert.match(modalSrc, /function openCreateStaffModal/);
         assert.match(modalSrc, /aa_create_staff/);
         assert.match(layoutSrc, /modals\/crearstaff\/crearstaff\.js/);
-        assert.doesNotMatch(staffSrc, /StaffCreateModal\.openEdit/);
+        assert.match(staffSrc, /class="aa-staff-edit /);
+        assert.match(staffSrc, />Editar<\/button>/);
+        assert.match(staffSrc, /StaffCreateModal\.openEdit\(staffId\)/);
         assert.doesNotMatch(assignmentsIndexSrc, /openEdit/);
         assert.match(staffSrc, /renderAssignmentItemOptions\('staff'/);
         assert.match(assignmentsIndexSrc, /item-options-module\.js/);
@@ -89,9 +91,9 @@ describe('StaffCreateModal edit', () => {
         assert.doesNotMatch(staffSrc, /aa-staff-services-selected/);
         assert.doesNotMatch(staffSrc, /aa_add_staff_service/);
         assert.doesNotMatch(staffSrc, /aa_remove_staff_service/);
-        assert.match(staffSrc, /aa-staff-services-readonly/);
-        assert.match(staffSrc, /aa_get_staff_services/);
-        assert.match(staffSrc, /Servicios que ofrece:/);
+        assert.doesNotMatch(staffSrc, /aa-staff-services-readonly/);
+        assert.doesNotMatch(staffSrc, /aa_get_staff_services/);
+        assert.doesNotMatch(staffSrc, /Servicios que ofrece:/);
     });
 
     it('staff.js recarga con loadStaff al escuchar aa:staff:saved', () => {

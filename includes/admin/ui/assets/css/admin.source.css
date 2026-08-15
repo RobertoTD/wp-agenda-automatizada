@@ -72,6 +72,14 @@ body {
         display: none;
     }
 
+    /* Assignments — item expandido: mismo azul que clientes abiertos.
+       !important: el <li> trae bg-gray-50 de utilidad. No toca summaries de sección. */
+    li:has(> .aa-area-details-panel:not(.hidden)),
+    li:has(> .aa-staff-services-panel:not(.hidden)),
+    li:has(> .aa-service-details-panel:not(.hidden)) {
+        background-color: rgb(239 246 255) !important;
+    }
+
     .aa-assignment-item-options-menu {
         z-index: 30;
     }
@@ -627,11 +635,11 @@ body {
     }
 
     .aa-expediente-registro-title {
-        @apply font-medium text-gray-900 break-words;
+        @apply text-base font-medium text-gray-900 break-words;
     }
 
     .aa-expediente-registro-meta {
-        @apply flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500 min-w-0;
+        @apply flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-gray-500 min-w-0;
     }
 
     .aa-expediente-registro-folio {
@@ -659,7 +667,7 @@ body {
     }
 
     .aa-expediente-registro-body {
-        @apply text-sm text-gray-700 whitespace-pre-wrap break-words;
+        @apply text-base text-gray-700 whitespace-pre-wrap break-words;
     }
 
     .aa-expediente-registro-options-menu {
@@ -676,7 +684,7 @@ body {
 
     .aa-expediente-registro-input,
     .aa-expediente-registro-textarea {
-        @apply w-full px-3 py-2 text-sm border border-gray-300 rounded-lg;
+        @apply w-full px-3 py-2 text-base border border-gray-300 rounded-lg;
         @apply focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none;
     }
 
@@ -689,11 +697,11 @@ body {
     }
 
     .aa-expediente-adjunto-label {
-        @apply block text-sm font-medium text-gray-600;
+        @apply block text-base font-medium text-gray-600;
     }
 
     .aa-expediente-adjunto-input {
-        @apply block w-full text-sm text-gray-600;
+        @apply block w-full text-base text-gray-600;
     }
 
     .aa-expediente-adjunto-preview-wrap {
@@ -873,11 +881,11 @@ body {
 
     /* Modal header */
     .aa-modal-header {
-        @apply flex items-center justify-between px-4 py-3 border-b border-gray-200;
+        @apply flex items-center justify-between px-4 py-3;
     }
 
     .aa-modal-title {
-        @apply text-lg font-semibold text-gray-600 m-0;
+        @apply text-2xl font-semibold text-gray-600 m-0;
     }
 
     .aa-modal-close {
@@ -891,7 +899,7 @@ body {
 
     /* Modal footer */
     .aa-modal-footer {
-        @apply px-4 py-3 border-t border-gray-200 bg-gray-50;
+        @apply px-4 py-3 bg-white;
     }
 
     .aa-modal-footer:empty {
@@ -927,25 +935,66 @@ body {
     }
 
     .aa-form-group label {
-        @apply block text-sm font-medium text-gray-600 mb-1;
+        @apply block text-base font-semibold text-gray-600 mb-1;
+    }
+
+    .aa-form-group label.aa-form-label-optional {
+        @apply text-sm font-semibold text-gray-400;
+    }
+
+    .aa-form-group-inline {
+        @apply flex items-center gap-2;
+    }
+
+    .aa-form-group-inline label.aa-form-label-optional {
+        @apply mb-0 flex items-center justify-center w-5 shrink-0 p-0 text-gray-600;
+    }
+
+    .aa-form-group-inline input.aa-form-input-optional {
+        @apply flex-1 min-w-0 w-auto;
+    }
+
+    .aa-form-group-inline .aa-form-country-select {
+        @apply shrink-0 w-auto text-base px-0;
+    }
+
+    .aa-form-capsule {
+        @apply gap-0 min-h-[46px] pl-3 border border-gray-300 rounded-md overflow-hidden bg-white;
+        @apply focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500;
     }
 
     .aa-form-group input {
-        @apply w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-600;
+        @apply w-full px-3 py-2 border border-gray-300 rounded-md text-base font-semibold text-gray-600;
         @apply focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none;
+    }
+
+    .aa-form-capsule input {
+        @apply flex-1 min-w-0 w-auto self-stretch border-0 focus:ring-0 bg-white;
+    }
+
+    .aa-form-capsule .aa-form-country-select + input {
+        @apply pl-3;
+    }
+
+    .aa-form-group input.aa-form-input-optional {
+        @apply text-sm border-0;
+    }
+
+    .aa-form-group input.aa-form-input-email {
+        @apply text-base leading-tight h-[44px] box-border pl-1;
+    }
+
+    .aa-form-group input.aa-form-input-phone,
+    .aa-form-group input.aa-form-input-lg {
+        @apply text-lg;
     }
 
     /* Country code select next to phone (create/edit client modals) */
     .aa-form-country-select {
-        @apply bg-white text-sm font-medium text-gray-600 rounded-md px-2 py-2 border-0;
-        @apply focus:ring-2 focus:ring-indigo-500 outline-none;
+        @apply bg-white text-base font-semibold text-gray-600 rounded-md px-0 py-2 border-0;
+        @apply focus:ring-0 outline-none;
         appearance: none;
         -webkit-appearance: none;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%234b5563'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
-        background-repeat: no-repeat;
-        background-position: right 0.4rem center;
-        background-size: 0.875rem 0.875rem;
-        padding-right: 1.5rem;
     }
 
     /* Shared gray focus ring (replaces browser orange / colored focus) */
@@ -970,12 +1019,37 @@ body {
         @apply flex justify-end gap-2;
     }
 
+    /* Fast appointment — placeholder (value vacío) en gris 500; opciones reales en 600 */
+    #aa-fastappointment-client:has(> option[value=""]:checked),
+    #aa-fastappointment-service:has(> option[value=""]:checked),
+    #aa-fastappointment-time:has(> option[value=""]:checked),
+    #aa-fastappointment-staff:has(> option[value=""]:checked),
+    #aa-fastappointment-area:has(> option[value=""]:checked) {
+        @apply text-gray-500;
+    }
+
+    #aa-fastappointment-client option,
+    #aa-fastappointment-service option,
+    #aa-fastappointment-time option,
+    #aa-fastappointment-staff option,
+    #aa-fastappointment-area option {
+        @apply text-gray-600;
+    }
+
+    #aa-fastappointment-client option[value=""],
+    #aa-fastappointment-service option[value=""],
+    #aa-fastappointment-time option[value=""],
+    #aa-fastappointment-staff option[value=""],
+    #aa-fastappointment-area option[value=""] {
+        @apply text-gray-500;
+    }
+
     .aa-btn-cancelar {
-        @apply px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-700 rounded-md transition-colors;
+        @apply px-4 py-2 text-base font-semibold text-gray-600 hover:text-gray-700 rounded-md transition-colors;
     }
 
     .aa-btn-guardar {
-        @apply px-4 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors;
+        @apply px-4 py-2 text-base font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors;
     }
 
     .aa-btn-guardar:disabled {

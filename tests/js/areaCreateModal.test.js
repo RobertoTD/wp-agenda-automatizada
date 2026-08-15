@@ -70,11 +70,13 @@ describe('AreaCreateModal edit', () => {
         assert.doesNotMatch(modalSrc, /updateServiceAreaColor\(/);
     });
 
-    it('conserva openCreate y no añade botones visibles de edición', () => {
+    it('conserva openCreate y abre edición desde el botón visible Editar', () => {
         assert.match(modalSrc, /function openCreateAreaModal/);
         assert.match(modalSrc, /aa_create_service_area/);
         assert.match(layoutSrc, /modals\/crearzona\/crearzona\.js/);
-        assert.doesNotMatch(areasSrc, /AreaCreateModal\.openEdit/);
+        assert.match(areasSrc, /class="aa-area-edit /);
+        assert.match(areasSrc, />Editar<\/button>/);
+        assert.match(areasSrc, /AreaCreateModal\.openEdit\(areaId\)/);
         assert.doesNotMatch(assignmentsIndexSrc, /openEdit/);
         assert.match(areasSrc, /renderAssignmentItemOptions\('area'/);
         assert.match(assignmentsIndexSrc, /item-options-module\.js/);

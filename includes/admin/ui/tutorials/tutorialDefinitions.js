@@ -48,8 +48,8 @@
                 },
                 {
                     id: 'calendar_overview',
-                    title: 'Esta es tu Agenda',
-                    text: 'Pulsa «+ Crear cita» para crear una cita de prueba.',
+                    title: 'Pulsa "+ Crear cita" para crear una cita de prueba',
+                    text: '',
                     target: '#aa-btn-open-fastappointment-modal',
                     placement: 'top',
                     waitFor: {

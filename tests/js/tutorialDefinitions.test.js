@@ -128,7 +128,8 @@ describe('TutorialDefinitions MC3D', () => {
         var config = api.getConfig('create_test_appointment_v1');
         var step = config.steps.find(function (s) { return s.id === 'calendar_overview'; });
 
-        assert.equal(step.title, 'Esta es tu Agenda');
+        assert.equal(step.title, 'Pulsa "+ Crear cita" para crear una cita de prueba');
+        assert.equal(step.text, '');
         assert.equal(step.target, '#aa-btn-open-fastappointment-modal');
         assert.equal(step.placement, 'top');
         assert.equal(step.advance.mode, 'target_click');

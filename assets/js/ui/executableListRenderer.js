@@ -7,7 +7,8 @@
 (function () {
     'use strict';
 
-    var BTN_BASE = 'inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors';
+    var BTN_BASE = 'inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md border transition-colors';
+    var BTN_INDIGO = 'text-indigo-600 hover:text-indigo-700 hover:bg-gray-50 border-indigo-200 bg-white';
 
     /**
      * @param {unknown} value
@@ -284,7 +285,7 @@
                 if (completeTasksTaskId !== '') {
                     return ''
                         + '<button type="button" data-tasks-action="complete" data-task-id="' + escapeHtml(completeTasksTaskId) + '"'
-                        + ' class="' + btnClass(false) + ' text-green-700 hover:text-green-800 border-green-200 bg-white">'
+                        + ' class="' + btnClass(false) + ' ' + BTN_INDIGO + '">'
                         + escapeHtml(label || 'Completar')
                         + '</button>';
                 }
@@ -297,7 +298,7 @@
                     return ''
                         + '<button type="button" data-learning-action="complete"'
                         + ' data-recommendation-key="' + escapeHtml(recommendationKey) + '"'
-                        + ' class="' + btnClass(false) + ' text-green-700 hover:text-green-800 border-green-200 bg-white">'
+                        + ' class="' + btnClass(false) + ' ' + BTN_INDIGO + '">'
                         + escapeHtml(label || 'Completar')
                         + '</button>';
                 }
@@ -309,7 +310,7 @@
 
                     return ''
                         + '<button type="button" data-tasks-action="complete" data-task-id="' + escapeHtml(taskId) + '"'
-                        + ' class="' + btnClass(false) + ' text-green-700 hover:text-green-800 border-green-200 bg-white">'
+                        + ' class="' + btnClass(false) + ' ' + BTN_INDIGO + '">'
                         + escapeHtml(label || 'Completar')
                         + '</button>';
                 }
@@ -360,7 +361,7 @@
                 if (intentKey === 'defer') {
                     return ''
                         + '<button type="button" data-tasks-action="defer" data-task-id="' + escapeHtml(intentTaskId) + '"'
-                        + ' class="' + btnClass(false) + ' text-gray-600 bg-white hover:bg-gray-50 border-gray-300">'
+                        + ' class="' + btnClass(false) + ' ' + BTN_INDIGO + '">'
                         + escapeHtml(label || 'Ahora no')
                         + '</button>';
                 }
@@ -368,7 +369,7 @@
                 if (intentKey === 'dismiss') {
                     return ''
                         + '<button type="button" data-tasks-action="dismiss" data-task-id="' + escapeHtml(intentTaskId) + '"'
-                        + ' class="' + btnClass(false) + ' text-gray-600 bg-white hover:bg-gray-50 border-gray-300">'
+                        + ' class="' + btnClass(false) + ' ' + BTN_INDIGO + '">'
                         + escapeHtml(label || 'Ahora no')
                         + '</button>';
                 }
@@ -384,7 +385,7 @@
                 return ''
                     + '<button type="button" data-learning-action="defer"'
                     + ' data-recommendation-key="' + escapeHtml(recommendationKey) + '"'
-                    + ' class="' + btnClass(false) + ' text-gray-600 bg-white hover:bg-gray-50 border-gray-300">'
+                    + ' class="' + btnClass(false) + ' ' + BTN_INDIGO + '">'
                     + escapeHtml(label || 'Ahora no')
                     + '</button>';
             }
@@ -395,7 +396,7 @@
                 if (dismissTasksTaskId !== '') {
                     return ''
                         + '<button type="button" data-tasks-action="dismiss" data-task-id="' + escapeHtml(dismissTasksTaskId) + '"'
-                        + ' class="' + btnClass(false) + ' text-gray-600 bg-white hover:bg-gray-50 border-gray-300">'
+                        + ' class="' + btnClass(false) + ' ' + BTN_INDIGO + '">'
                         + escapeHtml(label || 'Ahora no')
                         + '</button>';
                 }
@@ -407,7 +408,7 @@
                 return ''
                     + '<button type="button" data-learning-action="dismiss"'
                     + ' data-recommendation-key="' + escapeHtml(recommendationKey) + '"'
-                    + ' class="' + btnClass(false) + ' text-gray-600 bg-white hover:bg-gray-50 border-gray-300">'
+                    + ' class="' + btnClass(false) + ' ' + BTN_INDIGO + '">'
                     + escapeHtml(label || 'Ahora no')
                     + '</button>';
             }
@@ -416,7 +417,7 @@
                 return ''
                     + '<button type="button" data-learning-action="reactivate"'
                     + ' data-recommendation-key="' + escapeHtml(recommendationKey) + '"'
-                    + ' class="' + btnClass(false) + ' text-gray-600 bg-white hover:bg-gray-50 border-gray-300">'
+                    + ' class="' + btnClass(false) + ' ' + BTN_INDIGO + '">'
                     + escapeHtml(label || 'Reactivar')
                     + '</button>';
             }
@@ -509,7 +510,7 @@
 
                 return ''
                     + '<button type="button" data-tasks-action="complete" data-task-id="' + escapeHtml(taskId) + '"'
-                    + ' class="' + btnClass(false) + ' text-green-700 hover:text-green-800 border-green-200 bg-white">'
+                    + ' class="' + btnClass(false) + ' ' + BTN_INDIGO + '">'
                     + escapeHtml(statusLabel)
                     + '</button>';
             }
@@ -549,7 +550,7 @@
             actions.push(
                 '<button type="button" data-learning-action="defer"'
                 + ' data-recommendation-key="' + escapeHtml(recommendationKey) + '"'
-                + ' class="' + btnClass(false) + ' text-gray-600 bg-white hover:bg-gray-50 border-gray-300">'
+                + ' class="' + btnClass(false) + ' ' + BTN_INDIGO + '">'
                 + 'Ahora no'
                 + '</button>'
             );
@@ -561,7 +562,7 @@
             if (fallbackDismissTasksTaskId !== '') {
                 actions.push(
                     '<button type="button" data-tasks-action="dismiss" data-task-id="' + escapeHtml(fallbackDismissTasksTaskId) + '"'
-                    + ' class="' + btnClass(false) + ' text-gray-600 bg-white hover:bg-gray-50 border-gray-300">'
+                    + ' class="' + btnClass(false) + ' ' + BTN_INDIGO + '">'
                     + 'Ahora no'
                     + '</button>'
                 );
@@ -569,7 +570,7 @@
                 actions.push(
                     '<button type="button" data-learning-action="dismiss"'
                     + ' data-recommendation-key="' + escapeHtml(recommendationKey) + '"'
-                    + ' class="' + btnClass(false) + ' text-gray-600 bg-white hover:bg-gray-50 border-gray-300">'
+                    + ' class="' + btnClass(false) + ' ' + BTN_INDIGO + '">'
                     + 'Ahora no'
                     + '</button>'
                 );
@@ -580,7 +581,7 @@
             actions.push(
                 '<button type="button" data-learning-action="reactivate"'
                 + ' data-recommendation-key="' + escapeHtml(recommendationKey) + '"'
-                + ' class="' + btnClass(false) + ' text-gray-600 bg-white hover:bg-gray-50 border-gray-300">'
+                + ' class="' + btnClass(false) + ' ' + BTN_INDIGO + '">'
                 + 'Reactivar'
                 + '</button>'
             );

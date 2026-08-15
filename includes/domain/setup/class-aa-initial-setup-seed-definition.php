@@ -21,9 +21,9 @@ final class AA_Initial_Setup_Seed_Definition {
 
     public const CLIENT_PHONE_CANONICAL = '525555555555';
 
-    public const SERVICE_NAME = 'Servicio de prueba';
+    public const SERVICE_NAME = 'Consulta general';
 
     public const STAFF_NAME = 'Personal de prueba';
 
-    public const AREA_NAME = 'Zona de atención de prueba';
+    public const AREA_NAME = 'Zona general';
 }

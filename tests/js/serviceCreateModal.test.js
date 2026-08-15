@@ -97,11 +97,13 @@ describe('ServiceCreateModal edit', () => {
         assert.match(modalSrc, /clearSaveCloseTimer/);
     });
 
-    it('conserva openCreate y no añade botones visibles de edición', () => {
+    it('conserva openCreate y abre edición desde el botón visible Editar', () => {
         assert.match(modalSrc, /function openCreateServiceModal/);
         assert.match(modalSrc, /aa_create_service/);
         assert.match(layoutSrc, /modals\/crearservicio\/crearservicio\.js/);
-        assert.doesNotMatch(servicesSrc, /ServiceCreateModal\.openEdit/);
+        assert.match(servicesSrc, /class="aa-service-edit /);
+        assert.match(servicesSrc, />Editar<\/button>/);
+        assert.match(servicesSrc, /ServiceCreateModal\.openEdit\(serviceId\)/);
         assert.doesNotMatch(assignmentsIndexSrc, /openEdit/);
         assert.match(servicesSrc, /renderAssignmentItemOptions\('service'/);
         assert.match(assignmentsIndexSrc, /item-options-module\.js/);
@@ -115,7 +117,7 @@ describe('ServiceCreateModal edit', () => {
         assert.doesNotMatch(servicesSrc, /aa-service-duration-minutes/);
         assert.doesNotMatch(servicesSrc, /aa-service-attendance-type/);
         assert.match(servicesSrc, /renderServiceFact\('Precio:'/);
-        assert.match(servicesSrc, /renderServiceFact\('Duración:'/);
+        assert.doesNotMatch(servicesSrc, /renderServiceFact\('Duración:'/);
         assert.match(servicesSrc, /renderServiceFact\('Tipo:'/);
         assert.match(servicesSrc, /aa-service-delete/);
         assert.match(servicesSrc, /aa_toggle_service/);

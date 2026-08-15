@@ -271,26 +271,26 @@ $push_activation_reconcile_service_js = AA_PLUGIN_URL . 'assets/js/services/push
             </div>
             <form id="aa-task-form" class="aa-tasks-modal-scroll space-y-4" novalidate>
                 <div>
-                    <label for="aa-task-form-list-id" class="block text-sm font-medium text-gray-600 mb-1">Lista</label>
+                    <label for="aa-task-form-list-id" class="block text-base font-medium text-gray-600 mb-1">Lista</label>
                     <select id="aa-task-form-list-id" name="list_id" required
-                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-base text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                         <option value="">No hay listas disponibles</option>
                     </select>
                 </div>
                 <div>
-                    <label for="aa-task-form-title" class="block text-sm font-medium text-gray-600 mb-1">Tarea</label>
+                    <label for="aa-task-form-title" class="block text-base font-medium text-gray-600 mb-1">Tarea</label>
                     <input type="text" id="aa-task-form-title" name="title" required maxlength="255"
-                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-base text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         placeholder="Qué necesitas hacer">
                 </div>
                 <div>
-                    <label for="aa-task-form-notes" class="block text-sm font-medium text-gray-600 mb-1">Detalles</label>
+                    <label for="aa-task-form-notes" class="block text-base font-medium text-gray-600 mb-1">Detalles</label>
                     <textarea id="aa-task-form-notes" name="notes" rows="3"
-                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-base text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         placeholder="Notas opcionales"></textarea>
                 </div>
-                <details id="aa-task-form-options" class="rounded-lg border border-gray-200 bg-gray-50/50">
-                    <summary class="cursor-pointer select-none px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg">
+                <details id="aa-task-form-options" class="bg-white">
+                    <summary class="cursor-pointer select-none py-2.5 text-sm font-medium text-gray-600 bg-white">
                         Opciones
                     </summary>
                     <div class="space-y-4 border-t border-gray-200 px-3 py-3">

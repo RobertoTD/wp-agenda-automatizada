@@ -18,10 +18,113 @@
 
     /** Configuración de países para teléfono canónico (código + longitud nacional) */
     var COUNTRY_CONFIG = {
-        '52': { label: 'México (+52)', placeholder: 'Ej: 5512345678', nationalLen: 10, totalLen: 12 },
-        '1':  { label: 'USA (+1)',   placeholder: 'Ej: 2025550123', nationalLen: 10, totalLen: 11 },
-        '34': { label: 'España (+34)', placeholder: 'Ej: 612345678', nationalLen: 9, totalLen: 11 }
+        '52': { label: '(+52)', placeholder: '5512345678', nationalLen: 10, totalLen: 12 },
+        '1':  { label: '(+1)',   placeholder: '2025550123', nationalLen: 10, totalLen: 11 },
+        '34': { label: '(+34)', placeholder: '612345678', nationalLen: 9, totalLen: 11 }
     };
+
+    var PERSON_ICON_SVG = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">'
+        + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>'
+        + '</svg>';
+
+    var PHONE_ICON_SVG = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">'
+        + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5A2.25 2.25 0 008.25 22.5h7.5A2.25 2.25 0 0018 20.25V3.75A2.25 2.25 0 0015.75 1.5h-2.25m-3 0V3h3V1.5m-3 0h3m-3 18.75h3"/>'
+        + '</svg>';
+
+    function createNombreGroup(inputId, value) {
+        var nombreGroup = document.createElement('div');
+        nombreGroup.className = 'aa-form-group aa-form-group-inline aa-form-capsule';
+
+        var nombreLabel = document.createElement('label');
+        nombreLabel.setAttribute('for', inputId);
+        nombreLabel.className = 'aa-form-label-optional';
+        nombreLabel.innerHTML = PERSON_ICON_SVG + '<span class="sr-only">Nombre</span>';
+
+        var nombreInput = document.createElement('input');
+        nombreInput.type = 'text';
+        nombreInput.id = inputId;
+        nombreInput.name = 'nombre';
+        nombreInput.required = true;
+        nombreInput.placeholder = 'Nombre del cliente';
+        nombreInput.className = 'aa-form-input-lg';
+        if (value) {
+            nombreInput.value = value;
+        }
+
+        nombreGroup.appendChild(nombreLabel);
+        nombreGroup.appendChild(nombreInput);
+        return nombreGroup;
+    }
+
+    function createCorreoGroup(inputId, value) {
+        var correoGroup = document.createElement('div');
+        correoGroup.className = 'aa-form-group aa-form-group-inline aa-form-capsule';
+
+        var correoLabel = document.createElement('label');
+        correoLabel.setAttribute('for', inputId);
+        correoLabel.className = 'sr-only';
+        correoLabel.textContent = 'Email (opcional)';
+
+        var correoInput = document.createElement('input');
+        correoInput.type = 'email';
+        correoInput.id = inputId;
+        correoInput.name = 'correo';
+        correoInput.className = 'aa-form-input-optional aa-form-input-email';
+        correoInput.required = false;
+        correoInput.placeholder = 'Email (opcional)';
+        if (value) {
+            correoInput.value = value;
+        }
+
+        correoGroup.appendChild(correoLabel);
+        correoGroup.appendChild(correoInput);
+        return correoGroup;
+    }
+
+    /**
+     * @param {{ countrySelectId: string, phoneInputId: string, country?: string, nationalDigits?: string }} opts
+     * @returns {HTMLElement}
+     */
+    function createTelefonoGroup(opts) {
+        var country = opts.country || '52';
+        var cfg = COUNTRY_CONFIG[country] || COUNTRY_CONFIG['52'];
+
+        var telefonoGroup = document.createElement('div');
+        telefonoGroup.className = 'aa-form-group aa-form-group-inline aa-form-capsule';
+
+        var telefonoLabel = document.createElement('label');
+        telefonoLabel.setAttribute('for', opts.phoneInputId);
+        telefonoLabel.className = 'aa-form-label-optional';
+        telefonoLabel.innerHTML = PHONE_ICON_SVG + '<span class="sr-only">Teléfono</span>';
+
+        var countrySelect = document.createElement('select');
+        countrySelect.id = opts.countrySelectId;
+        countrySelect.name = 'country';
+        countrySelect.className = 'aa-form-country-select';
+        countrySelect.innerHTML = '<option value="52">(+52)</option><option value="1">(+1)</option><option value="34">(+34)</option>';
+        countrySelect.value = country;
+
+        var telefonoInput = document.createElement('input');
+        telefonoInput.type = 'tel';
+        telefonoInput.id = opts.phoneInputId;
+        telefonoInput.name = 'telefono';
+        telefonoInput.className = 'aa-form-input-optional aa-form-input-phone';
+        telefonoInput.required = true;
+        telefonoInput.placeholder = cfg.placeholder;
+        if (opts.nationalDigits) {
+            telefonoInput.value = opts.nationalDigits;
+        }
+
+        telefonoGroup.appendChild(telefonoLabel);
+        telefonoGroup.appendChild(countrySelect);
+        telefonoGroup.appendChild(telefonoInput);
+
+        countrySelect.addEventListener('change', function() {
+            updatePhonePlaceholder(opts.countrySelectId, opts.phoneInputId);
+        });
+
+        return telefonoGroup;
+    }
 
     /**
      * Obtiene dígitos nacionales y teléfono canónico desde input + país.
@@ -100,77 +203,15 @@
         form.className = 'aa-modal-form';
 
         // Campo: Nombre
-        const nombreGroup = document.createElement('div');
-        nombreGroup.className = 'aa-form-group';
-        
-        const nombreLabel = document.createElement('label');
-        nombreLabel.setAttribute('for', 'modal-cliente-nombre');
-        nombreLabel.textContent = 'Nombre completo *';
-        
-        const nombreInput = document.createElement('input');
-        nombreInput.type = 'text';
-        nombreInput.id = 'modal-cliente-nombre';
-        nombreInput.name = 'nombre';
-        nombreInput.required = true;
-        nombreInput.placeholder = 'Ej: Juan Pérez';
-        
-        nombreGroup.appendChild(nombreLabel);
-        nombreGroup.appendChild(nombreInput);
+        const nombreGroup = createNombreGroup('modal-cliente-nombre');
 
-        // Campo: País + Teléfono
-        const telefonoGroup = document.createElement('div');
-        telefonoGroup.className = 'aa-form-group';
-
-        const telefonoLabel = document.createElement('label');
-        telefonoLabel.setAttribute('for', 'modal-cliente-telefono');
-        telefonoLabel.textContent = 'Teléfono *';
-        telefonoGroup.appendChild(telefonoLabel);
-
-        const telefonoRow = document.createElement('div');
-        telefonoRow.style.cssText = 'display:flex;gap:8px;align-items:center;min-width:0;';
-
-        const countrySelect = document.createElement('select');
-        countrySelect.id = 'modal-cliente-country';
-        countrySelect.name = 'country';
-        countrySelect.className = 'aa-form-country-select';
-        countrySelect.style.cssText = 'flex:0 0 112px;min-width:0;';
-        countrySelect.innerHTML = '<option value="52">México (+52)</option><option value="1">USA (+1)</option><option value="34">España (+34)</option>';
-
-        const phoneWrapper = document.createElement('div');
-        phoneWrapper.style.cssText = 'flex:1 1 0%;min-width:0;';
-        const telefonoInput = document.createElement('input');
-        telefonoInput.type = 'tel';
-        telefonoInput.id = 'modal-cliente-telefono';
-        telefonoInput.name = 'telefono';
-        telefonoInput.required = true;
-        telefonoInput.placeholder = 'Ej: 5512345678';
-        phoneWrapper.appendChild(telefonoInput);
-
-        telefonoRow.appendChild(countrySelect);
-        telefonoRow.appendChild(phoneWrapper);
-        telefonoGroup.appendChild(telefonoRow);
-
-        countrySelect.addEventListener('change', function() {
-            updatePhonePlaceholder('modal-cliente-country', 'modal-cliente-telefono');
+        const telefonoGroup = createTelefonoGroup({
+            countrySelectId: 'modal-cliente-country',
+            phoneInputId: 'modal-cliente-telefono'
         });
 
         // Campo: Correo
-        const correoGroup = document.createElement('div');
-        correoGroup.className = 'aa-form-group';
-        
-        const correoLabel = document.createElement('label');
-        correoLabel.setAttribute('for', 'modal-cliente-correo');
-        correoLabel.textContent = 'Correo electrónico';
-        
-        const correoInput = document.createElement('input');
-        correoInput.type = 'email';
-        correoInput.id = 'modal-cliente-correo';
-        correoInput.name = 'correo';
-        correoInput.required = false;
-        correoInput.placeholder = 'Ej: cliente@email.com (opcional)';
-        
-        correoGroup.appendChild(correoLabel);
-        correoGroup.appendChild(correoInput);
+        const correoGroup = createCorreoGroup('modal-cliente-correo');
 
         // Mensaje de estado (para errores/éxito)
         const statusMsg = document.createElement('div');
@@ -370,7 +411,7 @@
         // Crear wrapper
         const wrapper = document.createElement('div');
         wrapper.className = 'aa-client-inline-form';
-        wrapper.style.cssText = 'padding: 16px; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; margin-top: 8px;';
+        wrapper.style.cssText = 'padding: 16px; background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; margin-top: 8px;';
 
         // Título
         const title = document.createElement('h3');
@@ -494,82 +535,18 @@
         form.appendChild(idInput);
 
         // Campo: Nombre
-        const nombreGroup = document.createElement('div');
-        nombreGroup.className = 'aa-form-group';
-        
-        const nombreLabel = document.createElement('label');
-        nombreLabel.setAttribute('for', 'modal-editar-cliente-nombre');
-        nombreLabel.textContent = 'Nombre completo *';
-        
-        const nombreInput = document.createElement('input');
-        nombreInput.type = 'text';
-        nombreInput.id = 'modal-editar-cliente-nombre';
-        nombreInput.name = 'nombre';
-        nombreInput.required = true;
-        nombreInput.value = cliente.nombre || '';
-        nombreInput.placeholder = 'Ej: Juan Pérez';
-        
-        nombreGroup.appendChild(nombreLabel);
-        nombreGroup.appendChild(nombreInput);
+        const nombreGroup = createNombreGroup('modal-editar-cliente-nombre', cliente.nombre || '');
 
-        // Campo: País + Teléfono
         var parsed = parseStoredPhone(cliente.telefono || '');
-        const telefonoGroup = document.createElement('div');
-        telefonoGroup.className = 'aa-form-group';
-
-        const telefonoLabel = document.createElement('label');
-        telefonoLabel.setAttribute('for', 'modal-editar-cliente-telefono');
-        telefonoLabel.textContent = 'Teléfono *';
-        telefonoGroup.appendChild(telefonoLabel);
-
-        const telefonoRow = document.createElement('div');
-        telefonoRow.style.cssText = 'display:flex;gap:8px;align-items:center;min-width:0;';
-
-        const countrySelect = document.createElement('select');
-        countrySelect.id = 'modal-cliente-country-edit';
-        countrySelect.name = 'country';
-        countrySelect.className = 'aa-form-country-select';
-        countrySelect.style.cssText = 'flex:0 0 112px;min-width:0;';
-        countrySelect.innerHTML = '<option value="52">México (+52)</option><option value="1">USA (+1)</option><option value="34">España (+34)</option>';
-        countrySelect.value = parsed.country;
-
-        const phoneWrapper = document.createElement('div');
-        phoneWrapper.style.cssText = 'flex:1 1 0%;min-width:0;';
-        const telefonoInput = document.createElement('input');
-        telefonoInput.type = 'tel';
-        telefonoInput.id = 'modal-editar-cliente-telefono';
-        telefonoInput.name = 'telefono';
-        telefonoInput.required = true;
-        telefonoInput.value = parsed.nationalDigits;
-        telefonoInput.placeholder = (COUNTRY_CONFIG[parsed.country] || COUNTRY_CONFIG['52']).placeholder;
-        phoneWrapper.appendChild(telefonoInput);
-
-        telefonoRow.appendChild(countrySelect);
-        telefonoRow.appendChild(phoneWrapper);
-        telefonoGroup.appendChild(telefonoRow);
-
-        countrySelect.addEventListener('change', function() {
-            updatePhonePlaceholder('modal-cliente-country-edit', 'modal-editar-cliente-telefono');
+        const telefonoGroup = createTelefonoGroup({
+            countrySelectId: 'modal-cliente-country-edit',
+            phoneInputId: 'modal-editar-cliente-telefono',
+            country: parsed.country,
+            nationalDigits: parsed.nationalDigits
         });
 
         // Campo: Correo
-        const correoGroup = document.createElement('div');
-        correoGroup.className = 'aa-form-group';
-        
-        const correoLabel = document.createElement('label');
-        correoLabel.setAttribute('for', 'modal-editar-cliente-correo');
-        correoLabel.textContent = 'Correo electrónico';
-        
-        const correoInput = document.createElement('input');
-        correoInput.type = 'email';
-        correoInput.id = 'modal-editar-cliente-correo';
-        correoInput.name = 'correo';
-        correoInput.required = false;
-        correoInput.value = cliente.correo || '';
-        correoInput.placeholder = 'Ej: cliente@email.com (opcional)';
-        
-        correoGroup.appendChild(correoLabel);
-        correoGroup.appendChild(correoInput);
+        const correoGroup = createCorreoGroup('modal-editar-cliente-correo', cliente.correo || '');
 
         // Mensaje de estado (para errores/éxito)
         const statusMsg = document.createElement('div');

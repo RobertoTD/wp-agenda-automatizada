@@ -152,19 +152,24 @@
             html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>';
             html += '</svg>';
             html += '</span>';
-            html += '<span class="text-sm font-semibold text-gray-600 min-w-0 flex-1">' + escapeHtml(staff.name) + '</span>';
+            html += '<span class="text-base font-semibold text-gray-600 min-w-0 flex-1">' + escapeHtml(staff.name) + '</span>';
             html += (window.AAAdmin && typeof window.AAAdmin.renderAssignmentItemOptions === 'function')
                 ? window.AAAdmin.renderAssignmentItemOptions('staff', staffId)
                 : '';
             html += '</div>';
             // Collapsable services panel
             html += '<div class="aa-staff-services-panel hidden p-3" data-staff-id="' + staffId + '">';
-            html += '<div class="aa-staff-services-readonly hidden mb-4" data-staff-id="' + staffId + '"></div>';
             html += '<div class="flex items-center justify-between gap-2">';
+            html += '<div class="flex items-center gap-2">';
             html += '<button type="button" ';
             html += 'class="aa-staff-delete px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 transition-colors" ';
             html += 'data-staff-id="' + staffId + '" ';
             html += '>Eliminar</button>';
+            html += '<button type="button" ';
+            html += 'class="aa-staff-edit px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 transition-colors" ';
+            html += 'data-staff-id="' + staffId + '" ';
+            html += '>Editar</button>';
+            html += '</div>';
             html += '<label class="aa-staff-active-toggle flex items-center gap-2 cursor-pointer">';
             html += '<div class="relative">';
             html += '<input type="checkbox" ';
@@ -194,8 +199,6 @@
         
         // Setup services panel toggle handlers
         setupServicesPanelHandlers();
-        
-        populateStaffServices();
     }
 
     /**
@@ -305,6 +308,19 @@
     }
 
     /**
+     * Open the transversal Staff edit modal.
+     * @param {number} staffId
+     */
+    function openStaffEditModal(staffId) {
+        if (window.AAAdmin && window.AAAdmin.StaffCreateModal
+            && typeof window.AAAdmin.StaffCreateModal.openEdit === 'function') {
+            window.AAAdmin.StaffCreateModal.openEdit(staffId);
+            return;
+        }
+        console.error('[Staff Section] AAAdmin.StaffCreateModal.openEdit no disponible');
+    }
+
+    /**
      * Setup handler for create staff button — opens StaffCreateModal
      */
     function setupCreateStaffHandler() {
@@ -408,6 +424,16 @@
         }
 
         staffRoot.addEventListener('click', function(event) {
+            const editButton = event.target.closest('.aa-staff-edit');
+            if (editButton) {
+                event.preventDefault();
+                const editStaffId = parseInt(editButton.getAttribute('data-staff-id'));
+                if (editStaffId > 0) {
+                    openStaffEditModal(editStaffId);
+                }
+                return;
+            }
+
             const hideButton = event.target.closest('.aa-staff-delete');
             if (!hideButton) {
                 return;
@@ -473,88 +499,6 @@
                 hideButton.textContent = originalButtonText;
             }
         });
-    }
-
-    /**
-     * Load assigned services for each staff card (read-only).
-     */
-    function populateStaffServices() {
-        if (!staffRoot) {
-            return;
-        }
-
-        staffRoot.querySelectorAll('.aa-staff-services-panel[data-staff-id]').forEach(function(panel) {
-            const staffId = parseInt(panel.getAttribute('data-staff-id'), 10);
-            if (staffId > 0) {
-                loadStaffServices(staffId);
-            }
-        });
-    }
-
-    /**
-     * Load services assigned to a staff member
-     * @param {number} staffId - ID of the staff member
-     */
-    function loadStaffServices(staffId) {
-        // Get ajaxurl from global data
-        const ajaxurl = (window.AA_ASSIGNMENTS_DATA && window.AA_ASSIGNMENTS_DATA.ajaxurl) 
-            || window.ajaxurl 
-            || '/wp-admin/admin-ajax.php';
-
-        // Prepare FormData for AJAX request
-        const formData = new FormData();
-        formData.append('action', 'aa_get_staff_services');
-        formData.append('staff_id', staffId);
-
-        // Make AJAX request
-        fetch(ajaxurl, {
-            method: 'POST',
-            body: formData
-        })
-        .then(function(response) {
-            return response.json();
-        })
-        .then(function(data) {
-            if (data.success && data.data && data.data.selected) {
-                updateStaffServicesUI(staffId, data.data.selected);
-            } else {
-                console.error('[Staff Section] Error al cargar servicios del personal:', data);
-                updateStaffServicesUI(staffId, []);
-            }
-        })
-        .catch(function(error) {
-            console.error('[Staff Section] Error en petición AJAX:', error);
-            updateStaffServicesUI(staffId, []);
-        });
-    }
-
-    /**
-     * Update read-only assigned services line.
-     * @param {number} staffId
-     * @param {Array} selectedServices
-     */
-    function updateStaffServicesUI(staffId, selectedServices) {
-        const readonly = document.querySelector('.aa-staff-services-readonly[data-staff-id="' + staffId + '"]');
-        if (!readonly) {
-            return;
-        }
-
-        const names = (selectedServices || []).map(function(service) {
-            return String(service && service.name ? service.name : '').trim();
-        }).filter(Boolean);
-
-        if (names.length === 0) {
-            readonly.innerHTML = '';
-            readonly.classList.add('hidden');
-            return;
-        }
-
-        readonly.innerHTML = ''
-            + '<div class="flex items-baseline gap-2 text-sm font-semibold text-gray-600">'
-            + '<span>Servicios que ofrece:</span>'
-            + '<span class="aa-staff-services-value">' + escapeHtml(names.join(', ')) + '</span>'
-            + '</div>';
-        readonly.classList.remove('hidden');
     }
 
     /**

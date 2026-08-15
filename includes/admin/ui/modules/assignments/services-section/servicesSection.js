@@ -151,7 +151,7 @@
             html += '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>';
             html += '</svg>';
             html += '</span>';
-            html += '<span class="text-sm font-semibold text-gray-600 min-w-0 flex-1">' + escapeHtml(service.name) + '</span>';
+            html += '<span class="text-base font-semibold text-gray-600 min-w-0 flex-1">' + escapeHtml(service.name) + '</span>';
             html += (window.AAAdmin && typeof window.AAAdmin.renderAssignmentItemOptions === 'function')
                 ? window.AAAdmin.renderAssignmentItemOptions('service', serviceId)
                 : '';
@@ -276,6 +276,18 @@
      * @param {Event} event - Click event
      */
     function onServicesRootClick(event) {
+        const editTarget = event.target.closest('.aa-service-edit');
+        if (editTarget) {
+            const editServiceId = parseInt(editTarget.getAttribute('data-service-id'));
+            if (!editServiceId || editServiceId <= 0) {
+                return;
+            }
+
+            event.preventDefault();
+            openServiceEditModal(editServiceId);
+            return;
+        }
+
         const target = event.target.closest('.aa-service-delete');
         if (!target) return;
         
@@ -373,6 +385,19 @@
             return;
         }
         console.error('[Services Section] AAAdmin.ServiceCreateModal.openCreate no disponible');
+    }
+
+    /**
+     * Open the transversal Service edit modal.
+     * @param {number} serviceId
+     */
+    function openServiceEditModal(serviceId) {
+        if (window.AAAdmin && window.AAAdmin.ServiceCreateModal
+            && typeof window.AAAdmin.ServiceCreateModal.openEdit === 'function') {
+            window.AAAdmin.ServiceCreateModal.openEdit(serviceId);
+            return;
+        }
+        console.error('[Services Section] AAAdmin.ServiceCreateModal.openEdit no disponible');
     }
 
     /**
@@ -475,14 +500,12 @@
         let html = '<div class="aa-service-details-content">';
 
         var priceDisplay = formatServicePriceDisplay(service.price);
-        var durationDisplay = formatServiceDurationDisplay(service.duration_minutes) || 'Por defecto';
         var typeDisplay = formatServiceTypeDisplay(service.attendance_type);
 
         html += '<div class="aa-service-readonly-facts space-y-1">';
         if (priceDisplay) {
             html += renderServiceFact('Precio:', priceDisplay, 'aa-service-price-value');
         }
-        html += renderServiceFact('Duración:', durationDisplay, 'aa-service-duration-value');
         if (typeDisplay) {
             html += renderServiceFact('Tipo:', typeDisplay, 'aa-service-type-value');
         }
@@ -491,10 +514,16 @@
         // Eliminar + active toggle
         const isActive = parseInt(service.active) === 1;
         html += '<div class="mt-4 pt-4 flex items-center justify-between gap-2">';
+        html += '<div class="flex items-center gap-2">';
         html += '<button type="button" ';
         html += 'class="aa-service-delete px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 transition-colors" ';
         html += 'data-service-id="' + serviceId + '" ';
         html += '>Eliminar</button>';
+        html += '<button type="button" ';
+        html += 'class="aa-service-edit px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 transition-colors" ';
+        html += 'data-service-id="' + serviceId + '" ';
+        html += '>Editar</button>';
+        html += '</div>';
         html += '<label class="aa-service-active-toggle flex items-center gap-2 cursor-pointer">';
         html += '<div class="relative">';
         html += '<input type="checkbox" ';
@@ -529,28 +558,6 @@
             + '<span>' + escapeHtml(label) + '</span>'
             + '<span class="' + valueClass + '">' + escapeHtml(value) + '</span>'
             + '</div>';
-    }
-
-    /**
-     * @param {string|number|null|undefined} raw
-     * @returns {string|null} Display like "60 min", or null when unset (caller shows "Por defecto")
-     */
-    function formatServiceDurationDisplay(raw) {
-        if (raw === null || raw === undefined) {
-            return null;
-        }
-
-        var value = String(raw).trim();
-        if (value === '' || !/^\d+$/.test(value)) {
-            return null;
-        }
-
-        var minutes = parseInt(value, 10);
-        if (!(minutes > 0)) {
-            return null;
-        }
-
-        return minutes + ' min';
     }
 
     /**

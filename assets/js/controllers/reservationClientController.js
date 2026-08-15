@@ -27,7 +27,8 @@
             selectId = 'cita-cliente',
             inlineContainerId = 'aa-reservation-client-inline',
             createButtonId = 'aa-btn-crear-cliente-reservation',
-            onClientsLoaded = null
+            onClientsLoaded = null,
+            emptyPlaceholder = '-- Selecciona un cliente --'
         } = opts || {};
 
         // Get DOM elements
@@ -46,7 +47,7 @@
         let searchTimeoutId = null;
 
         function getPlaceholderText(clients, query) {
-            if (!query) return '-- Selecciona un cliente --';
+            if (!query) return emptyPlaceholder;
             var count = Array.isArray(clients) ? clients.length : 0;
             if (count === 0) return 'Sin clientes encontrados';
             if (count === 1) return '1 resultado \u2014 selecci\u00f3nalo';
@@ -264,19 +265,45 @@
         };
         searchInput.addEventListener('keydown', handleKeydown);
 
-        // Botón "Crear cliente" - abre formulario inline de crear cliente
+        function isInlineFormOpen() {
+            if (!inlineContainer || inlineContainer.style.display === 'none') {
+                return false;
+            }
+
+            if (inlineContainer.classList.contains('hidden') && inlineContainer.style.display !== 'block') {
+                return false;
+            }
+
+            return !!inlineContainer.querySelector('.aa-client-inline-form');
+        }
+
+        function closeInlineForm() {
+            if (!inlineContainer) {
+                return;
+            }
+
+            inlineContainer.innerHTML = '';
+            inlineContainer.style.display = 'none';
+            inlineContainer.classList.add('hidden');
+        }
+
+        // Botón "Crear cliente" - toggle del formulario inline
         if (btnCrearCliente && inlineContainer) {
             handleCreateClick = function(event) {
                 event.preventDefault();
                 event.stopPropagation();
+
+                if (isInlineFormOpen()) {
+                    closeInlineForm();
+                    return;
+                }
                 
                 if (window.AAAdmin && window.AAAdmin.ClientCreateModal) {
                     console.log('[ReservationClientController] Abriendo formulario inline de crear cliente...');
                     
-                    // Mostrar contenedor inline
+                    inlineContainer.classList.remove('hidden');
                     inlineContainer.style.display = 'block';
                     
-                    // Abrir formulario en modo inline
                     window.AAAdmin.ClientCreateModal.openCreate({
                         mode: 'inline',
                         container: inlineContainer
@@ -328,10 +355,7 @@
             console.log('[ReservationClientController] Cliente guardado, recargando lista y seleccionando por teléfono:', telefono);
             
             // Ocultar contenedor inline si está visible
-            const inlineContainerEl = document.getElementById(inlineContainerId);
-            if (inlineContainerEl) {
-                inlineContainerEl.style.display = 'none';
-            }
+            closeInlineForm();
             
             // Setear el input de búsqueda con el teléfono
             const searchInputEl = document.getElementById(searchInputId);
