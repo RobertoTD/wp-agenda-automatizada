@@ -25,6 +25,15 @@ if (strpos($site_url, 'localhost') !== false || strpos($site_url, '127.0.0.1') !
     define('AA_API_BASE_URL', 'https://api.deoia.com');
 }
 
+// Origen público de Storage (adjuntos). Un define externo (wp-config, entorno
+// administrado o test) tiene prioridad; el plugin no lo normaliza ni corrige.
+if ( ! defined( 'AA_EXPEDIENTE_STORAGE_ORIGIN' ) ) {
+    define(
+        'AA_EXPEDIENTE_STORAGE_ORIGIN',
+        'https://ndnhlywkkydqmvhvzbfh.supabase.co'
+    );
+}
+
 // ===============================
 // 🔹 LIBRERÍA PLUGIN UPDATE CHECKER
 // ===============================
