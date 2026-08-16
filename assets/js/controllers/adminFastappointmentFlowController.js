@@ -58,7 +58,7 @@
     /**
      * @param {Array} items
      * @param {(item:*) => boolean} [isEligible]
-     * @returns {{eligibleCount: number, eligibleId: *|null}}
+     * @returns {{status: 'ready', eligibleCount: number, eligibleId: *|null}}
      */
     function recordAutoResolution(items, isEligible) {
         var eligible = getEligibleItems(items, isEligible);
@@ -70,12 +70,16 @@
         }
 
         return {
+            status: 'ready',
             eligibleCount: eligible.length,
             eligibleId: eligibleId
         };
     }
 
     /**
+     * Política de Servicio (y colapso por autoselect confirmada).
+     * Ignora `status`: pending/empty no oculta Servicio.
+     *
      * @param {{eligibleCount?:*, eligibleId?:*, selectedId?:*}} [params]
      * @returns {boolean}
      */
@@ -100,8 +104,30 @@
         return String(eligibleId) === String(selectedId);
     }
 
+    /**
+     * Política de Personal / Zona: pending oculto; ready/1 solo si la
+     * autoselección quedó confirmada en estado; ready/0, ≥2 o 1 sin match → visible.
+     *
+     * @param {{status?:*, eligibleCount?:*, eligibleId?:*, selectedId?:*}} [params]
+     * @returns {boolean}
+     */
+    function shouldHideDeferredStep(params) {
+        var input = params || {};
+
+        if (input.status !== 'ready') {
+            return true;
+        }
+
+        return shouldCollapseAutoResolvedStep({
+            eligibleCount: input.eligibleCount,
+            eligibleId: input.eligibleId,
+            selectedId: input.selectedId
+        });
+    }
+
     function createEmptyAutoResolution() {
         return {
+            status: 'pending',
             eligibleCount: 0,
             eligibleId: null
         };
@@ -746,11 +772,19 @@
             }
 
             var resolution = getAutoResolutionForStep(stepId);
-            var collapsed = shouldCollapseAutoResolvedStep({
-                eligibleCount: resolution.eligibleCount,
-                eligibleId: resolution.eligibleId,
-                selectedId: getSelectedIdForAutoResolvedStep(stepId, getState() || {})
-            });
+            var selectedId = getSelectedIdForAutoResolvedStep(stepId, getState() || {});
+            var collapsed = stepId === 'service'
+                ? shouldCollapseAutoResolvedStep({
+                    eligibleCount: resolution.eligibleCount,
+                    eligibleId: resolution.eligibleId,
+                    selectedId: selectedId
+                })
+                : shouldHideDeferredStep({
+                    status: resolution.status,
+                    eligibleCount: resolution.eligibleCount,
+                    eligibleId: resolution.eligibleId,
+                    selectedId: selectedId
+                });
 
             if (stepElement.classList && typeof stepElement.classList.toggle === 'function') {
                 stepElement.classList.toggle('hidden', collapsed);
@@ -1656,8 +1690,10 @@
             if (!window.FastAppointmentTimeAvailabilityService ||
                 typeof window.FastAppointmentTimeAvailabilityService.getAllStaffWithAvailability !== 'function') {
                 console.warn('[AdminFastappointmentFlowController] FastAppointmentTimeAvailabilityService.getAllStaffWithAvailability no disponible');
+                staffAutoResolution = recordAutoResolution([]);
                 populateStaffSelect([]);
                 renderStaffAvailabilityMessage('');
+                renderVisualSteps();
                 return null;
             }
 
@@ -1742,8 +1778,10 @@
             if (!window.FastAppointmentTimeAvailabilityService ||
                 typeof window.FastAppointmentTimeAvailabilityService.getAreaAvailabilityBySelection !== 'function') {
                 console.warn('[AdminFastappointmentFlowController] FastAppointmentTimeAvailabilityService.getAreaAvailabilityBySelection no disponible');
+                areaAutoResolution = recordAutoResolution([]);
                 populateAreaSelect([]);
                 renderAreaAvailabilityMessage('');
+                renderVisualSteps();
                 return null;
             }
 
@@ -2529,6 +2567,8 @@
             getSingleEligibleItem: getSingleEligibleItem,
             recordAutoResolution: recordAutoResolution,
             shouldCollapseAutoResolvedStep: shouldCollapseAutoResolvedStep,
+            shouldHideDeferredStep: shouldHideDeferredStep,
+            createEmptyAutoResolution: createEmptyAutoResolution,
             tryAutoSelectSelectValue: tryAutoSelectSelectValue,
             tryAutoCheckConfirmCheckbox: tryAutoCheckConfirmCheckbox,
             isFormReadyFromState: isFormReadyFromState,

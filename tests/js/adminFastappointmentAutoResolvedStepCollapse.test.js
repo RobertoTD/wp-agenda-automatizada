@@ -469,24 +469,28 @@ describe('adminFastappointment auto-resolved step collapse', () => {
             assert.equal(harness.state().selectedServiceId, '2');
             assertCollapsed(harness.steps.service, true);
             assert.equal(harness.steps.client.classList.contains('hidden'), false);
+            assertCollapsed(harness.steps.staff, true);
+            assertCollapsed(harness.steps.area, true);
         } finally {
             harness.destroy();
         }
     });
 
-    it('muestra Servicio cuando hay más de una opción válida', async () => {
+    it('muestra Servicio cuando hay más de una opción válida y mantiene Personal/Zona pending ocultos', async () => {
         var harness = loadHarness({ prerequisites: twoServicePrerequisites() });
 
         try {
             await harness.ready;
             assert.equal(harness.state().selectedServiceId || null, null);
             assertCollapsed(harness.steps.service, false);
+            assertCollapsed(harness.steps.staff, true);
+            assertCollapsed(harness.steps.area, true);
         } finally {
             harness.destroy();
         }
     });
 
-    it('oculta Personal y Zona con una opción válida, y los reaparece al resetear la hora', async () => {
+    it('oculta Personal y Zona con una opción válida, y los deja pending ocultos al resetear la hora', async () => {
         var staffCalls = 0;
         var harness = loadHarness({
             prerequisites: oneServicePrerequisites(),
@@ -520,6 +524,8 @@ describe('adminFastappointment auto-resolved step collapse', () => {
 
         try {
             await harness.ready;
+            assertCollapsed(harness.steps.staff, true);
+            assertCollapsed(harness.steps.area, true);
 
             harness.dateInput.value = '2026-08-15';
             await harness.dateInput._handlers.change.call(harness.dateInput);
@@ -538,21 +544,71 @@ describe('adminFastappointment auto-resolved step collapse', () => {
             harness.selects.time.value = '11:00';
             harness.selects.time.selectedIndex = 1;
             var resetPromise = harness.selects.time._handlers.change.call(harness.selects.time);
-            assertCollapsed(harness.steps.staff, false);
-            assertCollapsed(harness.steps.area, false);
+            assertCollapsed(harness.steps.staff, true);
+            assertCollapsed(harness.steps.area, true);
             await resetPromise;
             await flushAsync();
             await flushAsync();
 
             assert.equal(harness.state().selectedStaffId || null, null);
             assertCollapsed(harness.steps.staff, false);
+            assertCollapsed(harness.steps.area, true);
             assert.equal(harness.steps.client.classList.contains('hidden'), false);
         } finally {
             harness.destroy();
         }
     });
 
-    it('no oculta Personal cuando no hay opciones válidas', async () => {
+    it('con varias opciones de Personal aparece el paso y Zona sigue oculta hasta resolver Personal', async () => {
+        var harness = loadHarness({
+            prerequisites: oneServicePrerequisites(),
+            staffResult: function() {
+                return {
+                    staff: [
+                        { id: '3', name: 'Personal de prueba', available: true },
+                        { id: '8', name: 'Otro personal', available: true }
+                    ]
+                };
+            },
+            areaResult: function() {
+                return {
+                    areas: [
+                        { id: '4', name: 'Zona A', occupied: false },
+                        { id: '5', name: 'Zona B', occupied: false }
+                    ]
+                };
+            }
+        });
+
+        try {
+            await harness.ready;
+            harness.dateInput.value = '2026-08-15';
+            await harness.dateInput._handlers.change.call(harness.dateInput);
+            harness.selects.time.value = '10:00';
+            await harness.selects.time._handlers.change.call(harness.selects.time);
+            await flushAsync();
+            await flushAsync();
+
+            assert.equal(harness.state().selectedStaffId || null, null);
+            assertCollapsed(harness.steps.staff, false);
+            assertCollapsed(harness.steps.area, true);
+
+            harness.selects.staff.value = '3';
+            harness.selects.staff.selectedIndex = 1;
+            await harness.selects.staff._handlers.change.call(harness.selects.staff);
+            await flushAsync();
+            await flushAsync();
+
+            assert.equal(harness.state().selectedStaffId, '3');
+            assertCollapsed(harness.steps.staff, false);
+            assertCollapsed(harness.steps.area, false);
+            assert.equal(harness.state().selectedAreaId || null, null);
+        } finally {
+            harness.destroy();
+        }
+    });
+
+    it('muestra Personal cuando no hay opciones válidas', async () => {
         var harness = loadHarness({
             prerequisites: oneServicePrerequisites(),
             staffResult: function() {
@@ -570,6 +626,8 @@ describe('adminFastappointment auto-resolved step collapse', () => {
             await harness.dateInput._handlers.change.call(harness.dateInput);
             harness.selects.time.value = '10:00';
             await harness.selects.time._handlers.change.call(harness.selects.time);
+            await flushAsync();
+            await flushAsync();
 
             assert.equal(harness.state().selectedStaffId || null, null);
             assertCollapsed(harness.steps.staff, false);

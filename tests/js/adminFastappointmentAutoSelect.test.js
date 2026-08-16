@@ -69,7 +69,7 @@ describe('adminFastappointmentFlowController auto-select helpers', () => {
 });
 
 describe('adminFastappointmentFlowController auto-resolved step collapse helpers', () => {
-    it('recordAutoResolution usa las mismas opciones elegibles que getSingleEligibleItem', () => {
+    it('recordAutoResolution marca ready y usa las mismas opciones elegibles que getSingleEligibleItem', () => {
         var staff = [
             { id: 1, available: false },
             { id: 7, available: true }
@@ -77,6 +77,7 @@ describe('adminFastappointmentFlowController auto-resolved step collapse helpers
         var isEligible = function(item) { return item.available === true; };
 
         assert.deepEqual(autoSelect.recordAutoResolution(staff, isEligible), {
+            status: 'ready',
             eligibleCount: 1,
             eligibleId: 7
         });
@@ -87,16 +88,24 @@ describe('adminFastappointmentFlowController auto-resolved step collapse helpers
                 [{ id: 1, available: true }, { id: 2, available: true }],
                 isEligible
             ),
-            { eligibleCount: 2, eligibleId: null }
+            { status: 'ready', eligibleCount: 2, eligibleId: null }
         );
         assert.deepEqual(
             autoSelect.recordAutoResolution([], isEligible),
-            { eligibleCount: 0, eligibleId: null }
+            { status: 'ready', eligibleCount: 0, eligibleId: null }
         );
         assert.deepEqual(
             autoSelect.recordAutoResolution([{ available: true }], isEligible),
-            { eligibleCount: 1, eligibleId: null }
+            { status: 'ready', eligibleCount: 1, eligibleId: null }
         );
+    });
+
+    it('createEmptyAutoResolution queda pending', () => {
+        assert.deepEqual(autoSelect.createEmptyAutoResolution(), {
+            status: 'pending',
+            eligibleCount: 0,
+            eligibleId: null
+        });
     });
 
     it('shouldCollapseAutoResolvedStep no colapsa con 0 o más de 1 elegibles', () => {
@@ -139,6 +148,68 @@ describe('adminFastappointmentFlowController auto-resolved step collapse helpers
             eligibleId: 9,
             selectedId: '9'
         }), true);
+    });
+
+    it('shouldCollapseAutoResolvedStep ignora status pending (Servicio sigue visible)', () => {
+        assert.equal(autoSelect.shouldCollapseAutoResolvedStep({
+            status: 'pending',
+            eligibleCount: 0,
+            eligibleId: null,
+            selectedId: null
+        }), false);
+    });
+
+    it('shouldHideDeferredStep oculta pending', () => {
+        assert.equal(autoSelect.shouldHideDeferredStep({
+            status: 'pending',
+            eligibleCount: 0,
+            eligibleId: null,
+            selectedId: null
+        }), true);
+        assert.equal(autoSelect.shouldHideDeferredStep({
+            eligibleCount: 2,
+            eligibleId: null,
+            selectedId: '1'
+        }), true);
+    });
+
+    it('shouldHideDeferredStep muestra ready/0 y ready/≥2', () => {
+        assert.equal(autoSelect.shouldHideDeferredStep({
+            status: 'ready',
+            eligibleCount: 0,
+            eligibleId: null,
+            selectedId: null
+        }), false);
+        assert.equal(autoSelect.shouldHideDeferredStep({
+            status: 'ready',
+            eligibleCount: 2,
+            eligibleId: null,
+            selectedId: '3'
+        }), false);
+    });
+
+    it('shouldHideDeferredStep oculta ready/1 solo con coincidencia confirmada', () => {
+        assert.equal(autoSelect.shouldHideDeferredStep({
+            status: 'ready',
+            eligibleCount: 1,
+            eligibleId: 9,
+            selectedId: '9'
+        }), true);
+    });
+
+    it('shouldHideDeferredStep muestra ready/1 sin coincidencia de selectedId', () => {
+        assert.equal(autoSelect.shouldHideDeferredStep({
+            status: 'ready',
+            eligibleCount: 1,
+            eligibleId: '9',
+            selectedId: null
+        }), false);
+        assert.equal(autoSelect.shouldHideDeferredStep({
+            status: 'ready',
+            eligibleCount: 1,
+            eligibleId: '9',
+            selectedId: '8'
+        }), false);
     });
 
     it('isFormReadyFromState no depende de la visibilidad de los pasos', () => {
