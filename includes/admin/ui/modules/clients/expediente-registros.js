@@ -440,16 +440,26 @@
         return data.ajaxUrl || window.ajaxurl || '';
     }
 
+    var RECORDED_AT_MONTHS_ES = [
+        'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+        'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
+    ];
+
     function formatRecordedAt(value) {
         if (!value || typeof value !== 'string') {
             return '';
         }
-        // MySQL datetime → DD/MM/YYYY HH:mm (local display, no TZ libs)
-        var m = value.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+        // MySQL datetime → D/MesAbrev/YYYY (sin hora; digitos tal cual vienen de BD)
+        var m = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
         if (!m) {
             return value;
         }
-        return m[3] + '/' + m[2] + '/' + m[1] + ' ' + m[4] + ':' + m[5];
+        var monthIndex = parseInt(m[2], 10) - 1;
+        var monthLabel = RECORDED_AT_MONTHS_ES[monthIndex];
+        if (!monthLabel) {
+            return value;
+        }
+        return parseInt(m[3], 10) + '/' + monthLabel + '/' + m[1];
     }
 
     /**
@@ -2070,7 +2080,7 @@
 
         var editBtn = document.createElement('button');
         editBtn.type = 'button';
-        editBtn.className = 'aa-expediente-btn-editar flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50';
+        editBtn.className = 'aa-expediente-btn-editar flex w-full items-center gap-2 px-4 py-2.5 text-left text-base text-gray-700 hover:bg-gray-50';
         editBtn.setAttribute('role', 'menuitem');
         editBtn.setAttribute('data-registro-id', recordId);
         editBtn.textContent = 'Editar';
@@ -2083,7 +2093,7 @@
 
         var deleteRecordBtn = document.createElement('button');
         deleteRecordBtn.type = 'button';
-        deleteRecordBtn.className = 'aa-expediente-btn-eliminar flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-50';
+        deleteRecordBtn.className = 'aa-expediente-btn-eliminar flex w-full items-center gap-2 px-4 py-2.5 text-left text-base text-red-600 hover:bg-gray-50';
         deleteRecordBtn.setAttribute('role', 'menuitem');
         deleteRecordBtn.setAttribute('data-registro-id', recordId);
         deleteRecordBtn.textContent = 'Eliminar';
@@ -2701,17 +2711,21 @@
         var adjuntoBlock = document.createElement('div');
         adjuntoBlock.className = 'aa-expediente-adjunto-block';
 
-        var adjuntoLabel = document.createElement('label');
-        adjuntoLabel.className = 'aa-expediente-adjunto-label';
-        adjuntoLabel.setAttribute('for', 'aa-expediente-registro-adjunto');
-        adjuntoLabel.textContent = 'Adjuntar imagen (opcional)';
-
         var fileInput = document.createElement('input');
         fileInput.type = 'file';
         fileInput.id = 'aa-expediente-registro-adjunto';
         fileInput.className = 'aa-expediente-adjunto-input';
         fileInput.accept = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
         // Sin capture / cámara.
+
+        var adjuntoTrigger = document.createElement('label');
+        adjuntoTrigger.className = 'aa-expediente-adjunto-trigger';
+        adjuntoTrigger.setAttribute('for', 'aa-expediente-registro-adjunto');
+        adjuntoTrigger.innerHTML =
+            '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">' +
+            '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>' +
+            '</svg>' +
+            '<span>Añadir imagen</span>';
 
         var previewWrap = document.createElement('div');
         previewWrap.className = 'aa-expediente-adjunto-preview-wrap hidden';
@@ -2732,8 +2746,8 @@
         previewWrap.appendChild(previewMeta);
         previewWrap.appendChild(removeBtn);
 
-        adjuntoBlock.appendChild(adjuntoLabel);
         adjuntoBlock.appendChild(fileInput);
+        adjuntoBlock.appendChild(adjuntoTrigger);
         adjuntoBlock.appendChild(previewWrap);
 
         var errorEl = document.createElement('p');

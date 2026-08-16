@@ -128,7 +128,8 @@
         Object.assign(card.style, {
             backgroundColor: '#ffffff',
             border: `1px solid ${TOKENS.gray200}`,
-            borderLeft: `3px solid ${config.barColor}`,
+            borderWidth: '1px 2px',
+            borderLeft: `2px solid ${config.barColor}`,
             borderRadius: TOKENS.radiusMd,
             overflow: 'hidden',
             cursor: 'pointer',
@@ -164,12 +165,12 @@
         const header = document.createElement('div');
         header.className = 'aa-appointment-header';
         Object.assign(header.style, {
-            padding: `${TOKENS.space2} ${TOKENS.space3}`,
+            padding: `${TOKENS.space2} 15px`,
             backgroundColor: TOKENS.gray50,
             borderBottom: `1px solid ${TOKENS.gray100}`,
             color: TOKENS.gray600,
             fontWeight: '600',
-            fontSize: TOKENS.textBase,
+            fontSize: '15px',
             lineHeight: '1.3',
             flex: '1',
             display: 'flex',
@@ -188,7 +189,7 @@
         
         // Título: solo cliente (el servicio va en el body)
         const titleText = document.createElement('h3');
-        titleText.className = 'text-base font-semibold text-gray-600 truncate min-w-0 flex-1 m-0';
+        titleText.className = 'text-lg font-semibold text-gray-600 truncate min-w-0 flex-1 m-0';
         titleText.textContent = cita.nombre || 'Sin nombre';
         
         header.appendChild(titleText);
@@ -227,7 +228,7 @@
         body.className = 'aa-appointment-body';
         body.setAttribute('hidden', '');
         Object.assign(body.style, {
-            padding: TOKENS.space5,
+            padding: '0 15px 15px',
             backgroundColor: '#ffffff',
             fontSize: TOKENS.textBase,
             flexShrink: '0',
@@ -384,7 +385,7 @@
             gap: '4px',
             padding: `2px ${TOKENS.space2}`,
             borderRadius: TOKENS.radiusSm,
-            fontSize: '10px',
+            fontSize: TOKENS.textSm,
             fontWeight: '600',
             lineHeight: '1',
             backgroundColor: 'transparent',

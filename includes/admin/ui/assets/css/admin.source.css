@@ -503,15 +503,25 @@ body {
 
     #aa-clients-grid [data-aa-card].is-open .aa-card-body {
         background-color: transparent;
+        padding: 0 15px 15px;
     }
 
-    /* Clientes — teléfono y correo un poco por debajo del nombre (text-lg) */
+    /* Clientes — teléfono un poco por debajo del nombre (text-lg) */
     #aa-clients-grid .aa-client-card-contact {
         @apply text-base;
+        padding-left: 11px;
     }
 
     #aa-clients-grid .aa-client-card-contact svg {
         @apply text-gray-500;
+    }
+
+    #aa-clients-grid .aa-client-card-details-meta {
+        padding-left: 11px;
+    }
+
+    #aa-clients-grid .aa-client-card-details {
+        padding-left: 11px;
     }
 
     /* Clientes — WhatsApp como texto de fila (no botón) */
@@ -635,7 +645,7 @@ body {
     }
 
     .aa-expediente-registro-title {
-        @apply text-base font-medium text-gray-900 break-words;
+        @apply text-lg font-medium text-gray-900 break-words;
     }
 
     .aa-expediente-registro-meta {
@@ -667,7 +677,7 @@ body {
     }
 
     .aa-expediente-registro-body {
-        @apply text-base text-gray-700 whitespace-pre-wrap break-words;
+        @apply text-lg text-gray-700 whitespace-pre-wrap break-words;
     }
 
     .aa-expediente-registro-options-menu {
@@ -696,12 +706,20 @@ body {
         @apply space-y-2 pt-1;
     }
 
-    .aa-expediente-adjunto-label {
-        @apply block text-base font-medium text-gray-600;
+    .aa-expediente-adjunto-input {
+        @apply sr-only;
     }
 
-    .aa-expediente-adjunto-input {
-        @apply block w-full text-base text-gray-600;
+    .aa-expediente-adjunto-trigger {
+        @apply inline-flex items-center gap-1.5;
+        @apply px-4 py-2.5 text-base;
+        @apply bg-white text-indigo-600 hover:text-indigo-700 hover:bg-gray-50;
+        @apply border border-indigo-200 rounded-lg;
+        @apply transition-colors cursor-pointer;
+    }
+
+    .aa-expediente-adjunto-trigger svg {
+        @apply w-5 h-5 shrink-0;
     }
 
     .aa-expediente-adjunto-preview-wrap {

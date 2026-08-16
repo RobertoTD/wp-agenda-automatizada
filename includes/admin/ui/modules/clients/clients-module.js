@@ -26,7 +26,6 @@
 
     var EXPEDIENTE_FOLDER_SVG = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>';
     var CLIENT_PERSON_SVG = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>';
-    var CLIENT_MAIL_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>';
 
     function getClientsData() {
         return window.AA_CLIENTS_DATA || {};
@@ -74,24 +73,6 @@
         return row;
     }
 
-    /**
-     * Fila de correo: icono de sobre + valor (sin etiqueta de texto).
-     */
-    function createClientEmailRow(value) {
-        const row = document.createElement('div');
-        row.className = 'aa-client-card-contact';
-        const wrap = document.createElement('span');
-        wrap.className = 'inline-flex items-center gap-1.5 min-w-0 text-gray-500';
-        wrap.title = 'Correo';
-        wrap.innerHTML = CLIENT_MAIL_SVG;
-        const content = document.createElement('span');
-        content.className = 'text-gray-500 min-w-0 truncate';
-        content.textContent = value;
-        wrap.appendChild(content);
-        row.appendChild(wrap);
-        return row;
-    }
-
     let clientCardDetailsSeq = 0;
 
     function nextClientDetailsPanelId(cliente) {
@@ -135,6 +116,7 @@
         if (cliente && cliente.id) {
             panel.setAttribute('data-client-id', String(cliente.id));
         }
+        panel.appendChild(createClientDetailRow('Correo:', cliente.correo || 'N/A'));
         panel.appendChild(createClientDetailRow('Fecha de registro:', cliente.created_at || 'N/A'));
         panel.appendChild(createClientDetailRow('Total de citas:', String(cliente.total_citas || 0)));
         return panel;
@@ -200,8 +182,6 @@
             telefono.textContent = 'N/A';
         }
         body.appendChild(telefono);
-
-        body.appendChild(createClientEmailRow(cliente.correo || 'N/A'));
 
         const detailsPanelId = nextClientDetailsPanelId(cliente);
         const detailsToggle = createClientDetailsToggle(detailsPanelId);
@@ -856,7 +836,7 @@
 
         var header = document.createElement('div');
         header.id = 'aa-expediente-section-header';
-        header.className = 'px-4 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white rounded-t-xl';
+        header.className = 'px-4 py-5 bg-white rounded-t-xl';
 
         var headerInner = document.createElement('div');
         headerInner.className = 'flex items-center justify-between gap-3';

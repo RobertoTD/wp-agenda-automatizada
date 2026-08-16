@@ -180,7 +180,7 @@ describe('expediente-registros cards (MC2b/MC3)', () => {
         assert.ok(api.__test__);
         assert.equal(api.__test__.toDatetimeAttr('2026-07-30 15:04:05'), '2026-07-30T15:04:05');
         assert.equal(api.__test__.toDatetimeAttr('2026-07-30 15:04'), '2026-07-30T15:04:00');
-        assert.equal(api.__test__.formatRecordedAt('2026-07-30 15:04:05'), '30/07/2026 15:04');
+        assert.equal(api.__test__.formatRecordedAt('2026-07-30 15:04:05'), '30/Jul/2026');
     });
 
     it('createRecordDetails usa DOM/textContent con título, folio, time y Editar', () => {
@@ -210,7 +210,7 @@ describe('expediente-registros cards (MC2b/MC3)', () => {
         assert.equal(folio.textContent, 'Folio #12');
         assert.equal(timeEl.tagName, 'TIME');
         assert.equal(timeEl.getAttribute('datetime'), '2026-07-30T09:30:00');
-        assert.equal(timeEl.textContent, '30/07/2026 09:30');
+        assert.equal(timeEl.textContent, '30/Jul/2026');
         assert.equal(body.textContent, 'Línea 1\nLínea 2');
         assert.ok(options);
         assert.equal(options.parentNode, summary);
