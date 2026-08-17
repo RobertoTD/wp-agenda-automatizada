@@ -28,21 +28,8 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 
 $schema_src = file_get_contents($schema_file);
 ac_assert('Schema readable', is_string($schema_src) && $schema_src !== '');
-ac_assert('DB_VERSION is 13', strpos($schema_src, "DB_VERSION = '13'") !== false);
+ac_assert('DB_VERSION is 14', strpos($schema_src, "DB_VERSION = '14'") !== false);
 ac_assert('CREATE TABLE aa_expediente_registros', strpos($schema_src, 'aa_expediente_registros') !== false);
-ac_assert(
-    'no CREATE TABLE aa_expedientes padre',
-    strpos($schema_src, 'aa_expedientes') === false
-    || (strpos($schema_src, "CREATE TABLE") !== false
-        && preg_match('/CREATE TABLE[^;]*aa_expedientes[^_]/', $schema_src) !== 1
-        && strpos($schema_src, "\$wpdb->prefix . 'aa_expedientes'") === false)
-);
-// Más estricto: no existe tabla con nombre exacto aa_expedientes
-ac_assert(
-    'no prefijo aa_expedientes (solo aa_expediente_registros)',
-    strpos($schema_src, "'aa_expedientes'") === false
-    && strpos($schema_src, 'aa_expediente_registros') !== false
-);
 ac_assert('title varchar(200)', strpos($schema_src, 'title varchar(200) NOT NULL') !== false);
 ac_assert('body text', strpos($schema_src, 'body text NOT NULL') !== false);
 ac_assert('recorded_at datetime NOT NULL', strpos($schema_src, 'recorded_at datetime NOT NULL') !== false);
@@ -53,7 +40,7 @@ ac_assert(
     strpos($schema_src, 'KEY client_recorded (client_id, recorded_at, id)') !== false
 );
 
-$block_start = strpos($schema_src, 'aa_expediente_registros');
+$block_start = strpos($schema_src, "\$wpdb->prefix . 'aa_expediente_registros'");
 $block_end = $block_start !== false ? strpos($schema_src, ') $charset;";', $block_start) : false;
 $block = ($block_start !== false && $block_end !== false)
     ? substr($schema_src, $block_start, $block_end - $block_start)
@@ -61,6 +48,14 @@ $block = ($block_start !== false && $block_end !== false)
 
 ac_assert('bloque DDL encontrado', $block !== '');
 ac_assert('sin FOREIGN KEY en registros', $block !== '' && strpos($block, 'FOREIGN KEY') === false);
+ac_assert(
+    'registros siguen sin expediente_id (sin backfill)',
+    $block !== '' && strpos($block, 'expediente_id') === false
+);
+ac_assert(
+    'registros conservan client_id NOT NULL',
+    $block !== '' && strpos($block, 'client_id bigint(20) unsigned NOT NULL') !== false
+);
 ac_assert(
     'sin KEY client_id suelto redundante',
     $block !== '' && strpos($block, 'KEY client_id (client_id)') === false
@@ -90,7 +85,7 @@ if ($wp_load !== '' && is_readable($wp_load)) {
     ac_assert('índice client_recorded existe', is_array($idx) && count($idx) >= 1);
 
     $version = get_option('aa_db_version', '0');
-    ac_assert('aa_db_version es 13 tras install', (string) $version === '13', (string) $version);
+    ac_assert('aa_db_version es 14 tras install', (string) $version === '14', (string) $version);
     ac_assert('upgrade path: versión previa no bloquea', true, 'before=' . $before);
 } else {
     echo "\n(skip WP integration — set AA_WP_ROOT para install/upgrade real)\n";

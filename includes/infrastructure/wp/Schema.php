@@ -7,7 +7,8 @@
  *    aa_staff, aa_service_areas, aa_assignments, aa_services,
  *    aa_staff_services, aa_assignment_services,
  *    aa_learning_recommendation_state, aa_task_lists, aa_tasks, aa_task_state,
- *    aa_task_actions, aa_expediente_registros, aa_expediente_adjuntos).
+ *    aa_task_actions, aa_expediente_categories, aa_expedientes,
+ *    aa_expediente_registros, aa_expediente_adjuntos).
  *  - Migraciones inline de columnas para instalaciones existentes
  *    (public_calendar, duration_minutes, calendar_uid).
  *  - Inicialización de options con valor por defecto (aa_estado_gsync,
@@ -65,7 +66,7 @@ final class AA_Schema {
      * Independiente de la versión del plugin. Solo refleja el estado
      * de las tablas/columnas/índices.
      */
-    public const DB_VERSION = '13';
+    public const DB_VERSION = '14';
 
     public const OPTION_INSTALLATION_INITIALIZED_AT = 'aa_installation_initialized_at';
 
@@ -439,7 +440,7 @@ final class AA_Schema {
 
         dbDelta($task_actions_sql);
 
-        // 🔹 Registros de expediente por cliente (MC2 — sin tabla padre aa_expedientes)
+        // 🔹 Registros de expediente por cliente (MC2 — client_id; entidad padre en aa_expedientes)
         $expediente_registros_table = $wpdb->prefix . 'aa_expediente_registros';
         $expediente_registros_sql = "CREATE TABLE $expediente_registros_table (
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -485,6 +486,42 @@ final class AA_Schema {
             'uq_aa_exp_adj_storage_path',
             'ALTER TABLE ' . $expediente_adjuntos_table . ' ADD UNIQUE KEY uq_aa_exp_adj_storage_path (storage_path)'
         );
+
+        // 🔹 Catálogo de categorías de expediente (DB 14 — slug estable; seed general)
+        $expediente_categories_table = $wpdb->prefix . 'aa_expediente_categories';
+        $expediente_categories_sql = "CREATE TABLE $expediente_categories_table (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            slug varchar(64) NOT NULL,
+            name varchar(100) NOT NULL,
+            created_at datetime NOT NULL,
+            PRIMARY KEY  (id),
+            UNIQUE KEY slug (slug)
+        ) $charset;";
+
+        dbDelta($expediente_categories_sql);
+        self::ensure_index(
+            $expediente_categories_table,
+            'slug',
+            'ALTER TABLE ' . $expediente_categories_table . ' ADD UNIQUE KEY slug (slug)'
+        );
+
+        // 🔹 Expedientes padre (DB 14 — category_id obligatorio; sin client_id ni FK)
+        $expedientes_table = $wpdb->prefix . 'aa_expedientes';
+        $expedientes_sql = "CREATE TABLE $expedientes_table (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            title varchar(200) NOT NULL,
+            description text,
+            category_id bigint(20) unsigned NOT NULL,
+            created_at datetime NOT NULL,
+            updated_at datetime DEFAULT NULL,
+            PRIMARY KEY  (id),
+            KEY category_id (category_id),
+            KEY created_id (created_at, id)
+        ) $charset;";
+
+        dbDelta($expedientes_sql);
+
+        self::ensure_expediente_category_general();
 
         // NOTA: FOREIGN KEY constraints no se incluyen aquí porque dbDelta() puede tener problemas
         // con ellos. Si se necesitan, deben agregarse manualmente después de la creación:
@@ -532,6 +569,70 @@ final class AA_Schema {
         // Esto cubre tanto la primera instalación (vía activation hook)
         // como las migraciones automáticas (vía maybe_migrate()).
         update_option('aa_db_version', self::DB_VERSION);
+    }
+
+    /**
+     * Crea la categoría de sistema `general` si aún no existe en el blog actual.
+     *
+     * Idempotente ante reejecución de install() y ante una carrera protegida
+     * por UNIQUE(slug): si el INSERT falla pero la fila ya existe, no se
+     * considera fallida la migración.
+     */
+    private static function ensure_expediente_category_general(): void {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'aa_expediente_categories';
+        $slug = 'general';
+
+        if (self::expediente_category_id_by_slug($table, $slug) !== null) {
+            return;
+        }
+
+        $previous_suppress = $wpdb->suppress_errors(true);
+        $wpdb->insert(
+            $table,
+            [
+                'slug' => $slug,
+                'name' => 'General',
+                'created_at' => current_time('mysql'),
+            ],
+            ['%s', '%s', '%s']
+        );
+        $wpdb->suppress_errors($previous_suppress);
+
+        if (self::expediente_category_id_by_slug($table, $slug) !== null) {
+            return;
+        }
+
+        $error = is_string($wpdb->last_error) && $wpdb->last_error !== ''
+            ? $wpdb->last_error
+            : 'unknown';
+
+        throw new \RuntimeException(
+            '[AA_Schema] No se pudo crear la categoría de expediente general: ' . $error
+        );
+    }
+
+    /**
+     * @return int|null
+     */
+    private static function expediente_category_id_by_slug(string $table, string $slug): ?int {
+        global $wpdb;
+
+        $id = $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT id FROM {$table} WHERE slug = %s LIMIT 1",
+                $slug
+            )
+        );
+
+        if ($id === null || $id === false || $id === '') {
+            return null;
+        }
+
+        $id = (int) $id;
+
+        return $id > 0 ? $id : null;
     }
 
     /**
