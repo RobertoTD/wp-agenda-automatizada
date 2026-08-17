@@ -114,8 +114,13 @@ ac_assert('paginador propio', strpos($module, 'id="aa-expedientes-pagination"') 
     && strpos($module, 'id="aa-expedientes-prev"') !== false
     && strpos($module, 'id="aa-expedientes-next"') !== false);
 ac_assert('status live region', strpos($module, 'id="aa-expedientes-status"') !== false);
-ac_assert('sin FAB', strpos($module, 'fab') === false && strpos($module, 'Nuevo expediente') === false);
-ac_assert('sin modal', stripos($module, 'modal') === false);
+ac_assert('FAB propio en módulo expedientes', strpos($module, 'id="aa-expedientes-new-expediente"') !== false
+    && strpos($module, 'data-expedientes-tool="create-expediente"') !== false
+    && strpos($module, 'Nuevo expediente') !== false);
+ac_assert('FAB expedientes no reutiliza ids de clientes', strpos($module, 'aa-clients-new-client') === false
+    && strpos($module, 'data-clients-tool="create-client"') === false);
+ac_assert('clientes no incluye FAB de expedientes', strpos($clients_index, 'aa-expedientes-new-expediente') === false);
+ac_assert('encola modal create JS', strpos($module, 'expediente-create-modal.js') !== false);
 ac_assert('sin $wpdb', strpos($module, '$wpdb') === false);
 ac_assert('layout no encola JS de expedientes padre', strpos($layout, 'expedientes-module.js') === false);
 ac_assert('header no añade tools de expedientes padre', strpos($header, 'aa-expedientes-area-tools') === false);
@@ -171,11 +176,14 @@ ac_assert('runtime grid vacío', preg_match('/id="aa-expedientes-grid"[^>]*>\s*<
 ac_assert('runtime título Expedientes', strpos($rendered, 'data-aa-page-title="Expedientes"') !== false);
 ac_assert('runtime sin empty copy', strpos($rendered, 'Aún no hay') === false);
 ac_assert('runtime encola expedientes-module.js', strpos($rendered, 'expedientes-module.js') !== false);
+ac_assert('runtime encola expediente-create-modal.js', strpos($rendered, 'expediente-create-modal.js') !== false);
+ac_assert('runtime FAB visible', strpos($rendered, 'id="aa-expedientes-new-expediente"') !== false);
 ac_assert('runtime buscador visible', strpos($rendered, 'id="aa-expedientes-search"') !== false
     && strpos($rendered, 'Buscar expediente por nombre') !== false);
 
 $css = ac_read('includes/admin/ui/assets/css/admin.source.css');
 $js = ac_read('includes/admin/ui/modules/expedientes/expedientes-module.js');
+$createJs = ac_read('includes/admin/ui/modules/expedientes/expediente-create-modal.js');
 ac_assert('CSS scope #aa-expedientes-grid', strpos($css, '#aa-expedientes-grid') !== false);
 ac_assert('CSS action bar propia', strpos($css, '.aa-expedientes-action-bar') !== false
     && strpos($css, '.aa-expedientes-search-input') !== false);
@@ -196,9 +204,18 @@ ac_assert('JS cards data-aa-card', strpos($js, "setAttribute('data-aa-card'") !=
 ac_assert('JS slot data-expediente-id sin data-aa-card anidado en slot', strpos($js, "setAttribute('data-expediente-id'") !== false
     && preg_match("/aa-expediente-registros-slot[\\s\\S]{0,200}setAttribute\\('data-aa-card'/", $js) !== 1);
 ac_assert('JS título por textContent', strpos($js, 'name.textContent = titleText') !== false);
-ac_assert('JS sin FAB/modal/create UI', strpos($js, 'Nuevo expediente') === false
-    && stripos($js, 'modal') === false
-    && strpos($js, 'aa_create_expediente') === false);
+ac_assert('JS module escucha aa:expediente:saved', strpos($js, 'aa:expediente:saved') !== false
+    && strpos($js, 'resetSearchAndReload') !== false);
+ac_assert('JS module FAB abre ExpedienteCreateModal', strpos($js, 'aa-expedientes-new-expediente') !== false
+    && strpos($js, 'ExpedienteCreateModal.openCreate') !== false);
+ac_assert('create modal usa AAAdmin.openModal', strpos($createJs, 'AAAdmin.openModal') !== false);
+ac_assert('create modal emite aa:expediente:saved', strpos($createJs, 'aa:expediente:saved') !== false);
+ac_assert('create modal no envía category_id ni client_id', strpos($createJs, "append('category_id'") === false
+    && strpos($createJs, "append('client_id'") === false
+    && strpos($createJs, "append('category_slug'") === false);
+ac_assert('create modal maxlength 200/10000', strpos($createJs, 'maxLength = TITLE_MAX') !== false
+    && strpos($createJs, 'DESCRIPTION_MAX = 10000') !== false);
+ac_assert('crearcliente intacto', strpos(ac_read('includes/admin/ui/modals/crearcliente/crearcliente.js'), 'aa:client:saved') !== false);
 
 echo "\nResultado: {$passed}/{$total} OK\n";
 if ($failed) {

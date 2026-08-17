@@ -167,7 +167,8 @@ function buildDom() {
         'aa-expedientes-prev',
         'aa-expedientes-next',
         'aa-expedientes-status',
-        'aa-expedientes-grid'
+        'aa-expedientes-grid',
+        'aa-expedientes-new-expediente'
     ];
 
     ids.forEach(function (id) {
@@ -194,6 +195,13 @@ function buildDom() {
         addEventListener: function (type, handler) {
             this._listeners[type] = this._listeners[type] || [];
             this._listeners[type].push(handler);
+        },
+        dispatchEvent: function (event) {
+            const list = this._listeners[event.type] || [];
+            list.forEach(function (handler) {
+                handler(event);
+            });
+            return true;
         }
     };
 
@@ -290,6 +298,7 @@ function loadModule(options) {
     return {
         module: windowObj.AAAdmin.ExpedientesModule,
         byId: dom.byId,
+        document: dom.document,
         posts: posts,
         window: windowObj
     };
@@ -526,5 +535,66 @@ describe('expedientes-module', () => {
         const last = harness.posts[harness.posts.length - 1];
         assert.equal(last.fields.query, 'Contrato');
         assert.equal(last.fields.page, '1');
+    });
+
+    it('FAB abre ExpedienteCreateModal sin reutilizar clientes', async () => {
+        let opened = false;
+        const harness = loadModule({
+            data: listPayload({
+                expedientes: [],
+                total: 0,
+                total_pages: 0
+            })
+        });
+        harness.window.AAAdmin.ExpedienteCreateModal = {
+            openCreate: function () {
+                opened = true;
+            }
+        };
+        await harness.module.init();
+        harness.byId['aa-expedientes-new-expediente'].dispatch('click');
+        assert.equal(opened, true);
+    });
+
+    it('aa:expediente:saved reinicia búsqueda y recarga página 1 vía list', async () => {
+        const harness = loadModule({
+            fetch: function (url, init) {
+                const query = init.body.get('query');
+                const page = init.body.get('page');
+                const title = query === '' && page === '1'
+                    ? 'Recién creado'
+                    : 'Otro';
+                return Promise.resolve({
+                    ok: true,
+                    json: function () {
+                        return Promise.resolve({
+                            success: true,
+                            data: listPayload({
+                                expedientes: [expedienteItem({ title: title })],
+                                total: 1,
+                                total_pages: 1
+                            })
+                        });
+                    }
+                });
+            }
+        });
+
+        await harness.module.init();
+        harness.byId['aa-expedientes-search'].value = 'filtro';
+        await harness.module.load('filtro', 2);
+
+        harness.document.dispatchEvent({
+            type: 'aa:expediente:saved',
+            detail: { expediente: expedienteItem({ title: 'Recién creado' }) }
+        });
+        await new Promise(function (resolve) { setImmediate(resolve); });
+
+        assert.equal(harness.byId['aa-expedientes-search'].value, '');
+        const last = harness.posts[harness.posts.length - 1];
+        assert.equal(last.fields.query, '');
+        assert.equal(last.fields.page, '1');
+        const title = harness.byId['aa-expedientes-grid'].querySelector('.aa-expediente-card-title');
+        assert.equal(title.textContent, 'Recién creado');
     });
 });

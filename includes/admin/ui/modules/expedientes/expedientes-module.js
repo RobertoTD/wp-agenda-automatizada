@@ -367,6 +367,37 @@
         loadExpedientes(readSearchQuery(), 1);
     }
 
+    function resetSearchAndReload() {
+        var input = byId('aa-expedientes-search');
+        if (input) {
+            input.value = '';
+        }
+        if (searchTimeout) {
+            clearTimeout(searchTimeout);
+            searchTimeout = null;
+        }
+        return loadExpedientes('', 1);
+    }
+
+    function bindFab() {
+        var fab = byId('aa-expedientes-new-expediente');
+        if (!fab) {
+            return;
+        }
+        fab.addEventListener('click', function (event) {
+            if (event && typeof event.preventDefault === 'function') {
+                event.preventDefault();
+            }
+            if (window.AAAdmin
+                && window.AAAdmin.ExpedienteCreateModal
+                && typeof window.AAAdmin.ExpedienteCreateModal.openCreate === 'function') {
+                window.AAAdmin.ExpedienteCreateModal.openCreate();
+                return;
+            }
+            console.error('[Expedientes] ExpedienteCreateModal.openCreate no disponible');
+        });
+    }
+
     function bindUi() {
         if (listenersBound) {
             return;
@@ -411,6 +442,12 @@
         }
     }
 
+    function bindSavedListener() {
+        document.addEventListener('aa:expediente:saved', function () {
+            resetSearchAndReload();
+        });
+    }
+
     function init() {
         if (initialized) {
             return Promise.resolve();
@@ -420,6 +457,8 @@
         }
         initialized = true;
         bindUi();
+        bindFab();
+        bindSavedListener();
         return loadExpedientes('', 1);
     }
 
@@ -427,6 +466,7 @@
     window.AAAdmin.ExpedientesModule = {
         init: init,
         load: loadExpedientes,
+        resetSearchAndReload: resetSearchAndReload,
         formatCreatedAt: formatCreatedAt,
         createCard: createExpedienteCard,
         SEARCH_DEBOUNCE_MS: SEARCH_DEBOUNCE_MS

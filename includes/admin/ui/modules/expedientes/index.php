@@ -2,7 +2,7 @@
 /**
  * Expedientes Module — parent-entity list (Cycle E).
  *
- * Search / pagination / cards via ExpedientesAjax. No create UI.
+ * Search / pagination / cards via ExpedientesAjax. Create via FAB + modal.
  */
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
@@ -69,6 +69,18 @@ $aa_expedientes_create_action = class_exists('ExpedientesAjax')
     </div>
 </div>
 
+<div id="aa-expedientes-fab-stack" class="aa-expedientes-fab-stack fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+    <button
+        type="button"
+        id="aa-expedientes-new-expediente"
+        class="aa-expedientes-fab inline-flex items-center gap-2 px-4 py-3 text-base font-bold text-white bg-violet-600 hover:bg-violet-700 active:bg-violet-800 rounded-full shadow-lg shadow-violet-600/30 hover:shadow-xl hover:shadow-violet-600/35 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-violet-500/40"
+        aria-label="Nuevo expediente"
+        data-expedientes-tool="create-expediente"
+    >
+        <span>Nuevo expediente</span>
+    </button>
+</div>
+
 <script>
     if (typeof window.ajaxurl === 'undefined') {
         window.ajaxurl = <?php echo wp_json_encode($aa_expedientes_ajax_url); ?>;
@@ -85,7 +97,9 @@ $aa_expedientes_create_action = class_exists('ExpedientesAjax')
     };
 </script>
 <?php
+$expedientes_create_modal_js = plugin_dir_url(__FILE__) . 'expediente-create-modal.js';
 $expedientes_module_js = plugin_dir_url(__FILE__) . 'expedientes-module.js';
 $expedientes_module_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
 ?>
+<script src="<?php echo esc_url($expedientes_create_modal_js . '?ver=' . rawurlencode($expedientes_module_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($expedientes_module_js . '?ver=' . rawurlencode($expedientes_module_ver)); ?>" defer></script>
