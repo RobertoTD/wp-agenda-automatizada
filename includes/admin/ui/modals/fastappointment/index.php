@@ -183,25 +183,25 @@ defined('ABSPATH') or die('No direct access');
                 </div>
             </div>
 
-            <div class="rounded-xl bg-white px-3 py-2">
-                <label for="aa-fastappointment-confirm" class="flex min-h-[2.25rem] items-center gap-2 cursor-pointer text-lg text-gray-600 py-0.5">
-                    <input
-                        type="checkbox"
-                        id="aa-fastappointment-confirm"
-                        name="estado_confirmacion"
-                        value="confirmed"
-                        checked
-                        class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-                    <span>Confirmada desde ahora</span>
-                </label>
-            </div>
-
         </form>
     </div>
 </template>
 
 <template id="aa-fastappointment-modal-footer-template">
-    <div class="flex justify-end gap-3">
+    <div class="flex items-center justify-between gap-3">
+        <div class="rounded-xl bg-white px-3 py-2">
+            <label for="aa-fastappointment-confirm" class="flex min-h-[2.25rem] items-center gap-2 cursor-pointer text-lg text-gray-600 py-0.5">
+                <input
+                    type="checkbox"
+                    id="aa-fastappointment-confirm"
+                    name="estado_confirmacion"
+                    value="confirmed"
+                    form="aa-fastappointment-form"
+                    checked
+                    class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                <span>Confirmada desde ahora</span>
+            </label>
+        </div>
         <button
             type="submit"
             id="aa-fastappointment-submit"

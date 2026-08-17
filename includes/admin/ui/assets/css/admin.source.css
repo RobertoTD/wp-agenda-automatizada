@@ -929,6 +929,24 @@ body {
         @apply overflow-hidden;
     }
 
+    /* Fast appointment — viewport-capped panel; body is the only vertical scroller */
+    .aa-modal:has(.aa-fastappointment-modal) {
+        @apply flex flex-col overflow-hidden;
+        height: 90vh;
+        height: min(calc(100dvh - 2rem), 90vh);
+        max-height: 90vh;
+        max-height: min(calc(100dvh - 2rem), 90vh);
+    }
+
+    .aa-modal:has(.aa-fastappointment-modal) .aa-modal-header,
+    .aa-modal:has(.aa-fastappointment-modal) .aa-modal-footer {
+        @apply shrink-0;
+    }
+
+    .aa-modal:has(.aa-fastappointment-modal) .aa-modal-body {
+        @apply flex-1 min-h-0 overflow-y-auto overscroll-contain;
+    }
+
     /* Learning list/task modals — viewport-bound panel + internal scroll */
     .aa-tasks-modal-frame {
         @apply relative z-10 flex min-h-full items-start sm:items-center justify-center p-4;
