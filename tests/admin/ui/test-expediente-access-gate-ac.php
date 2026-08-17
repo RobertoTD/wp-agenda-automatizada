@@ -70,9 +70,15 @@ ac_assert(
     && strpos($router, 'shared/layout.php') !== false
 );
 ac_assert(
-    'router expediente gate requires module=clients',
-    strpos($router, "\$active_module === 'clients'") !== false
-    && strpos($router, "\$view_raw === 'expediente'") !== false
+    'router expediente gate covers module=expedientes and clients/expediente',
+    preg_match(
+        "/\\\$active_module === 'expedientes'[\s\S]{0,160}\\\$active_module === 'clients' && \\\$view_raw === 'expediente'/",
+        $router
+    ) === 1
+);
+ac_assert(
+    'router whitelist includes module=expedientes',
+    strpos($router, "'expedientes'") !== false
 );
 
 // --- Async fail-open: resolver OFF the blocking path of normal navigation ---

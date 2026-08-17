@@ -115,8 +115,25 @@ ac_assert(
 );
 
 // --- Guardrails ---
-ac_assert('whitelist sin module=expedientes', strpos($router, "'expedientes'") === false);
-ac_assert('sidebar Expedientes sigue en module=clients', strpos($sidebar, 'module=clients') !== false && strpos($sidebar, 'Expedientes') !== false);
+ac_assert('whitelist incluye module=expedientes', strpos($router, "'expedientes'") !== false);
+ac_assert(
+    'sidebar Clientes sigue en module=clients',
+    strpos($sidebar, 'aa_iframe_content&module=clients') !== false
+    && strpos($sidebar, 'data-aa-nav-module="clients"') !== false
+    && strpos($sidebar, '>Clientes</span>') !== false
+);
+ac_assert(
+    'sidebar Expedientes es módulo separado',
+    strpos($sidebar, 'aa_iframe_content&module=expedientes') !== false
+    && strpos($sidebar, 'data-aa-nav-module="expedientes"') !== false
+    && strpos($sidebar, '>Expedientes</span>') !== false
+);
+ac_assert(
+    'vista legacy sigue clients&view=expediente',
+    strpos($index, "view' => 'expediente'") !== false
+    && strpos($index, 'aa-expediente-root') !== false
+    && strpos($index, "admin_url('admin-post.php?action=aa_iframe_content&module=clients')") !== false
+);
 ac_assert('main.js no modificado para expediente', strpos($main_js, 'expediente') === false && strpos($main_js, 'Expediente') === false);
 ac_assert('CSS grupo aa-client-card-actions', strpos($css, 'aa-client-card-actions') !== false);
 ac_assert('CSS botón expediente', strpos($css, 'aa-btn-expediente-cliente') !== false);

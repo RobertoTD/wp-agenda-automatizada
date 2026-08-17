@@ -7,7 +7,8 @@
  * - Serve HTML for normal navigation WITHOUT waiting on the legal backend
  *   (shell general → legal gate asíncrono y fail-open mientras no haya confirmación)
  * - Resolve shell access synchronously ONLY in two authoritative, fail-closed
- *   cases: the Expedientes direct URL and the internal legal-gate marker.
+ *   cases: Expedientes URLs (`module=expedientes` OR `clients&view=expediente`)
+ *   and the internal legal-gate marker.
  *
  * This file contains NO HTML and NO business logic beyond the access branch.
  */
@@ -24,6 +25,7 @@ $allowed_modules = [
     'account',
     'calendar',
     'clients',
+    'expedientes',
     'assignments',
     'learning',
     'training',
@@ -91,13 +93,20 @@ if (!current_user_can('manage_options')) {
 }
 
 /*
- * Expedientes direct-URL gate (authoritative, synchronous, fail-closed).
+ * Expedientes URL gate (authoritative, synchronous, fail-closed).
  *
- * Only shell access === full may open clients/expediente. This is the ONLY
- * synchronous legal resolution on the operational shell path; every other
- * module renders immediately (fail-open) and reconciles access asynchronously.
+ * One branch covers both surfaces so ResolveShellAccessUseCase still runs
+ * exactly twice in this file (legal-gate marker + this gate):
+ * - module=expedientes (parent entity)
+ * - clients&view=expediente (legacy client expediente)
+ *
+ * Only shell access === full may open either URL. Every other module renders
+ * immediately (fail-open) and reconciles access asynchronously.
  */
-if ($active_module === 'clients' && $view_raw === 'expediente') {
+if (
+    $active_module === 'expedientes'
+    || ($active_module === 'clients' && $view_raw === 'expediente')
+) {
     $shell_access = (new ResolveShellAccessUseCase())->execute();
     if (($shell_access['access'] ?? '') !== AA_Shell_Access::ACCESS_FULL) {
         wp_die('Acceso denegado', 'Error', ['response' => 403]);

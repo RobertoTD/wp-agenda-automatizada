@@ -80,10 +80,11 @@ $brand_logo_url = aa_asset_url('includes/admin/ui/assets/img/deoia-citas-logo.sv
                 </a>
             </li>
 
-            <!-- Expedientes (reutiliza module=clients) -->
+            <!-- Clientes -->
             <li>
                 <a
                     href="<?php echo esc_url(admin_url('admin-post.php?action=aa_iframe_content&module=clients')); ?>"
+                    data-aa-nav-module="clients"
                     class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors <?php echo ($active_module === 'clients') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-100'; ?>"
                     <?php echo ($active_module === 'clients') ? 'aria-current="page"' : ''; ?>
                 >
@@ -93,6 +94,23 @@ $brand_logo_url = aa_asset_url('includes/admin/ui/assets/img/deoia-citas-logo.sv
                         </svg>
                     </span>
                     <span class="text-base !font-semibold">Clientes</span>
+                </a>
+            </li>
+
+            <!-- Expedientes -->
+            <li>
+                <a
+                    href="<?php echo esc_url(admin_url('admin-post.php?action=aa_iframe_content&module=expedientes')); ?>"
+                    data-aa-nav-module="expedientes"
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors <?php echo ($active_module === 'expedientes') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-100'; ?>"
+                    <?php echo ($active_module === 'expedientes') ? 'aria-current="page"' : ''; ?>
+                >
+                    <span class="flex items-center justify-center w-6 h-6 <?php echo ($active_module === 'expedientes') ? 'text-indigo-600' : 'text-gray-500'; ?>">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                        </svg>
+                    </span>
+                    <span class="text-base !font-semibold">Expedientes</span>
                 </a>
             </li>
 
