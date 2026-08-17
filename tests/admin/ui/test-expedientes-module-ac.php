@@ -105,7 +105,15 @@ ac_assert('emite action list', strpos($module, 'aa_list_expedientes') !== false)
 ac_assert('emite action create', strpos($module, 'aa_create_expediente') !== false);
 ac_assert('emite moduleBaseUrl', strpos($module, 'moduleBaseUrl') !== false);
 ac_assert('sin empty state estático', strpos($module, 'Aún no hay expedientes') === false);
-ac_assert('sin JS de listado', strpos($module, 'expedientes-module.js') === false && strpos($module, 'fetch(') === false);
+ac_assert('carga JS solo en el módulo', strpos($module, 'expedientes-module.js') !== false);
+ac_assert('PHP del módulo no hace fetch', strpos($module, 'fetch(') === false);
+ac_assert('buscador con placeholder propio', strpos($module, 'Buscar expediente por nombre') !== false
+    && strpos($module, 'id="aa-expedientes-search"') !== false);
+ac_assert('action bar propia', strpos($module, 'id="aa-expedientes-action-bar"') !== false);
+ac_assert('paginador propio', strpos($module, 'id="aa-expedientes-pagination"') !== false
+    && strpos($module, 'id="aa-expedientes-prev"') !== false
+    && strpos($module, 'id="aa-expedientes-next"') !== false);
+ac_assert('status live region', strpos($module, 'id="aa-expedientes-status"') !== false);
 ac_assert('sin FAB', strpos($module, 'fab') === false && strpos($module, 'Nuevo expediente') === false);
 ac_assert('sin modal', stripos($module, 'modal') === false);
 ac_assert('sin $wpdb', strpos($module, '$wpdb') === false);
@@ -126,6 +134,19 @@ if (!function_exists('wp_create_nonce')) {
     function wp_create_nonce($action) {
         return 'nonce-' . $action;
     }
+}
+if (!function_exists('plugin_dir_url')) {
+    function plugin_dir_url($file) {
+        return 'https://example.test/wp-content/plugins/wp-agenda-automatizada/includes/admin/ui/modules/expedientes/';
+    }
+}
+if (!function_exists('esc_url')) {
+    function esc_url($url) {
+        return $url;
+    }
+}
+if (!defined('AA_PLUGIN_VERSION')) {
+    define('AA_PLUGIN_VERSION', 'test');
 }
 
 if (!class_exists('ExpedientesAjax')) {
@@ -149,6 +170,35 @@ ac_assert('runtime moduleBaseUrl module=expedientes', strpos($rendered, 'module=
 ac_assert('runtime grid vacío', preg_match('/id="aa-expedientes-grid"[^>]*>\s*<\/div>/', $rendered) === 1);
 ac_assert('runtime título Expedientes', strpos($rendered, 'data-aa-page-title="Expedientes"') !== false);
 ac_assert('runtime sin empty copy', strpos($rendered, 'Aún no hay') === false);
+ac_assert('runtime encola expedientes-module.js', strpos($rendered, 'expedientes-module.js') !== false);
+ac_assert('runtime buscador visible', strpos($rendered, 'id="aa-expedientes-search"') !== false
+    && strpos($rendered, 'Buscar expediente por nombre') !== false);
+
+$css = ac_read('includes/admin/ui/assets/css/admin.source.css');
+$js = ac_read('includes/admin/ui/modules/expedientes/expedientes-module.js');
+ac_assert('CSS scope #aa-expedientes-grid', strpos($css, '#aa-expedientes-grid') !== false);
+ac_assert('CSS action bar propia', strpos($css, '.aa-expedientes-action-bar') !== false
+    && strpos($css, '.aa-expedientes-search-input') !== false);
+ac_assert('JS no usa #aa-clients-grid', strpos($js, '#aa-clients-grid') === false
+    && strpos($js, 'aa-clients-search') === false);
+ac_assert('JS no envía per_page/limit/offset/blog_id', strpos($js, "append('per_page'") === false
+    && strpos($js, "append('limit'") === false
+    && strpos($js, "append('offset'") === false
+    && strpos($js, "append('blog_id'") === false);
+ac_assert('JS envía action nonce query page', strpos($js, "append('action'") !== false
+    && strpos($js, "append('_wpnonce'") !== false
+    && strpos($js, "append('query'") !== false
+    && strpos($js, "append('page'") !== false);
+ac_assert('JS usa AbortController', strpos($js, 'AbortController') !== false);
+ac_assert('JS debounce 300', strpos($js, 'SEARCH_DEBOUNCE_MS = 300') !== false);
+ac_assert('JS cards data-aa-card', strpos($js, "setAttribute('data-aa-card'") !== false
+    && strpos($js, "setAttribute('data-aa-card-toggle'") !== false);
+ac_assert('JS slot data-expediente-id sin data-aa-card anidado en slot', strpos($js, "setAttribute('data-expediente-id'") !== false
+    && preg_match("/aa-expediente-registros-slot[\\s\\S]{0,200}setAttribute\\('data-aa-card'/", $js) !== 1);
+ac_assert('JS título por textContent', strpos($js, 'name.textContent = titleText') !== false);
+ac_assert('JS sin FAB/modal/create UI', strpos($js, 'Nuevo expediente') === false
+    && stripos($js, 'modal') === false
+    && strpos($js, 'aa_create_expediente') === false);
 
 echo "\nResultado: {$passed}/{$total} OK\n";
 if ($failed) {

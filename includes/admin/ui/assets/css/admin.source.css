@@ -584,6 +584,90 @@ body {
         @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent;
     }
 
+    /* Expedientes padre — action bar + grid (module=expedientes; no reutiliza #aa-clients-grid) */
+    .aa-expedientes-grid {
+        @apply relative;
+        overflow: visible !important;
+    }
+
+    .aa-expedientes-action-bar {
+        @apply flex flex-wrap items-center gap-3 mb-4;
+    }
+
+    .aa-expedientes-search-input {
+        @apply flex-1 min-w-[200px] px-3 py-2 text-sm;
+        @apply border border-gray-300 rounded-lg;
+        @apply focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none;
+    }
+
+    .aa-expedientes-pagination {
+        @apply flex items-center gap-1;
+    }
+
+    .aa-expedientes-pagination-button {
+        @apply w-8 h-8 flex items-center justify-center;
+        @apply text-gray-600 hover:bg-gray-100 rounded;
+        @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent;
+    }
+
+    .aa-expedientes-status {
+        @apply text-sm text-gray-500 mb-3;
+    }
+
+    .aa-expedientes-status:empty {
+        display: none;
+        margin-bottom: 0;
+    }
+
+    .aa-expedientes-status.is-error {
+        @apply text-red-600;
+    }
+
+    #aa-expedientes-grid [data-aa-card] {
+        @apply rounded-xl shadow;
+    }
+
+    #aa-expedientes-grid [data-aa-card].is-open {
+        @apply rounded-t-xl rounded-b-none;
+    }
+
+    #aa-expedientes-grid [data-aa-card-toggle] {
+        @apply px-4 py-5 font-semibold bg-white;
+    }
+
+    #aa-expedientes-grid [data-aa-card]:not(.is-open) [data-aa-card-toggle] {
+        @apply rounded-xl;
+    }
+
+    #aa-expedientes-grid [data-aa-card].is-open [data-aa-card-toggle] {
+        @apply rounded-t-xl border-b-0;
+        background-color: rgb(239 246 255);
+    }
+
+    #aa-expedientes-grid [data-aa-card].is-open .aa-card-overlay {
+        @apply rounded-b-xl;
+        background-color: rgb(239 246 255);
+    }
+
+    #aa-expedientes-grid [data-aa-card].is-open .aa-card-body {
+        background-color: transparent;
+        padding: 0 15px 15px;
+    }
+
+    #aa-expedientes-grid .aa-expediente-card-description,
+    #aa-expedientes-grid .aa-expediente-card-meta {
+        padding-left: 11px;
+    }
+
+    #aa-expedientes-grid .aa-expediente-registros-slot {
+        margin-top: 0.5rem;
+    }
+
+    #aa-module-root #aa-expedientes-list-root:has(#aa-expedientes-grid > [data-aa-card].is-open:nth-last-child(-n+3)) {
+        padding-bottom: 200px;
+        transition: padding-bottom 0.2s ease;
+    }
+
     /* Action buttons inside client cards */
     .aa-client-card-actions {
         @apply mt-3 flex flex-wrap items-center gap-2;

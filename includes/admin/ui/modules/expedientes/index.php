@@ -1,9 +1,8 @@
 <?php
 /**
- * Expedientes Module — parent-entity skeleton (Cycle D).
+ * Expedientes Module — parent-entity list (Cycle E).
  *
- * Neutral roots only. Cycle E fills loading / empty / grid via JS.
- * No business logic; data operations go through ExpedientesAjax.
+ * Search / pagination / cards via ExpedientesAjax. No create UI.
  */
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
@@ -27,6 +26,41 @@ $aa_expedientes_create_action = class_exists('ExpedientesAjax')
     data-aa-page-title="Expedientes"
 >
     <div id="aa-expedientes-list-root">
+        <div id="aa-expedientes-action-bar" class="aa-expedientes-action-bar">
+            <input
+                type="search"
+                id="aa-expedientes-search"
+                class="aa-expedientes-search-input"
+                placeholder="Buscar expediente por nombre"
+                autocomplete="off"
+                enterkeyhint="search"
+            >
+            <div
+                id="aa-expedientes-pagination"
+                class="aa-expedientes-pagination hidden"
+                hidden
+            >
+                <button
+                    type="button"
+                    id="aa-expedientes-prev"
+                    class="aa-expedientes-pagination-button"
+                    disabled
+                    aria-label="Página anterior"
+                >←</button>
+                <button
+                    type="button"
+                    id="aa-expedientes-next"
+                    class="aa-expedientes-pagination-button"
+                    disabled
+                    aria-label="Página siguiente"
+                >→</button>
+            </div>
+        </div>
+        <div
+            id="aa-expedientes-status"
+            class="aa-expedientes-status"
+            aria-live="polite"
+        ></div>
         <div
             id="aa-expedientes-grid"
             class="aa-expedientes-grid"
@@ -50,3 +84,8 @@ $aa_expedientes_create_action = class_exists('ExpedientesAjax')
         }
     };
 </script>
+<?php
+$expedientes_module_js = plugin_dir_url(__FILE__) . 'expedientes-module.js';
+$expedientes_module_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
+?>
+<script src="<?php echo esc_url($expedientes_module_js . '?ver=' . rawurlencode($expedientes_module_ver)); ?>" defer></script>
