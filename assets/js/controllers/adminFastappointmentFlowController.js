@@ -563,7 +563,9 @@
         let datePicker = null;
         let isDestroyed = false;
         let clientSelectedByUser = false;
-        let expandedCompletedStepId = null;
+        let expandedStepId = null;
+        let lastRenderedActiveStepId = null;
+        let hasSyncedRequiredStep = false;
         let timeAvailabilityRequestId = 0;
         let staffAvailabilityRequestId = 0;
         let areaAvailabilityRequestId = 0;
@@ -766,25 +768,42 @@
             return null;
         }
 
-        function applyAutoResolvedStepVisibility(stepId, stepElement) {
-            if (!stepElement || (stepId !== 'service' && stepId !== 'staff' && stepId !== 'area')) {
+        /**
+         * Authoritative auto-hide decision for service/staff/area (no DOM class dependency).
+         *
+         * @param {string} stepId
+         * @returns {boolean}
+         */
+        function isStepAutoHidden(stepId) {
+            if (stepId !== 'service' && stepId !== 'staff' && stepId !== 'area') {
                 return false;
             }
 
             var resolution = getAutoResolutionForStep(stepId);
             var selectedId = getSelectedIdForAutoResolvedStep(stepId, getState() || {});
-            var collapsed = stepId === 'service'
-                ? shouldCollapseAutoResolvedStep({
-                    eligibleCount: resolution.eligibleCount,
-                    eligibleId: resolution.eligibleId,
-                    selectedId: selectedId
-                })
-                : shouldHideDeferredStep({
-                    status: resolution.status,
+
+            if (stepId === 'service') {
+                return shouldCollapseAutoResolvedStep({
                     eligibleCount: resolution.eligibleCount,
                     eligibleId: resolution.eligibleId,
                     selectedId: selectedId
                 });
+            }
+
+            return shouldHideDeferredStep({
+                status: resolution.status,
+                eligibleCount: resolution.eligibleCount,
+                eligibleId: resolution.eligibleId,
+                selectedId: selectedId
+            });
+        }
+
+        function applyAutoResolvedStepVisibility(stepId, stepElement) {
+            if (!stepElement || (stepId !== 'service' && stepId !== 'staff' && stepId !== 'area')) {
+                return false;
+            }
+
+            var collapsed = isStepAutoHidden(stepId);
 
             if (stepElement.classList && typeof stepElement.classList.toggle === 'function') {
                 stepElement.classList.toggle('hidden', collapsed);
@@ -797,13 +816,84 @@
             return collapsed;
         }
 
+        /**
+         * Expanded card stays only if it still exists and is clickable.
+         *
+         * @param {{visualStateMap?: Object}} visual
+         * @param {string|null} stepId
+         * @returns {boolean}
+         */
+        function isExpandedStepAccessible(visual, stepId) {
+            if (!stepId || !stepElements[stepId]) {
+                return false;
+            }
+
+            var visualStateMap = visual && visual.visualStateMap ? visual.visualStateMap : {};
+            var status = visualStateMap[stepId] || 'disabled';
+
+            if (status === 'disabled' || isStepAutoHidden(stepId)) {
+                return false;
+            }
+
+            return status === 'active' || status === 'completed';
+        }
+
+        function clearInaccessibleExpandedStep(visual) {
+            if (!expandedStepId) {
+                return;
+            }
+
+            if (isExpandedStepAccessible(visual, expandedStepId)) {
+                return;
+            }
+
+            var requiredId = visual && visual.activeStepId ? visual.activeStepId : null;
+
+            if (expandedStepId === requiredId) {
+                return;
+            }
+
+            expandedStepId = null;
+        }
+
+        /**
+         * Sync expansion to required-step pointer without reopening a manual collapse.
+         * `null` on lastRenderedActiveStepId after first sync means terminal (no required step).
+         *
+         * @param {{activeStepId?: string|null, visualStateMap?: Object}} visual
+         */
+        function syncExpandedStep(visual) {
+            var requiredId = visual && visual.activeStepId ? visual.activeStepId : null;
+
+            if (!hasSyncedRequiredStep) {
+                expandedStepId = requiredId;
+                lastRenderedActiveStepId = requiredId;
+                hasSyncedRequiredStep = true;
+                clearInaccessibleExpandedStep(visual);
+                return;
+            }
+
+            var previousId = lastRenderedActiveStepId;
+
+            if (requiredId !== previousId) {
+                if (previousId !== null && requiredId !== null) {
+                    expandedStepId = requiredId;
+                } else if (previousId === null && requiredId !== null) {
+                    expandedStepId = requiredId;
+                }
+
+                lastRenderedActiveStepId = requiredId;
+            }
+
+            clearInaccessibleExpandedStep(visual);
+        }
+
         function renderVisualSteps() {
             const visual = getVisualStepStateMap();
+            const completedMap = getCompletedStepMap();
             const summaryMap = getCompletedStepSummaryMap();
 
-            if (expandedCompletedStepId && visual.visualStateMap[expandedCompletedStepId] !== 'completed') {
-                expandedCompletedStepId = null;
-            }
+            syncExpandedStep(visual);
 
             stepOrder.forEach(function(stepId) {
                 const stepElement = stepElements[stepId];
@@ -813,27 +903,24 @@
                     return;
                 }
 
-                const collapsed = applyAutoResolvedStepVisibility(stepId, stepElement);
-
-                if (collapsed && expandedCompletedStepId === stepId) {
-                    expandedCompletedStepId = null;
-                }
+                applyAutoResolvedStepVisibility(stepId, stepElement);
 
                 const header = stepElement.querySelector('[data-aa-fastappointment-step-header]');
                 const body = getStepBody(stepElement);
                 const summary = getStepSummaryElement(stepElement);
                 const check = stepElement.querySelector('[data-aa-fastappointment-step-check]');
-                const isExpanded = status === 'active' || expandedCompletedStepId === stepId;
+                const isExpanded = stepId === expandedStepId;
+                const isCompleted = !!completedMap[stepId];
 
                 stepElement.dataset.visualState = status;
                 stepElement.classList.remove('border-indigo-100', 'bg-indigo-50', 'border-gray-200', 'bg-white', 'bg-gray-50', 'opacity-60');
 
-                if (status === 'active') {
+                if (isExpanded) {
                     stepElement.classList.add('border-indigo-100', 'bg-indigo-50');
-                } else if (status === 'completed') {
-                    stepElement.classList.add('border-gray-200', 'bg-white');
-                } else {
+                } else if (status === 'disabled') {
                     stepElement.classList.add('border-gray-200', 'bg-gray-50', 'opacity-60');
+                } else {
+                    stepElement.classList.add('border-gray-200', 'bg-white');
                 }
 
                 if (header) {
@@ -849,19 +936,19 @@
                 }
 
                 if (summary) {
-                    const summaryText = status === 'completed' ? (summaryMap[stepId] || '') : '';
+                    const summaryText = isCompleted ? (summaryMap[stepId] || '') : '';
                     summary.textContent = summaryText;
                     summary.classList.toggle('hidden', !summaryText);
                 }
 
                 if (check) {
-                    check.classList.toggle('hidden', status !== 'completed');
+                    check.classList.toggle('hidden', !isCompleted);
                 }
             });
 
             console.log('[FastAppointmentSteps] visual render applied:', {
                 activeStepId: visual.activeStepId,
-                expandedCompletedStepId: expandedCompletedStepId,
+                expandedStepId: expandedStepId,
                 visualStateMap: visual.visualStateMap
             });
 
@@ -884,18 +971,20 @@
                 const stepId = stepElement ? stepElement.dataset.aaFastappointmentStep : '';
                 const status = stepElement ? (stepElement.dataset.visualState || 'disabled') : 'disabled';
 
-                if (!stepId || status === 'disabled') {
+                if (!stepId || status === 'disabled' || isStepAutoHidden(stepId)) {
                     return;
                 }
 
-                expandedCompletedStepId = status === 'completed'
-                    ? (expandedCompletedStepId === stepId ? null : stepId)
-                    : null;
+                if (status !== 'completed' && status !== 'active') {
+                    return;
+                }
+
+                expandedStepId = expandedStepId === stepId ? null : stepId;
 
                 console.log('[FastAppointmentSteps] header interaction:', {
                     stepId: stepId,
                     status: status,
-                    expandedCompletedStepId: expandedCompletedStepId
+                    expandedStepId: expandedStepId
                 });
 
                 renderVisualSteps();

@@ -929,13 +929,13 @@ body {
         @apply overflow-hidden;
     }
 
-    /* Fast appointment — viewport-capped panel; body is the only vertical scroller */
+    /* Fast appointment — fixed design height, viewport-capped; body is the only vertical scroller */
     .aa-modal:has(.aa-fastappointment-modal) {
         @apply flex flex-col overflow-hidden;
-        height: 90vh;
-        height: min(calc(100dvh - 2rem), 90vh);
-        max-height: 90vh;
-        max-height: min(calc(100dvh - 2rem), 90vh);
+        height: min(31rem, calc(100vh - 2rem));
+        height: min(31rem, calc(100dvh - 2rem));
+        max-height: min(31rem, calc(100vh - 2rem));
+        max-height: min(31rem, calc(100dvh - 2rem));
     }
 
     .aa-modal:has(.aa-fastappointment-modal) .aa-modal-header,
