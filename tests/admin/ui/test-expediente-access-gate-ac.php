@@ -41,6 +41,7 @@ $clients_index = ac_read('includes/admin/ui/modules/clients/index.php');
 $clients_js = ac_read('includes/admin/ui/modules/clients/clients-module.js');
 $registros_ajax = ac_read('includes/http/ajax/ExpedienteRegistrosAjax.php');
 $adjuntos_ajax = ac_read('includes/http/ajax/ExpedienteAdjuntosAjax.php');
+$expedientes_ajax = ac_read('includes/http/ajax/ExpedientesAjax.php');
 $clients_ajax = ac_read('includes/http/ajax/ClientsAjax.php');
 $cheatsheet = ac_read('docs/00-paradigm-cheatsheet.md');
 $layout = ac_read('includes/admin/ui/shared/layout.php');
@@ -198,6 +199,23 @@ ac_assert(
     substr_count($adjuntos_ajax, 'if (!self::authorize())') >= 4
 );
 ac_assert(
+    'expedientes ajax authorize uses require_expediente_shell_access',
+    strpos($expedientes_ajax, 'function authorize') !== false
+    && strpos($expedientes_ajax, 'ExpedienteRegistrosAjax::require_expediente_shell_access') !== false
+);
+ac_assert(
+    'expedientes ajax handlers use authorize()',
+    substr_count($expedientes_ajax, 'if (!self::authorize())') >= 2
+);
+ac_assert(
+    'expedientes ajax no nopriv',
+    strpos($expedientes_ajax, 'wp_ajax_nopriv_') === false
+);
+ac_assert(
+    'expedientes ajax capability manage_options',
+    strpos($expedientes_ajax, "current_user_can('manage_options')") !== false
+);
+ac_assert(
     'ClientsAjax get_cliente not gated by expediente shell',
     strpos($clients_ajax, 'require_expediente_shell_access') === false
     && strpos($clients_ajax, 'ResolveShellAccessUseCase') === false
@@ -206,6 +224,7 @@ ac_assert(
     'no account-status in expediente access paths',
     strpos($registros_ajax, 'GetAccountStatus') === false
     && strpos($adjuntos_ajax, 'GetAccountStatus') === false
+    && strpos($expedientes_ajax, 'GetAccountStatus') === false
     && strpos($router, 'GetAccountStatus') === false
     && strpos($clients_index, 'GetAccountStatus') === false
 );

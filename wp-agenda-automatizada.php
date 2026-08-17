@@ -170,6 +170,12 @@ require_once __DIR__ . '/includes/http/ajax/ExpedienteAdjuntosAjax.php';
 ExpedienteAdjuntosAjax::register();
 
 // ================================
+// 🔹 Endpoint AJAX: Expedientes padre (capa http/ajax)
+// ================================
+require_once __DIR__ . '/includes/http/ajax/ExpedientesAjax.php';
+ExpedientesAjax::register();
+
+// ================================
 // 🔹 Endpoint AJAX: Guardar cita (capa http/ajax)
 // ================================
 require_once __DIR__ . '/includes/http/ajax/ReservationsAjax.php';
