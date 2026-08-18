@@ -80,6 +80,17 @@ ac_assert(
     'router whitelist includes module=expedientes',
     strpos($router, "'expedientes'") !== false
 );
+ac_assert(
+    'router resuelve view=detail después del gate full',
+    strpos($router, 'AA_Shell_Access::ACCESS_FULL') !== false
+    && strpos($router, 'GetExpedienteUseCase') !== false
+    && strpos($router, 'AA_Shell_Access::ACCESS_FULL') < strpos($router, 'GetExpedienteUseCase')
+    && strpos($router, 'GetExpedienteUseCase') < strpos($router, 'shared/layout.php')
+);
+ac_assert(
+    'router view=detail no añade execute() extra',
+    substr_count($router, 'ResolveShellAccessUseCase())->execute()') === 2
+);
 
 // --- Async fail-open: resolver OFF the blocking path of normal navigation ---
 ac_assert(

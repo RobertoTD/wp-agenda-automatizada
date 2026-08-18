@@ -1,0 +1,216 @@
+<?php
+/**
+ * AC — Vista de detalle de expediente padre (view=detail).
+ *
+ * Ejecutar: php tests/admin/ui/test-expedientes-detail-ac.php
+ */
+
+if (!defined('ABSPATH')) {
+    define('ABSPATH', __DIR__);
+}
+
+$plugin_root = dirname(__DIR__, 3);
+
+$total = 0;
+$passed = 0;
+$failed = [];
+
+function ac_assert(string $label, bool $ok, string $detail = ''): void {
+    global $total, $passed, $failed;
+    $total++;
+    if ($ok) {
+        $passed++;
+        echo '[ OK ] ' . $label . ($detail !== '' ? ' - ' . $detail : '') . "\n";
+        return;
+    }
+    $failed[] = $label;
+    echo '[FAIL] ' . $label . ($detail !== '' ? ' - ' . $detail : '') . "\n";
+}
+
+function ac_read(string $relative): string {
+    global $plugin_root;
+    $src = file_get_contents($plugin_root . '/' . $relative);
+    return is_string($src) ? $src : '';
+}
+
+$router = ac_read('includes/admin/ui/index.php');
+$module = ac_read('includes/admin/ui/modules/expedientes/index.php');
+$detail = ac_read('includes/admin/ui/modules/expedientes/detail.php');
+$js = ac_read('includes/admin/ui/modules/expedientes/expedientes-module.js');
+$css = ac_read('includes/admin/ui/assets/css/admin.source.css');
+$ajax = ac_read('includes/http/ajax/ExpedientesAjax.php');
+$clients_index = ac_read('includes/admin/ui/modules/clients/index.php');
+$clients_js = ac_read('includes/admin/ui/modules/clients/clients-module.js');
+$registros_js = ac_read('includes/admin/ui/modules/clients/expediente-registros.js');
+$main_js = ac_read('includes/admin/ui/assets/js/main.js');
+$schema = ac_read('includes/infrastructure/wp/Schema.php');
+
+$gate_full = strpos($router, 'AA_Shell_Access::ACCESS_FULL');
+$get_uc = strpos($router, 'new GetExpedienteUseCase');
+$layout = strpos($router, "require __DIR__ . '/shared/layout.php'");
+
+ac_assert('router resuelve view=detail', strpos($router, "\$view_raw === 'detail'") !== false);
+ac_assert('gate full antes de GetExpedienteUseCase', $gate_full !== false && $get_uc !== false && $gate_full < $get_uc);
+ac_assert('GetExpedienteUseCase antes de layout', $get_uc !== false && $layout !== false && $get_uc < $layout);
+ac_assert(
+    'siguen exactamente 2 execute() del gate',
+    substr_count($router, 'ResolveShellAccessUseCase())->execute()') === 2
+);
+ac_assert('router no usa absint', strpos($router, 'absint(') === false);
+ac_assert('router detalle no lee blog_id', strpos($router, "['blog_id']") === false
+    && strpos($router, '$_GET[\'blog_id\']') === false);
+ac_assert('400 invalid_id', strpos($router, "wp_die('Expediente no válido'") !== false
+    && strpos($router, "['response' => 400]") !== false);
+ac_assert('404 not_found', strpos($router, "wp_die('Expediente no encontrado'") !== false
+    && strpos($router, "['response' => 404]") !== false);
+ac_assert('detalle solo en module=expedientes', preg_match(
+    "/\\\$active_module === 'expedientes' && \\\$view_raw === 'detail'/",
+    $router
+) === 1);
+
+ac_assert('módulo ramifica a detail.php', strpos($module, "require __DIR__ . '/detail.php'") !== false);
+ac_assert('listado conserva buscador', strpos($module, 'id="aa-expedientes-search"') !== false);
+ac_assert('listado conserva paginador', strpos($module, 'id="aa-expedientes-pagination"') !== false);
+ac_assert('listado conserva FAB', strpos($module, 'id="aa-expedientes-new-expediente"') !== false);
+ac_assert('listado conserva create modal JS', strpos($module, 'expediente-create-modal.js') !== false
+    && strpos($module, 'expedientes-module.js') !== false);
+
+ac_assert('detalle Volver a Expedientes', strpos($detail, 'Volver a Expedientes') !== false);
+ac_assert('detalle escapa título', strpos($detail, 'esc_html($aa_detail_title') !== false
+    || strpos($detail, 'esc_html($aa_detail_page_title') !== false
+    || strpos($detail, 'esc_attr($aa_detail_page_title)') !== false);
+ac_assert('detalle escapa descripción', strpos($detail, 'esc_html($aa_detail_description)') !== false);
+ac_assert('detalle escapa categoría', strpos($detail, 'esc_html($aa_detail_category_name)') !== false);
+ac_assert('detalle slot registros', strpos($detail, 'id="aa-expediente-detail-registros"') !== false);
+ac_assert('detalle empty honesto', strpos($detail, 'Los registros estarán disponibles próximamente') !== false);
+ac_assert('detalle sin FAB', strpos($detail, 'aa-expedientes-new-expediente') === false);
+ac_assert('detalle sin buscador/paginador', strpos($detail, 'aa-expedientes-search') === false
+    && strpos($detail, 'aa-expedientes-pagination') === false);
+ac_assert('detalle sin menú opciones', strpos($detail, 'aa-expediente-options') === false);
+ac_assert('detalle sin JS de listado', strpos($detail, 'expedientes-module.js') === false
+    && strpos($detail, 'expediente-create-modal.js') === false
+    && strpos($detail, 'expediente-registros.js') === false);
+ac_assert('detalle no reutiliza aa-expediente-root', strpos($detail, 'aa-expediente-root') === false);
+ac_assert('detalle no usa $wpdb', strpos($detail, '$wpdb') === false);
+
+ac_assert('JS cards son enlace real', strpos($js, "createElement(detailUrl ? 'a' : 'div')") !== false
+    && strpos($js, "searchParams.set('view', 'detail')") !== false
+    && strpos($js, "searchParams.set('expediente_id'") !== false);
+ac_assert('JS sin toggle overlay ni slot', strpos($js, 'data-aa-card-toggle') === false
+    && strpos($js, 'aa-card-overlay') === false
+    && strpos($js, 'aa-expediente-registros-slot') === false);
+ac_assert('JS conserva búsqueda y FAB', strpos($js, 'aa-expedientes-search') !== false
+    && strpos($js, 'ExpedienteCreateModal.openCreate') !== false);
+ac_assert('JS no envía blog_id', strpos($js, "append('blog_id'") === false);
+
+ac_assert('CSS listado sin is-open propio', strpos($css, '#aa-expedientes-grid [data-aa-card].is-open') === false);
+ac_assert('CSS listado sin toggle', strpos($css, '#aa-expedientes-grid [data-aa-card-toggle]') === false);
+ac_assert('CSS enlace de card', strpos($css, '.aa-expediente-card-link') !== false);
+
+ac_assert('AJAX sin acción nueva de get', strpos($ajax, 'GetExpedienteUseCase') === false
+    && substr_count($ajax, 'public const ACTION_') === 2);
+ac_assert('legacy clients intacta', strpos($clients_index, "view' => 'expediente'") !== false
+    && strpos($clients_js, "set('view', 'expediente')") !== false);
+ac_assert('expediente-registros.js no tocado para detail', strpos($registros_js, 'view=detail') === false
+    && strpos($registros_js, 'expediente_id') === false);
+ac_assert('main.js overlays intacto', strpos($main_js, 'data-aa-card-toggle') !== false);
+ac_assert('schema sin cambios de este ciclo', strpos($schema, 'DB_VERSION') !== false);
+
+if (!function_exists('admin_url')) {
+    function admin_url($path = '') {
+        return 'https://example.test/wp-admin/' . ltrim((string) $path, '/');
+    }
+}
+if (!function_exists('esc_url')) {
+    function esc_url($url) {
+        return (string) $url;
+    }
+}
+if (!function_exists('esc_html')) {
+    function esc_html($text) {
+        return htmlspecialchars((string) $text, ENT_QUOTES, 'UTF-8');
+    }
+}
+if (!function_exists('esc_attr')) {
+    function esc_attr($text) {
+        return htmlspecialchars((string) $text, ENT_QUOTES, 'UTF-8');
+    }
+}
+if (!function_exists('wp_json_encode')) {
+    function wp_json_encode($data) {
+        return json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+}
+if (!function_exists('wp_create_nonce')) {
+    function wp_create_nonce($action) {
+        return 'nonce-' . $action;
+    }
+}
+if (!function_exists('plugin_dir_url')) {
+    function plugin_dir_url($file) {
+        return 'https://example.test/wp-content/plugins/wp-agenda-automatizada/includes/admin/ui/modules/expedientes/';
+    }
+}
+if (!defined('AA_PLUGIN_VERSION')) {
+    define('AA_PLUGIN_VERSION', 'test');
+}
+
+$aa_expediente_detail = [
+    'id' => 7,
+    'title' => '<img src=x onerror=alert(1)>',
+    'description' => '<b>html</b>',
+    'created_at' => '2026-08-17 13:00:00',
+    'category' => ['slug' => 'general', 'name' => '<script>x</script>'],
+];
+ob_start();
+include $plugin_root . '/includes/admin/ui/modules/expedientes/index.php';
+$rendered_detail = ob_get_clean();
+
+ac_assert('runtime detail root', strpos($rendered_detail, 'id="aa-expediente-detail-root"') !== false);
+ac_assert('runtime no carga listado', strpos($rendered_detail, 'id="aa-expedientes-grid"') === false
+    && strpos($rendered_detail, 'aa-expedientes-new-expediente') === false
+    && strpos($rendered_detail, 'expedientes-module.js') === false
+    && strpos($rendered_detail, 'expediente-create-modal.js') === false);
+ac_assert(
+    'runtime escapa título',
+    strpos($rendered_detail, '&lt;img src=x onerror=alert(1)&gt;') !== false
+    && strpos($rendered_detail, '<img src=x onerror=alert(1)>') === false
+);
+ac_assert(
+    'runtime escapa descripción',
+    strpos($rendered_detail, '&lt;b&gt;html&lt;/b&gt;') !== false
+    && strpos($rendered_detail, '<b>html</b>') === false
+);
+ac_assert(
+    'runtime escapa categoría',
+    strpos($rendered_detail, '&lt;script&gt;x&lt;/script&gt;') !== false
+    && strpos($rendered_detail, '<script>x</script>') === false
+);
+ac_assert('runtime fecha formateada', strpos($rendered_detail, '17/08/2026') !== false);
+ac_assert('runtime volver', strpos($rendered_detail, 'Volver a Expedientes') !== false
+    && strpos($rendered_detail, 'module=expedientes') !== false
+    && strpos($rendered_detail, 'view=detail') === false);
+ac_assert('runtime slot estable', strpos($rendered_detail, 'id="aa-expediente-detail-registros"') !== false
+    && strpos($rendered_detail, 'data-expediente-id="7"') !== false);
+ac_assert('runtime copy provisional', strpos($rendered_detail, 'Los registros estarán disponibles próximamente') !== false);
+ac_assert('runtime Sin descripción no forzado si hay texto', strpos($rendered_detail, 'Sin descripción') === false);
+
+$aa_expediente_detail = [
+    'id' => 8,
+    'title' => 'Vacío',
+    'description' => null,
+    'created_at' => '2026-08-17 13:00:00',
+    'category' => ['slug' => 'general', 'name' => 'General'],
+];
+ob_start();
+include $plugin_root . '/includes/admin/ui/modules/expedientes/detail.php';
+$rendered_empty_desc = ob_get_clean();
+ac_assert('runtime Sin descripción', strpos($rendered_empty_desc, 'Sin descripción') !== false);
+
+echo "\nResultado: {$passed}/{$total} OK\n";
+if ($failed) {
+    echo 'Fallidos: ' . implode(', ', $failed) . "\n";
+    exit(1);
+}
+
+exit(0);

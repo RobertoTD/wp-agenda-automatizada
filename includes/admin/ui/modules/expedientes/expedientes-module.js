@@ -32,8 +32,33 @@
         return {
             ajaxUrl: cfg.ajaxUrl || window.ajaxurl || '',
             nonce: cfg.nonce || '',
-            listAction: actions.list || 'aa_list_expedientes'
+            listAction: actions.list || 'aa_list_expedientes',
+            moduleBaseUrl: typeof cfg.moduleBaseUrl === 'string' ? cfg.moduleBaseUrl : ''
         };
+    }
+
+    function buildDetailUrl(expedienteId) {
+        var id = parseInt(expedienteId, 10);
+        if (!(id > 0)) {
+            return '';
+        }
+
+        var base = getConfig().moduleBaseUrl;
+        if (!base) {
+            return '';
+        }
+
+        try {
+            var origin = (window.location && typeof window.location.href === 'string')
+                ? window.location.href
+                : undefined;
+            var url = origin ? new URL(base, origin) : new URL(base);
+            url.searchParams.set('view', 'detail');
+            url.searchParams.set('expediente_id', String(id));
+            return url.toString();
+        } catch (err) {
+            return '';
+        }
     }
 
     function byId(id) {
@@ -129,13 +154,11 @@
         var item = expediente && typeof expediente === 'object' ? expediente : {};
         var id = parseInt(item.id, 10);
         var titleText = typeof item.title === 'string' && item.title !== '' ? item.title : 'Sin título';
-        var description = typeof item.description === 'string' && item.description.trim() !== ''
-            ? item.description
-            : 'Sin descripción';
         var category = item.category && typeof item.category === 'object' ? item.category : {};
         var categoryName = typeof category.name === 'string' && category.name !== ''
             ? category.name
             : '—';
+        var detailUrl = id > 0 ? buildDetailUrl(id) : '';
 
         var card = document.createElement('div');
         card.className = 'aa-expediente-card';
@@ -144,12 +167,14 @@
             card.setAttribute('data-expediente-card-id', String(id));
         }
 
-        var header = document.createElement('div');
-        header.className = 'aa-expediente-card-header';
-        header.setAttribute('data-aa-card-toggle', '');
+        var link = document.createElement(detailUrl ? 'a' : 'div');
+        link.className = 'aa-expediente-card-link';
+        if (detailUrl) {
+            link.setAttribute('href', detailUrl);
+        }
 
         var titleRow = document.createElement('div');
-        titleRow.className = 'flex items-center min-w-0';
+        titleRow.className = 'aa-expediente-card-header flex items-center min-w-0';
 
         var iconWrap = document.createElement('span');
         iconWrap.className = 'flex items-center justify-center w-8 h-8 text-gray-600 shrink-0';
@@ -162,31 +187,11 @@
 
         titleRow.appendChild(iconWrap);
         titleRow.appendChild(name);
-        header.appendChild(titleRow);
+        link.appendChild(titleRow);
+        link.appendChild(createMetaRow('Categoría:', categoryName));
+        link.appendChild(createMetaRow('Creado:', formatCreatedAt(item.created_at)));
 
-        var overlay = document.createElement('div');
-        overlay.className = 'aa-card-overlay';
-
-        var body = document.createElement('div');
-        body.className = 'aa-card-body aa-expediente-card-body';
-
-        var descriptionRow = document.createElement('div');
-        descriptionRow.className = 'aa-expediente-card-description';
-        descriptionRow.textContent = description;
-        body.appendChild(descriptionRow);
-        body.appendChild(createMetaRow('Categoría:', categoryName));
-        body.appendChild(createMetaRow('Creado:', formatCreatedAt(item.created_at)));
-
-        if (id > 0) {
-            var slot = document.createElement('div');
-            slot.className = 'aa-expediente-registros-slot';
-            slot.setAttribute('data-expediente-id', String(id));
-            body.appendChild(slot);
-        }
-
-        overlay.appendChild(body);
-        card.appendChild(header);
-        card.appendChild(overlay);
+        card.appendChild(link);
 
         return card;
     }
@@ -469,6 +474,7 @@
         resetSearchAndReload: resetSearchAndReload,
         formatCreatedAt: formatCreatedAt,
         createCard: createExpedienteCard,
+        buildDetailUrl: buildDetailUrl,
         SEARCH_DEBOUNCE_MS: SEARCH_DEBOUNCE_MS
     };
 

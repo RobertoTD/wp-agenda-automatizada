@@ -199,10 +199,11 @@ ac_assert('JS envía action nonce query page', strpos($js, "append('action'") !=
     && strpos($js, "append('page'") !== false);
 ac_assert('JS usa AbortController', strpos($js, 'AbortController') !== false);
 ac_assert('JS debounce 300', strpos($js, 'SEARCH_DEBOUNCE_MS = 300') !== false);
-ac_assert('JS cards data-aa-card', strpos($js, "setAttribute('data-aa-card'") !== false
-    && strpos($js, "setAttribute('data-aa-card-toggle'") !== false);
-ac_assert('JS slot data-expediente-id sin data-aa-card anidado en slot', strpos($js, "setAttribute('data-expediente-id'") !== false
-    && preg_match("/aa-expediente-registros-slot[\\s\\S]{0,200}setAttribute\\('data-aa-card'/", $js) !== 1);
+ac_assert('JS cards data-aa-card', strpos($js, "setAttribute('data-aa-card'") !== false);
+ac_assert('JS cards son enlace a detail', strpos($js, "searchParams.set('view', 'detail')") !== false
+    && strpos($js, "searchParams.set('expediente_id'") !== false
+    && strpos($js, 'data-aa-card-toggle') === false
+    && strpos($js, 'aa-card-overlay') === false);
 ac_assert('JS título por textContent', strpos($js, 'name.textContent = titleText') !== false);
 ac_assert('JS module escucha aa:expediente:saved', strpos($js, 'aa:expediente:saved') !== false
     && strpos($js, 'resetSearchAndReload') !== false);

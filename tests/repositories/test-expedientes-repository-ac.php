@@ -38,6 +38,9 @@ $src = file_get_contents($plugin_root . '/includes/repositories/ExpedientesRepos
 ac_assert('insert existe', strpos($src, 'function insert') !== false);
 ac_assert('count_matching existe', strpos($src, 'function count_matching') !== false);
 ac_assert('list_page existe', strpos($src, 'function list_page') !== false);
+ac_assert('find_by_id existe', strpos($src, 'function find_by_id') !== false);
+ac_assert('find_by_id no acepta blog_id', strpos($src, 'function find_by_id(int $id)') !== false
+    && strpos($src, 'blog_id') === false);
 ac_assert('sin list_recent', strpos($src, 'list_recent') === false);
 ac_assert('sin LIST_LIMIT 100', strpos($src, 'LIST_LIMIT') === false);
 ac_assert('ORDER BY created_at DESC, id DESC', strpos($src, 'ORDER BY e.created_at DESC, e.id DESC') !== false);
@@ -77,6 +80,17 @@ $wpdb = new class {
         $this->last_query = (string) $query;
         $this->queries[] = $this->last_query;
         return $this->var;
+    }
+
+    public $row = null;
+
+    public function get_row($query, $output = OBJECT) {
+        $this->last_query = (string) $query;
+        $this->queries[] = $this->last_query;
+        if ($output === ARRAY_A) {
+            return $this->row;
+        }
+        return $this->row ? (object) $this->row : null;
     }
 
     public function get_results($query, $output = OBJECT) {
@@ -180,6 +194,39 @@ ac_assert(
 
 $empty_limit = ExpedientesRepository::list_page('', 0, 0);
 ac_assert('limit < 1 → []', $empty_limit === []);
+
+$before_find = count($wpdb->queries);
+$zero = ExpedientesRepository::find_by_id(0);
+$neg = ExpedientesRepository::find_by_id(-1);
+ac_assert('find_by_id 0/-1 → null sin query', $zero === null && $neg === null
+    && count($wpdb->queries) === $before_find);
+
+$wpdb->row = [
+    'id' => '7',
+    'title' => 'Contrato laboral',
+    'description' => 'Detalle',
+    'created_at' => '2026-08-17 13:00:00',
+    'updated_at' => null,
+    'category_slug' => 'general',
+    'category_name' => 'General',
+];
+$found = ExpedientesRepository::find_by_id(7);
+ac_assert('find_by_id existente', is_array($found) && $found['id'] === 7 && $found['title'] === 'Contrato laboral');
+ac_assert('find_by_id JOIN categoría', $found['category']['slug'] === 'general' && $found['category']['name'] === 'General');
+ac_assert('find_by_id prefijo expedientes', strpos($wpdb->last_query, 'wp_5_aa_expedientes') !== false);
+ac_assert('find_by_id prefijo categorías', strpos($wpdb->last_query, 'wp_5_aa_expediente_categories') !== false);
+ac_assert('find_by_id WHERE id preparado', strpos($wpdb->last_query, 'WHERE e.id = %d') !== false
+    && strpos($wpdb->last_query, '|7') !== false);
+ac_assert('find_by_id LIMIT 1', strpos($wpdb->last_query, 'LIMIT 1') !== false);
+
+$wpdb->row = null;
+$missing = ExpedientesRepository::find_by_id(99);
+ac_assert('find_by_id inexistente → null', $missing === null);
+
+$wpdb->last_error = 'simulated select error';
+$err = ExpedientesRepository::find_by_id(7);
+ac_assert('find_by_id error SQL → null', $err === null);
+$wpdb->last_error = '';
 
 echo "\nResultado: {$passed}/{$total} OK\n";
 if ($failed) {

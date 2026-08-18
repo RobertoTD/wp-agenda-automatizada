@@ -42,6 +42,7 @@ ac_assert('bootstrap sin nopriv padre', strpos($bootstrap_src, 'wp_ajax_nopriv_a
     && strpos($bootstrap_src, 'wp_ajax_nopriv_aa_create_expediente') === false);
 ac_assert('delega ListExpedientesUseCase', strpos($ajax_src, 'ListExpedientesUseCase') !== false);
 ac_assert('delega CreateExpedienteUseCase', strpos($ajax_src, 'CreateExpedienteUseCase') !== false);
+ac_assert('sin GetExpedienteUseCase ni AJAX de detalle', strpos($ajax_src, 'GetExpedienteUseCase') === false);
 ac_assert('responde via respond_use_case', strpos($ajax_src, 'respond_use_case($result)') !== false);
 ac_assert('sin $wpdb en handler', strpos($ajax_src, '$wpdb') === false);
 ac_assert('sin TITLE_MAX ni trim de negocio', strpos($ajax_src, 'TITLE_MAX') === false

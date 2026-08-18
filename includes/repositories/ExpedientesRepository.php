@@ -209,4 +209,44 @@ final class ExpedientesRepository {
 
         return $out;
     }
+
+    /**
+     * @return array{
+     *     id:int,
+     *     title:string,
+     *     description:?string,
+     *     created_at:string,
+     *     updated_at:?string,
+     *     category:array{slug:string,name:string}
+     * }|null
+     */
+    public static function find_by_id(int $id): ?array {
+        if ($id < 1) {
+            return null;
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+        $categories_table = self::categories_table_name();
+
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT e.id, e.title, e.description, e.created_at, e.updated_at,
+                        c.slug AS category_slug, c.name AS category_name
+                 FROM {$table} e
+                 INNER JOIN {$categories_table} c ON c.id = e.category_id
+                 WHERE e.id = %d
+                 LIMIT 1",
+                $id
+            ),
+            ARRAY_A
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[ExpedientesRepository] find_by_id error: ' . $wpdb->last_error);
+            return null;
+        }
+
+        return self::map_list_row(is_array($row) ? $row : null);
+    }
 }

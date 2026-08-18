@@ -271,9 +271,13 @@ function loadModule(options) {
         AA_EXPEDIENTES_DATA: {
             ajaxUrl: 'https://example.test/wp-admin/admin-ajax.php',
             nonce: 'nonce-test',
+            moduleBaseUrl: 'https://example.test/wp-admin/admin-post.php?action=aa_iframe_content&module=expedientes',
             actions: { list: 'aa_list_expedientes', create: 'aa_create_expediente' }
         },
         ajaxurl: 'https://example.test/wp-admin/admin-ajax.php',
+        location: {
+            href: 'https://example.test/wp-admin/admin-post.php?action=aa_iframe_content&module=expedientes'
+        },
         AAAdmin: {}
     };
 
@@ -282,6 +286,7 @@ function loadModule(options) {
         document: dom.document,
         fetch: fetchImpl,
         FormData: FormData,
+        URL: URL,
         AbortController: AbortController,
         DOMException: DOMException,
         setTimeout: setTimeout,
@@ -311,7 +316,7 @@ describe('expedientes-module', () => {
         assert.equal(harness.module.formatCreatedAt(''), '—');
     });
 
-    it('createCard usa textContent para título/descripción y no anida data-aa-card en el slot', () => {
+    it('createCard usa enlace real a view=detail y textContent, sin toggle ni overlay', () => {
         const harness = loadModule();
         const card = harness.module.createCard(expedienteItem({
             title: '<img src=x onerror=alert(1)>',
@@ -319,26 +324,27 @@ describe('expedientes-module', () => {
         }));
 
         assert.equal(card.getAttribute('data-aa-card'), '');
-        const toggle = card.querySelector('[data-aa-card-toggle]');
-        assert.ok(toggle);
+        assert.equal(card.querySelector('[data-aa-card-toggle]'), null);
+        assert.equal(card.querySelector('.aa-card-overlay'), null);
+        assert.equal(card.querySelector('[data-expediente-id]'), null);
+        const link = card.querySelector('a');
+        assert.ok(link);
+        const href = link.getAttribute('href') || '';
+        assert.match(href, /view=detail/);
+        assert.match(href, /expediente_id=7/);
         const title = card.querySelector('.aa-expediente-card-title');
         assert.equal(title.textContent, '<img src=x onerror=alert(1)>');
         assert.equal(title.innerHTML, '');
-        const description = card.querySelector('.aa-expediente-card-description');
-        assert.equal(description.textContent, '<b>html</b>');
-        const slot = card.querySelector('[data-expediente-id]');
-        assert.equal(slot.getAttribute('data-expediente-id'), '7');
-        assert.equal(slot.hasAttribute('data-aa-card'), false);
-        assert.equal(slot.querySelector('[data-aa-card]'), null);
+        assert.equal(card.querySelector('.aa-expediente-card-description'), null);
     });
 
-    it('createCard muestra Sin descripción y categoría por nombre', () => {
+    it('createCard muestra categoría por nombre y fecha, no la descripción', () => {
         const harness = loadModule();
         const card = harness.module.createCard(expedienteItem({
             description: null,
             category: { slug: 'general', name: 'General' }
         }));
-        assert.equal(card.querySelector('.aa-expediente-card-description').textContent, 'Sin descripción');
+        assert.equal(card.querySelector('.aa-expediente-card-description'), null);
         const metas = [];
         collectMatches(card, '.aa-expediente-card-meta-value', metas);
         assert.equal(metas[0].textContent, 'General');

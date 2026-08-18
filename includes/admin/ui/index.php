@@ -10,7 +10,8 @@
  *   cases: Expedientes URLs (`module=expedientes` OR `clients&view=expediente`)
  *   and the internal legal-gate marker.
  *
- * This file contains NO HTML and NO business logic beyond the access branch.
+ * This file contains NO HTML. Logic is limited to the access branch and the
+ * pre-layout resolution of `module=expedientes&view=detail` (real parent row).
  */
 
 defined('ABSPATH') or die('No direct access');
@@ -110,6 +111,34 @@ if (
     $shell_access = (new ResolveShellAccessUseCase())->execute();
     if (($shell_access['access'] ?? '') !== AA_Shell_Access::ACCESS_FULL) {
         wp_die('Acceso denegado', 'Error', ['response' => 403]);
+    }
+}
+
+/*
+ * Parent detail (module=expedientes&view=detail). Gate above already ran.
+ * Strict id parsing lives in GetExpedienteUseCase. Site-scoped via table prefix.
+ */
+$aa_expediente_detail = null;
+if ($active_module === 'expedientes' && $view_raw === 'detail') {
+    require_once dirname(__DIR__, 2) . '/application/expediente/GetExpedienteUseCase.php';
+
+    $aa_expediente_detail_result = (new GetExpedienteUseCase())->execute([
+        'expediente_id' => array_key_exists('expediente_id', $_GET)
+            ? wp_unslash($_GET['expediente_id'])
+            : null,
+    ]);
+
+    if (empty($aa_expediente_detail_result['success'])) {
+        $aa_detail_error = (string) ($aa_expediente_detail_result['error']['code'] ?? '');
+        if ($aa_detail_error === 'not_found') {
+            wp_die('Expediente no encontrado', 'Error', ['response' => 404]);
+        }
+        wp_die('Expediente no válido', 'Error', ['response' => 400]);
+    }
+
+    $aa_expediente_detail = $aa_expediente_detail_result['data'] ?? null;
+    if (!is_array($aa_expediente_detail)) {
+        wp_die('Expediente no encontrado', 'Error', ['response' => 404]);
     }
 }
 

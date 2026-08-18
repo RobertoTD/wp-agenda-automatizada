@@ -1,11 +1,21 @@
 <?php
 /**
- * Expedientes Module — parent-entity list (Cycle E).
+ * Expedientes Module — listado padre o detalle de una fila real.
  *
- * Search / pagination / cards via ExpedientesAjax. Create via FAB + modal.
+ * List: search / pagination / cards via ExpedientesAjax. Create via FAB + modal.
+ * Detail: pre-resolved in the router as $aa_expediente_detail (no AJAX).
  */
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
+
+$aa_expedientes_is_detail = isset($aa_expediente_detail)
+    && is_array($aa_expediente_detail)
+    && (int) ($aa_expediente_detail['id'] ?? 0) > 0;
+
+if ($aa_expedientes_is_detail) {
+    require __DIR__ . '/detail.php';
+    return;
+}
 
 $aa_expedientes_module_url = admin_url('admin-post.php?action=aa_iframe_content&module=expedientes');
 $aa_expedientes_ajax_url = admin_url('admin-ajax.php');
