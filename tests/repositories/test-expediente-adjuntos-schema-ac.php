@@ -1,6 +1,6 @@
 <?php
 /**
- * AC — Schema aa_expediente_adjuntos (MC4a2) + DB_VERSION 14.
+ * AC — Schema aa_expediente_adjuntos (MC4a2) + DB_VERSION 15.
  *
  * Ejecutar: php tests/repositories/test-expediente-adjuntos-schema-ac.php
  */
@@ -28,7 +28,7 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 
 $schema_src = file_get_contents($schema_file);
 ac_assert('Schema readable', is_string($schema_src) && $schema_src !== '');
-ac_assert('DB_VERSION is 14', strpos($schema_src, "DB_VERSION = '14'") !== false);
+ac_assert('DB_VERSION is 15', strpos($schema_src, "DB_VERSION = '15'") !== false);
 ac_assert('CREATE TABLE aa_expediente_adjuntos', strpos($schema_src, "aa_expediente_adjuntos") !== false);
 ac_assert('storage_path varchar(191)', strpos($schema_src, 'storage_path varchar(191) NOT NULL') !== false);
 ac_assert('upload_operation_id char(36)', strpos($schema_src, 'upload_operation_id char(36) NOT NULL') !== false);
@@ -42,6 +42,7 @@ $adj_start = strpos($schema_src, 'aa_expediente_adjuntos');
 $adj_end = $adj_start !== false ? strpos($schema_src, ') $charset;";', $adj_start) : false;
 $adj_block = ($adj_start !== false && $adj_end !== false) ? substr($schema_src, $adj_start, $adj_end - $adj_start) : '';
 ac_assert('bloque adjuntos sin columna status', $adj_block !== '' && strpos($adj_block, 'status') === false);
+ac_assert('bloque adjuntos sin expediente_id', $adj_block !== '' && strpos($adj_block, 'expediente_id') === false);
 ac_assert('usa prefix aa_expediente_adjuntos', strpos($schema_src, "\$wpdb->prefix . 'aa_expediente_adjuntos'") !== false);
 
 echo "\n";

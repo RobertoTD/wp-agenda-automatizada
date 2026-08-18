@@ -68,6 +68,7 @@ ac_assert('delete scoped id + client_id', preg_match(
     "/function delete_by_id_for_client[\s\S]*?'id'[\s\S]*?'client_id'/",
     $src
 ) === 1);
+ac_assert('repo aún no consume expediente_id', strpos($src, 'expediente_id') === false);
 
 global $wpdb;
 $wpdb = new class {

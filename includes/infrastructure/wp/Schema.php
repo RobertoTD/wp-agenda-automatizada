@@ -66,7 +66,7 @@ final class AA_Schema {
      * Independiente de la versión del plugin. Solo refleja el estado
      * de las tablas/columnas/índices.
      */
-    public const DB_VERSION = '14';
+    public const DB_VERSION = '15';
 
     public const OPTION_INSTALLATION_INITIALIZED_AT = 'aa_installation_initialized_at';
 
@@ -440,21 +440,28 @@ final class AA_Schema {
 
         dbDelta($task_actions_sql);
 
-        // 🔹 Registros de expediente por cliente (MC2 — client_id; entidad padre en aa_expedientes)
+        // 🔹 Registros de expediente (MC2 client_id; DB 15 expediente_id nullable, sin consumidores)
         $expediente_registros_table = $wpdb->prefix . 'aa_expediente_registros';
         $expediente_registros_sql = "CREATE TABLE $expediente_registros_table (
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             client_id bigint(20) unsigned NOT NULL,
+            expediente_id bigint(20) unsigned DEFAULT NULL,
             title varchar(200) NOT NULL,
             body text NOT NULL,
             recorded_at datetime NOT NULL,
             created_at datetime NOT NULL,
             updated_at datetime DEFAULT NULL,
             PRIMARY KEY  (id),
-            KEY client_recorded (client_id, recorded_at, id)
+            KEY client_recorded (client_id, recorded_at, id),
+            KEY expediente_recorded (expediente_id, recorded_at, id)
         ) $charset;";
 
         dbDelta($expediente_registros_sql);
+        self::ensure_index(
+            $expediente_registros_table,
+            'expediente_recorded',
+            'ALTER TABLE ' . $expediente_registros_table . ' ADD KEY expediente_recorded (expediente_id, recorded_at, id)'
+        );
 
         // 🔹 Adjuntos finalizados de registros de expediente (MC4a2 — metadatos locales; binario en Supabase)
         $expediente_adjuntos_table = $wpdb->prefix . 'aa_expediente_adjuntos';

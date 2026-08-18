@@ -1,6 +1,6 @@
 <?php
 /**
- * AC — Schema aa_expediente_categories + aa_expedientes (DB_VERSION 14).
+ * AC — Schema aa_expediente_categories + aa_expedientes (DB_VERSION 15).
  *
  * Ejecutar: php tests/repositories/test-expedientes-schema-ac.php
  */
@@ -46,7 +46,7 @@ function ac_schema_table_block(string $schema_src, string $table_literal): strin
 
 $schema_src = file_get_contents($schema_file);
 ac_assert('Schema readable', is_string($schema_src) && $schema_src !== '');
-ac_assert('DB_VERSION is 14', strpos($schema_src, "DB_VERSION = '14'") !== false);
+ac_assert('DB_VERSION is 15', strpos($schema_src, "DB_VERSION = '15'") !== false);
 ac_assert(
     'usa prefix aa_expediente_categories',
     strpos($schema_src, "\$wpdb->prefix . 'aa_expediente_categories'") !== false
@@ -93,8 +93,18 @@ ac_assert(
 );
 
 ac_assert(
-    'registros sin expediente_id',
-    $registros_block !== '' && strpos($registros_block, 'expediente_id') === false
+    'registros tienen expediente_id nullable',
+    $registros_block !== ''
+    && strpos($registros_block, 'expediente_id bigint(20) unsigned DEFAULT NULL') !== false
+    && strpos($registros_block, 'expediente_id bigint(20) unsigned NOT NULL') === false
+);
+ac_assert(
+    'registros conservan índice client_recorded',
+    strpos($registros_block, 'KEY client_recorded (client_id, recorded_at, id)') !== false
+);
+ac_assert(
+    'registros tienen índice expediente_recorded',
+    strpos($registros_block, 'KEY expediente_recorded (expediente_id, recorded_at, id)') !== false
 );
 ac_assert(
     'registros conservan client_id NOT NULL',
@@ -337,12 +347,17 @@ if ($wp_load !== '' && is_readable($wp_load)) {
     );
 
     $registros_expediente_id = $wpdb->get_row("SHOW COLUMNS FROM {$registros_table} LIKE 'expediente_id'", ARRAY_A);
-    ac_assert('registros reales sin expediente_id', empty($registros_expediente_id));
+    ac_assert(
+        'registros reales tienen expediente_id nullable',
+        is_array($registros_expediente_id)
+        && strtoupper((string) ($registros_expediente_id['Null'] ?? '')) === 'YES',
+        is_array($registros_expediente_id) ? (string) ($registros_expediente_id['Null'] ?? '') : 'missing'
+    );
     $adjuntos_expediente_id = $wpdb->get_row("SHOW COLUMNS FROM {$adjuntos_table} LIKE 'expediente_id'", ARRAY_A);
     ac_assert('adjuntos reales sin expediente_id', empty($adjuntos_expediente_id));
 
     $version = get_option('aa_db_version', '0');
-    ac_assert('aa_db_version es 14 tras install', (string) $version === '14', (string) $version);
+    ac_assert('aa_db_version es 15 tras install', (string) $version === '15', (string) $version);
     ac_assert('upgrade path: versión previa no bloquea', true, 'before=' . $before);
 } else {
     echo "\n(skip WP integration — set AA_WP_ROOT para install/upgrade real)\n";
