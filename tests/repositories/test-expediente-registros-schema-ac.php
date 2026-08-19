@@ -102,7 +102,8 @@ ac_assert(
     'insert legacy del repo no escribe expediente_id',
     is_string($repo_src)
     && strpos($repo_src, 'function insert') !== false
-    && strpos($repo_src, 'expediente_id') === false
+    && preg_match("/function insert[\s\S]*?'client_id'[\s\S]*?'title'[\s\S]*?'body'[\s\S]*?'recorded_at'[\s\S]*?'created_at'/", $repo_src) === 1
+    && strpos($repo_src, "'expediente_id' =>") === false
 );
 
 $wp_root = getenv('AA_WP_ROOT') ?: '';

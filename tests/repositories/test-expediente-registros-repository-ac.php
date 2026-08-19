@@ -59,6 +59,9 @@ ac_assert('insert existe', strpos($src, 'function insert') !== false);
 ac_assert('find_by_id_for_client existe', strpos($src, 'function find_by_id_for_client') !== false);
 ac_assert('update_title_body existe', strpos($src, 'function update_title_body') !== false);
 ac_assert('ORDER BY recorded_at DESC, id DESC', strpos($src, 'ORDER BY recorded_at DESC, id DESC') !== false);
+ac_assert('count_by_expediente_id existe', strpos($src, 'function count_by_expediente_id') !== false);
+ac_assert('list_by_expediente_id existe', strpos($src, 'function list_by_expediente_id') !== false);
+ac_assert('scope SQL por expediente_id', strpos($src, 'WHERE expediente_id = %d') !== false);
 ac_assert('usa $wpdb->prefix', strpos($src, "aa_expediente_registros") !== false);
 ac_assert('WHERE id + client_id en find', strpos($src, 'WHERE id = %d AND client_id = %d') !== false);
 ac_assert('update solo title/body/updated_at', preg_match("/\\\$wpdb->update\([\s\S]*?'title'[\s\S]*?'body'[\s\S]*?'updated_at'/", $src) === 1);
@@ -68,7 +71,15 @@ ac_assert('delete scoped id + client_id', preg_match(
     "/function delete_by_id_for_client[\s\S]*?'id'[\s\S]*?'client_id'/",
     $src
 ) === 1);
-ac_assert('repo aún no consume expediente_id', strpos($src, 'expediente_id') === false);
+ac_assert(
+    'legacy list_by_client_id no filtra por expediente_id',
+    preg_match("/function list_by_client_id[\s\S]*?WHERE client_id = %d[\s\S]*?LIMIT %d/", $src) === 1
+);
+ac_assert(
+    'insert legacy no escribe expediente_id',
+    preg_match("/function insert[\s\S]*?'client_id'[\s\S]*?'title'[\s\S]*?'body'[\s\S]*?'recorded_at'[\s\S]*?'created_at'/", $src) === 1
+    && strpos($src, "'expediente_id' =>") === false
+);
 
 global $wpdb;
 $wpdb = new class {
@@ -78,6 +89,7 @@ $wpdb = new class {
     public $last_query = '';
     public $rows = [];
     public $row = null;
+    public $var = null;
     public $insert_ok = true;
     public $update_result = 1;
     public $inserted = null;
@@ -105,6 +117,10 @@ $wpdb = new class {
             return $this->row;
         }
         return $this->row ? (object) $this->row : null;
+    }
+
+    public function get_var($query) {
+        return $this->var;
     }
 
     public function insert($table, $data, $format = null) {
@@ -159,6 +175,52 @@ ac_assert('list usa prefijo blog', strpos($wpdb->last_query, 'wp_5_aa_expediente
 ac_assert('list mapea 2 filas', count($list) === 2);
 ac_assert('list campos normalizados', $list[0]['id'] === 2 && $list[0]['title'] === 'B' && $list[0]['updated_at'] === null);
 ac_assert('list updated_at vacío → null', $list[1]['updated_at'] === null);
+
+$wpdb->var = '3';
+$count = ExpedienteRegistrosRepository::count_by_expediente_id(200);
+ac_assert('count_by_expediente_id OK', $count === 3);
+ac_assert('count usa expediente_id', strpos($wpdb->last_query, 'expediente_id = %d') !== false && strpos($wpdb->last_query, '|200') !== false);
+ac_assert('count expediente_id inválido → 0', ExpedienteRegistrosRepository::count_by_expediente_id(0) === 0);
+
+$wpdb->rows = [
+    [
+        'id' => '21',
+        'title' => 'Hijo B',
+        'body' => 'body b',
+        'recorded_at' => '2026-08-01 12:00:00',
+        'created_at' => '2026-08-01 12:00:00',
+        'updated_at' => null,
+    ],
+    [
+        'id' => '20',
+        'title' => 'Hijo A',
+        'body' => 'body a',
+        'recorded_at' => '2026-07-31 09:00:00',
+        'created_at' => '2026-07-31 09:00:00',
+        'updated_at' => '',
+    ],
+];
+$expList = ExpedienteRegistrosRepository::list_by_expediente_id(200, 15, 0);
+ac_assert('list_by_expediente_id mapea 2 filas', count($expList) === 2);
+ac_assert('list_by_expediente_id no expone client_id', !array_key_exists('client_id', $expList[0]));
+ac_assert('list_by_expediente_id no expone expediente_id', !array_key_exists('expediente_id', $expList[0]));
+ac_assert(
+    'list_by_expediente_id conserva campos públicos',
+    array_key_exists('id', $expList[0])
+    && array_key_exists('title', $expList[0])
+    && array_key_exists('body', $expList[0])
+    && array_key_exists('recorded_at', $expList[0])
+    && array_key_exists('created_at', $expList[0])
+    && array_key_exists('updated_at', $expList[0])
+);
+ac_assert(
+    'list_by_expediente_id SQL usa scope+orden+limit+offset',
+    strpos($wpdb->last_query, 'WHERE expediente_id = %d') !== false
+    && strpos($wpdb->last_query, 'ORDER BY recorded_at DESC, id DESC') !== false
+    && strpos($wpdb->last_query, '|200|15|0') !== false
+);
+ac_assert('list_by_expediente_id expediente inválido → []', ExpedienteRegistrosRepository::list_by_expediente_id(0, 15, 0) === []);
+ac_assert('list_by_expediente_id limit inválido → []', ExpedienteRegistrosRepository::list_by_expediente_id(200, 0, 0) === []);
 
 $created = ExpedienteRegistrosRepository::insert([
     'client_id' => 9,

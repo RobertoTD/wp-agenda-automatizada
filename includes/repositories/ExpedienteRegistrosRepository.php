@@ -48,6 +48,29 @@ final class ExpedienteRegistrosRepository {
     }
 
     /**
+     * Proyección pública para lectura scoped por expediente_id.
+     *
+     * @param array<string,mixed>|null $row
+     * @return array{id:int,title:string,body:string,recorded_at:string,created_at:string,updated_at:?string}|null
+     */
+    private static function map_expediente_row(?array $row): ?array {
+        if (!is_array($row) || empty($row['id'])) {
+            return null;
+        }
+
+        $updated = $row['updated_at'] ?? null;
+
+        return [
+            'id' => (int) $row['id'],
+            'title' => (string) ($row['title'] ?? ''),
+            'body' => (string) ($row['body'] ?? ''),
+            'recorded_at' => (string) ($row['recorded_at'] ?? ''),
+            'created_at' => (string) ($row['created_at'] ?? ''),
+            'updated_at' => ($updated === null || $updated === '') ? null : (string) $updated,
+        ];
+    }
+
+    /**
      * Lista registros del cliente en el blog actual (ORDER BY recorded_at DESC, id DESC).
      *
      * @return list<array{id:int,client_id:int,title:string,body:string,recorded_at:string,created_at:string,updated_at:?string}>
@@ -87,6 +110,77 @@ final class ExpedienteRegistrosRepository {
         $out = [];
         foreach ($rows as $row) {
             $mapped = self::map_row(is_array($row) ? $row : null);
+            if ($mapped !== null) {
+                $out[] = $mapped;
+            }
+        }
+
+        return $out;
+    }
+
+    public static function count_by_expediente_id(int $expediente_id): int {
+        if ($expediente_id < 1) {
+            return 0;
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+        $count = $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$table} WHERE expediente_id = %d",
+                $expediente_id
+            )
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[ExpedienteRegistrosRepository] count_by_expediente_id error: ' . $wpdb->last_error);
+            return 0;
+        }
+
+        return (int) $count;
+    }
+
+    /**
+     * Lista registros del expediente en el blog actual (ORDER BY recorded_at DESC, id DESC).
+     *
+     * @return list<array{id:int,title:string,body:string,recorded_at:string,created_at:string,updated_at:?string}>
+     */
+    public static function list_by_expediente_id(int $expediente_id, int $limit, int $offset = 0): array {
+        if ($expediente_id < 1 || $limit < 1) {
+            return [];
+        }
+
+        $limit = min($limit, self::LIST_LIMIT);
+        $offset = max(0, $offset);
+
+        global $wpdb;
+        $table = self::table_name();
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT id, title, body, recorded_at, created_at, updated_at
+                 FROM {$table}
+                 WHERE expediente_id = %d
+                 ORDER BY recorded_at DESC, id DESC
+                 LIMIT %d OFFSET %d",
+                $expediente_id,
+                $limit,
+                $offset
+            ),
+            ARRAY_A
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[ExpedienteRegistrosRepository] list_by_expediente_id error: ' . $wpdb->last_error);
+            return [];
+        }
+
+        if (!is_array($rows)) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($rows as $row) {
+            $mapped = self::map_expediente_row(is_array($row) ? $row : null);
             if ($mapped !== null) {
                 $out[] = $mapped;
             }
