@@ -119,8 +119,10 @@ if (
  * Strict id parsing lives in GetExpedienteUseCase. Site-scoped via table prefix.
  */
 $aa_expediente_detail = null;
+$aa_expediente_records_view = null;
 if ($active_module === 'expedientes' && $view_raw === 'detail') {
     require_once dirname(__DIR__, 2) . '/application/expediente/GetExpedienteUseCase.php';
+    require_once dirname(__DIR__, 2) . '/application/expediente/ListExpedienteRegistrosUseCase.php';
 
     $aa_expediente_detail_result = (new GetExpedienteUseCase())->execute([
         'expediente_id' => array_key_exists('expediente_id', $_GET)
@@ -140,6 +142,66 @@ if ($active_module === 'expedientes' && $view_raw === 'detail') {
     if (!is_array($aa_expediente_detail)) {
         wp_die('Expediente no encontrado', 'Error', ['response' => 404]);
     }
+
+    $aa_detail_id = (int) ($aa_expediente_detail['id'] ?? 0);
+    if ($aa_detail_id < 1) {
+        wp_die('Expediente no encontrado', 'Error', ['response' => 404]);
+    }
+
+    $aa_records_page_input = array_key_exists('records_page', $_GET)
+        ? wp_unslash($_GET['records_page'])
+        : null;
+    $aa_expediente_records_result = (new ListExpedienteRegistrosUseCase())->execute([
+        'expediente_id' => $aa_detail_id,
+        'page' => $aa_records_page_input,
+    ]);
+    if (empty($aa_expediente_records_result['success'])) {
+        wp_die('No se pudieron cargar los registros del expediente.', 'Error', ['response' => 500]);
+    }
+
+    $aa_records_data = is_array($aa_expediente_records_result['data'] ?? null)
+        ? $aa_expediente_records_result['data']
+        : [];
+    $aa_records_page = (int) ($aa_records_data['page'] ?? 1);
+    $aa_records_page = $aa_records_page > 0 ? $aa_records_page : 1;
+    $aa_records_total_pages = (int) ($aa_records_data['total_pages'] ?? 0);
+    $aa_records_has_previous = !empty($aa_records_data['has_previous']) && $aa_records_page > 1;
+    $aa_records_has_next = !empty($aa_records_data['has_next'])
+        && ($aa_records_total_pages < 1 || $aa_records_page < $aa_records_total_pages);
+    $aa_records_base_query = [
+        'action' => 'aa_iframe_content',
+        'module' => 'expedientes',
+        'view' => 'detail',
+        'expediente_id' => (string) $aa_detail_id,
+    ];
+
+    $aa_records_prev_url = '';
+    if ($aa_records_has_previous) {
+        $aa_records_prev_url = add_query_arg(
+            array_merge($aa_records_base_query, ['records_page' => (string) ($aa_records_page - 1)]),
+            admin_url('admin-post.php')
+        );
+    }
+
+    $aa_records_next_url = '';
+    if ($aa_records_has_next) {
+        $aa_records_next_url = add_query_arg(
+            array_merge($aa_records_base_query, ['records_page' => (string) ($aa_records_page + 1)]),
+            admin_url('admin-post.php')
+        );
+    }
+
+    $aa_expediente_records_view = [
+        'records' => is_array($aa_records_data['records'] ?? null) ? $aa_records_data['records'] : [],
+        'page' => $aa_records_page,
+        'per_page' => (int) ($aa_records_data['per_page'] ?? 15),
+        'total' => (int) ($aa_records_data['total'] ?? 0),
+        'total_pages' => $aa_records_total_pages,
+        'has_previous' => $aa_records_has_previous,
+        'has_next' => $aa_records_has_next,
+        'prev_url' => $aa_records_prev_url,
+        'next_url' => $aa_records_next_url,
+    ];
 }
 
 // Resolve module path.

@@ -40,6 +40,27 @@ if (preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $aa_detail_created_raw, $aa_detail_
 
 $aa_detail_page_title = $aa_detail_title !== '' ? $aa_detail_title : 'Expediente';
 $aa_expedientes_list_url = admin_url('admin-post.php?action=aa_iframe_content&module=expedientes');
+$aa_records_view = (isset($aa_expediente_records_view) && is_array($aa_expediente_records_view))
+    ? $aa_expediente_records_view
+    : [
+        'records' => [],
+        'page' => 1,
+        'per_page' => 15,
+        'total' => 0,
+        'total_pages' => 0,
+        'has_previous' => false,
+        'has_next' => false,
+        'prev_url' => '',
+        'next_url' => '',
+    ];
+$aa_records_items = is_array($aa_records_view['records'] ?? null) ? $aa_records_view['records'] : [];
+$aa_records_total = (int) ($aa_records_view['total'] ?? 0);
+$aa_records_page = (int) ($aa_records_view['page'] ?? 1);
+$aa_records_total_pages = (int) ($aa_records_view['total_pages'] ?? 0);
+$aa_records_prev_url = (string) ($aa_records_view['prev_url'] ?? '');
+$aa_records_next_url = (string) ($aa_records_view['next_url'] ?? '');
+$aa_records_has_previous = !empty($aa_records_view['has_previous']) && $aa_records_prev_url !== '';
+$aa_records_has_next = !empty($aa_records_view['has_next']) && $aa_records_next_url !== '';
 ?>
 
 <div
@@ -88,7 +109,32 @@ $aa_expedientes_list_url = admin_url('admin-post.php?action=aa_iframe_content&mo
                 <?php if ($aa_detail_id > 0) : ?>data-expediente-id="<?php echo esc_attr((string) $aa_detail_id); ?>"<?php endif; ?>
                 aria-live="polite"
             >
-                <p class="text-sm text-gray-500">Los registros estarán disponibles próximamente</p>
+                <h4 class="aa-expediente-detail-registros-title text-base font-semibold text-gray-700 mb-2">Registros</h4>
+                <?php if (count($aa_records_items) === 0) : ?>
+                    <p class="text-sm text-gray-500 aa-expediente-registros-empty">Aún no hay registros en este expediente</p>
+                <?php else : ?>
+                    <div class="aa-expediente-registros-list">
+                        <?php foreach ($aa_records_items as $aa_record) : ?>
+                            <?php include dirname(__DIR__, 2) . '/shared/expediente-record-readonly.php'; ?>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+
+                <?php if ($aa_records_total_pages > 1) : ?>
+                    <nav class="aa-expediente-detail-pagination mt-3" aria-label="Paginación de registros del expediente">
+                        <?php if ($aa_records_has_previous) : ?>
+                            <a href="<?php echo esc_url($aa_records_prev_url); ?>" class="aa-expediente-detail-pagination-link aa-expediente-detail-pagination-prev">← Anterior</a>
+                        <?php endif; ?>
+                        <span class="aa-expediente-detail-pagination-current text-sm text-gray-500">
+                            Página <?php echo esc_html((string) $aa_records_page); ?>
+                            de <?php echo esc_html((string) $aa_records_total_pages); ?>
+                            (<?php echo esc_html((string) $aa_records_total); ?>)
+                        </span>
+                        <?php if ($aa_records_has_next) : ?>
+                            <a href="<?php echo esc_url($aa_records_next_url); ?>" class="aa-expediente-detail-pagination-link aa-expediente-detail-pagination-next">Siguiente →</a>
+                        <?php endif; ?>
+                    </nav>
+                <?php endif; ?>
             </div>
         </div>
     </div>

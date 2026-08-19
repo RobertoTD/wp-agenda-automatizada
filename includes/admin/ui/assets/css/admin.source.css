@@ -736,6 +736,20 @@ body {
         @apply text-lg text-gray-700 whitespace-pre-wrap break-words;
     }
 
+    .aa-expediente-detail-pagination {
+        @apply flex items-center justify-between gap-3 flex-wrap;
+    }
+
+    .aa-expediente-detail-pagination-link {
+        @apply inline-flex items-center gap-1.5 px-3 py-1.5 text-sm;
+        @apply bg-white text-indigo-600 hover:text-indigo-700 hover:bg-gray-50;
+        @apply border border-indigo-200 rounded-md transition-colors;
+    }
+
+    .aa-expediente-detail-pagination-current {
+        @apply font-medium;
+    }
+
     .aa-expediente-registro-options-menu {
         z-index: 30;
     }

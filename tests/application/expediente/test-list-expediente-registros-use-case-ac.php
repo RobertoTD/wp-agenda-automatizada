@@ -64,6 +64,8 @@ ac_assert('validación estricta (sin absint)', strpos($src, 'absint(') === false
 ac_assert('sin gate/permisos en use case', strpos($src, 'current_user_can') === false && strpos($src, 'ResolveShellAccessUseCase') === false);
 ac_assert('sin check de existencia del padre', strpos($src, 'ExpedientesRepository::find_by_id') === false);
 ac_assert('sin per_page externo', strpos($src, "input['per_page']") === false && strpos($src, '$input["per_page"]') === false);
+ac_assert('normalize_page estricto canónico', strpos($src, 'private function normalize_page') !== false
+    && strpos($src, '/^[1-9][0-9]{0,18}$/') !== false);
 
 $uc = new ListExpedienteRegistrosUseCase();
 
@@ -134,6 +136,20 @@ ac_assert('última has_next false', ($pageLast['data']['has_next'] ?? true) === 
 
 $pageZero = $uc->execute(['expediente_id' => 7, 'page' => 0]);
 ac_assert('page 0 clamp a 1', ($pageZero['data']['page'] ?? 0) === 1);
+$pageInvalidText = $uc->execute(['expediente_id' => 7, 'page' => 'abc']);
+ac_assert('page texto inválido → 1', ($pageInvalidText['data']['page'] ?? 0) === 1);
+$pageInvalidDecimal = $uc->execute(['expediente_id' => 7, 'page' => '1.5']);
+ac_assert('page decimal inválido → 1', ($pageInvalidDecimal['data']['page'] ?? 0) === 1);
+$pageInvalidSign = $uc->execute(['expediente_id' => 7, 'page' => '+2']);
+ac_assert('page con signo inválido → 1', ($pageInvalidSign['data']['page'] ?? 0) === 1);
+$pageInvalidLeadingZero = $uc->execute(['expediente_id' => 7, 'page' => '01']);
+ac_assert('page leading zero inválido → 1', ($pageInvalidLeadingZero['data']['page'] ?? 0) === 1);
+$pageInvalidArray = $uc->execute(['expediente_id' => 7, 'page' => ['2']]);
+ac_assert('page array inválido → 1', ($pageInvalidArray['data']['page'] ?? 0) === 1);
+$pageInvalidObject = $uc->execute(['expediente_id' => 7, 'page' => (object) ['v' => 2]]);
+ac_assert('page objeto inválido → 1', ($pageInvalidObject['data']['page'] ?? 0) === 1);
+$pageValidString = $uc->execute(['expediente_id' => 7, 'page' => '2']);
+ac_assert('page string canónico válido', ($pageValidString['data']['page'] ?? 0) === 2);
 
 $empty = $uc->execute(['expediente_id' => '8', 'page' => 4]);
 ac_assert('cero hijos: success', !empty($empty['success']));

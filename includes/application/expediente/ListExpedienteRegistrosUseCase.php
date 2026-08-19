@@ -91,9 +91,24 @@ final class ListExpedienteRegistrosUseCase {
      * @param mixed $value
      */
     private function normalize_page($value): int {
-        $page = (int) $value;
+        if (is_int($value)) {
+            return $value > 0 ? $value : 1;
+        }
 
-        return $page < 1 ? 1 : $page;
+        if (!is_string($value)) {
+            return 1;
+        }
+
+        if (!preg_match('/^[1-9][0-9]{0,18}$/', $value)) {
+            return 1;
+        }
+
+        $page = (int) $value;
+        if ($page < 1 || (string) $page !== $value) {
+            return 1;
+        }
+
+        return $page;
     }
 
     /**

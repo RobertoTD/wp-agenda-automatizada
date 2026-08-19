@@ -36,6 +36,7 @@ function ac_read(string $relative): string {
 $router = ac_read('includes/admin/ui/index.php');
 $module = ac_read('includes/admin/ui/modules/expedientes/index.php');
 $detail = ac_read('includes/admin/ui/modules/expedientes/detail.php');
+$detail_partial = ac_read('includes/admin/ui/shared/expediente-record-readonly.php');
 $js = ac_read('includes/admin/ui/modules/expedientes/expedientes-module.js');
 $css = ac_read('includes/admin/ui/assets/css/admin.source.css');
 $ajax = ac_read('includes/http/ajax/ExpedientesAjax.php');
@@ -47,14 +48,33 @@ $schema = ac_read('includes/infrastructure/wp/Schema.php');
 
 $gate_full = strpos($router, 'AA_Shell_Access::ACCESS_FULL');
 $get_uc = strpos($router, 'new GetExpedienteUseCase');
+$list_children_uc = strpos($router, 'new ListExpedienteRegistrosUseCase');
 $layout = strpos($router, "require __DIR__ . '/shared/layout.php'");
 
 ac_assert('router resuelve view=detail', strpos($router, "\$view_raw === 'detail'") !== false);
 ac_assert('gate full antes de GetExpedienteUseCase', $gate_full !== false && $get_uc !== false && $gate_full < $get_uc);
 ac_assert('GetExpedienteUseCase antes de layout', $get_uc !== false && $layout !== false && $get_uc < $layout);
 ac_assert(
+    'listado hijos después del padre y antes del layout',
+    $get_uc !== false && $list_children_uc !== false && $layout !== false
+    && $get_uc < $list_children_uc
+    && $list_children_uc < $layout
+);
+ac_assert(
     'siguen exactamente 2 execute() del gate',
     substr_count($router, 'ResolveShellAccessUseCase())->execute()') === 2
+);
+ac_assert('router usa records_page', strpos($router, "'records_page'") !== false);
+ac_assert('router usa id resuelto del padre para hijos', strpos($router, "\$aa_expediente_detail['id']") !== false);
+ac_assert('router paginación canónica sin copiar $_GET', strpos($router, '$aa_records_base_query = [') !== false
+    && strpos($router, "'action' => 'aa_iframe_content'") !== false
+    && strpos($router, "'module' => 'expedientes'") !== false
+    && strpos($router, "'view' => 'detail'") !== false
+    && strpos($router, "add_query_arg(\$_GET") === false);
+ac_assert(
+    'router 500 si listado hijos falla',
+    strpos($router, "No se pudieron cargar los registros del expediente.") !== false
+    && strpos($router, "['response' => 500]") !== false
 );
 ac_assert('router no usa absint', strpos($router, 'absint(') === false);
 ac_assert('router detalle no lee blog_id', strpos($router, "['blog_id']") === false
@@ -82,7 +102,10 @@ ac_assert('detalle escapa título', strpos($detail, 'esc_html($aa_detail_title')
 ac_assert('detalle escapa descripción', strpos($detail, 'esc_html($aa_detail_description)') !== false);
 ac_assert('detalle escapa categoría', strpos($detail, 'esc_html($aa_detail_category_name)') !== false);
 ac_assert('detalle slot registros', strpos($detail, 'id="aa-expediente-detail-registros"') !== false);
-ac_assert('detalle empty honesto', strpos($detail, 'Los registros estarán disponibles próximamente') !== false);
+ac_assert('detalle sección Registros', strpos($detail, 'Registros') !== false);
+ac_assert('detalle incluye partial read-only', strpos($detail, 'expediente-record-readonly.php') !== false);
+ac_assert('detalle empty honesto', strpos($detail, 'Aún no hay registros en este expediente') !== false);
+ac_assert('detalle incluye paginación SSR', strpos($detail, 'aa-expediente-detail-pagination') !== false);
 ac_assert('detalle sin FAB', strpos($detail, 'aa-expedientes-new-expediente') === false);
 ac_assert('detalle sin buscador/paginador', strpos($detail, 'aa-expedientes-search') === false
     && strpos($detail, 'aa-expedientes-pagination') === false);
@@ -92,6 +115,12 @@ ac_assert('detalle sin JS de listado', strpos($detail, 'expedientes-module.js') 
     && strpos($detail, 'expediente-registros.js') === false);
 ac_assert('detalle no reutiliza aa-expediente-root', strpos($detail, 'aa-expediente-root') === false);
 ac_assert('detalle no usa $wpdb', strpos($detail, '$wpdb') === false);
+ac_assert('partial usa details/summary', strpos($detail_partial, '<details') !== false && strpos($detail_partial, '<summary') !== false);
+ac_assert('partial folio #ID', strpos($detail_partial, 'Folio #') !== false);
+ac_assert('partial usa <time>', strpos($detail_partial, '<time') !== false);
+ac_assert('partial body como texto', strpos($detail_partial, 'esc_html($aa_record_body)') !== false);
+ac_assert('partial sin acciones ni adjuntos', strpos($detail_partial, 'aa-expediente-registro-options') === false
+    && strpos($detail_partial, 'aa-expediente-adjunto') === false);
 
 ac_assert('JS cards son enlace real', strpos($js, "createElement(detailUrl ? 'a' : 'div')") !== false
     && strpos($js, "searchParams.set('view', 'detail')") !== false
@@ -106,6 +135,8 @@ ac_assert('JS no envía blog_id', strpos($js, "append('blog_id'") === false);
 ac_assert('CSS listado sin is-open propio', strpos($css, '#aa-expedientes-grid [data-aa-card].is-open') === false);
 ac_assert('CSS listado sin toggle', strpos($css, '#aa-expedientes-grid [data-aa-card-toggle]') === false);
 ac_assert('CSS enlace de card', strpos($css, '.aa-expediente-card-link') !== false);
+ac_assert('CSS detalle paginación SSR', strpos($css, '.aa-expediente-detail-pagination') !== false
+    && strpos($css, '.aa-expediente-detail-pagination-link') !== false);
 
 ac_assert('AJAX sin acción nueva de get', strpos($ajax, 'GetExpedienteUseCase') === false
     && substr_count($ajax, 'public const ACTION_') === 2);
@@ -162,6 +193,34 @@ $aa_expediente_detail = [
     'created_at' => '2026-08-17 13:00:00',
     'category' => ['slug' => 'general', 'name' => '<script>x</script>'],
 ];
+$aa_expediente_records_view = [
+    'records' => [
+        [
+            'id' => 11,
+            'title' => '<b>Título A</b>',
+            'body' => "Linea 1\nLinea 2",
+            'recorded_at' => '2026-08-19 10:00:00',
+            'created_at' => '2026-08-19 10:00:00',
+            'updated_at' => null,
+        ],
+        [
+            'id' => 10,
+            'title' => 'Título B',
+            'body' => '<script>alert(1)</script>',
+            'recorded_at' => '2026-08-18 09:00:00',
+            'created_at' => '2026-08-18 09:00:00',
+            'updated_at' => null,
+        ],
+    ],
+    'page' => 2,
+    'per_page' => 15,
+    'total' => 32,
+    'total_pages' => 3,
+    'has_previous' => true,
+    'has_next' => true,
+    'prev_url' => 'https://example.test/wp-admin/admin-post.php?action=aa_iframe_content&module=expedientes&view=detail&expediente_id=7&records_page=1&junk=x',
+    'next_url' => 'https://example.test/wp-admin/admin-post.php?action=aa_iframe_content&module=expedientes&view=detail&expediente_id=7&records_page=3',
+];
 ob_start();
 include $plugin_root . '/includes/admin/ui/modules/expedientes/index.php';
 $rendered_detail = ob_get_clean();
@@ -188,11 +247,27 @@ ac_assert(
 );
 ac_assert('runtime fecha formateada', strpos($rendered_detail, '17/08/2026') !== false);
 ac_assert('runtime volver', strpos($rendered_detail, 'Volver a Expedientes') !== false
-    && strpos($rendered_detail, 'module=expedientes') !== false
-    && strpos($rendered_detail, 'view=detail') === false);
+    && strpos($rendered_detail, 'aa-expediente-detail-back-link') !== false
+    && strpos($rendered_detail, 'action=aa_iframe_content&module=expedientes') !== false);
 ac_assert('runtime slot estable', strpos($rendered_detail, 'id="aa-expediente-detail-registros"') !== false
     && strpos($rendered_detail, 'data-expediente-id="7"') !== false);
-ac_assert('runtime copy provisional', strpos($rendered_detail, 'Los registros estarán disponibles próximamente') !== false);
+ac_assert('runtime renderiza sección Registros', strpos($rendered_detail, 'Registros') !== false);
+ac_assert('runtime no muestra placeholder provisional', strpos($rendered_detail, 'Los registros estarán disponibles próximamente') === false);
+ac_assert('runtime renderiza dos records en orden recibido', strpos($rendered_detail, 'Folio #11') !== false
+    && strpos($rendered_detail, 'Folio #10') !== false
+    && strpos($rendered_detail, 'Folio #11') < strpos($rendered_detail, 'Folio #10'));
+ac_assert('runtime details cerrados por defecto', strpos($rendered_detail, '<details class="aa-expediente-registro" open') === false);
+ac_assert('runtime fecha legacy meses abreviados', strpos($rendered_detail, '19/Ago/2026') !== false
+    && strpos($rendered_detail, '18/Ago/2026') !== false);
+ac_assert('runtime cuerpo conserva saltos (sin nl2br)', strpos($rendered_detail, 'Linea 1' . "\n" . 'Linea 2') !== false
+    && strpos($rendered_detail, '<br') === false);
+ac_assert('runtime escape título/cuerpo', strpos($rendered_detail, '&lt;b&gt;Título A&lt;/b&gt;') !== false
+    && strpos($rendered_detail, '&lt;script&gt;alert(1)&lt;/script&gt;') !== false);
+ac_assert('runtime paginación visible', strpos($rendered_detail, 'aa-expediente-detail-pagination') !== false
+    && strpos($rendered_detail, 'Página 2') !== false
+    && strpos($rendered_detail, 'de 3') !== false);
+ac_assert('runtime enlaces de paginación presentes', strpos($rendered_detail, 'records_page=1') !== false
+    && strpos($rendered_detail, 'records_page=3') !== false);
 ac_assert('runtime Sin descripción no forzado si hay texto', strpos($rendered_detail, 'Sin descripción') === false);
 
 $aa_expediente_detail = [
@@ -202,10 +277,22 @@ $aa_expediente_detail = [
     'created_at' => '2026-08-17 13:00:00',
     'category' => ['slug' => 'general', 'name' => 'General'],
 ];
+$aa_expediente_records_view = [
+    'records' => [],
+    'page' => 1,
+    'per_page' => 15,
+    'total' => 0,
+    'total_pages' => 0,
+    'has_previous' => false,
+    'has_next' => false,
+    'prev_url' => '',
+    'next_url' => '',
+];
 ob_start();
 include $plugin_root . '/includes/admin/ui/modules/expedientes/detail.php';
 $rendered_empty_desc = ob_get_clean();
 ac_assert('runtime Sin descripción', strpos($rendered_empty_desc, 'Sin descripción') !== false);
+ac_assert('runtime empty state registros', strpos($rendered_empty_desc, 'Aún no hay registros en este expediente') !== false);
 
 echo "\nResultado: {$passed}/{$total} OK\n";
 if ($failed) {
