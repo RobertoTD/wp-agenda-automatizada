@@ -360,6 +360,59 @@ ac_assert('update false → WP_Error', is_wp_error($sqlFail));
 $badUpd = ExpedienteRegistrosRepository::update_title_body(0, 9, '', '', '');
 ac_assert('update inválido → WP_Error', is_wp_error($badUpd));
 
+// --- find_by_id_for_expediente (triestado B3a) ---
+
+ac_assert(
+    'find_by_id_for_expediente existe',
+    strpos($src, 'function find_by_id_for_expediente') !== false
+);
+ac_assert(
+    'find_by_id_for_expediente SQL id+expediente_id',
+    strpos($src, 'WHERE id = %d AND expediente_id = %d') !== false
+);
+
+$wpdb->last_error = '';
+$wpdb->row = [
+    'id' => '21',
+    'client_id' => '9',
+    'expediente_id' => '40',
+    'title' => 'Scoped',
+    'body' => 'Texto',
+    'recorded_at' => '2026-08-20 09:00:00',
+    'created_at' => '2026-08-20 09:00:00',
+    'updated_at' => null,
+];
+$scoped = ExpedienteRegistrosRepository::find_by_id_for_expediente(21, 40);
+ac_assert(
+    'find_by_id_for_expediente OK array',
+    is_array($scoped)
+    && ($scoped['id'] ?? 0) === 21
+    && ($scoped['expediente_id'] ?? 0) === 40
+    && ($scoped['client_id'] ?? null) === 9
+);
+ac_assert(
+    'find_by_id_for_expediente query id+expediente',
+    strpos((string) $wpdb->last_query, '21') !== false
+    && strpos((string) $wpdb->last_query, '40') !== false
+    && strpos((string) $wpdb->last_query, 'expediente_id') !== false
+);
+
+$wpdb->row = null;
+$wpdb->last_error = '';
+$missingScoped = ExpedienteRegistrosRepository::find_by_id_for_expediente(21, 40);
+ac_assert('find_by_id_for_expediente missing → false', $missingScoped === false);
+
+$wpdb->last_error = 'simulated sql failure';
+$sqlScoped = ExpedienteRegistrosRepository::find_by_id_for_expediente(21, 40);
+ac_assert('find_by_id_for_expediente SQL → null', $sqlScoped === null);
+$wpdb->last_error = '';
+
+ac_assert(
+    'find_by_id_for_expediente ids inválidos → false',
+    ExpedienteRegistrosRepository::find_by_id_for_expediente(0, 40) === false
+    && ExpedienteRegistrosRepository::find_by_id_for_expediente(21, 0) === false
+);
+
 echo "\n";
 if (count($failed) === 0) {
     echo "Passed {$passed}/{$total}\n";

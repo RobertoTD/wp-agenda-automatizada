@@ -190,6 +190,64 @@ final class ExpedienteRegistrosRepository {
     }
 
     /**
+     * Registro scoped por expediente_id (triestado B3a).
+     *
+     * @return array{id:int,expediente_id:int,client_id:?int,title:string,body:string,recorded_at:string,created_at:string,updated_at:?string}|false|null
+     *   array → encontrado dentro del expediente
+     *   false → inexistente o ajeno al expediente (o ids inválidos)
+     *   null  → fallo SQL
+     */
+    public static function find_by_id_for_expediente(int $record_id, int $expediente_id) {
+        if ($record_id < 1 || $expediente_id < 1) {
+            return false;
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT id, client_id, expediente_id, title, body, recorded_at, created_at, updated_at
+                 FROM {$table}
+                 WHERE id = %d AND expediente_id = %d
+                 LIMIT 1",
+                $record_id,
+                $expediente_id
+            ),
+            ARRAY_A
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[ExpedienteRegistrosRepository] find_by_id_for_expediente error: ' . $wpdb->last_error);
+            return null;
+        }
+
+        if (!is_array($row) || empty($row['id'])) {
+            return false;
+        }
+
+        $updated = $row['updated_at'] ?? null;
+        $client_raw = $row['client_id'] ?? null;
+        $client_id = ($client_raw === null || $client_raw === '')
+            ? null
+            : (int) $client_raw;
+        if ($client_id !== null && $client_id < 1) {
+            $client_id = null;
+        }
+
+        return [
+            'id' => (int) $row['id'],
+            'expediente_id' => (int) ($row['expediente_id'] ?? 0),
+            'client_id' => $client_id,
+            'title' => (string) ($row['title'] ?? ''),
+            'body' => (string) ($row['body'] ?? ''),
+            'recorded_at' => (string) ($row['recorded_at'] ?? ''),
+            'created_at' => (string) ($row['created_at'] ?? ''),
+            'updated_at' => ($updated === null || $updated === '') ? null : (string) $updated,
+        ];
+    }
+
+    /**
      * Busca un registro que pertenece al cliente en el blog actual.
      *
      * @return array{id:int,client_id:int,title:string,body:string,recorded_at:string,created_at:string,updated_at:?string}|null
