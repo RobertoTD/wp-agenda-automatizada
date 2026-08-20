@@ -1,9 +1,9 @@
 <?php
 /**
- * Expediente Adjuntos by Expediente AJAX — sign-read (B3a) + attach (B3b1).
+ * Expediente Adjuntos by Expediente AJAX — sign-read (B3a) + attach (B3b1) + delete (B3b2).
  *
  * Frontera HTTP por expediente_id. Reutiliza nonce by-expediente.
- * Sin caller UI todavía; delete canónico fuera de alcance.
+ * Sin caller UI todavía.
  */
 
 defined('ABSPATH') or die('No direct access');
@@ -14,6 +14,9 @@ if (!class_exists('GetExpedienteAdjuntoReadUrlForExpedienteUseCase')) {
 if (!class_exists('UploadExpedienteAdjuntoForExpedienteUseCase')) {
     require_once dirname(__DIR__, 2) . '/application/expediente/UploadExpedienteAdjuntoForExpedienteUseCase.php';
 }
+if (!class_exists('DeleteExpedienteAdjuntoForExpedienteUseCase')) {
+    require_once dirname(__DIR__, 2) . '/application/expediente/DeleteExpedienteAdjuntoForExpedienteUseCase.php';
+}
 if (!class_exists('ExpedienteRegistrosAjax')) {
     require_once dirname(__DIR__, 2) . '/http/ajax/ExpedienteRegistrosAjax.php';
 }
@@ -22,11 +25,13 @@ final class ExpedienteAdjuntosByExpedienteAjax {
 
     public const ACTION_SIGN_READ = 'aa_sign_expediente_adjunto_read_for_expediente';
     public const ACTION_ATTACH = 'aa_attach_expediente_adjunto_for_expediente';
+    public const ACTION_DELETE = 'aa_delete_expediente_adjunto_for_expediente';
     public const NONCE_ACTION = 'aa_expediente_registros_by_expediente_nonce';
 
     public static function register(): void {
         add_action('wp_ajax_' . self::ACTION_SIGN_READ, [__CLASS__, 'handle_sign_read']);
         add_action('wp_ajax_' . self::ACTION_ATTACH, [__CLASS__, 'handle_attach']);
+        add_action('wp_ajax_' . self::ACTION_DELETE, [__CLASS__, 'handle_delete']);
     }
 
     public static function handle_sign_read(): void {
@@ -96,6 +101,39 @@ final class ExpedienteAdjuntosByExpedienteAjax {
         wp_send_json_success([
             'record_id' => (int) ($data['record_id'] ?? 0),
             'adjunto' => is_array($data['adjunto'] ?? null) ? $data['adjunto'] : null,
+        ], 200);
+    }
+
+    /**
+     * Delete canónico (B3b2). Sin caller visual todavía.
+     */
+    public static function handle_delete(): void {
+        if (!self::authorize()) {
+            return;
+        }
+
+        $result = (new DeleteExpedienteAdjuntoForExpedienteUseCase())->execute([
+            'expediente_id' => self::read_positive_id('expediente_id'),
+            'record_id' => self::read_positive_id('record_id'),
+            'attachment_id' => self::read_positive_id('attachment_id'),
+        ]);
+
+        if (empty($result['success'])) {
+            $error = $result['error'] ?? [];
+            $code = (string) ($error['code'] ?? 'delete_failed');
+            wp_send_json_error([
+                'message' => (string) ($error['message'] ?? 'No se pudo eliminar la imagen.'),
+                'code' => $code,
+            ], self::http_status_for_code($code));
+            return;
+        }
+
+        $data = is_array($result['data'] ?? null) ? $result['data'] : [];
+        wp_send_json_success([
+            'record_id' => (int) ($data['record_id'] ?? 0),
+            'deleted_attachment_id' => (int) ($data['deleted_attachment_id'] ?? 0),
+            'adjuntos' => is_array($data['adjuntos'] ?? null) ? $data['adjuntos'] : [],
+            'adjunto' => array_key_exists('adjunto', $data) ? $data['adjunto'] : null,
         ], 200);
     }
 

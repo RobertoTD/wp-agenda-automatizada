@@ -1,6 +1,6 @@
 <?php
 /**
- * AC — ExpedienteAdjuntosByExpedienteAjax (B3a sign-read + B3b1 attach).
+ * AC — ExpedienteAdjuntosByExpedienteAjax (B3a sign-read + B3b1 attach + B3b2 delete).
  *
  * Ejecutar: php tests/http/ajax/test-expediente-adjuntos-by-expediente-ajax-ac.php
  */
@@ -31,6 +31,7 @@ $detail_src = (string) file_get_contents($plugin_root . '/includes/admin/ui/modu
 
 ac_assert('ACTION_SIGN_READ', strpos($ajax_src, "ACTION_SIGN_READ = 'aa_sign_expediente_adjunto_read_for_expediente'") !== false);
 ac_assert('ACTION_ATTACH', strpos($ajax_src, "ACTION_ATTACH = 'aa_attach_expediente_adjunto_for_expediente'") !== false);
+ac_assert('ACTION_DELETE', strpos($ajax_src, "ACTION_DELETE = 'aa_delete_expediente_adjunto_for_expediente'") !== false);
 ac_assert('nonce by-expediente', strpos($ajax_src, 'aa_expediente_registros_by_expediente_nonce') !== false);
 ac_assert('soft nonce die=false', strpos($ajax_src, "check_ajax_referer(self::NONCE_ACTION, '_wpnonce', false)") !== false);
 ac_assert('sin nopriv en clase', strpos($ajax_src, 'wp_ajax_nopriv_') === false);
@@ -38,12 +39,16 @@ ac_assert('bootstrap register', strpos($bootstrap_src, 'ExpedienteAdjuntosByExpe
 ac_assert('bootstrap require', strpos($bootstrap_src, 'ExpedienteAdjuntosByExpedienteAjax.php') !== false);
 ac_assert('bootstrap sin nopriv attach for expediente', strpos($bootstrap_src, 'wp_ajax_nopriv_aa_attach_expediente_adjunto_for_expediente') === false);
 ac_assert('bootstrap sin nopriv sign for expediente', strpos($bootstrap_src, 'wp_ajax_nopriv_aa_sign_expediente_adjunto_read_for_expediente') === false);
-ac_assert('registros by-expediente sin ACTION_ATTACH/SIGN canónicos', strpos($by_exp_registros_src, 'aa_attach_expediente_adjunto_for_expediente') === false
-    && strpos($by_exp_registros_src, 'aa_sign_expediente_adjunto_read_for_expediente') === false);
+ac_assert('bootstrap sin nopriv delete for expediente', strpos($bootstrap_src, 'wp_ajax_nopriv_aa_delete_expediente_adjunto_for_expediente') === false);
+ac_assert('registros by-expediente sin ACTION canónicos de adjuntos', strpos($by_exp_registros_src, 'aa_attach_expediente_adjunto_for_expediente') === false
+    && strpos($by_exp_registros_src, 'aa_sign_expediente_adjunto_read_for_expediente') === false
+    && strpos($by_exp_registros_src, 'aa_delete_expediente_adjunto_for_expediente') === false);
 ac_assert('legacy attach intacto', strpos($legacy_ajax_src, "ACTION_ATTACH = 'aa_attach_expediente_registro'") !== false);
 ac_assert('legacy sign intacta', strpos($legacy_ajax_src, "ACTION_SIGN_READ = 'aa_sign_expediente_adjunto_read'") !== false);
-ac_assert('detail aún no cablea attach/sign canónicos', strpos($detail_src, 'aa_attach_expediente_adjunto_for_expediente') === false
-    && strpos($detail_src, 'aa_sign_expediente_adjunto_read_for_expediente') === false);
+ac_assert('legacy delete intacto', strpos($legacy_ajax_src, "ACTION_DELETE = 'aa_delete_expediente_adjunto'") !== false);
+ac_assert('detail aún no cablea attach/sign/delete canónicos', strpos($detail_src, 'aa_attach_expediente_adjunto_for_expediente') === false
+    && strpos($detail_src, 'aa_sign_expediente_adjunto_read_for_expediente') === false
+    && strpos($detail_src, 'aa_delete_expediente_adjunto_for_expediente') === false);
 ac_assert('handler no lee client_id', strpos($ajax_src, "\$_POST['client_id']") === false
     && strpos($ajax_src, "\$_REQUEST['client_id']") === false);
 ac_assert('sin absint', strpos($ajax_src, 'absint(') === false);
@@ -213,6 +218,45 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
     }
 }
 
+final class DeleteExpedienteAdjuntoUseCase {
+    public static $calls = [];
+    /** @var list<array<string,mixed>> */
+    public static $responses = [];
+    public static $response_index = 0;
+    /** @var array<string,mixed> */
+    public static $response = [
+        'ok' => true,
+        'record_id' => 10,
+        'deleted_attachment_id' => 301,
+        'adjuntos' => [
+            [
+                'id' => 300,
+                'width' => 100,
+                'height' => 80,
+                'byte_size' => 512,
+                'created_at' => '2026-08-19 11:00:00',
+            ],
+        ],
+        'adjunto' => [
+            'id' => 300,
+            'width' => 100,
+            'height' => 80,
+            'byte_size' => 512,
+            'created_at' => '2026-08-19 11:00:00',
+        ],
+    ];
+
+    public function execute(array $input): array {
+        self::$calls[] = $input;
+        if (self::$responses !== []) {
+            $idx = min(self::$response_index, count(self::$responses) - 1);
+            self::$response_index++;
+            return self::$responses[$idx];
+        }
+        return self::$response;
+    }
+}
+
 require_once $plugin_root . '/includes/domain/expediente/class-aa-expediente-id-policy.php';
 require_once $plugin_root . '/includes/domain/expediente/ExpedienteAdjuntoVariants.php';
 require_once $plugin_root . '/includes/domain/expediente/ExpedienteAdjuntoPublicDto.php';
@@ -223,16 +267,18 @@ ac_assert(
     'constants',
     ExpedienteAdjuntosByExpedienteAjax::ACTION_SIGN_READ === 'aa_sign_expediente_adjunto_read_for_expediente'
     && ExpedienteAdjuntosByExpedienteAjax::ACTION_ATTACH === 'aa_attach_expediente_adjunto_for_expediente'
+    && ExpedienteAdjuntosByExpedienteAjax::ACTION_DELETE === 'aa_delete_expediente_adjunto_for_expediente'
     && ExpedienteAdjuntosByExpedienteAjax::NONCE_ACTION === 'aa_expediente_registros_by_expediente_nonce'
 );
 
 $GLOBALS['aa_test_actions'] = [];
 ExpedienteAdjuntosByExpedienteAjax::register();
 ac_assert(
-    'register wp_ajax_ sign-read + attach',
+    'register wp_ajax_ sign-read + attach + delete',
     $GLOBALS['aa_test_actions'] === [
         'wp_ajax_aa_sign_expediente_adjunto_read_for_expediente',
         'wp_ajax_aa_attach_expediente_adjunto_for_expediente',
+        'wp_ajax_aa_delete_expediente_adjunto_for_expediente',
     ]
 );
 
@@ -724,12 +770,271 @@ $_POST = aa_attach_post();
 $_FILES = ['file' => aa_attach_file()];
 ac_assert('attach MIME → 400', ((aa_invoke_attach()['status'] ?? 0) === 400));
 
+// --- B3b2 delete ---
+
+/**
+ * @return array<string,mixed>|null
+ */
+function aa_invoke_delete(): ?array {
+    $GLOBALS['aa_test_json'] = null;
+    try {
+        ExpedienteAdjuntosByExpedienteAjax::handle_delete();
+    } catch (RuntimeException $e) {
+        if ($e->getMessage() !== 'json_sent' && $e->getMessage() !== 'bad_nonce') {
+            throw $e;
+        }
+    }
+    return $GLOBALS['aa_test_json'];
+}
+
+function aa_reset_delete(): void {
+    aa_reset_sign();
+    DeleteExpedienteAdjuntoUseCase::$calls = [];
+    DeleteExpedienteAdjuntoUseCase::$responses = [];
+    DeleteExpedienteAdjuntoUseCase::$response_index = 0;
+    DeleteExpedienteAdjuntoUseCase::$response = [
+        'ok' => true,
+        'record_id' => 10,
+        'deleted_attachment_id' => 301,
+        'adjuntos' => [
+            [
+                'id' => 300,
+                'width' => 100,
+                'height' => 80,
+                'byte_size' => 512,
+                'created_at' => '2026-08-19 11:00:00',
+            ],
+        ],
+        'adjunto' => [
+            'id' => 300,
+            'width' => 100,
+            'height' => 80,
+            'byte_size' => 512,
+            'created_at' => '2026-08-19 11:00:00',
+        ],
+    ];
+}
+
+function aa_delete_post(array $extra = []): array {
+    return array_merge([
+        'expediente_id' => '7',
+        'record_id' => '10',
+        'attachment_id' => '301',
+    ], $extra);
+}
+
+aa_reset_delete();
+$GLOBALS['aa_test_can_manage_options'] = false;
+$_POST = aa_delete_post();
+ac_assert('delete cap → 403', ((aa_invoke_delete()['status'] ?? 0) === 403));
+ac_assert('delete cap sin pipeline', DeleteExpedienteAdjuntoUseCase::$calls === []);
+
+aa_reset_delete();
+$GLOBALS['aa_test_nonce_valid'] = false;
+$_POST = aa_delete_post();
+$nonceD = aa_invoke_delete();
+ac_assert('delete nonce → 403 bad_nonce', ($nonceD['status'] ?? 0) === 403
+    && ($nonceD['data']['code'] ?? '') === 'bad_nonce');
+ac_assert('delete nonce sin pipeline', DeleteExpedienteAdjuntoUseCase::$calls === []);
+
+aa_reset_delete();
+ExpedienteRegistrosAjax::$access = 'free';
+$_POST = aa_delete_post();
+$gateD = aa_invoke_delete();
+ac_assert('delete gate → 403', ($gateD['status'] ?? 0) === 403
+    && ($gateD['data']['code'] ?? '') === 'expediente_access_denied');
+ac_assert('delete gate sin pipeline', DeleteExpedienteAdjuntoUseCase::$calls === []);
+
+aa_reset_delete();
+$_POST = aa_delete_post(['expediente_id' => '01']);
+ac_assert('delete 01 → 400', ((aa_invoke_delete()['status'] ?? 0) === 400));
+ac_assert('delete 01 sin pipeline', DeleteExpedienteAdjuntoUseCase::$calls === []);
+
+aa_reset_delete();
+$_POST = aa_delete_post(['expediente_id' => ['7']]);
+$arrD = aa_invoke_delete();
+ac_assert('delete array id → 400 sin warnings', ($arrD['status'] ?? 0) === 400
+    && $GLOBALS['aa_test_warnings'] === []);
+ac_assert('delete array sin pipeline', DeleteExpedienteAdjuntoUseCase::$calls === []);
+
+aa_reset_delete();
+ExpedientesRepository::$exists_result = false;
+$_POST = aa_delete_post();
+ac_assert('delete expediente inexistente → 404', ((aa_invoke_delete()['status'] ?? 0) === 404)
+    && DeleteExpedienteAdjuntoUseCase::$calls === []);
+
+aa_reset_delete();
+ExpedientesRepository::$exists_result = null;
+$_POST = aa_delete_post();
+ac_assert('delete exists SQL → 500', ((aa_invoke_delete()['status'] ?? 0) === 500)
+    && DeleteExpedienteAdjuntoUseCase::$calls === []);
+
+aa_reset_delete();
+ExpedientesRepository::$owner = null;
+$_POST = aa_delete_post();
+ac_assert('delete owner null → 500', ((aa_invoke_delete()['status'] ?? 0) === 500)
+    && DeleteExpedienteAdjuntoUseCase::$calls === []);
+
+aa_reset_delete();
+ExpedientesRepository::$owner = ['id' => 7, 'client_id' => null];
+$_POST = aa_delete_post();
+$genD = aa_invoke_delete();
+ac_assert('delete general → 409', ($genD['status'] ?? 0) === 409
+    && ($genD['data']['code'] ?? '') === 'attachments_unavailable'
+    && DeleteExpedienteAdjuntoUseCase::$calls === []);
+
+aa_reset_delete();
+ExpedienteRegistrosRepository::$record = false;
+$_POST = aa_delete_post();
+ac_assert('delete registro ajeno → 404', ((aa_invoke_delete()['status'] ?? 0) === 404)
+    && DeleteExpedienteAdjuntoUseCase::$calls === []);
+
+aa_reset_delete();
+ExpedienteRegistrosRepository::$record = null;
+$_POST = aa_delete_post();
+ac_assert('delete registro SQL → 500', ((aa_invoke_delete()['status'] ?? 0) === 500)
+    && DeleteExpedienteAdjuntoUseCase::$calls === []);
+
+aa_reset_delete();
+ExpedienteRegistrosRepository::$record = [
+    'id' => 10,
+    'expediente_id' => 7,
+    'client_id' => 99,
+    'title' => 'A',
+    'body' => 'B',
+    'recorded_at' => '2026-08-20 12:00:00',
+    'created_at' => '2026-08-20 12:00:00',
+    'updated_at' => null,
+];
+$_POST = aa_delete_post();
+ac_assert('delete mismatch → 404 sin pipeline', ((aa_invoke_delete()['status'] ?? 0) === 404)
+    && DeleteExpedienteAdjuntoUseCase::$calls === []);
+
+aa_reset_delete();
+$_POST = aa_delete_post([
+    'client_id' => '999',
+    'storage_path' => '/evil',
+    'bucket' => 'b',
+    'object_key' => 'k',
+    'uuid' => 'u',
+    'variant' => 'summary',
+]);
+$okD = aa_invoke_delete();
+ac_assert('delete éxito 200', ($okD['success'] ?? false) === true && ($okD['status'] ?? 0) === 200);
+ac_assert(
+    'delete contrato público',
+    ($okD['data']['record_id'] ?? 0) === 10
+    && ($okD['data']['deleted_attachment_id'] ?? 0) === 301
+    && count($okD['data']['adjuntos'] ?? []) === 1
+    && ($okD['data']['adjunto'] ?? null) === ($okD['data']['adjuntos'][0] ?? null)
+    && array_keys($okD['data'] ?? []) === ['record_id', 'deleted_attachment_id', 'adjuntos', 'adjunto']
+);
+$blobD = json_encode($okD['data'] ?? []);
+ac_assert(
+    'delete sin owners/paths',
+    strpos($blobD, 'client_id') === false
+    && strpos($blobD, 'storage_path') === false
+    && strpos($blobD, 'expediente_id') === false
+);
+ac_assert(
+    'delete pipeline 1× client padre; POST ignorado',
+    count(DeleteExpedienteAdjuntoUseCase::$calls) === 1
+    && (DeleteExpedienteAdjuntoUseCase::$calls[0]['client_id'] ?? 0) === 55
+    && (DeleteExpedienteAdjuntoUseCase::$calls[0]['record_id'] ?? 0) === 10
+    && (DeleteExpedienteAdjuntoUseCase::$calls[0]['attachment_id'] ?? 0) === 301
+    && !array_key_exists('storage_path', DeleteExpedienteAdjuntoUseCase::$calls[0])
+);
+
+aa_reset_delete();
+DeleteExpedienteAdjuntoUseCase::$response = [
+    'ok' => true,
+    'record_id' => 10,
+    'deleted_attachment_id' => 301,
+    'adjuntos' => [],
+    'adjunto' => null,
+];
+$_POST = aa_delete_post();
+$emptyD = aa_invoke_delete();
+ac_assert('delete vacío → adjunto null', ($emptyD['data']['adjuntos'] ?? null) === []
+    && array_key_exists('adjunto', $emptyD['data'])
+    && $emptyD['data']['adjunto'] === null);
+
+aa_reset_delete();
+DeleteExpedienteAdjuntoUseCase::$response = [
+    'ok' => false,
+    'code' => 'attachment_not_found',
+    'message' => 'Imagen no encontrada.',
+];
+$_POST = aa_delete_post();
+ac_assert('delete attachment_not_found → 404', ((aa_invoke_delete()['status'] ?? 0) === 404));
+
+aa_reset_delete();
+DeleteExpedienteAdjuntoUseCase::$response = [
+    'ok' => false,
+    'code' => 'adjunto_inconsistent',
+    'message' => 'Inconsistente.',
+];
+$_POST = aa_delete_post();
+ac_assert('delete path inconsistente → 409', ((aa_invoke_delete()['status'] ?? 0) === 409));
+
+aa_reset_delete();
+DeleteExpedienteAdjuntoUseCase::$response = [
+    'ok' => false,
+    'code' => 'expediente_attachments_unreachable',
+    'message' => 'Backend.',
+];
+$_POST = aa_delete_post();
+ac_assert('delete backend inaccesible → 502', ((aa_invoke_delete()['status'] ?? 0) === 502));
+
+aa_reset_delete();
+DeleteExpedienteAdjuntoUseCase::$response = [
+    'ok' => false,
+    'code' => 'storage_delete_failed',
+    'message' => 'Storage.',
+];
+$_POST = aa_delete_post();
+ac_assert('delete storage_delete_failed → 502', ((aa_invoke_delete()['status'] ?? 0) === 502));
+
+aa_reset_delete();
+DeleteExpedienteAdjuntoUseCase::$response = [
+    'ok' => false,
+    'code' => 'local_delete_failed',
+    'message' => 'Local.',
+];
+$_POST = aa_delete_post();
+ac_assert('delete local_delete_failed → 500', ((aa_invoke_delete()['status'] ?? 0) === 500));
+
+aa_reset_delete();
+DeleteExpedienteAdjuntoUseCase::$responses = [
+    [
+        'ok' => true,
+        'record_id' => 10,
+        'deleted_attachment_id' => 301,
+        'adjuntos' => [],
+        'adjunto' => null,
+    ],
+    ['ok' => false, 'code' => 'attachment_not_found', 'message' => 'Imagen no encontrada.'],
+];
+$_POST = aa_delete_post();
+$firstDel = aa_invoke_delete();
+$secondDel = aa_invoke_delete();
+ac_assert('delete primera OK', ($firstDel['success'] ?? false) === true);
+ac_assert('delete segunda → 404 (no éxito)', ($secondDel['status'] ?? 0) === 404
+    && ($secondDel['data']['code'] ?? '') === 'attachment_not_found');
+ac_assert('delete 2× pipeline', count(DeleteExpedienteAdjuntoUseCase::$calls) === 2);
+
 $legacy_registros_js = (string) file_get_contents($plugin_root . '/includes/admin/ui/modules/clients/expediente-registros.js');
 ac_assert(
     'port JS attach/retry intacto (fuente)',
     strpos($legacy_registros_js, "callPort('attach'") !== false
     && strpos($legacy_registros_js, 'aa_attach_expediente_registro') !== false
     && strpos($legacy_registros_js, 'runAttachRetry') !== false
+);
+ac_assert(
+    'port JS deleteAdjunto intacto (fuente)',
+    strpos($legacy_registros_js, "callPort('deleteAdjunto'") !== false
+    && strpos($legacy_registros_js, "deleteAdjunto: 'aa_delete_expediente_adjunto'") !== false
+    && strpos($legacy_registros_js, 'aa_delete_expediente_adjunto_for_expediente') === false
 );
 
 restore_error_handler();
