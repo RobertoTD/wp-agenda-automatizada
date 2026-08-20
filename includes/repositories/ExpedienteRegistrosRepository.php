@@ -321,6 +321,67 @@ final class ExpedienteRegistrosRepository {
     }
 
     /**
+     * Inserta un registro scoped a expediente padre (client_id forzado a NULL).
+     * No acepta client_id: el owner es solo expediente_id.
+     *
+     * @param array{expediente_id:int,title:string,body:string,recorded_at:string,created_at:string} $data
+     * @return array{id:int,title:string,body:string,recorded_at:string,created_at:string,updated_at:?string}|\WP_Error
+     */
+    public static function insert_for_expediente(array $data) {
+        global $wpdb;
+
+        $expediente_id = (int) ($data['expediente_id'] ?? 0);
+        $title = (string) ($data['title'] ?? '');
+        $body = (string) ($data['body'] ?? '');
+        $recorded_at = (string) ($data['recorded_at'] ?? '');
+        $created_at = (string) ($data['created_at'] ?? '');
+
+        if ($expediente_id < 1 || $title === '' || $body === '' || $recorded_at === '' || $created_at === '') {
+            return new WP_Error('invalid_registro_data', 'Datos de registro incompletos.');
+        }
+
+        $table = self::table_name();
+        $result = $wpdb->insert(
+            $table,
+            [
+                'client_id' => null,
+                'expediente_id' => $expediente_id,
+                'title' => $title,
+                'body' => $body,
+                'recorded_at' => $recorded_at,
+                'created_at' => $created_at,
+            ],
+            [null, '%d', '%s', '%s', '%s', '%s']
+        );
+
+        if ($result === false) {
+            error_log('[ExpedienteRegistrosRepository] insert_for_expediente error: ' . $wpdb->last_error);
+
+            return new WP_Error('db_error', 'Error al guardar el registro.');
+        }
+
+        $id = (int) $wpdb->insert_id;
+        if ($id < 1) {
+            return new WP_Error('db_error', 'No se pudo obtener el ID del registro.');
+        }
+
+        $mapped = self::map_expediente_row([
+            'id' => $id,
+            'title' => $title,
+            'body' => $body,
+            'recorded_at' => $recorded_at,
+            'created_at' => $created_at,
+            'updated_at' => null,
+        ]);
+
+        if ($mapped === null) {
+            return new WP_Error('db_error', 'No se pudo mapear el registro creado.');
+        }
+
+        return $mapped;
+    }
+
+    /**
      * MC5c2: elimina un registro scoped a cliente. true solo si se borró
      * exactamente una fila (SQL error → false).
      */

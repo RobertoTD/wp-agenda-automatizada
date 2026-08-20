@@ -176,6 +176,12 @@ require_once __DIR__ . '/includes/http/ajax/ExpedientesAjax.php';
 ExpedientesAjax::register();
 
 // ================================
+// 🔹 Endpoint AJAX: Registros hijos por expediente_id (sin UI aún)
+// ================================
+require_once __DIR__ . '/includes/http/ajax/ExpedienteRegistrosByExpedienteAjax.php';
+ExpedienteRegistrosByExpedienteAjax::register();
+
+// ================================
 // 🔹 Endpoint AJAX: Guardar cita (capa http/ajax)
 // ================================
 require_once __DIR__ . '/includes/http/ajax/ReservationsAjax.php';

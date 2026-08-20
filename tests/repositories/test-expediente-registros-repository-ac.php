@@ -75,10 +75,34 @@ ac_assert(
     'legacy list_by_client_id no filtra por expediente_id',
     preg_match("/function list_by_client_id[\s\S]*?WHERE client_id = %d[\s\S]*?LIMIT %d/", $src) === 1
 );
+$legacy_insert_start = strpos($src, 'public static function insert(array $data)');
+$legacy_insert_end = strpos($src, 'public static function insert_for_expediente');
+$legacy_insert_block = ($legacy_insert_start !== false && $legacy_insert_end !== false && $legacy_insert_end > $legacy_insert_start)
+    ? substr($src, $legacy_insert_start, $legacy_insert_end - $legacy_insert_start)
+    : '';
 ac_assert(
     'insert legacy no escribe expediente_id',
-    preg_match("/function insert[\s\S]*?'client_id'[\s\S]*?'title'[\s\S]*?'body'[\s\S]*?'recorded_at'[\s\S]*?'created_at'/", $src) === 1
-    && strpos($src, "'expediente_id' =>") === false
+    $legacy_insert_block !== ''
+    && strpos($legacy_insert_block, "'expediente_id'") === false
+    && strpos($legacy_insert_block, "'client_id'") !== false
+);
+ac_assert('insert_for_expediente existe', strpos($src, 'function insert_for_expediente') !== false);
+ac_assert(
+    'insert_for_expediente firma sin client_id tipado',
+    strpos($src, 'function insert_for_expediente(array $data)') !== false
+    && strpos($src, "'client_id' => null") !== false
+    && strpos($src, "'expediente_id' => \$expediente_id") !== false
+);
+$ife_start = strpos($src, 'public static function insert_for_expediente(array $data)');
+$ife_end = strpos($src, 'public static function delete_by_id_for_client');
+$ife_block = ($ife_start !== false && $ife_end !== false && $ife_end > $ife_start)
+    ? substr($src, $ife_start, $ife_end - $ife_start)
+    : '';
+ac_assert(
+    'insert_for_expediente no lee client_id del payload',
+    $ife_block !== ''
+    && strpos($ife_block, "\$data['client_id']") === false
+    && strpos($ife_block, 'blog_id') === false
 );
 
 global $wpdb;
@@ -251,6 +275,57 @@ $fail = ExpedienteRegistrosRepository::insert([
     'created_at' => '2026-07-30 15:00:00',
 ]);
 ac_assert('insert SQL fail → WP_Error', is_wp_error($fail));
+
+$wpdb->insert_ok = true;
+$wpdb->last_error = '';
+$wpdb->inserted = null;
+$wpdb->insert_id = 0;
+$forExp = ExpedienteRegistrosRepository::insert_for_expediente([
+    'expediente_id' => 200,
+    'title' => 'Hijo',
+    'body' => 'Texto hijo',
+    'recorded_at' => '2026-08-20 10:00:00',
+    'created_at' => '2026-08-20 10:00:00',
+    'client_id' => 123,
+]);
+ac_assert('insert_for_expediente OK', is_array($forExp) && ($forExp['id'] ?? 0) === 77);
+ac_assert('insert_for_expediente tabla prefijada', ($wpdb->inserted['table'] ?? '') === 'wp_5_aa_expediente_registros');
+ac_assert(
+    'insert_for_expediente client_id NULL',
+    is_array($wpdb->inserted['data'] ?? null)
+    && array_key_exists('client_id', $wpdb->inserted['data'])
+    && $wpdb->inserted['data']['client_id'] === null
+);
+ac_assert('insert_for_expediente escribe expediente_id', ($wpdb->inserted['data']['expediente_id'] ?? 0) === 200);
+ac_assert('insert_for_expediente DTO sin owner', is_array($forExp) && !array_key_exists('client_id', $forExp)
+    && !array_key_exists('expediente_id', $forExp));
+ac_assert(
+    'insert_for_expediente ignora client_id del array',
+    is_array($wpdb->inserted['data'] ?? null)
+    && array_key_exists('client_id', $wpdb->inserted['data'])
+    && $wpdb->inserted['data']['client_id'] === null
+);
+
+$badExp = ExpedienteRegistrosRepository::insert_for_expediente([
+    'expediente_id' => 0,
+    'title' => 'Hijo',
+    'body' => 'Texto',
+    'recorded_at' => '2026-08-20 10:00:00',
+    'created_at' => '2026-08-20 10:00:00',
+]);
+ac_assert('insert_for_expediente ID inválido → WP_Error', is_wp_error($badExp));
+
+$wpdb->insert_ok = false;
+$sqlExpFail = ExpedienteRegistrosRepository::insert_for_expediente([
+    'expediente_id' => 200,
+    'title' => 'Hijo',
+    'body' => 'Texto',
+    'recorded_at' => '2026-08-20 10:00:00',
+    'created_at' => '2026-08-20 10:00:00',
+]);
+ac_assert('insert_for_expediente SQL fail → WP_Error', is_wp_error($sqlExpFail));
+$wpdb->insert_ok = true;
+$wpdb->last_error = '';
 
 $wpdb->last_error = '';
 $wpdb->row = [

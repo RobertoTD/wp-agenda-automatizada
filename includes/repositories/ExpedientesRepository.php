@@ -249,4 +249,32 @@ final class ExpedientesRepository {
 
         return self::map_list_row(is_array($row) ? $row : null);
     }
+
+    /**
+     * Existencia mínima por id (sin JOIN a categorías ni otras tablas).
+     *
+     * @return bool|null true si existe, false si no, null si error SQL
+     */
+    public static function exists_by_id(int $id) {
+        if ($id < 1) {
+            return false;
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+
+        $found = $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT 1 FROM {$table} WHERE id = %d LIMIT 1",
+                $id
+            )
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[ExpedientesRepository] exists_by_id error: ' . $wpdb->last_error);
+            return null;
+        }
+
+        return $found !== null && $found !== false && (string) $found !== '';
+    }
 }

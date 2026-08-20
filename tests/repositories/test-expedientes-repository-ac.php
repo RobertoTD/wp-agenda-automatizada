@@ -39,6 +39,21 @@ ac_assert('insert existe', strpos($src, 'function insert') !== false);
 ac_assert('count_matching existe', strpos($src, 'function count_matching') !== false);
 ac_assert('list_page existe', strpos($src, 'function list_page') !== false);
 ac_assert('find_by_id existe', strpos($src, 'function find_by_id') !== false);
+ac_assert('exists_by_id existe', strpos($src, 'function exists_by_id') !== false);
+ac_assert(
+    'exists_by_id SQL mínimo SELECT 1',
+    preg_match('/function exists_by_id[\s\S]*SELECT 1 FROM \{\$table\} WHERE id = %d LIMIT 1/', $src) === 1
+);
+ac_assert(
+    'exists_by_id sin JOIN ni tablas ajenas',
+    preg_match('/function exists_by_id[\s\S]*$/s', $src, $exists_src) === 1
+    && isset($exists_src[0])
+    && strpos($exists_src[0], 'JOIN') === false
+    && strpos($exists_src[0], 'aa_clientes') === false
+    && strpos($exists_src[0], 'aa_expediente_registros') === false
+    && strpos($exists_src[0], 'aa_expediente_adjuntos') === false
+    && strpos($exists_src[0], 'blog_id') === false
+);
 ac_assert('find_by_id no acepta blog_id', strpos($src, 'function find_by_id(int $id)') !== false
     && strpos($src, 'blog_id') === false);
 ac_assert('sin list_recent', strpos($src, 'list_recent') === false);
@@ -226,6 +241,28 @@ ac_assert('find_by_id inexistente → null', $missing === null);
 $wpdb->last_error = 'simulated select error';
 $err = ExpedientesRepository::find_by_id(7);
 ac_assert('find_by_id error SQL → null', $err === null);
+$wpdb->last_error = '';
+
+$before_exists = count($wpdb->queries);
+ac_assert('exists_by_id 0 → false sin query', ExpedientesRepository::exists_by_id(0) === false
+    && count($wpdb->queries) === $before_exists);
+
+$wpdb->var = '1';
+$wpdb->last_error = '';
+ac_assert('exists_by_id existente → true', ExpedientesRepository::exists_by_id(7) === true);
+ac_assert(
+    'exists_by_id usa prefijo y SELECT 1',
+    strpos($wpdb->last_query, 'wp_5_aa_expedientes') !== false
+    && strpos($wpdb->last_query, 'SELECT 1 FROM') !== false
+    && strpos($wpdb->last_query, '|7') !== false
+);
+
+$wpdb->var = null;
+ac_assert('exists_by_id inexistente → false', ExpedientesRepository::exists_by_id(99) === false);
+
+$wpdb->var = null;
+$wpdb->last_error = 'simulated exists error';
+ac_assert('exists_by_id error SQL → null', ExpedientesRepository::exists_by_id(7) === null);
 $wpdb->last_error = '';
 
 echo "\nResultado: {$passed}/{$total} OK\n";

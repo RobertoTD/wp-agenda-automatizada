@@ -59,10 +59,17 @@ final class ExpedienteRegistrosRepository {
 require_once $plugin_root . '/includes/application/expediente/ListExpedienteRegistrosUseCase.php';
 
 $src = file_get_contents($plugin_root . '/includes/application/expediente/ListExpedienteRegistrosUseCase.php');
+$id_policy_src = file_get_contents($plugin_root . '/includes/domain/expediente/class-aa-expediente-id-policy.php');
 ac_assert('PER_PAGE 15', ListExpedienteRegistrosUseCase::PER_PAGE === 15);
-ac_assert('validación estricta (sin absint)', strpos($src, 'absint(') === false && strpos($src, '/^[1-9][0-9]{0,18}$/') !== false);
+ac_assert('validación estricta (sin absint)', strpos($src, 'absint(') === false
+    && strpos($src, 'AA_Expediente_Id_Policy::normalize') !== false);
+ac_assert(
+    'normalizador canónico en policy compartida',
+    is_string($id_policy_src) && strpos($id_policy_src, '/^[1-9][0-9]{0,18}$/') !== false
+);
 ac_assert('sin gate/permisos en use case', strpos($src, 'current_user_can') === false && strpos($src, 'ResolveShellAccessUseCase') === false);
-ac_assert('sin check de existencia del padre', strpos($src, 'ExpedientesRepository::find_by_id') === false);
+ac_assert('sin check de existencia del padre', strpos($src, 'ExpedientesRepository::find_by_id') === false
+    && strpos($src, 'exists_by_id') === false);
 ac_assert('sin per_page externo', strpos($src, "input['per_page']") === false && strpos($src, '$input["per_page"]') === false);
 ac_assert('normalize_page estricto canónico', strpos($src, 'private function normalize_page') !== false
     && strpos($src, '/^[1-9][0-9]{0,18}$/') !== false);
@@ -82,6 +89,7 @@ $invalids = [
     'plus' => ['expediente_id' => '+7'],
     'texto' => ['expediente_id' => 'abc'],
     'array' => ['expediente_id' => ['7']],
+    'object' => ['expediente_id' => (object) ['id' => 7]],
 ];
 
 foreach ($invalids as $label => $input) {

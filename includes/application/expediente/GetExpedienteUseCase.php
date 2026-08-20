@@ -9,6 +9,9 @@
 
 defined('ABSPATH') or die('No direct access');
 
+if (!class_exists('AA_Expediente_Id_Policy')) {
+    require_once dirname(__DIR__, 2) . '/domain/expediente/class-aa-expediente-id-policy.php';
+}
 if (!class_exists('ExpedientesRepository')) {
     require_once dirname(__DIR__, 2) . '/repositories/ExpedientesRepository.php';
 }
@@ -20,7 +23,7 @@ final class GetExpedienteUseCase {
      * @return array{success:true,data:array<string,mixed>}|array{success:false,error:array{code:string,message:string}}
      */
     public function execute(array $input): array {
-        $id = $this->normalize_id($input['expediente_id'] ?? null);
+        $id = AA_Expediente_Id_Policy::normalize($input['expediente_id'] ?? null);
         if ($id === null) {
             return $this->fail('invalid_id', 'Expediente no válido.');
         }
@@ -31,32 +34,6 @@ final class GetExpedienteUseCase {
         }
 
         return $this->ok($row);
-    }
-
-    /**
-     * Solo enteros positivos en decimal canónico ("7", no "-1", "01", "1.5").
-     *
-     * @param mixed $value
-     */
-    private function normalize_id($value): ?int {
-        if (is_int($value)) {
-            return $value > 0 ? $value : null;
-        }
-
-        if (!is_string($value)) {
-            return null;
-        }
-
-        if (!preg_match('/^[1-9][0-9]{0,18}$/', $value)) {
-            return null;
-        }
-
-        $id = (int) $value;
-        if ($id < 1 || (string) $id !== $value) {
-            return null;
-        }
-
-        return $id;
     }
 
     /**

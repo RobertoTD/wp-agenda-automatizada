@@ -99,6 +99,7 @@ $invalids = [
     'plus' => ['expediente_id' => '+7'],
     'texto' => ['expediente_id' => 'abc'],
     'array' => ['expediente_id' => ['7']],
+    'object' => ['expediente_id' => (object) ['id' => 7]],
 ];
 
 foreach ($invalids as $label => $input) {
@@ -111,6 +112,13 @@ foreach ($invalids as $label => $input) {
         && ExpedientesRepository::$lookups === []
     );
 }
+
+$get_src = file_get_contents($plugin_root . '/includes/application/expediente/GetExpedienteUseCase.php');
+ac_assert(
+    'Get usa AA_Expediente_Id_Policy compartida',
+    strpos($get_src, 'AA_Expediente_Id_Policy::normalize') !== false
+    && strpos($get_src, 'private function normalize_id') === false
+);
 
 echo "\nResultado: {$passed}/{$total} OK\n";
 if ($failed) {

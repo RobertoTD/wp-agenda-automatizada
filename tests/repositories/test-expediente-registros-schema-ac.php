@@ -138,13 +138,15 @@ ac_assert(
 ac_assert(
     'insert legacy del repo no escribe expediente_id',
     is_string($repo_src)
-    && strpos($repo_src, 'function insert') !== false
-    && preg_match("/function insert[\s\S]*?'client_id'[\s\S]*?'title'[\s\S]*?'body'[\s\S]*?'recorded_at'[\s\S]*?'created_at'/", $repo_src) === 1
-    && strpos($repo_src, "'expediente_id' =>") === false
+    && ($legacy_start = strpos($repo_src, 'public static function insert(array $data)')) !== false
+    && ($ife_start = strpos($repo_src, 'public static function insert_for_expediente')) !== false
+    && $ife_start > $legacy_start
+    && strpos(substr($repo_src, $legacy_start, $ife_start - $legacy_start), "'expediente_id'") === false
 );
 ac_assert(
-    'repo sin insert_for_expediente en este ciclo',
-    is_string($repo_src) && strpos($repo_src, 'insert_for_expediente') === false
+    'DB_VERSION permanece 16',
+    strpos($schema_src, "DB_VERSION = '16'") !== false
+    && strpos($schema_src, "DB_VERSION = '15'") === false
 );
 
 $wp_root = getenv('AA_WP_ROOT') ?: '';
