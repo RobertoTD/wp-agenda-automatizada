@@ -33,6 +33,7 @@ $schema_src = (string) file_get_contents($plugin_root . '/includes/infrastructur
 
 ac_assert('ajax file readable', $ajax_src !== '');
 ac_assert('ACTION create for expediente', strpos($ajax_src, 'aa_create_expediente_registro_for_expediente') !== false);
+ac_assert('ACTION list for expediente', strpos($ajax_src, 'aa_list_expediente_registros_for_expediente') !== false);
 ac_assert('nonce propio by expediente', strpos($ajax_src, 'aa_expediente_registros_by_expediente_nonce') !== false);
 ac_assert('solo wp_ajax_ en register', strpos($ajax_src, "add_action('wp_ajax_'") !== false
     && strpos($ajax_src, 'wp_ajax_nopriv_') === false);
@@ -41,6 +42,14 @@ ac_assert('manage_options antes de nonce', strpos($ajax_src, "current_user_can('
 ac_assert('nonce soft (die=false) → 403 JSON', strpos($ajax_src, "check_ajax_referer(self::NONCE_ACTION, '_wpnonce', false)") !== false);
 ac_assert('reutiliza gate full', strpos($ajax_src, 'ExpedienteRegistrosAjax::require_expediente_shell_access') !== false);
 ac_assert('delega CreateExpedienteRegistroUseCase', strpos($ajax_src, 'CreateExpedienteRegistroUseCase') !== false);
+ac_assert(
+    'list delega ListExpedienteRegistrosWithPublicAdjuntosUseCase',
+    strpos($ajax_src, 'ListExpedienteRegistrosWithPublicAdjuntosUseCase') !== false
+);
+ac_assert(
+    'handler list no embebe exists_by_id (vive en UC enriquecido)',
+    strpos($ajax_src, 'exists_by_id') === false
+);
 ac_assert('sin absint', strpos($ajax_src, 'absint(') === false);
 ac_assert('sanea title text_field', strpos($ajax_src, 'sanitize_text_field') !== false);
 ac_assert('sanea body textarea_field', strpos($ajax_src, 'sanitize_textarea_field') !== false);
@@ -192,17 +201,33 @@ ac_assert('class exists', class_exists('ExpedienteRegistrosByExpedienteAjax'));
 ac_assert(
     'constants',
     ExpedienteRegistrosByExpedienteAjax::ACTION_CREATE === 'aa_create_expediente_registro_for_expediente'
+    && ExpedienteRegistrosByExpedienteAjax::ACTION_LIST === 'aa_list_expediente_registros_for_expediente'
     && ExpedienteRegistrosByExpedienteAjax::NONCE_ACTION === 'aa_expediente_registros_by_expediente_nonce'
 );
 
 ExpedienteRegistrosByExpedienteAjax::register();
 ac_assert(
-    'register solo wp_ajax_ create',
-    in_array('wp_ajax_aa_create_expediente_registro_for_expediente', $GLOBALS['aa_test_actions'], true)
+    'register wp_ajax_ create una vez',
+    count(array_filter(
+        $GLOBALS['aa_test_actions'],
+        static function ($h) {
+            return $h === 'wp_ajax_aa_create_expediente_registro_for_expediente';
+        }
+    )) === 1
 );
 ac_assert(
-    'register sin nopriv',
+    'register wp_ajax_ list una vez',
+    count(array_filter(
+        $GLOBALS['aa_test_actions'],
+        static function ($h) {
+            return $h === 'wp_ajax_aa_list_expediente_registros_for_expediente';
+        }
+    )) === 1
+);
+ac_assert(
+    'register sin nopriv create ni list',
     !in_array('wp_ajax_nopriv_aa_create_expediente_registro_for_expediente', $GLOBALS['aa_test_actions'], true)
+    && !in_array('wp_ajax_nopriv_aa_list_expediente_registros_for_expediente', $GLOBALS['aa_test_actions'], true)
 );
 
 /**

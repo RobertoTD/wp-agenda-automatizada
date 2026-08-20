@@ -1,15 +1,19 @@
 <?php
 /**
- * Expediente Registros by Expediente AJAX — alta de hijos por expediente_id.
+ * Expediente Registros by Expediente AJAX — create + list por expediente_id.
  *
- * Transporte HTTP autenticado. Delega reglas a CreateExpedienteRegistroUseCase.
- * No amplía el contrato legacy por client_id.
+ * Transporte HTTP autenticado. Create → CreateExpedienteRegistroUseCase.
+ * List → ListExpedienteRegistrosWithPublicAdjuntosUseCase (DTO público de
+ * adjuntos; sin caller UI todavía). No amplía el contrato legacy por client_id.
  */
 
 defined('ABSPATH') or die('No direct access');
 
 if (!class_exists('CreateExpedienteRegistroUseCase')) {
     require_once dirname(__DIR__, 2) . '/application/expediente/CreateExpedienteRegistroUseCase.php';
+}
+if (!class_exists('ListExpedienteRegistrosWithPublicAdjuntosUseCase')) {
+    require_once dirname(__DIR__, 2) . '/application/expediente/ListExpedienteRegistrosWithPublicAdjuntosUseCase.php';
 }
 if (!class_exists('ExpedienteRegistrosAjax')) {
     require_once dirname(__DIR__, 2) . '/http/ajax/ExpedienteRegistrosAjax.php';
@@ -18,10 +22,12 @@ if (!class_exists('ExpedienteRegistrosAjax')) {
 final class ExpedienteRegistrosByExpedienteAjax {
 
     public const ACTION_CREATE = 'aa_create_expediente_registro_for_expediente';
+    public const ACTION_LIST = 'aa_list_expediente_registros_for_expediente';
     public const NONCE_ACTION = 'aa_expediente_registros_by_expediente_nonce';
 
     public static function register(): void {
         add_action('wp_ajax_' . self::ACTION_CREATE, [__CLASS__, 'handle_create']);
+        add_action('wp_ajax_' . self::ACTION_LIST, [__CLASS__, 'handle_list']);
     }
 
     public static function handle_create(): void {
@@ -35,7 +41,35 @@ final class ExpedienteRegistrosByExpedienteAjax {
             'body' => self::read_sanitized_textarea('body'),
         ]);
 
-        self::respond($result);
+        self::respond_create($result);
+    }
+
+    /**
+     * Lectura AJAX paginada con metadatos públicos de adjuntos (B2b).
+     * Sin caller visual todavía.
+     */
+    public static function handle_list(): void {
+        if (!self::authorize()) {
+            return;
+        }
+
+        $result = (new ListExpedienteRegistrosWithPublicAdjuntosUseCase())->execute([
+            'expediente_id' => self::read_expediente_id(),
+            'page' => self::read_page(),
+        ]);
+
+        if (empty($result['success'])) {
+            $error = $result['error'] ?? [];
+            $code = (string) ($error['code'] ?? 'unknown_error');
+            wp_send_json_error([
+                'message' => (string) ($error['message'] ?? 'No se pudo completar la acción.'),
+                'code' => $code,
+            ], self::http_status_for_code($code));
+            return;
+        }
+
+        $data = is_array($result['data'] ?? null) ? $result['data'] : [];
+        wp_send_json_success($data, 200);
     }
 
     private static function authorize(): bool {
@@ -53,7 +87,6 @@ final class ExpedienteRegistrosByExpedienteAjax {
     }
 
     /**
-     * @param mixed $value
      * @return mixed int|string|null (sin absint; no-escalares → null)
      */
     private static function read_expediente_id() {
@@ -68,6 +101,25 @@ final class ExpedienteRegistrosByExpedienteAjax {
         }
 
         return null;
+    }
+
+    /**
+     * Página para el UC de listado (sin normalizador propio).
+     * No-escalares → 1 (mismo efecto que el UC textual ante tipos inválidos).
+     *
+     * @return int|string
+     */
+    private static function read_page() {
+        if (!isset($_POST['page'])) {
+            return 1;
+        }
+
+        $raw = wp_unslash($_POST['page']);
+        if (is_int($raw) || is_string($raw)) {
+            return $raw;
+        }
+
+        return 1;
     }
 
     /**
@@ -105,7 +157,7 @@ final class ExpedienteRegistrosByExpedienteAjax {
     /**
      * @param array{success:bool,data?:array<string,mixed>,error?:array{code:string,message:string}} $result
      */
-    private static function respond(array $result): void {
+    private static function respond_create(array $result): void {
         if (!empty($result['success'])) {
             $data = $result['data'] ?? [];
             $record = is_array($data['record'] ?? null) ? $data['record'] : null;
