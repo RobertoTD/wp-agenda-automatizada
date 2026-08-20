@@ -401,7 +401,33 @@
         recordsRoot: null,
         actionsRoot: null,
         records: [],
-        loading: false
+        loading: false,
+        /**
+         * Transporte AJAX del montaje vigente.
+         * null = modalidad legacy (globals AA_CLIENTS_* / ajaxurl).
+         * objeto = modalidad inyectada autosuficiente (sin mezcla con globals).
+         */
+        transport: null
+    };
+
+    var TRANSPORT_ACTION_KEYS = [
+        'listRegistros',
+        'createRegistro',
+        'updateRegistro',
+        'deleteRegistro',
+        'attachRegistro',
+        'signAdjuntoRead',
+        'deleteAdjunto'
+    ];
+
+    var LEGACY_ACTION_DEFAULTS = {
+        listRegistros: 'aa_list_expediente_registros',
+        createRegistro: 'aa_create_expediente_registro',
+        updateRegistro: 'aa_update_expediente_registro',
+        deleteRegistro: 'aa_delete_expediente_registro',
+        attachRegistro: 'aa_attach_expediente_registro',
+        signAdjuntoRead: 'aa_sign_expediente_adjunto_read',
+        deleteAdjunto: 'aa_delete_expediente_adjunto'
     };
 
     var registroOptionsUiBound = false;
@@ -426,18 +452,103 @@
     // Solo para abortar el watcher de cierre del modal (foco / limpieza).
     var modalCloseAbort = null;
 
-    function getConfig() {
-        return window.AA_CLIENTS_DATA || {};
+    function isInjectedTransportMode() {
+        return state.transport !== null;
     }
 
-    function getNonce() {
-        var nonces = window.AA_CLIENTS_NONCES || {};
+    /**
+     * Copia allowlist de transporte. No completa con globals.
+     * @param {*} raw
+     * @returns {{ajaxUrl:string, nonce:string, actions:Object<string,string>}|null}
+     */
+    function normalizeTransport(raw) {
+        if (!raw || typeof raw !== 'object') {
+            return null;
+        }
+        var ajaxUrl = typeof raw.ajaxUrl === 'string' ? String(raw.ajaxUrl).trim() : '';
+        var nonce = typeof raw.nonce === 'string' ? raw.nonce : '';
+        if (!ajaxUrl || !nonce) {
+            return null;
+        }
+        if (!raw.actions || typeof raw.actions !== 'object') {
+            return null;
+        }
+        var actions = {};
+        for (var i = 0; i < TRANSPORT_ACTION_KEYS.length; i++) {
+            var key = TRANSPORT_ACTION_KEYS[i];
+            var value = raw.actions[key];
+            if (typeof value === 'string' && value !== '') {
+                actions[key] = value;
+            }
+        }
+        return {
+            ajaxUrl: ajaxUrl,
+            nonce: nonce,
+            actions: actions
+        };
+    }
+
+    function getLegacyConfig() {
+        return (typeof window !== 'undefined' && window.AA_CLIENTS_DATA)
+            ? window.AA_CLIENTS_DATA
+            : {};
+    }
+
+    function resolveAjaxUrl() {
+        if (isInjectedTransportMode()) {
+            return state.transport.ajaxUrl || '';
+        }
+        var data = getLegacyConfig();
+        return data.ajaxUrl || (typeof window !== 'undefined' && window.ajaxurl) || '';
+    }
+
+    function resolveNonce() {
+        if (isInjectedTransportMode()) {
+            return state.transport.nonce || '';
+        }
+        var nonces = (typeof window !== 'undefined' && window.AA_CLIENTS_NONCES)
+            ? window.AA_CLIENTS_NONCES
+            : {};
         return nonces.expediente_registros || '';
     }
 
-    function getAjaxUrl() {
-        var data = getConfig();
-        return data.ajaxUrl || window.ajaxurl || '';
+    /**
+     * @param {string} key
+     * @returns {string}
+     */
+    function resolveAction(key) {
+        if (isInjectedTransportMode()) {
+            var injected = state.transport.actions && state.transport.actions[key];
+            return (typeof injected === 'string' && injected !== '') ? injected : '';
+        }
+        var data = getLegacyConfig();
+        var fromGlobal = data.actions && data.actions[key];
+        if (typeof fromGlobal === 'string' && fromGlobal !== '') {
+            return fromGlobal;
+        }
+        return LEGACY_ACTION_DEFAULTS[key] || '';
+    }
+
+    /**
+     * Falla controlada sin lanzar: no envía petición híbrida/incorrecta.
+     * @param {string} action
+     * @returns {boolean}
+     */
+    function canSendTransportRequest(action) {
+        return !!(action && resolveAjaxUrl() && resolveNonce());
+    }
+
+    function transportIncompletePayload() {
+        return {
+            httpStatus: 0,
+            result: {
+                success: false,
+                data: {
+                    message: 'Transporte incompleto.',
+                    code: 'transport_incomplete'
+                }
+            }
+        };
     }
 
     var RECORDED_AT_MONTHS_ES = [
@@ -832,12 +943,15 @@
      * attachment_id; el fallback sin attachment_id vive solo en PHP.
      */
     function postSignRead(recordId, attachmentId, variant, signal) {
-        var data = getConfig();
-        var action = (data.actions && data.actions.signAdjuntoRead) || 'aa_sign_expediente_adjunto_read';
+        var action = resolveAction('signAdjuntoRead');
+        if (!canSendTransportRequest(action)) {
+            console.error('[ExpedienteRegistros] transporte incompleto para sign-read');
+            return Promise.resolve(transportIncompletePayload());
+        }
 
         var formData = new FormData();
         formData.append('action', action);
-        formData.append('_wpnonce', getNonce());
+        formData.append('_wpnonce', resolveNonce());
         formData.append('client_id', String(state.clientId));
         formData.append('record_id', String(recordId));
         formData.append('attachment_id', String(attachmentId));
@@ -852,7 +966,7 @@
             options.signal = signal;
         }
 
-        return fetch(getAjaxUrl(), options).then(function (response) {
+        return fetch(resolveAjaxUrl(), options).then(function (response) {
             return response.json().then(function (result) {
                 return { httpStatus: response.status, result: result };
             });
@@ -1245,6 +1359,7 @@
         state.actionsRoot = null;
         state.clientId = 0;
         state.loading = false;
+        state.transport = null;
     }
 
     // ── Fin miniaturas MC4c ─────────────────────────────────────────
@@ -1535,8 +1650,7 @@
             beforeAdjuntos = getRecordAdjuntos(recordBefore).slice();
         }
 
-        var data = getConfig();
-        var action = (data.actions && data.actions.deleteAdjunto) || 'aa_delete_expediente_adjunto';
+        var action = resolveAction('deleteAdjunto');
 
         postForm(action, {
             client_id: String(clientId),
@@ -1699,8 +1813,7 @@
             }
         }
 
-        var data = getConfig();
-        var action = (data.actions && data.actions.deleteRegistro) || 'aa_delete_expediente_registro';
+        var action = resolveAction('deleteRegistro');
 
         postForm(action, {
             client_id: String(clientId),
@@ -2320,14 +2433,19 @@
     }
 
     function postForm(action, fields) {
+        if (!canSendTransportRequest(action)) {
+            console.error('[ExpedienteRegistros] transporte incompleto para', action || '(sin action)');
+            return Promise.resolve(transportIncompletePayload());
+        }
+
         var formData = new FormData();
         formData.append('action', action);
-        formData.append('_wpnonce', getNonce());
+        formData.append('_wpnonce', resolveNonce());
         Object.keys(fields).forEach(function (key) {
             formData.append(key, fields[key]);
         });
 
-        return fetch(getAjaxUrl(), {
+        return fetch(resolveAjaxUrl(), {
             method: 'POST',
             body: formData,
             credentials: 'same-origin'
@@ -2346,15 +2464,20 @@
      * @param {string} fileName
      */
     function postAttach(action, fields, fileBlob, fileName) {
+        if (!canSendTransportRequest(action)) {
+            console.error('[ExpedienteRegistros] transporte incompleto para attach');
+            return Promise.resolve(transportIncompletePayload());
+        }
+
         var formData = new FormData();
         formData.append('action', action);
-        formData.append('_wpnonce', getNonce());
+        formData.append('_wpnonce', resolveNonce());
         formData.append('client_id', fields.client_id);
         formData.append('record_id', fields.record_id);
         formData.append('upload_operation_id', fields.upload_operation_id);
         formData.append('file', fileBlob, fileName || 'adjunto.jpg');
 
-        return fetch(getAjaxUrl(), {
+        return fetch(resolveAjaxUrl(), {
             method: 'POST',
             body: formData,
             credentials: 'same-origin'
@@ -2603,8 +2726,7 @@
     }
 
     function loadRecords() {
-        var data = getConfig();
-        var action = (data.actions && data.actions.listRegistros) || 'aa_list_expediente_registros';
+        var action = resolveAction('listRegistros');
 
         // MC5a: una respuesta posterior a destroy(), cambio de cliente o
         // re-init no debe sobrescribir el estado vigente.
@@ -2989,8 +3111,7 @@
                 return Promise.resolve({ ok: true, skipped: true });
             }
 
-            var data = getConfig();
-            var action = (data.actions && data.actions.attachRegistro) || 'aa_attach_expediente_registro';
+            var action = resolveAction('attachRegistro');
             var operationId = pendingImage.operationId;
             var requestedRecordId = parseInt(recordId || (savedRecord && savedRecord.id) || 0, 10);
 
@@ -3098,7 +3219,6 @@
                 return;
             }
 
-            var data = getConfig();
             var action;
             var fields = {
                 client_id: String(state.clientId),
@@ -3111,10 +3231,10 @@
                     showFormError('Registro no válido.');
                     return;
                 }
-                action = (data.actions && data.actions.updateRegistro) || 'aa_update_expediente_registro';
+                action = resolveAction('updateRegistro');
                 fields.record_id = String(recordId);
             } else {
-                action = (data.actions && data.actions.createRegistro) || 'aa_create_expediente_registro';
+                action = resolveAction('createRegistro');
             }
 
             // Anticipar account-status en paralelo al guardado (no bloquea el flujo).
@@ -3212,7 +3332,12 @@
     }
 
     /**
-     * @param {{clientId:number, recordsRoot:HTMLElement, actionsRoot?:HTMLElement|null}} options
+     * @param {{
+     *   clientId:number,
+     *   recordsRoot:HTMLElement,
+     *   actionsRoot?:HTMLElement|null,
+     *   transport?:{ajaxUrl:string, nonce:string, actions:Object<string,string>}
+     * }} options
      */
     function init(options) {
         // Libera recursos de cualquier montaje previo antes de re-montar.
@@ -3227,6 +3352,19 @@
         if (!(clientId > 0)) {
             console.error('[ExpedienteRegistros] clientId inválido');
             return;
+        }
+
+        // Modalidad inyectada solo si `transport` está presente en options.
+        // No mezclar con globals: adapter inválido → no montar.
+        if (Object.prototype.hasOwnProperty.call(options, 'transport')) {
+            var normalized = normalizeTransport(options.transport);
+            if (!normalized) {
+                console.error('[ExpedienteRegistros] transport inválido o incompleto');
+                return;
+            }
+            state.transport = normalized;
+        } else {
+            state.transport = null;
         }
 
         state.clientId = clientId;

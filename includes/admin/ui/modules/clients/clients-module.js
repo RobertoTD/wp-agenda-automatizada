@@ -941,10 +941,26 @@
     function mountExpedienteRegistros(clientId, recordsRoot, actionsRoot) {
         function tryMount(attemptsLeft) {
             if (window.AAAdmin && window.AAAdmin.ExpedienteRegistros && typeof window.AAAdmin.ExpedienteRegistros.init === 'function') {
+                var data = getClientsData();
+                var nonces = getClientsNonces();
+                var actions = data.actions || {};
                 window.AAAdmin.ExpedienteRegistros.init({
                     clientId: clientId,
                     recordsRoot: recordsRoot,
-                    actionsRoot: actionsRoot || null
+                    actionsRoot: actionsRoot || null,
+                    transport: {
+                        ajaxUrl: data.ajaxUrl || window.ajaxurl || '',
+                        nonce: nonces.expediente_registros || '',
+                        actions: {
+                            listRegistros: actions.listRegistros || 'aa_list_expediente_registros',
+                            createRegistro: actions.createRegistro || 'aa_create_expediente_registro',
+                            updateRegistro: actions.updateRegistro || 'aa_update_expediente_registro',
+                            deleteRegistro: actions.deleteRegistro || 'aa_delete_expediente_registro',
+                            attachRegistro: actions.attachRegistro || 'aa_attach_expediente_registro',
+                            signAdjuntoRead: actions.signAdjuntoRead || 'aa_sign_expediente_adjunto_read',
+                            deleteAdjunto: actions.deleteAdjunto || 'aa_delete_expediente_adjunto'
+                        }
+                    }
                 });
                 return;
             }
