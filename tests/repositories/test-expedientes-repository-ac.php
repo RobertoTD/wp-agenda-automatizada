@@ -140,7 +140,11 @@ ac_assert('insert OK', is_array($created) && $created['id'] === 42);
 ac_assert('insert tabla prefijada', ($wpdb->inserted['table'] ?? '') === 'wp_5_aa_expedientes');
 ac_assert('insert description null', array_key_exists('description', $wpdb->inserted['data'] ?? []) && $wpdb->inserted['data']['description'] === null);
 ac_assert('insert no escribe updated_at', !array_key_exists('updated_at', $wpdb->inserted['data'] ?? []));
-ac_assert('insert no escribe client_id', !array_key_exists('client_id', $wpdb->inserted['data'] ?? []));
+ac_assert(
+    'insert general escribe client_id null',
+    array_key_exists('client_id', $wpdb->inserted['data'] ?? [])
+    && $wpdb->inserted['data']['client_id'] === null
+);
 
 $bad = ExpedientesRepository::insert([
     'title' => '',

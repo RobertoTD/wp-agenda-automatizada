@@ -2,8 +2,11 @@
 /**
  * Create Expediente Registro Use Case — alta de registro hijo bajo padre real.
  *
- * Persistencia vía insert_for_expediente (client_id NULL). Sin HTTP.
- * Ignora client_id, blog_id, recorded_at y created_at del input.
+ * Persistencia:
+ * - padre general (client_id NULL) → insert_for_expediente (client_id NULL)
+ * - padre vinculado a cliente → insert_for_client_expediente (ambos IDs, derivados en servidor)
+ *
+ * Ignora client_id, blog_id, recorded_at y created_at del input HTTP.
  */
 
 defined('ABSPATH') or die('No direct access');
@@ -66,18 +69,39 @@ final class CreateExpedienteRegistroUseCase {
             return $this->fail('not_found', 'Expediente no encontrado.');
         }
 
+        $owner = ExpedientesRepository::find_owner_context_by_id($expediente_id);
+        if ($owner === null) {
+            return $this->fail('lookup_failed', 'No se pudo verificar el expediente.');
+        }
+
         $now = current_time('mysql');
-        $record = ExpedienteRegistrosRepository::insert_for_expediente([
-            'expediente_id' => $expediente_id,
-            'title' => $title,
-            'body' => $body,
-            'recorded_at' => $now,
-            'created_at' => $now,
-        ]);
+        $parent_client_id = $owner['client_id'] ?? null;
+
+        if (is_int($parent_client_id) && $parent_client_id > 0) {
+            $record = ExpedienteRegistrosRepository::insert_for_client_expediente([
+                'client_id' => $parent_client_id,
+                'expediente_id' => $expediente_id,
+                'title' => $title,
+                'body' => $body,
+                'recorded_at' => $now,
+                'created_at' => $now,
+            ]);
+        } else {
+            $record = ExpedienteRegistrosRepository::insert_for_expediente([
+                'expediente_id' => $expediente_id,
+                'title' => $title,
+                'body' => $body,
+                'recorded_at' => $now,
+                'created_at' => $now,
+            ]);
+        }
 
         if (is_wp_error($record)) {
             return $this->fail('persistence_failed', $record->get_error_message());
         }
+
+        // DTO público sin owners (igual que el writer canónico AJAX).
+        unset($record['client_id'], $record['expediente_id'], $record['blog_id']);
 
         return $this->ok([
             'record' => $record,

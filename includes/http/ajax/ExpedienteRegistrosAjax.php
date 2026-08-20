@@ -12,6 +12,7 @@ require_once dirname(__DIR__, 2) . '/repositories/ExpedienteRegistrosRepository.
 require_once dirname(__DIR__, 2) . '/repositories/ExpedienteAdjuntosRepository.php';
 require_once dirname(__DIR__, 2) . '/domain/expediente/ExpedienteAdjuntoPublicDto.php';
 require_once dirname(__DIR__, 2) . '/application/expediente/DeleteExpedienteRegistroUseCase.php';
+require_once dirname(__DIR__, 2) . '/application/expediente/CreateExpedienteRegistroForClientUseCase.php';
 
 final class ExpedienteRegistrosAjax {
 
@@ -80,37 +81,56 @@ final class ExpedienteRegistrosAjax {
         }
 
         $client_id = self::read_client_id();
-        if ($client_id < 1) {
-            wp_send_json_error(['message' => 'Cliente no válido.'], 400);
-        }
+        $title = isset($_POST['title'])
+            ? sanitize_text_field(wp_unslash((string) $_POST['title']))
+            : '';
+        $body = isset($_POST['body'])
+            ? sanitize_textarea_field(wp_unslash((string) $_POST['body']))
+            : '';
 
-        if (ClientsRepository::find_by_id($client_id) === null) {
-            wp_send_json_error(['message' => 'Cliente no encontrado.'], 404);
-        }
-
-        $fields = self::read_title_body_or_error();
-        if ($fields === null) {
-            return;
-        }
-
-        // Ignorar recorded_at / created_at / id / blog_id enviados por el cliente.
-        $now = current_time('mysql');
-
-        $record = ExpedienteRegistrosRepository::insert([
+        // Ignorar expediente_id / category_id / nombre / título padre / fechas / blog_id del POST.
+        $result = (new CreateExpedienteRegistroForClientUseCase())->execute([
             'client_id' => $client_id,
-            'title' => $fields['title'],
-            'body' => $fields['body'],
-            'recorded_at' => $now,
-            'created_at' => $now,
+            'title' => $title,
+            'body' => $body,
         ]);
 
-        if (is_wp_error($record)) {
-            wp_send_json_error(['message' => $record->get_error_message()], 500);
+        if (empty($result['success'])) {
+            $code = (string) ($result['error']['code'] ?? 'persistence_failed');
+            $message = (string) ($result['error']['message'] ?? 'No se pudo guardar el registro.');
+            $status = self::http_status_for_create_code($code);
+            wp_send_json_error(['message' => $message, 'code' => $code], $status);
         }
 
-        wp_send_json_success([
-            'record' => $record,
-        ]);
+        $record = is_array($result['data']['record'] ?? null) ? $result['data']['record'] : null;
+        if ($record === null) {
+            wp_send_json_error(['message' => 'No se pudo guardar el registro.', 'code' => 'persistence_failed'], 500);
+        }
+
+        $payload = ['record' => $record];
+        if (isset($result['data']['expediente_id'])) {
+            $payload['expediente_id'] = (int) $result['data']['expediente_id'];
+        }
+
+        wp_send_json_success($payload);
+    }
+
+    private static function http_status_for_create_code(string $code): int {
+        switch ($code) {
+            case 'not_found':
+                return 404;
+            case 'invalid_client':
+            case 'missing_title':
+            case 'missing_body':
+            case 'title_too_long':
+            case 'body_too_long':
+                return 400;
+            case 'category_not_found':
+            case 'persistence_failed':
+            case 'tx_retryable':
+            default:
+                return 500;
+        }
     }
 
     public static function handle_update(): void {

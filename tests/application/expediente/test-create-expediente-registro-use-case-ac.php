@@ -60,6 +60,8 @@ if (!function_exists('current_time')) {
 final class ExpedientesRepository {
     /** @var array<int,bool|null> */
     public static $exists = [];
+    /** @var array<int,?int> */
+    public static $owners = [];
     /** @var list<int> */
     public static $lookups = [];
 
@@ -70,15 +72,30 @@ final class ExpedientesRepository {
         }
         return self::$exists[$id];
     }
+
+    public static function find_owner_context_by_id(int $id): ?array {
+        if (!array_key_exists($id, self::$exists) || self::$exists[$id] !== true) {
+            return null;
+        }
+        $client = array_key_exists($id, self::$owners) ? self::$owners[$id] : null;
+
+        return [
+            'id' => $id,
+            'client_id' => $client,
+        ];
+    }
 }
 
 final class ExpedienteRegistrosRepository {
     /** @var list<array<string,mixed>> */
     public static $inserts = [];
+    /** @var list<string> */
+    public static $insert_methods = [];
     /** @var array<string,mixed>|WP_Error|null */
     public static $next_result = null;
 
     public static function insert_for_expediente(array $data) {
+        self::$insert_methods[] = 'insert_for_expediente';
         self::$inserts[] = $data;
         if (self::$next_result instanceof WP_Error) {
             return self::$next_result;
@@ -88,6 +105,26 @@ final class ExpedienteRegistrosRepository {
         }
         return [
             'id' => 55,
+            'title' => (string) ($data['title'] ?? ''),
+            'body' => (string) ($data['body'] ?? ''),
+            'recorded_at' => (string) ($data['recorded_at'] ?? ''),
+            'created_at' => (string) ($data['created_at'] ?? ''),
+            'updated_at' => null,
+        ];
+    }
+
+    public static function insert_for_client_expediente(array $data) {
+        self::$insert_methods[] = 'insert_for_client_expediente';
+        self::$inserts[] = $data;
+        if (self::$next_result instanceof WP_Error) {
+            return self::$next_result;
+        }
+        if (is_array(self::$next_result)) {
+            return self::$next_result;
+        }
+        return [
+            'id' => 56,
+            'client_id' => (int) ($data['client_id'] ?? 0),
             'title' => (string) ($data['title'] ?? ''),
             'body' => (string) ($data['body'] ?? ''),
             'recorded_at' => (string) ($data['recorded_at'] ?? ''),
@@ -107,6 +144,8 @@ require_once $plugin_root . '/includes/application/expediente/CreateExpedienteRe
 
 $src = file_get_contents($plugin_root . '/includes/application/expediente/CreateExpedienteRegistroUseCase.php');
 ac_assert('usa insert_for_expediente', strpos($src, 'insert_for_expediente') !== false);
+ac_assert('usa insert_for_client_expediente', strpos($src, 'insert_for_client_expediente') !== false);
+ac_assert('usa find_owner_context_by_id', strpos($src, 'find_owner_context_by_id') !== false);
 ac_assert('no llama insert legacy', preg_match('/ExpedienteRegistrosRepository::insert\s*\(/', $src) !== 1);
 ac_assert('usa exists_by_id', strpos($src, 'exists_by_id') !== false);
 ac_assert('un solo current_time', substr_count($src, "current_time('mysql')") === 1);
@@ -122,8 +161,10 @@ ac_assert('no hardcodea general', stripos($src, "'general'") === false && stripo
 $uc = new CreateExpedienteRegistroUseCase();
 
 ExpedientesRepository::$exists = [7 => true];
+ExpedientesRepository::$owners = [7 => null];
 ExpedientesRepository::$lookups = [];
 ExpedienteRegistrosRepository::$inserts = [];
+ExpedienteRegistrosRepository::$insert_methods = [];
 ExpedienteRegistrosRepository::$next_result = null;
 $GLOBALS['aa_test_current_time_calls'] = 0;
 
@@ -147,11 +188,40 @@ ac_assert(
     && ($payload['created_at'] ?? '') === '2026-08-20 12:00:00'
 );
 ac_assert('inserta expediente_id correcto', ($payload['expediente_id'] ?? 0) === 7);
+ac_assert('padre general usa insert_for_expediente', (ExpedienteRegistrosRepository::$insert_methods[0] ?? '') === 'insert_for_expediente');
 ac_assert('payload no incluye client_id', !array_key_exists('client_id', $payload));
 ac_assert('DTO sin client_id', !array_key_exists('client_id', $record));
 ac_assert('DTO sin expediente_id', !array_key_exists('expediente_id', $record));
 ac_assert('title/body trim', ($payload['title'] ?? '') === 'Nota' && ($payload['body'] ?? '') === 'Cuerpo');
 ac_assert('campos extra no controlan fechas', ($record['recorded_at'] ?? '') === '2026-08-20 12:00:00');
+ac_assert('client_id del input ignorado en padre general', !array_key_exists('client_id', $payload));
+
+ExpedientesRepository::$exists = [8 => true];
+ExpedientesRepository::$owners = [8 => 44];
+ExpedienteRegistrosRepository::$inserts = [];
+ExpedienteRegistrosRepository::$insert_methods = [];
+ExpedienteRegistrosRepository::$next_result = null;
+$linked = $uc->execute([
+    'expediente_id' => 8,
+    'title' => 'Hijo',
+    'body' => 'Texto',
+    'client_id' => 1,
+]);
+$linked_payload = ExpedienteRegistrosRepository::$inserts[0] ?? [];
+$linked_record = $linked['data']['record'] ?? [];
+ac_assert('padre vinculado éxito', !empty($linked['success']));
+ac_assert(
+    'padre vinculado usa insert_for_client_expediente',
+    (ExpedienteRegistrosRepository::$insert_methods[0] ?? '') === 'insert_for_client_expediente'
+);
+ac_assert(
+    'padre vinculado escribe ambos IDs del servidor',
+    ($linked_payload['client_id'] ?? 0) === 44
+    && ($linked_payload['expediente_id'] ?? 0) === 8
+);
+ac_assert('input client_id no pisa el del padre', ($linked_payload['client_id'] ?? 0) !== 1);
+ac_assert('DTO vinculado sin owners', !array_key_exists('client_id', $linked_record)
+    && !array_key_exists('expediente_id', $linked_record));
 
 ExpedientesRepository::$lookups = [];
 ExpedienteRegistrosRepository::$inserts = [];
@@ -218,19 +288,20 @@ $detail_src = file_get_contents($plugin_root . '/includes/admin/ui/modules/exped
 $schema_src = file_get_contents($plugin_root . '/includes/infrastructure/wp/Schema.php');
 $bootstrap = file_get_contents($plugin_root . '/wp-agenda-automatizada.php');
 ac_assert(
-    'AJAX legacy intacto (create por client_id)',
+    'AJAX legacy delega CreateExpedienteRegistroForClientUseCase',
     is_string($ajax_src)
     && strpos($ajax_src, 'aa_create_expediente_registro') !== false
+    && strpos($ajax_src, 'CreateExpedienteRegistroForClientUseCase') !== false
     && strpos($ajax_src, 'insert_for_expediente') === false
     && strpos($ajax_src, 'CreateExpedienteRegistroUseCase') === false
 );
 ac_assert(
-    'detalle SSR sin create/AJAX de registros',
+    'detalle SSR sin UC ni legacy registros JS',
     is_string($detail_src)
     && strpos($detail_src, 'CreateExpedienteRegistroUseCase') === false
     && strpos($detail_src, 'expediente-registros.js') === false
 );
-ac_assert('schema sigue en DB16', strpos($schema_src, "DB_VERSION = '16'") !== false);
+ac_assert('schema sigue en DB17', strpos($schema_src, "DB_VERSION = '17'") !== false);
 ac_assert(
     'sin registro bootstrap del nuevo UC',
     is_string($bootstrap) && strpos($bootstrap, 'CreateExpedienteRegistroUseCase') === false

@@ -66,6 +66,133 @@ final class ExpedientesRepository {
     }
 
     /**
+     * @return array{id:int,client_id:?int}|null
+     */
+    public static function find_owner_context_by_id(int $id): ?array {
+        if ($id < 1) {
+            return null;
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT id, client_id FROM {$table} WHERE id = %d LIMIT 1",
+                $id
+            ),
+            ARRAY_A
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[ExpedientesRepository] find_owner_context_by_id error: ' . $wpdb->last_error);
+            return null;
+        }
+
+        if (!is_array($row) || empty($row['id'])) {
+            return null;
+        }
+
+        $client_raw = $row['client_id'] ?? null;
+        $client_id = ($client_raw === null || $client_raw === '')
+            ? null
+            : (int) $client_raw;
+
+        if ($client_id !== null && $client_id < 1) {
+            $client_id = null;
+        }
+
+        return [
+            'id' => (int) $row['id'],
+            'client_id' => $client_id,
+        ];
+    }
+
+    /**
+     * @return array{id:int,client_id:int}|null
+     */
+    public static function find_by_client_id(int $client_id): ?array {
+        if ($client_id < 1) {
+            return null;
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT id, client_id FROM {$table} WHERE client_id = %d LIMIT 1",
+                $client_id
+            ),
+            ARRAY_A
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[ExpedientesRepository] find_by_client_id error: ' . $wpdb->last_error);
+            return null;
+        }
+
+        if (!is_array($row) || empty($row['id'])) {
+            return null;
+        }
+
+        return [
+            'id' => (int) $row['id'],
+            'client_id' => (int) ($row['client_id'] ?? 0),
+        ];
+    }
+
+    /**
+     * Get-or-create atómico de padre vinculado a cliente (UNIQUE client_id).
+     *
+     * Usa INSERT … ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id) para
+     * current-read seguro bajo REPEATABLE READ (sin SELECT tras duplicate
+     * en el mismo snapshot). No actualiza título/categoría/fechas del padre
+     * existente. description siempre NULL en materialización.
+     *
+     * @return int|WP_Error id del padre
+     */
+    public static function get_or_create_for_client(
+        int $client_id,
+        string $title,
+        int $category_id,
+        string $created_at
+    ) {
+        if ($client_id < 1 || $title === '' || $category_id < 1 || $created_at === '') {
+            return new WP_Error('invalid_expediente_data', 'Datos de expediente incompletos.');
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+
+        $sql = $wpdb->prepare(
+            "INSERT INTO {$table} (title, description, category_id, client_id, created_at)
+             VALUES (%s, NULL, %d, %d, %s)
+             ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)",
+            $title,
+            $category_id,
+            $client_id,
+            $created_at
+        );
+
+        $result = $wpdb->query($sql);
+
+        // false = error SQL; 0 = no-op de duplicate (válido si insert_id disponible).
+        if ($result === false) {
+            error_log('[ExpedientesRepository] get_or_create_for_client error: ' . $wpdb->last_error);
+
+            return new WP_Error('db_error', 'Error al resolver el expediente del cliente.');
+        }
+
+        $id = (int) $wpdb->insert_id;
+        if ($id < 1) {
+            return new WP_Error('db_error', 'No se pudo obtener el ID del expediente.');
+        }
+
+        return $id;
+    }
+
+    /**
      * @param array{title:string,description:?string,category_id:int,created_at:string} $data
      * @return array{id:int,title:string,description:?string,created_at:string,updated_at:?string}|null
      */
@@ -95,9 +222,10 @@ final class ExpedientesRepository {
                 'title' => $title,
                 'description' => $description,
                 'category_id' => $category_id,
+                'client_id' => null,
                 'created_at' => $created_at,
             ],
-            ['%s', '%s', '%d', '%s']
+            ['%s', '%s', '%d', null, '%s']
         );
 
         if ($result === false) {

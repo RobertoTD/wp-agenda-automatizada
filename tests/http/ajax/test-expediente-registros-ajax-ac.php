@@ -41,11 +41,13 @@ ac_assert('delete no lee storage_path', strpos($ajax_src, "\$_POST['storage_path
 ac_assert('NONCE compartido', strpos($ajax_src, 'aa_expediente_registros_nonce') !== false);
 ac_assert('manage_options', strpos($ajax_src, "current_user_can('manage_options')") !== false);
 ac_assert('shell full gate require_expediente_shell_access', strpos($ajax_src, 'require_expediente_shell_access') !== false);
-ac_assert('valida cliente find_by_id', substr_count($ajax_src, 'ClientsRepository::find_by_id') >= 3);
+ac_assert('valida cliente find_by_id', substr_count($ajax_src, 'ClientsRepository::find_by_id') >= 2);
 ac_assert('check_ajax_referer', strpos($ajax_src, 'check_ajax_referer') !== false);
 ac_assert('TITLE_MAX 200', strpos($ajax_src, 'TITLE_MAX = 200') !== false);
 ac_assert('BODY_MAX 10000', strpos($ajax_src, 'BODY_MAX = 10000') !== false);
-ac_assert('current_time para fechas', strpos($ajax_src, "current_time('mysql')") !== false);
+ac_assert('create delega ForClient UC', strpos($ajax_src, 'CreateExpedienteRegistroForClientUseCase') !== false);
+ac_assert('create no inserta directo en repo', strpos($ajax_src, 'ExpedienteRegistrosRepository::insert(') === false);
+ac_assert('current_time para fechas update', strpos($ajax_src, "current_time('mysql')") !== false);
 ac_assert('update_title_body', strpos($ajax_src, 'update_title_body') !== false);
 ac_assert('relee find_by_id_for_client', strpos($ajax_src, 'find_by_id_for_client') !== false);
 ac_assert('404 registro no encontrado', strpos($ajax_src, 'Registro no encontrado.') !== false);

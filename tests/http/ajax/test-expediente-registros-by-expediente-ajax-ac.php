@@ -56,10 +56,16 @@ ac_assert('bootstrap require', strpos($bootstrap_src, 'ExpedienteRegistrosByExpe
 ac_assert('bootstrap sin nopriv del action', strpos($bootstrap_src, 'wp_ajax_nopriv_aa_create_expediente_registro_for_expediente') === false);
 ac_assert('legacy create action intacto', strpos($legacy_ajax_src, 'aa_create_expediente_registro') !== false
     && strpos($legacy_ajax_src, 'aa_create_expediente_registro_for_expediente') === false);
-ac_assert('detalle sin action/nonce/JS create', strpos($detail_src, 'aa_create_expediente_registro_for_expediente') === false
-    && strpos($detail_src, 'aa_expediente_registros_by_expediente_nonce') === false
-    && strpos($detail_src, 'ExpedienteRegistrosByExpedienteAjax') === false);
-ac_assert('schema DB16 sin cambios de este ciclo', strpos($schema_src, "DB_VERSION = '16'") !== false);
+ac_assert(
+    'detalle cablea create by-expediente sin legacy registros JS',
+    strpos($detail_src, 'ExpedienteRegistrosByExpedienteAjax') !== false
+    && strpos($detail_src, 'aa_create_expediente_registro_for_expediente') !== false
+    && strpos($detail_src, 'aa_expediente_registros_by_expediente_nonce') !== false
+    && strpos($detail_src, 'expediente-registro-create-modal.js') !== false
+    && strpos($detail_src, 'AA_EXPEDIENTE_DETAIL_DATA') !== false
+    && strpos($detail_src, 'expediente-registros.js') === false
+);
+ac_assert('schema DB17 (ciclo materialización)', strpos($schema_src, "DB_VERSION = '17'") !== false);
 
 if (!defined('ABSPATH')) {
     define('ABSPATH', $plugin_root . '/');

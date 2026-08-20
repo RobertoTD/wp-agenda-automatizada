@@ -3,7 +3,8 @@
  * Expedientes — vista de detalle de un expediente padre real.
  *
  * Espera $aa_expediente_detail ya resuelto por el router (GetExpedienteUseCase).
- * Sin AJAX, FAB, buscador, menú vacío ni acciones de registros.
+ * Registros SSR read-only + FAB "Nuevo registro" (create vía AJAX acotado).
+ * Sin buscador, menú vacío ni controlador legacy de registros.
  */
 
 defined('ABSPATH') or die('¡Sin acceso directo!');
@@ -59,6 +60,29 @@ $aa_records_prev_url = (string) ($aa_records_view['prev_url'] ?? '');
 $aa_records_next_url = (string) ($aa_records_view['next_url'] ?? '');
 $aa_records_has_previous = !empty($aa_records_view['has_previous']) && $aa_records_prev_url !== '';
 $aa_records_has_next = !empty($aa_records_view['has_next']) && $aa_records_next_url !== '';
+
+$aa_detail_can_create = $aa_detail_id > 0;
+$aa_detail_ajax_url = admin_url('admin-ajax.php');
+$aa_detail_create_action = class_exists('ExpedienteRegistrosByExpedienteAjax')
+    ? ExpedienteRegistrosByExpedienteAjax::ACTION_CREATE
+    : 'aa_create_expediente_registro_for_expediente';
+$aa_detail_create_nonce_action = class_exists('ExpedienteRegistrosByExpedienteAjax')
+    ? ExpedienteRegistrosByExpedienteAjax::NONCE_ACTION
+    : 'aa_expediente_registros_by_expediente_nonce';
+$aa_detail_create_nonce = $aa_detail_can_create
+    ? wp_create_nonce($aa_detail_create_nonce_action)
+    : '';
+$aa_detail_success_url = $aa_detail_can_create
+    ? add_query_arg(
+        [
+            'action' => 'aa_iframe_content',
+            'module' => 'expedientes',
+            'view' => 'detail',
+            'expediente_id' => (string) $aa_detail_id,
+        ],
+        admin_url('admin-post.php')
+    )
+    : '';
 ?>
 
 <div
@@ -130,3 +154,36 @@ $aa_records_has_next = !empty($aa_records_view['has_next']) && $aa_records_next_
         </div>
     </div>
 </div>
+
+<?php if ($aa_detail_can_create) : ?>
+<div id="aa-expediente-detail-fab-stack" class="aa-expediente-detail-fab-stack fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+    <button
+        type="button"
+        id="aa-expediente-detail-new-registro"
+        class="aa-expediente-detail-fab inline-flex items-center gap-2 px-4 py-3 text-base font-bold text-white bg-violet-600 hover:bg-violet-700 active:bg-violet-800 rounded-full shadow-lg shadow-violet-600/30 hover:shadow-xl hover:shadow-violet-600/35 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-violet-500/40"
+        aria-label="Nuevo registro"
+        data-expediente-detail-tool="create-registro"
+    >
+        <span>Nuevo registro</span>
+    </button>
+</div>
+
+<script>
+    if (typeof window.ajaxurl === 'undefined') {
+        window.ajaxurl = <?php echo wp_json_encode($aa_detail_ajax_url); ?>;
+    }
+
+    window.AA_EXPEDIENTE_DETAIL_DATA = {
+        ajaxUrl: window.ajaxurl || <?php echo wp_json_encode($aa_detail_ajax_url); ?>,
+        nonce: <?php echo wp_json_encode($aa_detail_create_nonce); ?>,
+        action: <?php echo wp_json_encode($aa_detail_create_action); ?>,
+        expedienteId: <?php echo wp_json_encode((string) $aa_detail_id); ?>,
+        successUrl: <?php echo wp_json_encode($aa_detail_success_url); ?>
+    };
+</script>
+<?php
+$aa_detail_create_js = plugin_dir_url(__FILE__) . 'expediente-registro-create-modal.js';
+$aa_detail_create_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
+?>
+<script src="<?php echo esc_url($aa_detail_create_js . '?ver=' . rawurlencode($aa_detail_create_ver)); ?>" defer></script>
+<?php endif; ?>

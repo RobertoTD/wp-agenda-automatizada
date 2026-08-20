@@ -66,7 +66,7 @@ final class AA_Schema {
      * Independiente de la versión del plugin. Solo refleja el estado
      * de las tablas/columnas/índices.
      */
-    public const DB_VERSION = '16';
+    public const DB_VERSION = '17';
 
     public const OPTION_INSTALLATION_INITIALIZED_AT = 'aa_installation_initialized_at';
 
@@ -515,23 +515,28 @@ final class AA_Schema {
             'ALTER TABLE ' . $expediente_categories_table . ' ADD UNIQUE KEY slug (slug)'
         );
 
-        // 🔹 Expedientes padre (DB 14 — category_id obligatorio; sin client_id ni FK)
+        // 🔹 Expedientes padre (DB 14 — category_id obligatorio; DB 17 client_id nullable UNIQUE; sin FK)
         $expedientes_table = $wpdb->prefix . 'aa_expedientes';
         $expedientes_sql = "CREATE TABLE $expedientes_table (
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             title varchar(200) NOT NULL,
             description text,
             category_id bigint(20) unsigned NOT NULL,
+            client_id bigint(20) unsigned DEFAULT NULL,
             created_at datetime NOT NULL,
             updated_at datetime DEFAULT NULL,
             PRIMARY KEY  (id),
+            UNIQUE KEY uq_aa_exp_client_id (client_id),
             KEY category_id (category_id),
             KEY created_id (created_at, id)
         ) $charset;";
 
         dbDelta($expedientes_sql);
+        // dbDelta no añade de forma fiable columnas/UNIQUE en installs existentes.
+        self::ensure_expedientes_client_id_nullable_unique();
 
         self::ensure_expediente_category_general();
+        self::ensure_expediente_category_clientes();
 
         // NOTA: FOREIGN KEY constraints no se incluyen aquí porque dbDelta() puede tener problemas
         // con ellos. Si se necesitan, deben agregarse manualmente después de la creación:
@@ -642,6 +647,97 @@ final class AA_Schema {
     }
 
     /**
+     * DB 17: añade `aa_expedientes.client_id` nullable + UNIQUE en installs
+     * existentes (dbDelta no es fiable para ADD COLUMN / UNIQUE).
+     *
+     * Idempotente. Si columna o índice no quedan correctos, lanza
+     * RuntimeException para no consolidar `aa_db_version`.
+     */
+    private static function ensure_expedientes_client_id_nullable_unique(): void {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'aa_expedientes';
+        $column = self::expedientes_client_id_column($table);
+
+        if ($column === null) {
+            $wpdb->query(
+                "ALTER TABLE {$table} ADD COLUMN client_id bigint(20) unsigned NULL DEFAULT NULL"
+            );
+            $column = self::expedientes_client_id_column($table);
+        }
+
+        if ($column === null) {
+            $error = is_string($wpdb->last_error) && $wpdb->last_error !== ''
+                ? $wpdb->last_error
+                : 'columna client_id ausente';
+            throw new \RuntimeException(
+                '[AA_Schema] No se pudo añadir client_id en aa_expedientes: ' . $error
+            );
+        }
+
+        if (strtoupper((string) ($column['Null'] ?? '')) !== 'YES') {
+            $wpdb->query(
+                "ALTER TABLE {$table} MODIFY COLUMN client_id bigint(20) unsigned NULL DEFAULT NULL"
+            );
+            $column = self::expedientes_client_id_column($table);
+            if ($column === null || strtoupper((string) ($column['Null'] ?? '')) !== 'YES') {
+                $error = is_string($wpdb->last_error) && $wpdb->last_error !== ''
+                    ? $wpdb->last_error
+                    : 'client_id sigue NOT NULL tras MODIFY';
+                throw new \RuntimeException(
+                    '[AA_Schema] No se pudo hacer nullable client_id en aa_expedientes: ' . $error
+                );
+            }
+        }
+
+        $index_name = 'uq_aa_exp_client_id';
+        $existing = $wpdb->get_results(
+            $wpdb->prepare(
+                "SHOW INDEX FROM {$table} WHERE Key_name = %s",
+                $index_name
+            )
+        );
+
+        if (empty($existing)) {
+            $wpdb->query(
+                "ALTER TABLE {$table} ADD UNIQUE KEY {$index_name} (client_id)"
+            );
+            $existing = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SHOW INDEX FROM {$table} WHERE Key_name = %s",
+                    $index_name
+                )
+            );
+        }
+
+        if (empty($existing)) {
+            $error = is_string($wpdb->last_error) && $wpdb->last_error !== ''
+                ? $wpdb->last_error
+                : 'índice UNIQUE client_id ausente';
+            throw new \RuntimeException(
+                '[AA_Schema] No se pudo crear UNIQUE client_id en aa_expedientes: ' . $error
+            );
+        }
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private static function expedientes_client_id_column(string $table): ?array {
+        global $wpdb;
+
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SHOW COLUMNS FROM {$table} LIKE %s",
+                'client_id'
+            ),
+            ARRAY_A
+        );
+
+        return is_array($row) ? $row : null;
+    }
+
+    /**
      * Crea la categoría de sistema `general` si aún no existe en el blog actual.
      *
      * Idempotente ante reejecución de install() y ante una carrera protegida
@@ -649,10 +745,23 @@ final class AA_Schema {
      * considera fallida la migración.
      */
     private static function ensure_expediente_category_general(): void {
+        self::ensure_expediente_category('general', 'General');
+    }
+
+    /**
+     * Crea la categoría de sistema `clientes` si aún no existe (DB 17).
+     */
+    private static function ensure_expediente_category_clientes(): void {
+        self::ensure_expediente_category('clientes', 'Clientes');
+    }
+
+    /**
+     * Seed idempotente de una categoría de expediente por slug.
+     */
+    private static function ensure_expediente_category(string $slug, string $name): void {
         global $wpdb;
 
         $table = $wpdb->prefix . 'aa_expediente_categories';
-        $slug = 'general';
 
         if (self::expediente_category_id_by_slug($table, $slug) !== null) {
             return;
@@ -663,7 +772,7 @@ final class AA_Schema {
             $table,
             [
                 'slug' => $slug,
-                'name' => 'General',
+                'name' => $name,
                 'created_at' => current_time('mysql'),
             ],
             ['%s', '%s', '%s']
@@ -679,7 +788,7 @@ final class AA_Schema {
             : 'unknown';
 
         throw new \RuntimeException(
-            '[AA_Schema] No se pudo crear la categoría de expediente general: ' . $error
+            '[AA_Schema] No se pudo crear la categoría de expediente ' . $slug . ': ' . $error
         );
     }
 

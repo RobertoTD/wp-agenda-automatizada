@@ -30,7 +30,7 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 $schema_src = file_get_contents($schema_file);
 $repo_src = file_get_contents($repo_file);
 ac_assert('Schema readable', is_string($schema_src) && $schema_src !== '');
-ac_assert('DB_VERSION is 16', strpos($schema_src, "DB_VERSION = '16'") !== false);
+ac_assert('DB_VERSION is 17', strpos($schema_src, "DB_VERSION = '17'") !== false);
 ac_assert('DB_VERSION ya no es 15', strpos($schema_src, "DB_VERSION = '15'") === false);
 ac_assert('CREATE TABLE aa_expediente_registros', strpos($schema_src, 'aa_expediente_registros') !== false);
 ac_assert('title varchar(200)', strpos($schema_src, 'title varchar(200) NOT NULL') !== false);
@@ -139,13 +139,13 @@ ac_assert(
     'insert legacy del repo no escribe expediente_id',
     is_string($repo_src)
     && ($legacy_start = strpos($repo_src, 'public static function insert(array $data)')) !== false
-    && ($ife_start = strpos($repo_src, 'public static function insert_for_expediente')) !== false
-    && $ife_start > $legacy_start
-    && strpos(substr($repo_src, $legacy_start, $ife_start - $legacy_start), "'expediente_id'") === false
+    && ($bridge_start = strpos($repo_src, 'public static function insert_for_client_expediente')) !== false
+    && $bridge_start > $legacy_start
+    && strpos(substr($repo_src, $legacy_start, $bridge_start - $legacy_start), "'expediente_id'") === false
 );
 ac_assert(
-    'DB_VERSION permanece 16',
-    strpos($schema_src, "DB_VERSION = '16'") !== false
+    'DB_VERSION es 17',
+    strpos($schema_src, "DB_VERSION = '17'") !== false
     && strpos($schema_src, "DB_VERSION = '15'") === false
 );
 
@@ -342,7 +342,7 @@ if ($wp_load !== '' && is_readable($wp_load)) {
     }
 
     $version = get_option('aa_db_version', '0');
-    ac_assert('aa_db_version es 16 tras install', (string) $version === '16', (string) $version);
+    ac_assert('aa_db_version es 17 tras install', (string) $version === '17', (string) $version);
     ac_assert('upgrade path: versión previa no bloquea', true, 'before=' . $before);
     ac_assert('install() repetido es idempotente', true, 'doble install OK');
 } else {

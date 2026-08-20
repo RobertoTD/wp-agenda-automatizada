@@ -46,7 +46,7 @@ function ac_schema_table_block(string $schema_src, string $table_literal): strin
 
 $schema_src = file_get_contents($schema_file);
 ac_assert('Schema readable', is_string($schema_src) && $schema_src !== '');
-ac_assert('DB_VERSION is 16', strpos($schema_src, "DB_VERSION = '16'") !== false);
+ac_assert('DB_VERSION is 17', strpos($schema_src, "DB_VERSION = '17'") !== false);
 ac_assert(
     'usa prefix aa_expediente_categories',
     strpos($schema_src, "\$wpdb->prefix . 'aa_expediente_categories'") !== false
@@ -80,10 +80,22 @@ ac_assert(
     'category_id obligatorio',
     strpos($expedientes_block, 'category_id bigint(20) unsigned NOT NULL') !== false
 );
+ac_assert(
+    'padre client_id nullable',
+    strpos($expedientes_block, 'client_id bigint(20) unsigned DEFAULT NULL') !== false
+    && strpos($expedientes_block, 'client_id bigint(20) unsigned NOT NULL') === false
+);
+ac_assert(
+    'UNIQUE KEY uq_aa_exp_client_id',
+    strpos($expedientes_block, 'UNIQUE KEY uq_aa_exp_client_id (client_id)') !== false
+);
+ac_assert(
+    'ensure client_id nullable unique',
+    strpos($schema_src, 'ensure_expedientes_client_id_nullable_unique') !== false
+);
 ac_assert('KEY category_id', strpos($expedientes_block, 'KEY category_id (category_id)') !== false);
 ac_assert('KEY created_id', strpos($expedientes_block, 'KEY created_id (created_at, id)') !== false);
 ac_assert('padre sin FOREIGN KEY', $expedientes_block !== '' && strpos($expedientes_block, 'FOREIGN KEY') === false);
-ac_assert('padre sin client_id', $expedientes_block !== '' && strpos($expedientes_block, 'client_id') === false);
 ac_assert('padre sin pivote category_ids', $expedientes_block !== '' && strpos($expedientes_block, 'category_ids') === false);
 
 ac_assert(
@@ -120,14 +132,13 @@ ac_assert('adjuntos sin FOREIGN KEY', $adjuntos_block !== '' && strpos($adjuntos
 
 ac_assert(
     'seed general por slug',
-    strpos($schema_src, "function ensure_expediente_category_general") !== false
-    && strpos($schema_src, "\$slug = 'general'") !== false
-    && strpos($schema_src, "'name' => 'General'") !== false
+    strpos($schema_src, 'function ensure_expediente_category_general') !== false
+    && strpos($schema_src, "ensure_expediente_category('general', 'General')") !== false
 );
 ac_assert(
-    'seed no siembra clientes',
-    strpos($schema_src, "'slug' => 'clientes'") === false
-    && preg_match("/slug\s*=\s*'clientes'/", $schema_src) !== 1
+    'seed clientes por slug',
+    strpos($schema_src, 'function ensure_expediente_category_clientes') !== false
+    && strpos($schema_src, "ensure_expediente_category('clientes', 'Clientes')") !== false
 );
 ac_assert(
     'seed relee tras insert (carrera UNIQUE)',
@@ -140,7 +151,8 @@ ac_assert(
     && strpos($schema_src, "\$_REQUEST['blog_id']") === false
     && strpos($schema_src, "\$_POST['blog_id']") === false
 );
-ac_assert('install llama al seed', strpos($schema_src, 'self::ensure_expediente_category_general()') !== false);
+ac_assert('install llama seed general', strpos($schema_src, 'self::ensure_expediente_category_general()') !== false);
+ac_assert('install llama seed clientes', strpos($schema_src, 'self::ensure_expediente_category_clientes()') !== false);
 ac_assert('maybe_migrate sigue en Schema', strpos($schema_src, 'function maybe_migrate') !== false);
 ac_assert('install bumpea aa_db_version', strpos($schema_src, "update_option('aa_db_version', self::DB_VERSION)") !== false);
 
@@ -311,7 +323,14 @@ if ($wp_load !== '' && is_readable($wp_load)) {
     );
 
     $client_id_col = $wpdb->get_row("SHOW COLUMNS FROM {$expedientes_table} LIKE 'client_id'", ARRAY_A);
-    ac_assert('padre no tiene client_id', empty($client_id_col));
+    ac_assert(
+        'padre tiene client_id nullable',
+        is_array($client_id_col)
+        && strtoupper((string) ($client_id_col['Null'] ?? '')) === 'YES',
+        is_array($client_id_col) ? (string) ($client_id_col['Null'] ?? '') : 'missing'
+    );
+    $client_uq = $wpdb->get_results("SHOW INDEX FROM {$expedientes_table} WHERE Key_name = 'uq_aa_exp_client_id'");
+    ac_assert('UNIQUE client_id existe', is_array($client_uq) && count($client_uq) >= 1);
 
     $general_count = (int) $wpdb->get_var(
         $wpdb->prepare(
@@ -321,6 +340,14 @@ if ($wp_load !== '' && is_readable($wp_load)) {
     );
     ac_assert('exactamente una categoría general', $general_count === 1, (string) $general_count);
 
+    $clientes_count = (int) $wpdb->get_var(
+        $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$categories_table} WHERE slug = %s",
+            'clientes'
+        )
+    );
+    ac_assert('exactamente una categoría clientes', $clientes_count === 1, (string) $clientes_count);
+
     $general_name = $wpdb->get_var(
         $wpdb->prepare(
             "SELECT name FROM {$categories_table} WHERE slug = %s LIMIT 1",
@@ -328,6 +355,14 @@ if ($wp_load !== '' && is_readable($wp_load)) {
         )
     );
     ac_assert('nombre General', $general_name === 'General', (string) $general_name);
+
+    $clientes_name = $wpdb->get_var(
+        $wpdb->prepare(
+            "SELECT name FROM {$categories_table} WHERE slug = %s LIMIT 1",
+            'clientes'
+        )
+    );
+    ac_assert('nombre Clientes', $clientes_name === 'Clientes', (string) $clientes_name);
 
     $fk_sql = $wpdb->prepare(
         "SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS
@@ -365,7 +400,7 @@ if ($wp_load !== '' && is_readable($wp_load)) {
     ac_assert('adjuntos reales sin expediente_id', empty($adjuntos_expediente_id));
 
     $version = get_option('aa_db_version', '0');
-    ac_assert('aa_db_version es 16 tras install', (string) $version === '16', (string) $version);
+    ac_assert('aa_db_version es 17 tras install', (string) $version === '17', (string) $version);
     ac_assert('upgrade path: versión previa no bloquea', true, 'before=' . $before);
 } else {
     echo "\n(skip WP integration — set AA_WP_ROOT para install/upgrade real)\n";

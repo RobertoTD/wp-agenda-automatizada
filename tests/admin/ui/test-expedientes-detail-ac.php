@@ -112,13 +112,30 @@ ac_assert('detalle sección Registros', strpos($detail, 'Registros') !== false);
 ac_assert('detalle incluye partial read-only', strpos($detail, 'expediente-record-readonly.php') !== false);
 ac_assert('detalle empty honesto', strpos($detail, 'Aún no hay registros en este expediente') !== false);
 ac_assert('detalle incluye paginación SSR', strpos($detail, 'aa-expediente-detail-pagination') !== false);
-ac_assert('detalle sin FAB', strpos($detail, 'aa-expedientes-new-expediente') === false);
+ac_assert('detalle tiene FAB Nuevo registro propio', strpos($detail, 'id="aa-expediente-detail-new-registro"') !== false
+    && strpos($detail, 'Nuevo registro') !== false
+    && strpos($detail, 'data-expediente-detail-tool="create-registro"') !== false);
+ac_assert('detalle sin FAB Nuevo expediente del listado', strpos($detail, 'aa-expedientes-new-expediente') === false
+    && strpos($detail, 'aa-expedientes-fab-stack') === false);
+ac_assert('detalle emite AA_EXPEDIENTE_DETAIL_DATA', strpos($detail, 'window.AA_EXPEDIENTE_DETAIL_DATA') !== false);
+ac_assert('detalle successUrl canónica sin records_page', strpos($detail, "'view' => 'detail'") !== false
+    && strpos($detail, "'expediente_id' => (string) \$aa_detail_id") !== false
+    && strpos($detail, "'records_page'") === false
+    && strpos($detail, 'client_id') === false
+    && strpos($detail, 'blog_id') === false);
+ac_assert('detalle carga script create registro', strpos($detail, 'expediente-registro-create-modal.js') !== false);
 ac_assert('detalle sin buscador/paginador', strpos($detail, 'aa-expedientes-search') === false
     && strpos($detail, 'aa-expedientes-pagination') === false);
 ac_assert('detalle sin menú opciones', strpos($detail, 'aa-expediente-options') === false);
-ac_assert('detalle sin JS de listado', strpos($detail, 'expedientes-module.js') === false
+ac_assert('detalle sin JS de listado ni legacy', strpos($detail, 'expedientes-module.js') === false
     && strpos($detail, 'expediente-create-modal.js') === false
     && strpos($detail, 'expediente-registros.js') === false);
+ac_assert('listado no emite AA_EXPEDIENTE_DETAIL_DATA', strpos($module, 'AA_EXPEDIENTE_DETAIL_DATA') === false
+    && strpos($module, 'aa-expediente-detail-new-registro') === false
+    && strpos($module, 'expediente-registro-create-modal.js') === false);
+ac_assert('legacy clients sin config/script de detalle', strpos($clients_index, 'AA_EXPEDIENTE_DETAIL_DATA') === false
+    && strpos($clients_index, 'expediente-registro-create-modal.js') === false
+    && strpos($clients_index, 'aa-expediente-detail-new-registro') === false);
 ac_assert('detalle no reutiliza aa-expediente-root', strpos($detail, 'aa-expediente-root') === false);
 ac_assert('detalle no usa $wpdb', strpos($detail, '$wpdb') === false);
 ac_assert('partial usa details/summary', strpos($detail_partial, '<details') !== false && strpos($detail_partial, '<summary') !== false);
@@ -183,6 +200,14 @@ if (!function_exists('wp_create_nonce')) {
         return 'nonce-' . $action;
     }
 }
+if (!function_exists('add_query_arg')) {
+    function add_query_arg($args, $url = '') {
+        $base = (string) $url;
+        $query = http_build_query($args, '', '&', PHP_QUERY_RFC3986);
+        $sep = strpos($base, '?') === false ? '?' : '&';
+        return $base . $sep . $query;
+    }
+}
 if (!function_exists('plugin_dir_url')) {
     function plugin_dir_url($file) {
         return 'https://example.test/wp-content/plugins/wp-agenda-automatizada/includes/admin/ui/modules/expedientes/';
@@ -190,6 +215,12 @@ if (!function_exists('plugin_dir_url')) {
 }
 if (!defined('AA_PLUGIN_VERSION')) {
     define('AA_PLUGIN_VERSION', 'test');
+}
+if (!class_exists('ExpedienteRegistrosByExpedienteAjax')) {
+    final class ExpedienteRegistrosByExpedienteAjax {
+        public const ACTION_CREATE = 'aa_create_expediente_registro_for_expediente';
+        public const NONCE_ACTION = 'aa_expediente_registros_by_expediente_nonce';
+    }
 }
 
 $aa_expediente_detail = [
@@ -236,6 +267,38 @@ ac_assert('runtime no carga listado', strpos($rendered_detail, 'id="aa-expedient
     && strpos($rendered_detail, 'aa-expedientes-new-expediente') === false
     && strpos($rendered_detail, 'expedientes-module.js') === false
     && strpos($rendered_detail, 'expediente-create-modal.js') === false);
+ac_assert('runtime FAB Nuevo registro', strpos($rendered_detail, 'id="aa-expediente-detail-new-registro"') !== false
+    && strpos($rendered_detail, '>Nuevo registro<') !== false);
+ac_assert('runtime emite AA_EXPEDIENTE_DETAIL_DATA', strpos($rendered_detail, 'AA_EXPEDIENTE_DETAIL_DATA') !== false);
+ac_assert(
+    'runtime config action/nonce/id',
+    strpos($rendered_detail, 'aa_create_expediente_registro_for_expediente') !== false
+    && strpos($rendered_detail, 'nonce-aa_expediente_registros_by_expediente_nonce') !== false
+    && strpos($rendered_detail, 'expedienteId:') !== false
+    && strpos($rendered_detail, '"7"') !== false
+);
+ac_assert(
+    'runtime successUrl canónica',
+    strpos($rendered_detail, 'action=aa_iframe_content') !== false
+    && strpos($rendered_detail, 'module=expedientes') !== false
+    && strpos($rendered_detail, 'view=detail') !== false
+    && strpos($rendered_detail, 'expediente_id=7') !== false
+);
+ac_assert(
+    'runtime successUrl sin records_page ni extras',
+    preg_match('/AA_EXPEDIENTE_DETAIL_DATA[\s\S]*?successUrl["\']?\s*:\s*["\']([^"\']+)["\']/', $rendered_detail, $success_m) === 1
+    && isset($success_m[1])
+    && strpos($success_m[1], 'records_page') === false
+    && strpos($success_m[1], 'client_id') === false
+    && strpos($success_m[1], 'blog_id') === false
+    && strpos($success_m[1], 'junk') === false
+);
+ac_assert('runtime carga script create registro', strpos($rendered_detail, 'expediente-registro-create-modal.js') !== false);
+ac_assert('runtime sin expediente-registros.js', strpos($rendered_detail, 'expediente-registros.js') === false);
+ac_assert('runtime sin editar/eliminar/adjuntar', strpos($rendered_detail, 'Editar registro') === false
+    && strpos($rendered_detail, 'Eliminar') === false
+    && strpos($rendered_detail, 'Añadir imagen') === false
+    && strpos($rendered_detail, 'aa-expediente-registro-options') === false);
 ac_assert(
     'runtime escapa título',
     strpos($rendered_detail, '&lt;img src=x onerror=alert(1)&gt;') !== false

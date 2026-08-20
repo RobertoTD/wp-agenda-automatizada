@@ -321,6 +321,77 @@ final class ExpedienteRegistrosRepository {
     }
 
     /**
+     * Inserta un registro puente (legacy + canónico): client_id y expediente_id.
+     * Ambos IDs obligatorios. No lee owners desde HTTP; el caller los deriva.
+     *
+     * @param array{
+     *   client_id:int,
+     *   expediente_id:int,
+     *   title:string,
+     *   body:string,
+     *   recorded_at:string,
+     *   created_at:string
+     * } $data
+     * @return array{id:int,client_id:int,title:string,body:string,recorded_at:string,created_at:string,updated_at:?string}|\WP_Error
+     */
+    public static function insert_for_client_expediente(array $data) {
+        global $wpdb;
+
+        $client_id = (int) ($data['client_id'] ?? 0);
+        $expediente_id = (int) ($data['expediente_id'] ?? 0);
+        $title = (string) ($data['title'] ?? '');
+        $body = (string) ($data['body'] ?? '');
+        $recorded_at = (string) ($data['recorded_at'] ?? '');
+        $created_at = (string) ($data['created_at'] ?? '');
+
+        if (
+            $client_id < 1
+            || $expediente_id < 1
+            || $title === ''
+            || $body === ''
+            || $recorded_at === ''
+            || $created_at === ''
+        ) {
+            return new WP_Error('invalid_registro_data', 'Datos de registro incompletos.');
+        }
+
+        $table = self::table_name();
+        $result = $wpdb->insert(
+            $table,
+            [
+                'client_id' => $client_id,
+                'expediente_id' => $expediente_id,
+                'title' => $title,
+                'body' => $body,
+                'recorded_at' => $recorded_at,
+                'created_at' => $created_at,
+            ],
+            ['%d', '%d', '%s', '%s', '%s', '%s']
+        );
+
+        if ($result === false) {
+            error_log('[ExpedienteRegistrosRepository] insert_for_client_expediente error: ' . $wpdb->last_error);
+
+            return new WP_Error('db_error', 'Error al guardar el registro.');
+        }
+
+        $id = (int) $wpdb->insert_id;
+        if ($id < 1) {
+            return new WP_Error('db_error', 'No se pudo obtener el ID del registro.');
+        }
+
+        return [
+            'id' => $id,
+            'client_id' => $client_id,
+            'title' => $title,
+            'body' => $body,
+            'recorded_at' => $recorded_at,
+            'created_at' => $created_at,
+            'updated_at' => null,
+        ];
+    }
+
+    /**
      * Inserta un registro scoped a expediente padre (client_id forzado a NULL).
      * No acepta client_id: el owner es solo expediente_id.
      *
