@@ -63,10 +63,28 @@ $aa_records_has_next = !empty($aa_records_view['has_next']) && $aa_records_next_
 
 $aa_detail_can_create = $aa_detail_id > 0;
 $aa_detail_ajax_url = admin_url('admin-ajax.php');
-$aa_detail_create_action = class_exists('ExpedienteRegistrosByExpedienteAjax')
+$aa_detail_create_action = (class_exists('ExpedienteRegistrosByExpedienteAjax')
+    && defined('ExpedienteRegistrosByExpedienteAjax::ACTION_CREATE'))
     ? ExpedienteRegistrosByExpedienteAjax::ACTION_CREATE
     : 'aa_create_expediente_registro_for_expediente';
-$aa_detail_create_nonce_action = class_exists('ExpedienteRegistrosByExpedienteAjax')
+$aa_detail_list_action = (class_exists('ExpedienteRegistrosByExpedienteAjax')
+    && defined('ExpedienteRegistrosByExpedienteAjax::ACTION_LIST'))
+    ? ExpedienteRegistrosByExpedienteAjax::ACTION_LIST
+    : 'aa_list_expediente_registros_for_expediente';
+$aa_detail_attach_action = (class_exists('ExpedienteAdjuntosByExpedienteAjax')
+    && defined('ExpedienteAdjuntosByExpedienteAjax::ACTION_ATTACH'))
+    ? ExpedienteAdjuntosByExpedienteAjax::ACTION_ATTACH
+    : 'aa_attach_expediente_adjunto_for_expediente';
+$aa_detail_sign_read_action = (class_exists('ExpedienteAdjuntosByExpedienteAjax')
+    && defined('ExpedienteAdjuntosByExpedienteAjax::ACTION_SIGN_READ'))
+    ? ExpedienteAdjuntosByExpedienteAjax::ACTION_SIGN_READ
+    : 'aa_sign_expediente_adjunto_read_for_expediente';
+$aa_detail_delete_adjunto_action = (class_exists('ExpedienteAdjuntosByExpedienteAjax')
+    && defined('ExpedienteAdjuntosByExpedienteAjax::ACTION_DELETE'))
+    ? ExpedienteAdjuntosByExpedienteAjax::ACTION_DELETE
+    : 'aa_delete_expediente_adjunto_for_expediente';
+$aa_detail_create_nonce_action = (class_exists('ExpedienteRegistrosByExpedienteAjax')
+    && defined('ExpedienteRegistrosByExpedienteAjax::NONCE_ACTION'))
     ? ExpedienteRegistrosByExpedienteAjax::NONCE_ACTION
     : 'aa_expediente_registros_by_expediente_nonce';
 $aa_detail_create_nonce = $aa_detail_can_create
@@ -82,6 +100,9 @@ $aa_detail_success_url = $aa_detail_can_create
         ],
         admin_url('admin-post.php')
     )
+    : '';
+$aa_detail_scope_key = $aa_detail_can_create
+    ? ('expediente:' . (string) $aa_detail_id)
     : '';
 ?>
 
@@ -178,7 +199,24 @@ $aa_detail_success_url = $aa_detail_can_create
         nonce: <?php echo wp_json_encode($aa_detail_create_nonce); ?>,
         action: <?php echo wp_json_encode($aa_detail_create_action); ?>,
         expedienteId: <?php echo wp_json_encode((string) $aa_detail_id); ?>,
-        successUrl: <?php echo wp_json_encode($aa_detail_success_url); ?>
+        successUrl: <?php echo wp_json_encode($aa_detail_success_url); ?>,
+        scopeKey: <?php echo wp_json_encode($aa_detail_scope_key); ?>,
+        recordsPage: <?php echo wp_json_encode((int) $aa_records_page); ?>,
+        actions: {
+            listRegistros: <?php echo wp_json_encode($aa_detail_list_action); ?>,
+            createRegistro: <?php echo wp_json_encode($aa_detail_create_action); ?>,
+            attachRegistro: <?php echo wp_json_encode($aa_detail_attach_action); ?>,
+            signAdjuntoRead: <?php echo wp_json_encode($aa_detail_sign_read_action); ?>,
+            deleteAdjunto: <?php echo wp_json_encode($aa_detail_delete_adjunto_action); ?>
+        },
+        capabilities: {
+            createRegistro: true,
+            updateRegistro: false,
+            deleteRegistro: false,
+            attach: true,
+            signRead: true,
+            deleteAdjunto: true
+        }
     };
 </script>
 <?php

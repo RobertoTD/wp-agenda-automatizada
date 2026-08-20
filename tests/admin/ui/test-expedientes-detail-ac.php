@@ -123,6 +123,51 @@ ac_assert('detalle successUrl canónica sin records_page', strpos($detail, "'vie
     && strpos($detail, "'records_page'") === false
     && strpos($detail, 'client_id') === false
     && strpos($detail, 'blog_id') === false);
+ac_assert(
+    'detalle config C1b: scopeKey desde padre resuelto',
+    strpos($detail, "\$aa_detail_scope_key = \$aa_detail_can_create") !== false
+    && strpos($detail, "'expediente:' . (string) \$aa_detail_id") !== false
+    && strpos($detail, 'scopeKey:') !== false
+);
+ac_assert(
+    'detalle config C1b: recordsPage efectiva del SSR',
+    strpos($detail, 'recordsPage:') !== false
+    && strpos($detail, '(int) $aa_records_page') !== false
+    && strpos($detail, "\$_GET['records_page']") === false
+);
+ac_assert(
+    'detalle config C1b: cinco actions canónicas',
+    strpos($detail, 'listRegistros:') !== false
+    && strpos($detail, 'createRegistro:') !== false
+    && strpos($detail, 'attachRegistro:') !== false
+    && strpos($detail, 'signAdjuntoRead:') !== false
+    && strpos($detail, 'deleteAdjunto:') !== false
+    && strpos($detail, 'ACTION_LIST') !== false
+    && strpos($detail, 'ACTION_ATTACH') !== false
+    && strpos($detail, 'ACTION_SIGN_READ') !== false
+    && strpos($detail, 'ACTION_DELETE') !== false
+);
+ac_assert(
+    'detalle config C1b: capabilities exactas',
+    strpos($detail, 'createRegistro: true') !== false
+    && strpos($detail, 'updateRegistro: false') !== false
+    && strpos($detail, 'deleteRegistro: false') !== false
+    && strpos($detail, 'attach: true') !== false
+    && strpos($detail, 'signRead: true') !== false
+    && strpos($detail, 'deleteAdjunto: true') !== false
+);
+ac_assert(
+    'detalle config C1b: sin clientId ni rutas privadas',
+    strpos($detail, 'clientId') === false
+    && strpos($detail, 'client_id') === false
+    && strpos($detail, 'storage_path') === false
+    && strpos($detail, 'storagePath') === false
+);
+ac_assert(
+    'detalle reutiliza nonce by-expediente (sin nonce extra)',
+    strpos($detail, 'aa_expediente_registros_by_expediente_nonce') !== false
+    && substr_count($detail, 'wp_create_nonce') === 1
+);
 ac_assert('detalle carga script create registro', strpos($detail, 'expediente-registro-create-modal.js') !== false);
 ac_assert('detalle sin buscador/paginador', strpos($detail, 'aa-expedientes-search') === false
     && strpos($detail, 'aa-expedientes-pagination') === false);
@@ -130,6 +175,13 @@ ac_assert('detalle sin menú opciones', strpos($detail, 'aa-expediente-options')
 ac_assert('detalle sin JS de listado ni legacy', strpos($detail, 'expedientes-module.js') === false
     && strpos($detail, 'expediente-create-modal.js') === false
     && strpos($detail, 'expediente-registros.js') === false);
+ac_assert(
+    'detalle C1b sin carga/montaje adapter ni renderer',
+    strpos($detail, 'expediente-registros-canonical-adapter.js') === false
+    && strpos($detail, 'executable-options-menu-placement') === false
+    && strpos($detail, 'ExpedienteRegistrosCanonicalAdapter') === false
+    && strpos($detail, 'ExpedienteRegistros.init') === false
+);
 ac_assert('listado no emite AA_EXPEDIENTE_DETAIL_DATA', strpos($module, 'AA_EXPEDIENTE_DETAIL_DATA') === false
     && strpos($module, 'aa-expediente-detail-new-registro') === false
     && strpos($module, 'expediente-registro-create-modal.js') === false);
@@ -219,7 +271,15 @@ if (!defined('AA_PLUGIN_VERSION')) {
 if (!class_exists('ExpedienteRegistrosByExpedienteAjax')) {
     final class ExpedienteRegistrosByExpedienteAjax {
         public const ACTION_CREATE = 'aa_create_expediente_registro_for_expediente';
+        public const ACTION_LIST = 'aa_list_expediente_registros_for_expediente';
         public const NONCE_ACTION = 'aa_expediente_registros_by_expediente_nonce';
+    }
+}
+if (!class_exists('ExpedienteAdjuntosByExpedienteAjax')) {
+    final class ExpedienteAdjuntosByExpedienteAjax {
+        public const ACTION_ATTACH = 'aa_attach_expediente_adjunto_for_expediente';
+        public const ACTION_SIGN_READ = 'aa_sign_expediente_adjunto_read_for_expediente';
+        public const ACTION_DELETE = 'aa_delete_expediente_adjunto_for_expediente';
     }
 }
 
@@ -276,6 +336,31 @@ ac_assert(
     && strpos($rendered_detail, 'nonce-aa_expediente_registros_by_expediente_nonce') !== false
     && strpos($rendered_detail, 'expedienteId:') !== false
     && strpos($rendered_detail, '"7"') !== false
+);
+ac_assert(
+    'runtime config C1b scope/page/actions/capabilities',
+    strpos($rendered_detail, '"expediente:7"') !== false
+    && strpos($rendered_detail, 'recordsPage:') !== false
+    && strpos($rendered_detail, 'recordsPage: 2') !== false
+    && strpos($rendered_detail, 'aa_list_expediente_registros_for_expediente') !== false
+    && strpos($rendered_detail, 'aa_attach_expediente_adjunto_for_expediente') !== false
+    && strpos($rendered_detail, 'aa_sign_expediente_adjunto_read_for_expediente') !== false
+    && strpos($rendered_detail, 'aa_delete_expediente_adjunto_for_expediente') !== false
+    && strpos($rendered_detail, 'createRegistro: true') !== false
+    && strpos($rendered_detail, 'updateRegistro: false') !== false
+    && strpos($rendered_detail, 'deleteRegistro: false') !== false
+    && strpos($rendered_detail, 'attach: true') !== false
+    && strpos($rendered_detail, 'signRead: true') !== false
+    && strpos($rendered_detail, 'deleteAdjunto: true') !== false
+    && strpos($rendered_detail, 'clientId') === false
+);
+ac_assert(
+    'runtime C1b sin adapter/renderer/bootstrap',
+    strpos($rendered_detail, 'expediente-registros-canonical-adapter.js') === false
+    && strpos($rendered_detail, 'expediente-registros.js') === false
+    && strpos($rendered_detail, 'executable-options-menu-placement') === false
+    && strpos($rendered_detail, 'ExpedienteRegistrosCanonicalAdapter') === false
+    && strpos($rendered_detail, 'ExpedienteRegistros.init') === false
 );
 ac_assert(
     'runtime successUrl canónica',
