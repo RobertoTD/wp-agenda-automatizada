@@ -413,10 +413,10 @@ describe('ExpedienteRegistros transport injection (ciclo A)', () => {
     });
 
     it('wiring: clients-module pasa transport explícito (ajaxUrl, nonce, actions)', () => {
-        assert.match(clientsModuleSrc, /transport:\s*\{/);
+        assert.match(clientsModuleSrc, /function buildExpedienteRegistrosTransport/);
+        assert.match(clientsModuleSrc, /transport:\s*transport/);
         assert.match(clientsModuleSrc, /ajaxUrl:\s*data\.ajaxUrl\s*\|\|\s*window\.ajaxurl/);
         assert.match(clientsModuleSrc, /nonce:\s*nonces\.expediente_registros/);
-        assert.match(clientsModuleSrc, /actions:\s*\{/);
         assert.match(clientsModuleSrc, /listRegistros:/);
         assert.match(clientsModuleSrc, /createRegistro:/);
         assert.match(clientsModuleSrc, /updateRegistro:/);

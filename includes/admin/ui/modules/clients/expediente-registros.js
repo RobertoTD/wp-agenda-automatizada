@@ -403,12 +403,27 @@
         records: [],
         loading: false,
         /**
-         * Transporte AJAX del montaje vigente.
-         * null = modalidad legacy (globals AA_CLIENTS_* / ajaxurl).
-         * objeto = modalidad inyectada autosuficiente (sin mezcla con globals).
+         * Transporte AJAX del montaje vigente (ciclo A).
+         * null = no modalidad transport; puede usarse globals si tampoco hay ports.
          */
-        transport: null
+        transport: null,
+        /**
+         * Ports ejecutables del montaje vigente (ciclo B1).
+         * null = no modalidad ports → transport o globals.
+         * objeto = modalidad exclusiva (sin mezcla con transport/globals).
+         */
+        ports: null
     };
+
+    var PORT_KEYS = [
+        'list',
+        'create',
+        'update',
+        'deleteRegistro',
+        'attach',
+        'signRead',
+        'deleteAdjunto'
+    ];
 
     var TRANSPORT_ACTION_KEYS = [
         'listRegistros',
@@ -452,8 +467,60 @@
     // Solo para abortar el watcher de cierre del modal (foco / limpieza).
     var modalCloseAbort = null;
 
+    function isPortsMode() {
+        return state.ports !== null;
+    }
+
     function isInjectedTransportMode() {
-        return state.transport !== null;
+        return !isPortsMode() && state.transport !== null;
+    }
+
+    /**
+     * Copia allowlist de ports (solo funciones). Objeto vacío = modalidad ports
+     * con todas las ops fallando de forma controlada al usarse (sin híbrido).
+     * @param {*} raw
+     * @returns {Object<string, Function>|null}
+     */
+    function normalizePorts(raw) {
+        if (!raw || typeof raw !== 'object') {
+            return null;
+        }
+        var ports = {};
+        for (var i = 0; i < PORT_KEYS.length; i++) {
+            var key = PORT_KEYS[i];
+            if (typeof raw[key] === 'function') {
+                ports[key] = raw[key];
+            }
+        }
+        return ports;
+    }
+
+    /**
+     * Invoca un port o falla controlado sin tocar transport/globals.
+     * @param {string} name
+     * @param {...*} args
+     * @returns {Promise<{httpStatus:number, result:object}>}
+     */
+    function callPort(name) {
+        var fn = state.ports && state.ports[name];
+        if (typeof fn !== 'function') {
+            console.error('[ExpedienteRegistros] port ausente:', name);
+            return Promise.resolve(transportIncompletePayload());
+        }
+        var args = Array.prototype.slice.call(arguments, 1);
+        try {
+            return Promise.resolve(fn.apply(null, args)).then(function (payload) {
+                if (payload && typeof payload === 'object' && Object.prototype.hasOwnProperty.call(payload, 'result')) {
+                    return payload;
+                }
+                console.error('[ExpedienteRegistros] port devolvió forma inesperada:', name);
+                return transportIncompletePayload();
+            }, function (err) {
+                return Promise.reject(err);
+            });
+        } catch (err) {
+            return Promise.reject(err);
+        }
     }
 
     /**
@@ -943,6 +1010,10 @@
      * attachment_id; el fallback sin attachment_id vive solo en PHP.
      */
     function postSignRead(recordId, attachmentId, variant, signal) {
+        if (isPortsMode()) {
+            return callPort('signRead', recordId, attachmentId, variant, signal);
+        }
+
         var action = resolveAction('signAdjuntoRead');
         if (!canSendTransportRequest(action)) {
             console.error('[ExpedienteRegistros] transporte incompleto para sign-read');
@@ -1360,6 +1431,7 @@
         state.clientId = 0;
         state.loading = false;
         state.transport = null;
+        state.ports = null;
     }
 
     // ── Fin miniaturas MC4c ─────────────────────────────────────────
@@ -1650,13 +1722,15 @@
             beforeAdjuntos = getRecordAdjuntos(recordBefore).slice();
         }
 
-        var action = resolveAction('deleteAdjunto');
+        var deleteAdjuntoRequest = isPortsMode()
+            ? callPort('deleteAdjunto', frozenRecordId, frozenAttachmentId)
+            : postForm(resolveAction('deleteAdjunto'), {
+                client_id: String(clientId),
+                record_id: String(frozenRecordId),
+                attachment_id: String(frozenAttachmentId)
+            });
 
-        postForm(action, {
-            client_id: String(clientId),
-            record_id: String(frozenRecordId),
-            attachment_id: String(frozenAttachmentId)
-        })
+        deleteAdjuntoRequest
             .then(function (payload) {
                 delete thumbs.deletingKeys[key];
 
@@ -1813,12 +1887,14 @@
             }
         }
 
-        var action = resolveAction('deleteRegistro');
+        var deleteRegistroRequest = isPortsMode()
+            ? callPort('deleteRegistro', frozenRecordId)
+            : postForm(resolveAction('deleteRegistro'), {
+                client_id: String(clientId),
+                record_id: String(frozenRecordId)
+            });
 
-        postForm(action, {
-            client_id: String(clientId),
-            record_id: String(frozenRecordId)
-        })
+        deleteRegistroRequest
             .then(function (payload) {
                 delete thumbs.deletingRecords[frozenRecordId];
 
@@ -2726,8 +2802,6 @@
     }
 
     function loadRecords() {
-        var action = resolveAction('listRegistros');
-
         // MC5a: una respuesta posterior a destroy(), cambio de cliente o
         // re-init no debe sobrescribir el estado vigente.
         var epoch = thumbs.viewEpoch;
@@ -2740,7 +2814,11 @@
         state.loading = true;
         renderStatusMessage('Cargando registros...', 'text-sm text-gray-500');
 
-        return postForm(action, { client_id: String(clientId) })
+        var listRequest = isPortsMode()
+            ? callPort('list')
+            : postForm(resolveAction('listRegistros'), { client_id: String(clientId) });
+
+        return listRequest
             .then(function (payload) {
                 if (isStale()) {
                     return;
@@ -3111,7 +3189,6 @@
                 return Promise.resolve({ ok: true, skipped: true });
             }
 
-            var action = resolveAction('attachRegistro');
             var operationId = pendingImage.operationId;
             var requestedRecordId = parseInt(recordId || (savedRecord && savedRecord.id) || 0, 10);
 
@@ -3120,16 +3197,20 @@
             saveBtn.textContent = 'Subiendo imagen...';
             retryBtn.disabled = true;
 
-            return postAttach(
-                action,
-                {
-                    client_id: String(state.clientId),
-                    record_id: String(requestedRecordId || ''),
-                    upload_operation_id: operationId
-                },
-                pendingImage.blob,
-                'adjunto.jpg'
-            ).then(function (payload) {
+            var attachRequest = isPortsMode()
+                ? callPort('attach', requestedRecordId, pendingImage.blob, operationId)
+                : postAttach(
+                    resolveAction('attachRegistro'),
+                    {
+                        client_id: String(state.clientId),
+                        record_id: String(requestedRecordId || ''),
+                        upload_operation_id: operationId
+                    },
+                    pendingImage.blob,
+                    'adjunto.jpg'
+                );
+
+            return attachRequest.then(function (payload) {
                 var result = payload.result;
                 if (result && result.success) {
                     // MC4c: validar identidad y DTO público antes de aplicarlo.
@@ -3219,22 +3300,30 @@
                 return;
             }
 
-            var action;
-            var fields = {
-                client_id: String(state.clientId),
-                title: title,
-                body: body
-            };
+            var draft = { title: title, body: body };
+            var saveRequest;
 
             if (mode === 'edit') {
                 if (!(recordId > 0)) {
                     showFormError('Registro no válido.');
                     return;
                 }
-                action = resolveAction('updateRegistro');
-                fields.record_id = String(recordId);
+                saveRequest = isPortsMode()
+                    ? callPort('update', recordId, draft)
+                    : postForm(resolveAction('updateRegistro'), {
+                        client_id: String(state.clientId),
+                        title: title,
+                        body: body,
+                        record_id: String(recordId)
+                    });
             } else {
-                action = resolveAction('createRegistro');
+                saveRequest = isPortsMode()
+                    ? callPort('create', draft)
+                    : postForm(resolveAction('createRegistro'), {
+                        client_id: String(state.clientId),
+                        title: title,
+                        body: body
+                    });
             }
 
             // Anticipar account-status en paralelo al guardado (no bloquea el flujo).
@@ -3247,7 +3336,7 @@
             saveBtn.textContent = 'Guardando...';
             fileInput.disabled = true;
 
-            postForm(action, fields)
+            saveRequest
                 .then(function (payload) {
                     var result = payload.result;
                     if (!(result && result.success && result.data && result.data.record)) {
@@ -3336,7 +3425,16 @@
      *   clientId:number,
      *   recordsRoot:HTMLElement,
      *   actionsRoot?:HTMLElement|null,
-     *   transport?:{ajaxUrl:string, nonce:string, actions:Object<string,string>}
+     *   transport?:{ajaxUrl:string, nonce:string, actions:Object<string,string>},
+     *   ports?:{
+     *     list?:Function,
+     *     create?:Function,
+     *     update?:Function,
+     *     deleteRegistro?:Function,
+     *     attach?:Function,
+     *     signRead?:Function,
+     *     deleteAdjunto?:Function
+     *   }
      * }} options
      */
     function init(options) {
@@ -3354,16 +3452,25 @@
             return;
         }
 
-        // Modalidad inyectada solo si `transport` está presente en options.
-        // No mezclar con globals: adapter inválido → no montar.
-        if (Object.prototype.hasOwnProperty.call(options, 'transport')) {
-            var normalized = normalizeTransport(options.transport);
-            if (!normalized) {
+        // Precedencia exclusiva: ports → transport → globals. Sin mezcla.
+        if (Object.prototype.hasOwnProperty.call(options, 'ports')) {
+            var normalizedPorts = normalizePorts(options.ports);
+            if (!normalizedPorts) {
+                console.error('[ExpedienteRegistros] ports inválidos');
+                return;
+            }
+            state.ports = normalizedPorts;
+            state.transport = null;
+        } else if (Object.prototype.hasOwnProperty.call(options, 'transport')) {
+            var normalizedTransport = normalizeTransport(options.transport);
+            if (!normalizedTransport) {
                 console.error('[ExpedienteRegistros] transport inválido o incompleto');
                 return;
             }
-            state.transport = normalized;
+            state.ports = null;
+            state.transport = normalizedTransport;
         } else {
+            state.ports = null;
             state.transport = null;
         }
 

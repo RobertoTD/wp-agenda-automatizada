@@ -938,29 +938,145 @@
         mountExpedienteRegistros(cliente.id, records, null);
     }
 
+    function buildExpedienteRegistrosTransport() {
+        var data = getClientsData();
+        var nonces = getClientsNonces();
+        var actions = data.actions || {};
+        return {
+            ajaxUrl: data.ajaxUrl || window.ajaxurl || '',
+            nonce: nonces.expediente_registros || '',
+            actions: {
+                listRegistros: actions.listRegistros || 'aa_list_expediente_registros',
+                createRegistro: actions.createRegistro || 'aa_create_expediente_registro',
+                updateRegistro: actions.updateRegistro || 'aa_update_expediente_registro',
+                deleteRegistro: actions.deleteRegistro || 'aa_delete_expediente_registro',
+                attachRegistro: actions.attachRegistro || 'aa_attach_expediente_registro',
+                signAdjuntoRead: actions.signAdjuntoRead || 'aa_sign_expediente_adjunto_read',
+                deleteAdjunto: actions.deleteAdjunto || 'aa_delete_expediente_adjunto'
+            }
+        };
+    }
+
+    /**
+     * Ports legacy: cierran sobre clientId + transport del montaje.
+     * Devuelven { httpStatus, result } como el monolito pre-B1.
+     *
+     * @param {number} clientId
+     * @param {{ajaxUrl:string, nonce:string, actions:Object<string,string>}} transport
+     */
+    function buildExpedienteRegistrosLegacyPorts(clientId, transport) {
+        var ajaxUrl = transport.ajaxUrl;
+        var nonce = transport.nonce;
+        var actions = transport.actions || {};
+        var clientIdStr = String(clientId);
+
+        function postJsonForm(action, fields) {
+            var formData = new FormData();
+            formData.append('action', action);
+            formData.append('_wpnonce', nonce);
+            Object.keys(fields).forEach(function (key) {
+                formData.append(key, fields[key]);
+            });
+            return fetch(ajaxUrl, {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            }).then(function (response) {
+                return response.json().then(function (result) {
+                    return { httpStatus: response.status, result: result };
+                });
+            });
+        }
+
+        return {
+            list: function () {
+                return postJsonForm(actions.listRegistros, {
+                    client_id: clientIdStr
+                });
+            },
+            create: function (draft) {
+                draft = draft || {};
+                return postJsonForm(actions.createRegistro, {
+                    client_id: clientIdStr,
+                    title: draft.title,
+                    body: draft.body
+                });
+            },
+            update: function (recordId, draft) {
+                draft = draft || {};
+                return postJsonForm(actions.updateRegistro, {
+                    client_id: clientIdStr,
+                    record_id: String(recordId),
+                    title: draft.title,
+                    body: draft.body
+                });
+            },
+            deleteRegistro: function (recordId) {
+                return postJsonForm(actions.deleteRegistro, {
+                    client_id: clientIdStr,
+                    record_id: String(recordId)
+                });
+            },
+            attach: function (recordId, fileBlob, uploadOperationId) {
+                var formData = new FormData();
+                formData.append('action', actions.attachRegistro);
+                formData.append('_wpnonce', nonce);
+                formData.append('client_id', clientIdStr);
+                formData.append('record_id', String(recordId || ''));
+                formData.append('upload_operation_id', uploadOperationId);
+                formData.append('file', fileBlob, 'adjunto.jpg');
+                return fetch(ajaxUrl, {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'same-origin'
+                }).then(function (response) {
+                    return response.json().then(function (result) {
+                        return { httpStatus: response.status, result: result };
+                    });
+                });
+            },
+            signRead: function (recordId, attachmentId, variant, signal) {
+                var formData = new FormData();
+                formData.append('action', actions.signAdjuntoRead);
+                formData.append('_wpnonce', nonce);
+                formData.append('client_id', clientIdStr);
+                formData.append('record_id', String(recordId));
+                formData.append('attachment_id', String(attachmentId));
+                formData.append('variant', variant);
+                var options = {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'same-origin'
+                };
+                if (signal) {
+                    options.signal = signal;
+                }
+                return fetch(ajaxUrl, options).then(function (response) {
+                    return response.json().then(function (result) {
+                        return { httpStatus: response.status, result: result };
+                    });
+                });
+            },
+            deleteAdjunto: function (recordId, attachmentId) {
+                return postJsonForm(actions.deleteAdjunto, {
+                    client_id: clientIdStr,
+                    record_id: String(recordId),
+                    attachment_id: String(attachmentId)
+                });
+            }
+        };
+    }
+
     function mountExpedienteRegistros(clientId, recordsRoot, actionsRoot) {
         function tryMount(attemptsLeft) {
             if (window.AAAdmin && window.AAAdmin.ExpedienteRegistros && typeof window.AAAdmin.ExpedienteRegistros.init === 'function') {
-                var data = getClientsData();
-                var nonces = getClientsNonces();
-                var actions = data.actions || {};
+                var transport = buildExpedienteRegistrosTransport();
                 window.AAAdmin.ExpedienteRegistros.init({
                     clientId: clientId,
                     recordsRoot: recordsRoot,
                     actionsRoot: actionsRoot || null,
-                    transport: {
-                        ajaxUrl: data.ajaxUrl || window.ajaxurl || '',
-                        nonce: nonces.expediente_registros || '',
-                        actions: {
-                            listRegistros: actions.listRegistros || 'aa_list_expediente_registros',
-                            createRegistro: actions.createRegistro || 'aa_create_expediente_registro',
-                            updateRegistro: actions.updateRegistro || 'aa_update_expediente_registro',
-                            deleteRegistro: actions.deleteRegistro || 'aa_delete_expediente_registro',
-                            attachRegistro: actions.attachRegistro || 'aa_attach_expediente_registro',
-                            signAdjuntoRead: actions.signAdjuntoRead || 'aa_sign_expediente_adjunto_read',
-                            deleteAdjunto: actions.deleteAdjunto || 'aa_delete_expediente_adjunto'
-                        }
-                    }
+                    transport: transport,
+                    ports: buildExpedienteRegistrosLegacyPorts(clientId, transport)
                 });
                 return;
             }
