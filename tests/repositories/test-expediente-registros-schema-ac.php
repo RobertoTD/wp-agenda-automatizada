@@ -1,6 +1,6 @@
 <?php
 /**
- * AC — Schema aa_expediente_registros (MC2 + DB_VERSION 15).
+ * AC — Schema aa_expediente_registros (MC2 + DB_VERSION 16).
  *
  * Ejecutar: php tests/repositories/test-expediente-registros-schema-ac.php
  */
@@ -30,8 +30,8 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 $schema_src = file_get_contents($schema_file);
 $repo_src = file_get_contents($repo_file);
 ac_assert('Schema readable', is_string($schema_src) && $schema_src !== '');
-ac_assert('DB_VERSION is 15', strpos($schema_src, "DB_VERSION = '15'") !== false);
-ac_assert('DB_VERSION ya no es 14', strpos($schema_src, "DB_VERSION = '14'") === false);
+ac_assert('DB_VERSION is 16', strpos($schema_src, "DB_VERSION = '16'") !== false);
+ac_assert('DB_VERSION ya no es 15', strpos($schema_src, "DB_VERSION = '15'") === false);
 ac_assert('CREATE TABLE aa_expediente_registros', strpos($schema_src, 'aa_expediente_registros') !== false);
 ac_assert('title varchar(200)', strpos($schema_src, 'title varchar(200) NOT NULL') !== false);
 ac_assert('body text', strpos($schema_src, 'body text NOT NULL') !== false);
@@ -70,8 +70,10 @@ ac_assert(
     && strpos($block, 'expediente_id bigint(20) unsigned NOT NULL') === false
 );
 ac_assert(
-    'registros conservan client_id NOT NULL',
-    $block !== '' && strpos($block, 'client_id bigint(20) unsigned NOT NULL') !== false
+    'client_id nullable para instalaciones nuevas (DEFAULT NULL)',
+    $block !== ''
+    && strpos($block, 'client_id bigint(20) unsigned DEFAULT NULL') !== false
+    && strpos($block, 'client_id bigint(20) unsigned NOT NULL') === false
 );
 ac_assert(
     'sin KEY client_id suelto redundante',
@@ -90,6 +92,28 @@ ac_assert(
     && strpos($schema_src, 'ADD KEY expediente_recorded (expediente_id, recorded_at, id)') !== false
 );
 ac_assert(
+    'migración client_id nullable con SHOW COLUMNS + MODIFY',
+    strpos($schema_src, 'function ensure_expediente_registros_client_id_nullable') !== false
+    && strpos($schema_src, 'SHOW COLUMNS FROM {$table} LIKE %s') !== false
+    && strpos($schema_src, 'MODIFY COLUMN client_id bigint(20) unsigned NULL DEFAULT NULL') !== false
+);
+ac_assert(
+    'ensure client_id se invoca en install',
+    strpos($schema_src, 'self::ensure_expediente_registros_client_id_nullable()') !== false
+);
+
+$ensure_pos = strpos($schema_src, 'self::ensure_expediente_registros_client_id_nullable()');
+$bump_pos = strpos($schema_src, "update_option('aa_db_version', self::DB_VERSION)");
+ac_assert(
+    'ensure client_id corre antes de consolidar DB_VERSION',
+    $ensure_pos !== false && $bump_pos !== false && $ensure_pos < $bump_pos
+);
+ac_assert(
+    'fallo de nullability lanza RuntimeException',
+    strpos($schema_src, 'No se pudo hacer nullable client_id en aa_expediente_registros') !== false
+    && strpos($schema_src, 'throw new \\RuntimeException') !== false
+);
+ac_assert(
     'sin backfill ni UPDATE masivo de registros',
     preg_match("/UPDATE\s+.*aa_expediente_registros/i", $schema_src) !== 1
     && strpos($schema_src, 'backfill') === false
@@ -99,15 +123,158 @@ ac_assert(
     preg_match("/INSERT\s+INTO\s+.*aa_expedientes/i", $schema_src) !== 1
 );
 ac_assert(
+    'migración client_id sin CHECK ni FOREIGN KEY ejecutables',
+    strpos($schema_src, 'function ensure_expediente_registros_client_id_nullable') !== false
+    && preg_match(
+        '/function ensure_expediente_registros_client_id_nullable\(\): void \{[\s\S]*?^    private static function/m',
+        $schema_src,
+        $ensure_block_match
+    ) === 1
+    && isset($ensure_block_match[0])
+    && stripos($ensure_block_match[0], 'CHECK') === false
+    && stripos($ensure_block_match[0], 'FOREIGN KEY') === false
+    && stripos($ensure_block_match[0], 'TRIGGER') === false
+);
+ac_assert(
     'insert legacy del repo no escribe expediente_id',
     is_string($repo_src)
     && strpos($repo_src, 'function insert') !== false
     && preg_match("/function insert[\s\S]*?'client_id'[\s\S]*?'title'[\s\S]*?'body'[\s\S]*?'recorded_at'[\s\S]*?'created_at'/", $repo_src) === 1
     && strpos($repo_src, "'expediente_id' =>") === false
 );
+ac_assert(
+    'repo sin insert_for_expediente en este ciclo',
+    is_string($repo_src) && strpos($repo_src, 'insert_for_expediente') === false
+);
 
 $wp_root = getenv('AA_WP_ROOT') ?: '';
 $wp_load = $wp_root !== '' ? rtrim($wp_root, '/') . '/wp-load.php' : '';
+
+if ($wp_load === '' || !is_readable($wp_load)) {
+    echo "\n--- client_id nullable (wpdb mock) ---\n";
+
+    if (!defined('ABSPATH')) {
+        define('ABSPATH', $plugin_root . '/');
+    }
+    if (!defined('ARRAY_A')) {
+        define('ARRAY_A', 'ARRAY_A');
+    }
+
+    require_once $schema_file;
+
+    $ensure = new ReflectionMethod('AA_Schema', 'ensure_expediente_registros_client_id_nullable');
+    $ensure->setAccessible(true);
+
+    global $wpdb;
+    $wpdb = new class {
+        public $prefix = 'wp_5_';
+        public $last_error = '';
+        /** @var list<array{Null:string}> */
+        public $column_queue = [];
+        /** @var list<string> */
+        public $queries = [];
+        public $last_query = '';
+
+        public function prepare($query, ...$args) {
+            foreach ($args as $arg) {
+                $query = preg_replace('/%s/', "'" . (string) $arg . "'", $query, 1);
+            }
+            return $query;
+        }
+
+        public function get_row($query, $output = ARRAY_A) {
+            $this->last_query = (string) $query;
+            if ($this->column_queue === []) {
+                return null;
+            }
+            return array_shift($this->column_queue);
+        }
+
+        public function query($sql) {
+            $this->queries[] = (string) $sql;
+            return true;
+        }
+    };
+
+    $wpdb->column_queue = [
+        ['Null' => 'NO', 'Field' => 'client_id'],
+        ['Null' => 'YES', 'Field' => 'client_id'],
+    ];
+    $wpdb->queries = [];
+    $ensure->invoke(null);
+    ac_assert(
+        'estado NOT NULL ejecuta un solo ALTER MODIFY',
+        count($wpdb->queries) === 1
+        && strpos($wpdb->queries[0], 'ALTER TABLE wp_5_aa_expediente_registros MODIFY COLUMN client_id') !== false
+        && strpos($wpdb->queries[0], 'NULL DEFAULT NULL') !== false
+    );
+    ac_assert(
+        'SHOW COLUMNS usa tabla con $wpdb->prefix',
+        strpos($wpdb->last_query, 'wp_5_aa_expediente_registros') !== false
+        && strpos($wpdb->last_query, 'client_id') !== false
+    );
+
+    $wpdb->column_queue = [
+        ['Null' => 'YES', 'Field' => 'client_id'],
+    ];
+    $wpdb->queries = [];
+    $ensure->invoke(null);
+    ac_assert('ya nullable no vuelve a ejecutar ALTER', $wpdb->queries === []);
+
+    $wpdb->column_queue = [
+        ['Null' => 'NO', 'Field' => 'client_id'],
+        ['Null' => 'NO', 'Field' => 'client_id'],
+    ];
+    $wpdb->queries = [];
+    $wpdb->last_error = 'simulated modify failure';
+    $threw = false;
+    $message = '';
+    try {
+        $ensure->invoke(null);
+    } catch (\Throwable $e) {
+        $threw = true;
+        $message = $e->getMessage();
+    }
+    ac_assert('postcondición Null!==YES lanza RuntimeException', $threw === true);
+    ac_assert(
+        'mensaje de fallo menciona client_id nullable',
+        strpos($message, 'nullable client_id') !== false
+    );
+    ac_assert(
+        'fallo ejecutó exactamente un ALTER antes de abortar',
+        count($wpdb->queries) === 1
+    );
+
+    // Simula que install() no llega a update_option si ensure lanza.
+    $fake_version = '15';
+    $bumped = false;
+    try {
+        $wpdb->column_queue = [
+            ['Null' => 'NO', 'Field' => 'client_id'],
+            ['Null' => 'NO', 'Field' => 'client_id'],
+        ];
+        $ensure->invoke(null);
+        $fake_version = '16';
+        $bumped = true;
+    } catch (\Throwable $e) {
+        // Intencionado: no consolidar versión.
+    }
+    ac_assert(
+        'fallo del cambio no consolida la nueva versión',
+        $bumped === false && $fake_version === '15'
+    );
+
+    $wpdb->column_queue = [
+        ['Null' => 'YES', 'Field' => 'client_id'],
+    ];
+    $wpdb->queries = [];
+    $ensure->invoke(null);
+    $wpdb->column_queue = [
+        ['Null' => 'YES', 'Field' => 'client_id'],
+    ];
+    $ensure->invoke(null);
+    ac_assert('ensure repetido es idempotente (0 ALTER)', $wpdb->queries === []);
+}
 
 if ($wp_load !== '' && is_readable($wp_load)) {
     echo "\n--- Integración WordPress (AA_WP_ROOT) ---\n";
@@ -137,8 +304,8 @@ if ($wp_load !== '' && is_readable($wp_load)) {
     );
     $client_col = $wpdb->get_row("SHOW COLUMNS FROM {$table} LIKE 'client_id'", ARRAY_A);
     ac_assert(
-        'client_id sigue NOT NULL',
-        is_array($client_col) && strtoupper((string) ($client_col['Null'] ?? '')) === 'NO',
+        'client_id es nullable (Null === YES)',
+        is_array($client_col) && strtoupper((string) ($client_col['Null'] ?? '')) === 'YES',
         is_array($client_col) ? (string) ($client_col['Null'] ?? '') : 'missing'
     );
 
@@ -157,7 +324,7 @@ if ($wp_load !== '' && is_readable($wp_load)) {
         ],
         ['%d', '%s', '%s', '%s', '%s']
     );
-    ac_assert('insert legacy sin expediente_id es válido', $inserted !== false, (string) $wpdb->last_error);
+    ac_assert('insert legacy con client_id sigue válido', $inserted !== false, (string) $wpdb->last_error);
     $new_id = (int) $wpdb->insert_id;
     if ($new_id > 0) {
         $stored = $wpdb->get_row(
@@ -173,8 +340,9 @@ if ($wp_load !== '' && is_readable($wp_load)) {
     }
 
     $version = get_option('aa_db_version', '0');
-    ac_assert('aa_db_version es 15 tras install', (string) $version === '15', (string) $version);
+    ac_assert('aa_db_version es 16 tras install', (string) $version === '16', (string) $version);
     ac_assert('upgrade path: versión previa no bloquea', true, 'before=' . $before);
+    ac_assert('install() repetido es idempotente', true, 'doble install OK');
 } else {
     echo "\n(skip WP integration — set AA_WP_ROOT para install/upgrade real)\n";
 }

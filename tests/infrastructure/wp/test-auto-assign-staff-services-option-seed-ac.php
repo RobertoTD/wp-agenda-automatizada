@@ -93,7 +93,7 @@ $schema_src = file_get_contents($schema_file);
 ac_assert('Schema file readable', $schema_src !== false);
 ac_assert('Schema seeds aa_auto_assign_staff_services', strpos($schema_src, 'aa_auto_assign_staff_services') !== false);
 ac_assert('Schema uses fresh install detection', strpos($schema_src, 'aa_db_version') !== false);
-ac_assert('Schema DB_VERSION is 15', strpos($schema_src, "DB_VERSION = '15'") !== false);
+ac_assert('Schema DB_VERSION is 16', strpos($schema_src, "DB_VERSION = '16'") !== false);
 
 $settings_src = file_get_contents($plugin_root . '/views/admin-controls.php');
 ac_assert('Settings registers aa_auto_assign_staff_services', strpos($settings_src, 'aa_auto_assign_staff_services') !== false);

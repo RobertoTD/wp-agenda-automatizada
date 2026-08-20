@@ -38,8 +38,6 @@ if (preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $aa_detail_created_raw, $aa_detail_
     $aa_detail_created_display = $aa_detail_created_raw;
 }
 
-$aa_detail_page_title = $aa_detail_title !== '' ? $aa_detail_title : 'Expediente';
-$aa_expedientes_list_url = admin_url('admin-post.php?action=aa_iframe_content&module=expedientes');
 $aa_records_view = (isset($aa_expediente_records_view) && is_array($aa_expediente_records_view))
     ? $aa_expediente_records_view
     : [
@@ -66,16 +64,9 @@ $aa_records_has_next = !empty($aa_records_view['has_next']) && $aa_records_next_
 <div
     id="aa-expediente-detail-root"
     class="max-w-5xl mx-auto py-2"
-    data-aa-page-title="<?php echo esc_attr($aa_detail_page_title); ?>"
+    data-aa-page-title="Expediente"
     <?php if ($aa_detail_id > 0) : ?>data-expediente-id="<?php echo esc_attr((string) $aa_detail_id); ?>"<?php endif; ?>
 >
-    <p class="aa-expediente-detail-back mb-3">
-        <a
-            href="<?php echo esc_url($aa_expedientes_list_url); ?>"
-            class="aa-expediente-detail-back-link text-sm font-semibold text-indigo-700 hover:text-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 rounded"
-        >Volver a Expedientes</a>
-    </p>
-
     <div class="aa-expediente-detail-panel aa-expediente-panel bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden">
         <div id="aa-expediente-detail-header" class="px-4 py-5 bg-white rounded-t-xl">
             <div class="flex items-center min-w-0">

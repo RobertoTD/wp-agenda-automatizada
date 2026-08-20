@@ -83,7 +83,7 @@ ac_assert(
     strpos($areas_src, "'hidden' => true") !== false
 );
 
-ac_assert('Schema DB_VERSION is 15', strpos($schema_src, "DB_VERSION = '15'") !== false);
+ac_assert('Schema DB_VERSION is 16', strpos($schema_src, "DB_VERSION = '16'") !== false);
 ac_assert(
     'Schema guardrail for staff is_hidden',
     strpos($schema_src, 'Ensure is_hidden column exists for existing staff installs') !== false

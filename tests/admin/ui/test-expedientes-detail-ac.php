@@ -36,6 +36,7 @@ function ac_read(string $relative): string {
 $router = ac_read('includes/admin/ui/index.php');
 $module = ac_read('includes/admin/ui/modules/expedientes/index.php');
 $detail = ac_read('includes/admin/ui/modules/expedientes/detail.php');
+$header = ac_read('includes/admin/ui/shared/header.php');
 $detail_partial = ac_read('includes/admin/ui/shared/expediente-record-readonly.php');
 $js = ac_read('includes/admin/ui/modules/expedientes/expedientes-module.js');
 $css = ac_read('includes/admin/ui/assets/css/admin.source.css');
@@ -95,7 +96,12 @@ ac_assert('listado conserva FAB', strpos($module, 'id="aa-expedientes-new-expedi
 ac_assert('listado conserva create modal JS', strpos($module, 'expediente-create-modal.js') !== false
     && strpos($module, 'expedientes-module.js') !== false);
 
-ac_assert('detalle Volver a Expedientes', strpos($detail, 'Volver a Expedientes') !== false);
+ac_assert('detalle sin Volver a Expedientes en body', strpos($detail, 'Volver a Expedientes') === false
+    && strpos($detail, 'aa-expediente-detail-back') === false);
+ac_assert('header Volver a Expedientes en vista detail', strpos($header, 'Volver a Expedientes') !== false
+    && strpos($header, 'aa-expediente-detail-back-link') !== false
+    && strpos($header, "\$view_raw === 'detail'") !== false
+    && strpos($header, "\$active_module === 'expedientes'") !== false);
 ac_assert('detalle escapa título', strpos($detail, 'esc_html($aa_detail_title') !== false
     || strpos($detail, 'esc_html($aa_detail_page_title') !== false
     || strpos($detail, 'esc_attr($aa_detail_page_title)') !== false);
@@ -246,9 +252,26 @@ ac_assert(
     && strpos($rendered_detail, '<script>x</script>') === false
 );
 ac_assert('runtime fecha formateada', strpos($rendered_detail, '17/08/2026') !== false);
-ac_assert('runtime volver', strpos($rendered_detail, 'Volver a Expedientes') !== false
-    && strpos($rendered_detail, 'aa-expediente-detail-back-link') !== false
-    && strpos($rendered_detail, 'action=aa_iframe_content&module=expedientes') !== false);
+ac_assert('runtime detalle sin volver en body', strpos($rendered_detail, 'Volver a Expedientes') === false
+    && strpos($rendered_detail, 'aa-expediente-detail-back') === false);
+
+$active_module = 'expedientes';
+$view_raw = 'detail';
+ob_start();
+include $plugin_root . '/includes/admin/ui/shared/header.php';
+$rendered_header_detail = ob_get_clean();
+ac_assert('runtime header volver en detail', strpos($rendered_header_detail, 'Volver a Expedientes') !== false
+    && strpos($rendered_header_detail, 'aa-expediente-detail-back-link') !== false
+    && strpos($rendered_header_detail, 'action=aa_iframe_content&module=expedientes') !== false);
+
+$active_module = 'expedientes';
+$view_raw = '';
+ob_start();
+include $plugin_root . '/includes/admin/ui/shared/header.php';
+$rendered_header_list = ob_get_clean();
+ac_assert('runtime header sin volver en listado', strpos($rendered_header_list, 'Volver a Expedientes') === false
+    && strpos($rendered_header_list, 'aa-expediente-detail-back-link') === false);
+
 ac_assert('runtime slot estable', strpos($rendered_detail, 'id="aa-expediente-detail-registros"') !== false
     && strpos($rendered_detail, 'data-expediente-id="7"') !== false);
 ac_assert('runtime renderiza sección Registros', strpos($rendered_detail, 'Registros') !== false);

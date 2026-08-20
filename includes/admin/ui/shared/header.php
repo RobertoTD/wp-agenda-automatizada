@@ -34,6 +34,20 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
                     hidden
                 ></span>
 
+                <?php
+                $aa_show_expediente_detail_back = isset($active_module)
+                    && $active_module === 'expedientes'
+                    && isset($view_raw)
+                    && $view_raw === 'detail';
+                if ($aa_show_expediente_detail_back) :
+                    $aa_expedientes_list_url = admin_url('admin-post.php?action=aa_iframe_content&module=expedientes');
+                ?>
+                <a
+                    href="<?php echo esc_url($aa_expedientes_list_url); ?>"
+                    class="aa-expediente-detail-back-link shrink-0 text-sm font-semibold text-indigo-700 hover:text-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 rounded"
+                >Volver a Expedientes</a>
+                <?php endif; ?>
+
                 <?php if (isset($active_module) && $active_module === 'learning') : ?>
                 <div id="aa-lists-area-tools" class="relative flex items-center gap-2 shrink-0">
                     <button type="button"
