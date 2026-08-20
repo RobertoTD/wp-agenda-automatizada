@@ -452,7 +452,10 @@ describe('expediente adjuntos MC4c — miniaturas', () => {
         assert.doesNotMatch(moduleSrc, /sessionStorage/);
         assert.doesNotMatch(moduleSrc, /setAttribute\('data-[^']*url/i);
         // init se protege con destroy previo; clients-module destruye al sustituir el shell.
-        assert.match(moduleSrc, /function init\(options\) \{\s*\/\/[^\n]*\n\s*destroy\(\);/);
+        // C1a: validar config candidata antes de destroy/DOM.
+        assert.match(moduleSrc, /function init\(options\) \{\s*var resolved = resolveInitConfig\(options\);/);
+        assert.match(moduleSrc, /if \(!resolved\.ok\) \{/);
+        assert.match(moduleSrc, /destroy\(\);\s*var config = resolved\.config;/);
         const clientsModuleSrc = fs.readFileSync(
             path.join(__dirname, '../../includes/admin/ui/modules/clients/clients-module.js'),
             'utf8'

@@ -398,6 +398,11 @@
 
     var state = {
         clientId: 0,
+        /**
+         * Identidad opaca de montaje/cache (C1a). Nunca se envía en requests.
+         * Legacy: se deriva de clientId cuando no se pasa scopeKey.
+         */
+        scopeKey: '',
         recordsRoot: null,
         actionsRoot: null,
         records: [],
@@ -412,7 +417,12 @@
          * null = no modalidad ports → transport o globals.
          * objeto = modalidad exclusiva (sin mezcla con transport/globals).
          */
-        ports: null
+        ports: null,
+        /**
+         * Capabilities explícitas (C1a). null = legacy (todas habilitadas, sin
+         * validación anticipada de ports). Solo aplica en modalidad ports.
+         */
+        capabilities: null
     };
 
     var PORT_KEYS = [
@@ -424,6 +434,24 @@
         'signRead',
         'deleteAdjunto'
     ];
+
+    var CAPABILITY_KEYS = [
+        'createRegistro',
+        'updateRegistro',
+        'deleteRegistro',
+        'attach',
+        'signRead',
+        'deleteAdjunto'
+    ];
+
+    var CAPABILITY_TO_PORT = {
+        createRegistro: 'create',
+        updateRegistro: 'update',
+        deleteRegistro: 'deleteRegistro',
+        attach: 'attach',
+        signRead: 'signRead',
+        deleteAdjunto: 'deleteAdjunto'
+    };
 
     var TRANSPORT_ACTION_KEYS = [
         'listRegistros',
@@ -450,7 +478,7 @@
 
     /**
      * Controlador de miniaturas (MC4c/MC5b). Todo vive solo en memoria.
-     * Claves de cache/requests: "<client_id>:<record_id>:<adjunto.id>:<variant>".
+     * Claves de cache/requests: "<scopeKey>:<record_id>:<adjunto.id>:<variant>".
      * selectedByRecord (MC5b): recordId → attachment_id seleccionado (solo UI).
      */
     var thumbs = {
@@ -473,6 +501,161 @@
 
     function isInjectedTransportMode() {
         return !isPortsMode() && state.transport !== null;
+    }
+
+    /**
+     * Legacy (capabilities null) ⇒ todas habilitadas. Explícitas ⇒ booleano estricto.
+     * @param {string} name
+     * @returns {boolean}
+     */
+    function isCapEnabled(name) {
+        if (state.capabilities === null) {
+            return true;
+        }
+        return state.capabilities[name] === true;
+    }
+
+    /**
+     * @param {*} raw
+     * @returns {{ok:true, capabilities:Object<string,boolean>}|{ok:false, reason:string}}
+     */
+    function normalizeCapabilities(raw) {
+        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+            return { ok: false, reason: 'capabilities_type' };
+        }
+
+        var keys = Object.keys(raw);
+        if (keys.length !== CAPABILITY_KEYS.length) {
+            return { ok: false, reason: 'capabilities_keys' };
+        }
+
+        var i;
+        for (i = 0; i < keys.length; i++) {
+            if (CAPABILITY_KEYS.indexOf(keys[i]) === -1) {
+                return { ok: false, reason: 'capabilities_unknown' };
+            }
+        }
+
+        var out = {};
+        for (i = 0; i < CAPABILITY_KEYS.length; i++) {
+            var key = CAPABILITY_KEYS[i];
+            if (!Object.prototype.hasOwnProperty.call(raw, key)) {
+                return { ok: false, reason: 'capabilities_missing' };
+            }
+            if (typeof raw[key] !== 'boolean') {
+                return { ok: false, reason: 'capabilities_value' };
+            }
+            out[key] = raw[key];
+        }
+
+        if (out.attach === true && out.createRegistro !== true && out.updateRegistro !== true) {
+            return { ok: false, reason: 'capabilities_attach_dependency' };
+        }
+        if (out.deleteAdjunto === true && out.signRead !== true) {
+            return { ok: false, reason: 'capabilities_deleteAdjunto_dependency' };
+        }
+
+        return { ok: true, capabilities: out };
+    }
+
+    /**
+     * Valida options antes de destroy/DOM. No muta state.
+     * @param {*} options
+     * @returns {{ok:true, config:object}|{ok:false, reason:string}}
+     */
+    function resolveInitConfig(options) {
+        if (!options || !options.recordsRoot) {
+            return { ok: false, reason: 'records_root' };
+        }
+
+        var hasCapabilities = Object.prototype.hasOwnProperty.call(options, 'capabilities');
+        var hasPorts = Object.prototype.hasOwnProperty.call(options, 'ports');
+        var hasTransport = Object.prototype.hasOwnProperty.call(options, 'transport');
+
+        if (hasCapabilities && !hasPorts) {
+            return { ok: false, reason: 'capabilities_without_ports' };
+        }
+
+        var capabilities = null;
+        if (hasCapabilities) {
+            var capResult = normalizeCapabilities(options.capabilities);
+            if (!capResult.ok) {
+                return { ok: false, reason: capResult.reason };
+            }
+            capabilities = capResult.capabilities;
+        }
+
+        var ports = null;
+        var transport = null;
+
+        if (hasPorts) {
+            ports = normalizePorts(options.ports);
+            if (!ports) {
+                return { ok: false, reason: 'ports_invalid' };
+            }
+            if (capabilities) {
+                if (typeof ports.list !== 'function') {
+                    return { ok: false, reason: 'list_required' };
+                }
+                for (var i = 0; i < CAPABILITY_KEYS.length; i++) {
+                    var capName = CAPABILITY_KEYS[i];
+                    if (capabilities[capName] !== true) {
+                        continue;
+                    }
+                    var portName = CAPABILITY_TO_PORT[capName];
+                    if (typeof ports[portName] !== 'function') {
+                        return { ok: false, reason: 'port_required:' + portName };
+                    }
+                }
+            }
+        } else if (hasTransport) {
+            transport = normalizeTransport(options.transport);
+            if (!transport) {
+                return { ok: false, reason: 'transport_invalid' };
+            }
+        }
+
+        var scopeKey = '';
+        if (Object.prototype.hasOwnProperty.call(options, 'scopeKey')) {
+            if (typeof options.scopeKey !== 'string') {
+                return { ok: false, reason: 'scope_key_type' };
+            }
+            scopeKey = String(options.scopeKey).trim();
+            if (scopeKey === '') {
+                return { ok: false, reason: 'scope_key_empty' };
+            }
+        }
+
+        var clientId = parseInt(options.clientId, 10);
+        if (!(clientId > 0)) {
+            clientId = 0;
+        }
+
+        if (scopeKey === '') {
+            if (clientId > 0) {
+                scopeKey = String(clientId);
+            } else {
+                return { ok: false, reason: 'identity_missing' };
+            }
+        }
+
+        // Transport/globals siempre necesitan clientId para payloads legacy.
+        if (!ports && !(clientId > 0)) {
+            return { ok: false, reason: 'client_id_invalid' };
+        }
+
+        return {
+            ok: true,
+            config: {
+                clientId: clientId,
+                scopeKey: scopeKey,
+                recordsRoot: options.recordsRoot,
+                actionsRoot: options.actionsRoot || null,
+                ports: ports,
+                transport: transport,
+                capabilities: capabilities
+            }
+        };
     }
 
     /**
@@ -502,6 +685,20 @@
      * @returns {Promise<{httpStatus:number, result:object}>}
      */
     function callPort(name) {
+        if (state.capabilities) {
+            var capName = null;
+            for (var i = 0; i < CAPABILITY_KEYS.length; i++) {
+                if (CAPABILITY_TO_PORT[CAPABILITY_KEYS[i]] === name) {
+                    capName = CAPABILITY_KEYS[i];
+                    break;
+                }
+            }
+            if (capName && state.capabilities[capName] !== true) {
+                console.error('[ExpedienteRegistros] port deshabilitado por capabilities:', name);
+                return Promise.resolve(transportIncompletePayload());
+            }
+        }
+
         var fn = state.ports && state.ports[name];
         if (typeof fn !== 'function') {
             console.error('[ExpedienteRegistros] port ausente:', name);
@@ -887,11 +1084,17 @@
     }
 
     function thumbKey(recordId, adjuntoId, variant) {
-        return String(state.clientId) + ':' + String(recordId) + ':' + String(adjuntoId) + ':' + String(variant);
+        var scope = state.scopeKey !== ''
+            ? state.scopeKey
+            : (state.clientId > 0 ? String(state.clientId) : '');
+        return String(scope) + ':' + String(recordId) + ':' + String(adjuntoId) + ':' + String(variant);
     }
 
     function attachmentLockKey(recordId, adjuntoId) {
-        return String(state.clientId) + ':' + String(recordId) + ':' + String(adjuntoId);
+        var scope = state.scopeKey !== ''
+            ? state.scopeKey
+            : (state.clientId > 0 ? String(state.clientId) : '');
+        return String(scope) + ':' + String(recordId) + ':' + String(adjuntoId);
     }
 
     function abortThumbRequest(key) {
@@ -966,7 +1169,10 @@
      * Invalida toda entrada (cache/requests/resigned) de un registro del cliente actual.
      */
     function invalidateThumbForRecord(recordId) {
-        var prefix = String(state.clientId) + ':' + String(recordId) + ':';
+        var scope = state.scopeKey !== ''
+            ? state.scopeKey
+            : (state.clientId > 0 ? String(state.clientId) : '');
+        var prefix = String(scope) + ':' + String(recordId) + ':';
         Object.keys(thumbs.thumbnailCache).forEach(function (key) {
             if (key.indexOf(prefix) === 0) {
                 delete thumbs.thumbnailCache[key];
@@ -1010,6 +1216,11 @@
      * attachment_id; el fallback sin attachment_id vive solo en PHP.
      */
     function postSignRead(recordId, attachmentId, variant, signal) {
+        if (!isCapEnabled('signRead')) {
+            console.error('[ExpedienteRegistros] signRead deshabilitado');
+            return Promise.resolve(transportIncompletePayload());
+        }
+
         if (isPortsMode()) {
             return callPort('signRead', recordId, attachmentId, variant, signal);
         }
@@ -1164,7 +1375,7 @@
      * Single-flight con suscriptores (MC5b): una sola firma en vuelo por
      * identidad; cada nodo/callback interesado se suma como suscriptor y la
      * URL se aplica a todos los vigentes al resolver. Identidad capturada:
-     * viewEpoch + clientId + recordId + adjuntoId.
+     * viewEpoch + scopeKey + recordId + adjuntoId.
      *
      * @param {number} rid
      * @param {number} adjuntoId
@@ -1172,6 +1383,11 @@
      * @param {{box?:HTMLElement, onUrl?:function(string):void, onError?:function():void}} subscriber
      */
     function requestSignedUrl(rid, adjuntoId, variant, subscriber) {
+        if (!isCapEnabled('signRead')) {
+            deliverSignError(subscriber, adjuntoId);
+            return;
+        }
+
         if (READ_VARIANTS.indexOf(variant) === -1) {
             deliverSignError(subscriber, adjuntoId);
             return;
@@ -1195,7 +1411,7 @@
         }
 
         var epoch = thumbs.viewEpoch;
-        var clientId = state.clientId;
+        var scopeKey = state.scopeKey;
         var controller = null;
         var signal = null;
         if (typeof AbortController !== 'undefined') {
@@ -1210,8 +1426,8 @@
             .then(function (payload) {
                 delete thumbs.thumbnailRequests[key];
 
-                // Vista/cliente inactivos: descartar sin tocar DOM ni caché.
-                if (epoch !== thumbs.viewEpoch || clientId !== state.clientId) {
+                // Vista/scope inactivos: descartar sin tocar DOM ni caché.
+                if (epoch !== thumbs.viewEpoch || scopeKey !== state.scopeKey) {
                     return;
                 }
 
@@ -1258,7 +1474,7 @@
                 if (err && err.name === 'AbortError') {
                     return;
                 }
-                if (epoch !== thumbs.viewEpoch || clientId !== state.clientId) {
+                if (epoch !== thumbs.viewEpoch || scopeKey !== state.scopeKey) {
                     return;
                 }
                 subscribers.forEach(function (sub) {
@@ -1272,6 +1488,9 @@
      * summary, imagen principal o mini de la galería).
      */
     function requestThumbFor(box, recordId) {
+        if (!isCapEnabled('signRead')) {
+            return;
+        }
         if (!box) {
             return;
         }
@@ -1429,9 +1648,11 @@
         state.recordsRoot = null;
         state.actionsRoot = null;
         state.clientId = 0;
+        state.scopeKey = '';
         state.loading = false;
         state.transport = null;
         state.ports = null;
+        state.capabilities = null;
     }
 
     // ── Fin miniaturas MC4c ─────────────────────────────────────────
@@ -1537,6 +1758,10 @@
      * Registra cada nodo de imagen en entriesOut para la carga progresiva.
      */
     function buildRecordGallery(record, entriesOut, details) {
+        if (!isCapEnabled('signRead')) {
+            return null;
+        }
+
         var adjuntos = getRecordAdjuntos(record);
         if (!adjuntos.length) {
             return null;
@@ -1544,6 +1769,7 @@
 
         var rid = parseInt(record.id, 10);
         var selectedId = resolveSelectedAdjuntoId(record);
+        var canDeleteAdjunto = isCapEnabled('deleteAdjunto');
 
         var gallery = document.createElement('div');
         gallery.className = 'aa-expediente-galeria';
@@ -1564,24 +1790,27 @@
             openAdjuntoViewer(rid, mainBtn);
         });
 
-        var deleteBtn = document.createElement('button');
-        deleteBtn.type = 'button';
-        deleteBtn.className = 'aa-expediente-galeria-delete';
-        deleteBtn.setAttribute('aria-label', 'Eliminar imagen');
-        deleteBtn.setAttribute('title', 'Eliminar imagen');
-        deleteBtn.setAttribute('data-adjunto-id', String(selectedId));
-        deleteBtn.innerHTML =
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">' +
-            '<path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v9h-2V9zm4 0h2v9h-2V9zM7 9h2v9H7V9zm-1 12h12V8H6v13z"/>' +
-            '</svg>';
-        deleteBtn.addEventListener('click', function (event) {
-            event.preventDefault();
-            event.stopPropagation();
-            confirmAndDeleteAdjunto(rid, deleteBtn);
-        });
-
         mainWrap.appendChild(mainBtn);
-        mainWrap.appendChild(deleteBtn);
+
+        if (canDeleteAdjunto) {
+            var deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
+            deleteBtn.className = 'aa-expediente-galeria-delete';
+            deleteBtn.setAttribute('aria-label', 'Eliminar imagen');
+            deleteBtn.setAttribute('title', 'Eliminar imagen');
+            deleteBtn.setAttribute('data-adjunto-id', String(selectedId));
+            deleteBtn.innerHTML =
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">' +
+                '<path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v9h-2V9zm4 0h2v9h-2V9zM7 9h2v9H7V9zm-1 12h12V8H6v13z"/>' +
+                '</svg>';
+            deleteBtn.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                confirmAndDeleteAdjunto(rid, deleteBtn);
+            });
+            mainWrap.appendChild(deleteBtn);
+        }
+
         gallery.appendChild(mainWrap);
 
         entriesOut.push({
@@ -1675,6 +1904,10 @@
      * Ids congelados al pulsar; cancelar no llama al endpoint.
      */
     function confirmAndDeleteAdjunto(recordId, deleteBtn) {
+        if (!isCapEnabled('deleteAdjunto')) {
+            return;
+        }
+
         var rid = parseInt(recordId, 10);
         var attachmentId = deleteBtn
             ? parseInt(deleteBtn.getAttribute('data-adjunto-id') || '0', 10)
@@ -1697,6 +1930,7 @@
 
         // Identidad inmutable capturada al confirmar.
         var epoch = thumbs.viewEpoch;
+        var scopeKey = state.scopeKey;
         var clientId = state.clientId;
         var frozenRecordId = rid;
         var frozenAttachmentId = attachmentId;
@@ -1734,7 +1968,7 @@
             .then(function (payload) {
                 delete thumbs.deletingKeys[key];
 
-                if (epoch !== thumbs.viewEpoch || clientId !== state.clientId) {
+                if (epoch !== thumbs.viewEpoch || scopeKey !== state.scopeKey) {
                     return;
                 }
 
@@ -1786,7 +2020,7 @@
             })
             .catch(function (err) {
                 delete thumbs.deletingKeys[key];
-                if (epoch !== thumbs.viewEpoch || clientId !== state.clientId) {
+                if (epoch !== thumbs.viewEpoch || scopeKey !== state.scopeKey) {
                     return;
                 }
                 console.error('[ExpedienteRegistros] delete adjunto failed:', err);
@@ -1843,6 +2077,10 @@
      * Confirmación + delete del registro completo (MC5c2).
      */
     function confirmAndDeleteRegistro(recordId, deleteBtn) {
+        if (!isCapEnabled('deleteRegistro')) {
+            return;
+        }
+
         if (window.AAAdmin && window.AAAdmin.modal && typeof window.AAAdmin.modal.isOpen === 'function'
             && window.AAAdmin.modal.isOpen()) {
             return;
@@ -1869,6 +2107,7 @@
         }
 
         var epoch = thumbs.viewEpoch;
+        var scopeKey = state.scopeKey;
         var clientId = state.clientId;
         var frozenRecordId = rid;
 
@@ -1898,7 +2137,7 @@
             .then(function (payload) {
                 delete thumbs.deletingRecords[frozenRecordId];
 
-                if (epoch !== thumbs.viewEpoch || clientId !== state.clientId) {
+                if (epoch !== thumbs.viewEpoch || scopeKey !== state.scopeKey) {
                     return;
                 }
 
@@ -1916,7 +2155,7 @@
             })
             .catch(function (err) {
                 delete thumbs.deletingRecords[frozenRecordId];
-                if (epoch !== thumbs.viewEpoch || clientId !== state.clientId) {
+                if (epoch !== thumbs.viewEpoch || scopeKey !== state.scopeKey) {
                     return;
                 }
                 console.error('[ExpedienteRegistros] delete registro failed:', err);
@@ -1990,6 +2229,10 @@
      * Cierre por X/Escape/overlay: mecanismos nativos del modal compartido.
      */
     function openAdjuntoViewer(recordId, focusReturnEl) {
+        if (!isCapEnabled('signRead')) {
+            return;
+        }
+
         var rid = parseInt(recordId, 10);
         var record = findRecordById(rid);
         if (!record) {
@@ -2005,7 +2248,7 @@
         }
 
         var epoch = thumbs.viewEpoch;
-        var clientId = state.clientId;
+        var scopeKey = state.scopeKey;
         var key = thumbKey(rid, adjuntoId, 'display');
 
         var viewerBody = document.createElement('div');
@@ -2032,7 +2275,7 @@
          * modal root (otro modal pudo sustituirlo; no se reabre).
          */
         function isViewerCurrent() {
-            if (epoch !== thumbs.viewEpoch || clientId !== state.clientId) {
+            if (epoch !== thumbs.viewEpoch || scopeKey !== state.scopeKey) {
                 return false;
             }
             if (!findRecordById(rid)) {
@@ -2242,6 +2485,12 @@
     }
 
     function createRegistroOptions(record) {
+        var canUpdate = isCapEnabled('updateRegistro');
+        var canDelete = isCapEnabled('deleteRegistro');
+        if (!canUpdate && !canDelete) {
+            return null;
+        }
+
         var recordId = String(record.id);
         var wrap = document.createElement('div');
         wrap.className = 'relative aa-expediente-registro-options shrink-0';
@@ -2267,31 +2516,37 @@
         menu.setAttribute('role', 'menu');
         menu.setAttribute('data-registro-id', recordId);
 
-        var editBtn = document.createElement('button');
-        editBtn.type = 'button';
-        editBtn.className = 'aa-expediente-btn-editar flex w-full items-center gap-2 px-4 py-2.5 text-left text-base text-gray-700 hover:bg-gray-50';
-        editBtn.setAttribute('role', 'menuitem');
-        editBtn.setAttribute('data-registro-id', recordId);
-        editBtn.textContent = 'Editar';
-        editBtn.addEventListener('click', function (event) {
-            event.preventDefault();
-            event.stopPropagation();
-            closeAllRegistroOptionsMenus();
-            openEditForm(record.id, editBtn);
-        });
+        if (canUpdate) {
+            var editBtn = document.createElement('button');
+            editBtn.type = 'button';
+            editBtn.className = 'aa-expediente-btn-editar flex w-full items-center gap-2 px-4 py-2.5 text-left text-base text-gray-700 hover:bg-gray-50';
+            editBtn.setAttribute('role', 'menuitem');
+            editBtn.setAttribute('data-registro-id', recordId);
+            editBtn.textContent = 'Editar';
+            editBtn.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                closeAllRegistroOptionsMenus();
+                openEditForm(record.id, editBtn);
+            });
+            menu.appendChild(editBtn);
+        }
 
-        var deleteRecordBtn = document.createElement('button');
-        deleteRecordBtn.type = 'button';
-        deleteRecordBtn.className = 'aa-expediente-btn-eliminar flex w-full items-center gap-2 px-4 py-2.5 text-left text-base text-red-600 hover:bg-gray-50';
-        deleteRecordBtn.setAttribute('role', 'menuitem');
-        deleteRecordBtn.setAttribute('data-registro-id', recordId);
-        deleteRecordBtn.textContent = 'Eliminar';
-        deleteRecordBtn.addEventListener('click', function (event) {
-            event.preventDefault();
-            event.stopPropagation();
-            closeAllRegistroOptionsMenus();
-            confirmAndDeleteRegistro(record.id, deleteRecordBtn);
-        });
+        if (canDelete) {
+            var deleteRecordBtn = document.createElement('button');
+            deleteRecordBtn.type = 'button';
+            deleteRecordBtn.className = 'aa-expediente-btn-eliminar flex w-full items-center gap-2 px-4 py-2.5 text-left text-base text-red-600 hover:bg-gray-50';
+            deleteRecordBtn.setAttribute('role', 'menuitem');
+            deleteRecordBtn.setAttribute('data-registro-id', recordId);
+            deleteRecordBtn.textContent = 'Eliminar';
+            deleteRecordBtn.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                closeAllRegistroOptionsMenus();
+                confirmAndDeleteRegistro(record.id, deleteRecordBtn);
+            });
+            menu.appendChild(deleteRecordBtn);
+        }
 
         trigger.addEventListener('click', function (event) {
             event.preventDefault();
@@ -2299,8 +2554,6 @@
             toggleRegistroOptionsMenu(recordId, trigger, menu);
         });
 
-        menu.appendChild(editBtn);
-        menu.appendChild(deleteRecordBtn);
         wrap.appendChild(trigger);
         wrap.appendChild(menu);
         return wrap;
@@ -2325,7 +2578,7 @@
         summary.className = 'aa-expediente-registro-summary';
 
         var thumbBox = null;
-        if (hasValidAdjunto(record)) {
+        if (isCapEnabled('signRead') && hasValidAdjunto(record)) {
             thumbBox = document.createElement('div');
             thumbBox.className = 'aa-expediente-adjunto-thumb';
             thumbBox.setAttribute('data-thumb-record-id', String(record.id));
@@ -2362,7 +2615,10 @@
         summaryMain.appendChild(titleSpan);
         summaryMain.appendChild(meta);
         summary.appendChild(summaryMain);
-        summary.appendChild(createRegistroOptions(record));
+        var registroOptions = createRegistroOptions(record);
+        if (registroOptions) {
+            summary.appendChild(registroOptions);
+        }
 
         var panel = document.createElement('div');
         panel.className = 'aa-expediente-registro-panel';
@@ -2802,13 +3058,14 @@
     }
 
     function loadRecords() {
-        // MC5a: una respuesta posterior a destroy(), cambio de cliente o
+        // MC5a: una respuesta posterior a destroy(), cambio de scope o
         // re-init no debe sobrescribir el estado vigente.
         var epoch = thumbs.viewEpoch;
+        var scopeKey = state.scopeKey;
         var clientId = state.clientId;
 
         function isStale() {
-            return epoch !== thumbs.viewEpoch || clientId !== state.clientId;
+            return epoch !== thumbs.viewEpoch || scopeKey !== state.scopeKey;
         }
 
         state.loading = true;
@@ -2854,6 +3111,14 @@
     function openRegistroForm(options) {
         options = options || {};
         var mode = options.mode || 'create';
+        if (mode === 'edit') {
+            if (!isCapEnabled('updateRegistro')) {
+                return;
+            }
+        } else if (!isCapEnabled('createRegistro')) {
+            return;
+        }
+
         var record = options.record || null;
         var recordId = options.recordId != null
             ? parseInt(options.recordId, 10)
@@ -2908,64 +3173,80 @@
             bodyInput.value = record.body || '';
         }
 
-        var adjuntoBlock = document.createElement('div');
-        adjuntoBlock.className = 'aa-expediente-adjunto-block';
+        var attachEnabled = isCapEnabled('attach');
 
-        var fileInput = document.createElement('input');
-        fileInput.type = 'file';
-        fileInput.id = 'aa-expediente-registro-adjunto';
-        fileInput.className = 'aa-expediente-adjunto-input';
-        fileInput.accept = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
-        // Sin capture / cámara.
+        var adjuntoBlock = null;
+        var fileInput = null;
+        var adjuntoTrigger = null;
+        var previewWrap = null;
+        var previewImg = null;
+        var previewMeta = null;
+        var removeBtn = null;
+        var retryBtn = null;
 
-        var adjuntoTrigger = document.createElement('label');
-        adjuntoTrigger.className = 'aa-expediente-adjunto-trigger';
-        adjuntoTrigger.setAttribute('for', 'aa-expediente-registro-adjunto');
-        adjuntoTrigger.innerHTML =
-            '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">' +
-            '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>' +
-            '</svg>' +
-            '<span>Añadir imagen</span>';
+        if (attachEnabled) {
+            adjuntoBlock = document.createElement('div');
+            adjuntoBlock.className = 'aa-expediente-adjunto-block';
 
-        var previewWrap = document.createElement('div');
-        previewWrap.className = 'aa-expediente-adjunto-preview-wrap hidden';
+            fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.id = 'aa-expediente-registro-adjunto';
+            fileInput.className = 'aa-expediente-adjunto-input';
+            fileInput.accept = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
 
-        var previewImg = document.createElement('img');
-        previewImg.className = 'aa-expediente-adjunto-preview';
-        previewImg.alt = 'Vista previa de la imagen adjunta';
+            adjuntoTrigger = document.createElement('label');
+            adjuntoTrigger.className = 'aa-expediente-adjunto-trigger';
+            adjuntoTrigger.setAttribute('for', 'aa-expediente-registro-adjunto');
+            adjuntoTrigger.innerHTML =
+                '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">' +
+                '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>' +
+                '</svg>' +
+                '<span>Añadir imagen</span>';
 
-        var previewMeta = document.createElement('p');
-        previewMeta.className = 'aa-expediente-adjunto-meta';
+            previewWrap = document.createElement('div');
+            previewWrap.className = 'aa-expediente-adjunto-preview-wrap hidden';
 
-        var removeBtn = document.createElement('button');
-        removeBtn.type = 'button';
-        removeBtn.className = 'aa-expediente-adjunto-remove';
-        removeBtn.textContent = 'Quitar imagen';
+            previewImg = document.createElement('img');
+            previewImg.className = 'aa-expediente-adjunto-preview';
+            previewImg.alt = 'Vista previa de la imagen adjunta';
 
-        previewWrap.appendChild(previewImg);
-        previewWrap.appendChild(previewMeta);
-        previewWrap.appendChild(removeBtn);
+            previewMeta = document.createElement('p');
+            previewMeta.className = 'aa-expediente-adjunto-meta';
 
-        adjuntoBlock.appendChild(fileInput);
-        adjuntoBlock.appendChild(adjuntoTrigger);
-        adjuntoBlock.appendChild(previewWrap);
+            removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'aa-expediente-adjunto-remove';
+            removeBtn.textContent = 'Quitar imagen';
+
+            previewWrap.appendChild(previewImg);
+            previewWrap.appendChild(previewMeta);
+            previewWrap.appendChild(removeBtn);
+
+            adjuntoBlock.appendChild(fileInput);
+            adjuntoBlock.appendChild(adjuntoTrigger);
+            adjuntoBlock.appendChild(previewWrap);
+
+            retryBtn = document.createElement('button');
+            retryBtn.type = 'button';
+            retryBtn.className = 'aa-expediente-btn-reintentar-imagen hidden';
+            retryBtn.textContent = 'Reintentar imagen';
+        }
 
         var errorEl = document.createElement('p');
         errorEl.className = 'aa-expediente-registro-form-error text-sm text-red-600 hidden';
         errorEl.setAttribute('role', 'alert');
 
-        var retryBtn = document.createElement('button');
-        retryBtn.type = 'button';
-        retryBtn.className = 'aa-expediente-btn-reintentar-imagen hidden';
-        retryBtn.textContent = 'Reintentar imagen';
-
         bodyWrap.appendChild(titleLabel);
         bodyWrap.appendChild(titleInput);
         bodyWrap.appendChild(bodyLabel);
         bodyWrap.appendChild(bodyInput);
-        bodyWrap.appendChild(adjuntoBlock);
+        if (adjuntoBlock) {
+            bodyWrap.appendChild(adjuntoBlock);
+        }
         bodyWrap.appendChild(errorEl);
-        bodyWrap.appendChild(retryBtn);
+        if (retryBtn) {
+            bodyWrap.appendChild(retryBtn);
+        }
 
         var footer = document.createElement('div');
         footer.className = 'flex flex-wrap gap-2 justify-end';
@@ -2996,9 +3277,15 @@
             }
             cleanedUp = true;
             pendingImage = clearPendingImage(pendingImage);
-            fileInput.value = '';
-            previewWrap.classList.add('hidden');
-            previewImg.removeAttribute('src');
+            if (fileInput) {
+                fileInput.value = '';
+            }
+            if (previewWrap) {
+                previewWrap.classList.add('hidden');
+            }
+            if (previewImg) {
+                previewImg.removeAttribute('src');
+            }
         }
 
         disarmModalCloseWatcher();
@@ -3021,6 +3308,9 @@
         }
 
         function hideRetry() {
+            if (!retryBtn) {
+                return;
+            }
             retryBtn.classList.add('hidden');
             retryBtn.disabled = false;
             retryBtn.textContent = 'Reintentar imagen';
@@ -3060,7 +3350,9 @@
             }
             flowState = 'partial_attachment_failed';
             showFormError(messageForAttachFailure(code));
-            retryBtn.classList.remove('hidden');
+            if (retryBtn) {
+                retryBtn.classList.remove('hidden');
+            }
             reenableSave();
         }
 
@@ -3079,6 +3371,9 @@
         }
 
         function renderPendingPreview() {
+            if (!previewWrap || !previewImg || !previewMeta) {
+                return;
+            }
             if (!pendingImage) {
                 previewWrap.classList.add('hidden');
                 previewImg.removeAttribute('src');
@@ -3093,7 +3388,9 @@
 
         function removePendingImage() {
             pendingImage = clearPendingImage(pendingImage);
-            fileInput.value = '';
+            if (fileInput) {
+                fileInput.value = '';
+            }
             renderPendingPreview();
             if (flowState === 'partial_attachment_failed') {
                 flowState = 'idle';
@@ -3102,61 +3399,64 @@
             }
         }
 
-        removeBtn.addEventListener('click', function (event) {
-            event.preventDefault();
-            if (flowState === 'saving_record' || flowState === 'uploading_attachment') {
-                return;
-            }
-            removePendingImage();
-        });
+        if (removeBtn) {
+            removeBtn.addEventListener('click', function (event) {
+                event.preventDefault();
+                if (flowState === 'saving_record' || flowState === 'uploading_attachment') {
+                    return;
+                }
+                removePendingImage();
+            });
+        }
 
-        fileInput.addEventListener('change', function () {
-            if (flowState === 'saving_record' || flowState === 'uploading_attachment') {
-                fileInput.value = '';
-                return;
-            }
-
-            errorEl.classList.add('hidden');
-            hideRetry();
-            if (flowState === 'partial_attachment_failed') {
-                flowState = 'idle';
-            }
-
-            var files = fileInput.files;
-            var file = files && files.length ? files[0] : null;
-            // Una sola imagen; ignorar selección múltiple implícita.
-            pendingImage = clearPendingImage(pendingImage);
-            renderPendingPreview();
-
-            if (!file) {
-                return;
-            }
-
-            saveBtn.disabled = true;
-            fileInput.disabled = true;
-
-            prepareExpedienteImage(file)
-                .then(function (result) {
-                    fileInput.disabled = false;
-                    saveBtn.disabled = false;
-                    if (!result || !result.ok) {
-                        fileInput.value = '';
-                        showFormError(
-                            (result && result.message) || 'No se pudo procesar la imagen.'
-                        );
-                        return;
-                    }
-                    pendingImage = result.pending;
-                    renderPendingPreview();
-                })
-                .catch(function (err) {
-                    fileInput.disabled = false;
-                    saveBtn.disabled = false;
+        if (fileInput) {
+            fileInput.addEventListener('change', function () {
+                if (flowState === 'saving_record' || flowState === 'uploading_attachment') {
                     fileInput.value = '';
-                    console.error('[ExpedienteRegistros] prepare image failed:', err);
-                    showFormError('No se pudo procesar la imagen.');
-                });
-        });
+                    return;
+                }
+
+                errorEl.classList.add('hidden');
+                hideRetry();
+                if (flowState === 'partial_attachment_failed') {
+                    flowState = 'idle';
+                }
+
+                var files = fileInput.files;
+                var file = files && files.length ? files[0] : null;
+                pendingImage = clearPendingImage(pendingImage);
+                renderPendingPreview();
+
+                if (!file) {
+                    return;
+                }
+
+                saveBtn.disabled = true;
+                fileInput.disabled = true;
+
+                prepareExpedienteImage(file)
+                    .then(function (result) {
+                        fileInput.disabled = false;
+                        saveBtn.disabled = false;
+                        if (!result || !result.ok) {
+                            fileInput.value = '';
+                            showFormError(
+                                (result && result.message) || 'No se pudo procesar la imagen.'
+                            );
+                            return;
+                        }
+                        pendingImage = result.pending;
+                        renderPendingPreview();
+                    })
+                    .catch(function (err) {
+                        fileInput.disabled = false;
+                        saveBtn.disabled = false;
+                        fileInput.value = '';
+                        console.error('[ExpedienteRegistros] prepare image failed:', err);
+                        showFormError('No se pudo procesar la imagen.');
+                    });
+            });
+        }
 
         function persistRecordInList(saved) {
             if (mode === 'edit') {
@@ -3166,11 +3466,23 @@
             }
         }
 
+        /**
+         * Tras create exitoso: si update está habilitado, promueve a edición
+         * textual. Si no, bloquea título/cuerpo y solo permite attach/retry.
+         */
         function promoteCreateToEdit(saved) {
-            mode = 'edit';
             recordId = parseInt(saved.id, 10);
             record = saved;
-            setModalTitle('Editar registro');
+            if (isCapEnabled('updateRegistro')) {
+                mode = 'edit';
+                setModalTitle('Editar registro');
+                return;
+            }
+            titleInput.disabled = true;
+            bodyInput.disabled = true;
+            if (fileInput && !pendingImage) {
+                fileInput.disabled = true;
+            }
         }
 
         function closeAfterFullSuccess(saved) {
@@ -3179,13 +3491,13 @@
             if (typeof window.AAAdmin.closeModal === 'function') {
                 window.AAAdmin.closeModal();
             }
-            if (mode === 'edit') {
+            if (mode === 'edit' && isCapEnabled('updateRegistro')) {
                 focusEditButtonById(saved && saved.id);
             }
         }
 
         function attachPendingImage(savedRecord) {
-            if (!pendingImage || !pendingImage.blob || !pendingImage.operationId) {
+            if (!attachEnabled || !pendingImage || !pendingImage.blob || !pendingImage.operationId) {
                 return Promise.resolve({ ok: true, skipped: true });
             }
 
@@ -3195,7 +3507,9 @@
             flowState = 'uploading_attachment';
             saveBtn.disabled = true;
             saveBtn.textContent = 'Subiendo imagen...';
-            retryBtn.disabled = true;
+            if (retryBtn) {
+                retryBtn.disabled = true;
+            }
 
             var attachRequest = isPortsMode()
                 ? callPort('attach', requestedRecordId, pendingImage.blob, operationId)
@@ -3233,6 +3547,9 @@
         }
 
         function runAttachRetry() {
+            if (!attachEnabled) {
+                return;
+            }
             if (flowState === 'saving_record' || flowState === 'uploading_attachment') {
                 return;
             }
@@ -3245,8 +3562,10 @@
             primeAccountStatus();
 
             errorEl.classList.add('hidden');
-            retryBtn.disabled = true;
-            retryBtn.textContent = 'Reintentando...';
+            if (retryBtn) {
+                retryBtn.disabled = true;
+                retryBtn.textContent = 'Reintentando...';
+            }
 
             attachPendingImage({ id: recordId })
                 .then(function (attachResult) {
@@ -3255,7 +3574,7 @@
                             applyAdjuntoToRecord(attachResult.recordId, attachResult.adjunto);
                         }
                         hideRetry();
-                        finishWithToast(savedRecordOutcome || 'updated', 'saved', '');
+                        finishWithToast(savedRecordOutcome || 'created', 'saved', '');
                         return;
                     }
                     showPartialAttachFailure(attachResult);
@@ -3266,10 +3585,12 @@
                 });
         }
 
-        retryBtn.addEventListener('click', function (event) {
-            event.preventDefault();
-            runAttachRetry();
-        });
+        if (retryBtn) {
+            retryBtn.addEventListener('click', function (event) {
+                event.preventDefault();
+                runAttachRetry();
+            });
+        }
 
         saveBtn.addEventListener('click', function (event) {
             event.preventDefault();
@@ -3277,9 +3598,17 @@
                 return;
             }
 
-            // Tras fallo parcial, Guardar reintenta solo la imagen (nunca create de nuevo).
+            // Tras fallo parcial, Guardar reintenta solo la imagen (nunca create/update).
             if (flowState === 'partial_attachment_failed') {
                 runAttachRetry();
+                return;
+            }
+
+            // Create ya persistido sin update: solo attach pendiente, nunca update/re-create.
+            if (recordId > 0 && mode !== 'edit' && !isCapEnabled('updateRegistro')) {
+                if (pendingImage) {
+                    runAttachRetry();
+                }
                 return;
             }
 
@@ -3304,6 +3633,9 @@
             var saveRequest;
 
             if (mode === 'edit') {
+                if (!isCapEnabled('updateRegistro')) {
+                    return;
+                }
                 if (!(recordId > 0)) {
                     showFormError('Registro no válido.');
                     return;
@@ -3334,7 +3666,9 @@
             flowState = 'saving_record';
             saveBtn.disabled = true;
             saveBtn.textContent = 'Guardando...';
-            fileInput.disabled = true;
+            if (fileInput) {
+                fileInput.disabled = true;
+            }
 
             saveRequest
                 .then(function (payload) {
@@ -3347,7 +3681,9 @@
                             message = String(result.data.message);
                         }
                         flowState = 'idle';
-                        fileInput.disabled = false;
+                        if (fileInput) {
+                            fileInput.disabled = false;
+                        }
                         showFormError(message);
                         reenableSave();
                         return null;
@@ -3374,7 +3710,9 @@
                     }
 
                     return attachPendingImage(saved).then(function (attachResult) {
-                        fileInput.disabled = false;
+                        if (fileInput && isCapEnabled('updateRegistro')) {
+                            fileInput.disabled = false;
+                        }
                         if (attachResult && attachResult.ok) {
                             if (!attachResult.skipped) {
                                 applyAdjuntoToRecord(attachResult.recordId, attachResult.adjunto);
@@ -3388,7 +3726,9 @@
                 .catch(function (err) {
                     console.error('[ExpedienteRegistros] save failed:', err);
                     flowState = 'idle';
-                    fileInput.disabled = false;
+                    if (fileInput) {
+                        fileInput.disabled = false;
+                    }
                     showFormError(
                         mode === 'edit'
                             ? 'No se pudo actualizar el registro.'
@@ -3400,6 +3740,9 @@
     }
 
     function openCreateForm(focusReturnEl) {
+        if (!isCapEnabled('createRegistro')) {
+            return;
+        }
         openRegistroForm({
             mode: 'create',
             focusReturnEl: focusReturnEl || null
@@ -3407,6 +3750,9 @@
     }
 
     function openEditForm(recordId, focusReturnEl) {
+        if (!isCapEnabled('updateRegistro')) {
+            return;
+        }
         var record = findRecordById(recordId);
         if (!record) {
             console.error('[ExpedienteRegistros] registro no encontrado en estado');
@@ -3422,9 +3768,11 @@
 
     /**
      * @param {{
-     *   clientId:number,
+     *   clientId?:number,
+     *   scopeKey?:string,
      *   recordsRoot:HTMLElement,
      *   actionsRoot?:HTMLElement|null,
+     *   capabilities?:Object<string,boolean>,
      *   transport?:{ajaxUrl:string, nonce:string, actions:Object<string,string>},
      *   ports?:{
      *     list?:Function,
@@ -3438,48 +3786,28 @@
      * }} options
      */
     function init(options) {
-        // Libera recursos de cualquier montaje previo antes de re-montar.
+        var resolved = resolveInitConfig(options);
+        if (!resolved.ok) {
+            console.error('[ExpedienteRegistros] init inválido:', resolved.reason);
+            return;
+        }
+
+        // Solo tras validar: libera montaje previo y adopta roots.
         destroy();
 
-        if (!options || !options.recordsRoot) {
-            console.error('[ExpedienteRegistros] init requiere recordsRoot');
-            return;
-        }
-
-        var clientId = parseInt(options.clientId, 10);
-        if (!(clientId > 0)) {
-            console.error('[ExpedienteRegistros] clientId inválido');
-            return;
-        }
-
-        // Precedencia exclusiva: ports → transport → globals. Sin mezcla.
-        if (Object.prototype.hasOwnProperty.call(options, 'ports')) {
-            var normalizedPorts = normalizePorts(options.ports);
-            if (!normalizedPorts) {
-                console.error('[ExpedienteRegistros] ports inválidos');
-                return;
-            }
-            state.ports = normalizedPorts;
-            state.transport = null;
-        } else if (Object.prototype.hasOwnProperty.call(options, 'transport')) {
-            var normalizedTransport = normalizeTransport(options.transport);
-            if (!normalizedTransport) {
-                console.error('[ExpedienteRegistros] transport inválido o incompleto');
-                return;
-            }
-            state.ports = null;
-            state.transport = normalizedTransport;
-        } else {
-            state.ports = null;
-            state.transport = null;
-        }
-
-        state.clientId = clientId;
-        state.recordsRoot = options.recordsRoot;
-        state.actionsRoot = options.actionsRoot || null;
+        var config = resolved.config;
+        state.clientId = config.clientId;
+        state.scopeKey = config.scopeKey;
+        state.capabilities = config.capabilities;
+        state.ports = config.ports;
+        state.transport = config.transport;
+        state.recordsRoot = config.recordsRoot;
+        state.actionsRoot = config.actionsRoot;
         state.records = [];
 
-        bindRegistroOptionsUi();
+        if (isCapEnabled('updateRegistro') || isCapEnabled('deleteRegistro')) {
+            bindRegistroOptionsUi();
+        }
         loadRecords();
     }
 
@@ -3547,6 +3875,10 @@
             emitToast: emitToast,
             resetAccountPromise: function () { accountPromise = null; },
             THUMB_ERROR_MESSAGE: THUMB_ERROR_MESSAGE,
+            isCapEnabled: isCapEnabled,
+            normalizeCapabilities: normalizeCapabilities,
+            resolveInitConfig: resolveInitConfig,
+            CAPABILITY_KEYS: CAPABILITY_KEYS,
             getState: function () { return state; },
             setState: function (partial) {
                 Object.keys(partial || {}).forEach(function (key) {
