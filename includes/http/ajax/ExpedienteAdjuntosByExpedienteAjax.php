@@ -1,15 +1,18 @@
 <?php
 /**
- * Expediente Adjuntos by Expediente AJAX — sign-read canónico (B3a).
+ * Expediente Adjuntos by Expediente AJAX — sign-read (B3a) + attach (B3b1).
  *
  * Frontera HTTP por expediente_id. Reutiliza nonce by-expediente.
- * Sin caller UI todavía; attach/delete canónicos fuera de alcance.
+ * Sin caller UI todavía; delete canónico fuera de alcance.
  */
 
 defined('ABSPATH') or die('No direct access');
 
 if (!class_exists('GetExpedienteAdjuntoReadUrlForExpedienteUseCase')) {
     require_once dirname(__DIR__, 2) . '/application/expediente/GetExpedienteAdjuntoReadUrlForExpedienteUseCase.php';
+}
+if (!class_exists('UploadExpedienteAdjuntoForExpedienteUseCase')) {
+    require_once dirname(__DIR__, 2) . '/application/expediente/UploadExpedienteAdjuntoForExpedienteUseCase.php';
 }
 if (!class_exists('ExpedienteRegistrosAjax')) {
     require_once dirname(__DIR__, 2) . '/http/ajax/ExpedienteRegistrosAjax.php';
@@ -18,10 +21,12 @@ if (!class_exists('ExpedienteRegistrosAjax')) {
 final class ExpedienteAdjuntosByExpedienteAjax {
 
     public const ACTION_SIGN_READ = 'aa_sign_expediente_adjunto_read_for_expediente';
+    public const ACTION_ATTACH = 'aa_attach_expediente_adjunto_for_expediente';
     public const NONCE_ACTION = 'aa_expediente_registros_by_expediente_nonce';
 
     public static function register(): void {
         add_action('wp_ajax_' . self::ACTION_SIGN_READ, [__CLASS__, 'handle_sign_read']);
+        add_action('wp_ajax_' . self::ACTION_ATTACH, [__CLASS__, 'handle_attach']);
     }
 
     public static function handle_sign_read(): void {
@@ -54,6 +59,46 @@ final class ExpedienteAdjuntosByExpedienteAjax {
         ], 200);
     }
 
+    /**
+     * Attach canónico (B3b1). Sin caller visual todavía.
+     */
+    public static function handle_attach(): void {
+        if (!self::authorize()) {
+            return;
+        }
+
+        if (!isset($_FILES['file']) || !is_array($_FILES['file'])) {
+            wp_send_json_error([
+                'message' => 'No se recibió ninguna imagen.',
+                'code' => 'file_missing',
+            ], 400);
+            return;
+        }
+
+        $result = (new UploadExpedienteAdjuntoForExpedienteUseCase())->execute([
+            'expediente_id' => self::read_positive_id('expediente_id'),
+            'record_id' => self::read_positive_id('record_id'),
+            'upload_operation_id' => self::read_operation_id(),
+            'file' => $_FILES['file'],
+        ]);
+
+        if (empty($result['success'])) {
+            $error = $result['error'] ?? [];
+            $code = (string) ($error['code'] ?? 'attach_failed');
+            wp_send_json_error([
+                'message' => (string) ($error['message'] ?? 'No se pudo subir la imagen.'),
+                'code' => $code,
+            ], self::http_status_for_code($code));
+            return;
+        }
+
+        $data = is_array($result['data'] ?? null) ? $result['data'] : [];
+        wp_send_json_success([
+            'record_id' => (int) ($data['record_id'] ?? 0),
+            'adjunto' => is_array($data['adjunto'] ?? null) ? $data['adjunto'] : null,
+        ], 200);
+    }
+
     private static function authorize(): bool {
         if (!current_user_can('manage_options')) {
             wp_send_json_error(['message' => 'Permisos insuficientes.'], 403);
@@ -82,6 +127,25 @@ final class ExpedienteAdjuntosByExpedienteAjax {
         }
 
         return null;
+    }
+
+    /**
+     * Operation ID del navegador. No-escalares → '' (legacy rechaza UUID).
+     * No genera ni sustituye el valor.
+     *
+     * @return string
+     */
+    private static function read_operation_id(): string {
+        if (!isset($_POST['upload_operation_id'])) {
+            return '';
+        }
+
+        $raw = wp_unslash($_POST['upload_operation_id']);
+        if (!is_string($raw) && !is_int($raw) && !is_float($raw)) {
+            return '';
+        }
+
+        return sanitize_text_field((string) $raw);
     }
 
     /**
@@ -130,6 +194,9 @@ final class ExpedienteAdjuntosByExpedienteAjax {
             case 'signed_url_invalid':
             case 'delete_failed':
             case 'storage_delete_failed':
+            case 'upload_failed':
+            case 'authorize_invalid':
+            case 'read_failed':
                 return 502;
             case 'lookup_failed':
             case 'local_delete_failed':
@@ -138,7 +205,20 @@ final class ExpedienteAdjuntosByExpedienteAjax {
                 return 500;
             case 'invalid_id':
             case 'invalid_context':
+            case 'invalid_operation_id':
+            case 'file_missing':
             case 'variant_invalid':
+            case 'upload_error':
+            case 'upload_missing':
+            case 'upload_not_uploaded':
+            case 'upload_unreadable':
+            case 'invalid_mime':
+            case 'invalid_size':
+            case 'invalid_dimensions':
+            case 'invalid_jpeg':
+            case 'invalid_file':
+            case 'invalid_adjunto_data':
+            case 'persist_failed':
                 return 400;
             default:
                 return 400;

@@ -1,6 +1,6 @@
 <?php
 /**
- * AC — ExpedienteAdjuntosByExpedienteAjax::handle_sign_read (B3a).
+ * AC — ExpedienteAdjuntosByExpedienteAjax (B3a sign-read + B3b1 attach).
  *
  * Ejecutar: php tests/http/ajax/test-expediente-adjuntos-by-expediente-ajax-ac.php
  */
@@ -30,16 +30,20 @@ $bootstrap_src = (string) file_get_contents($plugin_root . '/wp-agenda-automatiz
 $detail_src = (string) file_get_contents($plugin_root . '/includes/admin/ui/modules/expedientes/detail.php');
 
 ac_assert('ACTION_SIGN_READ', strpos($ajax_src, "ACTION_SIGN_READ = 'aa_sign_expediente_adjunto_read_for_expediente'") !== false);
+ac_assert('ACTION_ATTACH', strpos($ajax_src, "ACTION_ATTACH = 'aa_attach_expediente_adjunto_for_expediente'") !== false);
 ac_assert('nonce by-expediente', strpos($ajax_src, 'aa_expediente_registros_by_expediente_nonce') !== false);
 ac_assert('soft nonce die=false', strpos($ajax_src, "check_ajax_referer(self::NONCE_ACTION, '_wpnonce', false)") !== false);
 ac_assert('sin nopriv en clase', strpos($ajax_src, 'wp_ajax_nopriv_') === false);
 ac_assert('bootstrap register', strpos($bootstrap_src, 'ExpedienteAdjuntosByExpedienteAjax::register()') !== false);
 ac_assert('bootstrap require', strpos($bootstrap_src, 'ExpedienteAdjuntosByExpedienteAjax.php') !== false);
+ac_assert('bootstrap sin nopriv attach for expediente', strpos($bootstrap_src, 'wp_ajax_nopriv_aa_attach_expediente_adjunto_for_expediente') === false);
 ac_assert('bootstrap sin nopriv sign for expediente', strpos($bootstrap_src, 'wp_ajax_nopriv_aa_sign_expediente_adjunto_read_for_expediente') === false);
-ac_assert('registros by-expediente sin ACTION_SIGN_READ', strpos($by_exp_registros_src, 'ACTION_SIGN_READ') === false
+ac_assert('registros by-expediente sin ACTION_ATTACH/SIGN canónicos', strpos($by_exp_registros_src, 'aa_attach_expediente_adjunto_for_expediente') === false
     && strpos($by_exp_registros_src, 'aa_sign_expediente_adjunto_read_for_expediente') === false);
-ac_assert('legacy action intacta', strpos($legacy_ajax_src, "ACTION_SIGN_READ = 'aa_sign_expediente_adjunto_read'") !== false);
-ac_assert('detail aún no cablea sign-read canónico', strpos($detail_src, 'aa_sign_expediente_adjunto_read_for_expediente') === false);
+ac_assert('legacy attach intacto', strpos($legacy_ajax_src, "ACTION_ATTACH = 'aa_attach_expediente_registro'") !== false);
+ac_assert('legacy sign intacta', strpos($legacy_ajax_src, "ACTION_SIGN_READ = 'aa_sign_expediente_adjunto_read'") !== false);
+ac_assert('detail aún no cablea attach/sign canónicos', strpos($detail_src, 'aa_attach_expediente_adjunto_for_expediente') === false
+    && strpos($detail_src, 'aa_sign_expediente_adjunto_read_for_expediente') === false);
 ac_assert('handler no lee client_id', strpos($ajax_src, "\$_POST['client_id']") === false
     && strpos($ajax_src, "\$_REQUEST['client_id']") === false);
 ac_assert('sin absint', strpos($ajax_src, 'absint(') === false);
@@ -100,6 +104,11 @@ if (!function_exists('wp_unslash')) {
 if (!function_exists('add_action')) {
     function add_action($hook, $callback, $priority = 10, $accepted_args = 1) {
         $GLOBALS['aa_test_actions'][] = $hook;
+    }
+}
+if (!function_exists('sanitize_text_field')) {
+    function sanitize_text_field($str) {
+        return trim(strip_tags((string) $str));
     }
 }
 
@@ -179,22 +188,52 @@ final class GetExpedienteAdjuntoReadUrlUseCase {
     }
 }
 
+final class UploadExpedienteRegistroAdjuntoUseCase {
+    public static $calls = [];
+    /** @var array<string,mixed> */
+    public static $response = [
+        'ok' => true,
+        'attachment' => [
+            'id' => 301,
+            'record_id' => 10,
+            'client_id' => 55,
+            'upload_operation_id' => '550e8400-e29b-41d4-a716-446655440000',
+            'storage_path' => 'installations/x/clients/55/records/10/550e8400-e29b-41d4-a716-446655440000.jpg',
+            'mime_type' => 'image/jpeg',
+            'byte_size' => 1024,
+            'width' => 800,
+            'height' => 600,
+            'created_at' => '2026-08-20 13:00:00',
+        ],
+    ];
+
+    public function execute(array $input): array {
+        self::$calls[] = $input;
+        return self::$response;
+    }
+}
+
 require_once $plugin_root . '/includes/domain/expediente/class-aa-expediente-id-policy.php';
 require_once $plugin_root . '/includes/domain/expediente/ExpedienteAdjuntoVariants.php';
+require_once $plugin_root . '/includes/domain/expediente/ExpedienteAdjuntoPublicDto.php';
 require_once $plugin_root . '/includes/application/expediente/GetExpedienteAdjuntoReadUrlForExpedienteUseCase.php';
 require_once $plugin_root . '/includes/http/ajax/ExpedienteAdjuntosByExpedienteAjax.php';
 
 ac_assert(
     'constants',
     ExpedienteAdjuntosByExpedienteAjax::ACTION_SIGN_READ === 'aa_sign_expediente_adjunto_read_for_expediente'
+    && ExpedienteAdjuntosByExpedienteAjax::ACTION_ATTACH === 'aa_attach_expediente_adjunto_for_expediente'
     && ExpedienteAdjuntosByExpedienteAjax::NONCE_ACTION === 'aa_expediente_registros_by_expediente_nonce'
 );
 
 $GLOBALS['aa_test_actions'] = [];
 ExpedienteAdjuntosByExpedienteAjax::register();
 ac_assert(
-    'register solo wp_ajax_ sign-read',
-    $GLOBALS['aa_test_actions'] === ['wp_ajax_aa_sign_expediente_adjunto_read_for_expediente']
+    'register wp_ajax_ sign-read + attach',
+    $GLOBALS['aa_test_actions'] === [
+        'wp_ajax_aa_sign_expediente_adjunto_read_for_expediente',
+        'wp_ajax_aa_attach_expediente_adjunto_for_expediente',
+    ]
 );
 
 /**
@@ -430,6 +469,268 @@ GetExpedienteAdjuntoReadUrlUseCase::$response = [
 $_POST = aa_post_ok();
 $sui = aa_invoke_sign();
 ac_assert('signed_url_invalid → 502', ($sui['status'] ?? 0) === 502);
+
+// --- B3b1 attach ---
+
+/**
+ * @return array<string,mixed>|null
+ */
+function aa_invoke_attach(): ?array {
+    $GLOBALS['aa_test_json'] = null;
+    try {
+        ExpedienteAdjuntosByExpedienteAjax::handle_attach();
+    } catch (RuntimeException $e) {
+        if ($e->getMessage() !== 'json_sent' && $e->getMessage() !== 'bad_nonce') {
+            throw $e;
+        }
+    }
+    return $GLOBALS['aa_test_json'];
+}
+
+function aa_reset_attach(): void {
+    aa_reset_sign();
+    $_FILES = [];
+    UploadExpedienteRegistroAdjuntoUseCase::$calls = [];
+    UploadExpedienteRegistroAdjuntoUseCase::$response = [
+        'ok' => true,
+        'attachment' => [
+            'id' => 301,
+            'record_id' => 10,
+            'client_id' => 55,
+            'upload_operation_id' => '550e8400-e29b-41d4-a716-446655440000',
+            'storage_path' => 'installations/x/clients/55/records/10/550e8400-e29b-41d4-a716-446655440000.jpg',
+            'mime_type' => 'image/jpeg',
+            'byte_size' => 1024,
+            'width' => 800,
+            'height' => 600,
+            'created_at' => '2026-08-20 13:00:00',
+        ],
+    ];
+}
+
+function aa_attach_post(array $extra = []): array {
+    return array_merge([
+        'expediente_id' => '7',
+        'record_id' => '10',
+        'upload_operation_id' => '550e8400-e29b-41d4-a716-446655440000',
+    ], $extra);
+}
+
+function aa_attach_file(): array {
+    return [
+        'name' => 'adjunto.jpg',
+        'type' => 'image/jpeg',
+        'tmp_name' => '/tmp/phpXXXX',
+        'error' => 0,
+        'size' => 1024,
+    ];
+}
+
+aa_reset_attach();
+$GLOBALS['aa_test_can_manage_options'] = false;
+$_POST = aa_attach_post();
+$_FILES = ['file' => aa_attach_file()];
+ac_assert('attach cap → 403', ((aa_invoke_attach()['status'] ?? 0) === 403));
+ac_assert('attach cap sin pipeline', UploadExpedienteRegistroAdjuntoUseCase::$calls === []);
+
+aa_reset_attach();
+$GLOBALS['aa_test_nonce_valid'] = false;
+$_POST = aa_attach_post();
+$_FILES = ['file' => aa_attach_file()];
+$nonceA = aa_invoke_attach();
+ac_assert('attach nonce → 403 bad_nonce', ($nonceA['status'] ?? 0) === 403
+    && ($nonceA['data']['code'] ?? '') === 'bad_nonce');
+
+aa_reset_attach();
+ExpedienteRegistrosAjax::$access = 'free';
+$_POST = aa_attach_post();
+$_FILES = ['file' => aa_attach_file()];
+$gateA = aa_invoke_attach();
+ac_assert('attach gate → 403', ($gateA['status'] ?? 0) === 403
+    && ($gateA['data']['code'] ?? '') === 'expediente_access_denied');
+
+aa_reset_attach();
+$_POST = aa_attach_post();
+$_FILES = [];
+$missing = aa_invoke_attach();
+ac_assert('attach sin file → 400 file_missing', ($missing['status'] ?? 0) === 400
+    && ($missing['data']['code'] ?? '') === 'file_missing'
+    && UploadExpedienteRegistroAdjuntoUseCase::$calls === []);
+
+aa_reset_attach();
+$_POST = aa_attach_post(['expediente_id' => '01']);
+$_FILES = ['file' => aa_attach_file()];
+ac_assert('attach 01 → 400', ((aa_invoke_attach()['status'] ?? 0) === 400));
+
+aa_reset_attach();
+$_POST = aa_attach_post(['expediente_id' => ['7']]);
+$_FILES = ['file' => aa_attach_file()];
+$arrA = aa_invoke_attach();
+ac_assert('attach array id → 400 sin warnings', ($arrA['status'] ?? 0) === 400
+    && $GLOBALS['aa_test_warnings'] === []);
+
+aa_reset_attach();
+ExpedientesRepository::$exists_result = false;
+$_POST = aa_attach_post();
+$_FILES = ['file' => aa_attach_file()];
+ac_assert('attach expediente inexistente → 404', ((aa_invoke_attach()['status'] ?? 0) === 404)
+    && UploadExpedienteRegistroAdjuntoUseCase::$calls === []);
+
+aa_reset_attach();
+ExpedientesRepository::$exists_result = null;
+$_POST = aa_attach_post();
+$_FILES = ['file' => aa_attach_file()];
+ac_assert('attach exists SQL → 500', ((aa_invoke_attach()['status'] ?? 0) === 500));
+
+aa_reset_attach();
+ExpedientesRepository::$owner = null;
+$_POST = aa_attach_post();
+$_FILES = ['file' => aa_attach_file()];
+ac_assert('attach owner null → 500', ((aa_invoke_attach()['status'] ?? 0) === 500));
+
+aa_reset_attach();
+ExpedientesRepository::$owner = ['id' => 7, 'client_id' => null];
+$_POST = aa_attach_post();
+$_FILES = ['file' => aa_attach_file()];
+$genA = aa_invoke_attach();
+ac_assert('attach general → 409', ($genA['status'] ?? 0) === 409
+    && ($genA['data']['code'] ?? '') === 'attachments_unavailable'
+    && UploadExpedienteRegistroAdjuntoUseCase::$calls === []);
+
+aa_reset_attach();
+ExpedienteRegistrosRepository::$record = false;
+$_POST = aa_attach_post();
+$_FILES = ['file' => aa_attach_file()];
+ac_assert('attach registro ajeno → 404', ((aa_invoke_attach()['status'] ?? 0) === 404)
+    && UploadExpedienteRegistroAdjuntoUseCase::$calls === []);
+
+aa_reset_attach();
+ExpedienteRegistrosRepository::$record = null;
+$_POST = aa_attach_post();
+$_FILES = ['file' => aa_attach_file()];
+ac_assert('attach registro SQL → 500', ((aa_invoke_attach()['status'] ?? 0) === 500));
+
+aa_reset_attach();
+ExpedienteRegistrosRepository::$record = [
+    'id' => 10,
+    'expediente_id' => 7,
+    'client_id' => 99,
+    'title' => 'A',
+    'body' => 'B',
+    'recorded_at' => '2026-08-20 12:00:00',
+    'created_at' => '2026-08-20 12:00:00',
+    'updated_at' => null,
+];
+$_POST = aa_attach_post();
+$_FILES = ['file' => aa_attach_file()];
+ac_assert('attach mismatch → 404 sin pipeline', ((aa_invoke_attach()['status'] ?? 0) === 404)
+    && UploadExpedienteRegistroAdjuntoUseCase::$calls === []);
+
+aa_reset_attach();
+$_POST = aa_attach_post([
+    'client_id' => '999',
+    'storage_path' => '/evil',
+    'attachment_id' => '1',
+]);
+$_FILES = ['file' => aa_attach_file()];
+$okA = aa_invoke_attach();
+ac_assert('attach éxito 200', ($okA['success'] ?? false) === true && ($okA['status'] ?? 0) === 200);
+ac_assert(
+    'attach contrato público',
+    ($okA['data']['record_id'] ?? 0) === 10
+    && array_keys($okA['data']['adjunto'] ?? []) === ['id', 'width', 'height', 'byte_size', 'created_at']
+);
+$blobA = json_encode($okA['data'] ?? []);
+ac_assert(
+    'attach sin owners/paths/op',
+    strpos($blobA, 'client_id') === false
+    && strpos($blobA, 'storage_path') === false
+    && strpos($blobA, 'upload_operation_id') === false
+);
+ac_assert(
+    'attach pipeline 1× client padre; POST ignorado',
+    count(UploadExpedienteRegistroAdjuntoUseCase::$calls) === 1
+    && (UploadExpedienteRegistroAdjuntoUseCase::$calls[0]['client_id'] ?? 0) === 55
+    && !array_key_exists('storage_path', UploadExpedienteRegistroAdjuntoUseCase::$calls[0])
+);
+
+aa_reset_attach();
+$_POST = aa_attach_post();
+$_FILES = ['file' => aa_attach_file()];
+aa_invoke_attach();
+aa_invoke_attach();
+ac_assert('attach retry → 2× pipeline idempotente', count(UploadExpedienteRegistroAdjuntoUseCase::$calls) === 2);
+
+aa_reset_attach();
+$_POST = aa_attach_post(['upload_operation_id' => ['x']]);
+$_FILES = ['file' => aa_attach_file()];
+UploadExpedienteRegistroAdjuntoUseCase::$response = [
+    'ok' => false,
+    'code' => 'invalid_operation_id',
+    'message' => 'Identificador de operación no válido.',
+];
+$badOp = aa_invoke_attach();
+ac_assert('attach op no escalar → 400', ($badOp['status'] ?? 0) === 400
+    && ($badOp['data']['code'] ?? '') === 'invalid_operation_id'
+    && (UploadExpedienteRegistroAdjuntoUseCase::$calls[0]['upload_operation_id'] ?? null) === '');
+
+aa_reset_attach();
+UploadExpedienteRegistroAdjuntoUseCase::$response = [
+    'ok' => false,
+    'code' => 'adjunto_meta_conflict',
+    'message' => 'Conflicto.',
+];
+$_POST = aa_attach_post();
+$_FILES = ['file' => aa_attach_file()];
+ac_assert('attach meta conflict → 409', ((aa_invoke_attach()['status'] ?? 0) === 409));
+
+aa_reset_attach();
+UploadExpedienteRegistroAdjuntoUseCase::$response = [
+    'ok' => false,
+    'code' => 'storage_quota_exceeded',
+    'message' => 'Cuota.',
+];
+$_POST = aa_attach_post();
+$_FILES = ['file' => aa_attach_file()];
+ac_assert('attach cuota → 409', ((aa_invoke_attach()['status'] ?? 0) === 409));
+
+aa_reset_attach();
+UploadExpedienteRegistroAdjuntoUseCase::$response = [
+    'ok' => false,
+    'code' => 'variant_generation_failed',
+    'message' => 'Variantes.',
+];
+$_POST = aa_attach_post();
+$_FILES = ['file' => aa_attach_file()];
+ac_assert('attach variantes → 500', ((aa_invoke_attach()['status'] ?? 0) === 500));
+
+aa_reset_attach();
+UploadExpedienteRegistroAdjuntoUseCase::$response = [
+    'ok' => false,
+    'code' => 'expediente_attachments_unreachable',
+    'message' => 'Backend.',
+];
+$_POST = aa_attach_post();
+$_FILES = ['file' => aa_attach_file()];
+ac_assert('attach backend → 502', ((aa_invoke_attach()['status'] ?? 0) === 502));
+
+aa_reset_attach();
+UploadExpedienteRegistroAdjuntoUseCase::$response = [
+    'ok' => false,
+    'code' => 'invalid_mime',
+    'message' => 'MIME.',
+];
+$_POST = aa_attach_post();
+$_FILES = ['file' => aa_attach_file()];
+ac_assert('attach MIME → 400', ((aa_invoke_attach()['status'] ?? 0) === 400));
+
+$legacy_registros_js = (string) file_get_contents($plugin_root . '/includes/admin/ui/modules/clients/expediente-registros.js');
+ac_assert(
+    'port JS attach/retry intacto (fuente)',
+    strpos($legacy_registros_js, "callPort('attach'") !== false
+    && strpos($legacy_registros_js, 'aa_attach_expediente_registro') !== false
+    && strpos($legacy_registros_js, 'runAttachRetry') !== false
+);
 
 restore_error_handler();
 
