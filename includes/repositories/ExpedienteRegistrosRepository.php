@@ -325,6 +325,52 @@ final class ExpedienteRegistrosRepository {
     }
 
     /**
+     * Actualiza solo title, body y updated_at. WHERE exige id + expediente_id.
+     * No escribe client_id ni expediente_id ni recorded_at.
+     *
+     * @return true|\WP_Error true incluso si $wpdb->update() === 0 (sin cambios de valor
+     *         o fila condicionada sin diferencia de columnas)
+     */
+    public static function update_title_body_for_expediente(
+        int $record_id,
+        int $expediente_id,
+        string $title,
+        string $body,
+        string $updated_at
+    ) {
+        if ($record_id < 1 || $expediente_id < 1 || $title === '' || $body === '' || $updated_at === '') {
+            return new WP_Error('invalid_registro_data', 'Datos de registro incompletos.');
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+
+        $result = $wpdb->update(
+            $table,
+            [
+                'title' => $title,
+                'body' => $body,
+                'updated_at' => $updated_at,
+            ],
+            [
+                'id' => $record_id,
+                'expediente_id' => $expediente_id,
+            ],
+            ['%s', '%s', '%s'],
+            ['%d', '%d']
+        );
+
+        if ($result === false) {
+            error_log('[ExpedienteRegistrosRepository] update_for_expediente error: ' . $wpdb->last_error);
+
+            return new WP_Error('db_error', 'Error al actualizar el registro.');
+        }
+
+        // 0 = ninguna columna cambió de valor; no es fallo SQL.
+        return true;
+    }
+
+    /**
      * Inserta un registro. recorded_at/created_at deben venir ya asignados por la capa superior.
      *
      * @param array{client_id:int,title:string,body:string,recorded_at:string,created_at:string} $data

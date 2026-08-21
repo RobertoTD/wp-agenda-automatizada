@@ -58,6 +58,10 @@ ac_assert('list_by_client_id existe', strpos($src, 'function list_by_client_id')
 ac_assert('insert existe', strpos($src, 'function insert') !== false);
 ac_assert('find_by_id_for_client existe', strpos($src, 'function find_by_id_for_client') !== false);
 ac_assert('update_title_body existe', strpos($src, 'function update_title_body') !== false);
+ac_assert(
+    'update_title_body_for_expediente existe',
+    strpos($src, 'function update_title_body_for_expediente') !== false
+);
 ac_assert('ORDER BY recorded_at DESC, id DESC', strpos($src, 'ORDER BY recorded_at DESC, id DESC') !== false);
 ac_assert('count_by_expediente_id existe', strpos($src, 'function count_by_expediente_id') !== false);
 ac_assert('list_by_expediente_id existe', strpos($src, 'function list_by_expediente_id') !== false);
@@ -76,7 +80,7 @@ ac_assert(
     preg_match("/function list_by_client_id[\s\S]*?WHERE client_id = %d[\s\S]*?LIMIT %d/", $src) === 1
 );
 $legacy_insert_start = strpos($src, 'public static function insert(array $data)');
-$legacy_insert_end = strpos($src, 'public static function insert_for_expediente');
+$legacy_insert_end = strpos($src, 'public static function insert_for_client_expediente');
 $legacy_insert_block = ($legacy_insert_start !== false && $legacy_insert_end !== false && $legacy_insert_end > $legacy_insert_start)
     ? substr($src, $legacy_insert_start, $legacy_insert_end - $legacy_insert_start)
     : '';
@@ -359,6 +363,34 @@ ac_assert('update false → WP_Error', is_wp_error($sqlFail));
 
 $badUpd = ExpedienteRegistrosRepository::update_title_body(0, 9, '', '', '');
 ac_assert('update inválido → WP_Error', is_wp_error($badUpd));
+
+$wpdb->update_result = 1;
+$updExp = ExpedienteRegistrosRepository::update_title_body_for_expediente(
+    12,
+    40,
+    'Nuevo',
+    'Cuerpo',
+    '2026-07-30 17:00:00'
+);
+ac_assert('update for expediente OK', $updExp === true);
+ac_assert(
+    'update for expediente where id+expediente',
+    ($wpdb->updated['where']['id'] ?? null) === 12
+    && ($wpdb->updated['where']['expediente_id'] ?? null) === 40
+    && !array_key_exists('client_id', $wpdb->updated['where'] ?? [])
+);
+ac_assert(
+    'update for expediente data keys',
+    array_keys($wpdb->updated['data'] ?? []) === ['title', 'body', 'updated_at']
+);
+
+$wpdb->update_result = 0;
+$noopExp = ExpedienteRegistrosRepository::update_title_body_for_expediente(12, 40, 'Nuevo', 'Cuerpo', '2026-07-30 17:00:00');
+ac_assert('update for expediente 0 filas → true', $noopExp === true);
+
+$wpdb->update_result = false;
+$sqlFailExp = ExpedienteRegistrosRepository::update_title_body_for_expediente(12, 40, 'Nuevo', 'Cuerpo', '2026-07-30 17:00:00');
+ac_assert('update for expediente false → WP_Error', is_wp_error($sqlFailExp));
 
 // --- find_by_id_for_expediente (triestado B3a) ---
 

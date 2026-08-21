@@ -150,11 +150,17 @@ ac_assert(
 ac_assert(
     'detalle config C1b: capabilities exactas',
     strpos($detail, 'createRegistro: true') !== false
-    && strpos($detail, 'updateRegistro: false') !== false
+    && strpos($detail, 'updateRegistro: true') !== false
     && strpos($detail, 'deleteRegistro: false') !== false
+    && strpos($detail, 'aa_update_expediente_registro_for_expediente') !== false
     && strpos($detail, 'attach: true') !== false
     && strpos($detail, 'signRead: true') !== false
     && strpos($detail, 'deleteAdjunto: true') !== false
+);
+ac_assert(
+    'detalle actions incluyen updateRegistro',
+    strpos($detail, 'updateRegistro:') !== false
+    && strpos($detail, 'ACTION_UPDATE') !== false
 );
 ac_assert(
     'detalle config C1b: sin clientId ni rutas privadas',
@@ -366,8 +372,9 @@ ac_assert(
     && strpos($rendered_detail, 'aa_sign_expediente_adjunto_read_for_expediente') !== false
     && strpos($rendered_detail, 'aa_delete_expediente_adjunto_for_expediente') !== false
     && strpos($rendered_detail, 'createRegistro: true') !== false
-    && strpos($rendered_detail, 'updateRegistro: false') !== false
+    && strpos($rendered_detail, 'updateRegistro: true') !== false
     && strpos($rendered_detail, 'deleteRegistro: false') !== false
+    && strpos($rendered_detail, 'aa_update_expediente_registro_for_expediente') !== false
     && strpos($rendered_detail, 'attach: true') !== false
     && strpos($rendered_detail, 'signRead: true') !== false
     && strpos($rendered_detail, 'deleteAdjunto: true') !== false

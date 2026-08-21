@@ -15,6 +15,7 @@
     var ACTION_KEYS = [
         'listRegistros',
         'createRegistro',
+        'updateRegistro',
         'attachRegistro',
         'signAdjuntoRead',
         'deleteAdjunto'
@@ -267,6 +268,15 @@
                 draft = draft || {};
                 return postJsonForm(ajaxUrl, nonce, actions.createRegistro, {
                     expediente_id: expedienteId,
+                    title: draft.title == null ? '' : String(draft.title),
+                    body: draft.body == null ? '' : String(draft.body)
+                });
+            },
+            update: function (recordId, draft) {
+                draft = draft || {};
+                return postJsonForm(ajaxUrl, nonce, actions.updateRegistro, {
+                    expediente_id: expedienteId,
+                    record_id: String(recordId || ''),
                     title: draft.title == null ? '' : String(draft.title),
                     body: draft.body == null ? '' : String(draft.body)
                 });

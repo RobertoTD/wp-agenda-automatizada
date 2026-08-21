@@ -656,6 +656,113 @@ describe('ExpedienteRegistros capabilities (C1a)', () => {
         assert.ok(ctx.findIn(root, '.aa-expediente-galeria-delete'));
     });
 
+    it('canónico: update true + delete false → Editar sin Eliminar; update una vez', async () => {
+        const ctx = makeSandbox();
+        const calls = [];
+        const record = {
+            id: 14,
+            title: 'Original',
+            body: 'Cuerpo',
+            recorded_at: '2026-08-01 10:00:00',
+            created_at: '2026-08-01 10:00:00',
+            adjuntos: [{
+                id: 20,
+                width: 10,
+                height: 10,
+                byte_size: 100,
+                created_at: '2026-08-01 10:01:00'
+            }],
+            adjunto: {
+                id: 20,
+                width: 10,
+                height: 10,
+                byte_size: 100,
+                created_at: '2026-08-01 10:01:00'
+            }
+        };
+        const ports = {
+            list: () => okPayload({ records: [record] }),
+            create: () => okPayload({
+                record: {
+                    id: 1,
+                    title: 'x',
+                    body: 'y',
+                    recorded_at: '2026-08-20 12:00:00',
+                    adjuntos: [],
+                    adjunto: null
+                }
+            }),
+            update: (recordId, draft) => {
+                calls.push({ name: 'update', recordId, draft });
+                return okPayload({
+                    record: {
+                        id: recordId,
+                        title: draft.title,
+                        body: draft.body,
+                        recorded_at: '2026-08-01 10:00:00',
+                        created_at: '2026-08-01 10:00:00',
+                        updated_at: '2026-08-20 15:00:00'
+                    }
+                });
+            },
+            attach: () => okPayload({
+                record_id: 1,
+                adjunto: { id: 1, width: 1, height: 1, byte_size: 1, created_at: 'x' }
+            }),
+            signRead: () => okPayload({ url: 'https://x', expires_in: 60, variant: 'summary' }),
+            deleteAdjunto: () => okPayload({
+                record_id: 1,
+                deleted_attachment_id: 1,
+                adjuntos: [],
+                adjunto: null
+            })
+        };
+        const root = createEl('div');
+        const caps = {
+            ...CANONICAL_CAPS,
+            updateRegistro: true,
+            deleteRegistro: false
+        };
+        ctx.api.init({
+            scopeKey: 'exp:edit',
+            recordsRoot: root,
+            ports,
+            capabilities: caps
+        });
+        await Promise.resolve();
+        await Promise.resolve();
+        assert.ok(ctx.findIn(root, '.aa-expediente-btn-editar'));
+        assert.equal(ctx.findIn(root, '.aa-expediente-btn-eliminar'), null);
+
+        ctx.api.openRegistroForm({
+            mode: 'edit',
+            recordId: 14,
+            record: record
+        });
+        const modal = ctx.getModal();
+        assert.ok(modal);
+        const title = ctx.findIn(modal.body, '#aa-expediente-registro-title');
+        const body = ctx.findIn(modal.body, '#aa-expediente-registro-body');
+        assert.ok(title);
+        assert.ok(body);
+        assert.equal(title.value, 'Original');
+        assert.equal(body.value, 'Cuerpo');
+        title.value = 'Editado';
+        body.value = 'Nuevo cuerpo';
+        ctx.findIn(modal.footer, '.aa-btn-guardar').click();
+        await Promise.resolve();
+        await Promise.resolve();
+        assert.equal(calls.length, 1);
+        assert.equal(calls[0].recordId, 14);
+        assert.equal(calls[0].draft.title, 'Editado');
+        const updated = ctx.testApi.findRecordById(14);
+        assert.ok(updated);
+        assert.equal(updated.title, 'Editado');
+        assert.equal(updated.body, 'Nuevo cuerpo');
+        assert.equal(updated.adjuntos.length, 1);
+        assert.equal(updated.adjuntos[0].id, 20);
+    });
+
     it('create textual y create+attach sin update; retry no invoca update', async () => {
         const ctx = makeSandbox();
         let attachFailOnce = true;

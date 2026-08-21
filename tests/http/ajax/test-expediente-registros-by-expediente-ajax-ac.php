@@ -34,6 +34,7 @@ $schema_src = (string) file_get_contents($plugin_root . '/includes/infrastructur
 ac_assert('ajax file readable', $ajax_src !== '');
 ac_assert('ACTION create for expediente', strpos($ajax_src, 'aa_create_expediente_registro_for_expediente') !== false);
 ac_assert('ACTION list for expediente', strpos($ajax_src, 'aa_list_expediente_registros_for_expediente') !== false);
+ac_assert('ACTION update for expediente', strpos($ajax_src, 'aa_update_expediente_registro_for_expediente') !== false);
 ac_assert('nonce propio by expediente', strpos($ajax_src, 'aa_expediente_registros_by_expediente_nonce') !== false);
 ac_assert('solo wp_ajax_ en register', strpos($ajax_src, "add_action('wp_ajax_'") !== false
     && strpos($ajax_src, 'wp_ajax_nopriv_') === false);
@@ -42,6 +43,7 @@ ac_assert('manage_options antes de nonce', strpos($ajax_src, "current_user_can('
 ac_assert('nonce soft (die=false) → 403 JSON', strpos($ajax_src, "check_ajax_referer(self::NONCE_ACTION, '_wpnonce', false)") !== false);
 ac_assert('reutiliza gate full', strpos($ajax_src, 'ExpedienteRegistrosAjax::require_expediente_shell_access') !== false);
 ac_assert('delega CreateExpedienteRegistroUseCase', strpos($ajax_src, 'CreateExpedienteRegistroUseCase') !== false);
+ac_assert('delega UpdateExpedienteRegistroForExpedienteUseCase', strpos($ajax_src, 'UpdateExpedienteRegistroForExpedienteUseCase') !== false);
 ac_assert(
     'list delega ListExpedienteRegistrosWithPublicAdjuntosUseCase',
     strpos($ajax_src, 'ListExpedienteRegistrosWithPublicAdjuntosUseCase') !== false
@@ -195,6 +197,32 @@ final class CreateExpedienteRegistroUseCase {
     }
 }
 
+final class UpdateExpedienteRegistroForExpedienteUseCase {
+    /** @var array<string,mixed>|null */
+    public static $last_input = null;
+    public static $calls = 0;
+    /** @var array<string,mixed> */
+    public static $result = [
+        'success' => true,
+        'data' => [
+            'record' => [
+                'id' => 14,
+                'title' => 'Editado',
+                'body' => 'Cuerpo',
+                'recorded_at' => '2026-08-01 10:00:00',
+                'created_at' => '2026-08-01 10:00:00',
+                'updated_at' => '2026-08-20 15:00:00',
+            ],
+        ],
+    ];
+
+    public function execute(array $input): array {
+        self::$calls++;
+        self::$last_input = $input;
+        return self::$result;
+    }
+}
+
 require_once $plugin_root . '/includes/http/ajax/ExpedienteRegistrosByExpedienteAjax.php';
 
 ac_assert('class exists', class_exists('ExpedienteRegistrosByExpedienteAjax'));
@@ -202,6 +230,7 @@ ac_assert(
     'constants',
     ExpedienteRegistrosByExpedienteAjax::ACTION_CREATE === 'aa_create_expediente_registro_for_expediente'
     && ExpedienteRegistrosByExpedienteAjax::ACTION_LIST === 'aa_list_expediente_registros_for_expediente'
+    && ExpedienteRegistrosByExpedienteAjax::ACTION_UPDATE === 'aa_update_expediente_registro_for_expediente'
     && ExpedienteRegistrosByExpedienteAjax::NONCE_ACTION === 'aa_expediente_registros_by_expediente_nonce'
 );
 
@@ -225,9 +254,19 @@ ac_assert(
     )) === 1
 );
 ac_assert(
-    'register sin nopriv create ni list',
+    'register wp_ajax_ update una vez',
+    count(array_filter(
+        $GLOBALS['aa_test_actions'],
+        static function ($h) {
+            return $h === 'wp_ajax_aa_update_expediente_registro_for_expediente';
+        }
+    )) === 1
+);
+ac_assert(
+    'register sin nopriv create ni list ni update',
     !in_array('wp_ajax_nopriv_aa_create_expediente_registro_for_expediente', $GLOBALS['aa_test_actions'], true)
     && !in_array('wp_ajax_nopriv_aa_list_expediente_registros_for_expediente', $GLOBALS['aa_test_actions'], true)
+    && !in_array('wp_ajax_nopriv_aa_update_expediente_registro_for_expediente', $GLOBALS['aa_test_actions'], true)
 );
 
 /**
@@ -265,6 +304,21 @@ function aa_reset_by_exp_ajax(): void {
                 'recorded_at' => '2026-08-20 12:00:00',
                 'created_at' => '2026-08-20 12:00:00',
                 'updated_at' => null,
+            ],
+        ],
+    ];
+    UpdateExpedienteRegistroForExpedienteUseCase::$last_input = null;
+    UpdateExpedienteRegistroForExpedienteUseCase::$calls = 0;
+    UpdateExpedienteRegistroForExpedienteUseCase::$result = [
+        'success' => true,
+        'data' => [
+            'record' => [
+                'id' => 14,
+                'title' => 'Editado',
+                'body' => 'Cuerpo',
+                'recorded_at' => '2026-08-01 10:00:00',
+                'created_at' => '2026-08-01 10:00:00',
+                'updated_at' => '2026-08-20 15:00:00',
             ],
         ],
     ];
@@ -432,6 +486,97 @@ ac_assert(
     && !array_key_exists('expediente_id', $stripped['data']['record'] ?? [])
     && !array_key_exists('blog_id', $stripped['data']['record'] ?? [])
     && ($stripped['data']['record']['id'] ?? 0) === 9
+);
+
+// --- Update canónico ---
+aa_reset_by_exp_ajax();
+UpdateExpedienteRegistroForExpedienteUseCase::$calls = 0;
+UpdateExpedienteRegistroForExpedienteUseCase::$last_input = null;
+UpdateExpedienteRegistroForExpedienteUseCase::$result = [
+    'success' => true,
+    'data' => [
+        'record' => [
+            'id' => 14,
+            'title' => 'Editado',
+            'body' => 'Cuerpo',
+            'recorded_at' => '2026-08-01 10:00:00',
+            'created_at' => '2026-08-01 10:00:00',
+            'updated_at' => '2026-08-20 15:00:00',
+            'client_id' => 42,
+            'expediente_id' => 5,
+            'adjuntos' => [],
+            'adjunto' => null,
+        ],
+    ],
+];
+$_POST = [
+    'expediente_id' => '5',
+    'record_id' => '14',
+    'title' => 'Editado',
+    'body' => 'Cuerpo',
+    'client_id' => '999',
+];
+$upd = aa_invoke_by_exp_ajax([ExpedienteRegistrosByExpedienteAjax::class, 'handle_update']);
+ac_assert('update éxito 200', ($upd['success'] ?? false) === true && ($upd['status'] ?? 0) === 200);
+ac_assert('update una sola llamada UC', UpdateExpedienteRegistroForExpedienteUseCase::$calls === 1);
+ac_assert(
+    'update input ids canónicos',
+    (UpdateExpedienteRegistroForExpedienteUseCase::$last_input['expediente_id'] ?? null) === '5'
+    && (UpdateExpedienteRegistroForExpedienteUseCase::$last_input['record_id'] ?? null) === '14'
+);
+ac_assert(
+    'update ignora client_id del POST en input UC',
+    !array_key_exists('client_id', UpdateExpedienteRegistroForExpedienteUseCase::$last_input ?? [])
+);
+ac_assert(
+    'update DTO público sin owners/adjuntos',
+    !array_key_exists('client_id', $upd['data']['record'] ?? [])
+    && !array_key_exists('expediente_id', $upd['data']['record'] ?? [])
+    && !array_key_exists('adjuntos', $upd['data']['record'] ?? [])
+    && !array_key_exists('adjunto', $upd['data']['record'] ?? [])
+    && ($upd['data']['record']['title'] ?? '') === 'Editado'
+);
+
+aa_reset_by_exp_ajax();
+$_POST = [
+    'expediente_id' => ['5'],
+    'record_id' => ['14'],
+    'title' => ['x'],
+    'body' => (object) ['b' => 1],
+];
+aa_invoke_by_exp_ajax([ExpedienteRegistrosByExpedienteAjax::class, 'handle_update']);
+$updInput = UpdateExpedienteRegistroForExpedienteUseCase::$last_input;
+ac_assert(
+    'update arrays/objetos → null al UC sin warnings',
+    is_array($updInput)
+    && array_key_exists('expediente_id', $updInput)
+    && $updInput['expediente_id'] === null
+    && array_key_exists('record_id', $updInput)
+    && $updInput['record_id'] === null
+    && array_key_exists('title', $updInput)
+    && $updInput['title'] === null
+    && array_key_exists('body', $updInput)
+    && $updInput['body'] === null
+    && $GLOBALS['aa_test_warnings'] === []
+);
+ac_assert(
+    'update no-escalares delegan al UC (una vez)',
+    UpdateExpedienteRegistroForExpedienteUseCase::$calls === 1
+);
+
+aa_reset_by_exp_ajax();
+UpdateExpedienteRegistroForExpedienteUseCase::$result = [
+    'success' => false,
+    'error' => ['code' => 'not_found', 'message' => 'Registro no encontrado.'],
+];
+$_POST = ['expediente_id' => '5', 'record_id' => '14', 'title' => 'A', 'body' => 'B'];
+$upd404 = aa_invoke_by_exp_ajax([ExpedienteRegistrosByExpedienteAjax::class, 'handle_update']);
+ac_assert('update not_found → 404', ($upd404['status'] ?? 0) === 404);
+
+ac_assert(
+    'legacy update action intacto',
+    strpos($legacy_ajax_src, 'aa_update_expediente_registro') !== false
+    && strpos($legacy_ajax_src, 'aa_update_expediente_registro_for_expediente') === false
 );
 
 restore_error_handler();

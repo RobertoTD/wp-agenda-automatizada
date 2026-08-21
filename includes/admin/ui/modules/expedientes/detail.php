@@ -83,6 +83,10 @@ $aa_detail_delete_adjunto_action = (class_exists('ExpedienteAdjuntosByExpediente
     && defined('ExpedienteAdjuntosByExpedienteAjax::ACTION_DELETE'))
     ? ExpedienteAdjuntosByExpedienteAjax::ACTION_DELETE
     : 'aa_delete_expediente_adjunto_for_expediente';
+$aa_detail_update_action = (class_exists('ExpedienteRegistrosByExpedienteAjax')
+    && defined('ExpedienteRegistrosByExpedienteAjax::ACTION_UPDATE'))
+    ? ExpedienteRegistrosByExpedienteAjax::ACTION_UPDATE
+    : 'aa_update_expediente_registro_for_expediente';
 $aa_detail_create_nonce_action = (class_exists('ExpedienteRegistrosByExpedienteAjax')
     && defined('ExpedienteRegistrosByExpedienteAjax::NONCE_ACTION'))
     ? ExpedienteRegistrosByExpedienteAjax::NONCE_ACTION
@@ -213,13 +217,14 @@ $aa_detail_scope_key = $aa_detail_can_create
         actions: {
             listRegistros: <?php echo wp_json_encode($aa_detail_list_action); ?>,
             createRegistro: <?php echo wp_json_encode($aa_detail_create_action); ?>,
+            updateRegistro: <?php echo wp_json_encode($aa_detail_update_action); ?>,
             attachRegistro: <?php echo wp_json_encode($aa_detail_attach_action); ?>,
             signAdjuntoRead: <?php echo wp_json_encode($aa_detail_sign_read_action); ?>,
             deleteAdjunto: <?php echo wp_json_encode($aa_detail_delete_adjunto_action); ?>
         },
         capabilities: {
             createRegistro: true,
-            updateRegistro: false,
+            updateRegistro: true,
             deleteRegistro: false,
             attach: true,
             signRead: true,

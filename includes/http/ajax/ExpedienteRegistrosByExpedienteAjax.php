@@ -1,16 +1,20 @@
 <?php
 /**
- * Expediente Registros by Expediente AJAX — create + list por expediente_id.
+ * Expediente Registros by Expediente AJAX — create + list + update por expediente_id.
  *
  * Transporte HTTP autenticado. Create → CreateExpedienteRegistroUseCase.
- * List → ListExpedienteRegistrosWithPublicAdjuntosUseCase (DTO público de
- * adjuntos; sin caller UI todavía). No amplía el contrato legacy por client_id.
+ * List → ListExpedienteRegistrosWithPublicAdjuntosUseCase.
+ * Update → UpdateExpedienteRegistroForExpedienteUseCase.
+ * No amplía el contrato legacy por client_id.
  */
 
 defined('ABSPATH') or die('No direct access');
 
 if (!class_exists('CreateExpedienteRegistroUseCase')) {
     require_once dirname(__DIR__, 2) . '/application/expediente/CreateExpedienteRegistroUseCase.php';
+}
+if (!class_exists('UpdateExpedienteRegistroForExpedienteUseCase')) {
+    require_once dirname(__DIR__, 2) . '/application/expediente/UpdateExpedienteRegistroForExpedienteUseCase.php';
 }
 if (!class_exists('ListExpedienteRegistrosWithPublicAdjuntosUseCase')) {
     require_once dirname(__DIR__, 2) . '/application/expediente/ListExpedienteRegistrosWithPublicAdjuntosUseCase.php';
@@ -23,11 +27,13 @@ final class ExpedienteRegistrosByExpedienteAjax {
 
     public const ACTION_CREATE = 'aa_create_expediente_registro_for_expediente';
     public const ACTION_LIST = 'aa_list_expediente_registros_for_expediente';
+    public const ACTION_UPDATE = 'aa_update_expediente_registro_for_expediente';
     public const NONCE_ACTION = 'aa_expediente_registros_by_expediente_nonce';
 
     public static function register(): void {
         add_action('wp_ajax_' . self::ACTION_CREATE, [__CLASS__, 'handle_create']);
         add_action('wp_ajax_' . self::ACTION_LIST, [__CLASS__, 'handle_list']);
+        add_action('wp_ajax_' . self::ACTION_UPDATE, [__CLASS__, 'handle_update']);
     }
 
     public static function handle_create(): void {
@@ -41,12 +47,26 @@ final class ExpedienteRegistrosByExpedienteAjax {
             'body' => self::read_sanitized_textarea('body'),
         ]);
 
-        self::respond_create($result);
+        self::respond_record_write($result, 'creación');
+    }
+
+    public static function handle_update(): void {
+        if (!self::authorize()) {
+            return;
+        }
+
+        $result = (new UpdateExpedienteRegistroForExpedienteUseCase())->execute([
+            'expediente_id' => self::read_expediente_id(),
+            'record_id' => self::read_record_id(),
+            'title' => self::read_sanitized_text('title'),
+            'body' => self::read_sanitized_textarea('body'),
+        ]);
+
+        self::respond_record_write($result, 'actualización');
     }
 
     /**
      * Lectura AJAX paginada con metadatos públicos de adjuntos (B2b).
-     * Sin caller visual todavía.
      */
     public static function handle_list(): void {
         if (!self::authorize()) {
@@ -90,11 +110,25 @@ final class ExpedienteRegistrosByExpedienteAjax {
      * @return mixed int|string|null (sin absint; no-escalares → null)
      */
     private static function read_expediente_id() {
-        if (!isset($_POST['expediente_id'])) {
+        return self::read_id_field('expediente_id');
+    }
+
+    /**
+     * @return mixed int|string|null
+     */
+    private static function read_record_id() {
+        return self::read_id_field('record_id');
+    }
+
+    /**
+     * @return mixed int|string|null
+     */
+    private static function read_id_field(string $key) {
+        if (!isset($_POST[$key])) {
             return null;
         }
 
-        $raw = wp_unslash($_POST['expediente_id']);
+        $raw = wp_unslash($_POST[$key]);
 
         if (is_int($raw) || is_string($raw)) {
             return $raw;
@@ -157,19 +191,25 @@ final class ExpedienteRegistrosByExpedienteAjax {
     /**
      * @param array{success:bool,data?:array<string,mixed>,error?:array{code:string,message:string}} $result
      */
-    private static function respond_create(array $result): void {
+    private static function respond_record_write(array $result, string $verb): void {
         if (!empty($result['success'])) {
             $data = $result['data'] ?? [];
             $record = is_array($data['record'] ?? null) ? $data['record'] : null;
             if ($record === null) {
                 wp_send_json_error([
-                    'message' => 'Respuesta de creación incompleta.',
+                    'message' => 'Respuesta de ' . $verb . ' incompleta.',
                     'code' => 'persistence_failed',
                 ], 500);
                 return;
             }
 
-            unset($record['client_id'], $record['expediente_id'], $record['blog_id']);
+            unset(
+                $record['client_id'],
+                $record['expediente_id'],
+                $record['blog_id'],
+                $record['adjuntos'],
+                $record['adjunto']
+            );
 
             wp_send_json_success([
                 'record' => $record,
