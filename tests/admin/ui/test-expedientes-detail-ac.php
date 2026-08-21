@@ -172,15 +172,32 @@ ac_assert('detalle carga script create registro', strpos($detail, 'expediente-re
 ac_assert('detalle sin buscador/paginador', strpos($detail, 'aa-expedientes-search') === false
     && strpos($detail, 'aa-expedientes-pagination') === false);
 ac_assert('detalle sin menú opciones', strpos($detail, 'aa-expediente-options') === false);
-ac_assert('detalle sin JS de listado ni legacy', strpos($detail, 'expedientes-module.js') === false
+ac_assert('detalle sin JS de listado padre ni create-expediente', strpos($detail, 'expedientes-module.js') === false
     && strpos($detail, 'expediente-create-modal.js') === false
-    && strpos($detail, 'expediente-registros.js') === false);
+    && strpos($detail, 'clients-module.js') === false);
 ac_assert(
-    'detalle C1b sin carga/montaje adapter ni renderer',
-    strpos($detail, 'expediente-registros-canonical-adapter.js') === false
+    'detalle C1c1 markup SSR/live',
+    strpos($detail, 'id="aa-expediente-detail-registros-ssr"') !== false
+    && strpos($detail, 'id="aa-expediente-detail-registros-live"') !== false
+    && strpos($detail, 'aa-expediente-detail-registros-title') !== false
+    && strpos($detail, 'aa-expediente-detail-pagination') !== false
+);
+ac_assert(
+    'detalle C1c1 scripts renderer+adapter+mount+provisional',
+    strpos($detail, 'expediente-registros.js') !== false
+    && strpos($detail, 'expediente-registros-canonical-adapter.js') !== false
+    && strpos($detail, 'expediente-registros-canonical-mount.js') !== false
+    && strpos($detail, 'expediente-registro-create-modal.js') !== false
     && strpos($detail, 'executable-options-menu-placement') === false
-    && strpos($detail, 'ExpedienteRegistrosCanonicalAdapter') === false
-    && strpos($detail, 'ExpedienteRegistros.init') === false
+    && strpos($detail, 'ExpedienteRegistros.openCreate') === false
+    && strpos($detail, 'onCreateComplete') === false
+);
+ac_assert(
+    'detalle C1c1: listado rico ≠ create rico adoptado',
+    preg_match(
+        '/expediente-registros\.js.*expediente-registros-canonical-adapter\.js.*expediente-registros-canonical-mount\.js.*expediente-registro-create-modal\.js/s',
+        $detail
+    ) === 1
 );
 ac_assert('listado no emite AA_EXPEDIENTE_DETAIL_DATA', strpos($module, 'AA_EXPEDIENTE_DETAIL_DATA') === false
     && strpos($module, 'aa-expediente-detail-new-registro') === false
@@ -355,12 +372,20 @@ ac_assert(
     && strpos($rendered_detail, 'clientId') === false
 );
 ac_assert(
-    'runtime C1b sin adapter/renderer/bootstrap',
-    strpos($rendered_detail, 'expediente-registros-canonical-adapter.js') === false
-    && strpos($rendered_detail, 'expediente-registros.js') === false
+    'runtime C1c1 carga renderer+adapter+mount; create provisional; sin placement',
+    strpos($rendered_detail, 'expediente-registros-canonical-adapter.js') !== false
+    && strpos($rendered_detail, 'expediente-registros.js') !== false
+    && strpos($rendered_detail, 'expediente-registros-canonical-mount.js') !== false
+    && strpos($rendered_detail, 'expediente-registro-create-modal.js') !== false
     && strpos($rendered_detail, 'executable-options-menu-placement') === false
-    && strpos($rendered_detail, 'ExpedienteRegistrosCanonicalAdapter') === false
-    && strpos($rendered_detail, 'ExpedienteRegistros.init') === false
+    && strpos($rendered_detail, 'clients-module.js') === false
+    && strpos($rendered_detail, 'id="aa-expediente-detail-registros-ssr"') !== false
+    && strpos($rendered_detail, 'id="aa-expediente-detail-registros-live"') !== false
+);
+ac_assert(
+    'runtime C1c1 live oculto y ssr visible en HTML inicial',
+    strpos($rendered_detail, 'id="aa-expediente-detail-registros-live"') !== false
+    && preg_match('/id="aa-expediente-detail-registros-live"[^>]*(hidden|class="[^"]*hidden)/', $rendered_detail) === 1
 );
 ac_assert(
     'runtime successUrl canónica',
@@ -379,7 +404,7 @@ ac_assert(
     && strpos($success_m[1], 'junk') === false
 );
 ac_assert('runtime carga script create registro', strpos($rendered_detail, 'expediente-registro-create-modal.js') !== false);
-ac_assert('runtime sin expediente-registros.js', strpos($rendered_detail, 'expediente-registros.js') === false);
+ac_assert('runtime conserva create provisional', strpos($rendered_detail, 'expediente-registro-create-modal.js') !== false);
 ac_assert('runtime sin editar/eliminar/adjuntar', strpos($rendered_detail, 'Editar registro') === false
     && strpos($rendered_detail, 'Eliminar') === false
     && strpos($rendered_detail, 'Añadir imagen') === false

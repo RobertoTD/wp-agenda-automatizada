@@ -47,17 +47,20 @@ ac_assert('legacy attach intacto', strpos($legacy_ajax_src, "ACTION_ATTACH = 'aa
 ac_assert('legacy sign intacta', strpos($legacy_ajax_src, "ACTION_SIGN_READ = 'aa_sign_expediente_adjunto_read'") !== false);
 ac_assert('legacy delete intacto', strpos($legacy_ajax_src, "ACTION_DELETE = 'aa_delete_expediente_adjunto'") !== false);
 ac_assert(
-    'detail expone attach/sign/delete en config (≠ caller visual montado)',
+    'detail monta list/read/delete-adjunto (≠ create rico adoptado)',
     strpos($detail_src, 'aa_attach_expediente_adjunto_for_expediente') !== false
     && strpos($detail_src, 'aa_sign_expediente_adjunto_read_for_expediente') !== false
     && strpos($detail_src, 'aa_delete_expediente_adjunto_for_expediente') !== false
     && strpos($detail_src, 'attachRegistro') !== false
     && strpos($detail_src, 'signAdjuntoRead') !== false
     && strpos($detail_src, 'deleteAdjunto') !== false
-    && strpos($detail_src, 'expediente-registros-canonical-adapter.js') === false
-    && strpos($detail_src, 'expediente-registros.js') === false
-    && strpos($detail_src, 'ExpedienteRegistrosCanonicalAdapter') === false
-    && strpos($detail_src, 'ExpedienteRegistros.init') === false
+    && strpos($detail_src, 'expediente-registros-canonical-adapter.js') !== false
+    && strpos($detail_src, 'expediente-registros.js') !== false
+    && strpos($detail_src, 'expediente-registros-canonical-mount.js') !== false
+    && strpos($detail_src, 'expediente-registro-create-modal.js') !== false
+    && strpos($detail_src, 'ExpedienteRegistros.openCreate') === false
+    && strpos($detail_src, 'onCreateComplete') === false
+    && strpos($detail_src, 'executable-options-menu-placement') === false
 );
 ac_assert('handler no lee client_id', strpos($ajax_src, "\$_POST['client_id']") === false
     && strpos($ajax_src, "\$_REQUEST['client_id']") === false);

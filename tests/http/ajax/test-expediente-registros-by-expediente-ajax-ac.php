@@ -72,7 +72,7 @@ ac_assert(
     && strpos($detail_src, 'aa_expediente_registros_by_expediente_nonce') !== false
     && strpos($detail_src, 'expediente-registro-create-modal.js') !== false
     && strpos($detail_src, 'AA_EXPEDIENTE_DETAIL_DATA') !== false
-    && strpos($detail_src, 'expediente-registros.js') === false
+    && strpos($detail_src, 'ExpedienteRegistros.openCreate') === false
 );
 ac_assert('schema DB17 (ciclo materialización)', strpos($schema_src, "DB_VERSION = '17'") !== false);
 

@@ -53,13 +53,16 @@ ac_assert('sin absint', strpos($ajax_src, 'absint(') === false);
 ac_assert('no lee client_id', strpos($ajax_src, "\$_POST['client_id']") === false
     && strpos($ajax_src, "\$_REQUEST['client_id']") === false);
 ac_assert(
-    'detail expone ACTION_LIST en config (≠ caller visual montado)',
+    'detail monta listado canónico (≠ create rico adoptado)',
     strpos($detail_src, 'aa_list_expediente_registros_for_expediente') !== false
     && strpos($detail_src, 'listRegistros') !== false
-    && strpos($detail_src, 'expediente-registros-canonical-adapter.js') === false
-    && strpos($detail_src, 'expediente-registros.js') === false
-    && strpos($detail_src, 'ExpedienteRegistrosCanonicalAdapter') === false
-    && strpos($detail_src, 'ExpedienteRegistros.init') === false
+    && strpos($detail_src, 'expediente-registros-canonical-adapter.js') !== false
+    && strpos($detail_src, 'expediente-registros.js') !== false
+    && strpos($detail_src, 'expediente-registros-canonical-mount.js') !== false
+    && strpos($detail_src, 'expediente-registro-create-modal.js') !== false
+    && strpos($detail_src, 'ExpedienteRegistros.openCreate') === false
+    && strpos($detail_src, 'onCreateComplete') === false
+    && strpos($detail_src, 'executable-options-menu-placement') === false
 );
 $index_src = (string) file_get_contents($plugin_root . '/includes/admin/ui/index.php');
 ac_assert(

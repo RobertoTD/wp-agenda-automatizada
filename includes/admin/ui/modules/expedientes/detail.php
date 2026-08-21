@@ -143,18 +143,26 @@ $aa_detail_scope_key = $aa_detail_can_create
                 id="aa-expediente-detail-registros"
                 class="aa-expediente-detail-registros mt-4"
                 <?php if ($aa_detail_id > 0) : ?>data-expediente-id="<?php echo esc_attr((string) $aa_detail_id); ?>"<?php endif; ?>
-                aria-live="polite"
             >
                 <h4 class="aa-expediente-detail-registros-title text-base font-semibold text-gray-700 mb-2">Registros</h4>
-                <?php if (count($aa_records_items) === 0) : ?>
-                    <p class="text-sm text-gray-500 aa-expediente-registros-empty">Aún no hay registros en este expediente</p>
-                <?php else : ?>
-                    <div class="aa-expediente-registros-list">
-                        <?php foreach ($aa_records_items as $aa_record) : ?>
-                            <?php include dirname(__DIR__, 2) . '/shared/expediente-record-readonly.php'; ?>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
+                <div id="aa-expediente-detail-registros-ssr">
+                    <?php if (count($aa_records_items) === 0) : ?>
+                        <p class="text-sm text-gray-500 aa-expediente-registros-empty">Aún no hay registros en este expediente</p>
+                    <?php else : ?>
+                        <div class="aa-expediente-registros-list">
+                            <?php foreach ($aa_records_items as $aa_record) : ?>
+                                <?php include dirname(__DIR__, 2) . '/shared/expediente-record-readonly.php'; ?>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+                <div
+                    id="aa-expediente-detail-registros-live"
+                    class="hidden"
+                    hidden
+                    aria-hidden="true"
+                    aria-live="polite"
+                ></div>
 
                 <?php if ($aa_records_total_pages > 1) : ?>
                     <nav class="aa-expediente-detail-pagination mt-3" aria-label="Paginación de registros del expediente">
@@ -220,8 +228,14 @@ $aa_detail_scope_key = $aa_detail_can_create
     };
 </script>
 <?php
+$aa_detail_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
+$aa_detail_registros_js = dirname(plugin_dir_url(__FILE__)) . '/clients/expediente-registros.js';
+$aa_detail_adapter_js = plugin_dir_url(__FILE__) . 'expediente-registros-canonical-adapter.js';
+$aa_detail_mount_js = plugin_dir_url(__FILE__) . 'expediente-registros-canonical-mount.js';
 $aa_detail_create_js = plugin_dir_url(__FILE__) . 'expediente-registro-create-modal.js';
-$aa_detail_create_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
 ?>
-<script src="<?php echo esc_url($aa_detail_create_js . '?ver=' . rawurlencode($aa_detail_create_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($aa_detail_registros_js . '?ver=' . rawurlencode($aa_detail_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($aa_detail_adapter_js . '?ver=' . rawurlencode($aa_detail_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($aa_detail_mount_js . '?ver=' . rawurlencode($aa_detail_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($aa_detail_create_js . '?ver=' . rawurlencode($aa_detail_ver)); ?>" defer></script>
 <?php endif; ?>

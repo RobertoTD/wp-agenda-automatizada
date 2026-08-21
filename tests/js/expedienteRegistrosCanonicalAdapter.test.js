@@ -396,7 +396,7 @@ describe('ExpedienteRegistrosCanonicalAdapter (C1b)', () => {
         assert.equal(blob.includes('client_id'), false);
     });
 
-    it('detail.php: config aditiva sin montaje ni carga de adapter/renderer', () => {
+    it('detail.php: config aditiva; C1c1 carga adapter/renderer/mount; create provisional; sin create rico', () => {
         assert.match(detailSrc, /scopeKey/);
         assert.match(detailSrc, /recordsPage/);
         assert.match(detailSrc, /listRegistros/);
@@ -410,11 +410,12 @@ describe('ExpedienteRegistrosCanonicalAdapter (C1b)', () => {
         assert.match(detailSrc, /\$aa_records_page/);
         assert.match(detailSrc, /successUrl/);
         assert.match(detailSrc, /expediente-registro-create-modal\.js/);
-        assert.doesNotMatch(detailSrc, /expediente-registros-canonical-adapter\.js/);
-        assert.doesNotMatch(detailSrc, /expediente-registros\.js/);
+        assert.match(detailSrc, /expediente-registros-canonical-adapter\.js/);
+        assert.match(detailSrc, /expediente-registros\.js/);
+        assert.match(detailSrc, /expediente-registros-canonical-mount\.js/);
         assert.doesNotMatch(detailSrc, /executable-options-menu-placement/);
-        assert.doesNotMatch(detailSrc, /ExpedienteRegistrosCanonicalAdapter/);
-        assert.doesNotMatch(detailSrc, /ExpedienteRegistros\.init/);
+        assert.doesNotMatch(detailSrc, /ExpedienteRegistros\.openCreate/);
+        assert.doesNotMatch(detailSrc, /onCreateComplete/);
         assert.doesNotMatch(detailSrc, /clientId/);
         assert.doesNotMatch(detailSrc, /client_id/);
     });

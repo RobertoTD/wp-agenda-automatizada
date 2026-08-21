@@ -422,7 +422,14 @@
          * Capabilities explícitas (C1a). null = legacy (todas habilitadas, sin
          * validación anticipada de ports). Solo aplica en modalidad ports.
          */
-        capabilities: null
+        capabilities: null,
+        /**
+         * Callback opt-in de la primera carga de list (C1c1). null = ausente.
+         * Se invoca como máximo una vez por init tras el render inicial.
+         */
+        onInitialLoad: null,
+        /** true tras notificar (o decidir no notificar) la carga inicial. */
+        initialLoadSettled: false
     };
 
     var PORT_KEYS = [
@@ -1653,6 +1660,8 @@
         state.transport = null;
         state.ports = null;
         state.capabilities = null;
+        state.onInitialLoad = null;
+        state.initialLoadSettled = true;
     }
 
     // ── Fin miniaturas MC4c ─────────────────────────────────────────
@@ -3057,12 +3066,35 @@
             });
     }
 
+    /**
+     * Notifica onInitialLoad como máximo una vez por init.
+     * Marca settled antes de invocar para que un throw del callback no re-notifique.
+     * @param {{ok:boolean, reason?:string}} outcome
+     */
+    function notifyInitialLoad(outcome) {
+        if (state.initialLoadSettled) {
+            return;
+        }
+        state.initialLoadSettled = true;
+        var cb = state.onInitialLoad;
+        if (typeof cb !== 'function') {
+            return;
+        }
+        try {
+            cb(outcome);
+        } catch (err) {
+            console.error('[ExpedienteRegistros] onInitialLoad failed:', err);
+        }
+    }
+
     function loadRecords() {
         // MC5a: una respuesta posterior a destroy(), cambio de scope o
         // re-init no debe sobrescribir el estado vigente.
         var epoch = thumbs.viewEpoch;
         var scopeKey = state.scopeKey;
         var clientId = state.clientId;
+        // Solo la primera carga tras init notifica readiness (C1c1).
+        var isInitialLoad = !state.initialLoadSettled && typeof state.onInitialLoad === 'function';
 
         function isStale() {
             return epoch !== thumbs.viewEpoch || scopeKey !== state.scopeKey;
@@ -3081,17 +3113,52 @@
                     return;
                 }
                 state.loading = false;
-                var result = payload.result;
-                if (result && result.success && result.data && Array.isArray(result.data.records)) {
-                    state.records = sortRecordsDesc(result.data.records.map(normalizeIncomingRecord));
-                    renderRecordsList();
-                    return;
+                try {
+                    var httpStatus = payload && typeof payload.httpStatus === 'number'
+                        ? payload.httpStatus
+                        : 0;
+                    if (httpStatus > 0 && (httpStatus < 200 || httpStatus >= 300)) {
+                        var httpResult = payload && payload.result;
+                        var httpMessage = 'No se pudieron cargar los registros.';
+                        if (httpResult && httpResult.data && httpResult.data.message) {
+                            httpMessage = String(httpResult.data.message);
+                        }
+                        renderError(httpMessage);
+                        if (isInitialLoad) {
+                            notifyInitialLoad({ ok: false, reason: 'http_error' });
+                        }
+                        return;
+                    }
+                    var result = payload && payload.result;
+                    if (result && result.success && result.data && Array.isArray(result.data.records)) {
+                        state.records = sortRecordsDesc(result.data.records.map(normalizeIncomingRecord));
+                        renderRecordsList();
+                        if (isInitialLoad) {
+                            notifyInitialLoad({ ok: true });
+                        }
+                        return;
+                    }
+                    var message = 'No se pudieron cargar los registros.';
+                    if (result && result.data && result.data.message) {
+                        message = String(result.data.message);
+                    }
+                    renderError(message);
+                    if (isInitialLoad) {
+                        var failReason = 'list_failed';
+                        if (!result || result.success !== true) {
+                            failReason = 'list_failed';
+                        } else if (!result.data || !Array.isArray(result.data.records)) {
+                            failReason = 'records_invalid';
+                        }
+                        notifyInitialLoad({ ok: false, reason: failReason });
+                    }
+                } catch (err) {
+                    console.error('[ExpedienteRegistros] list handling failed:', err);
+                    renderError('No se pudieron cargar los registros.');
+                    if (isInitialLoad) {
+                        notifyInitialLoad({ ok: false, reason: 'exception' });
+                    }
                 }
-                var message = 'No se pudieron cargar los registros.';
-                if (result && result.data && result.data.message) {
-                    message = String(result.data.message);
-                }
-                renderError(message);
             })
             .catch(function (err) {
                 if (isStale()) {
@@ -3100,6 +3167,10 @@
                 state.loading = false;
                 console.error('[ExpedienteRegistros] list failed:', err);
                 renderError('No se pudieron cargar los registros.');
+                if (isInitialLoad) {
+                    var reason = (err && err.name === 'SyntaxError') ? 'invalid_json' : 'network';
+                    notifyInitialLoad({ ok: false, reason: reason });
+                }
             });
     }
 
@@ -3773,6 +3844,7 @@
      *   recordsRoot:HTMLElement,
      *   actionsRoot?:HTMLElement|null,
      *   capabilities?:Object<string,boolean>,
+     *   onInitialLoad?:function({ok:boolean, reason?:string}):void,
      *   transport?:{ajaxUrl:string, nonce:string, actions:Object<string,string>},
      *   ports?:{
      *     list?:Function,
@@ -3804,6 +3876,10 @@
         state.recordsRoot = config.recordsRoot;
         state.actionsRoot = config.actionsRoot;
         state.records = [];
+        state.onInitialLoad = (options && typeof options.onInitialLoad === 'function')
+            ? options.onInitialLoad
+            : null;
+        state.initialLoadSettled = false;
 
         if (isCapEnabled('updateRegistro') || isCapEnabled('deleteRegistro')) {
             bindRegistroOptionsUi();

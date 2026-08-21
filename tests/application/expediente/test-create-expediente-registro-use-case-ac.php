@@ -296,10 +296,11 @@ ac_assert(
     && strpos($ajax_src, 'CreateExpedienteRegistroUseCase') === false
 );
 ac_assert(
-    'detalle SSR sin UC ni legacy registros JS',
+    'detalle SSR sin UC create; create sigue provisional (≠ openCreate renderer)',
     is_string($detail_src)
     && strpos($detail_src, 'CreateExpedienteRegistroUseCase') === false
-    && strpos($detail_src, 'expediente-registros.js') === false
+    && strpos($detail_src, 'expediente-registro-create-modal.js') !== false
+    && strpos($detail_src, 'ExpedienteRegistros.openCreate') === false
 );
 ac_assert('schema sigue en DB17', strpos($schema_src, "DB_VERSION = '17'") !== false);
 ac_assert(
