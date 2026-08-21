@@ -584,4 +584,34 @@ final class ExpedienteRegistrosRepository {
 
         return (int) $deleted === 1;
     }
+
+    /**
+     * Elimina un registro scoped a expediente_id (rama canónica / padres generales).
+     *
+     * @return bool|null true = exactamente 1 fila; false = 0 filas; null = error SQL
+     */
+    public static function delete_by_id_for_expediente(int $record_id, int $expediente_id): ?bool {
+        if ($record_id < 1 || $expediente_id < 1) {
+            return false;
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+
+        $deleted = $wpdb->delete(
+            $table,
+            [
+                'id' => $record_id,
+                'expediente_id' => $expediente_id,
+            ],
+            ['%d', '%d']
+        );
+
+        if ($deleted === false || $wpdb->last_error) {
+            error_log('[ExpedienteRegistrosRepository] delete_by_id_for_expediente error');
+            return null;
+        }
+
+        return (int) $deleted === 1;
+    }
 }

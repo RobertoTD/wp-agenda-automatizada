@@ -23,8 +23,8 @@ const detailSrc = fs.readFileSync(
 
 const VALID_CAPS = {
     createRegistro: true,
-    updateRegistro: false,
-    deleteRegistro: false,
+    updateRegistro: true,
+    deleteRegistro: true,
     attach: true,
     signRead: true,
     deleteAdjunto: true
@@ -34,6 +34,7 @@ const VALID_ACTIONS = {
     listRegistros: 'aa_list_expediente_registros_for_expediente',
     createRegistro: 'aa_create_expediente_registro_for_expediente',
     updateRegistro: 'aa_update_expediente_registro_for_expediente',
+    deleteRegistro: 'aa_delete_expediente_registro_for_expediente',
     attachRegistro: 'aa_attach_expediente_adjunto_for_expediente',
     signAdjuntoRead: 'aa_sign_expediente_adjunto_read_for_expediente',
     deleteAdjunto: 'aa_delete_expediente_adjunto_for_expediente'
@@ -128,7 +129,7 @@ describe('ExpedienteRegistrosCanonicalAdapter (C1b)', () => {
         assert.doesNotMatch(adapterSrc, /'aa_list_expediente_registros_for_expediente'/);
     });
 
-    it('build válido: seis ports incl. update, sin deleteRegistro, scopeKey y capabilities', () => {
+    it('build válido: siete ports incl. update/deleteRegistro, scopeKey y capabilities', () => {
         const ctx = loadAdapter();
         const built = ctx.build(validConfig());
         assert.ok(built);
@@ -138,10 +139,10 @@ describe('ExpedienteRegistrosCanonicalAdapter (C1b)', () => {
         assert.equal(typeof built.ports.list, 'function');
         assert.equal(typeof built.ports.create, 'function');
         assert.equal(typeof built.ports.update, 'function');
+        assert.equal(typeof built.ports.deleteRegistro, 'function');
         assert.equal(typeof built.ports.attach, 'function');
         assert.equal(typeof built.ports.signRead, 'function');
         assert.equal(typeof built.ports.deleteAdjunto, 'function');
-        assert.equal(built.ports.deleteRegistro, undefined);
         assert.equal(Object.prototype.hasOwnProperty.call(built, 'clientId'), false);
         assert.equal(ctx.fetchCalls.length, 0);
     });
@@ -293,6 +294,24 @@ describe('ExpedienteRegistrosCanonicalAdapter (C1b)', () => {
         assert.equal(Object.prototype.hasOwnProperty.call(fields, 'scopeKey'), false);
     });
 
+    it('deleteRegistro envía action/nonce/expediente/record_id sin client_id', async () => {
+        const ctx = loadAdapter();
+        const built = ctx.build(validConfig());
+        await built.ports.deleteRegistro(14);
+        const fields = formFields(ctx.fetchCalls[0].opts.body);
+        assert.deepEqual(Object.keys(fields).sort(), [
+            '_wpnonce',
+            'action',
+            'expediente_id',
+            'record_id'
+        ]);
+        assert.equal(fields.action, VALID_ACTIONS.deleteRegistro);
+        assert.equal(fields.expediente_id, '5');
+        assert.equal(fields.record_id, '14');
+        assert.equal(Object.prototype.hasOwnProperty.call(fields, 'client_id'), false);
+        assert.equal(Object.prototype.hasOwnProperty.call(fields, 'storage_path'), false);
+    });
+
     it('attach usa FormData con Blob, record_id, upload_operation_id, sin client_id/paths', async () => {
         const ctx = loadAdapter();
         const built = ctx.build(validConfig());
@@ -386,6 +405,7 @@ describe('ExpedienteRegistrosCanonicalAdapter (C1b)', () => {
             listRegistros: 'aa_custom_list',
             createRegistro: 'aa_custom_create',
             updateRegistro: 'aa_custom_update',
+            deleteRegistro: 'aa_custom_delete_registro',
             attachRegistro: 'aa_custom_attach',
             signAdjuntoRead: 'aa_custom_sign',
             deleteAdjunto: 'aa_custom_delete'
@@ -398,6 +418,7 @@ describe('ExpedienteRegistrosCanonicalAdapter (C1b)', () => {
         await built.ports.list();
         await built.ports.create({ title: 't', body: 'b' });
         await built.ports.update(3, { title: 'u', body: 'v' });
+        await built.ports.deleteRegistro(3);
         await built.ports.attach(1, { size: 1 }, 'op');
         await built.ports.signRead(1, 2, 'display');
         await built.ports.deleteAdjunto(1, 2);
@@ -410,6 +431,7 @@ describe('ExpedienteRegistrosCanonicalAdapter (C1b)', () => {
             'aa_custom_list',
             'aa_custom_create',
             'aa_custom_update',
+            'aa_custom_delete_registro',
             'aa_custom_attach',
             'aa_custom_sign',
             'aa_custom_delete'
@@ -429,7 +451,9 @@ describe('ExpedienteRegistrosCanonicalAdapter (C1b)', () => {
         assert.match(detailSrc, /deleteAdjunto/);
         assert.match(detailSrc, /createRegistro:\s*true/);
         assert.match(detailSrc, /updateRegistro:\s*true/);
-        assert.match(detailSrc, /deleteRegistro:\s*false/);
+        assert.match(detailSrc, /deleteRegistro:\s*true/);
+        assert.match(detailSrc, /aa_delete_expediente_registro_for_expediente/);
+        assert.match(detailSrc, /\$aa_detail_delete_registro_action/);
         assert.match(detailSrc, /aa_update_expediente_registro_for_expediente/);
         assert.match(detailSrc, /\$aa_detail_update_action/);
         assert.match(detailSrc, /expediente:' \. \(string\) \$aa_detail_id/);

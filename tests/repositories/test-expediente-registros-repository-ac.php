@@ -120,8 +120,10 @@ $wpdb = new class {
     public $var = null;
     public $insert_ok = true;
     public $update_result = 1;
+    public $delete_result = 1;
     public $inserted = null;
     public $updated = null;
+    public $deleted = null;
 
     public function prepare($query, ...$args) {
         $this->last_query = $query;
@@ -172,6 +174,18 @@ $wpdb = new class {
             return false;
         }
         return $this->update_result;
+    }
+
+    public function delete($table, $where, $where_format = null) {
+        $this->deleted = [
+            'table' => $table,
+            'where' => $where,
+        ];
+        if ($this->delete_result === false) {
+            $this->last_error = 'simulated delete failure';
+            return false;
+        }
+        return $this->delete_result;
     }
 };
 
@@ -444,6 +458,42 @@ ac_assert(
     ExpedienteRegistrosRepository::find_by_id_for_expediente(0, 40) === false
     && ExpedienteRegistrosRepository::find_by_id_for_expediente(21, 0) === false
 );
+
+ac_assert(
+    'delete_by_id_for_expediente existe',
+    strpos($src, 'function delete_by_id_for_expediente') !== false
+);
+$delExpStart = strpos($src, 'function delete_by_id_for_expediente');
+$delExpChunk = $delExpStart !== false ? substr($src, $delExpStart, 800) : '';
+ac_assert(
+    'delete for expediente WHERE id+expediente sin client_id',
+    $delExpChunk !== ''
+    && strpos($delExpChunk, "'id' => \$record_id") !== false
+    && strpos($delExpChunk, "'expediente_id' => \$expediente_id") !== false
+    && strpos($delExpChunk, "'client_id'") === false
+    && strpos($delExpChunk, 'OR client_id') === false
+);
+
+$wpdb->last_error = '';
+$wpdb->delete_result = 1;
+$delOk = ExpedienteRegistrosRepository::delete_by_id_for_expediente(21, 40);
+ac_assert('delete for expediente 1 fila → true', $delOk === true);
+ac_assert(
+    'delete for expediente where keys',
+    ($wpdb->deleted['where']['id'] ?? null) === 21
+    && ($wpdb->deleted['where']['expediente_id'] ?? null) === 40
+    && !array_key_exists('client_id', $wpdb->deleted['where'] ?? [])
+);
+
+$wpdb->delete_result = 0;
+$del0 = ExpedienteRegistrosRepository::delete_by_id_for_expediente(21, 40);
+ac_assert('delete for expediente 0 filas → false', $del0 === false);
+
+$wpdb->delete_result = false;
+$wpdb->last_error = 'simulated delete failure';
+$delSql = ExpedienteRegistrosRepository::delete_by_id_for_expediente(21, 40);
+ac_assert('delete for expediente SQL → null', $delSql === null);
+$wpdb->last_error = '';
 
 echo "\n";
 if (count($failed) === 0) {

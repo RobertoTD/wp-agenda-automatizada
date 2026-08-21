@@ -221,6 +221,7 @@ function makeSandbox() {
         api: sandbox.window.AAAdmin.ExpedienteRegistros,
         testApi: sandbox.window.AAAdmin.ExpedienteRegistros.__test__,
         fetchCalls,
+        window: windowObj,
         getModal: () => modalCapture,
         findIn(node, sel) {
             if (!node) {
@@ -550,7 +551,11 @@ describe('ExpedienteRegistros capabilities (C1a)', () => {
             scopeKey: 'exp:1',
             recordsRoot: root,
             ports: rec.ports,
-            capabilities: CANONICAL_CAPS
+            capabilities: {
+                ...CANONICAL_CAPS,
+                updateRegistro: false,
+                deleteRegistro: false
+            }
         });
         await Promise.resolve();
         ctx.testApi.setState({ records: [sampleRecord(true)] });
@@ -761,6 +766,62 @@ describe('ExpedienteRegistros capabilities (C1a)', () => {
         assert.equal(updated.body, 'Nuevo cuerpo');
         assert.equal(updated.adjuntos.length, 1);
         assert.equal(updated.adjuntos[0].id, 20);
+    });
+
+
+    it('canónico: delete confirma y retira card; cancel cero requests', async () => {
+        const ctx = makeSandbox();
+        const calls = [];
+        const record = {
+            id: 14,
+            title: 'Original',
+            body: 'Cuerpo',
+            recorded_at: '2026-08-01 10:00:00',
+            adjuntos: [{ id: 20, width: 10, height: 10, byte_size: 100, created_at: 'x' }],
+            adjunto: { id: 20, width: 10, height: 10, byte_size: 100, created_at: 'x' }
+        };
+        const ports = {
+            list: () => okPayload({ records: [record] }),
+            create: () => okPayload({ record: { id: 1, title: 'x', body: 'y', recorded_at: 'x', adjuntos: [], adjunto: null } }),
+            update: () => okPayload({ record: { id: 14, title: 'x', body: 'y', recorded_at: 'x' } }),
+            deleteRegistro: (recordId) => {
+                calls.push({ name: 'deleteRegistro', recordId });
+                return okPayload({ deleted: true, record_id: recordId });
+            },
+            attach: () => okPayload({ record_id: 1, adjunto: { id: 1, width: 1, height: 1, byte_size: 1, created_at: 'x' } }),
+            signRead: () => okPayload({ url: 'https://x', expires_in: 60, variant: 'summary' }),
+            deleteAdjunto: () => okPayload({ record_id: 1, deleted_attachment_id: 1, adjuntos: [], adjunto: null })
+        };
+        const root = createEl('div');
+        ctx.api.init({
+            scopeKey: 'exp:del',
+            recordsRoot: root,
+            ports,
+            capabilities: {
+                ...CANONICAL_CAPS,
+                updateRegistro: true,
+                deleteRegistro: true
+            }
+        });
+        await Promise.resolve();
+        await Promise.resolve();
+        assert.ok(ctx.findIn(root, '.aa-expediente-btn-editar'));
+        assert.ok(ctx.findIn(root, '.aa-expediente-btn-eliminar'));
+
+        ctx.window.confirm = () => false;
+        ctx.findIn(root, '.aa-expediente-btn-eliminar').click();
+        await Promise.resolve();
+        assert.equal(calls.length, 0);
+        assert.ok(ctx.testApi.findRecordById(14));
+
+        ctx.window.confirm = () => true;
+        ctx.findIn(root, '.aa-expediente-btn-eliminar').click();
+        await Promise.resolve();
+        await Promise.resolve();
+        assert.equal(calls.length, 1);
+        assert.equal(calls[0].recordId, 14);
+        assert.equal(ctx.testApi.findRecordById(14), null);
+        assert.equal(ctx.findIn(root, '.aa-expediente-btn-eliminar'), null);
     });
 
     it('create textual y create+attach sin update; retry no invoca update', async () => {

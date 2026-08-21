@@ -184,6 +184,12 @@ final class UpdateExpedienteRegistroForExpedienteUseCase {
     }
 }
 
+final class DeleteExpedienteRegistroForExpedienteUseCase {
+    public function execute(array $input): array {
+        return ['success' => false, 'error' => ['code' => 'unused', 'message' => 'unused']];
+    }
+}
+
 final class ExpedientesRepository {
     /** @var bool|null */
     public static $exists_result = true;

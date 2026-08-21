@@ -78,6 +78,11 @@ ac_assert('list_by_record_ids (MC5a)', strpos($src, 'function list_by_record_ids
 ac_assert('list bulk ordena id DESC por registro', strpos($src, 'ORDER BY record_id ASC, id DESC') !== false);
 ac_assert('sum_byte_size_total (MC5d2)', strpos($src, 'function sum_byte_size_total') !== false);
 ac_assert('sum usa COALESCE(SUM(byte_size), 0)', strpos($src, 'COALESCE(SUM(byte_size), 0)') !== false);
+ac_assert('has_any_by_record_id existe', strpos($src, 'function has_any_by_record_id') !== false);
+ac_assert(
+    'has_any SQL record_id LIMIT 1',
+    strpos($src, 'WHERE record_id = %d LIMIT 1') !== false
+);
 
 global $wpdb;
 $wpdb = new class {
@@ -124,12 +129,18 @@ $wpdb = new class {
     }
 
     public $sum_value = '0';
+    public $has_any_value = null;
     public $last_var_query = null;
 
     public function get_var($query) {
         $this->last_var_query = is_array($query) ? (string) ($query['sql'] ?? '') : (string) $query;
         if (strpos($this->last_var_query, 'SUM(byte_size)') !== false) {
             return $this->sum_value;
+        }
+        if (strpos($this->last_var_query, 'LIMIT 1') !== false
+            && strpos($this->last_var_query, 'record_id') !== false
+        ) {
+            return $this->has_any_value;
         }
         return '0';
     }
@@ -286,6 +297,27 @@ $wpdb->last_error = '';
 $wpdb->sum_value = null;
 ac_assert('sum con get_var null → null', ExpedienteAdjuntosRepository::sum_byte_size_total() === null);
 $wpdb->sum_value = '0';
+
+$wpdb->last_error = '';
+$wpdb->has_any_value = '1';
+$hasTrue = ExpedienteAdjuntosRepository::has_any_by_record_id(14);
+ac_assert('has_any true', $hasTrue === true);
+ac_assert(
+    'has_any query record_id LIMIT 1',
+    strpos((string) $wpdb->last_var_query, 'record_id') !== false
+    && strpos((string) $wpdb->last_var_query, 'LIMIT 1') !== false
+    && strpos((string) $wpdb->last_var_query, 'client_id') === false
+);
+
+$wpdb->has_any_value = null;
+$hasFalse = ExpedienteAdjuntosRepository::has_any_by_record_id(14);
+ac_assert('has_any false', $hasFalse === false);
+
+$wpdb->last_error = 'simulated has_any failure';
+$wpdb->has_any_value = '1';
+$hasNull = ExpedienteAdjuntosRepository::has_any_by_record_id(14);
+ac_assert('has_any SQL → null', $hasNull === null);
+$wpdb->last_error = '';
 
 echo "\n";
 if (count($failed) === 0) {

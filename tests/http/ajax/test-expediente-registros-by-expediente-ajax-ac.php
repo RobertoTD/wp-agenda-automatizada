@@ -35,6 +35,7 @@ ac_assert('ajax file readable', $ajax_src !== '');
 ac_assert('ACTION create for expediente', strpos($ajax_src, 'aa_create_expediente_registro_for_expediente') !== false);
 ac_assert('ACTION list for expediente', strpos($ajax_src, 'aa_list_expediente_registros_for_expediente') !== false);
 ac_assert('ACTION update for expediente', strpos($ajax_src, 'aa_update_expediente_registro_for_expediente') !== false);
+ac_assert('ACTION delete for expediente', strpos($ajax_src, 'aa_delete_expediente_registro_for_expediente') !== false);
 ac_assert('nonce propio by expediente', strpos($ajax_src, 'aa_expediente_registros_by_expediente_nonce') !== false);
 ac_assert('solo wp_ajax_ en register', strpos($ajax_src, "add_action('wp_ajax_'") !== false
     && strpos($ajax_src, 'wp_ajax_nopriv_') === false);
@@ -44,6 +45,7 @@ ac_assert('nonce soft (die=false) → 403 JSON', strpos($ajax_src, "check_ajax_r
 ac_assert('reutiliza gate full', strpos($ajax_src, 'ExpedienteRegistrosAjax::require_expediente_shell_access') !== false);
 ac_assert('delega CreateExpedienteRegistroUseCase', strpos($ajax_src, 'CreateExpedienteRegistroUseCase') !== false);
 ac_assert('delega UpdateExpedienteRegistroForExpedienteUseCase', strpos($ajax_src, 'UpdateExpedienteRegistroForExpedienteUseCase') !== false);
+ac_assert('delega DeleteExpedienteRegistroForExpedienteUseCase', strpos($ajax_src, 'DeleteExpedienteRegistroForExpedienteUseCase') !== false);
 ac_assert(
     'list delega ListExpedienteRegistrosWithPublicAdjuntosUseCase',
     strpos($ajax_src, 'ListExpedienteRegistrosWithPublicAdjuntosUseCase') !== false
@@ -223,6 +225,27 @@ final class UpdateExpedienteRegistroForExpedienteUseCase {
     }
 }
 
+
+final class DeleteExpedienteRegistroForExpedienteUseCase {
+    /** @var array<string,mixed>|null */
+    public static $last_input = null;
+    public static $calls = 0;
+    /** @var array<string,mixed> */
+    public static $result = [
+        'success' => true,
+        'data' => [
+            'deleted' => true,
+            'record_id' => 14,
+        ],
+    ];
+
+    public function execute(array $input): array {
+        self::$calls++;
+        self::$last_input = $input;
+        return self::$result;
+    }
+}
+
 require_once $plugin_root . '/includes/http/ajax/ExpedienteRegistrosByExpedienteAjax.php';
 
 ac_assert('class exists', class_exists('ExpedienteRegistrosByExpedienteAjax'));
@@ -231,6 +254,7 @@ ac_assert(
     ExpedienteRegistrosByExpedienteAjax::ACTION_CREATE === 'aa_create_expediente_registro_for_expediente'
     && ExpedienteRegistrosByExpedienteAjax::ACTION_LIST === 'aa_list_expediente_registros_for_expediente'
     && ExpedienteRegistrosByExpedienteAjax::ACTION_UPDATE === 'aa_update_expediente_registro_for_expediente'
+    && ExpedienteRegistrosByExpedienteAjax::ACTION_DELETE === 'aa_delete_expediente_registro_for_expediente'
     && ExpedienteRegistrosByExpedienteAjax::NONCE_ACTION === 'aa_expediente_registros_by_expediente_nonce'
 );
 
@@ -263,10 +287,20 @@ ac_assert(
     )) === 1
 );
 ac_assert(
+    'register wp_ajax_ delete una vez',
+    count(array_filter(
+        $GLOBALS['aa_test_actions'],
+        static function ($h) {
+            return $h === 'wp_ajax_aa_delete_expediente_registro_for_expediente';
+        }
+    )) === 1
+);
+ac_assert(
     'register sin nopriv create ni list ni update',
     !in_array('wp_ajax_nopriv_aa_create_expediente_registro_for_expediente', $GLOBALS['aa_test_actions'], true)
     && !in_array('wp_ajax_nopriv_aa_list_expediente_registros_for_expediente', $GLOBALS['aa_test_actions'], true)
     && !in_array('wp_ajax_nopriv_aa_update_expediente_registro_for_expediente', $GLOBALS['aa_test_actions'], true)
+    && !in_array('wp_ajax_nopriv_aa_delete_expediente_registro_for_expediente', $GLOBALS['aa_test_actions'], true)
 );
 
 /**
@@ -320,6 +354,15 @@ function aa_reset_by_exp_ajax(): void {
                 'created_at' => '2026-08-01 10:00:00',
                 'updated_at' => '2026-08-20 15:00:00',
             ],
+        ],
+    ];
+    DeleteExpedienteRegistroForExpedienteUseCase::$last_input = null;
+    DeleteExpedienteRegistroForExpedienteUseCase::$calls = 0;
+    DeleteExpedienteRegistroForExpedienteUseCase::$result = [
+        'success' => true,
+        'data' => [
+            'deleted' => true,
+            'record_id' => 14,
         ],
     ];
     $GLOBALS['aa_test_can_manage_options'] = true;
@@ -578,6 +621,82 @@ ac_assert(
     strpos($legacy_ajax_src, 'aa_update_expediente_registro') !== false
     && strpos($legacy_ajax_src, 'aa_update_expediente_registro_for_expediente') === false
 );
+
+// --- Delete canónico ---
+aa_reset_by_exp_ajax();
+$_POST = [
+    'expediente_id' => '5',
+    'record_id' => '14',
+    'client_id' => '999',
+    'storage_path' => 'evil',
+];
+$del = aa_invoke_by_exp_ajax([ExpedienteRegistrosByExpedienteAjax::class, 'handle_delete']);
+ac_assert('delete éxito 200', ($del['success'] ?? false) === true && ($del['status'] ?? 0) === 200);
+ac_assert('delete una sola llamada UC', DeleteExpedienteRegistroForExpedienteUseCase::$calls === 1);
+ac_assert(
+    'delete input ids canónicos sin client_id',
+    (DeleteExpedienteRegistroForExpedienteUseCase::$last_input['expediente_id'] ?? null) === '5'
+    && (DeleteExpedienteRegistroForExpedienteUseCase::$last_input['record_id'] ?? null) === '14'
+    && !array_key_exists('client_id', DeleteExpedienteRegistroForExpedienteUseCase::$last_input ?? [])
+    && !array_key_exists('storage_path', DeleteExpedienteRegistroForExpedienteUseCase::$last_input ?? [])
+);
+ac_assert(
+    'delete envelope renderer',
+    ($del['data']['deleted'] ?? false) === true
+    && ($del['data']['record_id'] ?? 0) === 14
+);
+
+aa_reset_by_exp_ajax();
+DeleteExpedienteRegistroForExpedienteUseCase::$calls = 0;
+DeleteExpedienteRegistroForExpedienteUseCase::$last_input = null;
+$_POST = [
+    'expediente_id' => ['5'],
+    'record_id' => ['14'],
+];
+aa_invoke_by_exp_ajax([ExpedienteRegistrosByExpedienteAjax::class, 'handle_delete']);
+$delIn = DeleteExpedienteRegistroForExpedienteUseCase::$last_input;
+ac_assert(
+    'delete arrays → null al UC sin warnings',
+    DeleteExpedienteRegistroForExpedienteUseCase::$calls === 1
+    && is_array($delIn)
+    && array_key_exists('expediente_id', $delIn)
+    && $delIn['expediente_id'] === null
+    && array_key_exists('record_id', $delIn)
+    && $delIn['record_id'] === null
+    && $GLOBALS['aa_test_warnings'] === []
+);
+
+aa_reset_by_exp_ajax();
+DeleteExpedienteRegistroForExpedienteUseCase::$result = [
+    'success' => false,
+    'error' => ['code' => 'adjunto_inconsistent', 'message' => 'Un adjunto local es inconsistente.'],
+];
+$_POST = ['expediente_id' => '5', 'record_id' => '14'];
+$d409 = aa_invoke_by_exp_ajax([ExpedienteRegistrosByExpedienteAjax::class, 'handle_delete']);
+ac_assert('delete adjunto_inconsistent → 409', ($d409['status'] ?? 0) === 409);
+
+aa_reset_by_exp_ajax();
+DeleteExpedienteRegistroForExpedienteUseCase::$result = [
+    'success' => false,
+    'error' => ['code' => 'storage_delete_partial', 'message' => 'No se pudo eliminar el registro.'],
+];
+$d502 = aa_invoke_by_exp_ajax([ExpedienteRegistrosByExpedienteAjax::class, 'handle_delete']);
+ac_assert('delete storage → 502', ($d502['status'] ?? 0) === 502);
+
+aa_reset_by_exp_ajax();
+DeleteExpedienteRegistroForExpedienteUseCase::$result = [
+    'success' => false,
+    'error' => ['code' => 'not_found', 'message' => 'Registro no encontrado.'],
+];
+$d404 = aa_invoke_by_exp_ajax([ExpedienteRegistrosByExpedienteAjax::class, 'handle_delete']);
+ac_assert('delete not_found → 404', ($d404['status'] ?? 0) === 404);
+
+ac_assert(
+    'legacy delete action intacto',
+    strpos($legacy_ajax_src, 'aa_delete_expediente_registro') !== false
+    && strpos($legacy_ajax_src, 'aa_delete_expediente_registro_for_expediente') === false
+);
+
 
 restore_error_handler();
 

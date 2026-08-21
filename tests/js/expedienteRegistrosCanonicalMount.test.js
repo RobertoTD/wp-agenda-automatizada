@@ -42,6 +42,7 @@ const VALID_ACTIONS = {
     listRegistros: 'aa_list_expediente_registros_for_expediente',
     createRegistro: 'aa_create_expediente_registro_for_expediente',
     updateRegistro: 'aa_update_expediente_registro_for_expediente',
+    deleteRegistro: 'aa_delete_expediente_registro_for_expediente',
     attachRegistro: 'aa_attach_expediente_adjunto_for_expediente',
     signAdjuntoRead: 'aa_sign_expediente_adjunto_read_for_expediente',
     deleteAdjunto: 'aa_delete_expediente_adjunto_for_expediente'
@@ -428,8 +429,8 @@ describe('ExpedienteRegistrosCanonicalMount (C1c1)', () => {
         assert.equal(typeof opts.ports.attach, 'function');
         assert.equal(typeof opts.ports.signRead, 'function');
         assert.equal(typeof opts.ports.update, 'function');
+        assert.equal(typeof opts.ports.deleteRegistro, 'function');
         assert.equal(typeof opts.ports.deleteAdjunto, 'function');
-        assert.equal(opts.ports.deleteRegistro, undefined);
         assert.equal(JSON.stringify(opts.capabilities), JSON.stringify(VALID_CAPS));
         assert.equal(typeof opts.onInitialLoad, 'function');
 

@@ -42,6 +42,7 @@ const VALID_ACTIONS = {
     listRegistros: 'aa_list_expediente_registros_for_expediente',
     createRegistro: 'aa_create_expediente_registro_for_expediente',
     updateRegistro: 'aa_update_expediente_registro_for_expediente',
+    deleteRegistro: 'aa_delete_expediente_registro_for_expediente',
     attachRegistro: 'aa_attach_expediente_adjunto_for_expediente',
     signAdjuntoRead: 'aa_sign_expediente_adjunto_read_for_expediente',
     deleteAdjunto: 'aa_delete_expediente_adjunto_for_expediente'

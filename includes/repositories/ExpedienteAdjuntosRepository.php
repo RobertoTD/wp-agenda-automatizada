@@ -681,6 +681,35 @@ final class ExpedienteAdjuntosRepository {
     }
 
     /**
+     * ¿Existe alguna fila de adjunto para el record_id (sin filtrar por client_id)?
+     * Fail-closed para rama general: detectar adjuntos inconsistentes.
+     *
+     * @return bool|null true = al menos una fila; false = ninguna; null = error SQL
+     */
+    public static function has_any_by_record_id(int $record_id): ?bool {
+        if ($record_id < 1) {
+            return false;
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+
+        $hit = $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT 1 FROM {$table} WHERE record_id = %d LIMIT 1",
+                $record_id
+            )
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[ExpedienteAdjuntosRepository] has_any_by_record_id error');
+            return null;
+        }
+
+        return $hit !== null;
+    }
+
+    /**
      * MC5d2: bytes contabilizados de todos los adjuntos finalizados de la
      * instalación actual (la tabla del prefijo del blog es el alcance; no se
      * acepta scope externo). Es metadata local finalizada, no una auditoría

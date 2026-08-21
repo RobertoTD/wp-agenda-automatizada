@@ -16,6 +16,7 @@
         'listRegistros',
         'createRegistro',
         'updateRegistro',
+        'deleteRegistro',
         'attachRegistro',
         'signAdjuntoRead',
         'deleteAdjunto'
@@ -279,6 +280,12 @@
                     record_id: String(recordId || ''),
                     title: draft.title == null ? '' : String(draft.title),
                     body: draft.body == null ? '' : String(draft.body)
+                });
+            },
+            deleteRegistro: function (recordId) {
+                return postJsonForm(ajaxUrl, nonce, actions.deleteRegistro, {
+                    expediente_id: expedienteId,
+                    record_id: String(recordId || '')
                 });
             },
             attach: function (recordId, fileBlob, uploadOperationId) {
