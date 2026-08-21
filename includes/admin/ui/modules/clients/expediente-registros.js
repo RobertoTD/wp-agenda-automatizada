@@ -429,7 +429,14 @@
          */
         onInitialLoad: null,
         /** true tras notificar (o decidir no notificar) la carga inicial. */
-        initialLoadSettled: false
+        initialLoadSettled: false,
+        /**
+         * Callback opt-in al completar create (C1c2). null = ausente.
+         * Payload: { recordId, imageOutcome: 'none'|'saved'|'failed'|'abandoned' }.
+         */
+        onCreateComplete: null,
+        /** Se incrementa en destroy para invalidar sesiones de create abiertas. */
+        createFormEpoch: 0
     };
 
     var PORT_KEYS = [
@@ -1662,6 +1669,8 @@
         state.capabilities = null;
         state.onInitialLoad = null;
         state.initialLoadSettled = true;
+        state.onCreateComplete = null;
+        state.createFormEpoch += 1;
     }
 
     // ── Fin miniaturas MC4c ─────────────────────────────────────────
@@ -3204,6 +3213,13 @@
         /** @type {'idle'|'saving_record'|'uploading_attachment'|'partial_attachment_failed'} */
         var flowState = 'idle';
         var cleanedUp = false;
+        // C1c2 — sesión de create (solo notifica altas nuevas, no edit).
+        var formEpoch = state.createFormEpoch;
+        var createPersistedInSession = false;
+        var closeRequested = false;
+        /** @type {null|'none'|'saved'|'failed'|'abandoned'} */
+        var terminalReserved = null;
+        var createNotified = false;
 
         if (!window.AAAdmin || typeof window.AAAdmin.openModal !== 'function') {
             console.error('[ExpedienteRegistros] AAAdmin.openModal no disponible');
@@ -3359,11 +3375,82 @@
             }
         }
 
+        function isCreateSessionCurrent() {
+            return formEpoch === state.createFormEpoch;
+        }
+
+        /**
+         * Reserva el outcome terminal antes de cerrar el modal (anti-abandoned).
+         * @param {'none'|'saved'|'failed'|'abandoned'} imageOutcome
+         * @returns {boolean}
+         */
+        function reserveCreateTerminal(imageOutcome) {
+            if (terminalReserved !== null || createNotified) {
+                return false;
+            }
+            if (!createPersistedInSession || !(recordId > 0)) {
+                return false;
+            }
+            if (mode === 'edit' && !createPersistedInSession) {
+                return false;
+            }
+            terminalReserved = imageOutcome;
+            return true;
+        }
+
+        function flushCreateComplete() {
+            if (createNotified || terminalReserved === null) {
+                return;
+            }
+            if (!isCreateSessionCurrent()) {
+                return;
+            }
+            createNotified = true;
+            var cb = state.onCreateComplete;
+            if (typeof cb !== 'function') {
+                return;
+            }
+            try {
+                cb({
+                    recordId: recordId,
+                    imageOutcome: terminalReserved
+                });
+            } catch (err) {
+                console.error('[ExpedienteRegistros] onCreateComplete failed:', err);
+            }
+        }
+
+        /**
+         * @param {'none'|'saved'|'failed'|'abandoned'} imageOutcome
+         */
+        function reserveAndNotifyCreateComplete(imageOutcome) {
+            if (!reserveCreateTerminal(imageOutcome)) {
+                return;
+            }
+            flushCreateComplete();
+        }
+
         disarmModalCloseWatcher();
         modalCloseAbort = watchModalClose(function () {
             modalCloseAbort = null;
+            closeRequested = true;
+            var wasUploading = flowState === 'uploading_attachment';
+            var wasPartial = flowState === 'partial_attachment_failed';
+            var hadPersisted = createPersistedInSession && recordId > 0;
+
             cleanupPendingOnClose();
             focusElement(focusReturnEl);
+
+            if (!hadPersisted || createNotified || terminalReserved !== null) {
+                return;
+            }
+            // Attach en vuelo: esperar resultado real (saved/failed/abandoned).
+            if (wasUploading) {
+                return;
+            }
+            if (wasPartial) {
+                reserveAndNotifyCreateComplete('abandoned');
+            }
         });
 
         window.setTimeout(function () {
@@ -3395,6 +3482,12 @@
          * @param {string} failureCode
          */
         function finishWithToast(recordOutcome, imageOutcome, failureCode) {
+            // Reservar ANTES de cerrar para que el watcher no reclasifique como abandoned.
+            if (createPersistedInSession
+                && (imageOutcome === 'none' || imageOutcome === 'saved' || imageOutcome === 'failed')) {
+                reserveCreateTerminal(imageOutcome);
+            }
+
             var ready = imageOutcome === 'none'
                 ? Promise.resolve(UNKNOWN_ACCOUNT)
                 : primeAccountStatus();
@@ -3409,7 +3502,43 @@
                 flowState = 'idle';
                 closeAfterFullSuccess({ id: recordId });
                 emitToast(notification);
+                flushCreateComplete();
             });
+        }
+
+        /**
+         * Tras attach settled: respeta cierre solicitado vs UI abierta.
+         * @param {{ok?:boolean, skipped?:boolean, recordId?:number, adjunto?:object, code?:string}|null} attachResult
+         */
+        function settleAttachAfterCreate(attachResult) {
+            if (attachResult && attachResult.ok) {
+                if (!attachResult.skipped) {
+                    applyAdjuntoToRecord(attachResult.recordId, attachResult.adjunto);
+                }
+                if (closeRequested) {
+                    reserveAndNotifyCreateComplete('saved');
+                    return;
+                }
+                hideRetry();
+                finishWithToast(savedRecordOutcome || 'created', 'saved', '');
+                return;
+            }
+
+            var code = attachResult && attachResult.code ? String(attachResult.code) : '';
+            if (code === 'storage_not_included' || code === 'storage_quota_exceeded') {
+                if (closeRequested) {
+                    reserveAndNotifyCreateComplete('failed');
+                    return;
+                }
+                finishWithToast(savedRecordOutcome || 'created', 'failed', code);
+                return;
+            }
+
+            if (closeRequested) {
+                reserveAndNotifyCreateComplete('abandoned');
+                return;
+            }
+            showPartialAttachFailure(attachResult);
         }
 
         function showPartialAttachFailure(attachResult) {
@@ -3640,19 +3769,11 @@
 
             attachPendingImage({ id: recordId })
                 .then(function (attachResult) {
-                    if (attachResult && attachResult.ok) {
-                        if (!attachResult.skipped) {
-                            applyAdjuntoToRecord(attachResult.recordId, attachResult.adjunto);
-                        }
-                        hideRetry();
-                        finishWithToast(savedRecordOutcome || 'created', 'saved', '');
-                        return;
-                    }
-                    showPartialAttachFailure(attachResult);
+                    settleAttachAfterCreate(attachResult);
                 })
                 .catch(function (err) {
                     console.error('[ExpedienteRegistros] attach retry failed:', err);
-                    showPartialAttachFailure(null);
+                    settleAttachAfterCreate(null);
                 });
         }
 
@@ -3769,6 +3890,7 @@
                     persistRecordInList(saved);
 
                     if (mode === 'create') {
+                        createPersistedInSession = true;
                         promoteCreateToEdit(saved);
                     } else {
                         recordId = parseInt(saved.id, 10);
@@ -3784,14 +3906,13 @@
                         if (fileInput && isCapEnabled('updateRegistro')) {
                             fileInput.disabled = false;
                         }
-                        if (attachResult && attachResult.ok) {
-                            if (!attachResult.skipped) {
-                                applyAdjuntoToRecord(attachResult.recordId, attachResult.adjunto);
-                            }
-                            finishWithToast(recordOutcome, 'saved', '');
-                            return;
+                        settleAttachAfterCreate(attachResult);
+                    }).catch(function (err) {
+                        console.error('[ExpedienteRegistros] attach after create failed:', err);
+                        if (fileInput && isCapEnabled('updateRegistro')) {
+                            fileInput.disabled = false;
                         }
-                        showPartialAttachFailure(attachResult);
+                        settleAttachAfterCreate(null);
                     });
                 })
                 .catch(function (err) {
@@ -3845,6 +3966,7 @@
      *   actionsRoot?:HTMLElement|null,
      *   capabilities?:Object<string,boolean>,
      *   onInitialLoad?:function({ok:boolean, reason?:string}):void,
+     *   onCreateComplete?:function({recordId:number, imageOutcome:string}):void,
      *   transport?:{ajaxUrl:string, nonce:string, actions:Object<string,string>},
      *   ports?:{
      *     list?:Function,
@@ -3880,6 +4002,9 @@
             ? options.onInitialLoad
             : null;
         state.initialLoadSettled = false;
+        state.onCreateComplete = (options && typeof options.onCreateComplete === 'function')
+            ? options.onCreateComplete
+            : null;
 
         if (isCapEnabled('updateRegistro') || isCapEnabled('deleteRegistro')) {
             bindRegistroOptionsUi();

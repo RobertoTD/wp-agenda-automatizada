@@ -193,11 +193,13 @@ ac_assert(
     && strpos($detail, 'onCreateComplete') === false
 );
 ac_assert(
-    'detalle C1c1: listado rico ≠ create rico adoptado',
+    'detalle C1c1/C1c2: listado rico + mount; create rico solo vía mount JS (no en PHP)',
     preg_match(
         '/expediente-registros\.js.*expediente-registros-canonical-adapter\.js.*expediente-registros-canonical-mount\.js.*expediente-registro-create-modal\.js/s',
         $detail
     ) === 1
+    && strpos($detail, 'ExpedienteRegistros.openCreate') === false
+    && strpos($detail, 'onCreateComplete') === false
 );
 ac_assert('listado no emite AA_EXPEDIENTE_DETAIL_DATA', strpos($module, 'AA_EXPEDIENTE_DETAIL_DATA') === false
     && strpos($module, 'aa-expediente-detail-new-registro') === false

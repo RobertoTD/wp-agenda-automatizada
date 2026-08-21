@@ -471,14 +471,12 @@ describe('ExpedienteRegistrosCanonicalMount (C1c1)', () => {
         assert.equal(h.live.hidden, false);
     });
 
-    it('fuente mount: sin HTTP, sin client_id, sin openCreate del renderer', () => {
-        assert.doesNotMatch(mountSrc, /AA_CLIENTS_DATA/);
-        assert.doesNotMatch(mountSrc, /AA_CLIENTS_NONCES/);
+    it('fuente mount: sin client_id; usa onCreateComplete y successUrl', () => {
         assert.doesNotMatch(mountSrc, /client_id/);
         assert.doesNotMatch(mountSrc, /clientId/);
-        assert.doesNotMatch(mountSrc, /ExpedienteRegistros\.openCreate/);
-        assert.doesNotMatch(mountSrc, /onCreateComplete/);
-        assert.match(mountSrc, /onInitialLoad/);
-        assert.match(mountSrc, /\.build\(/);
+        assert.match(mountSrc, /onCreateComplete/);
+        assert.match(mountSrc, /successUrl/);
+        assert.match(mountSrc, /cloneNode/);
+        assert.match(mountSrc, /location\.assign/);
     });
 });

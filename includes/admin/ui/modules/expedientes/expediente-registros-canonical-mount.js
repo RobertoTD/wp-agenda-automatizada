@@ -1,8 +1,9 @@
 /**
- * Expediente Registros Canonical Mount (C1c1).
+ * Expediente Registros Canonical Mount (C1c1 + C1c2).
  *
- * Bootstrap presentacional: build adapter → init renderer en live oculto →
- * swap SSR/live tras onInitialLoad({ok:true}). Create sigue provisional.
+ * Bootstrap: build adapter → init en live oculto → swap tras onInitialLoad →
+ * adoptar FAB canónico (C1c2) y navegar a successUrl tras onCreateComplete.
+ * Create provisional permanece como fallback hasta readiness (+ successUrl).
  *
  * API: AAAdmin.ExpedienteRegistrosCanonicalMount.mount() / .destroy()
  */
@@ -14,8 +15,13 @@
     var mountState = {
         mounted: false,
         swapped: false,
+        fabAdopted: false,
+        navigationScheduled: false,
         ssrRoot: null,
-        liveRoot: null
+        liveRoot: null,
+        originalFab: null,
+        canonicalFab: null,
+        successUrl: ''
     };
 
     function getConfig() {
@@ -32,6 +38,10 @@
         return window.AAAdmin && window.AAAdmin.ExpedienteRegistros
             ? window.AAAdmin.ExpedienteRegistros
             : null;
+    }
+
+    function isValidSuccessUrl(value) {
+        return typeof value === 'string' && value.trim() !== '';
     }
 
     function hideLive(liveRoot) {
@@ -80,6 +90,102 @@
         }
     }
 
+    function onCanonicalFabClick(event) {
+        if (event && typeof event.preventDefault === 'function') {
+            event.preventDefault();
+        }
+        var renderer = getRendererApi();
+        if (!renderer || typeof renderer.openCreate !== 'function') {
+            return;
+        }
+        renderer.openCreate(mountState.canonicalFab || null);
+    }
+
+    /**
+     * Sustituye el FAB provisional por un clon con listener canónico.
+     * @param {HTMLElement} fab
+     * @returns {boolean}
+     */
+    function adoptFab(fab) {
+        if (!fab || !fab.parentNode || mountState.fabAdopted) {
+            return false;
+        }
+        var renderer = getRendererApi();
+        if (!renderer || typeof renderer.openCreate !== 'function') {
+            return false;
+        }
+
+        var clone = fab.cloneNode(true);
+        fab.parentNode.replaceChild(clone, fab);
+        clone.addEventListener('click', onCanonicalFabClick);
+
+        mountState.originalFab = fab;
+        mountState.canonicalFab = clone;
+        mountState.fabAdopted = true;
+        return true;
+    }
+
+    function restoreFab() {
+        if (!mountState.fabAdopted) {
+            mountState.originalFab = null;
+            mountState.canonicalFab = null;
+            return;
+        }
+        var clone = mountState.canonicalFab;
+        var original = mountState.originalFab;
+        if (clone && typeof clone.removeEventListener === 'function') {
+            clone.removeEventListener('click', onCanonicalFabClick);
+        }
+        if (clone && original && clone.parentNode) {
+            clone.parentNode.replaceChild(original, clone);
+        }
+        mountState.originalFab = null;
+        mountState.canonicalFab = null;
+        mountState.fabAdopted = false;
+    }
+
+    function scheduleNavigation() {
+        if (!mountState.mounted || !mountState.swapped || !mountState.fabAdopted) {
+            return;
+        }
+        if (mountState.navigationScheduled) {
+            return;
+        }
+        var url = mountState.successUrl;
+        if (!isValidSuccessUrl(url)) {
+            return;
+        }
+        mountState.navigationScheduled = true;
+        try {
+            window.location.assign(url);
+        } catch (err) {
+            console.error('[ExpedienteRegistrosCanonicalMount] navigation failed:', err);
+        }
+    }
+
+    function handleCreateComplete(payload) {
+        if (!mountState.mounted || !mountState.swapped || !mountState.fabAdopted) {
+            return;
+        }
+        if (!payload || !(parseInt(payload.recordId, 10) > 0)) {
+            return;
+        }
+        var outcome = payload.imageOutcome;
+        if (outcome !== 'none' && outcome !== 'saved' && outcome !== 'failed' && outcome !== 'abandoned') {
+            return;
+        }
+        scheduleNavigation();
+    }
+
+    function resetMountFlags() {
+        mountState.mounted = false;
+        mountState.swapped = false;
+        mountState.navigationScheduled = false;
+        mountState.ssrRoot = null;
+        mountState.liveRoot = null;
+        mountState.successUrl = '';
+    }
+
     /**
      * @returns {boolean}
      */
@@ -124,7 +230,6 @@
                 return false;
             }
 
-            // Paginación es opcional (una sola página); si existe debe estar fuera de live/ssr.
             if (pagination
                 && (liveRoot.contains(pagination) || ssrRoot.contains(pagination))) {
                 return false;
@@ -132,12 +237,21 @@
 
             hideLive(liveRoot);
 
+            var successUrl = isValidSuccessUrl(config.successUrl)
+                ? String(config.successUrl).trim()
+                : '';
+
             mountState.mounted = true;
             mountState.swapped = false;
+            mountState.fabAdopted = false;
+            mountState.navigationScheduled = false;
             mountState.ssrRoot = ssrRoot;
             mountState.liveRoot = liveRoot;
+            mountState.successUrl = successUrl;
+            mountState.originalFab = null;
+            mountState.canonicalFab = null;
 
-            renderer.init({
+            var initOptions = {
                 recordsRoot: liveRoot,
                 scopeKey: built.scopeKey,
                 ports: built.ports,
@@ -149,10 +263,8 @@
                     if (!outcome || outcome.ok !== true) {
                         hideLive(liveRoot);
                         safeDestroyRenderer();
-                        mountState.mounted = false;
-                        mountState.swapped = false;
-                        mountState.ssrRoot = null;
-                        mountState.liveRoot = null;
+                        restoreFab();
+                        resetMountFlags();
                         return;
                     }
                     if (mountState.swapped) {
@@ -160,32 +272,41 @@
                     }
                     mountState.swapped = true;
                     applySwap(ssrRoot, liveRoot);
+
+                    // FAB canónico solo con successUrl válida (si no, provisional intacto).
+                    if (successUrl) {
+                        var liveFab = document.getElementById('aa-expediente-detail-new-registro');
+                        adoptFab(liveFab || fab);
+                    }
                 }
-            });
+            };
+
+            if (successUrl) {
+                initOptions.onCreateComplete = handleCreateComplete;
+            }
+
+            renderer.init(initOptions);
 
             return true;
         } catch (err) {
             console.error('[ExpedienteRegistrosCanonicalMount] mount failed:', err);
             hideLive(mountState.liveRoot || document.getElementById('aa-expediente-detail-registros-live'));
             safeDestroyRenderer();
-            mountState.mounted = false;
-            mountState.swapped = false;
-            mountState.ssrRoot = null;
-            mountState.liveRoot = null;
+            restoreFab();
+            resetMountFlags();
             return false;
         }
     }
 
     function destroy() {
+        mountState.navigationScheduled = true;
+        restoreFab();
         safeDestroyRenderer();
         if (mountState.liveRoot) {
             hideLive(mountState.liveRoot);
         }
-        // Tras swap exitoso no reponemos SSR automáticamente (estado puede estar viejo).
-        mountState.mounted = false;
-        mountState.swapped = false;
-        mountState.ssrRoot = null;
-        mountState.liveRoot = null;
+        resetMountFlags();
+        mountState.navigationScheduled = false;
     }
 
     window.AAAdmin.ExpedienteRegistrosCanonicalMount = {
