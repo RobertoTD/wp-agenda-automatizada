@@ -958,13 +958,110 @@
     }
 
     /**
+     * Sesión D1 del montaje legacy vigente: recordId → expedienteId + guard nav.
+     * null fuera de un montaje vivo.
+     * @type {{
+     *   alive: boolean,
+     *   navigationScheduled: boolean,
+     *   recordToExpediente: Object<number, number>
+     * }|null}
+     */
+    var expedienteCreateNavSession = null;
+
+    /**
+     * Entero positivo estricto (sin coerciones permisivas).
+     * @param {*} value
+     * @returns {boolean}
+     */
+    function isStrictPositiveInt(value) {
+        return typeof value === 'number'
+            && Number.isFinite(value)
+            && Math.floor(value) === value
+            && value > 0;
+    }
+
+    /**
+     * Construye URL de detalle canónico desde base PHP + expediente_id.
+     * @param {number} expedienteId
+     * @returns {string} vacío si base inválida
+     */
+    function buildCanonicalDetailUrl(expedienteId) {
+        if (!isStrictPositiveInt(expedienteId)) {
+            return '';
+        }
+        var base = getClientsData().detailCanonicalBaseUrl;
+        if (typeof base !== 'string' || base.trim() === '') {
+            return '';
+        }
+        try {
+            var url = new URL(base, window.location.href);
+            if (url.searchParams.get('action') !== 'aa_iframe_content') {
+                return '';
+            }
+            if (url.searchParams.get('module') !== 'expedientes') {
+                return '';
+            }
+            if (url.searchParams.get('view') !== 'detail') {
+                return '';
+            }
+            url.searchParams.delete('client_id');
+            url.searchParams.delete('records_page');
+            url.searchParams.set('expediente_id', String(expedienteId));
+            return url.toString();
+        } catch (err) {
+            console.error('[Clients] buildCanonicalDetailUrl failed:', err);
+            return '';
+        }
+    }
+
+    function invalidateExpedienteCreateNavSession() {
+        if (expedienteCreateNavSession) {
+            expedienteCreateNavSession.alive = false;
+            expedienteCreateNavSession.navigationScheduled = true;
+            expedienteCreateNavSession.recordToExpediente = Object.create(null);
+        }
+        expedienteCreateNavSession = null;
+    }
+
+    /**
+     * @param {{alive:boolean, navigationScheduled:boolean, recordToExpediente:Object}} session
+     * @param {{recordId?:*, imageOutcome?:string}|null} payload
+     */
+    function handleLegacyCreateComplete(session, payload) {
+        if (!session || !session.alive || session.navigationScheduled) {
+            return;
+        }
+        var recordId = payload && payload.recordId;
+        if (!isStrictPositiveInt(recordId)) {
+            return;
+        }
+        var expedienteId = session.recordToExpediente[recordId];
+        delete session.recordToExpediente[recordId];
+        if (!isStrictPositiveInt(expedienteId)) {
+            return;
+        }
+        var canonicalUrl = buildCanonicalDetailUrl(expedienteId);
+        if (!canonicalUrl) {
+            return;
+        }
+        session.navigationScheduled = true;
+        try {
+            window.location.replace(canonicalUrl);
+        } catch (err) {
+            console.error('[Clients] canonical navigation failed:', err);
+        }
+    }
+
+    /**
      * Ports legacy: cierran sobre clientId + transport del montaje.
      * Devuelven { httpStatus, result } como el monolito pre-B1.
+     * El port create captura recordId→expedienteId sin alterar el envelope (D1).
      *
      * @param {number} clientId
      * @param {{ajaxUrl:string, nonce:string, actions:Object<string,string>}} transport
+     * @param {{alive:boolean, recordToExpediente:Object}} session
      */
-    function buildExpedienteRegistrosLegacyPorts(clientId, transport) {
+    function buildExpedienteRegistrosLegacyPorts(clientId, transport, session) {
         var ajaxUrl = transport.ajaxUrl;
         var nonce = transport.nonce;
         var actions = transport.actions || {};
@@ -1000,6 +1097,23 @@
                     client_id: clientIdStr,
                     title: draft.title,
                     body: draft.body
+                }).then(function (envelope) {
+                    try {
+                        var result = envelope && envelope.result;
+                        var data = result && result.success ? result.data : null;
+                        var record = data && data.record ? data.record : null;
+                        var recordId = record ? record.id : null;
+                        var expedienteId = data ? data.expediente_id : null;
+                        if (session
+                            && session.alive
+                            && isStrictPositiveInt(recordId)
+                            && isStrictPositiveInt(expedienteId)) {
+                            session.recordToExpediente[recordId] = expedienteId;
+                        }
+                    } catch (err) {
+                        console.error('[Clients] create nav capture failed:', err);
+                    }
+                    return envelope;
                 });
             },
             update: function (recordId, draft) {
@@ -1068,15 +1182,29 @@
     }
 
     function mountExpedienteRegistros(clientId, recordsRoot, actionsRoot) {
+        invalidateExpedienteCreateNavSession();
+        var session = {
+            alive: true,
+            navigationScheduled: false,
+            recordToExpediente: Object.create(null)
+        };
+        expedienteCreateNavSession = session;
+
         function tryMount(attemptsLeft) {
             if (window.AAAdmin && window.AAAdmin.ExpedienteRegistros && typeof window.AAAdmin.ExpedienteRegistros.init === 'function') {
+                if (!session.alive) {
+                    return;
+                }
                 var transport = buildExpedienteRegistrosTransport();
                 window.AAAdmin.ExpedienteRegistros.init({
                     clientId: clientId,
                     recordsRoot: recordsRoot,
                     actionsRoot: actionsRoot || null,
                     transport: transport,
-                    ports: buildExpedienteRegistrosLegacyPorts(clientId, transport)
+                    ports: buildExpedienteRegistrosLegacyPorts(clientId, transport, session),
+                    onCreateComplete: function (payload) {
+                        handleLegacyCreateComplete(session, payload);
+                    }
                 });
                 return;
             }
@@ -1222,5 +1350,19 @@
         console.log('Clients module loaded');
         init();
     });
+
+    window.AAAdmin = window.AAAdmin || {};
+    window.AAAdmin.ClientsModule = window.AAAdmin.ClientsModule || {};
+    window.AAAdmin.ClientsModule.__test__ = {
+        isStrictPositiveInt: isStrictPositiveInt,
+        buildCanonicalDetailUrl: buildCanonicalDetailUrl,
+        buildExpedienteRegistrosLegacyPorts: buildExpedienteRegistrosLegacyPorts,
+        handleLegacyCreateComplete: handleLegacyCreateComplete,
+        invalidateExpedienteCreateNavSession: invalidateExpedienteCreateNavSession,
+        mountExpedienteRegistros: mountExpedienteRegistros,
+        getCreateNavSession: function () {
+            return expedienteCreateNavSession;
+        }
+    };
 
 })();

@@ -663,7 +663,13 @@ describe('ExpedienteRegistros ports injection (ciclo B1)', () => {
     it('wiring: clients-module crea los siete ports y cierra sobre clientId/transport', () => {
         assert.match(clientsModuleSrc, /function buildExpedienteRegistrosLegacyPorts/);
         assert.match(clientsModuleSrc, /function buildExpedienteRegistrosTransport/);
-        assert.match(clientsModuleSrc, /ports:\s*buildExpedienteRegistrosLegacyPorts\(clientId,\s*transport\)/);
+        assert.match(clientsModuleSrc, /ports:\s*buildExpedienteRegistrosLegacyPorts\(clientId,\s*transport,\s*session\)/);
+        assert.match(clientsModuleSrc, /onCreateComplete/);
+        assert.match(clientsModuleSrc, /detailCanonicalBaseUrl/);
+        assert.match(clientsModuleSrc, /location\.replace/);
+        assert.doesNotMatch(clientsModuleSrc, /location\.assign/);
+        assert.doesNotMatch(clientsModuleSrc, /parent\.location/);
+        assert.doesNotMatch(clientsModuleSrc, /top\.location/);
         assert.match(clientsModuleSrc, /transport:\s*transport/);
         assert.match(clientsModuleSrc, /list:\s*function/);
         assert.match(clientsModuleSrc, /create:\s*function/);

@@ -34,6 +34,19 @@ if ($aa_clients_view === 'expediente' && $aa_clients_client_id > 0) {
 
 $aa_clients_is_expediente = ($aa_clients_view === 'expediente');
 
+// D1: base canónica (sin expediente_id). Solo en vista expediente; JS añade el id.
+$aa_clients_detail_canonical_base_url = '';
+if ($aa_clients_is_expediente) {
+    $aa_clients_detail_canonical_base_url = add_query_arg(
+        [
+            'action' => 'aa_iframe_content',
+            'module' => 'expedientes',
+            'view' => 'detail',
+        ],
+        admin_url('admin-post.php')
+    );
+}
+
 // UX flag only — never authority. Always starts false (fail-closed). The async
 // shell-access projection flips it to true only on a live `full` confirmation;
 // the server URL/AJAX gates enforce the real rule.
@@ -103,6 +116,7 @@ $aa_expediente_access_allowed = false;
         listUrl: <?php echo wp_json_encode($aa_clients_list_url); ?>,
         expedienteUrl: <?php echo wp_json_encode($aa_clients_expediente_url); ?>,
         moduleBaseUrl: <?php echo wp_json_encode($aa_clients_list_url); ?>,
+        detailCanonicalBaseUrl: <?php echo wp_json_encode($aa_clients_detail_canonical_base_url); ?>,
         expedienteAccessAllowed: <?php echo $aa_expediente_access_allowed ? 'true' : 'false'; ?>,
         ajaxUrl: window.ajaxurl || <?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,
         actions: {

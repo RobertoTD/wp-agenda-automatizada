@@ -70,6 +70,16 @@ ac_assert(
 ac_assert('index no acepta blog_id de GET', strpos($index, 'blog_id') === false);
 ac_assert('nonce get_cliente en AA_CLIENTS_NONCES', strpos($index, 'get_cliente') !== false);
 ac_assert('index emite expedienteAccessAllowed', strpos($index, 'expedienteAccessAllowed') !== false);
+ac_assert('index emite detailCanonicalBaseUrl (D1)', strpos($index, 'detailCanonicalBaseUrl') !== false);
+ac_assert(
+    'JS D1: replace canónico vía onCreateComplete; sin assign/parent/top',
+    strpos($js, 'detailCanonicalBaseUrl') !== false
+    && strpos($js, 'onCreateComplete') !== false
+    && strpos($js, 'location.replace') !== false
+    && strpos($js, 'location.assign') === false
+    && strpos($js, 'parent.location') === false
+    && strpos($js, 'top.location') === false
+);
 ac_assert('JS guarda expedienteAccessAllowed en click', strpos($js, 'expedienteAccessAllowed') !== false);
 
 // --- JS ramificación ---
