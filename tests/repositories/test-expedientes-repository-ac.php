@@ -269,6 +269,144 @@ $wpdb->last_error = 'simulated exists error';
 ac_assert('exists_by_id error SQL → null', ExpedientesRepository::exists_by_id(7) === null);
 $wpdb->last_error = '';
 
+// --- find_by_client_id triestado ---
+ac_assert(
+    'find_by_client_id PHPDoc triestado',
+    strpos($src, '@return array{id:int, client_id:int}|false|null') !== false
+    || strpos($src, '@return array{id:int,client_id:int}|false|null') !== false
+);
+ac_assert(
+    'find_by_client_id sin return type nativo union',
+    preg_match('/function find_by_client_id\(int \$client_id\)\s*\{/', $src) === 1
+);
+ac_assert(
+    'find_by_client_id SQL WHERE client_id LIMIT 1',
+    preg_match(
+        '/function find_by_client_id[\s\S]*SELECT id, client_id FROM \{\$table\} WHERE client_id = %d LIMIT 1/',
+        $src
+    ) === 1
+);
+ac_assert(
+    'find_by_client_id sin escrituras',
+    preg_match(
+        '/public static function find_by_client_id\(int \$client_id\)\s*\{([\s\S]*?)\n    \}/',
+        $src,
+        $fbci
+    ) === 1
+    && isset($fbci[1])
+    && stripos($fbci[1], 'INSERT') === false
+    && stripos($fbci[1], 'UPDATE') === false
+    && stripos($fbci[1], 'DELETE') === false
+    && stripos($fbci[1], '->query(') === false
+    && stripos($fbci[1], '->insert(') === false
+    && stripos($fbci[1], '->update(') === false
+    && stripos($fbci[1], '->delete(') === false
+);
+
+$wpdb->queries = [];
+$wpdb->row = null;
+$wpdb->last_error = '';
+$before_fbci = count($wpdb->queries);
+ac_assert(
+    'find_by_client_id <1 → false sin query',
+    ExpedientesRepository::find_by_client_id(0) === false
+    && ExpedientesRepository::find_by_client_id(-3) === false
+    && count($wpdb->queries) === $before_fbci
+);
+
+$wpdb->row = null;
+$wpdb->last_error = '';
+$missing_parent = ExpedientesRepository::find_by_client_id(42);
+ac_assert('find_by_client_id sin fila → false', $missing_parent === false);
+ac_assert(
+    'find_by_client_id query indexada',
+    strpos($wpdb->last_query, 'WHERE client_id = %d') !== false
+    && strpos($wpdb->last_query, 'LIMIT 1') !== false
+    && strpos($wpdb->last_query, '|42') !== false
+);
+
+$wpdb->row = ['id' => 9, 'client_id' => 42];
+$wpdb->last_error = '';
+$ok_ints = ExpedientesRepository::find_by_client_id(42);
+ac_assert(
+    'find_by_client_id fila ints → array',
+    $ok_ints === ['id' => 9, 'client_id' => 42]
+);
+
+$wpdb->row = ['id' => '9', 'client_id' => '42'];
+$ok_strings = ExpedientesRepository::find_by_client_id(42);
+ac_assert(
+    'find_by_client_id fila strings wpdb → array',
+    $ok_strings === ['id' => 9, 'client_id' => 42]
+);
+
+$wpdb->row = ['id' => 9, 'client_id' => 42];
+$wpdb->last_error = 'simulated find_by_client_id error';
+$sql_null = ExpedientesRepository::find_by_client_id(42);
+ac_assert('find_by_client_id SQL error → null (no false)', $sql_null === null);
+$wpdb->last_error = '';
+
+$malformed_ids = [
+    ['id' => 0, 'client_id' => 42],
+    ['id' => -1, 'client_id' => 42],
+    ['id' => '05', 'client_id' => 42],
+    ['id' => '5.0', 'client_id' => 42],
+    ['id' => true, 'client_id' => 42],
+    ['id' => [], 'client_id' => 42],
+];
+foreach ($malformed_ids as $row) {
+    $wpdb->row = $row;
+    $wpdb->last_error = '';
+    ac_assert(
+        'find_by_client_id id malformado → null',
+        ExpedientesRepository::find_by_client_id(42) === null,
+        json_encode($row)
+    );
+}
+
+$malformed_owners = [
+    ['id' => 9, 'client_id' => 0],
+    ['id' => 9, 'client_id' => -1],
+    ['id' => 9, 'client_id' => ''],
+    ['id' => 9, 'client_id' => ' '],
+    ['id' => 9, 'client_id' => '0'],
+    ['id' => 9, 'client_id' => '05'],
+    ['id' => 9, 'client_id' => '5.0'],
+    ['id' => 9, 'client_id' => null],
+    ['id' => 9, 'client_id' => false],
+    ['id' => 9, 'client_id' => []],
+];
+foreach ($malformed_owners as $row) {
+    $wpdb->row = $row;
+    $wpdb->last_error = '';
+    ac_assert(
+        'find_by_client_id owner malformado → null',
+        ExpedientesRepository::find_by_client_id(42) === null,
+        json_encode($row)
+    );
+}
+
+$wpdb->row = ['id' => 9];
+$wpdb->last_error = '';
+ac_assert(
+    'find_by_client_id fila incompleta → null',
+    ExpedientesRepository::find_by_client_id(42) === null
+);
+
+$wpdb->row = null;
+$wpdb->last_error = '';
+ac_assert(
+    'find_by_client_id ausencia ≠ SQL error',
+    ExpedientesRepository::find_by_client_id(7) === false
+);
+$wpdb->row = ['id' => 1, 'client_id' => 7];
+$wpdb->last_error = 'boom';
+ac_assert(
+    'find_by_client_id SQL error ≠ ausencia',
+    ExpedientesRepository::find_by_client_id(7) === null
+);
+$wpdb->last_error = '';
+
 echo "\nResultado: {$passed}/{$total} OK\n";
 if ($failed) {
     echo 'Fallidos: ' . implode(', ', $failed) . "\n";

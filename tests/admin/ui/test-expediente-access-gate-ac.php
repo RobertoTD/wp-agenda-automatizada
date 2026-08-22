@@ -397,5 +397,44 @@ ac_assert(
     expediente_allowed($incomplete) === false
 );
 
+
+// --- D2 order guardrails (source) ---
+$d2_marker = strpos($router, 'D2:');
+$get_uc_pos = strpos($router, 'GetExpedienteUseCase');
+$layout_pos = strpos($router, 'shared/layout.php');
+$gate_full_pos = strpos($router, 'AA_Shell_Access::ACCESS_FULL');
+$d2_lookup = strpos($router, 'ExpedientesRepository::find_by_client_id');
+ac_assert(
+    'D2 order: gate full < branch D2 < GetExpediente < layout',
+    $gate_full_pos !== false
+    && $d2_marker !== false
+    && $get_uc_pos !== false
+    && $layout_pos !== false
+    && $gate_full_pos < $d2_marker
+    && $d2_marker < $get_uc_pos
+    && $get_uc_pos < $layout_pos
+);
+ac_assert(
+    'D2 lookup only after ACCESS_FULL gate',
+    $d2_lookup !== false
+    && $gate_full_pos < $d2_lookup
+);
+ac_assert(
+    'D2 redirect 302 then exit (source)',
+    preg_match(
+        '/wp_safe_redirect\(\$aa_d2_canonical_url, 302\)\)\s*\{\s*exit;/',
+        $router
+    ) === 1
+);
+ac_assert(
+    'D2 false branch continues toward layout',
+    strpos($router, 'false: sin padre') !== false
+    && $d2_marker < $layout_pos
+);
+ac_assert(
+    'D2 does not add ResolveShellAccess execute()',
+    substr_count($router, 'ResolveShellAccessUseCase())->execute()') === 2
+);
+
 echo "\n{$passed}/{$total} passed\n";
 exit($failed ? 1 : 0);

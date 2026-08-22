@@ -109,11 +109,20 @@ final class ExpedientesRepository {
     }
 
     /**
-     * @return array{id:int,client_id:int}|null
+     * Padre por client_id (UNIQUE). Triestado alineado con exists_by_id.
+     *
+     * @return array{id:int, client_id:int}|false|null
+     *         array  — padre encontrado y válido
+     *         false  — no existe padre (o $client_id < 1)
+     *         null   — error SQL o fila almacenada malformada
      */
-    public static function find_by_client_id(int $client_id): ?array {
+    public static function find_by_client_id(int $client_id) {
         if ($client_id < 1) {
-            return null;
+            return false;
+        }
+
+        if (!class_exists('AA_Expediente_Id_Policy')) {
+            require_once dirname(__DIR__) . '/domain/expediente/class-aa-expediente-id-policy.php';
         }
 
         global $wpdb;
@@ -132,13 +141,25 @@ final class ExpedientesRepository {
             return null;
         }
 
-        if (!is_array($row) || empty($row['id'])) {
+        if (!is_array($row)) {
+            return false;
+        }
+
+        if (!array_key_exists('id', $row) || !array_key_exists('client_id', $row)) {
+            error_log('[ExpedientesRepository] find_by_client_id malformed row');
+            return null;
+        }
+
+        $id = AA_Expediente_Id_Policy::normalize($row['id']);
+        $owner = AA_Expediente_Id_Policy::normalize($row['client_id']);
+        if ($id === null || $owner === null) {
+            error_log('[ExpedientesRepository] find_by_client_id malformed row');
             return null;
         }
 
         return [
-            'id' => (int) $row['id'],
-            'client_id' => (int) ($row['client_id'] ?? 0),
+            'id' => $id,
+            'client_id' => $owner,
         ];
     }
 

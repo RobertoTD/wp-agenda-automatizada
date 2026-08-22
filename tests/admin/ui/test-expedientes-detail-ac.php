@@ -77,7 +77,15 @@ ac_assert(
     strpos($router, "No se pudieron cargar los registros del expediente.") !== false
     && strpos($router, "['response' => 500]") !== false
 );
-ac_assert('router no usa absint', strpos($router, 'absint(') === false);
+ac_assert(
+    'router absint solo en D2 client_id legacy (no en detail canónico)',
+    strpos($router, 'absint(') !== false
+    && preg_match(
+        "/D2:[\s\S]*absint\(wp_unslash\(\(string\) \\\$aa_d2_client_id_raw\)\)[\s\S]*Parent detail/",
+        $router
+    ) === 1
+    && strpos(substr($router, strpos($router, 'Parent detail')), 'absint(') === false
+);
 ac_assert('router detalle no lee blog_id', strpos($router, "['blog_id']") === false
     && strpos($router, '$_GET[\'blog_id\']') === false);
 ac_assert('400 invalid_id', strpos($router, "wp_die('Expediente no válido'") !== false

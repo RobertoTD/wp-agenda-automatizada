@@ -115,6 +115,66 @@ if (
 }
 
 /*
+ * D2: legacy clients&view=expediente → detail canónico si ya hay padre.
+ * Solo tras gate ACCESS_FULL. Sin layout/HTML antes del redirect.
+ * false → vista virtual legacy; null/malformado → 500 fail-closed.
+ */
+if ($active_module === 'clients' && $view_raw === 'expediente') {
+    $aa_d2_client_id_raw = array_key_exists('client_id', $_GET) ? $_GET['client_id'] : null;
+    $aa_d2_client_id = 0;
+    if (is_scalar($aa_d2_client_id_raw) && !is_bool($aa_d2_client_id_raw)) {
+        $aa_d2_client_id = absint(wp_unslash((string) $aa_d2_client_id_raw));
+    }
+
+    if ($aa_d2_client_id > 0) {
+        require_once dirname(__DIR__, 2) . '/repositories/ExpedientesRepository.php';
+
+        $aa_d2_parent = ExpedientesRepository::find_by_client_id($aa_d2_client_id);
+
+        if ($aa_d2_parent === null) {
+            wp_die('No se pudo abrir el expediente.', 'Error', ['response' => 500]);
+            return;
+        }
+
+        if (is_array($aa_d2_parent)) {
+            if (!class_exists('AA_Expediente_Id_Policy')) {
+                require_once dirname(__DIR__, 2) . '/domain/expediente/class-aa-expediente-id-policy.php';
+            }
+
+            $aa_d2_expediente_id = AA_Expediente_Id_Policy::normalize($aa_d2_parent['id'] ?? null);
+            $aa_d2_owner_id = AA_Expediente_Id_Policy::normalize($aa_d2_parent['client_id'] ?? null);
+
+            if (
+                $aa_d2_expediente_id === null
+                || $aa_d2_owner_id === null
+                || $aa_d2_owner_id !== $aa_d2_client_id
+            ) {
+                wp_die('No se pudo abrir el expediente.', 'Error', ['response' => 500]);
+                return;
+            }
+
+            $aa_d2_canonical_url = add_query_arg(
+                [
+                    'action' => 'aa_iframe_content',
+                    'module' => 'expedientes',
+                    'view' => 'detail',
+                    'expediente_id' => $aa_d2_expediente_id,
+                ],
+                admin_url('admin-post.php')
+            );
+
+            if (wp_safe_redirect($aa_d2_canonical_url, 302)) {
+                exit;
+            }
+
+            wp_die('No se pudo abrir el expediente.', 'Error', ['response' => 500]);
+            return;
+        }
+        // false: sin padre → continuar a la vista virtual legacy.
+    }
+}
+
+/*
  * Parent detail (module=expedientes&view=detail). Gate above already ran.
  * Strict id parsing lives in GetExpedienteUseCase. Site-scoped via table prefix.
  */
