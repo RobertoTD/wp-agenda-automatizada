@@ -132,6 +132,7 @@ $pwa_notifications_first_opportunity_js = plugin_dir_url(__DIR__ . '/../dashboar
 <!-- Archivos de sección del calendario (específicos del módulo) -->
 <script src="<?php echo esc_url($plugin_url . 'calendar-section/calendar-appointment-card.js?ver=' . rawurlencode($calendar_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($plugin_url . 'calendar-section/calendar-overlap.js?ver=' . rawurlencode($calendar_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($plugin_url . 'calendar-section/calendar-initial-scroll.js?ver=' . rawurlencode($calendar_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($plugin_url . 'calendar-section/calendar-appointments.js?ver=' . rawurlencode($calendar_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($plugin_url . 'calendar-section/calendar-timeline.js?ver=' . rawurlencode($calendar_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($plugin_url . 'calendar-section/calendar-assignments.js?ver=' . rawurlencode($calendar_ver)); ?>" defer></script>

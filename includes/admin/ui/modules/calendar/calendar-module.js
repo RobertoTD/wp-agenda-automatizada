@@ -13,6 +13,7 @@
     let assignmentEventBound = false;
     let calendarOptionsMenuOpen = false;
     let calendarOptionsMenuBound = false;
+    let timelineLoadGeneration = 0;
 
     /**
      * Horario fijo legacy: vacío o no-objeto significa "sin fixed activo", no dependencia faltante.
@@ -67,8 +68,11 @@
         
         const hasCalendarTimeline = typeof window.CalendarTimeline !== 'undefined' &&
                                    typeof window.CalendarTimeline.renderTimelineForDate === 'function';
+
+        const hasCalendarInitialScroll = typeof window.CalendarInitialScroll !== 'undefined' &&
+                                        typeof window.CalendarInitialScroll.selectTarget === 'function';
         
-        if (hasDateUtils && hasCalendarData && hasCalendarService && hasCalendarController && hasDatePickerAdapter && hasFlatpickr && hasCalendarAppointmentCard && hasCalendarAppointments && hasCalendarTimeline) {
+        if (hasDateUtils && hasCalendarData && hasCalendarService && hasCalendarController && hasDatePickerAdapter && hasFlatpickr && hasCalendarAppointmentCard && hasCalendarAppointments && hasCalendarTimeline && hasCalendarInitialScroll) {
             ensureCalendarDataNormalized();
             callback();
             return;
@@ -85,6 +89,7 @@
             console.error('  - CalendarAppointmentCard:', typeof window.CalendarAppointmentCard);
             console.error('  - CalendarAppointments:', typeof window.CalendarAppointments);
             console.error('  - CalendarTimeline:', typeof window.CalendarTimeline);
+            console.error('  - CalendarInitialScroll:', typeof window.CalendarInitialScroll);
             return;
         }
         
@@ -314,8 +319,18 @@
      */
     function renderTimelineForDate(fechaStr, renderOptions) {
         renderOptions = renderOptions || {};
+        timelineLoadGeneration += 1;
+        const generation = timelineLoadGeneration;
+        const autoPosition = renderOptions.resetScroll === true;
+        const isStale = function () {
+            return generation !== timelineLoadGeneration;
+        };
 
         fetchAssignmentsData(fechaStr).then(function(assignmentsData) {
+            if (isStale()) {
+                return;
+            }
+
             const fecha = new Date(fechaStr + 'T00:00:00');
             const weekday = window.DateUtils.getWeekdayName(fecha);
             // LEGACY_FIXED_SCHEDULE: overlay/visual column from aa_schedule; not required for module init.
@@ -341,7 +356,15 @@
             
             // Cargar y renderizar citas del día seleccionado usando CalendarAppointments
             if (window.CalendarAppointments?.cargarYRenderizarCitas) {
-                window.CalendarAppointments.cargarYRenderizarCitas(result.slotRowIndex, result.timeSlots, fechaStr);
+                window.CalendarAppointments.cargarYRenderizarCitas(
+                    result.slotRowIndex,
+                    result.timeSlots,
+                    fechaStr,
+                    {
+                        autoPosition: autoPosition,
+                        isStale: isStale
+                    }
+                );
             }
             
             // Configurar event listener delegado para acciones de botones

@@ -263,9 +263,82 @@
     }
 
     /**
-     * Cargar citas de un día específico y renderizarlas
+     * Posicionar viewport en target one-shot (standalone only).
+     * @param {Array} citasRenderizadasConPosicion
+     * @param {string} fechaStr
+     * @param {Function} isStale
      */
-    function cargarYRenderizarCitas(slotRowIndex, timeSlots, fechaStr) {
+    function scheduleInitialScroll(citasRenderizadasConPosicion, fechaStr, isStale) {
+        if (typeof isStale === 'function' && isStale()) {
+            return;
+        }
+        if (!document.documentElement.classList.contains('aa-standalone')) {
+            return;
+        }
+        if (!window.CalendarInitialScroll || typeof window.CalendarInitialScroll.selectTarget !== 'function') {
+            return;
+        }
+
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+                if (typeof isStale === 'function' && isStale()) {
+                    return;
+                }
+
+                const viewport = document.querySelector('.aa-day-timeline-viewport');
+                const grid = document.getElementById('aa-time-grid');
+                if (!viewport || !grid) {
+                    return;
+                }
+
+                const selected = window.CalendarInitialScroll.selectTarget(
+                    citasRenderizadasConPosicion,
+                    fechaStr,
+                    new Date()
+                );
+                if (!selected || !selected.item) {
+                    return;
+                }
+
+                const gridRect = grid.getBoundingClientRect();
+                const viewportRect = viewport.getBoundingClientRect();
+                const gridOffsetTop = gridRect.top - viewportRect.top + viewport.scrollTop;
+                const maxScroll = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
+                const scrollTop = window.CalendarInitialScroll.computeScrollTop({
+                    gridOffsetTop: gridOffsetTop,
+                    rowHeight: window.CalendarInitialScroll.ROW_HEIGHT || ROW_HEIGHT,
+                    startRow: selected.item.startRow,
+                    bloquesOcupados: selected.item.bloquesOcupados,
+                    viewportHeight: viewport.clientHeight,
+                    maxScroll: maxScroll,
+                    alignment: selected.alignment
+                });
+
+                if (typeof isStale === 'function' && isStale()) {
+                    return;
+                }
+
+                viewport.scrollTop = scrollTop;
+            });
+        });
+    }
+
+    /**
+     * Cargar citas de un día específico y renderizarlas
+     * @param {Map} slotRowIndex
+     * @param {Array} timeSlots
+     * @param {string} fechaStr
+     * @param {Object} [loadOptions]
+     * @param {boolean} [loadOptions.autoPosition]
+     * @param {Function} [loadOptions.isStale]
+     */
+    function cargarYRenderizarCitas(slotRowIndex, timeSlots, fechaStr, loadOptions) {
+        loadOptions = loadOptions || {};
+        const autoPosition = loadOptions.autoPosition === true;
+        const isStale = typeof loadOptions.isStale === 'function'
+            ? loadOptions.isStale
+            : function () { return false; };
+
         if (!fechaStr) {
             const today = new Date();
             fechaStr = window.DateUtils.ymd(today);
@@ -287,6 +360,10 @@
         })
         .then(response => response.json())
         .then(data => {
+            if (isStale()) {
+                return;
+            }
+
             if (data.success && data.data && data.data.citas) {
                 console.log('[CalendarAppointments] Citas recibidas:', data.data.citas.length);
                 data.data.citas.forEach(cita => {
@@ -333,7 +410,20 @@
                 // Reset padding al cargar nuevas citas
                 resetTimelinePadding();
                 
-                renderizarTodasLasCitas(citasConPosicion, overlaps, slotRowIndex, timeSlots);
+                const citasRenderizadasConPosicion = renderizarTodasLasCitas(
+                    citasConPosicion,
+                    overlaps,
+                    slotRowIndex,
+                    timeSlots
+                );
+
+                if (isStale()) {
+                    return;
+                }
+
+                if (autoPosition) {
+                    scheduleInitialScroll(citasRenderizadasConPosicion, fechaStr, isStale);
+                }
             }
         })
         .catch(err => {
@@ -343,10 +433,12 @@
 
     /**
      * Renderizar todas las citas
+     * @returns {Array} citasRenderizadasConPosicion
      */
     function renderizarTodasLasCitas(citasConPosicion, overlaps, slotRowIndex, timeSlots) {
+        const citasRenderizadasConPosicion = [];
         const grid = document.getElementById('aa-time-grid');
-        if (!grid) return;
+        if (!grid) return citasRenderizadasConPosicion;
         
         // Restaurar overflow de hosts
         hostsConExpandidas.forEach(host => {
@@ -428,15 +520,17 @@
                 maxEndRow = Math.max(maxEndRow, c.startRow + c.bloquesOcupados);
             });
             const groupKey = `${minStartRow}-${maxEndRow}`;
-            renderizarGrupoCitas(grupo, overlaps, slotRowIndex, timeSlots, groupKey);
+            renderizarGrupoCitas(grupo, overlaps, slotRowIndex, timeSlots, groupKey, citasRenderizadasConPosicion);
         });
         
         citasSinGrupo.forEach((citaConPos) => {
             const groupKey = `${citaConPos.startRow}-${citaConPos.startRow + citaConPos.bloquesOcupados}`;
-            renderizarGrupoCitas([citaConPos], overlaps, slotRowIndex, timeSlots, groupKey);
+            renderizarGrupoCitas([citaConPos], overlaps, slotRowIndex, timeSlots, groupKey, citasRenderizadasConPosicion);
         });
         
         crearControlesCicladoStack();
+
+        return citasRenderizadasConPosicion;
     }
     
     /**
@@ -605,28 +699,33 @@
     
     /**
      * Renderizar un grupo de citas
+     * @param {Array} outRendered - accumulator of successfully mounted appointments
      */
-    function renderizarGrupoCitas(grupo, overlaps, slotRowIndex, timeSlots, groupKey) {
+    function renderizarGrupoCitas(grupo, overlaps, slotRowIndex, timeSlots, groupKey, outRendered) {
         if (grupo.length === 0) return;
         
         grupo.forEach((citaConPos, index) => {
             const overlapInfo = overlaps[citaConPos.id];
-            renderizarCitaEnHost(citaConPos, overlaps, false, overlapInfo, index);
+            const rendered = renderizarCitaEnHost(citaConPos, overlaps, false, overlapInfo, index);
+            if (rendered && Array.isArray(outRendered)) {
+                outRendered.push(rendered);
+            }
         });
     }
     
     /**
      * Renderizar una cita dentro de su host
+     * @returns {Object|null} citaConPos when card is mounted, otherwise null
      */
     function renderizarCitaEnHost(citaConPos, overlaps, isExpanded, overlapInfo, overlapIndex) {
         const grid = document.getElementById('aa-time-grid');
-        if (!grid) return;
+        if (!grid) return null;
         
         const host = window.CalendarAssignments?.getCardsHostForCita(citaConPos.cita, citaConPos);
-        if (!host) return;
+        if (!host) return null;
         
         const card = crearCardConInteraccion(citaConPos.cita, overlapInfo || null, isExpanded, host);
-        if (!card) return;
+        if (!card) return null;
         
         card.dataset.citaStartRow = citaConPos.startRow;
         card.dataset.citaBloquesOcupados = citaConPos.bloquesOcupados;
@@ -690,6 +789,7 @@
         }
 
         host.appendChild(card);
+        return citaConPos;
     }
     
     /**
