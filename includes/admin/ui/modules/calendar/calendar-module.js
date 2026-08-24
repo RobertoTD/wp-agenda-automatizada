@@ -309,8 +309,12 @@
     /**
      * Renderizar timeline para una fecha específica
      * @param {string} fechaStr - Fecha en formato YYYY-MM-DD
+     * @param {Object} [renderOptions]
+     * @param {boolean} [renderOptions.resetScroll] - Reinicia scroll del viewport del timeline
      */
-    function renderTimelineForDate(fechaStr) {
+    function renderTimelineForDate(fechaStr, renderOptions) {
+        renderOptions = renderOptions || {};
+
         fetchAssignmentsData(fechaStr).then(function(assignmentsData) {
             const fecha = new Date(fechaStr + 'T00:00:00');
             const weekday = window.DateUtils.getWeekdayName(fecha);
@@ -320,7 +324,8 @@
             const visualIntervals = scheduleIntervals.concat(assignmentIntervals);
 
             const result = window.CalendarTimeline?.renderTimelineForDate(fechaStr, {
-                visualIntervals: visualIntervals
+                visualIntervals: visualIntervals,
+                resetScroll: renderOptions.resetScroll === true
             });
 
             if (!result) {
@@ -363,8 +368,8 @@
             fechaInicial = window.DateUtils.ymd(today);
         }
         
-        // Renderizar timeline para la fecha inicial
-        renderTimelineForDate(fechaInicial);
+        // Renderizar timeline para la fecha inicial (entrada en 00:00)
+        renderTimelineForDate(fechaInicial, { resetScroll: true });
         
         // Inicializar el controller con callbacks
         if (window.AdminCalendarController?.init) {
@@ -372,7 +377,7 @@
                 recargarTimelineDelDiaActual,
                 function(fecha) {
                     // Callback para cargar citas de un día específico
-                    renderTimelineForDate(fecha);
+                    renderTimelineForDate(fecha, { resetScroll: true });
                 }
             );
         }

@@ -30,11 +30,18 @@
     // Altura fija de cada fila del grid
     const ROW_HEIGHT = 40;
 
+    // Día completo: 48 franjas de 30 min (00:00 … 23:30 → intervalo hasta 24:00)
+    const FULL_DAY_START_MIN = 0;
+    const FULL_DAY_END_MIN = 1440;
+    const SLOT_STEP_MIN = 30;
+    const FULL_DAY_SLOT_COUNT = FULL_DAY_END_MIN / SLOT_STEP_MIN;
+
     /**
      * Renderizar timeline para una fecha específica
      * @param {string} fechaStr - Fecha YYYY-MM-DD
      * @param {Object} [options]
-     * @param {Array<{start: number, end: number}>} [options.visualIntervals] - Rango visual (fixed + assignments); lo arma calendar-module.js
+     * @param {Array<{start: number, end: number}>} [options.visualIntervals] - Legacy en options; overlays los arma calendar-module.js / CalendarAssignments
+     * @param {boolean} [options.resetScroll] - Si true, viewport del timeline vuelve a scrollTop 0
      */
     function renderTimelineForDate(fechaStr, options) {
         const grid = document.getElementById('aa-time-grid');
@@ -44,7 +51,6 @@
         }
 
         options = options || {};
-        const visualIntervals = Array.isArray(options.visualIntervals) ? options.visualIntervals : [];
         
         // =============================================
         // GRID CONTAINER STYLES
@@ -61,30 +67,14 @@
 
         grid.innerHTML = '';
 
-        if (visualIntervals.length === 0) {
-            const mensaje = document.createElement('div');
-            Object.assign(mensaje.style, {
-                gridColumn: '1 / -1',
-                padding: '2rem',
-                textAlign: 'center',
-                color: TOKENS.gray500
-            });
-            mensaje.textContent = 'Sin citas';
-            grid.appendChild(mensaje);
-            return null;
-        }
-
         function minutesToTimeStr(minutes) {
             const h = Math.floor(minutes / 60);
             const m = minutes % 60;
             return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
         }
 
-        const minStart = Math.min(...visualIntervals.map(function(iv) { return iv.start; }));
-        const maxEnd = Math.max(...visualIntervals.map(function(iv) { return iv.end; }));
-
         const timeSlots = [];
-        for (let min = minStart; min < maxEnd; min += 30) {
+        for (let min = FULL_DAY_START_MIN; min < FULL_DAY_END_MIN; min += SLOT_STEP_MIN) {
             timeSlots.push(min);
         }
 
@@ -193,6 +183,13 @@
         // =============================================
         if (isToday && minutosActuales !== null) {
             agregarIndicadorHoraActual(slotRowIndex, minutosActuales);
+        }
+
+        if (options.resetScroll) {
+            const viewport = document.querySelector('.aa-day-timeline-viewport');
+            if (viewport) {
+                viewport.scrollTop = 0;
+            }
         }
 
         return {
