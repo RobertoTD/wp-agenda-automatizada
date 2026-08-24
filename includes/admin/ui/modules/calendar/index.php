@@ -26,12 +26,12 @@ $calendar_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
 $module_js_url = $plugin_url . 'calendar-module.js?ver=' . rawurlencode($calendar_ver);
 ?>
 
-<div class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden mt-2">
+<div class="aa-calendar-shell bg-white rounded-xl shadow border border-gray-200 overflow-hidden mt-2">
 
     <!-- =========================
          🔹 HEADER
          ========================= -->
-    <div class="px-4 py-5 border-b border-gray-100 bg-white">
+    <div class="aa-calendar-toolbar px-4 py-5 border-b border-gray-100 bg-white">
         <div class="flex items-center justify-center w-full">
             <div id="aa-date-selector" class="flex items-center justify-center">
                 <div class="aa-date-navigator">
@@ -60,7 +60,7 @@ $module_js_url = $plugin_url . 'calendar-module.js?ver=' . rawurlencode($calenda
     <!-- =========================
          🔹 CONTENIDO / BODY
          ========================= -->
-    <div class="p-0 transition-all duration-200">
+    <div class="aa-day-timeline-viewport p-0 transition-all duration-200">
 
         <!-- =========================
              🔹 AGENDA TIMELINE

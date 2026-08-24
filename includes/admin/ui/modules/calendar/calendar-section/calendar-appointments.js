@@ -227,6 +227,8 @@
         if (!section || !card) return;
         
         const sectionRect = section.getBoundingClientRect();
+        const currentPaddingBottom = parseFloat(getComputedStyle(section).paddingBottom) || 0;
+        const naturalBottomViewport = sectionRect.bottom - currentPaddingBottom;
         
         // Obtener body de la card (el contenido real)
         const body = card.querySelector('.aa-appointment-body:not([hidden])') || card.querySelector('.aa-appointment-body');
@@ -239,8 +241,8 @@
             bodyRect?.bottom ?? -Infinity
         );
         
-        // Calcular overflow vs section
-        const overflow = contentBottom - sectionRect.bottom;
+        // Overflow vs final natural del lienzo (sin padding dinámico vigente)
+        const overflow = contentBottom - naturalBottomViewport;
         
         if (overflow > 0) {
             // Agregar padding extra para dar "piso" (+2px colchón)

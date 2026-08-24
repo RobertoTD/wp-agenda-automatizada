@@ -1494,3 +1494,73 @@ body {
         order: -1;
     }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   CALENDAR — vista directa standalone (Ciclo 1 viewport)
+   Scoped: html.aa-standalone body[data-aa-module="calendar"]
+   ═══════════════════════════════════════════════════════════════ */
+
+html.aa-standalone body[data-aa-module="calendar"] {
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100vh;
+    max-height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+}
+
+html.aa-standalone body[data-aa-module="calendar"] #aa-admin-app {
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+html.aa-standalone body[data-aa-module="calendar"] #aa-admin-app > header,
+html.aa-standalone body[data-aa-module="calendar"] footer {
+    flex-shrink: 0;
+}
+
+html.aa-standalone body[data-aa-module="calendar"] #aa-admin-content {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+html.aa-standalone body[data-aa-module="calendar"] #aa-module-root {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+html.aa-standalone body[data-aa-module="calendar"] .aa-calendar-shell {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    margin-top: 0;
+}
+
+html.aa-standalone body[data-aa-module="calendar"] .aa-calendar-toolbar {
+    flex-shrink: 0;
+}
+
+html.aa-standalone body[data-aa-module="calendar"] .aa-day-timeline-viewport {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+html.aa-standalone body[data-aa-module="calendar"] .aa-day-timeline {
+    overflow: visible;
+    padding-top: 15px;
+}

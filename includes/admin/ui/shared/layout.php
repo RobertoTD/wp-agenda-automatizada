@@ -110,6 +110,17 @@ header('Content-Type: text/html; charset=utf-8');
     <link rel="manifest" href="<?php echo esc_url(AA_Pwa_Routes::manifest_url()); ?>">
     <?php endif; ?>
 
+    <script>
+    (function () {
+        var root = document.documentElement;
+        if (window.self !== window.top) {
+            root.classList.add('aa-embedded');
+        } else {
+            root.classList.add('aa-standalone');
+        }
+    })();
+    </script>
+
     <!-- Tailwind CSS (usando constante global para URL limpia) -->
     <link rel="stylesheet" href="<?php echo aa_asset_url('includes/admin/ui/assets/css/admin.css'); ?>">
 
@@ -147,7 +158,7 @@ header('Content-Type: text/html; charset=utf-8');
     <?php endif; ?>
 
 </head>
-<body class="flex flex-col min-h-screen" style="background-color: rgb(240, 240, 241);">
+<body class="flex flex-col min-h-screen" data-aa-module="<?php echo esc_attr($active_module); ?>" style="background-color: rgb(240, 240, 241);">
 
 <!-- ============================================
      🔹 GLOBAL DATA (antes de cualquier script)
