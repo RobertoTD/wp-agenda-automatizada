@@ -3,6 +3,7 @@
  * Expediente Adjuntos Repository — SQL puro para metadatos de adjuntos finalizados.
  *
  * MC4a2: insert idempotente + list/find. MC5c1: delete scoped.
+ * P1 / DB 18: client_id nullable (snapshot legacy); pertenencia = record_id.
  * Binario vive en Supabase Storage.
  *
  * @package WP_Agenda_Automatizada
@@ -28,11 +29,98 @@ final class ExpedienteAdjuntosRepository {
     }
 
     /**
+     * Normaliza client_id de fila SQL: NULL → null; entero ≥1 → int.
+     * 0 / inválidos → null de fila completa vía map_row (no identidad).
+     *
+     * @param mixed $raw
+     * @return array{ok:true,id:?int}|array{ok:false}
+     */
+    private static function normalize_row_client_id($raw): array {
+        if ($raw === null) {
+            return ['ok' => true, 'id' => null];
+        }
+
+        if (is_int($raw)) {
+            if ($raw < 1) {
+                return ['ok' => false];
+            }
+
+            return ['ok' => true, 'id' => $raw];
+        }
+
+        if (is_string($raw)) {
+            $trimmed = trim($raw);
+            if ($trimmed === '' || !ctype_digit($trimmed)) {
+                return ['ok' => false];
+            }
+            $n = (int) $trimmed;
+            if ($n < 1 || (string) $n !== $trimmed) {
+                return ['ok' => false];
+            }
+
+            return ['ok' => true, 'id' => $n];
+        }
+
+        if (is_float($raw)) {
+            return ['ok' => false];
+        }
+
+        return ['ok' => false];
+    }
+
+    /**
+     * Input de insert/delete: int ≥1 | null. Rechaza 0, negativos, otros.
+     *
+     * @param mixed $raw
+     * @return array{ok:true,id:?int}|array{ok:false}
+     */
+    private static function normalize_input_client_id($raw): array {
+        if ($raw === null) {
+            return ['ok' => true, 'id' => null];
+        }
+
+        if (is_int($raw)) {
+            if ($raw < 1) {
+                return ['ok' => false];
+            }
+
+            return ['ok' => true, 'id' => $raw];
+        }
+
+        if (is_string($raw) && ctype_digit(trim($raw))) {
+            $n = (int) trim($raw);
+            if ($n < 1) {
+                return ['ok' => false];
+            }
+
+            return ['ok' => true, 'id' => $n];
+        }
+
+        return ['ok' => false];
+    }
+
+    /**
+     * @param ?int $a
+     * @param ?int $b
+     */
+    private static function client_ids_match($a, $b): bool {
+        if ($a === null && $b === null) {
+            return true;
+        }
+
+        if (!is_int($a) || !is_int($b) || $a < 1 || $b < 1) {
+            return false;
+        }
+
+        return $a === $b;
+    }
+
+    /**
      * @param array<string,mixed>|null $row
      * @return array{
      *   id:int,
      *   record_id:int,
-     *   client_id:int,
+     *   client_id:?int,
      *   upload_operation_id:string,
      *   storage_path:string,
      *   mime_type:string,
@@ -47,10 +135,22 @@ final class ExpedienteAdjuntosRepository {
             return null;
         }
 
+        $client = self::normalize_row_client_id(
+            array_key_exists('client_id', $row) ? $row['client_id'] : null
+        );
+        if (!$client['ok']) {
+            return null;
+        }
+
+        $record_id = (int) ($row['record_id'] ?? 0);
+        if ($record_id < 1) {
+            return null;
+        }
+
         return [
             'id' => (int) $row['id'],
-            'record_id' => (int) ($row['record_id'] ?? 0),
-            'client_id' => (int) ($row['client_id'] ?? 0),
+            'record_id' => $record_id,
+            'client_id' => $client['id'],
             'upload_operation_id' => (string) ($row['upload_operation_id'] ?? ''),
             'storage_path' => (string) ($row['storage_path'] ?? ''),
             'mime_type' => (string) ($row['mime_type'] ?? ''),
@@ -64,7 +164,7 @@ final class ExpedienteAdjuntosRepository {
     /**
      * @param array{
      *   record_id:int,
-     *   client_id:int,
+     *   client_id:?int,
      *   upload_operation_id:string,
      *   storage_path:string,
      *   mime_type:string,
@@ -76,7 +176,7 @@ final class ExpedienteAdjuntosRepository {
      * @param array{
      *   id:int,
      *   record_id:int,
-     *   client_id:int,
+     *   client_id:?int,
      *   upload_operation_id:string,
      *   storage_path:string,
      *   mime_type:string,
@@ -88,7 +188,10 @@ final class ExpedienteAdjuntosRepository {
      */
     private static function canonical_meta_matches(array $candidate, array $existing): bool {
         return (int) $candidate['record_id'] === (int) $existing['record_id']
-            && (int) $candidate['client_id'] === (int) $existing['client_id']
+            && self::client_ids_match(
+                $candidate['client_id'] ?? null,
+                $existing['client_id'] ?? null
+            )
             && (string) $candidate['upload_operation_id'] === (string) $existing['upload_operation_id']
             && (string) $candidate['storage_path'] === (string) $existing['storage_path']
             && (string) $candidate['mime_type'] === (string) $existing['mime_type']
@@ -445,7 +548,7 @@ final class ExpedienteAdjuntosRepository {
      *
      * @param array{
      *   record_id:int,
-     *   client_id:int,
+     *   client_id:?int,
      *   upload_operation_id:string,
      *   storage_path:string,
      *   mime_type:string,
@@ -457,7 +560,7 @@ final class ExpedienteAdjuntosRepository {
      * @return array{
      *   id:int,
      *   record_id:int,
-     *   client_id:int,
+     *   client_id:?int,
      *   upload_operation_id:string,
      *   storage_path:string,
      *   mime_type:string,
@@ -469,7 +572,9 @@ final class ExpedienteAdjuntosRepository {
      */
     public static function insert_finalized(array $data) {
         $record_id = (int) ($data['record_id'] ?? 0);
-        $client_id = (int) ($data['client_id'] ?? 0);
+        $client_norm = self::normalize_input_client_id(
+            array_key_exists('client_id', $data) ? $data['client_id'] : 0
+        );
         $upload_operation_id = trim((string) ($data['upload_operation_id'] ?? ''));
         $storage_path = trim((string) ($data['storage_path'] ?? ''));
         $mime_type = trim((string) ($data['mime_type'] ?? ''));
@@ -484,7 +589,7 @@ final class ExpedienteAdjuntosRepository {
 
         if (
             $record_id < 1
-            || $client_id < 1
+            || !$client_norm['ok']
             || $upload_operation_id === ''
             || $storage_path === ''
             || $mime_type !== self::MIME_JPEG
@@ -496,6 +601,8 @@ final class ExpedienteAdjuntosRepository {
         ) {
             return new WP_Error('invalid_adjunto_data', 'Datos de adjunto incompletos o inválidos.');
         }
+
+        $client_id = $client_norm['id'];
 
         $candidate = [
             'record_id' => $record_id,
@@ -554,21 +661,30 @@ final class ExpedienteAdjuntosRepository {
         global $wpdb;
         $table = self::table_name();
 
-        $result = $wpdb->insert(
-            $table,
-            [
-                'record_id' => $record_id,
-                'client_id' => $client_id,
-                'upload_operation_id' => $upload_operation_id,
-                'storage_path' => $storage_path,
-                'mime_type' => $mime_type,
-                'byte_size' => $byte_size,
-                'width' => $width,
-                'height' => $height,
-                'created_at' => $created_at,
-            ],
-            ['%d', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%s']
-        );
+        $insert_row = [
+            'record_id' => $record_id,
+            'client_id' => $client_id,
+            'upload_operation_id' => $upload_operation_id,
+            'storage_path' => $storage_path,
+            'mime_type' => $mime_type,
+            'byte_size' => $byte_size,
+            'width' => $width,
+            'height' => $height,
+            'created_at' => $created_at,
+        ];
+        $formats = [
+            '%d',
+            $client_id === null ? null : '%d',
+            '%s',
+            '%s',
+            '%s',
+            '%d',
+            '%d',
+            '%d',
+            '%s',
+        ];
+
+        $result = $wpdb->insert($table, $insert_row, $formats);
 
         if ($result === false) {
             // Carrera: reconsultar por ambas claves.
@@ -860,12 +976,12 @@ final class ExpedienteAdjuntosRepository {
     }
 
     /**
-     * DELETE de metadata con identidad exacta (Ciclo B).
+     * DELETE de metadata con identidad exacta (Ciclo B / P1 null-safe).
      *
      * @param array{
      *   id:int,
      *   record_id:int,
-     *   client_id:int,
+     *   client_id:?int,
      *   upload_operation_id:string,
      *   storage_path:string
      * } $identity
@@ -874,32 +990,52 @@ final class ExpedienteAdjuntosRepository {
     public static function delete_by_exact_identity(array $identity) {
         $id = (int) ($identity['id'] ?? 0);
         $record_id = (int) ($identity['record_id'] ?? 0);
-        $client_id = (int) ($identity['client_id'] ?? 0);
+        $client_norm = self::normalize_input_client_id(
+            array_key_exists('client_id', $identity) ? $identity['client_id'] : 0
+        );
         $operation_id = (string) ($identity['upload_operation_id'] ?? '');
         $storage_path = (string) ($identity['storage_path'] ?? '');
 
-        if ($id < 1 || $record_id < 1 || $client_id < 1 || $operation_id === '' || $storage_path === '') {
+        if ($id < 1 || $record_id < 1 || !$client_norm['ok'] || $operation_id === '' || $storage_path === '') {
             return false;
         }
 
         global $wpdb;
         $table = self::table_name();
+        $client_id = $client_norm['id'];
 
-        $deleted = $wpdb->query(
-            $wpdb->prepare(
-                "DELETE FROM {$table}
-                 WHERE id = %d
-                   AND record_id = %d
-                   AND client_id = %d
-                   AND upload_operation_id = %s
-                   AND storage_path = %s",
-                $id,
-                $record_id,
-                $client_id,
-                $operation_id,
-                $storage_path
-            )
-        );
+        if ($client_id === null) {
+            $deleted = $wpdb->query(
+                $wpdb->prepare(
+                    "DELETE FROM {$table}
+                     WHERE id = %d
+                       AND record_id = %d
+                       AND client_id IS NULL
+                       AND upload_operation_id = %s
+                       AND storage_path = %s",
+                    $id,
+                    $record_id,
+                    $operation_id,
+                    $storage_path
+                )
+            );
+        } else {
+            $deleted = $wpdb->query(
+                $wpdb->prepare(
+                    "DELETE FROM {$table}
+                     WHERE id = %d
+                       AND record_id = %d
+                       AND client_id = %d
+                       AND upload_operation_id = %s
+                       AND storage_path = %s",
+                    $id,
+                    $record_id,
+                    $client_id,
+                    $operation_id,
+                    $storage_path
+                )
+            );
+        }
 
         if ($deleted === false || $wpdb->last_error) {
             error_log('[ExpedienteAdjuntosRepository] delete_by_exact_identity error');
@@ -907,5 +1043,100 @@ final class ExpedienteAdjuntosRepository {
         }
 
         return (int) $deleted === 1;
+    }
+
+    /**
+     * P1: adjunto por id scoped a record_id (sin exigir client_id).
+     *
+     * @return array<string,mixed>|null
+     */
+    public static function find_by_id_for_record(int $attachment_id, int $record_id): ?array {
+        if ($attachment_id < 1 || $record_id < 1) {
+            return null;
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT id, record_id, client_id, upload_operation_id, storage_path,
+                        mime_type, byte_size, width, height, created_at
+                 FROM {$table}
+                 WHERE id = %d AND record_id = %d
+                 LIMIT 1",
+                $attachment_id,
+                $record_id
+            ),
+            ARRAY_A
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[ExpedienteAdjuntosRepository] find_by_id_for_record error');
+            return null;
+        }
+
+        return self::map_row(is_array($row) ? $row : null);
+    }
+
+    /**
+     * P1: listado canónico por record_ids sin filtrar client_id.
+     * No conectado aún a Use Cases productivos.
+     *
+     * @param list<int> $record_ids
+     * @return array<int, list<array<string,mixed>>>
+     */
+    public static function list_by_record_ids_for_records(array $record_ids): array {
+        $ids = [];
+        foreach ($record_ids as $rid) {
+            $n = (int) $rid;
+            if ($n > 0) {
+                $ids[$n] = $n;
+            }
+        }
+        $ids = array_values($ids);
+        if ($ids === []) {
+            return [];
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+        $placeholders = implode(',', array_fill(0, count($ids), '%d'));
+
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT id, record_id, client_id, upload_operation_id, storage_path,
+                        mime_type, byte_size, width, height, created_at
+                 FROM {$table}
+                 WHERE record_id IN ({$placeholders})
+                 ORDER BY record_id ASC, id DESC",
+                ...$ids
+            ),
+            ARRAY_A
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[ExpedienteAdjuntosRepository] list_by_record_ids_for_records error');
+            return [];
+        }
+
+        if (!is_array($rows)) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($rows as $row) {
+            $mapped = self::map_row(is_array($row) ? $row : null);
+            if ($mapped === null) {
+                continue;
+            }
+            $rid = (int) $mapped['record_id'];
+            if (!isset($out[$rid])) {
+                $out[$rid] = [];
+            }
+            $out[$rid][] = $mapped;
+        }
+
+        return $out;
     }
 }

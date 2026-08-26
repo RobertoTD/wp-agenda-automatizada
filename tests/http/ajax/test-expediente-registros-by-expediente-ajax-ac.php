@@ -83,7 +83,7 @@ ac_assert(
     && strpos($detail_src, 'AA_EXPEDIENTE_DETAIL_DATA') !== false
     && strpos($detail_src, 'ExpedienteRegistros.openCreate') === false
 );
-ac_assert('schema DB17 (ciclo materialización)', strpos($schema_src, "DB_VERSION = '17'") !== false);
+ac_assert('schema DB18 (ciclo materialización)', strpos($schema_src, "DB_VERSION = '18'") !== false);
 
 if (!defined('ABSPATH')) {
     define('ABSPATH', $plugin_root . '/');

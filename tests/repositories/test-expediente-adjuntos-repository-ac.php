@@ -120,6 +120,13 @@ $wpdb = new class {
             if (is_array($cand) && (int) $cand['client_id'] === $client) {
                 $row = $cand;
             }
+        } elseif (strpos($sql, 'WHERE id = %d AND record_id = %d') !== false) {
+            $id = (int) ($args[0] ?? 0);
+            $record = (int) ($args[1] ?? 0);
+            $cand = $this->rows_by_id[$id] ?? null;
+            if (is_array($cand) && (int) $cand['record_id'] === $record) {
+                $row = $cand;
+            }
         }
 
         if ($output === ARRAY_A) {
@@ -157,7 +164,7 @@ $wpdb = new class {
     }
 
     public function insert($table, $data, $format = null) {
-        $this->inserted = ['table' => $table, 'data' => $data];
+        $this->inserted = ['table' => $table, 'data' => $data, 'format' => $format];
         if (!$this->insert_ok) {
             $this->last_error = 'duplicate';
             return false;
@@ -168,6 +175,17 @@ $wpdb = new class {
         $this->rows_by_path[$data['storage_path']] = $row;
         $this->rows_by_id[51] = $row;
         return 1;
+    }
+
+    public $last_query = null;
+    public $query_deleted = 1;
+
+    public function query($query) {
+        $this->last_query = $query;
+        if ($this->last_error) {
+            return false;
+        }
+        return $this->query_deleted;
     }
 };
 
@@ -318,6 +336,179 @@ $wpdb->has_any_value = '1';
 $hasNull = ExpedienteAdjuntosRepository::has_any_by_record_id(14);
 ac_assert('has_any SQL → null', $hasNull === null);
 $wpdb->last_error = '';
+
+// ── P1: client_id nullable ──
+require_once $plugin_root . '/includes/repositories/ExpedienteAdjuntosRepository.php';
+$wpdb = new class {
+    public $prefix = 'wp_5_';
+    public $last_error = '';
+    public $insert_id = 0;
+    public $rows_by_op = [];
+    public $rows_by_path = [];
+    public $rows_by_id = [];
+    public $inserted = null;
+    public $insert_ok = true;
+    public $list_rows = [];
+    public $get_results_calls = 0;
+    public $last_results_query = null;
+    public $last_query = null;
+    public $query_deleted = 1;
+
+    public function prepare($query, ...$args) {
+        return ['sql' => $query, 'args' => $args];
+    }
+
+    public function get_row($query, $output = OBJECT) {
+        $args = is_array($query) ? ($query['args'] ?? []) : [];
+        $sql = is_array($query) ? (string) ($query['sql'] ?? '') : (string) $query;
+        $row = null;
+        if (strpos($sql, 'WHERE upload_operation_id =') !== false) {
+            $key = isset($args[0]) ? (string) $args[0] : '';
+            $row = $this->rows_by_op[$key] ?? null;
+        } elseif (strpos($sql, 'WHERE storage_path =') !== false) {
+            $key = isset($args[0]) ? (string) $args[0] : '';
+            $row = $this->rows_by_path[$key] ?? null;
+        } elseif (strpos($sql, 'WHERE id = %d AND record_id = %d') !== false) {
+            $id = (int) ($args[0] ?? 0);
+            $record = (int) ($args[1] ?? 0);
+            $cand = $this->rows_by_id[$id] ?? null;
+            if (is_array($cand) && (int) $cand['record_id'] === $record) {
+                $row = $cand;
+            }
+        }
+        return $output === ARRAY_A ? $row : ($row ? (object) $row : null);
+    }
+
+    public function get_results($query, $output = OBJECT) {
+        $this->get_results_calls++;
+        $this->last_results_query = $query;
+        return $output === ARRAY_A ? $this->list_rows : [];
+    }
+
+    public function insert($table, $data, $format = null) {
+        $this->inserted = ['table' => $table, 'data' => $data, 'format' => $format];
+        if (!$this->insert_ok) {
+            $this->last_error = 'duplicate';
+            return false;
+        }
+        $this->insert_id = 88;
+        $row = array_merge($data, ['id' => 88]);
+        $this->rows_by_op[$data['upload_operation_id']] = $row;
+        $this->rows_by_path[$data['storage_path']] = $row;
+        $this->rows_by_id[88] = $row;
+        return 1;
+    }
+
+    public function query($query) {
+        $this->last_query = $query;
+        if ($this->last_error) {
+            return false;
+        }
+        return $this->query_deleted;
+    }
+};
+$GLOBALS['wpdb'] = $wpdb;
+
+$null_base = [
+    'record_id' => 14,
+    'client_id' => null,
+    'upload_operation_id' => '660e8400-e29b-41d4-a716-446655440000',
+    'storage_path' => 'installations/11111111-2222-4333-8444-555555555555/expedientes/7/records/14/660e8400-e29b-41d4-a716-446655440000.jpg',
+    'mime_type' => 'image/jpeg',
+    'byte_size' => 900,
+    'width' => 100,
+    'height' => 80,
+];
+
+$null_created = ExpedienteAdjuntosRepository::insert_finalized($null_base);
+ac_assert('insert NULL client OK', is_array($null_created) && $null_created['client_id'] === null && (int) $null_created['id'] === 88);
+ac_assert(
+    'insert NULL usa format null',
+    is_array($wpdb->inserted['format'] ?? null)
+    && array_key_exists(1, $wpdb->inserted['format'])
+    && $wpdb->inserted['format'][1] === null
+);
+ac_assert(
+    'insert NULL persiste SQL null',
+    array_key_exists('client_id', $wpdb->inserted['data'])
+    && $wpdb->inserted['data']['client_id'] === null
+);
+
+$null_again = ExpedienteAdjuntosRepository::insert_finalized($null_base);
+ac_assert('reinsert NULL/NULL idempotente', is_array($null_again) && (int) $null_again['id'] === 88);
+
+$zero = ExpedienteAdjuntosRepository::insert_finalized(array_merge($null_base, ['client_id' => 0]));
+ac_assert('insert client 0 rechazado', is_wp_error($zero) && $zero->get_error_code() === 'invalid_adjunto_data');
+
+$conflict_null_int = ExpedienteAdjuntosRepository::insert_finalized(array_merge($null_base, ['client_id' => 5]));
+ac_assert('NULL vs int → meta conflict', is_wp_error($conflict_null_int) && $conflict_null_int->get_error_code() === 'adjunto_meta_conflict');
+
+$mapped_null = ExpedienteAdjuntosRepository::find_by_id_for_record(88, 14);
+ac_assert('find_by_id_for_record NULL client', is_array($mapped_null) && $mapped_null['client_id'] === null);
+
+$wpdb->list_rows = [array_merge($null_base, ['id' => 88])];
+$canon_list = ExpedienteAdjuntosRepository::list_by_record_ids_for_records([14]);
+ac_assert(
+    'list_by_record_ids_for_records sin client',
+    isset($canon_list[14]) && $canon_list[14][0]['client_id'] === null
+);
+$list_sql_p1 = is_array($wpdb->last_results_query) ? (string) $wpdb->last_results_query['sql'] : '';
+ac_assert(
+    'list canónico SQL sin filtro client_id',
+    strpos($list_sql_p1, 'record_id IN') !== false
+    && !preg_match('/WHERE[\s\S]*\bclient_id\s*=/', $list_sql_p1)
+    && strpos($list_sql_p1, 'AND client_id') === false
+);
+
+$wpdb->query_deleted = 1;
+$del_null = ExpedienteAdjuntosRepository::delete_by_exact_identity([
+    'id' => 88,
+    'record_id' => 14,
+    'client_id' => null,
+    'upload_operation_id' => $null_base['upload_operation_id'],
+    'storage_path' => $null_base['storage_path'],
+]);
+ac_assert('delete exact NULL → true', $del_null === true);
+$del_sql = is_array($wpdb->last_query) ? (string) ($wpdb->last_query['sql'] ?? '') : (string) $wpdb->last_query;
+ac_assert('delete exact usa IS NULL', strpos($del_sql, 'client_id IS NULL') !== false);
+ac_assert('delete exact no client_id = NULL', strpos($del_sql, 'client_id = NULL') === false);
+
+$del_zero = ExpedienteAdjuntosRepository::delete_by_exact_identity([
+    'id' => 88,
+    'record_id' => 14,
+    'client_id' => 0,
+    'upload_operation_id' => $null_base['upload_operation_id'],
+    'storage_path' => $null_base['storage_path'],
+]);
+ac_assert('delete exact client 0 → false', $del_zero === false);
+
+$wpdb->query_deleted = 0;
+$del_miss = ExpedienteAdjuntosRepository::delete_by_exact_identity([
+    'id' => 88,
+    'record_id' => 14,
+    'client_id' => null,
+    'upload_operation_id' => $null_base['upload_operation_id'],
+    'storage_path' => $null_base['storage_path'],
+]);
+ac_assert('delete exact 0 filas → false', $del_miss === false);
+
+$wpdb->query_deleted = 1;
+$wpdb->last_error = 'boom';
+$del_err = ExpedienteAdjuntosRepository::delete_by_exact_identity([
+    'id' => 88,
+    'record_id' => 14,
+    'client_id' => null,
+    'upload_operation_id' => $null_base['upload_operation_id'],
+    'storage_path' => $null_base['storage_path'],
+]);
+ac_assert('delete exact SQL → WP_Error', is_wp_error($del_err));
+$wpdb->last_error = '';
+
+ac_assert(
+    'métodos canónicos existen',
+    strpos($src, 'function find_by_id_for_record') !== false
+    && strpos($src, 'function list_by_record_ids_for_records') !== false
+);
 
 echo "\n";
 if (count($failed) === 0) {

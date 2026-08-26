@@ -66,7 +66,7 @@ final class AA_Schema {
      * Independiente de la versión del plugin. Solo refleja el estado
      * de las tablas/columnas/índices.
      */
-    public const DB_VERSION = '17';
+    public const DB_VERSION = '18';
 
     public const OPTION_INSTALLATION_INITIALIZED_AT = 'aa_installation_initialized_at';
 
@@ -467,11 +467,12 @@ final class AA_Schema {
         self::ensure_expediente_registros_client_id_nullable();
 
         // 🔹 Adjuntos finalizados de registros de expediente (MC4a2 — metadatos locales; binario en Supabase)
+        //    DB 18: client_id nullable (snapshot legacy opcional; pertenencia = record_id)
         $expediente_adjuntos_table = $wpdb->prefix . 'aa_expediente_adjuntos';
         $expediente_adjuntos_sql = "CREATE TABLE $expediente_adjuntos_table (
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             record_id bigint(20) unsigned NOT NULL,
-            client_id bigint(20) unsigned NOT NULL,
+            client_id bigint(20) unsigned DEFAULT NULL,
             upload_operation_id char(36) NOT NULL,
             storage_path varchar(191) NOT NULL,
             mime_type varchar(64) NOT NULL,
@@ -496,6 +497,8 @@ final class AA_Schema {
             'uq_aa_exp_adj_storage_path',
             'ALTER TABLE ' . $expediente_adjuntos_table . ' ADD UNIQUE KEY uq_aa_exp_adj_storage_path (storage_path)'
         );
+        // dbDelta no cambia confiablemente NOT NULL → nullable en installs existentes.
+        self::ensure_expediente_adjuntos_client_id_nullable();
 
         // 🔹 Catálogo de categorías de expediente (DB 14 — slug estable; seed general)
         $expediente_categories_table = $wpdb->prefix . 'aa_expediente_categories';
@@ -584,6 +587,66 @@ final class AA_Schema {
         // Esto cubre tanto la primera instalación (vía activation hook)
         // como las migraciones automáticas (vía maybe_migrate()).
         update_option('aa_db_version', self::DB_VERSION);
+    }
+
+    /**
+     * DB 18: hace nullable `aa_expediente_adjuntos.client_id` en installs
+     * que aún la tienen NOT NULL (dbDelta no es fiable para ese cambio).
+     *
+     * Idempotente: si `Null === YES`, no ejecuta ALTER. Si el ALTER no deja
+     * la columna nullable, lanza RuntimeException para que maybe_migrate()
+     * no consolide `aa_db_version` (update_option ocurre solo al final de
+     * install() si no hay excepción). No reescribe filas ni toca índices.
+     */
+    private static function ensure_expediente_adjuntos_client_id_nullable(): void {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'aa_expediente_adjuntos';
+        $column = self::expediente_adjuntos_client_id_column($table);
+
+        if ($column === null) {
+            throw new \RuntimeException(
+                '[AA_Schema] Columna client_id ausente en aa_expediente_adjuntos'
+            );
+        }
+
+        if (strtoupper((string) ($column['Null'] ?? '')) === 'YES') {
+            return;
+        }
+
+        $wpdb->query(
+            "ALTER TABLE {$table} MODIFY COLUMN client_id bigint(20) unsigned NULL DEFAULT NULL"
+        );
+
+        $column = self::expediente_adjuntos_client_id_column($table);
+        if ($column !== null && strtoupper((string) ($column['Null'] ?? '')) === 'YES') {
+            return;
+        }
+
+        $error = is_string($wpdb->last_error) && $wpdb->last_error !== ''
+            ? $wpdb->last_error
+            : 'client_id sigue NOT NULL tras MODIFY';
+
+        throw new \RuntimeException(
+            '[AA_Schema] No se pudo hacer nullable client_id en aa_expediente_adjuntos: ' . $error
+        );
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private static function expediente_adjuntos_client_id_column(string $table): ?array {
+        global $wpdb;
+
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SHOW COLUMNS FROM {$table} LIKE %s",
+                'client_id'
+            ),
+            ARRAY_A
+        );
+
+        return is_array($row) ? $row : null;
     }
 
     /**

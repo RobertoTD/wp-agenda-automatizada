@@ -2,8 +2,12 @@
 /**
  * Especificaciones puras de variantes de adjunto de expediente.
  *
- * Identidad canónica = original `{uuid}.jpg`. Las lecturas UI usan
- * `summary | gallery | display`. Sin I/O, sin WordPress, sin Storage.
+ * Identidad = original `{uuid}.jpg`. Lecturas UI: summary | gallery | display.
+ * Paths duales (P1 / N1):
+ * - client_v1: installations/{uuid}/clients/{client_id}/records/{record_id}/{op}.jpg
+ * - expediente_v2: installations/{uuid}/expedientes/{expediente_id}/records/{record_id}/{op}.jpg
+ *
+ * Sin I/O, sin WordPress, sin Storage. Writes productivos siguen en v1 (P1).
  */
 
 defined('ABSPATH') or die('No direct access');
@@ -11,6 +15,9 @@ defined('ABSPATH') or die('No direct access');
 final class ExpedienteAdjuntoVariants {
 
     public const MANIFEST_VERSION = 1;
+
+    public const CONTRACT_CLIENT_V1 = 'client_v1';
+    public const CONTRACT_EXPEDIENTE_V2 = 'expediente_v2';
 
     public const VARIANT_SUMMARY = 'summary';
     public const VARIANT_GALLERY = 'gallery';
@@ -49,8 +56,17 @@ final class ExpedienteAdjuntoVariants {
      */
     public const PHYSICAL_UPLOAD_MAX_BYTES = 1703936;
 
-    private const ORIGINAL_PATH_RE =
-        '#^installations/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/clients/(\d+)/records/(\d+)/([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.jpg$#i';
+    private const INSTALLATION_UUID =
+        '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+
+    private const OP_UUID_V4 =
+        '[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
+
+    private const CLIENT_V1_ORIGINAL_RE =
+        '#^installations/(' . self::INSTALLATION_UUID . ')/clients/(\d+)/records/(\d+)/(' . self::OP_UUID_V4 . ')\.jpg$#i';
+
+    private const EXPEDIENTE_V2_ORIGINAL_RE =
+        '#^installations/(' . self::INSTALLATION_UUID . ')/expedientes/(\d+)/records/(\d+)/(' . self::OP_UUID_V4 . ')\.jpg$#i';
 
     /**
      * @return bool
@@ -112,15 +128,83 @@ final class ExpedienteAdjuntoVariants {
     }
 
     /**
-     * Parser canónico: acepta exclusivamente `{uuid}.jpg`.
+     * Builder legacy client_v1 (writes productivos actuales).
+     *
+     * @return string|null
+     */
+    public static function build_client_original_path(
+        string $installation_id,
+        int $client_id,
+        int $record_id,
+        string $operation_id
+    ): ?string {
+        $installation_id = strtolower(trim($installation_id));
+        $operation_id = strtolower(trim($operation_id));
+        if (
+            $installation_id === ''
+            || $client_id < 1
+            || $record_id < 1
+            || $operation_id === ''
+            || !preg_match('#^' . self::INSTALLATION_UUID . '$#i', $installation_id)
+            || !preg_match('#^' . self::OP_UUID_V4 . '$#i', $operation_id)
+        ) {
+            return null;
+        }
+
+        return 'installations/' . $installation_id
+            . '/clients/' . $client_id
+            . '/records/' . $record_id
+            . '/' . $operation_id . '.jpg';
+    }
+
+    /**
+     * Builder canónico expediente_v2. Solo para tests/P2+; P1 no tiene callers productivos.
+     *
+     * @return string|null
+     */
+    public static function build_expediente_record_original_path(
+        string $installation_id,
+        int $expediente_id,
+        int $record_id,
+        string $operation_id
+    ): ?string {
+        $installation_id = strtolower(trim($installation_id));
+        $operation_id = strtolower(trim($operation_id));
+        if (
+            $installation_id === ''
+            || $expediente_id < 1
+            || $record_id < 1
+            || $operation_id === ''
+            || !preg_match('#^' . self::INSTALLATION_UUID . '$#i', $installation_id)
+            || !preg_match('#^' . self::OP_UUID_V4 . '$#i', $operation_id)
+        ) {
+            return null;
+        }
+
+        return 'installations/' . $installation_id
+            . '/expedientes/' . $expediente_id
+            . '/records/' . $record_id
+            . '/' . $operation_id . '.jpg';
+    }
+
+    /**
+     * Parser dual: original `.jpg` client_v1 o expediente_v2.
+     *
+     * Campos canónicos + aliases legacy (`wp_client_id`, `wp_record_id`,
+     * `upload_operation_id`) para callers v1 existentes.
      *
      * @param mixed $storage_path
      * @return array{
+     *   contract:string,
      *   installation_id:string,
-     *   wp_client_id:int,
+     *   client_id:?int,
+     *   expediente_id:?int,
+     *   record_id:int,
+     *   operation_id:string,
+     *   storage_path:string,
+     *   wp_client_id:?int,
      *   wp_record_id:int,
-     *   upload_operation_id:string,
-     *   storage_path:string
+     *   upload_operation_id:string
      * }|null
      */
     public static function parse_original_path($storage_path): ?array {
@@ -130,32 +214,75 @@ final class ExpedienteAdjuntoVariants {
             || strpos($path, '..') !== false
             || strpos($path, '//') !== false
             || $path[0] === '/'
+            || strpos($path, '?') !== false
+            || strpos($path, '#') !== false
+            || preg_match('#^[a-z][a-z0-9+.-]*:#i', $path)
         ) {
             return null;
         }
 
-        if (!preg_match(self::ORIGINAL_PATH_RE, $path, $match)) {
-            return null;
+        if (preg_match(self::CLIENT_V1_ORIGINAL_RE, $path, $match)) {
+            $installation_id = strtolower($match[1]);
+            $client_id = (int) $match[2];
+            $record_id = (int) $match[3];
+            $operation_id = strtolower($match[4]);
+            if ($client_id < 1 || $record_id < 1) {
+                return null;
+            }
+
+            $normalized = 'installations/' . $installation_id
+                . '/clients/' . $client_id
+                . '/records/' . $record_id
+                . '/' . $operation_id . '.jpg';
+
+            return [
+                'contract' => self::CONTRACT_CLIENT_V1,
+                'installation_id' => $installation_id,
+                'client_id' => $client_id,
+                'expediente_id' => null,
+                'record_id' => $record_id,
+                'operation_id' => $operation_id,
+                'storage_path' => $normalized,
+                // Aliases legacy (callers v1 / transfer / delete).
+                'wp_client_id' => $client_id,
+                'wp_record_id' => $record_id,
+                'upload_operation_id' => $operation_id,
+            ];
         }
 
-        $installation_id = strtolower($match[1]);
-        $operation_id = strtolower($match[4]);
+        if (preg_match(self::EXPEDIENTE_V2_ORIGINAL_RE, $path, $match)) {
+            $installation_id = strtolower($match[1]);
+            $expediente_id = (int) $match[2];
+            $record_id = (int) $match[3];
+            $operation_id = strtolower($match[4]);
+            if ($expediente_id < 1 || $record_id < 1) {
+                return null;
+            }
 
-        return [
-            'installation_id' => $installation_id,
-            'wp_client_id' => (int) $match[2],
-            'wp_record_id' => (int) $match[3],
-            'upload_operation_id' => $operation_id,
-            'storage_path' => 'installations/' . $installation_id
-                . '/clients/' . $match[2]
-                . '/records/' . $match[3]
-                . '/' . $operation_id . '.jpg',
-        ];
+            $normalized = 'installations/' . $installation_id
+                . '/expedientes/' . $expediente_id
+                . '/records/' . $record_id
+                . '/' . $operation_id . '.jpg';
+
+            return [
+                'contract' => self::CONTRACT_EXPEDIENTE_V2,
+                'installation_id' => $installation_id,
+                'client_id' => null,
+                'expediente_id' => $expediente_id,
+                'record_id' => $record_id,
+                'operation_id' => $operation_id,
+                'storage_path' => $normalized,
+                'wp_client_id' => null,
+                'wp_record_id' => $record_id,
+                'upload_operation_id' => $operation_id,
+            ];
+        }
+
+        return null;
     }
 
     /**
-     * Deriva un path de variante solo desde un original canónico válido
-     * y una variante de la allowlist.
+     * Deriva un path de variante desde un original v1 o v2 válido.
      *
      * @param mixed $original_path
      * @param mixed $variant
@@ -171,9 +298,16 @@ final class ExpedienteAdjuntoVariants {
             return null;
         }
 
+        if ($parsed['contract'] === self::CONTRACT_CLIENT_V1) {
+            return 'installations/' . $parsed['installation_id']
+                . '/clients/' . $parsed['client_id']
+                . '/records/' . $parsed['record_id']
+                . '/' . $parsed['operation_id'] . '_' . $variant . '.jpg';
+        }
+
         return 'installations/' . $parsed['installation_id']
-            . '/clients/' . $parsed['wp_client_id']
-            . '/records/' . $parsed['wp_record_id']
-            . '/' . $parsed['upload_operation_id'] . '_' . $variant . '.jpg';
+            . '/expedientes/' . $parsed['expediente_id']
+            . '/records/' . $parsed['record_id']
+            . '/' . $parsed['operation_id'] . '_' . $variant . '.jpg';
     }
 }

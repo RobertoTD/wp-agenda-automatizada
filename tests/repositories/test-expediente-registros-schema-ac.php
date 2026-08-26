@@ -30,7 +30,7 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 $schema_src = file_get_contents($schema_file);
 $repo_src = file_get_contents($repo_file);
 ac_assert('Schema readable', is_string($schema_src) && $schema_src !== '');
-ac_assert('DB_VERSION is 17', strpos($schema_src, "DB_VERSION = '17'") !== false);
+ac_assert('DB_VERSION is 18', strpos($schema_src, "DB_VERSION = '18'") !== false);
 ac_assert('DB_VERSION ya no es 15', strpos($schema_src, "DB_VERSION = '15'") === false);
 ac_assert('CREATE TABLE aa_expediente_registros', strpos($schema_src, 'aa_expediente_registros') !== false);
 ac_assert('title varchar(200)', strpos($schema_src, 'title varchar(200) NOT NULL') !== false);
@@ -145,7 +145,7 @@ ac_assert(
 );
 ac_assert(
     'DB_VERSION es 17',
-    strpos($schema_src, "DB_VERSION = '17'") !== false
+    strpos($schema_src, "DB_VERSION = '18'") !== false
     && strpos($schema_src, "DB_VERSION = '15'") === false
 );
 

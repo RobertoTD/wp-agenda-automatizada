@@ -304,7 +304,7 @@ ac_assert(
     && strpos($detail_src, 'expediente-registro-create-modal.js') !== false
     && strpos($detail_src, 'ExpedienteRegistros.openCreate') === false
 );
-ac_assert('schema sigue en DB17', strpos($schema_src, "DB_VERSION = '17'") !== false);
+ac_assert('schema sigue en DB18', strpos($schema_src, "DB_VERSION = '18'") !== false);
 ac_assert(
     'sin registro bootstrap del nuevo UC',
     is_string($bootstrap) && strpos($bootstrap, 'CreateExpedienteRegistroUseCase') === false

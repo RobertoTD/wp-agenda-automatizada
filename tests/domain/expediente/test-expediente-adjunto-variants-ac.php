@@ -171,6 +171,68 @@ ac_assert(
     ) === null
 );
 
+// P1 — dual path client_v1 / expediente_v2
+$v2 = ExpedienteAdjuntoVariants::build_expediente_record_original_path($iid, 123, 42, $op);
+ac_assert(
+    'build v2',
+    $v2 === 'installations/' . $iid . '/expedientes/123/records/42/' . $op . '.jpg'
+);
+$parsed_v2 = ExpedienteAdjuntoVariants::parse_original_path($v2);
+ac_assert(
+    'parse v2 discriminado',
+    is_array($parsed_v2)
+    && $parsed_v2['contract'] === ExpedienteAdjuntoVariants::CONTRACT_EXPEDIENTE_V2
+    && $parsed_v2['expediente_id'] === 123
+    && $parsed_v2['client_id'] === null
+    && $parsed_v2['wp_client_id'] === null
+    && $parsed_v2['record_id'] === 42
+    && $parsed_v2['operation_id'] === $op
+    && $parsed_v2['storage_path'] === $v2
+);
+ac_assert(
+    'parse v1 discriminator',
+    is_array($parsed)
+    && $parsed['contract'] === ExpedienteAdjuntoVariants::CONTRACT_CLIENT_V1
+    && $parsed['client_id'] === 9
+    && $parsed['expediente_id'] === null
+    && $parsed['record_id'] === 42
+);
+$v1_built = ExpedienteAdjuntoVariants::build_client_original_path($iid, 9, 42, $op);
+ac_assert('build v1 roundtrip', $v1_built === $original);
+ac_assert(
+    'derive v2 summary',
+    ExpedienteAdjuntoVariants::derive_path($v2, 'summary')
+    === 'installations/' . $iid . '/expedientes/123/records/42/' . $op . '_summary.jpg'
+);
+ac_assert(
+    'derive v2 gallery',
+    ExpedienteAdjuntoVariants::derive_path($v2, 'gallery')
+    === 'installations/' . $iid . '/expedientes/123/records/42/' . $op . '_gallery.jpg'
+);
+ac_assert(
+    'derive v2 display',
+    ExpedienteAdjuntoVariants::derive_path($v2, 'display')
+    === 'installations/' . $iid . '/expedientes/123/records/42/' . $op . '_display.jpg'
+);
+ac_assert(
+    'rechaza híbrido clients+expedientes',
+    ExpedienteAdjuntoVariants::parse_original_path(
+        'installations/' . $iid . '/clients/9/expedientes/1/records/42/' . $op . '.jpg'
+    ) === null
+);
+ac_assert(
+    'rechaza query string',
+    ExpedienteAdjuntoVariants::parse_original_path($original . '?x=1') === null
+);
+ac_assert(
+    'rechaza url absoluta',
+    ExpedienteAdjuntoVariants::parse_original_path('https://x/' . $original) === null
+);
+ac_assert(
+    'build v2 id 0 → null',
+    ExpedienteAdjuntoVariants::build_expediente_record_original_path($iid, 0, 42, $op) === null
+);
+
 $src = file_get_contents($plugin_root . '/includes/domain/expediente/ExpedienteAdjuntoVariants.php');
 ac_assert('sin I/O de storage', is_string($src) && strpos($src, 'supabase') === false && strpos($src, 'wp_remote') === false);
 ac_assert('sin wp_get_image_editor', is_string($src) && strpos($src, 'wp_get_image_editor') === false);
