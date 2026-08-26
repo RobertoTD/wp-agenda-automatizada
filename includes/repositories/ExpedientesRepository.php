@@ -426,4 +426,105 @@ final class ExpedientesRepository {
 
         return $found !== null && $found !== false && (string) $found !== '';
     }
+
+    /**
+     * Contexto de delete de contenedor (Ciclo B). Solo aa_expedientes.
+     *
+     * @return array{id:mixed,category_id:mixed,client_id:mixed}|false|WP_Error
+     *   array — fila encontrada (valores crudos; el UC valida)
+     *   false — no existe
+     *   WP_Error — error SQL
+     */
+    public static function find_delete_context_by_id(int $id) {
+        return self::fetch_delete_context($id, false);
+    }
+
+    /**
+     * Igual que find_delete_context_by_id con SELECT … FOR UPDATE.
+     * Solo dentro de una transacción abierta.
+     *
+     * @return array{id:mixed,category_id:mixed,client_id:mixed}|false|WP_Error
+     */
+    public static function find_delete_context_by_id_for_update(int $id) {
+        return self::fetch_delete_context($id, true);
+    }
+
+    /**
+     * @return array{id:mixed,category_id:mixed,client_id:mixed}|false|WP_Error
+     */
+    private static function fetch_delete_context(int $id, bool $for_update) {
+        if ($id < 1) {
+            return false;
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+        $sql = "SELECT id, category_id, client_id FROM {$table} WHERE id = %d LIMIT 1";
+        if ($for_update) {
+            $sql .= ' FOR UPDATE';
+        }
+
+        $row = $wpdb->get_row($wpdb->prepare($sql, $id), ARRAY_A);
+
+        if ($wpdb->last_error) {
+            error_log('[ExpedientesRepository] find_delete_context error');
+            return new WP_Error('db_error', 'No se pudo verificar el expediente.');
+        }
+
+        if (!is_array($row)) {
+            return false;
+        }
+
+        return [
+            'id' => $row['id'] ?? null,
+            'category_id' => $row['category_id'] ?? null,
+            'client_id' => array_key_exists('client_id', $row) ? $row['client_id'] : null,
+        ];
+    }
+
+    /**
+     * DELETE del padre con identidad esperada (Ciclo B).
+     * Nunca toca clientes ni categorías.
+     *
+     * @param int|null $client_id null = general (IS NULL)
+     * @return true|false|WP_Error true = 1 fila; false = 0 filas; WP_Error = SQL
+     */
+    public static function delete_by_expected_identity(int $id, int $category_id, $client_id) {
+        if ($id < 1 || $category_id < 1) {
+            return false;
+        }
+
+        if ($client_id !== null && (!is_int($client_id) || $client_id < 1)) {
+            return false;
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+
+        if ($client_id === null) {
+            $deleted = $wpdb->query(
+                $wpdb->prepare(
+                    "DELETE FROM {$table} WHERE id = %d AND category_id = %d AND client_id IS NULL",
+                    $id,
+                    $category_id
+                )
+            );
+        } else {
+            $deleted = $wpdb->query(
+                $wpdb->prepare(
+                    "DELETE FROM {$table} WHERE id = %d AND category_id = %d AND client_id = %d",
+                    $id,
+                    $category_id,
+                    $client_id
+                )
+            );
+        }
+
+        if ($deleted === false || $wpdb->last_error) {
+            error_log('[ExpedientesRepository] delete_by_expected_identity error');
+            return new WP_Error('db_error', 'No se pudo eliminar el expediente.');
+        }
+
+        return (int) $deleted === 1;
+    }
 }

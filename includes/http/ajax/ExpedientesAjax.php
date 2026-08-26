@@ -1,6 +1,6 @@
 <?php
 /**
- * Expedientes AJAX — listado paginado y alta de expedientes padre.
+ * Expedientes AJAX — listado, alta y delete canónico de contenedor (Ciclo B).
  *
  * Transporte HTTP: autentica, normaliza entrada, delega a Use Cases y
  * serializa. Sin reglas de título/descripción/categoría.
@@ -14,6 +14,9 @@ if (!class_exists('ListExpedientesUseCase')) {
 if (!class_exists('CreateExpedienteUseCase')) {
     require_once dirname(__DIR__, 2) . '/application/expediente/CreateExpedienteUseCase.php';
 }
+if (!class_exists('DeleteExpedienteUseCase')) {
+    require_once dirname(__DIR__, 2) . '/application/expediente/DeleteExpedienteUseCase.php';
+}
 if (!class_exists('ExpedienteRegistrosAjax')) {
     require_once dirname(__DIR__, 2) . '/http/ajax/ExpedienteRegistrosAjax.php';
 }
@@ -22,11 +25,13 @@ final class ExpedientesAjax {
 
     public const ACTION_LIST = 'aa_list_expedientes';
     public const ACTION_CREATE = 'aa_create_expediente';
+    public const ACTION_DELETE = 'aa_delete_expediente';
     public const NONCE_ACTION = 'aa_expedientes_nonce';
 
     public static function register(): void {
         add_action('wp_ajax_' . self::ACTION_LIST, [__CLASS__, 'handle_list']);
         add_action('wp_ajax_' . self::ACTION_CREATE, [__CLASS__, 'handle_create']);
+        add_action('wp_ajax_' . self::ACTION_DELETE, [__CLASS__, 'handle_delete']);
     }
 
     public static function handle_list(): void {
@@ -64,6 +69,56 @@ final class ExpedientesAjax {
         self::respond_use_case($result);
     }
 
+    /**
+     * Ciclo B: delete canónico del contenedor por expediente_id.
+     * Nonce soft (die=false). Sin client_id.
+     */
+    public static function handle_delete(): void {
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => 'Permisos insuficientes.', 'code' => 'forbidden'], 403);
+            return;
+        }
+
+        $nonce_ok = check_ajax_referer(self::NONCE_ACTION, '_wpnonce', false);
+        if ($nonce_ok === false) {
+            wp_send_json_error(['message' => 'Sesión no válida.', 'code' => 'invalid_nonce'], 403);
+            return;
+        }
+
+        if (!ExpedienteRegistrosAjax::require_expediente_shell_access()) {
+            return;
+        }
+
+        $result = (new DeleteExpedienteUseCase())->execute([
+            'expediente_id' => self::post_scalar('expediente_id'),
+        ]);
+
+        if (!empty($result['success'])) {
+            $data = is_array($result['data'] ?? null) ? $result['data'] : [];
+            $expediente_id = (int) ($data['expediente_id'] ?? 0);
+            if (empty($data['deleted']) || $expediente_id < 1) {
+                wp_send_json_error([
+                    'message' => 'Respuesta de eliminación incompleta.',
+                    'code' => 'persistence_failed',
+                ], 500);
+                return;
+            }
+
+            wp_send_json_success([
+                'deleted' => true,
+                'expediente_id' => $expediente_id,
+            ]);
+            return;
+        }
+
+        $error = $result['error'] ?? [];
+        $code = (string) ($error['code'] ?? 'unknown_error');
+        wp_send_json_error([
+            'message' => (string) ($error['message'] ?? 'No se pudo eliminar el expediente.'),
+            'code' => $code,
+        ], self::http_status_for_delete_code($code));
+    }
+
     private static function authorize(): bool {
         if (!current_user_can('manage_options')) {
             wp_send_json_error(['message' => 'Permisos insuficientes.'], 403);
@@ -88,6 +143,32 @@ final class ExpedientesAjax {
             'message' => (string) ($error['message'] ?? 'No se pudo completar la acción.'),
             'code' => (string) ($error['code'] ?? 'unknown_error'),
         ], 400);
+    }
+
+    private static function http_status_for_delete_code(string $code): int {
+        switch ($code) {
+            case 'not_found':
+                return 404;
+            case 'resource_busy':
+            case 'concurrent_change':
+            case 'aggregate_inconsistent':
+                return 409;
+            case 'coordination_failed':
+            case 'coordination_lost':
+            case 'lookup_failed':
+            case 'persistence_failed':
+                return 500;
+            case 'storage_delete_failed':
+            case 'storage_delete_partial':
+            case 'delete_failed':
+            case 'expediente_attachments_unreachable':
+            case 'expediente_attachments_invalid_response':
+                return 502;
+            case 'invalid_id':
+                return 400;
+            default:
+                return 400;
+        }
     }
 
     /**

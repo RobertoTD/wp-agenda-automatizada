@@ -742,4 +742,170 @@ final class ExpedienteAdjuntosRepository {
 
         return $sum > 0 ? $sum : 0;
     }
+
+    /**
+     * @return string
+     */
+    private static function registros_table_name(): string {
+        global $wpdb;
+
+        return $wpdb->prefix . 'aa_expediente_registros';
+    }
+
+    /**
+     * Keyset de adjuntos unidos por expediente_id (JOIN canónico, Ciclo B).
+     *
+     * @return list<array{
+     *   id:int,
+     *   record_id:int,
+     *   client_id:mixed,
+     *   upload_operation_id:string,
+     *   storage_path:string,
+     *   record_client_id:mixed,
+     *   record_expediente_id:int
+     * }>|WP_Error
+     */
+    public static function list_joined_page_by_expediente_id(
+        int $expediente_id,
+        int $after_id,
+        int $limit = 100
+    ) {
+        if ($expediente_id < 1 || $limit < 1) {
+            return [];
+        }
+
+        if ($after_id < 0) {
+            $after_id = 0;
+        }
+
+        global $wpdb;
+        $adjuntos = self::table_name();
+        $registros = self::registros_table_name();
+
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT a.id, a.record_id, a.client_id, a.upload_operation_id, a.storage_path,
+                        r.client_id AS record_client_id, r.expediente_id AS record_expediente_id
+                 FROM {$adjuntos} a
+                 INNER JOIN {$registros} r ON r.id = a.record_id
+                 WHERE r.expediente_id = %d AND a.id > %d
+                 ORDER BY a.id ASC
+                 LIMIT %d",
+                $expediente_id,
+                $after_id,
+                $limit
+            ),
+            ARRAY_A
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[ExpedienteAdjuntosRepository] list_joined_page_by_expediente_id error');
+            return new WP_Error('db_error', 'No se pudo listar los adjuntos.');
+        }
+
+        if (!is_array($rows)) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($rows as $row) {
+            if (!is_array($row) || !isset($row['id'])) {
+                continue;
+            }
+            $out[] = [
+                'id' => (int) $row['id'],
+                'record_id' => (int) ($row['record_id'] ?? 0),
+                'client_id' => array_key_exists('client_id', $row) ? $row['client_id'] : null,
+                'upload_operation_id' => (string) ($row['upload_operation_id'] ?? ''),
+                'storage_path' => (string) ($row['storage_path'] ?? ''),
+                'record_client_id' => array_key_exists('record_client_id', $row) ? $row['record_client_id'] : null,
+                'record_expediente_id' => (int) ($row['record_expediente_id'] ?? 0),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * ¿Existe algún adjunto unido por expediente_id? (Ciclo B)
+     *
+     * @return bool|WP_Error
+     */
+    public static function has_any_joined_by_expediente_id(int $expediente_id) {
+        if ($expediente_id < 1) {
+            return false;
+        }
+
+        global $wpdb;
+        $adjuntos = self::table_name();
+        $registros = self::registros_table_name();
+
+        $hit = $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT 1
+                 FROM {$adjuntos} a
+                 INNER JOIN {$registros} r ON r.id = a.record_id
+                 WHERE r.expediente_id = %d
+                 LIMIT 1",
+                $expediente_id
+            )
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[ExpedienteAdjuntosRepository] has_any_joined_by_expediente_id error');
+            return new WP_Error('db_error', 'No se pudo verificar adjuntos.');
+        }
+
+        return $hit !== null && $hit !== false && (string) $hit !== '';
+    }
+
+    /**
+     * DELETE de metadata con identidad exacta (Ciclo B).
+     *
+     * @param array{
+     *   id:int,
+     *   record_id:int,
+     *   client_id:int,
+     *   upload_operation_id:string,
+     *   storage_path:string
+     * } $identity
+     * @return true|false|WP_Error true = 1 fila; false = 0; WP_Error = SQL
+     */
+    public static function delete_by_exact_identity(array $identity) {
+        $id = (int) ($identity['id'] ?? 0);
+        $record_id = (int) ($identity['record_id'] ?? 0);
+        $client_id = (int) ($identity['client_id'] ?? 0);
+        $operation_id = (string) ($identity['upload_operation_id'] ?? '');
+        $storage_path = (string) ($identity['storage_path'] ?? '');
+
+        if ($id < 1 || $record_id < 1 || $client_id < 1 || $operation_id === '' || $storage_path === '') {
+            return false;
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+
+        $deleted = $wpdb->query(
+            $wpdb->prepare(
+                "DELETE FROM {$table}
+                 WHERE id = %d
+                   AND record_id = %d
+                   AND client_id = %d
+                   AND upload_operation_id = %s
+                   AND storage_path = %s",
+                $id,
+                $record_id,
+                $client_id,
+                $operation_id,
+                $storage_path
+            )
+        );
+
+        if ($deleted === false || $wpdb->last_error) {
+            error_log('[ExpedienteAdjuntosRepository] delete_by_exact_identity error');
+            return new WP_Error('db_error', 'No se pudo eliminar el adjunto.');
+        }
+
+        return (int) $deleted === 1;
+    }
 }

@@ -614,4 +614,142 @@ final class ExpedienteRegistrosRepository {
 
         return (int) $deleted === 1;
     }
+
+    /**
+     * Keyset de identidad de registros por expediente_id (Ciclo B).
+     * Sin techo UI LIST_LIMIT; el caller pasa chunks (p.ej. 100).
+     *
+     * @return list<array{id:int,expediente_id:int,client_id:mixed}>|WP_Error
+     */
+    public static function list_identity_page_by_expediente_id(
+        int $expediente_id,
+        int $after_id,
+        int $limit = 100
+    ) {
+        if ($expediente_id < 1 || $limit < 1) {
+            return [];
+        }
+
+        if ($after_id < 0) {
+            $after_id = 0;
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT id, expediente_id, client_id
+                 FROM {$table}
+                 WHERE expediente_id = %d AND id > %d
+                 ORDER BY id ASC
+                 LIMIT %d",
+                $expediente_id,
+                $after_id,
+                $limit
+            ),
+            ARRAY_A
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[ExpedienteRegistrosRepository] list_identity_page_by_expediente_id error');
+            return new WP_Error('db_error', 'No se pudo listar los registros.');
+        }
+
+        if (!is_array($rows)) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($rows as $row) {
+            if (!is_array($row) || !isset($row['id'])) {
+                continue;
+            }
+            $out[] = [
+                'id' => (int) $row['id'],
+                'expediente_id' => (int) ($row['expediente_id'] ?? 0),
+                'client_id' => array_key_exists('client_id', $row) ? $row['client_id'] : null,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Identidad de todos los registros del expediente con FOR UPDATE (Ciclo B).
+     * Solo dentro de transacción abierta.
+     *
+     * @return list<array{id:int,expediente_id:int,client_id:mixed}>|WP_Error
+     */
+    public static function list_identity_for_update_by_expediente_id(int $expediente_id) {
+        if ($expediente_id < 1) {
+            return [];
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT id, expediente_id, client_id
+                 FROM {$table}
+                 WHERE expediente_id = %d
+                 ORDER BY id ASC
+                 FOR UPDATE",
+                $expediente_id
+            ),
+            ARRAY_A
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[ExpedienteRegistrosRepository] list_identity_for_update_by_expediente_id error');
+            return new WP_Error('db_error', 'No se pudo bloquear los registros.');
+        }
+
+        if (!is_array($rows)) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($rows as $row) {
+            if (!is_array($row) || !isset($row['id'])) {
+                continue;
+            }
+            $out[] = [
+                'id' => (int) $row['id'],
+                'expediente_id' => (int) ($row['expediente_id'] ?? 0),
+                'client_id' => array_key_exists('client_id', $row) ? $row['client_id'] : null,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * DELETE múltiple de registros por expediente_id (Ciclo B).
+     *
+     * @return int|WP_Error filas afectadas
+     */
+    public static function delete_all_by_expediente_id(int $expediente_id) {
+        if ($expediente_id < 1) {
+            return 0;
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+
+        $deleted = $wpdb->query(
+            $wpdb->prepare(
+                "DELETE FROM {$table} WHERE expediente_id = %d",
+                $expediente_id
+            )
+        );
+
+        if ($deleted === false || $wpdb->last_error) {
+            error_log('[ExpedienteRegistrosRepository] delete_all_by_expediente_id error');
+            return new WP_Error('db_error', 'No se pudieron eliminar los registros.');
+        }
+
+        return (int) $deleted;
+    }
 }

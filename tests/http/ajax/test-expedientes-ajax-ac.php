@@ -31,19 +31,25 @@ $bootstrap_src = (string) file_get_contents($plugin_root . '/wp-agenda-automatiz
 ac_assert('ajax file readable', $ajax_src !== '');
 ac_assert('ACTION_LIST aa_list_expedientes', strpos($ajax_src, 'aa_list_expedientes') !== false);
 ac_assert('ACTION_CREATE aa_create_expediente', strpos($ajax_src, 'aa_create_expediente') !== false);
+ac_assert('ACTION_DELETE aa_delete_expediente', strpos($ajax_src, "ACTION_DELETE = 'aa_delete_expediente'") !== false);
 ac_assert('nonce propio aa_expedientes_nonce', strpos($ajax_src, 'aa_expedientes_nonce') !== false);
 ac_assert('manage_options', strpos($ajax_src, "current_user_can('manage_options')") !== false);
 ac_assert('check_ajax_referer', strpos($ajax_src, 'check_ajax_referer') !== false);
+ac_assert('delete nonce soft die=false', strpos($ajax_src, "check_ajax_referer(self::NONCE_ACTION, '_wpnonce', false)") !== false);
 ac_assert('reutiliza gate full', strpos($ajax_src, 'ExpedienteRegistrosAjax::require_expediente_shell_access') !== false);
 ac_assert('sin nopriv', strpos($ajax_src, 'wp_ajax_nopriv_') === false);
 ac_assert('bootstrap register', strpos($bootstrap_src, 'ExpedientesAjax::register()') !== false);
 ac_assert('bootstrap require', strpos($bootstrap_src, 'includes/http/ajax/ExpedientesAjax.php') !== false);
 ac_assert('bootstrap sin nopriv padre', strpos($bootstrap_src, 'wp_ajax_nopriv_aa_list_expedientes') === false
-    && strpos($bootstrap_src, 'wp_ajax_nopriv_aa_create_expediente') === false);
+    && strpos($bootstrap_src, 'wp_ajax_nopriv_aa_create_expediente') === false
+    && strpos($bootstrap_src, 'wp_ajax_nopriv_aa_delete_expediente') === false);
 ac_assert('delega ListExpedientesUseCase', strpos($ajax_src, 'ListExpedientesUseCase') !== false);
 ac_assert('delega CreateExpedienteUseCase', strpos($ajax_src, 'CreateExpedienteUseCase') !== false);
+ac_assert('delega DeleteExpedienteUseCase', strpos($ajax_src, 'DeleteExpedienteUseCase') !== false);
 ac_assert('sin GetExpedienteUseCase ni AJAX de detalle', strpos($ajax_src, 'GetExpedienteUseCase') === false);
-ac_assert('responde via respond_use_case', strpos($ajax_src, 'respond_use_case($result)') !== false);
+ac_assert('list/create via respond_use_case', strpos($ajax_src, 'respond_use_case($result)') !== false);
+ac_assert('delete HTTP map aggregate_inconsistent', strpos($ajax_src, "case 'aggregate_inconsistent':") !== false);
+ac_assert('delete HTTP map resource_busy', strpos($ajax_src, "case 'resource_busy':") !== false);
 ac_assert('sin $wpdb en handler', strpos($ajax_src, '$wpdb') === false);
 ac_assert('sin TITLE_MAX ni trim de negocio', strpos($ajax_src, 'TITLE_MAX') === false
     && strpos($ajax_src, 'GENERAL_SLUG') === false);
@@ -85,10 +91,14 @@ if (!function_exists('current_user_can')) {
     }
 }
 if (!function_exists('check_ajax_referer')) {
-    function check_ajax_referer($action, $query_arg) {
+    function check_ajax_referer($action, $query_arg, $die = true) {
         if ($action !== ExpedientesAjax::NONCE_ACTION || $query_arg !== '_wpnonce' || empty($GLOBALS['aa_test_nonce_valid'])) {
-            throw new RuntimeException('bad_nonce');
+            if ($die) {
+                throw new RuntimeException('bad_nonce');
+            }
+            return false;
         }
+        return 1;
     }
 }
 if (!function_exists('wp_send_json_success')) {
@@ -194,18 +204,41 @@ final class CreateExpedienteUseCase {
     }
 }
 
+final class DeleteExpedienteUseCase {
+    /** @var array<string,mixed>|null */
+    public static $last_input = null;
+    public static $calls = 0;
+    /** @var array<string,mixed> */
+    public static $result = [
+        'success' => true,
+        'data' => [
+            'deleted' => true,
+            'expediente_id' => 11,
+        ],
+    ];
+
+    public function execute(array $input): array {
+        self::$calls++;
+        self::$last_input = $input;
+        return self::$result;
+    }
+}
+
 require_once $plugin_root . '/includes/http/ajax/ExpedientesAjax.php';
 
 ac_assert('class exists', class_exists('ExpedientesAjax'));
 ac_assert('constants', ExpedientesAjax::ACTION_LIST === 'aa_list_expedientes'
     && ExpedientesAjax::ACTION_CREATE === 'aa_create_expediente'
+    && ExpedientesAjax::ACTION_DELETE === 'aa_delete_expediente'
     && ExpedientesAjax::NONCE_ACTION === 'aa_expedientes_nonce');
 
 ExpedientesAjax::register();
 ac_assert('register wp_ajax_aa_list_expedientes', in_array('wp_ajax_aa_list_expedientes', $GLOBALS['aa_test_actions'], true));
 ac_assert('register wp_ajax_aa_create_expediente', in_array('wp_ajax_aa_create_expediente', $GLOBALS['aa_test_actions'], true));
+ac_assert('register wp_ajax_aa_delete_expediente', in_array('wp_ajax_aa_delete_expediente', $GLOBALS['aa_test_actions'], true));
 ac_assert('register no nopriv', !in_array('wp_ajax_nopriv_aa_list_expedientes', $GLOBALS['aa_test_actions'], true)
-    && !in_array('wp_ajax_nopriv_aa_create_expediente', $GLOBALS['aa_test_actions'], true));
+    && !in_array('wp_ajax_nopriv_aa_create_expediente', $GLOBALS['aa_test_actions'], true)
+    && !in_array('wp_ajax_nopriv_aa_delete_expediente', $GLOBALS['aa_test_actions'], true));
 
 /**
  * @return array<string,mixed>|null
@@ -234,6 +267,15 @@ function aa_reset_expedientes_ajax_runtime(): void {
     ListExpedientesUseCase::$calls = 0;
     CreateExpedienteUseCase::$last_input = null;
     CreateExpedienteUseCase::$calls = 0;
+    DeleteExpedienteUseCase::$last_input = null;
+    DeleteExpedienteUseCase::$calls = 0;
+    DeleteExpedienteUseCase::$result = [
+        'success' => true,
+        'data' => [
+            'deleted' => true,
+            'expediente_id' => 11,
+        ],
+    ];
     $GLOBALS['aa_test_can_manage_options'] = true;
     $GLOBALS['aa_test_nonce_valid'] = true;
     $GLOBALS['aa_test_json'] = null;
@@ -337,6 +379,77 @@ $create_fail = aa_invoke_expedientes_ajax([ExpedientesAjax::class, 'handle_creat
 ac_assert('validación 400 sin éxito', ($create_fail['success'] ?? true) === false && ($create_fail['status'] ?? 0) === 400);
 ac_assert('validación code missing_title', ($create_fail['data']['code'] ?? '') === 'missing_title');
 ac_assert('validación sí delega al use case (una vez)', CreateExpedienteUseCase::$calls === 1);
+
+// --- Ciclo B delete ---
+aa_reset_expedientes_ajax_runtime();
+$GLOBALS['aa_test_can_manage_options'] = false;
+$del_cap = aa_invoke_expedientes_ajax([ExpedientesAjax::class, 'handle_delete']);
+ac_assert('delete capability → 403', ($del_cap['status'] ?? 0) === 403);
+ac_assert('delete capability no UC', DeleteExpedienteUseCase::$calls === 0);
+
+aa_reset_expedientes_ajax_runtime();
+$GLOBALS['aa_test_nonce_valid'] = false;
+$del_nonce = aa_invoke_expedientes_ajax([ExpedientesAjax::class, 'handle_delete']);
+ac_assert('delete nonce soft → 403', ($del_nonce['status'] ?? 0) === 403
+    && ($del_nonce['data']['code'] ?? '') === 'invalid_nonce');
+ac_assert('delete nonce no UC', DeleteExpedienteUseCase::$calls === 0);
+
+aa_reset_expedientes_ajax_runtime();
+ExpedienteRegistrosAjax::$access = 'free';
+$del_gate = aa_invoke_expedientes_ajax([ExpedientesAjax::class, 'handle_delete']);
+ac_assert('delete gate → 403', ($del_gate['status'] ?? 0) === 403);
+ac_assert('delete gate no UC', DeleteExpedienteUseCase::$calls === 0);
+
+aa_reset_expedientes_ajax_runtime();
+$_POST = [
+    'expediente_id' => '11',
+    'client_id' => '7',
+    'blog_id' => '61',
+];
+$del_ok = aa_invoke_expedientes_ajax([ExpedientesAjax::class, 'handle_delete']);
+ac_assert('delete éxito', ($del_ok['success'] ?? false) === true && DeleteExpedienteUseCase::$calls === 1);
+ac_assert('delete envelope mínimo', ($del_ok['data']['deleted'] ?? false) === true
+    && ($del_ok['data']['expediente_id'] ?? 0) === 11
+    && count($del_ok['data'] ?? []) === 2);
+ac_assert('delete ID raw sin absint', (DeleteExpedienteUseCase::$last_input['expediente_id'] ?? null) === '11');
+ac_assert('delete ignora client_id', !array_key_exists('client_id', DeleteExpedienteUseCase::$last_input ?? []));
+
+aa_reset_expedientes_ajax_runtime();
+DeleteExpedienteUseCase::$result = [
+    'success' => false,
+    'error' => ['code' => 'resource_busy', 'message' => 'ocupado'],
+];
+$_POST = ['expediente_id' => 11];
+$del_busy = aa_invoke_expedientes_ajax([ExpedientesAjax::class, 'handle_delete']);
+ac_assert('delete resource_busy → 409', ($del_busy['status'] ?? 0) === 409
+    && ($del_busy['data']['code'] ?? '') === 'resource_busy');
+
+aa_reset_expedientes_ajax_runtime();
+DeleteExpedienteUseCase::$result = [
+    'success' => false,
+    'error' => ['code' => 'not_found', 'message' => 'gone'],
+];
+$_POST = ['expediente_id' => 11];
+$del_404 = aa_invoke_expedientes_ajax([ExpedientesAjax::class, 'handle_delete']);
+ac_assert('delete not_found → 404', ($del_404['status'] ?? 0) === 404);
+
+aa_reset_expedientes_ajax_runtime();
+DeleteExpedienteUseCase::$result = [
+    'success' => false,
+    'error' => ['code' => 'delete_failed', 'message' => 'remote'],
+];
+$_POST = ['expediente_id' => 11];
+$del_502 = aa_invoke_expedientes_ajax([ExpedientesAjax::class, 'handle_delete']);
+ac_assert('delete remote → 502', ($del_502['status'] ?? 0) === 502);
+
+aa_reset_expedientes_ajax_runtime();
+DeleteExpedienteUseCase::$result = [
+    'success' => false,
+    'error' => ['code' => 'coordination_lost', 'message' => 'lost'],
+];
+$_POST = ['expediente_id' => 11];
+$del_500 = aa_invoke_expedientes_ajax([ExpedientesAjax::class, 'handle_delete']);
+ac_assert('delete coordination_lost → 500', ($del_500['status'] ?? 0) === 500);
 
 echo "\nResultado: {$passed}/{$total} OK\n";
 if ($failed) {

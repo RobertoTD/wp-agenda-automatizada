@@ -253,7 +253,9 @@ ac_assert('CSS detalle paginación SSR', strpos($css, '.aa-expediente-detail-pag
     && strpos($css, '.aa-expediente-detail-pagination-link') !== false);
 
 ac_assert('AJAX sin acción nueva de get', strpos($ajax, 'GetExpedienteUseCase') === false
-    && substr_count($ajax, 'public const ACTION_') === 2);
+    && substr_count($ajax, 'public const ACTION_') === 3
+    && strpos($ajax, "ACTION_DELETE = 'aa_delete_expediente'") !== false
+    && strpos($ajax, 'aa_get_expediente') === false);
 ac_assert('legacy clients intacta', strpos($clients_index, "view' => 'expediente'") !== false
     && strpos($clients_js, "set('view', 'expediente')") !== false);
 ac_assert('expediente-registros.js no tocado para detail', strpos($registros_js, 'view=detail') === false
