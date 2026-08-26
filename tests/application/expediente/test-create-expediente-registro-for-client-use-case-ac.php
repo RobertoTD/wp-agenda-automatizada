@@ -91,6 +91,15 @@ final class ExpedientesRepository {
     public static $next_parent_id = 10;
     /** @var int */
     public static $stable_parent_id = 10;
+    /** @var array{id:int,client_id:int}|false|null */
+    public static $find_by_client = false;
+
+    public static function find_by_client_id(int $client_id) {
+        if ($client_id < 1) {
+            return false;
+        }
+        return self::$find_by_client;
+    }
 
     public static function get_or_create_for_client(
         int $client_id,
@@ -179,6 +188,7 @@ $wpdb = new class {
 
 require_once $plugin_root . '/includes/domain/expediente/class-aa-expediente-registro-create-policy.php';
 require_once $plugin_root . '/includes/domain/expediente/class-aa-expediente-create-policy.php';
+require_once $plugin_root . '/includes/infrastructure/wp/class-aa-expediente-aggregate-lock.php';
 require_once $plugin_root . '/includes/application/expediente/CreateExpedienteRegistroForClientUseCase.php';
 
 $src = file_get_contents($plugin_root . '/includes/application/expediente/CreateExpedienteRegistroForClientUseCase.php');
@@ -186,7 +196,13 @@ $repo_src = file_get_contents($plugin_root . '/includes/repositories/Expedientes
 
 ac_assert('ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)', strpos($repo_src, 'ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)') !== false);
 ac_assert('get_or_create_for_client en repo', strpos($repo_src, 'function get_or_create_for_client') !== false);
-ac_assert('sin SELECT tras duplicate en UC', strpos($src, 'find_by_client_id') === false);
+ac_assert('lookup preliminar find_by_client_id', strpos($src, 'find_by_client_id') !== false);
+ac_assert(
+    'lock antes de START TRANSACTION',
+    strpos($src, '$this->lock->acquire(') !== false
+    && strpos($src, "\$wpdb->query('START TRANSACTION')") !== false
+    && strpos($src, '$this->lock->acquire(') < strpos($src, "\$wpdb->query('START TRANSACTION')")
+);
 ac_assert('usa START TRANSACTION', strpos($src, 'START TRANSACTION') !== false);
 ac_assert('usa COMMIT', strpos($src, 'COMMIT') !== false);
 ac_assert('usa ROLLBACK', strpos($src, 'ROLLBACK') !== false);
@@ -194,7 +210,31 @@ ac_assert('no lee expediente_id del input', strpos($src, "\$input['expediente_id
 ac_assert('no UPDATE backfill', stripos($src, 'UPDATE') === false);
 ac_assert('slug clientes', strpos($src, "'clientes'") !== false);
 
-$uc = new CreateExpedienteRegistroForClientUseCase();
+class AA_Test_Always_Ok_Expediente_Lock extends AA_Expediente_Aggregate_Lock {
+    public $acquire_calls = [];
+    public $release_calls = 0;
+    public $next_acquire = null;
+
+    public function acquire(string $scope_kind, int $scope_id, int $timeout_seconds = self::DEFAULT_TIMEOUT_SECONDS) {
+        $this->acquire_calls[] = compact('scope_kind', 'scope_id', 'timeout_seconds');
+        if ($this->next_acquire instanceof WP_Error) {
+            return $this->next_acquire;
+        }
+        return new AA_Expediente_Aggregate_Lock_Lease('test-key', 1, $scope_kind, $scope_id);
+    }
+
+    public function assert_held($lease) {
+        return true;
+    }
+
+    public function release($lease): bool {
+        $this->release_calls++;
+        return true;
+    }
+}
+
+$ok_lock = new AA_Test_Always_Ok_Expediente_Lock();
+$uc = new CreateExpedienteRegistroForClientUseCase(null, null, $ok_lock);
 
 ClientsRepository::$by_id = [
     5 => ['id' => 5, 'nombre' => '  Ana Pérez  ', 'telefono' => '1', 'correo' => ''],
@@ -204,6 +244,7 @@ ExpedienteCategoriesRepository::$by_slug = [
 ];
 ExpedientesRepository::$get_or_create_calls = [];
 ExpedientesRepository::$next_parent_id = 77;
+ExpedientesRepository::$find_by_client = false;
 ExpedienteRegistrosRepository::$inserts = [];
 ExpedienteRegistrosRepository::$next_result = null;
 $wpdb->queries = [];
@@ -211,6 +252,8 @@ $wpdb->start_count = 0;
 $wpdb->commit_count = 0;
 $wpdb->rollback_count = 0;
 $GLOBALS['aa_test_current_time_calls'] = 0;
+$ok_lock->acquire_calls = [];
+$ok_lock->release_calls = 0;
 
 $ok = $uc->execute(['client_id' => 5, 'title' => '  Nota  ', 'body' => '  Cuerpo  ']);
 ac_assert('primer create éxito', !empty($ok['success']));
@@ -230,6 +273,11 @@ ac_assert(
     (ExpedienteRegistrosRepository::$inserts[0]['client_id'] ?? 0) === 5
     && (ExpedienteRegistrosRepository::$inserts[0]['expediente_id'] ?? 0) === 77
 );
+ac_assert('una sola adquisición', count($ok_lock->acquire_calls) === 1
+    && ($ok_lock->acquire_calls[0]['scope_kind'] ?? '') === 'client'
+    && ($ok_lock->acquire_calls[0]['scope_id'] ?? 0) === 5);
+ac_assert('release en éxito', $ok_lock->release_calls === 1);
+ac_assert('START después de acquire (sin TX durante wait)', $wpdb->start_count === 1);
 
 // Segundo create reutiliza el mismo parent id del get_or_create.
 ExpedientesRepository::$get_or_create_calls = [];
@@ -325,6 +373,7 @@ ac_assert('helper trim', $norm2 === 'X');
 ExpedientesRepository::$next_parent_id = 50;
 ExpedienteRegistrosRepository::$next_result = null;
 ExpedienteRegistrosRepository::$inserts = [];
+ExpedientesRepository::$find_by_client = false;
 $a = $uc->execute(['client_id' => 5, 'title' => 'A1', 'body' => 'B1']);
 $b = $uc->execute(['client_id' => 5, 'title' => 'A2', 'body' => 'B2']);
 ac_assert(
@@ -334,6 +383,39 @@ ac_assert(
     && ($b['data']['expediente_id'] ?? 0) === 50
 );
 ac_assert('dos creates ⇒ dos hijos', count(ExpedienteRegistrosRepository::$inserts) === 2);
+
+// Padre preliminar desapareció tras lock → concurrent_change sin recrear
+ExpedientesRepository::$find_by_client = ['id' => 70, 'client_id' => 5];
+$flip_lock = new class extends AA_Test_Always_Ok_Expediente_Lock {
+    public $flipped = false;
+    public function acquire(string $scope_kind, int $scope_id, int $timeout_seconds = self::DEFAULT_TIMEOUT_SECONDS) {
+        $lease = parent::acquire($scope_kind, $scope_id, $timeout_seconds);
+        ExpedientesRepository::$find_by_client = false;
+        $this->flipped = true;
+        return $lease;
+    }
+};
+$uc_flip = new CreateExpedienteRegistroForClientUseCase(null, null, $flip_lock);
+ExpedientesRepository::$get_or_create_calls = [];
+$wpdb->start_count = 0;
+$conflict = $uc_flip->execute(['client_id' => 5, 'title' => 'T', 'body' => 'B']);
+ac_assert('padre preliminar desapareció → concurrent_change', empty($conflict['success'])
+    && ($conflict['error']['code'] ?? '') === 'concurrent_change');
+ac_assert('conflicto sin START TRANSACTION', $wpdb->start_count === 0);
+ac_assert('conflicto sin get_or_create', ExpedientesRepository::$get_or_create_calls === []);
+ac_assert('conflicto hace release', $flip_lock->release_calls === 1);
+
+// resource_busy → cero persistencia
+$busy_lock = new AA_Test_Always_Ok_Expediente_Lock();
+$busy_lock->next_acquire = new WP_Error('resource_busy', 'El expediente está ocupado. Inténtalo de nuevo.');
+$uc_busy = new CreateExpedienteRegistroForClientUseCase(null, null, $busy_lock);
+ExpedientesRepository::$find_by_client = false;
+ExpedientesRepository::$get_or_create_calls = [];
+$wpdb->start_count = 0;
+$busy = $uc_busy->execute(['client_id' => 5, 'title' => 'T', 'body' => 'B']);
+ac_assert('resource_busy', empty($busy['success']) && ($busy['error']['code'] ?? '') === 'resource_busy');
+ac_assert('busy sin TX', $wpdb->start_count === 0);
+ac_assert('busy sin persistencia', ExpedientesRepository::$get_or_create_calls === []);
 
 $schema_src = file_get_contents($plugin_root . '/includes/infrastructure/wp/Schema.php');
 ac_assert('cero backfill en schema', !preg_match('/UPDATE\s+.*aa_expediente_registros/i', $schema_src));

@@ -4,6 +4,10 @@
  *
  * Orquesta: validación JPEG → cuota local → transfer v1 → insert_finalized.
  * Nunca inserta metadatos antes de un finalize coincidente.
+ *
+ * Ciclo A: named lock client:{client_id} cubre authorize → transfer → finalize →
+ * insert. Pérdida de lock tras Storage → cero metadata + compensación
+ * best-effort delete_object del path de esta petición.
  */
 
 defined('ABSPATH') or die('No direct access');
@@ -32,6 +36,9 @@ if (!class_exists('AA_Expediente_Attachments_Backend_Client')) {
 if (!class_exists('AA_Expediente_Attachment_Signed_Uploader')) {
     require_once dirname(__DIR__, 2) . '/infrastructure/backend/class-aa-expediente-attachment-signed-uploader.php';
 }
+if (!class_exists('AA_Expediente_Aggregate_Lock')) {
+    require_once dirname(__DIR__, 2) . '/infrastructure/wp/class-aa-expediente-aggregate-lock.php';
+}
 
 final class UploadExpedienteRegistroAdjuntoUseCase {
 
@@ -43,13 +50,28 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
     /** @var object */
     private $transfer;
 
+    /** @var AA_Expediente_Aggregate_Lock */
+    private $lock;
+
+    /**
+     * Cliente Storage solo para compensación post-PUT si se pierde el lock.
+     * No es el uploader del pipeline (transfer lo posee).
+     *
+     * @var object|null
+     */
+    private $cleanup_client;
+
     /**
      * @param ExpedienteAdjuntoJpegValidator|null $validator
      * @param object|null $transfer ExpedienteAdjuntoUploadTransfer o doble de prueba
+     * @param AA_Expediente_Aggregate_Lock|null $lock
+     * @param object|null $cleanup_client Cliente con delete_object() para compensación
      */
     public function __construct(
         ?ExpedienteAdjuntoJpegValidator $validator = null,
-        $transfer = null
+        $transfer = null,
+        ?AA_Expediente_Aggregate_Lock $lock = null,
+        $cleanup_client = null
     ) {
         $this->validator = $validator ?: new ExpedienteAdjuntoJpegValidator();
         $this->transfer = $transfer ?: new ExpedienteAdjuntoUploadTransfer(
@@ -57,6 +79,8 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
             new AA_Expediente_Attachments_Backend_Client(),
             new AA_Expediente_Attachment_Signed_Uploader()
         );
+        $this->lock = $lock ?: AA_Expediente_Aggregate_Lock::create_default();
+        $this->cleanup_client = is_object($cleanup_client) ? $cleanup_client : null;
     }
 
     /**
@@ -116,79 +140,177 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
                 );
             }
 
-            $transferred = $this->transfer->transfer([
-                'source_path' => $tmp_to_clean,
-                'mime_type' => $mime,
-                'byte_size' => $byte_size,
-                'width' => $width,
-                'height' => $height,
-                'upload_operation_id' => $operation_id,
-                'wp_client_id' => $client_id,
-                'wp_record_id' => $record_id,
-                'used_bytes' => $used_bytes,
-            ]);
-
-            if (empty($transferred['ok'])) {
-                $code = (string) ($transferred['code'] ?? 'transfer_failed');
-                return $this->fail($code, $this->transfer_failure_message($code, $transferred));
+            $lease = $this->lock->acquire(
+                AA_Expediente_Aggregate_Lock::SCOPE_CLIENT,
+                $client_id,
+                AA_Expediente_Aggregate_Lock::DEFAULT_TIMEOUT_SECONDS
+            );
+            if (is_wp_error($lease)) {
+                return $this->fail_from_lock($lease);
             }
 
-            $storage_path = (string) ($transferred['storage_path'] ?? '');
-            /** @var array<string,mixed> $fin */
-            $fin = isset($transferred['finalize']) && is_array($transferred['finalize'])
-                ? $transferred['finalize']
-                : [];
+            $storage_path_for_cleanup = '';
 
-            if (!$this->finalize_matches_expectation($fin, [
-                'client_id' => $client_id,
-                'record_id' => $record_id,
-                'upload_operation_id' => $operation_id,
-                'storage_path' => $storage_path,
-                'mime_type' => $mime,
-                'byte_size' => $byte_size,
-                'width' => $width,
-                'height' => $height,
-            ])) {
-                return $this->fail('finalize_mismatch', 'La confirmación no coincide con los datos esperados.');
+            try {
+                if (ClientsRepository::find_by_id($client_id) === null) {
+                    return $this->fail('client_not_found', 'Cliente no encontrado.');
+                }
+
+                $record_after = ExpedienteRegistrosRepository::find_by_id_for_client($record_id, $client_id);
+                if ($record_after === null) {
+                    return $this->fail('record_not_found', 'Registro no encontrado.');
+                }
+
+                $held = $this->lock->assert_held($lease);
+                if (is_wp_error($held)) {
+                    return $this->fail_from_lock($held);
+                }
+
+                $transferred = $this->transfer->transfer([
+                    'source_path' => $tmp_to_clean,
+                    'mime_type' => $mime,
+                    'byte_size' => $byte_size,
+                    'width' => $width,
+                    'height' => $height,
+                    'upload_operation_id' => $operation_id,
+                    'wp_client_id' => $client_id,
+                    'wp_record_id' => $record_id,
+                    'used_bytes' => $used_bytes,
+                ]);
+
+                if (empty($transferred['ok'])) {
+                    $code = (string) ($transferred['code'] ?? 'transfer_failed');
+                    return $this->fail($code, $this->transfer_failure_message($code, $transferred));
+                }
+
+                $storage_path = (string) ($transferred['storage_path'] ?? '');
+                $storage_path_for_cleanup = $storage_path;
+                /** @var array<string,mixed> $fin */
+                $fin = isset($transferred['finalize']) && is_array($transferred['finalize'])
+                    ? $transferred['finalize']
+                    : [];
+
+                if (!$this->finalize_matches_expectation($fin, [
+                    'client_id' => $client_id,
+                    'record_id' => $record_id,
+                    'upload_operation_id' => $operation_id,
+                    'storage_path' => $storage_path,
+                    'mime_type' => $mime,
+                    'byte_size' => $byte_size,
+                    'width' => $width,
+                    'height' => $height,
+                ])) {
+                    return $this->fail('finalize_mismatch', 'La confirmación no coincide con los datos esperados.');
+                }
+
+                $held_after_storage = $this->lock->assert_held($lease);
+                if (is_wp_error($held_after_storage)) {
+                    return $this->fail_after_storage_coordination_loss(
+                        $storage_path_for_cleanup,
+                        $held_after_storage
+                    );
+                }
+
+                $record_final = ExpedienteRegistrosRepository::find_by_id_for_client($record_id, $client_id);
+                if ($record_final === null) {
+                    return $this->fail_after_storage_coordination_loss(
+                        $storage_path_for_cleanup,
+                        new WP_Error(
+                            AA_Expediente_Aggregate_Lock::ERROR_COORDINATION_LOST,
+                            'Se perdió la coordinación de la operación.'
+                        )
+                    );
+                }
+
+                $inserted = ExpedienteAdjuntosRepository::insert_finalized([
+                    'record_id' => $record_id,
+                    'client_id' => $client_id,
+                    'upload_operation_id' => $operation_id,
+                    'storage_path' => (string) $fin['storage_path'],
+                    'mime_type' => (string) $fin['mime_type'],
+                    'byte_size' => (int) $fin['byte_size'],
+                    'width' => (int) $fin['width'],
+                    'height' => (int) $fin['height'],
+                ]);
+
+                if (is_wp_error($inserted)) {
+                    $code = $inserted->get_error_code();
+                    return $this->fail(
+                        is_string($code) && $code !== '' ? $code : 'persist_failed',
+                        'No se pudo guardar el adjunto.'
+                    );
+                }
+
+                return [
+                    'ok' => true,
+                    'attachment' => [
+                        'id' => (int) $inserted['id'],
+                        'record_id' => (int) $inserted['record_id'],
+                        'client_id' => (int) $inserted['client_id'],
+                        'upload_operation_id' => (string) $inserted['upload_operation_id'],
+                        'storage_path' => (string) $inserted['storage_path'],
+                        'mime_type' => (string) $inserted['mime_type'],
+                        'byte_size' => (int) $inserted['byte_size'],
+                        'width' => (int) $inserted['width'],
+                        'height' => (int) $inserted['height'],
+                        'created_at' => (string) $inserted['created_at'],
+                    ],
+                ];
+            } finally {
+                $this->lock->release($lease);
             }
-
-            $inserted = ExpedienteAdjuntosRepository::insert_finalized([
-                'record_id' => $record_id,
-                'client_id' => $client_id,
-                'upload_operation_id' => $operation_id,
-                'storage_path' => (string) $fin['storage_path'],
-                'mime_type' => (string) $fin['mime_type'],
-                'byte_size' => (int) $fin['byte_size'],
-                'width' => (int) $fin['width'],
-                'height' => (int) $fin['height'],
-            ]);
-
-            if (is_wp_error($inserted)) {
-                $code = $inserted->get_error_code();
-                return $this->fail(
-                    is_string($code) && $code !== '' ? $code : 'persist_failed',
-                    'No se pudo guardar el adjunto.'
-                );
-            }
-
-            return [
-                'ok' => true,
-                'attachment' => [
-                    'id' => (int) $inserted['id'],
-                    'record_id' => (int) $inserted['record_id'],
-                    'client_id' => (int) $inserted['client_id'],
-                    'upload_operation_id' => (string) $inserted['upload_operation_id'],
-                    'storage_path' => (string) $inserted['storage_path'],
-                    'mime_type' => (string) $inserted['mime_type'],
-                    'byte_size' => (int) $inserted['byte_size'],
-                    'width' => (int) $inserted['width'],
-                    'height' => (int) $inserted['height'],
-                    'created_at' => (string) $inserted['created_at'],
-                ],
-            ];
         } finally {
             $this->cleanup_tmp($tmp_to_clean);
         }
+    }
+
+    /**
+     * @param WP_Error $lock_error
+     * @return array{ok:false,code:string,message:string}
+     */
+    private function fail_after_storage_coordination_loss(string $storage_path, $lock_error): array {
+        if ($storage_path !== '') {
+            $cleaned = $this->compensate_storage($storage_path);
+            if ($cleaned !== true) {
+                return $this->fail(
+                    'storage_cleanup_failed',
+                    'No se pudo completar la limpieza tras perder la coordinación.'
+                );
+            }
+        }
+
+        return $this->fail_from_lock($lock_error);
+    }
+
+    /**
+     * Compensación best-effort del objeto creado por esta petición.
+     *
+     * @return true|false true si deleted|already_absent
+     */
+    private function compensate_storage(string $storage_path): bool {
+        $client = $this->cleanup_client;
+        if (!is_object($client) || !method_exists($client, 'delete_object')) {
+            $client = new AA_Expediente_Attachments_Backend_Client();
+        }
+
+        if (!is_object($client) || !method_exists($client, 'delete_object')) {
+            error_log('[UploadExpedienteRegistroAdjuntoUseCase] storage cleanup unavailable');
+            return false;
+        }
+
+        $deleted = $client->delete_object($storage_path);
+        if (empty($deleted['ok'])) {
+            error_log('[UploadExpedienteRegistroAdjuntoUseCase] storage cleanup failed');
+            return false;
+        }
+
+        $status = (string) ($deleted['result']['status'] ?? '');
+        if ($status !== 'deleted' && $status !== 'already_absent') {
+            error_log('[UploadExpedienteRegistroAdjuntoUseCase] storage cleanup unexpected');
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -282,6 +404,23 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
                 $message = (string) ($transferred['message'] ?? '');
                 return $message !== '' ? $message : 'No se pudo subir la imagen.';
         }
+    }
+
+    /**
+     * @param WP_Error $error
+     * @return array{ok:false,code:string,message:string}
+     */
+    private function fail_from_lock($error): array {
+        $code = (string) $error->get_error_code();
+        $message = (string) $error->get_error_message();
+        if ($code === '') {
+            $code = AA_Expediente_Aggregate_Lock::ERROR_COORDINATION_FAILED;
+        }
+        if ($message === '') {
+            $message = 'No se pudo coordinar la operación.';
+        }
+
+        return $this->fail($code, $message);
     }
 
     /**

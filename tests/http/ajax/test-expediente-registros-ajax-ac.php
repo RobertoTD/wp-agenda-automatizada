@@ -74,6 +74,13 @@ ac_assert('delete mapea local_delete_failed / storage_delete_partial',
     strpos($ajax_src, 'local_delete_failed') !== false
     && strpos($ajax_src, 'storage_delete_partial') !== false);
 ac_assert('delete mapea record_not_found → 404', preg_match("/case 'record_not_found':/", $ajax_src) === 1);
+ac_assert('Ciclo A resource_busy → 409', strpos($ajax_src, "case 'resource_busy':") !== false
+    && preg_match("/case 'resource_busy':[\\s\\S]*?return 409;/", $ajax_src) === 1);
+ac_assert('Ciclo A concurrent_change → 409', strpos($ajax_src, "case 'concurrent_change':") !== false);
+ac_assert('Ciclo A coordination_failed/lost → 500', strpos($ajax_src, "case 'coordination_failed':") !== false
+    && strpos($ajax_src, "case 'coordination_lost':") !== false);
+ac_assert('cero aa_delete_expediente contenedor', !preg_match("/aa_delete_expediente['\"]\\s*;/", $ajax_src)
+    && strpos($ajax_src, 'DeleteExpedienteUseCase') === false);
 
 if (!defined('ABSPATH')) {
     define('ABSPATH', $plugin_root . '/');

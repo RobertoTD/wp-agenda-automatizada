@@ -271,9 +271,13 @@ final class ExpedienteRegistrosByExpedienteAjax {
         switch ($code) {
             case 'not_found':
                 return 404;
+            case 'resource_busy':
+            case 'concurrent_change':
             case 'adjunto_inconsistent':
             case 'path_forbidden':
                 return 409;
+            case 'coordination_failed':
+            case 'coordination_lost':
             case 'lookup_failed':
             case 'persistence_failed':
             case 'local_delete_failed':

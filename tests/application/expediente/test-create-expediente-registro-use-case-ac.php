@@ -138,6 +138,8 @@ final class ExpedienteRegistrosRepository {
     }
 }
 
+require_once $plugin_root . '/tests/support/aa-test-expediente-aggregate-lock-passthrough.php';
+aa_test_install_passthrough_expediente_lock();
 require_once $plugin_root . '/includes/domain/expediente/class-aa-expediente-id-policy.php';
 require_once $plugin_root . '/includes/domain/expediente/class-aa-expediente-registro-create-policy.php';
 require_once $plugin_root . '/includes/application/expediente/CreateExpedienteRegistroUseCase.php';

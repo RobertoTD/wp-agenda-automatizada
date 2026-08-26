@@ -4,6 +4,8 @@
  *
  * Transacción MySQL: get-or-create padre (UNIQUE client_id) + insert hijo
  * con client_id + expediente_id. Imagen fuera de alcance (post-commit legacy).
+ *
+ * Ciclo A: named lock client:{client_id} antes de START TRANSACTION.
  */
 
 defined('ABSPATH') or die('No direct access');
@@ -26,6 +28,9 @@ if (!class_exists('ExpedientesRepository')) {
 if (!class_exists('ExpedienteRegistrosRepository')) {
     require_once dirname(__DIR__, 2) . '/repositories/ExpedienteRegistrosRepository.php';
 }
+if (!class_exists('AA_Expediente_Aggregate_Lock')) {
+    require_once dirname(__DIR__, 2) . '/infrastructure/wp/class-aa-expediente-aggregate-lock.php';
+}
 
 final class CreateExpedienteRegistroForClientUseCase {
 
@@ -39,12 +44,17 @@ final class CreateExpedienteRegistroForClientUseCase {
     /** @var AA_Expediente_Create_Policy */
     private $expediente_policy;
 
+    /** @var AA_Expediente_Aggregate_Lock */
+    private $lock;
+
     public function __construct(
         ?AA_Expediente_Registro_Create_Policy $registro_policy = null,
-        ?AA_Expediente_Create_Policy $expediente_policy = null
+        ?AA_Expediente_Create_Policy $expediente_policy = null,
+        ?AA_Expediente_Aggregate_Lock $lock = null
     ) {
         $this->registro_policy = $registro_policy ?: new AA_Expediente_Registro_Create_Policy();
         $this->expediente_policy = $expediente_policy ?: new AA_Expediente_Create_Policy();
+        $this->lock = $lock ?: AA_Expediente_Aggregate_Lock::create_default();
     }
 
     /**
@@ -94,33 +104,74 @@ final class CreateExpedienteRegistroForClientUseCase {
         $now = current_time('mysql');
         $category_id = (int) $category['id'];
 
-        $last_error = null;
-        for ($attempt = 1; $attempt <= self::MAX_TX_ATTEMPTS; $attempt++) {
-            $result = $this->run_transaction(
-                $client_id,
-                $parent_title,
-                $category_id,
-                $title,
-                $body,
-                $now
-            );
+        $preliminary = ExpedientesRepository::find_by_client_id($client_id);
+        if ($preliminary === null) {
+            return $this->fail('lookup_failed', 'No se pudo verificar el expediente.');
+        }
 
-            if (!empty($result['success'])) {
+        $lease = $this->lock->acquire(
+            AA_Expediente_Aggregate_Lock::SCOPE_CLIENT,
+            $client_id,
+            AA_Expediente_Aggregate_Lock::DEFAULT_TIMEOUT_SECONDS
+        );
+        if (is_wp_error($lease)) {
+            return $this->fail_from_lock($lease);
+        }
+
+        try {
+            $after = ExpedientesRepository::find_by_client_id($client_id);
+            if ($after === null) {
+                return $this->fail('lookup_failed', 'No se pudo verificar el expediente.');
+            }
+
+            if (is_array($preliminary)) {
+                if (
+                    !is_array($after)
+                    || (int) ($after['id'] ?? 0) !== (int) ($preliminary['id'] ?? 0)
+                    || (int) ($after['client_id'] ?? 0) !== $client_id
+                ) {
+                    return $this->fail(
+                        'concurrent_change',
+                        'El expediente cambió mientras se preparaba la operación.'
+                    );
+                }
+            }
+
+            $last_error = null;
+            for ($attempt = 1; $attempt <= self::MAX_TX_ATTEMPTS; $attempt++) {
+                $held = $this->lock->assert_held($lease);
+                if (is_wp_error($held)) {
+                    return $this->fail_from_lock($held);
+                }
+
+                $result = $this->run_transaction(
+                    $client_id,
+                    $parent_title,
+                    $category_id,
+                    $title,
+                    $body,
+                    $now
+                );
+
+                if (!empty($result['success'])) {
+                    return $result;
+                }
+
+                $code = (string) ($result['error']['code'] ?? '');
+                if ($code === 'tx_retryable' && $attempt < self::MAX_TX_ATTEMPTS) {
+                    $last_error = $result;
+                    continue;
+                }
+
                 return $result;
             }
 
-            $code = (string) ($result['error']['code'] ?? '');
-            if ($code === 'tx_retryable' && $attempt < self::MAX_TX_ATTEMPTS) {
-                $last_error = $result;
-                continue;
-            }
-
-            return $result;
+            return is_array($last_error)
+                ? $last_error
+                : $this->fail('persistence_failed', 'No se pudo guardar el registro.');
+        } finally {
+            $this->lock->release($lease);
         }
-
-        return is_array($last_error)
-            ? $last_error
-            : $this->fail('persistence_failed', 'No se pudo guardar el registro.');
     }
 
     /**
@@ -206,7 +257,7 @@ final class CreateExpedienteRegistroForClientUseCase {
                 $this->rollback_quietly();
             }
 
-            error_log('[CreateExpedienteRegistroForClientUseCase] ' . $e->getMessage());
+            error_log('[CreateExpedienteRegistroForClientUseCase] unexpected failure');
 
             return $this->fail('persistence_failed', 'No se pudo guardar el registro.');
         }
@@ -255,6 +306,23 @@ final class CreateExpedienteRegistroForClientUseCase {
 
     private function length(string $value): int {
         return function_exists('mb_strlen') ? mb_strlen($value) : strlen($value);
+    }
+
+    /**
+     * @param WP_Error $error
+     * @return array{success:false,error:array{code:string,message:string}}
+     */
+    private function fail_from_lock($error): array {
+        $code = (string) $error->get_error_code();
+        $message = (string) $error->get_error_message();
+        if ($code === '') {
+            $code = AA_Expediente_Aggregate_Lock::ERROR_COORDINATION_FAILED;
+        }
+        if ($message === '') {
+            $message = 'No se pudo coordinar la operación.';
+        }
+
+        return $this->fail($code, $message);
     }
 
     /**

@@ -66,6 +66,13 @@ ac_assert('handler no lee client_id', strpos($ajax_src, "\$_POST['client_id']") 
     && strpos($ajax_src, "\$_REQUEST['client_id']") === false);
 ac_assert('sin absint', strpos($ajax_src, 'absint(') === false);
 
+ac_assert('Ciclo A resource_busy → 409', strpos($ajax_src, "case 'resource_busy':") !== false);
+ac_assert('Ciclo A concurrent_change → 409', strpos($ajax_src, "case 'concurrent_change':") !== false);
+ac_assert('Ciclo A coordination_failed/lost', strpos($ajax_src, "case 'coordination_failed':") !== false
+    && strpos($ajax_src, "case 'coordination_lost':") !== false);
+ac_assert('Ciclo A storage_cleanup_failed → 502', strpos($ajax_src, "case 'storage_cleanup_failed':") !== false);
+ac_assert('cero aa_delete_expediente contenedor', !preg_match("/['\"]aa_delete_expediente['\"]/", $ajax_src));
+
 if (!defined('ABSPATH')) {
     define('ABSPATH', $plugin_root . '/');
 }

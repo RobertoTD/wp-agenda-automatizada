@@ -117,6 +117,12 @@ ac_assert(
     && strpos($sign_handler, "'adjunto'") === false
 );
 ac_assert("variant_invalid → 400", preg_match("/case 'variant_invalid':\\s*return 400;/", $ajax_src) === 1);
+ac_assert('Ciclo A resource_busy → 409', preg_match("/case 'resource_busy':/", $ajax_src) === 1
+    && preg_match("/case 'resource_busy':[\\s\\S]*?return 409;/", $ajax_src) === 1);
+ac_assert('Ciclo A concurrent_change → 409', strpos($ajax_src, "case 'concurrent_change':") !== false);
+ac_assert('Ciclo A coordination_failed/lost → 500', strpos($ajax_src, "case 'coordination_failed':") !== false
+    && strpos($ajax_src, "case 'coordination_lost':") !== false);
+ac_assert('Ciclo A storage_cleanup_failed → 502', preg_match("/case 'storage_cleanup_failed':\\s*return 502;/", $ajax_src) === 1);
 ac_assert('attachment_not_found → 404', preg_match("/case 'attachment_not_found':/", $ajax_src) === 1);
 ac_assert(
     'variant_generation_failed → 500',

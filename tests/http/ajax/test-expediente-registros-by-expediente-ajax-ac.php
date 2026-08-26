@@ -64,6 +64,11 @@ ac_assert('no lee blog_id/fechas/id', strpos($ajax_src, "\$_POST['blog_id']") ==
     && strpos($ajax_src, "\$_POST['created_at']") === false
     && strpos($ajax_src, "\$_POST['id']") === false);
 ac_assert('sin $wpdb', strpos($ajax_src, '$wpdb') === false);
+ac_assert('Ciclo A resource_busy → 409', strpos($ajax_src, "case 'resource_busy':") !== false);
+ac_assert('Ciclo A concurrent_change → 409', strpos($ajax_src, "case 'concurrent_change':") !== false);
+ac_assert('Ciclo A coordination_failed/lost', strpos($ajax_src, "case 'coordination_failed':") !== false
+    && strpos($ajax_src, "case 'coordination_lost':") !== false);
+ac_assert('cero aa_delete_expediente contenedor', !preg_match("/['\"]aa_delete_expediente['\"]/", $ajax_src));
 ac_assert('bootstrap register', strpos($bootstrap_src, 'ExpedienteRegistrosByExpedienteAjax::register()') !== false);
 ac_assert('bootstrap require', strpos($bootstrap_src, 'ExpedienteRegistrosByExpedienteAjax.php') !== false);
 ac_assert('bootstrap sin nopriv del action', strpos($bootstrap_src, 'wp_ajax_nopriv_aa_create_expediente_registro_for_expediente') === false);

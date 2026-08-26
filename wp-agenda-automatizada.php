@@ -75,6 +75,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/LearningSta
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/TaskDefaultBucketMigrationLifecycle.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/InitialSeedEligibilityLifecycle.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/InitialSetupSeedLifecycle.php';
+require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/class-aa-expediente-aggregate-lock.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/PublicSiteMaintenanceGuard.php';
 AA_Public_Site_Maintenance_Guard::register();
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/PublicSitePreview.php';

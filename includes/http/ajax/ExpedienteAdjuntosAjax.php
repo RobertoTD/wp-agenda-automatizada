@@ -183,6 +183,8 @@ final class ExpedienteAdjuntosAjax {
             case 'attachment_not_found':
             case 'object_missing':
                 return 404;
+            case 'resource_busy':
+            case 'concurrent_change':
             case 'installation_missing':
             case 'object_mismatch':
             case 'adjunto_meta_conflict':
@@ -201,7 +203,10 @@ final class ExpedienteAdjuntosAjax {
             case 'signed_url_invalid':
             case 'delete_failed':
             case 'storage_delete_failed':
+            case 'storage_cleanup_failed':
                 return 502;
+            case 'coordination_failed':
+            case 'coordination_lost':
             case 'local_delete_failed':
             case 'storage_usage_unavailable':
             case 'variant_generation_failed':

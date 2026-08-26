@@ -108,6 +108,8 @@ final class FakeDeleteBackend {
     }
 }
 
+require_once $plugin_root . '/tests/support/aa-test-expediente-aggregate-lock-passthrough.php';
+aa_test_install_passthrough_expediente_lock();
 require_once $plugin_root . '/includes/application/expediente/DeleteExpedienteRegistroUseCase.php';
 
 $record = [

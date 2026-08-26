@@ -119,15 +119,22 @@ final class ExpedienteRegistrosAjax {
         switch ($code) {
             case 'not_found':
                 return 404;
+            case 'resource_busy':
+            case 'concurrent_change':
+                return 409;
             case 'invalid_client':
             case 'missing_title':
             case 'missing_body':
             case 'title_too_long':
             case 'body_too_long':
                 return 400;
+            case 'coordination_failed':
+            case 'coordination_lost':
+            case 'lookup_failed':
             case 'category_not_found':
             case 'persistence_failed':
             case 'tx_retryable':
+                return 500;
             default:
                 return 500;
         }
@@ -220,6 +227,8 @@ final class ExpedienteRegistrosAjax {
             case 'client_not_found':
             case 'record_not_found':
                 return 404;
+            case 'resource_busy':
+            case 'concurrent_change':
             case 'adjunto_inconsistent':
             case 'path_forbidden':
                 return 409;
@@ -227,6 +236,8 @@ final class ExpedienteRegistrosAjax {
             case 'delete_failed':
             case 'expediente_attachments_unreachable':
                 return 502;
+            case 'coordination_failed':
+            case 'coordination_lost':
             case 'local_delete_failed':
                 return 500;
             default:

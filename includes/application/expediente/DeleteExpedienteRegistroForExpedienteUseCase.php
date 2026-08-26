@@ -4,7 +4,9 @@
  *
  * Strategy A:
  * - padre cliente → una delegación a DeleteExpedienteRegistroUseCase (Storage→SQL)
+ *   (el lock client vive en el pipeline legacy; sin adquisición anidada)
  * - padre general → SQL canónico sin Storage; fail-closed si hay adjuntos
+ *   (Ciclo A: lock expediente:{expediente_id} aquí)
  *
  * Ownership derivado en servidor (expediente_id + record_id).
  * Deuda: tras delete, la paginación live/SSR puede quedar stale (sin relist).
@@ -27,17 +29,25 @@ if (!class_exists('ExpedienteAdjuntosRepository')) {
 if (!class_exists('DeleteExpedienteRegistroUseCase')) {
     require_once __DIR__ . '/DeleteExpedienteRegistroUseCase.php';
 }
+if (!class_exists('AA_Expediente_Aggregate_Lock')) {
+    require_once dirname(__DIR__, 2) . '/infrastructure/wp/class-aa-expediente-aggregate-lock.php';
+}
 
 final class DeleteExpedienteRegistroForExpedienteUseCase {
 
     /** @var object DeleteExpedienteRegistroUseCase o doble de prueba */
     private $legacy_delete;
 
+    /** @var AA_Expediente_Aggregate_Lock */
+    private $lock;
+
     /**
      * @param object|null $legacy_delete DeleteExpedienteRegistroUseCase o doble
+     * @param AA_Expediente_Aggregate_Lock|null $lock Solo rama general
      */
-    public function __construct($legacy_delete = null) {
+    public function __construct($legacy_delete = null, ?AA_Expediente_Aggregate_Lock $lock = null) {
         $this->legacy_delete = $legacy_delete ?: new DeleteExpedienteRegistroUseCase();
+        $this->lock = $lock ?: AA_Expediente_Aggregate_Lock::create_default();
     }
 
     /**
@@ -120,7 +130,6 @@ final class DeleteExpedienteRegistroForExpedienteUseCase {
         }
 
         $message = (string) ($result['message'] ?? 'No se pudo eliminar el registro.');
-        // Mensajes legacy ya son genéricos; no reinyectar paths/owners.
         return $this->fail($code, $message);
     }
 
@@ -128,26 +137,72 @@ final class DeleteExpedienteRegistroForExpedienteUseCase {
      * @return array{success:true,data:array{deleted:true,record_id:int}}|array{success:false,error:array{code:string,message:string}}
      */
     private function delete_general(int $record_id, int $expediente_id): array {
-        $has_adjuntos = ExpedienteAdjuntosRepository::has_any_by_record_id($record_id);
-        if ($has_adjuntos === null) {
-            return $this->fail('lookup_failed', 'No se pudo verificar el registro.');
-        }
-        if ($has_adjuntos === true) {
-            return $this->fail('adjunto_inconsistent', 'Un adjunto local es inconsistente.');
-        }
-
-        $deleted = ExpedienteRegistrosRepository::delete_by_id_for_expediente($record_id, $expediente_id);
-        if ($deleted === null) {
-            return $this->fail('local_delete_failed', 'No se pudo eliminar el registro.');
-        }
-        if ($deleted === false) {
-            return $this->fail('not_found', 'Registro no encontrado.');
+        $lease = $this->lock->acquire(
+            AA_Expediente_Aggregate_Lock::SCOPE_EXPEDIENTE,
+            $expediente_id,
+            AA_Expediente_Aggregate_Lock::DEFAULT_TIMEOUT_SECONDS
+        );
+        if (is_wp_error($lease)) {
+            return $this->fail_from_lock($lease);
         }
 
-        return $this->ok([
-            'deleted' => true,
-            'record_id' => $record_id,
-        ]);
+        try {
+            $exists = ExpedientesRepository::exists_by_id($expediente_id);
+            if ($exists === null) {
+                return $this->fail('lookup_failed', 'No se pudo verificar el expediente.');
+            }
+            if ($exists === false) {
+                return $this->fail('not_found', 'Expediente no encontrado.');
+            }
+
+            $owner = ExpedientesRepository::find_owner_context_by_id($expediente_id);
+            if ($owner === null) {
+                return $this->fail('lookup_failed', 'No se pudo verificar el expediente.');
+            }
+            $parent = $this->normalize_stored_client_id($owner['client_id'] ?? null);
+            if (!$parent['ok'] || $parent['id'] !== null) {
+                return $this->fail(
+                    'concurrent_change',
+                    'El expediente cambió mientras se preparaba la operación.'
+                );
+            }
+
+            $record = ExpedienteRegistrosRepository::find_by_id_for_expediente($record_id, $expediente_id);
+            if ($record === null) {
+                return $this->fail('lookup_failed', 'No se pudo verificar el registro.');
+            }
+            if ($record === false) {
+                return $this->fail('not_found', 'Registro no encontrado.');
+            }
+
+            $held = $this->lock->assert_held($lease);
+            if (is_wp_error($held)) {
+                return $this->fail_from_lock($held);
+            }
+
+            $has_adjuntos = ExpedienteAdjuntosRepository::has_any_by_record_id($record_id);
+            if ($has_adjuntos === null) {
+                return $this->fail('lookup_failed', 'No se pudo verificar el registro.');
+            }
+            if ($has_adjuntos === true) {
+                return $this->fail('adjunto_inconsistent', 'Un adjunto local es inconsistente.');
+            }
+
+            $deleted = ExpedienteRegistrosRepository::delete_by_id_for_expediente($record_id, $expediente_id);
+            if ($deleted === null) {
+                return $this->fail('local_delete_failed', 'No se pudo eliminar el registro.');
+            }
+            if ($deleted === false) {
+                return $this->fail('not_found', 'Registro no encontrado.');
+            }
+
+            return $this->ok([
+                'deleted' => true,
+                'record_id' => $record_id,
+            ]);
+        } finally {
+            $this->lock->release($lease);
+        }
     }
 
     /**
@@ -177,6 +232,23 @@ final class DeleteExpedienteRegistroForExpedienteUseCase {
         }
 
         return ['ok' => false];
+    }
+
+    /**
+     * @param WP_Error $error
+     * @return array{success:false,error:array{code:string,message:string}}
+     */
+    private function fail_from_lock($error): array {
+        $code = (string) $error->get_error_code();
+        $message = (string) $error->get_error_message();
+        if ($code === '') {
+            $code = AA_Expediente_Aggregate_Lock::ERROR_COORDINATION_FAILED;
+        }
+        if ($message === '') {
+            $message = 'No se pudo coordinar la operación.';
+        }
+
+        return $this->fail($code, $message);
     }
 
     /**
