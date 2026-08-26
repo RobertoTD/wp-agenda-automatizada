@@ -85,6 +85,10 @@ AA_Public_Site_Preview::register();
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/auth/AppLoginSkin.php';
 AA_App_Login_Skin::register();
 
+// 1️⃣d Agenda magic-link consume (C2 — admin-post bridge + HMAC)
+require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/auth/AgendaAccessHandlers.php';
+AA_Agenda_Access_Handlers::register();
+
 // 2️⃣ Modelos (acceso a datos)
 require_once plugin_dir_path(__FILE__) . 'clientes.php';
 require_once plugin_dir_path(__FILE__) . 'includes/models/AssignmentsModel.php';
