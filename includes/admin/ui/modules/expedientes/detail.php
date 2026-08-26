@@ -62,6 +62,9 @@ $aa_records_has_previous = !empty($aa_records_view['has_previous']) && $aa_recor
 $aa_records_has_next = !empty($aa_records_view['has_next']) && $aa_records_next_url !== '';
 
 $aa_detail_can_create = $aa_detail_id > 0;
+$aa_detail_cap_update_title = $aa_detail_id > 0;
+$aa_detail_cap_delete = $aa_detail_id > 0;
+$aa_detail_show_tools = $aa_detail_cap_update_title || $aa_detail_cap_delete;
 $aa_detail_ajax_url = admin_url('admin-ajax.php');
 $aa_detail_create_action = (class_exists('ExpedienteRegistrosByExpedienteAjax')
     && defined('ExpedienteRegistrosByExpedienteAjax::ACTION_CREATE'))
@@ -98,18 +101,22 @@ $aa_detail_create_nonce_action = (class_exists('ExpedienteRegistrosByExpedienteA
 $aa_detail_create_nonce = $aa_detail_can_create
     ? wp_create_nonce($aa_detail_create_nonce_action)
     : '';
+$aa_detail_update_title_action = (class_exists('ExpedientesAjax')
+    && defined('ExpedientesAjax::ACTION_UPDATE'))
+    ? ExpedientesAjax::ACTION_UPDATE
+    : 'aa_update_expediente';
 $aa_detail_delete_action = (class_exists('ExpedientesAjax')
     && defined('ExpedientesAjax::ACTION_DELETE'))
     ? ExpedientesAjax::ACTION_DELETE
     : 'aa_delete_expediente';
-$aa_detail_delete_nonce_action = (class_exists('ExpedientesAjax')
+$aa_detail_container_nonce_action = (class_exists('ExpedientesAjax')
     && defined('ExpedientesAjax::NONCE_ACTION'))
     ? ExpedientesAjax::NONCE_ACTION
     : 'aa_expedientes_nonce';
-$aa_detail_delete_nonce = $aa_detail_can_create
-    ? wp_create_nonce($aa_detail_delete_nonce_action)
+$aa_detail_container_nonce = $aa_detail_show_tools
+    ? wp_create_nonce($aa_detail_container_nonce_action)
     : '';
-$aa_detail_list_url = $aa_detail_can_create
+$aa_detail_list_url = $aa_detail_cap_delete
     ? add_query_arg(
         [
             'action' => 'aa_iframe_content',
@@ -149,11 +156,11 @@ $aa_detail_scope_key = $aa_detail_can_create
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
                         </svg>
                     </span>
-                    <h3 class="min-w-0 truncate text-lg font-semibold text-gray-600">
+                    <h3 id="aa-expediente-detail-title" class="min-w-0 truncate text-lg font-semibold text-gray-600">
                         <?php echo esc_html($aa_detail_title !== '' ? $aa_detail_title : 'Sin título'); ?>
                     </h3>
                 </div>
-                <?php if ($aa_detail_can_create) : ?>
+                <?php if ($aa_detail_show_tools) : ?>
                 <div id="aa-expediente-detail-tools" class="relative shrink-0 aa-expediente-detail-tools">
                     <button
                         type="button"
@@ -175,6 +182,17 @@ $aa_detail_scope_key = $aa_detail_can_create
                         role="menu"
                         hidden
                     >
+                        <?php if ($aa_detail_cap_update_title) : ?>
+                        <button
+                            type="button"
+                            id="aa-expediente-detail-tools-edit"
+                            class="aa-expediente-btn-editar flex w-full items-center gap-2 px-4 py-2.5 text-left text-base text-gray-700 hover:bg-gray-50"
+                            role="menuitem"
+                        >
+                            Editar
+                        </button>
+                        <?php endif; ?>
+                        <?php if ($aa_detail_cap_delete) : ?>
                         <button
                             type="button"
                             id="aa-expediente-detail-tools-delete"
@@ -183,6 +201,7 @@ $aa_detail_scope_key = $aa_detail_can_create
                         >
                             Eliminar
                         </button>
+                        <?php endif; ?>
                     </div>
                 </div>
                 <?php endif; ?>
@@ -291,9 +310,15 @@ $aa_detail_scope_key = $aa_detail_can_create
             deleteAdjunto: true
         },
         containerActions: {
+            updateTitleAction: <?php echo wp_json_encode($aa_detail_update_title_action); ?>,
             deleteAction: <?php echo wp_json_encode($aa_detail_delete_action); ?>,
-            nonce: <?php echo wp_json_encode($aa_detail_delete_nonce); ?>,
-            listUrl: <?php echo wp_json_encode($aa_detail_list_url); ?>
+            nonce: <?php echo wp_json_encode($aa_detail_container_nonce); ?>,
+            listUrl: <?php echo wp_json_encode($aa_detail_list_url); ?>,
+            title: <?php echo wp_json_encode($aa_detail_title); ?>,
+            capabilities: {
+                updateTitle: <?php echo $aa_detail_cap_update_title ? 'true' : 'false'; ?>,
+                delete: <?php echo $aa_detail_cap_delete ? 'true' : 'false'; ?>
+            }
         }
     };
 </script>

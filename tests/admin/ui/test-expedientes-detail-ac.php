@@ -190,11 +190,16 @@ ac_assert(
     && substr_count($detail, 'wp_create_nonce') === 2
 );
 ac_assert(
-    'detalle containerActions delete separados',
+    'detalle containerActions update+delete + title + capabilities',
     strpos($detail, 'containerActions') !== false
+    && strpos($detail, 'updateTitleAction') !== false
+    && strpos($detail, 'aa_update_expediente') !== false
     && strpos($detail, 'aa_delete_expediente') !== false
     && strpos($detail, 'deleteAction') !== false
     && strpos($detail, 'listUrl') !== false
+    && strpos($detail, 'title:') !== false
+    && strpos($detail, 'updateTitle:') !== false
+    && strpos($detail, 'delete:') !== false
 );
 ac_assert(
     'detalle listUrl canónica sin expediente_id/client_id',
@@ -211,14 +216,29 @@ ac_assert(
     && strpos($detail, 'listUrl:') !== false
 );
 ac_assert(
-    'detalle tools en header: un trigger + Eliminar, sin Editar contenedor',
+    'detalle título h3 con id aa-expediente-detail-title',
+    strpos($detail, 'id="aa-expediente-detail-title"') !== false
+    && substr_count($detail, 'id="aa-expediente-detail-title"') === 1
+);
+ac_assert(
+    'detalle tools gated por show_tools (no solo can_create)',
+    strpos($detail, '$aa_detail_show_tools') !== false
+    && strpos($detail, '$aa_detail_cap_update_title || $aa_detail_cap_delete') !== false
+    && preg_match('/\$aa_detail_show_tools\s*=\s*\$aa_detail_cap_update_title\s*\|\|\s*\$aa_detail_cap_delete/', $detail) === 1
+    && preg_match('/if\s*\(\s*\$aa_detail_show_tools\s*\)/', $detail) === 1
+);
+ac_assert(
+    'detalle tools en header: Editar antes de Eliminar',
     strpos($detail, 'id="aa-expediente-detail-tools-trigger"') !== false
     && substr_count($detail, 'id="aa-expediente-detail-tools-trigger"') === 1
+    && strpos($detail, 'id="aa-expediente-detail-tools-edit"') !== false
     && strpos($detail, 'id="aa-expediente-detail-tools-delete"') !== false
-    && preg_match('/id="aa-expediente-detail-tools-delete"[\s\S]*?>\s*Eliminar\s*</', $detail) === 1
+    && preg_match(
+        '/id="aa-expediente-detail-tools-edit"[\s\S]*?>\s*Editar\s*<[\s\S]*?id="aa-expediente-detail-tools-delete"[\s\S]*?>\s*Eliminar\s*</',
+        $detail
+    ) === 1
     && strpos($detail, 'aa-executable-list-options-trigger') !== false
     && strpos($detail, 'aa-options-trigger-flat') !== false
-    && !preg_match('/aa-expediente-detail-tools[\s\S]*Editar/', $detail)
 );
 ac_assert('detalle sin menú opciones legacy', strpos($detail, 'aa-expediente-options') === false);
 ac_assert('detalle sin JS de listado padre ni create-expediente', strpos($detail, 'expedientes-module.js') === false
@@ -286,7 +306,8 @@ ac_assert('CSS detalle paginación SSR', strpos($css, '.aa-expediente-detail-pag
     && strpos($css, '.aa-expediente-detail-pagination-link') !== false);
 
 ac_assert('AJAX sin acción nueva de get', strpos($ajax, 'GetExpedienteUseCase') === false
-    && substr_count($ajax, 'public const ACTION_') === 3
+    && substr_count($ajax, 'public const ACTION_') === 4
+    && strpos($ajax, "ACTION_UPDATE = 'aa_update_expediente'") !== false
     && strpos($ajax, "ACTION_DELETE = 'aa_delete_expediente'") !== false
     && strpos($ajax, 'aa_get_expediente') === false);
 ac_assert('legacy clients intacta', strpos($clients_index, "view' => 'expediente'") !== false
@@ -412,10 +433,13 @@ ac_assert(
     && strpos($rendered_detail, '"7"') !== false
 );
 ac_assert(
-    'runtime containerActions delete + listUrl',
+    'runtime containerActions update+delete + title + capabilities + listUrl',
     strpos($rendered_detail, 'containerActions') !== false
+    && strpos($rendered_detail, 'aa_update_expediente') !== false
     && strpos($rendered_detail, 'aa_delete_expediente') !== false
     && strpos($rendered_detail, 'nonce-aa_expedientes_nonce') !== false
+    && strpos($rendered_detail, 'updateTitle: true') !== false
+    && strpos($rendered_detail, 'delete: true') !== false
     && preg_match(
         '/listUrl["\']?\s*:\s*["\']([^"\']+)["\']/',
         $rendered_detail,
@@ -426,12 +450,18 @@ ac_assert(
     && strpos($list_m[1], 'module=expedientes') !== false
     && strpos($list_m[1], 'expediente_id') === false
     && strpos($list_m[1], 'client_id') === false
+    && strpos($rendered_detail, 'clientId') === false
 );
 ac_assert(
-    'runtime tools header Eliminar contenedor',
+    'runtime tools header Editar antes de Eliminar',
     strpos($rendered_detail, 'id="aa-expediente-detail-tools-trigger"') !== false
+    && strpos($rendered_detail, 'id="aa-expediente-detail-tools-edit"') !== false
     && strpos($rendered_detail, 'id="aa-expediente-detail-tools-delete"') !== false
-    && preg_match('/id="aa-expediente-detail-tools-delete"[\s\S]*?>\s*Eliminar\s*</', $rendered_detail) === 1
+    && preg_match(
+        '/id="aa-expediente-detail-tools-edit"[\s\S]*?>\s*Editar\s*<[\s\S]*?id="aa-expediente-detail-tools-delete"[\s\S]*?>\s*Eliminar\s*</',
+        $rendered_detail
+    ) === 1
+    && strpos($rendered_detail, 'id="aa-expediente-detail-title"') !== false
 );
 ac_assert(
     'runtime config C1b scope/page/actions/capabilities',
@@ -495,9 +525,16 @@ ac_assert(
     && strpos($rendered_detail, 'id="aa-expediente-detail-tools-delete"') !== false
 );
 ac_assert(
-    'runtime escapa título',
-    strpos($rendered_detail, '&lt;img src=x onerror=alert(1)&gt;') !== false
-    && strpos($rendered_detail, '<img src=x onerror=alert(1)>') === false
+    'runtime escapa título en h3; JSON config lleva title',
+    preg_match(
+        '/id="aa-expediente-detail-title"[^>]*>\s*&lt;img src=x onerror=alert\(1\)&gt;\s*</',
+        $rendered_detail
+    ) === 1
+    && !preg_match('/id="aa-expediente-detail-title"[^>]*>\s*<img\b/', $rendered_detail)
+    && preg_match(
+        '/containerActions[\s\S]*?title:\s*"<img src=x onerror=alert\(1\)>"/',
+        $rendered_detail
+    ) === 1
 );
 ac_assert(
     'runtime escapa descripción',

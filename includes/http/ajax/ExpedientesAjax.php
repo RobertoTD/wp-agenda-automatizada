@@ -1,6 +1,6 @@
 <?php
 /**
- * Expedientes AJAX — listado, alta y delete canónico de contenedor (Ciclo B).
+ * Expedientes AJAX — listado, alta, update de título y delete de contenedor.
  *
  * Transporte HTTP: autentica, normaliza entrada, delega a Use Cases y
  * serializa. Sin reglas de título/descripción/categoría.
@@ -14,6 +14,9 @@ if (!class_exists('ListExpedientesUseCase')) {
 if (!class_exists('CreateExpedienteUseCase')) {
     require_once dirname(__DIR__, 2) . '/application/expediente/CreateExpedienteUseCase.php';
 }
+if (!class_exists('UpdateExpedienteUseCase')) {
+    require_once dirname(__DIR__, 2) . '/application/expediente/UpdateExpedienteUseCase.php';
+}
 if (!class_exists('DeleteExpedienteUseCase')) {
     require_once dirname(__DIR__, 2) . '/application/expediente/DeleteExpedienteUseCase.php';
 }
@@ -25,12 +28,14 @@ final class ExpedientesAjax {
 
     public const ACTION_LIST = 'aa_list_expedientes';
     public const ACTION_CREATE = 'aa_create_expediente';
+    public const ACTION_UPDATE = 'aa_update_expediente';
     public const ACTION_DELETE = 'aa_delete_expediente';
     public const NONCE_ACTION = 'aa_expedientes_nonce';
 
     public static function register(): void {
         add_action('wp_ajax_' . self::ACTION_LIST, [__CLASS__, 'handle_list']);
         add_action('wp_ajax_' . self::ACTION_CREATE, [__CLASS__, 'handle_create']);
+        add_action('wp_ajax_' . self::ACTION_UPDATE, [__CLASS__, 'handle_update']);
         add_action('wp_ajax_' . self::ACTION_DELETE, [__CLASS__, 'handle_delete']);
     }
 
@@ -67,6 +72,61 @@ final class ExpedientesAjax {
         $result = (new CreateExpedienteUseCase())->execute($input);
 
         self::respond_use_case($result);
+    }
+
+    /**
+     * Update canónico del título por expediente_id.
+     * Nonce soft (die=false). Sin client_id/category_id/description.
+     */
+    public static function handle_update(): void {
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => 'Permisos insuficientes.', 'code' => 'forbidden'], 403);
+            return;
+        }
+
+        $nonce_ok = check_ajax_referer(self::NONCE_ACTION, '_wpnonce', false);
+        if ($nonce_ok === false) {
+            wp_send_json_error(['message' => 'Sesión no válida.', 'code' => 'invalid_nonce'], 403);
+            return;
+        }
+
+        if (!ExpedienteRegistrosAjax::require_expediente_shell_access()) {
+            return;
+        }
+
+        $result = (new UpdateExpedienteUseCase())->execute([
+            'expediente_id' => self::post_scalar('expediente_id'),
+            'title' => self::post_string('title'),
+        ]);
+
+        if (!empty($result['success'])) {
+            $data = is_array($result['data'] ?? null) ? $result['data'] : [];
+            $expediente = is_array($data['expediente'] ?? null) ? $data['expediente'] : [];
+            $id = (int) ($expediente['id'] ?? 0);
+            $title = $expediente['title'] ?? null;
+            if ($id < 1 || !is_string($title)) {
+                wp_send_json_error([
+                    'message' => 'Respuesta de actualización incompleta.',
+                    'code' => 'persistence_failed',
+                ], 500);
+                return;
+            }
+
+            wp_send_json_success([
+                'expediente' => [
+                    'id' => $id,
+                    'title' => $title,
+                ],
+            ]);
+            return;
+        }
+
+        $error = $result['error'] ?? [];
+        $code = (string) ($error['code'] ?? 'unknown_error');
+        wp_send_json_error([
+            'message' => (string) ($error['message'] ?? 'No se pudo actualizar el expediente.'),
+            'code' => $code,
+        ], self::http_status_for_update_code($code));
     }
 
     /**
@@ -143,6 +203,22 @@ final class ExpedientesAjax {
             'message' => (string) ($error['message'] ?? 'No se pudo completar la acción.'),
             'code' => (string) ($error['code'] ?? 'unknown_error'),
         ], 400);
+    }
+
+    private static function http_status_for_update_code(string $code): int {
+        switch ($code) {
+            case 'not_found':
+                return 404;
+            case 'lookup_failed':
+            case 'persistence_failed':
+                return 500;
+            case 'invalid_id':
+            case 'missing_title':
+            case 'title_too_long':
+                return 400;
+            default:
+                return 400;
+        }
     }
 
     private static function http_status_for_delete_code(string $code): int {

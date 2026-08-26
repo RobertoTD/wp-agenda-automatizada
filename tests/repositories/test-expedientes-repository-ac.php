@@ -32,6 +32,31 @@ if (!defined('ARRAY_A')) {
     define('ARRAY_A', 'ARRAY_A');
 }
 
+if (!class_exists('WP_Error')) {
+    class WP_Error {
+        private $code;
+        private $message;
+
+        public function __construct($code = '', $message = '') {
+            $this->code = (string) $code;
+            $this->message = (string) $message;
+        }
+
+        public function get_error_code() {
+            return $this->code;
+        }
+
+        public function get_error_message() {
+            return $this->message;
+        }
+    }
+}
+if (!function_exists('is_wp_error')) {
+    function is_wp_error($thing): bool {
+        return $thing instanceof WP_Error;
+    }
+}
+
 require_once $plugin_root . '/includes/repositories/ExpedientesRepository.php';
 
 $src = file_get_contents($plugin_root . '/includes/repositories/ExpedientesRepository.php');
@@ -46,7 +71,7 @@ ac_assert(
 );
 ac_assert(
     'exists_by_id sin JOIN ni tablas ajenas',
-    preg_match('/function exists_by_id[\s\S]*$/s', $src, $exists_src) === 1
+    preg_match('/function exists_by_id\(int \$id\)[\s\S]*?\n    public static function /', $src, $exists_src) === 1
     && isset($exists_src[0])
     && strpos($exists_src[0], 'JOIN') === false
     && strpos($exists_src[0], 'aa_clientes') === false
@@ -127,6 +152,24 @@ $wpdb = new class {
         }
         $this->insert_id = 42;
         return 1;
+    }
+
+    public $update_result = 1;
+    public $updated = null;
+
+    public function update($table, $data, $where, $format = null, $where_format = null) {
+        $this->updated = [
+            'table' => $table,
+            'data' => $data,
+            'where' => $where,
+            'format' => $format,
+            'where_format' => $where_format,
+        ];
+        if ($this->update_result === false) {
+            $this->last_error = 'simulated update failure';
+            return false;
+        }
+        return $this->update_result;
     }
 };
 
@@ -405,6 +448,57 @@ ac_assert(
     'find_by_client_id SQL error ≠ ausencia',
     ExpedientesRepository::find_by_client_id(7) === null
 );
+$wpdb->last_error = '';
+
+ac_assert('find_title_context_by_id existe', strpos($src, 'function find_title_context_by_id') !== false);
+ac_assert('update_title_by_id existe', strpos($src, 'function update_title_by_id') !== false);
+ac_assert(
+    'update_title WHERE solo id',
+    preg_match('/function update_title_by_id[\s\S]*?\[\'id\'\s*=>\s*\$id\]/', $src) === 1
+);
+$update_fn = '';
+if (preg_match('/public static function update_title_by_id\(int \$id, string \$title, string \$updated_at\)\s*\{([\s\S]*)\n\}\s*\n?\s*\z/', $src, $um) === 1) {
+    $update_fn = $um[1];
+}
+ac_assert(
+    'update_title no escribe category/client/description',
+    $update_fn !== ''
+    && strpos($update_fn, "'category_id'") === false
+    && strpos($update_fn, "'client_id'") === false
+    && strpos($update_fn, "'description'") === false
+    && strpos($update_fn, "'title'") !== false
+    && strpos($update_fn, "'updated_at'") !== false
+);
+
+$wpdb->row = ['id' => 11, 'title' => 'Hola'];
+$wpdb->last_error = '';
+$ctx = ExpedientesRepository::find_title_context_by_id(11);
+ac_assert('find_title_context OK', is_array($ctx) && ($ctx['id'] ?? 0) === 11 && ($ctx['title'] ?? '') === 'Hola');
+
+$wpdb->row = null;
+ac_assert('find_title_context ausencia → false', ExpedientesRepository::find_title_context_by_id(11) === false);
+$wpdb->row = ['id' => 11, 'title' => 'X'];
+$wpdb->last_error = 'boom';
+ac_assert('find_title_context SQL → WP_Error', is_wp_error(ExpedientesRepository::find_title_context_by_id(11)));
+$wpdb->last_error = '';
+$wpdb->row = ['id' => 11];
+ac_assert('find_title_context malformado → WP_Error', is_wp_error(ExpedientesRepository::find_title_context_by_id(11)));
+
+$wpdb->update_result = 1;
+$wpdb->updated = null;
+$up = ExpedientesRepository::update_title_by_id(11, 'Nuevo', '2026-08-26 12:00:00');
+ac_assert('update_title true', $up === true);
+ac_assert('update_title tabla', ($wpdb->updated['table'] ?? '') === 'wp_5_aa_expedientes');
+ac_assert('update_title data', ($wpdb->updated['data']['title'] ?? '') === 'Nuevo'
+    && ($wpdb->updated['data']['updated_at'] ?? '') === '2026-08-26 12:00:00');
+ac_assert('update_title where solo id', ($wpdb->updated['where'] ?? []) === ['id' => 11]
+    && !array_key_exists('client_id', $wpdb->updated['where'] ?? []));
+
+$wpdb->update_result = 0;
+ac_assert('update_title cero filas → false', ExpedientesRepository::update_title_by_id(11, 'Nuevo', '2026-08-26 12:00:00') === false);
+$wpdb->update_result = false;
+ac_assert('update_title SQL → WP_Error', is_wp_error(ExpedientesRepository::update_title_by_id(11, 'Nuevo', '2026-08-26 12:00:00')));
+$wpdb->update_result = 1;
 $wpdb->last_error = '';
 
 echo "\nResultado: {$passed}/{$total} OK\n";

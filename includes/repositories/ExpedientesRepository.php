@@ -527,4 +527,95 @@ final class ExpedientesRepository {
 
         return (int) $deleted === 1;
     }
+
+    /**
+     * Contexto mínimo de título por id (sin JOIN). Triestado estricto.
+     *
+     * @return array{id:int,title:string}|false|WP_Error
+     *   array — fila válida
+     *   false — no existe (o $id < 1)
+     *   WP_Error — error SQL o fila malformada
+     */
+    public static function find_title_context_by_id(int $id) {
+        if ($id < 1) {
+            return false;
+        }
+
+        if (!class_exists('AA_Expediente_Id_Policy')) {
+            require_once dirname(__DIR__) . '/domain/expediente/class-aa-expediente-id-policy.php';
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT id, title FROM {$table} WHERE id = %d LIMIT 1",
+                $id
+            ),
+            ARRAY_A
+        );
+
+        if ($wpdb->last_error) {
+            error_log('[ExpedientesRepository] find_title_context_by_id error');
+            return new WP_Error('db_error', 'No se pudo verificar el expediente.');
+        }
+
+        if (!is_array($row)) {
+            return false;
+        }
+
+        if (!array_key_exists('id', $row) || !array_key_exists('title', $row)) {
+            error_log('[ExpedientesRepository] find_title_context_by_id malformed row');
+            return new WP_Error('db_error', 'Fila de expediente malformada.');
+        }
+
+        $stored_id = AA_Expediente_Id_Policy::normalize($row['id']);
+        if ($stored_id === null || $stored_id !== $id) {
+            error_log('[ExpedientesRepository] find_title_context_by_id malformed id');
+            return new WP_Error('db_error', 'Fila de expediente malformada.');
+        }
+
+        if (!is_string($row['title'])) {
+            error_log('[ExpedientesRepository] find_title_context_by_id malformed title');
+            return new WP_Error('db_error', 'Fila de expediente malformada.');
+        }
+
+        return [
+            'id' => $stored_id,
+            'title' => $row['title'],
+        ];
+    }
+
+    /**
+     * Actualiza únicamente title y updated_at por id.
+     *
+     * @return true|false|WP_Error true = ≥1 fila; false = 0 filas; WP_Error = SQL
+     */
+    public static function update_title_by_id(int $id, string $title, string $updated_at) {
+        if ($id < 1 || $title === '' || $updated_at === '') {
+            return false;
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+
+        $result = $wpdb->update(
+            $table,
+            [
+                'title' => $title,
+                'updated_at' => $updated_at,
+            ],
+            ['id' => $id],
+            ['%s', '%s'],
+            ['%d']
+        );
+
+        if ($result === false || $wpdb->last_error) {
+            error_log('[ExpedientesRepository] update_title_by_id error');
+            return new WP_Error('db_error', 'No se pudo actualizar el expediente.');
+        }
+
+        return (int) $result >= 1;
+    }
 }

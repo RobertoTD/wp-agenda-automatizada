@@ -33,7 +33,13 @@ function createEl(tag, id) {
         children: [],
         attributes: Object.create(null),
         textContent: '',
+        value: '',
         disabled: false,
+        required: false,
+        maxLength: undefined,
+        autocomplete: '',
+        type: '',
+        name: '',
         parentNode: null,
         _listeners: Object.create(null),
         classList: {
@@ -112,6 +118,9 @@ function createEl(tag, id) {
         focus() {
             this._focused = true;
         },
+        select() {
+            this._selected = true;
+        },
         querySelector() { return null; },
         querySelectorAll() { return []; }
     };
@@ -133,21 +142,71 @@ function createEl(tag, id) {
     return el;
 }
 
+function registerIds(node, byId) {
+    if (!node || typeof node !== 'object') return;
+    if (node.id) byId[node.id] = node;
+    if (Array.isArray(node.children)) {
+        node.children.forEach((child) => registerIds(child, byId));
+    }
+}
+
 function flush() {
     return new Promise((resolve) => setImmediate(resolve));
 }
 
-function buildDom() {
+function defaultContainerActions(overrides) {
+    return Object.assign({
+        updateTitleAction: 'aa_update_expediente',
+        deleteAction: 'aa_delete_expediente',
+        nonce: 'nonce-aa_expedientes_nonce',
+        listUrl: 'https://example.test/wp-admin/admin-post.php?action=aa_iframe_content&module=expedientes',
+        title: 'Expediente de prueba',
+        capabilities: { updateTitle: true, delete: true }
+    }, overrides || {});
+}
+
+function defaultConfig(overrides) {
+    const base = {
+        ajaxUrl: 'https://example.test/wp-admin/admin-ajax.php',
+        expedienteId: '11',
+        containerActions: defaultContainerActions()
+    };
+    if (!overrides) return base;
+    const merged = Object.assign({}, base, overrides);
+    if (overrides.containerActions) {
+        merged.containerActions = defaultContainerActions(overrides.containerActions);
+    }
+    return merged;
+}
+
+function buildDom(options) {
+    const opts = options || {};
     const root = createEl('div', 'aa-expediente-detail-root');
     const header = createEl('div', 'aa-expediente-detail-header');
+    const titleEl = createEl('h3', 'aa-expediente-detail-title');
+    titleEl.textContent = opts.titleText != null ? opts.titleText : 'Expediente de prueba';
+    header.appendChild(titleEl);
+
     const tools = createEl('div', 'aa-expediente-detail-tools');
     const trigger = createEl('button', 'aa-expediente-detail-tools-trigger');
     trigger.setAttribute('aria-expanded', 'false');
     const menu = createEl('div', 'aa-expediente-detail-tools-menu');
     menu.classList.add('hidden');
     menu.setAttribute('hidden', 'hidden');
-    const deleteItem = createEl('button', 'aa-expediente-detail-tools-delete');
-    menu.appendChild(deleteItem);
+
+    let editItem = null;
+    if (opts.includeEdit !== false) {
+        editItem = createEl('button', 'aa-expediente-detail-tools-edit');
+        editItem.textContent = 'Editar';
+        menu.appendChild(editItem);
+    }
+    let deleteItem = null;
+    if (opts.includeDelete !== false) {
+        deleteItem = createEl('button', 'aa-expediente-detail-tools-delete');
+        deleteItem.textContent = 'Eliminar';
+        menu.appendChild(deleteItem);
+    }
+
     tools.appendChild(trigger);
     tools.appendChild(menu);
     header.appendChild(tools);
@@ -184,9 +243,11 @@ function buildDom() {
     return {
         root,
         header,
+        titleEl,
         tools,
         trigger,
         menu,
+        editItem,
         deleteItem,
         modalRoot,
         overlay,
@@ -218,16 +279,19 @@ function attachSharedModalDispatch(AAAdmin, document) {
 }
 
 function loadScript(options) {
-    const dom = buildDom();
+    const opts = options || {};
+    const dom = buildDom(opts.dom || {});
     const byId = {
         'aa-expediente-detail-root': dom.root,
         'aa-expediente-detail-header': dom.header,
+        'aa-expediente-detail-title': dom.titleEl,
         'aa-expediente-detail-tools': dom.tools,
         'aa-expediente-detail-tools-trigger': dom.trigger,
         'aa-expediente-detail-tools-menu': dom.menu,
-        'aa-expediente-detail-tools-delete': dom.deleteItem,
         'aa-modal-root': dom.modalRoot
     };
+    if (dom.editItem) byId['aa-expediente-detail-tools-edit'] = dom.editItem;
+    if (dom.deleteItem) byId['aa-expediente-detail-tools-delete'] = dom.deleteItem;
 
     const docListeners = Object.create(null);
     const location = {
@@ -249,41 +313,32 @@ function loadScript(options) {
         if (dom.modalFooter) {
             dom.modalFooter.children = [];
         }
-        // clear dynamic ids
         delete byId['aa-expediente-detail-delete-cancel'];
         delete byId['aa-expediente-detail-delete-confirm'];
         delete byId['aa-expediente-detail-delete-error'];
+        delete byId['aa-expediente-detail-edit-cancel'];
+        delete byId['aa-expediente-detail-edit-save'];
+        delete byId['aa-expediente-detail-edit-error'];
+        delete byId['aa-expediente-detail-edit-title'];
     };
 
     const AAAdmin = {
         modal: {
-            open(opts) {
+            open(modalOpts) {
                 modalOpen = true;
-                lastModal = opts;
+                lastModal = modalOpts;
                 dom.modalRoot.classList.remove('hidden');
-                const footer = opts.footer;
-                if (footer && footer.children) {
-                    footer.children.forEach((child) => {
-                        if (child.id) byId[child.id] = child;
-                        child.parentNode = footer;
-                        if (child.children) {
-                            child.children.forEach((nested) => {
-                                if (nested.id) byId[nested.id] = nested;
-                                nested.parentNode = child;
-                            });
-                        }
-                    });
+                const footer = modalOpts.footer;
+                if (footer) {
+                    registerIds(footer, byId);
                     if (dom.modalFooter) {
                         dom.modalFooter.children = [footer];
                         footer.parentNode = dom.modalFooter;
                     }
                 }
-                const body = opts.body;
-                if (body && body.children) {
-                    body.children.forEach((child) => {
-                        if (child.id) byId[child.id] = child;
-                        child.parentNode = body;
-                    });
+                const body = modalOpts.body;
+                if (body) {
+                    registerIds(body, byId);
                     if (dom.modalBody) {
                         dom.modalBody.children = [body];
                         body.parentNode = dom.modalBody;
@@ -296,7 +351,7 @@ function loadScript(options) {
     };
 
     const fetches = [];
-    const fetchImpl = options.fetchImpl || function (url, init) {
+    const fetchImpl = opts.fetchImpl || function (url, init) {
         fetches.push({ url, init });
         return Promise.resolve({
             ok: true,
@@ -308,15 +363,7 @@ function loadScript(options) {
         });
     };
 
-    const cfg = options.config !== undefined ? options.config : {
-        ajaxUrl: 'https://example.test/wp-admin/admin-ajax.php',
-        expedienteId: '11',
-        containerActions: {
-            deleteAction: 'aa_delete_expediente',
-            nonce: 'nonce-aa_expedientes_nonce',
-            listUrl: 'https://example.test/wp-admin/admin-post.php?action=aa_iframe_content&module=expedientes'
-        }
-    };
+    const cfg = opts.config !== undefined ? opts.config : defaultConfig();
 
     const sandbox = {
         window: {
@@ -393,10 +440,20 @@ function loadScript(options) {
                 type: 'click', preventDefault() {}, stopPropagation() {}, target: deleteItem
             });
         },
+        openEditModal() {
+            const { trigger, editItem } = this.dom;
+            trigger.dispatch('click', {
+                type: 'click', preventDefault() {}, stopPropagation() {}, target: trigger
+            });
+            editItem.dispatch('click', {
+                type: 'click', preventDefault() {}, stopPropagation() {}, target: editItem
+            });
+        },
         assertMenuCanReopen() {
             const { trigger, menu } = this.dom;
             const api = this.sandbox.window.AAAdmin.ExpedienteDetailActions;
             assert.equal(api._getState().confirmationOpen, false);
+            assert.equal(api._getState().activeModal, null);
             assert.equal(this.AAAdmin.modal.close, this.baseClose);
             assert.ok(this.byId['aa-expediente-detail-tools-trigger']);
             trigger._focused = false;
@@ -418,7 +475,11 @@ function loadScript(options) {
 describe('expediente-detail-actions source guards', () => {
     it('detail.php wires tools + containerActions + script once after create modal', () => {
         assert.match(detailSrc, /aa-expediente-detail-tools-trigger/);
+        assert.match(detailSrc, /aa-expediente-detail-tools-edit/);
+        assert.match(detailSrc, /aa-expediente-detail-title/);
         assert.match(detailSrc, /containerActions/);
+        assert.match(detailSrc, /updateTitleAction/);
+        assert.match(detailSrc, /aa_update_expediente/);
         assert.match(detailSrc, /aa_delete_expediente/);
         assert.match(detailSrc, /aa_expedientes_nonce/);
         assert.match(detailSrc, /expediente-detail-actions\.js/);
@@ -427,7 +488,10 @@ describe('expediente-detail-actions source guards', () => {
             detailSrc,
             /expediente-registro-create-modal\.js[\s\S]*expediente-detail-actions\.js/
         );
-        assert.doesNotMatch(detailSrc, /aa-expediente-detail-tools[\s\S]*Editar/);
+        assert.match(
+            detailSrc,
+            /id="aa-expediente-detail-tools-edit"[\s\S]*Editar[\s\S]*id="aa-expediente-detail-tools-delete"[\s\S]*Eliminar/
+        );
     });
 
     it('listado y clients no cargan detail-actions', () => {
@@ -451,6 +515,7 @@ describe('ExpedienteDetailActions', () => {
         ctx = loadScript({});
         const api = ctx.sandbox.window.AAAdmin.ExpedienteDetailActions;
         assert.equal(api._getState().mounted, true);
+        assert.equal(api._getState().currentTitle, 'Expediente de prueba');
         assert.equal(api.mount(), false);
     });
 
@@ -460,9 +525,12 @@ describe('ExpedienteDetailActions', () => {
                 ajaxUrl: 'https://example.test/wp-admin/admin-ajax.php',
                 expedienteId: '11',
                 containerActions: {
+                    updateTitleAction: 'aa_update_expediente',
                     deleteAction: 'aa_delete_expediente',
                     nonce: 'x',
-                    listUrl: 'https://evil.test/wp-admin/admin-post.php?action=aa_iframe_content&module=expedientes'
+                    listUrl: 'https://evil.test/wp-admin/admin-post.php?action=aa_iframe_content&module=expedientes',
+                    title: 'X',
+                    capabilities: { updateTitle: true, delete: true }
                 }
             }
         });
@@ -472,17 +540,65 @@ describe('ExpedienteDetailActions', () => {
 
     it('listUrl con expediente_id → fail closed', () => {
         ctx = loadScript({
-            config: {
-                ajaxUrl: 'https://example.test/wp-admin/admin-ajax.php',
-                expedienteId: '11',
+            config: defaultConfig({
                 containerActions: {
-                    deleteAction: 'aa_delete_expediente',
-                    nonce: 'x',
                     listUrl: 'https://example.test/wp-admin/admin-post.php?action=aa_iframe_content&module=expedientes&expediente_id=11'
                 }
-            }
+            })
         });
         assert.equal(ctx.sandbox.window.AAAdmin.ExpedienteDetailActions._getState().mounted, false);
+    });
+
+    it('capabilities ninguna → fail closed', () => {
+        ctx = loadScript({
+            config: defaultConfig({
+                containerActions: {
+                    capabilities: { updateTitle: false, delete: false }
+                }
+            })
+        });
+        assert.equal(ctx.sandbox.window.AAAdmin.ExpedienteDetailActions._getState().mounted, false);
+    });
+
+    it('delete-only sin listUrl → fail closed', () => {
+        ctx = loadScript({
+            config: defaultConfig({
+                containerActions: {
+                    listUrl: '',
+                    capabilities: { updateTitle: false, delete: true }
+                }
+            }),
+            dom: { includeEdit: false }
+        });
+        assert.equal(ctx.sandbox.window.AAAdmin.ExpedienteDetailActions._getState().mounted, false);
+    });
+
+    it('update-only sin updateTitleAction → fail closed', () => {
+        ctx = loadScript({
+            config: defaultConfig({
+                containerActions: {
+                    updateTitleAction: '',
+                    capabilities: { updateTitle: true, delete: false }
+                }
+            }),
+            dom: { includeDelete: false }
+        });
+        assert.equal(ctx.sandbox.window.AAAdmin.ExpedienteDetailActions._getState().mounted, false);
+    });
+
+    it('update-only sin h3 título → fail closed', () => {
+        ctx = loadScript({
+            config: defaultConfig({
+                containerActions: {
+                    capabilities: { updateTitle: true, delete: false }
+                }
+            }),
+            dom: { includeDelete: false }
+        });
+        delete ctx.byId['aa-expediente-detail-title'];
+        // remount after removing title
+        ctx.sandbox.window.AAAdmin.ExpedienteDetailActions.destroy();
+        assert.equal(ctx.sandbox.window.AAAdmin.ExpedienteDetailActions.mount(), false);
     });
 
     it('abre/cierra menú, aria-expanded, Escape y fuera', () => {
@@ -502,6 +618,195 @@ describe('ExpedienteDetailActions', () => {
         });
         ctx.dispatchDoc('click', { type: 'click', target: { id: 'outside' } });
         assert.equal(trigger.getAttribute('aria-expanded'), 'false');
+    });
+
+    it('editar abre sin fetch; prefill del título actual', () => {
+        ctx = loadScript({});
+        const api = ctx.sandbox.window.AAAdmin.ExpedienteDetailActions;
+        ctx.openEditModal();
+        assert.equal(ctx.getModalOpen(), true);
+        assert.equal(api._getState().activeModal, 'edit');
+        assert.equal(ctx.fetches.length, 0);
+        const input = ctx.byId['aa-expediente-detail-edit-title'];
+        assert.ok(input);
+        assert.equal(input.value, 'Expediente de prueba');
+        assert.equal(ctx.getLastModal().title, 'Editar expediente');
+    });
+
+    it('editar cancel/X/overlay/Escape → cero fetch + reabrir menú', () => {
+        ctx = loadScript({});
+        const api = ctx.sandbox.window.AAAdmin.ExpedienteDetailActions;
+        const { trigger, overlay, closeBtn } = ctx.dom;
+
+        function cycleClose(closeFn) {
+            ctx.openEditModal();
+            assert.equal(ctx.getModalOpen(), true);
+            assert.equal(api._getState().activeModal, 'edit');
+            assert.notEqual(ctx.AAAdmin.modal.close, ctx.baseClose);
+            closeFn();
+            assert.equal(ctx.getModalOpen(), false);
+            assert.equal(ctx.fetches.length, 0);
+            assert.equal(api._getState().activeModal, null);
+            assert.equal(ctx.AAAdmin.modal.close, ctx.baseClose);
+            assert.equal(trigger.getAttribute('aria-expanded'), 'false');
+            ctx.assertMenuCanReopen();
+        }
+
+        cycleClose(() => ctx.closeViaSharedClick(ctx.byId['aa-expediente-detail-edit-cancel']));
+        cycleClose(() => ctx.closeViaSharedClick(closeBtn));
+        cycleClose(() => ctx.closeViaSharedClick(overlay));
+        cycleClose(() => ctx.closeViaEscape());
+    });
+
+    it('edit→cancel→delete y delete→cancel→edit', () => {
+        ctx = loadScript({});
+        const api = ctx.sandbox.window.AAAdmin.ExpedienteDetailActions;
+
+        ctx.openEditModal();
+        assert.equal(api._getState().activeModal, 'edit');
+        ctx.closeViaSharedClick(ctx.byId['aa-expediente-detail-edit-cancel']);
+        assert.equal(api._getState().activeModal, null);
+        ctx.assertMenuCanReopen();
+
+        ctx.openDeleteConfirm();
+        assert.equal(api._getState().activeModal, 'delete');
+        assert.equal(api._getState().confirmationOpen, true);
+        ctx.closeViaSharedClick(ctx.byId['aa-expediente-detail-delete-cancel']);
+        assert.equal(api._getState().confirmationOpen, false);
+        ctx.assertMenuCanReopen();
+
+        ctx.openEditModal();
+        assert.equal(api._getState().activeModal, 'edit');
+        assert.equal(ctx.fetches.length, 0);
+    });
+
+    it('guardar título vacío → error local sin fetch', () => {
+        ctx = loadScript({});
+        ctx.openEditModal();
+        const input = ctx.byId['aa-expediente-detail-edit-title'];
+        input.value = '   ';
+        ctx.byId['aa-expediente-detail-edit-save'].dispatch('click', {
+            type: 'click', preventDefault() {}, stopPropagation() {}
+        });
+        assert.equal(ctx.fetches.length, 0);
+        const err = ctx.byId['aa-expediente-detail-edit-error'];
+        assert.equal(err.classList.contains('hidden'), false);
+        assert.match(err.textContent, /obligatorio/);
+    });
+
+    it('guardar → POST exacto sin client_id; éxito actualiza h3 y currentTitle', async () => {
+        ctx = loadScript({
+            fetchImpl: (url, init) => {
+                ctx.fetches.push({ url, init });
+                return Promise.resolve({
+                    ok: true,
+                    status: 200,
+                    text: () => Promise.resolve(JSON.stringify({
+                        success: true,
+                        data: {
+                            expediente: { id: 11, title: 'Título nuevo' }
+                        }
+                    }))
+                });
+            }
+        });
+        const api = ctx.sandbox.window.AAAdmin.ExpedienteDetailActions;
+        ctx.openEditModal();
+        const input = ctx.byId['aa-expediente-detail-edit-title'];
+        input.value = 'Título nuevo';
+        ctx.byId['aa-expediente-detail-edit-save'].dispatch('click', {
+            type: 'click', preventDefault() {}, stopPropagation() {}
+        });
+        await flush();
+        await flush();
+
+        assert.equal(ctx.fetches.length, 1);
+        const body = ctx.fetches[0].init.body;
+        assert.match(body, /action=aa_update_expediente/);
+        assert.match(body, /_wpnonce=nonce-aa_expedientes_nonce/);
+        assert.match(body, /expediente_id=11/);
+        assert.match(body, /title=T%C3%ADtulo\+nuevo|title=T%C3%ADtulo%20nuevo/);
+        assert.doesNotMatch(body, /client_id/);
+        assert.doesNotMatch(body, /scopeKey/);
+        assert.equal(ctx.dom.titleEl.textContent, 'Título nuevo');
+        assert.equal(api._getState().currentTitle, 'Título nuevo');
+        assert.equal(
+            ctx.sandbox.window.AA_EXPEDIENTE_DETAIL_DATA.containerActions.title,
+            'Título nuevo'
+        );
+        assert.equal(ctx.getModalOpen(), false);
+        assert.equal(api._getState().activeModal, null);
+    });
+
+    it('doble guardar → un request', async () => {
+        let resolveFetch;
+        let calls = 0;
+        ctx = loadScript({
+            fetchImpl: () => {
+                calls += 1;
+                return new Promise((resolve) => { resolveFetch = resolve; });
+            }
+        });
+        ctx.openEditModal();
+        ctx.byId['aa-expediente-detail-edit-title'].value = 'Otro';
+        const save = ctx.byId['aa-expediente-detail-edit-save'];
+        save.dispatch('click', { type: 'click' });
+        save.dispatch('click', { type: 'click' });
+        assert.equal(save.disabled, true);
+        assert.equal(save.getAttribute('aria-busy'), 'true');
+        assert.equal(calls, 1);
+
+        resolveFetch({
+            ok: true,
+            status: 200,
+            text: () => Promise.resolve(JSON.stringify({
+                success: true,
+                data: { expediente: { id: 11, title: 'Otro' } }
+            }))
+        });
+        await flush();
+        await flush();
+        assert.equal(calls, 1);
+        assert.equal(ctx.dom.titleEl.textContent, 'Otro');
+    });
+
+    it('error de update mantiene título actual', async () => {
+        ctx = loadScript({
+            fetchImpl: () => Promise.resolve({
+                ok: false,
+                status: 400,
+                text: () => Promise.resolve(JSON.stringify({
+                    success: false,
+                    data: { code: 'missing_title', message: 'SECRET' }
+                }))
+            })
+        });
+        const api = ctx.sandbox.window.AAAdmin.ExpedienteDetailActions;
+        const before = ctx.dom.titleEl.textContent;
+        ctx.openEditModal();
+        ctx.byId['aa-expediente-detail-edit-title'].value = 'Intento fallido';
+        ctx.byId['aa-expediente-detail-edit-save'].dispatch('click', { type: 'click' });
+        await flush();
+        await flush();
+        assert.equal(ctx.dom.titleEl.textContent, before);
+        assert.equal(api._getState().currentTitle, 'Expediente de prueba');
+        assert.equal(ctx.getModalOpen(), true);
+        const err = ctx.byId['aa-expediente-detail-edit-error'];
+        assert.match(err.textContent, /obligatorio/);
+        assert.doesNotMatch(err.textContent, /SECRET/);
+    });
+
+    it('destroy tras edit cancel restaura close', () => {
+        ctx = loadScript({});
+        const api = ctx.sandbox.window.AAAdmin.ExpedienteDetailActions;
+        ctx.openEditModal();
+        ctx.closeViaSharedClick(ctx.byId['aa-expediente-detail-edit-cancel']);
+        api.destroy();
+        assert.equal(api._getState().mounted, false);
+        assert.equal(ctx.AAAdmin.modal.close, ctx.baseClose);
+        assert.equal(ctx.dom.trigger._listeners.click.length, 0);
+        assert.equal(ctx.dom.editItem._listeners.click.length, 0);
+        assert.equal(ctx.dom.deleteItem._listeners.click.length, 0);
     });
 
     it('abrir confirmación y cancelar/X/overlay/Escape → cero fetch', () => {

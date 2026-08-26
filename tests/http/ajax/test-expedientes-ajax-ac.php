@@ -32,20 +32,26 @@ ac_assert('ajax file readable', $ajax_src !== '');
 ac_assert('ACTION_LIST aa_list_expedientes', strpos($ajax_src, 'aa_list_expedientes') !== false);
 ac_assert('ACTION_CREATE aa_create_expediente', strpos($ajax_src, 'aa_create_expediente') !== false);
 ac_assert('ACTION_DELETE aa_delete_expediente', strpos($ajax_src, "ACTION_DELETE = 'aa_delete_expediente'") !== false);
+ac_assert('ACTION_UPDATE aa_update_expediente', strpos($ajax_src, "ACTION_UPDATE = 'aa_update_expediente'") !== false);
 ac_assert('nonce propio aa_expedientes_nonce', strpos($ajax_src, 'aa_expedientes_nonce') !== false);
 ac_assert('manage_options', strpos($ajax_src, "current_user_can('manage_options')") !== false);
 ac_assert('check_ajax_referer', strpos($ajax_src, 'check_ajax_referer') !== false);
 ac_assert('delete nonce soft die=false', strpos($ajax_src, "check_ajax_referer(self::NONCE_ACTION, '_wpnonce', false)") !== false);
+ac_assert('update nonce soft die=false', substr_count($ajax_src, "check_ajax_referer(self::NONCE_ACTION, '_wpnonce', false)") >= 2);
 ac_assert('reutiliza gate full', strpos($ajax_src, 'ExpedienteRegistrosAjax::require_expediente_shell_access') !== false);
 ac_assert('sin nopriv', strpos($ajax_src, 'wp_ajax_nopriv_') === false);
 ac_assert('bootstrap register', strpos($bootstrap_src, 'ExpedientesAjax::register()') !== false);
 ac_assert('bootstrap require', strpos($bootstrap_src, 'includes/http/ajax/ExpedientesAjax.php') !== false);
 ac_assert('bootstrap sin nopriv padre', strpos($bootstrap_src, 'wp_ajax_nopriv_aa_list_expedientes') === false
     && strpos($bootstrap_src, 'wp_ajax_nopriv_aa_create_expediente') === false
-    && strpos($bootstrap_src, 'wp_ajax_nopriv_aa_delete_expediente') === false);
+    && strpos($bootstrap_src, 'wp_ajax_nopriv_aa_delete_expediente') === false
+    && strpos($bootstrap_src, 'wp_ajax_nopriv_aa_update_expediente') === false);
 ac_assert('delega ListExpedientesUseCase', strpos($ajax_src, 'ListExpedientesUseCase') !== false);
 ac_assert('delega CreateExpedienteUseCase', strpos($ajax_src, 'CreateExpedienteUseCase') !== false);
+ac_assert('delega UpdateExpedienteUseCase', strpos($ajax_src, 'UpdateExpedienteUseCase') !== false);
 ac_assert('delega DeleteExpedienteUseCase', strpos($ajax_src, 'DeleteExpedienteUseCase') !== false);
+ac_assert('register ACTION_UPDATE', strpos($ajax_src, 'ACTION_UPDATE') !== false
+    && strpos($ajax_src, "add_action('wp_ajax_' . self::ACTION_UPDATE") !== false);
 ac_assert('sin GetExpedienteUseCase ni AJAX de detalle', strpos($ajax_src, 'GetExpedienteUseCase') === false);
 ac_assert('list/create via respond_use_case', strpos($ajax_src, 'respond_use_case($result)') !== false);
 ac_assert('delete HTTP map aggregate_inconsistent', strpos($ajax_src, "case 'aggregate_inconsistent':") !== false);
@@ -224,20 +230,45 @@ final class DeleteExpedienteUseCase {
     }
 }
 
+final class UpdateExpedienteUseCase {
+    /** @var array<string,mixed>|null */
+    public static $last_input = null;
+    public static $calls = 0;
+    /** @var array<string,mixed> */
+    public static $result = [
+        'success' => true,
+        'data' => [
+            'expediente' => [
+                'id' => 11,
+                'title' => 'Actualizado',
+            ],
+        ],
+    ];
+
+    public function execute(array $input): array {
+        self::$calls++;
+        self::$last_input = $input;
+        return self::$result;
+    }
+}
+
 require_once $plugin_root . '/includes/http/ajax/ExpedientesAjax.php';
 
 ac_assert('class exists', class_exists('ExpedientesAjax'));
 ac_assert('constants', ExpedientesAjax::ACTION_LIST === 'aa_list_expedientes'
     && ExpedientesAjax::ACTION_CREATE === 'aa_create_expediente'
+    && ExpedientesAjax::ACTION_UPDATE === 'aa_update_expediente'
     && ExpedientesAjax::ACTION_DELETE === 'aa_delete_expediente'
     && ExpedientesAjax::NONCE_ACTION === 'aa_expedientes_nonce');
 
 ExpedientesAjax::register();
 ac_assert('register wp_ajax_aa_list_expedientes', in_array('wp_ajax_aa_list_expedientes', $GLOBALS['aa_test_actions'], true));
 ac_assert('register wp_ajax_aa_create_expediente', in_array('wp_ajax_aa_create_expediente', $GLOBALS['aa_test_actions'], true));
+ac_assert('register wp_ajax_aa_update_expediente', in_array('wp_ajax_aa_update_expediente', $GLOBALS['aa_test_actions'], true));
 ac_assert('register wp_ajax_aa_delete_expediente', in_array('wp_ajax_aa_delete_expediente', $GLOBALS['aa_test_actions'], true));
 ac_assert('register no nopriv', !in_array('wp_ajax_nopriv_aa_list_expedientes', $GLOBALS['aa_test_actions'], true)
     && !in_array('wp_ajax_nopriv_aa_create_expediente', $GLOBALS['aa_test_actions'], true)
+    && !in_array('wp_ajax_nopriv_aa_update_expediente', $GLOBALS['aa_test_actions'], true)
     && !in_array('wp_ajax_nopriv_aa_delete_expediente', $GLOBALS['aa_test_actions'], true));
 
 /**
@@ -274,6 +305,17 @@ function aa_reset_expedientes_ajax_runtime(): void {
         'data' => [
             'deleted' => true,
             'expediente_id' => 11,
+        ],
+    ];
+    UpdateExpedienteUseCase::$last_input = null;
+    UpdateExpedienteUseCase::$calls = 0;
+    UpdateExpedienteUseCase::$result = [
+        'success' => true,
+        'data' => [
+            'expediente' => [
+                'id' => 11,
+                'title' => 'Actualizado',
+            ],
         ],
     ];
     $GLOBALS['aa_test_can_manage_options'] = true;
@@ -450,6 +492,75 @@ DeleteExpedienteUseCase::$result = [
 $_POST = ['expediente_id' => 11];
 $del_500 = aa_invoke_expedientes_ajax([ExpedientesAjax::class, 'handle_delete']);
 ac_assert('delete coordination_lost → 500', ($del_500['status'] ?? 0) === 500);
+
+// --- Update título ---
+aa_reset_expedientes_ajax_runtime();
+$GLOBALS['aa_test_can_manage_options'] = false;
+$up_cap = aa_invoke_expedientes_ajax([ExpedientesAjax::class, 'handle_update']);
+ac_assert('update capability → 403', ($up_cap['status'] ?? 0) === 403);
+ac_assert('update capability no UC', UpdateExpedienteUseCase::$calls === 0);
+
+aa_reset_expedientes_ajax_runtime();
+$GLOBALS['aa_test_nonce_valid'] = false;
+$up_nonce = aa_invoke_expedientes_ajax([ExpedientesAjax::class, 'handle_update']);
+ac_assert('update nonce soft → 403', ($up_nonce['status'] ?? 0) === 403
+    && ($up_nonce['data']['code'] ?? '') === 'invalid_nonce');
+
+aa_reset_expedientes_ajax_runtime();
+ExpedienteRegistrosAjax::$access = 'free';
+$up_gate = aa_invoke_expedientes_ajax([ExpedientesAjax::class, 'handle_update']);
+ac_assert('update gate → 403', ($up_gate['status'] ?? 0) === 403);
+ac_assert('update gate no UC', UpdateExpedienteUseCase::$calls === 0);
+
+aa_reset_expedientes_ajax_runtime();
+$_POST = [
+    'expediente_id' => '11',
+    'title' => '  Nuevo título  ',
+    'client_id' => '7',
+    'category_id' => '3',
+    'description' => 'no',
+    'updated_at' => '1999-01-01 00:00:00',
+];
+$up_ok = aa_invoke_expedientes_ajax([ExpedientesAjax::class, 'handle_update']);
+ac_assert('update éxito', ($up_ok['success'] ?? false) === true && UpdateExpedienteUseCase::$calls === 1);
+ac_assert('update envelope mínimo', ($up_ok['data']['expediente']['id'] ?? 0) === 11
+    && ($up_ok['data']['expediente']['title'] ?? '') === 'Actualizado'
+    && count($up_ok['data'] ?? []) === 1);
+ac_assert('update ID raw', (UpdateExpedienteUseCase::$last_input['expediente_id'] ?? null) === '11');
+ac_assert('update title saneado', (UpdateExpedienteUseCase::$last_input['title'] ?? '') === 'Nuevo título');
+ac_assert('update ignora campos falsos', !array_key_exists('client_id', UpdateExpedienteUseCase::$last_input ?? [])
+    && !array_key_exists('category_id', UpdateExpedienteUseCase::$last_input ?? [])
+    && !array_key_exists('description', UpdateExpedienteUseCase::$last_input ?? [])
+    && !array_key_exists('updated_at', UpdateExpedienteUseCase::$last_input ?? []));
+
+aa_reset_expedientes_ajax_runtime();
+UpdateExpedienteUseCase::$result = [
+    'success' => false,
+    'error' => ['code' => 'missing_title', 'message' => 'El título es obligatorio.'],
+];
+$_POST = ['expediente_id' => 11, 'title' => ''];
+$up_400 = aa_invoke_expedientes_ajax([ExpedientesAjax::class, 'handle_update']);
+ac_assert('update missing_title → 400', ($up_400['status'] ?? 0) === 400
+    && ($up_400['data']['code'] ?? '') === 'missing_title'
+    && UpdateExpedienteUseCase::$calls === 1);
+
+aa_reset_expedientes_ajax_runtime();
+UpdateExpedienteUseCase::$result = [
+    'success' => false,
+    'error' => ['code' => 'not_found', 'message' => 'gone'],
+];
+$_POST = ['expediente_id' => 11, 'title' => 'X'];
+$up_404 = aa_invoke_expedientes_ajax([ExpedientesAjax::class, 'handle_update']);
+ac_assert('update not_found → 404', ($up_404['status'] ?? 0) === 404);
+
+aa_reset_expedientes_ajax_runtime();
+UpdateExpedienteUseCase::$result = [
+    'success' => false,
+    'error' => ['code' => 'persistence_failed', 'message' => 'db'],
+];
+$_POST = ['expediente_id' => 11, 'title' => 'X'];
+$up_500 = aa_invoke_expedientes_ajax([ExpedientesAjax::class, 'handle_update']);
+ac_assert('update persistence → 500', ($up_500['status'] ?? 0) === 500);
 
 echo "\nResultado: {$passed}/{$total} OK\n";
 if ($failed) {
