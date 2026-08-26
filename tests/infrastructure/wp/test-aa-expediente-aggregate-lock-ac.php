@@ -266,6 +266,19 @@ ac_assert(
     strpos($bootstrap, 'DeleteExpedienteUseCase') === false
 );
 
+// P3 — storage_quota scope
+$logs = [];
+$state->get_lock = 1;
+$state->conn = 99;
+$state->is_used = 1;
+$state->release = 1;
+$quota = $lock->acquire(AA_Expediente_Aggregate_Lock::SCOPE_STORAGE_QUOTA, AA_Expediente_Aggregate_Lock::STORAGE_QUOTA_SCOPE_ID, 1);
+ac_assert('quota acquire ok', $quota instanceof AA_Expediente_Aggregate_Lock_Lease);
+ac_assert('quota scope_kind', $quota instanceof AA_Expediente_Aggregate_Lock_Lease && $quota->scope_kind() === 'storage_quota');
+ac_assert('quota scope_id', $quota instanceof AA_Expediente_Aggregate_Lock_Lease && $quota->scope_id() === 1);
+$bad_quota = $lock->acquire(AA_Expediente_Aggregate_Lock::SCOPE_STORAGE_QUOTA, 2, 1);
+ac_assert('quota id≠1 inválido', is_wp_error($bad_quota) && $bad_quota->get_error_code() === 'invalid_lock_scope');
+
 echo "\nResultado: {$passed}/{$total}\n";
 if ($failed !== []) {
     echo "Fallidos:\n- " . implode("\n- ", $failed) . "\n";

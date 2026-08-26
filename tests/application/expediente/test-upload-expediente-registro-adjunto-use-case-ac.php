@@ -62,7 +62,7 @@ if (!function_exists('current_time')) {
 $src = file_get_contents($plugin_root . '/includes/application/expediente/UploadExpedienteRegistroAdjuntoUseCase.php');
 ac_assert('use case file exists', is_string($src) && $src !== '');
 ac_assert(
-    'orden validate → used_bytes → transfer → finalize_matches → insert',
+    'orden validate → lock → used_bytes → transfer → finalize_matches → insert',
     strpos($src, 'validator->validate') !== false
     && strpos($src, 'sum_byte_size_total') !== false
     && strpos($src, 'transfer->transfer') !== false
@@ -73,8 +73,9 @@ ac_assert(
     && strpos($src, 'transfer->transfer') < strpos($src, 'finalize_matches_expectation')
     && strpos($src, 'finalize_matches_expectation') < strpos($src, 'ExpedienteAdjuntosRepository::insert_finalized')
 );
+ac_assert('quota lock site', strpos($src, 'SCOPE_STORAGE_QUOTA') !== false);
 ac_assert('verifica installation_id', strpos($src, 'installation_id') !== false);
-ac_assert('verifica client/record en path', strpos($src, 'storage_path_matches_context') !== false);
+ac_assert('verifica path con parser dual', strpos($src, 'parse_original_path') !== false);
 ac_assert('cleanup finally', strpos($src, 'cleanup_tmp') !== false && strpos($src, 'finally') !== false);
 ac_assert('sin transacción SQL alrededor HTTP', !preg_match('/START TRANSACTION|BEGIN\b/', $src));
 ac_assert('usa ExpedienteAdjuntoUploadTransfer', strpos($src, 'ExpedienteAdjuntoUploadTransfer') !== false);
@@ -117,9 +118,15 @@ final class ExpedienteAdjuntosRepository {
     public static $error = null;
     /** @var int|null */
     public static $sum_bytes = 0;
+    /** @var array|null */
+    public static $by_op = null;
 
     public static function sum_byte_size_total(): ?int {
         return self::$sum_bytes;
+    }
+
+    public static function find_by_upload_operation_id(string $upload_operation_id): ?array {
+        return self::$by_op;
     }
 
     public static function insert_finalized(array $data) {
@@ -231,18 +238,18 @@ ac_assert('happy path ok', !empty($res['ok']), json_encode($res));
 ac_assert('llama transfer una vez', $transfer->calls === ['transfer']);
 ac_assert('insert una vez', count(ExpedienteAdjuntosRepository::$inserts) === 1);
 ac_assert(
-    'input exacto al transfer',
-    ($transfer->inputs[0] ?? null) === [
-        'source_path' => $path,
-        'mime_type' => 'image/jpeg',
-        'byte_size' => $size,
-        'width' => (int) $info[0],
-        'height' => (int) $info[1],
-        'upload_operation_id' => $op,
-        'wp_client_id' => 7,
-        'wp_record_id' => 11,
-        'used_bytes' => 0,
-    ]
+    'input identity client_v1 al transfer',
+    ($transfer->inputs[0]['source_path'] ?? null) === $path
+    && ($transfer->inputs[0]['mime_type'] ?? null) === 'image/jpeg'
+    && ($transfer->inputs[0]['byte_size'] ?? null) === $size
+    && ($transfer->inputs[0]['width'] ?? null) === (int) $info[0]
+    && ($transfer->inputs[0]['height'] ?? null) === (int) $info[1]
+    && ($transfer->inputs[0]['upload_operation_id'] ?? null) === $op
+    && ($transfer->inputs[0]['used_bytes'] ?? null) === 0
+    && ($transfer->inputs[0]['identity']['contract'] ?? null) === 'client_v1'
+    && ($transfer->inputs[0]['identity']['client_id'] ?? null) === 7
+    && ($transfer->inputs[0]['identity']['record_id'] ?? null) === 11
+    && ($transfer->inputs[0]['identity']['expediente_id'] ?? null) === null
 );
 ac_assert(
     'DTO público idéntico',

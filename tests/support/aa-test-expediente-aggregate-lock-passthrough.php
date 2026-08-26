@@ -47,12 +47,32 @@ if (!class_exists('AA_Test_Passthrough_Expediente_Aggregate_Lock')) {
         /** @var WP_Error|null */
         public $next_acquire = null;
 
+        /**
+         * Secuencia opcional por acquire (P3: aggregate luego quota).
+         * Cada entrada: null = éxito, WP_Error = fallo.
+         *
+         * @var list<WP_Error|null>|null
+         */
+        public $acquire_sequence = null;
+
+        /** @var int */
+        public $acquire_sequence_index = 0;
+
+        /** @var list<AA_Expediente_Aggregate_Lock_Lease> */
+        public $release_order = [];
+
         /** @var WP_Error|true|null */
         public $next_assert = null;
 
         public function acquire(string $scope_kind, int $scope_id, int $timeout_seconds = self::DEFAULT_TIMEOUT_SECONDS) {
             $this->acquire_calls[] = compact('scope_kind', 'scope_id', 'timeout_seconds');
-            if ($this->next_acquire instanceof WP_Error) {
+            if (is_array($this->acquire_sequence)) {
+                $idx = $this->acquire_sequence_index++;
+                $forced = $this->acquire_sequence[$idx] ?? null;
+                if ($forced instanceof WP_Error) {
+                    return $forced;
+                }
+            } elseif ($this->next_acquire instanceof WP_Error) {
                 return $this->next_acquire;
             }
 
@@ -69,6 +89,9 @@ if (!class_exists('AA_Test_Passthrough_Expediente_Aggregate_Lock')) {
 
         public function release($lease): bool {
             $this->release_calls++;
+            if ($lease instanceof AA_Expediente_Aggregate_Lock_Lease) {
+                $this->release_order[] = $lease;
+            }
             return true;
         }
     }

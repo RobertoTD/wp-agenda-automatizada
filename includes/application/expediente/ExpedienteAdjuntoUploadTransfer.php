@@ -1,7 +1,8 @@
 <?php
 /**
- * Transferencia v1 de adjuntos de expediente (original + tres variantes).
+ * Transferencia de adjuntos de expediente (original + tres variantes).
  *
+ * P3: identidad discriminada client_v1 | expediente_v2.
  * Application: orquesta generador, authorize/finalize y PUT firmados.
  * No persiste filas, no construye DTO, no compensa Storage.
  */
@@ -41,7 +42,7 @@ final class ExpedienteAdjuntoUploadTransfer {
 
     /**
      * @param object $generator generate(string): array, delete_generated(array): void
-     * @param object $backend   authorize_upload(array): array, finalize(string): array
+     * @param object $backend   authorize_upload / authorize_expediente_upload + finalize
      * @param object $uploader  put_jpeg(string, string, string): array
      */
     public function __construct(object $generator, object $backend, object $uploader) {
@@ -58,9 +59,15 @@ final class ExpedienteAdjuntoUploadTransfer {
      *   width:int,
      *   height:int,
      *   upload_operation_id:string,
-     *   wp_client_id:int,
-     *   wp_record_id:int,
-     *   used_bytes:int
+     *   used_bytes:int,
+     *   identity?:array{
+     *     contract:string,
+     *     record_id:int,
+     *     client_id?:?int,
+     *     expediente_id?:?int
+     *   },
+     *   wp_client_id?:int,
+     *   wp_record_id?:int
      * } $input
      * @return array{ok:true, storage_path:string, finalize:array<string,mixed>}
      *     |array{ok:false, code:string, message:string}
@@ -71,9 +78,12 @@ final class ExpedienteAdjuntoUploadTransfer {
         try {
             $source_path = (string) ($input['source_path'] ?? '');
             $operation_id = strtolower(trim((string) ($input['upload_operation_id'] ?? '')));
-            $client_id = (int) ($input['wp_client_id'] ?? 0);
-            $record_id = (int) ($input['wp_record_id'] ?? 0);
             $original_bytes = (int) ($input['byte_size'] ?? 0);
+
+            $identity = $this->normalize_identity($input);
+            if ($identity === null) {
+                return $this->fail('invalid_context', 'Identidad de subida no válida.');
+            }
 
             $generated = $this->generator->generate($source_path);
             if (!is_array($generated) || empty($generated['ok'])) {
@@ -96,23 +106,7 @@ final class ExpedienteAdjuntoUploadTransfer {
                 );
             }
 
-            $authorize = $this->backend->authorize_upload([
-                'upload_operation_id' => $operation_id,
-                'wp_client_id' => $client_id,
-                'wp_record_id' => $record_id,
-                'mime_type' => (string) ($input['mime_type'] ?? ''),
-                'byte_size' => $original_bytes,
-                'width' => (int) ($input['width'] ?? 0),
-                'height' => (int) ($input['height'] ?? 0),
-                'used_bytes' => (int) ($input['used_bytes'] ?? 0),
-                'variants_manifest_version' => ExpedienteAdjuntoVariants::MANIFEST_VERSION,
-                'variant_byte_sizes' => [
-                    'summary' => $checked['summary']['byte_size'],
-                    'gallery' => $checked['gallery']['byte_size'],
-                    'display' => $checked['display']['byte_size'],
-                ],
-            ]);
-
+            $authorize = $this->authorize($identity, $input, $operation_id, $original_bytes, $checked);
             $auth_failure = $this->closed_failure($authorize, 'authorize_invalid', 'No se pudo autorizar la subida de la imagen.');
             if ($auth_failure !== null) {
                 return $auth_failure;
@@ -125,7 +119,7 @@ final class ExpedienteAdjuntoUploadTransfer {
                 );
             }
 
-            $plan = $this->operational_plan($authorize, $client_id, $record_id, $operation_id);
+            $plan = $this->operational_plan($authorize, $identity, $operation_id);
             if ($plan['ok'] !== true) {
                 return $this->fail($plan['code'], $plan['message']);
             }
@@ -204,6 +198,111 @@ final class ExpedienteAdjuntoUploadTransfer {
     }
 
     /**
+     * @param array<string,mixed> $input
+     * @return array{contract:string,record_id:int,client_id:?int,expediente_id:?int}|null
+     */
+    private function normalize_identity(array $input): ?array {
+        if (isset($input['identity']) && is_array($input['identity'])) {
+            $raw = $input['identity'];
+            $contract = (string) ($raw['contract'] ?? '');
+            $record_id = (int) ($raw['record_id'] ?? 0);
+            if ($record_id < 1) {
+                return null;
+            }
+
+            if ($contract === ExpedienteAdjuntoVariants::CONTRACT_CLIENT_V1) {
+                $client_id = (int) ($raw['client_id'] ?? 0);
+                if ($client_id < 1) {
+                    return null;
+                }
+                if (array_key_exists('expediente_id', $raw) && $raw['expediente_id'] !== null) {
+                    return null;
+                }
+
+                return [
+                    'contract' => $contract,
+                    'record_id' => $record_id,
+                    'client_id' => $client_id,
+                    'expediente_id' => null,
+                ];
+            }
+
+            if ($contract === ExpedienteAdjuntoVariants::CONTRACT_EXPEDIENTE_V2) {
+                $expediente_id = (int) ($raw['expediente_id'] ?? 0);
+                if ($expediente_id < 1) {
+                    return null;
+                }
+                if (array_key_exists('client_id', $raw) && $raw['client_id'] !== null) {
+                    // Snapshot metadata is separate; identity for path must not carry client as path authority.
+                    // Allow null only.
+                }
+                // Path identity never includes client.
+                return [
+                    'contract' => $contract,
+                    'record_id' => $record_id,
+                    'client_id' => null,
+                    'expediente_id' => $expediente_id,
+                ];
+            }
+
+            return null;
+        }
+
+        // Compat legacy: wp_client_id + wp_record_id ⇒ client_v1.
+        $client_id = (int) ($input['wp_client_id'] ?? 0);
+        $record_id = (int) ($input['wp_record_id'] ?? 0);
+        if ($client_id < 1 || $record_id < 1) {
+            return null;
+        }
+
+        return [
+            'contract' => ExpedienteAdjuntoVariants::CONTRACT_CLIENT_V1,
+            'record_id' => $record_id,
+            'client_id' => $client_id,
+            'expediente_id' => null,
+        ];
+    }
+
+    /**
+     * @param array{contract:string,record_id:int,client_id:?int,expediente_id:?int} $identity
+     * @param array<string,mixed> $input
+     * @param array<string,array{path:string,byte_size:int}> $checked
+     * @return mixed
+     */
+    private function authorize(array $identity, array $input, string $operation_id, int $original_bytes, array $checked) {
+        $common = [
+            'upload_operation_id' => $operation_id,
+            'mime_type' => (string) ($input['mime_type'] ?? ''),
+            'byte_size' => $original_bytes,
+            'width' => (int) ($input['width'] ?? 0),
+            'height' => (int) ($input['height'] ?? 0),
+            'used_bytes' => (int) ($input['used_bytes'] ?? 0),
+            'variants_manifest_version' => ExpedienteAdjuntoVariants::MANIFEST_VERSION,
+            'variant_byte_sizes' => [
+                'summary' => $checked['summary']['byte_size'],
+                'gallery' => $checked['gallery']['byte_size'],
+                'display' => $checked['display']['byte_size'],
+            ],
+        ];
+
+        if ($identity['contract'] === ExpedienteAdjuntoVariants::CONTRACT_EXPEDIENTE_V2) {
+            if (!method_exists($this->backend, 'authorize_expediente_upload')) {
+                return $this->fail('authorize_invalid', 'No se pudo autorizar la subida de la imagen.');
+            }
+
+            return $this->backend->authorize_expediente_upload(array_merge($common, [
+                'wp_expediente_id' => (int) $identity['expediente_id'],
+                'wp_record_id' => (int) $identity['record_id'],
+            ]));
+        }
+
+        return $this->backend->authorize_upload(array_merge($common, [
+            'wp_client_id' => (int) $identity['client_id'],
+            'wp_record_id' => (int) $identity['record_id'],
+        ]));
+    }
+
+    /**
      * @param array<string,mixed> $raw
      * @return array<string,array{path:string,byte_size:int}>|null
      */
@@ -240,6 +339,7 @@ final class ExpedienteAdjuntoUploadTransfer {
 
     /**
      * @param mixed $authorize
+     * @param array{contract:string,record_id:int,client_id:?int,expediente_id:?int} $identity
      * @return array{
      *   ok:true,
      *   storage_path:string,
@@ -248,7 +348,7 @@ final class ExpedienteAdjuntoUploadTransfer {
      *   paths:array<string,string>
      * }|array{ok:false,code:string,message:string}
      */
-    private function operational_plan($authorize, int $client_id, int $record_id, string $operation_id): array {
+    private function operational_plan($authorize, array $identity, string $operation_id): array {
         if (!is_array($authorize) || empty($authorize['ok'])) {
             return $this->fail('authorize_invalid', 'Respuesta de autorización incompleta.');
         }
@@ -274,12 +374,30 @@ final class ExpedienteAdjuntoUploadTransfer {
         if ($parsed === null) {
             return $this->fail('path_mismatch', 'La ruta de almacenamiento no coincide con el contexto.');
         }
-        if (
-            (int) $parsed['wp_client_id'] !== $client_id
-            || (int) $parsed['wp_record_id'] !== $record_id
-            || (string) $parsed['upload_operation_id'] !== $operation_id
-        ) {
+
+        if ((string) ($parsed['contract'] ?? '') !== $identity['contract']) {
             return $this->fail('path_mismatch', 'La ruta de almacenamiento no coincide con el contexto.');
+        }
+
+        if ((int) ($parsed['record_id'] ?? 0) !== (int) $identity['record_id']) {
+            return $this->fail('path_mismatch', 'La ruta de almacenamiento no coincide con el contexto.');
+        }
+
+        if (strtolower((string) ($parsed['operation_id'] ?? '')) !== $operation_id) {
+            return $this->fail('path_mismatch', 'La ruta de almacenamiento no coincide con el contexto.');
+        }
+
+        if ($identity['contract'] === ExpedienteAdjuntoVariants::CONTRACT_CLIENT_V1) {
+            if ((int) ($parsed['client_id'] ?? 0) !== (int) $identity['client_id']) {
+                return $this->fail('path_mismatch', 'La ruta de almacenamiento no coincide con el contexto.');
+            }
+        } else {
+            if ((int) ($parsed['expediente_id'] ?? 0) !== (int) $identity['expediente_id']) {
+                return $this->fail('path_mismatch', 'La ruta de almacenamiento no coincide con el contexto.');
+            }
+            if (($parsed['client_id'] ?? null) !== null) {
+                return $this->fail('path_mismatch', 'La ruta de almacenamiento no coincide con el contexto.');
+            }
         }
 
         $canonical = (string) $parsed['storage_path'];
@@ -330,8 +448,6 @@ final class ExpedienteAdjuntoUploadTransfer {
     }
 
     /**
-     * Interpreta un fallo cerrado de un adaptador. null = no es un fallo válido.
-     *
      * @param mixed $response
      * @return array{ok:false,code:string,message:string}|null
      */

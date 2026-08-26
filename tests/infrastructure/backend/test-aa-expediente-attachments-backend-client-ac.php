@@ -603,6 +603,61 @@ ac_assert(
     strpos($encoded_sign_err, 'https://') === false && strpos($encoded_sign_err, 'token') === false
 );
 
+// --- P3 authorize expediente_v2 ---
+function aa_authorize_v2_input(array $over = []): array {
+    return array_replace([
+        'upload_operation_id' => '550e8400-e29b-41d4-a716-446655440000',
+        'wp_expediente_id' => 7,
+        'wp_record_id' => 10,
+        'mime_type' => 'image/jpeg',
+        'byte_size' => 10,
+        'width' => 1,
+        'height' => 1,
+        'used_bytes' => 1234,
+        'variants_manifest_version' => 1,
+        'variant_byte_sizes' => [
+            'summary' => 100,
+            'gallery' => 200,
+            'display' => 300,
+        ],
+    ], $over);
+}
+
+reset_http();
+$GLOBALS['aa_test_http_response'] = [
+    'response' => ['code' => 200],
+    'body' => json_encode([
+        'ok' => true,
+        'variants_manifest_version' => 1,
+        'upload_operation_id' => '550e8400-e29b-41d4-a716-446655440000',
+        'storage_path' => 'installations/11111111-1111-4111-8111-111111111111/expedientes/7/records/10/550e8400-e29b-41d4-a716-446655440000.jpg',
+        'upload_intent' => 'intent-v2',
+        'objects' => aa_authorize_objects(),
+    ]),
+];
+$v2 = $client->authorize_expediente_upload(aa_authorize_v2_input());
+ac_assert('authorize v2 ok', !empty($v2['ok']));
+$payload = $GLOBALS['aa_test_http_calls'][0]['data'] ?? [];
+ac_assert('v2 path_contract', ($payload['path_contract'] ?? '') === 'expediente_v2');
+ac_assert('v2 wp_expediente_id', (int) ($payload['wp_expediente_id'] ?? 0) === 7);
+ac_assert('v2 sin wp_client_id', !array_key_exists('wp_client_id', $payload));
+
+reset_http();
+$hybrid = $client->authorize_expediente_upload(aa_authorize_v2_input(['wp_client_id' => 55]));
+ac_assert('v2 híbrido rechazado', ($hybrid['ok'] ?? true) === false && ($hybrid['code'] ?? '') === 'path_contract_invalid');
+ac_assert('híbrido sin HTTP', $GLOBALS['aa_test_http_calls'] === []);
+
+reset_http();
+$GLOBALS['aa_test_http_response'] = [
+    'response' => ['code' => 200],
+    'body' => json_encode(aa_authorize_v1_body()),
+];
+$v1 = $client->authorize_upload(aa_authorize_input());
+$v1_payload = $GLOBALS['aa_test_http_calls'][0]['data'] ?? [];
+ac_assert('v1 sin path_contract', !array_key_exists('path_contract', $v1_payload));
+ac_assert('v1 sin wp_expediente_id', !array_key_exists('wp_expediente_id', $v1_payload));
+ac_assert('v1 sigue ok', !empty($v1['ok']));
+
 echo "\n";
 if (count($failed) === 0) {
     echo "Passed {$passed}/{$total}\n";

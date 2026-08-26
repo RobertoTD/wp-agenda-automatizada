@@ -109,6 +109,16 @@ final class FakeTransferBackend {
         return is_array($this->authorize_result) ? $this->authorize_result : ['ok' => false, 'code' => 'missing'];
     }
 
+    public function authorize_expediente_upload(array $input): array {
+        $this->calls[] = 'authorize_expediente';
+        $this->authorize_inputs[] = $input;
+        if ($this->throw_on_authorize !== null) {
+            throw $this->throw_on_authorize;
+        }
+
+        return is_array($this->authorize_result) ? $this->authorize_result : ['ok' => false, 'code' => 'missing'];
+    }
+
     public function finalize(string $upload_intent): array {
         $this->calls[] = 'finalize';
         if ($this->throw_on_finalize !== null) {
@@ -880,6 +890,95 @@ try {
 ac_assert('excepción de generate se propaga', $threw);
 ac_assert('finally corre si generate lanza', count($gen->deleted) === 1);
 ac_assert('fuente intacta si generate lanza', is_file($files['source']));
+aa_xfer_cleanup_files($files);
+
+// P3 — identity expediente_v2
+$files = aa_xfer_temps();
+$gen = new FakeTransferGenerator();
+$gen->result = ['ok' => true, 'variants' => aa_xfer_variant_map($files)];
+$op = aa_xfer_op();
+$inst = aa_xfer_install();
+$path_v2 = "installations/{$inst}/expedientes/7/records/11/{$op}.jpg";
+$back = new FakeTransferBackend();
+$back->authorize_result = [
+    'ok' => true,
+    'result' => [
+        'variants_manifest_version' => 1,
+        'upload_operation_id' => $op,
+        'storage_path' => $path_v2,
+        'upload_intent' => UPLOAD_INTENT_SECRET_SENTINEL,
+        'objects' => aa_xfer_objects($path_v2, [
+            'original' => 'pending_upload',
+            'summary' => 'pending_upload',
+            'gallery' => 'pending_upload',
+            'display' => 'pending_upload',
+        ]),
+    ],
+];
+$back->finalize_result = aa_xfer_finalize_result($path_v2);
+$up = new FakeTransferUploader();
+$v2_in = [
+    'source_path' => $files['source'],
+    'mime_type' => 'image/jpeg',
+    'byte_size' => (int) filesize($files['source']),
+    'width' => 40,
+    'height' => 30,
+    'upload_operation_id' => $op,
+    'used_bytes' => 0,
+    'identity' => [
+        'contract' => ExpedienteAdjuntoVariants::CONTRACT_EXPEDIENTE_V2,
+        'record_id' => 11,
+        'expediente_id' => 7,
+        'client_id' => null,
+    ],
+];
+$v2_ok = (new ExpedienteAdjuntoUploadTransfer($gen, $back, $up))->transfer($v2_in);
+ac_assert('v2 transfer ok', !empty($v2_ok['ok']));
+ac_assert('v2 llama authorize_expediente', ($back->calls[0] ?? '') === 'authorize_expediente');
+ac_assert('v2 payload sin client', !array_key_exists('wp_client_id', $back->authorize_inputs[0] ?? []));
+ac_assert('v2 wp_expediente_id', (int) ($back->authorize_inputs[0]['wp_expediente_id'] ?? 0) === 7);
+ac_assert('v2 cuatro puts', count($up->puts) === 4);
+aa_xfer_cleanup_files($files);
+
+// v2 rechaza response client_v1
+$files = aa_xfer_temps();
+$gen = new FakeTransferGenerator();
+$gen->result = ['ok' => true, 'variants' => aa_xfer_variant_map($files)];
+$path_v1 = aa_xfer_path($inst, 7, 11, $op);
+$back = new FakeTransferBackend();
+$back->authorize_result = [
+    'ok' => true,
+    'result' => [
+        'variants_manifest_version' => 1,
+        'upload_operation_id' => $op,
+        'storage_path' => $path_v1,
+        'upload_intent' => UPLOAD_INTENT_SECRET_SENTINEL,
+        'objects' => aa_xfer_objects($path_v1, [
+            'original' => 'pending_upload',
+            'summary' => 'pending_upload',
+            'gallery' => 'pending_upload',
+            'display' => 'pending_upload',
+        ]),
+    ],
+];
+$up = new FakeTransferUploader();
+$v2_mismatch_in = [
+    'source_path' => $files['source'],
+    'mime_type' => 'image/jpeg',
+    'byte_size' => (int) filesize($files['source']),
+    'width' => 40,
+    'height' => 30,
+    'upload_operation_id' => $op,
+    'used_bytes' => 0,
+    'identity' => [
+        'contract' => ExpedienteAdjuntoVariants::CONTRACT_EXPEDIENTE_V2,
+        'record_id' => 11,
+        'expediente_id' => 7,
+        'client_id' => null,
+    ],
+];
+$mismatch = (new ExpedienteAdjuntoUploadTransfer($gen, $back, $up))->transfer($v2_mismatch_in);
+ac_assert('v2 rechaza path client_v1', ($mismatch['ok'] ?? true) === false && ($mismatch['code'] ?? '') === 'path_mismatch');
 aa_xfer_cleanup_files($files);
 
 $log_contents = is_file($log_file) ? (string) file_get_contents($log_file) : '';

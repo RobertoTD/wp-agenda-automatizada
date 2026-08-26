@@ -1,13 +1,13 @@
 <?php
 /**
- * Upload Expediente Registro Adjunto Use Case (MC4b).
+ * Upload Expediente Registro Adjunto Use Case (MC4b / P3).
  *
- * Orquesta: validación JPEG → cuota local → transfer v1 → insert_finalized.
+ * Orquesta: validación JPEG → locks aggregate→quota → transfer → insert_finalized.
  * Nunca inserta metadatos antes de un finalize coincidente.
  *
- * Ciclo A: named lock client:{client_id} cubre authorize → transfer → finalize →
- * insert. Pérdida de lock tras Storage → cero metadata + compensación
- * best-effort delete_object del path de esta petición.
+ * P3:
+ * - Bridged + gate v2 → delega al writer canónico (sin locks locales).
+ * - Orphan / gate OFF → client_v1 + site quota lock.
  */
 
 defined('ABSPATH') or die('No direct access');
@@ -21,8 +21,17 @@ if (!class_exists('ExpedienteAdjuntosRepository')) {
 if (!class_exists('ClientsRepository')) {
     require_once dirname(__DIR__, 2) . '/repositories/ClientsRepository.php';
 }
+if (!class_exists('ExpedientesRepository')) {
+    require_once dirname(__DIR__, 2) . '/repositories/ExpedientesRepository.php';
+}
 if (!class_exists('ExpedienteAdjuntoJpegValidator')) {
     require_once dirname(__DIR__, 2) . '/domain/expediente/ExpedienteAdjuntoJpegValidator.php';
+}
+if (!class_exists('ExpedienteAdjuntoVariants')) {
+    require_once dirname(__DIR__, 2) . '/domain/expediente/ExpedienteAdjuntoVariants.php';
+}
+if (!class_exists('AA_Expediente_Attachments_V2_Enablement')) {
+    require_once dirname(__DIR__, 2) . '/domain/expediente/class-aa-expediente-attachments-v2-enablement.php';
 }
 if (!class_exists('ExpedienteAdjuntoUploadTransfer')) {
     require_once __DIR__ . '/ExpedienteAdjuntoUploadTransfer.php';
@@ -55,23 +64,27 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
 
     /**
      * Cliente Storage solo para compensación post-PUT si se pierde el lock.
-     * No es el uploader del pipeline (transfer lo posee).
      *
      * @var object|null
      */
     private $cleanup_client;
+
+    /** @var object|null Writer canónico (UploadExpedienteAdjuntoForExpedienteUseCase). */
+    private $canonical_upload;
 
     /**
      * @param ExpedienteAdjuntoJpegValidator|null $validator
      * @param object|null $transfer ExpedienteAdjuntoUploadTransfer o doble de prueba
      * @param AA_Expediente_Aggregate_Lock|null $lock
      * @param object|null $cleanup_client Cliente con delete_object() para compensación
+     * @param object|null $canonical_upload Solo para tests / bridge v2
      */
     public function __construct(
         ?ExpedienteAdjuntoJpegValidator $validator = null,
         $transfer = null,
         ?AA_Expediente_Aggregate_Lock $lock = null,
-        $cleanup_client = null
+        $cleanup_client = null,
+        $canonical_upload = null
     ) {
         $this->validator = $validator ?: new ExpedienteAdjuntoJpegValidator();
         $this->transfer = $transfer ?: new ExpedienteAdjuntoUploadTransfer(
@@ -81,6 +94,7 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
         );
         $this->lock = $lock ?: AA_Expediente_Aggregate_Lock::create_default();
         $this->cleanup_client = is_object($cleanup_client) ? $cleanup_client : null;
+        $this->canonical_upload = is_object($canonical_upload) ? $canonical_upload : null;
     }
 
     /**
@@ -88,7 +102,8 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
      *   client_id:int,
      *   record_id:int,
      *   upload_operation_id:string,
-     *   file:array<string,mixed>
+     *   file:array<string,mixed>,
+     *   _aa_skip_canonical_bridge?:bool
      * } $input
      * @return array{ok:true,attachment:array<string,mixed>}|array{ok:false,code:string,message:string}
      */
@@ -97,6 +112,7 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
         $record_id = (int) ($input['record_id'] ?? 0);
         $operation_id = strtolower(trim((string) ($input['upload_operation_id'] ?? '')));
         $file = isset($input['file']) && is_array($input['file']) ? $input['file'] : [];
+        $skip_bridge = !empty($input['_aa_skip_canonical_bridge']);
 
         $tmp_to_clean = isset($file['tmp_name']) ? (string) $file['tmp_name'] : '';
 
@@ -118,6 +134,15 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
                 return $this->fail('record_not_found', 'Registro no encontrado.');
             }
 
+            $bridged_expediente_id = $this->bridged_expediente_id($record);
+            if (
+                !$skip_bridge
+                && $bridged_expediente_id !== null
+                && AA_Expediente_Attachments_V2_Enablement::is_enabled()
+            ) {
+                return $this->delegate_canonical_v2($bridged_expediente_id, $record_id, $client_id, $operation_id, $file);
+            }
+
             $validated = $this->validator->validate($file);
             if (empty($validated['ok'])) {
                 return $this->fail(
@@ -132,23 +157,16 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
             $width = (int) $validated['width'];
             $height = (int) $validated['height'];
 
-            $used_bytes = ExpedienteAdjuntosRepository::sum_byte_size_total();
-            if ($used_bytes === null) {
-                return $this->fail(
-                    'storage_usage_unavailable',
-                    'No se pudo verificar el espacio disponible.'
-                );
-            }
-
-            $lease = $this->lock->acquire(
+            $aggregate_lease = $this->lock->acquire(
                 AA_Expediente_Aggregate_Lock::SCOPE_CLIENT,
                 $client_id,
                 AA_Expediente_Aggregate_Lock::DEFAULT_TIMEOUT_SECONDS
             );
-            if (is_wp_error($lease)) {
-                return $this->fail_from_lock($lease);
+            if (is_wp_error($aggregate_lease)) {
+                return $this->fail_from_lock($aggregate_lease);
             }
 
+            $quota_lease = null;
             $storage_path_for_cleanup = '';
 
             try {
@@ -161,9 +179,31 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
                     return $this->fail('record_not_found', 'Registro no encontrado.');
                 }
 
-                $held = $this->lock->assert_held($lease);
+                $held = $this->lock->assert_held($aggregate_lease);
                 if (is_wp_error($held)) {
                     return $this->fail_from_lock($held);
+                }
+
+                $quota_lease = $this->lock->acquire(
+                    AA_Expediente_Aggregate_Lock::SCOPE_STORAGE_QUOTA,
+                    AA_Expediente_Aggregate_Lock::STORAGE_QUOTA_SCOPE_ID,
+                    AA_Expediente_Aggregate_Lock::DEFAULT_TIMEOUT_SECONDS
+                );
+                if (is_wp_error($quota_lease)) {
+                    return $this->fail_from_lock($quota_lease);
+                }
+
+                $used_bytes = ExpedienteAdjuntosRepository::sum_byte_size_total();
+                if ($used_bytes === null) {
+                    return $this->fail(
+                        'storage_usage_unavailable',
+                        'No se pudo verificar el espacio disponible.'
+                    );
+                }
+
+                $held_quota = $this->lock->assert_held($quota_lease);
+                if (is_wp_error($held_quota)) {
+                    return $this->fail_from_lock($held_quota);
                 }
 
                 $transferred = $this->transfer->transfer([
@@ -173,9 +213,13 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
                     'width' => $width,
                     'height' => $height,
                     'upload_operation_id' => $operation_id,
-                    'wp_client_id' => $client_id,
-                    'wp_record_id' => $record_id,
                     'used_bytes' => $used_bytes,
+                    'identity' => [
+                        'contract' => ExpedienteAdjuntoVariants::CONTRACT_CLIENT_V1,
+                        'record_id' => $record_id,
+                        'client_id' => $client_id,
+                        'expediente_id' => null,
+                    ],
                 ]);
 
                 if (empty($transferred['ok'])) {
@@ -203,11 +247,21 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
                     return $this->fail('finalize_mismatch', 'La confirmación no coincide con los datos esperados.');
                 }
 
-                $held_after_storage = $this->lock->assert_held($lease);
+                $held_after_storage = $this->lock->assert_held($aggregate_lease);
                 if (is_wp_error($held_after_storage)) {
                     return $this->fail_after_storage_coordination_loss(
                         $storage_path_for_cleanup,
+                        $operation_id,
                         $held_after_storage
+                    );
+                }
+
+                $held_quota_after = $this->lock->assert_held($quota_lease);
+                if (is_wp_error($held_quota_after)) {
+                    return $this->fail_after_storage_coordination_loss(
+                        $storage_path_for_cleanup,
+                        $operation_id,
+                        $held_quota_after
                     );
                 }
 
@@ -215,6 +269,7 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
                 if ($record_final === null) {
                     return $this->fail_after_storage_coordination_loss(
                         $storage_path_for_cleanup,
+                        $operation_id,
                         new WP_Error(
                             AA_Expediente_Aggregate_Lock::ERROR_COORDINATION_LOST,
                             'Se perdió la coordinación de la operación.'
@@ -257,7 +312,10 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
                     ],
                 ];
             } finally {
-                $this->lock->release($lease);
+                if ($quota_lease !== null && !is_wp_error($quota_lease)) {
+                    $this->lock->release($quota_lease);
+                }
+                $this->lock->release($aggregate_lease);
             }
         } finally {
             $this->cleanup_tmp($tmp_to_clean);
@@ -265,11 +323,130 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
     }
 
     /**
-     * @param WP_Error $lock_error
-     * @return array{ok:false,code:string,message:string}
+     * @param array<string,mixed> $record
      */
-    private function fail_after_storage_coordination_loss(string $storage_path, $lock_error): array {
-        if ($storage_path !== '') {
+    private function bridged_expediente_id(array $record): ?int {
+        $raw = $record['expediente_id'] ?? null;
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+        $id = (int) $raw;
+        return $id >= 1 ? $id : null;
+    }
+
+    /**
+     * @param array<string,mixed> $file
+     * @return array{ok:true,attachment:array<string,mixed>}|array{ok:false,code:string,message:string}
+     */
+    private function delegate_canonical_v2(
+        int $expediente_id,
+        int $record_id,
+        int $client_id,
+        string $operation_id,
+        array $file
+    ): array {
+        $owner = ExpedientesRepository::find_owner_context_by_id($expediente_id);
+        if ($owner === null) {
+            return $this->fail('lookup_failed', 'No se pudo verificar el expediente.');
+        }
+        $parent_client = isset($owner['client_id']) ? (int) $owner['client_id'] : 0;
+        if ($parent_client < 1 || $parent_client !== $client_id) {
+            return $this->fail('record_not_found', 'Registro no encontrado.');
+        }
+
+        if (!class_exists('UploadExpedienteAdjuntoForExpedienteUseCase')) {
+            require_once __DIR__ . '/UploadExpedienteAdjuntoForExpedienteUseCase.php';
+        }
+
+        $canonical = $this->canonical_upload;
+        if ($canonical === null) {
+            $canonical = new UploadExpedienteAdjuntoForExpedienteUseCase(
+                null,
+                $this->validator,
+                $this->transfer,
+                $this->lock,
+                $this->cleanup_client
+            );
+        }
+
+        $result = $canonical->execute([
+            'expediente_id' => $expediente_id,
+            'record_id' => $record_id,
+            'upload_operation_id' => $operation_id,
+            'file' => $file,
+        ]);
+
+        if (!empty($result['success'])) {
+            $adjunto = is_array($result['data']['adjunto'] ?? null) ? $result['data']['adjunto'] : [];
+            // El DTO público no trae path/client; reconstruir attachment mínimo para callers legacy
+            // que solo necesitan ok+id. Preferir fila por operation_id si existe.
+            $by_op = ExpedienteAdjuntosRepository::find_by_upload_operation_id($operation_id);
+            if (is_array($by_op)) {
+                return [
+                    'ok' => true,
+                    'attachment' => [
+                        'id' => (int) $by_op['id'],
+                        'record_id' => (int) $by_op['record_id'],
+                        'client_id' => $by_op['client_id'] ?? null,
+                        'upload_operation_id' => (string) $by_op['upload_operation_id'],
+                        'storage_path' => (string) $by_op['storage_path'],
+                        'mime_type' => (string) $by_op['mime_type'],
+                        'byte_size' => (int) $by_op['byte_size'],
+                        'width' => (int) $by_op['width'],
+                        'height' => (int) $by_op['height'],
+                        'created_at' => (string) $by_op['created_at'],
+                    ],
+                ];
+            }
+
+            return [
+                'ok' => true,
+                'attachment' => [
+                    'id' => (int) ($adjunto['id'] ?? 0),
+                    'record_id' => $record_id,
+                    'client_id' => $client_id,
+                    'upload_operation_id' => $operation_id,
+                    'storage_path' => '',
+                    'mime_type' => 'image/jpeg',
+                    'byte_size' => (int) ($adjunto['byte_size'] ?? 0),
+                    'width' => (int) ($adjunto['width'] ?? 0),
+                    'height' => (int) ($adjunto['height'] ?? 0),
+                    'created_at' => (string) ($adjunto['created_at'] ?? ''),
+                ],
+            ];
+        }
+
+        $code = (string) ($result['error']['code'] ?? 'attach_failed');
+        $message = (string) ($result['error']['message'] ?? 'No se pudo subir la imagen.');
+
+        return $this->fail($code, $message);
+    }
+
+    /**
+     * @param WP_Error $lock_error
+     * @return array{ok:false,code:string,message:string}|array{ok:true,attachment:array<string,mixed>}
+     */
+    private function fail_after_storage_coordination_loss(string $storage_path, string $operation_id, $lock_error) {
+        $existing = ExpedienteAdjuntosRepository::find_by_upload_operation_id($operation_id);
+        if (is_array($existing) && (string) ($existing['storage_path'] ?? '') === $storage_path) {
+            return [
+                'ok' => true,
+                'attachment' => [
+                    'id' => (int) $existing['id'],
+                    'record_id' => (int) $existing['record_id'],
+                    'client_id' => (int) ($existing['client_id'] ?? 0),
+                    'upload_operation_id' => (string) $existing['upload_operation_id'],
+                    'storage_path' => (string) $existing['storage_path'],
+                    'mime_type' => (string) $existing['mime_type'],
+                    'byte_size' => (int) $existing['byte_size'],
+                    'width' => (int) $existing['width'],
+                    'height' => (int) $existing['height'],
+                    'created_at' => (string) $existing['created_at'],
+                ],
+            ];
+        }
+
+        if ($storage_path !== '' && $existing === null) {
             $cleaned = $this->compensate_storage($storage_path);
             if ($cleaned !== true) {
                 return $this->fail(
@@ -351,35 +528,24 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
             return false;
         }
 
-        return $this->storage_path_matches_context(
-            (string) $fin['storage_path'],
-            $expected['client_id'],
-            $expected['record_id'],
-            $expected['upload_operation_id']
-        );
-    }
-
-    private function storage_path_matches_context(
-        string $storage_path,
-        int $client_id,
-        int $record_id,
-        string $operation_id
-    ): bool {
-        $needle = sprintf(
-            '/clients/%d/records/%d/%s.jpg',
-            $client_id,
-            $record_id,
-            $operation_id
-        );
-
-        if (substr($storage_path, -strlen($needle)) !== $needle) {
+        $parsed = ExpedienteAdjuntoVariants::parse_original_path((string) $fin['storage_path']);
+        if ($parsed === null) {
+            return false;
+        }
+        if ((string) ($parsed['contract'] ?? '') !== ExpedienteAdjuntoVariants::CONTRACT_CLIENT_V1) {
+            return false;
+        }
+        if ((int) ($parsed['client_id'] ?? 0) !== $expected['client_id']) {
+            return false;
+        }
+        if ((int) ($parsed['record_id'] ?? 0) !== $expected['record_id']) {
+            return false;
+        }
+        if (strtolower((string) ($parsed['operation_id'] ?? '')) !== $expected['upload_operation_id']) {
             return false;
         }
 
-        return (bool) preg_match(
-            '#^installations/[0-9a-f\\-]{36}/clients/' . $client_id . '/records/' . $record_id . '/' . preg_quote($operation_id, '#') . '\\.jpg$#i',
-            $storage_path
-        );
+        return true;
     }
 
     private function cleanup_tmp(string $tmp): void {

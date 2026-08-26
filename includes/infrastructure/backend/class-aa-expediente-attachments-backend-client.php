@@ -35,6 +35,7 @@ class AA_Expediente_Attachments_Backend_Client {
         'invalid_variant_meta',
         'variant_bytes_exceeded',
         'variant_invalid',
+        'path_contract_invalid',
     ];
 
     /** @var list<string> */
@@ -79,6 +80,74 @@ class AA_Expediente_Attachments_Backend_Client {
             'upload_operation_id' => (string) ($input['upload_operation_id'] ?? ''),
             'wp_client_id' => (int) ($input['wp_client_id'] ?? 0),
             'wp_record_id' => (int) ($input['wp_record_id'] ?? 0),
+            'mime_type' => (string) ($input['mime_type'] ?? ''),
+            'byte_size' => (int) ($input['byte_size'] ?? 0),
+            'width' => (int) ($input['width'] ?? 0),
+            'height' => (int) ($input['height'] ?? 0),
+            'used_bytes' => (int) ($input['used_bytes'] ?? 0),
+            'variants_manifest_version' => ExpedienteAdjuntoVariants::MANIFEST_VERSION,
+            'variant_byte_sizes' => $variant_sizes,
+        ];
+
+        $endpoint = rtrim((string) AA_API_BASE_URL, '/') . '/expediente/attachments/authorize-upload';
+        $response = aa_send_authenticated_request($endpoint, 'POST', $payload);
+
+        return $this->parseAuthorizeResponse($response);
+    }
+
+    /**
+     * Authorize upload canónico expediente_v2 (P3 / N1).
+     * Nunca envía wp_client_id. Path lo construye Node.
+     *
+     * @param array{
+     *   upload_operation_id:string,
+     *   wp_expediente_id:int,
+     *   wp_record_id:int,
+     *   mime_type:string,
+     *   byte_size:int,
+     *   width:int,
+     *   height:int,
+     *   used_bytes:int,
+     *   variants_manifest_version:int,
+     *   variant_byte_sizes:array{summary:int,gallery:int,display:int}
+     * } $input
+     * @return array{ok:true,result:array<string,mixed>}|array{ok:false,code:string,error:string,http_status:int}
+     */
+    public function authorize_expediente_upload(array $input): array {
+        $expediente_id = (int) ($input['wp_expediente_id'] ?? 0);
+        $record_id = (int) ($input['wp_record_id'] ?? 0);
+        if ($expediente_id < 1 || $record_id < 1) {
+            return $this->failure('path_contract_invalid', '', 0);
+        }
+
+        if (array_key_exists('wp_client_id', $input)) {
+            return $this->failure('path_contract_invalid', '', 0);
+        }
+
+        $manifest = $input['variants_manifest_version'] ?? null;
+        if (
+            !isset($input['variants_manifest_version'])
+            || !is_int($manifest)
+            || $manifest !== ExpedienteAdjuntoVariants::MANIFEST_VERSION
+        ) {
+            return $this->failure('manifest_version_invalid', '', 0);
+        }
+
+        $variant_sizes = $this->normalize_variant_byte_sizes($input['variant_byte_sizes'] ?? null);
+        if ($variant_sizes === null) {
+            return $this->failure('invalid_variant_meta', '', 0);
+        }
+
+        $preflight = $this->preflight();
+        if ($preflight !== null) {
+            return $preflight;
+        }
+
+        $payload = [
+            'path_contract' => ExpedienteAdjuntoVariants::CONTRACT_EXPEDIENTE_V2,
+            'upload_operation_id' => (string) ($input['upload_operation_id'] ?? ''),
+            'wp_expediente_id' => $expediente_id,
+            'wp_record_id' => $record_id,
             'mime_type' => (string) ($input['mime_type'] ?? ''),
             'byte_size' => (int) ($input['byte_size'] ?? 0),
             'width' => (int) ($input['width'] ?? 0),

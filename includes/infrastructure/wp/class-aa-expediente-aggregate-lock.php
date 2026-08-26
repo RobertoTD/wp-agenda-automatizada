@@ -5,9 +5,9 @@
  * Scope server-side únicamente:
  * - client:{client_id} — expediente relacionado con cliente
  * - expediente:{expediente_id} — expediente general
+ * - storage_quota:{1} — cuota global del blog (P3; tras aggregate)
  *
  * No expone la key. No acepta tenant/blog/prefix desde HTTP.
- * Ciclo A: coordinación; el delete de contenedor aún no existe.
  *
  * @package WP_Agenda_Automatizada
  * @subpackage Infrastructure\WP
@@ -65,6 +65,9 @@ class AA_Expediente_Aggregate_Lock {
 
     public const SCOPE_CLIENT = 'client';
     public const SCOPE_EXPEDIENTE = 'expediente';
+    /** Cuota de Storage global al blog (P3). scope_id fijo = 1. */
+    public const SCOPE_STORAGE_QUOTA = 'storage_quota';
+    public const STORAGE_QUOTA_SCOPE_ID = 1;
 
     public const DEFAULT_TIMEOUT_SECONDS = 1;
     public const MIN_TIMEOUT_SECONDS = 0;
@@ -115,11 +118,13 @@ class AA_Expediente_Aggregate_Lock {
      * @return AA_Expediente_Aggregate_Lock_Lease|WP_Error
      */
     public function acquire(string $scope_kind, int $scope_id, int $timeout_seconds = self::DEFAULT_TIMEOUT_SECONDS) {
-        if ($scope_kind !== self::SCOPE_CLIENT && $scope_kind !== self::SCOPE_EXPEDIENTE) {
+        if ($scope_kind === self::SCOPE_STORAGE_QUOTA) {
+            if ($scope_id !== self::STORAGE_QUOTA_SCOPE_ID) {
+                return new WP_Error(self::ERROR_INVALID_SCOPE, 'Identificador de ámbito no válido.');
+            }
+        } elseif ($scope_kind !== self::SCOPE_CLIENT && $scope_kind !== self::SCOPE_EXPEDIENTE) {
             return new WP_Error(self::ERROR_INVALID_SCOPE, 'Ámbito de coordinación no válido.');
-        }
-
-        if ($scope_id < 1) {
+        } elseif ($scope_id < 1) {
             return new WP_Error(self::ERROR_INVALID_SCOPE, 'Identificador de ámbito no válido.');
         }
 

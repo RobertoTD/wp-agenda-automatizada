@@ -56,9 +56,15 @@ final class ExpedienteRegistrosRepository {
 final class ExpedienteAdjuntosRepository {
     public static $inserts = [];
     public static $sum_bytes = 0;
+    /** @var array|null */
+    public static $by_op = null;
 
     public static function sum_byte_size_total(): ?int {
         return self::$sum_bytes;
+    }
+
+    public static function find_by_upload_operation_id(string $upload_operation_id): ?array {
+        return self::$by_op;
     }
 
     public static function insert_finalized(array $row) {
@@ -94,8 +100,9 @@ final class FakeTransfer {
             ($this->during_transfer)();
         }
         $op = (string) $input['upload_operation_id'];
-        $client = (int) $input['wp_client_id'];
-        $record = (int) $input['wp_record_id'];
+        $identity = is_array($input['identity'] ?? null) ? $input['identity'] : [];
+        $client = (int) ($identity['client_id'] ?? ($input['wp_client_id'] ?? 0));
+        $record = (int) ($identity['record_id'] ?? ($input['wp_record_id'] ?? 0));
         $path = "installations/11111111-1111-4111-8111-111111111111/clients/{$client}/records/{$record}/{$op}.jpg";
         return [
             'ok' => true,
@@ -130,7 +137,8 @@ final class FakeCleanupClient {
 
 class AA_Test_Flip_Assert_Expediente_Lock extends AA_Test_Passthrough_Expediente_Aggregate_Lock {
     public $assert_count = 0;
-    public $fail_from = 2;
+    /** Primer assert_held tras Storage (agg) = 3º en el flujo P3. */
+    public $fail_from = 3;
 
     public function assert_held($lease) {
         $this->assert_count++;
@@ -179,15 +187,23 @@ ExpedienteAdjuntosRepository::$inserts = [];
 $transfer = new FakeTransfer();
 $held_during_transfer = false;
 $transfer->during_transfer = static function () use ($base_lock, &$held_during_transfer) {
-    $held_during_transfer = count($base_lock->acquire_calls) === 1 && $base_lock->release_calls === 0;
+    $held_during_transfer = count($base_lock->acquire_calls) === 2 && $base_lock->release_calls === 0;
 };
 $uc = new UploadExpedienteRegistroAdjuntoUseCase(new ExpedienteAdjuntoJpegValidator(), $transfer, $base_lock);
 $out = $uc->execute($input);
 ac_assert('happy ok', !empty($out['ok']));
-ac_assert('scope client', ($base_lock->acquire_calls[0]['scope_kind'] ?? '') === 'client');
+ac_assert('scope client primero', ($base_lock->acquire_calls[0]['scope_kind'] ?? '') === 'client');
 ac_assert('scope id client_id', (int) ($base_lock->acquire_calls[0]['scope_id'] ?? 0) === 7);
-ac_assert('una adquisición', count($base_lock->acquire_calls) === 1);
-ac_assert('release success', $base_lock->release_calls === 1);
+ac_assert('quota segundo', ($base_lock->acquire_calls[1]['scope_kind'] ?? '') === 'storage_quota');
+ac_assert('quota id 1', (int) ($base_lock->acquire_calls[1]['scope_id'] ?? 0) === 1);
+ac_assert('dos adquisiciones', count($base_lock->acquire_calls) === 2);
+ac_assert('release success x2', $base_lock->release_calls === 2);
+ac_assert(
+    'release inverso quota→aggregate',
+    count($base_lock->release_order) === 2
+    && $base_lock->release_order[0]->scope_kind() === 'storage_quota'
+    && $base_lock->release_order[1]->scope_kind() === 'client'
+);
 ac_assert('lock mantenido durante transfer', $held_during_transfer);
 ac_assert('insert una vez', count(ExpedienteAdjuntosRepository::$inserts) === 1);
 
@@ -219,7 +235,7 @@ ac_assert('lost → coordination_lost', ($out['code'] ?? '') === 'coordination_l
 ac_assert('lost cero insert', count(ExpedienteAdjuntosRepository::$inserts) === 0);
 ac_assert('compensa deleted', count($cleanup->calls) === 1);
 ac_assert('compensa path original', strpos((string) ($cleanup->calls[0] ?? ''), $op) !== false);
-ac_assert('release tras lost', $flip->release_calls === 1);
+ac_assert('release tras lost x2', $flip->release_calls === 2);
 
 $flip = new AA_Test_Flip_Assert_Expediente_Lock();
 $cleanup = new FakeCleanupClient();

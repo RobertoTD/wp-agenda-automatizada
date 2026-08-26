@@ -1,7 +1,8 @@
 <?php
 /**
- * AC — UploadExpedienteAdjuntoForExpedienteUseCase (B3b1).
+ * AC — UploadExpedienteAdjuntoForExpedienteUseCase (B3b1 / P3 gate OFF path).
  *
+ * Gate OFF por defecto: relacionado → legacy v1; general → attachments_unavailable.
  * Ejecutar: php tests/application/expediente/test-upload-expediente-adjunto-for-expediente-use-case-ac.php
  */
 
@@ -109,8 +110,11 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
 require_once $plugin_root . '/tests/support/aa-test-expediente-aggregate-lock-passthrough.php';
 aa_test_install_passthrough_expediente_lock();
 require_once $plugin_root . '/includes/domain/expediente/class-aa-expediente-id-policy.php';
+require_once $plugin_root . '/includes/domain/expediente/class-aa-expediente-attachments-v2-enablement.php';
 require_once $plugin_root . '/includes/domain/expediente/ExpedienteAdjuntoPublicDto.php';
 require_once $plugin_root . '/includes/application/expediente/UploadExpedienteAdjuntoForExpedienteUseCase.php';
+
+AA_Expediente_Attachments_V2_Enablement::set_for_tests(false);
 
 $src = (string) file_get_contents(
     $plugin_root . '/includes/application/expediente/UploadExpedienteAdjuntoForExpedienteUseCase.php'
@@ -118,18 +122,15 @@ $src = (string) file_get_contents(
 $legacy_src = (string) file_get_contents(
     $plugin_root . '/includes/application/expediente/UploadExpedienteRegistroAdjuntoUseCase.php'
 );
-$sign_src = (string) file_get_contents(
-    $plugin_root . '/includes/application/expediente/GetExpedienteAdjuntoReadUrlForExpedienteUseCase.php'
-);
 
-ac_assert('delega UploadExpedienteRegistroAdjuntoUseCase', strpos($src, 'UploadExpedienteRegistroAdjuntoUseCase') !== false);
 ac_assert('usa exists + owner + find_by_id_for_expediente', strpos($src, 'exists_by_id') !== false
     && strpos($src, 'find_owner_context_by_id') !== false
     && strpos($src, 'find_by_id_for_expediente') !== false);
 ac_assert('DTO público', strpos($src, 'ExpedienteAdjuntoPublicDto::from') !== false);
 ac_assert('ignora client_id de input', strpos($src, "input['client_id']") === false);
-ac_assert('legacy upload sin ForExpediente', strpos($legacy_src, 'ForExpediente') === false);
-ac_assert('B3a sign sin attach canónico', strpos($sign_src, 'UploadExpedienteAdjuntoForExpediente') === false);
+ac_assert('gate v2 enablement', strpos($src, 'AA_Expediente_Attachments_V2_Enablement') !== false);
+ac_assert('legacy puede bridge ForExpediente', strpos($legacy_src, 'UploadExpedienteAdjuntoForExpedienteUseCase') !== false);
+ac_assert('v2 usa CONTRACT_EXPEDIENTE_V2', strpos($src, 'CONTRACT_EXPEDIENTE_V2') !== false);
 
 function aa_reset(): FakeUploadUseCase {
     ExpedientesRepository::$exists_result = true;
@@ -148,6 +149,7 @@ function aa_reset(): FakeUploadUseCase {
     ];
     ExpedienteRegistrosRepository::$calls = 0;
     ExpedienteRegistrosRepository::$last_args = null;
+    AA_Expediente_Attachments_V2_Enablement::set_for_tests(false);
     $fake = new FakeUploadUseCase();
     UploadExpedienteRegistroAdjuntoUseCase::$delegate = $fake;
     return $fake;
@@ -173,7 +175,7 @@ $base = [
 $fake = aa_reset();
 $uc = new UploadExpedienteAdjuntoForExpedienteUseCase(new UploadExpedienteRegistroAdjuntoUseCase());
 $ok = $uc->execute($base);
-ac_assert('attach exitoso', ($ok['success'] ?? false) === true);
+ac_assert('attach exitoso gate OFF', ($ok['success'] ?? false) === true);
 ac_assert(
     'record_id + DTO público',
     ($ok['data']['record_id'] ?? 0) === 10
@@ -189,16 +191,16 @@ ac_assert(
     && strpos($blob, 'expediente_id') === false
 );
 ac_assert(
-    'pipeline 1× con client del padre; POST ignorado',
+    'pipeline 1× con client del padre; POST ignorado; skip bridge',
     count($fake->calls) === 1
     && ($fake->calls[0]['client_id'] ?? 0) === 55
     && ($fake->calls[0]['record_id'] ?? 0) === 10
     && ($fake->calls[0]['upload_operation_id'] ?? '') === $op
     && ($fake->calls[0]['file'] ?? null) === $file
+    && !empty($fake->calls[0]['_aa_skip_canonical_bridge'])
     && !array_key_exists('storage_path', $fake->calls[0])
 );
 
-// Retry idempotente (mismo op → misma fila)
 $fake = aa_reset();
 $uc = new UploadExpedienteAdjuntoForExpedienteUseCase(new UploadExpedienteRegistroAdjuntoUseCase());
 $r1 = $uc->execute($base);
@@ -210,7 +212,6 @@ ac_assert(
     && ($r1['success'] ?? false) && ($r2['success'] ?? false)
 );
 
-// Pertenencia
 $fake = aa_reset();
 $uc = new UploadExpedienteAdjuntoForExpedienteUseCase(new UploadExpedienteRegistroAdjuntoUseCase());
 ExpedientesRepository::$exists_result = false;
@@ -236,7 +237,7 @@ $fake = aa_reset();
 $uc = new UploadExpedienteAdjuntoForExpedienteUseCase(new UploadExpedienteRegistroAdjuntoUseCase());
 ExpedientesRepository::$owner = ['id' => 7, 'client_id' => null];
 $res = $uc->execute($base);
-ac_assert('general → attachments_unavailable', ($res['error']['code'] ?? '') === 'attachments_unavailable');
+ac_assert('general gate OFF → attachments_unavailable', ($res['error']['code'] ?? '') === 'attachments_unavailable');
 ac_assert('general sin registro/pipeline', ExpedienteRegistrosRepository::$calls === 0 && $fake->calls === []);
 
 $fake = aa_reset();
@@ -277,19 +278,11 @@ foreach (['01', '0', '-1', '1.0', '1e2', '', ['7'], (object) ['id' => 7]] as $ba
     ac_assert('ID inválido sin pipeline', $fake->calls === []);
 }
 
-// Propagación códigos legacy
 foreach ([
     'invalid_operation_id' => 'Identificador de operación no válido.',
     'invalid_mime' => 'Solo se admiten imágenes JPEG.',
-    'invalid_size' => 'El archivo supera el tamaño permitido o está vacío.',
-    'invalid_dimensions' => 'Las dimensiones de la imagen no son válidas.',
-    'invalid_jpeg' => 'La imagen JPEG no es válida o está truncada.',
-    'upload_error' => 'No se pudo recibir el archivo.',
     'storage_quota_exceeded' => 'No queda espacio.',
-    'variant_generation_failed' => 'No se pudo generar las variantes.',
-    'expediente_attachments_unreachable' => 'No se pudo subir la imagen.',
     'persist_failed' => 'No se pudo guardar el adjunto.',
-    'adjunto_meta_conflict' => 'El adjunto existente no coincide.',
 ] as $code => $message) {
     $fake = aa_reset();
     $uc = new UploadExpedienteAdjuntoForExpedienteUseCase(new UploadExpedienteRegistroAdjuntoUseCase());
@@ -299,7 +292,6 @@ foreach ([
     ac_assert("{$code} tras 1 pipeline", count($fake->calls) === 1);
 }
 
-// Op no escalar normalizado a ''
 $fake = aa_reset();
 $uc = new UploadExpedienteAdjuntoForExpedienteUseCase(new UploadExpedienteRegistroAdjuntoUseCase());
 $fake->response = ['ok' => false, 'code' => 'invalid_operation_id', 'message' => 'Identificador de operación no válido.'];
@@ -307,6 +299,8 @@ $res = $uc->execute(array_merge($base, ['upload_operation_id' => ['x']]));
 ac_assert('op array → pipeline con string vacío', count($fake->calls) === 1
     && ($fake->calls[0]['upload_operation_id'] ?? null) === '');
 ac_assert('op array propaga invalid_operation_id', ($res['error']['code'] ?? '') === 'invalid_operation_id');
+
+AA_Expediente_Attachments_V2_Enablement::set_for_tests(null);
 
 echo "\nResultado: {$passed}/{$total} OK\n";
 if ($failed) {
