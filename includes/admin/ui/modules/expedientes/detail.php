@@ -98,6 +98,26 @@ $aa_detail_create_nonce_action = (class_exists('ExpedienteRegistrosByExpedienteA
 $aa_detail_create_nonce = $aa_detail_can_create
     ? wp_create_nonce($aa_detail_create_nonce_action)
     : '';
+$aa_detail_delete_action = (class_exists('ExpedientesAjax')
+    && defined('ExpedientesAjax::ACTION_DELETE'))
+    ? ExpedientesAjax::ACTION_DELETE
+    : 'aa_delete_expediente';
+$aa_detail_delete_nonce_action = (class_exists('ExpedientesAjax')
+    && defined('ExpedientesAjax::NONCE_ACTION'))
+    ? ExpedientesAjax::NONCE_ACTION
+    : 'aa_expedientes_nonce';
+$aa_detail_delete_nonce = $aa_detail_can_create
+    ? wp_create_nonce($aa_detail_delete_nonce_action)
+    : '';
+$aa_detail_list_url = $aa_detail_can_create
+    ? add_query_arg(
+        [
+            'action' => 'aa_iframe_content',
+            'module' => 'expedientes',
+        ],
+        admin_url('admin-post.php')
+    )
+    : '';
 $aa_detail_success_url = $aa_detail_can_create
     ? add_query_arg(
         [
@@ -122,15 +142,50 @@ $aa_detail_scope_key = $aa_detail_can_create
 >
     <div class="aa-expediente-detail-panel aa-expediente-panel bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden">
         <div id="aa-expediente-detail-header" class="px-4 py-5 bg-white rounded-t-xl">
-            <div class="flex items-center min-w-0">
-                <span class="flex items-center justify-center w-8 h-8 text-gray-600 shrink-0" aria-hidden="true">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
-                    </svg>
-                </span>
-                <h3 class="min-w-0 truncate text-lg font-semibold text-gray-600">
-                    <?php echo esc_html($aa_detail_title !== '' ? $aa_detail_title : 'Sin título'); ?>
-                </h3>
+            <div class="flex items-center gap-2 min-w-0">
+                <div class="flex items-center min-w-0 flex-1">
+                    <span class="flex items-center justify-center w-8 h-8 text-gray-600 shrink-0" aria-hidden="true">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                        </svg>
+                    </span>
+                    <h3 class="min-w-0 truncate text-lg font-semibold text-gray-600">
+                        <?php echo esc_html($aa_detail_title !== '' ? $aa_detail_title : 'Sin título'); ?>
+                    </h3>
+                </div>
+                <?php if ($aa_detail_can_create) : ?>
+                <div id="aa-expediente-detail-tools" class="relative shrink-0 aa-expediente-detail-tools">
+                    <button
+                        type="button"
+                        id="aa-expediente-detail-tools-trigger"
+                        class="aa-executable-list-options-trigger aa-options-trigger-flat"
+                        aria-haspopup="menu"
+                        aria-expanded="false"
+                        aria-controls="aa-expediente-detail-tools-menu"
+                        aria-label="Herramientas del expediente"
+                        title="Herramientas del expediente"
+                    >
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                            <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0z"/>
+                        </svg>
+                    </button>
+                    <div
+                        id="aa-expediente-detail-tools-menu"
+                        class="hidden aa-expediente-detail-tools-menu absolute right-0 top-full z-20 mt-2 min-w-[12rem] rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+                        role="menu"
+                        hidden
+                    >
+                        <button
+                            type="button"
+                            id="aa-expediente-detail-tools-delete"
+                            class="aa-expediente-btn-eliminar flex w-full items-center gap-2 px-4 py-2.5 text-left text-base text-red-600 hover:bg-gray-50"
+                            role="menuitem"
+                        >
+                            Eliminar
+                        </button>
+                    </div>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
         <div class="p-4 aa-expediente-detail-body">
@@ -234,6 +289,11 @@ $aa_detail_scope_key = $aa_detail_can_create
             attach: true,
             signRead: true,
             deleteAdjunto: true
+        },
+        containerActions: {
+            deleteAction: <?php echo wp_json_encode($aa_detail_delete_action); ?>,
+            nonce: <?php echo wp_json_encode($aa_detail_delete_nonce); ?>,
+            listUrl: <?php echo wp_json_encode($aa_detail_list_url); ?>
         }
     };
 </script>
@@ -243,9 +303,11 @@ $aa_detail_registros_js = dirname(plugin_dir_url(__FILE__)) . '/clients/expedien
 $aa_detail_adapter_js = plugin_dir_url(__FILE__) . 'expediente-registros-canonical-adapter.js';
 $aa_detail_mount_js = plugin_dir_url(__FILE__) . 'expediente-registros-canonical-mount.js';
 $aa_detail_create_js = plugin_dir_url(__FILE__) . 'expediente-registro-create-modal.js';
+$aa_detail_actions_js = plugin_dir_url(__FILE__) . 'expediente-detail-actions.js';
 ?>
 <script src="<?php echo esc_url($aa_detail_registros_js . '?ver=' . rawurlencode($aa_detail_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($aa_detail_adapter_js . '?ver=' . rawurlencode($aa_detail_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($aa_detail_mount_js . '?ver=' . rawurlencode($aa_detail_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($aa_detail_create_js . '?ver=' . rawurlencode($aa_detail_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($aa_detail_actions_js . '?ver=' . rawurlencode($aa_detail_ver)); ?>" defer></script>
 <?php endif; ?>

@@ -256,6 +256,18 @@ body {
         @apply bg-white border-gray-200 text-gray-900;
     }
 
+    .aa-expediente-detail-tools-menu {
+        z-index: 30;
+    }
+
+    .aa-expediente-detail-delete-confirm {
+        @apply bg-red-600 hover:bg-red-700;
+    }
+
+    .aa-expediente-detail-delete-confirm:disabled {
+        @apply opacity-50 cursor-wait;
+    }
+
     .aa-executable-list-header-meta {
         @apply flex items-center gap-2 min-w-0;
     }

@@ -184,14 +184,43 @@ ac_assert(
     && strpos($detail, 'storagePath') === false
 );
 ac_assert(
-    'detalle reutiliza nonce by-expediente (sin nonce extra)',
+    'detalle nonces: registros + contenedor',
     strpos($detail, 'aa_expediente_registros_by_expediente_nonce') !== false
-    && substr_count($detail, 'wp_create_nonce') === 1
+    && strpos($detail, 'aa_expedientes_nonce') !== false
+    && substr_count($detail, 'wp_create_nonce') === 2
 );
-ac_assert('detalle carga script create registro', strpos($detail, 'expediente-registro-create-modal.js') !== false);
-ac_assert('detalle sin buscador/paginador', strpos($detail, 'aa-expedientes-search') === false
-    && strpos($detail, 'aa-expedientes-pagination') === false);
-ac_assert('detalle sin menú opciones', strpos($detail, 'aa-expediente-options') === false);
+ac_assert(
+    'detalle containerActions delete separados',
+    strpos($detail, 'containerActions') !== false
+    && strpos($detail, 'aa_delete_expediente') !== false
+    && strpos($detail, 'deleteAction') !== false
+    && strpos($detail, 'listUrl') !== false
+);
+ac_assert(
+    'detalle listUrl canónica sin expediente_id/client_id',
+    preg_match(
+        '/\$aa_detail_list_url\s*=[\s\S]*?;\s*\$aa_detail_success_url/',
+        $detail,
+        $list_url_block
+    ) === 1
+    && isset($list_url_block[0])
+    && strpos($list_url_block[0], "'action' => 'aa_iframe_content'") !== false
+    && strpos($list_url_block[0], "'module' => 'expedientes'") !== false
+    && strpos($list_url_block[0], 'expediente_id') === false
+    && strpos($list_url_block[0], 'client_id') === false
+    && strpos($detail, 'listUrl:') !== false
+);
+ac_assert(
+    'detalle tools en header: un trigger + Eliminar, sin Editar contenedor',
+    strpos($detail, 'id="aa-expediente-detail-tools-trigger"') !== false
+    && substr_count($detail, 'id="aa-expediente-detail-tools-trigger"') === 1
+    && strpos($detail, 'id="aa-expediente-detail-tools-delete"') !== false
+    && preg_match('/id="aa-expediente-detail-tools-delete"[\s\S]*?>\s*Eliminar\s*</', $detail) === 1
+    && strpos($detail, 'aa-executable-list-options-trigger') !== false
+    && strpos($detail, 'aa-options-trigger-flat') !== false
+    && !preg_match('/aa-expediente-detail-tools[\s\S]*Editar/', $detail)
+);
+ac_assert('detalle sin menú opciones legacy', strpos($detail, 'aa-expediente-options') === false);
 ac_assert('detalle sin JS de listado padre ni create-expediente', strpos($detail, 'expedientes-module.js') === false
     && strpos($detail, 'expediente-create-modal.js') === false
     && strpos($detail, 'clients-module.js') === false);
@@ -203,11 +232,13 @@ ac_assert(
     && strpos($detail, 'aa-expediente-detail-pagination') !== false
 );
 ac_assert(
-    'detalle C1c1 scripts renderer+adapter+mount+provisional',
+    'detalle C1c1 scripts renderer+adapter+mount+provisional+detail-actions',
     strpos($detail, 'expediente-registros.js') !== false
     && strpos($detail, 'expediente-registros-canonical-adapter.js') !== false
     && strpos($detail, 'expediente-registros-canonical-mount.js') !== false
     && strpos($detail, 'expediente-registro-create-modal.js') !== false
+    && strpos($detail, 'expediente-detail-actions.js') !== false
+    && substr_count($detail, 'expediente-detail-actions.js') === 1
     && strpos($detail, 'executable-options-menu-placement') === false
     && strpos($detail, 'ExpedienteRegistros.openCreate') === false
     && strpos($detail, 'onCreateComplete') === false
@@ -215,7 +246,7 @@ ac_assert(
 ac_assert(
     'detalle C1c1/C1c2: listado rico + mount; create rico solo vía mount JS (no en PHP)',
     preg_match(
-        '/expediente-registros\.js.*expediente-registros-canonical-adapter\.js.*expediente-registros-canonical-mount\.js.*expediente-registro-create-modal\.js/s',
+        '/expediente-registros\.js.*expediente-registros-canonical-adapter\.js.*expediente-registros-canonical-mount\.js.*expediente-registro-create-modal\.js.*expediente-detail-actions\.js/s',
         $detail
     ) === 1
     && strpos($detail, 'ExpedienteRegistros.openCreate') === false
@@ -223,9 +254,11 @@ ac_assert(
 );
 ac_assert('listado no emite AA_EXPEDIENTE_DETAIL_DATA', strpos($module, 'AA_EXPEDIENTE_DETAIL_DATA') === false
     && strpos($module, 'aa-expediente-detail-new-registro') === false
-    && strpos($module, 'expediente-registro-create-modal.js') === false);
+    && strpos($module, 'expediente-registro-create-modal.js') === false
+    && strpos($module, 'expediente-detail-actions.js') === false);
 ac_assert('legacy clients sin config/script de detalle', strpos($clients_index, 'AA_EXPEDIENTE_DETAIL_DATA') === false
     && strpos($clients_index, 'expediente-registro-create-modal.js') === false
+    && strpos($clients_index, 'expediente-detail-actions.js') === false
     && strpos($clients_index, 'aa-expediente-detail-new-registro') === false);
 ac_assert('detalle no reutiliza aa-expediente-root', strpos($detail, 'aa-expediente-root') === false);
 ac_assert('detalle no usa $wpdb', strpos($detail, '$wpdb') === false);
@@ -379,6 +412,28 @@ ac_assert(
     && strpos($rendered_detail, '"7"') !== false
 );
 ac_assert(
+    'runtime containerActions delete + listUrl',
+    strpos($rendered_detail, 'containerActions') !== false
+    && strpos($rendered_detail, 'aa_delete_expediente') !== false
+    && strpos($rendered_detail, 'nonce-aa_expedientes_nonce') !== false
+    && preg_match(
+        '/listUrl["\']?\s*:\s*["\']([^"\']+)["\']/',
+        $rendered_detail,
+        $list_m
+    ) === 1
+    && isset($list_m[1])
+    && strpos($list_m[1], 'action=aa_iframe_content') !== false
+    && strpos($list_m[1], 'module=expedientes') !== false
+    && strpos($list_m[1], 'expediente_id') === false
+    && strpos($list_m[1], 'client_id') === false
+);
+ac_assert(
+    'runtime tools header Eliminar contenedor',
+    strpos($rendered_detail, 'id="aa-expediente-detail-tools-trigger"') !== false
+    && strpos($rendered_detail, 'id="aa-expediente-detail-tools-delete"') !== false
+    && preg_match('/id="aa-expediente-detail-tools-delete"[\s\S]*?>\s*Eliminar\s*</', $rendered_detail) === 1
+);
+ac_assert(
     'runtime config C1b scope/page/actions/capabilities',
     strpos($rendered_detail, '"expediente:7"') !== false
     && strpos($rendered_detail, 'recordsPage:') !== false
@@ -397,11 +452,13 @@ ac_assert(
     && strpos($rendered_detail, 'clientId') === false
 );
 ac_assert(
-    'runtime C1c1 carga renderer+adapter+mount; create provisional; sin placement',
+    'runtime C1c1 carga renderer+adapter+mount; create provisional; detail-actions; sin placement',
     strpos($rendered_detail, 'expediente-registros-canonical-adapter.js') !== false
     && strpos($rendered_detail, 'expediente-registros.js') !== false
     && strpos($rendered_detail, 'expediente-registros-canonical-mount.js') !== false
     && strpos($rendered_detail, 'expediente-registro-create-modal.js') !== false
+    && strpos($rendered_detail, 'expediente-detail-actions.js') !== false
+    && substr_count($rendered_detail, 'expediente-detail-actions.js') === 1
     && strpos($rendered_detail, 'executable-options-menu-placement') === false
     && strpos($rendered_detail, 'clients-module.js') === false
     && strpos($rendered_detail, 'id="aa-expediente-detail-registros-ssr"') !== false
@@ -430,10 +487,13 @@ ac_assert(
 );
 ac_assert('runtime carga script create registro', strpos($rendered_detail, 'expediente-registro-create-modal.js') !== false);
 ac_assert('runtime conserva create provisional', strpos($rendered_detail, 'expediente-registro-create-modal.js') !== false);
-ac_assert('runtime sin editar/eliminar/adjuntar', strpos($rendered_detail, 'Editar registro') === false
-    && strpos($rendered_detail, 'Eliminar') === false
+ac_assert(
+    'runtime sin editar/eliminar/adjuntar de registro',
+    strpos($rendered_detail, 'Editar registro') === false
     && strpos($rendered_detail, 'Añadir imagen') === false
-    && strpos($rendered_detail, 'aa-expediente-registro-options') === false);
+    && strpos($rendered_detail, 'aa-expediente-registro-options') === false
+    && strpos($rendered_detail, 'id="aa-expediente-detail-tools-delete"') !== false
+);
 ac_assert(
     'runtime escapa título',
     strpos($rendered_detail, '&lt;img src=x onerror=alert(1)&gt;') !== false
