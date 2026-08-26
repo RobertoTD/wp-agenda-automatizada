@@ -231,7 +231,34 @@ window.AAAdmin = window.AAAdmin || {};
      */
     AAAdmin.modal = (function() {
         let isModalOpen = false;
-        const modalRoot = null; // Will be set on init
+
+        /**
+         * Public API object. Interaction listeners must call api.close (the
+         * current property), not a lexical closeModal reference, so temporary
+         * wrappers that replace AAAdmin.modal.close still receive Cancel/X/
+         * overlay/Escape. The base implementation remains closeModal itself
+         * (no self-recursion through the public property from inside closeModal).
+         */
+        const api = {
+            open: openModal,
+            close: closeModal,
+            isOpen: function() {
+                return isModalOpen;
+            }
+        };
+
+        /**
+         * Dispatch user/system close through the public close property.
+         * Fail-safe: if the property is not callable, run the base closer once.
+         */
+        function invokePublicClose() {
+            const closer = api.close;
+            if (typeof closer === 'function') {
+                closer.call(api);
+                return;
+            }
+            closeModal();
+        }
 
         /**
          * Get modal root element
@@ -312,9 +339,9 @@ window.AAAdmin = window.AAAdmin || {};
                 return;
             }
 
-            // Close any existing modal first
+            // Close any existing modal first (via public close so wrappers run)
             if (isModalOpen) {
-                closeModal();
+                invokePublicClose();
             }
 
             // Insert content
@@ -340,7 +367,7 @@ window.AAAdmin = window.AAAdmin || {};
         }
 
         /**
-         * Close modal
+         * Close modal (base implementation; assigned as the initial api.close)
          */
         function closeModal() {
             const elements = getModalElements();
@@ -363,7 +390,7 @@ window.AAAdmin = window.AAAdmin || {};
          * Sets up event delegation for close actions
          */
         function init() {
-            // Event delegation for close actions
+            // Event delegation for close actions — always the public close.
             document.addEventListener('click', function(event) {
                 if (!isModalOpen) return;
 
@@ -371,27 +398,13 @@ window.AAAdmin = window.AAAdmin || {};
                 const closeTrigger = event.target.closest('[data-aa-modal-close]');
                 if (!closeTrigger) return;
 
-                // If clicking on overlay, close modal
-                if (closeTrigger.classList.contains('aa-modal-overlay')) {
-                    closeModal();
-                    return;
-                }
-
-                // If clicking on close button, close modal
-                if (closeTrigger.classList.contains('aa-modal-close') || 
-                    closeTrigger.closest('.aa-modal-close')) {
-                    closeModal();
-                    return;
-                }
-
-                // Any other element with data-aa-modal-close should close
-                closeModal();
+                invokePublicClose();
             });
 
-            // ESC key to close
+            // ESC key to close — always the public close.
             document.addEventListener('keydown', function(event) {
                 if (event.key === 'Escape' && isModalOpen) {
-                    closeModal();
+                    invokePublicClose();
                 }
             });
         }
@@ -403,14 +416,7 @@ window.AAAdmin = window.AAAdmin || {};
             init();
         }
 
-        // Public API
-        return {
-            open: openModal,
-            close: closeModal,
-            isOpen: function() {
-                return isModalOpen;
-            }
-        };
+        return api;
     })();
 
     /**

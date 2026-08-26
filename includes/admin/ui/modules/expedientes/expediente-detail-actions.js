@@ -372,6 +372,7 @@
                 }
                 state.navigationScheduled = true;
                 state.inFlight = false;
+                state.confirmationOpen = false;
                 if (window.AAAdmin && window.AAAdmin.modal) {
                     unwrapModalClose();
                     window.AAAdmin.modal.close();

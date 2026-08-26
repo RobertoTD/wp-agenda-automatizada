@@ -74,6 +74,23 @@ function createEl(tag, id) {
             if (node === this) return true;
             return this.children.some((c) => c === node || (c.contains && c.contains(node)));
         },
+        closest(selector) {
+            let node = this;
+            while (node) {
+                if (selector === '[data-aa-modal-close]') {
+                    if (node.getAttribute && node.getAttribute('data-aa-modal-close') !== null) {
+                        return node;
+                    }
+                } else if (selector.startsWith('.') && node.classList
+                    && node.classList.contains(selector.slice(1))) {
+                    return node;
+                } else if (selector.startsWith('#') && node.id === selector.slice(1)) {
+                    return node;
+                }
+                node = node.parentNode;
+            }
+            return null;
+        },
         addEventListener(type, handler) {
             this._listeners[type] = this._listeners[type] || [];
             this._listeners[type].push(handler);
@@ -135,9 +152,69 @@ function buildDom() {
     tools.appendChild(menu);
     header.appendChild(tools);
     root.appendChild(header);
+
+    // Shared #aa-modal-root shape (modals.php)
     const modalRoot = createEl('div', 'aa-modal-root');
     modalRoot.classList.add('hidden');
-    return { root, header, tools, trigger, menu, deleteItem, modalRoot };
+    const overlay = createEl('div');
+    overlay.className = 'aa-modal-overlay';
+    overlay.setAttribute('data-aa-modal-close', '');
+    const modalPanel = createEl('div');
+    modalPanel.className = 'aa-modal';
+    const modalHeader = createEl('div');
+    modalHeader.className = 'aa-modal-header';
+    const modalTitle = createEl('h2');
+    modalTitle.className = 'aa-modal-title';
+    const closeBtn = createEl('button');
+    closeBtn.className = 'aa-modal-close';
+    closeBtn.setAttribute('data-aa-modal-close', '');
+    closeBtn.setAttribute('aria-label', 'Cerrar');
+    modalHeader.appendChild(modalTitle);
+    modalHeader.appendChild(closeBtn);
+    const modalBody = createEl('div');
+    modalBody.className = 'aa-modal-body';
+    const modalFooter = createEl('div');
+    modalFooter.className = 'aa-modal-footer';
+    modalPanel.appendChild(modalHeader);
+    modalPanel.appendChild(modalBody);
+    modalPanel.appendChild(modalFooter);
+    modalRoot.appendChild(overlay);
+    modalRoot.appendChild(modalPanel);
+
+    return {
+        root,
+        header,
+        tools,
+        trigger,
+        menu,
+        deleteItem,
+        modalRoot,
+        overlay,
+        closeBtn,
+        modalTitle,
+        modalBody,
+        modalFooter
+    };
+}
+
+/**
+ * Mirrors main.js shared-modal contract: interaction paths call the *current*
+ * AAAdmin.modal.close property (so temporary wrappers receive Cancel/X/overlay/Escape).
+ */
+function attachSharedModalDispatch(AAAdmin, document) {
+    document.addEventListener('click', function (event) {
+        if (!AAAdmin.modal.isOpen()) return;
+        const target = event.target;
+        if (!target || typeof target.closest !== 'function') return;
+        const closeTrigger = target.closest('[data-aa-modal-close]');
+        if (!closeTrigger) return;
+        AAAdmin.modal.close();
+    });
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && AAAdmin.modal.isOpen()) {
+            AAAdmin.modal.close();
+        }
+    });
 }
 
 function loadScript(options) {
@@ -162,9 +239,16 @@ function loadScript(options) {
 
     let modalOpen = false;
     let lastModal = null;
-    const originalClose = function () {
+    const baseClose = function () {
         modalOpen = false;
         lastModal = null;
+        dom.modalRoot.classList.add('hidden');
+        if (dom.modalBody) {
+            dom.modalBody.children = [];
+        }
+        if (dom.modalFooter) {
+            dom.modalFooter.children = [];
+        }
         // clear dynamic ids
         delete byId['aa-expediente-detail-delete-cancel'];
         delete byId['aa-expediente-detail-delete-confirm'];
@@ -176,25 +260,37 @@ function loadScript(options) {
             open(opts) {
                 modalOpen = true;
                 lastModal = opts;
+                dom.modalRoot.classList.remove('hidden');
                 const footer = opts.footer;
                 if (footer && footer.children) {
                     footer.children.forEach((child) => {
                         if (child.id) byId[child.id] = child;
+                        child.parentNode = footer;
                         if (child.children) {
                             child.children.forEach((nested) => {
                                 if (nested.id) byId[nested.id] = nested;
+                                nested.parentNode = child;
                             });
                         }
                     });
+                    if (dom.modalFooter) {
+                        dom.modalFooter.children = [footer];
+                        footer.parentNode = dom.modalFooter;
+                    }
                 }
                 const body = opts.body;
                 if (body && body.children) {
                     body.children.forEach((child) => {
                         if (child.id) byId[child.id] = child;
+                        child.parentNode = body;
                     });
+                    if (dom.modalBody) {
+                        dom.modalBody.children = [body];
+                        body.parentNode = dom.modalBody;
+                    }
                 }
             },
-            close: originalClose,
+            close: baseClose,
             isOpen() { return modalOpen; }
         }
     };
@@ -252,6 +348,9 @@ function loadScript(options) {
     sandbox.window.document = sandbox.document;
     sandbox.window.window = sandbox.window;
 
+    // Shared modal interaction listeners before consumer auto-mount (main.js order).
+    attachSharedModalDispatch(AAAdmin, sandbox.document);
+
     vm.runInNewContext(scriptSrc, sandbox);
 
     return {
@@ -261,11 +360,57 @@ function loadScript(options) {
         fetches,
         location,
         AAAdmin,
+        baseClose,
         getModalOpen: () => modalOpen,
         getLastModal: () => lastModal,
         docListeners,
         dispatchDoc(type, event) {
             (docListeners[type] || []).forEach((h) => h(event));
+        },
+        /** Real shared-modal paths: click target with data-aa-modal-close / Escape. */
+        closeViaSharedClick(target) {
+            this.dispatchDoc('click', {
+                type: 'click',
+                target,
+                preventDefault() {},
+                stopPropagation() {}
+            });
+        },
+        closeViaEscape() {
+            this.dispatchDoc('keydown', {
+                type: 'keydown',
+                key: 'Escape',
+                preventDefault() {},
+                stopPropagation() {}
+            });
+        },
+        openDeleteConfirm() {
+            const { trigger, deleteItem } = this.dom;
+            trigger.dispatch('click', {
+                type: 'click', preventDefault() {}, stopPropagation() {}, target: trigger
+            });
+            deleteItem.dispatch('click', {
+                type: 'click', preventDefault() {}, stopPropagation() {}, target: deleteItem
+            });
+        },
+        assertMenuCanReopen() {
+            const { trigger, menu } = this.dom;
+            const api = this.sandbox.window.AAAdmin.ExpedienteDetailActions;
+            assert.equal(api._getState().confirmationOpen, false);
+            assert.equal(this.AAAdmin.modal.close, this.baseClose);
+            assert.ok(this.byId['aa-expediente-detail-tools-trigger']);
+            trigger._focused = false;
+            trigger.dispatch('click', {
+                type: 'click', preventDefault() {}, stopPropagation() {}, target: trigger
+            });
+            assert.equal(trigger.getAttribute('aria-expanded'), 'true');
+            assert.equal(menu.classList.contains('hidden'), false);
+            assert.equal(api._getState().menuOpen, true);
+            // close menu for subsequent steps
+            trigger.dispatch('click', {
+                type: 'click', preventDefault() {}, stopPropagation() {}, target: trigger
+            });
+            assert.equal(trigger.getAttribute('aria-expanded'), 'false');
         }
     };
 }
@@ -371,11 +516,82 @@ describe('ExpedienteDetailActions', () => {
         assert.equal(ctx.getModalOpen(), true);
         assert.equal(ctx.fetches.length, 0);
 
-        // Cancel via data-aa-modal-close path: call wrapped close
-        ctx.AAAdmin.modal.close();
+        // Cancel via real shared-modal data-aa-modal-close click path
+        const cancel = ctx.byId['aa-expediente-detail-delete-cancel'];
+        assert.ok(cancel);
+        assert.equal(cancel.getAttribute('data-aa-modal-close'), '');
+        ctx.closeViaSharedClick(cancel);
         assert.equal(ctx.getModalOpen(), false);
         assert.equal(ctx.fetches.length, 0);
         assert.equal(trigger._focused, true);
+        assert.equal(ctx.sandbox.window.AAAdmin.ExpedienteDetailActions._getState().confirmationOpen, false);
+        assert.equal(ctx.AAAdmin.modal.close, ctx.baseClose);
+    });
+
+    it('Cancelar/X/overlay/Escape → reabrir menú; cancel→reabrir→confirmar un POST', async () => {
+        ctx = loadScript({});
+        const api = ctx.sandbox.window.AAAdmin.ExpedienteDetailActions;
+        const { trigger, deleteItem, overlay, closeBtn } = ctx.dom;
+
+        function cycleClose(closeFn) {
+            ctx.openDeleteConfirm();
+            assert.equal(ctx.getModalOpen(), true);
+            assert.equal(api._getState().confirmationOpen, true);
+            assert.notEqual(ctx.AAAdmin.modal.close, ctx.baseClose);
+            closeFn();
+            assert.equal(ctx.getModalOpen(), false);
+            assert.equal(ctx.fetches.length, 0);
+            assert.equal(api._getState().confirmationOpen, false);
+            assert.equal(ctx.AAAdmin.modal.close, ctx.baseClose);
+            assert.equal(trigger.getAttribute('aria-expanded'), 'false');
+            ctx.assertMenuCanReopen();
+        }
+
+        cycleClose(() => ctx.closeViaSharedClick(ctx.byId['aa-expediente-detail-delete-cancel']));
+        cycleClose(() => ctx.closeViaSharedClick(closeBtn));
+        cycleClose(() => ctx.closeViaSharedClick(overlay));
+        cycleClose(() => ctx.closeViaEscape());
+
+        // Cancel → reopen → confirm → exactly one POST
+        ctx.openDeleteConfirm();
+        ctx.closeViaSharedClick(ctx.byId['aa-expediente-detail-delete-cancel']);
+        ctx.assertMenuCanReopen();
+        ctx.openDeleteConfirm();
+        const confirm = ctx.byId['aa-expediente-detail-delete-confirm'];
+        confirm.dispatch('click', { type: 'click', preventDefault() {}, stopPropagation() {} });
+        await flush();
+        await flush();
+        assert.equal(ctx.fetches.length, 1);
+        assert.equal(ctx.location.replaceCalls.length, 1);
+        assert.equal(api._getState().confirmationOpen, false);
+
+        // Trigger still present; no duplicate listeners (second mount rejected)
+        assert.ok(ctx.byId['aa-expediente-detail-tools-trigger']);
+        assert.equal(api.mount(), false);
+        assert.equal(deleteItem._listeners.click.length, 1);
+        assert.equal(trigger._listeners.click.length, 1);
+    });
+
+    it('abrir/cerrar repetido no acumula wrappers ni fetch; destroy tras cancel restaura close', () => {
+        ctx = loadScript({});
+        const api = ctx.sandbox.window.AAAdmin.ExpedienteDetailActions;
+        const { closeBtn } = ctx.dom;
+
+        for (let i = 0; i < 3; i++) {
+            ctx.openDeleteConfirm();
+            ctx.closeViaSharedClick(closeBtn);
+            assert.equal(ctx.AAAdmin.modal.close, ctx.baseClose);
+            assert.equal(api._getState().confirmationOpen, false);
+        }
+        assert.equal(ctx.fetches.length, 0);
+
+        ctx.openDeleteConfirm();
+        ctx.closeViaSharedClick(ctx.byId['aa-expediente-detail-delete-cancel']);
+        api.destroy();
+        assert.equal(api._getState().mounted, false);
+        assert.equal(ctx.AAAdmin.modal.close, ctx.baseClose);
+        assert.equal(ctx.dom.trigger._listeners.click.length, 0);
+        assert.equal(ctx.dom.deleteItem._listeners.click.length, 0);
     });
 
     it('confirmación → un POST exacto sin client_id; éxito → un replace', async () => {
