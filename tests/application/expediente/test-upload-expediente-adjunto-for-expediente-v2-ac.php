@@ -1,6 +1,6 @@
 <?php
 /**
- * AC — Upload canónico expediente_v2 (P3) con gate ON.
+ * AC — Upload canónico expediente_v2 permanente (P3).
  *
  * Ejecutar: php tests/application/expediente/test-upload-expediente-adjunto-for-expediente-v2-ac.php
  */
@@ -168,12 +168,21 @@ final class ExpedienteAdjuntoJpegValidator {
 require_once $plugin_root . '/tests/support/aa-test-expediente-aggregate-lock-passthrough.php';
 $lock = aa_test_install_passthrough_expediente_lock();
 require_once $plugin_root . '/includes/domain/expediente/class-aa-expediente-id-policy.php';
-require_once $plugin_root . '/includes/domain/expediente/class-aa-expediente-attachments-v2-enablement.php';
 require_once $plugin_root . '/includes/domain/expediente/ExpedienteAdjuntoVariants.php';
 require_once $plugin_root . '/includes/domain/expediente/ExpedienteAdjuntoPublicDto.php';
 require_once $plugin_root . '/includes/application/expediente/UploadExpedienteAdjuntoForExpedienteUseCase.php';
 
-AA_Expediente_Attachments_V2_Enablement::set_for_tests(true);
+ac_assert(
+    'sin archivo enablement',
+    !is_file($plugin_root . '/includes/domain/expediente/class-aa-expediente-attachments-v2-enablement.php')
+);
+ac_assert(
+    'sin constante en UC',
+    strpos(
+        (string) file_get_contents($plugin_root . '/includes/application/expediente/UploadExpedienteAdjuntoForExpedienteUseCase.php'),
+        'AA_EXPEDIENTE_ATTACHMENTS_V2_ENABLED'
+    ) === false
+);
 
 $op = '550e8400-e29b-41d4-a716-446655440000';
 $inst = '11111111-1111-4111-8111-111111111111';
@@ -217,7 +226,6 @@ function aa_v2_reset(FakeV2Transfer $transfer, string $path_v2, string $op, stri
         'width' => 40,
         'height' => 30,
     ];
-    AA_Expediente_Attachments_V2_Enablement::set_for_tests(true);
 }
 
 $transfer = new FakeV2Transfer();
@@ -236,7 +244,7 @@ $input = [
 ];
 
 aa_v2_reset($transfer, $path_v2, $op, $inst);
-$uc = new UploadExpedienteAdjuntoForExpedienteUseCase(null, new ExpedienteAdjuntoJpegValidator(), $transfer, $lock);
+$uc = new UploadExpedienteAdjuntoForExpedienteUseCase(new ExpedienteAdjuntoJpegValidator(), $transfer, $lock);
 $out = $uc->execute($input);
 ac_assert('general v2 ok', ($out['success'] ?? false) === true);
 ac_assert('DTO público', array_keys($out['data']['adjunto'] ?? []) === ['id', 'width', 'height', 'byte_size', 'created_at']);
@@ -253,14 +261,13 @@ ac_assert('release inverso', count($lock->release_order) === 2
     && $lock->release_order[0]->scope_kind() === 'storage_quota'
     && $lock->release_order[1]->scope_kind() === 'expediente');
 
-// Relacionado v2
 aa_v2_reset($transfer, $path_v2, $op, $inst);
 ExpedientesRepository::$owner = ['id' => 7, 'client_id' => 55];
 ExpedienteRegistrosRepository::$record['client_id'] = 55;
 $path_rel = "installations/{$inst}/expedientes/7/records/10/{$op}.jpg";
 $transfer->path = $path_rel;
 $transfer->finalize['storage_path'] = $path_rel;
-$uc = new UploadExpedienteAdjuntoForExpedienteUseCase(null, new ExpedienteAdjuntoJpegValidator(), $transfer, $lock);
+$uc = new UploadExpedienteAdjuntoForExpedienteUseCase(new ExpedienteAdjuntoJpegValidator(), $transfer, $lock);
 $out = $uc->execute($input);
 ac_assert('relacionado v2 ok', ($out['success'] ?? false) === true);
 ac_assert('snapshot client derivado', (ExpedienteAdjuntosRepository::$inserts[0]['client_id'] ?? 0) === 55);
@@ -268,24 +275,21 @@ ac_assert('aggregate client scope', ($lock->acquire_calls[0]['scope_kind'] ?? ''
     && (int) ($lock->acquire_calls[0]['scope_id'] ?? 0) === 55);
 ac_assert('path sigue v2', ($transfer->calls[0]['identity']['contract'] ?? '') === 'expediente_v2');
 
-// Cuota busy en segundo acquire
 aa_v2_reset($transfer, $path_v2, $op, $inst);
 $lock->acquire_sequence = [null, new WP_Error('resource_busy', 'busy')];
-$uc = new UploadExpedienteAdjuntoForExpedienteUseCase(null, new ExpedienteAdjuntoJpegValidator(), $transfer, $lock);
+$uc = new UploadExpedienteAdjuntoForExpedienteUseCase(new ExpedienteAdjuntoJpegValidator(), $transfer, $lock);
 $out = $uc->execute($input);
 ac_assert('quota busy → resource_busy', ($out['error']['code'] ?? '') === 'resource_busy');
 ac_assert('quota busy sin transfer', $transfer->calls === []);
 ac_assert('quota busy release aggregate', $lock->release_calls === 1);
 
-// Transfer fail cuota comercial
 aa_v2_reset($transfer, $path_v2, $op, $inst);
 $transfer->fail = ['ok' => false, 'code' => 'storage_quota_exceeded', 'message' => 'No queda espacio.'];
-$uc = new UploadExpedienteAdjuntoForExpedienteUseCase(null, new ExpedienteAdjuntoJpegValidator(), $transfer, $lock);
+$uc = new UploadExpedienteAdjuntoForExpedienteUseCase(new ExpedienteAdjuntoJpegValidator(), $transfer, $lock);
 $out = $uc->execute($input);
 ac_assert('cuota excedida propaga', ($out['error']['code'] ?? '') === 'storage_quota_exceeded');
 ac_assert('mensaje comercial', strpos((string) ($out['error']['message'] ?? ''), 'espacio') !== false);
 
-// Lock lost + compensación
 aa_v2_reset($transfer, $path_v2, $op, $inst);
 $flip = new class extends AA_Test_Passthrough_Expediente_Aggregate_Lock {
     public $n = 0;
@@ -299,13 +303,12 @@ $flip = new class extends AA_Test_Passthrough_Expediente_Aggregate_Lock {
 };
 AA_Expediente_Aggregate_Lock::set_default_for_tests($flip);
 $cleanup = new FakeCleanup();
-$uc = new UploadExpedienteAdjuntoForExpedienteUseCase(null, new ExpedienteAdjuntoJpegValidator(), $transfer, $flip, $cleanup);
+$uc = new UploadExpedienteAdjuntoForExpedienteUseCase(new ExpedienteAdjuntoJpegValidator(), $transfer, $flip, $cleanup);
 $out = $uc->execute($input);
 ac_assert('lost → coordination_lost', ($out['error']['code'] ?? '') === 'coordination_lost');
 ac_assert('compensa', count($cleanup->calls) === 1);
 ac_assert('cero insert tras lost', ExpedienteAdjuntosRepository::$inserts === []);
 
-// Same-op metadata → no compensate
 aa_v2_reset($transfer, $path_v2, $op, $inst);
 ExpedienteAdjuntosRepository::$by_op = [
     'id' => 501,
@@ -330,13 +333,12 @@ $flip2 = new class extends AA_Test_Passthrough_Expediente_Aggregate_Lock {
     }
 };
 $cleanup2 = new FakeCleanup();
-$uc = new UploadExpedienteAdjuntoForExpedienteUseCase(null, new ExpedienteAdjuntoJpegValidator(), $transfer, $flip2, $cleanup2);
+$uc = new UploadExpedienteAdjuntoForExpedienteUseCase(new ExpedienteAdjuntoJpegValidator(), $transfer, $flip2, $cleanup2);
 $out = $uc->execute($input);
 ac_assert('same-op → éxito idempotente', ($out['success'] ?? false) === true);
 ac_assert('same-op sin compensate', $cleanup2->calls === []);
 
 AA_Expediente_Aggregate_Lock::set_default_for_tests($lock);
-AA_Expediente_Attachments_V2_Enablement::set_for_tests(null);
 @unlink($tmp);
 
 echo "\nResultado: {$passed}/{$total} OK\n";

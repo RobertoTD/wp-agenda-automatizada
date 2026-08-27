@@ -1,8 +1,8 @@
 <?php
 /**
- * AC — UploadExpedienteAdjuntoForExpedienteUseCase (B3b1 / P3 gate OFF path).
+ * AC — UploadExpedienteAdjuntoForExpedienteUseCase (P3 permanente v2).
  *
- * Gate OFF por defecto: relacionado → legacy v1; general → attachments_unavailable.
+ * Sin enablement: general y relacionado siempre expediente_v2.
  * Ejecutar: php tests/application/expediente/test-upload-expediente-adjunto-for-expediente-use-case-ac.php
  */
 
@@ -27,22 +27,47 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 if (!defined('ABSPATH')) {
     define('ABSPATH', $plugin_root . '/');
 }
+if (!defined('UPLOAD_ERR_OK')) {
+    define('UPLOAD_ERR_OK', 0);
+}
+if (!class_exists('WP_Error')) {
+    class WP_Error {
+        private $code;
+        private $message;
+        public function __construct($code = '', $message = '') {
+            $this->code = $code;
+            $this->message = $message;
+        }
+        public function get_error_code() {
+            return $this->code;
+        }
+        public function get_error_message() {
+            return $this->message;
+        }
+    }
+}
+if (!function_exists('is_wp_error')) {
+    function is_wp_error($thing) {
+        return $thing instanceof WP_Error;
+    }
+}
+if (!function_exists('current_time')) {
+    function current_time($type) {
+        return '2026-08-26 12:00:00';
+    }
+}
 
 final class ExpedientesRepository {
     /** @var bool|null */
-    public static $exists_result = true;
-    public static $exists_calls = 0;
+    public static $exists = true;
     /** @var array{id:int,client_id:?int}|null */
-    public static $owner = ['id' => 7, 'client_id' => 55];
-    public static $owner_calls = 0;
+    public static $owner = ['id' => 7, 'client_id' => null];
 
     public static function exists_by_id(int $id) {
-        self::$exists_calls++;
-        return self::$exists_result;
+        return self::$exists;
     }
 
     public static function find_owner_context_by_id(int $id): ?array {
-        self::$owner_calls++;
         return self::$owner;
     }
 }
@@ -52,255 +77,177 @@ final class ExpedienteRegistrosRepository {
     public static $record = [
         'id' => 10,
         'expediente_id' => 7,
-        'client_id' => 55,
-        'title' => 'A',
+        'client_id' => null,
+        'title' => 'G',
         'body' => 'B',
         'recorded_at' => '2026-08-20 12:00:00',
         'created_at' => '2026-08-20 12:00:00',
         'updated_at' => null,
     ];
     public static $calls = 0;
-    /** @var array{record_id:int,expediente_id:int}|null */
-    public static $last_args = null;
 
     public static function find_by_id_for_expediente(int $record_id, int $expediente_id) {
         self::$calls++;
-        self::$last_args = ['record_id' => $record_id, 'expediente_id' => $expediente_id];
         return self::$record;
     }
 }
 
-final class FakeUploadUseCase {
-    public $calls = [];
-    /** @var array<string,mixed> */
-    public $response = [
-        'ok' => true,
-        'attachment' => [
-            'id' => 301,
-            'record_id' => 10,
-            'client_id' => 55,
-            'upload_operation_id' => '550e8400-e29b-41d4-a716-446655440000',
-            'storage_path' => 'installations/x/clients/55/records/10/550e8400-e29b-41d4-a716-446655440000.jpg',
-            'mime_type' => 'image/jpeg',
-            'byte_size' => 1024,
-            'width' => 800,
-            'height' => 600,
-            'created_at' => '2026-08-20 13:00:00',
-        ],
-    ];
+final class ExpedienteAdjuntosRepository {
+    public static $inserts = [];
+    public static $sum_bytes = 0;
+    public static $by_op = null;
+    public static $error = null;
 
-    public function execute(array $input): array {
-        $this->calls[] = $input;
-        return $this->response;
+    public static function sum_byte_size_total(): ?int {
+        return self::$sum_bytes;
+    }
+
+    public static function find_by_upload_operation_id(string $op): ?array {
+        return self::$by_op;
+    }
+
+    public static function insert_finalized(array $data) {
+        self::$inserts[] = $data;
+        if (self::$error !== null) {
+            return self::$error;
+        }
+        return [
+            'id' => 501,
+            'record_id' => (int) $data['record_id'],
+            'client_id' => $data['client_id'],
+            'upload_operation_id' => (string) $data['upload_operation_id'],
+            'storage_path' => (string) $data['storage_path'],
+            'mime_type' => (string) $data['mime_type'],
+            'byte_size' => (int) $data['byte_size'],
+            'width' => (int) $data['width'],
+            'height' => (int) $data['height'],
+            'created_at' => '2026-08-26 12:00:00',
+        ];
     }
 }
 
-final class UploadExpedienteRegistroAdjuntoUseCase {
-    /** @var FakeUploadUseCase|null */
-    public static $delegate = null;
+final class FakeV2Transfer {
+    public $calls = [];
+    public $fail = null;
+    public $path = '';
+    public $finalize = [];
 
-    public function execute(array $input): array {
-        if (self::$delegate === null) {
-            return ['ok' => false, 'code' => 'unused', 'message' => 'unused'];
+    public function transfer(array $input): array {
+        $this->calls[] = $input;
+        if ($this->fail !== null) {
+            return $this->fail;
         }
-        return self::$delegate->execute($input);
+        return [
+            'ok' => true,
+            'storage_path' => $this->path,
+            'finalize' => $this->finalize,
+        ];
+    }
+}
+
+final class ExpedienteAdjuntoJpegValidator {
+    public function validate(array $file): array {
+        return [
+            'ok' => true,
+            'tmp_name' => (string) ($file['tmp_name'] ?? ''),
+            'mime_type' => 'image/jpeg',
+            'byte_size' => 713,
+            'width' => 40,
+            'height' => 30,
+        ];
     }
 }
 
 require_once $plugin_root . '/tests/support/aa-test-expediente-aggregate-lock-passthrough.php';
-aa_test_install_passthrough_expediente_lock();
+$lock = aa_test_install_passthrough_expediente_lock();
 require_once $plugin_root . '/includes/domain/expediente/class-aa-expediente-id-policy.php';
-require_once $plugin_root . '/includes/domain/expediente/class-aa-expediente-attachments-v2-enablement.php';
+require_once $plugin_root . '/includes/domain/expediente/ExpedienteAdjuntoVariants.php';
 require_once $plugin_root . '/includes/domain/expediente/ExpedienteAdjuntoPublicDto.php';
 require_once $plugin_root . '/includes/application/expediente/UploadExpedienteAdjuntoForExpedienteUseCase.php';
-
-AA_Expediente_Attachments_V2_Enablement::set_for_tests(false);
 
 $src = (string) file_get_contents(
     $plugin_root . '/includes/application/expediente/UploadExpedienteAdjuntoForExpedienteUseCase.php'
 );
-$legacy_src = (string) file_get_contents(
-    $plugin_root . '/includes/application/expediente/UploadExpedienteRegistroAdjuntoUseCase.php'
-);
-
-ac_assert('usa exists + owner + find_by_id_for_expediente', strpos($src, 'exists_by_id') !== false
-    && strpos($src, 'find_owner_context_by_id') !== false
-    && strpos($src, 'find_by_id_for_expediente') !== false);
-ac_assert('DTO público', strpos($src, 'ExpedienteAdjuntoPublicDto::from') !== false);
-ac_assert('ignora client_id de input', strpos($src, "input['client_id']") === false);
-ac_assert('gate v2 enablement', strpos($src, 'AA_Expediente_Attachments_V2_Enablement') !== false);
-ac_assert('legacy puede bridge ForExpediente', strpos($legacy_src, 'UploadExpedienteAdjuntoForExpedienteUseCase') !== false);
-ac_assert('v2 usa CONTRACT_EXPEDIENTE_V2', strpos($src, 'CONTRACT_EXPEDIENTE_V2') !== false);
-
-function aa_reset(): FakeUploadUseCase {
-    ExpedientesRepository::$exists_result = true;
-    ExpedientesRepository::$exists_calls = 0;
-    ExpedientesRepository::$owner = ['id' => 7, 'client_id' => 55];
-    ExpedientesRepository::$owner_calls = 0;
-    ExpedienteRegistrosRepository::$record = [
-        'id' => 10,
-        'expediente_id' => 7,
-        'client_id' => 55,
-        'title' => 'A',
-        'body' => 'B',
-        'recorded_at' => '2026-08-20 12:00:00',
-        'created_at' => '2026-08-20 12:00:00',
-        'updated_at' => null,
-    ];
-    ExpedienteRegistrosRepository::$calls = 0;
-    ExpedienteRegistrosRepository::$last_args = null;
-    AA_Expediente_Attachments_V2_Enablement::set_for_tests(false);
-    $fake = new FakeUploadUseCase();
-    UploadExpedienteRegistroAdjuntoUseCase::$delegate = $fake;
-    return $fake;
-}
+ac_assert('sin AA_EXPEDIENTE_ATTACHMENTS_V2_ENABLED', strpos($src, 'AA_EXPEDIENTE_ATTACHMENTS_V2_ENABLED') === false);
+ac_assert('sin clase Enablement', strpos($src, 'Attachments_V2_Enablement') === false);
+ac_assert('sin attachments_unavailable', strpos($src, 'attachments_unavailable') === false);
+ac_assert('v2 permanente CONTRACT_EXPEDIENTE_V2', strpos($src, 'CONTRACT_EXPEDIENTE_V2') !== false);
+ac_assert('enablement file ausente', !is_file(
+    $plugin_root . '/includes/domain/expediente/class-aa-expediente-attachments-v2-enablement.php'
+));
 
 $op = '550e8400-e29b-41d4-a716-446655440000';
-$file = [
-    'name' => 'adjunto.jpg',
-    'type' => 'image/jpeg',
-    'tmp_name' => '/tmp/phpXXXX',
-    'error' => 0,
-    'size' => 1024,
-];
-$base = [
-    'expediente_id' => '7',
-    'record_id' => '10',
+$inst = '11111111-1111-4111-8111-111111111111';
+$path_v2 = "installations/{$inst}/expedientes/7/records/10/{$op}.jpg";
+$tmp = tempnam(sys_get_temp_dir(), 'aa_perm_v2_');
+file_put_contents($tmp, 'jpeg');
+
+$transfer = new FakeV2Transfer();
+$transfer->path = $path_v2;
+$transfer->finalize = [
+    'installation_id' => $inst,
     'upload_operation_id' => $op,
-    'file' => $file,
-    'client_id' => 999,
-    'storage_path' => '/evil',
+    'storage_path' => $path_v2,
+    'mime_type' => 'image/jpeg',
+    'byte_size' => 713,
+    'width' => 40,
+    'height' => 30,
 ];
 
-$fake = aa_reset();
-$uc = new UploadExpedienteAdjuntoForExpedienteUseCase(new UploadExpedienteRegistroAdjuntoUseCase());
-$ok = $uc->execute($base);
-ac_assert('attach exitoso gate OFF', ($ok['success'] ?? false) === true);
-ac_assert(
-    'record_id + DTO público',
-    ($ok['data']['record_id'] ?? 0) === 10
-    && array_keys($ok['data']['adjunto'] ?? []) === ['id', 'width', 'height', 'byte_size', 'created_at']
-    && ($ok['data']['adjunto']['id'] ?? 0) === 301
-);
-$blob = json_encode($ok['data'] ?? []);
-ac_assert(
-    'sin owners/paths/operation_id',
-    strpos($blob, 'client_id') === false
-    && strpos($blob, 'storage_path') === false
-    && strpos($blob, 'upload_operation_id') === false
-    && strpos($blob, 'expediente_id') === false
-);
-ac_assert(
-    'pipeline 1× con client del padre; POST ignorado; skip bridge',
-    count($fake->calls) === 1
-    && ($fake->calls[0]['client_id'] ?? 0) === 55
-    && ($fake->calls[0]['record_id'] ?? 0) === 10
-    && ($fake->calls[0]['upload_operation_id'] ?? '') === $op
-    && ($fake->calls[0]['file'] ?? null) === $file
-    && !empty($fake->calls[0]['_aa_skip_canonical_bridge'])
-    && !array_key_exists('storage_path', $fake->calls[0])
-);
-
-$fake = aa_reset();
-$uc = new UploadExpedienteAdjuntoForExpedienteUseCase(new UploadExpedienteRegistroAdjuntoUseCase());
-$r1 = $uc->execute($base);
-$r2 = $uc->execute($base);
-ac_assert('retry mismo op → dos llamadas pipeline', count($fake->calls) === 2);
-ac_assert(
-    'retry idempotente mismo adjunto',
-    ($r1['data']['adjunto']['id'] ?? 0) === ($r2['data']['adjunto']['id'] ?? -1)
-    && ($r1['success'] ?? false) && ($r2['success'] ?? false)
-);
-
-$fake = aa_reset();
-$uc = new UploadExpedienteAdjuntoForExpedienteUseCase(new UploadExpedienteRegistroAdjuntoUseCase());
-ExpedientesRepository::$exists_result = false;
-$res = $uc->execute($base);
-ac_assert('expediente inexistente → not_found', ($res['error']['code'] ?? '') === 'not_found');
-ac_assert('inexistente sin pipeline', $fake->calls === []);
-
-$fake = aa_reset();
-$uc = new UploadExpedienteAdjuntoForExpedienteUseCase(new UploadExpedienteRegistroAdjuntoUseCase());
-ExpedientesRepository::$exists_result = null;
-$res = $uc->execute($base);
-ac_assert('exists SQL → lookup_failed', ($res['error']['code'] ?? '') === 'lookup_failed');
-ac_assert('exists SQL sin pipeline', $fake->calls === []);
-
-$fake = aa_reset();
-$uc = new UploadExpedienteAdjuntoForExpedienteUseCase(new UploadExpedienteRegistroAdjuntoUseCase());
-ExpedientesRepository::$owner = null;
-$res = $uc->execute($base);
-ac_assert('owner null → lookup_failed', ($res['error']['code'] ?? '') === 'lookup_failed');
-ac_assert('owner null sin pipeline', $fake->calls === []);
-
-$fake = aa_reset();
-$uc = new UploadExpedienteAdjuntoForExpedienteUseCase(new UploadExpedienteRegistroAdjuntoUseCase());
-ExpedientesRepository::$owner = ['id' => 7, 'client_id' => null];
-$res = $uc->execute($base);
-ac_assert('general gate OFF → attachments_unavailable', ($res['error']['code'] ?? '') === 'attachments_unavailable');
-ac_assert('general sin registro/pipeline', ExpedienteRegistrosRepository::$calls === 0 && $fake->calls === []);
-
-$fake = aa_reset();
-$uc = new UploadExpedienteAdjuntoForExpedienteUseCase(new UploadExpedienteRegistroAdjuntoUseCase());
-ExpedienteRegistrosRepository::$record = false;
-$res = $uc->execute($base);
-ac_assert('registro ajeno → not_found', ($res['error']['code'] ?? '') === 'not_found');
-ac_assert('registro ajeno sin pipeline', $fake->calls === []);
-
-$fake = aa_reset();
-$uc = new UploadExpedienteAdjuntoForExpedienteUseCase(new UploadExpedienteRegistroAdjuntoUseCase());
-ExpedienteRegistrosRepository::$record = null;
-$res = $uc->execute($base);
-ac_assert('registro SQL → lookup_failed', ($res['error']['code'] ?? '') === 'lookup_failed');
-ac_assert('registro SQL sin pipeline', $fake->calls === []);
-
-$fake = aa_reset();
-$uc = new UploadExpedienteAdjuntoForExpedienteUseCase(new UploadExpedienteRegistroAdjuntoUseCase());
-ExpedienteRegistrosRepository::$record = [
-    'id' => 10,
+$input = [
     'expediente_id' => 7,
-    'client_id' => 99,
-    'title' => 'A',
-    'body' => 'B',
-    'recorded_at' => '2026-08-20 12:00:00',
-    'created_at' => '2026-08-20 12:00:00',
-    'updated_at' => null,
+    'record_id' => 10,
+    'upload_operation_id' => $op,
+    'file' => [
+        'tmp_name' => $tmp,
+        'name' => 'a.jpg',
+        'type' => 'image/jpeg',
+        'size' => 713,
+        'error' => UPLOAD_ERR_OK,
+    ],
+    'client_id' => 999,
 ];
-$res = $uc->execute($base);
-ac_assert('owner mismatch → not_found', ($res['error']['code'] ?? '') === 'not_found');
-ac_assert('mismatch sin pipeline', $fake->calls === []);
 
-foreach (['01', '0', '-1', '1.0', '1e2', '', ['7'], (object) ['id' => 7]] as $bad) {
-    $fake = aa_reset();
-    $uc = new UploadExpedienteAdjuntoForExpedienteUseCase(new UploadExpedienteRegistroAdjuntoUseCase());
-    $res = $uc->execute(array_merge($base, ['expediente_id' => $bad]));
-    ac_assert('ID inválido → invalid_id', ($res['error']['code'] ?? '') === 'invalid_id');
-    ac_assert('ID inválido sin pipeline', $fake->calls === []);
-}
+// General sin constante/config → v2
+ExpedientesRepository::$exists = true;
+ExpedientesRepository::$owner = ['id' => 7, 'client_id' => null];
+ExpedienteRegistrosRepository::$record['client_id'] = null;
+ExpedienteAdjuntosRepository::$inserts = [];
+$uc = new UploadExpedienteAdjuntoForExpedienteUseCase(new ExpedienteAdjuntoJpegValidator(), $transfer, $lock);
+$out = $uc->execute($input);
+ac_assert('general sin config → ok v2', ($out['success'] ?? false) === true);
+ac_assert('general identity v2', ($transfer->calls[0]['identity']['contract'] ?? '') === 'expediente_v2');
+ac_assert('general metadata NULL', array_key_exists('client_id', ExpedienteAdjuntosRepository::$inserts[0] ?? [])
+    && ExpedienteAdjuntosRepository::$inserts[0]['client_id'] === null);
 
-foreach ([
-    'invalid_operation_id' => 'Identificador de operación no válido.',
-    'invalid_mime' => 'Solo se admiten imágenes JPEG.',
-    'storage_quota_exceeded' => 'No queda espacio.',
-    'persist_failed' => 'No se pudo guardar el adjunto.',
-] as $code => $message) {
-    $fake = aa_reset();
-    $uc = new UploadExpedienteAdjuntoForExpedienteUseCase(new UploadExpedienteRegistroAdjuntoUseCase());
-    $fake->response = ['ok' => false, 'code' => $code, 'message' => $message];
-    $res = $uc->execute($base);
-    ac_assert("propaga {$code}", ($res['error']['code'] ?? '') === $code);
-    ac_assert("{$code} tras 1 pipeline", count($fake->calls) === 1);
-}
+// Relacionado canónico sin config → v2
+$transfer->calls = [];
+ExpedienteAdjuntosRepository::$inserts = [];
+ExpedientesRepository::$owner = ['id' => 7, 'client_id' => 55];
+ExpedienteRegistrosRepository::$record['client_id'] = 55;
+$lock->acquire_calls = [];
+$uc = new UploadExpedienteAdjuntoForExpedienteUseCase(new ExpedienteAdjuntoJpegValidator(), $transfer, $lock);
+$out = $uc->execute($input);
+ac_assert('relacionado sin config → ok v2', ($out['success'] ?? false) === true);
+ac_assert('relacionado identity v2', ($transfer->calls[0]['identity']['contract'] ?? '') === 'expediente_v2');
+ac_assert('relacionado snapshot cliente', (ExpedienteAdjuntosRepository::$inserts[0]['client_id'] ?? 0) === 55);
+ac_assert('aggregate client scope', ($lock->acquire_calls[0]['scope_kind'] ?? '') === 'client');
 
-$fake = aa_reset();
-$uc = new UploadExpedienteAdjuntoForExpedienteUseCase(new UploadExpedienteRegistroAdjuntoUseCase());
-$fake->response = ['ok' => false, 'code' => 'invalid_operation_id', 'message' => 'Identificador de operación no válido.'];
-$res = $uc->execute(array_merge($base, ['upload_operation_id' => ['x']]));
-ac_assert('op array → pipeline con string vacío', count($fake->calls) === 1
-    && ($fake->calls[0]['upload_operation_id'] ?? null) === '');
-ac_assert('op array propaga invalid_operation_id', ($res['error']['code'] ?? '') === 'invalid_operation_id');
+// Errores de pertenencia
+$transfer->calls = [];
+ExpedientesRepository::$exists = false;
+$uc = new UploadExpedienteAdjuntoForExpedienteUseCase(new ExpedienteAdjuntoJpegValidator(), $transfer, $lock);
+$res = $uc->execute($input);
+ac_assert('inexistente → not_found', ($res['error']['code'] ?? '') === 'not_found');
+ac_assert('inexistente sin transfer', $transfer->calls === []);
 
-AA_Expediente_Attachments_V2_Enablement::set_for_tests(null);
+ExpedientesRepository::$exists = true;
+ExpedientesRepository::$owner = ['id' => 7, 'client_id' => 55];
+ExpedienteRegistrosRepository::$record = false;
+$res = $uc->execute($input);
+ac_assert('registro ajeno → not_found', ($res['error']['code'] ?? '') === 'not_found');
+
+@unlink($tmp);
 
 echo "\nResultado: {$passed}/{$total} OK\n";
 if ($failed) {

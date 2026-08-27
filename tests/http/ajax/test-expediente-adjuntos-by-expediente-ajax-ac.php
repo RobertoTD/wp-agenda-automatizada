@@ -213,27 +213,90 @@ final class GetExpedienteAdjuntoReadUrlUseCase {
     }
 }
 
-final class UploadExpedienteRegistroAdjuntoUseCase {
+final class UploadExpedienteAdjuntoForExpedienteUseCase {
     public static $calls = [];
     /** @var array<string,mixed> */
     public static $response = [
-        'ok' => true,
-        'attachment' => [
-            'id' => 301,
+        'success' => true,
+        'data' => [
             'record_id' => 10,
-            'client_id' => 55,
-            'upload_operation_id' => '550e8400-e29b-41d4-a716-446655440000',
-            'storage_path' => 'installations/x/clients/55/records/10/550e8400-e29b-41d4-a716-446655440000.jpg',
-            'mime_type' => 'image/jpeg',
-            'byte_size' => 1024,
-            'width' => 800,
-            'height' => 600,
-            'created_at' => '2026-08-20 13:00:00',
+            'adjunto' => [
+                'id' => 301,
+                'width' => 800,
+                'height' => 600,
+                'byte_size' => 1024,
+                'created_at' => '2026-08-20 13:00:00',
+            ],
         ],
     ];
 
     public function execute(array $input): array {
         self::$calls[] = $input;
+
+        $expediente_id = AA_Expediente_Id_Policy::normalize($input['expediente_id'] ?? null);
+        $record_id = AA_Expediente_Id_Policy::normalize($input['record_id'] ?? null);
+        if ($expediente_id === null || $record_id === null) {
+            return [
+                'success' => false,
+                'error' => ['code' => 'invalid_id', 'message' => 'Identificador no válido.'],
+            ];
+        }
+
+        $exists = ExpedientesRepository::exists_by_id($expediente_id);
+        if ($exists === null) {
+            return [
+                'success' => false,
+                'error' => ['code' => 'lookup_failed', 'message' => 'No se pudo verificar el expediente.'],
+            ];
+        }
+        if ($exists === false) {
+            return [
+                'success' => false,
+                'error' => ['code' => 'not_found', 'message' => 'Expediente no encontrado.'],
+            ];
+        }
+
+        $owner = ExpedientesRepository::find_owner_context_by_id($expediente_id);
+        if ($owner === null) {
+            return [
+                'success' => false,
+                'error' => ['code' => 'lookup_failed', 'message' => 'No se pudo verificar el expediente.'],
+            ];
+        }
+
+        $parent_client = $owner['client_id'] ?? null;
+        $parent_client_id = (is_int($parent_client) && $parent_client >= 1) ? $parent_client : null;
+
+        $record = ExpedienteRegistrosRepository::find_by_id_for_expediente($record_id, $expediente_id);
+        if ($record === null) {
+            return [
+                'success' => false,
+                'error' => ['code' => 'lookup_failed', 'message' => 'No se pudo verificar el registro.'],
+            ];
+        }
+        if ($record === false) {
+            return [
+                'success' => false,
+                'error' => ['code' => 'not_found', 'message' => 'Registro no encontrado.'],
+            ];
+        }
+
+        $record_client_raw = $record['client_id'] ?? null;
+        $record_client_id = (is_int($record_client_raw) && $record_client_raw >= 1) ? $record_client_raw : null;
+        if ($parent_client_id === null) {
+            if ($record_client_id !== null) {
+                return [
+                    'success' => false,
+                    'error' => ['code' => 'not_found', 'message' => 'Registro no encontrado.'],
+                ];
+            }
+        } elseif ($record_client_id === null || $record_client_id !== $parent_client_id) {
+            return [
+                'success' => false,
+                'error' => ['code' => 'not_found', 'message' => 'Registro no encontrado.'],
+            ];
+        }
+
         return self::$response;
     }
 }
@@ -315,6 +378,20 @@ function aa_invoke_sign(): ?array {
         }
     }
     return $GLOBALS['aa_test_json'];
+}
+
+
+function aa_general_record(): array {
+    return [
+        'id' => 10,
+        'expediente_id' => 7,
+        'client_id' => null,
+        'title' => 'A',
+        'body' => 'B',
+        'recorded_at' => '2026-08-20 12:00:00',
+        'created_at' => '2026-08-20 12:00:00',
+        'updated_at' => null,
+    ];
 }
 
 function aa_reset_sign(): void {
@@ -556,20 +633,18 @@ function aa_invoke_attach(): ?array {
 function aa_reset_attach(): void {
     aa_reset_sign();
     $_FILES = [];
-    UploadExpedienteRegistroAdjuntoUseCase::$calls = [];
-    UploadExpedienteRegistroAdjuntoUseCase::$response = [
-        'ok' => true,
-        'attachment' => [
-            'id' => 301,
+    UploadExpedienteAdjuntoForExpedienteUseCase::$calls = [];
+    UploadExpedienteAdjuntoForExpedienteUseCase::$response = [
+        'success' => true,
+        'data' => [
             'record_id' => 10,
-            'client_id' => 55,
-            'upload_operation_id' => '550e8400-e29b-41d4-a716-446655440000',
-            'storage_path' => 'installations/x/clients/55/records/10/550e8400-e29b-41d4-a716-446655440000.jpg',
-            'mime_type' => 'image/jpeg',
-            'byte_size' => 1024,
-            'width' => 800,
-            'height' => 600,
-            'created_at' => '2026-08-20 13:00:00',
+            'adjunto' => [
+                'id' => 301,
+                'width' => 800,
+                'height' => 600,
+                'byte_size' => 1024,
+                'created_at' => '2026-08-20 13:00:00',
+            ],
         ],
     ];
 }
@@ -597,7 +672,7 @@ $GLOBALS['aa_test_can_manage_options'] = false;
 $_POST = aa_attach_post();
 $_FILES = ['file' => aa_attach_file()];
 ac_assert('attach cap → 403', ((aa_invoke_attach()['status'] ?? 0) === 403));
-ac_assert('attach cap sin pipeline', UploadExpedienteRegistroAdjuntoUseCase::$calls === []);
+ac_assert('attach cap sin pipeline', UploadExpedienteAdjuntoForExpedienteUseCase::$calls === []);
 
 aa_reset_attach();
 $GLOBALS['aa_test_nonce_valid'] = false;
@@ -621,7 +696,7 @@ $_FILES = [];
 $missing = aa_invoke_attach();
 ac_assert('attach sin file → 400 file_missing', ($missing['status'] ?? 0) === 400
     && ($missing['data']['code'] ?? '') === 'file_missing'
-    && UploadExpedienteRegistroAdjuntoUseCase::$calls === []);
+    && UploadExpedienteAdjuntoForExpedienteUseCase::$calls === []);
 
 aa_reset_attach();
 $_POST = aa_attach_post(['expediente_id' => '01']);
@@ -639,8 +714,7 @@ aa_reset_attach();
 ExpedientesRepository::$exists_result = false;
 $_POST = aa_attach_post();
 $_FILES = ['file' => aa_attach_file()];
-ac_assert('attach expediente inexistente → 404', ((aa_invoke_attach()['status'] ?? 0) === 404)
-    && UploadExpedienteRegistroAdjuntoUseCase::$calls === []);
+ac_assert('attach expediente inexistente → 404', ((aa_invoke_attach()['status'] ?? 0) === 404));
 
 aa_reset_attach();
 ExpedientesRepository::$exists_result = null;
@@ -656,19 +730,20 @@ ac_assert('attach owner null → 500', ((aa_invoke_attach()['status'] ?? 0) === 
 
 aa_reset_attach();
 ExpedientesRepository::$owner = ['id' => 7, 'client_id' => null];
+ExpedienteRegistrosRepository::$record = aa_general_record();
 $_POST = aa_attach_post();
 $_FILES = ['file' => aa_attach_file()];
 $genA = aa_invoke_attach();
-ac_assert('attach general → 409', ($genA['status'] ?? 0) === 409
-    && ($genA['data']['code'] ?? '') === 'attachments_unavailable'
-    && UploadExpedienteRegistroAdjuntoUseCase::$calls === []);
+ac_assert('attach general → 200 v2', ($genA['success'] ?? false) === true && ($genA['status'] ?? 0) === 200);
+ac_assert('attach general pipeline 1×', count(UploadExpedienteAdjuntoForExpedienteUseCase::$calls) === 1
+    && (int) (UploadExpedienteAdjuntoForExpedienteUseCase::$calls[0]['expediente_id'] ?? 0) === 7
+    && !array_key_exists('client_id', UploadExpedienteAdjuntoForExpedienteUseCase::$calls[0]));
 
 aa_reset_attach();
 ExpedienteRegistrosRepository::$record = false;
 $_POST = aa_attach_post();
 $_FILES = ['file' => aa_attach_file()];
-ac_assert('attach registro ajeno → 404', ((aa_invoke_attach()['status'] ?? 0) === 404)
-    && UploadExpedienteRegistroAdjuntoUseCase::$calls === []);
+ac_assert('attach registro ajeno → 404', ((aa_invoke_attach()['status'] ?? 0) === 404));
 
 aa_reset_attach();
 ExpedienteRegistrosRepository::$record = null;
@@ -689,8 +764,7 @@ ExpedienteRegistrosRepository::$record = [
 ];
 $_POST = aa_attach_post();
 $_FILES = ['file' => aa_attach_file()];
-ac_assert('attach mismatch → 404 sin pipeline', ((aa_invoke_attach()['status'] ?? 0) === 404)
-    && UploadExpedienteRegistroAdjuntoUseCase::$calls === []);
+ac_assert('attach mismatch → 404', ((aa_invoke_attach()['status'] ?? 0) === 404));
 
 aa_reset_attach();
 $_POST = aa_attach_post([
@@ -714,10 +788,12 @@ ac_assert(
     && strpos($blobA, 'upload_operation_id') === false
 );
 ac_assert(
-    'attach pipeline 1× client padre; POST ignorado',
-    count(UploadExpedienteRegistroAdjuntoUseCase::$calls) === 1
-    && (UploadExpedienteRegistroAdjuntoUseCase::$calls[0]['client_id'] ?? 0) === 55
-    && !array_key_exists('storage_path', UploadExpedienteRegistroAdjuntoUseCase::$calls[0])
+    'attach pipeline 1× canónico; POST client ignorado',
+    count(UploadExpedienteAdjuntoForExpedienteUseCase::$calls) === 1
+    && (int) (UploadExpedienteAdjuntoForExpedienteUseCase::$calls[0]['expediente_id'] ?? 0) === 7
+    && (int) (UploadExpedienteAdjuntoForExpedienteUseCase::$calls[0]['record_id'] ?? 0) === 10
+    && !array_key_exists('client_id', UploadExpedienteAdjuntoForExpedienteUseCase::$calls[0])
+    && !array_key_exists('storage_path', UploadExpedienteAdjuntoForExpedienteUseCase::$calls[0])
 );
 
 aa_reset_attach();
@@ -725,66 +801,78 @@ $_POST = aa_attach_post();
 $_FILES = ['file' => aa_attach_file()];
 aa_invoke_attach();
 aa_invoke_attach();
-ac_assert('attach retry → 2× pipeline idempotente', count(UploadExpedienteRegistroAdjuntoUseCase::$calls) === 2);
+ac_assert('attach retry → 2× pipeline idempotente', count(UploadExpedienteAdjuntoForExpedienteUseCase::$calls) === 2);
 
 aa_reset_attach();
 $_POST = aa_attach_post(['upload_operation_id' => ['x']]);
 $_FILES = ['file' => aa_attach_file()];
-UploadExpedienteRegistroAdjuntoUseCase::$response = [
-    'ok' => false,
-    'code' => 'invalid_operation_id',
-    'message' => 'Identificador de operación no válido.',
+UploadExpedienteAdjuntoForExpedienteUseCase::$response = [
+    'success' => false,
+    'error' => [
+        'code' => 'invalid_operation_id',
+        'message' => 'Identificador de operación no válido.',
+    ],
 ];
 $badOp = aa_invoke_attach();
 ac_assert('attach op no escalar → 400', ($badOp['status'] ?? 0) === 400
     && ($badOp['data']['code'] ?? '') === 'invalid_operation_id'
-    && (UploadExpedienteRegistroAdjuntoUseCase::$calls[0]['upload_operation_id'] ?? null) === '');
+    && (UploadExpedienteAdjuntoForExpedienteUseCase::$calls[0]['upload_operation_id'] ?? null) === '');
 
 aa_reset_attach();
-UploadExpedienteRegistroAdjuntoUseCase::$response = [
-    'ok' => false,
-    'code' => 'adjunto_meta_conflict',
-    'message' => 'Conflicto.',
+UploadExpedienteAdjuntoForExpedienteUseCase::$response = [
+    'success' => false,
+    'error' => [
+        'code' => 'adjunto_meta_conflict',
+        'message' => 'Conflicto.',
+    ],
 ];
 $_POST = aa_attach_post();
 $_FILES = ['file' => aa_attach_file()];
 ac_assert('attach meta conflict → 409', ((aa_invoke_attach()['status'] ?? 0) === 409));
 
 aa_reset_attach();
-UploadExpedienteRegistroAdjuntoUseCase::$response = [
-    'ok' => false,
-    'code' => 'storage_quota_exceeded',
-    'message' => 'Cuota.',
+UploadExpedienteAdjuntoForExpedienteUseCase::$response = [
+    'success' => false,
+    'error' => [
+        'code' => 'storage_quota_exceeded',
+        'message' => 'Cuota.',
+    ],
 ];
 $_POST = aa_attach_post();
 $_FILES = ['file' => aa_attach_file()];
 ac_assert('attach cuota → 409', ((aa_invoke_attach()['status'] ?? 0) === 409));
 
 aa_reset_attach();
-UploadExpedienteRegistroAdjuntoUseCase::$response = [
-    'ok' => false,
-    'code' => 'variant_generation_failed',
-    'message' => 'Variantes.',
+UploadExpedienteAdjuntoForExpedienteUseCase::$response = [
+    'success' => false,
+    'error' => [
+        'code' => 'variant_generation_failed',
+        'message' => 'Variantes.',
+    ],
 ];
 $_POST = aa_attach_post();
 $_FILES = ['file' => aa_attach_file()];
 ac_assert('attach variantes → 500', ((aa_invoke_attach()['status'] ?? 0) === 500));
 
 aa_reset_attach();
-UploadExpedienteRegistroAdjuntoUseCase::$response = [
-    'ok' => false,
-    'code' => 'expediente_attachments_unreachable',
-    'message' => 'Backend.',
+UploadExpedienteAdjuntoForExpedienteUseCase::$response = [
+    'success' => false,
+    'error' => [
+        'code' => 'expediente_attachments_unreachable',
+        'message' => 'Backend.',
+    ],
 ];
 $_POST = aa_attach_post();
 $_FILES = ['file' => aa_attach_file()];
 ac_assert('attach backend → 502', ((aa_invoke_attach()['status'] ?? 0) === 502));
 
 aa_reset_attach();
-UploadExpedienteRegistroAdjuntoUseCase::$response = [
-    'ok' => false,
-    'code' => 'invalid_mime',
-    'message' => 'MIME.',
+UploadExpedienteAdjuntoForExpedienteUseCase::$response = [
+    'success' => false,
+    'error' => [
+        'code' => 'invalid_mime',
+        'message' => 'MIME.',
+    ],
 ];
 $_POST = aa_attach_post();
 $_FILES = ['file' => aa_attach_file()];

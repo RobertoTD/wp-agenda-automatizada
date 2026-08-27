@@ -6,8 +6,8 @@
  * Nunca inserta metadatos antes de un finalize coincidente.
  *
  * P3:
- * - Bridged + gate v2 → delega al writer canónico (sin locks locales).
- * - Orphan / gate OFF → client_v1 + site quota lock.
+ * - Bridged (con expediente_id) → delega siempre al writer canónico v2.
+ * - Orphan histórico sin expediente_id → client_v1 + site quota lock.
  */
 
 defined('ABSPATH') or die('No direct access');
@@ -29,9 +29,6 @@ if (!class_exists('ExpedienteAdjuntoJpegValidator')) {
 }
 if (!class_exists('ExpedienteAdjuntoVariants')) {
     require_once dirname(__DIR__, 2) . '/domain/expediente/ExpedienteAdjuntoVariants.php';
-}
-if (!class_exists('AA_Expediente_Attachments_V2_Enablement')) {
-    require_once dirname(__DIR__, 2) . '/domain/expediente/class-aa-expediente-attachments-v2-enablement.php';
 }
 if (!class_exists('ExpedienteAdjuntoUploadTransfer')) {
     require_once __DIR__ . '/ExpedienteAdjuntoUploadTransfer.php';
@@ -102,8 +99,7 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
      *   client_id:int,
      *   record_id:int,
      *   upload_operation_id:string,
-     *   file:array<string,mixed>,
-     *   _aa_skip_canonical_bridge?:bool
+     *   file:array<string,mixed>
      * } $input
      * @return array{ok:true,attachment:array<string,mixed>}|array{ok:false,code:string,message:string}
      */
@@ -112,7 +108,6 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
         $record_id = (int) ($input['record_id'] ?? 0);
         $operation_id = strtolower(trim((string) ($input['upload_operation_id'] ?? '')));
         $file = isset($input['file']) && is_array($input['file']) ? $input['file'] : [];
-        $skip_bridge = !empty($input['_aa_skip_canonical_bridge']);
 
         $tmp_to_clean = isset($file['tmp_name']) ? (string) $file['tmp_name'] : '';
 
@@ -135,11 +130,7 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
             }
 
             $bridged_expediente_id = $this->bridged_expediente_id($record);
-            if (
-                !$skip_bridge
-                && $bridged_expediente_id !== null
-                && AA_Expediente_Attachments_V2_Enablement::is_enabled()
-            ) {
+            if ($bridged_expediente_id !== null) {
                 return $this->delegate_canonical_v2($bridged_expediente_id, $record_id, $client_id, $operation_id, $file);
             }
 
@@ -361,7 +352,6 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
         $canonical = $this->canonical_upload;
         if ($canonical === null) {
             $canonical = new UploadExpedienteAdjuntoForExpedienteUseCase(
-                null,
                 $this->validator,
                 $this->transfer,
                 $this->lock,

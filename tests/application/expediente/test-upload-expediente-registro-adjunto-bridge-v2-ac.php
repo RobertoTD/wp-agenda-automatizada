@@ -1,6 +1,6 @@
 <?php
 /**
- * AC — Legacy bridged → canónico v2 (P3).
+ * AC — Legacy bridged → canónico v2 permanente (P3).
  *
  * Ejecutar: php tests/application/expediente/test-upload-expediente-registro-adjunto-bridge-v2-ac.php
  */
@@ -99,9 +99,14 @@ final class FakeTransferNever {
 
 require_once $plugin_root . '/tests/support/aa-test-expediente-aggregate-lock-passthrough.php';
 $lock = aa_test_install_passthrough_expediente_lock();
-require_once $plugin_root . '/includes/domain/expediente/class-aa-expediente-attachments-v2-enablement.php';
 require_once $plugin_root . '/includes/domain/expediente/ExpedienteAdjuntoJpegValidator.php';
 require_once $plugin_root . '/includes/application/expediente/UploadExpedienteRegistroAdjuntoUseCase.php';
+
+$legacy_src = (string) file_get_contents(
+    $plugin_root . '/includes/application/expediente/UploadExpedienteRegistroAdjuntoUseCase.php'
+);
+ac_assert('legacy sin Enablement', strpos($legacy_src, 'Attachments_V2_Enablement') === false);
+ac_assert('legacy sin constante V2', strpos($legacy_src, 'AA_EXPEDIENTE_ATTACHMENTS_V2_ENABLED') === false);
 
 $op = '550e8400-e29b-41d4-a716-446655440000';
 $input = [
@@ -117,7 +122,6 @@ $input = [
     ],
 ];
 
-AA_Expediente_Attachments_V2_Enablement::set_for_tests(true);
 $canonical = new FakeCanonical();
 ExpedienteAdjuntosRepository::$by_op = [
     'id' => 88,
@@ -140,31 +144,14 @@ $uc = new UploadExpedienteRegistroAdjuntoUseCase(
     $canonical
 );
 $out = $uc->execute($input);
-ac_assert('bridged+ON → ok', !empty($out['ok']));
+ac_assert('bridged → ok v2', !empty($out['ok']));
 ac_assert('delegó canónico 1×', count($canonical->calls) === 1);
 ac_assert('canónico recibe expediente_id', (int) ($canonical->calls[0]['expediente_id'] ?? 0) === 7);
 ac_assert('sin transfer local', $transfer->calls === 0);
 ac_assert('sin locks locales', $lock->acquire_calls === []);
 
-AA_Expediente_Attachments_V2_Enablement::set_for_tests(false);
-$canonical = new FakeCanonical();
-$lock->acquire_calls = [];
-$uc = new UploadExpedienteRegistroAdjuntoUseCase(
-    new ExpedienteAdjuntoJpegValidator(static function () {
-        return false;
-    }),
-    new FakeTransferNever(),
-    $lock,
-    null,
-    $canonical
-);
-$out = $uc->execute($input);
-ac_assert('bridged+OFF no delega', $canonical->calls === []);
-ac_assert('bridged+OFF entra validate (fallo jpeg esperado)', ($out['code'] ?? '') !== 'should_not_run');
-
 // Orphan siempre v1
 ExpedienteRegistrosRepository::$record['expediente_id'] = null;
-AA_Expediente_Attachments_V2_Enablement::set_for_tests(true);
 $canonical = new FakeCanonical();
 $uc = new UploadExpedienteRegistroAdjuntoUseCase(
     new ExpedienteAdjuntoJpegValidator(static function () {
@@ -176,9 +163,8 @@ $uc = new UploadExpedienteRegistroAdjuntoUseCase(
     $canonical
 );
 $out = $uc->execute($input);
-ac_assert('orphan+ON no delega', $canonical->calls === []);
-
-AA_Expediente_Attachments_V2_Enablement::set_for_tests(null);
+ac_assert('orphan no delega', $canonical->calls === []);
+ac_assert('orphan entra validate (fallo jpeg esperado)', ($out['code'] ?? '') !== 'should_not_run');
 
 echo "\nResultado: {$passed}/{$total} OK\n";
 if ($failed) {

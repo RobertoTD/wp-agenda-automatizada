@@ -2,18 +2,15 @@
 /**
  * Upload Expediente Adjunto For Expediente Use Case (B3b1 / P3).
  *
- * Writer canónico por expediente_id.
- * Gate OFF: general → attachments_unavailable; relacionado → pipeline v1 legacy.
- * Gate ON: authorize/transfer/finalize expediente_v2 + locks aggregate→quota.
+ * Writer canónico permanente por expediente_id → path expediente_v2.
+ * General: metadata client_id NULL. Relacionado: snapshot del padre.
+ * Locks: aggregate → site quota (release inverso).
  */
 
 defined('ABSPATH') or die('No direct access');
 
 if (!class_exists('AA_Expediente_Id_Policy')) {
     require_once dirname(__DIR__, 2) . '/domain/expediente/class-aa-expediente-id-policy.php';
-}
-if (!class_exists('AA_Expediente_Attachments_V2_Enablement')) {
-    require_once dirname(__DIR__, 2) . '/domain/expediente/class-aa-expediente-attachments-v2-enablement.php';
 }
 if (!class_exists('ExpedienteAdjuntoVariants')) {
     require_once dirname(__DIR__, 2) . '/domain/expediente/ExpedienteAdjuntoVariants.php';
@@ -53,9 +50,6 @@ final class UploadExpedienteAdjuntoForExpedienteUseCase {
 
     private const UUID_V4_RE = '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i';
 
-    /** @var object|null UploadExpedienteRegistroAdjuntoUseCase (lazy require). */
-    private $legacy_upload;
-
     /** @var ExpedienteAdjuntoJpegValidator */
     private $validator;
 
@@ -69,20 +63,17 @@ final class UploadExpedienteAdjuntoForExpedienteUseCase {
     private $cleanup_client;
 
     /**
-     * @param object|null $legacy_upload Solo path gate OFF relacionado.
      * @param ExpedienteAdjuntoJpegValidator|null $validator
      * @param object|null $transfer
      * @param AA_Expediente_Aggregate_Lock|null $lock
      * @param object|null $cleanup_client
      */
     public function __construct(
-        $legacy_upload = null,
         ?ExpedienteAdjuntoJpegValidator $validator = null,
         $transfer = null,
         ?AA_Expediente_Aggregate_Lock $lock = null,
         $cleanup_client = null
     ) {
-        $this->legacy_upload = is_object($legacy_upload) ? $legacy_upload : null;
         $this->validator = $validator ?: new ExpedienteAdjuntoJpegValidator();
         $this->transfer = $transfer ?: new ExpedienteAdjuntoUploadTransfer(
             new AA_Expediente_Adjunto_Variant_Generator(),
@@ -133,10 +124,6 @@ final class UploadExpedienteAdjuntoForExpedienteUseCase {
 
         $parent_client_id = $this->normalize_nullable_client($owner['client_id'] ?? null);
 
-        if (!AA_Expediente_Attachments_V2_Enablement::is_enabled() && $parent_client_id === null) {
-            return $this->fail('attachments_unavailable', 'Este expediente no admite adjuntos.');
-        }
-
         $record = ExpedienteRegistrosRepository::find_by_id_for_expediente($record_id, $expediente_id);
         if ($record === null) {
             return $this->fail('lookup_failed', 'No se pudo verificar el registro.');
@@ -150,11 +137,6 @@ final class UploadExpedienteAdjuntoForExpedienteUseCase {
             return $coherence;
         }
 
-        if (!AA_Expediente_Attachments_V2_Enablement::is_enabled()) {
-            // Relacionado: parent_client_id ya validado no-null arriba.
-            return $this->delegate_legacy_v1((int) $parent_client_id, $record_id, $operation_id, $file);
-        }
-
         return $this->execute_v2(
             $expediente_id,
             $record_id,
@@ -162,43 +144,6 @@ final class UploadExpedienteAdjuntoForExpedienteUseCase {
             $operation_id,
             $file
         );
-    }
-
-    /**
-     * @param array<string,mixed> $file
-     * @return array{success:true,data:array{record_id:int,adjunto:array<string,mixed>}}|array{success:false,error:array{code:string,message:string}}
-     */
-    private function delegate_legacy_v1(int $parent_client_id, int $record_id, string $operation_id, array $file): array {
-        if (!class_exists('UploadExpedienteRegistroAdjuntoUseCase')) {
-            require_once __DIR__ . '/UploadExpedienteRegistroAdjuntoUseCase.php';
-        }
-        $legacy = $this->legacy_upload ?: new UploadExpedienteRegistroAdjuntoUseCase();
-        $uploaded = $legacy->execute([
-            'client_id' => $parent_client_id,
-            'record_id' => $record_id,
-            'upload_operation_id' => $operation_id,
-            'file' => $file,
-            // Evita reentrada canónica si el registro está bridged y el gate cambia.
-            '_aa_skip_canonical_bridge' => true,
-        ]);
-
-        if (empty($uploaded['ok'])) {
-            return $this->fail(
-                (string) ($uploaded['code'] ?? 'attach_failed'),
-                (string) ($uploaded['message'] ?? 'No se pudo subir la imagen.')
-            );
-        }
-
-        $attachment = is_array($uploaded['attachment'] ?? null) ? $uploaded['attachment'] : null;
-        $dto = ExpedienteAdjuntoPublicDto::from($attachment);
-        if ($dto === null) {
-            return $this->fail('persist_failed', 'No se pudo guardar el adjunto.');
-        }
-
-        return $this->ok([
-            'record_id' => $record_id,
-            'adjunto' => $dto,
-        ]);
     }
 
     /**
