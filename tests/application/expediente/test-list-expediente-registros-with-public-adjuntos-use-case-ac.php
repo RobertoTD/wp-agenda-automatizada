@@ -1,6 +1,6 @@
 <?php
 /**
- * AC — ListExpedienteRegistrosWithPublicAdjuntosUseCase (B2b).
+ * AC — ListExpedienteRegistrosWithPublicAdjuntosUseCase (B2b / P2).
  *
  * Ejecutar: php tests/application/expediente/test-list-expediente-registros-with-public-adjuntos-use-case-ac.php
  */
@@ -28,6 +28,11 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 if (!defined('ABSPATH')) {
     define('ABSPATH', $plugin_root . '/');
 }
+
+$iid = '11111111-2222-4333-8444-555555555555';
+$op_a = '660e8400-e29b-41d4-a716-446655440000';
+$op_b = '770e8400-e29b-41d4-a716-446655440001';
+$op_c = '880e8400-e29b-41d4-a716-446655440002';
 
 final class ExpedientesRepository {
     /** @var bool|null */
@@ -82,26 +87,25 @@ final class ListExpedienteRegistrosUseCase {
 
 final class ExpedienteAdjuntosRepository {
     public static $calls = 0;
-    /** @var list<array{record_ids:array,client_id:int}> */
+    /** @var list<list<int>> */
     public static $args = [];
-    /** @var array<int,list<array<string,mixed>>> */
+    /** @var array<int,list<array<string,mixed>>>|null */
     public static $by_record = [];
 
     /**
      * @param list<int> $record_ids
-     * @return array<int,list<array<string,mixed>>>
+     * @return array<int,list<array<string,mixed>>>|null
      */
-    public static function list_by_record_ids(array $record_ids, int $client_id): array {
+    public static function list_by_record_ids_for_records(array $record_ids): ?array {
         self::$calls++;
-        self::$args[] = [
-            'record_ids' => $record_ids,
-            'client_id' => $client_id,
-        ];
+        self::$args[] = $record_ids;
         return self::$by_record;
     }
 }
 
 require_once $plugin_root . '/includes/domain/expediente/class-aa-expediente-id-policy.php';
+require_once $plugin_root . '/includes/domain/expediente/ExpedienteAdjuntoVariants.php';
+require_once $plugin_root . '/includes/domain/expediente/class-aa-expediente-adjunto-identity-policy.php';
 require_once $plugin_root . '/includes/domain/expediente/ExpedienteAdjuntoPublicDto.php';
 require_once $plugin_root . '/includes/application/expediente/ListExpedienteRegistrosWithPublicAdjuntosUseCase.php';
 
@@ -121,7 +125,8 @@ ac_assert('sin gate/nonce/cap en UC enriquecido', strpos($src, 'current_user_can
 ac_assert('delega ListExpedienteRegistrosUseCase', strpos($src, 'ListExpedienteRegistrosUseCase') !== false);
 ac_assert('usa exists_by_id + find_owner_context_by_id', strpos($src, 'exists_by_id') !== false
     && strpos($src, 'find_owner_context_by_id') !== false);
-ac_assert('bulk list_by_record_ids', strpos($src, 'list_by_record_ids') !== false);
+ac_assert('bulk list_by_record_ids_for_records', strpos($src, 'list_by_record_ids_for_records') !== false);
+ac_assert('policy validate', strpos($src, 'AA_Expediente_Adjunto_Identity_Policy::validate') !== false);
 ac_assert('DTO público', strpos($src, 'ExpedienteAdjuntoPublicDto::from') !== false);
 ac_assert('ignora client_id de input (sin leerlo)', strpos($src, "input['client_id']") === false
     && strpos($src, '$input["client_id"]') === false);
@@ -138,6 +143,7 @@ ac_assert(
 );
 
 function aa_reset_uc(): void {
+    global $op_a, $op_b, $op_c;
     ExpedientesRepository::$exists_result = true;
     ExpedientesRepository::$exists_calls = 0;
     ExpedientesRepository::$last_exists_id = null;
@@ -220,7 +226,7 @@ ac_assert('owner null sin list/bulk', ListExpedienteRegistrosUseCase::$calls ===
     && ExpedientesRepository::$exists_calls === 1
     && ExpedientesRepository::$owner_calls === 1);
 
-// --- Padre cliente con adjuntos ---
+// --- Padre cliente con adjuntos v1 ---
 
 aa_reset_uc();
 ListExpedienteRegistrosUseCase::$result = [
@@ -235,14 +241,17 @@ ListExpedienteRegistrosUseCase::$result = [
         'has_next' => false,
     ],
 ];
+$path_10_a = ExpedienteAdjuntoVariants::build_client_original_path($iid, 55, 10, $op_a);
+$path_10_b = ExpedienteAdjuntoVariants::build_client_original_path($iid, 55, 10, $op_b);
+$path_9 = ExpedienteAdjuntoVariants::build_client_original_path($iid, 55, 9, $op_c);
 ExpedienteAdjuntosRepository::$by_record = [
     10 => [
         [
             'id' => 302,
             'record_id' => 10,
             'client_id' => 55,
-            'upload_operation_id' => 'op-302',
-            'storage_path' => '/clients/55/records/10/302.jpg',
+            'upload_operation_id' => $op_a,
+            'storage_path' => $path_10_a,
             'mime_type' => 'image/jpeg',
             'byte_size' => 2048,
             'width' => 800,
@@ -253,8 +262,8 @@ ExpedienteAdjuntosRepository::$by_record = [
             'id' => 301,
             'record_id' => 10,
             'client_id' => 55,
-            'upload_operation_id' => 'op-301',
-            'storage_path' => '/clients/55/records/10/301.jpg',
+            'upload_operation_id' => $op_b,
+            'storage_path' => $path_10_b,
             'mime_type' => 'image/jpeg',
             'byte_size' => 1024,
             'width' => 400,
@@ -267,8 +276,8 @@ ExpedienteAdjuntosRepository::$by_record = [
             'id' => 201,
             'record_id' => 9,
             'client_id' => 55,
-            'upload_operation_id' => 'op-201',
-            'storage_path' => '/secret',
+            'upload_operation_id' => $op_c,
+            'storage_path' => $path_9,
             'mime_type' => 'image/jpeg',
             'byte_size' => 512,
             'width' => 100,
@@ -276,7 +285,6 @@ ExpedienteAdjuntosRepository::$by_record = [
             'created_at' => '2026-08-19 11:00:00',
         ],
     ],
-    // Ruido: otro record_id / no pedido
     99 => [
         [
             'id' => 999,
@@ -296,15 +304,14 @@ $ok = $uc->execute([
     'page' => '1',
     'client_id' => 999,
 ]);
-ac_assert('cliente+adjuntos → success', ($ok['success'] ?? false) === true);
+ac_assert('cliente+adjuntos v1 → success', ($ok['success'] ?? false) === true);
 ac_assert('paginación preservada', ($ok['data']['total'] ?? -1) === 2
     && ($ok['data']['per_page'] ?? 0) === 15
     && ($ok['data']['page'] ?? 0) === 1);
 ac_assert('una sola llamada bulk', ExpedienteAdjuntosRepository::$calls === 1);
 ac_assert(
-    'bulk con ids de la página y client_id del padre',
-    (ExpedienteAdjuntosRepository::$args[0]['client_id'] ?? 0) === 55
-    && (ExpedienteAdjuntosRepository::$args[0]['record_ids'] ?? null) === [10, 9]
+    'bulk con ids de la página (sin client_id)',
+    (ExpedienteAdjuntosRepository::$args[0] ?? null) === [10, 9]
 );
 ac_assert(
     'client_id POST no llega al list UC',
@@ -342,6 +349,42 @@ ac_assert(
 );
 ac_assert('excluye adjuntos de record 99', strpos($blob, '"id":999') === false
     && strpos($blob, '"id":999,') === false);
+
+// --- Relacionado v2 ---
+
+aa_reset_uc();
+ListExpedienteRegistrosUseCase::$result = [
+    'success' => true,
+    'data' => [
+        'records' => [aa_sample_records()[0]],
+        'page' => 1,
+        'per_page' => 15,
+        'total' => 1,
+        'total_pages' => 1,
+        'has_previous' => false,
+        'has_next' => false,
+    ],
+];
+$path_v2 = ExpedienteAdjuntoVariants::build_expediente_record_original_path($iid, 7, 10, $op_a);
+ExpedienteAdjuntosRepository::$by_record = [
+    10 => [
+        [
+            'id' => 401,
+            'record_id' => 10,
+            'client_id' => 55,
+            'upload_operation_id' => $op_a,
+            'storage_path' => $path_v2,
+            'mime_type' => 'image/jpeg',
+            'byte_size' => 900,
+            'width' => 200,
+            'height' => 150,
+            'created_at' => '2026-08-21 10:00:00',
+        ],
+    ],
+];
+$v2ok = $uc->execute(['expediente_id' => 7]);
+ac_assert('relacionado v2 → success', ($v2ok['success'] ?? false) === true);
+ac_assert('relacionado v2 adjunto', ($v2ok['data']['records'][0]['adjunto']['id'] ?? 0) === 401);
 
 // --- Registro sin adjuntos ---
 
@@ -390,18 +433,53 @@ ListExpedienteRegistrosUseCase::$result = [
         'has_next' => false,
     ],
 ];
+ExpedienteAdjuntosRepository::$by_record = [];
 $general = $uc->execute(['expediente_id' => 7]);
-ac_assert('general → success', ($general['success'] ?? false) === true);
-ac_assert('general sin bulk', ExpedienteAdjuntosRepository::$calls === 0);
+ac_assert('general vacío → success', ($general['success'] ?? false) === true);
+ac_assert('general vacío llama bulk', ExpedienteAdjuntosRepository::$calls === 1);
 ac_assert(
-    'general adjuntos vacíos en ambos registros',
+    'general vacío adjuntos vacíos',
     ($general['data']['records'][0]['adjuntos'] ?? null) === []
-    && array_key_exists('adjunto', $general['data']['records'][0])
     && $general['data']['records'][0]['adjunto'] === null
     && ($general['data']['records'][1]['adjuntos'] ?? null) === []
-    && array_key_exists('adjunto', $general['data']['records'][1])
     && $general['data']['records'][1]['adjunto'] === null
 );
+
+// General con adjunto v2 coherente
+aa_reset_uc();
+ExpedientesRepository::$owner = ['id' => 7, 'client_id' => null];
+ListExpedienteRegistrosUseCase::$result = [
+    'success' => true,
+    'data' => [
+        'records' => [aa_sample_records()[0]],
+        'page' => 1,
+        'per_page' => 15,
+        'total' => 1,
+        'total_pages' => 1,
+        'has_previous' => false,
+        'has_next' => false,
+    ],
+];
+$path_g = ExpedienteAdjuntoVariants::build_expediente_record_original_path($iid, 7, 10, $op_a);
+ExpedienteAdjuntosRepository::$by_record = [
+    10 => [
+        [
+            'id' => 501,
+            'record_id' => 10,
+            'client_id' => null,
+            'upload_operation_id' => $op_a,
+            'storage_path' => $path_g,
+            'mime_type' => 'image/jpeg',
+            'byte_size' => 640,
+            'width' => 320,
+            'height' => 240,
+            'created_at' => '2026-08-22 08:00:00',
+        ],
+    ],
+];
+$gadj = $uc->execute(['expediente_id' => 7]);
+ac_assert('general v2 → success', ($gadj['success'] ?? false) === true);
+ac_assert('general v2 incluye adjunto', ($gadj['data']['records'][0]['adjunto']['id'] ?? 0) === 501);
 
 // --- Página vacía ---
 
@@ -412,7 +490,60 @@ ac_assert('página vacía → success', ($empty['success'] ?? false) === true
     && ($empty['data']['records'] ?? null) === []);
 ac_assert('página vacía sin bulk', ExpedienteAdjuntosRepository::$calls === 0);
 
-// --- Bulk fail-soft ---
+// --- Inconsistencia fail-closed ---
+
+aa_reset_uc();
+ListExpedienteRegistrosUseCase::$result = [
+    'success' => true,
+    'data' => [
+        'records' => aa_sample_records(),
+        'page' => 1,
+        'per_page' => 15,
+        'total' => 2,
+        'total_pages' => 1,
+        'has_previous' => false,
+        'has_next' => false,
+    ],
+];
+ExpedienteAdjuntosRepository::$by_record = [
+    10 => [
+        [
+            'id' => 302,
+            'record_id' => 10,
+            'client_id' => 55,
+            'upload_operation_id' => $op_a,
+            'storage_path' => '/secret',
+            'mime_type' => 'image/jpeg',
+            'byte_size' => 2048,
+            'width' => 800,
+            'height' => 600,
+            'created_at' => '2026-08-20 13:00:00',
+        ],
+    ],
+];
+$incon = $uc->execute(['expediente_id' => 7]);
+ac_assert('path inválido → adjunto_inconsistent', ($incon['error']['code'] ?? '') === 'adjunto_inconsistent');
+
+// --- Bulk SQL null → lookup_failed ---
+
+aa_reset_uc();
+ListExpedienteRegistrosUseCase::$result = [
+    'success' => true,
+    'data' => [
+        'records' => aa_sample_records(),
+        'page' => 1,
+        'per_page' => 15,
+        'total' => 2,
+        'total_pages' => 1,
+        'has_previous' => false,
+        'has_next' => false,
+    ],
+];
+ExpedienteAdjuntosRepository::$by_record = null;
+$sqlFail = $uc->execute(['expediente_id' => 7]);
+ac_assert('bulk null → lookup_failed', ($sqlFail['error']['code'] ?? '') === 'lookup_failed');
+
+// --- Bulk vacío OK ---
 
 aa_reset_uc();
 ListExpedienteRegistrosUseCase::$result = [
@@ -429,11 +560,10 @@ ListExpedienteRegistrosUseCase::$result = [
 ];
 ExpedienteAdjuntosRepository::$by_record = [];
 $soft = $uc->execute(['expediente_id' => 7]);
-ac_assert('bulk vacío fail-soft → success', ($soft['success'] ?? false) === true);
+ac_assert('bulk vacío → success', ($soft['success'] ?? false) === true);
 ac_assert(
-    'fail-soft colecciones vacías',
+    'bulk vacío colecciones vacías',
     ($soft['data']['records'][0]['adjuntos'] ?? null) === []
-    && array_key_exists('adjunto', $soft['data']['records'][0])
     && $soft['data']['records'][0]['adjunto'] === null
     && ($soft['data']['records'][1]['adjuntos'] ?? null) === []
 );

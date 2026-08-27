@@ -1,6 +1,6 @@
 <?php
 /**
- * AC — GetExpedienteAdjuntoReadUrlForExpedienteUseCase (B3a).
+ * AC — GetExpedienteAdjuntoReadUrlForExpedienteUseCase (B3a / P2).
  *
  * Ejecutar: php tests/application/expediente/test-get-expediente-adjunto-read-url-for-expediente-use-case-ac.php
  */
@@ -35,6 +35,9 @@ if (!function_exists('wp_parse_url')) {
     }
 }
 
+$iid = '11111111-2222-4333-8444-555555555555';
+$op = '660e8400-e29b-41d4-a716-446655440000';
+
 final class ExpedientesRepository {
     /** @var bool|null */
     public static $exists_result = true;
@@ -68,68 +71,69 @@ final class ExpedienteRegistrosRepository {
     }
 }
 
-final class FakeSignReadUseCase {
-    public $calls = [];
-    /** @var array<string,mixed> */
-    public $response = [
-        'ok' => true,
-        'url' => 'https://proj.supabase.co/storage/v1/object/sign/x.jpg?token=abc',
-        'expires_in' => 600,
-        'variant' => 'summary',
-    ];
+final class ExpedienteAdjuntosRepository {
+    /** @var array|null|false */
+    public static $adjunto = false;
+    public static $calls = 0;
+    /** @var array{attachment_id:int,record_id:int}|null */
+    public static $last_args = null;
 
-    public function execute(array $input): array {
-        $this->calls[] = $input;
-        $resp = $this->response;
-        if (!empty($resp['ok']) && isset($input['variant'])) {
-            $resp['variant'] = $input['variant'];
+    public static function find_by_id_for_record(int $attachment_id, int $record_id) {
+        self::$calls++;
+        self::$last_args = ['attachment_id' => $attachment_id, 'record_id' => $record_id];
+        return self::$adjunto;
+    }
+}
+
+final class FakeSignBackend {
+    public $calls = [];
+    /** @var array<string,mixed>|null */
+    public $response = null;
+
+    public function sign_read(string $storage_path, string $variant): array {
+        $this->calls[] = compact('storage_path', 'variant');
+        if ($this->response !== null) {
+            return $this->response;
         }
-        return $resp;
+        $derived = ExpedienteAdjuntoVariants::derive_path($storage_path, $variant);
+        $url = 'https://proj.supabase.co/storage/v1/object/sign/expediente-adjuntos/' . $derived . '?token=eyJx.y.z';
+        return [
+            'ok' => true,
+            'result' => [
+                'url' => $url,
+                'expires_in' => 600,
+                'variant' => $variant,
+            ],
+        ];
     }
 }
 
 require_once $plugin_root . '/includes/domain/expediente/class-aa-expediente-id-policy.php';
 require_once $plugin_root . '/includes/domain/expediente/ExpedienteAdjuntoVariants.php';
-
-// Stub GetExpedienteAdjuntoReadUrlUseCase before requiring the for-expediente UC.
-final class GetExpedienteAdjuntoReadUrlUseCase {
-    /** @var FakeSignReadUseCase|null */
-    public static $delegate = null;
-
-    public function execute(array $input): array {
-        if (self::$delegate === null) {
-            return ['ok' => false, 'code' => 'unused', 'message' => 'unused'];
-        }
-        return self::$delegate->execute($input);
-    }
-}
-
+require_once $plugin_root . '/includes/domain/expediente/class-aa-expediente-adjunto-identity-policy.php';
+require_once $plugin_root . '/includes/infrastructure/backend/class-aa-expediente-attachment-read-url-validator.php';
 require_once $plugin_root . '/includes/application/expediente/GetExpedienteAdjuntoReadUrlForExpedienteUseCase.php';
 
 $src = (string) file_get_contents(
     $plugin_root . '/includes/application/expediente/GetExpedienteAdjuntoReadUrlForExpedienteUseCase.php'
 );
-$legacy_src = (string) file_get_contents(
-    $plugin_root . '/includes/application/expediente/GetExpedienteAdjuntoReadUrlUseCase.php'
-);
 $list_src = (string) file_get_contents(
     $plugin_root . '/includes/application/expediente/ListExpedienteRegistrosWithPublicAdjuntosUseCase.php'
 );
 
-ac_assert('delega GetExpedienteAdjuntoReadUrlUseCase', strpos($src, 'GetExpedienteAdjuntoReadUrlUseCase') !== false);
+ac_assert('NO delega GetExpedienteAdjuntoReadUrlUseCase', strpos($src, 'GetExpedienteAdjuntoReadUrlUseCase') === false);
+ac_assert('usa sign_read + policy + find_by_id_for_record', strpos($src, 'sign_read') !== false
+    && strpos($src, 'AA_Expediente_Adjunto_Identity_Policy::validate') !== false
+    && strpos($src, 'find_by_id_for_record') !== false);
+ac_assert('sin código attachments_unavailable', strpos($src, "'attachments_unavailable'") === false);
 ac_assert('usa exists + owner + find_by_id_for_expediente', strpos($src, 'exists_by_id') !== false
     && strpos($src, 'find_owner_context_by_id') !== false
     && strpos($src, 'find_by_id_for_expediente') !== false);
 ac_assert('ignora client_id de input', strpos($src, "input['client_id']") === false);
-ac_assert('legacy UC sin cambios de action canónica', strpos($legacy_src, 'ForExpediente') === false);
 ac_assert('B2b list sin sign-read canónico', strpos($list_src, 'GetExpedienteAdjuntoReadUrlForExpediente') === false);
 
-function aa_reset(): FakeSignReadUseCase {
-    ExpedientesRepository::$exists_result = true;
-    ExpedientesRepository::$exists_calls = 0;
-    ExpedientesRepository::$owner = ['id' => 7, 'client_id' => 55];
-    ExpedientesRepository::$owner_calls = 0;
-    ExpedienteRegistrosRepository::$record = [
+function aa_related_record(): array {
+    return [
         'id' => 10,
         'expediente_id' => 7,
         'client_id' => 55,
@@ -139,14 +143,70 @@ function aa_reset(): FakeSignReadUseCase {
         'created_at' => '2026-08-20 12:00:00',
         'updated_at' => null,
     ];
-    ExpedienteRegistrosRepository::$calls = 0;
-    ExpedienteRegistrosRepository::$last_args = null;
-    $fake = new FakeSignReadUseCase();
-    GetExpedienteAdjuntoReadUrlUseCase::$delegate = $fake;
-    return $fake;
 }
 
-$input_base = [
+function aa_related_adjunto(): array {
+    global $iid, $op;
+    $path = ExpedienteAdjuntoVariants::build_client_original_path($iid, 55, 10, $op);
+    return [
+        'id' => 301,
+        'record_id' => 10,
+        'client_id' => 55,
+        'upload_operation_id' => $op,
+        'storage_path' => $path,
+        'mime_type' => 'image/jpeg',
+        'byte_size' => 1024,
+        'width' => 400,
+        'height' => 300,
+        'created_at' => '2026-08-20 12:30:00',
+    ];
+}
+
+function aa_general_record(): array {
+    return [
+        'id' => 14,
+        'expediente_id' => 7,
+        'client_id' => null,
+        'title' => 'G',
+        'body' => 'B',
+        'recorded_at' => '2026-08-20 12:00:00',
+        'created_at' => '2026-08-20 12:00:00',
+        'updated_at' => null,
+    ];
+}
+
+function aa_general_adjunto(): array {
+    global $iid, $op;
+    $path = ExpedienteAdjuntoVariants::build_expediente_record_original_path($iid, 7, 14, $op);
+    return [
+        'id' => 401,
+        'record_id' => 14,
+        'client_id' => null,
+        'upload_operation_id' => $op,
+        'storage_path' => $path,
+        'mime_type' => 'image/jpeg',
+        'byte_size' => 900,
+        'width' => 200,
+        'height' => 150,
+        'created_at' => '2026-08-21 10:00:00',
+    ];
+}
+
+function aa_reset_related(): FakeSignBackend {
+    ExpedientesRepository::$exists_result = true;
+    ExpedientesRepository::$exists_calls = 0;
+    ExpedientesRepository::$owner = ['id' => 7, 'client_id' => 55];
+    ExpedientesRepository::$owner_calls = 0;
+    ExpedienteRegistrosRepository::$record = aa_related_record();
+    ExpedienteRegistrosRepository::$calls = 0;
+    ExpedienteRegistrosRepository::$last_args = null;
+    ExpedienteAdjuntosRepository::$adjunto = aa_related_adjunto();
+    ExpedienteAdjuntosRepository::$calls = 0;
+    ExpedienteAdjuntosRepository::$last_args = null;
+    return new FakeSignBackend();
+}
+
+$input_related = [
     'expediente_id' => '7',
     'record_id' => '10',
     'attachment_id' => '301',
@@ -156,26 +216,26 @@ $input_base = [
 ];
 
 foreach (['summary', 'gallery', 'display'] as $variant) {
-    $fake = aa_reset();
-    $uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase(new GetExpedienteAdjuntoReadUrlUseCase());
-    $res = $uc->execute(array_merge($input_base, ['variant' => $variant]));
-    ac_assert("firma válida {$variant}", ($res['success'] ?? false) === true
+    $backend = aa_reset_related();
+    $uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase($backend);
+    $res = $uc->execute(array_merge($input_related, ['variant' => $variant]));
+    ac_assert("relacionado v1 firma {$variant}", ($res['success'] ?? false) === true
         && ($res['data']['variant'] ?? '') === $variant
         && ($res['data']['url'] ?? '') !== ''
         && ($res['data']['expires_in'] ?? 0) === 600);
     ac_assert(
-        "{$variant}: client_id del padre; POST ignorado",
-        count($fake->calls) === 1
-        && ($fake->calls[0]['client_id'] ?? 0) === 55
-        && !array_key_exists('storage_path', $fake->calls[0])
-        && ($fake->calls[0]['record_id'] ?? 0) === 10
-        && ($fake->calls[0]['attachment_id'] ?? 0) === 301
+        "{$variant}: sign_read con path canónico",
+        count($backend->calls) === 1
+        && ($backend->calls[0]['variant'] ?? '') === $variant
+        && strpos((string) ($backend->calls[0]['storage_path'] ?? ''), '/clients/55/') !== false
     );
+    ac_assert("{$variant}: find_by_id_for_record", (ExpedienteAdjuntosRepository::$last_args['attachment_id'] ?? 0) === 301
+        && (ExpedienteAdjuntosRepository::$last_args['record_id'] ?? 0) === 10);
 }
 
-$fake = aa_reset();
-$uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase(new GetExpedienteAdjuntoReadUrlUseCase());
-$ok = $uc->execute($input_base);
+$backend = aa_reset_related();
+$uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase($backend);
+$ok = $uc->execute($input_related);
 $blob = json_encode($ok['data'] ?? []);
 ac_assert(
     'respuesta sin owners/paths',
@@ -190,24 +250,42 @@ ac_assert(
     && (ExpedienteRegistrosRepository::$last_args['expediente_id'] ?? 0) === 7
 );
 
+// --- General v2 success ---
+
+$backend = aa_reset_related();
+ExpedientesRepository::$owner = ['id' => 7, 'client_id' => null];
+ExpedienteRegistrosRepository::$record = aa_general_record();
+ExpedienteAdjuntosRepository::$adjunto = aa_general_adjunto();
+$uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase($backend);
+$general = $uc->execute([
+    'expediente_id' => '7',
+    'record_id' => '14',
+    'attachment_id' => '401',
+    'variant' => 'summary',
+]);
+ac_assert('general v2 → success', ($general['success'] ?? false) === true);
+ac_assert('general v2 sign_read', count($backend->calls) === 1
+    && strpos((string) ($backend->calls[0]['storage_path'] ?? ''), '/expedientes/7/') !== false);
+ac_assert('general sin attachments_unavailable', ($general['error']['code'] ?? '') !== 'attachments_unavailable');
+
 // --- Fallos previos a firma ---
 
-$fake = aa_reset();
-$uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase(new GetExpedienteAdjuntoReadUrlUseCase());
+$backend = aa_reset_related();
+$uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase($backend);
 ExpedienteRegistrosRepository::$record = false;
-$res = $uc->execute($input_base);
+$res = $uc->execute($input_related);
 ac_assert('registro ajeno → not_found', ($res['error']['code'] ?? '') === 'not_found');
-ac_assert('registro ajeno sin firma', $fake->calls === []);
+ac_assert('registro ajeno sin firma', $backend->calls === []);
 
-$fake = aa_reset();
-$uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase(new GetExpedienteAdjuntoReadUrlUseCase());
+$backend = aa_reset_related();
+$uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase($backend);
 ExpedienteRegistrosRepository::$record = null;
-$res = $uc->execute($input_base);
+$res = $uc->execute($input_related);
 ac_assert('SQL registro → lookup_failed', ($res['error']['code'] ?? '') === 'lookup_failed');
-ac_assert('SQL registro sin firma', $fake->calls === []);
+ac_assert('SQL registro sin firma', $backend->calls === []);
 
-$fake = aa_reset();
-$uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase(new GetExpedienteAdjuntoReadUrlUseCase());
+$backend = aa_reset_related();
+$uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase($backend);
 ExpedienteRegistrosRepository::$record = [
     'id' => 10,
     'expediente_id' => 7,
@@ -218,52 +296,61 @@ ExpedienteRegistrosRepository::$record = [
     'created_at' => '2026-08-20 12:00:00',
     'updated_at' => null,
 ];
-$res = $uc->execute($input_base);
+$res = $uc->execute($input_related);
 ac_assert('client_id mismatch → not_found', ($res['error']['code'] ?? '') === 'not_found');
-ac_assert('client_id mismatch sin firma', $fake->calls === []);
+ac_assert('client_id mismatch sin firma', $backend->calls === []);
 
-$fake = aa_reset();
-$uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase(new GetExpedienteAdjuntoReadUrlUseCase());
+$backend = aa_reset_related();
+$uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase($backend);
 ExpedientesRepository::$exists_result = false;
-$res = $uc->execute($input_base);
+$res = $uc->execute($input_related);
 ac_assert('expediente inexistente → not_found', ($res['error']['code'] ?? '') === 'not_found');
 ac_assert('inexistente sin owner/registro/firma', ExpedientesRepository::$owner_calls === 0
     && ExpedienteRegistrosRepository::$calls === 0
-    && $fake->calls === []);
+    && $backend->calls === []);
 
-$fake = aa_reset();
-$uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase(new GetExpedienteAdjuntoReadUrlUseCase());
+$backend = aa_reset_related();
+$uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase($backend);
 ExpedientesRepository::$exists_result = null;
-$res = $uc->execute($input_base);
+$res = $uc->execute($input_related);
 ac_assert('exists SQL → lookup_failed', ($res['error']['code'] ?? '') === 'lookup_failed');
-ac_assert('exists SQL sin firma', $fake->calls === []);
+ac_assert('exists SQL sin firma', $backend->calls === []);
 
-$fake = aa_reset();
-$uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase(new GetExpedienteAdjuntoReadUrlUseCase());
+$backend = aa_reset_related();
+$uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase($backend);
 ExpedientesRepository::$owner = null;
-$res = $uc->execute($input_base);
+$res = $uc->execute($input_related);
 ac_assert('owner null → lookup_failed', ($res['error']['code'] ?? '') === 'lookup_failed');
-ac_assert('owner null sin firma', $fake->calls === []);
+ac_assert('owner null sin firma', $backend->calls === []);
 
-$fake = aa_reset();
-$uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase(new GetExpedienteAdjuntoReadUrlUseCase());
-ExpedientesRepository::$owner = ['id' => 7, 'client_id' => null];
-$res = $uc->execute($input_base);
-ac_assert('padre general → attachments_unavailable', ($res['error']['code'] ?? '') === 'attachments_unavailable');
-ac_assert('general sin registro/firma', ExpedienteRegistrosRepository::$calls === 0 && $fake->calls === []);
+$backend = aa_reset_related();
+$uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase($backend);
+ExpedienteAdjuntosRepository::$adjunto = null;
+$res = $uc->execute($input_related);
+ac_assert('adjunto ausente → not_found', ($res['error']['code'] ?? '') === 'not_found');
+ac_assert('adjunto ausente sin firma', $backend->calls === []);
 
-foreach (['01', '0', '-1', '1.0', '1e2', '', ['7'], (object) ['id' => 7]] as $bad) {
-    $fake = aa_reset();
-    $uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase(new GetExpedienteAdjuntoReadUrlUseCase());
-    $res = $uc->execute(array_merge($input_base, ['expediente_id' => $bad]));
+$backend = aa_reset_related();
+$uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase($backend);
+$bad = aa_related_adjunto();
+$bad['storage_path'] = '/invalid';
+ExpedienteAdjuntosRepository::$adjunto = $bad;
+$res = $uc->execute($input_related);
+ac_assert('adjunto inconsistente → adjunto_inconsistent', ($res['error']['code'] ?? '') === 'adjunto_inconsistent');
+ac_assert('inconsistente sin firma', $backend->calls === []);
+
+foreach (['01', '0', '-1', '1.0', '1e2', '', ['7'], (object) ['id' => 7]] as $badId) {
+    $backend = aa_reset_related();
+    $uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase($backend);
+    $res = $uc->execute(array_merge($input_related, ['expediente_id' => $badId]));
     ac_assert('ID inválido → invalid_id', ($res['error']['code'] ?? '') === 'invalid_id');
-    ac_assert('ID inválido sin firma', $fake->calls === []);
+    ac_assert('ID inválido sin firma', $backend->calls === []);
 }
 
 foreach ([null, '', 'original', 'thumb', ['summary'], 1] as $badVar) {
-    $fake = aa_reset();
-    $uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase(new GetExpedienteAdjuntoReadUrlUseCase());
-    $payload = $input_base;
+    $backend = aa_reset_related();
+    $uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase($backend);
+    $payload = $input_related;
     if ($badVar === null) {
         unset($payload['variant']);
     } else {
@@ -271,27 +358,21 @@ foreach ([null, '', 'original', 'thumb', ['summary'], 1] as $badVar) {
     }
     $res = $uc->execute($payload);
     ac_assert('variante inválida → variant_invalid', ($res['error']['code'] ?? '') === 'variant_invalid');
-    ac_assert('variante inválida sin firma', $fake->calls === []);
+    ac_assert('variante inválida sin firma', $backend->calls === []);
 }
 
-$fake = aa_reset();
-$uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase(new GetExpedienteAdjuntoReadUrlUseCase());
-$fake->response = ['ok' => false, 'code' => 'object_missing', 'message' => 'No se pudo obtener la imagen.'];
-$res = $uc->execute($input_base);
+$backend = aa_reset_related();
+$uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase($backend);
+$backend->response = ['ok' => false, 'code' => 'object_missing', 'message' => 'No se pudo obtener la imagen.'];
+$res = $uc->execute($input_related);
 ac_assert('propaga object_missing', ($res['error']['code'] ?? '') === 'object_missing');
-ac_assert('object_missing tras una firma', count($fake->calls) === 1);
+ac_assert('object_missing tras una firma', count($backend->calls) === 1);
 
-$fake = aa_reset();
-$uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase(new GetExpedienteAdjuntoReadUrlUseCase());
-$fake->response = ['ok' => false, 'code' => 'sign_failed', 'message' => 'No se pudo obtener la imagen.'];
-$res = $uc->execute($input_base);
+$backend = aa_reset_related();
+$uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase($backend);
+$backend->response = ['ok' => false, 'code' => 'sign_failed', 'message' => 'No se pudo obtener la imagen.'];
+$res = $uc->execute($input_related);
 ac_assert('propaga sign_failed', ($res['error']['code'] ?? '') === 'sign_failed');
-
-$fake = aa_reset();
-$uc = new GetExpedienteAdjuntoReadUrlForExpedienteUseCase(new GetExpedienteAdjuntoReadUrlUseCase());
-$fake->response = ['ok' => false, 'code' => 'attachment_not_found', 'message' => 'Imagen no encontrada.'];
-$res = $uc->execute($input_base);
-ac_assert('propaga attachment_not_found (otro record/client)', ($res['error']['code'] ?? '') === 'attachment_not_found');
 
 echo "\nResultado: {$passed}/{$total} OK\n";
 if ($failed) {

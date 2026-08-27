@@ -250,7 +250,7 @@ final class ExpedienteRegistrosRepository {
     /**
      * Busca un registro que pertenece al cliente en el blog actual.
      *
-     * @return array{id:int,client_id:int,title:string,body:string,recorded_at:string,created_at:string,updated_at:?string}|null
+     * @return array{id:int,client_id:int,expediente_id:?int,title:string,body:string,recorded_at:string,created_at:string,updated_at:?string}|null
      */
     public static function find_by_id_for_client(int $record_id, int $client_id): ?array {
         if ($record_id < 1 || $client_id < 1) {
@@ -262,7 +262,7 @@ final class ExpedienteRegistrosRepository {
 
         $row = $wpdb->get_row(
             $wpdb->prepare(
-                "SELECT id, client_id, title, body, recorded_at, created_at, updated_at
+                "SELECT id, client_id, expediente_id, title, body, recorded_at, created_at, updated_at
                  FROM {$table}
                  WHERE id = %d AND client_id = %d
                  LIMIT 1",
@@ -277,7 +277,21 @@ final class ExpedienteRegistrosRepository {
             return null;
         }
 
-        return self::map_row(is_array($row) ? $row : null);
+        $mapped = self::map_row(is_array($row) ? $row : null);
+        if ($mapped === null) {
+            return null;
+        }
+
+        $exp_raw = is_array($row) ? ($row['expediente_id'] ?? null) : null;
+        $expediente_id = ($exp_raw === null || $exp_raw === '')
+            ? null
+            : (int) $exp_raw;
+        if ($expediente_id !== null && $expediente_id < 1) {
+            $expediente_id = null;
+        }
+        $mapped['expediente_id'] = $expediente_id;
+
+        return $mapped;
     }
 
     /**

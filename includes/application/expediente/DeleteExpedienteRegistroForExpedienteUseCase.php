@@ -1,21 +1,19 @@
 <?php
 /**
- * Delete Expediente Registro For Expediente — eliminación canónica completa.
+ * Delete Expediente Registro For Expediente — eliminación canónica completa (P2).
  *
- * Strategy A:
- * - padre cliente → una delegación a DeleteExpedienteRegistroUseCase (Storage→SQL)
- *   (el lock client vive en el pipeline legacy; sin adquisición anidada)
- * - padre general → SQL canónico sin Storage; fail-closed si hay adjuntos
- *   (Ciclo A: lock expediente:{expediente_id} aquí)
- *
+ * Un solo algoritmo para generales y relacionados:
+ * lock → preflight policy → Storage+metadata por adjunto → delete registro.
  * Ownership derivado en servidor (expediente_id + record_id).
- * Deuda: tras delete, la paginación live/SSR puede quedar stale (sin relist).
  */
 
 defined('ABSPATH') or die('No direct access');
 
 if (!class_exists('AA_Expediente_Id_Policy')) {
     require_once dirname(__DIR__, 2) . '/domain/expediente/class-aa-expediente-id-policy.php';
+}
+if (!class_exists('AA_Expediente_Adjunto_Identity_Policy')) {
+    require_once dirname(__DIR__, 2) . '/domain/expediente/class-aa-expediente-adjunto-identity-policy.php';
 }
 if (!class_exists('ExpedientesRepository')) {
     require_once dirname(__DIR__, 2) . '/repositories/ExpedientesRepository.php';
@@ -26,8 +24,8 @@ if (!class_exists('ExpedienteRegistrosRepository')) {
 if (!class_exists('ExpedienteAdjuntosRepository')) {
     require_once dirname(__DIR__, 2) . '/repositories/ExpedienteAdjuntosRepository.php';
 }
-if (!class_exists('DeleteExpedienteRegistroUseCase')) {
-    require_once __DIR__ . '/DeleteExpedienteRegistroUseCase.php';
+if (!class_exists('AA_Expediente_Attachments_Backend_Client')) {
+    require_once dirname(__DIR__, 2) . '/infrastructure/backend/class-aa-expediente-attachments-backend-client.php';
 }
 if (!class_exists('AA_Expediente_Aggregate_Lock')) {
     require_once dirname(__DIR__, 2) . '/infrastructure/wp/class-aa-expediente-aggregate-lock.php';
@@ -35,18 +33,18 @@ if (!class_exists('AA_Expediente_Aggregate_Lock')) {
 
 final class DeleteExpedienteRegistroForExpedienteUseCase {
 
-    /** @var object DeleteExpedienteRegistroUseCase o doble de prueba */
-    private $legacy_delete;
+    /** @var object */
+    private $backend;
 
     /** @var AA_Expediente_Aggregate_Lock */
     private $lock;
 
     /**
-     * @param object|null $legacy_delete DeleteExpedienteRegistroUseCase o doble
-     * @param AA_Expediente_Aggregate_Lock|null $lock Solo rama general
+     * @param object|null $backend
+     * @param AA_Expediente_Aggregate_Lock|null $lock
      */
-    public function __construct($legacy_delete = null, ?AA_Expediente_Aggregate_Lock $lock = null) {
-        $this->legacy_delete = $legacy_delete ?: new DeleteExpedienteRegistroUseCase();
+    public function __construct($backend = null, ?AA_Expediente_Aggregate_Lock $lock = null) {
+        $this->backend = $backend ?: new AA_Expediente_Attachments_Backend_Client();
         $this->lock = $lock ?: AA_Expediente_Aggregate_Lock::create_default();
     }
 
@@ -74,6 +72,11 @@ final class DeleteExpedienteRegistroForExpedienteUseCase {
             return $this->fail('lookup_failed', 'No se pudo verificar el expediente.');
         }
 
+        $parent_client = AA_Expediente_Adjunto_Identity_Policy::normalize_client_id($owner['client_id'] ?? null);
+        if (!$parent_client['ok']) {
+            return $this->fail('not_found', 'Registro no encontrado.');
+        }
+
         $record = ExpedienteRegistrosRepository::find_by_id_for_expediente($record_id, $expediente_id);
         if ($record === null) {
             return $this->fail('lookup_failed', 'No se pudo verificar el registro.');
@@ -82,64 +85,26 @@ final class DeleteExpedienteRegistroForExpedienteUseCase {
             return $this->fail('not_found', 'Registro no encontrado.');
         }
 
-        $parent = $this->normalize_stored_client_id($owner['client_id'] ?? null);
-        $child = $this->normalize_stored_client_id($record['client_id'] ?? null);
-        if (!$parent['ok'] || !$child['ok'] || $parent['id'] !== $child['id']) {
+        $record_client = AA_Expediente_Adjunto_Identity_Policy::normalize_client_id($record['client_id'] ?? null);
+        if (!$record_client['ok'] || $record_client['id'] !== $parent_client['id']) {
             error_log('[DeleteExpedienteRegistroForExpedienteUseCase] record owner mismatch');
             return $this->fail('not_found', 'Registro no encontrado.');
         }
 
         $record_expediente = AA_Expediente_Id_Policy::normalize($record['expediente_id'] ?? null);
-        $owner_id = AA_Expediente_Id_Policy::normalize($owner['id'] ?? null);
-        if (
-            $record_expediente === null
-            || $record_expediente !== $expediente_id
-            || $owner_id === null
-            || $owner_id !== $expediente_id
-        ) {
+        if ($record_expediente === null || $record_expediente !== $expediente_id) {
             error_log('[DeleteExpedienteRegistroForExpedienteUseCase] record owner mismatch');
             return $this->fail('not_found', 'Registro no encontrado.');
         }
 
-        if ($parent['id'] === null) {
-            return $this->delete_general($record_id, $expediente_id);
-        }
+        $scope_kind = $parent_client['id'] === null
+            ? AA_Expediente_Aggregate_Lock::SCOPE_EXPEDIENTE
+            : AA_Expediente_Aggregate_Lock::SCOPE_CLIENT;
+        $scope_id = $parent_client['id'] === null ? $expediente_id : $parent_client['id'];
 
-        return $this->delete_for_client($parent['id'], $record_id);
-    }
-
-    /**
-     * @return array{success:true,data:array{deleted:true,record_id:int}}|array{success:false,error:array{code:string,message:string}}
-     */
-    private function delete_for_client(int $client_id, int $record_id): array {
-        $result = $this->legacy_delete->execute([
-            'client_id' => $client_id,
-            'record_id' => $record_id,
-        ]);
-
-        if (!empty($result['ok'])) {
-            return $this->ok([
-                'deleted' => true,
-                'record_id' => $record_id,
-            ]);
-        }
-
-        $code = (string) ($result['code'] ?? 'delete_failed');
-        if ($code === 'record_not_found') {
-            $code = 'not_found';
-        }
-
-        $message = (string) ($result['message'] ?? 'No se pudo eliminar el registro.');
-        return $this->fail($code, $message);
-    }
-
-    /**
-     * @return array{success:true,data:array{deleted:true,record_id:int}}|array{success:false,error:array{code:string,message:string}}
-     */
-    private function delete_general(int $record_id, int $expediente_id): array {
         $lease = $this->lock->acquire(
-            AA_Expediente_Aggregate_Lock::SCOPE_EXPEDIENTE,
-            $expediente_id,
+            $scope_kind,
+            $scope_id,
             AA_Expediente_Aggregate_Lock::DEFAULT_TIMEOUT_SECONDS
         );
         if (is_wp_error($lease)) {
@@ -159,8 +124,8 @@ final class DeleteExpedienteRegistroForExpedienteUseCase {
             if ($owner === null) {
                 return $this->fail('lookup_failed', 'No se pudo verificar el expediente.');
             }
-            $parent = $this->normalize_stored_client_id($owner['client_id'] ?? null);
-            if (!$parent['ok'] || $parent['id'] !== null) {
+            $re_parent = AA_Expediente_Adjunto_Identity_Policy::normalize_client_id($owner['client_id'] ?? null);
+            if (!$re_parent['ok'] || $re_parent['id'] !== $parent_client['id']) {
                 return $this->fail(
                     'concurrent_change',
                     'El expediente cambió mientras se preparaba la operación.'
@@ -175,24 +140,99 @@ final class DeleteExpedienteRegistroForExpedienteUseCase {
                 return $this->fail('not_found', 'Registro no encontrado.');
             }
 
+            $parent_for_policy = [
+                'id' => $expediente_id,
+                'client_id' => $parent_client['id'],
+            ];
+            $record_for_policy = [
+                'id' => (int) $record['id'],
+                'expediente_id' => (int) $record['expediente_id'],
+                'client_id' => $record['client_id'] ?? null,
+            ];
+
+            $bulk = ExpedienteAdjuntosRepository::list_by_record_ids_for_records([$record_id]);
+            if ($bulk === null) {
+                return $this->fail('lookup_failed', 'No se pudo verificar los adjuntos.');
+            }
+            $adjuntos = $bulk[$record_id] ?? [];
+
+            // Preflight completo antes del primer efecto.
+            foreach ($adjuntos as $adjunto) {
+                if (!is_array($adjunto)) {
+                    return $this->fail('adjunto_inconsistent', 'Un adjunto local es inconsistente.');
+                }
+                $check = AA_Expediente_Adjunto_Identity_Policy::validate(
+                    $parent_for_policy,
+                    $record_for_policy,
+                    $adjunto
+                );
+                if (empty($check['ok'])) {
+                    return $this->fail('adjunto_inconsistent', 'Un adjunto local es inconsistente.');
+                }
+            }
+
+            foreach ($adjuntos as $adjunto) {
+                $storage_path = (string) ($adjunto['storage_path'] ?? '');
+                $deleted = $this->backend->delete_object($storage_path);
+                if (empty($deleted['ok'])) {
+                    return $this->fail(
+                        (string) ($deleted['code'] ?? 'storage_delete_partial'),
+                        'No se pudo eliminar el registro.'
+                    );
+                }
+
+                $status = (string) ($deleted['result']['status'] ?? '');
+                if ($status !== 'deleted' && $status !== 'already_absent') {
+                    return $this->fail('storage_delete_partial', 'No se pudo eliminar el registro.');
+                }
+
+                $held = $this->lock->assert_held($lease);
+                if (is_wp_error($held)) {
+                    return $this->fail_from_lock($held);
+                }
+
+                $meta = ExpedienteAdjuntosRepository::delete_by_exact_identity([
+                    'id' => (int) $adjunto['id'],
+                    'record_id' => $record_id,
+                    'client_id' => $adjunto['client_id'] ?? null,
+                    'upload_operation_id' => (string) ($adjunto['upload_operation_id'] ?? ''),
+                    'storage_path' => $storage_path,
+                ]);
+                if (is_wp_error($meta)) {
+                    return $this->fail('local_delete_failed', 'No se pudo eliminar el registro.');
+                }
+                if ($meta !== true) {
+                    return $this->fail(
+                        'concurrent_change',
+                        'El expediente cambió mientras se preparaba la operación.'
+                    );
+                }
+            }
+
+            $remaining = ExpedienteAdjuntosRepository::has_any_by_record_id($record_id);
+            if ($remaining === null) {
+                return $this->fail('lookup_failed', 'No se pudo verificar el registro.');
+            }
+            if ($remaining === true) {
+                return $this->fail(
+                    'concurrent_change',
+                    'El expediente cambió mientras se preparaba la operación.'
+                );
+            }
+
             $held = $this->lock->assert_held($lease);
             if (is_wp_error($held)) {
                 return $this->fail_from_lock($held);
             }
 
-            $has_adjuntos = ExpedienteAdjuntosRepository::has_any_by_record_id($record_id);
-            if ($has_adjuntos === null) {
-                return $this->fail('lookup_failed', 'No se pudo verificar el registro.');
-            }
-            if ($has_adjuntos === true) {
-                return $this->fail('adjunto_inconsistent', 'Un adjunto local es inconsistente.');
-            }
-
-            $deleted = ExpedienteRegistrosRepository::delete_by_id_for_expediente($record_id, $expediente_id);
-            if ($deleted === null) {
+            $deleted_record = ExpedienteRegistrosRepository::delete_by_id_for_expediente(
+                $record_id,
+                $expediente_id
+            );
+            if ($deleted_record === null) {
                 return $this->fail('local_delete_failed', 'No se pudo eliminar el registro.');
             }
-            if ($deleted === false) {
+            if ($deleted_record === false) {
                 return $this->fail('not_found', 'Registro no encontrado.');
             }
 
@@ -203,35 +243,6 @@ final class DeleteExpedienteRegistroForExpedienteUseCase {
         } finally {
             $this->lock->release($lease);
         }
-    }
-
-    /**
-     * @param mixed $raw
-     * @return array{ok:true,id:?int}|array{ok:false}
-     */
-    private function normalize_stored_client_id($raw): array {
-        if ($raw === null) {
-            return ['ok' => true, 'id' => null];
-        }
-
-        if (is_int($raw)) {
-            if ($raw < 1) {
-                return ['ok' => false];
-            }
-
-            return ['ok' => true, 'id' => $raw];
-        }
-
-        if (is_string($raw)) {
-            $normalized = AA_Expediente_Id_Policy::normalize($raw);
-            if ($normalized === null) {
-                return ['ok' => false];
-            }
-
-            return ['ok' => true, 'id' => $normalized];
-        }
-
-        return ['ok' => false];
     }
 
     /**

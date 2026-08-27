@@ -92,6 +92,29 @@ final class ExpedienteAdjuntosRepository {
         ));
         return true;
     }
+
+    public static function delete_by_exact_identity(array $identity) {
+        if (self::$delete_should_fail) {
+            return new WP_Error('db', 'fail');
+        }
+        $attachment_id = (int) ($identity['id'] ?? 0);
+        $client_id = (int) ($identity['client_id'] ?? 0);
+        $row = self::find_by_id_for_client($attachment_id, $client_id > 0 ? $client_id : (int) ($identity['client_id'] ?? 0));
+        if ($row === null && isset(self::$by_id[$attachment_id])) {
+            $row = self::$by_id[$attachment_id];
+        }
+        if ($row === null) {
+            return false;
+        }
+        if (
+            (int) $row['record_id'] !== (int) ($identity['record_id'] ?? 0)
+            || (string) $row['upload_operation_id'] !== (string) ($identity['upload_operation_id'] ?? '')
+            || (string) $row['storage_path'] !== (string) ($identity['storage_path'] ?? '')
+        ) {
+            return false;
+        }
+        return self::delete_by_id_for_client($attachment_id, (int) $row['client_id']) ? true : false;
+    }
 }
 
 final class FakeDeleteBackend {

@@ -452,6 +452,10 @@ ac_assert(
     'list_by_record_ids_for_records sin client',
     isset($canon_list[14]) && $canon_list[14][0]['client_id'] === null
 );
+$wpdb->last_error = 'simulated list failure';
+$canon_list_null = ExpedienteAdjuntosRepository::list_by_record_ids_for_records([14]);
+ac_assert('list_by_record_ids_for_records SQL → null', $canon_list_null === null);
+$wpdb->last_error = '';
 $list_sql_p1 = is_array($wpdb->last_results_query) ? (string) $wpdb->last_results_query['sql'] : '';
 ac_assert(
     'list canónico SQL sin filtro client_id',

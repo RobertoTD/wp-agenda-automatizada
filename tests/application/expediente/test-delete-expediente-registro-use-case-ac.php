@@ -75,18 +75,33 @@ final class ExpedienteAdjuntosRepository {
         }));
     }
 
-    public static function delete_by_record_for_client(int $record_id, int $client_id): bool {
+    public static function delete_by_exact_identity(array $identity) {
         self::$delete_calls++;
         if (self::$delete_should_fail) {
             return false;
         }
-        // Idempotente: éxito si no quedan filas (incluso si ya estaban vacías).
+
+        $record_id = (int) ($identity['record_id'] ?? 0);
+        $id = (int) ($identity['id'] ?? 0);
+        $storage_path = (string) ($identity['storage_path'] ?? '');
+        $operation_id = (string) ($identity['upload_operation_id'] ?? '');
+
         $rows = self::$rows_by_record[$record_id] ?? [];
-        self::$rows_by_record[$record_id] = array_values(array_filter($rows, static function ($row) use ($client_id) {
-            return (int) $row['client_id'] !== $client_id;
-        }));
-        $remaining = count(self::list_by_record_for_client($record_id, $client_id));
-        return $remaining === 0;
+        $kept = [];
+        $removed = false;
+        foreach ($rows as $row) {
+            $match = (int) ($row['id'] ?? 0) === $id
+                && (string) ($row['storage_path'] ?? '') === $storage_path
+                && (string) ($row['upload_operation_id'] ?? '') === $operation_id;
+            if ($match) {
+                $removed = true;
+                continue;
+            }
+            $kept[] = $row;
+        }
+        self::$rows_by_record[$record_id] = $kept;
+
+        return $removed;
     }
 }
 
@@ -168,7 +183,7 @@ ac_assert('sin adjuntos → DTO cerrado', array_keys($res) === ['ok', 'deleted',
 ac_assert('sin adjuntos → sin llamadas Storage', $backend->calls === []);
 ac_assert('sin adjuntos → registro borrado', ExpedienteRegistrosRepository::$deleted === [11]
     && ExpedienteRegistrosRepository::find_by_id_for_client(11, 7) === null);
-ac_assert('sin adjuntos → delete_by_record idempotente llamado', ExpedienteAdjuntosRepository::$delete_calls === 1);
+ac_assert('sin adjuntos → sin delete_by_exact_identity', ExpedienteAdjuntosRepository::$delete_calls === 0);
 
 // --- Todos deleted/already_absent ---
 reset_state($record, [$adj_a, $adj_b]);
@@ -196,9 +211,9 @@ $uc3 = new DeleteExpedienteRegistroUseCase($backend3);
 $res3 = $uc3->execute(['client_id' => 7, 'record_id' => 11]);
 ac_assert('fallo Storage intermedio → error', empty($res3['ok'])
     && ($res3['code'] ?? '') === 'delete_failed');
-ac_assert('fallo Storage → no borra filas locales',
-    count(ExpedienteAdjuntosRepository::list_by_record_for_client(11, 7)) === 2
-    && ExpedienteAdjuntosRepository::$delete_calls === 0);
+ac_assert('fallo Storage → no borra filas locales restantes',
+    count(ExpedienteAdjuntosRepository::list_by_record_for_client(11, 7)) === 1
+    && ExpedienteAdjuntosRepository::$delete_calls === 1);
 ac_assert('fallo Storage → registro conservado',
     ExpedienteRegistrosRepository::find_by_id_for_client(11, 7) !== null
     && ExpedienteRegistrosRepository::$deleted === []);
@@ -300,8 +315,8 @@ ac_assert('use case no acepta storage_path del input', strpos($src, "\$input['st
     && strpos($src, '$_POST') === false);
 ac_assert('use case reutiliza delete_object', strpos($src, 'delete_object(') !== false);
 ac_assert('orden Storage antes de filas locales',
-    strpos($src, 'delete_object') < strpos($src, 'delete_by_record_for_client')
-    && strpos($src, 'delete_by_record_for_client') < strpos($src, 'delete_by_id_for_client'));
+    strpos($src, 'delete_object') < strpos($src, 'delete_by_exact_identity')
+    && strpos($src, 'delete_by_exact_identity') < strpos($src, 'delete_by_id_for_client'));
 
 // DTO éxito sin info interna
 reset_state($record, []);

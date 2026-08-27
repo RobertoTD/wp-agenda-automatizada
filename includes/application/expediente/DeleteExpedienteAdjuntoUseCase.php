@@ -1,9 +1,10 @@
 <?php
 /**
- * Delete Expediente Adjunto Use Case (MC5c1).
+ * Delete Expediente Adjunto Use Case (MC5c1 / P2).
  *
  * Orden: Storage eliminado o inequívocamente ausente → fila local.
- * El navegador nunca aporta storage_path.
+ * Histórico sin expediente → solo client_v1.
+ * Bridged → policy dual v1/v2.
  *
  * Ciclo A: named lock client:{client_id} cubre revalidación → Storage → SQL.
  */
@@ -19,8 +20,17 @@ if (!class_exists('ExpedienteAdjuntosRepository')) {
 if (!class_exists('ClientsRepository')) {
     require_once dirname(__DIR__, 2) . '/repositories/ClientsRepository.php';
 }
+if (!class_exists('ExpedientesRepository')) {
+    require_once dirname(__DIR__, 2) . '/repositories/ExpedientesRepository.php';
+}
 if (!class_exists('ExpedienteAdjuntoPublicDto')) {
     require_once dirname(__DIR__, 2) . '/domain/expediente/ExpedienteAdjuntoPublicDto.php';
+}
+if (!class_exists('AA_Expediente_Adjunto_Identity_Policy')) {
+    require_once dirname(__DIR__, 2) . '/domain/expediente/class-aa-expediente-adjunto-identity-policy.php';
+}
+if (!class_exists('AA_Expediente_Id_Policy')) {
+    require_once dirname(__DIR__, 2) . '/domain/expediente/class-aa-expediente-id-policy.php';
 }
 if (!class_exists('AA_Expediente_Attachments_Backend_Client')) {
     require_once dirname(__DIR__, 2) . '/infrastructure/backend/class-aa-expediente-attachments-backend-client.php';
@@ -69,7 +79,8 @@ final class DeleteExpedienteAdjuntoUseCase {
             return $this->fail('client_not_found', 'Cliente no encontrado.');
         }
 
-        if (ExpedienteRegistrosRepository::find_by_id_for_client($record_id, $client_id) === null) {
+        $record = ExpedienteRegistrosRepository::find_by_id_for_client($record_id, $client_id);
+        if ($record === null) {
             return $this->fail('record_not_found', 'Registro no encontrado.');
         }
 
@@ -92,7 +103,8 @@ final class DeleteExpedienteAdjuntoUseCase {
                 return $this->fail('client_not_found', 'Cliente no encontrado.');
             }
 
-            if (ExpedienteRegistrosRepository::find_by_id_for_client($record_id, $client_id) === null) {
+            $record = ExpedienteRegistrosRepository::find_by_id_for_client($record_id, $client_id);
+            if ($record === null) {
                 return $this->fail('record_not_found', 'Registro no encontrado.');
             }
 
@@ -101,17 +113,12 @@ final class DeleteExpedienteAdjuntoUseCase {
                 return $this->fail('attachment_not_found', 'Imagen no encontrada.');
             }
 
-            $held = $this->lock->assert_held($lease);
-            if (is_wp_error($held)) {
-                return $this->fail_from_lock($held);
-            }
-
-            $storage_path = (string) ($adjunto['storage_path'] ?? '');
-            $expected_suffix = sprintf('/clients/%d/records/%d/', $client_id, $record_id);
-            if ($storage_path === '' || strpos($storage_path, $expected_suffix) === false) {
+            $identity = $this->validate_identity($client_id, $record, $adjunto);
+            if (empty($identity['ok'])) {
                 return $this->fail('adjunto_inconsistent', 'El adjunto local es inconsistente.');
             }
 
+            $storage_path = (string) ($adjunto['storage_path'] ?? '');
             $deleted = $this->backend->delete_object($storage_path);
             if (empty($deleted['ok'])) {
                 return $this->fail(
@@ -125,7 +132,22 @@ final class DeleteExpedienteAdjuntoUseCase {
                 return $this->fail('storage_delete_failed', 'No se pudo eliminar la imagen.');
             }
 
-            if (!ExpedienteAdjuntosRepository::delete_by_id_for_client($attachment_id, $client_id)) {
+            $held = $this->lock->assert_held($lease);
+            if (is_wp_error($held)) {
+                return $this->fail_from_lock($held);
+            }
+
+            $meta = ExpedienteAdjuntosRepository::delete_by_exact_identity([
+                'id' => (int) $adjunto['id'],
+                'record_id' => $record_id,
+                'client_id' => $adjunto['client_id'] ?? $client_id,
+                'upload_operation_id' => (string) ($adjunto['upload_operation_id'] ?? ''),
+                'storage_path' => $storage_path,
+            ]);
+            if (is_wp_error($meta)) {
+                return $this->fail('local_delete_failed', 'No se pudo eliminar la imagen.');
+            }
+            if ($meta !== true) {
                 return $this->fail('local_delete_failed', 'No se pudo eliminar la imagen.');
             }
 
@@ -148,6 +170,54 @@ final class DeleteExpedienteAdjuntoUseCase {
         } finally {
             $this->lock->release($lease);
         }
+    }
+
+    /**
+     * @param array<string,mixed> $record
+     * @param array<string,mixed> $adjunto
+     * @return array{ok:true}|array{ok:false}
+     */
+    private function validate_identity(int $client_id, array $record, array $adjunto): array {
+        $expediente_id = AA_Expediente_Id_Policy::normalize($record['expediente_id'] ?? null);
+
+        if ($expediente_id === null) {
+            $check = AA_Expediente_Adjunto_Identity_Policy::validate_legacy_orphan(
+                $client_id,
+                [
+                    'id' => (int) ($record['id'] ?? 0),
+                    'client_id' => $client_id,
+                    'expediente_id' => null,
+                ],
+                $adjunto
+            );
+
+            return empty($check['ok']) ? ['ok' => false] : ['ok' => true];
+        }
+
+        $owner = ExpedientesRepository::find_owner_context_by_id($expediente_id);
+        if ($owner === null) {
+            return ['ok' => false];
+        }
+
+        $parent_client = AA_Expediente_Adjunto_Identity_Policy::normalize_client_id($owner['client_id'] ?? null);
+        if (!$parent_client['ok'] || $parent_client['id'] !== $client_id) {
+            return ['ok' => false];
+        }
+
+        $check = AA_Expediente_Adjunto_Identity_Policy::validate(
+            [
+                'id' => $expediente_id,
+                'client_id' => $client_id,
+            ],
+            [
+                'id' => (int) ($record['id'] ?? 0),
+                'expediente_id' => $expediente_id,
+                'client_id' => $client_id,
+            ],
+            $adjunto
+        );
+
+        return empty($check['ok']) ? ['ok' => false] : ['ok' => true];
     }
 
     /**

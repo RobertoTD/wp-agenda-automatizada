@@ -15,6 +15,9 @@ defined('ABSPATH') or die('No direct access');
 if (!class_exists('AA_Expediente_Id_Policy')) {
     require_once dirname(__DIR__, 2) . '/domain/expediente/class-aa-expediente-id-policy.php';
 }
+if (!class_exists('AA_Expediente_Adjunto_Identity_Policy')) {
+    require_once dirname(__DIR__, 2) . '/domain/expediente/class-aa-expediente-adjunto-identity-policy.php';
+}
 if (!class_exists('ExpedienteAdjuntoVariants')) {
     require_once dirname(__DIR__, 2) . '/domain/expediente/ExpedienteAdjuntoVariants.php';
 }
@@ -125,16 +128,14 @@ final class DeleteExpedienteUseCase {
                 return $preflight;
             }
 
-            if ($identity['client_id'] !== null) {
-                $cleaned = $this->delete_attachments_pass(
-                    $expediente_id,
-                    $identity['client_id'],
-                    $records_map,
-                    $lease
-                );
-                if ($cleaned !== null) {
-                    return $cleaned;
-                }
+            $cleaned = $this->delete_attachments_pass(
+                $expediente_id,
+                $identity['client_id'],
+                $records_map,
+                $lease
+            );
+            if ($cleaned !== null) {
+                return $cleaned;
             }
 
             $held = $this->lock->assert_held($lease);
@@ -319,11 +320,6 @@ final class DeleteExpedienteUseCase {
             }
 
             foreach ($page as $row) {
-                if ($expected_client_id === null) {
-                    error_log('[DeleteExpedienteUseCase] general with attachments');
-                    return $this->fail('aggregate_inconsistent', 'El expediente no es coherente.');
-                }
-
                 $check = $this->validate_attachment_row($row, $expediente_id, $expected_client_id, $records_map);
                 if ($check !== null) {
                     return $check;
@@ -348,7 +344,7 @@ final class DeleteExpedienteUseCase {
     private function validate_attachment_row(
         array $row,
         int $expediente_id,
-        int $expected_client_id,
+        $expected_client_id,
         array $records_map
     ) {
         $attachment_id = AA_Expediente_Id_Policy::normalize($row['id'] ?? null);
@@ -366,32 +362,39 @@ final class DeleteExpedienteUseCase {
         $att_client = $this->normalize_stored_client_id($row['client_id'] ?? null);
         $rec_client = $this->normalize_stored_client_id($row['record_client_id'] ?? null);
         $rec_exp = AA_Expediente_Id_Policy::normalize($row['record_expediente_id'] ?? null);
+        $expected = $this->normalize_stored_client_id($expected_client_id);
 
         if (
             !$att_client['ok']
             || !$rec_client['ok']
-            || $att_client['id'] !== $expected_client_id
-            || $rec_client['id'] !== $expected_client_id
+            || !$expected['ok']
             || $rec_exp !== $expediente_id
         ) {
             error_log('[DeleteExpedienteUseCase] attachment owner mismatch');
             return $this->fail('aggregate_inconsistent', 'El expediente no es coherente.');
         }
 
-        $operation_id = strtolower(trim((string) ($row['upload_operation_id'] ?? '')));
-        $storage_path = (string) ($row['storage_path'] ?? '');
-        $parsed = ExpedienteAdjuntoVariants::parse_original_path($storage_path);
-        if ($parsed === null) {
-            error_log('[DeleteExpedienteUseCase] invalid storage path');
-            return $this->fail('aggregate_inconsistent', 'El expediente no es coherente.');
-        }
+        $check = AA_Expediente_Adjunto_Identity_Policy::validate(
+            [
+                'id' => $expediente_id,
+                'client_id' => $expected['id'],
+            ],
+            [
+                'id' => $record_id,
+                'expediente_id' => $expediente_id,
+                'client_id' => $rec_client['id'],
+            ],
+            [
+                'id' => $attachment_id,
+                'record_id' => $record_id,
+                'client_id' => $att_client['id'],
+                'upload_operation_id' => (string) ($row['upload_operation_id'] ?? ''),
+                'storage_path' => (string) ($row['storage_path'] ?? ''),
+            ]
+        );
 
-        if (
-            (int) $parsed['wp_client_id'] !== $expected_client_id
-            || (int) $parsed['wp_record_id'] !== $record_id
-            || strtolower((string) $parsed['upload_operation_id']) !== $operation_id
-        ) {
-            error_log('[DeleteExpedienteUseCase] storage path mismatch');
+        if (empty($check['ok'])) {
+            error_log('[DeleteExpedienteUseCase] attachment identity policy failed');
             return $this->fail('aggregate_inconsistent', 'El expediente no es coherente.');
         }
 
@@ -405,7 +408,7 @@ final class DeleteExpedienteUseCase {
      */
     private function delete_attachments_pass(
         int $expediente_id,
-        int $expected_client_id,
+        $expected_client_id,
         array $records_map,
         $lease
     ) {
@@ -461,7 +464,7 @@ final class DeleteExpedienteUseCase {
                 }
 
                 $att_client = $this->normalize_stored_client_id($row['client_id'] ?? null);
-                if (!$att_client['ok'] || $att_client['id'] === null) {
+                if (!$att_client['ok']) {
                     error_log('[DeleteExpedienteUseCase] attachment client lost before meta delete');
                     return $this->fail('aggregate_inconsistent', 'El expediente no es coherente.');
                 }
@@ -483,19 +486,8 @@ final class DeleteExpedienteUseCase {
                         'El expediente cambió mientras se preparaba la operación.'
                     );
                 }
-
-                // Tras borrar, el cursor no avanza por id eliminado: reenumerar
-                // desde after_id actual (ids > after_id). El borrado es del
-                // primer id de la página; next page starts from same after_id.
             }
 
-            // Reenumerar desde el mismo cursor: filas borradas ya no aparecen.
-            // Si la página estaba llena y todas se borraron, after_id no cambia
-            // y la siguiente list empieza igual — correcto.
-            // Si quedan filas con id > after_id, aparecen en la siguiente.
-            // Avanzar after_id al último id visto en la página original evita
-            // re-procesar: pero esas filas ya fueron borradas. Usar el máximo
-            // id de la página leída como nuevo after_id.
             $last = end($page);
             $after_id = is_array($last) ? (int) ($last['id'] ?? $after_id) : $after_id;
 

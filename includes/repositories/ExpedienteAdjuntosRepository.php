@@ -1080,13 +1080,12 @@ final class ExpedienteAdjuntosRepository {
     }
 
     /**
-     * P1: listado canónico por record_ids sin filtrar client_id.
-     * No conectado aún a Use Cases productivos.
+     * P1/P2: listado canónico por record_ids sin filtrar client_id.
      *
      * @param list<int> $record_ids
-     * @return array<int, list<array<string,mixed>>>
+     * @return array<int, list<array<string,mixed>>>|null null = error SQL
      */
-    public static function list_by_record_ids_for_records(array $record_ids): array {
+    public static function list_by_record_ids_for_records(array $record_ids): ?array {
         $ids = [];
         foreach ($record_ids as $rid) {
             $n = (int) $rid;
@@ -1117,7 +1116,7 @@ final class ExpedienteAdjuntosRepository {
 
         if ($wpdb->last_error) {
             error_log('[ExpedienteAdjuntosRepository] list_by_record_ids_for_records error');
-            return [];
+            return null;
         }
 
         if (!is_array($rows)) {

@@ -31,8 +31,13 @@ require_once $plugin_root . '/tests/support/aa-test-expediente-aggregate-lock-pa
 require_once $plugin_root . '/includes/domain/expediente/class-aa-expediente-id-policy.php';
 require_once $plugin_root . '/includes/domain/expediente/ExpedienteAdjuntoVariants.php';
 
-$PATH_A = 'installations/11111111-2222-4333-8444-555555555555/clients/7/records/11/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jpg';
-$PATH_B = 'installations/11111111-2222-4333-8444-555555555555/clients/7/records/12/bbbbbbbb-bbbb-4ccc-8ddd-eeeeeeeeeeee.jpg';
+$IID = '11111111-2222-4333-8444-555555555555';
+$OP_A = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+$OP_B = 'bbbbbbbb-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+$OP_G = 'cccccccc-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+$PATH_A = ExpedienteAdjuntoVariants::build_client_original_path($IID, 7, 11, $OP_A);
+$PATH_B = ExpedienteAdjuntoVariants::build_client_original_path($IID, 7, 12, $OP_B);
+$PATH_G_V2 = ExpedienteAdjuntoVariants::build_expediente_record_original_path($IID, 11, 11, $OP_G);
 
 final class ExpedientesRepository {
     /** @var array<int,array{id:int,category_id:int,client_id:?int}> */
@@ -241,7 +246,7 @@ ac_assert('Storage antes de metadata',
 ac_assert('assert_held tras Storage',
     strpos($src, 'delete_object') < strrpos($src, 'assert_held'));
 ac_assert('sin absint', strpos($src, 'absint(') === false);
-ac_assert('usa parse_original_path', strpos($src, 'ExpedienteAdjuntoVariants::parse_original_path') !== false);
+ac_assert('usa Identity Policy', strpos($src, 'AA_Expediente_Adjunto_Identity_Policy::validate') !== false);
 ac_assert('release en finally', strpos($src, 'lock->release') !== false && strpos($src, 'finally') !== false);
 ac_assert('START TRANSACTION solo en finalize', substr_count($src, 'START TRANSACTION') === 1);
 
@@ -397,7 +402,7 @@ ac_assert('lock lost: Storage sí', count($backend->calls) === 1);
 ac_assert('lock lost: cero metadata delete', ExpedienteAdjuntosRepository::$deleted === []);
 ac_assert('lock lost: padre permanece', isset(ExpedientesRepository::$parents[5]));
 
-// --- General con adjunto → inconsistent, cero efectos ---
+// --- General con adjunto v1 → inconsistent, cero efectos ---
 aa_reset_delete_exp_state();
 ExpedientesRepository::$parents[11] = ['id' => 11, 'category_id' => 2, 'client_id' => null];
 ExpedienteRegistrosRepository::$rows = [
@@ -405,8 +410,8 @@ ExpedienteRegistrosRepository::$rows = [
 ];
 ExpedienteAdjuntosRepository::$rows = [
     41 => [
-        'id' => 41, 'record_id' => 11, 'client_id' => 7,
-        'upload_operation_id' => 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+        'id' => 41, 'record_id' => 11, 'client_id' => null,
+        'upload_operation_id' => $OP_A,
         'storage_path' => $PATH_A,
         'record_client_id' => null, 'record_expediente_id' => 11,
     ],
@@ -414,9 +419,31 @@ ExpedienteAdjuntosRepository::$rows = [
 $backend = new FakeBackend();
 $uc = new DeleteExpedienteUseCase($backend, $lock);
 $out = $uc->execute(['expediente_id' => 11]);
-ac_assert('general+adjunto → aggregate_inconsistent', ($out['error']['code'] ?? '') === 'aggregate_inconsistent');
+ac_assert('general+v1 path → aggregate_inconsistent', ($out['error']['code'] ?? '') === 'aggregate_inconsistent');
 ac_assert('cero Storage', $backend->calls === []);
 ac_assert('cero DELETE', ExpedientesRepository::$deleted === [] && ExpedienteAdjuntosRepository::$deleted === []);
+
+// --- General con adjunto v2 coherente → OK ---
+aa_reset_delete_exp_state();
+ExpedientesRepository::$parents[11] = ['id' => 11, 'category_id' => 2, 'client_id' => null];
+ExpedienteRegistrosRepository::$rows = [
+    11 => ['id' => 11, 'expediente_id' => 11, 'client_id' => null],
+];
+ExpedienteAdjuntosRepository::$rows = [
+    51 => [
+        'id' => 51, 'record_id' => 11, 'client_id' => null,
+        'upload_operation_id' => $OP_G,
+        'storage_path' => $PATH_G_V2,
+        'record_client_id' => null, 'record_expediente_id' => 11,
+    ],
+];
+$backend = new FakeBackend();
+$uc = new DeleteExpedienteUseCase($backend, $lock);
+$out = $uc->execute(['expediente_id' => 11]);
+ac_assert('general+v2 coherente ok', !empty($out['success']));
+ac_assert('general+v2 Storage', count($backend->calls) === 1);
+ac_assert('general+v2 metadata borrada', ExpedienteAdjuntosRepository::$rows === []);
+ac_assert('general+v2 padre borrado', !isset(ExpedientesRepository::$parents[11]));
 
 // --- Path inválido ---
 aa_reset_delete_exp_state();
