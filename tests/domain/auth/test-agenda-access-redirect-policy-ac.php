@@ -29,6 +29,32 @@ if (!function_exists('aa_app_login_url')) {
     }
 }
 
+if (!function_exists('home_url')) {
+    function home_url($path = '') {
+        return 'https://tenant.example.com' . $path;
+    }
+}
+
+if (!function_exists('wp_validate_redirect')) {
+    function wp_validate_redirect($location, $fallback = false) {
+        if (!is_string($location) || $location === '') {
+            return $fallback;
+        }
+        if (strpos($location, 'https://evil.example') === 0) {
+            return $fallback;
+        }
+
+        return $location;
+    }
+}
+
+if (!function_exists('aa_redirect_to_is_app_context')) {
+    function aa_redirect_to_is_app_context(string $url): bool {
+        return preg_match('~/agenda-app/?([?#]|$)~', $url) === 1
+            || strpos($url, 'action=aa_iframe_content') !== false;
+    }
+}
+
 if (!function_exists('add_query_arg')) {
     function add_query_arg($key, $value = null, $url = null) {
         if (is_array($key)) {
@@ -82,6 +108,12 @@ ac('rejects arbitrary path', !$policy->is_allowlisted_success_url('https://tenan
 
 $err = $policy->error_login_url();
 ac('error login has flag and no token key', strpos($err, 'aa_agenda_access_error=1') !== false && stripos($err, 'token') === false);
+
+$sent = $policy->link_sent_login_url('https://tenant.example.com/agenda-app/');
+ac('link sent has flag', strpos($sent, 'aa_agenda_access_link_sent=1') !== false);
+ac('link sent keeps app login', strpos($sent, 'deoia_app_login=1') !== false);
+ac('sanitize rejects evil host', $policy->sanitize_login_redirect('https://evil.example/x') === $policy->default_app_redirect());
+ac('sanitize keeps agenda-app', $policy->sanitize_login_redirect('https://tenant.example.com/agenda-app/') === 'https://tenant.example.com/agenda-app/');
 
 echo "\n{$passed}/{$total} passed\n";
 exit($passed === $total ? 0 : 1);

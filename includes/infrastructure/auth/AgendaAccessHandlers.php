@@ -1,8 +1,8 @@
 <?php
 /**
- * Public admin-post handlers for agenda magic-link bridge (GET) and consume (POST).
+ * Public admin-post handlers for agenda magic-link bridge, consume, and request (C2+C3B).
  *
- * C2 — managed_multisite_site tenants via HMAC. Never logs tokens.
+ * Never logs tokens, secrets, emails, or sensitive backend bodies.
  *
  * @package WP_Agenda_Automatizada
  */
@@ -11,19 +11,39 @@ defined('ABSPATH') or die('No direct access');
 
 require_once dirname(__DIR__, 2) . '/domain/auth/class-aa-agenda-access-token-format.php';
 require_once dirname(__DIR__, 2) . '/domain/auth/class-aa-agenda-access-redirect-policy.php';
+require_once dirname(__DIR__, 2) . '/domain/auth/class-aa-agenda-access-request-eligibility.php';
 require_once dirname(__DIR__, 2) . '/application/auth/ConsumeAgendaAccessTokenUseCase.php';
+require_once dirname(__DIR__, 2) . '/application/auth/RequestAgendaAccessLinkUseCase.php';
 
 final class AA_Agenda_Access_Handlers {
 
     public const ACTION_BRIDGE = 'aa_agenda_access';
     public const ACTION_CONSUME = 'aa_agenda_access_consume';
+    public const ACTION_REQUEST = 'aa_agenda_access_request';
+
+    public const NONCE_ACTION = 'aa_agenda_access_request';
+    public const NONCE_FIELD = 'aa_agenda_access_request_nonce';
+
+    /** @var RequestAgendaAccessLinkUseCase|null Injected in tests. */
+    private static $request_use_case = null;
 
     public static function register(): void {
         add_action('admin_post_nopriv_' . self::ACTION_BRIDGE, [__CLASS__, 'handle_bridge']);
         add_action('admin_post_' . self::ACTION_BRIDGE, [__CLASS__, 'handle_bridge']);
         add_action('admin_post_nopriv_' . self::ACTION_CONSUME, [__CLASS__, 'handle_consume']);
         add_action('admin_post_' . self::ACTION_CONSUME, [__CLASS__, 'handle_consume']);
+        add_action('admin_post_nopriv_' . self::ACTION_REQUEST, [__CLASS__, 'handle_request']);
+        add_action('admin_post_' . self::ACTION_REQUEST, [__CLASS__, 'handle_request']);
         add_filter('login_message', [__CLASS__, 'filter_login_error_message']);
+        add_filter('login_message', [__CLASS__, 'filter_login_request_ui'], 11);
+        add_action('login_footer', [__CLASS__, 'render_request_button_script']);
+    }
+
+    /**
+     * @internal Tests only.
+     */
+    public static function set_request_use_case(?RequestAgendaAccessLinkUseCase $use_case): void {
+        self::$request_use_case = $use_case;
     }
 
     /**
@@ -40,6 +60,50 @@ final class AA_Agenda_Access_Handlers {
             . '</p>';
 
         return $notice . $message;
+    }
+
+    /**
+     * C3B: neutral “link sent” notice + CTA (composed with AppLoginSkin / C2 messages).
+     */
+    public static function filter_login_request_ui(string $message): string {
+        if (!function_exists('aa_is_deoia_app_login_context') || !aa_is_deoia_app_login_context()) {
+            return $message;
+        }
+
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Display-only flag.
+        if (isset($_GET['aa_agenda_access_link_sent'])
+            && (string) wp_unslash($_GET['aa_agenda_access_link_sent']) === '1'
+        ) {
+            $notice = '<p class="message aa-agenda-access-link-sent">'
+                . esc_html__(
+                    'Si esta agenda admite acceso por enlace, recibirás un correo con las instrucciones.',
+                    'wp-agenda-automatizada'
+                )
+                . '</p>';
+            $message = $notice . $message;
+        }
+
+        if (self::should_render_request_cta()) {
+            $message .= self::render_request_cta_html();
+        }
+
+        return $message;
+    }
+
+    /**
+     * Minimal JS: disable CTA submit button after click (anti double-submit UX).
+     */
+    public static function render_request_button_script(): void {
+        if (!function_exists('aa_is_deoia_app_login_context') || !aa_is_deoia_app_login_context()) {
+            return;
+        }
+
+        echo "<script>\n";
+        echo "(function(){var f=document.getElementById('aa-agenda-access-request-form');";
+        echo "if(!f){return;}f.addEventListener('submit',function(){";
+        echo "var b=f.querySelector('button[type=submit]');";
+        echo "if(b){b.disabled=true;}});})();\n";
+        echo "</script>\n";
     }
 
     /**
@@ -100,6 +164,89 @@ final class AA_Agenda_Access_Handlers {
             }
         }
 
+        nocache_headers();
+        wp_safe_redirect($url);
+        exit;
+    }
+
+    /**
+     * POST request link: gate → nonce → transient/HMAC via UseCase → always PRG neutro.
+     */
+    public static function handle_request(): void {
+        $policy = new AA_Agenda_Access_Redirect_Policy();
+        $redirect_to = '';
+        if (isset($_POST['redirect_to'])) {
+            $redirect_to = wp_unslash((string) $_POST['redirect_to']);
+        }
+        $redirect_url = $policy->link_sent_login_url($redirect_to);
+
+        // Gate before transient and before any HMAC. POST fields never alter classification.
+        if (!AA_Agenda_Access_Request_Eligibility::can_request()) {
+            self::redirect_link_sent_and_exit($redirect_url);
+        }
+
+        $nonce = '';
+        if (isset($_POST[self::NONCE_FIELD])) {
+            $nonce = wp_unslash((string) $_POST[self::NONCE_FIELD]);
+        }
+        if ($nonce === '' || !wp_verify_nonce($nonce, self::NONCE_ACTION)) {
+            self::redirect_link_sent_and_exit($redirect_url);
+        }
+
+        $use_case = self::$request_use_case ?? new RequestAgendaAccessLinkUseCase();
+        $use_case->execute();
+
+        self::redirect_link_sent_and_exit($redirect_url);
+    }
+
+    private static function should_render_request_cta(): bool {
+        $action = '';
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Login screen routing only.
+        if (isset($_GET['action'])) {
+            $action = sanitize_key(wp_unslash((string) $_GET['action']));
+        }
+        if ($action !== '' && $action !== 'login') {
+            return false;
+        }
+
+        return AA_Agenda_Access_Request_Eligibility::can_request();
+    }
+
+    /**
+     * CTA HTML for login_message (no email / blog_id / identity fields).
+     */
+    public static function render_request_cta_html(): string {
+        $policy = new AA_Agenda_Access_Redirect_Policy();
+        $candidate = '';
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Display-only redirect_to echo.
+        if (isset($_REQUEST['redirect_to'])) {
+            $candidate = wp_unslash((string) $_REQUEST['redirect_to']);
+        }
+        $redirect_to = $policy->sanitize_login_redirect($candidate);
+        $action_url  = admin_url('admin-post.php');
+        $nonce       = wp_create_nonce(self::NONCE_ACTION);
+
+        $html  = '<div class="aa-agenda-access-request">';
+        $html .= '<p class="aa-agenda-access-request-copy">'
+            . esc_html__('Accede sin contraseña con un enlace a tu correo.', 'wp-agenda-automatizada')
+            . '</p>';
+        $html .= '<form method="post" action="' . esc_url($action_url) . '" id="aa-agenda-access-request-form">';
+        $html .= '<input type="hidden" name="action" value="' . esc_attr(self::ACTION_REQUEST) . '">';
+        $html .= '<input type="hidden" name="' . esc_attr(self::NONCE_FIELD) . '" value="' . esc_attr($nonce) . '">';
+        $html .= '<input type="hidden" name="redirect_to" value="' . esc_url($redirect_to) . '">';
+        $html .= '<button type="submit" class="button button-primary aa-agenda-access-request-submit">'
+            . esc_html__('Enviarme un enlace de acceso', 'wp-agenda-automatizada')
+            . '</button>';
+        $html .= '</form>';
+        $html .= '<p class="aa-agenda-access-request-separator">'
+            . esc_html__('O entra con usuario y contraseña', 'wp-agenda-automatizada')
+            . '</p>';
+        $html .= '</div>';
+
+        return $html;
+    }
+
+    private static function redirect_link_sent_and_exit(string $url): void {
         nocache_headers();
         wp_safe_redirect($url);
         exit;

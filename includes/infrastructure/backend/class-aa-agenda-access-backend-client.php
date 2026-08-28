@@ -1,8 +1,8 @@
 <?php
 /**
- * Backend client — agenda magic-link consume (HMAC POST /agenda/access/consume).
+ * Backend client — agenda magic-link consume + request (HMAC).
  *
- * Single request, no retries. Does not log tokens or raw bodies.
+ * Single request per call, no retries. Does not log tokens or raw bodies.
  *
  * @package WP_Agenda_Automatizada
  */
@@ -16,6 +16,48 @@ class AA_Agenda_Access_Backend_Client {
     public const CODE_UNAVAILABLE = 'unavailable';
     public const CODE_NOT_CONFIGURED = 'not_configured';
     public const CODE_INVALID_RESPONSE = 'invalid_response';
+
+    /**
+     * POST /agenda/access/request with empty body (HMAC). One call, no retries.
+     *
+     * @return array{ok: true}|array{ok: false, code: string, http_status: int}
+     */
+    public function request(): array {
+        if (!defined('AA_API_BASE_URL') || (string) AA_API_BASE_URL === '') {
+            return $this->failure(self::CODE_NOT_CONFIGURED, 0);
+        }
+
+        if (!function_exists('aa_send_authenticated_request')) {
+            return $this->failure(self::CODE_NOT_CONFIGURED, 0);
+        }
+
+        $client_secret = (string) get_option('aa_client_secret', '');
+        if ($client_secret === '') {
+            return $this->failure(self::CODE_NOT_CONFIGURED, 0);
+        }
+
+        $endpoint = rtrim((string) AA_API_BASE_URL, '/') . '/agenda/access/request';
+        // Empty array → no JSON body; HMAC body string "" (compatible with C3A / verifyClient).
+        $response = aa_send_authenticated_request($endpoint, 'POST', []);
+
+        if (is_wp_error($response)) {
+            return $this->failure(self::CODE_UNAVAILABLE, 0);
+        }
+
+        $status_code = (int) wp_remote_retrieve_response_code($response);
+        $raw_body    = (string) wp_remote_retrieve_body($response);
+        $decoded     = json_decode($raw_body, true);
+
+        if ($status_code < 200 || $status_code >= 300) {
+            return $this->failure(self::CODE_UNAVAILABLE, $status_code);
+        }
+
+        if (!is_array($decoded) || empty($decoded['ok'])) {
+            return $this->failure(self::CODE_INVALID_RESPONSE, $status_code);
+        }
+
+        return ['ok' => true];
+    }
 
     /**
      * @return array{

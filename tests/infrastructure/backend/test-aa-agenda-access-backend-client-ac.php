@@ -117,5 +117,27 @@ $mis = $client->consume(str_repeat('A', 43));
 ac('missing secret no network', $GLOBALS['aa_remote_calls'] === 0
     && ($mis['code'] ?? '') === AA_Agenda_Access_Backend_Client::CODE_NOT_CONFIGURED);
 
+$GLOBALS['aa_options']['aa_client_secret'] = 'secret';
+$GLOBALS['aa_remote'] = ['code' => 200, 'body' => json_encode(['ok' => true])];
+$GLOBALS['aa_remote_calls'] = 0;
+$req = $client->request();
+ac('request 200 ok', !empty($req['ok']));
+ac('request hits path', strpos($GLOBALS['aa_last_endpoint'] ?? '', '/agenda/access/request') !== false);
+ac('request empty body', ($GLOBALS['aa_last_data'] ?? null) === []);
+ac('request single call', $GLOBALS['aa_remote_calls'] === 1);
+
+$GLOBALS['aa_remote'] = ['code' => 500, 'body' => '{}'];
+$GLOBALS['aa_remote_calls'] = 0;
+$req_fail = $client->request();
+ac('request 500 unavailable', empty($req_fail['ok'])
+    && ($req_fail['code'] ?? '') === AA_Agenda_Access_Backend_Client::CODE_UNAVAILABLE);
+ac('request error still one call', $GLOBALS['aa_remote_calls'] === 1);
+
+$GLOBALS['aa_options']['aa_client_secret'] = '';
+$GLOBALS['aa_remote_calls'] = 0;
+$req_mis = $client->request();
+ac('request missing secret no network', $GLOBALS['aa_remote_calls'] === 0
+    && ($req_mis['code'] ?? '') === AA_Agenda_Access_Backend_Client::CODE_NOT_CONFIGURED);
+
 echo "\n{$passed}/{$total} passed\n";
 exit($passed === $total ? 0 : 1);

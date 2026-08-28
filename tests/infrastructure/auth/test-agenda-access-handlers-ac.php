@@ -109,6 +109,8 @@ ac('registers nopriv bridge', isset($GLOBALS['aa_actions']['admin_post_nopriv_aa
 ac('registers priv bridge', isset($GLOBALS['aa_actions']['admin_post_aa_agenda_access']));
 ac('registers nopriv consume', isset($GLOBALS['aa_actions']['admin_post_nopriv_aa_agenda_access_consume']));
 ac('registers priv consume', isset($GLOBALS['aa_actions']['admin_post_aa_agenda_access_consume']));
+ac('registers nopriv request', isset($GLOBALS['aa_actions']['admin_post_nopriv_aa_agenda_access_request']));
+ac('registers priv request', isset($GLOBALS['aa_actions']['admin_post_aa_agenda_access_request']));
 ac('registers login_message filter', isset($GLOBALS['aa_filters']['login_message']));
 
 $token = str_repeat('A', 43);

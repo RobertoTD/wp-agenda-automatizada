@@ -40,6 +40,58 @@ final class AA_Agenda_Access_Redirect_Policy {
     }
 
     /**
+     * Default post-login destination for app login (agenda-app entry).
+     */
+    public function default_app_redirect(): string {
+        return function_exists('home_url')
+            ? home_url('/agenda-app/')
+            : $this->calendar_url();
+    }
+
+    /**
+     * Sanitize a candidate redirect_to for app login (no open redirects).
+     */
+    public function sanitize_login_redirect(?string $candidate): string {
+        $fallback = $this->default_app_redirect();
+        $candidate = is_string($candidate) ? trim($candidate) : '';
+        if ($candidate === '') {
+            return $fallback;
+        }
+
+        if (function_exists('wp_validate_redirect')) {
+            $validated = wp_validate_redirect($candidate, false);
+            if (!is_string($validated) || $validated === '') {
+                return $fallback;
+            }
+            $candidate = $validated;
+        }
+
+        if (function_exists('aa_redirect_to_is_app_context')
+            && aa_redirect_to_is_app_context($candidate)
+        ) {
+            return $candidate;
+        }
+
+        if ($this->is_allowlisted_success_url($candidate)) {
+            return $candidate;
+        }
+
+        return $fallback;
+    }
+
+    /**
+     * Login URL (app skin) after link-request PRG — neutral flag, never tokens/PII.
+     */
+    public function link_sent_login_url(?string $redirect_to = null): string {
+        $target = $this->sanitize_login_redirect($redirect_to);
+        $login  = function_exists('aa_app_login_url')
+            ? aa_app_login_url($target)
+            : wp_login_url($target);
+
+        return add_query_arg('aa_agenda_access_link_sent', '1', $login);
+    }
+
+    /**
      * Whether a candidate redirect is an allowlisted same-site agenda shell URL.
      */
     public function is_allowlisted_success_url(string $url): bool {
