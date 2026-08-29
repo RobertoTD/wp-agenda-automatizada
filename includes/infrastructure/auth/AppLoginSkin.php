@@ -22,6 +22,27 @@ class AA_App_Login_Skin {
         add_filter('login_headertext', [__CLASS__, 'filter_login_headertext']);
         add_action('login_head', [__CLASS__, 'render_login_head_meta']);
         add_action('login_footer', [__CLASS__, 'default_rememberme_checked']);
+        add_action('login_init', [__CLASS__, 'on_login_init']);
+    }
+
+    public static function on_login_init(): void {
+        if (!aa_is_deoia_app_login_context()) {
+            return;
+        }
+
+        add_filter('gettext', [__CLASS__, 'filter_lostpassword_text'], 10, 3);
+    }
+
+    /**
+     * Replaces "Lost your password?" with "Cambiar contraseña" only in app login context.
+     * Returns plain translatable string without premature HTML escaping.
+     */
+    public static function filter_lostpassword_text(string $translation, string $text, string $domain): string {
+        if ($domain === 'default' && $text === 'Lost your password?') {
+            return __('Cambiar contraseña', 'wp-agenda-automatizada');
+        }
+
+        return $translation;
     }
 
     public static function filter_login_message(string $message): string {

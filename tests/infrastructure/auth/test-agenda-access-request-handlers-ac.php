@@ -1,6 +1,6 @@
 <?php
 /**
- * AC — AgendaAccessHandlers C3B request CTA + handler gate.
+ * AC — AgendaAccessHandlers C3B request UI + handler gate + AppLoginSkin lostpassword copy.
  *
  *   php tests/infrastructure/auth/test-agenda-access-request-handlers-ac.php
  *
@@ -98,13 +98,13 @@ if (!function_exists('esc_attr')) {
 
 if (!function_exists('esc_html__')) {
     function esc_html__($text, $domain = 'default') {
-        return htmlspecialchars((string) $text, ENT_QUOTES, 'UTF-8');
+        return (string) $text;
     }
 }
 
-if (!function_exists('wp_unslash')) {
-    function wp_unslash($value) {
-        return is_string($value) ? stripslashes($value) : $value;
+if (!function_exists('__')) {
+    function __($text, $domain = 'default') {
+        return (string) $text;
     }
 }
 
@@ -114,83 +114,63 @@ if (!function_exists('sanitize_key')) {
     }
 }
 
+if (!function_exists('wp_parse_url')) {
+    function wp_parse_url($url) {
+        return parse_url((string) $url);
+    }
+}
+
+if (!function_exists('wp_unslash')) {
+    function wp_unslash($val) {
+        return is_string($val) ? stripslashes($val) : $val;
+    }
+}
+
 if (!function_exists('wp_create_nonce')) {
-    function wp_create_nonce($action) {
-        return 'nonce-for-' . $action;
+    function wp_create_nonce($action = -1) {
+        return 'test-nonce-' . (string) $action;
     }
 }
 
 if (!function_exists('wp_verify_nonce')) {
-    function wp_verify_nonce($nonce, $action) {
-        if (empty($GLOBALS['aa_nonce_ok'])) {
-            return false;
-        }
-
-        return is_string($nonce) && $nonce !== '';
+    function wp_verify_nonce($nonce, $action = -1) {
+        return !empty($GLOBALS['aa_nonce_ok']) && $nonce === 'good';
     }
 }
 
-if (!function_exists('wp_validate_redirect')) {
-    function wp_validate_redirect($location, $fallback = false) {
-        if (!is_string($location) || $location === '') {
-            return $fallback;
-        }
-        if (strpos($location, 'https://evil.example') === 0) {
-            return $fallback;
-        }
-
-        return $location;
-    }
+if (!function_exists('nocache_headers')) {
+    function nocache_headers() {}
 }
 
-if (!function_exists('aa_app_login_url')) {
-    function aa_app_login_url(string $redirect_to): string {
-        return 'https://tenant.example.com/wp-login.php?deoia_app_login=1&redirect_to=' . rawurlencode($redirect_to);
-    }
-}
-
-if (!function_exists('aa_redirect_to_is_app_context')) {
-    function aa_redirect_to_is_app_context(string $url): bool {
-        return preg_match('~/agenda-app/?([?#]|$)~', $url) === 1
-            || strpos($url, 'action=aa_iframe_content') !== false;
-    }
-}
-
-if (!function_exists('aa_is_deoia_app_login_context')) {
-    function aa_is_deoia_app_login_context(): bool {
-        return !empty($GLOBALS['aa_app_login_context']);
-    }
-}
-
-if (!function_exists('add_query_arg')) {
-    function add_query_arg($key, $value = null, $url = null) {
-        $sep = (strpos((string) $url, '?') === false) ? '?' : '&';
-
-        return $url . $sep . rawurlencode((string) $key) . '=' . rawurlencode((string) $value);
-    }
-}
-
-if (!function_exists('wp_parse_url')) {
-    function wp_parse_url($url) {
-        return parse_url($url);
+if (!function_exists('wp_safe_redirect')) {
+    function wp_safe_redirect($location, $status = 302) {
+        $GLOBALS['aa_redirects'][] = $location;
+        throw new AA_Test_Redirect_Exception((string) $location);
     }
 }
 
 if (!function_exists('wp_login_url')) {
     function wp_login_url($redirect = '') {
-        return 'https://tenant.example.com/wp-login.php?redirect_to=' . rawurlencode((string) $redirect);
+        $url = 'https://tenant.example.com/wp-login.php';
+        if ($redirect !== '') {
+            $url .= '?redirect_to=' . rawurlencode($redirect);
+        }
+
+        return $url;
     }
 }
 
-if (!function_exists('nocache_headers')) {
-    function nocache_headers() {
-    }
-}
+if (!function_exists('add_query_arg')) {
+    function add_query_arg($key, $value = false, $url = '') {
+        if (is_array($key)) {
+            $qs = http_build_query($key);
+            $sep = (strpos($url, '?') === false) ? '?' : '&';
 
-if (!function_exists('wp_safe_redirect')) {
-    function wp_safe_redirect($location, $status = 302) {
-        $GLOBALS['aa_redirects'][] = (string) $location;
-        throw new AA_Test_Redirect_Exception((string) $location);
+            return $url . $sep . $qs;
+        }
+        $sep = (strpos($url, '?') === false) ? '?' : '&';
+
+        return $url . $sep . rawurlencode((string) $key) . '=' . rawurlencode((string) $value);
     }
 }
 
@@ -200,20 +180,23 @@ if (!function_exists('is_wp_error')) {
     }
 }
 
-if (!class_exists('WP_Error')) {
-    class WP_Error {
-    }
-}
-
 if (!function_exists('aa_send_authenticated_request')) {
     function aa_send_authenticated_request($endpoint, $method = 'POST', $data = []) {
         $GLOBALS['aa_remote_calls'] = ($GLOBALS['aa_remote_calls'] ?? 0) + 1;
         $GLOBALS['aa_last_endpoint'] = $endpoint;
         $GLOBALS['aa_last_data'] = $data;
-        $GLOBALS['aa_hmac_log'][] = [
-            'endpoint' => $endpoint,
-            'data'     => $data,
-        ];
+
+        return $GLOBALS['aa_remote'] ?? ['code' => 200, 'body' => '{"ok":true}'];
+    }
+}
+
+if (!function_exists('wp_remote_post')) {
+    function wp_remote_post($url, $args = []) {
+        $GLOBALS['aa_remote_calls']++;
+        $GLOBALS['aa_last_remote_url'] = $url;
+        $GLOBALS['aa_last_remote_args'] = $args;
+        $body = $args['body'] ?? '';
+        $GLOBALS['aa_last_data'] = is_string($body) && $body !== '' ? json_decode($body, true) : [];
 
         return $GLOBALS['aa_remote'] ?? ['code' => 200, 'body' => '{"ok":true}'];
     }
@@ -221,12 +204,20 @@ if (!function_exists('aa_send_authenticated_request')) {
 
 if (!function_exists('wp_remote_retrieve_response_code')) {
     function wp_remote_retrieve_response_code($response) {
+        if ($response instanceof WP_Error) {
+            return 0;
+        }
+
         return (int) ($response['code'] ?? 0);
     }
 }
 
 if (!function_exists('wp_remote_retrieve_body')) {
     function wp_remote_retrieve_body($response) {
+        if ($response instanceof WP_Error) {
+            return '';
+        }
+
         return (string) ($response['body'] ?? '');
     }
 }
@@ -237,6 +228,8 @@ if (!function_exists('wp_json_encode')) {
     }
 }
 
+class WP_Error {}
+
 $root = dirname(__DIR__, 3);
 require_once $root . '/includes/domain/tenant/class-aa-installation-provisioning-detector.php';
 require_once $root . '/includes/domain/auth/class-aa-agenda-access-token-format.php';
@@ -245,6 +238,7 @@ require_once $root . '/includes/domain/auth/class-aa-agenda-access-request-eligi
 require_once $root . '/includes/infrastructure/backend/class-aa-agenda-access-backend-client.php';
 require_once $root . '/includes/application/auth/RequestAgendaAccessLinkUseCase.php';
 require_once $root . '/includes/infrastructure/auth/AgendaAccessHandlers.php';
+require_once $root . '/includes/infrastructure/auth/AppLoginSkin.php';
 
 $passed = 0;
 $total  = 0;
@@ -281,50 +275,28 @@ function run_request_handler(): string {
 }
 
 AA_Agenda_Access_Handlers::register();
+AA_App_Login_Skin::register();
+
 ac('registers nopriv request', isset($GLOBALS['aa_actions']['admin_post_nopriv_aa_agenda_access_request']));
 ac('registers priv request', isset($GLOBALS['aa_actions']['admin_post_aa_agenda_access_request']));
 ac('registers request UI filter', isset($GLOBALS['aa_filters']['login_message'][11]));
+ac('registers login_site_html_link filter', isset($GLOBALS['aa_filters']['login_site_html_link'][10]));
+ac('registers login_footer request footer action', isset($GLOBALS['aa_actions']['login_footer']));
 
-// --- CTA visibility ---
-$GLOBALS['aa_app_login_context'] = true;
-$_GET = [];
+// --- 1. login_message filter clean (no card) ---
+$_GET = ['deoia_app_login' => '1'];
 $_REQUEST = [];
-
-independent_oauth();
-$html_indep = AA_Agenda_Access_Handlers::filter_login_request_ui('BASE');
-ac('independent OAuth hides CTA', strpos($html_indep, 'aa-agenda-access-request-form') === false);
-
-$GLOBALS['aa_test_options'] = [];
-$html_missing = AA_Agenda_Access_Handlers::filter_login_request_ui('BASE');
-ac('missing managed marker hides CTA', strpos($html_missing, 'aa-agenda-access-request-form') === false);
-
 managed_ready();
-$GLOBALS['aa_test_options']['aa_client_secret'] = '';
-$html_nosecret = AA_Agenda_Access_Handlers::filter_login_request_ui('BASE');
-ac('managed without secret hides CTA', strpos($html_nosecret, 'aa-agenda-access-request-form') === false);
 
-managed_ready();
-$GLOBALS['aa_app_login_context'] = false;
-$html_noapp = AA_Agenda_Access_Handlers::filter_login_request_ui('BASE');
-ac('non-app login hides CTA', strpos($html_noapp, 'aa-agenda-access-request-form') === false);
-
-$GLOBALS['aa_app_login_context'] = true;
-managed_ready();
-$html_ok = AA_Agenda_Access_Handlers::filter_login_request_ui('BASE');
-ac('managed+HMAC shows CTA', strpos($html_ok, 'aa-agenda-access-request-form') !== false
-    && strpos($html_ok, 'Enviarme un enlace de acceso') !== false);
-ac('CTA has no email field', stripos($html_ok, 'type="email"') === false && stripos($html_ok, 'name="email"') === false);
-ac('CTA preserves AppLogin/BASE composition', strpos($html_ok, 'BASE') !== false);
-ac('CTA has no secrets', stripos($html_ok, 'managed-secret') === false);
-
-$cta = AA_Agenda_Access_Handlers::render_request_cta_html();
-ac('form posts admin-post request action', strpos($cta, 'name="action" value="aa_agenda_access_request"') !== false);
-ac('form has nonce field', strpos($cta, 'aa_agenda_access_request_nonce') !== false);
+$msg = AA_Agenda_Access_Handlers::filter_login_request_ui('BASE');
+ac('login_message does NOT render card .aa-agenda-access-request', strpos($msg, 'aa-agenda-access-request') === false);
+ac('login_message does NOT render submit button', stripos($msg, 'Enviarme un enlace de acceso') === false);
+ac('login_message preserves base message', strpos($msg, 'BASE') !== false);
 
 $_GET['aa_agenda_access_link_sent'] = '1';
 $sent = AA_Agenda_Access_Handlers::filter_login_request_ui('BASE');
 unset($_GET['aa_agenda_access_link_sent']);
-ac('neutral sent message', strpos($sent, 'aa-agenda-access-link-sent') !== false
+ac('neutral sent message present in login_message', strpos($sent, 'aa-agenda-access-link-sent') !== false
     && stripos($sent, 'managed-secret') === false
     && stripos($sent, '@') === false);
 
@@ -333,7 +305,117 @@ $err = AA_Agenda_Access_Handlers::filter_login_error_message('SKIN');
 unset($_GET['aa_agenda_access_error']);
 ac('C2 error message preserved', strpos($err, 'aa-agenda-access-error') !== false && strpos($err, 'SKIN') !== false);
 
-// --- Handler outcomes ---
+// --- 2. login_site_html_link filter behavior ---
+$native_link = '<a href="https://tenant.example.com/">← Ir a Mi Sitio</a>';
+
+// Outside app login: untouched
+$_GET = [];
+$_REQUEST = [];
+$link_noapp = AA_Agenda_Access_Handlers::filter_login_site_html_link($native_link);
+ac('outside app login: login_site_html_link returns native link', $link_noapp === $native_link);
+
+// In app login + independent OAuth: removes link (empty string)
+$_GET = ['deoia_app_login' => '1'];
+independent_oauth();
+$link_indep = AA_Agenda_Access_Handlers::filter_login_site_html_link($native_link);
+ac('in app login + independent OAuth: returns empty string', $link_indep === '');
+
+// In app login + missing managed marker: returns empty string
+$GLOBALS['aa_test_options'] = [];
+$link_missing = AA_Agenda_Access_Handlers::filter_login_site_html_link($native_link);
+ac('in app login + missing managed marker: returns empty string', $link_missing === '');
+
+// In app login + managed without secret: returns empty string
+managed_ready();
+$GLOBALS['aa_test_options']['aa_client_secret'] = '';
+$link_nosecret = AA_Agenda_Access_Handlers::filter_login_site_html_link($native_link);
+ac('in app login + managed without secret: returns empty string', $link_nosecret === '');
+
+// In app login + non-login action (e.g. lostpassword, resetpass, rp): returns empty string (no button, no site link)
+managed_ready();
+$_GET['action'] = 'lostpassword';
+$link_lost = AA_Agenda_Access_Handlers::filter_login_site_html_link($native_link);
+ac('in app login + action=lostpassword: returns empty string', $link_lost === '');
+
+$_GET['action'] = 'resetpass';
+$link_reset = AA_Agenda_Access_Handlers::filter_login_site_html_link($native_link);
+ac('in app login + action=resetpass: returns empty string', $link_reset === '');
+
+$_GET['action'] = 'rp';
+$link_rp = AA_Agenda_Access_Handlers::filter_login_site_html_link($native_link);
+ac('in app login + action=rp: returns empty string', $link_rp === '');
+unset($_GET['action']);
+
+// In app login + normal login action + managed ready: returns button[form]
+managed_ready();
+$_GET['action'] = 'login';
+$link_btn = AA_Agenda_Access_Handlers::filter_login_site_html_link($native_link);
+unset($_GET['action']);
+
+ac('in app login + managed ready: returns button[form]', strpos($link_btn, 'form="aa-agenda-access-request-form"') !== false);
+ac('button has class aa-agenda-access-link-action', strpos($link_btn, 'aa-agenda-access-link-action') !== false);
+ac('button has exact copy Acceder sin contraseña', strpos($link_btn, 'Acceder sin contraseña') !== false);
+ac('button has no question marks', strpos($link_btn, '¿') === false && strpos($link_btn, '?') === false);
+ac('button is not an a-href and has no GET token', strpos($link_btn, '<a') === false && stripos($link_btn, 'token=') === false);
+
+// --- 3. login_footer rendered content ---
+managed_ready();
+$_GET = ['deoia_app_login' => '1'];
+$_REQUEST = ['redirect_to' => 'https://tenant.example.com/agenda-app/'];
+
+ob_start();
+AA_Agenda_Access_Handlers::render_request_footer();
+$footer_html = ob_get_clean();
+
+ac('footer renders form #aa-agenda-access-request-form', strpos($footer_html, 'id="aa-agenda-access-request-form"') !== false);
+ac('footer form has action=aa_agenda_access_request', strpos($footer_html, 'name="action" value="aa_agenda_access_request"') !== false);
+ac('footer form has nonce field', strpos($footer_html, 'aa_agenda_access_request_nonce') !== false);
+ac('footer form has redirect_to', strpos($footer_html, 'name="redirect_to" value="https://tenant.example.com/agenda-app/"') !== false);
+ac('footer form has hidden attribute', strpos($footer_html, '<form method="post"') !== false && strpos($footer_html, 'hidden') !== false);
+ac('footer script has anti-double-click', strpos($footer_html, 'b.disabled = true') !== false);
+ac('footer script checks nodes before insertBefore', strpos($footer_html, 'nav.parentNode.insertBefore(back, nav)') !== false);
+
+// Footer renders nothing on non-login action
+$_GET['action'] = 'lostpassword';
+ob_start();
+AA_Agenda_Access_Handlers::render_request_footer();
+$footer_lost = ob_get_clean();
+unset($_GET['action']);
+ac('footer renders nothing on action=lostpassword', $footer_lost === '');
+
+// Footer renders nothing outside app login
+$_GET = [];
+$_REQUEST = [];
+ob_start();
+AA_Agenda_Access_Handlers::render_request_footer();
+$footer_noapp = ob_get_clean();
+$_GET = ['deoia_app_login' => '1'];
+ac('footer renders nothing outside app login', $footer_noapp === '');
+
+// --- 4. AppLoginSkin lostpassword copy translation ---
+$_GET = ['deoia_app_login' => '1'];
+AA_App_Login_Skin::on_login_init();
+$trans = AA_App_Login_Skin::filter_lostpassword_text('Lost your password?', 'Lost your password?', 'default');
+ac('AppLoginSkin translates Lost your password? to Cambiar contraseña', $trans === 'Cambiar contraseña');
+ac('translation has no question marks', strpos($trans, '¿') === false && strpos($trans, '?') === false);
+
+$unrelated = AA_App_Login_Skin::filter_lostpassword_text('Log In', 'Log In', 'default');
+ac('unrelated text is untouched', $unrelated === 'Log In');
+
+$other_domain = AA_App_Login_Skin::filter_lostpassword_text('Lost your password?', 'Lost your password?', 'woocommerce');
+ac('non-default domain is untouched', $other_domain === 'Lost your password?');
+
+// --- 5. CSS static assertions ---
+$css_content = (string) file_get_contents($root . '/includes/admin/ui/assets/css/deoia-app-login.css');
+ac('CSS has no display: flex on #login', !preg_match('/#login\s*\{[^}]*display\s*:\s*flex/i', $css_content));
+ac('CSS defines .aa-agenda-access-link-action', strpos($css_content, '.aa-agenda-access-link-action') !== false);
+ac('CSS defines #backtoblog:empty', strpos($css_content, '#backtoblog:empty') !== false);
+ac('CSS removes old .aa-agenda-access-request classes', strpos($css_content, '.aa-agenda-access-request {') === false
+    && strpos($css_content, '.aa-agenda-access-request-copy') === false
+    && strpos($css_content, '.aa-agenda-access-request-submit') === false
+    && strpos($css_content, '.aa-agenda-access-request-separator') === false);
+
+// --- 6. Handler request execution outcomes ---
 $_POST = [
     'action' => 'aa_agenda_access_request',
     'aa_agenda_access_request_nonce' => 'good',
@@ -451,8 +533,8 @@ ac('handler does not remove password login', strpos($handler_src, 'remove_action
 ac('no email in request body construction', preg_match('/request\(\s*[\'"]email/i', $handler_src) !== 1);
 
 $skin_src = (string) file_get_contents($root . '/includes/infrastructure/auth/AppLoginSkin.php');
-ac('AppLoginSkin copy untouched', strpos($skin_src, 'Accede a DEOIA Citas') !== false
-    && strpos($skin_src, 'aa-agenda-access-request') === false);
+ac('AppLoginSkin title copy untouched', strpos($skin_src, 'Accede a DEOIA Citas') !== false);
+ac('AppLoginSkin defines filter_lostpassword_text', strpos($skin_src, 'filter_lostpassword_text') !== false);
 
 echo "\n{$passed}/{$total} passed\n";
 exit($passed === $total ? 0 : 1);

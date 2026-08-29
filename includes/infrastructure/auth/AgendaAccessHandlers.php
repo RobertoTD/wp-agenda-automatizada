@@ -36,7 +36,8 @@ final class AA_Agenda_Access_Handlers {
         add_action('admin_post_' . self::ACTION_REQUEST, [__CLASS__, 'handle_request']);
         add_filter('login_message', [__CLASS__, 'filter_login_error_message']);
         add_filter('login_message', [__CLASS__, 'filter_login_request_ui'], 11);
-        add_action('login_footer', [__CLASS__, 'render_request_button_script']);
+        add_filter('login_site_html_link', [__CLASS__, 'filter_login_site_html_link']);
+        add_action('login_footer', [__CLASS__, 'render_request_footer']);
     }
 
     /**
@@ -63,7 +64,7 @@ final class AA_Agenda_Access_Handlers {
     }
 
     /**
-     * C3B: neutral “link sent” notice + CTA (composed with AppLoginSkin / C2 messages).
+     * C3B: neutral “link sent” notice (composed with AppLoginSkin / C2 messages).
      */
     public static function filter_login_request_ui(string $message): string {
         if (!function_exists('aa_is_deoia_app_login_context') || !aa_is_deoia_app_login_context()) {
@@ -83,26 +84,65 @@ final class AA_Agenda_Access_Handlers {
             $message = $notice . $message;
         }
 
-        if (self::should_render_request_cta()) {
-            $message .= self::render_request_cta_html();
-        }
-
         return $message;
     }
 
     /**
-     * Minimal JS: disable CTA submit button after click (anti double-submit UX).
+     * Replaces #backtoblog link with passwordless POST submit button in app login.
+     * When C3B is ineligible or on non-login actions in app login, removes the public link (returns '').
+     * Outside app login, returns the native link unchanged.
      */
-    public static function render_request_button_script(): void {
+    public static function filter_login_site_html_link(string $html_link): string {
         if (!function_exists('aa_is_deoia_app_login_context') || !aa_is_deoia_app_login_context()) {
+            return $html_link;
+        }
+
+        if (!self::should_render_request_cta()) {
+            return '';
+        }
+
+        return '<button type="submit" form="aa-agenda-access-request-form" class="aa-agenda-access-link-action">'
+            . esc_html__('Acceder sin contraseña', 'wp-agenda-automatizada')
+            . '</button>';
+    }
+
+    /**
+     * Renders detached POST form and progressive DOM reorder + anti-double-click script in login footer.
+     */
+    public static function render_request_footer(): void {
+        if (!self::should_render_request_cta()) {
             return;
         }
 
+        $policy = new AA_Agenda_Access_Redirect_Policy();
+        $candidate = '';
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Display-only redirect_to echo.
+        if (isset($_REQUEST['redirect_to'])) {
+            $candidate = wp_unslash((string) $_REQUEST['redirect_to']);
+        }
+        $redirect_to = $policy->sanitize_login_redirect($candidate);
+        $action_url  = admin_url('admin-post.php');
+        $nonce       = wp_create_nonce(self::NONCE_ACTION);
+
+        echo '<form method="post" action="' . esc_url($action_url) . '" id="aa-agenda-access-request-form" hidden>' . "\n";
+        echo '<input type="hidden" name="action" value="' . esc_attr(self::ACTION_REQUEST) . '">' . "\n";
+        echo '<input type="hidden" name="' . esc_attr(self::NONCE_FIELD) . '" value="' . esc_attr($nonce) . '">' . "\n";
+        echo '<input type="hidden" name="redirect_to" value="' . esc_url($redirect_to) . '">' . "\n";
+        echo '</form>' . "\n";
+
         echo "<script>\n";
-        echo "(function(){var f=document.getElementById('aa-agenda-access-request-form');";
-        echo "if(!f){return;}f.addEventListener('submit',function(){";
-        echo "var b=f.querySelector('button[type=submit]');";
-        echo "if(b){b.disabled=true;}});})();\n";
+        echo "(function(){\n";
+        echo "  var f = document.getElementById('aa-agenda-access-request-form');\n";
+        echo "  var b = document.querySelector('button[form=\"aa-agenda-access-request-form\"]');\n";
+        echo "  if (f && b) {\n";
+        echo "    f.addEventListener('submit', function(){ b.disabled = true; });\n";
+        echo "  }\n";
+        echo "  var nav = document.getElementById('nav');\n";
+        echo "  var back = document.getElementById('backtoblog');\n";
+        echo "  if (nav && back && nav.parentNode) {\n";
+        echo "    nav.parentNode.insertBefore(back, nav);\n";
+        echo "  }\n";
+        echo "})();\n";
         echo "</script>\n";
     }
 
@@ -199,7 +239,11 @@ final class AA_Agenda_Access_Handlers {
         self::redirect_link_sent_and_exit($redirect_url);
     }
 
-    private static function should_render_request_cta(): bool {
+    public static function should_render_request_cta(): bool {
+        if (!function_exists('aa_is_deoia_app_login_context') || !aa_is_deoia_app_login_context()) {
+            return false;
+        }
+
         $action = '';
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Login screen routing only.
         if (isset($_GET['action'])) {
@@ -210,40 +254,6 @@ final class AA_Agenda_Access_Handlers {
         }
 
         return AA_Agenda_Access_Request_Eligibility::can_request();
-    }
-
-    /**
-     * CTA HTML for login_message (no email / blog_id / identity fields).
-     */
-    public static function render_request_cta_html(): string {
-        $policy = new AA_Agenda_Access_Redirect_Policy();
-        $candidate = '';
-        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Display-only redirect_to echo.
-        if (isset($_REQUEST['redirect_to'])) {
-            $candidate = wp_unslash((string) $_REQUEST['redirect_to']);
-        }
-        $redirect_to = $policy->sanitize_login_redirect($candidate);
-        $action_url  = admin_url('admin-post.php');
-        $nonce       = wp_create_nonce(self::NONCE_ACTION);
-
-        $html  = '<div class="aa-agenda-access-request">';
-        $html .= '<p class="aa-agenda-access-request-copy">'
-            . esc_html__('Accede sin contraseña con un enlace a tu correo.', 'wp-agenda-automatizada')
-            . '</p>';
-        $html .= '<form method="post" action="' . esc_url($action_url) . '" id="aa-agenda-access-request-form">';
-        $html .= '<input type="hidden" name="action" value="' . esc_attr(self::ACTION_REQUEST) . '">';
-        $html .= '<input type="hidden" name="' . esc_attr(self::NONCE_FIELD) . '" value="' . esc_attr($nonce) . '">';
-        $html .= '<input type="hidden" name="redirect_to" value="' . esc_url($redirect_to) . '">';
-        $html .= '<button type="submit" class="button button-primary aa-agenda-access-request-submit">'
-            . esc_html__('Enviarme un enlace de acceso', 'wp-agenda-automatizada')
-            . '</button>';
-        $html .= '</form>';
-        $html .= '<p class="aa-agenda-access-request-separator">'
-            . esc_html__('O entra con usuario y contraseña', 'wp-agenda-automatizada')
-            . '</p>';
-        $html .= '</div>';
-
-        return $html;
     }
 
     private static function redirect_link_sent_and_exit(string $url): void {

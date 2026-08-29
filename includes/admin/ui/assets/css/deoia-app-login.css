@@ -107,34 +107,36 @@ body.login.aa-deoia-app-login .aa-deoia-login-message strong {
     font-weight: 600;
 }
 
-/* C3B — magic-link request CTA (above password form) */
-body.login.aa-deoia-app-login .aa-agenda-access-request {
-    margin: 0 0 16px;
-    padding: 16px 16px 12px;
-    border-radius: 12px;
-    background: #fff;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
-    text-align: center;
-    box-sizing: border-box;
-}
-
-body.login.aa-deoia-app-login .aa-agenda-access-request-copy {
-    margin: 0 0 12px;
-    color: #374151;
-    font-size: 14px;
-    line-height: 1.45;
-}
-
-body.login.aa-deoia-app-login .aa-agenda-access-request-submit {
-    width: 100%;
-    min-height: 44px;
-}
-
-body.login.aa-deoia-app-login .aa-agenda-access-request-separator {
-    margin: 14px 0 0;
-    color: #6b7280;
+/* C3B — magic-link request inline action in #backtoblog */
+body.login.aa-deoia-app-login .aa-agenda-access-link-action {
+    display: inline;
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    font-family: inherit;
     font-size: 13px;
-    line-height: 1.4;
+    line-height: inherit;
+    color: #6d28d9;
+    text-decoration: none;
+    cursor: pointer;
+    vertical-align: baseline;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+body.login.aa-deoia-app-login .aa-agenda-access-link-action:hover {
+    color: #7c3aed;
+    text-decoration: underline;
+}
+
+body.login.aa-deoia-app-login .aa-agenda-access-link-action:focus,
+body.login.aa-deoia-app-login .aa-agenda-access-link-action:focus-visible {
+    color: #7c3aed;
+    text-decoration: underline;
+    outline: 2px solid #c4b5fd;
+    outline-offset: 2px;
+    box-shadow: none;
 }
 
 body.login.aa-deoia-app-login .aa-agenda-access-link-sent {
@@ -424,10 +426,21 @@ body.login.aa-deoia-app-login #wp-submit:focus-visible {
     outline-offset: 2px;
 }
 
-/* Nav: lost password, back to login */
-body.login.aa-deoia-app-login #nav,
+/* Nav: lost password, back to login / backtoblog */
 body.login.aa-deoia-app-login #backtoblog {
     margin: 16px 0 0;
+    padding: 0;
+    text-align: center;
+}
+
+body.login.aa-deoia-app-login #backtoblog:empty {
+    display: none;
+    margin: 0;
+    padding: 0;
+}
+
+body.login.aa-deoia-app-login #nav {
+    margin: 12px 0 0;
     padding: 0;
     text-align: center;
 }
