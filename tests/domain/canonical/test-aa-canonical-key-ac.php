@@ -45,8 +45,8 @@ ac_assert('Key starting with underscore is invalid', AA_Canonical_Key::is_valid(
 ac_assert('Key with dot is invalid', AA_Canonical_Key::is_valid('finance.general') === false);
 ac_assert('Key with hyphen is invalid', AA_Canonical_Key::is_valid('finance-general') === false);
 ac_assert('Key with spaces is invalid', AA_Canonical_Key::is_valid('finance general') === false);
-ac_assert('Key exceeding 63 chars is invalid', AA_Canonical_Key::is_valid(str_repeat('a', 64)) === false);
-ac_assert('Key with exactly 63 chars is valid', AA_Canonical_Key::is_valid(str_repeat('a', 63)) === true);
+ac_assert('Key with exactly 64 chars is valid', AA_Canonical_Key::is_valid(str_repeat('a', 64)) === true);
+ac_assert('Key exceeding 64 chars (65 chars) is invalid', AA_Canonical_Key::is_valid(str_repeat('a', 65)) === false);
 
 // 3. assert_valid() returns key on success
 ac_assert('assert_valid returns key on valid input', AA_Canonical_Key::assert_valid('finance') === 'finance');

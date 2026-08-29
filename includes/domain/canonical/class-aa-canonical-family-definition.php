@@ -1,6 +1,6 @@
 <?php
 /**
- * Family Definition — Definición inmutable de una familia canónica.
+ * Canonical Family Definition — Definición inmutable de una familia canónica.
  *
  * Dominio puro: sin WordPress ni dependencias externas.
  *
@@ -10,7 +10,7 @@
 
 defined('ABSPATH') or die('No direct access');
 
-final class AA_Family_Definition {
+final class AA_Canonical_Family_Definition {
 
     /** @var string */
     private $key;

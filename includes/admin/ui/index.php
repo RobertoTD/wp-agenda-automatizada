@@ -18,6 +18,8 @@ defined('ABSPATH') or die('No direct access');
 
 require_once dirname(__DIR__, 2) . '/application/legal/ResolveShellAccessUseCase.php';
 require_once dirname(__DIR__, 2) . '/domain/legal/class-aa-shell-access.php';
+require_once dirname(__DIR__, 2) . '/application/canonical/ResolveCanonicalRouteUseCase.php';
+require_once dirname(__DIR__, 2) . '/infrastructure/wp/class-aa-canonical-shell-url-policy.php';
 
 // Whitelisted UI modules.
 $allowed_modules = [
@@ -30,17 +32,62 @@ $allowed_modules = [
     'assignments',
     'learning',
     'training',
+    'canonical',
 ];
 
 $requested_module = isset($_GET['module']) ? sanitize_key($_GET['module']) : 'calendar';
 $active_module    = in_array($requested_module, $allowed_modules, true) ? $requested_module : 'calendar';
 $view_raw         = isset($_GET['view']) ? sanitize_key(wp_unslash((string) $_GET['view'])) : '';
 
-// Canonical URL for the current module/view (marker and nonce removed). Rebuilt
-// from known-safe params to avoid open redirects.
-$aa_canonical_url = admin_url('admin-post.php?action=aa_iframe_content&module=' . $active_module);
-if ($view_raw !== '') {
-    $aa_canonical_url = add_query_arg('view', $view_raw, $aa_canonical_url);
+$aa_canonical_family = null;
+$aa_canonical_variant = null;
+
+if ($active_module === 'canonical') {
+    $family_input = array_key_exists('family', $_GET) ? wp_unslash($_GET['family']) : null;
+    $variant_input = array_key_exists('variant', $_GET) ? wp_unslash($_GET['variant']) : null;
+
+    $canonical_registry = null;
+    if (class_exists('AA_Canonical_Core_Bootstrap')) {
+        try {
+            $canonical_registry = AA_Canonical_Core_Bootstrap::instance();
+        } catch (\Throwable $e) {
+            $canonical_registry = null;
+        }
+    }
+
+    if ($canonical_registry === null) {
+        wp_die('El núcleo canónico no está disponible.', 'Error', ['response' => 500]);
+    }
+
+    $route_result = (new ResolveCanonicalRouteUseCase($canonical_registry))->execute([
+        'family_key'  => $family_input,
+        'variant_key' => $variant_input,
+    ]);
+
+    if (!$route_result['success']) {
+        $error_code = (string) ($route_result['error']['code'] ?? '');
+        if ($error_code === 'unknown_family' || $error_code === 'unknown_variant') {
+            wp_die('Familia o variante canónica no encontrada.', 'Error', ['response' => 404]);
+        }
+        if ($error_code === 'canonical_unavailable') {
+            wp_die('El núcleo canónico no está disponible.', 'Error', ['response' => 500]);
+        }
+        wp_die('Parámetros de ruta canónica no válidos.', 'Error', ['response' => 400]);
+    }
+
+    $aa_canonical_family  = $route_result['data']['family'];
+    $aa_canonical_variant = $route_result['data']['variant'];
+    $aa_canonical_url     = AA_Canonical_Shell_Url_Policy::build_url(
+        $aa_canonical_family->key(),
+        $aa_canonical_variant->key()
+    );
+} else {
+    // Canonical URL for the current module/view (marker and nonce removed). Rebuilt
+    // from known-safe params to avoid open redirects.
+    $aa_canonical_url = admin_url('admin-post.php?action=aa_iframe_content&module=' . $active_module);
+    if ($view_raw !== '') {
+        $aa_canonical_url = add_query_arg('view', $view_raw, $aa_canonical_url);
+    }
 }
 
 /*
@@ -88,9 +135,24 @@ if ($aa_gate_marker) {
     exit;
 }
 
-// Operational shell requires manage_options.
-if (!current_user_can('manage_options')) {
-    wp_die('Acceso denegado', 'Error', ['response' => 403]);
+// Operational shell capability check.
+if ($active_module === 'canonical') {
+    if (!is_user_logged_in()) {
+        wp_die('Acceso denegado', 'Error', ['response' => 403]);
+    }
+    if (is_multisite() && function_exists('is_user_member_of_blog') && !is_user_member_of_blog()) {
+        wp_die('Acceso denegado', 'Error', ['response' => 403]);
+    }
+    // In this cycle, only finance is authorized for non-manage_options
+    if ($aa_canonical_family instanceof AA_Canonical_Family_Definition && $aa_canonical_family->key() !== 'finance') {
+        if (!current_user_can('manage_options')) {
+            wp_die('Acceso denegado', 'Error', ['response' => 403]);
+        }
+    }
+} else {
+    if (!current_user_can('manage_options')) {
+        wp_die('Acceso denegado', 'Error', ['response' => 403]);
+    }
 }
 
 /*
@@ -270,5 +332,9 @@ if (!file_exists($module_path)) {
     wp_die('UI module not found', 'Error', ['response' => 404]);
 }
 
-// Delegate rendering to layout (variables are accessible in layout.php).
-require __DIR__ . '/shared/layout.php';
+// Delegate rendering to appropriate layout.
+if ($active_module === 'canonical') {
+    require __DIR__ . '/shared/canonical-layout.php';
+} else {
+    require __DIR__ . '/shared/layout.php';
+}

@@ -12,7 +12,7 @@ defined('ABSPATH') or die('No direct access');
 
 final class AA_Canonical_Key {
 
-    private const PATTERN = '/^[a-z][a-z0-9_]{0,62}$/';
+    private const PATTERN = '/^[a-z][a-z0-9_]{0,63}$/';
 
     /**
      * Comprueba si una clave cumple con la convención canónica.

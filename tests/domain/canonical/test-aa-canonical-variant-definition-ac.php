@@ -1,8 +1,8 @@
 <?php
 /**
- * AC Test — AA_Variant_Definition.
+ * AC Test — AA_Canonical_Variant_Definition.
  *
- * Ejecutar: php tests/domain/canonical/test-aa-variant-definition-ac.php
+ * Ejecutar: php tests/domain/canonical/test-aa-canonical-variant-definition-ac.php
  */
 
 if (!defined('ABSPATH')) {
@@ -11,7 +11,7 @@ if (!defined('ABSPATH')) {
 
 $plugin_root = dirname(__DIR__, 3);
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
-require_once $plugin_root . '/includes/domain/canonical/class-aa-variant-definition.php';
+require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-variant-definition.php';
 
 $total = 0;
 $passed = 0;
@@ -32,21 +32,21 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 }
 
 // 1. Valid construction and getters
-$variant = new AA_Variant_Definition('finance', 'general', 'General');
+$variant = new AA_Canonical_Variant_Definition('finance', 'general', 'General');
 ac_assert('Variant family_key getter', $variant->family_key() === 'finance');
 ac_assert('Variant key getter', $variant->key() === 'general');
 ac_assert('Variant label getter', $variant->label() === 'General');
 ac_assert('Variant qualified_key derived representation', $variant->qualified_key() === 'finance.general');
 
 // 2. Trimming label
-$variant_trimmed = new AA_Variant_Definition('finance', 'general', '  General  ');
+$variant_trimmed = new AA_Canonical_Variant_Definition('finance', 'general', '  General  ');
 ac_assert('Variant label is trimmed', $variant_trimmed->label() === 'General');
 
 // 3. Invalid family_key throws InvalidArgumentException with [invalid_key]
 $threw_invalid_family = false;
 $msg_invalid_family = '';
 try {
-    new AA_Variant_Definition('Invalid Family', 'general', 'General');
+    new AA_Canonical_Variant_Definition('Invalid Family', 'general', 'General');
 } catch (\InvalidArgumentException $e) {
     $threw_invalid_family = true;
     $msg_invalid_family = $e->getMessage();
@@ -58,7 +58,7 @@ ac_assert('Invalid family key message has [invalid_key]', strpos($msg_invalid_fa
 $threw_invalid_key = false;
 $msg_invalid_key = '';
 try {
-    new AA_Variant_Definition('finance', '1general', 'General');
+    new AA_Canonical_Variant_Definition('finance', '1general', 'General');
 } catch (\InvalidArgumentException $e) {
     $threw_invalid_key = true;
     $msg_invalid_key = $e->getMessage();
@@ -70,7 +70,7 @@ ac_assert('Invalid variant key message has [invalid_key]', strpos($msg_invalid_k
 $threw_invalid_label = false;
 $msg_invalid_label = '';
 try {
-    new AA_Variant_Definition('finance', 'general', '   ');
+    new AA_Canonical_Variant_Definition('finance', 'general', '   ');
 } catch (\InvalidArgumentException $e) {
     $threw_invalid_label = true;
     $msg_invalid_label = $e->getMessage();

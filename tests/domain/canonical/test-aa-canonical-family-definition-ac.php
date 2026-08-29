@@ -1,8 +1,8 @@
 <?php
 /**
- * AC Test — AA_Family_Definition.
+ * AC Test — AA_Canonical_Family_Definition.
  *
- * Ejecutar: php tests/domain/canonical/test-aa-family-definition-ac.php
+ * Ejecutar: php tests/domain/canonical/test-aa-canonical-family-definition-ac.php
  */
 
 if (!defined('ABSPATH')) {
@@ -11,7 +11,7 @@ if (!defined('ABSPATH')) {
 
 $plugin_root = dirname(__DIR__, 3);
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
-require_once $plugin_root . '/includes/domain/canonical/class-aa-family-definition.php';
+require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
 
 $total = 0;
 $passed = 0;
@@ -32,20 +32,20 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 }
 
 // 1. Valid construction and getters
-$family = new AA_Family_Definition('finance', 'Finanzas', 'general');
+$family = new AA_Canonical_Family_Definition('finance', 'Finanzas', 'general');
 ac_assert('Family key getter', $family->key() === 'finance');
 ac_assert('Family label getter', $family->label() === 'Finanzas');
 ac_assert('Family default_variant_key getter', $family->default_variant_key() === 'general');
 
 // 2. Trimming label
-$family_trimmed = new AA_Family_Definition('finance', '  Finanzas  ', 'general');
+$family_trimmed = new AA_Canonical_Family_Definition('finance', '  Finanzas  ', 'general');
 ac_assert('Family label is trimmed', $family_trimmed->label() === 'Finanzas');
 
 // 3. Invalid key throws InvalidArgumentException with [invalid_key]
 $threw_invalid_key = false;
 $msg_invalid_key = '';
 try {
-    new AA_Family_Definition('Invalid Key', 'Finanzas', 'general');
+    new AA_Canonical_Family_Definition('Invalid Key', 'Finanzas', 'general');
 } catch (\InvalidArgumentException $e) {
     $threw_invalid_key = true;
     $msg_invalid_key = $e->getMessage();
@@ -57,7 +57,7 @@ ac_assert('Invalid family key message has [invalid_key]', strpos($msg_invalid_ke
 $threw_invalid_label = false;
 $msg_invalid_label = '';
 try {
-    new AA_Family_Definition('finance', '   ', 'general');
+    new AA_Canonical_Family_Definition('finance', '   ', 'general');
 } catch (\InvalidArgumentException $e) {
     $threw_invalid_label = true;
     $msg_invalid_label = $e->getMessage();
@@ -69,7 +69,7 @@ ac_assert('Empty family label message has [invalid_label]', strpos($msg_invalid_
 $threw_invalid_default = false;
 $msg_invalid_default = '';
 try {
-    new AA_Family_Definition('finance', 'Finanzas', 'Invalid.Default');
+    new AA_Canonical_Family_Definition('finance', 'Finanzas', 'Invalid.Default');
 } catch (\InvalidArgumentException $e) {
     $threw_invalid_default = true;
     $msg_invalid_default = $e->getMessage();

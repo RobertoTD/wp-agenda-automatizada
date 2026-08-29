@@ -12,8 +12,8 @@
 defined('ABSPATH') or die('No direct access');
 
 require_once dirname(__DIR__, 2) . '/domain/canonical/class-aa-canonical-key.php';
-require_once dirname(__DIR__, 2) . '/domain/canonical/class-aa-family-definition.php';
-require_once dirname(__DIR__, 2) . '/domain/canonical/class-aa-variant-definition.php';
+require_once dirname(__DIR__, 2) . '/domain/canonical/class-aa-canonical-family-definition.php';
+require_once dirname(__DIR__, 2) . '/domain/canonical/class-aa-canonical-variant-definition.php';
 require_once dirname(__DIR__, 2) . '/domain/canonical/class-aa-canonical-registry.php';
 
 final class AA_Canonical_Core_Bootstrap {
@@ -22,35 +22,17 @@ final class AA_Canonical_Core_Bootstrap {
     private static $instance = null;
 
     /**
-     * Obtiene la instancia compartida del registro canónico compuesta y sellada.
+     * Construye y devuelve un registro canónico nuevo, completo y sellado.
      */
-    public static function instance(): AA_Canonical_Registry {
-        if (self::$instance === null) {
-            self::$instance = self::build_default_registry();
-        }
-
-        return self::$instance;
-    }
-
-    /**
-     * Punto de entrada para inicialización temprana o explícita.
-     */
-    public static function bootstrap(): AA_Canonical_Registry {
-        return self::instance();
-    }
-
-    /**
-     * Construye y sella el registro canónico base del producto.
-     */
-    private static function build_default_registry(): AA_Canonical_Registry {
+    public static function build_registry(): AA_Canonical_Registry {
         $registry = new AA_Canonical_Registry();
 
         $registry->register_family(
-            new AA_Family_Definition('finance', 'Finanzas', 'general')
+            new AA_Canonical_Family_Definition('finance', 'Finanzas', 'general')
         );
 
         $registry->register_variant(
-            new AA_Variant_Definition('finance', 'general', 'General')
+            new AA_Canonical_Variant_Definition('finance', 'general', 'General')
         );
 
         $registry->freeze();
@@ -59,16 +41,26 @@ final class AA_Canonical_Core_Bootstrap {
     }
 
     /**
-     * @internal Solo para pruebas de aceptación / tests.
+     * Publica de forma idempotente la instancia compartida del registro canónico.
      */
-    public static function reset_for_tests(): void {
-        self::$instance = null;
+    public static function bootstrap(): AA_Canonical_Registry {
+        if (self::$instance === null) {
+            self::$instance = self::build_registry();
+        }
+
+        return self::$instance;
     }
 
     /**
-     * @internal Solo para pruebas de aceptación / tests.
+     * Devuelve la instancia compartida publicada.
+     *
+     * @throws \LogicException Si se llama antes de ejecutar bootstrap().
      */
-    public static function set_instance_for_tests(?AA_Canonical_Registry $registry): void {
-        self::$instance = $registry;
+    public static function instance(): AA_Canonical_Registry {
+        if (self::$instance === null) {
+            throw new \LogicException('[not_bootstrapped] Canonical core has not been bootstrapped.');
+        }
+
+        return self::$instance;
     }
 }

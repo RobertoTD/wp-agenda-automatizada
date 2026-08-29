@@ -185,6 +185,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
             </div>
             
             <!-- Right: Notifications (island) -->
+            <?php if (!isset($active_module) || $active_module !== 'canonical') : ?>
             <div class="flex items-center gap-2 shrink-0">
                 <!-- Notifications: isla circular -->
                 <div class="relative">
@@ -228,6 +229,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
                 </div>
                 
             </div>
+            <?php endif; ?>
         </div>
     </div>
 </header>

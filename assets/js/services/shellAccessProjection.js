@@ -45,6 +45,20 @@
             && (nowMs - entry.ts) < ttlMs;
     }
 
+    function buildGateUrl(baseUrl, gateParam, nonce) {
+        var raw = (typeof baseUrl === 'string' && baseUrl.trim() !== '') ? baseUrl.trim() : '';
+        if (typeof URL !== 'undefined' && raw !== '') {
+            try {
+                var url = new URL(raw);
+                url.searchParams.set(gateParam || 'aa_gate', '1');
+                url.searchParams.set('_wpnonce', nonce || '');
+                return url.toString();
+            } catch (e) { /* fallback abajo */ }
+        }
+        var sep = raw.indexOf('?') === -1 ? '?' : '&';
+        return raw + sep + encodeURIComponent(gateParam || 'aa_gate') + '=1&_wpnonce=' + encodeURIComponent(nonce || '');
+    }
+
     // ---- Browser projection ------------------------------------------------
 
     if (typeof window !== 'undefined' && window.document) {
@@ -128,16 +142,14 @@
                 // legal_gate es evento de una sola actuación: limpiar estado antes
                 // de navegar para impedir bucles tras aceptar los documentos.
                 clearCache();
+                var base = (cfg && typeof cfg.canonicalUrl === 'string' && cfg.canonicalUrl.trim() !== '')
+                    ? cfg.canonicalUrl.trim()
+                    : window.location.href;
+                var target = buildGateUrl(base, GATE_PARAM, cfg.nonce);
                 try {
-                    var url = new URL(window.location.href);
-                    url.searchParams.set(GATE_PARAM, '1');
-                    url.searchParams.set('_wpnonce', cfg.nonce);
-                    window.location.assign(url.toString());
+                    window.location.assign(target);
                 } catch (e) {
-                    var sep = window.location.href.indexOf('?') === -1 ? '?' : '&';
-                    window.location.href = window.location.href
-                        + sep + encodeURIComponent(GATE_PARAM) + '=1'
-                        + '&_wpnonce=' + encodeURIComponent(cfg.nonce);
+                    window.location.href = target;
                 }
             }
 
@@ -202,7 +214,8 @@
             __test: {
                 cacheKey: cacheKey,
                 isCacheable: isCacheable,
-                isFresh: isFresh
+                isFresh: isFresh,
+                buildGateUrl: buildGateUrl
             }
         };
     }

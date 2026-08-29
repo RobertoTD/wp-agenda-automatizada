@@ -41,4 +41,17 @@ describe('shellAccessProjection helpers (UX-only)', () => {
         assert.equal(__test.isFresh(null, now, 60000), false);
         assert.equal(__test.isFresh({ access: 'full' }, now, 60000), false);
     });
+
+    it('buildGateUrl construye URL con aa_gate y _wpnonce a partir de URL base segura', () => {
+        const base = 'https://example.com/wp-admin/admin-post.php?action=aa_iframe_content&module=canonical&family=finance&variant=general';
+        const gateUrl = __test.buildGateUrl(base, 'aa_gate', 'testnonce123');
+
+        assert.ok(gateUrl.includes('action=aa_iframe_content'));
+        assert.ok(gateUrl.includes('module=canonical'));
+        assert.ok(gateUrl.includes('family=finance'));
+        assert.ok(gateUrl.includes('variant=general'));
+        assert.ok(gateUrl.includes('aa_gate=1'));
+        assert.ok(gateUrl.includes('_wpnonce=testnonce123'));
+        assert.equal(gateUrl.includes('arbitrary'), false);
+    });
 });

@@ -1,6 +1,6 @@
 <?php
 /**
- * Variant Definition — Definición inmutable de una variante canónica.
+ * Canonical Variant Definition — Definición inmutable de una variante canónica.
  *
  * Dominio puro: sin WordPress ni dependencias externas.
  *
@@ -10,7 +10,7 @@
 
 defined('ABSPATH') or die('No direct access');
 
-final class AA_Variant_Definition {
+final class AA_Canonical_Variant_Definition {
 
     /** @var string */
     private $family_key;

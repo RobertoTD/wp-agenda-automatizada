@@ -33,18 +33,25 @@ function aa_render_iframe_test_page() {
 add_action('admin_post_aa_iframe_content', 'aa_handle_iframe_content');
 add_action('admin_post_nopriv_aa_iframe_content', 'aa_handle_iframe_content_nopriv');
 
+if (!class_exists('AA_Canonical_Shell_Url_Policy')) {
+    require_once dirname(__DIR__) . '/infrastructure/wp/class-aa-canonical-shell-url-policy.php';
+}
+
 /**
  * Handle iframe content request for non-authenticated users
  * Redirects to login with redirect_to parameter
  */
 function aa_handle_iframe_content_nopriv() {
-    // Build target URL (where to return after login)
-    $target_url = admin_url('admin-post.php?action=aa_iframe_content');
-    
-    // Add module parameter if present
-    if (isset($_GET['module']) && !empty($_GET['module'])) {
-        $module = sanitize_key($_GET['module']);
-        $target_url = add_query_arg('module', $module, $target_url);
+    $module_raw = isset($_GET['module']) ? sanitize_key($_GET['module']) : '';
+    if ($module_raw === AA_Canonical_Shell_Url_Policy::MODULE_CANONICAL) {
+        $family = isset($_GET['family']) && is_string($_GET['family']) ? wp_unslash($_GET['family']) : '';
+        $variant = isset($_GET['variant']) && is_string($_GET['variant']) ? wp_unslash($_GET['variant']) : null;
+        $target_url = AA_Canonical_Shell_Url_Policy::build_url($family, $variant);
+    } else {
+        $target_url = admin_url('admin-post.php?action=aa_iframe_content');
+        if ($module_raw !== '') {
+            $target_url = add_query_arg('module', $module_raw, $target_url);
+        }
     }
     
     // Redirect to login with redirect_to parameter
@@ -56,13 +63,16 @@ function aa_handle_iframe_content_nopriv() {
 function aa_handle_iframe_content() {
     // Defensive guard: redirect to login if not logged in
     if (!is_user_logged_in()) {
-        // Build target URL (where to return after login)
-        $target_url = admin_url('admin-post.php?action=aa_iframe_content');
-        
-        // Add module parameter if present
-        if (isset($_GET['module']) && !empty($_GET['module'])) {
-            $module = sanitize_key($_GET['module']);
-            $target_url = add_query_arg('module', $module, $target_url);
+        $module_raw = isset($_GET['module']) ? sanitize_key($_GET['module']) : '';
+        if ($module_raw === AA_Canonical_Shell_Url_Policy::MODULE_CANONICAL) {
+            $family = isset($_GET['family']) && is_string($_GET['family']) ? wp_unslash($_GET['family']) : '';
+            $variant = isset($_GET['variant']) && is_string($_GET['variant']) ? wp_unslash($_GET['variant']) : null;
+            $target_url = AA_Canonical_Shell_Url_Policy::build_url($family, $variant);
+        } else {
+            $target_url = admin_url('admin-post.php?action=aa_iframe_content');
+            if ($module_raw !== '') {
+                $target_url = add_query_arg('module', $module_raw, $target_url);
+            }
         }
         
         // Redirect to login
