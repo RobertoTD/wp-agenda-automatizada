@@ -49,21 +49,21 @@ $registry = AA_Canonical_Core_Bootstrap::build_registry();
 $aa_canonical_family = $registry->family('finance');
 $aa_canonical_variant = $registry->variant('finance', 'general');
 
-// 1. Render canonical module index.php
+// 1. Render canonical fallback template (_fallback.php)
 ob_start();
-require $plugin_root . '/includes/admin/ui/modules/canonical/index.php';
+require $plugin_root . '/includes/admin/ui/modules/canonical/_fallback.php';
 $html = ob_get_clean();
 
-ac_assert('Module renders Finanzas label', strpos($html, 'Finanzas') !== false);
-ac_assert('Module renders General variant', strpos($html, 'General') !== false);
-ac_assert('Module sets data-aa-page-title="Finanzas"', strpos($html, 'data-aa-page-title="Finanzas"') !== false);
-ac_assert('Module sets data-aa-canonical-family="finance"', strpos($html, 'data-aa-canonical-family="finance"') !== false);
-ac_assert('Module sets data-aa-canonical-variant="general"', strpos($html, 'data-aa-canonical-variant="general"') !== false);
-ac_assert('Module sets data-aa-canonical-qualified="finance.general"', strpos($html, 'data-aa-canonical-qualified="finance.general"') !== false);
-ac_assert('Module contains no form tag', strpos($html, '<form') === false);
-ac_assert('Module contains no input fields', strpos($html, '<input') === false);
-ac_assert('Module contains no buttons', strpos($html, '<button') === false);
-ac_assert('Module contains no script tags', strpos($html, '<script') === false);
+ac_assert('Fallback renders Finanzas label', strpos($html, 'Finanzas') !== false);
+ac_assert('Fallback renders General variant', strpos($html, 'General') !== false);
+ac_assert('Fallback sets data-aa-page-title="Finanzas"', strpos($html, 'data-aa-page-title="Finanzas"') !== false);
+ac_assert('Fallback sets data-aa-canonical-family="finance"', strpos($html, 'data-aa-canonical-family="finance"') !== false);
+ac_assert('Fallback sets data-aa-canonical-variant="general"', strpos($html, 'data-aa-canonical-variant="general"') !== false);
+ac_assert('Fallback sets data-aa-canonical-qualified="finance.general"', strpos($html, 'data-aa-canonical-qualified="finance.general"') !== false);
+ac_assert('Fallback contains no form tag', strpos($html, '<form') === false);
+ac_assert('Fallback contains no input fields', strpos($html, '<input') === false);
+ac_assert('Fallback contains no buttons', strpos($html, '<button') === false);
+ac_assert('Fallback contains no script tags', strpos($html, '<script') === false);
 
 // 2. Inspect canonical-layout.php file content
 $layout_source = file_get_contents($plugin_root . '/includes/admin/ui/shared/canonical-layout.php');

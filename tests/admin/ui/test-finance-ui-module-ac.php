@@ -1,0 +1,167 @@
+<?php
+/**
+ * AC Test — Finance UI Module (Ciclo 3D1).
+ *
+ * Ejecutar:
+ *   php tests/admin/ui/test-finance-ui-module-ac.php
+ */
+
+if (!defined('ABSPATH')) {
+    define('ABSPATH', __DIR__);
+}
+
+if (!function_exists('esc_attr')) {
+    function esc_attr(string $text): string {
+        return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+    }
+}
+if (!function_exists('esc_html')) {
+    function esc_html(string $text): string {
+        return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+    }
+}
+if (!function_exists('esc_url')) {
+    function esc_url(string $url): string {
+        return filter_var($url, FILTER_SANITIZE_URL) ?: $url;
+    }
+}
+if (!function_exists('admin_url')) {
+    function admin_url(string $path = ''): string {
+        return 'https://example.com/wp-admin/' . ltrim($path, '/');
+    }
+}
+if (!function_exists('wp_create_nonce')) {
+    function wp_create_nonce(string $action): string {
+        return 'nonce_' . $action;
+    }
+}
+if (!function_exists('wp_json_encode')) {
+    function wp_json_encode($data, int $options = 0, int $depth = 512): string {
+        return json_encode($data, $options, $depth);
+    }
+}
+if (!function_exists('plugin_dir_url')) {
+    function plugin_dir_url(string $file): string {
+        return 'https://example.com/wp-content/plugins/wp-agenda-automatizada/includes/admin/ui/modules/canonical/finance/';
+    }
+}
+
+$plugin_root = dirname(__DIR__, 3);
+require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
+require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
+require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-variant-definition.php';
+require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-registry.php';
+require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-core-bootstrap.php';
+require_once $plugin_root . '/includes/infrastructure/wp/class-aa-canonical-access-policy.php';
+require_once $plugin_root . '/includes/http/ajax/FinanceAjaxSupport.php';
+require_once $plugin_root . '/includes/http/ajax/FinanceContainersAjax.php';
+
+$total = 0;
+$passed = 0;
+$failed = [];
+
+function ac_assert(string $label, bool $ok, string $detail = ''): void {
+    global $total, $passed, $failed;
+
+    $total++;
+    if ($ok) {
+        $passed++;
+        echo '[ OK ] ' . $label . ($detail !== '' ? ' - ' . $detail : '') . "\n";
+        return;
+    }
+
+    $failed[] = $label;
+    echo '[FAIL] ' . $label . ($detail !== '' ? ' - ' . $detail : '') . "\n";
+}
+
+echo "=== 1. Análisis estático de templates y scripts ===\n";
+
+$finance_tpl_file = $plugin_root . '/includes/admin/ui/modules/canonical/finance/index.php';
+$finance_js_file  = $plugin_root . '/includes/admin/ui/modules/canonical/finance/finance-module.js';
+$canonical_dispatcher = $plugin_root . '/includes/admin/ui/modules/canonical/index.php';
+$fallback_tpl_file    = $plugin_root . '/includes/admin/ui/modules/canonical/_fallback.php';
+
+ac_assert('Template finance/index.php existe y es legible', is_readable($finance_tpl_file));
+ac_assert('Script finance-module.js existe y es legible', is_readable($finance_js_file));
+ac_assert('Dispatcher canonical/index.php existe', is_readable($canonical_dispatcher));
+ac_assert('Fallback canonical/_fallback.php existe', is_readable($fallback_tpl_file));
+
+$finance_tpl_src = file_get_contents($finance_tpl_file);
+$finance_js_src  = file_get_contents($finance_js_file);
+$dispatcher_src  = file_get_contents($dispatcher_dispatcher ?? $canonical_dispatcher);
+
+ac_assert('Template no lee $_GET', strpos($finance_tpl_src, '$_GET') === false);
+ac_assert('Template no usa window.ajaxurl', strpos($finance_tpl_src, 'window.ajaxurl') === false);
+ac_assert('Script JS no usa window.ajaxurl', strpos($finance_js_src, 'window.ajaxurl') === false);
+ac_assert('Script JS no usa wpaa_vars', strpos($finance_js_src, 'wpaa_vars') === false);
+ac_assert('Script JS no usa innerHTML con datos', strpos($finance_js_src, '.innerHTML =') === false);
+ac_assert('Template deriva nonce de FinanceAjaxSupport::NONCE_ACTION', strpos($finance_tpl_src, 'FinanceAjaxSupport::NONCE_ACTION') !== false);
+ac_assert('Template deriva acción de FinanceContainersAjax::ACTION_LIST', strpos($finance_tpl_src, 'FinanceContainersAjax::ACTION_LIST') !== false);
+ac_assert('Template no publica acciones Create, Get o Delete', strpos($finance_tpl_src, 'ACTION_CREATE') === false && strpos($finance_tpl_src, 'ACTION_GET') === false && strpos($finance_tpl_src, 'ACTION_DELETE') === false);
+
+echo "\n=== 2. Renderizado de Vista Finance con Contexto Resuelto ===\n";
+
+$registry = AA_Canonical_Core_Bootstrap::build_registry();
+$aa_canonical_family = $registry->family('finance');
+$aa_canonical_variant = $registry->variant('finance', 'general');
+
+ob_start();
+require $canonical_dispatcher;
+$html = ob_get_clean();
+
+ac_assert('Dispatcher renderiza aa-finance-root para family=finance', strpos($html, 'id="aa-finance-root"') !== false);
+ac_assert('Renderiza label Finanzas obtenido del objeto', strpos($html, 'Finanzas') !== false);
+ac_assert('Renderiza label General obtenido del objeto', strpos($html, 'General') !== false);
+ac_assert('Contiene data-aa-canonical-family="finance"', strpos($html, 'data-aa-canonical-family="finance"') !== false);
+ac_assert('Contiene data-aa-canonical-variant="general"', strpos($html, 'data-aa-canonical-variant="general"') !== false);
+ac_assert('Contiene data-aa-canonical-qualified="finance.general"', strpos($html, 'data-aa-canonical-qualified="finance.general"') !== false);
+ac_assert('Contiene región aria-live en status', strpos($html, 'id="aa-finance-status" class="text-sm text-gray-500" aria-live="polite"') !== false);
+ac_assert('Contiene grid de contenedores', strpos($html, 'id="aa-finance-grid"') !== false);
+ac_assert('Carga script finance-module.js', strpos($html, 'finance-module.js') !== false);
+
+// Extraer JSON emitido en AA_FINANCE_DATA
+preg_match('/window\.AA_FINANCE_DATA\s*=\s*(\{.*?\});/s', $html, $matches);
+ac_assert('Emite bloque window.AA_FINANCE_DATA', !empty($matches[1]));
+
+$config_json = json_decode($matches[1] ?? '{}', true);
+ac_assert('Configuración tiene ajaxUrl válido', isset($config_json['ajaxUrl']) && strpos($config_json['ajaxUrl'], 'admin-ajax.php') !== false);
+ac_assert('Configuración tiene nonce válido', isset($config_json['nonce']) && $config_json['nonce'] === 'nonce_aa_finance_nonce');
+ac_assert('Configuración tiene familyKey = finance', isset($config_json['familyKey']) && $config_json['familyKey'] === 'finance');
+ac_assert('Configuración tiene variantKey = general', isset($config_json['variantKey']) && $config_json['variantKey'] === 'general');
+ac_assert('Configuración tiene actions.listContainers = aa_list_finance_containers', isset($config_json['actions']['listContainers']) && $config_json['actions']['listContainers'] === 'aa_list_finance_containers');
+
+echo "\n=== 3. Comprobación del Dispatcher Fail-Closed y Fallback ===\n";
+
+// Sin familia (contexto ausente)
+unset($aa_canonical_family);
+unset($aa_canonical_variant);
+ob_start();
+require $canonical_dispatcher;
+$fallback_html = ob_get_clean();
+
+ac_assert('Contexto ausente renderiza aa-canonical-root (_fallback.php)', strpos($fallback_html, 'id="aa-canonical-root"') !== false);
+ac_assert('Contexto ausente no renderiza aa-finance-root', strpos($fallback_html, 'id="aa-finance-root"') === false);
+
+// Familia no registrada en el mapa de templates
+$custom_family = new AA_Canonical_Family_Definition('custom_family', 'Familia Custom', 'custom_var');
+$aa_canonical_family = $custom_family;
+$aa_canonical_variant = new AA_Canonical_Variant_Definition('custom_family', 'custom_var', 'Variante Custom');
+ob_start();
+require $canonical_dispatcher;
+$custom_html = ob_get_clean();
+
+ac_assert('Familia sin template en mapa renderiza _fallback.php', strpos($custom_html, 'id="aa-canonical-root"') !== false);
+ac_assert('Familia sin template no cae en finance', strpos($custom_html, 'id="aa-finance-root"') === false);
+
+echo "\n=========================================\n";
+echo "Total assertions: $total\n";
+echo "Passed: $passed\n";
+echo "Failed: " . count($failed) . "\n";
+echo "=========================================\n";
+
+if (count($failed) > 0) {
+    echo "Fallas detectadas:\n - " . implode("\n - ", $failed) . "\n";
+    exit(1);
+}
+
+exit(0);
