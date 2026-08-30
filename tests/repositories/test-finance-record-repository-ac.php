@@ -65,9 +65,19 @@ class TestFinanceRecordWpdbMock {
     public $query_log = [];
 
     public function prepare(string $query, ...$args): string {
+        $flat_args = [];
         foreach ($args as $arg) {
+            if (is_array($arg)) {
+                foreach ($arg as $sub) {
+                    $flat_args[] = $sub;
+                }
+            } else {
+                $flat_args[] = $arg;
+            }
+        }
+        foreach ($flat_args as $arg) {
             $val = is_numeric($arg) ? $arg : "'" . addslashes((string) $arg) . "'";
-            $query = preg_replace('/%[sdf]/', $val, $query, 1);
+            $query = preg_replace('/%[sdf]/', (string) $val, $query, 1);
         }
         $this->last_query = $query;
         return $query;
@@ -95,7 +105,7 @@ class TestFinanceRecordWpdbMock {
         if ($this->last_error !== '') {
             return [];
         }
-        return array_shift($this->results) ?: [];
+        return array_shift($this->results);
     }
 
     public function get_var(string $query) {
@@ -236,6 +246,215 @@ ac_assert('delete() incluye container_id en condición where', end($wpdb->query_
 $wpdb->deleted_rows = 0;
 $del_zero = FinanceRecordRepository::delete(999, 42);
 ac_assert('delete(999, 42) con 0 filas eliminadas devuelve false', $del_zero === false);
+
+echo "\n=== 3. Pruebas de sum_amounts_by_container_ids() (Ciclo 3B2b) ===\n";
+
+// 3.1 Entrada vacía devuelve [] sin consultar $wpdb
+$wpdb->query_log = [];
+$empty_batch = FinanceRecordRepository::sum_amounts_by_container_ids([]);
+ac_assert('sum_amounts_by_container_ids([]) devuelve []', $empty_batch === []);
+ac_assert('sum_amounts_by_container_ids([]) no ejecuta consultas SQL', count($wpdb->query_log) === 0);
+
+// 3.2 Precondiciones: tipo no entero, ID < 1, strings numéricos, floats, booleans, arrays, objects
+$caught_inv_type = false;
+try {
+    FinanceRecordRepository::sum_amounts_by_container_ids(['1']);
+} catch (\InvalidArgumentException $e) {
+    $caught_inv_type = true;
+}
+ac_assert('sum_amounts_by_container_ids con string "1" lanza InvalidArgumentException', $caught_inv_type);
+
+$caught_inv_zero = false;
+try {
+    FinanceRecordRepository::sum_amounts_by_container_ids([0]);
+} catch (\InvalidArgumentException $e) {
+    $caught_inv_zero = true;
+}
+ac_assert('sum_amounts_by_container_ids con ID 0 lanza InvalidArgumentException', $caught_inv_zero);
+
+$caught_inv_neg = false;
+try {
+    FinanceRecordRepository::sum_amounts_by_container_ids([1, -5]);
+} catch (\InvalidArgumentException $e) {
+    $caught_inv_neg = true;
+}
+ac_assert('sum_amounts_by_container_ids con ID negativo lanza InvalidArgumentException', $caught_inv_neg);
+
+$caught_inv_float = false;
+try {
+    FinanceRecordRepository::sum_amounts_by_container_ids([1, 2.5]);
+} catch (\InvalidArgumentException $e) {
+    $caught_inv_float = true;
+}
+ac_assert('sum_amounts_by_container_ids con float lanza InvalidArgumentException', $caught_inv_float);
+
+$caught_inv_bool = false;
+try {
+    FinanceRecordRepository::sum_amounts_by_container_ids([true]);
+} catch (\InvalidArgumentException $e) {
+    $caught_inv_bool = true;
+}
+ac_assert('sum_amounts_by_container_ids con bool lanza InvalidArgumentException', $caught_inv_bool);
+
+$caught_inv_arr = false;
+try {
+    FinanceRecordRepository::sum_amounts_by_container_ids([[1]]);
+} catch (\InvalidArgumentException $e) {
+    $caught_inv_arr = true;
+}
+ac_assert('sum_amounts_by_container_ids con array anidado lanza InvalidArgumentException', $caught_inv_arr);
+
+$caught_inv_obj = false;
+try {
+    FinanceRecordRepository::sum_amounts_by_container_ids([(object)['id' => 1]]);
+} catch (\InvalidArgumentException $e) {
+    $caught_inv_obj = true;
+}
+ac_assert('sum_amounts_by_container_ids con object lanza InvalidArgumentException', $caught_inv_obj);
+
+// 3.3 Límite máximo de 15 IDs únicos
+$sixteen_ids = range(1, 16);
+$caught_over_limit = false;
+try {
+    FinanceRecordRepository::sum_amounts_by_container_ids($sixteen_ids);
+} catch (\InvalidArgumentException $e) {
+    $caught_over_limit = true;
+}
+ac_assert('sum_amounts_by_container_ids con 16 IDs únicos lanza InvalidArgumentException', $caught_over_limit);
+
+// 15 IDs únicos es válido
+$fifteen_ids = range(1, 15);
+$wpdb->results[] = [];
+$map_fifteen = FinanceRecordRepository::sum_amounts_by_container_ids($fifteen_ids);
+ac_assert('sum_amounts_by_container_ids con 15 IDs únicos es exitoso y devuelve 15 claves', count($map_fifteen) === 15);
+
+// 3.4 Deduplicación conservando orden y primera aparición
+$wpdb->results[] = [
+    ['container_id' => '10', 'amount_total' => '100.00'],
+    ['container_id' => '5', 'amount_total' => '50.00'],
+];
+$map_dedup = FinanceRecordRepository::sum_amounts_by_container_ids([10, 5, 10, 5, 2]);
+ac_assert('sum_amounts_by_container_ids deduplica IDs y devuelve mapa ordenado [10, 5, 2]', array_keys($map_dedup) === [10, 5, 2]);
+ac_assert('sum_amounts_by_container_ids mapa contiene valores e ID 2 sin fila como null', $map_dedup[10] === '100.00' && $map_dedup[5] === '50.00' && $map_dedup[2] === null);
+
+// 3.5 Valores semánticos: null, "0.00", positivo, negativo, sin fila
+$wpdb->results[] = [
+    ['container_id' => '1', 'amount_total' => null],
+    ['container_id' => '2', 'amount_total' => '0.00'],
+    ['container_id' => '3', 'amount_total' => '175.50'],
+    ['container_id' => '4', 'amount_total' => '-45.25'],
+];
+$map_semantic = FinanceRecordRepository::sum_amounts_by_container_ids([1, 2, 3, 4, 5]);
+ac_assert('ID 1 con amount_total null en fila es null', $map_semantic[1] === null);
+ac_assert('ID 2 con amount_total "0.00" es "0.00"', $map_semantic[2] === '0.00');
+ac_assert('ID 3 con amount_total "175.50" es "175.50"', $map_semantic[3] === '175.50');
+ac_assert('ID 4 con amount_total "-45.25" es "-45.25"', $map_semantic[4] === '-45.25');
+ac_assert('ID 5 sin fila en BD es null', $map_semantic[5] === null);
+
+// 3.6 Fail-closed ante error SQL
+$wpdb->last_error = 'Database timeout';
+$caught_db_err = false;
+try {
+    FinanceRecordRepository::sum_amounts_by_container_ids([1]);
+} catch (\RuntimeException $e) {
+    $caught_db_err = (strpos($e->getMessage(), 'Error al calcular la suma agregada de registros') !== false);
+}
+ac_assert('Fallo SQL en sum_amounts_by_container_ids lanza RuntimeException', $caught_db_err);
+$wpdb->last_error = '';
+
+// 3.7 Fail-closed ante filas SQL anómalas
+// A) $rows no array
+$wpdb->results[] = null;
+$caught_non_arr = false;
+try {
+    FinanceRecordRepository::sum_amounts_by_container_ids([1]);
+} catch (\RuntimeException $e) {
+    $caught_non_arr = true;
+}
+ac_assert('Filas no array lanza RuntimeException', $caught_non_arr);
+
+// B) Fila no array
+$wpdb->results[] = ['not_an_array_row'];
+$caught_bad_row = false;
+try {
+    FinanceRecordRepository::sum_amounts_by_container_ids([1]);
+} catch (\RuntimeException $e) {
+    $caught_bad_row = true;
+}
+ac_assert('Fila que no es array lanza RuntimeException', $caught_bad_row);
+
+// C) Fila sin container_id
+$wpdb->results[] = [['amount_total' => '10.00']];
+$caught_missing_cid = false;
+try {
+    FinanceRecordRepository::sum_amounts_by_container_ids([1]);
+} catch (\RuntimeException $e) {
+    $caught_missing_cid = true;
+}
+ac_assert('Fila sin container_id lanza RuntimeException', $caught_missing_cid);
+
+// D) Fila sin amount_total
+$wpdb->results[] = [['container_id' => 1]];
+$caught_missing_amt = false;
+try {
+    FinanceRecordRepository::sum_amounts_by_container_ids([1]);
+} catch (\RuntimeException $e) {
+    $caught_missing_amt = true;
+}
+ac_assert('Fila sin amount_total lanza RuntimeException', $caught_missing_amt);
+
+// E) Fila con container_id inválido (cero, negativo, float o texto no numérico)
+$wpdb->results[] = [['container_id' => '0', 'amount_total' => '10.00']];
+$caught_invalid_cid_row = false;
+try {
+    FinanceRecordRepository::sum_amounts_by_container_ids([1]);
+} catch (\RuntimeException $e) {
+    $caught_invalid_cid_row = true;
+}
+ac_assert('Fila con container_id "0" lanza RuntimeException', $caught_invalid_cid_row);
+
+// F) Fila con container_id con ceros iniciales como "01"
+$wpdb->results[] = [['container_id' => '01', 'amount_total' => '10.00']];
+$caught_lead_zero_cid = false;
+try {
+    FinanceRecordRepository::sum_amounts_by_container_ids([1]);
+} catch (\RuntimeException $e) {
+    $caught_lead_zero_cid = true;
+}
+ac_assert('Fila con container_id "01" lanza RuntimeException', $caught_lead_zero_cid);
+
+// G) Fila con container_id no solicitado
+$wpdb->results[] = [['container_id' => 99, 'amount_total' => '10.00']];
+$caught_unrequested_cid = false;
+try {
+    FinanceRecordRepository::sum_amounts_by_container_ids([1]);
+} catch (\RuntimeException $e) {
+    $caught_unrequested_cid = true;
+}
+ac_assert('Fila con ID no solicitado lanza RuntimeException', $caught_unrequested_cid);
+
+// H) Fila duplicada para el mismo container_id
+$wpdb->results[] = [
+    ['container_id' => 1, 'amount_total' => '10.00'],
+    ['container_id' => 1, 'amount_total' => '20.00'],
+];
+$caught_dup_cid = false;
+try {
+    FinanceRecordRepository::sum_amounts_by_container_ids([1]);
+} catch (\RuntimeException $e) {
+    $caught_dup_cid = true;
+}
+ac_assert('Fila duplicada para el mismo ID lanza RuntimeException', $caught_dup_cid);
+
+// I) Fila con amount_total numérico (int/float en lugar de string/null)
+$wpdb->results[] = [['container_id' => 1, 'amount_total' => 10.50]];
+$caught_numeric_amt = false;
+try {
+    FinanceRecordRepository::sum_amounts_by_container_ids([1]);
+} catch (\RuntimeException $e) {
+    $caught_numeric_amt = true;
+}
+ac_assert('Fila con amount_total tipo float lanza RuntimeException', $caught_numeric_amt);
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 

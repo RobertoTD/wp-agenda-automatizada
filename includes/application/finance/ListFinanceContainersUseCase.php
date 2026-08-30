@@ -58,13 +58,50 @@ final class ListFinanceContainersUseCase {
             $rows = FinanceContainerRepository::list_by_variant($variant_key, $page);
         } catch (\RuntimeException $e) {
             return FinanceUseCaseSupport::fail('persistence_failed', 'No se pudieron listar los contenedores financieros.');
-        } catch (\Throwable $e) {
-            return FinanceUseCaseSupport::fail('persistence_failed', 'No se pudieron listar los contenedores financieros.');
         }
 
-        $items = array_map(function(array $row) {
-            return array_merge(['family_key' => 'finance'], $row);
-        }, $rows);
+        if (empty($rows)) {
+            return FinanceUseCaseSupport::ok([
+                'items' => [],
+                'page' => $page,
+                'per_page' => FinanceContainerRepository::PAGE_SIZE,
+                'total' => $total,
+                'total_pages' => $total_pages,
+                'has_previous' => $page > 1,
+                'has_next' => $page < $total_pages,
+            ]);
+        }
+
+        $container_ids = [];
+        foreach ($rows as $row) {
+            if (!is_array($row) || !isset($row['id']) || !is_int($row['id']) || $row['id'] < 1) {
+                return FinanceUseCaseSupport::fail('persistence_failed', 'Estructura de contenedor inválida.');
+            }
+            $container_ids[] = $row['id'];
+        }
+
+        if (!class_exists('FinanceRecordRepository')) {
+            require_once dirname(__DIR__, 2) . '/repositories/FinanceRecordRepository.php';
+        }
+
+        try {
+            $amounts_map = FinanceRecordRepository::sum_amounts_by_container_ids($container_ids);
+        } catch (\RuntimeException $e) {
+            return FinanceUseCaseSupport::fail('persistence_failed', 'No se pudieron calcular los totales de los contenedores.');
+        }
+
+        $items = [];
+        foreach ($rows as $row) {
+            $cid = $row['id'];
+            if (!array_key_exists($cid, $amounts_map)) {
+                return FinanceUseCaseSupport::fail('persistence_failed', 'Total de contenedor no encontrado en el resultado agregado.');
+            }
+
+            $items[] = array_merge($row, [
+                'family_key'   => 'finance',
+                'amount_total' => $amounts_map[$cid],
+            ]);
+        }
 
         return FinanceUseCaseSupport::ok([
             'items' => $items,

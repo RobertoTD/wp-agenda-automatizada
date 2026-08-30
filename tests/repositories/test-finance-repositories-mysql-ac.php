@@ -143,6 +143,26 @@ try {
     $sum_c4_zero = FinanceRecordRepository::sum_amounts_by_container($c4_id);
     ac_assert('MySQL real: sum_amounts_by_container con total cero devuelve "0.00"', $sum_c4_zero === '0.00');
 
+    // Contenedor c5 con suma negativa (10.00 y -40.50 => -30.50)
+    $c5 = FinanceContainerRepository::create('general', 'Contenedor Balance Negativo');
+    $c5_id = $c5['id'];
+    FinanceRecordRepository::create($c5_id, 'Ingreso', null, '10.00');
+    FinanceRecordRepository::create($c5_id, 'Gasto Mayor', null, '-40.50');
+    $sum_c5_neg = FinanceRecordRepository::sum_amounts_by_container($c5_id);
+    ac_assert('MySQL real: sum_amounts_by_container con total negativo devuelve "-30.50"', $sum_c5_neg === '-30.50');
+
+    // 5.1 Suma agregada en lote (sum_amounts_by_container_ids) en MySQL real (Ciclo 3B2b)
+    $batch_ids = [$c1_id, $c2_id, $c3_id, $c4_id, $c5_id, 999999];
+    $batch_map = FinanceRecordRepository::sum_amounts_by_container_ids($batch_ids);
+    ac_assert('MySQL real: sum_amounts_by_container_ids devuelve 6 entradas completas', count($batch_map) === 6);
+    ac_assert('MySQL real: c1 suma "200.00"', $batch_map[$c1_id] === '200.00');
+    ac_assert('MySQL real: c2 vacío es null', $batch_map[$c2_id] === null);
+    ac_assert('MySQL real: c3 solo nulls es null', $batch_map[$c3_id] === null);
+    ac_assert('MySQL real: c4 total cero es "0.00"', $batch_map[$c4_id] === '0.00');
+    ac_assert('MySQL real: c5 total negativo es "-30.50"', $batch_map[$c5_id] === '-30.50');
+    ac_assert('MySQL real: ID inexistente es null', $batch_map[999999] === null);
+    ac_assert('MySQL real: orden de claves preservado', array_keys($batch_map) === $batch_ids);
+
     // 6. Paginación canónica fija de 15 y Orden created_at DESC, id DESC
     // Crear contenedor para prueba de paginación
     $c_page = FinanceContainerRepository::create('general', 'Contenedor Paginación');

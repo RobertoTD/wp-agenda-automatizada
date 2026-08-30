@@ -307,6 +307,111 @@ final class FinanceRecordRepository {
     }
 
     /**
+     * Calcula la suma de montos agrupada para múltiples contenedores en una sola consulta SQL.
+     *
+     * @param list<int> $container_ids Lista de IDs de contenedor (1 a 15 enteros positivos).
+     * @return array<int, ?string> Mapa completo y ordenado para todos los IDs únicos solicitados: container_id => total_amount (string|"0.00"|null).
+     * @throws \InvalidArgumentException Si $container_ids contiene tipos no enteros, IDs < 1, o más de 15 IDs únicos.
+     * @throws \RuntimeException Si la consulta SQL falla o si la estructura devuelta por la base de datos es inválida (fail-closed).
+     */
+    public static function sum_amounts_by_container_ids(array $container_ids): array {
+        if (empty($container_ids)) {
+            return [];
+        }
+
+        $unique_ids = [];
+        $map = [];
+
+        foreach ($container_ids as $id) {
+            if (!is_int($id) || $id < 1) {
+                throw new \InvalidArgumentException('[FinanceRecordRepository] sum_amounts_by_container_ids requiere enteros positivos >= 1');
+            }
+            if (!array_key_exists($id, $map)) {
+                $map[$id] = null;
+                $unique_ids[] = $id;
+            }
+        }
+
+        if (count($unique_ids) > self::PAGE_SIZE) {
+            throw new \InvalidArgumentException('[FinanceRecordRepository] sum_amounts_by_container_ids no puede exceder 15 IDs únicos');
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+
+        $placeholders = implode(', ', array_fill(0, count($unique_ids), '%d'));
+        $query = $wpdb->prepare(
+            "SELECT container_id, SUM(amount) AS amount_total
+             FROM {$table}
+             WHERE container_id IN ({$placeholders})
+             GROUP BY container_id",
+            $unique_ids
+        );
+
+        $rows = $wpdb->get_results($query, ARRAY_A);
+
+        if (!empty($wpdb->last_error)) {
+            error_log('[FinanceRecordRepository] sum_amounts_by_container_ids error: ' . $wpdb->last_error);
+            throw new \RuntimeException('[FinanceRecordRepository] Error al calcular la suma agregada de registros');
+        }
+
+        if (!is_array($rows)) {
+            error_log('[FinanceRecordRepository] sum_amounts_by_container_ids error: rows is not an array');
+            throw new \RuntimeException('[FinanceRecordRepository] Error al calcular la suma agregada de registros');
+        }
+
+        $processed_ids = [];
+
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                error_log('[FinanceRecordRepository] sum_amounts_by_container_ids error: row is not an array');
+                throw new \RuntimeException('[FinanceRecordRepository] Fila de suma agregada malformada');
+            }
+
+            if (!array_key_exists('container_id', $row) || !array_key_exists('amount_total', $row)) {
+                error_log('[FinanceRecordRepository] sum_amounts_by_container_ids error: missing required columns in row');
+                throw new \RuntimeException('[FinanceRecordRepository] Columnas requeridas ausentes en fila agregada');
+            }
+
+            $raw_cid = $row['container_id'];
+            if (is_int($raw_cid)) {
+                if ($raw_cid < 1) {
+                    error_log('[FinanceRecordRepository] sum_amounts_by_container_ids error: non-positive int container_id');
+                    throw new \RuntimeException('[FinanceRecordRepository] ID de contenedor inválido en fila agregada');
+                }
+                $cid = $raw_cid;
+            } elseif (is_string($raw_cid) && preg_match('/^[1-9][0-9]*$/', $raw_cid)) {
+                $cid = (int) $raw_cid;
+            } else {
+                error_log('[FinanceRecordRepository] sum_amounts_by_container_ids error: invalid container_id type or format');
+                throw new \RuntimeException('[FinanceRecordRepository] ID de contenedor inválido en fila agregada');
+            }
+
+            if (!array_key_exists($cid, $map)) {
+                error_log('[FinanceRecordRepository] sum_amounts_by_container_ids error: unrequested container_id returned');
+                throw new \RuntimeException('[FinanceRecordRepository] ID de contenedor no solicitado devuelto por la consulta');
+            }
+
+            if (isset($processed_ids[$cid])) {
+                error_log('[FinanceRecordRepository] sum_amounts_by_container_ids error: duplicate container_id in rows');
+                throw new \RuntimeException('[FinanceRecordRepository] Fila duplicada para el mismo contenedor');
+            }
+            $processed_ids[$cid] = true;
+
+            $raw_amount = $row['amount_total'];
+            if ($raw_amount !== null) {
+                if (!is_string($raw_amount) || is_int($raw_amount) || is_float($raw_amount)) {
+                    error_log('[FinanceRecordRepository] sum_amounts_by_container_ids error: amount_total must be string or null');
+                    throw new \RuntimeException('[FinanceRecordRepository] Tipo de amount_total inválido en fila agregada');
+                }
+                $map[$cid] = $raw_amount;
+            }
+        }
+
+        return $map;
+    }
+
+    /**
      * Elimina un registro por su ID asegurando pertenencia al contenedor especificado.
      *
      * @param int $id ID del registro.
