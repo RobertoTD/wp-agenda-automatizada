@@ -90,6 +90,7 @@ require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-regis
 require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-core-bootstrap.php';
 require_once $plugin_root . '/includes/application/canonical/ResolveCanonicalRouteUseCase.php';
 require_once $plugin_root . '/includes/infrastructure/wp/class-aa-canonical-shell-url-policy.php';
+require_once $plugin_root . '/includes/infrastructure/wp/class-aa-canonical-access-policy.php';
 
 // Ensure bootstrap is primed
 AA_Canonical_Core_Bootstrap::bootstrap();
@@ -189,16 +190,13 @@ function simulate_router(array $get_params, array $caps = [], bool $logged_in = 
 
         // Capability check
         if ($active_module === 'canonical') {
-            if (!is_user_logged_in()) {
-                wp_die('Acceso denegado', 'Error', ['response' => 403]);
-            }
-            if (is_multisite() && function_exists('is_user_member_of_blog') && !is_user_member_of_blog()) {
-                wp_die('Acceso denegado', 'Error', ['response' => 403]);
-            }
-            if ($aa_canonical_family instanceof AA_Canonical_Family_Definition && $aa_canonical_family->key() !== 'finance') {
-                if (!current_user_can('manage_options')) {
-                    wp_die('Acceso denegado', 'Error', ['response' => 403]);
-                }
+            $family_key = ($aa_canonical_family instanceof AA_Canonical_Family_Definition)
+                ? $aa_canonical_family->key()
+                : 'finance';
+
+            $access = AA_Canonical_Access_Policy::check_family_access($family_key);
+            if (!$access['authorized']) {
+                wp_die('Acceso denegado', 'Error', ['response' => $access['status']]);
             }
         } else {
             if (!current_user_can('manage_options')) {
@@ -266,9 +264,9 @@ ac_assert('Unknown canonical family gives 404', $res_unknown_fam['status'] === 4
 $res_unknown_var = simulate_router(['module' => 'canonical', 'family' => 'finance', 'variant' => 'unknown_variant'], []);
 ac_assert('Unknown canonical variant gives 404', $res_unknown_var['status'] === 404);
 
-// 8. Unauthenticated user on canonical gives 403
+// 8. Unauthenticated user on canonical gives 401
 $res_unauth = simulate_router(['module' => 'canonical', 'family' => 'finance'], [], false);
-ac_assert('Unauthenticated user on canonical gives 403', $res_unauth['status'] === 403);
+ac_assert('Unauthenticated user on canonical gives 401', $res_unauth['status'] === 401);
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 

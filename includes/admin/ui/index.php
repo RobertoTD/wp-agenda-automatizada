@@ -137,17 +137,17 @@ if ($aa_gate_marker) {
 
 // Operational shell capability check.
 if ($active_module === 'canonical') {
-    if (!is_user_logged_in()) {
-        wp_die('Acceso denegado', 'Error', ['response' => 403]);
+    if (!class_exists('AA_Canonical_Access_Policy')) {
+        require_once dirname(__DIR__, 2) . '/infrastructure/wp/class-aa-canonical-access-policy.php';
     }
-    if (is_multisite() && function_exists('is_user_member_of_blog') && !is_user_member_of_blog()) {
-        wp_die('Acceso denegado', 'Error', ['response' => 403]);
-    }
-    // In this cycle, only finance is authorized for non-manage_options
-    if ($aa_canonical_family instanceof AA_Canonical_Family_Definition && $aa_canonical_family->key() !== 'finance') {
-        if (!current_user_can('manage_options')) {
-            wp_die('Acceso denegado', 'Error', ['response' => 403]);
-        }
+
+    $family_key = ($aa_canonical_family instanceof AA_Canonical_Family_Definition)
+        ? $aa_canonical_family->key()
+        : 'finance';
+
+    $access = AA_Canonical_Access_Policy::check_family_access($family_key);
+    if (!$access['authorized']) {
+        wp_die('Acceso denegado', 'Error', ['response' => $access['status']]);
     }
 } else {
     if (!current_user_can('manage_options')) {

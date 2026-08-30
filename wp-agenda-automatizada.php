@@ -73,6 +73,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/clas
 AA_Canonical_Core_Bootstrap::bootstrap();
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/ResolveCanonicalRouteUseCase.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/class-aa-canonical-shell-url-policy.php';
+require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/class-aa-canonical-access-policy.php';
 require_once plugin_dir_path(__FILE__) . 'includes/auth-helper.php';
 
 // 1️⃣b Infrastructure: WP schema lifecycle (activation hook)
@@ -312,6 +313,12 @@ StaffAjax::register();
 // ================================
 require_once __DIR__ . '/includes/http/ajax/ServiceAjax.php';
 ServiceAjax::register();
+
+// ================================
+// Endpoint AJAX: Contenedores Financieros (capa http/ajax)
+// ================================
+require_once __DIR__ . '/includes/http/ajax/FinanceContainersAjax.php';
+FinanceContainersAjax::register();
 
 // ===============================
 // 🔹 Schema lifecycle: registra el activation hook con AA_Schema::install
