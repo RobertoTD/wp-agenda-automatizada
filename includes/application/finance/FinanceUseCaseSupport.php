@@ -19,6 +19,8 @@ final class FinanceUseCaseSupport {
 
     public const MAX_TITLE_LENGTH = 200;
     public const MAX_DETAILS_BYTES = 65000;
+    public const MAX_RAW_AMOUNT_LENGTH = 60;
+    public const MAX_AMOUNT_INTEGER_DIGITS = 17;
 
     /**
      * Valida y resuelve el contexto canónico de Finanzas y su variante.
@@ -70,6 +72,177 @@ final class FinanceUseCaseSupport {
         return [
             'ok' => true,
             'variant_key' => $raw_variant,
+        ];
+    }
+
+    /**
+     * Valida el contexto canónico, resuelve la variante y verifica la existencia y pertenencia del contenedor padre.
+     *
+     * @param AA_Canonical_Registry $registry
+     * @param array<string,mixed> $input
+     * @return array{ok:true,variant_key:string,container_id:int,container:array{id:int,family_key:string,variant_key:string,title:string,details:?string,created_at:string}}|array{ok:false,error:array{code:string,message:string}}
+     */
+    public static function verify_container_context(AA_Canonical_Registry $registry, array $input): array {
+        $var_res = self::resolve_variant($registry, $input);
+        if (!$var_res['ok']) {
+            return $var_res;
+        }
+        $variant_key = $var_res['variant_key'];
+
+        $container_id = self::normalize_id($input['container_id'] ?? null);
+        if ($container_id === null) {
+            return [
+                'ok' => false,
+                'error' => [
+                    'code' => 'invalid_container_id',
+                    'message' => 'Identificador de contenedor no válido.',
+                ],
+            ];
+        }
+
+        if (!class_exists('FinanceContainerRepository')) {
+            require_once dirname(__DIR__, 2) . '/repositories/FinanceContainerRepository.php';
+        }
+
+        try {
+            $container = FinanceContainerRepository::find_by_id($container_id);
+        } catch (\RuntimeException $e) {
+            return [
+                'ok' => false,
+                'error' => [
+                    'code' => 'persistence_failed',
+                    'message' => 'No se pudo consultar el contenedor financiero.',
+                ],
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'ok' => false,
+                'error' => [
+                    'code' => 'persistence_failed',
+                    'message' => 'No se pudo consultar el contenedor financiero.',
+                ],
+            ];
+        }
+
+        if ($container === null || ($container['variant_key'] ?? '') !== $variant_key) {
+            return [
+                'ok' => false,
+                'error' => [
+                    'code' => 'container_not_found',
+                    'message' => 'Contenedor financiero no encontrado.',
+                ],
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'variant_key' => $variant_key,
+            'container_id' => $container_id,
+            'container' => array_merge(['family_key' => 'finance'], $container),
+        ];
+    }
+
+    /**
+     * Valida y normaliza el campo amount a una cadena decimal canónica de 2 decimales o null.
+     *
+     * @param mixed $value
+     * @return array{ok:true,value:?string}|array{ok:false,error:array{code:string,message:string}}
+     */
+    public static function normalize_amount($value): array {
+        if ($value === null) {
+            return [
+                'ok' => true,
+                'value' => null,
+            ];
+        }
+
+        if (!is_string($value)) {
+            return [
+                'ok' => false,
+                'error' => [
+                    'code' => 'invalid_amount',
+                    'message' => 'El importe debe ser una cadena de texto o null.',
+                ],
+            ];
+        }
+
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            return [
+                'ok' => true,
+                'value' => null,
+            ];
+        }
+
+        if (strlen($trimmed) > self::MAX_RAW_AMOUNT_LENGTH) {
+            return [
+                'ok' => false,
+                'error' => [
+                    'code' => 'invalid_amount',
+                    'message' => 'El formato del importe no es válido.',
+                ],
+            ];
+        }
+
+        if (!preg_match('/^(-)?([0-9]+)(?:\.([0-9]+))?$/', $trimmed, $matches)) {
+            return [
+                'ok' => false,
+                'error' => [
+                    'code' => 'invalid_amount',
+                    'message' => 'El formato del importe no es válido.',
+                ],
+            ];
+        }
+
+        $is_negative = ($matches[1] === '-');
+        $int_raw = $matches[2];
+        $dec_raw = isset($matches[3]) ? $matches[3] : null;
+
+        if ($dec_raw !== null && strlen($dec_raw) > 2) {
+            return [
+                'ok' => false,
+                'error' => [
+                    'code' => 'amount_too_many_decimals',
+                    'message' => 'El importe no puede tener más de 2 decimales.',
+                ],
+            ];
+        }
+
+        $int_clean = ltrim($int_raw, '0');
+        if ($int_clean === '') {
+            $int_clean = '0';
+        }
+
+        if (strlen($int_clean) > self::MAX_AMOUNT_INTEGER_DIGITS) {
+            return [
+                'ok' => false,
+                'error' => [
+                    'code' => 'amount_out_of_range',
+                    'message' => 'El importe excede el rango máximo permitido.',
+                ],
+            ];
+        }
+
+        if ($dec_raw === null || $dec_raw === '') {
+            $dec_clean = '00';
+        } elseif (strlen($dec_raw) === 1) {
+            $dec_clean = $dec_raw . '0';
+        } else {
+            $dec_clean = $dec_raw;
+        }
+
+        if ($int_clean === '0' && $dec_clean === '00') {
+            return [
+                'ok' => true,
+                'value' => '0.00',
+            ];
+        }
+
+        $canonical = ($is_negative ? '-' : '') . $int_clean . '.' . $dec_clean;
+
+        return [
+            'ok' => true,
+            'value' => $canonical,
         ];
     }
 
