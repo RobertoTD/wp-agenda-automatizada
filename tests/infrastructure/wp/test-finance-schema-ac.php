@@ -385,18 +385,18 @@ if ($has_real_wp) {
         );
         $wpdb->insert(
             $r1_table,
-            ['container_id' => $container_id, 'title' => 'Cero', 'amount' => 0.00, 'created_at' => $now],
-            ['%d', '%s', '%f', '%s']
+            ['container_id' => $container_id, 'title' => 'Cero', 'amount' => '0.00', 'created_at' => $now],
+            ['%d', '%s', '%s', '%s']
         );
         $wpdb->insert(
             $r1_table,
-            ['container_id' => $container_id, 'title' => 'Decimal positivo', 'amount' => 1.85, 'created_at' => $now],
-            ['%d', '%s', '%f', '%s']
+            ['container_id' => $container_id, 'title' => 'Decimal positivo', 'amount' => '1.85', 'created_at' => $now],
+            ['%d', '%s', '%s', '%s']
         );
         $wpdb->insert(
             $r1_table,
-            ['container_id' => $container_id, 'title' => 'Decimal negativo', 'amount' => -250.75, 'created_at' => $now],
-            ['%d', '%s', '%f', '%s']
+            ['container_id' => $container_id, 'title' => 'Decimal negativo', 'amount' => '-250.75', 'created_at' => $now],
+            ['%d', '%s', '%s', '%s']
         );
 
         $saved_records = $wpdb->get_results(
