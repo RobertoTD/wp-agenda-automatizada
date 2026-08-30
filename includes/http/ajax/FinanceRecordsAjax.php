@@ -1,12 +1,12 @@
 <?php
 /**
- * Finance Containers AJAX — Transporte HTTP/AJAX para contenedores financieros.
+ * Finance Records AJAX — Transporte HTTP/AJAX para registros financieros.
  *
- * Expone las cuatro operaciones canónicas de contenedores:
- * - aa_list_finance_containers   → ListFinanceContainersUseCase
- * - aa_create_finance_container → CreateFinanceContainerUseCase
- * - aa_get_finance_container    → GetFinanceContainerUseCase
- * - aa_delete_finance_container → DeleteFinanceContainerUseCase
+ * Expone las cuatro operaciones canónicas de registros:
+ * - aa_list_finance_records   → ListFinanceRecordsUseCase
+ * - aa_create_finance_record → CreateFinanceRecordUseCase
+ * - aa_get_finance_record    → GetFinanceRecordUseCase
+ * - aa_delete_finance_record → DeleteFinanceRecordUseCase
  *
  * @package WP_Agenda_Automatizada
  * @subpackage HTTP\AJAX
@@ -17,25 +17,25 @@ defined('ABSPATH') or die('No direct access');
 if (!class_exists('FinanceAjaxSupport')) {
     require_once __DIR__ . '/FinanceAjaxSupport.php';
 }
-if (!class_exists('CreateFinanceContainerUseCase')) {
-    require_once dirname(__DIR__, 2) . '/application/finance/CreateFinanceContainerUseCase.php';
+if (!class_exists('CreateFinanceRecordUseCase')) {
+    require_once dirname(__DIR__, 2) . '/application/finance/CreateFinanceRecordUseCase.php';
 }
-if (!class_exists('GetFinanceContainerUseCase')) {
-    require_once dirname(__DIR__, 2) . '/application/finance/GetFinanceContainerUseCase.php';
+if (!class_exists('GetFinanceRecordUseCase')) {
+    require_once dirname(__DIR__, 2) . '/application/finance/GetFinanceRecordUseCase.php';
 }
-if (!class_exists('ListFinanceContainersUseCase')) {
-    require_once dirname(__DIR__, 2) . '/application/finance/ListFinanceContainersUseCase.php';
+if (!class_exists('ListFinanceRecordsUseCase')) {
+    require_once dirname(__DIR__, 2) . '/application/finance/ListFinanceRecordsUseCase.php';
 }
-if (!class_exists('DeleteFinanceContainerUseCase')) {
-    require_once dirname(__DIR__, 2) . '/application/finance/DeleteFinanceContainerUseCase.php';
+if (!class_exists('DeleteFinanceRecordUseCase')) {
+    require_once dirname(__DIR__, 2) . '/application/finance/DeleteFinanceRecordUseCase.php';
 }
 
-final class FinanceContainersAjax {
+final class FinanceRecordsAjax {
 
-    public const ACTION_LIST   = 'aa_list_finance_containers';
-    public const ACTION_CREATE = 'aa_create_finance_container';
-    public const ACTION_GET    = 'aa_get_finance_container';
-    public const ACTION_DELETE = 'aa_delete_finance_container';
+    public const ACTION_LIST   = 'aa_list_finance_records';
+    public const ACTION_CREATE = 'aa_create_finance_record';
+    public const ACTION_GET    = 'aa_get_finance_record';
+    public const ACTION_DELETE = 'aa_delete_finance_record';
     public const NONCE_ACTION  = FinanceAjaxSupport::NONCE_ACTION;
 
     public static function register(): void {
@@ -56,6 +56,9 @@ final class FinanceContainersAjax {
         }
 
         $input = [];
+        if (array_key_exists('container_id', $_POST)) {
+            $input['container_id'] = wp_unslash($_POST['container_id']);
+        }
         if (array_key_exists('variant_key', $_POST)) {
             $input['variant_key'] = wp_unslash($_POST['variant_key']);
         }
@@ -63,7 +66,7 @@ final class FinanceContainersAjax {
             $input['page'] = wp_unslash($_POST['page']);
         }
 
-        $result = (new ListFinanceContainersUseCase($registry))->execute($input);
+        $result = (new ListFinanceRecordsUseCase($registry))->execute($input);
         FinanceAjaxSupport::respond($result);
     }
 
@@ -78,17 +81,23 @@ final class FinanceContainersAjax {
         }
 
         $input = [];
+        if (array_key_exists('container_id', $_POST)) {
+            $input['container_id'] = wp_unslash($_POST['container_id']);
+        }
         if (array_key_exists('title', $_POST)) {
             $input['title'] = wp_unslash($_POST['title']);
         }
         if (array_key_exists('details', $_POST)) {
             $input['details'] = wp_unslash($_POST['details']);
         }
+        if (array_key_exists('amount', $_POST)) {
+            $input['amount'] = wp_unslash($_POST['amount']);
+        }
         if (array_key_exists('variant_key', $_POST)) {
             $input['variant_key'] = wp_unslash($_POST['variant_key']);
         }
 
-        $result = (new CreateFinanceContainerUseCase($registry))->execute($input);
+        $result = (new CreateFinanceRecordUseCase($registry))->execute($input);
         FinanceAjaxSupport::respond($result);
     }
 
@@ -103,14 +112,17 @@ final class FinanceContainersAjax {
         }
 
         $input = [];
-        if (array_key_exists('id', $_POST)) {
-            $input['id'] = wp_unslash($_POST['id']);
+        if (array_key_exists('container_id', $_POST)) {
+            $input['container_id'] = wp_unslash($_POST['container_id']);
+        }
+        if (array_key_exists('record_id', $_POST)) {
+            $input['record_id'] = wp_unslash($_POST['record_id']);
         }
         if (array_key_exists('variant_key', $_POST)) {
             $input['variant_key'] = wp_unslash($_POST['variant_key']);
         }
 
-        $result = (new GetFinanceContainerUseCase($registry))->execute($input);
+        $result = (new GetFinanceRecordUseCase($registry))->execute($input);
         FinanceAjaxSupport::respond($result);
     }
 
@@ -125,14 +137,17 @@ final class FinanceContainersAjax {
         }
 
         $input = [];
-        if (array_key_exists('id', $_POST)) {
-            $input['id'] = wp_unslash($_POST['id']);
+        if (array_key_exists('container_id', $_POST)) {
+            $input['container_id'] = wp_unslash($_POST['container_id']);
+        }
+        if (array_key_exists('record_id', $_POST)) {
+            $input['record_id'] = wp_unslash($_POST['record_id']);
         }
         if (array_key_exists('variant_key', $_POST)) {
             $input['variant_key'] = wp_unslash($_POST['variant_key']);
         }
 
-        $result = (new DeleteFinanceContainerUseCase($registry))->execute($input);
+        $result = (new DeleteFinanceRecordUseCase($registry))->execute($input);
         FinanceAjaxSupport::respond($result);
     }
 }

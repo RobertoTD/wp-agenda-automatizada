@@ -315,10 +315,13 @@ require_once __DIR__ . '/includes/http/ajax/ServiceAjax.php';
 ServiceAjax::register();
 
 // ================================
-// Endpoint AJAX: Contenedores Financieros (capa http/ajax)
+// Endpoint AJAX: Finanzas Canónicas (capa http/ajax)
 // ================================
+require_once __DIR__ . '/includes/http/ajax/FinanceAjaxSupport.php';
 require_once __DIR__ . '/includes/http/ajax/FinanceContainersAjax.php';
 FinanceContainersAjax::register();
+require_once __DIR__ . '/includes/http/ajax/FinanceRecordsAjax.php';
+FinanceRecordsAjax::register();
 
 // ===============================
 // 🔹 Schema lifecycle: registra el activation hook con AA_Schema::install

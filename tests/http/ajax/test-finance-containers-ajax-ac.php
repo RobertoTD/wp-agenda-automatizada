@@ -8,6 +8,7 @@
 
 $plugin_root = dirname(__DIR__, 3);
 $ajax_file = $plugin_root . '/includes/http/ajax/FinanceContainersAjax.php';
+$support_file = $plugin_root . '/includes/http/ajax/FinanceAjaxSupport.php';
 $bootstrap_file = $plugin_root . '/wp-agenda-automatizada.php';
 
 $total = 0;
@@ -28,25 +29,31 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
     echo '[FAIL] ' . $label . ($detail !== '' ? ' - ' . $detail : '') . "\n";
 }
 
-echo "=== 1. Análisis estático de FinanceContainersAjax ===\n";
+echo "=== 1. Análisis estático de FinanceContainersAjax y FinanceAjaxSupport ===\n";
 
 ac_assert('Archivo FinanceContainersAjax.php existe y es legible', is_readable($ajax_file));
+ac_assert('Archivo FinanceAjaxSupport.php existe y es legible', is_readable($support_file));
 $ajax_src = file_get_contents($ajax_file);
+$support_src = file_get_contents($support_file);
 $boot_src = file_get_contents($bootstrap_file);
 
 ac_assert('Define constante ACTION_LIST', strpos($ajax_src, "ACTION_LIST   = 'aa_list_finance_containers'") !== false);
 ac_assert('Define constante ACTION_CREATE', strpos($ajax_src, "ACTION_CREATE = 'aa_create_finance_container'") !== false);
 ac_assert('Define constante ACTION_GET', strpos($ajax_src, "ACTION_GET    = 'aa_get_finance_container'") !== false);
 ac_assert('Define constante ACTION_DELETE', strpos($ajax_src, "ACTION_DELETE = 'aa_delete_finance_container'") !== false);
-ac_assert('Define NONCE_ACTION = aa_finance_nonce', strpos($ajax_src, "NONCE_ACTION  = 'aa_finance_nonce'") !== false);
+ac_assert('NONCE_ACTION deriva de FinanceAjaxSupport::NONCE_ACTION', strpos($ajax_src, "NONCE_ACTION  = FinanceAjaxSupport::NONCE_ACTION") !== false);
+ac_assert('FinanceAjaxSupport define NONCE_ACTION = aa_finance_nonce', strpos($support_src, "NONCE_ACTION = 'aa_finance_nonce'") !== false);
+ac_assert('FinanceContainersAjax delega authorize a FinanceAjaxSupport', strpos($ajax_src, 'FinanceAjaxSupport::authorize()') !== false);
+ac_assert('FinanceContainersAjax delega resolve_registry a FinanceAjaxSupport', strpos($ajax_src, 'FinanceAjaxSupport::resolve_registry()') !== false);
+ac_assert('FinanceContainersAjax delega respond a FinanceAjaxSupport', strpos($ajax_src, 'FinanceAjaxSupport::respond($result)') !== false);
 
-ac_assert('No contiene wp_ajax_nopriv_', strpos($ajax_src, 'wp_ajax_nopriv_') === false);
+ac_assert('No contiene wp_ajax_nopriv_', strpos($ajax_src, 'wp_ajax_nopriv_') === false && strpos($support_src, 'wp_ajax_nopriv_') === false);
 ac_assert('Bootstrap no registra nopriv para finanzas', strpos($boot_src, 'wp_ajax_nopriv_aa_list_finance_containers') === false);
-ac_assert('No contiene acceso a $wpdb', strpos($ajax_src, '$wpdb') === false);
-ac_assert('No contiene absint()', strpos($ajax_src, 'absint(') === false);
+ac_assert('No contiene acceso a $wpdb', strpos($ajax_src, '$wpdb') === false && strpos($support_src, '$wpdb') === false);
+ac_assert('No contiene absint()', strpos($ajax_src, 'absint(') === false && strpos($support_src, 'absint(') === false);
 ac_assert('No contiene sanitize_text_field ni sanitize_textarea_field', strpos($ajax_src, 'sanitize_text_field(') === false && strpos($ajax_src, 'sanitize_textarea_field(') === false);
 ac_assert('No acepta alias variant (solo variant_key)', strpos($ajax_src, "\$_POST['variant']") === false);
-ac_assert('No captura Throwable indiscriminado', strpos($ajax_src, 'catch (\Throwable') === false && strpos($ajax_src, 'catch (Throwable') === false);
+ac_assert('No captura Throwable indiscriminado', strpos($ajax_src, 'catch (\Throwable') === false && strpos($support_src, 'catch (\Throwable') === false);
 
 echo "\n=== 2. Configuración de Dobles de Prueba ===\n";
 
@@ -158,6 +165,7 @@ require_once $plugin_root . '/includes/application/finance/GetFinanceContainerUs
 require_once $plugin_root . '/includes/application/finance/ListFinanceContainersUseCase.php';
 require_once $plugin_root . '/includes/application/finance/DeleteFinanceContainerUseCase.php';
 require_once $plugin_root . '/includes/infrastructure/wp/class-aa-canonical-access-policy.php';
+require_once $plugin_root . '/includes/http/ajax/FinanceAjaxSupport.php';
 
 class TestFinanceContainersWpdbMock {
     public $prefix = 'wp_';
