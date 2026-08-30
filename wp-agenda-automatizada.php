@@ -76,6 +76,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/class-aa-ca
 require_once plugin_dir_path(__FILE__) . 'includes/auth-helper.php';
 
 // 1️⃣b Infrastructure: WP schema lifecycle (activation hook)
+require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/FinanceSchema.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/Schema.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/LearningCatalogSeedLifecycle.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/AppointmentActionsListSeedLifecycle.php';

@@ -28,7 +28,7 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 
 $schema_src = file_get_contents($schema_file);
 ac_assert('Schema readable', is_string($schema_src) && $schema_src !== '');
-ac_assert('DB_VERSION is 18', strpos($schema_src, "DB_VERSION = '18'") !== false);
+ac_assert('DB_VERSION is 19', strpos($schema_src, "DB_VERSION = '19'") !== false);
 ac_assert('CREATE TABLE aa_expediente_adjuntos', strpos($schema_src, "aa_expediente_adjuntos") !== false);
 ac_assert('storage_path varchar(191)', strpos($schema_src, 'storage_path varchar(191) NOT NULL') !== false);
 ac_assert('upload_operation_id char(36)', strpos($schema_src, 'upload_operation_id char(36) NOT NULL') !== false);

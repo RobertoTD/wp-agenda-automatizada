@@ -66,7 +66,7 @@ final class AA_Schema {
      * Independiente de la versión del plugin. Solo refleja el estado
      * de las tablas/columnas/índices.
      */
-    public const DB_VERSION = '18';
+    public const DB_VERSION = '19';
 
     public const OPTION_INSTALLATION_INITIALIZED_AT = 'aa_installation_initialized_at';
 
@@ -582,6 +582,12 @@ final class AA_Schema {
         add_rewrite_rule('^agenda-app/?$', 'index.php?aa_agenda_app=1', 'top');
         add_rewrite_rule('^citas-virtuales/?$', 'index.php?aa_citas_virtuales=1', 'top');
         flush_rewrite_rules();
+
+        // 🔹 Esquema físico de Finanzas (DB 19 — contenedores y registros con FK)
+        if (!class_exists('AA_Finance_Schema')) {
+            require_once __DIR__ . '/FinanceSchema.php';
+        }
+        AA_Finance_Schema::install();
 
         // Marcar el esquema como actualizado a la versión actual.
         // Esto cubre tanto la primera instalación (vía activation hook)
