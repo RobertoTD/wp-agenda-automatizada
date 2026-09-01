@@ -9,10 +9,12 @@ const vm = require('node:vm');
 const recordsModulePath = path.join(__dirname, '../../includes/admin/ui/modules/canonical/finance/finance-records-module.js');
 const createModulePath = path.join(__dirname, '../../includes/admin/ui/modules/canonical/finance/finance-record-create-module.js');
 const deleteModulePath = path.join(__dirname, '../../includes/admin/ui/modules/canonical/finance/finance-record-delete-module.js');
+const recordEditModulePath = path.join(__dirname, '../../includes/admin/ui/modules/canonical/finance/finance-record-edit-module.js');
 const orchestratorModulePath = path.join(__dirname, '../../includes/admin/ui/modules/canonical/finance/finance-module.js');
 const recordsModuleSrc = fs.readFileSync(recordsModulePath, 'utf8');
 const createModuleSrc = fs.readFileSync(createModulePath, 'utf8');
 const deleteModuleSrc = fs.readFileSync(deleteModulePath, 'utf8');
+const recordEditModuleSrc = fs.readFileSync(recordEditModulePath, 'utf8');
 const orchestratorModuleSrc = fs.readFileSync(orchestratorModulePath, 'utf8');
 
 const hostSetImmediate = setImmediate;
@@ -32,7 +34,8 @@ const FINANCE_DATA = {
         listRecords: 'aa_list_finance_records',
         createRecord: 'aa_create_finance_record',
         deleteRecord: 'aa_delete_finance_record',
-        getRecord: 'aa_get_finance_record'
+        getRecord: 'aa_get_finance_record',
+        updateRecord: 'aa_update_finance_record'
     }
 };
 
@@ -74,7 +77,7 @@ function buildTestFormData() {
 function createEl(tag, id) {
     const el = {
         tagName: String(tag).toUpperCase(), id: id || '', children: [], attributes: Object.create(null),
-        _text: '', disabled: false, hidden: false, type: tag === 'button' ? 'button' : 'text',
+        _text: '', disabled: false, hidden: false, type: tag === 'button' ? 'button' : (tag === 'textarea' ? 'textarea' : 'text'),
         parentElement: null, parentNode: null, tabIndex: 0,
         classList: { _set: new Set(), add(c) { this._set.add(c); }, remove(c) { this._set.delete(c); }, contains(c) { return this._set.has(c); } },
         focus() { if (this.ownerDocument) this.ownerDocument.activeElement = this; },
@@ -90,6 +93,7 @@ function createEl(tag, id) {
     };
     Object.defineProperty(el, 'className', { get() { return Array.from(el.classList._set).join(' '); }, set(v) { el.classList._set = new Set(String(v).split(/\s+/).filter(Boolean)); } });
     Object.defineProperty(el, 'textContent', { get() { return el.children.length ? el.children.map((c) => c.textContent).join('') : el._text; }, set(v) { el._text = String(v); el.children = []; } });
+    Object.defineProperty(el, 'childNodes', { get() { return el.children; } });
     if (id) el.id = id;
     return el;
 }
@@ -125,6 +129,38 @@ function buildDeleteModalDom() {
     body.appendChild(modal);
     [modal, backdrop, closeBtn, title, bodyEl, amount, modalError, standard, cancelBtn, confirmBtn, uncertain, uncertainClose, blocked, blockedClose].forEach((el) => { el.ownerDocument = document; if (el.id) document._elements[el.id] = el; });
     return { document, modal, bodyEl, amount, cancelBtn, confirmBtn, uncertain, uncertainClose, blocked, blockedClose, backdrop, closeBtn, modalError };
+}
+
+function buildRecordEditModalDom(document) {
+    const modal = createEl('div', 'aa-finance-record-edit-modal'); modal.classList.add('hidden');
+    const backdrop = createEl('div', 'aa-finance-record-edit-modal-backdrop');
+    const closeBtn = createEl('button', 'aa-finance-record-edit-close');
+    const form = createEl('form', 'aa-finance-record-edit-form');
+    const modalError = createEl('div', 'aa-finance-record-edit-error'); modalError.classList.add('hidden');
+    const titleInput = createEl('input', 'aa-finance-record-edit-title');
+    const titleError = createEl('p', 'aa-finance-record-edit-title-error'); titleError.classList.add('hidden');
+    const detailsInput = createEl('textarea', 'aa-finance-record-edit-details');
+    const detailsError = createEl('p', 'aa-finance-record-edit-details-error'); detailsError.classList.add('hidden');
+    const amountInput = createEl('input', 'aa-finance-record-edit-amount');
+    const amountError = createEl('p', 'aa-finance-record-edit-amount-error'); amountError.classList.add('hidden');
+    const standard = createEl('div', 'aa-finance-record-edit-actions-standard');
+    const cancelBtn = createEl('button', 'aa-finance-record-edit-cancel');
+    const submitBtn = createEl('button', 'aa-finance-record-edit-submit'); submitBtn.type = 'submit';
+    const uncertain = createEl('div', 'aa-finance-record-edit-actions-uncertain'); uncertain.classList.add('hidden');
+    const uncertainClose = createEl('button', 'aa-finance-record-edit-uncertain-close');
+    const blocked = createEl('div', 'aa-finance-record-edit-actions-blocked'); blocked.classList.add('hidden');
+    const blockedClose = createEl('button', 'aa-finance-record-edit-blocked-close');
+    standard.appendChild(cancelBtn); standard.appendChild(submitBtn);
+    uncertain.appendChild(uncertainClose); blocked.appendChild(blockedClose);
+    form.appendChild(modalError); form.appendChild(titleInput); form.appendChild(titleError);
+    form.appendChild(detailsInput); form.appendChild(detailsError); form.appendChild(amountInput);
+    form.appendChild(amountError); form.appendChild(standard); form.appendChild(uncertain); form.appendChild(blocked);
+    modal.appendChild(backdrop); modal.appendChild(closeBtn); modal.appendChild(form);
+    [modal, backdrop, closeBtn, form, modalError, titleInput, titleError, detailsInput, detailsError, amountInput, amountError, standard, cancelBtn, submitBtn, uncertain, uncertainClose, blocked, blockedClose].forEach((el) => {
+        el.ownerDocument = document;
+        if (el.id) document._elements[el.id] = el;
+    });
+    return { modal, form, titleInput, detailsInput, amountInput, cancelBtn, submitBtn, uncertainClose, backdrop, closeBtn, modalError };
 }
 
 function buildFullDom() {
@@ -178,8 +214,10 @@ function buildFullDom() {
     recordCreateForm.appendChild(recordModalErrorEl); recordCreateForm.appendChild(recordTitleInput); recordCreateForm.appendChild(recordDetailsInput); recordCreateForm.appendChild(recordAmountInput); recordCreateForm.appendChild(recordStandardActionsEl); recordCreateForm.appendChild(recordUncertainActionsEl); recordCreateForm.appendChild(recordBlockedActionsEl);
     recordCreateModal.appendChild(recordModalBackdrop); recordCreateModal.appendChild(recordModalCloseBtn); recordCreateModal.appendChild(recordCreateForm);
     root.appendChild(openCreateBtn); root.appendChild(listContainer); root.appendChild(recordsContainer); root.appendChild(createModal); root.appendChild(recordCreateModal); root.appendChild(dom.modal);
-    [root, listContainer, statusEl, gridEl, paginationEl, prevBtn, nextBtn, pageIndicatorEl, recordsContainer, recordsBackBtn, recordsHeadingEl, recordsSummaryEl, recordsStatusEl, recordsGridEl, recordsPaginationEl, recordsPrevBtn, recordsNextBtn, recordsPageIndicatorEl, openCreateBtn, createModal, modalBackdrop, modalCloseBtn, createForm, modalErrorEl, titleInput, titleErrorEl, detailsInput, detailsErrorEl, standardActionsEl, cancelBtn, submitBtn, uncertainActionsEl, uncertainCloseBtn, blockedActionsEl, blockedCloseBtn, openRecordBtn, recordCreateModal, recordModalBackdrop, recordModalCloseBtn, recordCreateForm, recordModalErrorEl, recordTitleInput, recordTitleErrorEl, recordDetailsInput, recordDetailsErrorEl, recordAmountInput, recordAmountErrorEl, recordStandardActionsEl, recordCancelBtn, recordSubmitBtn, recordUncertainActionsEl, recordUncertainCloseBtn, recordBlockedActionsEl, recordBlockedCloseBtn, dom.modal, dom.backdrop, dom.closeBtn, dom.bodyEl, dom.amount, dom.modalError, dom.cancelBtn, dom.confirmBtn, dom.uncertain, dom.uncertainClose, dom.blocked, dom.blockedClose].forEach((el) => { el.ownerDocument = document; if (el.id) document._elements[el.id] = el; });
-    return Object.assign(dom, { root, statusEl, gridEl, openCreateBtn, openRecordBtn, recordsContainer, recordsBackBtn, recordsHeadingEl, recordsStatusEl, recordsGridEl, recordCreateModal, recordCreateForm, recordTitleInput, recordSubmitBtn, recordUncertainCloseBtn });
+    const recordEdit = buildRecordEditModalDom(document);
+    root.appendChild(recordEdit.modal);
+    [root, listContainer, statusEl, gridEl, paginationEl, prevBtn, nextBtn, pageIndicatorEl, recordsContainer, recordsBackBtn, recordsHeadingEl, recordsSummaryEl, recordsStatusEl, recordsGridEl, recordsPaginationEl, recordsPrevBtn, recordsNextBtn, recordsPageIndicatorEl, openCreateBtn, createModal, modalBackdrop, modalCloseBtn, createForm, modalErrorEl, titleInput, titleErrorEl, detailsInput, detailsErrorEl, standardActionsEl, cancelBtn, submitBtn, uncertainActionsEl, uncertainCloseBtn, blockedActionsEl, blockedCloseBtn, openRecordBtn, recordCreateModal, recordModalBackdrop, recordModalCloseBtn, recordCreateForm, recordModalErrorEl, recordTitleInput, recordTitleErrorEl, recordDetailsInput, recordDetailsErrorEl, recordAmountInput, recordAmountErrorEl, recordStandardActionsEl, recordCancelBtn, recordSubmitBtn, recordUncertainActionsEl, recordUncertainCloseBtn, recordBlockedActionsEl, recordBlockedCloseBtn, dom.modal, dom.backdrop, dom.closeBtn, dom.bodyEl, dom.amount, dom.modalError, dom.cancelBtn, dom.confirmBtn, dom.uncertain, dom.uncertainClose, dom.blocked, dom.blockedClose, recordEdit.modal, recordEdit.form, recordEdit.titleInput, recordEdit.detailsInput, recordEdit.amountInput, recordEdit.cancelBtn, recordEdit.submitBtn, recordEdit.uncertainClose, recordEdit.backdrop, recordEdit.closeBtn, recordEdit.modalError].forEach((el) => { el.ownerDocument = document; if (el.id) document._elements[el.id] = el; });
+    return Object.assign(dom, { root, statusEl, gridEl, openCreateBtn, openRecordBtn, recordsContainer, recordsBackBtn, recordsHeadingEl, recordsStatusEl, recordsGridEl, recordCreateModal, recordCreateForm, recordTitleInput, recordSubmitBtn, recordUncertainCloseBtn, recordEditModal: recordEdit.modal, recordEditForm: recordEdit.form, recordEditTitleInput: recordEdit.titleInput, recordEditDetailsInput: recordEdit.detailsInput, recordEditAmountInput: recordEdit.amountInput, recordEditCancelBtn: recordEdit.cancelBtn, recordEditSubmitBtn: recordEdit.submitBtn, recordEditUncertainClose: recordEdit.uncertainClose });
 }
 
 async function flushMicrotasks() { await new Promise(hostSetImmediate); }
@@ -194,6 +232,26 @@ function isListRecordsFetch(opts) { return opts?.body?.data?.action === 'aa_list
 function isDeleteRecordFetch(opts) { return opts?.body?.data?.action === 'aa_delete_finance_record'; }
 function isGetRecordFetch(opts) { return opts?.body?.data?.action === 'aa_get_finance_record'; }
 function isCreateRecordFetch(opts) { return opts?.body?.data?.action === 'aa_create_finance_record'; }
+function isUpdateRecordFetch(opts) { return opts?.body?.data?.action === 'aa_update_finance_record'; }
+
+function getRecordSuccessResponse(record) {
+    return jsonResponse({ ok: true, status: 200, body: { success: true, data: { record: record || VALID_RECORD } } });
+}
+
+function updateRecordSuccessResponse(record) {
+    const payload = record || Object.assign({}, VALID_RECORD, { title: 'Compra actualizada' });
+    return jsonResponse({ ok: true, status: 200, body: { success: true, data: { record: payload } } });
+}
+
+function recordsEnvelopeTwoItems() {
+    return recordsEnvelope({
+        items: [
+            Object.assign({}, VALID_RECORD, { id: 501, title: 'Compra A' }),
+            Object.assign({}, VALID_RECORD, { id: 502, title: 'Compra B' })
+        ],
+        total: 2
+    });
+}
 
 const SNAPSHOT = { recordId: 501, containerId: 7, title: 'Compra', amount: '150.85', sourcePage: 2 };
 
@@ -274,6 +332,10 @@ function bootFull(options) {
     const deleteDeferred = options.deleteDeferred || null;
     const getDeferred = options.getDeferred || null;
     const recordsDeferred = options.recordsDeferred || null;
+    const updateRecordDeferred = options.updateRecordDeferred || null;
+    let getRecordCall = 0;
+    let updateRecordCall = 0;
+    let listRecordsCall = 0;
     const defaultRecordsResponse = () => jsonResponse({ ok: true, status: 200, body: { success: true, data: recordsEnvelope() } });
     const sandbox = {
         document: dom.document,
@@ -291,13 +353,23 @@ function bootFull(options) {
                 if (options.createRecordDeferred) return options.createRecordDeferred.promise;
                 if (options.createRecordResponse) return Promise.resolve(options.createRecordResponse(opts));
             }
+            if (isUpdateRecordFetch(opts)) {
+                updateRecordCall++;
+                if (updateRecordDeferred) return updateRecordDeferred.promise;
+                if (options.updateRecordResponse) return Promise.resolve(options.updateRecordResponse(opts, updateRecordCall));
+                return Promise.resolve(updateRecordSuccessResponse());
+            }
             if (isGetRecordFetch(opts)) {
+                getRecordCall++;
+                if (options.editGetDeferred && getRecordCall === 1) return options.editGetDeferred.promise;
                 if (getDeferred) return getDeferred.promise;
-                if (options.getResponse) return Promise.resolve(options.getResponse(opts));
+                if (options.getRecordResponse) return Promise.resolve(options.getRecordResponse(opts, getRecordCall));
+                if (options.defaultEditGetSuccess) return Promise.resolve(getRecordSuccessResponse());
             }
             if (isListRecordsFetch(opts)) {
+                listRecordsCall++;
                 if (recordsDeferred) return recordsDeferred.promise;
-                if (options.recordsResponse) return Promise.resolve(options.recordsResponse(opts));
+                if (options.recordsResponse) return Promise.resolve(options.recordsResponse(opts, listRecordsCall));
                 return Promise.resolve(defaultRecordsResponse());
             }
             if (isListContainersFetch(opts)) {
@@ -311,8 +383,37 @@ function bootFull(options) {
     if (options.includeRecordsFactory !== false) vm.runInNewContext(recordsModuleSrc, sandbox);
     if (options.includeCreateFactory !== false) vm.runInNewContext(createModuleSrc, sandbox);
     if (options.includeDeleteFactory !== false) vm.runInNewContext(deleteModuleSrc, sandbox);
+    if (options.withRecordEdit !== false) vm.runInNewContext(recordEditModuleSrc, sandbox);
     vm.runInNewContext(orchestratorModuleSrc, sandbox);
-    return { dom, sandbox, timerCtrl, fetchCalls, deleteDeferred, getDeferred, recordsDeferred, cleanup() { timerCtrl.flushAll(); if (deleteDeferred && !deleteDeferred.settled) { deleteDeferred.resolve(jsonResponse({ ok: true, status: 200, body: { success: true, data: { deleted: true, id: 501, container_id: 7 } } })); } if (getDeferred && !getDeferred.settled) { getDeferred.resolve(jsonResponse({ ok: false, status: 404, body: { success: false, data: { code: 'record_not_found', message: 'No.' } } })); } if (options.createRecordDeferred && !options.createRecordDeferred.settled) { const err = new Error('Aborted'); err.name = 'AbortError'; options.createRecordDeferred.reject(err); } if (recordsDeferred && !recordsDeferred.settled) recordsDeferred.resolve(jsonResponse({ ok: true, status: 200, body: { success: true, data: recordsEnvelope() } })); } };
+    return {
+        dom, sandbox, timerCtrl, fetchCalls, deleteDeferred, getDeferred, recordsDeferred, updateRecordDeferred,
+        get getRecordCall() { return getRecordCall; },
+        get updateRecordCall() { return updateRecordCall; },
+        get listRecordsCall() { return listRecordsCall; },
+        cleanup() {
+            timerCtrl.flushAll();
+            if (deleteDeferred && !deleteDeferred.settled) {
+                deleteDeferred.resolve(jsonResponse({ ok: true, status: 200, body: { success: true, data: { deleted: true, id: 501, container_id: 7 } } }));
+            }
+            if (getDeferred && !getDeferred.settled) {
+                getDeferred.resolve(jsonResponse({ ok: false, status: 404, body: { success: false, data: { code: 'record_not_found', message: 'No.' } } }));
+            }
+            if (options.editGetDeferred && !options.editGetDeferred.settled) {
+                options.editGetDeferred.resolve(getRecordSuccessResponse());
+            }
+            if (updateRecordDeferred && !updateRecordDeferred.settled) {
+                updateRecordDeferred.resolve(updateRecordSuccessResponse());
+            }
+            if (options.createRecordDeferred && !options.createRecordDeferred.settled) {
+                const err = new Error('Aborted');
+                err.name = 'AbortError';
+                options.createRecordDeferred.reject(err);
+            }
+            if (recordsDeferred && !recordsDeferred.settled) {
+                recordsDeferred.resolve(jsonResponse({ ok: true, status: 200, body: { success: true, data: recordsEnvelope() } }));
+            }
+        }
+    };
 }
 
 async function openDetail(dom) {
@@ -780,5 +881,175 @@ describe('FinanceRecordDeleteModule (Ciclo 3D4A)', () => {
             await waitDelay(60);
             assert.strictEqual(dom.recordCreateModal.classList.contains('hidden'), false);
         } finally { boot.cleanup(); }
+    });
+
+    describe('Integración 3E2B orquestador', () => {
+
+        it('3E2B edit_active bloquea mutaciones incompatible durante GET y modal abierto hasta cancelar', async () => {
+            const editGetDeferred = createDeferred();
+            const boot = bootFull({
+                editGetDeferred,
+                defaultEditGetSuccess: true,
+                recordsResponse: () => jsonResponse({
+                    ok: true,
+                    status: 200,
+                    body: { success: true, data: recordsEnvelopeTwoItems() }
+                })
+            });
+            const dom = boot.dom;
+            try {
+                await openDetail(dom);
+                const editButtons = dom.recordsGridEl.querySelectorAll('.aa-finance-edit-record-btn');
+                const deleteButtons = dom.recordsGridEl.querySelectorAll('.aa-finance-delete-record-btn');
+                assert.strictEqual(editButtons.length, 2);
+                assert.strictEqual(deleteButtons.length, 2);
+                editButtons[0].dispatch('click');
+                await flushMicrotasks();
+                assert.strictEqual(dom.openRecordBtn.disabled, true, 'create bloqueado durante GET pendiente');
+                assert.strictEqual(deleteButtons[0].disabled, true, 'delete bloqueado durante edit_active');
+                assert.strictEqual(editButtons[1].disabled, true, 'segunda edición bloqueada durante edit_active');
+                assert.strictEqual(dom.recordEditModal.classList.contains('hidden'), true, 'modal aún no abierto');
+                editGetDeferred.resolve(getRecordSuccessResponse(Object.assign({}, VALID_RECORD, { id: 501, title: 'Compra A' })));
+                await flushMicrotasks();
+                await waitDelay(60);
+                assert.strictEqual(dom.recordEditModal.classList.contains('hidden'), false, 'modal abierto tras GET');
+                assert.strictEqual(dom.openRecordBtn.disabled, true, 'edit_active cubre todo estado no-IDLE del modal (EDITING)');
+                assert.strictEqual(deleteButtons[0].disabled, true, 'delete sigue bloqueado con modal abierto');
+                dom.recordEditCancelBtn.dispatch('click');
+                await flushMicrotasks();
+                assert.strictEqual(dom.recordEditModal.classList.contains('hidden'), true);
+                assert.strictEqual(dom.openRecordBtn.disabled, false, 'lock liberado tras cancelar');
+                assert.strictEqual(deleteButtons[0].disabled, false, 'delete rehabilitado tras cancelar');
+                assert.strictEqual(editButtons[1].disabled, false, 'otra edición rehabilitada tras cancelar');
+                deleteButtons[0].dispatch('click');
+                await waitDelay(60);
+                assert.strictEqual(dom.modal.classList.contains('hidden'), false, 'puede iniciar otra mutación (delete)');
+            } finally {
+                boot.cleanup();
+            }
+        });
+
+        it('3E2B éxito UPDATE refresca sourcePage sin optimismo y rehabilita acciones', async () => {
+            const refreshDeferred = createDeferred();
+            const updateDeferred = createDeferred();
+            const boot = bootFull({
+                updateRecordDeferred: updateDeferred,
+                defaultEditGetSuccess: true,
+                recordsResponse(opts, callIndex) {
+                    if (callIndex === 1) {
+                        return jsonResponse({
+                            ok: true,
+                            status: 200,
+                            body: { success: true, data: recordsEnvelope({ items: [Object.assign({}, VALID_RECORD, { title: 'Compra' })] }) }
+                        });
+                    }
+                    if (callIndex === 2) {
+                        return refreshDeferred.promise;
+                    }
+                    return jsonResponse({
+                        ok: true,
+                        status: 200,
+                        body: { success: true, data: recordsEnvelope({ items: [Object.assign({}, VALID_RECORD, { title: 'Compra actualizada' })] }) }
+                    });
+                }
+            });
+            const dom = boot.dom;
+            try {
+                await openDetail(dom);
+                assert.ok(dom.recordsGridEl.textContent.includes('Compra'));
+                assert.ok(!dom.recordsGridEl.textContent.includes('Compra actualizada'));
+                dom.recordsGridEl.querySelector('.aa-finance-edit-record-btn').dispatch('click');
+                await flushMicrotasks();
+                await waitDelay(60);
+                dom.recordEditTitleInput.value = 'Compra actualizada';
+                dom.recordEditForm.dispatch('submit');
+                await flushMicrotasks();
+                assert.strictEqual(dom.openRecordBtn.disabled, true, 'edit_active durante SUBMITTING');
+                const updateCalls = boot.fetchCalls.filter((c) => isUpdateRecordFetch(c.opts));
+                assert.strictEqual(updateCalls.length, 1);
+                const payload = updateCalls[0].opts.body.data;
+                assert.strictEqual(payload.record_id, '501');
+                assert.strictEqual(payload.container_id, '7');
+                assert.strictEqual(payload.title, 'Compra actualizada');
+                updateDeferred.resolve(updateRecordSuccessResponse(Object.assign({}, VALID_RECORD, { title: 'Compra actualizada' })));
+                await flushMicrotasks();
+                assert.ok(dom.recordsGridEl.textContent.includes('Compra'));
+                assert.ok(!dom.recordsGridEl.textContent.includes('Compra actualizada'), 'sin update optimista en card');
+                assert.strictEqual(dom.openRecordBtn.disabled, false, 'edit_active termina al confirmar UPDATE; LIST es refresh aparte');
+                refreshDeferred.resolve(jsonResponse({
+                    ok: true,
+                    status: 200,
+                    body: { success: true, data: recordsEnvelope({ items: [Object.assign({}, VALID_RECORD, { title: 'Compra actualizada' })] }) }
+                }));
+                await flushMicrotasks();
+                await waitDelay(20);
+                assert.ok(boot.listRecordsCall >= 2, 'LIST refresh tras UPDATE');
+                assert.ok(dom.recordsGridEl.textContent.includes('Compra actualizada'));
+                assert.strictEqual(dom.recordsGridEl.querySelector('.aa-finance-delete-record-btn').disabled, false);
+            } finally {
+                if (!updateDeferred.settled) {
+                    updateDeferred.resolve(updateRecordSuccessResponse());
+                }
+                if (!refreshDeferred.settled) {
+                    refreshDeferred.resolve(jsonResponse({
+                        ok: true,
+                        status: 200,
+                        body: { success: true, data: recordsEnvelope() }
+                    }));
+                }
+                boot.cleanup();
+            }
+        });
+
+        it('3E2B review incierta reanuda tras navegación sin segundo UPDATE', async () => {
+            const reviewGetDeferred = createDeferred();
+            const boot = bootFull({
+                defaultEditGetSuccess: true,
+                getRecordResponse(opts, callIndex) {
+                    if (callIndex === 1) {
+                        return getRecordSuccessResponse();
+                    }
+                    return reviewGetDeferred.promise;
+                },
+                updateRecordResponse: () => jsonResponse({
+                    ok: false,
+                    status: 500,
+                    body: { success: false, data: { code: 'persistence_failed', message: 'Incierto.' } }
+                })
+            });
+            const dom = boot.dom;
+            try {
+                await openDetail(dom);
+                dom.recordsGridEl.querySelector('.aa-finance-edit-record-btn').dispatch('click');
+                await flushMicrotasks();
+                await waitDelay(60);
+                dom.recordEditTitleInput.value = 'Cambio incierto';
+                dom.recordEditForm.dispatch('submit');
+                await flushMicrotasks();
+                assert.strictEqual(boot.updateRecordCall, 1);
+                dom.recordEditUncertainClose.dispatch('click');
+                await flushMicrotasks();
+                assert.strictEqual(dom.openRecordBtn.disabled, true, 'edit_review activo');
+                assert.strictEqual(boot.getRecordCall, 2, 'review inicia GET al cerrar incierto (awaiting_get)');
+                assert.strictEqual(boot.updateRecordCall, 1);
+                dom.recordsBackBtn.dispatch('click');
+                await flushMicrotasks();
+                dom.gridEl.querySelector('.aa-finance-open-records-btn').dispatch('click');
+                await flushMicrotasks();
+                assert.strictEqual(boot.getRecordCall, 3, 'mismo token reanuda GET tras volver al detalle');
+                assert.strictEqual(boot.updateRecordCall, 1, 'sin segundo UPDATE');
+                reviewGetDeferred.resolve(getRecordSuccessResponse());
+                await flushMicrotasks();
+                await waitDelay(20);
+                assert.ok(boot.listRecordsCall >= 2, 'review continúa con LIST tras GET');
+                assert.strictEqual(boot.updateRecordCall, 1);
+                assert.strictEqual(dom.openRecordBtn.disabled, false, 'pending limpio y acciones rehabilitadas');
+            } finally {
+                if (!reviewGetDeferred.settled) {
+                    reviewGetDeferred.resolve(getRecordSuccessResponse());
+                }
+                boot.cleanup();
+            }
+        });
     });
 });

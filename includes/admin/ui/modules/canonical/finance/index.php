@@ -39,6 +39,7 @@ $finance_config = [
         'createRecord'     => FinanceRecordsAjax::ACTION_CREATE,
         'deleteRecord'     => FinanceRecordsAjax::ACTION_DELETE,
         'getRecord'        => FinanceRecordsAjax::ACTION_GET,
+        'updateRecord'     => FinanceRecordsAjax::ACTION_UPDATE,
         'getContainer'     => FinanceContainersAjax::ACTION_GET,
         'deleteContainer'  => FinanceContainersAjax::ACTION_DELETE,
         'updateContainer'  => FinanceContainersAjax::ACTION_UPDATE,
@@ -50,6 +51,7 @@ $finance_record_create_js = plugin_dir_url(__FILE__) . 'finance-record-create-mo
 $finance_record_delete_js = plugin_dir_url(__FILE__) . 'finance-record-delete-module.js';
 $finance_container_delete_js = plugin_dir_url(__FILE__) . 'finance-container-delete-module.js';
 $finance_container_edit_js = plugin_dir_url(__FILE__) . 'finance-container-edit-module.js';
+$finance_record_edit_js = plugin_dir_url(__FILE__) . 'finance-record-edit-module.js';
 $finance_module_js  = plugin_dir_url(__FILE__) . 'finance-module.js';
 $finance_module_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
 ?>
@@ -562,6 +564,128 @@ $finance_module_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0'
         </div>
     </div>
 
+    <!-- Modal Accesible de Edición de Entrada Financiera -->
+    <div
+        id="aa-finance-record-edit-modal"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="aa-finance-record-edit-modal-title"
+        aria-describedby="aa-finance-record-edit-modal-desc"
+        aria-hidden="true"
+    >
+        <div id="aa-finance-record-edit-modal-backdrop" class="fixed inset-0 bg-black/50 transition-opacity" aria-hidden="true"></div>
+
+        <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6 z-10">
+            <div class="flex items-center justify-between mb-4">
+                <h3 id="aa-finance-record-edit-modal-title" class="text-lg font-bold text-gray-900 leading-tight">
+                    Editar entrada
+                </h3>
+                <button
+                    type="button"
+                    id="aa-finance-record-edit-close"
+                    class="text-gray-400 hover:text-gray-600 p-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    aria-label="Cerrar modal"
+                >
+                    ✕
+                </button>
+            </div>
+
+            <p id="aa-finance-record-edit-modal-desc" class="text-xs text-gray-500 mb-4">
+                Modifica el título, los detalles y el importe. Los cambios reemplazan por completo los valores actuales.
+            </p>
+
+            <form id="aa-finance-record-edit-form" novalidate>
+                <div id="aa-finance-record-edit-error" class="hidden mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-xs font-medium" aria-live="polite"></div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label for="aa-finance-record-edit-title" class="block text-xs font-semibold text-gray-700 mb-1">
+                            Título <span class="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            id="aa-finance-record-edit-title"
+                            name="title"
+                            class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            autocomplete="off"
+                            required
+                        />
+                        <p id="aa-finance-record-edit-title-error" class="hidden mt-1 text-xs text-red-600 font-medium"></p>
+                    </div>
+
+                    <div>
+                        <label for="aa-finance-record-edit-details" class="block text-xs font-semibold text-gray-700 mb-1">
+                            Detalles (opcional)
+                        </label>
+                        <textarea
+                            id="aa-finance-record-edit-details"
+                            name="details"
+                            rows="3"
+                            class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="Descripción o notas adicionales…"
+                        ></textarea>
+                        <p id="aa-finance-record-edit-details-error" class="hidden mt-1 text-xs text-red-600 font-medium"></p>
+                    </div>
+
+                    <div>
+                        <label for="aa-finance-record-edit-amount" class="block text-xs font-semibold text-gray-700 mb-1">
+                            Importe (opcional)
+                        </label>
+                        <input
+                            type="text"
+                            id="aa-finance-record-edit-amount"
+                            name="amount"
+                            inputmode="decimal"
+                            autocomplete="off"
+                            class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="Ej. 150.00, -25.50, 0.00"
+                        />
+                        <p class="mt-1 text-xs text-gray-500">Vacío para quitar el importe. Usa punto decimal.</p>
+                        <p id="aa-finance-record-edit-amount-error" class="hidden mt-1 text-xs text-red-600 font-medium"></p>
+                    </div>
+                </div>
+
+                <div id="aa-finance-record-edit-actions-standard" class="mt-6 flex items-center justify-end gap-3">
+                    <button
+                        type="button"
+                        id="aa-finance-record-edit-cancel"
+                        class="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        type="submit"
+                        id="aa-finance-record-edit-submit"
+                        class="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Guardar cambios
+                    </button>
+                </div>
+
+                <div id="aa-finance-record-edit-actions-uncertain" class="hidden mt-6 flex items-center justify-end gap-3">
+                    <button
+                        type="button"
+                        id="aa-finance-record-edit-uncertain-close"
+                        class="px-4 py-2 text-xs font-semibold text-white bg-gray-800 rounded-lg hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-600"
+                    >
+                        Cerrar y revisar
+                    </button>
+                </div>
+
+                <div id="aa-finance-record-edit-actions-blocked" class="hidden mt-6 flex items-center justify-end gap-3">
+                    <button
+                        type="button"
+                        id="aa-finance-record-edit-blocked-close"
+                        class="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                        Cerrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Modal Accesible de Creación de Lista Financiera -->
     <div
         id="aa-finance-create-modal"
@@ -678,4 +802,5 @@ window.AA_FINANCE_DATA = <?php echo wp_json_encode($finance_config, JSON_HEX_TAG
 <script src="<?php echo esc_url($finance_record_delete_js . '?ver=' . rawurlencode($finance_module_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($finance_container_delete_js . '?ver=' . rawurlencode($finance_module_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($finance_container_edit_js . '?ver=' . rawurlencode($finance_module_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($finance_record_edit_js . '?ver=' . rawurlencode($finance_module_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($finance_module_js . '?ver=' . rawurlencode($finance_module_ver)); ?>" defer></script>

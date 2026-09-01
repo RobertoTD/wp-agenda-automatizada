@@ -244,6 +244,7 @@ function createEl(tag, id) {
         set(value) { this._value = String(value); }
     });
     Object.defineProperty(el, 'firstChild', { get() { return this.children[0] || null; } });
+    Object.defineProperty(el, 'childNodes', { get() { return this.children; } });
     if (id) el.id = id;
     return el;
 }

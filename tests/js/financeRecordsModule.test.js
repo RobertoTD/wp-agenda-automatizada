@@ -1181,7 +1181,7 @@ describe('FinanceRecordsModule (Ciclo 3D3A)', () => {
             setTimeout: hostSetTimeout,
             clearTimeout: clearTimeout,
             fetch: function () {
-                return Promise.resolve(jsonResponse({ ok: true, status: 200, body: { success: true, data: recordsEnvelope({ page: 2, items: [{ id: 101, family_key: 'finance', variant_key: 'general', container_id: 7, title: 'Registro A', details: null, amount: '10.00', created_at: '2026-08-31 11:00:00' }] }) } }));
+                return Promise.resolve(jsonResponse({ ok: true, status: 200, body: { success: true, data: recordsEnvelope({ page: 2, total: 16, total_pages: 2, has_previous: true, has_next: false, items: [{ id: 101, family_key: 'finance', variant_key: 'general', container_id: 7, title: 'Registro A', details: null, amount: '10.00', created_at: '2026-08-31 11:00:00' }] }) } }));
             },
             AbortController: hostAbortController,
             AbortSignal: hostAbortSignal

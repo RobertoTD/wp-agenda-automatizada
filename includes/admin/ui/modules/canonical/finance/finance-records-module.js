@@ -157,8 +157,14 @@
         var onRecordDeleteIntent = typeof options.onRecordDeleteIntent === 'function'
             ? options.onRecordDeleteIntent
             : null;
+        var onRecordEditIntent = typeof options.onRecordEditIntent === 'function'
+            ? options.onRecordEditIntent
+            : null;
         var isDeleteActionEnabled = typeof options.isDeleteActionEnabled === 'function'
             ? options.isDeleteActionEnabled
+            : function () { return false; };
+        var isEditActionEnabled = typeof options.isEditActionEnabled === 'function'
+            ? options.isEditActionEnabled
             : function () { return false; };
         var isActiveGuard = typeof options.isActiveGuard === 'function'
             ? options.isActiveGuard
@@ -422,6 +428,21 @@
             }
         }
 
+        function setEditActionsEnabled(isEnabled) {
+            if (!gridEl) {
+                return;
+            }
+            var buttons = gridEl.querySelectorAll('.aa-finance-edit-record-btn');
+            for (var i = 0; i < buttons.length; i++) {
+                buttons[i].disabled = !isEnabled;
+                if (isEnabled) {
+                    buttons[i].removeAttribute('aria-disabled');
+                } else {
+                    buttons[i].setAttribute('aria-disabled', 'true');
+                }
+            }
+        }
+
         function renderRecords(items) {
             if (!gridEl) {
                 return;
@@ -467,6 +488,35 @@
                 dateSpan.textContent = formatCreationDate(item.created_at);
                 footer.appendChild(dateSpan);
 
+                var actionsWrap = document.createElement('div');
+                actionsWrap.className = 'flex items-center gap-3';
+
+                if (onRecordEditIntent && editRecordActionEnabled()) {
+                    var editBtn = document.createElement('button');
+                    editBtn.type = 'button';
+                    editBtn.className = 'aa-finance-edit-record-btn text-xs font-semibold text-indigo-700 hover:text-indigo-900 underline focus:outline-none';
+                    editBtn.textContent = 'Editar';
+                    editBtn.setAttribute('aria-label', 'Editar entrada «' + item.title + '»');
+                    var editEnabled = isEditActionEnabled();
+                    editBtn.disabled = !editEnabled;
+                    if (!editEnabled) {
+                        editBtn.setAttribute('aria-disabled', 'true');
+                    }
+                    (function (snapshotItem, sourcePage, triggerBtn) {
+                        editBtn.addEventListener('click', function () {
+                            if (triggerBtn.disabled) {
+                                return;
+                            }
+                            onRecordEditIntent({
+                                recordId: snapshotItem.id,
+                                containerId: snapshotItem.container_id,
+                                sourcePage: sourcePage
+                            }, triggerBtn);
+                        });
+                    })(item, renderSourcePage, editBtn);
+                    actionsWrap.appendChild(editBtn);
+                }
+
                 if (onRecordDeleteIntent && deleteRecordActionEnabled()) {
                     var deleteBtn = document.createElement('button');
                     deleteBtn.type = 'button';
@@ -492,7 +542,11 @@
                             }, triggerBtn);
                         });
                     })(item, renderSourcePage, deleteBtn);
-                    footer.appendChild(deleteBtn);
+                    actionsWrap.appendChild(deleteBtn);
+                }
+
+                if (actionsWrap.childNodes.length > 0) {
+                    footer.appendChild(actionsWrap);
                 }
 
                 card.appendChild(footer);
@@ -502,6 +556,10 @@
 
         function deleteRecordActionEnabled() {
             return !!onRecordDeleteIntent;
+        }
+
+        function editRecordActionEnabled() {
+            return !!onRecordEditIntent;
         }
 
         function renderEmptyState() {
@@ -843,7 +901,8 @@
             getConfirmedPage: function () {
                 return confirmedRecordsPage;
             },
-            setDeleteActionsEnabled: setDeleteActionsEnabled
+            setDeleteActionsEnabled: setDeleteActionsEnabled,
+            setEditActionsEnabled: setEditActionsEnabled
         };
     }
 
