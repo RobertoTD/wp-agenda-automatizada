@@ -14,8 +14,13 @@ const containerDeleteModulePath = path.join(
     __dirname,
     '../../includes/admin/ui/modules/canonical/finance/finance-container-delete-module.js'
 );
+const containerEditModulePath = path.join(
+    __dirname,
+    '../../includes/admin/ui/modules/canonical/finance/finance-container-edit-module.js'
+);
 const moduleSrc = fs.readFileSync(modulePath, 'utf8');
 const containerDeleteModuleSrc = fs.readFileSync(containerDeleteModulePath, 'utf8');
+const containerEditModuleSrc = fs.readFileSync(containerEditModulePath, 'utf8');
 
 const hostSetTimeout = setTimeout.bind(globalThis);
 const hostClearTimeout = clearTimeout.bind(globalThis);
@@ -71,7 +76,8 @@ const DEFAULT_FINANCE_DATA = {
         listContainers: 'aa_list_finance_containers',
         createContainer: 'aa_create_finance_container',
         getContainer: 'aa_get_finance_container',
-        deleteContainer: 'aa_delete_finance_container'
+        deleteContainer: 'aa_delete_finance_container',
+        updateContainer: 'aa_update_finance_container'
     }
 };
 
@@ -198,6 +204,11 @@ function isGetContainerFetch(opts) {
         && opts.body.data.action === 'aa_get_finance_container';
 }
 
+function isUpdateContainerFetch(opts) {
+    return opts && opts.body && opts.body.data
+        && opts.body.data.action === 'aa_update_finance_container';
+}
+
 function createFinanceFetchHandler(options) {
     const state = {
         listDeferred: options.listDeferred || null,
@@ -207,6 +218,7 @@ function createFinanceFetchHandler(options) {
         createFetchCalls: 0,
         deleteContainerFetchCalls: 0,
         getContainerFetchCalls: 0,
+        updateContainerFetchCalls: 0,
         lastCreatePayload: null,
         immediateList: options.immediateList !== false,
         immediateCreate: options.immediateCreate || null
@@ -259,6 +271,19 @@ function createFinanceFetchHandler(options) {
             }
             if (options.getContainerDeferred) {
                 return options.getContainerDeferred.promise;
+            }
+            if (options.immediateGetContainer) {
+                return Promise.resolve(options.immediateGetContainer(opts));
+            }
+        }
+
+        if (isUpdateContainerFetch(opts)) {
+            state.updateContainerFetchCalls++;
+            if (options.updateContainerResponse) {
+                return Promise.resolve(options.updateContainerResponse(opts));
+            }
+            if (options.updateContainerDeferred) {
+                return options.updateContainerDeferred.promise;
             }
         }
 
@@ -324,7 +349,10 @@ function buildSandbox(document, options) {
         deleteContainerResponse: options.deleteContainerResponse,
         getContainerResponse: options.getContainerResponse,
         deleteContainerDeferred: options.deleteContainerDeferred,
-        getContainerDeferred: options.getContainerDeferred
+        getContainerDeferred: options.getContainerDeferred,
+        immediateGetContainer: options.immediateGetContainer,
+        updateContainerResponse: options.updateContainerResponse,
+        updateContainerDeferred: options.updateContainerDeferred
     });
 
     const sandbox = {
@@ -372,6 +400,9 @@ async function bootModule(sandbox, options) {
     options = options || {};
     if (options.withContainerDelete === true) {
         vm.runInNewContext(containerDeleteModuleSrc, sandbox);
+    }
+    if (options.withContainerEdit === true) {
+        vm.runInNewContext(containerEditModuleSrc, sandbox);
     }
     vm.runInNewContext(moduleSrc, sandbox);
     await flushMicrotasks();
@@ -801,6 +832,45 @@ function buildDom() {
     containerDeleteModal.appendChild(containerDeleteUncertainActionsEl);
     containerDeleteModal.appendChild(containerDeleteBlockedActionsEl);
 
+    const containerEditModal = createEl('div', 'aa-finance-container-edit-modal');
+    containerEditModal.classList.add('hidden');
+    const containerEditBackdrop = createEl('div', 'aa-finance-container-edit-modal-backdrop');
+    const containerEditCloseBtn = createEl('button', 'aa-finance-container-edit-close');
+    const containerEditForm = createEl('form', 'aa-finance-container-edit-form');
+    const containerEditErrorEl = createEl('div', 'aa-finance-container-edit-error');
+    containerEditErrorEl.classList.add('hidden');
+    const containerEditTitleInput = createEl('input', 'aa-finance-container-edit-title');
+    const containerEditTitleErrorEl = createEl('p', 'aa-finance-container-edit-title-error');
+    containerEditTitleErrorEl.classList.add('hidden');
+    const containerEditDetailsInput = createEl('textarea', 'aa-finance-container-edit-details');
+    const containerEditDetailsErrorEl = createEl('p', 'aa-finance-container-edit-details-error');
+    containerEditDetailsErrorEl.classList.add('hidden');
+    const containerEditStandardActionsEl = createEl('div', 'aa-finance-container-edit-actions-standard');
+    const containerEditCancelBtn = createEl('button', 'aa-finance-container-edit-cancel');
+    const containerEditSubmitBtn = createEl('button', 'aa-finance-container-edit-submit');
+    containerEditSubmitBtn.type = 'submit';
+    const containerEditUncertainActionsEl = createEl('div', 'aa-finance-container-edit-actions-uncertain');
+    containerEditUncertainActionsEl.classList.add('hidden');
+    const containerEditUncertainCloseBtn = createEl('button', 'aa-finance-container-edit-uncertain-close');
+    const containerEditBlockedActionsEl = createEl('div', 'aa-finance-container-edit-actions-blocked');
+    containerEditBlockedActionsEl.classList.add('hidden');
+    const containerEditBlockedCloseBtn = createEl('button', 'aa-finance-container-edit-blocked-close');
+    containerEditStandardActionsEl.appendChild(containerEditCancelBtn);
+    containerEditStandardActionsEl.appendChild(containerEditSubmitBtn);
+    containerEditUncertainActionsEl.appendChild(containerEditUncertainCloseBtn);
+    containerEditBlockedActionsEl.appendChild(containerEditBlockedCloseBtn);
+    containerEditForm.appendChild(containerEditErrorEl);
+    containerEditForm.appendChild(containerEditTitleInput);
+    containerEditForm.appendChild(containerEditTitleErrorEl);
+    containerEditForm.appendChild(containerEditDetailsInput);
+    containerEditForm.appendChild(containerEditDetailsErrorEl);
+    containerEditForm.appendChild(containerEditStandardActionsEl);
+    containerEditForm.appendChild(containerEditUncertainActionsEl);
+    containerEditForm.appendChild(containerEditBlockedActionsEl);
+    containerEditModal.appendChild(containerEditBackdrop);
+    containerEditModal.appendChild(containerEditCloseBtn);
+    containerEditModal.appendChild(containerEditForm);
+
     paginationEl.appendChild(prevBtn);
     paginationEl.appendChild(pageIndicatorEl);
     paginationEl.appendChild(nextBtn);
@@ -811,6 +881,7 @@ function buildDom() {
     root.appendChild(gridEl);
     root.appendChild(createModal);
     root.appendChild(containerDeleteModal);
+    root.appendChild(containerEditModal);
 
     const allNamed = [
         root, statusEl, gridEl, paginationEl, prevBtn, nextBtn, pageIndicatorEl,
@@ -823,7 +894,13 @@ function buildDom() {
         containerDeleteBodyEl, containerDeleteAmountEl, containerDeleteErrorEl,
         containerDeleteStandardActionsEl, containerDeleteCancelBtn, containerDeleteConfirmBtn,
         containerDeleteUncertainActionsEl, containerDeleteUncertainCloseBtn,
-        containerDeleteBlockedActionsEl, containerDeleteBlockedCloseBtn
+        containerDeleteBlockedActionsEl, containerDeleteBlockedCloseBtn,
+        containerEditModal, containerEditBackdrop, containerEditCloseBtn, containerEditForm,
+        containerEditErrorEl, containerEditTitleInput, containerEditTitleErrorEl,
+        containerEditDetailsInput, containerEditDetailsErrorEl,
+        containerEditStandardActionsEl, containerEditCancelBtn, containerEditSubmitBtn,
+        containerEditUncertainActionsEl, containerEditUncertainCloseBtn,
+        containerEditBlockedActionsEl, containerEditBlockedCloseBtn
     ];
 
     allNamed.forEach(function (el) {
@@ -841,7 +918,9 @@ function buildDom() {
         uncertainActionsEl, uncertainCloseBtn,
         blockedActionsEl, blockedCloseBtn,
         containerDeleteModal, containerDeleteCancelBtn, containerDeleteConfirmBtn,
-        containerDeleteUncertainCloseBtn, containerDeleteBodyEl
+        containerDeleteUncertainCloseBtn, containerDeleteBodyEl,
+        containerEditModal, containerEditForm, containerEditTitleInput, containerEditDetailsInput,
+        containerEditSubmitBtn, containerEditCancelBtn, containerEditUncertainCloseBtn
     };
 }
 
@@ -1841,6 +1920,56 @@ describe('FinanceContainersModule (Ciclos 3D1 y 3D2)', () => {
             assert.strictEqual(deleteBtn.textContent, 'Eliminar');
             assert.strictEqual(deleteBtn.getAttribute('data-container-id'), '7');
             assert.strictEqual(deleteBtn.disabled, false);
+        } finally {
+            harness.cleanup();
+            await flushMicrotasks();
+        }
+    });
+
+    it('renderiza botón Editar por card cuando edit factory está disponible', async () => {
+        const dom = buildDom();
+        const harness = buildSandbox(dom.document, {
+            listData: AUTHORITATIVE_LIST_DATA,
+            immediateGetContainer: () => createFetchResponse({
+                ok: true,
+                status: 200,
+                body: { success: true, data: { container: AUTHORITATIVE_LIST_ITEM } }
+            })
+        });
+        try {
+            await bootModule(harness.sandbox, { withContainerDelete: true, withContainerEdit: true });
+            const editBtn = dom.gridEl.querySelector('.aa-finance-edit-container-btn');
+            assert.ok(editBtn);
+            assert.strictEqual(editBtn.textContent, 'Editar');
+            assert.strictEqual(editBtn.getAttribute('data-container-id'), '7');
+            assert.strictEqual(editBtn.disabled, false);
+        } finally {
+            harness.cleanup();
+            await flushMicrotasks();
+        }
+    });
+
+    it('edit_active bloquea Nueva lista y Eliminar durante GET de edición', async () => {
+        const dom = buildDom();
+        const getDeferred = createDeferred();
+        const harness = buildSandbox(dom.document, {
+            listData: AUTHORITATIVE_LIST_DATA,
+            getContainerDeferred: getDeferred
+        });
+        try {
+            await bootModule(harness.sandbox, { withContainerDelete: true, withContainerEdit: true });
+            const editBtn = dom.gridEl.querySelector('.aa-finance-edit-container-btn');
+            editBtn.dispatch('click');
+            await flushMicrotasks();
+            assert.strictEqual(dom.openCreateBtn.disabled, true);
+            const deleteBtn = dom.gridEl.querySelector('.aa-finance-delete-container-btn');
+            assert.strictEqual(deleteBtn.disabled, true);
+            getDeferred.resolve(createFetchResponse({
+                ok: true,
+                status: 200,
+                body: { success: true, data: { container: AUTHORITATIVE_LIST_ITEM } }
+            }));
+            await flushMicrotasks();
         } finally {
             harness.cleanup();
             await flushMicrotasks();

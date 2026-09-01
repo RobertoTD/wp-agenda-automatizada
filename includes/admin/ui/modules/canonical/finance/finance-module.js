@@ -102,6 +102,23 @@
     var containerDeleteBlockedActionsEl = document.getElementById('aa-finance-container-delete-actions-blocked');
     var containerDeleteBlockedCloseBtn = document.getElementById('aa-finance-container-delete-blocked-close');
 
+    var containerEditModal = document.getElementById('aa-finance-container-edit-modal');
+    var containerEditBackdrop = document.getElementById('aa-finance-container-edit-modal-backdrop');
+    var containerEditCloseBtn = document.getElementById('aa-finance-container-edit-close');
+    var containerEditForm = document.getElementById('aa-finance-container-edit-form');
+    var containerEditErrorEl = document.getElementById('aa-finance-container-edit-error');
+    var containerEditTitleInput = document.getElementById('aa-finance-container-edit-title');
+    var containerEditTitleErrorEl = document.getElementById('aa-finance-container-edit-title-error');
+    var containerEditDetailsInput = document.getElementById('aa-finance-container-edit-details');
+    var containerEditDetailsErrorEl = document.getElementById('aa-finance-container-edit-details-error');
+    var containerEditStandardActionsEl = document.getElementById('aa-finance-container-edit-actions-standard');
+    var containerEditCancelBtn = document.getElementById('aa-finance-container-edit-cancel');
+    var containerEditSubmitBtn = document.getElementById('aa-finance-container-edit-submit');
+    var containerEditUncertainActionsEl = document.getElementById('aa-finance-container-edit-actions-uncertain');
+    var containerEditUncertainCloseBtn = document.getElementById('aa-finance-container-edit-uncertain-close');
+    var containerEditBlockedActionsEl = document.getElementById('aa-finance-container-edit-actions-blocked');
+    var containerEditBlockedCloseBtn = document.getElementById('aa-finance-container-edit-blocked-close');
+
     function showFatalConfigError() {
         if (statusEl) {
             statusEl.textContent = 'No se pudo iniciar el módulo de Finanzas.';
@@ -170,6 +187,10 @@
     var containerMutationLock = 'none';
     var containerDeleteController = null;
     var containerDeleteEnabled = false;
+    var nextContainerEditReviewToken = 1;
+    var pendingContainerEditReview = null;
+    var containerEditController = null;
+    var containerEditEnabled = false;
     var pendingListFocusAfterLoad = false;
 
     var PENDING_REVIEW_NOTICE = 'Hay una entrada pendiente de revisión en otra lista. Vuelve a esa lista antes de crear una nueva.';
@@ -339,6 +360,39 @@
         return !!(window.AA_FinanceContainerDelete && typeof window.AA_FinanceContainerDelete.createController === 'function');
     }
 
+    function hasContainerEditAction() {
+        return !!(
+            actions &&
+            typeof actions.updateContainer === 'string' && actions.updateContainer.trim() !== '' &&
+            typeof actions.getContainer === 'string' && actions.getContainer.trim() !== ''
+        );
+    }
+
+    function hasContainerEditMarkup() {
+        return !!(
+            containerEditModal &&
+            containerEditBackdrop &&
+            containerEditCloseBtn &&
+            containerEditForm &&
+            containerEditErrorEl &&
+            containerEditTitleInput &&
+            containerEditTitleErrorEl &&
+            containerEditDetailsInput &&
+            containerEditDetailsErrorEl &&
+            containerEditStandardActionsEl &&
+            containerEditCancelBtn &&
+            containerEditSubmitBtn &&
+            containerEditUncertainActionsEl &&
+            containerEditUncertainCloseBtn &&
+            containerEditBlockedActionsEl &&
+            containerEditBlockedCloseBtn
+        );
+    }
+
+    function hasContainerEditFactory() {
+        return !!(window.AA_FinanceContainerEdit && typeof window.AA_FinanceContainerEdit.createController === 'function');
+    }
+
     function applyContainerMutationLock(lock) {
         containerMutationLock = lock;
         syncMutationUI();
@@ -381,6 +435,35 @@
         return true;
     }
 
+    function isContainerEditAllowed() {
+        if (!containerEditEnabled) {
+            return false;
+        }
+        if (containerMutationLock !== 'none') {
+            return false;
+        }
+        if (recordMutationLock !== 'none') {
+            return false;
+        }
+        if (isCreateContainerFlowBlockingDelete()) {
+            return false;
+        }
+        if (navMode !== NAV_MODES.CONTAINER_LIST) {
+            return false;
+        }
+        return true;
+    }
+
+    function isContainerEditAllowedForCard(containerId) {
+        if (!isContainerEditAllowed()) {
+            return false;
+        }
+        if (pendingContainerEditReview && pendingContainerEditReview.containerId === containerId) {
+            return false;
+        }
+        return true;
+    }
+
     function resolveListRefreshPage(sourcePage) {
         if (navMode === NAV_MODES.CONTAINER_LIST) {
             return confirmedPage;
@@ -412,6 +495,7 @@
             recordsController.setDeleteActionsEnabled(!isRecordDeleteGloballyBlocked());
         }
         syncContainerDeleteButtons();
+        syncContainerEditButtons();
         syncCreateContainerTrigger();
     }
 
@@ -441,6 +525,19 @@
             var rawId = btn.getAttribute('data-container-id');
             var containerId = rawId ? parseInt(rawId, 10) : NaN;
             btn.disabled = !isContainerDeleteAllowedForCard(containerId);
+        }
+    }
+
+    function syncContainerEditButtons() {
+        if (!gridEl) {
+            return;
+        }
+        var buttons = gridEl.querySelectorAll('.aa-finance-edit-container-btn');
+        for (var i = 0; i < buttons.length; i++) {
+            var btn = buttons[i];
+            var rawId = btn.getAttribute('data-container-id');
+            var containerId = rawId ? parseInt(rawId, 10) : NaN;
+            btn.disabled = !isContainerEditAllowedForCard(containerId);
         }
     }
 
@@ -533,6 +630,66 @@
             containerDeleteController.completeListSettlement(reviewToken, outcome);
         }
         syncMutationUI();
+    }
+
+    function showContainerEditReviewRetryNotice(reviewToken) {
+        if (!statusEl || !pendingContainerEditReview) {
+            return;
+        }
+        while (statusEl.firstChild) {
+            statusEl.removeChild(statusEl.firstChild);
+        }
+        statusEl.className = 'text-sm text-amber-700 font-medium flex items-center gap-2 flex-wrap';
+        var msgSpan = document.createElement('span');
+        msgSpan.textContent = 'No pudimos completar la revisión.';
+        statusEl.appendChild(msgSpan);
+        var retryBtn = document.createElement('button');
+        retryBtn.type = 'button';
+        retryBtn.className = 'underline hover:text-amber-900 text-xs font-semibold focus:outline-none';
+        retryBtn.textContent = 'Reintentar revisión';
+        retryBtn.addEventListener('click', function () {
+            if (!pendingContainerEditReview || pendingContainerEditReview.reviewToken !== reviewToken) {
+                return;
+            }
+            if (pendingContainerEditReview.phase === 'awaiting_get') {
+                if (containerEditController) {
+                    containerEditController.retryReviewGet();
+                }
+            } else if (pendingContainerEditReview.phase === 'awaiting_list') {
+                loadPage(pendingContainerEditReview.sourcePage);
+            }
+        });
+        statusEl.appendChild(retryBtn);
+    }
+
+    function handleContainerEditListSettlement() {
+        if (!pendingContainerEditReview || pendingContainerEditReview.phase !== 'awaiting_list') {
+            return;
+        }
+        if (navMode !== NAV_MODES.CONTAINER_LIST) {
+            return;
+        }
+
+        var reviewToken = pendingContainerEditReview.reviewToken;
+        var outcome = pendingContainerEditReview.reviewOutcome;
+
+        pendingContainerEditReview = null;
+        applyContainerMutationLock('none');
+        if (containerEditController) {
+            containerEditController.completeListSettlement(reviewToken, outcome);
+        }
+
+        syncMutationUI();
+    }
+
+    function handleContainerEditListRecoverableFailure() {
+        if (!pendingContainerEditReview || pendingContainerEditReview.phase !== 'awaiting_list') {
+            return;
+        }
+        if (navMode !== NAV_MODES.CONTAINER_LIST) {
+            return;
+        }
+        showContainerEditReviewRetryNotice(pendingContainerEditReview.reviewToken);
     }
 
     function setRecordCreateTriggerVisible(isVisible) {
@@ -1050,10 +1207,156 @@
         containerDeleteEnabled = !!containerDeleteController;
     }
 
+    function initContainerEditController() {
+        if (!hasContainerEditFactory() || !hasContainerEditAction() || !hasContainerEditMarkup()) {
+            containerEditEnabled = false;
+            return;
+        }
+
+        containerEditController = window.AA_FinanceContainerEdit.createController({
+            cfg: cfg,
+            elements: {
+                modal: containerEditModal,
+                backdrop: containerEditBackdrop,
+                closeBtn: containerEditCloseBtn,
+                form: containerEditForm,
+                modalError: containerEditErrorEl,
+                titleInput: containerEditTitleInput,
+                titleError: containerEditTitleErrorEl,
+                detailsInput: containerEditDetailsInput,
+                detailsError: containerEditDetailsErrorEl,
+                standardActions: containerEditStandardActionsEl,
+                cancelBtn: containerEditCancelBtn,
+                submitBtn: containerEditSubmitBtn,
+                uncertainActions: containerEditUncertainActionsEl,
+                uncertainCloseBtn: containerEditUncertainCloseBtn,
+                blockedActions: containerEditBlockedActionsEl,
+                blockedCloseBtn: containerEditBlockedCloseBtn
+            },
+            isListActive: function () {
+                return navMode === NAV_MODES.CONTAINER_LIST;
+            },
+            isEditAllowed: function () {
+                return isContainerEditAllowed();
+            },
+            onFlowStateChange: function (payload) {
+                if (!payload || typeof payload.phase !== 'string') {
+                    return;
+                }
+                if (payload.phase === 'edit_active') {
+                    applyContainerMutationLock('edit_active');
+                } else if (payload.phase === 'edit_review') {
+                    applyContainerMutationLock('edit_review');
+                } else if (payload.phase === 'idle') {
+                    applyContainerMutationLock('none');
+                } else if (payload.phase === 'invalidate_snapshot') {
+                    listSnapshotValid = false;
+                }
+            },
+            onGetSourceFailed: function (payload) {
+                if (!payload || typeof payload.reason !== 'string') {
+                    return;
+                }
+                applyContainerMutationLock('none');
+                if (payload.reason === 'not_found') {
+                    listSnapshotValid = false;
+                    if (payload.message) {
+                        listStatusOverride = payload.message;
+                    }
+                    pendingListFocusAfterLoad = true;
+                    loadPage(resolveListRefreshPage(payload.sourcePage));
+                } else if (payload.message && statusEl) {
+                    statusEl.textContent = payload.message;
+                    statusEl.className = payload.reason === 'blocked'
+                        ? 'text-sm text-red-600 font-medium'
+                        : 'text-sm text-amber-700 font-medium';
+                    statusEl.focus();
+                }
+                syncMutationUI();
+            },
+            onRefreshRequested: function (payload) {
+                if (!payload || typeof payload.reason !== 'string') {
+                    return;
+                }
+                listSnapshotValid = false;
+                var page = resolveListRefreshPage(payload.sourcePage);
+
+                if (payload.reason === 'confirmed' || payload.reason === 'not_found') {
+                    pendingListFocusAfterLoad = true;
+                }
+
+                loadPage(page);
+            },
+            onReviewPending: function (payload) {
+                if (
+                    !payload ||
+                    !Number.isInteger(payload.containerId) || payload.containerId < 1 ||
+                    !Number.isInteger(payload.sourcePage) || payload.sourcePage < 1 ||
+                    !payload.submissionSnapshot
+                ) {
+                    return null;
+                }
+                if (pendingContainerEditReview) {
+                    return pendingContainerEditReview.reviewToken;
+                }
+                nextContainerEditReviewToken++;
+                pendingContainerEditReview = {
+                    reviewToken: nextContainerEditReviewToken,
+                    containerId: payload.containerId,
+                    sourcePage: payload.sourcePage,
+                    phase: 'awaiting_get',
+                    submissionSnapshot: payload.submissionSnapshot,
+                    reviewOutcome: null
+                };
+                applyContainerMutationLock('edit_review');
+                return nextContainerEditReviewToken;
+            },
+            onReviewUncertain: function (payload) {
+                if (!payload || !Number.isInteger(payload.reviewToken)) {
+                    return;
+                }
+                if (!pendingContainerEditReview || pendingContainerEditReview.reviewToken !== payload.reviewToken) {
+                    return;
+                }
+                if (pendingContainerEditReview.phase !== 'awaiting_get') {
+                    return;
+                }
+                showContainerEditReviewRetryNotice(payload.reviewToken);
+            },
+            onReviewAwaitingList: function (payload) {
+                if (
+                    !payload ||
+                    !Number.isInteger(payload.reviewToken) ||
+                    !pendingContainerEditReview ||
+                    pendingContainerEditReview.reviewToken !== payload.reviewToken
+                ) {
+                    return;
+                }
+                pendingContainerEditReview.phase = 'awaiting_list';
+                pendingContainerEditReview.reviewOutcome = payload.outcome;
+                listSnapshotValid = false;
+                pendingListFocusAfterLoad = true;
+                if (payload.outcome === 'gone') {
+                    listStatusOverride = 'La lista ya no está disponible. Actualizamos el listado.';
+                } else if (payload.outcome === 'present') {
+                    listStatusOverride = 'Listado actualizado. Revisa los valores actuales. Si necesitas cambios, edita nuevamente.';
+                }
+                loadPage(resolveListRefreshPage(payload.sourcePage));
+            },
+            onFocusStatus: function () {
+                if (statusEl) {
+                    statusEl.focus();
+                }
+            }
+        });
+        containerEditEnabled = !!containerEditController;
+    }
+
     initRecordsController();
     initRecordCreateController();
     initRecordDeleteController();
     initContainerDeleteController();
+    initContainerEditController();
 
     function setListViewVisible(isVisible) {
         if (listContainerEl) {
@@ -1158,6 +1461,20 @@
             }
         }
 
+        if (pendingContainerEditReview) {
+            if (pendingContainerEditReview.containerId === containerId) {
+                if (statusEl) {
+                    statusEl.textContent = 'Hay una edición pendiente de revisión para esta lista.';
+                    statusEl.className = 'text-sm text-amber-700 font-medium';
+                    statusEl.focus();
+                }
+                return;
+            }
+            if (containerEditController && navMode === NAV_MODES.CONTAINER_LIST) {
+                containerEditController.abortActiveReviewRequest();
+            }
+        }
+
         if (pendingDeleteReview && recordDeleteController) {
             if (selectedContainerId !== null && selectedContainerId !== containerId) {
                 recordDeleteController.abortActiveReviewRequest();
@@ -1225,6 +1542,13 @@
             if (pendingContainerDeleteReview && containerDeleteController) {
                 containerDeleteController.resumeReview(pendingContainerDeleteReview);
             }
+            if (pendingContainerEditReview && containerEditController) {
+                if (pendingContainerEditReview.phase === 'awaiting_get') {
+                    containerEditController.resumeReview(pendingContainerEditReview);
+                } else if (pendingContainerEditReview.phase === 'awaiting_list') {
+                    loadPage(pendingContainerEditReview.sourcePage);
+                }
+            }
             return;
         }
 
@@ -1233,6 +1557,13 @@
 
         if (pendingContainerDeleteReview && containerDeleteController) {
             containerDeleteController.resumeReview(pendingContainerDeleteReview);
+        }
+        if (pendingContainerEditReview && containerEditController) {
+            if (pendingContainerEditReview.phase === 'awaiting_get') {
+                containerEditController.resumeReview(pendingContainerEditReview);
+            } else if (pendingContainerEditReview.phase === 'awaiting_list') {
+                loadPage(pendingContainerEditReview.sourcePage);
+            }
         }
     }
 
@@ -1531,6 +1862,27 @@
                 card.appendChild(deleteContainerBtn);
             }
 
+            if (containerEditEnabled) {
+                var editContainerBtn = document.createElement('button');
+                editContainerBtn.type = 'button';
+                editContainerBtn.className = 'aa-finance-edit-container-btn mt-2 mr-3 text-xs text-gray-500 underline hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline';
+                editContainerBtn.textContent = 'Editar';
+                editContainerBtn.setAttribute('data-container-id', String(item.id));
+                editContainerBtn.setAttribute('aria-label', 'Editar lista «' + item.title + '»');
+                editContainerBtn.disabled = !isContainerEditAllowedForCard(item.id);
+
+                (function (containerId, sourcePage, triggerBtn) {
+                    editContainerBtn.addEventListener('click', function () {
+                        if (!containerEditController || triggerBtn.disabled) {
+                            return;
+                        }
+                        containerEditController.beginEdit(containerId, sourcePage, triggerBtn);
+                    });
+                })(item.id, confirmedPage, editContainerBtn);
+
+                card.appendChild(editContainerBtn);
+            }
+
             gridEl.appendChild(card);
         }
     }
@@ -1614,6 +1966,7 @@
                         errMsg = response.json.data.message;
                     }
                     setStatus(errMsg, true, true);
+                    handleContainerEditListRecoverableFailure();
                     return;
                 }
 
@@ -1621,6 +1974,7 @@
                 if (!validatePayload(data)) {
                     failedPage = requestedPage;
                     setStatus('Respuesta del servidor no válida.', true, true);
+                    handleContainerEditListRecoverableFailure();
                     return;
                 }
 
@@ -1650,6 +2004,7 @@
 
                 updatePaginationControls(data);
                 handleContainerDeleteListSettlement();
+                handleContainerEditListSettlement();
                 syncMutationUI();
                 if (pendingListFocusAfterLoad) {
                     pendingListFocusAfterLoad = false;
@@ -1671,6 +2026,7 @@
                 }
                 failedPage = requestedPage;
                 setStatus('Error de conexión con el servidor.', true, true);
+                handleContainerEditListRecoverableFailure();
             });
     }
 

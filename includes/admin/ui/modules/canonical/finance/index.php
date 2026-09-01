@@ -41,6 +41,7 @@ $finance_config = [
         'getRecord'        => FinanceRecordsAjax::ACTION_GET,
         'getContainer'     => FinanceContainersAjax::ACTION_GET,
         'deleteContainer'  => FinanceContainersAjax::ACTION_DELETE,
+        'updateContainer'  => FinanceContainersAjax::ACTION_UPDATE,
     ],
 ];
 
@@ -48,6 +49,7 @@ $finance_records_js = plugin_dir_url(__FILE__) . 'finance-records-module.js';
 $finance_record_create_js = plugin_dir_url(__FILE__) . 'finance-record-create-module.js';
 $finance_record_delete_js = plugin_dir_url(__FILE__) . 'finance-record-delete-module.js';
 $finance_container_delete_js = plugin_dir_url(__FILE__) . 'finance-container-delete-module.js';
+$finance_container_edit_js = plugin_dir_url(__FILE__) . 'finance-container-edit-module.js';
 $finance_module_js  = plugin_dir_url(__FILE__) . 'finance-module.js';
 $finance_module_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
 ?>
@@ -455,6 +457,111 @@ $finance_module_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0'
         </div>
     </div>
 
+    <!-- Modal Accesible de Edición de Lista Financiera -->
+    <div
+        id="aa-finance-container-edit-modal"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="aa-finance-container-edit-modal-title"
+        aria-describedby="aa-finance-container-edit-modal-desc"
+        aria-hidden="true"
+    >
+        <div id="aa-finance-container-edit-modal-backdrop" class="fixed inset-0 bg-black/50 transition-opacity" aria-hidden="true"></div>
+
+        <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6 z-10">
+            <div class="flex items-center justify-between mb-4">
+                <h3 id="aa-finance-container-edit-modal-title" class="text-lg font-bold text-gray-900 leading-tight">
+                    Editar lista
+                </h3>
+                <button
+                    type="button"
+                    id="aa-finance-container-edit-close"
+                    class="text-gray-400 hover:text-gray-600 p-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    aria-label="Cerrar modal"
+                >
+                    ✕
+                </button>
+            </div>
+
+            <p id="aa-finance-container-edit-modal-desc" class="text-xs text-gray-500 mb-4">
+                Modifica el título y los detalles de la lista. Los cambios reemplazan por completo los valores actuales.
+            </p>
+
+            <form id="aa-finance-container-edit-form" novalidate>
+                <div id="aa-finance-container-edit-error" class="hidden mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-xs font-medium" aria-live="polite"></div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label for="aa-finance-container-edit-title" class="block text-xs font-semibold text-gray-700 mb-1">
+                            Título <span class="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            id="aa-finance-container-edit-title"
+                            name="title"
+                            class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            autocomplete="off"
+                            required
+                        />
+                        <p id="aa-finance-container-edit-title-error" class="hidden mt-1 text-xs text-red-600 font-medium"></p>
+                    </div>
+
+                    <div>
+                        <label for="aa-finance-container-edit-details" class="block text-xs font-semibold text-gray-700 mb-1">
+                            Detalles (opcional)
+                        </label>
+                        <textarea
+                            id="aa-finance-container-edit-details"
+                            name="details"
+                            rows="3"
+                            class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="Descripción o notas adicionales…"
+                        ></textarea>
+                        <p id="aa-finance-container-edit-details-error" class="hidden mt-1 text-xs text-red-600 font-medium"></p>
+                    </div>
+                </div>
+
+                <div id="aa-finance-container-edit-actions-standard" class="mt-6 flex items-center justify-end gap-3">
+                    <button
+                        type="button"
+                        id="aa-finance-container-edit-cancel"
+                        class="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        type="submit"
+                        id="aa-finance-container-edit-submit"
+                        class="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Guardar cambios
+                    </button>
+                </div>
+
+                <div id="aa-finance-container-edit-actions-uncertain" class="hidden mt-6 flex items-center justify-end gap-3">
+                    <button
+                        type="button"
+                        id="aa-finance-container-edit-uncertain-close"
+                        class="px-4 py-2 text-xs font-semibold text-white bg-gray-800 rounded-lg hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-600"
+                    >
+                        Cerrar y revisar
+                    </button>
+                </div>
+
+                <div id="aa-finance-container-edit-actions-blocked" class="hidden mt-6 flex items-center justify-end gap-3">
+                    <button
+                        type="button"
+                        id="aa-finance-container-edit-blocked-close"
+                        class="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                        Cerrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Modal Accesible de Creación de Lista Financiera -->
     <div
         id="aa-finance-create-modal"
@@ -570,4 +677,5 @@ window.AA_FINANCE_DATA = <?php echo wp_json_encode($finance_config, JSON_HEX_TAG
 <script src="<?php echo esc_url($finance_record_create_js . '?ver=' . rawurlencode($finance_module_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($finance_record_delete_js . '?ver=' . rawurlencode($finance_module_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($finance_container_delete_js . '?ver=' . rawurlencode($finance_module_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($finance_container_edit_js . '?ver=' . rawurlencode($finance_module_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($finance_module_js . '?ver=' . rawurlencode($finance_module_ver)); ?>" defer></script>

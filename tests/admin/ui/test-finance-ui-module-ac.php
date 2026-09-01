@@ -1,6 +1,6 @@
 <?php
 /**
- * AC Test — Finance UI Module (Ciclos 3D1, 3D2, 3D3A, 3D3B, 3D4A y 3D4B).
+ * AC Test — Finance UI Module (Ciclos 3D1, 3D2, 3D3A, 3D3B, 3D4A, 3D4B y 3E1B).
  *
  * Ejecutar:
  *   php tests/admin/ui/test-finance-ui-module-ac.php
@@ -83,6 +83,7 @@ $finance_records_js_file = $plugin_root . '/includes/admin/ui/modules/canonical/
 $finance_record_create_js_file = $plugin_root . '/includes/admin/ui/modules/canonical/finance/finance-record-create-module.js';
 $finance_record_delete_js_file = $plugin_root . '/includes/admin/ui/modules/canonical/finance/finance-record-delete-module.js';
 $finance_container_delete_js_file = $plugin_root . '/includes/admin/ui/modules/canonical/finance/finance-container-delete-module.js';
+$finance_container_edit_js_file = $plugin_root . '/includes/admin/ui/modules/canonical/finance/finance-container-edit-module.js';
 $canonical_dispatcher = $plugin_root . '/includes/admin/ui/modules/canonical/index.php';
 $fallback_tpl_file    = $plugin_root . '/includes/admin/ui/modules/canonical/_fallback.php';
 
@@ -92,6 +93,7 @@ ac_assert('Script finance-records-module.js existe y es legible', is_readable($f
 ac_assert('Script finance-record-create-module.js existe y es legible', is_readable($finance_record_create_js_file));
 ac_assert('Script finance-record-delete-module.js existe y es legible', is_readable($finance_record_delete_js_file));
 ac_assert('Script finance-container-delete-module.js existe y es legible', is_readable($finance_container_delete_js_file));
+ac_assert('Script finance-container-edit-module.js existe y es legible', is_readable($finance_container_edit_js_file));
 ac_assert('Dispatcher canonical/index.php existe', is_readable($canonical_dispatcher));
 ac_assert('Fallback canonical/_fallback.php existe', is_readable($fallback_tpl_file));
 
@@ -102,6 +104,7 @@ $finance_records_js_src = file_get_contents($finance_records_js_file);
 $finance_record_create_js_src = file_get_contents($finance_record_create_js_file);
 $finance_record_delete_js_src = file_get_contents($finance_record_delete_js_file);
 $finance_container_delete_js_src = file_get_contents($finance_container_delete_js_file);
+$finance_container_edit_js_src = file_get_contents($finance_container_edit_js_file);
 
 ac_assert('Template no lee $_GET', strpos($finance_tpl_src, '$_GET') === false);
 ac_assert('Template no usa window.ajaxurl', strpos($finance_tpl_src, 'window.ajaxurl') === false);
@@ -115,8 +118,10 @@ ac_assert('Script records no usa innerHTML con datos', strpos($finance_records_j
 ac_assert('Script record-create no usa innerHTML con datos', strpos($finance_record_create_js_src, '.innerHTML =') === false);
 ac_assert('Script record-delete no usa innerHTML con datos', strpos($finance_record_delete_js_src, '.innerHTML =') === false);
 ac_assert('Script container-delete no usa innerHTML con datos', strpos($finance_container_delete_js_src, '.innerHTML =') === false);
+ac_assert('Script container-edit no usa innerHTML con datos', strpos($finance_container_edit_js_src, '.innerHTML =') === false);
 ac_assert('Template deriva acción getContainer de FinanceContainersAjax::ACTION_GET', strpos($finance_tpl_src, 'FinanceContainersAjax::ACTION_GET') !== false);
 ac_assert('Template deriva acción deleteContainer de FinanceContainersAjax::ACTION_DELETE', strpos($finance_tpl_src, 'FinanceContainersAjax::ACTION_DELETE') !== false);
+ac_assert('Template deriva acción updateContainer de FinanceContainersAjax::ACTION_UPDATE', strpos($finance_tpl_src, 'FinanceContainersAjax::ACTION_UPDATE') !== false);
 ac_assert('Template deriva acción listRecords de FinanceRecordsAjax::ACTION_LIST', strpos($finance_tpl_src, 'FinanceRecordsAjax::ACTION_LIST') !== false);
 ac_assert('Template deriva acción createRecord de FinanceRecordsAjax::ACTION_CREATE', strpos($finance_tpl_src, 'FinanceRecordsAjax::ACTION_CREATE') !== false);
 ac_assert('Template deriva acción deleteRecord de FinanceRecordsAjax::ACTION_DELETE', strpos($finance_tpl_src, 'FinanceRecordsAjax::ACTION_DELETE') !== false);
@@ -149,12 +154,14 @@ ac_assert('Carga script finance-records-module.js', strpos($html, 'finance-recor
 ac_assert('Carga script finance-record-create-module.js', strpos($html, 'finance-record-create-module.js') !== false);
 ac_assert('Carga script finance-record-delete-module.js', strpos($html, 'finance-record-delete-module.js') !== false);
 ac_assert('Carga script finance-container-delete-module.js', strpos($html, 'finance-container-delete-module.js') !== false);
+ac_assert('Carga script finance-container-edit-module.js', strpos($html, 'finance-container-edit-module.js') !== false);
 ac_assert('Carga script finance-module.js', strpos($html, 'finance-module.js') !== false);
 ac_assert('Records script precede al orquestador en el markup', strpos($html, 'finance-records-module.js') !== false && strpos($html, 'finance-module.js') !== false && strpos($html, 'finance-records-module.js') < strpos($html, 'finance-module.js'));
 ac_assert('Record-create script precede al orquestador', strpos($html, 'finance-record-create-module.js') !== false && strpos($html, 'finance-record-create-module.js') < strpos($html, 'finance-module.js'));
 ac_assert('Record-delete script precede al orquestador', strpos($html, 'finance-record-delete-module.js') !== false && strpos($html, 'finance-record-delete-module.js') < strpos($html, 'finance-module.js'));
 ac_assert('Container-delete script precede al orquestador', strpos($html, 'finance-container-delete-module.js') !== false && strpos($html, 'finance-container-delete-module.js') < strpos($html, 'finance-module.js'));
-ac_assert('Orden scripts records → create → delete → container-delete → orquestador', strpos($html, 'finance-records-module.js') < strpos($html, 'finance-record-create-module.js') && strpos($html, 'finance-record-create-module.js') < strpos($html, 'finance-record-delete-module.js') && strpos($html, 'finance-record-delete-module.js') < strpos($html, 'finance-container-delete-module.js') && strpos($html, 'finance-container-delete-module.js') < strpos($html, 'finance-module.js'));
+ac_assert('Container-edit script precede al orquestador', strpos($html, 'finance-container-edit-module.js') !== false && strpos($html, 'finance-container-edit-module.js') < strpos($html, 'finance-module.js'));
+ac_assert('Orden scripts records → create → delete → container-delete → container-edit → orquestador', strpos($html, 'finance-records-module.js') < strpos($html, 'finance-record-create-module.js') && strpos($html, 'finance-record-create-module.js') < strpos($html, 'finance-record-delete-module.js') && strpos($html, 'finance-record-delete-module.js') < strpos($html, 'finance-container-delete-module.js') && strpos($html, 'finance-container-delete-module.js') < strpos($html, 'finance-container-edit-module.js') && strpos($html, 'finance-container-edit-module.js') < strpos($html, 'finance-module.js'));
 
 ac_assert('Contiene región de detalle aa-finance-records-container oculta', strpos($html, 'id="aa-finance-records-container"') !== false && preg_match('/id="aa-finance-records-container"[^>]*class="[^"]*hidden[^"]*"/', $html) === 1);
 ac_assert('Contiene botón Volver a listas', strpos($html, 'id="aa-finance-records-back"') !== false && strpos($html, 'Volver a listas') !== false);
@@ -168,6 +175,9 @@ ac_assert('Contiene modal accesible de eliminación de entrada', strpos($html, '
 ac_assert('Modal delete usa botonera incierta y bloqueante', strpos($html, 'id="aa-finance-record-delete-uncertain-close"') !== false && strpos($html, 'id="aa-finance-record-delete-blocked-close"') !== false);
 ac_assert('Contiene modal accesible de eliminación de lista', strpos($html, 'id="aa-finance-container-delete-modal"') !== false && strpos($html, 'Eliminar lista') !== false);
 ac_assert('Modal container-delete usa botonera incierta y bloqueante', strpos($html, 'id="aa-finance-container-delete-uncertain-close"') !== false && strpos($html, 'id="aa-finance-container-delete-blocked-close"') !== false);
+ac_assert('Contiene modal accesible de edición de lista', strpos($html, 'id="aa-finance-container-edit-modal"') !== false && strpos($html, 'Editar lista') !== false);
+ac_assert('Modal container-edit usa campos title y details', strpos($html, 'id="aa-finance-container-edit-title"') !== false && strpos($html, 'id="aa-finance-container-edit-details"') !== false);
+ac_assert('Modal container-edit usa botonera incierta y bloqueante', strpos($html, 'id="aa-finance-container-edit-uncertain-close"') !== false && strpos($html, 'id="aa-finance-container-edit-blocked-close"') !== false);
 ac_assert('Contiene botón Nueva entrada oculto en detalle', strpos($html, 'id="aa-finance-open-record-btn"') !== false && strpos($html, 'Nueva entrada') !== false);
 ac_assert('Contiene modal accesible de creación de entrada', strpos($html, 'id="aa-finance-record-create-modal"') !== false && strpos($html, 'role="dialog"') !== false);
 ac_assert('Contiene campos title, details y amount de creación de entrada', strpos($html, 'id="aa-finance-record-create-title"') !== false && strpos($html, 'id="aa-finance-record-create-details"') !== false && strpos($html, 'id="aa-finance-record-create-amount"') !== false);
@@ -191,6 +201,7 @@ ac_assert('Configuración tiene actions.deleteRecord = aa_delete_finance_record'
 ac_assert('Configuración tiene actions.getRecord = aa_get_finance_record', isset($config_json['actions']['getRecord']) && $config_json['actions']['getRecord'] === 'aa_get_finance_record');
 ac_assert('Configuración tiene actions.getContainer = aa_get_finance_container', isset($config_json['actions']['getContainer']) && $config_json['actions']['getContainer'] === 'aa_get_finance_container');
 ac_assert('Configuración tiene actions.deleteContainer = aa_delete_finance_container', isset($config_json['actions']['deleteContainer']) && $config_json['actions']['deleteContainer'] === 'aa_delete_finance_container');
+ac_assert('Configuración tiene actions.updateContainer = aa_update_finance_container', isset($config_json['actions']['updateContainer']) && $config_json['actions']['updateContainer'] === 'aa_update_finance_container');
 
 echo "\n=== 3. Comprobación del Dispatcher Fail-Closed y Fallback ===\n";
 
