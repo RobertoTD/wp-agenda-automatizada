@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      {
+        "command": "python3 .cursor/hooks/guard-js-tests.py",
+        "timeout": 5,
+        "failClosed": true,
+        "matcher": "node|npm|npx|pnpm|yarn|tests/js|safe-node-test"
+      }
+    ]
+  }
+}

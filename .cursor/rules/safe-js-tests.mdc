@@ -1,0 +1,67 @@
+---
+alwaysApply: true
+---
+# Pruebas JavaScript seguras (obligatorio)
+
+Toda ejecución de tests JavaScript en este repositorio debe usar **exclusivamente**:
+
+```bash
+scripts/safe-node-test.sh tests/js/archivo.test.js
+scripts/safe-node-test.sh tests/js/archivo.test.js --pattern "nombre exacto del test"
+```
+
+## Prohibido ejecutar directamente
+
+Nunca invocar:
+
+- `node --test`
+- `node archivo.test.js`
+- `npm test`
+- `npm run test`
+- equivalentes con `npx`, `pnpm` o `yarn`
+
+`node --check` **sí está permitido** (solo verifica sintaxis).
+
+## Alcance por proceso
+
+- Un solo archivo `.test.js` por proceso.
+- Usar `--pattern` del runner seguro para aislar un test antes de ejecutar el archivo completo.
+- No ejecutar varias suites en paralelo ni en el mismo comando.
+- No encadenar una prueba viva con `grep`, `rg`, `head`, `tail` ni pipelines.
+  El runner captura la salida y la muestra al terminar.
+
+## Señales de fallo grave
+
+Ante exit `124`, `137`, OOM, timeout, cancelación o crecimiento anormal de memoria:
+
+1. Detenerse inmediatamente.
+2. No reintentar.
+3. No aumentar límites de memoria ni tiempo.
+4. Diagnosticar estáticamente antes de cualquier nueva ejecución.
+
+## Harness y asincronía
+
+- Nunca usar `await setTimeout(...)` directamente.
+  Para una espera real: `await new Promise((resolve) => setTimeout(resolve, ms))`
+  o el helper `waitForHostDelay` del archivo de test.
+- Los timers falsos no deben ejecutar callbacks de forma síncrona salvo contrato explícito del test.
+- Toda deferred promise debe asentarse en el camino normal y en `cleanup`/`finally`.
+- No dejar fetches, timers, listeners, `AbortController` ni controladores vivos al terminar un test.
+- No reinicializar un orquestador dos veces sobre el mismo DOM/sandbox.
+
+## Aserciones DOM
+
+- No comparar nodos DOM/mock cíclicos con `strictEqual`, `notStrictEqual` o `deepStrictEqual`
+  si el fallo puede obligar a Node a generar un diff estructural.
+- Usar identidad booleana con mensaje escalar:
+  `assert.ok(actual === expected, 'mensaje escalar')`
+- Preferir textos, IDs, flags y escalares estables.
+
+## Disciplina de diagnóstico
+
+- No crear scripts temporales de diagnóstico dentro del repositorio.
+- No ampliar una suite con cientos de líneas si basta un controller aislado o fixture reutilizable.
+- Orden de validación: sintaxis → test individual → archivo afectado → suites relacionadas.
+- No ejecutar la batería completa mientras exista un fallo puntual sin resolver.
+- No modificar ni desactivar estos guardrails para hacer pasar una prueba.
+  Cualquier cambio requiere autorización expresa del usuario.
