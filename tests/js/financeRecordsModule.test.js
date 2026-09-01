@@ -940,4 +940,157 @@ describe('FinanceRecordsModule (Ciclo 3D3A)', () => {
         await flushMicrotasks();
         assert.strictEqual(dom.document.activeElement, dom.recordsHeadingEl);
     });
+
+    it('emite onAuthoritativeLoadSettled en READY', async () => {
+        const dom = buildRecordsDom();
+        const settlements = [];
+        const sandbox = { document: dom.document, window: { AA_FINANCE_DATA: DEFAULT_FINANCE_DATA }, FormData: buildTestFormData(), setTimeout: hostSetTimeout, clearTimeout: clearTimeout, fetch: function () {
+            return Promise.resolve(jsonResponse({ ok: true, status: 200, body: { success: true, data: recordsEnvelope() } }));
+        }, AbortController: hostAbortController, AbortSignal: hostAbortSignal };
+        vm.runInNewContext(recordsModuleSrc, sandbox);
+        const controller = sandbox.window.AA_FinanceRecords.createController({
+            cfg: DEFAULT_FINANCE_DATA,
+            elements: { heading: dom.recordsHeadingEl, summary: dom.recordsSummaryEl, status: dom.recordsStatusEl, grid: dom.recordsGridEl, pagination: dom.recordsPaginationEl, prev: dom.recordsPrevBtn, next: dom.recordsNextBtn, pageIndicator: dom.recordsPageIndicatorEl },
+            onAuthoritativeLoadSettled: function (payload) { settlements.push(payload); }
+        });
+        controller.open(7, 1);
+        await flushMicrotasks();
+        assert.strictEqual(settlements.length, 1);
+        assert.strictEqual(settlements[0].phase, 'READY');
+        assert.strictEqual(settlements[0].containerId, 7);
+        assert.strictEqual(settlements[0].page, 1);
+        controller.destroy();
+    });
+
+    it('emite onAuthoritativeLoadSettled en EMPTY', async () => {
+        const dom = buildRecordsDom();
+        const settlements = [];
+        const sandbox = { document: dom.document, window: { AA_FINANCE_DATA: DEFAULT_FINANCE_DATA }, FormData: buildTestFormData(), setTimeout: hostSetTimeout, clearTimeout: clearTimeout, fetch: function () {
+            return Promise.resolve(jsonResponse({ ok: true, status: 200, body: { success: true, data: recordsEnvelope({ items: [], total: 0, total_pages: 0, amount_total: null }) } }));
+        }, AbortController: hostAbortController, AbortSignal: hostAbortSignal };
+        vm.runInNewContext(recordsModuleSrc, sandbox);
+        const controller = sandbox.window.AA_FinanceRecords.createController({
+            cfg: DEFAULT_FINANCE_DATA,
+            elements: { heading: dom.recordsHeadingEl, summary: dom.recordsSummaryEl, status: dom.recordsStatusEl, grid: dom.recordsGridEl, pagination: dom.recordsPaginationEl, prev: dom.recordsPrevBtn, next: dom.recordsNextBtn, pageIndicator: dom.recordsPageIndicatorEl },
+            onAuthoritativeLoadSettled: function (payload) { settlements.push(payload); }
+        });
+        controller.open(7, 1);
+        await flushMicrotasks();
+        assert.strictEqual(settlements.length, 1);
+        assert.strictEqual(settlements[0].phase, 'EMPTY');
+        controller.destroy();
+    });
+
+    it('emite onAuthoritativeLoadSettled en RECOVERABLE_ERROR y retry READY', async () => {
+        const dom = buildRecordsDom();
+        const settlements = [];
+        let failOnce = true;
+        const sandbox = { document: dom.document, window: { AA_FINANCE_DATA: DEFAULT_FINANCE_DATA }, FormData: buildTestFormData(), setTimeout: hostSetTimeout, clearTimeout: clearTimeout, fetch: function () {
+            if (failOnce) {
+                failOnce = false;
+                return Promise.resolve(jsonResponse({ ok: false, status: 500, body: { success: false, data: { code: 'persistence_failed', message: 'Fallo.' } } }));
+            }
+            return Promise.resolve(jsonResponse({ ok: true, status: 200, body: { success: true, data: recordsEnvelope() } }));
+        }, AbortController: hostAbortController, AbortSignal: hostAbortSignal };
+        vm.runInNewContext(recordsModuleSrc, sandbox);
+        const controller = sandbox.window.AA_FinanceRecords.createController({
+            cfg: DEFAULT_FINANCE_DATA,
+            elements: { heading: dom.recordsHeadingEl, summary: dom.recordsSummaryEl, status: dom.recordsStatusEl, grid: dom.recordsGridEl, pagination: dom.recordsPaginationEl, prev: dom.recordsPrevBtn, next: dom.recordsNextBtn, pageIndicator: dom.recordsPageIndicatorEl },
+            onAuthoritativeLoadSettled: function (payload) { settlements.push(payload); }
+        });
+        controller.open(7, 1);
+        await flushMicrotasks();
+        assert.strictEqual(settlements.length, 1);
+        assert.strictEqual(settlements[0].phase, 'RECOVERABLE_ERROR');
+        controller.retry();
+        await flushMicrotasks();
+        assert.strictEqual(settlements.length, 2);
+        assert.strictEqual(settlements[1].phase, 'READY');
+        assert.notStrictEqual(settlements[1].requestSeq, settlements[0].requestSeq);
+        controller.destroy();
+    });
+
+    it('emite onAuthoritativeLoadSettled en BLOCKED_ERROR y NOT_FOUND', async () => {
+        const dom = buildRecordsDom();
+        const blocked = [];
+        const notFound = [];
+        const sandbox = { document: dom.document, window: { AA_FINANCE_DATA: DEFAULT_FINANCE_DATA }, FormData: buildTestFormData(), setTimeout: hostSetTimeout, clearTimeout: clearTimeout, fetch: function (url, opts) {
+            if (opts.body.data.page === '1') {
+                return Promise.resolve(jsonResponse({ ok: false, status: 403, body: { success: false, data: { code: 'forbidden', message: 'Bloqueado.' } } }));
+            }
+            return Promise.resolve(jsonResponse({ ok: false, status: 404, body: { success: false, data: { code: 'container_not_found', message: 'No existe.' } } }));
+        }, AbortController: hostAbortController, AbortSignal: hostAbortSignal };
+        vm.runInNewContext(recordsModuleSrc, sandbox);
+        const blockedController = sandbox.window.AA_FinanceRecords.createController({
+            cfg: DEFAULT_FINANCE_DATA,
+            elements: { heading: dom.recordsHeadingEl, summary: dom.recordsSummaryEl, status: dom.recordsStatusEl, grid: dom.recordsGridEl, pagination: dom.recordsPaginationEl, prev: dom.recordsPrevBtn, next: dom.recordsNextBtn, pageIndicator: dom.recordsPageIndicatorEl },
+            onAuthoritativeLoadSettled: function (payload) { blocked.push(payload); }
+        });
+        blockedController.open(7, 1);
+        await flushMicrotasks();
+        assert.strictEqual(blocked.length, 1);
+        assert.strictEqual(blocked[0].phase, 'BLOCKED_ERROR');
+        blockedController.destroy();
+
+        const nfController = sandbox.window.AA_FinanceRecords.createController({
+            cfg: DEFAULT_FINANCE_DATA,
+            elements: { heading: dom.recordsHeadingEl, summary: dom.recordsSummaryEl, status: dom.recordsStatusEl, grid: dom.recordsGridEl, pagination: dom.recordsPaginationEl, prev: dom.recordsPrevBtn, next: dom.recordsNextBtn, pageIndicator: dom.recordsPageIndicatorEl },
+            onAuthoritativeLoadSettled: function (payload) { notFound.push(payload); },
+            onContainerNotFound: function () {}
+        });
+        nfController.open(7, 2);
+        await flushMicrotasks();
+        assert.strictEqual(notFound.length, 1);
+        assert.strictEqual(notFound[0].phase, 'NOT_FOUND');
+        nfController.destroy();
+    });
+
+    it('no emite settlement en AbortError, close ni respuesta obsoleta', async () => {
+        const dom = buildRecordsDom();
+        const settlements = [];
+        const deferred = createDeferred();
+        const sandbox = { document: dom.document, window: { AA_FINANCE_DATA: DEFAULT_FINANCE_DATA }, FormData: buildTestFormData(), setTimeout: hostSetTimeout, clearTimeout: clearTimeout, fetch: function () { return deferred.promise; }, AbortController: hostAbortController, AbortSignal: hostAbortSignal };
+        vm.runInNewContext(recordsModuleSrc, sandbox);
+        const controller = sandbox.window.AA_FinanceRecords.createController({
+            cfg: DEFAULT_FINANCE_DATA,
+            elements: { heading: dom.recordsHeadingEl, summary: dom.recordsSummaryEl, status: dom.recordsStatusEl, grid: dom.recordsGridEl, pagination: dom.recordsPaginationEl, prev: dom.recordsPrevBtn, next: dom.recordsNextBtn, pageIndicator: dom.recordsPageIndicatorEl },
+            onAuthoritativeLoadSettled: function (payload) { settlements.push(payload); }
+        });
+        controller.open(7, 1);
+        controller.close();
+        const err = new Error('Aborted');
+        err.name = 'AbortError';
+        deferred.reject(err);
+        await flushMicrotasks();
+        assert.strictEqual(settlements.length, 0);
+
+        deferred.settled = false;
+        deferred.promise = new Promise(function (resolve, reject) {
+            deferred.resolve = function (value) { if (!deferred.settled) { deferred.settled = true; resolve(value); } };
+            deferred.reject = function (reason) { if (!deferred.settled) { deferred.settled = true; reject(reason); } };
+        });
+        controller.open(7, 1);
+        controller.open(8, 1);
+        deferred.resolve(jsonResponse({ ok: true, status: 200, body: { success: true, data: recordsEnvelope({ container: Object.assign({}, SAMPLE_CONTAINER, { id: 7, title: 'Tardío' }) }) } }));
+        await flushMicrotasks();
+        assert.strictEqual(settlements.length, 1);
+        assert.strictEqual(settlements[0].containerId, 8);
+        controller.destroy();
+    });
+
+    it('callback opcional conserva compatibilidad sin settlement', async () => {
+        const dom = buildRecordsDom();
+        const sandbox = { document: dom.document, window: { AA_FINANCE_DATA: DEFAULT_FINANCE_DATA }, FormData: buildTestFormData(), setTimeout: hostSetTimeout, clearTimeout: clearTimeout, fetch: function () {
+            return Promise.resolve(jsonResponse({ ok: true, status: 200, body: { success: true, data: recordsEnvelope() } }));
+        }, AbortController: hostAbortController, AbortSignal: hostAbortSignal };
+        vm.runInNewContext(recordsModuleSrc, sandbox);
+        const controller = sandbox.window.AA_FinanceRecords.createController({
+            cfg: DEFAULT_FINANCE_DATA,
+            elements: { heading: dom.recordsHeadingEl, summary: dom.recordsSummaryEl, status: dom.recordsStatusEl, grid: dom.recordsGridEl, pagination: dom.recordsPaginationEl, prev: dom.recordsPrevBtn, next: dom.recordsNextBtn, pageIndicator: dom.recordsPageIndicatorEl }
+        });
+        controller.open(7, 1);
+        await flushMicrotasks();
+        assert.ok(dom.recordsHeadingEl.textContent);
+        controller.destroy();
+    });
 });

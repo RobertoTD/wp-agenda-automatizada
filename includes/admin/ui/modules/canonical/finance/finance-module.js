@@ -52,6 +52,26 @@
     var recordsNextBtn = document.getElementById('aa-finance-records-next');
     var recordsPageIndicatorEl = document.getElementById('aa-finance-records-page-indicator');
 
+    var openRecordBtn = document.getElementById('aa-finance-open-record-btn');
+    var recordCreateModal = document.getElementById('aa-finance-record-create-modal');
+    var recordModalBackdrop = document.getElementById('aa-finance-record-create-modal-backdrop');
+    var recordModalCloseBtn = document.getElementById('aa-finance-record-create-close');
+    var recordCreateForm = document.getElementById('aa-finance-record-create-form');
+    var recordModalErrorEl = document.getElementById('aa-finance-record-create-error');
+    var recordTitleInput = document.getElementById('aa-finance-record-create-title');
+    var recordTitleErrorEl = document.getElementById('aa-finance-record-title-error');
+    var recordDetailsInput = document.getElementById('aa-finance-record-create-details');
+    var recordDetailsErrorEl = document.getElementById('aa-finance-record-details-error');
+    var recordAmountInput = document.getElementById('aa-finance-record-create-amount');
+    var recordAmountErrorEl = document.getElementById('aa-finance-record-amount-error');
+    var recordStandardActionsEl = document.getElementById('aa-finance-record-create-actions-standard');
+    var recordCancelBtn = document.getElementById('aa-finance-record-create-cancel');
+    var recordSubmitBtn = document.getElementById('aa-finance-record-create-submit');
+    var recordUncertainActionsEl = document.getElementById('aa-finance-record-create-actions-uncertain');
+    var recordUncertainCloseBtn = document.getElementById('aa-finance-record-create-uncertain-close');
+    var recordBlockedActionsEl = document.getElementById('aa-finance-record-create-actions-blocked');
+    var recordBlockedCloseBtn = document.getElementById('aa-finance-record-create-blocked-close');
+
     function showFatalConfigError() {
         if (statusEl) {
             statusEl.textContent = 'No se pudo iniciar el módulo de Finanzas.';
@@ -101,12 +121,19 @@
 
     var navMode = NAV_MODES.CONTAINER_LIST;
     var listSnapshotValid = true;
+    var listStatusOverride = null;
     var selectedContainerId = null;
     var originOpenButton = null;
     var recordsController = null;
     var recordsNavEnabled = false;
+    var recordCreateController = null;
+    var recordCreateEnabled = false;
+    var nextRecordReviewToken = 1;
+    var pendingRecordReview = null;
 
-    // Estados formales de creación
+    var PENDING_REVIEW_NOTICE = 'Hay una entrada pendiente de revisión en otra lista. Vuelve a esa lista antes de crear una nueva.';
+
+    // Estados formales de creación de contenedores
     var CREATE_STATES = {
         IDLE: 'IDLE',
         EDITING: 'EDITING',
@@ -176,6 +203,144 @@
         return !!(actions && typeof actions.listRecords === 'string' && actions.listRecords.trim() !== '');
     }
 
+    function hasRecordCreateAction() {
+        return !!(actions && typeof actions.createRecord === 'string' && actions.createRecord.trim() !== '');
+    }
+
+    function hasRecordCreateMarkup() {
+        return !!(
+            openRecordBtn &&
+            recordCreateModal &&
+            recordModalBackdrop &&
+            recordModalCloseBtn &&
+            recordCreateForm &&
+            recordModalErrorEl &&
+            recordTitleInput &&
+            recordTitleErrorEl &&
+            recordDetailsInput &&
+            recordDetailsErrorEl &&
+            recordAmountInput &&
+            recordAmountErrorEl &&
+            recordStandardActionsEl &&
+            recordCancelBtn &&
+            recordSubmitBtn &&
+            recordUncertainActionsEl &&
+            recordUncertainCloseBtn &&
+            recordBlockedActionsEl &&
+            recordBlockedCloseBtn
+        );
+    }
+
+    function hasRecordCreateFactory() {
+        return !!(window.AA_FinanceRecordCreate && typeof window.AA_FinanceRecordCreate.createController === 'function');
+    }
+
+    function isRecordCreateGloballyBlocked() {
+        return pendingRecordReview !== null;
+    }
+
+    function setRecordCreateTriggerVisible(isVisible) {
+        if (!openRecordBtn || !hasRecordCreateAction() || !recordCreateEnabled) {
+            if (openRecordBtn) {
+                openRecordBtn.classList.add('hidden');
+                openRecordBtn.hidden = true;
+            }
+            return;
+        }
+        if (isVisible && navMode === NAV_MODES.RECORDS_DETAIL) {
+            openRecordBtn.classList.remove('hidden');
+            openRecordBtn.hidden = false;
+            if (isRecordCreateGloballyBlocked()) {
+                openRecordBtn.disabled = true;
+                openRecordBtn.setAttribute('aria-disabled', 'true');
+            } else {
+                openRecordBtn.disabled = false;
+                openRecordBtn.removeAttribute('aria-disabled');
+            }
+        } else {
+            openRecordBtn.classList.add('hidden');
+            openRecordBtn.hidden = true;
+            openRecordBtn.setAttribute('aria-disabled', 'true');
+        }
+    }
+
+    function handlePendingReviewSettlement(payload) {
+        if (pendingRecordReview && payload.containerId !== pendingRecordReview.containerId) {
+            if (
+                navMode === NAV_MODES.RECORDS_DETAIL &&
+                selectedContainerId === payload.containerId &&
+                (payload.phase === 'READY' || payload.phase === 'EMPTY')
+            ) {
+                if (recordsStatusEl) {
+                    recordsStatusEl.textContent = PENDING_REVIEW_NOTICE;
+                    recordsStatusEl.className = 'text-sm text-amber-700 font-medium';
+                }
+            }
+            return;
+        }
+        if (!pendingRecordReview) {
+            return;
+        }
+        if (payload.containerId !== pendingRecordReview.containerId) {
+            return;
+        }
+        if (payload.page !== pendingRecordReview.awaitingPage) {
+            return;
+        }
+        if (navMode !== NAV_MODES.RECORDS_DETAIL) {
+            return;
+        }
+        if (selectedContainerId !== pendingRecordReview.containerId) {
+            return;
+        }
+
+        if (payload.phase === 'READY' || payload.phase === 'EMPTY') {
+            var reviewToken = pendingRecordReview.reviewToken;
+            var containerId = pendingRecordReview.containerId;
+            pendingRecordReview = null;
+            if (recordCreateController) {
+                recordCreateController.completeReview(reviewToken, containerId);
+            }
+            setRecordCreateTriggerVisible(true);
+            return;
+        }
+
+        if (payload.phase === 'NOT_FOUND') {
+            handleRecordReviewNotFound(pendingRecordReview.reviewToken, pendingRecordReview.containerId);
+        }
+    }
+
+    function handleRecordReviewNotFound(reviewToken, containerId) {
+        listSnapshotValid = false;
+        pendingRecordReview = null;
+        if (recordCreateController) {
+            recordCreateController.cancelReview(reviewToken, 'container_not_found');
+        }
+        setRecordCreateTriggerVisible(false);
+        backToContainerListWithMessage('La lista ya no está disponible. La entrada pendiente no pudo conservarse.');
+    }
+
+    function backToContainerListWithMessage(message) {
+        if (recordsController) {
+            recordsController.close();
+        }
+        clearRecordsFocusTimer();
+        navMode = NAV_MODES.CONTAINER_LIST;
+        selectedContainerId = null;
+        setRecordsViewVisible(false);
+        setListViewVisible(true);
+        setCreateTriggerVisible(true);
+        setRecordCreateTriggerVisible(false);
+        if (statusEl) {
+            statusEl.textContent = message;
+            statusEl.className = 'text-sm text-red-600 font-medium';
+            listStatusOverride = message;
+            statusEl.focus();
+        }
+        loadPage(confirmedPage);
+        originOpenButton = null;
+    }
+
     function initRecordsController() {
         if (!hasRecordsFactory() || !hasListRecordsAction() || !hasRecordsMarkup()) {
             recordsNavEnabled = false;
@@ -199,12 +364,103 @@
             },
             onContainerNotFound: function () {
                 listSnapshotValid = false;
+            },
+            onAuthoritativeLoadSettled: function (payload) {
+                handlePendingReviewSettlement(payload);
             }
         });
         recordsNavEnabled = !!recordsController;
     }
 
+    function initRecordCreateController() {
+        if (!hasRecordCreateFactory() || !hasRecordCreateAction() || !hasRecordCreateMarkup()) {
+            recordCreateEnabled = false;
+            if (openRecordBtn) {
+                openRecordBtn.classList.add('hidden');
+                openRecordBtn.hidden = true;
+            }
+            return;
+        }
+
+        recordCreateController = window.AA_FinanceRecordCreate.createController({
+            cfg: cfg,
+            elements: {
+                modal: recordCreateModal,
+                backdrop: recordModalBackdrop,
+                closeBtn: recordModalCloseBtn,
+                form: recordCreateForm,
+                modalError: recordModalErrorEl,
+                titleInput: recordTitleInput,
+                titleError: recordTitleErrorEl,
+                detailsInput: recordDetailsInput,
+                detailsError: recordDetailsErrorEl,
+                amountInput: recordAmountInput,
+                amountError: recordAmountErrorEl,
+                standardActions: recordStandardActionsEl,
+                cancelBtn: recordCancelBtn,
+                submitBtn: recordSubmitBtn,
+                uncertainActions: recordUncertainActionsEl,
+                uncertainCloseBtn: recordUncertainCloseBtn,
+                blockedActions: recordBlockedActionsEl,
+                blockedCloseBtn: recordBlockedCloseBtn,
+                openTrigger: openRecordBtn
+            },
+            getActiveContainerId: function () {
+                return selectedContainerId;
+            },
+            isDetailActive: function () {
+                return navMode === NAV_MODES.RECORDS_DETAIL;
+            },
+            onConfirmedRefresh: function (containerId) {
+                if (recordsController && Number.isInteger(containerId) && containerId >= 1) {
+                    recordsController.open(containerId, 1);
+                }
+            },
+            onUncertainReviewStart: function (payload) {
+                if (navMode !== NAV_MODES.RECORDS_DETAIL) {
+                    return null;
+                }
+                if (!Number.isInteger(payload.containerId) || payload.containerId < 1) {
+                    return null;
+                }
+                if (selectedContainerId !== payload.containerId) {
+                    return null;
+                }
+                nextRecordReviewToken++;
+                pendingRecordReview = {
+                    reviewToken: nextRecordReviewToken,
+                    containerId: payload.containerId,
+                    awaitingPage: 1
+                };
+                setRecordCreateTriggerVisible(true);
+                if (recordsController) {
+                    recordsController.open(payload.containerId, 1);
+                }
+                return nextRecordReviewToken;
+            },
+            onContainerNotFoundCreate: function (containerId) {
+                listSnapshotValid = false;
+                if (pendingRecordReview && pendingRecordReview.containerId === containerId) {
+                    handleRecordReviewNotFound(pendingRecordReview.reviewToken, containerId);
+                    return;
+                }
+                backToContainerListWithMessage('La lista ya no está disponible.');
+            }
+        });
+        recordCreateEnabled = !!recordCreateController;
+
+        if (openRecordBtn) {
+            openRecordBtn.addEventListener('click', function () {
+                if (openRecordBtn.disabled || !recordCreateController) {
+                    return;
+                }
+                recordCreateController.openModal();
+            });
+        }
+    }
+
     initRecordsController();
+    initRecordCreateController();
 
     function setListViewVisible(isVisible) {
         if (listContainerEl) {
@@ -295,6 +551,9 @@
             return;
         }
         if (navMode === NAV_MODES.RECORDS_DETAIL && selectedContainerId === containerId) {
+            if (pendingRecordReview && pendingRecordReview.containerId === containerId) {
+                recordsController.open(containerId, 1);
+            }
             return;
         }
 
@@ -305,6 +564,7 @@
         setListViewVisible(false);
         setRecordsViewVisible(true);
         setCreateTriggerVisible(false);
+        setRecordCreateTriggerVisible(true);
 
         recordsController.open(containerId, 1);
         scheduleRecordsHeadingFocus();
@@ -322,6 +582,7 @@
         setRecordsViewVisible(false);
         setListViewVisible(true);
         setCreateTriggerVisible(true);
+        setRecordCreateTriggerVisible(false);
 
         if (!listSnapshotValid) {
             if (statusEl) {
@@ -700,7 +961,12 @@
                 failedPage = null;
                 confirmedPage = data.page;
                 listSnapshotValid = true;
-                setStatus('', false, false);
+                if (listStatusOverride) {
+                    setStatus(listStatusOverride, true, false);
+                    listStatusOverride = null;
+                } else {
+                    setStatus('', false, false);
+                }
 
                 if (createModalState === CREATE_STATES.REVIEWING_UNCERTAIN) {
                     createModalState = CREATE_STATES.DRAFT_REVIEWED;

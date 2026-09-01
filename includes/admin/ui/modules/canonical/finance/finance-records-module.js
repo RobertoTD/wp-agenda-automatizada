@@ -151,6 +151,9 @@
         var onContainerNotFound = typeof options.onContainerNotFound === 'function'
             ? options.onContainerNotFound
             : function () {};
+        var onAuthoritativeLoadSettled = typeof options.onAuthoritativeLoadSettled === 'function'
+            ? options.onAuthoritativeLoadSettled
+            : null;
         var isActiveGuard = typeof options.isActiveGuard === 'function'
             ? options.isActiveGuard
             : function () { return true; };
@@ -472,6 +475,44 @@
             }
         }
 
+        function mapPhaseToSettlement(phase) {
+            if (phase === RECORDS_PHASE.READY) {
+                return 'READY';
+            }
+            if (phase === RECORDS_PHASE.EMPTY) {
+                return 'EMPTY';
+            }
+            if (phase === RECORDS_PHASE.RECOVERABLE_ERROR) {
+                return 'RECOVERABLE_ERROR';
+            }
+            if (phase === RECORDS_PHASE.BLOCKED_ERROR) {
+                return 'BLOCKED_ERROR';
+            }
+            if (phase === RECORDS_PHASE.NOT_FOUND) {
+                return 'NOT_FOUND';
+            }
+            return null;
+        }
+
+        function emitAuthoritativeLoadSettled(containerId, page, seq, phase) {
+            if (!onAuthoritativeLoadSettled) {
+                return;
+            }
+            if (!isContextActive(containerId, seq)) {
+                return;
+            }
+            var settlementPhase = mapPhaseToSettlement(phase);
+            if (!settlementPhase) {
+                return;
+            }
+            onAuthoritativeLoadSettled({
+                containerId: containerId,
+                page: page,
+                requestSeq: seq,
+                phase: settlementPhase
+            });
+        }
+
         function handleSuccess(data, containerId, seq) {
             if (!isContextActive(containerId, seq)) {
                 return;
@@ -501,6 +542,7 @@
             }
 
             focusHeading();
+            emitAuthoritativeLoadSettled(containerId, data.page, seq, recordsPhase);
         }
 
         function handleErrorState(phase, message, recoverable, containerId, seq) {
@@ -513,6 +555,7 @@
             setStatusMessage(message, true, recoverable);
             updatePaginationControls({ total: 0 }, false);
             lastErrorRecoverable = recoverable;
+            emitAuthoritativeLoadSettled(containerId, lastRequestedPage, seq, recordsPhase);
         }
 
         function fetchRecords(containerId, page) {
@@ -595,12 +638,16 @@
                     }
 
                     if (errCode === 'container_not_found') {
+                        if (!isContextActive(containerId, seq)) {
+                            return;
+                        }
                         recordsPhase = RECORDS_PHASE.NOT_FOUND;
                         setRecordsBusy(false);
                         clearNode(gridEl);
                         setStatusMessage('Este contenedor ya no está disponible.', true, false);
                         updatePaginationControls({ total: 0 }, false);
                         onContainerNotFound(containerId);
+                        emitAuthoritativeLoadSettled(containerId, lastRequestedPage, seq, recordsPhase);
                         return;
                     }
 
