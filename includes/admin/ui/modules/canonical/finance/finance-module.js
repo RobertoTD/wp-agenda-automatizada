@@ -13,6 +13,7 @@
     }
 
     var statusEl = document.getElementById('aa-finance-status');
+    var listContainerEl = document.getElementById('aa-finance-list-container');
     var gridEl = document.getElementById('aa-finance-grid');
     var paginationEl = document.getElementById('aa-finance-pagination');
     var prevBtn = document.getElementById('aa-finance-prev');
@@ -39,6 +40,17 @@
 
     var blockedActionsEl = document.getElementById('aa-finance-modal-actions-blocked');
     var blockedCloseBtn = document.getElementById('aa-finance-modal-blocked-close-btn');
+
+    var recordsContainerEl = document.getElementById('aa-finance-records-container');
+    var recordsBackBtn = document.getElementById('aa-finance-records-back');
+    var recordsHeadingEl = document.getElementById('aa-finance-records-heading');
+    var recordsSummaryEl = document.getElementById('aa-finance-records-summary');
+    var recordsStatusEl = document.getElementById('aa-finance-records-status');
+    var recordsGridEl = document.getElementById('aa-finance-records-grid');
+    var recordsPaginationEl = document.getElementById('aa-finance-records-pagination');
+    var recordsPrevBtn = document.getElementById('aa-finance-records-prev');
+    var recordsNextBtn = document.getElementById('aa-finance-records-next');
+    var recordsPageIndicatorEl = document.getElementById('aa-finance-records-page-indicator');
 
     function showFatalConfigError() {
         if (statusEl) {
@@ -82,6 +94,18 @@
     }
     root.dataset.aaInitialized = 'true';
 
+    var NAV_MODES = {
+        CONTAINER_LIST: 'CONTAINER_LIST',
+        RECORDS_DETAIL: 'RECORDS_DETAIL'
+    };
+
+    var navMode = NAV_MODES.CONTAINER_LIST;
+    var listSnapshotValid = true;
+    var selectedContainerId = null;
+    var originOpenButton = null;
+    var recordsController = null;
+    var recordsNavEnabled = false;
+
     // Estados formales de creación
     var CREATE_STATES = {
         IDLE: 'IDLE',
@@ -109,6 +133,214 @@
     var createTimeoutId = null;
     var createRequestSeq = 0;
     var focusTimeoutId = null;
+    var recordsFocusTimeoutId = null;
+
+    function clearRecordsFocusTimer() {
+        if (recordsFocusTimeoutId !== null) {
+            clearTimeout(recordsFocusTimeoutId);
+            recordsFocusTimeoutId = null;
+        }
+    }
+
+    function scheduleRecordsHeadingFocus() {
+        clearRecordsFocusTimer();
+        recordsFocusTimeoutId = setTimeout(function () {
+            recordsFocusTimeoutId = null;
+            if (navMode !== NAV_MODES.RECORDS_DETAIL || !recordsHeadingEl) {
+                return;
+            }
+            recordsHeadingEl.focus();
+        }, 50);
+    }
+
+    function hasRecordsMarkup() {
+        return !!(
+            recordsContainerEl &&
+            recordsBackBtn &&
+            recordsHeadingEl &&
+            recordsSummaryEl &&
+            recordsStatusEl &&
+            recordsGridEl &&
+            recordsPaginationEl &&
+            recordsPrevBtn &&
+            recordsNextBtn &&
+            recordsPageIndicatorEl
+        );
+    }
+
+    function hasRecordsFactory() {
+        return !!(window.AA_FinanceRecords && typeof window.AA_FinanceRecords.createController === 'function');
+    }
+
+    function hasListRecordsAction() {
+        return !!(actions && typeof actions.listRecords === 'string' && actions.listRecords.trim() !== '');
+    }
+
+    function initRecordsController() {
+        if (!hasRecordsFactory() || !hasListRecordsAction() || !hasRecordsMarkup()) {
+            recordsNavEnabled = false;
+            return;
+        }
+
+        recordsController = window.AA_FinanceRecords.createController({
+            cfg: cfg,
+            elements: {
+                heading: recordsHeadingEl,
+                summary: recordsSummaryEl,
+                status: recordsStatusEl,
+                grid: recordsGridEl,
+                pagination: recordsPaginationEl,
+                prev: recordsPrevBtn,
+                next: recordsNextBtn,
+                pageIndicator: recordsPageIndicatorEl
+            },
+            isActiveGuard: function () {
+                return navMode === NAV_MODES.RECORDS_DETAIL;
+            },
+            onContainerNotFound: function () {
+                listSnapshotValid = false;
+            }
+        });
+        recordsNavEnabled = !!recordsController;
+    }
+
+    initRecordsController();
+
+    function setListViewVisible(isVisible) {
+        if (listContainerEl) {
+            if (isVisible) {
+                listContainerEl.classList.remove('hidden');
+                listContainerEl.hidden = false;
+                listContainerEl.setAttribute('aria-hidden', 'false');
+            } else {
+                listContainerEl.classList.add('hidden');
+                listContainerEl.hidden = true;
+                listContainerEl.setAttribute('aria-hidden', 'true');
+            }
+        }
+    }
+
+    function setRecordsViewVisible(isVisible) {
+        if (!recordsContainerEl) {
+            return;
+        }
+        if (isVisible) {
+            recordsContainerEl.classList.remove('hidden');
+            recordsContainerEl.hidden = false;
+            recordsContainerEl.setAttribute('aria-hidden', 'false');
+        } else {
+            recordsContainerEl.classList.add('hidden');
+            recordsContainerEl.hidden = true;
+            recordsContainerEl.setAttribute('aria-hidden', 'true');
+        }
+    }
+
+    function setCreateTriggerVisible(isVisible) {
+        if (!openCreateBtn || !hasCreateAction) {
+            return;
+        }
+        if (isVisible) {
+            openCreateBtn.classList.remove('hidden');
+            openCreateBtn.hidden = false;
+            if (createModalState !== CREATE_STATES.REVIEWING_UNCERTAIN) {
+                openCreateBtn.disabled = false;
+                openCreateBtn.removeAttribute('aria-disabled');
+            }
+        } else {
+            openCreateBtn.classList.add('hidden');
+            openCreateBtn.hidden = true;
+            openCreateBtn.setAttribute('aria-disabled', 'true');
+        }
+    }
+
+    function findFallbackOpenButton() {
+        if (!gridEl) {
+            return null;
+        }
+        var buttons = gridEl.querySelectorAll('button[type="button"]');
+        for (var i = 0; i < buttons.length; i++) {
+            var btn = buttons[i];
+            if (!btn.disabled && !btn.hidden && btn.classList.contains('aa-finance-open-records-btn')) {
+                return btn;
+            }
+        }
+        return null;
+    }
+
+    function restoreListFocus() {
+        var originConnected = originOpenButton && (
+            (typeof document.contains === 'function' && document.contains(originOpenButton)) ||
+            originOpenButton.parentElement !== null ||
+            originOpenButton.parentNode !== null
+        );
+        if (originConnected && !originOpenButton.disabled) {
+            originOpenButton.focus();
+            return;
+        }
+        var fallbackBtn = findFallbackOpenButton();
+        if (fallbackBtn) {
+            fallbackBtn.focus();
+            return;
+        }
+        if (statusEl) {
+            statusEl.focus();
+        }
+    }
+
+    function openContainerDetail(containerId, originButton) {
+        if (!recordsNavEnabled || !recordsController) {
+            return;
+        }
+        if (!Number.isInteger(containerId) || containerId < 1) {
+            return;
+        }
+        if (navMode === NAV_MODES.RECORDS_DETAIL && selectedContainerId === containerId) {
+            return;
+        }
+
+        originOpenButton = originButton || null;
+        selectedContainerId = containerId;
+        navMode = NAV_MODES.RECORDS_DETAIL;
+
+        setListViewVisible(false);
+        setRecordsViewVisible(true);
+        setCreateTriggerVisible(false);
+
+        recordsController.open(containerId, 1);
+        scheduleRecordsHeadingFocus();
+    }
+
+    function backToContainerList() {
+        if (recordsController) {
+            recordsController.close();
+        }
+
+        clearRecordsFocusTimer();
+        navMode = NAV_MODES.CONTAINER_LIST;
+        selectedContainerId = null;
+
+        setRecordsViewVisible(false);
+        setListViewVisible(true);
+        setCreateTriggerVisible(true);
+
+        if (!listSnapshotValid) {
+            if (statusEl) {
+                statusEl.focus();
+            }
+            loadPage(confirmedPage);
+            originOpenButton = null;
+            return;
+        }
+
+        restoreListFocus();
+        originOpenButton = null;
+    }
+
+    if (recordsBackBtn) {
+        recordsBackBtn.addEventListener('click', function () {
+            backToContainerList();
+        });
+    }
 
     function clearFocusTimer() {
         if (focusTimeoutId !== null) {
@@ -354,6 +586,24 @@
             cardFooter.appendChild(dateSpan);
 
             card.appendChild(cardFooter);
+
+            if (recordsNavEnabled) {
+                var openRecordsBtn = document.createElement('button');
+                openRecordsBtn.type = 'button';
+                openRecordsBtn.className = 'aa-finance-open-records-btn mt-3 inline-flex items-center justify-center px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition';
+                openRecordsBtn.textContent = 'Ver registros';
+                openRecordsBtn.setAttribute('aria-label', 'Ver registros de «' + item.title + '»');
+                openRecordsBtn.setAttribute('data-container-id', String(item.id));
+
+                (function (validatedId, triggerBtn) {
+                    openRecordsBtn.addEventListener('click', function () {
+                        openContainerDetail(validatedId, triggerBtn);
+                    });
+                })(item.id, openRecordsBtn);
+
+                card.appendChild(openRecordsBtn);
+            }
+
             gridEl.appendChild(card);
         }
     }
@@ -449,6 +699,7 @@
 
                 failedPage = null;
                 confirmedPage = data.page;
+                listSnapshotValid = true;
                 setStatus('', false, false);
 
                 if (createModalState === CREATE_STATES.REVIEWING_UNCERTAIN) {
@@ -867,6 +1118,7 @@
                         if (validateCreateResponse(response.json)) {
                             createModalState = CREATE_STATES.CONFIRMED;
                             closeModal(true);
+                            listSnapshotValid = true;
                             loadPage(1);
                             return;
                         }

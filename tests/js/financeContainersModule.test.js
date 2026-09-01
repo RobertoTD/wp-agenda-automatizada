@@ -1713,4 +1713,31 @@ describe('FinanceContainersModule (Ciclos 3D1 y 3D2)', () => {
             await flushMicrotasks();
         }
     });
+
+    it('degrada navegación a registros si AA_FinanceRecords no existe y conserva listado/creación', async () => {
+        const { document, gridEl, openCreateBtn } = buildDom();
+        const harness = buildSandbox(document, {
+            financeData: Object.assign({}, DEFAULT_FINANCE_DATA, {
+                actions: {
+                    listContainers: 'aa_list_finance_containers',
+                    createContainer: 'aa_create_finance_container',
+                    listRecords: 'aa_list_finance_records'
+                }
+            }),
+            listData: AUTHORITATIVE_LIST_DATA
+        });
+
+        try {
+            vm.runInNewContext(moduleSrc, harness.sandbox);
+            await flushMicrotasks();
+
+            assert.strictEqual(gridEl.querySelector('.aa-finance-open-records-btn'), null);
+            assert.ok(gridEl.textContent.includes('Desde Listado'));
+            assert.strictEqual(openCreateBtn.hidden, false);
+            assert.strictEqual(harness.fetchHandler.state.listCallCount, 1);
+        } finally {
+            harness.cleanup();
+            await flushMicrotasks();
+        }
+    });
 });

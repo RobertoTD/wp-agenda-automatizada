@@ -1,6 +1,6 @@
 <?php
 /**
- * AC Test — Finance UI Module (Ciclos 3D1 y 3D2).
+ * AC Test — Finance UI Module (Ciclos 3D1, 3D2 y 3D3A).
  *
  * Ejecutar:
  *   php tests/admin/ui/test-finance-ui-module-ac.php
@@ -55,6 +55,7 @@ require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonic
 require_once $plugin_root . '/includes/infrastructure/wp/class-aa-canonical-access-policy.php';
 require_once $plugin_root . '/includes/http/ajax/FinanceAjaxSupport.php';
 require_once $plugin_root . '/includes/http/ajax/FinanceContainersAjax.php';
+require_once $plugin_root . '/includes/http/ajax/FinanceRecordsAjax.php';
 
 $total = 0;
 $passed = 0;
@@ -78,16 +79,19 @@ echo "=== 1. Análisis estático de templates y scripts ===\n";
 
 $finance_tpl_file = $plugin_root . '/includes/admin/ui/modules/canonical/finance/index.php';
 $finance_js_file  = $plugin_root . '/includes/admin/ui/modules/canonical/finance/finance-module.js';
+$finance_records_js_file = $plugin_root . '/includes/admin/ui/modules/canonical/finance/finance-records-module.js';
 $canonical_dispatcher = $plugin_root . '/includes/admin/ui/modules/canonical/index.php';
 $fallback_tpl_file    = $plugin_root . '/includes/admin/ui/modules/canonical/_fallback.php';
 
 ac_assert('Template finance/index.php existe y es legible', is_readable($finance_tpl_file));
 ac_assert('Script finance-module.js existe y es legible', is_readable($finance_js_file));
+ac_assert('Script finance-records-module.js existe y es legible', is_readable($finance_records_js_file));
 ac_assert('Dispatcher canonical/index.php existe', is_readable($canonical_dispatcher));
 ac_assert('Fallback canonical/_fallback.php existe', is_readable($fallback_tpl_file));
 
 $finance_tpl_src = file_get_contents($finance_tpl_file);
 $finance_js_src  = file_get_contents($finance_js_file);
+$finance_records_js_src = file_get_contents($finance_records_js_file);
 
 ac_assert('Template no lee $_GET', strpos($finance_tpl_src, '$_GET') === false);
 ac_assert('Template no usa window.ajaxurl', strpos($finance_tpl_src, 'window.ajaxurl') === false);
@@ -97,7 +101,9 @@ ac_assert('Script JS no usa innerHTML con datos', strpos($finance_js_src, '.inne
 ac_assert('Template deriva nonce de FinanceAjaxSupport::NONCE_ACTION', strpos($finance_tpl_src, 'FinanceAjaxSupport::NONCE_ACTION') !== false);
 ac_assert('Template deriva acción List de FinanceContainersAjax::ACTION_LIST', strpos($finance_tpl_src, 'FinanceContainersAjax::ACTION_LIST') !== false);
 ac_assert('Template deriva acción Create de FinanceContainersAjax::ACTION_CREATE', strpos($finance_tpl_src, 'FinanceContainersAjax::ACTION_CREATE') !== false);
-ac_assert('Template no publica acciones Get o Delete', strpos($finance_tpl_src, 'ACTION_GET') === false && strpos($finance_tpl_src, 'ACTION_DELETE') === false);
+ac_assert('Script records no usa innerHTML con datos', strpos($finance_records_js_src, '.innerHTML =') === false);
+ac_assert('Template deriva acción listRecords de FinanceRecordsAjax::ACTION_LIST', strpos($finance_tpl_src, 'FinanceRecordsAjax::ACTION_LIST') !== false);
+ac_assert('Template no publica acciones create/get/delete de registros', strpos($finance_tpl_src, 'FinanceRecordsAjax::ACTION_CREATE') === false && strpos($finance_tpl_src, 'FinanceRecordsAjax::ACTION_GET') === false && strpos($finance_tpl_src, 'FinanceRecordsAjax::ACTION_DELETE') === false);
 
 echo "\n=== 2. Renderizado de Vista Finance con Contexto Resuelto ===\n";
 
@@ -122,7 +128,18 @@ ac_assert('Contiene botón de salida para estado incierto', strpos($html, 'id="a
 ac_assert('Contiene región aria-live en status', strpos($html, 'id="aa-finance-status" class="text-sm text-gray-500" aria-live="polite" tabindex="-1"') !== false);
 ac_assert('Status es destino programático de foco tras Cerrar y revisar', strpos($html, 'id="aa-finance-status"') !== false && strpos($html, 'tabindex="-1"') !== false);
 ac_assert('Contiene grid de contenedores', strpos($html, 'id="aa-finance-grid"') !== false);
+ac_assert('Carga script finance-records-module.js', strpos($html, 'finance-records-module.js') !== false);
 ac_assert('Carga script finance-module.js', strpos($html, 'finance-module.js') !== false);
+ac_assert('Records script precede al orquestador en el markup', strpos($html, 'finance-records-module.js') !== false && strpos($html, 'finance-module.js') !== false && strpos($html, 'finance-records-module.js') < strpos($html, 'finance-module.js'));
+
+ac_assert('Contiene región de detalle aa-finance-records-container oculta', strpos($html, 'id="aa-finance-records-container"') !== false && preg_match('/id="aa-finance-records-container"[^>]*class="[^"]*hidden[^"]*"/', $html) === 1);
+ac_assert('Contiene botón Volver a listas', strpos($html, 'id="aa-finance-records-back"') !== false && strpos($html, 'Volver a listas') !== false);
+ac_assert('Contiene heading enfocable de registros', strpos($html, 'id="aa-finance-records-heading"') !== false && strpos($html, 'tabindex="-1"') !== false);
+ac_assert('Contiene summary, status, grid y paginación de registros', strpos($html, 'id="aa-finance-records-summary"') !== false && strpos($html, 'id="aa-finance-records-status"') !== false && strpos($html, 'id="aa-finance-records-grid"') !== false && strpos($html, 'id="aa-finance-records-pagination"') !== false);
+ac_assert('Status de registros tiene aria-live polite', strpos($html, 'id="aa-finance-records-status" class="text-sm text-gray-500" aria-live="polite" tabindex="-1"') !== false);
+ac_assert('Grid de registros declara aria-busy', strpos($html, 'id="aa-finance-records-grid"') !== false && strpos($html, 'aria-busy="false"') !== false);
+ac_assert('Paginación de registros tiene controles accesibles', strpos($html, 'id="aa-finance-records-prev"') !== false && strpos($html, 'aria-label="Página anterior de registros"') !== false && strpos($html, 'id="aa-finance-records-next"') !== false && strpos($html, 'aria-label="Página siguiente de registros"') !== false);
+ac_assert('No contiene formularios ni botones de mutación de registros', strpos($html, 'aa-finance-create-record') === false && strpos($html, 'aa-finance-edit-record') === false && strpos($html, 'aa-finance-delete-record') === false);
 
 // Extraer JSON emitido en AA_FINANCE_DATA
 preg_match('/window\.AA_FINANCE_DATA\s*=\s*(\{.*?\});/s', $html, $matches);
@@ -135,6 +152,8 @@ ac_assert('Configuración tiene familyKey = finance', isset($config_json['family
 ac_assert('Configuración tiene variantKey = general', isset($config_json['variantKey']) && $config_json['variantKey'] === 'general');
 ac_assert('Configuración tiene actions.listContainers = aa_list_finance_containers', isset($config_json['actions']['listContainers']) && $config_json['actions']['listContainers'] === 'aa_list_finance_containers');
 ac_assert('Configuración tiene actions.createContainer = aa_create_finance_container', isset($config_json['actions']['createContainer']) && $config_json['actions']['createContainer'] === 'aa_create_finance_container');
+ac_assert('Configuración tiene actions.listRecords = aa_list_finance_records', isset($config_json['actions']['listRecords']) && $config_json['actions']['listRecords'] === 'aa_list_finance_records');
+ac_assert('Configuración no publica create/get/delete record actions', !isset($config_json['actions']['createRecord']) && !isset($config_json['actions']['getRecord']) && !isset($config_json['actions']['deleteRecord']));
 
 echo "\n=== 3. Comprobación del Dispatcher Fail-Closed y Fallback ===\n";
 

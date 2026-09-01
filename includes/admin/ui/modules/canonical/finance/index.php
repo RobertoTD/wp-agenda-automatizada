@@ -14,6 +14,9 @@ if (!class_exists('FinanceAjaxSupport')) {
 if (!class_exists('FinanceContainersAjax')) {
     require_once dirname(__DIR__, 4) . '/http/ajax/FinanceContainersAjax.php';
 }
+if (!class_exists('FinanceRecordsAjax')) {
+    require_once dirname(__DIR__, 4) . '/http/ajax/FinanceRecordsAjax.php';
+}
 
 /** @var AA_Canonical_Family_Definition $aa_canonical_family */
 /** @var AA_Canonical_Variant_Definition $aa_canonical_variant */
@@ -32,9 +35,11 @@ $finance_config = [
     'actions'    => [
         'listContainers'   => FinanceContainersAjax::ACTION_LIST,
         'createContainer'  => FinanceContainersAjax::ACTION_CREATE,
+        'listRecords'      => FinanceRecordsAjax::ACTION_LIST,
     ],
 ];
 
+$finance_records_js = plugin_dir_url(__FILE__) . 'finance-records-module.js';
 $finance_module_js  = plugin_dir_url(__FILE__) . 'finance-module.js';
 $finance_module_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
 ?>
@@ -113,6 +118,60 @@ $finance_module_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0'
         <div
             id="aa-finance-grid"
             class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+        ></div>
+    </div>
+
+    <!-- Región de detalle y registros (solo lectura) -->
+    <div
+        id="aa-finance-records-container"
+        class="flex flex-col gap-4 hidden"
+        hidden
+        aria-hidden="true"
+    >
+        <div class="flex items-center gap-3">
+            <button
+                type="button"
+                id="aa-finance-records-back"
+                class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition"
+            >
+                ← Volver a listas
+            </button>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3
+                id="aa-finance-records-heading"
+                class="text-xl font-bold text-gray-900 leading-tight"
+                tabindex="-1"
+            ></h3>
+            <div id="aa-finance-records-summary" class="mt-2"></div>
+        </div>
+
+        <div id="aa-finance-records-action-bar" class="flex items-center justify-between min-h-9 flex-wrap gap-2">
+            <div id="aa-finance-records-status" class="text-sm text-gray-500" aria-live="polite" tabindex="-1"></div>
+            <div id="aa-finance-records-pagination" class="flex items-center gap-2 hidden" hidden>
+                <button
+                    type="button"
+                    id="aa-finance-records-prev"
+                    class="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    disabled
+                    aria-label="Página anterior de registros"
+                >← Anterior</button>
+                <span id="aa-finance-records-page-indicator" class="text-xs text-gray-500">Página 1</span>
+                <button
+                    type="button"
+                    id="aa-finance-records-next"
+                    class="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    disabled
+                    aria-label="Página siguiente de registros"
+                >Siguiente →</button>
+            </div>
+        </div>
+
+        <div
+            id="aa-finance-records-grid"
+            class="grid grid-cols-1 gap-4"
+            aria-busy="false"
         ></div>
     </div>
 
@@ -227,4 +286,5 @@ $finance_module_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0'
 <script>
 window.AA_FINANCE_DATA = <?php echo wp_json_encode($finance_config, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES); ?>;
 </script>
+<script src="<?php echo esc_url($finance_records_js . '?ver=' . rawurlencode($finance_module_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($finance_module_js . '?ver=' . rawurlencode($finance_module_ver)); ?>" defer></script>
