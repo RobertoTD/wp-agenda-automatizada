@@ -535,6 +535,18 @@ FinanceContainersAjax::handle_update();
 ac_assert('Contenedor inexistente devuelve status 404', $GLOBALS['last_json_response']['status_code'] === 404);
 ac_assert('Código de error es not_found', $GLOBALS['last_json_response']['body']['data']['code'] === 'not_found');
 
+// 9.9b Carrera: update afectó 1 fila pero relectura ausente → 404 not_found
+$wpdb->rows = [];
+$wpdb->rows[] = [
+    'id' => '13', 'variant_key' => 'general', 'title' => 'Carrera', 'details' => null, 'created_at' => '2026-08-29 12:00:00',
+];
+$wpdb->update_result = 1;
+$wpdb->last_error = '';
+$_POST = ['id' => '13', 'title' => 'Carrera', 'details' => null];
+FinanceContainersAjax::handle_update();
+ac_assert('Carrera post-update (affected=1) devuelve status 404', $GLOBALS['last_json_response']['status_code'] === 404);
+ac_assert('Código de error carrera es not_found', $GLOBALS['last_json_response']['body']['data']['code'] === 'not_found');
+
 // 9.10 persistence_failed
 $wpdb->rows[] = [
     'id' => '12', 'variant_key' => 'general', 'title' => 'T', 'details' => null, 'created_at' => '2026-08-29 12:00:00',

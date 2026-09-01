@@ -235,7 +235,19 @@ $wpdb->rows[] = [
 $wpdb->update_result = 0;
 $wpdb->rows[] = null;
 $res_race = $use_case->execute(['id' => 50, 'title' => 'Concurrente', 'details' => null]);
-ac_assert('Carrera de borrado (update null) devuelve not_found', !$res_race['success'] && $res_race['error']['code'] === 'not_found');
+ac_assert('Carrera de borrado (update 0 → null) devuelve not_found', !$res_race['success'] && $res_race['error']['code'] === 'not_found');
+
+$wpdb->rows = [];
+$wpdb->rows[] = [
+    'id' => '55',
+    'variant_key' => 'general',
+    'title' => 'Borrado tras update',
+    'details' => null,
+    'created_at' => '2026-08-29 10:00:00',
+];
+$wpdb->update_result = 1;
+$res_race_one = $use_case->execute(['id' => 55, 'title' => 'Borrado tras update', 'details' => null]);
+ac_assert('Carrera de borrado (update 1 → null) devuelve not_found', !$res_race_one['success'] && $res_race_one['error']['code'] === 'not_found');
 
 $wpdb->rows[] = [
     'id' => '51',

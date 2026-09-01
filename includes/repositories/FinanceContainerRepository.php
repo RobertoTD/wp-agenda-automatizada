@@ -326,7 +326,7 @@ final class FinanceContainerRepository {
 
         if ($affected_int === 1) {
             if ($row === null) {
-                throw new \RuntimeException('[FinanceContainerRepository] Fila autoritativa ausente o corrupta tras actualización');
+                return null;
             }
 
             if (($row['variant_key'] ?? '') !== $variant_key) {

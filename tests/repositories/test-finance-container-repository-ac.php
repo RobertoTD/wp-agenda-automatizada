@@ -377,22 +377,28 @@ try {
 }
 ac_assert('update() retorno 0 con valores distintos lanza RuntimeException', $caught_update_mismatch);
 
-// 2.6.10 Retorno 1 fila corrupta → RuntimeException
+// 2.6.10 Retorno 1 relectura ausente → null
+$wpdb->update_result = 1;
+$wpdb->rows = [];
+$updated_gone_after_one = FinanceContainerRepository::update(51, 'general', 'Ausente', null);
+ac_assert('update() retorno 1 con relectura ausente devuelve null', $updated_gone_after_one === null);
+
+// 2.6.11 Retorno 1 identidad discordante → RuntimeException
 $wpdb->update_result = 1;
 $wpdb->rows[] = [
-    'id' => '0',
+    'id' => '53',
     'variant_key' => 'general',
-    'title' => 'Corrupto',
+    'title' => 'Discordante',
     'details' => null,
     'created_at' => '2026-08-29 12:00:00',
 ];
-$caught_update_corrupt = false;
+$caught_update_identity = false;
 try {
-    FinanceContainerRepository::update(51, 'general', 'Corrupto', null);
+    FinanceContainerRepository::update(52, 'general', 'Discordante', null);
 } catch (\RuntimeException $e) {
-    $caught_update_corrupt = true;
+    $caught_update_identity = (strpos($e->getMessage(), 'Identidad discordante') !== false);
 }
-ac_assert('update() retorno 1 con relectura corrupta lanza RuntimeException', $caught_update_corrupt);
+ac_assert('update() retorno 1 con id discordante lanza RuntimeException', $caught_update_identity);
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 
