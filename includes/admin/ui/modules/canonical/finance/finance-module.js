@@ -87,6 +87,21 @@
     var recordDeleteBlockedActionsEl = document.getElementById('aa-finance-record-delete-actions-blocked');
     var recordDeleteBlockedCloseBtn = document.getElementById('aa-finance-record-delete-blocked-close');
 
+    var containerDeleteModal = document.getElementById('aa-finance-container-delete-modal');
+    var containerDeleteBackdrop = document.getElementById('aa-finance-container-delete-modal-backdrop');
+    var containerDeleteCloseBtn = document.getElementById('aa-finance-container-delete-close');
+    var containerDeleteTitleEl = document.getElementById('aa-finance-container-delete-modal-title');
+    var containerDeleteBodyEl = document.getElementById('aa-finance-container-delete-body');
+    var containerDeleteAmountEl = document.getElementById('aa-finance-container-delete-amount');
+    var containerDeleteErrorEl = document.getElementById('aa-finance-container-delete-error');
+    var containerDeleteStandardActionsEl = document.getElementById('aa-finance-container-delete-actions-standard');
+    var containerDeleteCancelBtn = document.getElementById('aa-finance-container-delete-cancel');
+    var containerDeleteConfirmBtn = document.getElementById('aa-finance-container-delete-confirm');
+    var containerDeleteUncertainActionsEl = document.getElementById('aa-finance-container-delete-actions-uncertain');
+    var containerDeleteUncertainCloseBtn = document.getElementById('aa-finance-container-delete-uncertain-close');
+    var containerDeleteBlockedActionsEl = document.getElementById('aa-finance-container-delete-actions-blocked');
+    var containerDeleteBlockedCloseBtn = document.getElementById('aa-finance-container-delete-blocked-close');
+
     function showFatalConfigError() {
         if (statusEl) {
             statusEl.textContent = 'No se pudo iniciar el módulo de Finanzas.';
@@ -150,6 +165,12 @@
     var recordMutationLock = 'none';
     var recordDeleteController = null;
     var recordDeleteEnabled = false;
+    var nextContainerDeleteReviewToken = 1;
+    var pendingContainerDeleteReview = null;
+    var containerMutationLock = 'none';
+    var containerDeleteController = null;
+    var containerDeleteEnabled = false;
+    var pendingListFocusAfterLoad = false;
 
     var PENDING_REVIEW_NOTICE = 'Hay una entrada pendiente de revisión en otra lista. Vuelve a esa lista antes de crear una nueva.';
     var PENDING_DELETE_REVIEW_NOTICE = 'Hay una eliminación pendiente de revisión en otra lista. Vuelve a esa lista para continuar.';
@@ -287,6 +308,89 @@
         return !!(window.AA_FinanceRecordDelete && typeof window.AA_FinanceRecordDelete.createController === 'function');
     }
 
+    function hasContainerDeleteAction() {
+        return !!(
+            actions &&
+            typeof actions.deleteContainer === 'string' && actions.deleteContainer.trim() !== '' &&
+            typeof actions.getContainer === 'string' && actions.getContainer.trim() !== ''
+        );
+    }
+
+    function hasContainerDeleteMarkup() {
+        return !!(
+            containerDeleteModal &&
+            containerDeleteBackdrop &&
+            containerDeleteCloseBtn &&
+            containerDeleteTitleEl &&
+            containerDeleteBodyEl &&
+            containerDeleteAmountEl &&
+            containerDeleteErrorEl &&
+            containerDeleteStandardActionsEl &&
+            containerDeleteCancelBtn &&
+            containerDeleteConfirmBtn &&
+            containerDeleteUncertainActionsEl &&
+            containerDeleteUncertainCloseBtn &&
+            containerDeleteBlockedActionsEl &&
+            containerDeleteBlockedCloseBtn
+        );
+    }
+
+    function hasContainerDeleteFactory() {
+        return !!(window.AA_FinanceContainerDelete && typeof window.AA_FinanceContainerDelete.createController === 'function');
+    }
+
+    function applyContainerMutationLock(lock) {
+        containerMutationLock = lock;
+        syncMutationUI();
+    }
+
+    function isCreateContainerFlowBlockingDelete() {
+        return (
+            createModalState === CREATE_STATES.SUBMITTING ||
+            createModalState === CREATE_STATES.UNCERTAIN ||
+            createModalState === CREATE_STATES.REVIEWING_UNCERTAIN
+        );
+    }
+
+    function isContainerDeleteAllowed() {
+        if (!containerDeleteEnabled) {
+            return false;
+        }
+        if (containerMutationLock !== 'none') {
+            return false;
+        }
+        if (recordMutationLock !== 'none') {
+            return false;
+        }
+        if (isCreateContainerFlowBlockingDelete()) {
+            return false;
+        }
+        if (navMode !== NAV_MODES.CONTAINER_LIST) {
+            return false;
+        }
+        return true;
+    }
+
+    function isContainerDeleteAllowedForCard(containerId) {
+        if (!isContainerDeleteAllowed()) {
+            return false;
+        }
+        if (pendingContainerDeleteReview && pendingContainerDeleteReview.containerId === containerId) {
+            return false;
+        }
+        return true;
+    }
+
+    function resolveListRefreshPage(sourcePage) {
+        if (navMode === NAV_MODES.CONTAINER_LIST) {
+            return confirmedPage;
+        }
+        if (Number.isInteger(sourcePage) && sourcePage >= 1) {
+            return sourcePage;
+        }
+        return confirmedPage;
+    }
+
     function deriveBaseMutationLock() {
         if (pendingRecordReview) {
             return 'create_review';
@@ -305,16 +409,47 @@
     function syncMutationUI() {
         setRecordCreateTriggerVisible(navMode === NAV_MODES.RECORDS_DETAIL);
         if (recordsController && typeof recordsController.setDeleteActionsEnabled === 'function') {
-            recordsController.setDeleteActionsEnabled(recordMutationLock === 'none');
+            recordsController.setDeleteActionsEnabled(!isRecordDeleteGloballyBlocked());
+        }
+        syncContainerDeleteButtons();
+        syncCreateContainerTrigger();
+    }
+
+    function syncCreateContainerTrigger() {
+        if (!openCreateBtn || !hasCreateAction) {
+            return;
+        }
+        if (navMode !== NAV_MODES.CONTAINER_LIST) {
+            return;
+        }
+        if (containerMutationLock !== 'none' || isCreateContainerFlowBlockingDelete()) {
+            openCreateBtn.disabled = true;
+            openCreateBtn.setAttribute('aria-disabled', 'true');
+        } else if (createModalState !== CREATE_STATES.REVIEWING_UNCERTAIN) {
+            openCreateBtn.disabled = false;
+            openCreateBtn.removeAttribute('aria-disabled');
+        }
+    }
+
+    function syncContainerDeleteButtons() {
+        if (!gridEl) {
+            return;
+        }
+        var buttons = gridEl.querySelectorAll('.aa-finance-delete-container-btn');
+        for (var i = 0; i < buttons.length; i++) {
+            var btn = buttons[i];
+            var rawId = btn.getAttribute('data-container-id');
+            var containerId = rawId ? parseInt(rawId, 10) : NaN;
+            btn.disabled = !isContainerDeleteAllowedForCard(containerId);
         }
     }
 
     function isRecordCreateGloballyBlocked() {
-        return recordMutationLock !== 'none';
+        return recordMutationLock !== 'none' || containerMutationLock !== 'none';
     }
 
     function isRecordDeleteGloballyBlocked() {
-        return recordMutationLock !== 'none';
+        return recordMutationLock !== 'none' || containerMutationLock !== 'none';
     }
 
     function focusRecordsDetailHeading() {
@@ -353,6 +488,51 @@
             }
         });
         recordsStatusEl.appendChild(retryBtn);
+    }
+
+    function showContainerDeleteReviewRetryNotice(reviewToken) {
+        if (!statusEl) {
+            return;
+        }
+        while (statusEl.firstChild) {
+            statusEl.removeChild(statusEl.firstChild);
+        }
+        statusEl.className = 'text-sm text-amber-700 font-medium flex items-center gap-2 flex-wrap';
+        var msgSpan = document.createElement('span');
+        msgSpan.textContent = 'No pudimos completar la revisión.';
+        statusEl.appendChild(msgSpan);
+        var retryBtn = document.createElement('button');
+        retryBtn.type = 'button';
+        retryBtn.className = 'underline hover:text-amber-900 text-xs font-semibold focus:outline-none';
+        retryBtn.textContent = 'Reintentar revisión';
+        retryBtn.addEventListener('click', function () {
+            if (!pendingContainerDeleteReview || pendingContainerDeleteReview.reviewToken !== reviewToken) {
+                return;
+            }
+            if (containerDeleteController) {
+                containerDeleteController.retryReview();
+            }
+        });
+        statusEl.appendChild(retryBtn);
+    }
+
+    function handleContainerDeleteListSettlement() {
+        if (!pendingContainerDeleteReview || !pendingContainerDeleteReview.awaitingListSettlement) {
+            return;
+        }
+        if (navMode !== NAV_MODES.CONTAINER_LIST) {
+            return;
+        }
+
+        var reviewToken = pendingContainerDeleteReview.reviewToken;
+        var outcome = pendingContainerDeleteReview.outcome;
+
+        pendingContainerDeleteReview = null;
+        applyContainerMutationLock('none');
+        if (containerDeleteController) {
+            containerDeleteController.completeListSettlement(reviewToken, outcome);
+        }
+        syncMutationUI();
     }
 
     function setRecordCreateTriggerVisible(isVisible) {
@@ -759,9 +939,121 @@
         recordDeleteEnabled = !!recordDeleteController;
     }
 
+    function initContainerDeleteController() {
+        if (!hasContainerDeleteFactory() || !hasContainerDeleteAction() || !hasContainerDeleteMarkup()) {
+            containerDeleteEnabled = false;
+            return;
+        }
+
+        containerDeleteController = window.AA_FinanceContainerDelete.createController({
+            cfg: cfg,
+            elements: {
+                modal: containerDeleteModal,
+                backdrop: containerDeleteBackdrop,
+                closeBtn: containerDeleteCloseBtn,
+                title: containerDeleteTitleEl,
+                body: containerDeleteBodyEl,
+                amount: containerDeleteAmountEl,
+                modalError: containerDeleteErrorEl,
+                standardActions: containerDeleteStandardActionsEl,
+                cancelBtn: containerDeleteCancelBtn,
+                confirmBtn: containerDeleteConfirmBtn,
+                uncertainActions: containerDeleteUncertainActionsEl,
+                uncertainCloseBtn: containerDeleteUncertainCloseBtn,
+                blockedActions: containerDeleteBlockedActionsEl,
+                blockedCloseBtn: containerDeleteBlockedCloseBtn
+            },
+            isListActive: function () {
+                return navMode === NAV_MODES.CONTAINER_LIST;
+            },
+            isDeleteAllowed: function () {
+                return isContainerDeleteAllowed();
+            },
+            onFlowStateChange: function (payload) {
+                if (!payload || typeof payload.phase !== 'string') {
+                    return;
+                }
+                if (payload.phase === 'delete_active') {
+                    applyContainerMutationLock('delete_active');
+                } else if (payload.phase === 'delete_review') {
+                    applyContainerMutationLock('delete_review');
+                } else if (payload.phase === 'idle') {
+                    applyContainerMutationLock('none');
+                } else if (payload.phase === 'invalidate_snapshot') {
+                    listSnapshotValid = false;
+                }
+            },
+            onRefreshRequested: function (payload) {
+                if (!payload || typeof payload.reason !== 'string') {
+                    return;
+                }
+                listSnapshotValid = false;
+                var page = resolveListRefreshPage(payload.sourcePage);
+
+                if (payload.message && typeof payload.message === 'string') {
+                    listStatusOverride = payload.message;
+                }
+
+                if (payload.reason === 'confirmed' || payload.reason === 'not_found') {
+                    pendingListFocusAfterLoad = true;
+                }
+
+                if (payload.reason === 'review_gone' || payload.reason === 'review_exists') {
+                    if (
+                        !pendingContainerDeleteReview ||
+                        pendingContainerDeleteReview.reviewToken !== payload.reviewToken
+                    ) {
+                        return;
+                    }
+                    pendingContainerDeleteReview.awaitingListSettlement = true;
+                    pendingContainerDeleteReview.outcome = payload.outcome;
+                    pendingListFocusAfterLoad = true;
+                    if (payload.reason === 'review_exists') {
+                        listStatusOverride = 'La lista continúa disponible.';
+                    }
+                }
+
+                loadPage(page);
+            },
+            onReviewPending: function (payload) {
+                if (
+                    !payload ||
+                    !Number.isInteger(payload.containerId) || payload.containerId < 1 ||
+                    !Number.isInteger(payload.sourcePage) || payload.sourcePage < 1
+                ) {
+                    return null;
+                }
+                if (pendingContainerDeleteReview) {
+                    return pendingContainerDeleteReview.reviewToken;
+                }
+                nextContainerDeleteReviewToken++;
+                pendingContainerDeleteReview = {
+                    reviewToken: nextContainerDeleteReviewToken,
+                    containerId: payload.containerId,
+                    sourcePage: payload.sourcePage
+                };
+                applyContainerMutationLock('delete_review');
+                return nextContainerDeleteReviewToken;
+            },
+            onReviewUncertain: function (payload) {
+                if (!payload || !Number.isInteger(payload.reviewToken)) {
+                    return;
+                }
+                showContainerDeleteReviewRetryNotice(payload.reviewToken);
+            },
+            onFocusStatus: function () {
+                if (statusEl) {
+                    statusEl.focus();
+                }
+            }
+        });
+        containerDeleteEnabled = !!containerDeleteController;
+    }
+
     initRecordsController();
     initRecordCreateController();
     initRecordDeleteController();
+    initContainerDeleteController();
 
     function setListViewVisible(isVisible) {
         if (listContainerEl) {
@@ -799,7 +1091,7 @@
         if (isVisible) {
             openCreateBtn.classList.remove('hidden');
             openCreateBtn.hidden = false;
-            if (createModalState !== CREATE_STATES.REVIEWING_UNCERTAIN) {
+            if (createModalState !== CREATE_STATES.REVIEWING_UNCERTAIN && containerMutationLock === 'none' && !isCreateContainerFlowBlockingDelete()) {
                 openCreateBtn.disabled = false;
                 openCreateBtn.removeAttribute('aria-disabled');
             }
@@ -850,6 +1142,20 @@
         }
         if (!Number.isInteger(containerId) || containerId < 1) {
             return;
+        }
+
+        if (pendingContainerDeleteReview) {
+            if (pendingContainerDeleteReview.containerId === containerId) {
+                if (statusEl) {
+                    statusEl.textContent = 'Hay una eliminación pendiente de revisión para esta lista.';
+                    statusEl.className = 'text-sm text-amber-700 font-medium';
+                    statusEl.focus();
+                }
+                return;
+            }
+            if (containerDeleteController && navMode === NAV_MODES.CONTAINER_LIST) {
+                containerDeleteController.abortActiveReviewRequest();
+            }
         }
 
         if (pendingDeleteReview && recordDeleteController) {
@@ -915,11 +1221,18 @@
             }
             loadPage(confirmedPage);
             originOpenButton = null;
+            if (pendingContainerDeleteReview && containerDeleteController) {
+                containerDeleteController.resumeReview(pendingContainerDeleteReview);
+            }
             return;
         }
 
         restoreListFocus();
         originOpenButton = null;
+
+        if (pendingContainerDeleteReview && containerDeleteController) {
+            containerDeleteController.resumeReview(pendingContainerDeleteReview);
+        }
     }
 
     if (recordsBackBtn) {
@@ -1190,6 +1503,33 @@
                 card.appendChild(openRecordsBtn);
             }
 
+            if (containerDeleteEnabled) {
+                var deleteContainerBtn = document.createElement('button');
+                deleteContainerBtn.type = 'button';
+                deleteContainerBtn.className = 'aa-finance-delete-container-btn mt-2 text-xs text-gray-500 underline hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline';
+                deleteContainerBtn.textContent = 'Eliminar';
+                deleteContainerBtn.setAttribute('data-container-id', String(item.id));
+                deleteContainerBtn.setAttribute('aria-label', 'Eliminar lista «' + item.title + '»');
+                deleteContainerBtn.disabled = !isContainerDeleteAllowedForCard(item.id);
+
+                (function (snapshot, triggerBtn) {
+                    deleteContainerBtn.addEventListener('click', function () {
+                        if (!containerDeleteController || triggerBtn.disabled) {
+                            return;
+                        }
+                        containerDeleteController.openModal(snapshot, triggerBtn);
+                    });
+                })({
+                    containerId: item.id,
+                    title: item.title,
+                    details: item.details,
+                    amountTotal: item.amount_total,
+                    sourcePage: confirmedPage
+                }, deleteContainerBtn);
+
+                card.appendChild(deleteContainerBtn);
+            }
+
             gridEl.appendChild(card);
         }
     }
@@ -1308,6 +1648,14 @@
                 }
 
                 updatePaginationControls(data);
+                handleContainerDeleteListSettlement();
+                syncMutationUI();
+                if (pendingListFocusAfterLoad) {
+                    pendingListFocusAfterLoad = false;
+                    if (statusEl) {
+                        statusEl.focus();
+                    }
+                }
             })
             .catch(function (err) {
                 if (err && err.name === 'AbortError') {
@@ -1440,6 +1788,9 @@
 
     function openModal() {
         if (!createModal) return;
+        if (containerMutationLock !== 'none') {
+            return;
+        }
 
         clearModalErrors();
         setBotoneraState('standard');
@@ -1504,6 +1855,7 @@
             if (detailsInput) detailsInput.value = '';
             clearModalErrors();
             createModalState = CREATE_STATES.IDLE;
+            syncMutationUI();
         }
 
         if (openCreateBtn && !openCreateBtn.disabled) {
@@ -1513,7 +1865,9 @@
 
     if (openCreateBtn && hasCreateAction) {
         openCreateBtn.addEventListener('click', function () {
-            if (openCreateBtn.disabled) return;
+            if (openCreateBtn.disabled || containerMutationLock !== 'none') {
+                return;
+            }
             openModal();
         });
     }
@@ -1545,6 +1899,7 @@
     if (uncertainCloseBtn) {
         uncertainCloseBtn.addEventListener('click', function () {
             createModalState = CREATE_STATES.REVIEWING_UNCERTAIN;
+            syncMutationUI();
             if (openCreateBtn) {
                 openCreateBtn.disabled = true;
                 openCreateBtn.setAttribute('aria-disabled', 'true');
@@ -1631,6 +1986,7 @@
             };
 
             createModalState = CREATE_STATES.SUBMITTING;
+            syncMutationUI();
             var currentCreateSeq = ++createRequestSeq;
             var isSettled = false;
 
@@ -1666,6 +2022,7 @@
             function transitionToUncertain() {
                 cleanupCreateTimer();
                 createModalState = CREATE_STATES.UNCERTAIN;
+                syncMutationUI();
                 setBotoneraState('uncertain');
                 if (modalErrorEl) {
                     modalErrorEl.textContent = 'No pudimos confirmar si la lista se creó. Revisa el listado antes de intentarlo nuevamente.';

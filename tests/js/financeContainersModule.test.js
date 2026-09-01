@@ -10,7 +10,12 @@ const modulePath = path.join(
     __dirname,
     '../../includes/admin/ui/modules/canonical/finance/finance-module.js'
 );
+const containerDeleteModulePath = path.join(
+    __dirname,
+    '../../includes/admin/ui/modules/canonical/finance/finance-container-delete-module.js'
+);
 const moduleSrc = fs.readFileSync(modulePath, 'utf8');
+const containerDeleteModuleSrc = fs.readFileSync(containerDeleteModulePath, 'utf8');
 
 const hostSetTimeout = setTimeout.bind(globalThis);
 const hostClearTimeout = clearTimeout.bind(globalThis);
@@ -64,7 +69,9 @@ const DEFAULT_FINANCE_DATA = {
     variantKey: 'general',
     actions: {
         listContainers: 'aa_list_finance_containers',
-        createContainer: 'aa_create_finance_container'
+        createContainer: 'aa_create_finance_container',
+        getContainer: 'aa_get_finance_container',
+        deleteContainer: 'aa_delete_finance_container'
     }
 };
 
@@ -91,6 +98,7 @@ function createDeferred() {
             reject(reason);
         };
     });
+    deferred.promise.catch(function () {});
     return deferred;
 }
 
@@ -180,6 +188,16 @@ function isListFetch(opts) {
         && opts.body.data.action === 'aa_list_finance_containers';
 }
 
+function isDeleteContainerFetch(opts) {
+    return opts && opts.body && opts.body.data
+        && opts.body.data.action === 'aa_delete_finance_container';
+}
+
+function isGetContainerFetch(opts) {
+    return opts && opts.body && opts.body.data
+        && opts.body.data.action === 'aa_get_finance_container';
+}
+
 function createFinanceFetchHandler(options) {
     const state = {
         listDeferred: options.listDeferred || null,
@@ -187,6 +205,8 @@ function createFinanceFetchHandler(options) {
         listShouldFail: options.listShouldFail || function () { return false; },
         listCallCount: 0,
         createFetchCalls: 0,
+        deleteContainerFetchCalls: 0,
+        getContainerFetchCalls: 0,
         lastCreatePayload: null,
         immediateList: options.immediateList !== false,
         immediateCreate: options.immediateCreate || null
@@ -219,6 +239,26 @@ function createFinanceFetchHandler(options) {
             }
             if (state.immediateList) {
                 return Promise.resolve(listFetchResponse(options.listData));
+            }
+        }
+
+        if (isDeleteContainerFetch(opts)) {
+            state.deleteContainerFetchCalls++;
+            if (options.deleteContainerResponse) {
+                return Promise.resolve(options.deleteContainerResponse(opts));
+            }
+            if (options.deleteContainerDeferred) {
+                return options.deleteContainerDeferred.promise;
+            }
+        }
+
+        if (isGetContainerFetch(opts)) {
+            state.getContainerFetchCalls++;
+            if (options.getContainerResponse) {
+                return Promise.resolve(options.getContainerResponse(opts));
+            }
+            if (options.getContainerDeferred) {
+                return options.getContainerDeferred.promise;
             }
         }
 
@@ -280,7 +320,11 @@ function buildSandbox(document, options) {
         immediateList: options.immediateList,
         immediateCreate: options.immediateCreate,
         listData: options.listData,
-        createContainer: options.createContainer
+        createContainer: options.createContainer,
+        deleteContainerResponse: options.deleteContainerResponse,
+        getContainerResponse: options.getContainerResponse,
+        deleteContainerDeferred: options.deleteContainerDeferred,
+        getContainerDeferred: options.getContainerDeferred
     });
 
     const sandbox = {
@@ -324,7 +368,11 @@ async function waitForHostDelay(ms) {
     });
 }
 
-async function bootModule(sandbox) {
+async function bootModule(sandbox, options) {
+    options = options || {};
+    if (options.withContainerDelete === true) {
+        vm.runInNewContext(containerDeleteModuleSrc, sandbox);
+    }
     vm.runInNewContext(moduleSrc, sandbox);
     await flushMicrotasks();
 }
@@ -720,6 +768,39 @@ function buildDom() {
     createModal.appendChild(modalCloseBtn);
     createModal.appendChild(createForm);
 
+    const containerDeleteModal = createEl('div', 'aa-finance-container-delete-modal');
+    containerDeleteModal.classList.add('hidden');
+    const containerDeleteBackdrop = createEl('div', 'aa-finance-container-delete-modal-backdrop');
+    const containerDeleteCloseBtn = createEl('button', 'aa-finance-container-delete-close');
+    const containerDeleteTitleEl = createEl('h3', 'aa-finance-container-delete-modal-title');
+    const containerDeleteBodyEl = createEl('p', 'aa-finance-container-delete-body');
+    const containerDeleteAmountEl = createEl('p', 'aa-finance-container-delete-amount');
+    containerDeleteAmountEl.classList.add('hidden');
+    const containerDeleteErrorEl = createEl('div', 'aa-finance-container-delete-error');
+    containerDeleteErrorEl.classList.add('hidden');
+    const containerDeleteStandardActionsEl = createEl('div', 'aa-finance-container-delete-actions-standard');
+    const containerDeleteCancelBtn = createEl('button', 'aa-finance-container-delete-cancel');
+    const containerDeleteConfirmBtn = createEl('button', 'aa-finance-container-delete-confirm');
+    const containerDeleteUncertainActionsEl = createEl('div', 'aa-finance-container-delete-actions-uncertain');
+    containerDeleteUncertainActionsEl.classList.add('hidden');
+    const containerDeleteUncertainCloseBtn = createEl('button', 'aa-finance-container-delete-uncertain-close');
+    const containerDeleteBlockedActionsEl = createEl('div', 'aa-finance-container-delete-actions-blocked');
+    containerDeleteBlockedActionsEl.classList.add('hidden');
+    const containerDeleteBlockedCloseBtn = createEl('button', 'aa-finance-container-delete-blocked-close');
+    containerDeleteStandardActionsEl.appendChild(containerDeleteCancelBtn);
+    containerDeleteStandardActionsEl.appendChild(containerDeleteConfirmBtn);
+    containerDeleteUncertainActionsEl.appendChild(containerDeleteUncertainCloseBtn);
+    containerDeleteBlockedActionsEl.appendChild(containerDeleteBlockedCloseBtn);
+    containerDeleteModal.appendChild(containerDeleteBackdrop);
+    containerDeleteModal.appendChild(containerDeleteCloseBtn);
+    containerDeleteModal.appendChild(containerDeleteTitleEl);
+    containerDeleteModal.appendChild(containerDeleteErrorEl);
+    containerDeleteModal.appendChild(containerDeleteBodyEl);
+    containerDeleteModal.appendChild(containerDeleteAmountEl);
+    containerDeleteModal.appendChild(containerDeleteStandardActionsEl);
+    containerDeleteModal.appendChild(containerDeleteUncertainActionsEl);
+    containerDeleteModal.appendChild(containerDeleteBlockedActionsEl);
+
     paginationEl.appendChild(prevBtn);
     paginationEl.appendChild(pageIndicatorEl);
     paginationEl.appendChild(nextBtn);
@@ -729,6 +810,7 @@ function buildDom() {
     root.appendChild(paginationEl);
     root.appendChild(gridEl);
     root.appendChild(createModal);
+    root.appendChild(containerDeleteModal);
 
     const allNamed = [
         root, statusEl, gridEl, paginationEl, prevBtn, nextBtn, pageIndicatorEl,
@@ -736,7 +818,12 @@ function buildDom() {
         titleInput, titleErrorEl, detailsInput, detailsErrorEl,
         standardActionsEl, cancelBtn, submitBtn, hiddenActionsEl, hiddenTrapBtn,
         uncertainActionsEl, uncertainCloseBtn,
-        blockedActionsEl, blockedCloseBtn
+        blockedActionsEl, blockedCloseBtn,
+        containerDeleteModal, containerDeleteBackdrop, containerDeleteCloseBtn, containerDeleteTitleEl,
+        containerDeleteBodyEl, containerDeleteAmountEl, containerDeleteErrorEl,
+        containerDeleteStandardActionsEl, containerDeleteCancelBtn, containerDeleteConfirmBtn,
+        containerDeleteUncertainActionsEl, containerDeleteUncertainCloseBtn,
+        containerDeleteBlockedActionsEl, containerDeleteBlockedCloseBtn
     ];
 
     allNamed.forEach(function (el) {
@@ -752,7 +839,9 @@ function buildDom() {
         titleInput, titleErrorEl, detailsInput, detailsErrorEl,
         standardActionsEl, cancelBtn, submitBtn, hiddenActionsEl, hiddenTrapBtn,
         uncertainActionsEl, uncertainCloseBtn,
-        blockedActionsEl, blockedCloseBtn
+        blockedActionsEl, blockedCloseBtn,
+        containerDeleteModal, containerDeleteCancelBtn, containerDeleteConfirmBtn,
+        containerDeleteUncertainCloseBtn, containerDeleteBodyEl
     };
 }
 
@@ -1622,6 +1711,7 @@ describe('FinanceContainersModule (Ciclos 3D1 y 3D2)', () => {
                 const closer = closerName === 'blockedCloseBtn' ? dom.blockedCloseBtn : dom.modalCloseBtn;
                 closer.dispatch('click');
 
+                assert.strictEqual(dom.openCreateBtn.disabled, false);
                 assert.strictEqual(dom.createModal.classList.contains('hidden'), true, 'modal abierto tras ' + closerName);
                 assert.strictEqual(dom.titleInput.value, '', 'título residual tras ' + closerName);
                 assert.strictEqual(dom.detailsInput.value, '', 'detalles residuales tras ' + closerName);
@@ -1735,6 +1825,22 @@ describe('FinanceContainersModule (Ciclos 3D1 y 3D2)', () => {
             assert.ok(gridEl.textContent.includes('Desde Listado'));
             assert.strictEqual(openCreateBtn.hidden, false);
             assert.strictEqual(harness.fetchHandler.state.listCallCount, 1);
+        } finally {
+            harness.cleanup();
+            await flushMicrotasks();
+        }
+    });
+
+    it('renderiza botón Eliminar por card con snapshot sourcePage del envelope', async () => {
+        const dom = buildDom();
+        const harness = buildSandbox(dom.document, { listData: AUTHORITATIVE_LIST_DATA });
+        try {
+            await bootModule(harness.sandbox, { withContainerDelete: true });
+            const deleteBtn = dom.gridEl.querySelector('.aa-finance-delete-container-btn');
+            assert.ok(deleteBtn);
+            assert.strictEqual(deleteBtn.textContent, 'Eliminar');
+            assert.strictEqual(deleteBtn.getAttribute('data-container-id'), '7');
+            assert.strictEqual(deleteBtn.disabled, false);
         } finally {
             harness.cleanup();
             await flushMicrotasks();
