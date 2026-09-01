@@ -41,6 +41,7 @@ ac_assert('Define constante ACTION_LIST = aa_list_finance_records', strpos($ajax
 ac_assert('Define constante ACTION_CREATE = aa_create_finance_record', strpos($ajax_src, "ACTION_CREATE = 'aa_create_finance_record'") !== false);
 ac_assert('Define constante ACTION_GET = aa_get_finance_record', strpos($ajax_src, "ACTION_GET    = 'aa_get_finance_record'") !== false);
 ac_assert('Define constante ACTION_DELETE = aa_delete_finance_record', strpos($ajax_src, "ACTION_DELETE = 'aa_delete_finance_record'") !== false);
+ac_assert('Define constante ACTION_UPDATE = aa_update_finance_record', strpos($ajax_src, "ACTION_UPDATE = 'aa_update_finance_record'") !== false);
 ac_assert('NONCE_ACTION deriva de FinanceAjaxSupport::NONCE_ACTION', strpos($ajax_src, "NONCE_ACTION  = FinanceAjaxSupport::NONCE_ACTION") !== false);
 ac_assert('FinanceAjaxSupport define NONCE_ACTION = aa_finance_nonce', strpos($support_src, "NONCE_ACTION = 'aa_finance_nonce'") !== false);
 
@@ -57,6 +58,7 @@ ac_assert('No contiene (int), absint()', strpos($ajax_src, '(int)') === false &&
 ac_assert('No contiene sanitize_text_field ni sanitize_textarea_field', strpos($ajax_src, 'sanitize_text_field(') === false && strpos($ajax_src, 'sanitize_textarea_field(') === false);
 ac_assert('No acepta alias variant (solo variant_key)', strpos($ajax_src, "\$_POST['variant']") === false);
 ac_assert('No acepta alias id en lugar de record_id', strpos($ajax_src, "\$_POST['id']") === false);
+ac_assert('FinanceAjaxSupport mapea missing_amount a 400', strpos($support_src, "case 'missing_amount':") !== false);
 ac_assert('No captura Throwable indiscriminado', strpos($ajax_src, 'catch (\Throwable') === false && strpos($ajax_src, 'catch (Throwable') === false);
 
 echo "\n=== 2. Configuración de Dobles de Prueba ===\n";
@@ -170,6 +172,7 @@ require_once $plugin_root . '/includes/application/finance/CreateFinanceRecordUs
 require_once $plugin_root . '/includes/application/finance/GetFinanceRecordUseCase.php';
 require_once $plugin_root . '/includes/application/finance/ListFinanceRecordsUseCase.php';
 require_once $plugin_root . '/includes/application/finance/DeleteFinanceRecordUseCase.php';
+require_once $plugin_root . '/includes/application/finance/UpdateFinanceRecordUseCase.php';
 require_once $ajax_file;
 
 class TestFinanceRecordsWpdbMock {
@@ -178,6 +181,8 @@ class TestFinanceRecordsWpdbMock {
     public $last_error = '';
     public $queries = [];
     public $rows_affected = 0;
+    public $update_result = 1;
+    public $delete_record_after_update = null;
 
     public $container_rows = [];
     public $record_rows = [];
@@ -289,6 +294,25 @@ class TestFinanceRecordsWpdbMock {
         return false;
     }
 
+    public function update($table, array $data, array $where, $format = null, $where_format = null) {
+        $this->queries[] = ['update', $table, $data, $where];
+        if ($this->last_error !== '') {
+            return false;
+        }
+        if (strpos($table, 'aa_finance_records') !== false) {
+            $rid = (int) ($where['id'] ?? 0);
+            $cid = (int) ($where['container_id'] ?? 0);
+            if (isset($this->record_rows[$rid]) && (int) $this->record_rows[$rid]['container_id'] === $cid) {
+                $this->record_rows[$rid] = array_merge($this->record_rows[$rid], $data);
+                if ($this->delete_record_after_update === $rid) {
+                    unset($this->record_rows[$rid]);
+                }
+            }
+            return $this->update_result;
+        }
+        return false;
+    }
+
     public function prepare(string $query, ...$args): string {
         $flat_args = [];
         foreach ($args as $arg) {
@@ -343,7 +367,8 @@ ac_assert('Hook wp_ajax_aa_list_finance_records registrado', isset($GLOBALS['wp_
 ac_assert('Hook wp_ajax_aa_create_finance_record registrado', isset($GLOBALS['wp_actions']['wp_ajax_aa_create_finance_record']));
 ac_assert('Hook wp_ajax_aa_get_finance_record registrado', isset($GLOBALS['wp_actions']['wp_ajax_aa_get_finance_record']));
 ac_assert('Hook wp_ajax_aa_delete_finance_record registrado', isset($GLOBALS['wp_actions']['wp_ajax_aa_delete_finance_record']));
-ac_assert('No se registraron hooks nopriv', !isset($GLOBALS['wp_actions']['wp_ajax_nopriv_aa_list_finance_records']) && !isset($GLOBALS['wp_actions']['wp_ajax_nopriv_aa_create_finance_record']));
+ac_assert('Hook wp_ajax_aa_update_finance_record registrado', isset($GLOBALS['wp_actions']['wp_ajax_aa_update_finance_record']));
+ac_assert('No se registraron hooks nopriv', !isset($GLOBALS['wp_actions']['wp_ajax_nopriv_aa_list_finance_records']) && !isset($GLOBALS['wp_actions']['wp_ajax_nopriv_aa_create_finance_record']) && !isset($GLOBALS['wp_actions']['wp_ajax_nopriv_aa_update_finance_record']));
 
 echo "\n=== 4. Seguridad, Autorización y Nonce ===\n";
 
@@ -566,7 +591,185 @@ $GLOBALS['last_json_response'] = null;
 FinanceRecordsAjax::handle_list();
 ac_assert('Listado de contenedor vacío devuelve items vacíos y amount_total null', $GLOBALS['last_json_response']['body']['data']['items'] === [] && $GLOBALS['last_json_response']['body']['data']['amount_total'] === null);
 
-echo "\n=== 9. Operación: Eliminar Registro (aa_delete_finance_record) ===\n";
+echo "\n=== 9. Operación: Actualizar Registro (aa_update_finance_record) ===\n";
+
+// Actualización exitosa
+$_POST = [
+    'container_id' => '10',
+    'record_id'    => (string) $created_record_id,
+    'title'        => 'Registro Editado',
+    'details'      => 'Detalle editado',
+    'amount'       => '-25.50',
+    '_wpnonce'     => 'aa_finance_nonce',
+];
+$GLOBALS['last_json_response'] = null;
+FinanceRecordsAjax::handle_update();
+ac_assert('Actualización devuelve HTTP 200', $GLOBALS['last_json_response']['status_code'] === 200);
+$updated_record = $GLOBALS['last_json_response']['body']['data']['record'];
+ac_assert('DTO incluye id correcto', $updated_record['id'] === $created_record_id);
+ac_assert('DTO incluye family_key finance', $updated_record['family_key'] === 'finance');
+ac_assert('DTO incluye variant_key general', $updated_record['variant_key'] === 'general');
+ac_assert('DTO incluye container_id', $updated_record['container_id'] === 10);
+ac_assert('DTO incluye title actualizado', $updated_record['title'] === 'Registro Editado');
+ac_assert('DTO incluye amount normalizado', $updated_record['amount'] === '-25.50');
+ac_assert('DTO incluye created_at', ($updated_record['created_at'] ?? '') !== '');
+
+// Borrado explícito de details y amount
+$_POST = [
+    'container_id' => '10',
+    'record_id'    => (string) $created_record_id,
+    'title'        => 'Sin extras',
+    'details'      => '',
+    'amount'       => '   ',
+    '_wpnonce'     => 'aa_finance_nonce',
+];
+$GLOBALS['last_json_response'] = null;
+FinanceRecordsAjax::handle_update();
+ac_assert('Vacío en details/amount borra ambos campos', $GLOBALS['last_json_response']['status_code'] === 200 && $GLOBALS['last_json_response']['body']['data']['record']['details'] === null && $GLOBALS['last_json_response']['body']['data']['record']['amount'] === null);
+
+// Claves obligatorias ausentes
+$_POST = [
+    'container_id' => '10',
+    'record_id'    => (string) $created_record_id,
+    'title'        => 'Sin details',
+    'amount'       => '1.00',
+    '_wpnonce'     => 'aa_finance_nonce',
+];
+$GLOBALS['last_json_response'] = null;
+FinanceRecordsAjax::handle_update();
+ac_assert('details ausente produce 400 missing_details', $GLOBALS['last_json_response']['status_code'] === 400 && $GLOBALS['last_json_response']['body']['data']['code'] === 'missing_details');
+
+$_POST = [
+    'container_id' => '10',
+    'record_id'    => (string) $created_record_id,
+    'title'        => 'Sin amount',
+    'details'      => null,
+    '_wpnonce'     => 'aa_finance_nonce',
+];
+$GLOBALS['last_json_response'] = null;
+FinanceRecordsAjax::handle_update();
+ac_assert('amount ausente produce 400 missing_amount', $GLOBALS['last_json_response']['status_code'] === 400 && $GLOBALS['last_json_response']['body']['data']['code'] === 'missing_amount');
+
+$_POST = [
+    'container_id' => '10',
+    'record_id'    => (string) $created_record_id,
+    'details'      => 'D',
+    'amount'       => '1.00',
+    '_wpnonce'     => 'aa_finance_nonce',
+];
+$GLOBALS['last_json_response'] = null;
+FinanceRecordsAjax::handle_update();
+ac_assert('title ausente produce 400 missing_title', $GLOBALS['last_json_response']['status_code'] === 400 && $GLOBALS['last_json_response']['body']['data']['code'] === 'missing_title');
+
+// No acepta alias id
+$_POST = [
+    'container_id' => '10',
+    'id'           => (string) $created_record_id,
+    'title'        => 'Alias',
+    'details'      => null,
+    'amount'       => null,
+    '_wpnonce'     => 'aa_finance_nonce',
+];
+$GLOBALS['last_json_response'] = null;
+FinanceRecordsAjax::handle_update();
+ac_assert('Alias id produce 400 invalid_record_id', $GLOBALS['last_json_response']['status_code'] === 400 && $GLOBALS['last_json_response']['body']['data']['code'] === 'invalid_record_id');
+
+// record_not_found
+$_POST = [
+    'container_id' => '10',
+    'record_id'    => '99999',
+    'title'        => 'No existe',
+    'details'      => null,
+    'amount'       => null,
+    '_wpnonce'     => 'aa_finance_nonce',
+];
+$GLOBALS['last_json_response'] = null;
+FinanceRecordsAjax::handle_update();
+ac_assert('Registro inexistente produce 404 record_not_found', $GLOBALS['last_json_response']['status_code'] === 404 && $GLOBALS['last_json_response']['body']['data']['code'] === 'record_not_found');
+
+// Registro en otro contenedor
+$_POST = [
+    'container_id' => '20',
+    'record_id'    => (string) $created_record_id,
+    'variant_key'  => 'general',
+    'title'        => 'Ajeno',
+    'details'      => null,
+    'amount'       => null,
+    '_wpnonce'     => 'aa_finance_nonce',
+];
+$GLOBALS['last_json_response'] = null;
+FinanceRecordsAjax::handle_update();
+ac_assert('Registro en otro contenedor produce 404 record_not_found', $GLOBALS['last_json_response']['status_code'] === 404 && $GLOBALS['last_json_response']['body']['data']['code'] === 'record_not_found');
+
+// container_not_found por variante
+$_POST = [
+    'container_id' => '25',
+    'record_id'    => (string) $created_record_id,
+    'variant_key'  => 'general',
+    'title'        => 'Variante',
+    'details'      => null,
+    'amount'       => null,
+    '_wpnonce'     => 'aa_finance_nonce',
+];
+$GLOBALS['last_json_response'] = null;
+FinanceRecordsAjax::handle_update();
+ac_assert('Contenedor de otra variante produce 404 container_not_found', $GLOBALS['last_json_response']['status_code'] === 404 && $GLOBALS['last_json_response']['body']['data']['code'] === 'container_not_found');
+
+// Validación amount
+$_POST = ['container_id' => '10', 'record_id' => (string) $created_record_id, 'title' => 'Bad amount', 'details' => null, 'amount' => '10.555', '_wpnonce' => 'aa_finance_nonce'];
+$GLOBALS['last_json_response'] = null;
+FinanceRecordsAjax::handle_update();
+ac_assert('amount inválido produce 400 amount_too_many_decimals', $GLOBALS['last_json_response']['status_code'] === 400 && $GLOBALS['last_json_response']['body']['data']['code'] === 'amount_too_many_decimals');
+
+// Carrera post-update
+$wpdb_mock->update_result = 1;
+$wpdb_mock->delete_record_after_update = $created_record_id;
+$_POST = [
+    'container_id' => '10',
+    'record_id'    => (string) $created_record_id,
+    'title'        => 'Carrera',
+    'details'      => null,
+    'amount'       => null,
+    '_wpnonce'     => 'aa_finance_nonce',
+];
+$wpdb_mock->record_rows[$created_record_id] = [
+    'id' => (string) $created_record_id,
+    'container_id' => '10',
+    'title' => 'Carrera',
+    'details' => null,
+    'amount' => null,
+    'created_at' => '2026-08-29 12:00:00',
+];
+$GLOBALS['last_json_response'] = null;
+FinanceRecordsAjax::handle_update();
+ac_assert('Carrera post-update produce 404 record_not_found', $GLOBALS['last_json_response']['status_code'] === 404 && $GLOBALS['last_json_response']['body']['data']['code'] === 'record_not_found');
+$wpdb_mock->delete_record_after_update = null;
+
+// persistence_failed
+$wpdb_mock->last_error = 'Deadlock';
+$_POST = [
+    'container_id' => '10',
+    'record_id'    => (string) $created_record_id,
+    'title'        => 'Fallo DB',
+    'details'      => null,
+    'amount'       => null,
+    '_wpnonce'     => 'aa_finance_nonce',
+];
+$wpdb_mock->record_rows[$created_record_id] = [
+    'id' => (string) $created_record_id,
+    'container_id' => '10',
+    'title' => 'Fallo DB',
+    'details' => null,
+    'amount' => null,
+    'created_at' => '2026-08-29 12:00:00',
+];
+$GLOBALS['last_json_response'] = null;
+FinanceRecordsAjax::handle_update();
+ac_assert('Error SQL produce 500 persistence_failed', $GLOBALS['last_json_response']['status_code'] === 500 && $GLOBALS['last_json_response']['body']['data']['code'] === 'persistence_failed');
+ac_assert('Error SQL no expone mensaje de base de datos', strpos((string) ($GLOBALS['last_json_response']['body']['data']['message'] ?? ''), 'Deadlock') === false);
+$wpdb_mock->last_error = '';
+
+echo "\n=== 10. Operación: Eliminar Registro (aa_delete_finance_record) ===\n";
 
 // Eliminar registro existente
 $_POST = [
@@ -584,7 +787,7 @@ $GLOBALS['last_json_response'] = null;
 FinanceRecordsAjax::handle_delete();
 ac_assert('Segunda eliminación devuelve 404 record_not_found', $GLOBALS['last_json_response']['status_code'] === 404 && $GLOBALS['last_json_response']['body']['data']['code'] === 'record_not_found');
 
-echo "\n=== 10. Fallbacks Fail-Closed de FinanceAjaxSupport ===\n";
+echo "\n=== 11. Fallbacks Fail-Closed de FinanceAjaxSupport ===\n";
 
 // Simular código de error Application desconocido
 $mock_unknown_result = [

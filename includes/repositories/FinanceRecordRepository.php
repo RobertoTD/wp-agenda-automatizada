@@ -448,4 +448,139 @@ final class FinanceRecordRepository {
 
         return (int) $deleted === 1;
     }
+
+    /**
+     * Reemplaza completamente title, details y amount de un registro en su contenedor autorizado.
+     *
+     * @param int $id ID del registro.
+     * @param int $container_id ID del contenedor padre autorizado.
+     * @param string $title Título normalizado (no vacío).
+     * @param string|null $details Detalles normalizados o null.
+     * @param string|null $amount Importe decimal normalizado o null.
+     * @return array{
+     *     id: int,
+     *     container_id: int,
+     *     title: string,
+     *     details: ?string,
+     *     amount: ?string,
+     *     created_at: string
+     * }|null Fila autoritativa post-UPDATE, o null si no existe en el contexto del contenedor.
+     * @throws \InvalidArgumentException Si $id, $container_id o $title son inválidos.
+     * @throws \RuntimeException Si la consulta SQL falla o la relectura es anómala.
+     */
+    public static function update(int $id, int $container_id, string $title, ?string $details, ?string $amount): ?array {
+        if ($id < 1) {
+            throw new \InvalidArgumentException('[FinanceRecordRepository] id debe ser mayor o igual a 1');
+        }
+
+        if ($container_id < 1) {
+            throw new \InvalidArgumentException('[FinanceRecordRepository] container_id debe ser mayor o igual a 1');
+        }
+
+        if ($title === '') {
+            throw new \InvalidArgumentException('[FinanceRecordRepository] title no puede estar vacío');
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+
+        $data = [
+            'title' => $title,
+            'details' => $details,
+            'amount' => $amount,
+        ];
+
+        $formats = [
+            '%s',
+            $details === null ? null : '%s',
+            $amount === null ? null : '%s',
+        ];
+
+        $where = [
+            'id' => $id,
+            'container_id' => $container_id,
+        ];
+
+        $affected = $wpdb->update(
+            $table,
+            $data,
+            $where,
+            $formats,
+            ['%d', '%d']
+        );
+
+        if ($affected === false || !empty($wpdb->last_error)) {
+            error_log('[FinanceRecordRepository] update error: ' . ($wpdb->last_error ?: 'update failed'));
+            throw new \RuntimeException('[FinanceRecordRepository] Error al actualizar el registro financiero');
+        }
+
+        if (!is_int($affected)) {
+            throw new \RuntimeException('[FinanceRecordRepository] Retorno inesperado al actualizar el registro financiero');
+        }
+
+        if ($affected < 0) {
+            throw new \RuntimeException('[FinanceRecordRepository] Retorno inesperado al actualizar el registro financiero');
+        }
+
+        if ($affected > 1) {
+            throw new \RuntimeException('[FinanceRecordRepository] Actualización afectó más de una fila');
+        }
+
+        $raw_row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT id, container_id, title, details, amount, created_at
+                 FROM {$table}
+                 WHERE id = %d AND container_id = %d
+                 LIMIT 1",
+                $id,
+                $container_id
+            ),
+            ARRAY_A
+        );
+
+        if (!empty($wpdb->last_error)) {
+            error_log('[FinanceRecordRepository] update re-read error: ' . $wpdb->last_error);
+            throw new \RuntimeException('[FinanceRecordRepository] Error al actualizar el registro financiero');
+        }
+
+        $row = self::map_row(is_array($raw_row) ? $raw_row : null);
+
+        if ($affected === 1) {
+            if (!is_array($raw_row)) {
+                return null;
+            }
+
+            if (!isset($raw_row['id'], $raw_row['container_id'], $raw_row['title'], $raw_row['created_at'])) {
+                throw new \RuntimeException('[FinanceRecordRepository] Fila autoritativa corrupta tras actualización');
+            }
+
+            if ($row === null) {
+                throw new \RuntimeException('[FinanceRecordRepository] Fila autoritativa corrupta tras actualización');
+            }
+
+            if ((int) $row['id'] !== $id) {
+                throw new \RuntimeException('[FinanceRecordRepository] Identidad discordante tras actualización');
+            }
+
+            if ((int) $row['container_id'] !== $container_id) {
+                throw new \RuntimeException('[FinanceRecordRepository] Identidad discordante tras actualización');
+            }
+
+            return $row;
+        }
+
+        if ($row === null) {
+            return null;
+        }
+
+        if (
+            $row['title'] === $title
+            && $row['details'] === $details
+            && $row['amount'] === $amount
+        ) {
+            return $row;
+        }
+
+        throw new \RuntimeException('[FinanceRecordRepository] Actualización sin efecto con valores distintos');
+    }
 }

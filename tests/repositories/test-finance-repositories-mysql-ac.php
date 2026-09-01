@@ -128,6 +128,35 @@ try {
     $r5_found = FinanceRecordRepository::find_by_id_and_container($r5['id'], $c1_id);
     ac_assert('MySQL real: find_by_id_and_container recupera details extenso sin truncar', $r5_found !== null && $r5_found['details'] === $large_details);
 
+    // 3b. Update de registros financieros (reemplazo completo title/details/amount)
+    $r1_created_at = $r1['created_at'];
+    $r1_container_id = $r1['container_id'];
+    $updated_r1 = FinanceRecordRepository::update($r1['id'], $c1_id, 'Record Actualizado', 'Nuevo detalle', '-10.25');
+    ac_assert('MySQL real: update registro cambia title efectivamente', $updated_r1 !== null && $updated_r1['title'] === 'Record Actualizado');
+    ac_assert('MySQL real: update registro cambia details efectivamente', $updated_r1['details'] === 'Nuevo detalle');
+    ac_assert('MySQL real: update registro cambia amount efectivamente', $updated_r1['amount'] === '-10.25');
+    ac_assert('MySQL real: update preserva container_id', $updated_r1['container_id'] === $r1_container_id);
+    ac_assert('MySQL real: update preserva created_at', $updated_r1['created_at'] === $r1_created_at);
+
+    $updated_clear = FinanceRecordRepository::update($r1['id'], $c1_id, 'Record Actualizado', null, null);
+    ac_assert('MySQL real: update borra details y amount', $updated_clear !== null && $updated_clear['details'] === null && $updated_clear['amount'] === null);
+
+    $updated_zero = FinanceRecordRepository::update($r2['id'], $c1_id, 'Record Cero', null, '0.00');
+    ac_assert('MySQL real: update amount cero persiste "0.00"', $updated_zero !== null && $updated_zero['amount'] === '0.00');
+
+    $updated_negative = FinanceRecordRepository::update($r4['id'], $c1_id, 'Gasto Menor', null, '-99.99');
+    ac_assert('MySQL real: update amount negativo persiste "-99.99"', $updated_negative !== null && $updated_negative['amount'] === '-99.99');
+
+    $updated_idempotent = FinanceRecordRepository::update($r4['id'], $c1_id, 'Gasto Menor', null, '-99.99');
+    ac_assert('MySQL real: update idempotente devuelve fila autoritativa', $updated_idempotent !== null && $updated_idempotent['title'] === 'Gasto Menor');
+
+    $wrong_scope_update = FinanceRecordRepository::update($r3['id'], 999999, 'No debe aplicar', null, '1.00');
+    ac_assert('MySQL real: update con container_id incorrecto devuelve null', $wrong_scope_update === null);
+    ac_assert('MySQL real: scope incorrecto no modifica title del registro', FinanceRecordRepository::find_by_id_and_container($r3['id'], $c1_id)['title'] === 'Ingreso Extra');
+
+    $r3_reloaded = FinanceRecordRepository::find_by_id_and_container($r3['id'], $c1_id);
+    ac_assert('MySQL real: relectura autoritativa post-update coincide', $r3_reloaded !== null && $r3_reloaded['id'] === $r3['id']);
+
     // 4. Rechazo de Registro Huérfano (FK activa)
     $caught_orphan_exception = false;
     try {

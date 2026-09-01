@@ -63,6 +63,8 @@ class TestFinanceRecordWpdbMock {
     public $vars = [];
     public $deleted_rows = 1;
     public $query_log = [];
+    public $update_result = 1;
+    public $updated = null;
 
     public function prepare(string $query, ...$args): string {
         $flat_args = [];
@@ -122,6 +124,21 @@ class TestFinanceRecordWpdbMock {
             return false;
         }
         return $this->deleted_rows;
+    }
+
+    public function update($table, array $data, array $where, $format = null, $where_format = null) {
+        $this->updated = [
+            'table' => $table,
+            'data' => $data,
+            'where' => $where,
+            'format' => $format,
+            'where_format' => $where_format,
+        ];
+        $this->query_log[] = ['update' => $table, 'data' => $data, 'where' => $where];
+        if ($this->last_error !== '') {
+            return false;
+        }
+        return $this->update_result;
     }
 }
 
@@ -455,6 +472,265 @@ try {
     $caught_numeric_amt = true;
 }
 ac_assert('Fila con amount_total tipo float lanza RuntimeException', $caught_numeric_amt);
+
+echo "\n=== 3. update() ===\n";
+
+// 3.1 Precondiciones locales
+$caught_update_invalid_id = false;
+try {
+    FinanceRecordRepository::update(0, 10, 'Título', null, null);
+} catch (\InvalidArgumentException $e) {
+    $caught_update_invalid_id = true;
+}
+ac_assert('update() con id < 1 lanza InvalidArgumentException', $caught_update_invalid_id);
+ac_assert('update() con id inválido no ejecutó UPDATE', $wpdb->updated === null);
+
+$caught_update_invalid_container = false;
+try {
+    FinanceRecordRepository::update(1, 0, 'Título', null, null);
+} catch (\InvalidArgumentException $e) {
+    $caught_update_invalid_container = true;
+}
+ac_assert('update() con container_id < 1 lanza InvalidArgumentException', $caught_update_invalid_container);
+
+$caught_update_empty_title = false;
+try {
+    FinanceRecordRepository::update(1, 10, '', null, null);
+} catch (\InvalidArgumentException $e) {
+    $caught_update_empty_title = true;
+}
+ac_assert('update() con title vacío lanza InvalidArgumentException', $caught_update_empty_title);
+
+// 3.2 Camino feliz con retorno 1 + relectura
+$wpdb->updated = null;
+$wpdb->update_result = 1;
+$wpdb->rows[] = [
+    'id' => '42',
+    'container_id' => '10',
+    'title' => 'Nuevo título',
+    'details' => 'Nuevos detalles',
+    'amount' => '-25.50',
+    'created_at' => '2026-08-29 12:00:00',
+];
+$updated_ok = FinanceRecordRepository::update(42, 10, 'Nuevo título', 'Nuevos detalles', '-25.50');
+ac_assert('update() con retorno 1 devuelve fila autoritativa', is_array($updated_ok) && $updated_ok['id'] === 42 && $updated_ok['title'] === 'Nuevo título');
+ac_assert('update() SET exacto title/details/amount', ($wpdb->updated['data']['title'] ?? '') === 'Nuevo título' && ($wpdb->updated['data']['details'] ?? '') === 'Nuevos detalles' && ($wpdb->updated['data']['amount'] ?? '') === '-25.50');
+ac_assert('update() WHERE exacto id/container_id', ($wpdb->updated['where']['id'] ?? null) === 42 && ($wpdb->updated['where']['container_id'] ?? null) === 10);
+ac_assert('update() SET no contiene container_id', !array_key_exists('container_id', $wpdb->updated['data']));
+
+// 3.3 amount null
+$wpdb->updated = null;
+$wpdb->update_result = 1;
+$wpdb->rows[] = [
+    'id' => '43',
+    'container_id' => '10',
+    'title' => 'Sin monto',
+    'details' => null,
+    'amount' => null,
+    'created_at' => '2026-08-29 12:00:00',
+];
+FinanceRecordRepository::update(43, 10, 'Sin monto', null, null);
+ac_assert('update() amount null usa formato NULL', $wpdb->updated['format'][2] === null);
+
+// 3.4 cero canónico
+$wpdb->update_result = 1;
+$wpdb->rows[] = [
+    'id' => '44',
+    'container_id' => '10',
+    'title' => 'Cero',
+    'details' => null,
+    'amount' => '0.00',
+    'created_at' => '2026-08-29 12:00:00',
+];
+$updated_zero = FinanceRecordRepository::update(44, 10, 'Cero', null, '0.00');
+ac_assert('update() amount "0.00" devuelve amount canónico', is_array($updated_zero) && $updated_zero['amount'] === '0.00');
+
+// 3.5 details borrados
+$wpdb->update_result = 1;
+$wpdb->rows[] = [
+    'id' => '45',
+    'container_id' => '10',
+    'title' => 'Sin detalle',
+    'details' => null,
+    'amount' => '10.00',
+    'created_at' => '2026-08-29 12:00:00',
+];
+$updated_no_details = FinanceRecordRepository::update(45, 10, 'Sin detalle', null, '10.00');
+ac_assert('update() details null persiste borrado', is_array($updated_no_details) && $updated_no_details['details'] === null);
+
+// 3.6 Scope incorrecto → null
+$wpdb->update_result = 0;
+$wpdb->rows[] = null;
+$updated_wrong_scope = FinanceRecordRepository::update(99, 10, 'Título', null, null);
+ac_assert('update() scope incorrecto devuelve null', $updated_wrong_scope === null);
+
+// 3.7 Error SQL
+$wpdb->last_error = 'Update failed';
+$caught_update_sql = false;
+try {
+    FinanceRecordRepository::update(46, 10, 'Título', null, null);
+} catch (\RuntimeException $e) {
+    $caught_update_sql = (strpos($e->getMessage(), 'Error al actualizar el registro financiero') !== false);
+}
+ac_assert('update() ante error SQL lanza RuntimeException', $caught_update_sql);
+$wpdb->last_error = '';
+
+// 3.8 last_error tras false
+$wpdb->last_error = 'Deadlock';
+$caught_update_last_error = false;
+try {
+    FinanceRecordRepository::update(47, 10, 'Título', null, null);
+} catch (\RuntimeException $e) {
+    $caught_update_last_error = true;
+}
+ac_assert('update() con last_error lanza RuntimeException', $caught_update_last_error);
+$wpdb->last_error = '';
+
+// 3.9 Retorno string numérico
+$wpdb->update_result = '1';
+$caught_update_string = false;
+try {
+    FinanceRecordRepository::update(48, 10, 'Título', null, null);
+} catch (\RuntimeException $e) {
+    $caught_update_string = true;
+}
+ac_assert('update() con retorno string numérico lanza RuntimeException', $caught_update_string);
+
+// 3.10 Retorno float
+$wpdb->update_result = 1.0;
+$caught_update_float = false;
+try {
+    FinanceRecordRepository::update(49, 10, 'Título', null, null);
+} catch (\RuntimeException $e) {
+    $caught_update_float = true;
+}
+ac_assert('update() con retorno float lanza RuntimeException', $caught_update_float);
+
+// 3.11 Retorno booleano
+$wpdb->update_result = true;
+$caught_update_bool = false;
+try {
+    FinanceRecordRepository::update(50, 10, 'Título', null, null);
+} catch (\RuntimeException $e) {
+    $caught_update_bool = true;
+}
+ac_assert('update() con retorno booleano lanza RuntimeException', $caught_update_bool);
+
+// 3.12 Retorno negativo
+$wpdb->update_result = -1;
+$caught_update_negative = false;
+try {
+    FinanceRecordRepository::update(51, 10, 'Título', null, null);
+} catch (\RuntimeException $e) {
+    $caught_update_negative = true;
+}
+ac_assert('update() con retorno negativo lanza RuntimeException', $caught_update_negative);
+
+// 3.13 Retorno > 1
+$wpdb->update_result = 2;
+$caught_update_multi = false;
+try {
+    FinanceRecordRepository::update(52, 10, 'Título', null, null);
+} catch (\RuntimeException $e) {
+    $caught_update_multi = (strpos($e->getMessage(), 'más de una fila') !== false);
+}
+ac_assert('update() con retorno > 1 lanza RuntimeException', $caught_update_multi);
+
+// 3.14 Idempotencia affected 0
+$wpdb->update_result = 0;
+$wpdb->rows[] = [
+    'id' => '53',
+    'container_id' => '10',
+    'title' => 'Igual',
+    'details' => null,
+    'amount' => '5.00',
+    'created_at' => '2026-08-29 12:00:00',
+];
+$updated_idempotent = FinanceRecordRepository::update(53, 10, 'Igual', null, '5.00');
+ac_assert('update() retorno 0 con valores iguales devuelve fila idempotente', is_array($updated_idempotent) && $updated_idempotent['title'] === 'Igual');
+
+// 3.15 affected 0 valores distintos
+$wpdb->update_result = 0;
+$wpdb->rows[] = [
+    'id' => '54',
+    'container_id' => '10',
+    'title' => 'Distinto',
+    'details' => 'X',
+    'amount' => '1.00',
+    'created_at' => '2026-08-29 12:00:00',
+];
+$caught_update_mismatch = false;
+try {
+    FinanceRecordRepository::update(54, 10, 'Intento', null, '9.99');
+} catch (\RuntimeException $e) {
+    $caught_update_mismatch = (strpos($e->getMessage(), 'sin efecto con valores distintos') !== false);
+}
+ac_assert('update() retorno 0 con valores distintos lanza RuntimeException', $caught_update_mismatch);
+
+// 3.16 affected 0 fila ausente
+$wpdb->update_result = 0;
+$wpdb->rows[] = null;
+$updated_gone = FinanceRecordRepository::update(55, 10, 'Título', null, null);
+ac_assert('update() retorno 0 con fila ausente devuelve null', $updated_gone === null);
+
+// 3.17 affected 1 relectura ausente
+$wpdb->update_result = 1;
+$wpdb->rows[] = null;
+$updated_gone_after_one = FinanceRecordRepository::update(56, 10, 'Ausente', null, null);
+ac_assert('update() retorno 1 con relectura ausente devuelve null', $updated_gone_after_one === null);
+
+// 3.18 affected 1 ID discordante
+$wpdb->update_result = 1;
+$wpdb->rows[] = [
+    'id' => '999',
+    'container_id' => '10',
+    'title' => 'Discordante',
+    'details' => null,
+    'amount' => null,
+    'created_at' => '2026-08-29 12:00:00',
+];
+$caught_update_identity = false;
+try {
+    FinanceRecordRepository::update(57, 10, 'Discordante', null, null);
+} catch (\RuntimeException $e) {
+    $caught_update_identity = (strpos($e->getMessage(), 'Identidad discordante') !== false);
+}
+ac_assert('update() retorno 1 con id discordante lanza RuntimeException', $caught_update_identity);
+
+// 3.19 affected 1 container_id discordante
+$wpdb->update_result = 1;
+$wpdb->rows[] = [
+    'id' => '58',
+    'container_id' => '99',
+    'title' => 'Discordante',
+    'details' => null,
+    'amount' => null,
+    'created_at' => '2026-08-29 12:00:00',
+];
+$caught_update_container_mismatch = false;
+try {
+    FinanceRecordRepository::update(58, 10, 'Discordante', null, null);
+} catch (\RuntimeException $e) {
+    $caught_update_container_mismatch = (strpos($e->getMessage(), 'Identidad discordante') !== false);
+}
+ac_assert('update() retorno 1 con container_id discordante lanza RuntimeException', $caught_update_container_mismatch);
+
+// 3.20 Fila corrupta
+$wpdb->update_result = 1;
+$wpdb->rows[] = [
+    'container_id' => '10',
+    'title' => 'Sin id',
+    'details' => null,
+    'amount' => null,
+    'created_at' => '2026-08-29 12:00:00',
+];
+$caught_update_corrupt = false;
+try {
+    FinanceRecordRepository::update(59, 10, 'Sin id', null, null);
+} catch (\RuntimeException $e) {
+    $caught_update_corrupt = (strpos($e->getMessage(), 'corrupta') !== false);
+}
+ac_assert('update() retorno 1 con fila corrupta lanza RuntimeException', $caught_update_corrupt);
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 
