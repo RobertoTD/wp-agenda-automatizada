@@ -119,6 +119,7 @@ final class FinanceAjaxSupport {
 
             // Errores de validación de entrada (400)
             case 'missing_title':
+            case 'missing_details':
             case 'invalid_title':
             case 'title_too_long':
             case 'invalid_details':

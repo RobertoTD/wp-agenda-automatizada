@@ -41,6 +41,7 @@ ac_assert('Define constante ACTION_LIST', strpos($ajax_src, "ACTION_LIST   = 'aa
 ac_assert('Define constante ACTION_CREATE', strpos($ajax_src, "ACTION_CREATE = 'aa_create_finance_container'") !== false);
 ac_assert('Define constante ACTION_GET', strpos($ajax_src, "ACTION_GET    = 'aa_get_finance_container'") !== false);
 ac_assert('Define constante ACTION_DELETE', strpos($ajax_src, "ACTION_DELETE = 'aa_delete_finance_container'") !== false);
+ac_assert('Define constante ACTION_UPDATE', strpos($ajax_src, "ACTION_UPDATE = 'aa_update_finance_container'") !== false);
 ac_assert('NONCE_ACTION deriva de FinanceAjaxSupport::NONCE_ACTION', strpos($ajax_src, "NONCE_ACTION  = FinanceAjaxSupport::NONCE_ACTION") !== false);
 ac_assert('FinanceAjaxSupport define NONCE_ACTION = aa_finance_nonce', strpos($support_src, "NONCE_ACTION = 'aa_finance_nonce'") !== false);
 ac_assert('FinanceContainersAjax delega authorize a FinanceAjaxSupport', strpos($ajax_src, 'FinanceAjaxSupport::authorize()') !== false);
@@ -164,6 +165,7 @@ require_once $plugin_root . '/includes/application/finance/CreateFinanceContaine
 require_once $plugin_root . '/includes/application/finance/GetFinanceContainerUseCase.php';
 require_once $plugin_root . '/includes/application/finance/ListFinanceContainersUseCase.php';
 require_once $plugin_root . '/includes/application/finance/DeleteFinanceContainerUseCase.php';
+require_once $plugin_root . '/includes/application/finance/UpdateFinanceContainerUseCase.php';
 require_once $plugin_root . '/includes/infrastructure/wp/class-aa-canonical-access-policy.php';
 require_once $plugin_root . '/includes/http/ajax/FinanceAjaxSupport.php';
 
@@ -177,6 +179,7 @@ class TestFinanceContainersWpdbMock {
     public $vars = [];
     public $deleted_rows = 1;
     public $query_log = [];
+    public $update_result = 1;
 
     public function prepare(string $query, ...$args): string {
         $flat_args = [];
@@ -236,6 +239,14 @@ class TestFinanceContainersWpdbMock {
         }
         return $this->deleted_rows;
     }
+
+    public function update($table, array $data, array $where, $format = null, $where_format = null) {
+        $this->query_log[] = ['update' => $table, 'where' => $where, 'data' => $data];
+        if ($this->last_error !== '') {
+            return false;
+        }
+        return $this->update_result;
+    }
 }
 
 global $wpdb;
@@ -251,6 +262,7 @@ ac_assert('Hook wp_ajax_aa_list_finance_containers registrado', isset($GLOBALS['
 ac_assert('Hook wp_ajax_aa_create_finance_container registrado', isset($GLOBALS['wp_actions']['wp_ajax_aa_create_finance_container']));
 ac_assert('Hook wp_ajax_aa_get_finance_container registrado', isset($GLOBALS['wp_actions']['wp_ajax_aa_get_finance_container']));
 ac_assert('Hook wp_ajax_aa_delete_finance_container registrado', isset($GLOBALS['wp_actions']['wp_ajax_aa_delete_finance_container']));
+ac_assert('Hook wp_ajax_aa_update_finance_container registrado', isset($GLOBALS['wp_actions']['wp_ajax_aa_update_finance_container']));
 
 $nopriv_found = false;
 foreach (array_keys($GLOBALS['wp_actions']) as $hook) {
@@ -434,7 +446,107 @@ FinanceContainersAjax::handle_delete();
 ac_assert('Borrado de inexistente devuelve status 404', $GLOBALS['last_json_response']['status_code'] === 404);
 ac_assert('Código de error es not_found', $GLOBALS['last_json_response']['body']['data']['code'] === 'not_found');
 
-echo "\n=== 9. Pruebas de Errores de Persistencia ===\n";
+echo "\n=== 9. Pruebas de aa_update_finance_container ===\n";
+
+// 9.1 Actualización exitosa
+$wpdb->rows[] = [
+    'id'          => '10',
+    'variant_key' => 'general',
+    'title'       => 'Anterior',
+    'details'     => 'Detalle anterior',
+    'created_at'  => '2026-08-29 12:00:00',
+];
+$wpdb->rows[] = [
+    'id'          => '10',
+    'variant_key' => 'general',
+    'title'       => 'Actualizado',
+    'details'     => "Línea\nDos",
+    'created_at'  => '2026-08-29 12:00:00',
+];
+$wpdb->update_result = 1;
+$_POST = [
+    'id'      => '10',
+    'title'   => 'Actualizado',
+    'details' => "Línea\nDos",
+];
+FinanceContainersAjax::handle_update();
+ac_assert('Update exitoso devuelve status 200', $GLOBALS['last_json_response']['status_code'] === 200);
+$update_res = $GLOBALS['last_json_response']['body']['data']['container'] ?? [];
+ac_assert('Update devuelve container autoritativo id=10', ($update_res['id'] ?? 0) === 10);
+ac_assert('Update devuelve family_key=finance', ($update_res['family_key'] ?? '') === 'finance');
+ac_assert('Update preserva saltos de línea en details', strpos($update_res['details'] ?? '', "\n") !== false);
+ac_assert('Update no expone amount en respuesta', !array_key_exists('amount', $update_res) && !array_key_exists('amount_total', $update_res));
+
+// 9.2 details vacío preservado hasta Application
+$wpdb->rows = [];
+$wpdb->rows[] = [
+    'id' => '11', 'variant_key' => 'general', 'title' => 'T', 'details' => null, 'created_at' => '2026-08-29 12:00:00',
+];
+$wpdb->rows[] = [
+    'id' => '11', 'variant_key' => 'general', 'title' => 'T', 'details' => null, 'created_at' => '2026-08-29 12:00:00',
+];
+$wpdb->update_result = 1;
+$wpdb->last_error = '';
+$_POST = ['id' => '11', 'title' => 'T', 'details' => ''];
+FinanceContainersAjax::handle_update();
+$empty_details_container = $GLOBALS['last_json_response']['body']['data']['container'] ?? [];
+ac_assert('details vacío devuelve 200 con details null', $GLOBALS['last_json_response']['status_code'] === 200 && array_key_exists('details', $empty_details_container) && $empty_details_container['details'] === null);
+
+// 9.3 Clave details ausente
+$_POST = ['id' => '11', 'title' => 'T'];
+FinanceContainersAjax::handle_update();
+ac_assert('Ausencia de clave details devuelve status 400', $GLOBALS['last_json_response']['status_code'] === 400);
+ac_assert('Código de error es missing_details', $GLOBALS['last_json_response']['body']['data']['code'] === 'missing_details');
+
+// 9.4 invalid_id
+$_POST = ['id' => 'abc', 'title' => 'T', 'details' => null];
+FinanceContainersAjax::handle_update();
+ac_assert('ID inválido devuelve status 400', $GLOBALS['last_json_response']['status_code'] === 400);
+ac_assert('Código de error es invalid_id', $GLOBALS['last_json_response']['body']['data']['code'] === 'invalid_id');
+
+// 9.5 missing_title
+$_POST = ['id' => '10', 'details' => 'D'];
+FinanceContainersAjax::handle_update();
+ac_assert('title omitido devuelve status 400', $GLOBALS['last_json_response']['status_code'] === 400);
+ac_assert('Código de error es missing_title', $GLOBALS['last_json_response']['body']['data']['code'] === 'missing_title');
+
+// 9.6 title_too_long
+$_POST = ['id' => '10', 'title' => str_repeat('A', 201), 'details' => null];
+FinanceContainersAjax::handle_update();
+ac_assert('title demasiado largo devuelve status 400', $GLOBALS['last_json_response']['status_code'] === 400);
+ac_assert('Código de error es title_too_long', $GLOBALS['last_json_response']['body']['data']['code'] === 'title_too_long');
+
+// 9.7 details_too_long
+$_POST = ['id' => '10', 'title' => 'Título válido', 'details' => str_repeat('B', 65001)];
+FinanceContainersAjax::handle_update();
+ac_assert('details demasiado largo devuelve status 400', $GLOBALS['last_json_response']['status_code'] === 400);
+ac_assert('Código de error es details_too_long', $GLOBALS['last_json_response']['body']['data']['code'] === 'details_too_long');
+
+// 9.8 unknown_variant
+$_POST = ['id' => '10', 'title' => 'T', 'details' => null, 'variant_key' => 'variante_inexistente'];
+FinanceContainersAjax::handle_update();
+ac_assert('variant_key desconocida devuelve status 404', $GLOBALS['last_json_response']['status_code'] === 404);
+ac_assert('Código de error es unknown_variant', $GLOBALS['last_json_response']['body']['data']['code'] === 'unknown_variant');
+
+// 9.9 not_found
+$wpdb->rows = [];
+$_POST = ['id' => '999', 'title' => 'T', 'details' => null];
+FinanceContainersAjax::handle_update();
+ac_assert('Contenedor inexistente devuelve status 404', $GLOBALS['last_json_response']['status_code'] === 404);
+ac_assert('Código de error es not_found', $GLOBALS['last_json_response']['body']['data']['code'] === 'not_found');
+
+// 9.10 persistence_failed
+$wpdb->rows[] = [
+    'id' => '12', 'variant_key' => 'general', 'title' => 'T', 'details' => null, 'created_at' => '2026-08-29 12:00:00',
+];
+$wpdb->last_error = 'Database timeout';
+$_POST = ['id' => '12', 'title' => 'T', 'details' => null];
+FinanceContainersAjax::handle_update();
+ac_assert('Error SQL en update devuelve status 500', $GLOBALS['last_json_response']['status_code'] === 500);
+ac_assert('Código de error es persistence_failed', $GLOBALS['last_json_response']['body']['data']['code'] === 'persistence_failed');
+$wpdb->last_error = '';
+
+echo "\n=== 10. Pruebas de Errores de Persistencia (list) ===\n";
 
 // 9.1 Error de persistencia en listado -> 500 persistence_failed
 $wpdb->last_error = 'Database timeout';

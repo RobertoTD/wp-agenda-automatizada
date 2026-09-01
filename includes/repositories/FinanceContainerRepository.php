@@ -248,6 +248,118 @@ final class FinanceContainerRepository {
     }
 
     /**
+     * Actualiza title y details de un contenedor existente en el contexto de una variante.
+     *
+     * @param int $id
+     * @param string $variant_key Clave de variante canónica (incluida en WHERE, no se modifica).
+     * @param string $title Título normalizado.
+     * @param string|null $details Detalles normalizados o null.
+     * @return array{
+     *     id: int,
+     *     variant_key: string,
+     *     title: string,
+     *     details: ?string,
+     *     created_at: string
+     * }|null Contenedor autoritativo post-UPDATE, o null si no existe en el contexto de variante.
+     * @throws \InvalidArgumentException Si $id, $variant_key o $title son inválidos.
+     * @throws \RuntimeException Si la consulta SQL falla o la relectura es anómala.
+     */
+    public static function update(int $id, string $variant_key, string $title, ?string $details): ?array {
+        if ($id < 1) {
+            throw new \InvalidArgumentException('[FinanceContainerRepository] id debe ser mayor o igual a 1');
+        }
+
+        if ($variant_key === '') {
+            throw new \InvalidArgumentException('[FinanceContainerRepository] variant_key no puede estar vacío');
+        }
+
+        if ($title === '') {
+            throw new \InvalidArgumentException('[FinanceContainerRepository] title no puede estar vacío');
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+
+        $data = [
+            'title' => $title,
+            'details' => $details,
+        ];
+
+        $formats = [
+            '%s',
+            $details === null ? null : '%s',
+        ];
+
+        $where = [
+            'id' => $id,
+            'variant_key' => $variant_key,
+        ];
+
+        $affected = $wpdb->update(
+            $table,
+            $data,
+            $where,
+            $formats,
+            ['%d', '%s']
+        );
+
+        if ($affected === false || !empty($wpdb->last_error)) {
+            error_log('[FinanceContainerRepository] update error: ' . ($wpdb->last_error ?: 'update failed'));
+            throw new \RuntimeException('[FinanceContainerRepository] Error al actualizar el contenedor financiero');
+        }
+
+        if (!is_int($affected) && !is_numeric($affected)) {
+            throw new \RuntimeException('[FinanceContainerRepository] Retorno inesperado al actualizar el contenedor financiero');
+        }
+
+        $affected_int = (int) $affected;
+
+        if ($affected_int > 1) {
+            throw new \RuntimeException('[FinanceContainerRepository] Actualización afectó más de una fila');
+        }
+
+        if ($affected_int !== 0 && $affected_int !== 1) {
+            throw new \RuntimeException('[FinanceContainerRepository] Retorno inesperado al actualizar el contenedor financiero');
+        }
+
+        $row = self::find_by_id($id);
+
+        if ($affected_int === 1) {
+            if ($row === null) {
+                throw new \RuntimeException('[FinanceContainerRepository] Fila autoritativa ausente o corrupta tras actualización');
+            }
+
+            if (($row['variant_key'] ?? '') !== $variant_key) {
+                return null;
+            }
+
+            if (!isset($row['id'], $row['title'], $row['created_at'])) {
+                throw new \RuntimeException('[FinanceContainerRepository] Fila autoritativa corrupta tras actualización');
+            }
+
+            if ((int) $row['id'] !== $id) {
+                throw new \RuntimeException('[FinanceContainerRepository] Identidad discordante tras actualización');
+            }
+
+            return $row;
+        }
+
+        if ($row === null) {
+            return null;
+        }
+
+        if (($row['variant_key'] ?? '') !== $variant_key) {
+            return null;
+        }
+
+        if ($row['title'] === $title && $row['details'] === $details) {
+            return $row;
+        }
+
+        throw new \RuntimeException('[FinanceContainerRepository] Actualización sin efecto con valores distintos');
+    }
+
+    /**
      * Elimina un contenedor por su ID primario.
      *
      * @param int $id

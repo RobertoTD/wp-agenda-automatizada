@@ -7,6 +7,7 @@
  * - aa_create_finance_container → CreateFinanceContainerUseCase
  * - aa_get_finance_container    → GetFinanceContainerUseCase
  * - aa_delete_finance_container → DeleteFinanceContainerUseCase
+ * - aa_update_finance_container → UpdateFinanceContainerUseCase
  *
  * @package WP_Agenda_Automatizada
  * @subpackage HTTP\AJAX
@@ -29,6 +30,9 @@ if (!class_exists('ListFinanceContainersUseCase')) {
 if (!class_exists('DeleteFinanceContainerUseCase')) {
     require_once dirname(__DIR__, 2) . '/application/finance/DeleteFinanceContainerUseCase.php';
 }
+if (!class_exists('UpdateFinanceContainerUseCase')) {
+    require_once dirname(__DIR__, 2) . '/application/finance/UpdateFinanceContainerUseCase.php';
+}
 
 final class FinanceContainersAjax {
 
@@ -36,6 +40,7 @@ final class FinanceContainersAjax {
     public const ACTION_CREATE = 'aa_create_finance_container';
     public const ACTION_GET    = 'aa_get_finance_container';
     public const ACTION_DELETE = 'aa_delete_finance_container';
+    public const ACTION_UPDATE = 'aa_update_finance_container';
     public const NONCE_ACTION  = FinanceAjaxSupport::NONCE_ACTION;
 
     public static function register(): void {
@@ -43,6 +48,7 @@ final class FinanceContainersAjax {
         add_action('wp_ajax_' . self::ACTION_CREATE, [__CLASS__, 'handle_create']);
         add_action('wp_ajax_' . self::ACTION_GET, [__CLASS__, 'handle_get']);
         add_action('wp_ajax_' . self::ACTION_DELETE, [__CLASS__, 'handle_delete']);
+        add_action('wp_ajax_' . self::ACTION_UPDATE, [__CLASS__, 'handle_update']);
     }
 
     public static function handle_list(): void {
@@ -133,6 +139,34 @@ final class FinanceContainersAjax {
         }
 
         $result = (new DeleteFinanceContainerUseCase($registry))->execute($input);
+        FinanceAjaxSupport::respond($result);
+    }
+
+    public static function handle_update(): void {
+        if (!FinanceAjaxSupport::authorize()) {
+            return;
+        }
+
+        $registry = FinanceAjaxSupport::resolve_registry();
+        if ($registry === null) {
+            return;
+        }
+
+        $input = [];
+        if (array_key_exists('id', $_POST)) {
+            $input['id'] = wp_unslash($_POST['id']);
+        }
+        if (array_key_exists('title', $_POST)) {
+            $input['title'] = wp_unslash($_POST['title']);
+        }
+        if (array_key_exists('details', $_POST)) {
+            $input['details'] = wp_unslash($_POST['details']);
+        }
+        if (array_key_exists('variant_key', $_POST)) {
+            $input['variant_key'] = wp_unslash($_POST['variant_key']);
+        }
+
+        $result = (new UpdateFinanceContainerUseCase($registry))->execute($input);
         FinanceAjaxSupport::respond($result);
     }
 }

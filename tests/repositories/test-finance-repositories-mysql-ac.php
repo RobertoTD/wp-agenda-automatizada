@@ -82,6 +82,27 @@ try {
     $c_not_found = FinanceContainerRepository::find_by_id(999999);
     ac_assert('MySQL real: find_by_id inexistente devuelve null', $c_not_found === null);
 
+    // 2.1 Update de contenedor (Ciclo 3E1A)
+    $c1_created_at = $c1_found['created_at'];
+    $updated_title = FinanceContainerRepository::update($c1_id, 'general', 'Gastos Actualizados', 'Nueva descripción');
+    ac_assert('MySQL real: update cambia title efectivamente', $updated_title !== null && $updated_title['title'] === 'Gastos Actualizados');
+    ac_assert('MySQL real: update cambia details efectivamente', $updated_title['details'] === 'Nueva descripción');
+
+    $updated_null_details = FinanceContainerRepository::update($c1_id, 'general', 'Gastos Actualizados', null);
+    ac_assert('MySQL real: update persiste details null como SQL NULL', $updated_null_details !== null && $updated_null_details['details'] === null);
+
+    $c1_after_null = FinanceContainerRepository::find_by_id($c1_id);
+    ac_assert('MySQL real: find_by_id confirma details null persistido', $c1_after_null !== null && $c1_after_null['details'] === null);
+
+    $updated_idempotent = FinanceContainerRepository::update($c1_id, 'general', 'Gastos Actualizados', null);
+    ac_assert('MySQL real: update idempotente devuelve fila autoritativa', $updated_idempotent !== null && $updated_idempotent['title'] === 'Gastos Actualizados');
+
+    $wrong_variant_update = FinanceContainerRepository::update($c1_id, 'otra_variante', 'No debe aplicar', 'X');
+    ac_assert('MySQL real: update con variante incorrecta devuelve null', $wrong_variant_update === null);
+    ac_assert('MySQL real: variante incorrecta no modifica title', FinanceContainerRepository::find_by_id($c1_id)['title'] === 'Gastos Actualizados');
+
+    ac_assert('MySQL real: update preserva created_at', $updated_idempotent['created_at'] === $c1_created_at);
+
     // 3. Operaciones de Registros: Create con amounts y details extenso
     // Registro 1: amount null
     $r1 = FinanceRecordRepository::create($c1_id, 'Record Sin Monto', 'Detalle sin monto', null);
