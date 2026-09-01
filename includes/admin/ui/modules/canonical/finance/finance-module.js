@@ -72,6 +72,21 @@
     var recordBlockedActionsEl = document.getElementById('aa-finance-record-create-actions-blocked');
     var recordBlockedCloseBtn = document.getElementById('aa-finance-record-create-blocked-close');
 
+    var recordDeleteModal = document.getElementById('aa-finance-record-delete-modal');
+    var recordDeleteBackdrop = document.getElementById('aa-finance-record-delete-modal-backdrop');
+    var recordDeleteCloseBtn = document.getElementById('aa-finance-record-delete-close');
+    var recordDeleteTitleEl = document.getElementById('aa-finance-record-delete-modal-title');
+    var recordDeleteBodyEl = document.getElementById('aa-finance-record-delete-body');
+    var recordDeleteAmountEl = document.getElementById('aa-finance-record-delete-amount');
+    var recordDeleteErrorEl = document.getElementById('aa-finance-record-delete-error');
+    var recordDeleteStandardActionsEl = document.getElementById('aa-finance-record-delete-actions-standard');
+    var recordDeleteCancelBtn = document.getElementById('aa-finance-record-delete-cancel');
+    var recordDeleteConfirmBtn = document.getElementById('aa-finance-record-delete-confirm');
+    var recordDeleteUncertainActionsEl = document.getElementById('aa-finance-record-delete-actions-uncertain');
+    var recordDeleteUncertainCloseBtn = document.getElementById('aa-finance-record-delete-uncertain-close');
+    var recordDeleteBlockedActionsEl = document.getElementById('aa-finance-record-delete-actions-blocked');
+    var recordDeleteBlockedCloseBtn = document.getElementById('aa-finance-record-delete-blocked-close');
+
     function showFatalConfigError() {
         if (statusEl) {
             statusEl.textContent = 'No se pudo iniciar el módulo de Finanzas.';
@@ -130,8 +145,14 @@
     var recordCreateEnabled = false;
     var nextRecordReviewToken = 1;
     var pendingRecordReview = null;
+    var nextDeleteReviewToken = 1;
+    var pendingDeleteReview = null;
+    var recordMutationLock = 'none';
+    var recordDeleteController = null;
+    var recordDeleteEnabled = false;
 
     var PENDING_REVIEW_NOTICE = 'Hay una entrada pendiente de revisión en otra lista. Vuelve a esa lista antes de crear una nueva.';
+    var PENDING_DELETE_REVIEW_NOTICE = 'Hay una eliminación pendiente de revisión en otra lista. Vuelve a esa lista para continuar.';
 
     // Estados formales de creación de contenedores
     var CREATE_STATES = {
@@ -235,8 +256,103 @@
         return !!(window.AA_FinanceRecordCreate && typeof window.AA_FinanceRecordCreate.createController === 'function');
     }
 
+    function hasRecordDeleteAction() {
+        return !!(
+            actions &&
+            typeof actions.deleteRecord === 'string' && actions.deleteRecord.trim() !== '' &&
+            typeof actions.getRecord === 'string' && actions.getRecord.trim() !== ''
+        );
+    }
+
+    function hasRecordDeleteMarkup() {
+        return !!(
+            recordDeleteModal &&
+            recordDeleteBackdrop &&
+            recordDeleteCloseBtn &&
+            recordDeleteTitleEl &&
+            recordDeleteBodyEl &&
+            recordDeleteAmountEl &&
+            recordDeleteErrorEl &&
+            recordDeleteStandardActionsEl &&
+            recordDeleteCancelBtn &&
+            recordDeleteConfirmBtn &&
+            recordDeleteUncertainActionsEl &&
+            recordDeleteUncertainCloseBtn &&
+            recordDeleteBlockedActionsEl &&
+            recordDeleteBlockedCloseBtn
+        );
+    }
+
+    function hasRecordDeleteFactory() {
+        return !!(window.AA_FinanceRecordDelete && typeof window.AA_FinanceRecordDelete.createController === 'function');
+    }
+
+    function deriveBaseMutationLock() {
+        if (pendingRecordReview) {
+            return 'create_review';
+        }
+        if (pendingDeleteReview) {
+            return 'delete_review';
+        }
+        return 'none';
+    }
+
+    function applyMutationLock(lock) {
+        recordMutationLock = lock;
+        syncMutationUI();
+    }
+
+    function syncMutationUI() {
+        setRecordCreateTriggerVisible(navMode === NAV_MODES.RECORDS_DETAIL);
+        if (recordsController && typeof recordsController.setDeleteActionsEnabled === 'function') {
+            recordsController.setDeleteActionsEnabled(recordMutationLock === 'none');
+        }
+    }
+
     function isRecordCreateGloballyBlocked() {
-        return pendingRecordReview !== null;
+        return recordMutationLock !== 'none';
+    }
+
+    function isRecordDeleteGloballyBlocked() {
+        return recordMutationLock !== 'none';
+    }
+
+    function focusRecordsDetailHeading() {
+        if (recordsHeadingEl) {
+            recordsHeadingEl.focus();
+        }
+    }
+
+    function focusRecordsDetailStatus() {
+        if (recordsStatusEl) {
+            recordsStatusEl.focus();
+        }
+    }
+
+    function showDeleteReviewRetryNotice(reviewToken) {
+        if (!recordsStatusEl) {
+            return;
+        }
+        while (recordsStatusEl.firstChild) {
+            recordsStatusEl.removeChild(recordsStatusEl.firstChild);
+        }
+        recordsStatusEl.className = 'text-sm text-amber-700 font-medium flex items-center gap-2 flex-wrap';
+        var msgSpan = document.createElement('span');
+        msgSpan.textContent = 'No pudimos confirmar el estado de la entrada. Revisa el listado antes de intentarlo nuevamente.';
+        recordsStatusEl.appendChild(msgSpan);
+        var retryBtn = document.createElement('button');
+        retryBtn.type = 'button';
+        retryBtn.className = 'underline hover:text-amber-900 text-xs font-semibold focus:outline-none';
+        retryBtn.textContent = 'Reintentar revisión';
+        retryBtn.addEventListener('click', function () {
+            if (!pendingDeleteReview || pendingDeleteReview.reviewToken !== reviewToken) {
+                return;
+            }
+            if (recordDeleteController) {
+                recordDeleteController.retryReview();
+            }
+        });
+        recordsStatusEl.appendChild(retryBtn);
     }
 
     function setRecordCreateTriggerVisible(isVisible) {
@@ -298,6 +414,7 @@
             var reviewToken = pendingRecordReview.reviewToken;
             var containerId = pendingRecordReview.containerId;
             pendingRecordReview = null;
+            applyMutationLock(deriveBaseMutationLock());
             if (recordCreateController) {
                 recordCreateController.completeReview(reviewToken, containerId);
             }
@@ -310,9 +427,59 @@
         }
     }
 
+    function handlePendingDeleteReviewSettlement(payload) {
+        if (pendingDeleteReview && payload.containerId !== pendingDeleteReview.containerId) {
+            if (
+                navMode === NAV_MODES.RECORDS_DETAIL &&
+                selectedContainerId === payload.containerId &&
+                (payload.phase === 'READY' || payload.phase === 'EMPTY')
+            ) {
+                if (recordsStatusEl) {
+                    recordsStatusEl.textContent = PENDING_DELETE_REVIEW_NOTICE;
+                    recordsStatusEl.className = 'text-sm text-amber-700 font-medium';
+                }
+            }
+            return;
+        }
+        if (!pendingDeleteReview || !pendingDeleteReview.awaitingListSettlement) {
+            return;
+        }
+        if (payload.containerId !== pendingDeleteReview.containerId) {
+            return;
+        }
+        if (navMode !== NAV_MODES.RECORDS_DETAIL) {
+            return;
+        }
+        if (selectedContainerId !== pendingDeleteReview.containerId) {
+            return;
+        }
+        if (payload.phase !== 'READY' && payload.phase !== 'EMPTY') {
+            return;
+        }
+
+        var deleteReviewToken = pendingDeleteReview.reviewToken;
+        var deleteOutcome = pendingDeleteReview.outcome;
+        pendingDeleteReview = null;
+        applyMutationLock(deriveBaseMutationLock());
+        if (recordDeleteController) {
+            recordDeleteController.completeReviewSettlement(deleteReviewToken, deleteOutcome);
+        }
+    }
+
+    function handleDeleteReviewNotFound(reviewToken, containerId) {
+        listSnapshotValid = false;
+        pendingDeleteReview = null;
+        applyMutationLock(deriveBaseMutationLock());
+        if (recordDeleteController) {
+            recordDeleteController.cancelReview();
+        }
+        backToContainerListWithMessage('La lista ya no está disponible. La eliminación pendiente no pudo conservarse.');
+    }
+
     function handleRecordReviewNotFound(reviewToken, containerId) {
         listSnapshotValid = false;
         pendingRecordReview = null;
+        applyMutationLock(deriveBaseMutationLock());
         if (recordCreateController) {
             recordCreateController.cancelReview(reviewToken, 'container_not_found');
         }
@@ -367,6 +534,19 @@
             },
             onAuthoritativeLoadSettled: function (payload) {
                 handlePendingReviewSettlement(payload);
+                handlePendingDeleteReviewSettlement(payload);
+                if (payload.phase === 'READY' || payload.phase === 'EMPTY') {
+                    scheduleRecordsHeadingFocus();
+                }
+            },
+            onRecordDeleteIntent: function (snapshot, originButton) {
+                if (!recordDeleteController || isRecordDeleteGloballyBlocked()) {
+                    return;
+                }
+                recordDeleteController.openModal(snapshot, originButton);
+            },
+            isDeleteActionEnabled: function () {
+                return recordMutationLock === 'none';
             }
         });
         recordsNavEnabled = !!recordsController;
@@ -432,6 +612,7 @@
                     containerId: payload.containerId,
                     awaitingPage: 1
                 };
+                applyMutationLock('create_review');
                 setRecordCreateTriggerVisible(true);
                 if (recordsController) {
                     recordsController.open(payload.containerId, 1);
@@ -459,8 +640,128 @@
         }
     }
 
+    function initRecordDeleteController() {
+        if (!hasRecordDeleteFactory() || !hasRecordDeleteAction() || !hasRecordDeleteMarkup()) {
+            recordDeleteEnabled = false;
+            return;
+        }
+
+        recordDeleteController = window.AA_FinanceRecordDelete.createController({
+            cfg: cfg,
+            elements: {
+                modal: recordDeleteModal,
+                backdrop: recordDeleteBackdrop,
+                closeBtn: recordDeleteCloseBtn,
+                title: recordDeleteTitleEl,
+                body: recordDeleteBodyEl,
+                amount: recordDeleteAmountEl,
+                modalError: recordDeleteErrorEl,
+                standardActions: recordDeleteStandardActionsEl,
+                cancelBtn: recordDeleteCancelBtn,
+                confirmBtn: recordDeleteConfirmBtn,
+                uncertainActions: recordDeleteUncertainActionsEl,
+                uncertainCloseBtn: recordDeleteUncertainCloseBtn,
+                blockedActions: recordDeleteBlockedActionsEl,
+                blockedCloseBtn: recordDeleteBlockedCloseBtn
+            },
+            isDetailActive: function () {
+                return navMode === NAV_MODES.RECORDS_DETAIL;
+            },
+            isDeleteAllowed: function () {
+                return recordMutationLock === 'none';
+            },
+            onDeleteActiveStart: function () {
+                applyMutationLock('delete_active');
+            },
+            onDeleteActiveEnd: function () {
+                applyMutationLock(deriveBaseMutationLock());
+            },
+            onDeleteConfirmedRefresh: function (containerId, sourcePage) {
+                listSnapshotValid = false;
+                if (recordsController && Number.isInteger(containerId) && containerId >= 1) {
+                    recordsController.open(containerId, sourcePage);
+                }
+            },
+            onDeleteRecordNotFoundRefresh: function (containerId, sourcePage) {
+                listSnapshotValid = false;
+                if (recordsStatusEl) {
+                    recordsStatusEl.textContent = 'La entrada ya no estaba disponible. Actualizamos la lista.';
+                    recordsStatusEl.className = 'text-sm text-amber-700 font-medium';
+                }
+                if (recordsController && Number.isInteger(containerId) && containerId >= 1) {
+                    recordsController.open(containerId, sourcePage);
+                }
+            },
+            onDeleteUncertainInvalidated: function () {
+                listSnapshotValid = false;
+            },
+            onUncertainReviewStart: function (payload) {
+                if (!Number.isInteger(payload.containerId) || payload.containerId < 1) {
+                    return null;
+                }
+                if (!Number.isInteger(payload.recordId) || payload.recordId < 1) {
+                    return null;
+                }
+                if (!Number.isInteger(payload.sourcePage) || payload.sourcePage < 1) {
+                    return null;
+                }
+                if (pendingDeleteReview) {
+                    return pendingDeleteReview.reviewToken;
+                }
+                nextDeleteReviewToken++;
+                pendingDeleteReview = {
+                    reviewToken: nextDeleteReviewToken,
+                    containerId: payload.containerId,
+                    recordId: payload.recordId,
+                    sourcePage: payload.sourcePage
+                };
+                applyMutationLock('delete_review');
+                return nextDeleteReviewToken;
+            },
+            onReviewAwaitingListSettlement: function (payload) {
+                if (!pendingDeleteReview || pendingDeleteReview.reviewToken !== payload.reviewToken) {
+                    return;
+                }
+                pendingDeleteReview.awaitingListSettlement = true;
+                pendingDeleteReview.outcome = payload.outcome;
+                listSnapshotValid = false;
+                if (recordsController) {
+                    recordsController.open(payload.containerId, payload.sourcePage);
+                }
+            },
+            onReviewGetUncertain: function (reviewToken) {
+                if (!pendingDeleteReview || pendingDeleteReview.reviewToken !== reviewToken) {
+                    return;
+                }
+                showDeleteReviewRetryNotice(reviewToken);
+            },
+            onReviewRecordExistsNotice: function () {
+                if (recordsStatusEl) {
+                    recordsStatusEl.textContent = 'La entrada continúa disponible en la lista.';
+                    recordsStatusEl.className = 'text-sm text-amber-700 font-medium';
+                }
+            },
+            onContainerNotFoundDelete: function (containerId) {
+                listSnapshotValid = false;
+                if (pendingDeleteReview && pendingDeleteReview.containerId === containerId) {
+                    handleDeleteReviewNotFound(pendingDeleteReview.reviewToken, containerId);
+                    return;
+                }
+                backToContainerListWithMessage('La lista ya no está disponible.');
+            },
+            onFocusDetailStatus: function () {
+                focusRecordsDetailStatus();
+            },
+            onIdle: function () {
+                syncMutationUI();
+            }
+        });
+        recordDeleteEnabled = !!recordDeleteController;
+    }
+
     initRecordsController();
     initRecordCreateController();
+    initRecordDeleteController();
 
     function setListViewVisible(isVisible) {
         if (listContainerEl) {
@@ -550,11 +851,25 @@
         if (!Number.isInteger(containerId) || containerId < 1) {
             return;
         }
+
+        if (pendingDeleteReview && recordDeleteController) {
+            if (selectedContainerId !== null && selectedContainerId !== containerId) {
+                recordDeleteController.abortActiveReviewRequest();
+            }
+        }
+
         if (navMode === NAV_MODES.RECORDS_DETAIL && selectedContainerId === containerId) {
             if (pendingRecordReview && pendingRecordReview.containerId === containerId) {
                 recordsController.open(containerId, 1);
             }
+            if (pendingDeleteReview && pendingDeleteReview.containerId === containerId && recordDeleteController) {
+                recordDeleteController.resumeReview(pendingDeleteReview);
+            }
             return;
+        }
+
+        if (pendingDeleteReview && recordDeleteController && selectedContainerId !== null && selectedContainerId !== containerId) {
+            recordDeleteController.abortActiveReviewRequest();
         }
 
         originOpenButton = originButton || null;
@@ -565,12 +880,22 @@
         setRecordsViewVisible(true);
         setCreateTriggerVisible(false);
         setRecordCreateTriggerVisible(true);
+        syncMutationUI();
 
         recordsController.open(containerId, 1);
+
+        if (pendingDeleteReview && pendingDeleteReview.containerId === containerId && recordDeleteController) {
+            recordDeleteController.resumeReview(pendingDeleteReview);
+        }
+
         scheduleRecordsHeadingFocus();
     }
 
     function backToContainerList() {
+        if (pendingDeleteReview && recordDeleteController) {
+            recordDeleteController.abortActiveReviewRequest();
+        }
+
         if (recordsController) {
             recordsController.close();
         }

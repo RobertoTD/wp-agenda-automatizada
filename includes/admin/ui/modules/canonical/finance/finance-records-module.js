@@ -154,6 +154,12 @@
         var onAuthoritativeLoadSettled = typeof options.onAuthoritativeLoadSettled === 'function'
             ? options.onAuthoritativeLoadSettled
             : null;
+        var onRecordDeleteIntent = typeof options.onRecordDeleteIntent === 'function'
+            ? options.onRecordDeleteIntent
+            : null;
+        var isDeleteActionEnabled = typeof options.isDeleteActionEnabled === 'function'
+            ? options.isDeleteActionEnabled
+            : function () { return false; };
         var isActiveGuard = typeof options.isActiveGuard === 'function'
             ? options.isActiveGuard
             : function () { return true; };
@@ -401,11 +407,27 @@
             summaryEl.appendChild(metaRow);
         }
 
+        function setDeleteActionsEnabled(isEnabled) {
+            if (!gridEl) {
+                return;
+            }
+            var buttons = gridEl.querySelectorAll('.aa-finance-delete-record-btn');
+            for (var i = 0; i < buttons.length; i++) {
+                buttons[i].disabled = !isEnabled;
+                if (isEnabled) {
+                    buttons[i].removeAttribute('aria-disabled');
+                } else {
+                    buttons[i].setAttribute('aria-disabled', 'true');
+                }
+            }
+        }
+
         function renderRecords(items) {
             if (!gridEl) {
                 return;
             }
             clearNode(gridEl);
+            var renderSourcePage = confirmedRecordsPage;
 
             for (var i = 0; i < items.length; i++) {
                 var item = items[i];
@@ -439,12 +461,47 @@
                 }
 
                 var footer = document.createElement('div');
-                footer.className = 'text-xs text-gray-400 pt-2 border-t border-gray-100';
-                footer.textContent = formatCreationDate(item.created_at);
-                card.appendChild(footer);
+                footer.className = 'flex items-center justify-between pt-2 border-t border-gray-100 mt-2';
+                var dateSpan = document.createElement('span');
+                dateSpan.className = 'text-xs text-gray-400';
+                dateSpan.textContent = formatCreationDate(item.created_at);
+                footer.appendChild(dateSpan);
 
+                if (onRecordDeleteIntent && deleteRecordActionEnabled()) {
+                    var deleteBtn = document.createElement('button');
+                    deleteBtn.type = 'button';
+                    deleteBtn.className = 'aa-finance-delete-record-btn text-xs font-semibold text-red-700 hover:text-red-900 underline focus:outline-none';
+                    deleteBtn.textContent = 'Eliminar';
+                    deleteBtn.setAttribute('aria-label', 'Eliminar entrada «' + item.title + '»');
+                    var deleteEnabled = isDeleteActionEnabled();
+                    deleteBtn.disabled = !deleteEnabled;
+                    if (!deleteEnabled) {
+                        deleteBtn.setAttribute('aria-disabled', 'true');
+                    }
+                    (function (snapshotItem, sourcePage, triggerBtn) {
+                        deleteBtn.addEventListener('click', function () {
+                            if (triggerBtn.disabled) {
+                                return;
+                            }
+                            onRecordDeleteIntent({
+                                recordId: snapshotItem.id,
+                                containerId: snapshotItem.container_id,
+                                title: snapshotItem.title,
+                                amount: snapshotItem.amount,
+                                sourcePage: sourcePage
+                            }, triggerBtn);
+                        });
+                    })(item, renderSourcePage, deleteBtn);
+                    footer.appendChild(deleteBtn);
+                }
+
+                card.appendChild(footer);
                 gridEl.appendChild(card);
             }
+        }
+
+        function deleteRecordActionEnabled() {
+            return !!onRecordDeleteIntent;
         }
 
         function renderEmptyState() {
@@ -782,7 +839,11 @@
             open: open,
             retry: retry,
             close: close,
-            destroy: destroy
+            destroy: destroy,
+            getConfirmedPage: function () {
+                return confirmedRecordsPage;
+            },
+            setDeleteActionsEnabled: setDeleteActionsEnabled
         };
     }
 

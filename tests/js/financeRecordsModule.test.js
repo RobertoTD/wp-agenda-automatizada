@@ -1093,4 +1093,71 @@ describe('FinanceRecordsModule (Ciclo 3D3A)', () => {
         assert.ok(dom.recordsHeadingEl.textContent);
         controller.destroy();
     });
+
+    it('renderiza botón Eliminar por card con snapshot autoritativo', async () => {
+        const dom = buildRecordsDom();
+        const intents = [];
+        const sandbox = {
+            document: dom.document,
+            window: { AA_FINANCE_DATA: DEFAULT_FINANCE_DATA },
+            FormData: buildTestFormData(),
+            setTimeout: hostSetTimeout,
+            clearTimeout: clearTimeout,
+            fetch: function () {
+                return Promise.resolve(jsonResponse({ ok: true, status: 200, body: { success: true, data: recordsEnvelope({ page: 2, total: 16, total_pages: 2, has_previous: true, has_next: false, items: [{ id: 101, family_key: 'finance', variant_key: 'general', container_id: 7, title: 'Registro A', details: 'Detalle <script>alert(1)</script>', amount: '150.85', created_at: '2026-08-31 11:00:00' }] }) } }));
+            },
+            AbortController: hostAbortController,
+            AbortSignal: hostAbortSignal
+        };
+        vm.runInNewContext(recordsModuleSrc, sandbox);
+        const controller = sandbox.window.AA_FinanceRecords.createController({
+            cfg: DEFAULT_FINANCE_DATA,
+            elements: { heading: dom.recordsHeadingEl, summary: dom.recordsSummaryEl, status: dom.recordsStatusEl, grid: dom.recordsGridEl, pagination: dom.recordsPaginationEl, prev: dom.recordsPrevBtn, next: dom.recordsNextBtn, pageIndicator: dom.recordsPageIndicatorEl },
+            onRecordDeleteIntent: function (snapshot) { intents.push(snapshot); },
+            isDeleteActionEnabled: function () { return true; }
+        });
+        controller.open(7, 2);
+        await flushMicrotasks();
+        const deleteBtn = dom.recordsGridEl.querySelector('.aa-finance-delete-record-btn');
+        assert.ok(deleteBtn);
+        assert.strictEqual(deleteBtn.textContent, 'Eliminar');
+        deleteBtn.dispatch('click');
+        assert.strictEqual(intents.length, 1);
+        assert.strictEqual(intents[0].recordId, 101);
+        assert.strictEqual(intents[0].containerId, 7);
+        assert.strictEqual(intents[0].title, 'Registro A');
+        assert.strictEqual(intents[0].amount, '150.85');
+        assert.strictEqual(intents[0].sourcePage, 2);
+        assert.ok(dom.recordsGridEl.textContent.includes('Registro A'));
+        controller.destroy();
+    });
+
+    it('bloquea botón Eliminar cuando isDeleteActionEnabled es false', async () => {
+        const dom = buildRecordsDom();
+        const sandbox = {
+            document: dom.document,
+            window: { AA_FINANCE_DATA: DEFAULT_FINANCE_DATA },
+            FormData: buildTestFormData(),
+            setTimeout: hostSetTimeout,
+            clearTimeout: clearTimeout,
+            fetch: function () {
+                return Promise.resolve(jsonResponse({ ok: true, status: 200, body: { success: true, data: recordsEnvelope() } }));
+            },
+            AbortController: hostAbortController,
+            AbortSignal: hostAbortSignal
+        };
+        vm.runInNewContext(recordsModuleSrc, sandbox);
+        const controller = sandbox.window.AA_FinanceRecords.createController({
+            cfg: DEFAULT_FINANCE_DATA,
+            elements: { heading: dom.recordsHeadingEl, summary: dom.recordsSummaryEl, status: dom.recordsStatusEl, grid: dom.recordsGridEl, pagination: dom.recordsPaginationEl, prev: dom.recordsPrevBtn, next: dom.recordsNextBtn, pageIndicator: dom.recordsPageIndicatorEl },
+            onRecordDeleteIntent: function () {},
+            isDeleteActionEnabled: function () { return false; }
+        });
+        controller.open(7, 1);
+        await flushMicrotasks();
+        const deleteBtn = dom.recordsGridEl.querySelector('.aa-finance-delete-record-btn');
+        assert.ok(deleteBtn);
+        assert.strictEqual(deleteBtn.disabled, true);
+        controller.destroy();
+    });
 });

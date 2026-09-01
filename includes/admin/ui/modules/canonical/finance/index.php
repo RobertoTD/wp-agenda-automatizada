@@ -37,11 +37,14 @@ $finance_config = [
         'createContainer'  => FinanceContainersAjax::ACTION_CREATE,
         'listRecords'      => FinanceRecordsAjax::ACTION_LIST,
         'createRecord'     => FinanceRecordsAjax::ACTION_CREATE,
+        'deleteRecord'     => FinanceRecordsAjax::ACTION_DELETE,
+        'getRecord'        => FinanceRecordsAjax::ACTION_GET,
     ],
 ];
 
 $finance_records_js = plugin_dir_url(__FILE__) . 'finance-records-module.js';
 $finance_record_create_js = plugin_dir_url(__FILE__) . 'finance-record-create-module.js';
+$finance_record_delete_js = plugin_dir_url(__FILE__) . 'finance-record-delete-module.js';
 $finance_module_js  = plugin_dir_url(__FILE__) . 'finance-module.js';
 $finance_module_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
 ?>
@@ -189,6 +192,76 @@ $finance_module_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0'
             class="grid grid-cols-1 gap-4"
             aria-busy="false"
         ></div>
+    </div>
+
+    <!-- Modal Accesible de Eliminación de Entrada Financiera -->
+    <div
+        id="aa-finance-record-delete-modal"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="aa-finance-record-delete-modal-title"
+        aria-hidden="true"
+    >
+        <div id="aa-finance-record-delete-modal-backdrop" class="fixed inset-0 bg-black/50 transition-opacity" aria-hidden="true"></div>
+
+        <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6 z-10">
+            <div class="flex items-center justify-between mb-4">
+                <h3 id="aa-finance-record-delete-modal-title" class="text-lg font-bold text-gray-900 leading-tight">
+                    Eliminar entrada
+                </h3>
+                <button
+                    type="button"
+                    id="aa-finance-record-delete-close"
+                    class="text-gray-400 hover:text-gray-600 p-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    aria-label="Cerrar modal"
+                >
+                    ✕
+                </button>
+            </div>
+
+            <div id="aa-finance-record-delete-error" class="hidden mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-xs font-medium" aria-live="polite"></div>
+
+            <p id="aa-finance-record-delete-body" class="text-sm text-gray-700"></p>
+            <p id="aa-finance-record-delete-amount" class="mt-2 text-xs text-gray-500 hidden"></p>
+
+            <div id="aa-finance-record-delete-actions-standard" class="mt-6 flex items-center justify-end gap-3">
+                <button
+                    type="button"
+                    id="aa-finance-record-delete-cancel"
+                    class="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                    Cancelar
+                </button>
+                <button
+                    type="button"
+                    id="aa-finance-record-delete-confirm"
+                    class="px-4 py-2 text-xs font-semibold text-white bg-red-700 rounded-lg hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    Eliminar entrada
+                </button>
+            </div>
+
+            <div id="aa-finance-record-delete-actions-uncertain" class="hidden mt-6 flex items-center justify-end gap-3">
+                <button
+                    type="button"
+                    id="aa-finance-record-delete-uncertain-close"
+                    class="px-4 py-2 text-xs font-semibold text-white bg-gray-800 rounded-lg hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-600"
+                >
+                    Cerrar y revisar
+                </button>
+            </div>
+
+            <div id="aa-finance-record-delete-actions-blocked" class="hidden mt-6 flex items-center justify-end gap-3">
+                <button
+                    type="button"
+                    id="aa-finance-record-delete-blocked-close"
+                    class="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                    Cerrar
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Modal Accesible de Creación de Entrada Financiera -->
@@ -422,4 +495,5 @@ window.AA_FINANCE_DATA = <?php echo wp_json_encode($finance_config, JSON_HEX_TAG
 </script>
 <script src="<?php echo esc_url($finance_records_js . '?ver=' . rawurlencode($finance_module_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($finance_record_create_js . '?ver=' . rawurlencode($finance_module_ver)); ?>" defer></script>
+<script src="<?php echo esc_url($finance_record_delete_js . '?ver=' . rawurlencode($finance_module_ver)); ?>" defer></script>
 <script src="<?php echo esc_url($finance_module_js . '?ver=' . rawurlencode($finance_module_ver)); ?>" defer></script>

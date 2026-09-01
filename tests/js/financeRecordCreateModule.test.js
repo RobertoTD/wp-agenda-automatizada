@@ -8,9 +8,11 @@ const vm = require('node:vm');
 
 const recordsModulePath = path.join(__dirname, '../../includes/admin/ui/modules/canonical/finance/finance-records-module.js');
 const createModulePath = path.join(__dirname, '../../includes/admin/ui/modules/canonical/finance/finance-record-create-module.js');
+const deleteModulePath = path.join(__dirname, '../../includes/admin/ui/modules/canonical/finance/finance-record-delete-module.js');
 const orchestratorModulePath = path.join(__dirname, '../../includes/admin/ui/modules/canonical/finance/finance-module.js');
 const recordsModuleSrc = fs.readFileSync(recordsModulePath, 'utf8');
 const createModuleSrc = fs.readFileSync(createModulePath, 'utf8');
+const deleteModuleSrc = fs.readFileSync(deleteModulePath, 'utf8');
 const orchestratorModuleSrc = fs.readFileSync(orchestratorModulePath, 'utf8');
 
 const hostSetImmediate = setImmediate;
@@ -28,7 +30,9 @@ const DEFAULT_FINANCE_DATA = {
         listContainers: 'aa_list_finance_containers',
         createContainer: 'aa_create_finance_container',
         listRecords: 'aa_list_finance_records',
-        createRecord: 'aa_create_finance_record'
+        createRecord: 'aa_create_finance_record',
+        deleteRecord: 'aa_delete_finance_record',
+        getRecord: 'aa_get_finance_record'
     }
 };
 
@@ -407,11 +411,45 @@ function buildFullDom() {
     recordCreateModal.appendChild(recordModalCloseBtn);
     recordCreateModal.appendChild(recordCreateForm);
 
+    const recordDeleteModal = createEl('div', 'aa-finance-record-delete-modal');
+    recordDeleteModal.classList.add('hidden');
+    const recordDeleteBackdrop = createEl('div', 'aa-finance-record-delete-modal-backdrop');
+    const recordDeleteCloseBtn = createEl('button', 'aa-finance-record-delete-close');
+    const recordDeleteTitleEl = createEl('h3', 'aa-finance-record-delete-modal-title');
+    const recordDeleteBodyEl = createEl('p', 'aa-finance-record-delete-body');
+    const recordDeleteAmountEl = createEl('p', 'aa-finance-record-delete-amount');
+    recordDeleteAmountEl.classList.add('hidden');
+    const recordDeleteErrorEl = createEl('div', 'aa-finance-record-delete-error');
+    recordDeleteErrorEl.classList.add('hidden');
+    const recordDeleteStandardActionsEl = createEl('div', 'aa-finance-record-delete-actions-standard');
+    const recordDeleteCancelBtn = createEl('button', 'aa-finance-record-delete-cancel');
+    const recordDeleteConfirmBtn = createEl('button', 'aa-finance-record-delete-confirm');
+    const recordDeleteUncertainActionsEl = createEl('div', 'aa-finance-record-delete-actions-uncertain');
+    recordDeleteUncertainActionsEl.classList.add('hidden');
+    const recordDeleteUncertainCloseBtn = createEl('button', 'aa-finance-record-delete-uncertain-close');
+    const recordDeleteBlockedActionsEl = createEl('div', 'aa-finance-record-delete-actions-blocked');
+    recordDeleteBlockedActionsEl.classList.add('hidden');
+    const recordDeleteBlockedCloseBtn = createEl('button', 'aa-finance-record-delete-blocked-close');
+    recordDeleteStandardActionsEl.appendChild(recordDeleteCancelBtn);
+    recordDeleteStandardActionsEl.appendChild(recordDeleteConfirmBtn);
+    recordDeleteUncertainActionsEl.appendChild(recordDeleteUncertainCloseBtn);
+    recordDeleteBlockedActionsEl.appendChild(recordDeleteBlockedCloseBtn);
+    recordDeleteModal.appendChild(recordDeleteBackdrop);
+    recordDeleteModal.appendChild(recordDeleteCloseBtn);
+    recordDeleteModal.appendChild(recordDeleteTitleEl);
+    recordDeleteModal.appendChild(recordDeleteErrorEl);
+    recordDeleteModal.appendChild(recordDeleteBodyEl);
+    recordDeleteModal.appendChild(recordDeleteAmountEl);
+    recordDeleteModal.appendChild(recordDeleteStandardActionsEl);
+    recordDeleteModal.appendChild(recordDeleteUncertainActionsEl);
+    recordDeleteModal.appendChild(recordDeleteBlockedActionsEl);
+
     root.appendChild(openCreateBtn);
     root.appendChild(listContainer);
     root.appendChild(recordsContainer);
     root.appendChild(createModal);
     root.appendChild(recordCreateModal);
+    root.appendChild(recordDeleteModal);
 
     [
         root, listContainer, statusEl, gridEl, paginationEl, prevBtn, nextBtn, pageIndicatorEl,
@@ -421,7 +459,11 @@ function buildFullDom() {
         recordModalCloseBtn, recordCreateForm, recordModalErrorEl, recordTitleInput, recordTitleErrorEl,
         recordDetailsInput, recordDetailsErrorEl, recordAmountInput, recordAmountErrorEl,
         recordStandardActionsEl, recordCancelBtn, recordSubmitBtn, recordUncertainActionsEl,
-        recordUncertainCloseBtn, recordBlockedActionsEl, recordBlockedCloseBtn
+        recordUncertainCloseBtn, recordBlockedActionsEl, recordBlockedCloseBtn,
+        recordDeleteModal, recordDeleteBackdrop, recordDeleteCloseBtn, recordDeleteTitleEl,
+        recordDeleteBodyEl, recordDeleteAmountEl, recordDeleteErrorEl, recordDeleteStandardActionsEl,
+        recordDeleteCancelBtn, recordDeleteConfirmBtn, recordDeleteUncertainActionsEl,
+        recordDeleteUncertainCloseBtn, recordDeleteBlockedActionsEl, recordDeleteBlockedCloseBtn
     ].forEach((el) => {
         el.ownerDocument = document;
         if (el.id) document._elements[el.id] = el;
@@ -479,6 +521,10 @@ function isCreateRecordFetch(opts) {
     return opts && opts.body && opts.body.data && opts.body.data.action === 'aa_create_finance_record';
 }
 
+function isDeleteRecordFetch(opts) {
+    return opts && opts.body && opts.body.data && opts.body.data.action === 'aa_delete_finance_record';
+}
+
 function bootAllModules(document, options) {
     options = options || {};
     const timerCtrl = createTimerController();
@@ -501,6 +547,10 @@ function bootAllModules(document, options) {
             if (isListRecordsFetch(opts)) {
                 if (recordsDeferred) return recordsDeferred.promise;
                 if (options.recordsResponse) return Promise.resolve(options.recordsResponse(opts));
+                return Promise.resolve(jsonResponse({ ok: true, status: 200, body: { success: true, data: recordsEnvelope() } }));
+            }
+            if (isDeleteRecordFetch(opts)) {
+                if (options.deleteResponse) return Promise.resolve(options.deleteResponse(opts));
             }
             if (isListContainersFetch(opts)) {
                 return Promise.resolve(jsonResponse({
@@ -517,6 +567,7 @@ function bootAllModules(document, options) {
 
     if (options.includeRecordsFactory !== false) vm.runInNewContext(recordsModuleSrc, sandbox);
     if (options.includeCreateFactory !== false) vm.runInNewContext(createModuleSrc, sandbox);
+    if (options.includeDeleteFactory !== false) vm.runInNewContext(deleteModuleSrc, sandbox);
     vm.runInNewContext(orchestratorModuleSrc, sandbox);
 
     return {
@@ -938,5 +989,32 @@ describe('FinanceRecordCreateModule (Ciclo 3D3B)', () => {
         await flushMicrotasks();
         await openDetail(dom);
         assert.strictEqual(dom.openRecordBtn.hidden, true);
+    });
+
+    it('delete_review bloquea trigger de creación', async () => {
+        const dom = buildFullDom();
+        const boot = bootAllModules(dom.document, {
+            deleteResponse: function () {
+                return jsonResponse({
+                    ok: false,
+                    status: 500,
+                    body: { success: false, data: { code: 'persistence_failed', message: 'Incierto.' } }
+                });
+            }
+        });
+        try {
+            await openDetail(dom, boot);
+            const deleteBtn = dom.recordsGridEl.querySelector('.aa-finance-delete-record-btn');
+            assert.ok(deleteBtn);
+            deleteBtn.dispatch('click');
+            await waitDelay(60);
+            dom.document.getElementById('aa-finance-record-delete-confirm').dispatch('click');
+            await flushMicrotasks();
+            dom.document.getElementById('aa-finance-record-delete-uncertain-close').dispatch('click');
+            await flushMicrotasks();
+            assert.strictEqual(dom.openRecordBtn.disabled, true);
+        } finally {
+            boot.cleanup();
+        }
     });
 });
