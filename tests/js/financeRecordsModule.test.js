@@ -191,6 +191,9 @@ function createEl(tag, id) {
     Object.defineProperty(el, 'firstChild', {
         get() { return this.children[0] || null; }
     });
+    Object.defineProperty(el, 'childNodes', {
+        get() { return this.children; }
+    });
     if (id) el.id = id;
     return el;
 }
@@ -361,6 +364,25 @@ function buildRecordsDom() {
 
 async function flushMicrotasks() {
     await new Promise(hostSetImmediate);
+}
+
+function waitForHostDelay(delay) {
+    return new Promise(function (resolve) {
+        hostSetTimeout(resolve, delay);
+    });
+}
+
+function findDescendantSpanByAriaLabel(root, label) {
+    if (root.tagName === 'SPAN' && root.getAttribute('aria-label') === label) {
+        return root;
+    }
+    for (let i = 0; i < root.children.length; i++) {
+        const found = findDescendantSpanByAriaLabel(root.children[i], label);
+        if (found) {
+            return found;
+        }
+    }
+    return null;
 }
 
 function recordsEnvelope(overrides) {
@@ -549,6 +571,55 @@ describe('FinanceRecordsModule (Ciclo 3D3A)', () => {
 
     it('renderiza contenedor, registros, amounts y previene XSS', async () => {
         const dom = buildRecordsDom();
+        const recordsPayload = recordsEnvelope({
+            items: [
+                {
+                    id: 1,
+                    family_key: 'finance',
+                    variant_key: 'general',
+                    container_id: 7,
+                    title: '<img onerror=alert(1)>',
+                    details: null,
+                    amount: null,
+                    created_at: '2026-08-31 12:00:00'
+                },
+                {
+                    id: 2,
+                    family_key: 'finance',
+                    variant_key: 'general',
+                    container_id: 7,
+                    title: 'Cero',
+                    details: null,
+                    amount: '0.00',
+                    created_at: '2026-08-31 12:05:00'
+                },
+                {
+                    id: 3,
+                    family_key: 'finance',
+                    variant_key: 'general',
+                    container_id: 7,
+                    title: 'Positivo',
+                    details: null,
+                    amount: '99.99',
+                    created_at: '2026-08-31 12:10:00'
+                },
+                {
+                    id: 4,
+                    family_key: 'finance',
+                    variant_key: 'general',
+                    container_id: 7,
+                    title: 'Negativo',
+                    details: null,
+                    amount: '-25.50',
+                    created_at: '2026-08-31 12:15:00'
+                }
+            ],
+            amount_total: '-25.50',
+            total: 4,
+            total_pages: 1,
+            has_previous: false,
+            has_next: false
+        });
         bootBothModules(dom.document, {
             recordsResponse: function () {
                 return jsonResponse({
@@ -556,53 +627,7 @@ describe('FinanceRecordsModule (Ciclo 3D3A)', () => {
                     status: 200,
                     body: {
                         success: true,
-                        data: recordsEnvelope({
-                            items: [
-                                {
-                                    id: 1,
-                                    family_key: 'finance',
-                                    variant_key: 'general',
-                                    container_id: 7,
-                                    title: '<img onerror=alert(1)>',
-                                    details: null,
-                                    amount: null,
-                                    created_at: '2026-08-31 12:00:00'
-                                },
-                                {
-                                    id: 2,
-                                    family_key: 'finance',
-                                    variant_key: 'general',
-                                    container_id: 7,
-                                    title: 'Cero',
-                                    details: null,
-                                    amount: '0.00',
-                                    created_at: '2026-08-31 12:05:00'
-                                },
-                                {
-                                    id: 3,
-                                    family_key: 'finance',
-                                    variant_key: 'general',
-                                    container_id: 7,
-                                    title: 'Positivo',
-                                    details: null,
-                                    amount: '99.99',
-                                    created_at: '2026-08-31 12:10:00'
-                                },
-                                {
-                                    id: 4,
-                                    family_key: 'finance',
-                                    variant_key: 'general',
-                                    container_id: 7,
-                                    title: 'Negativo',
-                                    details: null,
-                                    amount: '-25.50',
-                                    created_at: '2026-08-31 12:15:00'
-                                }
-                            ],
-                            amount_total: '-25.50',
-                            total: 4,
-                            total_pages: 1
-                        })
+                        data: recordsPayload
                     }
                 });
             }
@@ -613,7 +638,12 @@ describe('FinanceRecordsModule (Ciclo 3D3A)', () => {
 
         assert.strictEqual(dom.recordsHeadingEl.textContent, 'Caja General');
         assert.ok(dom.recordsSummaryEl.textContent.includes('Sin importes') || dom.recordsSummaryEl.textContent.includes('-25.50'));
-        assert.ok(dom.recordsGridEl.textContent.includes('Sin importe'));
+        const nullAmountEl = findDescendantSpanByAriaLabel(dom.recordsGridEl, 'Sin importe');
+        assert.ok(
+            nullAmountEl,
+            'Debe renderizar un span con aria-label Sin importe en la card de amount null'
+        );
+        assert.strictEqual(nullAmountEl.textContent, 'Sin importe');
         assert.ok(dom.recordsGridEl.textContent.includes('0.00'));
         assert.ok(dom.recordsGridEl.textContent.includes('-25.50'));
         assert.ok(dom.recordsGridEl.textContent.includes('<img onerror=alert(1)>'));
@@ -738,7 +768,10 @@ describe('FinanceRecordsModule (Ciclo 3D3A)', () => {
         dom.recordsBackBtn.dispatch('click');
         await flushMicrotasks();
         assert.strictEqual(listCalls, callsAfterBoot);
-        assert.strictEqual(dom.document.activeElement, openBtn);
+        assert.ok(
+            dom.document.activeElement === openBtn,
+            'El botón de apertura debe recuperar el foco al volver'
+        );
     });
 
     it('oculta trigger de creación en detalle', async () => {
@@ -936,9 +969,12 @@ describe('FinanceRecordsModule (Ciclo 3D3A)', () => {
         });
         await flushMicrotasks();
         dom.gridEl.querySelector('.aa-finance-open-records-btn').dispatch('click');
-        await hostSetTimeout(function () {}, 60);
+        await waitForHostDelay(60);
         await flushMicrotasks();
-        assert.strictEqual(dom.document.activeElement, dom.recordsHeadingEl);
+        assert.ok(
+            dom.document.activeElement === dom.recordsHeadingEl,
+            'El heading de registros debe recibir el foco'
+        );
     });
 
     it('emite onAuthoritativeLoadSettled en READY', async () => {
@@ -1128,7 +1164,50 @@ describe('FinanceRecordsModule (Ciclo 3D3A)', () => {
         assert.strictEqual(intents[0].title, 'Registro A');
         assert.strictEqual(intents[0].amount, '150.85');
         assert.strictEqual(intents[0].sourcePage, 2);
-        assert.ok(dom.recordsGridEl.textContent.includes('Registro A'));
+        controller.destroy();
+    });
+
+    it('renderiza botón Editar antes de Eliminar con sourcePage de confirmedRecordsPage', async () => {
+        const dom = buildRecordsDom();
+        const editIntents = [];
+        const financeData = JSON.parse(JSON.stringify(DEFAULT_FINANCE_DATA));
+        financeData.actions.getRecord = 'aa_get_finance_record';
+        financeData.actions.updateRecord = 'aa_update_finance_record';
+        financeData.actions.deleteRecord = 'aa_delete_finance_record';
+        const sandbox = {
+            document: dom.document,
+            window: { AA_FINANCE_DATA: financeData },
+            FormData: buildTestFormData(),
+            setTimeout: hostSetTimeout,
+            clearTimeout: clearTimeout,
+            fetch: function () {
+                return Promise.resolve(jsonResponse({ ok: true, status: 200, body: { success: true, data: recordsEnvelope({ page: 2, items: [{ id: 101, family_key: 'finance', variant_key: 'general', container_id: 7, title: 'Registro A', details: null, amount: '10.00', created_at: '2026-08-31 11:00:00' }] }) } }));
+            },
+            AbortController: hostAbortController,
+            AbortSignal: hostAbortSignal
+        };
+        vm.runInNewContext(recordsModuleSrc, sandbox);
+        const controller = sandbox.window.AA_FinanceRecords.createController({
+            cfg: financeData,
+            elements: { heading: dom.recordsHeadingEl, summary: dom.recordsSummaryEl, status: dom.recordsStatusEl, grid: dom.recordsGridEl, pagination: dom.recordsPaginationEl, prev: dom.recordsPrevBtn, next: dom.recordsNextBtn, pageIndicator: dom.recordsPageIndicatorEl },
+            onRecordEditIntent: function (snapshot) { editIntents.push(snapshot); },
+            onRecordDeleteIntent: function () {},
+            isEditActionEnabled: function () { return true; },
+            isDeleteActionEnabled: function () { return true; }
+        });
+        controller.open(7, 2);
+        await flushMicrotasks();
+        const editBtn = dom.recordsGridEl.querySelector('.aa-finance-edit-record-btn');
+        const deleteBtn = dom.recordsGridEl.querySelector('.aa-finance-delete-record-btn');
+        assert.ok(editBtn);
+        assert.ok(deleteBtn);
+        assert.strictEqual(editBtn.textContent, 'Editar');
+        editBtn.dispatch('click');
+        assert.strictEqual(editIntents.length, 1);
+        assert.strictEqual(editIntents[0].recordId, 101);
+        assert.strictEqual(editIntents[0].containerId, 7);
+        assert.strictEqual(editIntents[0].sourcePage, 2);
+        assert.strictEqual(Object.prototype.hasOwnProperty.call(editIntents[0], 'title'), false);
         controller.destroy();
     });
 
