@@ -5434,6 +5434,11 @@ html.aa-standalone body[data-aa-module="calendar"] .aa-day-timeline {
   --tw-ring-color: rgb(99 102 241 / 0.4);
 }
 
+.focus\:ring-red-500:focus {
+  --tw-ring-opacity: 1;
+  --tw-ring-color: rgb(239 68 68 / var(--tw-ring-opacity, 1));
+}
+
 .focus\:ring-red-600:focus {
   --tw-ring-opacity: 1;
   --tw-ring-color: rgb(220 38 38 / var(--tw-ring-opacity, 1));
@@ -5445,11 +5450,6 @@ html.aa-standalone body[data-aa-module="calendar"] .aa-day-timeline {
 
 .focus\:ring-violet-500\/40:focus {
   --tw-ring-color: rgb(139 92 246 / 0.4);
-}
-
-.focus\:ring-red-500:focus {
-  --tw-ring-opacity: 1;
-  --tw-ring-color: rgb(239 68 68 / var(--tw-ring-opacity, 1));
 }
 
 .focus\:ring-offset-1:focus {

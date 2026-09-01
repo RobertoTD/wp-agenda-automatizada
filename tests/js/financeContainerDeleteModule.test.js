@@ -825,6 +825,24 @@ describe('FinanceContainerDeleteModule (Ciclo 3D4B)', () => {
             dom.recordsBackBtn.dispatch('click');
             await flushMicrotasks();
             assert.ok(boot.fetchCalls.filter((c) => isGetContainerFetch(c.opts)).length > getCallsBeforeNav);
+            assert.strictEqual(dom.gridEl.querySelectorAll('.aa-finance-delete-container-btn')[0].disabled, true);
+        } finally { boot.cleanup(); }
+    });
+
+    it('volver desde registros rehabilita Eliminar si no hay locks', async () => {
+        const boot = bootFull();
+        const dom = boot.dom;
+        try {
+            await flushMicrotasks();
+            const deleteBtn = await waitForDeleteButtons(dom);
+            assert.strictEqual(deleteBtn.disabled, false);
+            const openBtn = dom.gridEl.querySelector('.aa-finance-open-records-btn');
+            openBtn.dispatch('click');
+            await flushMicrotasks();
+            dom.recordsBackBtn.dispatch('click');
+            await flushMicrotasks();
+            const deleteBtnAfter = dom.gridEl.querySelector('.aa-finance-delete-container-btn');
+            assert.strictEqual(deleteBtnAfter.disabled, false);
         } finally { boot.cleanup(); }
     });
 

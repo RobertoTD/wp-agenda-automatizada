@@ -1214,6 +1214,7 @@
         setListViewVisible(true);
         setCreateTriggerVisible(true);
         setRecordCreateTriggerVisible(false);
+        syncMutationUI();
 
         if (!listSnapshotValid) {
             if (statusEl) {
