@@ -1,5 +1,5 @@
 /**
- * Finance Canonical Module — Controlador JavaScript del listado de Contenedores en modo lectura.
+ * Finance Canonical Module — Controlador JavaScript del listado y creación de Contenedores.
  *
  * @package WP_Agenda_Automatizada
  * @subpackage Admin\UI\Modules\Canonical\Finance
@@ -18,6 +18,27 @@
     var prevBtn = document.getElementById('aa-finance-prev');
     var nextBtn = document.getElementById('aa-finance-next');
     var pageIndicatorEl = document.getElementById('aa-finance-page-indicator');
+
+    var openCreateBtn = document.getElementById('aa-finance-open-create-btn');
+    var createModal = document.getElementById('aa-finance-create-modal');
+    var modalBackdrop = document.getElementById('aa-finance-modal-backdrop');
+    var modalCloseBtn = document.getElementById('aa-finance-modal-close-btn');
+    var createForm = document.getElementById('aa-finance-create-form');
+    var modalErrorEl = document.getElementById('aa-finance-modal-error');
+    var titleInput = document.getElementById('aa-finance-create-title');
+    var titleErrorEl = document.getElementById('aa-finance-title-error');
+    var detailsInput = document.getElementById('aa-finance-create-details');
+    var detailsErrorEl = document.getElementById('aa-finance-details-error');
+
+    var standardActionsEl = document.getElementById('aa-finance-modal-actions-standard');
+    var cancelBtn = document.getElementById('aa-finance-modal-cancel-btn');
+    var submitBtn = document.getElementById('aa-finance-modal-submit-btn');
+
+    var uncertainActionsEl = document.getElementById('aa-finance-modal-actions-uncertain');
+    var uncertainCloseBtn = document.getElementById('aa-finance-modal-uncertain-close-btn');
+
+    var blockedActionsEl = document.getElementById('aa-finance-modal-actions-blocked');
+    var blockedCloseBtn = document.getElementById('aa-finance-modal-blocked-close-btn');
 
     function showFatalConfigError() {
         if (statusEl) {
@@ -50,17 +71,67 @@
         return;
     }
 
+    var hasCreateAction = typeof actions.createContainer === 'string' && actions.createContainer.trim() !== '';
+    if (!hasCreateAction && openCreateBtn) {
+        openCreateBtn.classList.add('hidden');
+        openCreateBtn.hidden = true;
+    }
+
     if (root.dataset.aaInitialized === 'true') {
         return;
     }
     root.dataset.aaInitialized = 'true';
 
+    // Estados formales de creación
+    var CREATE_STATES = {
+        IDLE: 'IDLE',
+        EDITING: 'EDITING',
+        SUBMITTING: 'SUBMITTING',
+        FIELD_REJECTED: 'FIELD_REJECTED',
+        BLOCKED_REJECTED: 'BLOCKED_REJECTED',
+        CONFIRMED: 'CONFIRMED',
+        UNCERTAIN: 'UNCERTAIN',
+        REVIEWING_UNCERTAIN: 'REVIEWING_UNCERTAIN',
+        DRAFT_REVIEWED: 'DRAFT_REVIEWED'
+    };
+
+    var createModalState = CREATE_STATES.IDLE;
+    var savedDraft = { title: '', details: '' };
+
     var confirmedPage = 1;
     var requestedPage = 1;
     var failedPage = null;
     var requestSeq = 0;
-    var activeAbortController = null;
-    var isFetching = false;
+    var listAbortController = null;
+    var isFetchingList = false;
+
+    var createAbortController = null;
+    var createTimeoutId = null;
+    var createRequestSeq = 0;
+    var focusTimeoutId = null;
+
+    function clearFocusTimer() {
+        if (focusTimeoutId !== null) {
+            clearTimeout(focusTimeoutId);
+            focusTimeoutId = null;
+        }
+    }
+
+    function scheduleTitleFocus() {
+        clearFocusTimer();
+        focusTimeoutId = setTimeout(function () {
+            focusTimeoutId = null;
+            if (!createModal || createModal.classList.contains('hidden')) {
+                return;
+            }
+            if (createModalState !== CREATE_STATES.EDITING) {
+                return;
+            }
+            if (titleInput) {
+                titleInput.focus();
+            }
+        }, 50);
+    }
 
     function formatCreationDate(rawDate) {
         if (typeof rawDate !== 'string') {
@@ -116,6 +187,36 @@
             }
         }
 
+        return true;
+    }
+
+    function validateCreateResponse(json) {
+        if (!json || typeof json !== 'object' || json.success !== true) {
+            return false;
+        }
+        var data = json.data;
+        if (!data || typeof data !== 'object' || Array.isArray(data)) {
+            return false;
+        }
+        var c = data.container;
+        if (!c || typeof c !== 'object' || Array.isArray(c)) {
+            return false;
+        }
+        if (!Number.isInteger(c.id) || c.id < 1) {
+            return false;
+        }
+        if (c.family_key !== familyKey || c.variant_key !== variantKey) {
+            return false;
+        }
+        if (typeof c.title !== 'string') {
+            return false;
+        }
+        if (c.details !== null && typeof c.details !== 'string') {
+            return false;
+        }
+        if (typeof c.created_at !== 'string') {
+            return false;
+        }
         return true;
     }
 
@@ -270,10 +371,10 @@
         paginationEl.hidden = false;
 
         if (prevBtn) {
-            prevBtn.disabled = !data.has_previous || isFetching;
+            prevBtn.disabled = !data.has_previous || isFetchingList;
         }
         if (nextBtn) {
-            nextBtn.disabled = !data.has_next || isFetching;
+            nextBtn.disabled = !data.has_next || isFetchingList;
         }
         if (pageIndicatorEl) {
             var totalPagesDisplay = data.total_pages > 0 ? data.total_pages : 1;
@@ -282,13 +383,13 @@
     }
 
     function loadPage(page) {
-        if (isFetching && activeAbortController) {
-            activeAbortController.abort();
+        if (isFetchingList && listAbortController) {
+            listAbortController.abort();
         }
 
-        activeAbortController = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+        listAbortController = (typeof AbortController !== 'undefined') ? new AbortController() : null;
         var seq = ++requestSeq;
-        isFetching = true;
+        isFetchingList = true;
         requestedPage = page;
 
         if (gridEl) {
@@ -308,8 +409,8 @@
             method: 'POST',
             body: formData
         };
-        if (activeAbortController) {
-            fetchOptions.signal = activeAbortController.signal;
+        if (listAbortController) {
+            fetchOptions.signal = listAbortController.signal;
         }
 
         fetch(ajaxUrl, fetchOptions)
@@ -324,7 +425,7 @@
                 if (seq !== requestSeq) {
                     return;
                 }
-                isFetching = false;
+                isFetchingList = false;
                 if (gridEl) {
                     gridEl.setAttribute('aria-busy', 'false');
                 }
@@ -350,6 +451,14 @@
                 confirmedPage = data.page;
                 setStatus('', false, false);
 
+                if (createModalState === CREATE_STATES.REVIEWING_UNCERTAIN) {
+                    createModalState = CREATE_STATES.DRAFT_REVIEWED;
+                    if (openCreateBtn) {
+                        openCreateBtn.disabled = false;
+                        openCreateBtn.removeAttribute('aria-disabled');
+                    }
+                }
+
                 if (data.total === 0) {
                     renderEmptyState();
                 } else {
@@ -365,7 +474,7 @@
                 if (seq !== requestSeq) {
                     return;
                 }
-                isFetching = false;
+                isFetchingList = false;
                 if (gridEl) {
                     gridEl.setAttribute('aria-busy', 'false');
                 }
@@ -376,7 +485,7 @@
 
     if (prevBtn) {
         prevBtn.addEventListener('click', function () {
-            if (confirmedPage > 1 && !isFetching) {
+            if (confirmedPage > 1 && !isFetchingList) {
                 loadPage(confirmedPage - 1);
             }
         });
@@ -384,9 +493,456 @@
 
     if (nextBtn) {
         nextBtn.addEventListener('click', function () {
-            if (!isFetching) {
+            if (!isFetchingList) {
                 loadPage(confirmedPage + 1);
             }
+        });
+    }
+
+    // ==========================================
+    // Focus Trap con Visibilidad Real
+    // ==========================================
+    function isElementVisible(el) {
+        if (!el || el.hidden || el.getAttribute('aria-hidden') === 'true' || el.tabIndex === -1) {
+            return false;
+        }
+        var current = el;
+        while (current && current !== document.body && current !== root) {
+            if (current.hidden || (current.classList && current.classList.contains('hidden')) || current.getAttribute('aria-hidden') === 'true') {
+                return false;
+            }
+            current = current.parentElement;
+        }
+        return true;
+    }
+
+    function getVisibleFocusableElements(container) {
+        if (!container) return [];
+        var raw = container.querySelectorAll('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+        var visible = [];
+        for (var i = 0; i < raw.length; i++) {
+            if (isElementVisible(raw[i])) {
+                visible.push(raw[i]);
+            }
+        }
+        return visible;
+    }
+
+    function handleFocusTrap(e) {
+        if (!createModal || createModal.classList.contains('hidden') || e.key !== 'Tab') {
+            return;
+        }
+        var focusables = getVisibleFocusableElements(createModal);
+        if (focusables.length === 0) {
+            e.preventDefault();
+            return;
+        }
+
+        var first = focusables[0];
+        var last = focusables[focusables.length - 1];
+
+        if (e.shiftKey) {
+            if (document.activeElement === first || !createModal.contains(document.activeElement)) {
+                e.preventDefault();
+                last.focus();
+            }
+        } else {
+            if (document.activeElement === last || !createModal.contains(document.activeElement)) {
+                e.preventDefault();
+                first.focus();
+            }
+        }
+    }
+
+    document.addEventListener('keydown', handleFocusTrap);
+
+    // ==========================================
+    // Gestión del Modal de Creación
+    // ==========================================
+    function clearModalErrors() {
+        if (modalErrorEl) {
+            modalErrorEl.textContent = '';
+            modalErrorEl.classList.add('hidden');
+        }
+        if (titleErrorEl) {
+            titleErrorEl.textContent = '';
+            titleErrorEl.classList.add('hidden');
+        }
+        if (titleInput) {
+            titleInput.removeAttribute('aria-invalid');
+            titleInput.removeAttribute('aria-describedby');
+        }
+        if (detailsErrorEl) {
+            detailsErrorEl.textContent = '';
+            detailsErrorEl.classList.add('hidden');
+        }
+        if (detailsInput) {
+            detailsInput.removeAttribute('aria-invalid');
+            detailsInput.removeAttribute('aria-describedby');
+        }
+    }
+
+    function setBotoneraState(type) {
+        if (standardActionsEl) standardActionsEl.classList.add('hidden');
+        if (uncertainActionsEl) uncertainActionsEl.classList.add('hidden');
+        if (blockedActionsEl) blockedActionsEl.classList.add('hidden');
+
+        if (type === 'standard' && standardActionsEl) {
+            standardActionsEl.classList.remove('hidden');
+        } else if (type === 'uncertain' && uncertainActionsEl) {
+            uncertainActionsEl.classList.remove('hidden');
+        } else if (type === 'blocked' && blockedActionsEl) {
+            blockedActionsEl.classList.remove('hidden');
+        }
+    }
+
+    function openModal() {
+        if (!createModal) return;
+
+        clearModalErrors();
+        setBotoneraState('standard');
+
+        if (titleInput) {
+            titleInput.readOnly = false;
+        }
+        if (detailsInput) {
+            detailsInput.readOnly = false;
+        }
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Crear lista';
+        }
+        if (cancelBtn) {
+            cancelBtn.disabled = false;
+        }
+        if (modalCloseBtn) {
+            modalCloseBtn.disabled = false;
+        }
+
+        if (createModalState === CREATE_STATES.DRAFT_REVIEWED) {
+            if (titleInput) titleInput.value = savedDraft.title;
+            if (detailsInput) detailsInput.value = savedDraft.details;
+            if (modalErrorEl) {
+                modalErrorEl.textContent = 'Antes de volver a crearla, verifica que la lista no aparezca ya en el listado.';
+                modalErrorEl.className = 'mb-4 p-3 rounded-lg bg-amber-50 text-amber-800 text-xs font-medium';
+                modalErrorEl.classList.remove('hidden');
+            }
+        } else {
+            if (titleInput) titleInput.value = '';
+            if (detailsInput) detailsInput.value = '';
+        }
+
+        createModalState = CREATE_STATES.EDITING;
+        createModal.classList.remove('hidden');
+        createModal.setAttribute('aria-hidden', 'false');
+
+        scheduleTitleFocus();
+    }
+
+    function closeModal(cleanDraft) {
+        if (!createModal) return;
+
+        clearFocusTimer();
+
+        if (createTimeoutId !== null) {
+            clearTimeout(createTimeoutId);
+            createTimeoutId = null;
+        }
+        if (createAbortController) {
+            createAbortController.abort();
+            createAbortController = null;
+        }
+
+        createModal.classList.add('hidden');
+        createModal.setAttribute('aria-hidden', 'true');
+
+        if (cleanDraft) {
+            savedDraft = { title: '', details: '' };
+            if (titleInput) titleInput.value = '';
+            if (detailsInput) detailsInput.value = '';
+            clearModalErrors();
+            createModalState = CREATE_STATES.IDLE;
+        }
+
+        if (openCreateBtn && !openCreateBtn.disabled) {
+            openCreateBtn.focus();
+        }
+    }
+
+    if (openCreateBtn && hasCreateAction) {
+        openCreateBtn.addEventListener('click', function () {
+            if (openCreateBtn.disabled) return;
+            openModal();
+        });
+    }
+
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', function () {
+            if (createModalState === CREATE_STATES.SUBMITTING) return;
+            closeModal(true);
+        });
+    }
+
+    function closeModalFromUserGesture() {
+        if (createModalState === CREATE_STATES.SUBMITTING || createModalState === CREATE_STATES.UNCERTAIN) {
+            return;
+        }
+        closeModal(true);
+    }
+
+    if (modalCloseBtn) {
+        modalCloseBtn.addEventListener('click', closeModalFromUserGesture);
+    }
+
+    if (blockedCloseBtn) {
+        blockedCloseBtn.addEventListener('click', function () {
+            closeModal(true);
+        });
+    }
+
+    if (uncertainCloseBtn) {
+        uncertainCloseBtn.addEventListener('click', function () {
+            createModalState = CREATE_STATES.REVIEWING_UNCERTAIN;
+            if (openCreateBtn) {
+                openCreateBtn.disabled = true;
+                openCreateBtn.setAttribute('aria-disabled', 'true');
+            }
+            closeModal(false);
+            if (statusEl) {
+                statusEl.focus();
+            }
+            loadPage(1);
+        });
+    }
+
+    if (modalBackdrop) {
+        modalBackdrop.addEventListener('click', closeModalFromUserGesture);
+    }
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && createModal && !createModal.classList.contains('hidden')) {
+            closeModalFromUserGesture();
+        }
+    });
+
+    if (titleInput) {
+        titleInput.addEventListener('input', function () {
+            if (titleErrorEl) {
+                titleErrorEl.textContent = '';
+                titleErrorEl.classList.add('hidden');
+            }
+            titleInput.removeAttribute('aria-invalid');
+            titleInput.removeAttribute('aria-describedby');
+            if (modalErrorEl && createModalState === CREATE_STATES.EDITING) {
+                modalErrorEl.classList.add('hidden');
+            }
+        });
+    }
+
+    if (detailsInput) {
+        detailsInput.addEventListener('input', function () {
+            if (detailsErrorEl) {
+                detailsErrorEl.textContent = '';
+                detailsErrorEl.classList.add('hidden');
+            }
+            detailsInput.removeAttribute('aria-invalid');
+            detailsInput.removeAttribute('aria-describedby');
+        });
+    }
+
+    if (createForm) {
+        createForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            if (createModalState === CREATE_STATES.SUBMITTING || createModalState === CREATE_STATES.UNCERTAIN || createModalState === CREATE_STATES.BLOCKED_REJECTED) {
+                return;
+            }
+
+            clearModalErrors();
+
+            var rawTitle = titleInput ? titleInput.value : '';
+            var rawDetails = detailsInput ? detailsInput.value : '';
+
+            if (rawTitle.trim() === '') {
+                createModalState = CREATE_STATES.FIELD_REJECTED;
+                if (titleErrorEl) {
+                    titleErrorEl.textContent = 'El título no puede estar vacío.';
+                    titleErrorEl.classList.remove('hidden');
+                }
+                if (titleInput) {
+                    titleInput.setAttribute('aria-invalid', 'true');
+                    titleInput.setAttribute('aria-describedby', 'aa-finance-title-error');
+                    titleInput.focus();
+                }
+                return;
+            }
+
+            // Snapshot inmutable
+            var submittedSnapshot = {
+                title: rawTitle,
+                details: rawDetails,
+                variantKey: variantKey
+            };
+            savedDraft = {
+                title: rawTitle,
+                details: rawDetails
+            };
+
+            createModalState = CREATE_STATES.SUBMITTING;
+            var currentCreateSeq = ++createRequestSeq;
+            var isSettled = false;
+
+            if (titleInput) titleInput.readOnly = true;
+            if (detailsInput) detailsInput.readOnly = true;
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Creando…';
+            }
+            if (cancelBtn) cancelBtn.disabled = true;
+            if (modalCloseBtn) modalCloseBtn.disabled = true;
+
+            createAbortController = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+
+            createTimeoutId = setTimeout(function () {
+                if (isSettled || currentCreateSeq !== createRequestSeq) {
+                    return;
+                }
+                isSettled = true;
+                if (createAbortController) {
+                    createAbortController.abort();
+                }
+                transitionToUncertain();
+            }, 15000);
+
+            function cleanupCreateTimer() {
+                if (createTimeoutId !== null) {
+                    clearTimeout(createTimeoutId);
+                    createTimeoutId = null;
+                }
+            }
+
+            function transitionToUncertain() {
+                cleanupCreateTimer();
+                createModalState = CREATE_STATES.UNCERTAIN;
+                setBotoneraState('uncertain');
+                if (modalErrorEl) {
+                    modalErrorEl.textContent = 'No pudimos confirmar si la lista se creó. Revisa el listado antes de intentarlo nuevamente.';
+                    modalErrorEl.className = 'mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-xs font-medium';
+                    modalErrorEl.classList.remove('hidden');
+                }
+            }
+
+            var formData = new FormData();
+            formData.append('action', actions.createContainer);
+            formData.append('_wpnonce', nonce);
+            formData.append('variant_key', submittedSnapshot.variantKey);
+            formData.append('title', submittedSnapshot.title);
+            formData.append('details', submittedSnapshot.details);
+
+            var fetchOptions = {
+                method: 'POST',
+                body: formData
+            };
+            if (createAbortController) {
+                fetchOptions.signal = createAbortController.signal;
+            }
+
+            fetch(ajaxUrl, fetchOptions)
+                .then(function (res) {
+                    return res.json().then(function (json) {
+                        return { ok: res.ok, status: res.status, json: json };
+                    }).catch(function () {
+                        return { ok: res.ok, status: res.status, json: null };
+                    });
+                })
+                .then(function (response) {
+                    if (isSettled || currentCreateSeq !== createRequestSeq) {
+                        return;
+                    }
+                    isSettled = true;
+                    cleanupCreateTimer();
+
+                    // 1. Éxito confirmado
+                    if (response.ok && response.json && response.json.success === true) {
+                        if (validateCreateResponse(response.json)) {
+                            createModalState = CREATE_STATES.CONFIRMED;
+                            closeModal(true);
+                            loadPage(1);
+                            return;
+                        }
+                        // Payload de éxito corrupto/inválido -> Incierto
+                        transitionToUncertain();
+                        return;
+                    }
+
+                    // 2. Errores HTTP / JSON estructurados
+                    if (response.json && response.json.success === false && response.json.data) {
+                        var errCode = response.json.data.code;
+                        var errMsg = response.json.data.message || 'Error al crear la lista.';
+
+                        // 2A. Rechazos Corregibles
+                        var CORREGIBLES = ['missing_title', 'invalid_title', 'title_too_long', 'invalid_details', 'details_too_long'];
+                        if (CORREGIBLES.indexOf(errCode) !== -1) {
+                            createModalState = CREATE_STATES.FIELD_REJECTED;
+                            if (titleInput) titleInput.readOnly = false;
+                            if (detailsInput) detailsInput.readOnly = false;
+                            if (submitBtn) {
+                                submitBtn.disabled = false;
+                                submitBtn.textContent = 'Crear lista';
+                            }
+                            if (cancelBtn) cancelBtn.disabled = false;
+                            if (modalCloseBtn) modalCloseBtn.disabled = false;
+
+                            if (errCode === 'missing_title' || errCode === 'invalid_title' || errCode === 'title_too_long') {
+                                if (titleErrorEl) {
+                                    titleErrorEl.textContent = errMsg;
+                                    titleErrorEl.classList.remove('hidden');
+                                }
+                                if (titleInput) {
+                                    titleInput.setAttribute('aria-invalid', 'true');
+                                    titleInput.setAttribute('aria-describedby', 'aa-finance-title-error');
+                                    titleInput.focus();
+                                }
+                            } else {
+                                if (detailsErrorEl) {
+                                    detailsErrorEl.textContent = errMsg;
+                                    detailsErrorEl.classList.remove('hidden');
+                                }
+                                if (detailsInput) {
+                                    detailsInput.setAttribute('aria-invalid', 'true');
+                                    detailsInput.setAttribute('aria-describedby', 'aa-finance-details-error');
+                                    detailsInput.focus();
+                                }
+                            }
+                            return;
+                        }
+
+                        // 2B. Rechazos Bloqueantes
+                        var BLOQUEANTES = ['bad_nonce', 'unauthorized', 'forbidden', 'invalid_variant_key', 'unknown_variant'];
+                        if (BLOQUEANTES.indexOf(errCode) !== -1) {
+                            createModalState = CREATE_STATES.BLOCKED_REJECTED;
+                            setBotoneraState('blocked');
+                            if (modalCloseBtn) modalCloseBtn.disabled = false;
+                            if (modalErrorEl) {
+                                modalErrorEl.textContent = 'La creación no está disponible con la sesión actual. Recarga la página antes de intentarlo nuevamente.';
+                                modalErrorEl.className = 'mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-xs font-medium';
+                                modalErrorEl.classList.remove('hidden');
+                            }
+                            return;
+                        }
+                    }
+
+                    // 2C. Fallo de persistencia, HTTP 500 o respuesta no reconocida -> Incierto
+                    transitionToUncertain();
+                })
+                .catch(function (err) {
+                    if (isSettled || currentCreateSeq !== createRequestSeq) {
+                        return;
+                    }
+                    isSettled = true;
+                    cleanupCreateTimer();
+                    transitionToUncertain();
+                });
         });
     }
 

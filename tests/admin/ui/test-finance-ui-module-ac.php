@@ -1,6 +1,6 @@
 <?php
 /**
- * AC Test — Finance UI Module (Ciclo 3D1).
+ * AC Test — Finance UI Module (Ciclos 3D1 y 3D2).
  *
  * Ejecutar:
  *   php tests/admin/ui/test-finance-ui-module-ac.php
@@ -88,7 +88,6 @@ ac_assert('Fallback canonical/_fallback.php existe', is_readable($fallback_tpl_f
 
 $finance_tpl_src = file_get_contents($finance_tpl_file);
 $finance_js_src  = file_get_contents($finance_js_file);
-$dispatcher_src  = file_get_contents($dispatcher_dispatcher ?? $canonical_dispatcher);
 
 ac_assert('Template no lee $_GET', strpos($finance_tpl_src, '$_GET') === false);
 ac_assert('Template no usa window.ajaxurl', strpos($finance_tpl_src, 'window.ajaxurl') === false);
@@ -96,8 +95,9 @@ ac_assert('Script JS no usa window.ajaxurl', strpos($finance_js_src, 'window.aja
 ac_assert('Script JS no usa wpaa_vars', strpos($finance_js_src, 'wpaa_vars') === false);
 ac_assert('Script JS no usa innerHTML con datos', strpos($finance_js_src, '.innerHTML =') === false);
 ac_assert('Template deriva nonce de FinanceAjaxSupport::NONCE_ACTION', strpos($finance_tpl_src, 'FinanceAjaxSupport::NONCE_ACTION') !== false);
-ac_assert('Template deriva acción de FinanceContainersAjax::ACTION_LIST', strpos($finance_tpl_src, 'FinanceContainersAjax::ACTION_LIST') !== false);
-ac_assert('Template no publica acciones Create, Get o Delete', strpos($finance_tpl_src, 'ACTION_CREATE') === false && strpos($finance_tpl_src, 'ACTION_GET') === false && strpos($finance_tpl_src, 'ACTION_DELETE') === false);
+ac_assert('Template deriva acción List de FinanceContainersAjax::ACTION_LIST', strpos($finance_tpl_src, 'FinanceContainersAjax::ACTION_LIST') !== false);
+ac_assert('Template deriva acción Create de FinanceContainersAjax::ACTION_CREATE', strpos($finance_tpl_src, 'FinanceContainersAjax::ACTION_CREATE') !== false);
+ac_assert('Template no publica acciones Get o Delete', strpos($finance_tpl_src, 'ACTION_GET') === false && strpos($finance_tpl_src, 'ACTION_DELETE') === false);
 
 echo "\n=== 2. Renderizado de Vista Finance con Contexto Resuelto ===\n";
 
@@ -115,7 +115,12 @@ ac_assert('Renderiza label General obtenido del objeto', strpos($html, 'General'
 ac_assert('Contiene data-aa-canonical-family="finance"', strpos($html, 'data-aa-canonical-family="finance"') !== false);
 ac_assert('Contiene data-aa-canonical-variant="general"', strpos($html, 'data-aa-canonical-variant="general"') !== false);
 ac_assert('Contiene data-aa-canonical-qualified="finance.general"', strpos($html, 'data-aa-canonical-qualified="finance.general"') !== false);
-ac_assert('Contiene región aria-live en status', strpos($html, 'id="aa-finance-status" class="text-sm text-gray-500" aria-live="polite"') !== false);
+ac_assert('Contiene botón trigger Nueva lista', strpos($html, 'id="aa-finance-open-create-btn"') !== false && strpos($html, 'Nueva lista') !== false);
+ac_assert('Contiene modal de creación accesible', strpos($html, 'id="aa-finance-create-modal"') !== false && strpos($html, 'role="dialog"') !== false && strpos($html, 'aria-modal="true"') !== false);
+ac_assert('Contiene input de título y textarea de detalles', strpos($html, 'id="aa-finance-create-title"') !== false && strpos($html, 'id="aa-finance-create-details"') !== false);
+ac_assert('Contiene botón de salida para estado incierto', strpos($html, 'id="aa-finance-modal-uncertain-close-btn"') !== false && strpos($html, 'Cerrar y revisar') !== false);
+ac_assert('Contiene región aria-live en status', strpos($html, 'id="aa-finance-status" class="text-sm text-gray-500" aria-live="polite" tabindex="-1"') !== false);
+ac_assert('Status es destino programático de foco tras Cerrar y revisar', strpos($html, 'id="aa-finance-status"') !== false && strpos($html, 'tabindex="-1"') !== false);
 ac_assert('Contiene grid de contenedores', strpos($html, 'id="aa-finance-grid"') !== false);
 ac_assert('Carga script finance-module.js', strpos($html, 'finance-module.js') !== false);
 
@@ -129,6 +134,7 @@ ac_assert('Configuración tiene nonce válido', isset($config_json['nonce']) && 
 ac_assert('Configuración tiene familyKey = finance', isset($config_json['familyKey']) && $config_json['familyKey'] === 'finance');
 ac_assert('Configuración tiene variantKey = general', isset($config_json['variantKey']) && $config_json['variantKey'] === 'general');
 ac_assert('Configuración tiene actions.listContainers = aa_list_finance_containers', isset($config_json['actions']['listContainers']) && $config_json['actions']['listContainers'] === 'aa_list_finance_containers');
+ac_assert('Configuración tiene actions.createContainer = aa_create_finance_container', isset($config_json['actions']['createContainer']) && $config_json['actions']['createContainer'] === 'aa_create_finance_container');
 
 echo "\n=== 3. Comprobación del Dispatcher Fail-Closed y Fallback ===\n";
 

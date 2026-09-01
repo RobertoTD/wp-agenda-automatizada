@@ -1,6 +1,6 @@
 <?php
 /**
- * Finance Canonical Module — Vista de lectura de Contenedores Financieros.
+ * Finance Canonical Module — Vista de lectura y creación de Contenedores Financieros.
  *
  * @package WP_Agenda_Automatizada
  * @subpackage Admin\UI\Modules\Canonical\Finance
@@ -30,7 +30,8 @@ $finance_config = [
     'familyKey'  => $family_key,
     'variantKey' => $variant_key,
     'actions'    => [
-        'listContainers' => FinanceContainersAjax::ACTION_LIST,
+        'listContainers'   => FinanceContainersAjax::ACTION_LIST,
+        'createContainer'  => FinanceContainersAjax::ACTION_CREATE,
     ],
 ];
 
@@ -66,10 +67,20 @@ $finance_module_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0'
                     </p>
                 </div>
             </div>
-            <div>
+            <div class="flex items-center gap-3">
                 <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800">
                     <?php echo esc_html($variant_label); ?>
                 </span>
+                <button
+                    type="button"
+                    id="aa-finance-open-create-btn"
+                    class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition"
+                >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span>Nueva lista</span>
+                </button>
             </div>
         </div>
     </div>
@@ -78,7 +89,7 @@ $finance_module_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0'
     <div id="aa-finance-list-container" class="flex flex-col gap-4">
         <!-- Barra de estado y paginación -->
         <div id="aa-finance-action-bar" class="flex items-center justify-between min-h-9 flex-wrap gap-2">
-            <div id="aa-finance-status" class="text-sm text-gray-500" aria-live="polite"></div>
+            <div id="aa-finance-status" class="text-sm text-gray-500" aria-live="polite" tabindex="-1"></div>
             <div id="aa-finance-pagination" class="flex items-center gap-2 hidden" hidden>
                 <button
                     type="button"
@@ -103,6 +114,113 @@ $finance_module_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0'
             id="aa-finance-grid"
             class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
         ></div>
+    </div>
+
+    <!-- Modal Accesible de Creación de Lista Financiera -->
+    <div
+        id="aa-finance-create-modal"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="aa-finance-modal-title"
+        aria-hidden="true"
+    >
+        <!-- Backdrop -->
+        <div id="aa-finance-modal-backdrop" class="fixed inset-0 bg-black/50 transition-opacity" aria-hidden="true"></div>
+
+        <!-- Panel Modal -->
+        <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6 z-10">
+            <div class="flex items-center justify-between mb-4">
+                <h3 id="aa-finance-modal-title" class="text-lg font-bold text-gray-900 leading-tight">
+                    Nueva lista de Finanzas
+                </h3>
+                <button
+                    type="button"
+                    id="aa-finance-modal-close-btn"
+                    class="text-gray-400 hover:text-gray-600 p-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    aria-label="Cerrar modal"
+                >
+                    ✕
+                </button>
+            </div>
+
+            <form id="aa-finance-create-form" novalidate>
+                <!-- Errores generales / Advertencias -->
+                <div id="aa-finance-modal-error" class="hidden mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-xs font-medium" aria-live="polite"></div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label for="aa-finance-create-title" class="block text-xs font-semibold text-gray-700 mb-1">
+                            Título <span class="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            id="aa-finance-create-title"
+                            name="title"
+                            class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="Ej. Gastos de oficina, Caja chica…"
+                            autocomplete="off"
+                            required
+                        />
+                        <p id="aa-finance-title-error" class="hidden mt-1 text-xs text-red-600 font-medium"></p>
+                    </div>
+
+                    <div>
+                        <label for="aa-finance-create-details" class="block text-xs font-semibold text-gray-700 mb-1">
+                            Detalles (opcional)
+                        </label>
+                        <textarea
+                            id="aa-finance-create-details"
+                            name="details"
+                            rows="3"
+                            class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="Descripción o notas adicionales sobre esta lista…"
+                        ></textarea>
+                        <p id="aa-finance-details-error" class="hidden mt-1 text-xs text-red-600 font-medium"></p>
+                    </div>
+                </div>
+
+                <!-- Botonera estándar (Normal / Rechazo corregible) -->
+                <div id="aa-finance-modal-actions-standard" class="mt-6 flex items-center justify-end gap-3">
+                    <button
+                        type="button"
+                        id="aa-finance-modal-cancel-btn"
+                        class="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        type="submit"
+                        id="aa-finance-modal-submit-btn"
+                        class="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Crear lista
+                    </button>
+                </div>
+
+                <!-- Botonera de Estado Incierto ("Cerrar y revisar") -->
+                <div id="aa-finance-modal-actions-uncertain" class="hidden mt-6 flex items-center justify-end gap-3">
+                    <button
+                        type="button"
+                        id="aa-finance-modal-uncertain-close-btn"
+                        class="px-4 py-2 text-xs font-semibold text-white bg-gray-800 rounded-lg hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-600"
+                    >
+                        Cerrar y revisar
+                    </button>
+                </div>
+
+                <!-- Botonera de Rechazo Bloqueante ("Cerrar") -->
+                <div id="aa-finance-modal-actions-blocked" class="hidden mt-6 flex items-center justify-end gap-3">
+                    <button
+                        type="button"
+                        id="aa-finance-modal-blocked-close-btn"
+                        class="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                        Cerrar
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
