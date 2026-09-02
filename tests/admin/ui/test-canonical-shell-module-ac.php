@@ -406,10 +406,23 @@ ac_assert('Non-manage_options sidebar hides Shell canónico', strpos($sidebar_no
 ac_assert('Non-manage_options sidebar still shows Finanzas', strpos($sidebar_no_admin, 'Finanzas') !== false);
 
 // --- Root render + aislamiento ---
+require_once $plugin_root . '/includes/application/canonical/CanonicalReadIdentity.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalPage.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalReadAdapter.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalReadAdapterResolver.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalReadBindingNotFound.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalReadGateway.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalShellManifest.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalShellReadResult.php';
+require_once $plugin_root . '/includes/application/canonical/ReadCanonicalShellContainersUseCase.php';
+require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-read-binding-registry.php';
+require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-shell-view-composer.php';
+
 $aa_shell_route_state = 'resolved';
 $aa_shell_route_message = 'Ruta canónica resuelta.';
 $aa_canonical_family = AA_Canonical_Core_Bootstrap::instance()->family('finance');
 $aa_canonical_variant = AA_Canonical_Core_Bootstrap::instance()->variant('finance', 'general');
+$aa_shell_view = AA_Canonical_Shell_View_Composer::compose_family($aa_canonical_family, $aa_canonical_variant, 1);
 ob_start();
 require $plugin_root . '/includes/admin/ui/modules/canonical_shell/index.php';
 $shell_html = ob_get_clean();
@@ -417,6 +430,8 @@ ac_assert('Shell root id present', strpos($shell_html, 'id="aa-canonical-shell-r
 ac_assert('Shell shows Finanzas label from registry', strpos($shell_html, 'Finanzas') !== false);
 ac_assert('Shell shows General label from registry', strpos($shell_html, 'General') !== false);
 ac_assert('Shell shows qualified finance.general', strpos($shell_html, 'finance.general') !== false);
+ac_assert('Shell shows read_adapter_pending', strpos($shell_html, 'Lectura pendiente') !== false);
+ac_assert('Shell pending has no preview CTA without constant', strpos($shell_html, 'Ver demostración del shell') === false);
 ac_assert('Shell resolved root has no script tags', strpos($shell_html, '<script') === false);
 ac_assert('Shell resolved root has no amount', stripos($shell_html, 'amount') === false);
 

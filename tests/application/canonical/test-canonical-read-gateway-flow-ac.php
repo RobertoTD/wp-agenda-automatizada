@@ -172,8 +172,8 @@ if (strpos($plugin_main, 'CanonicalFixtureReadAdapter') !== false || strpos($plu
 ac_assert('Fixture not loaded from plugin bootstrap', $fixture_in_plugin === false);
 
 $shell_root = file_get_contents($plugin_root . '/includes/admin/ui/modules/canonical_shell/index.php');
-ac_assert('SB1-1 root still has no gateway/page wiring', strpos($shell_root, 'CanonicalReadGateway') === false);
-ac_assert('SB1-1 root still shows Sin datos de familia message marker', strpos($shell_root, 'Sin datos de familia') !== false);
+ac_assert('Shell template does not wire CanonicalReadGateway', strpos($shell_root, 'CanonicalReadGateway') === false);
+ac_assert('Shell template shows pending copy', strpos($shell_root, 'Lectura pendiente') !== false);
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 if ($failed !== []) {

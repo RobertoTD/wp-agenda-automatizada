@@ -1,0 +1,221 @@
+<?php
+/**
+ * Canonical Shell View Composer — Composition root WP del shell de lectura (SB1-2B).
+ *
+ * @package WP_Agenda_Automatizada
+ * @subpackage Infrastructure\Canonical
+ */
+
+defined('ABSPATH') or die('No direct access');
+
+if (!class_exists('CanonicalShellManifest')) {
+    require_once dirname(__DIR__, 2) . '/application/canonical/CanonicalShellManifest.php';
+}
+if (!class_exists('CanonicalShellReadResult')) {
+    require_once dirname(__DIR__, 2) . '/application/canonical/CanonicalShellReadResult.php';
+}
+if (!class_exists('ReadCanonicalShellContainersUseCase')) {
+    require_once dirname(__DIR__, 2) . '/application/canonical/ReadCanonicalShellContainersUseCase.php';
+}
+if (!class_exists('CanonicalReadIdentity')) {
+    require_once dirname(__DIR__, 2) . '/application/canonical/CanonicalReadIdentity.php';
+}
+if (!class_exists('CanonicalReadGateway')) {
+    require_once dirname(__DIR__, 2) . '/application/canonical/CanonicalReadGateway.php';
+}
+if (!class_exists('AA_Canonical_Read_Binding_Registry')) {
+    require_once __DIR__ . '/class-aa-canonical-read-binding-registry.php';
+}
+if (!class_exists('AA_Canonical_Shell_Base_Url_Policy')) {
+    require_once dirname(__DIR__) . '/wp/class-aa-canonical-shell-base-url-policy.php';
+}
+if (!class_exists('AA_Canonical_Family_Definition')) {
+    require_once dirname(__DIR__, 2) . '/domain/canonical/class-aa-canonical-family-definition.php';
+}
+if (!class_exists('AA_Canonical_Variant_Definition')) {
+    require_once dirname(__DIR__, 2) . '/domain/canonical/class-aa-canonical-variant-definition.php';
+}
+
+final class AA_Canonical_Shell_View_Composer {
+
+    public const PREVIEW_FAMILY_KEY = 'shell_preview';
+    public const PREVIEW_VARIANT_KEY = 'demo';
+
+    public static function is_preview_enabled(): bool {
+        return defined('AA_CANONICAL_SHELL_PREVIEW') && \AA_CANONICAL_SHELL_PREVIEW === true;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public static function compose_family(
+        AA_Canonical_Family_Definition $family,
+        AA_Canonical_Variant_Definition $variant,
+        int $page
+    ): array {
+        $identity = new CanonicalReadIdentity($family->key(), $variant->key());
+        $manifest = new CanonicalShellManifest($identity, $family, $variant);
+
+        $binding = new AA_Canonical_Read_Binding_Registry();
+        $gateway = new CanonicalReadGateway($binding);
+        $result = (new ReadCanonicalShellContainersUseCase($gateway))->execute($manifest, $page);
+
+        return self::build_view_data($result, false);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public static function compose_preview(int $page): array {
+        if (!self::is_preview_enabled()) {
+            throw new \LogicException('[preview_disabled] Preview adapter must not load when constant is off.');
+        }
+
+        require_once __DIR__ . '/preview/class-aa-canonical-shell-preview-adapter.php';
+
+        $identity = new CanonicalReadIdentity(self::PREVIEW_FAMILY_KEY, self::PREVIEW_VARIANT_KEY);
+        $family = new AA_Canonical_Family_Definition(
+            self::PREVIEW_FAMILY_KEY,
+            'Demostración del shell',
+            self::PREVIEW_VARIANT_KEY
+        );
+        $variant = new AA_Canonical_Variant_Definition(
+            self::PREVIEW_FAMILY_KEY,
+            self::PREVIEW_VARIANT_KEY,
+            'Vista de prueba'
+        );
+        $manifest = new CanonicalShellManifest($identity, $family, $variant);
+
+        $binding = new AA_Canonical_Read_Binding_Registry();
+        $binding->register($identity, new AA_Canonical_Shell_Preview_Adapter());
+        $gateway = new CanonicalReadGateway($binding);
+        $result = (new ReadCanonicalShellContainersUseCase($gateway))->execute($manifest, $page);
+
+        return self::build_view_data($result, true);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private static function build_view_data(CanonicalShellReadResult $result, bool $is_preview): array {
+        $manifest = $result->manifest();
+        $state = $result->state();
+        $page = $result->page();
+
+        if ($state === CanonicalShellReadResult::STATE_CONTRACT_ERROR && function_exists('status_header')) {
+            status_header(500);
+        }
+
+        $preview_enabled = self::is_preview_enabled();
+        $preview_url = $preview_enabled
+            ? AA_Canonical_Shell_Base_Url_Policy::build_preview_url(null)
+            : null;
+
+        $items_view = [];
+        $page_num = null;
+        $per_page = null;
+        $total = null;
+        $total_pages = null;
+        $has_previous = false;
+        $has_next = false;
+        $prev_url = '';
+        $next_url = '';
+
+        if ($page instanceof CanonicalPage) {
+            $page_num = $page->page();
+            $per_page = $page->per_page();
+            $total = $page->total();
+            $total_pages = $page->total_pages();
+            $has_previous = $page->has_previous();
+            $has_next = $page->has_next();
+            $tz = self::resolve_display_timezone();
+
+            foreach ($page->items() as $container) {
+                $iso = $container->updated_at_canonical();
+                $items_view[] = [
+                    'id' => $container->id(),
+                    'title' => $container->title(),
+                    'details' => $container->details(),
+                    'updated_at_iso' => $iso,
+                    'updated_at_display' => self::format_display_datetime($container->updated_at(), $tz),
+                ];
+            }
+
+            if ($has_previous) {
+                $prev_url = self::build_nav_url($manifest, $is_preview, $page_num - 1);
+            }
+            if ($has_next) {
+                $next_url = self::build_nav_url($manifest, $is_preview, $page_num + 1);
+            }
+        }
+
+        return [
+            'read_state' => $state,
+            'family_label' => $manifest->family_label(),
+            'variant_label' => $manifest->variant_label(),
+            'qualified_key' => $manifest->qualified_key(),
+            'is_preview' => $is_preview,
+            'preview_banner' => $is_preview
+                ? 'Demostración del shell — datos temporales que no pertenecen a ninguna familia del producto.'
+                : null,
+            'preview_enabled' => $preview_enabled,
+            'preview_url' => $preview_url,
+            'items_view' => $items_view,
+            'page' => $page_num,
+            'per_page' => $per_page,
+            'total' => $total,
+            'total_pages' => $total_pages,
+            'has_previous' => $has_previous,
+            'has_next' => $has_next,
+            'prev_url' => $prev_url,
+            'next_url' => $next_url,
+        ];
+    }
+
+    private static function build_nav_url(
+        CanonicalShellManifest $manifest,
+        bool $is_preview,
+        int $page
+    ): string {
+        if ($is_preview) {
+            return AA_Canonical_Shell_Base_Url_Policy::build_preview_url($page);
+        }
+
+        return AA_Canonical_Shell_Base_Url_Policy::build_url(
+            $manifest->identity()->family_key(),
+            $manifest->identity()->variant_key(),
+            $page
+        );
+    }
+
+    private static function resolve_display_timezone(): \DateTimeZone {
+        if (function_exists('get_option')) {
+            $option = get_option('aa_timezone');
+            if (is_string($option) && $option !== '') {
+                try {
+                    return new \DateTimeZone($option);
+                } catch (\Exception $e) {
+                    // Fall through to WordPress timezone.
+                }
+            }
+        }
+
+        if (function_exists('wp_timezone')) {
+            return wp_timezone();
+        }
+
+        return new \DateTimeZone('UTC');
+    }
+
+    private static function format_display_datetime(
+        \DateTimeImmutable $utc,
+        \DateTimeZone $tz
+    ): string {
+        $timestamp = $utc->getTimestamp();
+        if (function_exists('wp_date')) {
+            return (string) wp_date('j M Y, H:i', $timestamp, $tz);
+        }
+
+        return $utc->setTimezone($tz)->format('j M Y, H:i');
+    }
+}

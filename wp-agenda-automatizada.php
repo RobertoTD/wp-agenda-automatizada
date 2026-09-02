@@ -79,7 +79,11 @@ require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/Canonic
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalReadAdapterResolver.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalReadBindingNotFound.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalReadGateway.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalShellManifest.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalShellReadResult.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/ReadCanonicalShellContainersUseCase.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-read-binding-registry.php';
+require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-shell-view-composer.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/class-aa-canonical-shell-url-policy.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/class-aa-canonical-shell-base-url-policy.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/class-aa-canonical-access-policy.php';

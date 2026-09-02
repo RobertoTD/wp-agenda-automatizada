@@ -44,6 +44,7 @@ $aa_canonical_family = null;
 $aa_canonical_variant = null;
 $aa_shell_route_state = null;
 $aa_shell_route_message = null;
+$aa_shell_view = null;
 
 if ($active_module === 'canonical') {
     $family_input = array_key_exists('family', $_GET) ? wp_unslash($_GET['family']) : null;
@@ -88,15 +89,68 @@ if ($active_module === 'canonical') {
     if (!class_exists('AA_Canonical_Shell_Base_Url_Policy')) {
         require_once dirname(__DIR__, 2) . '/infrastructure/wp/class-aa-canonical-shell-base-url-policy.php';
     }
+    if (!class_exists('AA_Canonical_Shell_View_Composer')) {
+        require_once dirname(__DIR__, 2) . '/infrastructure/canonical/class-aa-canonical-shell-view-composer.php';
+    }
 
     $family_present = array_key_exists('family', $_GET);
     $variant_present = array_key_exists('variant', $_GET);
+    $shell_mode_present = array_key_exists('shell_mode', $_GET);
+    $shell_mode_raw = $shell_mode_present ? wp_unslash($_GET['shell_mode']) : null;
+    $shell_mode = is_string($shell_mode_raw) ? sanitize_key($shell_mode_raw) : '';
     $family_input = $family_present ? wp_unslash($_GET['family']) : null;
     $variant_input = $variant_present ? wp_unslash($_GET['variant']) : null;
 
     $aa_canonical_url = AA_Canonical_Shell_Base_Url_Policy::build_module_url();
+    $aa_shell_view = null;
 
-    if (!$family_present && !$variant_present) {
+    $shell_page = 1;
+    $page_invalid = false;
+    if (array_key_exists('page', $_GET)) {
+        $parsed_page = AA_Canonical_Shell_Base_Url_Policy::parse_present_page_value(
+            wp_unslash($_GET['page'])
+        );
+        if ($parsed_page === null) {
+            $page_invalid = true;
+        } else {
+            $shell_page = $parsed_page;
+        }
+    }
+
+    if ($page_invalid) {
+        $aa_shell_route_state = 'invalid_request';
+        $aa_shell_route_message = 'El parámetro page no es válido.';
+        if (function_exists('status_header')) {
+            status_header(400);
+        }
+    } elseif ($shell_mode === AA_Canonical_Shell_Base_Url_Policy::SHELL_MODE_PREVIEW) {
+        if ($family_present || $variant_present) {
+            $aa_shell_route_state = 'invalid_request';
+            $aa_shell_route_message = 'El modo preview no admite family ni variant.';
+            if (function_exists('status_header')) {
+                status_header(400);
+            }
+        } elseif (!AA_Canonical_Shell_View_Composer::is_preview_enabled()) {
+            $aa_shell_route_state = 'preview_unavailable';
+            $aa_shell_route_message = 'La demostración del shell no está disponible.';
+            if (function_exists('status_header')) {
+                status_header(404);
+            }
+        } else {
+            $aa_shell_route_state = 'preview';
+            $aa_shell_route_message = 'Demostración del shell.';
+            $aa_canonical_url = AA_Canonical_Shell_Base_Url_Policy::build_preview_url(
+                $shell_page > 1 ? $shell_page : null
+            );
+            $aa_shell_view = AA_Canonical_Shell_View_Composer::compose_preview($shell_page);
+        }
+    } elseif ($shell_mode_present && $shell_mode !== '') {
+        $aa_shell_route_state = 'invalid_request';
+        $aa_shell_route_message = 'Modo de shell no reconocido.';
+        if (function_exists('status_header')) {
+            status_header(400);
+        }
+    } elseif (!$family_present && !$variant_present) {
         $aa_shell_route_state = 'missing_identity';
         $aa_shell_route_message = 'Identidad canónica no suministrada. Este módulo es un shell base en construcción.';
     } elseif ($family_present xor $variant_present) {
@@ -148,7 +202,13 @@ if ($active_module === 'canonical') {
             $aa_shell_route_message = 'Ruta canónica resuelta.';
             $aa_canonical_url = AA_Canonical_Shell_Base_Url_Policy::build_url(
                 $aa_canonical_family->key(),
-                $aa_canonical_variant->key()
+                $aa_canonical_variant->key(),
+                $shell_page > 1 ? $shell_page : null
+            );
+            $aa_shell_view = AA_Canonical_Shell_View_Composer::compose_family(
+                $aa_canonical_family,
+                $aa_canonical_variant,
+                $shell_page
             );
         }
     }
