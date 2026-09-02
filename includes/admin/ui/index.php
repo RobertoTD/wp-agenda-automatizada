@@ -101,6 +101,12 @@ if ($active_module === 'canonical') {
     $family_input = $family_present ? wp_unslash($_GET['family']) : null;
     $variant_input = $variant_present ? wp_unslash($_GET['variant']) : null;
 
+    $view_present = array_key_exists('view', $_GET);
+    $view_raw = $view_present ? wp_unslash($_GET['view']) : null;
+    $view = is_string($view_raw) ? sanitize_key($view_raw) : '';
+    $container_id_present = array_key_exists('container_id', $_GET);
+    $containers_page_present = array_key_exists('containers_page', $_GET);
+
     $aa_canonical_url = AA_Canonical_Shell_Base_Url_Policy::build_module_url();
     $aa_shell_view = null;
 
@@ -117,9 +123,62 @@ if ($active_module === 'canonical') {
         }
     }
 
+    $shell_container_id = null;
+    $shell_containers_page = 1;
+    $records_transport_invalid = false;
+    $records_transport_message = '';
+
+    if ($view_present) {
+        if (!is_string($view_raw) || $view !== AA_Canonical_Shell_Base_Url_Policy::VIEW_RECORDS) {
+            $records_transport_invalid = true;
+            $records_transport_message = 'El parámetro view no es válido.';
+        } elseif (!$container_id_present) {
+            $records_transport_invalid = true;
+            $records_transport_message = 'El parámetro container_id es obligatorio para view=records.';
+        } else {
+            $parsed_container_id = AA_Canonical_Shell_Base_Url_Policy::parse_present_positive_id(
+                wp_unslash($_GET['container_id'])
+            );
+            if ($parsed_container_id === null) {
+                $records_transport_invalid = true;
+                $records_transport_message = 'El parámetro container_id no es válido.';
+            } else {
+                $shell_container_id = $parsed_container_id;
+            }
+        }
+
+        if (!$records_transport_invalid && $containers_page_present) {
+            $parsed_containers_page = AA_Canonical_Shell_Base_Url_Policy::parse_present_page_value(
+                wp_unslash($_GET['containers_page'])
+            );
+            if ($parsed_containers_page === null) {
+                $records_transport_invalid = true;
+                $records_transport_message = 'El parámetro containers_page no es válido.';
+            } else {
+                $shell_containers_page = $parsed_containers_page;
+            }
+        }
+    } elseif ($container_id_present || $containers_page_present) {
+        $records_transport_invalid = true;
+        $records_transport_message = 'container_id y containers_page solo se admiten con view=records.';
+    }
+
+    $is_records_view = (
+        !$page_invalid
+        && !$records_transport_invalid
+        && $view === AA_Canonical_Shell_Base_Url_Policy::VIEW_RECORDS
+        && $shell_container_id !== null
+    );
+
     if ($page_invalid) {
         $aa_shell_route_state = 'invalid_request';
         $aa_shell_route_message = 'El parámetro page no es válido.';
+        if (function_exists('status_header')) {
+            status_header(400);
+        }
+    } elseif ($records_transport_invalid) {
+        $aa_shell_route_state = 'invalid_request';
+        $aa_shell_route_message = $records_transport_message;
         if (function_exists('status_header')) {
             status_header(400);
         }
@@ -136,6 +195,19 @@ if ($active_module === 'canonical') {
             if (function_exists('status_header')) {
                 status_header(404);
             }
+        } elseif ($is_records_view) {
+            $aa_shell_route_state = 'preview';
+            $aa_shell_route_message = 'Demostración del shell.';
+            $aa_canonical_url = AA_Canonical_Shell_Base_Url_Policy::build_preview_records_url(
+                $shell_container_id,
+                $shell_page > 1 ? $shell_page : null,
+                $shell_containers_page > 1 ? $shell_containers_page : null
+            );
+            $aa_shell_view = AA_Canonical_Shell_View_Composer::compose_preview_records(
+                $shell_container_id,
+                $shell_page,
+                $shell_containers_page
+            );
         } else {
             $aa_shell_route_state = 'preview';
             $aa_shell_route_message = 'Demostración del shell.';
@@ -195,6 +267,25 @@ if ($active_module === 'canonical') {
                     status_header(400);
                 }
             }
+        } elseif ($is_records_view) {
+            $aa_canonical_family  = $route_result['data']['family'];
+            $aa_canonical_variant = $route_result['data']['variant'];
+            $aa_shell_route_state = 'resolved';
+            $aa_shell_route_message = 'Ruta canónica resuelta.';
+            $aa_canonical_url = AA_Canonical_Shell_Base_Url_Policy::build_records_url(
+                $aa_canonical_family->key(),
+                $aa_canonical_variant->key(),
+                $shell_container_id,
+                $shell_page > 1 ? $shell_page : null,
+                $shell_containers_page > 1 ? $shell_containers_page : null
+            );
+            $aa_shell_view = AA_Canonical_Shell_View_Composer::compose_family_records(
+                $aa_canonical_family,
+                $aa_canonical_variant,
+                $shell_container_id,
+                $shell_page,
+                $shell_containers_page
+            );
         } else {
             $aa_canonical_family  = $route_result['data']['family'];
             $aa_canonical_variant = $route_result['data']['variant'];

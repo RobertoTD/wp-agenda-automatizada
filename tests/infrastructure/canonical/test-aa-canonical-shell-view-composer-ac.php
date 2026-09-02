@@ -150,12 +150,22 @@ ac_assert('Pending CTA URL has no family', strpos((string) $view_pending['previe
 $status_headers = [];
 $preview_view = AA_Canonical_Shell_View_Composer::compose_preview(1);
 ac_assert('Preview resolved_page', ($preview_view['read_state'] ?? '') === 'resolved_page');
+ac_assert('Preview shell_view containers', ($preview_view['shell_view'] ?? '') === 'containers');
 ac_assert('Preview is_preview flag', !empty($preview_view['is_preview']));
 ac_assert('Preview banner present', is_string($preview_view['preview_banner'] ?? null) && $preview_view['preview_banner'] !== '');
 ac_assert('Preview has >=15 items on page 1', count($preview_view['items_view'] ?? []) === 15);
 ac_assert('Preview total > 15', (int) ($preview_view['total'] ?? 0) > 15);
 ac_assert('Preview qualified key', ($preview_view['qualified_key'] ?? '') === 'shell_preview.demo');
 ac_assert('Preview labels ephemeral', ($preview_view['family_label'] ?? '') === 'Demostración del shell');
+ac_assert('Container items expose records_url', isset($preview_view['items_view'][0]['records_url'])
+    && strpos((string) $preview_view['items_view'][0]['records_url'], 'view=records') !== false);
+
+$status_headers = [];
+$records_view = AA_Canonical_Shell_View_Composer::compose_preview_records(1, 1, 2);
+ac_assert('Preview records shell_view', ($records_view['shell_view'] ?? '') === 'records');
+ac_assert('Preview records resolved_page', ($records_view['read_state'] ?? '') === 'resolved_page');
+ac_assert('Preview records back uses containers_page', strpos((string) ($records_view['back_url'] ?? ''), 'page=2') !== false
+    && strpos((string) ($records_view['back_url'] ?? ''), 'view=') === false);
 
 $iso_ok = true;
 $null_details_seen = false;

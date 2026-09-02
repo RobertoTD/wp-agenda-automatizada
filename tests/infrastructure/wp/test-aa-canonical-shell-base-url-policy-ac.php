@@ -77,7 +77,29 @@ ac_assert('Legacy finance URL still module=canonical', strpos($legacy, 'module=c
 ac_assert('Legacy finance URL rejected by shell allowlist', AA_Canonical_Shell_Base_Url_Policy::is_allowlisted_shell_url($legacy) === false);
 
 $bad = $url . '&view=detail';
-ac_assert('Extra query keys rejected', AA_Canonical_Shell_Base_Url_Policy::is_allowlisted_shell_url($bad) === false);
+ac_assert('Unknown view=detail rejected', AA_Canonical_Shell_Base_Url_Policy::is_allowlisted_shell_url($bad) === false);
+
+$records = AA_Canonical_Shell_Base_Url_Policy::build_records_url('finance', 'general', 5, 2, 3);
+ac_assert('Records builder includes transport', strpos($records, 'view=records') !== false
+    && strpos($records, 'container_id=5') !== false
+    && strpos($records, 'page=2') !== false
+    && strpos($records, 'containers_page=3') !== false);
+ac_assert('Records URL allowlisted', AA_Canonical_Shell_Base_Url_Policy::is_allowlisted_shell_url($records) === true);
+
+$records_omit = AA_Canonical_Shell_Base_Url_Policy::build_records_url('finance', 'general', 5, 1, 1);
+ac_assert('Records builder omits page/containers_page when 1', strpos($records_omit, 'page=') === false
+    && strpos($records_omit, 'containers_page=') === false);
+
+$preview_records = AA_Canonical_Shell_Base_Url_Policy::build_preview_records_url(9, null, 2);
+ac_assert('Preview records builder', strpos($preview_records, 'shell_mode=preview') !== false
+    && strpos($preview_records, 'view=records') !== false
+    && strpos($preview_records, 'container_id=9') !== false
+    && strpos($preview_records, 'containers_page=2') !== false
+    && strpos($preview_records, 'family=') === false);
+ac_assert('Preview records allowlisted', AA_Canonical_Shell_Base_Url_Policy::is_allowlisted_shell_url($preview_records) === true);
+
+ac_assert('Positive id parser rejects zero', AA_Canonical_Shell_Base_Url_Policy::parse_present_positive_id('0') === null);
+ac_assert('Positive id parser accepts 3', AA_Canonical_Shell_Base_Url_Policy::parse_present_positive_id('3') === 3);
 
 $threw = false;
 try {
