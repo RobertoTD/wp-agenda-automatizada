@@ -70,8 +70,10 @@ final class AA_Finance_Schema {
             title varchar(200) NOT NULL,
             details text DEFAULT NULL,
             created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
             PRIMARY KEY  (id),
-            KEY idx_variant_created (variant_key, created_at, id)
+            KEY idx_variant_created (variant_key, created_at, id),
+            KEY idx_variant_updated (variant_key, updated_at, id)
         ) ENGINE=InnoDB {$charset};";
 
         // 2. DDL de tabla de registros (sin foreign key para dbDelta)
@@ -82,8 +84,10 @@ final class AA_Finance_Schema {
             details text DEFAULT NULL,
             amount decimal(19,2) DEFAULT NULL,
             created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
             PRIMARY KEY  (id),
-            KEY idx_container_created (container_id, created_at, id)
+            KEY idx_container_created (container_id, created_at, id),
+            KEY idx_container_updated (container_id, updated_at, id)
         ) ENGINE=InnoDB {$charset};";
 
         if (!function_exists('dbDelta')) {
@@ -93,11 +97,111 @@ final class AA_Finance_Schema {
         dbDelta($containers_sql);
         dbDelta($records_sql);
 
-        // 3. Aplicar Foreign Key real con ON DELETE CASCADE de forma idempotente
+        // 3. Columnas e índices canónicos (dbDelta no es fiable para todos los casos)
+        self::ensure_updated_at_columns();
+        self::ensure_canonical_read_indexes();
+
+        // 4. Aplicar Foreign Key real con ON DELETE CASCADE de forma idempotente
         self::ensure_foreign_key();
 
-        // 4. Verificación estricta de postcondiciones (fail-closed)
+        // 5. Verificación estricta de postcondiciones (fail-closed)
         self::verify();
+    }
+
+    /**
+     * Garantiza updated_at datetime NOT NULL en ambas tablas Finance (SB1-4A).
+     */
+    private static function ensure_updated_at_columns(): void {
+        self::ensure_datetime_not_null_column(self::containers_table_name(), 'updated_at');
+        self::ensure_datetime_not_null_column(self::records_table_name(), 'updated_at');
+    }
+
+    /**
+     * Índices de lectura canónica futura (SB1-4B) sin retirar los de created_at.
+     */
+    private static function ensure_canonical_read_indexes(): void {
+        $containers_table = self::containers_table_name();
+        $records_table = self::records_table_name();
+
+        self::ensure_named_index(
+            $containers_table,
+            'idx_variant_updated',
+            'ALTER TABLE `' . $containers_table . '` ADD KEY idx_variant_updated (variant_key, updated_at, id)'
+        );
+        self::ensure_named_index(
+            $records_table,
+            'idx_container_updated',
+            'ALTER TABLE `' . $records_table . '` ADD KEY idx_container_updated (container_id, updated_at, id)'
+        );
+    }
+
+    private static function ensure_datetime_not_null_column(string $table, string $column): void {
+        global $wpdb;
+
+        $existing = self::column_definition($table, $column);
+        if ($existing !== null) {
+            $null_ok = strtoupper((string) ($existing['Null'] ?? '')) === 'NO';
+            $type_ok = stripos((string) ($existing['Type'] ?? ''), 'datetime') !== false;
+            if ($null_ok && $type_ok) {
+                return;
+            }
+            $wpdb->query("ALTER TABLE `{$table}` MODIFY COLUMN `{$column}` datetime NOT NULL");
+        } else {
+            $wpdb->query("ALTER TABLE `{$table}` ADD COLUMN `{$column}` datetime NOT NULL");
+        }
+
+        $existing = self::column_definition($table, $column);
+        if (
+            $existing === null
+            || stripos((string) ($existing['Type'] ?? ''), 'datetime') === false
+            || strtoupper((string) ($existing['Null'] ?? '')) !== 'NO'
+        ) {
+            $error = is_string($wpdb->last_error) && $wpdb->last_error !== ''
+                ? $wpdb->last_error
+                : 'columna inválida tras ALTER';
+            throw new \RuntimeException(
+                "[AA_Finance_Schema] No se pudo asegurar {$column} en {$table}: {$error}"
+            );
+        }
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private static function column_definition(string $table, string $column): ?array {
+        global $wpdb;
+
+        $row = $wpdb->get_row(
+            $wpdb->prepare("SHOW COLUMNS FROM `{$table}` LIKE %s", $column),
+            ARRAY_A
+        );
+
+        return is_array($row) ? $row : null;
+    }
+
+    private static function ensure_named_index(string $table, string $index_name, string $alter_sql): void {
+        global $wpdb;
+
+        $existing = $wpdb->get_results(
+            $wpdb->prepare("SHOW INDEX FROM `{$table}` WHERE Key_name = %s", $index_name)
+        );
+        if (!empty($existing)) {
+            return;
+        }
+
+        $wpdb->query($alter_sql);
+
+        $existing = $wpdb->get_results(
+            $wpdb->prepare("SHOW INDEX FROM `{$table}` WHERE Key_name = %s", $index_name)
+        );
+        if (empty($existing)) {
+            $error = is_string($wpdb->last_error) && $wpdb->last_error !== ''
+                ? $wpdb->last_error
+                : 'índice ausente tras ALTER';
+            throw new \RuntimeException(
+                "[AA_Finance_Schema] No se pudo crear índice {$index_name} en {$table}: {$error}"
+            );
+        }
     }
 
     /**
@@ -221,7 +325,7 @@ final class AA_Finance_Schema {
         }
 
         // Columnas requeridas y exactas
-        $expected = ['id', 'variant_key', 'title', 'details', 'created_at'];
+        $expected = ['id', 'variant_key', 'title', 'details', 'created_at', 'updated_at'];
         foreach ($expected as $field) {
             if (!isset($cols_by_name[$field])) {
                 throw new \RuntimeException("[AA_Finance_Schema] Columna requerida ausente en {$table}: {$field}");
@@ -229,7 +333,7 @@ final class AA_Finance_Schema {
         }
 
         // Columnas no permitidas
-        $forbidden = ['family_key', 'updated_at', 'created_by', 'currency', 'is_permanent', 'is_system', 'deleted_at', 'financial_date'];
+        $forbidden = ['family_key', 'created_by', 'currency', 'is_permanent', 'is_system', 'deleted_at', 'financial_date'];
         foreach ($forbidden as $field) {
             if (isset($cols_by_name[$field])) {
                 throw new \RuntimeException("[AA_Finance_Schema] Columna no permitida presente en {$table}: {$field}");
@@ -265,9 +369,15 @@ final class AA_Finance_Schema {
             throw new \RuntimeException("[AA_Finance_Schema] Definición inválida para created_at en {$table}");
         }
 
+        $updated = $cols_by_name['updated_at'];
+        if (stripos((string) $updated['Type'], 'datetime') === false || strtoupper((string) $updated['Null']) !== 'NO') {
+            throw new \RuntimeException("[AA_Finance_Schema] Definición inválida para updated_at en {$table}");
+        }
+
         // Verificación de índices
         self::verify_index($table, 'PRIMARY', ['id']);
         self::verify_composite_index($table, ['variant_key', 'created_at', 'id']);
+        self::verify_composite_index($table, ['variant_key', 'updated_at', 'id']);
     }
 
     private static function verify_records_structure(string $table): void {
@@ -284,7 +394,7 @@ final class AA_Finance_Schema {
         }
 
         // Columnas requeridas y exactas
-        $expected = ['id', 'container_id', 'title', 'details', 'amount', 'created_at'];
+        $expected = ['id', 'container_id', 'title', 'details', 'amount', 'created_at', 'updated_at'];
         foreach ($expected as $field) {
             if (!isset($cols_by_name[$field])) {
                 throw new \RuntimeException("[AA_Finance_Schema] Columna requerida ausente en {$table}: {$field}");
@@ -292,7 +402,7 @@ final class AA_Finance_Schema {
         }
 
         // Columnas no permitidas (no duplicar variant_key ni family_key)
-        $forbidden = ['family_key', 'variant_key', 'updated_at', 'created_by', 'currency', 'is_permanent', 'is_system', 'deleted_at'];
+        $forbidden = ['family_key', 'variant_key', 'created_by', 'currency', 'is_permanent', 'is_system', 'deleted_at'];
         foreach ($forbidden as $field) {
             if (isset($cols_by_name[$field])) {
                 throw new \RuntimeException("[AA_Finance_Schema] Columna no permitida presente en {$table}: {$field}");
@@ -333,9 +443,15 @@ final class AA_Finance_Schema {
             throw new \RuntimeException("[AA_Finance_Schema] Definición inválida para created_at en {$table}");
         }
 
+        $updated = $cols_by_name['updated_at'];
+        if (stripos((string) $updated['Type'], 'datetime') === false || strtoupper((string) $updated['Null']) !== 'NO') {
+            throw new \RuntimeException("[AA_Finance_Schema] Definición inválida para updated_at en {$table}");
+        }
+
         // Verificación de índices
         self::verify_index($table, 'PRIMARY', ['id']);
         self::verify_composite_index($table, ['container_id', 'created_at', 'id']);
+        self::verify_composite_index($table, ['container_id', 'updated_at', 'id']);
     }
 
     private static function verify_foreign_key(string $records_table, string $containers_table, string $fk_name): void {

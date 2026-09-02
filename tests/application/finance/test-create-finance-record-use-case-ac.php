@@ -97,6 +97,20 @@ class TestCreateRecordWpdbMock {
         }
         return 1;
     }
+
+    public function query(string $query) {
+        if ($this->last_error !== '') {
+            return false;
+        }
+        return 1;
+    }
+
+    public function update($table, array $data, array $where, $format = null, $where_format = null) {
+        if ($this->last_error !== '') {
+            return false;
+        }
+        return 1;
+    }
 }
 
 global $wpdb;

@@ -194,6 +194,7 @@ class TestFinanceRecordsWpdbMock {
             $row = array_merge([
                 'id' => (string) $this->insert_id,
                 'created_at' => current_time('mysql'),
+                'updated_at' => current_time('mysql'),
             ], $data);
             $this->record_rows[$this->insert_id] = $row;
             return 1;
@@ -310,7 +311,22 @@ class TestFinanceRecordsWpdbMock {
             }
             return $this->update_result;
         }
+        if (strpos($table, 'aa_finance_containers') !== false) {
+            $cid = (int) ($where['id'] ?? 0);
+            if (isset($this->container_rows[$cid])) {
+                $this->container_rows[$cid] = array_merge($this->container_rows[$cid], $data);
+            }
+            return $this->update_result;
+        }
         return false;
+    }
+
+    public function query(string $query) {
+        $this->queries[] = ['query', $query];
+        if ($this->last_error !== '') {
+            return false;
+        }
+        return 1;
     }
 
     public function prepare(string $query, ...$args): string {

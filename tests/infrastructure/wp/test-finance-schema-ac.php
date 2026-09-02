@@ -55,7 +55,7 @@ $finance_schema_src = file_get_contents($finance_schema_file);
 
 ac_assert('Schema.php es legible', is_string($schema_src) && $schema_src !== '');
 ac_assert('FinanceSchema.php es legible', is_string($finance_schema_src) && $finance_schema_src !== '');
-ac_assert('AA_Schema::DB_VERSION es 19', strpos($schema_src, "DB_VERSION = '19'") !== false);
+ac_assert('AA_Schema::DB_VERSION es 20', strpos($schema_src, "DB_VERSION = '20'") !== false);
 ac_assert('Schema.php delega en AA_Finance_Schema::install()', strpos($schema_src, 'AA_Finance_Schema::install()') !== false);
 
 $bump_pos = strpos($schema_src, "update_option('aa_db_version', self::DB_VERSION)");
@@ -79,11 +79,13 @@ ac_assert('Contenedores variant_key sin DEFAULT en DDL', strpos($containers_sql_
 ac_assert('Contenedores title varchar(200) NOT NULL', strpos($containers_sql_src, 'title varchar(200) NOT NULL') !== false);
 ac_assert('Contenedores details text DEFAULT NULL', strpos($containers_sql_src, 'details text DEFAULT NULL') !== false);
 ac_assert('Contenedores created_at datetime NOT NULL', strpos($containers_sql_src, 'created_at datetime NOT NULL') !== false);
-ac_assert('Contenedores PRIMARY KEY  (id) con dos espacios', strpos($containers_sql_src, 'PRIMARY KEY  (id)') !== false);
+ac_assert('Contenedores updated_at datetime NOT NULL', strpos($containers_sql_src, 'updated_at datetime NOT NULL') !== false);
 ac_assert('Contenedores índice compuesto (variant_key, created_at, id)', strpos($containers_sql_src, 'KEY idx_variant_created (variant_key, created_at, id)') !== false);
+ac_assert('Contenedores índice canónico (variant_key, updated_at, id)', strpos($containers_sql_src, 'KEY idx_variant_updated (variant_key, updated_at, id)') !== false);
+ac_assert('Contenedores no incluye DEFAULT CURRENT_TIMESTAMP en updated_at', strpos($containers_sql_src, 'ON UPDATE CURRENT_TIMESTAMP') === false);
+ac_assert('Contenedores PRIMARY KEY  (id) con dos espacios', strpos($containers_sql_src, 'PRIMARY KEY  (id)') !== false);
 ac_assert('Contenedores ENGINE=InnoDB explícito', strpos($containers_sql_src, 'ENGINE=InnoDB') !== false);
 ac_assert('Contenedores no incluye family_key', strpos($containers_sql_src, 'family_key') === false);
-ac_assert('Contenedores no incluye updated_at', strpos($containers_sql_src, 'updated_at') === false);
 ac_assert('Contenedores no incluye created_by', strpos($containers_sql_src, 'created_by') === false);
 
 // Verificaciones DDL aa_finance_records
@@ -95,7 +97,11 @@ ac_assert('Registros details text DEFAULT NULL', strpos($records_sql_src, 'detai
 ac_assert('Registros amount decimal(19,2) DEFAULT NULL', strpos($records_sql_src, 'amount decimal(19,2) DEFAULT NULL') !== false);
 ac_assert('Registros amount signed (sin unsigned)', strpos($records_sql_src, 'amount decimal(19,2) unsigned') === false);
 ac_assert('Registros created_at datetime NOT NULL', strpos($records_sql_src, 'created_at datetime NOT NULL') !== false);
+ac_assert('Registros updated_at datetime NOT NULL', strpos($records_sql_src, 'updated_at datetime NOT NULL') !== false);
 ac_assert('Registros índice compuesto (container_id, created_at, id)', strpos($records_sql_src, 'KEY idx_container_created (container_id, created_at, id)') !== false);
+ac_assert('Registros índice canónico (container_id, updated_at, id)', strpos($records_sql_src, 'KEY idx_container_updated (container_id, updated_at, id)') !== false);
+ac_assert('ensure_updated_at_columns presente', strpos($finance_schema_src, 'function ensure_updated_at_columns(') !== false);
+ac_assert('ensure_canonical_read_indexes presente', strpos($finance_schema_src, 'function ensure_canonical_read_indexes(') !== false);
 ac_assert('DDL enviado a dbDelta NO contiene FOREIGN KEY', !preg_match('/CREATE TABLE[^\;]+FOREIGN KEY/i', $containers_sql_src . $records_sql_src));
 
 // Verificaciones de FK y nombrado
@@ -203,6 +209,7 @@ function seed_valid_mock_schema(TestFinanceWpdbMock $mock, string $prefix = 'wp_
         ['Field' => 'title', 'Type' => 'varchar(200)', 'Null' => 'NO', 'Default' => null, 'Extra' => ''],
         ['Field' => 'details', 'Type' => 'text', 'Null' => 'YES', 'Default' => null, 'Extra' => ''],
         ['Field' => 'created_at', 'Type' => 'datetime', 'Null' => 'NO', 'Default' => null, 'Extra' => ''],
+        ['Field' => 'updated_at', 'Type' => 'datetime', 'Null' => 'NO', 'Default' => null, 'Extra' => ''],
     ];
 
     $mock->indexes[$c_table] = [
@@ -210,6 +217,9 @@ function seed_valid_mock_schema(TestFinanceWpdbMock $mock, string $prefix = 'wp_
         ['Key_name' => 'idx_variant_created', 'Column_name' => 'variant_key', 'Seq_in_index' => '1'],
         ['Key_name' => 'idx_variant_created', 'Column_name' => 'created_at', 'Seq_in_index' => '2'],
         ['Key_name' => 'idx_variant_created', 'Column_name' => 'id', 'Seq_in_index' => '3'],
+        ['Key_name' => 'idx_variant_updated', 'Column_name' => 'variant_key', 'Seq_in_index' => '1'],
+        ['Key_name' => 'idx_variant_updated', 'Column_name' => 'updated_at', 'Seq_in_index' => '2'],
+        ['Key_name' => 'idx_variant_updated', 'Column_name' => 'id', 'Seq_in_index' => '3'],
     ];
 
     $mock->columns[$r_table] = [
@@ -219,6 +229,7 @@ function seed_valid_mock_schema(TestFinanceWpdbMock $mock, string $prefix = 'wp_
         ['Field' => 'details', 'Type' => 'text', 'Null' => 'YES', 'Default' => null, 'Extra' => ''],
         ['Field' => 'amount', 'Type' => 'decimal(19,2)', 'Null' => 'YES', 'Default' => null, 'Extra' => ''],
         ['Field' => 'created_at', 'Type' => 'datetime', 'Null' => 'NO', 'Default' => null, 'Extra' => ''],
+        ['Field' => 'updated_at', 'Type' => 'datetime', 'Null' => 'NO', 'Default' => null, 'Extra' => ''],
     ];
 
     $mock->indexes[$r_table] = [
@@ -226,6 +237,9 @@ function seed_valid_mock_schema(TestFinanceWpdbMock $mock, string $prefix = 'wp_
         ['Key_name' => 'idx_container_created', 'Column_name' => 'container_id', 'Seq_in_index' => '1'],
         ['Key_name' => 'idx_container_created', 'Column_name' => 'created_at', 'Seq_in_index' => '2'],
         ['Key_name' => 'idx_container_created', 'Column_name' => 'id', 'Seq_in_index' => '3'],
+        ['Key_name' => 'idx_container_updated', 'Column_name' => 'container_id', 'Seq_in_index' => '1'],
+        ['Key_name' => 'idx_container_updated', 'Column_name' => 'updated_at', 'Seq_in_index' => '2'],
+        ['Key_name' => 'idx_container_updated', 'Column_name' => 'id', 'Seq_in_index' => '3'],
     ];
 
     $mock->create_tables[$r_table] = "CREATE TABLE `{$r_table}` (
@@ -299,6 +313,20 @@ try {
 }
 ac_assert('Fallo cerrado ante columna prohibida (family_key)', $caught_forbidden === true);
 
+// Fallo cerrado: updated_at ausente en contenedores
+seed_valid_mock_schema($wpdb, 'wp_');
+$wpdb->columns['wp_aa_finance_containers'] = array_values(array_filter(
+    $wpdb->columns['wp_aa_finance_containers'],
+    static fn(array $col): bool => ($col['Field'] ?? '') !== 'updated_at'
+));
+$caught_missing_updated = false;
+try {
+    AA_Finance_Schema::verify();
+} catch (\RuntimeException $e) {
+    $caught_missing_updated = (strpos($e->getMessage(), 'updated_at') !== false);
+}
+ac_assert('Fallo cerrado ante updated_at ausente en contenedores', $caught_missing_updated === true);
+
 // Restaurar $wpdb original
 $wpdb = $real_wpdb;
 
@@ -335,6 +363,58 @@ if ($has_real_wp) {
         }
         ac_assert('MySQL real: postcondiciones verificadas exitosamente', $verified_1);
 
+        $c1_table = AA_Finance_Schema::containers_table_name();
+        $r1_table = AA_Finance_Schema::records_table_name();
+
+        $container_updated_col = $wpdb->get_row("SHOW COLUMNS FROM `{$c1_table}` LIKE 'updated_at'", ARRAY_A);
+        ac_assert('MySQL real: contenedores tienen updated_at datetime NOT NULL', is_array($container_updated_col) && ($container_updated_col['Null'] ?? '') === 'NO' && stripos((string) ($container_updated_col['Type'] ?? ''), 'datetime') !== false);
+
+        $record_updated_col = $wpdb->get_row("SHOW COLUMNS FROM `{$r1_table}` LIKE 'updated_at'", ARRAY_A);
+        ac_assert('MySQL real: registros tienen updated_at datetime NOT NULL', is_array($record_updated_col) && ($record_updated_col['Null'] ?? '') === 'NO' && stripos((string) ($record_updated_col['Type'] ?? ''), 'datetime') !== false);
+
+        $container_indexes = $wpdb->get_results("SHOW INDEX FROM `{$c1_table}`", ARRAY_A);
+        $has_variant_created = false;
+        $has_variant_updated = false;
+        foreach ($container_indexes as $idx_row) {
+            if (($idx_row['Key_name'] ?? '') === 'idx_variant_created') {
+                $has_variant_created = true;
+            }
+            if (($idx_row['Key_name'] ?? '') === 'idx_variant_updated') {
+                $has_variant_updated = true;
+            }
+        }
+        ac_assert('MySQL real: índice idx_variant_created presente', $has_variant_created);
+        ac_assert('MySQL real: índice idx_variant_updated presente', $has_variant_updated);
+
+        $record_indexes = $wpdb->get_results("SHOW INDEX FROM `{$r1_table}`", ARRAY_A);
+        $has_container_created = false;
+        $has_container_updated = false;
+        foreach ($record_indexes as $idx_row) {
+            if (($idx_row['Key_name'] ?? '') === 'idx_container_created') {
+                $has_container_created = true;
+            }
+            if (($idx_row['Key_name'] ?? '') === 'idx_container_updated') {
+                $has_container_updated = true;
+            }
+        }
+        ac_assert('MySQL real: índice idx_container_created presente', $has_container_created);
+        ac_assert('MySQL real: índice idx_container_updated presente', $has_container_updated);
+
+        // 4.3 Comprobación de rechazo de registro huérfano (FK real activa)
+        $wpdb->suppress_errors(true);
+        $insert_orphan = $wpdb->insert(
+            $r1_table,
+            [
+                'container_id' => 99999999, // Inexistente
+                'title' => 'Registro huérfano',
+                'created_at' => current_time('mysql'),
+                'updated_at' => current_time('mysql'),
+            ],
+            ['%d', '%s', '%s', '%s']
+        );
+        $wpdb->suppress_errors(false);
+        ac_assert('MySQL real: rechazo estricto de registro huérfano (FK activa)', $insert_orphan === false);
+
         // 4.2 Idempotencia en Prefijo 1
         $idempotent_ok = true;
         try {
@@ -345,23 +425,6 @@ if ($has_real_wp) {
         }
         ac_assert('MySQL real: segunda instalación es 100% idempotente', $idempotent_ok);
 
-        $c1_table = AA_Finance_Schema::containers_table_name();
-        $r1_table = AA_Finance_Schema::records_table_name();
-
-        // 4.3 Comprobación de rechazo de registro huérfano (FK real activa)
-        $wpdb->suppress_errors(true);
-        $insert_orphan = $wpdb->insert(
-            $r1_table,
-            [
-                'container_id' => 99999999, // Inexistente
-                'title' => 'Registro huérfano',
-                'created_at' => current_time('mysql'),
-            ],
-            ['%d', '%s', '%s']
-        );
-        $wpdb->suppress_errors(false);
-        ac_assert('MySQL real: rechazo estricto de registro huérfano (FK activa)', $insert_orphan === false);
-
         // 4.4 Inserción de contenedor y registros válidos
         $now = current_time('mysql');
         $wpdb->insert(
@@ -371,8 +434,9 @@ if ($has_real_wp) {
                 'title' => 'Presupuesto Principal',
                 'details' => 'Detalle del presupuesto',
                 'created_at' => $now,
+                'updated_at' => $now,
             ],
-            ['%s', '%s', '%s', '%s']
+            ['%s', '%s', '%s', '%s', '%s']
         );
         $container_id = (int) $wpdb->insert_id;
         ac_assert('MySQL real: contenedor insertado correctamente', $container_id > 0);
@@ -380,23 +444,23 @@ if ($has_real_wp) {
         // 4.5 Casos de amount: NULL, 0.00, 1.85, negativo (-250.75)
         $wpdb->insert(
             $r1_table,
-            ['container_id' => $container_id, 'title' => 'Sin amount', 'amount' => null, 'created_at' => $now],
-            ['%d', '%s', null, '%s']
+            ['container_id' => $container_id, 'title' => 'Sin amount', 'amount' => null, 'created_at' => $now, 'updated_at' => $now],
+            ['%d', '%s', null, '%s', '%s']
         );
         $wpdb->insert(
             $r1_table,
-            ['container_id' => $container_id, 'title' => 'Cero', 'amount' => '0.00', 'created_at' => $now],
-            ['%d', '%s', '%s', '%s']
+            ['container_id' => $container_id, 'title' => 'Cero', 'amount' => '0.00', 'created_at' => $now, 'updated_at' => $now],
+            ['%d', '%s', '%s', '%s', '%s']
         );
         $wpdb->insert(
             $r1_table,
-            ['container_id' => $container_id, 'title' => 'Decimal positivo', 'amount' => '1.85', 'created_at' => $now],
-            ['%d', '%s', '%s', '%s']
+            ['container_id' => $container_id, 'title' => 'Decimal positivo', 'amount' => '1.85', 'created_at' => $now, 'updated_at' => $now],
+            ['%d', '%s', '%s', '%s', '%s']
         );
         $wpdb->insert(
             $r1_table,
-            ['container_id' => $container_id, 'title' => 'Decimal negativo', 'amount' => '-250.75', 'created_at' => $now],
-            ['%d', '%s', '%s', '%s']
+            ['container_id' => $container_id, 'title' => 'Decimal negativo', 'amount' => '-250.75', 'created_at' => $now, 'updated_at' => $now],
+            ['%d', '%s', '%s', '%s', '%s']
         );
 
         $saved_records = $wpdb->get_results(
@@ -419,8 +483,9 @@ if ($has_real_wp) {
                 'title' => 'Registro con texto extenso',
                 'details' => $large_text,
                 'created_at' => $now,
+                'updated_at' => $now,
             ],
-            ['%d', '%s', '%s', '%s']
+            ['%d', '%s', '%s', '%s', '%s']
         );
         $large_rec_id = (int) $wpdb->insert_id;
         $retrieved_text = $wpdb->get_var($wpdb->prepare("SELECT details FROM `{$r1_table}` WHERE id = %d", $large_rec_id));
@@ -445,8 +510,8 @@ if ($has_real_wp) {
         $c2_table = AA_Finance_Schema::containers_table_name();
         $wpdb->insert(
             $c2_table,
-            ['variant_key' => 'general', 'title' => 'Contenedor Prefijo 2', 'created_at' => $now],
-            ['%s', '%s', '%s']
+            ['variant_key' => 'general', 'title' => 'Contenedor Prefijo 2', 'created_at' => $now, 'updated_at' => $now],
+            ['%s', '%s', '%s', '%s']
         );
         $count_p1 = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$c1_table}`");
         $count_p2 = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$c2_table}`");

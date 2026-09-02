@@ -32,6 +32,11 @@ if (!defined('ABSPATH')) {
 if (!defined('ARRAY_A')) {
     define('ARRAY_A', 'ARRAY_A');
 }
+if (!function_exists('current_time')) {
+    function current_time(string $type = 'mysql'): string {
+        return '2026-08-29 18:00:00';
+    }
+}
 
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
@@ -99,6 +104,20 @@ class TestDeleteRecordWpdbMock {
             return 1;
         }
         return 0;
+    }
+
+    public function update($table, array $data, array $where, $format = null, $where_format = null) {
+        if ($this->last_error !== '') {
+            return false;
+        }
+        return 1;
+    }
+
+    public function query(string $query) {
+        if ($this->last_error !== '') {
+            return false;
+        }
+        return 1;
     }
 }
 

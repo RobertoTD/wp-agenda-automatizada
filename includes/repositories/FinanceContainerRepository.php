@@ -83,12 +83,14 @@ final class FinanceContainerRepository {
             'title' => $title,
             'details' => $details,
             'created_at' => $now,
+            'updated_at' => $now,
         ];
 
         $formats = [
             '%s',
             '%s',
             $details === null ? null : '%s',
+            '%s',
             '%s',
         ];
 
@@ -279,15 +281,18 @@ final class FinanceContainerRepository {
 
         global $wpdb;
         $table = self::table_name();
+        $now = current_time('mysql');
 
         $data = [
             'title' => $title,
             'details' => $details,
+            'updated_at' => $now,
         ];
 
         $formats = [
             '%s',
             $details === null ? null : '%s',
+            '%s',
         ];
 
         $where = [
@@ -324,39 +329,19 @@ final class FinanceContainerRepository {
 
         $row = self::find_by_id($id);
 
-        if ($affected_int === 1) {
-            if ($row === null) {
-                return null;
-            }
-
-            if (($row['variant_key'] ?? '') !== $variant_key) {
-                return null;
-            }
-
-            if (!isset($row['id'], $row['title'], $row['created_at'])) {
-                throw new \RuntimeException('[FinanceContainerRepository] Fila autoritativa corrupta tras actualización');
-            }
-
-            if ((int) $row['id'] !== $id) {
-                throw new \RuntimeException('[FinanceContainerRepository] Identidad discordante tras actualización');
-            }
-
-            return $row;
-        }
-
-        if ($row === null) {
+        if ($row === null || ($row['variant_key'] ?? '') !== $variant_key) {
             return null;
         }
 
-        if (($row['variant_key'] ?? '') !== $variant_key) {
-            return null;
+        if (!isset($row['id'], $row['title'], $row['created_at'])) {
+            throw new \RuntimeException('[FinanceContainerRepository] Fila autoritativa corrupta tras actualización');
         }
 
-        if ($row['title'] === $title && $row['details'] === $details) {
-            return $row;
+        if ((int) $row['id'] !== $id) {
+            throw new \RuntimeException('[FinanceContainerRepository] Identidad discordante tras actualización');
         }
 
-        throw new \RuntimeException('[FinanceContainerRepository] Actualización sin efecto con valores distintos');
+        return $row;
     }
 
     /**

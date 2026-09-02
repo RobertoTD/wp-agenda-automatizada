@@ -135,6 +135,13 @@ class TestUpdateRecordWpdbMock {
         }
         return $this->update_result;
     }
+
+    public function query(string $query) {
+        if ($this->last_error !== '') {
+            return false;
+        }
+        return 1;
+    }
 }
 
 global $wpdb;
@@ -167,7 +174,7 @@ ac_assert('DTO conserva container_id', ($res_ok['data']['record']['container_id'
 ac_assert('DTO incluye title actualizado', ($res_ok['data']['record']['title'] ?? '') === 'Registro Actualizado');
 ac_assert('DTO incluye amount normalizado', ($res_ok['data']['record']['amount'] ?? '') === '-25.50');
 ac_assert('DTO incluye created_at', ($res_ok['data']['record']['created_at'] ?? '') === '2026-08-29 12:00:00');
-ac_assert('Ejecutó update en base de datos', count($wpdb->update_queries) === 1);
+ac_assert('Ejecutó update de registro y touch del padre', count($wpdb->update_queries) === 2);
 
 echo "\n=== 2. Idempotencia ===\n";
 

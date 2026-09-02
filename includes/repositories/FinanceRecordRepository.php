@@ -24,6 +24,54 @@ final class FinanceRecordRepository {
     }
 
     /**
+     * @return string
+     */
+    private static function containers_table_name(): string {
+        global $wpdb;
+
+        return $wpdb->prefix . 'aa_finance_containers';
+    }
+
+    private static function begin_transaction(): void {
+        global $wpdb;
+        if ($wpdb->query('START TRANSACTION') === false) {
+            throw new \RuntimeException('[FinanceRecordRepository] No se pudo iniciar la transacción');
+        }
+    }
+
+    private static function commit_transaction(): void {
+        global $wpdb;
+        if ($wpdb->query('COMMIT') === false) {
+            self::rollback_transaction();
+            throw new \RuntimeException('[FinanceRecordRepository] No se pudo confirmar la transacción');
+        }
+    }
+
+    private static function rollback_transaction(): void {
+        global $wpdb;
+        $wpdb->query('ROLLBACK');
+    }
+
+    /**
+     * Actualiza updated_at del contenedor padre usando la misma conexión $wpdb.
+     */
+    private static function touch_parent_container(int $container_id, string $updated_at): void {
+        global $wpdb;
+
+        $result = $wpdb->update(
+            self::containers_table_name(),
+            ['updated_at' => $updated_at],
+            ['id' => $container_id],
+            ['%s'],
+            ['%d']
+        );
+
+        if ($result === false || !empty($wpdb->last_error)) {
+            throw new \RuntimeException('[FinanceRecordRepository] Error al actualizar el contenedor padre');
+        }
+    }
+
+    /**
      * @param array<string,mixed>|null $row
      * @return array{
      *     id: int,
@@ -89,6 +137,7 @@ final class FinanceRecordRepository {
             'details' => $details,
             'amount' => $amount,
             'created_at' => $now,
+            'updated_at' => $now,
         ];
 
         $formats = [
@@ -97,28 +146,48 @@ final class FinanceRecordRepository {
             $details === null ? null : '%s',
             $amount === null ? null : '%s',
             '%s',
+            '%s',
         ];
 
-        $result = $wpdb->insert($table, $data, $formats);
+        self::begin_transaction();
+        $committed = false;
+        try {
+            $result = $wpdb->insert($table, $data, $formats);
 
-        if ($result === false || !empty($wpdb->last_error)) {
-            error_log('[FinanceRecordRepository] create error: ' . ($wpdb->last_error ?: 'insert failed'));
+            if ($result === false || !empty($wpdb->last_error)) {
+                throw new \RuntimeException('[FinanceRecordRepository] Error al crear el registro financiero');
+            }
+
+            $id = (int) $wpdb->insert_id;
+            if ($id < 1) {
+                throw new \RuntimeException('[FinanceRecordRepository] Error al obtener ID del registro creado');
+            }
+
+            self::touch_parent_container($container_id, $now);
+            self::commit_transaction();
+            $committed = true;
+
+            return [
+                'id' => $id,
+                'container_id' => $container_id,
+                'title' => $title,
+                'details' => $details,
+                'amount' => $amount,
+                'created_at' => $now,
+            ];
+        } catch (\RuntimeException $e) {
+            if (!$committed) {
+                self::rollback_transaction();
+            }
+            error_log('[FinanceRecordRepository] create error: ' . $e->getMessage());
+            throw $e;
+        } catch (\Throwable $e) {
+            if (!$committed) {
+                self::rollback_transaction();
+            }
+            error_log('[FinanceRecordRepository] create error: ' . $e->getMessage());
             throw new \RuntimeException('[FinanceRecordRepository] Error al crear el registro financiero');
         }
-
-        $id = (int) $wpdb->insert_id;
-        if ($id < 1) {
-            throw new \RuntimeException('[FinanceRecordRepository] Error al obtener ID del registro creado');
-        }
-
-        return [
-            'id' => $id,
-            'container_id' => $container_id,
-            'title' => $title,
-            'details' => $details,
-            'amount' => $amount,
-            'created_at' => $now,
-        ];
     }
 
     /**
@@ -431,22 +500,45 @@ final class FinanceRecordRepository {
 
         global $wpdb;
         $table = self::table_name();
+        $now = current_time('mysql');
 
-        $deleted = $wpdb->delete(
-            $table,
-            [
-                'id' => $id,
-                'container_id' => $container_id,
-            ],
-            ['%d', '%d']
-        );
+        self::begin_transaction();
+        $committed = false;
+        try {
+            $deleted = $wpdb->delete(
+                $table,
+                [
+                    'id' => $id,
+                    'container_id' => $container_id,
+                ],
+                ['%d', '%d']
+            );
 
-        if ($deleted === false || !empty($wpdb->last_error)) {
-            error_log('[FinanceRecordRepository] delete error: ' . ($wpdb->last_error ?: 'delete failed'));
+            if ($deleted === false || !empty($wpdb->last_error)) {
+                throw new \RuntimeException('[FinanceRecordRepository] Error al eliminar el registro financiero');
+            }
+
+            if ((int) $deleted === 1) {
+                self::touch_parent_container($container_id, $now);
+            }
+
+            self::commit_transaction();
+            $committed = true;
+
+            return (int) $deleted === 1;
+        } catch (\RuntimeException $e) {
+            if (!$committed) {
+                self::rollback_transaction();
+            }
+            error_log('[FinanceRecordRepository] delete error: ' . $e->getMessage());
+            throw $e;
+        } catch (\Throwable $e) {
+            if (!$committed) {
+                self::rollback_transaction();
+            }
+            error_log('[FinanceRecordRepository] delete error: ' . $e->getMessage());
             throw new \RuntimeException('[FinanceRecordRepository] Error al eliminar el registro financiero');
         }
-
-        return (int) $deleted === 1;
     }
 
     /**
@@ -483,17 +575,20 @@ final class FinanceRecordRepository {
 
         global $wpdb;
         $table = self::table_name();
+        $now = current_time('mysql');
 
         $data = [
             'title' => $title,
             'details' => $details,
             'amount' => $amount,
+            'updated_at' => $now,
         ];
 
         $formats = [
             '%s',
             $details === null ? null : '%s',
             $amount === null ? null : '%s',
+            '%s',
         ];
 
         $where = [
@@ -501,86 +596,90 @@ final class FinanceRecordRepository {
             'container_id' => $container_id,
         ];
 
-        $affected = $wpdb->update(
-            $table,
-            $data,
-            $where,
-            $formats,
-            ['%d', '%d']
-        );
+        self::begin_transaction();
+        $committed = false;
+        try {
+            $affected = $wpdb->update(
+                $table,
+                $data,
+                $where,
+                $formats,
+                ['%d', '%d']
+            );
 
-        if ($affected === false || !empty($wpdb->last_error)) {
-            error_log('[FinanceRecordRepository] update error: ' . ($wpdb->last_error ?: 'update failed'));
-            throw new \RuntimeException('[FinanceRecordRepository] Error al actualizar el registro financiero');
-        }
+            if ($affected === false || !empty($wpdb->last_error)) {
+                throw new \RuntimeException('[FinanceRecordRepository] Error al actualizar el registro financiero');
+            }
 
-        if (!is_int($affected)) {
-            throw new \RuntimeException('[FinanceRecordRepository] Retorno inesperado al actualizar el registro financiero');
-        }
+            if (!is_int($affected)) {
+                throw new \RuntimeException('[FinanceRecordRepository] Retorno inesperado al actualizar el registro financiero');
+            }
 
-        if ($affected < 0) {
-            throw new \RuntimeException('[FinanceRecordRepository] Retorno inesperado al actualizar el registro financiero');
-        }
+            if ($affected < 0) {
+                throw new \RuntimeException('[FinanceRecordRepository] Retorno inesperado al actualizar el registro financiero');
+            }
 
-        if ($affected > 1) {
-            throw new \RuntimeException('[FinanceRecordRepository] Actualización afectó más de una fila');
-        }
+            if ($affected > 1) {
+                throw new \RuntimeException('[FinanceRecordRepository] Actualización afectó más de una fila');
+            }
 
-        $raw_row = $wpdb->get_row(
-            $wpdb->prepare(
-                "SELECT id, container_id, title, details, amount, created_at
-                 FROM {$table}
-                 WHERE id = %d AND container_id = %d
-                 LIMIT 1",
-                $id,
-                $container_id
-            ),
-            ARRAY_A
-        );
+            $raw_row = $wpdb->get_row(
+                $wpdb->prepare(
+                    "SELECT id, container_id, title, details, amount, created_at
+                     FROM {$table}
+                     WHERE id = %d AND container_id = %d
+                     LIMIT 1",
+                    $id,
+                    $container_id
+                ),
+                ARRAY_A
+            );
 
-        if (!empty($wpdb->last_error)) {
-            error_log('[FinanceRecordRepository] update re-read error: ' . $wpdb->last_error);
-            throw new \RuntimeException('[FinanceRecordRepository] Error al actualizar el registro financiero');
-        }
+            if (!empty($wpdb->last_error)) {
+                throw new \RuntimeException('[FinanceRecordRepository] Error al actualizar el registro financiero');
+            }
 
-        $row = self::map_row(is_array($raw_row) ? $raw_row : null);
+            if ($affected === 1) {
+                if (!is_array($raw_row)) {
+                    self::commit_transaction();
+                    $committed = true;
+                    return null;
+                }
 
-        if ($affected === 1) {
-            if (!is_array($raw_row)) {
+                if (!isset($raw_row['id'], $raw_row['container_id'], $raw_row['title'], $raw_row['created_at'])) {
+                    throw new \RuntimeException('[FinanceRecordRepository] Fila autoritativa corrupta tras actualización');
+                }
+            }
+
+            $row = self::map_row(is_array($raw_row) ? $raw_row : null);
+
+            if ($row === null) {
+                self::commit_transaction();
+                $committed = true;
                 return null;
             }
 
-            if (!isset($raw_row['id'], $raw_row['container_id'], $raw_row['title'], $raw_row['created_at'])) {
-                throw new \RuntimeException('[FinanceRecordRepository] Fila autoritativa corrupta tras actualización');
-            }
-
-            if ($row === null) {
-                throw new \RuntimeException('[FinanceRecordRepository] Fila autoritativa corrupta tras actualización');
-            }
-
-            if ((int) $row['id'] !== $id) {
+            if ((int) $row['id'] !== $id || (int) $row['container_id'] !== $container_id) {
                 throw new \RuntimeException('[FinanceRecordRepository] Identidad discordante tras actualización');
             }
 
-            if ((int) $row['container_id'] !== $container_id) {
-                throw new \RuntimeException('[FinanceRecordRepository] Identidad discordante tras actualización');
+            self::touch_parent_container($container_id, $now);
+            self::commit_transaction();
+            $committed = true;
+
+            return $row;
+        } catch (\RuntimeException $e) {
+            if (!$committed) {
+                self::rollback_transaction();
             }
-
-            return $row;
+            error_log('[FinanceRecordRepository] update error: ' . $e->getMessage());
+            throw $e;
+        } catch (\Throwable $e) {
+            if (!$committed) {
+                self::rollback_transaction();
+            }
+            error_log('[FinanceRecordRepository] update error: ' . $e->getMessage());
+            throw new \RuntimeException('[FinanceRecordRepository] Error al actualizar el registro financiero');
         }
-
-        if ($row === null) {
-            return null;
-        }
-
-        if (
-            $row['title'] === $title
-            && $row['details'] === $details
-            && $row['amount'] === $amount
-        ) {
-            return $row;
-        }
-
-        throw new \RuntimeException('[FinanceRecordRepository] Actualización sin efecto con valores distintos');
     }
 }

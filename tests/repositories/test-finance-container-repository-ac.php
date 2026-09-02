@@ -142,6 +142,8 @@ $created = FinanceContainerRepository::create('general', 'Presupuesto Oficina', 
 ac_assert('create() devuelve array con id poblado', is_array($created) && $created['id'] === 42);
 ac_assert('create() conserva variant_key y title', $created['variant_key'] === 'general' && $created['title'] === 'Presupuesto Oficina');
 ac_assert('create() conserva details y created_at', $created['details'] === 'Detalles varios' && $created['created_at'] === '2026-08-29 18:00:00');
+$last_insert = end($wpdb->inserts);
+ac_assert('create() inserta created_at y updated_at iguales', $last_insert['data']['created_at'] === '2026-08-29 18:00:00' && $last_insert['data']['updated_at'] === '2026-08-29 18:00:00');
 
 // Precondiciones de create()
 $caught_empty_variant = false;
@@ -360,7 +362,7 @@ $wpdb->rows[] = [
 $updated_wrong_variant = FinanceContainerRepository::update(49, 'general', 'Otra variante', null);
 ac_assert('update() retorno 0 con variante discordante devuelve null', $updated_wrong_variant === null);
 
-// 2.6.9 Retorno 0 valores distintos → RuntimeException
+// 2.6.9 Retorno 0 valores distintos → devuelve fila (actividad aceptada, updated_at intentado)
 $wpdb->update_result = 0;
 $wpdb->rows[] = [
     'id' => '50',
@@ -369,13 +371,9 @@ $wpdb->rows[] = [
     'details' => 'DB',
     'created_at' => '2026-08-29 12:00:00',
 ];
-$caught_update_mismatch = false;
-try {
-    FinanceContainerRepository::update(50, 'general', 'Intento', 'Distinto');
-} catch (\RuntimeException $e) {
-    $caught_update_mismatch = (strpos($e->getMessage(), 'sin efecto con valores distintos') !== false);
-}
-ac_assert('update() retorno 0 con valores distintos lanza RuntimeException', $caught_update_mismatch);
+$updated_same_second = FinanceContainerRepository::update(50, 'general', 'Intento', 'Distinto');
+ac_assert('update() retorno 0 con valores distintos devuelve fila autoritativa', is_array($updated_same_second) && $updated_same_second['title'] === 'Persistido');
+ac_assert('update() incluye updated_at en datos de escritura', isset($wpdb->updated['data']['updated_at']) && $wpdb->updated['data']['updated_at'] === '2026-08-29 18:00:00');
 
 // 2.6.10 Retorno 1 relectura ausente → null
 $wpdb->update_result = 1;

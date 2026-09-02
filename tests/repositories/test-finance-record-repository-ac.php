@@ -27,6 +27,16 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
     echo '[FAIL] ' . $label . ($detail !== '' ? ' - ' . $detail : '') . "\n";
 }
 
+function last_record_update(TestFinanceRecordWpdbMock $wpdb): ?array {
+    for ($i = count($wpdb->updates) - 1; $i >= 0; $i--) {
+        if (strpos($wpdb->updates[$i]['table'], 'aa_finance_records') !== false) {
+            return $wpdb->updates[$i];
+        }
+    }
+
+    return null;
+}
+
 echo "=== 1. Análisis estático de FinanceRecordRepository ===\n";
 
 ac_assert('Archivo FinanceRecordRepository.php existe y es legible', is_readable($repo_file));
@@ -65,6 +75,11 @@ class TestFinanceRecordWpdbMock {
     public $query_log = [];
     public $update_result = 1;
     public $updated = null;
+    public $updates = [];
+    public $query_fail_on = null;
+    public $fail_container_touch = false;
+    public $fail_insert = false;
+    public $fail_record_update = false;
 
     public function prepare(string $query, ...$args): string {
         $flat_args = [];
@@ -85,8 +100,23 @@ class TestFinanceRecordWpdbMock {
         return $query;
     }
 
+    public function query(string $query) {
+        $this->query_log[] = $query;
+        if ($this->last_error !== '') {
+            return false;
+        }
+        if ($this->query_fail_on !== null && stripos($query, $this->query_fail_on) !== false) {
+            return false;
+        }
+        return 1;
+    }
+
     public function insert(string $table, array $data, array $format = []) {
         $this->inserts[] = ['table' => $table, 'data' => $data, 'format' => $format];
+        if ($this->fail_insert) {
+            $this->last_error = 'FK constraint failed';
+            return false;
+        }
         if ($this->last_error !== '') {
             return false;
         }
@@ -127,14 +157,24 @@ class TestFinanceRecordWpdbMock {
     }
 
     public function update($table, array $data, array $where, $format = null, $where_format = null) {
-        $this->updated = [
+        $entry = [
             'table' => $table,
             'data' => $data,
             'where' => $where,
             'format' => $format,
             'where_format' => $where_format,
         ];
+        $this->updates[] = $entry;
+        $this->updated = $entry;
         $this->query_log[] = ['update' => $table, 'data' => $data, 'where' => $where];
+        if ($this->fail_record_update && strpos($table, 'aa_finance_records') !== false) {
+            $this->last_error = 'Update failed';
+            return false;
+        }
+        if ($this->fail_container_touch && strpos($table, 'aa_finance_containers') !== false) {
+            $this->last_error = 'touch failed';
+            return false;
+        }
         if ($this->last_error !== '') {
             return false;
         }
@@ -153,6 +193,8 @@ ac_assert('create() devuelve array con id poblado', is_array($created) && $creat
 ac_assert('create() conserva container_id y title', $created['container_id'] === 42 && $created['title'] === 'Licencia Software');
 ac_assert('create() conserva details y amount string', $created['details'] === 'Pago anual' && $created['amount'] === '150.00');
 ac_assert('create() inserta amount como string sin %f', end($wpdb->inserts)['data']['amount'] === '150.00');
+ac_assert('create() inserta created_at y updated_at iguales', end($wpdb->inserts)['data']['created_at'] === '2026-08-29 18:00:00' && end($wpdb->inserts)['data']['updated_at'] === '2026-08-29 18:00:00');
+ac_assert('create() inicia transacción y confirma', in_array('START TRANSACTION', $wpdb->query_log, true) && in_array('COMMIT', $wpdb->query_log, true));
 
 // create() con amount null
 $created_null_amount = FinanceRecordRepository::create(42, 'Nota informativa', null, null);
@@ -176,7 +218,7 @@ try {
 ac_assert('create() con title vacío lanza InvalidArgumentException', $caught_empty_title);
 
 // Error SQL en create()
-$wpdb->last_error = 'FK constraint failed';
+$wpdb->fail_insert = true;
 $caught_create_err = false;
 try {
     FinanceRecordRepository::create(999, 'Test');
@@ -184,6 +226,7 @@ try {
     $caught_create_err = (strpos($e->getMessage(), 'Error al crear el registro financiero') !== false);
 }
 ac_assert('create() ante error SQL/FK lanza RuntimeException', $caught_create_err);
+$wpdb->fail_insert = false;
 $wpdb->last_error = '';
 
 // 2.2 find_by_id_and_container()
@@ -256,11 +299,20 @@ ac_assert('sum_amounts_by_container() para contenedor vacío devuelve null', $su
 
 // 2.6 delete()
 $wpdb->deleted_rows = 1;
+$wpdb->query_log = [];
 $del_ok = FinanceRecordRepository::delete(101, 42);
 ac_assert('delete(101, 42) con 1 fila eliminada devuelve true', $del_ok === true);
-ac_assert('delete() incluye container_id en condición where', end($wpdb->query_log)['where']['container_id'] === 42);
+$delete_log = null;
+foreach ($wpdb->query_log as $entry) {
+    if (is_array($entry) && isset($entry['delete'])) {
+        $delete_log = $entry;
+    }
+}
+ac_assert('delete() incluye container_id en condición where', is_array($delete_log) && ($delete_log['where']['container_id'] ?? null) === 42);
+ac_assert('delete() efectivo confirma transacción', in_array('COMMIT', $wpdb->query_log, true));
 
 $wpdb->deleted_rows = 0;
+$wpdb->query_log = [];
 $del_zero = FinanceRecordRepository::delete(999, 42);
 ac_assert('delete(999, 42) con 0 filas eliminadas devuelve false', $del_zero === false);
 
@@ -483,7 +535,9 @@ try {
     $caught_update_invalid_id = true;
 }
 ac_assert('update() con id < 1 lanza InvalidArgumentException', $caught_update_invalid_id);
-ac_assert('update() con id inválido no ejecutó UPDATE', $wpdb->updated === null);
+$wpdb->updated = null;
+$wpdb->updates = [];
+ac_assert('update() con id inválido no ejecutó UPDATE', last_record_update($wpdb) === null);
 
 $caught_update_invalid_container = false;
 try {
@@ -513,10 +567,11 @@ $wpdb->rows[] = [
     'created_at' => '2026-08-29 12:00:00',
 ];
 $updated_ok = FinanceRecordRepository::update(42, 10, 'Nuevo título', 'Nuevos detalles', '-25.50');
+$record_update = last_record_update($wpdb);
 ac_assert('update() con retorno 1 devuelve fila autoritativa', is_array($updated_ok) && $updated_ok['id'] === 42 && $updated_ok['title'] === 'Nuevo título');
-ac_assert('update() SET exacto title/details/amount', ($wpdb->updated['data']['title'] ?? '') === 'Nuevo título' && ($wpdb->updated['data']['details'] ?? '') === 'Nuevos detalles' && ($wpdb->updated['data']['amount'] ?? '') === '-25.50');
-ac_assert('update() WHERE exacto id/container_id', ($wpdb->updated['where']['id'] ?? null) === 42 && ($wpdb->updated['where']['container_id'] ?? null) === 10);
-ac_assert('update() SET no contiene container_id', !array_key_exists('container_id', $wpdb->updated['data']));
+ac_assert('update() SET exacto title/details/amount', ($record_update['data']['title'] ?? '') === 'Nuevo título' && ($record_update['data']['details'] ?? '') === 'Nuevos detalles' && ($record_update['data']['amount'] ?? '') === '-25.50');
+ac_assert('update() WHERE exacto id/container_id', ($record_update['where']['id'] ?? null) === 42 && ($record_update['where']['container_id'] ?? null) === 10);
+ac_assert('update() SET no contiene container_id', !array_key_exists('container_id', $record_update['data']));
 
 // 3.3 amount null
 $wpdb->updated = null;
@@ -530,7 +585,8 @@ $wpdb->rows[] = [
     'created_at' => '2026-08-29 12:00:00',
 ];
 FinanceRecordRepository::update(43, 10, 'Sin monto', null, null);
-ac_assert('update() amount null usa formato NULL', $wpdb->updated['format'][2] === null);
+$record_update_null_amount = last_record_update($wpdb);
+ac_assert('update() amount null usa formato NULL', ($record_update_null_amount['format'][2] ?? null) === null);
 
 // 3.4 cero canónico
 $wpdb->update_result = 1;
@@ -565,7 +621,7 @@ $updated_wrong_scope = FinanceRecordRepository::update(99, 10, 'Título', null, 
 ac_assert('update() scope incorrecto devuelve null', $updated_wrong_scope === null);
 
 // 3.7 Error SQL
-$wpdb->last_error = 'Update failed';
+$wpdb->fail_record_update = true;
 $caught_update_sql = false;
 try {
     FinanceRecordRepository::update(46, 10, 'Título', null, null);
@@ -573,6 +629,7 @@ try {
     $caught_update_sql = (strpos($e->getMessage(), 'Error al actualizar el registro financiero') !== false);
 }
 ac_assert('update() ante error SQL lanza RuntimeException', $caught_update_sql);
+$wpdb->fail_record_update = false;
 $wpdb->last_error = '';
 
 // 3.8 last_error tras false
@@ -649,7 +706,7 @@ $wpdb->rows[] = [
 $updated_idempotent = FinanceRecordRepository::update(53, 10, 'Igual', null, '5.00');
 ac_assert('update() retorno 0 con valores iguales devuelve fila idempotente', is_array($updated_idempotent) && $updated_idempotent['title'] === 'Igual');
 
-// 3.15 affected 0 valores distintos
+// 3.15 affected 0 valores distintos → actividad aceptada, touch del padre
 $wpdb->update_result = 0;
 $wpdb->rows[] = [
     'id' => '54',
@@ -659,13 +716,9 @@ $wpdb->rows[] = [
     'amount' => '1.00',
     'created_at' => '2026-08-29 12:00:00',
 ];
-$caught_update_mismatch = false;
-try {
-    FinanceRecordRepository::update(54, 10, 'Intento', null, '9.99');
-} catch (\RuntimeException $e) {
-    $caught_update_mismatch = (strpos($e->getMessage(), 'sin efecto con valores distintos') !== false);
-}
-ac_assert('update() retorno 0 con valores distintos lanza RuntimeException', $caught_update_mismatch);
+$updated_mismatch = FinanceRecordRepository::update(54, 10, 'Intento', null, '9.99');
+ac_assert('update() retorno 0 con valores distintos devuelve fila autoritativa', is_array($updated_mismatch) && $updated_mismatch['title'] === 'Distinto');
+ac_assert('update() retorno 0 incluye updated_at en datos de escritura', isset($wpdb->updated['data']['updated_at']) && $wpdb->updated['data']['updated_at'] === '2026-08-29 18:00:00');
 
 // 3.16 affected 0 fila ausente
 $wpdb->update_result = 0;
@@ -731,6 +784,35 @@ try {
     $caught_update_corrupt = (strpos($e->getMessage(), 'corrupta') !== false);
 }
 ac_assert('update() retorno 1 con fila corrupta lanza RuntimeException', $caught_update_corrupt);
+
+// 3.21 Rollback si touch del padre falla en create()
+$wpdb->last_error = '';
+$wpdb->query_log = [];
+$wpdb->inserts = [];
+$wpdb->fail_container_touch = true;
+$caught_touch_create = false;
+try {
+    FinanceRecordRepository::create(42, 'Rollback test');
+} catch (\RuntimeException $e) {
+    $caught_touch_create = (strpos($e->getMessage(), 'contenedor padre') !== false);
+}
+ac_assert('create() rollback si touch del padre falla', $caught_touch_create);
+ac_assert('create() rollback ejecuta ROLLBACK', in_array('ROLLBACK', $wpdb->query_log, true));
+$wpdb->last_error = '';
+$wpdb->fail_container_touch = false;
+$wpdb->update_result = 1;
+
+// 3.22 Rollback si COMMIT falla
+$wpdb->query_log = [];
+$wpdb->query_fail_on = 'COMMIT';
+$caught_commit_fail = false;
+try {
+    FinanceRecordRepository::create(42, 'Commit fail');
+} catch (\RuntimeException $e) {
+    $caught_commit_fail = (strpos($e->getMessage(), 'confirmar la transacción') !== false);
+}
+ac_assert('create() lanza si COMMIT falla', $caught_commit_fail);
+$wpdb->query_fail_on = null;
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 

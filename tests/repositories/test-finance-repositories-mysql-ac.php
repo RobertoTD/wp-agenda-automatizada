@@ -78,12 +78,26 @@ try {
     ac_assert('MySQL real: find_by_id recupera contenedor idéntico', $c1_found !== null && $c1_found['title'] === 'Gastos Operativos');
     ac_assert('MySQL real: details preservado fielmente', $c1_found['details'] === 'Descripción de gastos');
 
+    $c_table = $wpdb->prefix . AA_Finance_Schema::TABLE_CONTAINERS;
+    $r_table = $wpdb->prefix . AA_Finance_Schema::TABLE_RECORDS;
+    $ts_c1_create = $wpdb->get_row($wpdb->prepare("SELECT created_at, updated_at FROM `{$c_table}` WHERE id = %d", $c1_id), ARRAY_A);
+    ac_assert('MySQL real: create contenedor created_at === updated_at', is_array($ts_c1_create) && $ts_c1_create['created_at'] === $ts_c1_create['updated_at']);
+
+    $seed_old = '2020-01-01 10:00:00';
+    $wpdb->update(
+        $c_table,
+        ['created_at' => $seed_old, 'updated_at' => $seed_old],
+        ['id' => $c1_id],
+        ['%s', '%s'],
+        ['%d']
+    );
+
     // Inexistente devuelve null
     $c_not_found = FinanceContainerRepository::find_by_id(999999);
     ac_assert('MySQL real: find_by_id inexistente devuelve null', $c_not_found === null);
 
     // 2.1 Update de contenedor (Ciclo 3E1A)
-    $c1_created_at = $c1_found['created_at'];
+    $c1_created_at = $seed_old;
     $updated_title = FinanceContainerRepository::update($c1_id, 'general', 'Gastos Actualizados', 'Nueva descripción');
     ac_assert('MySQL real: update cambia title efectivamente', $updated_title !== null && $updated_title['title'] === 'Gastos Actualizados');
     ac_assert('MySQL real: update cambia details efectivamente', $updated_title['details'] === 'Nueva descripción');
@@ -103,10 +117,19 @@ try {
 
     ac_assert('MySQL real: update preserva created_at', $updated_idempotent['created_at'] === $c1_created_at);
 
+    $ts_c1_after_update = $wpdb->get_row($wpdb->prepare("SELECT created_at, updated_at FROM `{$c_table}` WHERE id = %d", $c1_id), ARRAY_A);
+    ac_assert('MySQL real: update preserva created_at sembrado en SQL', is_array($ts_c1_after_update) && $ts_c1_after_update['created_at'] === $seed_old);
+    ac_assert('MySQL real: update intenta actualizar updated_at respecto al sembrado', is_array($ts_c1_after_update) && $ts_c1_after_update['updated_at'] !== $seed_old);
+
     // 3. Operaciones de Registros: Create con amounts y details extenso
     // Registro 1: amount null
     $r1 = FinanceRecordRepository::create($c1_id, 'Record Sin Monto', 'Detalle sin monto', null);
     ac_assert('MySQL real: registro con amount null creado', is_array($r1) && $r1['amount'] === null);
+
+    $ts_r1_create = $wpdb->get_row($wpdb->prepare("SELECT created_at, updated_at FROM `{$r_table}` WHERE id = %d", $r1['id']), ARRAY_A);
+    $ts_parent_after_r1 = $wpdb->get_row($wpdb->prepare("SELECT updated_at FROM `{$c_table}` WHERE id = %d", $c1_id), ARRAY_A);
+    ac_assert('MySQL real: create registro created_at === updated_at', is_array($ts_r1_create) && $ts_r1_create['created_at'] === $ts_r1_create['updated_at']);
+    ac_assert('MySQL real: create registro actualiza padre con mismo updated_at', is_array($ts_parent_after_r1) && $ts_parent_after_r1['updated_at'] === $ts_r1_create['updated_at']);
 
     // Registro 2: amount "0.00"
     $r2 = FinanceRecordRepository::create($c1_id, 'Record Cero', null, '0.00');
@@ -138,6 +161,10 @@ try {
     ac_assert('MySQL real: update preserva container_id', $updated_r1['container_id'] === $r1_container_id);
     ac_assert('MySQL real: update preserva created_at', $updated_r1['created_at'] === $r1_created_at);
 
+    $ts_r1_after_update = $wpdb->get_row($wpdb->prepare("SELECT updated_at FROM `{$r_table}` WHERE id = %d", $r1['id']), ARRAY_A);
+    $ts_parent_after_r1_update = $wpdb->get_row($wpdb->prepare("SELECT updated_at FROM `{$c_table}` WHERE id = %d", $c1_id), ARRAY_A);
+    ac_assert('MySQL real: update registro actualiza padre con mismo updated_at', is_array($ts_r1_after_update) && is_array($ts_parent_after_r1_update) && $ts_r1_after_update['updated_at'] === $ts_parent_after_r1_update['updated_at']);
+
     $updated_clear = FinanceRecordRepository::update($r1['id'], $c1_id, 'Record Actualizado', null, null);
     ac_assert('MySQL real: update borra details y amount', $updated_clear !== null && $updated_clear['details'] === null && $updated_clear['amount'] === null);
 
@@ -167,9 +194,9 @@ try {
     ac_assert('MySQL real: create registro con container_id inexistente falla con RuntimeException (FK)', $caught_orphan_exception);
 
     // 5. Semántica de Suma (sum_amounts_by_container)
-    // Contenedor c1 tiene: null, 0.00, 150.50, -50.50, 100.00 => Total: 200.00
+    // Contenedor c1 tras updates: null, 0.00, 150.50, -99.99, 100.00 => Total: 150.51
     $sum_c1 = FinanceRecordRepository::sum_amounts_by_container($c1_id);
-    ac_assert('MySQL real: sum_amounts_by_container(c1) devuelve "200.00"', $sum_c1 === '200.00');
+    ac_assert('MySQL real: sum_amounts_by_container(c1) devuelve "150.51"', $sum_c1 === '150.51');
 
     // Contenedor c2 vacío => null
     $c2 = FinanceContainerRepository::create('general', 'Contenedor Vacío');
@@ -205,7 +232,7 @@ try {
     $batch_ids = [$c1_id, $c2_id, $c3_id, $c4_id, $c5_id, 999999];
     $batch_map = FinanceRecordRepository::sum_amounts_by_container_ids($batch_ids);
     ac_assert('MySQL real: sum_amounts_by_container_ids devuelve 6 entradas completas', count($batch_map) === 6);
-    ac_assert('MySQL real: c1 suma "200.00"', $batch_map[$c1_id] === '200.00');
+    ac_assert('MySQL real: c1 suma "150.51"', $batch_map[$c1_id] === '150.51');
     ac_assert('MySQL real: c2 vacío es null', $batch_map[$c2_id] === null);
     ac_assert('MySQL real: c3 solo nulls es null', $batch_map[$c3_id] === null);
     ac_assert('MySQL real: c4 total cero es "0.00"', $batch_map[$c4_id] === '0.00');
@@ -236,13 +263,21 @@ try {
     ac_assert('MySQL real: página 3 fuera de rango devuelve []', $page_3 === []);
 
     // 7. Eliminación Individual de Registro (acotada por container_id)
+    $seed_page_old = '2020-01-01 10:00:00';
+    $wpdb->update($c_table, ['updated_at' => $seed_page_old], ['id' => $c_page_id], ['%s'], ['%d']);
+    $parent_before_delete = $seed_page_old;
     $rec_to_delete = $page_1[0]['id'];
     $del_rec_ok = FinanceRecordRepository::delete($rec_to_delete, $c_page_id);
     ac_assert('MySQL real: delete registro existente devuelve true', $del_rec_ok === true);
+    $parent_after_delete = $wpdb->get_var($wpdb->prepare("SELECT updated_at FROM `{$c_table}` WHERE id = %d", $c_page_id));
+    ac_assert('MySQL real: delete efectivo actualiza updated_at del padre', $parent_after_delete !== $parent_before_delete);
 
     // Intentar borrar con container_id erróneo devuelve false
+    $parent_before_wrong = $wpdb->get_var($wpdb->prepare("SELECT updated_at FROM `{$c_table}` WHERE id = %d", $c_page_id));
     $del_rec_wrong_c = FinanceRecordRepository::delete($page_1[1]['id'], $c1_id);
     ac_assert('MySQL real: delete registro con container_id erróneo devuelve false', $del_rec_wrong_c === false);
+    $parent_after_wrong = $wpdb->get_var($wpdb->prepare("SELECT updated_at FROM `{$c_table}` WHERE id = %d", $c_page_id));
+    ac_assert('MySQL real: delete sin coincidencia no actualiza updated_at del padre', $parent_after_wrong === $parent_before_wrong);
 
     // 8. Borrado en Cascada del Contenedor
     $del_c_ok = FinanceContainerRepository::delete($c_page_id);

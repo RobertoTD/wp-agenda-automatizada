@@ -66,7 +66,7 @@ final class AA_Schema {
      * Independiente de la versión del plugin. Solo refleja el estado
      * de las tablas/columnas/índices.
      */
-    public const DB_VERSION = '19';
+    public const DB_VERSION = '20';
 
     public const OPTION_INSTALLATION_INITIALIZED_AT = 'aa_installation_initialized_at';
 
