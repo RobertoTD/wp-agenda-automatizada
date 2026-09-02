@@ -1,0 +1,16 @@
+---
+description: Puntero condicional al Canon DEO y al plan Shell Base v1.
+alwaysApply: true
+---
+# Canon DEO — lectura condicional
+
+No cargues ni copies aquí la constitución ni el plan.
+
+Si el encargo toca canon, familia, variante, capability, adaptador, gateway, contrato contenedor–registro, Shell Canónico, o cambios de sidebar/router/shared orientados a vestir familias canónicas:
+
+1. Lee `docs/04-canonical-constitution.md` antes de razonar o modificar.
+2. Mientras el plan esté activo, lee también `docs/plans/shell-canonical-base-v1.md`.
+3. Clasifica el cambio como shell, familia, variante, capability, runtime o transporte. Si no puedes clasificarlo, detente.
+4. Ante un conflicto con otras docs o con el código existente, repórtalo. No reinterpretes ni “mejores” la constitución.
+
+Si el encargo es ajeno a ese ámbito, no abras esos documentos.

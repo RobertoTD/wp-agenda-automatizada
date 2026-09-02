@@ -1,7 +1,7 @@
 # WP Agenda Automatizada
 
 Plugin de WordPress para gestión de citas con integración a Google Calendar. Shortcode: `[agenda_automatizada]`.  
-**Para Cursor:** Trabaja solo en este plugin; no modificar tema ni backend Node. Endpoints y flujos deben estar respaldados por `docs/`.
+**Para Cursor:** Trabaja solo en este plugin; no modificar tema ni backend Node. Endpoints y flujos deben estar respaldados por `docs/`. Ver `AGENTS.md` como dispatcher documental para cualquier agente.
 
 ## Overview
 
@@ -50,4 +50,6 @@ Documentación de referencia dentro del plugin (no inventar flujos ni endpoints 
 
 - [01-product-strategy.md](docs/01-product-strategy.md) — Estado actual del producto, problema que resuelve, modelo de uso, cuello de botella (distribución) y fases siguientes; guía de decisiones alineada con el código.
 - [02-architecture-principles.md](docs/02-architecture-principles.md) — Principios y capas PHP/JS; estructura de carpetas y responsabilidades de cada capa.
+- [04-canonical-constitution.md](docs/04-canonical-constitution.md) — Constitución canónica de DEO; vinculante para trabajos del ámbito canónico.
+- [plans/shell-canonical-base-v1.md](docs/plans/shell-canonical-base-v1.md) — Plan temporal activo para construir Shell Canónico Base v1.
 - [DESIGN_BRIEF.md](docs/DESIGN_BRIEF.md) — Sistema de diseño: tokens (colores, espaciado, tipografía), componentes (cards, botones, badges, toolbars), interacciones y anti-patterns.
