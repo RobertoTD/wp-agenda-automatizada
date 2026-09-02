@@ -225,8 +225,10 @@ Cuando la propuesta sea aprobada, el prompt de implementación será una autoriz
 - Label provisional del sidebar: `Shell canónico`.
 - Acceso provisional: únicamente `manage_options` (enlace y acceso directo).
 - Sidebar provisional enlazado inicialmente a `module=canonical_shell&family=finance&variant=general`.
-- `updated_at` representará la actividad contenida (crear/editar/eliminar un registro también actualiza el contenedor). Decisión aprobada; implementación de schema/timestamps aplazada al ciclo correspondiente.
-- SB1-1 (entrada paralela + root controlado + resolución de ruta): implementado; pendiente de commit.
-- Siguiente ciclo: contratos mínimos, manifests, gateway y fixtures neutrales (antes de conectar datos reales de Finance).
-- Primera etapa técnica restante: pasos 3–7 de la ruta progresiva tras SB1-1.
-- Semántica de actividad de registros sobre `updated_at` del contenedor: decisión tomada (actividad contenida); pendiente de ciclo de schema/proyección.
+- `updated_at` representará la actividad contenida (crear/editar/eliminar un registro también actualiza el contenedor). Decisión aprobada; implementación de schema/timestamps en persistencia de familia aplazada.
+- SB1-1 (entrada paralela + root controlado + resolución de ruta): **commiteado** (`29ac40d`).
+- División aprobada: **SB1-2A** (cadena de lectura tipada) → **SB1-2B** (composición visual del shell).
+- SB1-2A: identidad `CanonicalReadIdentity` → puerto `CanonicalReadAdapterResolver` (impl `AA_Canonical_Read_Binding_Registry`) → `CanonicalReadGateway` → `CanonicalPage`; `AA_Canonical_Container` en Domain; `updated_at` interno `DateTimeImmutable` UTC serializado solo como `Y-m-d\TH:i:s\Z`; `PAGE_SIZE=15`; fixture solo en `tests/`; root SB1-1 sin cambio visual. **Estado: implementado.**
+- Manifest formal del shell: **aplazado conscientemente a SB1-2B**. En 2A el binding resuelve únicamente identidad de lectura → adaptador. Labels: fuente única = definiciones del registry. SB1-2B no debe reemplazar Container, Page, puerto de adaptador ni Gateway.
+- Siguiente ciclo: **SB1-2B** — composición para el shell (manifest formal / proyección de labels + render de página), sin conectar datos reales de Finance todavía.
+- Primera etapa técnica restante: pasos 5–7 de la ruta progresiva tras SB1-2A (vía SB1-2B).
