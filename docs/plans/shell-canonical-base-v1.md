@@ -220,6 +220,13 @@ Cuando la propuesta sea aprobada, el prompt de implementación será una autoriz
 
 ## Decisiones posteriores y estado
 
-- Gobierno documental: en preparación mediante Ciclo 0.
-- Primera etapa técnica: pendiente de Exploración 1.
-- Semántica de actividad de registros sobre `updated_at` del contenedor: pendiente de recomendación y decisión.
+- Gobierno documental: Ciclo 0 completado (`docs: establish canonical architecture governance`).
+- Módulo paralelo aprobado: `canonical_shell`.
+- Label provisional del sidebar: `Shell canónico`.
+- Acceso provisional: únicamente `manage_options` (enlace y acceso directo).
+- Sidebar provisional enlazado inicialmente a `module=canonical_shell&family=finance&variant=general`.
+- `updated_at` representará la actividad contenida (crear/editar/eliminar un registro también actualiza el contenedor). Decisión aprobada; implementación de schema/timestamps aplazada al ciclo correspondiente.
+- SB1-1 (entrada paralela + root controlado + resolución de ruta): implementado; pendiente de commit.
+- Siguiente ciclo: contratos mínimos, manifests, gateway y fixtures neutrales (antes de conectar datos reales de Finance).
+- Primera etapa técnica restante: pasos 3–7 de la ruta progresiva tras SB1-1.
+- Semántica de actividad de registros sobre `updated_at` del contenedor: decisión tomada (actividad contenida); pendiente de ciclo de schema/proyección.

@@ -19,6 +19,10 @@ $can_manage_options = current_user_can('manage_options');
 $aa_finance_url = class_exists('AA_Canonical_Shell_Url_Policy')
     ? AA_Canonical_Shell_Url_Policy::build_url('finance', 'general')
     : admin_url('admin-post.php?action=aa_iframe_content&module=canonical&family=finance&variant=general');
+
+$aa_canonical_shell_url = class_exists('AA_Canonical_Shell_Base_Url_Policy')
+    ? AA_Canonical_Shell_Base_Url_Policy::build_url('finance', 'general')
+    : admin_url('admin-post.php?action=aa_iframe_content&module=canonical_shell&family=finance&variant=general');
 ?>
 
 <!-- Sidebar Overlay (backdrop) -->
@@ -171,6 +175,23 @@ $aa_finance_url = class_exists('AA_Canonical_Shell_Url_Policy')
             </li>
 
             <?php if ($can_manage_options) : ?>
+            <!-- Shell canónico (provisional, paralelo a Finance) -->
+            <li>
+                <a
+                    href="<?php echo esc_url($aa_canonical_shell_url); ?>"
+                    data-aa-nav-module="canonical_shell"
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors <?php echo ($active_module === 'canonical_shell') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-100'; ?>"
+                    <?php echo ($active_module === 'canonical_shell') ? 'aria-current="page"' : ''; ?>
+                >
+                    <span class="flex items-center justify-center w-6 h-6 <?php echo ($active_module === 'canonical_shell') ? 'text-indigo-600' : 'text-gray-500'; ?>">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/>
+                        </svg>
+                    </span>
+                    <span class="text-base !font-semibold">Shell canónico</span>
+                </a>
+            </li>
+
             <!-- Separador -->
             <li class="my-3">
                 <hr class="border-gray-200">

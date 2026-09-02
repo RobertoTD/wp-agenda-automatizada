@@ -33,6 +33,7 @@ $allowed_modules = [
     'learning',
     'training',
     'canonical',
+    'canonical_shell',
 ];
 
 $requested_module = isset($_GET['module']) ? sanitize_key($_GET['module']) : 'calendar';
@@ -41,6 +42,8 @@ $view_raw         = isset($_GET['view']) ? sanitize_key(wp_unslash((string) $_GE
 
 $aa_canonical_family = null;
 $aa_canonical_variant = null;
+$aa_shell_route_state = null;
+$aa_shell_route_message = null;
 
 if ($active_module === 'canonical') {
     $family_input = array_key_exists('family', $_GET) ? wp_unslash($_GET['family']) : null;
@@ -81,6 +84,74 @@ if ($active_module === 'canonical') {
         $aa_canonical_family->key(),
         $aa_canonical_variant->key()
     );
+} elseif ($active_module === 'canonical_shell') {
+    if (!class_exists('AA_Canonical_Shell_Base_Url_Policy')) {
+        require_once dirname(__DIR__, 2) . '/infrastructure/wp/class-aa-canonical-shell-base-url-policy.php';
+    }
+
+    $family_present = array_key_exists('family', $_GET);
+    $variant_present = array_key_exists('variant', $_GET);
+    $family_input = $family_present ? wp_unslash($_GET['family']) : null;
+    $variant_input = $variant_present ? wp_unslash($_GET['variant']) : null;
+
+    $aa_canonical_url = AA_Canonical_Shell_Base_Url_Policy::build_module_url();
+
+    if (!$family_present && !$variant_present) {
+        $aa_shell_route_state = 'missing_identity';
+        $aa_shell_route_message = 'Identidad canónica no suministrada. Este módulo es un shell base en construcción.';
+    } elseif ($family_present xor $variant_present) {
+        $aa_shell_route_state = 'incomplete_identity';
+        $aa_shell_route_message = 'La identidad canónica está incompleta: se requieren family y variant juntos.';
+        if (function_exists('status_header')) {
+            status_header(400);
+        }
+    } else {
+        $canonical_registry = null;
+        if (class_exists('AA_Canonical_Core_Bootstrap')) {
+            try {
+                $canonical_registry = AA_Canonical_Core_Bootstrap::instance();
+            } catch (\Throwable $e) {
+                $canonical_registry = null;
+            }
+        }
+
+        if ($canonical_registry === null) {
+            wp_die('El núcleo canónico no está disponible.', 'Error', ['response' => 500]);
+        }
+
+        $route_result = (new ResolveCanonicalRouteUseCase($canonical_registry))->execute([
+            'family_key'  => $family_input,
+            'variant_key' => $variant_input,
+        ]);
+
+        if (!$route_result['success']) {
+            $error_code = (string) ($route_result['error']['code'] ?? '');
+            if ($error_code === 'unknown_family' || $error_code === 'unknown_variant') {
+                $aa_shell_route_state = 'not_found';
+                $aa_shell_route_message = (string) ($route_result['error']['message'] ?? 'Familia o variante no encontrada.');
+                if (function_exists('status_header')) {
+                    status_header(404);
+                }
+            } elseif ($error_code === 'canonical_unavailable') {
+                wp_die('El núcleo canónico no está disponible.', 'Error', ['response' => 500]);
+            } else {
+                $aa_shell_route_state = 'invalid_request';
+                $aa_shell_route_message = (string) ($route_result['error']['message'] ?? 'Solicitud canónica no válida.');
+                if (function_exists('status_header')) {
+                    status_header(400);
+                }
+            }
+        } else {
+            $aa_canonical_family  = $route_result['data']['family'];
+            $aa_canonical_variant = $route_result['data']['variant'];
+            $aa_shell_route_state = 'resolved';
+            $aa_shell_route_message = 'Ruta canónica resuelta.';
+            $aa_canonical_url = AA_Canonical_Shell_Base_Url_Policy::build_url(
+                $aa_canonical_family->key(),
+                $aa_canonical_variant->key()
+            );
+        }
+    }
 } else {
     // Canonical URL for the current module/view (marker and nonce removed). Rebuilt
     // from known-safe params to avoid open redirects.
@@ -333,7 +404,7 @@ if (!file_exists($module_path)) {
 }
 
 // Delegate rendering to appropriate layout.
-if ($active_module === 'canonical') {
+if ($active_module === 'canonical' || $active_module === 'canonical_shell') {
     require __DIR__ . '/shared/canonical-layout.php';
 } else {
     require __DIR__ . '/shared/layout.php';
