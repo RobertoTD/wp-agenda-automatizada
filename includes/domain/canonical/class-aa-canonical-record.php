@@ -1,6 +1,6 @@
 <?php
 /**
- * Canonical Container — Value object del recurso Contenedor canónico.
+ * Canonical Record — Value object del recurso Registro canónico.
  *
  * Dominio puro: sin WordPress.
  *
@@ -10,20 +10,17 @@
 
 defined('ABSPATH') or die('No direct access');
 
-if (!class_exists('AA_Canonical_Key')) {
-    require_once __DIR__ . '/class-aa-canonical-key.php';
-}
 if (!class_exists('AA_Canonical_Instant')) {
     require_once __DIR__ . '/class-aa-canonical-instant.php';
 }
 
-final class AA_Canonical_Container {
+final class AA_Canonical_Record {
 
     /** @var int */
     private $id;
 
-    /** @var string */
-    private $variant_key;
+    /** @var int */
+    private $container_id;
 
     /** @var string */
     private $title;
@@ -35,57 +32,52 @@ final class AA_Canonical_Container {
     private $updated_at;
 
     /**
-     * @param int                      $id
-     * @param string                   $variant_key
-     * @param string                   $title
-     * @param string|null              $details
-     * @param \DateTimeImmutable|string $updated_at Instant UTC or canonical string ending in Z.
+     * @param int                       $id
+     * @param int                       $container_id
+     * @param string                    $title
+     * @param string|null               $details
+     * @param \DateTimeImmutable|string $updated_at
      */
     public function __construct(
         int $id,
-        string $variant_key,
+        int $container_id,
         string $title,
         ?string $details,
         $updated_at
     ) {
         if ($id < 1) {
-            throw new \InvalidArgumentException('[invalid_id] Container id must be a positive integer.');
+            throw new \InvalidArgumentException('[invalid_id] Record id must be a positive integer.');
+        }
+        if ($container_id < 1) {
+            throw new \InvalidArgumentException('[invalid_container_id] Record container_id must be a positive integer.');
         }
         $this->id = $id;
-
-        $this->variant_key = AA_Canonical_Key::assert_valid($variant_key, 'variant_key');
+        $this->container_id = $container_id;
 
         $trimmed_title = trim($title);
         if ($trimmed_title === '') {
-            throw new \InvalidArgumentException('[invalid_title] Container title cannot be empty.');
+            throw new \InvalidArgumentException('[invalid_title] Record title cannot be empty.');
         }
         $this->title = $trimmed_title;
 
         if ($details !== null) {
             if (!is_string($details)) {
-                throw new \InvalidArgumentException('[invalid_details] Container details must be string or null.');
+                throw new \InvalidArgumentException('[invalid_details] Record details must be string or null.');
             }
             $this->details = $details;
         } else {
             $this->details = null;
         }
 
-        $this->updated_at = self::normalize_updated_at($updated_at);
-    }
-
-    /**
-     * @param \DateTimeImmutable|string $updated_at
-     */
-    public static function normalize_updated_at($updated_at): \DateTimeImmutable {
-        return AA_Canonical_Instant::from($updated_at)->to_datetime();
+        $this->updated_at = AA_Canonical_Instant::from($updated_at)->to_datetime();
     }
 
     public function id(): int {
         return $this->id;
     }
 
-    public function variant_key(): string {
-        return $this->variant_key;
+    public function container_id(): int {
+        return $this->container_id;
     }
 
     public function title(): string {
@@ -105,12 +97,12 @@ final class AA_Canonical_Container {
     }
 
     /**
-     * @return array{id:int,variant_key:string,title:string,details:?string,updated_at:string}
+     * @return array{id:int,container_id:int,title:string,details:?string,updated_at:string}
      */
     public function to_canonical_array(): array {
         return [
             'id' => $this->id,
-            'variant_key' => $this->variant_key,
+            'container_id' => $this->container_id,
             'title' => $this->title,
             'details' => $this->details,
             'updated_at' => $this->updated_at_canonical(),

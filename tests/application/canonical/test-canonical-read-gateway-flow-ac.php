@@ -11,12 +11,17 @@ if (!defined('ABSPATH')) {
 
 $plugin_root = dirname(__DIR__, 3);
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
+require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-instant.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-container.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalReadIdentity.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalPagination.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalPage.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalReadAdapter.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalReadAdapterResolver.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalReadBindingNotFound.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalContainerNotFound.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalRecordsPage.php';
+require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-record.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalReadGateway.php';
 require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-read-binding-registry.php';
 require_once $plugin_root . '/tests/support/canonical/CanonicalFixtureReadAdapter.php';

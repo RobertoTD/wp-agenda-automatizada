@@ -1,6 +1,6 @@
 <?php
 /**
- * Canonical Page — Resultado tipado de una consulta de lectura de contenedores.
+ * Canonical Records Page — Resultado tipado de lectura paginada de registros.
  *
  * @package WP_Agenda_Automatizada
  * @subpackage Application\Canonical
@@ -8,23 +8,23 @@
 
 defined('ABSPATH') or die('No direct access');
 
-if (!class_exists('AA_Canonical_Container')) {
-    require_once dirname(__DIR__, 2) . '/domain/canonical/class-aa-canonical-container.php';
+if (!class_exists('AA_Canonical_Record')) {
+    require_once dirname(__DIR__, 2) . '/domain/canonical/class-aa-canonical-record.php';
 }
 if (!class_exists('CanonicalPagination')) {
     require_once __DIR__ . '/CanonicalPagination.php';
 }
 
-final class CanonicalPage {
+final class CanonicalRecordsPage {
 
-    /** @var list<AA_Canonical_Container> */
+    /** @var list<AA_Canonical_Record> */
     private $items;
 
     /** @var CanonicalPagination */
     private $pagination;
 
     /**
-     * @param list<AA_Canonical_Container> $items
+     * @param list<AA_Canonical_Record> $items
      */
     public function __construct(
         array $items,
@@ -36,8 +36,8 @@ final class CanonicalPage {
         bool $has_next
     ) {
         foreach ($items as $item) {
-            if (!$item instanceof AA_Canonical_Container) {
-                throw new \InvalidArgumentException('[invalid_items] CanonicalPage items must be AA_Canonical_Container.');
+            if (!$item instanceof AA_Canonical_Record) {
+                throw new \InvalidArgumentException('[invalid_items] CanonicalRecordsPage items must be AA_Canonical_Record.');
             }
         }
 
@@ -54,7 +54,7 @@ final class CanonicalPage {
         $this->items = $normalized;
     }
 
-    /** @return list<AA_Canonical_Container> */
+    /** @return list<AA_Canonical_Record> */
     public function items(): array {
         return $this->items;
     }

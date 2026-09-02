@@ -11,14 +11,19 @@ if (!defined('ABSPATH')) {
 
 $plugin_root = dirname(__DIR__, 3);
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
+require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-instant.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-variant-definition.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-container.php';
+require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-record.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalReadIdentity.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalPagination.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalPage.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalRecordsPage.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalReadAdapter.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalReadAdapterResolver.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalReadBindingNotFound.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalContainerNotFound.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalReadGateway.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalShellManifest.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalShellReadResult.php';
@@ -81,6 +86,12 @@ final class BadPerPageAdapter implements CanonicalReadAdapter {
     public function list_containers(string $variant_key, int $page, int $per_page): CanonicalPage {
         return new CanonicalPage([], 1, 10, 0, 0, false, false);
     }
+    public function get_container(string $variant_key, int $container_id): AA_Canonical_Container {
+        throw new CanonicalContainerNotFound($variant_key, $container_id);
+    }
+    public function list_records(string $variant_key, int $container_id, int $page, int $per_page): CanonicalRecordsPage {
+        throw new CanonicalContainerNotFound($variant_key, $container_id);
+    }
 }
 $bad_manifest = make_manifest('sample', 'bad', 'Muestra', 'Bad');
 $registry->register($bad_manifest->identity(), new BadPerPageAdapter());
@@ -92,6 +103,12 @@ ac_assert('Contract error has null page', $contract->page() === null);
 final class WeirdAdapter implements CanonicalReadAdapter {
     public function list_containers(string $variant_key, int $page, int $per_page): CanonicalPage {
         throw new InvalidArgumentException('[other_bug] Not a page contract tag.');
+    }
+    public function get_container(string $variant_key, int $container_id): AA_Canonical_Container {
+        throw new CanonicalContainerNotFound($variant_key, $container_id);
+    }
+    public function list_records(string $variant_key, int $container_id, int $page, int $per_page): CanonicalRecordsPage {
+        throw new CanonicalContainerNotFound($variant_key, $container_id);
     }
 }
 $weird_manifest = make_manifest('sample', 'weird', 'Muestra', 'Weird');
