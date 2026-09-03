@@ -47,6 +47,9 @@ if (!class_exists('AA_Canonical_Family_Definition')) {
 if (!class_exists('AA_Canonical_Variant_Definition')) {
     require_once dirname(__DIR__, 2) . '/domain/canonical/class-aa-canonical-variant-definition.php';
 }
+if (!class_exists('AA_Canonical_Read_Binding_Bootstrap')) {
+    require_once __DIR__ . '/class-aa-canonical-read-binding-bootstrap.php';
+}
 
 final class AA_Canonical_Shell_View_Composer {
 
@@ -72,6 +75,7 @@ final class AA_Canonical_Shell_View_Composer {
         $manifest = new CanonicalShellManifest($identity, $family, $variant);
 
         $binding = new AA_Canonical_Read_Binding_Registry();
+        AA_Canonical_Read_Binding_Bootstrap::register_productive($binding);
         $gateway = new CanonicalReadGateway($binding);
         $result = (new ReadCanonicalShellContainersUseCase($gateway))->execute($manifest, $page);
 
@@ -111,6 +115,7 @@ final class AA_Canonical_Shell_View_Composer {
         $manifest = new CanonicalShellManifest($identity, $family, $variant);
 
         $binding = new AA_Canonical_Read_Binding_Registry();
+        AA_Canonical_Read_Binding_Bootstrap::register_productive($binding);
         $gateway = new CanonicalReadGateway($binding);
         $result = (new ReadCanonicalShellRecordsUseCase($gateway))->execute(
             $manifest,

@@ -91,6 +91,43 @@ if (!function_exists('esc_url')) {
     }
 }
 
+if (!defined('ARRAY_A')) {
+    define('ARRAY_A', 'ARRAY_A');
+}
+
+final class ShellRecordsEmptyFinanceWpdbMock {
+    public $prefix = 'wp_';
+    public $last_error = '';
+
+    public function prepare(string $query, ...$args): string {
+        foreach ($args as $arg) {
+            $val = is_numeric($arg) ? (string) (int) $arg : "'" . addslashes((string) $arg) . "'";
+            $query = preg_replace('/%[sdf]/', $val, $query, 1);
+        }
+        return $query;
+    }
+
+    /** @return string|null */
+    public function get_var(string $query) {
+        $this->last_error = '';
+        return strpos($query, 'COUNT(*)') !== false ? '0' : null;
+    }
+
+    /** @return object|null */
+    public function get_row(string $query) {
+        $this->last_error = '';
+        return null;
+    }
+
+    /** @return array<int,mixed> */
+    public function get_results(string $query) {
+        $this->last_error = '';
+        return [];
+    }
+}
+
+$GLOBALS['wpdb'] = new ShellRecordsEmptyFinanceWpdbMock();
+
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-instant.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
@@ -429,9 +466,9 @@ ac_assert('Missing container → 404', in_array(404, $status_headers, true));
 $status_headers = [];
 $family = AA_Canonical_Core_Bootstrap::instance()->family('finance');
 $variant = AA_Canonical_Core_Bootstrap::instance()->variant('finance', 'general');
-$pending = AA_Canonical_Shell_View_Composer::compose_family_records($family, $variant, 1, 1, 1);
-ac_assert('finance.general records → pending', ($pending['read_state'] ?? '') === 'read_adapter_pending');
-ac_assert('Pending does not invent items', ($pending['items_view'] ?? null) === []);
+$not_found_records = AA_Canonical_Shell_View_Composer::compose_family_records($family, $variant, 1, 1, 1);
+ac_assert('finance.general records → container_not_found (binding, no data)', ($not_found_records['read_state'] ?? '') === 'container_not_found');
+ac_assert('Not found does not invent items', ($not_found_records['items_view'] ?? null) === []);
 
 // Title-only link on containers
 $containers = AA_Canonical_Shell_View_Composer::compose_preview(1);
@@ -499,15 +536,16 @@ $html_empty = render_shell([
 ac_assert('Empty records UI distinct', strpos($html_empty, 'Sin registros') !== false
     && strpos($html_empty, 'Contenedor no encontrado') === false);
 
-$html_pending = render_shell([
+$html_nf_finance = render_shell([
     'aa_shell_route_state' => 'resolved',
     'aa_shell_route_message' => '',
-    'aa_shell_view' => $pending,
+    'aa_shell_view' => $not_found_records,
     'aa_canonical_family' => $family,
     'aa_canonical_variant' => $variant,
 ]);
-ac_assert('Pending records UI', strpos($html_pending, 'Lectura pendiente') !== false);
-ac_assert('Labels from definitions', strpos($html_pending, 'Finanzas') !== false);
+ac_assert('Finance records not found UI (not pending)', strpos($html_nf_finance, 'Contenedor no encontrado') !== false
+    && strpos($html_nf_finance, 'Lectura pendiente') === false);
+ac_assert('Labels from definitions', strpos($html_nf_finance, 'Finanzas') !== false);
 
 $html_ce = render_shell([
     'aa_shell_route_state' => 'preview',

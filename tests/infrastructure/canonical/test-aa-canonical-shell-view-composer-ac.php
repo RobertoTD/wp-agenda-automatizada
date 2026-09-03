@@ -66,6 +66,46 @@ if (!function_exists('wp_parse_url')) {
     }
 }
 
+if (!defined('ARRAY_A')) {
+    define('ARRAY_A', 'ARRAY_A');
+}
+
+/**
+ * wpdb mínimo: Finance vacío para compose_family sin MySQL.
+ */
+final class ComposerEmptyFinanceWpdbMock {
+    public $prefix = 'wp_';
+    public $last_error = '';
+
+    public function prepare(string $query, ...$args): string {
+        foreach ($args as $arg) {
+            $val = is_numeric($arg) ? (string) (int) $arg : "'" . addslashes((string) $arg) . "'";
+            $query = preg_replace('/%[sdf]/', $val, $query, 1);
+        }
+        return $query;
+    }
+
+    /** @return string|null */
+    public function get_var(string $query) {
+        $this->last_error = '';
+        return strpos($query, 'COUNT(*)') !== false ? '0' : null;
+    }
+
+    /** @return object|null */
+    public function get_row(string $query) {
+        $this->last_error = '';
+        return null;
+    }
+
+    /** @return array<int,mixed> */
+    public function get_results(string $query) {
+        $this->last_error = '';
+        return [];
+    }
+}
+
+$GLOBALS['wpdb'] = new ComposerEmptyFinanceWpdbMock();
+
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-variant-definition.php';
@@ -114,7 +154,7 @@ ac_assert('Preview disabled without constant', AA_Canonical_Shell_View_Composer:
 $family = AA_Canonical_Core_Bootstrap::instance()->family('finance');
 $variant = AA_Canonical_Core_Bootstrap::instance()->variant('finance', 'general');
 $view = AA_Canonical_Shell_View_Composer::compose_family($family, $variant, 1);
-ac_assert('finance.general → read_adapter_pending', ($view['read_state'] ?? '') === 'read_adapter_pending');
+ac_assert('finance.general → empty (productive binding, no data)', ($view['read_state'] ?? '') === 'empty');
 ac_assert('Labels from registry defs', ($view['family_label'] ?? '') === 'Finanzas' && ($view['variant_label'] ?? '') === 'General');
 ac_assert('No CTA url when preview disabled', empty($view['preview_enabled']) && ($view['preview_url'] ?? null) === null);
 ac_assert('Not marked as preview', empty($view['is_preview']));
@@ -141,11 +181,11 @@ ac_assert('Preview adapter file not loaded without constant', $preview_loaded ==
 define('AA_CANONICAL_SHELL_PREVIEW', true);
 ac_assert('Preview enabled with constant true', AA_Canonical_Shell_View_Composer::is_preview_enabled() === true);
 
-$view_pending = AA_Canonical_Shell_View_Composer::compose_family($family, $variant, 1);
-ac_assert('Pending exposes CTA when preview on', !empty($view_pending['preview_enabled'])
-    && is_string($view_pending['preview_url'])
-    && strpos($view_pending['preview_url'], 'shell_mode=preview') !== false);
-ac_assert('Pending CTA URL has no family', strpos((string) $view_pending['preview_url'], 'family=') === false);
+$view_empty = AA_Canonical_Shell_View_Composer::compose_family($family, $variant, 1);
+ac_assert('Empty finance exposes CTA when preview on', !empty($view_empty['preview_enabled'])
+    && is_string($view_empty['preview_url'])
+    && strpos($view_empty['preview_url'], 'shell_mode=preview') !== false);
+ac_assert('Empty finance CTA URL has no family', strpos((string) $view_empty['preview_url'], 'family=') === false);
 
 $status_headers = [];
 $preview_view = AA_Canonical_Shell_View_Composer::compose_preview(1);
@@ -190,6 +230,10 @@ ac_assert('Display datetime non-empty', ($preview_view['items_view'][0]['updated
 $composer_src = file_get_contents($plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-shell-view-composer.php');
 ac_assert('Composer has no America/Mexico_City fallback', strpos($composer_src, 'America/Mexico_City') === false);
 ac_assert('Composer uses wp_timezone fallback path', strpos($composer_src, 'wp_timezone') !== false);
+foreach (['amount', 'amount_total', 'AA_Finance', 'aa_finance_'] as $needle) {
+    ac_assert('Composer shell universal excludes ' . $needle, strpos($composer_src, $needle) === false);
+}
+ac_assert('Composer delegates productive bindings to bootstrap', strpos($composer_src, 'AA_Canonical_Read_Binding_Bootstrap::register_productive') !== false);
 
 $bootstrap_src = file_get_contents($plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-core-bootstrap.php');
 ac_assert('Bootstrap has no shell_preview family', strpos($bootstrap_src, 'shell_preview') === false);

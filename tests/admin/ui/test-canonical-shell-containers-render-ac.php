@@ -76,6 +76,43 @@ if (!function_exists('esc_url')) {
     }
 }
 
+if (!defined('ARRAY_A')) {
+    define('ARRAY_A', 'ARRAY_A');
+}
+
+final class ShellUiEmptyFinanceWpdbMock {
+    public $prefix = 'wp_';
+    public $last_error = '';
+
+    public function prepare(string $query, ...$args): string {
+        foreach ($args as $arg) {
+            $val = is_numeric($arg) ? (string) (int) $arg : "'" . addslashes((string) $arg) . "'";
+            $query = preg_replace('/%[sdf]/', $val, $query, 1);
+        }
+        return $query;
+    }
+
+    /** @return string|null */
+    public function get_var(string $query) {
+        $this->last_error = '';
+        return strpos($query, 'COUNT(*)') !== false ? '0' : null;
+    }
+
+    /** @return object|null */
+    public function get_row(string $query) {
+        $this->last_error = '';
+        return null;
+    }
+
+    /** @return array<int,mixed> */
+    public function get_results(string $query) {
+        $this->last_error = '';
+        return [];
+    }
+}
+
+$GLOBALS['wpdb'] = new ShellUiEmptyFinanceWpdbMock();
+
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-variant-definition.php';
@@ -120,20 +157,21 @@ function render_shell(array $vars): string {
     return (string) ob_get_clean();
 }
 
-// Pending without preview CTA
+// Empty finance with productive binding (no preview CTA without constant)
 $family = AA_Canonical_Core_Bootstrap::instance()->family('finance');
 $variant = AA_Canonical_Core_Bootstrap::instance()->variant('finance', 'general');
-$pending_view = AA_Canonical_Shell_View_Composer::compose_family($family, $variant, 1);
-$html_pending = render_shell([
+$empty_view = AA_Canonical_Shell_View_Composer::compose_family($family, $variant, 1);
+$html_empty = render_shell([
     'aa_shell_route_state' => 'resolved',
     'aa_shell_route_message' => 'Ruta canónica resuelta.',
-    'aa_shell_view' => $pending_view,
+    'aa_shell_view' => $empty_view,
     'aa_canonical_family' => $family,
     'aa_canonical_variant' => $variant,
 ]);
-ac_assert('Pending shows Lectura pendiente', strpos($html_pending, 'Lectura pendiente') !== false);
-ac_assert('Pending shows Finanzas label', strpos($html_pending, 'Finanzas') !== false);
-ac_assert('Pending without CTA when preview off', strpos($html_pending, 'Ver demostración del shell') === false);
+ac_assert('Empty finance shows Sin contenedores', strpos($html_empty, 'Sin contenedores') !== false);
+ac_assert('Empty finance not pending', strpos($html_empty, 'Lectura pendiente') === false);
+ac_assert('Empty finance shows Finanzas label', strpos($html_empty, 'Finanzas') !== false);
+ac_assert('Empty without CTA when preview off', strpos($html_empty, 'Ver demostración del shell') === false);
 
 // Preview unavailable transport state
 $html_404 = render_shell([
@@ -226,16 +264,20 @@ foreach (['aa-finance', 'AA_FINANCE', 'amount_total', 'finance-module', 'aa_list
 ac_assert('Shell template does not require preview adapter', strpos($module_src, 'Preview_Adapter') === false);
 ac_assert('Shell template does not call composer', strpos($module_src, 'View_Composer') === false);
 
-// Pending with CTA when preview enabled
-$pending_on = AA_Canonical_Shell_View_Composer::compose_family($family, $variant, 1);
+// Empty finance with preview enabled still exposes CTA in view data (empty UI has no CTA block)
+$empty_on = AA_Canonical_Shell_View_Composer::compose_family($family, $variant, 1);
 $html_cta = render_shell([
     'aa_shell_route_state' => 'resolved',
     'aa_shell_route_message' => '',
-    'aa_shell_view' => $pending_on,
+    'aa_shell_view' => $empty_on,
     'aa_canonical_family' => $family,
     'aa_canonical_variant' => $variant,
 ]);
-ac_assert('Pending shows CTA when preview enabled', strpos($html_cta, 'Ver demostración del shell') !== false);
+ac_assert('Empty finance view exposes preview URL when enabled', !empty($empty_on['preview_enabled'])
+    && is_string($empty_on['preview_url'])
+    && strpos($empty_on['preview_url'], 'shell_mode=preview') !== false);
+ac_assert('Empty finance UI is not pending', strpos($html_cta, 'Sin contenedores') !== false
+    && strpos($html_cta, 'Lectura pendiente') === false);
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 if ($failed !== []) {

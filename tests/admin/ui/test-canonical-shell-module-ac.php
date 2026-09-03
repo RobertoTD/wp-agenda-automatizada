@@ -406,6 +406,54 @@ ac_assert('Non-manage_options sidebar hides Shell canónico', strpos($sidebar_no
 ac_assert('Non-manage_options sidebar still shows Finanzas', strpos($sidebar_no_admin, 'Finanzas') !== false);
 
 // --- Root render + aislamiento ---
+if (!defined('ARRAY_A')) {
+    define('ARRAY_A', 'ARRAY_A');
+}
+if (!function_exists('get_option')) {
+    function get_option($key, $default = false) {
+        return $default;
+    }
+}
+if (!function_exists('wp_timezone')) {
+    function wp_timezone(): DateTimeZone {
+        return new DateTimeZone('UTC');
+    }
+}
+if (!function_exists('wp_date')) {
+    function wp_date($format, $timestamp = null, $timezone = null): string {
+        $tz = $timezone instanceof DateTimeZone ? $timezone : new DateTimeZone('UTC');
+        $dt = (new DateTimeImmutable('@' . (int) $timestamp))->setTimezone($tz);
+        return $dt->format($format);
+    }
+}
+final class ShellModuleEmptyFinanceWpdbMock {
+    public $prefix = 'wp_';
+    public $last_error = '';
+    public function prepare(string $query, ...$args): string {
+        foreach ($args as $arg) {
+            $val = is_numeric($arg) ? (string) (int) $arg : "'" . addslashes((string) $arg) . "'";
+            $query = preg_replace('/%[sdf]/', $val, $query, 1);
+        }
+        return $query;
+    }
+    /** @return string|null */
+    public function get_var(string $query) {
+        $this->last_error = '';
+        return strpos($query, 'COUNT(*)') !== false ? '0' : null;
+    }
+    /** @return object|null */
+    public function get_row(string $query) {
+        $this->last_error = '';
+        return null;
+    }
+    /** @return array<int,mixed> */
+    public function get_results(string $query) {
+        $this->last_error = '';
+        return [];
+    }
+}
+$GLOBALS['wpdb'] = new ShellModuleEmptyFinanceWpdbMock();
+
 require_once $plugin_root . '/includes/application/canonical/CanonicalReadIdentity.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalPage.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalReadAdapter.php';
@@ -430,8 +478,9 @@ ac_assert('Shell root id present', strpos($shell_html, 'id="aa-canonical-shell-r
 ac_assert('Shell shows Finanzas label from registry', strpos($shell_html, 'Finanzas') !== false);
 ac_assert('Shell shows General label from registry', strpos($shell_html, 'General') !== false);
 ac_assert('Shell shows qualified finance.general', strpos($shell_html, 'finance.general') !== false);
-ac_assert('Shell shows read_adapter_pending', strpos($shell_html, 'Lectura pendiente') !== false);
-ac_assert('Shell pending has no preview CTA without constant', strpos($shell_html, 'Ver demostración del shell') === false);
+ac_assert('Shell shows empty finance (not pending)', strpos($shell_html, 'Sin contenedores') !== false
+    && strpos($shell_html, 'Lectura pendiente') === false);
+ac_assert('Shell empty has no preview CTA without constant', strpos($shell_html, 'Ver demostración del shell') === false);
 ac_assert('Shell resolved root has no script tags', strpos($shell_html, '<script') === false);
 ac_assert('Shell resolved root has no amount', stripos($shell_html, 'amount') === false);
 
