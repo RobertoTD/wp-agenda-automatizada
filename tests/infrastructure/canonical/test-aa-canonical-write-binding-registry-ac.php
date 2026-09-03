@@ -1,0 +1,62 @@
+<?php
+/**
+ * AC Test — AA_Canonical_Write_Binding_Registry (SB1-5A1).
+ *
+ * Ejecutar: php tests/infrastructure/canonical/test-aa-canonical-write-binding-registry-ac.php
+ */
+
+if (!defined('ABSPATH')) {
+    define('ABSPATH', __DIR__);
+}
+
+$plugin_root = dirname(__DIR__, 3);
+require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalReadIdentity.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalWriteAdapter.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalWriteBindingNotFound.php';
+require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-write-binding-registry.php';
+require_once $plugin_root . '/tests/support/canonical/CanonicalFixtureWriteAdapter.php';
+
+$total = 0;
+$passed = 0;
+$failed = [];
+
+function ac_assert(string $label, bool $ok, string $detail = ''): void {
+    global $total, $passed, $failed;
+    $total++;
+    if ($ok) {
+        $passed++;
+        echo '[ OK ] ' . $label . ($detail !== '' ? ' - ' . $detail : '') . "\n";
+        return;
+    }
+    $failed[] = $label;
+    echo '[FAIL] ' . $label . ($detail !== '' ? ' - ' . $detail : '') . "\n";
+}
+
+$registry = new AA_Canonical_Write_Binding_Registry();
+$alpha = new CanonicalReadIdentity('sample', 'alpha');
+$beta = new CanonicalReadIdentity('sample', 'beta');
+$adapter_alpha = new CanonicalFixtureWriteAdapter('alpha');
+$adapter_beta = new CanonicalFixtureWriteAdapter('beta');
+
+$registry->register($alpha, $adapter_alpha);
+$registry->register($beta, $adapter_beta);
+
+ac_assert('Resolves alpha adapter', $registry->require($alpha) === $adapter_alpha);
+ac_assert('Resolves beta adapter', $registry->require($beta) === $adapter_beta);
+
+$missing = new CanonicalReadIdentity('sample', 'gamma');
+$threw = false;
+try {
+    $registry->require($missing);
+} catch (CanonicalWriteBindingNotFound $e) {
+    $threw = strpos($e->getMessage(), 'sample.gamma') !== false;
+}
+ac_assert('Missing binding throws CanonicalWriteBindingNotFound', $threw);
+
+echo "\n--- Resumen: {$passed}/{$total} ---\n";
+if ($failed !== []) {
+    echo "Fallos:\n- " . implode("\n- ", $failed) . "\n";
+    exit(1);
+}
+exit(0);
