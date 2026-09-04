@@ -526,12 +526,13 @@ ac_assert('Shell empty copy universal', strpos($shell_html, 'Aún no hay contene
 ac_assert('Shell empty has no preview CTA without constant', strpos($shell_html, 'Ver demostración del shell') === false);
 ac_assert('Shell CTA Nueva lista', strpos($shell_html, 'id="aa-shell-open-create-btn"') !== false
     && strpos($shell_html, 'Nueva lista') !== false);
-ac_assert('Shell create modal present', strpos($shell_html, 'id="aa-shell-create-modal"') !== false
+ac_assert('Shell container modal present', strpos($shell_html, 'id="aa-shell-container-modal"') !== false
     && strpos($shell_html, 'Nombre de la lista') !== false
     && strpos($shell_html, 'Crear lista') !== false);
-ac_assert('Shell create config present', strpos($shell_html, 'AA_CANONICAL_SHELL_CREATE') !== false
-    && strpos($shell_html, 'aa_create_canonical_container') !== false);
-ac_assert('Shell create script loaded', strpos($shell_html, 'canonical-shell-create-container.js') !== false);
+ac_assert('Shell container form config present', strpos($shell_html, 'AA_CANONICAL_SHELL_CONTAINER_FORM') !== false
+    && strpos($shell_html, 'aa_create_canonical_container') !== false
+    && strpos($shell_html, 'aa_update_canonical_container') !== false);
+ac_assert('Shell container form script loaded', strpos($shell_html, 'canonical-shell-container-form.js') !== false);
 ac_assert('Shell resolved root has no amount', stripos($shell_html, 'amount') === false);
 
 $module_src = file_get_contents($plugin_root . '/includes/admin/ui/modules/canonical_shell/index.php');

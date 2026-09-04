@@ -51,10 +51,17 @@ ac_assert('Create container rejects empty title', expect_invalid(static function
 
 $u = new CanonicalUpdateContainerCommand(5, 'Editado', 'Detalle');
 ac_assert('Update container ids', $u->container_id() === 5);
+ac_assert('Update container details', $u->details() === 'Detalle');
 
-ac_assert('Update container rejects id 0', expect_invalid(static function (): void {
+try {
     new CanonicalUpdateContainerCommand(0, 'X', null);
-}));
+    ac_assert('Update container rejects id 0', false);
+} catch (\InvalidArgumentException $e) {
+    ac_assert('Update container rejects id 0', strpos($e->getMessage(), '[invalid_container_id]') === 0);
+}
+
+$u_empty = new CanonicalUpdateContainerCommand(5, 'Editado', '');
+ac_assert('Update container empty details → null', $u_empty->details() === null);
 
 $d = new CanonicalDeleteContainerCommand(3);
 ac_assert('Delete container id', $d->container_id() === 3);

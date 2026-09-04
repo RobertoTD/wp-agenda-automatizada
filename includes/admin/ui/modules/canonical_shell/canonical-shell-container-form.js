@@ -1,41 +1,49 @@
 /**
- * Canonical Shell — creación de contenedor universal (SB1-5B1).
+ * Canonical Shell — create/update de contenedor universal (SB1-5B1 / SB1-5B5).
  */
 (function () {
     'use strict';
 
-    var cfg = window.AA_CANONICAL_SHELL_CREATE;
+    var cfg = window.AA_CANONICAL_SHELL_CONTAINER_FORM;
     if (!cfg || typeof cfg !== 'object') {
         return;
     }
 
     var ajaxUrl = typeof cfg.ajaxUrl === 'string' ? cfg.ajaxUrl : '';
-    var action = typeof cfg.action === 'string' ? cfg.action : '';
-    var nonce = typeof cfg.nonce === 'string' ? cfg.nonce : '';
+    var createAction = typeof cfg.createAction === 'string' ? cfg.createAction : '';
+    var createNonce = typeof cfg.createNonce === 'string' ? cfg.createNonce : '';
+    var updateAction = typeof cfg.updateAction === 'string' ? cfg.updateAction : '';
+    var updateNonce = typeof cfg.updateNonce === 'string' ? cfg.updateNonce : '';
     var familyKey = typeof cfg.familyKey === 'string' ? cfg.familyKey : '';
     var variantKey = typeof cfg.variantKey === 'string' ? cfg.variantKey : '';
     var maxTitleLength = typeof cfg.maxTitleLength === 'number' ? cfg.maxTitleLength : 200;
 
-    if (!ajaxUrl || !action || !nonce || !familyKey || !variantKey) {
+    if (!ajaxUrl || !createAction || !createNonce || !updateAction || !updateNonce
+        || !familyKey || !variantKey) {
         return;
     }
 
-    var openBtn = document.getElementById('aa-shell-open-create-btn');
-    var modal = document.getElementById('aa-shell-create-modal');
-    var backdrop = document.getElementById('aa-shell-create-modal-backdrop');
-    var closeBtn = document.getElementById('aa-shell-create-modal-close-btn');
-    var cancelBtn = document.getElementById('aa-shell-create-modal-cancel-btn');
-    var form = document.getElementById('aa-shell-create-form');
-    var titleInput = document.getElementById('aa-shell-create-title');
-    var detailsInput = document.getElementById('aa-shell-create-details');
-    var titleError = document.getElementById('aa-shell-create-title-error');
-    var statusEl = document.getElementById('aa-shell-create-status');
-    var submitBtn = document.getElementById('aa-shell-create-submit-btn');
+    var openCreateBtn = document.getElementById('aa-shell-open-create-btn');
+    var modal = document.getElementById('aa-shell-container-modal');
+    var backdrop = document.getElementById('aa-shell-container-modal-backdrop');
+    var closeBtn = document.getElementById('aa-shell-container-modal-close-btn');
+    var cancelBtn = document.getElementById('aa-shell-container-modal-cancel-btn');
+    var form = document.getElementById('aa-shell-container-form');
+    var modalTitle = document.getElementById('aa-shell-container-modal-title');
+    var titleInput = document.getElementById('aa-shell-container-title');
+    var detailsInput = document.getElementById('aa-shell-container-details');
+    var titleError = document.getElementById('aa-shell-container-title-error');
+    var statusEl = document.getElementById('aa-shell-container-status');
+    var submitBtn = document.getElementById('aa-shell-container-submit-btn');
 
-    if (!openBtn || !modal || !form || !titleInput || !submitBtn) {
+    if (!modal || !form || !titleInput || !submitBtn || !modalTitle) {
         return;
     }
 
+    var MODE_CREATE = 'create';
+    var MODE_UPDATE = 'update';
+    var mode = MODE_CREATE;
+    var currentContainerId = null;
     var inFlight = false;
     var previousFocus = null;
 
@@ -74,7 +82,7 @@
         titleError.textContent = message;
         titleError.classList.remove('hidden');
         titleInput.setAttribute('aria-invalid', 'true');
-        titleInput.setAttribute('aria-describedby', 'aa-shell-create-title-error');
+        titleInput.setAttribute('aria-describedby', 'aa-shell-container-title-error');
     }
 
     function setBusy(busy) {
@@ -99,14 +107,30 @@
         }
     }
 
-    function openModal() {
+    function applyModeChrome() {
+        if (mode === MODE_UPDATE) {
+            modalTitle.textContent = 'Editar lista';
+            submitBtn.textContent = 'Guardar cambios';
+        } else {
+            modalTitle.textContent = 'Nueva lista';
+            submitBtn.textContent = 'Crear lista';
+        }
+    }
+
+    function openModal(nextMode, containerId, titleValue, detailsValue, triggerEl) {
         if (inFlight) {
             return;
         }
-        previousFocus = document.activeElement;
+        mode = nextMode === MODE_UPDATE ? MODE_UPDATE : MODE_CREATE;
+        currentContainerId = (mode === MODE_UPDATE && containerId >= 1) ? containerId : null;
+        previousFocus = triggerEl || document.activeElement;
         setStatus('', false);
         setTitleError('');
-        form.reset();
+        applyModeChrome();
+        titleInput.value = typeof titleValue === 'string' ? titleValue : '';
+        if (detailsInput) {
+            detailsInput.value = typeof detailsValue === 'string' ? detailsValue : '';
+        }
         modal.classList.remove('hidden');
         modal.setAttribute('aria-hidden', 'false');
         titleInput.focus();
@@ -120,10 +144,13 @@
         modal.setAttribute('aria-hidden', 'true');
         setStatus('', false);
         setTitleError('');
+        mode = MODE_CREATE;
+        currentContainerId = null;
+        applyModeChrome();
         if (restoreFocus && previousFocus && typeof previousFocus.focus === 'function') {
             previousFocus.focus();
-        } else if (restoreFocus) {
-            openBtn.focus();
+        } else if (restoreFocus && openCreateBtn) {
+            openCreateBtn.focus();
         }
     }
 
@@ -133,6 +160,25 @@
         } catch (e) {
             return null;
         }
+    }
+
+    function parseContainerPayload(raw) {
+        if (typeof raw !== 'string' || raw === '') {
+            return null;
+        }
+        var data = parseJsonSafe(raw);
+        if (!data || typeof data !== 'object') {
+            return null;
+        }
+        var id = typeof data.id === 'number' ? data.id : parseInt(data.id, 10);
+        if (!(id >= 1)) {
+            return null;
+        }
+        return {
+            id: id,
+            title: typeof data.title === 'string' ? data.title : '',
+            details: typeof data.details === 'string' ? data.details : ''
+        };
     }
 
     function clientValidate() {
@@ -151,7 +197,22 @@
         return true;
     }
 
-    function submitCreate() {
+    function defaultErrorMessage() {
+        return mode === MODE_UPDATE
+            ? 'No se pudo actualizar la lista. Inténtalo de nuevo.'
+            : 'No se pudo crear la lista. Inténtalo de nuevo.';
+    }
+
+    function uncertainMessage(message) {
+        if (typeof message === 'string' && message !== '') {
+            return message;
+        }
+        return mode === MODE_UPDATE
+            ? 'No fue posible confirmar si los cambios se guardaron. Revisa el listado antes de intentarlo nuevamente.'
+            : 'No fue posible confirmar si la lista se creó. Revisa el listado antes de intentarlo nuevamente.';
+    }
+
+    function submitForm() {
         if (inFlight) {
             return;
         }
@@ -160,6 +221,13 @@
         if (!clientValidate()) {
             return;
         }
+        if (mode === MODE_UPDATE && !(currentContainerId >= 1)) {
+            setStatus(defaultErrorMessage(), true);
+            return;
+        }
+
+        var action = mode === MODE_UPDATE ? updateAction : createAction;
+        var nonce = mode === MODE_UPDATE ? updateNonce : createNonce;
 
         setBusy(true);
 
@@ -168,6 +236,9 @@
         body.append('nonce', nonce);
         body.append('family_key', familyKey);
         body.append('variant_key', variantKey);
+        if (mode === MODE_UPDATE) {
+            body.append('container_id', String(currentContainerId));
+        }
         body.append('title', titleInput.value);
         body.append('details', detailsInput ? detailsInput.value : '');
 
@@ -183,7 +254,7 @@
             var payload = result.payload;
             if (!payload || typeof payload !== 'object') {
                 setBusy(false);
-                setStatus('No se pudo crear la lista. Inténtalo de nuevo.', true);
+                setStatus(defaultErrorMessage(), true);
                 return;
             }
 
@@ -194,7 +265,12 @@
                     return;
                 }
                 setBusy(false);
-                setStatus('La lista se creó, pero no se pudo redirigir. Recarga el listado.', true);
+                setStatus(
+                    mode === MODE_UPDATE
+                        ? 'Los cambios se guardaron, pero no se pudo redirigir. Recarga el listado.'
+                        : 'La lista se creó, pero no se pudo redirigir. Recarga el listado.',
+                    true
+                );
                 return;
             }
 
@@ -204,10 +280,7 @@
             var message = typeof err.message === 'string' ? err.message : '';
 
             if (code === 'uncertain') {
-                setStatus(
-                    message || 'No fue posible confirmar si la lista se creó. Revisa el listado antes de intentarlo nuevamente.',
-                    false
-                );
+                setStatus(uncertainMessage(message), false);
                 return;
             }
             if (code === 'invalid_title' || code === 'title_too_long') {
@@ -215,16 +288,31 @@
                 titleInput.focus();
                 return;
             }
-            setStatus(message || 'No se pudo crear la lista.', true);
+            setStatus(message || defaultErrorMessage(), true);
         }).catch(function () {
             setBusy(false);
-            setStatus('No se pudo crear la lista. Inténtalo de nuevo.', true);
+            setStatus(defaultErrorMessage(), true);
         });
     }
 
-    openBtn.addEventListener('click', function () {
-        openModal();
-    });
+    if (openCreateBtn) {
+        openCreateBtn.addEventListener('click', function () {
+            openModal(MODE_CREATE, null, '', '', openCreateBtn);
+        });
+    }
+
+    var editButtons = document.querySelectorAll('.aa-shell-edit-container-btn');
+    for (var i = 0; i < editButtons.length; i++) {
+        (function (btn) {
+            btn.addEventListener('click', function () {
+                var container = parseContainerPayload(btn.getAttribute('data-aa-container'));
+                if (!container) {
+                    return;
+                }
+                openModal(MODE_UPDATE, container.id, container.title, container.details, btn);
+            });
+        })(editButtons[i]);
+    }
 
     if (closeBtn) {
         closeBtn.addEventListener('click', function () {
@@ -250,6 +338,6 @@
 
     form.addEventListener('submit', function (e) {
         e.preventDefault();
-        submitCreate();
+        submitForm();
     });
 })();
