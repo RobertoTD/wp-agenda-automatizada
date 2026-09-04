@@ -241,8 +241,8 @@ Cuando la propuesta sea aprobada, el prompt de implementación será una autoriz
 - Giro arquitectónico aprobado: Persistencia Canónica Universal (PCU). Destino canónico = tablas universales compartidas; Finance y Expedientes legacy intactos durante la transición.
 - **Ruta vigente (PCU y continuación del shell):**
   1. **PCU-0** — auditoría y propuesta arquitectónica: **completada**.
-  2. **PCU-1** — reconciliación documental e inicialización de la ruta: **ciclo actual**. No implementa schema, repositorio, adaptadores, bindings, `DB_VERSION` ni datos.
-  3. **PCU-2** — schema universal aditivo y tests MySQL. **Todavía no implementado.** Decisiones de DDL (identificador público, columnas exactas, FKs, índices opcionales, política de seeds) permanecen abiertas hasta ese ciclo.
+  2. **PCU-1** — reconciliación documental e inicialización de la ruta: **completada** (`c5f97ee`).
+  3. **PCU-2** — schema universal aditivo y tests MySQL: **implementado en working tree (sin commit).** Crea vacías `aa_canonical_families`, `aa_canonical_containers`, `aa_canonical_records`; `DB_VERSION=21`; `AA_Canonical_Schema` con FK RESTRICT/CASCADE y `verify()` fail-closed. Sin filas, sin repositorio, sin adaptadores, sin bindings. **PCU-3 todavía no comenzó.**
   4. **PCU-3** — repositorio y adaptadores relacionales estándar.
   5. **PCU-4** — catálogo de familias/variantes y provisioning idempotente.
   6. **PCU-5** — bindings productivos y reconexión de lectura/escritura del shell.

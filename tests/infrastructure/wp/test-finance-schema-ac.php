@@ -55,7 +55,7 @@ $finance_schema_src = file_get_contents($finance_schema_file);
 
 ac_assert('Schema.php es legible', is_string($schema_src) && $schema_src !== '');
 ac_assert('FinanceSchema.php es legible', is_string($finance_schema_src) && $finance_schema_src !== '');
-ac_assert('AA_Schema::DB_VERSION es 20', strpos($schema_src, "DB_VERSION = '20'") !== false);
+ac_assert('AA_Schema::DB_VERSION es 21', strpos($schema_src, "DB_VERSION = '21'") !== false);
 ac_assert('Schema.php delega en AA_Finance_Schema::install()', strpos($schema_src, 'AA_Finance_Schema::install()') !== false);
 
 $bump_pos = strpos($schema_src, "update_option('aa_db_version', self::DB_VERSION)");
