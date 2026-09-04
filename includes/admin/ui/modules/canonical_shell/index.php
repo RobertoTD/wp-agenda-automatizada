@@ -284,6 +284,8 @@ $show_create_record_ui = $show_read_ui
                             $card_details = array_key_exists('details', $item) ? $item['details'] : null;
                             $card_iso = isset($item['updated_at_iso']) ? (string) $item['updated_at_iso'] : '';
                             $card_display = isset($item['updated_at_display']) ? (string) $item['updated_at_display'] : '';
+                            $card_record_id = isset($item['id']) ? (int) $item['id'] : 0;
+                            $show_edit_record = $show_create_record_ui;
                             require __DIR__ . '/partials/record-card.php';
                             ?>
                         <?php endforeach; ?>
@@ -542,41 +544,44 @@ $show_create_record_ui = $show_read_ui
     if (!class_exists('CanonicalCreateRecordAjax')) {
         require_once dirname(__DIR__, 4) . '/http/ajax/CanonicalCreateRecordAjax.php';
     }
+    if (!class_exists('CanonicalUpdateRecordAjax')) {
+        require_once dirname(__DIR__, 4) . '/http/ajax/CanonicalUpdateRecordAjax.php';
+    }
     if (!class_exists('CanonicalCreateRecordCommand')) {
         require_once dirname(__DIR__, 4) . '/application/canonical/CanonicalCreateRecordCommand.php';
     }
     ?>
     <div
-        id="aa-shell-create-record-modal"
+        id="aa-shell-record-modal"
         class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="aa-shell-create-record-modal-title"
-        aria-describedby="aa-shell-create-record-modal-desc"
+        aria-labelledby="aa-shell-record-modal-title"
+        aria-describedby="aa-shell-record-modal-desc"
         aria-hidden="true"
     >
-        <div id="aa-shell-create-record-modal-backdrop" class="fixed inset-0 bg-black/50 transition-opacity" aria-hidden="true"></div>
+        <div id="aa-shell-record-modal-backdrop" class="fixed inset-0 bg-black/50 transition-opacity" aria-hidden="true"></div>
         <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6 z-10">
             <div class="flex items-center justify-between mb-2">
-                <h3 id="aa-shell-create-record-modal-title" class="text-lg font-bold text-gray-900 leading-tight">
+                <h3 id="aa-shell-record-modal-title" class="text-lg font-bold text-gray-900 leading-tight">
                     Nuevo registro
                 </h3>
                 <button
                     type="button"
-                    id="aa-shell-create-record-modal-close-btn"
+                    id="aa-shell-record-modal-close-btn"
                     class="text-gray-400 hover:text-gray-600 p-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     aria-label="Cerrar modal"
                 >
                     ✕
                 </button>
             </div>
-            <p id="aa-shell-create-record-modal-desc" class="text-sm text-gray-500 mb-4">
+            <p id="aa-shell-record-modal-desc" class="text-sm text-gray-500 mb-4">
                 <?php echo esc_html($create_container_title !== '' ? $create_container_title : 'Contenedor'); ?>
             </p>
 
-            <form id="aa-shell-create-record-form" novalidate>
+            <form id="aa-shell-record-form" novalidate>
                 <div
-                    id="aa-shell-create-record-status"
+                    id="aa-shell-record-status"
                     class="hidden mb-4 p-3 rounded-lg text-xs font-medium"
                     role="status"
                     aria-live="polite"
@@ -584,26 +589,26 @@ $show_create_record_ui = $show_read_ui
 
                 <div class="space-y-4">
                     <div>
-                        <label for="aa-shell-create-record-title" class="block text-xs font-semibold text-gray-700 mb-1">
+                        <label for="aa-shell-record-title" class="block text-xs font-semibold text-gray-700 mb-1">
                             Título del registro <span class="text-red-500">*</span>
                         </label>
                         <input
                             type="text"
-                            id="aa-shell-create-record-title"
+                            id="aa-shell-record-title"
                             name="title"
                             maxlength="200"
                             class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                             autocomplete="off"
                             required
                         />
-                        <p id="aa-shell-create-record-title-error" class="hidden mt-1 text-xs text-red-600 font-medium"></p>
+                        <p id="aa-shell-record-title-error" class="hidden mt-1 text-xs text-red-600 font-medium"></p>
                     </div>
                     <div>
-                        <label for="aa-shell-create-record-details" class="block text-xs font-semibold text-gray-700 mb-1">
+                        <label for="aa-shell-record-details" class="block text-xs font-semibold text-gray-700 mb-1">
                             Detalles (opcional)
                         </label>
                         <textarea
-                            id="aa-shell-create-record-details"
+                            id="aa-shell-record-details"
                             name="details"
                             rows="3"
                             class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -614,14 +619,14 @@ $show_create_record_ui = $show_read_ui
                 <div class="mt-6 flex items-center justify-end gap-3">
                     <button
                         type="button"
-                        id="aa-shell-create-record-modal-cancel-btn"
+                        id="aa-shell-record-modal-cancel-btn"
                         class="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
                         Cancelar
                     </button>
                     <button
                         type="submit"
-                        id="aa-shell-create-record-submit-btn"
+                        id="aa-shell-record-submit-btn"
                         class="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Crear registro
@@ -632,10 +637,12 @@ $show_create_record_ui = $show_read_ui
     </div>
 
     <script>
-    window.AA_CANONICAL_SHELL_CREATE_RECORD = {
+    window.AA_CANONICAL_SHELL_RECORD_FORM = {
         ajaxUrl: <?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,
-        action: <?php echo wp_json_encode(CanonicalCreateRecordAjax::ACTION); ?>,
-        nonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalCreateRecordAjax::NONCE_ACTION)); ?>,
+        createAction: <?php echo wp_json_encode(CanonicalCreateRecordAjax::ACTION); ?>,
+        createNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalCreateRecordAjax::NONCE_ACTION)); ?>,
+        updateAction: <?php echo wp_json_encode(CanonicalUpdateRecordAjax::ACTION); ?>,
+        updateNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalUpdateRecordAjax::NONCE_ACTION)); ?>,
         familyKey: <?php echo wp_json_encode($create_family_key); ?>,
         variantKey: <?php echo wp_json_encode($create_variant_key); ?>,
         containerId: <?php echo (int) $create_container_id; ?>,
@@ -643,6 +650,6 @@ $show_create_record_ui = $show_read_ui
     };
     </script>
     <script src="<?php echo function_exists('aa_asset_url')
-        ? aa_asset_url('includes/admin/ui/modules/canonical_shell/canonical-shell-create-record.js')
-        : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/canonical-shell-create-record.js'); ?>"></script>
+        ? aa_asset_url('includes/admin/ui/modules/canonical_shell/canonical-shell-record-form.js')
+        : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/canonical-shell-record-form.js'); ?>"></script>
 <?php endif; ?>

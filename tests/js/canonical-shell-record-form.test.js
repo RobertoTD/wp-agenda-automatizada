@@ -1,0 +1,349 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const { describe, it } = require('node:test');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+
+const jsPath = path.join(
+    __dirname,
+    '../../includes/admin/ui/modules/canonical_shell/canonical-shell-record-form.js'
+);
+
+function createEl(id) {
+    const el = {
+        id: id || '',
+        classList: {
+            _set: new Set(['hidden']),
+            add(name) {
+                this._set.add(name);
+            },
+            remove(name) {
+                this._set.delete(name);
+            },
+            contains(name) {
+                return this._set.has(name);
+            }
+        },
+        attributes: {},
+        value: '',
+        textContent: '',
+        disabled: false,
+        _listeners: {},
+        focusCalls: 0,
+        getAttribute(name) {
+            return Object.prototype.hasOwnProperty.call(this.attributes, name)
+                ? this.attributes[name]
+                : null;
+        },
+        setAttribute(name, value) {
+            this.attributes[name] = String(value);
+        },
+        removeAttribute(name) {
+            delete this.attributes[name];
+        },
+        addEventListener(type, fn) {
+            this._listeners[type] = this._listeners[type] || [];
+            this._listeners[type].push(fn);
+        },
+        focus() {
+            this.focusCalls += 1;
+            documentRef.activeElement = this;
+        },
+        reset() {
+            this.value = '';
+        }
+    };
+    return el;
+}
+
+let documentRef;
+let lastFormData;
+
+function boot(fetchImpl, editPayloads) {
+    const openBtn = createEl('aa-shell-open-create-record-btn');
+    const modal = createEl('aa-shell-record-modal');
+    const form = createEl('aa-shell-record-form');
+    const modalTitle = createEl('aa-shell-record-modal-title');
+    modalTitle.textContent = 'Nuevo registro';
+    const titleInput = createEl('aa-shell-record-title');
+    const detailsInput = createEl('aa-shell-record-details');
+    const titleError = createEl('aa-shell-record-title-error');
+    titleError.classList.add('hidden');
+    const statusEl = createEl('aa-shell-record-status');
+    statusEl.classList.add('hidden');
+    const submitBtn = createEl('aa-shell-record-submit-btn');
+    submitBtn.textContent = 'Crear registro';
+    const cancelBtn = createEl('aa-shell-record-modal-cancel-btn');
+    const closeBtn = createEl('aa-shell-record-modal-close-btn');
+    const backdrop = createEl('aa-shell-record-modal-backdrop');
+
+    const editBtns = (editPayloads || []).map((payload, idx) => {
+        const btn = createEl('aa-shell-edit-record-btn-' + idx);
+        btn.className = 'aa-shell-edit-record-btn';
+        btn.setAttribute('data-aa-record', JSON.stringify(payload));
+        return btn;
+    });
+
+    const byId = {
+        'aa-shell-open-create-record-btn': openBtn,
+        'aa-shell-record-modal': modal,
+        'aa-shell-record-modal-backdrop': backdrop,
+        'aa-shell-record-modal-close-btn': closeBtn,
+        'aa-shell-record-modal-cancel-btn': cancelBtn,
+        'aa-shell-record-modal-title': modalTitle,
+        'aa-shell-record-form': form,
+        'aa-shell-record-title': titleInput,
+        'aa-shell-record-details': detailsInput,
+        'aa-shell-record-title-error': titleError,
+        'aa-shell-record-status': statusEl,
+        'aa-shell-record-submit-btn': submitBtn
+    };
+
+    const documentListeners = {};
+    let assignedUrl = null;
+    let fetchCalls = 0;
+
+    documentRef = {
+        activeElement: openBtn,
+        getElementById(id) {
+            return byId[id] || null;
+        },
+        querySelectorAll(selector) {
+            if (selector === '.aa-shell-edit-record-btn') {
+                return editBtns;
+            }
+            return [];
+        },
+        addEventListener(type, fn) {
+            documentListeners[type] = documentListeners[type] || [];
+            documentListeners[type].push(fn);
+        }
+    };
+
+    const env = {
+        window: {
+            AA_CANONICAL_SHELL_RECORD_FORM: {
+                ajaxUrl: 'https://example.test/wp-admin/admin-ajax.php',
+                createAction: 'aa_create_canonical_record',
+                createNonce: 'create-nonce',
+                updateAction: 'aa_update_canonical_record',
+                updateNonce: 'update-nonce',
+                familyKey: 'finance',
+                variantKey: 'general',
+                containerId: 42,
+                maxTitleLength: 200
+            },
+            location: {
+                assign(url) {
+                    assignedUrl = url;
+                }
+            },
+            document: documentRef
+        },
+        document: documentRef,
+        FormData: class {
+            constructor() {
+                this._data = {};
+            }
+            append(k, v) {
+                this._data[k] = v;
+            }
+        },
+        fetch: (url, options) => {
+            fetchCalls += 1;
+            lastFormData = options && options.body ? options.body._data : null;
+            return fetchImpl();
+        },
+        console
+    };
+
+    vm.runInNewContext(fs.readFileSync(jsPath, 'utf8'), env, {
+        filename: 'canonical-shell-record-form.js'
+    });
+
+    return {
+        openBtn,
+        editBtns,
+        modal,
+        modalTitle,
+        form,
+        titleInput,
+        detailsInput,
+        titleError,
+        statusEl,
+        submitBtn,
+        documentListeners,
+        getAssignedUrl: () => assignedUrl,
+        getFetchCalls: () => fetchCalls,
+        getLastFormData: () => lastFormData
+    };
+}
+
+describe('canonical-shell-record-form', () => {
+    it('abre create y enfoca título', () => {
+        const ui = boot(async () => ({ status: 200, text: async () => '{}' }));
+        ui.openBtn._listeners.click[0]();
+        assert.equal(ui.modal.classList.contains('hidden'), false);
+        assert.equal(ui.modalTitle.textContent, 'Nuevo registro');
+        assert.equal(ui.submitBtn.textContent, 'Crear registro');
+        assert.ok(ui.titleInput.focusCalls >= 1, 'focus title');
+    });
+
+    it('cierra con Escape y restaura foco create', () => {
+        const ui = boot(async () => ({ status: 200, text: async () => '{}' }));
+        ui.openBtn._listeners.click[0]();
+        ui.documentListeners.keydown[0]({ key: 'Escape' });
+        assert.equal(ui.modal.classList.contains('hidden'), true);
+        assert.ok(ui.openBtn.focusCalls >= 1, 'restore focus');
+    });
+
+    it('create: doble submit una petición y navega', async () => {
+        const ui = boot(async () => ({
+            status: 200,
+            text: async () => JSON.stringify({
+                success: true,
+                data: {
+                    status: 'confirmed',
+                    redirect_url: 'https://example.test/records?container_id=42'
+                }
+            })
+        }));
+        ui.openBtn._listeners.click[0]();
+        ui.titleInput.value = 'Mi registro';
+        const ev = { preventDefault() {} };
+        ui.form._listeners.submit[0](ev);
+        ui.form._listeners.submit[0](ev);
+        assert.equal(ui.getFetchCalls(), 1);
+        assert.equal(ui.getLastFormData().action, 'aa_create_canonical_record');
+        assert.equal(ui.getLastFormData().nonce, 'create-nonce');
+        assert.equal(ui.getLastFormData().record_id, undefined);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(ui.getAssignedUrl(), 'https://example.test/records?container_id=42');
+    });
+
+    it('edit: precarga dos cards distintas y no arrastra datos', () => {
+        const ui = boot(
+            async () => ({ status: 200, text: async () => '{}' }),
+            [
+                {
+                    id: 11,
+                    title: 'Titulo "A" & <b>x</b>',
+                    details: "linea1\nlinea2"
+                },
+                {
+                    id: 22,
+                    title: "Café 'B'",
+                    details: ''
+                }
+            ]
+        );
+
+        ui.editBtns[0]._listeners.click[0]();
+        assert.equal(ui.modalTitle.textContent, 'Editar registro');
+        assert.equal(ui.submitBtn.textContent, 'Guardar cambios');
+        assert.equal(ui.titleInput.value, 'Titulo "A" & <b>x</b>');
+        assert.equal(ui.detailsInput.value, "linea1\nlinea2");
+
+        ui.documentListeners.keydown[0]({ key: 'Escape' });
+        assert.ok(ui.editBtns[0].focusCalls >= 1, 'restore edit focus');
+
+        ui.editBtns[1]._listeners.click[0]();
+        assert.equal(ui.titleInput.value, "Café 'B'");
+        assert.equal(ui.detailsInput.value, '');
+        assert.ok(ui.statusEl.classList.contains('hidden'), 'status cleared');
+    });
+
+    it('edit: action/nonce update y confirmed redirect', async () => {
+        const ui = boot(
+            async () => ({
+                status: 200,
+                text: async () => JSON.stringify({
+                    success: true,
+                    data: {
+                        status: 'confirmed',
+                        redirect_url: 'https://example.test/records?container_id=42'
+                    }
+                })
+            }),
+            [{ id: 11, title: 'Old', details: null }]
+        );
+        // details null in JSON becomes missing string → parse uses ''
+        ui.editBtns[0].setAttribute('data-aa-record', JSON.stringify({
+            id: 11,
+            title: 'Old',
+            details: ''
+        }));
+        ui.editBtns[0]._listeners.click[0]();
+        ui.titleInput.value = 'New';
+        ui.form._listeners.submit[0]({ preventDefault() {} });
+        assert.equal(ui.getLastFormData().action, 'aa_update_canonical_record');
+        assert.equal(ui.getLastFormData().nonce, 'update-nonce');
+        assert.equal(ui.getLastFormData().record_id, '11');
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(ui.getAssignedUrl(), 'https://example.test/records?container_id=42');
+    });
+
+    it('uncertain update no navega', async () => {
+        const ui = boot(
+            async () => ({
+                status: 409,
+                text: async () => JSON.stringify({
+                    success: false,
+                    data: {
+                        code: 'uncertain',
+                        message: 'No fue posible confirmar si los cambios se guardaron. Revisa el registro antes de intentarlo nuevamente.'
+                    }
+                })
+            }),
+            [{ id: 5, title: 'X', details: '' }]
+        );
+        ui.editBtns[0]._listeners.click[0]();
+        ui.titleInput.value = 'Y';
+        ui.form._listeners.submit[0]({ preventDefault() {} });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(ui.getAssignedUrl(), null);
+        assert.ok(ui.statusEl.textContent.indexOf('Revisa el registro') !== -1);
+        assert.equal(ui.submitBtn.disabled, false);
+        assert.equal(ui.modal.classList.contains('hidden'), false);
+    });
+
+    it('create uncertain no navega', async () => {
+        const ui = boot(async () => ({
+            status: 409,
+            text: async () => JSON.stringify({
+                success: false,
+                data: {
+                    code: 'uncertain',
+                    message: 'No fue posible confirmar si el registro se creó. Revisa la lista antes de intentarlo nuevamente.'
+                }
+            })
+        }));
+        ui.openBtn._listeners.click[0]();
+        ui.titleInput.value = 'X';
+        ui.form._listeners.submit[0]({ preventDefault() {} });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(ui.getAssignedUrl(), null);
+        assert.ok(ui.statusEl.textContent.indexOf('Revisa la lista') !== -1);
+    });
+
+    it('error restaura controles', async () => {
+        const ui = boot(async () => ({
+            status: 400,
+            text: async () => JSON.stringify({
+                success: false,
+                data: {
+                    code: 'invalid_title',
+                    message: 'El título del registro no puede estar vacío.'
+                }
+            })
+        }));
+        ui.openBtn._listeners.click[0]();
+        ui.titleInput.value = 'Ok';
+        ui.form._listeners.submit[0]({ preventDefault() {} });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(ui.submitBtn.disabled, false);
+        assert.ok(ui.titleError.textContent.indexOf('vacío') !== -1);
+    });
+});

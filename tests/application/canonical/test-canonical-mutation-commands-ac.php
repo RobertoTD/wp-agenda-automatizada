@@ -37,7 +37,7 @@ function expect_invalid(callable $fn): bool {
     try {
         $fn();
     } catch (InvalidArgumentException $e) {
-        return strpos($e->getMessage(), '[invalid_mutation_input]') === 0;
+        return (bool) preg_match('/^\[invalid_[a-z_]+\]/', $e->getMessage());
     }
     return false;
 }
@@ -68,10 +68,14 @@ ac_assert('Create record rejects container 0', expect_invalid(static function ()
 
 $ru = new CanonicalUpdateRecordCommand(2, 9, 'R edit', 'd');
 ac_assert('Update record ids', $ru->container_id() === 2 && $ru->record_id() === 9);
+ac_assert('Update record details', $ru->details() === 'd');
 
-ac_assert('Update record rejects record 0', expect_invalid(static function (): void {
+try {
     new CanonicalUpdateRecordCommand(1, 0, 'X', null);
-}));
+    ac_assert('Update record rejects record 0', false);
+} catch (\InvalidArgumentException $e) {
+    ac_assert('Update record rejects record 0', strpos($e->getMessage(), '[invalid_record_id]') === 0);
+}
 
 $rd = new CanonicalDeleteRecordCommand(4, 7);
 ac_assert('Delete record ids', $rd->container_id() === 4 && $rd->record_id() === 7);

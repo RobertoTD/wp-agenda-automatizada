@@ -1,42 +1,50 @@
 /**
- * Canonical Shell — creación de registro universal (SB1-5B2).
+ * Canonical Shell — formulario create/update de registro universal (SB1-5B2 / SB1-5B3).
  */
 (function () {
     'use strict';
 
-    var cfg = window.AA_CANONICAL_SHELL_CREATE_RECORD;
+    var cfg = window.AA_CANONICAL_SHELL_RECORD_FORM;
     if (!cfg || typeof cfg !== 'object') {
         return;
     }
 
     var ajaxUrl = typeof cfg.ajaxUrl === 'string' ? cfg.ajaxUrl : '';
-    var action = typeof cfg.action === 'string' ? cfg.action : '';
-    var nonce = typeof cfg.nonce === 'string' ? cfg.nonce : '';
+    var createAction = typeof cfg.createAction === 'string' ? cfg.createAction : '';
+    var createNonce = typeof cfg.createNonce === 'string' ? cfg.createNonce : '';
+    var updateAction = typeof cfg.updateAction === 'string' ? cfg.updateAction : '';
+    var updateNonce = typeof cfg.updateNonce === 'string' ? cfg.updateNonce : '';
     var familyKey = typeof cfg.familyKey === 'string' ? cfg.familyKey : '';
     var variantKey = typeof cfg.variantKey === 'string' ? cfg.variantKey : '';
     var containerId = typeof cfg.containerId === 'number' ? cfg.containerId : parseInt(cfg.containerId, 10);
     var maxTitleLength = typeof cfg.maxTitleLength === 'number' ? cfg.maxTitleLength : 200;
 
-    if (!ajaxUrl || !action || !nonce || !familyKey || !variantKey || !(containerId >= 1)) {
+    if (!ajaxUrl || !createAction || !createNonce || !updateAction || !updateNonce
+        || !familyKey || !variantKey || !(containerId >= 1)) {
         return;
     }
 
-    var openBtn = document.getElementById('aa-shell-open-create-record-btn');
-    var modal = document.getElementById('aa-shell-create-record-modal');
-    var backdrop = document.getElementById('aa-shell-create-record-modal-backdrop');
-    var closeBtn = document.getElementById('aa-shell-create-record-modal-close-btn');
-    var cancelBtn = document.getElementById('aa-shell-create-record-modal-cancel-btn');
-    var form = document.getElementById('aa-shell-create-record-form');
-    var titleInput = document.getElementById('aa-shell-create-record-title');
-    var detailsInput = document.getElementById('aa-shell-create-record-details');
-    var titleError = document.getElementById('aa-shell-create-record-title-error');
-    var statusEl = document.getElementById('aa-shell-create-record-status');
-    var submitBtn = document.getElementById('aa-shell-create-record-submit-btn');
+    var openCreateBtn = document.getElementById('aa-shell-open-create-record-btn');
+    var modal = document.getElementById('aa-shell-record-modal');
+    var backdrop = document.getElementById('aa-shell-record-modal-backdrop');
+    var closeBtn = document.getElementById('aa-shell-record-modal-close-btn');
+    var cancelBtn = document.getElementById('aa-shell-record-modal-cancel-btn');
+    var form = document.getElementById('aa-shell-record-form');
+    var modalTitle = document.getElementById('aa-shell-record-modal-title');
+    var titleInput = document.getElementById('aa-shell-record-title');
+    var detailsInput = document.getElementById('aa-shell-record-details');
+    var titleError = document.getElementById('aa-shell-record-title-error');
+    var statusEl = document.getElementById('aa-shell-record-status');
+    var submitBtn = document.getElementById('aa-shell-record-submit-btn');
 
-    if (!openBtn || !modal || !form || !titleInput || !submitBtn) {
+    if (!modal || !form || !titleInput || !submitBtn || !modalTitle) {
         return;
     }
 
+    var MODE_CREATE = 'create';
+    var MODE_UPDATE = 'update';
+    var mode = MODE_CREATE;
+    var currentRecordId = null;
     var inFlight = false;
     var previousFocus = null;
 
@@ -75,7 +83,7 @@
         titleError.textContent = message;
         titleError.classList.remove('hidden');
         titleInput.setAttribute('aria-invalid', 'true');
-        titleInput.setAttribute('aria-describedby', 'aa-shell-create-record-title-error');
+        titleInput.setAttribute('aria-describedby', 'aa-shell-record-title-error');
     }
 
     function setBusy(busy) {
@@ -100,14 +108,30 @@
         }
     }
 
-    function openModal() {
+    function applyModeChrome() {
+        if (mode === MODE_UPDATE) {
+            modalTitle.textContent = 'Editar registro';
+            submitBtn.textContent = 'Guardar cambios';
+        } else {
+            modalTitle.textContent = 'Nuevo registro';
+            submitBtn.textContent = 'Crear registro';
+        }
+    }
+
+    function openModal(nextMode, recordId, titleValue, detailsValue, triggerEl) {
         if (inFlight) {
             return;
         }
-        previousFocus = document.activeElement;
+        mode = nextMode === MODE_UPDATE ? MODE_UPDATE : MODE_CREATE;
+        currentRecordId = (mode === MODE_UPDATE && recordId >= 1) ? recordId : null;
+        previousFocus = triggerEl || document.activeElement;
         setStatus('', false);
         setTitleError('');
-        form.reset();
+        applyModeChrome();
+        titleInput.value = typeof titleValue === 'string' ? titleValue : '';
+        if (detailsInput) {
+            detailsInput.value = typeof detailsValue === 'string' ? detailsValue : '';
+        }
         modal.classList.remove('hidden');
         modal.setAttribute('aria-hidden', 'false');
         titleInput.focus();
@@ -121,10 +145,13 @@
         modal.setAttribute('aria-hidden', 'true');
         setStatus('', false);
         setTitleError('');
+        mode = MODE_CREATE;
+        currentRecordId = null;
+        applyModeChrome();
         if (restoreFocus && previousFocus && typeof previousFocus.focus === 'function') {
             previousFocus.focus();
-        } else if (restoreFocus) {
-            openBtn.focus();
+        } else if (restoreFocus && openCreateBtn) {
+            openCreateBtn.focus();
         }
     }
 
@@ -134,6 +161,25 @@
         } catch (e) {
             return null;
         }
+    }
+
+    function parseRecordPayload(raw) {
+        if (typeof raw !== 'string' || raw === '') {
+            return null;
+        }
+        var data = parseJsonSafe(raw);
+        if (!data || typeof data !== 'object') {
+            return null;
+        }
+        var id = typeof data.id === 'number' ? data.id : parseInt(data.id, 10);
+        if (!(id >= 1)) {
+            return null;
+        }
+        return {
+            id: id,
+            title: typeof data.title === 'string' ? data.title : '',
+            details: typeof data.details === 'string' ? data.details : ''
+        };
     }
 
     function clientValidate() {
@@ -152,7 +198,22 @@
         return true;
     }
 
-    function submitCreate() {
+    function defaultErrorMessage() {
+        return mode === MODE_UPDATE
+            ? 'No se pudo actualizar el registro. Inténtalo de nuevo.'
+            : 'No se pudo crear el registro. Inténtalo de nuevo.';
+    }
+
+    function uncertainMessage(message) {
+        if (typeof message === 'string' && message !== '') {
+            return message;
+        }
+        return mode === MODE_UPDATE
+            ? 'No fue posible confirmar si los cambios se guardaron. Revisa el registro antes de intentarlo nuevamente.'
+            : 'No fue posible confirmar si el registro se creó. Revisa la lista antes de intentarlo nuevamente.';
+    }
+
+    function submitForm() {
         if (inFlight) {
             return;
         }
@@ -161,6 +222,13 @@
         if (!clientValidate()) {
             return;
         }
+        if (mode === MODE_UPDATE && !(currentRecordId >= 1)) {
+            setStatus(defaultErrorMessage(), true);
+            return;
+        }
+
+        var action = mode === MODE_UPDATE ? updateAction : createAction;
+        var nonce = mode === MODE_UPDATE ? updateNonce : createNonce;
 
         setBusy(true);
 
@@ -170,6 +238,9 @@
         body.append('family_key', familyKey);
         body.append('variant_key', variantKey);
         body.append('container_id', String(containerId));
+        if (mode === MODE_UPDATE) {
+            body.append('record_id', String(currentRecordId));
+        }
         body.append('title', titleInput.value);
         body.append('details', detailsInput ? detailsInput.value : '');
 
@@ -185,7 +256,7 @@
             var payload = result.payload;
             if (!payload || typeof payload !== 'object') {
                 setBusy(false);
-                setStatus('No se pudo crear el registro. Inténtalo de nuevo.', true);
+                setStatus(defaultErrorMessage(), true);
                 return;
             }
 
@@ -196,7 +267,12 @@
                     return;
                 }
                 setBusy(false);
-                setStatus('El registro se creó, pero no se pudo redirigir. Recarga la lista.', true);
+                setStatus(
+                    mode === MODE_UPDATE
+                        ? 'Los cambios se guardaron, pero no se pudo redirigir. Recarga la lista.'
+                        : 'El registro se creó, pero no se pudo redirigir. Recarga la lista.',
+                    true
+                );
                 return;
             }
 
@@ -206,10 +282,7 @@
             var message = typeof err.message === 'string' ? err.message : '';
 
             if (code === 'uncertain') {
-                setStatus(
-                    message || 'No fue posible confirmar si el registro se creó. Revisa la lista antes de intentarlo nuevamente.',
-                    false
-                );
+                setStatus(uncertainMessage(message), false);
                 return;
             }
             if (code === 'invalid_title' || code === 'title_too_long') {
@@ -217,16 +290,31 @@
                 titleInput.focus();
                 return;
             }
-            setStatus(message || 'No se pudo crear el registro.', true);
+            setStatus(message || defaultErrorMessage(), true);
         }).catch(function () {
             setBusy(false);
-            setStatus('No se pudo crear el registro. Inténtalo de nuevo.', true);
+            setStatus(defaultErrorMessage(), true);
         });
     }
 
-    openBtn.addEventListener('click', function () {
-        openModal();
-    });
+    if (openCreateBtn) {
+        openCreateBtn.addEventListener('click', function () {
+            openModal(MODE_CREATE, null, '', '', openCreateBtn);
+        });
+    }
+
+    var editButtons = document.querySelectorAll('.aa-shell-edit-record-btn');
+    for (var i = 0; i < editButtons.length; i++) {
+        (function (btn) {
+            btn.addEventListener('click', function () {
+                var record = parseRecordPayload(btn.getAttribute('data-aa-record'));
+                if (!record) {
+                    return;
+                }
+                openModal(MODE_UPDATE, record.id, record.title, record.details, btn);
+            });
+        })(editButtons[i]);
+    }
 
     if (closeBtn) {
         closeBtn.addEventListener('click', function () {
@@ -252,6 +340,6 @@
 
     form.addEventListener('submit', function (e) {
         e.preventDefault();
-        submitCreate();
+        submitForm();
     });
 })();
