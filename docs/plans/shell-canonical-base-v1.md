@@ -242,10 +242,10 @@ Cuando la propuesta sea aprobada, el prompt de implementación será una autoriz
 - **Ruta vigente (PCU y continuación del shell):**
   1. **PCU-0** — auditoría y propuesta arquitectónica: **completada**.
   2. **PCU-1** — reconciliación documental e inicialización de la ruta: **completada** (`c5f97ee`).
-  3. **PCU-2** — schema universal aditivo y tests MySQL: **implementado en working tree (sin commit).** Crea vacías `aa_canonical_families`, `aa_canonical_containers`, `aa_canonical_records`; `DB_VERSION=21`; `AA_Canonical_Schema` con FK RESTRICT/CASCADE y `verify()` fail-closed. Sin filas, sin repositorio, sin adaptadores, sin bindings. **PCU-3 todavía no comenzó.**
-  4. **PCU-3** — repositorio y adaptadores relacionales estándar.
+  3. **PCU-2** — schema universal aditivo y tests MySQL: **completada** (`6fcb124`). Tablas vacías `aa_canonical_families`, `aa_canonical_containers`, `aa_canonical_records`; `DB_VERSION=21`; `AA_Canonical_Schema` con FK RESTRICT/CASCADE y `verify()` fail-closed.
+  4. **PCU-3** — repositorio y adaptadores relacionales universales: **implementado en working tree (sin commit).** `CanonicalRelationalRepository` + `AA_Canonical_Relational_Read_Adapter` / `AA_Canonical_Relational_Write_Adapter`; excepciones `CanonicalRelationalQueryFailed` / `CanonicalRelationalAmbiguousOutcome` / `CanonicalReadPersistenceFailed`; Use Cases read mapean fallos de persistencia a `contract_error`. **Sin binding productivo, sin conexión del shell, sin adaptar Finance legacy.** Fail-on-duplicate de registries **diferido obligatoriamente a PCU-5**. **PCU-4 no iniciado.**
   5. **PCU-4** — catálogo de familias/variantes y provisioning idempotente.
-  6. **PCU-5** — bindings productivos y reconexión de lectura/escritura del shell.
+  6. **PCU-5** — bindings productivos, reconexión de lectura/escritura del shell y fail-on-duplicate en registries.
   7. **SB1-5B+** — shell visual base: header, toolbar, FAB, modales y CRUD `title`/`details`.
   8. **SET-1** — activación de familias/presets desde Settings.
   9. **CAP-1 / CAP-2 / CAP-3** — sistema de capabilities; `monetary_amount`; agregado monetario; imágenes.

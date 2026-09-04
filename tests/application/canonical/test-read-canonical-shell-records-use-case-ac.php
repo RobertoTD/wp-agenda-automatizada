@@ -119,6 +119,24 @@ $bad_reg->register(
 $contract = (new ReadCanonicalShellRecordsUseCase(new CanonicalReadGateway($bad_reg)))->execute($manifest, 1, 1);
 ac_assert('Contract error state', $contract->state() === CanonicalShellRecordsReadResult::STATE_CONTRACT_ERROR);
 
+require_once $plugin_root . '/includes/application/canonical/CanonicalReadPersistenceFailed.php';
+final class PersistenceFailRecordsAdapter implements CanonicalReadAdapter {
+    public function list_containers(string $variant_key, int $page, int $per_page): CanonicalPage {
+        return new CanonicalPage([], 1, $per_page, 0, 0, false, false);
+    }
+    public function get_container(string $variant_key, int $container_id): AA_Canonical_Container {
+        throw new CanonicalReadPersistenceFailed(CanonicalReadPersistenceFailed::REASON_SQL, 'boom');
+    }
+    public function list_records(string $variant_key, int $container_id, int $page, int $per_page): CanonicalRecordsPage {
+        throw new CanonicalReadPersistenceFailed(CanonicalReadPersistenceFailed::REASON_SQL, 'boom');
+    }
+}
+$persist_reg = new AA_Canonical_Read_Binding_Registry();
+$persist_reg->register($manifest->identity(), new PersistenceFailRecordsAdapter());
+$persist = (new ReadCanonicalShellRecordsUseCase(new CanonicalReadGateway($persist_reg)))->execute($manifest, 1, 1);
+ac_assert('ReadPersistenceFailed → contract_error', $persist->state() === CanonicalShellRecordsReadResult::STATE_CONTRACT_ERROR);
+ac_assert('ReadPersistenceFailed no empty page', $persist->page() === null && $persist->container() === null);
+
 $uc_src = file_get_contents($plugin_root . '/includes/application/canonical/ReadCanonicalShellRecordsUseCase.php');
 ac_assert('Use case has no preview/GET/HTTP', strpos($uc_src, 'preview') === false
     && strpos($uc_src, '$_GET') === false

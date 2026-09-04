@@ -99,6 +99,25 @@ $contract = $uc->execute($bad_manifest, 1);
 ac_assert('Contract violation → contract_error', $contract->state() === CanonicalShellReadResult::STATE_CONTRACT_ERROR);
 ac_assert('Contract error has null page', $contract->page() === null);
 
+// Persistence failure → contract_error (no empty page)
+require_once $plugin_root . '/includes/application/canonical/CanonicalReadPersistenceFailed.php';
+final class PersistenceFailAdapter implements CanonicalReadAdapter {
+    public function list_containers(string $variant_key, int $page, int $per_page): CanonicalPage {
+        throw new CanonicalReadPersistenceFailed(CanonicalReadPersistenceFailed::REASON_SQL, 'boom');
+    }
+    public function get_container(string $variant_key, int $container_id): AA_Canonical_Container {
+        throw new CanonicalContainerNotFound($variant_key, $container_id);
+    }
+    public function list_records(string $variant_key, int $container_id, int $page, int $per_page): CanonicalRecordsPage {
+        throw new CanonicalContainerNotFound($variant_key, $container_id);
+    }
+}
+$persist_manifest = make_manifest('sample', 'persist', 'Muestra', 'Persist');
+$registry->register($persist_manifest->identity(), new PersistenceFailAdapter());
+$persist = $uc->execute($persist_manifest, 1);
+ac_assert('ReadPersistenceFailed → contract_error', $persist->state() === CanonicalShellReadResult::STATE_CONTRACT_ERROR);
+ac_assert('ReadPersistenceFailed no empty page', $persist->page() === null);
+
 // Unexpected InvalidArgumentException must propagate
 final class WeirdAdapter implements CanonicalReadAdapter {
     public function list_containers(string $variant_key, int $page, int $per_page): CanonicalPage {

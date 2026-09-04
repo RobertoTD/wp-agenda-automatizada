@@ -20,6 +20,9 @@ if (!class_exists('CanonicalReadGateway')) {
 if (!class_exists('CanonicalReadBindingNotFound')) {
     require_once __DIR__ . '/CanonicalReadBindingNotFound.php';
 }
+if (!class_exists('CanonicalReadPersistenceFailed')) {
+    require_once __DIR__ . '/CanonicalReadPersistenceFailed.php';
+}
 
 final class ReadCanonicalShellContainersUseCase {
 
@@ -35,6 +38,8 @@ final class ReadCanonicalShellContainersUseCase {
             $canonical_page = $this->gateway->list_containers($manifest->identity(), $page);
         } catch (CanonicalReadBindingNotFound $e) {
             return CanonicalShellReadResult::read_adapter_pending($manifest);
+        } catch (CanonicalReadPersistenceFailed $e) {
+            return CanonicalShellReadResult::contract_error($manifest);
         } catch (\InvalidArgumentException $e) {
             if (strpos($e->getMessage(), '[invalid_page_contract]') === 0) {
                 return CanonicalShellReadResult::contract_error($manifest);

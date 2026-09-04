@@ -23,6 +23,9 @@ if (!class_exists('CanonicalReadBindingNotFound')) {
 if (!class_exists('CanonicalContainerNotFound')) {
     require_once __DIR__ . '/CanonicalContainerNotFound.php';
 }
+if (!class_exists('CanonicalReadPersistenceFailed')) {
+    require_once __DIR__ . '/CanonicalReadPersistenceFailed.php';
+}
 
 final class ReadCanonicalShellRecordsUseCase {
 
@@ -49,6 +52,8 @@ final class ReadCanonicalShellRecordsUseCase {
             return CanonicalShellRecordsReadResult::read_adapter_pending($manifest);
         } catch (CanonicalContainerNotFound $e) {
             return CanonicalShellRecordsReadResult::container_not_found($manifest);
+        } catch (CanonicalReadPersistenceFailed $e) {
+            return CanonicalShellRecordsReadResult::contract_error($manifest);
         } catch (\InvalidArgumentException $e) {
             if (strpos($e->getMessage(), '[invalid_page_contract]') === 0) {
                 return CanonicalShellRecordsReadResult::contract_error($manifest);
