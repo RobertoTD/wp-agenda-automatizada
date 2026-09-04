@@ -49,7 +49,9 @@ $built_registry = AA_Canonical_Core_Bootstrap::build_registry();
 ac_assert('build_registry() returns AA_Canonical_Registry', $built_registry instanceof AA_Canonical_Registry);
 ac_assert('build_registry() returns frozen registry', $built_registry->is_frozen() === true);
 ac_assert('build_registry() contains finance family', $built_registry->has_family('finance') === true);
-ac_assert('build_registry() contains general variant', $built_registry->has_variant('finance', 'general') === true);
+ac_assert('build_registry() contains finance.general variant', $built_registry->has_variant('finance', 'general') === true);
+ac_assert('build_registry() contains archive family', $built_registry->has_family('archive') === true);
+ac_assert('build_registry() contains archive.general variant', $built_registry->has_variant('archive', 'general') === true);
 
 // instance() still fails because build_registry did not publish
 $threw_still_not_bootstrapped = false;
@@ -80,9 +82,20 @@ ac_assert('Family "finance" key is "finance"', $family_finance->key() === 'finan
 ac_assert('Family "finance" label is "Finanzas"', $family_finance->label() === 'Finanzas');
 ac_assert('Family "finance" default_variant_key is "general"', $family_finance->default_variant_key() === 'general');
 
+$family_archive = $instance->family('archive');
+ac_assert('Family "archive" exists', $family_archive instanceof AA_Canonical_Family_Definition);
+ac_assert('Family "archive" key is "archive"', $family_archive->key() === 'archive');
+ac_assert('Family "archive" label is "Archivo"', $family_archive->label() === 'Archivo');
+ac_assert('Family "archive" default_variant_key is "general"', $family_archive->default_variant_key() === 'general');
+
 $families = $instance->families();
-ac_assert('Only 1 family registered', count($families) === 1);
-ac_assert('Single family registered is finance', $families[0]->key() === 'finance');
+ac_assert('Exactly 2 productive families registered', count($families) === 2);
+$family_keys = array_map(static function ($f) {
+    return $f->key();
+}, $families);
+sort($family_keys);
+ac_assert('Families are archive and finance', $family_keys === ['archive', 'finance']);
+ac_assert('Preview family is not in productive catalog', $instance->has_family('shell_preview') === false);
 
 $variant_general = $instance->variant('finance', 'general');
 ac_assert('Variant "general" for "finance" exists', $variant_general instanceof AA_Canonical_Variant_Definition);
@@ -91,9 +104,16 @@ ac_assert('Variant key is "general"', $variant_general->key() === 'general');
 ac_assert('Variant label is "General"', $variant_general->label() === 'General');
 ac_assert('Variant qualified_key is "finance.general"', $variant_general->qualified_key() === 'finance.general');
 
+$archive_variant = $instance->variant('archive', 'general');
+ac_assert('Variant archive.general exists', $archive_variant->qualified_key() === 'archive.general');
+ac_assert('Variant archive.general label is General', $archive_variant->label() === 'General');
+
 $finance_variants = $instance->variants_for('finance');
 ac_assert('Only 1 variant registered for finance', count($finance_variants) === 1);
 ac_assert('Variant in list is general', $finance_variants[0]->key() === 'general');
+
+$archive_variants = $instance->variants_for('archive');
+ac_assert('Only 1 variant registered for archive', count($archive_variants) === 1);
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 

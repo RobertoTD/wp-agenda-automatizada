@@ -50,6 +50,21 @@ ac_assert('Variant key matches', ($res1['data']['variant'] ?? null) instanceof A
 ac_assert('Variant label matches', $res1['data']['variant']->label() === 'General');
 ac_assert('used_default_variant is false when explicit', ($res1['data']['used_default_variant'] ?? null) === false);
 
+// 1b. Archive resolution
+$res_arch = $use_case->execute([
+    'family_key' => 'archive',
+    'variant_key' => 'general',
+]);
+ac_assert('Explicit archive.general success', $res_arch['success'] === true);
+ac_assert('Archive family key', $res_arch['data']['family']->key() === 'archive');
+ac_assert('Archive family label Archivo', $res_arch['data']['family']->label() === 'Archivo');
+ac_assert('Archive variant general', $res_arch['data']['variant']->key() === 'general');
+
+$res_arch_def = $use_case->execute(['family_key' => 'archive']);
+ac_assert('Archive without variant uses general', $res_arch_def['success'] === true
+    && $res_arch_def['data']['variant']->key() === 'general'
+    && $res_arch_def['data']['used_default_variant'] === true);
+
 // 2. Default variant resolution when variant_key is omitted (not present or null)
 $res2 = $use_case->execute([
     'family_key' => 'finance',

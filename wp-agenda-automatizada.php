@@ -99,6 +99,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/auth-helper.php';
 // 1️⃣b Infrastructure: WP schema lifecycle (activation hook)
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/FinanceSchema.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/Schema.php';
+require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-family-catalog-lifecycle.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/LearningCatalogSeedLifecycle.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/AppointmentActionsListSeedLifecycle.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/LearningStateMigrationLifecycle.php';
@@ -347,6 +348,7 @@ FinanceRecordsAjax::register();
 // 🔹 Schema lifecycle: registra el activation hook con AA_Schema::install
 // ===============================
 AA_Schema::register(__FILE__);
+AA_Canonical_Family_Catalog_Lifecycle::register(__FILE__);
 AA_Learning_Catalog_Seed_Lifecycle::register(__FILE__);
 AA_Appointment_Actions_List_Seed_Lifecycle::register(__FILE__);
 AA_Learning_State_Migration_Lifecycle::register(__FILE__);
