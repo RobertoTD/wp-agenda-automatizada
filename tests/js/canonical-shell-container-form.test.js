@@ -79,12 +79,29 @@ function boot(fetchImpl, payloads) {
     const closeBtn = createEl('aa-shell-container-modal-close-btn');
     const backdrop = createEl('aa-shell-container-modal-backdrop');
 
+    const deleteModal = createEl('aa-shell-delete-container-modal');
+    const deleteBackdrop = createEl('aa-shell-delete-container-modal-backdrop');
+    const deleteCloseBtn = createEl('aa-shell-delete-container-modal-close-btn');
+    const deleteCancelBtn = createEl('aa-shell-delete-container-modal-cancel-btn');
+    const deleteConfirmBtn = createEl('aa-shell-delete-container-confirm-btn');
+    const deleteReloadBtn = createEl('aa-shell-delete-container-reload-btn');
+    deleteReloadBtn.classList.add('hidden');
+    const deleteTitleEl = createEl('aa-shell-delete-container-title');
+    const deleteStatusEl = createEl('aa-shell-delete-container-status');
+    deleteStatusEl.classList.add('hidden');
+
     const editBtns = [];
+    const deleteBtns = [];
     (payloads || []).forEach((payload, idx) => {
         const editBtn = createEl('aa-shell-edit-container-btn-' + idx);
         editBtn.className = 'aa-shell-edit-container-btn';
         editBtn.setAttribute('data-aa-container', JSON.stringify(payload));
         editBtns.push(editBtn);
+
+        const delBtn = createEl('aa-shell-delete-container-btn-' + idx);
+        delBtn.className = 'aa-shell-delete-container-btn';
+        delBtn.setAttribute('data-aa-container', JSON.stringify(payload));
+        deleteBtns.push(delBtn);
     });
 
     const byId = {
@@ -99,12 +116,21 @@ function boot(fetchImpl, payloads) {
         'aa-shell-container-details': detailsInput,
         'aa-shell-container-title-error': titleError,
         'aa-shell-container-status': statusEl,
-        'aa-shell-container-submit-btn': submitBtn
+        'aa-shell-container-submit-btn': submitBtn,
+        'aa-shell-delete-container-modal': deleteModal,
+        'aa-shell-delete-container-modal-backdrop': deleteBackdrop,
+        'aa-shell-delete-container-modal-close-btn': deleteCloseBtn,
+        'aa-shell-delete-container-modal-cancel-btn': deleteCancelBtn,
+        'aa-shell-delete-container-confirm-btn': deleteConfirmBtn,
+        'aa-shell-delete-container-reload-btn': deleteReloadBtn,
+        'aa-shell-delete-container-title': deleteTitleEl,
+        'aa-shell-delete-container-status': deleteStatusEl
     };
 
     const documentListeners = {};
     let assignedUrl = null;
     let fetchCalls = 0;
+    let reloaded = false;
 
     documentRef = {
         activeElement: openBtn,
@@ -114,6 +140,9 @@ function boot(fetchImpl, payloads) {
         querySelectorAll(selector) {
             if (selector === '.aa-shell-edit-container-btn') {
                 return editBtns;
+            }
+            if (selector === '.aa-shell-delete-container-btn') {
+                return deleteBtns;
             }
             return [];
         },
@@ -131,6 +160,8 @@ function boot(fetchImpl, payloads) {
                 createNonce: 'create-nonce',
                 updateAction: 'aa_update_canonical_container',
                 updateNonce: 'update-nonce',
+                deleteAction: 'aa_delete_canonical_container',
+                deleteNonce: 'delete-nonce',
                 familyKey: 'finance',
                 variantKey: 'general',
                 maxTitleLength: 200
@@ -138,6 +169,9 @@ function boot(fetchImpl, payloads) {
             location: {
                 assign(url) {
                     assignedUrl = url;
+                },
+                reload() {
+                    reloaded = true;
                 }
             },
             document: documentRef
@@ -166,7 +200,9 @@ function boot(fetchImpl, payloads) {
     return {
         openBtn,
         editBtns,
+        deleteBtns,
         modal,
+        deleteModal,
         modalTitle,
         form,
         titleInput,
@@ -174,10 +210,16 @@ function boot(fetchImpl, payloads) {
         titleError,
         statusEl,
         submitBtn,
+        deleteTitleEl,
+        deleteStatusEl,
+        deleteConfirmBtn,
+        deleteCancelBtn,
+        deleteReloadBtn,
         documentListeners,
         getAssignedUrl: () => assignedUrl,
         getFetchCalls: () => fetchCalls,
-        getLastFormData: () => lastFormData
+        getLastFormData: () => lastFormData,
+        getReloaded: () => reloaded
     };
 }
 
@@ -215,7 +257,6 @@ describe('canonical-shell-container-form', () => {
         ui.editBtns[1]._listeners.click[0]();
         assert.equal(ui.titleInput.value, 'Lista B');
         assert.equal(ui.detailsInput.value, '');
-        assert.ok(ui.editBtns[1].focusCalls >= 1 || true, 'edit trigger tracked');
     });
 
     it('pasar de update a create limpia campos', () => {
@@ -284,7 +325,107 @@ describe('canonical-shell-container-form', () => {
         );
     });
 
-    it('uncertain no navega y restaura controles', async () => {
+    it('delete: abre confirmación con título seguro y foco Cancelar', () => {
+        const ui = boot(async () => ({ status: 200, text: async () => '{}' }), [
+            { id: 9, title: 'Lista "X" <b>', details: '' },
+            { id: 10, title: 'Otra', details: '' }
+        ]);
+        ui.deleteBtns[0]._listeners.click[0]();
+        assert.equal(ui.deleteModal.classList.contains('hidden'), false);
+        assert.equal(ui.deleteTitleEl.textContent, 'Lista "X" <b>');
+        assert.ok(ui.deleteCancelBtn.focusCalls >= 1, 'focus cancel');
+        ui.documentListeners.keydown[0]({ key: 'Escape' });
+        assert.equal(ui.deleteModal.classList.contains('hidden'), true);
+        assert.ok(ui.deleteBtns[0].focusCalls >= 1, 'restore delete trigger');
+
+        ui.deleteBtns[1]._listeners.click[0]();
+        assert.equal(ui.deleteTitleEl.textContent, 'Otra');
+    });
+
+    it('delete: doble submit una petición y redirect', async () => {
+        const ui = boot(async () => ({
+            status: 200,
+            text: async () => JSON.stringify({
+                success: true,
+                data: {
+                    status: 'confirmed',
+                    redirect_url: 'https://example.test/list?family=finance&variant=general'
+                }
+            })
+        }), [
+            { id: 4, title: 'Borrar', details: '' }
+        ]);
+        ui.deleteBtns[0]._listeners.click[0]();
+        ui.deleteConfirmBtn._listeners.click[0]();
+        ui.deleteConfirmBtn._listeners.click[0]();
+        assert.equal(ui.getFetchCalls(), 1);
+        assert.equal(ui.getLastFormData().action, 'aa_delete_canonical_container');
+        assert.equal(ui.getLastFormData().nonce, 'delete-nonce');
+        assert.equal(ui.getLastFormData().container_id, '4');
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(
+            ui.getAssignedUrl(),
+            'https://example.test/list?family=finance&variant=general'
+        );
+    });
+
+    it('delete uncertain bloquea retry y muestra recarga', async () => {
+        const ui = boot(async () => ({
+            status: 409,
+            text: async () => JSON.stringify({
+                success: false,
+                data: {
+                    code: 'uncertain',
+                    message: 'No fue posible confirmar si la lista se eliminó. Recarga el listado para verificarlo antes de intentarlo nuevamente.',
+                    redirect_url: 'https://example.test/list?family=finance&variant=general'
+                }
+            })
+        }), [
+            { id: 6, title: 'X', details: '' }
+        ]);
+        ui.deleteBtns[0]._listeners.click[0]();
+        ui.deleteConfirmBtn._listeners.click[0]();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(ui.getFetchCalls(), 1);
+        assert.equal(ui.getAssignedUrl(), null);
+        assert.equal(ui.deleteConfirmBtn.disabled, true);
+        assert.equal(ui.deleteReloadBtn.classList.contains('hidden'), false);
+        assert.ok(ui.deleteStatusEl.textContent.indexOf('Recarga el listado') !== -1);
+
+        ui.deleteConfirmBtn._listeners.click[0]();
+        assert.equal(ui.getFetchCalls(), 1);
+
+        ui.deleteReloadBtn._listeners.click[0]();
+        assert.equal(
+            ui.getAssignedUrl(),
+            'https://example.test/list?family=finance&variant=general'
+        );
+    });
+
+    it('delete persistence_failed permite retry', async () => {
+        let calls = 0;
+        const ui = boot(async () => {
+            calls += 1;
+            return {
+                status: 500,
+                text: async () => JSON.stringify({
+                    success: false,
+                    data: { code: 'persistence_failed', message: 'No se pudo eliminar la lista.' }
+                })
+            };
+        }, [
+            { id: 2, title: 'Retry', details: '' }
+        ]);
+        ui.deleteBtns[0]._listeners.click[0]();
+        ui.deleteConfirmBtn._listeners.click[0]();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(ui.deleteConfirmBtn.disabled, false);
+        ui.deleteConfirmBtn._listeners.click[0]();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(calls, 2);
+    });
+
+    it('uncertain update no navega y restaura controles', async () => {
         const ui = boot(async () => ({
             status: 409,
             text: async () => JSON.stringify({

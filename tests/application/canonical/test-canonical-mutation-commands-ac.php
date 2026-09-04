@@ -66,6 +66,13 @@ ac_assert('Update container empty details → null', $u_empty->details() === nul
 $d = new CanonicalDeleteContainerCommand(3);
 ac_assert('Delete container id', $d->container_id() === 3);
 
+try {
+    new CanonicalDeleteContainerCommand(0);
+    ac_assert('Delete container rejects id 0', false);
+} catch (\InvalidArgumentException $e) {
+    ac_assert('Delete container rejects id 0', strpos($e->getMessage(), '[invalid_container_id]') === 0);
+}
+
 $r = new CanonicalCreateRecordCommand(2, 'Registro', null);
 ac_assert('Create record fields', $r->container_id() === 2 && $r->title() === 'Registro');
 

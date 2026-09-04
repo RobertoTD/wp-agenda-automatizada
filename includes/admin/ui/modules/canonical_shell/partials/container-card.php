@@ -62,6 +62,14 @@ if ($show_edit_container && $card_container_id >= 1) {
                 >
                     Editar
                 </button>
+                <button
+                    type="button"
+                    class="aa-shell-delete-container-btn inline-flex items-center px-3 py-1.5 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                    data-aa-container="<?php echo $edit_payload_attr; ?>"
+                    aria-label="<?php echo esc_attr('Eliminar lista: ' . $card_title); ?>"
+                >
+                    Eliminar
+                </button>
             </div>
         <?php endif; ?>
     </article>

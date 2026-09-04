@@ -366,6 +366,9 @@ CanonicalCreateContainerAjax::register();
 require_once __DIR__ . '/includes/http/ajax/CanonicalUpdateContainerAjax.php';
 CanonicalUpdateContainerAjax::register();
 
+require_once __DIR__ . '/includes/http/ajax/CanonicalDeleteContainerAjax.php';
+CanonicalDeleteContainerAjax::register();
+
 require_once __DIR__ . '/includes/http/ajax/CanonicalCreateRecordAjax.php';
 CanonicalCreateRecordAjax::register();
 

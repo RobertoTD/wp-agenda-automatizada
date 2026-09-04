@@ -1,5 +1,5 @@
 /**
- * Canonical Shell — create/update de contenedor universal (SB1-5B1 / SB1-5B5).
+ * Canonical Shell — create/update/delete de contenedor universal (SB1-5B1 / SB1-5B5 / SB1-5B6).
  */
 (function () {
     'use strict';
@@ -14,11 +14,14 @@
     var createNonce = typeof cfg.createNonce === 'string' ? cfg.createNonce : '';
     var updateAction = typeof cfg.updateAction === 'string' ? cfg.updateAction : '';
     var updateNonce = typeof cfg.updateNonce === 'string' ? cfg.updateNonce : '';
+    var deleteAction = typeof cfg.deleteAction === 'string' ? cfg.deleteAction : '';
+    var deleteNonce = typeof cfg.deleteNonce === 'string' ? cfg.deleteNonce : '';
     var familyKey = typeof cfg.familyKey === 'string' ? cfg.familyKey : '';
     var variantKey = typeof cfg.variantKey === 'string' ? cfg.variantKey : '';
     var maxTitleLength = typeof cfg.maxTitleLength === 'number' ? cfg.maxTitleLength : 200;
 
     if (!ajaxUrl || !createAction || !createNonce || !updateAction || !updateNonce
+        || !deleteAction || !deleteNonce
         || !familyKey || !variantKey) {
         return;
     }
@@ -36,6 +39,15 @@
     var statusEl = document.getElementById('aa-shell-container-status');
     var submitBtn = document.getElementById('aa-shell-container-submit-btn');
 
+    var deleteModal = document.getElementById('aa-shell-delete-container-modal');
+    var deleteBackdrop = document.getElementById('aa-shell-delete-container-modal-backdrop');
+    var deleteCloseBtn = document.getElementById('aa-shell-delete-container-modal-close-btn');
+    var deleteCancelBtn = document.getElementById('aa-shell-delete-container-modal-cancel-btn');
+    var deleteConfirmBtn = document.getElementById('aa-shell-delete-container-confirm-btn');
+    var deleteReloadBtn = document.getElementById('aa-shell-delete-container-reload-btn');
+    var deleteTitleEl = document.getElementById('aa-shell-delete-container-title');
+    var deleteStatusEl = document.getElementById('aa-shell-delete-container-status');
+
     if (!modal || !form || !titleInput || !submitBtn || !modalTitle) {
         return;
     }
@@ -46,6 +58,12 @@
     var currentContainerId = null;
     var inFlight = false;
     var previousFocus = null;
+
+    var deleteContainerId = null;
+    var deleteInFlight = false;
+    var deleteBlocked = false;
+    var deletePreviousFocus = null;
+    var deleteRedirectUrl = null;
 
     function setStatus(message, isError) {
         if (!statusEl) {
@@ -118,7 +136,10 @@
     }
 
     function openModal(nextMode, containerId, titleValue, detailsValue, triggerEl) {
-        if (inFlight) {
+        if (inFlight || deleteInFlight || deleteBlocked) {
+            return;
+        }
+        if (deleteModal && !deleteModal.classList.contains('hidden')) {
             return;
         }
         mode = nextMode === MODE_UPDATE ? MODE_UPDATE : MODE_CREATE;
@@ -213,7 +234,7 @@
     }
 
     function submitForm() {
-        if (inFlight) {
+        if (inFlight || deleteInFlight || deleteBlocked) {
             return;
         }
         setStatus('', false);
@@ -295,6 +316,201 @@
         });
     }
 
+    function setDeleteStatus(message, isError) {
+        if (!deleteStatusEl) {
+            return;
+        }
+        if (!message) {
+            deleteStatusEl.textContent = '';
+            deleteStatusEl.classList.add('hidden');
+            deleteStatusEl.classList.remove('bg-red-50', 'text-red-700', 'bg-amber-50', 'text-amber-900');
+            return;
+        }
+        deleteStatusEl.textContent = message;
+        deleteStatusEl.classList.remove('hidden');
+        if (isError) {
+            deleteStatusEl.classList.add('bg-red-50', 'text-red-700');
+            deleteStatusEl.classList.remove('bg-amber-50', 'text-amber-900');
+        } else {
+            deleteStatusEl.classList.add('bg-amber-50', 'text-amber-900');
+            deleteStatusEl.classList.remove('bg-red-50', 'text-red-700');
+        }
+    }
+
+    function setDeleteBusy(busy) {
+        deleteInFlight = busy;
+        if (deleteConfirmBtn) {
+            deleteConfirmBtn.disabled = busy || deleteBlocked;
+            if (busy) {
+                deleteConfirmBtn.setAttribute('aria-busy', 'true');
+            } else {
+                deleteConfirmBtn.removeAttribute('aria-busy');
+            }
+        }
+        if (deleteCancelBtn) {
+            deleteCancelBtn.disabled = busy;
+        }
+        if (deleteCloseBtn) {
+            deleteCloseBtn.disabled = busy;
+        }
+        if (deleteModal) {
+            if (busy) {
+                deleteModal.setAttribute('aria-busy', 'true');
+            } else {
+                deleteModal.removeAttribute('aria-busy');
+            }
+        }
+    }
+
+    function showDeleteReload(show) {
+        if (!deleteReloadBtn) {
+            return;
+        }
+        if (show) {
+            deleteReloadBtn.classList.remove('hidden');
+        } else {
+            deleteReloadBtn.classList.add('hidden');
+        }
+    }
+
+    function openDeleteModal(containerId, titleValue, triggerEl) {
+        if (!deleteModal || !deleteConfirmBtn || !deleteTitleEl) {
+            return;
+        }
+        if (inFlight || deleteInFlight || deleteBlocked) {
+            return;
+        }
+        if (!modal.classList.contains('hidden')) {
+            return;
+        }
+        if (!(containerId >= 1)) {
+            return;
+        }
+
+        deleteContainerId = containerId;
+        deletePreviousFocus = triggerEl || document.activeElement;
+        deleteRedirectUrl = null;
+        deleteBlocked = false;
+        setDeleteStatus('', false);
+        showDeleteReload(false);
+        deleteTitleEl.textContent = typeof titleValue === 'string' ? titleValue : '';
+        if (deleteConfirmBtn) {
+            deleteConfirmBtn.disabled = false;
+        }
+        deleteModal.classList.remove('hidden');
+        deleteModal.setAttribute('aria-hidden', 'false');
+        if (deleteCancelBtn) {
+            deleteCancelBtn.focus();
+        }
+    }
+
+    function closeDeleteModal(restoreFocus) {
+        if (!deleteModal) {
+            return;
+        }
+        if (deleteInFlight) {
+            return;
+        }
+        if (deleteBlocked) {
+            return;
+        }
+        deleteModal.classList.add('hidden');
+        deleteModal.setAttribute('aria-hidden', 'true');
+        setDeleteStatus('', false);
+        showDeleteReload(false);
+        deleteContainerId = null;
+        deleteRedirectUrl = null;
+        if (deleteTitleEl) {
+            deleteTitleEl.textContent = '';
+        }
+        if (restoreFocus && deletePreviousFocus && typeof deletePreviousFocus.focus === 'function') {
+            deletePreviousFocus.focus();
+        }
+    }
+
+    function submitDelete() {
+        if (!deleteModal || deleteInFlight || deleteBlocked) {
+            return;
+        }
+        if (!(deleteContainerId >= 1)) {
+            setDeleteStatus('No se pudo eliminar la lista. Inténtalo de nuevo.', true);
+            return;
+        }
+
+        setDeleteStatus('', false);
+        showDeleteReload(false);
+        setDeleteBusy(true);
+
+        var body = new FormData();
+        body.append('action', deleteAction);
+        body.append('nonce', deleteNonce);
+        body.append('family_key', familyKey);
+        body.append('variant_key', variantKey);
+        body.append('container_id', String(deleteContainerId));
+
+        fetch(ajaxUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: body
+        }).then(function (response) {
+            return response.text().then(function (text) {
+                return { httpStatus: response.status, payload: parseJsonSafe(text) };
+            });
+        }).then(function (result) {
+            var payload = result.payload;
+            if (!payload || typeof payload !== 'object') {
+                setDeleteBusy(false);
+                setDeleteStatus('No se pudo eliminar la lista. Inténtalo de nuevo.', true);
+                return;
+            }
+
+            if (payload.success === true && payload.data && payload.data.status === 'confirmed') {
+                var redirect = payload.data.redirect_url;
+                if (typeof redirect === 'string' && redirect !== '') {
+                    window.location.assign(redirect);
+                    return;
+                }
+                setDeleteBusy(false);
+                setDeleteStatus('La lista se eliminó, pero no se pudo redirigir. Recarga el listado.', true);
+                return;
+            }
+
+            var err = payload.data || {};
+            var code = typeof err.code === 'string' ? err.code : '';
+            var message = typeof err.message === 'string' ? err.message : '';
+            var errRedirect = typeof err.redirect_url === 'string' ? err.redirect_url : '';
+
+            if (code === 'uncertain') {
+                deleteBlocked = true;
+                deleteRedirectUrl = errRedirect !== '' ? errRedirect : null;
+                setDeleteBusy(false);
+                if (deleteConfirmBtn) {
+                    deleteConfirmBtn.disabled = true;
+                }
+                setDeleteStatus(
+                    message || 'No fue posible confirmar si la lista se eliminó. Recarga el listado para verificarlo antes de intentarlo nuevamente.',
+                    false
+                );
+                showDeleteReload(true);
+                return;
+            }
+
+            setDeleteBusy(false);
+            setDeleteStatus(message || 'No se pudo eliminar la lista. Inténtalo de nuevo.', true);
+        }).catch(function () {
+            setDeleteBusy(false);
+            setDeleteStatus('No se pudo eliminar la lista. Inténtalo de nuevo.', true);
+        });
+    }
+
+    function reloadAfterUncertain() {
+        if (typeof deleteRedirectUrl === 'string' && deleteRedirectUrl !== '') {
+            window.location.assign(deleteRedirectUrl);
+            return;
+        }
+        window.location.reload();
+    }
+
     if (openCreateBtn) {
         openCreateBtn.addEventListener('click', function () {
             openModal(MODE_CREATE, null, '', '', openCreateBtn);
@@ -314,6 +530,19 @@
         })(editButtons[i]);
     }
 
+    var deleteButtons = document.querySelectorAll('.aa-shell-delete-container-btn');
+    for (var d = 0; d < deleteButtons.length; d++) {
+        (function (btn) {
+            btn.addEventListener('click', function () {
+                var container = parseContainerPayload(btn.getAttribute('data-aa-container'));
+                if (!container) {
+                    return;
+                }
+                openDeleteModal(container.id, container.title, btn);
+            });
+        })(deleteButtons[d]);
+    }
+
     if (closeBtn) {
         closeBtn.addEventListener('click', function () {
             closeModal(true);
@@ -330,8 +559,43 @@
         });
     }
 
+    if (deleteCloseBtn) {
+        deleteCloseBtn.addEventListener('click', function () {
+            closeDeleteModal(true);
+        });
+    }
+    if (deleteCancelBtn) {
+        deleteCancelBtn.addEventListener('click', function () {
+            closeDeleteModal(true);
+        });
+    }
+    if (deleteBackdrop) {
+        deleteBackdrop.addEventListener('click', function () {
+            closeDeleteModal(true);
+        });
+    }
+    if (deleteConfirmBtn) {
+        deleteConfirmBtn.addEventListener('click', function () {
+            submitDelete();
+        });
+    }
+    if (deleteReloadBtn) {
+        deleteReloadBtn.addEventListener('click', function () {
+            reloadAfterUncertain();
+        });
+    }
+
     document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && modal && !modal.classList.contains('hidden')) {
+        if (e.key !== 'Escape') {
+            return;
+        }
+        if (deleteModal && !deleteModal.classList.contains('hidden')) {
+            if (!deleteBlocked) {
+                closeDeleteModal(true);
+            }
+            return;
+        }
+        if (modal && !modal.classList.contains('hidden')) {
             closeModal(true);
         }
     });

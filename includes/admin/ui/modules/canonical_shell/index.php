@@ -437,6 +437,9 @@ $show_create_record_ui = $show_read_ui
     if (!class_exists('CanonicalUpdateContainerAjax')) {
         require_once dirname(__DIR__, 4) . '/http/ajax/CanonicalUpdateContainerAjax.php';
     }
+    if (!class_exists('CanonicalDeleteContainerAjax')) {
+        require_once dirname(__DIR__, 4) . '/http/ajax/CanonicalDeleteContainerAjax.php';
+    }
     if (!class_exists('CanonicalCreateContainerCommand')) {
         require_once dirname(__DIR__, 4) . '/application/canonical/CanonicalCreateContainerCommand.php';
     }
@@ -536,6 +539,8 @@ $show_create_record_ui = $show_read_ui
         createNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalCreateContainerAjax::NONCE_ACTION)); ?>,
         updateAction: <?php echo wp_json_encode(CanonicalUpdateContainerAjax::ACTION); ?>,
         updateNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalUpdateContainerAjax::NONCE_ACTION)); ?>,
+        deleteAction: <?php echo wp_json_encode(CanonicalDeleteContainerAjax::ACTION); ?>,
+        deleteNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalDeleteContainerAjax::NONCE_ACTION)); ?>,
         familyKey: <?php echo wp_json_encode($create_family_key); ?>,
         variantKey: <?php echo wp_json_encode($create_variant_key); ?>,
         maxTitleLength: <?php echo (int) CanonicalCreateContainerCommand::MAX_TITLE_LENGTH; ?>
@@ -544,6 +549,65 @@ $show_create_record_ui = $show_read_ui
     <script src="<?php echo function_exists('aa_asset_url')
         ? aa_asset_url('includes/admin/ui/modules/canonical_shell/canonical-shell-container-form.js')
         : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/canonical-shell-container-form.js'); ?>"></script>
+
+    <div
+        id="aa-shell-delete-container-modal"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="aa-shell-delete-container-modal-title"
+        aria-describedby="aa-shell-delete-container-message"
+        aria-hidden="true"
+    >
+        <div id="aa-shell-delete-container-modal-backdrop" class="fixed inset-0 bg-black/50 transition-opacity" aria-hidden="true"></div>
+        <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6 z-10">
+            <div class="flex items-center justify-between mb-2">
+                <h3 id="aa-shell-delete-container-modal-title" class="text-lg font-bold text-gray-900 leading-tight">
+                    Eliminar lista
+                </h3>
+                <button
+                    type="button"
+                    id="aa-shell-delete-container-modal-close-btn"
+                    class="text-gray-400 hover:text-gray-600 p-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    aria-label="Cerrar modal"
+                >
+                    ✕
+                </button>
+            </div>
+            <p id="aa-shell-delete-container-message" class="text-sm text-gray-600 mb-4">
+                Se eliminará permanentemente “<span id="aa-shell-delete-container-title"></span>” y todos los registros que contiene. Esta acción no se puede deshacer.
+            </p>
+            <div
+                id="aa-shell-delete-container-status"
+                class="hidden mb-4 p-3 rounded-lg text-xs font-medium"
+                role="status"
+                aria-live="polite"
+            ></div>
+            <div class="mt-6 flex items-center justify-end gap-3 flex-wrap">
+                <button
+                    type="button"
+                    id="aa-shell-delete-container-reload-btn"
+                    class="hidden px-4 py-2 text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                    Recargar listas
+                </button>
+                <button
+                    type="button"
+                    id="aa-shell-delete-container-modal-cancel-btn"
+                    class="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                    Cancelar
+                </button>
+                <button
+                    type="button"
+                    id="aa-shell-delete-container-confirm-btn"
+                    class="px-4 py-2 text-xs font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    Eliminar lista
+                </button>
+            </div>
+        </div>
+    </div>
 <?php endif; ?>
 
 <?php if ($show_create_record_ui) : ?>

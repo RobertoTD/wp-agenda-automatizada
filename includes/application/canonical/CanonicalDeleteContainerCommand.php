@@ -18,7 +18,7 @@ final class CanonicalDeleteContainerCommand {
      */
     public function __construct(int $container_id) {
         if ($container_id < 1) {
-            throw new \InvalidArgumentException('[invalid_mutation_input] container_id must be positive.');
+            throw new \InvalidArgumentException('[invalid_container_id] container_id must be positive.');
         }
 
         $this->container_id = $container_id;
