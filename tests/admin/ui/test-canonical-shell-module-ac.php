@@ -537,6 +537,14 @@ ac_assert('Shell container form script loaded', strpos($shell_html, 'canonical-s
 ac_assert('Shell delete container modal present', strpos($shell_html, 'id="aa-shell-delete-container-modal"') !== false
     && strpos($shell_html, 'Eliminar lista') !== false
     && strpos($shell_html, 'Recargar listas') !== false);
+$delete_container_modal_pos = strpos($shell_html, 'id="aa-shell-delete-container-modal"');
+$container_form_script_pos = strpos($shell_html, 'canonical-shell-container-form.js');
+ac_assert(
+    'Shell delete container modal renders before synchronous container-form.js (IIFE needs DOM)',
+    $delete_container_modal_pos !== false
+    && $container_form_script_pos !== false
+    && $delete_container_modal_pos < $container_form_script_pos
+);
 ac_assert('Shell resolved root has no amount', stripos($shell_html, 'amount') === false);
 
 $module_src = file_get_contents($plugin_root . '/includes/admin/ui/modules/canonical_shell/index.php');

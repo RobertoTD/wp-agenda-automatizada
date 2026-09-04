@@ -532,24 +532,6 @@ $show_create_record_ui = $show_read_ui
         </div>
     </div>
 
-    <script>
-    window.AA_CANONICAL_SHELL_CONTAINER_FORM = {
-        ajaxUrl: <?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,
-        createAction: <?php echo wp_json_encode(CanonicalCreateContainerAjax::ACTION); ?>,
-        createNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalCreateContainerAjax::NONCE_ACTION)); ?>,
-        updateAction: <?php echo wp_json_encode(CanonicalUpdateContainerAjax::ACTION); ?>,
-        updateNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalUpdateContainerAjax::NONCE_ACTION)); ?>,
-        deleteAction: <?php echo wp_json_encode(CanonicalDeleteContainerAjax::ACTION); ?>,
-        deleteNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalDeleteContainerAjax::NONCE_ACTION)); ?>,
-        familyKey: <?php echo wp_json_encode($create_family_key); ?>,
-        variantKey: <?php echo wp_json_encode($create_variant_key); ?>,
-        maxTitleLength: <?php echo (int) CanonicalCreateContainerCommand::MAX_TITLE_LENGTH; ?>
-    };
-    </script>
-    <script src="<?php echo function_exists('aa_asset_url')
-        ? aa_asset_url('includes/admin/ui/modules/canonical_shell/canonical-shell-container-form.js')
-        : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/canonical-shell-container-form.js'); ?>"></script>
-
     <div
         id="aa-shell-delete-container-modal"
         class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden"
@@ -608,6 +590,24 @@ $show_create_record_ui = $show_read_ui
             </div>
         </div>
     </div>
+
+    <script>
+    window.AA_CANONICAL_SHELL_CONTAINER_FORM = {
+        ajaxUrl: <?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,
+        createAction: <?php echo wp_json_encode(CanonicalCreateContainerAjax::ACTION); ?>,
+        createNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalCreateContainerAjax::NONCE_ACTION)); ?>,
+        updateAction: <?php echo wp_json_encode(CanonicalUpdateContainerAjax::ACTION); ?>,
+        updateNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalUpdateContainerAjax::NONCE_ACTION)); ?>,
+        deleteAction: <?php echo wp_json_encode(CanonicalDeleteContainerAjax::ACTION); ?>,
+        deleteNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalDeleteContainerAjax::NONCE_ACTION)); ?>,
+        familyKey: <?php echo wp_json_encode($create_family_key); ?>,
+        variantKey: <?php echo wp_json_encode($create_variant_key); ?>,
+        maxTitleLength: <?php echo (int) CanonicalCreateContainerCommand::MAX_TITLE_LENGTH; ?>
+    };
+    </script>
+    <script src="<?php echo function_exists('aa_asset_url')
+        ? aa_asset_url('includes/admin/ui/modules/canonical_shell/canonical-shell-container-form.js')
+        : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/canonical-shell-container-form.js'); ?>"></script>
 <?php endif; ?>
 
 <?php if ($show_create_record_ui) : ?>
