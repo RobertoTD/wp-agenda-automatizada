@@ -13,4 +13,15 @@ Si el encargo toca canon, familia, variante, capability, adaptador, gateway, con
 3. Clasifica el cambio como shell, familia, variante, capability, runtime o transporte. Si no puedes clasificarlo, detente.
 4. Ante un conflicto con otras docs o con el código existente, repórtalo. No reinterpretes ni “mejores” la constitución.
 
+## Invariantes canónicas (orientación rápida)
+
+- Destino: tres tablas universales (`canonical_families` / `canonical_containers` / `canonical_records`; nombres físicos con prefijo técnico).
+- Las tablas base solo admiten estado y campos universales; nada particular de familia.
+- Las particularidades viven en capabilities tipadas, reutilizables.
+- El shell permanece neutral y opera por contratos/adaptadores.
+- Barrera futura: API, exportación/importación, identidades públicas y runtime público de solo lectura — no implementarlas prematuramente.
+- Finance y Expedientes legacy permanecen intactos durante la transición; no son el nuevo canon.
+
+Estado de la ruta PCU (PCU-0…PCU-5, SB1-5B+, SET-1, CAP-*, LEGACY-X): ver “Decisiones posteriores y estado” en `docs/plans/shell-canonical-base-v1.md`.
+
 Si el encargo es ajeno a ese ámbito, no abras esos documentos.

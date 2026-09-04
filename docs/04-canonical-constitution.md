@@ -34,20 +34,31 @@ tipo de recurso: container o record;
 identificador;
 container_id cuando sea un registro.
 
-## Persistencia por familia
+## Persistencia canónica universal
 
-Cada familia conserva su propia pareja de tablas:
+Las familias canónicas comparten una única persistencia lógica base:
 
-aa_{family_key}_containers
-aa_{family_key}_records
+canonical_families;
+canonical_containers;
+canonical_records.
 
-El prefijo de WordPress se agrega según la instalación.
+Los nombres físicos llevan el prefijo técnico de la instalación (actualmente planteados como `aa_canonical_families`, `aa_canonical_containers` y `aa_canonical_records`).
 
-La tabla de contenedores identifica la variante mediante variant_key. Los registros heredan familia y variante mediante su contenedor.
+No existe una pareja de tablas por familia.
 
-Las tablas de cada familia respetan el contrato base, pero pueden añadir columnas o tablas auxiliares para sus características particulares.
+La tabla de contenedores identifica la familia y la variante. Un registro pertenece obligatoriamente a un contenedor y hereda de él su familia y variante.
 
-No crear una pareja universal de tablas compartida por todas las familias.
+Las tablas base almacenan exclusivamente estado y campos universales del contrato. No admiten columnas particulares de ninguna familia (`amount`, imágenes, SKU, teléfonos, datos de agenda u equivalentes), ni JSON genérico, ni EAV, ni payloads arbitrarios como sustituto de persistencia tipada.
+
+Toda característica no universal se implementa como capability con persistencia tipada propia, referida al contenedor o al registro. Una capability se implementa una vez y puede contribuir a persistencia, validación, formularios, cards, API y runtime público.
+
+Las definiciones de familia y de variante son contratos de producto declarados en código. La base de datos guarda estado de instalación y habilitación, contenedores y registros; nunca clases, callbacks, SQL ni definiciones ejecutables.
+
+Los timestamps técnicos de las tablas canónicas universales se almacenan en UTC. UTC es la fuente de verdad; la conversión a la zona configurada ocurre en la presentación.
+
+La arquitectura debe preservar compatibilidad cercana con API, exportación e importación eficientes, identidades públicas estables y un runtime público de solo lectura que proyecte por enlace un registro o contenedor y sus registros autorizados, sin modificar la instalación de origen. Esa compatibilidad es una barrera arquitectónica: no autoriza implementar ahora API, sharing, tokens, snapshots, permisos públicos ni infraestructura del runtime, ni fija todavía si una compartición será snapshot o proyección viva.
+
+Una familia implementada antes de esta regla puede conservar temporalmente tablas propias. Esa persistencia es implementación legacy: no constituye el nuevo canon, no autoriza dual-write ni backfill, y no debe proyectarse al shell nuevo sin un ciclo explícito.
 
 ## Separación de responsabilidades
 
@@ -75,11 +86,12 @@ El shell no debe conocer nombres, campos, tablas, endpoints ni reglas particular
 La familia define:
 
 semántica de negocio;
-persistencia;
-Application y repositorios;
-adaptador canónico;
+su definición y su catálogo de variantes;
+Application y adaptadores;
 validaciones;
 capabilities disponibles o predeterminadas.
+
+La familia no define ni posee su propia persistencia base. Usa la persistencia canónica universal y expresa sus características particulares mediante capabilities.
 
 Ninguna familia es el shell. La primera familia implementada tampoco define por sí sola el canon.
 

@@ -98,9 +98,9 @@ El gateway, el shell y sus transportes no deben construir nombres de tablas a pa
 
 La familia y variante deben resolverse mediante el registry antes de seleccionar manifest, adaptador o servicios.
 
-No crear una pareja universal de tablas compartida por todas las familias.
+**Supersedido:** la prohibición de una pareja universal de tablas compartida por todas las familias. El destino canónico es la persistencia universal (`canonical_families`, `canonical_containers`, `canonical_records`; nombres físicos con prefijo técnico, actualmente planteados como `aa_canonical_*`). Ver `docs/04-canonical-constitution.md`.
 
-No crear tablas paralelas para duplicar familias existentes. Una familia integrada conserva una sola fuente de verdad.
+Una familia integrada conserva una sola fuente de verdad en la persistencia universal. Durante la adopción inicial, Finance y Expedientes mantienen además su persistencia legacy con sus datos y su UI. Esa coexistencia es temporal, explícita y acotada: no autoriza dual-write, backfill ni borrar tablas legacy. Se cierra en el ciclo LEGACY-X.
 
 El shell, el runtime y la API no deben consultar directamente tablas ni repositorios internos de familia.
 
@@ -120,7 +120,7 @@ En edición:
 - los campos particulares ausentes no deben sobrescribirse;
 - editar `title` o `details` nunca debe borrar información propia de la familia.
 
-La preservación de campos particulares corresponde a Application, al adaptador y a la persistencia de la familia. El shell no debe leerlos ni reenviarlos para conservarlos.
+La preservación de campos particulares corresponde a Application, al adaptador y a la persistencia de la capability o del legado aplicable. El shell no debe leerlos ni reenviarlos para conservarlos.
 
 Después de una mutación debe obtenerse estado autoritativo del servidor.
 
@@ -225,7 +225,7 @@ Cuando la propuesta sea aprobada, el prompt de implementación será una autoriz
 - Label provisional del sidebar: `Shell canónico`.
 - Acceso provisional: únicamente `manage_options` (enlace y acceso directo).
 - Sidebar provisional enlazado inicialmente a `module=canonical_shell&family=finance&variant=general`.
-- `updated_at` representará la actividad contenida (crear/editar/eliminar un registro también actualiza el contenedor). Decisión aprobada; implementación de schema/timestamps en persistencia de familia aplazada.
+- `updated_at` representará la actividad contenida (crear/editar/eliminar un registro también actualiza el contenedor). Decisión aprobada; la implementación en schema Finance legacy quedó en SB1-4A. **Nota PCU:** el destino de timestamps canónicos nuevos es UTC en tablas universales, no “persistencia de familia”.
 - SB1-1 (entrada paralela + root controlado + resolución de ruta): **commiteado** (`29ac40d`).
 - División aprobada: **SB1-2A** (cadena de lectura tipada) → **SB1-2B** (composición visual del shell).
 - SB1-2A: identidad `CanonicalReadIdentity` → puerto `CanonicalReadAdapterResolver` (impl `AA_Canonical_Read_Binding_Registry`) → `CanonicalReadGateway` → `CanonicalPage`; `AA_Canonical_Container` en Domain; `updated_at` interno `DateTimeImmutable` UTC serializado solo como `Y-m-d\TH:i:s\Z`; `PAGE_SIZE=15`; fixture solo en `tests/`. **Commiteado** (`469e5df`).
@@ -234,6 +234,20 @@ Cuando la propuesta sea aprobada, el prompt de implementación será una autoriz
 - División aprobada: **SB1-3A** (contratos Record + Pagination + get_container/list_records + Use Case) → **SB1-3B** (URL `view=records`, navegación título, SSR).
 - SB1-3A: `AA_Canonical_Instant` compartido; `AA_Canonical_Record`; `CanonicalPagination` + `CanonicalPage`/`CanonicalRecordsPage`; puerto ampliado; `CanonicalContainerNotFound`; `ReadCanonicalShellRecordsUseCase` + `CanonicalShellRecordsReadResult`; preview/fixture con registros; UI/router/URL sin cambios. **Commiteado** (`72708f6`).
 - SB1-3B (navegación SSR contenedores → registros): policy ampliada (`view`, `container_id`, `containers_page`) + builders `build_records_url` / `build_preview_records_url`; router valida transporte y delega; compositor con `compose_*_records` vía Use Case 3A; título de card como único enlace; partial `record-card.php`; back exacto con `containers_page`; `finance.general` sigue pending; sin AJAX/JS. **Commiteado** (`c238709`).
-- SB1-4A (timestamps autoritativos en persistencia Finance): columna `updated_at datetime NOT NULL` en `aa_finance_containers` y `aa_finance_records`; `DB_VERSION=20`; índices canónicos `(variant_key, updated_at, id)` y `(container_id, updated_at, id)`; autoridad única `current_time('mysql')` en repositorios; actividad de registros actualiza `updated_at` del contenedor padre en la misma transacción; sin exposición en DTOs/AJAX/UI. **Commiteado** (`c579f94`).
-- SB1-4B (adaptador Finance legacy + binding `finance.general`): SQL de lectura específico en `AA_Finance_Canonical_Read_Adapter` (sin reutilizar repositorios Finance); registro productivo vía `AA_Canonical_Read_Binding_Bootstrap` (lazy, solo `finance.general`); compositor delega bootstrap genérico; timestamps MySQL locales interpretados con `wp_timezone()` → UTC Z; persistencia y UI Finance permanecen como única fuente de escritura. **Estado: implementado en working tree (sin commit).**
-- Siguiente ciclo tras SB1-4B: cerrar prueba arquitectónica del shell base (pasos 6–7 de la ruta progresiva).
+- SB1-4A (timestamps autoritativos en persistencia Finance): columna `updated_at datetime NOT NULL` en `aa_finance_containers` y `aa_finance_records`; `DB_VERSION=20`; índices canónicos `(variant_key, updated_at, id)` y `(container_id, updated_at, id)`; autoridad `current_time('mysql')` **exclusiva de los repositorios Finance legacy** (no aplica a las tablas canónicas universales futuras, que almacenarán UTC); actividad de registros actualiza `updated_at` del contenedor padre en la misma transacción; sin exposición en DTOs/AJAX/UI. **Commiteado** (`c579f94`).
+- SB1-4B (adaptador Finance legacy + binding `finance.general`): SQL de lectura específico en `AA_Finance_Canonical_Read_Adapter` (sin reutilizar repositorios Finance); registro productivo vía `AA_Canonical_Read_Binding_Bootstrap` (lazy, solo `finance.general`); compositor delega bootstrap genérico; timestamps MySQL locales interpretados con `wp_timezone()` → UTC Z; persistencia y UI Finance permanecen como única fuente de escritura del legado. **Commiteado** (`c775b9a`).
+- SB1-5A1 (cadena neutral de escritura): puerto `CanonicalWriteAdapter` (seis métodos); `CanonicalWriteGateway` con validación de recibos; comandos tipados de contenedor y registro; `CanonicalMutationReceipt` (`confirmed`/`uncertain`); `CanonicalShellMutationResult`; `WriteCanonicalShellContainerUseCase` y `WriteCanonicalShellRecordUseCase`; `AA_Canonical_Write_Binding_Registry`. Sin adaptador productivo ni bootstrap de escritura: scaffolding pendiente de consumidor hasta PCU-5. **Commiteado** (`63f4610`).
+- SB1-5A2 (adaptador de escritura Finance / `update_canonical_fields`): **cancelado**. Supersedido por la ruta PCU.
+- Giro arquitectónico aprobado: Persistencia Canónica Universal (PCU). Destino canónico = tablas universales compartidas; Finance y Expedientes legacy intactos durante la transición.
+- **Ruta vigente (PCU y continuación del shell):**
+  1. **PCU-0** — auditoría y propuesta arquitectónica: **completada**.
+  2. **PCU-1** — reconciliación documental e inicialización de la ruta: **ciclo actual**. No implementa schema, repositorio, adaptadores, bindings, `DB_VERSION` ni datos.
+  3. **PCU-2** — schema universal aditivo y tests MySQL. **Todavía no implementado.** Decisiones de DDL (identificador público, columnas exactas, FKs, índices opcionales, política de seeds) permanecen abiertas hasta ese ciclo.
+  4. **PCU-3** — repositorio y adaptadores relacionales estándar.
+  5. **PCU-4** — catálogo de familias/variantes y provisioning idempotente.
+  6. **PCU-5** — bindings productivos y reconexión de lectura/escritura del shell.
+  7. **SB1-5B+** — shell visual base: header, toolbar, FAB, modales y CRUD `title`/`details`.
+  8. **SET-1** — activación de familias/presets desde Settings.
+  9. **CAP-1 / CAP-2 / CAP-3** — sistema de capabilities; `monetary_amount`; agregado monetario; imágenes.
+  10. **LEGACY-X** — proyección, integración o deprecación selectiva de módulos legacy.
+- PCU-1 no autoriza ni inicia PCU-2.
