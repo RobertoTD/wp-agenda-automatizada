@@ -248,9 +248,10 @@ Cuando la propuesta sea aprobada, el prompt de implementación será una autoriz
   6. **PCU-5** — dividido en **PCU-5A** / **PCU-5B**:
      - **PCU-5A** — activación AJAX individual, Settings sin formulario/botón, gate `family_disabled` (HTTP 200), navegación dinámica «Tipos de registros», `postMessage` al padre: **completada** (`473cf7e`). Finance habilitada seguía con read adapter legacy temporal hasta 5B; Archive habilitada → `read_adapter_pending` hasta 5B; `is_enabled=0` = deshabilitada.
      - **PCU-5B** — bindings universales, fail-on-duplicate, desconexión Finance legacy del shell: **completada** (`7b9ee5a`). Shell `finance.general` / `archive.general` (enabled) → `AA_Canonical_Relational_Read_Adapter` + `aa_canonical_*`; bootstrap write universal (`AA_Canonical_Write_Binding_Bootstrap`); módulo clásico Finanzas sigue en `aa_finance_*`; cero dual-read/write, fallback o migración.
-  7. **SB1-5B1** — primera escritura productiva del shell (create container): **implementado en working tree (sin commit).** Endpoint `aa_create_canonical_container` + composition root write (registry → write bootstrap → gateway → `WriteCanonicalShellContainerUseCase`); UI «Nueva lista»; `CanonicalCreateContainerCommand` con máx. 200 UTF-8 y details vacío → `null`; post-create → página 1 del listado; sin edit/delete ni CRUD de records.
-  8. **SB1-5B+** — shell visual base restante: edit/delete, FAB completo, CRUD de records `title`/`details`.
-  9. **SET-1** — activación de familias/presets desde Settings (parcialmente anticipado por PCU-5A enablement AJAX; presets/capabilities siguen fuera).
-  10. **CAP-1 / CAP-2 / CAP-3** — sistema de capabilities; `monetary_amount`; agregado monetario; imágenes.
-  11. **LEGACY-X** — proyección, integración o deprecación selectiva de módulos legacy.
+  7. **SB1-5B1** — primera escritura productiva del shell (create container): **completada** (`de3488c`). Endpoint `aa_create_canonical_container` + composition root write; UI «Nueva lista»; command 200 UTF-8 y details vacío → `null`; post-create → página 1 del listado.
+  8. **SB1-5B2** — create record productivo: **implementado en working tree (sin commit).** Endpoint `aa_create_canonical_record` + `WriteCanonicalShellRecordUseCase`; UI «Nuevo registro»; command alineado (200/details null); tx INSERT + touch parent; redirect a página 1 de records sin `containers_page`; sin edit/delete.
+  9. **SB1-5B+** — shell visual base restante: edit/delete de contenedores y records.
+  10. **SET-1** — activación de familias/presets desde Settings (parcialmente anticipado por PCU-5A enablement AJAX; presets/capabilities siguen fuera).
+  11. **CAP-1 / CAP-2 / CAP-3** — sistema de capabilities; `monetary_amount`; agregado monetario; imágenes.
+  12. **LEGACY-X** — proyección, integración o deprecación selectiva de módulos legacy.
 - PCU-1 no autoriza ni inicia PCU-2.

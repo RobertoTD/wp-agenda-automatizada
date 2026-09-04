@@ -363,6 +363,9 @@ CanonicalFamilyEnabledAjax::register();
 require_once __DIR__ . '/includes/http/ajax/CanonicalCreateContainerAjax.php';
 CanonicalCreateContainerAjax::register();
 
+require_once __DIR__ . '/includes/http/ajax/CanonicalCreateRecordAjax.php';
+CanonicalCreateRecordAjax::register();
+
 // ===============================
 // 🔹 Schema lifecycle: registra el activation hook con AA_Schema::install
 // ===============================

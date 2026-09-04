@@ -106,6 +106,24 @@ $show_create_ui = $show_read_ui
     && in_array($read_state, ['empty', 'resolved_page'], true)
     && $create_family_key !== ''
     && $create_variant_key !== '';
+
+$create_container_id = 0;
+if (is_array($view) && isset($view['container_id'])) {
+    $create_container_id = (int) $view['container_id'];
+}
+$create_container_title = '';
+if (is_array($parent_container) && isset($parent_container['title'])) {
+    $create_container_title = (string) $parent_container['title'];
+}
+
+$show_create_record_ui = $show_read_ui
+    && !$is_preview
+    && $is_records
+    && $route_state === 'resolved'
+    && in_array($read_state, ['empty', 'resolved_page'], true)
+    && $create_family_key !== ''
+    && $create_variant_key !== ''
+    && $create_container_id >= 1;
 ?>
 
 <div
@@ -157,6 +175,18 @@ $show_create_ui = $show_read_ui
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                         </svg>
                         <span>Nueva lista</span>
+                    </button>
+                <?php endif; ?>
+                <?php if ($show_create_record_ui) : ?>
+                    <button
+                        type="button"
+                        id="aa-shell-open-create-record-btn"
+                        class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span>Nuevo registro</span>
                     </button>
                 <?php endif; ?>
             </div>
@@ -505,4 +535,114 @@ $show_create_ui = $show_read_ui
     <script src="<?php echo function_exists('aa_asset_url')
         ? aa_asset_url('includes/admin/ui/modules/canonical_shell/canonical-shell-create-container.js')
         : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/canonical-shell-create-container.js'); ?>"></script>
+<?php endif; ?>
+
+<?php if ($show_create_record_ui) : ?>
+    <?php
+    if (!class_exists('CanonicalCreateRecordAjax')) {
+        require_once dirname(__DIR__, 4) . '/http/ajax/CanonicalCreateRecordAjax.php';
+    }
+    if (!class_exists('CanonicalCreateRecordCommand')) {
+        require_once dirname(__DIR__, 4) . '/application/canonical/CanonicalCreateRecordCommand.php';
+    }
+    ?>
+    <div
+        id="aa-shell-create-record-modal"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="aa-shell-create-record-modal-title"
+        aria-describedby="aa-shell-create-record-modal-desc"
+        aria-hidden="true"
+    >
+        <div id="aa-shell-create-record-modal-backdrop" class="fixed inset-0 bg-black/50 transition-opacity" aria-hidden="true"></div>
+        <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6 z-10">
+            <div class="flex items-center justify-between mb-2">
+                <h3 id="aa-shell-create-record-modal-title" class="text-lg font-bold text-gray-900 leading-tight">
+                    Nuevo registro
+                </h3>
+                <button
+                    type="button"
+                    id="aa-shell-create-record-modal-close-btn"
+                    class="text-gray-400 hover:text-gray-600 p-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    aria-label="Cerrar modal"
+                >
+                    ✕
+                </button>
+            </div>
+            <p id="aa-shell-create-record-modal-desc" class="text-sm text-gray-500 mb-4">
+                <?php echo esc_html($create_container_title !== '' ? $create_container_title : 'Contenedor'); ?>
+            </p>
+
+            <form id="aa-shell-create-record-form" novalidate>
+                <div
+                    id="aa-shell-create-record-status"
+                    class="hidden mb-4 p-3 rounded-lg text-xs font-medium"
+                    role="status"
+                    aria-live="polite"
+                ></div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label for="aa-shell-create-record-title" class="block text-xs font-semibold text-gray-700 mb-1">
+                            Título del registro <span class="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            id="aa-shell-create-record-title"
+                            name="title"
+                            maxlength="200"
+                            class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            autocomplete="off"
+                            required
+                        />
+                        <p id="aa-shell-create-record-title-error" class="hidden mt-1 text-xs text-red-600 font-medium"></p>
+                    </div>
+                    <div>
+                        <label for="aa-shell-create-record-details" class="block text-xs font-semibold text-gray-700 mb-1">
+                            Detalles (opcional)
+                        </label>
+                        <textarea
+                            id="aa-shell-create-record-details"
+                            name="details"
+                            rows="3"
+                            class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        ></textarea>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex items-center justify-end gap-3">
+                    <button
+                        type="button"
+                        id="aa-shell-create-record-modal-cancel-btn"
+                        class="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        type="submit"
+                        id="aa-shell-create-record-submit-btn"
+                        class="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Crear registro
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    window.AA_CANONICAL_SHELL_CREATE_RECORD = {
+        ajaxUrl: <?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,
+        action: <?php echo wp_json_encode(CanonicalCreateRecordAjax::ACTION); ?>,
+        nonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalCreateRecordAjax::NONCE_ACTION)); ?>,
+        familyKey: <?php echo wp_json_encode($create_family_key); ?>,
+        variantKey: <?php echo wp_json_encode($create_variant_key); ?>,
+        containerId: <?php echo (int) $create_container_id; ?>,
+        maxTitleLength: <?php echo (int) CanonicalCreateRecordCommand::MAX_TITLE_LENGTH; ?>
+    };
+    </script>
+    <script src="<?php echo function_exists('aa_asset_url')
+        ? aa_asset_url('includes/admin/ui/modules/canonical_shell/canonical-shell-create-record.js')
+        : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/canonical-shell-create-record.js'); ?>"></script>
 <?php endif; ?>
