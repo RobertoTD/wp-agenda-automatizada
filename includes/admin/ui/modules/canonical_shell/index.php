@@ -86,6 +86,26 @@ $state_label = $state_labels[$route_state] ?? 'Estado';
 $show_read_ui = is_array($view) && in_array($route_state, ['resolved', 'preview'], true);
 $is_records = ($shell_view === 'records');
 $is_family_disabled = ($route_state === 'family_disabled');
+
+$create_family_key = '';
+$create_variant_key = '';
+if (
+    isset($aa_canonical_family)
+    && $aa_canonical_family instanceof AA_Canonical_Family_Definition
+    && isset($aa_canonical_variant)
+    && $aa_canonical_variant instanceof AA_Canonical_Variant_Definition
+) {
+    $create_family_key = $aa_canonical_family->key();
+    $create_variant_key = $aa_canonical_variant->key();
+}
+
+$show_create_ui = $show_read_ui
+    && !$is_preview
+    && !$is_records
+    && $route_state === 'resolved'
+    && in_array($read_state, ['empty', 'resolved_page'], true)
+    && $create_family_key !== ''
+    && $create_variant_key !== '';
 ?>
 
 <div
@@ -123,9 +143,23 @@ $is_family_disabled = ($route_state === 'family_disabled');
                     </p>
                 <?php endif; ?>
             </div>
-            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800">
-                <?php echo esc_html($is_preview ? 'Demostración' : $state_label); ?>
-            </span>
+            <div class="flex items-center gap-3 flex-wrap">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800">
+                    <?php echo esc_html($is_preview ? 'Demostración' : $state_label); ?>
+                </span>
+                <?php if ($show_create_ui) : ?>
+                    <button
+                        type="button"
+                        id="aa-shell-open-create-btn"
+                        class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span>Nueva lista</span>
+                    </button>
+                <?php endif; ?>
+            </div>
         </div>
     </header>
 
@@ -360,3 +394,115 @@ $is_family_disabled = ($route_state === 'family_disabled');
         </div>
     <?php endif; ?>
 </div>
+
+<?php if ($show_create_ui) : ?>
+    <?php
+    if (!class_exists('CanonicalCreateContainerAjax')) {
+        require_once dirname(__DIR__, 4) . '/http/ajax/CanonicalCreateContainerAjax.php';
+    }
+    if (!class_exists('CanonicalCreateContainerCommand')) {
+        require_once dirname(__DIR__, 4) . '/application/canonical/CanonicalCreateContainerCommand.php';
+    }
+    ?>
+    <div
+        id="aa-shell-create-modal"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="aa-shell-create-modal-title"
+        aria-describedby="aa-shell-create-modal-desc"
+        aria-hidden="true"
+    >
+        <div id="aa-shell-create-modal-backdrop" class="fixed inset-0 bg-black/50 transition-opacity" aria-hidden="true"></div>
+        <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6 z-10">
+            <div class="flex items-center justify-between mb-2">
+                <h3 id="aa-shell-create-modal-title" class="text-lg font-bold text-gray-900 leading-tight">
+                    Nueva lista
+                </h3>
+                <button
+                    type="button"
+                    id="aa-shell-create-modal-close-btn"
+                    class="text-gray-400 hover:text-gray-600 p-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    aria-label="Cerrar modal"
+                >
+                    ✕
+                </button>
+            </div>
+            <p id="aa-shell-create-modal-desc" class="text-sm text-gray-500 mb-4">
+                <?php echo esc_html($family_label); ?>
+                <?php if ($variant_label !== '') : ?>
+                    · <?php echo esc_html($variant_label); ?>
+                <?php endif; ?>
+            </p>
+
+            <form id="aa-shell-create-form" novalidate>
+                <div
+                    id="aa-shell-create-status"
+                    class="hidden mb-4 p-3 rounded-lg text-xs font-medium"
+                    role="status"
+                    aria-live="polite"
+                ></div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label for="aa-shell-create-title" class="block text-xs font-semibold text-gray-700 mb-1">
+                            Nombre de la lista <span class="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            id="aa-shell-create-title"
+                            name="title"
+                            maxlength="200"
+                            class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            autocomplete="off"
+                            required
+                        />
+                        <p id="aa-shell-create-title-error" class="hidden mt-1 text-xs text-red-600 font-medium"></p>
+                    </div>
+                    <div>
+                        <label for="aa-shell-create-details" class="block text-xs font-semibold text-gray-700 mb-1">
+                            Detalles (opcional)
+                        </label>
+                        <textarea
+                            id="aa-shell-create-details"
+                            name="details"
+                            rows="3"
+                            class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        ></textarea>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex items-center justify-end gap-3">
+                    <button
+                        type="button"
+                        id="aa-shell-create-modal-cancel-btn"
+                        class="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        type="submit"
+                        id="aa-shell-create-submit-btn"
+                        class="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Crear lista
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    window.AA_CANONICAL_SHELL_CREATE = {
+        ajaxUrl: <?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,
+        action: <?php echo wp_json_encode(CanonicalCreateContainerAjax::ACTION); ?>,
+        nonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalCreateContainerAjax::NONCE_ACTION)); ?>,
+        familyKey: <?php echo wp_json_encode($create_family_key); ?>,
+        variantKey: <?php echo wp_json_encode($create_variant_key); ?>,
+        maxTitleLength: <?php echo (int) CanonicalCreateContainerCommand::MAX_TITLE_LENGTH; ?>
+    };
+    </script>
+    <script src="<?php echo function_exists('aa_asset_url')
+        ? aa_asset_url('includes/admin/ui/modules/canonical_shell/canonical-shell-create-container.js')
+        : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/canonical-shell-create-container.js'); ?>"></script>
+<?php endif; ?>

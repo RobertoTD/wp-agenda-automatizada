@@ -108,6 +108,16 @@ if (!function_exists('aa_asset_url')) {
         return 'https://example.com/plugin/' . ltrim($relative_path, '/');
     }
 }
+if (!function_exists('wp_json_encode')) {
+    function wp_json_encode($data) {
+        return json_encode($data);
+    }
+}
+if (!function_exists('wp_create_nonce')) {
+    function wp_create_nonce(string $action): string {
+        return 'nonce-' . $action;
+    }
+}
 if (!function_exists('wp_parse_url')) {
     function wp_parse_url(string $url) {
         return parse_url($url);
@@ -514,7 +524,14 @@ ac_assert('Shell shows empty finance (not pending)', strpos($shell_html, 'Sin co
     && strpos($shell_html, 'Lectura pendiente') === false);
 ac_assert('Shell empty copy universal', strpos($shell_html, 'Aún no hay contenedores en este tipo de registro.') !== false);
 ac_assert('Shell empty has no preview CTA without constant', strpos($shell_html, 'Ver demostración del shell') === false);
-ac_assert('Shell resolved root has no script tags', strpos($shell_html, '<script') === false);
+ac_assert('Shell CTA Nueva lista', strpos($shell_html, 'id="aa-shell-open-create-btn"') !== false
+    && strpos($shell_html, 'Nueva lista') !== false);
+ac_assert('Shell create modal present', strpos($shell_html, 'id="aa-shell-create-modal"') !== false
+    && strpos($shell_html, 'Nombre de la lista') !== false
+    && strpos($shell_html, 'Crear lista') !== false);
+ac_assert('Shell create config present', strpos($shell_html, 'AA_CANONICAL_SHELL_CREATE') !== false
+    && strpos($shell_html, 'aa_create_canonical_container') !== false);
+ac_assert('Shell create script loaded', strpos($shell_html, 'canonical-shell-create-container.js') !== false);
 ac_assert('Shell resolved root has no amount', stripos($shell_html, 'amount') === false);
 
 $module_src = file_get_contents($plugin_root . '/includes/admin/ui/modules/canonical_shell/index.php');

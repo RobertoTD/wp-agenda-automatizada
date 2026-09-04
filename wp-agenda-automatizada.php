@@ -360,6 +360,9 @@ FinanceRecordsAjax::register();
 require_once __DIR__ . '/includes/http/ajax/CanonicalFamilyEnabledAjax.php';
 CanonicalFamilyEnabledAjax::register();
 
+require_once __DIR__ . '/includes/http/ajax/CanonicalCreateContainerAjax.php';
+CanonicalCreateContainerAjax::register();
+
 // ===============================
 // 🔹 Schema lifecycle: registra el activation hook con AA_Schema::install
 // ===============================
