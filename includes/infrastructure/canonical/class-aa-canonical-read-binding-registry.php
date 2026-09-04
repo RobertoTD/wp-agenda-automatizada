@@ -29,7 +29,14 @@ final class AA_Canonical_Read_Binding_Registry implements CanonicalReadAdapterRe
     private $adapters = [];
 
     public function register(CanonicalReadIdentity $identity, CanonicalReadAdapter $adapter): void {
-        $this->adapters[$identity->qualified_key()] = $adapter;
+        $key = $identity->qualified_key();
+        if (isset($this->adapters[$key])) {
+            throw new \LogicException(
+                '[duplicate_read_binding] Read adapter already registered for identity: ' . $key
+            );
+        }
+
+        $this->adapters[$key] = $adapter;
     }
 
     public function require(CanonicalReadIdentity $identity): CanonicalReadAdapter {

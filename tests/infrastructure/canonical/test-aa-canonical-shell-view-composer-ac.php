@@ -71,14 +71,20 @@ if (!defined('ARRAY_A')) {
 }
 
 /**
- * wpdb mínimo: Finance vacío para compose_family sin MySQL.
+ * wpdb mínimo: enablement + tablas canónicas vacías para compose_family sin MySQL.
  */
-final class ComposerEmptyFinanceWpdbMock {
+final class ComposerUniversalEmptyWpdbMock {
     public $prefix = 'wp_';
     public $last_error = '';
 
     public function prepare(string $query, ...$args): string {
+        if (count($args) === 1 && is_array($args[0])) {
+            $args = $args[0];
+        }
         foreach ($args as $arg) {
+            if (is_array($arg)) {
+                continue;
+            }
             $val = is_numeric($arg) ? (string) (int) $arg : "'" . addslashes((string) $arg) . "'";
             $query = preg_replace('/%[sdf]/', $val, $query, 1);
         }
@@ -88,7 +94,16 @@ final class ComposerEmptyFinanceWpdbMock {
     /** @return string|null */
     public function get_var(string $query) {
         $this->last_error = '';
-        return strpos($query, 'COUNT(*)') !== false ? '0' : null;
+        if (stripos($query, 'SHOW TABLES LIKE') !== false) {
+            return $this->prefix . 'aa_canonical_families';
+        }
+        if (strpos($query, 'COUNT(*)') !== false) {
+            return '0';
+        }
+        if (preg_match("/WHERE family_key = '([^']+)'/", $query, $m)) {
+            return $m[1] === 'finance' ? '1' : ($m[1] === 'archive' ? '2' : null);
+        }
+        return null;
     }
 
     /** @return object|null */
@@ -100,18 +115,35 @@ final class ComposerEmptyFinanceWpdbMock {
     /** @return array<int,mixed> */
     public function get_results(string $query) {
         $this->last_error = '';
+        if (stripos($query, 'is_enabled') !== false) {
+            return [
+                ['family_key' => 'finance', 'is_enabled' => 1],
+                ['family_key' => 'archive', 'is_enabled' => 1],
+            ];
+        }
         return [];
     }
 }
 
-$GLOBALS['wpdb'] = new ComposerEmptyFinanceWpdbMock();
+$GLOBALS['wpdb'] = new ComposerUniversalEmptyWpdbMock();
 
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-variant-definition.php';
+require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-instant.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-container.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-registry.php';
 require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-core-bootstrap.php';
+require_once $plugin_root . '/includes/infrastructure/wp/CanonicalSchema.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalFamilyEnablementSchemaNotReady.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalFamilyEnablementPersistenceFailed.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalFamilyEnablementStatus.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalFamilyEnablementSnapshot.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalFamilyEnablementResult.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalFamilyEnablementPort.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalFamilyNotProvisioned.php';
+require_once $plugin_root . '/includes/application/canonical/ReadCanonicalFamilyEnablementUseCase.php';
+require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-family-enablement-store.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalReadIdentity.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalPage.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalReadAdapter.php';
@@ -122,6 +154,7 @@ require_once $plugin_root . '/includes/application/canonical/CanonicalShellManif
 require_once $plugin_root . '/includes/application/canonical/CanonicalShellReadResult.php';
 require_once $plugin_root . '/includes/application/canonical/ReadCanonicalShellContainersUseCase.php';
 require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-read-binding-registry.php';
+require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-read-binding-bootstrap.php';
 require_once $plugin_root . '/includes/infrastructure/wp/class-aa-canonical-shell-base-url-policy.php';
 require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-shell-view-composer.php';
 

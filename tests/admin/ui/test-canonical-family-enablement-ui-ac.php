@@ -66,12 +66,11 @@ ac_assert('Parent handler', strpos($parent, 'aa-canonical-family-enabled-changed
     && strpos($parent, 'aa-canonical-record-types-nav') !== false);
 ac_assert('Parent usa textContent', strpos($parent, 'textContent = label') !== false);
 
-ac_assert('Binding Finance legacy intacto', strpos($binding, 'AA_Finance_Canonical_Read_Adapter') !== false
-    && strpos($binding, "CanonicalReadIdentity('finance', 'general')") !== false);
+ac_assert('Binding Finance legacy ausente del bootstrap productivo', strpos($binding, 'AA_Finance_Canonical_Read_Adapter') === false);
+ac_assert('Bootstrap read usa Relational', strpos($binding, 'AA_Canonical_Relational_Read_Adapter') !== false
+    || strpos($binding, 'Relational_Read_Adapter') !== false);
 ac_assert('DB_VERSION=21', strpos($schema, "DB_VERSION = '21'") !== false);
 ac_assert('CATALOG_VERSION=1', strpos($catalog, 'CATALOG_VERSION = 1') !== false);
-ac_assert('Sin PCU-3 productivo en bootstrap read', strpos($binding, 'CanonicalRelational') === false
-    && strpos($binding, 'CanonicalReadRelational') === false);
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 exit($failed === [] ? 0 : 1);

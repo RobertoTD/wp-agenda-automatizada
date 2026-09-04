@@ -45,6 +45,18 @@ $registry->register($beta, $adapter_beta);
 ac_assert('Resolves alpha adapter', $registry->require($alpha) === $adapter_alpha);
 ac_assert('Resolves beta adapter', $registry->require($beta) === $adapter_beta);
 
+$dup = false;
+$dup_msg = '';
+try {
+    $registry->register($alpha, $adapter_beta);
+} catch (\LogicException $e) {
+    $dup = true;
+    $dup_msg = $e->getMessage();
+}
+ac_assert('Duplicate write throws', $dup);
+ac_assert('Duplicate write tag', strpos($dup_msg, '[duplicate_write_binding]') !== false);
+ac_assert('Original write binding preserved', $registry->require($alpha) === $adapter_alpha);
+
 $missing = new CanonicalReadIdentity('sample', 'gamma');
 $threw = false;
 try {

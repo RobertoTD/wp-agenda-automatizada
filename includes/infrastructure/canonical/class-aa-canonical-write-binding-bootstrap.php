@@ -1,9 +1,9 @@
 <?php
 /**
- * Canonical Read Binding Bootstrap — Bindings productivos universales (PCU-5B).
+ * Canonical Write Binding Bootstrap — Bindings productivos universales de escritura (PCU-5B).
  *
- * Registra Relational Read Adapter solo para familias habilitadas y provisionadas.
- * Sin adaptador Finance del shell, sin tablas legacy, sin familias hardcodeadas.
+ * Registra Relational Write Adapter compartido solo para identidades habilitadas.
+ * Listo y testeable; no lo invoca el compositor de lectura.
  *
  * @package WP_Agenda_Automatizada
  * @subpackage Infrastructure\Canonical
@@ -11,21 +11,26 @@
 
 defined('ABSPATH') or die('No direct access');
 
-if (!class_exists('AA_Canonical_Read_Binding_Registry')) {
-    require_once __DIR__ . '/class-aa-canonical-read-binding-registry.php';
+if (!class_exists('AA_Canonical_Write_Binding_Registry')) {
+    require_once __DIR__ . '/class-aa-canonical-write-binding-registry.php';
 }
 if (!class_exists('CanonicalReadIdentity')) {
     require_once dirname(__DIR__, 2) . '/application/canonical/CanonicalReadIdentity.php';
 }
 
-final class AA_Canonical_Read_Binding_Bootstrap {
+final class AA_Canonical_Write_Binding_Bootstrap {
 
     /**
+     * @param CanonicalRelationalRepository|null $repository Repo request-local opcional (tests / composition root futuro).
+     *
      * @throws CanonicalFamilyEnablementSchemaNotReady
      * @throws CanonicalFamilyEnablementPersistenceFailed
      * @throws \LogicException
      */
-    public static function register_productive(AA_Canonical_Read_Binding_Registry $registry): void {
+    public static function register_productive(
+        AA_Canonical_Write_Binding_Registry $registry,
+        $repository = null
+    ): void {
         self::require_dependencies();
 
         $canonical = AA_Canonical_Core_Bootstrap::instance();
@@ -33,7 +38,16 @@ final class AA_Canonical_Read_Binding_Bootstrap {
             new AA_Canonical_Family_Enablement_Store()
         ))->execute($canonical);
 
-        $repository = new CanonicalRelationalRepository();
+        if ($repository === null) {
+            $repository = new CanonicalRelationalRepository();
+        }
+        if (!($repository instanceof CanonicalRelationalRepository)) {
+            throw new \InvalidArgumentException(
+                '[invalid_write_bootstrap] repository must be CanonicalRelationalRepository.'
+            );
+        }
+
+        $write_adapter = new AA_Canonical_Relational_Write_Adapter($repository);
 
         foreach ($canonical->families() as $family) {
             $family_key = $family->key();
@@ -43,10 +57,7 @@ final class AA_Canonical_Read_Binding_Bootstrap {
 
             foreach ($canonical->variants_for($family_key) as $variant) {
                 $identity = new CanonicalReadIdentity($family_key, $variant->key());
-                $registry->register(
-                    $identity,
-                    new AA_Canonical_Relational_Read_Adapter($repository, $identity)
-                );
+                $registry->register($identity, $write_adapter);
             }
         }
     }
@@ -91,8 +102,8 @@ final class AA_Canonical_Read_Binding_Bootstrap {
         if (!class_exists('CanonicalRelationalRepository')) {
             require_once dirname(__DIR__, 2) . '/repositories/CanonicalRelationalRepository.php';
         }
-        if (!class_exists('AA_Canonical_Relational_Read_Adapter')) {
-            require_once __DIR__ . '/relational/class-aa-canonical-relational-read-adapter.php';
+        if (!class_exists('AA_Canonical_Relational_Write_Adapter')) {
+            require_once __DIR__ . '/relational/class-aa-canonical-relational-write-adapter.php';
         }
     }
 }

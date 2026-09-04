@@ -426,11 +426,17 @@ if (!function_exists('wp_date')) {
         return $dt->format($format);
     }
 }
-final class ShellModuleEmptyFinanceWpdbMock {
+final class ShellModuleUniversalEmptyWpdbMock {
     public $prefix = 'wp_';
     public $last_error = '';
     public function prepare(string $query, ...$args): string {
+        if (count($args) === 1 && is_array($args[0])) {
+            $args = $args[0];
+        }
         foreach ($args as $arg) {
+            if (is_array($arg)) {
+                continue;
+            }
             $val = is_numeric($arg) ? (string) (int) $arg : "'" . addslashes((string) $arg) . "'";
             $query = preg_replace('/%[sdf]/', $val, $query, 1);
         }
@@ -439,7 +445,16 @@ final class ShellModuleEmptyFinanceWpdbMock {
     /** @return string|null */
     public function get_var(string $query) {
         $this->last_error = '';
-        return strpos($query, 'COUNT(*)') !== false ? '0' : null;
+        if (stripos($query, 'SHOW TABLES LIKE') !== false) {
+            return $this->prefix . 'aa_canonical_families';
+        }
+        if (strpos($query, 'COUNT(*)') !== false) {
+            return '0';
+        }
+        if (preg_match("/WHERE family_key = '([^']+)'/", $query, $m)) {
+            return $m[1] === 'finance' ? '1' : ($m[1] === 'archive' ? '2' : null);
+        }
+        return null;
     }
     /** @return object|null */
     public function get_row(string $query) {
@@ -449,11 +464,27 @@ final class ShellModuleEmptyFinanceWpdbMock {
     /** @return array<int,mixed> */
     public function get_results(string $query) {
         $this->last_error = '';
+        if (stripos($query, 'is_enabled') !== false) {
+            return [
+                ['family_key' => 'finance', 'is_enabled' => 1],
+                ['family_key' => 'archive', 'is_enabled' => 1],
+            ];
+        }
         return [];
     }
 }
-$GLOBALS['wpdb'] = new ShellModuleEmptyFinanceWpdbMock();
+$GLOBALS['wpdb'] = new ShellModuleUniversalEmptyWpdbMock();
 
+require_once $plugin_root . '/includes/application/canonical/CanonicalFamilyEnablementSchemaNotReady.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalFamilyEnablementPersistenceFailed.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalFamilyEnablementStatus.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalFamilyEnablementSnapshot.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalFamilyEnablementResult.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalFamilyEnablementPort.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalFamilyNotProvisioned.php';
+require_once $plugin_root . '/includes/application/canonical/ReadCanonicalFamilyEnablementUseCase.php';
+require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-family-enablement-store.php';
+require_once $plugin_root . '/includes/infrastructure/wp/CanonicalSchema.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalReadIdentity.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalPage.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalReadAdapter.php';
@@ -464,6 +495,7 @@ require_once $plugin_root . '/includes/application/canonical/CanonicalShellManif
 require_once $plugin_root . '/includes/application/canonical/CanonicalShellReadResult.php';
 require_once $plugin_root . '/includes/application/canonical/ReadCanonicalShellContainersUseCase.php';
 require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-read-binding-registry.php';
+require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-read-binding-bootstrap.php';
 require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-shell-view-composer.php';
 
 $aa_shell_route_state = 'resolved';
@@ -480,6 +512,7 @@ ac_assert('Shell shows General label from registry', strpos($shell_html, 'Genera
 ac_assert('Shell shows qualified finance.general', strpos($shell_html, 'finance.general') !== false);
 ac_assert('Shell shows empty finance (not pending)', strpos($shell_html, 'Sin contenedores') !== false
     && strpos($shell_html, 'Lectura pendiente') === false);
+ac_assert('Shell empty copy universal', strpos($shell_html, 'Aún no hay contenedores en este tipo de registro.') !== false);
 ac_assert('Shell empty has no preview CTA without constant', strpos($shell_html, 'Ver demostración del shell') === false);
 ac_assert('Shell resolved root has no script tags', strpos($shell_html, '<script') === false);
 ac_assert('Shell resolved root has no amount', stripos($shell_html, 'amount') === false);

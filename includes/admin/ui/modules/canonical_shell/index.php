@@ -290,7 +290,7 @@ $is_family_disabled = ($route_state === 'family_disabled');
             <?php elseif ($read_state === 'empty') : ?>
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center" role="status">
                     <h3 class="text-base font-semibold text-gray-900 mb-2">Sin contenedores</h3>
-                    <p class="text-sm text-gray-500">No hay contenedores para mostrar en esta vista.</p>
+                        <p class="text-sm text-gray-500">Aún no hay contenedores en este tipo de registro.</p>
                 </div>
 
             <?php elseif ($read_state === 'resolved_page') : ?>

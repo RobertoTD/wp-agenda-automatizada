@@ -46,7 +46,8 @@ ac_assert('Plugin require lifecycle', strpos($main_src, 'class-aa-canonical-fami
 ac_assert('Schema no invoca provisioner', strpos($schema_src, 'Family_Provisioner') === false
     && strpos($schema_src, 'Family_Catalog_Lifecycle') === false);
 ac_assert('DB_VERSION permanece 21', strpos($schema_src, "DB_VERSION = '21'") !== false);
-ac_assert('Binding sigue Finance legacy', strpos($bind_src, 'AA_Finance_Canonical_Read_Adapter') !== false);
+ac_assert('Binding productivo es Relational (PCU-5B)', strpos($bind_src, 'AA_Canonical_Relational_Read_Adapter') !== false
+    && strpos($bind_src, 'AA_Finance_Canonical_Read_Adapter') === false);
 ac_assert('Lifecycle no carga adapters PCU-3', strpos($lc_src, 'Relational_Read_Adapter') === false
     && strpos($lc_src, 'Relational_Write_Adapter') === false);
 ac_assert('Lifecycle no toca aa_db_version', strpos($lc_src, 'aa_db_version') !== false

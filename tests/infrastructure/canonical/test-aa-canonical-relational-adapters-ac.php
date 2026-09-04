@@ -46,8 +46,8 @@ ac_assert('Read/Write sin Expedientes', stripos($read_src, 'expediente') === fal
 ac_assert('Read lanza CanonicalReadPersistenceFailed', strpos($read_src, 'CanonicalReadPersistenceFailed') !== false);
 ac_assert('Write mapea AmbiguousOutcome → uncertain', strpos($write_src, 'uncertain_from_ambiguous') !== false);
 ac_assert('Write mapea QueryFailed → PersistenceFailed', strpos($write_src, 'CanonicalMutationPersistenceFailed') !== false);
-ac_assert('Bootstrap productivo sigue siendo Finance', strpos($boot_src, 'AA_Finance_Canonical_Read_Adapter') !== false);
-ac_assert('Bootstrap no registra Relational', strpos($boot_src, 'Relational_Read_Adapter') === false);
+ac_assert('Bootstrap productivo es Relational (PCU-5B)', strpos($boot_src, 'AA_Canonical_Relational_Read_Adapter') !== false);
+ac_assert('Bootstrap productivo sin Finance adapter', strpos($boot_src, 'AA_Finance_Canonical_Read_Adapter') === false);
 ac_assert('Preview no escribe', $preview_src === '' || (stripos($preview_src, 'insert') === false && stripos($preview_src, 'update') === false));
 ac_assert('DTOs sin public_id en read adapter', !preg_match('/public_id/', $read_src) || strpos($read_src, "['public_id']") === false);
 

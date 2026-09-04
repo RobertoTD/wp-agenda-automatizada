@@ -27,7 +27,14 @@ final class AA_Canonical_Write_Binding_Registry implements CanonicalWriteAdapter
     private $adapters = [];
 
     public function register(CanonicalReadIdentity $identity, CanonicalWriteAdapter $adapter): void {
-        $this->adapters[$identity->qualified_key()] = $adapter;
+        $key = $identity->qualified_key();
+        if (isset($this->adapters[$key])) {
+            throw new \LogicException(
+                '[duplicate_write_binding] Write adapter already registered for identity: ' . $key
+            );
+        }
+
+        $this->adapters[$key] = $adapter;
     }
 
     public function require(CanonicalReadIdentity $identity): CanonicalWriteAdapter {
