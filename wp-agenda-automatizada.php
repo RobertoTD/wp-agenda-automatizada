@@ -369,6 +369,9 @@ CanonicalCreateRecordAjax::register();
 require_once __DIR__ . '/includes/http/ajax/CanonicalUpdateRecordAjax.php';
 CanonicalUpdateRecordAjax::register();
 
+require_once __DIR__ . '/includes/http/ajax/CanonicalDeleteRecordAjax.php';
+CanonicalDeleteRecordAjax::register();
+
 // ===============================
 // 🔹 Schema lifecycle: registra el activation hook con AA_Schema::install
 // ===============================

@@ -21,10 +21,10 @@ final class CanonicalDeleteRecordCommand {
      */
     public function __construct(int $container_id, int $record_id) {
         if ($container_id < 1) {
-            throw new \InvalidArgumentException('[invalid_mutation_input] container_id must be positive.');
+            throw new \InvalidArgumentException('[invalid_container_id] container_id must be positive.');
         }
         if ($record_id < 1) {
-            throw new \InvalidArgumentException('[invalid_mutation_input] record_id must be positive.');
+            throw new \InvalidArgumentException('[invalid_record_id] record_id must be positive.');
         }
 
         $this->container_id = $container_id;

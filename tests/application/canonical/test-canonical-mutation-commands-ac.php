@@ -80,6 +80,20 @@ try {
 $rd = new CanonicalDeleteRecordCommand(4, 7);
 ac_assert('Delete record ids', $rd->container_id() === 4 && $rd->record_id() === 7);
 
+try {
+    new CanonicalDeleteRecordCommand(0, 1);
+    ac_assert('Delete record rejects container 0', false);
+} catch (\InvalidArgumentException $e) {
+    ac_assert('Delete record rejects container 0', strpos($e->getMessage(), '[invalid_container_id]') === 0);
+}
+
+try {
+    new CanonicalDeleteRecordCommand(1, 0);
+    ac_assert('Delete record rejects record 0', false);
+} catch (\InvalidArgumentException $e) {
+    ac_assert('Delete record rejects record 0', strpos($e->getMessage(), '[invalid_record_id]') === 0);
+}
+
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 if ($failed !== []) {
     echo "Fallos:\n- " . implode("\n- ", $failed) . "\n";

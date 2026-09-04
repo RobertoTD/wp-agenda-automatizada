@@ -100,7 +100,17 @@ final class ShellRecordsEmptyFinanceWpdbMock {
     public $last_error = '';
 
     public function prepare(string $query, ...$args): string {
+        $flat = [];
         foreach ($args as $arg) {
+            if (is_array($arg)) {
+                foreach ($arg as $inner) {
+                    $flat[] = $inner;
+                }
+            } else {
+                $flat[] = $arg;
+            }
+        }
+        foreach ($flat as $arg) {
             $val = is_numeric($arg) ? (string) (int) $arg : "'" . addslashes((string) $arg) . "'";
             $query = preg_replace('/%[sdf]/', $val, $query, 1);
         }
@@ -110,18 +120,36 @@ final class ShellRecordsEmptyFinanceWpdbMock {
     /** @return string|null */
     public function get_var(string $query) {
         $this->last_error = '';
-        return strpos($query, 'COUNT(*)') !== false ? '0' : null;
+        // PCU-5B: enablement store checks aa_canonical_families via SHOW TABLES.
+        if (stripos($query, 'SHOW TABLES LIKE') !== false && strpos($query, 'aa_canonical_families') !== false) {
+            return $this->prefix . 'aa_canonical_families';
+        }
+        if (strpos($query, 'COUNT(*)') !== false) {
+            return '0';
+        }
+        // Relational resolve_family_id for finance/archive in this harness.
+        if (strpos($query, 'SELECT id FROM') !== false && strpos($query, 'aa_canonical_families') !== false) {
+            return '1';
+        }
+        return null;
     }
 
-    /** @return object|null */
-    public function get_row(string $query) {
+    /** @return object|null|array|false */
+    public function get_row(string $query, $output = null) {
         $this->last_error = '';
         return null;
     }
 
-    /** @return array<int,mixed> */
-    public function get_results(string $query) {
+    /** @return array<int,mixed>|false */
+    public function get_results(string $query, $output = null) {
         $this->last_error = '';
+        // PCU-5B enablement SELECT: provisioned + enabled for declared families.
+        if (strpos($query, 'is_enabled') !== false && strpos($query, 'aa_canonical_families') !== false) {
+            return [
+                ['family_key' => 'finance', 'is_enabled' => 1],
+                ['family_key' => 'archive', 'is_enabled' => 1],
+            ];
+        }
         return [];
     }
 }
@@ -172,6 +200,15 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
     $failed[] = $label;
     echo '[FAIL] ' . $label . ($detail !== '' ? ' - ' . $detail : '') . "\n";
 }
+
+ac_assert(
+    'Harness PCU-5B: SHOW TABLES aa_canonical_families',
+    $GLOBALS['wpdb']->get_var("SHOW TABLES LIKE 'wp_aa_canonical_families'") === 'wp_aa_canonical_families'
+);
+ac_assert(
+    'Harness PCU-5B: enablement rows finance+archive',
+    count($GLOBALS['wpdb']->get_results('SELECT family_key, is_enabled FROM `wp_aa_canonical_families`')) === 2
+);
 
 function render_shell(array $vars): string {
     extract($vars, EXTR_SKIP);

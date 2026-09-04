@@ -547,6 +547,9 @@ $show_create_record_ui = $show_read_ui
     if (!class_exists('CanonicalUpdateRecordAjax')) {
         require_once dirname(__DIR__, 4) . '/http/ajax/CanonicalUpdateRecordAjax.php';
     }
+    if (!class_exists('CanonicalDeleteRecordAjax')) {
+        require_once dirname(__DIR__, 4) . '/http/ajax/CanonicalDeleteRecordAjax.php';
+    }
     if (!class_exists('CanonicalCreateRecordCommand')) {
         require_once dirname(__DIR__, 4) . '/application/canonical/CanonicalCreateRecordCommand.php';
     }
@@ -636,6 +639,67 @@ $show_create_record_ui = $show_read_ui
         </div>
     </div>
 
+    <div
+        id="aa-shell-delete-record-modal"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="aa-shell-delete-record-modal-title"
+        aria-describedby="aa-shell-delete-record-message"
+        aria-hidden="true"
+    >
+        <div id="aa-shell-delete-record-modal-backdrop" class="fixed inset-0 bg-black/50 transition-opacity" aria-hidden="true"></div>
+        <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6 z-10">
+            <div class="flex items-center justify-between mb-2">
+                <h3 id="aa-shell-delete-record-modal-title" class="text-lg font-bold text-gray-900 leading-tight">
+                    Eliminar registro
+                </h3>
+                <button
+                    type="button"
+                    id="aa-shell-delete-record-modal-close-btn"
+                    class="text-gray-400 hover:text-gray-600 p-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                    aria-label="Cerrar confirmación de eliminación"
+                >
+                    ✕
+                </button>
+            </div>
+            <p id="aa-shell-delete-record-message" class="text-sm text-gray-600 mb-4">
+                Se eliminará permanentemente “<span id="aa-shell-delete-record-title"></span>”. Esta acción no se puede deshacer.
+            </p>
+
+            <div
+                id="aa-shell-delete-record-status"
+                class="hidden mb-4 p-3 rounded-lg text-xs font-medium"
+                role="status"
+                aria-live="polite"
+            ></div>
+
+            <div class="flex flex-wrap items-center justify-end gap-3">
+                <button
+                    type="button"
+                    id="aa-shell-delete-record-reload-btn"
+                    class="hidden px-4 py-2 text-xs font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                >
+                    Recargar lista
+                </button>
+                <button
+                    type="button"
+                    id="aa-shell-delete-record-modal-cancel-btn"
+                    class="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                    Cancelar
+                </button>
+                <button
+                    type="button"
+                    id="aa-shell-delete-record-confirm-btn"
+                    class="px-4 py-2 text-xs font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    Eliminar registro
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
     window.AA_CANONICAL_SHELL_RECORD_FORM = {
         ajaxUrl: <?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,
@@ -643,6 +707,8 @@ $show_create_record_ui = $show_read_ui
         createNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalCreateRecordAjax::NONCE_ACTION)); ?>,
         updateAction: <?php echo wp_json_encode(CanonicalUpdateRecordAjax::ACTION); ?>,
         updateNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalUpdateRecordAjax::NONCE_ACTION)); ?>,
+        deleteAction: <?php echo wp_json_encode(CanonicalDeleteRecordAjax::ACTION); ?>,
+        deleteNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalDeleteRecordAjax::NONCE_ACTION)); ?>,
         familyKey: <?php echo wp_json_encode($create_family_key); ?>,
         variantKey: <?php echo wp_json_encode($create_variant_key); ?>,
         containerId: <?php echo (int) $create_container_id; ?>,

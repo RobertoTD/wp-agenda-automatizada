@@ -61,7 +61,7 @@ function createEl(id) {
 let documentRef;
 let lastFormData;
 
-function boot(fetchImpl, editPayloads) {
+function boot(fetchImpl, payloads) {
     const openBtn = createEl('aa-shell-open-create-record-btn');
     const modal = createEl('aa-shell-record-modal');
     const form = createEl('aa-shell-record-form');
@@ -79,11 +79,29 @@ function boot(fetchImpl, editPayloads) {
     const closeBtn = createEl('aa-shell-record-modal-close-btn');
     const backdrop = createEl('aa-shell-record-modal-backdrop');
 
-    const editBtns = (editPayloads || []).map((payload, idx) => {
-        const btn = createEl('aa-shell-edit-record-btn-' + idx);
-        btn.className = 'aa-shell-edit-record-btn';
-        btn.setAttribute('data-aa-record', JSON.stringify(payload));
-        return btn;
+    const deleteModal = createEl('aa-shell-delete-record-modal');
+    const deleteBackdrop = createEl('aa-shell-delete-record-modal-backdrop');
+    const deleteCloseBtn = createEl('aa-shell-delete-record-modal-close-btn');
+    const deleteCancelBtn = createEl('aa-shell-delete-record-modal-cancel-btn');
+    const deleteConfirmBtn = createEl('aa-shell-delete-record-confirm-btn');
+    const deleteReloadBtn = createEl('aa-shell-delete-record-reload-btn');
+    deleteReloadBtn.classList.add('hidden');
+    const deleteTitleEl = createEl('aa-shell-delete-record-title');
+    const deleteStatusEl = createEl('aa-shell-delete-record-status');
+    deleteStatusEl.classList.add('hidden');
+
+    const editBtns = [];
+    const deleteBtns = [];
+    (payloads || []).forEach((payload, idx) => {
+        const editBtn = createEl('aa-shell-edit-record-btn-' + idx);
+        editBtn.className = 'aa-shell-edit-record-btn';
+        editBtn.setAttribute('data-aa-record', JSON.stringify(payload));
+        editBtns.push(editBtn);
+
+        const delBtn = createEl('aa-shell-delete-record-btn-' + idx);
+        delBtn.className = 'aa-shell-delete-record-btn';
+        delBtn.setAttribute('data-aa-record', JSON.stringify(payload));
+        deleteBtns.push(delBtn);
     });
 
     const byId = {
@@ -98,12 +116,21 @@ function boot(fetchImpl, editPayloads) {
         'aa-shell-record-details': detailsInput,
         'aa-shell-record-title-error': titleError,
         'aa-shell-record-status': statusEl,
-        'aa-shell-record-submit-btn': submitBtn
+        'aa-shell-record-submit-btn': submitBtn,
+        'aa-shell-delete-record-modal': deleteModal,
+        'aa-shell-delete-record-modal-backdrop': deleteBackdrop,
+        'aa-shell-delete-record-modal-close-btn': deleteCloseBtn,
+        'aa-shell-delete-record-modal-cancel-btn': deleteCancelBtn,
+        'aa-shell-delete-record-confirm-btn': deleteConfirmBtn,
+        'aa-shell-delete-record-reload-btn': deleteReloadBtn,
+        'aa-shell-delete-record-title': deleteTitleEl,
+        'aa-shell-delete-record-status': deleteStatusEl
     };
 
     const documentListeners = {};
     let assignedUrl = null;
     let fetchCalls = 0;
+    let reloaded = false;
 
     documentRef = {
         activeElement: openBtn,
@@ -113,6 +140,9 @@ function boot(fetchImpl, editPayloads) {
         querySelectorAll(selector) {
             if (selector === '.aa-shell-edit-record-btn') {
                 return editBtns;
+            }
+            if (selector === '.aa-shell-delete-record-btn') {
+                return deleteBtns;
             }
             return [];
         },
@@ -130,6 +160,8 @@ function boot(fetchImpl, editPayloads) {
                 createNonce: 'create-nonce',
                 updateAction: 'aa_update_canonical_record',
                 updateNonce: 'update-nonce',
+                deleteAction: 'aa_delete_canonical_record',
+                deleteNonce: 'delete-nonce',
                 familyKey: 'finance',
                 variantKey: 'general',
                 containerId: 42,
@@ -138,6 +170,9 @@ function boot(fetchImpl, editPayloads) {
             location: {
                 assign(url) {
                     assignedUrl = url;
+                },
+                reload() {
+                    reloaded = true;
                 }
             },
             document: documentRef
@@ -166,7 +201,9 @@ function boot(fetchImpl, editPayloads) {
     return {
         openBtn,
         editBtns,
+        deleteBtns,
         modal,
+        deleteModal,
         modalTitle,
         form,
         titleInput,
@@ -174,10 +211,16 @@ function boot(fetchImpl, editPayloads) {
         titleError,
         statusEl,
         submitBtn,
+        deleteTitleEl,
+        deleteStatusEl,
+        deleteConfirmBtn,
+        deleteCancelBtn,
+        deleteReloadBtn,
         documentListeners,
         getAssignedUrl: () => assignedUrl,
         getFetchCalls: () => fetchCalls,
-        getLastFormData: () => lastFormData
+        getLastFormData: () => lastFormData,
+        getReloaded: () => reloaded
     };
 }
 
@@ -267,14 +310,8 @@ describe('canonical-shell-record-form', () => {
                     }
                 })
             }),
-            [{ id: 11, title: 'Old', details: null }]
+            [{ id: 11, title: 'Old', details: '' }]
         );
-        // details null in JSON becomes missing string → parse uses ''
-        ui.editBtns[0].setAttribute('data-aa-record', JSON.stringify({
-            id: 11,
-            title: 'Old',
-            details: ''
-        }));
         ui.editBtns[0]._listeners.click[0]();
         ui.titleInput.value = 'New';
         ui.form._listeners.submit[0]({ preventDefault() {} });
@@ -345,5 +382,110 @@ describe('canonical-shell-record-form', () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
         assert.equal(ui.submitBtn.disabled, false);
         assert.ok(ui.titleError.textContent.indexOf('vacío') !== -1);
+    });
+
+    it('delete: título seguro y card correcta', () => {
+        const ui = boot(
+            async () => ({ status: 200, text: async () => '{}' }),
+            [
+                { id: 11, title: 'Titulo "A" & <b>x</b>', details: '' },
+                { id: 22, title: "Café 'B'", details: '' }
+            ]
+        );
+        ui.deleteBtns[0]._listeners.click[0]();
+        assert.equal(ui.deleteModal.classList.contains('hidden'), false);
+        assert.equal(ui.deleteTitleEl.textContent, 'Titulo "A" & <b>x</b>');
+        assert.ok(ui.deleteCancelBtn.focusCalls >= 1, 'focus cancel');
+
+        ui.documentListeners.keydown[0]({ key: 'Escape' });
+        assert.equal(ui.deleteModal.classList.contains('hidden'), true);
+        assert.ok(ui.deleteBtns[0].focusCalls >= 1, 'restore delete focus');
+
+        ui.deleteBtns[1]._listeners.click[0]();
+        assert.equal(ui.deleteTitleEl.textContent, "Café 'B'");
+    });
+
+    it('delete: confirmed redirect y una sola petición', async () => {
+        const ui = boot(
+            async () => ({
+                status: 200,
+                text: async () => JSON.stringify({
+                    success: true,
+                    data: {
+                        status: 'confirmed',
+                        redirect_url: 'https://example.test/records?container_id=42'
+                    }
+                })
+            }),
+            [{ id: 11, title: 'Borrar', details: '' }]
+        );
+        ui.deleteBtns[0]._listeners.click[0]();
+        ui.deleteConfirmBtn._listeners.click[0]();
+        ui.deleteConfirmBtn._listeners.click[0]();
+        assert.equal(ui.getFetchCalls(), 1);
+        assert.equal(ui.getLastFormData().action, 'aa_delete_canonical_record');
+        assert.equal(ui.getLastFormData().nonce, 'delete-nonce');
+        assert.equal(ui.getLastFormData().record_id, '11');
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(ui.getAssignedUrl(), 'https://example.test/records?container_id=42');
+    });
+
+    it('delete: persistence_failed permite retry', async () => {
+        let calls = 0;
+        const ui = boot(
+            async () => {
+                calls += 1;
+                return {
+                    status: 500,
+                    text: async () => JSON.stringify({
+                        success: false,
+                        data: {
+                            code: 'persistence_failed',
+                            message: 'No se pudo eliminar el registro.'
+                        }
+                    })
+                };
+            },
+            [{ id: 9, title: 'X', details: '' }]
+        );
+        ui.deleteBtns[0]._listeners.click[0]();
+        ui.deleteConfirmBtn._listeners.click[0]();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(ui.deleteConfirmBtn.disabled, false);
+        assert.ok(ui.deleteStatusEl.textContent.indexOf('No se pudo eliminar') !== -1);
+        ui.deleteConfirmBtn._listeners.click[0]();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(calls, 2);
+    });
+
+    it('delete: uncertain bloquea retry y muestra recarga', async () => {
+        const ui = boot(
+            async () => ({
+                status: 409,
+                text: async () => JSON.stringify({
+                    success: false,
+                    data: {
+                        code: 'uncertain',
+                        message: 'No fue posible confirmar si el registro se eliminó. Recarga la lista para verificarlo antes de intentarlo nuevamente.',
+                        redirect_url: 'https://example.test/records?container_id=42'
+                    }
+                })
+            }),
+            [{ id: 9, title: 'X', details: '' }]
+        );
+        ui.deleteBtns[0]._listeners.click[0]();
+        ui.deleteConfirmBtn._listeners.click[0]();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(ui.getAssignedUrl(), null);
+        assert.equal(ui.deleteConfirmBtn.disabled, true);
+        assert.equal(ui.deleteReloadBtn.classList.contains('hidden'), false);
+        assert.ok(ui.deleteStatusEl.textContent.indexOf('Recarga la lista') !== -1);
+
+        const before = ui.getFetchCalls();
+        ui.deleteConfirmBtn._listeners.click[0]();
+        assert.equal(ui.getFetchCalls(), before);
+
+        ui.deleteReloadBtn._listeners.click[0]();
+        assert.equal(ui.getAssignedUrl(), 'https://example.test/records?container_id=42');
     });
 });
