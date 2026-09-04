@@ -360,6 +360,10 @@ FinanceRecordsAjax::register();
 require_once __DIR__ . '/includes/http/ajax/CanonicalFamilyEnabledAjax.php';
 CanonicalFamilyEnabledAjax::register();
 
+// Soporte común del transporte de mutaciones canónicas (SB1-5C1): antes de los seis endpoints.
+require_once __DIR__ . '/includes/http/ajax/CanonicalShellWriteAjaxRejection.php';
+require_once __DIR__ . '/includes/http/ajax/CanonicalShellWriteAjaxSupport.php';
+
 require_once __DIR__ . '/includes/http/ajax/CanonicalCreateContainerAjax.php';
 CanonicalCreateContainerAjax::register();
 

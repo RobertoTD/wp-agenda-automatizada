@@ -26,6 +26,7 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 $ajax_file = $plugin_root . '/includes/http/ajax/CanonicalDeleteContainerAjax.php';
 $ajax_src = (string) file_get_contents($ajax_file);
 $boot_src = (string) file_get_contents($plugin_root . '/wp-agenda-automatizada.php');
+$support_src = (string) file_get_contents($plugin_root . '/includes/http/ajax/CanonicalShellWriteAjaxSupport.php');
 
 ac_assert('Ajax file readable', $ajax_src !== '');
 ac_assert('Action constante', strpos($ajax_src, "ACTION = 'aa_delete_canonical_container'") !== false);
@@ -33,8 +34,10 @@ ac_assert('Nonce específico', strpos($ajax_src, "NONCE_ACTION = 'aa_delete_cano
 ac_assert('Solo wp_ajax_', strpos($ajax_src, "add_action('wp_ajax_'") !== false);
 ac_assert('Sin nopriv', strpos($ajax_src, 'wp_ajax_nopriv_') === false);
 ac_assert('Bootstrap registra', strpos($boot_src, 'CanonicalDeleteContainerAjax::register()') !== false);
-ac_assert('Access Policy', strpos($ajax_src, 'AA_Canonical_Access_Policy::check_family_access') !== false);
-ac_assert('Write bootstrap', strpos($ajax_src, 'AA_Canonical_Write_Binding_Bootstrap::register_productive') !== false);
+ac_assert('Access Policy vía soporte SB1-5C1', strpos($support_src, 'AA_Canonical_Access_Policy::check_family_access') !== false
+    && strpos($ajax_src, 'CanonicalShellWriteAjaxSupport::authorize_identity') !== false);
+ac_assert('Write bootstrap vía soporte SB1-5C1', strpos($support_src, 'AA_Canonical_Write_Binding_Bootstrap::register_productive') !== false
+    && strpos($ajax_src, 'CanonicalShellWriteAjaxSupport::build_write_gateway') !== false);
 ac_assert('UseCase delete', strpos($ajax_src, 'WriteCanonicalShellContainerUseCase') !== false
     && strpos($ajax_src, '->delete(') !== false);
 ac_assert('Sin SQL directo', strpos($ajax_src, '$wpdb') === false
@@ -42,16 +45,24 @@ ac_assert('Sin SQL directo', strpos($ajax_src, '$wpdb') === false
     && strpos($ajax_src, '->insert(') === false);
 ac_assert('Sin delete records manual', strpos($ajax_src, 'delete_record') === false
     && strpos($ajax_src, 'aa_canonical_records') === false);
-ac_assert('Códigos estables', strpos($ajax_src, "'family_disabled'") !== false
-    && strpos($ajax_src, "'unknown_identity'") !== false
-    && strpos($ajax_src, "'uncertain'") !== false
+ac_assert('Códigos estables', strpos($ajax_src, "'uncertain'") !== false
     && strpos($ajax_src, "'write_adapter_pending'") !== false
     && strpos($ajax_src, "'invalid_container_id'") !== false
     && strpos($ajax_src, "'container_not_found'") !== false);
+ac_assert('Códigos de identidad estables en soporte', strpos($support_src, "'unknown_identity'") !== false
+    && strpos($support_src, "'family_disabled'") !== false
+    && strpos($support_src, "'family_not_provisioned'") !== false
+    && strpos($support_src, "'schema_not_ready'") !== false
+    && strpos($support_src, "'enablement_unavailable'") !== false);
 ac_assert('Sin aa_finance_', strpos($ajax_src, 'aa_finance_') === false);
 ac_assert('Sin aa_expediente_', strpos($ajax_src, 'aa_expediente_') === false);
 ac_assert('Sin amount', strpos($ajax_src, 'amount') === false);
-ac_assert('Sin support compartido', strpos($ajax_src, 'CanonicalShellWriteRequestSupport') === false);
+ac_assert('Soporte contenido: sin SQL, JSON, $_POST, redirects ni commands', strpos($support_src, '$wpdb') === false
+    && preg_match('/->query\(|->insert\(|->prepare\(/', $support_src) !== 1
+    && strpos($support_src, 'wp_send_json') === false
+    && strpos($support_src, '$_POST') === false
+    && strpos($support_src, 'AA_Canonical_Shell_Base_Url_Policy') === false
+    && strpos($support_src, 'Command') === false);
 ac_assert('Sin soft delete', stripos($ajax_src, 'soft') === false
     && strpos($ajax_src, 'deleted_at') === false);
 
@@ -364,6 +375,31 @@ ac_assert(
     && strpos($r['data']['redirect_url'], 'variant=general') !== false
     && strpos($r['data']['redirect_url'], 'page=') === false
 );
+
+// Precedencia de errores con dos condiciones inválidas simultáneas (SB1-5C1).
+$GLOBALS['aa_test_logged_in'] = false;
+$GLOBALS['aa_test_nonce_valid'] = false;
+$r = aa_run_delete_container_ajax(aa_base_delete_post());
+ac_assert('Precedencia: sin auth gana sobre nonce inválido', ($r['data']['code'] ?? '') === 'unauthorized');
+$GLOBALS['aa_test_logged_in'] = true;
+$r = aa_run_delete_container_ajax(aa_base_delete_post(['family_key' => 'nope']));
+ac_assert('Precedencia: nonce inválido gana sobre familia desconocida', ($r['data']['code'] ?? '') === 'invalid_nonce');
+$GLOBALS['aa_test_nonce_valid'] = true;
+
+$r = aa_run_delete_container_ajax(aa_base_delete_post(['container_id' => 'x', 'family_key' => 'nope']));
+ac_assert('Precedencia: container_id inválido gana sobre familia desconocida', ($r['data']['code'] ?? '') === 'invalid_container_id');
+
+$r = aa_run_delete_container_ajax(aa_base_delete_post(['container_id' => ['1'], 'container_id_extra' => null, 'family_key' => 'nope']));
+ac_assert('Precedencia: payload no escalar gana sobre familia desconocida', ($r['data']['code'] ?? '') === 'invalid_payload');
+
+$GLOBALS['aa_test_caps'] = [];
+$r = aa_run_delete_container_ajax(aa_base_delete_post(['container_id' => '0', 'family_key' => 'archive']));
+ac_assert('Precedencia: container_id inválido gana sobre forbidden', ($r['data']['code'] ?? '') === 'invalid_container_id');
+$r = aa_run_delete_container_ajax(aa_base_delete_post(['family_key' => 'nope']));
+ac_assert('Precedencia: familia desconocida gana sobre forbidden', ($r['data']['code'] ?? '') === 'unknown_identity');
+$r = aa_run_delete_container_ajax(aa_base_delete_post(['family_key' => 'archive']));
+ac_assert('Sin manage_options en archive → forbidden', ($r['data']['code'] ?? '') === 'forbidden' && ($r['status'] ?? 0) === 403);
+$GLOBALS['aa_test_caps'] = ['manage_options' => true];
 
 CanonicalDeleteContainerAjax::register();
 ac_assert('Register hook', in_array('wp_ajax_aa_delete_canonical_container', $GLOBALS['aa_test_actions'], true));

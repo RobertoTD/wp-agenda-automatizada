@@ -63,60 +63,15 @@ final class CanonicalCreateContainerAjax {
             : sanitize_textarea_field($details_raw);
 
         try {
-            $registry = AA_Canonical_Core_Bootstrap::instance();
-        } catch (\Throwable $e) {
-            self::error('enablement_unavailable', 'El núcleo canónico no está disponible.', 500);
+            $authorized = CanonicalShellWriteAjaxSupport::authorize_identity($family_key, $variant_key);
+        } catch (CanonicalShellWriteAjaxRejection $e) {
+            self::error($e->error_code(), $e->error_message(), $e->http_status());
         }
 
-        $route = (new ResolveCanonicalRouteUseCase($registry))->execute([
-            'family_key' => $family_key,
-            'variant_key' => $variant_key,
-        ]);
-
-        if (!$route['success']) {
-            $code = (string) ($route['error']['code'] ?? '');
-            if ($code === 'unknown_family' || $code === 'unknown_variant'
-                || $code === 'invalid_family_key' || $code === 'invalid_variant_key'
-                || $code === 'missing_family'
-            ) {
-                self::error('unknown_identity', 'Familia o variante no reconocida.', 404);
-            }
-            self::error('enablement_unavailable', 'El núcleo canónico no está disponible.', 500);
-        }
-
-        /** @var AA_Canonical_Family_Definition $family */
-        $family = $route['data']['family'];
-        /** @var AA_Canonical_Variant_Definition $variant */
-        $variant = $route['data']['variant'];
+        $family = $authorized['family'];
+        $variant = $authorized['variant'];
         $resolved_family_key = $family->key();
         $resolved_variant_key = $variant->key();
-
-        $access = AA_Canonical_Access_Policy::check_family_access($resolved_family_key);
-        if (!$access['authorized']) {
-            $code = ($access['code'] === AA_Canonical_Access_Policy::CODE_UNAUTHORIZED)
-                ? 'unauthorized'
-                : 'forbidden';
-            self::error($code, (string) $access['message'], (int) $access['status']);
-        }
-
-        try {
-            $snapshot = (new ReadCanonicalFamilyEnablementUseCase(
-                new AA_Canonical_Family_Enablement_Store()
-            ))->execute($registry);
-        } catch (CanonicalFamilyEnablementSchemaNotReady $e) {
-            self::error('schema_not_ready', 'El esquema canónico no está listo.', 503);
-        } catch (CanonicalFamilyEnablementPersistenceFailed $e) {
-            self::error('enablement_unavailable', 'No se pudo consultar el estado de habilitación.', 500);
-        } catch (\Throwable $e) {
-            self::error('enablement_unavailable', 'No se pudo consultar el estado de habilitación.', 500);
-        }
-
-        if (!$snapshot->is_provisioned($resolved_family_key)) {
-            self::error('family_not_provisioned', 'Esta familia aún no está provisionada.', 409);
-        }
-        if (!$snapshot->is_enabled($resolved_family_key)) {
-            self::error('family_disabled', 'Este tipo de registro está desactivado.', 409);
-        }
 
         try {
             $command = new CanonicalCreateContainerCommand($title, $details);
@@ -140,20 +95,13 @@ final class CanonicalCreateContainerAjax {
         $identity = new CanonicalReadIdentity($resolved_family_key, $resolved_variant_key);
         $manifest = new CanonicalShellManifest($identity, $family, $variant);
 
-        $write_registry = new AA_Canonical_Write_Binding_Registry();
         try {
-            AA_Canonical_Write_Binding_Bootstrap::register_productive($write_registry);
-        } catch (CanonicalFamilyEnablementSchemaNotReady $e) {
-            self::error('schema_not_ready', 'El esquema canónico no está listo.', 503);
-        } catch (CanonicalFamilyEnablementPersistenceFailed $e) {
-            self::error('enablement_unavailable', 'No se pudo consultar el estado de habilitación.', 500);
-        } catch (\Throwable $e) {
-            self::error('persistence_failed', 'No se pudo preparar la escritura canónica.', 500);
+            $gateway = CanonicalShellWriteAjaxSupport::build_write_gateway();
+        } catch (CanonicalShellWriteAjaxRejection $e) {
+            self::error($e->error_code(), $e->error_message(), $e->http_status());
         }
 
-        $use_case = new WriteCanonicalShellContainerUseCase(
-            new CanonicalWriteGateway($write_registry)
-        );
+        $use_case = new WriteCanonicalShellContainerUseCase($gateway);
 
         try {
             $result = $use_case->create($manifest, $command);
@@ -204,26 +152,11 @@ final class CanonicalCreateContainerAjax {
     }
 
     private static function require_dependencies(): void {
-        if (!class_exists('AA_Canonical_Access_Policy')) {
-            require_once dirname(__DIR__, 2) . '/infrastructure/wp/class-aa-canonical-access-policy.php';
+        if (!class_exists('CanonicalShellWriteAjaxRejection')) {
+            require_once __DIR__ . '/CanonicalShellWriteAjaxRejection.php';
         }
-        if (!class_exists('AA_Canonical_Core_Bootstrap')) {
-            require_once dirname(__DIR__, 2) . '/infrastructure/canonical/class-aa-canonical-core-bootstrap.php';
-        }
-        if (!class_exists('ResolveCanonicalRouteUseCase')) {
-            require_once dirname(__DIR__, 2) . '/application/canonical/ResolveCanonicalRouteUseCase.php';
-        }
-        if (!class_exists('CanonicalFamilyEnablementSchemaNotReady')) {
-            require_once dirname(__DIR__, 2) . '/application/canonical/CanonicalFamilyEnablementSchemaNotReady.php';
-        }
-        if (!class_exists('CanonicalFamilyEnablementPersistenceFailed')) {
-            require_once dirname(__DIR__, 2) . '/application/canonical/CanonicalFamilyEnablementPersistenceFailed.php';
-        }
-        if (!class_exists('ReadCanonicalFamilyEnablementUseCase')) {
-            require_once dirname(__DIR__, 2) . '/application/canonical/ReadCanonicalFamilyEnablementUseCase.php';
-        }
-        if (!class_exists('AA_Canonical_Family_Enablement_Store')) {
-            require_once dirname(__DIR__, 2) . '/infrastructure/canonical/class-aa-canonical-family-enablement-store.php';
+        if (!class_exists('CanonicalShellWriteAjaxSupport')) {
+            require_once __DIR__ . '/CanonicalShellWriteAjaxSupport.php';
         }
         if (!class_exists('CanonicalCreateContainerCommand')) {
             require_once dirname(__DIR__, 2) . '/application/canonical/CanonicalCreateContainerCommand.php';
@@ -233,15 +166,6 @@ final class CanonicalCreateContainerAjax {
         }
         if (!class_exists('CanonicalShellManifest')) {
             require_once dirname(__DIR__, 2) . '/application/canonical/CanonicalShellManifest.php';
-        }
-        if (!class_exists('AA_Canonical_Write_Binding_Registry')) {
-            require_once dirname(__DIR__, 2) . '/infrastructure/canonical/class-aa-canonical-write-binding-registry.php';
-        }
-        if (!class_exists('AA_Canonical_Write_Binding_Bootstrap')) {
-            require_once dirname(__DIR__, 2) . '/infrastructure/canonical/class-aa-canonical-write-binding-bootstrap.php';
-        }
-        if (!class_exists('CanonicalWriteGateway')) {
-            require_once dirname(__DIR__, 2) . '/application/canonical/CanonicalWriteGateway.php';
         }
         if (!class_exists('WriteCanonicalShellContainerUseCase')) {
             require_once dirname(__DIR__, 2) . '/application/canonical/WriteCanonicalShellContainerUseCase.php';
