@@ -581,6 +581,109 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
         </div>
 
     </form>
+
+    <?php
+    $aa_record_types_families = [];
+    $aa_record_types_schema_ready = true;
+    if (class_exists('AA_Canonical_Core_Bootstrap')
+        && class_exists('AA_Canonical_Family_Enablement_Store')
+        && class_exists('ReadCanonicalFamilyEnablementUseCase')
+    ) {
+        try {
+            $aa_rt_registry = AA_Canonical_Core_Bootstrap::instance();
+            $aa_rt_snapshot = (new ReadCanonicalFamilyEnablementUseCase(
+                new AA_Canonical_Family_Enablement_Store()
+            ))->execute($aa_rt_registry);
+            foreach ($aa_rt_registry->families() as $aa_rt_family) {
+                $aa_rt_key = $aa_rt_family->key();
+                $aa_record_types_families[] = [
+                    'key' => $aa_rt_key,
+                    'label' => $aa_rt_family->label(),
+                    'is_enabled' => $aa_rt_snapshot->has($aa_rt_key) && $aa_rt_snapshot->is_enabled($aa_rt_key),
+                ];
+            }
+        } catch (CanonicalFamilyEnablementSchemaNotReady $e) {
+            $aa_record_types_schema_ready = false;
+            try {
+                $aa_rt_registry = AA_Canonical_Core_Bootstrap::instance();
+                foreach ($aa_rt_registry->families() as $aa_rt_family) {
+                    $aa_record_types_families[] = [
+                        'key' => $aa_rt_family->key(),
+                        'label' => $aa_rt_family->label(),
+                        'is_enabled' => false,
+                    ];
+                }
+            } catch (\Throwable $ignored) {
+                $aa_record_types_families = [];
+            }
+        } catch (\Throwable $e) {
+            $aa_record_types_schema_ready = false;
+            $aa_record_types_families = [];
+        }
+    }
+    ?>
+
+    <details id="aa-canonical-record-types-root" class="aa-module-section-card bg-white rounded-xl shadow border border-gray-200 mb-2 overflow-hidden group mt-2">
+        <summary class="px-4 py-5 border-b border-gray-100 bg-white cursor-pointer list-none">
+            <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center">
+                    <span class="flex items-center justify-center w-8 h-8 text-gray-600">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/>
+                        </svg>
+                    </span>
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-600">Tipos de registros</h3>
+                    </div>
+                </div>
+            </div>
+        </summary>
+
+        <div class="p-6 space-y-5 transition-all duration-200">
+            <p class="text-sm text-gray-600">
+                Elige los tipos de información que quieres organizar en DEOIA.
+            </p>
+
+            <?php foreach ($aa_record_types_families as $aa_rt_row) :
+                $aa_rt_key = (string) $aa_rt_row['key'];
+                $aa_rt_label = (string) $aa_rt_row['label'];
+                $aa_rt_enabled = !empty($aa_rt_row['is_enabled']);
+                $aa_rt_input_id = 'aa-canonical-family-' . $aa_rt_key;
+                $aa_rt_status_id = $aa_rt_input_id . '-status';
+                ?>
+            <div class="flex items-start gap-3 p-3 bg-gray-50 rounded-lg"
+                 data-aa-canonical-family-row
+                 data-family-key="<?php echo esc_attr($aa_rt_key); ?>">
+                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-0.5"
+                       for="<?php echo esc_attr($aa_rt_input_id); ?>">
+                    <input
+                        type="checkbox"
+                        value="1"
+                        id="<?php echo esc_attr($aa_rt_input_id); ?>"
+                        class="sr-only peer"
+                        data-aa-canonical-family-toggle
+                        data-family-key="<?php echo esc_attr($aa_rt_key); ?>"
+                        aria-describedby="<?php echo esc_attr($aa_rt_status_id); ?>"
+                        <?php checked($aa_rt_enabled); ?>
+                        <?php disabled(!$aa_record_types_schema_ready); ?>
+                    >
+                    <div class="w-11 h-6 bg-gray-300 peer-checked:bg-indigo-600 rounded-full transition-colors"></div>
+                    <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-5"></div>
+                </label>
+
+                <div>
+                    <span class="text-sm text-gray-600"><?php echo esc_html($aa_rt_label); ?></span>
+                    <span
+                        id="<?php echo esc_attr($aa_rt_status_id); ?>"
+                        data-aa-family-status
+                        aria-live="polite"
+                        class="block text-xs text-gray-500 mt-0.5"
+                    ></span>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </details>
 </div>
 
 <!-- Time picker logic handled in module.js -->
@@ -588,10 +691,36 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
 <?php
 $settings_module_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
 $aa_settings_requires_freemium_consent = isset($aa_requires_freemium_consent) && $aa_requires_freemium_consent;
+$aa_family_enabled_ajax_url = admin_url('admin-ajax.php');
+$aa_family_enabled_nonce = class_exists('CanonicalFamilyEnabledAjax')
+    ? wp_create_nonce(CanonicalFamilyEnabledAjax::NONCE_ACTION)
+    : wp_create_nonce('aa_canonical_family_enabled');
+$aa_family_enabled_action = class_exists('CanonicalFamilyEnabledAjax')
+    ? CanonicalFamilyEnabledAjax::ACTION
+    : 'aa_update_canonical_family_enabled';
+$aa_family_enabled_origin = '';
+if (!empty($_SERVER['HTTP_HOST'])) {
+    $aa_family_enabled_origin = (is_ssl() ? 'https://' : 'http://') . sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
+}
 ?>
 <script>
 window.AA_SETTINGS_DATA = window.AA_SETTINGS_DATA || {};
 window.AA_SETTINGS_DATA.requiresFreemiumConsentBeforeGoogle = <?php echo $aa_settings_requires_freemium_consent ? 'true' : 'false'; ?>;
+window.AA_CANONICAL_FAMILY_ENABLED = <?php echo wp_json_encode([
+    'ajaxUrl' => $aa_family_enabled_ajax_url,
+    'action' => $aa_family_enabled_action,
+    'nonce' => $aa_family_enabled_nonce,
+    'targetOrigin' => $aa_family_enabled_origin,
+    'schemaReady' => $aa_record_types_schema_ready,
+    'families' => array_map(static function (array $row): array {
+        return [
+            'key' => $row['key'],
+            'label' => $row['label'],
+            'is_enabled' => !empty($row['is_enabled']),
+        ];
+    }, $aa_record_types_families),
+], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
 </script>
 <!-- Module JS -->
 <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'module.js?ver=' . rawurlencode($settings_module_ver)); ?>"></script>
+<script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'canonical-family-toggles.js?ver=' . rawurlencode($settings_module_ver)); ?>"></script>

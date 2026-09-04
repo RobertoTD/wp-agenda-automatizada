@@ -89,6 +89,19 @@ require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/Canonic
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalShellRecordsReadResult.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/ReadCanonicalShellContainersUseCase.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/ReadCanonicalShellRecordsUseCase.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalFamilyUnknown.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalFamilyNotProvisioned.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalFamilyEnablementSchemaNotReady.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalFamilyEnablementPersistenceFailed.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalFamilyEnablementStatus.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalFamilyEnablementSnapshot.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalFamilyEnablementResult.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalFamilyEnablementPort.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/SetCanonicalFamilyEnabledCommand.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/SetCanonicalFamilyEnabledUseCase.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/ReadCanonicalFamilyEnablementUseCase.php';
+require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-family-enablement-store.php';
+require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-family-enablement-nav.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-read-binding-registry.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-shell-view-composer.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/class-aa-canonical-shell-url-policy.php';
@@ -343,6 +356,9 @@ require_once __DIR__ . '/includes/http/ajax/FinanceContainersAjax.php';
 FinanceContainersAjax::register();
 require_once __DIR__ . '/includes/http/ajax/FinanceRecordsAjax.php';
 FinanceRecordsAjax::register();
+
+require_once __DIR__ . '/includes/http/ajax/CanonicalFamilyEnabledAjax.php';
+CanonicalFamilyEnabledAjax::register();
 
 // ===============================
 // 🔹 Schema lifecycle: registra el activation hook con AA_Schema::install

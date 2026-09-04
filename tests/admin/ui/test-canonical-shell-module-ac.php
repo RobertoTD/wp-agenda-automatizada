@@ -363,12 +363,15 @@ ac_assert('Existing finance URL policy unchanged (module=canonical)', strpos($fi
 ac_assert('Shell URL is allowlisted by shell policy', AA_Canonical_Shell_Base_Url_Policy::is_allowlisted_shell_url($shell_url) === true);
 ac_assert('Finance URL is not allowlisted as shell URL', AA_Canonical_Shell_Base_Url_Policy::is_allowlisted_shell_url($finance_url) === false);
 
-// --- Sidebar ---
+// --- Sidebar (PCU-5A: Tipos de registros reemplaza "Shell canónico") ---
 $sidebar_src = file_get_contents($plugin_root . '/includes/admin/ui/shared/sidebar.php');
-ac_assert('Sidebar contains Shell canónico label', strpos($sidebar_src, 'Shell canónico') !== false);
+ac_assert('Sidebar contains Tipos de registros label', strpos($sidebar_src, 'Tipos de registros') !== false);
+ac_assert('Sidebar sin label provisional Shell canónico', strpos($sidebar_src, 'Shell canónico') === false);
 ac_assert('Sidebar Shell link uses data-aa-nav-module=canonical_shell', strpos($sidebar_src, 'data-aa-nav-module="canonical_shell"') !== false);
 ac_assert('Sidebar Shell highlight checks canonical_shell', strpos($sidebar_src, "\$active_module === 'canonical_shell'") !== false);
-ac_assert('Sidebar Shell entry gated by manage_options near builder', strpos($sidebar_src, 'AA_Canonical_Shell_Base_Url_Policy::build_url') !== false);
+ac_assert('Sidebar nav gated by manage_options + enablement', strpos($sidebar_src, 'ReadCanonicalFamilyEnablementUseCase') !== false
+    && strpos($sidebar_src, 'AA_Canonical_Family_Enablement_Nav') !== false
+    && strpos($sidebar_src, 'aa-canonical-record-types-nav') !== false);
 ac_assert('Sidebar Finanzas still uses AA_Canonical_Shell_Url_Policy', strpos($sidebar_src, "AA_Canonical_Shell_Url_Policy::build_url('finance', 'general')") !== false);
 ac_assert('Sidebar Finanzas highlight still canonical only', preg_match(
     '/data-aa-nav-module="canonical"[\s\S]*?\$active_module === \'canonical\'/',
@@ -380,20 +383,17 @@ $current_caps = ['manage_options' => true];
 $can_manage_options = true;
 $aa_installation_slug = null;
 $aa_finance_url = AA_Canonical_Shell_Url_Policy::build_url('finance', 'general');
-$aa_canonical_shell_url = AA_Canonical_Shell_Base_Url_Policy::build_url('finance', 'general');
+$aa_canonical_family = AA_Canonical_Core_Bootstrap::instance()->family('finance');
 ob_start();
 require $plugin_root . '/includes/admin/ui/shared/sidebar.php';
 $sidebar_html = ob_get_clean();
-ac_assert('Rendered sidebar includes Shell canónico for manage_options', strpos($sidebar_html, 'Shell canónico') !== false);
-ac_assert('Rendered Shell href has module=canonical_shell&family=finance&variant=general',
-    strpos($sidebar_html, 'module=canonical_shell') !== false
-    && strpos($sidebar_html, 'family=finance') !== false
-    && strpos($sidebar_html, 'variant=general') !== false
+ac_assert('Rendered sidebar includes Tipos de registros for manage_options', strpos($sidebar_html, 'Tipos de registros') !== false);
+ac_assert('Rendered sidebar incluye contenedor nav dinámico', strpos($sidebar_html, 'id="aa-canonical-record-types-nav"') !== false);
+ac_assert('Sin familias enabled: sin links shell falsos por defecto',
+    strpos($sidebar_html, 'data-aa-nav-family=') === false
 );
-ac_assert('Shell current page does not aria-current Finanzas',
-    strpos($sidebar_html, 'data-aa-nav-module="canonical_shell"') !== false
-    && preg_match('/data-aa-nav-module="canonical_shell"[^>]*aria-current="page"/', $sidebar_html) === 1
-    && preg_match('/data-aa-nav-module="canonical"[^>]*aria-current="page"/', $sidebar_html) !== 1
+ac_assert('Shell current page does not aria-current Finanzas legacy',
+    preg_match('/data-aa-nav-module="canonical"[^>]*aria-current="page"/', $sidebar_html) !== 1
 );
 
 $current_caps = [];
@@ -402,7 +402,7 @@ $active_module = 'calendar';
 ob_start();
 require $plugin_root . '/includes/admin/ui/shared/sidebar.php';
 $sidebar_no_admin = ob_get_clean();
-ac_assert('Non-manage_options sidebar hides Shell canónico', strpos($sidebar_no_admin, 'Shell canónico') === false);
+ac_assert('Non-manage_options sidebar hides Tipos de registros', strpos($sidebar_no_admin, 'Tipos de registros') === false);
 ac_assert('Non-manage_options sidebar still shows Finanzas', strpos($sidebar_no_admin, 'Finanzas') !== false);
 
 // --- Root render + aislamiento ---

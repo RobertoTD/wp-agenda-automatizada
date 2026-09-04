@@ -69,18 +69,23 @@ if ($is_preview) {
 }
 
 $state_labels = [
-    'missing_identity'     => 'Desarrollo',
-    'incomplete_identity'  => 'Identidad incompleta',
-    'invalid_request'      => 'Solicitud no válida',
-    'not_found'            => 'No encontrado',
-    'preview_unavailable'  => 'No disponible',
-    'preview'              => 'Demostración',
-    'resolved'             => 'Resuelto',
+    'missing_identity'       => 'Desarrollo',
+    'incomplete_identity'    => 'Identidad incompleta',
+    'invalid_request'        => 'Solicitud no válida',
+    'not_found'              => 'No encontrado',
+    'preview_unavailable'    => 'No disponible',
+    'preview'                => 'Demostración',
+    'resolved'               => 'Resuelto',
+    'family_disabled'        => 'Desactivado',
+    'family_not_provisioned' => 'No provisionado',
+    'schema_not_ready'       => 'Esquema no listo',
+    'enablement_unavailable' => 'No disponible',
 ];
 $state_label = $state_labels[$route_state] ?? 'Estado';
 
 $show_read_ui = is_array($view) && in_array($route_state, ['resolved', 'preview'], true);
 $is_records = ($shell_view === 'records');
+$is_family_disabled = ($route_state === 'family_disabled');
 ?>
 
 <div
@@ -340,9 +345,18 @@ $is_records = ($shell_view === 'records');
             <h3 class="text-base font-semibold text-gray-900 mb-2">
                 <?php echo esc_html($state_label); ?>
             </h3>
-            <p class="text-sm text-gray-500 max-w-lg mx-auto">
-                <?php echo esc_html($route_message !== '' ? $route_message : 'Estado controlado del shell base.'); ?>
-            </p>
+            <?php if ($is_family_disabled) : ?>
+                <p class="text-sm text-gray-500 max-w-lg mx-auto">
+                    Este tipo de registro está desactivado.
+                </p>
+                <p class="text-sm text-gray-500 max-w-lg mx-auto mt-2">
+                    Puedes activarlo en Ajustes, en la sección “Tipos de registros”.
+                </p>
+            <?php else : ?>
+                <p class="text-sm text-gray-500 max-w-lg mx-auto">
+                    <?php echo esc_html($route_message !== '' ? $route_message : 'Estado controlado del shell base.'); ?>
+                </p>
+            <?php endif; ?>
         </div>
     <?php endif; ?>
 </div>

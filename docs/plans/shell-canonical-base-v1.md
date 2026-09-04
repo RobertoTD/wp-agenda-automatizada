@@ -222,9 +222,9 @@ Cuando la propuesta sea aprobada, el prompt de implementación será una autoriz
 
 - Gobierno documental: Ciclo 0 completado (`docs: establish canonical architecture governance`).
 - Módulo paralelo aprobado: `canonical_shell`.
-- Label provisional del sidebar: `Shell canónico`.
+- Label provisional del sidebar: `Shell canónico` → **reemplazado en PCU-5A** por el grupo «Tipos de registros» (enlaces dinámicos a familias enabled).
 - Acceso provisional: únicamente `manage_options` (enlace y acceso directo).
-- Sidebar provisional enlazado inicialmente a `module=canonical_shell&family=finance&variant=general`.
+- Sidebar provisional enlazado inicialmente a `module=canonical_shell&family=finance&variant=general` → **PCU-5A:** URLs por familia vía `AA_Canonical_Family_Enablement_Nav` + policy base.
 - `updated_at` representará la actividad contenida (crear/editar/eliminar un registro también actualiza el contenedor). Decisión aprobada; la implementación en schema Finance legacy quedó en SB1-4A. **Nota PCU:** el destino de timestamps canónicos nuevos es UTC en tablas universales, no “persistencia de familia”.
 - SB1-1 (entrada paralela + root controlado + resolución de ruta): **commiteado** (`29ac40d`).
 - División aprobada: **SB1-2A** (cadena de lectura tipada) → **SB1-2B** (composición visual del shell).
@@ -244,10 +244,12 @@ Cuando la propuesta sea aprobada, el prompt de implementación será una autoriz
   2. **PCU-1** — reconciliación documental e inicialización de la ruta: **completada** (`c5f97ee`).
   3. **PCU-2** — schema universal aditivo y tests MySQL: **completada** (`6fcb124`). Tablas vacías `aa_canonical_families`, `aa_canonical_containers`, `aa_canonical_records`; `DB_VERSION=21`; `AA_Canonical_Schema` con FK RESTRICT/CASCADE y `verify()` fail-closed.
   4. **PCU-3** — repositorio y adaptadores relacionales universales: **completada** (`d01eb81`). `CanonicalRelationalRepository` + adaptadores read/write; sin binding productivo ni conexión del shell.
-  5. **PCU-4** — catálogo y provisioning de familias: **implementado en working tree (sin commit).** Catálogo productivo `finance.general` + `archive.general` en `AA_Canonical_Core_Bootstrap`; `AA_Canonical_Family_Provisioner` + `AA_Canonical_Family_Catalog_Lifecycle` (`CATALOG_VERSION=1`, option `aa_canonical_family_catalog_version`, `admin_init` prio 25); filas iniciales `is_enabled=0`, `seed_version=0`; **cero presets, bindings, contenedores y registros**; `DB_VERSION` permanece `21`. **PCU-5 no iniciado.**
-  6. **PCU-5** — bindings productivos, reconexión de lectura/escritura del shell y fail-on-duplicate en registries.
+  5. **PCU-4** — catálogo y provisioning de familias: **completada** (`5703f84`). Catálogo productivo `finance.general` + `archive.general` en `AA_Canonical_Core_Bootstrap`; `AA_Canonical_Family_Provisioner` + `AA_Canonical_Family_Catalog_Lifecycle` (`CATALOG_VERSION=1`, option `aa_canonical_family_catalog_version`, `admin_init` prio 25); filas iniciales `is_enabled=0`, `seed_version=0`; **cero presets, bindings, contenedores y registros**; `DB_VERSION` permanece `21`.
+  6. **PCU-5** — dividido en **PCU-5A** / **PCU-5B**:
+     - **PCU-5A** — activación AJAX individual, Settings sin formulario/botón, gate `family_disabled` (HTTP 200), navegación dinámica «Tipos de registros», `postMessage` al padre: **implementado en working tree (sin commit).** Finance habilitada sigue con read adapter legacy temporal; Archive habilitada → `read_adapter_pending`; **sin** bindings nuevos ni adapters PCU-3 productivos; `is_enabled=0` = deshabilitada (sin one-shot ni option espejo).
+     - **PCU-5B** — bindings universales, fail-on-duplicate, desconexión Finance legacy del shell: **no iniciado.**
   7. **SB1-5B+** — shell visual base: header, toolbar, FAB, modales y CRUD `title`/`details`.
-  8. **SET-1** — activación de familias/presets desde Settings.
+  8. **SET-1** — activación de familias/presets desde Settings (parcialmente anticipado por PCU-5A enablement AJAX; presets/capabilities siguen fuera).
   9. **CAP-1 / CAP-2 / CAP-3** — sistema de capabilities; `monetary_amount`; agregado monetario; imágenes.
   10. **LEGACY-X** — proyección, integración o deprecación selectiva de módulos legacy.
 - PCU-1 no autoriza ni inicia PCU-2.

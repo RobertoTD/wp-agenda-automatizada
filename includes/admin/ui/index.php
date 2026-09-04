@@ -267,40 +267,73 @@ if ($active_module === 'canonical') {
                     status_header(400);
                 }
             }
-        } elseif ($is_records_view) {
-            $aa_canonical_family  = $route_result['data']['family'];
-            $aa_canonical_variant = $route_result['data']['variant'];
-            $aa_shell_route_state = 'resolved';
-            $aa_shell_route_message = 'Ruta canónica resuelta.';
-            $aa_canonical_url = AA_Canonical_Shell_Base_Url_Policy::build_records_url(
-                $aa_canonical_family->key(),
-                $aa_canonical_variant->key(),
-                $shell_container_id,
-                $shell_page > 1 ? $shell_page : null,
-                $shell_containers_page > 1 ? $shell_containers_page : null
-            );
-            $aa_shell_view = AA_Canonical_Shell_View_Composer::compose_family_records(
-                $aa_canonical_family,
-                $aa_canonical_variant,
-                $shell_container_id,
-                $shell_page,
-                $shell_containers_page
-            );
         } else {
             $aa_canonical_family  = $route_result['data']['family'];
             $aa_canonical_variant = $route_result['data']['variant'];
-            $aa_shell_route_state = 'resolved';
-            $aa_shell_route_message = 'Ruta canónica resuelta.';
-            $aa_canonical_url = AA_Canonical_Shell_Base_Url_Policy::build_url(
-                $aa_canonical_family->key(),
-                $aa_canonical_variant->key(),
-                $shell_page > 1 ? $shell_page : null
-            );
-            $aa_shell_view = AA_Canonical_Shell_View_Composer::compose_family(
-                $aa_canonical_family,
-                $aa_canonical_variant,
-                $shell_page
-            );
+
+            $aa_enablement_gate_state = null;
+            $aa_enablement_gate_message = '';
+            if (class_exists('AA_Canonical_Family_Enablement_Store')
+                && class_exists('ReadCanonicalFamilyEnablementUseCase')
+            ) {
+                try {
+                    $aa_enablement_snapshot = (new ReadCanonicalFamilyEnablementUseCase(
+                        new AA_Canonical_Family_Enablement_Store()
+                    ))->execute($canonical_registry);
+
+                    if (!$aa_enablement_snapshot->is_provisioned($aa_canonical_family->key())) {
+                        $aa_enablement_gate_state = 'family_not_provisioned';
+                        $aa_enablement_gate_message = 'Esta familia aún no está provisionada en la instalación.';
+                    } elseif (!$aa_enablement_snapshot->is_enabled($aa_canonical_family->key())) {
+                        $aa_enablement_gate_state = 'family_disabled';
+                        $aa_enablement_gate_message = "Este tipo de registro está desactivado.\nPuedes activarlo en Ajustes, en la sección “Tipos de registros”.";
+                    }
+                } catch (CanonicalFamilyEnablementSchemaNotReady $e) {
+                    $aa_enablement_gate_state = 'schema_not_ready';
+                    $aa_enablement_gate_message = 'El esquema canónico no está listo en esta instalación.';
+                } catch (CanonicalFamilyEnablementPersistenceFailed $e) {
+                    $aa_enablement_gate_state = 'enablement_unavailable';
+                    $aa_enablement_gate_message = 'No se pudo consultar el estado de habilitación de la familia.';
+                }
+            }
+
+            if ($aa_enablement_gate_state !== null) {
+                $aa_shell_route_state = $aa_enablement_gate_state;
+                $aa_shell_route_message = $aa_enablement_gate_message;
+                if (function_exists('status_header')) {
+                    status_header(200);
+                }
+            } elseif ($is_records_view) {
+                $aa_shell_route_state = 'resolved';
+                $aa_shell_route_message = 'Ruta canónica resuelta.';
+                $aa_canonical_url = AA_Canonical_Shell_Base_Url_Policy::build_records_url(
+                    $aa_canonical_family->key(),
+                    $aa_canonical_variant->key(),
+                    $shell_container_id,
+                    $shell_page > 1 ? $shell_page : null,
+                    $shell_containers_page > 1 ? $shell_containers_page : null
+                );
+                $aa_shell_view = AA_Canonical_Shell_View_Composer::compose_family_records(
+                    $aa_canonical_family,
+                    $aa_canonical_variant,
+                    $shell_container_id,
+                    $shell_page,
+                    $shell_containers_page
+                );
+            } else {
+                $aa_shell_route_state = 'resolved';
+                $aa_shell_route_message = 'Ruta canónica resuelta.';
+                $aa_canonical_url = AA_Canonical_Shell_Base_Url_Policy::build_url(
+                    $aa_canonical_family->key(),
+                    $aa_canonical_variant->key(),
+                    $shell_page > 1 ? $shell_page : null
+                );
+                $aa_shell_view = AA_Canonical_Shell_View_Composer::compose_family(
+                    $aa_canonical_family,
+                    $aa_canonical_variant,
+                    $shell_page
+                );
+            }
         }
     }
 } else {
