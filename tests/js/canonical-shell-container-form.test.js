@@ -61,7 +61,7 @@ function createEl(id) {
 let documentRef;
 let lastFormData;
 
-function boot(fetchImpl, payloads) {
+function boot(fetchImpl, payloads, cfgOverrides) {
     const openBtn = createEl('aa-shell-open-create-btn');
     const modal = createEl('aa-shell-container-modal');
     const form = createEl('aa-shell-container-form');
@@ -78,6 +78,11 @@ function boot(fetchImpl, payloads) {
     const cancelBtn = createEl('aa-shell-container-modal-cancel-btn');
     const closeBtn = createEl('aa-shell-container-modal-close-btn');
     const backdrop = createEl('aa-shell-container-modal-backdrop');
+    const familyField = createEl('aa-shell-container-family-field');
+    familyField.classList.add('hidden');
+    const familySelect = createEl('aa-shell-container-family');
+    const familyError = createEl('aa-shell-container-family-error');
+    familyError.classList.add('hidden');
 
     const deleteModal = createEl('aa-shell-delete-container-modal');
     const deleteBackdrop = createEl('aa-shell-delete-container-modal-backdrop');
@@ -117,6 +122,9 @@ function boot(fetchImpl, payloads) {
         'aa-shell-container-title-error': titleError,
         'aa-shell-container-status': statusEl,
         'aa-shell-container-submit-btn': submitBtn,
+        'aa-shell-container-family-field': familyField,
+        'aa-shell-container-family': familySelect,
+        'aa-shell-container-family-error': familyError,
         'aa-shell-delete-container-modal': deleteModal,
         'aa-shell-delete-container-modal-backdrop': deleteBackdrop,
         'aa-shell-delete-container-modal-close-btn': deleteCloseBtn,
@@ -152,19 +160,24 @@ function boot(fetchImpl, payloads) {
         }
     };
 
+    const formCfg = Object.assign({
+        ajaxUrl: 'https://example.test/wp-admin/admin-ajax.php',
+        createAction: 'aa_create_canonical_container',
+        createNonce: 'create-nonce',
+        updateAction: 'aa_update_canonical_container',
+        updateNonce: 'update-nonce',
+        deleteAction: 'aa_delete_canonical_container',
+        deleteNonce: 'delete-nonce',
+        familyKey: 'finance',
+        listsScope: '',
+        availableFamilies: [],
+        requireFamilySelect: false,
+        maxTitleLength: 200
+    }, cfgOverrides || {});
+
     const env = {
         window: {
-            AA_CANONICAL_SHELL_CONTAINER_FORM: {
-                ajaxUrl: 'https://example.test/wp-admin/admin-ajax.php',
-                createAction: 'aa_create_canonical_container',
-                createNonce: 'create-nonce',
-                updateAction: 'aa_update_canonical_container',
-                updateNonce: 'update-nonce',
-                deleteAction: 'aa_delete_canonical_container',
-                deleteNonce: 'delete-nonce',
-                familyKey: 'finance',
-                                maxTitleLength: 200
-            },
+            AA_CANONICAL_SHELL_CONTAINER_FORM: formCfg,
             location: {
                 assign(url) {
                     assignedUrl = url;
@@ -209,6 +222,9 @@ function boot(fetchImpl, payloads) {
         titleError,
         statusEl,
         submitBtn,
+        familyField,
+        familySelect,
+        familyError,
         deleteTitleEl,
         deleteStatusEl,
         deleteConfirmBtn,
@@ -473,5 +489,124 @@ describe('canonical-shell-container-form', () => {
         ui.editBtns[0]._listeners.click[0]();
         assert.equal(ui.titleInput.value, '<script>alert(1)</script>');
         assert.equal(ui.detailsInput.value, '<img src=x onerror=1>');
+    });
+
+    it('Todas + archive: preselecciona archive y mantiene select', async () => {
+        const ui = boot(async () => ({
+            status: 200,
+            text: async () => JSON.stringify({
+                success: true,
+                data: {
+                    status: 'confirmed',
+                    redirect_url: 'https://example.test/list'
+                }
+            })
+        }), [], {
+            familyKey: '',
+            listsScope: 'all',
+            requireFamilySelect: true,
+            availableFamilies: [
+                { family_key: 'finance', label: 'Finanzas' },
+                { family_key: 'archive', label: 'Archivo' }
+            ]
+        });
+        ui.openBtn._listeners.click[0]();
+        assert.equal(ui.familyField.classList.contains('hidden'), false);
+        assert.equal(ui.familySelect.value, 'archive');
+        assert.ok(ui.familySelect.focusCalls >= 1, 'focus family select');
+        ui.titleInput.value = 'Nueva';
+        ui.form._listeners.submit[0]({ preventDefault() {} });
+        assert.equal(ui.getLastFormData().family_key, 'archive');
+        assert.equal(ui.getLastFormData().lists_scope, 'all');
+    });
+
+    it('Todas sin archive + N>1: exige elección explícita', () => {
+        const ui = boot(async () => ({ status: 200, text: async () => '{}' }), [], {
+            familyKey: '',
+            listsScope: 'all',
+            requireFamilySelect: true,
+            availableFamilies: [
+                { family_key: 'finance', label: 'Finanzas' },
+                { family_key: 'legal', label: 'Legal' }
+            ]
+        });
+        ui.openBtn._listeners.click[0]();
+        assert.equal(ui.familySelect.value, '');
+        ui.titleInput.value = 'X';
+        ui.form._listeners.submit[0]({ preventDefault() {} });
+        assert.equal(ui.getFetchCalls(), 0);
+        assert.ok(ui.familyError.textContent.indexOf('Selecciona') !== -1);
+    });
+
+    it('Todas sin archive + N=1: usa esa familia sin select', async () => {
+        const ui = boot(async () => ({
+            status: 200,
+            text: async () => JSON.stringify({
+                success: true,
+                data: { status: 'confirmed', redirect_url: 'https://example.test/ok' }
+            })
+        }), [], {
+            familyKey: '',
+            listsScope: 'all',
+            requireFamilySelect: false,
+            availableFamilies: [{ family_key: 'finance', label: 'Finanzas' }]
+        });
+        ui.openBtn._listeners.click[0]();
+        assert.equal(ui.familyField.classList.contains('hidden'), true);
+        ui.titleInput.value = 'Solo';
+        ui.form._listeners.submit[0]({ preventDefault() {} });
+        assert.equal(ui.getLastFormData().family_key, 'finance');
+    });
+
+    it('error de validación conserva familia preseleccionada', async () => {
+        const ui = boot(async () => ({
+            status: 400,
+            text: async () => JSON.stringify({
+                success: false,
+                data: { code: 'invalid_title', message: 'El nombre de la lista no puede estar vacío.' }
+            })
+        }), [], {
+            familyKey: '',
+            listsScope: 'all',
+            requireFamilySelect: true,
+            availableFamilies: [
+                { family_key: 'finance', label: 'Finanzas' },
+                { family_key: 'archive', label: 'Archivo' }
+            ]
+        });
+        ui.openBtn._listeners.click[0]();
+        assert.equal(ui.familySelect.value, 'archive');
+        ui.familySelect.value = 'finance';
+        ui.titleInput.value = 'Ok';
+        ui.form._listeners.submit[0]({ preventDefault() {} });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(ui.familySelect.value, 'finance');
+        assert.equal(ui.titleInput.value, 'Ok');
+    });
+
+    it('edit usa family_key de la tarjeta aunque listsScope=all', async () => {
+        const ui = boot(async () => ({
+            status: 200,
+            text: async () => JSON.stringify({
+                success: true,
+                data: { status: 'confirmed', redirect_url: 'https://example.test/ok' }
+            })
+        }), [
+            { id: 21, title: 'Card', details: '', family_key: 'finance' }
+        ], {
+            familyKey: '',
+            listsScope: 'all',
+            requireFamilySelect: true,
+            availableFamilies: [
+                { family_key: 'finance', label: 'Finanzas' },
+                { family_key: 'archive', label: 'Archivo' }
+            ]
+        });
+        ui.editBtns[0]._listeners.click[0]();
+        assert.equal(ui.familyField.classList.contains('hidden'), true);
+        ui.titleInput.value = 'Editado';
+        ui.form._listeners.submit[0]({ preventDefault() {} });
+        assert.equal(ui.getLastFormData().family_key, 'finance');
+        assert.equal(ui.getLastFormData().action, 'aa_update_canonical_container');
     });
 });

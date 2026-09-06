@@ -118,9 +118,8 @@ foreach ($available_families as $family_row) {
     ];
 }
 
-if ($is_all_lists_scope && $create_family_key === '' && count($normalized_available_families) === 1) {
-    $create_family_key = $normalized_available_families[0]['family_key'];
-}
+// Política de familia inicial al crear: solo en JS (resolveInitialCreateFamilyKey).
+// PHP no preasigna create_family_key en alcance «Todas» (evita defaults duplicados).
 
 $can_create_from_all = $is_all_lists_scope && $normalized_available_families !== [];
 $show_family_select_on_create = $is_all_lists_scope && count($normalized_available_families) > 1;

@@ -86,6 +86,19 @@ ac_assert(
 );
 
 ac_assert(
+    'Header aria-label del panel es Filtrar listas',
+    strpos($header, 'aria-label="Filtrar listas"') !== false
+    && strpos($header, 'aria-label="Tipos de registros"') === false
+);
+
+ac_assert(
+    'Header incluye opción Todas las listas vía build_module_url',
+    strpos($header, 'Todas las listas') !== false
+    && strpos($header, 'AA_Canonical_Shell_Base_Url_Policy::build_module_url') !== false
+    && strpos($header, '$aa_switcher_all_key') !== false
+);
+
+ac_assert(
     'Header no hardcodea finance/archive en el switcher',
     !preg_match('/family-switcher[\s\S]*[\'"]finance[\'"]/', $header)
     && !preg_match('/family-switcher[\s\S]*[\'"]archive[\'"]/', $header)
@@ -120,7 +133,7 @@ ac_assert(
     && !preg_match('/aa-family-switcher-trigger[\s\S]{0,200}chevron/', $css_src)
 );
 
-// Runtime render: ≥2 → switcher; 1 → static; otros módulos → span sync.
+// Runtime render: ≥1 familia → switcher (Todas + familias); 0 sin familia → static Todas.
 if (!defined('ABSPATH')) {
     define('ABSPATH', $plugin_root . '/');
 }
@@ -133,9 +146,30 @@ if (!function_exists('esc_attr')) {
 if (!function_exists('esc_url')) {
     function esc_url($t) { return (string) $t; }
 }
+if (!function_exists('admin_url')) {
+    function admin_url(string $path = ''): string {
+        return 'https://example.com/wp-admin/' . ltrim($path, '/');
+    }
+}
+if (!function_exists('add_query_arg')) {
+    function add_query_arg(...$args): string {
+        if (count($args) === 2 && is_array($args[0])) {
+            $query = http_build_query($args[0]);
+            $url = $args[1];
+        } elseif (count($args) === 3) {
+            $query = http_build_query([$args[0] => $args[1]]);
+            $url = $args[2];
+        } else {
+            return '';
+        }
+        $sep = strpos($url, '?') === false ? '?' : '&';
+        return $url . $sep . $query;
+    }
+}
 
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
+require_once $plugin_root . '/includes/infrastructure/wp/class-aa-canonical-shell-base-url-policy.php';
 
 function aa_render_header_fixture(array $vars): string {
     extract($vars, EXTR_SKIP);
@@ -172,27 +206,58 @@ $html_switcher = aa_render_header_fixture([
     'aa_canonical_record_types_nav' => $nav_two,
 ]);
 ac_assert(
-    'Runtime ≥2 familias → switcher SSR',
+    'Runtime ≥2 familias → switcher con Todas + current familia',
     strpos($html_switcher, 'data-aa-title-mode="family-switcher"') !== false
     && strpos($html_switcher, 'id="aa-family-switcher-panel"') !== false
     && strpos($html_switcher, '>Archivo</button>') !== false
+    && strpos($html_switcher, '>Todas las listas<') !== false
     && strpos($html_switcher, 'family=finance') !== false
     && strpos($html_switcher, 'family=archive') !== false
     && strpos($html_switcher, 'variant=') === false
+    && strpos($html_switcher, 'aria-label="Filtrar listas"') !== false
     && preg_match('/aria-current="page"[^>]*>Archivo</', $html_switcher) === 1
 );
 
-$html_static = aa_render_header_fixture([
+$html_one = aa_render_header_fixture([
     'active_module' => 'canonical_shell',
     'aa_shell_route_state' => 'resolved',
     'aa_canonical_family' => $family_archive,
     'aa_canonical_record_types_nav' => $nav_one,
 ]);
 ac_assert(
-    'Runtime 1 familia → título estático',
-    strpos($html_static, 'data-aa-title-mode="family-static"') !== false
-    && strpos($html_static, 'aa-family-switcher') === false
-    && strpos($html_static, '>Archivo</span>') !== false
+    'Runtime 1 familia → switcher Todas + esa familia',
+    strpos($html_one, 'data-aa-title-mode="family-switcher"') !== false
+    && strpos($html_one, 'id="aa-family-switcher-panel"') !== false
+    && strpos($html_one, '>Todas las listas<') !== false
+    && strpos($html_one, '>Archivo</button>') !== false
+    && preg_match('/aria-current="page"[^>]*>Archivo</', $html_one) === 1
+);
+
+$html_all_scope = aa_render_header_fixture([
+    'active_module' => 'canonical_shell',
+    'aa_shell_route_state' => 'resolved',
+    'aa_shell_view' => ['lists_scope' => 'all'],
+    'aa_canonical_record_types_nav' => $nav_two,
+]);
+ac_assert(
+    'Runtime alcance Todas → current Todas las listas',
+    strpos($html_all_scope, 'data-aa-title-mode="family-switcher"') !== false
+    && strpos($html_all_scope, '>Todas las listas</button>') !== false
+    && preg_match('/aria-current="page"[^>]*>Todas las listas</', $html_all_scope) === 1
+);
+
+$html_records_return = aa_render_header_fixture([
+    'active_module' => 'canonical_shell',
+    'aa_shell_route_state' => 'resolved',
+    'aa_shell_view' => ['lists_scope' => 'all'],
+    'aa_canonical_family' => $family_archive,
+    'aa_canonical_record_types_nav' => $nav_two,
+]);
+ac_assert(
+    'Runtime records con lists_scope=all → current familia (no Todas)',
+    strpos($html_records_return, '>Archivo</button>') !== false
+    && preg_match('/aria-current="page"[^>]*>Archivo</', $html_records_return) === 1
+    && preg_match('/aria-current="page"[^>]*>Todas las listas</', $html_records_return) !== 1
 );
 
 $html_preview = aa_render_header_fixture([
@@ -236,13 +301,14 @@ ac_assert(
 $html_zero = aa_render_header_fixture([
     'active_module' => 'canonical_shell',
     'aa_shell_route_state' => 'resolved',
-    'aa_canonical_family' => $family_archive,
+    'aa_shell_view' => ['lists_scope' => 'all'],
     'aa_canonical_record_types_nav' => [],
 ]);
 ac_assert(
-    'Runtime 0 familias → sync span',
-    strpos($html_zero, 'data-aa-title-mode') === false
+    'Runtime 0 familias en alcance general → título estático Todas',
+    strpos($html_zero, 'data-aa-title-mode="family-static"') !== false
     && strpos($html_zero, 'aa-family-switcher') === false
+    && strpos($html_zero, '>Todas las listas</span>') !== false
 );
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";

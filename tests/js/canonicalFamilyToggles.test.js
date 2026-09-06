@@ -1,7 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { describe, it, beforeEach } = require('node:test');
+const { describe, it } = require('node:test');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
@@ -113,15 +113,6 @@ function loadHarness(options) {
         parentElement: rowArchive
     });
 
-    const nav = createEl({ id: 'aa-canonical-record-types-nav' });
-    nav.children = [];
-    Object.defineProperty(nav, 'firstChild', {
-        get() {
-            return this.children[0] || null;
-        },
-        set() {}
-    });
-
     const root = createEl({ id: 'aa-canonical-record-types-root' });
     let rootChangeHandler = null;
     root.addEventListener = function (type, fn) {
@@ -131,8 +122,7 @@ function loadHarness(options) {
     };
 
     const elements = {
-        'aa-canonical-record-types-root': root,
-        'aa-canonical-record-types-nav': nav
+        'aa-canonical-record-types-root': root
     };
 
     const document = {
@@ -184,7 +174,6 @@ function loadHarness(options) {
         rowArchive,
         statusFinance,
         statusArchive,
-        nav,
         rootChangeHandler,
         fetchCalls,
         postMessages,
@@ -228,7 +217,7 @@ describe('canonical-family-toggles', () => {
                 nav: [{
                     family_key: 'finance',
                     label: 'Finanzas',
-                    url: 'https://example.test/wp-admin/admin-post.php?action=aa_iframe_content&module=canonical_shell&family=finance&variant=general'
+                    url: 'https://example.test/wp-admin/admin-post.php?action=aa_iframe_content&module=canonical_shell&family=finance'
                 }]
             })
         });
@@ -253,10 +242,7 @@ describe('canonical-family-toggles', () => {
         assert.equal(h.toggleFinance.checked, true);
         assert.equal(h.toggleFinance.disabled, false);
         assert.equal(h.statusFinance.textContent, 'Activado');
-        assert.equal(h.postMessages.length, 1);
-        assert.equal(h.postMessages[0].origin, 'https://example.test');
-        assert.equal(h.postMessages[0].payload.type, 'aa-canonical-family-enabled-changed');
-        assert.equal(h.nav.children.length, 1);
+        assert.equal(h.postMessages.length, 0);
     });
 
     it('fallo restaura estado anterior', async () => {
@@ -322,27 +308,5 @@ describe('canonical-family-toggles', () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
         assert.equal(h.toggleFinance.checked, false);
         assert.equal(h.statusFinance.textContent, 'Desactivado');
-    });
-
-    it('rechaza URL nav no allowlisted', () => {
-        const h = loadHarness({
-            fetchImpl: () => okResponse({
-                family_key: 'finance',
-                is_enabled: true,
-                changed: true,
-                nav: [{
-                    family_key: 'finance',
-                    label: 'Finanzas',
-                    url: 'https://evil.test/phish'
-                }]
-            })
-        });
-        h.toggleFinance.checked = true;
-        h.fire(h.toggleFinance);
-        return new Promise((resolve) => setTimeout(resolve, 0)).then(() =>
-            new Promise((r) => setTimeout(r, 0))
-        ).then(() => {
-            assert.equal(h.nav.children.length, 0);
-        });
     });
 });

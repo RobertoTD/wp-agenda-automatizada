@@ -33,19 +33,24 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
                 $aa_family_title_label = '';
                 $aa_family_switcher_items = [];
                 $aa_family_current_key = '';
+                $aa_switcher_all_key = '__all__';
+
+                $aa_shell_lists_scope_all = (
+                    isset($aa_shell_view)
+                    && is_array($aa_shell_view)
+                    && isset($aa_shell_view['lists_scope'])
+                    && (string) $aa_shell_view['lists_scope'] === 'all'
+                );
 
                 if (
                     isset($active_module)
                     && $active_module === 'canonical_shell'
                     && isset($aa_shell_route_state)
                     && $aa_shell_route_state === 'resolved'
-                    && isset($aa_canonical_family)
-                    && $aa_canonical_family instanceof AA_Canonical_Family_Definition
                     && isset($aa_canonical_record_types_nav)
                     && is_array($aa_canonical_record_types_nav)
                 ) {
-                    $aa_family_current_key = $aa_canonical_family->key();
-                    $aa_family_title_label = $aa_canonical_family->label();
+                    $aa_family_nav_items = [];
                     foreach ($aa_canonical_record_types_nav as $aa_nav_item) {
                         $aa_nav_key = (string) ($aa_nav_item['family_key'] ?? '');
                         $aa_nav_label = (string) ($aa_nav_item['label'] ?? '');
@@ -53,18 +58,52 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
                         if ($aa_nav_key === '' || $aa_nav_label === '' || $aa_nav_url === '') {
                             continue;
                         }
-                        $aa_family_switcher_items[] = [
+                        $aa_family_nav_items[] = [
                             'family_key' => $aa_nav_key,
                             'label' => $aa_nav_label,
                             'url' => $aa_nav_url,
                         ];
                     }
-                    $aa_family_nav_count = count($aa_family_switcher_items);
-                    if ($aa_family_nav_count >= 2 && $aa_family_title_label !== '') {
+                    $aa_family_nav_count = count($aa_family_nav_items);
+
+                    $aa_has_resolved_family = (
+                        isset($aa_canonical_family)
+                        && $aa_canonical_family instanceof AA_Canonical_Family_Definition
+                    );
+
+                    if ($aa_family_nav_count === 0) {
+                        // Alcance general sin familias: título estático (empty state en módulo).
+                        if (!$aa_has_resolved_family) {
+                            $aa_family_title_mode = 'family-static';
+                            $aa_family_title_label = 'Todas las listas';
+                        }
+                    } elseif (
+                        $aa_shell_lists_scope_all
+                        || $aa_has_resolved_family
+                    ) {
+                        if (!class_exists('AA_Canonical_Shell_Base_Url_Policy')) {
+                            require_once dirname(__DIR__, 2) . '/infrastructure/wp/class-aa-canonical-shell-base-url-policy.php';
+                        }
+
+                        $aa_family_switcher_items[] = [
+                            'family_key' => $aa_switcher_all_key,
+                            'label' => 'Todas las listas',
+                            'url' => AA_Canonical_Shell_Base_Url_Policy::build_module_url(),
+                        ];
+                        foreach ($aa_family_nav_items as $aa_nav_item) {
+                            $aa_family_switcher_items[] = $aa_nav_item;
+                        }
+
+                        // Current = contexto mostrado (familia en listado/registros; Todas solo en agregado).
+                        // lists_scope no marca la opción; solo afecta el retorno de writes.
+                        if ($aa_has_resolved_family) {
+                            $aa_family_current_key = $aa_canonical_family->key();
+                            $aa_family_title_label = $aa_canonical_family->label();
+                        } else {
+                            $aa_family_current_key = $aa_switcher_all_key;
+                            $aa_family_title_label = 'Todas las listas';
+                        }
                         $aa_family_title_mode = 'family-switcher';
-                    } elseif ($aa_family_nav_count === 1 && $aa_family_title_label !== '') {
-                        $aa_family_title_mode = 'family-static';
-                        $aa_family_switcher_items = [];
                     }
                 }
 
@@ -84,7 +123,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
                         class="aa-family-switcher-panel hidden absolute left-0 top-full z-50 mt-1.5 min-w-[12rem] rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
                         hidden
                     >
-                        <ul class="py-0" aria-label="Tipos de registros">
+                        <ul class="py-0" aria-label="Filtrar listas">
                             <?php foreach ($aa_family_switcher_items as $aa_switch_item) :
                                 $aa_is_current = ($aa_switch_item['family_key'] === $aa_family_current_key);
                                 ?>

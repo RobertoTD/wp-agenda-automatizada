@@ -335,48 +335,6 @@ add_action('admin_footer', function () {
                     lastContentHeight = event.data.height;
                     applyHeight(lastContentHeight);
                 }
-
-                if (event.data && event.data.type === 'aa-canonical-family-enabled-changed') {
-                    if (event.source && iframe.contentWindow && event.source !== iframe.contentWindow) {
-                        return;
-                    }
-                    var nav = event.data.nav;
-                    var container = document.getElementById('aa-canonical-record-types-nav');
-                    if (!container || !Array.isArray(nav)) {
-                        return;
-                    }
-                    while (container.firstChild) {
-                        container.removeChild(container.firstChild);
-                    }
-                    nav.forEach(function (item) {
-                        if (!item || typeof item !== 'object') return;
-                        var key = typeof item.family_key === 'string' ? item.family_key : '';
-                        var label = typeof item.label === 'string' ? item.label : '';
-                        var url = typeof item.url === 'string' ? item.url : '';
-                        if (!key || !label || !url) return;
-                        try {
-                            var parsed = new URL(url, window.location.origin);
-                            if (parsed.origin !== window.location.origin) return;
-                            if (parsed.pathname.indexOf('admin-post.php') === -1) return;
-                            if (parsed.searchParams.get('action') !== 'aa_iframe_content') return;
-                            if (parsed.searchParams.get('module') !== 'canonical_shell') return;
-                        } catch (e) {
-                            return;
-                        }
-                        var li = document.createElement('li');
-                        var a = document.createElement('a');
-                        a.href = url;
-                        a.setAttribute('data-aa-nav-module', 'canonical_shell');
-                        a.setAttribute('data-aa-nav-family', key);
-                        a.className = 'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-gray-600 hover:bg-gray-100';
-                        var labelSpan = document.createElement('span');
-                        labelSpan.className = 'text-base !font-semibold';
-                        labelSpan.textContent = label;
-                        a.appendChild(labelSpan);
-                        li.appendChild(a);
-                        container.appendChild(li);
-                    });
-                }
             });
 
             window.addEventListener('resize', function () {

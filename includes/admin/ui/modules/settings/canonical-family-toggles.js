@@ -1,25 +1,16 @@
 /**
  * Canonical family enablement toggles (Settings — PCU-5A).
  *
- * Independent AJAX switches for declared families. Updates sidebar nav via
- * local DOM + postMessage to parent.
+ * Independent AJAX switches for declared families. Nav/header refresh via
+ * navigation or full reload (no live sidebar regeneration).
  */
 (function (window, document) {
     'use strict';
 
-    var MESSAGE_TYPE = 'aa-canonical-family-enabled-changed';
     var inFlight = Object.create(null);
 
     function getConfig() {
         return window.AA_CANONICAL_FAMILY_ENABLED || {};
-    }
-
-    function targetOrigin() {
-        var cfg = getConfig();
-        if (typeof cfg.targetOrigin === 'string' && cfg.targetOrigin !== '') {
-            return cfg.targetOrigin;
-        }
-        return window.location.origin;
     }
 
     function statusEl(row) {
@@ -45,83 +36,6 @@
             if (row) {
                 row.removeAttribute('aria-busy');
             }
-        }
-    }
-
-    function isAllowlistedNavUrl(url) {
-        if (typeof url !== 'string' || url === '') {
-            return false;
-        }
-        try {
-            var parsed = new URL(url, window.location.origin);
-            if (parsed.origin !== window.location.origin) {
-                return false;
-            }
-            if (parsed.pathname.indexOf('admin-post.php') === -1) {
-                return false;
-            }
-            var action = parsed.searchParams.get('action');
-            var module = parsed.searchParams.get('module');
-            return action === 'aa_iframe_content' && module === 'canonical_shell';
-        } catch (e) {
-            return false;
-        }
-    }
-
-    function renderNav(nav) {
-        var container = document.getElementById('aa-canonical-record-types-nav');
-        if (!container || !Array.isArray(nav)) {
-            return;
-        }
-
-        while (container.firstChild) {
-            container.removeChild(container.firstChild);
-        }
-
-        nav.forEach(function (item) {
-            if (!item || typeof item !== 'object') {
-                return;
-            }
-            var key = typeof item.family_key === 'string' ? item.family_key : '';
-            var label = typeof item.label === 'string' ? item.label : '';
-            var url = typeof item.url === 'string' ? item.url : '';
-            if (key === '' || label === '' || !isAllowlistedNavUrl(url)) {
-                return;
-            }
-
-            var li = document.createElement('li');
-            var a = document.createElement('a');
-            a.href = url;
-            a.setAttribute('data-aa-nav-module', 'canonical_shell');
-            a.setAttribute('data-aa-nav-family', key);
-            a.className = 'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-gray-600 hover:bg-gray-100';
-
-            var iconWrap = document.createElement('span');
-            iconWrap.className = 'flex items-center justify-center w-6 h-6 text-gray-500';
-            iconWrap.setAttribute('aria-hidden', 'true');
-
-            var labelSpan = document.createElement('span');
-            labelSpan.className = 'text-base !font-semibold';
-            labelSpan.textContent = label;
-
-            a.appendChild(iconWrap);
-            a.appendChild(labelSpan);
-            li.appendChild(a);
-            container.appendChild(li);
-        });
-    }
-
-    function notifyParent(nav) {
-        if (!window.parent || window.parent === window) {
-            return;
-        }
-        try {
-            window.parent.postMessage({
-                type: MESSAGE_TYPE,
-                nav: Array.isArray(nav) ? nav : []
-            }, targetOrigin());
-        } catch (e) {
-            // Ignore cross-origin refusal.
         }
     }
 
@@ -195,8 +109,6 @@
             var serverEnabled = !!data.is_enabled;
             input.checked = serverEnabled;
             setStatus(row, serverEnabled ? 'Activado' : 'Desactivado');
-            renderNav(data.nav);
-            notifyParent(data.nav);
         }).catch(function () {
             input.checked = previousChecked;
             setStatus(row, 'No se pudo guardar. Intenta de nuevo.');
@@ -220,9 +132,5 @@
         bind();
     }
 
-    window.AACanonicalFamilyToggles = {
-        renderNav: renderNav,
-        isAllowlistedNavUrl: isAllowlistedNavUrl,
-        MESSAGE_TYPE: MESSAGE_TYPE
-    };
+    window.AACanonicalFamilyToggles = {};
 }(window, document));

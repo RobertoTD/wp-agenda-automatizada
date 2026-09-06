@@ -109,6 +109,29 @@ if (!isset($aa_canonical_record_types_nav) || !is_array($aa_canonical_record_typ
                 </a>
             </li>
 
+            <!-- Listas (shell canónico — alcance general) -->
+            <li>
+                <?php
+                $aa_lists_url = class_exists('AA_Canonical_Shell_Base_Url_Policy')
+                    ? AA_Canonical_Shell_Base_Url_Policy::build_module_url()
+                    : admin_url('admin-post.php?action=aa_iframe_content&module=canonical_shell');
+                $aa_lists_active = ($active_module === 'canonical_shell');
+                ?>
+                <a
+                    href="<?php echo esc_url($aa_lists_url); ?>"
+                    data-aa-nav-module="canonical_shell"
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors <?php echo $aa_lists_active ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-100'; ?>"
+                    <?php echo $aa_lists_active ? 'aria-current="page"' : ''; ?>
+                >
+                    <span class="flex items-center justify-center w-6 h-6 <?php echo $aa_lists_active ? 'text-indigo-600' : 'text-gray-500'; ?>">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/>
+                        </svg>
+                    </span>
+                    <span class="text-base !font-semibold">Listas</span>
+                </a>
+            </li>
+
             <!-- Clientes -->
             <li>
                 <a
@@ -194,52 +217,6 @@ if (!isset($aa_canonical_record_types_nav) || !is_array($aa_canonical_record_typ
             </li>
 
             <?php if ($can_manage_options) : ?>
-            <!-- Tipos de registros (shell canónico universal) -->
-            <li class="px-3 pt-1 pb-1">
-                <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                    Tipos de registros
-                </p>
-            </li>
-            <li>
-                <ul
-                    id="aa-canonical-record-types-nav"
-                    class="space-y-0.5"
-                    data-aa-canonical-record-types-nav
-                >
-                    <?php foreach ($aa_canonical_record_types_nav as $aa_nav_item) :
-                        $aa_nav_key = (string) ($aa_nav_item['family_key'] ?? '');
-                        $aa_nav_label = (string) ($aa_nav_item['label'] ?? '');
-                        $aa_nav_url = (string) ($aa_nav_item['url'] ?? '');
-                        if ($aa_nav_key === '' || $aa_nav_label === '' || $aa_nav_url === '') {
-                            continue;
-                        }
-                        $aa_nav_active = (
-                            $active_module === 'canonical_shell'
-                            && isset($aa_canonical_family)
-                            && $aa_canonical_family instanceof AA_Canonical_Family_Definition
-                            && $aa_canonical_family->key() === $aa_nav_key
-                        );
-                        ?>
-                    <li>
-                        <a
-                            href="<?php echo esc_url($aa_nav_url); ?>"
-                            data-aa-nav-module="canonical_shell"
-                            data-aa-nav-family="<?php echo esc_attr($aa_nav_key); ?>"
-                            class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors <?php echo $aa_nav_active ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-100'; ?>"
-                            <?php echo $aa_nav_active ? 'aria-current="page"' : ''; ?>
-                        >
-                            <span class="flex items-center justify-center w-6 h-6 <?php echo $aa_nav_active ? 'text-indigo-600' : 'text-gray-500'; ?>">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/>
-                                </svg>
-                            </span>
-                            <span class="text-base !font-semibold"><?php echo esc_html($aa_nav_label); ?></span>
-                        </a>
-                    </li>
-                    <?php endforeach; ?>
-                </ul>
-            </li>
-
             <!-- Separador -->
             <li class="my-3">
                 <hr class="border-gray-200">

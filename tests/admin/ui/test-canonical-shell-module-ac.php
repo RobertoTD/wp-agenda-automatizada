@@ -380,15 +380,18 @@ ac_assert('Existing finance URL policy unchanged (module=canonical)', strpos($fi
 ac_assert('Shell URL is allowlisted by shell policy', AA_Canonical_Shell_Base_Url_Policy::is_allowlisted_shell_url($shell_url) === true);
 ac_assert('Finance URL is not allowlisted as shell URL', AA_Canonical_Shell_Base_Url_Policy::is_allowlisted_shell_url($finance_url) === false);
 
-// --- Sidebar (PCU-5A: Tipos de registros reemplaza "Shell canónico") ---
+// --- Sidebar (Ciclo 2A: entrada Listas; sin grupo Tipos de registros) ---
 $sidebar_src = file_get_contents($plugin_root . '/includes/admin/ui/shared/sidebar.php');
-ac_assert('Sidebar contains Tipos de registros label', strpos($sidebar_src, 'Tipos de registros') !== false);
+ac_assert('Sidebar contiene entrada Listas', strpos($sidebar_src, '>Listas</span>') !== false);
 ac_assert('Sidebar sin label provisional Shell canónico', strpos($sidebar_src, 'Shell canónico') === false);
-ac_assert('Sidebar Shell link uses data-aa-nav-module=canonical_shell', strpos($sidebar_src, 'data-aa-nav-module="canonical_shell"') !== false);
-ac_assert('Sidebar Shell highlight checks canonical_shell', strpos($sidebar_src, "\$active_module === 'canonical_shell'") !== false);
-ac_assert('Sidebar nav gated by manage_options + enablement', strpos($sidebar_src, 'ReadCanonicalFamilyEnablementUseCase') !== false
-    && strpos($sidebar_src, 'AA_Canonical_Family_Enablement_Nav') !== false
-    && strpos($sidebar_src, 'aa-canonical-record-types-nav') !== false);
+ac_assert('Sidebar sin grupo Tipos de registros', strpos($sidebar_src, 'Tipos de registros') === false);
+ac_assert('Sidebar sin contenedor nav dinámico de tipos', strpos($sidebar_src, 'aa-canonical-record-types-nav') === false);
+ac_assert('Sidebar Listas usa data-aa-nav-module=canonical_shell', strpos($sidebar_src, 'data-aa-nav-module="canonical_shell"') !== false);
+ac_assert('Sidebar Listas highlight checks canonical_shell', strpos($sidebar_src, "\$active_module === 'canonical_shell'") !== false
+    || strpos($sidebar_src, '$aa_lists_active') !== false);
+ac_assert('Sidebar Listas usa build_module_url', strpos($sidebar_src, 'AA_Canonical_Shell_Base_Url_Policy::build_module_url') !== false);
+ac_assert('Sidebar Enablement_Nav fallback conservado para hoist header', strpos($sidebar_src, 'ReadCanonicalFamilyEnablementUseCase') !== false
+    && strpos($sidebar_src, 'AA_Canonical_Family_Enablement_Nav') !== false);
 ac_assert('Sidebar Finanzas still uses AA_Canonical_Shell_Url_Policy', strpos($sidebar_src, "AA_Canonical_Shell_Url_Policy::build_url('finance', 'general')") !== false);
 ac_assert('Sidebar Finanzas highlight still canonical only', preg_match(
     '/data-aa-nav-module="canonical"[\s\S]*?\$active_module === \'canonical\'/',
@@ -404,10 +407,14 @@ $aa_canonical_family = AA_Canonical_Core_Bootstrap::instance()->family('finance'
 ob_start();
 require $plugin_root . '/includes/admin/ui/shared/sidebar.php';
 $sidebar_html = ob_get_clean();
-ac_assert('Rendered sidebar includes Tipos de registros for manage_options', strpos($sidebar_html, 'Tipos de registros') !== false);
-ac_assert('Rendered sidebar incluye contenedor nav dinámico', strpos($sidebar_html, 'id="aa-canonical-record-types-nav"') !== false);
-ac_assert('Sin familias enabled: sin links shell falsos por defecto',
-    strpos($sidebar_html, 'data-aa-nav-family=') === false
+ac_assert('Rendered sidebar incluye Listas para manage_options', strpos($sidebar_html, '>Listas</span>') !== false);
+ac_assert('Rendered Listas activo en canonical_shell', preg_match(
+    '/data-aa-nav-module="canonical_shell"[^>]*aria-current="page"/',
+    $sidebar_html
+) === 1);
+ac_assert('Sin grupo Tipos ni links data-aa-nav-family',
+    strpos($sidebar_html, 'Tipos de registros') === false
+    && strpos($sidebar_html, 'data-aa-nav-family=') === false
 );
 ac_assert('Shell current page does not aria-current Finanzas legacy',
     preg_match('/data-aa-nav-module="canonical"[^>]*aria-current="page"/', $sidebar_html) !== 1
@@ -419,7 +426,7 @@ $active_module = 'calendar';
 ob_start();
 require $plugin_root . '/includes/admin/ui/shared/sidebar.php';
 $sidebar_no_admin = ob_get_clean();
-ac_assert('Non-manage_options sidebar hides Tipos de registros', strpos($sidebar_no_admin, 'Tipos de registros') === false);
+ac_assert('Non-manage_options sidebar hides Listas', strpos($sidebar_no_admin, '>Listas</span>') === false);
 ac_assert('Non-manage_options sidebar still shows Finanzas', strpos($sidebar_no_admin, 'Finanzas') !== false);
 
 // --- Root render + aislamiento ---

@@ -22,12 +22,14 @@
     var availableFamilies = Array.isArray(cfg.availableFamilies) ? cfg.availableFamilies : [];
     var requireFamilySelect = cfg.requireFamilySelect === true;
     var maxTitleLength = typeof cfg.maxTitleLength === 'number' ? cfg.maxTitleLength : 200;
+    var canCreateFromAll = listsScope === 'all' && availableFamilies.length > 0;
 
     if (!ajaxUrl || !createAction || !createNonce || !updateAction || !updateNonce
         || !deleteAction || !deleteNonce) {
         return;
     }
-    if (!requireFamilySelect && !familyKey) {
+    // Familia filtrada (familyKey), select multi-familia, o Todas con ≥1 familia creable.
+    if (!requireFamilySelect && !familyKey && !canCreateFromAll) {
         return;
     }
 
@@ -119,11 +121,33 @@
         }
     }
 
+    function resolveInitialCreateFamilyKey() {
+        // Única ubicación de la política de preselección al abrir creación.
+        if (familyKey !== '') {
+            return familyKey;
+        }
+        if (listsScope !== 'all' || availableFamilies.length === 0) {
+            return '';
+        }
+        var i;
+        for (i = 0; i < availableFamilies.length; i++) {
+            var row = availableFamilies[i];
+            if (row && row.family_key === 'archive') {
+                return 'archive';
+            }
+        }
+        if (availableFamilies.length === 1) {
+            var only = availableFamilies[0];
+            return only && typeof only.family_key === 'string' ? only.family_key : '';
+        }
+        return '';
+    }
+
     function resolveCreateFamilyKey() {
         if (requireFamilySelect && familySelect) {
             return typeof familySelect.value === 'string' ? familySelect.value : '';
         }
-        return familyKey;
+        return currentFamilyKey || familyKey;
     }
 
     function setStatus(message, isError) {
@@ -214,9 +238,14 @@
             currentFamilyKey = (typeof nextFamilyKey === 'string' && nextFamilyKey !== '')
                 ? nextFamilyKey
                 : familyKey;
-        } else {
-            currentFamilyKey = familyKey;
             if (familySelect) {
+                familySelect.value = '';
+            }
+        } else {
+            currentFamilyKey = resolveInitialCreateFamilyKey();
+            if (familySelect && requireFamilySelect) {
+                familySelect.value = currentFamilyKey;
+            } else if (familySelect) {
                 familySelect.value = '';
             }
         }

@@ -49,8 +49,10 @@ ac_assert('AA_CANONICAL_FAMILY_ENABLED config', strpos($settings, 'AA_CANONICAL_
 ac_assert('JS dedicado cargado', strpos($settings, 'canonical-family-toggles.js') !== false);
 
 ac_assert('Sidebar sin Shell canónico provisional', strpos($sidebar, 'Shell canónico') === false);
-ac_assert('Sidebar Tipos de registros', strpos($sidebar, 'Tipos de registros') !== false);
-ac_assert('Contenedor nav id', strpos($sidebar, 'id="aa-canonical-record-types-nav"') !== false);
+ac_assert('Sidebar entrada Listas', strpos($sidebar, '>Listas</span>') !== false
+    && strpos($sidebar, 'AA_Canonical_Shell_Base_Url_Policy::build_module_url') !== false);
+ac_assert('Sidebar sin grupo Tipos de registros ni nav id', strpos($sidebar, 'Tipos de registros') === false
+    && strpos($sidebar, 'aa-canonical-record-types-nav') === false);
 ac_assert('Finance legacy intacto', strpos($sidebar, 'data-aa-nav-module="canonical"') !== false
     && strpos($sidebar, '>Finanzas</span>') !== false);
 
@@ -60,11 +62,11 @@ ac_assert('Gate antes de compose', strpos($router, 'aa_enablement_gate_state') !
 ac_assert('Copy family_disabled en shell', strpos($shell, 'Este tipo de registro está desactivado.') !== false
     && strpos($shell, 'Puedes activarlo en Ajustes, en la sección “Tipos de registros”.') !== false);
 
-ac_assert('postMessage type en JS', strpos($js, 'aa-canonical-family-enabled-changed') !== false);
-ac_assert('targetOrigin exacto en JS', strpos($js, "postMessage({") !== false && strpos($js, ", '*')") === false);
-ac_assert('Parent handler', strpos($parent, 'aa-canonical-family-enabled-changed') !== false
-    && strpos($parent, 'aa-canonical-record-types-nav') !== false);
-ac_assert('Parent usa textContent', strpos($parent, 'textContent = label') !== false);
+ac_assert('Toggles sin regeneración live de nav', strpos($js, 'renderNav') === false
+    && strpos($js, 'aa-canonical-family-enabled-changed') === false
+    && strpos($js, 'postMessage') === false);
+ac_assert('Parent sin handler de nav obsoleto', strpos($parent, 'aa-canonical-family-enabled-changed') === false
+    && strpos($parent, 'aa-canonical-record-types-nav') === false);
 
 ac_assert('Binding Finance legacy ausente del bootstrap productivo', strpos($binding, 'AA_Finance_Canonical_Read_Adapter') === false);
 ac_assert('Bootstrap read usa Relational', strpos($binding, 'AA_Canonical_Relational_Read_Adapter') !== false
