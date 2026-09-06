@@ -18,6 +18,11 @@
     var deleteNonce = typeof cfg.deleteNonce === 'string' ? cfg.deleteNonce : '';
     var familyKey = typeof cfg.familyKey === 'string' ? cfg.familyKey : '';
     var containerId = typeof cfg.containerId === 'number' ? cfg.containerId : parseInt(cfg.containerId, 10);
+    var listsScope = typeof cfg.listsScope === 'string' ? cfg.listsScope : '';
+    var page = (typeof cfg.page === 'number' && cfg.page > 1) ? cfg.page : null;
+    var containersPage = (typeof cfg.containersPage === 'number' && cfg.containersPage > 1)
+        ? cfg.containersPage
+        : null;
     var maxTitleLength = typeof cfg.maxTitleLength === 'number' ? cfg.maxTitleLength : 200;
 
     if (!ajaxUrl || !createAction || !createNonce || !updateAction || !updateNonce
@@ -64,6 +69,18 @@
     var deleteBlocked = false;
     var deletePreviousFocus = null;
     var deleteRedirectUrl = null;
+
+    function appendReturnContext(body) {
+        if (listsScope === 'all') {
+            body.append('lists_scope', 'all');
+        }
+        if (page !== null) {
+            body.append('page', String(page));
+        }
+        if (containersPage !== null) {
+            body.append('containers_page', String(containersPage));
+        }
+    }
 
     function setStatus(message, isError) {
         if (!statusEl) {
@@ -262,6 +279,7 @@
         }
         body.append('title', titleInput.value);
         body.append('details', detailsInput ? detailsInput.value : '');
+        appendReturnContext(body);
 
         fetch(ajaxUrl, {
             method: 'POST',
@@ -447,6 +465,7 @@
         body.append('family_key', familyKey);
         body.append('container_id', String(containerId));
         body.append('record_id', String(deleteRecordId));
+        appendReturnContext(body);
 
         fetch(ajaxUrl, {
             method: 'POST',

@@ -16,7 +16,7 @@ El shell opera por `family_key` sobre la persistencia universal (`aa_canonical_*
 
 La UI clásica de Finance (`module=canonical`, tablas `aa_finance_*`) permanece intacta y operativa; su `variant_key` es legado local, no del shell universal.
 
-El shell se observa desde entradas del sidebar «Tipos de registros» (`module=canonical_shell&family=…`) y muestra únicamente el contrato base común a cualquier familia.
+El shell se observa desde `module=canonical_shell` (listado general «Todas las listas» sin `family`) y desde rutas familiares (`module=canonical_shell&family=…`). Muestra únicamente el contrato base común a cualquier familia.
 
 ## Contrato base del shell
 
@@ -135,7 +135,10 @@ La URL y el mecanismo exacto de routing no se decidirán hasta inspeccionar el r
 
 Una ruta con `family` debe resolverse mediante el registry. El parámetro `variant` en el shell es obsoleto: no participa en la identidad; las URLs nuevas y `$aa_canonical_url` no lo emiten.
 
-Una ruta sin `family` solo podrá mostrar un estado controlado de desarrollo o un fixture neutral; no deberá inferir silenciosamente una familia.
+Distinguir **alcance de consulta** e **identidad de recurso**:
+- `module=canonical_shell` sin `family` abre el listado general de contenedores («Todas las listas») sobre las familias activadas y accesibles; no infiere una familia concreta ni sustituye la identidad de un recurso.
+- Crear/editar/eliminar y abrir registros siguen exigiendo `family_key` (identidad del recurso). Una `family` explícita inválida o desconocida no cae al alcance general.
+- `lists_scope=all` en `view=records` solo conserva el origen de navegación para el retorno; no altera autorización ni pertenencia.
 
 La UI actual de Finance debe permanecer disponible e intacta durante todos los ciclos.
 
@@ -247,4 +250,5 @@ Cuando la propuesta sea aprobada, el prompt de implementación será una autoriz
   16. **CAP-1 / CAP-2 / CAP-3** — sistema de capabilities; `monetary_amount`; agregado monetario; imágenes.
   17. **LEGACY-X** — proyección, integración o deprecación selectiva de módulos legacy.
 - 18. **Shell family-only (DB 22)** — variantes eliminadas del shell universal `aa_canonical_*`: identidad/contratos/persistencia por `family_key` sola; Finance clásico conserva `variant_key` vía política local en `FinanceUseCaseSupport`; rollback estructural en `docs/plans/canonical-shell-db22-rollback.md`.
+- 19. **Alcance general «Todas las listas» (Ciclo 1 UI)** — `module=canonical_shell` sin `family` lista contenedores agregados de familias enabled+accesibles (`ReadCanonicalShellAllContainersUseCase` + `CanonicalAggregatedContainersPort` / adapter / repo multi-familia); paginación/orden/conteo globales; vacío de familias → página vacía sin SQL abierto; rutas familiares intactas; `lists_scope=all` solo en retorno de records; header `data-aa-page-title="Todas las listas"`; selector header y sidebar sin cambios (Ciclo 2). `DB_VERSION=22` / `CATALOG_VERSION=1` sin índices nuevos.
 - PCU-1 no autoriza ni inicia PCU-2.

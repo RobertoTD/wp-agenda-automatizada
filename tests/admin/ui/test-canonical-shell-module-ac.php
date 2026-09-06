@@ -229,8 +229,9 @@ function simulate_shell_router(array $get_params, array $caps = []): array {
             $aa_canonical_url = AA_Canonical_Shell_Base_Url_Policy::build_module_url();
 
             if (!$family_present) {
-                $aa_shell_route_state = 'missing_identity';
-                $aa_shell_route_message = 'Identidad canónica no suministrada. Este módulo es un shell base en construcción.';
+                $aa_shell_route_state = 'resolved';
+                $aa_shell_route_message = 'Listado general de listas.';
+                $aa_canonical_url = AA_Canonical_Shell_Base_Url_Policy::build_module_url();
             } else {
                 $canonical_registry = AA_Canonical_Core_Bootstrap::instance();
                 $route_result = (new ResolveCanonicalRouteUseCase($canonical_registry))->execute([
@@ -299,6 +300,11 @@ function simulate_shell_router(array $get_params, array $caps = []): array {
 $router_src = file_get_contents($plugin_root . '/includes/admin/ui/index.php');
 ac_assert('Router allowlists canonical_shell', strpos($router_src, "'canonical_shell'") !== false);
 ac_assert('Router uses canonical-layout for canonical_shell', strpos($router_src, "\$active_module === 'canonical' || \$active_module === 'canonical_shell'") !== false);
+ac_assert('Router opens all-lists without family', strpos($router_src, 'compose_all_containers') !== false);
+ac_assert('Router no longer treats bare module as missing_identity', strpos($router_src, "\$aa_shell_route_state = 'missing_identity'") === false);
+
+$shell_ui_src = file_get_contents($plugin_root . '/includes/admin/ui/modules/canonical_shell/index.php');
+ac_assert('All-lists page title attribute', strpos($shell_ui_src, 'Todas las listas') !== false);
 
 $res_ok = simulate_shell_router(
     ['module' => 'canonical_shell', 'family' => 'finance', 'variant' => 'general'],
@@ -317,10 +323,12 @@ $res_denied = simulate_shell_router(
 );
 ac_assert('Non-admin cannot access canonical_shell (403)', ($res_denied['status'] ?? 0) === 403);
 
-$res_missing = simulate_shell_router(['module' => 'canonical_shell'], ['manage_options' => true]);
-ac_assert('Missing identity is controlled state', ($res_missing['aa_shell_route_state'] ?? '') === 'missing_identity');
-ac_assert('Missing identity does not fall back to calendar', ($res_missing['active_module'] ?? '') === 'canonical_shell');
-ac_assert('Missing identity remains HTTP 200 body path', ($res_missing['status'] ?? 0) === 200 && ($res_missing['http_status'] ?? 0) === 200);
+$res_all = simulate_shell_router(['module' => 'canonical_shell'], ['manage_options' => true]);
+ac_assert('Module without family resolves all-lists scope', ($res_all['aa_shell_route_state'] ?? '') === 'resolved');
+ac_assert('All-lists does not fall back to calendar', ($res_all['active_module'] ?? '') === 'canonical_shell');
+ac_assert('All-lists remains HTTP 200 body path', ($res_all['status'] ?? 0) === 200 && ($res_all['http_status'] ?? 0) === 200);
+ac_assert('All-lists URL is module-only', strpos((string) ($res_all['aa_canonical_url'] ?? ''), 'module=canonical_shell') !== false
+    && strpos((string) ($res_all['aa_canonical_url'] ?? ''), 'family=') === false);
 
 $res_family_only = simulate_shell_router(
     ['module' => 'canonical_shell', 'family' => 'finance'],
@@ -332,7 +340,7 @@ $res_variant_only = simulate_shell_router(
     ['module' => 'canonical_shell', 'variant' => 'general'],
     ['manage_options' => true]
 );
-ac_assert('Variant-only without family is missing_identity', ($res_variant_only['aa_shell_route_state'] ?? '') === 'missing_identity');
+ac_assert('Variant-only without family is all-lists resolved', ($res_variant_only['aa_shell_route_state'] ?? '') === 'resolved');
 
 $res_invalid = simulate_shell_router(
     ['module' => 'canonical_shell', 'family' => 'Bad_Key!', 'variant' => 'general'],
@@ -340,6 +348,8 @@ $res_invalid = simulate_shell_router(
 );
 ac_assert('Invalid key yields invalid_request', ($res_invalid['aa_shell_route_state'] ?? '') === 'invalid_request');
 ac_assert('Invalid key sets status 400', ($res_invalid['http_status'] ?? 0) === 400);
+ac_assert('Invalid family does not become all-lists', strpos((string) ($res_invalid['aa_canonical_url'] ?? ''), 'family=') !== false
+    || ($res_invalid['aa_shell_route_state'] ?? '') === 'invalid_request');
 
 $res_unknown = simulate_shell_router(
     ['module' => 'canonical_shell', 'family' => 'unknown_family', 'variant' => 'general'],

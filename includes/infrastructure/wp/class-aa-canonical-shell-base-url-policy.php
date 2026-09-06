@@ -20,6 +20,7 @@ final class AA_Canonical_Shell_Base_Url_Policy {
     public const ACTION_IFRAME_CONTENT = 'aa_iframe_content';
     public const SHELL_MODE_PREVIEW = 'preview';
     public const VIEW_RECORDS = 'records';
+    public const LISTS_SCOPE_ALL = 'all';
 
     private const ALLOWED_QUERY_KEYS = [
         'action',
@@ -30,6 +31,7 @@ final class AA_Canonical_Shell_Base_Url_Policy {
         'view',
         'container_id',
         'containers_page',
+        'lists_scope',
     ];
 
     /**
@@ -77,12 +79,15 @@ final class AA_Canonical_Shell_Base_Url_Policy {
 
     /**
      * URL de registros de un contenedor (familia real).
+     *
+     * @param string|null $lists_scope `all` para origen «Todas las listas»; null = origen familiar.
      */
     public static function build_records_url(
         string $family_key,
         int $container_id,
         ?int $page = null,
-        ?int $containers_page = null
+        ?int $containers_page = null,
+        ?string $lists_scope = null
     ): string {
         if (!AA_Canonical_Key::is_valid($family_key)) {
             throw new InvalidArgumentException('Clave de familia no válida para shell base.');
@@ -103,6 +108,9 @@ final class AA_Canonical_Shell_Base_Url_Policy {
         }
         if ($containers_page !== null && $containers_page > 1) {
             $args['containers_page'] = (string) $containers_page;
+        }
+        if ($lists_scope === self::LISTS_SCOPE_ALL) {
+            $args['lists_scope'] = self::LISTS_SCOPE_ALL;
         }
 
         return add_query_arg($args, admin_url('admin-post.php'));
@@ -138,16 +146,102 @@ final class AA_Canonical_Shell_Base_Url_Policy {
     }
 
     /**
-     * URL base del módulo sin identidad canónica (estado de desarrollo controlado).
+     * URL del listado general «Todas las listas» (sin family).
      */
-    public static function build_module_url(): string {
-        return add_query_arg(
-            [
-                'action' => self::ACTION_IFRAME_CONTENT,
-                'module' => self::MODULE_SHELL,
-            ],
-            admin_url('admin-post.php')
-        );
+    public static function build_module_url(?int $page = null): string {
+        $args = [
+            'action' => self::ACTION_IFRAME_CONTENT,
+            'module' => self::MODULE_SHELL,
+        ];
+        if ($page !== null && $page > 1) {
+            $args['page'] = (string) $page;
+        }
+
+        return add_query_arg($args, admin_url('admin-post.php'));
+    }
+
+    /**
+     * Redirect de listado de contenedores tras mutación (familia o alcance all).
+     */
+    public static function build_containers_return_url(
+        ?string $lists_scope,
+        ?string $family_key,
+        ?int $page = null
+    ): string {
+        if ($lists_scope === self::LISTS_SCOPE_ALL) {
+            return self::build_module_url($page);
+        }
+        if ($family_key === null || $family_key === '') {
+            throw new InvalidArgumentException('family_key requerida para retorno familiar.');
+        }
+
+        return self::build_url($family_key, $page);
+    }
+
+    /**
+     * @param mixed $value
+     * @return string|null `all` o null si ausente/vacío; false-like invalid handled by caller via parse
+     */
+    public static function parse_present_lists_scope($value): ?string {
+        if ($value === null) {
+            return null;
+        }
+        if (is_array($value) || is_object($value) || is_bool($value) || is_int($value) || is_float($value)) {
+            return null;
+        }
+        if (!is_string($value) && !is_numeric($value)) {
+            return null;
+        }
+        $raw = trim((string) $value);
+        if ($raw === '') {
+            return null;
+        }
+        if ($raw === self::LISTS_SCOPE_ALL) {
+            return self::LISTS_SCOPE_ALL;
+        }
+
+        return null;
+    }
+
+    /**
+     * Contexto de retorno de mutaciones (navegación). No autoriza ni comprueba pertenencia.
+     *
+     * @param array{lists_scope?:mixed,page?:mixed,containers_page?:mixed} $input
+     * @return array{lists_scope:?string,page:?int,containers_page:?int}|null null si el input es inválido
+     */
+    public static function parse_mutation_return_context(array $input): ?array {
+        $lists_scope = null;
+        if (array_key_exists('lists_scope', $input)) {
+            $parsed = self::parse_present_lists_scope($input['lists_scope']);
+            if ($parsed === null) {
+                return null;
+            }
+            $lists_scope = $parsed;
+        }
+
+        $page = null;
+        if (array_key_exists('page', $input)) {
+            $parsed_page = self::parse_present_page_value($input['page']);
+            if ($parsed_page === null) {
+                return null;
+            }
+            $page = $parsed_page;
+        }
+
+        $containers_page = null;
+        if (array_key_exists('containers_page', $input)) {
+            $parsed_containers_page = self::parse_present_page_value($input['containers_page']);
+            if ($parsed_containers_page === null) {
+                return null;
+            }
+            $containers_page = $parsed_containers_page;
+        }
+
+        return [
+            'lists_scope' => $lists_scope,
+            'page' => $page,
+            'containers_page' => $containers_page,
+        ];
     }
 
     /**
@@ -256,6 +350,22 @@ final class AA_Canonical_Shell_Base_Url_Policy {
         $view = isset($query['view']) ? (string) $query['view'] : '';
         $has_container_id = isset($query['container_id']);
         $has_containers_page = isset($query['containers_page']);
+        $lists_scope = isset($query['lists_scope']) ? (string) $query['lists_scope'] : '';
+
+        if ($lists_scope !== '') {
+            if ($lists_scope !== self::LISTS_SCOPE_ALL) {
+                return false;
+            }
+            if ($view !== self::VIEW_RECORDS) {
+                return false;
+            }
+            if ($shell_mode !== '') {
+                return false;
+            }
+            if (!$has_family) {
+                return false;
+            }
+        }
 
         if ($shell_mode !== '') {
             if ($shell_mode !== self::SHELL_MODE_PREVIEW) {

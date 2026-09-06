@@ -131,6 +131,106 @@ final class CanonicalRelationalRepository {
     }
 
     /**
+     * @param list<int> $family_ids IDs positivos; vacío no admitido (lanzar antes de consultar).
+     * @throws CanonicalRelationalQueryFailed
+     * @throws \InvalidArgumentException
+     */
+    public function count_containers_in_families(array $family_ids): int {
+        $ids = $this->normalize_positive_id_list($family_ids);
+        $table = $this->containers_table();
+        $placeholders = implode(', ', array_fill(0, count($ids), '%d'));
+        $this->clear_error_state();
+        $count = $this->wpdb->get_var(
+            $this->wpdb->prepare(
+                "SELECT COUNT(*) FROM `{$table}` WHERE family_id IN ({$placeholders})",
+                ...$ids
+            )
+        );
+
+        if ($count === false || $count === null || $this->wpdb->last_error !== '') {
+            throw new CanonicalRelationalQueryFailed('count_containers_in_families query failed.');
+        }
+
+        return (int) $count;
+    }
+
+    /**
+     * @param list<int> $family_ids
+     * @return list<array{id:int,public_id:string,family_id:int,family_key:string,title:string,details:?string,created_at:string,updated_at:string}>
+     * @throws CanonicalRelationalQueryFailed
+     * @throws \InvalidArgumentException
+     */
+    public function list_containers_in_families(array $family_ids, int $page, int $per_page): array {
+        $this->assert_pagination($page, $per_page);
+        $ids = $this->normalize_positive_id_list($family_ids);
+        $offset = ($page - 1) * $per_page;
+        $containers = $this->containers_table();
+        $families = $this->families_table();
+        $placeholders = implode(', ', array_fill(0, count($ids), '%d'));
+        $params = array_merge($ids, [$per_page, $offset]);
+        $this->clear_error_state();
+        $rows = $this->wpdb->get_results(
+            $this->wpdb->prepare(
+                "SELECT c.id, c.public_id, c.family_id, f.family_key, c.title, c.details, c.created_at, c.updated_at
+                 FROM `{$containers}` c
+                 INNER JOIN `{$families}` f ON f.id = c.family_id
+                 WHERE c.family_id IN ({$placeholders})
+                 ORDER BY c.updated_at DESC, c.id DESC
+                 LIMIT %d OFFSET %d",
+                ...$params
+            ),
+            ARRAY_A
+        );
+
+        if ($rows === false || $this->wpdb->last_error !== '') {
+            throw new CanonicalRelationalQueryFailed('list_containers_in_families query failed.');
+        }
+
+        $mapped = [];
+        foreach ((array) $rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $item = $this->map_container_row($row);
+            if ($item === null) {
+                continue;
+            }
+            $family_key = isset($row['family_key']) ? (string) $row['family_key'] : '';
+            if ($family_key === '') {
+                continue;
+            }
+            $item['family_key'] = $family_key;
+            $mapped[] = $item;
+        }
+
+        return $mapped;
+    }
+
+    /**
+     * @param list<int> $family_ids
+     * @return list<int>
+     */
+    private function normalize_positive_id_list(array $family_ids): array {
+        $ids = [];
+        foreach ($family_ids as $id) {
+            if (!is_int($id) || $id < 1) {
+                throw new \InvalidArgumentException(
+                    '[invalid_page_contract] family_ids must be positive integers.'
+                );
+            }
+            $ids[$id] = $id;
+        }
+        $ids = array_values($ids);
+        if ($ids === []) {
+            throw new \InvalidArgumentException(
+                '[invalid_page_contract] family_ids must not be empty for aggregated queries.'
+            );
+        }
+
+        return $ids;
+    }
+
+    /**
      * @return array{id:int,public_id:string,family_id:int,title:string,details:?string,created_at:string,updated_at:string}|null
      * @throws CanonicalRelationalQueryFailed
      */

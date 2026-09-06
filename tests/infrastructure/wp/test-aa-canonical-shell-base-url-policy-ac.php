@@ -90,6 +90,23 @@ $records_omit = AA_Canonical_Shell_Base_Url_Policy::build_records_url('finance',
 ac_assert('Records builder omits page/containers_page when 1', strpos($records_omit, 'page=') === false
     && strpos($records_omit, 'containers_page=') === false);
 
+$records_all = AA_Canonical_Shell_Base_Url_Policy::build_records_url('finance', 5, null, 2, 'all');
+ac_assert('Records builder keeps lists_scope=all', strpos($records_all, 'lists_scope=all') !== false
+    && strpos($records_all, 'containers_page=2') !== false
+    && strpos($records_all, 'family=finance') !== false);
+ac_assert('Records with lists_scope allowlisted', AA_Canonical_Shell_Base_Url_Policy::is_allowlisted_shell_url($records_all) === true);
+
+$return_all = AA_Canonical_Shell_Base_Url_Policy::build_containers_return_url('all', 'finance', 2);
+ac_assert('Containers return all-scope uses module URL', strpos($return_all, 'module=canonical_shell') !== false
+    && strpos($return_all, 'family=') === false
+    && strpos($return_all, 'page=2') !== false);
+
+$return_family = AA_Canonical_Shell_Base_Url_Policy::build_containers_return_url(null, 'archive', null);
+ac_assert('Containers return family-scope uses family URL', strpos($return_family, 'family=archive') !== false);
+
+ac_assert('lists_scope parser accepts all', AA_Canonical_Shell_Base_Url_Policy::parse_present_lists_scope('all') === 'all');
+ac_assert('lists_scope parser rejects other', AA_Canonical_Shell_Base_Url_Policy::parse_present_lists_scope('family') === null);
+
 $preview_records = AA_Canonical_Shell_Base_Url_Policy::build_preview_records_url(9, null, 2);
 ac_assert('Preview records builder', strpos($preview_records, 'shell_mode=preview') !== false
     && strpos($preview_records, 'view=records') !== false

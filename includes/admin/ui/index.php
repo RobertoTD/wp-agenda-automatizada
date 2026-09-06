@@ -125,6 +125,7 @@ if ($active_module === 'canonical') {
     $view = is_string($view_raw) ? sanitize_key($view_raw) : '';
     $container_id_present = array_key_exists('container_id', $_GET);
     $containers_page_present = array_key_exists('containers_page', $_GET);
+    $lists_scope_present = array_key_exists('lists_scope', $_GET);
 
     $aa_canonical_url = AA_Canonical_Shell_Base_Url_Policy::build_module_url();
     $aa_shell_view = null;
@@ -144,6 +145,7 @@ if ($active_module === 'canonical') {
 
     $shell_container_id = null;
     $shell_containers_page = 1;
+    $shell_lists_scope = null;
     $records_transport_invalid = false;
     $records_transport_message = '';
 
@@ -180,6 +182,21 @@ if ($active_module === 'canonical') {
     } elseif ($container_id_present || $containers_page_present) {
         $records_transport_invalid = true;
         $records_transport_message = 'container_id y containers_page solo se admiten con view=records.';
+    }
+
+    if (!$records_transport_invalid && $lists_scope_present) {
+        $parsed_lists_scope = AA_Canonical_Shell_Base_Url_Policy::parse_present_lists_scope(
+            wp_unslash($_GET['lists_scope'])
+        );
+        if ($parsed_lists_scope === null) {
+            $records_transport_invalid = true;
+            $records_transport_message = 'El parámetro lists_scope no es válido.';
+        } elseif ($view !== AA_Canonical_Shell_Base_Url_Policy::VIEW_RECORDS) {
+            $records_transport_invalid = true;
+            $records_transport_message = 'lists_scope solo se admite con view=records.';
+        } else {
+            $shell_lists_scope = $parsed_lists_scope;
+        }
     }
 
     $is_records_view = (
@@ -242,8 +259,79 @@ if ($active_module === 'canonical') {
             status_header(400);
         }
     } elseif (!$family_present) {
-        $aa_shell_route_state = 'missing_identity';
-        $aa_shell_route_message = 'Identidad canónica no suministrada. Este módulo es un shell base en construcción.';
+        if ($is_records_view || $view_present) {
+            $aa_shell_route_state = 'invalid_request';
+            $aa_shell_route_message = 'view=records requiere family.';
+            if (function_exists('status_header')) {
+                status_header(400);
+            }
+        } else {
+            $canonical_registry = null;
+            if (class_exists('AA_Canonical_Core_Bootstrap')) {
+                try {
+                    $canonical_registry = AA_Canonical_Core_Bootstrap::instance();
+                } catch (\Throwable $e) {
+                    $canonical_registry = null;
+                }
+            }
+
+            if ($canonical_registry === null) {
+                wp_die('El núcleo canónico no está disponible.', 'Error', ['response' => 500]);
+            }
+
+            if (!class_exists('AA_Canonical_Family_Enablement_Nav')) {
+                require_once dirname(__DIR__, 2) . '/infrastructure/canonical/class-aa-canonical-family-enablement-nav.php';
+            }
+            if (!class_exists('AA_Canonical_Access_Policy')) {
+                require_once dirname(__DIR__, 2) . '/infrastructure/wp/class-aa-canonical-access-policy.php';
+            }
+
+            $enabled_families = [];
+            $all_scope_gate_state = null;
+            $all_scope_gate_message = '';
+            if (class_exists('AA_Canonical_Family_Enablement_Store')
+                && class_exists('ReadCanonicalFamilyEnablementUseCase')
+            ) {
+                try {
+                    $aa_enablement_snapshot = (new ReadCanonicalFamilyEnablementUseCase(
+                        new AA_Canonical_Family_Enablement_Store()
+                    ))->execute($canonical_registry);
+                    foreach (AA_Canonical_Family_Enablement_Nav::enabled_families(
+                        $canonical_registry,
+                        $aa_enablement_snapshot
+                    ) as $enabled_family) {
+                        $access = AA_Canonical_Access_Policy::check_family_access($enabled_family->key());
+                        if (!empty($access['authorized'])) {
+                            $enabled_families[] = $enabled_family;
+                        }
+                    }
+                } catch (CanonicalFamilyEnablementSchemaNotReady $e) {
+                    $all_scope_gate_state = 'schema_not_ready';
+                    $all_scope_gate_message = 'El esquema canónico no está listo en esta instalación.';
+                } catch (CanonicalFamilyEnablementPersistenceFailed $e) {
+                    $all_scope_gate_state = 'enablement_unavailable';
+                    $all_scope_gate_message = 'No se pudo consultar el estado de habilitación de las familias.';
+                }
+            }
+
+            if ($all_scope_gate_state !== null) {
+                $aa_shell_route_state = $all_scope_gate_state;
+                $aa_shell_route_message = $all_scope_gate_message;
+                if (function_exists('status_header')) {
+                    status_header(200);
+                }
+            } else {
+                $aa_shell_route_state = 'resolved';
+                $aa_shell_route_message = 'Listado general de listas.';
+                $aa_canonical_url = AA_Canonical_Shell_Base_Url_Policy::build_module_url(
+                    $shell_page > 1 ? $shell_page : null
+                );
+                $aa_shell_view = AA_Canonical_Shell_View_Composer::compose_all_containers(
+                    $enabled_families,
+                    $shell_page
+                );
+            }
+        }
     } else {
         $canonical_registry = null;
         if (class_exists('AA_Canonical_Core_Bootstrap')) {
@@ -321,13 +409,15 @@ if ($active_module === 'canonical') {
                     $aa_canonical_family->key(),
                     $shell_container_id,
                     $shell_page > 1 ? $shell_page : null,
-                    $shell_containers_page > 1 ? $shell_containers_page : null
+                    $shell_containers_page > 1 ? $shell_containers_page : null,
+                    $shell_lists_scope
                 );
                 $aa_shell_view = AA_Canonical_Shell_View_Composer::compose_family_records(
                     $aa_canonical_family,
                     $shell_container_id,
                     $shell_page,
-                    $shell_containers_page
+                    $shell_containers_page,
+                    $shell_lists_scope
                 );
             } else {
                 $aa_shell_route_state = 'resolved';

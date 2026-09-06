@@ -165,3 +165,5 @@ usar el shell sin copiarlo;
 añadir capabilities sin contaminarlo;
 proyectar sus datos al contrato canónico;
 ser representada en administración, runtime público y API mediante la misma identidad y organización.
+
+La identidad de un recurso canónico (contenedor o registro) requiere `family_key`. El alcance de consulta de un listado puede ser general (`module=canonical_shell` sin `family`) sin que eso sustituya ni infiera la identidad de un recurso concreto.

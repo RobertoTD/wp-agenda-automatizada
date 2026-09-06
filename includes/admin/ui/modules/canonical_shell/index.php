@@ -26,6 +26,13 @@ $shell_view = is_array($view) && isset($view['shell_view']) && is_string($view['
 $family_label = is_array($view) ? (string) ($view['family_label'] ?? '') : '';
 $qualified_key = is_array($view) ? (string) ($view['qualified_key'] ?? '') : '';
 $read_state = is_array($view) ? (string) ($view['read_state'] ?? '') : '';
+$lists_scope = is_array($view) && isset($view['lists_scope']) && is_string($view['lists_scope'])
+    ? $view['lists_scope']
+    : '';
+$is_all_lists_scope = ($lists_scope === 'all');
+$available_families = is_array($view) && isset($view['available_families']) && is_array($view['available_families'])
+    ? $view['available_families']
+    : [];
 $is_preview = is_array($view) && !empty($view['is_preview']);
 $preview_banner = is_array($view) && isset($view['preview_banner']) && is_string($view['preview_banner'])
     ? $view['preview_banner']
@@ -47,6 +54,9 @@ $back_url = is_array($view) && isset($view['back_url']) ? (string) $view['back_u
 $parent_container = is_array($view) && isset($view['container']) && is_array($view['container'])
     ? $view['container']
     : null;
+$containers_page_num = is_array($view) && isset($view['containers_page'])
+    ? (int) $view['containers_page']
+    : null;
 
 if (
     $family_label === ''
@@ -60,6 +70,8 @@ if (
 $page_title = 'Shell canónico';
 if ($is_preview) {
     $page_title = 'Shell canónico · Demostración';
+} elseif ($is_all_lists_scope) {
+    $page_title = 'Todas las listas';
 } elseif ($family_label !== '') {
     $page_title = $family_label;
 }
@@ -90,12 +102,40 @@ if (
     $create_family_key = $aa_canonical_family->key();
 }
 
+$normalized_available_families = [];
+foreach ($available_families as $family_row) {
+    if (!is_array($family_row)) {
+        continue;
+    }
+    $fk = isset($family_row['family_key']) ? (string) $family_row['family_key'] : '';
+    $fl = isset($family_row['label']) ? (string) $family_row['label'] : '';
+    if ($fk === '' || $fl === '') {
+        continue;
+    }
+    $normalized_available_families[] = [
+        'family_key' => $fk,
+        'label' => $fl,
+    ];
+}
+
+if ($is_all_lists_scope && $create_family_key === '' && count($normalized_available_families) === 1) {
+    $create_family_key = $normalized_available_families[0]['family_key'];
+}
+
+$can_create_from_all = $is_all_lists_scope && $normalized_available_families !== [];
+$show_family_select_on_create = $is_all_lists_scope && count($normalized_available_families) > 1;
+
 $show_create_ui = $show_read_ui
     && !$is_preview
     && !$is_records
     && $route_state === 'resolved'
     && in_array($read_state, ['empty', 'resolved_page'], true)
-    && $create_family_key !== '';
+    && ($create_family_key !== '' || $can_create_from_all);
+
+$show_container_write_ui = $show_create_ui;
+
+$settings_url = admin_url('admin-post.php?action=aa_iframe_content&module=settings');
+$can_open_settings = function_exists('current_user_can') && current_user_can('manage_options');
 
 $create_container_id = 0;
 if (is_array($view) && isset($view['container_id'])) {
@@ -121,6 +161,9 @@ $show_create_record_ui = $show_read_ui
     data-aa-page-title="<?php echo esc_attr($page_title); ?>"
     data-aa-shell-route-state="<?php echo esc_attr($route_state); ?>"
     data-aa-shell-view="<?php echo esc_attr($shell_view); ?>"
+    <?php if ($is_all_lists_scope) : ?>
+    data-aa-lists-scope="all"
+    <?php endif; ?>
     <?php if ($read_state !== '') : ?>
     data-aa-shell-read-state="<?php echo esc_attr($read_state); ?>"
     <?php endif; ?>
@@ -135,10 +178,18 @@ $show_create_record_ui = $show_read_ui
         <div class="flex items-start justify-between flex-wrap gap-4">
             <div>
                 <h2 class="text-xl font-bold text-gray-900 leading-tight">
-                    <?php echo esc_html($show_read_ui && $family_label !== '' ? $family_label : 'Shell canónico'); ?>
+                    <?php
+                    if ($show_read_ui && $is_all_lists_scope) {
+                        echo esc_html('Todas las listas');
+                    } elseif ($show_read_ui && $family_label !== '') {
+                        echo esc_html($family_label);
+                    } else {
+                        echo esc_html('Shell canónico');
+                    }
+                    ?>
                 </h2>
-                <?php if ($show_read_ui && $family_label !== '') : ?>
-                    <?php /* Nombre de familia ya en el h2; sin subtítulo de variante. */ ?>
+                <?php if ($show_read_ui && ($is_all_lists_scope || $family_label !== '')) : ?>
+                    <?php /* Título ya en el h2 / data-aa-page-title. */ ?>
                 <?php else : ?>
                     <p class="text-sm text-gray-500 mt-1">
                         Módulo paralelo provisional. No sustituye la UI de familias existentes.
@@ -339,8 +390,26 @@ $show_create_record_ui = $show_read_ui
 
             <?php elseif ($read_state === 'empty') : ?>
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center" role="status">
-                    <h3 class="text-base font-semibold text-gray-900 mb-2">Sin contenedores</h3>
+                    <?php if ($is_all_lists_scope && $normalized_available_families === []) : ?>
+                        <h3 class="text-base font-semibold text-gray-900 mb-2">Sin tipos de registros</h3>
+                        <p class="text-sm text-gray-500 max-w-lg mx-auto">
+                            No hay tipos de registros activados en esta instalación.
+                        </p>
+                        <?php if ($can_open_settings) : ?>
+                            <p class="mt-4 text-sm">
+                                <a
+                                    href="<?php echo esc_url($settings_url); ?>"
+                                    class="text-indigo-700 font-medium hover:underline"
+                                >Abrir Configuración</a>
+                            </p>
+                        <?php endif; ?>
+                    <?php elseif ($is_all_lists_scope) : ?>
+                        <h3 class="text-base font-semibold text-gray-900 mb-2">Sin listas</h3>
+                        <p class="text-sm text-gray-500">Aún no hay listas en los tipos de registros activados.</p>
+                    <?php else : ?>
+                        <h3 class="text-base font-semibold text-gray-900 mb-2">Sin contenedores</h3>
                         <p class="text-sm text-gray-500">Aún no hay contenedores en este tipo de registro.</p>
+                    <?php endif; ?>
                 </div>
 
             <?php elseif ($read_state === 'resolved_page') : ?>
@@ -354,7 +423,11 @@ $show_create_record_ui = $show_read_ui
                         $card_display = isset($item['updated_at_display']) ? (string) $item['updated_at_display'] : '';
                         $card_records_url = isset($item['records_url']) ? (string) $item['records_url'] : '';
                         $card_container_id = isset($item['id']) ? (int) $item['id'] : 0;
-                        $show_edit_container = $show_create_ui;
+                        $card_family_key = isset($item['family_key']) ? (string) $item['family_key'] : $create_family_key;
+                        $card_family_label = ($is_all_lists_scope && isset($item['family_label']))
+                            ? (string) $item['family_label']
+                            : '';
+                        $show_edit_container = $show_container_write_ui && $card_family_key !== '';
                         require __DIR__ . '/partials/container-card.php';
                         ?>
                     <?php endforeach; ?>
@@ -413,7 +486,7 @@ $show_create_record_ui = $show_read_ui
     <?php endif; ?>
 </div>
 
-<?php if ($show_create_ui) : ?>
+<?php if ($show_container_write_ui) : ?>
     <?php
     if (!class_exists('CanonicalCreateContainerAjax')) {
         require_once dirname(__DIR__, 4) . '/http/ajax/CanonicalCreateContainerAjax.php';
@@ -453,7 +526,7 @@ $show_create_record_ui = $show_read_ui
                 </button>
             </div>
             <p id="aa-shell-container-modal-desc" class="text-sm text-gray-500 mb-4">
-                <?php echo esc_html($family_label); ?>
+                <?php echo esc_html($is_all_lists_scope ? 'Todas las listas' : $family_label); ?>
             </p>
 
             <form id="aa-shell-container-form" novalidate>
@@ -465,6 +538,26 @@ $show_create_record_ui = $show_read_ui
                 ></div>
 
                 <div class="space-y-4">
+                    <?php if ($show_family_select_on_create) : ?>
+                        <div id="aa-shell-container-family-field">
+                            <label for="aa-shell-container-family" class="block text-xs font-semibold text-gray-700 mb-1">
+                                Tipo de registro <span class="text-red-500">*</span>
+                            </label>
+                            <select
+                                id="aa-shell-container-family"
+                                name="family_key"
+                                class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            >
+                                <option value="">Selecciona un tipo</option>
+                                <?php foreach ($normalized_available_families as $family_option) : ?>
+                                    <option value="<?php echo esc_attr($family_option['family_key']); ?>">
+                                        <?php echo esc_html($family_option['label']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <p id="aa-shell-container-family-error" class="hidden mt-1 text-xs text-red-600 font-medium"></p>
+                        </div>
+                    <?php endif; ?>
                     <div>
                         <label for="aa-shell-container-title" class="block text-xs font-semibold text-gray-700 mb-1">
                             Nombre de la lista <span class="text-red-500">*</span>
@@ -582,6 +675,10 @@ $show_create_record_ui = $show_read_ui
         deleteAction: <?php echo wp_json_encode(CanonicalDeleteContainerAjax::ACTION); ?>,
         deleteNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalDeleteContainerAjax::NONCE_ACTION)); ?>,
         familyKey: <?php echo wp_json_encode($create_family_key); ?>,
+        listsScope: <?php echo wp_json_encode($is_all_lists_scope ? 'all' : ''); ?>,
+        page: <?php echo wp_json_encode($page_num !== null && $page_num > 1 ? $page_num : null); ?>,
+        availableFamilies: <?php echo wp_json_encode($normalized_available_families); ?>,
+        requireFamilySelect: <?php echo $show_family_select_on_create ? 'true' : 'false'; ?>,
         maxTitleLength: <?php echo (int) CanonicalCreateContainerCommand::MAX_TITLE_LENGTH; ?>
     };
     </script>
@@ -762,6 +859,9 @@ $show_create_record_ui = $show_read_ui
         deleteNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalDeleteRecordAjax::NONCE_ACTION)); ?>,
         familyKey: <?php echo wp_json_encode($create_family_key); ?>,
         containerId: <?php echo (int) $create_container_id; ?>,
+        listsScope: <?php echo wp_json_encode($is_all_lists_scope ? 'all' : ''); ?>,
+        page: <?php echo wp_json_encode($page_num !== null && $page_num > 1 ? $page_num : null); ?>,
+        containersPage: <?php echo wp_json_encode($containers_page_num !== null && $containers_page_num > 1 ? $containers_page_num : null); ?>,
         maxTitleLength: <?php echo (int) CanonicalCreateRecordCommand::MAX_TITLE_LENGTH; ?>
     };
     </script>

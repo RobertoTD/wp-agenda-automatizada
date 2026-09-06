@@ -17,11 +17,17 @@
     var deleteAction = typeof cfg.deleteAction === 'string' ? cfg.deleteAction : '';
     var deleteNonce = typeof cfg.deleteNonce === 'string' ? cfg.deleteNonce : '';
     var familyKey = typeof cfg.familyKey === 'string' ? cfg.familyKey : '';
+    var listsScope = typeof cfg.listsScope === 'string' ? cfg.listsScope : '';
+    var page = (typeof cfg.page === 'number' && cfg.page > 1) ? cfg.page : null;
+    var availableFamilies = Array.isArray(cfg.availableFamilies) ? cfg.availableFamilies : [];
+    var requireFamilySelect = cfg.requireFamilySelect === true;
     var maxTitleLength = typeof cfg.maxTitleLength === 'number' ? cfg.maxTitleLength : 200;
 
     if (!ajaxUrl || !createAction || !createNonce || !updateAction || !updateNonce
-        || !deleteAction || !deleteNonce
-        || !familyKey) {
+        || !deleteAction || !deleteNonce) {
+        return;
+    }
+    if (!requireFamilySelect && !familyKey) {
         return;
     }
 
@@ -37,6 +43,9 @@
     var titleError = document.getElementById('aa-shell-container-title-error');
     var statusEl = document.getElementById('aa-shell-container-status');
     var submitBtn = document.getElementById('aa-shell-container-submit-btn');
+    var familyField = document.getElementById('aa-shell-container-family-field');
+    var familySelect = document.getElementById('aa-shell-container-family');
+    var familyError = document.getElementById('aa-shell-container-family-error');
 
     var deleteModal = document.getElementById('aa-shell-delete-container-modal');
     var deleteBackdrop = document.getElementById('aa-shell-delete-container-modal-backdrop');
@@ -55,14 +64,67 @@
     var MODE_UPDATE = 'update';
     var mode = MODE_CREATE;
     var currentContainerId = null;
+    var currentFamilyKey = familyKey;
     var inFlight = false;
     var previousFocus = null;
 
     var deleteContainerId = null;
+    var deleteFamilyKey = null;
     var deleteInFlight = false;
     var deleteBlocked = false;
     var deletePreviousFocus = null;
     var deleteRedirectUrl = null;
+
+    function appendReturnContext(body) {
+        if (listsScope === 'all') {
+            body.append('lists_scope', 'all');
+        }
+        if (page !== null) {
+            body.append('page', String(page));
+        }
+    }
+
+    function setFamilyError(message) {
+        if (!familyError) {
+            return;
+        }
+        if (!message) {
+            familyError.textContent = '';
+            familyError.classList.add('hidden');
+            if (familySelect) {
+                familySelect.removeAttribute('aria-invalid');
+                familySelect.removeAttribute('aria-describedby');
+            }
+            return;
+        }
+        familyError.textContent = message;
+        familyError.classList.remove('hidden');
+        if (familySelect) {
+            familySelect.setAttribute('aria-invalid', 'true');
+            familySelect.setAttribute('aria-describedby', 'aa-shell-container-family-error');
+        }
+    }
+
+    function setFamilyFieldVisible(visible) {
+        if (!familyField) {
+            return;
+        }
+        if (visible) {
+            familyField.classList.remove('hidden');
+        } else {
+            familyField.classList.add('hidden');
+        }
+        if (familySelect) {
+            familySelect.disabled = !visible;
+        }
+    }
+
+    function resolveCreateFamilyKey() {
+        if (requireFamilySelect && familySelect) {
+            return typeof familySelect.value === 'string' ? familySelect.value : '';
+        }
+        return familyKey;
+    }
 
     function setStatus(message, isError) {
         if (!statusEl) {
@@ -109,6 +171,9 @@
         if (detailsInput) {
             detailsInput.disabled = busy;
         }
+        if (familySelect && mode === MODE_CREATE && requireFamilySelect) {
+            familySelect.disabled = busy;
+        }
         if (cancelBtn) {
             cancelBtn.disabled = busy;
         }
@@ -128,13 +193,15 @@
         if (mode === MODE_UPDATE) {
             modalTitle.textContent = 'Editar lista';
             submitBtn.textContent = 'Guardar cambios';
+            setFamilyFieldVisible(false);
         } else {
             modalTitle.textContent = 'Nueva lista';
             submitBtn.textContent = 'Crear lista';
+            setFamilyFieldVisible(requireFamilySelect);
         }
     }
 
-    function openModal(nextMode, containerId, titleValue, detailsValue, triggerEl) {
+    function openModal(nextMode, containerId, titleValue, detailsValue, triggerEl, nextFamilyKey) {
         if (inFlight || deleteInFlight || deleteBlocked) {
             return;
         }
@@ -143,9 +210,20 @@
         }
         mode = nextMode === MODE_UPDATE ? MODE_UPDATE : MODE_CREATE;
         currentContainerId = (mode === MODE_UPDATE && containerId >= 1) ? containerId : null;
+        if (mode === MODE_UPDATE) {
+            currentFamilyKey = (typeof nextFamilyKey === 'string' && nextFamilyKey !== '')
+                ? nextFamilyKey
+                : familyKey;
+        } else {
+            currentFamilyKey = familyKey;
+            if (familySelect) {
+                familySelect.value = '';
+            }
+        }
         previousFocus = triggerEl || document.activeElement;
         setStatus('', false);
         setTitleError('');
+        setFamilyError('');
         applyModeChrome();
         titleInput.value = typeof titleValue === 'string' ? titleValue : '';
         if (detailsInput) {
@@ -153,7 +231,11 @@
         }
         modal.classList.remove('hidden');
         modal.setAttribute('aria-hidden', 'false');
-        titleInput.focus();
+        if (mode === MODE_CREATE && requireFamilySelect && familySelect) {
+            familySelect.focus();
+        } else {
+            titleInput.focus();
+        }
     }
 
     function closeModal(restoreFocus) {
@@ -164,8 +246,10 @@
         modal.setAttribute('aria-hidden', 'true');
         setStatus('', false);
         setTitleError('');
+        setFamilyError('');
         mode = MODE_CREATE;
         currentContainerId = null;
+        currentFamilyKey = familyKey;
         applyModeChrome();
         if (restoreFocus && previousFocus && typeof previousFocus.focus === 'function') {
             previousFocus.focus();
@@ -194,14 +278,32 @@
         if (!(id >= 1)) {
             return null;
         }
+        var payloadFamily = typeof data.family_key === 'string' ? data.family_key : '';
+        if (payloadFamily === '' && familyKey !== '') {
+            payloadFamily = familyKey;
+        }
+        if (payloadFamily === '') {
+            return null;
+        }
         return {
             id: id,
             title: typeof data.title === 'string' ? data.title : '',
-            details: typeof data.details === 'string' ? data.details : ''
+            details: typeof data.details === 'string' ? data.details : '',
+            family_key: payloadFamily
         };
     }
 
     function clientValidate() {
+        if (mode === MODE_CREATE && requireFamilySelect) {
+            var selectedFamily = resolveCreateFamilyKey();
+            if (selectedFamily === '') {
+                setFamilyError('Selecciona un tipo de registro.');
+                if (familySelect) {
+                    familySelect.focus();
+                }
+                return false;
+            }
+        }
         var raw = titleInput.value || '';
         var trimmed = raw.replace(/^\s+|\s+$/g, '');
         if (trimmed === '') {
@@ -238,6 +340,7 @@
         }
         setStatus('', false);
         setTitleError('');
+        setFamilyError('');
         if (!clientValidate()) {
             return;
         }
@@ -251,15 +354,25 @@
 
         setBusy(true);
 
+        var requestFamilyKey = mode === MODE_UPDATE
+            ? currentFamilyKey
+            : resolveCreateFamilyKey();
+        if (!requestFamilyKey) {
+            setBusy(false);
+            setStatus(defaultErrorMessage(), true);
+            return;
+        }
+
         var body = new FormData();
         body.append('action', action);
         body.append('nonce', nonce);
-        body.append('family_key', familyKey);
+        body.append('family_key', requestFamilyKey);
         if (mode === MODE_UPDATE) {
             body.append('container_id', String(currentContainerId));
         }
         body.append('title', titleInput.value);
         body.append('details', detailsInput ? detailsInput.value : '');
+        appendReturnContext(body);
 
         fetch(ajaxUrl, {
             method: 'POST',
@@ -371,7 +484,7 @@
         }
     }
 
-    function openDeleteModal(containerId, titleValue, triggerEl) {
+    function openDeleteModal(containerId, titleValue, triggerEl, nextFamilyKey) {
         if (!deleteModal || !deleteConfirmBtn || !deleteTitleEl) {
             return;
         }
@@ -384,8 +497,15 @@
         if (!(containerId >= 1)) {
             return;
         }
+        var fk = (typeof nextFamilyKey === 'string' && nextFamilyKey !== '')
+            ? nextFamilyKey
+            : familyKey;
+        if (!fk) {
+            return;
+        }
 
         deleteContainerId = containerId;
+        deleteFamilyKey = fk;
         deletePreviousFocus = triggerEl || document.activeElement;
         deleteRedirectUrl = null;
         deleteBlocked = false;
@@ -417,6 +537,7 @@
         setDeleteStatus('', false);
         showDeleteReload(false);
         deleteContainerId = null;
+        deleteFamilyKey = null;
         deleteRedirectUrl = null;
         if (deleteTitleEl) {
             deleteTitleEl.textContent = '';
@@ -430,7 +551,7 @@
         if (!deleteModal || deleteInFlight || deleteBlocked) {
             return;
         }
-        if (!(deleteContainerId >= 1)) {
+        if (!(deleteContainerId >= 1) || !deleteFamilyKey) {
             setDeleteStatus('No se pudo eliminar la lista. Inténtalo de nuevo.', true);
             return;
         }
@@ -442,8 +563,9 @@
         var body = new FormData();
         body.append('action', deleteAction);
         body.append('nonce', deleteNonce);
-        body.append('family_key', familyKey);
+        body.append('family_key', deleteFamilyKey);
         body.append('container_id', String(deleteContainerId));
+        appendReturnContext(body);
 
         fetch(ajaxUrl, {
             method: 'POST',
@@ -522,7 +644,14 @@
                 if (!container) {
                     return;
                 }
-                openModal(MODE_UPDATE, container.id, container.title, container.details, btn);
+                openModal(
+                    MODE_UPDATE,
+                    container.id,
+                    container.title,
+                    container.details,
+                    btn,
+                    container.family_key
+                );
             });
         })(editButtons[i]);
     }
@@ -535,7 +664,7 @@
                 if (!container) {
                     return;
                 }
-                openDeleteModal(container.id, container.title, btn);
+                openDeleteModal(container.id, container.title, btn, container.family_key);
             });
         })(deleteButtons[d]);
     }

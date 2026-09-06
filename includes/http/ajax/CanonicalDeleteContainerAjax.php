@@ -92,9 +92,25 @@ final class CanonicalDeleteContainerAjax {
         }
 
         $state = $result->state();
-        $redirect_url = AA_Canonical_Shell_Base_Url_Policy::build_url(
+        $return_ctx_input = [];
+        if (array_key_exists('lists_scope', $_POST)) {
+            $return_ctx_input['lists_scope'] = wp_unslash($_POST['lists_scope']);
+        }
+        if (array_key_exists('page', $_POST)) {
+            $return_ctx_input['page'] = wp_unslash($_POST['page']);
+        }
+        if (array_key_exists('containers_page', $_POST)) {
+            $return_ctx_input['containers_page'] = wp_unslash($_POST['containers_page']);
+        }
+        $return_ctx = AA_Canonical_Shell_Base_Url_Policy::parse_mutation_return_context($return_ctx_input);
+        if ($return_ctx === null) {
+            self::error('invalid_payload', 'La solicitud contiene campos no válidos.', 400);
+        }
+        $redirect_page = $return_ctx['page'];
+        $redirect_url = AA_Canonical_Shell_Base_Url_Policy::build_containers_return_url(
+            $return_ctx['lists_scope'],
             $resolved_family_key,
-            null
+            ($redirect_page !== null && $redirect_page > 1) ? $redirect_page : null
         );
 
         if ($state === CanonicalShellMutationResult::STATE_WRITE_ADAPTER_PENDING) {

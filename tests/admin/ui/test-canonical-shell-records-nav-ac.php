@@ -364,7 +364,20 @@ function simulate_shell_records_router(array $get): array {
         $aa_shell_route_state = 'invalid_request';
         status_header(400);
     } elseif (!$family_present) {
-        $aa_shell_route_state = 'missing_identity';
+        if ($is_records_view || $view_present) {
+            $aa_shell_route_state = 'invalid_request';
+            status_header(400);
+        } else {
+            $aa_shell_route_state = 'resolved';
+            $aa_shell_view = [
+                'shell_view' => 'containers',
+                'lists_scope' => 'all',
+                'read_state' => 'empty',
+                'family_label' => 'Todas las listas',
+                'items_view' => [],
+                'available_families' => [],
+            ];
+        }
     } else {
         $route_result = (new ResolveCanonicalRouteUseCase(AA_Canonical_Core_Bootstrap::instance()))->execute([
             'family_key' => $family_input,
