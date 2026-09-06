@@ -11,7 +11,7 @@ defined('ABSPATH') or die('No direct access');
 final class AA_Canonical_Family_Enablement_Nav {
 
     /**
-     * Familias declaradas, presentes en snapshot y habilitadas (misma regla de disponibilidad).
+     * Familias declaradas, presentes en snapshot y habilitadas (sin filtro de acceso).
      *
      * @return list<AA_Canonical_Family_Definition>
      */
@@ -33,6 +33,29 @@ final class AA_Canonical_Family_Enablement_Nav {
     }
 
     /**
+     * Familias habilitadas y autorizadas para el usuario actual (criterio único del shell).
+     *
+     * Incluye familias sin contenedores. No altera roles ni políticas de acceso.
+     *
+     * @return list<AA_Canonical_Family_Definition>
+     */
+    public static function available_families(
+        AA_Canonical_Registry $registry,
+        CanonicalFamilyEnablementSnapshot $snapshot
+    ): array {
+        $families = [];
+
+        foreach (self::enabled_families($registry, $snapshot) as $family) {
+            $access = AA_Canonical_Access_Policy::check_family_access($family->key());
+            if (!empty($access['authorized'])) {
+                $families[] = $family;
+            }
+        }
+
+        return $families;
+    }
+
+    /**
      * @return list<array{family_key:string,label:string,url:string}>
      */
     public static function build(
@@ -41,7 +64,7 @@ final class AA_Canonical_Family_Enablement_Nav {
     ): array {
         $items = [];
 
-        foreach (self::enabled_families($registry, $snapshot) as $family) {
+        foreach (self::available_families($registry, $snapshot) as $family) {
             $items[] = [
                 'family_key' => $family->key(),
                 'label' => $family->label(),

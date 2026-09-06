@@ -37,7 +37,7 @@ if (!function_exists('aa_asset_url')) {
     }
 }
 
-// Nav de familias activadas (una sola lectura; header + sidebar reutilizan el resultado).
+// Nav de familias disponibles (enabled + autorizadas; una sola lectura; header + sidebar).
 $aa_canonical_record_types_nav = [];
 $can_manage_options = current_user_can('manage_options');
 if ($can_manage_options

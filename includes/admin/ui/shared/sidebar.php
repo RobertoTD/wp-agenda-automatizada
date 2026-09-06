@@ -109,12 +109,25 @@ if (!isset($aa_canonical_record_types_nav) || !is_array($aa_canonical_record_typ
                 </a>
             </li>
 
-            <!-- Listas (shell canónico — alcance general) -->
+            <!-- Listas (shell canónico — alcance general o familia única) -->
             <li>
                 <?php
                 $aa_lists_url = class_exists('AA_Canonical_Shell_Base_Url_Policy')
                     ? AA_Canonical_Shell_Base_Url_Policy::build_module_url()
                     : admin_url('admin-post.php?action=aa_iframe_content&module=canonical_shell');
+                if (
+                    isset($aa_canonical_record_types_nav)
+                    && is_array($aa_canonical_record_types_nav)
+                    && count($aa_canonical_record_types_nav) === 1
+                ) {
+                    $aa_lists_only = $aa_canonical_record_types_nav[0];
+                    $aa_lists_only_url = is_array($aa_lists_only)
+                        ? (string) ($aa_lists_only['url'] ?? '')
+                        : '';
+                    if ($aa_lists_only_url !== '') {
+                        $aa_lists_url = $aa_lists_only_url;
+                    }
+                }
                 $aa_lists_active = ($active_module === 'canonical_shell');
                 ?>
                 <a

@@ -92,10 +92,11 @@ ac_assert(
 );
 
 ac_assert(
-    'Header incluye opción Todas las listas vía build_module_url',
+    'Header incluye opción Todas las listas vía build_module_url (N≥2)',
     strpos($header, 'Todas las listas') !== false
     && strpos($header, 'AA_Canonical_Shell_Base_Url_Policy::build_module_url') !== false
     && strpos($header, '$aa_switcher_all_key') !== false
+    && strpos($header, '$aa_family_nav_count === 1') !== false
 );
 
 ac_assert(
@@ -225,12 +226,11 @@ $html_one = aa_render_header_fixture([
     'aa_canonical_record_types_nav' => $nav_one,
 ]);
 ac_assert(
-    'Runtime 1 familia → switcher Todas + esa familia',
-    strpos($html_one, 'data-aa-title-mode="family-switcher"') !== false
-    && strpos($html_one, 'id="aa-family-switcher-panel"') !== false
-    && strpos($html_one, '>Todas las listas<') !== false
-    && strpos($html_one, '>Archivo</button>') !== false
-    && preg_match('/aria-current="page"[^>]*>Archivo</', $html_one) === 1
+    'Runtime 1 familia → título estático de esa familia (sin Todas ni switcher)',
+    strpos($html_one, 'data-aa-title-mode="family-static"') !== false
+    && strpos($html_one, 'aa-family-switcher') === false
+    && strpos($html_one, '>Archivo</span>') !== false
+    && strpos($html_one, '>Todas las listas<') === false
 );
 
 $html_all_scope = aa_render_header_fixture([

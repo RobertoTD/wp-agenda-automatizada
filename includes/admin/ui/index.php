@@ -296,15 +296,10 @@ if ($active_module === 'canonical') {
                     $aa_enablement_snapshot = (new ReadCanonicalFamilyEnablementUseCase(
                         new AA_Canonical_Family_Enablement_Store()
                     ))->execute($canonical_registry);
-                    foreach (AA_Canonical_Family_Enablement_Nav::enabled_families(
+                    $enabled_families = AA_Canonical_Family_Enablement_Nav::available_families(
                         $canonical_registry,
                         $aa_enablement_snapshot
-                    ) as $enabled_family) {
-                        $access = AA_Canonical_Access_Policy::check_family_access($enabled_family->key());
-                        if (!empty($access['authorized'])) {
-                            $enabled_families[] = $enabled_family;
-                        }
-                    }
+                    );
                 } catch (CanonicalFamilyEnablementSchemaNotReady $e) {
                     $all_scope_gate_state = 'schema_not_ready';
                     $all_scope_gate_message = 'El esquema canónico no está listo en esta instalación.';
@@ -320,6 +315,17 @@ if ($active_module === 'canonical') {
                 if (function_exists('status_header')) {
                     status_header(200);
                 }
+            } elseif (count($enabled_families) === 1) {
+                // Ciclo 2B.1: una sola familia disponible → URL familiar canónica (antes de HTML).
+                $only_family = $enabled_families[0];
+                $aa_canonical_url = AA_Canonical_Shell_Base_Url_Policy::build_url(
+                    $only_family->key(),
+                    $shell_page > 1 ? $shell_page : null
+                );
+                if (wp_safe_redirect($aa_canonical_url, 302)) {
+                    exit;
+                }
+                wp_die('No se pudo normalizar la ruta de Listas.', 'Error', ['response' => 500]);
             } else {
                 $aa_shell_route_state = 'resolved';
                 $aa_shell_route_message = 'Listado general de listas.';

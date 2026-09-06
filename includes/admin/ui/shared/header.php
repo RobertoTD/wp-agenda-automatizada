@@ -77,6 +77,14 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
                             $aa_family_title_mode = 'family-static';
                             $aa_family_title_label = 'Todas las listas';
                         }
+                    } elseif ($aa_family_nav_count === 1) {
+                        // Una sola familia disponible: título estático (sin disclosure ni «Todas»).
+                        $aa_family_title_mode = 'family-static';
+                        if ($aa_has_resolved_family) {
+                            $aa_family_title_label = $aa_canonical_family->label();
+                        } else {
+                            $aa_family_title_label = $aa_family_nav_items[0]['label'];
+                        }
                     } elseif (
                         $aa_shell_lists_scope_all
                         || $aa_has_resolved_family

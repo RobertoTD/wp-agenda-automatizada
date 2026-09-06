@@ -301,6 +301,15 @@ $router_src = file_get_contents($plugin_root . '/includes/admin/ui/index.php');
 ac_assert('Router allowlists canonical_shell', strpos($router_src, "'canonical_shell'") !== false);
 ac_assert('Router uses canonical-layout for canonical_shell', strpos($router_src, "\$active_module === 'canonical' || \$active_module === 'canonical_shell'") !== false);
 ac_assert('Router opens all-lists without family', strpos($router_src, 'compose_all_containers') !== false);
+ac_assert('Router usa available_families para alcance general', strpos($router_src, 'AA_Canonical_Family_Enablement_Nav::available_families') !== false);
+ac_assert(
+    'Router redirige bare module con N=1 antes de HTML',
+    strpos($router_src, 'wp_safe_redirect($aa_canonical_url, 302)') !== false
+    && preg_match(
+        '/count\(\$enabled_families\)\s*===\s*1[\s\S]*?wp_safe_redirect\(\$aa_canonical_url,\s*302\)[\s\S]*?exit;/',
+        $router_src
+    ) === 1
+);
 ac_assert('Router no longer treats bare module as missing_identity', strpos($router_src, "\$aa_shell_route_state = 'missing_identity'") === false);
 
 $shell_ui_src = file_get_contents($plugin_root . '/includes/admin/ui/modules/canonical_shell/index.php');
@@ -390,6 +399,10 @@ ac_assert('Sidebar Listas usa data-aa-nav-module=canonical_shell', strpos($sideb
 ac_assert('Sidebar Listas highlight checks canonical_shell', strpos($sidebar_src, "\$active_module === 'canonical_shell'") !== false
     || strpos($sidebar_src, '$aa_lists_active') !== false);
 ac_assert('Sidebar Listas usa build_module_url', strpos($sidebar_src, 'AA_Canonical_Shell_Base_Url_Policy::build_module_url') !== false);
+ac_assert(
+    'Sidebar Listas enlaza familia única cuando nav tiene un ítem',
+    strpos($sidebar_src, 'count($aa_canonical_record_types_nav) === 1') !== false
+);
 ac_assert('Sidebar Enablement_Nav fallback conservado para hoist header', strpos($sidebar_src, 'ReadCanonicalFamilyEnablementUseCase') !== false
     && strpos($sidebar_src, 'AA_Canonical_Family_Enablement_Nav') !== false);
 ac_assert('Sidebar Finanzas still uses AA_Canonical_Shell_Url_Policy', strpos($sidebar_src, "AA_Canonical_Shell_Url_Policy::build_url('finance', 'general')") !== false);
@@ -418,6 +431,47 @@ ac_assert('Sin grupo Tipos ni links data-aa-nav-family',
 );
 ac_assert('Shell current page does not aria-current Finanzas legacy',
     preg_match('/data-aa-nav-module="canonical"[^>]*aria-current="page"/', $sidebar_html) !== 1
+);
+
+$aa_canonical_record_types_nav = [
+    [
+        'family_key' => 'archive',
+        'label' => 'Archivo',
+        'url' => AA_Canonical_Shell_Base_Url_Policy::build_url('archive'),
+    ],
+];
+ob_start();
+require $plugin_root . '/includes/admin/ui/shared/sidebar.php';
+$sidebar_one = ob_get_clean();
+ac_assert(
+    'Listas con N=1 apunta a family=archive',
+    preg_match(
+        '/href="[^"]*family=archive[^"]*"[^>]*data-aa-nav-module="canonical_shell"/',
+        $sidebar_one
+    ) === 1
+    || (
+        strpos($sidebar_one, 'data-aa-nav-module="canonical_shell"') !== false
+        && strpos($sidebar_one, 'family=archive') !== false
+        && preg_match(
+            '/<!-- Listas[\s\S]*?family=archive[\s\S]*?>Listas<\/span>/',
+            $sidebar_one
+        ) === 1
+    )
+);
+
+$aa_canonical_record_types_nav = [];
+ob_start();
+require $plugin_root . '/includes/admin/ui/shared/sidebar.php';
+$sidebar_zero = ob_get_clean();
+ac_assert(
+    'Listas con N=0 apunta a module sin family',
+    preg_match(
+        '/<!-- Listas[\s\S]*?href="([^"]+)"[\s\S]*?>Listas<\/span>/',
+        $sidebar_zero,
+        $m_zero
+    ) === 1
+    && strpos($m_zero[1], 'module=canonical_shell') !== false
+    && strpos($m_zero[1], 'family=') === false
 );
 
 $current_caps = [];
