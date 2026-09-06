@@ -223,40 +223,41 @@ try {
     ac_assert('MySQL: resolve_family_id finance', $resolved === $finance_id);
     ac_assert('MySQL: familia no provisionada → null', $repo->resolve_family_id('missing') === null);
 
-    // Contenedores CRUD + variantes
-    $c_gen = $repo->create_container($finance_id, 'general', 'Caja General', null);
+    // Contenedores CRUD por familia
+    $c_gen = $repo->create_container($finance_id, 'Caja General', null);
     ac_assert('MySQL: create container title + details null', $c_gen['title'] === 'Caja General' && $c_gen['details'] === null);
     ac_assert('MySQL: public_id UUID v4-ish', (bool) preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $c_gen['public_id']));
     $public_before = $c_gen['public_id'];
 
-    $c_pers = $repo->create_container($finance_id, 'personal', 'Caja Personal', 'Notas');
-    $c_arch = $repo->create_container($archive_id, 'general', 'Archivo A', null);
-    ac_assert('MySQL: misma clase sirve dos familias/variantes', $c_pers['id'] !== $c_gen['id'] && $c_arch['family_id'] === $archive_id);
+    $c_pers = $repo->create_container($finance_id, 'Caja Personal', 'Notas');
+    $c_arch = $repo->create_container($archive_id, 'Archivo A', null);
+    ac_assert('MySQL: misma clase sirve dos familias', $c_pers['id'] !== $c_gen['id'] && $c_arch['family_id'] === $archive_id);
 
-    $updated = $repo->update_container($finance_id, 'general', $c_gen['id'], 'Caja Renombrada', null);
+    $updated = $repo->update_container($finance_id, $c_gen['id'], 'Caja Renombrada', null);
     ac_assert('MySQL: update container title', $updated !== null && $updated['title'] === 'Caja Renombrada');
     ac_assert('MySQL: update no modifica public_id', $updated['public_id'] === $public_before);
 
-    $wrong = $repo->find_container($finance_id, 'personal', $c_gen['id']);
-    ac_assert('MySQL: contenedor fuera de identidad → null', $wrong === null);
+    $wrong = $repo->find_container($archive_id, $c_gen['id']);
+    ac_assert('MySQL: contenedor fuera de familia → null', $wrong === null);
 
     // Orden updated_at DESC, id DESC
     $c_table = AA_Canonical_Schema::containers_table_name();
     $wpdb->update($c_table, ['updated_at' => '2020-01-01 00:00:00'], ['id' => $c_gen['id']], ['%s'], ['%d']);
     $wpdb->update($c_table, ['updated_at' => '2021-01-01 00:00:00'], ['id' => $c_pers['id']], ['%s'], ['%d']);
-    $newer = $repo->create_container($finance_id, 'general', 'Más nuevo', null);
-    $list = $repo->list_containers($finance_id, 'general', 1, 15);
+    $newer = $repo->create_container($finance_id, 'Más nuevo', null);
+    $list = $repo->list_containers($finance_id, 1, 15);
     ac_assert('MySQL: orden containers updated_at DESC', $list[0]['id'] === $newer['id']);
 
     // Paginación 15 + clamp + empty
+    $archive_before_bulk = $repo->count_containers($archive_id);
     for ($i = 0; $i < 16; $i++) {
-        $repo->create_container($archive_id, 'bulk', 'Bulk ' . $i, null);
+        $repo->create_container($archive_id, 'Bulk ' . $i, null);
     }
-    $page1 = $repo->list_containers($archive_id, 'bulk', 1, 15);
-    $count_bulk = $repo->count_containers($archive_id, 'bulk');
-    ac_assert('MySQL: page size 15', count($page1) === 15 && $count_bulk === 16);
-    $empty_variant = $repo->list_containers($archive_id, 'emptyv', 1, 15);
-    ac_assert('MySQL: página vacía', $empty_variant === [] && $repo->count_containers($archive_id, 'emptyv') === 0);
+    $page1 = $repo->list_containers($archive_id, 1, 15);
+    $count_bulk = $repo->count_containers($archive_id);
+    ac_assert('MySQL: page size 15', count($page1) === 15 && $count_bulk === $archive_before_bulk + 16);
+    $empty_page = $repo->list_containers($archive_id, 99, 15);
+    ac_assert('MySQL: página fuera de rango → vacía', $empty_page === [] && $repo->count_containers($archive_id) === $archive_before_bulk + 16);
 
     // UTC independiente de zonas
     $prev_tz = date_default_timezone_get();
@@ -266,7 +267,7 @@ try {
         update_option('aa_timezone', 'Asia/Tokyo');
     }
     $before_utc = gmdate('Y-m-d H:i:s');
-    $utc_row = $repo->create_container($finance_id, 'general', 'UTC probe', null);
+    $utc_row = $repo->create_container($finance_id, 'UTC probe', null);
     $after_utc = gmdate('Y-m-d H:i:s');
     ac_assert(
         'MySQL: created_at en UTC gmdate',
@@ -275,27 +276,27 @@ try {
     date_default_timezone_set($prev_tz);
 
     // Registros CRUD + touch
-    $parent_before = $repo->find_container($finance_id, 'general', $c_gen['id']);
+    $parent_before = $repo->find_container($finance_id, $c_gen['id']);
     usleep(1100000);
-    $rec = $repo->create_record($finance_id, 'general', $c_gen['id'], 'Registro 1', null);
+    $rec = $repo->create_record($finance_id, $c_gen['id'], 'Registro 1', null);
     ac_assert('MySQL: create record details null', $rec['details'] === null && $rec['title'] === 'Registro 1');
-    $parent_after = $repo->find_container($finance_id, 'general', $c_gen['id']);
+    $parent_after = $repo->find_container($finance_id, $c_gen['id']);
     ac_assert(
         'MySQL: create record toca containers.updated_at',
         $parent_after['updated_at'] !== $parent_before['updated_at']
         && $parent_after['updated_at'] === $rec['updated_at']
     );
 
-    $rec2 = $repo->create_record($finance_id, 'general', $c_gen['id'], 'Registro 2', 'd');
+    $rec2 = $repo->create_record($finance_id, $c_gen['id'], 'Registro 2', 'd');
     $r_table = AA_Canonical_Schema::records_table_name();
     $wpdb->update($r_table, ['updated_at' => '2019-01-01 00:00:00'], ['id' => $rec['id']], ['%s'], ['%d']);
     $listed = $repo->list_records($c_gen['id'], 1, 15);
     ac_assert('MySQL: orden records updated_at DESC', $listed[0]['id'] === $rec2['id']);
 
-    $upd_rec = $repo->update_record($finance_id, 'general', $c_gen['id'], $rec['id'], 'Registro 1b', null);
+    $upd_rec = $repo->update_record($finance_id, $c_gen['id'], $rec['id'], 'Registro 1b', null);
     ac_assert('MySQL: update record', $upd_rec !== null && $upd_rec['title'] === 'Registro 1b');
     $pub_rec = $upd_rec['public_id'];
-    $upd_same = $repo->update_record($finance_id, 'general', $c_gen['id'], $rec['id'], 'Registro 1b', null);
+    $upd_same = $repo->update_record($finance_id, $c_gen['id'], $rec['id'], 'Registro 1b', null);
     ac_assert('MySQL: update record no cambia public_id', $upd_same['public_id'] === $pub_rec);
 
     $wrong_rec = $repo->find_record($c_pers['id'], $rec['id']);
@@ -303,22 +304,22 @@ try {
 
     $del_missing = false;
     try {
-        $repo->delete_record($finance_id, 'general', $c_gen['id'], 999999);
+        $repo->delete_record($finance_id, $c_gen['id'], 999999);
     } catch (CanonicalRelationalQueryFailed $e) {
         $del_missing = $e->code_key() === CanonicalRelationalQueryFailed::CODE_RECORD_NOT_FOUND;
     }
     ac_assert('MySQL: delete record inexistente → RecordNotFound code', $del_missing);
 
-    $deleted = $repo->delete_record($finance_id, 'general', $c_gen['id'], $rec2['id']);
+    $deleted = $repo->delete_record($finance_id, $c_gen['id'], $rec2['id']);
     ac_assert('MySQL: delete record OK', $deleted === true && $repo->find_record($c_gen['id'], $rec2['id']) === null);
 
     // CASCADE / RESTRICT
-    $cascade_parent = $repo->create_container($finance_id, 'general', 'Cascade parent', null);
-    $cascade_rec = $repo->create_record($finance_id, 'general', $cascade_parent['id'], 'Child', null);
-    $repo->delete_container($finance_id, 'general', $cascade_parent['id']);
+    $cascade_parent = $repo->create_container($finance_id, 'Cascade parent', null);
+    $cascade_rec = $repo->create_record($finance_id, $cascade_parent['id'], 'Child', null);
+    $repo->delete_container($finance_id, $cascade_parent['id']);
     ac_assert('MySQL: CASCADE borra records', $repo->find_record($cascade_parent['id'], $cascade_rec['id']) === null);
 
-    $restr_parent = $repo->create_container($finance_id, 'general', 'Restrict parent', null);
+    $restr_parent = $repo->create_container($finance_id, 'Restrict parent', null);
     $f_table = AA_Canonical_Schema::families_table_name();
     $wpdb->last_error = '';
     $wpdb->query($wpdb->prepare("DELETE FROM `{$f_table}` WHERE id = %d", $finance_id));
@@ -339,7 +340,7 @@ try {
     $start_failed = false;
     $count_before = $repo->count_records($c_gen['id']);
     try {
-        $repo_probe->create_record($finance_id, 'general', $c_gen['id'], 'Should fail', null);
+        $repo_probe->create_record($finance_id, $c_gen['id'], 'Should fail', null);
     } catch (CanonicalRelationalQueryFailed $e) {
         $start_failed = true;
     }
@@ -352,7 +353,7 @@ try {
     $repo_probe2 = new CanonicalRelationalRepository($probe2);
     $insert_failed = false;
     try {
-        $repo_probe2->create_record($finance_id, 'general', $c_gen['id'], 'Insert fail', null);
+        $repo_probe2->create_record($finance_id, $c_gen['id'], 'Insert fail', null);
     } catch (CanonicalRelationalQueryFailed $e) {
         $insert_failed = true;
     }
@@ -364,7 +365,7 @@ try {
     $repo_probe3 = new CanonicalRelationalRepository($probe3);
     $touch_failed = false;
     try {
-        $repo_probe3->create_record($finance_id, 'general', $c_gen['id'], 'Touch fail', null);
+        $repo_probe3->create_record($finance_id, $c_gen['id'], 'Touch fail', null);
     } catch (CanonicalRelationalQueryFailed $e) {
         $touch_failed = true;
     } catch (CanonicalRelationalAmbiguousOutcome $e) {
@@ -378,7 +379,7 @@ try {
     $repo_probe4 = new CanonicalRelationalRepository($probe4);
     $ambiguous = null;
     try {
-        $repo_probe4->create_record($finance_id, 'general', $c_gen['id'], 'Commit fail', null);
+        $repo_probe4->create_record($finance_id, $c_gen['id'], 'Commit fail', null);
     } catch (CanonicalRelationalAmbiguousOutcome $e) {
         $ambiguous = $e;
     }
@@ -398,7 +399,7 @@ try {
     $repo_probe5 = new CanonicalRelationalRepository($probe5);
     $ambiguous_rb = null;
     try {
-        $repo_probe5->create_record($finance_id, 'general', $c_gen['id'], 'Rollback fail', null);
+        $repo_probe5->create_record($finance_id, $c_gen['id'], 'Rollback fail', null);
     } catch (CanonicalRelationalAmbiguousOutcome $e) {
         $ambiguous_rb = $e;
     }
@@ -429,7 +430,7 @@ try {
         }
     };
     $repo6 = new CanonicalRelationalRepository($probe6b);
-    $row6 = $repo6->create_record($finance_id, 'general', $c_gen['id'], 'Touch zero', null);
+    $row6 = $repo6->create_record($finance_id, $c_gen['id'], 'Touch zero', null);
     ac_assert('MySQL: touch 0 + padre existe → confirmed row', is_array($row6) && $row6['id'] >= 1);
 
     // Update 0 filas + entidad existe: force update return 0 then find succeeds
@@ -445,7 +446,7 @@ try {
         }
     };
     $repo7 = new CanonicalRelationalRepository($probe7);
-    $u7 = $repo7->update_record($finance_id, 'general', $c_gen['id'], $row6['id'], 'Touch zero b', null);
+    $u7 = $repo7->update_record($finance_id, $c_gen['id'], $row6['id'], 'Touch zero b', null);
     ac_assert('MySQL: update 0 + entidad existe → éxito', $u7 !== null && $u7['title'] === 'Touch zero b');
 
 } finally {

@@ -185,10 +185,6 @@ final class CanonicalMutationReceipt {
         return $this->identity->family_key();
     }
 
-    public function variant_key(): string {
-        return $this->identity->variant_key();
-    }
-
     /**
      * @param int|null $value
      */

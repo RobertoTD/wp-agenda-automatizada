@@ -42,10 +42,10 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
     echo '[FAIL] ' . $label . ($detail !== '' ? ' - ' . $detail : '') . "\n";
 }
 
-$identity_alpha = new CanonicalReadIdentity('sample', 'alpha');
-$identity_beta = new CanonicalReadIdentity('sample', 'beta');
-ac_assert('Alpha qualified key', $identity_alpha->qualified_key() === 'sample.alpha');
-ac_assert('Beta qualified key', $identity_beta->qualified_key() === 'sample.beta');
+$identity_alpha = new CanonicalReadIdentity('alpha');
+$identity_beta = new CanonicalReadIdentity('beta');
+ac_assert('Alpha qualified key is family', $identity_alpha->qualified_key() === 'alpha');
+ac_assert('Beta qualified key is family', $identity_beta->qualified_key() === 'beta');
 
 $registry = new AA_Canonical_Read_Binding_Registry();
 $registry->register(
@@ -120,7 +120,7 @@ ac_assert('Out-of-range adjusts to last page', $page_high->page() === $page1->to
 ac_assert('Out-of-range last page item count', count($page_high->items()) === ($page1->total() - 15));
 
 // Empty fixture
-$empty_identity = new CanonicalReadIdentity('sample', 'empty');
+$empty_identity = new CanonicalReadIdentity('empty');
 $registry->register($empty_identity, new CanonicalFixtureReadAdapter('empty', []));
 $empty_page = $gateway->list_containers($empty_identity, 5);
 ac_assert('Empty total=0 forces page=1', $empty_page->page() === 1 && $empty_page->total() === 0 && $empty_page->total_pages() === 0);
@@ -128,23 +128,23 @@ ac_assert('Empty flags false', $empty_page->has_previous() === false && $empty_p
 
 // Dual binding without gateway code change
 $beta_page = $gateway->list_containers($identity_beta, 1);
-ac_assert('Same gateway serves beta binding', $beta_page->total() === 2 && $beta_page->items()[0]->variant_key() === 'beta');
+ac_assert('Same gateway serves beta binding', $beta_page->total() === 2 && $beta_page->items()[0]->title() === 'Catalogo uno');
 ac_assert('Beta first title is Catalogo uno', $beta_page->items()[0]->title() === 'Catalogo uno');
 
 // Missing binding
-$missing = new CanonicalReadIdentity('sample', 'ghost');
+$missing = new CanonicalReadIdentity('ghost');
 $threw = false;
 try {
     $gateway->list_containers($missing, 1);
 } catch (CanonicalReadBindingNotFound $e) {
-    $threw = ($e->qualified_key() === 'sample.ghost');
+    $threw = ($e->qualified_key() === 'ghost');
 }
 ac_assert('Missing binding throws CanonicalReadBindingNotFound', $threw === true);
 
 // Invalid identity keys
 $invalid_id = false;
 try {
-    new CanonicalReadIdentity('Bad', 'alpha');
+    new CanonicalReadIdentity('Bad');
 } catch (InvalidArgumentException $e) {
     $invalid_id = true;
 }

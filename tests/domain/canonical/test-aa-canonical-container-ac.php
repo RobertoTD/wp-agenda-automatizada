@@ -29,14 +29,12 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
     echo '[FAIL] ' . $label . ($detail !== '' ? ' - ' . $detail : '') . "\n";
 }
 
-$ok = new AA_Canonical_Container(1, 'alpha', 'Titulo', null, '2026-03-01T10:00:00Z');
+$ok = new AA_Canonical_Container(1,  'Titulo', null, '2026-03-01T10:00:00Z');
 ac_assert('Accepts valid container with null details', $ok->details() === null);
 ac_assert('Serializes updated_at as Z form', $ok->updated_at_canonical() === '2026-03-01T10:00:00Z');
-ac_assert('to_canonical_array has stable keys', array_keys($ok->to_canonical_array()) === ['id', 'variant_key', 'title', 'details', 'updated_at']);
+ac_assert('to_canonical_array has stable keys', array_keys($ok->to_canonical_array()) === ['id', 'title', 'details', 'updated_at']);
 
-$from_dto = new AA_Canonical_Container(
-    2,
-    'alpha',
+$from_dto = new AA_Canonical_Container(2, 
     'Otro',
     'Texto',
     new DateTimeImmutable('2026-03-01T12:30:45+00:00')
@@ -56,25 +54,22 @@ $rejects = [
 foreach (
     [
         'Rejects MySQL naive' => function () {
-            new AA_Canonical_Container(1, 'alpha', 'T', null, '2026-03-01 10:00:00');
+            new AA_Canonical_Container(1,  'T', null, '2026-03-01 10:00:00');
         },
         'Rejects +00:00 form' => function () {
-            new AA_Canonical_Container(1, 'alpha', 'T', null, '2026-03-01T10:00:00+00:00');
+            new AA_Canonical_Container(1,  'T', null, '2026-03-01T10:00:00+00:00');
         },
         'Rejects other offset' => function () {
-            new AA_Canonical_Container(1, 'alpha', 'T', null, '2026-03-01T10:00:00-05:00');
+            new AA_Canonical_Container(1,  'T', null, '2026-03-01T10:00:00-05:00');
         },
         'Rejects fractional seconds Z' => function () {
-            new AA_Canonical_Container(1, 'alpha', 'T', null, '2026-03-01T10:00:00.123Z');
+            new AA_Canonical_Container(1,  'T', null, '2026-03-01T10:00:00.123Z');
         },
         'Rejects empty title' => function () {
-            new AA_Canonical_Container(1, 'alpha', '  ', null, '2026-03-01T10:00:00Z');
+            new AA_Canonical_Container(1,  '  ', null, '2026-03-01T10:00:00Z');
         },
         'Rejects non-positive id' => function () {
-            new AA_Canonical_Container(0, 'alpha', 'T', null, '2026-03-01T10:00:00Z');
-        },
-        'Rejects invalid variant_key' => function () {
-            new AA_Canonical_Container(1, 'Bad!', 'T', null, '2026-03-01T10:00:00Z');
+            new AA_Canonical_Container(0,  'T', null, '2026-03-01T10:00:00Z');
         },
     ] as $label => $fn
 ) {

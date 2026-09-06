@@ -28,14 +28,13 @@ final class CanonicalShellWriteAjaxSupport {
      * Devuelve las definiciones autorizadas; la identidad y el manifest los sigue construyendo el
      * endpoint en su punto actual, después de validar y construir su command.
      *
-     * @param string $family_key  Clave de familia ya saneada por el endpoint.
-     * @param string $variant_key Clave de variante ya saneada por el endpoint.
-     * @return array{family: AA_Canonical_Family_Definition, variant: AA_Canonical_Variant_Definition}
+     * @param string $family_key Clave de familia ya saneada por el endpoint.
+     * @return array{family: AA_Canonical_Family_Definition}
      * @throws CanonicalShellWriteAjaxRejection unknown_identity 404 | unauthorized 401 | forbidden 403
      *                                          | schema_not_ready 503 | enablement_unavailable 500
      *                                          | family_not_provisioned 409 | family_disabled 409
      */
-    public static function authorize_identity(string $family_key, string $variant_key): array {
+    public static function authorize_identity(string $family_key): array {
         self::require_dependencies();
 
         try {
@@ -50,18 +49,17 @@ final class CanonicalShellWriteAjaxSupport {
 
         $route = (new ResolveCanonicalRouteUseCase($registry))->execute([
             'family_key' => $family_key,
-            'variant_key' => $variant_key,
         ]);
 
         if (!$route['success']) {
             $code = (string) ($route['error']['code'] ?? '');
-            if ($code === 'unknown_family' || $code === 'unknown_variant'
-                || $code === 'invalid_family_key' || $code === 'invalid_variant_key'
+            if ($code === 'unknown_family'
+                || $code === 'invalid_family_key'
                 || $code === 'missing_family'
             ) {
                 throw new CanonicalShellWriteAjaxRejection(
                     'unknown_identity',
-                    'Familia o variante no reconocida.',
+                    'Familia no reconocida.',
                     404
                 );
             }
@@ -74,8 +72,6 @@ final class CanonicalShellWriteAjaxSupport {
 
         /** @var AA_Canonical_Family_Definition $family */
         $family = $route['data']['family'];
-        /** @var AA_Canonical_Variant_Definition $variant */
-        $variant = $route['data']['variant'];
         $resolved_family_key = $family->key();
 
         $access = AA_Canonical_Access_Policy::check_family_access($resolved_family_key);
@@ -131,7 +127,6 @@ final class CanonicalShellWriteAjaxSupport {
 
         return [
             'family' => $family,
-            'variant' => $variant,
         ];
     }
 

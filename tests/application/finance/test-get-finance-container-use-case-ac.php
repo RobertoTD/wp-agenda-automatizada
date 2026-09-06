@@ -35,7 +35,6 @@ if (!defined('ARRAY_A')) {
 
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
-require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-variant-definition.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-registry.php';
 require_once $plugin_root . '/includes/repositories/FinanceContainerRepository.php';
 require_once $plugin_root . '/includes/application/finance/FinanceUseCaseSupport.php';
@@ -69,9 +68,7 @@ $wpdb = new TestGetContainerWpdbMock();
 
 // Construir registry aislado con dos variantes para probar anti-leak
 $registry = new AA_Canonical_Registry();
-$registry->register_family(new AA_Canonical_Family_Definition('finance', 'Finanzas', 'general'));
-$registry->register_variant(new AA_Canonical_Variant_Definition('finance', 'general', 'General'));
-$registry->register_variant(new AA_Canonical_Variant_Definition('finance', 'special', 'Special'));
+$registry->register_family(new AA_Canonical_Family_Definition('finance', 'Finanzas'));
 $registry->freeze();
 
 $use_case = new GetFinanceContainerUseCase($registry);
@@ -139,7 +136,7 @@ $wpdb->rows[] = [
     'created_at' => '2026-08-29 10:00:00',
 ];
 $res_special = $use_case->execute(['id' => 100, 'variant_key' => 'special']);
-ac_assert('Contenedor solicitado bajo su variante correcta es retornado', $res_special['success'] === true && $res_special['data']['container']['variant_key'] === 'special');
+ac_assert('variant_key special no permitida localmente → unknown_variant', !$res_special['success'] && $res_special['error']['code'] === 'unknown_variant');
 
 echo "\n=== 4. Fallos de repositorio ===\n";
 

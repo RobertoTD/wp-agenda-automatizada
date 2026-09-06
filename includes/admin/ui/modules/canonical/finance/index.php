@@ -19,13 +19,14 @@ if (!class_exists('FinanceRecordsAjax')) {
 }
 
 /** @var AA_Canonical_Family_Definition $aa_canonical_family */
-/** @var AA_Canonical_Variant_Definition $aa_canonical_variant */
+/** @var string $aa_finance_variant_key */
+/** @var string $aa_finance_variant_label */
 
 $family_key     = $aa_canonical_family->key();
 $family_label   = $aa_canonical_family->label();
-$variant_key    = $aa_canonical_variant->key();
-$variant_label  = $aa_canonical_variant->label();
-$qualified_key  = $aa_canonical_variant->qualified_key();
+$variant_key    = is_string($aa_finance_variant_key) ? $aa_finance_variant_key : 'general';
+$variant_label  = is_string($aa_finance_variant_label) ? $aa_finance_variant_label : 'General';
+$qualified_key  = $family_key . '.' . $variant_key;
 
 $finance_config = [
     'ajaxUrl'    => admin_url('admin-ajax.php'),

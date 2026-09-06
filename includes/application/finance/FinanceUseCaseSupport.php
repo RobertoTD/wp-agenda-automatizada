@@ -23,7 +23,12 @@ final class FinanceUseCaseSupport {
     public const MAX_AMOUNT_INTEGER_DIGITS = 17;
 
     /**
-     * Valida y resuelve el contexto canónico de Finanzas y su variante.
+     * Valida y resuelve la variante LOCAL de Finanzas (aa_finance_*).
+     *
+     * Política propia del puente Finance (no registry canónico):
+     * - omitida / null → general
+     * - general explícita OK
+     * - desconocida rechazada
      *
      * @param AA_Canonical_Registry $registry
      * @param array<string,mixed> $input
@@ -41,10 +46,9 @@ final class FinanceUseCaseSupport {
         }
 
         if (!array_key_exists('variant_key', $input) || $input['variant_key'] === null) {
-            $family = $registry->family('finance');
             return [
                 'ok' => true,
-                'variant_key' => $family->default_variant_key(),
+                'variant_key' => 'general',
             ];
         }
 
@@ -59,7 +63,7 @@ final class FinanceUseCaseSupport {
             ];
         }
 
-        if (!$registry->has_variant('finance', $raw_variant)) {
+        if ($raw_variant !== 'general') {
             return [
                 'ok' => false,
                 'error' => [

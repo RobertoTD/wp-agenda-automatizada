@@ -12,21 +12,9 @@ $family_label = (isset($aa_canonical_family) && $aa_canonical_family instanceof 
     ? $aa_canonical_family->label()
     : 'Módulo Canónico';
 
-$variant_label = (isset($aa_canonical_variant) && $aa_canonical_variant instanceof AA_Canonical_Variant_Definition)
-    ? $aa_canonical_variant->label()
-    : 'General';
-
 $family_key = (isset($aa_canonical_family) && $aa_canonical_family instanceof AA_Canonical_Family_Definition)
     ? $aa_canonical_family->key()
     : 'canonical';
-
-$variant_key = (isset($aa_canonical_variant) && $aa_canonical_variant instanceof AA_Canonical_Variant_Definition)
-    ? $aa_canonical_variant->key()
-    : 'general';
-
-$qualified_key = (isset($aa_canonical_variant) && $aa_canonical_variant instanceof AA_Canonical_Variant_Definition)
-    ? $aa_canonical_variant->qualified_key()
-    : ($family_key . '.' . $variant_key);
 ?>
 
 <div
@@ -34,8 +22,6 @@ $qualified_key = (isset($aa_canonical_variant) && $aa_canonical_variant instance
     class="max-w-5xl mx-auto py-2"
     data-aa-page-title="<?php echo esc_attr($family_label); ?>"
     data-aa-canonical-family="<?php echo esc_attr($family_key); ?>"
-    data-aa-canonical-variant="<?php echo esc_attr($variant_key); ?>"
-    data-aa-canonical-qualified="<?php echo esc_attr($qualified_key); ?>"
 >
     <!-- Encabezado de contexto canónico neutral -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-4">
@@ -51,16 +37,9 @@ $qualified_key = (isset($aa_canonical_variant) && $aa_canonical_variant instance
                         <?php echo esc_html($family_label); ?>
                     </h2>
                     <p class="text-sm text-gray-500">
-                        Variante: <span class="font-medium text-gray-700"><?php echo esc_html($variant_label); ?></span>
-                        <span class="text-gray-300 mx-1.5">•</span>
-                        Clave: <code class="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-mono"><?php echo esc_html($qualified_key); ?></code>
+                        Clave: <code class="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-mono"><?php echo esc_html($family_key); ?></code>
                     </p>
                 </div>
-            </div>
-            <div>
-                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800">
-                    <?php echo esc_html($variant_label); ?>
-                </span>
             </div>
         </div>
     </div>
@@ -76,7 +55,7 @@ $qualified_key = (isset($aa_canonical_variant) && $aa_canonical_variant instance
             Espacio de <?php echo esc_html($family_label); ?>
         </h3>
         <p class="text-sm text-gray-500 max-w-md mx-auto">
-            La estructura canónica para la familia <?php echo esc_html($family_label); ?> (variante <?php echo esc_html($variant_label); ?>) está activa y lista.
+            La estructura canónica para la familia <?php echo esc_html($family_label); ?> está activa y lista.
         </p>
     </div>
 </div>

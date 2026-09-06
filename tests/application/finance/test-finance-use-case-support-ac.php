@@ -32,7 +32,6 @@ if (!defined('ABSPATH')) {
 
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
-require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-variant-definition.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-registry.php';
 require_once $plugin_root . '/includes/application/finance/FinanceUseCaseSupport.php';
 
@@ -148,16 +147,14 @@ ac_assert('resolve_variant con registry no sellado devuelve canonical_unavailabl
 
 // Registry sellado sin finance
 $empty_reg = new AA_Canonical_Registry();
-$empty_reg->register_family(new AA_Canonical_Family_Definition('other', 'Other', 'default'));
-$empty_reg->register_variant(new AA_Canonical_Variant_Definition('other', 'default', 'Default'));
+$empty_reg->register_family(new AA_Canonical_Family_Definition('other', 'Other'));
 $empty_reg->freeze();
 $r_no_fin = FinanceUseCaseSupport::resolve_variant($empty_reg, []);
 ac_assert('resolve_variant sin familia finance devuelve canonical_unavailable', !$r_no_fin['ok'] && $r_no_fin['error']['code'] === 'canonical_unavailable');
 
 // Registry sellado con finance.general
 $valid_reg = new AA_Canonical_Registry();
-$valid_reg->register_family(new AA_Canonical_Family_Definition('finance', 'Finanzas', 'general'));
-$valid_reg->register_variant(new AA_Canonical_Variant_Definition('finance', 'general', 'General'));
+$valid_reg->register_family(new AA_Canonical_Family_Definition('finance', 'Finanzas'));
 $valid_reg->freeze();
 
 $r_default = FinanceUseCaseSupport::resolve_variant($valid_reg, []);
@@ -179,7 +176,7 @@ $r_bad_format = FinanceUseCaseSupport::resolve_variant($valid_reg, ['variant_key
 ac_assert('resolve_variant con formato no clave canónica devuelve invalid_variant_key', !$r_bad_format['ok'] && $r_bad_format['error']['code'] === 'invalid_variant_key');
 
 $r_unknown = FinanceUseCaseSupport::resolve_variant($valid_reg, ['variant_key' => 'taxes']);
-ac_assert('resolve_variant con variante sintácticamente válida pero no registrada devuelve unknown_variant', !$r_unknown['ok'] && $r_unknown['error']['code'] === 'unknown_variant');
+ac_assert('resolve_variant con variante sintácticamente válida pero no permitida localmente devuelve unknown_variant', !$r_unknown['ok'] && $r_unknown['error']['code'] === 'unknown_variant');
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 

@@ -25,11 +25,10 @@ final class AA_Canonical_Family_Enablement_Nav {
                 continue;
             }
 
-            $variant_key = $family->default_variant_key();
             $items[] = [
                 'family_key' => $key,
                 'label' => $family->label(),
-                'url' => AA_Canonical_Shell_Base_Url_Policy::build_url($key, $variant_key),
+                'url' => AA_Canonical_Shell_Base_Url_Policy::build_url($key),
             ];
         }
 

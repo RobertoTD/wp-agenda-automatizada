@@ -67,7 +67,6 @@ require_once plugin_dir_path(__FILE__) . 'includes/domain/tenant/class-aa-instal
 require_once plugin_dir_path(__FILE__) . 'includes/domain/site/class-aa-public-site-status.php';
 require_once plugin_dir_path(__FILE__) . 'includes/domain/canonical/class-aa-canonical-key.php';
 require_once plugin_dir_path(__FILE__) . 'includes/domain/canonical/class-aa-canonical-family-definition.php';
-require_once plugin_dir_path(__FILE__) . 'includes/domain/canonical/class-aa-canonical-variant-definition.php';
 require_once plugin_dir_path(__FILE__) . 'includes/domain/canonical/class-aa-canonical-registry.php';
 require_once plugin_dir_path(__FILE__) . 'includes/domain/canonical/class-aa-canonical-instant.php';
 require_once plugin_dir_path(__FILE__) . 'includes/domain/canonical/class-aa-canonical-container.php';

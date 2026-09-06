@@ -12,7 +12,6 @@ if (!defined('ABSPATH')) {
 $plugin_root = dirname(__DIR__, 3);
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
-require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-variant-definition.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalReadIdentity.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalCreateContainerCommand.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalUpdateContainerCommand.php';
@@ -46,22 +45,21 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
     echo '[FAIL] ' . $label . ($detail !== '' ? ' - ' . $detail : '') . "\n";
 }
 
-function make_manifest(string $family_key, string $variant_key, string $fl, string $vl): CanonicalShellManifest {
+function make_manifest(string $family_key, string $fl): CanonicalShellManifest {
     return new CanonicalShellManifest(
-        new CanonicalReadIdentity($family_key, $variant_key),
-        new AA_Canonical_Family_Definition($family_key, $fl, $variant_key),
-        new AA_Canonical_Variant_Definition($family_key, $variant_key, $vl)
+        new CanonicalReadIdentity($family_key),
+        new AA_Canonical_Family_Definition($family_key, $fl)
     );
 }
 
-$manifest = make_manifest('sample', 'alpha', 'Muestra', 'Alpha');
+$manifest = make_manifest('sample', 'Muestra');
 $empty_registry = new AA_Canonical_Write_Binding_Registry();
 $pending_uc = new WriteCanonicalShellContainerUseCase(new CanonicalWriteGateway($empty_registry));
 $pending = $pending_uc->create($manifest, new CanonicalCreateContainerCommand('N', null));
 ac_assert('Missing binding → write_adapter_pending', $pending->state() === CanonicalShellMutationResult::STATE_WRITE_ADAPTER_PENDING);
 ac_assert('Pending has null receipt', $pending->receipt() === null);
 
-$adapter = CanonicalFixtureWriteAdapter::with_seed('alpha', [1 => ['title' => 'C1', 'details' => null]]);
+$adapter = CanonicalFixtureWriteAdapter::with_seed('sample', [1 => ['title' => 'C1', 'details' => null]]);
 $registry = new AA_Canonical_Write_Binding_Registry();
 $registry->register($manifest->identity(), $adapter);
 $uc = new WriteCanonicalShellContainerUseCase(new CanonicalWriteGateway($registry));

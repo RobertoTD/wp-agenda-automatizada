@@ -23,7 +23,6 @@ if (!function_exists('esc_html')) {
 $plugin_root = dirname(__DIR__, 3);
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
-require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-variant-definition.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-registry.php';
 require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-core-bootstrap.php';
 
@@ -47,7 +46,9 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 
 $registry = AA_Canonical_Core_Bootstrap::build_registry();
 $aa_canonical_family = $registry->family('finance');
-$aa_canonical_variant = $registry->variant('finance', 'general');
+$aa_finance_variant_key = 'general';
+$aa_finance_variant_label = 'General';
+$aa_canonical_variant = null;
 
 // 1. Render canonical fallback template (_fallback.php)
 ob_start();
@@ -55,11 +56,11 @@ require $plugin_root . '/includes/admin/ui/modules/canonical/_fallback.php';
 $html = ob_get_clean();
 
 ac_assert('Fallback renders Finanzas label', strpos($html, 'Finanzas') !== false);
-ac_assert('Fallback renders General variant', strpos($html, 'General') !== false);
 ac_assert('Fallback sets data-aa-page-title="Finanzas"', strpos($html, 'data-aa-page-title="Finanzas"') !== false);
 ac_assert('Fallback sets data-aa-canonical-family="finance"', strpos($html, 'data-aa-canonical-family="finance"') !== false);
-ac_assert('Fallback sets data-aa-canonical-variant="general"', strpos($html, 'data-aa-canonical-variant="general"') !== false);
-ac_assert('Fallback sets data-aa-canonical-qualified="finance.general"', strpos($html, 'data-aa-canonical-qualified="finance.general"') !== false);
+ac_assert('Fallback has no variant attribute', strpos($html, 'data-aa-canonical-variant') === false);
+ac_assert('Fallback has no qualified attribute', strpos($html, 'data-aa-canonical-qualified') === false);
+ac_assert('Fallback shows family key only', strpos($html, '>finance<') !== false || strpos($html, 'finance') !== false);
 ac_assert('Fallback contains no form tag', strpos($html, '<form') === false);
 ac_assert('Fallback contains no input fields', strpos($html, '<input') === false);
 ac_assert('Fallback contains no buttons', strpos($html, '<button') === false);

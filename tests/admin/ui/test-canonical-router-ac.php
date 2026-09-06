@@ -85,7 +85,6 @@ if (!function_exists('wp_die')) {
 $plugin_root = dirname(__DIR__, 3);
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
-require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-variant-definition.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-registry.php';
 require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-core-bootstrap.php';
 require_once $plugin_root . '/includes/application/canonical/ResolveCanonicalRouteUseCase.php';
@@ -160,14 +159,13 @@ function simulate_router(array $get_params, array $caps = [], bool $logged_in = 
             }
 
             $route_result = (new ResolveCanonicalRouteUseCase($canonical_registry))->execute([
-                'family_key'  => $family_input,
-                'variant_key' => $variant_input,
+                'family_key' => $family_input,
             ]);
 
             if (!$route_result['success']) {
                 $error_code = (string) ($route_result['error']['code'] ?? '');
-                if ($error_code === 'unknown_family' || $error_code === 'unknown_variant') {
-                    wp_die('Familia o variante canónica no encontrada.', 'Error', ['response' => 404]);
+                if ($error_code === 'unknown_family') {
+                    wp_die('Familia canónica no encontrada.', 'Error', ['response' => 404]);
                 }
                 if ($error_code === 'canonical_unavailable') {
                     wp_die('El núcleo canónico no está disponible.', 'Error', ['response' => 500]);
@@ -176,10 +174,24 @@ function simulate_router(array $get_params, array $caps = [], bool $logged_in = 
             }
 
             $aa_canonical_family  = $route_result['data']['family'];
-            $aa_canonical_variant = $route_result['data']['variant'];
+            if (!class_exists('FinanceUseCaseSupport')) {
+                require_once dirname(__DIR__, 3) . '/includes/application/finance/FinanceUseCaseSupport.php';
+            }
+            $finance_variant = FinanceUseCaseSupport::resolve_variant($canonical_registry, [
+                'variant_key' => $variant_input,
+            ]);
+            if (!$finance_variant['ok']) {
+                $vcode = (string) ($finance_variant['error']['code'] ?? '');
+                if ($vcode === 'unknown_variant') {
+                    wp_die('Familia o variante canónica no encontrada.', 'Error', ['response' => 404]);
+                }
+                wp_die('Parámetros de ruta canónica no válidos.', 'Error', ['response' => 400]);
+            }
+            $aa_finance_variant_key = $finance_variant['variant_key'];
+            $aa_canonical_variant = null;
             $aa_canonical_url     = AA_Canonical_Shell_Url_Policy::build_url(
                 $aa_canonical_family->key(),
-                $aa_canonical_variant->key()
+                $aa_finance_variant_key
             );
         } else {
             $aa_canonical_url = admin_url('admin-post.php?action=aa_iframe_content&module=' . $active_module);
@@ -227,12 +239,12 @@ ac_assert('Non-admin can open finance.general (200)', $res_fin['status'] === 200
 ac_assert('Active module is canonical', $res_fin['active_module'] === 'canonical');
 ac_assert('Uses canonical-layout', ($res_fin['layout'] ?? '') === 'canonical-layout');
 ac_assert('Family is finance', $res_fin['aa_canonical_family']->key() === 'finance');
-ac_assert('Variant is general', $res_fin['aa_canonical_variant']->key() === 'general');
+ac_assert('Finance URL keeps local variant=general', strpos((string) ($res_fin['aa_canonical_url'] ?? ''), 'variant=general') !== false);
 
 // 2. Success for finance without variant (resolves default general)
 $res_fin_def = simulate_router(['module' => 'canonical', 'family' => 'finance'], []);
 ac_assert('Finance without variant resolves (200)', $res_fin_def['status'] === 200);
-ac_assert('Default variant is general', $res_fin_def['aa_canonical_variant']->key() === 'general');
+ac_assert('Default Finance URL uses variant=general', strpos((string) ($res_fin_def['aa_canonical_url'] ?? ''), 'variant=general') !== false);
 
 // 3. Non-admin gets 403 on legacy modules (Calendar, Clients, etc.)
 $res_cal_non_admin = simulate_router(['module' => 'calendar'], []);

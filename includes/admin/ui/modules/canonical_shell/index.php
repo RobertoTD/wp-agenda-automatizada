@@ -24,7 +24,6 @@ $shell_view = is_array($view) && isset($view['shell_view']) && is_string($view['
     ? $view['shell_view']
     : 'containers';
 $family_label = is_array($view) ? (string) ($view['family_label'] ?? '') : '';
-$variant_label = is_array($view) ? (string) ($view['variant_label'] ?? '') : '';
 $qualified_key = is_array($view) ? (string) ($view['qualified_key'] ?? '') : '';
 $read_state = is_array($view) ? (string) ($view['read_state'] ?? '') : '';
 $is_preview = is_array($view) && !empty($view['is_preview']);
@@ -53,24 +52,20 @@ if (
     $family_label === ''
     && isset($aa_canonical_family)
     && $aa_canonical_family instanceof AA_Canonical_Family_Definition
-    && isset($aa_canonical_variant)
-    && $aa_canonical_variant instanceof AA_Canonical_Variant_Definition
 ) {
     $family_label = $aa_canonical_family->label();
-    $variant_label = $aa_canonical_variant->label();
-    $qualified_key = $aa_canonical_variant->qualified_key();
+    $qualified_key = $aa_canonical_family->key();
 }
 
 $page_title = 'Shell canónico';
 if ($is_preview) {
     $page_title = 'Shell canónico · Demostración';
 } elseif ($family_label !== '') {
-    $page_title = 'Shell canónico · ' . $family_label;
+    $page_title = $family_label;
 }
 
 $state_labels = [
     'missing_identity'       => 'Desarrollo',
-    'incomplete_identity'    => 'Identidad incompleta',
     'invalid_request'        => 'Solicitud no válida',
     'not_found'              => 'No encontrado',
     'preview_unavailable'    => 'No disponible',
@@ -88,15 +83,11 @@ $is_records = ($shell_view === 'records');
 $is_family_disabled = ($route_state === 'family_disabled');
 
 $create_family_key = '';
-$create_variant_key = '';
 if (
     isset($aa_canonical_family)
     && $aa_canonical_family instanceof AA_Canonical_Family_Definition
-    && isset($aa_canonical_variant)
-    && $aa_canonical_variant instanceof AA_Canonical_Variant_Definition
 ) {
     $create_family_key = $aa_canonical_family->key();
-    $create_variant_key = $aa_canonical_variant->key();
 }
 
 $show_create_ui = $show_read_ui
@@ -104,8 +95,7 @@ $show_create_ui = $show_read_ui
     && !$is_records
     && $route_state === 'resolved'
     && in_array($read_state, ['empty', 'resolved_page'], true)
-    && $create_family_key !== ''
-    && $create_variant_key !== '';
+    && $create_family_key !== '';
 
 $create_container_id = 0;
 if (is_array($view) && isset($view['container_id'])) {
@@ -122,7 +112,6 @@ $show_create_record_ui = $show_read_ui
     && $route_state === 'resolved'
     && in_array($read_state, ['empty', 'resolved_page'], true)
     && $create_family_key !== ''
-    && $create_variant_key !== ''
     && $create_container_id >= 1;
 ?>
 
@@ -146,15 +135,10 @@ $show_create_record_ui = $show_read_ui
         <div class="flex items-start justify-between flex-wrap gap-4">
             <div>
                 <h2 class="text-xl font-bold text-gray-900 leading-tight">
-                    Shell canónico
+                    <?php echo esc_html($show_read_ui && $family_label !== '' ? $family_label : 'Shell canónico'); ?>
                 </h2>
                 <?php if ($show_read_ui && $family_label !== '') : ?>
-                    <p class="text-sm text-gray-500 mt-1">
-                        <?php echo esc_html($family_label); ?>
-                        <?php if ($variant_label !== '') : ?>
-                            · <?php echo esc_html($variant_label); ?>
-                        <?php endif; ?>
-                    </p>
+                    <?php /* Nombre de familia ya en el h2; sin subtítulo de variante. */ ?>
                 <?php else : ?>
                     <p class="text-sm text-gray-500 mt-1">
                         Módulo paralelo provisional. No sustituye la UI de familias existentes.
@@ -470,9 +454,6 @@ $show_create_record_ui = $show_read_ui
             </div>
             <p id="aa-shell-container-modal-desc" class="text-sm text-gray-500 mb-4">
                 <?php echo esc_html($family_label); ?>
-                <?php if ($variant_label !== '') : ?>
-                    · <?php echo esc_html($variant_label); ?>
-                <?php endif; ?>
             </p>
 
             <form id="aa-shell-container-form" novalidate>
@@ -601,7 +582,6 @@ $show_create_record_ui = $show_read_ui
         deleteAction: <?php echo wp_json_encode(CanonicalDeleteContainerAjax::ACTION); ?>,
         deleteNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalDeleteContainerAjax::NONCE_ACTION)); ?>,
         familyKey: <?php echo wp_json_encode($create_family_key); ?>,
-        variantKey: <?php echo wp_json_encode($create_variant_key); ?>,
         maxTitleLength: <?php echo (int) CanonicalCreateContainerCommand::MAX_TITLE_LENGTH; ?>
     };
     </script>
@@ -781,7 +761,6 @@ $show_create_record_ui = $show_read_ui
         deleteAction: <?php echo wp_json_encode(CanonicalDeleteRecordAjax::ACTION); ?>,
         deleteNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalDeleteRecordAjax::NONCE_ACTION)); ?>,
         familyKey: <?php echo wp_json_encode($create_family_key); ?>,
-        variantKey: <?php echo wp_json_encode($create_variant_key); ?>,
         containerId: <?php echo (int) $create_container_id; ?>,
         maxTitleLength: <?php echo (int) CanonicalCreateRecordCommand::MAX_TITLE_LENGTH; ?>
     };

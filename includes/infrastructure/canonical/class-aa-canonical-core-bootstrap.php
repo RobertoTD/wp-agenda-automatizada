@@ -13,7 +13,6 @@ defined('ABSPATH') or die('No direct access');
 
 require_once dirname(__DIR__, 2) . '/domain/canonical/class-aa-canonical-key.php';
 require_once dirname(__DIR__, 2) . '/domain/canonical/class-aa-canonical-family-definition.php';
-require_once dirname(__DIR__, 2) . '/domain/canonical/class-aa-canonical-variant-definition.php';
 require_once dirname(__DIR__, 2) . '/domain/canonical/class-aa-canonical-registry.php';
 
 final class AA_Canonical_Core_Bootstrap {
@@ -28,17 +27,10 @@ final class AA_Canonical_Core_Bootstrap {
         $registry = new AA_Canonical_Registry();
 
         $registry->register_family(
-            new AA_Canonical_Family_Definition('finance', 'Finanzas', 'general')
+            new AA_Canonical_Family_Definition('finance', 'Finanzas')
         );
-        $registry->register_variant(
-            new AA_Canonical_Variant_Definition('finance', 'general', 'General')
-        );
-
         $registry->register_family(
-            new AA_Canonical_Family_Definition('archive', 'Archivo', 'general')
-        );
-        $registry->register_variant(
-            new AA_Canonical_Variant_Definition('archive', 'general', 'General')
+            new AA_Canonical_Family_Definition('archive', 'Archivo')
         );
 
         $registry->freeze();

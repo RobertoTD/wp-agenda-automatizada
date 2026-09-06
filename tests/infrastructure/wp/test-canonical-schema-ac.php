@@ -1,6 +1,6 @@
 <?php
 /**
- * AC Test — Persistencia Canónica Universal (PCU-2 / DB_VERSION 21).
+ * AC Test — Persistencia Canónica Universal (PCU-2 / DB_VERSION 22).
  *
  * Ejecutar:
  *   php tests/infrastructure/wp/test-canonical-schema-ac.php
@@ -55,7 +55,7 @@ $canonical_src = file_get_contents($canonical_schema_file);
 
 ac_assert('Schema.php es legible', is_string($schema_src) && $schema_src !== '');
 ac_assert('CanonicalSchema.php es legible', is_string($canonical_src) && $canonical_src !== '');
-ac_assert("AA_Schema::DB_VERSION es '21'", strpos($schema_src, "DB_VERSION = '21'") !== false);
+ac_assert("AA_Schema::DB_VERSION es '22'", strpos($schema_src, "DB_VERSION = '22'") !== false);
 ac_assert('Schema.php delega en AA_Canonical_Schema::install()', strpos($schema_src, 'AA_Canonical_Schema::install()') !== false);
 
 $bump_pos = strpos($schema_src, "update_option('aa_db_version', self::DB_VERSION)");
@@ -93,7 +93,7 @@ ac_assert('Families sin public_id', strpos($families_sql, 'public_id') === false
 
 ac_assert('Containers public_id char(36) NOT NULL', strpos($containers_sql, 'public_id char(36) NOT NULL') !== false);
 ac_assert('Containers UNIQUE public_id', strpos($containers_sql, 'UNIQUE KEY uq_container_public_id (public_id)') !== false);
-ac_assert('Containers idx_family_variant_updated', strpos($containers_sql, 'KEY idx_family_variant_updated (family_id, variant_key, updated_at, id)') !== false);
+ac_assert('Containers idx_family_updated', strpos($containers_sql, 'KEY idx_family_updated (family_id, updated_at, id)') !== false);
 ac_assert('Containers sin amount', strpos($containers_sql, 'amount') === false);
 ac_assert('Containers sin family_key', strpos($containers_sql, 'family_key') === false);
 ac_assert('Containers sin FOREIGN KEY en dbDelta DDL', stripos($containers_sql, 'FOREIGN KEY') === false);
@@ -258,13 +258,12 @@ if ($has_real_wp) {
             [
                 'public_id' => '11111111-1111-4111-8111-111111111111',
                 'family_id' => $family_id,
-                'variant_key' => 'general',
                 'title' => 'Contenedor test',
                 'details' => null,
                 'created_at' => $now,
                 'updated_at' => $now,
             ],
-            ['%s', '%d', '%s', '%s', '%s', '%s', '%s']
+            ['%s', '%d', '%s', '%s', '%s', '%s']
         );
         $container_id = (int) $wpdb->insert_id;
         $wpdb->insert(
@@ -344,6 +343,66 @@ if ($has_real_wp) {
         }
         ac_assert('MySQL: install repara FK ausente', $repaired);
 
+        // Migración estructural v21 → v22 (FK activas, tablas vacías): índice nuevo antes de retirar el viejo.
+        $wpdb->prefix = $temp_prefix_1;
+        $cleanup_tables($temp_prefix_1);
+        $c_mig = $wpdb->prefix . AA_Canonical_Schema::TABLE_CONTAINERS;
+        $f_mig = $wpdb->prefix . AA_Canonical_Schema::TABLE_FAMILIES;
+        $r_mig = $wpdb->prefix . AA_Canonical_Schema::TABLE_RECORDS;
+        $charset = $wpdb->get_charset_collate();
+        $wpdb->query("CREATE TABLE `{$f_mig}` (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            family_key varchar(64) NOT NULL,
+            is_enabled tinyint(1) NOT NULL DEFAULT 0,
+            seed_version smallint(5) unsigned NOT NULL DEFAULT 0,
+            created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_family_key (family_key)
+        ) ENGINE=InnoDB {$charset}");
+        $wpdb->query("CREATE TABLE `{$c_mig}` (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            public_id char(36) NOT NULL,
+            family_id bigint(20) unsigned NOT NULL,
+            variant_key varchar(64) NOT NULL,
+            title varchar(200) NOT NULL,
+            details text DEFAULT NULL,
+            created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_container_public_id (public_id),
+            KEY idx_family_variant_updated (family_id, variant_key, updated_at, id)
+        ) ENGINE=InnoDB {$charset}");
+        $wpdb->query("CREATE TABLE `{$r_mig}` (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            public_id char(36) NOT NULL,
+            container_id bigint(20) unsigned NOT NULL,
+            title varchar(200) NOT NULL,
+            details text DEFAULT NULL,
+            created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_record_public_id (public_id),
+            KEY idx_container_updated (container_id, updated_at, id)
+        ) ENGINE=InnoDB {$charset}");
+        AA_Canonical_Schema::ensure_foreign_keys();
+        $has_variant_col = !empty($wpdb->get_results("SHOW COLUMNS FROM `{$c_mig}` LIKE 'variant_key'"));
+        $has_old_idx = !empty($wpdb->get_results($wpdb->prepare("SHOW INDEX FROM `{$c_mig}` WHERE Key_name = %s", 'idx_family_variant_updated')));
+        ac_assert('MySQL: v21 fixture lista para migrar', $has_variant_col && $has_old_idx);
+
+        AA_Canonical_Schema::install();
+        AA_Canonical_Schema::verify();
+        $has_variant_after = !empty($wpdb->get_results("SHOW COLUMNS FROM `{$c_mig}` LIKE 'variant_key'"));
+        $has_old_after = !empty($wpdb->get_results($wpdb->prepare("SHOW INDEX FROM `{$c_mig}` WHERE Key_name = %s", 'idx_family_variant_updated')));
+        $has_new_after = !empty($wpdb->get_results($wpdb->prepare("SHOW INDEX FROM `{$c_mig}` WHERE Key_name = %s", 'idx_family_updated')));
+        ac_assert('MySQL: v21→v22 elimina variant_key', !$has_variant_after);
+        ac_assert('MySQL: v21→v22 elimina índice antiguo', !$has_old_after);
+        ac_assert('MySQL: v21→v22 crea idx_family_updated', $has_new_after);
+
+        AA_Canonical_Schema::install();
+        AA_Canonical_Schema::verify();
+        ac_assert('MySQL: reinstall v22 es idempotente', true);
+
         // Simular upgrade AA_Schema con prefijo desechable; restaurar option global.
         if (!class_exists('AA_Schema')) {
             require_once $schema_file;
@@ -370,7 +429,7 @@ if ($has_real_wp) {
             update_option('aa_db_version', '20');
             AA_Schema::install();
             $stored = (string) get_option('aa_db_version', '0');
-            ac_assert("MySQL: AA_Schema::install deja aa_db_version=21", $stored === '21');
+            ac_assert("MySQL: AA_Schema::install deja aa_db_version=22", $stored === '22');
             $uf = $wpdb->prefix . AA_Canonical_Schema::TABLE_FAMILIES;
             $uc = $wpdb->prefix . AA_Canonical_Schema::TABLE_CONTAINERS;
             $ur = $wpdb->prefix . AA_Canonical_Schema::TABLE_RECORDS;

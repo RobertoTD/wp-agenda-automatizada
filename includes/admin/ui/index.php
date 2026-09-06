@@ -41,7 +41,8 @@ $active_module    = in_array($requested_module, $allowed_modules, true) ? $reque
 $view_raw         = isset($_GET['view']) ? sanitize_key(wp_unslash((string) $_GET['view'])) : '';
 
 $aa_canonical_family = null;
-$aa_canonical_variant = null;
+$aa_finance_variant_key = null;
+$aa_finance_variant_label = null;
 $aa_shell_route_state = null;
 $aa_shell_route_message = null;
 $aa_shell_view = null;
@@ -64,14 +65,13 @@ if ($active_module === 'canonical') {
     }
 
     $route_result = (new ResolveCanonicalRouteUseCase($canonical_registry))->execute([
-        'family_key'  => $family_input,
-        'variant_key' => $variant_input,
+        'family_key' => $family_input,
     ]);
 
     if (!$route_result['success']) {
         $error_code = (string) ($route_result['error']['code'] ?? '');
-        if ($error_code === 'unknown_family' || $error_code === 'unknown_variant') {
-            wp_die('Familia o variante canónica no encontrada.', 'Error', ['response' => 404]);
+        if ($error_code === 'unknown_family') {
+            wp_die('Familia canónica no encontrada.', 'Error', ['response' => 404]);
         }
         if ($error_code === 'canonical_unavailable') {
             wp_die('El núcleo canónico no está disponible.', 'Error', ['response' => 500]);
@@ -79,11 +79,30 @@ if ($active_module === 'canonical') {
         wp_die('Parámetros de ruta canónica no válidos.', 'Error', ['response' => 400]);
     }
 
-    $aa_canonical_family  = $route_result['data']['family'];
-    $aa_canonical_variant = $route_result['data']['variant'];
-    $aa_canonical_url     = AA_Canonical_Shell_Url_Policy::build_url(
+    $aa_canonical_family = $route_result['data']['family'];
+
+    if (!class_exists('FinanceUseCaseSupport')) {
+        require_once dirname(__DIR__, 2) . '/application/finance/FinanceUseCaseSupport.php';
+    }
+    $finance_variant = FinanceUseCaseSupport::resolve_variant($canonical_registry, [
+        'variant_key' => $variant_input,
+    ]);
+    if (!$finance_variant['ok']) {
+        $vcode = (string) ($finance_variant['error']['code'] ?? '');
+        if ($vcode === 'unknown_variant') {
+            wp_die('Variante financiera no encontrada.', 'Error', ['response' => 404]);
+        }
+        if ($vcode === 'canonical_unavailable') {
+            wp_die('El núcleo canónico no está disponible.', 'Error', ['response' => 500]);
+        }
+        wp_die('Parámetros de ruta canónica no válidos.', 'Error', ['response' => 400]);
+    }
+    $aa_finance_variant_key = $finance_variant['variant_key'];
+    $aa_finance_variant_label = ($aa_finance_variant_key === 'general') ? 'General' : $aa_finance_variant_key;
+
+    $aa_canonical_url = AA_Canonical_Shell_Url_Policy::build_url(
         $aa_canonical_family->key(),
-        $aa_canonical_variant->key()
+        $aa_finance_variant_key
     );
 } elseif ($active_module === 'canonical_shell') {
     if (!class_exists('AA_Canonical_Shell_Base_Url_Policy')) {
@@ -183,9 +202,9 @@ if ($active_module === 'canonical') {
             status_header(400);
         }
     } elseif ($shell_mode === AA_Canonical_Shell_Base_Url_Policy::SHELL_MODE_PREVIEW) {
-        if ($family_present || $variant_present) {
+        if ($family_present) {
             $aa_shell_route_state = 'invalid_request';
-            $aa_shell_route_message = 'El modo preview no admite family ni variant.';
+            $aa_shell_route_message = 'El modo preview no admite family.';
             if (function_exists('status_header')) {
                 status_header(400);
             }
@@ -222,15 +241,9 @@ if ($active_module === 'canonical') {
         if (function_exists('status_header')) {
             status_header(400);
         }
-    } elseif (!$family_present && !$variant_present) {
+    } elseif (!$family_present) {
         $aa_shell_route_state = 'missing_identity';
         $aa_shell_route_message = 'Identidad canónica no suministrada. Este módulo es un shell base en construcción.';
-    } elseif ($family_present xor $variant_present) {
-        $aa_shell_route_state = 'incomplete_identity';
-        $aa_shell_route_message = 'La identidad canónica está incompleta: se requieren family y variant juntos.';
-        if (function_exists('status_header')) {
-            status_header(400);
-        }
     } else {
         $canonical_registry = null;
         if (class_exists('AA_Canonical_Core_Bootstrap')) {
@@ -246,15 +259,14 @@ if ($active_module === 'canonical') {
         }
 
         $route_result = (new ResolveCanonicalRouteUseCase($canonical_registry))->execute([
-            'family_key'  => $family_input,
-            'variant_key' => $variant_input,
+            'family_key' => $family_input,
         ]);
 
         if (!$route_result['success']) {
             $error_code = (string) ($route_result['error']['code'] ?? '');
-            if ($error_code === 'unknown_family' || $error_code === 'unknown_variant') {
+            if ($error_code === 'unknown_family') {
                 $aa_shell_route_state = 'not_found';
-                $aa_shell_route_message = (string) ($route_result['error']['message'] ?? 'Familia o variante no encontrada.');
+                $aa_shell_route_message = (string) ($route_result['error']['message'] ?? 'Familia no encontrada.');
                 if (function_exists('status_header')) {
                     status_header(404);
                 }
@@ -268,8 +280,7 @@ if ($active_module === 'canonical') {
                 }
             }
         } else {
-            $aa_canonical_family  = $route_result['data']['family'];
-            $aa_canonical_variant = $route_result['data']['variant'];
+            $aa_canonical_family = $route_result['data']['family'];
 
             $aa_enablement_gate_state = null;
             $aa_enablement_gate_message = '';
@@ -308,14 +319,12 @@ if ($active_module === 'canonical') {
                 $aa_shell_route_message = 'Ruta canónica resuelta.';
                 $aa_canonical_url = AA_Canonical_Shell_Base_Url_Policy::build_records_url(
                     $aa_canonical_family->key(),
-                    $aa_canonical_variant->key(),
                     $shell_container_id,
                     $shell_page > 1 ? $shell_page : null,
                     $shell_containers_page > 1 ? $shell_containers_page : null
                 );
                 $aa_shell_view = AA_Canonical_Shell_View_Composer::compose_family_records(
                     $aa_canonical_family,
-                    $aa_canonical_variant,
                     $shell_container_id,
                     $shell_page,
                     $shell_containers_page
@@ -325,12 +334,10 @@ if ($active_module === 'canonical') {
                 $aa_shell_route_message = 'Ruta canónica resuelta.';
                 $aa_canonical_url = AA_Canonical_Shell_Base_Url_Policy::build_url(
                     $aa_canonical_family->key(),
-                    $aa_canonical_variant->key(),
                     $shell_page > 1 ? $shell_page : null
                 );
                 $aa_shell_view = AA_Canonical_Shell_View_Composer::compose_family(
                     $aa_canonical_family,
-                    $aa_canonical_variant,
                     $shell_page
                 );
             }

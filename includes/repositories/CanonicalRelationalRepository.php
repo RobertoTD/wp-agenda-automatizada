@@ -75,14 +75,13 @@ final class CanonicalRelationalRepository {
     /**
      * @throws CanonicalRelationalQueryFailed
      */
-    public function count_containers(int $family_id, string $variant_key): int {
+    public function count_containers(int $family_id): int {
         $table = $this->containers_table();
         $this->clear_error_state();
         $count = $this->wpdb->get_var(
             $this->wpdb->prepare(
-                "SELECT COUNT(*) FROM `{$table}` WHERE family_id = %d AND variant_key = %s",
-                $family_id,
-                $variant_key
+                "SELECT COUNT(*) FROM `{$table}` WHERE family_id = %d",
+                $family_id
             )
         );
 
@@ -94,23 +93,22 @@ final class CanonicalRelationalRepository {
     }
 
     /**
-     * @return list<array{id:int,public_id:string,family_id:int,variant_key:string,title:string,details:?string,created_at:string,updated_at:string}>
+     * @return list<array{id:int,public_id:string,family_id:int,title:string,details:?string,created_at:string,updated_at:string}>
      * @throws CanonicalRelationalQueryFailed
      */
-    public function list_containers(int $family_id, string $variant_key, int $page, int $per_page): array {
+    public function list_containers(int $family_id, int $page, int $per_page): array {
         $this->assert_pagination($page, $per_page);
         $offset = ($page - 1) * $per_page;
         $table = $this->containers_table();
         $this->clear_error_state();
         $rows = $this->wpdb->get_results(
             $this->wpdb->prepare(
-                "SELECT id, public_id, family_id, variant_key, title, details, created_at, updated_at
+                "SELECT id, public_id, family_id, title, details, created_at, updated_at
                  FROM `{$table}`
-                 WHERE family_id = %d AND variant_key = %s
+                 WHERE family_id = %d
                  ORDER BY updated_at DESC, id DESC
                  LIMIT %d OFFSET %d",
                 $family_id,
-                $variant_key,
                 $per_page,
                 $offset
             ),
@@ -133,20 +131,19 @@ final class CanonicalRelationalRepository {
     }
 
     /**
-     * @return array{id:int,public_id:string,family_id:int,variant_key:string,title:string,details:?string,created_at:string,updated_at:string}|null
+     * @return array{id:int,public_id:string,family_id:int,title:string,details:?string,created_at:string,updated_at:string}|null
      * @throws CanonicalRelationalQueryFailed
      */
-    public function find_container(int $family_id, string $variant_key, int $container_id): ?array {
+    public function find_container(int $family_id, int $container_id): ?array {
         $table = $this->containers_table();
         $this->clear_error_state();
         $row = $this->wpdb->get_row(
             $this->wpdb->prepare(
-                "SELECT id, public_id, family_id, variant_key, title, details, created_at, updated_at
+                "SELECT id, public_id, family_id, title, details, created_at, updated_at
                  FROM `{$table}`
-                 WHERE family_id = %d AND variant_key = %s AND id = %d
+                 WHERE family_id = %d AND id = %d
                  LIMIT 1",
                 $family_id,
-                $variant_key,
                 $container_id
             ),
             ARRAY_A
@@ -244,10 +241,10 @@ final class CanonicalRelationalRepository {
     }
 
     /**
-     * @return array{id:int,public_id:string,family_id:int,variant_key:string,title:string,details:?string,created_at:string,updated_at:string}
+     * @return array{id:int,public_id:string,family_id:int,title:string,details:?string,created_at:string,updated_at:string}
      * @throws CanonicalRelationalQueryFailed
      */
-    public function create_container(int $family_id, string $variant_key, string $title, ?string $details): array {
+    public function create_container(int $family_id, string $title, ?string $details): array {
         $table = $this->containers_table();
         $now = $this->utc_now();
         $public_id = $this->generate_public_id();
@@ -255,7 +252,6 @@ final class CanonicalRelationalRepository {
         $data = [
             'public_id' => $public_id,
             'family_id' => $family_id,
-            'variant_key' => $variant_key,
             'title' => $title,
             'details' => $details,
             'created_at' => $now,
@@ -264,7 +260,6 @@ final class CanonicalRelationalRepository {
         $formats = [
             '%s',
             '%d',
-            '%s',
             '%s',
             $details === null ? null : '%s',
             '%s',
@@ -282,7 +277,7 @@ final class CanonicalRelationalRepository {
             throw new CanonicalRelationalQueryFailed('create_container insert_id invalid.');
         }
 
-        $row = $this->find_container($family_id, $variant_key, $id);
+        $row = $this->find_container($family_id, $id);
         if ($row === null) {
             throw new CanonicalRelationalQueryFailed('create_container row missing after insert.');
         }
@@ -291,12 +286,11 @@ final class CanonicalRelationalRepository {
     }
 
     /**
-     * @return array{id:int,public_id:string,family_id:int,variant_key:string,title:string,details:?string,created_at:string,updated_at:string}|null
+     * @return array{id:int,public_id:string,family_id:int,title:string,details:?string,created_at:string,updated_at:string}|null
      * @throws CanonicalRelationalQueryFailed
      */
     public function update_container(
         int $family_id,
-        string $variant_key,
         int $container_id,
         string $title,
         ?string $details
@@ -314,7 +308,6 @@ final class CanonicalRelationalRepository {
             ],
             [
                 'family_id' => $family_id,
-                'variant_key' => $variant_key,
                 'id' => $container_id,
             ],
             [
@@ -322,14 +315,14 @@ final class CanonicalRelationalRepository {
                 $details === null ? null : '%s',
                 '%s',
             ],
-            ['%d', '%s', '%d']
+            ['%d', '%d']
         );
 
         if ($result === false) {
             throw new CanonicalRelationalQueryFailed('update_container failed.');
         }
 
-        $row = $this->find_container($family_id, $variant_key, $container_id);
+        $row = $this->find_container($family_id, $container_id);
         if ($row === null) {
             return null;
         }
@@ -340,17 +333,16 @@ final class CanonicalRelationalRepository {
     /**
      * @throws CanonicalRelationalQueryFailed
      */
-    public function delete_container(int $family_id, string $variant_key, int $container_id): bool {
+    public function delete_container(int $family_id, int $container_id): bool {
         $table = $this->containers_table();
         $this->clear_error_state();
         $result = $this->wpdb->delete(
             $table,
             [
                 'family_id' => $family_id,
-                'variant_key' => $variant_key,
                 'id' => $container_id,
             ],
-            ['%d', '%s', '%d']
+            ['%d', '%d']
         );
 
         if ($result === false) {
@@ -367,12 +359,11 @@ final class CanonicalRelationalRepository {
      */
     public function create_record(
         int $family_id,
-        string $variant_key,
         int $container_id,
         string $title,
         ?string $details
     ): array {
-        $container = $this->find_container($family_id, $variant_key, $container_id);
+        $container = $this->find_container($family_id, $container_id);
         if ($container === null) {
             throw new CanonicalRelationalQueryFailed(
                 'create_record parent container not found.',
@@ -418,7 +409,7 @@ final class CanonicalRelationalRepository {
                 $this->rollback_confirmed('create_record insert_id invalid.');
             }
 
-            $this->touch_container_or_fail($family_id, $variant_key, $container_id, $now, 'create', 'record', $resource_id);
+            $this->touch_container_or_fail($family_id, $container_id, $now, 'create', 'record', $resource_id);
             $this->commit_or_ambiguous('create', 'record', $resource_id, $container_id);
 
             $row = $this->find_record($container_id, $resource_id);
@@ -448,13 +439,12 @@ final class CanonicalRelationalRepository {
      */
     public function update_record(
         int $family_id,
-        string $variant_key,
         int $container_id,
         int $record_id,
         string $title,
         ?string $details
     ): ?array {
-        $container = $this->find_container($family_id, $variant_key, $container_id);
+        $container = $this->find_container($family_id, $container_id);
         if ($container === null) {
             throw new CanonicalRelationalQueryFailed(
                 'update_record parent container not found.',
@@ -505,7 +495,7 @@ final class CanonicalRelationalRepository {
                 }
             }
 
-            $this->touch_container_or_fail($family_id, $variant_key, $container_id, $now, 'update', 'record', $record_id);
+            $this->touch_container_or_fail($family_id, $container_id, $now, 'update', 'record', $record_id);
             $this->commit_or_ambiguous('update', 'record', $record_id, $container_id);
 
             return $this->find_record($container_id, $record_id);
@@ -529,11 +519,10 @@ final class CanonicalRelationalRepository {
      */
     public function delete_record(
         int $family_id,
-        string $variant_key,
         int $container_id,
         int $record_id
     ): bool {
-        $container = $this->find_container($family_id, $variant_key, $container_id);
+        $container = $this->find_container($family_id, $container_id);
         if ($container === null) {
             throw new CanonicalRelationalQueryFailed(
                 'delete_record parent container not found.',
@@ -570,7 +559,7 @@ final class CanonicalRelationalRepository {
             }
 
             $mutation_possible = true;
-            $this->touch_container_or_fail($family_id, $variant_key, $container_id, $now, 'delete', 'record', $record_id);
+            $this->touch_container_or_fail($family_id, $container_id, $now, 'delete', 'record', $record_id);
             $this->commit_or_ambiguous('delete', 'record', $record_id, $container_id);
 
             return true;
@@ -627,7 +616,7 @@ final class CanonicalRelationalRepository {
 
     /**
      * @param array<string,mixed>|null $row
-     * @return array{id:int,public_id:string,family_id:int,variant_key:string,title:string,details:?string,created_at:string,updated_at:string}|null
+     * @return array{id:int,public_id:string,family_id:int,title:string,details:?string,created_at:string,updated_at:string}|null
      */
     private function map_container_row(?array $row): ?array {
         if (!is_array($row) || !isset($row['id']) || (int) $row['id'] < 1) {
@@ -640,7 +629,6 @@ final class CanonicalRelationalRepository {
             'id' => (int) $row['id'],
             'public_id' => (string) ($row['public_id'] ?? ''),
             'family_id' => (int) ($row['family_id'] ?? 0),
-            'variant_key' => (string) ($row['variant_key'] ?? ''),
             'title' => (string) ($row['title'] ?? ''),
             'details' => ($details === null || $details === '') ? null : (string) $details,
             'created_at' => (string) ($row['created_at'] ?? ''),
@@ -759,7 +747,6 @@ final class CanonicalRelationalRepository {
      */
     private function touch_container_or_fail(
         int $family_id,
-        string $variant_key,
         int $container_id,
         string $now,
         string $operation,
@@ -773,11 +760,10 @@ final class CanonicalRelationalRepository {
             ['updated_at' => $now],
             [
                 'family_id' => $family_id,
-                'variant_key' => $variant_key,
                 'id' => $container_id,
             ],
             ['%s'],
-            ['%d', '%s', '%d']
+            ['%d', '%d']
         );
 
         if ($result === false) {
@@ -786,7 +772,7 @@ final class CanonicalRelationalRepository {
 
         if ((int) $result === 0) {
             try {
-                $parent = $this->find_container($family_id, $variant_key, $container_id);
+                $parent = $this->find_container($family_id, $container_id);
             } catch (CanonicalRelationalQueryFailed $e) {
                 $this->rollback_after_possible_mutation($operation, $resource_type, $resource_id, $container_id);
             }

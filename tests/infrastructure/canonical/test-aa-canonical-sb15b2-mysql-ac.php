@@ -128,9 +128,9 @@ try {
 
     $create_container = static function (string $family_key, string $title) use ($registry, $write_stack): int {
         $manifest = new CanonicalShellManifest(
-            new CanonicalReadIdentity($family_key, 'general'),
+            new CanonicalReadIdentity($family_key),
             $registry->family($family_key),
-            $registry->variant($family_key, 'general')
+            /* variant removed */ null
         );
         $result = (new WriteCanonicalShellContainerUseCase($write_stack()))
             ->create($manifest, new CanonicalCreateContainerCommand($title, null));
@@ -139,9 +139,9 @@ try {
 
     $create_record = static function (string $family_key, int $container_id, string $title, ?string $details) use ($registry, $write_stack): CanonicalShellMutationResult {
         $manifest = new CanonicalShellManifest(
-            new CanonicalReadIdentity($family_key, 'general'),
+            new CanonicalReadIdentity($family_key),
             $registry->family($family_key),
-            $registry->variant($family_key, 'general')
+            /* variant removed */ null
         );
         return (new WriteCanonicalShellRecordUseCase($write_stack()))
             ->create($manifest, new CanonicalCreateRecordCommand($container_id, $title, $details));
@@ -188,9 +188,9 @@ try {
     $read_registry = new AA_Canonical_Read_Binding_Registry();
     AA_Canonical_Read_Binding_Bootstrap::register_productive($read_registry);
     $manifest = new CanonicalShellManifest(
-        new CanonicalReadIdentity('finance', 'general'),
+        new CanonicalReadIdentity('finance'),
         $registry->family('finance'),
-        $registry->variant('finance', 'general')
+        null
     );
     $page = (new ReadCanonicalShellRecordsUseCase(new CanonicalReadGateway($read_registry)))
         ->execute($manifest, $fin_c1, 1);

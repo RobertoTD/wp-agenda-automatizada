@@ -37,6 +37,9 @@ if (!class_exists('AA_Finance_Schema')) {
 
 final class AA_Finance_Canonical_Read_Adapter implements CanonicalReadAdapter {
 
+    /** Local Finance policy: only general on aa_finance_*. */
+    private const FINANCE_VARIANT_KEY = 'general';
+
     /** @var object */
     private $wpdb;
 
@@ -53,9 +56,10 @@ final class AA_Finance_Canonical_Read_Adapter implements CanonicalReadAdapter {
         $this->wpdb = $wpdb;
     }
 
-    public function list_containers(string $variant_key, int $page, int $per_page): CanonicalPage {
+    public function list_containers(int $page, int $per_page): CanonicalPage {
         $this->assert_page_contract($page, $per_page);
 
+        $variant_key = self::FINANCE_VARIANT_KEY;
         $table = $this->containers_table();
         $total = $this->count_containers($variant_key, $table);
         if ($total === 0) {
@@ -98,7 +102,8 @@ final class AA_Finance_Canonical_Read_Adapter implements CanonicalReadAdapter {
         );
     }
 
-    public function get_container(string $variant_key, int $container_id): AA_Canonical_Container {
+    public function get_container(int $container_id): AA_Canonical_Container {
+        $variant_key = self::FINANCE_VARIANT_KEY;
         $container_id = $this->assert_positive_id($container_id, 'container_id');
 
         $table = $this->containers_table();
@@ -115,14 +120,13 @@ final class AA_Finance_Canonical_Read_Adapter implements CanonicalReadAdapter {
         $this->assert_row_query_ok($row);
 
         if ($row === null) {
-            throw new CanonicalContainerNotFound($variant_key, $container_id);
+            throw new CanonicalContainerNotFound('finance', $container_id);
         }
 
         return $this->map_container_row($row);
     }
 
     public function list_records(
-        string $variant_key,
         int $container_id,
         int $page,
         int $per_page
@@ -130,7 +134,7 @@ final class AA_Finance_Canonical_Read_Adapter implements CanonicalReadAdapter {
         $this->assert_page_contract($page, $per_page);
         $container_id = $this->assert_positive_id($container_id, 'container_id');
 
-        $this->get_container($variant_key, $container_id);
+        $this->get_container($container_id);
 
         $table = $this->records_table();
         $total = $this->count_records($container_id, $table);
@@ -262,7 +266,6 @@ final class AA_Finance_Canonical_Read_Adapter implements CanonicalReadAdapter {
     private function map_container_row(object $row): AA_Canonical_Container {
         return new AA_Canonical_Container(
             (int) $row->id,
-            (string) $row->variant_key,
             (string) $row->title,
             $row->details !== null ? (string) $row->details : null,
             $this->convert_finance_timestamp_to_utc((string) ($row->updated_at ?? ''))

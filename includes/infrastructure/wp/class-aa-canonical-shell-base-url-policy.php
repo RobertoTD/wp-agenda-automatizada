@@ -25,7 +25,6 @@ final class AA_Canonical_Shell_Base_Url_Policy {
         'action',
         'module',
         'family',
-        'variant',
         'page',
         'shell_mode',
         'view',
@@ -36,13 +35,11 @@ final class AA_Canonical_Shell_Base_Url_Policy {
     /**
      * Construye una URL segura del shell canónico base (módulo paralelo).
      *
-     * @param string      $family_key  Configuración externa (p. ej. finance).
-     * @param string|null $variant_key Configuración externa (p. ej. general).
-     * @param int|null    $page        Página >= 1; omitida si null o 1.
+     * @param string   $family_key Configuración externa (p. ej. finance).
+     * @param int|null $page       Página >= 1; omitida si null o 1.
      */
     public static function build_url(
         string $family_key,
-        ?string $variant_key = null,
         ?int $page = null
     ): string {
         if (!AA_Canonical_Key::is_valid($family_key)) {
@@ -55,13 +52,6 @@ final class AA_Canonical_Shell_Base_Url_Policy {
             'family' => $family_key,
         ];
 
-        if ($variant_key !== null && $variant_key !== '') {
-            if (!AA_Canonical_Key::is_valid($variant_key)) {
-                throw new InvalidArgumentException('Clave de variante no válida para shell base.');
-            }
-            $args['variant'] = $variant_key;
-        }
-
         if ($page !== null && $page > 1) {
             $args['page'] = (string) $page;
         }
@@ -70,7 +60,7 @@ final class AA_Canonical_Shell_Base_Url_Policy {
     }
 
     /**
-     * URL de preview administrativo explícito (sin family/variant).
+     * URL de preview administrativo explícito (sin family).
      */
     public static function build_preview_url(?int $page = null): string {
         $args = [
@@ -90,16 +80,12 @@ final class AA_Canonical_Shell_Base_Url_Policy {
      */
     public static function build_records_url(
         string $family_key,
-        string $variant_key,
         int $container_id,
         ?int $page = null,
         ?int $containers_page = null
     ): string {
         if (!AA_Canonical_Key::is_valid($family_key)) {
             throw new InvalidArgumentException('Clave de familia no válida para shell base.');
-        }
-        if (!AA_Canonical_Key::is_valid($variant_key)) {
-            throw new InvalidArgumentException('Clave de variante no válida para shell base.');
         }
         if ($container_id < 1) {
             throw new InvalidArgumentException('container_id no válido para shell base.');
@@ -109,7 +95,6 @@ final class AA_Canonical_Shell_Base_Url_Policy {
             'action' => self::ACTION_IFRAME_CONTENT,
             'module' => self::MODULE_SHELL,
             'family' => $family_key,
-            'variant' => $variant_key,
             'view' => self::VIEW_RECORDS,
             'container_id' => (string) $container_id,
         ];
@@ -268,7 +253,6 @@ final class AA_Canonical_Shell_Base_Url_Policy {
 
         $shell_mode = isset($query['shell_mode']) ? (string) $query['shell_mode'] : '';
         $has_family = isset($query['family']);
-        $has_variant = isset($query['variant']);
         $view = isset($query['view']) ? (string) $query['view'] : '';
         $has_container_id = isset($query['container_id']);
         $has_containers_page = isset($query['containers_page']);
@@ -277,7 +261,7 @@ final class AA_Canonical_Shell_Base_Url_Policy {
             if ($shell_mode !== self::SHELL_MODE_PREVIEW) {
                 return false;
             }
-            if ($has_family || $has_variant) {
+            if ($has_family) {
                 return false;
             }
         }
@@ -298,13 +282,6 @@ final class AA_Canonical_Shell_Base_Url_Policy {
         if ($has_family) {
             $family = (string) $query['family'];
             if ($family === '' || !AA_Canonical_Key::is_valid($family)) {
-                return false;
-            }
-        }
-
-        if ($has_variant) {
-            $variant = (string) $query['variant'];
-            if ($variant === '' || !AA_Canonical_Key::is_valid($variant)) {
                 return false;
             }
         }

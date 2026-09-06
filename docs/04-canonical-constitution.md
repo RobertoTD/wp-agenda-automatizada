@@ -29,7 +29,6 @@ Un registro pertenece obligatoriamente a un contenedor.
 Toda referencia canónica debe permitir identificar:
 
 family_key;
-variant_key;
 tipo de recurso: container o record;
 identificador;
 container_id cuando sea un registro.
@@ -46,13 +45,13 @@ Los nombres físicos llevan el prefijo técnico de la instalación (actualmente 
 
 No existe una pareja de tablas por familia.
 
-La tabla de contenedores identifica la familia y la variante. Un registro pertenece obligatoriamente a un contenedor y hereda de él su familia y variante.
+La tabla de contenedores identifica la familia. Un registro pertenece obligatoriamente a un contenedor y hereda de él su familia.
 
 Las tablas base almacenan exclusivamente estado y campos universales del contrato. No admiten columnas particulares de ninguna familia (`amount`, imágenes, SKU, teléfonos, datos de agenda u equivalentes), ni JSON genérico, ni EAV, ni payloads arbitrarios como sustituto de persistencia tipada.
 
 Toda característica no universal se implementa como capability con persistencia tipada propia, referida al contenedor o al registro. Una capability se implementa una vez y puede contribuir a persistencia, validación, formularios, cards, API y runtime público.
 
-Las definiciones de familia y de variante son contratos de producto declarados en código. La base de datos guarda estado de instalación y habilitación, contenedores y registros; nunca clases, callbacks, SQL ni definiciones ejecutables.
+Las definiciones de familia son contratos de producto declarados en código. La base de datos guarda estado de instalación y habilitación, contenedores y registros; nunca clases, callbacks, SQL ni definiciones ejecutables.
 
 Los timestamps técnicos de las tablas canónicas universales se almacenan en UTC. UTC es la fuente de verdad; la conversión a la zona configurada ocurre en la presentación.
 
@@ -66,7 +65,7 @@ Una familia implementada antes de esta regla puede conservar temporalmente tabla
 
 El shell contiene únicamente comportamiento universal:
 
-routing por familia y variante;
+routing por familia;
 encabezados contextuales;
 cards base;
 navegación contenedor–registros;
@@ -86,7 +85,7 @@ El shell no debe conocer nombres, campos, tablas, endpoints ni reglas particular
 La familia define:
 
 semántica de negocio;
-su definición y su catálogo de variantes;
+su definición;
 Application y adaptadores;
 validaciones;
 capabilities disponibles o predeterminadas.
@@ -94,19 +93,6 @@ capabilities disponibles o predeterminadas.
 La familia no define ni posee su propia persistencia base. Usa la persistencia canónica universal y expresa sus características particulares mediante capabilities.
 
 Ninguna familia es el shell. La primera familia implementada tampoco define por sí sola el canon.
-
-### Variante
-
-La variante configura una forma reconocible de una familia. Puede ajustar:
-
-copy;
-labels;
-presentación;
-políticas;
-capabilities activas;
-configuración de capabilities.
-
-La variante no puede romper el contrato contenedor–registro ni eliminar los campos base.
 
 ## Capabilities
 
@@ -150,7 +136,7 @@ La futura compartición de contenedores o registros debe conservar su identidad 
 
 Una familia puede conservar interfaces especializadas, como calendario, timeline o galería.
 
-La interfaz especializada puede coexistir con la vista canónica. No debe obligarse al shell universal a absorber comportamientos que solo corresponden a esa familia o variante.
+La interfaz especializada puede coexistir con la vista canónica. No debe obligarse al shell universal a absorber comportamientos que solo corresponden a esa familia.
 
 Una familia se integra al canon únicamente cuando puede proyectar coherentemente sus datos como contenedores y registros.
 
@@ -158,7 +144,7 @@ Una familia se integra al canon únicamente cuando puede proyectar coherentement
 
 Antes de proponer o implementar cualquier cambio:
 
-Clasificarlo explícitamente como shell, familia, variante, capability, runtime o transporte.
+Clasificarlo explícitamente como shell, familia, capability, runtime o transporte.
 Detenerse si la responsabilidad no puede clasificarse claramente.
 No colocar código particular de una familia dentro del shell.
 No duplicar en cada familia una función que pertenece al shell.
@@ -174,7 +160,7 @@ Si un ciclo mejora una familia pero aleja el sistema de esta arquitectura, deten
 El proyecto conserva su dirección mientras cualquier familia compatible puede:
 
 registrar su estructura;
-resolver una variante;
+resolverse por `family_key` en el shell universal (sin `variant_key` en contratos, URLs ni persistencia `aa_canonical_*`);
 usar el shell sin copiarlo;
 añadir capabilities sin contaminarlo;
 proyectar sus datos al contrato canónico;

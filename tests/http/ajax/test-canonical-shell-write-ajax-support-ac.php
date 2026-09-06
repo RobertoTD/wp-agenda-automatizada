@@ -136,7 +136,6 @@ if (!function_exists('wp_send_json_error')) {
 
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
-require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-variant-definition.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-registry.php';
 require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-core-bootstrap.php';
 require_once $plugin_root . '/includes/application/canonical/ResolveCanonicalRouteUseCase.php';
@@ -211,10 +210,8 @@ final class AA_Canonical_Write_Binding_Bootstrap {
             if (empty(AA_Canonical_Family_Enablement_Store::$enabled_map[$key])) {
                 continue;
             }
-            $adapter = CanonicalFixtureWriteAdapter::with_seed('general', []);
-            foreach ($canonical->variants_for($key) as $variant) {
-                $registry->register(new CanonicalReadIdentity($key, $variant->key()), $adapter);
-            }
+            $adapter = CanonicalFixtureWriteAdapter::with_seed($key, []);
+            $registry->register(new CanonicalReadIdentity($key), $adapter);
         }
     }
 }
@@ -245,75 +242,68 @@ function aa_support_reject(callable $fn): ?array {
 
 // --- authorize_identity: cada gate con su terna exacta ---
 $r = aa_support_reject(function () {
-    CanonicalShellWriteAjaxSupport::authorize_identity('nope', 'general');
+    CanonicalShellWriteAjaxSupport::authorize_identity('nope');
 });
 ac_assert('Familia desconocida → unknown_identity 404', $r !== null && $r['code'] === 'unknown_identity' && $r['status'] === 404);
 ac_assert('Rechazo no emitió JSON', $GLOBALS['aa_test_json'] === null);
 
-$r = aa_support_reject(function () {
-    CanonicalShellWriteAjaxSupport::authorize_identity('finance', 'nope');
-});
-ac_assert('Variante desconocida → unknown_identity 404', $r !== null && $r['code'] === 'unknown_identity' && $r['status'] === 404);
-
 $GLOBALS['aa_test_logged_in'] = false;
 $r = aa_support_reject(function () {
-    CanonicalShellWriteAjaxSupport::authorize_identity('finance', 'general');
+    CanonicalShellWriteAjaxSupport::authorize_identity('finance');
 });
 ac_assert('Sin sesión → unauthorized 401', $r !== null && $r['code'] === 'unauthorized' && $r['status'] === 401);
 $GLOBALS['aa_test_logged_in'] = true;
 
 $GLOBALS['aa_test_caps'] = [];
 $r = aa_support_reject(function () {
-    CanonicalShellWriteAjaxSupport::authorize_identity('archive', 'general');
+    CanonicalShellWriteAjaxSupport::authorize_identity('archive');
 });
 ac_assert('Sin manage_options en archive → forbidden 403', $r !== null && $r['code'] === 'forbidden' && $r['status'] === 403);
 $r = aa_support_reject(function () {
-    CanonicalShellWriteAjaxSupport::authorize_identity('finance', 'general');
+    CanonicalShellWriteAjaxSupport::authorize_identity('finance');
 });
 ac_assert('Finance no exige manage_options', $r === null);
 $GLOBALS['aa_test_caps'] = ['manage_options' => true];
 
 AA_Canonical_Family_Enablement_Store::$mode = 'schema';
 $r = aa_support_reject(function () {
-    CanonicalShellWriteAjaxSupport::authorize_identity('finance', 'general');
+    CanonicalShellWriteAjaxSupport::authorize_identity('finance');
 });
 ac_assert('Schema ausente → schema_not_ready 503', $r !== null && $r['code'] === 'schema_not_ready' && $r['status'] === 503);
 
 AA_Canonical_Family_Enablement_Store::$mode = 'persist';
 $r = aa_support_reject(function () {
-    CanonicalShellWriteAjaxSupport::authorize_identity('finance', 'general');
+    CanonicalShellWriteAjaxSupport::authorize_identity('finance');
 });
 ac_assert('Persistencia enablement → enablement_unavailable 500', $r !== null && $r['code'] === 'enablement_unavailable' && $r['status'] === 500);
 
 AA_Canonical_Family_Enablement_Store::$mode = 'boom';
 $r = aa_support_reject(function () {
-    CanonicalShellWriteAjaxSupport::authorize_identity('finance', 'general');
+    CanonicalShellWriteAjaxSupport::authorize_identity('finance');
 });
 ac_assert('Throwable enablement no se degrada a persistence_failed', $r !== null && $r['code'] === 'enablement_unavailable');
 AA_Canonical_Family_Enablement_Store::$mode = 'ok';
 
 AA_Canonical_Family_Enablement_Store::$enabled_map = ['finance' => true];
 $r = aa_support_reject(function () {
-    CanonicalShellWriteAjaxSupport::authorize_identity('archive', 'general');
+    CanonicalShellWriteAjaxSupport::authorize_identity('archive');
 });
 ac_assert('Familia sin fila → family_not_provisioned 409', $r !== null && $r['code'] === 'family_not_provisioned' && $r['status'] === 409);
 
 AA_Canonical_Family_Enablement_Store::$enabled_map = ['finance' => true, 'archive' => false];
 $r = aa_support_reject(function () {
-    CanonicalShellWriteAjaxSupport::authorize_identity('archive', 'general');
+    CanonicalShellWriteAjaxSupport::authorize_identity('archive');
 });
 ac_assert('Familia deshabilitada → family_disabled 409', $r !== null && $r['code'] === 'family_disabled' && $r['status'] === 409);
 ac_assert('Deshabilitada se distingue de no provisionada', $r['code'] !== 'family_not_provisioned');
 AA_Canonical_Family_Enablement_Store::$enabled_map = ['finance' => true, 'archive' => true];
 
-// --- authorize_identity: éxito devuelve definiciones, no manifest ---
-$authorized = CanonicalShellWriteAjaxSupport::authorize_identity('finance', 'general');
-ac_assert('Devuelve definiciones de familia y variante', is_array($authorized)
-    && $authorized['family'] instanceof AA_Canonical_Family_Definition
-    && $authorized['variant'] instanceof AA_Canonical_Variant_Definition);
-ac_assert('No construye el manifest', !isset($authorized['manifest']) && count($authorized) === 2);
-ac_assert('Claves resueltas disponibles', $authorized['family']->key() === 'finance'
-    && $authorized['variant']->key() === 'general');
+// --- authorize_identity: éxito devuelve familia, no manifest ---
+$authorized = CanonicalShellWriteAjaxSupport::authorize_identity('finance');
+ac_assert('Devuelve definición de familia', is_array($authorized)
+    && isset($authorized['family']) && $authorized['family'] instanceof AA_Canonical_Family_Definition);
+ac_assert('No construye el manifest', !isset($authorized['manifest']) && count($authorized) === 1);
+ac_assert('Clave resuelta disponible', $authorized['family']->key() === 'finance');
 ac_assert('Éxito tampoco emite JSON', $GLOBALS['aa_test_json'] === null);
 
 // --- build_write_gateway ---

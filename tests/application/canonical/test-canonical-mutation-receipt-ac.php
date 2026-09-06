@@ -39,7 +39,7 @@ function expect_receipt_invalid(callable $fn): bool {
     return false;
 }
 
-$identity = new CanonicalReadIdentity('sample', 'alpha');
+$identity = new CanonicalReadIdentity('sample');
 $R = CanonicalMutationReceipt::class;
 
 $ops = [
@@ -60,7 +60,7 @@ foreach ($ops as $i => $spec) {
         && $receipt->resource_id() === $rid
         && $receipt->container_id() === $cid
         && $receipt->family_key() === 'sample'
-        && $receipt->variant_key() === 'alpha');
+        && $receipt->family_key() === 'alpha');
 }
 
 $uncertain_specs = [

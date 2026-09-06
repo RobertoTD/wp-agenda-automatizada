@@ -129,7 +129,6 @@ $GLOBALS['wpdb'] = new ComposerUniversalEmptyWpdbMock();
 
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
-require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-variant-definition.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-instant.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-container.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-registry.php';
@@ -185,10 +184,10 @@ if (defined('AA_CANONICAL_SHELL_PREVIEW')) {
 ac_assert('Preview disabled without constant', AA_Canonical_Shell_View_Composer::is_preview_enabled() === false);
 
 $family = AA_Canonical_Core_Bootstrap::instance()->family('finance');
-$variant = AA_Canonical_Core_Bootstrap::instance()->variant('finance', 'general');
-$view = AA_Canonical_Shell_View_Composer::compose_family($family, $variant, 1);
+$view = AA_Canonical_Shell_View_Composer::compose_family($family, 1);
 ac_assert('finance.general → empty (productive binding, no data)', ($view['read_state'] ?? '') === 'empty');
-ac_assert('Labels from registry defs', ($view['family_label'] ?? '') === 'Finanzas' && ($view['variant_label'] ?? '') === 'General');
+ac_assert('Labels from registry defs', ($view['family_label'] ?? '') === 'Finanzas');
+ac_assert('No variant_label in view', !array_key_exists('variant_label', $view));
 ac_assert('No CTA url when preview disabled', empty($view['preview_enabled']) && ($view['preview_url'] ?? null) === null);
 ac_assert('Not marked as preview', empty($view['is_preview']));
 
@@ -214,7 +213,7 @@ ac_assert('Preview adapter file not loaded without constant', $preview_loaded ==
 define('AA_CANONICAL_SHELL_PREVIEW', true);
 ac_assert('Preview enabled with constant true', AA_Canonical_Shell_View_Composer::is_preview_enabled() === true);
 
-$view_empty = AA_Canonical_Shell_View_Composer::compose_family($family, $variant, 1);
+$view_empty = AA_Canonical_Shell_View_Composer::compose_family($family, 1);
 ac_assert('Empty finance exposes CTA when preview on', !empty($view_empty['preview_enabled'])
     && is_string($view_empty['preview_url'])
     && strpos($view_empty['preview_url'], 'shell_mode=preview') !== false);
@@ -228,7 +227,7 @@ ac_assert('Preview is_preview flag', !empty($preview_view['is_preview']));
 ac_assert('Preview banner present', is_string($preview_view['preview_banner'] ?? null) && $preview_view['preview_banner'] !== '');
 ac_assert('Preview has >=15 items on page 1', count($preview_view['items_view'] ?? []) === 15);
 ac_assert('Preview total > 15', (int) ($preview_view['total'] ?? 0) > 15);
-ac_assert('Preview qualified key', ($preview_view['qualified_key'] ?? '') === 'shell_preview.demo');
+ac_assert('Preview qualified key', ($preview_view['qualified_key'] ?? '') === 'shell_preview');
 ac_assert('Preview labels ephemeral', ($preview_view['family_label'] ?? '') === 'Demostración del shell');
 ac_assert('Container items expose records_url', isset($preview_view['items_view'][0]['records_url'])
     && strpos((string) $preview_view['items_view'][0]['records_url'], 'view=records') !== false);

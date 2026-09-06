@@ -162,7 +162,6 @@ if (!function_exists('wp_send_json_error')) {
 
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
-require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-variant-definition.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-registry.php';
 require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-core-bootstrap.php';
 require_once $plugin_root . '/includes/application/canonical/ResolveCanonicalRouteUseCase.php';
@@ -242,17 +241,15 @@ final class AA_Canonical_Write_Binding_Bootstrap {
                     2 => ['title' => 'Otra', 'details' => null],
                 ]
                 : [];
-            $adapter = CanonicalFixtureWriteAdapter::with_seed('general', $seed);
+            $adapter = CanonicalFixtureWriteAdapter::with_seed($key, $seed);
             if (self::$mode === 'uncertain') {
                 $adapter->uncertain_operation = 'delete_container';
             }
             if (self::$mode === 'persist_fail') {
                 $adapter->uncertain_operation = 'persistence_failed';
             }
-            foreach ($canonical->variants_for($key) as $variant) {
-                $identity = new CanonicalReadIdentity($key, $variant->key());
-                $registry->register($identity, $adapter);
-            }
+            $identity = new CanonicalReadIdentity($key);
+            $registry->register($identity, $adapter);
         }
     }
 }
@@ -277,7 +274,6 @@ function aa_base_delete_post(array $over = []): array {
     return array_merge([
         'nonce' => 'good-nonce',
         'family_key' => 'finance',
-        'variant_key' => 'general',
         'container_id' => '1',
     ], $over);
 }
@@ -307,8 +303,6 @@ ac_assert('Garbage container_id → invalid_container_id', ($r['data']['code'] ?
 $r = aa_run_delete_container_ajax(aa_base_delete_post(['family_key' => 'nope']));
 ac_assert('Unknown family → unknown_identity', ($r['data']['code'] ?? '') === 'unknown_identity');
 
-$r = aa_run_delete_container_ajax(aa_base_delete_post(['variant_key' => 'nope']));
-ac_assert('Unknown variant → unknown_identity', ($r['data']['code'] ?? '') === 'unknown_identity');
 
 $GLOBALS['aa_test_caps'] = [];
 $r = aa_run_delete_container_ajax(aa_base_delete_post(['family_key' => 'archive']));
@@ -366,14 +360,13 @@ ac_assert('Confirmed success', ($r['success'] ?? false) === true);
 ac_assert('Confirmed status', ($r['data']['status'] ?? '') === 'confirmed');
 ac_assert('Confirmed resource_id', (int) ($r['data']['resource_id'] ?? 0) === 1);
 ac_assert('Confirmed container_id null', array_key_exists('container_id', $r['data']) && $r['data']['container_id'] === null);
-ac_assert('Confirmed family/variant', ($r['data']['family_key'] ?? '') === 'finance'
-    && ($r['data']['variant_key'] ?? '') === 'general');
+ac_assert('Confirmed family_key', ($r['data']['family_key'] ?? '') === 'finance');
+ac_assert('Confirmed without variant_key', !array_key_exists('variant_key', $r['data'] ?? []));
 ac_assert(
     'Redirect page 1 sin page=',
     is_string($r['data']['redirect_url'] ?? null)
     && strpos($r['data']['redirect_url'], 'family=finance') !== false
-    && strpos($r['data']['redirect_url'], 'variant=general') !== false
-    && strpos($r['data']['redirect_url'], 'page=') === false
+        && strpos($r['data']['redirect_url'], 'page=') === false
 );
 
 // Precedencia de errores con dos condiciones inválidas simultáneas (SB1-5C1).

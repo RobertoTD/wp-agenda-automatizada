@@ -69,7 +69,7 @@ ac_assert('Parent usa textContent', strpos($parent, 'textContent = label') !== f
 ac_assert('Binding Finance legacy ausente del bootstrap productivo', strpos($binding, 'AA_Finance_Canonical_Read_Adapter') === false);
 ac_assert('Bootstrap read usa Relational', strpos($binding, 'AA_Canonical_Relational_Read_Adapter') !== false
     || strpos($binding, 'Relational_Read_Adapter') !== false);
-ac_assert('DB_VERSION=21', strpos($schema, "DB_VERSION = '21'") !== false);
+ac_assert('DB_VERSION=22', strpos($schema, "DB_VERSION = '22'") !== false);
 ac_assert('CATALOG_VERSION=1', strpos($catalog, 'CATALOG_VERSION = 1') !== false);
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";

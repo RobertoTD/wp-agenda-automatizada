@@ -1,6 +1,6 @@
 <?php
 /**
- * Canonical Registry — Registro en memoria de familias y variantes canónicas.
+ * Canonical Registry — Registro en memoria de familias canónicas.
  *
  * Objeto de dominio instanciable e independiente del producto concreto.
  *
@@ -14,9 +14,6 @@ final class AA_Canonical_Registry {
 
     /** @var array<string, AA_Canonical_Family_Definition> */
     private $families = [];
-
-    /** @var array<string, array<string, AA_Canonical_Variant_Definition>> */
-    private $variants = [];
 
     /** @var bool */
     private $frozen = false;
@@ -40,66 +37,14 @@ final class AA_Canonical_Registry {
         }
 
         $this->families[$key] = $family;
-        if (!isset($this->variants[$key])) {
-            $this->variants[$key] = [];
-        }
 
         return $this;
     }
 
     /**
-     * Registra una definición de variante dentro de una familia existente.
-     *
-     * @throws \LogicException Si el registro ya fue sellado.
-     * @throws \InvalidArgumentException Si la familia no existe o la variante ya está registrada.
-     */
-    public function register_variant(AA_Canonical_Variant_Definition $variant): self {
-        if ($this->frozen) {
-            throw new \LogicException('[registry_frozen] Cannot register variant on a frozen registry.');
-        }
-
-        $family_key = $variant->family_key();
-        if (!isset($this->families[$family_key])) {
-            throw new \InvalidArgumentException(
-                sprintf('[unknown_family] Cannot register variant for unknown family "%s".', $family_key)
-            );
-        }
-
-        $variant_key = $variant->key();
-        if (isset($this->variants[$family_key][$variant_key])) {
-            throw new \InvalidArgumentException(
-                sprintf('[duplicate_variant] Variant "%s" is already registered for family "%s".', $variant_key, $family_key)
-            );
-        }
-
-        $this->variants[$family_key][$variant_key] = $variant;
-
-        return $this;
-    }
-
-    /**
-     * Sella el registro verificando las invariantes globales.
-     *
-     * @throws \LogicException Si alguna familia no tiene registrada su variante predeterminada.
+     * Sella el registro.
      */
     public function freeze(): self {
-        if ($this->frozen) {
-            return $this;
-        }
-
-        foreach ($this->families as $family_key => $family) {
-            $default_variant_key = $family->default_variant_key();
-            if (!isset($this->variants[$family_key][$default_variant_key])) {
-                throw new \LogicException(
-                    sprintf(
-                        '[missing_default_variant] Family "%s" requires default variant "%s" to be registered before freeze.',
-                        $family_key,
-                        $default_variant_key
-                    )
-                );
-            }
-        }
-
         $this->frozen = true;
 
         return $this;
@@ -132,48 +77,6 @@ final class AA_Canonical_Registry {
         }
 
         return $this->families[$key];
-    }
-
-    /**
-     * @throws \LogicException Si el registro no ha sido sellado.
-     */
-    public function has_variant(string $family_key, string $variant_key): bool {
-        $this->assert_frozen();
-
-        return isset($this->variants[$family_key][$variant_key]);
-    }
-
-    /**
-     * @throws \LogicException Si el registro no ha sido sellado.
-     * @throws \OutOfBoundsException Si la variante no existe.
-     */
-    public function variant(string $family_key, string $variant_key): AA_Canonical_Variant_Definition {
-        $this->assert_frozen();
-
-        if (!isset($this->variants[$family_key][$variant_key])) {
-            throw new \OutOfBoundsException(
-                sprintf('[unknown_variant] Variant "%s" for family "%s" is not registered.', $variant_key, $family_key)
-            );
-        }
-
-        return $this->variants[$family_key][$variant_key];
-    }
-
-    /**
-     * @return array<int, AA_Canonical_Variant_Definition>
-     * @throws \LogicException Si el registro no ha sido sellado.
-     * @throws \OutOfBoundsException Si la familia no existe.
-     */
-    public function variants_for(string $family_key): array {
-        $this->assert_frozen();
-
-        if (!isset($this->families[$family_key])) {
-            throw new \OutOfBoundsException(
-                sprintf('[unknown_family] Family "%s" is not registered.', $family_key)
-            );
-        }
-
-        return array_values($this->variants[$family_key]);
     }
 
     /**

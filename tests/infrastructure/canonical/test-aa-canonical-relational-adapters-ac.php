@@ -62,8 +62,7 @@ if ($wp_load === '' || !is_readable($wp_load)) {
     require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
     require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-instant.php';
     require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
-    require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-variant-definition.php';
-    require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-container.php';
+        require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-container.php';
     require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-record.php';
     require_once $plugin_root . '/includes/application/canonical/CanonicalReadIdentity.php';
     require_once $plugin_root . '/includes/application/canonical/CanonicalPagination.php';
@@ -83,21 +82,20 @@ if ($wp_load === '' || !is_readable($wp_load)) {
     require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-read-binding-registry.php';
 
     final class PersistenceFailReadAdapter implements CanonicalReadAdapter {
-        public function list_containers(string $variant_key, int $page, int $per_page): CanonicalPage {
+        public function list_containers(int $page, int $per_page): CanonicalPage {
             throw new CanonicalReadPersistenceFailed(CanonicalReadPersistenceFailed::REASON_SQL, 'forced');
         }
-        public function get_container(string $variant_key, int $container_id): AA_Canonical_Container {
+        public function get_container(int $container_id): AA_Canonical_Container {
             throw new CanonicalReadPersistenceFailed(CanonicalReadPersistenceFailed::REASON_FAMILY_NOT_PROVISIONED, 'x');
         }
-        public function list_records(string $variant_key, int $container_id, int $page, int $per_page): CanonicalRecordsPage {
+        public function list_records(int $container_id, int $page, int $per_page): CanonicalRecordsPage {
             throw new CanonicalReadPersistenceFailed(CanonicalReadPersistenceFailed::REASON_SQL, 'forced');
         }
     }
 
     $manifest = new CanonicalShellManifest(
-        new CanonicalReadIdentity('sample', 'alpha'),
-        new AA_Canonical_Family_Definition('sample', 'Muestra', 'alpha'),
-        new AA_Canonical_Variant_Definition('sample', 'alpha', 'Alpha')
+        new CanonicalReadIdentity('sample'),
+        new AA_Canonical_Family_Definition('sample', 'Muestra')
     );
     $registry = new AA_Canonical_Read_Binding_Registry();
     $registry->register($manifest->identity(), new PersistenceFailReadAdapter());
@@ -142,7 +140,6 @@ require_once $plugin_root . '/includes/application/canonical/ReadCanonicalShellR
 require_once $plugin_root . '/includes/application/canonical/CanonicalReadGateway.php';
 require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-read-binding-registry.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
-require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-variant-definition.php';
 
 global $wpdb;
 
@@ -184,7 +181,7 @@ try {
         ['%s', '%d', '%d', '%s', '%s']
     );
 
-    $identity = new CanonicalReadIdentity('sample', 'alpha');
+    $identity = new CanonicalReadIdentity('sample');
     $read = new AA_Canonical_Relational_Read_Adapter($repo, $identity);
     $write = new AA_Canonical_Relational_Write_Adapter($repo);
 
@@ -228,7 +225,7 @@ try {
     ac_assert('Write delete record inexistente → RecordNotFound', $missing_rec);
 
     // Familia no provisionada
-    $orphan_identity = new CanonicalReadIdentity('orphan', 'alpha');
+    $orphan_identity = new CanonicalReadIdentity('orphan');
     $orphan_read = new AA_Canonical_Relational_Read_Adapter($repo, $orphan_identity);
     $fam_fail = false;
     try {
@@ -240,13 +237,13 @@ try {
 
     // SQL read fail → Use Case contract_error
     final class ForcedSqlReadAdapter implements CanonicalReadAdapter {
-        public function list_containers(string $variant_key, int $page, int $per_page): CanonicalPage {
+        public function list_containers(int $page, int $per_page): CanonicalPage {
             throw new CanonicalReadPersistenceFailed(CanonicalReadPersistenceFailed::REASON_SQL, 'forced');
         }
-        public function get_container(string $variant_key, int $container_id): AA_Canonical_Container {
+        public function get_container(int $container_id): AA_Canonical_Container {
             throw new CanonicalReadPersistenceFailed(CanonicalReadPersistenceFailed::REASON_SQL, 'forced');
         }
-        public function list_records(string $variant_key, int $container_id, int $page, int $per_page): CanonicalRecordsPage {
+        public function list_records(int $container_id, int $page, int $per_page): CanonicalRecordsPage {
             throw new CanonicalReadPersistenceFailed(CanonicalReadPersistenceFailed::REASON_SQL, 'forced');
         }
     }
@@ -254,8 +251,7 @@ try {
     $registry->register($identity, new ForcedSqlReadAdapter());
     $manifest = new CanonicalShellManifest(
         $identity,
-        new AA_Canonical_Family_Definition('sample', 'Sample', 'alpha'),
-        new AA_Canonical_Variant_Definition('sample', 'alpha', 'Alpha')
+        new AA_Canonical_Family_Definition('sample', 'Sample')
     );
     $uc = new ReadCanonicalShellContainersUseCase(new CanonicalReadGateway($registry));
     $contract = $uc->execute($manifest, 1);

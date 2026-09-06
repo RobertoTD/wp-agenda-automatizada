@@ -17,13 +17,12 @@
     var deleteAction = typeof cfg.deleteAction === 'string' ? cfg.deleteAction : '';
     var deleteNonce = typeof cfg.deleteNonce === 'string' ? cfg.deleteNonce : '';
     var familyKey = typeof cfg.familyKey === 'string' ? cfg.familyKey : '';
-    var variantKey = typeof cfg.variantKey === 'string' ? cfg.variantKey : '';
     var containerId = typeof cfg.containerId === 'number' ? cfg.containerId : parseInt(cfg.containerId, 10);
     var maxTitleLength = typeof cfg.maxTitleLength === 'number' ? cfg.maxTitleLength : 200;
 
     if (!ajaxUrl || !createAction || !createNonce || !updateAction || !updateNonce
         || !deleteAction || !deleteNonce
-        || !familyKey || !variantKey || !(containerId >= 1)) {
+        || !familyKey || !(containerId >= 1)) {
         return;
     }
 
@@ -257,7 +256,6 @@
         body.append('action', action);
         body.append('nonce', nonce);
         body.append('family_key', familyKey);
-        body.append('variant_key', variantKey);
         body.append('container_id', String(containerId));
         if (mode === MODE_UPDATE) {
             body.append('record_id', String(currentRecordId));
@@ -447,7 +445,6 @@
         body.append('action', deleteAction);
         body.append('nonce', deleteNonce);
         body.append('family_key', familyKey);
-        body.append('variant_key', variantKey);
         body.append('container_id', String(containerId));
         body.append('record_id', String(deleteRecordId));
 

@@ -139,9 +139,9 @@ try {
 
     $manifest_for = static function (string $family_key) use ($registry): CanonicalShellManifest {
         return new CanonicalShellManifest(
-            new CanonicalReadIdentity($family_key, 'general'),
+            new CanonicalReadIdentity($family_key),
             $registry->family($family_key),
-            $registry->variant($family_key, 'general')
+            /* variant removed */ null
         );
     };
 
@@ -190,7 +190,6 @@ try {
     $public_id = (string) ($before['public_id'] ?? '');
     $created_at = (string) ($before['created_at'] ?? '');
     $family_id_before = (int) ($before['family_id'] ?? 0);
-    $variant_before = (string) ($before['variant_key'] ?? '');
 
     $upd = $update_container('finance', $fin_c1, 'Lista Finance A editada', "nuevo\ndetalle");
     ac_assert('Finance update confirmed', $upd->state() === CanonicalShellMutationResult::STATE_CONFIRMED);
@@ -204,8 +203,7 @@ try {
     ac_assert('created_at preserved', ($after['created_at'] ?? '') === $created_at);
     ac_assert('family_id preserved', (int) ($after['family_id'] ?? 0) === $family_id_before
         && $family_id_before === $finance_id);
-    ac_assert('variant_key preserved', ($after['variant_key'] ?? '') === $variant_before
-        && $variant_before === 'general');
+    ac_assert('Update row sin variant_key', !array_key_exists('variant_key', $after));
     ac_assert('updated_at bumped', ($after['updated_at'] ?? '') > ($before['updated_at'] ?? ''));
 
     $r1_after = $wpdb->get_row($wpdb->prepare("SELECT * FROM `{$records}` WHERE id = %d", $fin_r1), ARRAY_A);
@@ -235,20 +233,6 @@ try {
 
     $cross_family = $update_container('archive', $fin_c1, 'Fuga', null);
     ac_assert('Cross-family → container_not_found', $cross_family->state() === CanonicalShellMutationResult::STATE_CONTAINER_NOT_FOUND);
-
-    // Cross-variant: fila con variant_key distinto al identity productivo.
-    $wpdb->insert($containers, [
-        'public_id' => 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
-        'family_id' => $finance_id,
-        'variant_key' => 'other',
-        'title' => 'Otra variante',
-        'details' => null,
-        'created_at' => '2017-01-01 00:00:00',
-        'updated_at' => '2017-01-01 00:00:00',
-    ]);
-    $other_variant_id = (int) $wpdb->insert_id;
-    $cross_variant = $update_container('finance', $other_variant_id, 'Fuga variant', null);
-    ac_assert('Cross-variant → container_not_found', $cross_variant->state() === CanonicalShellMutationResult::STATE_CONTAINER_NOT_FOUND);
 
     $missing = $update_container('finance', 999999, 'X', null);
     ac_assert('Missing → container_not_found', $missing->state() === CanonicalShellMutationResult::STATE_CONTAINER_NOT_FOUND);

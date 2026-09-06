@@ -127,7 +127,6 @@ if (!function_exists('wp_parse_url')) {
 $plugin_root = dirname(__DIR__, 3);
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
-require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-variant-definition.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-registry.php';
 require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-core-bootstrap.php';
 require_once $plugin_root . '/includes/application/canonical/ResolveCanonicalRouteUseCase.php';
@@ -198,21 +197,29 @@ function simulate_shell_router(array $get_params, array $caps = []): array {
             $variant_input = array_key_exists('variant', $_GET) ? wp_unslash($_GET['variant']) : null;
             $canonical_registry = AA_Canonical_Core_Bootstrap::instance();
             $route_result = (new ResolveCanonicalRouteUseCase($canonical_registry))->execute([
-                'family_key'  => $family_input,
-                'variant_key' => $variant_input,
+                'family_key' => $family_input,
             ]);
             if (!$route_result['success']) {
                 $error_code = (string) ($route_result['error']['code'] ?? '');
-                if ($error_code === 'unknown_family' || $error_code === 'unknown_variant') {
-                    wp_die('Familia o variante canónica no encontrada.', 'Error', ['response' => 404]);
+                if ($error_code === 'unknown_family') {
+                    wp_die('Familia canónica no encontrada.', 'Error', ['response' => 404]);
                 }
                 wp_die('Parámetros de ruta canónica no válidos.', 'Error', ['response' => 400]);
             }
-            $aa_canonical_family  = $route_result['data']['family'];
-            $aa_canonical_variant = $route_result['data']['variant'];
-            $aa_canonical_url     = AA_Canonical_Shell_Url_Policy::build_url(
+            $aa_canonical_family = $route_result['data']['family'];
+            if (!class_exists('FinanceUseCaseSupport')) {
+                require_once dirname(__DIR__, 3) . '/includes/application/finance/FinanceUseCaseSupport.php';
+            }
+            $finance_variant = FinanceUseCaseSupport::resolve_variant($canonical_registry, [
+                'variant_key' => $variant_input,
+            ]);
+            if (!$finance_variant['ok']) {
+                wp_die('Parámetros de ruta canónica no válidos.', 'Error', ['response' => 400]);
+            }
+            $aa_finance_variant_key = $finance_variant['variant_key'];
+            $aa_canonical_url = AA_Canonical_Shell_Url_Policy::build_url(
                 $aa_canonical_family->key(),
-                $aa_canonical_variant->key()
+                $aa_finance_variant_key
             );
         } elseif ($active_module === 'canonical_shell') {
             $family_present = array_key_exists('family', $_GET);
@@ -221,24 +228,19 @@ function simulate_shell_router(array $get_params, array $caps = []): array {
             $variant_input = $variant_present ? wp_unslash($_GET['variant']) : null;
             $aa_canonical_url = AA_Canonical_Shell_Base_Url_Policy::build_module_url();
 
-            if (!$family_present && !$variant_present) {
+            if (!$family_present) {
                 $aa_shell_route_state = 'missing_identity';
                 $aa_shell_route_message = 'Identidad canónica no suministrada. Este módulo es un shell base en construcción.';
-            } elseif ($family_present xor $variant_present) {
-                $aa_shell_route_state = 'incomplete_identity';
-                $aa_shell_route_message = 'La identidad canónica está incompleta: se requieren family y variant juntos.';
-                status_header(400);
             } else {
                 $canonical_registry = AA_Canonical_Core_Bootstrap::instance();
                 $route_result = (new ResolveCanonicalRouteUseCase($canonical_registry))->execute([
-                    'family_key'  => $family_input,
-                    'variant_key' => $variant_input,
+                    'family_key' => $family_input,
                 ]);
                 if (!$route_result['success']) {
                     $error_code = (string) ($route_result['error']['code'] ?? '');
-                    if ($error_code === 'unknown_family' || $error_code === 'unknown_variant') {
+                    if ($error_code === 'unknown_family') {
                         $aa_shell_route_state = 'not_found';
-                        $aa_shell_route_message = (string) ($route_result['error']['message'] ?? 'Familia o variante no encontrada.');
+                        $aa_shell_route_message = (string) ($route_result['error']['message'] ?? 'Familia no encontrada.');
                         status_header(404);
                     } else {
                         $aa_shell_route_state = 'invalid_request';
@@ -246,13 +248,11 @@ function simulate_shell_router(array $get_params, array $caps = []): array {
                         status_header(400);
                     }
                 } else {
-                    $aa_canonical_family  = $route_result['data']['family'];
-                    $aa_canonical_variant = $route_result['data']['variant'];
+                    $aa_canonical_family = $route_result['data']['family'];
                     $aa_shell_route_state = 'resolved';
                     $aa_shell_route_message = 'Ruta canónica resuelta.';
                     $aa_canonical_url = AA_Canonical_Shell_Base_Url_Policy::build_url(
-                        $aa_canonical_family->key(),
-                        $aa_canonical_variant->key()
+                        $aa_canonical_family->key()
                     );
                 }
             }
@@ -304,12 +304,10 @@ $res_ok = simulate_shell_router(
     ['module' => 'canonical_shell', 'family' => 'finance', 'variant' => 'general'],
     ['manage_options' => true]
 );
-ac_assert('Admin resolves finance.general on shell (access 200)', $res_ok['status'] === 200);
+ac_assert('Admin resolves finance on shell (access 200)', $res_ok['status'] === 200);
 ac_assert('Shell route state is resolved', ($res_ok['aa_shell_route_state'] ?? '') === 'resolved');
 ac_assert('Resolved family is finance', $res_ok['aa_canonical_family'] instanceof AA_Canonical_Family_Definition
     && $res_ok['aa_canonical_family']->key() === 'finance');
-ac_assert('Resolved variant is general', $res_ok['aa_canonical_variant'] instanceof AA_Canonical_Variant_Definition
-    && $res_ok['aa_canonical_variant']->key() === 'general');
 ac_assert('Shell uses canonical-layout', ($res_ok['layout'] ?? '') === 'canonical-layout');
 ac_assert('Shell URL keeps module=canonical_shell', strpos((string) ($res_ok['aa_canonical_url'] ?? ''), 'module=canonical_shell') !== false);
 
@@ -324,18 +322,17 @@ ac_assert('Missing identity is controlled state', ($res_missing['aa_shell_route_
 ac_assert('Missing identity does not fall back to calendar', ($res_missing['active_module'] ?? '') === 'canonical_shell');
 ac_assert('Missing identity remains HTTP 200 body path', ($res_missing['status'] ?? 0) === 200 && ($res_missing['http_status'] ?? 0) === 200);
 
-$res_incomplete = simulate_shell_router(
+$res_family_only = simulate_shell_router(
     ['module' => 'canonical_shell', 'family' => 'finance'],
     ['manage_options' => true]
 );
-ac_assert('Only family yields incomplete_identity', ($res_incomplete['aa_shell_route_state'] ?? '') === 'incomplete_identity');
-ac_assert('Incomplete identity sets status 400', ($res_incomplete['http_status'] ?? 0) === 400);
+ac_assert('Family-only resolves without incomplete_identity', ($res_family_only['aa_shell_route_state'] ?? '') === 'resolved');
 
-$res_incomplete_var = simulate_shell_router(
+$res_variant_only = simulate_shell_router(
     ['module' => 'canonical_shell', 'variant' => 'general'],
     ['manage_options' => true]
 );
-ac_assert('Only variant yields incomplete_identity', ($res_incomplete_var['aa_shell_route_state'] ?? '') === 'incomplete_identity');
+ac_assert('Variant-only without family is missing_identity', ($res_variant_only['aa_shell_route_state'] ?? '') === 'missing_identity');
 
 $res_invalid = simulate_shell_router(
     ['module' => 'canonical_shell', 'family' => 'Bad_Key!', 'variant' => 'general'],
@@ -363,10 +360,10 @@ ac_assert('Finance URL still module=canonical', strpos((string) ($res_fin['aa_ca
         && strpos((string) ($res_fin['aa_canonical_url'] ?? ''), 'canonical_shell') === false));
 
 // --- URL policy hermana ---
-$shell_url = AA_Canonical_Shell_Base_Url_Policy::build_url('finance', 'general');
+$shell_url = AA_Canonical_Shell_Base_Url_Policy::build_url('finance');
 ac_assert('Shell base URL uses module=canonical_shell', strpos($shell_url, 'module=canonical_shell') !== false);
-ac_assert('Shell base URL includes finance.general', strpos($shell_url, 'family=finance') !== false
-    && strpos($shell_url, 'variant=general') !== false);
+ac_assert('Shell base URL includes family=finance without variant', strpos($shell_url, 'family=finance') !== false
+    && strpos($shell_url, 'variant=') === false);
 $finance_url = AA_Canonical_Shell_Url_Policy::build_url('finance', 'general');
 ac_assert('Existing finance URL policy unchanged (module=canonical)', strpos($finance_url, 'module=canonical') !== false
     && strpos($finance_url, 'canonical_shell') === false);
@@ -511,15 +508,14 @@ require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonic
 $aa_shell_route_state = 'resolved';
 $aa_shell_route_message = 'Ruta canónica resuelta.';
 $aa_canonical_family = AA_Canonical_Core_Bootstrap::instance()->family('finance');
-$aa_canonical_variant = AA_Canonical_Core_Bootstrap::instance()->variant('finance', 'general');
-$aa_shell_view = AA_Canonical_Shell_View_Composer::compose_family($aa_canonical_family, $aa_canonical_variant, 1);
+$aa_canonical_variant = null;
+$aa_shell_view = AA_Canonical_Shell_View_Composer::compose_family($aa_canonical_family, 1);
 ob_start();
 require $plugin_root . '/includes/admin/ui/modules/canonical_shell/index.php';
 $shell_html = ob_get_clean();
 ac_assert('Shell root id present', strpos($shell_html, 'id="aa-canonical-shell-root"') !== false);
 ac_assert('Shell shows Finanzas label from registry', strpos($shell_html, 'Finanzas') !== false);
-ac_assert('Shell shows General label from registry', strpos($shell_html, 'General') !== false);
-ac_assert('Shell shows qualified finance.general', strpos($shell_html, 'finance.general') !== false);
+ac_assert('Shell shows qualified finance', strpos($shell_html, 'finance') !== false);
 ac_assert('Shell shows empty finance (not pending)', strpos($shell_html, 'Sin contenedores') !== false
     && strpos($shell_html, 'Lectura pendiente') === false);
 ac_assert('Shell empty copy universal', strpos($shell_html, 'Aún no hay contenedores en este tipo de registro.') !== false);

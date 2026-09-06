@@ -40,7 +40,6 @@ if (!function_exists('current_time')) {
 
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
-require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-variant-definition.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-registry.php';
 require_once $plugin_root . '/includes/repositories/FinanceContainerRepository.php';
 require_once $plugin_root . '/includes/application/finance/FinanceUseCaseSupport.php';
@@ -81,9 +80,7 @@ global $wpdb;
 $wpdb = new TestUpdateContainerWpdbMock();
 
 $registry = new AA_Canonical_Registry();
-$registry->register_family(new AA_Canonical_Family_Definition('finance', 'Finanzas', 'general'));
-$registry->register_variant(new AA_Canonical_Variant_Definition('finance', 'general', 'General'));
-$registry->register_variant(new AA_Canonical_Variant_Definition('finance', 'special', 'Special'));
+$registry->register_family(new AA_Canonical_Family_Definition('finance', 'Finanzas'));
 $registry->freeze();
 
 $use_case = new UpdateFinanceContainerUseCase($registry);
@@ -156,8 +153,7 @@ $err_bad_var = $use_case->execute(['id' => 15, 'variant_key' => '!!!', 'title' =
 ac_assert('variant_key inválida devuelve invalid_variant_key', !$err_bad_var['success'] && $err_bad_var['error']['code'] === 'invalid_variant_key');
 
 $unfrozen = new AA_Canonical_Registry();
-$unfrozen->register_family(new AA_Canonical_Family_Definition('finance', 'Finanzas', 'general'));
-$unfrozen->register_variant(new AA_Canonical_Variant_Definition('finance', 'general', 'General'));
+$unfrozen->register_family(new AA_Canonical_Family_Definition('finance', 'Finanzas'));
 $unfrozen_uc = new UpdateFinanceContainerUseCase($unfrozen);
 $err_unfrozen = $unfrozen_uc->execute(['id' => 1, 'title' => 'T', 'details' => null]);
 ac_assert('registry no sellado devuelve canonical_unavailable', !$err_unfrozen['success'] && $err_unfrozen['error']['code'] === 'canonical_unavailable');
@@ -221,8 +217,7 @@ ac_assert('Variante discordante devuelve not_found (anti-leak)', !$res_anti_leak
 ac_assert('Variante discordante no ejecutó update()', count($wpdb->update_queries) === 0);
 
 $unknown_registry = new AA_Canonical_Registry();
-$unknown_registry->register_family(new AA_Canonical_Family_Definition('finance', 'Finanzas', 'general'));
-$unknown_registry->register_variant(new AA_Canonical_Variant_Definition('finance', 'general', 'General'));
+$unknown_registry->register_family(new AA_Canonical_Family_Definition('finance', 'Finanzas'));
 $unknown_registry->freeze();
 $unknown_uc = new UpdateFinanceContainerUseCase($unknown_registry);
 $err_unknown = $unknown_uc->execute(['id' => 1, 'variant_key' => 'missing', 'title' => 'T', 'details' => null]);

@@ -35,11 +35,4 @@ final class AA_Canonical_Key {
 
         return $key;
     }
-
-    /**
-     * Devuelve la representación cualificada derivada "family.variant".
-     */
-    public static function qualified(string $family_key, string $variant_key): string {
-        return $family_key . '.' . $variant_key;
-    }
 }

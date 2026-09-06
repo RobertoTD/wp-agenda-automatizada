@@ -129,9 +129,9 @@ try {
 
     $manifest_for = static function (string $family_key) use ($registry): CanonicalShellManifest {
         return new CanonicalShellManifest(
-            new CanonicalReadIdentity($family_key, 'general'),
+            new CanonicalReadIdentity($family_key),
             $registry->family($family_key),
-            $registry->variant($family_key, 'general')
+            /* variant removed */ null
         );
     };
 

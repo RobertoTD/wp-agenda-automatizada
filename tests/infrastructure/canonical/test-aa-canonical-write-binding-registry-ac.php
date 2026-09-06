@@ -34,9 +34,9 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 }
 
 $registry = new AA_Canonical_Write_Binding_Registry();
-$alpha = new CanonicalReadIdentity('sample', 'alpha');
-$beta = new CanonicalReadIdentity('sample', 'beta');
-$adapter_alpha = new CanonicalFixtureWriteAdapter('alpha');
+$alpha = new CanonicalReadIdentity('sample');
+$beta = new CanonicalReadIdentity('sample');
+$adapter_alpha = new CanonicalFixtureWriteAdapter('sample');
 $adapter_beta = new CanonicalFixtureWriteAdapter('beta');
 
 $registry->register($alpha, $adapter_alpha);
@@ -57,7 +57,7 @@ ac_assert('Duplicate write throws', $dup);
 ac_assert('Duplicate write tag', strpos($dup_msg, '[duplicate_write_binding]') !== false);
 ac_assert('Original write binding preserved', $registry->require($alpha) === $adapter_alpha);
 
-$missing = new CanonicalReadIdentity('sample', 'gamma');
+$missing = new CanonicalReadIdentity('sample');
 $threw = false;
 try {
     $registry->require($missing);

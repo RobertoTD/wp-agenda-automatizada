@@ -92,9 +92,9 @@ function expect_contract_violation(callable $fn): bool {
     return false;
 }
 
-$identity = new CanonicalReadIdentity('sample', 'alpha');
+$identity = new CanonicalReadIdentity('sample');
 $registry = new AA_Canonical_Write_Binding_Registry();
-$adapter = CanonicalFixtureWriteAdapter::with_seed('alpha', [
+$adapter = CanonicalFixtureWriteAdapter::with_seed('sample', [
     1 => ['title' => 'C1', 'details' => null],
 ]);
 $registry->register($identity, $adapter);
@@ -133,7 +133,7 @@ ac_assert(
 $deleted = $gateway->delete_container($identity, new CanonicalDeleteContainerCommand(1));
 ac_assert('Delete confirmed', $deleted->operation() === CanonicalMutationReceipt::OPERATION_DELETE);
 
-$adapter2 = CanonicalFixtureWriteAdapter::with_seed('alpha', [2 => ['title' => 'C2', 'details' => null]]);
+$adapter2 = CanonicalFixtureWriteAdapter::with_seed('sample', [2 => ['title' => 'C2', 'details' => null]]);
 $registry2 = new AA_Canonical_Write_Binding_Registry();
 $registry2->register($identity, $adapter2);
 $gateway2 = new CanonicalWriteGateway($registry2);
@@ -145,7 +145,7 @@ ac_assert(
     })
 );
 
-$wrong_identity = new CanonicalReadIdentity('sample', 'beta');
+$wrong_identity = new CanonicalReadIdentity('other');
 $bad_registry = new AA_Canonical_Write_Binding_Registry();
 $bad_registry->register(
     $identity,

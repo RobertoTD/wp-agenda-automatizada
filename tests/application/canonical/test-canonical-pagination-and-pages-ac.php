@@ -45,7 +45,7 @@ try {
 }
 ac_assert('Empty rejects page!=1', $bad_empty === true);
 
-$c = new AA_Canonical_Container(1, 'alpha', 'T', null, '2026-01-01T00:00:00Z');
+$c = new AA_Canonical_Container(1,  'T', null, '2026-01-01T00:00:00Z');
 $page = new CanonicalPage([$c], 1, 15, 1, 1, false, false);
 ac_assert('CanonicalPage public API page()', $page->page() === 1);
 ac_assert('CanonicalPage delegates pagination()', $page->pagination() instanceof CanonicalPagination);

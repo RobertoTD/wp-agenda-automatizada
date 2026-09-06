@@ -137,7 +137,6 @@ $GLOBALS['wpdb'] = $mock;
 
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
-require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-variant-definition.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-instant.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-container.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-record.php';
@@ -222,8 +221,8 @@ $mock->enabled_map = ['finance' => 1, 'archive' => 1];
 $read_reg = new AA_Canonical_Read_Binding_Registry();
 AA_Canonical_Read_Binding_Bootstrap::register_productive($read_reg);
 
-$finance_id = new CanonicalReadIdentity('finance', 'general');
-$archive_id = new CanonicalReadIdentity('archive', 'general');
+$finance_id = new CanonicalReadIdentity('finance');
+$archive_id = new CanonicalReadIdentity('archive');
 $fin_adapter = $read_reg->require($finance_id);
 $arch_adapter = $read_reg->require($archive_id);
 ac_assert('Finance → Relational Read', $fin_adapter instanceof AA_Canonical_Relational_Read_Adapter);
@@ -236,11 +235,13 @@ ac_assert(
 
 $other_missing = false;
 try {
-    $read_reg->require(new CanonicalReadIdentity('finance', 'other'));
+    $read_reg->require(new CanonicalReadIdentity('taxes'));
 } catch (CanonicalReadBindingNotFound $e) {
     $other_missing = true;
+} catch (InvalidArgumentException $e) {
+    $other_missing = true; // invalid key also acceptable for undeclared family
 }
-ac_assert('Variante no declarada sin binding', $other_missing);
+ac_assert('Familia no declarada sin binding', $other_missing);
 
 $joined_sql = implode("\n", $mock->queries);
 ac_assert('Read path sin aa_finance_', stripos($joined_sql, 'aa_finance_') === false);
@@ -312,8 +313,8 @@ echo "=== Compose + preview ===\n";
 $mock->enabled_map = ['finance' => 1, 'archive' => 1];
 $mock->queries = [];
 $family = AA_Canonical_Core_Bootstrap::instance()->family('finance');
-$variant = AA_Canonical_Core_Bootstrap::instance()->variant('finance', 'general');
-$view = AA_Canonical_Shell_View_Composer::compose_family($family, $variant, 1);
+$variant = null; // shell no longer exposes variants
+$view = AA_Canonical_Shell_View_Composer::compose_family($family, 1);
 ac_assert('compose_family empty universal', ($view['read_state'] ?? '') === 'empty');
 $view_sql = implode("\n", $mock->queries);
 ac_assert('compose SQL sin aa_finance_', stripos($view_sql, 'aa_finance_') === false);
@@ -322,7 +323,7 @@ ac_assert('compose SQL sin aa_expediente_', stripos($view_sql, 'aa_expediente_')
 define('AA_CANONICAL_SHELL_PREVIEW', true);
 $preview = AA_Canonical_Shell_View_Composer::compose_preview(1);
 ac_assert('Preview aislado', ($preview['read_state'] ?? '') === 'resolved_page'
-    && ($preview['qualified_key'] ?? '') === 'shell_preview.demo');
+    && ($preview['qualified_key'] ?? '') === 'shell_preview');
 
 echo "=== Toggle siguiente petición ===\n";
 $mock->enabled_map = ['finance' => 0, 'archive' => 0];

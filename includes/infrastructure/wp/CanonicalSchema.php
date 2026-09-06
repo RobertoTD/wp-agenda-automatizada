@@ -108,14 +108,13 @@ final class AA_Canonical_Schema {
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             public_id char(36) NOT NULL,
             family_id bigint(20) unsigned NOT NULL,
-            variant_key varchar(64) NOT NULL,
             title varchar(200) NOT NULL,
             details text DEFAULT NULL,
             created_at datetime NOT NULL,
             updated_at datetime NOT NULL,
             PRIMARY KEY  (id),
             UNIQUE KEY uq_container_public_id (public_id),
-            KEY idx_family_variant_updated (family_id, variant_key, updated_at, id)
+            KEY idx_family_updated (family_id, updated_at, id)
         ) ENGINE=InnoDB {$charset};";
 
         $records_sql = "CREATE TABLE {$records_table} (
@@ -139,9 +138,82 @@ final class AA_Canonical_Schema {
         dbDelta($containers_sql);
         dbDelta($records_sql);
 
+        self::ensure_containers_family_scope_v22();
         self::ensure_named_indexes();
         self::ensure_foreign_keys();
         self::verify();
+    }
+
+    /**
+     * Migración DB 21→22: alcance de contenedores por familia (sin variant_key).
+     *
+     * Orden con FKs activos (nunca desactiva checks):
+     * 1) CREATE idx_family_updated
+     * 2) Confirmación de existencia
+     * 3) DROP idx_family_variant_updated
+     * 4) DROP COLUMN variant_key
+     *
+     * Idempotente: instalaciones nuevas ya llegan sin variant_key.
+     *
+     * @throws \RuntimeException
+     */
+    public static function ensure_containers_family_scope_v22(): void {
+        global $wpdb;
+
+        $table = self::containers_table_name();
+        $cols = self::columns_by_name($table);
+        $has_variant = isset($cols['variant_key']);
+
+        self::ensure_named_index(
+            $table,
+            'idx_family_updated',
+            "ALTER TABLE `{$table}` ADD KEY idx_family_updated (family_id, updated_at, id)"
+        );
+
+        $idx = $wpdb->get_results(
+            $wpdb->prepare("SHOW INDEX FROM `{$table}` WHERE Key_name = %s", 'idx_family_updated')
+        );
+        if (empty($idx)) {
+            throw new \RuntimeException(
+                "[AA_Canonical_Schema] idx_family_updated ausente en {$table} tras ensure v22"
+            );
+        }
+
+        if (!$has_variant) {
+            return;
+        }
+
+        $old_idx = $wpdb->get_results(
+            $wpdb->prepare(
+                "SHOW INDEX FROM `{$table}` WHERE Key_name = %s",
+                'idx_family_variant_updated'
+            )
+        );
+        if (!empty($old_idx)) {
+            $drop = $wpdb->query("ALTER TABLE `{$table}` DROP INDEX `idx_family_variant_updated`");
+            if ($drop === false) {
+                $error = is_string($wpdb->last_error) && $wpdb->last_error !== ''
+                    ? $wpdb->last_error
+                    : 'DROP INDEX falló';
+                throw new \RuntimeException(
+                    "[AA_Canonical_Schema] No se pudo eliminar idx_family_variant_updated: {$error}"
+                );
+            }
+        }
+
+        $drop_col = $wpdb->query("ALTER TABLE `{$table}` DROP COLUMN `variant_key`");
+        if ($drop_col === false) {
+            $error = is_string($wpdb->last_error) && $wpdb->last_error !== ''
+                ? $wpdb->last_error
+                : 'DROP COLUMN falló';
+            // Idempotencia: si otro proceso ya eliminó la columna, columns_by_name lo confirma.
+            $cols_after = self::columns_by_name($table);
+            if (isset($cols_after['variant_key'])) {
+                throw new \RuntimeException(
+                    "[AA_Canonical_Schema] No se pudo eliminar variant_key: {$error}"
+                );
+            }
+        }
     }
 
     private static function ensure_named_indexes(): void {
@@ -166,8 +238,8 @@ final class AA_Canonical_Schema {
         );
         self::ensure_named_index(
             $containers,
-            'idx_family_variant_updated',
-            "ALTER TABLE `{$containers}` ADD KEY idx_family_variant_updated (family_id, variant_key, updated_at, id)"
+            'idx_family_updated',
+            "ALTER TABLE `{$containers}` ADD KEY idx_family_updated (family_id, updated_at, id)"
         );
         self::ensure_named_index(
             $records,
@@ -371,7 +443,7 @@ final class AA_Canonical_Schema {
         $cols = self::columns_by_name($table);
 
         $expected = [
-            'id', 'public_id', 'family_id', 'variant_key', 'title', 'details', 'created_at', 'updated_at',
+            'id', 'public_id', 'family_id', 'title', 'details', 'created_at', 'updated_at',
         ];
         foreach ($expected as $field) {
             if (!isset($cols[$field])) {
@@ -381,14 +453,13 @@ final class AA_Canonical_Schema {
 
         $forbidden = [
             'amount', 'currency', 'created_by', 'owner_user_id', 'deleted_at',
-            'family_key', 'sku', 'phone', 'email', 'image', 'tag',
+            'family_key', 'variant_key', 'sku', 'phone', 'email', 'image', 'tag',
         ];
         self::assert_forbidden_columns($table, $cols, $forbidden);
 
         self::assert_id_column($table, $cols['id']);
         self::assert_public_id($table, $cols['public_id']);
         self::assert_bigint_unsigned_not_null($table, $cols['family_id'], 'family_id');
-        self::assert_varchar_not_null_no_default($table, $cols['variant_key'], 'variant_key', 64);
         self::assert_varchar_not_null($table, $cols['title'], 'title', 200);
         self::assert_details_nullable($table, $cols['details']);
         self::assert_datetime_not_null_no_default($table, $cols['created_at'], 'created_at');
@@ -396,7 +467,7 @@ final class AA_Canonical_Schema {
 
         self::verify_index($table, 'PRIMARY', ['id']);
         self::verify_index($table, 'uq_container_public_id', ['public_id']);
-        self::verify_composite_index($table, ['family_id', 'variant_key', 'updated_at', 'id']);
+        self::verify_composite_index($table, ['family_id', 'updated_at', 'id']);
     }
 
     private static function verify_records_structure(string $table): void {

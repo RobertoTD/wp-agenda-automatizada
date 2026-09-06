@@ -127,9 +127,9 @@ try {
 
     $create_for = static function (string $family_key, string $title, ?string $details) use ($registry): CanonicalShellMutationResult {
         $family = $registry->family($family_key);
-        $variant = $registry->variant($family_key, 'general');
-        $identity = new CanonicalReadIdentity($family_key, 'general');
-        $manifest = new CanonicalShellManifest($identity, $family, $variant);
+        $variant = null;
+        $identity = new CanonicalReadIdentity($family_key);
+        $manifest = new CanonicalShellManifest($identity, $family);
         $write_registry = new AA_Canonical_Write_Binding_Registry();
         AA_Canonical_Write_Binding_Bootstrap::register_productive($write_registry);
         $uc = new WriteCanonicalShellContainerUseCase(new CanonicalWriteGateway($write_registry));
@@ -149,7 +149,7 @@ try {
         $fin_id
     ), ARRAY_A);
     ac_assert('Finance family_id', (int) ($fin_row['family_id'] ?? 0) === $finance_id);
-    ac_assert('Finance variant_key', ($fin_row['variant_key'] ?? '') === 'general');
+    ac_assert('Finance row sin variant_key', !array_key_exists('variant_key', $fin_row));
     ac_assert(
         'public_id UUID-ish',
         is_string($fin_row['public_id'] ?? null)
@@ -182,9 +182,9 @@ try {
     $read_registry = new AA_Canonical_Read_Binding_Registry();
     AA_Canonical_Read_Binding_Bootstrap::register_productive($read_registry);
     $manifest = new CanonicalShellManifest(
-        new CanonicalReadIdentity('finance', 'general'),
+        new CanonicalReadIdentity('finance'),
         $registry->family('finance'),
-        $registry->variant('finance', 'general')
+        null
     );
     $page = (new ReadCanonicalShellContainersUseCase(new CanonicalReadGateway($read_registry)))
         ->execute($manifest, 1);

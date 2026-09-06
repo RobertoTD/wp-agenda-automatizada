@@ -170,7 +170,6 @@ if (!function_exists('wp_send_json_error')) {
 
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
-require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-variant-definition.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-registry.php';
 require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-core-bootstrap.php';
 require_once $plugin_root . '/includes/application/canonical/ResolveCanonicalRouteUseCase.php';
@@ -241,7 +240,7 @@ final class AA_Canonical_Write_Binding_Bootstrap {
         }
         $canonical = AA_Canonical_Core_Bootstrap::instance();
         $adapter = CanonicalFixtureWriteAdapter::with_seed(
-            'general',
+            'finance',
             [
                 1 => ['title' => 'Lista', 'details' => null],
                 2 => ['title' => 'Otra', 'details' => null],
@@ -263,10 +262,8 @@ final class AA_Canonical_Write_Binding_Bootstrap {
             if (empty(AA_Canonical_Family_Enablement_Store::$enabled_map[$key])) {
                 continue;
             }
-            foreach ($canonical->variants_for($key) as $variant) {
-                $identity = new CanonicalReadIdentity($key, $variant->key());
-                $registry->register($identity, $adapter);
-            }
+            $identity = new CanonicalReadIdentity($key);
+            $registry->register($identity, $adapter);
         }
     }
 }
@@ -291,7 +288,6 @@ function aa_base_update_post(array $over = []): array {
     return array_merge([
         'nonce' => 'good-nonce',
         'family_key' => 'finance',
-        'variant_key' => 'general',
         'container_id' => '1',
         'record_id' => '10',
         'title' => 'Registro editado',
@@ -315,8 +311,6 @@ ac_assert('Non-scalar title → invalid_payload', ($r['data']['code'] ?? '') ===
 $r = aa_run_update_record_ajax(aa_base_update_post(['family_key' => 'nope']));
 ac_assert('Unknown family → unknown_identity', ($r['data']['code'] ?? '') === 'unknown_identity');
 
-$r = aa_run_update_record_ajax(aa_base_update_post(['variant_key' => 'nope']));
-ac_assert('Unknown variant → unknown_identity', ($r['data']['code'] ?? '') === 'unknown_identity');
 
 $r = aa_run_update_record_ajax(aa_base_update_post(['container_id' => '0']));
 ac_assert('container_id 0 → invalid_container_id', ($r['data']['code'] ?? '') === 'invalid_container_id');
@@ -393,8 +387,8 @@ ac_assert('Confirmed success', ($r['success'] ?? false) === true);
 ac_assert('Confirmed status', ($r['data']['status'] ?? '') === 'confirmed');
 ac_assert('Confirmed resource_id', (int) ($r['data']['resource_id'] ?? 0) === 10);
 ac_assert('Confirmed container_id', (int) ($r['data']['container_id'] ?? 0) === 1);
-ac_assert('Confirmed family/variant', ($r['data']['family_key'] ?? '') === 'finance'
-    && ($r['data']['variant_key'] ?? '') === 'general');
+ac_assert('Confirmed family_key', ($r['data']['family_key'] ?? '') === 'finance');
+ac_assert('Confirmed without variant_key', !array_key_exists('variant_key', $r['data'] ?? []));
 ac_assert(
     'Redirect records page 1',
     is_string($r['data']['redirect_url'] ?? null)

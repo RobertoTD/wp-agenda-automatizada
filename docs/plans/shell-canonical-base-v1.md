@@ -12,18 +12,17 @@
 
 Construir en paralelo un shell interior reutilizable que pueda vestir y operar cualquier familia registrada con estructura contenedor–registro.
 
-El shell debe mostrar inicialmente `finance.general`, pero únicamente mediante su estructura canónica base. No debe incluir `amount`, `amount_total` ni ninguna otra característica financiera.
+El shell opera por `family_key` sobre la persistencia universal (`aa_canonical_*`), con CRUD de título y detalles. No incluye `amount`, `amount_total` ni otras características particulares.
 
-La UI actual de Finance debe permanecer intacta y operativa durante toda la construcción.
+La UI clásica de Finance (`module=canonical`, tablas `aa_finance_*`) permanece intacta y operativa; su `variant_key` es legado local, no del shell universal.
 
-Al terminar la primera etapa acumulada, podremos entrar al nuevo shell desde una entrada independiente del sidebar, observar su construcción y compararlo con Finance. El shell podrá vestir `finance.general`, pero mostrará únicamente lo que podría mostrar de cualquier familia mediante el contrato base.
+El shell se observa desde entradas del sidebar «Tipos de registros» (`module=canonical_shell&family=…`) y muestra únicamente el contrato base común a cualquier familia.
 
 ## Contrato base del shell
 
 Contenedores:
 
 - `id`
-- `variant_key`
 - `title`
 - `details`
 - `updated_at`
@@ -48,7 +47,7 @@ Antes de implementar la persistencia debe definirse si la actividad de un regist
 
 ## Funciones que debe reunir Shell Base v1
 
-- resolver familia y variante;
+- resolver familia;
 - recibir manifest, labels y adaptador;
 - header contextual;
 - vista paginada de contenedores;
@@ -73,7 +72,7 @@ No construir un generador universal de formularios.
 ## Composición prevista
 
 ```text
-family + variant
+family
 → registry
 → manifest y adaptador
 → gateway
@@ -96,7 +95,7 @@ No se implementarán capabilities durante Shell Base v1.
 
 El gateway, el shell y sus transportes no deben construir nombres de tablas a partir de parámetros recibidos.
 
-La familia y variante deben resolverse mediante el registry antes de seleccionar manifest, adaptador o servicios.
+La familia debe resolverse mediante el registry antes de seleccionar manifest, adaptador o servicios.
 
 **Supersedido:** la prohibición de una pareja universal de tablas compartida por todas las familias. El destino canónico es la persistencia universal (`canonical_families`, `canonical_containers`, `canonical_records`; nombres físicos con prefijo técnico, actualmente planteados como `aa_canonical_*`). Ver `docs/04-canonical-constitution.md`.
 
@@ -134,9 +133,9 @@ Debe existir una entrada provisional en el sidebar para observar su avance sin s
 
 La URL y el mecanismo exacto de routing no se decidirán hasta inspeccionar el router existente.
 
-Una ruta con `family + variant` debe resolverse mediante el registry.
+Una ruta con `family` debe resolverse mediante el registry. El parámetro `variant` en el shell es obsoleto: no participa en la identidad; las URLs nuevas y `$aa_canonical_url` no lo emiten.
 
-Una ruta sin identidad canónica completa solo podrá mostrar un estado controlado de desarrollo o un fixture neutral; no deberá inferir silenciosamente una familia.
+Una ruta sin `family` solo podrá mostrar un estado controlado de desarrollo o un fixture neutral; no deberá inferir silenciosamente una familia.
 
 La UI actual de Finance debe permanecer disponible e intacta durante todos los ciclos.
 
@@ -179,34 +178,22 @@ La construcción debe permitir verificar que:
 - el shell puede renderizar datos neutrales que no pertenezcan a Finance;
 - un segundo manifest ficticio puede vestir el mismo shell sin copiarlo ni modificarlo;
 - el código del shell no contiene dependencias ni vocabulario particulares de Finance;
-- `finance.general` se proyecta únicamente mediante campos base;
+- la familia `finance` en el shell universal se proyecta únicamente mediante campos base (sin amount);
 - paginación y orden respetan el contrato;
-- la UI actual de Finance no sufre regresiones;
+- la UI clásica de Finance (`module=canonical`) no sufre regresiones;
 - cada ciclo tiene rollback sencillo.
 
 ## Primera etapa acumulada
 
-El objetivo último de la primera etapa es dejar probado, sin tocar Finance actual, el esqueleto contractual y la entrada paralela del nuevo shell:
+**Estado:** completada y supersedida por el modelo family-only (DB 22). El esqueleto contractual y la entrada paralela del shell quedaron probados; el CRUD universal opera por `family` sin variante.
 
-- una ruta validada mediante `family + variant`;
-- resolución de manifest y adaptador;
-- paso a través del gateway;
-- render de datos canónicos base;
-- visualización de `finance.general` sin características particulares.
-
-Todavía no comprende el CRUD completo ni capabilities.
+Referencia histórica (ya no operativa): la primera etapa se planteó originalmente con ruta `family + variant` y proyección provisional etiquetada `finance.general`. Ese contrato fue retirado; ver decisión 18 en «Decisiones posteriores y estado».
 
 ## Ruta progresiva aceptada para la primera etapa
 
-1. **Explorar el terreno:** identificar routing, sidebar, registry, Finance y contratos actuales.
-2. **Abrir acceso paralelo:** añadir al sidebar una entrada provisional al Shell Canónico sin alterar Finanzas.
-3. **Definir contratos mínimos:** manifest, labels, adaptador, gateway y DTO canónico de lectura.
-4. **Resolver la ruta:** validar `family + variant` mediante el registry.
-5. **Renderizar con datos neutros:** probar header, contenedores y registros usando fixtures no financieros.
-6. **Conectar `finance.general`:** proyectar únicamente sus campos base mediante su adaptador.
-7. **Cerrar la prueba arquitectónica:** verificar aislamiento, paginación y orden, un segundo manifest ficticio y regresión cero en Finance.
+**Histórico / completado.** Los pasos 1–7 de acceso paralelo, contratos, fixtures y proyección base se ejecutaron en SB1/PCU. El paso de resolución vigente es validar `family` mediante el registry (sin variante). No reabrir la ruta `family + variant` ni bindings `*.general` del shell.
 
-La ruta detallada para completar el resto de Shell Base v1 se diseñará después de la exploración técnica y no podrá modificar silenciosamente este brief.
+La ruta detallada para el resto de Shell Base v1 (selector de familias, capabilities) se define en ciclos posteriores y no modifica silenciosamente este brief.
 
 ## Método de trabajo
 
@@ -259,4 +246,5 @@ Cuando la propuesta sea aprobada, el prompt de implementación será una autoriz
   15. **SET-1** — activación de familias/presets desde Settings (parcialmente anticipado por PCU-5A enablement AJAX; presets/capabilities siguen fuera).
   16. **CAP-1 / CAP-2 / CAP-3** — sistema de capabilities; `monetary_amount`; agregado monetario; imágenes.
   17. **LEGACY-X** — proyección, integración o deprecación selectiva de módulos legacy.
+- 18. **Shell family-only (DB 22)** — variantes eliminadas del shell universal `aa_canonical_*`: identidad/contratos/persistencia por `family_key` sola; Finance clásico conserva `variant_key` vía política local en `FinanceUseCaseSupport`; rollback estructural en `docs/plans/canonical-shell-db22-rollback.md`.
 - PCU-1 no autoriza ni inicia PCU-2.

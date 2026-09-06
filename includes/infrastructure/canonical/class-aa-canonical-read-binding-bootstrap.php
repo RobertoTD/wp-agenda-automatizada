@@ -41,13 +41,11 @@ final class AA_Canonical_Read_Binding_Bootstrap {
                 continue;
             }
 
-            foreach ($canonical->variants_for($family_key) as $variant) {
-                $identity = new CanonicalReadIdentity($family_key, $variant->key());
-                $registry->register(
-                    $identity,
-                    new AA_Canonical_Relational_Read_Adapter($repository, $identity)
-                );
-            }
+            $identity = new CanonicalReadIdentity($family_key);
+            $registry->register(
+                $identity,
+                new AA_Canonical_Relational_Read_Adapter($repository, $identity)
+            );
         }
     }
 

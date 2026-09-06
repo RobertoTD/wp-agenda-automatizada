@@ -55,10 +55,8 @@ final class AA_Canonical_Write_Binding_Bootstrap {
                 continue;
             }
 
-            foreach ($canonical->variants_for($family_key) as $variant) {
-                $identity = new CanonicalReadIdentity($family_key, $variant->key());
-                $registry->register($identity, $write_adapter);
-            }
+            $identity = new CanonicalReadIdentity($family_key);
+            $registry->register($identity, $write_adapter);
         }
     }
 

@@ -44,9 +44,6 @@ if (!class_exists('AA_Canonical_Shell_Base_Url_Policy')) {
 if (!class_exists('AA_Canonical_Family_Definition')) {
     require_once dirname(__DIR__, 2) . '/domain/canonical/class-aa-canonical-family-definition.php';
 }
-if (!class_exists('AA_Canonical_Variant_Definition')) {
-    require_once dirname(__DIR__, 2) . '/domain/canonical/class-aa-canonical-variant-definition.php';
-}
 if (!class_exists('AA_Canonical_Read_Binding_Bootstrap')) {
     require_once __DIR__ . '/class-aa-canonical-read-binding-bootstrap.php';
 }
@@ -54,8 +51,6 @@ if (!class_exists('AA_Canonical_Read_Binding_Bootstrap')) {
 final class AA_Canonical_Shell_View_Composer {
 
     public const PREVIEW_FAMILY_KEY = 'shell_preview';
-    public const PREVIEW_VARIANT_KEY = 'demo';
-
     public const SHELL_VIEW_CONTAINERS = 'containers';
     public const SHELL_VIEW_RECORDS = 'records';
 
@@ -68,11 +63,10 @@ final class AA_Canonical_Shell_View_Composer {
      */
     public static function compose_family(
         AA_Canonical_Family_Definition $family,
-        AA_Canonical_Variant_Definition $variant,
         int $page
     ): array {
-        $identity = new CanonicalReadIdentity($family->key(), $variant->key());
-        $manifest = new CanonicalShellManifest($identity, $family, $variant);
+        $identity = new CanonicalReadIdentity($family->key());
+        $manifest = new CanonicalShellManifest($identity, $family);
 
         $binding = new AA_Canonical_Read_Binding_Registry();
         AA_Canonical_Read_Binding_Bootstrap::register_productive($binding);
@@ -106,13 +100,12 @@ final class AA_Canonical_Shell_View_Composer {
      */
     public static function compose_family_records(
         AA_Canonical_Family_Definition $family,
-        AA_Canonical_Variant_Definition $variant,
         int $container_id,
         int $page,
         int $containers_page
     ): array {
-        $identity = new CanonicalReadIdentity($family->key(), $variant->key());
-        $manifest = new CanonicalShellManifest($identity, $family, $variant);
+        $identity = new CanonicalReadIdentity($family->key());
+        $manifest = new CanonicalShellManifest($identity, $family);
 
         $binding = new AA_Canonical_Read_Binding_Registry();
         AA_Canonical_Read_Binding_Bootstrap::register_productive($binding);
@@ -154,19 +147,13 @@ final class AA_Canonical_Shell_View_Composer {
     }
 
     private static function build_preview_manifest(): CanonicalShellManifest {
-        $identity = new CanonicalReadIdentity(self::PREVIEW_FAMILY_KEY, self::PREVIEW_VARIANT_KEY);
+        $identity = new CanonicalReadIdentity(self::PREVIEW_FAMILY_KEY);
         $family = new AA_Canonical_Family_Definition(
             self::PREVIEW_FAMILY_KEY,
-            'Demostración del shell',
-            self::PREVIEW_VARIANT_KEY
-        );
-        $variant = new AA_Canonical_Variant_Definition(
-            self::PREVIEW_FAMILY_KEY,
-            self::PREVIEW_VARIANT_KEY,
-            'Vista de prueba'
+            'Demostración del shell'
         );
 
-        return new CanonicalShellManifest($identity, $family, $variant);
+        return new CanonicalShellManifest($identity, $family);
     }
 
     /**
@@ -240,7 +227,6 @@ final class AA_Canonical_Shell_View_Composer {
             'shell_view' => self::SHELL_VIEW_CONTAINERS,
             'read_state' => $state,
             'family_label' => $manifest->family_label(),
-            'variant_label' => $manifest->variant_label(),
             'qualified_key' => $manifest->qualified_key(),
             'is_preview' => $is_preview,
             'preview_banner' => $is_preview
@@ -356,7 +342,6 @@ final class AA_Canonical_Shell_View_Composer {
             'shell_view' => self::SHELL_VIEW_RECORDS,
             'read_state' => $state,
             'family_label' => $manifest->family_label(),
-            'variant_label' => $manifest->variant_label(),
             'qualified_key' => $manifest->qualified_key(),
             'is_preview' => $is_preview,
             'preview_banner' => $is_preview
@@ -391,7 +376,6 @@ final class AA_Canonical_Shell_View_Composer {
 
         return AA_Canonical_Shell_Base_Url_Policy::build_url(
             $manifest->identity()->family_key(),
-            $manifest->identity()->variant_key(),
             $page > 1 ? $page : null
         );
     }
@@ -416,7 +400,6 @@ final class AA_Canonical_Shell_View_Composer {
 
         return AA_Canonical_Shell_Base_Url_Policy::build_records_url(
             $manifest->identity()->family_key(),
-            $manifest->identity()->variant_key(),
             $container_id,
             $page_arg,
             $containers_arg

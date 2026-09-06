@@ -45,7 +45,7 @@ ac_assert('Plugin registra lifecycle', strpos($main_src, 'AA_Canonical_Family_Ca
 ac_assert('Plugin require lifecycle', strpos($main_src, 'class-aa-canonical-family-catalog-lifecycle.php') !== false);
 ac_assert('Schema no invoca provisioner', strpos($schema_src, 'Family_Provisioner') === false
     && strpos($schema_src, 'Family_Catalog_Lifecycle') === false);
-ac_assert('DB_VERSION permanece 21', strpos($schema_src, "DB_VERSION = '21'") !== false);
+ac_assert('DB_VERSION es 22', strpos($schema_src, "DB_VERSION = '22'") !== false);
 ac_assert('Binding productivo es Relational (PCU-5B)', strpos($bind_src, 'AA_Canonical_Relational_Read_Adapter') !== false
     && strpos($bind_src, 'AA_Finance_Canonical_Read_Adapter') === false);
 ac_assert('Lifecycle no carga adapters PCU-3', strpos($lc_src, 'Relational_Read_Adapter') === false
@@ -135,7 +135,7 @@ try {
         $calls === 0 && ($opt_after_skip === null || $opt_after_skip === false)
     );
 
-    update_option('aa_db_version', '21');
+    update_option('aa_db_version', '22');
     update_option($option_key, '1');
     $calls = 0;
     AA_Canonical_Family_Catalog_Lifecycle::maybe_provision();
@@ -183,7 +183,7 @@ try {
     ac_assert('Lifecycle real crea 2 familias', (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$f}`") === 2);
     ac_assert('Lifecycle real cero containers', (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$c}`") === 0);
     ac_assert('Lifecycle real cero records', (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$r}`") === 0);
-    ac_assert('aa_db_version intacto en 21', (string) get_option('aa_db_version') === '21');
+    ac_assert('aa_db_version intacto en 22', (string) get_option('aa_db_version') === '22');
 
 } finally {
     AA_Canonical_Family_Catalog_Lifecycle::set_provision_override_for_tests(null);

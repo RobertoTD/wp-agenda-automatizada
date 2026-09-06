@@ -36,8 +36,6 @@ if (!class_exists('AA_Canonical_Record')) {
  */
 final class AA_Canonical_Shell_Preview_Adapter implements CanonicalReadAdapter {
 
-    public const VARIANT_KEY = 'demo';
-
     /** Contenedor con >15 registros. */
     public const CONTAINER_MANY_RECORDS = 1;
 
@@ -65,9 +63,9 @@ final class AA_Canonical_Shell_Preview_Adapter implements CanonicalReadAdapter {
     private static function build_dataset(): array {
         $rows = [];
         $tie = '2026-03-01T15:00:00Z';
-        $rows[] = new AA_Canonical_Container(3, self::VARIANT_KEY, 'Elemento gamma', 'Detalle gamma', $tie);
-        $rows[] = new AA_Canonical_Container(2, self::VARIANT_KEY, 'Elemento beta', null, $tie);
-        $rows[] = new AA_Canonical_Container(1, self::VARIANT_KEY, 'Elemento alpha', 'Detalle alpha', $tie);
+        $rows[] = new AA_Canonical_Container(3, 'Elemento gamma', 'Detalle gamma', $tie);
+        $rows[] = new AA_Canonical_Container(2, 'Elemento beta', null, $tie);
+        $rows[] = new AA_Canonical_Container(1, 'Elemento alpha', 'Detalle alpha', $tie);
 
         for ($i = 4; $i <= 18; $i++) {
             $day = 20 - ($i - 4);
@@ -80,10 +78,7 @@ final class AA_Canonical_Shell_Preview_Adapter implements CanonicalReadAdapter {
             } else {
                 $details = 'Nota ' . $i;
             }
-            $rows[] = new AA_Canonical_Container(
-                $i,
-                self::VARIANT_KEY,
-                'Muestra ' . $i,
+            $rows[] = new AA_Canonical_Container($i, 'Muestra ' . $i,
                 $details,
                 $stamp
             );
@@ -121,8 +116,8 @@ final class AA_Canonical_Shell_Preview_Adapter implements CanonicalReadAdapter {
         ];
     }
 
-    public function list_containers(string $variant_key, int $page, int $per_page): CanonicalPage {
-        $this->assert_variant_page($variant_key, $page, $per_page);
+    public function list_containers(int $page, int $per_page): CanonicalPage {
+        $this->assert_page($page, $per_page);
 
         $sorted = $this->containers;
         usort($sorted, static function (AA_Canonical_Container $a, AA_Canonical_Container $b): int {
@@ -136,26 +131,22 @@ final class AA_Canonical_Shell_Preview_Adapter implements CanonicalReadAdapter {
         return $this->slice_containers($sorted, $page, $per_page);
     }
 
-    public function get_container(string $variant_key, int $container_id): AA_Canonical_Container {
-        if ($variant_key !== self::VARIANT_KEY) {
-            throw new \InvalidArgumentException('[preview_variant] Unexpected variant_key.');
-        }
+    public function get_container(int $container_id): AA_Canonical_Container {
         foreach ($this->containers as $container) {
             if ($container->id() === $container_id) {
                 return $container;
             }
         }
-        throw new CanonicalContainerNotFound($variant_key, $container_id);
+        throw new CanonicalContainerNotFound('shell_preview', $container_id);
     }
 
     public function list_records(
-        string $variant_key,
         int $container_id,
         int $page,
         int $per_page
     ): CanonicalRecordsPage {
-        $this->assert_variant_page($variant_key, $page, $per_page);
-        $this->get_container($variant_key, $container_id);
+        $this->assert_page($page, $per_page);
+        $this->get_container($container_id);
 
         $records = $this->records_by_container[$container_id] ?? [];
         usort($records, static function (AA_Canonical_Record $a, AA_Canonical_Record $b): int {
@@ -169,10 +160,7 @@ final class AA_Canonical_Shell_Preview_Adapter implements CanonicalReadAdapter {
         return $this->slice_records($records, $page, $per_page);
     }
 
-    private function assert_variant_page(string $variant_key, int $page, int $per_page): void {
-        if ($variant_key !== self::VARIANT_KEY) {
-            throw new \InvalidArgumentException('[preview_variant] Unexpected variant_key.');
-        }
+    private function assert_page(int $page, int $per_page): void {
         if ($page < 1) {
             throw new \InvalidArgumentException('[preview_page] Adapter expects page >= 1.');
         }

@@ -24,7 +24,7 @@ if (!class_exists('CanonicalMutationPersistenceFailed')) {
 final class CanonicalFixtureWriteAdapter implements CanonicalWriteAdapter {
 
     /** @var string */
-    private $variant_key;
+    private $family_key;
 
     /** @var array<int, array{title:string,details:?string}> */
     private $containers = [];
@@ -41,16 +41,16 @@ final class CanonicalFixtureWriteAdapter implements CanonicalWriteAdapter {
     /** @var string|null */
     public $uncertain_operation = null;
 
-    public function __construct(string $variant_key) {
-        $this->variant_key = $variant_key;
+    public function __construct(string $family_key) {
+        $this->family_key = $family_key;
     }
 
     /**
      * @param array<int, array{title:string,details:?string}> $containers
      * @param array<int, array<int, array{title:string,details:?string}>> $records
      */
-    public static function with_seed(string $variant_key, array $containers, array $records = []): self {
-        $adapter = new self($variant_key);
+    public static function with_seed(string $family_key, array $containers, array $records = []): self {
+        $adapter = new self($family_key);
         foreach ($containers as $id => $row) {
             $adapter->containers[(int) $id] = $row;
             if ((int) $id >= $adapter->next_container_id) {
@@ -72,7 +72,7 @@ final class CanonicalFixtureWriteAdapter implements CanonicalWriteAdapter {
         CanonicalReadIdentity $identity,
         CanonicalCreateContainerCommand $command
     ): CanonicalMutationReceipt {
-        $this->assert_variant($identity);
+        $this->assert_family($identity);
         $this->assert_not_persistence_failed();
         if ($this->uncertain_operation === 'create_container') {
             return CanonicalMutationReceipt::uncertain(
@@ -113,11 +113,11 @@ final class CanonicalFixtureWriteAdapter implements CanonicalWriteAdapter {
         CanonicalReadIdentity $identity,
         CanonicalUpdateContainerCommand $command
     ): CanonicalMutationReceipt {
-        $this->assert_variant($identity);
+        $this->assert_family($identity);
         $this->assert_not_persistence_failed();
         $id = $command->container_id();
         if (!isset($this->containers[$id])) {
-            throw new CanonicalContainerNotFound($identity->variant_key(), $id);
+            throw new CanonicalContainerNotFound($identity->family_key(), $id);
         }
         if ($this->uncertain_operation === 'update_container') {
             return CanonicalMutationReceipt::uncertain(
@@ -147,11 +147,11 @@ final class CanonicalFixtureWriteAdapter implements CanonicalWriteAdapter {
         CanonicalReadIdentity $identity,
         CanonicalDeleteContainerCommand $command
     ): CanonicalMutationReceipt {
-        $this->assert_variant($identity);
+        $this->assert_family($identity);
         $this->assert_not_persistence_failed();
         $id = $command->container_id();
         if (!isset($this->containers[$id])) {
-            throw new CanonicalContainerNotFound($identity->variant_key(), $id);
+            throw new CanonicalContainerNotFound($identity->family_key(), $id);
         }
         if ($this->uncertain_operation === 'delete_container') {
             return CanonicalMutationReceipt::uncertain(
@@ -179,11 +179,11 @@ final class CanonicalFixtureWriteAdapter implements CanonicalWriteAdapter {
         CanonicalReadIdentity $identity,
         CanonicalCreateRecordCommand $command
     ): CanonicalMutationReceipt {
-        $this->assert_variant($identity);
+        $this->assert_family($identity);
         $this->assert_not_persistence_failed();
         $container_id = $command->container_id();
         if (!isset($this->containers[$container_id])) {
-            throw new CanonicalContainerNotFound($identity->variant_key(), $container_id);
+            throw new CanonicalContainerNotFound($identity->family_key(), $container_id);
         }
         if ($this->uncertain_operation === 'create_record') {
             return CanonicalMutationReceipt::uncertain(
@@ -227,13 +227,13 @@ final class CanonicalFixtureWriteAdapter implements CanonicalWriteAdapter {
         CanonicalReadIdentity $identity,
         CanonicalUpdateRecordCommand $command
     ): CanonicalMutationReceipt {
-        $this->assert_variant($identity);
+        $this->assert_family($identity);
         $this->assert_not_persistence_failed();
         $container_id = $command->container_id();
         $record_id = $command->record_id();
 
         if (!isset($this->containers[$container_id])) {
-            throw new CanonicalContainerNotFound($identity->variant_key(), $container_id);
+            throw new CanonicalContainerNotFound($identity->family_key(), $container_id);
         }
         if (!$this->record_exists($container_id, $record_id)) {
             throw new CanonicalRecordNotFound($container_id, $record_id);
@@ -266,13 +266,13 @@ final class CanonicalFixtureWriteAdapter implements CanonicalWriteAdapter {
         CanonicalReadIdentity $identity,
         CanonicalDeleteRecordCommand $command
     ): CanonicalMutationReceipt {
-        $this->assert_variant($identity);
+        $this->assert_family($identity);
         $this->assert_not_persistence_failed();
         $container_id = $command->container_id();
         $record_id = $command->record_id();
 
         if (!isset($this->containers[$container_id])) {
-            throw new CanonicalContainerNotFound($identity->variant_key(), $container_id);
+            throw new CanonicalContainerNotFound($identity->family_key(), $container_id);
         }
         if (!$this->record_exists($container_id, $record_id)) {
             throw new CanonicalRecordNotFound($container_id, $record_id);
@@ -298,9 +298,9 @@ final class CanonicalFixtureWriteAdapter implements CanonicalWriteAdapter {
         );
     }
 
-    private function assert_variant(CanonicalReadIdentity $identity): void {
-        if ($identity->variant_key() !== $this->variant_key) {
-            throw new CanonicalContainerNotFound($identity->variant_key(), 1);
+    private function assert_family(CanonicalReadIdentity $identity): void {
+        if ($identity->family_key() !== $this->family_key) {
+            throw new CanonicalContainerNotFound($identity->family_key(), 1);
         }
     }
 

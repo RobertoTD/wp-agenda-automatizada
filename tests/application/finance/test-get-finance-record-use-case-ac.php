@@ -35,7 +35,6 @@ if (!defined('ARRAY_A')) {
 
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
-require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-variant-definition.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-registry.php';
 require_once $plugin_root . '/includes/repositories/FinanceContainerRepository.php';
 require_once $plugin_root . '/includes/repositories/FinanceRecordRepository.php';
@@ -104,8 +103,7 @@ $wpdb = new TestGetRecordWpdbMock();
 
 // Construir registry de dominio aislado
 $registry = new AA_Canonical_Registry();
-$registry->register_family(new AA_Canonical_Family_Definition('finance', 'Finanzas', 'general'));
-$registry->register_variant(new AA_Canonical_Variant_Definition('finance', 'general', 'General'));
+$registry->register_family(new AA_Canonical_Family_Definition('finance', 'Finanzas'));
 $registry->freeze();
 
 $use_case = new GetFinanceRecordUseCase($registry);

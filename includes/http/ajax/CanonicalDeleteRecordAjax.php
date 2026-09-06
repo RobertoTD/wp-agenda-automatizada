@@ -32,12 +32,10 @@ final class CanonicalDeleteRecordAjax {
         }
 
         $family_key_raw = isset($_POST['family_key']) ? wp_unslash($_POST['family_key']) : null;
-        $variant_key_raw = isset($_POST['variant_key']) ? wp_unslash($_POST['variant_key']) : null;
         $container_id_raw = isset($_POST['container_id']) ? wp_unslash($_POST['container_id']) : null;
         $record_id_raw = isset($_POST['record_id']) ? wp_unslash($_POST['record_id']) : null;
 
         if (is_array($family_key_raw) || is_object($family_key_raw)
-            || is_array($variant_key_raw) || is_object($variant_key_raw)
             || is_array($container_id_raw) || is_object($container_id_raw)
             || is_array($record_id_raw) || is_object($record_id_raw)
         ) {
@@ -45,7 +43,6 @@ final class CanonicalDeleteRecordAjax {
         }
 
         if (!is_string($family_key_raw) || $family_key_raw === ''
-            || !is_string($variant_key_raw) || $variant_key_raw === ''
         ) {
             self::error('invalid_payload', 'La solicitud contiene campos no válidos.', 400);
         }
@@ -61,18 +58,15 @@ final class CanonicalDeleteRecordAjax {
         }
 
         $family_key = sanitize_key($family_key_raw);
-        $variant_key = sanitize_key($variant_key_raw);
 
         try {
-            $authorized = CanonicalShellWriteAjaxSupport::authorize_identity($family_key, $variant_key);
+            $authorized = CanonicalShellWriteAjaxSupport::authorize_identity($family_key);
         } catch (CanonicalShellWriteAjaxRejection $e) {
             self::error($e->error_code(), $e->error_message(), $e->http_status());
         }
 
         $family = $authorized['family'];
-        $variant = $authorized['variant'];
         $resolved_family_key = $family->key();
-        $resolved_variant_key = $variant->key();
 
         try {
             $command = new CanonicalDeleteRecordCommand($container_id, $record_id);
@@ -87,8 +81,8 @@ final class CanonicalDeleteRecordAjax {
             self::error('invalid_payload', 'La solicitud contiene campos no válidos.', 400);
         }
 
-        $identity = new CanonicalReadIdentity($resolved_family_key, $resolved_variant_key);
-        $manifest = new CanonicalShellManifest($identity, $family, $variant);
+        $identity = new CanonicalReadIdentity($resolved_family_key);
+        $manifest = new CanonicalShellManifest($identity, $family);
 
         try {
             $gateway = CanonicalShellWriteAjaxSupport::build_write_gateway();
@@ -109,7 +103,6 @@ final class CanonicalDeleteRecordAjax {
         $state = $result->state();
         $redirect_url = AA_Canonical_Shell_Base_Url_Policy::build_records_url(
             $resolved_family_key,
-            $resolved_variant_key,
             $container_id,
             null,
             null
@@ -149,7 +142,6 @@ final class CanonicalDeleteRecordAjax {
             'resource_id' => $receipt->resource_id(),
             'container_id' => $receipt->container_id(),
             'family_key' => $resolved_family_key,
-            'variant_key' => $resolved_variant_key,
             'redirect_url' => $redirect_url,
         ]);
     }

@@ -27,7 +27,7 @@ if (!class_exists('AA_Canonical_Record')) {
 final class CanonicalFixtureReadAdapter implements CanonicalReadAdapter {
 
     /** @var string */
-    private $variant_key;
+    private $family_key;
 
     /** @var list<AA_Canonical_Container> */
     private $containers;
@@ -39,8 +39,8 @@ final class CanonicalFixtureReadAdapter implements CanonicalReadAdapter {
      * @param list<AA_Canonical_Container>           $containers
      * @param array<int, list<AA_Canonical_Record>> $records_by_container
      */
-    public function __construct(string $variant_key, array $containers, array $records_by_container = []) {
-        $this->variant_key = $variant_key;
+    public function __construct(string $family_key, array $containers, array $records_by_container = []) {
+        $this->family_key = $family_key;
         $this->containers = array_values($containers);
         $this->records_by_container = $records_by_container;
     }
@@ -51,16 +51,15 @@ final class CanonicalFixtureReadAdapter implements CanonicalReadAdapter {
     public static function build_alpha_dataset(): array {
         $rows = [];
         $tie = '2026-01-10T12:00:00Z';
-        $rows[] = new AA_Canonical_Container(3, 'alpha', 'Elemento gamma', 'Detalle gamma', $tie);
-        $rows[] = new AA_Canonical_Container(2, 'alpha', 'Elemento beta', null, $tie);
-        $rows[] = new AA_Canonical_Container(1, 'alpha', 'Elemento alpha', 'Detalle alpha', $tie);
+        $rows[] = new AA_Canonical_Container(3, 'Elemento gamma', 'Detalle gamma', $tie);
+        $rows[] = new AA_Canonical_Container(2, 'Elemento beta', null, $tie);
+        $rows[] = new AA_Canonical_Container(1, 'Elemento alpha', 'Detalle alpha', $tie);
 
         for ($i = 4; $i <= 18; $i++) {
             $day = 20 - ($i - 4);
             $stamp = sprintf('2026-01-%02dT08:00:00Z', $day);
             $rows[] = new AA_Canonical_Container(
                 $i,
-                'alpha',
                 'Muestra ' . $i,
                 ($i === 7) ? null : ('Nota ' . $i),
                 $stamp
@@ -75,8 +74,8 @@ final class CanonicalFixtureReadAdapter implements CanonicalReadAdapter {
      */
     public static function build_beta_dataset(): array {
         return [
-            new AA_Canonical_Container(101, 'beta', 'Catalogo uno', 'Primero', '2026-02-02T10:00:00Z'),
-            new AA_Canonical_Container(100, 'beta', 'Catalogo dos', null, '2026-02-01T10:00:00Z'),
+            new AA_Canonical_Container(101, 'Catalogo uno', 'Primero', '2026-02-02T10:00:00Z'),
+            new AA_Canonical_Container(100, 'Catalogo dos', null, '2026-02-01T10:00:00Z'),
         ];
     }
 
@@ -115,8 +114,8 @@ final class CanonicalFixtureReadAdapter implements CanonicalReadAdapter {
         ];
     }
 
-    public function list_containers(string $variant_key, int $page, int $per_page): CanonicalPage {
-        $this->assert_variant_page($variant_key, $page, $per_page);
+    public function list_containers(int $page, int $per_page): CanonicalPage {
+        $this->assert_page($page, $per_page);
 
         $sorted = $this->containers;
         usort($sorted, static function (AA_Canonical_Container $a, AA_Canonical_Container $b): int {
@@ -147,26 +146,22 @@ final class CanonicalFixtureReadAdapter implements CanonicalReadAdapter {
         );
     }
 
-    public function get_container(string $variant_key, int $container_id): AA_Canonical_Container {
-        if ($variant_key !== $this->variant_key) {
-            throw new \InvalidArgumentException('[fixture_variant] Unexpected variant_key.');
-        }
+    public function get_container(int $container_id): AA_Canonical_Container {
         foreach ($this->containers as $container) {
             if ($container->id() === $container_id) {
                 return $container;
             }
         }
-        throw new CanonicalContainerNotFound($variant_key, $container_id);
+        throw new CanonicalContainerNotFound($this->family_key, $container_id);
     }
 
     public function list_records(
-        string $variant_key,
         int $container_id,
         int $page,
         int $per_page
     ): CanonicalRecordsPage {
-        $this->assert_variant_page($variant_key, $page, $per_page);
-        $this->get_container($variant_key, $container_id);
+        $this->assert_page($page, $per_page);
+        $this->get_container($container_id);
 
         $records = array_values($this->records_by_container[$container_id] ?? []);
         usort($records, static function (AA_Canonical_Record $a, AA_Canonical_Record $b): int {
@@ -197,10 +192,7 @@ final class CanonicalFixtureReadAdapter implements CanonicalReadAdapter {
         );
     }
 
-    private function assert_variant_page(string $variant_key, int $page, int $per_page): void {
-        if ($variant_key !== $this->variant_key) {
-            throw new \InvalidArgumentException('[fixture_variant] Unexpected variant_key.');
-        }
+    private function assert_page(int $page, int $per_page): void {
         if ($page < 1) {
             throw new \InvalidArgumentException('[fixture_page] Adapter expects page >= 1.');
         }

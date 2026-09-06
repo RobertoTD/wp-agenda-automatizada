@@ -60,8 +60,8 @@ function expect_contract_violation(callable $fn): bool {
     return false;
 }
 
-$identity = new CanonicalReadIdentity('sample', 'alpha');
-$adapter = CanonicalFixtureWriteAdapter::with_seed('alpha', [
+$identity = new CanonicalReadIdentity('sample');
+$adapter = CanonicalFixtureWriteAdapter::with_seed('sample', [
     1 => ['title' => 'C1', 'details' => null],
 ], [
     1 => [
@@ -110,7 +110,7 @@ ac_assert(
     })
 );
 
-$adapter3 = CanonicalFixtureWriteAdapter::with_seed('alpha', [3 => ['title' => 'C3', 'details' => null]], [
+$adapter3 = CanonicalFixtureWriteAdapter::with_seed('sample', [3 => ['title' => 'C3', 'details' => null]], [
     3 => [5 => ['title' => 'R5', 'details' => null]],
 ]);
 $registry3 = new AA_Canonical_Write_Binding_Registry();

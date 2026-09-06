@@ -282,7 +282,7 @@ $page1 = $adapter->list_containers('general', 1, $per_page);
 ac_assert('Containers page 1 resolved', $page1->total() === 19 && count($page1->items()) === 15);
 $first = $page1->items()[0];
 ac_assert('First container is most recent activity', $first->id() === 5 && $first->title() === 'Item 5');
-ac_assert('Container projection has base fields', $first->variant_key() === 'general' && $first->details() === 'N5');
+ac_assert('Container projection has base fields', $first->family_key() === 'general' && $first->details() === 'N5');
 $null_details_item = null;
 foreach ($page1->items() as $item) {
     if ($item->id() === 7) {
@@ -312,7 +312,7 @@ $missing = false;
 try {
     $adapter->get_container('general', 999);
 } catch (CanonicalContainerNotFound $e) {
-    $missing = $e->variant_key() === 'general' && $e->container_id() === 999;
+    $missing = $e->family_key() === 'general' && $e->container_id() === 999;
 }
 ac_assert('Missing container throws CanonicalContainerNotFound', $missing);
 

@@ -63,14 +63,13 @@ final class AA_Canonical_Relational_Read_Adapter implements CanonicalReadAdapter
         $this->bound_identity = $bound_identity;
     }
 
-    public function list_containers(string $variant_key, int $page, int $per_page): CanonicalPage {
-        $this->assert_bound_variant($variant_key);
+    public function list_containers(int $page, int $per_page): CanonicalPage {
         $this->assert_page_contract($page, $per_page);
 
         $family_id = $this->require_family_id();
 
         try {
-            $total = $this->repository->count_containers($family_id, $variant_key);
+            $total = $this->repository->count_containers($family_id);
         } catch (CanonicalRelationalQueryFailed $e) {
             throw $this->map_query_failed($e);
         }
@@ -85,7 +84,7 @@ final class AA_Canonical_Relational_Read_Adapter implements CanonicalReadAdapter
         }
 
         try {
-            $rows = $this->repository->list_containers($family_id, $variant_key, $page, $per_page);
+            $rows = $this->repository->list_containers($family_id, $page, $per_page);
         } catch (CanonicalRelationalQueryFailed $e) {
             throw $this->map_query_failed($e);
         }
@@ -106,35 +105,32 @@ final class AA_Canonical_Relational_Read_Adapter implements CanonicalReadAdapter
         );
     }
 
-    public function get_container(string $variant_key, int $container_id): AA_Canonical_Container {
-        $this->assert_bound_variant($variant_key);
+    public function get_container(int $container_id): AA_Canonical_Container {
         $container_id = $this->assert_positive_id($container_id, 'container_id');
         $family_id = $this->require_family_id();
 
         try {
-            $row = $this->repository->find_container($family_id, $variant_key, $container_id);
+            $row = $this->repository->find_container($family_id, $container_id);
         } catch (CanonicalRelationalQueryFailed $e) {
             throw $this->map_query_failed($e);
         }
 
         if ($row === null) {
-            throw new CanonicalContainerNotFound($variant_key, $container_id);
+            throw new CanonicalContainerNotFound($this->bound_identity->family_key(), $container_id);
         }
 
         return $this->map_container($row);
     }
 
     public function list_records(
-        string $variant_key,
         int $container_id,
         int $page,
         int $per_page
     ): CanonicalRecordsPage {
-        $this->assert_bound_variant($variant_key);
         $this->assert_page_contract($page, $per_page);
         $container_id = $this->assert_positive_id($container_id, 'container_id');
 
-        $this->get_container($variant_key, $container_id);
+        $this->get_container($container_id);
 
         try {
             $total = $this->repository->count_records($container_id);
@@ -190,14 +186,6 @@ final class AA_Canonical_Relational_Read_Adapter implements CanonicalReadAdapter
         return $family_id;
     }
 
-    private function assert_bound_variant(string $variant_key): void {
-        if ($variant_key !== $this->bound_identity->variant_key()) {
-            throw new \InvalidArgumentException(
-                '[invalid_page_contract] variant_key does not match bound identity.'
-            );
-        }
-    }
-
     private function assert_page_contract(int $page, int $per_page): void {
         if ($page < 1) {
             throw new \InvalidArgumentException('[invalid_page_contract] page must be >= 1.');
@@ -230,12 +218,11 @@ final class AA_Canonical_Relational_Read_Adapter implements CanonicalReadAdapter
     }
 
     /**
-     * @param array{id:int,public_id:string,family_id:int,variant_key:string,title:string,details:?string,created_at:string,updated_at:string} $row
+     * @param array{id:int,public_id:string,family_id:int,title:string,details:?string,created_at:string,updated_at:string} $row
      */
     private function map_container(array $row): AA_Canonical_Container {
         return new AA_Canonical_Container(
             (int) $row['id'],
-            (string) $row['variant_key'],
             (string) $row['title'],
             $row['details'],
             $this->mysql_utc_to_instant((string) $row['updated_at'])

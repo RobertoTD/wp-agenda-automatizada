@@ -13,7 +13,6 @@ $plugin_root = dirname(__DIR__, 3);
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-instant.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
-require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-variant-definition.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-container.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-record.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalReadIdentity.php';
@@ -49,9 +48,8 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 
 function make_manifest(): CanonicalShellManifest {
     return new CanonicalShellManifest(
-        new CanonicalReadIdentity('sample', 'alpha'),
-        new AA_Canonical_Family_Definition('sample', 'Muestra', 'alpha'),
-        new AA_Canonical_Variant_Definition('sample', 'alpha', 'Alpha')
+        new CanonicalReadIdentity('sample'),
+        new AA_Canonical_Family_Definition('sample', 'Muestra')
     );
 }
 
@@ -66,7 +64,7 @@ $registry = new AA_Canonical_Read_Binding_Registry();
 $registry->register(
     $manifest->identity(),
     new CanonicalFixtureReadAdapter(
-        'alpha',
+        'sample',
         CanonicalFixtureReadAdapter::build_alpha_dataset(),
         CanonicalFixtureReadAdapter::build_alpha_records_dataset()
     )
@@ -95,13 +93,13 @@ final class BadRecordsAdapter implements CanonicalReadAdapter {
     public function __construct(CanonicalReadAdapter $inner) {
         $this->inner = $inner;
     }
-    public function list_containers(string $variant_key, int $page, int $per_page): CanonicalPage {
-        return $this->inner->list_containers($variant_key, $page, $per_page);
+    public function list_containers(int $page, int $per_page): CanonicalPage {
+        return $this->inner->list_containers($page, $per_page);
     }
-    public function get_container(string $variant_key, int $container_id): AA_Canonical_Container {
-        return $this->inner->get_container($variant_key, $container_id);
+    public function get_container(int $container_id): AA_Canonical_Container {
+        return $this->inner->get_container($container_id);
     }
-    public function list_records(string $variant_key, int $container_id, int $page, int $per_page): CanonicalRecordsPage {
+    public function list_records(int $container_id, int $page, int $per_page): CanonicalRecordsPage {
         return new CanonicalRecordsPage([], 1, 10, 0, 0, false, false);
     }
 }
@@ -110,7 +108,7 @@ $bad_reg->register(
     $manifest->identity(),
     new BadRecordsAdapter(
         new CanonicalFixtureReadAdapter(
-            'alpha',
+            'sample',
             CanonicalFixtureReadAdapter::build_alpha_dataset(),
             CanonicalFixtureReadAdapter::build_alpha_records_dataset()
         )
@@ -121,13 +119,13 @@ ac_assert('Contract error state', $contract->state() === CanonicalShellRecordsRe
 
 require_once $plugin_root . '/includes/application/canonical/CanonicalReadPersistenceFailed.php';
 final class PersistenceFailRecordsAdapter implements CanonicalReadAdapter {
-    public function list_containers(string $variant_key, int $page, int $per_page): CanonicalPage {
+    public function list_containers(int $page, int $per_page): CanonicalPage {
         return new CanonicalPage([], 1, $per_page, 0, 0, false, false);
     }
-    public function get_container(string $variant_key, int $container_id): AA_Canonical_Container {
+    public function get_container(int $container_id): AA_Canonical_Container {
         throw new CanonicalReadPersistenceFailed(CanonicalReadPersistenceFailed::REASON_SQL, 'boom');
     }
-    public function list_records(string $variant_key, int $container_id, int $page, int $per_page): CanonicalRecordsPage {
+    public function list_records(int $container_id, int $page, int $per_page): CanonicalRecordsPage {
         throw new CanonicalReadPersistenceFailed(CanonicalReadPersistenceFailed::REASON_SQL, 'boom');
     }
 }

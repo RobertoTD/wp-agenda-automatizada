@@ -75,6 +75,21 @@ if (!function_exists('esc_url')) {
         return $url;
     }
 }
+if (!function_exists('wp_json_encode')) {
+    function wp_json_encode($data, $options = 0, $depth = 512) {
+        return json_encode($data, $options, $depth);
+    }
+}
+if (!function_exists('wp_create_nonce')) {
+    function wp_create_nonce($action = -1): string {
+        return 'test-nonce';
+    }
+}
+if (!function_exists('plugins_url')) {
+    function plugins_url($path = '', $plugin = ''): string {
+        return 'https://example.com/wp-content/plugins/wp-agenda-automatizada/' . ltrim((string) $path, '/');
+    }
+}
 
 if (!defined('ARRAY_A')) {
     define('ARRAY_A', 'ARRAY_A');
@@ -85,7 +100,13 @@ final class ShellUiEmptyFinanceWpdbMock {
     public $last_error = '';
 
     public function prepare(string $query, ...$args): string {
+        if (count($args) === 1 && is_array($args[0])) {
+            $args = $args[0];
+        }
         foreach ($args as $arg) {
+            if (is_array($arg)) {
+                continue;
+            }
             $val = is_numeric($arg) ? (string) (int) $arg : "'" . addslashes((string) $arg) . "'";
             $query = preg_replace('/%[sdf]/', $val, $query, 1);
         }
@@ -95,7 +116,16 @@ final class ShellUiEmptyFinanceWpdbMock {
     /** @return string|null */
     public function get_var(string $query) {
         $this->last_error = '';
-        return strpos($query, 'COUNT(*)') !== false ? '0' : null;
+        if (stripos($query, 'SHOW TABLES LIKE') !== false) {
+            return $this->prefix . 'aa_canonical_families';
+        }
+        if (strpos($query, 'COUNT(*)') !== false) {
+            return '0';
+        }
+        if (preg_match("/WHERE family_key = '([^']+)'/", $query, $m)) {
+            return $m[1] === 'finance' ? '1' : ($m[1] === 'archive' ? '2' : null);
+        }
+        return null;
     }
 
     /** @return object|null */
@@ -107,6 +137,12 @@ final class ShellUiEmptyFinanceWpdbMock {
     /** @return array<int,mixed> */
     public function get_results(string $query) {
         $this->last_error = '';
+        if (stripos($query, 'is_enabled') !== false) {
+            return [
+                ['family_key' => 'finance', 'is_enabled' => 1],
+                ['family_key' => 'archive', 'is_enabled' => 1],
+            ];
+        }
         return [];
     }
 }
@@ -115,10 +151,18 @@ $GLOBALS['wpdb'] = new ShellUiEmptyFinanceWpdbMock();
 
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
-require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-variant-definition.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-container.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-registry.php';
 require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-core-bootstrap.php';
+require_once $plugin_root . '/includes/infrastructure/wp/CanonicalSchema.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalFamilyEnablementSchemaNotReady.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalFamilyEnablementPersistenceFailed.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalFamilyEnablementStatus.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalFamilyEnablementSnapshot.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalFamilyEnablementResult.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalFamilyEnablementPort.php';
+require_once $plugin_root . '/includes/application/canonical/ReadCanonicalFamilyEnablementUseCase.php';
+require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-family-enablement-store.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalReadIdentity.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalPage.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalReadAdapter.php';
@@ -129,6 +173,7 @@ require_once $plugin_root . '/includes/application/canonical/CanonicalShellManif
 require_once $plugin_root . '/includes/application/canonical/CanonicalShellReadResult.php';
 require_once $plugin_root . '/includes/application/canonical/ReadCanonicalShellContainersUseCase.php';
 require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-read-binding-registry.php';
+require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-read-binding-bootstrap.php';
 require_once $plugin_root . '/includes/infrastructure/wp/class-aa-canonical-shell-base-url-policy.php';
 require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-shell-view-composer.php';
 
@@ -159,14 +204,12 @@ function render_shell(array $vars): string {
 
 // Empty finance with productive binding (no preview CTA without constant)
 $family = AA_Canonical_Core_Bootstrap::instance()->family('finance');
-$variant = AA_Canonical_Core_Bootstrap::instance()->variant('finance', 'general');
-$empty_view = AA_Canonical_Shell_View_Composer::compose_family($family, $variant, 1);
+$empty_view = AA_Canonical_Shell_View_Composer::compose_family($family, 1);
 $html_empty = render_shell([
     'aa_shell_route_state' => 'resolved',
     'aa_shell_route_message' => 'Ruta canónica resuelta.',
     'aa_shell_view' => $empty_view,
     'aa_canonical_family' => $family,
-    'aa_canonical_variant' => $variant,
 ]);
 ac_assert('Empty finance shows Sin contenedores', strpos($html_empty, 'Sin contenedores') !== false);
 ac_assert('Empty finance not pending', strpos($html_empty, 'Lectura pendiente') === false);
@@ -189,8 +232,7 @@ $html_err = render_shell([
     'aa_shell_view' => [
         'read_state' => 'contract_error',
         'family_label' => 'Finanzas',
-        'variant_label' => 'General',
-        'qualified_key' => 'finance.general',
+        'qualified_key' => 'finance',
         'is_preview' => false,
         'preview_banner' => null,
         'preview_enabled' => false,
@@ -265,13 +307,12 @@ ac_assert('Shell template does not require preview adapter', strpos($module_src,
 ac_assert('Shell template does not call composer', strpos($module_src, 'View_Composer') === false);
 
 // Empty finance with preview enabled still exposes CTA in view data (empty UI has no CTA block)
-$empty_on = AA_Canonical_Shell_View_Composer::compose_family($family, $variant, 1);
+$empty_on = AA_Canonical_Shell_View_Composer::compose_family($family, 1);
 $html_cta = render_shell([
     'aa_shell_route_state' => 'resolved',
     'aa_shell_route_message' => '',
     'aa_shell_view' => $empty_on,
     'aa_canonical_family' => $family,
-    'aa_canonical_variant' => $variant,
 ]);
 ac_assert('Empty finance view exposes preview URL when enabled', !empty($empty_on['preview_enabled'])
     && is_string($empty_on['preview_url'])

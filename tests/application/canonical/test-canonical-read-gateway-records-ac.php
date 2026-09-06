@@ -42,7 +42,7 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
     echo '[FAIL] ' . $label . ($detail !== '' ? ' - ' . $detail : '') . "\n";
 }
 
-$identity = new CanonicalReadIdentity('sample', 'alpha');
+$identity = new CanonicalReadIdentity('sample');
 $registry = new AA_Canonical_Read_Binding_Registry();
 $registry->register(
     $identity,
@@ -55,7 +55,7 @@ $registry->register(
 $gateway = new CanonicalReadGateway($registry);
 
 $parent = $gateway->get_container($identity, 1);
-ac_assert('get_container returns id 1', $parent->id() === 1 && $parent->variant_key() === 'alpha');
+ac_assert('get_container returns id 1', $parent->id() === 1 && $parent->title() !== '');
 
 $missing = false;
 try {
@@ -126,14 +126,14 @@ final class CrossContainerAdapter implements CanonicalReadAdapter {
     public function __construct(CanonicalReadAdapter $inner) {
         $this->inner = $inner;
     }
-    public function list_containers(string $variant_key, int $page, int $per_page): CanonicalPage {
-        return $this->inner->list_containers($variant_key, $page, $per_page);
+    public function list_containers(int $page, int $per_page): CanonicalPage {
+        return $this->inner->list_containers($page, $per_page);
     }
-    public function get_container(string $variant_key, int $container_id): AA_Canonical_Container {
-        return $this->inner->get_container($variant_key, $container_id);
+    public function get_container(int $container_id): AA_Canonical_Container {
+        return $this->inner->get_container($container_id);
     }
-    public function list_records(string $variant_key, int $container_id, int $page, int $per_page): CanonicalRecordsPage {
-        $page_obj = $this->inner->list_records($variant_key, $container_id, $page, $per_page);
+    public function list_records(int $container_id, int $page, int $per_page): CanonicalRecordsPage {
+        $page_obj = $this->inner->list_records($container_id, $page, $per_page);
         $items = $page_obj->items();
         if ($items !== []) {
             $bad = new AA_Canonical_Record(999, 999, 'Intruso', null, '2026-06-01T00:00:00Z');

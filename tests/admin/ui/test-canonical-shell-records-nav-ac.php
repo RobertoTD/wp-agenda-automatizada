@@ -159,7 +159,6 @@ $GLOBALS['wpdb'] = new ShellRecordsEmptyFinanceWpdbMock();
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-instant.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
-require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-variant-definition.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-container.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-record.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-registry.php';
@@ -336,9 +335,9 @@ function simulate_shell_records_router(array $get): array {
         $aa_shell_route_message = $records_transport_message;
         status_header(400);
     } elseif ($shell_mode === AA_Canonical_Shell_Base_Url_Policy::SHELL_MODE_PREVIEW) {
-        if ($family_present || $variant_present) {
+        if ($family_present) {
             $aa_shell_route_state = 'invalid_request';
-            $aa_shell_route_message = 'El modo preview no admite family ni variant.';
+            $aa_shell_route_message = 'El modo preview no admite family.';
             status_header(400);
         } elseif (!AA_Canonical_Shell_View_Composer::is_preview_enabled()) {
             $aa_shell_route_state = 'preview_unavailable';
@@ -364,27 +363,19 @@ function simulate_shell_records_router(array $get): array {
     } elseif ($shell_mode_present && $shell_mode !== '') {
         $aa_shell_route_state = 'invalid_request';
         status_header(400);
-    } elseif (!$family_present && !$variant_present) {
+    } elseif (!$family_present) {
         $aa_shell_route_state = 'missing_identity';
-    } elseif ($family_present xor $variant_present) {
-        $aa_shell_route_state = 'incomplete_identity';
-        status_header(400);
     } else {
         $route_result = (new ResolveCanonicalRouteUseCase(AA_Canonical_Core_Bootstrap::instance()))->execute([
-            'family_key'  => $family_input,
-            'variant_key' => $variant_input,
+            'family_key' => $family_input,
         ]);
         if (!$route_result['success']) {
             $aa_shell_route_state = 'not_found';
             status_header(404);
         } elseif ($is_records_view) {
             $family = $route_result['data']['family'];
-            $variant = $route_result['data']['variant'];
             $aa_shell_route_state = 'resolved';
-            $aa_shell_view = AA_Canonical_Shell_View_Composer::compose_family_records(
-                $family,
-                $variant,
-                $shell_container_id,
+            $aa_shell_view = AA_Canonical_Shell_View_Composer::compose_family_records($family, $shell_container_id,
                 $shell_page,
                 $shell_containers_page
             );
@@ -392,7 +383,6 @@ function simulate_shell_records_router(array $get): array {
             $aa_shell_route_state = 'resolved';
             $aa_shell_view = AA_Canonical_Shell_View_Composer::compose_family(
                 $route_result['data']['family'],
-                $route_result['data']['variant'],
                 $shell_page
             );
         }
@@ -407,14 +397,14 @@ function simulate_shell_records_router(array $get): array {
 }
 
 // --- URL builders ---
-$family_records = AA_Canonical_Shell_Base_Url_Policy::build_records_url('finance', 'general', 7, 1, 1);
+$family_records = AA_Canonical_Shell_Base_Url_Policy::build_records_url('finance', 7, 1, 1);
 ac_assert('Family records URL omits page=1 and containers_page=1', query_has($family_records, 'view', 'records')
     && query_has($family_records, 'container_id', '7')
     && query_has($family_records, 'family', 'finance')
     && query_missing($family_records, 'page')
     && query_missing($family_records, 'containers_page'));
 
-$family_records_p = AA_Canonical_Shell_Base_Url_Policy::build_records_url('finance', 'general', 7, 2, 3);
+$family_records_p = AA_Canonical_Shell_Base_Url_Policy::build_records_url('finance', 7, 2, 3);
 ac_assert('Family records URL keeps page and containers_page', query_has($family_records_p, 'page', '2')
     && query_has($family_records_p, 'containers_page', '3'));
 
@@ -502,8 +492,7 @@ ac_assert('Missing container → 404', in_array(404, $status_headers, true));
 
 $status_headers = [];
 $family = AA_Canonical_Core_Bootstrap::instance()->family('finance');
-$variant = AA_Canonical_Core_Bootstrap::instance()->variant('finance', 'general');
-$not_found_records = AA_Canonical_Shell_View_Composer::compose_family_records($family, $variant, 1, 1, 1);
+$not_found_records = AA_Canonical_Shell_View_Composer::compose_family_records($family, 1, 1, 1);
 ac_assert('finance.general records → container_not_found (binding, no data)', ($not_found_records['read_state'] ?? '') === 'container_not_found');
 ac_assert('Not found does not invent items', ($not_found_records['items_view'] ?? null) === []);
 
@@ -578,7 +567,6 @@ $html_nf_finance = render_shell([
     'aa_shell_route_message' => '',
     'aa_shell_view' => $not_found_records,
     'aa_canonical_family' => $family,
-    'aa_canonical_variant' => $variant,
 ]);
 ac_assert('Finance records not found UI (not pending)', strpos($html_nf_finance, 'Contenedor no encontrado') !== false
     && strpos($html_nf_finance, 'Lectura pendiente') === false);
@@ -591,8 +579,7 @@ $html_ce = render_shell([
         'shell_view' => 'records',
         'read_state' => 'contract_error',
         'family_label' => 'Demostración del shell',
-        'variant_label' => 'Vista de prueba',
-        'qualified_key' => 'shell_preview.demo',
+        'qualified_key' => 'shell_preview',
         'is_preview' => true,
         'preview_banner' => 'Demostración del shell — datos temporales.',
         'preview_enabled' => true,

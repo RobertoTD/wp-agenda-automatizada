@@ -156,7 +156,6 @@ if (!function_exists('wp_send_json_error')) {
 
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
-require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-variant-definition.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-registry.php';
 require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-core-bootstrap.php';
 require_once $plugin_root . '/includes/application/canonical/ResolveCanonicalRouteUseCase.php';
@@ -230,7 +229,7 @@ final class AA_Canonical_Write_Binding_Bootstrap {
         $canonical = AA_Canonical_Core_Bootstrap::instance();
         if (!(self::$shared_adapter instanceof CanonicalFixtureWriteAdapter)) {
             self::$shared_adapter = CanonicalFixtureWriteAdapter::with_seed(
-                'general',
+                'finance',
                 [
                     1 => ['title' => 'Lista', 'details' => null],
                     2 => ['title' => 'Otra', 'details' => null],
@@ -255,10 +254,8 @@ final class AA_Canonical_Write_Binding_Bootstrap {
             if (empty(AA_Canonical_Family_Enablement_Store::$enabled_map[$key])) {
                 continue;
             }
-            foreach ($canonical->variants_for($key) as $variant) {
-                $identity = new CanonicalReadIdentity($key, $variant->key());
-                $registry->register($identity, $adapter);
-            }
+            $identity = new CanonicalReadIdentity($key);
+            $registry->register($identity, $adapter);
         }
     }
 }
@@ -283,7 +280,6 @@ function aa_base_delete_post(array $over = []): array {
     return array_merge([
         'nonce' => 'good-nonce',
         'family_key' => 'finance',
-        'variant_key' => 'general',
         'container_id' => '1',
         'record_id' => '10',
     ], $over);

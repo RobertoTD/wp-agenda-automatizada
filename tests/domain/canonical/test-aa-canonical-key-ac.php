@@ -66,8 +66,6 @@ ac_assert('assert_valid throws InvalidArgumentException on invalid input', $exce
 ac_assert('assert_valid error message contains [invalid_key]', strpos($exception_message, '[invalid_key]') !== false);
 ac_assert('assert_valid error message includes context and value', strpos($exception_message, 'family_key') !== false && strpos($exception_message, 'Invalid-Key') !== false);
 
-// 5. qualified() returns "family.variant"
-ac_assert('qualified formats correctly', AA_Canonical_Key::qualified('finance', 'general') === 'finance.general');
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 

@@ -10,9 +10,6 @@
 
 defined('ABSPATH') or die('No direct access');
 
-if (!class_exists('AA_Canonical_Key')) {
-    require_once __DIR__ . '/class-aa-canonical-key.php';
-}
 if (!class_exists('AA_Canonical_Instant')) {
     require_once __DIR__ . '/class-aa-canonical-instant.php';
 }
@@ -21,9 +18,6 @@ final class AA_Canonical_Container {
 
     /** @var int */
     private $id;
-
-    /** @var string */
-    private $variant_key;
 
     /** @var string */
     private $title;
@@ -36,14 +30,12 @@ final class AA_Canonical_Container {
 
     /**
      * @param int                      $id
-     * @param string                   $variant_key
      * @param string                   $title
      * @param string|null              $details
      * @param \DateTimeImmutable|string $updated_at Instant UTC or canonical string ending in Z.
      */
     public function __construct(
         int $id,
-        string $variant_key,
         string $title,
         ?string $details,
         $updated_at
@@ -52,8 +44,6 @@ final class AA_Canonical_Container {
             throw new \InvalidArgumentException('[invalid_id] Container id must be a positive integer.');
         }
         $this->id = $id;
-
-        $this->variant_key = AA_Canonical_Key::assert_valid($variant_key, 'variant_key');
 
         $trimmed_title = trim($title);
         if ($trimmed_title === '') {
@@ -84,10 +74,6 @@ final class AA_Canonical_Container {
         return $this->id;
     }
 
-    public function variant_key(): string {
-        return $this->variant_key;
-    }
-
     public function title(): string {
         return $this->title;
     }
@@ -105,12 +91,11 @@ final class AA_Canonical_Container {
     }
 
     /**
-     * @return array{id:int,variant_key:string,title:string,details:?string,updated_at:string}
+     * @return array{id:int,title:string,details:?string,updated_at:string}
      */
     public function to_canonical_array(): array {
         return [
             'id' => $this->id,
-            'variant_key' => $this->variant_key,
             'title' => $this->title,
             'details' => $this->details,
             'updated_at' => $this->updated_at_canonical(),

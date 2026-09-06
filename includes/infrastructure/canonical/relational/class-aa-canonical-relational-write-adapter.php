@@ -56,7 +56,6 @@ final class AA_Canonical_Relational_Write_Adapter implements CanonicalWriteAdapt
         try {
             $row = $this->repository->create_container(
                 $family_id,
-                $identity->variant_key(),
                 $command->title(),
                 $command->details()
             );
@@ -84,7 +83,6 @@ final class AA_Canonical_Relational_Write_Adapter implements CanonicalWriteAdapt
         try {
             $row = $this->repository->update_container(
                 $family_id,
-                $identity->variant_key(),
                 $command->container_id(),
                 $command->title(),
                 $command->details()
@@ -96,7 +94,7 @@ final class AA_Canonical_Relational_Write_Adapter implements CanonicalWriteAdapt
         }
 
         if ($row === null) {
-            throw new CanonicalContainerNotFound($identity->variant_key(), $command->container_id());
+            throw new CanonicalContainerNotFound($identity->family_key(), $command->container_id());
         }
 
         return CanonicalMutationReceipt::confirmed(
@@ -117,7 +115,6 @@ final class AA_Canonical_Relational_Write_Adapter implements CanonicalWriteAdapt
         try {
             $deleted = $this->repository->delete_container(
                 $family_id,
-                $identity->variant_key(),
                 $command->container_id()
             );
         } catch (CanonicalRelationalAmbiguousOutcome $e) {
@@ -127,7 +124,7 @@ final class AA_Canonical_Relational_Write_Adapter implements CanonicalWriteAdapt
         }
 
         if (!$deleted) {
-            throw new CanonicalContainerNotFound($identity->variant_key(), $command->container_id());
+            throw new CanonicalContainerNotFound($identity->family_key(), $command->container_id());
         }
 
         return CanonicalMutationReceipt::confirmed(
@@ -148,7 +145,6 @@ final class AA_Canonical_Relational_Write_Adapter implements CanonicalWriteAdapt
         try {
             $row = $this->repository->create_record(
                 $family_id,
-                $identity->variant_key(),
                 $command->container_id(),
                 $command->title(),
                 $command->details()
@@ -177,7 +173,6 @@ final class AA_Canonical_Relational_Write_Adapter implements CanonicalWriteAdapt
         try {
             $row = $this->repository->update_record(
                 $family_id,
-                $identity->variant_key(),
                 $command->container_id(),
                 $command->record_id(),
                 $command->title(),
@@ -216,7 +211,6 @@ final class AA_Canonical_Relational_Write_Adapter implements CanonicalWriteAdapt
         try {
             $this->repository->delete_record(
                 $family_id,
-                $identity->variant_key(),
                 $command->container_id(),
                 $command->record_id()
             );
@@ -267,7 +261,7 @@ final class AA_Canonical_Relational_Write_Adapter implements CanonicalWriteAdapt
     ) {
         if ($e->code_key() === CanonicalRelationalQueryFailed::CODE_CONTAINER_NOT_FOUND) {
             throw new CanonicalContainerNotFound(
-                $identity->variant_key(),
+                $identity->family_key(),
                 ($container_id !== null && $container_id >= 1) ? $container_id : 1
             );
         }

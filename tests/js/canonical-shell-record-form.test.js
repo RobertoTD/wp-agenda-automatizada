@@ -163,8 +163,7 @@ function boot(fetchImpl, payloads) {
                 deleteAction: 'aa_delete_canonical_record',
                 deleteNonce: 'delete-nonce',
                 familyKey: 'finance',
-                variantKey: 'general',
-                containerId: 42,
+                                containerId: 42,
                 maxTitleLength: 200
             },
             location: {

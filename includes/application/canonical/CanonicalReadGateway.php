@@ -61,7 +61,7 @@ final class CanonicalReadGateway {
         $per_page = self::PAGE_SIZE;
 
         $adapter = $this->resolver->require($identity);
-        $result = $adapter->list_containers($identity->variant_key(), $page, $per_page);
+        $result = $adapter->list_containers($page, $per_page);
 
         $this->assert_pagination_meta($result->pagination(), count($result->items()));
 
@@ -69,9 +69,6 @@ final class CanonicalReadGateway {
         foreach ($result->items() as $item) {
             if (!$item instanceof AA_Canonical_Container) {
                 throw new \InvalidArgumentException('[invalid_page_contract] Invalid item type.');
-            }
-            if ($item->variant_key() !== $identity->variant_key()) {
-                throw new \InvalidArgumentException('[invalid_page_contract] variant_key mismatch.');
             }
             $this->assert_order_desc($previous, $item->updated_at(), $item->id());
             $previous = [$item->updated_at(), $item->id()];
@@ -94,16 +91,13 @@ final class CanonicalReadGateway {
         }
 
         $adapter = $this->resolver->require($identity);
-        $container = $adapter->get_container($identity->variant_key(), $container_id);
+        $container = $adapter->get_container($container_id);
 
         if (!$container instanceof AA_Canonical_Container) {
             throw new \InvalidArgumentException('[invalid_page_contract] Invalid container type.');
         }
         if ($container->id() !== $container_id) {
             throw new \InvalidArgumentException('[invalid_page_contract] container id mismatch.');
-        }
-        if ($container->variant_key() !== $identity->variant_key()) {
-            throw new \InvalidArgumentException('[invalid_page_contract] variant_key mismatch.');
         }
 
         return $container;
@@ -132,7 +126,6 @@ final class CanonicalReadGateway {
         $this->get_container($identity, $container_id);
 
         $result = $adapter->list_records(
-            $identity->variant_key(),
             $container_id,
             $page,
             $per_page

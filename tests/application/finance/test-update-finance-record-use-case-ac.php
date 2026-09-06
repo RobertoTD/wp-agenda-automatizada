@@ -41,7 +41,6 @@ if (!function_exists('current_time')) {
 
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
-require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-variant-definition.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-registry.php';
 require_once $plugin_root . '/includes/repositories/FinanceContainerRepository.php';
 require_once $plugin_root . '/includes/repositories/FinanceRecordRepository.php';
@@ -148,9 +147,7 @@ global $wpdb;
 $wpdb = new TestUpdateRecordWpdbMock();
 
 $registry = new AA_Canonical_Registry();
-$registry->register_family(new AA_Canonical_Family_Definition('finance', 'Finanzas', 'general'));
-$registry->register_variant(new AA_Canonical_Variant_Definition('finance', 'general', 'General'));
-$registry->register_variant(new AA_Canonical_Variant_Definition('finance', 'other_variant', 'Other'));
+$registry->register_family(new AA_Canonical_Family_Definition('finance', 'Finanzas'));
 $registry->freeze();
 
 $use_case = new UpdateFinanceRecordUseCase($registry);
@@ -282,8 +279,7 @@ $res_missing_record = $use_case->execute(['container_id' => 1, 'record_id' => 99
 ac_assert('Registro inexistente devuelve record_not_found', !$res_missing_record['success'] && $res_missing_record['error']['code'] === 'record_not_found');
 
 $unknown_registry = new AA_Canonical_Registry();
-$unknown_registry->register_family(new AA_Canonical_Family_Definition('finance', 'Finanzas', 'general'));
-$unknown_registry->register_variant(new AA_Canonical_Variant_Definition('finance', 'general', 'General'));
+$unknown_registry->register_family(new AA_Canonical_Family_Definition('finance', 'Finanzas'));
 $unknown_registry->freeze();
 $unknown_uc = new UpdateFinanceRecordUseCase($unknown_registry);
 $err_unknown = $unknown_uc->execute(['container_id' => 1, 'record_id' => 501, 'variant_key' => 'missing', 'title' => 'T', 'details' => null, 'amount' => null]);

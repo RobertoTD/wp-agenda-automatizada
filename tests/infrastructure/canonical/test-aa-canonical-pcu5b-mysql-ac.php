@@ -119,19 +119,19 @@ try {
 
     $read_reg = new AA_Canonical_Read_Binding_Registry();
     AA_Canonical_Read_Binding_Bootstrap::register_productive($read_reg);
-    $fin = $read_reg->require(new CanonicalReadIdentity('finance', 'general'));
-    $arch = $read_reg->require(new CanonicalReadIdentity('archive', 'general'));
+    $fin = $read_reg->require(new CanonicalReadIdentity('finance'));
+    $arch = $read_reg->require(new CanonicalReadIdentity('archive'));
     ac_assert('MySQL: finance Relational Read', $fin instanceof AA_Canonical_Relational_Read_Adapter);
     ac_assert('MySQL: archive Relational Read', $arch instanceof AA_Canonical_Relational_Read_Adapter);
 
     $write_reg = new AA_Canonical_Write_Binding_Registry();
     AA_Canonical_Write_Binding_Bootstrap::register_productive($write_reg);
-    $w = $write_reg->require(new CanonicalReadIdentity('finance', 'general'));
+    $w = $write_reg->require(new CanonicalReadIdentity('finance'));
     ac_assert('MySQL: write Relational', $w instanceof AA_Canonical_Relational_Write_Adapter);
 
     $family = AA_Canonical_Core_Bootstrap::instance()->family('finance');
-    $variant = AA_Canonical_Core_Bootstrap::instance()->variant('finance', 'general');
-    $view = AA_Canonical_Shell_View_Composer::compose_family($family, $variant, 1);
+    $variant = null;
+    $view = AA_Canonical_Shell_View_Composer::compose_family($family, 1);
     ac_assert('MySQL: shell finance empty pese a legacy', ($view['read_state'] ?? '') === 'empty');
 
     $c_table = AA_Canonical_Schema::containers_table_name();
@@ -144,12 +144,12 @@ try {
     AA_Canonical_Read_Binding_Bootstrap::register_productive($read_off);
     $off = false;
     try {
-        $read_off->require(new CanonicalReadIdentity('finance', 'general'));
+        $read_off->require(new CanonicalReadIdentity('finance'));
     } catch (CanonicalReadBindingNotFound $e) {
         $off = true;
     }
     ac_assert('MySQL: disable → sin read binding', $off);
-    ac_assert('MySQL: archive sigue enabled', $read_off->require(new CanonicalReadIdentity('archive', 'general')) instanceof AA_Canonical_Relational_Read_Adapter);
+    ac_assert('MySQL: archive sigue enabled', $read_off->require(new CanonicalReadIdentity('archive')) instanceof AA_Canonical_Relational_Read_Adapter);
 
 } finally {
     $cleanup($temp_prefix);

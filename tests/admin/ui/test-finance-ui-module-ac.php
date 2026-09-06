@@ -49,7 +49,6 @@ if (!function_exists('plugin_dir_url')) {
 $plugin_root = dirname(__DIR__, 3);
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
-require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-variant-definition.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-registry.php';
 require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-core-bootstrap.php';
 require_once $plugin_root . '/includes/infrastructure/wp/class-aa-canonical-access-policy.php';
@@ -136,7 +135,9 @@ echo "\n=== 2. Renderizado de Vista Finance con Contexto Resuelto ===\n";
 
 $registry = AA_Canonical_Core_Bootstrap::build_registry();
 $aa_canonical_family = $registry->family('finance');
-$aa_canonical_variant = $registry->variant('finance', 'general');
+$aa_finance_variant_key = 'general';
+$aa_finance_variant_label = 'General';
+$aa_canonical_variant = null;
 
 ob_start();
 require $canonical_dispatcher;
@@ -228,9 +229,8 @@ ac_assert('Contexto ausente renderiza aa-canonical-root (_fallback.php)', strpos
 ac_assert('Contexto ausente no renderiza aa-finance-root', strpos($fallback_html, 'id="aa-finance-root"') === false);
 
 // Familia no registrada en el mapa de templates
-$custom_family = new AA_Canonical_Family_Definition('custom_family', 'Familia Custom', 'custom_var');
+$custom_family = new AA_Canonical_Family_Definition('custom_family', 'Familia Custom');
 $aa_canonical_family = $custom_family;
-$aa_canonical_variant = new AA_Canonical_Variant_Definition('custom_family', 'custom_var', 'Variante Custom');
 ob_start();
 require $canonical_dispatcher;
 $custom_html = ob_get_clean();

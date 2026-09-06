@@ -58,11 +58,11 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
     echo '[FAIL] ' . $label . ($detail !== '' ? ' - ' . $detail : '') . "\n";
 }
 
-$url = AA_Canonical_Shell_Base_Url_Policy::build_url('finance', 'general');
-ac_assert('Build shell URL with finance.general', strpos($url, 'action=aa_iframe_content') !== false
+$url = AA_Canonical_Shell_Base_Url_Policy::build_url('finance');
+ac_assert('Build shell URL with finance family only', strpos($url, 'action=aa_iframe_content') !== false
     && strpos($url, 'module=canonical_shell') !== false
     && strpos($url, 'family=finance') !== false
-    && strpos($url, 'variant=general') !== false);
+    && strpos($url, 'variant=') === false);
 
 $module_only = AA_Canonical_Shell_Base_Url_Policy::build_module_url();
 ac_assert('Build module-only URL without family', strpos($module_only, 'module=canonical_shell') !== false
@@ -79,14 +79,14 @@ ac_assert('Legacy finance URL rejected by shell allowlist', AA_Canonical_Shell_B
 $bad = $url . '&view=detail';
 ac_assert('Unknown view=detail rejected', AA_Canonical_Shell_Base_Url_Policy::is_allowlisted_shell_url($bad) === false);
 
-$records = AA_Canonical_Shell_Base_Url_Policy::build_records_url('finance', 'general', 5, 2, 3);
+$records = AA_Canonical_Shell_Base_Url_Policy::build_records_url('finance', 5, 2, 3);
 ac_assert('Records builder includes transport', strpos($records, 'view=records') !== false
     && strpos($records, 'container_id=5') !== false
     && strpos($records, 'page=2') !== false
     && strpos($records, 'containers_page=3') !== false);
 ac_assert('Records URL allowlisted', AA_Canonical_Shell_Base_Url_Policy::is_allowlisted_shell_url($records) === true);
 
-$records_omit = AA_Canonical_Shell_Base_Url_Policy::build_records_url('finance', 'general', 5, 1, 1);
+$records_omit = AA_Canonical_Shell_Base_Url_Policy::build_records_url('finance', 5, 1, 1);
 ac_assert('Records builder omits page/containers_page when 1', strpos($records_omit, 'page=') === false
     && strpos($records_omit, 'containers_page=') === false);
 
@@ -103,7 +103,7 @@ ac_assert('Positive id parser accepts 3', AA_Canonical_Shell_Base_Url_Policy::pa
 
 $threw = false;
 try {
-    AA_Canonical_Shell_Base_Url_Policy::build_url('Bad Key', 'general');
+    AA_Canonical_Shell_Base_Url_Policy::build_url('Bad Key');
 } catch (InvalidArgumentException $e) {
     $threw = true;
 }

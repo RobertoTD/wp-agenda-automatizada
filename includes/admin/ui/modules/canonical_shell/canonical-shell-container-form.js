@@ -17,12 +17,11 @@
     var deleteAction = typeof cfg.deleteAction === 'string' ? cfg.deleteAction : '';
     var deleteNonce = typeof cfg.deleteNonce === 'string' ? cfg.deleteNonce : '';
     var familyKey = typeof cfg.familyKey === 'string' ? cfg.familyKey : '';
-    var variantKey = typeof cfg.variantKey === 'string' ? cfg.variantKey : '';
     var maxTitleLength = typeof cfg.maxTitleLength === 'number' ? cfg.maxTitleLength : 200;
 
     if (!ajaxUrl || !createAction || !createNonce || !updateAction || !updateNonce
         || !deleteAction || !deleteNonce
-        || !familyKey || !variantKey) {
+        || !familyKey) {
         return;
     }
 
@@ -256,7 +255,6 @@
         body.append('action', action);
         body.append('nonce', nonce);
         body.append('family_key', familyKey);
-        body.append('variant_key', variantKey);
         if (mode === MODE_UPDATE) {
             body.append('container_id', String(currentContainerId));
         }
@@ -445,7 +443,6 @@
         body.append('action', deleteAction);
         body.append('nonce', deleteNonce);
         body.append('family_key', familyKey);
-        body.append('variant_key', variantKey);
         body.append('container_id', String(deleteContainerId));
 
         fetch(ajaxUrl, {

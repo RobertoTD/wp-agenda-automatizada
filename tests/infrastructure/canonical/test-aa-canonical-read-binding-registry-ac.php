@@ -38,31 +38,31 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 }
 
 class StubReadAdapterA implements CanonicalReadAdapter {
-    public function list_containers(string $variant_key, int $page, int $per_page): CanonicalPage {
+    public function list_containers(int $page, int $per_page): CanonicalPage {
         throw new \LogicException('stub');
     }
-    public function get_container(string $variant_key, int $container_id): AA_Canonical_Container {
+    public function get_container(int $container_id): AA_Canonical_Container {
         throw new \LogicException('stub');
     }
-    public function list_records(string $variant_key, int $container_id, int $page, int $per_page): CanonicalRecordsPage {
+    public function list_records(int $container_id, int $page, int $per_page): CanonicalRecordsPage {
         throw new \LogicException('stub');
     }
 }
 
 class StubReadAdapterB implements CanonicalReadAdapter {
-    public function list_containers(string $variant_key, int $page, int $per_page): CanonicalPage {
+    public function list_containers(int $page, int $per_page): CanonicalPage {
         throw new \LogicException('stub');
     }
-    public function get_container(string $variant_key, int $container_id): AA_Canonical_Container {
+    public function get_container(int $container_id): AA_Canonical_Container {
         throw new \LogicException('stub');
     }
-    public function list_records(string $variant_key, int $container_id, int $page, int $per_page): CanonicalRecordsPage {
+    public function list_records(int $container_id, int $page, int $per_page): CanonicalRecordsPage {
         throw new \LogicException('stub');
     }
 }
 
 $registry = new AA_Canonical_Read_Binding_Registry();
-$id = new CanonicalReadIdentity('finance', 'general');
+$id = new CanonicalReadIdentity('finance');
 $first = new StubReadAdapterA();
 $second = new StubReadAdapterB();
 $registry->register($id, $first);
