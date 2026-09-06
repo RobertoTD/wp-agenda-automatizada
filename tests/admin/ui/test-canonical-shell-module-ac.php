@@ -591,11 +591,18 @@ ac_assert('Shell shows empty finance (not pending)', strpos($shell_html, 'Sin co
     && strpos($shell_html, 'Lectura pendiente') === false);
 ac_assert('Shell empty copy universal', strpos($shell_html, 'Aún no hay contenedores en este tipo de registro.') !== false);
 ac_assert('Shell empty has no preview CTA without constant', strpos($shell_html, 'Ver demostración del shell') === false);
-ac_assert('Shell CTA Nueva lista', strpos($shell_html, 'id="aa-shell-open-create-btn"') !== false
-    && strpos($shell_html, 'Nueva lista') !== false);
+ac_assert('Shell CTA Nueva lista es FAB', strpos($shell_html, 'id="aa-shell-fab-stack"') !== false
+    && strpos($shell_html, 'id="aa-shell-open-create-btn"') !== false
+    && strpos($shell_html, 'aria-label="Nueva lista"') !== false
+    && strpos($shell_html, 'bg-violet-600') !== false);
+ac_assert('Shell listados resueltos sin badge Resuelto ni header card duplicado', strpos($shell_html, '>Resuelto<') === false
+    && strpos($shell_html, 'class="sr-only"') !== false
+    && preg_match('/<h1 class="sr-only">Finanzas<\/h1>/', $shell_html) === 1);
 ac_assert('Shell container modal present', strpos($shell_html, 'id="aa-shell-container-modal"') !== false
     && strpos($shell_html, 'Nombre de la lista') !== false
     && strpos($shell_html, 'Crear lista') !== false);
+ac_assert('Shell modal z-index sobre FAB', strpos($shell_html, 'id="aa-shell-container-modal"') !== false
+    && preg_match('/id="aa-shell-container-modal"[\s\S]*?z-\[300\]/', $shell_html) === 1);
 ac_assert('Shell container form config present', strpos($shell_html, 'AA_CANONICAL_SHELL_CONTAINER_FORM') !== false
     && strpos($shell_html, 'aa_create_canonical_container') !== false
     && strpos($shell_html, 'aa_update_canonical_container') !== false

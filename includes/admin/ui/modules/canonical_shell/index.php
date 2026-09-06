@@ -156,7 +156,7 @@ $show_create_record_ui = $show_read_ui
 
 <div
     id="aa-canonical-shell-root"
-    class="max-w-5xl mx-auto py-2"
+    class="max-w-5xl mx-auto py-2<?php echo $show_create_ui ? ' pb-24' : ''; ?>"
     data-aa-page-title="<?php echo esc_attr($page_title); ?>"
     data-aa-shell-route-state="<?php echo esc_attr($route_state); ?>"
     data-aa-shell-view="<?php echo esc_attr($shell_view); ?>"
@@ -173,59 +173,34 @@ $show_create_record_ui = $show_read_ui
     data-aa-canonical-qualified="<?php echo esc_attr($qualified_key); ?>"
     <?php endif; ?>
 >
-    <header class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-4">
-        <div class="flex items-start justify-between flex-wrap gap-4">
-            <div>
-                <h2 class="text-xl font-bold text-gray-900 leading-tight">
-                    <?php
-                    if ($show_read_ui && $is_all_lists_scope) {
-                        echo esc_html('Todas las listas');
-                    } elseif ($show_read_ui && $family_label !== '') {
-                        echo esc_html($family_label);
-                    } else {
-                        echo esc_html('Shell canónico');
-                    }
-                    ?>
-                </h2>
-                <?php if ($show_read_ui && ($is_all_lists_scope || $family_label !== '')) : ?>
-                    <?php /* Título ya en el h2 / data-aa-page-title. */ ?>
-                <?php else : ?>
+    <?php
+    // Título semántico: el header compartido es button/span, no heading de contenido.
+    $aa_shell_heading_text = $page_title;
+    if ($show_read_ui && $is_all_lists_scope) {
+        $aa_shell_heading_text = 'Todas las listas';
+    } elseif ($show_read_ui && $family_label !== '') {
+        $aa_shell_heading_text = $family_label;
+    }
+    ?>
+    <h1 class="sr-only"><?php echo esc_html($aa_shell_heading_text); ?></h1>
+
+    <?php if ($is_preview) : ?>
+        <header class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-4">
+            <div class="flex items-start justify-between flex-wrap gap-4">
+                <div>
+                    <h2 class="text-xl font-bold text-gray-900 leading-tight">
+                        <?php echo esc_html($aa_shell_heading_text); ?>
+                    </h2>
                     <p class="text-sm text-gray-500 mt-1">
                         Módulo paralelo provisional. No sustituye la UI de familias existentes.
                     </p>
-                <?php endif; ?>
-            </div>
-            <div class="flex items-center gap-3 flex-wrap">
+                </div>
                 <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800">
-                    <?php echo esc_html($is_preview ? 'Demostración' : $state_label); ?>
+                    Demostración
                 </span>
-                <?php if ($show_create_ui) : ?>
-                    <button
-                        type="button"
-                        id="aa-shell-open-create-btn"
-                        class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition"
-                    >
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                        </svg>
-                        <span>Nueva lista</span>
-                    </button>
-                <?php endif; ?>
-                <?php if ($show_create_record_ui) : ?>
-                    <button
-                        type="button"
-                        id="aa-shell-open-create-record-btn"
-                        class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition"
-                    >
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                        </svg>
-                        <span>Nuevo registro</span>
-                    </button>
-                <?php endif; ?>
             </div>
-        </div>
-    </header>
+        </header>
+    <?php endif; ?>
 
     <?php if ($is_preview && $preview_banner !== '') : ?>
         <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
@@ -237,13 +212,29 @@ $show_create_record_ui = $show_read_ui
 
         <?php if ($is_records) : ?>
 
-            <?php if ($back_url !== '') : ?>
-                <p class="mb-4">
-                    <a
-                        href="<?php echo esc_url($back_url); ?>"
-                        class="inline-flex items-center text-sm font-medium text-indigo-700 hover:underline"
-                    >Volver a contenedores</a>
-                </p>
+            <?php if ($back_url !== '' || $show_create_record_ui) : ?>
+                <div class="mb-4 flex items-center justify-between gap-3 flex-wrap">
+                    <p class="m-0">
+                        <?php if ($back_url !== '') : ?>
+                            <a
+                                href="<?php echo esc_url($back_url); ?>"
+                                class="inline-flex items-center text-sm font-medium text-indigo-700 hover:underline"
+                            >Volver a contenedores</a>
+                        <?php endif; ?>
+                    </p>
+                    <?php if ($show_create_record_ui) : ?>
+                        <button
+                            type="button"
+                            id="aa-shell-open-create-record-btn"
+                            class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            <span>Nuevo registro</span>
+                        </button>
+                    <?php endif; ?>
+                </div>
             <?php endif; ?>
 
             <?php if ($read_state === 'contract_error') : ?>
@@ -485,6 +476,19 @@ $show_create_record_ui = $show_read_ui
     <?php endif; ?>
 </div>
 
+<?php if ($show_create_ui) : ?>
+<div id="aa-shell-fab-stack" class="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+    <button
+        type="button"
+        id="aa-shell-open-create-btn"
+        class="inline-flex items-center gap-2 px-4 py-3 text-base font-bold text-white bg-violet-600 hover:bg-violet-700 active:bg-violet-800 rounded-full shadow-lg shadow-violet-600/30 hover:shadow-xl hover:shadow-violet-600/35 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-violet-500/40"
+        aria-label="Nueva lista"
+    >
+        <span>Nueva lista</span>
+    </button>
+</div>
+<?php endif; ?>
+
 <?php if ($show_container_write_ui) : ?>
     <?php
     if (!class_exists('CanonicalCreateContainerAjax')) {
@@ -502,7 +506,7 @@ $show_create_record_ui = $show_read_ui
     ?>
     <div
         id="aa-shell-container-modal"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden"
+        class="fixed inset-0 z-[300] flex items-center justify-center p-4 hidden"
         role="dialog"
         aria-modal="true"
         aria-labelledby="aa-shell-container-modal-title"
@@ -607,7 +611,7 @@ $show_create_record_ui = $show_read_ui
 
     <div
         id="aa-shell-delete-container-modal"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden"
+        class="fixed inset-0 z-[300] flex items-center justify-center p-4 hidden"
         role="dialog"
         aria-modal="true"
         aria-labelledby="aa-shell-delete-container-modal-title"
@@ -703,7 +707,7 @@ $show_create_record_ui = $show_read_ui
     ?>
     <div
         id="aa-shell-record-modal"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden"
+        class="fixed inset-0 z-[300] flex items-center justify-center p-4 hidden"
         role="dialog"
         aria-modal="true"
         aria-labelledby="aa-shell-record-modal-title"
@@ -788,7 +792,7 @@ $show_create_record_ui = $show_read_ui
 
     <div
         id="aa-shell-delete-record-modal"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden"
+        class="fixed inset-0 z-[300] flex items-center justify-center p-4 hidden"
         role="dialog"
         aria-modal="true"
         aria-labelledby="aa-shell-delete-record-modal-title"
