@@ -20,24 +20,26 @@ $aa_finance_url = class_exists('AA_Canonical_Shell_Url_Policy')
     ? AA_Canonical_Shell_Url_Policy::build_url('finance', 'general')
     : admin_url('admin-post.php?action=aa_iframe_content&module=canonical&family=finance&variant=general');
 
-$aa_canonical_record_types_nav = [];
-if ($can_manage_options
-    && class_exists('AA_Canonical_Core_Bootstrap')
-    && class_exists('AA_Canonical_Family_Enablement_Store')
-    && class_exists('ReadCanonicalFamilyEnablementUseCase')
-    && class_exists('AA_Canonical_Family_Enablement_Nav')
-) {
-    try {
-        $aa_enablement_registry = AA_Canonical_Core_Bootstrap::instance();
-        $aa_enablement_snapshot = (new ReadCanonicalFamilyEnablementUseCase(
-            new AA_Canonical_Family_Enablement_Store()
-        ))->execute($aa_enablement_registry);
-        $aa_canonical_record_types_nav = AA_Canonical_Family_Enablement_Nav::build(
-            $aa_enablement_registry,
-            $aa_enablement_snapshot
-        );
-    } catch (\Throwable $e) {
-        $aa_canonical_record_types_nav = [];
+if (!isset($aa_canonical_record_types_nav) || !is_array($aa_canonical_record_types_nav)) {
+    $aa_canonical_record_types_nav = [];
+    if ($can_manage_options
+        && class_exists('AA_Canonical_Core_Bootstrap')
+        && class_exists('AA_Canonical_Family_Enablement_Store')
+        && class_exists('ReadCanonicalFamilyEnablementUseCase')
+        && class_exists('AA_Canonical_Family_Enablement_Nav')
+    ) {
+        try {
+            $aa_enablement_registry = AA_Canonical_Core_Bootstrap::instance();
+            $aa_enablement_snapshot = (new ReadCanonicalFamilyEnablementUseCase(
+                new AA_Canonical_Family_Enablement_Store()
+            ))->execute($aa_enablement_registry);
+            $aa_canonical_record_types_nav = AA_Canonical_Family_Enablement_Nav::build(
+                $aa_enablement_registry,
+                $aa_enablement_snapshot
+            );
+        } catch (\Throwable $e) {
+            $aa_canonical_record_types_nav = [];
+        }
     }
 }
 ?>

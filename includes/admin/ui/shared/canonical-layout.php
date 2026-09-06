@@ -37,6 +37,29 @@ if (!function_exists('aa_asset_url')) {
     }
 }
 
+// Nav de familias activadas (una sola lectura; header + sidebar reutilizan el resultado).
+$aa_canonical_record_types_nav = [];
+$can_manage_options = current_user_can('manage_options');
+if ($can_manage_options
+    && class_exists('AA_Canonical_Core_Bootstrap')
+    && class_exists('AA_Canonical_Family_Enablement_Store')
+    && class_exists('ReadCanonicalFamilyEnablementUseCase')
+    && class_exists('AA_Canonical_Family_Enablement_Nav')
+) {
+    try {
+        $aa_enablement_registry = AA_Canonical_Core_Bootstrap::instance();
+        $aa_enablement_snapshot = (new ReadCanonicalFamilyEnablementUseCase(
+            new AA_Canonical_Family_Enablement_Store()
+        ))->execute($aa_enablement_registry);
+        $aa_canonical_record_types_nav = AA_Canonical_Family_Enablement_Nav::build(
+            $aa_enablement_registry,
+            $aa_enablement_snapshot
+        );
+    } catch (\Throwable $e) {
+        $aa_canonical_record_types_nav = [];
+    }
+}
+
 // Send headers
 header('Content-Type: text/html; charset=utf-8');
 ?>
@@ -86,6 +109,9 @@ header('Content-Type: text/html; charset=utf-8');
 <script src="<?php echo aa_asset_url('includes/admin/ui/assets/js/main.js'); ?>" defer></script>
 <script src="<?php echo aa_asset_url('includes/admin/ui/assets/js/sidebar.js'); ?>" defer></script>
 <script src="<?php echo aa_asset_url('assets/js/services/shellAccessProjection.js'); ?>" defer></script>
+<?php if ($active_module === 'canonical_shell') : ?>
+<script src="<?php echo aa_asset_url('includes/admin/ui/assets/js/canonical-family-switcher.js'); ?>" defer></script>
+<?php endif; ?>
 
     <div id="aa-admin-app" class="w-full flex flex-col min-h-screen">
         <?php require_once __DIR__ . '/header.php'; ?>

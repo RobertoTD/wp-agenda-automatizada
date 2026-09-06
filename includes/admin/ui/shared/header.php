@@ -28,11 +28,90 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
                 </button>
 
                 <!-- Dynamic page title (synced from contextual view or active sidebar label) -->
+                <?php
+                $aa_family_title_mode = null;
+                $aa_family_title_label = '';
+                $aa_family_switcher_items = [];
+                $aa_family_current_key = '';
+
+                if (
+                    isset($active_module)
+                    && $active_module === 'canonical_shell'
+                    && isset($aa_shell_route_state)
+                    && $aa_shell_route_state === 'resolved'
+                    && isset($aa_canonical_family)
+                    && $aa_canonical_family instanceof AA_Canonical_Family_Definition
+                    && isset($aa_canonical_record_types_nav)
+                    && is_array($aa_canonical_record_types_nav)
+                ) {
+                    $aa_family_current_key = $aa_canonical_family->key();
+                    $aa_family_title_label = $aa_canonical_family->label();
+                    foreach ($aa_canonical_record_types_nav as $aa_nav_item) {
+                        $aa_nav_key = (string) ($aa_nav_item['family_key'] ?? '');
+                        $aa_nav_label = (string) ($aa_nav_item['label'] ?? '');
+                        $aa_nav_url = (string) ($aa_nav_item['url'] ?? '');
+                        if ($aa_nav_key === '' || $aa_nav_label === '' || $aa_nav_url === '') {
+                            continue;
+                        }
+                        $aa_family_switcher_items[] = [
+                            'family_key' => $aa_nav_key,
+                            'label' => $aa_nav_label,
+                            'url' => $aa_nav_url,
+                        ];
+                    }
+                    $aa_family_nav_count = count($aa_family_switcher_items);
+                    if ($aa_family_nav_count >= 2 && $aa_family_title_label !== '') {
+                        $aa_family_title_mode = 'family-switcher';
+                    } elseif ($aa_family_nav_count === 1 && $aa_family_title_label !== '') {
+                        $aa_family_title_mode = 'family-static';
+                        $aa_family_switcher_items = [];
+                    }
+                }
+
+                if ($aa_family_title_mode === 'family-switcher') :
+                ?>
+                <div id="aa-family-switcher" class="relative min-w-0">
+                    <button
+                        type="button"
+                        id="aa-page-title"
+                        data-aa-title-mode="family-switcher"
+                        class="aa-family-switcher-trigger min-w-0 truncate text-base font-semibold text-gray-600 tracking-tight"
+                        aria-expanded="false"
+                        aria-controls="aa-family-switcher-panel"
+                    ><?php echo esc_html($aa_family_title_label); ?></button>
+                    <div
+                        id="aa-family-switcher-panel"
+                        class="aa-family-switcher-panel hidden absolute left-0 top-full z-50 mt-1.5 min-w-[12rem] rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+                        hidden
+                    >
+                        <ul class="py-0" aria-label="Tipos de registros">
+                            <?php foreach ($aa_family_switcher_items as $aa_switch_item) :
+                                $aa_is_current = ($aa_switch_item['family_key'] === $aa_family_current_key);
+                                ?>
+                            <li>
+                                <a
+                                    href="<?php echo esc_url($aa_switch_item['url']); ?>"
+                                    class="aa-family-switcher-link block truncate px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 <?php echo $aa_is_current ? 'aa-family-switcher-link--current font-semibold text-gray-900 bg-gray-50' : ''; ?>"
+                                    <?php echo $aa_is_current ? 'aria-current="page"' : ''; ?>
+                                ><?php echo esc_html($aa_switch_item['label']); ?></a>
+                            </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                </div>
+                <?php elseif ($aa_family_title_mode === 'family-static') : ?>
+                <span
+                    id="aa-page-title"
+                    data-aa-title-mode="family-static"
+                    class="min-w-0 truncate text-base font-semibold text-gray-600 tracking-tight"
+                ><?php echo esc_html($aa_family_title_label); ?></span>
+                <?php else : ?>
                 <span
                     id="aa-page-title"
                     class="min-w-0 truncate text-base font-semibold text-gray-600 tracking-tight"
                     hidden
                 ></span>
+                <?php endif; ?>
 
                 <?php
                 $aa_show_expediente_detail_back = isset($active_module)

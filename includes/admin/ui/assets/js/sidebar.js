@@ -25,6 +25,12 @@
             return;
         }
 
+        // SSR modes owned by the canonical family header control — do not wipe.
+        var titleMode = titleEl.getAttribute('data-aa-title-mode');
+        if (titleMode === 'family-switcher' || titleMode === 'family-static') {
+            return;
+        }
+
         var text = '';
 
         var contextual = document.querySelector('[data-aa-page-title]');
