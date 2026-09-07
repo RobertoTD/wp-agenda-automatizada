@@ -152,11 +152,17 @@ $show_create_record_ui = $show_read_ui
     && in_array($read_state, ['empty', 'resolved_page'], true)
     && $create_family_key !== ''
     && $create_container_id >= 1;
+
+$is_records_fill = $show_read_ui
+    && !$is_preview
+    && $is_records
+    && $route_state === 'resolved'
+    && in_array($read_state, ['empty', 'resolved_page'], true);
 ?>
 
 <div
     id="aa-canonical-shell-root"
-    class="max-w-5xl mx-auto py-2<?php echo $show_create_ui ? ' pb-24' : ''; ?>"
+    class="max-w-5xl mx-auto py-2<?php echo $show_create_ui ? ' pb-24' : ''; ?><?php echo $is_records_fill ? ' aa-shell-records-fill-root' : ''; ?>"
     data-aa-page-title="<?php echo esc_attr($page_title); ?>"
     data-aa-shell-route-state="<?php echo esc_attr($route_state); ?>"
     data-aa-shell-view="<?php echo esc_attr($shell_view); ?>"
@@ -212,28 +218,14 @@ $show_create_record_ui = $show_read_ui
 
         <?php if ($is_records) : ?>
 
-            <?php if ($back_url !== '' || $show_create_record_ui) : ?>
+            <?php if (!$is_records_fill && $back_url !== '') : ?>
                 <div class="mb-4 flex items-center justify-between gap-3 flex-wrap">
                     <p class="m-0">
-                        <?php if ($back_url !== '') : ?>
-                            <a
-                                href="<?php echo esc_url($back_url); ?>"
-                                class="inline-flex items-center text-sm font-medium text-indigo-700 hover:underline"
-                            >Volver a contenedores</a>
-                        <?php endif; ?>
+                        <a
+                            href="<?php echo esc_url($back_url); ?>"
+                            class="inline-flex items-center text-sm font-medium text-indigo-700 hover:underline"
+                        >Volver a contenedores</a>
                     </p>
-                    <?php if ($show_create_record_ui) : ?>
-                        <button
-                            type="button"
-                            id="aa-shell-open-create-record-btn"
-                            class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition"
-                        >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                            </svg>
-                            <span>Nuevo registro</span>
-                        </button>
-                    <?php endif; ?>
                 </div>
             <?php endif; ?>
 
@@ -280,68 +272,197 @@ $show_create_record_ui = $show_read_ui
                     : null;
                 $parent_iso = is_array($parent_container) ? (string) ($parent_container['updated_at_iso'] ?? '') : '';
                 $parent_display = is_array($parent_container) ? (string) ($parent_container['updated_at_display'] ?? '') : '';
+                $parent_has_details_text = is_string($parent_details) && $parent_details !== '';
+                $parent_has_updated = ($parent_iso !== '' && $parent_display !== '');
+                $parent_has_details_block = $parent_has_details_text || $parent_has_updated;
+                $list_heading = $parent_title !== '' ? $parent_title : 'Contenedor';
                 ?>
-                <section class="mb-4" aria-labelledby="aa-shell-parent-heading">
-                    <h3 id="aa-shell-parent-heading" class="text-lg font-semibold text-gray-900">
-                        <?php echo esc_html($parent_title !== '' ? $parent_title : 'Contenedor'); ?>
-                    </h3>
-                    <?php if (is_string($parent_details) && $parent_details !== '') : ?>
-                        <p class="mt-2 text-sm text-gray-600 whitespace-pre-wrap"><?php echo esc_html($parent_details); ?></p>
-                    <?php endif; ?>
-                    <?php if ($parent_iso !== '' && $parent_display !== '') : ?>
-                        <p class="mt-2 text-xs text-gray-500">
-                            <time datetime="<?php echo esc_attr($parent_iso); ?>"><?php echo esc_html($parent_display); ?></time>
-                        </p>
-                    <?php endif; ?>
-                </section>
 
-                <?php if ($read_state === 'empty') : ?>
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center" role="status">
-                        <h3 class="text-base font-semibold text-gray-900 mb-2">Sin registros</h3>
-                        <p class="text-sm text-gray-500">No hay registros para mostrar en este contenedor.</p>
-                    </div>
+                <?php if ($is_records_fill) : ?>
+                    <section
+                        class="aa-shell-list-panel bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
+                        aria-labelledby="aa-shell-parent-heading"
+                    >
+                        <header class="aa-shell-list-panel-header px-4 py-3 border-b border-gray-100 bg-white">
+                            <div class="flex items-center justify-between gap-3 flex-wrap">
+                                <p class="m-0 min-w-0">
+                                    <?php if ($back_url !== '') : ?>
+                                        <a
+                                            href="<?php echo esc_url($back_url); ?>"
+                                            class="inline-flex items-center text-sm font-medium text-indigo-700 hover:underline"
+                                        >Volver a contenedores</a>
+                                    <?php endif; ?>
+                                </p>
+                                <?php if ($parent_has_details_block) : ?>
+                                    <button
+                                        type="button"
+                                        id="aa-shell-list-details-toggle"
+                                        class="shrink-0 text-sm font-medium text-indigo-700 hover:underline focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded"
+                                        aria-expanded="false"
+                                        aria-controls="aa-shell-list-details"
+                                    >Detalles</button>
+                                <?php endif; ?>
+                            </div>
+                            <h2 id="aa-shell-parent-heading" class="mt-2 text-lg font-semibold text-gray-900 leading-snug truncate">
+                                <?php echo esc_html($list_heading); ?>
+                            </h2>
+                        </header>
+                        <div class="aa-shell-list-panel-body p-4<?php echo $show_create_record_ui ? ' aa-shell-list-panel-body--fab' : ''; ?>">
+                            <?php if ($parent_has_details_block) : ?>
+                                <div
+                                    id="aa-shell-list-details"
+                                    class="mb-4 pb-4 border-b border-gray-100 hidden"
+                                    hidden
+                                >
+                                    <?php if ($parent_has_details_text) : ?>
+                                        <p class="text-sm text-gray-600 whitespace-pre-wrap m-0"><?php echo esc_html($parent_details); ?></p>
+                                    <?php endif; ?>
+                                    <?php if ($parent_has_updated) : ?>
+                                        <p class="<?php echo $parent_has_details_text ? 'mt-2' : ''; ?> text-xs text-gray-500 m-0">
+                                            <time datetime="<?php echo esc_attr($parent_iso); ?>"><?php echo esc_html($parent_display); ?></time>
+                                        </p>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
+
+                            <?php if ($read_state === 'empty') : ?>
+                                <div class="rounded-lg border border-dashed border-gray-200 p-8 text-center" role="status">
+                                    <h3 class="text-base font-semibold text-gray-900 mb-2">Sin registros</h3>
+                                    <p class="text-sm text-gray-500 m-0">No hay registros para mostrar en este contenedor.</p>
+                                </div>
+                            <?php else : ?>
+                                <h3 class="sr-only">Registros</h3>
+                                <ul class="grid gap-4 sm:grid-cols-2" aria-label="Registros canónicos">
+                                    <?php foreach ($items_view as $item) : ?>
+                                        <?php
+                                        $card_title = isset($item['title']) ? (string) $item['title'] : '';
+                                        $card_details = array_key_exists('details', $item) ? $item['details'] : null;
+                                        $card_iso = isset($item['updated_at_iso']) ? (string) $item['updated_at_iso'] : '';
+                                        $card_display = isset($item['updated_at_display']) ? (string) $item['updated_at_display'] : '';
+                                        $card_record_id = isset($item['id']) ? (int) $item['id'] : 0;
+                                        $show_edit_record = $show_create_record_ui;
+                                        require __DIR__ . '/partials/record-card.php';
+                                        ?>
+                                    <?php endforeach; ?>
+                                </ul>
+
+                                <?php if ($has_previous || $has_next) : ?>
+                                    <nav class="mt-6 flex items-center justify-between gap-3" aria-label="Paginación de registros">
+                                        <div>
+                                            <?php if ($has_previous && $prev_url !== '') : ?>
+                                                <a
+                                                    href="<?php echo esc_url($prev_url); ?>"
+                                                    class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                                                >Anterior</a>
+                                            <?php endif; ?>
+                                        </div>
+                                        <p class="text-xs text-gray-500" aria-current="page">
+                                            <?php
+                                            $total_display = ($total_pages !== null && $total_pages > 0) ? $total_pages : 1;
+                                            $current_display = $page_num !== null ? $page_num : 1;
+                                            echo esc_html('Página ' . $current_display . ' de ' . $total_display);
+                                            ?>
+                                        </p>
+                                        <div>
+                                            <?php if ($has_next && $next_url !== '') : ?>
+                                                <a
+                                                    href="<?php echo esc_url($next_url); ?>"
+                                                    class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                                                >Siguiente</a>
+                                            <?php endif; ?>
+                                        </div>
+                                    </nav>
+                                <?php endif; ?>
+                            <?php endif; ?>
+                        </div>
+                    </section>
+                    <?php if ($parent_has_details_block) : ?>
+                        <script>
+                        (function () {
+                            var toggle = document.getElementById('aa-shell-list-details-toggle');
+                            var panel = document.getElementById('aa-shell-list-details');
+                            if (!toggle || !panel) {
+                                return;
+                            }
+                            toggle.addEventListener('click', function () {
+                                var open = toggle.getAttribute('aria-expanded') === 'true';
+                                var next = !open;
+                                toggle.setAttribute('aria-expanded', next ? 'true' : 'false');
+                                if (next) {
+                                    panel.classList.remove('hidden');
+                                    panel.removeAttribute('hidden');
+                                } else {
+                                    panel.classList.add('hidden');
+                                    panel.setAttribute('hidden', '');
+                                }
+                            });
+                        })();
+                        </script>
+                    <?php endif; ?>
+
                 <?php else : ?>
-                    <h3 class="sr-only">Registros</h3>
-                    <ul class="grid gap-4 sm:grid-cols-2" aria-label="Registros canónicos">
-                        <?php foreach ($items_view as $item) : ?>
-                            <?php
-                            $card_title = isset($item['title']) ? (string) $item['title'] : '';
-                            $card_details = array_key_exists('details', $item) ? $item['details'] : null;
-                            $card_iso = isset($item['updated_at_iso']) ? (string) $item['updated_at_iso'] : '';
-                            $card_display = isset($item['updated_at_display']) ? (string) $item['updated_at_display'] : '';
-                            $card_record_id = isset($item['id']) ? (int) $item['id'] : 0;
-                            $show_edit_record = $show_create_record_ui;
-                            require __DIR__ . '/partials/record-card.php';
-                            ?>
-                        <?php endforeach; ?>
-                    </ul>
-
-                    <?php if ($has_previous || $has_next) : ?>
-                        <nav class="mt-6 flex items-center justify-between gap-3" aria-label="Paginación de registros">
-                            <div>
-                                <?php if ($has_previous && $prev_url !== '') : ?>
-                                    <a
-                                        href="<?php echo esc_url($prev_url); ?>"
-                                        class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-                                    >Anterior</a>
-                                <?php endif; ?>
-                            </div>
-                            <p class="text-xs text-gray-500" aria-current="page">
-                                <?php
-                                $total_display = ($total_pages !== null && $total_pages > 0) ? $total_pages : 1;
-                                $current_display = $page_num !== null ? $page_num : 1;
-                                echo esc_html('Página ' . $current_display . ' de ' . $total_display);
-                                ?>
+                    <section class="mb-4" aria-labelledby="aa-shell-parent-heading">
+                        <h3 id="aa-shell-parent-heading" class="text-lg font-semibold text-gray-900">
+                            <?php echo esc_html($list_heading); ?>
+                        </h3>
+                        <?php if ($parent_has_details_text) : ?>
+                            <p class="mt-2 text-sm text-gray-600 whitespace-pre-wrap"><?php echo esc_html($parent_details); ?></p>
+                        <?php endif; ?>
+                        <?php if ($parent_has_updated) : ?>
+                            <p class="mt-2 text-xs text-gray-500">
+                                <time datetime="<?php echo esc_attr($parent_iso); ?>"><?php echo esc_html($parent_display); ?></time>
                             </p>
-                            <div>
-                                <?php if ($has_next && $next_url !== '') : ?>
-                                    <a
-                                        href="<?php echo esc_url($next_url); ?>"
-                                        class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-                                    >Siguiente</a>
-                                <?php endif; ?>
-                            </div>
-                        </nav>
+                        <?php endif; ?>
+                    </section>
+
+                    <?php if ($read_state === 'empty') : ?>
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center" role="status">
+                            <h3 class="text-base font-semibold text-gray-900 mb-2">Sin registros</h3>
+                            <p class="text-sm text-gray-500">No hay registros para mostrar en este contenedor.</p>
+                        </div>
+                    <?php else : ?>
+                        <h3 class="sr-only">Registros</h3>
+                        <ul class="grid gap-4 sm:grid-cols-2" aria-label="Registros canónicos">
+                            <?php foreach ($items_view as $item) : ?>
+                                <?php
+                                $card_title = isset($item['title']) ? (string) $item['title'] : '';
+                                $card_details = array_key_exists('details', $item) ? $item['details'] : null;
+                                $card_iso = isset($item['updated_at_iso']) ? (string) $item['updated_at_iso'] : '';
+                                $card_display = isset($item['updated_at_display']) ? (string) $item['updated_at_display'] : '';
+                                $card_record_id = isset($item['id']) ? (int) $item['id'] : 0;
+                                $show_edit_record = $show_create_record_ui;
+                                require __DIR__ . '/partials/record-card.php';
+                                ?>
+                            <?php endforeach; ?>
+                        </ul>
+
+                        <?php if ($has_previous || $has_next) : ?>
+                            <nav class="mt-6 flex items-center justify-between gap-3" aria-label="Paginación de registros">
+                                <div>
+                                    <?php if ($has_previous && $prev_url !== '') : ?>
+                                        <a
+                                            href="<?php echo esc_url($prev_url); ?>"
+                                            class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                                        >Anterior</a>
+                                    <?php endif; ?>
+                                </div>
+                                <p class="text-xs text-gray-500" aria-current="page">
+                                    <?php
+                                    $total_display = ($total_pages !== null && $total_pages > 0) ? $total_pages : 1;
+                                    $current_display = $page_num !== null ? $page_num : 1;
+                                    echo esc_html('Página ' . $current_display . ' de ' . $total_display);
+                                    ?>
+                                </p>
+                                <div>
+                                    <?php if ($has_next && $next_url !== '') : ?>
+                                        <a
+                                            href="<?php echo esc_url($next_url); ?>"
+                                            class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                                        >Siguiente</a>
+                                    <?php endif; ?>
+                                </div>
+                            </nav>
+                        <?php endif; ?>
                     <?php endif; ?>
                 <?php endif; ?>
 
@@ -485,6 +606,19 @@ $show_create_record_ui = $show_read_ui
         aria-label="Nueva lista"
     >
         <span>Nueva lista</span>
+    </button>
+</div>
+<?php endif; ?>
+
+<?php if ($show_create_record_ui) : ?>
+<div id="aa-shell-fab-stack" class="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+    <button
+        type="button"
+        id="aa-shell-open-create-record-btn"
+        class="inline-flex items-center gap-2 px-4 py-3 text-base font-bold text-white bg-violet-600 hover:bg-violet-700 active:bg-violet-800 rounded-full shadow-lg shadow-violet-600/30 hover:shadow-xl hover:shadow-violet-600/35 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-violet-500/40"
+        aria-label="Nuevo registro"
+    >
+        <span>Nuevo registro</span>
     </button>
 </div>
 <?php endif; ?>

@@ -90,6 +90,24 @@ if (!function_exists('esc_url')) {
         return $url;
     }
 }
+if (!function_exists('wp_json_encode')) {
+    function wp_json_encode($data) {
+        return json_encode($data);
+    }
+}
+if (!function_exists('wp_create_nonce')) {
+    function wp_create_nonce(string $action): string {
+        return 'nonce-' . $action;
+    }
+}
+if (!function_exists('aa_asset_url')) {
+    function aa_asset_url(string $relative_path): string {
+        return 'https://example.com/assets/' . ltrim($relative_path, '/');
+    }
+}
+if (!defined('AA_PLUGIN_URL')) {
+    define('AA_PLUGIN_URL', 'https://example.com/wp-content/plugins/wp-agenda-automatizada/');
+}
 
 if (!defined('ARRAY_A')) {
     define('ARRAY_A', 'ARRAY_A');
@@ -614,6 +632,75 @@ $html_ce = render_shell([
 ]);
 ac_assert('Contract error records UI neutral', strpos($html_ce, 'No se pudo cargar la lista') !== false
     && strpos($html_ce, 'invalid_page_contract') === false);
+
+// Ciclo 3 — records fill (resolved empty/resolved_page; no preview)
+$fill_empty_view = [
+    'shell_view' => 'records',
+    'read_state' => 'empty',
+    'family_label' => 'Finanzas',
+    'qualified_key' => 'finance',
+    'is_preview' => false,
+    'preview_banner' => '',
+    'preview_enabled' => false,
+    'preview_url' => '',
+    'container_id' => 42,
+    'containers_page' => 1,
+    'container' => [
+        'id' => 42,
+        'title' => 'Lista fill',
+        'details' => 'Detalle de la lista',
+        'updated_at_iso' => '2026-03-01T12:00:00Z',
+        'updated_at_display' => '1 Mar 2026, 12:00',
+    ],
+    'back_url' => AA_Canonical_Shell_Base_Url_Policy::build_url('finance'),
+    'items_view' => [],
+    'page' => 1,
+    'per_page' => 15,
+    'total' => 0,
+    'total_pages' => 0,
+    'has_previous' => false,
+    'has_next' => false,
+    'prev_url' => '',
+    'next_url' => '',
+    'lists_scope' => '',
+];
+$html_fill = render_shell([
+    'aa_shell_route_state' => 'resolved',
+    'aa_shell_route_message' => '',
+    'aa_shell_view' => $fill_empty_view,
+    'aa_canonical_family' => $family,
+]);
+ac_assert('Fill panel present on resolved empty', strpos($html_fill, 'aa-shell-list-panel') !== false
+    && strpos($html_fill, 'aa-shell-records-fill-root') !== false);
+ac_assert('Fill header has Volver and Detalles', strpos($html_fill, 'Volver a contenedores') !== false
+    && strpos($html_fill, 'id="aa-shell-list-details-toggle"') !== false
+    && strpos($html_fill, 'aria-controls="aa-shell-list-details"') !== false
+    && strpos($html_fill, 'aria-expanded="false"') !== false);
+ac_assert('Fill details start collapsed', strpos($html_fill, 'id="aa-shell-list-details"') !== false
+    && preg_match('/id="aa-shell-list-details"[^>]*\bhidden\b/', $html_fill) === 1);
+ac_assert('Fill details include text and updated_at', strpos($html_fill, 'Detalle de la lista') !== false
+    && strpos($html_fill, 'datetime="2026-03-01T12:00:00Z"') !== false);
+ac_assert('Fill FAB Nuevo registro', strpos($html_fill, 'id="aa-shell-open-create-record-btn"') !== false
+    && strpos($html_fill, 'aria-label="Nuevo registro"') !== false
+    && strpos($html_fill, 'aa-shell-list-panel-body--fab') !== false
+    && preg_match('/id="aa-canonical-shell-root"[^>]*pb-24/', $html_fill) !== 1);
+ac_assert('Fill modal still above FAB z-index', preg_match('/id="aa-shell-record-modal"[\s\S]*?z-\[300\]/', $html_fill) === 1);
+ac_assert('Preview records keep non-fill panel', strpos($html_r, 'aa-shell-list-panel') === false
+    && strpos($html_r, 'aa-shell-open-create-record-btn') === false);
+ac_assert('Not-found records exclude fill panel', strpos($html_nf_finance, 'aa-shell-list-panel') === false
+    && strpos($html_nf_finance, 'aa-shell-records-fill-root') === false);
+
+$layout_src = (string) file_get_contents($plugin_root . '/includes/admin/ui/shared/canonical-layout.php');
+$main_js_src = (string) file_get_contents($plugin_root . '/includes/admin/ui/assets/js/main.js');
+$css_src = (string) file_get_contents($plugin_root . '/includes/admin/ui/assets/css/admin.source.css');
+ac_assert('Layout marks html+body fill explicitly', strpos($layout_src, "root.classList.add('aa-shell-records-fill')") !== false
+    && strpos($layout_src, 'aa-shell-records-fill') !== false
+    && strpos($layout_src, "\$aa_shell_records_fill = true") !== false);
+ac_assert('main.js omits moduleH in records fill', strpos($main_js_src, "classList.contains('aa-shell-records-fill')") !== false
+    && preg_match('/aa-shell-records-fill[\s\S]{0,400}?headerH \+ padT \+ padB \+ footerH/', $main_js_src) === 1);
+ac_assert('CSS fill chain scopes html and panel body', strpos($css_src, 'html.aa-shell-records-fill') !== false
+    && strpos($css_src, 'html.aa-standalone.aa-shell-records-fill') !== false
+    && strpos($css_src, '.aa-shell-list-panel-body--fab') !== false);
 
 $page2_containers = AA_Canonical_Shell_View_Composer::compose_preview(2);
 ac_assert('Containers page 2 records_url keeps containers_page', isset($page2_containers['items_view'][0]['records_url'])

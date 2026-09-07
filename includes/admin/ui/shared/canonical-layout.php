@@ -60,6 +60,23 @@ if ($can_manage_options
     }
 }
 
+// Fill-height de la vista de registros reales (empty/resolved_page). No preview ni gates.
+$aa_shell_records_fill = false;
+if (
+    $active_module === 'canonical_shell'
+    && isset($aa_shell_route_state)
+    && $aa_shell_route_state === 'resolved'
+    && isset($aa_shell_view)
+    && is_array($aa_shell_view)
+    && empty($aa_shell_view['is_preview'])
+    && isset($aa_shell_view['shell_view'])
+    && $aa_shell_view['shell_view'] === 'records'
+    && isset($aa_shell_view['read_state'])
+    && in_array((string) $aa_shell_view['read_state'], ['empty', 'resolved_page'], true)
+) {
+    $aa_shell_records_fill = true;
+}
+
 // Send headers
 header('Content-Type: text/html; charset=utf-8');
 ?>
@@ -81,13 +98,21 @@ header('Content-Type: text/html; charset=utf-8');
         } else {
             root.classList.add('aa-standalone');
         }
+        <?php if ($aa_shell_records_fill) : ?>
+        root.classList.add('aa-shell-records-fill');
+        <?php endif; ?>
     })();
     </script>
 
     <!-- Tailwind CSS -->
     <link rel="stylesheet" href="<?php echo aa_asset_url('includes/admin/ui/assets/css/admin.css'); ?>">
 </head>
-<body class="flex flex-col min-h-screen" data-aa-module="<?php echo esc_attr($active_module); ?>" style="background-color: rgb(240, 240, 241);">
+<body
+    class="flex flex-col min-h-screen<?php echo $aa_shell_records_fill ? ' aa-shell-records-fill' : ''; ?>"
+    data-aa-module="<?php echo esc_attr($active_module); ?>"
+    <?php if ($aa_shell_records_fill) : ?>data-aa-shell-records-fill="1"<?php endif; ?>
+    style="background-color: rgb(240, 240, 241);"
+>
 
 <script>
     window.ajaxurl = '<?php echo esc_js(admin_url('admin-ajax.php')); ?>';

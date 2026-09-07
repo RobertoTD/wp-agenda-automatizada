@@ -82,8 +82,14 @@ window.AAAdmin = window.AAAdmin || {};
             const padB = mainStyles ? parseFloat(mainStyles.paddingBottom) || 0 : 0;
 
             if (moduleRoot || main) {
-                // Calculate real content height: header + main padding + module content + footer
-                height = Math.ceil(headerH + padT + moduleH + padB + footerH);
+                if (document.body && document.body.classList.contains('aa-shell-records-fill')) {
+                    // Records fill-height: report chrome only so parent max(chrome, available)
+                    // tracks viewport shrink/grow without pegging to the assigned iframe height.
+                    height = Math.ceil(headerH + padT + padB + footerH);
+                } else {
+                    // Calculate real content height: header + main padding + module content + footer
+                    height = Math.ceil(headerH + padT + moduleH + padB + footerH);
+                }
             } else {
                 // Fallback to body measurement if containers not found
                 height = Math.max(

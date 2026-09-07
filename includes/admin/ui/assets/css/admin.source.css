@@ -1595,3 +1595,97 @@ html.aa-standalone body[data-aa-module="calendar"] .aa-day-timeline {
     overflow: visible;
     padding-top: 15px;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   CANONICAL SHELL — records fill panel (ciclo 1 vista registros)
+   Marca explícita en html + body: aa-shell-records-fill
+   ═══════════════════════════════════════════════════════════════ */
+
+html.aa-shell-records-fill {
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    overflow: hidden;
+}
+
+html.aa-standalone.aa-shell-records-fill {
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100vh;
+    max-height: 100dvh;
+}
+
+html.aa-shell-records-fill body.aa-shell-records-fill {
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    overflow: hidden;
+}
+
+html.aa-shell-records-fill body.aa-shell-records-fill #aa-admin-app {
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+html.aa-shell-records-fill body.aa-shell-records-fill #aa-admin-app > header,
+html.aa-shell-records-fill body.aa-shell-records-fill #aa-admin-app > footer {
+    flex-shrink: 0;
+}
+
+html.aa-shell-records-fill body.aa-shell-records-fill #aa-admin-content {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+html.aa-shell-records-fill body.aa-shell-records-fill #aa-module-root {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+html.aa-shell-records-fill body.aa-shell-records-fill #aa-canonical-shell-root.aa-shell-records-fill-root {
+    flex: 1 1 0;
+    min-height: 0;
+    max-height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+html.aa-shell-records-fill body.aa-shell-records-fill .aa-shell-list-panel {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+html.aa-shell-records-fill body.aa-shell-records-fill .aa-shell-list-panel-header {
+    flex-shrink: 0;
+}
+
+html.aa-shell-records-fill body.aa-shell-records-fill .aa-shell-list-panel-body {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+html.aa-shell-records-fill body.aa-shell-records-fill .aa-shell-list-panel-body--fab {
+    padding-bottom: 6rem;
+}
