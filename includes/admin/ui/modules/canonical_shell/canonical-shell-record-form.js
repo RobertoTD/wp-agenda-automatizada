@@ -185,9 +185,52 @@
         mode = MODE_CREATE;
         currentRecordId = null;
         applyModeChrome();
-        if (restoreFocus && previousFocus && typeof previousFocus.focus === 'function') {
-            previousFocus.focus();
-        } else if (restoreFocus && openCreateBtn) {
+        if (restoreFocus) {
+            restoreFocusToVisible(previousFocus);
+        }
+        previousFocus = null;
+    }
+
+    function isElementFocusable(el) {
+        if (!el || typeof el.focus !== 'function') {
+            return false;
+        }
+        if (el.disabled) {
+            return false;
+        }
+        if (typeof el.getClientRects === 'function') {
+            if (el.getClientRects().length === 0) {
+                return false;
+            }
+        }
+        if (typeof el.closest === 'function') {
+            var hiddenAncestor = el.closest('[hidden], .hidden');
+            if (hiddenAncestor) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function restoreFocusToVisible(preferred) {
+        if (isElementFocusable(preferred)) {
+            preferred.focus();
+            return;
+        }
+        if (preferred && typeof preferred.closest === 'function') {
+            var record = preferred.closest('[data-aa-shell-record]');
+            var toggle = record ? record.querySelector('.aa-shell-record-toggle') : null;
+            if (isElementFocusable(toggle)) {
+                toggle.focus();
+                return;
+            }
+            var optionsTrigger = record ? record.querySelector('.aa-shell-record-options-trigger') : null;
+            if (isElementFocusable(optionsTrigger)) {
+                optionsTrigger.focus();
+                return;
+            }
+        }
+        if (isElementFocusable(openCreateBtn)) {
             openCreateBtn.focus();
         }
     }
@@ -441,9 +484,10 @@
         if (deleteTitleEl) {
             deleteTitleEl.textContent = '';
         }
-        if (restoreFocus && deletePreviousFocus && typeof deletePreviousFocus.focus === 'function') {
-            deletePreviousFocus.focus();
+        if (restoreFocus) {
+            restoreFocusToVisible(deletePreviousFocus);
         }
+        deletePreviousFocus = null;
     }
 
     function submitDelete() {
@@ -608,14 +652,23 @@
         if (e.key !== 'Escape') {
             return;
         }
+        if (e.defaultPrevented) {
+            return;
+        }
         if (deleteModal && !deleteModal.classList.contains('hidden')) {
             if (!deleteBlocked) {
                 closeDeleteModal(true);
+            }
+            if (typeof e.preventDefault === 'function') {
+                e.preventDefault();
             }
             return;
         }
         if (modal && !modal.classList.contains('hidden')) {
             closeModal(true);
+            if (typeof e.preventDefault === 'function') {
+                e.preventDefault();
+            }
         }
     });
 

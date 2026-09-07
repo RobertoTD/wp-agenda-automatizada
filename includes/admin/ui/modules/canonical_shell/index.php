@@ -332,7 +332,11 @@ $is_records_fill = $show_read_ui
                                 </div>
                             <?php else : ?>
                                 <h3 class="sr-only">Registros</h3>
-                                <ul class="grid gap-4 sm:grid-cols-2" aria-label="Registros canónicos">
+                                <ul
+                                    id="aa-shell-records-list"
+                                    class="aa-shell-records-list space-y-2"
+                                    aria-label="Registros canónicos"
+                                >
                                     <?php foreach ($items_view as $item) : ?>
                                         <?php
                                         $card_title = isset($item['title']) ? (string) $item['title'] : '';
@@ -341,10 +345,16 @@ $is_records_fill = $show_read_ui
                                         $card_display = isset($item['updated_at_display']) ? (string) $item['updated_at_display'] : '';
                                         $card_record_id = isset($item['id']) ? (int) $item['id'] : 0;
                                         $show_edit_record = $show_create_record_ui;
+                                        $shell_record_presentation = 'compact';
                                         require __DIR__ . '/partials/record-card.php';
                                         ?>
                                     <?php endforeach; ?>
                                 </ul>
+                                <div
+                                    id="aa-shell-records-scroll-extender"
+                                    class="aa-shell-records-scroll-extender"
+                                    aria-hidden="true"
+                                ></div>
 
                                 <?php if ($has_previous || $has_next) : ?>
                                     <nav class="mt-6 flex items-center justify-between gap-3" aria-label="Paginación de registros">
@@ -395,9 +405,15 @@ $is_records_fill = $show_read_ui
                                     panel.classList.add('hidden');
                                     panel.setAttribute('hidden', '');
                                 }
+                                document.dispatchEvent(new CustomEvent('aa-shell-list-details-toggle'));
                             });
                         })();
                         </script>
+                    <?php endif; ?>
+                    <?php if ($read_state === 'resolved_page') : ?>
+                        <script src="<?php echo function_exists('aa_asset_url')
+                            ? aa_asset_url('includes/admin/ui/modules/canonical_shell/canonical-shell-records-compact.js')
+                            : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/canonical-shell-records-compact.js'); ?>"></script>
                     <?php endif; ?>
 
                 <?php else : ?>
@@ -431,6 +447,7 @@ $is_records_fill = $show_read_ui
                                 $card_display = isset($item['updated_at_display']) ? (string) $item['updated_at_display'] : '';
                                 $card_record_id = isset($item['id']) ? (int) $item['id'] : 0;
                                 $show_edit_record = $show_create_record_ui;
+                                $shell_record_presentation = 'card';
                                 require __DIR__ . '/partials/record-card.php';
                                 ?>
                             <?php endforeach; ?>

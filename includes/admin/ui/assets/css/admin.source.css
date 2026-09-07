@@ -1689,3 +1689,57 @@ html.aa-shell-records-fill body.aa-shell-records-fill .aa-shell-list-panel-body 
 html.aa-shell-records-fill body.aa-shell-records-fill .aa-shell-list-panel-body--fab {
     padding-bottom: 6rem;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   CANONICAL SHELL — records compact overlay (Ciclo 4 / decisión 24)
+   ═══════════════════════════════════════════════════════════════ */
+
+.aa-shell-records-list {
+    @apply relative list-none m-0 p-0;
+}
+
+.aa-shell-records-scroll-extender {
+    height: 0;
+    flex-shrink: 0;
+    pointer-events: none;
+}
+
+.aa-shell-record {
+    @apply relative list-none;
+}
+
+.aa-shell-record-anchor {
+    @apply relative;
+}
+
+.aa-shell-record-toggle {
+    @apply px-4 py-3 rounded-lg border border-gray-200 bg-gray-50;
+    @apply text-gray-900 font-medium cursor-pointer;
+    @apply hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40;
+}
+
+.aa-shell-record.is-open .aa-shell-record-toggle {
+    @apply rounded-b-none border-b-0 bg-blue-50 hover:bg-blue-50;
+}
+
+.aa-shell-record-title {
+    @apply block text-base font-semibold leading-snug break-words;
+}
+
+.aa-shell-record-panel {
+    @apply absolute left-0 right-0 top-full z-20;
+    @apply px-4 py-3 rounded-b-lg border border-gray-200 border-t-0;
+    @apply bg-blue-50 shadow-md;
+}
+
+.aa-shell-record:not(.is-open) .aa-shell-record-panel {
+    display: none;
+}
+
+.aa-shell-record.is-open .aa-shell-record-panel {
+    display: block;
+}
+
+.aa-shell-record-options-trigger {
+    @apply inline-flex items-center justify-center;
+}

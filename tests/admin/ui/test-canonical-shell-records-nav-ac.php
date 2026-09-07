@@ -690,6 +690,53 @@ ac_assert('Preview records keep non-fill panel', strpos($html_r, 'aa-shell-list-
 ac_assert('Not-found records exclude fill panel', strpos($html_nf_finance, 'aa-shell-list-panel') === false
     && strpos($html_nf_finance, 'aa-shell-records-fill-root') === false);
 
+// Ciclo 4 — compact overlay (fill resolved_page)
+$fill_page_view = $fill_empty_view;
+$fill_page_view['read_state'] = 'resolved_page';
+$fill_page_view['items_view'] = [
+    [
+        'id' => 7,
+        'title' => 'Registro A',
+        'details' => 'Cuerpo A',
+        'updated_at_iso' => '2026-03-01T12:00:00Z',
+        'updated_at_display' => '1 Mar 2026, 12:00',
+    ],
+    [
+        'id' => 8,
+        'title' => 'Registro B',
+        'details' => null,
+        'updated_at_iso' => '2026-03-02T12:00:00Z',
+        'updated_at_display' => '2 Mar 2026, 12:00',
+    ],
+];
+$fill_page_view['total'] = 2;
+$fill_page_view['total_pages'] = 2;
+$fill_page_view['has_previous'] = false;
+$fill_page_view['has_next'] = true;
+$fill_page_view['next_url'] = AA_Canonical_Shell_Base_Url_Policy::build_records_url('finance', 42, 2, 1);
+$html_fill_page = render_shell([
+    'aa_shell_route_state' => 'resolved',
+    'aa_shell_route_message' => '',
+    'aa_shell_view' => $fill_page_view,
+    'aa_canonical_family' => $family,
+]);
+ac_assert('Compact list one column in fill resolved_page', strpos($html_fill_page, 'id="aa-shell-records-list"') !== false
+    && strpos($html_fill_page, 'aa-shell-records-list space-y-2') !== false
+    && strpos($html_fill_page, 'sm:grid-cols-2') === false);
+ac_assert('Compact rows and extender before pagination', strpos($html_fill_page, 'data-aa-shell-record') !== false
+    && strpos($html_fill_page, 'aa-shell-record-toggle') !== false
+    && strpos($html_fill_page, 'id="aa-shell-records-scroll-extender"') !== false
+    && strpos($html_fill_page, 'canonical-shell-records-compact.js') !== false);
+$ext_pos = strpos($html_fill_page, 'id="aa-shell-records-scroll-extender"');
+$nav_pos = strpos($html_fill_page, 'aria-label="Paginación de registros"');
+ac_assert('Extender precedes pagination in DOM', $ext_pos !== false && $nav_pos !== false && $ext_pos < $nav_pos);
+ac_assert('Compact keeps edit/delete classes for form binding', strpos($html_fill_page, 'aa-shell-edit-record-btn') !== false
+    && strpos($html_fill_page, 'aa-shell-delete-record-btn') !== false
+    && strpos($html_fill_page, 'aa-shell-record-options-trigger') !== false);
+ac_assert('Preview records keep classic card article', strpos($html_r, 'data-aa-shell-record') === false
+    && strpos($html_r, '<article class="bg-white rounded-xl') !== false
+    && strpos($html_r, 'aa-shell-records-scroll-extender') === false);
+
 $layout_src = (string) file_get_contents($plugin_root . '/includes/admin/ui/shared/canonical-layout.php');
 $main_js_src = (string) file_get_contents($plugin_root . '/includes/admin/ui/assets/js/main.js');
 $css_src = (string) file_get_contents($plugin_root . '/includes/admin/ui/assets/css/admin.source.css');
