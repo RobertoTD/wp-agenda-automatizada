@@ -1729,11 +1729,8 @@ html.aa-shell-records-fill body.aa-shell-records-fill .aa-shell-list-panel-body-
 
 .aa-shell-record.is-open .aa-shell-record-toggle {
     @apply rounded-b-none border-b-0 bg-blue-50 hover:bg-blue-50;
-}
-
-/* Contorno continuo encabezado+panel solo con foco en el toggle. */
-.aa-shell-record.is-open:has(.aa-shell-record-toggle:focus) .aa-shell-record-panel {
-    @apply ring-2 ring-indigo-500/40;
+    /* Abierto: sin ring (evita la junta morada header/panel); el azul indica el estado. */
+    @apply focus:ring-0;
 }
 
 .aa-shell-record-title {

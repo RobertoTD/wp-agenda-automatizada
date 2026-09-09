@@ -759,8 +759,10 @@ ac_assert('main.js omits moduleH in records fill', strpos($main_js_src, "classLi
 ac_assert('CSS fill chain scopes html and panel body', strpos($css_src, 'html.aa-shell-records-fill') !== false
     && strpos($css_src, 'html.aa-standalone.aa-shell-records-fill') !== false
     && strpos($css_src, '.aa-shell-list-panel-body--fab') !== false);
-ac_assert('CSS reserves options inside toggle and continuous focus contour', strpos($css_src, '.aa-shell-record-header:has(.aa-shell-record-options) .aa-shell-record-toggle') !== false
-    && strpos($css_src, '.aa-shell-record.is-open:has(.aa-shell-record-toggle:focus) .aa-shell-record-panel') !== false);
+ac_assert('CSS reserves options inside toggle and suppresses open focus ring', strpos($css_src, '.aa-shell-record-header:has(.aa-shell-record-options) .aa-shell-record-toggle') !== false
+    && strpos($css_src, '.aa-shell-record.is-open .aa-shell-record-toggle') !== false
+    && strpos($css_src, 'focus:ring-0') !== false
+    && strpos($css_src, '.aa-shell-record.is-open:has(.aa-shell-record-toggle:focus) .aa-shell-record-panel') === false);
 ac_assert('Compact JS measures max panel/menu and outside click scopes options or menu', strpos($compact_js, 'aa-shell-record-header') !== false
     && strpos($compact_js, 'aa-shell-record-options-menu') !== false
     && strpos($compact_js, '.aa-shell-record-options, .aa-shell-record-options-menu') !== false
