@@ -1752,7 +1752,7 @@ html.aa-shell-records-fill body.aa-shell-records-fill .aa-shell-list-panel-body-
 }
 
 .aa-shell-record-options {
-    @apply absolute inset-y-0 right-0 w-12;
+    @apply absolute inset-y-0 right-0 w-12 flex items-center justify-center pointer-events-none;
 }
 
 .aa-shell-record:not(.is-open) .aa-shell-record-options,
@@ -1761,10 +1761,10 @@ html.aa-shell-records-fill body.aa-shell-records-fill .aa-shell-list-panel-body-
 }
 
 .aa-shell-record.is-open .aa-shell-record-options {
-    display: block;
+    display: flex;
 }
 
 .aa-shell-record-options-trigger {
-    @apply inline-flex items-center justify-center w-full h-full p-0 m-0;
-    @apply border-0 bg-transparent rounded-none cursor-pointer;
+    /* Tamaño/radio/hover vienen de .aa-options-trigger-flat (w-8 h-8 rounded-lg). */
+    @apply pointer-events-auto shrink-0;
 }

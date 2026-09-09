@@ -56,10 +56,10 @@ $panel_id = $card_record_id >= 1
                 <span class="aa-shell-record-title"><?php echo esc_html($card_title); ?></span>
             </button>
             <?php if ($edit_payload_attr !== '') : ?>
-                <div class="aa-shell-record-options absolute inset-y-0 right-0 w-12">
+                <div class="aa-shell-record-options absolute inset-y-0 right-0 w-12 flex items-center justify-center pointer-events-none">
                     <button
                         type="button"
-                        class="aa-shell-record-options-trigger aa-options-trigger-flat w-full h-full"
+                        class="aa-shell-record-options-trigger aa-options-trigger-flat pointer-events-auto"
                         aria-haspopup="menu"
                         aria-expanded="false"
                         aria-label="<?php echo esc_attr('Opciones del registro: ' . $card_title); ?>"
