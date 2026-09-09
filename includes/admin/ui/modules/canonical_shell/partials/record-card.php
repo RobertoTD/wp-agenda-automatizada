@@ -46,14 +46,55 @@ $panel_id = $card_record_id >= 1
     <?php if ($card_record_id >= 1) : ?>data-aa-record-id="<?php echo esc_attr((string) $card_record_id); ?>"<?php endif; ?>
 >
     <div class="aa-shell-record-anchor relative">
-        <button
-            type="button"
-            class="aa-shell-record-toggle w-full text-left"
-            aria-expanded="false"
-            aria-controls="<?php echo esc_attr($panel_id); ?>"
-        >
-            <span class="aa-shell-record-title"><?php echo esc_html($card_title); ?></span>
-        </button>
+        <div class="aa-shell-record-header relative">
+            <button
+                type="button"
+                class="aa-shell-record-toggle w-full text-left"
+                aria-expanded="false"
+                aria-controls="<?php echo esc_attr($panel_id); ?>"
+            >
+                <span class="aa-shell-record-title"><?php echo esc_html($card_title); ?></span>
+            </button>
+            <?php if ($edit_payload_attr !== '') : ?>
+                <div class="aa-shell-record-options absolute inset-y-0 right-0 w-12">
+                    <button
+                        type="button"
+                        class="aa-shell-record-options-trigger aa-options-trigger-flat w-full h-full"
+                        aria-haspopup="menu"
+                        aria-expanded="false"
+                        aria-label="<?php echo esc_attr('Opciones del registro: ' . $card_title); ?>"
+                    >
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                            <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0z"/>
+                        </svg>
+                    </button>
+                </div>
+                <div
+                    class="aa-shell-record-options-menu hidden absolute right-0 top-full z-30 mt-2 w-[12rem] max-w-full min-w-0 box-border rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+                    role="menu"
+                    hidden
+                >
+                    <button
+                        type="button"
+                        class="aa-shell-edit-record-btn flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-50 focus:ring-2 focus:ring-inset focus:ring-indigo-500/30"
+                        role="menuitem"
+                        data-aa-record="<?php echo $edit_payload_attr; ?>"
+                        aria-label="<?php echo esc_attr('Editar registro: ' . $card_title); ?>"
+                    >
+                        Editar
+                    </button>
+                    <button
+                        type="button"
+                        class="aa-shell-delete-record-btn flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-red-600 hover:bg-gray-50 focus:outline-none focus:bg-gray-50 focus:ring-2 focus:ring-inset focus:ring-red-500/30"
+                        role="menuitem"
+                        data-aa-record="<?php echo $edit_payload_attr; ?>"
+                        aria-label="<?php echo esc_attr('Eliminar registro: ' . $card_title); ?>"
+                    >
+                        Eliminar
+                    </button>
+                </div>
+            <?php endif; ?>
+        </div>
         <div
             id="<?php echo esc_attr($panel_id); ?>"
             class="aa-shell-record-panel"
@@ -66,45 +107,6 @@ $panel_id = $card_record_id >= 1
                 <p class="aa-shell-record-updated text-xs text-gray-500 <?php echo $has_details_text ? 'mt-2' : ''; ?> m-0">
                     <time datetime="<?php echo esc_attr($card_iso); ?>"><?php echo esc_html($card_display); ?></time>
                 </p>
-            <?php endif; ?>
-            <?php if ($edit_payload_attr !== '') : ?>
-                <div class="aa-shell-record-options relative mt-3 flex justify-end">
-                    <button
-                        type="button"
-                        class="aa-shell-record-options-trigger aa-options-trigger-flat"
-                        aria-haspopup="menu"
-                        aria-expanded="false"
-                        aria-label="<?php echo esc_attr('Opciones del registro: ' . $card_title); ?>"
-                    >
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                            <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0z"/>
-                        </svg>
-                    </button>
-                    <div
-                        class="aa-shell-record-options-menu hidden absolute right-0 top-full z-30 mt-2 min-w-[12rem] rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
-                        role="menu"
-                        hidden
-                    >
-                        <button
-                            type="button"
-                            class="aa-shell-edit-record-btn flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
-                            role="menuitem"
-                            data-aa-record="<?php echo $edit_payload_attr; ?>"
-                            aria-label="<?php echo esc_attr('Editar registro: ' . $card_title); ?>"
-                        >
-                            Editar
-                        </button>
-                        <button
-                            type="button"
-                            class="aa-shell-delete-record-btn flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-red-600 hover:bg-gray-50"
-                            role="menuitem"
-                            data-aa-record="<?php echo $edit_payload_attr; ?>"
-                            aria-label="<?php echo esc_attr('Eliminar registro: ' . $card_title); ?>"
-                        >
-                            Eliminar
-                        </button>
-                    </div>
-                </div>
             <?php endif; ?>
         </div>
     </div>

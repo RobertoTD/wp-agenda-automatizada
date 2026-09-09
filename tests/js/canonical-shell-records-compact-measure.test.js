@@ -13,9 +13,15 @@ function yContent(el, scrollport) {
     return (er.top - sr.top) + scrollport.scrollTop;
 }
 
-function computeExtra(lastLi, panel, scrollport) {
+function computeExtra(lastLi, panel, scrollport, menu) {
     const naturalBottom = yContent(lastLi, scrollport) + lastLi.offsetHeight;
-    const overlayBottom = yContent(panel, scrollport) + panel.offsetHeight;
+    let overlayBottom = yContent(panel, scrollport) + panel.offsetHeight;
+    if (menu) {
+        const menuBottom = yContent(menu, scrollport) + menu.offsetHeight;
+        if (menuBottom > overlayBottom) {
+            overlayBottom = menuBottom;
+        }
+    }
     return Math.max(0, Math.round(overlayBottom - naturalBottom));
 }
 
@@ -91,5 +97,32 @@ describe('canonical-shell records compact measure', () => {
         const b = computeExtra(lastLi, panel, scrollport);
         assert.equal(a, b);
         assert.ok(a > 0);
+    });
+
+    it('open menu can raise overlayBottom past panel', () => {
+        const scrollport = {
+            scrollTop: 0,
+            getBoundingClientRect() {
+                return { top: 0 };
+            }
+        };
+        const lastLi = mockEl(100, 40); // bottom 140
+        const panel = mockEl(80, 50); // bottom 130 → no extra alone
+        const menu = mockEl(120, 80); // bottom 200 → extra 60
+        assert.equal(computeExtra(lastLi, panel, scrollport), 0);
+        assert.equal(computeExtra(lastLi, panel, scrollport, menu), 60);
+    });
+
+    it('closed menu path ignores menu geometry', () => {
+        const scrollport = {
+            scrollTop: 0,
+            getBoundingClientRect() {
+                return { top: 0 };
+            }
+        };
+        const lastLi = mockEl(100, 40);
+        const panel = mockEl(80, 100); // bottom 180 → extra 40
+        assert.equal(computeExtra(lastLi, panel, scrollport, null), 40);
+        assert.equal(computeExtra(lastLi, panel, scrollport), 40);
     });
 });

@@ -1712,14 +1712,28 @@ html.aa-shell-records-fill body.aa-shell-records-fill .aa-shell-list-panel-body-
     @apply relative;
 }
 
+.aa-shell-record-header {
+    @apply relative;
+}
+
 .aa-shell-record-toggle {
     @apply px-4 py-3 rounded-lg border border-gray-200 bg-gray-50;
     @apply text-gray-900 font-medium cursor-pointer;
     @apply hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40;
 }
 
+/* Reserva de opciones dentro del toggle (cerrado y abierto): sin columna inactiva. */
+.aa-shell-record-header:has(.aa-shell-record-options) .aa-shell-record-toggle {
+    @apply pr-12;
+}
+
 .aa-shell-record.is-open .aa-shell-record-toggle {
     @apply rounded-b-none border-b-0 bg-blue-50 hover:bg-blue-50;
+}
+
+/* Contorno continuo encabezado+panel solo con foco en el toggle. */
+.aa-shell-record.is-open:has(.aa-shell-record-toggle:focus) .aa-shell-record-panel {
+    @apply ring-2 ring-indigo-500/40;
 }
 
 .aa-shell-record-title {
@@ -1740,6 +1754,20 @@ html.aa-shell-records-fill body.aa-shell-records-fill .aa-shell-list-panel-body-
     display: block;
 }
 
+.aa-shell-record-options {
+    @apply absolute inset-y-0 right-0 w-12;
+}
+
+.aa-shell-record:not(.is-open) .aa-shell-record-options,
+.aa-shell-record:not(.is-open) .aa-shell-record-options-menu {
+    display: none;
+}
+
+.aa-shell-record.is-open .aa-shell-record-options {
+    display: block;
+}
+
 .aa-shell-record-options-trigger {
-    @apply inline-flex items-center justify-center;
+    @apply inline-flex items-center justify-center w-full h-full p-0 m-0;
+    @apply border-0 bg-transparent rounded-none cursor-pointer;
 }

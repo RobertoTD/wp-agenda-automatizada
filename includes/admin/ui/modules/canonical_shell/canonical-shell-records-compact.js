@@ -1,5 +1,5 @@
 /**
- * Canonical Shell — registros compactos con overlay (Ciclo 4 / decisión 24).
+ * Canonical Shell — registros compactos con overlay (Ciclo 5 / decisión 25).
  * Solo opera en fill/resolved_page cuando existe #aa-shell-records-list.
  */
 (function () {
@@ -34,6 +34,12 @@
             return true;
         }
         return false;
+    }
+
+    function isMenuVisible(menu) {
+        return !!(menu
+            && !menu.classList.contains('hidden')
+            && !menu.hasAttribute('hidden'));
     }
 
     function clearInert() {
@@ -98,15 +104,32 @@
         }
         var naturalBottom = yContent(lastLi) + lastLi.offsetHeight;
         var overlayBottom = yContent(panel) + panel.offsetHeight;
+        if (isMenuVisible(openMenu)) {
+            var menuBottom = yContent(openMenu) + openMenu.offsetHeight;
+            if (menuBottom > overlayBottom) {
+                overlayBottom = menuBottom;
+            }
+        }
         var extra = Math.max(0, Math.round(overlayBottom - naturalBottom));
         setExtenderHeight(extra);
         applyInert(overlayBottom);
+    }
+
+    function unobserveMenu(menu) {
+        if (panelResizeObserver && menu) {
+            try {
+                panelResizeObserver.unobserve(menu);
+            } catch (e) {
+                /* ignore */
+            }
+        }
     }
 
     function closeMenu(restoreFocus) {
         if (!openMenu) {
             return;
         }
+        var menu = openMenu;
         openMenu.classList.add('hidden');
         openMenu.setAttribute('hidden', '');
         if (openMenuTrigger) {
@@ -115,8 +138,10 @@
                 openMenuTrigger.focus();
             }
         }
+        unobserveMenu(menu);
         openMenu = null;
         openMenuTrigger = null;
+        remeasure();
     }
 
     function openMenuFor(trigger, menu) {
@@ -126,6 +151,10 @@
         menu.classList.remove('hidden');
         menu.removeAttribute('hidden');
         trigger.setAttribute('aria-expanded', 'true');
+        if (panelResizeObserver) {
+            panelResizeObserver.observe(menu);
+        }
+        remeasure();
     }
 
     function detachPanelObserver() {
@@ -189,13 +218,17 @@
         openRecord(li);
     }
 
+    function findOptionsMenu(optionsTrigger) {
+        var header = optionsTrigger.closest('.aa-shell-record-header');
+        return header ? header.querySelector('.aa-shell-record-options-menu') : null;
+    }
+
     list.addEventListener('click', function (event) {
         var optionsTrigger = event.target.closest('.aa-shell-record-options-trigger');
         if (optionsTrigger && list.contains(optionsTrigger)) {
             event.preventDefault();
             event.stopPropagation();
-            var wrap = optionsTrigger.closest('.aa-shell-record-options');
-            var menu = wrap ? wrap.querySelector('.aa-shell-record-options-menu') : null;
+            var menu = findOptionsMenu(optionsTrigger);
             if (!menu) {
                 return;
             }
@@ -230,7 +263,7 @@
         if (!openMenu) {
             return;
         }
-        if (event.target.closest('.aa-shell-record-options')) {
+        if (event.target.closest('.aa-shell-record-options, .aa-shell-record-options-menu')) {
             return;
         }
         closeMenu(false);

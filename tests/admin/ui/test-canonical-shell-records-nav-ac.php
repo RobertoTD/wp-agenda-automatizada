@@ -733,6 +733,16 @@ ac_assert('Extender precedes pagination in DOM', $ext_pos !== false && $nav_pos 
 ac_assert('Compact keeps edit/delete classes for form binding', strpos($html_fill_page, 'aa-shell-edit-record-btn') !== false
     && strpos($html_fill_page, 'aa-shell-delete-record-btn') !== false
     && strpos($html_fill_page, 'aa-shell-record-options-trigger') !== false);
+ac_assert('Compact options live in header beside toggle', strpos($html_fill_page, 'aa-shell-record-header') !== false
+    && preg_match(
+        '/aa-shell-record-header[\s\S]*?aa-shell-record-toggle[\s\S]*?aa-shell-record-options[\s\S]*?aa-shell-record-options-menu[\s\S]*?aa-shell-record-panel/',
+        $html_fill_page
+    ) === 1);
+ac_assert('Compact options menu width classes without min-w-[12rem]', strpos($html_fill_page, 'min-w-[12rem]') === false
+    && strpos($html_fill_page, 'w-[12rem]') !== false
+    && strpos($html_fill_page, 'max-w-full') !== false
+    && strpos($html_fill_page, 'min-w-0') !== false
+    && strpos($html_fill_page, 'box-border') !== false);
 ac_assert('Preview records keep classic card article', strpos($html_r, 'data-aa-shell-record') === false
     && strpos($html_r, '<article class="bg-white rounded-xl') !== false
     && strpos($html_r, 'aa-shell-records-scroll-extender') === false);
@@ -740,6 +750,7 @@ ac_assert('Preview records keep classic card article', strpos($html_r, 'data-aa-
 $layout_src = (string) file_get_contents($plugin_root . '/includes/admin/ui/shared/canonical-layout.php');
 $main_js_src = (string) file_get_contents($plugin_root . '/includes/admin/ui/assets/js/main.js');
 $css_src = (string) file_get_contents($plugin_root . '/includes/admin/ui/assets/css/admin.source.css');
+$compact_js = (string) file_get_contents($plugin_root . '/includes/admin/ui/modules/canonical_shell/canonical-shell-records-compact.js');
 ac_assert('Layout marks html+body fill explicitly', strpos($layout_src, "root.classList.add('aa-shell-records-fill')") !== false
     && strpos($layout_src, 'aa-shell-records-fill') !== false
     && strpos($layout_src, "\$aa_shell_records_fill = true") !== false);
@@ -748,6 +759,12 @@ ac_assert('main.js omits moduleH in records fill', strpos($main_js_src, "classLi
 ac_assert('CSS fill chain scopes html and panel body', strpos($css_src, 'html.aa-shell-records-fill') !== false
     && strpos($css_src, 'html.aa-standalone.aa-shell-records-fill') !== false
     && strpos($css_src, '.aa-shell-list-panel-body--fab') !== false);
+ac_assert('CSS reserves options inside toggle and continuous focus contour', strpos($css_src, '.aa-shell-record-header:has(.aa-shell-record-options) .aa-shell-record-toggle') !== false
+    && strpos($css_src, '.aa-shell-record.is-open:has(.aa-shell-record-toggle:focus) .aa-shell-record-panel') !== false);
+ac_assert('Compact JS measures max panel/menu and outside click scopes options or menu', strpos($compact_js, 'aa-shell-record-header') !== false
+    && strpos($compact_js, 'aa-shell-record-options-menu') !== false
+    && strpos($compact_js, '.aa-shell-record-options, .aa-shell-record-options-menu') !== false
+    && strpos($compact_js, 'menuBottom') !== false);
 
 $page2_containers = AA_Canonical_Shell_View_Composer::compose_preview(2);
 ac_assert('Containers page 2 records_url keeps containers_page', isset($page2_containers['items_view'][0]['records_url'])
@@ -756,6 +773,10 @@ ac_assert('Containers page 2 records_url keeps containers_page', isset($page2_co
 $module_src = file_get_contents($plugin_root . '/includes/admin/ui/modules/canonical_shell/index.php');
 $card_src = file_get_contents($plugin_root . '/includes/admin/ui/modules/canonical_shell/partials/record-card.php');
 $composer_src = file_get_contents($plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-shell-view-composer.php');
+ac_assert('Compact panel markup has no options block', preg_match(
+    '/class="aa-shell-record-panel"[\s\S]*?aa-shell-record-options(?:-trigger|-menu)?/',
+    $card_src
+) !== 1);
 ac_assert('Composer sets 500 on records contract_error', substr_count($composer_src, 'status_header(500)') >= 2);
 foreach (['aa-finance', 'AA_FINANCE', 'amount_total', 'finance-module', 'aa_list_finance', '$wpdb'] as $needle) {
     ac_assert('Shell excludes ' . $needle, strpos($module_src, $needle) === false
