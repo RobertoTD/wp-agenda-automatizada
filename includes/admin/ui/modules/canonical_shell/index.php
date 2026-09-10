@@ -284,7 +284,10 @@ $is_records_fill = $show_read_ui
                         aria-labelledby="aa-shell-parent-heading"
                     >
                         <header class="aa-shell-list-panel-header px-4 py-3 border-b border-gray-100 bg-white">
-                            <div class="flex items-center justify-between gap-3 flex-wrap">
+                            <h2 id="aa-shell-parent-heading" class="text-lg font-semibold text-gray-900 leading-snug truncate">
+                                <?php echo esc_html($list_heading); ?>
+                            </h2>
+                            <div class="mt-2 flex items-center justify-between gap-3 flex-wrap">
                                 <p class="m-0 min-w-0">
                                     <?php if ($back_url !== '') : ?>
                                         <a
@@ -303,9 +306,6 @@ $is_records_fill = $show_read_ui
                                     >Detalles</button>
                                 <?php endif; ?>
                             </div>
-                            <h2 id="aa-shell-parent-heading" class="mt-2 text-lg font-semibold text-gray-900 leading-snug truncate">
-                                <?php echo esc_html($list_heading); ?>
-                            </h2>
                         </header>
                         <div class="aa-shell-list-panel-body p-4<?php echo $show_create_record_ui ? ' aa-shell-list-panel-body--fab' : ''; ?>">
                             <?php if ($parent_has_details_block) : ?>

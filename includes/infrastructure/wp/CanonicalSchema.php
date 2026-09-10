@@ -1,14 +1,19 @@
 <?php
 /**
- * Canonical Schema — Persistencia Canónica Universal (PCU-2).
+ * Canonical Schema — Persistencia Canónica Universal (PCU-2 + C1a).
  *
- * Tablas (vacías; sin seeds ni filas):
+ * Tablas base (sin seeds de filas en el instalador):
  * - aa_canonical_families
  * - aa_canonical_containers
  * - aa_canonical_records
  *
+ * Extensiones de capacidades (C1a / DB 23; sin filas en el instalador):
+ * - aa_canonical_family_capability_defaults
+ * - aa_canonical_container_capabilities
+ * - aa_canonical_record_amount (tabla de valores; uso en A1a+)
+ *
  * Patrón técnico: dbDelta → ALTER FK idempotente → verify() fail-closed.
- * No escribe timestamps ni genera public_id (sin filas en PCU-2).
+ * No escribe timestamps ni genera public_id.
  *
  * @package WP_Agenda_Automatizada
  * @subpackage Infrastructure\WP
@@ -21,6 +26,9 @@ final class AA_Canonical_Schema {
     public const TABLE_FAMILIES = 'aa_canonical_families';
     public const TABLE_CONTAINERS = 'aa_canonical_containers';
     public const TABLE_RECORDS = 'aa_canonical_records';
+    public const TABLE_FAMILY_CAPABILITY_DEFAULTS = 'aa_canonical_family_capability_defaults';
+    public const TABLE_CONTAINER_CAPABILITIES = 'aa_canonical_container_capabilities';
+    public const TABLE_RECORD_AMOUNT = 'aa_canonical_record_amount';
 
     public static function families_table_name(): string {
         global $wpdb;
@@ -35,6 +43,21 @@ final class AA_Canonical_Schema {
     public static function records_table_name(): string {
         global $wpdb;
         return $wpdb->prefix . self::TABLE_RECORDS;
+    }
+
+    public static function family_capability_defaults_table_name(): string {
+        global $wpdb;
+        return $wpdb->prefix . self::TABLE_FAMILY_CAPABILITY_DEFAULTS;
+    }
+
+    public static function container_capabilities_table_name(): string {
+        global $wpdb;
+        return $wpdb->prefix . self::TABLE_CONTAINER_CAPABILITIES;
+    }
+
+    public static function record_amount_table_name(): string {
+        global $wpdb;
+        return $wpdb->prefix . self::TABLE_RECORD_AMOUNT;
     }
 
     /**
@@ -60,6 +83,39 @@ final class AA_Canonical_Schema {
         );
     }
 
+    /**
+     * FK family_capability_defaults.family_id → families.id.
+     */
+    public static function family_capability_defaults_foreign_key_name(?string $prefix = null): string {
+        return self::build_foreign_key_name(
+            $prefix,
+            'aa_canonical_family_capability_defaults:family_id',
+            'aa_can_fcd_'
+        );
+    }
+
+    /**
+     * FK container_capabilities.container_id → containers.id.
+     */
+    public static function container_capabilities_foreign_key_name(?string $prefix = null): string {
+        return self::build_foreign_key_name(
+            $prefix,
+            'aa_canonical_container_capabilities:container_id',
+            'aa_can_cc_'
+        );
+    }
+
+    /**
+     * FK record_amount.record_id → records.id.
+     */
+    public static function record_amount_foreign_key_name(?string $prefix = null): string {
+        return self::build_foreign_key_name(
+            $prefix,
+            'aa_canonical_record_amount:record_id',
+            'aa_can_amt_'
+        );
+    }
+
     private static function build_foreign_key_name(
         ?string $prefix,
         string $relation_identity,
@@ -79,8 +135,8 @@ final class AA_Canonical_Schema {
     }
 
     /**
-     * Instala las tres tablas universales, aplica FKs y verifica postcondiciones.
-     * No inserta, actualiza ni elimina filas.
+     * Instala tablas universales y extensiones de capacidades, aplica FKs y verifica.
+     * No inserta, actualiza ni elimina filas de datos.
      *
      * @throws \RuntimeException Si la creación, constraint o verificación falla.
      */
@@ -90,6 +146,9 @@ final class AA_Canonical_Schema {
         $families_table = self::families_table_name();
         $containers_table = self::containers_table_name();
         $records_table = self::records_table_name();
+        $family_defaults_table = self::family_capability_defaults_table_name();
+        $container_capabilities_table = self::container_capabilities_table_name();
+        $record_amount_table = self::record_amount_table_name();
         $charset = $wpdb->get_charset_collate();
 
         $families_sql = "CREATE TABLE {$families_table} (
@@ -130,6 +189,38 @@ final class AA_Canonical_Schema {
             KEY idx_container_updated (container_id, updated_at, id)
         ) ENGINE=InnoDB {$charset};";
 
+        $family_defaults_sql = "CREATE TABLE {$family_defaults_table} (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            family_id bigint(20) unsigned NOT NULL,
+            capability_key varchar(64) NOT NULL,
+            is_enabled tinyint(1) NOT NULL DEFAULT 0,
+            created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
+            PRIMARY KEY  (id),
+            UNIQUE KEY uq_family_capability (family_id, capability_key),
+            KEY idx_capability_key (capability_key)
+        ) ENGINE=InnoDB {$charset};";
+
+        $container_capabilities_sql = "CREATE TABLE {$container_capabilities_table} (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            container_id bigint(20) unsigned NOT NULL,
+            capability_key varchar(64) NOT NULL,
+            is_active tinyint(1) NOT NULL DEFAULT 0,
+            created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
+            PRIMARY KEY  (id),
+            UNIQUE KEY uq_container_capability (container_id, capability_key),
+            KEY idx_capability_key (capability_key)
+        ) ENGINE=InnoDB {$charset};";
+
+        $record_amount_sql = "CREATE TABLE {$record_amount_table} (
+            record_id bigint(20) unsigned NOT NULL,
+            amount decimal(19,2) NOT NULL,
+            created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
+            PRIMARY KEY  (record_id)
+        ) ENGINE=InnoDB {$charset};";
+
         if (!function_exists('dbDelta')) {
             require_once ABSPATH . 'wp-admin/includes/upgrade.php';
         }
@@ -137,6 +228,9 @@ final class AA_Canonical_Schema {
         dbDelta($families_sql);
         dbDelta($containers_sql);
         dbDelta($records_sql);
+        dbDelta($family_defaults_sql);
+        dbDelta($container_capabilities_sql);
+        dbDelta($record_amount_sql);
 
         self::ensure_containers_family_scope_v22();
         self::ensure_named_indexes();
@@ -293,6 +387,27 @@ final class AA_Canonical_Schema {
             self::containers_table_name(),
             'CASCADE'
         );
+        self::ensure_foreign_key(
+            self::family_capability_defaults_table_name(),
+            self::family_capability_defaults_foreign_key_name(),
+            'family_id',
+            self::families_table_name(),
+            'RESTRICT'
+        );
+        self::ensure_foreign_key(
+            self::container_capabilities_table_name(),
+            self::container_capabilities_foreign_key_name(),
+            'container_id',
+            self::containers_table_name(),
+            'CASCADE'
+        );
+        self::ensure_foreign_key(
+            self::record_amount_table_name(),
+            self::record_amount_foreign_key_name(),
+            'record_id',
+            self::records_table_name(),
+            'CASCADE'
+        );
     }
 
     private static function ensure_foreign_key(
@@ -329,14 +444,23 @@ final class AA_Canonical_Schema {
         $families = self::families_table_name();
         $containers = self::containers_table_name();
         $records = self::records_table_name();
+        $family_defaults = self::family_capability_defaults_table_name();
+        $container_capabilities = self::container_capabilities_table_name();
+        $record_amount = self::record_amount_table_name();
 
         self::verify_table_existence_and_engine($families);
         self::verify_table_existence_and_engine($containers);
         self::verify_table_existence_and_engine($records);
+        self::verify_table_existence_and_engine($family_defaults);
+        self::verify_table_existence_and_engine($container_capabilities);
+        self::verify_table_existence_and_engine($record_amount);
 
         self::verify_families_structure($families);
         self::verify_containers_structure($containers);
         self::verify_records_structure($records);
+        self::verify_family_capability_defaults_structure($family_defaults);
+        self::verify_container_capabilities_structure($container_capabilities);
+        self::verify_record_amount_structure($record_amount);
 
         self::verify_foreign_key(
             $containers,
@@ -350,6 +474,27 @@ final class AA_Canonical_Schema {
             $containers,
             self::records_foreign_key_name(),
             'container_id',
+            'CASCADE'
+        );
+        self::verify_foreign_key(
+            $family_defaults,
+            $families,
+            self::family_capability_defaults_foreign_key_name(),
+            'family_id',
+            'RESTRICT'
+        );
+        self::verify_foreign_key(
+            $container_capabilities,
+            $containers,
+            self::container_capabilities_foreign_key_name(),
+            'container_id',
+            'CASCADE'
+        );
+        self::verify_foreign_key(
+            $record_amount,
+            $records,
+            self::record_amount_foreign_key_name(),
+            'record_id',
             'CASCADE'
         );
     }
@@ -497,6 +642,97 @@ final class AA_Canonical_Schema {
         self::verify_index($table, 'PRIMARY', ['id']);
         self::verify_index($table, 'uq_record_public_id', ['public_id']);
         self::verify_composite_index($table, ['container_id', 'updated_at', 'id']);
+    }
+
+    private static function verify_family_capability_defaults_structure(string $table): void {
+        $cols = self::columns_by_name($table);
+
+        $expected = ['id', 'family_id', 'capability_key', 'is_enabled', 'created_at', 'updated_at'];
+        foreach ($expected as $field) {
+            if (!isset($cols[$field])) {
+                throw new \RuntimeException("[AA_Canonical_Schema] Columna requerida ausente en {$table}: {$field}");
+            }
+        }
+
+        self::assert_forbidden_columns($table, $cols, [
+            'amount', 'config_json', 'payload', 'family_key', 'variant_key',
+        ]);
+
+        self::assert_id_column($table, $cols['id']);
+        self::assert_bigint_unsigned_not_null($table, $cols['family_id'], 'family_id');
+        self::assert_varchar_not_null_no_default($table, $cols['capability_key'], 'capability_key', 64);
+        self::assert_tinyint_not_null_default_zero($table, $cols['is_enabled'], 'is_enabled');
+        self::assert_datetime_not_null_no_default($table, $cols['created_at'], 'created_at');
+        self::assert_datetime_not_null_no_default($table, $cols['updated_at'], 'updated_at');
+
+        self::verify_index($table, 'PRIMARY', ['id']);
+        self::verify_index($table, 'uq_family_capability', ['family_id', 'capability_key']);
+        self::verify_index($table, 'idx_capability_key', ['capability_key']);
+    }
+
+    private static function verify_container_capabilities_structure(string $table): void {
+        $cols = self::columns_by_name($table);
+
+        $expected = ['id', 'container_id', 'capability_key', 'is_active', 'created_at', 'updated_at'];
+        foreach ($expected as $field) {
+            if (!isset($cols[$field])) {
+                throw new \RuntimeException("[AA_Canonical_Schema] Columna requerida ausente en {$table}: {$field}");
+            }
+        }
+
+        self::assert_forbidden_columns($table, $cols, [
+            'amount', 'config_json', 'payload', 'family_key', 'variant_key',
+        ]);
+
+        self::assert_id_column($table, $cols['id']);
+        self::assert_bigint_unsigned_not_null($table, $cols['container_id'], 'container_id');
+        self::assert_varchar_not_null_no_default($table, $cols['capability_key'], 'capability_key', 64);
+        self::assert_tinyint_not_null_default_zero($table, $cols['is_active'], 'is_active');
+        self::assert_datetime_not_null_no_default($table, $cols['created_at'], 'created_at');
+        self::assert_datetime_not_null_no_default($table, $cols['updated_at'], 'updated_at');
+
+        self::verify_index($table, 'PRIMARY', ['id']);
+        self::verify_index($table, 'uq_container_capability', ['container_id', 'capability_key']);
+        self::verify_index($table, 'idx_capability_key', ['capability_key']);
+    }
+
+    private static function verify_record_amount_structure(string $table): void {
+        $cols = self::columns_by_name($table);
+
+        $expected = ['record_id', 'amount', 'created_at', 'updated_at'];
+        foreach ($expected as $field) {
+            if (!isset($cols[$field])) {
+                throw new \RuntimeException("[AA_Canonical_Schema] Columna requerida ausente en {$table}: {$field}");
+            }
+        }
+
+        self::assert_forbidden_columns($table, $cols, [
+            'id', 'currency', 'family_key', 'variant_key', 'title', 'details',
+        ]);
+
+        self::assert_bigint_unsigned_not_null($table, $cols['record_id'], 'record_id');
+        self::assert_decimal_amount_not_null($table, $cols['amount']);
+        self::assert_datetime_not_null_no_default($table, $cols['created_at'], 'created_at');
+        self::assert_datetime_not_null_no_default($table, $cols['updated_at'], 'updated_at');
+
+        self::verify_index($table, 'PRIMARY', ['record_id']);
+    }
+
+    /**
+     * @param array<string, mixed> $col
+     */
+    private static function assert_decimal_amount_not_null(string $table, array $col): void {
+        $type = strtolower((string) $col['Type']);
+        if (
+            strpos($type, 'decimal(19,2)') === false
+            || strtoupper((string) $col['Null']) !== 'NO'
+            || strpos($type, 'unsigned') !== false
+        ) {
+            throw new \RuntimeException("[AA_Canonical_Schema] Definición inválida para amount en {$table}");
+        }
+        if ($col['Default'] !== null) {
+            throw new \RuntimeException("[AA_Canonical_Schema] amount en {$table} no debe tener DEFAULT");
+        }
     }
 
     /**

@@ -66,7 +66,7 @@ final class AA_Schema {
      * Independiente de la versión del plugin. Solo refleja el estado
      * de las tablas/columnas/índices.
      */
-    public const DB_VERSION = '22';
+    public const DB_VERSION = '23';
 
     public const OPTION_INSTALLATION_INITIALIZED_AT = 'aa_installation_initialized_at';
 
@@ -589,7 +589,7 @@ final class AA_Schema {
         }
         AA_Finance_Schema::install();
 
-        // 🔹 Persistencia Canónica Universal (PCU-2 / DB 21 — tablas vacías)
+        // 🔹 Persistencia Canónica Universal (PCU-2 / DB 21; C1a capabilities DB 23)
         if (!class_exists('AA_Canonical_Schema')) {
             require_once __DIR__ . '/CanonicalSchema.php';
         }

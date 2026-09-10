@@ -1,6 +1,6 @@
 <?php
 /**
- * AC Test — Persistencia Canónica Universal (PCU-2 / DB_VERSION 22).
+ * AC Test — Persistencia Canónica Universal (PCU-2 / C1a DB_VERSION 23).
  *
  * Ejecutar:
  *   php tests/infrastructure/wp/test-canonical-schema-ac.php
@@ -55,7 +55,7 @@ $canonical_src = file_get_contents($canonical_schema_file);
 
 ac_assert('Schema.php es legible', is_string($schema_src) && $schema_src !== '');
 ac_assert('CanonicalSchema.php es legible', is_string($canonical_src) && $canonical_src !== '');
-ac_assert("AA_Schema::DB_VERSION es '22'", strpos($schema_src, "DB_VERSION = '22'") !== false);
+ac_assert("AA_Schema::DB_VERSION es '23'", strpos($schema_src, "DB_VERSION = '23'") !== false);
 ac_assert('Schema.php delega en AA_Canonical_Schema::install()', strpos($schema_src, 'AA_Canonical_Schema::install()') !== false);
 
 $bump_pos = strpos($schema_src, "update_option('aa_db_version', self::DB_VERSION)");
@@ -73,6 +73,9 @@ ac_assert(
 ac_assert('TABLE_FAMILIES constante', strpos($canonical_src, "TABLE_FAMILIES = 'aa_canonical_families'") !== false);
 ac_assert('TABLE_CONTAINERS constante', strpos($canonical_src, "TABLE_CONTAINERS = 'aa_canonical_containers'") !== false);
 ac_assert('TABLE_RECORDS constante', strpos($canonical_src, "TABLE_RECORDS = 'aa_canonical_records'") !== false);
+ac_assert('TABLE_FAMILY_CAPABILITY_DEFAULTS', strpos($canonical_src, "TABLE_FAMILY_CAPABILITY_DEFAULTS = 'aa_canonical_family_capability_defaults'") !== false);
+ac_assert('TABLE_CONTAINER_CAPABILITIES', strpos($canonical_src, "TABLE_CONTAINER_CAPABILITIES = 'aa_canonical_container_capabilities'") !== false);
+ac_assert('TABLE_RECORD_AMOUNT', strpos($canonical_src, "TABLE_RECORD_AMOUNT = 'aa_canonical_record_amount'") !== false);
 
 preg_match('/\$families_sql\s*=\s*"([^"]+)";/s', $canonical_src, $m_f);
 $families_sql = $m_f[1] ?? '';
@@ -80,6 +83,12 @@ preg_match('/\$containers_sql\s*=\s*"([^"]+)";/s', $canonical_src, $m_c);
 $containers_sql = $m_c[1] ?? '';
 preg_match('/\$records_sql\s*=\s*"([^"]+)";/s', $canonical_src, $m_r);
 $records_sql = $m_r[1] ?? '';
+preg_match('/\$family_defaults_sql\s*=\s*"([^"]+)";/s', $canonical_src, $m_fd);
+$family_defaults_sql = $m_fd[1] ?? '';
+preg_match('/\$container_capabilities_sql\s*=\s*"([^"]+)";/s', $canonical_src, $m_cc);
+$container_capabilities_sql = $m_cc[1] ?? '';
+preg_match('/\$record_amount_sql\s*=\s*"([^"]+)";/s', $canonical_src, $m_ra);
+$record_amount_sql = $m_ra[1] ?? '';
 
 ac_assert('Families PRIMARY KEY  (id) con dos espacios', strpos($families_sql, 'PRIMARY KEY  (id)') !== false);
 ac_assert('Families family_key varchar(64) NOT NULL', strpos($families_sql, 'family_key varchar(64) NOT NULL') !== false);
@@ -106,6 +115,16 @@ ac_assert('Records sin variant_key', strpos($records_sql, 'variant_key') === fal
 ac_assert('Records sin amount', strpos($records_sql, 'amount') === false);
 ac_assert('Records sin FOREIGN KEY en dbDelta DDL', stripos($records_sql, 'FOREIGN KEY') === false);
 
+ac_assert('Family defaults UNIQUE uq_family_capability', strpos($family_defaults_sql, 'UNIQUE KEY uq_family_capability (family_id, capability_key)') !== false);
+ac_assert('Family defaults is_enabled DEFAULT 0', strpos($family_defaults_sql, 'is_enabled tinyint(1) NOT NULL DEFAULT 0') !== false);
+ac_assert('Family defaults sin FOREIGN KEY en DDL', stripos($family_defaults_sql, 'FOREIGN KEY') === false);
+ac_assert('Container capabilities UNIQUE uq_container_capability', strpos($container_capabilities_sql, 'UNIQUE KEY uq_container_capability (container_id, capability_key)') !== false);
+ac_assert('Container capabilities is_active DEFAULT 0', strpos($container_capabilities_sql, 'is_active tinyint(1) NOT NULL DEFAULT 0') !== false);
+ac_assert('Record amount PK record_id', strpos($record_amount_sql, 'PRIMARY KEY  (record_id)') !== false);
+ac_assert('Record amount decimal(19,2) NOT NULL', strpos($record_amount_sql, 'amount decimal(19,2) NOT NULL') !== false);
+ac_assert('Record amount signed', strpos($record_amount_sql, 'amount decimal(19,2) unsigned') === false);
+ac_assert('Record amount sin id surrogate', !preg_match('/\bid\b/', $record_amount_sql));
+
 ac_assert('FK RESTRICT presente', strpos($canonical_src, "ON DELETE RESTRICT") !== false || strpos($canonical_src, "'RESTRICT'") !== false);
 ac_assert('FK CASCADE presente', strpos($canonical_src, "ON DELETE CASCADE") !== false || strpos($canonical_src, "'CASCADE'") !== false);
 ac_assert('Sin current_time en CanonicalSchema', strpos($canonical_src, 'current_time') === false);
@@ -125,11 +144,18 @@ echo "\n=== 2. Robustez de nombres de FK ===\n";
 
 $fk_cont = AA_Canonical_Schema::containers_foreign_key_name('wp_');
 $fk_rec = AA_Canonical_Schema::records_foreign_key_name('wp_');
+$fk_fcd = AA_Canonical_Schema::family_capability_defaults_foreign_key_name('wp_');
+$fk_cc = AA_Canonical_Schema::container_capabilities_foreign_key_name('wp_');
+$fk_amt = AA_Canonical_Schema::record_amount_foreign_key_name('wp_');
 ac_assert('FK containers name válido', (bool) preg_match('/^[a-zA-Z0-9_]+$/', $fk_cont) && strlen($fk_cont) <= 64);
 ac_assert('FK records name válido', (bool) preg_match('/^[a-zA-Z0-9_]+$/', $fk_rec) && strlen($fk_rec) <= 64);
+ac_assert('FK capability defaults name válido', (bool) preg_match('/^[a-zA-Z0-9_]+$/', $fk_fcd) && strlen($fk_fcd) <= 64);
+ac_assert('FK container capabilities name válido', (bool) preg_match('/^[a-zA-Z0-9_]+$/', $fk_cc) && strlen($fk_cc) <= 64);
+ac_assert('FK record amount name válido', (bool) preg_match('/^[a-zA-Z0-9_]+$/', $fk_amt) && strlen($fk_amt) <= 64);
 ac_assert('FK containers determinista', $fk_cont === AA_Canonical_Schema::containers_foreign_key_name('wp_'));
 ac_assert('FK records determinista', $fk_rec === AA_Canonical_Schema::records_foreign_key_name('wp_'));
 ac_assert('FK containers ≠ records', $fk_cont !== $fk_rec);
+ac_assert('FK amount ≠ records', $fk_amt !== $fk_rec);
 
 $long_a = 'wp_very_long_prefix_with_more_than_50_chars_that_shares_same_start_branch_alpha_';
 $long_b = 'wp_very_long_prefix_with_more_than_50_chars_that_shares_same_start_branch_beta_';
@@ -153,6 +179,9 @@ if ($has_real_wp) {
             return;
         }
         $tables = [
+            $p . AA_Canonical_Schema::TABLE_RECORD_AMOUNT,
+            $p . AA_Canonical_Schema::TABLE_CONTAINER_CAPABILITIES,
+            $p . AA_Canonical_Schema::TABLE_FAMILY_CAPABILITY_DEFAULTS,
             $p . AA_Canonical_Schema::TABLE_RECORDS,
             $p . AA_Canonical_Schema::TABLE_CONTAINERS,
             $p . AA_Canonical_Schema::TABLE_FAMILIES,
@@ -161,9 +190,11 @@ if ($has_real_wp) {
             $p . 'aa_expedientes',
             $p . 'aa_expediente_registros',
         ];
+        $wpdb->query('SET FOREIGN_KEY_CHECKS=0');
         foreach ($tables as $t) {
             $wpdb->query("DROP TABLE IF EXISTS `{$t}`");
         }
+        $wpdb->query('SET FOREIGN_KEY_CHECKS=1');
     };
 
     try {
@@ -178,15 +209,37 @@ if ($has_real_wp) {
         $f1 = AA_Canonical_Schema::families_table_name();
         $c1 = AA_Canonical_Schema::containers_table_name();
         $r1 = AA_Canonical_Schema::records_table_name();
+        $fd1 = AA_Canonical_Schema::family_capability_defaults_table_name();
+        $cc1 = AA_Canonical_Schema::container_capabilities_table_name();
+        $ra1 = AA_Canonical_Schema::record_amount_table_name();
 
-        ac_assert('MySQL: tres tablas existen', $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $f1)) === $f1
+        ac_assert('MySQL: seis tablas canónicas existen', $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $f1)) === $f1
             && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $c1)) === $c1
-            && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $r1)) === $r1);
+            && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $r1)) === $r1
+            && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $fd1)) === $fd1
+            && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $cc1)) === $cc1
+            && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $ra1)) === $ra1);
 
         $count_f = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$f1}`");
         $count_c = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$c1}`");
         $count_r = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$r1}`");
-        ac_assert('MySQL: tablas vacías tras install normal', $count_f === 0 && $count_c === 0 && $count_r === 0);
+        $count_fd = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$fd1}`");
+        $count_cc = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$cc1}`");
+        $count_ra = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$ra1}`");
+        ac_assert(
+            'MySQL: tablas vacías tras install normal',
+            $count_f === 0 && $count_c === 0 && $count_r === 0
+            && $count_fd === 0 && $count_cc === 0 && $count_ra === 0
+        );
+
+        $amt_col = $wpdb->get_row($wpdb->prepare("SHOW COLUMNS FROM `{$ra1}` LIKE %s", 'amount'), ARRAY_A);
+        ac_assert(
+            'MySQL: record_amount.amount decimal(19,2) NOT NULL signed',
+            is_array($amt_col)
+            && stripos((string) $amt_col['Type'], 'decimal(19,2)') !== false
+            && stripos((string) $amt_col['Type'], 'unsigned') === false
+            && strtoupper((string) $amt_col['Null']) === 'NO'
+        );
 
         $engine_f = strtoupper((string) $wpdb->get_var($wpdb->prepare('SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s', DB_NAME, $f1)));
         ac_assert('MySQL: families InnoDB', $engine_f === 'INNODB');
@@ -292,7 +345,118 @@ if ($has_real_wp) {
         $remaining_records = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM `{$r1}` WHERE container_id = %d", $container_id));
         ac_assert('MySQL: CASCADE elimina registros al borrar contenedor', $remaining_records === 0);
 
-        // Limpiar fixtures del prefijo 1 (familia huérfana sin contenedores)
+        // C1a: CASCADE de config/valores — reutilizar familia finance ya presente tras RESTRICT
+        $family_id_cap = (int) $wpdb->get_var(
+            $wpdb->prepare("SELECT id FROM `{$f1}` WHERE family_key = %s LIMIT 1", 'finance')
+        );
+        if ($family_id_cap < 1) {
+            $wpdb->insert(
+                $f1,
+                [
+                    'family_key' => 'finance',
+                    'is_enabled' => 0,
+                    'seed_version' => 0,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ],
+                ['%s', '%d', '%d', '%s', '%s']
+            );
+            $family_id_cap = (int) $wpdb->insert_id;
+        }
+        $wpdb->insert(
+            $c1,
+            [
+                'public_id' => '33333333-3333-4333-8333-333333333333',
+                'family_id' => $family_id_cap,
+                'title' => 'Lista cap',
+                'details' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            ['%s', '%d', '%s', '%s', '%s', '%s']
+        );
+        $container_id_cap = (int) $wpdb->insert_id;
+        $wpdb->insert(
+            $r1,
+            [
+                'public_id' => '44444444-4444-4444-8444-444444444444',
+                'container_id' => $container_id_cap,
+                'title' => 'Registro amount',
+                'details' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            ['%s', '%d', '%s', '%s', '%s', '%s']
+        );
+        $record_id_cap = (int) $wpdb->insert_id;
+        $wpdb->insert(
+            $fd1,
+            [
+                'family_id' => $family_id_cap,
+                'capability_key' => 'amount',
+                'is_enabled' => 0,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            ['%d', '%s', '%d', '%s', '%s']
+        );
+        $wpdb->insert(
+            $cc1,
+            [
+                'container_id' => $container_id_cap,
+                'capability_key' => 'amount',
+                'is_active' => 0,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            ['%d', '%s', '%d', '%s', '%s']
+        );
+        $wpdb->insert(
+            $ra1,
+            [
+                'record_id' => $record_id_cap,
+                'amount' => '12.50',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            ['%d', '%s', '%s', '%s']
+        );
+
+        ac_assert('MySQL: fixtures C1a creados', $family_id_cap >= 1 && $container_id_cap >= 1 && $record_id_cap >= 1);
+
+        $wpdb->query($wpdb->prepare("DELETE FROM `{$r1}` WHERE id = %d", $record_id_cap));
+        ac_assert(
+            'MySQL: CASCADE borra record_amount al borrar registro',
+            (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM `{$ra1}` WHERE record_id = %d", $record_id_cap)) === 0
+        );
+
+        $wpdb->query($wpdb->prepare("DELETE FROM `{$c1}` WHERE id = %d", $container_id_cap));
+        ac_assert(
+            'MySQL: CASCADE borra container_capabilities al borrar lista',
+            (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM `{$cc1}` WHERE container_id = %d", $container_id_cap)) === 0
+        );
+
+        $wpdb->last_error = '';
+        $wpdb->query($wpdb->prepare("DELETE FROM `{$f1}` WHERE id = %d", $family_id_cap));
+        $defaults_remain = (int) $wpdb->get_var(
+            $wpdb->prepare("SELECT COUNT(*) FROM `{$fd1}` WHERE family_id = %d", $family_id_cap)
+        );
+        $family_remains = (int) $wpdb->get_var(
+            $wpdb->prepare("SELECT COUNT(*) FROM `{$f1}` WHERE id = %d", $family_id_cap)
+        );
+        ac_assert(
+            'MySQL: RESTRICT impide borrar familia con defaults de capacidad',
+            $family_remains === 1 && $defaults_remain === 1
+        );
+        $wpdb->query($wpdb->prepare("DELETE FROM `{$fd1}` WHERE family_id = %d", $family_id_cap));
+        $wpdb->query($wpdb->prepare("DELETE FROM `{$f1}` WHERE id = %d", $family_id_cap));
+
+        // Limpiar fixtures del prefijo 1
+        $wpdb->query("DELETE FROM `{$fd1}`");
+        $wpdb->query("DELETE FROM `{$cc1}`");
+        $wpdb->query("DELETE FROM `{$ra1}`");
+        $wpdb->query("DELETE FROM `{$r1}`");
+        $wpdb->query("DELETE FROM `{$c1}`");
         $wpdb->query("DELETE FROM `{$f1}`");
         ac_assert(
             'MySQL: tras limpiar fixtures, tablas canónicas vacías',
@@ -385,6 +549,39 @@ if ($has_real_wp) {
             UNIQUE KEY uq_record_public_id (public_id),
             KEY idx_container_updated (container_id, updated_at, id)
         ) ENGINE=InnoDB {$charset}");
+        // C1a: tablas de capacidades deben existir antes de ensure_foreign_keys (install() las crea vía dbDelta).
+        $fd_mig = $wpdb->prefix . AA_Canonical_Schema::TABLE_FAMILY_CAPABILITY_DEFAULTS;
+        $cc_mig = $wpdb->prefix . AA_Canonical_Schema::TABLE_CONTAINER_CAPABILITIES;
+        $ra_mig = $wpdb->prefix . AA_Canonical_Schema::TABLE_RECORD_AMOUNT;
+        $wpdb->query("CREATE TABLE `{$fd_mig}` (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            family_id bigint(20) unsigned NOT NULL,
+            capability_key varchar(64) NOT NULL,
+            is_enabled tinyint(1) NOT NULL DEFAULT 0,
+            created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_family_capability (family_id, capability_key),
+            KEY idx_capability_key (capability_key)
+        ) ENGINE=InnoDB {$charset}");
+        $wpdb->query("CREATE TABLE `{$cc_mig}` (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            container_id bigint(20) unsigned NOT NULL,
+            capability_key varchar(64) NOT NULL,
+            is_active tinyint(1) NOT NULL DEFAULT 0,
+            created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_container_capability (container_id, capability_key),
+            KEY idx_capability_key (capability_key)
+        ) ENGINE=InnoDB {$charset}");
+        $wpdb->query("CREATE TABLE `{$ra_mig}` (
+            record_id bigint(20) unsigned NOT NULL,
+            amount decimal(19,2) NOT NULL,
+            created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
+            PRIMARY KEY (record_id)
+        ) ENGINE=InnoDB {$charset}");
         AA_Canonical_Schema::ensure_foreign_keys();
         $has_variant_col = !empty($wpdb->get_results("SHOW COLUMNS FROM `{$c_mig}` LIKE 'variant_key'"));
         $has_old_idx = !empty($wpdb->get_results($wpdb->prepare("SHOW INDEX FROM `{$c_mig}` WHERE Key_name = %s", 'idx_family_variant_updated')));
@@ -429,15 +626,21 @@ if ($has_real_wp) {
             update_option('aa_db_version', '20');
             AA_Schema::install();
             $stored = (string) get_option('aa_db_version', '0');
-            ac_assert("MySQL: AA_Schema::install deja aa_db_version=22", $stored === '22');
+            ac_assert("MySQL: AA_Schema::install deja aa_db_version=23", $stored === '23');
             $uf = $wpdb->prefix . AA_Canonical_Schema::TABLE_FAMILIES;
             $uc = $wpdb->prefix . AA_Canonical_Schema::TABLE_CONTAINERS;
             $ur = $wpdb->prefix . AA_Canonical_Schema::TABLE_RECORDS;
+            $ufd = $wpdb->prefix . AA_Canonical_Schema::TABLE_FAMILY_CAPABILITY_DEFAULTS;
+            $ucc = $wpdb->prefix . AA_Canonical_Schema::TABLE_CONTAINER_CAPABILITIES;
+            $ura = $wpdb->prefix . AA_Canonical_Schema::TABLE_RECORD_AMOUNT;
             ac_assert(
-                'MySQL: upgrade Schema crea tres tablas canónicas',
+                'MySQL: upgrade Schema crea tablas canónicas base + capabilities',
                 $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $uf)) === $uf
                 && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $uc)) === $uc
                 && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $ur)) === $ur
+                && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $ufd)) === $ufd
+                && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $ucc)) === $ucc
+                && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $ura)) === $ura
             );
             ac_assert(
                 'MySQL: upgrade Schema deja canónicas vacías',

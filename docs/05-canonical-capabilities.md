@@ -12,7 +12,7 @@
 - **Estado implementado** — lo que existe hoy en el repositorio.
 - **Mecanismo técnico pendiente** — diseño o código aún no aprobado o no construido.
 
-Hoy (tras D0): las capacidades tipadas, el catálogo, la configuración por lista y las tablas de valores **no están implementados**. No deben describirse como existentes en inventarios de código.
+Hoy (tras C1a): existen el schema de configuración/valores (`DB_VERSION=23`), el catálogo con `amount` (`is_ready=false`), repositorio y Use Cases de configuración, y la fachada de operación. **No** están activación de producto de `amount`, escritura de importes, lectura/UI ni materialización al crear listas (A1a/A1b).
 
 ---
 
@@ -179,25 +179,27 @@ No presentar bajar `DB_VERSION` como procedimiento ordinario de rollback. La ide
 
 ## 10. Estado implementado (inventario breve)
 
-Hechos del repositorio al momento de D0 (no sustituyen el paradigma):
+Hechos del repositorio tras C1a (no sustituyen el paradigma):
 
-- Persistencia universal `aa_canonical_*` con CRUD de `title` / `details` en el shell; sin columnas ni extensiones de capacidades.
-- Familia `finance` / `archive` en registry; enablement de familia; sin defaults de capacidades en BD.
+- Persistencia universal `aa_canonical_*` con CRUD de `title` / `details` en el shell.
+- **C1a:** tablas `aa_canonical_family_capability_defaults`, `aa_canonical_container_capabilities`, `aa_canonical_record_amount`; catálogo con `amount` no ready; config Use Cases + `AA_Canonical_Capability_Ops`; lifecycle de defaults sin seeds activos de amount.
+- Familia `finance` / `archive` en registry; enablement de familia.
 - Finance legacy operativo en paralelo (`module=canonical`, `aa_finance_*` con `amount` y `amount_total` calculado).
-- Semántica del plan del shell ya anticipaba que campos particulares ausentes en edición no deben sobrescribirse; el CRUD shell actual solo opera campos base.
+- Pendiente **A1a:** repositorio/escritura de valores `amount`, extensión TX del CRUD de registros, materialización de defaults al crear listas.
+- Pendiente **A1b:** lectura/UI de `amount` y marcar `is_ready=true` (detalles de presentación siguen abiertos hasta ese incremento).
 
 ---
 
 ## 11. Mecanismos técnicos pendientes (no cerrados en esta norma)
 
-Quedan para la propuesta técnica de implementación (C1/A1 u órdenes posteriores). **No** son arquitectura normativa cerrada:
+Cerrados en C1a (inventario §10 / decisión 27 del plan): tablas de config + extensión `record_amount`, catálogo con `amount` no ready, Use Cases de configuración, fachada `AA_Canonical_Capability_Ops`.
 
-- frontera concreta de **transacción** que permita guardar registro y `amount` de forma atómica, respetando recencia y eliminación;
-- puntos mínimos de extensión de lectura, escritura y UI;
-- forma de invocar la configuración desde el desarrollador (**un endpoint AJAX no es requisito aprobado**);
-- extracción o adaptación de helpers neutrales de normalización/límites **sin** dependencia canónica de controladores, tablas base o inicialización de Finanzas legacy;
-- forma física exacta del catálogo en código, tablas de configuración, defaults de familia y extensión decimal de `amount`;
-- operación explícita de aplicación de capacidades a listas existentes;
+Quedan abiertos para A1a/A1b u órdenes posteriores. **No** son arquitectura normativa cerrada aquí:
+
+- frontera concreta de **transacción** que permita guardar registro y `amount` de forma atómica, respetando recencia y eliminación (A1a);
+- puntos mínimos de extensión de lectura y UI (A1b; sin fijar aquí semántica SSR ni compositor);
+- extracción o adaptación de helpers neutrales de normalización/límites **sin** dependencia canónica de controladores, tablas base o inicialización de Finanzas legacy (A1a);
+- materialización de defaults al crear listas y operación explícita de aplicación de capacidades a listas existentes;
 - migración o no desde `aa_finance_*` hacia registros canónicos con `amount`.
 
 Las alternativas exploradas en sesiones de diseño no obligan al diseño final.
