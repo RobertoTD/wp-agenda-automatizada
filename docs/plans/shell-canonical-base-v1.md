@@ -4,7 +4,7 @@
 
 **Naturaleza:** plan temporal de construcción. No tiene rango constitucional.
 
-**Fuente estructural:** `docs/04-canonical-constitution.md`.
+**Fuente estructural:** `docs/04-canonical-constitution.md`. Capacidades: `docs/05-canonical-capabilities.md`.
 
 **Control del texto:** este brief no debe reescribirse ni completarse por inferencia. Las decisiones nuevas aprobadas deben registrarse separadamente en “Decisiones posteriores y estado”.
 
@@ -65,9 +65,11 @@ Antes de implementar la persistencia debe definirse si la actividad de un regist
 - revisión de resultados inciertos;
 - accesibilidad y manejo de foco.
 
-No diseñar todavía capabilities particulares. Solo identificar los puntos mínimos donde posteriormente podrán montarse sobre cards, formularios, resúmenes y detalle.
-
 No construir un generador universal de formularios.
+
+**Supersedido (decisión 26 / D0):** la prohibición de diseñar o implementar capabilities durante Shell Base v1. El paradigma de capacidades es normativo en `docs/05-canonical-capabilities.md`. La secuencia vigente es documentación → `amount` canónico integrado y validado → transición/retirada de Finanzas legacy → imágenes. El shell base sigue sin embeber reglas particulares de familia ni de `amount`.
+
+~~No diseñar todavía capabilities particulares. Solo identificar los puntos mínimos donde posteriormente podrán montarse sobre cards, formularios, resúmenes y detalle.~~
 
 ## Composición prevista
 
@@ -91,7 +93,7 @@ Debe contemplar:
 2. Adaptadores para familias o persistencias existentes que necesiten proyectarse al contrato.
 3. Puntos futuros de extensión para datos identificados por capabilities.
 
-No se implementarán capabilities durante Shell Base v1.
+**Supersedido (decisión 26 / D0):** «No se implementarán capabilities durante Shell Base v1.» Ver `docs/05-canonical-capabilities.md` y la secuencia CAP en «Decisiones posteriores y estado».
 
 El gateway, el shell y sus transportes no deben construir nombres de tablas a partir de parámetros recibidos.
 
@@ -157,8 +159,8 @@ El shell base no debe contener:
 
 No diseñar ni implementar todavía:
 
-- capabilities particulares;
-- Archive;
+- ~~capabilities particulares~~ (**supersedido** por decisión 26 / D0 — ver `docs/05-canonical-capabilities.md`; el shell sigue sin embeber reglas de `amount` ni de familia);
+- Archive como producto completo más allá de la familia canónica ya registrada;
 - sharing;
 - runtime público;
 - API;
@@ -166,12 +168,7 @@ No diseñar ni implementar todavía:
 - interfaces especializadas;
 - migraciones generales de familias existentes.
 
-Solo deben identificarse puntos mínimos y neutrales donde futuras extensiones puedan montarse sobre:
-
-- cards;
-- formularios;
-- resúmenes;
-- detalle.
+Los puntos mínimos y neutrales de extensión (cards, formularios, resúmenes, detalle) siguen siendo el lugar donde se montan capabilities sin contaminar el shell; el detalle de integración queda para la propuesta técnica, no cerrado en esta norma.
 
 ## Garantías requeridas
 
@@ -182,7 +179,7 @@ La construcción debe permitir verificar que:
 - el shell puede renderizar datos neutrales que no pertenezcan a Finance;
 - un segundo manifest ficticio puede vestir el mismo shell sin copiarlo ni modificarlo;
 - el código del shell no contiene dependencias ni vocabulario particulares de Finance;
-- la familia `finance` en el shell universal se proyecta únicamente mediante campos base (sin amount);
+- la familia `finance` en el shell universal se proyectaba únicamente mediante campos base (sin amount) durante Shell Base / PCU; **`amount` canónico** queda autorizado por decisión 26 como capability reutilizable (implementación pendiente), no como columna base ni como lógica `if (family===finance)` en el shell;
 - paginación y orden respetan el contrato;
 - la UI clásica de Finance (`module=canonical`) no sufre regresiones;
 - cada ciclo tiene rollback sencillo.
@@ -243,13 +240,13 @@ Cuando la propuesta sea aprobada, el prompt de implementación será una autoriz
   8. **SB1-5B2** — create record productivo: **completada** (`6477886`). Endpoint `aa_create_canonical_record` + `WriteCanonicalShellRecordUseCase`; UI «Nuevo registro»; command alineado (200/details null); tx INSERT + touch parent; redirect a página 1 de records sin `containers_page`.
   9. **SB1-5B3** — update record productivo: **completada** (`2596cc6`). Endpoint `aa_update_canonical_record` + `WriteCanonicalShellRecordUseCase::update`; UI «Editar» + modal create/update unificado (`canonical-shell-record-form.js`); command endurecido (200/details null); last-write-wins; preserva `public_id`/`created_at`/`container_id`; tx UPDATE + touch parent; redirect página 1 de records sin `page`/`containers_page`; sin delete ni edit/delete de contenedores; sin optimistic lock; cero legacy.
   10. **SB1-5B4** — delete record productivo: **completada** (`dcb6f49`). Endpoint `aa_delete_canonical_record` + `WriteCanonicalShellRecordUseCase::delete`; UI «Eliminar» + modal de confirmación separado; hard delete + touch atómico; uncertain bloquea retry y ofrece «Recargar lista»; CRUD de records completo; harness nav actualizado a PCU-5B; sin soft delete ni edit/delete de contenedores; cero legacy.
-  11. **SB1-5B5** — update container productivo (title/details): **completada** (`d339826`). Endpoint `aa_update_canonical_container` + `WriteCanonicalShellContainerUseCase::update`; command alineado (200 UTF-8 / details vacío → `null`); UI «Editar» + modal create/update unificado (`canonical-shell-container-form.js`); precarga SSR segura; last-write-wins; preserva `public_id`/`family_id`/`variant_key`/`created_at`; registros contenidos intactos; confirmed → página 1 del listado (`container_id: null` en JSON); sin delete container; sin support PHP compartido; cero legacy. Una API futura puede añadir control optimista sin cambiar la identidad canónica.
+  11. **SB1-5B5** — update container productivo (title/details): **completada** (`d339826`). Endpoint `aa_update_canonical_container` + `WriteCanonicalShellContainerUseCase::update`; command alineado (200 UTF-8 / details vacío → `null`); UI «Editar» + modal create/update unificado (`canonical-shell-container-form.js`); precarga SSR segura; last-write-wins; preserva `public_id`/`family_id`/`created_at` (nota histórica del ciclo mencionaba `variant_key`; **supersedida** tras DB 22 / family-only); registros contenidos intactos; confirmed → página 1 del listado (`container_id: null` en JSON); sin delete container; sin support PHP compartido; cero legacy. Una API futura puede añadir control optimista sin cambiar la identidad canónica.
   12. **SB1-5B6** — delete container productivo (hard delete + FK CASCADE): **completada** (`ccca5e6`). Endpoint `aa_delete_canonical_container` + `WriteCanonicalShellContainerUseCase::delete`; command tag `[invalid_container_id]`; UI «Eliminar» + modal de confirmación separado; advertencia genérica sin conteo/preflight; una sola DELETE del contenedor; records vía `ON DELETE CASCADE`; uncertain bloquea retry y ofrece «Recargar listas»; CRUD universal de containers completo; sin soft delete; sin support PHP compartido en ese ciclo; cero legacy. **Hotfix posterior** (`cea9e00`): el modal `#aa-shell-delete-container-modal` se renderiza antes del script síncrono `canonical-shell-container-form.js` (el IIFE capturaba `null`), con prueba de orden en `test-canonical-shell-module-ac.php`; solo markup, sin cambios de JS, backend ni schema.
-  13. **SB1-5C1** — higiene del transporte AJAX de mutaciones canónicas: **implementado en working tree (sin commit).** Soporte común `CanonicalShellWriteAjaxSupport` + rechazo tipado `CanonicalShellWriteAjaxRejection` en `includes/http/ajax/`, cargados por el loader antes de los seis endpoints. El soporte concentra `authorize_identity()` (núcleo → ruta → Access Policy → provisioning → enablement, devuelve las definiciones de familia y variante), `build_write_gateway()` (registry nuevo por construcción + bootstrap existente → `CanonicalWriteGateway`) y `parse_positive_int()`. No lee la superglobal de la petición, no ejecuta SQL, no instancia repositories, no conoce comandos ni operaciones, no abre transacciones, no genera redirects y no emite JSON: lanza el rechazo y cada endpoint responde con su propio `error()`. Cada endpoint conserva auth, action, nonce, payload, IDs, mensajes, command, Use Case, identidad y manifest en su punto actual, estados, JSON, redirects y `error()` de tres o cuatro parámetros. Se conservan las **dos lecturas de enablement** (gate + bootstrap) sin cache ni cambios de firma, y las inconsistencias históricas de mapeo se preservan documentadas, no corregidas. Los ciclos SB1-5B5 y SB1-5B6 se cerraron sin support compartido; **SB1-5C1 introduce esa extracción**. La futura API reutilizará los contratos y Use Cases de Application, no este helper de WordPress.
+  13. **SB1-5C1** — higiene del transporte AJAX de mutaciones canónicas: **implementado** (`CanonicalShellWriteAjaxSupport` + `CanonicalShellWriteAjaxRejection` en `includes/http/ajax/`, cargados por el loader antes de los seis endpoints). El soporte concentra `authorize_identity()` (núcleo → ruta → Access Policy → provisioning → enablement; **devuelve la definición de familia** — family-only; una redacción histórica que hablaba de «familia y variante» quedó **supersedida**), `build_write_gateway()` (registry nuevo por construcción + bootstrap existente → `CanonicalWriteGateway`) y `parse_positive_int()`. No lee la superglobal de la petición, no ejecuta SQL, no instancia repositories, no conoce comandos ni operaciones, no abre transacciones, no genera redirects y no emite JSON: lanza el rechazo y cada endpoint responde con su propio `error()`. Cada endpoint conserva auth, action, nonce, payload, IDs, mensajes, command, Use Case, identidad y manifest en su punto actual, estados, JSON, redirects y `error()` de tres o cuatro parámetros. Se conservan las **dos lecturas de enablement** (gate + bootstrap) sin cache ni cambios de firma, y las inconsistencias históricas de mapeo se preservan documentadas, no corregidas. Los ciclos SB1-5B5 y SB1-5B6 se cerraron sin support compartido; **SB1-5C1 introduce esa extracción**. La futura API reutilizará los contratos y Use Cases de Application, no este helper de WordPress.
   14. **SB1-5B+** — shell visual base restante (cerrado el CRUD contenedores; siguientes mejoras visuales/presets fuera de este cierre).
-  15. **SET-1** — activación de familias/presets desde Settings (parcialmente anticipado por PCU-5A enablement AJAX; presets/capabilities siguen fuera).
-  16. **CAP-1 / CAP-2 / CAP-3** — sistema de capabilities; `monetary_amount`; agregado monetario; imágenes.
-  17. **LEGACY-X** — proyección, integración o deprecación selectiva de módulos legacy.
+  15. **SET-1** — activación de familias/presets desde Settings (parcialmente anticipado por PCU-5A enablement AJAX; presets/capabilities de lista siguen el paradigma de `docs/05-canonical-capabilities.md`, implementación pendiente).
+  16. **CAP-*** — sistema de capabilities y `amount` (clave estable aprobada). **Histórico / supersedido como nombre normativo:** el plan nombraba `monetary_amount` para el importe; la clave vigente es `amount` (ver decisión 26 y `docs/05-canonical-capabilities.md`). Desglose orientativo: núcleo de capacidades + `amount` v1 → agregado monetario (totalización, fuera de `amount` v1) → imágenes. Secuencia de producto: documentación (D0, completada) → `amount` canónico integrado y validado → transición de datos y retirada de Finanzas legacy → imágenes.
+  17. **LEGACY-X** — proyección, integración o deprecación selectiva de módulos legacy. La retirada de Finanzas debe contemplar datos, referencias y consumidores; distinguir deshabilitar accesos, retirar código y eliminar tablas/datos (esta última no es automática al tener UI canónica).
 - 18. **Shell family-only (DB 22)** — variantes eliminadas del shell universal `aa_canonical_*`: identidad/contratos/persistencia por `family_key` sola; Finance clásico conserva `variant_key` vía política local en `FinanceUseCaseSupport`; rollback estructural en `docs/plans/canonical-shell-db22-rollback.md`.
 - 19. **Alcance general «Todas las listas» (Ciclo 1 UI)** — `module=canonical_shell` sin `family` lista contenedores agregados de familias enabled+accesibles (`ReadCanonicalShellAllContainersUseCase` + `CanonicalAggregatedContainersPort` / adapter / repo multi-familia); paginación/orden/conteo globales; vacío de familias → página vacía sin SQL abierto; rutas familiares intactas; `lists_scope=all` solo en retorno de records; header `data-aa-page-title="Todas las listas"`. `DB_VERSION=22` / `CATALOG_VERSION=1` sin índices nuevos.
 - 20. **Navegación Listas + filtro header + default create (Ciclo 2A UI)** — sidebar «Listas» activo en todo `canonical_shell` (visible con acceso al módulo aunque 0 familias); filtro header «Todas las listas» + familias (`aria-label="Filtrar listas"`; current = contexto mostrado, no `lists_scope`); Settings toggles sin regeneración live de nav/sidebar; política de familia inicial al crear solo en JS (`resolveInitialCreateFamilyKey`).
@@ -258,4 +255,5 @@ Cuando la propuesta sea aprobada, el prompt de implementación será una autoriz
 - 23. **Superficie de lista abierta en registros (Ciclo 3 UI / records fill)** — en `resolved` + `empty|resolved_page` (no preview/gates): marca `aa-shell-records-fill` en `html`+`body` desde `canonical-layout.php`; panel blanco `.aa-shell-list-panel` con encabezado fijo (Volver, título, «Detalles») y cuerpo scroll; detalles plegados (texto + `updated_at`) al inicio del cuerpo; FAB `#aa-shell-open-create-record-btn` (mismo id/controlador); padding FAB dentro del cuerpo (`.aa-shell-list-panel-body--fab`), no `pb-24` exterior; `main.js` reporta solo cromo (sin `moduleH`) en fill para que el padre `max(cromo, available)` pueda reducir; standalone con `100dvh`; cards actuales intactas (rediseño compacto = ciclo siguiente).
 - 24. **Registros compactos con apertura superpuesta (Ciclo 4 UI)** — solo fill/`resolved_page`: filas 1 columna gris cerrado / azul abierto; panel abspos sin empujar filas; `#aa-shell-records-scroll-extender` tras el `ul` y antes de paginación; medición `yContent` (getBoundingClientRect + scrollTop del body) sin `scrollHeight`; Escape con acuerdo `preventDefault`/`defaultPrevented` entre form y `canonical-shell-records-compact.js` (modal → menú → registro); `inert` en filas cubiertas; preview conserva cards; sin cambio de iframe cromo-only.
 - 25. **Opciones en encabezado + geometría de menú (Ciclo 5 UI)** — opciones ⋮ solo con registro abierto, en `.aa-shell-record-header` (hermanas del toggle, no anidadas); reserva `pr-12` en el toggle vía `:has(.aa-shell-record-options)` (clickeable al cerrado; sin cambio de altura/`break-words`); menú hermano del wrap con `w-[12rem] max-w-full min-w-0 box-border` (sin `min-w-[12rem]`); búsqueda del menú y clic fuera = `.aa-shell-record-options` **o** `.aa-shell-record-options-menu`; `overlayBottom = max(panel, menú visible)`; al abierto sin ring de foco en toggle/panel (evita junta header–cuerpo; cerrado conserva ring); Escape/CRUD/preview/fill intactos.
+- 26. **D0 — paradigma de capacidades canónicas (documentación)** — **completada** (solo docs; sin código/schema). Fuente normativa: `docs/05-canonical-capabilities.md`; constitución ajustada en `docs/04-canonical-constitution.md`; punteros en `AGENTS.md`, `.cursor/rules/canonical-deo.mdc` y `docs/00-paradigm-cheatsheet.md`. Decisiones fijadas: clave estable `amount` (**`monetary_amount` supersedido** como nombre normativo, sin alias obligatorio); defaults de familia persistidos en BD (código puede inicializar, no pisar guardados; materialización al crear lista; cambio de defaults → listas nuevas; aplicación a existentes = operación explícita); config efectiva en la lista; alcance declarado lista/registro/ambos; sin herencia dinámica ni `variant`; datos tipados explícitos (`amount` = decimal tipado ligado al registro; no “cada campo = una tabla”; imágenes no exentas de tipado); activación conserva valores y rechaza escrituras; update omitir=`amount` conserva / vaciar elimina; cero válido; `amount` v1 sin totalización/moneda/contabilidad/multi-importe; legacy Finance = referencia de límites/normalización con contrato de update distinto; secuencia documentación → `amount` canónico → transición/retirada Finance → imágenes. Pendientes técnicos **no** cerrados en norma: frontera de transacción atómica registro+`amount`, puntos de extensión R/W/UI, forma de invocar config desde desarrollador (AJAX **no** requisito aprobado), extracción de helpers neutrales sin dependencia del módulo Finance.
 - PCU-1 no autoriza ni inicia PCU-2.

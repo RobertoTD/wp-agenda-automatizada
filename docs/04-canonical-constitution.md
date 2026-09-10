@@ -49,9 +49,9 @@ La tabla de contenedores identifica la familia. Un registro pertenece obligatori
 
 Las tablas base almacenan exclusivamente estado y campos universales del contrato. No admiten columnas particulares de ninguna familia (`amount`, imágenes, SKU, teléfonos, datos de agenda u equivalentes), ni JSON genérico, ni EAV, ni payloads arbitrarios como sustituto de persistencia tipada.
 
-Toda característica no universal se implementa como capability con persistencia tipada propia, referida al contenedor o al registro. Una capability se implementa una vez y puede contribuir a persistencia, validación, formularios, cards, API y runtime público.
+Toda característica no universal se implementa como capability. Cada capability exige estructura y validación explícitas para sus datos; la forma de persistencia es propia del contrato de esa capability (p. ej. extensión decimal tipada para `amount`), referida al contenedor, al registro o a ambos según su alcance. No se impone “un campo / una tabla” como regla universal, ni se exime a capacidades complejas de datos tipados. Una capability se implementa una vez y puede contribuir a persistencia, validación, formularios, cards, API y runtime público. El desarrollo normativo de asignación, configuración, activación y valores está en `docs/05-canonical-capabilities.md`.
 
-Las definiciones de familia son contratos de producto declarados en código. La base de datos guarda estado de instalación y habilitación, contenedores y registros; nunca clases, callbacks, SQL ni definiciones ejecutables.
+Las definiciones de familia son contratos de producto declarados en código. La base de datos guarda estado de instalación y habilitación, contenedores, registros y —según `docs/05-canonical-capabilities.md`— la configuración de capabilities (incluidos defaults de familia y asignación por lista); nunca clases, callbacks, SQL ni definiciones ejecutables.
 
 Los timestamps técnicos de las tablas canónicas universales se almacenan en UTC. UTC es la fuente de verdad; la conversión a la zona configurada ocurre en la presentación.
 
@@ -111,6 +111,8 @@ representación pública.
 Un booleano puede activar una capability, pero no constituye por sí mismo su implementación.
 
 Una característica particular nunca debe añadirse al shell base solamente porque la primera familia la utiliza.
+
+La lista (contenedor) es la unidad de asignación y configuración efectiva de capabilities. Los defaults de familia, la materialización al crear listas, la activación frente a los datos y el marco de `amount` se desarrollan de forma vinculante en `docs/05-canonical-capabilities.md`. Este documento no duplica esas reglas.
 
 ## Contrato canónico común
 
