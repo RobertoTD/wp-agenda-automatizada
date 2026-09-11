@@ -38,18 +38,30 @@ final class WriteCanonicalShellContainerUseCase {
     /** @var CanonicalWriteGateway */
     private $gateway;
 
-    public function __construct(CanonicalWriteGateway $gateway) {
+    /** @var AA_Canonical_Capability_Defaults_Materializer|null */
+    private $defaults_materializer;
+
+    public function __construct(
+        CanonicalWriteGateway $gateway,
+        $defaults_materializer = null
+    ) {
         $this->gateway = $gateway;
+        $this->defaults_materializer = $defaults_materializer;
     }
 
     public function create(
         CanonicalShellManifest $manifest,
         CanonicalCreateContainerCommand $command
     ): CanonicalShellMutationResult {
+        $effects = [];
+        if ($this->defaults_materializer !== null) {
+            $effects[] = $this->defaults_materializer->build_effect();
+        }
+
         return $this->execute(
             $manifest,
-            static function (CanonicalWriteGateway $gateway, CanonicalReadIdentity $identity) use ($command): CanonicalMutationReceipt {
-                return $gateway->create_container($identity, $command);
+            function (CanonicalWriteGateway $gateway, CanonicalReadIdentity $identity) use ($command, $effects): CanonicalMutationReceipt {
+                return $gateway->create_container($identity, $command, $effects);
             }
         );
     }

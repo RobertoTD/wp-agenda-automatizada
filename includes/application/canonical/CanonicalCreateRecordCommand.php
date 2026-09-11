@@ -8,6 +8,10 @@
 
 defined('ABSPATH') or die('No direct access');
 
+if (!class_exists('CanonicalCapabilityWriteBag')) {
+    require_once __DIR__ . '/capabilities/CanonicalCapabilityWriteBag.php';
+}
+
 final class CanonicalCreateRecordCommand {
 
     public const MAX_TITLE_LENGTH = 200;
@@ -21,10 +25,18 @@ final class CanonicalCreateRecordCommand {
     /** @var string|null */
     private $details;
 
+    /** @var CanonicalCapabilityWriteBag */
+    private $capability_writes;
+
     /**
      * @throws \InvalidArgumentException
      */
-    public function __construct(int $container_id, string $title, ?string $details) {
+    public function __construct(
+        int $container_id,
+        string $title,
+        ?string $details,
+        ?CanonicalCapabilityWriteBag $capability_writes = null
+    ) {
         if ($container_id < 1) {
             throw new \InvalidArgumentException('[invalid_container_id] container_id must be positive.');
         }
@@ -50,6 +62,8 @@ final class CanonicalCreateRecordCommand {
             $trimmed_details = trim($details);
             $this->details = ($trimmed_details === '') ? null : $trimmed_details;
         }
+
+        $this->capability_writes = $capability_writes ?? CanonicalCapabilityWriteBag::empty();
     }
 
     public function container_id(): int {
@@ -62,6 +76,10 @@ final class CanonicalCreateRecordCommand {
 
     public function details(): ?string {
         return $this->details;
+    }
+
+    public function capability_writes(): CanonicalCapabilityWriteBag {
+        return $this->capability_writes;
     }
 
     private static function utf8_length(string $string): int {

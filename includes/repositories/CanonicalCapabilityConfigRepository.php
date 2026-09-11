@@ -2,7 +2,7 @@
 /**
  * Canonical Capability Config Repository — SQL de defaults y asignación por lista (C1a).
  *
- * No escribe valores de amount (tabla existe; uso en A1a).
+ * Configuración de capacidades; valores de amount viven en CanonicalRecordAmountRepository.
  *
  * @package WP_Agenda_Automatizada
  * @subpackage Repositories
@@ -255,6 +255,42 @@ final class CanonicalCapabilityConfigRepository {
         }
 
         return $this->map_container_capability_row(is_array($row) ? $row : null);
+    }
+
+    /**
+     * @return list<array{id:int,family_id:int,capability_key:string,is_enabled:bool,created_at:string,updated_at:string}>
+     * @throws CanonicalCapabilityPersistenceFailed
+     * @throws CanonicalCapabilitySchemaNotReady
+     */
+    public function list_family_defaults(int $family_id): array {
+        $table = AA_Canonical_Schema::family_capability_defaults_table_name();
+        $this->assert_table_exists($table);
+
+        $this->clear_error_state();
+        $rows = $this->wpdb->get_results(
+            $this->wpdb->prepare(
+                "SELECT id, family_id, capability_key, is_enabled, created_at, updated_at
+                 FROM `{$table}`
+                 WHERE family_id = %d
+                 ORDER BY capability_key ASC",
+                $family_id
+            ),
+            ARRAY_A
+        );
+
+        if ($rows === false || $this->wpdb->last_error !== '') {
+            throw new CanonicalCapabilityPersistenceFailed('Failed to LIST family capability defaults.');
+        }
+
+        $out = [];
+        foreach ((array) $rows as $row) {
+            $mapped = $this->map_family_default_row(is_array($row) ? $row : null);
+            if ($mapped !== null) {
+                $out[] = $mapped;
+            }
+        }
+
+        return $out;
     }
 
     /**

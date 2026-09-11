@@ -70,7 +70,8 @@ final class CanonicalFixtureWriteAdapter implements CanonicalWriteAdapter {
 
     public function create_container(
         CanonicalReadIdentity $identity,
-        CanonicalCreateContainerCommand $command
+        CanonicalCreateContainerCommand $command,
+        array $effects = []
     ): CanonicalMutationReceipt {
         $this->assert_family($identity);
         $this->assert_not_persistence_failed();
@@ -177,7 +178,8 @@ final class CanonicalFixtureWriteAdapter implements CanonicalWriteAdapter {
 
     public function create_record(
         CanonicalReadIdentity $identity,
-        CanonicalCreateRecordCommand $command
+        CanonicalCreateRecordCommand $command,
+        array $effects = []
     ): CanonicalMutationReceipt {
         $this->assert_family($identity);
         $this->assert_not_persistence_failed();
@@ -225,7 +227,8 @@ final class CanonicalFixtureWriteAdapter implements CanonicalWriteAdapter {
 
     public function update_record(
         CanonicalReadIdentity $identity,
-        CanonicalUpdateRecordCommand $command
+        CanonicalUpdateRecordCommand $command,
+        array $effects = []
     ): CanonicalMutationReceipt {
         $this->assert_family($identity);
         $this->assert_not_persistence_failed();

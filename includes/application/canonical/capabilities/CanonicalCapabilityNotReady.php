@@ -22,4 +22,8 @@ final class CanonicalCapabilityNotReady extends \RuntimeException {
     public function error_code(): string {
         return 'capability_not_ready';
     }
+
+    public function http_status(): int {
+        return 409;
+    }
 }

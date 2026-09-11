@@ -33,7 +33,7 @@ final class ContractBreakingContainerWriteAdapter implements CanonicalWriteAdapt
         $this->receipt = $receipt;
     }
 
-    public function create_container(CanonicalReadIdentity $identity, CanonicalCreateContainerCommand $command): CanonicalMutationReceipt {
+    public function create_container(CanonicalReadIdentity $identity, CanonicalCreateContainerCommand $command, array $effects = []): CanonicalMutationReceipt {
         return $this->receipt;
     }
 
@@ -45,11 +45,11 @@ final class ContractBreakingContainerWriteAdapter implements CanonicalWriteAdapt
         return $this->receipt;
     }
 
-    public function create_record(CanonicalReadIdentity $identity, CanonicalCreateRecordCommand $command): CanonicalMutationReceipt {
+    public function create_record(CanonicalReadIdentity $identity, CanonicalCreateRecordCommand $command, array $effects = []): CanonicalMutationReceipt {
         throw new RuntimeException('Not used');
     }
 
-    public function update_record(CanonicalReadIdentity $identity, CanonicalUpdateRecordCommand $command): CanonicalMutationReceipt {
+    public function update_record(CanonicalReadIdentity $identity, CanonicalUpdateRecordCommand $command, array $effects = []): CanonicalMutationReceipt {
         throw new RuntimeException('Not used');
     }
 

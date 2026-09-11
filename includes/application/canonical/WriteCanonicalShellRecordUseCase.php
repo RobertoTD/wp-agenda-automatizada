@@ -35,24 +35,41 @@ if (!class_exists('CanonicalMutationReceipt')) {
 if (!class_exists('CanonicalReadIdentity')) {
     require_once __DIR__ . '/CanonicalReadIdentity.php';
 }
+if (!class_exists('CanonicalCapabilityRecordWritePreparer')) {
+    require_once __DIR__ . '/capabilities/CanonicalCapabilityRecordWritePreparer.php';
+}
 
 final class WriteCanonicalShellRecordUseCase {
 
     /** @var CanonicalWriteGateway */
     private $gateway;
 
-    public function __construct(CanonicalWriteGateway $gateway) {
+    /** @var CanonicalCapabilityRecordWritePreparer|null */
+    private $capability_preparer;
+
+    public function __construct(
+        CanonicalWriteGateway $gateway,
+        ?CanonicalCapabilityRecordWritePreparer $capability_preparer = null
+    ) {
         $this->gateway = $gateway;
+        $this->capability_preparer = $capability_preparer;
     }
 
     public function create(
         CanonicalShellManifest $manifest,
         CanonicalCreateRecordCommand $command
     ): CanonicalShellMutationResult {
+        $effects = $this->prepare_effects(
+            $manifest->identity()->family_key(),
+            $command->container_id(),
+            $command->capability_writes(),
+            false
+        );
+
         return $this->execute(
             $manifest,
-            static function (CanonicalWriteGateway $gateway, CanonicalReadIdentity $identity) use ($command): CanonicalMutationReceipt {
-                return $gateway->create_record($identity, $command);
+            function (CanonicalWriteGateway $gateway, CanonicalReadIdentity $identity) use ($command, $effects): CanonicalMutationReceipt {
+                return $gateway->create_record($identity, $command, $effects);
             }
         );
     }
@@ -61,10 +78,17 @@ final class WriteCanonicalShellRecordUseCase {
         CanonicalShellManifest $manifest,
         CanonicalUpdateRecordCommand $command
     ): CanonicalShellMutationResult {
+        $effects = $this->prepare_effects(
+            $manifest->identity()->family_key(),
+            $command->container_id(),
+            $command->capability_writes(),
+            true
+        );
+
         return $this->execute(
             $manifest,
-            static function (CanonicalWriteGateway $gateway, CanonicalReadIdentity $identity) use ($command): CanonicalMutationReceipt {
-                return $gateway->update_record($identity, $command);
+            function (CanonicalWriteGateway $gateway, CanonicalReadIdentity $identity) use ($command, $effects): CanonicalMutationReceipt {
+                return $gateway->update_record($identity, $command, $effects);
             }
         );
     }
@@ -79,6 +103,29 @@ final class WriteCanonicalShellRecordUseCase {
                 return $gateway->delete_record($identity, $command);
             }
         );
+    }
+
+    /**
+     * @return list<CanonicalRecordCapabilityEffect>
+     */
+    private function prepare_effects(
+        string $family_key,
+        int $container_id,
+        CanonicalCapabilityWriteBag $bag,
+        bool $is_update
+    ): array {
+        if ($bag->is_empty()) {
+            return [];
+        }
+        if ($this->capability_preparer === null) {
+            throw new CanonicalCapabilityWriteRejected(
+                'capability_write_unavailable',
+                'La escritura de capacidades no está disponible.',
+                500
+            );
+        }
+
+        return $this->capability_preparer->prepare($family_key, $container_id, $bag, $is_update);
     }
 
     /**

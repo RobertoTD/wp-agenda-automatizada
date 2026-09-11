@@ -49,15 +49,17 @@ final class CanonicalWriteGateway {
     }
 
     /**
+     * @param list<CanonicalContainerCapabilityEffect> $effects
      * @throws CanonicalWriteBindingNotFound
      * @throws CanonicalMutationPersistenceFailed
      */
     public function create_container(
         CanonicalReadIdentity $identity,
-        CanonicalCreateContainerCommand $command
+        CanonicalCreateContainerCommand $command,
+        array $effects = []
     ): CanonicalMutationReceipt {
         $adapter = $this->resolver->require($identity);
-        $receipt = $adapter->create_container($identity, $command);
+        $receipt = $adapter->create_container($identity, $command, $effects);
         $this->assert_receipt_identity($identity, $receipt);
         $this->assert_container_create_receipt($receipt);
 
@@ -107,16 +109,18 @@ final class CanonicalWriteGateway {
     }
 
     /**
+     * @param list<CanonicalRecordCapabilityEffect> $effects
      * @throws CanonicalWriteBindingNotFound
      * @throws CanonicalContainerNotFound
      * @throws CanonicalMutationPersistenceFailed
      */
     public function create_record(
         CanonicalReadIdentity $identity,
-        CanonicalCreateRecordCommand $command
+        CanonicalCreateRecordCommand $command,
+        array $effects = []
     ): CanonicalMutationReceipt {
         $adapter = $this->resolver->require($identity);
-        $receipt = $adapter->create_record($identity, $command);
+        $receipt = $adapter->create_record($identity, $command, $effects);
         $this->assert_receipt_identity($identity, $receipt);
         $this->assert_record_create_receipt($receipt, $command->container_id());
 
@@ -124,6 +128,7 @@ final class CanonicalWriteGateway {
     }
 
     /**
+     * @param list<CanonicalRecordCapabilityEffect> $effects
      * @throws CanonicalWriteBindingNotFound
      * @throws CanonicalContainerNotFound
      * @throws CanonicalRecordNotFound
@@ -131,10 +136,11 @@ final class CanonicalWriteGateway {
      */
     public function update_record(
         CanonicalReadIdentity $identity,
-        CanonicalUpdateRecordCommand $command
+        CanonicalUpdateRecordCommand $command,
+        array $effects = []
     ): CanonicalMutationReceipt {
         $adapter = $this->resolver->require($identity);
-        $receipt = $adapter->update_record($identity, $command);
+        $receipt = $adapter->update_record($identity, $command, $effects);
         $this->assert_receipt_identity($identity, $receipt);
         $this->assert_record_mutation_receipt(
             $receipt,

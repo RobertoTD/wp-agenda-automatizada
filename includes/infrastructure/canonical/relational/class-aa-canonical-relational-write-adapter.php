@@ -49,7 +49,8 @@ final class AA_Canonical_Relational_Write_Adapter implements CanonicalWriteAdapt
 
     public function create_container(
         CanonicalReadIdentity $identity,
-        CanonicalCreateContainerCommand $command
+        CanonicalCreateContainerCommand $command,
+        array $effects = []
     ): CanonicalMutationReceipt {
         $family_id = $this->require_family_id($identity);
 
@@ -57,7 +58,8 @@ final class AA_Canonical_Relational_Write_Adapter implements CanonicalWriteAdapt
             $row = $this->repository->create_container(
                 $family_id,
                 $command->title(),
-                $command->details()
+                $command->details(),
+                $effects
             );
         } catch (CanonicalRelationalAmbiguousOutcome $e) {
             return $this->uncertain_from_ambiguous($identity, $e);
@@ -138,7 +140,8 @@ final class AA_Canonical_Relational_Write_Adapter implements CanonicalWriteAdapt
 
     public function create_record(
         CanonicalReadIdentity $identity,
-        CanonicalCreateRecordCommand $command
+        CanonicalCreateRecordCommand $command,
+        array $effects = []
     ): CanonicalMutationReceipt {
         $family_id = $this->require_family_id($identity);
 
@@ -147,7 +150,8 @@ final class AA_Canonical_Relational_Write_Adapter implements CanonicalWriteAdapt
                 $family_id,
                 $command->container_id(),
                 $command->title(),
-                $command->details()
+                $command->details(),
+                $effects
             );
         } catch (CanonicalRelationalAmbiguousOutcome $e) {
             return $this->uncertain_from_ambiguous($identity, $e);
@@ -166,7 +170,8 @@ final class AA_Canonical_Relational_Write_Adapter implements CanonicalWriteAdapt
 
     public function update_record(
         CanonicalReadIdentity $identity,
-        CanonicalUpdateRecordCommand $command
+        CanonicalUpdateRecordCommand $command,
+        array $effects = []
     ): CanonicalMutationReceipt {
         $family_id = $this->require_family_id($identity);
 
@@ -176,7 +181,8 @@ final class AA_Canonical_Relational_Write_Adapter implements CanonicalWriteAdapt
                 $command->container_id(),
                 $command->record_id(),
                 $command->title(),
-                $command->details()
+                $command->details(),
+                $effects
             );
         } catch (CanonicalRelationalAmbiguousOutcome $e) {
             return $this->uncertain_from_ambiguous($identity, $e);

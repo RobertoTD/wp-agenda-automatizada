@@ -27,7 +27,7 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 $ajax_src = (string) file_get_contents($plugin_root . '/includes/http/ajax/CanonicalUpdateRecordAjax.php');
 ac_assert('Ajax sin aa_finance_', strpos($ajax_src, 'aa_finance_') === false);
 ac_assert('Ajax sin aa_expediente_', strpos($ajax_src, 'aa_expediente_') === false);
-ac_assert('Ajax sin amount', strpos($ajax_src, 'amount') === false);
+ac_assert('Ajax usa WriteBag de capabilities', strpos($ajax_src, 'capability_write_bag_from_source') !== false);
 ac_assert('Ajax sin delete', stripos($ajax_src, 'delete') === false);
 
 $wp_root = getenv('AA_WP_ROOT') ?: '';
@@ -92,10 +92,15 @@ $cleanup = static function (string $p) use ($wpdb): void {
     if (strpos($p, 'tmp_sb15b3_') !== 0) {
         return;
     }
-    $wpdb->query('DROP TABLE IF EXISTS `' . $p . 'aa_canonical_records`');
-    $wpdb->query('DROP TABLE IF EXISTS `' . $p . 'aa_canonical_containers`');
-    $wpdb->query('DROP TABLE IF EXISTS `' . $p . 'aa_canonical_families`');
-    $wpdb->query('DROP TABLE IF EXISTS `' . $p . 'aa_finance_containers`');
+    $wpdb->query('SET FOREIGN_KEY_CHECKS=0');
+    $like = $wpdb->esc_like($p) . '%';
+    $rows = $wpdb->get_col($wpdb->prepare('SHOW TABLES LIKE %s', $like));
+    if (is_array($rows)) {
+        foreach ($rows as $t) {
+            $wpdb->query('DROP TABLE IF EXISTS `' . str_replace('`', '``', (string) $t) . '`');
+        }
+    }
+    $wpdb->query('SET FOREIGN_KEY_CHECKS=1');
 };
 
 try {

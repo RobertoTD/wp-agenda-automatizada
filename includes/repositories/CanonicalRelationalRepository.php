@@ -22,6 +22,21 @@ if (!class_exists('CanonicalRelationalAmbiguousOutcome')) {
 if (!class_exists('AA_Canonical_Schema')) {
     require_once dirname(__DIR__) . '/infrastructure/wp/CanonicalSchema.php';
 }
+if (!class_exists('CanonicalRecordMutationContext')) {
+    require_once dirname(__DIR__) . '/application/canonical/capabilities/CanonicalRecordMutationContext.php';
+}
+if (!interface_exists('CanonicalRecordCapabilityEffect')) {
+    require_once dirname(__DIR__) . '/application/canonical/capabilities/CanonicalRecordCapabilityEffect.php';
+}
+if (!class_exists('CanonicalContainerMutationContext')) {
+    require_once dirname(__DIR__) . '/application/canonical/capabilities/CanonicalContainerMutationContext.php';
+}
+if (!interface_exists('CanonicalContainerCapabilityEffect')) {
+    require_once dirname(__DIR__) . '/application/canonical/capabilities/CanonicalContainerCapabilityEffect.php';
+}
+if (!class_exists('CanonicalMutationPersistenceFailed')) {
+    require_once dirname(__DIR__) . '/application/canonical/CanonicalMutationPersistenceFailed.php';
+}
 
 final class CanonicalRelationalRepository {
 
@@ -41,6 +56,13 @@ final class CanonicalRelationalRepository {
 
         global $wpdb;
         $this->wpdb = $wpdb;
+    }
+
+    /**
+     * @return object
+     */
+    public function connection() {
+        return $this->wpdb;
     }
 
     /**
@@ -341,10 +363,17 @@ final class CanonicalRelationalRepository {
     }
 
     /**
+     * @param list<CanonicalContainerCapabilityEffect> $effects
      * @return array{id:int,public_id:string,family_id:int,title:string,details:?string,created_at:string,updated_at:string}
      * @throws CanonicalRelationalQueryFailed
+     * @throws CanonicalRelationalAmbiguousOutcome
      */
-    public function create_container(int $family_id, string $title, ?string $details): array {
+    public function create_container(
+        int $family_id,
+        string $title,
+        ?string $details,
+        array $effects = []
+    ): array {
         $table = $this->containers_table();
         $now = $this->utc_now();
         $public_id = $this->generate_public_id();
@@ -366,23 +395,57 @@ final class CanonicalRelationalRepository {
             '%s',
         ];
 
-        $this->clear_error_state();
-        $result = $this->wpdb->insert($table, $data, $formats);
-        if ($result === false) {
-            throw new CanonicalRelationalQueryFailed('create_container insert failed.');
-        }
+        $this->begin_transaction();
+        $resource_id = null;
+        $mutation_possible = false;
 
-        $id = (int) $this->wpdb->insert_id;
-        if ($id < 1) {
-            throw new CanonicalRelationalQueryFailed('create_container insert_id invalid.');
-        }
+        try {
+            $this->clear_error_state();
+            $result = $this->wpdb->insert($table, $data, $formats);
+            if ($result === false) {
+                $this->rollback_confirmed('create_container insert failed.');
+            }
 
-        $row = $this->find_container($family_id, $id);
-        if ($row === null) {
-            throw new CanonicalRelationalQueryFailed('create_container row missing after insert.');
-        }
+            $resource_id = (int) $this->wpdb->insert_id;
+            if ($resource_id < 1) {
+                $this->rollback_confirmed('create_container insert_id invalid.');
+            }
 
-        return $row;
+            $mutation_possible = true;
+
+            $this->apply_container_effects(
+                $effects,
+                new CanonicalContainerMutationContext($family_id, $resource_id, $now),
+                'create',
+                $resource_id
+            );
+
+            $this->commit_or_ambiguous('create', 'container', $resource_id, null);
+
+            $row = $this->find_container($family_id, $resource_id);
+            if ($row === null) {
+                throw new CanonicalRelationalAmbiguousOutcome(
+                    'create',
+                    'container',
+                    $resource_id,
+                    null,
+                    'create_container row missing after commit.'
+                );
+            }
+
+            return $row;
+        } catch (CanonicalRelationalAmbiguousOutcome $e) {
+            throw $e;
+        } catch (CanonicalRelationalQueryFailed $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            if ($mutation_possible && $resource_id !== null && $resource_id >= 1) {
+                $this->rollback_after_possible_mutation('create', 'container', $resource_id, null);
+            } else {
+                $this->rollback_confirmed('create_container unexpected failure.');
+            }
+            throw new CanonicalRelationalQueryFailed('create_container unexpected failure.');
+        }
     }
 
     /**
@@ -453,6 +516,7 @@ final class CanonicalRelationalRepository {
     }
 
     /**
+     * @param list<CanonicalRecordCapabilityEffect> $effects
      * @return array{id:int,public_id:string,container_id:int,title:string,details:?string,created_at:string,updated_at:string}
      * @throws CanonicalRelationalQueryFailed
      * @throws CanonicalRelationalAmbiguousOutcome
@@ -461,7 +525,8 @@ final class CanonicalRelationalRepository {
         int $family_id,
         int $container_id,
         string $title,
-        ?string $details
+        ?string $details,
+        array $effects = []
     ): array {
         $container = $this->find_container($family_id, $container_id);
         if ($container === null) {
@@ -509,6 +574,14 @@ final class CanonicalRelationalRepository {
                 $this->rollback_confirmed('create_record insert_id invalid.');
             }
 
+            $this->apply_record_effects(
+                $effects,
+                new CanonicalRecordMutationContext($family_id, $container_id, $resource_id, $now),
+                'create',
+                $resource_id,
+                $container_id
+            );
+
             $this->touch_container_or_fail($family_id, $container_id, $now, 'create', 'record', $resource_id);
             $this->commit_or_ambiguous('create', 'record', $resource_id, $container_id);
 
@@ -533,6 +606,7 @@ final class CanonicalRelationalRepository {
     }
 
     /**
+     * @param list<CanonicalRecordCapabilityEffect> $effects
      * @return array{id:int,public_id:string,container_id:int,title:string,details:?string,created_at:string,updated_at:string}|null
      * @throws CanonicalRelationalQueryFailed
      * @throws CanonicalRelationalAmbiguousOutcome
@@ -542,7 +616,8 @@ final class CanonicalRelationalRepository {
         int $container_id,
         int $record_id,
         string $title,
-        ?string $details
+        ?string $details,
+        array $effects = []
     ): ?array {
         $container = $this->find_container($family_id, $container_id);
         if ($container === null) {
@@ -594,6 +669,14 @@ final class CanonicalRelationalRepository {
                     );
                 }
             }
+
+            $this->apply_record_effects(
+                $effects,
+                new CanonicalRecordMutationContext($family_id, $container_id, $record_id, $now),
+                'update',
+                $record_id,
+                $container_id
+            );
 
             $this->touch_container_or_fail($family_id, $container_id, $now, 'update', 'record', $record_id);
             $this->commit_or_ambiguous('update', 'record', $record_id, $container_id);
@@ -756,6 +839,53 @@ final class CanonicalRelationalRepository {
             'created_at' => (string) ($row['created_at'] ?? ''),
             'updated_at' => (string) ($row['updated_at'] ?? ''),
         ];
+    }
+
+    /**
+     * @param list<CanonicalRecordCapabilityEffect> $effects
+     * @throws CanonicalRelationalQueryFailed
+     * @throws CanonicalRelationalAmbiguousOutcome
+     */
+    private function apply_record_effects(
+        array $effects,
+        CanonicalRecordMutationContext $context,
+        string $operation,
+        int $resource_id,
+        int $container_id
+    ): void {
+        foreach ($effects as $effect) {
+            if (!($effect instanceof CanonicalRecordCapabilityEffect)) {
+                $this->rollback_after_possible_mutation($operation, 'record', $resource_id, $container_id);
+            }
+            try {
+                $effect->apply($context);
+            } catch (CanonicalMutationPersistenceFailed $e) {
+                $this->rollback_after_possible_mutation($operation, 'record', $resource_id, $container_id);
+            }
+        }
+    }
+
+    /**
+     * @param list<CanonicalContainerCapabilityEffect> $effects
+     * @throws CanonicalRelationalQueryFailed
+     * @throws CanonicalRelationalAmbiguousOutcome
+     */
+    private function apply_container_effects(
+        array $effects,
+        CanonicalContainerMutationContext $context,
+        string $operation,
+        int $resource_id
+    ): void {
+        foreach ($effects as $effect) {
+            if (!($effect instanceof CanonicalContainerCapabilityEffect)) {
+                $this->rollback_after_possible_mutation($operation, 'container', $resource_id, null);
+            }
+            try {
+                $effect->apply($context);
+            } catch (CanonicalMutationPersistenceFailed $e) {
+                $this->rollback_after_possible_mutation($operation, 'container', $resource_id, null);
+            }
+        }
     }
 
     /**

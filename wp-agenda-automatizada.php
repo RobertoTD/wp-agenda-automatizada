@@ -108,6 +108,10 @@ require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabil
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalCapabilitySchemaNotReady.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalCapabilityPersistenceFailed.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalCapabilityUnauthorized.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalCapabilityInactive.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalCapabilityWriteRejected.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalCapabilityWriteBag.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/AA_Canonical_Amount_Normalizer.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalContainerCapabilityConfigSnapshot.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/SetFamilyCapabilityDefaultCommand.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/SetContainerCapabilityActivationCommand.php';
@@ -115,11 +119,13 @@ require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabil
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/SetContainerCapabilityActivationUseCase.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/ReadContainerCapabilityConfigUseCase.php';
 require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalCapabilityConfigRepository.php';
+require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalRecordAmountRepository.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-family-enablement-store.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-family-enablement-nav.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-read-binding-registry.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-shell-view-composer.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/capabilities/class-aa-canonical-capability-ops.php';
+require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/capabilities/class-aa-canonical-capability-write-bootstrap.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/class-aa-canonical-shell-url-policy.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/class-aa-canonical-shell-base-url-policy.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/class-aa-canonical-access-policy.php';

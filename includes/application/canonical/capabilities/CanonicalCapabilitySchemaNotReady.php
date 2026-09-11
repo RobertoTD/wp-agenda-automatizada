@@ -14,4 +14,8 @@ final class CanonicalCapabilitySchemaNotReady extends \RuntimeException {
     public function error_code(): string {
         return 'capability_schema_not_ready';
     }
+
+    public function http_status(): int {
+        return 503;
+    }
 }

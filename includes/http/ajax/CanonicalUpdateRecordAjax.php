@@ -82,7 +82,10 @@ final class CanonicalUpdateRecordAjax {
         $resolved_family_key = $family->key();
 
         try {
-            $command = new CanonicalUpdateRecordCommand($container_id, $record_id, $title, $details);
+            $bag = CanonicalShellWriteAjaxSupport::capability_write_bag_from_source($_POST);
+            $command = new CanonicalUpdateRecordCommand($container_id, $record_id, $title, $details, $bag);
+        } catch (CanonicalShellWriteAjaxRejection $e) {
+            self::error($e->error_code(), $e->error_message(), $e->http_status());
         } catch (\InvalidArgumentException $e) {
             $msg = $e->getMessage();
             if (strpos($msg, '[invalid_container_id]') === 0) {
@@ -110,18 +113,25 @@ final class CanonicalUpdateRecordAjax {
         $manifest = new CanonicalShellManifest($identity, $family);
 
         try {
-            $gateway = CanonicalShellWriteAjaxSupport::build_write_gateway();
+            $composition = CanonicalShellWriteAjaxSupport::build_write_composition();
         } catch (CanonicalShellWriteAjaxRejection $e) {
             self::error($e->error_code(), $e->error_message(), $e->http_status());
         }
 
-        $use_case = new WriteCanonicalShellRecordUseCase($gateway);
+        $use_case = new WriteCanonicalShellRecordUseCase(
+            $composition['gateway'],
+            $composition['preparer']
+        );
 
         try {
             $result = $use_case->update($manifest, $command);
         } catch (\InvalidArgumentException $e) {
             self::error('persistence_failed', 'No se pudo actualizar el registro.', 500);
         } catch (\Throwable $e) {
+            $mapped = CanonicalShellWriteAjaxSupport::map_capability_write_exception($e);
+            if ($mapped !== null) {
+                self::error($mapped->error_code(), $mapped->error_message(), $mapped->http_status());
+            }
             self::error('persistence_failed', 'No se pudo actualizar el registro.', 500);
         }
 

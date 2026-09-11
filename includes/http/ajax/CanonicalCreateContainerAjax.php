@@ -90,12 +90,15 @@ final class CanonicalCreateContainerAjax {
         $manifest = new CanonicalShellManifest($identity, $family);
 
         try {
-            $gateway = CanonicalShellWriteAjaxSupport::build_write_gateway();
+            $composition = CanonicalShellWriteAjaxSupport::build_write_composition();
         } catch (CanonicalShellWriteAjaxRejection $e) {
             self::error($e->error_code(), $e->error_message(), $e->http_status());
         }
 
-        $use_case = new WriteCanonicalShellContainerUseCase($gateway);
+        $use_case = new WriteCanonicalShellContainerUseCase(
+            $composition['gateway'],
+            $composition['materializer']
+        );
 
         try {
             $result = $use_case->create($manifest, $command);

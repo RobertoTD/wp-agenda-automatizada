@@ -36,11 +36,13 @@ if (!class_exists('CanonicalDeleteRecordCommand')) {
 interface CanonicalWriteAdapter {
 
     /**
+     * @param list<CanonicalContainerCapabilityEffect> $effects
      * @throws CanonicalMutationPersistenceFailed
      */
     public function create_container(
         CanonicalReadIdentity $identity,
-        CanonicalCreateContainerCommand $command
+        CanonicalCreateContainerCommand $command,
+        array $effects = []
     ): CanonicalMutationReceipt;
 
     /**
@@ -62,22 +64,26 @@ interface CanonicalWriteAdapter {
     ): CanonicalMutationReceipt;
 
     /**
+     * @param list<CanonicalRecordCapabilityEffect> $effects
      * @throws CanonicalContainerNotFound
      * @throws CanonicalMutationPersistenceFailed
      */
     public function create_record(
         CanonicalReadIdentity $identity,
-        CanonicalCreateRecordCommand $command
+        CanonicalCreateRecordCommand $command,
+        array $effects = []
     ): CanonicalMutationReceipt;
 
     /**
+     * @param list<CanonicalRecordCapabilityEffect> $effects
      * @throws CanonicalContainerNotFound
      * @throws CanonicalRecordNotFound
      * @throws CanonicalMutationPersistenceFailed
      */
     public function update_record(
         CanonicalReadIdentity $identity,
-        CanonicalUpdateRecordCommand $command
+        CanonicalUpdateRecordCommand $command,
+        array $effects = []
     ): CanonicalMutationReceipt;
 
     /**

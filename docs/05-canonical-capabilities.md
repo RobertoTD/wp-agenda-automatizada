@@ -12,7 +12,7 @@
 - **Estado implementado** — lo que existe hoy en el repositorio.
 - **Mecanismo técnico pendiente** — diseño o código aún no aprobado o no construido.
 
-Hoy (tras C1a): existen el schema de configuración/valores (`DB_VERSION=23`), el catálogo con `amount` (`is_ready=false`), repositorio y Use Cases de configuración, y la fachada de operación. **No** están activación de producto de `amount`, escritura de importes, lectura/UI ni materialización al crear listas (A1a/A1b).
+Hoy (tras A1a): schema `DB_VERSION=23`, catálogo con `amount` (`is_ready=false`), configuración C1a, **escritura atómica de valores** (`WriteBag`/handlers/effects), normalizador canónico paralelo y materialización de defaults al crear listas. **No** están lectura/UI ni `is_ready=true` (A1b).
 
 ---
 
@@ -79,7 +79,7 @@ Cada capacidad exige **estructura y validación explícitas** para sus datos.
 - No se admite JSON genérico, EAV ni payloads arbitrarios en las tablas base canónicas como sustituto de persistencia tipada (ver constitución).
 - **No** se convierte en regla universal “una capacidad equivale a un campo y una tabla”, ni un constructor general de campos personalizados.
 - Una capacidad compleja (p. ej. imágenes) **no** queda exenta de datos tipados: su forma de persistencia puede diferir de un escalar, pero sigue siendo contrato tipado y validado.
-- Para **`amount`**, se acuerda persistencia **decimal tipada** en una extensión vinculada al **registro** canónico (mecanismo de tablas concreto: pendiente de implementación).
+- Para **`amount`**, se acuerda persistencia **decimal tipada** en una extensión vinculada al **registro** canónico (`aa_canonical_record_amount`; escritura A1a).
 
 El núcleo no obliga a que todas las capacidades se comporten como un campo escalar ni a guardar archivos externos dentro de una transacción local. Almacenamiento, procesamiento, cuotas o galerías de imágenes **no** forman parte de esta norma de `amount`.
 
@@ -179,27 +179,25 @@ No presentar bajar `DB_VERSION` como procedimiento ordinario de rollback. La ide
 
 ## 10. Estado implementado (inventario breve)
 
-Hechos del repositorio tras C1a (no sustituyen el paradigma):
+Hechos del repositorio tras A1a (no sustituyen el paradigma):
 
 - Persistencia universal `aa_canonical_*` con CRUD de `title` / `details` en el shell.
-- **C1a:** tablas `aa_canonical_family_capability_defaults`, `aa_canonical_container_capabilities`, `aa_canonical_record_amount`; catálogo con `amount` no ready; config Use Cases + `AA_Canonical_Capability_Ops`; lifecycle de defaults sin seeds activos de amount.
+- **C1a:** tablas de defaults/configuración/`record_amount`; catálogo con `amount` no ready; config Use Cases + Ops.
+- **A1a:** `CanonicalCapabilityWriteBag` + handlers/effects neutrales; `CanonicalRecordAmountRepository`; TX registro+efectos+touch; materialización atómica al crear listas; `AA_Canonical_Amount_Normalizer` en paralelo a Finance (sin delegación legacy). `amount` sigue `is_ready=false` en producto.
 - Familia `finance` / `archive` en registry; enablement de familia.
-- Finance legacy operativo en paralelo (`module=canonical`, `aa_finance_*` con `amount` y `amount_total` calculado).
-- Pendiente **A1a:** repositorio/escritura de valores `amount`, extensión TX del CRUD de registros, materialización de defaults al crear listas.
-- Pendiente **A1b:** lectura/UI de `amount` y marcar `is_ready=true` (detalles de presentación siguen abiertos hasta ese incremento).
+- Finance legacy operativo en paralelo (`module=canonical`, `aa_finance_*`); duplicación temporal del normalizador hasta retirada del legacy tras amount operativo en A1b (antes de imágenes).
+- Pendiente **A1b:** lectura/UI de `amount` y marcar `is_ready=true` (detalles de presentación siguen abiertos).
 
 ---
 
 ## 11. Mecanismos técnicos pendientes (no cerrados en esta norma)
 
-Cerrados en C1a (inventario §10 / decisión 27 del plan): tablas de config + extensión `record_amount`, catálogo con `amount` no ready, Use Cases de configuración, fachada `AA_Canonical_Capability_Ops`.
+Cerrados en C1a/A1a (inventario §10 / decisiones 27–28 del plan): schema/config, escritura atómica de `amount`, materialización al crear listas, normalizador canónico.
 
-Quedan abiertos para A1a/A1b u órdenes posteriores. **No** son arquitectura normativa cerrada aquí:
+Quedan abiertos para A1b u órdenes posteriores. **No** son arquitectura normativa cerrada aquí:
 
-- frontera concreta de **transacción** que permita guardar registro y `amount` de forma atómica, respetando recencia y eliminación (A1a);
 - puntos mínimos de extensión de lectura y UI (A1b; sin fijar aquí semántica SSR ni compositor);
-- extracción o adaptación de helpers neutrales de normalización/límites **sin** dependencia canónica de controladores, tablas base o inicialización de Finanzas legacy (A1a);
-- materialización de defaults al crear listas y operación explícita de aplicación de capacidades a listas existentes;
-- migración o no desde `aa_finance_*` hacia registros canónicos con `amount`.
+- operación explícita de aplicación de capacidades a listas existentes;
+- retirada efectiva de Finance legacy (tras A1b; sin migración de datos vaciados).
 
 Las alternativas exploradas en sesiones de diseño no obligan al diseño final.

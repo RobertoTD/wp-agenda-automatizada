@@ -133,18 +133,30 @@ final class CanonicalShellWriteAjaxSupport {
     /**
      * Construye el gateway de escritura de esta petición: registry nuevo + bootstrap productivo.
      *
-     * El registry es local a la construcción; no hay registry estático ni compartido entre
-     * peticiones. Se conserva la segunda lectura de enablement que hace el bootstrap.
-     *
      * @throws CanonicalShellWriteAjaxRejection schema_not_ready 503 | enablement_unavailable 500
      *                                          | persistence_failed 500
      */
     public static function build_write_gateway(): CanonicalWriteGateway {
+        return self::build_write_composition()['gateway'];
+    }
+
+    /**
+     * Composition root de escritura: misma conexión para repo canónico y capabilities.
+     *
+     * @return array{
+     *   gateway: CanonicalWriteGateway,
+     *   preparer: CanonicalCapabilityRecordWritePreparer,
+     *   materializer: AA_Canonical_Capability_Defaults_Materializer
+     * }
+     * @throws CanonicalShellWriteAjaxRejection
+     */
+    public static function build_write_composition(): array {
         self::require_dependencies();
 
         $write_registry = new AA_Canonical_Write_Binding_Registry();
+        $repository = new CanonicalRelationalRepository();
         try {
-            AA_Canonical_Write_Binding_Bootstrap::register_productive($write_registry);
+            AA_Canonical_Write_Binding_Bootstrap::register_productive($write_registry, $repository);
         } catch (CanonicalFamilyEnablementSchemaNotReady $e) {
             throw new CanonicalShellWriteAjaxRejection(
                 'schema_not_ready',
@@ -165,7 +177,83 @@ final class CanonicalShellWriteAjaxSupport {
             );
         }
 
-        return new CanonicalWriteGateway($write_registry);
+        if (!class_exists('AA_Canonical_Capability_Write_Bootstrap')) {
+            require_once dirname(__DIR__, 2) . '/infrastructure/canonical/capabilities/class-aa-canonical-capability-write-bootstrap.php';
+        }
+
+        $capability_stack = AA_Canonical_Capability_Write_Bootstrap::build_stack($repository->connection());
+
+        return [
+            'gateway' => new CanonicalWriteGateway($write_registry),
+            'preparer' => $capability_stack['preparer'],
+            'materializer' => $capability_stack['materializer'],
+        ];
+    }
+
+    /**
+     * Extrae aportaciones de capacidades presentes en un mapa de campos (p. ej. $_POST).
+     *
+     * @param array<string, mixed> $source
+     */
+    public static function capability_write_bag_from_source(array $source): CanonicalCapabilityWriteBag {
+        if (!class_exists('CanonicalCapabilityWriteBag')) {
+            require_once dirname(__DIR__, 2) . '/application/canonical/capabilities/CanonicalCapabilityWriteBag.php';
+        }
+
+        $present = [];
+        if (array_key_exists('amount', $source)) {
+            $raw = $source['amount'];
+            if (is_array($raw) || is_object($raw)) {
+                throw new CanonicalShellWriteAjaxRejection(
+                    'invalid_payload',
+                    'La solicitud contiene campos no válidos.',
+                    400
+                );
+            }
+            if ($raw !== null && !is_string($raw) && !is_numeric($raw)) {
+                throw new CanonicalShellWriteAjaxRejection(
+                    'invalid_payload',
+                    'La solicitud contiene campos no válidos.',
+                    400
+                );
+            }
+            $present['amount'] = ($raw === null) ? null : (string) $raw;
+        }
+
+        return CanonicalCapabilityWriteBag::from_present_fields($present);
+    }
+
+    /**
+     * @return CanonicalShellWriteAjaxRejection|null
+     */
+    public static function map_capability_write_exception(\Throwable $e): ?CanonicalShellWriteAjaxRejection {
+        if ($e instanceof CanonicalCapabilityWriteRejected
+            || $e instanceof CanonicalCapabilityInactive
+            || $e instanceof CanonicalCapabilityNotReady
+            || $e instanceof CanonicalCapabilityUnknown
+            || $e instanceof CanonicalCapabilitySchemaNotReady
+        ) {
+            $status = method_exists($e, 'http_status') ? (int) $e->http_status() : 400;
+            return new CanonicalShellWriteAjaxRejection($e->error_code(), $e->getMessage(), $status);
+        }
+
+        if ($e instanceof CanonicalFamilyNotProvisioned) {
+            return new CanonicalShellWriteAjaxRejection(
+                'family_not_provisioned',
+                'La familia no está provisionada.',
+                409
+            );
+        }
+
+        if ($e instanceof CanonicalContainerNotFound) {
+            return new CanonicalShellWriteAjaxRejection(
+                'container_not_found',
+                'El contenedor solicitado no existe o no está disponible.',
+                404
+            );
+        }
+
+        return null;
     }
 
     /**
@@ -221,6 +309,30 @@ final class CanonicalShellWriteAjaxSupport {
         }
         if (!class_exists('CanonicalWriteGateway')) {
             require_once dirname(__DIR__, 2) . '/application/canonical/CanonicalWriteGateway.php';
+        }
+        if (!class_exists('CanonicalRelationalRepository')) {
+            require_once dirname(__DIR__, 2) . '/repositories/CanonicalRelationalRepository.php';
+        }
+        if (!class_exists('CanonicalCapabilityWriteRejected')) {
+            require_once dirname(__DIR__, 2) . '/application/canonical/capabilities/CanonicalCapabilityWriteRejected.php';
+        }
+        if (!class_exists('CanonicalCapabilityInactive')) {
+            require_once dirname(__DIR__, 2) . '/application/canonical/capabilities/CanonicalCapabilityInactive.php';
+        }
+        if (!class_exists('CanonicalCapabilityNotReady')) {
+            require_once dirname(__DIR__, 2) . '/application/canonical/capabilities/CanonicalCapabilityNotReady.php';
+        }
+        if (!class_exists('CanonicalCapabilityUnknown')) {
+            require_once dirname(__DIR__, 2) . '/application/canonical/capabilities/CanonicalCapabilityUnknown.php';
+        }
+        if (!class_exists('CanonicalCapabilitySchemaNotReady')) {
+            require_once dirname(__DIR__, 2) . '/application/canonical/capabilities/CanonicalCapabilitySchemaNotReady.php';
+        }
+        if (!class_exists('CanonicalFamilyNotProvisioned')) {
+            require_once dirname(__DIR__, 2) . '/application/canonical/CanonicalFamilyNotProvisioned.php';
+        }
+        if (!class_exists('CanonicalContainerNotFound')) {
+            require_once dirname(__DIR__, 2) . '/application/canonical/CanonicalContainerNotFound.php';
         }
     }
 }

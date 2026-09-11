@@ -131,7 +131,7 @@ $bad_registry->register(
             $this->identity = $identity;
         }
 
-        public function create_container(CanonicalReadIdentity $identity, CanonicalCreateContainerCommand $command): CanonicalMutationReceipt {
+        public function create_container(CanonicalReadIdentity $identity, CanonicalCreateContainerCommand $command, array $effects = []): CanonicalMutationReceipt {
             throw new RuntimeException('Not used');
         }
 
@@ -143,11 +143,11 @@ $bad_registry->register(
             throw new RuntimeException('Not used');
         }
 
-        public function create_record(CanonicalReadIdentity $identity, CanonicalCreateRecordCommand $command): CanonicalMutationReceipt {
+        public function create_record(CanonicalReadIdentity $identity, CanonicalCreateRecordCommand $command, array $effects = []): CanonicalMutationReceipt {
             throw new RuntimeException('Not used');
         }
 
-        public function update_record(CanonicalReadIdentity $identity, CanonicalUpdateRecordCommand $command): CanonicalMutationReceipt {
+        public function update_record(CanonicalReadIdentity $identity, CanonicalUpdateRecordCommand $command, array $effects = []): CanonicalMutationReceipt {
             return CanonicalMutationReceipt::confirmed(
                 $this->identity,
                 CanonicalMutationReceipt::OPERATION_UPDATE,
